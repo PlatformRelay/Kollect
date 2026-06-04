@@ -6,8 +6,9 @@ package collect
 import (
 	"testing"
 
-	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
 func TestExtractor_Extract(t *testing.T) {
