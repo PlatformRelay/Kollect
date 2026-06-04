@@ -27,7 +27,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@a26af2be98535bfe2795121bc16176386ad8646f # v6.2.0
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: '3.12'
 
@@ -37,7 +37,7 @@ jobs:
       - name: Build site
         run: mkdocs build
 
-      - uses: actions/upload-pages-artifact@579bedf938a806a0537b7808b893bb47e6b89329 # v4.0.0
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
           path: site
 
