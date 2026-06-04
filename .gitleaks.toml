@@ -1,0 +1,11 @@
+title = "kollect gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''(?:^|/)references/''',
+  '''(?:^|/)agent-context/''',
+  '''(?:^|/)AGENTS\.md$''',
+]

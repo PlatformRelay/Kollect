@@ -1,0 +1,66 @@
+# git-cliff configuration — https://git-cliff.org/docs/configuration
+# Commit subjects use Conventional Commits with a gitmoji token (see CONTRIBUTING.md).
+
+[remote.github]
+owner = "konih"
+repo = "kollect"
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
+on the default branch using [git-cliff](https://git-cliff.org/).
+
+"""
+body = """
+{% if version -%}
+  {% if previous.version -%}
+    ## [{{ version | trim_start_matches(pat="v") }}](https://github.com/konih/kollect/compare/{{ previous.version }}..{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+  {% else -%}
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+  {% endif -%}
+{% else -%}
+  ## [Unreleased]
+{% endif -%}
+
+{% for group, commits in commits | group_by(attribute="group") %}
+  ### {{ group | upper_first }}
+  {% for commit in commits %}
+    - {% if commit.scope %}**{{ commit.scope }}:** {% endif %}\
+      {% if commit.breaking %}[**breaking**] {% endif %}\
+      {{ commit.message | upper_first }} \
+      {% if commit.remote.pr_number %}([#{{ commit.remote.pr_number }}](https://github.com/konih/kollect/pull/{{ commit.remote.pr_number }})){% endif %}\
+      [{{ commit.id | truncate(length=7, end="") }}](https://github.com/konih/kollect/commit/{{ commit.id }})
+  {% endfor %}
+{% endfor %}
+"""
+trim = true
+output = "CHANGELOG.md"
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = true
+tag_pattern = "v[0-9].*"
+sort_commits = "newest"
+
+commit_preprocessors = [
+  { pattern = '^(\w+)(\([^)]*\))?(!)?: :[a-z0-9_]+: ', replace = "${1}${2}${3}: " },
+]
+
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Bug Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactoring" },
+  { message = "!", group = "Breaking Changes" },
+  { message = "^docs", skip = true },
+  { message = "^(test|chore|ci|build|style)", skip = true },
+  { message = "^revert", group = "Reverts" },
+]

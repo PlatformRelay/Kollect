@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+---
+version: "3"
+
+set:
+  - pipefail
+
+run: once
+
+env:
+  CGO_ENABLED: "0"
+  GOTOOLCHAIN:
+    sh: echo "go$(sed -n 's/^go //p' go.mod | head -1)"
+
+vars:
+  BIN_DIR: bin
+  MANAGER_BINARY: "{{.BIN_DIR}}/manager"
+  DOCKER_IMAGE: kollect-controller-manager:dev
+  CLUSTER_NAME:
+    sh: echo "${CLUSTER_NAME:-kollect-smoke}"
+
+includes:
+  test:
+    taskfile: ./Taskfile.test.yml
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list-all
+    silent: true
+
+  install:
+    desc: Download and verify Go module dependencies
+    cmds:
+      - go mod download
+      - go mod verify
+
+  build:
+    desc: Build the manager binary
+    deps: [install]
+    cmds:
+      - go build -ldflags="-w -s" -o {{.MANAGER_BINARY}} ./cmd/main.go
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.MANAGER_BINARY}}"
+
+  manifests:
+    desc: Generate CRDs, RBAC, and webhook configuration
+    cmds:
+      - make manifests
+
+  generate:
+    desc: Generate deepcopy and other codegen
+    cmds:
+      - make generate
+
+  verify:
+    desc: Fail if generated artifacts (manifests, deepcopy, RBAC) are stale
+    deps: [install]
+    cmds:
+      - bash hack/verify.sh
+
+  scrub:
+    desc: Fail if staged files contain forbidden company/legacy strings
+    cmds:
+      - |
+        set -euo pipefail
+        files="$(git diff --cached --name-only 2>/dev/null || true)"
+        if [ -z "${files}" ]; then
+          echo "scrub: no staged files (ok)"
+          exit 0
+        fi
+        if echo "${files}" | xargs rg -il 'rewe|mkurator|titiseven|prod165|atlassian|code\.dev|ibm[-_ ]?mq|mqrest|messaging\.' 2>/dev/null; then
+          echo "scrub: forbidden strings in staged files" >&2
+          exit 1
+        fi
+        echo "scrub: ok"
+
+  lint:
+    desc: Run golangci-lint v2
+    deps: [install]
+    cmds:
+      - make lint
+
+  test:
+    desc: Run unit tests with envtest (alias for test:run)
+    cmds:
+      - task: test:run
+
+  format:
+    desc: Run go fmt on all packages
+    cmds:
+      - go fmt ./...
+
+  format:check:
+    desc: Fail if gofmt would change any file
+    cmds:
+      - test -z "$(gofmt -l . | grep -v '^$' || true)"
+
+  docker:build:
+    desc: Build the controller-manager container image
+    deps: [build]
+    cmds:
+      - "{{.CONTAINER_TOOL | default `docker`}} build -t {{.DOCKER_IMAGE}} ."
+
+  install:crds:
+    desc: Apply CRD manifests to the cluster
+    cmds:
+      - kubectl apply --server-side -f config/crd/bases
+
+  deploy:operator:
+    desc: Deploy operator manifests (assumes image is available)
+    cmds:
+      - |
+        cd config/manager && "$(pwd)/bin/kustomize" edit set image controller={{.DOCKER_IMAGE}}
+      - kubectl apply -k config/default
+
+  changelog:
+    desc: Preview unreleased changelog (requires git-cliff in PATH or bin/)
+    cmds:
+      - git-cliff --config cliff.toml --unreleased
