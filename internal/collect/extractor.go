@@ -10,9 +10,10 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/jsonpath"
+
+	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
 const celPrefix = "cel:"
