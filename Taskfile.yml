@@ -105,7 +105,7 @@ tasks:
     desc: Deploy operator manifests (assumes image is available)
     cmds:
       - |
-        cd config/manager && "$(pwd)/bin/kustomize" edit set image controller={{.DOCKER_IMAGE}}
+        cd config/manager && "{{.TASKFILE_DIR}}/bin/kustomize" edit set image controller={{.DOCKER_IMAGE}}
       - kubectl apply -k config/default
 
   changelog:
