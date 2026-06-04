@@ -21,22 +21,22 @@ var _ = Describe("KollectInventory Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 
-		ctx := context.Background()
-
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
-		}
-		kollectinventory := &kollectdevv1alpha1.KollectInventory{}
+		var (
+			ctx                context.Context
+			typeNamespacedName types.NamespacedName
+			kollectinventory   *kollectdevv1alpha1.KollectInventory
+		)
 
 		BeforeEach(func() {
+			ctx = context.Background()
+			typeNamespacedName = types.NamespacedName{Name: resourceName}
+			kollectinventory = &kollectdevv1alpha1.KollectInventory{}
 			By("creating the custom resource for the Kind KollectInventory")
 			err := k8sClient.Get(ctx, typeNamespacedName, kollectinventory)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &kollectdevv1alpha1.KollectInventory{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
+						Name: resourceName,
 					},
 					// TODO(user): Specify other spec details if needed.
 				}

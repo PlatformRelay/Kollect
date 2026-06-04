@@ -21,15 +21,19 @@ var _ = Describe("KollectTarget Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 
-		ctx := context.Background()
-
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
-		}
-		kollecttarget := &kollectdevv1alpha1.KollectTarget{}
+		var (
+			ctx                context.Context
+			typeNamespacedName types.NamespacedName
+			kollecttarget      *kollectdevv1alpha1.KollectTarget
+		)
 
 		BeforeEach(func() {
+			ctx = context.Background()
+			typeNamespacedName = types.NamespacedName{
+				Name:      resourceName,
+				Namespace: "default",
+			}
+			kollecttarget = &kollectdevv1alpha1.KollectTarget{}
 			By("creating the custom resource for the Kind KollectTarget")
 			err := k8sClient.Get(ctx, typeNamespacedName, kollecttarget)
 			if err != nil && errors.IsNotFound(err) {

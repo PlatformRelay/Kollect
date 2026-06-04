@@ -42,8 +42,7 @@ type KollectSinkStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+	// See Kubernetes API conventions for typical status properties.
 
 	// conditions represent the current state of the KollectSink resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
