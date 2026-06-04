@@ -1,0 +1,48 @@
+# --- Local-only working material: never committed ---
+/agent-context/
+references/
+stuff/
+.cursor/
+.agents/
+.claude/
+CLAUDE.md
+AGENTS.md
+AGENTS.local.md
+*.plan.md
+.idea/
+.vscode/
+.DS_Store
+
+# --- Secrets / credentials: never commit ---
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.p12
+*.pfx
+kubeconfig
+*.kubeconfig
+.kube/
+secret*.yaml
+*.secret.yaml
+credentials*.json
+*.tfvars
+*.tfstate
+*.tfstate.*
+
+# --- Go / build artifacts ---
+/bin/
+/dist/
+*.test
+*.out
+cover.out
+coverage*
+__debug_bin*
+testbin/
+*.exe
+*.so
+vendor/
+
+# --- Tooling caches ---
+/.task/
