@@ -16,6 +16,8 @@ AGENTS.local.md
 # --- Secrets / credentials: never commit ---
 .env
 .env.*
+.envrc
+.envrc.*
 *.env
 *.pem
 *.key
