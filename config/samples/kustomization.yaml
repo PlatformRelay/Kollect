@@ -1,7 +1,7 @@
 ## Append samples of your project ##
 resources:
-- v1alpha1_kollectprofile.yaml
-- v1alpha1_kollectsink.yaml
-- v1alpha1_kollecttarget.yaml
-- v1alpha1_kollectinventory.yaml
+- kollect_v1alpha1_kollectprofile.yaml
+- kollect_v1alpha1_kollectsink.yaml
+- kollect_v1alpha1_kollecttarget.yaml
+- kollect_v1alpha1_kollectinventory.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

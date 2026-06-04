@@ -1,0 +1,54 @@
+site_name: kollect
+site_description: Kubernetes inventory and doc-sync operator
+site_url: https://konih.github.io/kollect/
+repo_url: https://github.com/konih/kollect
+repo_name: konih/kollect
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - search.suggest
+
+nav:
+  - Home: index.md
+  - Quick start: QUICKSTART.md
+  - Development: DEVELOPMENT.md
+  - Architecture: ARCHITECTURE.md
+  - Examples:
+      - Deployment inventory: examples/deployment-inventory.md
+  - ADRs:
+      - Overview: adr/README.md
+      - "0001 Kubebuilder v4": adr/0001-kubebuilder-v4.md
+      - "0003 CEL/JSONPath extraction": adr/0003-cel-jsonpath-extraction.md
+      - "0004 CRD model": adr/0004-crd-model.md
+      - "0006 etcd limit": adr/0006-etcd-limit.md
+      - "0013 Prior art": adr/0013-prior-art.md
+      - "0014 Event-driven informers": adr/0014-event-driven-informers.md
+      - "0015 Static vs reconciled": adr/0015-static-vs-reconciled.md
+      - "0020 Error taxonomy": adr/0020-error-taxonomy.md
+      - "0021 MkDocs GitHub Pages": adr/0021-mkdocs-github-pages.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - toc:
+      permalink: true
+
+docs_dir: docs
+site_dir: site

@@ -2,56 +2,49 @@
 
 Generic Kubernetes **inventory + doc-sync operator** (`kollect.dev/v1alpha1`).
 
-kollect watches arbitrary API resources, extracts attributes with CEL or JSONPath, aggregates
+Platform and application teams need **stakeholder-visible inventory** without bespoke collectors
+per resource type: what is deployed, where, and which attributes matter for audits, cost, or
+developer portals. Batch scripts and hardcoded schemas do not scale across clusters and CRDs.
+
+**kollect** watches arbitrary API resources, extracts attributes with CEL or JSONPath, aggregates
 results, and exports to pluggable sinks (Git, GitLab, S3, GCS, Prometheus) and documentation
-backends (Confluence, Git). It is event-driven (dynamic informers), designed for robust
-multi-tenant collection with SAR-aware RBAC degradation.
+backends (Confluence, Git). Exporting cluster state to Git gives auditable, diffable snapshots that
+developer portals and compliance workflows can consume alongside live API access — so stakeholders
+without `kubectl` or repo access still see versioned, traceable system state.
 
-## Problem
+## Quick start
 
-Platform and application teams need **stakeholder-visible inventory** without bespoke
-collectors per resource type: what is deployed, where, and which attributes matter for audits,
-cost, or developer portals. Batch scripts and hardcoded schemas do not scale across clusters
-and CRDs.
-
-kollect replaces one-off inventory jobs with declarative CRDs: define a **profile** (GVK +
-attributes), attach **targets** (selectors), aggregate in **inventory**, and dispatch to
-**sinks**.
-
-## Quickstart
-
-**Prerequisites:** Go (see `go.mod`), Docker (for image build), kubectl, and a Kubernetes 1.28+
-cluster for deployment.
+**Prerequisites:** Docker, [kind](https://kind.sigs.k8s.io/), kubectl, Go, and [Task](https://taskfile.dev/).
 
 ```sh
-# Build and test locally
+kind create cluster --name kollect-dev
 task build
-task test
-
-# Generate / verify CRDs and RBAC
-make generate manifests
-task verify
-
-# Install CRDs and deploy the manager (set IMG for your registry)
-make install
-make docker-build docker-push IMG=ghcr.io/konih/kollect:dev
-make deploy IMG=ghcr.io/konih/kollect:dev
-
-# Apply sample CRs
+task install:crds
+task docker:build
+kind load docker-image kollect-controller-manager:dev --name kollect-dev
+task deploy:operator
 kubectl apply -k config/samples/
 ```
 
-For a consolidated install manifest:
+Full step-by-step guide with verification and maturity notes:
+**[docs/QUICKSTART.md](docs/QUICKSTART.md)**
 
-```sh
-make build-installer IMG=ghcr.io/konih/kollect:dev
-kubectl apply -f dist/install.yaml
-```
+## Documentation
+
+| Guide | Description |
+| --- | --- |
+| [Quick start](docs/QUICKSTART.md) | Install on kind, apply samples |
+| [Development](docs/DEVELOPMENT.md) | Build, test, codegen, lint |
+| [Architecture](docs/ARCHITECTURE.md) | CRD model and reconciliation |
+| [Example walkthrough](docs/examples/deployment-inventory.md) | Profile → sink → target → inventory |
+| [ADRs](docs/adr/) | Architecture decisions |
+
+Preview docs locally: `pip install mkdocs-material && mkdocs serve` (see [docs/README.md](docs/README.md)).
 
 ## Project layout
 
 | Path | Purpose |
-|------|---------|
+| --- | --- |
 | `api/v1alpha1/` | CRD Go types (`KollectProfile`, `KollectSink`, `KollectTarget`, `KollectInventory`) |
 | `internal/controller/` | Reconcilers for `KollectTarget` and `KollectInventory` |
 | `config/crd/bases/` | Generated CRD YAML |
@@ -59,8 +52,8 @@ kubectl apply -f dist/install.yaml
 | `hack/verify.sh` | Codegen drift gate (also `task verify`) |
 
 Static config kinds (`KollectProfile`, `KollectSink`) are validated via the API; reconciled
-kinds (`KollectTarget`, `KollectInventory`) run controllers. See `GUIDELINES.md` for engineering
-rules and `docs/adr/` for architecture decisions (as they land).
+kinds (`KollectTarget`, `KollectInventory`) run controllers. See [GUIDELINES.md](GUIDELINES.md) for
+engineering rules and [docs/adr/](docs/adr/) for architecture decisions.
 
 ## Contributing
 

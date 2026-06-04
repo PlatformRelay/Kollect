@@ -1,0 +1,14 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: nginx-deployments
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  profileRef: deployment-images
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/name: nginx
+  suspend: false

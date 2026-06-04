@@ -1,0 +1,20 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: deployment-images
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  targetGVK:
+    group: apps
+    version: v1
+    kind: Deployment
+  attributes:
+    - name: image
+      path: '$.spec.template.spec.containers[0].image'
+      type: string
+    - name: labels
+      path: '$.metadata.labels'
+      type: map
+      optional: true

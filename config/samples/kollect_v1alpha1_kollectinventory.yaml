@@ -1,0 +1,11 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectInventory
+metadata:
+  name: cluster-inventory
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  sinkRefs:
+    - git-inventory-demo
+  suspend: false

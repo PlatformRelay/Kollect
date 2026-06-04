@@ -126,4 +126,4 @@ see [ADR-0006](adr/0006-etcd-limit.md).
 ## Further reading
 
 - [Architecture Decision Records](adr/README.md)
-- [GUIDELINES.md](../GUIDELINES.md) (when shipped) — error handling, security, testing
+- [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) — error handling, security, testing
