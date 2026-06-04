@@ -1,9 +1,0 @@
-apiVersion: kollect.dev/v1alpha1
-kind: KollectSink
-metadata:
-  labels:
-    app.kubernetes.io/name: kollect
-    app.kubernetes.io/managed-by: kustomize
-  name: kollectsink-sample
-spec:
-  # TODO(user): Add fields here
