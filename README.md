@@ -1,125 +1,76 @@
 # kollect
-// TODO(user): Add simple overview of use/purpose
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+Generic Kubernetes **inventory + doc-sync operator** (`kollect.dev/v1alpha1`).
 
-## Getting Started
+kollect watches arbitrary API resources, extracts attributes with CEL or JSONPath, aggregates
+results, and exports to pluggable sinks (Git, GitLab, S3, GCS, Prometheus) and documentation
+backends (Confluence, Git). It is event-driven (dynamic informers), designed for robust
+multi-tenant collection with SAR-aware RBAC degradation.
 
-### Prerequisites
-- go version v1.24.6+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+## Problem
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+Platform and application teams need **stakeholder-visible inventory** without bespoke
+collectors per resource type: what is deployed, where, and which attributes matter for audits,
+cost, or developer portals. Batch scripts and hardcoded schemas do not scale across clusters
+and CRDs.
 
-```sh
-make docker-build docker-push IMG=<some-registry>/kollect:tag
-```
+kollect replaces one-off inventory jobs with declarative CRDs: define a **profile** (GVK +
+attributes), attach **targets** (selectors), aggregate in **inventory**, and dispatch to
+**sinks**.
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+## Quickstart
 
-**Install the CRDs into the cluster:**
+**Prerequisites:** Go (see `go.mod`), Docker (for image build), kubectl, and a Kubernetes 1.28+
+cluster for deployment.
 
 ```sh
+# Build and test locally
+task build
+task test
+
+# Generate / verify CRDs and RBAC
+make generate manifests
+task verify
+
+# Install CRDs and deploy the manager (set IMG for your registry)
 make install
-```
+make docker-build docker-push IMG=ghcr.io/konih/kollect:dev
+make deploy IMG=ghcr.io/konih/kollect:dev
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
-
-```sh
-make deploy IMG=<some-registry>/kollect:tag
-```
-
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
-
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
+# Apply sample CRs
 kubectl apply -k config/samples/
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
+For a consolidated install manifest:
 
 ```sh
-kubectl delete -k config/samples/
+make build-installer IMG=ghcr.io/konih/kollect:dev
+kubectl apply -f dist/install.yaml
 ```
 
-**Delete the APIs(CRDs) from the cluster:**
+## Project layout
 
-```sh
-make uninstall
-```
+| Path | Purpose |
+|------|---------|
+| `api/v1alpha1/` | CRD Go types (`KollectProfile`, `KollectSink`, `KollectTarget`, `KollectInventory`) |
+| `internal/controller/` | Reconcilers for `KollectTarget` and `KollectInventory` |
+| `config/crd/bases/` | Generated CRD YAML |
+| `config/samples/` | Example CR instances |
+| `hack/verify.sh` | Codegen drift gate (also `task verify`) |
 
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
-```
-
-## Project Distribution
-
-Following the options to release and provide this solution to the users.
-
-### By providing a bundle with all YAML files
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/kollect:tag
-```
-
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
-
-2. Using the installer
-
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/kollect/<tag or branch>/dist/install.yaml
-```
-
-### By providing a Helm Chart
-
-1. Build the chart using the optional helm plugin
-
-```sh
-kubebuilder edit --plugins=helm/v2-alpha
-```
-
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
-
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
+Static config kinds (`KollectProfile`, `KollectSink`) are validated via the API; reconciled
+kinds (`KollectTarget`, `KollectInventory`) run controllers. See `GUIDELINES.md` for engineering
+rules and `docs/adr/` for architecture decisions (as they land).
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
 
-**NOTE:** Run `make help` for more information on all potential `make` targets
+See [CONTRIBUTING.md](CONTRIBUTING.md). Run `task lint`, `task test`, and `task verify` before
+opening a PR.
 
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+## Security
+
+Report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
 
 ## License
 
-Copyright (c) 2026 Konrad Heimel.
-
-Licensed under the MIT License. See [LICENSE](LICENSE) for the full text.
-
+Copyright (c) 2026 Konrad Heimel. Licensed under the [MIT License](LICENSE).
