@@ -94,6 +94,8 @@ anchor on an older commit.
 
 ### Features
 
+- **controller:** Wire cluster inventory export to aggregate dedupe
+
 - **aggregate:** Add cross-target dedupe spike stub [2327b8b](https://github.com/konih/kollect/commit/2327b8bb4e36f0a5a9334e383ce1c9a43333bb7e)
 
 - **sink:** Push gitlab exports to feature branch in mr mode [08843d1](https://github.com/konih/kollect/commit/08843d19a74aa129afdd9b75d2994f090e5f05fc)

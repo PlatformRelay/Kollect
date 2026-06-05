@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Konrad Heimel
 
 // Package aggregate holds cross-target rollup helpers for Phase 4 (ADR-0033).
-// Controllers still marshal namespace snapshots directly; this package documents
-// identity keys and export-skip rules for richer multi-target aggregation.
+// KollectClusterInventory uses MergeRows and ExportCoalesce on the export path;
+// namespaced KollectInventory still marshals per-namespace snapshots directly.
 package aggregate
 
 import (

@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/aggregate"
 	"github.com/konih/kollect/internal/collect"
 	kollecterrors "github.com/konih/kollect/internal/errors"
 	"github.com/konih/kollect/internal/metrics"
@@ -44,9 +45,7 @@ type KollectClusterInventoryReconciler struct {
 	Recorder record.EventRecorder
 
 	mu             sync.Mutex
-	lastExport     map[string]time.Time
-	lastPayload    map[string]string
-	lastGeneration map[string]int64
+	exportCoalesce map[string]*aggregate.ExportCoalesce
 }
 
 //nolint:lll // kubebuilder rbac marker length
@@ -139,10 +138,9 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 		return r.setDegraded(ctx, inv, "PayloadTooLarge", msg)
 	}
 
-	hash := payloadHash(payload)
 	key := req.String()
 
-	if r.shouldDebounce(inv, key, hash) {
+	if r.shouldDebounce(inv, key, payload) {
 		debounce := r.exportDebounce(inv)
 		delay := debounce - time.Since(r.lastExportTime(key))
 		if delay < time.Second {
@@ -189,7 +187,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 		return result, err
 	}
 
-	r.recordExport(inv, key, hash)
+	r.recordExport(inv, key, payload)
 
 	return r.updateStatus(ctx, inv, len(targets), itemCount, nil)
 }
@@ -205,9 +203,9 @@ func (r *KollectClusterInventoryReconciler) exportDebounce(
 	return validation.ClusterExportMinIntervalFor(&inv.Spec, fallback)
 }
 
-func (r *KollectClusterInventoryReconciler) marshalRollupPayload(
+func (r *KollectClusterInventoryReconciler) collectRollupItems(
 	targets []kollectdevv1alpha1.KollectClusterTarget,
-) ([]byte, error) {
+) []collect.Item {
 	var items []collect.Item
 	for i := range targets {
 		ct := &targets[i]
@@ -216,21 +214,19 @@ func (r *KollectClusterInventoryReconciler) marshalRollupPayload(
 		}
 	}
 
-	return json.Marshal(items)
+	return aggregate.MergeRows(items, aggregate.DedupeByResourceUID)
+}
+
+func (r *KollectClusterInventoryReconciler) marshalRollupPayload(
+	targets []kollectdevv1alpha1.KollectClusterTarget,
+) ([]byte, error) {
+	return json.Marshal(r.collectRollupItems(targets))
 }
 
 func (r *KollectClusterInventoryReconciler) countRollupItems(
 	targets []kollectdevv1alpha1.KollectClusterTarget,
 ) int {
-	total := 0
-	for i := range targets {
-		ct := &targets[i]
-		for _, ns := range r.Engine.NamespacesForClusterTarget(ct.Name) {
-			total += r.Engine.ItemCount(ns, ct.Name)
-		}
-	}
-
-	return total
+	return len(r.collectRollupItems(targets))
 }
 
 func (r *KollectClusterInventoryReconciler) exportToSink(
@@ -283,52 +279,54 @@ func (r *KollectClusterInventoryReconciler) exportToSink(
 
 func (r *KollectClusterInventoryReconciler) shouldDebounce(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
-	key, hash string,
+	key string,
+	payload []byte,
 ) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.lastPayload == nil {
-		r.lastPayload = make(map[string]string)
-		r.lastExport = make(map[string]time.Time)
-		r.lastGeneration = make(map[string]int64)
+	if r.exportCoalesce == nil {
+		r.exportCoalesce = make(map[string]*aggregate.ExportCoalesce)
 	}
 
-	if r.lastGeneration[key] != inv.Generation {
-		return false
-	}
-
-	prev, ok := r.lastPayload[key]
-	if !ok || prev != hash {
-		return false
-	}
-
-	return time.Since(r.lastExport[key]) < r.exportDebounce(inv)
+	return r.exportCoalesce[key].ShouldSkip(
+		time.Now(),
+		r.exportDebounce(inv),
+		inv.Generation,
+		payload,
+	)
 }
 
 func (r *KollectClusterInventoryReconciler) recordExport(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
-	key, hash string,
+	key string,
+	payload []byte,
 ) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.lastPayload == nil {
-		r.lastPayload = make(map[string]string)
-		r.lastExport = make(map[string]time.Time)
-		r.lastGeneration = make(map[string]int64)
+	if r.exportCoalesce == nil {
+		r.exportCoalesce = make(map[string]*aggregate.ExportCoalesce)
 	}
 
-	r.lastPayload[key] = hash
-	r.lastExport[key] = time.Now()
-	r.lastGeneration[key] = inv.Generation
+	c := r.exportCoalesce[key]
+	if c == nil {
+		c = &aggregate.ExportCoalesce{}
+		r.exportCoalesce[key] = c
+	}
+
+	c.RecordExport(time.Now(), inv.Generation, payload)
 }
 
 func (r *KollectClusterInventoryReconciler) lastExportTime(key string) time.Time {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	return r.lastExport[key]
+	if c := r.exportCoalesce[key]; c != nil {
+		return c.LastExport
+	}
+
+	return time.Time{}
 }
 
 func (r *KollectClusterInventoryReconciler) selectedClusterTargets(
@@ -428,7 +426,14 @@ func (r *KollectClusterInventoryReconciler) rollupCounts(
 		if !clusterTargetReady(ct) {
 			degraded = append(degraded, ct.Name)
 		}
+	}
 
+	if r.Engine != nil && r.Store != nil {
+		return len(r.collectRollupItems(targets)), degraded
+	}
+
+	for i := range targets {
+		ct := &targets[i]
 		if r.Engine != nil {
 			for _, ns := range r.Engine.NamespacesForClusterTarget(ct.Name) {
 				itemCount += r.Engine.ItemCount(ns, ct.Name)
