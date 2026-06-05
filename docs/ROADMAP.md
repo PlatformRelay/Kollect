@@ -187,10 +187,12 @@ loop in [ADR-0027](adr/0027-agent-observability-feedback.md). Tuning guide:
 | --- | --- |
 | ADR-0027 agent perf feedback loop | ✅ |
 | Metrics catalog + PromQL hints in PERFORMANCE.md | ✅ |
-| `task perf-report` (JSON / markdown) | ⬜ |
-| `agent-context/PERF-SNAPSHOT.md` (local, gitignored) | ⬜ |
-| `artifacts/bench/` from `task bench` | ⬜ |
+| `task perf-report` + `hack/perf-report.sh` | ✅ |
+| `agent-context/PERF-SNAPSHOT.md` (local, gitignored) | ✅ |
+| `artifacts/bench/` from `task bench` | ✅ |
 | CI upload of bench artifacts (nightly, optional) | ⬜ |
+
+**Counts:** ✅ 5 · ⬜ 1
 
 ### Operator tuning and tests
 

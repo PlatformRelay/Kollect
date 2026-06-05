@@ -2,8 +2,7 @@
 
 kollect is designed for **giant single clusters** (1000s of nodes, **10k+ watched resources
 baseline**) and **100+ cluster** hub deployments. This guide summarizes tuning knobs from
-[ADR-0026](adr/0026-performance-scalability.md) and the **agent observability loop** from
-[ADR-0027](adr/0027-agent-observability-feedback.md).
+[ADR-0026](adr/0026-performance-scalability.md).
 
 ## Scale tiers
 
@@ -53,11 +52,11 @@ At 100+ spokes, debouncing is **mandatory** on the hub path to avoid export stor
 - **Resync:** 12h informer resync is a correctness backstop, not a freshness driver.
 - **Spoke → hub:** Push **summarized deltas**, not per-object streams ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)).
 
-## Metrics catalog (for operators and agents)
+## Metrics catalog
 
-Use these names when scraping `/metrics` or writing PromQL in issues and ADRs.
+Use these names when scraping `/metrics` or writing PromQL in runbooks and issues.
 
-| Metric | Type | Labels | PromQL hint | Agent interpretation |
+| Metric | Type | Labels | PromQL hint | What rising values imply |
 | --- | --- | --- | --- | --- |
 | `kollect_workqueue_depth` | Gauge | `controller` | `max_over_time(kollect_workqueue_depth[5m])` | Sustained high values → raise `--max-concurrent-reconciles-*` or reduce reconcile work |
 | `kollect_reconcile_duration_seconds` | Histogram | `controller` | `histogram_quantile(0.99, sum(rate(kollect_reconcile_duration_seconds_bucket[5m])) by (le, controller))` | p99 rising while depth low → slow API/sink; p99 rising with depth → under-provisioned workers |
@@ -74,24 +73,14 @@ Additional runtime signals: Go `memstats` via pprof (`--enable-pprof`), API serv
 separate from Prometheus metrics (`:8080` / `:8443`). Helm sets `pprof.enabled: false` by default;
 enable in dev overlays only.
 
-## Benchmarks, load tests, and agent reports
+## Benchmarks and load tests
 
 ```bash
 task bench                    # writes artifacts/bench/*.txt
 KOLECT_LOAD_TEST=1 task load-test
-task perf-report              # JSON summary to stdout
-task perf-report --format=markdown > agent-context/PERF-SNAPSHOT.md
 ```
 
-`task perf-report` aggregates:
-
-- Last build / test / bench durations (from task cache and `artifacts/bench/`)
-- Latest benchmark ns/op and allocs/op for `BenchmarkExtract`
-- Metric names + PromQL hints (this catalog)
-- Active scale tier label (`dev` | `load` | `ci`)
-
-**Agents:** read `agent-context/PERF-SNAPSHOT.md` (local, gitignored) before perf tasks; regenerate
-after benchmark changes. CI may upload `artifacts/bench/` on nightly runs ([ADR-0027](adr/0027-agent-observability-feedback.md)).
+For local perf summaries (`task perf-report`), see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 Default `go test ./...` excludes `load`-tagged tests.
 
