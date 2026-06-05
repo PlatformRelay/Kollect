@@ -1,15 +1,60 @@
 # Example: Spoke cluster inventory
 
-Default MVP: Profile → Target → Inventory → namespaced Sink ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+Install kollect on a **single cluster** with Helm `mode: single` — the default path before hub
+aggregation. Teams run namespaced Profile → Target → Inventory → Sink and export to Postgres or
+Kafka for portal queries
+([ADR-0703](../adr/0703-platform-architecture-pivot.md),
+[ADR-0501](../adr/0501-multi-cluster-sync-rfc.md)).
+
+There is **no `KollectHub` CRD**. Hub merge uses `mode: hub` on a management cluster
+([charts/kollect/README.md](../../charts/kollect/README.md)).
+
+## Step 1 — Install operator
+
+**Per-team** (recommended):
 
 ```yaml
 tenantMode: true
-watchNamespaces: [team-a]
+watchNamespaces:
+  - team-a
 mode: single
+featureGates:
+  inventoryHttp:
+    enabled: false
 ```
 
-Samples: `kollect_v1alpha1_kollectprofile.yaml`, `kollectsink_postgres.yaml`, `kollecttarget.yaml`, `kollectinventory.yaml`.
+```sh
+helm install kollect ./charts/kollect -n kollect-system --create-namespace \
+  -f values-team-a.yaml
+```
 
-E2e without backends: `config/samples/e2e/team-inventory.yaml` (`sinkRefs: []`).
+Local dev: `task kind-dev-up` ([Kind local lab](kind-local-lab.md)).
 
-See [Hub mode](hub-mode.md) for multi-cluster.
+## Step 2 — Postgres backend
+
+Create DSN secret and apply samples — [Postgres state store](postgres-state-store.md).
+
+```sh
+kubectl apply -k config/samples/
+kubectl wait --for=condition=ConnectionVerified kollectsink/postgres-inventory-demo \
+  -n default --timeout=60s
+```
+
+Set `spec.cluster` on the sink for shared-database fan-in across spokes.
+
+## Step 3 — Collection pipeline
+
+Full walkthrough: [Deployment inventory](deployment-inventory.md).
+
+E2e without live backends: `config/samples/e2e/team-inventory.yaml` (`sinkRefs: []`).
+
+## Hub-and-spoke upgrade
+
+1. Spokes: `mode: spoke` — local collect + export.
+2. Hub: `mode: hub` + merge lib ([Hub mode](hub-mode.md)).
+3. Register spokes with `KollectRemoteCluster` ([ADR-0503](../adr/0503-hub-cluster-auth-istio-pattern.md)).
+
+## Related
+
+- [Deployment inventory](deployment-inventory.md) · [Connection test](connection-test.md)
+- [ADR-0703](../adr/0703-platform-architecture-pivot.md)

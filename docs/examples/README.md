@@ -8,7 +8,7 @@ kubectl apply -k config/samples/
 
 | Example | Topic |
 | --- | --- |
-| [Deployment inventory](deployment-inventory.md) | Profile → Target → Inventory → Git |
+| [Deployment inventory](deployment-inventory.md) | Profile → Target → Inventory → Postgres (Git optional) |
 | [Helm / Argo release inventory](helm-release-inventory.md) | Argo CD `Application` (Flux secondary) |
 | [Spoke cluster inventory](spoke-cluster-inventory.md) | Per-team Postgres/Git export |
 | [Postgres state store](postgres-state-store.md) | Relational SoR + delete reconciliation |
