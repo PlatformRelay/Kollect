@@ -1,12 +1,22 @@
 # Platform decisions — architecture summary
 
-> **For coordinators and implementers.** Locked outcomes from architecture discussions (2026-06-05).
-> Formal ADR: [adr/0703-platform-architecture-pivot.md](adr/0703-platform-architecture-pivot.md).
->
-> **Phases = build order**, not release milestones. No public “release” until the tree is beta-quality.
-> **No adopters** on `v1alpha1` — break APIs when needed.
+This page summarizes **locked platform decisions** from the architecture review of 2026-06-05. It is
+the concise reference for **operators**, **contributors**, and **architects** evaluating or building
+kollect. For the full decision log and reasoning, see
+[ADR-0703: Platform architecture pivot](adr/0703-platform-architecture-pivot.md).
 
-## Coordinator brief (paste to workers)
+### Phases, releases, and API stability
+
+**Phases describe build order**, not release milestones. Work proceeds in the sequence below;
+individual features may land in parallel, but kollect is not presented as a general-availability
+product until the tree reaches **beta-quality** overall.
+
+The public API is **`v1alpha1`** and **may change without notice** while the project is pre-beta.
+There are no external adopters yet — tenancy, scalability, and correctness take priority over
+backward compatibility. Breaking changes are batched deliberately before a future `v1beta1` freeze
+(planned around v0.1.0).
+
+## Core decisions
 
 ### Non-negotiables
 
@@ -23,7 +33,7 @@
 - **Transport:** `inprocess` only default.
 - **No doc-sync** in operator ([ADR-0702](adr/0702-doc-sync-templating.md)).
 
-### Build order (not release gates)
+### Build order
 
 1. Namespaced **Sink** + **Profile** (batch breaking change)
 2. MVP export path — Deployment profile → Postgres (or Kafka) sink
@@ -38,7 +48,7 @@
 11. **GitLab sink** — Phase 2 (custom CA via `tls.caSecretRef`; first enterprise presentation path)
 12. **Hub ingest** — SAR **`create`** on `kollectremoteclusters`
 
-### Locked micro-decisions (2026-06-05, session 5)
+### Sink and transport
 
 Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md).
 
@@ -52,7 +62,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | Sink ↔ transport | **Unified** — spoke publishing to a shared subject *is* the fan-in |
 | Multi-cluster default | **Direct shared-sink fan-in** (`spec.cluster`); **hub optional** (Git fan-in / isolation / cred / schema decoupling) |
 
-### Locked micro-decisions (2026-06-05, session 4)
+### Collection, cluster targets, and enterprise sinks
 
 | Topic | Decision |
 | --- | --- |
@@ -65,7 +75,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | GitLab sink | **Phase 2** — implement with **`tls.caSecretRef`** for internal CA; Git remains small-install default |
 | Hub ingest SAR | **`create`** on **`kollectremoteclusters`** in hub namespace |
 
-### Locked micro-decisions (2026-06-05, session 3)
+### Export debouncing, scope, and hub ingest
 
 | Topic | Decision |
 | --- | --- |
@@ -75,9 +85,9 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | `KollectScope` enforcement | **Hard degrade** — `Degraded` + no collect/export; see [ADR-0203](adr/0203-namespaced-multi-tenancy.md) example |
 | Hub first milestone | **Postgres + Kafka in parallel** on hub ingest |
 | `KollectClusterInventory` | **One CR rolls up all** `KollectClusterTarget`s; optional `targetRefs` for subset / 1:1 |
-| ADR micro-decisions (Postgres PK, HTTP paths, Kafka keys, …) | **Confirmed** — implement as coordinator defaults |
+| ADR micro-decisions (Postgres PK, HTTP paths, Kafka keys, …) | **Confirmed** — see [Implementation defaults](#implementation-defaults) below |
 
-### Locked micro-decisions (2026-06-05, session 2)
+### Samples, connection tests, and cluster rollup
 
 | Topic | Decision |
 | --- | --- |
@@ -88,10 +98,11 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | Hub federated mTLS | **Deferred** — ADR-0503 push-first path stands |
 | Cluster rollup | **`KollectClusterInventory`** + **`KollectClusterTarget`** (no namespaced `inventoryRef` hack) |
 
-### ADR micro-decisions (lock at implement — Phase 1 unless noted)
+### Implementation defaults
 
-Coordinator defaults from session 2. **Phase 1** rows ship as written; **Phase 2+** may spike first.
-Update the cited ADR when code merges.
+These defaults apply unless a cited ADR specifies otherwise. **Phase 1** rows are expected to ship
+as written; **Phase 2+** rows may require a spike before implementation. Update the cited ADR when
+the corresponding code merges.
 
 #### HTTP API and auth ([ADR-0103](adr/0103-etcd-limit.md), [ADR-0404](adr/0404-inventory-api-auth.md))
 
@@ -146,14 +157,14 @@ Update the cited ADR when code merges.
 | `caBundle` vs `caSecretRef` | **Keep both** — `caSecretRef` preferred; **`caBundle` max 64 KiB** (webhook) | 1 |
 | `KollectClusterInventory` | **One platform rollup CR** — aggregates all `KollectClusterTarget`s; optional `targetRefs` | 3+ |
 
-### Documentation backlog
+### Documentation status
 
 - [x] **CR reference guide** — scaffold at [CR-REFERENCE.md](CR-REFERENCE.md) + [crds/](crds/);
-  failure-mode detail remains worker TODO.
+  per-kind failure-mode detail is tracked in [CR-REFERENCE.md](CR-REFERENCE.md).
 - [x] **Architecture data flows** — [DATA-FLOWS.md](DATA-FLOWS.md) (debounce + collection + scope + connection test).
 - [x] **JSONPath `[*]` wildcard** — all array elements; deployment sample updated ([ADR-0302](adr/0302-cel-jsonpath-extraction.md)).
 
-### TODOs explicitly requested
+### Completed follow-ups
 
 - [x] **Argo `Application` contract test** — `internal/collect/argo_application_contract_test.go`
 - [x] **Argo samples** — profile + target under `config/samples/`
@@ -220,7 +231,7 @@ flowchart TD
 | ~~`KollectHub`~~ | Was: CRD spawns hub Deployment | **Rejected / deprecated stub** — Helm `mode: hub` only; remove from roadmap controllers |
 | ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0702](adr/0702-doc-sync-templating.md) |
 
-Do not generate controllers or document samples for reserved kinds unless an ADR promotes them.
+Do not add controllers or document samples for reserved kinds unless an ADR promotes them.
 
 ---
 
@@ -305,7 +316,7 @@ on `kollectremoteclusters`. Transport unified with the event sink ([ADR-0502](ad
 
 | Topic | ADR |
 | --- | --- |
-| Hub federated mTLS behind external LB | **Deferred** — [0028](adr/0503-hub-cluster-auth-istio-pattern.md) |
+| Hub federated mTLS behind external LB | **Deferred** — [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) |
 
 ---
 
