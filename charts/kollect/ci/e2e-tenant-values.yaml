@@ -16,4 +16,4 @@ transport:
   type: inprocess
 
 sinkDefaults:
-  connectionTest: true
+  connectionTest: false

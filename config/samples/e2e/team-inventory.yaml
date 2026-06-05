@@ -1,0 +1,12 @@
+# kind e2e: inventory rollup without external sink backends (Postgres/Kafka not installed in cluster).
+apiVersion: kollect.dev/v1alpha1
+kind: KollectInventory
+metadata:
+  name: team-inventory
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  sinkRefs: []
+  suspend: false
