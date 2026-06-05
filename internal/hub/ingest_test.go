@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -26,6 +27,12 @@ func TestIngestHandleReportsMergesAuthenticatedReport(t *testing.T) {
 	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		review := action.(k8stesting.CreateAction).GetObject().(*authenticationv1.TokenReview)
 		review.Status = authenticationv1.TokenReviewStatus{Authenticated: true}
+
+		return true, review, nil
+	})
+	client.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		review := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		review.Status = authorizationv1.SubjectAccessReviewStatus{Allowed: true}
 
 		return true, review, nil
 	})

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Konrad Heimel
 
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
 package hub
 
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -19,7 +21,7 @@ import (
 )
 
 const (
-	// IngestAuthModeKubernetes validates bearer tokens via TokenReview (ADR-0028).
+	// IngestAuthModeKubernetes validates bearer tokens via TokenReview + SAR (ADR-0028).
 	IngestAuthModeKubernetes = "kubernetes"
 	// IngestAuthModeDisabled disables ingest auth (local dev / CI only).
 	IngestAuthModeDisabled = "disabled"
@@ -55,8 +57,22 @@ func (a IngestAuthConfig) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if _, err := a.authenticate(r.Context(), token); err != nil {
+		user, err := a.authenticate(r.Context(), token)
+		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+
+			return
+		}
+
+		ok, err := a.authorizeIngest(r.Context(), user)
+		if err != nil {
+			http.Error(w, "authorization check failed", http.StatusInternalServerError)
+
+			return
+		}
+
+		if !ok {
+			http.Error(w, "forbidden", http.StatusForbidden)
 
 			return
 		}
@@ -106,4 +122,62 @@ func (a IngestAuthConfig) authenticate(ctx context.Context, token string) (authe
 	}
 
 	return result.Status.User, nil
+}
+
+func (a IngestAuthConfig) authorizeIngest(ctx context.Context, user authenticationv1.UserInfo) (bool, error) {
+	checks := []authorizationv1.SubjectAccessReviewSpec{
+		{
+			User:   user.Username,
+			Groups: user.Groups,
+			NonResourceAttributes: &authorizationv1.NonResourceAttributes{
+				Path: ingestReportsPath,
+				Verb: "post",
+			},
+		},
+		{
+			User:   user.Username,
+			Groups: user.Groups,
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Group:    "kollect.dev",
+				Resource: "kollectremoteclusters",
+				Verb:     "create",
+			},
+		},
+		{
+			User:   user.Username,
+			Groups: user.Groups,
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Group:    "kollect.dev",
+				Resource: "kollectremoteclusters",
+				Verb:     "patch",
+			},
+		},
+	}
+
+	for _, spec := range checks {
+		allowed, err := a.subjectAccessReview(ctx, spec)
+		if err != nil {
+			return false, err
+		}
+
+		if allowed {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (a IngestAuthConfig) subjectAccessReview(
+	ctx context.Context,
+	spec authorizationv1.SubjectAccessReviewSpec,
+) (bool, error) {
+	review := &authorizationv1.SubjectAccessReview{Spec: spec}
+
+	result, err := a.Client.AuthorizationV1().SubjectAccessReviews().Create(ctx, review, metav1.CreateOptions{})
+	if err != nil {
+		return false, fmt.Errorf("subject access review: %w", err)
+	}
+
+	return result.Status.Allowed, nil
 }
