@@ -94,6 +94,12 @@ tasks:
     cmds:
       - make lint
 
+  lint:markdown:
+    desc: Lint Markdown docs with markdownlint-cli2
+    cmds:
+      - npm ci --prefix docs
+      - docs/node_modules/.bin/markdownlint-cli2
+
   vulncheck:
     desc: Scan for known Go vulnerabilities (govulncheck)
     deps: [install]

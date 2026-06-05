@@ -1,0 +1,11 @@
+{
+  "name": "kollect-docs-lint",
+  "private": true,
+  "description": "Pinned markdownlint-cli2 for docs CI and local lint:markdown",
+  "scripts": {
+    "lint:markdown": "markdownlint-cli2"
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "0.22.1"
+  }
+}

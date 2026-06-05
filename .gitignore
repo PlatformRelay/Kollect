@@ -58,3 +58,6 @@ vendor/
 
 # --- Local kind dev TLS (mkcert); never commit ---
 /hack/kind/dev/certs/
+
+# --- Node (docs markdownlint) ---
+/docs/node_modules/

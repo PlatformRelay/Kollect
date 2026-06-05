@@ -42,3 +42,11 @@ repos:
         types: [go]
         pass_filenames: false
         require_serial: true
+
+      - id: markdownlint
+        name: markdownlint (docs)
+        entry: task lint:markdown
+        language: system
+        files: \.(md|markdown)$
+        exclude: ^(site/|vendor/|references/|agent-context/|CHANGELOG\.md)
+        pass_filenames: false

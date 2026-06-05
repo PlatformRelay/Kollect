@@ -356,6 +356,7 @@ task vulncheck     # govulncheck ./... (same as CI vulncheck job)
 task format        # go fmt ./...
 task format:check  # fail if gofmt would change files
 task helm-test     # helm lint + unittest (transport default, tenantMode RBAC)
+task lint:markdown  # markdownlint-cli2 on docs/**/*.md and scoped READMEs
 ```
 
 `task vulncheck` uses the [Go vulnerability database](https://vuln.go.dev/) and fails when known
@@ -368,7 +369,7 @@ Install hooks once:
 pre-commit install
 ```
 
-Pre-commit runs gitleaks, scrub, verify, and golangci-lint on relevant changes.
+Pre-commit runs gitleaks, scrub, verify, golangci-lint, and markdownlint on relevant changes.
 
 ## Pre-commit and scrub before push
 
