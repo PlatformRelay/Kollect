@@ -1,0 +1,36 @@
+# Step 2 — Core fleet extraction schemas (extends config/samples patterns).
+# deployment-fleet adds replicas for churn demos; service-endpoints tracks clusterIP changes.
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: deployment-fleet
+  namespace: default
+spec:
+  targetGVK: {group: apps, version: v1, kind: Deployment}
+  attributes:
+    - {name: replicas, path: '$.spec.replicas', type: int}
+    - {name: image, path: '$.spec.template.spec.containers[0].image', type: string}
+    - {name: labels, path: '$.metadata.labels', type: map, optional: true}
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: service-endpoints
+  namespace: default
+spec:
+  targetGVK: {group: "", version: v1, kind: Service}
+  attributes:
+    - {name: clusterIP, path: '$.spec.clusterIP', type: string}
+    - {name: ports, path: '$.spec.ports[*].port', type: list}
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: configmap-data
+  namespace: default
+spec:
+  targetGVK: {group: "", version: v1, kind: ConfigMap}
+  attributes:
+    - {name: keyCount, path: "cel:size(object.data)", type: int}
+    - {name: dataKeys, path: '$.data', type: map, optional: true}

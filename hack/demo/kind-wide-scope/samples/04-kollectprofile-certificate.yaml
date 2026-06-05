@@ -1,0 +1,15 @@
+# Step 4 — cert-manager TLS inventory (expiry, issuer, readiness).
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: certificate-summary
+  namespace: default
+spec:
+  targetGVK: {group: cert-manager.io, version: v1, kind: Certificate}
+  attributes:
+    - {name: commonName, path: '$.spec.commonName', type: string, optional: true}
+    - {name: issuer, path: '$.spec.issuerRef.name', type: string, optional: true}
+    - {name: primaryDNS, path: '$.spec.dnsNames[0]', type: string, optional: true}
+    - {name: notAfter, path: '$.status.notAfter', type: string, optional: true}
+    - {name: ready, path: '$.status.conditions[0].status', type: string, optional: true}

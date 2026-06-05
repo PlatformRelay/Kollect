@@ -1,0 +1,39 @@
+# Step 3 — Headline use case: Trivy CVE inventory.
+# Trivy Operator creates VulnerabilityReport CRs when it scans workload images.
+# Kollect extracts summary counts — no custom exporter per scanner.
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: trivy-vulnerability-summary
+  namespace: default
+spec:
+  targetGVK:
+    group: aquasecurity.github.io
+    version: v1alpha1
+    kind: VulnerabilityReport
+  attributes:
+    - name: resourceKind
+      path: '$.metadata.labels["trivy-operator.resource.kind"]'
+      type: string
+      optional: true
+    - name: resourceName
+      path: '$.metadata.labels["trivy-operator.resource.name"]'
+      type: string
+      optional: true
+    - name: imageRepository
+      path: '$.report.artifact.repository'
+      type: string
+      optional: true
+    - name: imageTag
+      path: '$.report.artifact.tag'
+      type: string
+      optional: true
+    - name: criticalCount
+      path: '$.report.summary.criticalCount'
+      type: int
+      optional: true
+    - name: highCount
+      path: '$.report.summary.highCount'
+      type: int
+      optional: true
