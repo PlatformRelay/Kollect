@@ -160,7 +160,7 @@ Helm values: `charts/kollect/ci/e2e-tenant-values.yaml`. Kubernetes version is p
 ## Multi-cluster hub auth (ADR-0028)
 
 Hub spoke ingest validates **`TokenReview`** then **`SubjectAccessReview`** (non-resource `POST`
-`/hub/v1alpha1/reports`, or `create`/`patch` on `kollectremoteclusters`). Spokes send
+`/hub/v1alpha1/reports`, or `create` on `kollectremoteclusters`). Spokes send
 `Authorization: Bearer` plus `X-Kollect-Cluster-Id`. See
 [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md).
 
