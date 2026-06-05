@@ -52,3 +52,6 @@ vendor/
 /.task/
 /site/
 .venv-docs/
+
+# --- Local kind dev TLS (mkcert); never commit ---
+/hack/kind/dev/certs/

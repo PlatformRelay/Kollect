@@ -141,3 +141,33 @@ tasks:
     desc: Lint the kollect Helm chart
     cmds:
       - helm lint charts/kollect
+
+  kind-dev-up:
+    desc: Create kollect-dev kind cluster (operator + optional dev addons)
+    cmds:
+      - bash hack/kind/dev/setup.sh
+
+  kind-dev-down:
+    desc: Delete kollect-dev kind cluster
+    cmds:
+      - bash hack/kind/dev/teardown.sh
+
+  kind-dev-load:
+    desc: Build and load controller image into kollect-dev
+    cmds:
+      - bash hack/kind/common.sh load-image kollect-dev
+
+  kind-dev-status:
+    desc: Show kollect-dev cluster and addon status
+    cmds:
+      - bash hack/kind/dev/status.sh
+
+  kind-e2e-up:
+    desc: Create minimal kollect-e2e cluster and install operator (CI parity)
+    cmds:
+      - bash hack/kind/e2e/setup.sh
+
+  kind-e2e-down:
+    desc: Delete kollect-e2e kind cluster
+    cmds:
+      - bash hack/kind/e2e/teardown.sh
