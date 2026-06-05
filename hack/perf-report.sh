@@ -35,7 +35,7 @@ UNIT_SUMMARY=""
 UNIT_START=$(date +%s)
 if command -v jq >/dev/null 2>&1; then
   UNIT_JSON="${BENCH_DIR}/unit.json"
-  if go test ./... -count=1 -json 2>/dev/null >"$UNIT_JSON"; then
+  if go test ./... -count=1 -short -json 2>/dev/null >"$UNIT_JSON"; then
     FAIL_COUNT="$(jq -r 'select(.Action=="fail") | .Package' "$UNIT_JSON" 2>/dev/null | sort -u | wc -l | tr -d ' ')"
     PASS_COUNT="$(jq -r 'select(.Action=="pass" and .Test==null) | .Package' "$UNIT_JSON" 2>/dev/null | sort -u | wc -l | tr -d ' ')"
     UNIT_SUMMARY="${PASS_COUNT} packages passed"
