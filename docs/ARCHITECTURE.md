@@ -52,14 +52,15 @@ flowchart TD
 | `KollectProfile` | Namespace | No | Extraction schema ([ADR-0031](adr/0031-namespaced-profiles.md)) |
 | `KollectSink` | **Namespace** | Probe only | Export backend; `ConnectionVerified` ([ADR-0030](adr/0030-connection-test.md), [ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | `KollectScope` | Namespace | No | Tenancy boundary ([ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
-| `KollectTarget` | Namespace | Yes | Select resources, run collection |
-| `KollectInventory` | Namespace | Yes | Aggregate targets; export to sinks |
+| `KollectTarget` | Namespace | Yes | Team-scoped collection (default) |
+| `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| `KollectInventory` | Namespace | Yes | Aggregate namespaced targets; export to sinks |
 | `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | `KollectClusterProfile` | Cluster | No | **Reserved** — platform schemas |
 | `KollectClusterSink` | Cluster | No | **Reserved** — shared backends |
 | `KollectClusterInventory` | Cluster | Yes | **Reserved** — platform rollup |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
-| ~~`KollectHub`~~ | — | **Rejected** | Use Helm `mode: hub` ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| ~~`KollectHub`~~ | — | **Rejected / stub** | API types may remain in tree; **not** product surface — Helm `mode: hub` ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0011](adr/0011-doc-sync-templating.md) |
 
 See [adr/0004-crd-model.md](adr/0004-crd-model.md). Reserved kinds are design placeholders — see

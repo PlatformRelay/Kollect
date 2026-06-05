@@ -67,6 +67,34 @@
         }
       }
     },
+    "featureGates": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "inventoryHttp": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Expose GET /inventory for debug and small installs only (ADR-0032)."
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 8082
+            },
+            "authMode": {
+              "type": "string",
+              "enum": ["kubernetes", "disabled"],
+              "default": "kubernetes"
+            }
+          }
+        }
+      }
+    },
     "webhooks": {
       "type": "object",
       "additionalProperties": true,

@@ -38,15 +38,16 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 
 | Kind | Scope | Role |
 | --- | --- | --- |
-| `KollectTarget` | Namespaced | `profileRef` + selectors + optional CEL predicate; drives collection |
-| `KollectInventory` | **Namespaced** | Aggregates targets **in the same namespace**; dispatches to sinks |
+| `KollectTarget` | Namespaced | `profileRef` + selectors; drives collection in team namespace ([ADR-0032](0032-platform-architecture-pivot.md)) |
+| `KollectClusterTarget` | **Cluster** | Platform-wide collection across namespaces via `namespaceSelector`; `profileRef` → `KollectClusterProfile` or platform-namespace profile ([ADR-0032](0032-platform-architecture-pivot.md)) |
+| `KollectInventory` | **Namespaced** | Aggregates namespaced targets **in the same namespace**; dispatches to sinks |
 
 ### Rejected (never ship)
 
 | Kind | Rationale |
 | --- | --- |
 | `KollectPublication` | Doc-sync / Confluence / in-operator templating — out of scope; use Git export + external CI ([ADR-0011](0011-doc-sync-templating.md)) |
-| `KollectHub` | Hub Deployment lifecycle via CRD — use Helm **`mode: hub`** instead ([ADR-0032](0032-platform-architecture-pivot.md)) |
+| `KollectHub` | Hub Deployment lifecycle via CRD — **rejected**; use Helm **`mode: hub`**. API stub may remain deprecated in tree ([ADR-0032](0032-platform-architecture-pivot.md)) |
 
 ### Reconciled (connection test)
 
@@ -60,7 +61,7 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 - `KollectTargetSet` — generator templating many Targets (ApplicationSet pattern).
 - **`KollectClusterProfile`** (cluster) — platform-shared extraction schemas ([ADR-0031](0031-namespaced-profiles.md)).
 - **`KollectClusterSink`** (cluster) — platform-shared export backends ([ADR-0032](0032-platform-architecture-pivot.md)).
-- **`KollectClusterInventory`** (cluster) — platform-wide rollup across namespaces. **No controller in Phase 0–1** — ADR + plan only.
+- **`KollectClusterInventory`** (cluster) — aggregates **`KollectClusterTarget`** rows; platform rollup. **No controller in MVP** — pairs with cluster target.
 - **`KollectClusterScope`** (cluster) — platform tenancy boundary when namespaced `KollectScope` is
   insufficient; addition after namespaced scope enforcement ships (Phase 3).
 

@@ -126,16 +126,19 @@ Implementation: `internal/validation/profile.go` (`ValidateProfile`); wired from
 
 | File | Purpose |
 | --- | --- |
-| `config/samples/kollect_v1alpha1_kollectprofile_helm-release-summary.yaml` | Summary-tier Profile (Flux GVK) |
-| `config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yaml` | Example Target scoping team HelmReleases |
+| `config/samples/kollect_v1alpha1_kollectprofile_helm-release-summary-argo.yaml` | Summary-tier Profile (**Argo `Application` GVK — primary**) |
+| `config/samples/kollect_v1alpha1_kollecttarget_helm-applications.yaml` | Example Target scoping team Argo Applications |
+| `config/samples/kollect_v1alpha1_kollectprofile_helm-release-summary.yaml` | Summary-tier Profile (Flux `HelmRelease` — secondary) |
+| `config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yaml` | Example Target scoping Flux HelmReleases |
 
-Walkthrough: [docs/examples/helm-release-inventory.md](../examples/helm-release-inventory.md).
+Walkthrough: [docs/examples/helm-release-inventory.md](../examples/helm-release-inventory.md) (Flux secondary;
+Argo `Application` is the primary demo GVK per [ADR-0032](0032-platform-architecture-pivot.md)).
 
 ### Implementation phases
 
-1. **Now:** `helm-release-summary` sample + target example + `docs/examples/helm-release-inventory.md`
-   (Flux GVK); Profile webhook blocks `Secret.data` without opt-in; **HelmRelease contract test**
-   for `history[0]` ordering + `lastAttemptedRevision`.
+1. **Now:** Argo **`Application`** summary profile + target + **contract test** for chart/version
+   JSONPath paths; Flux `HelmRelease` sample remains secondary; Profile webhook blocks `Secret.data`
+   without opt-in.
 2. **Later:** export-time scrub in operator for values attributes.
 3. **Later:** `helm:` decode for `helm.sh/v1` Secret + second sample profile (gated).
 

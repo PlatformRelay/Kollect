@@ -13,14 +13,77 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace
 | Key | Description | Default |
 | --- | --- | --- |
 | `image.repository` | Controller image | `ghcr.io/konih/kollect` |
-| `featureGates.inventoryHttp.enabled` | Expose `GET /inventory` | `false` |
-| `oauth2Proxy.enabled` | Optional OIDC sidecar in front of inventory HTTP | `false` |
-| `webhooks.enabled` | Validating webhook for profiles | `true` |
+| `featureGates.inventoryHttp.enabled` | Expose `GET /inventory` (debug/small install only) | `false` |
+| `mode` | Operator mode: `single`, `hub`, or `spoke` (same image — no `KollectHub` CRD) | `single` |
+| `tenantMode` | Namespaced Role RBAC; per-team install story | `false` (set `true` + `watchNamespaces` for team installs) |
+| `watchNamespaces` | Restrict informer cache to these namespaces | `[]` (all) |
 | `transport.type` | Hub/spoke transport backend | `inprocess` |
-| `sinkDefaults.connectionTest` | Default for sample `KollectSink` probes | `false` (prod); CI/dev overlays use `true` |
 
 See `values.yaml` for the full list. Critical values are validated by
 [`values.schema.json`](values.schema.json); CI runs `task helm-test` (`helm lint` + `helm-unittest`).
+
+### Per-team install (default story)
+
+Documented default for new team installs ([ADR-0016](../../docs/adr/0016-namespaced-multi-tenancy.md),
+[ADR-0032](../../docs/adr/0032-platform-architecture-pivot.md)):
+
+```yaml
+tenantMode: true
+watchNamespaces:
+  - team-a
+mode: single
+featureGates:
+  inventoryHttp:
+    enabled: false
+```
+
+Namespaced `KollectProfile`, `KollectSink`, `KollectTarget`, and `KollectInventory` live in the
+team namespace. Portal read path: **Postgres or Kafka sink export** — not spoke HTTP.
+
+### Hub mode (no `KollectHub` CRD)
+
+Multi-cluster hub/spoke uses **Helm values on the same image** — there is **no `KollectHub` CRD**
+on the product roadmap ([ADR-0032](../../docs/adr/0032-platform-architecture-pivot.md)). Existing
+`KollectHub` API stubs in the repo are deprecated; do not create hub Deployments via CR.
+
+**Spoke cluster:**
+
+```yaml
+mode: spoke
+transport:
+  type: inprocess   # only default until external backend passes integration proof
+featureGates:
+  inventoryHttp:
+    enabled: false
+```
+
+Spoke operators collect inventory, export to local Postgres/Kafka (or push summaries to hub ingest
+per [ADR-0028](../../docs/adr/0028-hub-cluster-auth-istio-pattern.md)).
+
+**Hub cluster:**
+
+```yaml
+mode: hub
+replicaCount: 2   # horizontal hub consumers when transport scales out
+transport:
+  type: inprocess
+controller:
+  maxConcurrentReconciles:
+    hub: 4
+featureGates:
+  inventoryHttp:
+    enabled: false   # hub portal read uses merged Postgres/Kafka later
+```
+
+Hub merge runs via `internal/hub/` library + ingest HTTP (`POST /hub/v1alpha1/reports`). Register
+spokes with namespaced **`KollectRemoteCluster`** objects ([ADR-0028](../../docs/adr/0028-hub-cluster-auth-istio-pattern.md)).
+Merged inventory lands in **hub Postgres/Kafka** — not Git clones per spoke.
+
+| Key | Description | Default |
+| --- | --- | --- |
+| `oauth2Proxy.enabled` | Optional OIDC sidecar in front of inventory HTTP | `false` |
+| `webhooks.enabled` | Validating webhook for profiles | `true` |
+| `sinkDefaults.connectionTest` | Default for sample `KollectSink` probes | `false` (prod); CI/dev overlays use `true` |
 
 ### Connection test (`KollectSink`)
 

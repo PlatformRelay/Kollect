@@ -1,4 +1,10 @@
-# Example: Helm release inventory (Flux)
+# Example: Helm release inventory
+
+> **Primary demo GVK (ADR-0032):** `argoproj.io/v1alpha1` **`Application`** (Argo CD). This page
+> documents the **secondary** Flux `HelmRelease` walkthrough until the Argo sample lands. See
+> [ADR-0027](../adr/0027-helm-release-inventory.md) for Argo JSONPath candidates and contract-test TODO.
+
+# Example: Helm release inventory (Flux — secondary)
 
 This walkthrough inventories **chart version**, **app version**, and deployment metadata from Flux
 `HelmRelease` objects. It follows the same four-CRD pipeline as

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (amended 2026-06-05 by [ADR-0032](0032-platform-architecture-pivot.md) — HTTP optional, not core)
 
 ## Context
 
@@ -28,8 +28,8 @@ at scale. Developer portals also need a **read path** without scraping Git — a
 1. **`KollectInventory.status` holds metadata only:** item counts, per-target summaries,
    `metav1.Condition`, `observedGeneration`, `lastExportTime`, and **references** to last export
    (commit SHA, object key, page ID) — never the full payload.
-2. **Collected payload flows directly to sinks** (Git commit, S3 object, etc.) on each reconcile
-   export cycle. In-memory aggregation during reconcile is bounded and not persisted to etcd.
+2. **Collected payload flows to sinks** (Postgres/Kafka primary; Git/S3 for audit/archive) on
+   debounced export cycles. In-memory aggregation during reconcile is bounded and not persisted to etcd.
 3. **Stable ordering** of serialized output (sort keys, deterministic iteration) so Git diffs and
    golden tests are reproducible.
 4. **Bounded lists:** paginate API `List` calls; scope informer caches with namespace/label selectors.
@@ -72,8 +72,8 @@ flowchart LR
 
 - Safe at scale for clusters with thousands of collected objects.
 - Aligns with how mature operators treat status as **observed state summary**, not a database.
-- Git/S3 exports remain the **auditable source of truth** for stakeholders and developer portals.
-- HTTP API enables portal caching without CRD reads.
+- **Postgres/Kafka sinks** are the **system of record** for portals; Git/S3 remain audit/diff paths.
+- Optional HTTP API enables small-install debugging when feature-gated on — not fleet-scale portal read.
 
 ### Negative
 

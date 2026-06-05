@@ -55,42 +55,40 @@ flowchart LR
 One or more **namespaced** `KollectInventory` objects aggregate `KollectTarget`s in their namespace;
 export per reconcile cycle when aggregation rules say so ([REQUIREMENTS.md](../REQUIREMENTS.md)).
 
-### B — Hub-and-spoke collector (CRD-driven hub)
+### B — Hub-and-spoke collector (Helm `mode: hub|spoke`)
 
 ```mermaid
 flowchart TB
   subgraph spokes [Spoke clusters 1..N]
-    A1[spoke operator / agent]
-    A2[spoke operator / agent]
-    AN[spoke operator / agent]
+    A1["spoke operator<br/>mode: spoke"]
+    A2["spoke operator<br/>mode: spoke"]
+    AN["spoke operator<br/>mode: spoke"]
   end
   subgraph hubCluster [Hub cluster]
-    HubCRD["KollectHub CRD"]
-    Dep[operator-managed Deployment]
+    Helm["Helm mode: hub<br/>same image"]
     Q[lean queue]
-    Shard[shard routers]
-    Agg[aggregate + dedupe]
-    HubCRD --> Dep
-    Dep --> Q
-    Q --> Shard
-    Shard --> Agg
-    Agg --> Git[(Git / object store)]
-    Agg --> Portal[HTTP API / portal]
+    Merge["internal/hub/ merge"]
+    DB[(Postgres / Kafka)]
+    Portal[optional hub read API]
+    Helm --> Q
+    Q --> Merge
+    Merge --> DB
+    DB --> Portal
   end
   A1 -->|delta snapshot| Q
   A2 --> Q
   AN --> Q
 ```
 
-- **Spoke** — **lightweight** per-cluster operator (or lean agent): scoped watches, in-memory
-  aggregation, **pushes summarized deltas** on debounced intervals — not raw object streams.
-  Memory and CPU bounded per [ADR-0026](0026-performance-scalability.md).
-- **Hub** — **`KollectHub`** CRD (proposed name) in the hub cluster; reconciler ensures
-  operator-managed **Deployment(s)** with **horizontally scalable** queue consumers.
+- **Spoke** — **lightweight** per-cluster operator: scoped watches, in-memory aggregation,
+  **pushes summarized deltas** on debounced intervals — not raw object streams. Memory and CPU
+  bounded per [ADR-0026](0026-performance-scalability.md).
+- **Hub** — **Helm `mode: hub`** on the **same operator image** (no `KollectHub` CRD —
+  [ADR-0032](0032-platform-architecture-pivot.md)). `internal/hub/` merge library + transport
+  values (`transport.type`, shard count, ingest flags).
 - **Sharding** — queue partitions or consumer groups keyed by `tenant` / `cluster` / hash bucket so
   hub work is **O(rows merged)**, not O(spokes × spokes).
-- Hub is a **first-class CRD**, not only standalone hub software — **same operator image** runs
-  **`mode: spoke|hub`** (manager flag / Helm values); no second binary until proven necessary.
+- Portal read path: **merged Postgres/Kafka at hub** — not spoke HTTP or Git clone per cluster.
 
 ### C — Agent mesh (no Git hub)
 
@@ -184,7 +182,8 @@ Single-cluster users never enable hub/spoke CRs or flags.
 ### Negative
 
 - Cross-cluster auth is hybrid (Istio-style secrets + push TokenReview) — see [ADR-0028](0028-hub-cluster-auth-istio-pattern.md).
-- `KollectHub` API shape not finalized until Phase 2 spike; sharding strategy needs load proof.
+- ~~`KollectHub` CRD~~ **rejected** — existing API stubs may remain in tree but are not the product
+  surface; hub is Helm `mode: hub` only. Sharding strategy needs load proof.
 - Spoke summary format must version cleanly as attribute cardinality grows.
 
 ## Open questions

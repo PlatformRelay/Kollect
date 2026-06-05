@@ -11,7 +11,7 @@
 ### Non-negotiables
 
 - **Namespaced default:** Profile, **Sink**, Target, Inventory, Scope in team namespace.
-- **Cluster variants later:** `KollectClusterProfile`, `KollectClusterSink`, `KollectClusterInventory`, `KollectClusterScope`.
+- **Cluster variants:** `KollectClusterTarget` (platform cross-namespace collection), `KollectClusterProfile`, `KollectClusterSink`, `KollectClusterInventory`, `KollectClusterScope`.
 - **Default install:** per-team Helm — `tenantMode: true`, `watchNamespaces: [team-ns]`.
 - **MVP:** collect → aggregate → export to **Postgres or Kafka** (Git sample OK for tests, not primary narrative).
 - **HTTP inventory:** optional debug (`featureGates.inventoryHttp.enabled: false`); **not** MVP; hub read path uses merged store later.
@@ -65,15 +65,17 @@ flowchart TD
 | --- | --- | --- |
 | `KollectProfile` | Namespace | Same-ns `profileRef` on Target |
 | `KollectSink` | **Namespace** | Same-ns `sinkRefs` on Inventory |
-| `KollectTarget` | Namespace | Dynamic informer per Profile GVK |
-| `KollectInventory` | Namespace | Aggregates targets in namespace |
+| `KollectTarget` | Namespace | Default for `tenantMode`; same-ns `profileRef` |
+| `KollectClusterTarget` | **Cluster** | Platform operator; `namespaceSelector` + `KollectClusterProfile` ref |
+| `KollectInventory` | Namespace | Aggregates namespaced targets in namespace |
 | `KollectScope` | Namespace | Webhook + reconciler enforcement |
 | `KollectConnectionTest` | Namespace | One-shot / CI connectivity probes |
-| `KollectClusterProfile` | Cluster | Reserved — platform-shared schemas |
-| `KollectClusterSink` | Cluster | Reserved — shared export backends |
-| `KollectClusterInventory` | Cluster | Reserved — platform rollup |
+| `KollectClusterTarget` | **Cluster** | Platform cross-namespace collection — `namespaceSelector` + cluster profile ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| `KollectClusterProfile` | Cluster | Platform-shared extraction schemas |
+| `KollectClusterSink` | Cluster | Shared export backends (later) |
+| `KollectClusterInventory` | Cluster | Rollup for cluster targets (later) |
 | `KollectClusterScope` | Cluster | Reserved — platform policy |
-| `KollectHub` | — | **Rejected** — use Helm `mode: hub` |
+| `KollectHub` | — | **Rejected / deprecated stub** — use Helm `mode: hub`; no controller on roadmap |
 | `KollectPublication` | — | **Rejected** — external CI |
 | `KollectReceiver` | — | Reserved — webhook trigger (future) |
 | `KollectTargetSet` | — | Reserved — generator pattern (future) |
@@ -83,15 +85,16 @@ flowchart TD
 
 **Reserved** kinds are **design placeholders**, not promises to ship soon:
 
-| Reserved kind | Intent | Why not now |
+| Kind | Intent | When |
 | --- | --- | --- |
-| `KollectClusterProfile` | One chart/schema for all teams (like `ClusterSecretStore`) | Namespaced profiles cover MVP; platform can copy YAML via GitOps |
+| **`KollectClusterTarget`** | One cluster object collects across namespaces (platform operator) | After namespaced MVP; needs `KollectClusterProfile` + merge/export path |
+| `KollectClusterProfile` | One schema for all teams (like `ClusterSecretStore`) | With cluster target / platform operator |
 | `KollectClusterSink` | Central Postgres/Git for all tenants | Namespaced sinks cover team-owned destinations first |
 | `KollectClusterInventory` | Roll up all namespaces for platform portal | Hub merge + hub DB is the scale path; not single CRD status |
 | `KollectClusterScope` | Cluster-wide policy when namespaced Scope is too weak | Phase 1 namespaced Scope first |
 | `KollectReceiver` | Inbound webhook → trigger export (Flux Receiver) | No webhook trigger requirement yet |
 | `KollectTargetSet` | Generate many Targets (ApplicationSet) | Manual Targets OK for MVP |
-| ~~`KollectHub`~~ | Was: CRD spawns hub Deployment | **Rejected** — Helm mode avoids second lifecycle API |
+| ~~`KollectHub`~~ | Was: CRD spawns hub Deployment | **Rejected / deprecated stub** — Helm `mode: hub` only; remove from roadmap controllers |
 | ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0011](adr/0011-doc-sync-templating.md) |
 
 Do not generate controllers or document samples for reserved kinds unless an ADR promotes them.
@@ -127,7 +130,7 @@ Do not generate controllers or document samples for reserved kinds unless an ADR
 | Spoke HTTP (if enabled) | RAM snapshot | No — debug only |
 | Hub DB | Merged multi-cluster rows | Yes — portal query target |
 
-Never persist full payloads in etcd ([ADR-0006](adr/0026-performance-scalability.md)).
+Never persist full payloads in etcd ([ADR-0006](adr/0006-etcd-limit.md)).
 
 ---
 
