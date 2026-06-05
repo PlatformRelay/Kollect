@@ -97,12 +97,28 @@ Tagged releases (`v*.*.*`) trigger [`.github/workflows/release.yaml`](.github/wo
 multi-arch image to `ghcr.io/konih/kollect`, Trivy scan, cosign signing, SPDX SBOM, Helm chart
 (OCI), and GitHub Release assets (`install.yaml`, `install-crds.yaml`, chart tarball, checksums).
 
+## Test coverage
+
+CI runs `task coverage`, which writes `coverage.out` for `./internal/...` and enforces a
+**45%** floor on statement coverage (`COVERAGE_MIN`, see `hack/coverage.sh`). Integration-tagged
+tests (`-tags=integration`) and e2e packages are excluded from the default profile.
+
+| Task | Purpose |
+| --- | --- |
+| `task coverage` | Unit/envtest + `coverage.out` + floor check |
+| `task coverage:report` | `go tool cover -func` summary |
+| `task coverage:html` | Write `coverage.html` (open in a browser) |
+
+Coverage is published to [Codecov](https://codecov.io/gh/konih/kollect) from the CI `test` job
+(OIDC upload for public repos; optional `CODECOV_TOKEN` secret). Regressions below the floor fail
+CI; raise the floor only when coverage has grown sustainably.
+
 ## Pull request process
 
 1. Fork or branch from `main`.
 2. Run locally:
    - `task lint`
-   - `task test`
+   - `task coverage` (or `task test` for a quick pass without the floor)
    - `task verify`
    - `task scrub` (after staging) and `gitleaks protect --staged --no-banner` before commit
 3. Keep changes focused; update ADRs in `docs/adr/` when making architectural decisions.

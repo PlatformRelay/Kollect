@@ -59,6 +59,12 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
+.PHONY: echo-envtest-k8s-version echo-kubebuilder-assets
+echo-envtest-k8s-version: ## Print ENVTEST_K8S_VERSION (for hack/coverage.sh).
+	@echo $(ENVTEST_K8S_VERSION)
+echo-kubebuilder-assets: envtest ## Print KUBEBUILDER_ASSETS path (for hack/coverage.sh).
+	@"$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path
+
 .PHONY: test
 test: manifests generate fmt vet setup-envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
@@ -221,7 +227,7 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 
 .PHONY: setup-envtest
 setup-envtest: envtest ## Download the binaries required for ENVTEST in the local bin directory.
-	@echo "Setting up envtest binaries for Kubernetes version $(ENVTEST_K8S_VERSION)..."
+	@echo "Setting up envtest binaries for Kubernetes version $(ENVTEST_K8S_VERSION)..." >&2
 	@"$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path || { \
 		echo "Error: Failed to set up envtest binaries for version $(ENVTEST_K8S_VERSION)."; \
 		exit 1; \

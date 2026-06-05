@@ -41,7 +41,10 @@ credentials*.json
 *.test
 *.out
 cover.out
-coverage*
+coverage.out
+coverage-summary.txt
+coverage.html
+!hack/coverage.sh
 __debug_bin*
 testbin/
 *.exe

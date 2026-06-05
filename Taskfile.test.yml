@@ -19,6 +19,34 @@ tasks:
     cmds:
       - make test
 
+  coverage:
+    desc: Unit/envtest with internal/ coverage.out and floor (COVERAGE_MIN, default 45)
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - bash hack/coverage.sh
+
+  coverage:report:
+    desc: Print go tool cover -func summary from coverage.out
+    cmds:
+      - |
+        if [ ! -s coverage.out ]; then
+          echo "coverage.out missing; run task coverage first" >&2
+          exit 1
+        fi
+      - go tool cover -func=coverage.out | tee coverage-summary.txt
+
+  coverage:html:
+    desc: Generate coverage.html from coverage.out (run task coverage first)
+    cmds:
+      - |
+        if [ ! -s coverage.out ]; then
+          echo "coverage.out missing; run task coverage first" >&2
+          exit 1
+        fi
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "wrote coverage.html"
+
   e2e:
     desc: Run end-to-end tests (requires kind cluster; optional in CI)
     env:

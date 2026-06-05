@@ -102,6 +102,21 @@ tasks:
     cmds:
       - task: test:run
 
+  coverage:
+    desc: Run unit tests and export coverage.out (internal/ floor enforced)
+    cmds:
+      - task: test:coverage
+
+  coverage:report:
+    desc: Print coverage func summary from coverage.out
+    cmds:
+      - task: test:coverage:report
+
+  coverage:html:
+    desc: Generate coverage.html from coverage.out
+    cmds:
+      - task: test:coverage:html
+
   bench:
     desc: Run Go micro-benchmarks (-short, -benchmem)
     cmds:
