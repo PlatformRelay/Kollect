@@ -72,7 +72,7 @@ demo_confirm() {
   if [[ "${DEMO_AUTO_YES:-}" == "1" ]]; then
     return 0
   fi
-  if command -v gum >/dev/null 2>&1; then
+  if command -v gum >/dev/null 2>&1 && [[ -t 0 && -t 1 ]]; then
     gum confirm "${prompt}" --default=true
   else
     read -r -p "${prompt} [Y/n] " ans
@@ -118,4 +118,9 @@ demo_outcome() {
   else
     echo "[outcome] $*"
   fi
+}
+
+demo_fail() {
+  demo_outcome "$*"
+  exit 1
 }

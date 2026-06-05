@@ -5,8 +5,9 @@
 # Prerequisite checker for the wide-scope demo (--check / task demo-check).
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEMO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# Private dir var — sourcing must not clobber the caller's SCRIPT_DIR.
+_CHECK_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEMO_DIR="$(cd "${_CHECK_LIB_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${DEMO_DIR}/../../.." && pwd)"
 
 readonly MIN_KIND_VERSION="0.20.0"

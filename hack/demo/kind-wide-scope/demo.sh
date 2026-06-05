@@ -103,7 +103,7 @@ _choose_persona() {
     export DEMO_PERSONA
     return 0
   fi
-  if command -v gum >/dev/null 2>&1; then
+  if command -v gum >/dev/null 2>&1 && [[ -t 0 && -t 1 ]]; then
     DEMO_PERSONA="$(gum choose --header "Demo persona" \
       "full — 8 GVK showcase + Git export" \
       "security — CVE/TLS/secrets headline, lighter fleet" \
@@ -145,7 +145,9 @@ demo_confirm "Ready to bootstrap the Kollect wide-scope demo on kind?" || exit 0
 
 demo_step 1 "Prerequisites"
 # shellcheck source=lib/check.sh
-source "${SCRIPT_DIR}/lib/check.sh"
+if ! source "${SCRIPT_DIR}/lib/check.sh"; then
+  demo_fail "Prerequisite check failed — fix items above and re-run."
+fi
 
 if demo_persona_git_enabled; then
   if [[ -z "${GITHUB_TOKEN:-}" ]]; then
@@ -184,12 +186,18 @@ _kind_bootstrap() {
     fi
     demo_info "Cluster missing or unhealthy — running full bootstrap."
   fi
-  demo_spin "Starting kind cluster (KOLLECT_DEV_MINIMAL=1, demo-values UI)..." \
-    bash -c "cd '${REPO_ROOT}' && DEV_VALUES='${DEMO_HELM_VALUES}' KOLLECT_DEV_MINIMAL=1 task kind-dev-up"
+  if ! demo_spin "Starting kind cluster (KOLLECT_DEV_MINIMAL=1, demo-values UI)..." \
+    bash -c "cd '${REPO_ROOT}' && DEV_VALUES='${DEMO_HELM_VALUES}' KOLLECT_DEV_MINIMAL=1 task kind-dev-up"; then
+    return 1
+  fi
 }
 
-_kind_bootstrap
-"${KUBECTL}" config use-context "kind-${CLUSTER_NAME}"
+if ! _kind_bootstrap; then
+  demo_fail "kind bootstrap failed — task kind-dev-up exited non-zero. Check Docker, controller build, and port conflicts above."
+fi
+if ! "${KUBECTL}" config use-context "kind-${CLUSTER_NAME}"; then
+  demo_fail "kubectl could not switch to context kind-${CLUSTER_NAME}."
+fi
 
 if [[ "${SKIP_PLATFORM}" -eq 0 ]]; then
   demo_step 3 "Upstream CRDs — security, TLS, secrets"
@@ -213,8 +221,10 @@ fi
 demo_step 5 "Kollect configuration + demo fleet"
 demo_info "Apply overlay **${DEMO_PERSONA}**: Scope → Profiles → Targets → Sink → Inventory → workloads."
 
-demo_spin "kubectl apply -k ${overlay_rel}..." \
-  bash -c "cd '${REPO_ROOT}' && ${KUBECTL} apply -k '${overlay_path}'"
+if ! demo_spin "kubectl apply -k ${overlay_rel}..." \
+  bash -c "cd '${REPO_ROOT}' && ${KUBECTL} apply -k '${overlay_path}'"; then
+  demo_fail "kubectl apply -k '${overlay_path}' failed — check overlay path and cluster connectivity."
+fi
 
 demo_step 6 "Wait for export pipeline"
 if demo_persona_git_enabled; then
