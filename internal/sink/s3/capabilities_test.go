@@ -22,7 +22,11 @@ func TestBackendCapabilities(t *testing.T) {
 		t.Fatal("s3 snapshot store must not use relational delete reconciliation")
 	}
 
-	if caps != cap.SnapshotStore() {
+	if !caps.ObjectStore {
+		t.Fatal("s3 sink must be an object-store spill target")
+	}
+
+	if caps != cap.ObjectStoreSnapshot() {
 		t.Fatalf("capabilities = %+v", caps)
 	}
 }
