@@ -160,9 +160,34 @@ kollect_wait_crds_established() {
     kollectinventories.kollect.dev \
     kollectsinks.kollect.dev \
     kollecthubs.kollect.dev \
-    kollectscopes.kollect.dev; do
+    kollectscopes.kollect.dev \
+    kollectclusterprofiles.kollect.dev \
+    kollectclustertargets.kollect.dev \
+    kollectclusterinventories.kollect.dev; do
     kubectl wait --for=condition=Established "crd/${crd}" --timeout="$timeout"
   done
+}
+
+kollect_wait_kube_system_ready() {
+  local timeout="${1:-120s}"
+  _kind_log "Waiting for kube-system pods Ready (timeout ${timeout})..."
+  kubectl wait --for=condition=Ready pods --all -n kube-system --timeout="$timeout"
+}
+
+kollect_wait_controllers_started() {
+  local timeout="${1:-180s}"
+  _kind_log "Waiting for manager controllers to start (timeout ${timeout})..."
+  local deadline=$((SECONDS + ${timeout%s}))
+  while (( SECONDS < deadline )); do
+    if kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=400 2>/dev/null \
+      | grep -q 'Starting Controller.*kollecttarget'; then
+      _kind_log "Manager controllers started."
+      return 0
+    fi
+    sleep 5
+  done
+  kollect_diagnose_install_failure
+  return 1
 }
 
 kollect_wait_manager_ready() {
@@ -180,9 +205,11 @@ kollect_install_base() {
 
   kollect_build_image
   kollect_load_image "$cluster"
+  kollect_wait_kube_system_ready
   kollect_helm_install "$values_file" "$@"
   kollect_wait_crds_established
   kollect_wait_manager_ready
+  kollect_wait_controllers_started
 }
 
 # --- CLI entrypoints (when executed, not sourced) ---

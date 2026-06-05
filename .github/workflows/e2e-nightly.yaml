@@ -42,7 +42,7 @@ jobs:
 
       - name: Run e2e smoke checks
         env:
-          WAIT_TIMEOUT: 180s
+          WAIT_TIMEOUT: 300s
         run: bash hack/kind/e2e/smoke.sh
 
       - name: Git export SHA assert

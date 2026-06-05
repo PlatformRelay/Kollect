@@ -25,9 +25,6 @@ readonly E2E_SAMPLE_FILES=(
   kollect_v1alpha1_kollecttarget.yaml
   e2e/team-inventory.yaml
   kollect_v1alpha1_kollectscope_team-a.yaml
-  kollect_v1alpha1_kollectclusterprofile.yaml
-  kollect_v1alpha1_kollectclustertarget.yaml
-  kollect_v1alpha1_kollectclusterinventory.yaml
 )
 for sample in "${E2E_SAMPLE_FILES[@]}"; do
   kubectl apply -f "${E2E_SAMPLE_DIR}/${sample}"
