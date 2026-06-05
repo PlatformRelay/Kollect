@@ -94,7 +94,7 @@ anchor on an older commit.
 
 ### Features
 
-- **controller:** Wire cluster inventory export to aggregate dedupe
+- **controller:** Wire cluster inventory export to aggregate dedupe [e5ac7b5](https://github.com/konih/kollect/commit/e5ac7b5361e2369cae51f06519a14c047273531f)
 
 - **aggregate:** Add cross-target dedupe spike stub [2327b8b](https://github.com/konih/kollect/commit/2327b8bb4e36f0a5a9334e383ce1c9a43333bb7e)
 
