@@ -140,6 +140,54 @@ the 70% Codecov target when coverage has grown sustainably.
 See [GUIDELINES.md](GUIDELINES.md) for error handling, robustness, security, and testing
 expectations.
 
+## Documentation
+
+User-facing docs live under `docs/` and publish via MkDocs Material ([ADR-0701](docs/adr/0701-mkdocs-github-pages.md)).
+When you change behavior or add features, update the matching pages and `mkdocs.yml` nav.
+
+### Admonitions
+
+Use MkDocs Material admonitions (`!!! type "Title"`) on procedural pages (Getting Started, Operator
+Manual, examples):
+
+| Type | Use for |
+| --- | --- |
+| `tip` | Shortcuts, optional paths, assumptions at page top |
+| `note` | Context, why a flag exists, version caveats |
+| `warning` | Data loss, security, pre-beta API, destructive steps |
+| `info` | Maturity, scope, links to ADR decisions |
+
+**Placement:** one `tip` or `note` at the top of Getting Started / Operator Manual pages (link to
+[Understand the basics](docs/UNDERSTAND-THE-BASICS.md)); `warning` before mutating shell blocks when
+security-sensitive; `note` after complex YAML pointing to CR field reference. Pre-beta features get
+`warning` with a [ROADMAP](docs/ROADMAP.md) link. Aim for 2–4 admonitions per page unless
+troubleshooting tables need more.
+
+**Tabs** (optional, for install variants):
+
+```markdown
+=== "Helm"
+    ```sh
+    helm install kollect charts/kollect ...
+    ```
+
+=== "kind"
+    ```sh
+    task kind-dev-up
+    ```
+```
+
+### Doc PR checklist
+
+- New feature → update [ROADMAP](docs/ROADMAP.md) status
+- New CR field → `docs/crds/*.md` and [CR-REFERENCE](docs/CR-REFERENCE.md)
+- New label/annotation → [ANNOTATIONS-LABELS](docs/ANNOTATIONS-LABELS.md) and relevant CR page
+- Add or move pages in `mkdocs.yml` nav
+- At least one admonition on new procedural pages
+- Run `task lint:markdown` and `mkdocs build` before opening a PR
+
+Glossary CRD section: regenerate with `python3 hack/gen-glossary.py` after schema description changes.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the project MIT
