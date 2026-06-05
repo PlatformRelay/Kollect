@@ -16,11 +16,19 @@ type Capabilities struct {
 	// (Postgres diff-and-delete). Snapshot stores replace whole files and
 	// implicit deletes do not require this flag.
 	SupportsDelete bool
+	// ObjectStore is true for S3/GCS backends that accept mandatory spill exports
+	// above the 1 MiB inline threshold (ADR-0103, Q2).
+	ObjectStore bool
 }
 
-// SnapshotStore is the default for Git, S3, GCS, and similar backends.
+// SnapshotStore is the default for Git and similar whole-file snapshot backends.
 func SnapshotStore() Capabilities {
 	return Capabilities{Stream: false, SupportsDelete: false}
+}
+
+// ObjectStoreSnapshot is the default for S3/GCS spill-capable snapshot backends.
+func ObjectStoreSnapshot() Capabilities {
+	return Capabilities{Stream: false, SupportsDelete: false, ObjectStore: true}
 }
 
 // StreamEmitter is the default for Kafka and NATS event sinks.

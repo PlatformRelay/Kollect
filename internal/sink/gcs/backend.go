@@ -44,9 +44,9 @@ func (b *Backend) Type() string {
 	return typeName
 }
 
-// Capabilities reports whole-snapshot export (ADR-0401).
+// Capabilities reports object-store snapshot export (ADR-0401, ADR-0103).
 func (b *Backend) Capabilities() cap.Capabilities {
-	return cap.SnapshotStore()
+	return cap.ObjectStoreSnapshot()
 }
 
 // Export uploads payload at objectPath.

@@ -9,13 +9,33 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-func TestObjectPath(t *testing.T) {
+func TestObjectPath_defaultTemplate(t *testing.T) {
 	t.Parallel()
 
-	jsonPath := ObjectPath(kollectdevv1alpha1.KollectSinkSpec{Type: "s3"}, "team-a", "deployments", 7)
-	if jsonPath != "inventory/team-a/deployments.json" {
-		t.Fatalf("json path = %q", jsonPath)
+	got := ObjectPath(kollectdevv1alpha1.KollectSinkSpec{Type: "s3"}, "team-a", "deployments", 7)
+	want := "inventory/team-a/deployments.json"
+	if got != want {
+		t.Fatalf("path = %q, want %q", got, want)
 	}
+}
+
+func TestObjectPath_customTemplate(t *testing.T) {
+	t.Parallel()
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type:         "s3",
+		Cluster:      "prod-west",
+		PathTemplate: "{cluster}/{namespace}/{name}{extension}",
+	}
+	got := ObjectPath(spec, "team-a", "deployments", 7)
+	want := "prod-west/team-a/deployments.json"
+	if got != want {
+		t.Fatalf("path = %q, want %q", got, want)
+	}
+}
+
+func TestObjectPath_parquetLayout(t *testing.T) {
+	t.Parallel()
 
 	parquetPath := ObjectPath(kollectdevv1alpha1.KollectSinkSpec{
 		Type:    "s3",
@@ -30,12 +50,61 @@ func TestObjectPath(t *testing.T) {
 	}
 }
 
+func TestRenderPathTemplate_generation(t *testing.T) {
+	t.Parallel()
+
+	got := RenderPathTemplate("snapshots/{namespace}/{name}-{generation}{extension}", PathVars{
+		Namespace:  "team-a",
+		Name:       "deployments",
+		Generation: 42,
+		Extension:  ".json",
+	})
+	want := "snapshots/team-a/deployments-42.json"
+	if got != want {
+		t.Fatalf("path = %q, want %q", got, want)
+	}
+}
+
+func TestValidatePathTemplate(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		tpl     string
+		wantErr bool
+	}{
+		{name: "empty ok", tpl: ""},
+		{name: "default ok", tpl: DefaultPathTemplate},
+		{name: "custom ok", tpl: "{cluster}/{namespace}/{name}.json"},
+		{name: "missing namespace", tpl: "{cluster}/{name}.json", wantErr: true},
+		{name: "absolute", tpl: "/inventory/{namespace}/{name}.json", wantErr: true},
+		{name: "traversal", tpl: "inventory/../{namespace}/{name}.json", wantErr: true},
+		{name: "unknown placeholder", tpl: "{namespace}/{name}/{foo}.json", wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidatePathTemplate(tc.tpl)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("ValidatePathTemplate(%q) = %v, wantErr %v", tc.tpl, err, tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestInventoryFromObjectPath(t *testing.T) {
 	t.Parallel()
 
 	ns, name := InventoryFromObjectPath("inventory/team-a/deployments.json")
 	if ns != "team-a" || name != "deployments" {
 		t.Fatalf("got (%q, %q)", ns, name)
+	}
+
+	ns, name = InventoryFromObjectPath("prod-west/team-a/deployments.json")
+	if ns != "team-a" || name != "deployments" {
+		t.Fatalf("custom layout got (%q, %q)", ns, name)
 	}
 
 	ns, name = InventoryFromObjectPath("inventory/cluster=prod/ns=team-a/name=deployments/generation=3.parquet")

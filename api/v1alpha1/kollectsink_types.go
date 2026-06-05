@@ -46,6 +46,12 @@ type KollectSinkSpec struct {
 	// +optional
 	Cluster string `json:"cluster,omitempty"`
 
+	// pathTemplate selects the Git/object-store export path layout (ADR-0407).
+	// Placeholders: {cluster}, {namespace}, {name}, {generation}, {extension}.
+	// Default: inventory/{namespace}/{name}.json
+	// +optional
+	PathTemplate string `json:"pathTemplate,omitempty"`
+
 	// postgres configures a PostgreSQL database sink.
 	// +optional
 	Postgres *PostgresSpec `json:"postgres,omitempty"`
