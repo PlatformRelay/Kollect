@@ -7,6 +7,9 @@ featureGates:
 webhooks:
   enabled: false
 
+leaderElection:
+  enabled: false
+
 pprof:
   enabled: true
   bindAddress: ":6060"

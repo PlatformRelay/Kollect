@@ -57,8 +57,12 @@ spec:
 EOF
 
 _log "Waiting for KollectTarget Ready..."
-kubectl wait --for=condition=Ready kollecttarget/nginx-deployments \
-  -n default --timeout="$WAIT_TIMEOUT"
+if ! kubectl wait --for=condition=Ready kollecttarget/nginx-deployments \
+  -n default --timeout="$WAIT_TIMEOUT"; then
+  kubectl describe kollecttarget nginx-deployments -n default
+  kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=80 || true
+  exit 1
+fi
 
 _log "Waiting for KollectInventory reconciled..."
 for i in $(seq 1 24); do

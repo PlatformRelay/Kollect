@@ -7,6 +7,9 @@ featureGates:
 webhooks:
   enabled: false
 
+leaderElection:
+  enabled: false
+
 # Empty = watch all namespaces; multi-tenant isolation is proven via dynamic tenant NS + inventory rollup.
 watchNamespaces: []
 
