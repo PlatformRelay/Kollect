@@ -29,8 +29,9 @@ at scale. Developer portals also need a **read path** without scraping Git — a
 1. **`KollectInventory.status` holds metadata only:** item counts, per-target summaries,
    `metav1.Condition`, `observedGeneration`, `lastExportTime`, and **references** to last export
    (commit SHA, object key, page ID) — never the full payload.
-2. **Collected payload flows to sinks** (Postgres/Kafka primary; Git/S3 for audit/archive) on
-   debounced export cycles. In-memory aggregation during reconcile is bounded and not persisted to etcd.
+2. **Collected payload flows to role-based sinks** (state stores: Postgres, Git/S3 snapshot+audit;
+   event emitters: NATS/Kafka — [ADR-0401](0401-sink-taxonomy-state-vs-stream.md)) on debounced export
+   cycles. In-memory aggregation during reconcile is bounded and not persisted to etcd.
 3. **Stable ordering** of serialized output (sort keys, deterministic iteration) so Git diffs and
    golden tests are reproducible.
 4. **Bounded lists:** paginate API `List` calls; scope informer caches with namespace/label selectors.

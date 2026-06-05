@@ -1,12 +1,15 @@
 # kollect roadmap
 
 Phased delivery plan for [kollect](https://github.com/konih/kollect) — a Kubernetes inventory
-operator that watches arbitrary GVKs, aggregates extracted attributes, and exports to pluggable
-sinks (**Postgres/Kafka primary**; Git audit) with optional HTTP for debug.
+operator that watches arbitrary GVKs, aggregates extracted attributes, and exports to **role-based
+pluggable sinks** — state stores (Git / object store, Postgres) and event emitters (NATS default,
+Kafka opt-in) — with optional HTTP for debug. The in-memory snapshot is canonical; every sink is a
+projection ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 
 **Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), [ADR-0703](adr/0703-platform-architecture-pivot.md).
 
-**Last updated:** 2026-06-05 (session 18 — Phase 4 controller wire, aggregate export path)
+**Last updated:** 2026-06-05 (sink taxonomy locked — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md);
+ADR corpus renumbered into thematic ranges + 8 gap-fill ADRs)
 
 ## Status legend
 
@@ -37,7 +40,7 @@ flowchart LR
 | Phase | Focus | Summary |
 | --- | --- | --- |
 | **0** | Bootstrap | Scaffold, guidelines, ADRs, Helm, CI, webhooks, metrics, docs |
-| **1** | Collection + Sink | MVP: namespaced CRDs, export to Postgres/Kafka; optional HTTP |
+| **1** | Collection + Sink | MVP: namespaced CRDs, export to role-based sinks (state store / event emitter); optional HTTP |
 | **2** | Multi-cluster | Helm `mode: hub\|spoke`, merge lib, pluggable queue (no hub CRD) |
 | **3** | Governance | `KollectScope`, cluster inventory APIs, S3/GCS hardening |
 | **4** | Metrics + aggregation | kube-state-metrics-style config, richer rollups |
@@ -62,7 +65,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Core documentation + MkDocs (GitHub Pages) | ✅ |
 | CR reference guide (`docs/crds/`, failure modes) | ✅ |
 | Data flows (`DATA-FLOWS.md`) | ✅ |
-| Architecture Decision Records (core set) | 🚧 |
+| Architecture Decision Records (32, thematic `0Txx` ranges) | ✅ |
 | ADR-0603 performance & scalability | ✅ |
 | `GUIDELINES.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
 | Validating webhook — Profile CEL/JSONPath | ✅ |
@@ -76,7 +79,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Release pipeline (SBOM, signing) | 🚧 local dry-run PASS; GH `workflow_dispatch` untested |
 | Public demo Git inventory repo | ✅ |
 
-**Counts:** ✅ 19 · 🚧 2 · ⬜ 2
+**Counts:** ✅ 20 · 🚧 1 · ⬜ 2
 
 ---
 
@@ -372,7 +375,7 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | **`KollectScope` Phase 1** — webhook + reconciler enforcement | Accepted ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
 | **No `KollectHub` CRD** — Helm `mode: hub\|spoke` | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | **Namespaced `KollectSink`**; `KollectClusterSink` reserved | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
-| **Postgres/Kafka primary**; Git audit; HTTP debug optional | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| **Role-based sinks** — state stores (Git/object store, Postgres) vs event emitters (NATS default, Kafka opt-in); no single "primary"; HTTP debug optional | Accepted ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
 | **`KollectConnectionTest` CR** + **`spec.ttlSecondsAfterFinished`** default **300s** | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | **`spec.exportMinInterval`** default **30s** (not global debounce flag) | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | HTTP **`GET /v1alpha1/inventory`** + **`openapi/v1alpha1/inventory.yaml`** when enabled | Accepted ([ADR-0103](adr/0103-etcd-limit.md), [ADR-0404](adr/0404-inventory-api-auth.md)) |
@@ -391,7 +394,7 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | Generic CRD sample: **`cert-manager.io/Certificate`** + contract test | Accepted |
 | Default install: **`tenantMode: true`** per-team | Accepted ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
 | Shared informer per GVK | Accepted ([ADR-0301](adr/0301-event-driven-informers.md)) |
-| Postgres + Kafka as first-class export sinks | Accepted ([ADR-0402](adr/0402-sink-backends-database-kafka.md)) |
+| Postgres (relational SoR) + Kafka (event emitter) as first-class sinks; in-memory snapshot canonical, sinks are projections | Accepted ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0402](adr/0402-sink-backends-database-kafka.md)) |
 | Doc-sync / `KollectPublication` | Rejected ([ADR-0702](adr/0702-doc-sync-templating.md)) |
 | Inventory HTTP auth: **K8s TokenReview + SAR**; `--inventory-auth-mode=kubernetes` default | Accepted |
 | oauth2-proxy: **optional** Helm sidecar for OIDC browsers; not primary auth | Accepted |

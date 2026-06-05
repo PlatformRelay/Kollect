@@ -57,7 +57,13 @@ Cluster operator + **`KollectClusterTarget`** supported for platform-wide collec
 
 ### 3. Sink narrative — Postgres/Kafka primary; Git audit
 
-- **Primary integration** for portals and automation: **Postgres** and/or **Kafka** export.
+> **Reframed by [ADR-0401](0401-sink-taxonomy-state-vs-stream.md) (2026-06-05):** there is no single
+> "primary" sink. Sinks are **role-based** — state stores (Git/object store, Postgres) vs event
+> emitters (NATS default, Kafka opt-in); the in-memory snapshot is canonical and every sink is a
+> projection. The historical framing below is retained for the decision log.
+
+- **Primary integration** (as decided at pivot time) for portals and automation: **Postgres** and/or
+  **Kafka** export.
 - **Git** is an **audit/diff** sink and CI fixture — not the documented happy path for live query
   at hub scale across many clusters.
 - Hub-scale read path: **merged store in Postgres/Kafka at hub**, not Git clones per spoke.
