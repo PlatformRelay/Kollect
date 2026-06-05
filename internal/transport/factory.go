@@ -13,6 +13,7 @@ type Type string
 
 const (
 	TypeInProcess Type = "inprocess"
+	TypeHTTP      Type = "http"
 	TypeRedis     Type = "redis"
 	TypeNATS      Type = "nats"
 	TypeKafka     Type = "kafka"
@@ -21,10 +22,17 @@ const (
 // Config holds factory parameters for a transport backend.
 type Config struct {
 	Type   Type
+	HTTP   HTTPConfig
 	Redis  RedisConfig
 	Kafka  KafkaConfig
+	NATS   NATSConfig
 	Stream string
 	Group  string
+}
+
+// HTTPConfig configures spoke → hub HTTP push ingest (ADR-0028).
+type HTTPConfig struct {
+	URL string
 }
 
 // RedisConfig configures a Redis Streams transport.
@@ -42,7 +50,7 @@ func NewTransport(cfg Config) (Publisher, Subscriber, error) {
 	case TypeRedis:
 		return newRedisTransport(cfg)
 	case TypeNATS:
-		return nil, nil, fmt.Errorf("transport %q is not implemented yet", cfg.Type)
+		return newNATSTransport(cfg)
 	case TypeKafka:
 		return newKafkaTransport(cfg)
 	default:

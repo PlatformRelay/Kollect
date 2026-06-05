@@ -20,12 +20,12 @@ func TestNewTransportInProcess(t *testing.T) {
 	}
 }
 
-func TestNewTransportNATSStub(t *testing.T) {
+func TestNewTransportNATSMissingURL(t *testing.T) {
 	t.Parallel()
 
 	_, _, err := NewTransport(Config{Type: TypeNATS})
 	if err == nil {
-		t.Fatal("expected error for NATS stub")
+		t.Fatal("expected error for NATS without url")
 	}
 }
 
