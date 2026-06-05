@@ -21,7 +21,7 @@ It does **not** cover downstream deployments, fork-specific policies, or private
 | Role | Who | Responsibilities |
 | --- | --- | --- |
 | **Maintainer** | [Konrad Heimel](https://github.com/konih) | Final merge authority, releases, security response, ADR approval, CI and branch policy |
-| **Contributor** | Anyone opening a PR or issue | Follow [CONTRIBUTING.md](CONTRIBUTING.md), [DCO](DCO), and this Code of Conduct; propose changes via pull request |
+| **Contributor** | Anyone opening a PR or issue | Follow [CONTRIBUTING.md](CONTRIBUTING.md), [DCO](CONTRIBUTING.md#developer-certificate-of-origin-dco), and this Code of Conduct; propose changes via pull request |
 | **Security reporter** | External researchers | Report vulnerabilities privately per [SECURITY.md](SECURITY.md) |
 
 The maintainer is the default approver for all pull requests. There is currently **one**

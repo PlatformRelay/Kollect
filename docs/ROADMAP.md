@@ -76,7 +76,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Data flows (`DATA-FLOWS.md`) | ✅ |
 | Architecture Decision Records (44, thematic `0Txx` ranges) | ✅ |
 | ADR-0603 performance & scalability | ✅ |
-| `GUIDELINES.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
+| `docs/development/guidelines.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
 | Validating webhook — Profile CEL/JSONPath | ✅ |
 | Validating webhook — Profile Secret.data guard | ✅ |
 | Validating webhook — Sink type enum | ✅ |

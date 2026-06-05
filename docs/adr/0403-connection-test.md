@@ -10,7 +10,7 @@ mechanisms remain valid.
 ## Context
 
 Product requirements call for a **first-class connection test** with clear, discoverable feedback
-when sinks are misconfigured ([REQUIREMENTS.md](../REQUIREMENTS.md), [GUIDELINES.md](../../GUIDELINES.md)).
+when sinks are misconfigured ([REQUIREMENTS.md](../REQUIREMENTS.md), [engineering guidelines](../development/guidelines.md)).
 
 [ADR-0202](0202-static-vs-reconciled.md) originally assumed static `KollectSink` objects with **no
 controller**, probing via annotations and surfacing `SinkReachable` on reconciled

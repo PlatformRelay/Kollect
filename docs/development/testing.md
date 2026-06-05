@@ -99,13 +99,13 @@ Full local setup: [DEVELOPMENT.md](../DEVELOPMENT.md).
 
 ## Definition of done
 
-Per-change checklist: [GUIDELINES.md § 6](../../GUIDELINES.md#6-definition-of-done-per-change).
+Per-change checklist: [guidelines § 6](guidelines.md#6-definition-of-done-per-change).
 PR workflow: [CONTRIBUTING.md § Pull request process](../../CONTRIBUTING.md#pull-request-process).
 
 ## Further reading
 
 - [ADR-0706: Testing and merge-gate architecture](../adr/0706-testing-merge-gate-architecture.md)
-- [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) §4 (testing rules)
+- [Engineering guidelines](https://github.com/konih/kollect/blob/main/docs/development/guidelines.md) §4 (testing rules)
 - [REQUIREMENTS.md](../REQUIREMENTS.md) — NFR-TEST-* priorities
 - [PERFORMANCE.md](../PERFORMANCE.md) — scale bounds and perf-report workflow
 - [tooling-setup.md](tooling-setup.md) — arch-lint, depguard, SonarCloud maintainer steps

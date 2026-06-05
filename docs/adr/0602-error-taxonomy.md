@@ -22,7 +22,7 @@ bolted on after Phase 4.
 
 ## Decision
 
-Typed error taxonomy (see `GUIDELINES.md`):
+Typed error taxonomy (see [engineering guidelines](../development/guidelines.md)):
 
 | Class | Examples | Reconcile behavior | Status |
 | --- | --- | --- | --- |

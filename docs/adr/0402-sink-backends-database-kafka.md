@@ -38,7 +38,7 @@ Existing types unchanged: `git`, `gitlab`, `s3`, `gcs`.
 ### Data shape
 
 **Default contract:** one JSON document per inventory export cycle (aggregated namespace snapshot),
-stable key ordering ([GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md)).
+stable key ordering ([engineering guidelines](https://github.com/konih/kollect/blob/main/docs/development/guidelines.md)).
 
 | Backend | Mode | Notes |
 | --- | --- | --- |

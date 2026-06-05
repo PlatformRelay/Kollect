@@ -1,14 +1,14 @@
 # ADR-0706: Testing and merge-gate architecture
 
 > The test pyramid, CI merge gates, opt-in tiers (integration, load, e2e), and how quality gates map to
-> `task` targets and GitHub Actions — lifted from [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) into a durable
+> `task` targets and GitHub Actions — lifted from [engineering guidelines](https://github.com/konih/kollect/blob/main/docs/development/guidelines.md) into a durable
 > ADR.
 
 **Theme:** 07 · Project & meta · **Status:** Current
 
 ## Context
 
-Kollect is **TDD-first** with binding rules in [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) §4 and
+Kollect is **TDD-first** with binding rules in [engineering guidelines](https://github.com/konih/kollect/blob/main/docs/development/guidelines.md) §4 and
 [NFR-TEST-* in REQUIREMENTS.md](../REQUIREMENTS.md). CI (`.github/workflows/ci.yaml`) enforces a
 subset on every PR; heavier tiers run nightly or on demand. The split — what **blocks merge** vs what
 **signals risk** — was implicit in Taskfiles and workflows but not recorded, which made it hard to add
@@ -106,7 +106,7 @@ ratchet is **~80%** — merge gate stays at **65%** until then. **Codecov** targ
 
 ### Definition of done (per change)
 
-From [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) §6, enforced by review:
+From [engineering guidelines](https://github.com/konih/kollect/blob/main/docs/development/guidelines.md) §6, enforced by review:
 
 - Relevant tests green at the appropriate tier; lint clean; **`task verify` no drift**.
 - New external I/O: timeouts + backoff; no secrets in logs; status conditions updated.
