@@ -11,7 +11,8 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/sink/gcs"
 	"github.com/konih/kollect/internal/sink/git"
-	"github.com/konih/kollect/internal/sink/prometheus"
+	kafkasink "github.com/konih/kollect/internal/sink/kafka"
+	"github.com/konih/kollect/internal/sink/postgres"
 	"github.com/konih/kollect/internal/sink/s3"
 )
 
@@ -19,12 +20,6 @@ import (
 type Backend interface {
 	Type() string
 	Export(ctx context.Context, payload []byte, path string) error
-}
-
-// BuildContext carries resolved material for backend construction.
-type BuildContext struct {
-	CAPEM      []byte
-	SecretData map[string][]byte
 }
 
 // Factory constructs a Backend from a KollectSink spec.
@@ -42,7 +37,8 @@ func NewRegistry() *Registry {
 	r.Register("git", newGitBackend)
 	r.Register("s3", newS3Backend)
 	r.Register("gcs", newGCSBackend)
-	r.Register("prometheus", newPrometheusBackend)
+	r.Register("postgres", newPostgresBackend)
+	r.Register("kafka", newKafkaBackend)
 
 	return r
 }
@@ -105,6 +101,10 @@ func newGCSBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (B
 	return gcs.NewBackend(spec, ctx.SecretData)
 }
 
-func newPrometheusBackend(spec kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
-	return prometheus.NewBackend(spec)
+func newPostgresBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
+	return postgres.NewBackend(spec, ctx.DatabaseSecretData)
+}
+
+func newKafkaBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
+	return kafkasink.NewBackend(spec, ctx.SecretData)
 }

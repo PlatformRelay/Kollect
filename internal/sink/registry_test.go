@@ -44,6 +44,35 @@ func TestRegistry_NewBackend(t *testing.T) {
 		t.Fatalf("Type() = %q, want s3", s3Backend.Type())
 	}
 
+	if _, pgErr := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: "postgres",
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+			Table:       "items",
+		},
+	}, BuildContext{
+		DatabaseSecretData: map[string][]byte{
+			"dsn": []byte("postgres://127.0.0.1:1/inventory?sslmode=disable&connect_timeout=1"),
+		},
+	}); pgErr == nil {
+		t.Fatal("NewBackend(postgres) expected connection error without running postgres")
+	}
+
+	kafkaBackend, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: "kafka",
+		Kafka: &kollectdevv1alpha1.KafkaSpec{
+			Brokers: []string{"localhost:9092"},
+			Topic:   "inventory",
+		},
+	}, BuildContext{})
+	if err != nil {
+		t.Fatalf("NewBackend(kafka) error = %v", err)
+	}
+
+	if kafkaBackend.Type() != "kafka" {
+		t.Fatalf("Type() = %q, want kafka", kafkaBackend.Type())
+	}
+
 	if _, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "unknown"}, BuildContext{}); err == nil {
 		t.Fatal("NewBackend(unknown) expected error")
 	}

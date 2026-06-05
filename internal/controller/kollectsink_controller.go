@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +18,10 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/metrics"
+	"github.com/konih/kollect/internal/sink"
 	"github.com/konih/kollect/internal/sink/git"
+	kafkasink "github.com/konih/kollect/internal/sink/kafka"
+	"github.com/konih/kollect/internal/sink/postgres"
 )
 
 // KollectSinkReconciler runs connection tests and updates sink status.
@@ -33,40 +37,65 @@ type KollectSinkReconciler struct {
 func (r *KollectSinkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
-	var sink kollectdevv1alpha1.KollectSink
-	if err := r.Get(ctx, req.NamespacedName, &sink); err != nil {
+	var sinkObj kollectdevv1alpha1.KollectSink
+	if err := r.Get(ctx, req.NamespacedName, &sinkObj); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if !shouldTestConnection(&sink) {
+	if !shouldTestConnection(&sinkObj) {
 		return ctrl.Result{}, nil
 	}
 
-	if sink.Spec.Type != "git" {
-		log.Info("connection test skipped for non-git sink", "type", sink.Spec.Type)
-
-		return ctrl.Result{}, nil
-	}
-
-	caPEM, err := resolveCAPEM(ctx, r.Client, sink.Spec.TLS)
+	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, sinkObj.Spec, sink.DefaultSecretNamespace)
 	if err != nil {
-		return r.setConnectionFailed(ctx, &sink, "CAResolveFailed", err.Error())
+		return r.setConnectionFailed(ctx, &sinkObj, "SecretResolveFailed", err.Error())
 	}
 
-	cfg, err := git.ConfigFromSpec(sink.Spec, caPEM)
-	if err != nil {
-		return r.setConnectionFailed(ctx, &sink, "InvalidSinkConfig", err.Error())
+	okMessage, testErr := r.runConnectionTest(ctx, sinkObj.Spec, buildCtx)
+	if testErr != nil {
+		log.Error(testErr, "connection test failed", "type", sinkObj.Spec.Type)
+		metrics.SinkConnectionTestTotal.WithLabelValues(sinkObj.Spec.Type, metrics.ResultFailure).Inc()
+
+		return r.setConnectionFailed(ctx, &sinkObj, "ConnectionTestFailed", testErr.Error())
 	}
 
-	if err := git.TestConnection(ctx, cfg); err != nil {
-		metrics.SinkConnectionTestTotal.WithLabelValues(sink.Spec.Type, metrics.ResultFailure).Inc()
+	metrics.SinkConnectionTestTotal.WithLabelValues(sinkObj.Spec.Type, metrics.ResultSuccess).Inc()
 
-		return r.setConnectionFailed(ctx, &sink, "ConnectionTestFailed", err.Error())
+	return r.setConnectionVerified(ctx, &sinkObj, okMessage)
+}
+
+func (r *KollectSinkReconciler) runConnectionTest(
+	ctx context.Context,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	buildCtx sink.BuildContext,
+) (string, error) {
+	switch spec.Type {
+	case "git":
+		cfg, err := git.ConfigFromSpec(spec, buildCtx.CAPEM)
+		if err != nil {
+			return "", err
+		}
+
+		if err := git.TestConnection(ctx, cfg); err != nil {
+			return "", err
+		}
+
+		return "TLS and git remote reachability verified", nil
+	case "postgres":
+		if err := postgres.TestConnection(ctx, spec, buildCtx.DatabaseSecretData); err != nil {
+			return "", err
+		}
+
+		return "PostgreSQL ping succeeded", nil
+	case "kafka":
+		if err := kafkasink.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
+			return "", err
+		}
+
+		return "Kafka broker metadata request succeeded", nil
+	default:
+		return "", fmt.Errorf("connection test not supported for sink type %q", spec.Type)
 	}
-
-	metrics.SinkConnectionTestTotal.WithLabelValues(sink.Spec.Type, metrics.ResultSuccess).Inc()
-
-	return r.setConnectionVerified(ctx, &sink)
 }
 
 func shouldTestConnection(sink *kollectdevv1alpha1.KollectSink) bool {
@@ -80,20 +109,21 @@ func shouldTestConnection(sink *kollectdevv1alpha1.KollectSink) bool {
 
 func (r *KollectSinkReconciler) setConnectionVerified(
 	ctx context.Context,
-	sink *kollectdevv1alpha1.KollectSink,
+	sinkObj *kollectdevv1alpha1.KollectSink,
+	message string,
 ) (ctrl.Result, error) {
-	apimeta.RemoveStatusCondition(&sink.Status.Conditions, conditionDegraded)
-	r.setTLSInsecureCondition(sink)
-	apimeta.SetStatusCondition(&sink.Status.Conditions, metav1.Condition{
+	apimeta.RemoveStatusCondition(&sinkObj.Status.Conditions, conditionDegraded)
+	r.setTLSInsecureCondition(sinkObj)
+	apimeta.SetStatusCondition(&sinkObj.Status.Conditions, metav1.Condition{
 		Type:               kollectdevv1alpha1.ConditionConnectionVerified,
 		Status:             metav1.ConditionTrue,
 		Reason:             "ConnectionOK",
-		Message:            "TLS and git remote reachability verified",
-		ObservedGeneration: sink.Generation,
+		Message:            message,
+		ObservedGeneration: sinkObj.Generation,
 		LastTransitionTime: metav1.Now(),
 	})
 
-	if err := r.Status().Update(ctx, sink); err != nil {
+	if err := r.Status().Update(ctx, sinkObj); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -102,27 +132,27 @@ func (r *KollectSinkReconciler) setConnectionVerified(
 
 func (r *KollectSinkReconciler) setConnectionFailed(
 	ctx context.Context,
-	sink *kollectdevv1alpha1.KollectSink,
+	sinkObj *kollectdevv1alpha1.KollectSink,
 	reason, message string,
 ) (ctrl.Result, error) {
-	apimeta.SetStatusCondition(&sink.Status.Conditions, metav1.Condition{
+	apimeta.SetStatusCondition(&sinkObj.Status.Conditions, metav1.Condition{
 		Type:               kollectdevv1alpha1.ConditionConnectionVerified,
 		Status:             metav1.ConditionFalse,
 		Reason:             reason,
 		Message:            message,
-		ObservedGeneration: sink.Generation,
+		ObservedGeneration: sinkObj.Generation,
 		LastTransitionTime: metav1.Now(),
 	})
-	apimeta.SetStatusCondition(&sink.Status.Conditions, metav1.Condition{
+	apimeta.SetStatusCondition(&sinkObj.Status.Conditions, metav1.Condition{
 		Type:               conditionDegraded,
 		Status:             metav1.ConditionTrue,
 		Reason:             reason,
 		Message:            message,
-		ObservedGeneration: sink.Generation,
+		ObservedGeneration: sinkObj.Generation,
 		LastTransitionTime: metav1.Now(),
 	})
 
-	if err := r.Status().Update(ctx, sink); err != nil {
+	if err := r.Status().Update(ctx, sinkObj); err != nil {
 		if apierrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -133,20 +163,20 @@ func (r *KollectSinkReconciler) setConnectionFailed(
 	return ctrl.Result{}, nil
 }
 
-func (r *KollectSinkReconciler) setTLSInsecureCondition(sink *kollectdevv1alpha1.KollectSink) {
-	insecure := sink.Spec.TLS != nil && sink.Spec.TLS.InsecureSkipVerify
+func (r *KollectSinkReconciler) setTLSInsecureCondition(sinkObj *kollectdevv1alpha1.KollectSink) {
+	insecure := sinkObj.Spec.TLS != nil && sinkObj.Spec.TLS.InsecureSkipVerify
 	if !insecure {
-		apimeta.RemoveStatusCondition(&sink.Status.Conditions, kollectdevv1alpha1.ConditionTLSInsecure)
+		apimeta.RemoveStatusCondition(&sinkObj.Status.Conditions, kollectdevv1alpha1.ConditionTLSInsecure)
 
 		return
 	}
 
-	apimeta.SetStatusCondition(&sink.Status.Conditions, metav1.Condition{
+	apimeta.SetStatusCondition(&sinkObj.Status.Conditions, metav1.Condition{
 		Type:               kollectdevv1alpha1.ConditionTLSInsecure,
 		Status:             metav1.ConditionTrue,
 		Reason:             "InsecureSkipVerify",
 		Message:            "TLS certificate verification is disabled; use only for development",
-		ObservedGeneration: sink.Generation,
+		ObservedGeneration: sinkObj.Generation,
 		LastTransitionTime: metav1.Now(),
 	})
 }
