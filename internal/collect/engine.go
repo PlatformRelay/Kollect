@@ -8,6 +8,7 @@ package collect
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -128,6 +129,28 @@ func (e *Engine) UnregisterTarget(namespace, name string) {
 // ItemCount returns collected items for a target.
 func (e *Engine) ItemCount(namespace, name string) int {
 	return e.store.CountForTarget(namespace, name)
+}
+
+// NamespacesForClusterTarget returns workload namespaces where a cluster target name is registered.
+func (e *Engine) NamespacesForClusterTarget(targetName string) []string {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	var namespaces []string
+	for key, st := range e.targets {
+		if st.target.Name != targetName {
+			continue
+		}
+
+		ns, _, ok := strings.Cut(key, "/")
+		if !ok || ns == "" {
+			continue
+		}
+
+		namespaces = append(namespaces, ns)
+	}
+
+	return namespaces
 }
 
 // HasForbiddenScope reports whether collection was denied for the target namespace/GVK pair.

@@ -61,6 +61,8 @@ rules:
 - apiGroups:
   - kollect.dev
   resources:
+  - kollectclusterinventories
+  - kollectclustertargets
   - kollectconnectiontests
   - kollecthubs
   - kollectinventories
@@ -78,6 +80,19 @@ rules:
 - apiGroups:
   - kollect.dev
   resources:
+  - kollectclusterinventories/finalizers
+  - kollectclustertargets/finalizers
+  - kollecthubs/finalizers
+  - kollectinventories/finalizers
+  - kollectremoteclusters/finalizers
+  - kollecttargets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kollect.dev
+  resources:
+  - kollectclusterinventories/status
+  - kollectclustertargets/status
   - kollectconnectiontests/status
   - kollecthubs/status
   - kollectinventories/status
@@ -91,15 +106,7 @@ rules:
 - apiGroups:
   - kollect.dev
   resources:
-  - kollecthubs/finalizers
-  - kollectinventories/finalizers
-  - kollectremoteclusters/finalizers
-  - kollecttargets/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - kollect.dev
-  resources:
+  - kollectclusterprofiles
   - kollectprofiles
   - kollectscopes
   verbs:

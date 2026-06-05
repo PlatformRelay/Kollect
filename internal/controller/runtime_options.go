@@ -13,10 +13,12 @@ import (
 
 // RuntimeOptions configures controller parallelism, export debounce, and workqueue rate limiting.
 type RuntimeOptions struct {
-	MaxConcurrentTarget    int
-	MaxConcurrentInventory int
-	MaxConcurrentHub       int
-	ExportDebounce         time.Duration
+	MaxConcurrentTarget           int
+	MaxConcurrentInventory        int
+	MaxConcurrentClusterTarget    int
+	MaxConcurrentClusterInventory int
+	MaxConcurrentHub              int
+	ExportDebounce                time.Duration
 	// ReconcileRateLimitBase, when > 0, sets the base delay for the per-item exponential
 	// failure rate limiter on each controller. When zero, controller-runtime defaults apply
 	// (5ms base, 1000s max — see controller-runtime pkg/controller/controller.go).
@@ -26,10 +28,12 @@ type RuntimeOptions struct {
 // DefaultRuntimeOptions returns production-oriented defaults (ADR-0026).
 func DefaultRuntimeOptions() RuntimeOptions {
 	return RuntimeOptions{
-		MaxConcurrentTarget:    5,
-		MaxConcurrentInventory: 3,
-		MaxConcurrentHub:       2,
-		ExportDebounce:         30 * time.Second,
+		MaxConcurrentTarget:           5,
+		MaxConcurrentInventory:        3,
+		MaxConcurrentClusterTarget:    2,
+		MaxConcurrentClusterInventory: 2,
+		MaxConcurrentHub:              2,
+		ExportDebounce:                30 * time.Second,
 	}
 }
 

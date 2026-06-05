@@ -67,6 +67,8 @@ func main() {
 	var maxExportBytes int64
 	var maxConcurrentTarget int
 	var maxConcurrentInventory int
+	var maxConcurrentClusterTarget int
+	var maxConcurrentClusterInventory int
 	var maxConcurrentHub int
 	var exportDebounce time.Duration
 	var reconcileRateLimit time.Duration
@@ -107,6 +109,10 @@ func main() {
 		"Max concurrent KollectTarget reconciles.")
 	flag.IntVar(&maxConcurrentInventory, "max-concurrent-reconciles-inventory", 3,
 		"Max concurrent KollectInventory reconciles.")
+	flag.IntVar(&maxConcurrentClusterTarget, "max-concurrent-reconciles-cluster-target", 2,
+		"Max concurrent KollectClusterTarget reconciles.")
+	flag.IntVar(&maxConcurrentClusterInventory, "max-concurrent-reconciles-cluster-inventory", 2,
+		"Max concurrent KollectClusterInventory reconciles.")
 	flag.IntVar(&maxConcurrentHub, "max-concurrent-reconciles-hub", 2,
 		"Max concurrent KollectHub reconciles.")
 	flag.DurationVar(&exportDebounce, "export-debounce", 30*time.Second,
@@ -268,11 +274,13 @@ func main() {
 	sinkRegistry := sink.NewRegistry()
 
 	ctrlOpts := controller.RuntimeOptions{
-		MaxConcurrentTarget:    maxConcurrentTarget,
-		MaxConcurrentInventory: maxConcurrentInventory,
-		MaxConcurrentHub:       maxConcurrentHub,
-		ExportDebounce:         exportDebounce,
-		ReconcileRateLimitBase: reconcileRateLimit,
+		MaxConcurrentTarget:           maxConcurrentTarget,
+		MaxConcurrentInventory:        maxConcurrentInventory,
+		MaxConcurrentClusterTarget:    maxConcurrentClusterTarget,
+		MaxConcurrentClusterInventory: maxConcurrentClusterInventory,
+		MaxConcurrentHub:              maxConcurrentHub,
+		ExportDebounce:                exportDebounce,
+		ReconcileRateLimitBase:        reconcileRateLimit,
 	}
 
 	if err := (&controller.KollectTargetReconciler{
@@ -316,6 +324,25 @@ func main() {
 		Options: ctrlOpts,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectremotecluster")
+		os.Exit(1)
+	}
+	if err := (&controller.KollectClusterTargetReconciler{
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Engine:  collectEngine,
+		Options: ctrlOpts,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "kollectclustertarget")
+		os.Exit(1)
+	}
+	if err := (&controller.KollectClusterInventoryReconciler{
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Store:   collectStore,
+		Engine:  collectEngine,
+		Options: ctrlOpts,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "kollectclusterinventory")
 		os.Exit(1)
 	}
 	if err := webhookv1alpha1.SetupWithManager(mgr); err != nil {
