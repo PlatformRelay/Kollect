@@ -1,5 +1,5 @@
-site_name: kollect
-site_description: Kubernetes inventory export operator
+site_name: Kollect
+site_description: Durable Kubernetes inventory — select, extract, aggregate, export
 site_url: https://konih.github.io/kollect/
 repo_url: https://github.com/konih/kollect
 repo_name: konih/kollect
@@ -7,18 +7,18 @@ copyright: Copyright &copy; 2026 Konrad Heimel
 
 theme:
   name: material
-  icon:
-    logo: material/kubernetes
+  logo: assets/logo.svg
+  favicon: assets/favicon.ico
   palette:
     - scheme: slate
-      primary: indigo
-      accent: cyan
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
     - scheme: default
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode

@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="https://konih.github.io/kollect/">
+    <img src="docs/assets/branding/kollect-logo-light.png" alt="Kollect — durable Kubernetes inventory" width="360">
+  </a>
+</p>
+
 # Kollect
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/konih/kollect/badge)](https://securityscorecards.dev/viewer/?uri=github.com/konih/kollect)

@@ -1,4 +1,22 @@
-/* kollect docs — Material theme polish */
+/* kollect docs — Material theme + brand tokens (#326CE5, #081A4B, #18B6A3) */
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #326ce5;
+  --md-primary-fg-color--light: #5b8aed;
+  --md-primary-fg-color--dark: #2859c7;
+  --md-accent-fg-color: #18b6a3;
+  --md-accent-fg-color--transparent: rgba(24, 182, 163, 0.1);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #326ce5;
+  --md-primary-fg-color--light: #5b8aed;
+  --md-primary-fg-color--dark: #2859c7;
+  --md-accent-fg-color: #18b6a3;
+  --md-default-bg-color: #0d1f3c;
+  --md-default-bg-color--light: #132a4f;
+  --md-default-bg-color--lighter: #1a355f;
+}
 
 .kollect-hero {
   text-align: center;
@@ -7,10 +25,17 @@
   border-radius: 0.4rem;
   background: linear-gradient(
     145deg,
-    rgba(63, 81, 181, 0.18) 0%,
-    rgba(0, 188, 212, 0.08) 55%,
+    rgba(50, 108, 229, 0.16) 0%,
+    rgba(24, 182, 163, 0.08) 55%,
     transparent 100%
   );
+}
+
+.kollect-hero-logo {
+  display: block;
+  width: min(7rem, 22vw);
+  height: auto;
+  margin: 0 auto 1rem;
 }
 
 .kollect-hero h1 {

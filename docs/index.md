@@ -6,6 +6,8 @@ hide:
 
 <div class="kollect-hero" markdown="1">
 
+![Kollect](assets/logo.svg){ .kollect-hero-logo }
+
 # Kollect
 
 **Kollect** turns selected, live cluster state into a **durable, queryable, diffable inventory** —
