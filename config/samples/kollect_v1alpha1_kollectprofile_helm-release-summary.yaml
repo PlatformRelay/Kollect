@@ -1,0 +1,49 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: helm-release-summary
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  targetGVK:
+    group: helm.toolkit.fluxcd.io
+    version: v2
+    kind: HelmRelease
+  attributes:
+    - name: releaseName
+      path: '$.spec.releaseName'
+      type: string
+      optional: true
+    - name: chartVersion
+      path: '$.status.history[0].chartVersion'
+      type: string
+      optional: true
+    - name: appVersion
+      path: '$.status.history[0].appVersion'
+      type: string
+      optional: true
+    - name: revision
+      path: '$.status.history[0].version'
+      type: int
+      optional: true
+    - name: status
+      path: '$.status.history[0].status'
+      type: string
+      optional: true
+    - name: lastDeployed
+      path: '$.status.history[0].lastDeployed'
+      type: string
+      optional: true
+    - name: chart
+      path: '$.spec.chart.spec.chart'
+      type: string
+      optional: true
+    - name: valuesChecksum
+      path: '$.status.lastAttemptedConfigDigest'
+      type: string
+      optional: true
+    - name: imageTag
+      path: '$.spec.values.image.tag'
+      type: string
+      optional: true

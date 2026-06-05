@@ -52,7 +52,7 @@ func TestSampleProfilesValidate(t *testing.T) {
 			t.Fatalf("%s: expected KollectProfile, got %s", path, profile.Kind)
 		}
 
-		if errs := validation.ValidateProfileSpec(&profile.Spec); len(errs) > 0 {
+		if errs := validation.ValidateProfile(&profile); len(errs) > 0 {
 			t.Fatalf("%s: validation failed: %v", path, errs)
 		}
 	}

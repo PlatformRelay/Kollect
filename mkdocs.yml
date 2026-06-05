@@ -32,6 +32,7 @@ nav:
   - Performance: PERFORMANCE.md
   - Examples:
       - Deployment inventory: examples/deployment-inventory.md
+      - Helm release inventory: examples/helm-release-inventory.md
   - ADRs:
       - Overview: adr/README.md
       - "0001 Kubebuilder v4": adr/0001-kubebuilder-v4.md

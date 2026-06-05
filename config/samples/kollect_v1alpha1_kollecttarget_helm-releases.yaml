@@ -1,0 +1,14 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: team-helm-releases
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  profileRef: helm-release-summary
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: default
+  suspend: false

@@ -42,7 +42,9 @@ Polling the API on a short `RequeueAfter` loop would duplicate informer work and
 | Service endpoints | `v1 Service` | Same |
 | Ingress rules | `networking.k8s.io/v1 Ingress` | Same |
 | Generic CRD | user-defined CRD instance | Golden extraction tests |
-| Helm release metadata | Helm release CRD / labels (future) | Deferred until filtering for secrets |
+| Helm release summary | `helm.toolkit.fluxcd.io/v2` `HelmRelease` | Sample + example ([ADR-0027](0027-helm-release-inventory.md)) |
+| Helm release values (gated) | Same GVK + scrubbed `spec.values` | Deferred until operator redaction |
+| Plain Helm releases | `helm.sh/v1` `Secret` (`owner=helm`) | Deferred until `helm:` decode |
 
 Samples double as **documentation and regression contracts** — breaking extractor or selector behavior
 should fail CI before release.
@@ -89,4 +91,4 @@ flowchart TD
 
 - **OPEN:** Single shared informer per GVK across Targets, or per-Target scoped caches?
   (Prefer shared per GVK for memory.)
-- **OPEN:** Helm release sample GVK/version (Flux `HelmRelease` vs chart-specific CRDs)?
+- **RESOLVED (2026-06-05):** Primary Helm sample GVK is Flux `HelmRelease` v2 ([ADR-0027](0027-helm-release-inventory.md)).

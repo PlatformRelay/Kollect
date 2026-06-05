@@ -3,9 +3,11 @@ resources:
 - kollect_v1alpha1_kollectprofile.yaml
 - kollect_v1alpha1_kollectprofile_service-endpoints.yaml
 - kollect_v1alpha1_kollectprofile_ingress-hosts.yaml
+- kollect_v1alpha1_kollectprofile_helm-release-summary.yaml
 - kollect_v1alpha1_kollectsink.yaml
 - kollect_v1alpha1_kollectsink_postgres.yaml
 - kollect_v1alpha1_kollectsink_kafka.yaml
 - kollect_v1alpha1_kollecttarget.yaml
+- kollect_v1alpha1_kollecttarget_helm-releases.yaml
 - kollect_v1alpha1_kollectinventory.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

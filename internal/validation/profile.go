@@ -13,6 +13,19 @@ import (
 	"github.com/konih/kollect/internal/collect"
 )
 
+const (
+	// AllowSecretExtractionAnnotation opts a Profile into Secret.data extraction paths.
+	AllowSecretExtractionAnnotation = "kollect.dev/allow-secret-extraction"
+)
+
+// ValidateProfile checks spec, paths, and security policy for a KollectProfile.
+func ValidateProfile(profile *kollectdevv1alpha1.KollectProfile) field.ErrorList {
+	allErrs := ValidateProfileSpec(&profile.Spec)
+	allErrs = append(allErrs, validateSecretDataAccess(profile)...)
+
+	return allErrs
+}
+
 // ValidateProfileSpec checks target GVK and attribute paths (CEL compile + JSONPath syntax).
 func ValidateProfileSpec(spec *kollectdevv1alpha1.KollectProfileSpec) field.ErrorList {
 	var allErrs field.ErrorList
@@ -60,6 +73,119 @@ func ValidateProfileSpec(spec *kollectdevv1alpha1.KollectProfileSpec) field.Erro
 	}
 
 	return allErrs
+}
+
+func validateSecretDataAccess(profile *kollectdevv1alpha1.KollectProfile) field.ErrorList {
+	if !isSecretTargetGVK(profile.Spec.TargetGVK) {
+		return nil
+	}
+
+	if allowSecretExtraction(profile.Annotations) {
+		return nil
+	}
+
+	attrPath := field.NewPath("spec").Child("attributes")
+	var allErrs field.ErrorList
+
+	for i, attr := range profile.Spec.Attributes {
+		if pathTargetsSecretData(attr.Path) {
+			allErrs = append(allErrs, field.Forbidden(
+				attrPath.Index(i).Child("path"),
+				fmt.Sprintf(
+					"Secret.data paths require annotation %q: \"true\"",
+					AllowSecretExtractionAnnotation,
+				),
+			))
+		}
+	}
+
+	return allErrs
+}
+
+func isSecretTargetGVK(gvk kollectdevv1alpha1.GroupVersionKind) bool {
+	if gvk.Kind != "Secret" {
+		return false
+	}
+
+	switch gvk.Group {
+	case "", "core":
+		return true
+	default:
+		return false
+	}
+}
+
+func allowSecretExtraction(annotations map[string]string) bool {
+	return annotations != nil && annotations[AllowSecretExtractionAnnotation] == "true"
+}
+
+func pathTargetsSecretData(path string) bool {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return false
+	}
+
+	const celPrefix = "cel:"
+	if strings.HasPrefix(path, celPrefix) {
+		expr := strings.TrimPrefix(path, celPrefix)
+		for _, segment := range splitCELPath(expr) {
+			if strings.EqualFold(segment, "data") {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	rest := path
+	switch {
+	case strings.HasPrefix(rest, "$."):
+		rest = rest[2:]
+	case strings.HasPrefix(rest, "$"):
+		rest = strings.TrimPrefix(rest, "$")
+	}
+
+	rest = strings.TrimPrefix(rest, ".")
+	for _, segment := range strings.Split(rest, ".") {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
+			continue
+		}
+
+		if idx := strings.IndexAny(segment, "[("); idx >= 0 {
+			segment = segment[:idx]
+		}
+
+		if strings.EqualFold(segment, "data") {
+			return true
+		}
+	}
+
+	return false
+}
+
+func splitCELPath(expr string) []string {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
+		return nil
+	}
+
+	expr = strings.TrimPrefix(expr, "object")
+	expr = strings.TrimPrefix(expr, ".")
+	if expr == "" {
+		return nil
+	}
+
+	parts := strings.FieldsFunc(expr, func(r rune) bool {
+		switch r {
+		case '.', '[', ']', '(', ')', ' ', '\t':
+			return true
+		default:
+			return false
+		}
+	})
+
+	return parts
 }
 
 // ProfileInvalid formats a validation failure for admission.

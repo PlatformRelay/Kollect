@@ -61,6 +61,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | ADR-0026 performance & scalability | ✅ |
 | `GUIDELINES.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
 | Validating webhook — Profile CEL/JSONPath | ✅ |
+| Validating webhook — Profile Secret.data guard | ✅ |
 | Validating webhook — Sink type enum | ⬜ |
 | Prometheus custom metrics (early) | 🚧 |
 | Connection test infrastructure | ✅ |
@@ -69,7 +70,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Release pipeline (SBOM, signing) | ⬜ |
 | Public demo Git inventory repo | ✅ |
 
-**Counts:** ✅ 14 · 🚧 2 · ⬜ 6
+**Counts:** ✅ 15 · 🚧 2 · ⬜ 6
 
 ---
 
@@ -103,13 +104,16 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | `--inventory-auth-mode=kubernetes` (default) | ✅ |
 | Full Prometheus metrics per [ADR-0020](adr/0020-error-taxonomy.md) | ✅ |
 | Sample profiles: Deployment, Service, Ingress | ✅ |
+| Sample profile: Helm release summary (Flux `HelmRelease`) | ✅ |
+| Helm values profile + operator scrub | ⬜ |
+| `helm:` decode for `helm.sh/v1` Secret releases | ⬜ |
 | Sample: generic CRD | ⬜ |
 | Sample contract tests in CI | 🚧 |
 | Integration tests (testcontainers) in CI | 🚧 |
 | End-to-end: install → collect → export → HTTP | 🚧 |
 | `spec.suspend` on reconciled kinds | ✅ |
 
-**Counts:** ✅ 14 · 🚧 5 · ⬜ 12
+**Counts:** ✅ 15 · 🚧 5 · ⬜ 14
 
 ---
 
@@ -131,9 +135,12 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 | Transport: Redis Streams (Phase 2 spike default) | ✅ |
 | Transport: NATS JetStream (config alternative) | 🚧 |
 | Transport: Kafka backend (optional, integration-tested) | 🔮 |
-| Cross-cluster authentication | ❓ |
+| Cross-cluster authentication (Istio-style + push TokenReview) | ✅ |
+| `KollectRemoteCluster` CRD (hub registration stub) | ✅ |
+| Spoke HTTP push auth (`Bearer` + `X-Kollect-Cluster-Id`) | ✅ |
+| Hub ingest HTTP stub (`POST /hub/v1alpha1/reports`) | ✅ |
 
-**Counts:** ✅ 6 · 🚧 1 · ⬜ 4 · ❓ 1
+**Counts:** ✅ 10 · 🚧 1 · ⬜ 4
 
 ---
 
@@ -227,14 +234,13 @@ Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). 
 | Kafka as **required** hub transport | Pluggable optional backend only; Redis spike first ([ADR-0023](adr/0023-lean-queue-transport.md)) |
 | `KollectReceiver`, `KollectTargetSet` implementation | Reserved for future phases |
 | oauth2-proxy sidecar (OIDC browser auth) | Optional Helm sidecar (`oauth2Proxy.enabled: false`); K8s bearer auth is primary — [ADR-0024](adr/0024-inventory-api-auth.md) |
-| Helm release inventory sample | Requires secret-adjacent field redaction |
 
 ## Open questions
 
 - **Connection test CR** vs annotation-only trigger on Sink/Inventory
 - **Cluster vs namespaced sink** split timing (`KollectClusterSink`)
 - **Operator deployment model** — one cluster-scoped operator vs namespaced per team
-- **Cross-cluster identity** — mTLS, OIDC, or bootstrap tokens (hub/spoke; distinct from inventory HTTP auth)
+- **Hub ingest SAR shape** — `create` on `kollectremoteclusters` vs custom URL ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md))
 
 ## Breaking changes
 
@@ -272,6 +278,7 @@ namespace scope where appropriate.
 | oauth2-proxy: **optional** Helm sidecar for OIDC browsers; not primary auth | Accepted |
 | Git, object storage, and agent mesh documented as alternatives | Accepted |
 | Extreme scale: 100+ clusters, 10k+ objects/spoke, hub shard not O(n²) | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md), [ADR-0026](adr/0026-performance-scalability.md)) |
+| Hub cluster auth: **Istio remote-secret registration + push TokenReview** | Accepted ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md)) |
 
 ## Further reading
 

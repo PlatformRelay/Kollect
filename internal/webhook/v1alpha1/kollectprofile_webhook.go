@@ -53,7 +53,7 @@ func (v *kollectProfileValidator) ValidateDelete(
 }
 
 func (v *kollectProfileValidator) validate(profile *kollectdevv1alpha1.KollectProfile) error {
-	errs := validation.ValidateProfileSpec(&profile.Spec)
+	errs := validation.ValidateProfile(profile)
 	if len(errs) > 0 {
 		return validation.ProfileInvalid(profile.Name, errs)
 	}

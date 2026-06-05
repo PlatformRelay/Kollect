@@ -16,7 +16,7 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 | **Connection test (first-class)** | Visible, informative, discoverable feedback when sinks/profiles are misconfigured (`kubectl`-friendly status) |
 | **HTTP inventory API (core)** | Read-only access for portals and automation — not deferred to a later phase |
 | **Inventory HTTP auth (K8s-native)** | TokenReview + SubjectAccessReview; `Authorization: Bearer` SA tokens; `--inventory-auth-mode=kubernetes` default — [ADR-0024](adr/0024-inventory-api-auth.md) |
-| **Tested sample CRs** | Deployment, Service, Ingress, generic CRD, Helm release metadata — contract tests in CI where feasible |
+| **Tested sample CRs** | Deployment, Service, Ingress, generic CRD, Helm release summary (Flux `HelmRelease`) — contract tests in CI where feasible; see [ADR-0027](adr/0027-helm-release-inventory.md) |
 | **Demo Git repo** | Public examples with SSH + token auth; GitLab-compatible endpoints |
 | **Postgres + Kafka export sinks** | First-class `KollectSink` types; testcontainers before merge — [ADR-0025](adr/0025-sink-backends-database-kafka.md) |
 

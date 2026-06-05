@@ -106,4 +106,5 @@ export noise.
 
 - **OPEN:** Multi-tenant: one cluster-scoped operator + `KollectScope`, or namespaced operator
   deployments per team (ESO `controller` field pattern)?
-- **OPEN:** Demo Helm release inventory sample — filter secret-adjacent fields before publishing example.
+- **RESOLVED (2026-06-05):** Helm release sample — Flux `HelmRelease` summary profile default;
+  values profile gated + redacted ([ADR-0027](0027-helm-release-inventory.md)).
