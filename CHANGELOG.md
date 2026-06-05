@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **controller:** Stabilize cluster target and inventory envtests [4ce24c3](https://github.com/konih/kollect/commit/4ce24c3b1fa337db75f1a8d74bc091567ca3908d)
+
 - **sink/git:** Simplify file remote push and clone tests [ce84b2e](https://github.com/konih/kollect/commit/ce84b2ecce27f647c6fbaa83fcd9d991735f2aea)
 
 - **ci:** Pin git export tests to main branch [7d6dcf9](https://github.com/konih/kollect/commit/7d6dcf9ea93f1c2c3e8f34e565b799f694bdcea8)
