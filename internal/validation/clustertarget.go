@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -25,10 +26,24 @@ func ValidateClusterTargetSpec(spec *kollectdevv1alpha1.KollectClusterTargetSpec
 		allErrs = append(allErrs, field.Required(profilePath, "profileRef is required"))
 	} else if strings.Contains(spec.ProfileRef, "/") {
 		allErrs = append(allErrs, field.Invalid(profilePath, spec.ProfileRef,
-			"profileRef must be a cluster profile name, not namespace/name"))
+			"profileRef must be a profile name in the platform namespace, not namespace/name"))
+	}
+
+	nsPath := field.NewPath("spec").Child("namespaceSelector")
+	if spec.NamespaceSelector == nil || namespaceSelectorEmpty(spec.NamespaceSelector) {
+		allErrs = append(allErrs, field.Required(nsPath,
+			"namespaceSelector is required — empty selector would collect cluster-wide"))
 	}
 
 	return allErrs
+}
+
+func namespaceSelectorEmpty(sel *metav1.LabelSelector) bool {
+	if sel == nil {
+		return true
+	}
+
+	return len(sel.MatchLabels) == 0 && len(sel.MatchExpressions) == 0
 }
 
 // ClusterTargetInvalid formats a validation failure for admission.
