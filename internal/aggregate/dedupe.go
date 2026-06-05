@@ -7,12 +7,11 @@
 package aggregate
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"time"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
+	"github.com/konih/kollect/internal/digest"
 )
 
 // RowIdentity is the stable key for one collected row across targets.
@@ -49,9 +48,7 @@ func ResourceKeyFromItem(item collect.Item) ResourceUID {
 
 // ContentHash returns a SHA-256 hex digest of an export payload.
 func ContentHash(payload []byte) string {
-	sum := sha256.Sum256(payload)
-
-	return hex.EncodeToString(sum[:])
+	return digest.ContentHash(payload)
 }
 
 // ExportCoalesce tracks the last successful export fingerprint for debouncing.

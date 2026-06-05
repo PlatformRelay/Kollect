@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
-	"github.com/konih/kollect/internal/sink/pathvalidate"
+	"github.com/konih/kollect/internal/pathvalidate"
 )
 
 const (

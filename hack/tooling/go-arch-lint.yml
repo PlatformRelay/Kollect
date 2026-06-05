@@ -44,9 +44,11 @@ components:
     in: internal/webhook/**
   shared:
     in:
+      - internal/digest/**
       - internal/errors/**
       - internal/metrics/**
       - internal/httpauth/**
+      - internal/pathvalidate/**
       - internal/remotecredentials/**
       - internal/remotesecret/**
       - internal/operator/**
@@ -85,8 +87,6 @@ deps:
       - sink
       # todo(arch-03): sink backends read collect rows during export; narrow to export envelope types
       - collect
-      # todo(arch-04): aggregation labels in sink metrics; decouple from aggregate
-      - aggregate
   hub:
     mayDependOn:
       - sink
@@ -123,11 +123,7 @@ deps:
     mayDependOn:
       # todo(arch-10): validation reuses collect attribute paths for profiles
       - collect
-      # todo(arch-11): sink/git + objectstore validators live under sink; lift shared validation helpers
-      - sink
   webhook:
     mayDependOn:
       - validation
       - scope
-      # todo(arch-12): KollectSink webhook validates sink spec shape
-      - sink

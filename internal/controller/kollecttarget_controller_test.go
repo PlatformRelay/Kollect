@@ -47,10 +47,15 @@ var _ = Describe("KollectTarget Controller", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(reconcileCtx, profile)).To(Succeed())
+			err := k8sClient.Get(reconcileCtx, types.NamespacedName{Name: profileName, Namespace: "default"}, profile)
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(reconcileCtx, profile)).To(Succeed())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+			}
 
 			kollecttarget = &kollectdevv1alpha1.KollectTarget{}
-			err := k8sClient.Get(reconcileCtx, typeNamespacedName, kollecttarget)
+			err = k8sClient.Get(reconcileCtx, typeNamespacedName, kollecttarget)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &kollectdevv1alpha1.KollectTarget{
 					ObjectMeta: metav1.ObjectMeta{
@@ -62,6 +67,10 @@ var _ = Describe("KollectTarget Controller", func() {
 					},
 				}
 				Expect(k8sClient.Create(reconcileCtx, resource)).To(Succeed())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				kollecttarget.Spec.ProfileRef = profileName
+				Expect(k8sClient.Update(reconcileCtx, kollecttarget)).To(Succeed())
 			}
 		})
 

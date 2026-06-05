@@ -9,10 +9,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/operator"
 	"github.com/konih/kollect/internal/sink/git"
 )
 
-const DefaultSecretNamespace = "kollect-system" //nolint:gosec // namespace name, not a credential
+// DefaultSecretNamespace is retained for callers outside operator/webhook packages.
+const DefaultSecretNamespace = operator.DefaultSecretNamespace
 
 // BuildContext carries resolved material for backend construction.
 type BuildContext struct {

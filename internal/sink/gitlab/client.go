@@ -99,12 +99,7 @@ func (c *RESTClient) EnsureOpenMergeRequest(
 		return fmt.Errorf("gitlab: merge request workflow requires api token in secretRef")
 	}
 
-	projectID, err := projectPath(project)
-	if err != nil {
-		return err
-	}
-
-	open, err := c.listOpenMergeRequests(ctx, projectID, sourceBranch)
+	open, err := c.listOpenMergeRequests(ctx, project, sourceBranch)
 	if err != nil {
 		return err
 	}
@@ -114,10 +109,31 @@ func (c *RESTClient) EnsureOpenMergeRequest(
 		}
 	}
 
-	return c.createMergeRequest(ctx, projectID, sourceBranch, targetBranch, title)
+	return c.createMergeRequest(ctx, project, sourceBranch, targetBranch, title)
 }
 
 func (c *RESTClient) listOpenMergeRequests(
+	ctx context.Context,
+	project ProjectRef,
+	sourceBranch string,
+) ([]mergeRequestRecord, error) {
+	projectID, err := projectPath(project)
+	if err != nil {
+		return nil, err
+	}
+
+	records, apiErr := c.listGitLabMergeRequests(ctx, projectID, sourceBranch)
+	if apiErr == nil {
+		return records, nil
+	}
+	if !isGitLabAPIUnsupported(apiErr) {
+		return nil, apiErr
+	}
+
+	return c.listGiteaPullRequests(ctx, project.Path, sourceBranch)
+}
+
+func (c *RESTClient) listGitLabMergeRequests(
 	ctx context.Context,
 	projectID, sourceBranch string,
 ) ([]mergeRequestRecord, error) {
@@ -130,7 +146,7 @@ func (c *RESTClient) listOpenMergeRequests(
 	if err != nil {
 		return nil, err
 	}
-	c.setAuth(req)
+	c.setGitLabAuth(req)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -154,7 +170,65 @@ func (c *RESTClient) listOpenMergeRequests(
 	return records, nil
 }
 
+func (c *RESTClient) listGiteaPullRequests(
+	ctx context.Context,
+	ownerRepo, sourceBranch string,
+) ([]mergeRequestRecord, error) {
+	q := url.Values{}
+	q.Set("state", "open")
+	if strings.TrimSpace(sourceBranch) != "" {
+		q.Set("head", sourceBranch)
+	}
+
+	reqURL := fmt.Sprintf("%s/repos/%s/pulls?%s", c.giteaBaseURL(), ownerRepo, q.Encode())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.setGiteaAuth(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("gitea list pull requests: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("gitea list pull requests: HTTP %d: %s", resp.StatusCode, trimBody(body))
+	}
+
+	var records []mergeRequestRecord
+	if err := json.Unmarshal(body, &records); err != nil {
+		return nil, fmt.Errorf("gitea decode pull requests: %w", err)
+	}
+
+	return records, nil
+}
+
 func (c *RESTClient) createMergeRequest(
+	ctx context.Context,
+	project ProjectRef,
+	sourceBranch, targetBranch, title string,
+) error {
+	projectID, err := projectPath(project)
+	if err != nil {
+		return err
+	}
+
+	if err := c.createGitLabMergeRequest(ctx, projectID, sourceBranch, targetBranch, title); err == nil {
+		return nil
+	} else if !isGitLabAPIUnsupported(err) {
+		return err
+	}
+
+	return c.createGiteaPullRequest(ctx, project.Path, sourceBranch, targetBranch, title)
+}
+
+func (c *RESTClient) createGitLabMergeRequest(
 	ctx context.Context,
 	projectID, sourceBranch, targetBranch, title string,
 ) error {
@@ -174,7 +248,7 @@ func (c *RESTClient) createMergeRequest(
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	c.setAuth(req)
+	c.setGitLabAuth(req)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -193,11 +267,73 @@ func (c *RESTClient) createMergeRequest(
 	return nil
 }
 
-func (c *RESTClient) setAuth(req *http.Request) {
+func (c *RESTClient) createGiteaPullRequest(
+	ctx context.Context,
+	ownerRepo, sourceBranch, targetBranch, title string,
+) error {
+	payload := map[string]string{
+		"head":          sourceBranch,
+		"base":          targetBranch,
+		"title":         title,
+		"source_branch": sourceBranch,
+		"target_branch": targetBranch,
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	reqURL := fmt.Sprintf("%s/repos/%s/pulls", c.giteaBaseURL(), ownerRepo)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	c.setGiteaAuth(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("gitea create pull request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("gitea create pull request: HTTP %d: %s", resp.StatusCode, trimBody(body))
+	}
+
+	return nil
+}
+
+func (c *RESTClient) giteaBaseURL() string {
+	return strings.Replace(c.BaseURL, "/api/v4", "/api/v1", 1)
+}
+
+func isGitLabAPIUnsupported(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := err.Error()
+
+	return strings.Contains(msg, "HTTP 405") || strings.Contains(msg, "HTTP 404")
+}
+
+func (c *RESTClient) setGitLabAuth(req *http.Request) {
 	if c.Token == "" {
 		return
 	}
 	req.Header.Set("PRIVATE-TOKEN", c.Token)
+}
+
+func (c *RESTClient) setGiteaAuth(req *http.Request) {
+	if c.Token == "" {
+		return
+	}
+	req.Header.Set("Authorization", "token "+c.Token)
 }
 
 func trimBody(body []byte) string {

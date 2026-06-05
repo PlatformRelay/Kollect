@@ -15,7 +15,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/scope"
-	"github.com/konih/kollect/internal/sink"
+	"github.com/konih/kollect/internal/operator"
 	"github.com/konih/kollect/internal/validation"
 )
 
@@ -120,7 +120,7 @@ func resolveClusterTargetProfileForWebhook(
 	}
 
 	var profile kollectdevv1alpha1.KollectProfile
-	key := client.ObjectKey{Name: profileRef, Namespace: sink.DefaultSecretNamespace}
+	key := client.ObjectKey{Name: profileRef, Namespace: operator.DefaultSecretNamespace}
 	if err := c.Get(ctx, key, &profile); err != nil {
 		if apierrors.IsNotFound(err) {
 			gr := kollectdevv1alpha1.GroupVersion.WithResource("kollectprofiles").GroupResource()

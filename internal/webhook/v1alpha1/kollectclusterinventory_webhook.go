@@ -13,7 +13,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/scope"
-	"github.com/konih/kollect/internal/sink"
+	"github.com/konih/kollect/internal/operator"
 	"github.com/konih/kollect/internal/validation"
 )
 
@@ -69,7 +69,7 @@ func (v *kollectClusterInventoryValidator) validate(
 
 	sinkNS := inv.Spec.SinkNamespace
 	if sinkNS == "" {
-		sinkNS = sink.DefaultSecretNamespace
+		sinkNS = operator.DefaultSecretNamespace
 	}
 
 	binding, err := scope.Load(ctx, v.client, sinkNS)

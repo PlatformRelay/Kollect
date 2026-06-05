@@ -15,7 +15,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/nats"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
-	"github.com/konih/kollect/internal/aggregate"
+	"github.com/konih/kollect/internal/digest"
 
 	"github.com/konih/kollect/internal/integrationtest"
 )
@@ -132,7 +132,7 @@ func TestExportNATS(t *testing.T) {
 		t.Fatalf("payload = %s, want %s", envelope.Payload, payload)
 	}
 
-	wantMsgID := aggregate.ContentHash(append([]byte("test-cluster/apps/"), payload...))
+	wantMsgID := digest.ContentHash(append([]byte("test-cluster/apps/"), payload...))
 	if hdr := gotMsg.Headers(); hdr == nil || hdr.Get("Nats-Msg-Id") != wantMsgID {
 		t.Fatalf("Nats-Msg-Id = %q, want %q", hdr.Get("Nats-Msg-Id"), wantMsgID)
 	}

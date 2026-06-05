@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
-	"github.com/konih/kollect/internal/sink"
+	"github.com/konih/kollect/internal/operator"
 )
 
 func TestKollectClusterTargetValidator_validateClusterScope(t *testing.T) {
@@ -36,7 +36,7 @@ func TestKollectClusterTargetValidator_validateClusterScope(t *testing.T) {
 		},
 	}
 	profile := &kollectdevv1alpha1.KollectProfile{
-		ObjectMeta: metav1.ObjectMeta{Name: "deployments", Namespace: sink.DefaultSecretNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: "deployments", Namespace: operator.DefaultSecretNamespace},
 		Spec: kollectdevv1alpha1.KollectProfileSpec{
 			TargetGVK: kollectdevv1alpha1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
 		},

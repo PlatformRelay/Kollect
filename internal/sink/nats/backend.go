@@ -15,7 +15,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
-	"github.com/konih/kollect/internal/aggregate"
+	"github.com/konih/kollect/internal/digest"
 	"github.com/konih/kollect/internal/sink/cap"
 )
 
@@ -84,7 +84,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 		return fmt.Errorf("nats export: marshal envelope: %w", err)
 	}
 
-	msgID := aggregate.ContentHash(append([]byte(b.cfg.Cluster+"/"+envelope.Namespace+"/"), payload...))
+	msgID := digest.ContentHash(append([]byte(b.cfg.Cluster+"/"+envelope.Namespace+"/"), payload...))
 	_, err = js.Publish(ctx, b.cfg.Subject, body, jetstream.WithMsgID(msgID))
 	if err != nil {
 		return fmt.Errorf("nats publish: %w", err)

@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
-	"regexp"
-	"strings"
+		"strings"
 
-	"github.com/konih/kollect/internal/sink/pathvalidate"
+	"github.com/konih/kollect/internal/pathvalidate"
+	"github.com/konih/kollect/internal/validation"
 )
-
-var safeGitRefPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*$`)
 
 func validateObjectPath(objectPath string) (string, error) {
 	return pathvalidate.ValidateRelativeObjectPath(objectPath)
@@ -49,40 +47,7 @@ func objectPathInWorkdir(workdir, objectPath string) (absPath string, relPath st
 }
 
 func ValidateGitRef(ref string) error {
-	ref = strings.TrimSpace(ref)
-	if ref == "" {
-		return fmt.Errorf("empty git ref")
-	}
-
-	if strings.HasPrefix(ref, "-") {
-		return fmt.Errorf("git ref %q must not start with '-'", ref)
-	}
-
-	if ref == "." || ref == ".." || strings.Contains(ref, "..") {
-		return fmt.Errorf("git ref %q contains invalid '..'", ref)
-	}
-
-	if strings.HasPrefix(ref, ".") {
-		return fmt.Errorf("git ref %q must not start with '.'", ref)
-	}
-
-	if strings.HasSuffix(ref, ".") || strings.HasSuffix(ref, ".lock") {
-		return fmt.Errorf("git ref %q has invalid suffix", ref)
-	}
-
-	if ref == "@" || strings.Contains(ref, "@{") {
-		return fmt.Errorf("git ref %q contains invalid '@'", ref)
-	}
-
-	if strings.HasPrefix(ref, "refs/") {
-		return fmt.Errorf("git ref %q must be a short branch name", ref)
-	}
-
-	if !safeGitRefPattern.MatchString(ref) {
-		return fmt.Errorf("git ref %q contains unsupported characters", ref)
-	}
-
-	return nil
+	return validation.ValidateGitRef(ref)
 }
 
 type exportRequest struct {

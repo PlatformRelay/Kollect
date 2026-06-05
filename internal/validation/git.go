@@ -5,13 +5,45 @@ package validation
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
-	"github.com/konih/kollect/internal/sink/git"
 )
+
+var safeGitRefPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*$`)
+
+// ValidateGitRef rejects unsafe or ambiguous git branch/tag names.
+func ValidateGitRef(ref string) error {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return fmt.Errorf("empty git ref")
+	}
+	if strings.HasPrefix(ref, "-") {
+		return fmt.Errorf("git ref %q must not start with '-'", ref)
+	}
+	if ref == "." || ref == ".." || strings.Contains(ref, "..") {
+		return fmt.Errorf("git ref %q contains invalid '..'", ref)
+	}
+	if strings.HasPrefix(ref, ".") {
+		return fmt.Errorf("git ref %q must not start with '.'", ref)
+	}
+	if strings.HasSuffix(ref, ".") || strings.HasSuffix(ref, ".lock") {
+		return fmt.Errorf("git ref %q has invalid suffix", ref)
+	}
+	if ref == "@" || strings.Contains(ref, "@{") {
+		return fmt.Errorf("git ref %q contains invalid '@'", ref)
+	}
+	if strings.HasPrefix(ref, "refs/") {
+		return fmt.Errorf("git ref %q must be a short branch name", ref)
+	}
+	if !safeGitRefPattern.MatchString(ref) {
+		return fmt.Errorf("git ref %q contains unsupported characters", ref)
+	}
+	return nil
+}
 
 func validateGitSpec(spec *kollectdevv1alpha1.KollectSinkSpec) field.ErrorList {
 	if spec == nil || spec.Type != kollectdevv1alpha1.SinkTypeGit || spec.Git == nil {
@@ -22,7 +54,7 @@ func validateGitSpec(spec *kollectdevv1alpha1.KollectSinkSpec) field.ErrorList {
 	gitPath := field.NewPath("spec").Child("git")
 
 	if branch := strings.TrimSpace(spec.Git.Branch); branch != "" {
-		if err := git.ValidateGitRef(branch); err != nil {
+		if err := ValidateGitRef(branch); err != nil {
 			allErrs = append(allErrs, field.Invalid(gitPath.Child("branch"), branch, err.Error()))
 		}
 	}
