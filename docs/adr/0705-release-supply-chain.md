@@ -53,9 +53,41 @@ Each GitHub Release publishes: `install-crds.yaml` and `install.yaml` (kubectl i
 - SHA-pinned actions mean Dependabot/maintenance keeps the pipeline current; stale pins are a known cost.
 - Tag-driven releases keep `main` always-releasable ([ADR-0703](0703-platform-architecture-pivot.md)).
 
+## OpenSSF Scorecard follow-ups
+
+The project publishes an [OpenSSF Scorecard badge](https://securityscorecards.dev/viewer/?uri=github.com/konih/kollect)
+(see `README.md`). A scheduled workflow (`.github/workflows/scorecard.yaml`) runs on every `main` push and
+weekly; SARIF results are uploaded to GitHub Code Scanning.
+
+**Solo-maintainer policy:** checks that require multi-person review gates or block direct pushes to `main`
+are **documented and deferred** — not enabled — so one maintainer can ship without self-approval friction.
+
+| Check | Score (snapshot) | Status | Rationale |
+| --- | ---: | --- | --- |
+| Dangerous-Workflow | 0 critical | **Done** | No `pull_request_target`; workflow inputs passed via env vars; actions SHA-pinned |
+| Token-Permissions | 0 high | **Done** | All workflows declare least-privilege `permissions:`; job-level elevation only where needed |
+| Pinned-Dependencies | 8 medium | **Done** | Third-party Actions pinned to commit SHA (incl. `codecov-action`); curl/pip fetches documented |
+| SAST | 0 medium | **Partial** | `golangci-lint` + `govulncheck` in CI (`lint`, `vulncheck` jobs); CodeQL deferred (see below) |
+| Vulnerabilities | 8 | **Partial** | `govulncheck` on every PR; Trivy gates release images; dependency bumps via Dependabot |
+| Security-Policy | 10 | **Done** | `SECURITY.md` |
+| Dependency-Update-Tool | 10 | **Done** | Dependabot |
+| Binary-Artifacts | 10 | **Done** | No committed binaries |
+| License | 10 | **Done** | MIT |
+| Code-Review | 0 high | **Deferred** | Branch protection + required reviewers blocks solo push-to-main workflow |
+| Branch-Protection | 0 high | **Deferred** | Optional for single maintainer; CI merge gates substitute for GitHub branch rules |
+| Maintained | 0 high | **Deferred** | Activity-based; improves with regular releases and issue triage post-`v0.1.0` |
+| Fuzzing | 0 medium | **Deferred** | Post-`v0.1.0-rc`; no `go-fuzz` / OSS-Fuzz integration yet |
+| CII-Best-Practices | 0 low | **Deferred** | Core Infrastructure Initiative badge application not pursued pre-GA |
+| Contributors | 0 low | **N/A** | Solo OSS; diversity metric not applicable |
+
+**Deferred SAST (CodeQL):** GitHub CodeQL for Go is not enabled — `golangci-lint` (security linters in
+`.golangci.yaml`) and `govulncheck` provide the primary static/vuln signal without adding a second
+analysis pipeline to maintain. Revisit if Scorecard SAST remains low after other fixes land.
+
 ## Decided follow-ups (2026-06-05, planned post-`v0.1.0-rc`)
 
 - **YES:** Publish signed **provenance + SBOM attestations** (`cosign attest`) attached to the image,
   in addition to the release-asset SBOM.
-- **YES:** Add **`scorecard`/`slsa-verifier`** checks and an OpenSSF badge.
-- **YES:** **Sign the Helm chart** (`cosign sign` the OCI chart artifact) and document chart verification.
+- **DONE:** OpenSSF **Scorecard** workflow + badge (`.github/workflows/scorecard.yaml`).
+- **DONE:** **Sign the Helm chart** (`cosign sign` the OCI chart artifact) — see release workflow.
+- **TODO:** Add **`slsa-verifier`** check in release CI for provenance verification.

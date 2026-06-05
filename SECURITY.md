@@ -50,7 +50,25 @@ Release builds ([`.github/workflows/release.yaml`](.github/workflows/release.yam
 Prefer tagged release artifacts over `:latest` in production. Report supply-chain concerns
 through the private contact above.
 
-## Dependency vulnerability scanning
+## Static analysis and vulnerability scanning
+
+### golangci-lint (SAST)
+
+CI runs **golangci-lint v2** on every push and pull request (`task lint`, job **lint** in
+[`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)). Configuration: `.golangci.yaml` (security
+and correctness linters including `gosec`, `errcheck`, `govet`, `staticcheck`). Pre-commit runs the
+same gate on changed Go files.
+
+Run locally:
+
+```sh
+task lint
+```
+
+**CodeQL** is not enabled — see [ADR-0705 § OpenSSF Scorecard follow-ups](docs/adr/0705-release-supply-chain.md#openssf-scorecard-follow-ups)
+for the solo-maintainer rationale and deferred checks.
+
+### govulncheck
 
 CI runs [`govulncheck`](https://go.dev/security/vuln/) on every push and pull request
 (`task vulncheck`, job **vulncheck** in [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)).
@@ -65,3 +83,12 @@ task vulncheck
 
 If a finding is a false positive or only affects an unused code path in a dependency, document the
 exception in this file (module, advisory ID, rationale, review date) before suppressing CI.
+
+Release images are additionally scanned with **Trivy** (CRITICAL/HIGH, fixable only) in
+[`.github/workflows/release.yaml`](.github/workflows/release.yaml).
+
+## OpenSSF Scorecard
+
+Supply-chain posture is tracked via the [OpenSSF Scorecard](https://securityscorecards.dev/viewer/?uri=github.com/konih/kollect)
+badge in `README.md`. Implemented checks, deferred solo-maintainer items, and rationale are documented in
+[ADR-0705 § OpenSSF Scorecard follow-ups](docs/adr/0705-release-supply-chain.md#openssf-scorecard-follow-ups).
