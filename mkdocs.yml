@@ -81,10 +81,8 @@ nav:
       - Connection test: adr/0403-connection-test.md
       - Performance tuning: PERFORMANCE.md
       - Best practices: BEST-PRACTICES.md
-  - Reference:
       - Troubleshooting: TROUBLESHOOTING.md
-      - Annotations and labels: ANNOTATIONS-LABELS.md
-      - Command reference: COMMAND-REFERENCE.md
+  - Reference:
       - Custom resources:
           - Overview: CR-REFERENCE.md
           - KollectProfile: crds/kollectprofile.md
@@ -96,6 +94,8 @@ nav:
           - KollectClusterProfile: crds/kollectclusterprofile.md
           - KollectClusterTarget: crds/kollectclustertarget.md
           - KollectClusterInventory: crds/kollectclusterinventory.md
+      - Annotations and labels: ANNOTATIONS-LABELS.md
+      - Command reference: COMMAND-REFERENCE.md
       - Inventory HTTP API: adr/0404-inventory-api-auth.md
       - Architecture decision records:
           - Overview: adr/README.md
