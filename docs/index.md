@@ -1,6 +1,6 @@
 # kollect
 
-**kollect** is a generic Kubernetes **inventory + doc-sync operator** (`kollect.dev/v1alpha1`).
+**kollect** is a generic Kubernetes **inventory export operator** (`kollect.dev/v1alpha1`).
 
 Use these docs to install the operator, apply sample CRs, and understand how collection and export
 fit together.

@@ -15,8 +15,9 @@ this space use different tenancy and config patterns:
   subresource, no dedicated reconciler) while `Receiver` is reconciled.
 - **Argo CD** uses `AppProject` as a tenancy boundary and `Application` as the reconciled unit.
 
-kollect must combine generic attribute selection, resource selection, aggregation, multi-backend
-export, and (later) doc-sync — no single OSS project covers all of this.
+kollect must combine generic attribute selection, resource selection, aggregation, and multi-backend
+export — no single OSS project covers all of this. Templated documentation sync (Confluence, etc.)
+is **explicitly rejected** ([ADR-0011](0011-doc-sync-templating.md)).
 
 Platform users commonly terminate TLS to internal Git/GitLab with **custom CAs**; sink configuration
 must support that from early phases, not as a later bolt-on.
@@ -30,7 +31,7 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 | Kind | Scope | Role |
 | --- | --- | --- |
 | `KollectProfile` | Cluster | Reusable extraction schema: GVK + named CEL/JSONPath attributes |
-| `KollectSink` | Cluster | Backend config: `type` + endpoint + `secretRef` + TLS trust; resolved via Go registry |
+| `KollectSink` | Cluster | Backend config: `type` (`git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka`) + endpoint + `secretRef` + TLS trust; resolved via Go registry ([ADR-0025](0025-sink-backends-database-kafka.md)) |
 | `KollectScope` | **Namespace** (Phase 3 priority) | Tenancy boundary: allowed GVKs, namespaces, sinks for a team |
 
 ### Reconciled (controller + dynamic informers)
@@ -39,7 +40,12 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 | --- | --- | --- |
 | `KollectTarget` | Namespaced | `profileRef` + selectors + optional CEL predicate; drives collection |
 | `KollectInventory` | **Namespaced** | Aggregates targets **in the same namespace**; dispatches to sinks |
-| `KollectPublication` | Namespaced | **Deferred** until collection is mature — template render + doc-backend sync |
+
+### Rejected (never ship)
+
+| Kind | Rationale |
+| --- | --- |
+| `KollectPublication` | Doc-sync / Confluence / in-operator templating — out of scope; use Git export + external CI ([ADR-0011](0011-doc-sync-templating.md)) |
 
 ### Reserved (designed, not built yet)
 
@@ -50,7 +56,8 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 - **`KollectClusterScope`** (cluster) — platform tenancy boundary when namespaced `KollectScope` is
   insufficient; addition after namespaced scope ships (Phase 3).
 
-Short names: `kprof`, `ksink`, `kscope`, `ktgt`, `kinv`, `kpub` (reserved: `kcinv`, `kcscope`).
+Short names: `kprof`, `ksink`, `kscope`, `ktgt`, `kinv` (reserved: `kcinv`, `kcscope`). `kpub` was
+reserved for rejected `KollectPublication` — do not use.
 
 All reconciled kinds support `spec.suspend` and `kollect.dev/requestedAt` manual-trigger annotation.
 

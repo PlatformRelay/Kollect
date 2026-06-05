@@ -24,7 +24,7 @@ overrides may be needed later without forking profiles.
 | Category | Kinds | Controller | Status | Validation |
 | --- | --- | --- | --- | --- |
 | Static config | `KollectProfile`, `KollectSink`, `KollectScope` | None | None (or minimal metadata only) | CEL `x-kubernetes-validations`, **validating webhook** |
-| Reconciled | `KollectTarget`, `KollectInventory`, `KollectPublication` (deferred) | Yes | Full conditions + `observedGeneration` | Same + runtime SAR checks |
+| Reconciled | `KollectTarget`, `KollectInventory` | Yes | Full conditions + `observedGeneration` | Same + runtime SAR checks |
 
 Rationale (Flux-aligned):
 

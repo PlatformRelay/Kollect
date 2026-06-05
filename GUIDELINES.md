@@ -11,7 +11,8 @@ Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 - **Helm chart day 1**; **Prometheus metrics** testable in CI; **connection test** with clear status.
 - **HTTP inventory API** is core, not optional later.
 - **Aggregation** — one export per logical change; design for ~60 clusters without blocking single-cluster.
-- **Defer `KollectPublication`** until collection is mature.
+- **Reject `KollectPublication` / doc-sync** — use Git/Kafka/Postgres export + external CI ([ADR-0011](docs/adr/0011-doc-sync-templating.md)).
+- **Postgres + Kafka sinks** are first-class export targets ([ADR-0025](docs/adr/0025-sink-backends-database-kafka.md)).
 
 ## 1. Error handling
 

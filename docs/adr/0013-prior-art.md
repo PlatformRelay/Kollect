@@ -7,7 +7,8 @@ Accepted (living document — update as we learn)
 ## Context
 
 kollect occupies a niche: **generic attribute-selection CRD + resource-selection CRD + aggregation +
-multi-backend export + doc-sync**. No single OSS project combines all of these. Local shallow clones
+multi-backend export** (Git, object storage, Postgres, Kafka). No single OSS project combines all
+of these. **Doc-sync / Confluence publication is rejected** ([ADR-0011](0011-doc-sync-templating.md)). Local shallow clones
 under `references/oss/` (read-only, never shipped) inform CRD ergonomics, informers, sinks, CI, and
 metrics. This ADR records what we **adopt**, **defer**, and **reject** after sampling those repos.
 
@@ -80,10 +81,13 @@ Lean on OSS patterns rather than reinvent:
 4. **Event-driven informers** (KSM + controller-runtime).
 5. **Status as summary** (all mature refs).
 6. **Helm/CI/docs toolchain** (ESO + Flux release hygiene).
-7. **Defer `KollectPublication`** until collection, aggregation, sinks, HTTP API, and connection tests are mature — plain JSON Git export proves portal/audit value first.
+7. **Reject `KollectPublication` / Confluence doc-sync** — templating and CMS push belong in external
+   CI consuming Git or Kafka/Postgres export ([ADR-0011](0011-doc-sync-templating.md)).
+8. **Add Postgres + Kafka sinks** as first-class export targets ([ADR-0025](0025-sink-backends-database-kafka.md)).
 
-kollect's unique value is the **combination** plus **stakeholder-facing export** (Git, HTTP, docs)
-with **multi-cluster aggregation** ([ADR-0022](0022-multi-cluster-sync-rfc.md)) without 60× export noise.
+kollect's unique value is the **combination** plus **stakeholder-facing export** (Git, HTTP, Postgres,
+Kafka) with **multi-cluster aggregation** ([ADR-0022](0022-multi-cluster-sync-rfc.md)) without 60×
+export noise.
 
 ## Consequences
 
@@ -96,7 +100,7 @@ with **multi-cluster aggregation** ([ADR-0022](0022-multi-cluster-sync-rfc.md)) 
 ### Negative
 
 - Mixing patterns from GitOps (Flux/Argo), secrets (ESO), and metrics (KSM) requires careful
-  documentation so users understand kollect is an **inventory/doc-sync** operator, not GitOps.
+  documentation so users understand kollect is an **inventory export** operator, not GitOps or a CMS.
 
 ## Open questions
 

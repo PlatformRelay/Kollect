@@ -1,6 +1,6 @@
 apiVersion: v2
 name: kollect
-description: Kubernetes inventory and doc-sync operator (kollect.dev)
+description: Kubernetes inventory export operator (kollect.dev)
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

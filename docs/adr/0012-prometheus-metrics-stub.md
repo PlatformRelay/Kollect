@@ -6,23 +6,24 @@ Accepted (stub, 2026-06-05)
 
 ## Context
 
-Phase 4 targets kube-state-metrics-style custom resource metrics and a Prometheus export sink.
-Phase 1 ships operator metrics per [ADR-0020](0020-error-taxonomy.md) instead of a full CR metrics
-pipeline.
+Phase 4 may add kube-state-metrics-style custom resource metrics. Phase 1 ships **operator**
+metrics per [ADR-0020](0020-error-taxonomy.md). Inventory export uses Git, object storage, Postgres,
+and Kafka sinks ([ADR-0025](0025-sink-backends-database-kafka.md)) — **not** a `KollectSink` of type
+`prometheus`.
 
 ## Decision
 
 1. **Operator metrics (Phase 1):** expose cardinality-safe gauges and histograms on the controller
    `/metrics` endpoint — including `kollect_collect_items_total`, `kollect_collected_objects`,
    `kollect_export_duration_seconds`, and reconcile counters.
-2. **Prometheus sink (`spec.type: prometheus`):** register in the sink factory but return a clear
-   error on export until Phase 4 implements remote-write or scrape-friendly export.
+2. **No Prometheus export sink:** `prometheus` is **not** a valid `KollectSink.spec.type`. Do not
+   register a prometheus sink in the export registry; avoids confusion with scrape endpoints.
 3. **Full kube-state-metrics-style `CustomResourceStateMetrics` config:** deferred to Phase 4; optional
-   `KollectProfile.spec.metrics` field reserved in design docs only.
+   `KollectProfile.spec.metrics` field reserved in design docs only (emitted via operator metrics path).
 
 ## Consequences
 
-- Portals can scrape operator metrics today; sink-type `prometheus` is not a supported export path yet.
+- Portals scrape **operator** `/metrics` for health and export latency; inventory payloads go to configured sinks.
 - Phase 4 work must extend this ADR rather than invent a parallel metrics model.
 
 ## See also

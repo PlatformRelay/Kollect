@@ -11,7 +11,7 @@ for every CRD or hand-maintained spreadsheets.
 
 **kollect** is a Kubernetes operator that watches arbitrary resource types (by GVK), extracts
 attributes with JSONPath or CEL, aggregates results, and exports snapshots to pluggable sinks (Git,
-GitLab, S3, GCS, Prometheus) and documentation backends (Confluence, Git). Exporting to Git gives
+GitLab, S3, GCS, Postgres, Kafka). Exporting to Git gives
 auditable, diffable history that developer portals and compliance workflows can consume alongside
 live API access.
 

@@ -1,5 +1,5 @@
 site_name: kollect
-site_description: Kubernetes inventory and doc-sync operator
+site_description: Kubernetes inventory export operator
 site_url: https://konih.github.io/kollect/
 repo_url: https://github.com/konih/kollect
 repo_name: konih/kollect

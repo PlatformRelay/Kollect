@@ -43,8 +43,9 @@ Conditions follow Kubernetes conventions: `Ready`, `Synced`, `Degraded` with `ob
 
 Use **OpenAPI enums** (and Go constants) for:
 
-- `KollectSink.spec.type` — `git`, `gitlab`, `s3`, `gcs`, `prometheus`, … (extensible via webhook
-  allow-list when adding backends)
+- `KollectSink.spec.type` — `git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka` (extensible via webhook
+  allow-list when adding backends). **Not** `prometheus` — operator metrics use `/metrics` only
+  ([ADR-0012](0012-prometheus-metrics-stub.md)).
 - Condition **`reason`** fields on reconciled kinds — e.g. `Progressing`, `InvalidProfile`,
   `SinkUnreachable`, `Forbidden`, `ConnectionTestSucceeded`, `ConnectionTestFailed`
 

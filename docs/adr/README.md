@@ -9,6 +9,8 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0003](0003-cel-jsonpath-extraction.md) | CEL and JSONPath attribute extraction |
 | [0004](0004-crd-model.md) | CRD model (prefixed kinds, static vs reconciled) |
 | [0006](0006-etcd-limit.md) | Data storage and etcd size limit |
+| [0011](0011-doc-sync-templating.md) | Doc-sync / Confluence publication (**Rejected**) |
+| [0012](0012-prometheus-metrics-stub.md) | Operator metrics (no Prometheus export sink) |
 | [0013](0013-prior-art.md) | Prior art and OSS reference patterns |
 | [0014](0014-event-driven-informers.md) | Event-driven dynamic informers |
 | [0015](0015-static-vs-reconciled.md) | Static config vs reconciled CRDs |
@@ -17,5 +19,6 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0022](0022-multi-cluster-sync-rfc.md) | Multi-cluster sync topology (RFC, Proposed) |
 | [0023](0023-lean-queue-transport.md) | Lean queue transport for hub fan-in (Accepted) |
 | [0024](0024-inventory-api-auth.md) | Inventory HTTP API authentication (Accepted) |
+| [0025](0025-sink-backends-database-kafka.md) | Postgres and Kafka export sinks (Accepted) |
 
 See also [ARCHITECTURE.md](../ARCHITECTURE.md) and [REQUIREMENTS.md](../REQUIREMENTS.md).

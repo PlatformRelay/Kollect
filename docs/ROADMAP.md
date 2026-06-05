@@ -2,7 +2,7 @@
 
 Phased delivery plan for [kollect](https://github.com/konih/kollect) — a Kubernetes inventory
 operator that watches arbitrary GVKs, aggregates extracted attributes, and exports to pluggable
-sinks (Git, object storage, metrics) with a read-only HTTP API for portals.
+sinks (Git, object storage, Postgres, Kafka) with a read-only HTTP API for portals.
 
 **Last updated:** 2026-06-05
 
@@ -22,8 +22,8 @@ sinks (Git, object storage, metrics) with a read-only HTTP API for portals.
 flowchart LR
   P0[Phase 0<br/>Bootstrap]
   P1[Phase 1<br/>Collection + Sink]
-  P2[Phase 2<br/>Multi-cluster hub]
-  P3[Phase 3<br/>Governance + backends]
+  P2[Phase 2<br/>Hub / multi-cluster]
+  P3[Phase 3<br/>Governance + scope]
   P4[Phase 4<br/>Metrics + aggregation]
   P0 --> P1
   P1 --> P2
@@ -37,7 +37,7 @@ flowchart LR
 | **0** | Bootstrap | Scaffold, guidelines, ADRs, Helm, CI, webhooks, metrics, docs |
 | **1** | Collection + Sink | Dynamic informers, CEL/JSONPath, namespaced inventory, Git/HTTP export |
 | **2** | Multi-cluster | `KollectHub` CRD, spoke agents, pluggable lean queue fan-in |
-| **3** | Governance + backends | `KollectScope`, S3/GCS/Prometheus, cluster inventory |
+| **3** | Governance | `KollectScope`, S3/GCS hardening, cluster inventory |
 | **4** | Metrics + aggregation | kube-state-metrics-style config, richer rollups |
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
@@ -86,6 +86,9 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Git sink with custom CA TLS | ✅ |
 | GitLab sink | ⬜ |
 | S3 sink | 🚧 |
+| Postgres sink (`type: postgres`) | ⬜ |
+| Kafka export sink (`type: kafka`) | ⬜ |
+| Postgres/Kafka testcontainers in CI | ⬜ |
 | SAR / RBAC scope degradation | ✅ |
 | Typed reconcile errors + circuit breakers | ⬜ |
 | Secondary watches (Profile/Sink changes) | ⬜ |
@@ -101,7 +104,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | End-to-end: install → collect → export → HTTP | 🚧 |
 | `spec.suspend` on reconciled kinds | ✅ |
 
-**Counts:** ✅ 14 · 🚧 6 · ⬜ 12 · 🔮 1
+**Counts:** ✅ 14 · 🚧 6 · ⬜ 15
 
 ---
 
@@ -123,9 +126,8 @@ Multi-cluster support must **not** block single-cluster installs. See
 | Transport: NATS JetStream (config alternative) | 🚧 |
 | Transport: Kafka backend (optional, integration-tested) | 🔮 |
 | Cross-cluster authentication | ❓ |
-| `KollectPublication` (doc-sync) | 🔮 |
 
-**Counts:** ✅ 6 · 🚧 1 · ⬜ 4 · 🔮 2 · ❓ 1
+**Counts:** ✅ 6 · 🚧 1 · ⬜ 4 · ❓ 1
 
 ---
 
@@ -137,11 +139,10 @@ Multi-cluster support must **not** block single-cluster installs. See
 | `KollectClusterScope` (platform teams) | 🔮 |
 | `KollectClusterInventory` (platform rollup) | ⬜ |
 | GCS sink | ✅ |
-| Prometheus export sink | 🚧 |
 | S3 sink CI hardening | 🚧 |
 | `KollectReceiver` / `KollectTargetSet` (design only) | 🔮 |
 
-**Counts:** ✅ 2 · 🚧 2 · ⬜ 1 · 🔮 4 · ❓ 1
+**Counts:** ✅ 2 · 🚧 1 · ⬜ 1 · 🔮 4 · ❓ 1
 
 ---
 
@@ -157,12 +158,18 @@ Multi-cluster support must **not** block single-cluster installs. See
 
 ---
 
+## Rejected
+
+| Item | Rationale |
+| --- | --- |
+| `KollectPublication` (Confluence, Go templates, doc-sync) | Out of scope — external CI over Git/Kafka export ([ADR-0011](adr/0011-doc-sync-templating.md)) |
+| `KollectSink.type: prometheus` | Operator `/metrics` only — not an inventory export sink ([ADR-0012](adr/0012-prometheus-metrics-stub.md)) |
+
 ## Deferred
 
 | Item | Rationale |
 | --- | --- |
-| `KollectPublication` (Confluence, Go templates) | Ship after collection and sinks are mature |
-| Kafka as required hub transport | Pluggable optional backend only; Redis spike first |
+| Kafka as **required** hub transport | Pluggable optional backend only; Redis spike first ([ADR-0023](adr/0023-lean-queue-transport.md)) |
 | `KollectReceiver`, `KollectTargetSet` implementation | Reserved for future phases |
 | oauth2-proxy sidecar (OIDC browser auth) | Optional Helm sidecar (`oauth2Proxy.enabled: false`); K8s bearer auth is primary — [ADR-0024](adr/0024-inventory-api-auth.md) |
 | Helm release inventory sample | Requires secret-adjacent field redaction |
@@ -204,6 +211,8 @@ namespace scope where appropriate.
 | Hub-and-spoke via **`KollectHub` CRD** (declarative Deployment + queue) | Accepted |
 | Transport: **`Transport` interface**; `inprocess` → **Redis** spike → NATS/Kafka via `spec.transport.type` | Accepted |
 | Transport backend rule: no merge without integration/e2e proof | Accepted |
+| Postgres + Kafka as first-class export sinks | Accepted ([ADR-0025](adr/0025-sink-backends-database-kafka.md)) |
+| Doc-sync / `KollectPublication` | Rejected ([ADR-0011](adr/0011-doc-sync-templating.md)) |
 | Inventory HTTP auth: **K8s TokenReview + SAR**; `--inventory-auth-mode=kubernetes` default | Accepted |
 | oauth2-proxy: **optional** Helm sidecar for OIDC browsers; not primary auth | Accepted |
 | Git, object storage, and agent mesh documented as alternatives | Accepted |
@@ -219,3 +228,5 @@ namespace scope where appropriate.
 - [ADR-0022: Multi-cluster RFC](adr/0022-multi-cluster-sync-rfc.md)
 - [ADR-0023: Lean queue transport](adr/0023-lean-queue-transport.md)
 - [ADR-0024: Inventory API auth](adr/0024-inventory-api-auth.md)
+- [ADR-0011: Doc-sync rejected](adr/0011-doc-sync-templating.md)
+- [ADR-0025: Postgres and Kafka sinks](adr/0025-sink-backends-database-kafka.md)

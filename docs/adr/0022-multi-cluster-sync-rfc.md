@@ -8,7 +8,7 @@ Proposed (user-aligned, 2026-06-05)
 
 Many installations need inventory from **~60 Kubernetes clusters** without:
 
-- 60 separate Confluence pages or Git commits per logical change
+- 60 separate Git commits or export events per logical change
 - Blocking the **single-cluster** path while multi-cluster is designed
 - Premature commitment to **Git-only** fan-in (agent mesh or object storage may fit better)
 
@@ -110,7 +110,7 @@ Goal: **one logical inventory view** per product/tenant, not per cluster.
 | --- | --- |
 | **Hub merge** | Collector keys rows by `(cluster, namespace, name, uid)`; export once |
 | **Federated Git** | Monorepo path `clusters/<name>/inventory.json` + single rendered index |
-| **Single doc page** | Publication phase merges cluster sections (deferred until collection mature) |
+| **Single portal view** | Hub merge + Postgres/Kafka/Git export; rendered docs via external CI ([ADR-0011](0011-doc-sync-templating.md)) |
 | **Metrics-only fan-in** | Prometheus labels include `cluster`; docs still need aggregated export |
 
 ## Recommended phasing (non-blocking)
@@ -121,7 +121,7 @@ Goal: **one logical inventory view** per product/tenant, not per cluster.
 | **1** | Namespaced `KollectInventory` aggregation, HTTP `/inventory`, Git/GitLab sink + **custom CA** | Export contract stable for hub to consume |
 | **2** | **`KollectHub` CRD** + spoke agent posting to hub queue or HTTPS | Hub Deployment + lean queue prototype |
 | **3** | Queue-backed async (pluggable per [ADR-0023](0023-lean-queue-transport.md)) | Spokes decoupled from hub uptime; optional Kafka |
-| **Later** | `KollectPublication`, `KollectClusterInventory` | After aggregation proven |
+| **Later** | `KollectClusterInventory` | After aggregation proven; doc-sync rejected ([ADR-0011](0011-doc-sync-templating.md)) |
 
 Single-cluster users never enable hub/spoke CRs or flags.
 

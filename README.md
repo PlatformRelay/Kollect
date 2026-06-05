@@ -1,14 +1,14 @@
 # kollect
 
-Generic Kubernetes **inventory + doc-sync operator** (`kollect.dev/v1alpha1`).
+Generic Kubernetes **inventory export operator** (`kollect.dev/v1alpha1`).
 
 Platform and application teams need **stakeholder-visible inventory** without bespoke collectors
 per resource type: what is deployed, where, and which attributes matter for audits, cost, or
 developer portals. Batch scripts and hardcoded schemas do not scale across clusters and CRDs.
 
 **kollect** watches arbitrary API resources, extracts attributes with CEL or JSONPath, aggregates
-results, and exports to pluggable sinks (Git, GitLab, S3, GCS, Prometheus) and documentation
-backends (Confluence, Git). Exporting cluster state to Git gives auditable, diffable snapshots that
+results, and exports to pluggable sinks (Git, GitLab, S3, GCS, Postgres, Kafka). Exporting cluster
+state to Git gives auditable, diffable snapshots that
 developer portals and compliance workflows can consume alongside live API access — so stakeholders
 without `kubectl` or repo access still see versioned, traceable system state.
 
