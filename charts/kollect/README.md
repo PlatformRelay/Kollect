@@ -147,9 +147,9 @@ The `ServiceMonitor` targets Service `<release>-kollect-controller-manager` port
 (HTTPS with bearer token when `metrics.secure: true`). Bind a **metrics-reader** `ClusterRole`
 to your Prometheus service account so SAR succeeds on `/metrics`.
 
-Starter alerts (group `kollect.rules`): metrics target down, operator not ready, reconcile errors,
-inventory export errors, sink export failures, connection test failures, high export latency,
-workqueue backlog, hub spoke report failures. See [operator metrics reference](../../docs/operator-manual/metrics.md).
+Starter alerts (group `kollect.rules`): reconcile errors, inventory export errors, sink export
+failures, connection test failures, high export latency, workqueue backlog, hub spoke report failures
+(all expressions use `kollect_*` metrics only). See [operator metrics reference](../../docs/operator-manual/metrics.md).
 
 CI overlay: [`ci/monitoring-values.yaml`](ci/monitoring-values.yaml).
 

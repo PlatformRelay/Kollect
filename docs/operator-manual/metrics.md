@@ -35,8 +35,6 @@ See [`charts/kollect/ci/monitoring-values.yaml`](../../charts/kollect/ci/monitor
 
 | Alert | Severity | Summary |
 | --- | --- | --- |
-| `KollectMetricsTargetDown` | critical | Prometheus not scraping the metrics Service |
-| `KollectOperatorNotReady` | critical | Controller pod failing `/readyz` |
 | `KollectReconcileErrors` | warning | Any sustained reconcile error counter increase |
 | `KollectInventoryExportErrors` | warning | `KollectInventory` reconcile errors |
 | `KollectSinkExportErrors` | warning | Sink export failures (`kollect_sink_errors_total`) |

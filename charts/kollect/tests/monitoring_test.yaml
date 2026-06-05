@@ -57,10 +57,10 @@ tests:
           value: RELEASE-NAME-kollect
       - matchRegex:
           path: spec.groups[0].rules[0].alert
-          pattern: KollectMetricsTargetDown
+          pattern: KollectReconcileErrors
       - matchRegex:
           path: spec.groups[0].rules[1].alert
-          pattern: KollectOperatorNotReady
+          pattern: KollectInventoryExportErrors
 
   - it: does not render ServiceMonitor when metrics disabled
     set:

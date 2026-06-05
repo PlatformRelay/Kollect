@@ -13,31 +13,6 @@ spec:
   groups:
     - name: kollect.rules
       rules:
-        - alert: KollectMetricsTargetDown
-          expr: |
-            absent(up{namespace="{{ .Release.Namespace }}", service="{{ include "kollect.fullname" . }}-controller-manager"}) == 1
-            or max(up{namespace="{{ .Release.Namespace }}", service="{{ include "kollect.fullname" . }}-controller-manager"}) == 0
-          for: 10m
-          labels:
-            severity: critical
-          annotations:
-            summary: Kollect controller metrics target is down
-            description: Prometheus is not scraping the Kollect metrics Service in {{ .Release.Namespace }}.
-        - alert: KollectOperatorNotReady
-          expr: |
-            max(
-              kube_pod_status_ready{
-                namespace="{{ .Release.Namespace }}",
-                pod=~"{{ include "kollect.fullname" . }}-controller-manager-.*",
-                condition="true"
-              }
-            ) == 0
-          for: 5m
-          labels:
-            severity: critical
-          annotations:
-            summary: Kollect controller pod is not ready
-            description: The controller-manager pod in {{ .Release.Namespace }} is not passing its readiness probe (/readyz).
         - alert: KollectReconcileErrors
           expr: |
             sum(increase(kollect_reconcile_errors_total[15m])) > 0
