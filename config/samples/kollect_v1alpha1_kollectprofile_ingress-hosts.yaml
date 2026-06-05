@@ -1,0 +1,24 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: ingress-hosts
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  targetGVK:
+    group: networking.k8s.io
+    version: v1
+    kind: Ingress
+  attributes:
+    - name: hosts
+      path: '$.spec.rules[*].host'
+      type: list
+    - name: ingressClass
+      path: '$.spec.ingressClassName'
+      type: string
+      optional: true
+    - name: tlsHosts
+      path: '$.spec.tls[*].hosts'
+      type: list
+      optional: true

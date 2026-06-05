@@ -1,0 +1,22 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: service-endpoints
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  targetGVK:
+    group: ""
+    version: v1
+    kind: Service
+  attributes:
+    - name: clusterIP
+      path: '$.spec.clusterIP'
+      type: string
+    - name: ports
+      path: '$.spec.ports[*].port'
+      type: list
+    - name: type
+      path: '$.spec.type'
+      type: string
