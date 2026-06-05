@@ -32,98 +32,11 @@ jobs:
           chmod +x kind && sudo mv kind /usr/local/bin/kind
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      - name: Create kind cluster
-        run: |
-          kind create cluster --name kollect-nightly --wait 120s
-          kubectl cluster-info --context kind-kollect-nightly
+      - name: Create kind cluster and install operator
+        run: bash hack/kind/e2e/setup.sh
 
-      - name: Build and load controller image
-        run: |
-          task docker:build
-          kind load docker-image kollect-controller-manager:dev --name kollect-nightly
-
-      - name: Install operator via Helm
-        run: |
-          helm upgrade --install kollect charts/kollect \
-            --namespace kollect-system --create-namespace \
-            -f charts/kollect/ci/e2e-tenant-values.yaml \
-            --set image.repository=kollect-controller-manager \
-            --set image.tag=dev \
-            --set image.pullPolicy=IfNotPresent \
-            --wait --timeout 120s
-
-      - name: Wait for manager pod
-        run: |
-          kubectl wait --for=condition=Ready pod \
-            -l app.kubernetes.io/name=kollect \
-            -n kollect-system \
-            --timeout=120s
-
-      - name: Apply sample CRs
-        run: kubectl apply -k config/samples/
-
-      - name: Seed nginx Deployment for target collection
-        run: |
-          kubectl apply -f - <<'EOF'
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: nginx
-            namespace: default
-            labels:
-              app.kubernetes.io/name: nginx
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                app.kubernetes.io/name: nginx
-            template:
-              metadata:
-                labels:
-                  app.kubernetes.io/name: nginx
-              spec:
-                containers:
-                  - name: nginx
-                    image: nginx:1.27-alpine
-          EOF
-
-      - name: Wait for KollectTarget Ready
-        run: |
-          kubectl wait --for=condition=Ready kollecttarget/nginx-deployments \
-            -n default --timeout=120s
-
-      - name: Wait for KollectInventory reconciled
-        run: |
-          for i in $(seq 1 24); do
-            gen=$(kubectl get kollectinventory team-inventory -n default -o jsonpath='{.metadata.generation}')
-            obs=$(kubectl get kollectinventory team-inventory -n default -o jsonpath='{.status.observedGeneration}')
-            if [ -n "$obs" ] && [ "$obs" = "$gen" ]; then
-              kubectl get kollectinventory team-inventory -n default -o yaml | grep -E 'type:|reason:|message:'
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "inventory not reconciled within timeout" >&2
-          kubectl describe kollectinventory team-inventory -n default
-          exit 1
-
-      - name: Assert CRDs accepted
-        run: |
-          kubectl wait --for=condition=Established crd/kollectprofiles.kollect.dev --timeout=120s
-          kubectl wait --for=condition=Established crd/kollecttargets.kollect.dev --timeout=120s
-          kubectl wait --for=condition=Established crd/kollectinventories.kollect.dev --timeout=120s
-          kubectl wait --for=condition=Established crd/kollectsinks.kollect.dev --timeout=120s
-          kubectl wait --for=condition=Established crd/kollecthubs.kollect.dev --timeout=120s
-          kubectl wait --for=condition=Established crd/kollectscopes.kollect.dev --timeout=120s
-          kubectl get kollectprofiles,kollecttargets,kollectinventories,kollectsinks -A
-
-      - name: Probe inventory HTTP
-        run: |
-          kubectl port-forward -n kollect-system svc/kollect-controller-manager 18082:8082 &
-          PF_PID=$!
-          sleep 3
-          curl -sf http://127.0.0.1:18082/inventory | grep -q itemCount
-          kill $PF_PID
+      - name: Run e2e smoke checks
+        run: bash hack/kind/e2e/smoke.sh
 
       - name: Multi-tenant namespace isolation
         run: |
@@ -153,4 +66,4 @@ jobs:
 
       - name: Delete kind cluster
         if: always()
-        run: kind delete cluster --name kollect-nightly
+        run: bash hack/kind/e2e/teardown.sh
