@@ -66,7 +66,7 @@ type KollectConnectionTest struct {
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	Spec   KollectConnectionTestSpec   `json:"spec"`
-	Status KollectConnectionTestStatus `json:"status,omitzero"`
+	Status KollectConnectionTestStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

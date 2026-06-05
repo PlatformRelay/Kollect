@@ -14,6 +14,9 @@ kind_use_context "$CLUSTER_NAME"
 
 _log() { echo "[e2e-smoke] $*"; }
 
+_log "Ensuring multitenant sample namespace team-a..."
+kubectl create namespace team-a --dry-run=client -o yaml | kubectl apply -f -
+
 _log "Applying sample CRs..."
 kubectl apply -k "${REPO_ROOT}/config/samples/"
 
