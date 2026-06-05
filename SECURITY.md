@@ -65,8 +65,26 @@ Run locally:
 task lint
 ```
 
-**CodeQL** is not enabled — see [ADR-0705 § OpenSSF Scorecard follow-ups](docs/adr/0705-release-supply-chain.md#openssf-scorecard-follow-ups)
-for the solo-maintainer rationale and deferred checks.
+**CodeQL** runs on every push/PR to `main` and weekly (`.github/workflows/codeql.yaml`); results appear
+under **Security → Code scanning**. See [ADR-0705](docs/adr/0705-release-supply-chain.md) for rationale.
+
+Run locally (requires [CodeQL CLI](https://github.com/github/codeql-cli-binaries)):
+
+```sh
+# CI equivalent: init → build → analyze via Actions; local runs use the CodeQL extension or CLI.
+task lint
+```
+
+### Dependabot
+
+Repository settings (enabled 2026-06-05):
+
+- **Dependabot alerts** — GitHub Advisory Database notifications for vulnerable dependencies
+- **Dependabot security updates** — automated patch PRs for known CVEs in `go.mod` and Actions
+- **Dependabot version updates** — weekly grouped PRs via [`.github/dependabot.yml`](.github/dependabot.yml)
+  (`gomod` minor/patch group, `github-actions` SHA group)
+
+Renovate is not used; Dependabot covers dependency update automation for this solo-maintainer OSS repo.
 
 ### govulncheck
 

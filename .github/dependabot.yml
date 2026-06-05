@@ -1,4 +1,6 @@
 # Dependabot version updates — action SHA bumps and Go module patches.
+# Dependabot alerts + security updates are enabled at the repo level (GitHub Settings →
+# Code security); this file configures scheduled version-update PRs only.
 # https://docs.github.com/en/code-security/dependabot
 version: 2
 updates:
@@ -7,6 +9,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    open-pull-requests-limit: 10
     groups:
       github-actions:
         patterns:
@@ -20,6 +23,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    open-pull-requests-limit: 10
     groups:
       go-minor-patch:
         patterns:
