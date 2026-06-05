@@ -27,6 +27,10 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **ci:** Pin scorecard-action to commit SHA [8911e2f](https://github.com/konih/kollect/commit/8911e2f4d22147edd6db663997dfb6c236ee49d0)
+
+- **docs:** Repair attribute extraction mermaid flowchart [5238169](https://github.com/konih/kollect/commit/52381691002dcbde2c0bf2ee08b5b5740a622da5)
+
 - **docs:** Restore material icon rendering [6504754](https://github.com/konih/kollect/commit/6504754ececf2bc92f2bb28bd41d3fb2a202b78f)
 
 - **ci:** Resolve goconst lint and codecov action pin [67519f4](https://github.com/konih/kollect/commit/67519f4af51183885d7f51d4e3713aa50d725241)

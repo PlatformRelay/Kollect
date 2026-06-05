@@ -53,7 +53,10 @@ func (r *KollectConnectionTestReconciler) Reconcile(ctx context.Context, req ctr
 	var sinkObj kollectdevv1alpha1.KollectSink
 	if err := r.Get(ctx, client.ObjectKey{Namespace: test.Namespace, Name: test.Spec.SinkRef}, &sinkObj); err != nil {
 		retErr = err
-		res, setErr := r.setProbeFailed(ctx, &test, reasonSinkNotFound, fmt.Sprintf("KollectSink %q: %v", test.Spec.SinkRef, err))
+		res, setErr := r.setProbeFailed(
+			ctx, &test, reasonSinkNotFound,
+			fmt.Sprintf("KollectSink %q: %v", test.Spec.SinkRef, err),
+		)
 
 		return res, setErr
 	}
