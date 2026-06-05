@@ -6,7 +6,7 @@ KIND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${KIND_DIR}/../.." && pwd)"
 
 # Pin kind CLI version (matches .github/workflows/e2e-nightly.yaml).
-readonly KIND_VERSION="${KIND_VERSION:-0.27.0}"
+readonly KIND_VERSION="${KIND_VERSION:-0.32.0}"
 
 # Kubernetes node image version — derived from go.mod k8s.io/api (kept in sync with envtest/CI).
 k8s_version_from_gomod() {

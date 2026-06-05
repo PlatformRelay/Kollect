@@ -87,7 +87,7 @@ task test:e2e
 | Tool | Required for |
 | --- | --- |
 | Docker (or nerdctl/podman) | kind |
-| [kind](https://kind.sigs.k8s.io/) v0.27+ | both profiles |
+| [kind](https://kind.sigs.k8s.io/) v0.32+ | both profiles |
 | [helm](https://helm.sh/) | both profiles |
 | [mkcert](https://github.com/FiloSottile/mkcert) | dev TLS only (skipped gracefully if missing) |
 

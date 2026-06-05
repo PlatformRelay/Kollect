@@ -51,7 +51,7 @@ jobs:
         env:
           HELM_VERSION: v3.17.3
         run: |
-          curl -fsSL -o kind "https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64"
+          curl -fsSL -o kind "https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64"
           chmod +x kind && sudo mv kind /usr/local/bin/kind
           bash hack/install-helm.sh
 
@@ -100,7 +100,7 @@ jobs:
         env:
           HELM_VERSION: v3.17.3
         run: |
-          curl -fsSL -o kind "https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64"
+          curl -fsSL -o kind "https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64"
           chmod +x kind && sudo mv kind /usr/local/bin/kind
           bash hack/install-helm.sh
 
