@@ -26,12 +26,14 @@ flowchart TD
   subgraph staticCfg [Static config — validated, no reconciler]
     Profile["KollectProfile (cluster)\nGVK + attribute paths"]
     Sink["KollectSink (cluster)\ngit | gitlab | s3 | gcs | prometheus\n+ custom CA TLS"]
-    Scope["KollectScope (cluster, Phase 3)\ntenancy boundary"]
+    Scope["KollectScope (namespaced, Phase 3)\ntenancy boundary"]
+    CScope["KollectClusterScope (reserved, cluster)"]
   end
 
   subgraph reconciled [Reconciled — controllers + informers]
     Target["KollectTarget (namespaced)\nprofileRef + selectors + suspend"]
-    Inv["KollectInventory (cluster)\naggregate + dispatch"]
+    Inv["KollectInventory (namespaced)\naggregate + dispatch"]
+    CInv["KollectClusterInventory (reserved, cluster)"]
     Pub["KollectPublication (deferred)\ntemplates + doc sync"]
   end
 
@@ -50,9 +52,11 @@ flowchart TD
 | --- | --- | --- | --- |
 | `KollectProfile` | Cluster | No | Extraction schema for a GVK |
 | `KollectSink` | Cluster | No | Export backend + TLS trust (`caBundle` / `caSecretRef`) |
-| `KollectScope` | Cluster | No | Allowed GVKs, namespaces, sinks (Phase 3) |
+| `KollectScope` | Namespace | No | Allowed GVKs, namespaces, sinks (Phase 3 priority) |
+| `KollectClusterScope` | Cluster | No | **Reserved** — platform tenancy (Phase 3+) |
 | `KollectTarget` | Namespace | Yes | Select resources, run collection |
-| `KollectInventory` | Cluster | Yes | Aggregate and export to sinks |
+| `KollectInventory` | Namespace | Yes | Aggregate targets in namespace; export to sinks |
+| `KollectClusterInventory` | Cluster | Yes | **Reserved** — platform rollup (not Phase 0–1) |
 | `KollectPublication` | Namespace | **Deferred** | Render and sync documentation |
 
 See [adr/0004-crd-model.md](adr/0004-crd-model.md) for webhooks, CA TLS, and tenancy questions.
@@ -118,13 +122,17 @@ flowchart TB
     Op[kollect one-pod]
     Op --> Git1[(Git / HTTP)]
   end
-  subgraph later [Phase 2+ — optional hub]
-    S1[spoke agent]
-    S2[spoke agent]
-    Hub[hub collector + aggregate]
-    S1 --> Hub
-    S2 --> Hub
-    Hub --> Git2[(one repo / one page)]
+  subgraph later [Phase 2+ — KollectHub CRD]
+    S1[spoke operator]
+    S2[spoke operator]
+    HubCRD[KollectHub]
+    Dep[hub Deployment]
+    Q[lean queue]
+    HubCRD --> Dep
+    S1 --> Q
+    S2 --> Q
+    Dep --> Q
+    Dep --> Git2[(one repo / one page)]
   end
   now -.->|does not block| later
 ```
@@ -171,7 +179,7 @@ flowchart LR
 | --- | --- |
 | 0 | Bootstrap, guidelines, ADRs, **Helm day 1**, webhooks, metrics, connection test, samples in CI |
 | 1 | Profile + Target + Inventory + Git/GitLab sink + **HTTP API** + aggregation |
-| 2 | Spoke/hub multi-cluster experiments ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)); optional queue transport |
+| 2 | `KollectHub` CRD + spoke/hub ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)); lean queue ([ADR-0023](adr/0023-lean-queue-transport.md)) |
 | 3 | S3/GCS/Prometheus, `KollectScope`, Receiver/TargetSet design |
 | 4 | Richer KSM-style metrics config; advanced aggregation |
 

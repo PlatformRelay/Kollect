@@ -26,6 +26,17 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 | **Aggregation** | One inventory roll-up, one export commit, one doc page where possible |
 | **Phase 0 one-pod-does-all** | Single deployment can collect + aggregate + export for first success path |
 | **Per-cluster agents / cross-cluster collector** | Explored in [ADR-0022](adr/0022-multi-cluster-sync-rfc.md); must not block single-cluster MVP |
+| **`KollectHub` CRD (hub cluster)** | Hub is declarative CRD → operator-managed Deployment → lean queue → aggregated export |
+| **Lean queue transport (first)** | NATS JetStream or Redis Streams; Kafka optional only — [ADR-0023](adr/0023-lean-queue-transport.md) |
+| **Namespaced `KollectInventory`** | Team-owned rollup; **`KollectClusterInventory`** reserved for platform ([ADR-0004](adr/0004-crd-model.md)) |
+| **Namespaced `KollectScope` (Phase 3)** | Tenancy boundary first; **`KollectClusterScope`** for platform teams as addition |
+
+## Testing
+
+| Requirement | Rationale |
+| --- | --- |
+| **Periodic end-to-end tests** | Full install → sample CRs → export/HTTP smoke; catches regressions unit tests miss |
+| **Nightly + `workflow_dispatch`** | Scheduled GitHub Actions workflow; manual trigger for release candidates |
 
 ## Architecture principles
 
@@ -52,3 +63,4 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — system view and multi-cluster outlook
 - [adr/0022-multi-cluster-sync-rfc.md](adr/0022-multi-cluster-sync-rfc.md) — topology options (Proposed)
+- [adr/0023-lean-queue-transport.md](adr/0023-lean-queue-transport.md) — hub queue selection (Proposed)

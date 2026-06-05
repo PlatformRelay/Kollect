@@ -110,13 +110,14 @@ kubectl label deployment nginx app.kubernetes.io/name=nginx --overwrite
 
 ## Step 4 — KollectInventory
 
-Cluster-scoped aggregator referencing one or more sinks.
+Namespaced aggregator (same namespace as targets) referencing one or more sinks.
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
 kind: KollectInventory
 metadata:
-  name: cluster-inventory
+  name: team-inventory
+  namespace: default
 spec:
   sinkRefs:
     - git-inventory-demo

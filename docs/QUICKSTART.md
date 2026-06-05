@@ -102,7 +102,7 @@ and Git commit SHAs in status (not full payloads — see [ADR-0006](adr/0006-etc
 ```sh
 kubectl get kollectprofiles,kollectsinks,kollectinventories
 kubectl get kollecttargets -A
-kubectl describe kollectinventory cluster-inventory
+kubectl describe kollectinventory -n default team-inventory
 ```
 
 When export works, check your Git sink repository for committed inventory JSON/YAML.

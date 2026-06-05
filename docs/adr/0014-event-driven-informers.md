@@ -47,6 +47,18 @@ Polling the API on a short `RequeueAfter` loop would duplicate informer work and
 Samples double as **documentation and regression contracts** — breaking extractor or selector behavior
 should fail CI before release.
 
+9. **Periodic end-to-end tests** — in addition to unit/envtest and sample decode checks, run a
+   **full-path e2e** workflow on a schedule and on demand:
+
+   - **Trigger:** `cron` (nightly) and `workflow_dispatch` for release validation.
+   - **Scope (minimum):** install operator (Helm or kustomize), apply tested samples, assert
+     `KollectTarget` / namespaced `KollectInventory` reach expected conditions or HTTP `/inventory`
+     responds when enabled.
+   - **Goal:** catch wiring regressions (RBAC, webhooks, informer registration, export) that fast
+     tests miss.
+
+   Documented as a binding requirement in [REQUIREMENTS.md](../REQUIREMENTS.md).
+
 ```mermaid
 flowchart TD
   Prof[KollectProfile GVK]

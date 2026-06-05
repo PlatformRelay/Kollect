@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (updated 2026-06-05 — `KollectInventory` namespaced; reserved cluster kinds)
 
 ## Context
 
@@ -31,22 +31,26 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 | --- | --- | --- |
 | `KollectProfile` | Cluster | Reusable extraction schema: GVK + named CEL/JSONPath attributes |
 | `KollectSink` | Cluster | Backend config: `type` + endpoint + `secretRef` + TLS trust; resolved via Go registry |
-| `KollectScope` | Cluster | Tenancy boundary (Phase 3): allowed GVKs, namespaces, sinks |
+| `KollectScope` | **Namespace** (Phase 3 priority) | Tenancy boundary: allowed GVKs, namespaces, sinks for a team |
 
 ### Reconciled (controller + dynamic informers)
 
 | Kind | Scope | Role |
 | --- | --- | --- |
 | `KollectTarget` | Namespaced | `profileRef` + selectors + optional CEL predicate; drives collection |
-| `KollectInventory` | Cluster | Aggregates targets; dispatches to sinks |
+| `KollectInventory` | **Namespaced** | Aggregates targets **in the same namespace**; dispatches to sinks |
 | `KollectPublication` | Namespaced | **Deferred** until collection is mature — template render + doc-backend sync |
 
 ### Reserved (designed, not built yet)
 
 - `KollectReceiver` — inbound webhook → trigger (Flux Receiver pattern).
 - `KollectTargetSet` — generator templating many Targets (ApplicationSet pattern).
+- **`KollectClusterInventory`** (cluster) — platform-wide rollup across namespaces; mirrors ESO
+  `ClusterSecretStore` vs `SecretStore`. **No controller in Phase 0–1** — ADR + plan only.
+- **`KollectClusterScope`** (cluster) — platform tenancy boundary when namespaced `KollectScope` is
+  insufficient; addition after namespaced scope ships (Phase 3).
 
-Short names: `kprof`, `ksink`, `kscope`, `ktgt`, `kinv`, `kpub`.
+Short names: `kprof`, `ksink`, `kscope`, `ktgt`, `kinv`, `kpub` (reserved: `kcinv`, `kcscope`).
 
 All reconciled kinds support `spec.suspend` and `kollect.dev/requestedAt` manual-trigger annotation.
 
@@ -83,21 +87,20 @@ Phase 1 API. Schema clarity and aggregation matter more than where filtering run
 ### Positive
 
 - Static Profile/Sink cuts moving parts (validated at admission, read at reconcile time).
-- Namespaced Targets align with team ownership; cluster Profiles/Sinks enable shared platform config.
+- Namespaced Targets and Inventories align with team ownership; cluster Profiles/Sinks enable shared platform config.
 - Prefix naming is grep-friendly and avoids generic kind collisions in multi-operator clusters.
 - Early webhooks prevent bad profiles from wedging reconcilers.
+- **`KollectClusterInventory`** reserved for platform portal without blocking team-scoped MVP.
 
 ### Negative
 
-- Cluster-scoped `KollectInventory` may be awkward for strict multi-tenant isolation (see open questions).
+- Namespaced inventory requires one object per namespace (or explicit federation via hub — [ADR-0022](0022-multi-cluster-sync-rfc.md)).
 - `KollectSink` is cluster-scoped only today — no namespaced sink variant unlike ESO's Store split.
 - Webhook + CEL maintenance cost on every new attribute type rule.
 
 ## Open questions
 
-- **OPEN:** Should `KollectInventory` be **namespaced** (team-owned rollup) with optional cluster
-  aggregator, mirroring `SecretStore` vs `ClusterSecretStore`? Cluster scope simplifies a single
-  portal view but widens RBAC blast radius.
 - **OPEN:** Add `KollectClusterSink` + namespaced `KollectSink` split in Phase 1 or defer to Phase 3
   with `KollectScope`?
 - **OPEN:** Single `caBundle` field vs only `secretRef` for CA — size limits on CRD spec?
+- **OPEN:** `KollectClusterInventory` selector model — all namespaces vs explicit namespace list?
