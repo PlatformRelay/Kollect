@@ -1,3 +1,4 @@
+# Dual-cadence export (ADR-0413): Postgres portal @ 30s + Git audit @ 1h.
 apiVersion: kollect.dev/v1alpha1
 kind: KollectInventory
 metadata:

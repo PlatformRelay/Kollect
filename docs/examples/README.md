@@ -13,7 +13,7 @@ kubectl apply -k config/samples/
 
 | Example | Topic |
 | --- | --- |
-| [Deployment inventory](deployment-inventory.md) | Profile → Target → Inventory → Postgres (Git optional) |
+| [Deployment inventory](deployment-inventory.md) | Profile → Target → Inventory → Postgres **30s** + Git **1h** dual-cadence ([ADR-0413](../adr/0413-export-interval-scheduling.md)) |
 | [Helm / Argo release inventory](helm-release-inventory.md) | Argo CD `Application` (Flux secondary) |
 | [Spoke cluster inventory](spoke-cluster-inventory.md) | Per-team Postgres/Git export |
 | [Postgres state store](postgres-state-store.md) | Relational SoR + delete reconciliation |
@@ -38,3 +38,9 @@ kubectl apply -k config/samples/
     kustomized sample under `config/samples/` yet. Use the JSON sinks in
     [postgres-state-store.md](postgres-state-store.md) or deployment-inventory for end-to-end export
     until a Parquet walkthrough lands.
+
+!!! tip "Per-sink export intervals"
+    Dual-cadence Postgres + Git is wired in
+    `config/samples/kollect_v1alpha1_kollectinventory.yaml`
+    and explained in [deployment-inventory.md](deployment-inventory.md#step-4-kollectinventory)
+    ([ADR-0413](../adr/0413-export-interval-scheduling.md)).

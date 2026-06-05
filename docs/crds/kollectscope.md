@@ -72,6 +72,10 @@ Allow-list sinks for inventory:
 kubectl get kinv -n team-a -o jsonpath='{.items[*].status.conditions[?(@.type=="Degraded")]}'
 ```
 
+Set `spec.minExportInterval` to enforce a tenancy floor — inventory and sink intervals below this
+value are rejected at admission ([ADR-0413](../adr/0413-export-interval-scheduling.md)). Sample:
+`config/samples/kollect_v1alpha1_kollectscope_team-a.yaml` uses `minExportInterval: 1m`.
+
 ## Status conditions
 
 | Type | When set | Meaning |

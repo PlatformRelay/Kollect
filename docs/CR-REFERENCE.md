@@ -66,6 +66,9 @@ Payloads **≥ 1 MiB** warn; **> 1 MiB** require an `s3` or `gcs` sink in invent
 receives smaller exports only). Hard cap ~**1.5 MiB** `maxExportBytes` blocks export entirely. Details:
 [KollectSink — spill policy](crds/kollectsink.md#export-payload-spill).
 
+Per-sink export cadence is configured on inventory/cluster-inventory `sinkRefs` (string or object),
+optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval-scheduling.md).
+
 ## Kinds
 
 | Kind | Scope | Reconciled | Reference |

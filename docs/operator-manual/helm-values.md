@@ -38,8 +38,25 @@ knobs; the authoritative full list lives in the chart tree.
 | `webhooks.certManager.create` | cert-manager `Certificate` for webhook TLS | `true` |
 | `sinkDefaults.connectionTest` | Default for sample `KollectSink` probes | `false` |
 
-Export debouncing is configured per **`KollectInventory.spec.exportMinInterval`** (CRD default
-**30s**).
+Export debouncing is configured per **sink ref** on `KollectInventory` / `KollectClusterInventory`
+([ADR-0413](../adr/0413-export-interval-scheduling.md)): ref override → sink default → inventory
+default **30s** → scope floor.
+
+Enable Prometheus Operator scraping and alerts:
+
+```yaml
+metrics:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  prometheusRule:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+```
+
+See [Metrics](metrics.md) for the alert catalog and [chart README — monitoring](../../charts/kollect/README.md#prometheus-operator-monitoring).
 
 ## Per-team install (recommended default)
 

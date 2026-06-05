@@ -39,7 +39,14 @@ conditions on reconciled objects.
 | **Annotation `kollect.dev/test-connection: "true"`** | One-shot re-test without editing spec |
 
 Probe uses the same TLS trust and secret resolution as export (`caBundle` / `caSecretRef`,
-`secretRef`). Supported types today: `git`, `postgres`, `kafka`, `s3` (extend per sink).
+`secretRef`). Supported types today:
+
+| `spec.type` | Probe wired |
+| --- | --- |
+| `git`, `gitlab`, `postgres`, `kafka`, `s3` | ✅ |
+| `nats`, `gcs` | ⬜ not wired ([kollectsink.md](../crds/kollectsink.md)) |
+
+Extend per sink as backends mature.
 
 **Status on `KollectSink`:**
 

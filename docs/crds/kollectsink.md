@@ -192,7 +192,16 @@ Wire inventory to a sink:
 
 ```sh
 kubectl apply -f config/samples/kollect_v1alpha1_kollectinventory.yaml
-kubectl get kinv -n default team-inventory -o jsonpath='{.status.conditions}'
+kubectl get kinv -n default team-inventory -o jsonpath='{.status.sinkExports}'
+```
+
+Optional sink default when refs omit override:
+
+```yaml
+spec:
+  type: postgres
+  exportMinInterval: 30s
+  # ...
 ```
 
 Re-probe without editing spec:

@@ -45,6 +45,12 @@ See [`charts/kollect/ci/monitoring-values.yaml`](../../charts/kollect/ci/monitor
 
 Append custom rules via `metrics.prometheusRule.additionalRules`.
 
+!!! note "Per-sink export cadence"
+    Export debounce is keyed per `(inventory, sink)` ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
+    Metrics aggregate by `sink_type` — use `status.sinkExports[]` or inventory conditions (`PartiallySynced`)
+    to distinguish debounced sinks from export failures. `kollect_export_duration_seconds` and
+    `kollect_sink_errors_total` fire on actual export attempts only.
+
 ## Metric catalog
 
 All custom metrics use the `kollect_` prefix. Controller-runtime also exposes standard workqueue and Go runtime metrics on the same endpoint.

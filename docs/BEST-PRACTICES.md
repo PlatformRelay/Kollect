@@ -91,8 +91,9 @@ canonical artifact; every sink is a projection of it.
   drifts stale ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 - Set `spec.cluster` on sinks in multi-cluster installs so the backend primary key merges rows
   across clusters.
-- Tune `KollectInventory.spec.exportMinInterval` (default **30s**) before adding more sinks —
-  see [Performance tuning](PERFORMANCE.md).
+- Tune per-sink `exportMinInterval` on structured `sinkRefs[]` before adding more backends —
+  portal Postgres at **30s** + Git audit at **1h** is the default sample
+  ([ADR-0413](adr/0413-export-interval-scheduling.md)). See [Performance tuning](PERFORMANCE.md).
 
 ### Connection testing
 

@@ -74,12 +74,12 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Core documentation + MkDocs (GitHub Pages) | ✅ |
 | CR reference guide (`docs/crds/`, failure modes) | ✅ |
 | Data flows (`DATA-FLOWS.md`) | ✅ |
-| Architecture Decision Records (34, thematic `0Txx` ranges) | ✅ |
+| Architecture Decision Records (44, thematic `0Txx` ranges) | ✅ |
 | ADR-0603 performance & scalability | ✅ |
 | `GUIDELINES.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
 | Validating webhook — Profile CEL/JSONPath | ✅ |
 | Validating webhook — Profile Secret.data guard | ✅ |
-| Validating webhook — Sink type enum | ⬜ |
+| Validating webhook — Sink type enum | ✅ |
 | Prometheus custom metrics (early) | ✅ |
 | Connection test infrastructure | ✅ ([ADR-0403](adr/0403-connection-test.md)) |
 | Namespaced `KollectProfile` API | ✅ ([ADR-0204](adr/0204-namespaced-profiles.md)) |
@@ -88,7 +88,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Release pipeline (SBOM, signing) | 🚧 local dry-run PASS; GH `workflow_dispatch` untested |
 | Public demo Git inventory repo | ✅ |
 
-**Counts:** ✅ 20 · 🚧 1 · ⬜ 2
+**Counts:** ✅ 21 · 🚧 1 · ⬜ 1
 
 ---
 
@@ -110,7 +110,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Postgres sink (`type: postgres`) | ✅ |
 | Postgres **delete reconciliation** (stale-row fix) | ✅ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | Kafka export sink (`type: kafka`) | ✅ |
-| **NATS JetStream** emitter (`type: nats`, lean default) | ⬜ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
+| **NATS JetStream** emitter (`type: nats`, lean default) | ✅ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | Postgres/Kafka testcontainers in CI | ✅ |
 | SAR / RBAC scope degradation | ✅ |
 | Typed reconcile errors + circuit breakers | 🚧 |
@@ -140,7 +140,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | **Multi-tenant e2e:** dynamic `kollect-tenant-a` / `kollect-tenant-b` isolation | ✅ |
 | Inventory namespace isolation unit tests | ✅ |
 
-**Counts:** ✅ 29 · 🚧 5 · ⬜ 5
+**Counts:** ✅ 30 · 🚧 5 · ⬜ 4
 
 ---
 
@@ -284,6 +284,7 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 | `task load-test` (`KOLECT_LOAD_TEST=1`, `-tags=load`) | ✅ |
 | `--max-concurrent-reconciles-*` flags + Helm values | ✅ |
 | **`spec.exportMinInterval`** per Inventory (default 30s) | ✅ |
+| **Per-sink `exportMinInterval`** on `sinkRefs[]` + `status.sinkExports[]` | ✅ [ADR-0413](adr/0413-export-interval-scheduling.md) |
 | `--reconcile-rate-limit` flag | ✅ |
 | `--informer-resync-period` flag | ⬜ |
 | pprof on `:6060` (feature gate) | ✅ |
@@ -293,7 +294,7 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 | envtest synthetic scale harness (cap 500) | ✅ |
 | Load test package (`test/load/`, `-tags=load`) | ✅ |
 
-**Counts:** ✅ 16 · ⬜ 1
+**Counts:** ✅ 17 · ⬜ 1
 
 ---
 

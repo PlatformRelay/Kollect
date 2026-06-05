@@ -48,9 +48,9 @@ flowchart TD
 | `spec.targetRefs[]` | list | No | all targets | `KollectClusterTarget` names (name only) |
 | `spec.targetSelector` | labelSelector | No | — | Filter cluster targets when `targetRefs` empty |
 | `spec.namespaceSelector` | labelSelector | **Yes** | — | Explicit namespace scope for rollup |
-| `spec.sinkRefs[]` | list | No | — | `KollectSink` names in `sinkNamespace` |
+| `spec.sinkRefs[]` | list | No | — | Sink names (string) or `{ name, exportMinInterval? }` in `sinkNamespace` — max 20 |
 | `spec.sinkNamespace` | string | No | `kollect-system` | Namespace for sink resolution |
-| `spec.exportMinInterval` | duration | No | **30s** | Min gap between identical exports |
+| `spec.exportMinInterval` | duration | No | **30s** | Default min gap for refs without override; bypass on checksum or generation change |
 | `spec.suspend` | bool | No | false | Pause reconciliation (reserved) |
 
 ## Sample usage
@@ -77,8 +77,16 @@ Walkthrough: [examples/cluster-rollup.md](../examples/cluster-rollup.md).
 | Type | When set | Meaning | Remediation |
 | --- | --- | --- | --- |
 | `Ready=True` | Healthy | Rollup and export healthy | None |
-| `ExportSucceeded=True` | Last export OK | Sink write succeeded | Check `status.lastExportTime` |
+| `Synced=True` | Export OK | All sinks exported on last reconcile | Check `status.lastExportTime` |
+| `Synced=False` `PartiallySynced` | Mixed cadence | Some sinks exported; others debounced | Inspect `status.sinkExports[]` ([ADR-0413](../adr/0413-export-interval-scheduling.md)) |
+| `ExportSucceeded=True` | Last export OK | Sink write succeeded (legacy alias) | Check `status.lastExportTime` |
 | `Degraded=True` | Blocked | Scope, targets, size, or export error | See reasons below |
+
+### Per-sink status (`status.sinkExports[]`)
+
+Same shape as [KollectInventory](kollectinventory.md#per-sink-status-statussinkexports): per-ref
+`lastExportTime`, `lastChecksum`, and `Synced` conditions. Interval precedence matches namespaced
+inventory ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 
 ### Common `Degraded` reasons
 
