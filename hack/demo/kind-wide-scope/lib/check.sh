@@ -28,7 +28,7 @@ _cmd_version() {
     docker) docker version --format '{{.Client.Version}}' 2>/dev/null ;;
     gh) gh version 2>/dev/null | awk '{print $3; exit}' ;;
     go) go version 2>/dev/null | awk '{print $3}' | tr -d go ;;
-    kustomize) kustomize version --short 2>/dev/null | awk '{print $1}' | tr -d v ;;
+    kustomize) kustomize version 2>/dev/null | head -1 | tr -d v ;;
     task) task --version 2>/dev/null | awk '{print $2}' ;;
     gum) gum --version 2>/dev/null | awk '{print $NF}' ;;
     *) echo "" ;;
@@ -60,6 +60,14 @@ _check_one() {
   return 0
 }
 
+_demo_check_finish() {
+  local code="$1"
+  if [[ "${DEMO_CHECK_STANDALONE:-0}" -eq 1 ]]; then
+    exit "$code"
+  fi
+  return "$code"
+}
+
 fail=0
 echo "Kollect wide-scope demo — prerequisite check"
 echo "Repo: ${REPO_ROOT}"
@@ -86,7 +94,7 @@ fi
 echo ""
 if [[ "$fail" -ne 0 ]]; then
   echo "Fix failures above, then re-run: bash hack/demo/kind-wide-scope/demo.sh --check"
-  exit 1
+  _demo_check_finish 1
 fi
 echo "All required checks passed."
-exit 0
+_demo_check_finish 0

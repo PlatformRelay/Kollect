@@ -89,8 +89,7 @@ done
 
 if [[ "${RUN_CHECK}" -eq 1 ]]; then
   # shellcheck source=lib/check.sh
-  source "${SCRIPT_DIR}/lib/check.sh"
-  exit $?
+  DEMO_CHECK_STANDALONE=1 source "${SCRIPT_DIR}/lib/check.sh"
 fi
 
 demo_require_gum
