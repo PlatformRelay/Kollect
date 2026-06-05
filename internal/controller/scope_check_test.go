@@ -83,7 +83,7 @@ func TestScopeCheckSinkReachable(t *testing.T) {
 	}
 
 	ok, reason, _ = check.sinkReachable(context.Background(), "team-a", "bad")
-	if ok || reason != "SinkUnreachable" {
+	if ok || reason != reasonSinkUnreachable {
 		t.Fatalf("failed sink: ok=%v reason=%q", ok, reason)
 	}
 }

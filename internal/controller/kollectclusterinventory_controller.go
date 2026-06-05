@@ -465,7 +465,7 @@ func checkClusterInventorySinksReachable(
 		key := client.ObjectKey{Namespace: sinkNamespace, Name: name}
 		if err := c.Get(ctx, key, &ks); err != nil {
 			if apierrors.IsNotFound(err) {
-				return false, "SinkNotFound", fmt.Sprintf("KollectSink %q not found in namespace %q", name, sinkNamespace)
+				return false, reasonSinkNotFound, fmt.Sprintf("KollectSink %q not found in namespace %q", name, sinkNamespace)
 			}
 
 			return false, "SinkLookupFailed", err.Error()

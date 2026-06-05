@@ -86,7 +86,7 @@ func TestKollectConnectionTestReconciler_sinkNotFound(t *testing.T) {
 	}
 
 	cond := apimeta.FindStatusCondition(got.Status.Conditions, kollectdevv1alpha1.ConditionConnectionVerified)
-	if cond == nil || cond.Status != metav1.ConditionFalse || cond.Reason != "SinkNotFound" {
+	if cond == nil || cond.Status != metav1.ConditionFalse || cond.Reason != reasonSinkNotFound {
 		t.Fatalf("ConnectionVerified = %+v", cond)
 	}
 }

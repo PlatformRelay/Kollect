@@ -92,7 +92,7 @@ func (s scopeCheck) sinkReachable(
 ) (bool, string, string) {
 	var ks kollectdevv1alpha1.KollectSink
 	if err := s.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: sinkName}, &ks); err != nil {
-		return false, "SinkNotFound", fmt.Sprintf("KollectSink %q not found", sinkName)
+		return false, reasonSinkNotFound, fmt.Sprintf("KollectSink %q not found", sinkName)
 	}
 
 	verified := apimeta.FindStatusCondition(ks.Status.Conditions, kollectdevv1alpha1.ConditionConnectionVerified)
@@ -102,7 +102,7 @@ func (s scopeCheck) sinkReachable(
 			msg = verified.Message
 		}
 
-		return false, "SinkUnreachable", msg
+		return false, reasonSinkUnreachable, msg
 	}
 
 	if verified != nil && verified.Status == metav1.ConditionTrue {

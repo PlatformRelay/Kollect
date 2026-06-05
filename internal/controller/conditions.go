@@ -18,6 +18,9 @@ const (
 	conditionDegraded      = kollectdevv1alpha1.ConditionDegraded
 	conditionSinkReachable = kollectdevv1alpha1.ConditionSinkReachable
 	conditionSynced        = kollectdevv1alpha1.ConditionSynced
+
+	reasonSinkNotFound    = "SinkNotFound"
+	reasonSinkUnreachable = "SinkUnreachable"
 )
 
 func setTargetCondition(

@@ -42,8 +42,8 @@ func TestCheckInventorySinksReachable_connectionFailed(t *testing.T) {
 	if ok {
 		t.Fatal("expected sinks unreachable")
 	}
-	if reason != "SinkUnreachable" {
-		t.Fatalf("reason = %q, want SinkUnreachable", reason)
+	if reason != reasonSinkUnreachable {
+		t.Fatalf("reason = %q, want %s", reason, reasonSinkUnreachable)
 	}
 }
 
