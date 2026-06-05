@@ -24,7 +24,7 @@ tasks:
     env:
       CGO_ENABLED: "1"
       KIND_CLUSTER:
-        sh: echo "${KIND_CLUSTER:-kollect-test-e2e}"
+        sh: echo "${KIND_CLUSTER:-kollect-e2e}"
     cmds:
       - make test-e2e
 

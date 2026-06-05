@@ -1,0 +1,20 @@
+# Local dev kind (kollect-dev): inventory HTTP + pprof on, webhooks off for fast iteration.
+featureGates:
+  inventoryHttp:
+    enabled: true
+    authMode: disabled
+
+webhooks:
+  enabled: false
+
+pprof:
+  enabled: true
+  bindAddress: ":6060"
+
+watchNamespaces: []
+tenantMode: false
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false

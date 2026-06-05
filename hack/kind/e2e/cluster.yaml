@@ -1,0 +1,5 @@
+# Minimal single-node kind cluster for CI / nightly e2e (no ingress, no addons).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane

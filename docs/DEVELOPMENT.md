@@ -30,49 +30,35 @@ task build
 
 The manager binary lands at `bin/manager`. Use `task --list-all` to see all targets.
 
-## Run against kind
+## Local Kind (dev)
 
-### 1. Create a cluster
-
-```sh
-kind create cluster --name kollect-dev
-kubectl cluster-info --context kind-kollect-dev
-```
-
-### 2. Install CRDs
+For daily development, use the **kollect-dev** profile (`hack/kind/dev/`). One command creates
+the cluster, builds/loads the controller image, installs kollect via Helm
+(`charts/kollect/ci/dev-values.yaml`), and optionally adds ingress-nginx, mkcert TLS, and Grafana.
 
 ```sh
-task install:crds
-# or: make install
-```
-
-### 3. Build and load the operator image
-
-```sh
-task docker:build
-kind load docker-image kollect-controller-manager:dev --name kollect-dev
-```
-
-Default image tag is `kollect-controller-manager:dev` (see `Taskfile.yml`).
-
-### 4. Deploy the manager
-
-```sh
-task deploy:operator
-```
-
-This applies `config/default` (namespace `kollect-system`, deployment `kollect-controller-manager`).
-
-### 5. Apply sample CRs
-
-```sh
+task kind-dev-up          # full dev stack
+KOLLECT_DEV_MINIMAL=1 task kind-dev-up   # operator only (skip addons)
+task kind-dev-load        # rebuild image after code changes
+task kind-dev-status      # cluster + pod status
 kubectl apply -k config/samples/
+task kind-dev-down
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) and [examples/deployment-inventory.md](examples/deployment-inventory.md)
-for what each sample does and what to expect at the current project phase.
+**Prerequisites beyond Docker/kind/kubectl/helm:** [mkcert](https://github.com/FiloSottile/mkcert)
+for trusted `*.localhost` HTTPS (skipped gracefully if not installed). Certs are generated under
+`hack/kind/dev/certs/` (git-ignored).
 
-### 6. Run the manager on the host (alternative)
+Optional env vars:
+
+| Variable | Effect |
+| --- | --- |
+| `KOLLECT_DEV_MINIMAL=1` | Skip ingress, TLS, Grafana, Prometheus |
+| `KOLLECT_DEV_PROMETHEUS=1` | Install lightweight Prometheus in dev cluster |
+
+See [hack/kind/README.md](../hack/kind/README.md) for architecture and cluster comparison.
+
+### Run the manager on the host (alternative)
 
 Useful for fast iteration with a debugger:
 
@@ -81,13 +67,36 @@ make run
 # or after codegen: go run ./cmd/main.go
 ```
 
-Ensure your kubeconfig points at the target cluster (`KUBECONFIG` or default `~/.kube/config`).
+Ensure your kubeconfig points at `kind-kollect-dev` (`kubectl config use-context kind-kollect-dev`).
 
-### Teardown
+### Manual / kustomize deploy (legacy)
+
+If you prefer raw manifests instead of Helm:
 
 ```sh
-kind delete cluster --name kollect-dev
+kind create cluster --name kollect-dev
+task install:crds
+task docker:build
+kind load docker-image kollect-controller-manager:dev --name kollect-dev
+task deploy:operator
+kubectl apply -k config/samples/
 ```
+
+Default image tag is `kollect-controller-manager:dev` (see `Taskfile.yml`).
+
+## E2E Kind (CI)
+
+The **kollect-e2e** profile (`hack/kind/e2e/`) is minimal: single node, no ingress or monitoring
+addons. It mirrors `.github/workflows/e2e-nightly.yaml` via shared scripts.
+
+```sh
+task kind-e2e-up
+bash hack/kind/e2e/smoke.sh    # sample CRs, nginx seed, bounded waits, HTTP probe
+task kind-e2e-down
+```
+
+Helm values: `charts/kollect/ci/e2e-tenant-values.yaml`. Kubernetes version is pinned from
+`go.mod` in `hack/kind/common.sh` (same pin as dev and envtest).
 
 ## Code generation workflow
 
@@ -163,15 +172,15 @@ If Docker is unavailable, MinIO tests skip; unit tests under `internal/sink/` st
 make test-e2e
 ```
 
-Creates (or reuses) kind cluster `kollect-test-e2e`, runs `test/e2e/`, then deletes the cluster.
+Creates (or reuses) kind cluster `kollect-e2e`, runs `test/e2e/`, then deletes the cluster.
 E2E is also available as a manual GitHub Actions workflow (`.github/workflows/test-e2e.yaml`).
 
 ### Nightly kind smoke (CI)
 
-Scheduled and manual workflow `.github/workflows/e2e-nightly.yaml`: kind + Helm install, sample
-CRs, bounded `kubectl wait` (120s), `task bench` with artifact upload, and a local bare-repo
-git export assert. Optional remote git push step is skipped unless `GITHUB_TOKEN` is configured
-(no dedicated test repo wired yet).
+Scheduled and manual workflow `.github/workflows/e2e-nightly.yaml` uses `hack/kind/e2e/setup.sh`
+and `hack/kind/e2e/smoke.sh` on cluster **kollect-e2e**, then runs multi-tenant isolation,
+`task bench` with artifact upload, and a local bare-repo git export assert. Optional remote git
+push step is skipped unless `GITHUB_TOKEN` is configured (no dedicated test repo wired yet).
 
 ### Multi-tenant e2e (default pattern)
 
