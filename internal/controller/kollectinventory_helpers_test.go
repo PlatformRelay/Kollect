@@ -12,15 +12,16 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	kollecterrors "github.com/konih/kollect/internal/errors"
+	"github.com/konih/kollect/internal/sink"
 )
 
-func TestSinkErrorReason(t *testing.T) {
+func TestExportErrorReason(t *testing.T) {
 	t.Parallel()
 
-	if got := sinkErrorReason(nil); got != "unknown" {
+	if got := sink.ExportErrorReason(nil); got != "unknown" {
 		t.Fatalf("nil = %q", got)
 	}
-	if got := sinkErrorReason(kollecterrors.Terminal(fmt.Errorf("bad"))); got != "terminal" {
+	if got := sink.ExportErrorReason(kollecterrors.Terminal(fmt.Errorf("bad"))); got != "terminal" {
 		t.Fatalf("terminal = %q", got)
 	}
 }
@@ -33,7 +34,7 @@ func TestKollectInventoryReconciler_lastExportTime(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "inv", Generation: 1},
 	}
 	key := "team-a/inv"
-	hash := payloadHash([]byte(`{"items":1}`))
+	hash := "abc123fingerprint"
 
 	if !rec.lastExportTime(key).IsZero() {
 		t.Fatal("expected zero time before recordExport")

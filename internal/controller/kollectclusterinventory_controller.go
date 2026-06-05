@@ -162,8 +162,18 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	}
 
 	var exportErr error
+	items := r.collectRollupItems(inv, targets)
 	for _, sinkName := range inv.Spec.SinkRefs {
-		if err := r.exportToSink(ctx, inv, sinkNS, sinkName, payload); err != nil {
+		if err := sink.RunExportItems(sink.ExportItemsRequest{
+			Ctx:           ctx,
+			Client:        r.Client,
+			Registry:      r.Registry,
+			SinkNamespace: sinkNS,
+			SinkName:      sinkName,
+			ObjectPath:    fmt.Sprintf("inventory/cluster/%s.json", inv.Name),
+			Items:         items,
+			Meta:          export.Metadata{Generation: inv.Generation},
+		}); err != nil {
 			log.Error(err, "cluster export failed", "sink", sinkName)
 			exportErr = err
 		}
@@ -243,59 +253,6 @@ func (r *KollectClusterInventoryReconciler) marshalRollupPayload(
 	}
 
 	return payload, fingerprint, nil
-}
-
-func (r *KollectClusterInventoryReconciler) exportToSink(
-	ctx context.Context,
-	inv *kollectdevv1alpha1.KollectClusterInventory,
-	sinkNS, sinkName string,
-	payload []byte,
-) error {
-	var ks kollectdevv1alpha1.KollectSink
-	if err := r.Get(ctx, client.ObjectKey{Namespace: sinkNS, Name: sinkName}, &ks); err != nil {
-		err = kollecterrors.ClassifyAPI(fmt.Errorf("load KollectSink %q: %w", sinkName, err))
-		metrics.SinkErrorsTotal.WithLabelValues(sinkErrorReason(err)).Inc()
-
-		return err
-	}
-
-	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, ks.Spec, sinkNS)
-	if err != nil {
-		err = kollecterrors.Terminal(err)
-		metrics.SinkErrorsTotal.WithLabelValues(sinkErrorReason(err)).Inc()
-
-		return err
-	}
-
-	backend, err := r.Registry.NewBackend(ks.Spec, buildCtx)
-	if err != nil {
-		err = kollecterrors.Terminal(err)
-		metrics.SinkErrorsTotal.WithLabelValues(sinkErrorReason(err)).Inc()
-
-		return err
-	}
-
-	objectPath := fmt.Sprintf("inventory/cluster/%s.json", inv.Name)
-
-	exportPayload, skip := sink.ExportPayload(backend.Capabilities(), payload)
-	if skip {
-		return nil
-	}
-
-	start := time.Now()
-	err = backend.Export(ctx, exportPayload, objectPath)
-	elapsed := time.Since(start).Seconds()
-	metrics.ExportDurationSeconds.WithLabelValues(ks.Spec.Type).Observe(elapsed)
-	metrics.ExportBytesTotal.WithLabelValues(ks.Spec.Type).Add(float64(len(exportPayload)))
-
-	if err != nil {
-		reason := sinkErrorReason(err)
-		metrics.SinkErrorsTotal.WithLabelValues(reason).Inc()
-
-		return kollecterrors.Transient(fmt.Errorf("export to %q: %w", sinkName, err))
-	}
-
-	return nil
 }
 
 func (r *KollectClusterInventoryReconciler) shouldDebounce(

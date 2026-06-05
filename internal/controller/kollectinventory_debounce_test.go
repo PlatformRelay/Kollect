@@ -22,8 +22,8 @@ func TestKollectInventoryReconciler_shouldDebounce(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "team-inventory", Generation: 1},
 	}
 
-	hashA := payloadHash([]byte(`{"items":1}`))
-	hashB := payloadHash([]byte(`{"items":2}`))
+	hashA := "fingerprint-a"
+	hashB := "fingerprint-b"
 	key := "default/team-inventory"
 
 	if rec.shouldDebounce(inv, key, hashA) {

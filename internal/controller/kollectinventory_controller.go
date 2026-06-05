@@ -5,8 +5,6 @@ package controller
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
@@ -149,7 +147,16 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	var exportErr error
 	for _, sinkName := range inv.Spec.SinkRefs {
-		if err := r.exportToSink(ctx, &inv, sinkName, payload); err != nil {
+		if err := sink.RunExportItems(sink.ExportItemsRequest{
+			Ctx:           ctx,
+			Client:        r.Client,
+			Registry:      r.Registry,
+			SinkNamespace: inv.Namespace,
+			SinkName:      sinkName,
+			ObjectPath:    fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name),
+			Items:         items,
+			Meta:          export.Metadata{Generation: inv.Generation},
+		}); err != nil {
 			log.Error(err, "export failed", "sink", sinkName)
 			exportErr = err
 		}
@@ -176,74 +183,6 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.recordExport(&inv, key, hash)
 
 	return r.updateStatus(ctx, &inv, itemCount, nil)
-}
-
-func (r *KollectInventoryReconciler) exportToSink(
-	ctx context.Context,
-	inv *kollectdevv1alpha1.KollectInventory,
-	sinkName string,
-	payload []byte,
-) error {
-	var ks kollectdevv1alpha1.KollectSink
-	if err := r.Get(ctx, client.ObjectKey{Namespace: inv.Namespace, Name: sinkName}, &ks); err != nil {
-		err = kollecterrors.ClassifyAPI(fmt.Errorf("load KollectSink %q: %w", sinkName, err))
-		metrics.SinkErrorsTotal.WithLabelValues(sinkErrorReason(err)).Inc()
-
-		return err
-	}
-
-	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, ks.Spec, inv.Namespace)
-	if err != nil {
-		err = kollecterrors.Terminal(err)
-		metrics.SinkErrorsTotal.WithLabelValues(sinkErrorReason(err)).Inc()
-
-		return err
-	}
-
-	backend, err := r.Registry.NewBackend(ks.Spec, buildCtx)
-	if err != nil {
-		err = kollecterrors.Terminal(err)
-		metrics.SinkErrorsTotal.WithLabelValues(sinkErrorReason(err)).Inc()
-
-		return err
-	}
-
-	objectPath := fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name)
-
-	exportPayload, skip := sink.ExportPayload(backend.Capabilities(), payload)
-	if skip {
-		return nil
-	}
-
-	start := time.Now()
-	err = backend.Export(ctx, exportPayload, objectPath)
-	elapsed := time.Since(start).Seconds()
-	metrics.ExportDurationSeconds.WithLabelValues(ks.Spec.Type).Observe(elapsed)
-	metrics.ExportBytesTotal.WithLabelValues(ks.Spec.Type).Add(float64(len(exportPayload)))
-
-	if err != nil {
-		reason := sinkErrorReason(err)
-		metrics.SinkErrorsTotal.WithLabelValues(reason).Inc()
-
-		return kollecterrors.Transient(fmt.Errorf("export to %q: %w", sinkName, err))
-	}
-
-	return nil
-}
-
-func sinkErrorReason(err error) string {
-	if err == nil {
-		return "unknown"
-	}
-
-	switch kollecterrors.ClassOf(err) {
-	case kollecterrors.ClassTerminal:
-		return "terminal"
-	case kollecterrors.ClassForbidden:
-		return "forbidden"
-	default:
-		return "transient"
-	}
 }
 
 func (r *KollectInventoryReconciler) maxExportBytes(inv *kollectdevv1alpha1.KollectInventory) int64 {
@@ -302,12 +241,6 @@ func (r *KollectInventoryReconciler) lastExportTime(key string) time.Time {
 	defer r.mu.Unlock()
 
 	return r.lastExport[key]
-}
-
-func payloadHash(payload []byte) string {
-	sum := sha256.Sum256(payload)
-
-	return hex.EncodeToString(sum[:])
 }
 
 func (r *KollectInventoryReconciler) updateStatus(
