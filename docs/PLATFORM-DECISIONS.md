@@ -48,7 +48,7 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 2. MVP export path — Deployment profile → Postgres (or Kafka) sink
 3. `KollectScope` reconciler enforcement
 4. `KollectConnectionTest` CR + keep Sink annotation/spec probes
-5. Export **debouncing** — `KollectInventory.spec.exportMinInterval` (default **30s**; not global)
+5. Export **debouncing** — per sink ref via `exportMinInterval` precedence ([ADR-0413](adr/0413-export-interval-scheduling.md)); inventory default **30s**
 6. Argo **`Application`** sample + **contract test** (contract test **first**; then samples)
 7. Hub `mode: hub|spoke` + merge lib (`inprocess`); no hub CRD
 8. **`KollectClusterTarget`** — API + webhook only until namespaced MVP proven; controller later
@@ -88,7 +88,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 
 | Topic | Decision |
 | --- | --- |
-| `exportMinInterval` unset | **CRD default 30s** (`kubebuilder:default`); operator global flag = deprecated fallback only |
+| `exportMinInterval` unset | **CRD default 30s** (`kubebuilder:default`); per-sink overrides on structured `sinkRefs[]` |
 | `exportMinInterval` bypass | Immediate export on **payload checksum change** or **`metadata.generation`** bump |
 | ConnectionTest re-run | **Re-probe on any spec change** (generation ≠ observedGeneration); TTL restarts after new run |
 | `KollectScope` enforcement | **Hard degrade** — `Degraded` + no collect/export; see [ADR-0203](adr/0203-namespaced-multi-tenancy.md) example |
@@ -136,7 +136,7 @@ the corresponding code merges.
 | Kafka value | JSON row batch + metadata (`generation`, `checksum`); at-least-once | 1 |
 | Sink error metric | **`kollect_sink_errors_total{reason}`** — separate from reconcile counter | 1 |
 | Export duration histogram | Default buckets: `.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10` seconds | 1 |
-| Export debounce | **`KollectInventory.spec.exportMinInterval`** — default **30s**; material-change bypass | 1 |
+| Export debounce | **Per sink ref** — ref override → sink default → inventory default **30s** → scope floor | 1 |
 | Connection test TTL | **`KollectConnectionTest.spec.ttlSecondsAfterFinished`** — default **300** | 1 |
 
 #### Extraction and Helm ([ADR-0302](adr/0302-cel-jsonpath-extraction.md), [ADR-0303](adr/0303-helm-release-inventory.md))
@@ -178,7 +178,7 @@ the corresponding code merges.
 - [x] **Argo `Application` contract test** — `internal/collect/argo_application_contract_test.go`
 - [x] **Argo samples** — profile + target under `config/samples/`
 - [x] **`KollectConnectionTest` TTL** — API + reconciler GC (`ttlSecondsAfterFinished`, default 300s)
-- [x] **`exportMinInterval`** on `KollectInventory` — wired; manager `--export-debounce` flag removed (pre-alpha)
+- [x] **`exportMinInterval`** on `KollectInventory` — wired; per-sink `sinkRefs[]` + `status.sinkExports[]` ([ADR-0413](adr/0413-export-interval-scheduling.md)); manager `--export-debounce` flag removed
 
 ---
 

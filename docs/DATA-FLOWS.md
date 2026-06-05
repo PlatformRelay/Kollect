@@ -74,13 +74,33 @@ sequenceDiagram
 
 ### Configuration
 
+Effective interval per sink ref ([ADR-0413](adr/0413-export-interval-scheduling.md)):
+
+```text
+effectiveInterval(ref) =
+  max(
+    ref.exportMinInterval ?? sink.exportMinInterval ?? inventory.exportMinInterval ?? 30s,
+    scope.minExportInterval ?? 0s
+  )
+```
+
 | Field | Default | Effect |
 | --- | --- | --- |
-| `KollectInventory.spec.exportMinInterval` | **30s** (CRD default) | Min gap between exports of **identical** payload |
-| `metadata.generation` bump | — | Immediate export (spec edit) |
-| Payload checksum change | — | Immediate export (material inventory change) |
+| `spec.sinkRefs[].exportMinInterval` | — | Per-sink override (string refs inherit inventory default) |
+| `KollectSink.spec.exportMinInterval` | — | Sink default when ref and inventory omit override |
+| `KollectInventory.spec.exportMinInterval` | **30s** (CRD default) | Inventory-wide default for plain string refs |
+| `KollectScope.spec.minExportInterval` | — | Tenancy floor — webhook rejects intervals below this |
+| `metadata.generation` bump | — | Immediate export to **all** sinks (spec edit) |
+| Payload checksum change | — | Immediate export to **that** sink (material change) |
+| `exportMinInterval: 0s` | — | Material-change only; controller requeues with 30s watchdog |
 
-Export debouncing uses **`spec.exportMinInterval`** only (CRD default **30s** when unset).
+!!! tip "Dual-cadence fan-out"
+    Portal Postgres at **30s** plus Git audit at **1h** is the canonical multi-role pattern — see
+    `config/samples/kollect_v1alpha1_kollectinventory.yaml`
+    and [deployment-inventory example](examples/deployment-inventory.md#step-4-kollectinventory).
+
+When some sinks export and others are debounced, aggregate `Synced=False` with reason
+**`PartiallySynced`**; per-sink detail lives in `status.sinkExports[]`.
 
 ---
 
@@ -331,9 +351,10 @@ Queue delivery is **at-least-once**; merge keys `(cluster, namespace, name, uid)
 
 ### Post-merge hub export
 
-After merge, hub `KollectInventory` objects use the **same debounced export path** as single-cluster
-mode ([§1](#1-export-debouncing)): marshal the hub collect store slice, checksum, respect
-`exportMinInterval`, dispatch to configured sinks.
+After merge, hub `KollectInventory` objects use the **same per-sink debounced export path** as
+single-cluster mode ([§1](#1-export-debouncing)): marshal once, then fan out with per-ref intervals.
+Hub env `KOLLECT_HUB_SINK_REFS` remains comma-separated names — structured hub intervals deferred
+([ADR-0413](adr/0413-export-interval-scheduling.md)).
 
 ```mermaid
 flowchart TD

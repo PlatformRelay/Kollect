@@ -218,18 +218,28 @@ metadata:
   name: team-inventory
   namespace: default
 spec:
+  exportMinInterval: 30s
   sinkRefs:
     - postgres-inventory-demo
+    - name: git-inventory-demo
+      exportMinInterval: 1h
   suspend: false
 ```
 
-Swap `sinkRefs` to `git-inventory-demo` for the Git audit path.
+!!! info "Dual-cadence export (ADR-0413)"
+    The sample fans out to **Postgres every 30s** (portal freshness) and **Git every 1h** (audit trail).
+    Plain string refs inherit `spec.exportMinInterval`; object refs override per sink. Precedence:
+    ref → sink default → inventory default → scope floor — see
+    [ADR-0413](../adr/0413-export-interval-scheduling.md).
+
+For Git-only audit, use a single string ref: `sinkRefs: [git-inventory-demo]`.
 
 **Behavior:**
 
 - `status.itemCount` reflects aggregated rows from all active targets in the namespace.
-- `status.lastExportTime` updates after a successful export.
-- Conditions: `Ready`, `Synced`, `SinkReachable`, `Degraded` per
+- `status.lastExportTime` is the **max** of per-sink export times.
+- `status.sinkExports[]` holds per-sink `lastExportTime`, `lastChecksum`, and `Synced` conditions.
+- Conditions: `Ready`, `Synced` (or `PartiallySynced` when cadences differ), `SinkReachable`, `Degraded` per
   [error taxonomy](../adr/0602-error-taxonomy.md).
 
 ## Apply everything

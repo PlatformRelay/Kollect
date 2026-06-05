@@ -18,7 +18,7 @@ architecture context see [Understand the basics](UNDERSTAND-THE-BASICS.md) and
 | **Attribute** | Named extraction rule on a profile: maps a logical key (for example `image`) to a JSONPath or `cel:` expression. |
 | **Snapshot** | The canonical in-memory inventory artifact per `KollectInventory` before any sink write. All exports are projections of this snapshot ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)). |
 | **Projection** | A sink-specific rendering of the snapshot — Parquet on S3, JSON in Git, upsert rows in Postgres, or events on NATS/Kafka. |
-| **Export debounce** | Minimum interval between exports to the same sink (`exportMinInterval`); reduces write amplification ([ADR-0603](adr/0603-performance-scalability.md)). |
+| **Export debounce** | Minimum interval between identical exports **per sink ref** (`exportMinInterval` precedence); reduces write amplification ([ADR-0413](adr/0413-export-interval-scheduling.md), [ADR-0603](adr/0603-performance-scalability.md)). |
 
 ## Sink roles
 
