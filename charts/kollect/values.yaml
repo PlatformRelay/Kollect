@@ -35,6 +35,18 @@ featureGates:
 oauth2Proxy:
   enabled: false
 
+pprof:
+  enabled: false
+  bindAddress: ":6060"
+
+controller:
+  maxConcurrentReconciles:
+    target: 5
+    inventory: 3
+    hub: 2
+  exportDebounce: 30s
+  reconcileRateLimit: ""
+
 metrics:
   enabled: true
   bindAddress: ":8443"

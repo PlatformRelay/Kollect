@@ -40,6 +40,17 @@ spec:
             - --metrics-bind-address={{ .Values.metrics.bindAddress }}
             - --metrics-secure={{ .Values.metrics.secure }}
             {{- end }}
+            - --max-concurrent-reconciles-target={{ .Values.controller.maxConcurrentReconciles.target }}
+            - --max-concurrent-reconciles-inventory={{ .Values.controller.maxConcurrentReconciles.inventory }}
+            - --max-concurrent-reconciles-hub={{ .Values.controller.maxConcurrentReconciles.hub }}
+            - --export-debounce={{ .Values.controller.exportDebounce }}
+            {{- if .Values.controller.reconcileRateLimit }}
+            - --reconcile-rate-limit={{ .Values.controller.reconcileRateLimit }}
+            {{- end }}
+            {{- if .Values.pprof.enabled }}
+            - --enable-pprof
+            - --pprof-bind-address={{ .Values.pprof.bindAddress }}
+            {{- end }}
             {{- if .Values.featureGates.inventoryHttp.enabled }}
             - --inventory-http-enabled
             - --inventory-http-port={{ .Values.featureGates.inventoryHttp.port }}
@@ -68,6 +79,11 @@ spec:
             {{- if .Values.featureGates.inventoryHttp.enabled }}
             - name: inventory-http
               containerPort: {{ .Values.featureGates.inventoryHttp.port }}
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.pprof.enabled }}
+            - name: pprof
+              containerPort: 6060
               protocol: TCP
             {{- end }}
           livenessProbe:
