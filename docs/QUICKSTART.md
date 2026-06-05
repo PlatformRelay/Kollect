@@ -26,39 +26,63 @@ live API access.
 - Docker, [kind](https://kind.sigs.k8s.io/), kubectl
 - Go and [Task](https://taskfile.dev/) (to build from source) — see [DEVELOPMENT.md](DEVELOPMENT.md)
 
-## Install on kind (copy-paste)
+## Install (copy-paste)
 
-From the repo root, **`task kind-dev-up`** creates the `kollect-dev` cluster, loads the operator image,
-and deploys Helm (ingress/Grafana addons unless `KOLLECT_DEV_MINIMAL=1`). See [DEVELOPMENT.md](DEVELOPMENT.md).
+<!-- markdownlint-disable MD046 -->
 
-```sh
-# 1. Cluster
-kind create cluster --name kollect-dev
+=== "kind (local dev)"
 
-# 2. Clone and build (skip if already in repo root)
-git clone https://github.com/konih/kollect.git && cd kollect
-task build
+    From the repo root, **`task kind-dev-up`** creates the `kollect-dev` cluster, loads the operator image,
+    and deploys Helm (ingress/Grafana addons unless `KOLLECT_DEV_MINIMAL=1`). See [DEVELOPMENT.md](DEVELOPMENT.md).
 
-# 3. CRDs + operator
-task install:crds
-task docker:build
-kind load docker-image kollect-controller-manager:dev --name kollect-dev
-task deploy:operator
+    ```sh
+    # 1. Cluster
+    kind create cluster --name kollect-dev
 
-# 4. Wait for manager pod
-kubectl -n kollect-system rollout status deployment/kollect-controller-manager --timeout=120s
+    # 2. Clone and build (skip if already in repo root)
+    git clone https://github.com/konih/kollect.git && cd kollect
+    task build
 
-# 5. Sample inventory pipeline (profile → sink → target → inventory)
-kubectl apply -k config/samples/
-```
+    # 3. CRDs + operator
+    task install:crds
+    task docker:build
+    kind load docker-image kollect-controller-manager:dev --name kollect-dev
+    task deploy:operator
 
-Consolidated install manifest (alternative):
+    # 4. Wait for manager pod
+    kubectl -n kollect-system rollout status deployment/kollect-controller-manager --timeout=120s
 
-```sh
-make build-installer IMG=kollect-controller-manager:dev
-kubectl apply -f dist/install.yaml
-kubectl apply -k config/samples/
-```
+    # 5. Sample inventory pipeline (profile → sink → target → inventory)
+    kubectl apply -k config/samples/
+    ```
+
+    Consolidated install manifest (alternative):
+
+    ```sh
+    make build-installer IMG=kollect-controller-manager:dev
+    kubectl apply -f dist/install.yaml
+    kubectl apply -k config/samples/
+    ```
+
+=== "Helm"
+
+    For a cluster you already have (including kind after `kind create cluster`), install the chart from
+    the repo. Production-oriented values and upgrade steps: [Operator manual](OPERATOR-MANUAL.md).
+
+    ```sh
+    helm install kollect ./charts/kollect -n kollect-system --create-namespace
+    kubectl -n kollect-system rollout status deployment/kollect-controller-manager --timeout=120s
+    kubectl apply -k config/samples/
+    ```
+
+    From a release (pin chart and image version):
+
+    ```sh
+    helm install kollect oci://ghcr.io/konih/kollect --version 0.1.0 -n kollect-system --create-namespace
+    kubectl apply -k config/samples/
+    ```
+
+<!-- markdownlint-disable MD046 -->
 
 ## Sample CRs
 
