@@ -28,6 +28,7 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0030](0030-connection-test.md) | Connection test — sink probes + `KollectConnectionTest` CR (Accepted; CR via ADR-0032) |
 | [0031](0031-namespaced-profiles.md) | Namespaced KollectProfile (Accepted) |
 | [0032](0032-platform-architecture-pivot.md) | Platform architecture pivot (Accepted) |
+| [0033](0033-custom-resource-aggregation-rfc.md) | Custom-resource metrics and aggregation (RFC stub) |
 
 See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md),
 [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md), and [PERFORMANCE.md](../PERFORMANCE.md).
