@@ -157,6 +157,14 @@ func (r *KollectTargetReconciler) reconcileTargetReady(
 
 			return ctrl.Result{}, nil
 		}
+		if r.Engine.HasAccessCheckFailure(target.Namespace, target.Name) {
+			if err := r.setDegraded(ctx, target, "AccessCheckFailed",
+				"RBAC access review API failed; collection paused until access checks succeed"); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			return ctrl.Result{}, nil
+		}
 	}
 
 	sinkOK, sinkReason, sinkMsg := checkTargetNamespaceSinksReachable(ctx, r.Client, target.Namespace)

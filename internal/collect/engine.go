@@ -60,6 +60,7 @@ type Engine struct {
 	nsMeta    map[string]namespaceMeta
 	nsMu      sync.RWMutex
 	forbidden map[string]struct{}
+	accessErr map[string]struct{}
 	defaults  NamespaceDefaults
 }
 
@@ -81,6 +82,7 @@ func NewEngine(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface,
 		targets:   make(map[string]targetState),
 		nsMeta:    make(map[string]namespaceMeta),
 		forbidden: make(map[string]struct{}),
+		accessErr: make(map[string]struct{}),
 	}, nil
 }
 
@@ -161,6 +163,8 @@ func (e *Engine) UnregisterTarget(namespace, name string) {
 
 	e.mu.Lock()
 	delete(e.targets, key)
+	delete(e.forbidden, key)
+	delete(e.accessErr, key)
 	e.mu.Unlock()
 
 	e.store.RemoveTarget(namespace, name)
@@ -216,6 +220,18 @@ func (e *Engine) HasForbiddenScope(targetNamespace, targetName string) bool {
 	defer e.mu.RUnlock()
 
 	_, ok := e.forbidden[key]
+
+	return ok
+}
+
+// HasAccessCheckFailure reports whether SAR API errors blocked collection for the target.
+func (e *Engine) HasAccessCheckFailure(targetNamespace, targetName string) bool {
+	key := targetKey(targetNamespace, targetName)
+
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	_, ok := e.accessErr[key]
 
 	return ok
 }
@@ -367,9 +383,17 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 			log.FromContext(ctx).Error(err, "access check failed",
 				"target", target.Namespace+"/"+target.Name,
 				"namespace", resourceNS)
+			e.mu.Lock()
+			e.accessErr[targetKeyStr] = struct{}{}
+			e.mu.Unlock()
+			metrics.ReconcileErrorsTotal.WithLabelValues("KollectTarget", metrics.ErrorClassTransient).Inc()
 
 			continue
 		}
+
+		e.mu.Lock()
+		delete(e.accessErr, targetKeyStr)
+		e.mu.Unlock()
 
 		if !allowed {
 			e.mu.Lock()
