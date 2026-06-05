@@ -66,9 +66,12 @@ func TestExtractAndValidateKubeconfig(t *testing.T) {
 	if err := VerifySecret(context.Background(), secret, "spoke-a", checker); err != nil {
 		t.Fatalf("VerifySecret: %v", err)
 	}
-
 	if !checker.called {
 		t.Fatal("expected API checker to run")
+	}
+
+	if err := VerifySecret(context.Background(), secret, "spoke-a", nil); err != nil {
+		t.Fatalf("VerifySecret without checker: %v", err)
 	}
 }
 
@@ -82,6 +85,24 @@ func TestExtractKubeconfigMissingKey(t *testing.T) {
 
 	if _, err := ExtractKubeconfig(secret, "spoke-a"); err == nil {
 		t.Fatal("expected error for missing key")
+	}
+}
+
+func TestExtractKubeconfigValidationErrors(t *testing.T) {
+	t.Parallel()
+
+	if _, err := ExtractKubeconfig(nil, "spoke-a"); err == nil {
+		t.Fatal("expected error for nil secret")
+	}
+
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "empty"}}
+	if _, err := ExtractKubeconfig(secret, ""); err == nil {
+		t.Fatal("expected error for empty cluster name")
+	}
+
+	secret.Data = map[string][]byte{"spoke-a": {}}
+	if _, err := ExtractKubeconfig(secret, "spoke-a"); err == nil {
+		t.Fatal("expected error for empty kubeconfig bytes")
 	}
 }
 
@@ -99,5 +120,101 @@ func TestSecretGetErrorClass(t *testing.T) {
 
 	if SecretGetErrorClass(context.Canceled) != "transient" {
 		t.Fatalf("generic class = %q", SecretGetErrorClass(context.Canceled))
+	}
+}
+
+func TestDefaultAPICheckerRejectsInvalidKubeconfig(t *testing.T) {
+	t.Parallel()
+
+	checker := DefaultAPIChecker{}
+	if err := checker.Check(context.Background(), []byte("not-a-kubeconfig")); err == nil {
+		t.Fatal("expected error for invalid kubeconfig")
+	}
+}
+
+func TestValidateFragmentErrors(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		yaml string
+	}{
+		{name: "invalid yaml", yaml: "{"},
+		{name: "no clusters", yaml: `apiVersion: v1
+kind: Config
+users:
+- name: u
+  user:
+    token: tok`},
+		{name: "no users", yaml: `apiVersion: v1
+kind: Config
+clusters:
+- name: c
+  cluster:
+    server: https://example:6443`},
+		{name: "missing server", yaml: `apiVersion: v1
+kind: Config
+clusters:
+- name: c
+  cluster: {}
+users:
+- name: u
+  user:
+    token: tok`},
+		{name: "missing credentials", yaml: `apiVersion: v1
+kind: Config
+clusters:
+- name: c
+  cluster:
+    server: https://example:6443
+users:
+- name: u
+  user: {}`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if err := ValidateFragment([]byte(tc.yaml)); err == nil {
+				t.Fatal("expected validation error")
+			}
+		})
+	}
+}
+
+func TestExtractKubeconfigNilData(t *testing.T) {
+	t.Parallel()
+
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "empty"}}
+	if _, err := ExtractKubeconfig(secret, "spoke-a"); err == nil {
+		t.Fatal("expected error for nil secret data")
+	}
+}
+
+func TestDefaultAPICheckerProbeUnreachableAPIServer(t *testing.T) {
+	t.Parallel()
+
+	kubeconfig := []byte(`apiVersion: v1
+kind: Config
+clusters:
+- name: c
+  cluster:
+    server: https://127.0.0.1:1
+    insecure-skip-tls-verify: true
+users:
+- name: u
+  user:
+    token: tok
+contexts:
+- name: x
+  context:
+    cluster: c
+    user: u
+current-context: x
+`)
+
+	if err := (DefaultAPIChecker{}).Check(context.Background(), kubeconfig); err == nil {
+		t.Fatal("expected probe error for unreachable API server")
 	}
 }

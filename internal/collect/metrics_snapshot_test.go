@@ -4,6 +4,7 @@
 package collect
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -47,6 +48,7 @@ func TestNumericAttribute(t *testing.T) {
 		{in: int64(5), want: 5, ok: true},
 		{in: float32(1.5), want: 1.5, ok: true},
 		{in: "2.25", want: 2.25, ok: true},
+		{in: json.Number("3.5"), want: 3.5, ok: true},
 		{in: "not-a-number", ok: false},
 		{in: true, ok: false},
 	}
@@ -59,5 +61,16 @@ func TestNumericAttribute(t *testing.T) {
 		if ok && got != tc.want {
 			t.Fatalf("numericAttribute(%#v) = %v, want %v", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestAttributeLabelValue(t *testing.T) {
+	t.Parallel()
+
+	if got := attributeLabelValue(nil); got != "" {
+		t.Fatalf("nil = %q", got)
+	}
+	if got := attributeLabelValue(42); got != "42" {
+		t.Fatalf("int = %q", got)
 	}
 }

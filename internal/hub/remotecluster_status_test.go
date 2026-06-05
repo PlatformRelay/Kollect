@@ -51,6 +51,94 @@ func TestMarkRemoteClusterConnected(t *testing.T) {
 	}
 }
 
+func TestMarkRemoteClusterConnectedNilClient(t *testing.T) {
+	t.Parallel()
+
+	if err := hub.MarkRemoteClusterConnected(context.Background(), nil, "spoke-a"); err == nil {
+		t.Fatal("expected error for nil client")
+	}
+}
+
+func TestMarkRemoteClusterConnectedEmptyName(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	if err := hub.MarkRemoteClusterConnected(context.Background(), c, "  "); err == nil {
+		t.Fatal("expected error for empty cluster name")
+	}
+}
+
+func TestMarkRemoteClusterConnectedSkipsAlreadyConnected(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	rc := &kollectdevv1alpha1.KollectRemoteCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "spoke-a",
+			Namespace: "kollect-system",
+		},
+		Spec: kollectdevv1alpha1.KollectRemoteClusterSpec{
+			ClusterName: "spoke-a",
+		},
+		Status: kollectdevv1alpha1.KollectRemoteClusterStatus{
+			Conditions: []metav1.Condition{
+				{
+					Type:   kollectdevv1alpha1.ConditionConnected,
+					Status: metav1.ConditionTrue,
+					Reason: "ReportReceived",
+				},
+			},
+		},
+	}
+
+	c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(rc).WithObjects(rc).Build()
+	if err := hub.MarkRemoteClusterConnected(context.Background(), c, "spoke-a"); err != nil {
+		t.Fatalf("mark connected: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectRemoteCluster
+	if err := c.Get(context.Background(), client.ObjectKeyFromObject(rc), &got); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got.Status.Conditions) != 1 {
+		t.Fatalf("conditions = %+v", got.Status.Conditions)
+	}
+}
+
+func TestMarkRemoteClusterConnectedNoMatch(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	rc := &kollectdevv1alpha1.KollectRemoteCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "spoke-a",
+			Namespace: "kollect-system",
+		},
+		Spec: kollectdevv1alpha1.KollectRemoteClusterSpec{
+			ClusterName: "spoke-a",
+		},
+	}
+
+	c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(rc).WithObjects(rc).Build()
+	if err := hub.MarkRemoteClusterConnected(context.Background(), c, "other"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func findCondition(conds []metav1.Condition, typ string) *metav1.Condition {
 	for i := range conds {
 		if conds[i].Type == typ {

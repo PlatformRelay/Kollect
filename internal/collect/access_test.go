@@ -5,6 +5,7 @@ package collect
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -85,5 +86,63 @@ func TestAccessCheckerCacheExpiresAfterTTL(t *testing.T) {
 
 	if calls != 2 {
 		t.Fatalf("expected 2 SAR calls after TTL expiry, got %d", calls)
+	}
+}
+
+func TestAccessCheckerNilClientAllows(t *testing.T) {
+	t.Parallel()
+
+	var checker *AccessChecker
+	ok, err := checker.CanAccess(context.Background(), schema.GroupVersionResource{}, "default", "list")
+	if err != nil || !ok {
+		t.Fatalf("nil checker should allow: ok=%v err=%v", ok, err)
+	}
+
+	ok, err = NewAccessChecker(nil).CanAccess(context.Background(), schema.GroupVersionResource{}, "default", "list")
+	if err != nil || !ok {
+		t.Fatalf("nil client should allow: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestAccessCheckerDeniedAndAPIError(t *testing.T) {
+	t.Parallel()
+
+	client := fake.NewSimpleClientset() //nolint:staticcheck
+	client.PrependReactor("create", "selfsubjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		review := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+		review.Status = authorizationv1.SubjectAccessReviewStatus{Allowed: false}
+
+		return true, review, nil
+	})
+
+	checker := NewAccessChecker(client)
+	ok, err := checker.CanAccess(
+		context.Background(),
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		"default",
+		"list",
+	)
+	if err != nil || ok {
+		t.Fatalf("denied SAR: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestAccessCheckerAPIError(t *testing.T) {
+	t.Parallel()
+
+	client := fake.NewSimpleClientset() //nolint:staticcheck
+	client.PrependReactor("create", "selfsubjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("apiserver unavailable")
+	})
+
+	checker := NewAccessChecker(client)
+	_, err := checker.CanAccess(
+		context.Background(),
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		"default",
+		"list",
+	)
+	if err == nil {
+		t.Fatal("expected SAR API error")
 	}
 }

@@ -72,3 +72,11 @@ func TestAuthMiddlewareCacheHitsTokenReviewOnce(t *testing.T) {
 		t.Fatalf("SAR calls = %d, want 1 (cached second request)", sarCalls)
 	}
 }
+
+func TestNewAuthCacheZeroTTL(t *testing.T) {
+	t.Parallel()
+
+	if c := newAuthCache(0); c != nil {
+		t.Fatal("expected nil cache for non-positive TTL")
+	}
+}

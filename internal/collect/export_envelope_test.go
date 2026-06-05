@@ -157,3 +157,37 @@ func TestItemsFingerprint_stable(t *testing.T) {
 		t.Fatalf("fingerprints = %q / %q", a, b)
 	}
 }
+
+func TestItemsFromExportPayloadEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	if items, err := ItemsFromExportPayload(nil); err != nil || items != nil {
+		t.Fatalf("nil payload = %#v err=%v", items, err)
+	}
+
+	if items, err := ItemsFromExportPayload([]byte("[]")); err != nil || items != nil {
+		t.Fatalf("empty array = %#v err=%v", items, err)
+	}
+
+	_, err := ItemsFromExportPayload([]byte(`{"schemaVersion":"kollect.dev/v99","items":[]}`))
+	if err == nil {
+		t.Fatal("expected unsupported schemaVersion error")
+	}
+}
+
+func TestMarshalExportEnvelopeNilItemsUsesNow(t *testing.T) {
+	t.Parallel()
+
+	got, err := MarshalExportEnvelope(nil, ExportMetadata{Cluster: "spoke-a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var env ExportEnvelope
+	if err := json.Unmarshal(got, &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.ItemCount != 0 || env.ExportedAt == "" {
+		t.Fatalf("env = %+v", env)
+	}
+}

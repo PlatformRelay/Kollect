@@ -48,6 +48,15 @@ func TestNewTransportUnknownType(t *testing.T) {
 	}
 }
 
+func TestNewTransportRedisMissingURL(t *testing.T) {
+	t.Parallel()
+
+	_, _, err := NewTransport(Config{Type: TypeRedis})
+	if err == nil {
+		t.Fatal("expected error for redis without url")
+	}
+}
+
 func TestRoundTripInProcess(t *testing.T) {
 	t.Parallel()
 

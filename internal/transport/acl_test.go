@@ -51,4 +51,8 @@ func TestACLSettingsValidateSubjects(t *testing.T) {
 	if err := acl.ValidateSubscribeSubject("inventory/other"); err == nil {
 		t.Fatal("expected deny for unknown subscribe subject")
 	}
+
+	if err := acl.ValidateClusterID(""); err != nil {
+		t.Fatalf("empty allowlist should allow any cluster: %v", err)
+	}
 }

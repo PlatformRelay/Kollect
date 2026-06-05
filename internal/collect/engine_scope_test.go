@@ -4,6 +4,7 @@
 package collect
 
 import (
+	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,5 +60,43 @@ func TestEngineMatchedNamespacesForTarget(t *testing.T) {
 	matched := e.MatchedNamespacesForTarget("team-a", "deploys")
 	if len(matched) != 1 || matched[0] != "apps" {
 		t.Fatalf("matched = %#v", matched)
+	}
+}
+
+func TestEngineRegisterSuspendedTargetUnregisters(t *testing.T) {
+	t.Parallel()
+
+	store := NewStore()
+	store.Upsert(Item{
+		TargetNamespace: "team-a",
+		TargetName:      "deploys",
+		UID:             "uid-1",
+		Namespace:       "apps",
+		Name:            "web",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+
+	e := &Engine{
+		store:     store,
+		targets:   make(map[string]targetState),
+		forbidden: make(map[string]struct{}),
+	}
+
+	target := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "deploys"},
+		Spec:       kollectdevv1alpha1.KollectTargetSpec{Suspend: true},
+	}
+	profile := &kollectdevv1alpha1.KollectProfile{
+		Spec: kollectdevv1alpha1.KollectProfileSpec{
+			TargetGVK: kollectdevv1alpha1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		},
+	}
+
+	if err := e.RegisterTarget(context.Background(), target, profile); err != nil {
+		t.Fatal(err)
+	}
+	if store.TotalCount() != 0 {
+		t.Fatalf("store count = %d, want 0 after suspended register", store.TotalCount())
 	}
 }

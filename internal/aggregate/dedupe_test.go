@@ -52,6 +52,14 @@ func TestExportCoalesceShouldSkip(t *testing.T) {
 	if c.ShouldSkip(now.Add(5*time.Second), interval, 2, payloadA) {
 		t.Fatal("generation bump must not skip")
 	}
+
+	if !c.ShouldSkip(now.Add(interval-time.Second), interval, 1, payloadA) {
+		t.Fatal("still within interval should skip")
+	}
+
+	if c.ShouldSkip(now.Add(interval+time.Second), interval, 1, payloadA) {
+		t.Fatal("after interval elapsed export should run again")
+	}
 }
 
 func TestMergeRowsByResourceUID(t *testing.T) {
@@ -155,5 +163,25 @@ func TestIdentityFromItem(t *testing.T) {
 	id := IdentityFromItem(item)
 	if id.TargetNamespace != "ns" || id.TargetName != "tgt" || id.UID != "uid-abc" {
 		t.Fatalf("IdentityFromItem() = %#v", id)
+	}
+}
+
+func TestExportCoalesceNilReceiver(t *testing.T) {
+	t.Parallel()
+
+	var coalesce *ExportCoalesce
+	if coalesce.ShouldSkip(time.Now(), time.Minute, 1, []byte("x")) {
+		t.Fatal("nil coalesce should not skip")
+	}
+
+	coalesce.RecordExport(time.Now(), 1, []byte("x"))
+}
+
+func TestResourceKeyFromItem(t *testing.T) {
+	t.Parallel()
+
+	key := ResourceKeyFromItem(collect.Item{Namespace: "apps", UID: "uid-1"})
+	if key.Namespace != "apps" || key.UID != "uid-1" {
+		t.Fatalf("key = %#v", key)
 	}
 }

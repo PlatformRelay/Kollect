@@ -82,12 +82,21 @@ validation, not per-commit kind.
 - **`task bench`**: micro-benchmarks on hot paths (CEL/JSONPath extract); safe in dev/CI excerpt via
   `task perf-report`.
 
+### Coverage floor
+
+Statement coverage on `./internal/...` is enforced by `hack/coverage.sh` / `task coverage`:
+
+| Phase | `COVERAGE_MIN` | When |
+| --- | --- | --- |
+| **Now (PR / `main`)** | **65%** | `.github/workflows/ci.yaml`, `Taskfile.yml`, `hack/coverage.sh` default |
+| **Release candidate / tag** | **70%** | Ratchet when measured coverage is **≥ 70%** sustained on `main`, or at **`v0.1.0-rc`** / **`v0.1.0`** tag cut — whichever comes first |
+
+Measured coverage after the TEST-PYRAMID #3 tranche (2026-06-05): **~69.4%**. The merge gate stays at **65%** until the next ratchet; **Codecov** target remains **70%** (see `codecov.yml`).
+
 ### Planned gates (decided, not yet wired)
 
 - **Q15 — Supply chain:** cosign attestations, chart signing, OpenSSF scorecard post-rc
   ([ADR-0705](0705-release-supply-chain.md)).
-- **Coverage target:** raise `COVERAGE_MIN` toward **70%** on `./internal/...` once backlog stabilizes
-  (coordinator roadmap).
 - **OSS-Fuzz:** upstream integration for CEL/JSONPath parsers — native `testing.F` fuzz now covers
   `internal/aggregate` and `internal/collect` extractors in CI; OSS-Fuzz remains post-GA.
 
@@ -115,6 +124,8 @@ From [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) �
   `.github/workflows/e2e-webhook-path.yaml` runs kind smoke (including `hack/e2e/cert-manager.sh`)
   when webhook, chart webhook/cert templates, or Certificate sample paths change; full L4 remains
   nightly-only for cost/latency ([ADR-0105](0105-webhook-serving-cert-management.md)).
-- **OPEN:** **`COVERAGE_MIN=70`** effective date — tie to v0.1.0-rc or v0.1.0 tag?
+- **RESOLVED (2026-06-05):** **`COVERAGE_MIN=70`** — ratchet at **`v0.1.0-rc`** / **`v0.1.0`** tag or when
+  measured `./internal/...` coverage is **≥ 70%** sustained on `main` (see **Coverage floor** above).
+  PR floor remains **65%** until then.
 - **OPEN:** Integration job sharding (Postgres vs Kafka vs object-store) if `test-integration` runtime
   exceeds ~15 minutes?

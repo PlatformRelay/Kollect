@@ -5,15 +5,18 @@ package hub
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
@@ -238,6 +241,161 @@ func TestIngestAuthMiddlewareDisabledBypasses(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+func TestIngestAuthMiddlewareNilClientBypasses(t *testing.T) {
+	t.Parallel()
+
+	handler := IngestAuthConfig{Mode: IngestAuthModeKubernetes}.Middleware(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, ingestReportsPath, nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+func TestIngestAuthMiddlewareMissingBearerToken(t *testing.T) {
+	t.Parallel()
+
+	handler := IngestAuthConfig{
+		Mode:   IngestAuthModeKubernetes,
+		Client: fake.NewSimpleClientset(), //nolint:staticcheck
+	}.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, ingestReportsPath, nil)
+	req.Header.Set(kollectdevv1alpha1.HeaderClusterID, "spoke-a")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+func TestIngestAuthMiddlewareSARError(t *testing.T) {
+	t.Parallel()
+
+	client := fake.NewSimpleClientset() //nolint:staticcheck
+	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		review := action.(k8stesting.CreateAction).GetObject().(*authenticationv1.TokenReview)
+		review.Status = authenticationv1.TokenReviewStatus{
+			Authenticated: true,
+			User:          authenticationv1.UserInfo{Username: "u"},
+		}
+
+		return true, review, nil
+	})
+	client.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("apiserver unavailable")
+	})
+
+	handler := IngestAuthConfig{Mode: IngestAuthModeKubernetes, Client: client}.Middleware(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, ingestReportsPath, nil)
+	req.Header.Set("Authorization", "Bearer tok")
+	req.Header.Set(kollectdevv1alpha1.HeaderClusterID, "spoke-a")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestIngestAuthModeNoneBypasses(t *testing.T) {
+	t.Parallel()
+
+	cfg := IngestAuthConfig{Mode: "none"}
+	if !cfg.AuthDisabled() {
+		t.Fatal("mode none should disable auth")
+	}
+}
+
+func TestAuthorizeIngestRejectsUnboundPrincipal(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	rc := &kollectdevv1alpha1.KollectRemoteCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "spoke-a",
+			Namespace:   "platform",
+			Annotations: map[string]string{kollectdevv1alpha1.AnnotationSpokePrincipal: "system:serviceaccount:spoke-a:sa"},
+		},
+		Spec: kollectdevv1alpha1.KollectRemoteClusterSpec{ClusterName: "spoke-a"},
+	}
+	clusterClient := crfake.NewClientBuilder().WithScheme(scheme).WithObjects(rc).Build()
+
+	cfg := IngestAuthConfig{
+		Mode:              IngestAuthModeKubernetes,
+		Client:            fake.NewSimpleClientset(), //nolint:staticcheck
+		ClusterClient:     clusterClient,
+		PlatformNamespace: "platform",
+	}
+	ok, err := cfg.authorizeIngest(context.Background(), authenticationv1.UserInfo{
+		Username: "system:serviceaccount:rogue:sa",
+	}, "spoke-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("expected unbound principal to be denied")
+	}
+}
+
+func TestHubBearerTokenErrors(t *testing.T) {
+	t.Parallel()
+
+	for _, header := range []string{"", "Token x", "Bearer "} {
+		if _, err := bearerToken(header); err == nil {
+			t.Fatalf("header %q: expected error", header)
+		}
+	}
+}
+
+func TestIngestAuthMiddlewareAuthenticateFailure(t *testing.T) {
+	t.Parallel()
+
+	client := fake.NewSimpleClientset() //nolint:staticcheck
+	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		review := action.(k8stesting.CreateAction).GetObject().(*authenticationv1.TokenReview)
+		review.Status = authenticationv1.TokenReviewStatus{Authenticated: false}
+
+		return true, review, nil
+	})
+
+	handler := IngestAuthConfig{
+		Mode:   IngestAuthModeKubernetes,
+		Client: client,
+	}.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, ingestReportsPath, nil)
+	req.Header.Set("Authorization", "Bearer bad")
+	req.Header.Set(kollectdevv1alpha1.HeaderClusterID, "spoke-a")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d", rec.Code)
 	}
 }

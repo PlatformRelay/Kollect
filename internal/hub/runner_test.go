@@ -6,11 +6,25 @@ package hub_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/hub"
 	"github.com/konih/kollect/internal/transport"
 )
+
+func TestConfigFromEnvCustomSubject(t *testing.T) {
+	t.Setenv("KOLLECT_HUB_NAME", "platform")
+	t.Setenv("KOLLECT_HUB_SUBJECT", "custom/subject")
+
+	cfg, err := hub.ConfigFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Subject != "custom/subject" {
+		t.Fatalf("subject = %q", cfg.Subject)
+	}
+}
 
 func TestConfigFromEnvRequiresHubName(t *testing.T) {
 	t.Setenv("KOLLECT_HUB_NAME", "")
@@ -120,5 +134,48 @@ func TestNewRunnerInProcess(t *testing.T) {
 
 	if runner == nil {
 		t.Fatal("expected runner")
+	}
+}
+
+func TestRunnerStartInProcess(t *testing.T) {
+	t.Parallel()
+
+	runner, err := hub.NewRunner(collect.NewStore(), hub.RunnerConfig{
+		HubName:   "test",
+		Subject:   "inventory/reports",
+		Transport: transport.Config{Type: transport.TypeInProcess},
+	}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- runner.Start(ctx)
+	}()
+
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Start: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("runner did not stop")
+	}
+}
+
+func TestExportConfigDisabled(t *testing.T) {
+	t.Parallel()
+
+	cfg := hub.ExportConfig{ExportNamespace: "platform"}
+	if cfg.ExportEnabled() {
+		t.Fatal("missing sink refs should disable export")
+	}
+	cfg = hub.ExportConfig{SinkRefs: []string{"a"}}
+	if cfg.ExportEnabled() {
+		t.Fatal("missing namespace should disable export")
 	}
 }

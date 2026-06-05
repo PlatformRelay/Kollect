@@ -68,3 +68,16 @@ func TestHasJSONPathFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateAttributePathEmpty(t *testing.T) {
+	t.Parallel()
+
+	extractor, err := NewExtractor()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ValidateAttributePath(extractor, "  "); err == nil {
+		t.Fatal("expected error for empty path")
+	}
+}

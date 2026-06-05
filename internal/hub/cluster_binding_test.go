@@ -66,3 +66,31 @@ func TestValidateTokenClusterBinding(t *testing.T) {
 		t.Fatal("expected unregistered cluster error")
 	}
 }
+
+func TestFindRemoteClusterByClusterName(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	rc := &kollectdevv1alpha1.KollectRemoteCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "spoke-a", Namespace: "platform"},
+		Spec:       kollectdevv1alpha1.KollectRemoteClusterSpec{ClusterName: "spoke-a"},
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(rc).Build()
+
+	got, err := hub.FindRemoteClusterByClusterName(context.Background(), cl, "platform", "spoke-a")
+	if err != nil || got.Name != "spoke-a" {
+		t.Fatalf("find: %v rc=%v", err, got)
+	}
+
+	if _, err := hub.FindRemoteClusterByClusterName(context.Background(), nil, "platform", "spoke-a"); err == nil {
+		t.Fatal("expected error for nil client")
+	}
+
+	if _, err := hub.FindRemoteClusterByClusterName(context.Background(), cl, "platform", ""); err == nil {
+		t.Fatal("expected error for empty cluster name")
+	}
+}

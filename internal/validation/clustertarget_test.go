@@ -30,3 +30,11 @@ func TestValidateClusterTargetSpec_namespaceSelectorRequired(t *testing.T) {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
 }
+
+func TestValidateClusterTargetSpecNil(t *testing.T) {
+	t.Parallel()
+
+	if errs := ValidateClusterTargetSpec(nil); len(errs) != 0 {
+		t.Fatalf("nil spec errs = %v", errs)
+	}
+}

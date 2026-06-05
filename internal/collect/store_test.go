@@ -120,3 +120,36 @@ func TestStoreSubscribeAndMarshal(t *testing.T) {
 		t.Fatalf("empty summary count = %d", summary.ItemCount)
 	}
 }
+
+func TestStoreLenAndNamespaceExport(t *testing.T) {
+	t.Parallel()
+
+	s := NewStore()
+	if s.Len() != 0 {
+		t.Fatalf("Len = %d", s.Len())
+	}
+
+	s.Upsert(Item{
+		TargetNamespace: "team-a",
+		TargetName:      "inv",
+		UID:             "uid-1",
+		Namespace:       "apps",
+		Name:            "web",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+
+	if s.Len() != 1 {
+		t.Fatalf("Len = %d", s.Len())
+	}
+
+	snap := s.SnapshotTarget("team-a", "inv")
+	if len(snap) != 1 {
+		t.Fatalf("snapshot = %d", len(snap))
+	}
+
+	payload, err := s.MarshalNamespaceExport("team-a", ExportMetadata{Cluster: "spoke-a"})
+	if err != nil || len(payload) == 0 {
+		t.Fatalf("MarshalNamespaceExport: %v", err)
+	}
+}

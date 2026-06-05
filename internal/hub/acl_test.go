@@ -27,4 +27,8 @@ func TestValidateClusterACL(t *testing.T) {
 	if err := hub.ValidateClusterACL("spoke-a", nil, true); err == nil {
 		t.Fatal("expected fail-closed rejection when enforced with empty allowlist")
 	}
+
+	if err := hub.ValidateClusterACL("  ", []string{"spoke-a"}, true); err == nil {
+		t.Fatal("expected error for empty cluster")
+	}
 }

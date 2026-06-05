@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,9 +16,12 @@ import (
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
@@ -185,5 +190,220 @@ func TestIngestHandleReportsNilMerger(t *testing.T) {
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", rec.Code)
+	}
+}
+
+func freeTCPPort(t *testing.T) int32 {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	port := int32(ln.Addr().(*net.TCPAddr).Port)
+	if err := ln.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	return port
+}
+
+func TestIngestReportsPath(t *testing.T) {
+	t.Parallel()
+
+	if got := IngestReportsPath(); got != ingestReportsPath {
+		t.Fatalf("path = %q, want %q", got, ingestReportsPath)
+	}
+}
+
+func TestIngestServerStartServesReports(t *testing.T) {
+	store := collect.NewStore()
+	srv := &IngestServer{
+		Enabled: true,
+		Port:    freeTCPPort(t),
+		Auth:    IngestAuthConfig{Mode: IngestAuthModeDisabled},
+		Merger:  NewMerger(store),
+	}
+
+	report := SpokeReport{
+		APIVersion: "kollect.dev/v1alpha1",
+		Cluster:    "spoke-a",
+		InventoryRef: InventoryRef{
+			Namespace: "team-a",
+			Name:      "inv",
+		},
+		Items: []collect.Item{
+			{
+				TargetNamespace: "team-a",
+				TargetName:      "t",
+				Namespace:       "apps",
+				Name:            "demo",
+				UID:             "uid-1",
+				Version:         "v1",
+				Kind:            "Deployment",
+			},
+		},
+	}
+	body, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- srv.Start(ctx)
+	}()
+
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", srv.Port, ingestReportsPath)
+	deadline := time.Now().Add(2 * time.Second)
+	var ready bool
+	for time.Now().Before(deadline) {
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set(kollectdevv1alpha1.HeaderClusterID, "spoke-a")
+
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusAccepted {
+				ready = true
+
+				break
+			}
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !ready {
+		t.Fatal("ingest server did not accept report")
+	}
+	if store.TotalCount() != 1 {
+		t.Fatalf("store count = %d, want 1", store.TotalCount())
+	}
+
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Start after shutdown: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("ingest server did not stop after cancel")
+	}
+}
+
+func TestIngestHandleReportsMarksRemoteClusterConnected(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	rc := &kollectdevv1alpha1.KollectRemoteCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "spoke-a", Namespace: "platform"},
+		Spec:       kollectdevv1alpha1.KollectRemoteClusterSpec{ClusterName: "spoke-a"},
+	}
+	statusClient := crfake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(rc).WithObjects(rc).Build()
+
+	store := collect.NewStore()
+	srv := &IngestServer{
+		Enabled:      true,
+		Auth:         IngestAuthConfig{Mode: IngestAuthModeDisabled},
+		Merger:       NewMerger(store),
+		StatusClient: statusClient,
+	}
+
+	report := SpokeReport{
+		APIVersion: "kollect.dev/v1alpha1",
+		Cluster:    "spoke-a",
+		InventoryRef: InventoryRef{
+			Namespace: "team-a",
+			Name:      "inv",
+		},
+		Items: []collect.Item{{
+			TargetNamespace: "team-a",
+			TargetName:      "t",
+			Namespace:       "apps",
+			Name:            "demo",
+			UID:             "uid-1",
+			Version:         "v1",
+			Kind:            "Deployment",
+		}},
+	}
+	body, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, ingestReportsPath, bytes.NewReader(body))
+	req.Header.Set(kollectdevv1alpha1.HeaderClusterID, "spoke-a")
+	rec := httptest.NewRecorder()
+	srv.handleReports(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	var got kollectdevv1alpha1.KollectRemoteCluster
+	if err := statusClient.Get(context.Background(), client.ObjectKeyFromObject(rc), &got); err != nil {
+		t.Fatal(err)
+	}
+	for i := range got.Status.Conditions {
+		if got.Status.Conditions[i].Type == kollectdevv1alpha1.ConditionConnected &&
+			got.Status.Conditions[i].Status == metav1.ConditionTrue {
+			return
+		}
+	}
+	t.Fatalf("Connected condition not set: %+v", got.Status.Conditions)
+}
+
+func TestIngestHandleReportsExportFailure(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	srv := &IngestServer{
+		Enabled: true,
+		Auth:    IngestAuthConfig{Mode: IngestAuthModeDisabled},
+		Merger:  NewMerger(store),
+		Exporter: &Exporter{
+			Config: ExportConfig{
+				ExportNamespace: "platform",
+				SinkRefs:        []string{"demo"},
+			},
+		},
+	}
+
+	report := SpokeReport{
+		APIVersion:   "kollect.dev/v1alpha1",
+		Cluster:      "spoke-a",
+		InventoryRef: InventoryRef{Namespace: "team-a", Name: "inv"},
+		Items: []collect.Item{{
+			TargetNamespace: "team-a",
+			TargetName:      "t",
+			Namespace:       "apps",
+			Name:            "demo",
+			UID:             "uid-1",
+			Version:         "v1",
+			Kind:            "Deployment",
+		}},
+	}
+	body, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, ingestReportsPath, bytes.NewReader(body))
+	req.Header.Set(kollectdevv1alpha1.HeaderClusterID, "spoke-a")
+	rec := httptest.NewRecorder()
+	srv.handleReports(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 	}
 }

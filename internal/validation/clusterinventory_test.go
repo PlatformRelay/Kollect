@@ -61,3 +61,17 @@ func TestValidateClusterInventorySpec_rejectsInvalidDedupe(t *testing.T) {
 		t.Fatalf("expected 1 dedupe error, got %d: %v", len(errs), errs)
 	}
 }
+
+func TestValidateClusterInventorySpec_rejectsEmptyTargetRef(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateClusterInventorySpec(&kollectdevv1alpha1.KollectClusterInventorySpec{
+		TargetRefs: []string{"  "},
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"team": "a"},
+		},
+	})
+	if len(errs) != 1 {
+		t.Fatalf("expected empty targetRef error, got %v", errs)
+	}
+}

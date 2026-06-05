@@ -157,3 +157,59 @@ func TestReceiveReportRejectsUnsupportedSchemaVersion(t *testing.T) {
 		t.Fatalf("store count = %d, want 0", store.TotalCount())
 	}
 }
+
+func TestReceiveReportNilMerger(t *testing.T) {
+	t.Parallel()
+
+	_, _, err := hub.ReceiveReport("spoke-a", []byte(`{}`), nil, nil, false)
+	if err == nil {
+		t.Fatal("expected error for nil merger")
+	}
+}
+
+func TestReceiveReportInvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	merger := hub.NewMerger(collect.NewStore())
+	_, _, err := hub.ReceiveReport("", []byte("{"), merger, nil, false)
+	if err == nil {
+		t.Fatal("expected unmarshal error")
+	}
+}
+
+func TestReceiveReportEmptyCluster(t *testing.T) {
+	t.Parallel()
+
+	merger := hub.NewMerger(collect.NewStore())
+	_, _, err := hub.ReceiveReport("", []byte(`{"cluster":""}`), merger, nil, false)
+	if err == nil {
+		t.Fatal("expected missing cluster error")
+	}
+}
+
+func TestValidateClusterWireEmptyBodyCluster(t *testing.T) {
+	t.Parallel()
+
+	if err := hub.ValidateClusterWire("spoke-a", hub.SpokeReport{}); err == nil {
+		t.Fatal("expected error when report cluster is empty")
+	}
+}
+
+func TestReceiveReportFillsClusterFromWireHeader(t *testing.T) {
+	t.Parallel()
+
+	merger := hub.NewMerger(collect.NewStore())
+	payload := []byte(`{
+		"apiVersion":"kollect.dev/v1alpha1",
+		"inventoryRef":{"namespace":"team-a","name":"inv"},
+		"items":[{"namespace":"apps","name":"demo","uid":"uid-1","version":"v1","kind":"Deployment"}]
+	}`)
+
+	got, applied, err := hub.ReceiveReport("spoke-a", payload, merger, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if applied != 1 || got.Cluster != "spoke-a" {
+		t.Fatalf("got = %+v applied = %d", got, applied)
+	}
+}

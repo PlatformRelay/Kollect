@@ -139,3 +139,18 @@ func TestMergerApplyRemovedUIDs(t *testing.T) {
 		t.Fatalf("after remove count = %d, want 1", store.TotalCount())
 	}
 }
+
+func TestMergerApplyNilStore(t *testing.T) {
+	t.Parallel()
+
+	var merger *Merger
+	if _, err := merger.Apply(SpokeReport{Cluster: "spoke-a"}); err == nil {
+		t.Fatal("expected error for nil merger")
+	}
+}
+
+func TestNormalizeReportNil(t *testing.T) {
+	t.Parallel()
+
+	NormalizeReport(nil)
+}

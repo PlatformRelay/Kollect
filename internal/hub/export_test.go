@@ -131,3 +131,31 @@ func TestExporterParallelFanOut(t *testing.T) {
 		t.Fatalf("kafka exports = %d, want 1", kafkaRecorder.count())
 	}
 }
+
+func TestExportAfterMergeNoOpWhenDisabled(t *testing.T) {
+	t.Parallel()
+
+	var exporter *hub.Exporter
+	if err := exporter.ExportAfterMerge(context.Background(), hub.SpokeReport{}); err != nil {
+		t.Fatalf("nil exporter: %v", err)
+	}
+
+	exporter = &hub.Exporter{Config: hub.ExportConfig{}}
+	if err := exporter.ExportAfterMerge(context.Background(), hub.SpokeReport{}); err != nil {
+		t.Fatalf("disabled export: %v", err)
+	}
+}
+
+func TestExportAfterMergeRequiresDependencies(t *testing.T) {
+	t.Parallel()
+
+	exporter := &hub.Exporter{
+		Config: hub.ExportConfig{
+			ExportNamespace: "platform",
+			SinkRefs:        []string{"demo"},
+		},
+	}
+	if err := exporter.ExportAfterMerge(context.Background(), hub.SpokeReport{Cluster: "spoke-a"}); err == nil {
+		t.Fatal("expected error when store/client/registry missing")
+	}
+}
