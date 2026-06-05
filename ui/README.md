@@ -1,12 +1,15 @@
 # kollect-ui
 
 Read-only React SPA for the Kollect inventory Read API ([ADR-0408](../docs/adr/0408-read-api-ui-architecture.md)).
+**v0.2.0 MVP** ships on `main`: inventory filters, SSE live refresh, detail drawers, Playwright smoke,
+and OpenAPI→MSW drift gates.
 
 ## Stack
 
 - React 19 + Vite 6 + TypeScript
 - Tailwind CSS v4 (brand tokens: `#326CE5`, `#081A4B`, `#18B6A3`)
-- TanStack Router + TanStack Query
+- TanStack Router + TanStack Query + TanStack Table/Virtual
+- **Zustand** client state (`connection`, `inventory` prefs, `selection` drawer) — [ADR-0410](../docs/adr/0410-ui-engineering-and-quality-gates.md)
 - MSW for mock Read API in dev and Vitest ([ADR-0412](../docs/adr/0412-mock-read-api-for-ui-development.md))
 
 ## Quick start (mock — default)
@@ -61,12 +64,15 @@ SSE watch fidelity is limited in Prism — use MSW (`VITE_MOCK_API=true`) for wa
 
 ## Scripts
 
-| Script | Purpose |
+| Script / task | Purpose |
 | --- | --- |
-| `npm run dev` | Vite dev server |
-| `npm run build` | Production bundle → `dist/` |
-| `npm test` | Vitest unit + MSW handler tests |
-| `npm run test:a11y` | a11y gate stub (Playwright axe in nightly) |
+| `npm run dev` / `task ui-dev` | Vite dev server (MSW on by default) |
+| `npm run build` / `task build-ui` | Production bundle → `dist/` |
+| `npm test` | Vitest unit + MSW handler tests (50 tests) |
+| `task ui-ci` | typecheck, test, lint, build, mock drift gate |
+| `task ui-e2e` | Playwright smoke (`ui/e2e/smoke.spec.ts`, MSW dev server) |
+| `task ui-mock-sync` | Regenerate MSW OpenAPI drift manifest |
+| `npm run test:a11y` | a11y gate stub (Playwright axe in nightly — B8) |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript |
 
@@ -95,11 +101,19 @@ docker build -f ui/Dockerfile -t ghcr.io/konih/kollect-ui:dev ui/
 
 Helm subchart: `charts/kollect-ui/` (enable with `ui.enabled: true` on the parent chart).
 
-## Routes (MVP placeholders)
+## Routes (v0.2 MVP)
 
-- `/` — Overview
-- `/inventory` — collected items table
-- `/targets` — KollectTarget status
-- `/sinks` — placeholder
+| Route | Features |
+| --- | --- |
+| `/` | Overview — export status summary, degraded Target strip |
+| `/inventory` | URL-synced filters (namespace, GVK, profile, target, search), virtualized table, export-status chips, SSE `/inventory/watch` live refresh, row detail drawer |
+| `/targets` | Health badges, condition summary, read-only YAML detail drawer |
+| `/sinks` | Export status list, read-only YAML detail drawer |
+
+**Client state:** TanStack Query caches Read API responses; Zustand holds filter/column prefs and drawer
+selection; inventory filters are primary in URL search params.
+
+**E2E:** `ui/e2e/smoke.spec.ts` covers nav + inventory grid under MSW. Kind+Helm nightly visual job (B8)
+is deferred.
 
 Auth is **not** implemented in the SPA (MVP); production uses oauth2-proxy at ingress post-MVP.

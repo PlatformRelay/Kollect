@@ -207,6 +207,25 @@ curl -sf http://127.0.0.1:8082/inventory | jq '{itemCount, sample: .items[0]}'
 kubectl get kollectinventory team-inventory -n default -o yaml | grep -A20 'status:'
 ```
 
+### kollect-ui (optional)
+
+Browse the v0.2 read-only console against the live Read API after the demo inventory is ready:
+
+```sh
+# Terminal 1 — Read API (keep running)
+kubectl port-forward -n kollect-system svc/kollect-controller-manager 8082:8082
+
+# Terminal 2 — UI dev server
+cd ui
+VITE_MOCK_API=false VITE_READ_API_URL=http://127.0.0.1:8082 npm run dev
+```
+
+Open http://localhost:5173 — Inventory filters, SSE watch, and detail drawers use the exported
+`default/team-inventory` rows. Mock-only walkthrough (no cluster): `task ui-dev` from repo root.
+
+Helm deploy: enable `ui.enabled: true` on the parent chart — see
+[ADR-0409](../../docs/adr/0409-kollect-ui-deployment.md).
+
 ### Upstream CR row counts
 
 ```sh
