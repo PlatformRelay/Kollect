@@ -181,10 +181,11 @@ func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResou
 		return nil
 	}
 
+	watchNS := e.watchNamespaceForGVR(gvr)
 	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
 		e.dynamic,
 		informerResync,
-		metav1.NamespaceAll,
+		watchNS,
 		nil,
 	)
 	e.factories[gvr] = factory
@@ -210,8 +211,18 @@ func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResou
 
 	go factory.Start(ctx.Done())
 	factory.WaitForCacheSync(ctx.Done())
+	e.updateInformerMetrics(gvr, informer)
 
 	return nil
+}
+
+func (e *Engine) updateInformerMetrics(gvr schema.GroupVersionResource, informer cache.SharedIndexInformer) {
+	if informer == nil {
+		return
+	}
+
+	count := len(informer.GetStore().ListKeys())
+	metrics.InformerObjects.WithLabelValues(gvr.Group, gvr.Version, gvr.Resource).Set(float64(count))
 }
 
 func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, obj interface{}, deleted bool) {
@@ -350,15 +361,6 @@ func (e *Engine) matchesTarget(
 }
 
 func (e *Engine) namespaceMatches(target *kollectdevv1alpha1.KollectTarget, resourceNamespace string) bool {
-	if target.Spec.NamespaceSelector == nil {
-		return true
-	}
-
-	selector, err := metav1.LabelSelectorAsSelector(target.Spec.NamespaceSelector)
-	if err != nil {
-		return false
-	}
-
 	e.nsMu.RLock()
 	nsLabels, ok := e.nsLabels[resourceNamespace]
 	e.nsMu.RUnlock()
@@ -367,7 +369,7 @@ func (e *Engine) namespaceMatches(target *kollectdevv1alpha1.KollectTarget, reso
 		return false
 	}
 
-	return selector.Matches(nsLabels)
+	return namespaceMatchesSelector(target.Spec.NamespaceSelector, nsLabels)
 }
 
 func toUnstructured(obj interface{}) *unstructured.Unstructured {

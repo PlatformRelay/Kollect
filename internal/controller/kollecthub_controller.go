@@ -27,7 +27,8 @@ const defaultHubReplicas int32 = 1
 // KollectHubReconciler reconciles a KollectHub object.
 type KollectHubReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme  *runtime.Scheme
+	Options RuntimeOptions
 }
 
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollecthubs,verbs=get;list;watch;create;update;patch;delete
@@ -38,6 +39,10 @@ type KollectHubReconciler struct {
 
 // Reconcile ensures a minimal hub consumer Deployment exists for the configured transport.
 func (r *KollectHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	finish := trackReconcile("kollecthub")
+	var retErr error
+	defer func() { finish(retErr) }()
+
 	log := logf.FromContext(ctx)
 
 	var hub kollectdevv1alpha1.KollectHub
@@ -54,6 +59,7 @@ func (r *KollectHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err := r.ensureDeployment(ctx, dep); err != nil {
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectHub", metrics.ErrorClassTransient).Inc()
 		log.Error(err, "ensure hub deployment")
+		retErr = err
 
 		return ctrl.Result{}, err
 	}
@@ -76,8 +82,6 @@ func (r *KollectHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		return ctrl.Result{}, err
 	}
-
-	metrics.ReconcileTotal.WithLabelValues("kollecthub", metrics.ResultSuccess).Inc()
 
 	return ctrl.Result{}, nil
 }
@@ -174,8 +178,14 @@ func (r *KollectHubReconciler) ensureDeployment(ctx context.Context, desired *ap
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *KollectHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	opts := r.Options.controllerOptions(r.Options.MaxConcurrentHub)
+	if opts.MaxConcurrentReconciles == 0 {
+		opts.MaxConcurrentReconciles = DefaultRuntimeOptions().MaxConcurrentHub
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kollectdevv1alpha1.KollectHub{}).
+		WithOptions(opts).
 		Named("kollecthub").
 		Complete(r)
 }

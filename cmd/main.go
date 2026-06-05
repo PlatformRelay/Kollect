@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -29,6 +30,7 @@ import (
 	"github.com/konih/kollect/internal/controller"
 	"github.com/konih/kollect/internal/inventory"
 	"github.com/konih/kollect/internal/metrics"
+	"github.com/konih/kollect/internal/pprof"
 	"github.com/konih/kollect/internal/sink"
 	webhookv1alpha1 "github.com/konih/kollect/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -58,6 +60,13 @@ func main() {
 	var inventoryHTTPEnabled bool
 	var inventoryHTTPPort int
 	var inventoryAuthMode string
+	var maxConcurrentTarget int
+	var maxConcurrentInventory int
+	var maxConcurrentHub int
+	var exportDebounce time.Duration
+	var reconcileRateLimit time.Duration
+	var enablePprof bool
+	var pprofAddr string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -82,6 +91,20 @@ func main() {
 		"Port for the inventory HTTP server when --inventory-http-enabled is set.")
 	flag.StringVar(&inventoryAuthMode, "inventory-auth-mode", inventory.AuthModeKubernetes,
 		"Inventory HTTP auth mode: kubernetes (TokenReview+SAR) or disabled (dev/CI only).")
+	flag.IntVar(&maxConcurrentTarget, "max-concurrent-reconciles-target", 5,
+		"Max concurrent KollectTarget reconciles.")
+	flag.IntVar(&maxConcurrentInventory, "max-concurrent-reconciles-inventory", 3,
+		"Max concurrent KollectInventory reconciles.")
+	flag.IntVar(&maxConcurrentHub, "max-concurrent-reconciles-hub", 2,
+		"Max concurrent KollectHub reconciles.")
+	flag.DurationVar(&exportDebounce, "export-debounce", 30*time.Second,
+		"Minimum interval between identical inventory exports per KollectInventory.")
+	flag.DurationVar(&reconcileRateLimit, "reconcile-rate-limit", 0,
+		"Base delay for per-item exponential reconcile failure rate limiting (0 = controller-runtime default 5ms).")
+	flag.BoolVar(&enablePprof, "enable-pprof", false,
+		"Expose Go pprof on --pprof-bind-address (separate from metrics).")
+	flag.StringVar(&pprofAddr, "pprof-bind-address", ":6060",
+		"Bind address for pprof when --enable-pprof is set.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -207,10 +230,19 @@ func main() {
 
 	sinkRegistry := sink.NewRegistry()
 
+	ctrlOpts := controller.RuntimeOptions{
+		MaxConcurrentTarget:    maxConcurrentTarget,
+		MaxConcurrentInventory: maxConcurrentInventory,
+		MaxConcurrentHub:       maxConcurrentHub,
+		ExportDebounce:         exportDebounce,
+		ReconcileRateLimitBase: reconcileRateLimit,
+	}
+
 	if err := (&controller.KollectTargetReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Engine: collectEngine,
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Engine:  collectEngine,
+		Options: ctrlOpts,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollecttarget")
 		os.Exit(1)
@@ -220,6 +252,7 @@ func main() {
 		Scheme:   mgr.GetScheme(),
 		Store:    collectStore,
 		Registry: sinkRegistry,
+		Options:  ctrlOpts,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectinventory")
 		os.Exit(1)
@@ -232,8 +265,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&controller.KollectHubReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Options: ctrlOpts,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollecthub")
 		os.Exit(1)
@@ -243,6 +277,15 @@ func main() {
 		os.Exit(1)
 	}
 	metrics.Register()
+	if enablePprof {
+		if err := mgr.Add(&pprof.Server{Addr: pprofAddr}); err != nil {
+			setupLog.Error(err, "Failed to add pprof server")
+			os.Exit(1)
+		}
+
+		setupLog.Info("pprof enabled", "bindAddress", pprofAddr)
+	}
+
 	if inventoryHTTPEnabled {
 		if inventoryAuthMode == inventory.AuthModeDisabled {
 			setupLog.Info("WARNING: inventory HTTP auth disabled — for local dev and CI only")

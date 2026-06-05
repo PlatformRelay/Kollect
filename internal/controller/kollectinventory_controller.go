@@ -27,18 +27,25 @@ import (
 	"github.com/konih/kollect/internal/sink"
 )
 
-const exportDebounce = 30 * time.Second
-
 // KollectInventoryReconciler reconciles a KollectInventory object
 type KollectInventoryReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Store    *collect.Store
 	Registry *sink.Registry
+	Options  RuntimeOptions
 
 	mu          sync.Mutex
 	lastExport  map[string]time.Time
 	lastPayload map[string]string
+}
+
+func (r *KollectInventoryReconciler) exportDebounce() time.Duration {
+	if r.Options.ExportDebounce > 0 {
+		return r.Options.ExportDebounce
+	}
+
+	return DefaultRuntimeOptions().ExportDebounce
 }
 
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories,verbs=get;list;watch;create;update;patch;delete
@@ -50,11 +57,11 @@ type KollectInventoryReconciler struct {
 
 // Reconcile aggregates collected items in the namespace and exports to configured sinks.
 func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	finish := trackReconcile("kollectinventory")
+	var retErr error
+	defer func() { finish(retErr) }()
+
 	log := logf.FromContext(ctx)
-	resultLabel := metrics.ResultSuccess
-	defer func() {
-		metrics.ReconcileTotal.WithLabelValues("kollectinventory", resultLabel).Inc()
-	}()
 
 	var inv kollectdevv1alpha1.KollectInventory
 	if err := r.Get(ctx, req.NamespacedName, &inv); err != nil {
@@ -78,7 +85,8 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	key := req.String()
 
 	if r.shouldDebounce(key, hash) {
-		delay := exportDebounce - time.Since(r.lastExportTime(key))
+		debounce := r.exportDebounce()
+		delay := debounce - time.Since(r.lastExportTime(key))
 		if delay < time.Second {
 			delay = time.Second
 		}
@@ -102,7 +110,6 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.recordExport(key, hash)
 
 	if exportErr != nil {
-		resultLabel = metrics.ResultFailure
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", metrics.ErrorClassTransient).Inc()
 
 		return r.setInventoryDegraded(ctx, &inv, itemCount, exportErr)
@@ -122,21 +129,12 @@ func (r *KollectInventoryReconciler) exportToSink(
 		return fmt.Errorf("load KollectSink %q: %w", sinkName, err)
 	}
 
-	caPEM, err := resolveCAPEM(ctx, r.Client, ks.Spec.TLS)
+	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, ks.Spec, inv.Namespace)
 	if err != nil {
 		return err
 	}
 
-	secretNS := inv.Namespace
-	creds, err := sink.ResolveSecret(ctx, r.Client, ks.Spec.SecretRef, secretNS)
-	if err != nil {
-		return err
-	}
-
-	backend, err := r.Registry.NewBackend(ks.Spec, sink.BuildContext{
-		CAPEM:      caPEM,
-		SecretData: creds.Data,
-	})
+	backend, err := r.Registry.NewBackend(ks.Spec, buildCtx)
 	if err != nil {
 		return err
 	}
@@ -145,7 +143,9 @@ func (r *KollectInventoryReconciler) exportToSink(
 
 	start := time.Now()
 	err = backend.Export(ctx, payload, objectPath)
-	metrics.ExportDurationSeconds.WithLabelValues(ks.Spec.Type).Observe(time.Since(start).Seconds())
+	elapsed := time.Since(start).Seconds()
+	metrics.ExportDurationSeconds.WithLabelValues(ks.Spec.Type).Observe(elapsed)
+	metrics.ExportBytesTotal.WithLabelValues(ks.Spec.Type).Add(float64(len(payload)))
 
 	return err
 }
@@ -164,7 +164,7 @@ func (r *KollectInventoryReconciler) shouldDebounce(key, hash string) bool {
 		return false
 	}
 
-	return time.Since(r.lastExport[key]) < exportDebounce
+	return time.Since(r.lastExport[key]) < r.exportDebounce()
 }
 
 func (r *KollectInventoryReconciler) recordExport(key, hash string) {
@@ -224,7 +224,7 @@ func (r *KollectInventoryReconciler) updateStatus(
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: exportDebounce}, nil
+	return ctrl.Result{RequeueAfter: r.exportDebounce()}, nil
 }
 
 func (r *KollectInventoryReconciler) setInventoryDegraded(
@@ -247,13 +247,19 @@ func (r *KollectInventoryReconciler) setInventoryDegraded(
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: exportDebounce}, nil
+	return ctrl.Result{RequeueAfter: r.exportDebounce()}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *KollectInventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	opts := r.Options.controllerOptions(r.Options.MaxConcurrentInventory)
+	if opts.MaxConcurrentReconciles == 0 {
+		opts.MaxConcurrentReconciles = DefaultRuntimeOptions().MaxConcurrentInventory
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kollectdevv1alpha1.KollectInventory{}).
+		WithOptions(opts).
 		Watches(
 			&kollectdevv1alpha1.KollectTarget{},
 			handler.EnqueueRequestsFromMapFunc(r.mapTargetToInventories),

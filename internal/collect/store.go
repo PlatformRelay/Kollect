@@ -22,6 +22,8 @@ type Item struct {
 }
 
 // Store holds collected items keyed by target namespace/name and resource UID.
+// Memory use is O(n) in the number of collected objects (one map entry per resource UID).
+// A single RWMutex protects the nested maps; reads use RLock for snapshot/export paths.
 type Store struct {
 	mu       sync.RWMutex
 	items    map[string]map[string]Item
