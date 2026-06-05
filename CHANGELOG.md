@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **ci:** Harden workflows for OpenSSF Scorecard [bbd0815](https://github.com/konih/kollect/commit/bbd08154179cf13c6d7edddb44d653874499523e)
+
 - **security:** Harden inventory auth and SAR caches [c934c80](https://github.com/konih/kollect/commit/c934c80f529725f8634b872d89e599df1d582ccb)
 
 - **ci:** Use codecov-action v5 tag instead of bad SHA [f2a1d24](https://github.com/konih/kollect/commit/f2a1d240e5f31bc74ccd3db4725ec2d5b67a5bf9)
