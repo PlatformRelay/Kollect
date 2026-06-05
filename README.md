@@ -9,53 +9,88 @@
 [![Docs site](https://img.shields.io/badge/docs-konih.github.io%2Fkollect-blue)](https://konih.github.io/kollect/)
 [![Container](https://img.shields.io/badge/ghcr.io-konih%2Fkollect-2496ED?logo=docker&logoColor=white)](https://github.com/konih/kollect/pkgs/container/kollect)
 
-**kollect** is a Kubernetes inventory operator. Point it at any API resource (any GVK), describe
-the fields you care about with CEL or JSONPath, and export live cluster state to **Postgres**,
-**Kafka**, **Git**, and more — no bespoke collector per CRD, no batch cron jobs scraping the API.
+**kollect** is a Kubernetes operator that turns selected, live cluster state into a **durable,
+queryable, diffable inventory** — decoupled from the apiserver's availability, RBAC, and scale
+limits. Portals, automation, and auditors read **export data**, not unbounded list/watch against the
+live API.
 
-Stakeholders who never touch `kubectl` still get auditable, versioned snapshots they can diff,
-query, or feed into developer portals and compliance workflows.
+Kubernetes is the source of truth for *what is running*; it is a poor *system of record* for
+stakeholder inventory. kollect maintains a **read model**: **select** resources by GVK → **extract**
+the attributes that matter (CEL or JSONPath) → **aggregate** across targets → **debounce** →
+**export** to pluggable sinks. Inventory is **configuration, not code** — owned per team in its own
+namespace.
 
-**Read the docs:** **[konih.github.io/kollect](https://konih.github.io/kollect/)** — overview,
-getting started, core concepts, CR reference, ADRs, and examples. This README is the front door; the
-site is the map.
+**Read the docs:** **[konih.github.io/kollect](https://konih.github.io/kollect/)** — architecture,
+quick start, CR reference, ADRs, and examples. This README is the front door; the site is the map.
+
+> **Pre-beta.** APIs and defaults may change until the first release candidate. See the
+> [roadmap](https://konih.github.io/kollect/ROADMAP/) for current status.
+
+## How it works
+
+```text
+Kubernetes API  →  shared informer (per GVK)  →  in-memory collect store
+       →  KollectInventory debounce  →  sink projection(s)
+```
+
+The in-memory snapshot per inventory is **canonical**; every sink is a **projection** of it — no
+single backend is privileged ([sink roles](https://konih.github.io/kollect/adr/0401-sink-taxonomy-state-vs-stream/)).
+
+| Sink role | Examples | Good for |
+| --- | --- | --- |
+| **Snapshot store** | Git, GitLab, S3/GCS (JSON today) | Audit, diff, GitOps-friendly history |
+| **Relational store** | Postgres | Rich SQL for portals and dashboards |
+| **Event emitter** | Kafka / Redpanda / NATS | Change streams, downstream consumers |
+
+Full payload lives in sinks; CR `.status` holds summaries only ([etcd limits](https://konih.github.io/kollect/adr/0103-etcd-limit/)).
 
 ## Quick start
 
-Try kollect on a local kind cluster in a few minutes:
+Try kollect on a local kind cluster:
 
-1. **Create a cluster** — `kind create cluster --name kollect-dev`
-2. **Build and deploy** — `task build`, `task install:crds`, `task docker:build`, load the image, `task deploy:operator`
-3. **Apply samples** — `kubectl apply -k config/samples/` (profile → sink → target → inventory)
-4. **Verify** — watch `KollectInventory` status and check your sink (Postgres, Kafka, or the [demo Git repo](https://github.com/konih/kollect-inventory-demo))
+```sh
+kind create cluster --name kollect-dev
+git clone https://github.com/konih/kollect.git && cd kollect
+task build
+task install:crds && task docker:build
+kind load docker-image kollect-controller-manager:dev --name kollect-dev
+task deploy:operator
+kubectl apply -k config/samples/
+```
 
-Full copy-paste commands, prerequisites, and maturity notes:
-**[Quick start on the docs site →](https://konih.github.io/kollect/QUICKSTART/)**
+Watch `KollectInventory` status and check your sink (Git demo repo, Postgres, Kafka, etc.).
+
+**Full walkthrough** — prerequisites, Helm options, maturity notes:
+**[Quick start →](https://konih.github.io/kollect/QUICKSTART/)**
 
 ## Why kollect?
 
 | | |
 | --- | --- |
-| **Event-driven** | Dynamic informers react to changes — inventory stays current without polling loops. |
-| **CRD-native** | Declare profiles, sinks, targets, and inventory in Kubernetes; GitOps-friendly from day one. |
-| **Multi-tenant** | `KollectScope` gates which teams and namespaces can export to which sinks. |
-| **Hub / spoke** | Run a central hub that aggregates inventory from spoke clusters via `KollectClusterTarget`. |
+| **Event-driven** | Shared informers per GVK — inventory stays current without polling loops ([ADR-0301](https://konih.github.io/kollect/adr/0301-event-driven-informers/)). |
+| **Schema-flexible** | Declare attributes in `KollectProfile`; no bespoke collector per CRD. |
+| **CRD-native & GitOps-friendly** | Profiles, sinks, targets, and inventory are Kubernetes resources in team namespaces. |
+| **Multi-tenant** | `KollectScope` gates which teams and namespaces may export to which sinks. |
+| **Fleet-ready** | Default path: spokes write to **shared sinks** with a cluster label. Optional **hub mode** (`mode: hub\|spoke` on the same image) for Git fan-in or credential centralization — no hub CRD required. |
 
-kollect is early and moving fast — issues, ideas, and PRs are welcome. See where we're headed in the
-[roadmap](https://konih.github.io/kollect/ROADMAP/).
+Default install for new teams: **namespaced Helm** with `tenantMode: true` and scoped
+`watchNamespaces`. Platform-wide cluster operators remain supported.
 
 ## Learn more
 
-| Section | Link |
+| Topic | Link |
 | --- | --- |
-| Architecture and platform decisions | [Understand the basics](https://konih.github.io/kollect/ARCHITECTURE/) |
+| Problem statement, CRD model, reconciliation | [Architecture](https://konih.github.io/kollect/ARCHITECTURE/) |
+| Locked platform decisions | [Platform decisions](https://konih.github.io/kollect/PLATFORM-DECISIONS/) |
 | CR fields, RBAC, failure modes | [CR reference](https://konih.github.io/kollect/CR-REFERENCE/) |
-| Hub/spoke and sink concepts | [Core concepts](https://konih.github.io/kollect/adr/0501-multi-cluster-sync-rfc/) |
+| Multi-cluster & hub/spoke | [ADR-0501](https://konih.github.io/kollect/adr/0501-multi-cluster-sync-rfc/) |
+| Sink taxonomy (state vs stream) | [ADR-0401](https://konih.github.io/kollect/adr/0401-sink-taxonomy-state-vs-stream/) |
 | Build-order phases and status | [Roadmap](https://konih.github.io/kollect/ROADMAP/) |
+| Examples index | [Examples](https://konih.github.io/kollect/examples/) |
 | Example: Deployment → Git export | [Walkthrough](https://konih.github.io/kollect/examples/deployment-inventory/) |
 | Live demo inventory (Git sink) | [kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo) |
 
-Developers: `task lint`, `task test`, and `task verify` before opening a PR — details in
+Developers: run `task lint`, `task test`, and `task verify` before opening a PR —
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
