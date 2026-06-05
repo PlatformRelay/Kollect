@@ -1,0 +1,42 @@
+{
+  "apiVersion": "helm.toolkit.fluxcd.io/v2",
+  "kind": "HelmRelease",
+  "metadata": {
+    "name": "demo-app",
+    "namespace": "team-a"
+  },
+  "spec": {
+    "releaseName": "demo-app",
+    "chart": {
+      "spec": {
+        "chart": "demo"
+      }
+    },
+    "values": {
+      "image": {
+        "tag": "1.2.3"
+      }
+    }
+  },
+  "status": {
+    "lastAttemptedRevision": "14.3.0",
+    "lastAttemptedConfigDigest": "sha256:abc123",
+    "history": [
+      {
+        "chartVersion": "14.3.0",
+        "appVersion": "2.1.0",
+        "version": 3,
+        "status": "deployed",
+        "lastDeployed": "2026-06-01T10:00:00Z",
+        "configDigest": "sha256:abc123"
+      },
+      {
+        "chartVersion": "14.2.0",
+        "appVersion": "2.0.0",
+        "version": 2,
+        "status": "superseded",
+        "lastDeployed": "2026-05-15T10:00:00Z"
+      }
+    ]
+  }
+}
