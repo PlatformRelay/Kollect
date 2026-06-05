@@ -29,6 +29,18 @@ func TestValidateSinkSpec_acceptsRegisteredTypes(t *testing.T) {
 	}
 }
 
+func TestValidateSinkSpec_rejectsInvalidPathTemplate(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateSinkSpec(&kollectdevv1alpha1.KollectSinkSpec{
+		Type:         kollectdevv1alpha1.SinkTypeS3,
+		PathTemplate: "{cluster}/{name}.json",
+	})
+	if len(errs) != 1 {
+		t.Fatalf("expected pathTemplate error, got %d: %v", len(errs), errs)
+	}
+}
+
 func TestValidateSinkSpec_rejectsUnknownType(t *testing.T) {
 	t.Parallel()
 
