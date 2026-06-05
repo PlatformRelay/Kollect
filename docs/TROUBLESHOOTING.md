@@ -65,11 +65,11 @@ Full per-kind tables: [KollectInventory](crds/kollectinventory.md#status-conditi
 
 | Symptom | Likely cause | Next step |
 | --- | --- | --- |
-| Export never runs | `SinkReachable=False` (`SinkNotFound` / `SinkUnreachable`) | [FAQ — export never runs](FAQ.md#export-never-runs-what-should-i-check) |
+| Export never runs | `SinkReachable=False` (`SinkNotFound` / `SinkUnreachable`) | [FAQ — export never runs](FAQ.md#export-never-runs--what-should-i-check) |
 | `ConnectionVerified=False` | Missing Secret, bad DSN, TLS failure | [Connection test](examples/connection-test.md) |
 | Empty `status.itemCount` | Selector mismatch, suspended target, scope denied | [Deployment inventory — Troubleshooting](examples/deployment-inventory.md#troubleshooting) |
 | Namespace skipped | Watch label or `OptIn` without `enabled` | [Annotations and labels](ANNOTATIONS-LABELS.md) |
-| Postgres rows stale | Upsert-only drift (pre-delete-recon) or export error | [Postgres state store](examples/postgres-state-store.md#troubleshooting) |
+| Postgres rows stale | Upsert-only drift or export error | [Postgres state store](examples/postgres-state-store.md#troubleshooting) |
 | Hub spoke not merging | Transport or registration misconfig | [Hub mode](examples/hub-mode.md) |
 | CR stopped working after upgrade | Pre-beta schema change | [FAQ — pre-beta](FAQ.md#why-did-my-cr-stop-working-after-an-upgrade) |
 
