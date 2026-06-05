@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Konrad Heimel
 
+//nolint:dupl // webhook validators share boilerplate structure
 package webhookv1alpha1
 
 import (
