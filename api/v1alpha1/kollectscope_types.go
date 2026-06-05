@@ -20,7 +20,7 @@ type KollectScopeSpec struct {
 	// +optional
 	AllowedNamespaces []string `json:"allowedNamespaces,omitempty"`
 
-	// sinkRefs lists cluster-scoped KollectSink names permitted for export from this scope.
+	// sinkRefs lists namespaced KollectSink names permitted for export from this scope.
 	// +listType=set
 	// +optional
 	SinkRefs []string `json:"sinkRefs,omitempty"`

@@ -25,7 +25,7 @@ func TestCheckInventorySinksReachable_connectionFailed(t *testing.T) {
 	}
 
 	sink := &kollectdevv1alpha1.KollectSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "bad-sink"},
+		ObjectMeta: metav1.ObjectMeta{Name: "bad-sink", Namespace: "default"},
 		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "git"},
 		Status: kollectdevv1alpha1.KollectSinkStatus{
 			Conditions: []metav1.Condition{{
@@ -38,7 +38,7 @@ func TestCheckInventorySinksReachable_connectionFailed(t *testing.T) {
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sink).WithStatusSubresource(sink).Build()
 
-	ok, reason, _ := checkInventorySinksReachable(context.Background(), cl, []string{"bad-sink"})
+	ok, reason, _ := checkInventorySinksReachable(context.Background(), cl, "default", []string{"bad-sink"})
 	if ok {
 		t.Fatal("expected sinks unreachable")
 	}

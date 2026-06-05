@@ -76,7 +76,7 @@ spec:
                 type: array
                 x-kubernetes-list-type: set
               sinkRefs:
-                description: sinkRefs lists cluster-scoped KollectSink names permitted
+                description: sinkRefs lists namespaced KollectSink names permitted
                   for export from this scope.
                 items:
                   type: string

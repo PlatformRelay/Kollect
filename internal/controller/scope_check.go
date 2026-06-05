@@ -88,10 +88,10 @@ func (s scopeCheck) enforceInventory(
 
 func (s scopeCheck) sinkReachable(
 	ctx context.Context,
-	sinkName string,
+	namespace, sinkName string,
 ) (bool, string, string) {
 	var ks kollectdevv1alpha1.KollectSink
-	if err := s.client.Get(ctx, client.ObjectKey{Name: sinkName}, &ks); err != nil {
+	if err := s.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: sinkName}, &ks); err != nil {
 		return false, "SinkNotFound", fmt.Sprintf("KollectSink %q not found", sinkName)
 	}
 

@@ -5,7 +5,6 @@ package validation
 
 import (
 	"fmt"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -18,25 +17,7 @@ func ValidateTargetSpec(spec *kollectdevv1alpha1.KollectTargetSpec) field.ErrorL
 		return nil
 	}
 
-	errs := validateProfileRef(spec.ProfileRef, field.NewPath("spec").Child("profileRef"))
-
-	return errs
-}
-
-func validateProfileRef(ref string, fldPath *field.Path) field.ErrorList {
-	var errs field.ErrorList
-
-	if strings.TrimSpace(ref) == "" {
-		errs = append(errs, field.Required(fldPath, "profileRef is required"))
-		return errs
-	}
-
-	if strings.Contains(ref, "/") {
-		errs = append(errs, field.Invalid(fldPath, ref,
-			"profileRef must be a profile name in the same namespace as the Target, not namespace/name"))
-	}
-
-	return errs
+	return validateSameNamespaceRef(spec.ProfileRef, field.NewPath("spec").Child("profileRef"), "profileRef")
 }
 
 // TargetInvalid formats a validation failure for admission.

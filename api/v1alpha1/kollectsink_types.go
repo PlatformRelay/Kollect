@@ -113,7 +113,7 @@ type KollectSinkStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,shortName=ksink
+// +kubebuilder:resource:scope=Namespaced,shortName=ksink
 
 // KollectSink is the Schema for the kollectsinks API
 type KollectSink struct {
