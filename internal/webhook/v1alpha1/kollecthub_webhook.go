@@ -6,7 +6,6 @@ package webhookv1alpha1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -49,32 +48,8 @@ func (v *kollectHubValidator) ValidateDelete(
 	return nil, nil
 }
 
-func (v *kollectHubValidator) validate(hub *kollectdevv1alpha1.KollectHub) error {
-	transportType := strings.TrimSpace(hub.Spec.Transport.Type)
-	if transportType == "" {
-		return fmt.Errorf("spec.transport.type is required")
-	}
-
-	if transportType == "redis" {
-		if hub.Spec.Transport.Redis == nil || strings.TrimSpace(hub.Spec.Transport.Redis.URL) == "" {
-			return fmt.Errorf("spec.transport.redis.url is required when type is redis")
-		}
-	}
-
-	seen := make(map[string]struct{}, len(hub.Spec.RemoteClusters))
-	for i, ref := range hub.Spec.RemoteClusters {
-		name := strings.TrimSpace(ref.Name)
-		if name == "" {
-			return fmt.Errorf("spec.remoteClusters[%d].name is required", i)
-		}
-
-		key := kollectdevv1alpha1.RemoteClusterKey(ref)
-		if _, dup := seen[key]; dup {
-			return fmt.Errorf("duplicate remoteClusters ref %q", key)
-		}
-
-		seen[key] = struct{}{}
-	}
-
-	return nil
+func (v *kollectHubValidator) validate(_ *kollectdevv1alpha1.KollectHub) error {
+	return fmt.Errorf(
+		"KollectHub CRD is deprecated (ADR-0032): use Helm mode: hub — no controller is registered",
+	)
 }
