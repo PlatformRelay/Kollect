@@ -28,6 +28,7 @@ import (
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink"
 	"github.com/konih/kollect/internal/spoke"
+	"github.com/konih/kollect/internal/validation"
 )
 
 // KollectInventoryReconciler reconciles a KollectInventory object
@@ -39,17 +40,19 @@ type KollectInventoryReconciler struct {
 	Options  RuntimeOptions
 	Recorder record.EventRecorder
 
-	mu          sync.Mutex
-	lastExport  map[string]time.Time
-	lastPayload map[string]string
+	mu             sync.Mutex
+	lastExport     map[string]time.Time
+	lastPayload    map[string]string
+	lastGeneration map[string]int64
 }
 
-func (r *KollectInventoryReconciler) exportDebounce() time.Duration {
+func (r *KollectInventoryReconciler) exportDebounce(inv *kollectdevv1alpha1.KollectInventory) time.Duration {
+	fallback := DefaultRuntimeOptions().ExportDebounce
 	if r.Options.ExportDebounce > 0 {
-		return r.Options.ExportDebounce
+		fallback = r.Options.ExportDebounce
 	}
 
-	return DefaultRuntimeOptions().ExportDebounce
+	return validation.ExportMinIntervalFor(&inv.Spec, fallback)
 }
 
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories,verbs=get;list;watch;create;update;patch;delete
@@ -88,7 +91,7 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.setInventoryDegraded(ctx, &inv, itemCount, reason, msg)
 	}
 
-	sinkOK, sinkReason, sinkMsg := checkInventorySinksReachable(ctx, r.Client, inv.Spec.SinkRefs)
+	sinkOK, sinkReason, sinkMsg := checkInventorySinksReachable(ctx, r.Client, inv.Namespace, inv.Spec.SinkRefs)
 	setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, sinkOK, sinkReason, sinkMsg)
 	if !sinkOK {
 		recordWarning(r.Recorder, &inv, sinkReason, sinkMsg)
@@ -104,11 +107,18 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	if limit := r.maxExportBytes(&inv); limit > 0 && int64(len(payload)) > limit {
+		msg := fmt.Sprintf("export payload %d bytes exceeds cap %d", len(payload), limit)
+		metrics.SinkErrorsTotal.WithLabelValues("payload_too_large").Inc()
+
+		return r.setInventoryDegraded(ctx, &inv, itemCount, "PayloadTooLarge", msg)
+	}
+
 	hash := payloadHash(payload)
 	key := req.String()
 
-	if r.shouldDebounce(key, hash) {
-		debounce := r.exportDebounce()
+	if r.shouldDebounce(&inv, key, hash) {
+		debounce := r.exportDebounce(&inv)
 		delay := debounce - time.Since(r.lastExportTime(key))
 		if delay < time.Second {
 			delay = time.Second
@@ -136,7 +146,7 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	r.recordExport(key, hash)
+	r.recordExport(&inv, key, hash)
 
 	if exportErr != nil {
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(exportErr)).Inc()
@@ -166,18 +176,27 @@ func (r *KollectInventoryReconciler) exportToSink(
 	payload []byte,
 ) error {
 	var ks kollectdevv1alpha1.KollectSink
-	if err := r.Get(ctx, client.ObjectKey{Name: sinkName}, &ks); err != nil {
-		return kollecterrors.ClassifyAPI(fmt.Errorf("load KollectSink %q: %w", sinkName, err))
+	if err := r.Get(ctx, client.ObjectKey{Namespace: inv.Namespace, Name: sinkName}, &ks); err != nil {
+		err = kollecterrors.ClassifyAPI(fmt.Errorf("load KollectSink %q: %w", sinkName, err))
+		metrics.SinkErrorsTotal.WithLabelValues(sinkErrorReason(err)).Inc()
+
+		return err
 	}
 
 	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, ks.Spec, inv.Namespace)
 	if err != nil {
-		return kollecterrors.Terminal(err)
+		err = kollecterrors.Terminal(err)
+		metrics.SinkErrorsTotal.WithLabelValues(sinkErrorReason(err)).Inc()
+
+		return err
 	}
 
 	backend, err := r.Registry.NewBackend(ks.Spec, buildCtx)
 	if err != nil {
-		return kollecterrors.Terminal(err)
+		err = kollecterrors.Terminal(err)
+		metrics.SinkErrorsTotal.WithLabelValues(sinkErrorReason(err)).Inc()
+
+		return err
 	}
 
 	objectPath := fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name)
@@ -189,19 +208,53 @@ func (r *KollectInventoryReconciler) exportToSink(
 	metrics.ExportBytesTotal.WithLabelValues(ks.Spec.Type).Add(float64(len(payload)))
 
 	if err != nil {
+		reason := sinkErrorReason(err)
+		metrics.SinkErrorsTotal.WithLabelValues(reason).Inc()
+
 		return kollecterrors.Transient(fmt.Errorf("export to %q: %w", sinkName, err))
 	}
 
 	return nil
 }
 
-func (r *KollectInventoryReconciler) shouldDebounce(key, hash string) bool {
+func sinkErrorReason(err error) string {
+	if err == nil {
+		return "unknown"
+	}
+
+	switch kollecterrors.ClassOf(err) {
+	case kollecterrors.ClassTerminal:
+		return "terminal"
+	case kollecterrors.ClassForbidden:
+		return "forbidden"
+	default:
+		return "transient"
+	}
+}
+
+func (r *KollectInventoryReconciler) maxExportBytes(inv *kollectdevv1alpha1.KollectInventory) int64 {
+	if inv.Spec.MaxExportBytes != nil && *inv.Spec.MaxExportBytes > 0 {
+		return *inv.Spec.MaxExportBytes
+	}
+
+	return validation.MaxExportBytesGlobal()
+}
+
+func (r *KollectInventoryReconciler) shouldDebounce(
+	inv *kollectdevv1alpha1.KollectInventory,
+	key, hash string,
+) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.lastPayload == nil {
 		r.lastPayload = make(map[string]string)
 		r.lastExport = make(map[string]time.Time)
+		r.lastGeneration = make(map[string]int64)
+	}
+
+	if r.lastGeneration[key] != inv.Generation {
+		return false
 	}
 
 	prev, ok := r.lastPayload[key]
@@ -209,20 +262,25 @@ func (r *KollectInventoryReconciler) shouldDebounce(key, hash string) bool {
 		return false
 	}
 
-	return time.Since(r.lastExport[key]) < r.exportDebounce()
+	return time.Since(r.lastExport[key]) < r.exportDebounce(inv)
 }
 
-func (r *KollectInventoryReconciler) recordExport(key, hash string) {
+func (r *KollectInventoryReconciler) recordExport(
+	inv *kollectdevv1alpha1.KollectInventory,
+	key, hash string,
+) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.lastPayload == nil {
 		r.lastPayload = make(map[string]string)
 		r.lastExport = make(map[string]time.Time)
+		r.lastGeneration = make(map[string]int64)
 	}
 
 	r.lastPayload[key] = hash
 	r.lastExport[key] = time.Now()
+	r.lastGeneration[key] = inv.Generation
 }
 
 func (r *KollectInventoryReconciler) lastExportTime(key string) time.Time {
@@ -274,7 +332,7 @@ func (r *KollectInventoryReconciler) updateStatus(
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: r.exportDebounce()}, nil
+	return ctrl.Result{RequeueAfter: r.exportDebounce(inv)}, nil
 }
 
 func (r *KollectInventoryReconciler) setInventoryDegraded(
@@ -299,7 +357,7 @@ func (r *KollectInventoryReconciler) setInventoryDegraded(
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: r.exportDebounce()}, nil
+	return ctrl.Result{RequeueAfter: r.exportDebounce(inv)}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -338,7 +396,7 @@ func (r *KollectInventoryReconciler) mapSinkToInventories(
 	}
 
 	var list kollectdevv1alpha1.KollectInventoryList
-	if err := r.List(ctx, &list); err != nil {
+	if err := r.List(ctx, &list, client.InNamespace(sinkObj.Namespace)); err != nil {
 		return nil
 	}
 

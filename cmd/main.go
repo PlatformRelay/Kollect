@@ -34,6 +34,7 @@ import (
 	"github.com/konih/kollect/internal/operator"
 	"github.com/konih/kollect/internal/pprof"
 	"github.com/konih/kollect/internal/sink"
+	"github.com/konih/kollect/internal/validation"
 	webhookv1alpha1 "github.com/konih/kollect/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -62,6 +63,8 @@ func main() {
 	var inventoryHTTPEnabled bool
 	var inventoryHTTPPort int
 	var inventoryAuthMode string
+	var inventoryAuthCacheTTL time.Duration
+	var maxExportBytes int64
 	var maxConcurrentTarget int
 	var maxConcurrentInventory int
 	var maxConcurrentHub int
@@ -91,11 +94,15 @@ func main() {
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&inventoryHTTPEnabled, "inventory-http-enabled", false,
-		"Expose GET /inventory with aggregated summary JSON.")
+		"Expose GET /v1alpha1/inventory with aggregated summary JSON (debug only).")
 	flag.IntVar(&inventoryHTTPPort, "inventory-http-port", 8082,
 		"Port for the inventory HTTP server when --inventory-http-enabled is set.")
 	flag.StringVar(&inventoryAuthMode, "inventory-auth-mode", inventory.AuthModeKubernetes,
 		"Inventory HTTP auth mode: kubernetes (TokenReview+SAR) or disabled (dev/CI only).")
+	flag.DurationVar(&inventoryAuthCacheTTL, "inventory-auth-cache-ttl", 30*time.Second,
+		"TTL for in-memory TokenReview/SAR cache (0 disables cache).")
+	flag.Int64Var(&maxExportBytes, "max-export-bytes", validation.MaxExportBytesGlobal(),
+		"Global cap for KollectInventory.spec.maxExportBytes and export payload size.")
 	flag.IntVar(&maxConcurrentTarget, "max-concurrent-reconciles-target", 5,
 		"Max concurrent KollectTarget reconciles.")
 	flag.IntVar(&maxConcurrentInventory, "max-concurrent-reconciles-inventory", 3,
@@ -103,7 +110,7 @@ func main() {
 	flag.IntVar(&maxConcurrentHub, "max-concurrent-reconciles-hub", 2,
 		"Max concurrent KollectHub reconciles.")
 	flag.DurationVar(&exportDebounce, "export-debounce", 30*time.Second,
-		"Minimum interval between identical inventory exports per KollectInventory.")
+		"Deprecated fallback export debounce when KollectInventory.spec.exportMinInterval is unset.")
 	flag.DurationVar(&reconcileRateLimit, "reconcile-rate-limit", 0,
 		"Base delay for per-item exponential reconcile failure rate limiting (0 = controller-runtime default 5ms).")
 	flag.BoolVar(&enablePprof, "enable-pprof", false,
@@ -121,6 +128,8 @@ func main() {
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	validation.SetMaxExportBytesGlobal(maxExportBytes)
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -292,14 +301,15 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectsink")
 		os.Exit(1)
 	}
-	if err := (&controller.KollectHubReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Options: ctrlOpts,
+	if err := (&controller.KollectConnectionTestReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "kollecthub")
+		setupLog.Error(err, "Failed to create controller", "controller", "kollectconnectiontest")
 		os.Exit(1)
 	}
+	// KollectHub controller removed — hub is Helm mode: hub|spoke only (ADR-0032).
+	setupLog.Info("KollectHub CRD is deprecated; use --mode=hub and Helm values")
 	if err := (&controller.KollectRemoteClusterReconciler{
 		Client:  mgr.GetClient(),
 		Scheme:  mgr.GetScheme(),
@@ -332,10 +342,11 @@ func main() {
 			Enabled: true,
 			Port:    int32(inventoryHTTPPort),
 			Store:   collectStore,
-			Auth: inventory.AuthConfig{
+			Auth: &inventory.AuthConfig{
 				Mode:                inventoryAuthMode,
 				Client:              kubeClient,
 				RequireInventoryGet: inventoryAuthMode == inventory.AuthModeKubernetes,
+				CacheTTL:            inventoryAuthCacheTTL,
 			},
 		}
 		if err := mgr.Add(invSrv); err != nil {
