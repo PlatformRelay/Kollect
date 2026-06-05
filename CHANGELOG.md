@@ -94,6 +94,8 @@ anchor on an older commit.
 
 ### Features
 
+- **collect:** Add Phase 4 aggregation metrics stub [d05fc4c](https://github.com/konih/kollect/commit/d05fc4c5b6a3288c55901734198245b55d50e6fb)
+
 - **sink:** Add GitLab API v4 merge request client [8247f4e](https://github.com/konih/kollect/commit/8247f4ec6fa451b7837acce56a0f534193a13352)
 
 - **collect:** Complete ADR-0020 metrics catalog [4d14925](https://github.com/konih/kollect/commit/4d14925b5aebc8665c59c72181e9950cc07ad011)
