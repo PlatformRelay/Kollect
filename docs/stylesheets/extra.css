@@ -91,6 +91,20 @@
   opacity: 0.92;
 }
 
+.kollect-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem 0.5rem;
+  margin-top: 1.5rem;
+  line-height: 1;
+}
+
+.kollect-badges img {
+  height: 1.25rem;
+  vertical-align: middle;
+}
+
 .kollect-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));

@@ -18,16 +18,23 @@ auditors read **export data**, not unbounded list/watch against the live API.
 [Quick start :octicons-arrow-right-24:](QUICKSTART.md){ .md-button .md-button--primary }
 [CR reference :octicons-arrow-right-24:](CR-REFERENCE.md){ .md-button }
 
-</div>
+<div class="kollect-badges" markdown="1">
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/konih/kollect/badge)](https://securityscorecards.dev/viewer/?uri=github.com/konih/kollect)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13106/badge)](https://www.bestpractices.dev/projects/13106)
 [![CI](https://github.com/konih/kollect/actions/workflows/ci.yaml/badge.svg)](https://github.com/konih/kollect/actions/workflows/ci.yaml)
-[![codecov](https://codecov.io/gh/konih/kollect/graph/badge.svg)](https://codecov.io/gh/konih/kollect)
+[![Preflight](https://github.com/konih/kollect/actions/workflows/preflight.yaml/badge.svg)](https://github.com/konih/kollect/actions/workflows/preflight.yaml)
 [![Docs](https://github.com/konih/kollect/actions/workflows/docs.yaml/badge.svg)](https://github.com/konih/kollect/actions/workflows/docs.yaml)
+[![CodeQL](https://github.com/konih/kollect/actions/workflows/codeql.yaml/badge.svg)](https://github.com/konih/kollect/actions/workflows/codeql.yaml)
+[![Release](https://img.shields.io/github/v/release/konih/kollect?label=release)](https://github.com/konih/kollect/releases)
+[![codecov](https://codecov.io/gh/konih/kollect/graph/badge.svg)](https://codecov.io/gh/konih/kollect)
 [![License: MIT](https://img.shields.io/github/license/konih/kollect)](https://github.com/konih/kollect/blob/main/LICENSE)
 [![Go](https://img.shields.io/github/go-mod/go-version/konih/kollect)](https://pkg.go.dev/github.com/konih/kollect)
 [![Container](https://img.shields.io/badge/ghcr.io-konih%2Fkollect-2496ED?logo=docker&logoColor=white)](https://github.com/konih/kollect/pkgs/container/kollect)
+
+</div>
+
+</div>
 
 ## What Kollect does
 
