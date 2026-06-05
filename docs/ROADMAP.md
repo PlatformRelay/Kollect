@@ -6,7 +6,7 @@ sinks (**Postgres/Kafka primary**; Git audit) with optional HTTP for debug.
 
 **Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), [ADR-0032](adr/0032-platform-architecture-pivot.md).
 
-**Last updated:** 2026-06-05 (session 13 — e2e green, GitLab MR client, export asserts, Phase 4 metrics stub)
+**Last updated:** 2026-06-05 (session 14 — Phase 4 engine wire, release rc prep docs)
 
 ## Status legend
 
@@ -202,12 +202,13 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 
 | Item | Status |
 | --- | --- |
-| kube-state-metrics-style custom resource metrics config | 🚧 [ADR-0033](adr/0033-custom-resource-aggregation-rfc.md) — `kollect_custom_resource_series` stub in `internal/metrics/` |
+| kube-state-metrics-style custom resource metrics config | 🚧 [ADR-0033](adr/0033-custom-resource-aggregation-rfc.md) — `kollect_custom_resource_series` wired from collect engine snapshot |
+| Collect engine → `RecordCustomResourceSeries` on target snapshot | ✅ sums numeric attributes + `object_count` per profile/GVK |
 | Cardinality-safe operator metrics (counts, export latency) | ✅ ADR-0020 catalog complete |
 | Advanced cross-target / cross-cluster aggregation | ⬜ |
 | `task perf-report` optional CI gate | ✅ `ci.yaml` job + preflight note |
 
-**Counts:** ✅ 2 · 🚧 1 · ⬜ 1
+**Counts:** ✅ 3 · 🚧 1 · ⬜ 1
 
 ---
 
@@ -350,7 +351,7 @@ GitLab API v4 when `secretRef` provides an API token (`token` or `password` key)
 | Nightly kind smoke (Helm + samples + cert-manager CRD + HTTP probe) | ✅ |
 | Full e2e: conditions, Git export SHA, HTTP body, multitenant | ✅ |
 | Object store sinks (S3/GCS MinIO) in PR integration + nightly | ✅ |
-| Release workflow (`workflow_dispatch` dry-run) | 🚧 `task release-dry-run` PASS locally; GH Actions + cosign/SBOM untested |
+| Release workflow (`workflow_dispatch` dry-run) | 🚧 `task release-dry-run` PASS locally; GH Actions rc via `workflow_dispatch` (see [RELEASE.md](RELEASE.md#rc-pre-release-on-github-actions)) |
 
 ## Architecture decisions (2026-06-05)
 

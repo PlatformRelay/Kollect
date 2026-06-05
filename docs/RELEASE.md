@@ -59,7 +59,7 @@ task changelog:verify
 
 Ensure **CI** and **preflight** are green on `${RELEASE_SHA}` on GitHub Actions.
 
-### v0.1.0 prep status (session 13)
+### v0.1.0 prep status (session 14)
 
 | Gate | Status | Notes |
 | --- | --- | --- |
@@ -69,11 +69,49 @@ Ensure **CI** and **preflight** are green on `${RELEASE_SHA}` on GitHub Actions.
 | E2E kind smoke | ✅ | Run `26996964559` @ `42183693` |
 | Export asserts (Ready, git SHA, multitenant) | ✅ | `68667ca6` |
 | GitLab MR REST client | ✅ | `8247f4e` — feature-branch push deferred |
-| Phase 4 metrics stub | ✅ | `kollect_custom_resource_series` per ADR-0033 |
+| Phase 4 engine wire | ✅ | `RecordCustomResourceSeries` on target snapshot |
+| GH Actions release rc | 🚧 | Manual `workflow_dispatch` — see below |
 
-**Remaining before tag:** manual GitHub Actions **Release** `workflow_dispatch` with a test tag
-(e.g. `v0.1.0-rc.1`) to verify cosign keyless, SBOM, GHCR push, and chart upload. Do **not** push
-`v0.1.0` until that passes and CI is green on the release SHA.
+**Remaining before tag:** run GitHub Actions **Release** `workflow_dispatch` with an rc tag
+(`v0.1.0-rc.1`) as **draft + prerelease** to verify cosign keyless, SBOM, GHCR push, and chart
+upload. Do **not** push `v0.1.0` until that passes and CI is green on the release SHA.
+
+### RC pre-release on GitHub Actions
+
+The release workflow accepts `draft` and `prerelease` inputs only on **`workflow_dispatch`**.
+Pushing a tag matching `v*.*.*` triggers a **non-draft** release automatically — use rc tags with
+dispatch inputs instead of pushing `v0.1.0` early.
+
+**Steps** (maintainer, on green `main`):
+
+```sh
+git checkout main && git pull
+RELEASE_SHA="$(git rev-parse HEAD)"
+git tag v0.1.0-rc.1 "${RELEASE_SHA}"
+git push origin v0.1.0-rc.1
+```
+
+Then trigger a draft pre-release rebuild (does not re-fire on tag push if concurrency group already ran):
+
+```sh
+gh workflow run release.yaml \
+  -f tag=v0.1.0-rc.1 \
+  -f draft=true \
+  -f prerelease=true
+```
+
+Monitor: `gh run list --workflow=release.yaml --limit 3`
+
+After the run succeeds, verify cosign/SBOM/GHCR/chart artifacts on the draft release, then delete the
+rc tag/release if not shipping it: `git push origin :refs/tags/v0.1.0-rc.1`.
+
+**Skip tag push** if you only want local validation — `task release-dry-run` covers assets without
+publishing to GHCR or GitHub Releases.
+
+**Note:** `workflow_dispatch` requires the tag to exist on the remote (`refs/tags/<tag>`). A
+dispatch without a pushed tag fails at checkout (e.g. run `26997416879`). Pushing an rc tag also
+fires the workflow on `push: tags` as a **non-draft** release — there is no fully non-publishing
+dry-run on GitHub Actions; use local `task release-dry-run` until you accept rc artifacts on GHCR.
 
 ## Version and changelog
 
