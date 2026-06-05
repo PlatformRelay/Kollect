@@ -28,3 +28,8 @@ tests:
           content:
             name: KOLLECT_TRANSPORT_TYPE
             value: redis
+  - it: does not pass deprecated export-debounce manager flag
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --export-debounce

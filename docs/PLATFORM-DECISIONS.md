@@ -124,7 +124,7 @@ Update the cited ADR when code merges.
 - [x] **Argo `Application` contract test** — `internal/collect/argo_application_contract_test.go`
 - [x] **Argo samples** — profile + target under `config/samples/`
 - [x] **`KollectConnectionTest` TTL** — API + reconciler GC (`ttlSecondsAfterFinished`, default 300s)
-- [x] **`exportMinInterval`** on `KollectInventory` — wired; deprecate global `--export-debounce` in chart/docs
+- [x] **`exportMinInterval`** on `KollectInventory` — wired; global `--export-debounce` removed from Helm chart
 
 ---
 

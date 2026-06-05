@@ -19,6 +19,10 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace
 | `watchNamespaces` | Restrict informer cache to these namespaces | `[]` (all) |
 | `transport.type` | Hub/spoke transport backend | `inprocess` |
 
+Export debouncing is configured per **`KollectInventory.spec.exportMinInterval`** (CRD default
+**30s**). The chart does not pass the deprecated manager `--export-debounce` flag; use the Inventory
+CR or `extraArgs` only for local debugging.
+
 See `values.yaml` for the full list. Critical values are validated by
 [`values.schema.json`](values.schema.json); CI runs `task helm-test` (`helm lint` + `helm-unittest`).
 

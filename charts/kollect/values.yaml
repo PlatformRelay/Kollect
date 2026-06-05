@@ -65,7 +65,8 @@ controller:
     target: 5
     inventory: 3
     hub: 2
-  exportDebounce: 30s
+  # Export debounce is per KollectInventory.spec.exportMinInterval (CRD default 30s).
+  # The manager --export-debounce flag remains as a dev-only fallback; not set by this chart.
   reconcileRateLimit: ""
 
 metrics:
