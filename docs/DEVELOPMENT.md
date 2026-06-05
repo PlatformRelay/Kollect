@@ -22,22 +22,38 @@ Optional: [git-cliff](https://git-cliff.org/) for changelog previews (`task chan
 ```sh
 git clone https://github.com/konih/kollect.git
 cd kollect
+```
 
+### One-shot dev bootstrap
+
+From a fresh clone, a single command downloads modules, builds the manager, creates the
+**kollect-dev** kind cluster, installs the operator via Helm, and applies sample CRs:
+
+```sh
+task dev-up
+# operator only (skip ingress/TLS/Grafana): KOLLECT_DEV_MINIMAL=1 task dev-up
+```
+
+Use `task --list-all` to see all targets.
+
+### Build only
+
+```sh
 # Download modules and build the manager binary
 task build
 # equivalent: make build  →  bin/manager
 ```
 
-The manager binary lands at `bin/manager`. Use `task --list-all` to see all targets.
+The manager binary lands at `bin/manager`.
 
 ## Local Kind (dev)
 
-For daily development, use the **kollect-dev** profile (`hack/kind/dev/`). One command creates
-the cluster, builds/loads the controller image, installs kollect via Helm
-(`charts/kollect/ci/dev-values.yaml`), and optionally adds ingress-nginx, mkcert TLS, and Grafana.
+For daily development, use the **kollect-dev** profile (`hack/kind/dev/`). **`task dev-up`**
+(above) runs the full flow; the targets below are useful when you need individual steps for
+debugging or iteration.
 
 ```sh
-task kind-dev-up          # full dev stack
+task kind-dev-up          # cluster + operator (+ addons unless KOLLECT_DEV_MINIMAL=1)
 KOLLECT_DEV_MINIMAL=1 task kind-dev-up   # operator only (skip addons)
 task kind-dev-load        # rebuild image after code changes
 task kind-dev-status      # cluster + pod status

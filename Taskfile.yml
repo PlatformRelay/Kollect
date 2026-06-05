@@ -166,6 +166,13 @@ tasks:
       - task: helm-lint
       - task: helm-unittest
 
+  dev-up:
+    desc: Bootstrap local dev — build, kind cluster, sample CRs
+    cmds:
+      - task: build
+      - task: kind-dev-up
+      - kubectl apply -k config/samples/
+
   kind-dev-up:
     desc: Create kollect-dev kind cluster (operator + optional dev addons)
     cmds:
