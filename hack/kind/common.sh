@@ -91,11 +91,19 @@ kind_create_cluster() {
   fi
 
   _kind_log "Creating kind cluster ${name} (k8s ${K8S_VERSION}, image ${KIND_NODE_IMAGE})..."
-  kind create cluster \
+  if ! kind create cluster \
     --name "$name" \
     --config "$config" \
     --image "$KIND_NODE_IMAGE" \
-    --wait "$KIND_CLUSTER_WAIT"
+    --wait "$KIND_CLUSTER_WAIT"; then
+    _kind_log "kind create failed; deleting orphaned cluster ${name} and retrying once..."
+    kind delete cluster --name "$name" 2>/dev/null || true
+    kind create cluster \
+      --name "$name" \
+      --config "$config" \
+      --image "$KIND_NODE_IMAGE" \
+      --wait "$KIND_CLUSTER_WAIT"
+  fi
   kind_use_context "$name"
 }
 
