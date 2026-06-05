@@ -35,4 +35,8 @@ func TestNewBackendAndType(t *testing.T) {
 	if b.Type() != typeName {
 		t.Fatalf("Type() = %q", b.Type())
 	}
+
+	if !b.Capabilities().ObjectStore {
+		t.Fatal("expected object store capabilities")
+	}
 }

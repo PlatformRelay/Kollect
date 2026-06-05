@@ -65,8 +65,10 @@ func TestValidateTargetGVKCaseInsensitive(t *testing.T) {
 	scope := &kollectdevv1alpha1.KollectScope{
 		ObjectMeta: metav1.ObjectMeta{Name: "team-a-scope"},
 		Spec: kollectdevv1alpha1.KollectScopeSpec{
-			AllowedGVKs: []kollectdevv1alpha1.GroupVersionKind{
-				{Group: "Apps", Version: "V1", Kind: "Deployment"},
+			ScopeCeilingSpec: kollectdevv1alpha1.ScopeCeilingSpec{
+				AllowedGVKs: []kollectdevv1alpha1.GroupVersionKind{
+					{Group: "Apps", Version: "V1", Kind: "Deployment"},
+				},
 			},
 		},
 	}

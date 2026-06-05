@@ -35,7 +35,7 @@ func waitForHTTP(t *testing.T, url string) {
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(url) //nolint:gosec,noctx // test probe against local ephemeral listener
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			return
 		}
@@ -83,7 +83,7 @@ func TestServerStartDefaultAddrWhenTaken(t *testing.T) {
 	if err != nil {
 		t.Skip("cannot bind default pprof address for conflict test")
 	}
-	defer holder.Close()
+	defer func() { _ = holder.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

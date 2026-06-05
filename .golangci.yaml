@@ -85,6 +85,7 @@ linters:
     paths:
       - third_party$
       - zz_generated\..*\.go$
+      - ui/
 
 formatters:
   enable:
@@ -99,6 +100,7 @@ formatters:
     paths:
       - third_party$
       - zz_generated\..*\.go$
+      - ui/
 
 issues:
   max-issues-per-linter: 0

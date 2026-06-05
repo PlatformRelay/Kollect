@@ -39,6 +39,40 @@ func TestPaginateItems(t *testing.T) {
 	}
 }
 
+func TestItemMatchesFilterNamespaceBranches(t *testing.T) {
+	t.Parallel()
+
+	item := collect.Item{TargetNamespace: "team-a", Namespace: "apps", Name: "web"}
+	if !itemMatchesFilter(item, ListFilter{Namespace: "team-a"}) {
+		t.Fatal("expected target namespace match")
+	}
+	if !itemMatchesFilter(item, ListFilter{Namespace: "apps"}) {
+		t.Fatal("expected resource namespace match")
+	}
+	if itemMatchesFilter(item, ListFilter{Namespace: "other"}) {
+		t.Fatal("expected namespace miss")
+	}
+}
+
+func TestPaginateItems_edgeCases(t *testing.T) {
+	t.Parallel()
+
+	if page, meta := paginateItems(nil, 10, 0); page != nil || meta != nil {
+		t.Fatalf("nil items = %#v %#v", page, meta)
+	}
+
+	items := []collect.Item{{Name: "a"}, {Name: "b"}}
+	page, meta := paginateItems(items, 0, 0)
+	if len(page) != 2 || meta.Total != 2 || meta.HasMore {
+		t.Fatalf("default limit page = %#v meta = %#v", page, meta)
+	}
+
+	page, meta = paginateItems(items, 1, 5)
+	if len(page) != 0 || meta.Offset != 2 {
+		t.Fatalf("offset past end = %#v meta = %#v", page, meta)
+	}
+}
+
 func TestParseListFilter(t *testing.T) {
 	t.Parallel()
 

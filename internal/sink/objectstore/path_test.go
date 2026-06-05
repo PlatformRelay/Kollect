@@ -116,4 +116,43 @@ func TestInventoryFromObjectPath(t *testing.T) {
 	if ns != "cluster" || name != "rollup" {
 		t.Fatalf("cluster rollup got (%q, %q)", ns, name)
 	}
+
+	ns, name = InventoryFromObjectPath("")
+	if ns != "" || name != "" {
+		t.Fatalf("empty path got (%q, %q)", ns, name)
+	}
+}
+
+func TestParquetObjectPathAndIsParquetFormat(t *testing.T) {
+	t.Parallel()
+
+	got := ParquetObjectPath(" prod-west ", "team-a", "deployments", 9)
+	want := "inventory/cluster=prod-west/ns=team-a/name=deployments/generation=9.parquet"
+	if got != want {
+		t.Fatalf("parquet path = %q, want %q", got, want)
+	}
+
+	if !IsParquetFormat(kollectdevv1alpha1.KollectSinkSpec{
+		ObjectStore: &kollectdevv1alpha1.ObjectStoreSpec{Format: FormatParquet},
+	}) {
+		t.Fatal("expected parquet format detection")
+	}
+	if IsParquetFormat(kollectdevv1alpha1.KollectSinkSpec{}) {
+		t.Fatal("expected non-parquet default")
+	}
+}
+
+func TestRenderPathTemplateDefaults(t *testing.T) {
+	t.Parallel()
+
+	got := RenderPathTemplate("", PathVars{Namespace: "team-a", Name: "inv"})
+	want := "inventory/team-a/inv.json"
+	if got != want {
+		t.Fatalf("default template = %q, want %q", got, want)
+	}
+
+	got = RenderPathTemplate("{name}{extension}", PathVars{Name: "snap", Extension: "json"})
+	if got != "snap.json" {
+		t.Fatalf("extension normalization = %q", got)
+	}
 }

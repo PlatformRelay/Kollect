@@ -74,7 +74,7 @@ func TestOpenAPIInventorySpecPresent(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(repoRoot(t), "openapi", "v1alpha1", "inventory.yaml")
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // test reads fixed repo-relative OpenAPI fixture
 	if err != nil {
 		t.Fatal(err)
 	}

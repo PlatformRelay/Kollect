@@ -12,6 +12,28 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
+func TestKollectConnectionTestValidator_ValidateCreate(t *testing.T) {
+	t.Parallel()
+
+	v := &kollectConnectionTestValidator{}
+
+	_, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectConnectionTest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ok"},
+		Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: "demo-git"},
+	})
+	if err != nil {
+		t.Fatalf("valid create: %v", err)
+	}
+
+	_, err = v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectConnectionTest{
+		ObjectMeta: metav1.ObjectMeta{Name: "bad"},
+		Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: "other/demo"},
+	})
+	if err == nil {
+		t.Fatal("expected validation error for cross-namespace sinkRef")
+	}
+}
+
 func TestKollectConnectionTestValidator_validate(t *testing.T) {
 	t.Parallel()
 

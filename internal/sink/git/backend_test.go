@@ -26,4 +26,7 @@ func TestBackendConfigAndType(t *testing.T) {
 	if b.Config().Endpoint != spec.Endpoint {
 		t.Fatalf("Config() = %#v", b.Config())
 	}
+	if b.Capabilities().Stream {
+		t.Fatal("git snapshot should not be stream emitter")
+	}
 }

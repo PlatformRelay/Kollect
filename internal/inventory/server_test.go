@@ -14,6 +14,11 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
 )
 
@@ -25,7 +30,7 @@ func freeTCPPort(t *testing.T) int32 {
 		t.Fatal(err)
 	}
 
-	port := int32(ln.Addr().(*net.TCPAddr).Port)
+	port := int32(ln.Addr().(*net.TCPAddr).Port) //nolint:gosec // ephemeral listener port fits int32
 	if err := ln.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +62,11 @@ func TestServerHandleInventoryFilters(t *testing.T) {
 	})
 
 	srv := &Server{Enabled: true, Store: store}
-	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/inventory?namespace=team-a&kind=Deployment&limit=1&offset=0", nil)
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/v1alpha1/inventory?namespace=team-a&kind=Deployment&limit=1&offset=0",
+		nil,
+	)
 	rec := httptest.NewRecorder()
 	srv.handleInventory(rec, req)
 
@@ -67,6 +76,56 @@ func TestServerHandleInventoryFilters(t *testing.T) {
 	}
 	if summary.ItemCount != 1 || summary.Pagination == nil || summary.Pagination.Total != 2 {
 		t.Fatalf("summary = %#v", summary)
+	}
+}
+
+func TestServerBuildSummaryWithExportStatus(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	now := metav1.Now()
+	inv := &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "platform", Namespace: "team-a"},
+		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: []string{"git"}},
+		Status: kollectdevv1alpha1.KollectInventoryStatus{
+			LastExportTime: &now,
+			Conditions: []metav1.Condition{{
+				Type:   kollectdevv1alpha1.ConditionSynced,
+				Status: metav1.ConditionTrue,
+			}},
+		},
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inv).Build()
+
+	store := collect.NewStore()
+	store.Upsert(collect.Item{
+		TargetNamespace: "team-a",
+		TargetName:      "deploys",
+		Namespace:       "apps",
+		Name:            "web",
+		UID:             "uid-1",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+
+	srv := &Server{
+		Store:  store,
+		Status: &ClientStatusReader{Client: cl},
+	}
+	summary := srv.buildSummary(context.Background(), ListFilter{
+		Namespace: "team-a",
+		Inventory: "platform",
+		Kind:      "Deployment",
+	})
+	if summary.ItemCount != 1 || len(summary.ExportStatus) != 1 {
+		t.Fatalf("summary = %#v", summary)
+	}
+	if summary.Checksum == "" || summary.SchemaVersion == "" {
+		t.Fatalf("checksum/schema missing: %#v", summary)
 	}
 }
 
@@ -237,15 +296,15 @@ func TestServerStartServesInventory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET inventory: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d", resp.StatusCode)
 	}
 
 	var summary Summary
-	if err := json.NewDecoder(resp.Body).Decode(&summary); err != nil {
-		t.Fatal(err)
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&summary); decodeErr != nil {
+		t.Fatal(decodeErr)
 	}
 	if summary.ItemCount != 1 {
 		t.Fatalf("itemCount = %d", summary.ItemCount)
@@ -256,7 +315,7 @@ func TestServerStartServesInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	depResp.Body.Close()
+	_ = depResp.Body.Close()
 	if depResp.StatusCode != http.StatusOK {
 		t.Fatalf("deprecated route status = %d", depResp.StatusCode)
 	}

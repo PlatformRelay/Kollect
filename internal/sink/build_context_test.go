@@ -109,3 +109,44 @@ func TestBuildContextFromSpec_kafkaSecretFallback(t *testing.T) {
 		t.Fatalf("SecretData = %+v", ctx.SecretData)
 	}
 }
+
+func TestBuildContextFromSpec_natsAndCASecret(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	natsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "nats-creds", Namespace: "team-a"},
+		Data:       map[string][]byte{"token": []byte("nats-token")},
+	}
+	caSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "team-a"},
+		Data:       map[string][]byte{"ca.crt": []byte("pem-bytes")},
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(natsSecret, caSecret).Build()
+
+	ctx, err := BuildContextFromSpec(context.Background(), cl, kollectdevv1alpha1.KollectSinkSpec{
+		Type: "nats",
+		Nats: &kollectdevv1alpha1.NatsSpec{
+			URL:       "nats://localhost:4222",
+			Subject:   "inventory.events",
+			SecretRef: &kollectdevv1alpha1.SecretReference{Name: "nats-creds"},
+		},
+		TLS: &kollectdevv1alpha1.TLSSpec{
+			CASecretRef: &kollectdevv1alpha1.SecretReference{Name: "ca"},
+		},
+	}, "team-a")
+	if err != nil {
+		t.Fatalf("BuildContextFromSpec: %v", err)
+	}
+
+	if string(ctx.SecretData["token"]) != "nats-token" {
+		t.Fatalf("SecretData = %+v", ctx.SecretData)
+	}
+	if string(ctx.CAPEM) != "pem-bytes" {
+		t.Fatalf("CAPEM = %q", ctx.CAPEM)
+	}
+}

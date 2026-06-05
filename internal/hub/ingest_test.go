@@ -201,7 +201,7 @@ func freeTCPPort(t *testing.T) int32 {
 		t.Fatal(err)
 	}
 
-	port := int32(ln.Addr().(*net.TCPAddr).Port)
+	port := int32(ln.Addr().(*net.TCPAddr).Port) //nolint:gosec // ephemeral listener port fits int32
 	if err := ln.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +268,7 @@ func TestIngestServerStartServesReports(t *testing.T) {
 
 		resp, err := http.DefaultClient.Do(req)
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusAccepted {
 				ready = true
 

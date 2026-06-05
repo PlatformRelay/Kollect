@@ -108,12 +108,15 @@ func TestAccessCheckerDeniedAndAPIError(t *testing.T) {
 	t.Parallel()
 
 	client := fake.NewSimpleClientset() //nolint:staticcheck
-	client.PrependReactor("create", "selfsubjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		review := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
-		review.Status = authorizationv1.SubjectAccessReviewStatus{Allowed: false}
+	client.PrependReactor(
+		"create", "selfsubjectaccessreviews",
+		func(action k8stesting.Action) (bool, runtime.Object, error) {
+			review := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+			review.Status = authorizationv1.SubjectAccessReviewStatus{Allowed: false}
 
-		return true, review, nil
-	})
+			return true, review, nil
+		},
+	)
 
 	checker := NewAccessChecker(client)
 	ok, err := checker.CanAccess(
@@ -131,9 +134,12 @@ func TestAccessCheckerAPIError(t *testing.T) {
 	t.Parallel()
 
 	client := fake.NewSimpleClientset() //nolint:staticcheck
-	client.PrependReactor("create", "selfsubjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		return true, nil, fmt.Errorf("apiserver unavailable")
-	})
+	client.PrependReactor(
+		"create", "selfsubjectaccessreviews",
+		func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("apiserver unavailable")
+		},
+	)
 
 	checker := NewAccessChecker(client)
 	_, err := checker.CanAccess(

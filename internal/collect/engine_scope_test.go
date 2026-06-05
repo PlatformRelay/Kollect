@@ -93,7 +93,7 @@ func TestEngineRegisterSuspendedTargetUnregisters(t *testing.T) {
 		},
 	}
 
-	if err := e.RegisterTarget(context.Background(), target, profile); err != nil {
+	if err := e.RegisterTarget(context.Background(), target, profile, RegisterTargetOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if store.TotalCount() != 0 {
