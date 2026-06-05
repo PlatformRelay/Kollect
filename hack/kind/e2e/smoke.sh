@@ -8,6 +8,7 @@ source "${SCRIPT_DIR}/../common.sh"
 
 readonly CLUSTER_NAME="${CLUSTER_NAME:-kollect-e2e}"
 readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-180s}"
+export CLUSTER_NAME WAIT_TIMEOUT REPO_ROOT
 
 _kind_require kubectl
 kind_use_context "$CLUSTER_NAME"
@@ -98,7 +99,6 @@ curl -sf http://127.0.0.1:18082/inventory | grep -q itemCount
 
 _log "Generic CRD collection (cert-manager Certificate)..."
 chmod +x "${REPO_ROOT}/hack/e2e/cert-manager.sh"
-REPO_ROOT="${REPO_ROOT}" CLUSTER_NAME="${CLUSTER_NAME}" \
-  bash "${REPO_ROOT}/hack/e2e/cert-manager.sh"
+bash "${REPO_ROOT}/hack/e2e/cert-manager.sh"
 
 _log "Smoke checks passed."
