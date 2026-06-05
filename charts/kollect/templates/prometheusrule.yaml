@@ -1,0 +1,110 @@
+{{- if and .Values.metrics.enabled (dig "prometheusRule" "enabled" false .Values.metrics) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "kollect.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+    {{- with dig "prometheusRule" "labels" dict .Values.metrics }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: kollect.rules
+      rules:
+        - alert: KollectMetricsTargetDown
+          expr: |
+            absent(up{namespace="{{ .Release.Namespace }}", service="{{ include "kollect.fullname" . }}-controller-manager"}) == 1
+            or max(up{namespace="{{ .Release.Namespace }}", service="{{ include "kollect.fullname" . }}-controller-manager"}) == 0
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Kollect controller metrics target is down
+            description: Prometheus is not scraping the Kollect metrics Service in {{ .Release.Namespace }}.
+        - alert: KollectOperatorNotReady
+          expr: |
+            max(
+              kube_pod_status_ready{
+                namespace="{{ .Release.Namespace }}",
+                pod=~"{{ include "kollect.fullname" . }}-controller-manager-.*",
+                condition="true"
+              }
+            ) == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Kollect controller pod is not ready
+            description: The controller-manager pod in {{ .Release.Namespace }} is not passing its readiness probe (/readyz).
+        - alert: KollectReconcileErrors
+          expr: |
+            sum(increase(kollect_reconcile_errors_total[15m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Kollect reconcile errors detected
+            description: One or more Kollect reconcilers returned errors in the last 15 minutes (check error_class labels).
+        - alert: KollectInventoryExportErrors
+          expr: |
+            sum(increase(kollect_reconcile_errors_total{kind="KollectInventory"}[15m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: KollectInventory reconcile export errors
+            description: KollectInventory reconciliation reported errors — inventory may not be synced to sinks.
+        - alert: KollectSinkExportErrors
+          expr: |
+            sum(increase(kollect_sink_errors_total[15m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Kollect sink export failures
+            description: Inventory export to one or more sinks failed (check reason label — transient, terminal, forbidden, payload_too_large).
+        - alert: KollectSinkConnectionTestFailures
+          expr: |
+            sum(increase(kollect_sink_connection_test_total{result="failure"}[15m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Kollect sink connection test failures
+            description: Git/TLS sink connection tests are failing — verify credentials and network reachability.
+        - alert: KollectExportLatencyHigh
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(kollect_export_duration_seconds_bucket[5m])) by (le)
+            ) > 10
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Kollect export latency is high
+            description: p95 sink export duration exceeds 10s — check sink backend performance and payload size.
+        - alert: KollectWorkqueueBacklog
+          expr: |
+            max(kollect_workqueue_depth) > 10
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Kollect reconcile workqueue backlog
+            description: In-flight reconciles are sustained above 10 — consider raising controller.maxConcurrentReconciles or reducing churn.
+        - alert: KollectHubSpokeReportFailures
+          expr: |
+            sum(increase(kollect_hub_spoke_reports_total{result="failure"}[15m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Kollect hub spoke report failures
+            description: Hub ingest or transport failed to merge spoke inventory reports.
+        {{- with dig "prometheusRule" "additionalRules" list .Values.metrics }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}

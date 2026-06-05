@@ -1,0 +1,14 @@
+# Enable Prometheus Operator scrape + starter alerts (kube-prometheus-stack).
+metrics:
+  enabled: true
+  secure: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    labels:
+      release: kube-prometheus-stack
+  prometheusRule:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack

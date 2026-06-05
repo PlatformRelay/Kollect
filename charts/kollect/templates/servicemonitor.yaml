@@ -1,0 +1,30 @@
+{{- if and .Values.metrics.enabled (dig "serviceMonitor" "enabled" false .Values.metrics) }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "kollect.fullname" . }}-controller-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+    {{- with dig "serviceMonitor" "labels" dict .Values.metrics }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kollect.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - path: /metrics
+      port: metrics
+      scheme: {{ if .Values.metrics.secure }}https{{ else }}http{{ end }}
+      interval: {{ dig "serviceMonitor" "interval" "30s" .Values.metrics }}
+      scrapeTimeout: {{ dig "serviceMonitor" "scrapeTimeout" "10s" .Values.metrics }}
+      {{- if .Values.metrics.secure }}
+      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tlsConfig:
+        insecureSkipVerify: true
+      {{- end }}
+{{- end }}
