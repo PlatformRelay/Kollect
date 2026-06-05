@@ -51,7 +51,8 @@ Short, actionable rules for Go code in this repo. Operator reconcile semantics a
 
 ### Security and supply chain
 
-- **MUST** run `govulncheck` — `task vulncheck` in CI on every PR.
+- **MUST** run `govulncheck` — `task vulncheck` in CI on every PR (remediation thresholds:
+  [SCA remediation policy](../security/sca-remediation-policy.md)).
 - **MUST** pass `gitleaks` and `task scrub` before commit (see [Security](#security) below).
 
 ### Container builds
@@ -118,6 +119,7 @@ coverage profile.
 | **CodeQL** | `.github/workflows/codeql.yaml` — Go analysis on `main` and PRs |
 | **Secret scan** | `gitleaks` in CI; `task scrub` + `gitleaks protect --staged` before commit |
 | **Vulnerability scan** | `task vulncheck` (`govulncheck`) in CI |
+| **SCA policy** | [SCA remediation policy](../security/sca-remediation-policy.md) — CVE/license thresholds |
 | **Threat model** | [SECURITY.md](../../SECURITY.md) |
 | **Security ADR** | [ADR-0104](../adr/0104-security-model.md) — TLS, RBAC, redaction, secrets |
 

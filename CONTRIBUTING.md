@@ -15,6 +15,7 @@ duplicate prose across them.
 | [Testing strategy](docs/development/testing.md) | Test pyramid (L0–L5), coverage floors, integration/e2e tiers |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Process — commits, PR workflow, changelog, doc PR checklist |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting and threat model |
+| [SCA remediation policy](docs/security/sca-remediation-policy.md) | Dependency CVE and license remediation thresholds (OSPS-VM-05.01) |
 | [Architecture decision records](docs/adr/) | Locked design decisions — update or add ADRs for non-trivial changes |
 | [tooling-setup.md](docs/development/tooling-setup.md) | Maintainer setup for arch-lint, depguard, SonarCloud |
 

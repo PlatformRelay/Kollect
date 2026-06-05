@@ -150,6 +150,8 @@ nav:
               - "0704 — Helm chart and CRD lifecycle": adr/0704-helm-chart-crd-lifecycle.md
               - "0705 — Release engineering and supply chain": adr/0705-release-supply-chain.md
               - "0706 — Testing and merge-gate architecture": adr/0706-testing-merge-gate-architecture.md
+  - Security:
+      - SCA remediation policy: security/sca-remediation-policy.md
   - Contributing:
       - Roadmap: ROADMAP.md
       - Coding standards: development/coding-standards.md

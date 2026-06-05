@@ -50,6 +50,13 @@ Release builds ([`.github/workflows/release.yaml`](.github/workflows/release.yam
 Prefer tagged release artifacts over `:latest` in production. Report supply-chain concerns
 through the private contact above.
 
+## Dependency and license policy (SCA)
+
+Remediation thresholds for dependency **vulnerabilities** and **licenses** are defined in
+[SCA remediation policy](docs/security/sca-remediation-policy.md) (OpenSSF OSPS-VM-05.01).
+Summary: govulncheck blocks merge on reachable CVEs; release Trivy gates fixable CRITICAL/HIGH;
+denied licenses (GPL/AGPL/proprietary/unknown) require replacement or a documented exception.
+
 ## Static analysis and vulnerability scanning
 
 ### golangci-lint (SAST)
@@ -100,7 +107,8 @@ task vulncheck
 ```
 
 If a finding is a false positive or only affects an unused code path in a dependency, document the
-exception in this file (module, advisory ID, rationale, review date) before suppressing CI.
+exception in this file (module, advisory ID, rationale, review date) before suppressing CI — see
+[SCA remediation policy § Exceptions](docs/security/sca-remediation-policy.md#exceptions-and-accepted-risk).
 
 Release images are additionally scanned with **Trivy** (CRITICAL/HIGH, fixable only) in
 [`.github/workflows/release.yaml`](.github/workflows/release.yaml).
