@@ -33,7 +33,7 @@ func RunConnectionTest(
 		}
 
 		return "TLS and git remote reachability verified", nil
-	case "gitlab":
+	case gitlab.TypeName:
 		cfg, err := gitlab.ConfigFromSpec(spec, buildCtx.CAPEM)
 		if err != nil {
 			return "", err
@@ -44,13 +44,13 @@ func RunConnectionTest(
 		}
 
 		return "TLS and GitLab remote reachability verified", nil
-	case "postgres":
+	case postgres.TypeName:
 		if err := postgres.TestConnection(ctx, spec, buildCtx.DatabaseSecretData); err != nil {
 			return "", err
 		}
 
 		return "PostgreSQL ping succeeded", nil
-	case "kafka":
+	case kafkasink.TypeName:
 		if err := kafkasink.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
 			return "", err
 		}

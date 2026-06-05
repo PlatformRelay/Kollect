@@ -44,7 +44,9 @@ func TestExportFileRemote(t *testing.T) {
 	}
 
 	cloneDir := filepath.Join(dir, "clone")
-	cloneCmd := exec.Command("git", "clone", endpoint, cloneDir) //nolint:gosec // G204: test fixture
+	cloneCmd := exec.Command( //nolint:gosec // G204: test fixture
+		"git", "clone", "--branch", "main", "--single-branch", endpoint, cloneDir,
+	)
 	if out, err := cloneCmd.CombinedOutput(); err != nil {
 		t.Fatalf("git clone: %s: %v", out, err)
 	}

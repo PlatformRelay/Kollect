@@ -39,7 +39,7 @@ func TestExportBareRepoIntegration(t *testing.T) {
 	}
 
 	clone := filepath.Join(dir, "clone")
-	if out, err := exec.Command("git", "clone", cfg.Endpoint, clone).CombinedOutput(); err != nil {
+	if out, err := exec.Command("git", "clone", "--branch", "main", "--single-branch", cfg.Endpoint, clone).CombinedOutput(); err != nil { //nolint:gosec // G204: test fixture
 		t.Fatalf("clone: %s: %v", out, err)
 	}
 
