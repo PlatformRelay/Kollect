@@ -8,22 +8,53 @@ rules:
   - ""
   resources:
   - configmaps
+  - namespaces
   - secrets
   verbs:
   - get
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - apps
   resources:
   - deployments
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - selfsubjectaccessreviews
+  - subjectaccessreviews
+  verbs:
+  - create
 - apiGroups:
   - kollect.dev
   resources:
+  - kollecthubs
   - kollectinventories
   - kollectsinks
   - kollecttargets
@@ -38,6 +69,7 @@ rules:
 - apiGroups:
   - kollect.dev
   resources:
+  - kollecthubs/finalizers
   - kollectinventories/finalizers
   - kollecttargets/finalizers
   verbs:
@@ -45,6 +77,7 @@ rules:
 - apiGroups:
   - kollect.dev
   resources:
+  - kollecthubs/status
   - kollectinventories/status
   - kollectsinks/status
   - kollecttargets/status
