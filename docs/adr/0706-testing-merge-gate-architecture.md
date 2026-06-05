@@ -47,6 +47,7 @@ Binding jobs in `.github/workflows/ci.yaml`:
 | Helm packaging | `task helm-test` (lint + unittest) | Yes |
 | Docker image build | `task docker:build` | Yes |
 | Perf snapshot | `task perf-report` | **No** (`continue-on-error: true`) |
+| Native Go fuzz | `go test -fuzz=FuzzContentHash -fuzztime=30s ./internal/aggregate/...` | Yes |
 
 **Pre-commit / local:** `task verify`, `task lint`, `task scrub` ([ADR-0104](0104-security-model.md)
 scrub list) before commit; `CONTRIBUTING.md` documents the contributor loop.
@@ -61,8 +62,9 @@ checks.
 | `e2e-nightly.yaml` | cron + `workflow_dispatch` | Kind setup/smoke, git-export assert, integration asserts |
 | `test-e2e.yaml` | manual / path filters | Extended e2e when needed |
 | `release.yaml` | tag | Supply chain gates ([ADR-0705](0705-release-supply-chain.md)) |
+| `codeql.yaml` | push/PR `main`, weekly | CodeQL SAST for Go; SARIF → Code Scanning |
 
-E2E does **not** block every PR (cost/latency); **NFR-TEST-3** is satisfied by nightly + release
+E2e does **not** block every PR (cost/latency); **NFR-TEST-3** is satisfied by nightly + release
 validation, not per-commit kind.
 
 ### Scale and load bounds
@@ -79,6 +81,8 @@ validation, not per-commit kind.
   ([ADR-0705](0705-release-supply-chain.md)).
 - **Coverage target:** raise `COVERAGE_MIN` toward **70%** on `./internal/...` once backlog stabilizes
   (coordinator roadmap).
+- **OSS-Fuzz:** upstream integration for high-value parsers (CEL/JSONPath) — native `testing.F` fuzz
+  covers `internal/aggregate` today; expand targets post-`v0.1.0-rc`.
 
 ### Definition of done (per change)
 

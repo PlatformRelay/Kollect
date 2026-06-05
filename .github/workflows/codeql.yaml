@@ -1,0 +1,41 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "18 6 * * 1"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (Go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/go-cache
+
+      - uses: github/codeql-action/init@2a2dd30f8030072d379eb0c9ea51789aa2ea9ca4 # v3.29.5
+        with:
+          languages: go
+
+      - name: Build for CodeQL
+        run: go build -mod=readonly ./...
+
+      - uses: github/codeql-action/analyze@2a2dd30f8030072d379eb0c9ea51789aa2ea9ca4 # v3.29.5
+        with:
+          category: "/language:go"

@@ -212,6 +212,18 @@ jobs:
           echo "Runs \`task perf-report\` (bench excerpt + unit pass). Does not block merge." >> "${GITHUB_STEP_SUMMARY}"
           echo "Regenerate locally before scale work — see [PERFORMANCE.md](https://github.com/konih/kollect/blob/main/docs/PERFORMANCE.md)." >> "${GITHUB_STEP_SUMMARY}"
 
+  fuzz:
+    name: fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/go-cache
+      - name: Native Go fuzz (30s)
+        run: go test -fuzz=FuzzContentHash -fuzztime=30s ./internal/aggregate/...
+
   docker-build:
     name: docker-build
     runs-on: ubuntu-latest

@@ -67,8 +67,8 @@ are **documented and deferred** — not enabled — so one maintainer can ship w
 | Dangerous-Workflow | 0 critical | **Done** | No `pull_request_target`; workflow inputs passed via env vars; actions SHA-pinned |
 | Token-Permissions | 0 high | **Done** | All workflows declare least-privilege `permissions:`; job-level elevation only where needed |
 | Pinned-Dependencies | 8 medium | **Done** | Third-party Actions pinned to commit SHA (incl. `codecov-action`); curl/pip fetches documented |
-| SAST | 0 medium | **Partial** | `golangci-lint` + `govulncheck` in CI (`lint`, `vulncheck` jobs); CodeQL deferred (see below) |
-| Vulnerabilities | 8 | **Partial** | `govulncheck` on every PR; Trivy gates release images; dependency bumps via Dependabot |
+| SAST | 0 medium | **Done** | `golangci-lint` + `govulncheck` in CI; **CodeQL** for Go (`.github/workflows/codeql.yaml`) |
+| Vulnerabilities | 8 | **Done** | `govulncheck` on every PR; Trivy gates release images; Dependabot alerts + security updates enabled |
 | Security-Policy | 10 | **Done** | `SECURITY.md` |
 | Dependency-Update-Tool | 10 | **Done** | Dependabot |
 | Binary-Artifacts | 10 | **Done** | No committed binaries |
@@ -76,13 +76,16 @@ are **documented and deferred** — not enabled — so one maintainer can ship w
 | Code-Review | 0 high | **Deferred** | Branch protection + required reviewers blocks solo push-to-main workflow |
 | Branch-Protection | 0 high | **Deferred** | Optional for single maintainer; CI merge gates substitute for GitHub branch rules |
 | Maintained | 0 high | **Deferred** | Activity-based; improves with regular releases and issue triage post-`v0.1.0` |
-| Fuzzing | 0 medium | **Deferred** | Post-`v0.1.0-rc`; no `go-fuzz` / OSS-Fuzz integration yet |
+| Fuzzing | 0 medium | **Partial** | Native Go fuzz (`FuzzContentHash`, `internal/aggregate`) in CI (`fuzz` job, 30s); OSS-Fuzz deferred |
 | CII-Best-Practices | 0 low | **Deferred** | Core Infrastructure Initiative badge application not pursued pre-GA |
 | Contributors | 0 low | **N/A** | Solo OSS; diversity metric not applicable |
 
-**Deferred SAST (CodeQL):** GitHub CodeQL for Go is not enabled — `golangci-lint` (security linters in
-`.golangci.yaml`) and `govulncheck` provide the primary static/vuln signal without adding a second
-analysis pipeline to maintain. Revisit if Scorecard SAST remains low after other fixes land.
+**CodeQL (SAST):** GitHub CodeQL for Go runs on every push/PR to `main`, weekly on Mondays, and uploads
+results to GitHub Code Scanning (`.github/workflows/codeql.yaml`). Complements `golangci-lint` security
+linters and `govulncheck` — not a replacement.
+
+**Native Go fuzz:** CI job **fuzz** runs `go test -fuzz=FuzzContentHash -fuzztime=30s` on
+`internal/aggregate` (export coalesce checksum path). Full OSS-Fuzz integration remains deferred.
 
 ## Decided follow-ups (2026-06-05, planned post-`v0.1.0-rc`)
 

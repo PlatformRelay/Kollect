@@ -118,6 +118,29 @@ func TestDedupeModeFromSpec(t *testing.T) {
 	}
 }
 
+func FuzzContentHash(f *testing.F) {
+	f.Add([]byte(`{"items":1}`))
+	f.Add([]byte(""))
+	f.Add([]byte{0x00, 0xff, 0xfe})
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		hash := ContentHash(data)
+		if len(hash) != 64 {
+			t.Fatalf("ContentHash length = %d, want 64 (sha256 hex)", len(hash))
+		}
+
+		for _, c := range hash {
+			if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+				t.Fatalf("ContentHash %q contains non-hex character %q", hash, c)
+			}
+		}
+
+		if got := ContentHash(data); got != hash {
+			t.Fatalf("ContentHash not stable: %q vs %q", got, hash)
+		}
+	})
+}
+
 func TestIdentityFromItem(t *testing.T) {
 	t.Parallel()
 
