@@ -50,4 +50,7 @@ for f in api/*/zz_generated.deepcopy.go; do
   fi
 done
 
+echo "verify: schema contract tests..."
+go test ./test/schema/ -count=1
+
 echo "verify: ok"
