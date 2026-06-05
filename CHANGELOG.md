@@ -27,6 +27,10 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **sink:** Validate git export paths for CodeQL [b67ee61](https://github.com/konih/kollect/commit/b67ee6107897fe04dcdb6f6c3fea8e1108aa9270)
+
+- **ci:** Sync CHANGELOG and UI Docker npm ci [e004476](https://github.com/konih/kollect/commit/e0044763813189d308d68f2a08388dd61e458e0f)
+
 - **e2e:** Bootstrap samples for matrix git-export [084c702](https://github.com/konih/kollect/commit/084c702c6d83d063c40dc111a4f3531f2bdd852f)
 
 ## [0.1.0-rc.2](https://github.com/konih/kollect/compare/v0.1.0-rc.1..v0.1.0-rc.2) - 2026-06-05
