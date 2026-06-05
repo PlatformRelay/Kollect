@@ -98,6 +98,32 @@ task kind-e2e-down
 Helm values: `charts/kollect/ci/e2e-tenant-values.yaml`. Kubernetes version is pinned from
 `go.mod` in `hack/kind/common.sh` (same pin as dev and envtest).
 
+## Multi-cluster hub auth (ADR-0028)
+
+Hub spoke ingest validates **`TokenReview`** then **`SubjectAccessReview`** (non-resource `POST`
+`/hub/v1alpha1/reports`, or `create`/`patch` on `kollectremoteclusters`). Spokes send
+`Authorization: Bearer` plus `X-Kollect-Cluster-Id`. See
+[ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md).
+
+### Generate Istio-style remote credential secrets
+
+Stub CLI for GitOps registration on the hub (optional pull path):
+
+```sh
+go run ./cmd/kollect create-remote-secret --cluster spoke-a --namespace platform
+# or:
+hack/create-remote-secret.sh --cluster spoke-a --api-server https://spoke-a.example:6443
+```
+
+Omitted `--token` / `--ca-file` emit placeholders; pipe to `kubectl apply -f -` after editing or
+substituting real spoke credentials. Pair with `KollectRemoteCluster.spec.credentialsSecretRef`.
+
+Build the helper binary:
+
+```sh
+go build -o bin/kollect ./cmd/kollect
+```
+
 ## Code generation workflow
 
 kollect commits generated artifacts. After changing API types or `+kubebuilder` markers:
