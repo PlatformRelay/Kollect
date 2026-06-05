@@ -132,8 +132,8 @@ Implementation: `internal/validation/profile.go` (`ValidateProfile`); wired from
 | `config/samples/kollect_v1alpha1_kollectprofile_helm-release-summary.yaml` | Summary-tier Profile (Flux `HelmRelease` — secondary) |
 | `config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yaml` | Example Target scoping Flux HelmReleases |
 
-Walkthrough: [docs/examples/helm-release-inventory.md](../examples/helm-release-inventory.md) (Flux secondary;
-Argo `Application` is the primary demo GVK per [ADR-0703](0703-platform-architecture-pivot.md)).
+Walkthrough: [docs/examples/helm-release-inventory.md](../examples/helm-release-inventory.md) (Argo
+`Application` primary; Flux `HelmRelease` secondary section).
 
 ### Implementation phases
 

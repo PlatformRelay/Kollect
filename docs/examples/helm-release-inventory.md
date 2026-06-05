@@ -1,111 +1,110 @@
-# Example: Helm release inventory
+# Example: Helm / Argo release inventory
 
-> **Primary demo GVK (ADR-0703):** `argoproj.io/v1alpha1` **`Application`** (Argo CD). Samples:
-> `config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml`,
-> `config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml`. Contract test:
-> `internal/collect/argo_application_contract_test.go`. This page documents the **secondary** Flux
-> `HelmRelease` walkthrough. See [ADR-0303](../adr/0303-helm-release-inventory.md).
-
-# Example: Helm release inventory (Flux — secondary)
-
-This walkthrough inventories **chart version**, **app version**, and deployment metadata from Flux
-`HelmRelease` objects. It follows the same four-CRD pipeline as
+This walkthrough inventories **chart version**, **app version**, and sync metadata from Argo CD
+`Application` objects. It follows the same four-CRD pipeline as
 [Deployment inventory](deployment-inventory.md).
 
-Design rationale and redaction policy: [ADR-0303](../adr/0303-helm-release-inventory.md).
+**Primary demo GVK (ADR-0703):** `argoproj.io/v1alpha1` / `Application`. Contract test:
+`internal/collect/argo_application_contract_test.go`. Design rationale:
+[ADR-0303](../adr/0303-helm-release-inventory.md).
 
 ## Overview
 
 ```mermaid
 flowchart LR
-  Profile[KollectProfile<br/>helm-release-summary]
-  Target[KollectTarget<br/>select HelmReleases]
+  Profile[KollectProfile<br/>argo-application-summary]
+  Target[KollectTarget<br/>select Applications]
   Inv[KollectInventory<br/>aggregate + export]
-  Sink[KollectSink<br/>Git / Postgres / HTTP]
-  Flux[(Flux HelmRelease)]
-
+  Sink[KollectSink<br/>Postgres / Git]
+  Argo[(Argo CD Application)]
   Profile --> Target
-  Target --> Flux
+  Target --> Argo
   Target --> Inv
   Inv --> Sink
 ```
 
 ## Step 1 — KollectProfile
 
-Targets **`helm.toolkit.fluxcd.io/v2` / `HelmRelease`**. Exports only the **summary tier**—no
-`spec.values`. Use `valuesChecksum` (`status.lastAttemptedConfigDigest`) to detect config drift
-without publishing secrets.
+Targets **`argoproj.io/v1alpha1` / `Application`**. Summary tier only—no `spec.source.helm.values`.
 
-Sample manifest: `config/samples/kollect_v1alpha1_kollectprofile_helm-release-summary.yaml`
-
-Example target: `config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yaml`
+Sample: `config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml`
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
 kind: KollectProfile
 metadata:
-  name: helm-release-summary
+  name: argo-application-summary
   namespace: default
 spec:
   targetGVK:
-    group: helm.toolkit.fluxcd.io
-    version: v2
-    kind: HelmRelease
+    group: argoproj.io
+    version: v1alpha1
+    kind: Application
   attributes:
+    - name: chart
+      path: '$.spec.source.chart'
+      type: string
+      optional: true
     - name: chartVersion
-      path: '$.status.lastAttemptedRevision'
+      path: '$.status.sync.revision'
       type: string
       optional: true
-    - name: appVersion
-      path: '$.status.history[0].appVersion'
-      type: string
-      optional: true
-    - name: valuesChecksum
-      path: '$.status.lastAttemptedConfigDigest'
-      type: string
-      optional: true
-    - name: imageTag
-      path: '$.spec.values.image.tag'
+    - name: syncStatus
+      path: '$.status.sync.status'
       type: string
       optional: true
 ```
 
-**Note:** In generic-chart GitOps, `appVersion` in chart metadata may be stale. The optional
-`imageTag` attribute surfaces the running application version from values when present.
+## Step 2 — KollectSink
 
-## Step 2 — KollectTarget
+Namespaced ([ADR-0703](../adr/0703-platform-architecture-pivot.md)). Default inventory uses Postgres:
+`config/samples/kollect_v1alpha1_kollectsink_postgres.yaml`. See [Postgres state store](postgres-state-store.md).
 
-Scope HelmReleases to the namespaces your team owns. Example label selector (adjust to your labels):
+## Step 3 — KollectTarget
+
+`config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml`
 
 ```yaml
-apiVersion: kollect.dev/v1alpha1
-kind: KollectTarget
-metadata:
-  name: team-helm-releases
-  namespace: my-team
 spec:
-  profileRef: helm-release-summary
+  profileRef: argo-application-summary
   namespaceSelector:
     matchLabels:
-      team: my-team
+      argocd.argoproj.io/instance: team-a
 ```
 
-## Step 3 — Values profile (platform teams only)
+`profileRef` resolves in the **same namespace** as the target.
 
-Deployed **values** are **not** in the public sample. When operator scrub and `KollectScope`
-governance land, a separate profile `helm-release-values-redacted` may add `spec.values` with
-key-based redaction (passwords, tokens, `secretKeyRef`, etc.) and export to a **private** sink.
+## Step 4 — KollectInventory
 
-Until scrub exists, do not add `spec.values` to profiles that export to public Git.
+`config/samples/kollect_v1alpha1_kollectinventory.yaml` — `sinkRefs: [postgres-inventory-demo]`.
 
-## Plain Helm (no Flux)
+## Apply
 
-Clusters using `helm install` store releases in **`helm.sh/v1` Secrets** (`owner=helm`). That GVK
-is a **secondary** target documented in ADR-0303. It requires a future `helm:` decode path in the
-extractor—JSONPath on the Secret object cannot read `appVersion` from the opaque `data.release` blob.
+```sh
+kubectl apply -k config/samples/
+```
+
+## Flux HelmRelease (secondary)
+
+| File | Purpose |
+| --- | --- |
+| `kollect_v1alpha1_kollectprofile_helm-release-summary.yaml` | Flux summary profile |
+| `kollect_v1alpha1_kollecttarget_helm-releases.yaml` | Flux target |
+
+| Attribute | Path |
+| --- | --- |
+| `chartVersion` | `$.status.lastAttemptedRevision` |
+| `appVersion` | `$.status.history[0].appVersion` |
+| `valuesChecksum` | `$.status.lastAttemptedConfigDigest` |
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| --- | --- |
+| Profile not found | `profileRef` must be in same namespace as target |
+| Empty chartVersion | Application not synced (`optional: true`) |
+| No export | Postgres DSN missing or `ConnectionVerified=False` |
 
 ## Related
 
-- [ADR-0303: Helm release inventory](../adr/0303-helm-release-inventory.md)
-- [Deployment inventory example](deployment-inventory.md)
-- [Flux HelmRelease API](https://fluxcd.io/flux/components/helm/api/v2/)
+- [ADR-0303](../adr/0303-helm-release-inventory.md) · [Deployment inventory](deployment-inventory.md)
