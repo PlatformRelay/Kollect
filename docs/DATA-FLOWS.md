@@ -4,6 +4,13 @@ Visual walkthroughs of how data moves through the operator. For CRD roles see
 [ARCHITECTURE.md](ARCHITECTURE.md); for locked decisions see
 [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md).
 
+!!! note "Sink roles on export paths"
+    Export fans out to whatever `sinkRefs` name — each sink has a **role** (snapshot store, relational
+    SoR, or event emitter), not a fixed Postgres+Kafka pair
+    ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)). Diagrams below may show Postgres and
+    Kafka as examples; hub and inventory export use the same role-based contract for all seven shipped
+    types.
+
 ---
 
 ## 1. Export debouncing
@@ -218,7 +225,7 @@ flowchart LR
     Queue --> Recv
     Recv --> Merge
     Merge --> HubStore
-  Export[Parallel sink export<br/>Postgres + Kafka]
+  Export[Parallel sink export<br/>per sinkRefs roles]
   HubStore --> Export
   end
 
@@ -267,14 +274,16 @@ flowchart TD
   Apply --> Remove[Remove removedUIDs]
   Upsert --> HubExport[Parallel sink export]
   Remove --> HubExport
-  HubExport --> PG[Postgres upsert]
-  HubExport --> KF[Kafka publish]
+  HubExport --> SoR[Relational SoR<br/>e.g. Postgres]
+  HubExport --> Emit[Event emitter<br/>e.g. NATS / Kafka]
+  HubExport --> Snap[Snapshot store<br/>e.g. Git / S3]
 ```
 
 **Post-merge export:** hub consumer resolves namespaced `KollectSink` objects from
 `KOLLECT_HUB_EXPORT_NAMESPACE` + `KOLLECT_HUB_SINK_REFS`, marshals the merged target inventory
-(`cluster` + `inventoryRef.name`), and fans out to **Postgres and Kafka in parallel** using the
-same payload contract as namespaced `KollectInventory` export.
+(`cluster` + `inventoryRef.name`), and fans out to **each configured sink in parallel** — typically
+a relational SoR (Postgres) plus optional snapshot or event sinks — using the same payload contract
+as namespaced `KollectInventory` export ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 
 **Idempotency:** duplicate reports with the same `(cluster, namespace, name, uid)` overwrite the
 stored row; `removedUIDs` tombstones delete stale rows. At-least-once delivery is safe.
@@ -342,7 +351,7 @@ flowchart TD
   Marshal --> Debounce
   Debounce -->|material change or interval| Export
   Debounce -->|unchanged| Wait[RequeueAfter]
-  Export --> PG
+  Export --> Sinks[(Configured sinks)]
   Export --> Status[status.lastExportTime + conditions]
 ```
 
