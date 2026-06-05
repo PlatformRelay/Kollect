@@ -44,7 +44,7 @@ func exportFileRemote(
 	if clean, err := gitStatusClean(ctx, tmp); err != nil {
 		return err
 	} else if clean {
-		return nil
+		return fmt.Errorf("git add produced no changes for %q", objectPath)
 	}
 
 	if err := runGit(ctx, tmp, "-c", "user.name=kollect", "-c", "user.email=kollect@kollect.dev",
@@ -64,6 +64,15 @@ func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string) error {
 		return nil
 	} else if !isCLIEmptyRemote(string(out), err) {
 		return fmt.Errorf("git clone: %s: %w", strings.TrimSpace(string(out)), err)
+	}
+
+	// Failed clone may leave a partial tree; re-init from scratch.
+	if rmErr := os.RemoveAll(dir); rmErr != nil {
+		return fmt.Errorf("reset workdir: %w", rmErr)
+	}
+
+	if mkErr := os.MkdirAll(dir, 0o750); mkErr != nil { //nolint:gosec // G301: temp dir
+		return fmt.Errorf("mkdir workdir: %w", mkErr)
 	}
 
 	if err := runGit(ctx, dir, "init"); err != nil {
