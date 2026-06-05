@@ -5,6 +5,9 @@ metadata:
   namespace: ${TENANT_NS}
 spec:
   profileRef: deployment-images
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: ${TENANT_NS}
   labelSelector:
     matchLabels:
       kollect.dev/tenant: ${TENANT_NS}
