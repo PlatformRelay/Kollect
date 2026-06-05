@@ -12,8 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
-	"github.com/konih/kollect/internal/scope"
 	"github.com/konih/kollect/internal/operator"
+	"github.com/konih/kollect/internal/scope"
 	"github.com/konih/kollect/internal/validation"
 )
 

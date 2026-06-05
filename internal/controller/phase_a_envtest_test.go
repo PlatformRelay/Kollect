@@ -30,10 +30,10 @@ func gitProbeReachable() bool {
 		return false
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	probeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", envtestGitProbeEndpoint) //nolint:gosec // G204: probe fixture
+	cmd := exec.CommandContext(probeCtx, "git", "ls-remote", "--heads", envtestGitProbeEndpoint) //nolint:gosec // G204: probe fixture
 	return cmd.Run() == nil
 }
 
@@ -164,7 +164,7 @@ var _ = Describe("Phase A envtest — map sink and degraded conflict", func() {
 			"simulated degraded path",
 		)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(result.Requeue).To(BeTrue(), "Conflict on status update must requeue without error")
+		Expect(result).NotTo(Equal(reconcile.Result{}), "Conflict on status update must schedule requeue without error")
 
 		unchanged := &kollectdevv1alpha1.KollectInventory{}
 		Expect(k8sClient.Get(ctx, key, unchanged)).To(Succeed())

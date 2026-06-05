@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
-		"strings"
+	"strings"
 
 	"github.com/konih/kollect/internal/pathvalidate"
 	"github.com/konih/kollect/internal/validation"
