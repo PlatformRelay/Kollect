@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      COVERAGE_MIN: "60"
+      COVERAGE_MIN: "80"
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -108,7 +108,7 @@ jobs:
           if-no-files-found: error
       - name: Upload coverage to Codecov
         if: success()
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        uses: codecov/codecov-action@0561704f0f02c16a585d4c7555e57fa2e44cf909 # v5.5.2
         with:
           files: coverage.out
           fail_ci_if_error: false
@@ -161,8 +161,9 @@ jobs:
         with:
           version: 3.51.1
       - name: Install Helm
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        env:
+          HELM_VERSION: v3.17.3
+        run: bash hack/install-helm.sh
       - name: Install helm-unittest plugin
         run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.5.1
       - name: Helm lint and unittest

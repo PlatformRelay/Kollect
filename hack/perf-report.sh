@@ -15,6 +15,13 @@ SNAPSHOT="${ROOT}/agent-context/PERF-SNAPSHOT.md"
 
 mkdir -p "$BENCH_DIR" "$(dirname "$SNAPSHOT")"
 
+make setup-envtest >&2
+export KUBEBUILDER_ASSETS="$(make -s echo-kubebuilder-assets)"
+if [[ -z "${KUBEBUILDER_ASSETS}" ]]; then
+  echo "failed to resolve KUBEBUILDER_ASSETS from setup-envtest" >&2
+  exit 1
+fi
+
 TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 

@@ -28,10 +28,12 @@ jobs:
           version: 3.51.1
 
       - name: Install kind and helm
+        env:
+          HELM_VERSION: v3.17.3
         run: |
           curl -fsSL -o kind "https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64"
           chmod +x kind && sudo mv kind /usr/local/bin/kind
-          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          bash hack/install-helm.sh
 
       - name: Create kind cluster and install operator
         env:

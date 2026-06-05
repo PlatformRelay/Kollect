@@ -27,6 +27,10 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **docs:** Restore material icon rendering [6504754](https://github.com/konih/kollect/commit/6504754ececf2bc92f2bb28bd41d3fb2a202b78f)
+
+- **ci:** Resolve goconst lint and codecov action pin [67519f4](https://github.com/konih/kollect/commit/67519f4af51183885d7f51d4e3713aa50d725241)
+
 - **ci:** Seed Certificate before team-certificates target [4218369](https://github.com/konih/kollect/commit/421836930c296c09a49127bb6d4e91749052ebbe)
 
 - **ci:** Poll tenant inventory itemCount in multitenant e2e [41e6bf0](https://github.com/konih/kollect/commit/41e6bf0ff3c227b0f235e161fce7a3454ccd638f)
@@ -94,6 +98,12 @@ anchor on an older commit.
 
 ### Features
 
+- **sink:** Add NATS JetStream event sink backend [9ea0fcf](https://github.com/konih/kollect/commit/9ea0fcfb911b39a396f8bb296acb2f97c6774723)
+
+- **export:** Add schemaVersion to export envelopes [52ff2ac](https://github.com/konih/kollect/commit/52ff2acda30f5f5adede43ef10f8ae16feb72926)
+
+- **sink:** Add Capabilities and postgres delete reconciliation [4f26f1c](https://github.com/konih/kollect/commit/4f26f1cc96f702a388f30755e0d03d1ed973803a)
+
 - **controller:** Wire cluster inventory aggregate dedupe [e5ac7b5](https://github.com/konih/kollect/commit/e5ac7b5361e2369cae51f06519a14c047273531f)
 
 - **aggregate:** Add cross-target dedupe spike stub [2327b8b](https://github.com/konih/kollect/commit/2327b8bb4e36f0a5a9334e383ce1c9a43333bb7e)
@@ -112,7 +122,7 @@ anchor on an older commit.
 
 - **sink:** Add GitLab API v4 merge request client [8247f4e](https://github.com/konih/kollect/commit/8247f4ec6fa451b7837acce56a0f534193a13352)
 
-- **collect:** Complete ADR-0602 metrics catalog [4d14925](https://github.com/konih/kollect/commit/4d14925b5aebc8665c59c72181e9950cc07ad011)
+- **collect:** Complete ADR-0020 metrics catalog [4d14925](https://github.com/konih/kollect/commit/4d14925b5aebc8665c59c72181e9950cc07ad011)
 
 - **sink:** Add gitlab mergeRequest CRD and transport ACL wire [bd6499f](https://github.com/konih/kollect/commit/bd6499fe1756dc5c7cc24367d49fa46f96f079ca)
 
@@ -206,7 +216,7 @@ anchor on an older commit.
 
 - **transport:** Pluggable factory with Redis Streams [36a8193](https://github.com/konih/kollect/commit/36a819337cba8e799cb6d928563fae1035f35cf1)
 
-- **metrics:** Complete ADR-0602 operator metric set [ec56d86](https://github.com/konih/kollect/commit/ec56d862a5b91942b93805705b2c5cc762865433)
+- **metrics:** Complete ADR-0020 operator metric set [ec56d86](https://github.com/konih/kollect/commit/ec56d862a5b91942b93805705b2c5cc762865433)
 
 - **collect:** SAR degradation and namespaceSelector [e127736](https://github.com/konih/kollect/commit/e1277363aba2a389448ba941af7508ede3550fdc)
 
