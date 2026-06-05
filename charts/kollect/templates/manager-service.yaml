@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kollect.fullname" . }}-controller-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "kollect.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: health
+      port: 8081
+      targetPort: health
+    {{- if .Values.metrics.enabled }}
+    - name: metrics
+      port: 8443
+      targetPort: metrics
+    {{- end }}
+    {{- if .Values.featureGates.inventoryHttp.enabled }}
+    - name: inventory-http
+      port: {{ .Values.featureGates.inventoryHttp.port }}
+      targetPort: inventory-http
+    {{- end }}

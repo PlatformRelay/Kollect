@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -56,6 +57,7 @@ func main() {
 	var enableHTTP2 bool
 	var inventoryHTTPEnabled bool
 	var inventoryHTTPPort int
+	var inventoryAuthMode string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -78,6 +80,8 @@ func main() {
 		"Expose GET /inventory with aggregated summary JSON.")
 	flag.IntVar(&inventoryHTTPPort, "inventory-http-port", 8082,
 		"Port for the inventory HTTP server when --inventory-http-enabled is set.")
+	flag.StringVar(&inventoryAuthMode, "inventory-auth-mode", inventory.AuthModeKubernetes,
+		"Inventory HTTP auth mode: kubernetes (TokenReview+SAR) or disabled (dev/CI only).")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -183,8 +187,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
 	collectStore := collect.NewStore()
-	collectEngine, err := collect.NewEngine(dynamicClient, collectStore)
+	collectEngine, err := collect.NewEngine(dynamicClient, kubeClient, collectStore)
 	if err != nil {
 		setupLog.Error(err, "Failed to create collection engine")
 		os.Exit(1)
@@ -221,16 +231,33 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectsink")
 		os.Exit(1)
 	}
+	if err := (&controller.KollectHubReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "kollecthub")
+		os.Exit(1)
+	}
 	if err := webhookv1alpha1.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to set up webhooks")
 		os.Exit(1)
 	}
 	metrics.Register()
 	if inventoryHTTPEnabled {
+		if inventoryAuthMode == inventory.AuthModeDisabled {
+			setupLog.Info("WARNING: inventory HTTP auth disabled — for local dev and CI only")
+		}
+
 		//nolint:gosec // G115: port comes from operator flag (default 8082)
 		invSrv := &inventory.Server{
 			Enabled: true,
 			Port:    int32(inventoryHTTPPort),
+			Store:   collectStore,
+			Auth: inventory.AuthConfig{
+				Mode:                inventoryAuthMode,
+				Client:              kubeClient,
+				RequireInventoryGet: inventoryAuthMode == inventory.AuthModeKubernetes,
+			},
 		}
 		if err := mgr.Add(invSrv); err != nil {
 			setupLog.Error(err, "Failed to add inventory HTTP server")

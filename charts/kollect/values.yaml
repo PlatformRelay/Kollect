@@ -29,8 +29,9 @@ featureGates:
   inventoryHttp:
     enabled: false
     port: 8082
+    authMode: kubernetes
 
-# TODO: optional oauth2-proxy sidecar in front of inventory HTTP when auth is required.
+# Optional oauth2-proxy sidecar for browser/OIDC access (ADR-0024). Not rendered yet.
 oauth2Proxy:
   enabled: false
 
