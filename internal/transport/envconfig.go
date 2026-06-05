@@ -19,6 +19,7 @@ func ConfigFromEnv() Config {
 		Type:   Type(transportType),
 		Stream: envOr("KOLLECT_HUB_STREAM", defaultStream),
 		Group:  envOr("KOLLECT_HUB_GROUP", defaultHubGroup),
+		ACL:    ACLSettingsFromEnv(),
 	}
 
 	tls := TLSSettingsFromEnv()

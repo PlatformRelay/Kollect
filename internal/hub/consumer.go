@@ -19,6 +19,7 @@ const defaultSubject = "inventory/reports"
 type ConsumerOptions struct {
 	AllowedClusters   []string
 	AllowlistEnforced bool
+	TransportACL      transport.ACLSettings
 	Exporter          *Exporter
 }
 
@@ -31,6 +32,7 @@ type Consumer struct {
 	StatusClient      client.Client
 	AllowedClusters   []string
 	AllowlistEnforced bool
+	TransportACL      transport.ACLSettings
 	Exporter          *Exporter
 }
 
@@ -54,6 +56,7 @@ func NewConsumer(
 		StatusClient:      statusClient,
 		AllowedClusters:   opts.AllowedClusters,
 		AllowlistEnforced: opts.AllowlistEnforced,
+		TransportACL:      opts.TransportACL,
 		Exporter:          opts.Exporter,
 	}
 }
@@ -65,6 +68,12 @@ func (c *Consumer) Start(ctx context.Context) error {
 	}
 
 	handler := func(handleCtx context.Context, wireCluster string, payload []byte) error {
+		if err := c.TransportACL.ValidateClusterID(wireCluster); err != nil {
+			metrics.HubSpokeReportsTotal.WithLabelValues(c.hubLabel(), metrics.ResultFailure).Inc()
+
+			return err
+		}
+
 		report, _, err := ReceiveReport(
 			wireCluster,
 			payload,

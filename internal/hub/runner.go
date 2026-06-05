@@ -108,6 +108,7 @@ func NewRunner(
 	consumer := NewConsumer(sub, merger, cfg.Subject, cfg.HubName, statusClient, ConsumerOptions{
 		AllowedClusters:   cfg.RemoteClusters,
 		AllowlistEnforced: cfg.AllowlistEnforced,
+		TransportACL:      cfg.Transport.ACL,
 		Exporter:          exporter,
 	})
 

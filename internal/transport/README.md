@@ -15,5 +15,11 @@ Configure via `transport.Config` or `ConfigFromEnv()` (`KOLLECT_TRANSPORT_TYPE`,
 Optional TLS for Redis/NATS: `KOLLECT_TRANSPORT_TLS_CA_FILE`, `KOLLECT_TRANSPORT_TLS_CLIENT_CERT_FILE`,
 `KOLLECT_TRANSPORT_TLS_CLIENT_KEY_FILE`, `KOLLECT_TRANSPORT_TLS_INSECURE_SKIP_VERIFY` (ADR-0028).
 
+Optional wire ACL hints (hub consumer validates `cluster_id` when set):
+
+- `KOLLECT_TRANSPORT_ACL_ALLOWED_CLUSTERS` — comma-separated spoke cluster IDs
+- `KOLLECT_TRANSPORT_ACL_PUBLISH_SUBJECTS` — documented publish subjects for Helm
+- `KOLLECT_TRANSPORT_ACL_SUBSCRIBE_SUBJECTS` — documented subscribe subjects for Helm
+
 Use cases: spoke → hub inventory reports (ADR-0022), debounced export triggers, and optional
 decoupling of collection from export workers.

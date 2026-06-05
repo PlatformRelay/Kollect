@@ -26,6 +26,7 @@ type Config struct {
 	Redis  RedisConfig
 	Kafka  KafkaConfig
 	NATS   NATSConfig
+	ACL    ACLSettings
 	Stream string
 	Group  string
 }
