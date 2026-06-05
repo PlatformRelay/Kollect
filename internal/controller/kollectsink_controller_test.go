@@ -71,7 +71,7 @@ func TestRunConnectionTest_unsupportedType(t *testing.T) {
 	t.Parallel()
 
 	r := &KollectSinkReconciler{}
-	_, err := r.runConnectionTest(t.Context(), kollectdevv1alpha1.KollectSinkSpec{Type: "s3"}, sink.BuildContext{})
+	_, err := r.runConnectionTest(t.Context(), kollectdevv1alpha1.KollectSinkSpec{Type: "unknown"}, sink.BuildContext{})
 	if err == nil {
 		t.Fatal("expected error for unsupported sink type")
 	}

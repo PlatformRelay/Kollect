@@ -105,5 +105,14 @@ func (s scopeCheck) sinkReachable(
 		return false, "SinkUnreachable", msg
 	}
 
-	return true, "", ""
+	if verified != nil && verified.Status == metav1.ConditionTrue {
+		msg := fmt.Sprintf("KollectSink %q connection verified", sinkName)
+		if verified.Message != "" {
+			msg = verified.Message
+		}
+
+		return true, "ConnectionVerified", msg
+	}
+
+	return true, "SinkResolved", fmt.Sprintf("KollectSink %q found", sinkName)
 }

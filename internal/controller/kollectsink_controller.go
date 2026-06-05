@@ -22,6 +22,7 @@ import (
 	"github.com/konih/kollect/internal/sink/git"
 	kafkasink "github.com/konih/kollect/internal/sink/kafka"
 	"github.com/konih/kollect/internal/sink/postgres"
+	s3sink "github.com/konih/kollect/internal/sink/s3"
 )
 
 // KollectSinkReconciler runs connection tests and updates sink status.
@@ -103,6 +104,12 @@ func (r *KollectSinkReconciler) runConnectionTest(
 		}
 
 		return "Kafka broker metadata request succeeded", nil
+	case "s3":
+		if err := s3sink.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
+			return "", err
+		}
+
+		return "S3 bucket HeadBucket succeeded", nil
 	default:
 		return "", fmt.Errorf("connection test not supported for sink type %q", spec.Type)
 	}
@@ -137,7 +144,35 @@ func (r *KollectSinkReconciler) setConnectionVerified(
 		return ctrl.Result{}, err
 	}
 
+	if err := r.clearTestConnectionAnnotation(ctx, sinkObj); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func shouldClearTestConnectionAnnotation(sink *kollectdevv1alpha1.KollectSink) bool {
+	if sink.Spec.ConnectionTest {
+		return false
+	}
+
+	_, ok := sink.Annotations[kollectdevv1alpha1.AnnotationTestConnection]
+
+	return ok
+}
+
+func (r *KollectSinkReconciler) clearTestConnectionAnnotation(
+	ctx context.Context,
+	sinkObj *kollectdevv1alpha1.KollectSink,
+) error {
+	if !shouldClearTestConnectionAnnotation(sinkObj) {
+		return nil
+	}
+
+	base := sinkObj.DeepCopy()
+	delete(sinkObj.Annotations, kollectdevv1alpha1.AnnotationTestConnection)
+
+	return r.Patch(ctx, sinkObj, client.MergeFrom(base))
 }
 
 func (r *KollectSinkReconciler) setConnectionFailed(
