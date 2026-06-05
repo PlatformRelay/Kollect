@@ -40,9 +40,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              KollectClusterProfileSpec defines the desired state of KollectClusterProfile.
-              Same shape as KollectProfileSpec — cluster-scoped platform extraction schema (ADR-0031).
+            description: spec defines the desired state of KollectClusterProfile
             properties:
               attributes:
                 description: attributes lists the values to extract from each matching
@@ -97,8 +95,7 @@ spec:
             - targetGVK
             type: object
           status:
-            description: KollectClusterProfileStatus defines the observed state of
-              KollectClusterProfile.
+            description: status defines the observed state of KollectClusterProfile
             properties:
               conditions:
                 description: conditions represent the current state of the KollectClusterProfile
@@ -163,9 +160,7 @@ spec:
                 x-kubernetes-list-type: map
             type: object
         required:
-        - metadata
         - spec
-        - status
         type: object
     served: true
     storage: true

@@ -40,9 +40,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              KollectClusterInventorySpec defines platform-wide rollup across KollectClusterTarget objects
-              (ADR-0032). No collection controller is registered in Phase 1 — API + webhook + samples only.
+            description: spec defines the desired state of KollectClusterInventory
             properties:
               exportMinInterval:
                 default: 30s
@@ -174,8 +172,7 @@ spec:
                 x-kubernetes-map-type: atomic
             type: object
           status:
-            description: KollectClusterInventoryStatus is reserved for a future cluster-scoped
-              rollup controller.
+            description: status defines the observed state of KollectClusterInventory
             properties:
               conditions:
                 description: conditions represent the current state of the KollectClusterInventory
@@ -258,9 +255,7 @@ spec:
                 type: integer
             type: object
         required:
-        - metadata
         - spec
-        - status
         type: object
     served: true
     storage: true

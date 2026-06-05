@@ -40,9 +40,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              KollectClusterTargetSpec defines platform-wide collection across namespaces (ADR-0032).
-              No collection controller is registered in Phase 1 — API + webhook + samples only.
+            description: spec defines the desired state of KollectClusterTarget
             properties:
               namespaceSelector:
                 description: namespaceSelector restricts collection to namespaces
@@ -103,8 +101,7 @@ spec:
             - profileRef
             type: object
           status:
-            description: KollectClusterTargetStatus is reserved for a future cluster-scoped
-              collection controller.
+            description: status defines the observed state of KollectClusterTarget
             properties:
               conditions:
                 description: conditions represent the current state of the KollectClusterTarget
@@ -174,9 +171,7 @@ spec:
                 type: integer
             type: object
         required:
-        - metadata
         - spec
-        - status
         type: object
     served: true
     storage: true
