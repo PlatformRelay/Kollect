@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "kollect.dev/v1alpha1",
+  "checksum": "PLACEHOLDER",
+  "generation": 3,
+  "itemCount": 1,
+  "exportedAt": "2026-01-15T12:00:00Z",
+  "cluster": "prod-west",
+  "items": [
+    {
+      "targetNamespace": "team-a",
+      "targetName": "deployments",
+      "namespace": "team-a",
+      "name": "api",
+      "group": "apps",
+      "version": "v1",
+      "kind": "Deployment",
+      "uid": "uid-abc",
+      "attributes": {
+        "replicas": 2
+      }
+    }
+  ]
+}

@@ -46,7 +46,10 @@ func (e *Exporter) ExportAfterMerge(ctx context.Context, report SpokeReport) err
 		targetName = defaultInventoryName
 	}
 
-	payload, err := e.Store.MarshalTargetJSON(targetNS, targetName)
+	payload, err := e.Store.MarshalTargetExport(targetNS, targetName, collect.ExportMetadata{
+		Generation: report.Generation,
+		Cluster:    report.Cluster,
+	})
 	if err != nil {
 		return fmt.Errorf("hub export: marshal target payload: %w", err)
 	}
