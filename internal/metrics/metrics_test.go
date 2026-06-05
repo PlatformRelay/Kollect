@@ -69,4 +69,13 @@ func TestRegister(t *testing.T) {
 	if v := testutil.ToFloat64(ExportBytesTotal.WithLabelValues("git")); v != 1024 {
 		t.Fatalf("export bytes counter: got %v", v)
 	}
+
+	HubSpokeReportsTotal.WithLabelValues("platform", ResultSuccess).Inc()
+	if v := testutil.ToFloat64(HubSpokeReportsTotal.WithLabelValues("platform", ResultSuccess)); v < 1 {
+		t.Fatalf("hub spoke reports counter: got %v", v)
+	}
+
+	if len(Catalog) < 10 {
+		t.Fatalf("metrics catalog too short: got %d entries", len(Catalog))
+	}
 }
