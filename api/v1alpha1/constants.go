@@ -11,6 +11,7 @@ const (
 	ConditionCredentialsVerified = "CredentialsVerified"
 	ConditionSinkReachable       = "SinkReachable"
 	ConditionSynced              = "Synced"
+	ConditionExportSucceeded     = "ExportSucceeded"
 	ConditionReady               = "Ready"
 	ConditionDegraded            = "Degraded"
 
