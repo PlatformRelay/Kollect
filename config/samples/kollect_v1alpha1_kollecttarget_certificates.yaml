@@ -1,0 +1,14 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: team-certificates
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  profileRef: certificate-summary
+  namespaceSelector:
+    matchLabels:
+      kollect.dev/collect-certificates: enabled
+  suspend: false
