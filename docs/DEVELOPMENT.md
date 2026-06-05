@@ -17,6 +17,18 @@ Kubernetes cluster (typically [kind](https://kind.sigs.k8s.io/)).
 
 Optional: [git-cliff](https://git-cliff.org/) for changelog previews (`task changelog`).
 
+### Releases (maintainers)
+
+```sh
+task changelog              # preview unreleased notes
+task release-dry-run        # build dist/ install YAML + chart (no push)
+task changelog:write        # regenerate CHANGELOG.md
+```
+
+Tagged `v*.*.*` pushes run [`.github/workflows/release.yaml`](../.github/workflows/release.yaml):
+GHCR image (`ghcr.io/konih/kollect`), cosign, SPDX SBOM, Helm OCI chart, GitHub Release assets.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) and [SECURITY.md](../SECURITY.md).
+
 ## Clone and build
 
 ```sh

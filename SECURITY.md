@@ -37,3 +37,15 @@ Risks to consider when deploying:
 
 See [GUIDELINES.md](GUIDELINES.md) for hardening baselines (distroless image, non-root, secret
 handling, supply-chain checks in CI).
+
+## Supply chain (releases)
+
+Release builds ([`.github/workflows/release.yaml`](.github/workflows/release.yaml)) produce:
+
+- **OCI image** — `ghcr.io/konih/kollect` with SBOM and SLSA provenance attestations
+- **cosign** keyless signatures (verify with release notes instructions)
+- **SPDX SBOM** — `sbom.spdx.json` attached to GitHub Releases
+- **Checksums** — `sha256sum` manifest for install YAML and chart tarball
+
+Prefer tagged release artifacts over `:latest` in production. Report supply-chain concerns
+through the private contact above.

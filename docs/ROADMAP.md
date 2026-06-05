@@ -59,6 +59,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Helm chart (`charts/kollect/`) | ✅ |
 | Helm docs / unittest / `values.schema.json` in CI | ⬜ |
 | Core documentation + MkDocs (GitHub Pages) | ✅ |
+| CR reference guide (`docs/crds/`, failure modes) | ✅ |
+| Data flows (`DATA-FLOWS.md`) | ✅ |
 | Architecture Decision Records (core set) | 🚧 |
 | ADR-0026 performance & scalability | ✅ |
 | `GUIDELINES.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
@@ -70,7 +72,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Namespaced `KollectProfile` API | ✅ ([ADR-0031](adr/0031-namespaced-profiles.md)) |
 | Golden OpenAPI contract tests (`test/schema/`) | ⬜ |
 | Kind smoke / operator deploy | ✅ |
-| Release pipeline (SBOM, signing) | ⬜ |
+| Release pipeline (SBOM, signing) | 🚧 |
 | Public demo Git inventory repo | ✅ |
 
 **Counts:** ✅ 15 · 🚧 2 · ⬜ 6
@@ -89,7 +91,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Event-driven path: informer changes → inventory export | 🚧 |
 | Sink registry (factory by `type`) | ✅ |
 | Git sink with custom CA TLS | ✅ |
-| GitLab sink | ⬜ |
+| GitLab sink (`tls.caSecretRef` for internal CA) | ⬜ Phase 2 |
 | S3 sink | 🚧 |
 | Postgres sink (`type: postgres`) | ✅ |
 | Kafka export sink (`type: kafka`) | ✅ |
@@ -100,7 +102,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Workqueue depth + reconcile latency metrics | ✅ |
 | pprof server (feature-gated `:6060`) | ✅ |
 | `task bench` / `task load-test` (bounded scale tests) | ✅ |
-| Secondary watches (Profile/Sink changes) | ⬜ |
+| Secondary watches (Profile → Targets, Sink → Inventories) | ⬜ Beta blocker |
 | Finalizers | ⬜ |
 | Read-only HTTP `GET /v1alpha1/inventory` (+ OpenAPI; SSE watch) | 🚧 |
 | Inventory HTTP auth: TokenReview + SAR (K8s bearer) | ✅ |
@@ -112,7 +114,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Sample profile: Helm release summary (Flux `HelmRelease` secondary) | ✅ |
 | Helm values profile + operator scrub | ⬜ |
 | `helm:` decode for `helm.sh/v1` Secret releases | ⬜ |
-| Sample: generic CRD | ⬜ |
+| Sample: generic CRD (`cert-manager.io/Certificate` + contract test) | ⬜ |
 | Sample contract tests in CI | 🚧 |
 | Integration tests (testcontainers) in CI | 🚧 |
 | End-to-end: install → collect → export → HTTP | 🚧 |
@@ -162,7 +164,7 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 | `KollectScope` reconciler-time enforcement (Phase 1) | 🚧 |
 | `KollectScope` admission webhook | 🚧 |
 | `KollectClusterScope` (platform teams) | 🔮 |
-| `KollectClusterInventory` (platform rollup) | ⬜ |
+| `KollectClusterInventory` (platform rollup) | 🚧 API + webhook |
 | `KollectClusterSink` / namespaced sink split | 🔮 |
 | GCS sink | ✅ |
 | S3 sink CI hardening | 🚧 |

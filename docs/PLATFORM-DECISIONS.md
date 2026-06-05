@@ -13,7 +13,8 @@
 - **Namespaced default:** Profile, **Sink**, Target, Inventory, Scope in team namespace.
 - **Cluster variants:** `KollectClusterTarget` (platform cross-namespace collection), `KollectClusterProfile`, `KollectClusterSink`, `KollectClusterInventory`, `KollectClusterScope`.
 - **Default install:** per-team Helm — `tenantMode: true`, `watchNamespaces: [team-ns]`.
-- **MVP:** collect → aggregate → export to **Postgres or Kafka** (Git sample OK for tests, not primary narrative).
+- **MVP:** collect → aggregate → export to **Postgres or Kafka** for portals/scale; **Git** is the
+  recommended sink for **small single-cluster** installs without a database or Kafka broker.
 - **HTTP inventory:** optional debug (`featureGates.inventoryHttp.enabled: false`); **not** MVP; hub read path uses merged store later.
 - **No `KollectHub` CRD** — `mode: hub|spoke` + Helm values + `internal/hub/` library.
 - **`KollectConnectionTest` CR** — implement (supersedes ADR-0030 rejection).
@@ -31,7 +32,24 @@
 5. Export **debouncing** — `KollectInventory.spec.exportMinInterval` (default **30s**; not global)
 6. Argo **`Application`** sample + **contract test** (contract test **first**; then samples)
 7. Hub `mode: hub|spoke` + merge lib (`inprocess`); no hub CRD
-8. **`KollectClusterTarget`** — after namespaced MVP (platform operator path)
+8. **`KollectClusterTarget`** — API + webhook only until namespaced MVP proven; controller later
+9. **Secondary watches** — Profile → Targets, Sink → Inventories (beta requirement)
+10. **Generic CRD sample** — `cert-manager.io/Certificate` + contract test
+11. **GitLab sink** — Phase 2 (custom CA via `tls.caSecretRef`; first enterprise presentation path)
+12. **Hub ingest** — SAR **`create`** on `kollectremoteclusters`
+
+### Locked micro-decisions (2026-06-05, session 4)
+
+| Topic | Decision |
+| --- | --- |
+| Secondary watches | **Ship** — `KollectProfile` change enqueues referring Targets; `KollectSink` change enqueues Inventories with `sinkRefs` |
+| Generic CRD sample | **`cert-manager.io/Certificate`** — contract test first, then profile + target + walkthrough |
+| `KollectClusterTarget` controller | **Defer** — API + webhook + sample only until namespaced e2e solid |
+| `profileRef` (cluster target) | Resolves **`KollectProfile` in platform namespace** (Helm `platformNamespace`); `KollectClusterProfile` later |
+| `namespaceSelector` | **Required** — webhook rejects empty/missing selector |
+| Helm values profile | **Defer** until operator export-time **`scrubKeys[]`** exists |
+| GitLab sink | **Phase 2** — implement with **`tls.caSecretRef`** for internal CA; Git remains small-install default |
+| Hub ingest SAR | **`create`** on **`kollectremoteclusters`** in hub namespace |
 
 ### Locked micro-decisions (2026-06-05, session 3)
 
@@ -68,7 +86,9 @@ Update the cited ADR when code merges.
 | Inventory HTTP path | **`GET /v1alpha1/inventory`**; optional **`GET /v1alpha1/inventory/{namespace}/{name}`** | When HTTP enabled (debug; default off) |
 | OpenAPI | **`openapi/v1alpha1/inventory.yaml`** beside handler | 1 |
 | Inventory read SAR | **`get`** on `kollectinventories` in caller namespace; **`list`** for index | 1 |
-| Hub ingest SAR | **`create`/`update`** on `kollectremoteclusters` or subresource **`kollectremoteclusters/ingest`** | 2 — pick one in RBAC doc |
+| Hub ingest SAR | **`create`** on **`kollectremoteclusters`** in hub namespace | 2 |
+| GitLab sink | **`type: gitlab`** backend + custom CA TLS; Phase 2 after Git path proven | 2 |
+| Secondary watches | Profile → Targets; Sink → Inventories | 1 (beta) |
 | TokenReview/SAR cache | **30s TTL** in-memory per `(token hash, verb, resource)`; flag + `disabled` for dev | 1 |
 | `maxExportBytes` | Global manager default (~**1.5 MiB**) + optional **`KollectInventory.spec.maxExportBytes`**; webhook rejects override > global cap | 1 |
 
@@ -194,8 +214,9 @@ Do not generate controllers or document samples for reserved kinds unless an ADR
 
 | Role | Backend | When |
 | --- | --- | --- |
-| **Primary (portals, automation)** | Postgres, Kafka | Single-cluster and hub |
-| **Audit / human diff** | Git, GitLab | Compliance, MR review — not live query at scale |
+| **Primary (portals, automation)** | Postgres, Kafka | Scale, hub merge, live query |
+| **Small single-cluster (no DB/Kafka)** | **Git** | Recommended default — durable audit trail without extra infra |
+| **Enterprise Git host** | **GitLab** (Phase 2) | Internal CA via `tls.caSecretRef`; MR/API workflow |
 | **Debug / tiny install** | HTTP inventory (gated off) | kind, local dev |
 | **Hub portal read** | Postgres/Kafka at hub | After merge — not spoke HTTP |
 

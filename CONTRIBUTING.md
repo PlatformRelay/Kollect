@@ -29,6 +29,18 @@ Types follow [Conventional Commits](https://www.conventionalcommits.org/): `feat
 Release notes are generated with [git-cliff](https://git-cliff.org/) (`cliff.toml`); gitmoji
 tokens are stripped from changelog headings automatically.
 
+Preview locally:
+
+```sh
+task changelog              # unreleased section
+task changelog:write        # regenerate CHANGELOG.md
+task release-dry-run        # build dist/ assets without pushing
+```
+
+Tagged releases (`v*.*.*`) trigger [`.github/workflows/release.yaml`](.github/workflows/release.yaml):
+multi-arch image to `ghcr.io/konih/kollect`, cosign signing, SPDX SBOM, Helm chart (OCI), and
+GitHub Release assets (`install.yaml`, `install-crds.yaml`, chart tarball, checksums).
+
 ## Pull request process
 
 1. Fork or branch from `main`.

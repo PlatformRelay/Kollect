@@ -175,6 +175,18 @@ Shard assignment uses **`hash(clusterName) % shardCount`** configured via **Helm
 environment** on hub Deployments (`mode: hub`). **No `KollectHub` CRD** — dynamic shard
 registration is a Phase 2+ spike. See [ADR-0022](0022-multi-cluster-sync-rfc.md).
 
+### 15. Build-order locks (session 4)
+
+- **Secondary watches:** `KollectProfile` → enqueue Targets with `profileRef`; `KollectSink` →
+  enqueue Inventories listing sink in `sinkRefs`.
+- **Generic CRD demo:** `cert-manager.io/Certificate` + contract test.
+- **`KollectClusterTarget`:** controller **deferred**; `profileRef` → `KollectProfile` in platform
+  namespace (`platformNamespace` Helm value); **`namespaceSelector` required** (webhook).
+- **`helm-release-values-redacted`:** deferred until operator **`scrubKeys[]`** export scrub.
+- **GitLab sink:** **Phase 2** — `tls.caSecretRef` for enterprise internal CA; Git default for small
+  single-cluster installs without Postgres/Kafka.
+- **Hub ingest SAR:** **`create`** on `kollectremoteclusters` — [ADR-0028](0028-hub-cluster-auth-istio-pattern.md).
+
 ## Open questions
 
 - **Deferred:** Hub federated mTLS behind external LB — [ADR-0028](0028-hub-cluster-auth-istio-pattern.md).
