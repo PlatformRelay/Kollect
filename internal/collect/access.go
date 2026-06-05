@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,17 +18,25 @@ import (
 )
 
 // AccessChecker caches SelfSubjectAccessReview results for the operator service account.
+var accessSARCacheTTL = 30 * time.Second
+
+type accessCacheEntry struct {
+	allowed   bool
+	expiresAt time.Time
+}
+
+// AccessChecker caches SelfSubjectAccessReview results for the operator service account.
 type AccessChecker struct {
 	client kubernetes.Interface
 	mu     sync.RWMutex
-	cache  map[string]bool
+	cache  map[string]accessCacheEntry
 }
 
 // NewAccessChecker returns a checker backed by the Kubernetes authorization API.
 func NewAccessChecker(client kubernetes.Interface) *AccessChecker {
 	return &AccessChecker{
 		client: client,
-		cache:  make(map[string]bool),
+		cache:  make(map[string]accessCacheEntry),
 	}
 }
 
@@ -48,10 +57,10 @@ func (a *AccessChecker) CanAccess(
 	key := accessCacheKey(gvr, namespace, verb)
 
 	a.mu.RLock()
-	if allowed, ok := a.cache[key]; ok {
+	if entry, ok := a.cache[key]; ok && time.Now().Before(entry.expiresAt) {
 		a.mu.RUnlock()
 
-		return allowed, nil
+		return entry.allowed, nil
 	}
 	a.mu.RUnlock()
 
@@ -77,7 +86,7 @@ func (a *AccessChecker) CanAccess(
 	allowed := result.Status.Allowed
 
 	a.mu.Lock()
-	a.cache[key] = allowed
+	a.cache[key] = accessCacheEntry{allowed: allowed, expiresAt: time.Now().Add(accessSARCacheTTL)}
 	a.mu.Unlock()
 
 	return allowed, nil
@@ -88,5 +97,5 @@ func (a *AccessChecker) Invalidate() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	a.cache = make(map[string]bool)
+	a.cache = make(map[string]accessCacheEntry)
 }

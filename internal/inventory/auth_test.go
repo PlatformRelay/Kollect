@@ -119,3 +119,82 @@ func TestAuthenticateRejectsInvalidToken(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestAuthMiddlewareUsesListVerbOnIndex(t *testing.T) {
+	t.Parallel()
+
+	var gotVerb, gotNS string
+	client := fake.NewSimpleClientset() //nolint:staticcheck
+	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		review := action.(k8stesting.CreateAction).GetObject().(*authenticationv1.TokenReview)
+		review.Status = authenticationv1.TokenReviewStatus{Authenticated: true, User: authenticationv1.UserInfo{Username: "u"}}
+
+		return true, review, nil
+	})
+	client.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		review := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		if review.Spec.ResourceAttributes != nil {
+			gotVerb = review.Spec.ResourceAttributes.Verb
+			gotNS = review.Spec.ResourceAttributes.Namespace
+		}
+		review.Status = authorizationv1.SubjectAccessReviewStatus{Allowed: true}
+
+		return true, review, nil
+	})
+
+	cfg := &AuthConfig{Mode: AuthModeKubernetes, Client: client, RequireInventoryGet: true}
+	handler := cfg.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+
+	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/inventory?namespace=team-a", nil)
+	req.Header.Set("Authorization", "Bearer tok")
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	if gotVerb != "list" || gotNS != "team-a" {
+		t.Fatalf("verb=%q ns=%q", gotVerb, gotNS)
+	}
+}
+
+func TestAuthMiddlewareUsesGetVerbOnNamedPath(t *testing.T) {
+	t.Parallel()
+
+	var gotVerb, gotNS, gotName string
+	client := fake.NewSimpleClientset() //nolint:staticcheck
+	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		review := action.(k8stesting.CreateAction).GetObject().(*authenticationv1.TokenReview)
+		review.Status = authenticationv1.TokenReviewStatus{Authenticated: true, User: authenticationv1.UserInfo{Username: "u"}}
+
+		return true, review, nil
+	})
+	client.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		review := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		if review.Spec.ResourceAttributes != nil {
+			gotVerb = review.Spec.ResourceAttributes.Verb
+			gotNS = review.Spec.ResourceAttributes.Namespace
+			gotName = review.Spec.ResourceAttributes.Name
+		}
+		review.Status = authorizationv1.SubjectAccessReviewStatus{Allowed: true}
+
+		return true, review, nil
+	})
+
+	cfg := &AuthConfig{Mode: AuthModeKubernetes, Client: client, RequireInventoryGet: true}
+	handler := cfg.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+
+	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/inventory/team-a/my-inventory", nil)
+	req.SetPathValue("namespace", "team-a")
+	req.SetPathValue("name", "my-inventory")
+	req.Header.Set("Authorization", "Bearer tok")
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	if gotVerb != "get" || gotNS != "team-a" || gotName != "my-inventory" {
+		t.Fatalf("verb=%q ns=%q name=%q", gotVerb, gotNS, gotName)
+	}
+}
+
+func TestAuthCacheKeyIncludesNamespaceAndName(t *testing.T) {
+	t.Parallel()
+
+	if authCacheKey("h", "list", "a", "") == authCacheKey("h", "list", "b", "") {
+		t.Fatal("namespace must affect cache key")
+	}
+}

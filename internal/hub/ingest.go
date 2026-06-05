@@ -20,6 +20,9 @@ import (
 
 const ingestReportsPath = "/hub/v1alpha1/reports"
 
+// MaxIngestBodyBytes caps spoke report POST bodies (ADR-0103 — bounded payloads, not full dumps in etcd).
+const MaxIngestBodyBytes = 8 << 20
+
 // IngestReportsPath is the hub HTTP ingest endpoint for spoke push (ADR-0503).
 func IngestReportsPath() string {
 	return ingestReportsPath
@@ -81,7 +84,7 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(io.LimitReader(r.Body, 8<<20))
+	body, err := io.ReadAll(io.LimitReader(r.Body, MaxIngestBodyBytes))
 	if err != nil {
 		http.Error(w, "read body failed", http.StatusBadRequest)
 

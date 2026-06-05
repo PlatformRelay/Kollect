@@ -12,7 +12,10 @@ import (
 	"github.com/konih/kollect/internal/sink/s3"
 )
 
-const typeName = "gcs"
+// TypeName is the KollectSink.spec.type value for GCS sinks.
+const TypeName = "gcs"
+
+const typeName = TypeName
 
 // Backend uploads inventory payloads via the GCS S3-compatible XML API.
 type Backend struct {

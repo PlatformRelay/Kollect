@@ -54,6 +54,27 @@ func (a *AuthConfig) InitCache() {
 	a.cache = newAuthCache(a.CacheTTL)
 }
 
+func inventoryAuthScope(r *http.Request) (namespace, name, verb string) {
+	namespace = strings.TrimSpace(r.URL.Query().Get("namespace"))
+	name = strings.TrimSpace(r.URL.Query().Get("inventory"))
+
+	if ns := r.PathValue("namespace"); ns != "" {
+		namespace = strings.TrimSpace(ns)
+	}
+	if n := r.PathValue("name"); n != "" {
+		name = strings.TrimSpace(n)
+	}
+
+	if name != "" {
+		verb = "get"
+	} else {
+		verb = "list"
+	}
+
+	return namespace, name, verb
+}
+
+
 // Middleware wraps handlers with Kubernetes token validation when enabled.
 func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
 	if a == nil || a.AuthDisabled() || a.Client == nil {
@@ -70,8 +91,9 @@ func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
+		namespace, name, verb := inventoryAuthScope(r)
 		hash := tokenHash(token)
-		cacheKey := authCacheKey(hash, "get", "kollectinventories")
+		cacheKey := authCacheKey(hash, verb, namespace, name)
 
 		if user, allowed, ok := a.cache.get(cacheKey); ok {
 			if a.RequireInventoryGet && !allowed {
@@ -96,7 +118,7 @@ func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
 		allowed := true
 		if a.RequireInventoryGet {
 			var authErr error
-			allowed, authErr = a.authorizeInventoryGet(r.Context(), user)
+			allowed, authErr = a.authorizeInventory(r.Context(), user, namespace, name, verb)
 			if authErr != nil {
 				http.Error(w, "authorization check failed", http.StatusInternalServerError)
 
@@ -153,22 +175,32 @@ func (a AuthConfig) authenticate(ctx context.Context, token string) (authenticat
 	return result.Status.User, nil
 }
 
-func (a AuthConfig) authorizeInventoryGet(ctx context.Context, user authenticationv1.UserInfo) (bool, error) {
+func (a AuthConfig) authorizeInventory(
+	ctx context.Context,
+	user authenticationv1.UserInfo,
+	namespace, name, verb string,
+) (bool, error) {
+	attrs := &authorizationv1.ResourceAttributes{
+		Namespace: namespace,
+		Group:     "kollect.dev",
+		Resource:  "kollectinventories",
+		Verb:      verb,
+	}
+	if name != "" {
+		attrs.Name = name
+	}
+
 	review := &authorizationv1.SubjectAccessReview{
 		Spec: authorizationv1.SubjectAccessReviewSpec{
-			User:   user.Username,
-			Groups: user.Groups,
-			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Group:    "kollect.dev",
-				Resource: "kollectinventories",
-				Verb:     "get",
-			},
+			User:               user.Username,
+			Groups:             user.Groups,
+			ResourceAttributes: attrs,
 		},
 	}
 
 	result, err := a.Client.AuthorizationV1().SubjectAccessReviews().Create(ctx, review, metav1.CreateOptions{})
 	if err != nil {
-		return false, fmt.Errorf("inventory get SAR: %w", err)
+		return false, fmt.Errorf("inventory SAR: %w", err)
 	}
 
 	return result.Status.Allowed, nil

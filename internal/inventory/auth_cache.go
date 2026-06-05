@@ -69,6 +69,6 @@ func tokenHash(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func authCacheKey(tokenHash, verb, resource string) string {
-	return tokenHash + "|" + verb + "|" + resource
+func authCacheKey(tokenHash, verb, namespace, name string) string {
+	return tokenHash + "|" + verb + "|" + namespace + "|" + name
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/gcs"
 	"github.com/konih/kollect/internal/sink/git"
 	"github.com/konih/kollect/internal/sink/gitlab"
 	kafkasink "github.com/konih/kollect/internal/sink/kafka"
@@ -69,6 +70,12 @@ func RunConnectionTest(
 		}
 
 		return "S3 bucket HeadBucket succeeded", nil
+	case gcs.TypeName:
+		if err := gcs.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
+			return "", err
+		}
+
+		return "GCS bucket HeadBucket succeeded", nil
 	default:
 		return "", fmt.Errorf("connection test not supported for sink type %q", spec.Type)
 	}
