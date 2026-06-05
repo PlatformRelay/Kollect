@@ -24,6 +24,7 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0026](0026-performance-scalability.md) | Performance and scalability (Accepted) |
 | [0027](0027-helm-release-inventory.md) | Helm release inventory sample (Accepted) |
 | [0028](0028-hub-cluster-auth-istio-pattern.md) | Hub cluster authentication — Istio remote-secret pattern (Accepted) |
+| [0029](0029-watch-labels.md) | Watch opt-in/opt-out labels (Accepted) |
 
 See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md), and
 [PERFORMANCE.md](../PERFORMANCE.md).

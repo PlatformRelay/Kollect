@@ -74,6 +74,20 @@ kubectl label deployment nginx app.kubernetes.io/name=nginx
 
 The sample `KollectTarget` selects Deployments labeled `app.kubernetes.io/name=nginx`.
 
+### Watch opt-in / opt-out (optional)
+
+Control collection with labels and annotations ([ADR-0029](adr/0029-watch-labels.md)):
+
+| Key | Values | Effect |
+| --- | --- | --- |
+| `kollect.dev/watch` (label on namespace or resource) | `enabled` / `disabled` | Opt in or out a namespace or single resource |
+| `kollect.dev/namespace-watch` (annotation on namespace) | `enabled` / `disabled` | Opt in or out all resources in the namespace |
+
+`KollectTarget.spec.watchMode` defaults to `All` (collect matching selectors except `disabled`).
+Set `watchMode: OptIn` to collect only explicitly `enabled` namespaces/resources.
+
+Sample opt-in target: `config/samples/kollect_v1alpha1_kollecttarget_opt-in.yaml`.
+
 ### Optional: Git credentials
 
 The sample Git sink references a placeholder repository. For real exports, create a Secret with

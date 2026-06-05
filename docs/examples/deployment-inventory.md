@@ -93,6 +93,21 @@ spec:
   suspend: false
 ```
 
+**Watch labels (optional):** set `spec.watchMode: OptIn` to collect only namespaces/resources
+labeled `kollect.dev/watch: enabled`, or annotate a namespace with
+`kollect.dev/namespace-watch: disabled` to skip all workloads in that namespace while keeping
+`watchMode: All` (default). See [ADR-0029](../adr/0029-watch-labels.md).
+
+```yaml
+# Opt out an entire namespace (All mode)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-system
+  annotations:
+    kollect.dev/namespace-watch: disabled
+```
+
 **Expected behavior (Phase 1+):**
 
 1. Controller registers a dynamic informer for `apps/v1` Deployments (from the profile GVK).
@@ -147,6 +162,7 @@ kubectl get kprof,ksink,ktgt -A,kinv
 | Profile not found | `profileRef` must name an existing cluster `KollectProfile` |
 | No export in Git | Phase 1 sink not implemented yet, or missing `secretRef` |
 | Empty item count | No Deployments match selector, or informer not registered |
+| Namespace skipped | `kollect.dev/namespace-watch: disabled` or `watchMode: OptIn` without `enabled` label |
 
 See [QUICKSTART.md](../QUICKSTART.md) and [DEVELOPMENT.md](../DEVELOPMENT.md) for cluster setup
 and log inspection.

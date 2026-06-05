@@ -54,7 +54,7 @@ type Engine struct {
 	factories map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory
 	started   map[schema.GroupVersionResource]bool
 	targets   map[string]targetState
-	nsLabels  map[string]labels.Set
+	nsMeta    map[string]namespaceMeta
 	nsMu      sync.RWMutex
 	forbidden map[string]struct{}
 }
@@ -75,7 +75,7 @@ func NewEngine(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface,
 		factories: make(map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory),
 		started:   make(map[schema.GroupVersionResource]bool),
 		targets:   make(map[string]targetState),
-		nsLabels:  make(map[string]labels.Set),
+		nsMeta:    make(map[string]namespaceMeta),
 		forbidden: make(map[string]struct{}),
 	}, nil
 }
@@ -167,14 +167,17 @@ func (e *Engine) refreshNamespaceCache(ctx context.Context) error {
 		return fmt.Errorf("list namespaces: %w", err)
 	}
 
-	labelsByNS := make(map[string]labels.Set, len(list.Items))
+	metaByNS := make(map[string]namespaceMeta, len(list.Items))
 	for i := range list.Items {
 		ns := &list.Items[i]
-		labelsByNS[ns.Name] = labels.Set(ns.Labels)
+		metaByNS[ns.Name] = namespaceMeta{
+			Labels:      labels.Set(ns.Labels),
+			Annotations: ns.Annotations,
+		}
 	}
 
 	e.nsMu.Lock()
-	e.nsLabels = labelsByNS
+	e.nsMeta = metaByNS
 	e.nsMu.Unlock()
 
 	return nil
@@ -257,16 +260,17 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 
 	for _, st := range states {
 		target := st.target
-		if !e.matchesTarget(ctx, &target, gvr, u) {
-			continue
-		}
-
 		targetKeyStr := targetKey(target.Namespace, target.Name)
 
 		if deleted {
 			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
 			metrics.CollectItemsTotal.Set(float64(e.store.Len()))
 
+			continue
+		}
+
+		if !e.matchesTarget(ctx, &target, gvr, u) {
+			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
 			continue
 		}
 
@@ -361,22 +365,38 @@ func (e *Engine) matchesTarget(
 		}
 	}
 
+	if !ShouldCollect(labels.Set(u.GetLabels()), e.namespaceMetaFor(resourceNS), target) {
+		return false
+	}
+
 	_ = ctx
 	_ = gvr
 
 	return true
 }
 
+func (e *Engine) namespaceMetaFor(name string) namespaceMeta {
+	e.nsMu.RLock()
+	defer e.nsMu.RUnlock()
+
+	meta, ok := e.nsMeta[name]
+	if !ok {
+		return namespaceMeta{}
+	}
+
+	return meta
+}
+
 func (e *Engine) namespaceMatches(target *kollectdevv1alpha1.KollectTarget, resourceNamespace string) bool {
 	e.nsMu.RLock()
-	nsLabels, ok := e.nsLabels[resourceNamespace]
+	meta, ok := e.nsMeta[resourceNamespace]
 	e.nsMu.RUnlock()
 
 	if !ok {
 		return false
 	}
 
-	return namespaceMatchesSelector(target.Spec.NamespaceSelector, nsLabels)
+	return namespaceMatchesSelector(target.Spec.NamespaceSelector, meta.Labels)
 }
 
 func toUnstructured(obj interface{}) *unstructured.Unstructured {

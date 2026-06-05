@@ -31,6 +31,15 @@ type KollectTargetSpec struct {
 	// suspend pauses reconciliation of this target when set to true.
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
+
+	// watchMode controls namespace/resource watch opt-in vs opt-out (ADR-0029).
+	// All (default): collect matching selectors except resources/namespaces explicitly disabled.
+	// OptIn: only collect resources/namespaces explicitly enabled via kollect.dev/watch or
+	// kollect.dev/namespace-watch.
+	// +kubebuilder:validation:Enum=All;OptIn
+	// +kubebuilder:default=All
+	// +optional
+	WatchMode string `json:"watchMode,omitempty"`
 }
 
 // KollectTargetStatus defines the observed state of KollectTarget.

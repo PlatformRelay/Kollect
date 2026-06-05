@@ -1,0 +1,23 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: opt-in-deployments
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  profileRef: deployment-images
+  watchMode: OptIn
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/name: nginx
+  suspend: false
+---
+# Label a namespace to opt in all matching workloads (OptIn targets only collect enabled namespaces).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inventory-demo
+  labels:
+    kollect.dev/watch: enabled

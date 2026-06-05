@@ -31,8 +31,8 @@ func (e *Engine) matchedNamespacesForTarget(target *kollectdevv1alpha1.KollectTa
 	defer e.nsMu.RUnlock()
 
 	var matched []string
-	for nsName, nsLabels := range e.nsLabels {
-		if namespaceMatchesSelector(target.Spec.NamespaceSelector, nsLabels) {
+	for nsName, meta := range e.nsMeta {
+		if namespaceMatchesSelector(target.Spec.NamespaceSelector, meta.Labels) {
 			matched = append(matched, nsName)
 		}
 	}

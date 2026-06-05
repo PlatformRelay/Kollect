@@ -56,9 +56,9 @@ func TestWatchNamespaceForGVR_singleNamespace(t *testing.T) {
 				},
 			},
 		},
-		nsLabels: map[string]labels.Set{
-			"team-a": {"env": "prod"},
-			"team-b": {"env": "dev"},
+		nsMeta: map[string]namespaceMeta{
+			"team-a": {Labels: labels.Set{"env": "prod"}},
+			"team-b": {Labels: labels.Set{"env": "dev"}},
 		},
 	}
 
@@ -83,7 +83,7 @@ func TestWatchNamespaceForGVR_allNamespaces(t *testing.T) {
 				},
 			},
 		},
-		nsLabels: map[string]labels.Set{
+		nsMeta: map[string]namespaceMeta{
 			"team-a": {},
 			"team-b": {},
 		},
