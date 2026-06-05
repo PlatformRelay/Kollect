@@ -112,5 +112,6 @@ hack/kind/
     ├── smoke.sh        # nightly post-install smoke
     └── teardown.sh
 
-E2e smoke applies `config/samples/e2e/` (lean overlay — no Postgres/Kafka sink probes).
+E2e smoke applies a lean file list from `config/samples/` plus `config/samples/e2e/team-inventory.yaml`
+(no Postgres/Kafka sink probes — those backends are not installed in kind).
 ```
