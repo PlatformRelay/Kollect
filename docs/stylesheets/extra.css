@@ -21,7 +21,15 @@
   border-bottom: 1px solid rgba(50, 108, 229, 0.18);
 }
 
-/* Theme-aware header logo: dark symbol on light, light symbol on dark */
+/*
+ * Theme-aware logos (Material palette toggle: default ↔ slate)
+ * - Header symbol: dark on light palette, light on slate
+ * - Overview hero stacked lockup: dark on light palette, light on slate
+ */
+[data-md-color-scheme="default"] .md-header__button.md-logo img {
+  content: url("../assets/branding/kollect-symbol-dark.svg");
+}
+
 [data-md-color-scheme="slate"] .md-header__button.md-logo img {
   content: url("../assets/branding/kollect-symbol-light.svg");
 }
@@ -51,6 +59,15 @@
   margin: 0 auto 1.25rem;
   border-radius: 0.45rem;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+}
+
+[data-md-color-scheme="default"] .kollect-hero-logo {
+  content: url("../assets/branding/kollect-logo-stacked-dark.png");
+}
+
+[data-md-color-scheme="slate"] .kollect-hero-logo {
+  content: url("../assets/branding/kollect-logo-stacked-light.png");
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
 }
 
 .kollect-hero p {
