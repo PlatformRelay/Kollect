@@ -23,19 +23,60 @@ func TestEffectiveNamespaces_intersectionAndDeny(t *testing.T) {
 		"kube-system": {},
 	}
 
-	filter := kollectdevv1alpha1.CollectionFilterSpec{
-		IncludedNamespaces: []string{"team-a", "team-b", "kube-system"},
-	}
-	matched := MatchIntentNamespaces(filter, nil, nsMeta, NamespaceDefaults{})
-	ceiling := ScopeCeiling{
-		AllowedNamespaces: []string{"team-a", "team-b"},
-		DeniedNamespaces:  []string{"kube-system"},
+	tests := []struct {
+		name       string
+		matched    []string
+		ceiling    ScopeCeiling
+		filter     kollectdevv1alpha1.CollectionFilterSpec
+		wantLen    int
+		wantFirst  string
+		wantSecond string
+	}{
+		{
+			name: "deny kube-system and intersect allowed",
+			filter: kollectdevv1alpha1.CollectionFilterSpec{
+				IncludedNamespaces: []string{"team-a", "team-b", "kube-system"},
+			},
+			matched: MatchIntentNamespaces(
+				kollectdevv1alpha1.CollectionFilterSpec{
+					IncludedNamespaces: []string{"team-a", "team-b", "kube-system"},
+				},
+				nil, nsMeta, NamespaceDefaults{}),
+			ceiling: ScopeCeiling{
+				AllowedNamespaces: []string{"team-a", "team-b"},
+				DeniedNamespaces:  []string{"kube-system"},
+			},
+			wantLen:    2,
+			wantFirst:  "team-a",
+			wantSecond: "team-b",
+		},
+		{
+			name:    "union included with ceiling allowed",
+			matched: []string{"team-a", "team-b"},
+			ceiling: ScopeCeiling{AllowedNamespaces: []string{"team-b", "team-c"}},
+			filter: kollectdevv1alpha1.CollectionFilterSpec{
+				IncludedNamespaces: []string{"team-a", "team-c"},
+			},
+			wantLen:   1,
+			wantFirst: "team-b",
+		},
 	}
 
-	effective := EffectiveNamespaces(matched, ceiling, filter, NamespaceDefaults{})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	if len(effective) != 2 || effective[0] != "team-a" || effective[1] != "team-b" {
-		t.Fatalf("effective = %v", effective)
+			effective := EffectiveNamespaces(tt.matched, tt.ceiling, tt.filter, NamespaceDefaults{})
+			if len(effective) != tt.wantLen {
+				t.Fatalf("effective = %v, want len %d", effective, tt.wantLen)
+			}
+			if tt.wantLen > 0 && effective[0] != tt.wantFirst {
+				t.Fatalf("effective[0] = %q, want %q", effective[0], tt.wantFirst)
+			}
+			if tt.wantLen > 1 && effective[1] != tt.wantSecond {
+				t.Fatalf("effective[1] = %q, want %q", effective[1], tt.wantSecond)
+			}
+		})
 	}
 }
 

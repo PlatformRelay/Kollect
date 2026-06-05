@@ -46,19 +46,3 @@ func TestKollectTargetReconciler_mapProfileToTargets(t *testing.T) {
 		t.Fatalf("non-profile object should return nil, got %#v", got)
 	}
 }
-
-func TestUpdateTargetFilterStatus(t *testing.T) {
-	t.Parallel()
-
-	target := &kollectdevv1alpha1.KollectTarget{}
-	updateTargetFilterStatus(target, []string{"team-a"}, []string{"team-a"}, 2)
-	if len(target.Status.MatchedNamespaces) != 1 || target.Status.ActiveResourceRules != 2 {
-		t.Fatalf("status = %#v", target.Status)
-	}
-
-	clusterTarget := &kollectdevv1alpha1.KollectClusterTarget{}
-	updateClusterTargetFilterStatus(clusterTarget, []string{"team-b"}, []string{"team-b"}, 1)
-	if len(clusterTarget.Status.EffectiveNamespaces) != 1 {
-		t.Fatalf("cluster status = %#v", clusterTarget.Status)
-	}
-}

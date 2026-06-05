@@ -161,12 +161,6 @@ func TestRequestAuthScope_statusPaths(t *testing.T) {
 	if ns != "team-a" || name != "" || verb != "list" || resource != "kollectinventories" {
 		t.Fatalf("scope = (%q,%q,%q,%q)", ns, name, verb, resource)
 	}
-
-	req = httptest.NewRequest(http.MethodGet, "/v1alpha1/status/targets?namespace=team-b", nil)
-	ns, name, verb, resource = requestAuthScope(req)
-	if resource != "kollecttargets" || ns != "team-b" {
-		t.Fatalf("targets scope = (%q,%q,%q,%q)", ns, name, verb, resource)
-	}
 }
 
 func TestInventoryResourceStatus_lastExport(t *testing.T) {

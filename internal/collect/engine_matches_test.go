@@ -12,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"k8s.io/client-go/tools/cache"
+
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
@@ -140,8 +142,9 @@ func TestEngineDispatchDeleteAndUpsert(t *testing.T) {
 		t.Fatalf("count = %d", store.CountForTarget("team-a", "deploys"))
 	}
 
-	e.dispatch(context.Background(), gvr, obj, true)
+	tombstone := cache.DeletedFinalStateUnknown{Obj: obj}
+	e.dispatch(context.Background(), gvr, tombstone, true)
 	if store.CountForTarget("team-a", "deploys") != 0 {
-		t.Fatalf("count after delete = %d", store.CountForTarget("team-a", "deploys"))
+		t.Fatalf("count after tombstone delete = %d", store.CountForTarget("team-a", "deploys"))
 	}
 }

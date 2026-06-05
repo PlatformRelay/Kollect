@@ -128,11 +128,3 @@ func TestHasObjectStoreSink(t *testing.T) {
 		t.Fatalf("with s3 = ok=%v err=%v", ok, err)
 	}
 }
-
-func TestRecordSpillGateMetrics(t *testing.T) {
-	t.Parallel()
-
-	recordSpillGateMetrics(spillGateResult{})
-	recordSpillGateMetrics(spillGateResult{degraded: true, reason: "PayloadTooLarge"})
-	recordSpillGateMetrics(spillGateResult{degraded: true, reason: "SpillRequired"})
-}

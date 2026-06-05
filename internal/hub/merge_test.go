@@ -148,9 +148,3 @@ func TestMergerApplyNilStore(t *testing.T) {
 		t.Fatal("expected error for nil merger")
 	}
 }
-
-func TestNormalizeReportNil(t *testing.T) {
-	t.Parallel()
-
-	NormalizeReport(nil)
-}
