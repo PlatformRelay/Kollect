@@ -11,6 +11,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
+	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
 const defaultNATSStream = "kollect_hub"
@@ -90,7 +92,16 @@ func (n *NATSTransport) ensureStream(ctx context.Context) error {
 
 // Publish writes payload to JetStream on subject.
 func (n *NATSTransport) Publish(ctx context.Context, subject string, payload []byte) error {
-	_, err := n.js.Publish(ctx, subject, payload)
+	msg := &nats.Msg{Subject: subject, Data: payload}
+	if cluster := WireClusterID(ctx); cluster != "" {
+		if msg.Header == nil {
+			msg.Header = nats.Header{}
+		}
+
+		msg.Header.Set(kollectdevv1alpha1.HeaderClusterID, cluster)
+	}
+
+	_, err := n.js.PublishMsg(ctx, msg)
 	if err != nil {
 		return fmt.Errorf("nats publish: %w", err)
 	}
@@ -98,8 +109,26 @@ func (n *NATSTransport) Publish(ctx context.Context, subject string, payload []b
 	return nil
 }
 
+// SubscribeWire consumes messages and passes NATS header cluster metadata to the handler.
+func (n *NATSTransport) SubscribeWire(ctx context.Context, subject string, handler WireHandler) error {
+	return n.subscribe(ctx, subject, func(msg jetstream.Msg) error {
+		wireCluster := ""
+		if hdr := msg.Headers(); hdr != nil {
+			wireCluster = hdr.Get(kollectdevv1alpha1.HeaderClusterID)
+		}
+
+		return handler(ctx, wireCluster, msg.Data())
+	})
+}
+
 // Subscribe consumes messages for subject via a durable JetStream consumer.
 func (n *NATSTransport) Subscribe(ctx context.Context, subject string, handler Handler) error {
+	return n.subscribe(ctx, subject, func(msg jetstream.Msg) error {
+		return handler(ctx, msg.Data())
+	})
+}
+
+func (n *NATSTransport) subscribe(ctx context.Context, subject string, handler func(jetstream.Msg) error) error {
 	n.mu.Lock()
 	if _, exists := n.subs[subject]; exists {
 		n.mu.Unlock()
@@ -119,7 +148,7 @@ func (n *NATSTransport) Subscribe(ctx context.Context, subject string, handler H
 	}
 
 	cc, err := cons.Consume(func(msg jetstream.Msg) {
-		if handlerErr := handler(ctx, msg.Data()); handlerErr != nil {
+		if handlerErr := handler(msg); handlerErr != nil {
 			return
 		}
 

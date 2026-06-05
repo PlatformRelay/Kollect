@@ -48,7 +48,7 @@ func TestNewRunnerInProcess(t *testing.T) {
 		},
 	}
 
-	runner, err := hub.NewRunner(collect.NewStore(), cfg)
+	runner, err := hub.NewRunner(collect.NewStore(), cfg, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

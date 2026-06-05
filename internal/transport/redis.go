@@ -79,12 +79,17 @@ func (r *RedisTransport) ensureGroup(ctx context.Context) error {
 
 // Publish appends payload to the Redis stream with subject metadata.
 func (r *RedisTransport) Publish(ctx context.Context, subject string, payload []byte) error {
+	values := map[string]any{
+		"subject": subject,
+		"payload": payload,
+	}
+	if cluster := WireClusterID(ctx); cluster != "" {
+		values[WireClusterIDKey] = cluster
+	}
+
 	_, err := r.client.XAdd(ctx, &redis.XAddArgs{
 		Stream: r.stream,
-		Values: map[string]any{
-			"subject": subject,
-			"payload": payload,
-		},
+		Values: values,
 	}).Result()
 	if err != nil {
 		return fmt.Errorf("redis XADD: %w", err)
@@ -93,8 +98,25 @@ func (r *RedisTransport) Publish(ctx context.Context, subject string, payload []
 	return nil
 }
 
+// SubscribeWire reads stream entries and passes cluster_id wire metadata to the handler.
+func (r *RedisTransport) SubscribeWire(ctx context.Context, subject string, handler WireHandler) error {
+	return r.subscribe(ctx, subject, func(loopCtx context.Context, wireCluster string, payload []byte) error {
+		return handler(loopCtx, wireCluster, payload)
+	})
+}
+
 // Subscribe reads from the consumer group and invokes handler for matching subjects.
 func (r *RedisTransport) Subscribe(ctx context.Context, subject string, handler Handler) error {
+	return r.subscribe(ctx, subject, func(loopCtx context.Context, _ string, payload []byte) error {
+		return handler(loopCtx, payload)
+	})
+}
+
+func (r *RedisTransport) subscribe(
+	ctx context.Context,
+	subject string,
+	handler func(context.Context, string, []byte) error,
+) error {
 	r.mu.Lock()
 	if _, exists := r.subs[subject]; exists {
 		r.mu.Unlock()
@@ -150,7 +172,9 @@ func (r *RedisTransport) Subscribe(ctx context.Context, subject string, handler 
 						payload = v
 					}
 
-					if err := handler(loopCtx, payload); err == nil {
+					wireCluster, _ := msg.Values[WireClusterIDKey].(string)
+
+					if err := handler(loopCtx, wireCluster, payload); err == nil {
 						_ = r.client.XAck(loopCtx, r.stream, r.group, msg.ID).Err()
 					}
 				}

@@ -102,7 +102,8 @@ func TryPublishReport(
 		subject = defaultSubject
 	}
 
-	if err := pub.Publish(ctx, subject, payload); err != nil {
+	pubCtx := transport.WithWireClusterID(ctx, cluster)
+	if err := pub.Publish(pubCtx, subject, payload); err != nil {
 		return fmt.Errorf("spoke publish: %w", err)
 	}
 

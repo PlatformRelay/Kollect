@@ -35,6 +35,13 @@ func (b *InProcessBus) Publish(ctx context.Context, subject string, payload []by
 	return nil
 }
 
+// SubscribeWire registers a wire-aware handler (in-process has no wire metadata).
+func (b *InProcessBus) SubscribeWire(_ context.Context, subject string, handler WireHandler) error {
+	return b.Subscribe(context.Background(), subject, func(ctx context.Context, payload []byte) error {
+		return handler(ctx, "", payload)
+	})
+}
+
 // Subscribe registers a handler for subject.
 func (b *InProcessBus) Subscribe(_ context.Context, subject string, handler Handler) error {
 	b.mu.Lock()

@@ -5,13 +5,13 @@ package hub
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -27,10 +27,11 @@ func IngestReportsPath() string {
 
 // IngestServer accepts authenticated spoke inventory reports over HTTP (ADR-0028).
 type IngestServer struct {
-	Enabled bool
-	Port    int32
-	Auth    IngestAuthConfig
-	Merger  *Merger
+	Enabled      bool
+	Port         int32
+	Auth         IngestAuthConfig
+	Merger       *Merger
+	StatusClient client.Client
 }
 
 // Start runs the HTTP ingest server until ctx is cancelled.
@@ -84,13 +85,6 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var report SpokeReport
-	if err := json.Unmarshal(body, &report); err != nil {
-		http.Error(w, "invalid spoke report", http.StatusBadRequest)
-
-		return
-	}
-
 	headerCluster := strings.TrimSpace(r.Header.Get(kollectdevv1alpha1.HeaderClusterID))
 	if headerCluster == "" {
 		http.Error(w, "missing cluster id", http.StatusBadRequest)
@@ -98,21 +92,21 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if report.Cluster != "" && report.Cluster != headerCluster {
-		http.Error(w, "cluster id mismatch", http.StatusBadRequest)
-
-		return
-	}
-
-	if report.Cluster == "" {
-		report.Cluster = headerCluster
-	}
-
-	if _, err := s.Merger.Apply(report); err != nil {
+	report, _, err := ReceiveReport(headerCluster, body, s.Merger)
+	if err != nil {
 		metrics.HubSpokeReportsTotal.WithLabelValues("http-ingest", metrics.ResultFailure).Inc()
-		http.Error(w, "merge failed", http.StatusInternalServerError)
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "merge") {
+			status = http.StatusInternalServerError
+		}
+
+		http.Error(w, err.Error(), status)
 
 		return
+	}
+
+	if s.StatusClient != nil {
+		_ = MarkRemoteClusterConnected(r.Context(), s.StatusClient, report.Cluster)
 	}
 
 	metrics.HubSpokeReportsTotal.WithLabelValues("http-ingest", metrics.ResultSuccess).Inc()

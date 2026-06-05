@@ -56,6 +56,7 @@ rules:
   resources:
   - kollecthubs
   - kollectinventories
+  - kollectremoteclusters
   - kollectsinks
   - kollecttargets
   verbs:
@@ -71,6 +72,7 @@ rules:
   resources:
   - kollecthubs/finalizers
   - kollectinventories/finalizers
+  - kollectremoteclusters/finalizers
   - kollecttargets/finalizers
   verbs:
   - update
@@ -79,6 +81,7 @@ rules:
   resources:
   - kollecthubs/status
   - kollectinventories/status
+  - kollectremoteclusters/status
   - kollectsinks/status
   - kollecttargets/status
   verbs:

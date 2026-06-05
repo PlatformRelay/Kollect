@@ -22,6 +22,9 @@ live API access.
 
 ## Install on kind (copy-paste)
 
+From the repo root, **`task kind-dev-up`** creates the `kollect-dev` cluster, loads the operator image,
+and deploys Helm (ingress/Grafana addons unless `KOLLECT_DEV_MINIMAL=1`). See [DEVELOPMENT.md](DEVELOPMENT.md).
+
 ```sh
 # 1. Cluster
 kind create cluster --name kollect-dev

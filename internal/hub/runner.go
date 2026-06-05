@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/transport"
 )
@@ -46,14 +48,14 @@ type Runner struct {
 }
 
 // NewRunner wires transport subscriber → merger → consumer.
-func NewRunner(store *collect.Store, cfg RunnerConfig) (*Runner, error) {
+func NewRunner(store *collect.Store, cfg RunnerConfig, statusClient client.Client) (*Runner, error) {
 	_, sub, err := transport.NewTransport(cfg.Transport)
 	if err != nil {
 		return nil, fmt.Errorf("hub runner transport: %w", err)
 	}
 
 	merger := NewMerger(store)
-	consumer := NewConsumer(sub, merger, cfg.Subject, cfg.HubName)
+	consumer := NewConsumer(sub, merger, cfg.Subject, cfg.HubName, statusClient)
 
 	return &Runner{consumer: consumer}, nil
 }

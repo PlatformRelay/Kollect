@@ -292,6 +292,14 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollecthub")
 		os.Exit(1)
 	}
+	if err := (&controller.KollectRemoteClusterReconciler{
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Options: ctrlOpts,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "kollectremotecluster")
+		os.Exit(1)
+	}
 	if err := webhookv1alpha1.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to set up webhooks")
 		os.Exit(1)
@@ -377,8 +385,17 @@ func runHubConsumer(
 
 	metrics.Register()
 
+	kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes client for hub consumer")
+		os.Exit(1)
+	}
+
 	store := collect.NewStore()
-	runner, err := hub.NewRunner(store, hubCfg)
+	merger := hub.NewMerger(store)
+	statusClient := mgr.GetClient()
+
+	runner, err := hub.NewRunner(store, hubCfg, statusClient)
 	if err != nil {
 		setupLog.Error(err, "Failed to create hub consumer")
 		os.Exit(1)
@@ -386,6 +403,19 @@ func runHubConsumer(
 
 	if err := mgr.Add(runner); err != nil {
 		setupLog.Error(err, "Failed to add hub consumer")
+		os.Exit(1)
+	}
+
+	ingestPort, ingestAuthMode := hub.IngestConfigFromEnv()
+	ingestSrv := &hub.IngestServer{
+		Enabled:      true,
+		Port:         ingestPort,
+		Auth:         hub.IngestAuthConfig{Mode: ingestAuthMode, Client: kubeClient},
+		Merger:       merger,
+		StatusClient: statusClient,
+	}
+	if err := mgr.Add(ingestSrv); err != nil {
+		setupLog.Error(err, "Failed to add hub ingest server")
 		os.Exit(1)
 	}
 

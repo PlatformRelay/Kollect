@@ -20,7 +20,7 @@ func TestInProcessHubMergeRoundTrip(t *testing.T) {
 	bus := transport.NewInProcessBus()
 	store := collect.NewStore()
 	merger := hub.NewMerger(store)
-	consumer := hub.NewConsumer(bus, merger, "inventory/reports", "test-hub")
+	consumer := hub.NewConsumer(bus, merger, "inventory/reports", "test-hub", nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
