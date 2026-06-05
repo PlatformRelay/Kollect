@@ -38,12 +38,12 @@ if ! kubectl wait --for=condition=Ready kollectinventory/team-inventory \
   fi
 fi
 
-if [[ -z "${GITHUB_TOKEN:-}" ]]; then
-  _log "GITHUB_TOKEN unset; skipping remote git clone SHA assert (inventory HTTP hash captured)."
+if [[ -z "${GITHUB_TOKEN:-}" || -z "${GIT_EXPORT_TEST_REPO:-}" ]]; then
+  _log "GIT_EXPORT_TEST_REPO unset; skipping remote git clone SHA assert (inventory HTTP hash captured)."
   exit 0
 fi
 
-REPO_URL="${GIT_EXPORT_TEST_REPO:-https://github.com/konih/kollect-inventory-demo.git}"
+REPO_URL="${GIT_EXPORT_TEST_REPO}"
 OBJECT_PATH="inventory/default/team-inventory.json"
 CLONE_DIR="$(mktemp -d)"
 trap 'kill "$PF_PID" 2>/dev/null || true; rm -rf "$CLONE_DIR"' EXIT
