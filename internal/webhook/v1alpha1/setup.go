@@ -15,5 +15,13 @@ func SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("setup KollectProfile webhook: %w", err)
 	}
 
+	if err := setupKollectHubWebhook(mgr); err != nil {
+		return fmt.Errorf("setup KollectHub webhook: %w", err)
+	}
+
+	if err := setupKollectScopeWebhook(mgr); err != nil {
+		return fmt.Errorf("setup KollectScope webhook: %w", err)
+	}
+
 	return nil
 }
