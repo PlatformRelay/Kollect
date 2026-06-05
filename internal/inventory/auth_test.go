@@ -40,11 +40,12 @@ func TestAuthMiddlewareKubernetesSuccess(t *testing.T) {
 	})
 
 	called := false
-	handler := AuthConfig{
+	cfg := &AuthConfig{
 		Mode:                AuthModeKubernetes,
 		Client:              client,
 		RequireInventoryGet: true,
-	}.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	}
+	handler := cfg.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -66,10 +67,11 @@ func TestAuthMiddlewareKubernetesSuccess(t *testing.T) {
 func TestAuthMiddlewareMissingToken(t *testing.T) {
 	t.Parallel()
 
-	handler := AuthConfig{
+	cfg := &AuthConfig{
 		Mode:   AuthModeKubernetes,
 		Client: fake.NewSimpleClientset(), //nolint:staticcheck // SimpleClientset sufficient for auth unit test
-	}.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	}
+	handler := cfg.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -85,7 +87,8 @@ func TestAuthMiddlewareMissingToken(t *testing.T) {
 func TestAuthMiddlewareDisabledBypasses(t *testing.T) {
 	t.Parallel()
 
-	handler := AuthConfig{Mode: AuthModeDisabled}.Middleware(
+	cfg := &AuthConfig{Mode: AuthModeDisabled}
+	handler := cfg.Middleware(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),
@@ -111,8 +114,8 @@ func TestAuthenticateRejectsInvalidToken(t *testing.T) {
 		return true, review, nil
 	})
 
-	cfg := AuthConfig{Mode: AuthModeKubernetes, Client: client}
-	if _, err := cfg.authenticate(context.Background(), "bad"); err == nil {
+	authCfg := &AuthConfig{Mode: AuthModeKubernetes, Client: client}
+	if _, err := authCfg.authenticate(context.Background(), "bad"); err == nil {
 		t.Fatal("expected error")
 	}
 }

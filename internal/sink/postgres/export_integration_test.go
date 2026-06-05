@@ -99,8 +99,8 @@ func TestExportPostgres(t *testing.T) {
 	var count int
 	if err := pool.QueryRow(ctx, `
 SELECT COUNT(*) FROM public.inventory_items
-WHERE cluster = $1 AND namespace = $2 AND uid = $3
-`, "test-cluster", "apps", "uid-1").Scan(&count); err != nil {
+WHERE inventory_namespace = $1 AND inventory_name = $2 AND source_uid = $3
+`, "apps", "demo", "uid-1").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,8 +124,8 @@ WHERE cluster = $1 AND namespace = $2 AND uid = $3
 	if err := pool.QueryRow(ctx, `
 SELECT (payload->'attributes'->>'replicas')::float
 FROM public.inventory_items
-WHERE uid = $1
-`, "uid-1").Scan(&replicas); err != nil {
+WHERE inventory_namespace = $1 AND inventory_name = $2 AND source_uid = $3
+`, "apps", "demo", "uid-1").Scan(&replicas); err != nil {
 		t.Fatal(err)
 	}
 

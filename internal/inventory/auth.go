@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -30,6 +31,8 @@ type AuthConfig struct {
 	Mode                string
 	Client              kubernetes.Interface
 	RequireInventoryGet bool
+	CacheTTL            time.Duration
+	cache               *authCache
 }
 
 // AuthDisabled reports whether auth middleware should be bypassed.
@@ -42,16 +45,43 @@ func (a AuthConfig) AuthDisabled() bool {
 	}
 }
 
+// InitCache allocates the in-memory TokenReview/SAR cache when CacheTTL is set.
+func (a *AuthConfig) InitCache() {
+	if a == nil || a.cache != nil || a.CacheTTL <= 0 {
+		return
+	}
+
+	a.cache = newAuthCache(a.CacheTTL)
+}
+
 // Middleware wraps handlers with Kubernetes token validation when enabled.
-func (a AuthConfig) Middleware(next http.Handler) http.Handler {
-	if a.AuthDisabled() || a.Client == nil {
+func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
+	if a == nil || a.AuthDisabled() || a.Client == nil {
 		return next
 	}
+
+	a.InitCache()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, err := bearerToken(r.Header.Get("Authorization"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
+
+			return
+		}
+
+		hash := tokenHash(token)
+		cacheKey := authCacheKey(hash, "get", "kollectinventories")
+
+		if user, allowed, ok := a.cache.get(cacheKey); ok {
+			if a.RequireInventoryGet && !allowed {
+				http.Error(w, "forbidden", http.StatusForbidden)
+
+				return
+			}
+
+			_ = user
+			next.ServeHTTP(w, r)
 
 			return
 		}
@@ -63,19 +93,23 @@ func (a AuthConfig) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
+		allowed := true
 		if a.RequireInventoryGet {
-			ok, err := a.authorizeInventoryGet(r.Context(), user)
-			if err != nil {
+			var authErr error
+			allowed, authErr = a.authorizeInventoryGet(r.Context(), user)
+			if authErr != nil {
 				http.Error(w, "authorization check failed", http.StatusInternalServerError)
 
 				return
 			}
+		}
 
-			if !ok {
-				http.Error(w, "forbidden", http.StatusForbidden)
+		a.cache.set(cacheKey, user, allowed)
 
-				return
-			}
+		if !allowed {
+			http.Error(w, "forbidden", http.StatusForbidden)
+
+			return
 		}
 
 		next.ServeHTTP(w, r)

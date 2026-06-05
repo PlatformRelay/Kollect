@@ -56,13 +56,23 @@ var (
 		[]string{"kind", "error_class"},
 	)
 
+	exportDurationBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+
 	ExportDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "kollect_export_duration_seconds",
 			Help:    "Sink export duration in seconds.",
-			Buckets: prometheus.DefBuckets,
+			Buckets: exportDurationBuckets,
 		},
 		[]string{"sink_type"},
+	)
+
+	SinkErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_sink_errors_total",
+			Help: "Inventory export failures by reason (transient, terminal, forbidden, payload_too_large).",
+		},
+		[]string{"reason"},
 	)
 
 	SinkConnectionTestTotal = prometheus.NewCounterVec(
@@ -126,6 +136,7 @@ func Register() {
 		ReconcileTotal,
 		ReconcileErrorsTotal,
 		ExportDurationSeconds,
+		SinkErrorsTotal,
 		SinkConnectionTestTotal,
 		ReconcileInFlight,
 		ReconcileDurationSeconds,

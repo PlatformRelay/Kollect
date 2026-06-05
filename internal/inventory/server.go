@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -16,10 +17,11 @@ import (
 	"github.com/konih/kollect/internal/metrics"
 )
 
-// Summary is the JSON payload for GET /inventory.
+// Summary is the JSON payload for GET /v1alpha1/inventory.
 type Summary struct {
 	ItemCount int            `json:"itemCount"`
 	Namespace string         `json:"namespace,omitempty"`
+	Inventory string         `json:"inventory,omitempty"`
 	Items     []collect.Item `json:"items,omitempty"`
 	UpdatedAt string         `json:"updatedAt"`
 }
@@ -29,7 +31,7 @@ type Server struct {
 	Enabled bool
 	Port    int32
 	Store   *collect.Store
-	Auth    AuthConfig
+	Auth    *AuthConfig
 }
 
 // Start runs the HTTP server until ctx is cancelled.
@@ -44,9 +46,20 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	mux := http.NewServeMux()
-	handler := s.Auth.Middleware(http.HandlerFunc(s.handleInventory))
-	mux.Handle("GET /inventory", handler)
-	mux.Handle("GET /inventory/watch", s.Auth.Middleware(http.HandlerFunc(s.handleWatch)))
+	inventoryHandler := http.Handler(http.HandlerFunc(s.handleInventory))
+	watchHandler := http.Handler(http.HandlerFunc(s.handleWatch))
+	if s.Auth != nil {
+		s.Auth.InitCache()
+		inventoryHandler = s.Auth.Middleware(inventoryHandler)
+		watchHandler = s.Auth.Middleware(watchHandler)
+	}
+
+	mux.Handle("GET /v1alpha1/inventory", inventoryHandler)
+	mux.Handle("GET /v1alpha1/inventory/{namespace}/{name}", inventoryHandler)
+	mux.Handle("GET /v1alpha1/inventory/watch", watchHandler)
+	// Deprecated paths — retained for one release.
+	mux.Handle("GET /inventory", inventoryHandler)
+	mux.Handle("GET /inventory/watch", watchHandler)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", port),
@@ -71,8 +84,17 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
-	namespace := r.URL.Query().Get("namespace")
-	summary := s.buildSummary(namespace)
+	namespace := strings.TrimSpace(r.URL.Query().Get("namespace"))
+	inventoryName := strings.TrimSpace(r.URL.Query().Get("inventory"))
+
+	if ns := r.PathValue("namespace"); ns != "" {
+		namespace = ns
+	}
+	if name := r.PathValue("name"); name != "" {
+		inventoryName = name
+	}
+
+	summary := s.buildSummary(namespace, inventoryName)
 
 	metrics.InventoryItemsTotal.Set(float64(summary.ItemCount))
 	metrics.CollectItemsTotal.Set(float64(summary.ItemCount))
@@ -96,6 +118,7 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	namespace := r.URL.Query().Get("namespace")
+	inventoryName := r.URL.Query().Get("inventory")
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -104,7 +127,7 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 	defer s.Store.Unsubscribe(ch)
 
 	send := func() bool {
-		payload, err := json.Marshal(s.buildSummary(namespace))
+		payload, err := json.Marshal(s.buildSummary(namespace, inventoryName))
 		if err != nil {
 			return false
 		}
@@ -134,7 +157,7 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) buildSummary(namespace string) Summary {
+func (s *Server) buildSummary(namespace, inventoryName string) Summary {
 	itemCount := 0
 	var items []collect.Item
 
@@ -147,6 +170,7 @@ func (s *Server) buildSummary(namespace string) Summary {
 	return Summary{
 		ItemCount: itemCount,
 		Namespace: namespace,
+		Inventory: inventoryName,
 		Items:     items,
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 	}

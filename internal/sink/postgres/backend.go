@@ -61,7 +61,7 @@ func (b *Backend) Close() {
 	}
 }
 
-// Export upserts each inventory item keyed by cluster, namespace, target, and UID.
+// Export upserts each inventory item keyed by inventory, target, and source UID (ADR COORDINATION).
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
 	if len(payload) == 0 {
 		return fmt.Errorf("postgres export: empty payload")
@@ -72,7 +72,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 		return fmt.Errorf("postgres export: decode payload: %w", err)
 	}
 
-	namespace := namespaceFromObjectPath(objectPath)
+	invNS, invName := inventoryFromObjectPath(objectPath)
 	exportedAt := time.Now().UTC()
 	qualifiedTable := pgxQuoteIdent(b.cfg.Schema) + "." + pgxQuoteIdent(b.cfg.Table)
 
@@ -82,23 +82,26 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 			return fmt.Errorf("postgres export: marshal item: %w", err)
 		}
 
-		ns := item.Namespace
-		if ns == "" {
-			ns = namespace
+		resourceNS := item.Namespace
+		if resourceNS == "" {
+			resourceNS = invNS
 		}
 
 		_, err = b.pool.Exec(ctx, fmt.Sprintf(`
 INSERT INTO %s (
-  cluster, namespace, target_namespace, target_name, uid, payload, exported_at
-) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
-ON CONFLICT (cluster, namespace, target_namespace, target_name, uid)
-DO UPDATE SET payload = EXCLUDED.payload, exported_at = EXCLUDED.exported_at
+  inventory_namespace, inventory_name, target_name, source_uid,
+  cluster, resource_namespace, payload, exported_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+ON CONFLICT (inventory_namespace, inventory_name, target_name, source_uid)
+DO UPDATE SET payload = EXCLUDED.payload, exported_at = EXCLUDED.exported_at,
+  cluster = EXCLUDED.cluster, resource_namespace = EXCLUDED.resource_namespace
 `, qualifiedTable),
-			b.cfg.Cluster,
-			ns,
-			item.TargetNamespace,
+			invNS,
+			invName,
 			item.TargetName,
 			item.UID,
+			b.cfg.Cluster,
+			resourceNS,
 			string(itemJSON),
 			exportedAt,
 		)
@@ -115,28 +118,33 @@ func (b *Backend) ensureTable(ctx context.Context) error {
 
 	_, err := b.pool.Exec(ctx, fmt.Sprintf(`
 CREATE TABLE IF NOT EXISTS %s (
-  cluster TEXT NOT NULL DEFAULT '',
-  namespace TEXT NOT NULL,
-  target_namespace TEXT NOT NULL,
+  inventory_namespace TEXT NOT NULL,
+  inventory_name TEXT NOT NULL,
   target_name TEXT NOT NULL,
-  uid TEXT NOT NULL,
+  source_uid TEXT NOT NULL,
+  cluster TEXT NOT NULL DEFAULT '',
+  resource_namespace TEXT NOT NULL DEFAULT '',
   payload JSONB NOT NULL,
   exported_at TIMESTAMPTZ NOT NULL,
-  PRIMARY KEY (cluster, namespace, target_namespace, target_name, uid)
+  PRIMARY KEY (inventory_namespace, inventory_name, target_name, source_uid)
 )
 `, qualifiedTable))
 
 	return err
 }
 
-func namespaceFromObjectPath(objectPath string) string {
+func inventoryFromObjectPath(objectPath string) (namespace, name string) {
 	objectPath = strings.TrimPrefix(strings.TrimSpace(objectPath), "inventory/")
 	parts := strings.Split(objectPath, "/")
-	if len(parts) >= 1 && parts[0] != "" {
-		return parts[0]
+	if len(parts) >= 2 {
+		return parts[0], strings.TrimSuffix(parts[1], ".json")
 	}
 
-	return ""
+	if len(parts) == 1 && parts[0] != "" {
+		return parts[0], ""
+	}
+
+	return "", ""
 }
 
 func pgxQuoteIdent(name string) string {
