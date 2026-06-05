@@ -1,8 +1,13 @@
-# Example: Deployment inventory to Git
+# Example: Deployment inventory
 
-This walkthrough connects the four core CRDs into a minimal pipeline: define **what** to extract
-(`KollectProfile`), **where** to send it (`KollectSink`), **which** resources to watch
-(`KollectTarget`), and **when** to aggregate and export (`KollectInventory`).
+This walkthrough connects the four core **namespaced** CRDs into a minimal pipeline: define **what**
+to extract (`KollectProfile`), **where** to send it (`KollectSink`), **which** resources to watch
+(`KollectTarget`), and **when** to aggregate and export (`KollectInventory`). There is **no
+`KollectHub` CRD** — hub aggregation uses Helm `mode: hub` ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+
+**Default sample path:** Postgres state store (`postgres-inventory-demo`). Swap to `git-inventory-demo`
+for Git audit/CI. See [Postgres state store](postgres-state-store.md) and
+[Connection test](connection-test.md).
 
 Files live in `config/samples/` and can be applied with `kubectl apply -k config/samples/`.
 
@@ -13,20 +18,29 @@ flowchart LR
   Profile[KollectProfile<br/>Deployment schema]
   Target[KollectTarget<br/>select Deployments]
   Inv[KollectInventory<br/>aggregate + export]
-  Sink[KollectSink<br/>Git repo]
+  Sink[KollectSink<br/>Postgres or Git]
   K8s[(Kubernetes API)]
 
   Profile --> Target
   Target --> K8s
   Target --> Inv
   Inv --> Sink
-  Sink --> Git[(Git repository)]
+  Sink --> Store[(Postgres / Git)]
 ```
+
+## Scale
+
+The collection path targets **100,000+** watched objects per spoke (typical Deployment/Service
+profiles). Tune namespace-scoped informers, `KollectInventory.spec.exportMinInterval` (default
+**30s**), and operator reconcile parallelism per [PERFORMANCE.md](../PERFORMANCE.md) and
+[ADR-0603](../adr/0603-performance-scalability.md).
 
 ## Step 1 — KollectProfile
 
-Defines the GVK and attribute extraction rules. This example collects the container image and
-metadata labels from `apps/v1` Deployments.
+Defines the GVK and attribute extraction rules. This example collects container images and metadata
+labels from `apps/v1` Deployments.
+
+Sample: `config/samples/kollect_v1alpha1_kollectprofile.yaml`
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -46,15 +60,18 @@ spec:
     - name: images
       path: '$.spec.template.spec.containers[*].image'
       type: list
+    - name: containerCount
+      path: "cel:size(object.spec.template.spec.containers)"
+      type: int
     - name: labels
       path: '$.metadata.labels'
       type: map
       optional: true
 ```
 
-**Expected behavior (Phase 1+):** the target controller loads this profile when resolving
-`profileRef`. JSONPath runs against each cached Deployment object. Missing optional attributes do
-not fail the row; required attributes surface extraction errors on the target status.
+**Behavior:** the target controller loads this profile when resolving `profileRef`. JSONPath and CEL
+run against each cached Deployment object. Missing optional attributes do not fail the row; required
+attributes surface extraction errors on the target status.
 
 ### All container images (`[*]` wildcard)
 
@@ -74,30 +91,66 @@ See [DATA-FLOWS.md](../DATA-FLOWS.md#3-attribute-extraction-jsonpath-arrays) and
 
 ## Step 2 — KollectSink
 
-Static configuration for a Git backend. Replace the endpoint with your inventory repository.
+`KollectSink` is **namespaced** — create sinks in the same namespace as `KollectInventory`
+`sinkRefs` ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+
+### Postgres (default sample)
+
+`config/samples/kollect_v1alpha1_kollectsink_postgres.yaml`
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSink
+metadata:
+  name: postgres-inventory-demo
+  namespace: default
+spec:
+  type: postgres
+  cluster: kind-kollect-dev
+  connectionTest: true
+  postgres:
+    databaseRef:
+      name: inventory-postgres-dsn
+      namespace: kollect-system
+    schema: public
+    table: inventory_items
+```
+
+Create the DSN secret before export — see [Postgres state store](postgres-state-store.md).
+
+### Git (audit / CI)
+
+`config/samples/kollect_v1alpha1_kollectsink.yaml`
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
 kind: KollectSink
 metadata:
   name: git-inventory-demo
+  namespace: default
 spec:
   type: git
   endpoint: https://github.com/konih/kollect-inventory-demo.git
+  connectionTest: true
   # secretRef:
   #   name: git-push-credentials
   #   namespace: kollect-system
 ```
 
-**Expected behavior (Phase 1+):** the inventory controller resolves `git` via the sink registry,
-authenticates with `secretRef` when set, and commits deterministic JSON/YAML snapshots. Status
-stores summary refs (commit SHA), not the full payload ([ADR-0103](../adr/0103-etcd-limit.md)).
+**Behavior:** the inventory controller resolves sinks via the registry (`git`, `postgres`, `kafka`,
+`gitlab`, `s3`, `gcs`). With `connectionTest: true`, the operator probes on create/update and sets
+`ConnectionVerified` on the sink. Export commits deterministic JSON snapshots to Git or upserts rows
+to Postgres; status stores summary refs (commit SHA), not the full payload
+([ADR-0103](../adr/0103-etcd-limit.md)).
 
-**Today:** CR validates and persists; export requires sink implementation.
+Production installs should set `connectionTest: false` (chart default) and re-probe on demand —
+see [Connection test](connection-test.md).
 
 ## Step 3 — KollectTarget
 
 Namespaced resource that binds a profile to selectors. Deployed in `default` in the sample.
+
+`config/samples/kollect_v1alpha1_kollecttarget.yaml`
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -112,6 +165,9 @@ spec:
       app.kubernetes.io/name: nginx
   suspend: false
 ```
+
+`profileRef` resolves a `KollectProfile` in the **same namespace** as the target
+([ADR-0204](../adr/0204-namespaced-profiles.md)).
 
 **Watch labels (optional):** set `spec.watchMode: OptIn` to collect only namespaces/resources
 labeled `kollect.dev/watch: enabled`, or annotate a namespace with
@@ -128,11 +184,11 @@ metadata:
     kollect.dev/namespace-watch: disabled
 ```
 
-**Expected behavior (Phase 1+):**
+**Behavior:**
 
 1. Controller registers a dynamic informer for `apps/v1` Deployments (from the profile GVK).
 2. Only Deployments matching `labelSelector` in the target namespace are collected.
-3. Extracted rows feed the cluster inventory aggregator.
+3. Extracted rows feed the namespace inventory aggregator.
 
 Create a matching workload to exercise selection:
 
@@ -141,11 +197,11 @@ kubectl create deployment nginx --image=nginx:1.27
 kubectl label deployment nginx app.kubernetes.io/name=nginx --overwrite
 ```
 
-**Today:** reconcile loop may no-op until informer wiring lands; CR should accept the spec.
-
 ## Step 4 — KollectInventory
 
 Namespaced aggregator (same namespace as targets) referencing one or more sinks.
+
+`config/samples/kollect_v1alpha1_kollectinventory.yaml`
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -155,23 +211,32 @@ metadata:
   namespace: default
 spec:
   sinkRefs:
-    - git-inventory-demo
+    - postgres-inventory-demo
   suspend: false
 ```
 
-**Expected behavior (Phase 1+):**
+Swap `sinkRefs` to `git-inventory-demo` for the Git audit path.
 
-- `status.itemCount` reflects aggregated rows from all active targets.
-- `status.lastExportTime` updates after a successful Git push.
-- Conditions: `Ready` / `Synced` / `Degraded` per [error taxonomy](../adr/0602-error-taxonomy.md).
+**Behavior:**
 
-**Today:** status fields remain empty until aggregation and export are implemented.
+- `status.itemCount` reflects aggregated rows from all active targets in the namespace.
+- `status.lastExportTime` updates after a successful export.
+- Conditions: `Ready`, `Synced`, `SinkReachable`, `Degraded` per
+  [error taxonomy](../adr/0602-error-taxonomy.md).
 
 ## Apply everything
 
 ```sh
 kubectl apply -k config/samples/
-kubectl get kprof,ksink,ktgt -A,kinv
+kubectl get kprof,ksink,ktgt,kinv -A
+```
+
+Verify sink connectivity before relying on export:
+
+```sh
+kubectl wait --for=condition=ConnectionVerified kollectsink/postgres-inventory-demo \
+  -n default --timeout=60s
+kubectl describe kollectinventory team-inventory -n default
 ```
 
 ## Troubleshooting
@@ -180,9 +245,21 @@ kubectl get kprof,ksink,ktgt -A,kinv
 | --- | --- |
 | Target not found | `KollectTarget` is namespaced — ensure namespace matches |
 | Profile not found | `profileRef` must name a `KollectProfile` in the **same namespace** as the Target |
-| No export in Git | Missing `secretRef`, sink `ConnectionVerified=False`, or inventory export conditions (`SinkNotFound`, `SinkUnreachable`) — see `kubectl describe kollectsink` and inventory `status.conditions` |
-| Empty item count | No Deployments match selector, or informer not registered |
+| Sink not found | `sinkRefs` must name a `KollectSink` in the **same namespace** as the Inventory |
+| No export | Missing DSN/`secretRef`, `ConnectionVerified=False`, or `SinkReachable=False` with reason `SinkNotFound` / `SinkUnreachable` — see `kubectl describe kollectsink` and inventory `status.conditions` |
+| Empty item count | No Deployments match selector, or target suspended / scope denied |
 | Namespace skipped | `kollect.dev/namespace-watch: disabled` or `watchMode: OptIn` without `enabled` label |
 
 See [QUICKSTART.md](../QUICKSTART.md) and [DEVELOPMENT.md](../DEVELOPMENT.md) for cluster setup
 and log inspection.
+
+## Related
+
+- [Spoke cluster inventory](spoke-cluster-inventory.md) — Helm `mode: single` install narrative
+- [Postgres state store](postgres-state-store.md) — DSN secret and delete reconciliation
+- [Connection test](connection-test.md) — `ConnectionVerified` and `KollectConnectionTest`
+- [KollectProfile](../crds/kollectprofile.md) · [KollectSink](../crds/kollectsink.md) ·
+  [KollectTarget](../crds/kollecttarget.md) · [KollectInventory](../crds/kollectinventory.md)
+- [CR reference](../CR-REFERENCE.md)
+- [ADR-0703: Platform architecture pivot](../adr/0703-platform-architecture-pivot.md)
+- [ADR-0603: Performance and scalability](../adr/0603-performance-scalability.md)
