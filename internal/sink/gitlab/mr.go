@@ -56,8 +56,53 @@ func ResolveProjectRef(endpoint string) (ProjectRef, error) {
 	return ProjectRef{Path: path}, nil
 }
 
+// DefaultBranchPrefix is used when MergeRequestConfig.BranchPrefix is empty.
+const DefaultBranchPrefix = "kollect"
+
+// ValidateMergeRequestConfig checks MR settings before export.
+func ValidateMergeRequestConfig(cfg MergeRequestConfig) error {
+	switch cfg.Mode {
+	case "", MergeRequestModeDirectPush:
+		return nil
+	case MergeRequestModeBranchMR:
+		if strings.TrimSpace(cfg.TargetBranch) == "" {
+			return fmt.Errorf("gitlab: merge_request mode requires targetBranch")
+		}
+		return nil
+	default:
+		return fmt.Errorf("gitlab: unknown merge request mode %q", cfg.Mode)
+	}
+}
+
+// BranchNameForExport builds a feature branch path for inventory exports.
+func BranchNameForExport(prefix, inventoryNamespace, inventoryName string) string {
+	p := strings.Trim(strings.TrimSpace(prefix), "/")
+	if p == "" {
+		p = DefaultBranchPrefix
+	}
+	ns := strings.Trim(strings.TrimSpace(inventoryNamespace), "/")
+	name := strings.Trim(strings.TrimSpace(inventoryName), "/")
+	return fmt.Sprintf("%s/%s/%s", p, ns, name)
+}
+
+// MergeRequestTitle renders the MR title from a template or a default.
+func MergeRequestTitle(template, inventoryNamespace, inventoryName string) string {
+	tpl := strings.TrimSpace(template)
+	if tpl == "" {
+		return fmt.Sprintf("kollect inventory export: %s/%s", inventoryNamespace, inventoryName)
+	}
+	out := strings.ReplaceAll(tpl, "{namespace}", inventoryNamespace)
+	return strings.ReplaceAll(out, "{name}", inventoryName)
+}
+
 // EnsureMergeRequest opens or updates a merge request for branch after a git push.
 // Stub — full workflow deferred to Phase 2 (see docs/ROADMAP.md GitLab MR section).
-func EnsureMergeRequest(_ context.Context, _ Config, _ MergeRequestConfig, _ string) error {
-	return fmt.Errorf("gitlab: merge request workflow not implemented (direct push only)")
+func EnsureMergeRequest(_ context.Context, _ Config, cfg MergeRequestConfig, _ string) error {
+	if err := ValidateMergeRequestConfig(cfg); err != nil {
+		return err
+	}
+	if cfg.Mode == MergeRequestModeBranchMR {
+		return fmt.Errorf("gitlab: merge request workflow not implemented (direct push only)")
+	}
+	return nil
 }
