@@ -37,7 +37,7 @@ type Registry struct {
 // NewRegistry returns a registry with built-in backends registered.
 func NewRegistry() *Registry {
 	r := &Registry{factories: make(map[string]Factory)}
-	r.Register("git", newGitBackend)
+	r.Register(git.TypeName, newGitBackend)
 	r.Register("gitlab", newGitLabBackend)
 	r.Register("s3", newS3Backend)
 	r.Register("gcs", newGCSBackend)

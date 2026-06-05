@@ -239,6 +239,8 @@ anchor on an older commit.
 
 ### Refactoring
 
+- **controller:** Remove --export-debounce flag [d5a01fa](https://github.com/konih/kollect/commit/d5a01fa5cf631431df16536de9bc34b3b563b552)
+
 - Unify bearer auth and brittle error assertions [d382a28](https://github.com/konih/kollect/commit/d382a28ff5e9188e1547f2f176857bb0c8752047)
 
 - **sink:** Extract shared RunExportItems pipeline [d9494ae](https://github.com/konih/kollect/commit/d9494ae79a68065a9122f8cf538a13f877045930)

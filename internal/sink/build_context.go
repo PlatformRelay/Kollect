@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/git"
 )
 
 const DefaultSecretNamespace = "kollect-system" //nolint:gosec // namespace name, not a credential
@@ -99,7 +100,7 @@ func BuildContextFromSpec(
 }
 
 func gitAuthSecretRef(spec kollectdevv1alpha1.KollectSinkSpec) *kollectdevv1alpha1.SecretReference {
-	if spec.Type != "git" || spec.Git == nil || spec.Git.Auth == nil {
+	if spec.Type != git.TypeName || spec.Git == nil || spec.Git.Auth == nil {
 		return nil
 	}
 

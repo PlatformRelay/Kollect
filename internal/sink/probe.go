@@ -24,7 +24,7 @@ func RunConnectionTest(
 	buildCtx BuildContext,
 ) (string, error) {
 	switch spec.Type {
-	case "git":
+	case git.TypeName:
 		cfg, err := git.ConfigFromSpec(spec, buildCtx.CAPEM)
 		if err != nil {
 			return "", err
