@@ -50,3 +50,11 @@ repos:
         files: \.(md|markdown)$
         exclude: ^(site/|vendor/|references/|agent-context/|CHANGELOG\.md)
         pass_filenames: false
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        args: [--severity=warning]
+        files: ^(hack/|\.devcontainer/).*\.sh$
+        exclude: ^references/

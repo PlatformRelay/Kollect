@@ -5,7 +5,6 @@
 set -euo pipefail
 
 VERSION="${HELM_VERSION:-v3.17.3}"
-VERSION_NO_V="${VERSION#v}"
 
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"
