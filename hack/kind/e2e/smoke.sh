@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../common.sh"
 
 readonly CLUSTER_NAME="${CLUSTER_NAME:-kollect-e2e}"
-readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-120s}"
+readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-180s}"
 
 _kind_require kubectl
 kind_use_context "$CLUSTER_NAME"

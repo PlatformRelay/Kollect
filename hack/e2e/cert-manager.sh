@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../kind/common.sh"
 
 readonly CLUSTER_NAME="${CLUSTER_NAME:-kollect-e2e}"
-readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-120s}"
+readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-180s}"
 readonly CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.16.2}"
 readonly CERT_TEST_NS="${CERT_TEST_NS:-cert-test}"
 

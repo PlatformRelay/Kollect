@@ -34,9 +34,15 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
       - name: Create kind cluster and install operator
+        env:
+          KIND_CLUSTER_WAIT: 300s
+          KOLLECT_HELM_TIMEOUT: 300s
+          KOLLECT_MANAGER_WAIT: 300s
         run: bash hack/kind/e2e/setup.sh
 
       - name: Run e2e smoke checks
+        env:
+          WAIT_TIMEOUT: 180s
         run: bash hack/kind/e2e/smoke.sh
 
       - name: Git export SHA assert
@@ -59,6 +65,12 @@ jobs:
 
       - name: Micro-benchmarks
         run: task bench
+
+      - name: Performance snapshot
+        continue-on-error: true
+        run: task perf-report
+        env:
+          CI: "true"
 
       - name: Upload bench artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

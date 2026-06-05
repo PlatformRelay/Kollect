@@ -47,6 +47,11 @@ flowchart TB
 Both clusters pin the node image to the Kubernetes minor version derived from `go.mod`
 (`k8s.io/api` → `kindest/node:v1.x.x`), keeping local dev, envtest, and CI aligned.
 
+Install waits are configurable via `KIND_CLUSTER_WAIT`, `KOLLECT_HELM_TIMEOUT`, and
+`KOLLECT_MANAGER_WAIT` (default **300s** each in `common.sh`). Post-install smoke scripts use
+`WAIT_TIMEOUT` (default **180s**). Cert-manager Certificate collection runs in `smoke.sh` **after**
+Helm install — it does not block operator startup (`webhooks.enabled: false` in e2e values).
+
 ## Quick start
 
 ```sh

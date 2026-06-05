@@ -24,6 +24,11 @@ readonly KOLLECT_RELEASE="${KOLLECT_RELEASE:-kollect}"
 readonly KOLLECT_IMAGE="${KOLLECT_IMAGE:-kollect-controller-manager:dev}"
 readonly KOLLECT_HELM_CHART="${KOLLECT_HELM_CHART:-${REPO_ROOT}/charts/kollect}"
 
+# Bounded waits for kind/Helm install (CI runners can exceed legacy 120s under load).
+readonly KIND_CLUSTER_WAIT="${KIND_CLUSTER_WAIT:-300s}"
+readonly KOLLECT_HELM_TIMEOUT="${KOLLECT_HELM_TIMEOUT:-300s}"
+readonly KOLLECT_MANAGER_WAIT="${KOLLECT_MANAGER_WAIT:-300s}"
+
 # Dev ingress NodePorts (must match hack/kind/dev/cluster.yaml extraPortMappings).
 readonly KIND_HOST_HTTP_PORT="${KIND_HOST_HTTP_PORT:-30080}"
 readonly KIND_HOST_HTTPS_PORT="${KIND_HOST_HTTPS_PORT:-30443}"
@@ -85,7 +90,7 @@ kind_create_cluster() {
     --name "$name" \
     --config "$config" \
     --image "$KIND_NODE_IMAGE" \
-    --wait 120s
+    --wait "$KIND_CLUSTER_WAIT"
   kind_use_context "$name"
 }
 
@@ -114,12 +119,24 @@ kollect_load_image() {
   kind load docker-image "$KOLLECT_IMAGE" --name "$cluster"
 }
 
+kollect_diagnose_install_failure() {
+  _kind_log "Install diagnostics (namespace ${KOLLECT_NAMESPACE})..."
+  kubectl get pods,deployments,events -n "$KOLLECT_NAMESPACE" --sort-by=.metadata.creationTimestamp 2>/dev/null || true
+  local deploy
+  deploy="$(kubectl get deployment -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  if [[ -n "$deploy" ]]; then
+    kubectl describe deployment "$deploy" -n "$KOLLECT_NAMESPACE" 2>/dev/null || true
+  fi
+  kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=80 2>/dev/null || true
+}
+
 kollect_helm_install() {
   local values_file="$1"
   shift || true
 
-  _kind_log "Installing kollect via Helm (values: ${values_file})..."
-  helm upgrade --install "$KOLLECT_RELEASE" "$KOLLECT_HELM_CHART" \
+  _kind_log "Installing kollect via Helm (values: ${values_file}, timeout ${KOLLECT_HELM_TIMEOUT})..."
+  if ! helm upgrade --install "$KOLLECT_RELEASE" "$KOLLECT_HELM_CHART" \
     --namespace "$KOLLECT_NAMESPACE" \
     --create-namespace \
     -f "$values_file" \
@@ -127,11 +144,29 @@ kollect_helm_install() {
     --set "image.tag=${KOLLECT_IMAGE##*:}" \
     --set image.pullPolicy=IfNotPresent \
     "$@" \
-    --wait --timeout 120s
+    --wait --timeout "$KOLLECT_HELM_TIMEOUT"; then
+    kollect_diagnose_install_failure
+    return 1
+  fi
+}
+
+kollect_wait_crds_established() {
+  local timeout="${1:-$KOLLECT_MANAGER_WAIT}"
+  _kind_log "Waiting for kollect CRDs Established (timeout ${timeout})..."
+  local crd
+  for crd in \
+    kollectprofiles.kollect.dev \
+    kollecttargets.kollect.dev \
+    kollectinventories.kollect.dev \
+    kollectsinks.kollect.dev \
+    kollecthubs.kollect.dev \
+    kollectscopes.kollect.dev; do
+    kubectl wait --for=condition=Established "crd/${crd}" --timeout="$timeout"
+  done
 }
 
 kollect_wait_manager_ready() {
-  local timeout="${1:-120s}"
+  local timeout="${1:-$KOLLECT_MANAGER_WAIT}"
   _kind_log "Waiting for manager pod Ready (timeout ${timeout})..."
   kubectl wait --for=condition=Ready pod \
     -l app.kubernetes.io/name=kollect \
@@ -146,6 +181,7 @@ kollect_install_base() {
   kollect_build_image
   kollect_load_image "$cluster"
   kollect_helm_install "$values_file" "$@"
+  kollect_wait_crds_established
   kollect_wait_manager_ready
 }
 
