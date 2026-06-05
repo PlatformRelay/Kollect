@@ -20,8 +20,7 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace
 | `transport.type` | Hub/spoke transport backend | `inprocess` |
 
 Export debouncing is configured per **`KollectInventory.spec.exportMinInterval`** (CRD default
-**30s**). The chart does not pass the deprecated manager `--export-debounce` flag; use the Inventory
-CR or `extraArgs` only for local debugging.
+**30s**). Set the field on the Inventory CR; the chart does not expose a global manager flag.
 
 See `values.yaml` for the full list. Critical values are validated by
 [`values.schema.json`](values.schema.json); CI runs `task helm-test` (`helm lint` + `helm-unittest`).

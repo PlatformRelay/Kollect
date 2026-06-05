@@ -106,8 +106,7 @@ bumping versions. Common upgrade touchpoints:
 | `webhooks.certManager.create` | Clusters without cert-manager need the self-signed bootstrap path |
 
 !!! info "Export debouncing"
-    Debounce interval is per **`KollectInventory.spec.exportMinInterval`** (CRD default **30s**). The
-    chart does not set the deprecated manager `--export-debounce` flag.
+    Debounce interval is per **`KollectInventory.spec.exportMinInterval`** (CRD default **30s**).
 
 ## GitOps and CI/CD
 

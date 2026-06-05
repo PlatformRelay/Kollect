@@ -127,7 +127,6 @@ func TestKollectClusterInventoryReconciler_exportsRollupToSink(t *testing.T) {
 		Store:    store,
 		Engine:   engine,
 		Registry: reg,
-		Options:  RuntimeOptions{ExportDebounce: 0},
 	}
 
 	if _, recErr := rec.Reconcile(context.Background(), reconcile.Request{

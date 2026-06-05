@@ -257,12 +257,7 @@ func (r *KollectClusterInventoryReconciler) clusterScopeFloor(ctx context.Contex
 func (r *KollectClusterInventoryReconciler) exportDebounce(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 ) time.Duration {
-	fallback := DefaultRuntimeOptions().ExportDebounce
-	if r.Options.ExportDebounce > 0 {
-		fallback = r.Options.ExportDebounce
-	}
-
-	return validation.ClusterExportMinIntervalFor(&inv.Spec, fallback)
+	return validation.ClusterExportMinIntervalFor(&inv.Spec, 0)
 }
 
 func (r *KollectClusterInventoryReconciler) collectRollupItems(

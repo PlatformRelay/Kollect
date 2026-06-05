@@ -109,7 +109,7 @@ flowchart LR
 - **`kollect_export_duration_seconds`** default histogram buckets (seconds):
   `.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10` — override via manager flag if load tests require.
 - **Export debounce:** **`KollectInventory.spec.exportMinInterval`** — default **30s**; material-change
-  bypass ([ADR-0703](0703-platform-architecture-pivot.md)) — **not** global `--export-debounce`.
+  bypass ([ADR-0703](0703-platform-architecture-pivot.md)).
 - **Connection test GC:** **`KollectConnectionTest.spec.ttlSecondsAfterFinished`** — default **300**.
 
 ## Open questions

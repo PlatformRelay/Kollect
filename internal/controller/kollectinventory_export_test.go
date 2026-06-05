@@ -98,7 +98,6 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 		Scheme:   scheme,
 		Store:    store,
 		Registry: reg,
-		Options:  RuntimeOptions{ExportDebounce: 0},
 	}
 
 	_, err := rec.Reconcile(context.Background(), reconcile.Request{

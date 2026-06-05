@@ -12,7 +12,7 @@ func TestDefaultRuntimeOptions(t *testing.T) {
 	t.Parallel()
 
 	opts := DefaultRuntimeOptions()
-	if opts.MaxConcurrentTarget != 5 || opts.ExportDebounce != 30*time.Second {
+	if opts.MaxConcurrentTarget != 5 {
 		t.Fatalf("defaults = %#v", opts)
 	}
 }

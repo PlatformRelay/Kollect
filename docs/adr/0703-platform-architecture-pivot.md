@@ -124,8 +124,7 @@ ordering. Samples: `config/samples/kollect_v1alpha1_kollectprofile_argo-applicat
 Event-driven collection must not cause **export storms** to Git/Postgres/Kafka.
 
 - Coalesce exports **per `KollectInventory`** via **`spec.exportMinInterval`** (duration; CRD default
-  **`30s`** when unset). Operator `--export-debounce` is a **deprecated fallback** only when the
-  field is omitted on older manifests; remove from Helm chart once all samples use the spec field.
+  **`30s`** when unset).
 - **Immediate export** when inventory payload materially changes (generation/checksum bump) even
   inside the min interval.
 - Per-target collection updates in-memory store immediately; export is **debounced**.

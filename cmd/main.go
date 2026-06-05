@@ -70,7 +70,6 @@ func main() {
 	var maxConcurrentClusterTarget int
 	var maxConcurrentClusterInventory int
 	var maxConcurrentHub int
-	var exportDebounce time.Duration
 	var reconcileRateLimit time.Duration
 	var enablePprof bool
 	var pprofAddr string
@@ -120,8 +119,6 @@ func main() {
 		"Max concurrent KollectClusterInventory reconciles.")
 	flag.IntVar(&maxConcurrentHub, "max-concurrent-reconciles-hub", 2,
 		"Max concurrent KollectRemoteCluster reconciles.")
-	flag.DurationVar(&exportDebounce, "export-debounce", 30*time.Second,
-		"Deprecated fallback export debounce when KollectInventory.spec.exportMinInterval is unset.")
 	flag.DurationVar(&reconcileRateLimit, "reconcile-rate-limit", 0,
 		"Base delay for per-item exponential reconcile failure rate limiting (0 = controller-runtime default 5ms).")
 	flag.BoolVar(&enablePprof, "enable-pprof", false,
@@ -297,7 +294,6 @@ func main() {
 		MaxConcurrentClusterTarget:    maxConcurrentClusterTarget,
 		MaxConcurrentClusterInventory: maxConcurrentClusterInventory,
 		MaxConcurrentHub:              maxConcurrentHub,
-		ExportDebounce:                exportDebounce,
 		ReconcileRateLimitBase:        reconcileRateLimit,
 	}
 

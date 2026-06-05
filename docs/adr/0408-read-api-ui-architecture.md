@@ -84,8 +84,7 @@ A React single-page app in monorepo **`ui/`** (OQ-5) that:
 - Is **read-only in v0.2** — observability console; no Target create/apply forms; onboarding is
   copy-YAML + docs links.
 - Ships as a **separate static container image** `ghcr.io/konih/kollect-ui` — **not** embedded in the
-  operator binary for MVP ([ADR-0409](0409-kollect-ui-deployment.md)). Operator-embedded UI remains a
-  deferred option if maintainers reopen OQ-1.
+  operator binary ([ADR-0409](0409-kollect-ui-deployment.md)).
 
 Stack, testing pyramid, and bundle budget: [ADR-0410](0410-ui-engineering-and-quality-gates.md).
 

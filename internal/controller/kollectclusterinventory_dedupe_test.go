@@ -159,7 +159,6 @@ func TestKollectClusterInventoryReconciler_dedupesCrossTargetRows(t *testing.T) 
 		Store:    store,
 		Engine:   engine,
 		Registry: reg,
-		Options:  RuntimeOptions{ExportDebounce: 0},
 	}
 
 	if _, recErr := rec.Reconcile(context.Background(), reconcile.Request{
@@ -361,7 +360,6 @@ func TestKollectClusterInventoryReconciler_keepAllPreservesCrossTargetRows(t *te
 		Store:    store,
 		Engine:   engine,
 		Registry: reg,
-		Options:  RuntimeOptions{ExportDebounce: 0},
 	}
 
 	if _, recErr := rec.Reconcile(context.Background(), reconcile.Request{

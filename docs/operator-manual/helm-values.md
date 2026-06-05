@@ -39,7 +39,7 @@ knobs; the authoritative full list lives in the chart tree.
 | `sinkDefaults.connectionTest` | Default for sample `KollectSink` probes | `false` |
 
 Export debouncing is configured per **`KollectInventory.spec.exportMinInterval`** (CRD default
-**30s**). The chart does not pass the deprecated manager `--export-debounce` flag.
+**30s**).
 
 ## Per-team install (recommended default)
 

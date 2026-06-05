@@ -43,12 +43,7 @@ type KollectInventoryReconciler struct {
 }
 
 func (r *KollectInventoryReconciler) exportDebounce(inv *kollectdevv1alpha1.KollectInventory) time.Duration {
-	fallback := DefaultRuntimeOptions().ExportDebounce
-	if r.Options.ExportDebounce > 0 {
-		fallback = r.Options.ExportDebounce
-	}
-
-	return validation.ExportMinIntervalFor(&inv.Spec, fallback)
+	return validation.ExportMinIntervalFor(&inv.Spec, 0)
 }
 
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories,verbs=get;list;watch;create;update;patch;delete

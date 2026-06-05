@@ -41,7 +41,7 @@ exponential failure rate limiter (5ms base, 1000s cap). Set a positive duration 
 
 **`KollectInventory.spec.exportMinInterval`** (default **`30s`**) coalesces export to external sinks
 per inventory. Material payload changes (generation/checksum bump) may export immediately inside the
-min interval. **Not** a global `--export-debounce` flag ([ADR-0703](adr/0703-platform-architecture-pivot.md)).
+min interval ([ADR-0703](adr/0703-platform-architecture-pivot.md)).
 Lower the interval for fresher Postgres/Kafka exports; raise to reduce sink API load. At 100+ spokes,
 debouncing is **mandatory** on the hub path to avoid export storms.
 

@@ -52,8 +52,8 @@ spoke**.
 3. **Metrics:** Add reconcile duration histogram, informer indexer size gauge, and export byte
    counter alongside existing export latency histogram. Catalog in [PERFORMANCE.md](../PERFORMANCE.md)
    with PromQL hints for operators.
-4. **Export debounce:** Per **`KollectInventory.spec.exportMinInterval`** (default **30s**); legacy
-   `--export-debounce` flag deprecated once field is wired ([ADR-0703](0703-platform-architecture-pivot.md)).
+4. **Export debounce:** Per **`KollectInventory.spec.exportMinInterval`** (default **30s**)
+   ([ADR-0703](0703-platform-architecture-pivot.md)).
 5. **Informers:** Scope dynamic informers to a single namespace when all targets for a GVR agree;
    otherwise watch all namespaces and filter by `namespaceSelector` at dispatch. Paginate initial
    `List` where client-go allows.

@@ -80,8 +80,7 @@ sequenceDiagram
 | `metadata.generation` bump | — | Immediate export (spec edit) |
 | Payload checksum change | — | Immediate export (material inventory change) |
 
-Operator `--export-debounce` is a **deprecated fallback** when the spec field is unset on legacy
-manifests.
+Export debouncing uses **`spec.exportMinInterval`** only (CRD default **30s** when unset).
 
 ---
 

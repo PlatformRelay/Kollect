@@ -11,14 +11,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// RuntimeOptions configures controller parallelism, export debounce, and workqueue rate limiting.
+// RuntimeOptions configures controller parallelism and workqueue rate limiting.
 type RuntimeOptions struct {
 	MaxConcurrentTarget           int
 	MaxConcurrentInventory        int
 	MaxConcurrentClusterTarget    int
 	MaxConcurrentClusterInventory int
 	MaxConcurrentHub              int
-	ExportDebounce                time.Duration
 	// ReconcileRateLimitBase, when > 0, sets the base delay for the per-item exponential
 	// failure rate limiter on each controller. When zero, controller-runtime defaults apply
 	// (5ms base, 1000s max — see controller-runtime pkg/controller/controller.go).
@@ -33,7 +32,6 @@ func DefaultRuntimeOptions() RuntimeOptions {
 		MaxConcurrentClusterTarget:    2,
 		MaxConcurrentClusterInventory: 2,
 		MaxConcurrentHub:              2,
-		ExportDebounce:                30 * time.Second,
 	}
 }
 

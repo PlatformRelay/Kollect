@@ -103,7 +103,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | Argo contract test | **First** — golden fixture locks JSONPath + `history` ordering |
 | Argo samples | Profile `argo-application-summary` + Target `team-argo-applications` |
 | `KollectConnectionTest` GC | **`spec.ttlSecondsAfterFinished`** — default **300s** |
-| Export debounce | **Per Inventory** — `spec.exportMinInterval`, default **30s**; **not** global `--export-debounce` |
+| Export debounce | **Per Inventory** — `spec.exportMinInterval`, default **30s** |
 | Hub federated mTLS | **Deferred** — ADR-0503 push-first path stands |
 | Cluster rollup | **`KollectClusterInventory`** + **`KollectClusterTarget`** (no namespaced `inventoryRef` hack) |
 
@@ -178,7 +178,7 @@ the corresponding code merges.
 - [x] **Argo `Application` contract test** — `internal/collect/argo_application_contract_test.go`
 - [x] **Argo samples** — profile + target under `config/samples/`
 - [x] **`KollectConnectionTest` TTL** — API + reconciler GC (`ttlSecondsAfterFinished`, default 300s)
-- [x] **`exportMinInterval`** on `KollectInventory` — wired; global `--export-debounce` removed from Helm chart
+- [x] **`exportMinInterval`** on `KollectInventory` — wired; manager `--export-debounce` flag removed (pre-alpha)
 
 ---
 
