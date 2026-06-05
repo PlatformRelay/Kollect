@@ -1,22 +1,6 @@
 import type { ExportStatus } from "@/api/inventory";
-
-type ExportPhase = "ok" | "degraded" | "unknown";
-
-const PHASE_STYLES: Record<ExportPhase, string> = {
-  ok: "bg-emerald-100 text-emerald-800",
-  degraded: "bg-amber-100 text-amber-900",
-  unknown: "bg-slate-100 text-slate-700",
-};
-
-function deriveExportPhase(status: ExportStatus["status"]): ExportPhase {
-  if (status === "ok") {
-    return "ok";
-  }
-  if (status === "degraded") {
-    return "degraded";
-  }
-  return "unknown";
-}
+import { HealthBadge } from "@/components/status/HealthBadge";
+import { deriveHealthFromExportStatus } from "@/components/status/health";
 
 function formatRelativeTime(iso?: string): string {
   if (!iso) {
@@ -56,7 +40,7 @@ export function ExportStatusBar({ statuses }: ExportStatusBarProps) {
       className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
     >
       {statuses.map((entry) => {
-        const phase = deriveExportPhase(entry.status);
+        const health = deriveHealthFromExportStatus(entry.status);
         const sinkLabel = entry.sinkNamespace
           ? `${entry.sinkNamespace}/${entry.sinkName}`
           : entry.sinkName;
@@ -68,12 +52,7 @@ export function ExportStatusBar({ statuses }: ExportStatusBarProps) {
             title={entry.message}
           >
             <span className="font-medium text-kollect-navy">{sinkLabel}</span>
-            <span
-              role="status"
-              className={`inline-flex rounded px-2 py-0.5 font-medium ${PHASE_STYLES[phase]}`}
-            >
-              {entry.status}
-            </span>
+            <HealthBadge health={health} label={entry.status} />
             <span className="text-slate-500">{formatRelativeTime(entry.lastExportTime)}</span>
           </div>
         );
