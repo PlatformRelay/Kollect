@@ -1,0 +1,21 @@
+[
+  {
+    "sinkName": "git-main",
+    "sinkNamespace": "team-a",
+    "status": "ok",
+    "lastExportTime": "2026-06-05T11:55:00Z"
+  },
+  {
+    "sinkName": "s3-backup",
+    "sinkNamespace": "team-a",
+    "status": "degraded",
+    "lastExportTime": "2026-06-05T10:30:00Z",
+    "message": "last push failed: connection reset"
+  },
+  {
+    "sinkName": "prometheus",
+    "sinkNamespace": "team-a",
+    "status": "unknown",
+    "message": "no export attempts yet"
+  }
+]

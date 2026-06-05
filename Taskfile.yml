@@ -249,11 +249,19 @@ tasks:
       - task: helm-unittest
 
   ui-dev:
-    desc: Start the kollect-ui Vite dev server (MSW optional via VITE_ENABLE_MSW=true)
+    desc: Start kollect-ui dev server with MSW mock Read API (VITE_MOCK_API=true)
     dir: ui
+    env:
+      VITE_MOCK_API: "true"
     cmds:
       - npm ci
       - npm run dev
+
+  ui-mock-prism:
+    desc: Start Prism mock HTTP server for Read API contract (port 4010)
+    cmds:
+      - npm ci --prefix ui
+      - npx --prefix ui @stoplight/prism-cli mock openapi/v1alpha1/inventory.yaml -p 4010
 
   build-ui:
     desc: Build the kollect-ui SPA to ui/dist

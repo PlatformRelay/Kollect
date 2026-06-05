@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "kollect.dev/v1alpha1",
+  "items": [
+    {
+      "name": "deploys",
+      "namespace": "team-a",
+      "generation": 3,
+      "observedGeneration": 3,
+      "conditions": [
+        {
+          "type": "Synced",
+          "status": "True",
+          "reason": "Collecting",
+          "message": "Collecting resources",
+          "lastTransitionTime": "2026-06-05T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "services",
+      "namespace": "team-a",
+      "generation": 2,
+      "observedGeneration": 2,
+      "conditions": [
+        {
+          "type": "Synced",
+          "status": "True",
+          "reason": "Collecting",
+          "message": "Collecting resources",
+          "lastTransitionTime": "2026-06-05T11:00:00Z"
+        }
+      ]
+    },
+    {
+      "name": "legacy-batch",
+      "namespace": "team-a",
+      "generation": 5,
+      "observedGeneration": 4,
+      "conditions": [
+        {
+          "type": "Synced",
+          "status": "False",
+          "reason": "ReconcileError",
+          "message": "RBAC: cannot list cronjobs in namespace batch",
+          "lastTransitionTime": "2026-06-05T09:15:00Z"
+        },
+        {
+          "type": "Degraded",
+          "status": "True",
+          "reason": "PartialSync",
+          "message": "2 of 5 GVKs failing",
+          "lastTransitionTime": "2026-06-05T09:15:00Z"
+        }
+      ]
+    },
+    {
+      "name": "deploys",
+      "namespace": "team-b",
+      "generation": 1,
+      "observedGeneration": 1,
+      "conditions": [
+        {
+          "type": "Synced",
+          "status": "True",
+          "reason": "Collecting",
+          "message": "Collecting resources",
+          "lastTransitionTime": "2026-06-05T08:00:00Z"
+        }
+      ]
+    }
+  ]
+}
