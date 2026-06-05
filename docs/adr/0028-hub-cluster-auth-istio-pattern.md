@@ -126,18 +126,13 @@ sequenceDiagram
   end
 ```
 
-**Ingest SAR shape (resolved):** hub middleware accepts the request when **any** of these checks
-allow the authenticated subject:
+**Ingest SAR shape (resolved 2026-06-05 session 4):** hub middleware requires **`create`** on
+**`kollectremoteclusters.kollect.dev`** in the hub namespace for the authenticated spoke service
+account (after successful `TokenReview` and `X-Kollect-Cluster-Id` match).
 
-| Check | Attributes |
-| --- | --- |
-| HTTP ingest URL | non-resource `POST` on `/hub/v1alpha1/reports` |
-| Remote cluster registration | resource `create` on `kollectremoteclusters.kollect.dev` |
-| Remote cluster update | resource `patch` on `kollectremoteclusters.kollect.dev` |
-
-Platform teams grant spoke service accounts a `ClusterRole` with one of the above verbs (typically
-`patch` on `kollectremoteclusters` in the hub namespace, or a custom non-resource rule for the ingest
-path).
+Platform teams grant spoke SAs a `Role` or `ClusterRole` with **`create`** on
+`kollectremoteclusters` in the hub platform namespace. Pull registration via
+`credentialsSecretRef` remains optional and separate.
 
 ## Optional pull registration (Istio-style)
 

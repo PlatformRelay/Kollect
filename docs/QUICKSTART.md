@@ -156,8 +156,12 @@ the repo and [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Next steps
 
+- [CR-REFERENCE.md](CR-REFERENCE.md) — per-kind fields, RBAC, failure modes
+- [DATA-FLOWS.md](DATA-FLOWS.md) — export debouncing and collection diagrams
+- [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) — locked architecture summary
 - [DEVELOPMENT.md](DEVELOPMENT.md) — codegen, tests, lint, pitfalls
 - [ARCHITECTURE.md](ARCHITECTURE.md) — CRD model, reconciliation, portal use case
+- [ROADMAP.md](ROADMAP.md) — build-order phases
 - [examples/deployment-inventory.md](examples/deployment-inventory.md) — annotated YAML walkthrough
 
 ## Cleanup

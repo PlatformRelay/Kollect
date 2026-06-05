@@ -58,7 +58,7 @@ flowchart TD
 | `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | `KollectClusterProfile` | Cluster | No | **Reserved** — platform schemas |
 | `KollectClusterSink` | Cluster | No | **Reserved** — shared backends |
-| `KollectClusterInventory` | Cluster | Yes | **Reserved** — platform rollup |
+| `KollectClusterInventory` | Cluster | Webhook only | Platform rollup — pairs with `KollectClusterTarget` |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
 | ~~`KollectHub`~~ | — | **Rejected / stub** | API types may remain in tree; **not** product surface — Helm `mode: hub` ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0011](adr/0011-doc-sync-templating.md) |
@@ -116,9 +116,10 @@ Key properties:
 
 ## Sinks (priority)
 
-1. **Postgres / Kafka** — primary portal and automation integration  
-2. **Git / GitLab** — audit trail and compliance diffs  
-3. **HTTP** — optional debug ([ADR-0032](adr/0032-platform-architecture-pivot.md))
+1. **Postgres / Kafka** — portals, hub merge, automation at scale  
+2. **Git** — recommended for **small single-cluster** installs without DB/Kafka  
+3. **GitLab** — Phase 2 enterprise Git host (internal CA via `tls.caSecretRef`)  
+4. **HTTP** — optional debug ([ADR-0032](adr/0032-platform-architecture-pivot.md))
 
 ## Multi-cluster (build order)
 

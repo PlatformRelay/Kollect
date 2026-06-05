@@ -8,9 +8,12 @@ fit together.
 ## Start here
 
 - **[Quick start](QUICKSTART.md)** — kind cluster, operator install, sample CRs
+- **[CR reference](CR-REFERENCE.md)** — per-kind fields, RBAC, samples, failure modes
+- **[Data flows](DATA-FLOWS.md)** — debouncing, collection pipeline, scope enforcement
 - **[Platform decisions](PLATFORM-DECISIONS.md)** — locked architecture (2026-06-05 pivot)
 - **[Development guide](DEVELOPMENT.md)** — build, test, codegen, lint
 - **[Architecture](ARCHITECTURE.md)** — CRD model, reconciliation, build order
+- **[Roadmap](ROADMAP.md)** — build-order phases (not release milestones)
 - **[Requirements](REQUIREMENTS.md)** — MVP export path, Postgres/Kafka primary
 - **[Performance](PERFORMANCE.md)** — scale targets, metrics, pprof, bounded load tests
 

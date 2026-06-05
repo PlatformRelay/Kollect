@@ -1,5 +1,13 @@
 # kollect
 
+[![CI](https://github.com/konih/kollect/actions/workflows/ci.yaml/badge.svg)](https://github.com/konih/kollect/actions/workflows/ci.yaml)
+[![Docs](https://github.com/konih/kollect/actions/workflows/docs.yaml/badge.svg)](https://github.com/konih/kollect/actions/workflows/docs.yaml)
+[![License: MIT](https://img.shields.io/github/license/konih/kollect)](https://github.com/konih/kollect/blob/main/LICENSE)
+[![Go](https://img.shields.io/github/go-mod/go-version/konih/kollect)](https://pkg.go.dev/github.com/konih/kollect)
+[![Go Reference](https://pkg.go.dev/badge/github.com/konih/kollect.svg)](https://pkg.go.dev/github.com/konih/kollect)
+[![Docs site](https://img.shields.io/badge/docs-konih.github.io%2Fkollect-blue)](https://konih.github.io/kollect/)
+[![Container](https://img.shields.io/badge/ghcr.io-konih%2Fkollect-2496ED?logo=docker&logoColor=white)](https://github.com/konih/kollect/pkgs/container/kollect)
+
 Generic Kubernetes **inventory export operator** (`kollect.dev/v1alpha1`).
 
 Platform and application teams need **stakeholder-visible inventory** without bespoke collectors
@@ -34,12 +42,17 @@ Full step-by-step guide with verification and maturity notes:
 | Guide | Description |
 | --- | --- |
 | [Quick start](docs/QUICKSTART.md) | Install on kind, apply samples |
+| [CR reference](docs/CR-REFERENCE.md) | Per-kind fields, RBAC, failure modes |
+| [Data flows](docs/DATA-FLOWS.md) | Debouncing, collection, scope gates |
+| [Platform decisions](docs/PLATFORM-DECISIONS.md) | Locked architecture (2026-06-05) |
 | [Development](docs/DEVELOPMENT.md) | Build, test, codegen, lint |
 | [Architecture](docs/ARCHITECTURE.md) | CRD model and reconciliation |
+| [Roadmap](docs/ROADMAP.md) | Build-order phases |
 | [Example walkthrough](docs/examples/deployment-inventory.md) | Profile → sink → target → inventory |
 | [ADRs](docs/adr/) | Architecture decisions |
 
 Preview docs locally: `mkdocs serve` (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#documentation-site-mkdocs)).
+Published site: **[konih.github.io/kollect](https://konih.github.io/kollect/)**.
 
 ## Project layout
 
