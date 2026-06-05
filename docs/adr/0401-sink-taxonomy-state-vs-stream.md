@@ -113,6 +113,10 @@ Otherwise, no hub. This supersedes the "hub is the multi-cluster answer" framing
 
 ## Open questions
 
-- **OPEN:** Parquet attribute schema — single JSON column vs typed columns per profile attribute?
+- **DECIDED (2026-06-05):** Parquet schema is **hybrid** — typed identity columns (`cluster`,
+  `namespace`, `name`, `uid`, `group/version/kind`, `exportedAt`) + a JSON/variant `attributes` column,
+  and a **promoted allowlist of hot attributes** (e.g. `image`, `version`) materialized as typed columns
+  from the start. Stable across profiles; no per-profile schema migration ([ADR-0405](0405-export-data-contract.md)).
+- **DECIDED (2026-06-05):** The NATS emit channel is a **JetStream stream** (not KV) — durable,
+  replayable, with `Nats-Msg-Id` dedupe ([ADR-0502](0502-lean-queue-transport.md)).
 - **OPEN:** Compaction — operator-run job, external (S3 Tables auto-compaction), or documented only?
-- **OPEN:** NATS KV vs JetStream stream for the emit channel — KV listing cost on large buckets.

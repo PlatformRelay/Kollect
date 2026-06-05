@@ -67,7 +67,10 @@ my CRDs" one.
 
 ## Open questions
 
-- **OPEN:** Self-signed/bootstrap webhook-cert option for clusters without cert-manager?
+- **DECIDED (2026-06-05):** Add a **self-signed/bootstrap webhook-cert option** for clusters without
+  cert-manager (cert-manager stays the recommended default). To be detailed in planned **ADR-0105**
+  (webhook serving & cert management).
 - **OPEN:** Should the chart optionally manage CRDs via a templated `crds/` (with a guarded
-  `upgradeCRDs` value) to offer a one-command upgrade for non-GitOps users?
+  `upgradeCRDs` value) to offer a one-command upgrade for non-GitOps users? (Default: keep out-of-band
+  `install-crds.yaml`.)
 - **OPEN:** Kustomize overlay parity for users who don't use Helm (currently `dist/install.yaml`).

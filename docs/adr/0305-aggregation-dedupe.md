@@ -33,8 +33,9 @@ When several targets observe the **same** object, `MergeRows` collapses by mode:
 - **`DedupeByResourceUID`** — collapse to one row per `(namespace, uid)` across targets; **last writer
   wins**, order stable. For "unique inventory of objects" regardless of selecting target.
 
-`KollectClusterInventory` uses `MergeRows` on the export path; namespaced `KollectInventory` marshals
-per-namespace snapshots directly (no cross-target merge).
+`KollectClusterInventory` uses `MergeRows` on the export path, selected by **`spec.dedupe`**
+(`keepAll` default | `byResourceUID`); namespaced `KollectInventory` marshals per-namespace snapshots
+directly (no cross-target merge).
 
 ### Export fingerprint and coalescing
 
@@ -57,7 +58,9 @@ So config changes and content changes bypass the timer; pure churn within the wi
 
 ## Open questions
 
-- **OPEN:** Expose `spec.dedupe` (keepAll | byResourceUID) on `KollectClusterInventory`, or infer it?
-- **OPEN:** Merge (union) attributes on `DedupeByResourceUID` collision instead of last-writer-wins?
-- **OPEN:** Hub-side delete reconciliation when a spoke stops reporting an object — ties into Postgres
-  delete recon ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md), [ADR-0402](0402-sink-backends-database-kafka.md)).
+- **DECIDED (2026-06-05):** Expose **`spec.dedupe`** (`keepAll` | `byResourceUID`) on
+  `KollectClusterInventory`, **default `keepAll`** — explicit, not inferred.
+- **DECIDED (2026-06-05):** Collision resolution stays **last-writer-wins** (no attribute union).
+- **DECIDED (2026-06-05):** Add **hub-side delete reconciliation** when a spoke stops reporting an
+  object, tracked with Postgres delete recon ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md),
+  [ADR-0402](0402-sink-backends-database-kafka.md)).

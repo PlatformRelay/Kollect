@@ -164,5 +164,8 @@ flowchart LR
 
 ## Open questions
 
+- **DECIDED (2026-06-05):** **At-least-once + idempotent** delivery (effectively-once for state, since
+  exports are identity-keyed idempotent upserts). Consumers dedupe by `(identity, contentHash,
+  generation)`; JetStream `Nats-Msg-Id` (= content hash) gives free in-window dedupe. Exactly-once is a
+  **non-goal** unless a regulatory event-count requirement appears.
 - **OPEN:** Hub pulls from queue vs queue pushes to hub webhook sidecar?
-- **OPEN:** Exactly-once needed for billing/audit, or is at-least-once + idempotent merge enough?

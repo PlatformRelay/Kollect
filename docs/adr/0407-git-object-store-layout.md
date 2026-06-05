@@ -61,9 +61,10 @@ inventory/<inventory-namespace>/<inventory-name>.json
 
 ## Open questions
 
-- **OPEN:** Make the object path a `spec.pathTemplate` (e.g. `{cluster}/{namespace}/{name}.json`) so
-  layout is configurable per sink?
+- **DECIDED (2026-06-05):** Make the object path a **`spec.pathTemplate`** (e.g.
+  `{cluster}/{namespace}/{name}.json`, default `inventory/{namespace}/{name}.json`) so layout is
+  configurable per sink.
 - **OPEN:** Optional commit-per-export (no force-push) mode for users who want Git history instead of a
   snapshot HEAD?
-- **OPEN:** Object-store (S3/GCS) partition layout for the planned Parquet snapshot sink — align with
+- **OPEN:** Object-store (S3/GCS) partition layout for the Parquet snapshot sink — lean toward
   `clusters/<cluster>/date=…/` Hive-style partitioning for DuckDB ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).

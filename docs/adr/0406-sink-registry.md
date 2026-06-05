@@ -22,12 +22,15 @@ Pattern precedent: external-secrets' provider registry ([ADR-0102](0102-prior-ar
 ```go
 type Backend interface {
     Type() string
+    Capabilities() Capabilities // snapshot vs stream, supports-delete
     Export(ctx context.Context, payload []byte, path string) error
 }
 ```
 
 Minimal by design: a backend takes a serialized payload ([ADR-0405](0405-export-data-contract.md)) and
-an object path, and exports. Connectivity probing is a parallel concern ([ADR-0403](0403-connection-test.md)).
+an object path, and exports. `Capabilities()` lets the inventory controller choose whole-snapshot vs
+delete-reconciliation behavior per backend ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).
+Connectivity probing is a parallel concern ([ADR-0403](0403-connection-test.md)).
 
 ### Factory + registry
 
@@ -60,8 +63,9 @@ an object path, and exports. Connectivity probing is a parallel concern ([ADR-04
 
 ## Open questions
 
-- **OPEN:** Add a `Capabilities()` method (snapshot vs stream, supports-delete) so the inventory
-  controller can pick delete-reconciliation vs whole-snapshot behavior per [ADR-0401](0401-sink-taxonomy-state-vs-stream.md)?
+- **DECIDED (2026-06-05):** Add a **`Capabilities()`** method (snapshot vs stream, supports-delete) so
+  the inventory controller picks delete-reconciliation vs whole-snapshot behavior per
+  [ADR-0401](0401-sink-taxonomy-state-vs-stream.md).
 - **OPEN:** Out-of-tree backend registration (plugin) — or keep the registry compile-time only?
 - **OPEN:** Should `Export` take the structured snapshot instead of `[]byte` so backends choose their
-  own serialization (Parquet, row batches) without re-parsing JSON?
+  own serialization (Parquet, row batches) without re-parsing JSON? (Revisit with the Parquet sink.)

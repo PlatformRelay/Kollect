@@ -104,6 +104,8 @@ metadata:
 
 ## Open questions
 
-- Should cluster-scoped resources honor a `KollectTarget`-level default when `watchMode: OptIn`?
-  (Today: resource label only; no namespace annotation applies.)
-- Dedicated Namespace informer to refresh watch metadata without waiting for target reconcile?
+- **DECIDED (2026-06-05):** Under `watchMode: OptIn`, cluster-scoped resources honor a
+  **target-level default opt-in** (e.g. `clusterScopedDefault: Include` on the
+  `KollectTarget`/`KollectClusterTarget`), since they have no namespace to inherit from. A per-object
+  **opt-out label still wins**. Platform targets can inventory Nodes/PVs without labeling each object.
+- **OPEN:** Dedicated Namespace informer to refresh watch metadata without waiting for target reconcile?

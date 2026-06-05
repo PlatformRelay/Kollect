@@ -75,7 +75,8 @@ consolidates it. (`SECURITY.md` at the repo root remains the *disclosure policy*
 
 ## Open questions
 
-- **OPEN:** Encryption-at-rest expectations for sinks (Postgres/object-store) — document required vs
-  recommended?
+- **DECIDED (2026-06-05):** Encryption-at-rest for sinks (Postgres/object-store) is **recommended and
+  documented**, not enforced by the operator (it's a backend/infra responsibility).
+- **DECIDED (2026-06-05):** Add a **formal RBAC audit gate in CI** (`kubeaudit`-style) as a maturity
+  signal ([ADR-0705](0705-release-supply-chain.md)).
 - **OPEN:** A built-in secret-leak scanner over outgoing payloads as defense-in-depth beyond `scrubKeys`?
-- **OPEN:** Formal RBAC audit / `kubeaudit`-style gate in CI ([ADR-0705](0705-release-supply-chain.md))?

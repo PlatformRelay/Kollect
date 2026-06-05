@@ -53,9 +53,9 @@ One collected resource = one `Item` (`internal/collect/store.go`):
 ### Export metadata
 
 Carried **alongside** the payload (status + sink columns/headers), not inside each row:
-`checksum` (SHA-256 of payload — `aggregate.ContentHash`), source `generation`, `itemCount`,
-`exportedAt`, and `cluster`. These drive debounce/coalesce ([ADR-0305](0305-aggregation-dedupe.md))
-and staleness detection without bloating rows.
+`schemaVersion` (envelope contract version), `checksum` (SHA-256 of payload — `aggregate.ContentHash`),
+source `generation`, `itemCount`, `exportedAt`, and `cluster`. These drive debounce/coalesce
+([ADR-0305](0305-aggregation-dedupe.md)) and staleness detection without bloating rows.
 
 ### Stability rules (binding)
 
@@ -75,7 +75,10 @@ and staleness detection without bloating rows.
 
 ## Open questions
 
-- **OPEN:** Add an explicit `schemaVersion` (or `apiVersion`) to the payload/envelope so consumers can
-  branch on contract version? The spoke→hub report already mandates `apiVersion` ([ADR-0502](0502-lean-queue-transport.md)) — align the sink payload.
+- **DECIDED (2026-06-05):** Add an explicit **`schemaVersion`** to the export envelope (not per-row),
+  aligned with the spoke→hub report `apiVersion` ([ADR-0502](0502-lean-queue-transport.md)). Consumers
+  branch on it; bumped only on a breaking contract change.
+- **DECIDED (2026-06-05):** Attributes stay **`map[string]any`** in the contract; stronger typing is a
+  **sink-side** concern — the Parquet sink promotes a hot-attribute allowlist to typed columns while
+  keeping a JSON `attributes` column ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).
 - **OPEN:** Publish a JSON Schema / OpenAPI for the `Item` array next to `openapi/v1alpha1/inventory.yaml`?
-- **OPEN:** Typed vs `map[string]any` attributes for stronger downstream typing (esp. Parquet columns — [ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).

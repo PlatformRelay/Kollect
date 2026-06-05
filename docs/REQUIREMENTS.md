@@ -182,12 +182,16 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | Pairwise agent mesh beyond ~20 peers | Does not scale; use hub or shared sink ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)) |
 | In-place ACID lakehouse updates (Iceberg/DuckLake) | kollect overwrites whole snapshots; no catalog/metadata DB needed ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
 
-## 6. Open requirement questions
+## 6. Resolved requirement questions (2026-06-05)
 
-- Maximum spoke payload size before object-store spill is mandatory? ([ADR-0103](adr/0103-etcd-limit.md))
-- Is at-least-once + idempotent merge sufficient, or is exactly-once ever required for audit? ([ADR-0502](adr/0502-lean-queue-transport.md))
-- Parquet attribute schema: single JSON column vs typed columns per profile attribute? ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md))
-- Should cluster-scoped resources honor a target-level default under `watchMode: OptIn`? ([ADR-0205](adr/0205-watch-labels.md))
+- **Payload spill:** object-store spill is **mandatory above 1 MiB** (warn at 1 MiB; hard cap
+  ~1.5 MiB `maxExportBytes`) ([ADR-0103](adr/0103-etcd-limit.md)).
+- **Delivery semantics:** **at-least-once + idempotent** (effectively-once for state); exactly-once is a
+  non-goal ([ADR-0502](adr/0502-lean-queue-transport.md)).
+- **Parquet schema:** **hybrid** — typed identity columns + JSON `attributes` + a promoted hot-attribute
+  allowlist ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
+- **Cluster-scoped under OptIn:** honor a **target-level default opt-in**, per-object opt-out wins
+  ([ADR-0205](adr/0205-watch-labels.md)).
 
 ## See also
 

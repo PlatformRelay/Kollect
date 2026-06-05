@@ -34,7 +34,9 @@ Field-level guarantees come from CEL/declarative validation and the validating w
 ([ADR-0201](0201-crd-model.md), [ADR-0602](0602-error-taxonomy.md)) rather than from version skew — so
 most "shape" changes are validation tightening, not version bumps.
 
-### Path to beta (planned, not yet committed)
+### Path to beta (trigger decided 2026-06-05)
+
+**Cut `v1beta1` at the `v0.1.0` feature-freeze** — not before. Until then, `v1alpha1` churns freely.
 
 1. Freeze the `v1alpha1` field set; introduce `v1beta1` as a new served version.
 2. Set `v1beta1` as storage version; keep `v1alpha1` served for one release window.
@@ -52,9 +54,9 @@ most "shape" changes are validation tightening, not version bumps.
 
 ## Open questions
 
-- **OPEN:** When do we cut `v1beta1` — tied to which roadmap milestone ([ROADMAP](../ROADMAP.md))?
+- **DECIDED (2026-06-05):** Cut `v1beta1` at the **`v0.1.0` feature-freeze** milestone.
+- **DECIDED (2026-06-05):** The export payload gains an explicit **`schemaVersion`** so consumers
+  decouple from CRD versions entirely ([ADR-0405](0405-export-data-contract.md)).
 - **OPEN:** Conversion approach: controller-runtime hub-spoke conversion vs none-with-storage-migration?
 - **OPEN:** Do `status` subresource fields carry their own compatibility guarantees, or follow spec
-  versioning?
-- **OPEN:** Should the payload gain an explicit `schemaVersion` so consumers decouple from CRD versions
-  entirely ([ADR-0405](0405-export-data-contract.md))?
+  versioning? (Leaning: follow spec versioning.)

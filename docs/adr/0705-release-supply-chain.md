@@ -53,9 +53,9 @@ Each GitHub Release publishes: `install-crds.yaml` and `install.yaml` (kubectl i
 - SHA-pinned actions mean Dependabot/maintenance keeps the pipeline current; stale pins are a known cost.
 - Tag-driven releases keep `main` always-releasable ([ADR-0703](0703-platform-architecture-pivot.md)).
 
-## Open questions
+## Decided follow-ups (2026-06-05, planned post-`v0.1.0-rc`)
 
-- **OPEN:** Publish a signed **provenance attestation** (`cosign attest`) and SBOM attestation attached
-  to the image, in addition to the release-asset SBOM?
-- **OPEN:** Add `scorecard`/`slsa-verifier` checks and an OpenSSF badge?
-- **OPEN:** Sign the Helm chart (`cosign sign` the OCI chart artifact) and document chart verification?
+- **YES:** Publish signed **provenance + SBOM attestations** (`cosign attest`) attached to the image,
+  in addition to the release-asset SBOM.
+- **YES:** Add **`scorecard`/`slsa-verifier`** checks and an OpenSSF badge.
+- **YES:** **Sign the Helm chart** (`cosign sign` the OCI chart artifact) and document chart verification.
