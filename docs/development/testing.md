@@ -5,7 +5,8 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 
 !!! tip "Quick local loop"
     Before opening a PR: `task lint` · `task coverage` · `task verify` · `task scrub`. See
-    [CONTRIBUTING.md](../../CONTRIBUTING.md) for the full checklist.
+    [Coding standards](coding-standards.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md) for the
+    full checklist.
 
 ## Test pyramid (L0–L5)
 

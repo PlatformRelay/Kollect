@@ -2,6 +2,26 @@
 
 Thank you for helping improve Kollect.
 
+## Acceptable contributions
+
+Pull requests must meet the standards below before they can merge. Reviewers use these documents
+as the definition of acceptable work.
+
+| Document | What it covers |
+| --- | --- |
+| [Coding standards](docs/development/coding-standards.md) | Go lint/logging, testing floor, security controls, commits, architecture boundaries, CI gates |
+| [Testing strategy](docs/development/testing.md) | L0–L5 pyramid, coverage targets, integration and e2e expectations |
+| [GUIDELINES.md](GUIDELINES.md) | Error taxonomy, robustness, security baselines, definition of done |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting, threat model, supply-chain expectations |
+| [Architecture decision records](docs/adr/) | Locked design decisions — update or add ADRs for non-trivial changes |
+
+**Merge policy:** use **Rebase and merge** on pull requests (see
+[Changelog and releases](#changelog-and-releases)). `main` requires green **`preflight`** and
+**`test`** CI checks and linear history.
+
+**Local preflight** (before opening a PR): `task lint` · `task coverage` · `task verify` ·
+`task scrub` · `gitleaks protect --staged --no-banner`.
+
 ## Commit messages
 
 We follow **[Conventional Commits](https://www.conventionalcommits.org/)** per
@@ -156,8 +176,8 @@ maintainers can run `task sonar:local` with `SONARCLOUD_TOKEN` in `.envrc` — s
 
 ## Code guidelines
 
-See [GUIDELINES.md](GUIDELINES.md) for error handling, robustness, security, and testing
-expectations.
+See [Coding standards](docs/development/coding-standards.md) for lint, testing, security, and CI
+gates. [GUIDELINES.md](GUIDELINES.md) covers error handling, robustness, and definition of done.
 
 ## Documentation
 
