@@ -88,6 +88,8 @@ Only `feat`, `fix`, `perf`, `refactor`, and breaking commits appear in the user-
 **Maintainer release flow** — full runbook: [docs/RELEASE.md](docs/RELEASE.md). Summary:
 
 1. Merge work on `main` with conventional commits.
+
+**GitHub merge policy:** use **Rebase and merge** on pull requests (merge commits are disabled). **Squash and merge** is allowed when a single commit is clearer (e.g. Dependabot); keep the squash title conventional. `main` is protected (linear history, required CI checks `preflight` and `test`, no force-push). Admins are not included in those restrictions, so the maintainer can still push directly to `main` when needed.
 2. `task changelog` — sanity-check grouping.
 3. Bump `charts/kollect/Chart.yaml` `version` and `appVersion`.
 4. `task changelog:write` — commit `CHANGELOG.md`.
