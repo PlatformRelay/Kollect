@@ -121,7 +121,7 @@ export function InventoryPage() {
             ? `${selectedItem.namespace} · collected by ${selectedItem.targetNamespace}/${selectedItem.targetName}`
             : undefined
         }
-        yaml={yamlSnippet}
+        yamlSnippet={yamlSnippet}
       />
     </div>
   );
