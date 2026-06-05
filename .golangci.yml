@@ -23,7 +23,64 @@ linters:
     - unparam
     - unused
     - logcheck
+    - depguard
+    - gomodguard
   settings:
+    depguard:
+      rules:
+        kollect_main:
+          list-mode: lax
+          files:
+            - $all
+            - "!$test"
+          allow:
+            - $gostd
+          deny:
+            - pkg: io/ioutil
+              desc: "use io/os (Go 1.16+)"
+            - pkg: github.com/sirupsen/logrus
+              desc: "use log/slog / controller-runtime/log (logcheck)"
+            - pkg: github.com/pkg/errors
+              desc: "use stdlib errors + fmt.Errorf %w"
+            - pkg: github.com/golang/protobuf
+              desc: "use google.golang.org/protobuf"
+        kollect_tests:
+          list-mode: lax
+          files:
+            - $test
+          deny:
+            - pkg: github.com/stretchr/testify/assert
+              desc: "prefer gomega/ginkgo matchers in this repo"
+    gomodguard:
+      blocked:
+        modules:
+          - github.com/sirupsen/logrus
+          - github.com/pkg/errors
+      allowed:
+        modules:
+          - github.com/konih/kollect
+          - k8s.io/*
+          - sigs.k8s.io/*
+          - github.com/onsi/ginkgo/v2
+          - github.com/onsi/gomega
+          - github.com/aws/*
+          - github.com/go-git/*
+          - github.com/go-logr/*
+          - github.com/google/*
+          - github.com/jackc/*
+          - github.com/nats-io/*
+          - github.com/parquet-go/*
+          - github.com/prometheus/*
+          - github.com/redis/*
+          - github.com/segmentio/*
+          - github.com/testcontainers/*
+          - go.opentelemetry.io/*
+          - golang.org/x/*
+          - google.golang.org/*
+          - gopkg.in/*
+          - gomodules.xyz/*
+          - cel.dev/*
+          - dario.cat/*
     custom:
       logcheck:
         type: "module"

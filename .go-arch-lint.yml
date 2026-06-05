@@ -1,0 +1,133 @@
+version: 3
+workdir: .
+exclude:
+  - cmd/**
+  - hack/**
+  - test/**
+  - ui/**
+  - charts/**
+  - config/**
+  - bin/**
+  - dist/**
+  - references/**
+  - kollect-repos/**
+  - agent-context/**
+allow:
+  depOnAnyVendor: true
+
+components:
+  api:
+    in: api/**
+  collect:
+    in: internal/collect/**
+  aggregate:
+    in: internal/aggregate/**
+  validation:
+    in: internal/validation/**
+  scope:
+    in: internal/scope/**
+  sink:
+    in: internal/sink/**
+  transport:
+    in: internal/transport/**
+  controller:
+    in: internal/controller/**
+  hub:
+    in: internal/hub/**
+  spoke:
+    in: internal/spoke/**
+  inventory:
+    in: internal/inventory/**
+  export:
+    in: internal/export/**
+  webhook:
+    in: internal/webhook/**
+  shared:
+    in:
+      - internal/errors/**
+      - internal/metrics/**
+      - internal/httpauth/**
+      - internal/remotecredentials/**
+      - internal/remotesecret/**
+      - internal/operator/**
+      - internal/pprof/**
+      - internal/integrationtest/**
+
+commonComponents:
+  - api
+  - shared
+  - validation
+  - scope
+
+deps:
+  controller:
+    mayDependOn:
+      - collect
+      - aggregate
+      - sink
+      - hub
+      - scope
+      - validation
+      - export
+      # todo(arch-01): extract spoke publish behind export/transport facade; controller should not import spoke
+      - spoke
+  collect:
+    mayDependOn:
+      - aggregate
+  aggregate:
+    mayDependOn:
+      # todo(arch-02): dedupe.go imports collect.Row; move row types to aggregate or shared
+      - collect
+  sink:
+    mayDependOn:
+      - transport
+      - export
+      - sink
+      # todo(arch-03): sink backends read collect rows during export; narrow to export envelope types
+      - collect
+      # todo(arch-04): aggregation labels in sink metrics; decouple from aggregate
+      - aggregate
+  hub:
+    mayDependOn:
+      - sink
+      - aggregate
+      - export
+      - hub
+      # todo(arch-05): hub merge/ingest uses collect.Row; target: aggregate-only merge API
+      - collect
+      # todo(arch-06): hub consumer wires NATS/Kafka transport directly
+      - transport
+  spoke:
+    mayDependOn:
+      - transport
+      - hub
+      - spoke
+      # todo(arch-07): spoke publisher builds collect rows + export envelope
+      - collect
+      - export
+  inventory:
+    mayDependOn:
+      - collect
+      - aggregate
+      - scope
+  export:
+    mayDependOn:
+      # todo(arch-08): export.Envelope wraps collect.Row; introduce neutral DTO in export
+      - collect
+  transport:
+    mayDependOn:
+      - transport
+      # todo(arch-09): transport helpers reference hub ingest config
+      - hub
+  validation:
+    mayDependOn:
+      # todo(arch-10): validation reuses collect attribute paths for profiles
+      - collect
+      # todo(arch-11): sink/git + objectstore validators live under sink; lift shared validation helpers
+      - sink
+  webhook:
+    mayDependOn:
+      - validation
+      - scope
+      # todo(arch-12): KollectSink webhook validates sink spec shape
+      - sink

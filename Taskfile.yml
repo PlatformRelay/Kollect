@@ -17,6 +17,8 @@ vars:
   # renovate: datasource=github-releases depName=orhun/git-cliff
   GIT_CLIFF_VERSION: v2.13.1
   GIT_CLIFF_BIN: "{{.BIN_DIR}}/git-cliff"
+  # renovate: datasource=github-releases depName=fe3dback/go-arch-lint
+  GO_ARCH_LINT_VERSION: v1.15.0
   # renovate: datasource=github-releases depName=helm/helm
   HELM_VERSION: v3.17.3
   COVERAGE_MIN: "65"
@@ -93,11 +95,18 @@ tasks:
     cmds:
       - bash hack/audit-rbac.sh
 
+  arch-lint:
+    desc: Enforce internal/ package dependency graph (go-arch-lint)
+    deps: [install]
+    cmds:
+      - go run -mod=mod github.com/fe3dback/go-arch-lint@{{.GO_ARCH_LINT_VERSION}} check
+
   lint:
-    desc: Run golangci-lint v2
+    desc: Run golangci-lint v2 and go-arch-lint
     deps: [install]
     cmds:
       - make lint
+      - task: arch-lint
 
   lint:markdown:
     desc: Lint Markdown docs with markdownlint-cli2
