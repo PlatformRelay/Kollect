@@ -26,6 +26,18 @@ func namespaceMatchesSelector(selector *metav1.LabelSelector, nsLabels labels.Se
 	return sel.Matches(nsLabels)
 }
 
+// MatchedNamespacesForTarget returns workload namespaces matched by the target selector.
+func (e *Engine) MatchedNamespacesForTarget(targetNamespace, targetName string) []string {
+	e.mu.RLock()
+	st, ok := e.targets[targetKey(targetNamespace, targetName)]
+	e.mu.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	return e.matchedNamespacesForTarget(&st.target)
+}
+
 func (e *Engine) matchedNamespacesForTarget(target *kollectdevv1alpha1.KollectTarget) []string {
 	e.nsMu.RLock()
 	defer e.nsMu.RUnlock()

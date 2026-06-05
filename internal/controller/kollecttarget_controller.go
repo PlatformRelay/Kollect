@@ -12,6 +12,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -23,15 +24,19 @@ import (
 // KollectTargetReconciler reconciles a KollectTarget object
 type KollectTargetReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Engine  *collect.Engine
-	Options RuntimeOptions
+	Scheme   *runtime.Scheme
+	Engine   *collect.Engine
+	Options  RuntimeOptions
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollecttargets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollecttargets/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollecttargets/finalizers,verbs=update
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectprofiles,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollectscopes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollectsinks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
 
@@ -81,11 +86,13 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
+	profileKey := client.ObjectKey{Namespace: target.Namespace, Name: target.Spec.ProfileRef}
 	var profile kollectdevv1alpha1.KollectProfile
-	if err := r.Get(ctx, client.ObjectKey{Name: target.Spec.ProfileRef}, &profile); err != nil {
+	if err := r.Get(ctx, profileKey, &profile); err != nil {
 		if apierrors.IsNotFound(err) {
 			if degErr := r.setDegraded(ctx, &target, "ProfileNotFound",
-				fmt.Sprintf("KollectProfile %q not found", target.Spec.ProfileRef)); degErr != nil {
+				fmt.Sprintf("KollectProfile %q not found in namespace %q",
+					target.Spec.ProfileRef, target.Namespace)); degErr != nil {
 				retErr = degErr
 				return ctrl.Result{}, degErr
 			}
@@ -96,6 +103,16 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		retErr = err
 
 		return ctrl.Result{}, err
+	}
+
+	checker := scopeCheck{client: r.Client, recorder: r.Recorder, engine: r.Engine}
+	if ok, reason, msg := checker.enforceTarget(ctx, &target, &profile); !ok {
+		if degErr := r.setDegraded(ctx, &target, reason, msg); degErr != nil {
+			retErr = degErr
+			return ctrl.Result{}, degErr
+		}
+
+		return ctrl.Result{}, nil
 	}
 
 	if r.Engine != nil {
@@ -132,6 +149,8 @@ func (r *KollectTargetReconciler) setDegraded(
 	reason, message string,
 ) error {
 	apimeta.RemoveStatusCondition(&target.Status.Conditions, conditionReady)
+	apimeta.RemoveStatusCondition(&target.Status.Conditions, conditionSynced)
+	setSinkReachableCondition(&target.Status.Conditions, target.Generation, false, reason, message)
 	return setTargetCondition(
 		ctx, r.Client, target, target.Generation, &target.Status.Conditions,
 		conditionDegraded, metav1.ConditionTrue, reason, message,
@@ -148,6 +167,10 @@ func (r *KollectTargetReconciler) setReady(
 
 	msg := fmt.Sprintf("profileRef %q resolved; collecting %d resource(s)",
 		target.Spec.ProfileRef, collected)
+	setSinkReachableCondition(
+		&target.Status.Conditions, target.Generation, true, "Collecting", "target has no direct sinkRefs",
+	)
+	setSyncedCondition(&target.Status.Conditions, target.Generation, true, "Collecting", msg)
 	if err := setTargetCondition(
 		ctx, r.Client, target, target.Generation, &target.Status.Conditions,
 		conditionReady, metav1.ConditionTrue, "Collecting",
@@ -166,6 +189,10 @@ func (r *KollectTargetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	opts := r.Options.controllerOptions(r.Options.MaxConcurrentTarget)
 	if opts.MaxConcurrentReconciles == 0 {
 		opts.MaxConcurrentReconciles = DefaultRuntimeOptions().MaxConcurrentTarget
+	}
+
+	if r.Recorder == nil {
+		r.Recorder = mgr.GetEventRecorderFor("kollecttarget-controller")
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
