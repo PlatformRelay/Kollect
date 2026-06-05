@@ -308,7 +308,7 @@ task lint          # golangci-lint v2 + go-arch-lint
 task arch-lint     # import-graph fitness only
 task vulncheck     # govulncheck (CI vulncheck job)
 task format        # go fmt ./...
-task format:check  # fail if gofmt would change files
+task format:check  # fail if gofmt or goimports would change files
 task helm-test     # helm lint + unittest
 task lint:markdown # markdownlint-cli2 on docs/**/*.md
 ```

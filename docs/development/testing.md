@@ -4,16 +4,16 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 [ADR-0706: Testing and merge-gate architecture](../adr/0706-testing-merge-gate-architecture.md).
 
 !!! tip "Quick local loop"
-    Before opening a PR: `task lint` · `task coverage` · `task verify` · `task scrub`. See
-    [Coding standards](coding-standards.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md) for the
-    full checklist.
+    Before opening a PR: `task lint` · `task coverage` · `task coverage:race` (recommended) ·
+    `task verify` · `task scrub`. See [Coding standards](coding-standards.md) and
+    [CONTRIBUTING.md](../../CONTRIBUTING.md) for the full checklist.
 
 ## Test pyramid (L0–L5)
 
 | Tier | Scope | Blocks merge? | Typical command |
 | --- | --- | --- | --- |
 | **L0 — Unit** | Pure packages, table-driven tests, mocks | Yes | `task test` |
-| **L1 — Controller / API** | envtest reconcilers, webhooks | Yes | `task coverage` |
+| **L1 — Controller / API** | envtest reconcilers, webhooks | Yes | `task coverage` (no `-race` in CI) |
 | **L2 — Golden / contract** | OpenAPI fragments, sample YAML, extractor goldens | Yes | `task test` |
 | **L3 — Integration** | Real Postgres, Kafka, Git, S3, GCS, Redis, NATS (testcontainers) | Yes | `task test-integration` |
 | **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | Nightly / path-filtered PR | `task test:e2e` |
@@ -38,7 +38,8 @@ Regressions below the enforced floor fail CI. Raise the floor only after coverag
 sustainably — see ADR-0706 for the ratchet policy.
 
 ```sh
-task coverage          # unit + envtest + floor check → coverage.out
+task coverage          # unit + envtest + floor check → coverage.out (CI path; no -race)
+task coverage:race     # local-only: COVERAGE_RACE=1 + CGO_ENABLED=1
 task coverage:report   # go tool cover -func summary
 task coverage:html     # coverage.html for browser review
 ```
@@ -83,7 +84,9 @@ until the maintainer adds `SONAR_TOKEN`. Does not replace `task lint` or arch-li
 
 | Task | Purpose |
 | --- | --- |
-| `task test` | Unit + envtest (no floor check) |
+| `task test` | Unit + envtest (no floor check; no race detector) |
+| `task coverage` | Unit + envtest + 65% floor (CI; CGO off, no `-race`) |
+| `task coverage:race` | Same as coverage with race detector (local pre-PR) |
 | `task test-integration` | L3 sink/transport integration (Docker) |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
 | `task ui-ci` | UI PR gate — Vitest, lint, build, mock drift (no Playwright) |

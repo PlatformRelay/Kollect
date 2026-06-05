@@ -22,9 +22,9 @@ duplicate prose across them.
 [Changelog and releases](#changelog-and-releases)). `main` requires green **`preflight`** and
 **`test`** CI checks and linear history.
 
-**Local preflight** (before opening a PR): `task lint` · `task coverage` · `task verify` ·
-`task scrub` · `gitleaks protect --staged --no-banner`. Technical gate details:
-[coding-standards.md § Pull request and CI gates](docs/development/coding-standards.md#pull-request-and-ci-gates).
+**Local preflight** (before opening a PR): `task lint` · `task coverage` · `task coverage:race`
+(recommended) · `task verify` · `task scrub` · `gitleaks protect --staged --no-banner`. Technical gate
+details: [coding-standards.md § Pull request and CI gates](docs/development/coding-standards.md#pull-request-and-ci-gates).
 
 ## Commit messages
 
@@ -127,8 +127,8 @@ chart tarball, checksums).
 ## Pull request process
 
 1. Fork or branch from `main`.
-2. Run the [local preflight](#standards-map) checklist (`task lint` · `task coverage` · `task verify` ·
-   `task scrub`).
+2. Run the [local preflight](#standards-map) checklist (`task lint` · `task coverage` ·
+   `task coverage:race` · `task verify` · `task scrub`).
 3. Keep changes focused; update ADRs in `docs/adr/` when making architectural decisions.
 4. Ensure CI is green (`preflight` + `CI` workflows).
 5. Request review; address feedback with additional commits (avoid force-push to `main`).

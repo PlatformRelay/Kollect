@@ -6,8 +6,8 @@ Operator-specific engineering principles (error taxonomy, robustness, definition
 lint, CI, and review.
 
 !!! tip "Before you open a PR"
-    `task lint` · `task coverage` · `task verify` · `task scrub` — see
-    [CONTRIBUTING.md](../../CONTRIBUTING.md#pull-request-process) and
+    `task lint` · `task coverage` · `task coverage:race` (recommended) · `task verify` ·
+    `task scrub` — see [CONTRIBUTING.md](../../CONTRIBUTING.md#pull-request-process) and
     [Testing strategy](testing.md).
 
 ## Go conventions
@@ -25,7 +25,8 @@ Short, actionable rules for Go code in this repo. Operator reconcile semantics a
 
 ### Formatting and style
 
-- **MUST** format Go with `gofmt` / `goimports` — `task format:check` fails CI on drift.
+- **MUST** format Go with `gofmt` / `goimports` — `task format:check` fails CI on drift
+  (gofmt + goimports via `golangci-lint fmt --diff`).
 - **SHOULD** follow the [Google Go Style Guide](https://google.github.io/styleguide/go/) for naming,
   simplicity, and readability; the [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
   is a useful secondary reference.
@@ -41,8 +42,9 @@ Short, actionable rules for Go code in this repo. Operator reconcile semantics a
 
 ### Tests
 
-- **MUST** run the race detector on unit and envtest suites (`-race` via `task coverage` /
-  `hack/coverage.sh`).
+- **SHOULD** run the race detector locally before PRs (`task coverage:race` or
+  `COVERAGE_RACE=1 CGO_ENABLED=1 bash hack/coverage.sh`). CI `task coverage` runs **without**
+  `-race` (CGO disabled in release/CI paths).
 - **SHOULD** prefer **Ginkgo/Gomega** matchers in `_test.go` files over `testify/assert`
   (`depguard` on tests).
 - Pyramid tiers, coverage floors, and sink integration gates: [Testing strategy](testing.md).
@@ -55,22 +57,23 @@ Short, actionable rules for Go code in this repo. Operator reconcile semantics a
 ### Container builds
 
 - **MUST** build the operator manager with `CGO_ENABLED=0` for distroless images
-  ([`Dockerfile`](../../Dockerfile)); tests may enable CGO for the race detector.
+  ([`Dockerfile`](../../Dockerfile)); enable CGO locally only for `task coverage:race`.
 
 ## Go style and lint
 
 | Tool | Config / command | Purpose |
 | --- | --- | --- |
-| **golangci-lint v2** | [`.golangci.yml`](../../.golangci.yml) · `task lint` | Static analysis, formatters, dependency policy |
+| **golangci-lint v2** | [`.golangci.yaml`](../../.golangci.yaml) · `task lint` | Static analysis, formatters, dependency policy |
 | **go-arch-lint** | [`.go-arch-lint.yml`](../../.go-arch-lint.yml) · `task arch-lint` | Package import boundaries |
-| **gofmt / goimports** | `task format:check` | Formatting drift gate |
+| **gofmt / goimports** | `task format:check` | Formatting drift gate (gofmt + goimports) |
 
 Run `task lint` locally before every PR. It includes golangci-lint **and** `go-arch-lint check`.
-CI `preflight` and `test` workflows fail when lint or format checks return non-zero.
+CI workflow **`CI`** (`.github/workflows/ci.yaml`) runs lint and format checks; **`preflight`**
+runs codegen/changelog/module drift only.
 
-Key linters enabled in `.golangci.yml` include `errcheck`, `govet`, `staticcheck`, `gosec`,
-`bodyclose`, and `logcheck`. Maintainer setup and arch-lint baseline workflow:
-[tooling-setup.md](tooling-setup.md).
+Key linters enabled in `.golangci.yaml` include `errcheck`, `govet`, `staticcheck`, `gosec`,
+`depguard`, `gomodguard`, and `logcheck` (custom plugin via `.custom-gcl.yml`). Maintainer setup
+and arch-lint baseline workflow: [tooling-setup.md](tooling-setup.md).
 
 ### Logging
 
@@ -85,8 +88,8 @@ payloads. Operator logging rules: [GUIDELINES.md § 1](../../GUIDELINES.md#1-err
 
 `depguard` denies deprecated stdlib shims (`io/ioutil`), non-standard error/logging packages, and
 legacy protobuf imports. `gomodguard` blocks `logrus` and `pkg/errors` in `go.mod`. When adding a
-legitimate dependency, extend `gomodguard.allowed.modules` in `.golangci.yml` and keep `task lint`
-green. Details: [tooling-setup.md](tooling-setup.md#golangci-lint-dependency-policy).
+legitimate dependency, extend `gomodguard.blocked` / `depguard` rules in `.golangci.yaml` and keep
+`task lint` green. Details: [tooling-setup.md](tooling-setup.md#golangci-lint-dependency-policy).
 
 ### Tests and matchers
 
@@ -178,11 +181,13 @@ Use **Rebase and merge** on PRs ([CONTRIBUTING.md § Changelog and releases](../
 | --- | --- | --- |
 | **Preflight** | `.github/workflows/preflight.yaml` | Yes |
 | `go mod tidy` drift | preflight job | Yes |
+| `go mod verify` | preflight job | Yes |
 | Codegen drift | `task verify` | Yes |
 | Stale changelog | `task changelog:verify` | Yes |
 | **CI** | `.github/workflows/ci.yaml` | Yes |
-| Lint + arch fitness | `task lint` | Yes |
-| Coverage floor | `task coverage` | Yes |
+| Lint + arch fitness | `task lint` (ci.yaml `lint` job) | Yes |
+| Format (gofmt + goimports) | `task format:check` (ci.yaml `lint` job) | Yes |
+| Coverage floor | `task coverage` (ci.yaml `test` job; no `-race`) | Yes |
 | Integration (L3) | `task test-integration` | Yes |
 | Secret scan | gitleaks | Yes |
 | Helm / image smoke | `task helm-test`, `task docker:build` | Yes |

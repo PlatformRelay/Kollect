@@ -16,7 +16,7 @@ configure once.
 | --- | --- |
 | `task lint` | golangci-lint v2 **and** `go-arch-lint check` |
 | `task arch-lint` | Import-graph fitness only (`.go-arch-lint.yml`) |
-| `task format:check` | `gofmt` drift gate |
+| `task format:check` | `gofmt` + `goimports` drift gate (`golangci-lint fmt --diff`) |
 | `task vulncheck` | `govulncheck` (module CVE scan) |
 | `task sonar` / `task sonar:local` | Local SonarCloud upload (maintainer; needs `SONARCLOUD_TOKEN`) |
 
@@ -43,9 +43,10 @@ into the operator module — go-arch-lint's module graph conflicts with `go mod 
 ### golangci-lint dependency policy
 
 `depguard` (deny deprecated / non-standard logging and errors) and `gomodguard` (block `logrus`,
-`pkg/errors` in `go.mod`) extend the existing `.golangci.yml` profile. Configuration changes should
-keep `task lint` green — expand `gomodguard.allowed.modules` if a legitimate new dependency is
-blocked.
+`pkg/errors` in `go.mod`) are configured in [`.golangci.yaml`](../../.golangci.yaml). The
+**logcheck** plugin is built via [`.custom-gcl.yml`](../../.custom-gcl.yml) when `make lint` runs.
+Configuration changes should keep `task lint` green — adjust `depguard` / `gomodguard.blocked`
+rules if a legitimate new dependency is blocked.
 
 ## SonarCloud (maintainer setup)
 

@@ -20,8 +20,8 @@ gates (e.g. Q16 RBAC audit, Q15 supply-chain attestations) without debate.
 
 | Tier | Scope | Tooling | Typical `task` |
 | --- | --- | --- | --- |
-| **L0 — Unit** | Pure packages, table-driven; mocks via mockery on small interfaces | `go test`, race detector | `task test` / `task coverage` |
-| **L1 — Controller / API** | envtest (Ginkgo), webhook handlers, reconciler branches | controller-runtime envtest | included in `task coverage` |
+| **L0 — Unit** | Pure packages, table-driven; mocks via mockery on small interfaces | `go test` | `task test` / `task coverage` (CI: no `-race`) |
+| **L1 — Controller / API** | envtest (Ginkgo), webhook handlers, reconciler branches | controller-runtime envtest | included in `task coverage`; use `task coverage:race` locally |
 | **L2 — Golden / contract** | OpenAPI fragments, sample YAML decode, extractor goldens | checked-in `test/` + `config/samples/` | `task test`; samples per [ADR-0301](0301-event-driven-informers.md) |
 | **L3 — Integration** | Real Postgres, Kafka, Git, S3, GCS, Redis, NATS via **testcontainers** | `-tags=integration` | `task test-integration` |
 | **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | `hack/kind/e2e/`, `hack/e2e/` | `task test:e2e`; nightly workflow |
@@ -56,11 +56,12 @@ Binding jobs in `.github/workflows/ci.yaml`:
 | RBAC audit (Q16) | `bash hack/audit-rbac.sh` (Polaris danger + kubeaudit error on `config/rbac/role.yaml`) | Yes |
 | Native Go fuzz | Matrix: `FuzzContentHash` (`internal/aggregate`); `FuzzExtractJSONPath`, `FuzzExtractCEL`, `FuzzValidateAttributePath` (`internal/collect`) — 30s each | Yes |
 
-**Pre-commit / local:** `task verify`, `task lint`, `task scrub` ([ADR-0104](0104-security-model.md)
-scrub list) before commit; `CONTRIBUTING.md` documents the contributor loop.
+**Pre-commit / local:** `task verify`, `task lint`, `task coverage:race` (recommended),
+`task scrub` ([ADR-0104](0104-security-model.md) scrub list) before commit;
+`CONTRIBUTING.md` documents the contributor loop.
 
-**Preflight workflow** (`.github/workflows/preflight.yaml`) runs `task verify` on demand for fast drift
-checks.
+**Preflight workflow** (`.github/workflows/preflight.yaml`) runs `go mod tidy`/`go mod verify`,
+`task verify`, and `task changelog:verify` — fast drift checks without lint or tests.
 
 ### Scheduled / manual tiers (non-blocking on PR)
 

@@ -55,9 +55,9 @@ through the private contact above.
 ### golangci-lint (SAST)
 
 CI runs **golangci-lint v2** on every push and pull request (`task lint`, job **lint** in
-[`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)). Configuration: `.golangci.yaml` (security
-and correctness linters including `gosec`, `errcheck`, `govet`, `staticcheck`). Pre-commit runs the
-same gate on changed Go files.
+[`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)). Configuration: [`.golangci.yaml`](.golangci.yaml)
+(security and correctness linters including `gosec`, `errcheck`, `govet`, `staticcheck`, `depguard`,
+`gomodguard`, and `logcheck` via `.custom-gcl.yml`). Pre-commit runs the same gate on changed Go files.
 
 Run locally:
 
