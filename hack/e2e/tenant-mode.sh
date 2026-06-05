@@ -13,7 +13,7 @@ readonly CLUSTER_NAME="${CLUSTER_NAME:-kollect-e2e}"
 readonly TENANT_NS="${TENANT_MODE_NAMESPACE:-kollect-tenant-ops}"
 readonly TENANT_RELEASE="${TENANT_MODE_RELEASE:-kollect-tenant}"
 readonly TENANT_VALUES="${TENANT_MODE_VALUES:-${REPO_ROOT}/charts/kollect/ci/e2e-tenant-mode-values.yaml}"
-readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-120s}"
+readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-180s}"
 
 _log() { echo "[tenant-mode] $*"; }
 
@@ -56,7 +56,7 @@ main() {
     --set "image.repository=${KOLLECT_IMAGE%%:*}" \
     --set "image.tag=${KOLLECT_IMAGE##*:}" \
     --set image.pullPolicy=IfNotPresent \
-    --wait --timeout 120s
+    --wait --timeout "$KOLLECT_HELM_TIMEOUT"
 
   assert_tenant_rbac
 
