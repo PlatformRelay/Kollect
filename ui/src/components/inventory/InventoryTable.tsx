@@ -23,6 +23,9 @@ type InventoryTableProps = {
 function buildColumns(visibility: ColumnVisibility): ColumnDef<Item, string>[] {
   const columns: ColumnDef<Item, string>[] = [];
 
+  if (visibility.namespace) {
+    columns.push(columnHelper.accessor("namespace", { header: "Namespace" }));
+  }
   if (visibility.kind) {
     columns.push(
       columnHelper.accessor("kind", {
@@ -30,9 +33,6 @@ function buildColumns(visibility: ColumnVisibility): ColumnDef<Item, string>[] {
         cell: (info) => <span className="font-mono text-xs">{info.getValue()}</span>,
       }),
     );
-  }
-  if (visibility.namespace) {
-    columns.push(columnHelper.accessor("namespace", { header: "Namespace" }));
   }
   if (visibility.name) {
     columns.push(columnHelper.accessor("name", { header: "Name" }));
