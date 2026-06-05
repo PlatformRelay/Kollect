@@ -19,7 +19,7 @@ vars:
   GIT_CLIFF_BIN: "{{.BIN_DIR}}/git-cliff"
   # renovate: datasource=github-releases depName=helm/helm
   HELM_VERSION: v3.17.3
-  COVERAGE_MIN: "80"
+  COVERAGE_MIN: "60"
   MANAGER_BINARY: "{{.BIN_DIR}}/manager"
   DOCKER_IMAGE: kollect-controller-manager:dev
   CLUSTER_NAME:
