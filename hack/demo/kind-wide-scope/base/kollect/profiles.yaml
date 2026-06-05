@@ -1,0 +1,248 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+#
+# Apply before Targets. Core fleet profiles plus upstream CRD extraction schemas.
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: deployment-fleet
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  targetGVK:
+    group: apps
+    version: v1
+    kind: Deployment
+  attributes:
+    - name: replicas
+      path: '$.spec.replicas'
+      type: int
+    - name: image
+      path: '$.spec.template.spec.containers[0].image'
+      type: string
+    - name: images
+      path: '$.spec.template.spec.containers[*].image'
+      type: list
+    - name: labels
+      path: '$.metadata.labels'
+      type: map
+      optional: true
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: service-endpoints
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  targetGVK:
+    group: ""
+    version: v1
+    kind: Service
+  attributes:
+    - name: clusterIP
+      path: '$.spec.clusterIP'
+      type: string
+    - name: ports
+      path: '$.spec.ports[*].port'
+      type: list
+    - name: type
+      path: '$.spec.type'
+      type: string
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: configmap-data
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  targetGVK:
+    group: ""
+    version: v1
+    kind: ConfigMap
+  attributes:
+    - name: keyCount
+      path: "cel:size(object.data)"
+      type: int
+    - name: dataKeys
+      path: '$.data'
+      type: map
+      optional: true
+    - name: labels
+      path: '$.metadata.labels'
+      type: map
+      optional: true
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: cronjob-schedule
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  targetGVK:
+    group: batch
+    version: v1
+    kind: CronJob
+  attributes:
+    - name: schedule
+      path: '$.spec.schedule'
+      type: string
+    - name: suspend
+      path: '$.spec.suspend'
+      type: bool
+      optional: true
+    - name: image
+      path: '$.spec.jobTemplate.spec.template.spec.containers[0].image'
+      type: string
+    - name: labels
+      path: '$.metadata.labels'
+      type: map
+      optional: true
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: kollect-target-meta
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  targetGVK:
+    group: kollect.dev
+    version: v1alpha1
+    kind: KollectTarget
+  attributes:
+    - name: profileRef
+      path: '$.spec.profileRef'
+      type: string
+    - name: suspend
+      path: '$.spec.suspend'
+      type: bool
+    - name: watchMode
+      path: '$.spec.watchMode'
+      type: string
+      optional: true
+    - name: includedNamespaces
+      path: '$.spec.includedNamespaces'
+      type: list
+      optional: true
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: trivy-vulnerability-summary
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  targetGVK:
+    group: aquasecurity.github.io
+    version: v1alpha1
+    kind: VulnerabilityReport
+  attributes:
+    - name: resourceKind
+      path: '$.metadata.labels["trivy-operator.resource.kind"]'
+      type: string
+      optional: true
+    - name: resourceName
+      path: '$.metadata.labels["trivy-operator.resource.name"]'
+      type: string
+      optional: true
+    - name: imageRepository
+      path: '$.report.artifact.repository'
+      type: string
+      optional: true
+    - name: imageTag
+      path: '$.report.artifact.tag'
+      type: string
+      optional: true
+    - name: criticalCount
+      path: '$.report.summary.criticalCount'
+      type: int
+      optional: true
+    - name: highCount
+      path: '$.report.summary.highCount'
+      type: int
+      optional: true
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: certificate-summary
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  targetGVK:
+    group: cert-manager.io
+    version: v1
+    kind: Certificate
+  attributes:
+    - name: commonName
+      path: '$.spec.commonName'
+      type: string
+      optional: true
+    - name: secretName
+      path: '$.spec.secretName'
+      type: string
+      optional: true
+    - name: issuer
+      path: '$.spec.issuerRef.name'
+      type: string
+      optional: true
+    - name: primaryDNS
+      path: '$.spec.dnsNames[0]'
+      type: string
+      optional: true
+    - name: notAfter
+      path: '$.status.notAfter'
+      type: string
+      optional: true
+    - name: ready
+      path: '$.status.conditions[?(@.type=="Ready")].status'
+      type: string
+      optional: true
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: external-secret-summary
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  targetGVK:
+    group: external-secrets.io
+    version: v1beta1
+    kind: ExternalSecret
+  attributes:
+    - name: secretStore
+      path: '$.spec.secretStoreRef.name'
+      type: string
+    - name: targetSecret
+      path: '$.spec.target.name'
+      type: string
+      optional: true
+    - name: refreshInterval
+      path: '$.spec.refreshInterval'
+      type: string
+      optional: true
+    - name: synced
+      path: '$.status.conditions[?(@.type=="Ready")].status'
+      type: string
+      optional: true

@@ -1,0 +1,21 @@
+# Step 8 — Git snapshot sink (public demo repo).
+# Requires git-push-credentials secret — see base/kollect/secret.example.yaml.
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSink
+metadata:
+  name: git-inventory-demo
+  namespace: default
+spec:
+  type: git
+  endpoint: https://github.com/konih/kollect-inventory-demo.git
+  connectionTest: true
+  git:
+    branch: main
+    pushPolicy: Commit
+    commitMessage: "chore(inventory): export {namespace}/{name}"
+    auth:
+      type: token
+  secretRef:
+    name: git-push-credentials
+    namespace: default

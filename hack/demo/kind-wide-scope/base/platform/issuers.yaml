@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+#
+# Self-signed issuer for demo Certificate CRs (cert-manager must be installed first).
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: demo-selfsigned
+spec:
+  selfSigned: {}

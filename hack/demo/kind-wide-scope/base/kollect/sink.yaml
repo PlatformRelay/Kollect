@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSink
+metadata:
+  name: git-inventory-demo
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  type: git
+  endpoint: https://github.com/konih/kollect-inventory-demo.git
+  connectionTest: true
+  git:
+    branch: main
+    pushPolicy: Commit
+    commitMessage: "chore(inventory): export {namespace}/{name}"
+    auth:
+      type: token
+  secretRef:
+    name: git-push-credentials
+    namespace: default

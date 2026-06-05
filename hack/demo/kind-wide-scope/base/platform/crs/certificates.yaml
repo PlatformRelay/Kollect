@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+#
+# cert-manager Certificate CRs — collected by fleet-certificates Target.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: team-a-api-tls
+  namespace: team-a
+  labels:
+    app.kubernetes.io/part-of: demo-fleet
+spec:
+  secretName: team-a-api-tls
+  issuerRef:
+    name: demo-selfsigned
+    kind: ClusterIssuer
+  commonName: api.team-a.demo.local
+  dnsNames:
+    - api.team-a.demo.local
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: team-b-frontend-tls
+  namespace: team-b
+  labels:
+    app.kubernetes.io/part-of: demo-fleet
+spec:
+  secretName: team-b-frontend-tls
+  issuerRef:
+    name: demo-selfsigned
+    kind: ClusterIssuer
+  commonName: frontend.team-b.demo.local
+  dnsNames:
+    - frontend.team-b.demo.local
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: team-b-payments-tls
+  namespace: team-b
+  labels:
+    app.kubernetes.io/part-of: demo-fleet
+spec:
+  secretName: team-b-payments-tls
+  issuerRef:
+    name: demo-selfsigned
+    kind: ClusterIssuer
+  commonName: payments.team-b.demo.local
+  dnsNames:
+    - payments.team-b.demo.local

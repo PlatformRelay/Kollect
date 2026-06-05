@@ -1,0 +1,140 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-deployments
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  profileRef: deployment-fleet
+  includedNamespaces: [team-a, team-b, platform, default, inventory-demo]
+  labelSelector:
+    matchLabels:
+      kollect.dev/inventory: enabled
+  suspend: false
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-services
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  profileRef: service-endpoints
+  includedNamespaces: [team-a, team-b, platform, default]
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: demo-fleet
+  suspend: false
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-configmaps
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  profileRef: configmap-data
+  includedNamespaces: [team-a, team-b, platform, default]
+  labelSelector:
+    matchLabels:
+      kollect.dev/config-track: "true"
+  suspend: false
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-cronjobs
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  profileRef: cronjob-schedule
+  includedNamespaces: [team-a, team-b, platform, default]
+  labelSelector:
+    matchLabels:
+      kollect.dev/inventory: enabled
+      app.kubernetes.io/component: cronjob
+  suspend: false
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: meta-targets
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  profileRef: kollect-target-meta
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: kollect-demo
+  suspend: false
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: storefront-narrow
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  profileRef: deployment-fleet
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/name: storefront
+  suspend: false
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: trivy-vulnerability-reports
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  profileRef: trivy-vulnerability-summary
+  includedNamespaces: [team-a, team-b, platform, default, inventory-demo]
+  watchMode: All
+  suspend: false
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-certificates
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  profileRef: certificate-summary
+  includedNamespaces: [team-a, team-b]
+  suspend: false
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-external-secrets
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  profileRef: external-secret-summary
+  includedNamespaces: [team-a, team-b, default]
+  labelSelector:
+    matchLabels:
+      kollect.dev/inventory: enabled
+  suspend: false

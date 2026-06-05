@@ -1,0 +1,24 @@
+# Step 6 — Multi-namespace fleet Targets (label + namespace filters).
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-deployments
+  namespace: default
+spec:
+  profileRef: deployment-fleet
+  includedNamespaces: [team-a, team-b, platform, default, inventory-demo]
+  labelSelector:
+    matchLabels:
+      kollect.dev/inventory: enabled
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: storefront-narrow
+  namespace: default
+spec:
+  profileRef: deployment-fleet
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/name: storefront

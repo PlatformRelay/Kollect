@@ -3,12 +3,18 @@
 # Copyright (c) 2026 Konrad Heimel
 #
 # Tail operator logs relevant to collection, inventory reconcile, and git export.
-# Runs kubectl logs -f in background; Ctrl+C stops all followers.
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/ui.sh
+source "${SCRIPT_DIR}/lib/ui.sh"
 
 readonly KUBECTL="${KUBECTL:-kubectl}"
 readonly NS="${KOLLECT_NAMESPACE:-kollect-system}"
 readonly RELEASE="${KOLLECT_RELEASE:-kollect}"
+
+demo_require_gum
+demo_intro "Watch Kollect reconcile inventory and push to Git"
 
 PIDS=()
 cleanup() {
@@ -31,35 +37,25 @@ if [[ -z "${pod}" ]]; then
   exit 1
 fi
 
-echo "[logs] Manager pod: ${NS}/${pod}"
-echo "[logs] Press Ctrl+C to stop all followers."
-echo ""
+demo_info "Manager pod: **${NS}/${pod}** — Press Ctrl+C to stop followers."
 
-# Full manager log (primary)
 "${KUBECTL}" logs -n "${NS}" "${pod}" -f --tail=80 2>&1 | sed 's/^/[manager] /' &
 PIDS+=($!)
 
-# Filtered: inventory + export + git
 "${KUBECTL}" logs -n "${NS}" "${pod}" -f --tail=20 2>&1 \
   | grep --line-buffered -Ei 'inventory|export|git|kollectinventory|team-inventory|sink' \
   | sed 's/^/[export] /' &
 PIDS+=($!)
 
-# Filtered: target/collect engine
 "${KUBECTL}" logs -n "${NS}" "${pod}" -f --tail=20 2>&1 \
-  | grep --line-buffered -Ei 'target|collect|informer|profile|fleet-' \
+  | grep --line-buffered -Ei 'target|collect|informer|profile|fleet-|vulnerability|certificate|externalsecret' \
   | sed 's/^/[collect] /' &
 PIDS+=($!)
 
 if command -v stern >/dev/null 2>&1; then
-  echo "[logs] stern also available:"
-  echo "  stern -n ${NS} ${RELEASE} --tail=50"
-  echo "  stern -n ${NS} . --include kollectinventory --tail=30"
+  demo_info "stern also available: \`stern -n ${NS} ${RELEASE} --tail=50\`"
 fi
 
-echo ""
-echo "[logs] Inventory HTTP (separate terminal):"
-echo "  kubectl port-forward -n ${NS} svc/kollect-controller-manager 8082:8082"
-echo "  watch -n5 'curl -sf http://127.0.0.1:8082/inventory | jq \"{itemCount, targets: [.items[].targetRef.name]}\"'"
+demo_info "Inventory HTTP: \`kubectl port-forward -n ${NS} svc/kollect-controller-manager 8082:8082\` then \`curl -sf http://127.0.0.1:8082/inventory | jq .itemCount\`"
 
 wait

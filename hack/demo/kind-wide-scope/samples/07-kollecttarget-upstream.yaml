@@ -1,0 +1,38 @@
+# Step 7 — Targets for upstream CRDs (generic GVK collection).
+---
+# All VulnerabilityReports in fleet namespaces — grows as Trivy scans images.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: trivy-vulnerability-reports
+  namespace: default
+spec:
+  profileRef: trivy-vulnerability-summary
+  includedNamespaces: [team-a, team-b, platform, default, inventory-demo]
+  watchMode: All
+  suspend: false
+---
+# cert-manager Certificate CRs in namespaces labeled kollect.dev/collect-certificates=enabled.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-certificates
+  namespace: default
+spec:
+  profileRef: certificate-summary
+  includedNamespaces: [team-a, team-b]
+  suspend: false
+---
+# external-secrets ExternalSecret sync posture (labels, not secret bytes).
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-external-secrets
+  namespace: default
+spec:
+  profileRef: external-secret-summary
+  includedNamespaces: [team-a, team-b, default]
+  labelSelector:
+    matchLabels:
+      kollect.dev/inventory: enabled
+  suspend: false

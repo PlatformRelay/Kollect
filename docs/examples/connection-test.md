@@ -1,8 +1,9 @@
 # Example: Connection test
 
-!!! tip "Production default"
-    Set `spec.connectionTest: false` on sinks in production (Helm chart default). Use the
-    `kollect.dev/test-connection` annotation or a `KollectConnectionTest` CR for on-demand probes.
+!!! tip "Opt out in production"
+    `spec.connectionTest` defaults to **true**. Set `connectionTest: false` when automatic probes on
+    every spec change are undesirable. Use the `kollect.dev/test-connection` annotation or a
+    `KollectConnectionTest` CR for on-demand probes.
 
 Kollect offers **three** ways to verify sink connectivity before relying on export
 ([ADR-0403](../adr/0403-connection-test.md), [ADR-0703](../adr/0703-platform-architecture-pivot.md)).
@@ -11,11 +12,11 @@ Kollect offers **three** ways to verify sink connectivity before relying on expo
 
 | Mechanism | Best for | Writes to |
 | --- | --- | --- |
-| `spec.connectionTest: true` | Samples and CI | `KollectSink.status` |
+| `spec.connectionTest` (default **true**) | Automatic probe on create/update | `KollectSink.status` |
 | `kollect.dev/test-connection` annotation | On-demand prod re-test | `KollectSink.status` |
 | `KollectConnectionTest` CR | Audited / CI pipelines | `KollectConnectionTest.status` |
 
-**Production default:** `spec.connectionTest: false` (Helm chart default).
+**Default:** `spec.connectionTest: true` (CRD OpenAPI default). Set `false` to opt out.
 
 ## Sink probe — `spec.connectionTest`
 

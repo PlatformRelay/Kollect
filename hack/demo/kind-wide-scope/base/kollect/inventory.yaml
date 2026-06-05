@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectInventory
+metadata:
+  name: team-inventory
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/part-of: kollect-demo
+spec:
+  sinkRefs:
+    - git-inventory-demo
+  exportMinInterval: 15s
+  suspend: false

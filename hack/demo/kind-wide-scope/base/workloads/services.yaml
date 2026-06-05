@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+#
+# 6 Services — collected by fleet-services (label app.kubernetes.io/part-of=demo-fleet).
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: team-a
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/part-of: demo-fleet
+spec:
+  selector:
+    app.kubernetes.io/name: api-gateway
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+  namespace: team-a
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/part-of: demo-fleet
+spec:
+  selector:
+    app.kubernetes.io/name: worker
+  ports:
+    - port: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: team-b
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: demo-fleet
+spec:
+  selector:
+    app.kubernetes.io/name: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: team-b
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: demo-fleet
+spec:
+  selector:
+    app.kubernetes.io/name: backend
+  ports:
+    - port: 5678
+      targetPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-agent
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: metrics-agent
+    app.kubernetes.io/part-of: demo-fleet
+spec:
+  selector:
+    app.kubernetes.io/name: metrics-agent
+  ports:
+    - port: 9090
+      targetPort: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storefront-demo
+  namespace: default
+  labels:
+    app.kubernetes.io/name: storefront
+    app.kubernetes.io/part-of: demo-fleet
+spec:
+  selector:
+    app.kubernetes.io/name: storefront
+  ports:
+    - port: 80
+      targetPort: 80

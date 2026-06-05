@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+#
+# Demo namespaces — multi-team fleet topology for Kollect Targets.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-a
+  labels:
+    app.kubernetes.io/part-of: kollect-demo
+    team: team-a
+    kollect.dev/collect-certificates: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-b
+  labels:
+    app.kubernetes.io/part-of: kollect-demo
+    team: team-b
+    kollect.dev/collect-certificates: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform
+  labels:
+    app.kubernetes.io/part-of: kollect-demo
+    team: platform
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inventory-demo
+  labels:
+    app.kubernetes.io/part-of: kollect-demo
+    kollect.dev/watch: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sec-ops
+  labels:
+    app.kubernetes.io/part-of: kollect-demo
+    team: sec-ops
