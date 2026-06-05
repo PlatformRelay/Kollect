@@ -27,6 +27,10 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **ci:** Stabilize coverage profile merge and cmd skip [758cb29](https://github.com/konih/kollect/commit/758cb298d96e9dbd426df823726c9635818f920b)
+
+- **ci:** Raise kind e2e helm install wait timeouts [61c61f2](https://github.com/konih/kollect/commit/61c61f25735fe7ed3b2f8e2b35c7b96452c2e429)
+
 - **controller:** Stabilize cluster target and inventory envtests [4ce24c3](https://github.com/konih/kollect/commit/4ce24c3b1fa337db75f1a8d74bc091567ca3908d)
 
 - **sink/git:** Simplify file remote push and clone tests [ce84b2e](https://github.com/konih/kollect/commit/ce84b2ecce27f647c6fbaa83fcd9d991735f2aea)
@@ -51,6 +55,10 @@ anchor on an older commit.
 
 
 ### Features
+
+- **collect:** Complete ADR-0020 metrics catalog [4d14925](https://github.com/konih/kollect/commit/4d14925b5aebc8665c59c72181e9950cc07ad011)
+
+- **sink:** Add gitlab mergeRequest CRD and transport ACL wire [bd6499f](https://github.com/konih/kollect/commit/bd6499fe1756dc5c7cc24367d49fa46f96f079ca)
 
 - **controller:** Wire cluster inventory export to sinks [b5445a2](https://github.com/konih/kollect/commit/b5445a2c37ea27f91a13b8ba6084cdf201ff4796)
 
