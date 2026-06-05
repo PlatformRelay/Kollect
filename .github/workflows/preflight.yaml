@@ -34,3 +34,6 @@ jobs:
         run: task changelog:verify
         env:
           CI: "true"
+      - name: Perf-report preflight note
+        run: |
+          echo "::notice title=perf-report::Run task perf-report locally before scale or perf work (ADR-0026). Optional CI job perf-report runs the same gate without blocking merge."
