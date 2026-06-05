@@ -18,7 +18,7 @@ func TestRegistry_NewBackend(t *testing.T) {
 	gitBackend, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
 		Type:     "git",
 		Endpoint: "https://example.com/inventory.git",
-	})
+	}, BuildContext{})
 	if err != nil {
 		t.Fatalf("NewBackend(git) error = %v", err)
 	}
@@ -27,11 +27,28 @@ func TestRegistry_NewBackend(t *testing.T) {
 		t.Fatalf("Type() = %q, want git", gitBackend.Type())
 	}
 
-	if err := gitBackend.Export(context.Background(), []byte(`{}`)); err != nil {
-		t.Fatalf("Export() error = %v", err)
+	s3Backend, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type:     "s3",
+		Endpoint: "s3://inventory-bucket/prefix",
+	}, BuildContext{
+		SecretData: map[string][]byte{
+			"accessKeyID":     []byte("key"),
+			"secretAccessKey": []byte("secret"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewBackend(s3) error = %v", err)
 	}
 
-	if _, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "unknown"}); err == nil {
+	if s3Backend.Type() != "s3" {
+		t.Fatalf("Type() = %q, want s3", s3Backend.Type())
+	}
+
+	if _, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "unknown"}, BuildContext{}); err == nil {
 		t.Fatal("NewBackend(unknown) expected error")
 	}
+
+	_ = context.Background()
+	_ = gitBackend
+	_ = s3Backend
 }

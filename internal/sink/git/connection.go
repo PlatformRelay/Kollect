@@ -23,7 +23,7 @@ func TestConnection(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("invalid endpoint URL: %w", err)
 	}
 
-	if u.Scheme == "http" {
+	if u.Scheme == schemeHTTP {
 		return lsRemote(ctx, cfg)
 	}
 
@@ -38,7 +38,7 @@ func TestConnection(ctx context.Context, cfg Config) error {
 
 	port := u.Port()
 	if port == "" {
-		if u.Scheme == "http" {
+		if u.Scheme == schemeHTTP {
 			port = "80"
 		} else {
 			port = "443"

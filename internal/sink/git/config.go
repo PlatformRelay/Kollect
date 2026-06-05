@@ -15,11 +15,12 @@ import (
 type Config struct {
 	Endpoint string
 	TLS      TLSConfig
+	CABundle []byte
 }
 
 // ConfigFromSpec validates and resolves a KollectSink git spec.
 func ConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec, caPEM []byte) (Config, error) {
-	if spec.Type != "git" {
+	if spec.Type != TypeName {
 		return Config{}, fmt.Errorf("expected git sink, got %q", spec.Type)
 	}
 
@@ -41,8 +42,14 @@ func ConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec, caPEM []byte) (Conf
 		return Config{}, err
 	}
 
+	pem := caPEM
+	if len(pem) == 0 && spec.TLS != nil {
+		pem = spec.TLS.CABundle
+	}
+
 	return Config{
 		Endpoint: endpoint,
 		TLS:      tlsCfg,
+		CABundle: pem,
 	}, nil
 }
