@@ -12,9 +12,20 @@ import (
 
 // KollectInventorySpec defines the desired state of KollectInventory.
 type KollectInventorySpec struct {
-	// sinkRefs lists the names of KollectSink resources to export the inventory to.
+	// sinkRefs lists KollectSink names in the same namespace as this Inventory.
 	// +optional
 	SinkRefs []string `json:"sinkRefs,omitempty"`
+
+	// exportMinInterval is the minimum time between identical exports for this inventory.
+	// Material changes (payload checksum or spec generation) bypass the interval.
+	// +kubebuilder:default="30s"
+	// +optional
+	ExportMinInterval *metav1.Duration `json:"exportMinInterval,omitempty"`
+
+	// maxExportBytes caps the marshalled namespace payload for export and HTTP (optional).
+	// Webhook rejects values above the operator global cap (ADR-0006).
+	// +optional
+	MaxExportBytes *int64 `json:"maxExportBytes,omitempty"`
 
 	// suspend pauses reconciliation of this inventory when set to true.
 	// +optional
@@ -27,7 +38,7 @@ type KollectInventorySpec struct {
 
 // HTTPEndpointConfig toggles the operator inventory HTTP server.
 type HTTPEndpointConfig struct {
-	// enabled turns on GET /inventory (aggregated summary JSON).
+	// enabled turns on GET /v1alpha1/inventory (aggregated summary JSON).
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
 

@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/name: kollect
     app.kubernetes.io/managed-by: kustomize
 spec:
+  # Primary MVP path: Postgres (or Kafka). Git sink is for audit/CI — see git-inventory-demo.
   sinkRefs:
-    - git-inventory-demo
+    - postgres-inventory-demo
   suspend: false
