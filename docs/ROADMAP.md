@@ -92,7 +92,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Event-driven path: informer changes → inventory export | 🚧 |
 | Sink registry (factory by `type`) | ✅ |
 | Git sink with custom CA TLS | ✅ |
-| GitLab sink (`tls.caSecretRef` for internal CA) | 🚧 scaffold |
+| GitLab sink (`tls.caSecretRef` for internal CA) | 🚧 scaffold — [MR workflow](#gitlab-sink--merge-request-workflow) deferred |
 | S3 sink | 🚧 |
 | Postgres sink (`type: postgres`) | ✅ |
 | Kafka export sink (`type: kafka`) | ✅ |
@@ -298,6 +298,27 @@ Migration: re-apply sink manifests into each team namespace alongside profiles a
 Remove cluster-scoped sink objects before upgrade. Update `KollectScope.spec.sinkRefs` allowlists
 to names in the scope namespace.
 
+## GitLab sink — merge request workflow
+
+Scaffold (`553117cc`) reuses the shared **HTTPS git push** path: `internal/sink/gitlab` resolves
+`spec.endpoint` + `tls.caSecretRef` / `caBundle`, then delegates to `internal/sink/git.Export`
+(direct push to the default branch). Connection probe runs `git ls-remote` with custom CA trust.
+
+**Not yet implemented** — required for enterprise GitLab where direct `main` pushes are forbidden:
+
+| Gap | Notes |
+| --- | --- |
+| **CRD fields** | `spec.mergeRequest` (mode `direct` \| `merge_request`), `targetBranch`, `branchPrefix`, optional `titleTemplate` / `autoMerge` |
+| **Branch + push** | Create `kollect/{inventory-ns}/{inventory-name}` branch, push commit, avoid force-push to protected default |
+| **GitLab REST API v4** | Resolve project ID from `.git` URL; `POST /projects/:id/merge_requests` create-or-update by `source_branch` |
+| **Token scopes** | `write_repository` for git; `api` for MR create/update (document in sink CR reference) |
+| **Export integration** | Wire `internal/sink/gitlab/mr.go` stub after git push when `merge_request` mode is set |
+| **Integration test** | GitLab CE testcontainer or recorded HTTP mock; nightly optional when `GITLAB_TEST_*` secret set |
+| **Hub/cluster sinks** | Same contract applies to `KollectClusterSink` when implemented (Phase 3) |
+
+**Stub:** `internal/sink/gitlab/mr.go` defines `MergeRequestConfig`, `ResolveProjectRef`, and
+`EnsureMergeRequest` (returns not-implemented). Default behavior remains direct push.
+
 ## CI and end-to-end testing
 
 | Item | Status |
@@ -308,7 +329,7 @@ to names in the scope namespace.
 | Manual e2e workflow (`workflow_dispatch`) | ✅ |
 | Nightly kind smoke (Helm install + sample CRs + HTTP probe) | 🚧 |
 | Full e2e: conditions, Git export SHA, HTTP body | 🚧 |
-| Release workflow (`workflow_dispatch` dry-run) | 🚧 docs + scripts; first tag test manual |
+| Release workflow (`workflow_dispatch` dry-run) | 🚧 `task release-dry-run` PASS locally; GH Actions + cosign/SBOM untested |
 
 ## Architecture decisions (2026-06-05)
 
