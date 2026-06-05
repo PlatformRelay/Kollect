@@ -80,6 +80,13 @@ tasks:
     cmds:
       - task: test:run
 
+  test-integration:
+    desc: Run integration-tagged tests (testcontainers; requires Docker)
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - go test -tags=integration -count=1 ./internal/sink/...
+
   format:
     desc: Run go fmt on all packages
     cmds:

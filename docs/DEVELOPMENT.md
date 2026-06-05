@@ -139,6 +139,20 @@ for controller-runtime envtest. First run may take a minute.
 
 Controller tests live under `internal/controller/` (`suite_test.go` sets up envtest).
 
+### Integration tests (testcontainers)
+
+Sink integration tests use the `integration` build tag and Docker (MinIO module for S3; bare
+`file://` git remote for Git):
+
+```sh
+task test-integration
+# equivalent:
+go test -tags=integration -count=1 ./internal/sink/...
+```
+
+If Docker is unavailable, MinIO tests skip; unit tests under `internal/sink/` still run via
+`task test`.
+
 ### End-to-end (kind)
 
 ```sh
@@ -147,6 +161,11 @@ make test-e2e
 
 Creates (or reuses) kind cluster `kollect-test-e2e`, runs `test/e2e/`, then deletes the cluster.
 E2E is also available as a manual GitHub Actions workflow (`.github/workflows/test-e2e.yaml`).
+
+### Nightly kind smoke (CI)
+
+Scheduled and manual workflow `.github/workflows/e2e-nightly.yaml`: kind + Helm install, sample
+CRs, bounded `kubectl wait` (120s). No reinstall loops.
 
 ### Coverage
 

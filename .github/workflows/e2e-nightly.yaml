@@ -1,0 +1,75 @@
+name: E2E nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-nightly:
+    name: kind-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/go-cache
+        with:
+          envtest: true
+
+      - uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2.0.0
+        with:
+          version: 3.51.1
+
+      - name: Install kind and helm
+        run: |
+          curl -fsSL -o kind "https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64"
+          chmod +x kind && sudo mv kind /usr/local/bin/kind
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Create kind cluster
+        run: |
+          kind create cluster --name kollect-nightly --wait 120s
+          kubectl cluster-info --context kind-kollect-nightly
+
+      - name: Build and load controller image
+        run: |
+          task docker:build
+          kind load docker-image kollect-controller-manager:dev --name kollect-nightly
+
+      - name: Install operator via Helm
+        run: |
+          helm upgrade --install kollect charts/kollect \
+            --namespace kollect-system --create-namespace \
+            --set image.repository=kollect-controller-manager \
+            --set image.tag=dev \
+            --set image.pullPolicy=IfNotPresent \
+            --set webhooks.enabled=false \
+            --wait --timeout 120s
+
+      - name: Wait for manager pod
+        run: |
+          kubectl wait --for=condition=Ready pod \
+            -l app.kubernetes.io/name=kollect \
+            -n kollect-system \
+            --timeout=120s
+
+      - name: Apply sample CRs
+        run: kubectl apply -k config/samples/
+
+      - name: Assert CRDs accepted
+        run: |
+          kubectl wait --for=condition=Established crd/kollectprofiles.kollect.dev --timeout=120s
+          kubectl wait --for=condition=Established crd/kollecttargets.kollect.dev --timeout=120s
+          kubectl wait --for=condition=Established crd/kollectinventories.kollect.dev --timeout=120s
+          kubectl wait --for=condition=Established crd/kollectsinks.kollect.dev --timeout=120s
+          kubectl get kollectprofiles,kollecttargets,kollectinventories,kollectsinks -A
+
+      - name: Delete kind cluster
+        if: always()
+        run: kind delete cluster --name kollect-nightly

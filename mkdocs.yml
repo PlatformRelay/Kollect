@@ -26,6 +26,7 @@ nav:
   - Quick start: QUICKSTART.md
   - Development: DEVELOPMENT.md
   - Architecture: ARCHITECTURE.md
+  - Roadmap: ROADMAP.md
   - Requirements: REQUIREMENTS.md
   - Examples:
       - Deployment inventory: examples/deployment-inventory.md
