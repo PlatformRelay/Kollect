@@ -1,29 +1,63 @@
 # kollect-ui
 
-Read-only React SPA for the Kollect inventory Read API (ADR-0408).
+Read-only React SPA for the Kollect inventory Read API ([ADR-0408](../docs/adr/0408-read-api-ui-architecture.md)).
 
 ## Stack
 
 - React 19 + Vite 6 + TypeScript
 - Tailwind CSS v4 (brand tokens: `#326CE5`, `#081A4B`, `#18B6A3`)
 - TanStack Router + TanStack Query
-- MSW for local development mocks
+- MSW for mock Read API in dev and Vitest ([ADR-0412](../docs/adr/0412-mock-read-api-for-ui-development.md))
 
-## Quick start
+## Quick start (mock — default)
+
+From the repo root:
 
 ```bash
-cd ui
+task ui-dev
+```
+
+Or from `ui/`:
+
+```bash
 npm ci
-VITE_ENABLE_MSW=true npm run dev
+VITE_MOCK_API=true npm run dev
 ```
 
-Open http://localhost:5173 — MSW serves mock Read API responses when `VITE_ENABLE_MSW=true`.
+Open http://localhost:5173 — MSW serves contract-faithful mock responses with no cluster required.
 
-Point at a live operator Read API (port-forward or in-cluster):
+Append `?debug=true` to show the connection banner (**Mock data** vs **Live Read API**).
+
+## Live Read API
+
+Point at a running operator Read API (port-forward or in-cluster):
 
 ```bash
-VITE_READ_API_URL=http://127.0.0.1:8082 npm run dev
+VITE_MOCK_API=false VITE_READ_API_URL=http://127.0.0.1:8082 npm run dev
 ```
+
+Vite proxies `/v1alpha1/*` to `VITE_READ_API_URL` when MSW is off.
+
+## Prism (real HTTP, optional)
+
+For Playwright or manual testing against a standalone HTTP mock:
+
+```bash
+task ui-mock-prism   # serves openapi/v1alpha1/inventory.yaml on :4010
+VITE_MOCK_API=false VITE_READ_API_URL=http://127.0.0.1:4010 npm run dev
+```
+
+SSE watch fidelity is limited in Prism — use MSW (`VITE_MOCK_API=true`) for watch UX development.
+
+## Environment variables
+
+| Variable | Default (`task ui-dev`) | Purpose |
+| --- | --- | --- |
+| `VITE_MOCK_API` | `true` | Enable MSW Service Worker |
+| `VITE_ENABLE_MSW` | — | Deprecated alias for `VITE_MOCK_API=true` |
+| `VITE_READ_API_URL` | `http://127.0.0.1:8082` | Live Read API / Vite proxy target when mock off |
+| `VITE_MOCK_WATCH_INTERVAL_MS` | `5000` | SSE mock event interval |
+| `E2E_READ_API_URL` | `http://127.0.0.1:4010` | Playwright → Prism or mock server (nightly) |
 
 ## Scripts
 
@@ -31,10 +65,21 @@ VITE_READ_API_URL=http://127.0.0.1:8082 npm run dev
 | --- | --- |
 | `npm run dev` | Vite dev server |
 | `npm run build` | Production bundle → `dist/` |
-| `npm test` | Vitest unit tests |
+| `npm test` | Vitest unit + MSW handler tests |
 | `npm run test:a11y` | a11y gate stub (Playwright axe in nightly) |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript |
+
+## Mock fixtures
+
+Hand-maintained under `src/mocks/fixtures/`:
+
+- `inventory-team-a.json` — sample catalog rows
+- `export-status-mixed.json` — ok / degraded / unknown sinks
+- `targets-degraded.json` — healthy and Degraded Target conditions
+- Programmatic 120-row catalog for pagination tests
+
+Handlers: `src/mocks/handlers/` (inventory, status, SSE watch).
 
 ## OpenAPI contract
 

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "kollect.dev/v1alpha1",
+  "namespace": "team-a",
+  "inventory": "team-inventory",
+  "updatedAt": "2026-06-05T12:00:00Z",
+  "checksum": "sha256:team-a-demo",
+  "items": [
+    {
+      "targetNamespace": "team-a",
+      "targetName": "deploys",
+      "namespace": "apps",
+      "name": "web",
+      "group": "apps",
+      "version": "v1",
+      "kind": "Deployment",
+      "uid": "uid-web-001",
+      "attributes": { "replicas": 3, "readyReplicas": 3 }
+    },
+    {
+      "targetNamespace": "team-a",
+      "targetName": "deploys",
+      "namespace": "apps",
+      "name": "api",
+      "group": "apps",
+      "version": "v1",
+      "kind": "Deployment",
+      "uid": "uid-api-002",
+      "attributes": { "replicas": 2, "readyReplicas": 2 }
+    },
+    {
+      "targetNamespace": "team-a",
+      "targetName": "services",
+      "namespace": "apps",
+      "name": "web-svc",
+      "group": "",
+      "version": "v1",
+      "kind": "Service",
+      "uid": "uid-svc-003",
+      "attributes": { "type": "ClusterIP", "ports": 1 }
+    },
+    {
+      "targetNamespace": "team-a",
+      "targetName": "configmaps",
+      "namespace": "apps",
+      "name": "app-config",
+      "group": "",
+      "version": "v1",
+      "kind": "ConfigMap",
+      "uid": "uid-cm-004",
+      "attributes": { "keys": 5 }
+    }
+  ]
+}

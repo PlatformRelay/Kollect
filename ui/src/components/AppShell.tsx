@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { ConnectionBanner } from "./ConnectionBanner";
 import {
   LayoutDashboard,
   Package,
@@ -23,6 +24,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <ConnectionBanner />
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
           <Link to="/" className="flex items-center gap-3 no-underline">
