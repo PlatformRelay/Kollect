@@ -208,7 +208,12 @@ func cloneOrInit(
 
 	repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
 	if err == nil {
-		return repo, false, nil
+		emptyRemote := false
+		if _, headErr := repo.Head(); headErr != nil {
+			emptyRemote = true
+		}
+
+		return repo, emptyRemote, nil
 	}
 
 	if !isEmptyRemote(err) {
