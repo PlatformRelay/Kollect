@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   ui-verify:
@@ -25,7 +24,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
-      - uses: actions/setup-node@499267760445efe66a932b1621f519267b9ffd2 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
@@ -36,6 +35,10 @@ jobs:
   ui-image:
     name: ui-image
     runs-on: ubuntu-latest
+    # packages: write — push UI container image to GHCR when enabled
+    permissions:
+      contents: read
+      packages: write
     needs: [ui-verify]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
