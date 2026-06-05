@@ -85,7 +85,7 @@ tasks:
     env:
       CGO_ENABLED: "1"
     cmds:
-      - go test -tags=integration -count=1 ./internal/sink/...
+      - go test -tags=integration -count=1 ./internal/sink/... ./internal/transport/...
 
   format:
     desc: Run go fmt on all packages

@@ -79,29 +79,29 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | CEL + JSONPath attribute extractor | ✅ |
 | Dynamic informer engine (per Profile GVK) | ✅ |
 | In-memory collection store + namespace aggregation | ✅ |
-| `KollectTarget` controller | 🚧 |
+| `KollectTarget` controller | ✅ |
 | `KollectInventory` controller (namespaced rollup + export) | 🚧 |
-| Event-driven path: informer changes → inventory export | ⬜ |
+| Event-driven path: informer changes → inventory export | 🚧 |
 | Sink registry (factory by `type`) | ✅ |
 | Git sink with custom CA TLS | ✅ |
 | GitLab sink | ⬜ |
 | S3 sink | 🚧 |
-| SAR / RBAC scope degradation | ⬜ |
+| SAR / RBAC scope degradation | ✅ |
 | Typed reconcile errors + circuit breakers | ⬜ |
 | Secondary watches (Profile/Sink changes) | ⬜ |
 | Finalizers | ⬜ |
-| Read-only HTTP `GET /inventory` | 🚧 |
-| Inventory HTTP auth: TokenReview + SAR (K8s bearer) | ⬜ |
-| `--inventory-auth-mode=kubernetes` (default) | ⬜ |
-| Full Prometheus metrics per [ADR-0020](adr/0020-error-taxonomy.md) | ⬜ |
+| Read-only HTTP `GET /inventory` (+ SSE watch) | ✅ |
+| Inventory HTTP auth: TokenReview + SAR (K8s bearer) | ✅ |
+| `--inventory-auth-mode=kubernetes` (default) | ✅ |
+| Full Prometheus metrics per [ADR-0020](adr/0020-error-taxonomy.md) | ✅ |
 | Sample profiles: Deployment, Service, Ingress | ✅ |
 | Sample: generic CRD | ⬜ |
 | Sample contract tests in CI | 🚧 |
-| Integration tests (testcontainers) in CI | ⬜ |
+| Integration tests (testcontainers) in CI | 🚧 |
 | End-to-end: install → collect → export → HTTP | 🚧 |
-| `spec.suspend` on reconciled kinds | 🚧 |
+| `spec.suspend` on reconciled kinds | ✅ |
 
-**Counts:** ✅ 8 · 🚧 9 · ⬜ 20 · 🔮 1
+**Counts:** ✅ 14 · 🚧 6 · ⬜ 12 · 🔮 1
 
 ---
 
@@ -115,17 +115,17 @@ Multi-cluster support must **not** block single-cluster installs. See
 | --- | --- |
 | Multi-cluster topology RFC | ✅ |
 | Lean queue transport ADR (pluggable factory) | ✅ |
-| `KollectHub` CRD (`spec.transport.type`) | ⬜ |
+| `KollectHub` CRD (`spec.transport.type`) | ✅ |
 | Spoke operator / agent snapshot reports | ⬜ |
 | Hub merge and deduplication | ⬜ |
-| Transport: in-process (dev/test) | 🚧 |
-| Transport: Redis Streams (Phase 2 spike default) | ⬜ |
-| Transport: NATS JetStream (config alternative) | ⬜ |
+| Transport: in-process (dev/test) | ✅ |
+| Transport: Redis Streams (Phase 2 spike default) | ✅ |
+| Transport: NATS JetStream (config alternative) | 🚧 |
 | Transport: Kafka backend (optional, integration-tested) | 🔮 |
 | Cross-cluster authentication | ❓ |
 | `KollectPublication` (doc-sync) | 🔮 |
 
-**Counts:** ✅ 3 · 🚧 1 · ⬜ 7 · 🔮 2 · ❓ 1
+**Counts:** ✅ 6 · 🚧 1 · ⬜ 4 · 🔮 2 · ❓ 1
 
 ---
 
@@ -133,15 +133,15 @@ Multi-cluster support must **not** block single-cluster installs. See
 
 | Item | Status |
 | --- | --- |
-| `KollectScope` (namespaced tenancy boundary) | ⬜ |
+| `KollectScope` (namespaced tenancy boundary) | ✅ |
 | `KollectClusterScope` (platform teams) | 🔮 |
 | `KollectClusterInventory` (platform rollup) | ⬜ |
-| GCS sink | ⬜ |
-| Prometheus export sink | ⬜ |
+| GCS sink | ✅ |
+| Prometheus export sink | 🚧 |
 | S3 sink CI hardening | 🚧 |
 | `KollectReceiver` / `KollectTargetSet` (design only) | 🔮 |
 
-**Counts:** ⬜ 6 · 🚧 1 · 🔮 4 · ❓ 1
+**Counts:** ✅ 2 · 🚧 2 · ⬜ 1 · 🔮 4 · ❓ 1
 
 ---
 
@@ -150,10 +150,10 @@ Multi-cluster support must **not** block single-cluster installs. See
 | Item | Status |
 | --- | --- |
 | kube-state-metrics-style custom resource metrics config | ⬜ |
-| Cardinality-safe operator metrics (counts, export latency) | ⬜ |
+| Cardinality-safe operator metrics (counts, export latency) | ✅ |
 | Advanced cross-target / cross-cluster aggregation | ⬜ |
 
-**Counts:** ⬜ 4
+**Counts:** ✅ 1 · ⬜ 3
 
 ---
 
@@ -191,9 +191,9 @@ namespace scope where appropriate.
 | --- | --- |
 | PR CI: gitleaks, verify, lint, unit tests, build | ✅ |
 | Manual e2e workflow (`workflow_dispatch`) | ✅ |
-| Nightly kind smoke (Helm install + sample CRs) | 🚧 |
-| Full e2e: conditions, Git export, HTTP body | ⬜ |
-| Integration tests in CI (testcontainers) | ⬜ |
+| Nightly kind smoke (Helm install + sample CRs + HTTP probe) | 🚧 |
+| Full e2e: conditions, Git export, HTTP body | 🚧 |
+| Integration tests in CI (testcontainers) | 🚧 |
 
 ## Architecture decisions (2026-06-05)
 
