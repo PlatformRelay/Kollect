@@ -142,6 +142,13 @@ Aligned with [ROADMAP.md](../ROADMAP.md) and engineering spec §12:
 | OQ-11 | Reader vs sink `Backend`? | **Distinct `InventoryReader`** |
 | OQ-12 | Target create form in MVP? | **Read-only UI** — no create forms |
 
+## Client UI state (v0.2)
+
+Inventory filter prefs, column visibility, and drawer selection use **Zustand** slices in
+`ui/src/store/` with Vitest unit tests — see [ADR-0410 §2](0410-ui-engineering-and-quality-gates.md).
+Server inventory rows and status responses stay in **TanStack Query**; URL search params are the
+source of truth for shareable inventory filters.
+
 ## See also
 
 - [ADR-0404: Inventory HTTP API authentication](0404-inventory-api-auth.md)

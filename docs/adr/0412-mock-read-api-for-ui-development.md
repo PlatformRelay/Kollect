@@ -63,11 +63,16 @@ watch-specific e2e; Prism covers list/get happy paths.
 env. When `?debug=true` in dev, the shell shows **Mock data** vs **Live Read API** — no duplicate
 server cache; TanStack Query remains the server-state layer ([ADR-0410](0410-ui-engineering-and-quality-gates.md)).
 
-### 5. Deferred to Phase 2
+### 5. Phase 2 (v0.2 — shipped)
 
-OpenAPI-driven handler generation (`task ui-mock-sync`), CI drift gate (`hack/verify-ui-mock.sh`),
-and `pnpm test:contract` schema validation are **not** in Phase 1. Hand fixtures may drift until
-Phase 2 lands; backend `test/openapi/` remains the authoritative contract gate for Go types.
+| Deliverable | Status |
+| --- | --- |
+| `task ui-mock-sync` | Regenerates `ui/src/mocks/generated/openapi-manifest.json` from OpenAPI sha256 |
+| CI drift gate | `hack/verify-ui-mock.sh` invoked from `hack/ci/ui-verify.sh` |
+| Hand fixtures | Remain authoritative for degraded/403 overlays; manifest gates OpenAPI hash only |
+
+`pnpm test:contract` schema validation remains a follow-up; backend `test/openapi/` is still the
+authoritative Go contract gate.
 
 ## Consequences
 

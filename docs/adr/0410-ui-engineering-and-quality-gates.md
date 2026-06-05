@@ -53,6 +53,7 @@ on drift, matching backend codegen discipline.
 | **Language** | TypeScript | OpenAPI codegen; typed routes |
 | **Routing** | `@tanstack/react-router` | Code-splitting, typed loaders |
 | **Server state** | `@tanstack/react-query` | Cache, retry, SSE invalidation |
+| **Client UI state** | **Zustand** (`ui/src/store/`) | Filter prefs, column visibility, drawer/selection — unit-tested slices; **not** XState |
 | **Tables** | `@tanstack/react-table` + `@tanstack/react-virtual` | 10k-row virtualization ([NFR-PERF-1](../REQUIREMENTS.md)) |
 | **Styling** | **Tailwind v4** (OQ-6) | Ops-density layouts; repo-wide |
 | **Primitives** | Radix UI | a11y-friendly dialogs, menus |
@@ -60,7 +61,12 @@ on drift, matching backend codegen discipline.
 | **Forms (deferred)** | `react-hook-form` + `zod` | Target create forms post-MVP |
 | **API client** | `openapi-typescript` or Orval from `openapi/v1alpha1/inventory.yaml` | Contract-first |
 
-**Non-goals (v0.2):** i18n, Service Worker offline, heavy charting libraries, mobile-native apps.
+**Non-goals (v0.2):** i18n, Service Worker offline, heavy charting libraries, mobile-native apps,
+XState/state-machine client layer (deferred — Zustand is the default global store).
+
+**Client state split (v0.2):** TanStack Query owns server cache; Zustand owns UI prefs and ephemeral
+selection (`connection`, `inventory` column/filter prefs, `selection` drawer state). URL search params
+are primary for inventory filters ([ADR-0408](0408-read-api-ui-architecture.md)).
 
 ### 3. Testing pyramid (mirrors ADR-0706 spirit)
 
