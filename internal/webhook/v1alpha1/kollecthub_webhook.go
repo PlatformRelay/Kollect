@@ -61,5 +61,20 @@ func (v *kollectHubValidator) validate(hub *kollectdevv1alpha1.KollectHub) error
 		}
 	}
 
+	seen := make(map[string]struct{}, len(hub.Spec.RemoteClusters))
+	for i, ref := range hub.Spec.RemoteClusters {
+		name := strings.TrimSpace(ref.Name)
+		if name == "" {
+			return fmt.Errorf("spec.remoteClusters[%d].name is required", i)
+		}
+
+		key := kollectdevv1alpha1.RemoteClusterKey(ref)
+		if _, dup := seen[key]; dup {
+			return fmt.Errorf("duplicate remoteClusters ref %q", key)
+		}
+
+		seen[key] = struct{}{}
+	}
+
 	return nil
 }

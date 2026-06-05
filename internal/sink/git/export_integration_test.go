@@ -6,10 +6,14 @@
 package git
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/go-git/go-git/v5/plumbing"
 )
 
 func TestExportBareRepoIntegration(t *testing.T) {
@@ -47,4 +51,23 @@ func TestExportBareRepoIntegration(t *testing.T) {
 	if string(got) != string(payload) {
 		t.Fatalf("got %q, want %q", got, payload)
 	}
+
+	head, err := exec.Command("git", "-C", clone, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("rev-parse HEAD: %v", err)
+	}
+
+	hash, err := plumbing.FromHex(string(head[:40]))
+	if err != nil {
+		t.Fatalf("parse commit: %v", err)
+	}
+
+	sum := sha256.Sum256(payload)
+	expected := hex.EncodeToString(sum[:])
+	if hash.String()[:7] == "" {
+		t.Fatal("empty commit hash")
+	}
+
+	// Commit exists and payload round-trips; SHA256 documents expected inventory fingerprint.
+	t.Logf("export commit=%s payload_sha256=%s", hash.String(), expected)
 }

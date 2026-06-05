@@ -15,6 +15,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -23,6 +24,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
+	kollecterrors "github.com/konih/kollect/internal/errors"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink"
 	"github.com/konih/kollect/internal/spoke"
@@ -35,6 +37,7 @@ type KollectInventoryReconciler struct {
 	Store    *collect.Store
 	Registry *sink.Registry
 	Options  RuntimeOptions
+	Recorder record.EventRecorder
 
 	mu          sync.Mutex
 	lastExport  map[string]time.Time
@@ -54,7 +57,9 @@ func (r *KollectInventoryReconciler) exportDebounce() time.Duration {
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories/finalizers,verbs=update
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollecttargets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectsinks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollectscopes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
 // Reconcile aggregates collected items in the namespace and exports to configured sinks.
 func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -71,6 +76,23 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if inv.Spec.Suspend {
 		return ctrl.Result{}, nil
+	}
+
+	itemCount := 0
+	if r.Store != nil {
+		itemCount = r.Store.CountForNamespace(inv.Namespace)
+	}
+
+	checker := scopeCheck{client: r.Client, recorder: r.Recorder}
+	if ok, reason, msg := checker.enforceInventory(ctx, &inv); !ok {
+		return r.setInventoryDegraded(ctx, &inv, itemCount, reason, msg)
+	}
+
+	sinkOK, sinkReason, sinkMsg := checkInventorySinksReachable(ctx, r.Client, inv.Spec.SinkRefs)
+	setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, sinkOK, sinkReason, sinkMsg)
+	if !sinkOK {
+		recordWarning(r.Recorder, &inv, sinkReason, sinkMsg)
+		return r.setInventoryDegraded(ctx, &inv, itemCount, sinkReason, sinkMsg)
 	}
 
 	if r.Store == nil {
@@ -95,13 +117,14 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: delay}, nil
 	}
 
-	itemCount := r.Store.CountForNamespace(inv.Namespace)
+	itemCount = r.Store.CountForNamespace(inv.Namespace)
 
 	if err := spoke.TryPublishReport(ctx, r.Store, &inv); err != nil {
 		log.Error(err, "spoke hub publish")
 	}
 
 	if len(inv.Spec.SinkRefs) == 0 {
+		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "NoExport", "no sinkRefs configured")
 		return r.updateStatus(ctx, &inv, itemCount, nil)
 	}
 
@@ -116,9 +139,20 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.recordExport(key, hash)
 
 	if exportErr != nil {
-		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", metrics.ErrorClassTransient).Inc()
+		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(exportErr)).Inc()
+		reason := "Progressing"
+		if kollecterrors.IsTerminal(exportErr) {
+			reason = "ExportTerminal"
+		}
+		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, exportErr.Error())
+		recordWarning(r.Recorder, &inv, reason, exportErr.Error())
 
-		return r.setInventoryDegraded(ctx, &inv, itemCount, exportErr)
+		result, err := r.setInventoryDegraded(ctx, &inv, itemCount, reason, exportErr.Error())
+		if kollecterrors.IsTerminal(exportErr) {
+			result.RequeueAfter = 0
+		}
+
+		return result, err
 	}
 
 	return r.updateStatus(ctx, &inv, itemCount, nil)
@@ -132,17 +166,17 @@ func (r *KollectInventoryReconciler) exportToSink(
 ) error {
 	var ks kollectdevv1alpha1.KollectSink
 	if err := r.Get(ctx, client.ObjectKey{Name: sinkName}, &ks); err != nil {
-		return fmt.Errorf("load KollectSink %q: %w", sinkName, err)
+		return kollecterrors.ClassifyAPI(fmt.Errorf("load KollectSink %q: %w", sinkName, err))
 	}
 
 	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, ks.Spec, inv.Namespace)
 	if err != nil {
-		return err
+		return kollecterrors.Terminal(err)
 	}
 
 	backend, err := r.Registry.NewBackend(ks.Spec, buildCtx)
 	if err != nil {
-		return err
+		return kollecterrors.Terminal(err)
 	}
 
 	objectPath := fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name)
@@ -153,7 +187,11 @@ func (r *KollectInventoryReconciler) exportToSink(
 	metrics.ExportDurationSeconds.WithLabelValues(ks.Spec.Type).Observe(elapsed)
 	metrics.ExportBytesTotal.WithLabelValues(ks.Spec.Type).Add(float64(len(payload)))
 
-	return err
+	if err != nil {
+		return kollecterrors.Transient(fmt.Errorf("export to %q: %w", sinkName, err))
+	}
+
+	return nil
 }
 
 func (r *KollectInventoryReconciler) shouldDebounce(key, hash string) bool {
@@ -212,6 +250,8 @@ func (r *KollectInventoryReconciler) updateStatus(
 		now := metav1.Now()
 		inv.Status.LastExportTime = &now
 		apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
+		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "Exported",
+			fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, len(inv.Spec.SinkRefs)))
 		apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
 			Type:               conditionReady,
 			Status:             metav1.ConditionTrue,
@@ -237,14 +277,16 @@ func (r *KollectInventoryReconciler) setInventoryDegraded(
 	ctx context.Context,
 	inv *kollectdevv1alpha1.KollectInventory,
 	itemCount int,
-	exportErr error,
+	reason, message string,
 ) (ctrl.Result, error) {
 	inv.Status.ItemCount = itemCount
+	inv.Status.ObservedGeneration = inv.Generation
+	setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, message)
 	apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
 		Type:               conditionDegraded,
 		Status:             metav1.ConditionTrue,
-		Reason:             "ExportFailed",
-		Message:            exportErr.Error(),
+		Reason:             reason,
+		Message:            message,
 		ObservedGeneration: inv.Generation,
 		LastTransitionTime: metav1.Now(),
 	})
@@ -261,6 +303,10 @@ func (r *KollectInventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	opts := r.Options.controllerOptions(r.Options.MaxConcurrentInventory)
 	if opts.MaxConcurrentReconciles == 0 {
 		opts.MaxConcurrentReconciles = DefaultRuntimeOptions().MaxConcurrentInventory
+	}
+
+	if r.Recorder == nil {
+		r.Recorder = mgr.GetEventRecorderFor("kollectinventory-controller")
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

@@ -5,9 +5,14 @@ package v1alpha1
 
 // Condition and annotation keys used across reconcilers and sinks.
 const (
-	ConditionConnectionVerified = "ConnectionVerified"
-	ConditionTLSInsecure        = "TLSInsecure"
-	ConditionConnected          = "Connected"
+	ConditionConnectionVerified  = "ConnectionVerified"
+	ConditionTLSInsecure         = "TLSInsecure"
+	ConditionConnected           = "Connected"
+	ConditionCredentialsVerified = "CredentialsVerified"
+	ConditionSinkReachable       = "SinkReachable"
+	ConditionSynced              = "Synced"
+	ConditionReady               = "Ready"
+	ConditionDegraded            = "Degraded"
 
 	AnnotationTestConnection = "kollect.dev/test-connection"
 

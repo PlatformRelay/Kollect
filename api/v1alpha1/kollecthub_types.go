@@ -26,6 +26,18 @@ type RedisTransportSpec struct {
 	URL string `json:"url"`
 }
 
+// RemoteClusterRef references a registered KollectRemoteCluster on the hub (ADR-0028).
+type RemoteClusterRef struct {
+	// name of the KollectRemoteCluster resource.
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	Name string `json:"name"`
+
+	// namespace of the KollectRemoteCluster; defaults to kollect-system when empty.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+}
+
 // KollectHubSpec defines the desired state of KollectHub.
 type KollectHubSpec struct {
 	// replicas is the hub consumer Deployment replica count.
@@ -36,6 +48,10 @@ type KollectHubSpec struct {
 	// transport configures the spoke-to-hub queue backend.
 	// +required
 	Transport HubTransportSpec `json:"transport"`
+
+	// remoteClusters lists spoke registrations wired into this hub consumer (ADR-0028).
+	// +optional
+	RemoteClusters []RemoteClusterRef `json:"remoteClusters,omitempty"`
 }
 
 // KollectHubStatus defines the observed state of KollectHub.
@@ -49,6 +65,10 @@ type KollectHubStatus struct {
 	// observedGeneration is the most recent generation observed by the controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// registeredRemoteClusters is the count of resolved remoteClusters refs.
+	// +optional
+	RegisteredRemoteClusters int32 `json:"registeredRemoteClusters,omitempty"`
 }
 
 // +kubebuilder:object:root=true

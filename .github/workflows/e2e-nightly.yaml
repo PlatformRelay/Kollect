@@ -38,6 +38,14 @@ jobs:
       - name: Run e2e smoke checks
         run: bash hack/kind/e2e/smoke.sh
 
+      - name: Git export SHA assert
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_EXPORT_TEST_REPO: ${{ vars.GIT_EXPORT_TEST_REPO }}
+        run: |
+          chmod +x hack/e2e/git-export-assert.sh
+          REPO_ROOT="${GITHUB_WORKSPACE}" hack/e2e/git-export-assert.sh
+
       - name: Multi-tenant namespace isolation
         run: |
           chmod +x hack/e2e/multitenant.sh
@@ -55,14 +63,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Git export assert (bare repo)
-        run: go test -count=1 -timeout=2m ./internal/sink/git/ -run TestExportBareRepoIntegration
-
-      - name: Git export remote (optional)
-        if: ${{ secrets.GITHUB_TOKEN != '' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "GITHUB_TOKEN is set; remote git push e2e is not wired yet — bare-repo assert above covers export path."
+        run: go test -count=1 -timeout=2m ./internal/sink/git/ -run TestExportBareRepoIntegration -tags=integration
 
       - name: Delete kind cluster
         if: always()
