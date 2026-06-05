@@ -205,6 +205,18 @@ KOLECT_LOAD_TEST=1 go test -tags=load -count=1 -timeout=15m ./test/load/...
 Never run 10k-object load tests locally unless you have dedicated hardware and understand API-server
 load. Default envtest suites cap synthetic objects at **500**.
 
+### Performance report (`task perf-report`)
+
+Runs `hack/perf-report.sh`: micro-benchmarks under `internal/collect/`, a quick unit-test pass, and
+writes a markdown summary useful when comparing regressions on a laptop. Output is written to a
+**gitignored** local path (`agent-context/PERF-SNAPSHOT.md`); never commit it.
+
+```sh
+task perf-report
+```
+
+See [PERFORMANCE.md](PERFORMANCE.md) for operator tuning and the metrics catalog.
+
 ## Lint and format
 
 ```sh

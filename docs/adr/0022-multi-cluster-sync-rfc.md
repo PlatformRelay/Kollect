@@ -142,7 +142,7 @@ Goal: **one logical inventory view** per product/tenant, not per cluster.
 | Phase | Path | Multi-cluster impact |
 | --- | --- | --- |
 | **0** | One pod, one cluster, Helm, webhooks, metrics, connection test | CRDs and status model stay cluster-local |
-| **1** | Namespaced `KollectInventory` aggregation, HTTP `/inventory`, Git/GitLab sink + **custom CA** | Export contract stable for hub to consume; perf signals for agents ([ADR-0027](0027-agent-observability-feedback.md)) |
+| **1** | Namespaced `KollectInventory` aggregation, HTTP `/inventory`, Git/GitLab sink + **custom CA** | Export contract stable for hub to consume; operator metrics + bounded benchmarks ([ADR-0026](0026-performance-scalability.md)) |
 | **2** | **`KollectHub` CRD** + lightweight spoke posting to hub queue or HTTPS | Hub Deployment + lean queue + **shard routing** prototype |
 | **3** | Queue-backed async (pluggable per [ADR-0023](0023-lean-queue-transport.md)) | Spokes decoupled from hub uptime; optional Kafka partitions |
 | **Later** | `KollectClusterInventory` | After aggregation proven at 100+ spoke scale; doc-sync rejected ([ADR-0011](0011-doc-sync-templating.md)) |
@@ -164,7 +164,7 @@ Single-cluster users never enable hub/spoke CRs or flags.
 - Clear narrative for platform teams at **100+ cluster** scale and giant single clusters.
 - Single-cluster MVP remains the default install story.
 - Hub lifecycle (Deployment, queue wiring, sharding) is declarative via CRD.
-- Early perf visibility via [ADR-0027](0027-agent-observability-feedback.md) reduces architectural lock-in risk.
+- Early perf visibility via operator metrics and bounded benchmarks ([ADR-0026](0026-performance-scalability.md)) reduces architectural lock-in risk.
 
 ### Negative
 

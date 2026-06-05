@@ -45,7 +45,6 @@ nav:
       - "0021 MkDocs GitHub Pages": adr/0021-mkdocs-github-pages.md
       - "0022 Multi-cluster sync (RFC)": adr/0022-multi-cluster-sync-rfc.md
       - "0026 Performance and scalability": adr/0026-performance-scalability.md
-      - "0027 Agent observability feedback": adr/0027-agent-observability-feedback.md
 
 markdown_extensions:
   - admonition

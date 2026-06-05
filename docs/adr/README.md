@@ -21,7 +21,6 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0024](0024-inventory-api-auth.md) | Inventory HTTP API authentication (Accepted) |
 | [0025](0025-sink-backends-database-kafka.md) | Postgres and Kafka export sinks (Accepted) |
 | [0026](0026-performance-scalability.md) | Performance and scalability (Accepted) |
-| [0027](0027-agent-observability-feedback.md) | Agent-visible performance observability (Accepted) |
 
 See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md), and
 [PERFORMANCE.md](../PERFORMANCE.md).

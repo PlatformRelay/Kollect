@@ -41,13 +41,13 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 | **100+ cluster hub path** | Platform rollup via sharded hub merge — not pairwise mesh; spokes push **summarized deltas** ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
 | **Bounded memory per spoke** | Scoped informers, paginated `List`, shared cache per GVK — target ≤512 MiB at 10k typical rows; no full-cluster mirrors in hub RAM |
 | **Parallel reconcile workers** | `MaxConcurrentReconciles`, workqueue tuning, optional shard by namespace/GVK or `KollectScope` |
-| **Observability (human + agent)** | pprof on `:6060`; Prometheus metrics catalog; `task perf-report` + local `PERF-SNAPSHOT` for coordinator agents ([ADR-0027](adr/0027-agent-observability-feedback.md)) |
-| **Early bottleneck visibility** | Metrics + benchmarks + perf-report **before** hub/spoke architectural lock-in |
+| **Observability** | pprof on `:6060`; Prometheus metrics catalog with PromQL hints ([PERFORMANCE.md](PERFORMANCE.md)) |
+| **Early bottleneck visibility** | Metrics + bounded benchmarks **before** hub/spoke architectural lock-in |
 | **Failure tolerance at scale** | Rate limits, requeue backoff, per-sink circuit breakers; SAR degrade must not block the whole queue |
 | **Bounded load testing** | Default `task test` ≤500 synthetic objects; opt-in `task load-test` (max 2000) — never 10k in CI/dev default |
 | **Micro-benchmarks** | `task bench` → `artifacts/bench/`; extractor hot path (`BenchmarkExtract`) |
 
-See [ADR-0026](adr/0026-performance-scalability.md), [ADR-0027](adr/0027-agent-observability-feedback.md), and [PERFORMANCE.md](PERFORMANCE.md).
+See [ADR-0026](adr/0026-performance-scalability.md) and [PERFORMANCE.md](PERFORMANCE.md).
 
 ## Testing
 
@@ -92,5 +92,4 @@ See [ADR-0026](adr/0026-performance-scalability.md), [ADR-0027](adr/0027-agent-o
 - [adr/0024-inventory-api-auth.md](adr/0024-inventory-api-auth.md) — inventory HTTP auth (Accepted)
 - [adr/0025-sink-backends-database-kafka.md](adr/0025-sink-backends-database-kafka.md) — Postgres/Kafka sinks (Accepted)
 - [adr/0026-performance-scalability.md](adr/0026-performance-scalability.md) — performance NFRs (Accepted)
-- [adr/0027-agent-observability-feedback.md](adr/0027-agent-observability-feedback.md) — agent perf feedback loop (Accepted)
 - [PERFORMANCE.md](PERFORMANCE.md) — operator tuning guide and metrics catalog

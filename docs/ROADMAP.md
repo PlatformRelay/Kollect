@@ -59,7 +59,6 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Core documentation + MkDocs (GitHub Pages) | ✅ |
 | Architecture Decision Records (core set) | 🚧 |
 | ADR-0026 performance & scalability | ✅ |
-| ADR-0027 agent observability feedback | ✅ |
 | `GUIDELINES.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
 | Validating webhook — Profile CEL/JSONPath | ✅ |
 | Validating webhook — Sink type enum | ⬜ |
@@ -167,8 +166,7 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 
 ## Performance and scalability
 
-Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). Agent feedback
-loop in [ADR-0027](adr/0027-agent-observability-feedback.md). Tuning guide:
+Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). Tuning guide:
 [PERFORMANCE.md](PERFORMANCE.md).
 
 ### Scale targets
@@ -181,18 +179,16 @@ loop in [ADR-0027](adr/0027-agent-observability-feedback.md). Tuning guide:
 | Spoke working set (typical profiles) | ≤512 MiB at 10k rows | [ADR-0026](adr/0026-performance-scalability.md) |
 | Hub merge complexity | O(total rows), sharded | [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) |
 
-### Agent-visible observability
+### Developer perf tooling
 
 | Item | Status |
 | --- | --- |
-| ADR-0027 agent perf feedback loop | ✅ |
 | Metrics catalog + PromQL hints in PERFORMANCE.md | ✅ |
 | `task perf-report` + `hack/perf-report.sh` | ✅ |
-| `agent-context/PERF-SNAPSHOT.md` (local, gitignored) | ✅ |
 | `artifacts/bench/` from `task bench` | ✅ |
 | CI upload of bench artifacts (nightly, optional) | ⬜ |
 
-**Counts:** ✅ 5 · ⬜ 1
+**Counts:** ✅ 3 · ⬜ 1
 
 ### Operator tuning and tests
 
@@ -276,7 +272,6 @@ namespace scope where appropriate.
 | oauth2-proxy: **optional** Helm sidecar for OIDC browsers; not primary auth | Accepted |
 | Git, object storage, and agent mesh documented as alternatives | Accepted |
 | Extreme scale: 100+ clusters, 10k+ objects/spoke, hub shard not O(n²) | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md), [ADR-0026](adr/0026-performance-scalability.md)) |
-| Agent-visible perf feedback (`task perf-report`, PERF-SNAPSHOT) | Accepted ([ADR-0027](adr/0027-agent-observability-feedback.md)) |
 
 ## Further reading
 
@@ -292,5 +287,4 @@ namespace scope where appropriate.
 - [ADR-0011: Doc-sync rejected](adr/0011-doc-sync-templating.md)
 - [ADR-0025: Postgres and Kafka sinks](adr/0025-sink-backends-database-kafka.md)
 - [ADR-0026: Performance and scalability](adr/0026-performance-scalability.md)
-- [ADR-0027: Agent observability feedback](adr/0027-agent-observability-feedback.md)
 - [PERFORMANCE.md](PERFORMANCE.md) — tuning guide and metrics catalog

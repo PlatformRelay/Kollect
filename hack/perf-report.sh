@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Konrad Heimel
 #
-# Agent-visible performance snapshot (ADR-0027). Writes agent-context/PERF-SNAPSHOT.md
+# Local dev performance snapshot. Writes agent-context/PERF-SNAPSHOT.md (gitignored).
 # (local-only, gitignored). Exit 0 on success; exit 1 when unit tests fail.
 
 set -euo pipefail
@@ -121,7 +121,7 @@ ${METRICS_LIST}
 | kollect_informer_objects growing | Prefer namespace-scoped targets; split profiles by GVK |
 | kollect_export_bytes_total spike | Lower churn or raise debounce; verify payload hash skip |
 
-See [docs/PERFORMANCE.md](../docs/PERFORMANCE.md) and [ADR-0027](../docs/adr/0027-agent-observability-feedback.md).
+See [docs/PERFORMANCE.md](../docs/PERFORMANCE.md) and [docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md).
 EOF
 
 echo "Wrote ${SNAPSHOT}"

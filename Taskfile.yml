@@ -91,7 +91,7 @@ tasks:
       - task: test:load-test
 
   perf-report:
-    desc: Run benchmarks + unit tests; write agent-context/PERF-SNAPSHOT.md (local only)
+    desc: Local perf snapshot via hack/perf-report.sh (see DEVELOPMENT.md)
     env:
       CGO_ENABLED: "1"
     cmds:
