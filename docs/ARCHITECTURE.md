@@ -63,7 +63,8 @@ flowchart TD
 | ~~`KollectHub`~~ | — | **Rejected / stub** | API types may remain in tree; **not** product surface — Helm `mode: hub` ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0011](adr/0011-doc-sync-templating.md) |
 
-See [adr/0004-crd-model.md](adr/0004-crd-model.md). Reserved kinds are design placeholders — see
+See [adr/0004-crd-model.md](adr/0004-crd-model.md). Per-kind field reference:
+[CR-REFERENCE.md](CR-REFERENCE.md). Reserved kinds are design placeholders — see
 [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md#reserved-crds--what-they-mean).
 
 ## Default deployment

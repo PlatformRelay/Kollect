@@ -114,8 +114,8 @@ Update the cited ADR when code merges.
 
 ### Documentation backlog
 
-- [ ] **CR reference guide** — detailed per-kind docs (spec, status, conditions, RBAC, samples);
-  coordinator assigns worker; see `agent-context/COORDINATION.md` Documentation TODO.
+- [x] **CR reference guide** — scaffold at [CR-REFERENCE.md](CR-REFERENCE.md) + [crds/](crds/);
+  failure-mode detail remains worker TODO.
 - [x] **Architecture data flows** — [DATA-FLOWS.md](DATA-FLOWS.md) (debounce + collection + scope + connection test).
 - [x] **JSONPath `[*]` wildcard** — all array elements; deployment sample updated ([ADR-0003](adr/0003-cel-jsonpath-extraction.md)).
 
