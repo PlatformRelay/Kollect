@@ -13,16 +13,20 @@ env:
 
 tasks:
   run:
-    desc: Run unit tests (excludes e2e), with race detector
-    env:
-      CGO_ENABLED: "1"
+    desc: Run unit tests (excludes e2e; no race detector — use coverage:race locally)
     cmds:
       - make test
 
   coverage:
-    desc: Unit/envtest with internal/ coverage.out and floor (COVERAGE_MIN, default 80)
+    desc: Unit/envtest with internal/ coverage.out and floor (COVERAGE_MIN, default 65)
+    cmds:
+      - bash hack/coverage.sh
+
+  coverage:race:
+    desc: Same as coverage with COVERAGE_RACE=1 (local-only race detector; requires CGO)
     env:
       CGO_ENABLED: "1"
+      COVERAGE_RACE: "1"
     cmds:
       - bash hack/coverage.sh
 

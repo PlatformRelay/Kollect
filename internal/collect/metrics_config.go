@@ -8,8 +8,6 @@ import (
 	"github.com/konih/kollect/internal/metrics"
 )
 
-const maxMetricLabelKeys = 5
-
 // MetricPathsFromProfile converts KollectProfile.spec.metrics into engine MetricPathSpec values.
 func MetricPathsFromProfile(profile kollectdevv1alpha1.KollectProfileSpec) []metrics.MetricPathSpec {
 	if len(profile.Metrics) == 0 {

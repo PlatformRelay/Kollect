@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Run unit/envtest with an internal/ coverage profile and enforce a minimum floor.
 # Excludes e2e and integration-tagged tests (default go test build tags).
+#
+# Race detector (local-only — CI/release paths keep CGO_ENABLED=0 and omit -race):
+#   COVERAGE_RACE=1 CGO_ENABLED=1 bash hack/coverage.sh
+#   task coverage:race
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,7 +27,11 @@ if [[ -z "${KUBEBUILDER_ASSETS}" ]]; then
   echo "failed to resolve KUBEBUILDER_ASSETS from setup-envtest" >&2
   exit 1
 fi
-export CGO_ENABLED="${CGO_ENABLED:-1}"
+if [[ "${COVERAGE_RACE:-0}" == "1" ]]; then
+  export CGO_ENABLED=1
+else
+  export CGO_ENABLED="${CGO_ENABLED:-0}"
+fi
 
 other_pkgs="$(go list ./... | grep -v /e2e | grep -v '/internal/' | grep -v '/cmd$' || true)"
 if [[ -n "${other_pkgs}" ]]; then

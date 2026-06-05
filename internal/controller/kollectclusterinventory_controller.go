@@ -117,6 +117,7 @@ func (r *KollectClusterInventoryReconciler) Reconcile(ctx context.Context, req c
 	return result, err
 }
 
+//nolint:logcheck // cluster rollup export passes named reconcile logger alongside ctx deadline
 func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	ctx context.Context,
 	req ctrl.Request,
@@ -187,6 +188,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	return r.updateStatus(ctx, inv, len(targets), itemCount, outcome)
 }
 
+//nolint:logcheck // per-sink export passes named reconcile logger alongside ctx deadline
 func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 	ctx context.Context,
 	log logr.Logger,

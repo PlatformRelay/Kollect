@@ -173,7 +173,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 	var outcome perSinkExportOutcome
 	outcome.RequeueAfter = defaultInterval
 
-		for _, ref := range inv.Spec.SinkRefs {
+	for _, ref := range inv.Spec.SinkRefs {
 		sinkObj, err := r.loadSink(ctx, inv.Namespace, ref.Name)
 		if err != nil {
 			status := upsertSinkExportStatus(&outcome.SinkExports, ref.Name)

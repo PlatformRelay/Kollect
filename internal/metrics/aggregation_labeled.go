@@ -18,7 +18,6 @@ type labeledSeriesID struct {
 	gvk      string
 	series   string
 	labelKey string
-	sortKey  string
 }
 
 type labeledSeriesEntry struct {

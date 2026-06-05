@@ -10,15 +10,18 @@ linters:
   default: none
   enable:
     - copyloopvar
+    - depguard
     - dupl
     - errcheck
     - ginkgolinter
     - goconst
     - gocyclo
+    - gomodguard
     - gosec
     - govet
     - ineffassign
     - lll
+    - logcheck
     - misspell
     - nakedret
     - prealloc
@@ -26,7 +29,33 @@ linters:
     - staticcheck
     - unconvert
     - unparam
+    - unused
   settings:
+    depguard:
+      rules:
+        kollect_main:
+          list-mode: lax
+          files:
+            - $all
+            - "!$test"
+          allow:
+            - $gostd
+          deny:
+            - pkg: io/ioutil
+              desc: "use io/os (Go 1.16+)"
+            - pkg: github.com/sirupsen/logrus
+              desc: "use log/slog / controller-runtime/log (logcheck)"
+            - pkg: github.com/pkg/errors
+              desc: "use stdlib errors + fmt.Errorf %w"
+            - pkg: github.com/golang/protobuf
+              desc: "use google.golang.org/protobuf"
+        kollect_tests:
+          list-mode: lax
+          files:
+            - $test
+          deny:
+            - pkg: github.com/stretchr/testify/assert
+              desc: "prefer gomega/ginkgo matchers in this repo"
     dupl:
       threshold: 150
     ginkgolinter:
@@ -37,6 +66,13 @@ linters:
       min-occurrences: 3
     gocyclo:
       min-complexity: 20
+    gomodguard:
+      blocked:
+        modules:
+          - github.com/sirupsen/logrus:
+              reason: "use log/slog / controller-runtime/log (logcheck)"
+          - github.com/pkg/errors:
+              reason: "use stdlib errors + fmt.Errorf %w"
     govet:
       enable-all: true
       disable:
@@ -73,9 +109,20 @@ linters:
         - name: bool-literal-in-expr
         - name: constant-logical-expr
         - name: comment-spacings
+    custom:
+      logcheck:
+        type: "module"
+        description: Checks Go logging calls for Kubernetes logging conventions.
   exclusions:
     generated: lax
     rules:
+      - linters:
+          - lll
+        path: api/*
+      - linters:
+          - dupl
+          - lll
+        path: internal/*
       - linters:
           - dupl
           - gocyclo
@@ -84,6 +131,9 @@ linters:
         path: _test\.go
     paths:
       - third_party$
+      - builtin$
+      - examples$
+      - references/
       - zz_generated\..*\.go$
       - ui/
 
@@ -99,6 +149,9 @@ formatters:
     generated: lax
     paths:
       - third_party$
+      - builtin$
+      - examples$
+      - references/
       - zz_generated\..*\.go$
       - ui/
 

@@ -27,6 +27,8 @@ jobs:
         run: |
           go mod tidy
           git diff --exit-code go.sum
+      - name: Verify go.sum checksums
+        run: go mod verify
       - name: Verify generated artifacts
         run: task verify
         env:

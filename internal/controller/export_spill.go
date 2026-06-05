@@ -21,6 +21,7 @@ type spillGateResult struct {
 	message  string
 }
 
+//nolint:logcheck // export spill assessment uses named reconcile logger alongside ctx deadline
 func assessExportSpill(
 	ctx context.Context,
 	c client.Client,

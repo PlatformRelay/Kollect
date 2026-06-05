@@ -147,6 +147,13 @@ tasks:
     cmds:
       - task: test:coverage:html
 
+  coverage:race:
+    desc: Local-only coverage with race detector (COVERAGE_RACE=1; not run in CI)
+    env:
+      COVERAGE_MIN: "{{.COVERAGE_MIN}}"
+    cmds:
+      - task: test:coverage:race
+
   sonar:
     desc: Run SonarCloud scan locally (alias for sonar:local)
     cmds:
@@ -196,9 +203,12 @@ tasks:
       - go fmt ./...
 
   format:check:
-    desc: Fail if gofmt would change any file
+    desc: Fail if gofmt or goimports would change any file
+    deps: [install]
     cmds:
       - test -z "$(gofmt -l . | grep -v '^$' || true)"
+      - make golangci-lint
+      - test -z "$(bin/golangci-lint fmt --diff 2>/dev/null | grep -v '^$' || true)"
 
   docker:build:
     desc: Build the controller-manager container image
