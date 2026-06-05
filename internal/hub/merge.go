@@ -88,6 +88,7 @@ func (m *Merger) Apply(report SpokeReport) (int, error) {
 }
 
 // ApplyJSON unmarshals payload and merges into the store.
+// Callers that accept untrusted wire payloads should use ReceiveReport instead.
 func (m *Merger) ApplyJSON(payload []byte) (int, error) {
 	var report SpokeReport
 	if err := json.Unmarshal(payload, &report); err != nil {
@@ -95,6 +96,10 @@ func (m *Merger) ApplyJSON(payload []byte) (int, error) {
 	}
 
 	NormalizeReport(&report)
+
+	if err := export.ValidateSchemaVersion(report.SchemaVersion); err != nil {
+		return 0, fmt.Errorf("hub merger: %w", err)
+	}
 
 	return m.Apply(report)
 }

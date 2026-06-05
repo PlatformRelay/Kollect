@@ -192,6 +192,15 @@ func resolveBranches(defaultBranch string, spec *BranchSpec) (cloneBranch, pushB
 	return cloneBranch, pushBranch
 }
 
+func pushRefSpec(branch string, emptyRemote bool, policy PushPolicy) string {
+	refSpecStr := fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch)
+	if emptyRemote || policy == PushPolicyForcePush {
+		refSpecStr = "+" + refSpecStr
+	}
+
+	return refSpecStr
+}
+
 func pushCommitted(
 	ctx context.Context,
 	repo *git.Repository,
@@ -212,10 +221,7 @@ func pushCommitted(
 		return fmt.Errorf("remote origin: %w", err)
 	}
 
-	refSpecStr := fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch)
-	if emptyRemote || cfg.PushPolicy == PushPolicyForcePush {
-		refSpecStr = "+" + refSpecStr
-	}
+	refSpecStr := pushRefSpec(branch, emptyRemote, cfg.PushPolicy)
 
 	refSpec := config.RefSpec(refSpecStr)
 	if err := remote.PushContext(ctx, &git.PushOptions{

@@ -96,6 +96,44 @@ func TestIngestHandleReportsMergesAuthenticatedReport(t *testing.T) {
 	}
 }
 
+func TestIngestHandleReportsRejectsUnsupportedSchemaVersion(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	srv := &IngestServer{
+		Enabled: true,
+		Auth:    IngestAuthConfig{Mode: IngestAuthModeDisabled},
+		Merger:  NewMerger(store),
+	}
+
+	report := SpokeReport{
+		APIVersion:    "kollect.dev/v1alpha1",
+		SchemaVersion: "kollect.dev/v99",
+		Cluster:       "spoke-a",
+		InventoryRef: InventoryRef{
+			Namespace: "team-a",
+			Name:      "inv",
+		},
+	}
+	body, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, ingestReportsPath, bytes.NewReader(body))
+	req.Header.Set(kollectdevv1alpha1.HeaderClusterID, "spoke-a")
+	rec := httptest.NewRecorder()
+	srv.handleReports(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	if store.TotalCount() != 0 {
+		t.Fatalf("store count = %d, want 0", store.TotalCount())
+	}
+}
+
 func TestIngestHandleReportsRejectsUnregisteredCluster(t *testing.T) {
 	t.Parallel()
 
