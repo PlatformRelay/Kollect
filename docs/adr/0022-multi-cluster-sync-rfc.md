@@ -168,14 +168,14 @@ Single-cluster users never enable hub/spoke CRs or flags.
 
 ### Negative
 
-- RFC leaves cross-cluster auth unset — implementation must not bake in Git-only assumptions.
+- Cross-cluster auth is hybrid (Istio-style secrets + push TokenReview) — see [ADR-0028](0028-hub-cluster-auth-istio-pattern.md).
 - `KollectHub` API shape not finalized until Phase 2 spike; sharding strategy needs load proof.
 - Spoke summary format must version cleanly as attribute cardinality grows.
 
 ## Open questions
 
 - **OPEN:** Spoke agent vs full operator per cluster — binary split or one image with `mode: spoke|hub`?
-- **OPEN:** Identity for cross-cluster auth (mTLS, OIDC, bootstrap tokens) at 100+ scale?
+- **RESOLVED (ADR-0028):** Push-first **TokenReview + `X-Kollect-Cluster-Id`**; optional Istio-style remote credential `Secret` for hub pull.
 - **OPEN:** Maximum spoke payload size before hub spills to object store ([ADR-0006](0006-etcd-limit.md))?
 - **OPEN:** Hub shard count formula — fixed partitions vs dynamic by spoke registration?
 - **OPEN:** Is Git monorepo with `clusters/*` paths sufficient for Phase 2, or object store required at 100+ spokes?

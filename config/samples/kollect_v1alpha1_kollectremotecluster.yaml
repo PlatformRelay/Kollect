@@ -1,0 +1,17 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectRemoteCluster
+metadata:
+  name: spoke-a
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  clusterName: spoke-a
+  credentialsSecretRef:
+    name: kollect-remote-secret-spoke-a
+  # apiServerURL: https://spoke-a.example:6443
+  # trustBundle: |
+  #   -----BEGIN CERTIFICATE-----
+  #   ...
+  #   -----END CERTIFICATE-----

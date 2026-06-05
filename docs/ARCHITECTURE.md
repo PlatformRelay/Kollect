@@ -140,6 +140,38 @@ Git is **one** transport option; agent-to-agent and object-storage fan-in are do
 Transformation may occur in the operator, at the sink repo, or in the portal — **schema clarity** matters
 more than where rendering runs.
 
+### Hub cluster authentication
+
+Cross-cluster identity follows an **Istio remote-secret** registration model with **push-first**
+spoke auth ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md)):
+
+```mermaid
+flowchart LR
+  subgraph spoke [Spoke cluster]
+    Op[spoke operator]
+    SA[SA token]
+    Op --> SA
+  end
+  subgraph hub [Hub cluster]
+    RC[KollectRemoteCluster]
+    Ingest[POST /hub/v1alpha1/reports]
+    TR[TokenReview]
+    Merge[hub merger]
+    RC -.->|optional pull secret| Ingest
+    Ingest --> TR
+    Ingest --> Merge
+  end
+  Op -->|Bearer + X-Kollect-Cluster-Id| Ingest
+```
+
+- **`KollectRemoteCluster`** (namespaced on hub) registers `spec.clusterName` and optional
+  `credentialsSecretRef` (Istio-style kubeconfig fragment for hub pull).
+- **Default push path:** spoke reads in-cluster SA token, POSTs `SpokeReport` with
+  `Authorization: Bearer` and `X-Kollect-Cluster-Id`; hub validates via **TokenReview**
+  (same Kubernetes-native pattern as inventory HTTP — [ADR-0024](adr/0024-inventory-api-auth.md)).
+- **HTTP transport:** `KOLLECT_TRANSPORT_TYPE=http` + `KOLLECT_HUB_URL`; queue transports remain
+  the Phase 2 spike default with wire auth deferred.
+
 ## Developer portal use case
 
 ```mermaid

@@ -23,5 +23,9 @@ func SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("setup KollectScope webhook: %w", err)
 	}
 
+	if err := setupKollectRemoteClusterWebhook(mgr); err != nil {
+		return fmt.Errorf("setup KollectRemoteCluster webhook: %w", err)
+	}
+
 	return nil
 }
