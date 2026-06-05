@@ -167,6 +167,12 @@ spec:
                     type: array
                     x-kubernetes-list-type: atomic
                 type: object
+              pathTemplate:
+                description: |-
+                  pathTemplate selects the Git/object-store export path layout (ADR-0407).
+                  Placeholders: {cluster}, {namespace}, {name}, {generation}, {extension}.
+                  Default: inventory/{namespace}/{name}.json
+                type: string
               postgres:
                 description: postgres configures a PostgreSQL database sink.
                 properties:

@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/objectstore"
 )
 
 var validSinkTypes = []string{
@@ -40,6 +41,14 @@ func ValidateSinkSpec(spec *kollectdevv1alpha1.KollectSinkSpec) field.ErrorList 
 
 	for _, allowed := range validSinkTypes {
 		if sinkType == allowed {
+			if err := objectstore.ValidatePathTemplate(spec.PathTemplate); err != nil {
+				allErrs = append(allErrs, field.Invalid(
+					field.NewPath("spec").Child("pathTemplate"),
+					spec.PathTemplate,
+					err.Error(),
+				))
+			}
+
 			return allErrs
 		}
 	}

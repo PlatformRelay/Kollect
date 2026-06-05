@@ -131,11 +131,16 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 		return ctrl.Result{}, err
 	}
 
-	if limit := validation.MaxExportBytesGlobal(); limit > 0 && int64(len(payload)) > limit {
-		msg := fmt.Sprintf("export payload %d bytes exceeds cap %d", len(payload), limit)
-		metrics.SinkErrorsTotal.WithLabelValues("payload_too_large").Inc()
+	gate, err := assessExportSpill(
+		ctx, r.Client, log, int64(len(payload)), validation.MaxExportBytesGlobal(), sinkNS, inv.Spec.SinkRefs,
+	)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if gate.degraded {
+		recordSpillGateMetrics(gate)
 
-		return r.setDegraded(ctx, inv, "PayloadTooLarge", msg)
+		return r.setDegraded(ctx, inv, gate.reason, gate.message)
 	}
 
 	key := req.String()

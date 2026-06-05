@@ -114,11 +114,16 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	if limit := r.maxExportBytes(&inv); limit > 0 && int64(len(payload)) > limit {
-		msg := fmt.Sprintf("export payload %d bytes exceeds cap %d", len(payload), limit)
-		metrics.SinkErrorsTotal.WithLabelValues("payload_too_large").Inc()
+	gate, err := assessExportSpill(
+		ctx, r.Client, log, int64(len(payload)), r.maxExportBytes(&inv), inv.Namespace, inv.Spec.SinkRefs,
+	)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if gate.degraded {
+		recordSpillGateMetrics(gate)
 
-		return r.setInventoryDegraded(ctx, &inv, itemCount, "PayloadTooLarge", msg)
+		return r.setInventoryDegraded(ctx, &inv, itemCount, gate.reason, gate.message)
 	}
 
 	hash := fingerprint

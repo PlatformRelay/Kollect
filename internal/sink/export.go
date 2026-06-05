@@ -18,13 +18,17 @@ import (
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink/cap"
 	"github.com/konih/kollect/internal/sink/objectstore"
+	"github.com/konih/kollect/internal/validation"
 )
 
 // Capabilities describes sink backend projection behavior (ADR-0401, ADR-0406).
 type Capabilities = cap.Capabilities
 
-// SnapshotStoreCapabilities is the default for Git, S3, GCS, and similar backends.
+// SnapshotStoreCapabilities is the default for Git and similar snapshot backends.
 func SnapshotStoreCapabilities() Capabilities { return cap.SnapshotStore() }
+
+// ObjectStoreSnapshotCapabilities is the default for S3/GCS spill-capable backends.
+func ObjectStoreSnapshotCapabilities() Capabilities { return cap.ObjectStoreSnapshot() }
 
 // StreamEmitterCapabilities is the default for Kafka and NATS event sinks.
 func StreamEmitterCapabilities() Capabilities { return cap.StreamEmitter() }
@@ -121,6 +125,10 @@ func RunExportItems(req ExportItemsRequest) error {
 		return err
 	}
 
+	if !shouldExportForSpill(backend.Capabilities(), int64(len(envelope))) {
+		return nil
+	}
+
 	invNS, invName := objectstore.InventoryFromObjectPath(req.ObjectPath)
 	objectPath := objectstore.ObjectPath(ks.Spec, invNS, invName, req.Meta.Generation)
 
@@ -138,6 +146,12 @@ func RunExportItems(req ExportItemsRequest) error {
 	}
 
 	return nil
+}
+
+func shouldExportForSpill(c cap.Capabilities, payloadSize int64) bool {
+	spill := export.AssessSpill(payloadSize, validation.MaxExportBytesGlobal())
+
+	return !spill.RequiresSpill || c.ObjectStore
 }
 
 // ExportErrorReason maps classified errors to sink error metric labels.
