@@ -16,5 +16,6 @@ spec:
       kind: Service
   allowedNamespaces:
     - team-a
+  minExportInterval: 1m
   sinkRefs:
     - demo-git

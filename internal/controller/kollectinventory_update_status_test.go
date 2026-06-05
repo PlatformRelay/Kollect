@@ -26,13 +26,16 @@ func TestKollectInventoryReconciler_updateStatus_success(t *testing.T) {
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "platform", Namespace: "team-a", Generation: 4},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			SinkRefs: []string{"git"},
+			SinkRefs: kollectdevv1alpha1.NewSinkRefList("git"),
 		},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inv).WithStatusSubresource(inv).Build()
 	r := &KollectInventoryReconciler{Client: cl}
 
-	result, err := r.updateStatus(context.Background(), inv, 7, nil)
+	result, err := r.updateStatus(context.Background(), inv, 7, perSinkExportOutcome{
+		ExportedCount: 1,
+		RequeueAfter:  30,
+	})
 	if err != nil {
 		t.Fatalf("updateStatus: %v", err)
 	}

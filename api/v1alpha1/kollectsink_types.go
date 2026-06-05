@@ -77,6 +77,11 @@ type KollectSinkSpec struct {
 	// gitlab configures GitLab-specific settings when type is gitlab.
 	// +optional
 	GitLab *GitLabSpec `json:"gitlab,omitempty"`
+
+	// exportMinInterval is the default minimum time between identical exports when an inventory
+	// ref omits a per-ref override. Material payload changes bypass the interval.
+	// +optional
+	ExportMinInterval *metav1.Duration `json:"exportMinInterval,omitempty"`
 }
 
 // Git push policy values (ADR-0407).

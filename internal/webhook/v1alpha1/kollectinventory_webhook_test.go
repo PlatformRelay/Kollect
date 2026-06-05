@@ -8,19 +8,32 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
+func testInventoryValidator(t *testing.T) *kollectInventoryValidator {
+	t.Helper()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	return &kollectInventoryValidator{client: fake.NewClientBuilder().WithScheme(scheme).Build()}
+}
+
 func TestKollectInventoryValidator_ValidateCreate(t *testing.T) {
 	t.Parallel()
 
-	v := &kollectInventoryValidator{}
+	v := testInventoryValidator(t)
 
 	_, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "bad", Namespace: "team-a"},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			SinkRefs: []string{"other-ns/sink"},
+			SinkRefs: kollectdevv1alpha1.NewSinkRefList("other-ns/sink"),
 		},
 	})
 	if err == nil {
@@ -39,7 +52,7 @@ func TestKollectInventoryValidator_ValidateCreate(t *testing.T) {
 func TestKollectInventoryValidator_ValidateUpdateDeletion(t *testing.T) {
 	t.Parallel()
 
-	v := &kollectInventoryValidator{}
+	v := testInventoryValidator(t)
 	now := metav1.Now()
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "inv", Namespace: "team-a"},

@@ -104,7 +104,7 @@ func TestScopeCheckEnforceInventory(t *testing.T) {
 	}
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "rollup", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: []string{"other-git"}},
+		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: kollectdevv1alpha1.NewSinkRefList("other-git")},
 	}
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(scopeCR).Build()

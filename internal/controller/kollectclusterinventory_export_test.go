@@ -93,7 +93,7 @@ func TestKollectClusterInventoryReconciler_exportsRollupToSink(t *testing.T) {
 				MatchLabels: map[string]string{tenantLabel: tenantVal},
 			},
 			TargetRefs:    []string{targetName},
-			SinkRefs:      []string{"postgres-platform"},
+			SinkRefs:      kollectdevv1alpha1.NewSinkRefList("postgres-platform"),
 			SinkNamespace: sinkNS,
 		},
 	}

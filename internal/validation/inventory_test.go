@@ -48,7 +48,7 @@ func TestValidateInventorySpecSinkRefAndIntervals(t *testing.T) {
 	}
 
 	errs := ValidateInventorySpec(&kollectdevv1alpha1.KollectInventorySpec{
-		SinkRefs: []string{"other/sink"},
+		SinkRefs: kollectdevv1alpha1.NewSinkRefList("other/sink"),
 	})
 	if len(errs) != 1 {
 		t.Fatalf("sink ref errs = %v", errs)

@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	kollecterrors "github.com/konih/kollect/internal/errors"
 	"github.com/konih/kollect/internal/sink"
@@ -26,27 +24,17 @@ func TestExportErrorReason(t *testing.T) {
 	}
 }
 
-func TestKollectInventoryReconciler_lastExportTime(t *testing.T) {
+func TestPerSinkCoalesceTracker_recordAndNextDue(t *testing.T) {
 	t.Parallel()
 
-	rec := &KollectInventoryReconciler{}
-	inv := &kollectdevv1alpha1.KollectInventory{
-		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "inv", Generation: 1},
-	}
-	key := "team-a/inv"
-	hash := "abc123fingerprint"
+	var tracker perSinkCoalesceTracker
+	invKey := "team-a/inv"
+	sinkName := "git"
+	now := time.Now().UTC().Truncate(time.Second)
+	tracker.record(invKey, sinkName, 1, "abc123fingerprint", now)
 
-	if !rec.lastExportTime(key).IsZero() {
-		t.Fatal("expected zero time before recordExport")
-	}
-
-	rec.recordExport(inv, key, hash)
-	if rec.lastExportTime(key).IsZero() {
-		t.Fatal("expected recorded export time")
-	}
-
-	if time.Since(rec.lastExportTime(key)) > time.Minute {
-		t.Fatal("export time too old")
+	if tracker.nextDue(invKey, sinkName, time.Minute, now) <= 0 {
+		t.Fatal("expected positive nextDue after record")
 	}
 }
 

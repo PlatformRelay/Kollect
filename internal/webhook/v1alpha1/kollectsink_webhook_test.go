@@ -8,20 +8,33 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
+func testSinkValidator(t *testing.T) *kollectSinkValidator {
+	t.Helper()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	return &kollectSinkValidator{client: fake.NewClientBuilder().WithScheme(scheme).Build()}
+}
+
 func TestKollectSinkValidator_rejectsUnknownType(t *testing.T) {
 	t.Parallel()
 
-	v := &kollectSinkValidator{}
+	v := testSinkValidator(t)
 	ks := &kollectdevv1alpha1.KollectSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "bad-sink", Namespace: "kollect-system"},
 		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "unknown"},
 	}
 
-	if _, err := v.validate(ks); err == nil {
+	if _, err := v.validate(context.Background(), ks); err == nil {
 		t.Fatal("expected validation error for unknown sink type")
 	}
 }
@@ -29,7 +42,7 @@ func TestKollectSinkValidator_rejectsUnknownType(t *testing.T) {
 func TestKollectSinkValidator_ValidateLifecycle(t *testing.T) {
 	t.Parallel()
 
-	v := &kollectSinkValidator{}
+	v := testSinkValidator(t)
 	ks := &kollectdevv1alpha1.KollectSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "pg", Namespace: "kollect-system"},
 		Spec: kollectdevv1alpha1.KollectSinkSpec{
@@ -64,7 +77,7 @@ func TestKollectSinkValidator_ValidateLifecycle(t *testing.T) {
 func TestKollectSinkValidator_acceptsPostgres(t *testing.T) {
 	t.Parallel()
 
-	v := &kollectSinkValidator{}
+	v := testSinkValidator(t)
 	ks := &kollectdevv1alpha1.KollectSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "pg", Namespace: "kollect-system"},
 		Spec: kollectdevv1alpha1.KollectSinkSpec{
@@ -76,7 +89,7 @@ func TestKollectSinkValidator_acceptsPostgres(t *testing.T) {
 		},
 	}
 
-	if _, err := v.validate(ks); err != nil {
+	if _, err := v.validate(context.Background(), ks); err != nil {
 		t.Fatalf("unexpected validation error: %v", err)
 	}
 }

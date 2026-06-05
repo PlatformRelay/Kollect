@@ -13,8 +13,9 @@ import (
 // KollectInventorySpec defines the desired state of KollectInventory.
 type KollectInventorySpec struct {
 	// sinkRefs lists KollectSink names in the same namespace as this Inventory.
+	// Each entry may be a plain name or an object with an optional exportMinInterval override.
 	// +optional
-	SinkRefs []string `json:"sinkRefs,omitempty"`
+	SinkRefs InventorySinkRefList `json:"sinkRefs,omitempty"`
 
 	// exportMinInterval is the minimum time between identical exports for this inventory.
 	// Material changes (payload checksum or spec generation) bypass the interval.
@@ -78,9 +79,16 @@ type KollectInventoryStatus struct {
 	// +optional
 	ItemCount int `json:"itemCount,omitempty"`
 
-	// lastExportTime is the timestamp of the last successful export.
+	// lastExportTime is the timestamp of the last successful export across all sinks.
 	// +optional
 	LastExportTime *metav1.Time `json:"lastExportTime,omitempty"`
+
+	// sinkExports holds per-sink export timestamps and conditions.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=20
+	SinkExports []InventorySinkExportStatus `json:"sinkExports,omitempty"`
 }
 
 // +kubebuilder:object:root=true

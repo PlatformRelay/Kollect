@@ -55,6 +55,11 @@ spec:
                 description: endpoint is the backend-specific destination (URL, bucket,
                   and so on).
                 type: string
+              exportMinInterval:
+                description: |-
+                  exportMinInterval is the default minimum time between identical exports when an inventory
+                  ref omits a per-ref override. Material payload changes bypass the interval.
+                type: string
               git:
                 description: git configures git sink settings when type is git.
                 properties:

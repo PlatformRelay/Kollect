@@ -8,14 +8,27 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
+func testClusterInventoryValidator(t *testing.T) *kollectClusterInventoryValidator {
+	t.Helper()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	return &kollectClusterInventoryValidator{client: fake.NewClientBuilder().WithScheme(scheme).Build()}
+}
+
 func TestKollectClusterInventoryValidator_ValidateCreate(t *testing.T) {
 	t.Parallel()
 
-	v := &kollectClusterInventoryValidator{}
+	v := testClusterInventoryValidator(t)
 
 	_, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectClusterInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "bad"},
@@ -41,7 +54,7 @@ func TestKollectClusterInventoryValidator_ValidateCreate(t *testing.T) {
 func TestKollectClusterInventoryValidator_ValidateUpdateDeletion(t *testing.T) {
 	t.Parallel()
 
-	v := &kollectClusterInventoryValidator{}
+	v := testClusterInventoryValidator(t)
 	now := metav1.Now()
 	inv := &kollectdevv1alpha1.KollectClusterInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "rollup"},

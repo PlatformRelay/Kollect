@@ -11,8 +11,8 @@
 A `KollectInventory` aggregates all collected rows from `KollectTarget` objects in the **same
 namespace** and exports the marshalled JSON payload to one or more `KollectSink` backends. Export is
 **debounced per inventory** — the in-memory store updates immediately on every watch event, but
-sink writes coalesce unless the payload checksum or CR generation changes
-([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+sink writes coalesce **per sink ref** — the in-memory store updates immediately on every watch event,
+but each backend may use a different `exportMinInterval` ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 
 Postgres and Kafka are the **primary** portal integration path; Git suits small single-cluster
 installs. Full payloads live in sinks; `status` holds counts, conditions, and export metadata only
@@ -46,8 +46,8 @@ Debouncing state machine: [DATA-FLOWS.md §1](../DATA-FLOWS.md#1-export-debounci
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `spec.sinkRefs[]` | list | No | — | `KollectSink` names in same namespace |
-| `spec.exportMinInterval` | duration | No | **30s** | Min gap between identical exports; bypass on checksum or generation change |
+| `spec.sinkRefs[]` | list | No | — | Sink names (string) or `{ name, exportMinInterval? }` objects — max 20 |
+| `spec.exportMinInterval` | duration | No | **30s** | Default min gap for refs without override; bypass on checksum or generation change |
 | `spec.maxExportBytes` | int64 | No | global cap | Max marshalled payload size |
 | `spec.suspend` | bool | No | false | Pause reconciliation |
 | `spec.httpEndpoint.enabled` | bool | No | false | Per-CR HTTP debug (operator gate also required) |
