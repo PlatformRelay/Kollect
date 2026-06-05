@@ -41,6 +41,9 @@ extra_css:
 nav:
   - Overview:
       - Home: index.md
+      - FAQ: FAQ.md
+  - Operator Manual:
+      - Operator manual: OPERATOR-MANUAL.md
   - Understand the Basics:
       - Understand the basics: UNDERSTAND-THE-BASICS.md
       - Architecture: ARCHITECTURE.md
