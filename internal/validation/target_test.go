@@ -5,6 +5,8 @@ package validation
 
 import (
 	"testing"
+
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func TestValidateProfileRef(t *testing.T) {
@@ -24,9 +26,9 @@ func TestValidateProfileRef(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			errs := validateProfileRef(tt.ref, nil)
+			errs := validateSameNamespaceRef(tt.ref, field.NewPath("spec").Child("profileRef"), "profileRef")
 			if (len(errs) > 0) != tt.wantErr {
-				t.Fatalf("validateProfileRef(%q) errs=%v wantErr=%v", tt.ref, errs, tt.wantErr)
+				t.Fatalf("validateSameNamespaceRef(%q) errs=%v wantErr=%v", tt.ref, errs, tt.wantErr)
 			}
 		})
 	}

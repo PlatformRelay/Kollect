@@ -15,14 +15,19 @@ import (
 	kollecterrors "github.com/konih/kollect/internal/errors"
 )
 
-func checkInventorySinksReachable(ctx context.Context, c client.Client, sinkRefs []string) (bool, string, string) {
+func checkInventorySinksReachable(
+	ctx context.Context,
+	c client.Client,
+	namespace string,
+	sinkRefs []string,
+) (bool, string, string) {
 	if len(sinkRefs) == 0 {
 		return true, "NoSinksConfigured", "no sinkRefs configured"
 	}
 
 	for _, name := range sinkRefs {
 		check := scopeCheck{client: c}
-		ok, reason, msg := check.sinkReachable(ctx, name)
+		ok, reason, msg := check.sinkReachable(ctx, namespace, name)
 		if !ok {
 			return false, reason, msg
 		}
@@ -42,7 +47,7 @@ func checkTargetNamespaceSinksReachable(ctx context.Context, c client.Client, na
 		return true, "NoSinksInNamespace", "no inventory sinkRefs in namespace"
 	}
 
-	return checkInventorySinksReachable(ctx, c, refs)
+	return checkInventorySinksReachable(ctx, c, namespace, refs)
 }
 
 func uniqueSinkRefs(inventories []kollectdevv1alpha1.KollectInventory) []string {
