@@ -36,7 +36,7 @@ flowchart LR
 | --- | --- | --- |
 | **0** | Bootstrap | Scaffold, guidelines, ADRs, Helm, CI, webhooks, metrics, docs |
 | **1** | Collection + Sink | Dynamic informers, CEL/JSONPath, namespaced inventory, Git/HTTP export |
-| **2** | Multi-cluster | `KollectHub` CRD, spoke agents, lean queue fan-in |
+| **2** | Multi-cluster | `KollectHub` CRD, spoke agents, pluggable lean queue fan-in |
 | **3** | Governance + backends | `KollectScope`, S3/GCS/Prometheus, cluster inventory |
 | **4** | Metrics + aggregation | kube-state-metrics-style config, richer rollups |
 
@@ -91,6 +91,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Secondary watches (Profile/Sink changes) | ⬜ |
 | Finalizers | ⬜ |
 | Read-only HTTP `GET /inventory` | 🚧 |
+| Inventory HTTP auth: TokenReview + SAR (K8s bearer) | ⬜ |
+| `--inventory-auth-mode=kubernetes` (default) | ⬜ |
 | Full Prometheus metrics per [ADR-0020](adr/0020-error-taxonomy.md) | ⬜ |
 | Sample profiles: Deployment, Service, Ingress | ✅ |
 | Sample: generic CRD | ⬜ |
@@ -99,7 +101,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | End-to-end: install → collect → export → HTTP | 🚧 |
 | `spec.suspend` on reconciled kinds | 🚧 |
 
-**Counts:** ✅ 8 · 🚧 9 · ⬜ 18 · 🔮 2
+**Counts:** ✅ 8 · 🚧 9 · ⬜ 20 · 🔮 1
 
 ---
 
@@ -112,17 +114,18 @@ Multi-cluster support must **not** block single-cluster installs. See
 | Item | Status |
 | --- | --- |
 | Multi-cluster topology RFC | ✅ |
-| Lean queue transport ADR | ✅ |
-| `KollectHub` CRD (hub Deployment + queue) | ⬜ |
+| Lean queue transport ADR (pluggable factory) | ✅ |
+| `KollectHub` CRD (`spec.transport.type`) | ⬜ |
 | Spoke operator / agent snapshot reports | ⬜ |
 | Hub merge and deduplication | ⬜ |
 | Transport: in-process (dev/test) | 🚧 |
-| Transport: NATS JetStream or Redis Streams | ⬜ |
-| Kafka backend (optional) | 🔮 |
+| Transport: Redis Streams (Phase 2 spike default) | ⬜ |
+| Transport: NATS JetStream (config alternative) | ⬜ |
+| Transport: Kafka backend (optional, integration-tested) | 🔮 |
 | Cross-cluster authentication | ❓ |
 | `KollectPublication` (doc-sync) | 🔮 |
 
-**Counts:** ✅ 3 · 🚧 1 · ⬜ 8 · 🔮 2 · ❓ 1
+**Counts:** ✅ 3 · 🚧 1 · ⬜ 7 · 🔮 2 · ❓ 1
 
 ---
 
@@ -159,18 +162,17 @@ Multi-cluster support must **not** block single-cluster installs. See
 | Item | Rationale |
 | --- | --- |
 | `KollectPublication` (Confluence, Go templates) | Ship after collection and sinks are mature |
-| Kafka as required hub transport | Lean queue first; Kafka optional only |
+| Kafka as required hub transport | Pluggable optional backend only; Redis spike first |
 | `KollectReceiver`, `KollectTargetSet` implementation | Reserved for future phases |
-| oauth2-proxy on HTTP API | After core HTTP export is complete |
+| oauth2-proxy sidecar (OIDC browser auth) | Optional Helm sidecar (`oauth2Proxy.enabled: false`); K8s bearer auth is primary — [ADR-0024](adr/0024-inventory-api-auth.md) |
 | Helm release inventory sample | Requires secret-adjacent field redaction |
 
 ## Open questions
 
-- **NATS vs Redis Streams** — pick default hub transport after Phase 2 spike
 - **Connection test CR** vs annotation-only trigger on Sink/Inventory
 - **Cluster vs namespaced sink** split timing (`KollectClusterSink`)
 - **Operator deployment model** — one cluster-scoped operator vs namespaced per team
-- **Cross-cluster identity** — mTLS, OIDC, or bootstrap tokens
+- **Cross-cluster identity** — mTLS, OIDC, or bootstrap tokens (hub/spoke; distinct from inventory HTTP auth)
 
 ## Breaking changes
 
@@ -193,22 +195,27 @@ namespace scope where appropriate.
 | Full e2e: conditions, Git export, HTTP body | ⬜ |
 | Integration tests in CI (testcontainers) | ⬜ |
 
-## Multi-cluster decisions
+## Architecture decisions (2026-06-05)
 
 | Decision | Status |
 | --- | --- |
 | Single-cluster MVP is the default install | Accepted |
 | Namespaced inventory is the hub input contract | Accepted |
-| Hub-and-spoke via **`KollectHub` CRD** (declarative Deployment + queue) | Proposed |
-| Transport: in-process → NATS or Redis → optional Kafka | Proposed |
+| Hub-and-spoke via **`KollectHub` CRD** (declarative Deployment + queue) | Accepted |
+| Transport: **`Transport` interface**; `inprocess` → **Redis** spike → NATS/Kafka via `spec.transport.type` | Accepted |
+| Transport backend rule: no merge without integration/e2e proof | Accepted |
+| Inventory HTTP auth: **K8s TokenReview + SAR**; `--inventory-auth-mode=kubernetes` default | Accepted |
+| oauth2-proxy: **optional** Helm sidecar for OIDC browsers; not primary auth | Accepted |
 | Git, object storage, and agent mesh documented as alternatives | Accepted |
 
 ## Further reading
 
 - [Product requirements](REQUIREMENTS.md)
 - [Architecture](ARCHITECTURE.md)
+- [Helm chart README](../charts/kollect/README.md) — inventory HTTP auth
 - [ADR-0004: CRD model](adr/0004-crd-model.md)
 - [ADR-0006: etcd limit + HTTP API](adr/0006-etcd-limit.md)
 - [ADR-0014: Event-driven informers](adr/0014-event-driven-informers.md)
 - [ADR-0022: Multi-cluster RFC](adr/0022-multi-cluster-sync-rfc.md)
 - [ADR-0023: Lean queue transport](adr/0023-lean-queue-transport.md)
+- [ADR-0024: Inventory API auth](adr/0024-inventory-api-auth.md)

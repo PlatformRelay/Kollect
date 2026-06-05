@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-06-05)
+Accepted (2026-06-05)
 
 ## Context
 
@@ -11,28 +11,32 @@ Multi-cluster hub aggregation ([ADR-0022](0022-multi-cluster-sync-rfc.md)) needs
 Requirements:
 
 - **Low operational burden** for a Phase 1–2 hub prototype (personal/small-platform scale first).
-- **Pluggable** — no hard dependency on Kafka or a specific vendor.
+- **Pluggable** — no hard dependency on Kafka or a specific vendor; teams that standardize on Kafka
+  must be able to select it via configuration without forking kollect.
 - **At-least-once** delivery acceptable; hub merge is idempotent on `(cluster, namespace, name, uid)`.
 - Payloads are **summarized inventory JSON** (not full object dumps) per [ADR-0006](0006-etcd-limit.md).
+- Every shipped backend must be **provable in integration or e2e tests** with reasonable effort
+  (testcontainers or kind-sidecar).
 
 ## Options evaluated
 
-| Transport | Ops footprint | Ordering / retention | Fit for Phase 1 hub prototype |
-| --- | --- | --- | --- |
-| **In-process channel** | None (single process) | In-memory only; lost on restart | **Best for unit/integration tests** and local dev; not production hub |
-| **NATS JetStream** | Small binary; single server or K8s Deployment | Streams, consumer groups, replay | **Strong candidate** — lightweight, K8s-friendly, no JVM |
-| **Redis Streams** | Often already present in platform | `XREADGROUP`, trimming, persistence | **Strong candidate** if Redis is standard; else extra moving part |
-| **Kafka** | Cluster + ZooKeeper/KRaft, topic ops | Durable log, enterprise tooling | **Optional enterprise backend** — defer until lean path proven |
+| Transport | Ops footprint | Ordering / retention | testcontainers-go | Fit |
+| --- | --- | --- | --- | --- |
+| **In-process channel** | None (single process) | In-memory only; lost on restart | N/A (no container) | **Dev/test default** — unit, envtest, local kind |
+| **Redis Streams** | Often already present; single Deployment | `XREADGROUP`, trimming, persistence | `modules/redis` — mature, fast CI spin-up | **Phase 2 spike default** — easiest local external queue |
+| **NATS JetStream** | Small binary; single server or K8s Deployment | Streams, consumer groups, replay | `modules/nats` — available | **Second lean driver** — same interface, config-selected |
+| **Kafka** | Cluster + KRaft, topic ops | Durable log, enterprise tooling | Heavier (KRaft or Redpanda module) | **Optional enterprise backend** — only when team needs it |
+
+### Redis Streams (Phase 2 spike pick)
+
+- Pros: `testcontainers-go/modules/redis` is lightweight and widely used in CI; many platforms already
+  run Redis; `XREADGROUP` gives consumer groups and at-least-once semantics.
+- Cons: Redis not universal; memory pressure if retention unbounded — configure `MAXLEN` / trimming.
 
 ### NATS JetStream
 
 - Pros: purpose-built messaging; small footprint; good Go client; stream retention policies.
-- Cons: another service to run if not already in the estate; TLS/auth configuration.
-
-### Redis Streams
-
-- Pros: many orgs already run Redis; simple stream semantics; easy local testcontainer in CI.
-- Cons: Redis not universal; memory pressure if retention unbounded.
+- Cons: another service if not already in the estate; TLS/auth configuration.
 
 ### In-process channel
 
@@ -41,23 +45,43 @@ Requirements:
 
 ### Kafka
 
-- Pros: enterprise standard, long retention, ecosystem.
-- Cons: heavy for Phase 1; topic/partition design lock-in; **must remain optional** per product direction.
+- Pros: enterprise standard, long retention, ecosystem — matches teams that already operate Kafka.
+- Cons: heavy for Phase 1; topic/partition design; **must remain optional** and config-pluggable.
 
-## Decision (proposed)
+## Decision
 
-1. **Phase 1 hub prototype (dev / CI):** implement hub ingest behind a **`Transport` interface** with
-   an **in-process** implementation first to validate merge + export without external infra.
-2. **Phase 2 hub default (production-shaped):** prefer **NATS JetStream** as the first external lean
-   queue — investigate in a spike (Helm subchart, auth, stream naming `kollect.hub.<tenant>`).
-3. **Alternative:** **Redis Streams** when the platform already operates Redis — same interface, second
-   driver.
-4. **Enterprise optional:** **Kafka** as a pluggable backend only; never required for install or CI.
+1. **Transport abstraction:** all hub and in-operator messaging goes through a **`Transport` interface**
+   (`Publisher` / `Subscriber` in `internal/transport/`). Backends implement the same contract; no
+   controller imports a vendor SDK directly.
 
-Spoke → hub message schema (sketch, not API):
+2. **Configurable backend selection** (manager flags and/or `KollectHub.spec.transport`):
+
+   | `spec.transport.type` | When |
+   | --- | --- |
+   | `inprocess` | Default for single-process dev, envtest, and early hub merge tests |
+   | `redis` | **First external lean backend** — Phase 2 spike and local/CI default |
+   | `nats` | Alternative lean backend — same interface, config switch |
+   | `kafka` | Optional enterprise backend — never required for install or CI |
+
+   Connection details (URL, credentials, stream/topic names) live under `spec.transport.config` or
+   equivalent secret refs — exact CRD shape is an implementation detail.
+
+3. **Phase order:**
+   - **Phase 1 / dev:** `inprocess` — validate merge + export without external infra.
+   - **Phase 2 spike:** **Redis Streams** — chosen for testcontainers ease (`modules/redis`) and
+     simple local spin-up; prove hub fan-in in integration tests.
+   - **Phase 2+:** NATS JetStream driver behind the same factory (config, not compile-time).
+   - **Enterprise optional:** Kafka driver — ship only when integration-tested; never a hard dependency.
+
+4. **Backend admission rule:** **do not merge a transport backend** unless it can be exercised in an
+   integration or e2e test with reasonable effort (testcontainers module or documented kind sidecar).
+   In-process is exempt (no container). Kafka is deferred until that bar is met.
+
+5. Spoke → hub message schema (sketch, not API):
 
 ```json
 {
+  "apiVersion": "kollect.dev/v1alpha1",
   "cluster": "prod-eu-1",
   "inventoryRef": { "namespace": "team-a", "name": "team-inventory" },
   "generation": 42,
@@ -66,14 +90,54 @@ Spoke → hub message schema (sketch, not API):
 }
 ```
 
+## Transport factory (reference)
+
+```mermaid
+flowchart TB
+  subgraph config [Configuration]
+    CRD["KollectHub.spec.transport.type"]
+    Env["Manager flags / env"]
+  end
+
+  subgraph factory [Transport factory]
+    F["NewTransport(type, config)"]
+  end
+
+  subgraph backends [Pluggable backends]
+    IP[inprocess]
+    RD[redis]
+    NT[nats]
+    KF[kafka]
+  end
+
+  subgraph consumers [Hub wiring]
+    Spoke[spoke operator]
+    Hub[hub Deployment]
+    Merge[merge + dedupe]
+    Export[Git / HTTP / S3]
+  end
+
+  CRD --> F
+  Env --> F
+  F -->|inprocess| IP
+  F -->|redis| RD
+  F -->|nats| NT
+  F -->|kafka| KF
+
+  Spoke -->|publish report| F
+  Hub -->|consume| F
+  F --> Merge
+  Merge --> Export
+```
+
 ## Hub wiring (reference)
 
 ```mermaid
 flowchart LR
-  Spoke[spoke operator] -->|publish report| Q[lean queue]
+  Spoke[spoke operator] -->|publish report| Q[Transport]
   HubCRD[KollectHub CRD] --> Dep[hub Deployment]
   Dep -->|consume| Q
-  Dep --> Merge[merge + dedupe]
+  Q --> Merge[merge + dedupe]
   Merge --> Export[Git / HTTP / S3]
 ```
 
@@ -81,16 +145,18 @@ flowchart LR
 
 ### Positive
 
-- Clear spike order: in-process → NATS (or Redis) → optional Kafka.
-- Hub collector testable in envtest with in-process transport.
+- Clear spike order: in-process → Redis → NATS (config) → optional Kafka.
+- Hub collector testable in envtest with in-process transport; Redis provable via testcontainers.
+- Enterprise Kafka teams select backend via CRD — no fork required.
+- Factory pattern keeps vendor SDKs out of reconcilers.
 
 ### Negative
 
-- Two lean backends (NATS + Redis) may both need maintenance if both ship — pick one default after spike.
-- Message schema versioning not specified here — impl agent must add `apiVersion` field.
+- Multiple lean backends (Redis + NATS) may both need maintenance if both ship — Redis is default
+  external; NATS follows the same interface.
+- Message schema versioning requires discipline — `apiVersion` field is mandatory in payloads.
 
 ## Open questions
 
-- **OPEN:** NATS vs Redis Streams — run spike against user's likely platform (single binary decision)?
 - **OPEN:** Hub pulls from queue vs queue pushes to hub webhook sidecar?
 - **OPEN:** Exactly-once needed for billing/audit, or is at-least-once + idempotent merge enough?

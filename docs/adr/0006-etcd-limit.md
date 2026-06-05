@@ -36,7 +36,11 @@ at scale. Developer portals also need a **read path** without scraping Git — a
 5. **Status patch discipline:** patch status only when changed; avoid hot loops writing large status.
 6. **Read-only HTTP inventory API (core):** expose aggregated inventory via operator HTTP
    (feature-gated in spec or manager flags). Same schema as sink export where possible.
-   - **TODO:** Sidecar or deployment pattern for **oauth2-proxy** (or equivalent) for production auth.
+   - **Auth (primary):** delegate to Kubernetes API auth — **TokenReview** + **SubjectAccessReview**;
+     callers use standard `Authorization: Bearer` service account tokens;
+     `--inventory-auth-mode=kubernetes` (default). See [ADR-0024](0024-inventory-api-auth.md).
+   - **Auth (optional):** **oauth2-proxy** Helm sidecar/subchart for OIDC browser access —
+     `oauth2Proxy.enabled: false` by default; documented, not required for service-to-service.
    - **TODO:** Async push to clients — **SSE** or **watch** endpoint when inventory changes, not only GET snapshot.
 7. **Optional PVC buffer:** when in-memory aggregate exceeds `maxAggregateSize`, spill full payload
    to a mounted volume for export and HTTP serve — still not written to etcd status.
@@ -78,4 +82,5 @@ flowchart LR
 
 - **OPEN:** Exact HTTP paths and OpenAPI schema versioning (`/v1alpha1/inventory` vs negotiation).
 - **OPEN:** Whether `maxAggregateSize` is global manager default only or per-Inventory override.
-- **OPEN:** oauth2-proxy as optional Helm subchart vs documented sidecar manifest only.
+- **RESOLVED (2026-06-05):** Optional Helm sidecar/subchart for oauth2-proxy; K8s-native auth is
+  primary — [ADR-0024](0024-inventory-api-auth.md).

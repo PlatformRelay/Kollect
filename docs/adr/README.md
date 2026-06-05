@@ -15,6 +15,7 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0020](0020-error-taxonomy.md) | Error taxonomy and reconcile behavior |
 | [0021](0021-mkdocs-github-pages.md) | MkDocs Material for documentation site |
 | [0022](0022-multi-cluster-sync-rfc.md) | Multi-cluster sync topology (RFC, Proposed) |
-| [0023](0023-lean-queue-transport.md) | Lean queue transport for hub fan-in (Proposed) |
+| [0023](0023-lean-queue-transport.md) | Lean queue transport for hub fan-in (Accepted) |
+| [0024](0024-inventory-api-auth.md) | Inventory HTTP API authentication (Accepted) |
 
 See also [ARCHITECTURE.md](../ARCHITECTURE.md) and [REQUIREMENTS.md](../REQUIREMENTS.md).
