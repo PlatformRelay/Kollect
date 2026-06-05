@@ -59,7 +59,7 @@ func TestReceiveReportMergesWithWireCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, applied, err := hub.ReceiveReport("spoke-a", payload, merger, nil, false)
+	got, applied, _, err := hub.ReceiveReport("spoke-a", payload, merger, nil, false)
 	if err != nil {
 		t.Fatalf("receive: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestReceiveReportRejectsUnregisteredCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = hub.ReceiveReport("rogue", payload, merger, []string{"spoke-a"}, true)
+	_, _, _, err = hub.ReceiveReport("rogue", payload, merger, []string{"spoke-a"}, true)
 	if err == nil {
 		t.Fatal("expected acl error")
 	}
@@ -117,7 +117,7 @@ func TestReceiveReportDefaultsLegacySchemaVersion(t *testing.T) {
 		"items":[{"namespace":"apps","name":"demo","uid":"uid-1","version":"v1","kind":"Deployment"}]
 	}`)
 
-	got, applied, err := hub.ReceiveReport("spoke-a", payload, merger, nil, false)
+	got, applied, _, err := hub.ReceiveReport("spoke-a", payload, merger, nil, false)
 	if err != nil {
 		t.Fatalf("receive: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestReceiveReportRejectsUnsupportedSchemaVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = hub.ReceiveReport("spoke-a", payload, merger, nil, false)
+	_, _, _, err = hub.ReceiveReport("spoke-a", payload, merger, nil, false)
 	if err == nil {
 		t.Fatal("expected schemaVersion error")
 	}
@@ -161,7 +161,7 @@ func TestReceiveReportRejectsUnsupportedSchemaVersion(t *testing.T) {
 func TestReceiveReportNilMerger(t *testing.T) {
 	t.Parallel()
 
-	_, _, err := hub.ReceiveReport("spoke-a", []byte(`{}`), nil, nil, false)
+	_, _, _, err := hub.ReceiveReport("spoke-a", []byte(`{}`), nil, nil, false)
 	if err == nil {
 		t.Fatal("expected error for nil merger")
 	}
@@ -171,7 +171,7 @@ func TestReceiveReportInvalidJSON(t *testing.T) {
 	t.Parallel()
 
 	merger := hub.NewMerger(collect.NewStore())
-	_, _, err := hub.ReceiveReport("", []byte("{"), merger, nil, false)
+	_, _, _, err := hub.ReceiveReport("", []byte("{"), merger, nil, false)
 	if err == nil {
 		t.Fatal("expected unmarshal error")
 	}
@@ -181,7 +181,7 @@ func TestReceiveReportEmptyCluster(t *testing.T) {
 	t.Parallel()
 
 	merger := hub.NewMerger(collect.NewStore())
-	_, _, err := hub.ReceiveReport("", []byte(`{"cluster":""}`), merger, nil, false)
+	_, _, _, err := hub.ReceiveReport("", []byte(`{"cluster":""}`), merger, nil, false)
 	if err == nil {
 		t.Fatal("expected missing cluster error")
 	}
@@ -205,7 +205,7 @@ func TestReceiveReportFillsClusterFromWireHeader(t *testing.T) {
 		"items":[{"namespace":"apps","name":"demo","uid":"uid-1","version":"v1","kind":"Deployment"}]
 	}`)
 
-	got, applied, err := hub.ReceiveReport("spoke-a", payload, merger, nil, false)
+	got, applied, _, err := hub.ReceiveReport("spoke-a", payload, merger, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

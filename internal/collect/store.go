@@ -114,6 +114,47 @@ func (s *Store) CountForTarget(targetNamespace, targetName string) int {
 	return len(s.items[key])
 }
 
+// CloneTargetItems returns a shallow copy of the target bucket for rollback (hub merge+export).
+func (s *Store) CloneTargetItems(targetNamespace, targetName string) map[string]Item {
+	key := targetKey(targetNamespace, targetName)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	bucket := s.items[key]
+	if len(bucket) == 0 {
+		return nil
+	}
+
+	out := make(map[string]Item, len(bucket))
+	for uid, item := range bucket {
+		out[uid] = item
+	}
+
+	return out
+}
+
+// RestoreTarget replaces all items for a target (nil or empty prior removes the target).
+func (s *Store) RestoreTarget(targetNamespace, targetName string, prior map[string]Item) {
+	key := targetKey(targetNamespace, targetName)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(prior) == 0 {
+		delete(s.items, key)
+	} else {
+		cp := make(map[string]Item, len(prior))
+		for uid, item := range prior {
+			cp[uid] = item
+		}
+
+		s.items[key] = cp
+	}
+
+	s.notifyWatchers()
+}
+
 // SnapshotTarget returns all items for one target (hub merge uses cluster as target namespace).
 func (s *Store) SnapshotTarget(targetNamespace, targetName string) []Item {
 	key := targetKey(targetNamespace, targetName)

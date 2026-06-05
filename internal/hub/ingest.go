@@ -98,7 +98,7 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report, applied, err := ReceiveReport(
+	report, applied, prior, err := ReceiveReport(
 		headerCluster,
 		body,
 		s.Merger,
@@ -122,11 +122,17 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.StatusClient != nil {
-		_ = MarkRemoteClusterConnected(r.Context(), s.StatusClient, report.Cluster)
+		if err := MarkRemoteClusterConnected(r.Context(), s.StatusClient, report.Cluster); err != nil {
+			log.FromContext(r.Context()).Error(err, "mark remote cluster connected", "cluster", report.Cluster)
+		}
 	}
 
 	if s.Exporter != nil {
 		if err := s.Exporter.ExportAfterMerge(r.Context(), report); err != nil {
+			// Merge+export is one unit of work: rollback hub store on export failure so
+			// store and sinks stay aligned. Spokes should retry the same report on 500
+			// (merge is idempotent on UID).
+			s.Merger.Store.RestoreTarget(report.Cluster, inventoryTargetName(report.InventoryRef), prior)
 			metrics.HubSpokeReportsTotal.WithLabelValues("http-ingest", metrics.ResultFailure).Inc()
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 

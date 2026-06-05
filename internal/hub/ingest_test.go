@@ -401,6 +401,66 @@ func TestIngestHandleReportsMarksRemoteClusterConnected(t *testing.T) {
 	t.Fatalf("Connected condition not set: %+v", got.Status.Conditions)
 }
 
+func TestIngestHandleReportsExportFailureRollsBackMerge(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	store.Upsert(collect.Item{
+		TargetNamespace: "spoke-a",
+		TargetName:      "inv",
+		Namespace:       "apps",
+		Name:            "existing",
+		UID:             "uid-old",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+
+	srv := &IngestServer{
+		Enabled: true,
+		Auth:    IngestAuthConfig{Mode: IngestAuthModeDisabled},
+		Merger:  NewMerger(store),
+		Exporter: &Exporter{
+			Config: ExportConfig{
+				ExportNamespace: "platform",
+				SinkRefs:        []string{"demo"},
+			},
+		},
+	}
+
+	report := SpokeReport{
+		APIVersion:   "kollect.dev/v1alpha1",
+		Cluster:      "spoke-a",
+		InventoryRef: InventoryRef{Namespace: "team-a", Name: "inv"},
+		Items: []collect.Item{{
+			TargetNamespace: "team-a",
+			TargetName:      "t",
+			Namespace:       "apps",
+			Name:            "demo",
+			UID:             "uid-new",
+			Version:         "v1",
+			Kind:            "Deployment",
+		}},
+	}
+	body, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, ingestReportsPath, bytes.NewReader(body))
+	req.Header.Set(kollectdevv1alpha1.HeaderClusterID, "spoke-a")
+	rec := httptest.NewRecorder()
+	srv.handleReports(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	snap := store.SnapshotTarget("spoke-a", "inv")
+	if len(snap) != 1 || snap[0].UID != "uid-old" {
+		t.Fatalf("rollback snapshot = %+v, want prior uid-old item only", snap)
+	}
+}
+
 func TestIngestHandleReportsExportFailure(t *testing.T) {
 	t.Parallel()
 
@@ -443,5 +503,9 @@ func TestIngestHandleReportsExportFailure(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	if store.TotalCount() != 0 {
+		t.Fatalf("store count = %d after export failure rollback, want 0", store.TotalCount())
 	}
 }

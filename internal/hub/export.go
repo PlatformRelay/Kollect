@@ -8,6 +8,7 @@ package hub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -57,9 +58,9 @@ func (e *Exporter) ExportAfterMerge(ctx context.Context, report SpokeReport) err
 	objectPath := fmt.Sprintf("inventory/%s/%s.json", invNS, invName)
 
 	var (
-		wg       sync.WaitGroup
-		mu       sync.Mutex
-		firstErr error
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errs []error
 	)
 
 	for _, sinkName := range e.Config.SinkRefs {
@@ -82,9 +83,7 @@ func (e *Exporter) ExportAfterMerge(ctx context.Context, report SpokeReport) err
 				},
 			}); err != nil {
 				mu.Lock()
-				if firstErr == nil {
-					firstErr = err
-				}
+				errs = append(errs, fmt.Errorf("sink %q: %w", name, err))
 				mu.Unlock()
 			}
 		}(sinkName)
@@ -92,5 +91,5 @@ func (e *Exporter) ExportAfterMerge(ctx context.Context, report SpokeReport) err
 
 	wg.Wait()
 
-	return firstErr
+	return errors.Join(errs...)
 }
