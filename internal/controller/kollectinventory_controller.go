@@ -49,6 +49,7 @@ func (r *KollectInventoryReconciler) exportDebounce(inv *kollectdevv1alpha1.Koll
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories/finalizers,verbs=update
+// TODO(EC-P1-01): add finalizers for external sink/doc cleanup on inventory deletion.
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollecttargets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectsinks,verbs=get;list;watch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectscopes,verbs=get;list;watch
@@ -167,6 +168,8 @@ func (r *KollectInventoryReconciler) exportToSinks(
 	var outcome perSinkExportOutcome
 	outcome.RequeueAfter = defaultInterval
 
+	// TODO(EC-P1-02): on partial multi-sink failure, continue remaining sinks and set PartiallySynced
+	// with per-sink status instead of fail-fast return.
 	for _, ref := range inv.Spec.SinkRefs {
 		sinkObj, err := r.loadSink(ctx, inv.Namespace, ref.Name)
 		if err != nil {

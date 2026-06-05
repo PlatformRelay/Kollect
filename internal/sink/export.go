@@ -56,6 +56,7 @@ type ExportItemsRequest struct {
 }
 
 // RunExportItems loads the sink, applies capability gating, wraps the envelope, and exports.
+// TODO(EC-P1-11): wrap Backend.Export with per-sink gobreaker circuit breaker (GUIDELINES §2).
 func RunExportItems(req ExportItemsRequest) error {
 	if req.Registry == nil {
 		return kollecterrors.Terminal(fmt.Errorf("sink registry is not configured"))
