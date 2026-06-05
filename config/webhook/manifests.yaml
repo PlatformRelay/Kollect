@@ -190,6 +190,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollectsink
+  failurePolicy: Fail
+  name: vkollectsink.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollectsinks
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-kollect-dev-v1alpha1-kollecttarget
   failurePolicy: Fail
   name: vkollecttarget.kb.io

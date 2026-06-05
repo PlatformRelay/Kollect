@@ -7,6 +7,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Sink type values for KollectSink.spec.type (ADR-0406).
+const (
+	SinkTypeGit      = "git"
+	SinkTypeGitLab   = "gitlab"
+	SinkTypeS3       = "s3"
+	SinkTypeGCS      = "gcs"
+	SinkTypePostgres = "postgres"
+	SinkTypeKafka    = "kafka"
+	SinkTypeNats     = "nats"
+)
+
 // KollectSinkSpec defines the desired state of KollectSink.
 type KollectSinkSpec struct {
 	// type selects the sink backend implementation.
