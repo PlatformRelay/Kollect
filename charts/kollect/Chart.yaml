@@ -6,6 +6,7 @@ version: 0.1.0
 appVersion: "0.1.0"
 dependencies:
   - name: kollect-ui
+    alias: ui
     version: 0.1.0
     repository: "file://../kollect-ui"
     condition: ui.enabled

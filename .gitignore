@@ -1,8 +1,10 @@
 # --- Local-only working material: never committed ---
 /agent-context/
+kollect-repos/
+kollect-lab/
+stuff/
 agent-context/PERF-SNAPSHOT.md
 references/
-stuff/
 .cursor/
 .agents/
 .claude/

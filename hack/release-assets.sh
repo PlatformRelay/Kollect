@@ -42,6 +42,9 @@ helm package "${ROOT}/charts/kollect" \
   if [[ -f "sbom.spdx.json" ]]; then
     files+=("sbom.spdx.json")
   fi
+  if [[ -f "sbom-ui.spdx.json" ]]; then
+    files+=("sbom-ui.spdx.json")
+  fi
   sha256sum "${files[@]}" >checksums.txt
 )
 

@@ -4,7 +4,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/konih/kollect-ui
-  tag: latest
+  tag: ""
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

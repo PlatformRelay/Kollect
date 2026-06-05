@@ -2,5 +2,5 @@ dependencies:
 - name: kollect-ui
   repository: file://../kollect-ui
   version: 0.1.0
-digest: sha256:92cbf9df4865b7cf7e0f6f7cf723a8d48a0aa3507241a1bea2e76d145587eceb
-generated: "2026-06-05T16:39:53.801779845+02:00"
+digest: sha256:a0744cd9f50dc42cb637c7c562ac8cecf920454826cd37bf19e56d6334de4828
+generated: "2026-06-05T20:43:12.94537529+02:00"

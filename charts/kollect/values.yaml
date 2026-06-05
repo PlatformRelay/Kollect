@@ -141,4 +141,4 @@ ui:
     enabled: false
   image:
     repository: ghcr.io/konih/kollect-ui
-    tag: latest
+    tag: ""
