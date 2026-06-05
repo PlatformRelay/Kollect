@@ -20,7 +20,7 @@ const (
 	MergeRequestModeBranchMR MergeRequestMode = "merge_request"
 )
 
-// MergeRequestConfig holds optional GitLab REST workflow settings (not yet in KollectSink CRD).
+// MergeRequestConfig holds optional GitLab REST workflow settings from spec.gitlab.mergeRequest.
 type MergeRequestConfig struct {
 	Mode          MergeRequestMode
 	TargetBranch  string

@@ -12,6 +12,37 @@ properties:
     description: endpoint is the backend-specific destination (URL, bucket, and so
       on).
     type: string
+  gitlab:
+    description: gitlab configures GitLab-specific settings when type is gitlab.
+    properties:
+      mergeRequest:
+        description: mergeRequest configures optional branch + merge request workflow
+          after git push.
+        properties:
+          autoMerge:
+            description: autoMerge requests auto-merge when the MR pipeline succeeds
+              (not yet implemented).
+            type: boolean
+          branchPrefix:
+            description: branchPrefix prefixes feature branches (default kollect).
+            type: string
+          mode:
+            description: mode selects direct push to the default branch or branch
+              + merge request workflow.
+            enum:
+            - direct
+            - merge_request
+            type: string
+          targetBranch:
+            description: targetBranch is the MR target branch (required when mode
+              is merge_request).
+            type: string
+          titleTemplate:
+            description: titleTemplate is an optional MR title template with {namespace}
+              and {name} placeholders.
+            type: string
+        type: object
+    type: object
   kafka:
     description: kafka configures a Kafka or Redpanda event sink.
     properties:

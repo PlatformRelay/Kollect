@@ -48,6 +48,31 @@ func (a ACLSettings) ValidateClusterID(clusterID string) error {
 	return fmt.Errorf("transport acl: cluster %q not in allowlist", clusterID)
 }
 
+// ValidatePublishSubject returns an error when publish allowlist is set and subject is not listed.
+func (a ACLSettings) ValidatePublishSubject(subject string) error {
+	return a.validateSubject("publish", a.PublishSubjects, subject)
+}
+
+// ValidateSubscribeSubject returns an error when subscribe allowlist is set and subject is not listed.
+func (a ACLSettings) ValidateSubscribeSubject(subject string) error {
+	return a.validateSubject("subscribe", a.SubscribeSubjects, subject)
+}
+
+func (a ACLSettings) validateSubject(verb string, allowlist []string, subject string) error {
+	if len(allowlist) == 0 {
+		return nil
+	}
+
+	subject = strings.TrimSpace(subject)
+	for _, allowed := range allowlist {
+		if subject == allowed {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("transport acl: %s subject %q not in allowlist", verb, subject)
+}
+
 func splitCSV(raw string) []string {
 	if strings.TrimSpace(raw) == "" {
 		return nil

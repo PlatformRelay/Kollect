@@ -322,21 +322,20 @@ Scaffold (`553117cc`) reuses the shared **HTTPS git push** path: `internal/sink/
 `spec.endpoint` + `tls.caSecretRef` / `caBundle`, then delegates to `internal/sink/git.Export`
 (direct push to the default branch). Connection probe runs `git ls-remote` with custom CA trust.
 
-**Not yet implemented** — required for enterprise GitLab where direct `main` pushes are forbidden:
+**Partial** — CRD + validation + export wire landed; REST MR create/update still stubbed:
 
-| Gap | Notes |
+| Gap | Status |
 | --- | --- |
-| **CRD fields** | `spec.mergeRequest` (mode `direct` \| `merge_request`), `targetBranch`, `branchPrefix`, optional `titleTemplate` / `autoMerge` |
-| **Branch + push** | Create `kollect/{inventory-ns}/{inventory-name}` branch, push commit, avoid force-push to protected default |
-| **GitLab REST API v4** | Resolve project ID from `.git` URL; `POST /projects/:id/merge_requests` create-or-update by `source_branch` |
-| **Token scopes** | `write_repository` for git; `api` for MR create/update (document in sink CR reference) |
-| **Export integration** | Wire `internal/sink/gitlab/mr.go` stub after git push when `merge_request` mode is set |
-| **Integration test** | GitLab CE testcontainer or recorded HTTP mock; nightly optional when `GITLAB_TEST_*` secret set |
+| **CRD fields** | ✅ `spec.gitlab.mergeRequest` (mode `direct` \| `merge_request`), `targetBranch`, `branchPrefix`, `titleTemplate`, `autoMerge` |
+| **Branch + push** | 🚧 branch naming helper wired; feature-branch git push not yet implemented |
+| **GitLab REST API v4** | 🚧 `ResolveProjectRef` helper; `EnsureMergeRequest` stub after export |
+| **Token scopes** | 🚧 document `write_repository` + `api` in sink CR reference |
+| **Export integration** | ✅ `Backend.Export` calls `EnsureMergeRequest` after `git.Export` |
+| **Integration test** | 🚧 GitLab CE testcontainer or recorded HTTP mock; nightly optional when `GITLAB_TEST_*` secret set |
 | **Hub/cluster sinks** | Same contract applies to `KollectClusterSink` when implemented (Phase 3) |
 
-**Stub:** `internal/sink/gitlab/mr.go` defines `MergeRequestConfig`, `ResolveProjectRef`,
-`ValidateMergeRequestConfig`, `BranchNameForExport`, `MergeRequestTitle`, and `EnsureMergeRequest`
-(returns not-implemented for `merge_request` mode). Default behavior remains direct push.
+**Stub:** `EnsureMergeRequest` returns not-implemented for `merge_request` mode until REST client
+lands. Default behavior remains direct push.
 
 ## CI and end-to-end testing
 

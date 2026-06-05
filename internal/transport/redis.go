@@ -22,6 +22,7 @@ type RedisTransport struct {
 	client *redis.Client
 	stream string
 	group  string
+	acl    ACLSettings
 	mu     sync.Mutex
 	subs   map[string]context.CancelFunc
 }
@@ -59,6 +60,7 @@ func newRedisTransport(cfg Config) (Publisher, Subscriber, error) {
 		client: client,
 		stream: stream,
 		group:  group,
+		acl:    cfg.ACL,
 		subs:   make(map[string]context.CancelFunc),
 	}
 
@@ -85,6 +87,10 @@ func (r *RedisTransport) ensureGroup(ctx context.Context) error {
 
 // Publish appends payload to the Redis stream with subject metadata.
 func (r *RedisTransport) Publish(ctx context.Context, subject string, payload []byte) error {
+	if err := r.acl.ValidatePublishSubject(subject); err != nil {
+		return err
+	}
+
 	values := map[string]any{
 		"subject": subject,
 		"payload": payload,
@@ -123,6 +129,10 @@ func (r *RedisTransport) subscribe(
 	subject string,
 	handler func(context.Context, string, []byte) error,
 ) error {
+	if err := r.acl.ValidateSubscribeSubject(subject); err != nil {
+		return err
+	}
+
 	r.mu.Lock()
 	if _, exists := r.subs[subject]; exists {
 		r.mu.Unlock()

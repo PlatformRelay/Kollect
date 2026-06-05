@@ -28,5 +28,21 @@ broker-side stream/subject ACLs and NATS account limits must be configured out-o
 `ACLSettingsFromEnv`). Spoke identity on the wire still flows through report payload + hub
 `KOLLECT_REMOTE_CLUSTERS` allowlist (ADR-0028).
 
+### Broker setup (operator + external)
+
+| Layer | Redis Streams | NATS JetStream |
+| --- | --- | --- |
+| **Client TLS** | `KOLLECT_TRANSPORT_TLS_*` on spoke + hub pods | same |
+| **Wire cluster id** | `cluster_id` stream field (`transport.WireClusterID`) | `X-Kollect-Cluster-Id` header |
+| **Operator publish guard** | `KOLLECT_TRANSPORT_ACL_PUBLISH_SUBJECTS` | same |
+| **Operator subscribe guard** | `KOLLECT_TRANSPORT_ACL_SUBSCRIBE_SUBJECTS` | same |
+| **Hub consumer cluster guard** | `KOLLECT_TRANSPORT_ACL_ALLOWED_CLUSTERS` + `KOLLECT_REMOTE_CLUSTERS` | same |
+| **Broker ACL (external)** | Redis ACL `+@write` on stream key only; deny `KEYS *` | NATS account publish/subscribe on `inventory.>` |
+
+Helm values: set `hub.transport.acl.*` env mirrors when chart exposes them; otherwise patch the hub
+Deployment env from the table above. Redis: create a dedicated user with `XADD` on `kollect.hub` and
+`XREADGROUP` for the hub consumer group. NATS: create a JetStream-enabled account limited to
+`inventory/reports` publish (spoke) and durable consume (hub).
+
 Use cases: spoke → hub inventory reports (ADR-0022), debounced export triggers, and optional
 decoupling of collection from export workers.

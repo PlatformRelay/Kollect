@@ -8,8 +8,8 @@ Prioritized findings from security, scalability, and architecture-gap review.
 | ID | Finding | Status |
 | --- | --- | --- |
 | P0-1 | Hub HTTP ingest skipped cluster ACL (`ReceiveReport(..., nil)`) | ✅ Wired `AllowedClusters` from `KOLLECT_REMOTE_CLUSTERS` |
-| P0-2 | Hub ingest auth does not bind token identity to cluster header | ✅ `KollectRemoteCluster` lookup + per-resource SAR + optional `kollect.dev/spokePrincipal` |
-| P0-3 | Empty `KOLLECT_REMOTE_CLUSTERS` allows any cluster | ✅ Fail-closed when env is set; Helm `hub.remoteClusters` wires allowlist |
+| P0-2 | Hub ingest auth does not bind token identity to cluster header | ✅ Closed — `internal/hub/auth.go` `ValidateTokenClusterBinding` + per-resource SAR (`68c832a4` era) |
+| P0-3 | Empty `KOLLECT_REMOTE_CLUSTERS` allows any cluster | ✅ Closed — `ReceiveReport` fail-closed when env present (`internal/hub/receive.go`, `runner.go`) |
 
 ## P1 — security / correctness / scale
 
