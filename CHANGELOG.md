@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **docs:** Restore mkdocs nav for reference hub pages [32d3ba7](https://github.com/konih/kollect/commit/32d3ba70a54e0b7388dbcb58ed7bf9c26c3665e8)
+
 - **docs:** Drop mkdocs nav to uncommitted pages [ae6cb01](https://github.com/konih/kollect/commit/ae6cb01ee751f98396c99127568c7b4d7397c50f)
 
 - **e2e:** Recreate unhealthy kind clusters [4dc6f35](https://github.com/konih/kollect/commit/4dc6f35106b93f714e2eb3316dd5651a7aec8370)
