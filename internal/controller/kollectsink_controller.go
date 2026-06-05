@@ -5,7 +5,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,10 +18,6 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink"
-	"github.com/konih/kollect/internal/sink/git"
-	kafkasink "github.com/konih/kollect/internal/sink/kafka"
-	"github.com/konih/kollect/internal/sink/postgres"
-	s3sink "github.com/konih/kollect/internal/sink/s3"
 )
 
 // KollectSinkReconciler runs connection tests and updates sink status.
@@ -51,7 +46,7 @@ func (r *KollectSinkReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, sinkObj.Spec, sink.DefaultSecretNamespace)
+	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, sinkObj.Spec, sinkObj.Namespace)
 	if err != nil {
 		retErr = err
 		res, setErr := r.setConnectionFailed(ctx, &sinkObj, "SecretResolveFailed", err.Error())
@@ -59,7 +54,7 @@ func (r *KollectSinkReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return res, setErr
 	}
 
-	okMessage, testErr := r.runConnectionTest(ctx, sinkObj.Spec, buildCtx)
+	okMessage, testErr := sink.RunConnectionTest(ctx, sinkObj.Spec, buildCtx)
 	if testErr != nil {
 		log.Error(testErr, "connection test failed", "type", sinkObj.Spec.Type)
 		metrics.SinkConnectionTestTotal.WithLabelValues(sinkObj.Spec.Type, metrics.ResultFailure).Inc()
@@ -73,46 +68,6 @@ func (r *KollectSinkReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	metrics.SinkConnectionTestTotal.WithLabelValues(sinkObj.Spec.Type, metrics.ResultSuccess).Inc()
 
 	return r.setConnectionVerified(ctx, &sinkObj, okMessage)
-}
-
-func (r *KollectSinkReconciler) runConnectionTest(
-	ctx context.Context,
-	spec kollectdevv1alpha1.KollectSinkSpec,
-	buildCtx sink.BuildContext,
-) (string, error) {
-	switch spec.Type {
-	case "git":
-		cfg, err := git.ConfigFromSpec(spec, buildCtx.CAPEM)
-		if err != nil {
-			return "", err
-		}
-
-		if err := git.TestConnection(ctx, cfg); err != nil {
-			return "", err
-		}
-
-		return "TLS and git remote reachability verified", nil
-	case "postgres":
-		if err := postgres.TestConnection(ctx, spec, buildCtx.DatabaseSecretData); err != nil {
-			return "", err
-		}
-
-		return "PostgreSQL ping succeeded", nil
-	case "kafka":
-		if err := kafkasink.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
-			return "", err
-		}
-
-		return "Kafka broker metadata request succeeded", nil
-	case "s3":
-		if err := s3sink.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
-			return "", err
-		}
-
-		return "S3 bucket HeadBucket succeeded", nil
-	default:
-		return "", fmt.Errorf("connection test not supported for sink type %q", spec.Type)
-	}
 }
 
 func shouldTestConnection(sink *kollectdevv1alpha1.KollectSink) bool {

@@ -1,0 +1,11 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectConnectionTest
+metadata:
+  name: postgres-sink-probe
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  sinkRef: postgres-inventory-demo
+  ownerSink: true

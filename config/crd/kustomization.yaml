@@ -6,6 +6,8 @@ resources:
 - bases/kollect.dev_kollectsinks.yaml
 - bases/kollect.dev_kollecttargets.yaml
 - bases/kollect.dev_kollectinventories.yaml
+- bases/kollect.dev_kollectconnectiontests.yaml
+- bases/kollect.dev_kollectclustertargets.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

@@ -31,5 +31,17 @@ func SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("setup KollectTarget webhook: %w", err)
 	}
 
+	if err := setupKollectInventoryWebhook(mgr); err != nil {
+		return fmt.Errorf("setup KollectInventory webhook: %w", err)
+	}
+
+	if err := setupKollectConnectionTestWebhook(mgr); err != nil {
+		return fmt.Errorf("setup KollectConnectionTest webhook: %w", err)
+	}
+
+	if err := setupKollectClusterTargetWebhook(mgr); err != nil {
+		return fmt.Errorf("setup KollectClusterTarget webhook: %w", err)
+	}
+
 	return nil
 }

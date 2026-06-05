@@ -10,6 +10,46 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollectclustertarget
+  failurePolicy: Fail
+  name: vkollectclustertarget.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollectclustertargets
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollectconnectiontest
+  failurePolicy: Fail
+  name: vkollectconnectiontest.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollectconnectiontests
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-kollect-dev-v1alpha1-kollecthub
   failurePolicy: Fail
   name: vkollecthub.kb.io
@@ -23,6 +63,26 @@ webhooks:
     - UPDATE
     resources:
     - kollecthubs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollectinventory
+  failurePolicy: Fail
+  name: vkollectinventory.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollectinventories
   sideEffects: None
 - admissionReviewVersions:
   - v1

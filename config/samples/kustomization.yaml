@@ -4,12 +4,16 @@ resources:
 - kollect_v1alpha1_kollectprofile_service-endpoints.yaml
 - kollect_v1alpha1_kollectprofile_ingress-hosts.yaml
 - kollect_v1alpha1_kollectprofile_helm-release-summary.yaml
+- kollect_v1alpha1_kollectprofile_argo-application-summary.yaml
 - kollect_v1alpha1_kollectsink.yaml
 - kollect_v1alpha1_kollectsink_postgres.yaml
 - kollect_v1alpha1_kollectsink_kafka.yaml
 - kollect_v1alpha1_kollecttarget.yaml
 - kollect_v1alpha1_kollecttarget_opt-in.yaml
 - kollect_v1alpha1_kollecttarget_helm-releases.yaml
+- kollect_v1alpha1_kollecttarget_argo-applications.yaml
 - kollect_v1alpha1_kollectinventory.yaml
 - kollect_v1alpha1_kollectscope_team-a.yaml
+- kollect_v1alpha1_kollectconnectiontest.yaml
+- kollect_v1alpha1_kollectclustertarget.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
