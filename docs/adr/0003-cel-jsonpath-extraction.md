@@ -17,7 +17,16 @@ batch collector's fixed Go schema (rejected — see ADR-0004).
 
 - Implement extraction in `internal/collect/extractor.go`.
 - **JSONPath** paths use kubectl syntax (`{.metadata.name}`) or `$`-prefixed JSONPath
-  (`$.metadata.name`). No prefix required.
+  (`$.metadata.name`). No prefix required. `$` paths normalize to `{…}` internally.
+- **Array wildcards:** use **`[*]`** to select all elements (kubectl JSONPath). Example:
+  `$.spec.template.spec.containers[*].image` returns a **JSON array** of every container image.
+  Single index `[0]` returns one scalar. Do **not** use `[ ALL ]` or bare `[]` for all elements —
+  `[*]` is the supported wildcard.
+- When a JSONPath yields **multiple matches**, the extractor stores a Go `[]any` slice in the
+  attribute row. Mark `type: list` on the attribute for documentation; export serializes as a JSON
+  array.
+- **CEL alternative** for derived lists: e.g.
+  `cel:object.spec.template.spec.containers.map(c, c.image)`.
 - **CEL** expressions are prefixed with `cel:` (e.g. `cel:object.metadata.name`). The CEL
   environment exposes the full unstructured object as `object`.
 - Empty paths are terminal errors (`ErrTerminal` per ADR-0020).

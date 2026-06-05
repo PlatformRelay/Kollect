@@ -106,6 +106,89 @@ func TestExtractor_Extract(t *testing.T) {
 		},
 	}
 
+	deployment := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]any{
+			"name":      "demo",
+			"namespace": "default",
+		},
+		"spec": map[string]any{
+			"template": map[string]any{
+				"spec": map[string]any{
+					"containers": []any{
+						map[string]any{"name": "app", "image": "app:1.0"},
+						map[string]any{"name": "sidecar", "image": "sidecar:2.0"},
+					},
+				},
+			},
+		},
+	}}
+
+	deploymentTests := []struct {
+		name    string
+		attrs   []kollectdevv1alpha1.AttributeSpec
+		want    map[string]any
+		wantErr bool
+	}{
+		{
+			name: "jsonpath single container index",
+			attrs: []kollectdevv1alpha1.AttributeSpec{
+				{Name: "image", Path: "$.spec.template.spec.containers[0].image", Type: "string"},
+			},
+			want: map[string]any{"image": "app:1.0"},
+		},
+		{
+			name: "jsonpath all containers wildcard",
+			attrs: []kollectdevv1alpha1.AttributeSpec{
+				{Name: "images", Path: "$.spec.template.spec.containers[*].image", Type: "list"},
+			},
+			want: map[string]any{"images": []any{"app:1.0", "sidecar:2.0"}},
+		},
+	}
+
+	for _, tt := range deploymentTests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, extractErr := extractor.Extract(deployment, tt.attrs)
+			if (extractErr != nil) != tt.wantErr {
+				t.Fatalf("Extract() error = %v, wantErr %v", extractErr, tt.wantErr)
+			}
+
+			if tt.wantErr {
+				return
+			}
+
+			for key, wantVal := range tt.want {
+				gotVal, ok := got[key]
+				if !ok {
+					t.Fatalf("Extract() missing key %q", key)
+				}
+
+				switch wantSlice := wantVal.(type) {
+				case []any:
+					gotSlice, ok := gotVal.([]any)
+					if !ok {
+						t.Fatalf("Extract()[%q] = %T, want []any", key, gotVal)
+					}
+					if len(gotSlice) != len(wantSlice) {
+						t.Fatalf("Extract()[%q] len = %d, want %d", key, len(gotSlice), len(wantSlice))
+					}
+					for i := range wantSlice {
+						if gotSlice[i] != wantSlice[i] {
+							t.Fatalf("Extract()[%q][%d] = %v, want %v", key, i, gotSlice[i], wantSlice[i])
+						}
+					}
+				default:
+					if gotVal != wantVal {
+						t.Fatalf("Extract()[%q] = %v, want %v", key, gotVal, wantVal)
+					}
+				}
+			}
+		})
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

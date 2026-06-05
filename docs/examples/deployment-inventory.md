@@ -43,6 +43,9 @@ spec:
     - name: image
       path: '$.spec.template.spec.containers[0].image'
       type: string
+    - name: images
+      path: '$.spec.template.spec.containers[*].image'
+      type: list
     - name: labels
       path: '$.metadata.labels'
       type: map
@@ -52,6 +55,22 @@ spec:
 **Expected behavior (Phase 1+):** the target controller loads this profile when resolving
 `profileRef`. JSONPath runs against each cached Deployment object. Missing optional attributes do
 not fail the row; required attributes surface extraction errors on the target status.
+
+### All container images (`[*]` wildcard)
+
+Multi-container Deployments need every image, not only the first. Use the kubectl JSONPath wildcard
+**`[*]`** (not `[ ALL ]` or bare `[]`):
+
+| Path | Export value (2 containers) |
+| --- | --- |
+| `$.spec.template.spec.containers[0].image` | `"nginx:1.25"` (scalar) |
+| `$.spec.template.spec.containers[*].image` | `["nginx:1.25", "sidecar:0.1"]` (JSON array) |
+
+Set `type: list` on multi-value attributes. CEL equivalent:
+`cel:object.spec.template.spec.containers.map(c, c.image)`.
+
+See [DATA-FLOWS.md](../DATA-FLOWS.md#3-attribute-extraction-jsonpath-arrays) and
+[ADR-0003](../adr/0003-cel-jsonpath-extraction.md).
 
 ## Step 2 — KollectSink
 

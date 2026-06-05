@@ -15,6 +15,9 @@ spec:
     - name: image
       path: '$.spec.template.spec.containers[0].image'
       type: string
+    - name: images
+      path: '$.spec.template.spec.containers[*].image'
+      type: list
     - name: containerCount
       path: "cel:size(object.spec.template.spec.containers)"
       type: int
