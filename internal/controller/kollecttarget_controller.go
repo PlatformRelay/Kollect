@@ -83,6 +83,10 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	count := 0
 	if r.Engine != nil {
 		count = r.Engine.ItemCount(target.Namespace, target.Name)
+		if r.Engine.HasForbiddenScope(target.Namespace, target.Name) {
+			return r.setDegraded(ctx, &target, "Forbidden",
+				"RBAC denied list access for one or more scoped namespaces; partial collection skipped")
+		}
 	}
 
 	return r.setReady(ctx, &target, count)

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Konrad Heimel
 
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+
 package collect
 
 import (
@@ -9,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -16,10 +19,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/metrics"
 )
 
 const informerResync = 12 * time.Hour
@@ -32,6 +37,8 @@ type targetState struct {
 // Engine registers dynamic informers per profile GVK and writes extracted attributes to Store.
 type Engine struct {
 	dynamic   dynamic.Interface
+	kube      kubernetes.Interface
+	access    *AccessChecker
 	extractor *Extractor
 	store     *Store
 	runCtx    context.Context
@@ -40,10 +47,13 @@ type Engine struct {
 	factories map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory
 	started   map[schema.GroupVersionResource]bool
 	targets   map[string]targetState
+	nsLabels  map[string]labels.Set
+	nsMu      sync.RWMutex
+	forbidden map[string]struct{}
 }
 
 // NewEngine constructs a collection engine.
-func NewEngine(dynamicClient dynamic.Interface, store *Store) (*Engine, error) {
+func NewEngine(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface, store *Store) (*Engine, error) {
 	ext, err := NewExtractor()
 	if err != nil {
 		return nil, err
@@ -51,11 +61,15 @@ func NewEngine(dynamicClient dynamic.Interface, store *Store) (*Engine, error) {
 
 	return &Engine{
 		dynamic:   dynamicClient,
+		kube:      kubeClient,
+		access:    NewAccessChecker(kubeClient),
 		extractor: ext,
 		store:     store,
 		factories: make(map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory),
 		started:   make(map[schema.GroupVersionResource]bool),
 		targets:   make(map[string]targetState),
+		nsLabels:  make(map[string]labels.Set),
+		forbidden: make(map[string]struct{}),
 	}, nil
 }
 
@@ -71,6 +85,10 @@ func (e *Engine) RegisterTarget(
 		e.UnregisterTarget(target.Namespace, target.Name)
 
 		return nil
+	}
+
+	if err := e.refreshNamespaceCache(ctx); err != nil {
+		log.FromContext(ctx).Error(err, "refresh namespace cache")
 	}
 
 	gvr := gvrFromProfile(profile.Spec.TargetGVK)
@@ -105,6 +123,18 @@ func (e *Engine) ItemCount(namespace, name string) int {
 	return e.store.CountForTarget(namespace, name)
 }
 
+// HasForbiddenScope reports whether collection was denied for the target namespace/GVK pair.
+func (e *Engine) HasForbiddenScope(targetNamespace, targetName string) bool {
+	key := targetKey(targetNamespace, targetName)
+
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	_, ok := e.forbidden[key]
+
+	return ok
+}
+
 // Start stores the manager context used for informer factories.
 func (e *Engine) Start(ctx context.Context) error {
 	e.runCtx = ctx
@@ -118,6 +148,29 @@ func (e *Engine) informerContext() context.Context {
 	}
 
 	return context.Background()
+}
+
+func (e *Engine) refreshNamespaceCache(ctx context.Context) error {
+	if e.kube == nil {
+		return nil
+	}
+
+	list, err := e.kube.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("list namespaces: %w", err)
+	}
+
+	labelsByNS := make(map[string]labels.Set, len(list.Items))
+	for i := range list.Items {
+		ns := &list.Items[i]
+		labelsByNS[ns.Name] = labels.Set(ns.Labels)
+	}
+
+	e.nsMu.Lock()
+	e.nsLabels = labelsByNS
+	e.nsMu.Unlock()
+
+	return nil
 }
 
 func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResource) error {
@@ -167,6 +220,11 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 		return
 	}
 
+	resourceNS := u.GetNamespace()
+	if resourceNS == "" {
+		resourceNS = corev1.NamespaceDefault
+	}
+
 	e.mu.RLock()
 	states := make([]targetState, 0, len(e.targets))
 	for _, st := range e.targets {
@@ -181,15 +239,40 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 
 	for _, st := range states {
 		target := st.target
-		if !matchesTarget(&target, u) {
+		if !e.matchesTarget(ctx, &target, gvr, u) {
 			continue
 		}
+
+		targetKeyStr := targetKey(target.Namespace, target.Name)
 
 		if deleted {
 			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
+			metrics.CollectItemsTotal.Set(float64(e.store.TotalCount()))
 
 			continue
 		}
+
+		allowed, err := e.access.CanAccess(ctx, gvr, resourceNS, "list")
+		if err != nil {
+			log.FromContext(ctx).Error(err, "access check failed",
+				"target", target.Namespace+"/"+target.Name,
+				"namespace", resourceNS)
+
+			continue
+		}
+
+		if !allowed {
+			e.mu.Lock()
+			e.forbidden[targetKeyStr] = struct{}{}
+			e.mu.Unlock()
+			metrics.ReconcileErrorsTotal.WithLabelValues("KollectTarget", metrics.ErrorClassForbidden).Inc()
+
+			continue
+		}
+
+		e.mu.Lock()
+		delete(e.forbidden, targetKeyStr)
+		e.mu.Unlock()
 
 		attrs, err := e.extractor.Extract(u, st.profile.Spec.Attributes)
 		if err != nil {
@@ -199,6 +282,9 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 
 			continue
 		}
+
+		gvkLabel := fmt.Sprintf("%s/%s/%s", st.profile.Spec.TargetGVK.Group,
+			st.profile.Spec.TargetGVK.Version, st.profile.Spec.TargetGVK.Kind)
 
 		e.store.Upsert(Item{
 			TargetNamespace: target.Namespace,
@@ -211,29 +297,27 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 			UID:             string(u.GetUID()),
 			Attributes:      attrs,
 		})
+		metrics.CollectedObjects.WithLabelValues(target.Spec.ProfileRef, gvkLabel).
+			Set(float64(e.store.CountForTarget(target.Namespace, target.Name)))
+		metrics.CollectItemsTotal.Set(float64(e.store.TotalCount()))
 	}
 }
 
-func toUnstructured(obj interface{}) *unstructured.Unstructured {
-	u, ok := obj.(*unstructured.Unstructured)
-	if ok {
-		return u
+func (e *Engine) matchesTarget(
+	ctx context.Context,
+	target *kollectdevv1alpha1.KollectTarget,
+	gvr schema.GroupVersionResource,
+	u *unstructured.Unstructured,
+) bool {
+	resourceNS := u.GetNamespace()
+	if resourceNS == "" {
+		resourceNS = corev1.NamespaceDefault
 	}
 
-	tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-	if !ok {
-		return nil
+	if !e.namespaceMatches(target, resourceNS) {
+		return false
 	}
 
-	u, ok = tombstone.Obj.(*unstructured.Unstructured)
-	if !ok {
-		return nil
-	}
-
-	return u
-}
-
-func matchesTarget(target *kollectdevv1alpha1.KollectTarget, u *unstructured.Unstructured) bool {
 	if len(target.Spec.Names) > 0 {
 		found := false
 		for _, n := range target.Spec.Names {
@@ -259,7 +343,50 @@ func matchesTarget(target *kollectdevv1alpha1.KollectTarget, u *unstructured.Uns
 		}
 	}
 
+	_ = ctx
+	_ = gvr
+
 	return true
+}
+
+func (e *Engine) namespaceMatches(target *kollectdevv1alpha1.KollectTarget, resourceNamespace string) bool {
+	if target.Spec.NamespaceSelector == nil {
+		return true
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(target.Spec.NamespaceSelector)
+	if err != nil {
+		return false
+	}
+
+	e.nsMu.RLock()
+	nsLabels, ok := e.nsLabels[resourceNamespace]
+	e.nsMu.RUnlock()
+
+	if !ok {
+		return false
+	}
+
+	return selector.Matches(nsLabels)
+}
+
+func toUnstructured(obj interface{}) *unstructured.Unstructured {
+	u, ok := obj.(*unstructured.Unstructured)
+	if ok {
+		return u
+	}
+
+	tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+	if !ok {
+		return nil
+	}
+
+	u, ok = tombstone.Obj.(*unstructured.Unstructured)
+	if !ok {
+		return nil
+	}
+
+	return u
 }
 
 func gvrFromProfile(gvk kollectdevv1alpha1.GroupVersionKind) schema.GroupVersionResource {
