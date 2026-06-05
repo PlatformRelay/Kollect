@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (revised 2026-06-05 — extreme scale + agent observability)
+Accepted (revised 2026-06-05 — extreme scale)
 
 ## Context
 
@@ -10,9 +10,8 @@ kollect watches arbitrary GVKs, aggregates attributes in memory, and exports on 
 reconcile. Installations span **giant single clusters** (1000s of nodes, **10k+ watched resources
 per cluster as baseline**) and **100+ cluster** hub deployments ([ADR-0022](0022-multi-cluster-sync-rfc.md)).
 
-Performance bottlenecks must surface **early** — via operator metrics, bounded benchmarks, and
-**agent-readable reports** ([ADR-0027](0027-agent-observability-feedback.md)) — before hub sharding
-and spoke transport choices lock in.
+Performance bottlenecks must surface **early** — via operator metrics and bounded benchmarks —
+before hub sharding and spoke transport choices lock in.
 
 Large clusters need tunable controller parallelism, observable queue pressure, bounded sink churn,
 optional profiling without coupling to Prometheus scrape paths, and **explicit memory bounds per
@@ -30,9 +29,9 @@ spoke**.
 **Memory bounds (spoke):**
 
 - Collection store: O(collected rows × attribute width); target **≤512 MiB** working set at 10k
-  objects with typical Deployment/Service profiles (measure via `task perf-report` + pprof).
+  objects with typical Deployment/Service profiles (measure via pprof and Prometheus RSS).
 - Informer cache: prefer namespace-scoped dynamic informers when all targets for a GVR agree; cluster-wide
-  watch only when required — document RSS delta in PERF-SNAPSHOT.
+  watch only when required — document RSS delta in runbooks when cluster-wide scope is unavoidable.
 - Export payload: coalesce via `--export-debounce`; spill to object storage when payload exceeds hub
   gRPC/queue limits ([ADR-0006](0006-etcd-limit.md)).
 
@@ -51,25 +50,22 @@ spoke**.
    reconcile gauge (`kollect_workqueue_depth`).
 3. **Metrics:** Add reconcile duration histogram, informer indexer size gauge, and export byte
    counter alongside existing export latency histogram. Catalog in [PERFORMANCE.md](../PERFORMANCE.md)
-   with PromQL hints for agents.
+   with PromQL hints for operators.
 4. **Export debounce:** Make inventory export debounce configurable via `--export-debounce`.
 5. **Informers:** Scope dynamic informers to a single namespace when all targets for a GVR agree;
    otherwise watch all namespaces and filter by `namespaceSelector` at dispatch. Paginate initial
    `List` where client-go allows.
 6. **Profiling:** Optional `--enable-pprof` on `:6060`; disabled in production Helm values.
 7. **Tests:** `go test -bench` for extraction; optional `load`-tagged test gated by
-   `KOLECT_LOAD_TEST=1`. Results written to `artifacts/bench/` for `task perf-report`.
-8. **Agent observability:** `task perf-report` + local `agent-context/PERF-SNAPSHOT.md` per
-   [ADR-0027](0027-agent-observability-feedback.md).
+   `KOLECT_LOAD_TEST=1`. Results written to `artifacts/bench/` for local regression tracking.
 
 ## Consequences
 
 - Operators can scale reconcile throughput without rebuilding images.
 - In-flight gauge is an approximation, not a substitute for controller-runtime's internal queue metrics.
 - Multi-namespace targets still use cluster-wide informer caches when scopes differ — document as
-  known RSS cost in perf snapshots.
-- 10k baseline is a **design target**, not default CI volume — agents use tier labels to avoid
-  running giant tests locally.
+  known RSS cost in operator runbooks.
+- 10k baseline is a **design target**, not default CI volume — use bounded test tiers locally and in CI.
 - Hub at 100+ clusters requires Phase 2 sharding proof before claiming production readiness.
 
 ## References
@@ -77,5 +73,4 @@ spoke**.
 - [ADR-0014](0014-event-driven-informers.md) — event-driven collection
 - [ADR-0020](0020-error-taxonomy.md) — error classes and requeue behavior
 - [ADR-0022](0022-multi-cluster-sync-rfc.md) — multi-cluster scale path
-- [ADR-0027](0027-agent-observability-feedback.md) — agent perf feedback loop
 - [PERFORMANCE.md](../PERFORMANCE.md) — tuning guide and metrics catalog
