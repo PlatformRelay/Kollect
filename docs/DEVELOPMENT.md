@@ -352,10 +352,15 @@ See [PERFORMANCE.md](PERFORMANCE.md) for operator tuning and the metrics catalog
 
 ```sh
 task lint          # golangci-lint v2 (custom plugins via .custom-gcl.yml if present)
+task vulncheck     # govulncheck ./... (same as CI vulncheck job)
 task format        # go fmt ./...
 task format:check  # fail if gofmt would change files
 task helm-test     # helm lint + unittest (transport default, tenantMode RBAC)
 ```
+
+`task vulncheck` uses the [Go vulnerability database](https://vuln.go.dev/) and fails when known
+issues affect imported packages in this module. See [SECURITY.md](../SECURITY.md) for policy and
+documented exceptions.
 
 Install hooks once:
 

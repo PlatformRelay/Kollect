@@ -91,6 +91,12 @@ tasks:
     cmds:
       - make lint
 
+  vulncheck:
+    desc: Scan for known Go vulnerabilities (govulncheck)
+    deps: [install]
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
   test:
     desc: Run unit tests with envtest (alias for test:run)
     cmds:

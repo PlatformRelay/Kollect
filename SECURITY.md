@@ -49,3 +49,19 @@ Release builds ([`.github/workflows/release.yaml`](.github/workflows/release.yam
 
 Prefer tagged release artifacts over `:latest` in production. Report supply-chain concerns
 through the private contact above.
+
+## Dependency vulnerability scanning
+
+CI runs [`govulncheck`](https://go.dev/security/vuln/) on every push and pull request
+(`task vulncheck`, job **vulncheck** in [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)).
+The scan uses the Go vulnerability database and reports issues that affect **imported packages in
+this module** (including test code). The job fails when govulncheck exits non-zero.
+
+Run locally after installing Go from `go.mod`:
+
+```sh
+task vulncheck
+```
+
+If a finding is a false positive or only affects an unused code path in a dependency, document the
+exception in this file (module, advisory ID, rationale, review date) before suppressing CI.
