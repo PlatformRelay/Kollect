@@ -41,6 +41,11 @@ spec:
           spec:
             description: spec defines the desired state of KollectSink
             properties:
+              connectionTest:
+                description: |-
+                  connectionTest requests a connectivity check on create/update when true.
+                  The annotation kollect.dev/test-connection=true has the same effect.
+                type: boolean
               endpoint:
                 description: endpoint is the backend-specific destination (URL, bucket,
                   and so on).
@@ -57,6 +62,35 @@ spec:
                     type: string
                 required:
                 - name
+                type: object
+              tls:
+                description: tls configures TLS verification for HTTPS git and similar
+                  endpoints.
+                properties:
+                  caBundle:
+                    description: |-
+                      caBundle is an inline PEM-encoded CA certificate bundle.
+                      Prefer caSecretRef for production; do not set both caBundle and caSecretRef.
+                    format: byte
+                    type: string
+                  caSecretRef:
+                    description: caSecretRef references a Secret containing a PEM
+                      CA bundle (key tls.crt or ca.crt).
+                    properties:
+                      name:
+                        description: name is the name of the referenced Secret.
+                        type: string
+                      namespace:
+                        description: namespace is the namespace of the referenced
+                          Secret.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  insecureSkipVerify:
+                    description: insecureSkipVerify disables server certificate verification
+                      (not recommended).
+                    type: boolean
                 type: object
               type:
                 description: type selects the sink backend implementation.

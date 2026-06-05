@@ -24,6 +24,31 @@ type KollectSinkSpec struct {
 	// secretRef references a Secret holding credentials for the sink.
 	// +optional
 	SecretRef *SecretReference `json:"secretRef,omitempty"`
+
+	// tls configures TLS verification for HTTPS git and similar endpoints.
+	// +optional
+	TLS *TLSSpec `json:"tls,omitempty"`
+
+	// connectionTest requests a connectivity check on create/update when true.
+	// The annotation kollect.dev/test-connection=true has the same effect.
+	// +optional
+	ConnectionTest bool `json:"connectionTest,omitempty"`
+}
+
+// TLSSpec configures custom CA trust for sink endpoints.
+type TLSSpec struct {
+	// insecureSkipVerify disables server certificate verification (not recommended).
+	// +optional
+	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+
+	// caBundle is an inline PEM-encoded CA certificate bundle.
+	// Prefer caSecretRef for production; do not set both caBundle and caSecretRef.
+	// +optional
+	CABundle []byte `json:"caBundle,omitempty"`
+
+	// caSecretRef references a Secret containing a PEM CA bundle (key tls.crt or ca.crt).
+	// +optional
+	CASecretRef *SecretReference `json:"caSecretRef,omitempty"`
 }
 
 // SecretReference points to a Secret by name and optional namespace.

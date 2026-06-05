@@ -19,6 +19,23 @@ type KollectInventorySpec struct {
 	// suspend pauses reconciliation of this inventory when set to true.
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
+
+	// httpEndpoint exposes a read-only inventory summary over HTTP when enabled.
+	// +optional
+	HTTPEndpoint *HTTPEndpointConfig `json:"httpEndpoint,omitempty"`
+}
+
+// HTTPEndpointConfig toggles the operator inventory HTTP server.
+type HTTPEndpointConfig struct {
+	// enabled turns on GET /inventory (aggregated summary JSON).
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// port is the listen port for the inventory HTTP server (default 8082).
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +optional
+	Port int32 `json:"port,omitempty"`
 }
 
 // KollectInventoryStatus defines the observed state of KollectInventory.
