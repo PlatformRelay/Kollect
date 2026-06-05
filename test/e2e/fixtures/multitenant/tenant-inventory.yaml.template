@@ -1,0 +1,8 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectInventory
+metadata:
+  name: tenant-inventory
+  namespace: ${TENANT_NS}
+spec:
+  sinkRefs: []
+  suspend: false

@@ -1,0 +1,14 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectScope
+metadata:
+  name: tenant-scope
+  namespace: kollect-tenant-a
+spec:
+  allowedGVKs:
+    - group: apps
+      version: v1
+      kind: Deployment
+  allowedNamespaces:
+    - kollect-tenant-a
+  sinkRefs:
+    - git-inventory-demo

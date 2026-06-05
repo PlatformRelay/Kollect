@@ -1,0 +1,11 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: tenant-deployments
+  namespace: ${TENANT_NS}
+spec:
+  profileRef: deployment-images
+  labelSelector:
+    matchLabels:
+      kollect.dev/tenant: ${TENANT_NS}
+  suspend: false
