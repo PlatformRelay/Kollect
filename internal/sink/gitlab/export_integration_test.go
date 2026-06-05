@@ -159,4 +159,3 @@ func forgejoCloneURL(gitEndpoint, user, pass string) (string, error) {
 
 	return u.String(), nil
 }
-

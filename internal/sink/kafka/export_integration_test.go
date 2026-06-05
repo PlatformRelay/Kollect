@@ -135,4 +135,3 @@ func createTopic(ctx context.Context, broker, topic string) error {
 		ReplicationFactor: 1,
 	})
 }
-

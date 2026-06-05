@@ -155,4 +155,3 @@ func TestExportNATS(t *testing.T) {
 		t.Fatalf("stream messages = %d, want 1 after duplicate export (Msg-Id dedupe)", si.State.Msgs)
 	}
 }
-

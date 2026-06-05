@@ -215,4 +215,3 @@ func waitForPostgres(ctx context.Context, connStr string) error {
 
 	return fmt.Errorf("postgres not ready: %w", lastErr)
 }
-

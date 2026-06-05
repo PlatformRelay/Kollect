@@ -102,4 +102,3 @@ func TestExportMinIO(t *testing.T) {
 		t.Fatalf("object = %q, want %q", data, payload)
 	}
 }
-

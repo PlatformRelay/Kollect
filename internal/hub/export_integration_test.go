@@ -263,4 +263,3 @@ func createKafkaTopic(ctx context.Context, broker, topic string) error {
 		ReplicationFactor: 1,
 	})
 }
-

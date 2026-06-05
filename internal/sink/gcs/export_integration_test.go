@@ -102,4 +102,3 @@ func TestExportS3Compatible(t *testing.T) {
 		t.Fatalf("object = %q, want %q", data, payload)
 	}
 }
-
