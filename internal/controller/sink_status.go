@@ -10,6 +10,9 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	kollecterrors "github.com/konih/kollect/internal/errors"
 )
 
 func checkInventorySinksReachable(ctx context.Context, c client.Client, sinkRefs []string) (bool, string, string) {
@@ -26,6 +29,55 @@ func checkInventorySinksReachable(ctx context.Context, c client.Client, sinkRefs
 	}
 
 	return true, "SinksReachable", fmt.Sprintf("%d sink(s) resolved", len(sinkRefs))
+}
+
+func checkTargetNamespaceSinksReachable(ctx context.Context, c client.Client, namespace string) (bool, string, string) {
+	var list kollectdevv1alpha1.KollectInventoryList
+	if err := c.List(ctx, &list, client.InNamespace(namespace)); err != nil {
+		return false, "InventoryListFailed", fmt.Sprintf("list KollectInventory in %q: %v", namespace, err)
+	}
+
+	refs := uniqueSinkRefs(list.Items)
+	if len(refs) == 0 {
+		return true, "NoSinksInNamespace", "no inventory sinkRefs in namespace"
+	}
+
+	return checkInventorySinksReachable(ctx, c, refs)
+}
+
+func uniqueSinkRefs(inventories []kollectdevv1alpha1.KollectInventory) []string {
+	seen := make(map[string]struct{})
+	var refs []string
+
+	for i := range inventories {
+		for _, ref := range inventories[i].Spec.SinkRefs {
+			if ref == "" {
+				continue
+			}
+			if _, ok := seen[ref]; ok {
+				continue
+			}
+			seen[ref] = struct{}{}
+			refs = append(refs, ref)
+		}
+	}
+
+	return refs
+}
+
+func setSinkReachableFromExport(conditions *[]metav1.Condition, generation int64, exportErr error) {
+	if exportErr == nil {
+		setSinkReachableCondition(conditions, generation, true, "ExportSucceeded", "last export completed successfully")
+
+		return
+	}
+
+	reason := "ExportFailed"
+	if kollecterrors.IsTerminal(exportErr) {
+		reason = "ExportTerminal"
+	}
+
+	setSinkReachableCondition(conditions, generation, false, reason, exportErr.Error())
 }
 
 func setSinkReachableCondition(conditions *[]metav1.Condition, generation int64, ok bool, reason, message string) {

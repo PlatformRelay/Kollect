@@ -144,6 +144,7 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if kollecterrors.IsTerminal(exportErr) {
 			reason = "ExportTerminal"
 		}
+		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, exportErr)
 		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, exportErr.Error())
 		recordWarning(r.Recorder, &inv, reason, exportErr.Error())
 
@@ -250,7 +251,10 @@ func (r *KollectInventoryReconciler) updateStatus(
 		now := metav1.Now()
 		inv.Status.LastExportTime = &now
 		apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
+		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, nil)
 		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "Exported",
+			fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, len(inv.Spec.SinkRefs)))
+		recordNormal(r.Recorder, inv, "ExportSucceeded",
 			fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, len(inv.Spec.SinkRefs)))
 		apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
 			Type:               conditionReady,
@@ -316,8 +320,42 @@ func (r *KollectInventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&kollectdevv1alpha1.KollectTarget{},
 			handler.EnqueueRequestsFromMapFunc(r.mapTargetToInventories),
 		).
+		Watches(
+			&kollectdevv1alpha1.KollectSink{},
+			handler.EnqueueRequestsFromMapFunc(r.mapSinkToInventories),
+		).
 		Named("kollectinventory").
 		Complete(r)
+}
+
+func (r *KollectInventoryReconciler) mapSinkToInventories(
+	ctx context.Context,
+	obj client.Object,
+) []reconcile.Request {
+	sinkObj, ok := obj.(*kollectdevv1alpha1.KollectSink)
+	if !ok {
+		return nil
+	}
+
+	var list kollectdevv1alpha1.KollectInventoryList
+	if err := r.List(ctx, &list); err != nil {
+		return nil
+	}
+
+	reqs := make([]reconcile.Request, 0)
+	for i := range list.Items {
+		for _, ref := range list.Items[i].Spec.SinkRefs {
+			if ref == sinkObj.Name {
+				reqs = append(reqs, reconcile.Request{
+					NamespacedName: client.ObjectKeyFromObject(&list.Items[i]),
+				})
+
+				break
+			}
+		}
+	}
+
+	return reqs
 }
 
 func (r *KollectInventoryReconciler) mapTargetToInventories(

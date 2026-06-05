@@ -126,21 +126,42 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	result, err := r.reconcileTargetReady(ctx, &target)
+	if err != nil {
+		retErr = err
+	}
+
+	return result, err
+}
+
+func (r *KollectTargetReconciler) reconcileTargetReady(
+	ctx context.Context,
+	target *kollectdevv1alpha1.KollectTarget,
+) (ctrl.Result, error) {
 	count := 0
 	if r.Engine != nil {
 		count = r.Engine.ItemCount(target.Namespace, target.Name)
 		if r.Engine.HasForbiddenScope(target.Namespace, target.Name) {
-			if degErr := r.setDegraded(ctx, &target, "Forbidden",
-				"RBAC denied list access for one or more scoped namespaces; partial collection skipped"); degErr != nil {
-				retErr = degErr
-				return ctrl.Result{}, degErr
+			if err := r.setDegraded(ctx, target, "Forbidden",
+				"RBAC denied list access for one or more scoped namespaces; partial collection skipped"); err != nil {
+				return ctrl.Result{}, err
 			}
 
 			return ctrl.Result{}, nil
 		}
 	}
 
-	return r.setReady(ctx, &target, count)
+	sinkOK, sinkReason, sinkMsg := checkTargetNamespaceSinksReachable(ctx, r.Client, target.Namespace)
+	if !sinkOK {
+		recordWarning(r.Recorder, target, sinkReason, sinkMsg)
+		if err := r.setDegraded(ctx, target, sinkReason, sinkMsg); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	return r.setReady(ctx, target, count, sinkReason, sinkMsg)
 }
 
 func (r *KollectTargetReconciler) setDegraded(
@@ -161,15 +182,18 @@ func (r *KollectTargetReconciler) setReady(
 	ctx context.Context,
 	target *kollectdevv1alpha1.KollectTarget,
 	collected int,
+	sinkReason, sinkMsg string,
 ) (ctrl.Result, error) {
 	apimeta.RemoveStatusCondition(&target.Status.Conditions, conditionDegraded)
 	target.Status.ObservedGeneration = target.Generation
 
 	msg := fmt.Sprintf("profileRef %q resolved; collecting %d resource(s)",
 		target.Spec.ProfileRef, collected)
-	setSinkReachableCondition(
-		&target.Status.Conditions, target.Generation, true, "Collecting", "target has no direct sinkRefs",
-	)
+	if sinkMsg == "" {
+		sinkMsg = "namespace inventory sinks reachable"
+	}
+	setSinkReachableCondition(&target.Status.Conditions, target.Generation, true, sinkReason, sinkMsg)
+	recordNormal(r.Recorder, target, sinkReason, sinkMsg)
 	setSyncedCondition(&target.Status.Conditions, target.Generation, true, "Collecting", msg)
 	if err := setTargetCondition(
 		ctx, r.Client, target, target.Generation, &target.Status.Conditions,

@@ -34,7 +34,7 @@ on `KollectSink`, plus pipeline conditions on reconciled objects.
 | **Annotation `kollect.dev/test-connection: "true"`** | One-shot re-test without editing spec |
 
 Probe uses the same TLS trust and secret resolution as export (`caBundle` / `caSecretRef`,
-`secretRef`). Supported types today: `git`, `postgres`, `kafka` (extend per sink).
+`secretRef`). Supported types today: `git`, `postgres`, `kafka`, `s3` (extend per sink).
 
 **Status on `KollectSink`:**
 
@@ -61,13 +61,17 @@ kubectl annotate kollectsink git-inventory -n kollect-system \
   kollect.dev/test-connection=true --overwrite
 ```
 
-### Pipeline reachability (follow-up, not blocking)
+### Pipeline reachability (implemented)
 
 End-to-end export health belongs on **reconciled** objects, not only the sink:
 
 | Condition | Object | Meaning |
 | --- | --- | --- |
-| **`SinkReachable`** (or export-specific condition per [ADR-0020](0020-error-taxonomy.md)) | `KollectInventory`, `KollectTarget` | Last export or sink resolution succeeded; includes latency / last attempt time |
+| **`SinkReachable`** | `KollectInventory`, `KollectTarget` | Sink resolution (`ConnectionVerified` / sink found) before export; **`ExportSucceeded`** / **`ExportFailed`** after inventory export attempts. `Synced` remains the primary export condition per [ADR-0020](0020-error-taxonomy.md). |
+
+`KollectTarget` derives sink refs from **`KollectInventory` in the same namespace** (targets have no
+direct `sinkRefs`). Inventory reconciler watches **`KollectSink`** status changes to requeue affected
+inventories.
 
 Sink-only `ConnectionVerified` proves **credentials and network to the backend**; it does not
 prove the full collect → aggregate → export path.
@@ -103,7 +107,7 @@ Until then, prefer annotation + optional **Job** manifest in docs over a new API
 
 - Annotation-based re-test is weaker for audit than a dedicated test CR (mitigate with audit logs
   on annotation patches if required).
-- Composite “does my pipeline work?” still needs `SinkReachable` on Inventory/Target (follow-up).
+- Composite “does my pipeline work?” uses `SinkReachable` on Inventory/Target plus `Synced` on export.
 - `KollectProfile` connectivity (can I list this GVK?) is out of scope for sink probe — separate
   feature or future bundled test if needed.
 
@@ -114,9 +118,10 @@ Until then, prefer annotation + optional **Job** manifest in docs over a new API
   status/etcd churn on unrelated spec edits.
 - **Samples and CI** may keep `connectionTest: true` for regression coverage.
 
-## Open questions
+## Resolved (2026-06-05)
 
-- **OPEN:** Exact condition name and fields on Inventory/Target (`SinkReachable` vs reuse
-  [ADR-0020](0020-error-taxonomy.md) export conditions only)?
-- **OPEN:** Auto-clear `kollect.dev/test-connection` annotation after successful probe to avoid
-  re-probing every reconcile?
+- **`SinkReachable`** on `KollectInventory` and `KollectTarget`; export outcomes set
+  `ExportSucceeded` / `ExportFailed` reasons; `Synced` unchanged for export progress.
+- **Annotation auto-clear:** after a successful probe triggered only by
+  `kollect.dev/test-connection`, the reconciler removes the annotation (kept when
+  `spec.connectionTest: true`).
