@@ -41,6 +41,9 @@ spec:
           spec:
             description: spec defines the desired state of KollectSink
             properties:
+              cluster:
+                description: cluster labels exported inventory in multi-cluster installs.
+                type: string
               connectionTest:
                 description: |-
                   connectionTest requests a connectivity check on create/update when true.
@@ -50,6 +53,63 @@ spec:
                 description: endpoint is the backend-specific destination (URL, bucket,
                   and so on).
                 type: string
+              kafka:
+                description: kafka configures a Kafka or Redpanda event sink.
+                properties:
+                  brokers:
+                    description: brokers lists Kafka bootstrap addresses (host:port).
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  secretRef:
+                    description: secretRef references a Secret with optional SASL/TLS
+                      credentials.
+                    properties:
+                      name:
+                        description: name is the name of the referenced Secret.
+                        type: string
+                      namespace:
+                        description: namespace is the namespace of the referenced
+                          Secret.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  topic:
+                    description: topic is the destination topic for inventory events.
+                    type: string
+                required:
+                - brokers
+                - topic
+                type: object
+              postgres:
+                description: postgres configures a PostgreSQL database sink.
+                properties:
+                  databaseRef:
+                    description: databaseRef references a Secret containing the connection
+                      string (key dsn or url).
+                    properties:
+                      name:
+                        description: name is the name of the referenced Secret.
+                        type: string
+                      namespace:
+                        description: namespace is the namespace of the referenced
+                          Secret.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  schema:
+                    description: schema is the PostgreSQL schema (default public).
+                    type: string
+                  table:
+                    description: table is the destination table name.
+                    type: string
+                required:
+                - databaseRef
+                - table
+                type: object
               secretRef:
                 description: secretRef references a Secret holding credentials for
                   the sink.
@@ -99,7 +159,8 @@ spec:
                 - gitlab
                 - s3
                 - gcs
-                - prometheus
+                - postgres
+                - kafka
                 type: string
             required:
             - type
@@ -108,16 +169,8 @@ spec:
             description: status defines the observed state of KollectSink
             properties:
               conditions:
-                description: |-
-                  conditions represent the current state of the KollectSink resource.
-                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
-
-                  Standard condition types include:
-                  - "Available": the resource is fully functional
-                  - "Progressing": the resource is being created or updated
-                  - "Degraded": the resource failed to reach or maintain its desired state
-
-                  The status of each condition is one of True, False, or Unknown.
+                description: conditions represent the current state of the KollectSink
+                  resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

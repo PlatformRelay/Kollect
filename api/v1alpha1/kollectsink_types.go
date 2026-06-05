@@ -7,13 +7,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // KollectSinkSpec defines the desired state of KollectSink.
 type KollectSinkSpec struct {
 	// type selects the sink backend implementation.
-	// +kubebuilder:validation:Enum=git;gitlab;s3;gcs;prometheus
+	// +kubebuilder:validation:Enum=git;gitlab;s3;gcs;postgres;kafka
 	// +required
 	Type string `json:"type"`
 
@@ -33,6 +30,49 @@ type KollectSinkSpec struct {
 	// The annotation kollect.dev/test-connection=true has the same effect.
 	// +optional
 	ConnectionTest bool `json:"connectionTest,omitempty"`
+
+	// cluster labels exported inventory in multi-cluster installs.
+	// +optional
+	Cluster string `json:"cluster,omitempty"`
+
+	// postgres configures a PostgreSQL database sink.
+	// +optional
+	Postgres *PostgresSpec `json:"postgres,omitempty"`
+
+	// kafka configures a Kafka or Redpanda event sink.
+	// +optional
+	Kafka *KafkaSpec `json:"kafka,omitempty"`
+}
+
+// PostgresSpec configures PostgreSQL upsert export.
+type PostgresSpec struct {
+	// databaseRef references a Secret containing the connection string (key dsn or url).
+	// +required
+	DatabaseRef *SecretReference `json:"databaseRef"`
+
+	// table is the destination table name.
+	// +required
+	Table string `json:"table"`
+
+	// schema is the PostgreSQL schema (default public).
+	// +optional
+	Schema string `json:"schema,omitempty"`
+}
+
+// KafkaSpec configures Kafka inventory change events.
+type KafkaSpec struct {
+	// brokers lists Kafka bootstrap addresses (host:port).
+	// +required
+	// +listType=atomic
+	Brokers []string `json:"brokers"`
+
+	// topic is the destination topic for inventory events.
+	// +required
+	Topic string `json:"topic"`
+
+	// secretRef references a Secret with optional SASL/TLS credentials.
+	// +optional
+	SecretRef *SecretReference `json:"secretRef,omitempty"`
 }
 
 // TLSSpec configures custom CA trust for sink endpoints.
@@ -64,20 +104,7 @@ type SecretReference struct {
 
 // KollectSinkStatus defines the observed state of KollectSink.
 type KollectSinkStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// See Kubernetes API conventions for typical status properties.
-
 	// conditions represent the current state of the KollectSink resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
 	// +listType=map
 	// +listMapKey=type
 	// +optional

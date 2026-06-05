@@ -1,0 +1,25 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSink
+metadata:
+  name: postgres-inventory-demo
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: postgres
+  cluster: kind-kollect-dev
+  connectionTest: true
+  postgres:
+    databaseRef:
+      name: inventory-postgres-dsn
+      namespace: kollect-system
+    schema: public
+    table: inventory_items
+  # Secret example (create separately; never commit real credentials):
+  # apiVersion: v1
+  # kind: Secret
+  # metadata:
+  #   name: inventory-postgres-dsn
+  #   namespace: kollect-system
+  # stringData:
+  #   dsn: postgres://kollect:example@postgres.kollect-system.svc:5432/inventory?sslmode=disable
