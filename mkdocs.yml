@@ -26,6 +26,7 @@ nav:
   - Quick start: QUICKSTART.md
   - Development: DEVELOPMENT.md
   - Architecture: ARCHITECTURE.md
+  - Requirements: REQUIREMENTS.md
   - Examples:
       - Deployment inventory: examples/deployment-inventory.md
   - ADRs:
@@ -39,6 +40,7 @@ nav:
       - "0015 Static vs reconciled": adr/0015-static-vs-reconciled.md
       - "0020 Error taxonomy": adr/0020-error-taxonomy.md
       - "0021 MkDocs GitHub Pages": adr/0021-mkdocs-github-pages.md
+      - "0022 Multi-cluster sync (RFC)": adr/0022-multi-cluster-sync-rfc.md
 
 markdown_extensions:
   - admonition

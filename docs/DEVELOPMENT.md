@@ -223,6 +223,35 @@ As of Phase 0/early Phase 1, reconcilers may still be scaffolds. Applying sample
 schema and wiring; export to Git sinks requires implemented controller logic. See
 [QUICKSTART.md](QUICKSTART.md#current-maturity).
 
+## Documentation site (MkDocs)
+
+Preview locally:
+
+```sh
+python3 -m venv .venv-docs && . .venv-docs/bin/activate
+pip install mkdocs-material
+mkdocs serve
+```
+
+Open http://127.0.0.1:8000/
+
+Strict build (matches CI):
+
+```sh
+mkdocs build --strict
+```
+
+Configuration: `mkdocs.yml` at the repository root. GitHub Pages workflow:
+`.github/workflows/docs.yaml`. See [ADR-0021](adr/0021-mkdocs-github-pages.md).
+
+| Doc | Audience |
+| --- | --- |
+| [QUICKSTART.md](QUICKSTART.md) | First install on kind, sample CRs |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | CRD model, reconciliation, phasing |
+| [REQUIREMENTS.md](REQUIREMENTS.md) | Product priorities |
+| [examples/deployment-inventory.md](examples/deployment-inventory.md) | Annotated YAML walkthroughs |
+| [adr/README.md](adr/README.md) | Architecture decision records |
+
 ## Further reading
 
 - [QUICKSTART.md](QUICKSTART.md) — operator install and first CRs

@@ -39,7 +39,7 @@ Full step-by-step guide with verification and maturity notes:
 | [Example walkthrough](docs/examples/deployment-inventory.md) | Profile → sink → target → inventory |
 | [ADRs](docs/adr/) | Architecture decisions |
 
-Preview docs locally: `pip install mkdocs-material && mkdocs serve` (see [docs/README.md](docs/README.md)).
+Preview docs locally: `mkdocs serve` (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#documentation-site-mkdocs)).
 
 ## Project layout
 
