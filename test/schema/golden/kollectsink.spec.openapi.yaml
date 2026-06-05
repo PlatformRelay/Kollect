@@ -71,6 +71,36 @@ properties:
     - brokers
     - topic
     type: object
+  nats:
+    description: nats configures a NATS JetStream event sink.
+    properties:
+      secretRef:
+        description: secretRef references a Secret with optional auth credentials
+          (token, username/password).
+        properties:
+          name:
+            description: name is the name of the referenced Secret.
+            type: string
+          namespace:
+            description: namespace is the namespace of the referenced Secret.
+            type: string
+        required:
+        - name
+        type: object
+      stream:
+        description: stream is the JetStream stream name (default kollect_events).
+        type: string
+      subject:
+        description: subject is the JetStream publish subject for inventory events.
+        type: string
+      url:
+        description: |-
+          url is the NATS server connection URL (nats://host:4222).
+          When empty, spec.endpoint is used.
+        type: string
+    required:
+    - subject
+    type: object
   postgres:
     description: postgres configures a PostgreSQL database sink.
     properties:
@@ -145,6 +175,7 @@ properties:
     - gcs
     - postgres
     - kafka
+    - nats
     type: string
 required:
 - type

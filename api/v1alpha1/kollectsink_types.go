@@ -10,7 +10,7 @@ import (
 // KollectSinkSpec defines the desired state of KollectSink.
 type KollectSinkSpec struct {
 	// type selects the sink backend implementation.
-	// +kubebuilder:validation:Enum=git;gitlab;s3;gcs;postgres;kafka
+	// +kubebuilder:validation:Enum=git;gitlab;s3;gcs;postgres;kafka;nats
 	// +required
 	Type string `json:"type"`
 
@@ -42,6 +42,10 @@ type KollectSinkSpec struct {
 	// kafka configures a Kafka or Redpanda event sink.
 	// +optional
 	Kafka *KafkaSpec `json:"kafka,omitempty"`
+
+	// nats configures a NATS JetStream event sink.
+	// +optional
+	Nats *NatsSpec `json:"nats,omitempty"`
 
 	// gitlab configures GitLab-specific settings when type is gitlab.
 	// +optional
@@ -92,6 +96,26 @@ type PostgresSpec struct {
 	// schema is the PostgreSQL schema (default public).
 	// +optional
 	Schema string `json:"schema,omitempty"`
+}
+
+// NatsSpec configures NATS JetStream inventory change events.
+type NatsSpec struct {
+	// url is the NATS server connection URL (nats://host:4222).
+	// When empty, spec.endpoint is used.
+	// +optional
+	URL string `json:"url,omitempty"`
+
+	// subject is the JetStream publish subject for inventory events.
+	// +required
+	Subject string `json:"subject"`
+
+	// stream is the JetStream stream name (default kollect_events).
+	// +optional
+	Stream string `json:"stream,omitempty"`
+
+	// secretRef references a Secret with optional auth credentials (token, username/password).
+	// +optional
+	SecretRef *SecretReference `json:"secretRef,omitempty"`
 }
 
 // KafkaSpec configures Kafka inventory change events.

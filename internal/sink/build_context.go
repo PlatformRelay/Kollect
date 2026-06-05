@@ -70,6 +70,22 @@ func BuildContextFromSpec(
 		}
 	}
 
+	if spec.Type == "nats" && spec.Nats != nil {
+		natsRef := spec.Nats.SecretRef
+		if natsRef == nil {
+			natsRef = spec.SecretRef
+		}
+
+		if natsRef != nil {
+			natsCreds, err := ResolveSecret(ctx, c, natsRef, defaultNamespace)
+			if err != nil {
+				return BuildContext{}, err
+			}
+
+			out.SecretData = natsCreds.Data
+		}
+	}
+
 	return out, nil
 }
 

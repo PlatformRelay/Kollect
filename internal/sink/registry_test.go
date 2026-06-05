@@ -85,6 +85,21 @@ func TestRegistry_NewBackend(t *testing.T) {
 		t.Fatalf("Type() = %q, want kafka", kafkaBackend.Type())
 	}
 
+	natsBackend, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: "nats",
+		Nats: &kollectdevv1alpha1.NatsSpec{
+			URL:     "nats://localhost:4222",
+			Subject: "inventory.events",
+		},
+	}, BuildContext{})
+	if err != nil {
+		t.Fatalf("NewBackend(nats) error = %v", err)
+	}
+
+	if natsBackend.Type() != "nats" {
+		t.Fatalf("Type() = %q, want nats", natsBackend.Type())
+	}
+
 	if _, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "unknown"}, BuildContext{}); err == nil {
 		t.Fatal("NewBackend(unknown) expected error")
 	}

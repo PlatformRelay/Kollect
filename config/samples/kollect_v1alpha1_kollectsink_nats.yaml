@@ -1,0 +1,19 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSink
+metadata:
+  name: nats-inventory-demo
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: nats
+  cluster: kind-kollect-dev
+  connectionTest: true
+  nats:
+    url: nats://nats.kollect-system.svc:4222
+    subject: inventory.events
+    stream: kollect_events
+    secretRef:
+      name: nats-credentials
+      namespace: kollect-system

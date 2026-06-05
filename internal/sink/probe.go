@@ -11,6 +11,7 @@ import (
 	"github.com/konih/kollect/internal/sink/git"
 	"github.com/konih/kollect/internal/sink/gitlab"
 	kafkasink "github.com/konih/kollect/internal/sink/kafka"
+	natssink "github.com/konih/kollect/internal/sink/nats"
 	"github.com/konih/kollect/internal/sink/postgres"
 	s3sink "github.com/konih/kollect/internal/sink/s3"
 )
@@ -56,6 +57,12 @@ func RunConnectionTest(
 		}
 
 		return "Kafka broker metadata request succeeded", nil
+	case natssink.TypeName:
+		if err := natssink.TestConnection(ctx, spec, buildCtx.SecretData, buildCtx.CAPEM); err != nil {
+			return "", err
+		}
+
+		return "NATS JetStream account info request succeeded", nil
 	case "s3":
 		if err := s3sink.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
 			return "", err
