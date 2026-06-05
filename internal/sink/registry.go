@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/git"
 )
 
 // Backend exports inventory payloads to an external destination.
@@ -29,7 +30,7 @@ type Registry struct {
 // NewRegistry returns a registry with built-in placeholder backends registered.
 func NewRegistry() *Registry {
 	r := &Registry{factories: make(map[string]Factory)}
-	r.Register("git", newGitBackend)
+	r.Register("git", newGitBackendFromSpec)
 
 	return r
 }
@@ -53,4 +54,13 @@ func (r *Registry) NewBackend(spec kollectdevv1alpha1.KollectSinkSpec) (Backend,
 	}
 
 	return factory(spec)
+}
+
+func newGitBackendFromSpec(spec kollectdevv1alpha1.KollectSinkSpec) (Backend, error) {
+	b, err := git.NewBackend(spec, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }

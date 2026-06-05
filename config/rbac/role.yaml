@@ -5,9 +5,18 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - kollect.dev
   resources:
   - kollectinventories
+  - kollectsinks
   - kollecttargets
   verbs:
   - create
@@ -28,6 +37,7 @@ rules:
   - kollect.dev
   resources:
   - kollectinventories/status
+  - kollectsinks/status
   - kollecttargets/status
   verbs:
   - get
