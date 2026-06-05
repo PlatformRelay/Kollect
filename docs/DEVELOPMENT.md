@@ -25,8 +25,43 @@ task release-dry-run        # build dist/ install YAML + chart (no push)
 task changelog:write        # regenerate CHANGELOG.md
 ```
 
-Tagged `v*.*.*` pushes run [`.github/workflows/release.yaml`](../.github/workflows/release.yaml):
-GHCR image (`ghcr.io/konih/kollect`), cosign, SPDX SBOM, Helm OCI chart, GitHub Release assets.
+**Local dry-run** (`task release-dry-run`) runs `hack/release-assets.sh` with
+`VERSION=0.0.0-dry-run` (override with `VERSION=v0.1.0-rc1 task release-dry-run`). Outputs land in
+`dist/`:
+
+| Artifact | Path |
+| --- | --- |
+| Install manifests | `dist/install.yaml` |
+| Helm chart tarball | `dist/kollect-<version>.tgz` |
+| CRD bundle | synced into `charts/kollect/crds/` |
+
+The task does **not** push images or publish GitHub/OCI assets.
+
+**GitHub Release** — tagged `v*.*.*` pushes run
+[`.github/workflows/release.yaml`](../.github/workflows/release.yaml): GHCR image
+(`ghcr.io/konih/kollect`), cosign, SPDX SBOM, Helm OCI chart, GitHub Release assets.
+
+**Manual release test** (`workflow_dispatch`):
+
+1. Create and push an annotated tag locally (assets must exist at that commit):
+   ```sh
+   git tag -a v0.1.0 -m "v0.1.0"
+   git push origin v0.1.0
+   ```
+   The push triggers the release workflow automatically.
+
+2. To **rebuild assets** for an existing tag (e.g. after fixing release scripts):
+   - GitHub → **Actions** → **Release** → **Run workflow**
+   - Enter the existing tag (e.g. `v0.1.0`) in the `tag` input
+   - Run — the workflow checks out `refs/tags/<tag>`, rebuilds `dist/`, and updates the GitHub
+     Release (requires `contents: write` + `packages: write` on the job).
+
+3. Verify locally before tagging:
+   ```sh
+   task release-dry-run
+   ls -la dist/
+   ```
+
 See [CONTRIBUTING.md](../CONTRIBUTING.md) and [SECURITY.md](../SECURITY.md).
 
 ## Clone and build
