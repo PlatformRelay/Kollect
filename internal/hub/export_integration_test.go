@@ -149,7 +149,7 @@ func TestHubExportPostgresAndKafkaParallel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, _, err := hub.ReceiveReport("spoke-a", payload, merger, []string{"spoke-a"}, true); err != nil {
+	if _, _, _, err := hub.ReceiveReport("spoke-a", payload, merger, []string{"spoke-a"}, true); err != nil {
 		t.Fatalf("ReceiveReport: %v", err)
 	}
 

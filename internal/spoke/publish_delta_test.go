@@ -39,7 +39,7 @@ func TestTryPublishReportDeltaInProcess(t *testing.T) {
 	defer cancel()
 
 	if err := bus.Subscribe(ctx, "inventory/reports", func(_ context.Context, payload []byte) error {
-		_, _, err := hub.ReceiveReport("", payload, merger, nil, false)
+		_, _, _, err := hub.ReceiveReport("", payload, merger, nil, false)
 
 		return err
 	}); err != nil {

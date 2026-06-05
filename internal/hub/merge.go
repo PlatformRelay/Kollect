@@ -16,6 +16,14 @@ const (
 	defaultHubMetricLabel = "default"
 )
 
+func inventoryTargetName(ref InventoryRef) string {
+	if ref.Name != "" {
+		return ref.Name
+	}
+
+	return defaultInventoryName
+}
+
 // InventoryRef identifies the spoke inventory resource backing a report.
 type InventoryRef struct {
 	Namespace string `json:"namespace"`
@@ -66,10 +74,7 @@ func (m *Merger) Apply(report SpokeReport) (int, error) {
 		return 0, fmt.Errorf("hub merger: cluster is required")
 	}
 
-	targetName := report.InventoryRef.Name
-	if targetName == "" {
-		targetName = defaultInventoryName
-	}
+	targetName := inventoryTargetName(report.InventoryRef)
 
 	applied := 0
 	for _, uid := range report.RemovedUIDs {

@@ -5,6 +5,8 @@ package hub_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 
@@ -157,5 +159,78 @@ func TestExportAfterMergeRequiresDependencies(t *testing.T) {
 	}
 	if err := exporter.ExportAfterMerge(context.Background(), hub.SpokeReport{Cluster: "spoke-a"}); err == nil {
 		t.Fatal("expected error when store/client/registry missing")
+	}
+}
+
+type failingBackend struct {
+	name string
+}
+
+func (f *failingBackend) Type() string { return "failing" }
+
+func (f *failingBackend) Capabilities() sink.Capabilities {
+	return sink.SnapshotStoreCapabilities()
+}
+
+func (f *failingBackend) Export(_ context.Context, _ []byte, _ string) error {
+	return fmt.Errorf("%s export failed", f.name)
+}
+
+func TestExporterAggregatesMultiSinkErrors(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	store.Upsert(collect.Item{
+		TargetNamespace: "spoke-a",
+		TargetName:      "inv",
+		Namespace:       "apps",
+		Name:            "web",
+		UID:             "uid-1",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	sinkA := &kollectdevv1alpha1.KollectSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "sink-a", Namespace: "platform"},
+		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "failing-a"},
+	}
+	sinkB := &kollectdevv1alpha1.KollectSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "sink-b", Namespace: "platform"},
+		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "failing-b"},
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkA, sinkB).Build()
+
+	reg := sink.NewRegistry()
+	reg.Register("failing-a", func(_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext) (sink.Backend, error) {
+		return &failingBackend{name: "sink-a"}, nil
+	})
+	reg.Register("failing-b", func(_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext) (sink.Backend, error) {
+		return &failingBackend{name: "sink-b"}, nil
+	})
+
+	exporter := &hub.Exporter{
+		Store:    store,
+		Client:   cl,
+		Registry: reg,
+		Config: hub.ExportConfig{
+			ExportNamespace: "platform",
+			SinkRefs:        []string{"sink-a", "sink-b"},
+		},
+	}
+
+	err := exporter.ExportAfterMerge(context.Background(), hub.SpokeReport{
+		Cluster:      "spoke-a",
+		InventoryRef: hub.InventoryRef{Namespace: "team-a", Name: "inv"},
+	})
+	if err == nil {
+		t.Fatal("expected aggregated export error")
+	}
+	if !strings.Contains(err.Error(), "sink-a") || !strings.Contains(err.Error(), "sink-b") {
+		t.Fatalf("aggregated error = %v, want both sink names", err)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/transport"
@@ -74,7 +75,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 			return err
 		}
 
-		report, applied, err := ReceiveReport(
+		report, applied, prior, err := ReceiveReport(
 			wireCluster,
 			payload,
 			c.Merger,
@@ -92,11 +93,14 @@ func (c *Consumer) Start(ctx context.Context) error {
 		}
 
 		if c.StatusClient != nil {
-			_ = MarkRemoteClusterConnected(handleCtx, c.StatusClient, report.Cluster)
+			if err := MarkRemoteClusterConnected(handleCtx, c.StatusClient, report.Cluster); err != nil {
+				log.FromContext(handleCtx).Error(err, "mark remote cluster connected", "cluster", report.Cluster)
+			}
 		}
 
 		if c.Exporter != nil {
 			if err := c.Exporter.ExportAfterMerge(handleCtx, report); err != nil {
+				c.Merger.Store.RestoreTarget(report.Cluster, inventoryTargetName(report.InventoryRef), prior)
 				metrics.HubSpokeReportsTotal.WithLabelValues(c.hubLabel(), metrics.ResultFailure).Inc()
 
 				return err
