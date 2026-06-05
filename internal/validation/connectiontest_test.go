@@ -4,7 +4,6 @@
 package validation
 
 import (
-	"strings"
 	"testing"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -41,7 +40,5 @@ func TestConnectionTestInvalid(t *testing.T) {
 	err := ConnectionTestInvalid("probe", ValidateConnectionTestSpec(&kollectdevv1alpha1.KollectConnectionTestSpec{
 		SinkRef: "ns/sink",
 	})) // cross-namespace ref form
-	if err == nil || !strings.Contains(err.Error(), "probe") {
-		t.Fatalf("error = %v", err)
-	}
+	assertInvalidResourceError(t, err, "KollectConnectionTest", "probe")
 }

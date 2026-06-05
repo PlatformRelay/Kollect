@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/httpauth"
 )
 
 const (
@@ -53,7 +54,7 @@ func (a IngestAuthConfig) Middleware(next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, err := bearerToken(r.Header.Get("Authorization"))
+		token, err := httpauth.BearerToken(r.Header.Get("Authorization"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 
@@ -89,24 +90,6 @@ func (a IngestAuthConfig) Middleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func bearerToken(header string) (string, error) {
-	if header == "" {
-		return "", fmt.Errorf("missing Authorization header")
-	}
-
-	const prefix = "Bearer "
-	if !strings.HasPrefix(header, prefix) {
-		return "", fmt.Errorf("expected Bearer token")
-	}
-
-	token := strings.TrimSpace(strings.TrimPrefix(header, prefix))
-	if token == "" {
-		return "", fmt.Errorf("empty bearer token")
-	}
-
-	return token, nil
 }
 
 func (a IngestAuthConfig) authenticate(ctx context.Context, token string) (authenticationv1.UserInfo, error) {

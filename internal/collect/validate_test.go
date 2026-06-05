@@ -17,13 +17,14 @@ func TestValidateAttributePathCELPrefixRequired(t *testing.T) {
 	}
 
 	tests := []struct {
-		path    string
-		wantErr string
+		path       string
+		wantErr    bool
+		wantCELMsg bool
 	}{
-		{path: "object.metadata.name", wantErr: "cel:"},
-		{path: "object['metadata']['name']", wantErr: "cel:"},
-		{path: "$.metadata.name", wantErr: ""},
-		{path: "cel:object.metadata.name", wantErr: ""},
+		{path: "object.metadata.name", wantErr: true, wantCELMsg: true},
+		{path: "object['metadata']['name']", wantErr: true, wantCELMsg: true},
+		{path: "$.metadata.name", wantErr: false},
+		{path: "cel:object.metadata.name", wantErr: false},
 	}
 
 	for _, tt := range tests {
@@ -31,7 +32,7 @@ func TestValidateAttributePathCELPrefixRequired(t *testing.T) {
 			t.Parallel()
 
 			err := ValidateAttributePath(extractor, tt.path)
-			if tt.wantErr == "" {
+			if !tt.wantErr {
 				if err != nil {
 					t.Fatalf("ValidateAttributePath(%q) = %v, want nil", tt.path, err)
 				}
@@ -39,8 +40,11 @@ func TestValidateAttributePathCELPrefixRequired(t *testing.T) {
 				return
 			}
 
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("ValidateAttributePath(%q) = %v, want error containing %q", tt.path, err, tt.wantErr)
+			if err == nil {
+				t.Fatalf("ValidateAttributePath(%q) = nil, want error", tt.path)
+			}
+			if tt.wantCELMsg && !strings.HasPrefix(err.Error(), "CEL expressions must use") {
+				t.Fatalf("ValidateAttributePath(%q) = %v, want CEL prefix error", tt.path, err)
 			}
 		})
 	}

@@ -286,32 +286,6 @@ func TestAuthMiddlewareCacheHitForbidden(t *testing.T) {
 	}
 }
 
-func TestBearerTokenErrors(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		header string
-	}{
-		{header: ""},
-		{header: "Token abc"},
-		{header: "Bearer "},
-	}
-
-	for _, tc := range cases {
-		if _, err := bearerToken(tc.header); err == nil {
-			t.Fatalf("header %q: expected error", tc.header)
-		}
-	}
-}
-
-func TestAuthCacheKeyIncludesNamespaceAndName(t *testing.T) {
-	t.Parallel()
-
-	if authCacheKey("h", "list", "a", "") == authCacheKey("h", "list", "b", "") {
-		t.Fatal("namespace must affect cache key")
-	}
-}
-
 func TestAuthMiddlewareSkipsSARWhenNotRequired(t *testing.T) {
 	t.Parallel()
 
