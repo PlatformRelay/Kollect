@@ -1,7 +1,7 @@
 # Coding standards
 
 Binding standards for Go code, tests, security, commits, architecture, and merge gates in Kollect.
-Engineering expectations (error taxonomy, robustness, definition of done) live in
+Operator-specific engineering principles (error taxonomy, robustness, definition of done) live in
 [GUIDELINES.md](../../GUIDELINES.md). This page is the contributor-facing checklist enforced by
 lint, CI, and review.
 
@@ -9,6 +9,53 @@ lint, CI, and review.
     `task lint` · `task coverage` · `task verify` · `task scrub` — see
     [CONTRIBUTING.md](../../CONTRIBUTING.md#pull-request-process) and
     [Testing strategy](testing.md).
+
+## Go conventions
+
+Short, actionable rules for Go code in this repo. Operator reconcile semantics and error taxonomy:
+[GUIDELINES.md § 1](../../GUIDELINES.md#1-error-handling).
+
+### Error handling
+
+- **MUST** wrap errors with context: `fmt.Errorf("export to %s: %w", sink, err)`.
+- **MUST** use `%w` (not `%v`) so callers can `errors.Is` / `errors.As` — required for
+  `ErrTransient` / `ErrTerminal` / `ErrForbidden` classification.
+- **MUST NOT** discard errors from fallible calls (`errcheck` enforces this).
+- **MUST NOT** use `github.com/pkg/errors` — blocked by `gomodguard`.
+
+### Formatting and style
+
+- **MUST** format Go with `gofmt` / `goimports` — `task format:check` fails CI on drift.
+- **SHOULD** follow the [Google Go Style Guide](https://google.github.io/styleguide/go/) for naming,
+  simplicity, and readability; the [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
+  is a useful secondary reference.
+- **MUST** run **golangci-lint v2** locally before every PR (`task lint`); CI fails on lint errors.
+
+### Modules and dependencies
+
+- **MUST** keep module path `github.com/konih/kollect` (v0/v1); bump to `…/v2` only on a tagged
+  major release per [Go module path rules](https://go.dev/ref/mod#module-path).
+- **MUST** commit `go.sum`; run `go mod tidy` — preflight CI checks for drift.
+- **SHOULD NOT** vendor — no `vendor/` directory; rely on the module proxy and checked-in `go.sum`.
+- **MUST** respect `depguard` / `gomodguard` policy (see [Dependency policy](#dependency-policy) below).
+
+### Tests
+
+- **MUST** run the race detector on unit and envtest suites (`-race` via `task coverage` /
+  `hack/coverage.sh`).
+- **SHOULD** prefer **Ginkgo/Gomega** matchers in `_test.go` files over `testify/assert`
+  (`depguard` on tests).
+- Pyramid tiers, coverage floors, and sink integration gates: [Testing strategy](testing.md).
+
+### Security and supply chain
+
+- **MUST** run `govulncheck` — `task vulncheck` in CI on every PR.
+- **MUST** pass `gitleaks` and `task scrub` before commit (see [Security](#security) below).
+
+### Container builds
+
+- **MUST** build the operator manager with `CGO_ENABLED=0` for distroless images
+  ([`Dockerfile`](../../Dockerfile)); tests may enable CGO for the race detector.
 
 ## Go style and lint
 
@@ -19,6 +66,11 @@ lint, CI, and review.
 | **gofmt / goimports** | `task format:check` | Formatting drift gate |
 
 Run `task lint` locally before every PR. It includes golangci-lint **and** `go-arch-lint check`.
+CI `preflight` and `test` workflows fail when lint or format checks return non-zero.
+
+Key linters enabled in `.golangci.yml` include `errcheck`, `govet`, `staticcheck`, `gosec`,
+`bodyclose`, and `logcheck`. Maintainer setup and arch-lint baseline workflow:
+[tooling-setup.md](tooling-setup.md).
 
 ### Logging
 
@@ -27,8 +79,7 @@ Use **structured logging** via `log/slog` or `controller-runtime/log` (`logr`). 
 
 The **`logcheck`** linter enforces [Kubernetes logging conventions](https://github.com/kubernetes-sigs/logcheck):
 stable message strings with variable data in key/value pairs; never log secrets, tokens, or full
-payloads. See [GUIDELINES.md § 1](../../GUIDELINES.md#1-error-handling) for the error-wrapping
-and logging rules that pair with `logcheck`.
+payloads. Operator logging rules: [GUIDELINES.md § 1](../../GUIDELINES.md#1-error-handling).
 
 ### Dependency policy
 

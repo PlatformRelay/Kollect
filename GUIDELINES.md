@@ -2,7 +2,10 @@
 
 Binding guidelines for the Kollect operator: error handling, robustness, security, and testing.
 Enforced by lint, CI, and review. ADRs in `docs/adr/` capture major decisions.
-Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
+
+**Related docs:** Go style and lint rules → [coding-standards.md](docs/development/coding-standards.md);
+contribution process → [CONTRIBUTING.md](CONTRIBUTING.md); product requirements and NFRs →
+[REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
 ## 0. Product priorities (summary)
 
@@ -16,7 +19,9 @@ Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
 ## 1. Error handling
 
-- **Wrap, don't swallow.** Use `fmt.Errorf("...: %w", err)`; never discard errors from fallible calls.
+Operator-specific error taxonomy drives reconcile behavior. For Go wrapping conventions (`%w`,
+`errors.Is` / `errors.As`), see [coding-standards.md § Go conventions](docs/development/coding-standards.md#go-conventions).
+
 - **Typed error taxonomy** drives requeue behavior:
   - `ErrTransient` (network, throttling, conflicts) → requeue with backoff; `Synced=False`, `Reason=Progressing`.
   - `ErrTerminal` (bad config, invalid CEL/JSONPath) → no requeue; `Degraded=True` + Warning Event.
@@ -24,6 +29,7 @@ Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 - **No `panic`** in reconcilers or libraries (except `main`).
 - **Context deadlines** on every external call; propagate reconcile `ctx`.
 - **Structured logs** (`logr`): stable messages + keys. Never log secrets, tokens, or full payloads.
+  Logging package policy: [coding-standards.md § Logging](docs/development/coding-standards.md#logging).
 
 ## 2. Robustness and reliability
 
@@ -47,13 +53,15 @@ Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 - **Network** — restrictive `NetworkPolicy` for production egress.
 - **Transport** — TLS verification required for sink and doc endpoints; support org **custom CA** (no disable-verify in prod).
 - **Input validation** — CEL in CRD OpenAPI + **validating webhooks before reconcile workarounds**.
-- **Supply chain** — pinned dependencies and GitHub Action SHAs, gitleaks, govulncheck, image scanning in release pipeline.
+- **Supply chain** — pinned dependencies and GitHub Action SHAs; scans enforced in CI.
+  Tooling and gates: [coding-standards.md § Security](docs/development/coding-standards.md#security).
 
 ## 4. Testing
 
+Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
+[testing.md](docs/development/testing.md) and [coding-standards.md § Testing](docs/development/coding-standards.md#testing).
+
 - **Tests alongside code** — unit, envtest, golden contracts, integration (testcontainers), kind e2e.
-- **Pyramid:** unit → envtest (Ginkgo) → golden OpenAPI fragments → integration → e2e.
-- **Gates:** `task verify` for codegen drift; race detector on unit/envtest; coverage goals on `internal/`.
 - **Mocks** — mockery on small interfaces only.
 - **Metrics** — assert Prometheus counters/histograms in controller tests where behavior changes.
 - **Scale tests bounded** — default `task test` caps synthetic objects (500); load tests require
@@ -79,3 +87,5 @@ Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 - New external calls have timeouts and backoff where appropriate.
 - Status conditions and Events updated; no secrets in logs.
 - ADR updated when the decision is non-trivial.
+
+Full contributor checklist: [CONTRIBUTING.md § Pull request process](CONTRIBUTING.md#pull-request-process).

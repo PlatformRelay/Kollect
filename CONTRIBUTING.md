@@ -2,25 +2,29 @@
 
 Thank you for helping improve Kollect.
 
-## Acceptable contributions
+## Standards map
 
-Pull requests must meet the standards below before they can merge. Reviewers use these documents
-as the definition of acceptable work.
+Pull requests must meet the linked standards before merge. Each document owns one concern — do not
+duplicate prose across them.
 
-| Document | What it covers |
+| Document | Owns |
 | --- | --- |
-| [Coding standards](docs/development/coding-standards.md) | Go lint/logging, testing floor, security controls, commits, architecture boundaries, CI gates |
-| [Testing strategy](docs/development/testing.md) | L0–L5 pyramid, coverage targets, integration and e2e expectations |
-| [GUIDELINES.md](GUIDELINES.md) | Error taxonomy, robustness, security baselines, definition of done |
-| [SECURITY.md](SECURITY.md) | Vulnerability reporting, threat model, supply-chain expectations |
+| [REQUIREMENTS.md](docs/REQUIREMENTS.md) | Product *what* — functional requirements and NFR targets |
+| [GUIDELINES.md](GUIDELINES.md) | Operator *how well* — error taxonomy, robustness, security model, perf, definition of done |
+| [Coding standards](docs/development/coding-standards.md) | Go *how* — lint, formatting, modules, race detector, CI gates |
+| [Testing strategy](docs/development/testing.md) | Test pyramid (L0–L5), coverage floors, integration/e2e tiers |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Process — commits, PR workflow, changelog, doc PR checklist |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting and threat model |
 | [Architecture decision records](docs/adr/) | Locked design decisions — update or add ADRs for non-trivial changes |
+| [tooling-setup.md](docs/development/tooling-setup.md) | Maintainer setup for arch-lint, depguard, SonarCloud |
 
 **Merge policy:** use **Rebase and merge** on pull requests (see
 [Changelog and releases](#changelog-and-releases)). `main` requires green **`preflight`** and
 **`test`** CI checks and linear history.
 
 **Local preflight** (before opening a PR): `task lint` · `task coverage` · `task verify` ·
-`task scrub` · `gitleaks protect --staged --no-banner`.
+`task scrub` · `gitleaks protect --staged --no-banner`. Technical gate details:
+[coding-standards.md § Pull request and CI gates](docs/development/coding-standards.md#pull-request-and-ci-gates).
 
 ## Commit messages
 
@@ -120,64 +124,18 @@ multi-arch images to `ghcr.io/konih/kollect` and `ghcr.io/konih/kollect-ui`, Tri
 signing, SPDX SBOMs, Helm chart (OCI), and GitHub Release assets (`install.yaml`, `install-crds.yaml`,
 chart tarball, checksums).
 
-## Test coverage
-
-Kollect follows a six-tier test pyramid (L0–L5) documented in
-[ADR-0706](docs/adr/0706-testing-merge-gate-architecture.md) and the
-[Testing strategy](docs/development/testing.md) page.
-
-CI runs `task coverage`, which writes `coverage.out` for `./internal/...` and enforces a
-**65%** floor on statement coverage today (`COVERAGE_MIN`, see `hack/coverage.sh`). The
-**pre-v0.1.0 target is 80%** — ratchet `COVERAGE_MIN` when measured coverage is sustained
-above that level. The [Codecov](https://codecov.io/gh/konih/kollect) project target is **70%**
-(`codecov.yml`). Integration-tagged tests (`-tags=integration`) and e2e packages are excluded
-from the default profile.
-
-**Integration CI** (`task test-integration`) runs testcontainers-backed sinks and transports,
-including **S3** (MinIO) and **GCS** (S3-compatible) under `internal/sink/s3/` and
-`internal/sink/gcs/`. The **e2e-nightly** and manual **E2E (optional)** workflows re-run those
-object-store tests after kind smoke.
-
-| Task | Purpose |
-| --- | --- |
-| `task coverage` | Unit/envtest + `coverage.out` + floor check |
-| `task coverage:report` | `go tool cover -func` summary |
-| `task coverage:html` | Write `coverage.html` (open in a browser) |
-| `task test-integration` | Postgres, Kafka, Git, S3, GCS, Redis, NATS (Docker required) |
-| `task test:e2e` | Kind smoke (`hack/kind/e2e/` — matches nightly workflow) |
-
-Coverage is published to [Codecov](https://codecov.io/gh/konih/kollect) from the CI `test` job
-after tests pass, using `codecov/codecov-action` with the repository `CODECOV_TOKEN` secret
-(`use_oidc: false`). Regressions below the `COVERAGE_MIN` floor fail CI; ratchet the floor toward the **80%**
-project target when coverage has grown sustainably (see ADR-0706).
-
 ## Pull request process
 
 1. Fork or branch from `main`.
-2. Run locally:
-   - `task lint` (golangci-lint + **go-arch-lint** import boundaries)
-   - `task arch-lint` (optional — arch fitness only; also runs inside `task lint`)
-   - `task coverage` (or `task test` for a quick pass without the floor)
-   - `task verify`
-   - `task scrub` (after staging) and `gitleaks protect --staged --no-banner` before commit
+2. Run the [local preflight](#standards-map) checklist (`task lint` · `task coverage` · `task verify` ·
+   `task scrub`).
 3. Keep changes focused; update ADRs in `docs/adr/` when making architectural decisions.
 4. Ensure CI is green (`preflight` + `CI` workflows).
 5. Request review; address feedback with additional commits (avoid force-push to `main`).
 
-## Lint and architecture fitness
-
-`task lint` runs **golangci-lint v2** (including `depguard` / `gomodguard` dependency policy) and
-**go-arch-lint** against [`.go-arch-lint.yml`](.go-arch-lint.yml). Package boundaries are documented
-in [ARCHITECTURE.md](docs/ARCHITECTURE.md#package-boundaries).
-
-**SonarCloud** (maintainability / debt trends) is optional in CI until `SONAR_TOKEN` is configured;
-maintainers can run `task sonar:local` with `SONARCLOUD_TOKEN` in `.envrc` — see
-[tooling-setup.md](docs/development/tooling-setup.md#sonarcloud-maintainer-setup).
-
-## Code guidelines
-
-See [Coding standards](docs/development/coding-standards.md) for lint, testing, security, and CI
-gates. [GUIDELINES.md](GUIDELINES.md) covers error handling, robustness, and definition of done.
+For test pyramid tiers, coverage floors, and integration expectations see
+[Testing strategy](docs/development/testing.md). For Go conventions and CI gate matrix see
+[Coding standards](docs/development/coding-standards.md).
 
 ## Documentation
 

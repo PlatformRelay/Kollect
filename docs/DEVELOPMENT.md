@@ -226,104 +226,23 @@ miss your types.
 
 ## Tests
 
-See [Testing strategy](development/testing.md) for the full L0–L5 pyramid, coverage targets, and CI
-gate matrix ([ADR-0706](adr/0706-testing-merge-gate-architecture.md)).
+Test pyramid (L0–L5), coverage floors, and CI gates:
+[Testing strategy](development/testing.md) · [ADR-0706](adr/0706-testing-merge-gate-architecture.md) ·
+[coding-standards.md](development/coding-standards.md#testing).
 
-### Unit tests + envtest
-
-```sh
-task test
-# equivalent: make test
-```
+| Task | Purpose |
+| --- | --- |
+| `task test` | Unit + envtest (no coverage floor) |
+| `task coverage` | Unit/envtest + `coverage.out` + floor check |
+| `task test-integration` | L3 sink/transport integration (Docker) |
+| `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
 
 `make test` runs `setup-envtest`, which downloads Kubernetes API server/etcd binaries into `bin/`
-for controller-runtime envtest. First run may take a minute.
+for controller-runtime envtest. First run may take a minute. Controller tests live under
+`internal/controller/` (`suite_test.go` sets up envtest).
 
-Controller tests live under `internal/controller/` (`suite_test.go` sets up envtest).
-
-### Integration tests (testcontainers)
-
-Sink integration tests use the `integration` build tag and Docker:
-
-- **Git:** bare `file://` remote
-- **S3:** MinIO module
-- **Postgres:** official Postgres image (`internal/sink/postgres/`)
-- **Kafka:** Redpanda module (`internal/sink/kafka/`)
-
-```sh
-task test-integration
-# equivalent:
-go test -tags=integration -count=1 ./internal/sink/...
-```
-
-If Docker is unavailable, MinIO tests skip; unit tests under `internal/sink/` still run via
-`task test`.
-
-### End-to-end (kind)
-
-L4 e2e is **shell-first** (`hack/kind/e2e/` + `hack/e2e/`). Use `task test:e2e` for local CI parity
-(setup → smoke → teardown). Nightly and path-filtered PR workflows use the same scripts.
-
-```sh
-task test:e2e
-# or step-by-step:
-task kind-e2e-up
-bash hack/kind/e2e/smoke.sh
-task kind-e2e-down
-```
-
-Manual extended workflow: `.github/workflows/test-e2e.yaml`. Webhook/cert path changes on PRs also
-trigger `.github/workflows/e2e-webhook-path.yaml` (kind smoke only).
-
-### Nightly kind smoke (CI)
-
-Scheduled and manual workflow `.github/workflows/e2e-nightly.yaml` uses `hack/kind/e2e/setup.sh`
-and `hack/kind/e2e/smoke.sh` on cluster **kollect-e2e**, then runs multi-tenant isolation,
-`task bench` with artifact upload, and a local bare-repo git export assert. Remote git clone/SHA
-assert in `hack/e2e/git-export-assert.sh` is skipped when `GITHUB_TOKEN` is unset (inventory HTTP
-hash is still verified); set `GIT_EXPORT_TEST_REPO` to override the default demo repo URL.
-
-### tenantMode RBAC e2e
-
-Nightly installs a second Helm release (`kollect-tenant`) in `kollect-tenant-ops` with
-`tenantMode: true` and asserts a namespaced `Role` (no manager `ClusterRole`):
-
-```sh
-chmod +x hack/e2e/tenant-mode.sh
-REPO_ROOT="$(pwd)" hack/e2e/tenant-mode.sh
-```
-
-### Multi-tenant e2e (default pattern)
-
-Nightly smoke uses **dynamic tenant namespaces** (`kollect-tenant-a`, `kollect-tenant-b`) — not
-shared `default` — to prove per-namespace inventory rollup isolation:
-
-```sh
-# After operator is running on kind (see nightly workflow or local Helm install):
-chmod +x hack/e2e/multitenant.sh
-REPO_ROOT="$(pwd)" hack/e2e/multitenant.sh
-```
-
-The script:
-
-1. Creates two tenant namespaces with distinct label selectors on `KollectTarget`.
-2. Seeds one Deployment per tenant.
-3. Asserts each `KollectInventory.status.itemCount` is **1** (no cross-tenant leakage).
-4. Probes `GET /inventory?namespace=<tenant>` and verifies HTTP payloads stay scoped.
-
-Fixtures live under `test/e2e/fixtures/multitenant/`. Helm CI values:
-`charts/kollect/ci/e2e-tenant-values.yaml`.
-
-Unit tests: `TestKollectInventoryReconciler_aggregatesSameNamespaceOnly`,
-`TestStoreNamespaceIsolation`, `TestCacheOptionsForWatchNamespaces_scopedNamespaces`.
-
-### Coverage
-
-```sh
-make test
-# cover.out at repo root
-go tool cover -func=cover.out
-```
+E2E scripts, nightly workflows, multi-tenant fixtures, and tenantMode RBAC asserts are documented in
+[testing.md](development/testing.md) and `hack/kind/README.md`.
 
 ### Benchmarks (micro, safe default)
 
@@ -380,30 +299,21 @@ Full guide: [examples/ui-local-development.md](examples/ui-local-development.md)
 
 ## Lint and format
 
+Go conventions, lint policy, and CI gates:
+[coding-standards.md](development/coding-standards.md) ·
+[tooling-setup.md](development/tooling-setup.md).
+
 ```sh
-task lint          # golangci-lint v2 + go-arch-lint (custom plugins via .custom-gcl.yml if present)
-task arch-lint     # import-graph fitness only (.go-arch-lint.yml)
-task vulncheck     # govulncheck ./... (same as CI vulncheck job)
+task lint          # golangci-lint v2 + go-arch-lint
+task arch-lint     # import-graph fitness only
+task vulncheck     # govulncheck (CI vulncheck job)
 task format        # go fmt ./...
 task format:check  # fail if gofmt would change files
-task helm-test     # helm lint + unittest (transport default, tenantMode RBAC)
-task lint:markdown  # markdownlint-cli2 on docs/**/*.md and scoped READMEs
+task helm-test     # helm lint + unittest
+task lint:markdown # markdownlint-cli2 on docs/**/*.md
 ```
 
-`task vulncheck` uses the [Go vulnerability database](https://vuln.go.dev/) and fails when known
-issues affect imported packages in this module. See [SECURITY.md](../SECURITY.md) for policy and
-documented exceptions.
-
-Install hooks once:
-
-```sh
-pre-commit install
-```
-
-Pre-commit runs gitleaks, scrub, verify, golangci-lint, and markdownlint on relevant changes.
-
-Architecture tooling setup (SonarCloud tokens, arch-lint baseline workflow):
-[development/tooling-setup.md](development/tooling-setup.md).
+Install hooks once: `pre-commit install` (gitleaks, scrub, verify, golangci-lint, markdownlint).
 
 ## Pre-commit and scrub before push
 
@@ -484,7 +394,7 @@ Configuration: `mkdocs.yml` at the repository root. GitHub Pages workflow:
 | --- | --- |
 | [QUICKSTART.md](QUICKSTART.md) | First install on kind, sample CRs |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | CRD model, reconciliation, phasing |
-| [REQUIREMENTS.md](REQUIREMENTS.md) | Product priorities |
+| [REQUIREMENTS.md](REQUIREMENTS.md) | Product requirements and NFRs |
 | [examples/deployment-inventory.md](examples/deployment-inventory.md) | Annotated YAML walkthroughs |
 | [adr/README.md](adr/README.md) | Architecture decision records |
 | [PERFORMANCE.md](PERFORMANCE.md) | Scale targets, metrics, pprof, bounded load tests |

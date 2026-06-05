@@ -137,6 +137,8 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | NFR-REL-4 | Degrade (not crash) under partial RBAC; record `skipped:forbidden` |
 | NFR-REL-5 | Pod restart loses only in-memory cache; rebuilt from informer resync |
 
+Enforcement patterns: [GUIDELINES.md § 1–2](../GUIDELINES.md#2-robustness-and-reliability).
+
 ### 4.3 Security (NFR-SEC)
 
 | ID | Requirement |
@@ -146,6 +148,9 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | NFR-SEC-3 | Tenancy enforced by `KollectScope` (hard degrade) + SAR; least-privilege RBAC |
 | NFR-SEC-4 | Sensitive-key redaction before export; no secret material in inventory |
 | NFR-SEC-5 | Distroless nonroot image; minimal attack surface |
+
+Enforcement: [GUIDELINES.md § 3](../GUIDELINES.md#3-security),
+[coding-standards.md § Security](development/coding-standards.md#security).
 
 ### 4.4 Operability (NFR-OPS)
 
@@ -174,6 +179,9 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | NFR-TEST-3 | Scheduled full-path e2e (install → apply samples → assert conditions/export) |
 | NFR-TEST-4 | Codegen drift gate (`task verify`) green at every commit |
 
+Enforcement: [GUIDELINES.md § 4](../GUIDELINES.md#4-testing),
+[testing.md](development/testing.md), [coding-standards.md § Testing](development/coding-standards.md#testing).
+
 ## 5. Explicit non-goals
 
 | Non-goal | Rationale |
@@ -198,6 +206,9 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 
 ## See also
 
+- [GUIDELINES.md](../GUIDELINES.md) — operator engineering principles (enforcement of NFRs)
+- [coding-standards.md](development/coding-standards.md) — Go lint, testing, and CI gates
+- [CONTRIBUTING.md](../CONTRIBUTING.md) — contribution process
 - [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) — coordinator brief (locked decisions)
 - [ARCHITECTURE.md](ARCHITECTURE.md) — system overview
 - [adr/README.md](adr/README.md) — decision records, grouped by theme

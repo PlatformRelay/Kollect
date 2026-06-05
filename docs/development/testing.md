@@ -96,11 +96,8 @@ Full local setup: [DEVELOPMENT.md](../DEVELOPMENT.md).
 
 ## Definition of done
 
-From project guidelines — enforced by review:
-
-- Relevant tests green at the appropriate tier; lint clean; `task verify` shows no drift.
-- New external I/O: timeouts + backoff; no secrets in logs; status conditions updated.
-- Non-trivial decisions → ADR update in `docs/adr/`.
+Per-change checklist: [GUIDELINES.md § 6](../../GUIDELINES.md#6-definition-of-done-per-change).
+PR workflow: [CONTRIBUTING.md § Pull request process](../../CONTRIBUTING.md#pull-request-process).
 
 ## Further reading
 
