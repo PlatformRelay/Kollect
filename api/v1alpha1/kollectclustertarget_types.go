@@ -43,11 +43,19 @@ type KollectClusterTargetStatus struct {
 
 // KollectClusterTarget selects resources cluster-wide for platform operators.
 type KollectClusterTarget struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is a standard object metadata
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	Spec   KollectClusterTargetSpec   `json:"spec"`
-	Status KollectClusterTargetStatus `json:"status,omitzero"`
+	// spec defines the desired state of KollectClusterTarget
+	// +required
+	Spec KollectClusterTargetSpec `json:"spec"`
+
+	// status defines the observed state of KollectClusterTarget
+	// +optional
+	Status KollectClusterTargetStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

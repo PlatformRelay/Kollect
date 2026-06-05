@@ -4,8 +4,6 @@
 package controller
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -18,7 +16,6 @@ import (
 
 var _ = Describe("KollectTarget scope enforcement", func() {
 	It("degrades target when profile GVK is outside KollectScope allowlist", func() {
-		ctx := context.Background()
 		const testNS = "default"
 
 		teamScope := &kollectdevv1alpha1.KollectScope{

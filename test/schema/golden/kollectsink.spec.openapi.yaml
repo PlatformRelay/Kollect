@@ -1,0 +1,120 @@
+description: spec defines the desired state of KollectSink
+properties:
+  cluster:
+    description: cluster labels exported inventory in multi-cluster installs.
+    type: string
+  connectionTest:
+    description: |-
+      connectionTest requests a connectivity check on create/update when true.
+      The annotation kollect.dev/test-connection=true has the same effect.
+    type: boolean
+  endpoint:
+    description: endpoint is the backend-specific destination (URL, bucket, and so
+      on).
+    type: string
+  kafka:
+    description: kafka configures a Kafka or Redpanda event sink.
+    properties:
+      brokers:
+        description: brokers lists Kafka bootstrap addresses (host:port).
+        items:
+          type: string
+        type: array
+        x-kubernetes-list-type: atomic
+      secretRef:
+        description: secretRef references a Secret with optional SASL/TLS credentials.
+        properties:
+          name:
+            description: name is the name of the referenced Secret.
+            type: string
+          namespace:
+            description: namespace is the namespace of the referenced Secret.
+            type: string
+        required:
+        - name
+        type: object
+      topic:
+        description: topic is the destination topic for inventory events.
+        type: string
+    required:
+    - brokers
+    - topic
+    type: object
+  postgres:
+    description: postgres configures a PostgreSQL database sink.
+    properties:
+      databaseRef:
+        description: databaseRef references a Secret containing the connection string
+          (key dsn or url).
+        properties:
+          name:
+            description: name is the name of the referenced Secret.
+            type: string
+          namespace:
+            description: namespace is the namespace of the referenced Secret.
+            type: string
+        required:
+        - name
+        type: object
+      schema:
+        description: schema is the PostgreSQL schema (default public).
+        type: string
+      table:
+        description: table is the destination table name.
+        type: string
+    required:
+    - databaseRef
+    - table
+    type: object
+  secretRef:
+    description: secretRef references a Secret holding credentials for the sink.
+    properties:
+      name:
+        description: name is the name of the referenced Secret.
+        type: string
+      namespace:
+        description: namespace is the namespace of the referenced Secret.
+        type: string
+    required:
+    - name
+    type: object
+  tls:
+    description: tls configures TLS verification for HTTPS git and similar endpoints.
+    properties:
+      caBundle:
+        description: |-
+          caBundle is an inline PEM-encoded CA certificate bundle.
+          Prefer caSecretRef for production; do not set both caBundle and caSecretRef.
+        format: byte
+        type: string
+      caSecretRef:
+        description: caSecretRef references a Secret containing a PEM CA bundle (key
+          tls.crt or ca.crt).
+        properties:
+          name:
+            description: name is the name of the referenced Secret.
+            type: string
+          namespace:
+            description: namespace is the namespace of the referenced Secret.
+            type: string
+        required:
+        - name
+        type: object
+      insecureSkipVerify:
+        description: insecureSkipVerify disables server certificate verification (not
+          recommended).
+        type: boolean
+    type: object
+  type:
+    description: type selects the sink backend implementation.
+    enum:
+    - git
+    - gitlab
+    - s3
+    - gcs
+    - postgres
+    - kafka
+    type: string
+required:
+- type
+type: object

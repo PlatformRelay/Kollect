@@ -420,6 +420,14 @@ func (e *Engine) namespaceMetaFor(name string) namespaceMeta {
 }
 
 func (e *Engine) namespaceMatches(target *kollectdevv1alpha1.KollectTarget, resourceNamespace string) bool {
+	// Cluster-scoped targets register one synthetic KollectTarget per workload namespace
+	// using a metadata.name pin; skip tenant/label selectors for that path.
+	if target.Spec.NamespaceSelector != nil {
+		if name, ok := target.Spec.NamespaceSelector.MatchLabels[corev1.LabelMetadataName]; ok {
+			return resourceNamespace == name
+		}
+	}
+
 	e.nsMu.RLock()
 	meta, ok := e.nsMeta[resourceNamespace]
 	e.nsMu.RUnlock()

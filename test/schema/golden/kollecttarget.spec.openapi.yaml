@@ -1,13 +1,58 @@
-description: spec defines the desired state of KollectClusterInventory
+description: spec defines the desired state of KollectTarget
 properties:
-  exportMinInterval:
-    default: 30s
-    description: |-
-      exportMinInterval is the minimum time between identical exports for this inventory.
-      Material changes (payload checksum or spec generation) bypass the interval.
-    type: string
+  labelSelector:
+    description: labelSelector restricts collection to resources matching the selector.
+    properties:
+      matchExpressions:
+        description: matchExpressions is a list of label selector requirements. The
+          requirements are ANDed.
+        items:
+          description: |-
+            A label selector requirement is a selector that contains values, a key, and an operator that
+            relates the key and values.
+          properties:
+            key:
+              description: key is the label key that the selector applies to.
+              type: string
+            operator:
+              description: |-
+                operator represents a key's relationship to a set of values.
+                Valid operators are In, NotIn, Exists and DoesNotExist.
+              type: string
+            values:
+              description: |-
+                values is an array of string values. If the operator is In or NotIn,
+                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                the values array must be empty. This array is replaced during a strategic
+                merge patch.
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: atomic
+          required:
+          - key
+          - operator
+          type: object
+        type: array
+        x-kubernetes-list-type: atomic
+      matchLabels:
+        additionalProperties:
+          type: string
+        description: |-
+          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+          map is equivalent to an element of matchExpressions, whose key field is "key", the
+          operator is "In", and the values array contains only "value". The requirements are ANDed.
+        type: object
+    type: object
+    x-kubernetes-map-type: atomic
+  names:
+    description: names optionally restricts collection to resources with these names.
+    items:
+      type: string
+    type: array
   namespaceSelector:
-    description: namespaceSelector restricts rollup to namespaces matching the selector.
+    description: namespaceSelector restricts collection to namespaces matching the
+      selector.
     properties:
       matchExpressions:
         description: matchExpressions is a list of label selector requirements. The
@@ -52,77 +97,23 @@ properties:
     type: object
     x-kubernetes-map-type: atomic
   profileRef:
-    description: profileRef names a KollectClusterProfile stub for shared extraction
-      schema (optional).
+    description: profileRef is the name of a KollectProfile in the same namespace
+      as this Target.
     type: string
-  sinkNamespace:
-    default: kollect-system
-    description: sinkNamespace is the namespace where namespaced KollectSink objects
-      are resolved.
-    type: string
-  sinkRefs:
-    description: |-
-      sinkRefs lists KollectSink names resolved in sinkNamespace.
-      Namespaced sinks in the export namespace are the MVP path; KollectClusterSink is reserved.
-    items:
-      type: string
-    type: array
   suspend:
-    description: suspend pauses reconciliation when set to true (reserved for future
-      controller).
+    description: suspend pauses reconciliation of this target when set to true.
     type: boolean
-  targetRefs:
+  watchMode:
+    default: All
     description: |-
-      targetRefs lists KollectClusterTarget names to aggregate.
-      When empty, all cluster targets matching targetSelector are included; when targetSelector is
-      also empty, all KollectClusterTarget objects contribute.
-    items:
-      type: string
-    type: array
-  targetSelector:
-    description: targetSelector narrows which KollectClusterTarget objects contribute
-      when targetRefs is empty.
-    properties:
-      matchExpressions:
-        description: matchExpressions is a list of label selector requirements. The
-          requirements are ANDed.
-        items:
-          description: |-
-            A label selector requirement is a selector that contains values, a key, and an operator that
-            relates the key and values.
-          properties:
-            key:
-              description: key is the label key that the selector applies to.
-              type: string
-            operator:
-              description: |-
-                operator represents a key's relationship to a set of values.
-                Valid operators are In, NotIn, Exists and DoesNotExist.
-              type: string
-            values:
-              description: |-
-                values is an array of string values. If the operator is In or NotIn,
-                the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                the values array must be empty. This array is replaced during a strategic
-                merge patch.
-              items:
-                type: string
-              type: array
-              x-kubernetes-list-type: atomic
-          required:
-          - key
-          - operator
-          type: object
-        type: array
-        x-kubernetes-list-type: atomic
-      matchLabels:
-        additionalProperties:
-          type: string
-        description: |-
-          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-          map is equivalent to an element of matchExpressions, whose key field is "key", the
-          operator is "In", and the values array contains only "value". The requirements are ANDed.
-        type: object
-    type: object
-    x-kubernetes-map-type: atomic
+      watchMode controls namespace/resource watch opt-in vs opt-out (ADR-0029).
+      All (default): collect matching selectors except resources/namespaces explicitly disabled.
+      OptIn: only collect resources/namespaces explicitly enabled via kollect.dev/watch or
+      kollect.dev/namespace-watch.
+    enum:
+    - All
+    - OptIn
+    type: string
+required:
+- profileRef
 type: object

@@ -37,11 +37,19 @@ type KollectClusterProfileStatus struct {
 
 // KollectClusterProfile is the Schema for platform-wide shared extraction schemas.
 type KollectClusterProfile struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is a standard object metadata
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	Spec   KollectClusterProfileSpec   `json:"spec"`
-	Status KollectClusterProfileStatus `json:"status,omitzero"`
+	// spec defines the desired state of KollectClusterProfile
+	// +required
+	Spec KollectClusterProfileSpec `json:"spec"`
+
+	// status defines the observed state of KollectClusterProfile
+	// +optional
+	Status KollectClusterProfileStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

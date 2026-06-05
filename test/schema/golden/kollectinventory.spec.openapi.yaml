@@ -1,0 +1,39 @@
+description: spec defines the desired state of KollectInventory
+properties:
+  exportMinInterval:
+    default: 30s
+    description: |-
+      exportMinInterval is the minimum time between identical exports for this inventory.
+      Material changes (payload checksum or spec generation) bypass the interval.
+    type: string
+  httpEndpoint:
+    description: httpEndpoint exposes a read-only inventory summary over HTTP when
+      enabled.
+    properties:
+      enabled:
+        description: enabled turns on GET /v1alpha1/inventory (aggregated summary
+          JSON).
+        type: boolean
+      port:
+        description: port is the listen port for the inventory HTTP server (default
+          8082).
+        format: int32
+        maximum: 65535
+        minimum: 1
+        type: integer
+    type: object
+  maxExportBytes:
+    description: |-
+      maxExportBytes caps the marshalled namespace payload for export and HTTP (optional).
+      Webhook rejects values above the operator global cap (ADR-0006).
+    format: int64
+    type: integer
+  sinkRefs:
+    description: sinkRefs lists KollectSink names in the same namespace as this Inventory.
+    items:
+      type: string
+    type: array
+  suspend:
+    description: suspend pauses reconciliation of this inventory when set to true.
+    type: boolean
+type: object

@@ -1,0 +1,52 @@
+description: spec defines the desired state of KollectClusterProfile
+properties:
+  attributes:
+    description: attributes lists the values to extract from each matching resource.
+    items:
+      description: AttributeSpec describes a single value extracted from a target
+        resource.
+      properties:
+        name:
+          description: name is the unique key under which the extracted value is stored.
+          type: string
+        optional:
+          description: optional marks the attribute as non-fatal when extraction yields
+            no value.
+          type: boolean
+        path:
+          description: path is the JSONPath or CEL expression used to extract the
+            value.
+          type: string
+        type:
+          description: type is the expected value type (for example string, int, or
+            bool).
+          type: string
+      required:
+      - name
+      - path
+      type: object
+    type: array
+    x-kubernetes-list-map-keys:
+    - name
+    x-kubernetes-list-type: map
+  targetGVK:
+    description: targetGVK selects the Kubernetes resource kind this profile applies
+      to.
+    properties:
+      group:
+        description: group is the API group of the target resource (empty for the
+          core group).
+        type: string
+      kind:
+        description: kind is the API kind of the target resource.
+        type: string
+      version:
+        description: version is the API version of the target resource.
+        type: string
+    required:
+    - kind
+    - version
+    type: object
+required:
+- targetGVK
+type: object

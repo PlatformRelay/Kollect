@@ -81,11 +81,19 @@ type KollectClusterInventoryStatus struct {
 
 // KollectClusterInventory rolls up cluster targets for platform operators.
 type KollectClusterInventory struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is a standard object metadata
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	Spec   KollectClusterInventorySpec   `json:"spec"`
-	Status KollectClusterInventoryStatus `json:"status,omitzero"`
+	// spec defines the desired state of KollectClusterInventory
+	// +required
+	Spec KollectClusterInventorySpec `json:"spec"`
+
+	// status defines the observed state of KollectClusterInventory
+	// +optional
+	Status KollectClusterInventoryStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

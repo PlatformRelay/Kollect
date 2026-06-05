@@ -142,6 +142,11 @@ func (r *KollectClusterTargetReconciler) syncEngineTargets(
 			},
 			Spec: kollectdevv1alpha1.KollectTargetSpec{
 				ProfileRef: ct.Spec.ProfileRef,
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						corev1.LabelMetadataName: ns,
+					},
+				},
 			},
 		}
 
