@@ -52,7 +52,7 @@ export function ExportStatusBar({ statuses }: ExportStatusBarProps) {
             title={entry.message}
           >
             <span className="font-medium text-kollect-navy">{sinkLabel}</span>
-            <HealthBadge health={health} label={entry.status} />
+            <HealthBadge level={health} exportStatus={entry.status} />
             <span className="text-slate-500">{formatRelativeTime(entry.lastExportTime)}</span>
           </div>
         );
