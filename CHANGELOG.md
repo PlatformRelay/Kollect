@@ -144,6 +144,8 @@ anchor on an older commit.
 
 ### Features
 
+- **api:** Per-sink export interval scheduling [296577b](https://github.com/konih/kollect/commit/296577bc0f2c682ea54d9cd3aea61275f93cf335)
+
 - **demo:** Venue pitch personas, fast churn, UI reveal [29f8046](https://github.com/konih/kollect/commit/29f80464d70a206ebb48baefbd197e464178edf5)
 
 - **chart:** Add Prometheus Operator monitoring [cfbe62f](https://github.com/konih/kollect/commit/cfbe62f6aba27de52ac01b38fcff899dd1ddfa3c)
