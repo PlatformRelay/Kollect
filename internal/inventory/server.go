@@ -12,21 +12,24 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/metrics"
 )
 
-// Summary is the JSON payload for GET /inventory (stub until aggregation is wired).
+// Summary is the JSON payload for GET /inventory.
 type Summary struct {
 	ItemCount int            `json:"itemCount"`
-	Clusters  map[string]any `json:"clusters,omitempty"`
+	Namespace string         `json:"namespace,omitempty"`
+	Items     []collect.Item `json:"items,omitempty"`
 	UpdatedAt string         `json:"updatedAt"`
-	Note      string         `json:"note,omitempty"`
 }
 
-// Server serves read-only inventory HTTP endpoints.
+// Server serves read-only inventory HTTP endpoints backed by the collection store.
 type Server struct {
 	Enabled bool
 	Port    int32
+	Store   *collect.Store
+	Auth    AuthConfig
 }
 
 // Start runs the HTTP server until ctx is cancelled.
@@ -41,8 +44,9 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /inventory", s.handleInventory)
-	// TODO: SSE or watch endpoint for async inventory updates (see ADR-0014).
+	handler := s.Auth.Middleware(http.HandlerFunc(s.handleInventory))
+	mux.Handle("GET /inventory", handler)
+	mux.Handle("GET /inventory/watch", s.Auth.Middleware(http.HandlerFunc(s.handleWatch)))
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", port),
@@ -57,7 +61,7 @@ func (s *Server) Start(ctx context.Context) error {
 		_ = srv.Shutdown(shutdownCtx)
 	}()
 
-	log.FromContext(ctx).Info("inventory HTTP listening", "port", port)
+	log.FromContext(ctx).Info("inventory HTTP listening", "port", port, "authMode", s.Auth.Mode)
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("inventory HTTP server: %w", err)
@@ -66,15 +70,84 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *Server) handleInventory(w http.ResponseWriter, _ *http.Request) {
-	summary := Summary{
-		ItemCount: 0,
-		Clusters:  map[string]any{},
-		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
-		Note:      "stub summary until KollectInventory aggregation is implemented",
-	}
+func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
+	namespace := r.URL.Query().Get("namespace")
+	summary := s.buildSummary(namespace)
+
 	metrics.InventoryItemsTotal.Set(float64(summary.ItemCount))
+	metrics.CollectItemsTotal.Set(float64(summary.ItemCount))
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(summary)
+}
+
+func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
+	if s.Store == nil {
+		http.Error(w, "store unavailable", http.StatusServiceUnavailable)
+
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+
+		return
+	}
+
+	namespace := r.URL.Query().Get("namespace")
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	ch := s.Store.Subscribe()
+	defer s.Store.Unsubscribe(ch)
+
+	send := func() bool {
+		payload, err := json.Marshal(s.buildSummary(namespace))
+		if err != nil {
+			return false
+		}
+
+		if _, err := fmt.Fprintf(w, "event: inventory\ndata: %s\n\n", payload); err != nil {
+			return false
+		}
+
+		flusher.Flush()
+
+		return true
+	}
+
+	if !send() {
+		return
+	}
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ch:
+			if !send() {
+				return
+			}
+		}
+	}
+}
+
+func (s *Server) buildSummary(namespace string) Summary {
+	itemCount := 0
+	var items []collect.Item
+
+	if s.Store != nil {
+		nsSummary := s.Store.Summary(namespace)
+		itemCount = nsSummary.ItemCount
+		items = nsSummary.Items
+	}
+
+	return Summary{
+		ItemCount: itemCount,
+		Namespace: namespace,
+		Items:     items,
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+	}
 }
