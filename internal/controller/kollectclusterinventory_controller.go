@@ -5,7 +5,6 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -29,6 +28,7 @@ import (
 	"github.com/konih/kollect/internal/aggregate"
 	"github.com/konih/kollect/internal/collect"
 	kollecterrors "github.com/konih/kollect/internal/errors"
+	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink"
 	"github.com/konih/kollect/internal/validation"
@@ -126,7 +126,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	sinkNS string,
 	log logr.Logger,
 ) (ctrl.Result, error) {
-	payload, err := r.marshalRollupPayload(targets)
+	payload, fingerprint, err := r.marshalRollupPayload(inv, targets)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -140,7 +140,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 
 	key := req.String()
 
-	if r.shouldDebounce(inv, key, payload) {
+	if r.shouldDebounce(inv, key, []byte(fingerprint)) {
 		debounce := r.exportDebounce(inv)
 		delay := debounce - time.Since(r.lastExportTime(key))
 		if delay < time.Second {
@@ -187,7 +187,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 		return result, err
 	}
 
-	r.recordExport(inv, key, payload)
+	r.recordExport(inv, key, []byte(fingerprint))
 
 	return r.updateStatus(ctx, inv, len(targets), itemCount, nil)
 }
@@ -217,16 +217,30 @@ func (r *KollectClusterInventoryReconciler) collectRollupItems(
 	return aggregate.MergeRows(items, aggregate.DedupeByResourceUID)
 }
 
-func (r *KollectClusterInventoryReconciler) marshalRollupPayload(
-	targets []kollectdevv1alpha1.KollectClusterTarget,
-) ([]byte, error) {
-	return json.Marshal(r.collectRollupItems(targets))
-}
-
 func (r *KollectClusterInventoryReconciler) countRollupItems(
 	targets []kollectdevv1alpha1.KollectClusterTarget,
 ) int {
 	return len(r.collectRollupItems(targets))
+}
+
+func (r *KollectClusterInventoryReconciler) marshalRollupPayload(
+	inv *kollectdevv1alpha1.KollectClusterInventory,
+	targets []kollectdevv1alpha1.KollectClusterTarget,
+) ([]byte, string, error) {
+	items := r.collectRollupItems(targets)
+	fingerprint, err := export.ItemsFingerprint(items)
+	if err != nil {
+		return nil, "", err
+	}
+
+	payload, err := collect.MarshalExportEnvelope(items, collect.ExportMetadata{
+		Generation: inv.Generation,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	return payload, fingerprint, nil
 }
 
 func (r *KollectClusterInventoryReconciler) exportToSink(

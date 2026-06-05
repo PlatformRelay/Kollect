@@ -4,7 +4,6 @@
 package collect
 
 import (
-	"encoding/json"
 	"sync"
 )
 
@@ -135,9 +134,17 @@ func (s *Store) SnapshotTarget(targetNamespace, targetName string) []Item {
 	return out
 }
 
-// MarshalTargetJSON returns a JSON array of items for one target.
+// MarshalTargetJSON returns a versioned export envelope for one target (ADR-0405).
 func (s *Store) MarshalTargetJSON(targetNamespace, targetName string) ([]byte, error) {
-	return json.Marshal(s.SnapshotTarget(targetNamespace, targetName))
+	return s.MarshalTargetExport(targetNamespace, targetName, ExportMetadata{})
+}
+
+// MarshalTargetExport returns a versioned export envelope for one target.
+func (s *Store) MarshalTargetExport(
+	targetNamespace, targetName string,
+	meta ExportMetadata,
+) ([]byte, error) {
+	return MarshalExportEnvelope(s.SnapshotTarget(targetNamespace, targetName), meta)
 }
 
 // Remove deletes an item by target and resource UID.
@@ -198,9 +205,14 @@ func (s *Store) SnapshotNamespace(namespace string) []Item {
 	return out
 }
 
-// MarshalNamespaceJSON returns a JSON array of items in the namespace.
+// MarshalNamespaceJSON returns a versioned export envelope for the namespace (ADR-0405).
 func (s *Store) MarshalNamespaceJSON(namespace string) ([]byte, error) {
-	return json.Marshal(s.SnapshotNamespace(namespace))
+	return s.MarshalNamespaceExport(namespace, ExportMetadata{})
+}
+
+// MarshalNamespaceExport returns a versioned export envelope for the namespace.
+func (s *Store) MarshalNamespaceExport(namespace string, meta ExportMetadata) ([]byte, error) {
+	return MarshalExportEnvelope(s.SnapshotNamespace(namespace), meta)
 }
 
 // TotalCount returns the number of items across all targets.

@@ -5,7 +5,6 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -173,8 +172,8 @@ func TestKollectClusterInventoryReconciler_dedupesCrossTargetRows(t *testing.T) 
 	}
 
 	var exported []collect.Item
-	if err := json.Unmarshal(recorder.exported[0], &exported); err != nil {
-		t.Fatalf("Unmarshal export: %v", err)
+	if exported, err = collect.ItemsFromExportPayload(recorder.exported[0]); err != nil {
+		t.Fatalf("decode export: %v", err)
 	}
 
 	if len(exported) != 1 {

@@ -74,11 +74,9 @@ func (b *Backend) Close() {
 // Export upserts each inventory item keyed by inventory, target, and source UID,
 // then deletes rows absent from the current snapshot (ADR-0401 delete reconciliation).
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
-	var items []collect.Item
-	if len(payload) > 0 {
-		if err := json.Unmarshal(payload, &items); err != nil {
-			return fmt.Errorf("postgres export: decode payload: %w", err)
-		}
+	items, err := collect.ItemsFromExportPayload(payload)
+	if err != nil {
+		return fmt.Errorf("postgres export: decode payload: %w", err)
 	}
 
 	invNS, invName := inventoryFromObjectPath(objectPath)

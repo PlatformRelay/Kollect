@@ -25,6 +25,7 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
 	kollecterrors "github.com/konih/kollect/internal/errors"
+	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink"
 	"github.com/konih/kollect/internal/spoke"
@@ -102,7 +103,15 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	payload, err := r.Store.MarshalNamespaceJSON(inv.Namespace)
+	items := r.Store.SnapshotNamespace(inv.Namespace)
+	fingerprint, err := export.ItemsFingerprint(items)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	payload, err := r.Store.MarshalNamespaceExport(inv.Namespace, collect.ExportMetadata{
+		Generation: inv.Generation,
+	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -114,7 +123,7 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.setInventoryDegraded(ctx, &inv, itemCount, "PayloadTooLarge", msg)
 	}
 
-	hash := payloadHash(payload)
+	hash := fingerprint
 	key := req.String()
 
 	if r.shouldDebounce(&inv, key, hash) {

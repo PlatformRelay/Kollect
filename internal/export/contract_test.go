@@ -3,7 +3,11 @@
 
 package export
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/konih/kollect/internal/collect"
+)
 
 func TestNormalizeSchemaVersion(t *testing.T) {
 	t.Parallel()
@@ -30,5 +34,14 @@ func TestValidateSchemaVersion(t *testing.T) {
 
 	if err := ValidateSchemaVersion("kollect.dev/v99"); err == nil {
 		t.Fatal("expected error for unsupported version")
+	}
+}
+
+func TestSchemaVersionAlignedWithCollect(t *testing.T) {
+	t.Parallel()
+
+	if SchemaVersion != collect.ExportSchemaVersion {
+		t.Fatalf("export.SchemaVersion = %q, collect.ExportSchemaVersion = %q",
+			SchemaVersion, collect.ExportSchemaVersion)
 	}
 }
