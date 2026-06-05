@@ -15,6 +15,12 @@ kind_use_context "${CLUSTER_NAME:-kollect-e2e}"
 
 _log() { echo "[git-export] $*"; }
 
+# Matrix-isolated nightly jobs run setup only; bootstrap samples before export assert.
+if ! kubectl get kollectinventory team-inventory -n default >/dev/null 2>&1; then
+  _log "Bootstrapping e2e sample CRs for git-export job..."
+  bash "${REPO_ROOT}/hack/kind/e2e/bootstrap-samples.sh"
+fi
+
 _log "Capturing inventory HTTP payload..."
 kubectl port-forward -n "$KOLLECT_NAMESPACE" svc/kollect-controller-manager 18083:8082 &
 PF_PID=$!
