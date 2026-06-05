@@ -113,13 +113,13 @@ export fans out to **Postgres and Kafka in parallel**. `hub.remoteClusters` sets
 ### Connection test (`KollectSink`)
 
 Production sink manifests should use **`spec.connectionTest: false`** (default) and trigger probes with
-the **`kollect.dev/test-connection: "true"`** annotation when needed ([ADR-0403](../docs/adr/0403-connection-test.md)).
+the **`kollect.dev/test-connection: "true"`** annotation when needed ([ADR-0403](../../docs/adr/0403-connection-test.md)).
 CI/samples may set `connectionTest: true`.
 
 ### Hub transport
 
 Hub/spoke transport defaults to **`inprocess`** until an external backend passes integration tests.
-Do not enable Redis/NATS/Kafka in chart values without explicit ops choice ([ADR-0502](../docs/adr/0502-lean-queue-transport.md)).
+Do not enable Redis/NATS/Kafka in chart values without explicit ops choice ([ADR-0502](../../docs/adr/0502-lean-queue-transport.md)).
 
 ## Inventory HTTP authentication
 

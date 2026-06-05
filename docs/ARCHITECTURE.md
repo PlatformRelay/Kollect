@@ -64,9 +64,9 @@ flowchart TD
 | `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | `KollectInventory` | Namespace | Yes | Aggregate namespaced targets; export to sinks |
 | `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
-| `KollectClusterProfile` | Cluster | No | Webhook only (Phase 1) — platform schemas |
+| `KollectClusterProfile` | Cluster | No | Admission only — platform schemas (no controller) |
 | `KollectClusterSink` | Cluster | No | **Reserved** — shared backends |
-| `KollectClusterInventory` | Cluster | Webhook only | Platform rollup — pairs with `KollectClusterTarget` |
+| `KollectClusterInventory` | Cluster | Yes | Platform rollup — pairs with `KollectClusterTarget` |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
 | ~~`KollectHub`~~ | — | **Rejected / stub** | API types may remain in tree; **not** product surface — Helm `mode: hub` ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](adr/0702-doc-sync-templating.md) |

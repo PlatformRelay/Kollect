@@ -44,7 +44,8 @@ Optional Scope constrains GVKs, namespaces, and sinks. Use ConnectionTest to ver
 before export.
 
 **Platform flow:** `KollectClusterProfile` → `KollectClusterTarget` → `KollectClusterInventory` for
-cross-namespace rollup — webhook-only in Phase 1 (no controller yet).
+cross-namespace rollup. `KollectClusterTarget` and `KollectClusterInventory` controllers reconcile
+and export; `KollectClusterProfile` remains admission-only (no controller).
 
 ## Kinds
 
@@ -56,9 +57,9 @@ cross-namespace rollup — webhook-only in Phase 1 (no controller yet).
 | `KollectInventory` | Namespace | Yes | [crds/kollectinventory.md](crds/kollectinventory.md) |
 | `KollectScope` | Namespace | No (enforced) | [crds/kollectscope.md](crds/kollectscope.md) |
 | `KollectConnectionTest` | Namespace | Yes | [crds/kollectconnectiontest.md](crds/kollectconnectiontest.md) |
-| `KollectClusterProfile` | Cluster | Webhook only (Phase 1) | [crds/kollectclusterprofile.md](crds/kollectclusterprofile.md) |
-| `KollectClusterTarget` | Cluster | Webhook only (Phase 1) | [crds/kollectclustertarget.md](crds/kollectclustertarget.md) |
-| `KollectClusterInventory` | Cluster | Webhook only (Phase 1) | [crds/kollectclusterinventory.md](crds/kollectclusterinventory.md) |
+| `KollectClusterProfile` | Cluster | No (webhook only) | [crds/kollectclusterprofile.md](crds/kollectclusterprofile.md) |
+| `KollectClusterTarget` | Cluster | Yes | [crds/kollectclustertarget.md](crds/kollectclustertarget.md) |
+| `KollectClusterInventory` | Cluster | Yes | [crds/kollectclusterinventory.md](crds/kollectclusterinventory.md) |
 
 ## Reserved kinds (stubs pending)
 

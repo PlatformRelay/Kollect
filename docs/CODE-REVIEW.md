@@ -38,7 +38,7 @@ Prioritized findings from security, scalability, and architecture-gap review.
 | P2-4 | Store single `RWMutex` + full namespace snapshots | Open |
 | P2-5 | Debounce state in-memory only (restart burst) | Accept for MVP |
 | P2-6 | `resolveCAPEM` defaults secret namespace to `default` | Open |
-| P2-7 | `docs/ROADMAP.md` stale on `exportMinInterval` | Open |
+| P2-7 | `docs/ROADMAP.md` stale on `exportMinInterval` | ✅ Fixed — ROADMAP lines 277 and 395 mark ✅; architecture review 2026-06-05 confirmed |
 | P2-8 | Hub ingest body limit 8 MiB vs ADR 512 KiB inline | Open |
 | P2-9 | Inventory HTTP path param unused for auth/filtering | Open |
 
@@ -61,3 +61,18 @@ Prioritized findings from security, scalability, and architecture-gap review.
 - Scope hard degrade
 - TLS 1.2 minimum on git/transport sinks
 - ClusterTarget `namespaceSelector` required
+
+## Architecture review reconciliation (2026-06-05)
+
+Cross-check from the 2026-06-05 architecture review session. Doc-truth items from that pass are
+addressed in public docs; code gaps below remain open.
+
+| ID | Prior status | Review verdict | Evidence |
+| --- | --- | --- | --- |
+| P0-1–3 | ✅ Fixed | Confirmed | Hub ACL, token binding, fail-closed allowlist |
+| P1-1, P1-4, P1-7, P1-10, P1-11 | ✅ Fixed | Confirmed | Wired in code/docs |
+| P1-2, P1-3 | Open | **Still open** | `internal/inventory/auth.go` — SAR not namespace-scoped; index missing `list` |
+| P1-5, P1-6, P1-9, P1-12 | Open | **Still open** | Hub auth cache, plain HTTP ingest, no sink webhook, SAR cache TTL |
+| P2-1, P2-2, P2-6, P2-8, P2-9 | Open | **Still open** | KollectHub remnants, duplicate auth, CA namespace default, hub body limit, HTTP path param |
+| P2-7 | Open | **Closed (stale)** | ROADMAP ✅ on `exportMinInterval`; see P2 table above |
+| P2-3, P2-4, P2-5 | Open | Accept for MVP | Index dispatch, store lock, in-memory debounce — track post-beta |
