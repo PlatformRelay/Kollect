@@ -33,6 +33,20 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 | **Namespaced `KollectInventory`** | Team-owned rollup; **`KollectClusterInventory`** reserved for platform ([ADR-0004](adr/0004-crd-model.md)) |
 | **Namespaced `KollectScope` (Phase 3)** | Tenancy boundary first; **`KollectClusterScope`** for platform teams as addition |
 
+## Performance and scalability
+
+| Requirement | Rationale |
+| --- | --- |
+| **10,000+ watched objects** | Production clusters expose large Deployment/Service/Ingress counts; operator must stay responsive |
+| **Bounded memory** | Scoped informers, paginated `List`, shared cache per GVK — no unbounded full-cluster snapshots in RAM |
+| **Parallel reconcile workers** | `MaxConcurrentReconciles`, workqueue tuning, optional shard by namespace/GVK or `KollectScope` |
+| **Observability** | pprof on `:6060` (feature-gated); Prometheus metrics for queue depth, reconcile latency, informer cache size |
+| **Failure tolerance at scale** | Rate limits, requeue backoff, per-sink circuit breakers; SAR degrade must not block the whole queue |
+| **Bounded load testing** | Default `task test` ≤500 synthetic objects; opt-in `task load-test` (max 2000) — never 10k in CI/dev default |
+| **Micro-benchmarks** | `task bench` with `-short` for extractor hot path (`BenchmarkExtract`) |
+
+See [ADR-0026](adr/0026-performance-scalability.md) and [PERFORMANCE.md](PERFORMANCE.md).
+
 ## Testing
 
 | Requirement | Rationale |
@@ -75,3 +89,5 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 - [adr/0023-lean-queue-transport.md](adr/0023-lean-queue-transport.md) — hub queue selection (Accepted)
 - [adr/0024-inventory-api-auth.md](adr/0024-inventory-api-auth.md) — inventory HTTP auth (Accepted)
 - [adr/0025-sink-backends-database-kafka.md](adr/0025-sink-backends-database-kafka.md) — Postgres/Kafka sinks (Accepted)
+- [adr/0026-performance-scalability.md](adr/0026-performance-scalability.md) — performance NFRs (Accepted)
+- [PERFORMANCE.md](PERFORMANCE.md) — operator tuning guide

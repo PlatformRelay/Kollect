@@ -27,3 +27,22 @@ tasks:
         sh: echo "${KIND_CLUSTER:-kollect-test-e2e}"
     cmds:
       - make test-e2e
+
+  bench:
+    desc: Run Go micro-benchmarks (-short, -benchmem); safe for dev/CI
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - go test -short -bench=. -benchmem ./internal/collect/...
+
+  load-test:
+    desc: Opt-in bounded load tests (KOLECT_LOAD_TEST=1, max 2000 objects); not in default test
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - |
+        if [ "${KOLECT_LOAD_TEST:-}" != "1" ]; then
+          echo "Refusing load test: set KOLECT_LOAD_TEST=1 to opt in (max 2000 synthetic objects)." >&2
+          exit 1
+        fi
+      - go test -tags=load -count=1 -timeout=15m ./test/load/...

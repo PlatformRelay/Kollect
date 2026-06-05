@@ -20,5 +20,7 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0023](0023-lean-queue-transport.md) | Lean queue transport for hub fan-in (Accepted) |
 | [0024](0024-inventory-api-auth.md) | Inventory HTTP API authentication (Accepted) |
 | [0025](0025-sink-backends-database-kafka.md) | Postgres and Kafka export sinks (Accepted) |
+| [0026](0026-performance-scalability.md) | Performance and scalability (Accepted) |
 
-See also [ARCHITECTURE.md](../ARCHITECTURE.md) and [REQUIREMENTS.md](../REQUIREMENTS.md).
+See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md), and
+[PERFORMANCE.md](../PERFORMANCE.md).

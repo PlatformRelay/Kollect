@@ -80,6 +80,16 @@ tasks:
     cmds:
       - task: test:run
 
+  bench:
+    desc: Run Go micro-benchmarks (-short, -benchmem)
+    cmds:
+      - task: test:bench
+
+  load-test:
+    desc: Opt-in bounded load tests (requires KOLECT_LOAD_TEST=1)
+    cmds:
+      - task: test:load-test
+
   test-integration:
     desc: Run integration-tagged tests (testcontainers; requires Docker)
     env:

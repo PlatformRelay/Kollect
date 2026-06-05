@@ -58,17 +58,18 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Helm docs / unittest / `values.schema.json` in CI | ⬜ |
 | Core documentation + MkDocs (GitHub Pages) | ✅ |
 | Architecture Decision Records (core set) | 🚧 |
+| ADR-0026 performance & scalability | ✅ |
 | `GUIDELINES.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
 | Validating webhook — Profile CEL/JSONPath | ✅ |
 | Validating webhook — Sink type enum | ⬜ |
 | Prometheus custom metrics (early) | 🚧 |
-| Connection test infrastructure | 🚧 |
+| Connection test infrastructure | ✅ |
 | Golden OpenAPI contract tests (`test/schema/`) | ⬜ |
 | Kind smoke / operator deploy | ✅ |
 | Release pipeline (SBOM, signing) | ⬜ |
 | Public demo Git inventory repo | ✅ |
 
-**Counts:** ✅ 14 · 🚧 3 · ⬜ 6
+**Counts:** ✅ 14 · 🚧 2 · ⬜ 6
 
 ---
 
@@ -86,11 +87,15 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Git sink with custom CA TLS | ✅ |
 | GitLab sink | ⬜ |
 | S3 sink | 🚧 |
-| Postgres sink (`type: postgres`) | ⬜ |
-| Kafka export sink (`type: kafka`) | ⬜ |
-| Postgres/Kafka testcontainers in CI | ⬜ |
+| Postgres sink (`type: postgres`) | ✅ |
+| Kafka export sink (`type: kafka`) | ✅ |
+| Postgres/Kafka testcontainers in CI | ✅ |
 | SAR / RBAC scope degradation | ✅ |
 | Typed reconcile errors + circuit breakers | ⬜ |
+| Parallel reconcile workers (`MaxConcurrentReconciles`) | ⬜ |
+| Workqueue depth + reconcile latency metrics | ⬜ |
+| pprof server (feature-gated `:6060`) | ⬜ |
+| `task bench` / `task load-test` (bounded scale tests) | ✅ |
 | Secondary watches (Profile/Sink changes) | ⬜ |
 | Finalizers | ⬜ |
 | Read-only HTTP `GET /inventory` (+ SSE watch) | ✅ |
@@ -104,7 +109,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | End-to-end: install → collect → export → HTTP | 🚧 |
 | `spec.suspend` on reconciled kinds | ✅ |
 
-**Counts:** ✅ 14 · 🚧 6 · ⬜ 15
+**Counts:** ✅ 14 · 🚧 5 · ⬜ 12
 
 ---
 
@@ -155,6 +160,30 @@ Multi-cluster support must **not** block single-cluster installs. See
 | Advanced cross-target / cross-cluster aggregation | ⬜ |
 
 **Counts:** ✅ 1 · ⬜ 3
+
+---
+
+## Performance and scalability
+
+Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). Tuning guide:
+[PERFORMANCE.md](PERFORMANCE.md).
+
+| Item | Status |
+| --- | --- |
+| Scale target documented (10k+ objects) | ✅ |
+| Bounded test tiers (500 default / 2000 opt-in load) | ✅ |
+| `task bench` (Go benchmarks, `-short`) | ✅ |
+| `task load-test` (`KOLECT_LOAD_TEST=1`, `-tags=load`) | ✅ |
+| `--max-concurrent-reconciles` flag + Helm values | ⬜ |
+| `--informer-resync-period` flag | ⬜ |
+| pprof on `:6060` (feature gate) | ⬜ |
+| `kollect_workqueue_depth` / `kollect_reconcile_duration_seconds` metrics | ⬜ |
+| `kollect_informer_cache_objects` metric | ⬜ |
+| `BenchmarkExtract` in `internal/collect/` | ⬜ |
+| envtest synthetic scale harness (cap 500) | ⬜ |
+| Load test package (`test/load/`, `-tags=load`) | ⬜ |
+
+**Counts:** ✅ 4 · ⬜ 8
 
 ---
 
@@ -230,3 +259,5 @@ namespace scope where appropriate.
 - [ADR-0024: Inventory API auth](adr/0024-inventory-api-auth.md)
 - [ADR-0011: Doc-sync rejected](adr/0011-doc-sync-templating.md)
 - [ADR-0025: Postgres and Kafka sinks](adr/0025-sink-backends-database-kafka.md)
+- [ADR-0026: Performance and scalability](adr/0026-performance-scalability.md)
+- [PERFORMANCE.md](PERFORMANCE.md) — tuning guide
