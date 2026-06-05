@@ -17,7 +17,8 @@ rm -f coverage.out coverage-summary.txt
 make manifests generate fmt vet
 make setup-envtest >&2
 
-export KUBEBUILDER_ASSETS="$(make -s echo-kubebuilder-assets)"
+KUBEBUILDER_ASSETS="$(make -s echo-kubebuilder-assets)"
+export KUBEBUILDER_ASSETS
 if [[ -z "${KUBEBUILDER_ASSETS}" ]]; then
   echo "failed to resolve KUBEBUILDER_ASSETS from setup-envtest" >&2
   exit 1

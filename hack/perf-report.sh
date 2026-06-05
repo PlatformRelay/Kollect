@@ -16,7 +16,8 @@ SNAPSHOT="${ROOT}/agent-context/PERF-SNAPSHOT.md"
 mkdir -p "$BENCH_DIR" "$(dirname "$SNAPSHOT")"
 
 make setup-envtest >&2
-export KUBEBUILDER_ASSETS="$(make -s echo-kubebuilder-assets)"
+KUBEBUILDER_ASSETS="$(make -s echo-kubebuilder-assets)"
+export KUBEBUILDER_ASSETS
 if [[ -z "${KUBEBUILDER_ASSETS}" ]]; then
   echo "failed to resolve KUBEBUILDER_ASSETS from setup-envtest" >&2
   exit 1

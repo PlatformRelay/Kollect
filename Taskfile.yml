@@ -100,6 +100,11 @@ tasks:
       - npm ci --prefix docs
       - docs/node_modules/.bin/markdownlint-cli2
 
+  lint:shell:
+    desc: Lint shell scripts with ShellCheck v0.11.0
+    cmds:
+      - bash hack/lint-shell.sh
+
   vulncheck:
     desc: Scan for known Go vulnerabilities (govulncheck)
     deps: [install]
