@@ -139,14 +139,14 @@ main() {
   wait_target_ready "${TENANT_A}"
   wait_target_ready "${TENANT_B}"
 
-  # Scope only in tenant-a (governance sample; apply after targets Ready to avoid race).
-  kubectl apply -f "${FIXTURES}/tenant-scope.yaml"
-
   wait_inventory_reconciled "${TENANT_A}"
   wait_inventory_reconciled "${TENANT_B}"
 
   assert_inventory_isolated
   assert_http_namespace_filter
+
+  # Governance sample only; apply after collection asserts (enforcement is follow-up).
+  kubectl apply -f "${FIXTURES}/tenant-scope.yaml"
 
   log "multi-tenant isolation OK"
 }
