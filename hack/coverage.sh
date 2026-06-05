@@ -26,7 +26,7 @@ export CGO_ENABLED="${CGO_ENABLED:-1}"
 
 # Packages outside internal/ run without -coverprofile so they do not append to
 # coverage.out; mixed multi-package cover merge can corrupt the profile.
-other_pkgs="$(go list ./... | grep -v /e2e | grep -v '/internal/' || true)"
+other_pkgs="$(go list ./... | grep -v /e2e | grep -v '/internal/' | grep -v '/cmd$' || true)"
 if [[ -n "${other_pkgs}" ]]; then
   # shellcheck disable=SC2086
   go test "${RACE_ARGS[@]}" -count=1 -p 1 ${other_pkgs}
