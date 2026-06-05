@@ -202,11 +202,12 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 
 | Item | Status |
 | --- | --- |
-| kube-state-metrics-style custom resource metrics config | ⬜ |
-| Cardinality-safe operator metrics (counts, export latency) | ✅ |
+| kube-state-metrics-style custom resource metrics config | 🚧 [ADR-0033](adr/0033-custom-resource-aggregation-rfc.md) RFC stub |
+| Cardinality-safe operator metrics (counts, export latency) | ✅ ADR-0020 catalog complete |
 | Advanced cross-target / cross-cluster aggregation | ⬜ |
+| `task perf-report` optional CI gate | ✅ `ci.yaml` job + preflight note |
 
-**Counts:** ✅ 1 · ⬜ 2
+**Counts:** ✅ 2 · 🚧 1 · ⬜ 1
 
 ---
 
@@ -232,7 +233,8 @@ Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). 
 | Metrics catalog + PromQL hints in PERFORMANCE.md | ✅ |
 | `task perf-report` + `hack/perf-report.sh` | ✅ |
 | `artifacts/bench/` from `task bench` | ✅ |
-| CI upload of bench artifacts (nightly, optional) | 🚧 |
+| CI upload of bench artifacts (nightly, optional) | ✅ nightly bench + perf-report |
+| `task perf-report` optional CI job | ✅ non-blocking `ci.yaml` job |
 
 **Counts:** ✅ 3 · 🚧 1
 
