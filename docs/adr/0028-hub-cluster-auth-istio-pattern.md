@@ -82,7 +82,8 @@ data:
 Spokes POST summarized `SpokeReport` JSON to hub ingress:
 
 - **`Authorization: Bearer <in-cluster SA token>`** — validated on hub via **`TokenReview`**
-  ([ADR-0024](0024-inventory-api-auth.md) pattern).
+  ([ADR-0024](0024-inventory-api-auth.md) pattern), then **`SubjectAccessReview`** for ingest
+  permission.
 - **`X-Kollect-Cluster-Id: <spec.clusterName>`** — must match `SpokeReport.cluster` body field.
 - Hub flag **`--hub-ingest-auth-mode=kubernetes`** (default); `disabled` for dev/CI only.
 
@@ -104,20 +105,38 @@ sequenceDiagram
   participant SA as SA token file
   participant Hub as Hub ingest HTTP
   participant TR as TokenReview API
+  participant SAR as SubjectAccessReview API
   participant Merge as Hub merger
 
   Spoke->>SA: read projected token
   Spoke->>Hub: POST /hub/v1alpha1/reports<br/>Authorization: Bearer token<br/>X-Kollect-Cluster-Id: spoke-a
   Hub->>TR: TokenReview(token)
   TR-->>Hub: authenticated SA subject
-  alt token valid and cluster id matches body
+  Hub->>SAR: authorize ingest (see below)
+  SAR-->>Hub: allowed / denied
+  alt token valid, SAR allowed, cluster id matches body
     Hub->>Merge: Apply SpokeReport
     Merge-->>Hub: ok
     Hub-->>Spoke: 202 Accepted
-  else invalid
+  else invalid token
     Hub-->>Spoke: 401 Unauthorized
+  else SAR denied
+    Hub-->>Spoke: 403 Forbidden
   end
 ```
+
+**Ingest SAR shape (resolved):** hub middleware accepts the request when **any** of these checks
+allow the authenticated subject:
+
+| Check | Attributes |
+| --- | --- |
+| HTTP ingest URL | non-resource `POST` on `/hub/v1alpha1/reports` |
+| Remote cluster registration | resource `create` on `kollectremoteclusters.kollect.dev` |
+| Remote cluster update | resource `patch` on `kollectremoteclusters.kollect.dev` |
+
+Platform teams grant spoke service accounts a `ClusterRole` with one of the above verbs (typically
+`patch` on `kollectremoteclusters` in the hub namespace, or a custom non-resource rule for the ingest
+path).
 
 ## Optional pull registration (Istio-style)
 
@@ -139,7 +158,7 @@ sequenceDiagram
 | Dimension | Istio multicluster | kollect hub-and-spoke |
 | --- | --- | --- |
 | **Registration** | Labeled `Secret` + cluster annotation | `KollectRemoteCluster` CR + optional same-label `Secret` |
-| **Generator** | `istioctl create-remote-secret` | GitOps manifest / future `kollect` CLI |
+| **Generator** | `istioctl create-remote-secret` | `kollect create-remote-secret` CLI stub / `hack/create-remote-secret.sh` |
 | **Default data plane** | mTLS east-west between workloads | Summarized inventory deltas (no workload mesh) |
 | **Default control traffic** | Istiod → remote API (pull watches) | Spoke → hub HTTP push (TokenReview) |
 | **Identity** | SA token in kubeconfig + mesh CA | SA bearer token + `X-Kollect-Cluster-Id` |
@@ -162,10 +181,22 @@ sequenceDiagram
 - Queue transports need separate TLS/ACL hardening before production multi-tenant hubs.
 - `KollectRemoteCluster` reconciler (Connected status, secret rotation) not implemented in this ADR — stub only.
 
+### 5. `kollect create-remote-secret` (stub)
+
+GitOps-friendly generator parallel to `istioctl create-remote-secret`:
+
+```sh
+go run ./cmd/kollect create-remote-secret --cluster spoke-a --namespace platform | kubectl apply -f -
+# or:
+hack/create-remote-secret.sh --cluster spoke-a --api-server https://spoke-a.example:6443
+```
+
+Emits a labeled `Secret` with a base64 kubeconfig fragment (`server`, `token`, `certificate-authority-data`
+placeholders when flags are omitted). Pair with `KollectRemoteCluster.spec.credentialsSecretRef` for
+optional hub pull; push path remains default.
+
 ## Open questions
 
-- **OPEN:** SAR shape for hub ingest — `create` on `kollectremoteclusters` vs custom non-resource URL?
-- **OPEN:** `kollect create-remote-secret` CLI — wrap kubeconfig generation like `istioctl`?
 - **OPEN:** Federated trust / mTLS for HTTP ingress behind non-Kubernetes load balancers?
 - **OPEN:** Map `KollectRemoteCluster` list into `KollectHub` spec for shard routing?
 

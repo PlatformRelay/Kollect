@@ -48,6 +48,19 @@ tasks:
     generates:
       - "{{.MANAGER_BINARY}}"
 
+  build:kollect:
+    desc: Build the kollect developer CLI (create-remote-secret stub)
+    deps: [install]
+    cmds:
+      - go build -ldflags="-w -s" -o {{.BIN_DIR}}/kollect ./cmd/kollect
+    sources:
+      - cmd/kollect/**/*.go
+      - internal/remotesecret/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BIN_DIR}}/kollect"
+
   manifests:
     desc: Generate CRDs, RBAC, and webhook configuration
     cmds:
