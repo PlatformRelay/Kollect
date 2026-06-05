@@ -186,7 +186,7 @@ Single-cluster users never enable hub/spoke CRs or flags.
 ### Negative
 
 - Cross-cluster auth is hybrid (Istio-style secrets + push TokenReview) — see [ADR-0503](0503-hub-cluster-auth-istio-pattern.md).
-- ~~`KollectHub` CRD~~ **rejected** — existing API stubs may remain in tree but are not the product
+- ~~`KollectHub` CRD~~ **rejected** — API removed from tree; not the product
   surface; hub is Helm `mode: hub` only. Sharding strategy needs load proof.
 - Spoke summary format must version cleanly as attribute cardinality grows.
 

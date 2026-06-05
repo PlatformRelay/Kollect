@@ -90,26 +90,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-kollect-dev-v1alpha1-kollecthub
-  failurePolicy: Fail
-  name: vkollecthub.kb.io
-  rules:
-  - apiGroups:
-    - kollect.dev
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - kollecthubs
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /validate-kollect-dev-v1alpha1-kollectinventory
   failurePolicy: Fail
   name: vkollectinventory.kb.io

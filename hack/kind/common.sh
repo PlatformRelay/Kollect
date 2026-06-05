@@ -159,7 +159,6 @@ kollect_wait_crds_established() {
     kollecttargets.kollect.dev \
     kollectinventories.kollect.dev \
     kollectsinks.kollect.dev \
-    kollecthubs.kollect.dev \
     kollectscopes.kollect.dev \
     kollectclusterprofiles.kollect.dev \
     kollectclustertargets.kollect.dev \

@@ -48,7 +48,7 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 | Kind | Rationale |
 | --- | --- |
 | `KollectPublication` | Doc-sync / Confluence / in-operator templating — out of scope; use Git export + external CI ([ADR-0702](0702-doc-sync-templating.md)) |
-| `KollectHub` | Hub Deployment lifecycle via CRD — **rejected**; use Helm **`mode: hub`**. API stub may remain deprecated in tree ([ADR-0703](0703-platform-architecture-pivot.md)) |
+| `KollectHub` | Hub Deployment lifecycle via CRD — **rejected**; use Helm **`mode: hub`**. **Removed** from tree ([ADR-0703](0703-platform-architecture-pivot.md)) |
 
 ### Reconciled (connection test)
 

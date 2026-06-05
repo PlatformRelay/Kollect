@@ -218,7 +218,7 @@ flowchart TD
 | `KollectClusterSink` | Cluster | Shared export backends (later) |
 | `KollectClusterInventory` | Cluster | Rollup for cluster targets (later) |
 | `KollectClusterScope` | Cluster | Reserved — platform policy |
-| `KollectHub` | — | **Rejected / deprecated stub** — use Helm `mode: hub`; no controller on roadmap |
+| `KollectHub` | — | **Removed** — use Helm `mode: hub`; no controller on roadmap |
 | `KollectPublication` | — | **Rejected** — external CI |
 | `KollectReceiver` | — | Reserved — webhook trigger (future) |
 | `KollectTargetSet` | — | Reserved — generator pattern (future) |
@@ -237,7 +237,7 @@ flowchart TD
 | `KollectClusterScope` | Cluster-wide policy when namespaced Scope is too weak | Phase 1 namespaced Scope first |
 | `KollectReceiver` | Inbound webhook → trigger export (Flux Receiver) | No webhook trigger requirement yet |
 | `KollectTargetSet` | Generate many Targets (ApplicationSet) | Manual Targets OK for MVP |
-| ~~`KollectHub`~~ | Was: CRD spawns hub Deployment | **Rejected / deprecated stub** — Helm `mode: hub` only; remove from roadmap controllers |
+| ~~`KollectHub`~~ | Was: CRD spawns hub Deployment | **Removed** — Helm `mode: hub` only; remove from roadmap controllers |
 | ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0702](adr/0702-doc-sync-templating.md) |
 
 Do not add controllers or document samples for reserved kinds unless an ADR promotes them.

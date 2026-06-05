@@ -117,7 +117,7 @@ func main() {
 	flag.IntVar(&maxConcurrentClusterInventory, "max-concurrent-reconciles-cluster-inventory", 2,
 		"Max concurrent KollectClusterInventory reconciles.")
 	flag.IntVar(&maxConcurrentHub, "max-concurrent-reconciles-hub", 2,
-		"Max concurrent KollectHub reconciles.")
+		"Max concurrent KollectRemoteCluster reconciles.")
 	flag.DurationVar(&exportDebounce, "export-debounce", 30*time.Second,
 		"Deprecated fallback export debounce when KollectInventory.spec.exportMinInterval is unset.")
 	flag.DurationVar(&reconcileRateLimit, "reconcile-rate-limit", 0,
@@ -324,8 +324,6 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectconnectiontest")
 		os.Exit(1)
 	}
-	// KollectHub controller removed — hub is Helm mode: hub|spoke only (ADR-0703).
-	setupLog.Info("KollectHub CRD is deprecated; use --mode=hub and Helm values")
 	if err := (&controller.KollectRemoteClusterReconciler{
 		Client:  mgr.GetClient(),
 		Scheme:  mgr.GetScheme(),

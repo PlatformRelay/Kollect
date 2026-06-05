@@ -8,7 +8,7 @@
 ## Context
 
 kollect ships a growing CRD surface (`KollectProfile`, `KollectTarget`, `KollectInventory`, `KollectSink`,
-`KollectScope`, cluster-scoped variants, `KollectHub`, `KollectConnectionTest` — [ADR-0201](0201-crd-model.md),
+`KollectScope`, cluster-scoped variants, `KollectConnectionTest` — [ADR-0201](0201-crd-model.md),
 [ADR-0203](0203-namespaced-multi-tenancy.md)). All are `v1alpha1` today with a single served/stored
 version and **no conversion webhook**. We have a stated break-freely posture for pre-beta
 ([ADR-0703](0703-platform-architecture-pivot.md)) but no recorded plan for how and when the API

@@ -72,7 +72,7 @@ flowchart TD
 | `KollectClusterSink` | Cluster | No | **Reserved** — shared backends |
 | `KollectClusterInventory` | Cluster | Yes | Platform rollup — pairs with `KollectClusterTarget` |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
-| ~~`KollectHub`~~ | — | **Rejected / stub** | API types may remain in tree; **not** product surface — Helm `mode: hub` ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| ~~`KollectHub`~~ | — | **Rejected / stub** | **Removed** from tree — was never product surface — Helm `mode: hub` ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](adr/0702-doc-sync-templating.md) |
 
 See [adr/0201-crd-model.md](adr/0201-crd-model.md). Per-kind field reference:

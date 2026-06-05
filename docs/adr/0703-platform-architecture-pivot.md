@@ -80,8 +80,7 @@ Cluster operator + **`KollectClusterTarget`** supported for platform-wide collec
 
 - Hub is **`mode: hub` on the same image** + Helm values (`transport`, shard count, ingest flags).
 - **`internal/hub/`** merge library is the reusable core; no CRD spawns hub Deployments.
-- Existing `KollectHub` API types may remain as **deprecated stubs** in the tree or be removed in a
-  breaking cleanup — they are **not** the product surface and must not appear on the active roadmap.
+- **`KollectHub` API types removed** in v1alpha1 cleanup — hub/spoke is Helm `mode` only; not on the active roadmap.
 - Supersedes hub CRD phasing in [ADR-0501](0501-multi-cluster-sync-rfc.md) (amend that RFC).
 
 ### 6. `KollectConnectionTest` CR — **accepted**

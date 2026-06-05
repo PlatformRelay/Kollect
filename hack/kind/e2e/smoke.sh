@@ -83,7 +83,6 @@ kubectl wait --for=condition=Established crd/kollectprofiles.kollect.dev --timeo
 kubectl wait --for=condition=Established crd/kollecttargets.kollect.dev --timeout="$WAIT_TIMEOUT"
 kubectl wait --for=condition=Established crd/kollectinventories.kollect.dev --timeout="$WAIT_TIMEOUT"
 kubectl wait --for=condition=Established crd/kollectsinks.kollect.dev --timeout="$WAIT_TIMEOUT"
-kubectl wait --for=condition=Established crd/kollecthubs.kollect.dev --timeout="$WAIT_TIMEOUT"
 kubectl wait --for=condition=Established crd/kollectscopes.kollect.dev --timeout="$WAIT_TIMEOUT"
 kubectl get kollectprofiles,kollecttargets,kollectinventories,kollectsinks -A
 

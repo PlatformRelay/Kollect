@@ -48,7 +48,7 @@ team namespace. Portal read path: **Postgres or Kafka sink export** — not spok
 
 Multi-cluster hub/spoke uses **Helm values on the same image** — there is **no `KollectHub` CRD**
 on the product roadmap ([ADR-0703](../../docs/adr/0703-platform-architecture-pivot.md)). Existing
-`KollectHub` API stubs in the repo are deprecated; do not create hub Deployments via CR.
+`KollectHub` was removed from the repo; do not create hub Deployments via CR.
 
 **Spoke cluster:**
 

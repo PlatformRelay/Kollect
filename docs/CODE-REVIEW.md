@@ -16,8 +16,8 @@ Prioritized findings from security, scalability, and architecture-gap review.
 | ID | Finding | Status |
 | --- | --- | --- |
 | P1-1 | Hub ingest SAR missing hub namespace on `kollectremoteclusters` | ✅ `KOLLECT_PLATFORM_NAMESPACE` on SAR |
-| P1-2 | Inventory HTTP SAR not namespace-scoped | Open |
-| P1-3 | Inventory index endpoint missing `list` SAR | Open |
+| P1-2 | Inventory HTTP SAR not namespace-scoped | ✅ Namespace + name in SAR |
+| P1-3 | Inventory index endpoint missing `list` SAR | ✅ `list` on index |
 | P1-4 | Failed exports still recorded for debounce | ✅ `recordExport` only after all sinks succeed |
 | P1-5 | Hub ingest has no TokenReview/SAR cache | Open |
 | P1-6 | Hub HTTP ingest plain HTTP (no TLS) | Open — document mandatory termination |
@@ -26,13 +26,13 @@ Prioritized findings from security, scalability, and architecture-gap review.
 | P1-9 | No `KollectSink` validating webhook | Open |
 | P1-10 | CEL `cel:` prefix not required at admission | ✅ `ValidateAttributePath` rejects bare `object.*` |
 | P1-11 | JSONPath filter validation Phase 1 warn-only | ✅ `ProfileWarnings` on `[?(` paths |
-| P1-12 | `AccessChecker` SAR cache never expires | Open |
+| P1-12 | `AccessChecker` SAR cache never expires | ✅ 30s TTL |
 
 ## P2 — structure / tech debt
 
 | ID | Finding | Status |
 | --- | --- | --- |
-| P2-1 | `KollectHub` dead controller + CRD remnants | Open — reject webhook kept; controller unregistered |
+| P2-1 | `KollectHub` dead controller + CRD remnants | ✅ Removed CRD, controller, webhook |
 | P2-2 | Duplicate `bearerToken` in inventory/hub auth | Open |
 | P2-3 | Engine `dispatch()` O(targets) per informer event | Open — index by GVR |
 | P2-4 | Store single `RWMutex` + full namespace snapshots | Open |
@@ -71,8 +71,8 @@ addressed in public docs; code gaps below remain open.
 | --- | --- | --- | --- |
 | P0-1–3 | ✅ Fixed | Confirmed | Hub ACL, token binding, fail-closed allowlist |
 | P1-1, P1-4, P1-7, P1-10, P1-11 | ✅ Fixed | Confirmed | Wired in code/docs |
-| P1-2, P1-3 | Open | **Still open** | `internal/inventory/auth.go` — SAR not namespace-scoped; index missing `list` |
-| P1-5, P1-6, P1-9, P1-12 | Open | **Still open** | Hub auth cache, plain HTTP ingest, no sink webhook, SAR cache TTL |
-| P2-1, P2-2, P2-6, P2-8, P2-9 | Open | **Still open** | KollectHub remnants, duplicate auth, CA namespace default, hub body limit, HTTP path param |
+| P1-2, P1-3 | ✅ Fixed | **Closed** | Namespace-scoped SAR + `list`/`get` verbs |
+| P1-5, P1-6, P1-9, P1-12 | Partial | **P1-12 closed** | AccessChecker 30s TTL; others open |
+| P2-1, P2-8, P2-9 | ✅ Fixed | **Closed** | KollectHub removed; hub body cap; path-param SAR |
 | P2-7 | Open | **Closed (stale)** | ROADMAP ✅ on `exportMinInterval`; see P2 table above |
 | P2-3, P2-4, P2-5 | Open | Accept for MVP | Index dispatch, store lock, in-memory debounce — track post-beta |

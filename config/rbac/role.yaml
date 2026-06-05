@@ -15,28 +15,12 @@ rules:
   - list
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - apps
   resources:
   - deployments
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - authentication.k8s.io
@@ -72,7 +56,6 @@ rules:
   - kollectclusterinventories
   - kollectclustertargets
   - kollectconnectiontests
-  - kollecthubs
   - kollectinventories
   - kollectremoteclusters
   - kollectsinks
@@ -90,7 +73,6 @@ rules:
   resources:
   - kollectclusterinventories/finalizers
   - kollectclustertargets/finalizers
-  - kollecthubs/finalizers
   - kollectinventories/finalizers
   - kollectremoteclusters/finalizers
   - kollecttargets/finalizers
@@ -102,7 +84,6 @@ rules:
   - kollectclusterinventories/status
   - kollectclustertargets/status
   - kollectconnectiontests/status
-  - kollecthubs/status
   - kollectinventories/status
   - kollectremoteclusters/status
   - kollectsinks/status
