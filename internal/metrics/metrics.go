@@ -75,6 +75,13 @@ var (
 		[]string{"reason"},
 	)
 
+	ExportSpillWarnTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "kollect_export_spill_warn_total",
+			Help: "Export payloads at or above the 1 MiB object-store spill warn threshold (ADR-0103).",
+		},
+	)
+
 	SinkConnectionTestTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "kollect_sink_connection_test_total",
@@ -146,6 +153,7 @@ func Register() {
 		ReconcileErrorsTotal,
 		ExportDurationSeconds,
 		SinkErrorsTotal,
+		ExportSpillWarnTotal,
 		SinkConnectionTestTotal,
 		ReconcileInFlight,
 		ReconcileDurationSeconds,
