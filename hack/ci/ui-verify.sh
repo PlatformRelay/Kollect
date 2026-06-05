@@ -18,6 +18,9 @@ npm test
 npm run lint
 npm run build
 
+cd "${ROOT}"
+bash hack/verify-ui-mock.sh
+
 if [[ "${UI_VISUAL_REGRESSION:-}" == "1" ]]; then
   echo "ui-verify: visual regression stub (wire Percy/Chromatic in nightly)"
   exit 0
