@@ -96,18 +96,19 @@ sink checks.
 
 ### Positive
 
-- No extra CRD, RBAC, or garbage-collection policy.
-- Matches Flux-style config + imperative debug annotation.
-- `spec.connectionTest: true` gives GitOps-friendly “always verify on change” for CI/samples.
-- Aligns with existing controller and samples.
+- **`KollectConnectionTest` CR** gives audited, CI-friendly composite probes with status conditions.
+- Sink annotation + `spec.connectionTest` remain for quick sink-only retests (Flux-style imperative debug).
+- `spec.connectionTest: true` gives GitOps-friendly “always verify on change” for CI/samples only.
+- Minimal sink reconciler + dedicated test CR share TLS/secret resolution with export.
 
 ### Negative
 
-- Annotation-based re-test is weaker for audit than a dedicated test CR (mitigate with audit logs
+- `KollectConnectionTest` adds CRD surface, RBAC, webhooks, and garbage-collection policy (TTL TBD).
+- Annotation-based re-test is weaker for audit than the dedicated test CR (mitigate with audit logs
   on annotation patches if required).
 - Composite “does my pipeline work?” uses `SinkReachable` on Inventory/Target plus `Synced` on export.
-- `KollectProfile` connectivity (can I list this GVK?) is out of scope for sink probe — separate
-  feature or future bundled test if needed.
+- `KollectProfile` connectivity (can I list this GVK?) is optional on `KollectConnectionTest` — not
+  covered by sink-only probes alone.
 
 ### Production default
 

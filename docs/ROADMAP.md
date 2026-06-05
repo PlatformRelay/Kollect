@@ -107,7 +107,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | `--inventory-auth-mode=kubernetes` (default) | ✅ |
 | Full Prometheus metrics per [ADR-0020](adr/0020-error-taxonomy.md) | ✅ |
 | Sample profiles: Deployment, Service, Ingress | ✅ |
-| Sample profile: Helm release summary (Flux `HelmRelease`) | ✅ |
+| Sample profile: Helm release summary (**Argo `Application` primary**) | ⬜ |
+| Sample profile: Helm release summary (Flux `HelmRelease` secondary) | ✅ |
 | Helm values profile + operator scrub | ⬜ |
 | `helm:` decode for `helm.sh/v1` Secret releases | ⬜ |
 | Sample: generic CRD | ⬜ |
@@ -314,7 +315,7 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | Extreme scale: 100+ clusters, 10k+ objects/spoke, hub shard not O(n²) | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md), [ADR-0026](adr/0026-performance-scalability.md)) |
 | Hub cluster auth: **Istio remote-secret registration + push TokenReview** | Accepted ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md)) |
 | Namespaced `KollectProfile`; `profileRef` same namespace | Accepted ([ADR-0031](adr/0031-namespaced-profiles.md)) |
-| Connection test: no dedicated CR; `ConnectionVerified` on sink | Accepted ([ADR-0030](adr/0030-connection-test.md)) |
+| Connection test: **`KollectConnectionTest` CR** + sink probes; prod `connectionTest: false` | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md), [ADR-0030](adr/0030-connection-test.md)) |
 | **`KollectClusterSink` deferred Phase 3** | Deferred |
 
 ## Further reading

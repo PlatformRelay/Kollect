@@ -25,7 +25,7 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0027](0027-helm-release-inventory.md) | Helm release inventory sample (Accepted) |
 | [0028](0028-hub-cluster-auth-istio-pattern.md) | Hub cluster authentication — Istio remote-secret pattern (Accepted) |
 | [0029](0029-watch-labels.md) | Watch opt-in/opt-out labels (Accepted) |
-| [0030](0030-connection-test.md) | Connection test — no dedicated CR (Accepted) |
+| [0030](0030-connection-test.md) | Connection test — sink probes + `KollectConnectionTest` CR (Accepted; CR via ADR-0032) |
 | [0031](0031-namespaced-profiles.md) | Namespaced KollectProfile (Accepted) |
 | [0032](0032-platform-architecture-pivot.md) | Platform architecture pivot (Accepted) |
 

@@ -31,15 +31,28 @@ does not block “MVP complete” for the owner.
 | --- | --- | --- |
 | `KollectProfile` | Namespace | `KollectClusterProfile` |
 | `KollectSink` | **Namespace** (breaking — was cluster) | `KollectClusterSink` |
-| `KollectTarget` | Namespace | — |
+| `KollectTarget` | Namespace | **`KollectClusterTarget`** |
 | `KollectInventory` | Namespace | `KollectClusterInventory` |
 | `KollectScope` | Namespace | `KollectClusterScope` |
 
-`profileRef`, `sinkRefs` resolve in the **same namespace** as the referencing object unless a
-future ADR adds explicit cross-namespace refs.
+`profileRef` and `sinkRefs` on **namespaced** kinds resolve in the **same namespace** as the
+referencing object.
 
-**Default deployment:** per-team Helm with **`tenantMode: true`** and **`watchNamespaces`** set —
-not one shared cluster operator (cluster-wide install remains supported for platform teams).
+**`KollectClusterTarget`** (cluster-scoped) — for platform teams that manage collection **across
+namespaces** from one object (ESO `ClusterSecretStore` / cluster-wide operator pattern):
+
+| Field | Rule |
+| --- | --- |
+| `spec.profileRef` | Names a **`KollectClusterProfile`** or a **`KollectProfile`** in a fixed platform namespace (webhook-validated) |
+| `spec.namespaceSelector` | Required for cluster targets — which workload namespaces to scan |
+| `spec.labelSelector` / `names` | Same as namespaced Target |
+| Export rollup | Feeds **`KollectClusterInventory`** when implemented; until then may reference a namespaced `KollectInventory` via `inventoryRef` (implementation detail) |
+
+Namespaced **`KollectTarget`** remains the **default** for `tenantMode` per-team installs.
+**`KollectClusterTarget`** is for cluster-scoped platform operators — not the per-team MVP path.
+
+**Default deployment:** per-team Helm with **`tenantMode: true`** and **`watchNamespaces`** set.
+Cluster operator + **`KollectClusterTarget`** supported for platform-wide collection.
 
 ### 3. Sink narrative — Postgres/Kafka primary; Git audit
 
@@ -60,8 +73,8 @@ not one shared cluster operator (cluster-wide install remains supported for plat
 
 - Hub is **`mode: hub` on the same image** + Helm values (`transport`, shard count, ingest flags).
 - **`internal/hub/`** merge library is the reusable core; no CRD spawns hub Deployments.
-- Existing `KollectHub` API types may remain as **stubs** or be removed in a breaking cleanup —
-  they are **not** the product surface.
+- Existing `KollectHub` API types may remain as **deprecated stubs** in the tree or be removed in a
+  breaking cleanup — they are **not** the product surface and must not appear on the active roadmap.
 - Supersedes hub CRD phasing in [ADR-0022](0022-multi-cluster-sync-rfc.md) (amend that RFC).
 
 ### 6. `KollectConnectionTest` CR — **accepted**
@@ -138,6 +151,7 @@ all clusters.
 - **OPEN:** `KollectConnectionTest` TTL vs manual delete vs `spec.ttlSecondsAfterFinished`?
 - **OPEN:** Default debounce interval — global flag vs per-Inventory?
 - **OPEN:** Argo `Application` exact JSONPath set for chart/app version — lock in contract test.
+- **OPEN:** `KollectClusterTarget` → `KollectClusterInventory` wiring vs interim `inventoryRef` to namespaced Inventory.
 
 ## Supersedes / amends
 
