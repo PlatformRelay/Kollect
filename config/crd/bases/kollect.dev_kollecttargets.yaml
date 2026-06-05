@@ -142,8 +142,8 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               profileRef:
-                description: profileRef is the name of the KollectProfile that defines
-                  what to collect.
+                description: profileRef is the name of a KollectProfile in the same
+                  namespace as this Target.
                 type: string
               suspend:
                 description: suspend pauses reconciliation of this target when set

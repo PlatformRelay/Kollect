@@ -2,6 +2,8 @@ apiVersion: kollect.dev/v1alpha1
 kind: KollectProfile
 metadata:
   name: deployment-images
+  namespace: default
+  namespace: default
   labels:
     app.kubernetes.io/name: kollect
     app.kubernetes.io/managed-by: kustomize

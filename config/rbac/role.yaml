@@ -52,6 +52,13 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
   - kollect.dev
   resources:
   - kollecthubs
@@ -92,6 +99,7 @@ rules:
   - kollect.dev
   resources:
   - kollectprofiles
+  - kollectscopes
   verbs:
   - get
   - list

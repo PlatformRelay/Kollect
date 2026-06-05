@@ -81,7 +81,7 @@ type KollectProfileStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,shortName=kprof
+// +kubebuilder:resource:scope=Namespaced,shortName=kprof
 
 // KollectProfile is the Schema for the kollectprofiles API
 type KollectProfile struct {

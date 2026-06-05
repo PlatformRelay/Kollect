@@ -11,7 +11,7 @@ rules:
     resources: [secrets]
     verbs: [get, list, watch]
   - apiGroups: [kollect.dev]
-    resources: [kollectinventories, kollectsinks, kollecttargets, kollectscopes]
+    resources: [kollectinventories, kollectprofiles, kollectsinks, kollecttargets, kollectscopes]
     verbs: [create, delete, get, list, patch, update, watch]
   - apiGroups: [kollect.dev]
     resources: [kollectinventories/finalizers, kollecttargets/finalizers]

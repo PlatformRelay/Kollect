@@ -12,7 +12,7 @@ import (
 
 // KollectTargetSpec defines the desired state of KollectTarget.
 type KollectTargetSpec struct {
-	// profileRef is the name of the KollectProfile that defines what to collect.
+	// profileRef is the name of a KollectProfile in the same namespace as this Target.
 	// +required
 	ProfileRef string `json:"profileRef"`
 

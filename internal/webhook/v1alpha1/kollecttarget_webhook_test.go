@@ -15,26 +15,44 @@ func TestKollectTargetValidator_validateWatchMode(t *testing.T) {
 	v := &kollectTargetValidator{}
 
 	if err := v.validate(&kollectdevv1alpha1.KollectTarget{
-		Spec: kollectdevv1alpha1.KollectTargetSpec{WatchMode: ""},
+		Spec: kollectdevv1alpha1.KollectTargetSpec{
+			ProfileRef: "deployment-images",
+			WatchMode:  "",
+		},
 	}); err != nil {
 		t.Fatalf("empty watchMode: %v", err)
 	}
 
 	if err := v.validate(&kollectdevv1alpha1.KollectTarget{
-		Spec: kollectdevv1alpha1.KollectTargetSpec{WatchMode: kollectdevv1alpha1.WatchModeAll},
+		Spec: kollectdevv1alpha1.KollectTargetSpec{
+			ProfileRef: "deployment-images",
+			WatchMode:  kollectdevv1alpha1.WatchModeAll,
+		},
 	}); err != nil {
 		t.Fatalf("All watchMode: %v", err)
 	}
 
 	if err := v.validate(&kollectdevv1alpha1.KollectTarget{
-		Spec: kollectdevv1alpha1.KollectTargetSpec{WatchMode: kollectdevv1alpha1.WatchModeOptIn},
+		Spec: kollectdevv1alpha1.KollectTargetSpec{
+			ProfileRef: "deployment-images",
+			WatchMode:  kollectdevv1alpha1.WatchModeOptIn,
+		},
 	}); err != nil {
 		t.Fatalf("OptIn watchMode: %v", err)
 	}
 
 	if err := v.validate(&kollectdevv1alpha1.KollectTarget{
-		Spec: kollectdevv1alpha1.KollectTargetSpec{WatchMode: "Maybe"},
+		Spec: kollectdevv1alpha1.KollectTargetSpec{
+			ProfileRef: "deployment-images",
+			WatchMode:  "Maybe",
+		},
 	}); err == nil {
 		t.Fatal("expected error for invalid watchMode")
+	}
+
+	if err := v.validate(&kollectdevv1alpha1.KollectTarget{
+		Spec: kollectdevv1alpha1.KollectTargetSpec{ProfileRef: "team-a/deployment-images"},
+	}); err == nil {
+		t.Fatal("expected error for cross-namespace profileRef")
 	}
 }

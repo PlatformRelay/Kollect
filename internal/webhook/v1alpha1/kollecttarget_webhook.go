@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/validation"
 )
 
 //nolint:lll // kubebuilder webhook marker must stay on one line
@@ -49,6 +50,10 @@ func (v *kollectTargetValidator) ValidateDelete(
 }
 
 func (v *kollectTargetValidator) validate(target *kollectdevv1alpha1.KollectTarget) error {
+	if errs := validation.ValidateTargetSpec(&target.Spec); len(errs) > 0 {
+		return validation.TargetInvalid(target.Name, errs)
+	}
+
 	mode := target.Spec.WatchMode
 	if mode == "" {
 		return nil
