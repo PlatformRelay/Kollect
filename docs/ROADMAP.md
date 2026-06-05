@@ -147,7 +147,7 @@ never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) and
 | --- | --- |
 | Multi-cluster topology RFC | ✅ |
 | Lean queue transport ADR (pluggable factory) | ✅ |
-| ~~`KollectHub` CRD~~ → **Helm `mode: hub`** | ✅ ADR-0703 |
+| `KollectHub` CRD (rejected) → **Helm `mode: hub`** | ✅ ADR-0703 |
 | Spoke operator / agent snapshot reports (lightweight, delta) | ✅ |
 | Hub merge and deduplication (O(rows), sharded consumers) | ✅ |
 | Hub Postgres + Kafka parallel export on ingest | ✅ |
@@ -306,10 +306,10 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 | Hub federated mTLS | ADR-0503 deferred — push TokenReview default |
 | Queue transport TLS/ACL production hardening | Beyond `cluster_id` wire metadata |
 
-## Open questions
+## Resolved questions
 
-- ~~**Hub ingest SAR shape**~~ — `create` on `kollectremoteclusters` locked ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md))
-- ~~**SinkReachable** on Inventory/Target~~ — implemented with `Synced` export conditions ([ADR-0403](adr/0403-connection-test.md))
+- ✅ **Hub ingest SAR shape** — `create` on `kollectremoteclusters` locked ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md))
+- ✅ **SinkReachable** on Inventory/Target — implemented with `Synced` export conditions ([ADR-0403](adr/0403-connection-test.md))
 
 See [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) for locked vs still-open items.
 
