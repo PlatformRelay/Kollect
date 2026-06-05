@@ -108,7 +108,7 @@ jobs:
           if-no-files-found: error
       - name: Upload coverage to Codecov
         if: success()
-        uses: codecov/codecov-action@5a10915bbd043c759cd6bf3fc1fb679b98d6a9b2 # v5.4.3
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
         with:
           files: coverage.out
           fail_ci_if_error: false
@@ -178,6 +178,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/go-cache
+        with:
+          envtest: true
       - uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2.0.0
         with:
           version: 3.51.1
