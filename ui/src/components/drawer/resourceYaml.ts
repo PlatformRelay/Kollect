@@ -37,6 +37,33 @@ export function buildResourceYamlSnippet({
   return lines.join("\n");
 }
 
+type InventoryItemYamlInput = {
+  group?: string;
+  version: string;
+  kind: string;
+  name: string;
+  namespace: string;
+  uid: string;
+  targetNamespace: string;
+  targetName: string;
+};
+
+export function buildInventoryItemYamlSnippet(item: InventoryItemYamlInput): string {
+  const apiVersion = item.group ? `${item.group}/${item.version}` : item.version;
+  const lines = [
+    `apiVersion: ${apiVersion}`,
+    `kind: ${item.kind}`,
+    "metadata:",
+    `  name: ${item.name}`,
+    `  namespace: ${item.namespace}`,
+    `  uid: ${item.uid}`,
+    "collectedBy:",
+    `  target: ${item.targetNamespace}/${item.targetName}`,
+  ];
+
+  return lines.join("\n");
+}
+
 export function buildSinkYamlSnippet({
   name,
   namespace,

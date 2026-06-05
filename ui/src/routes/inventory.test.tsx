@@ -59,7 +59,7 @@ describe("InventoryPage", () => {
     });
   });
 
-  it("selects a row on click", async () => {
+  it("selects a row and opens the detail drawer", async () => {
     const user = userEvent.setup();
     await renderInventoryPage();
 
@@ -70,5 +70,7 @@ describe("InventoryPage", () => {
 
     expect(useSelectionStore.getState().openDrawerId).toBe("uid-web-001");
     expect(useSelectionStore.getState().selectedRowIds).toContain("uid-web-001");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Deployment/web")).toBeInTheDocument();
   });
 });

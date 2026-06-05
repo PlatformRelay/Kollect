@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { fetchInventorySummary, type Item } from "@/api/inventory";
+import { DetailDrawer } from "@/components/drawer/DetailDrawer";
+import { buildInventoryItemYamlSnippet } from "@/components/drawer/resourceYaml";
 import { ExportStatusBar } from "@/components/inventory/ExportStatusBar";
 import { InventoryFilterBar } from "@/components/inventory/InventoryFilterBar";
 import { InventoryTable } from "@/components/inventory/InventoryTable";
@@ -24,6 +26,7 @@ export function InventoryPage() {
   const columnVisibility = useInventoryStore((state) => state.columnVisibility);
   const hydrateColumnVisibility = useInventoryStore((state) => state.hydrateColumnVisibility);
   const selectedRowIds = useSelectionStore((state) => state.selectedRowIds);
+  const openDrawerId = useSelectionStore((state) => state.openDrawerId);
   const setOpenDrawerId = useSelectionStore((state) => state.setOpenDrawerId);
   const toggleRowSelection = useSelectionStore((state) => state.toggleRowSelection);
 
@@ -37,6 +40,13 @@ export function InventoryPage() {
     queryKey: inventoryQueryKey(filters),
     queryFn: () => fetchInventorySummary(filtersToQuery(filters)),
   });
+
+  const selectedItem = useMemo(
+    () => data?.items.find((item) => item.uid === openDrawerId) ?? null,
+    [data?.items, openDrawerId],
+  );
+
+  const yamlSnippet = selectedItem ? buildInventoryItemYamlSnippet(selectedItem) : "";
 
   function updateFilters(patch: Partial<InventoryFilters>) {
     const next = { ...filters, ...patch, offset: 0 };
@@ -93,6 +103,26 @@ export function InventoryPage() {
           </p>
         </>
       )}
+
+      <DetailDrawer
+        open={selectedItem !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOpenDrawerId(null);
+          }
+        }}
+        title={
+          selectedItem
+            ? `${selectedItem.kind}/${selectedItem.name}`
+            : "Inventory item"
+        }
+        subtitle={
+          selectedItem
+            ? `${selectedItem.namespace} · collected by ${selectedItem.targetNamespace}/${selectedItem.targetName}`
+            : undefined
+        }
+        yaml={yamlSnippet}
+      />
     </div>
   );
 }
