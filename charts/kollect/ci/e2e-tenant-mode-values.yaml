@@ -1,0 +1,20 @@
+# Nightly tenantMode e2e: namespaced Role RBAC, scoped watchNamespaces.
+featureGates:
+  inventoryHttp:
+    enabled: true
+    authMode: disabled
+
+webhooks:
+  enabled: false
+
+# Operator release namespace is also the sole watched namespace.
+watchNamespaces:
+  - kollect-tenant-ops
+
+tenantMode: true
+
+transport:
+  type: inprocess
+
+sinkDefaults:
+  connectionTest: false

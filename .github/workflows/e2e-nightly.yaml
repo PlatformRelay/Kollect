@@ -46,6 +46,11 @@ jobs:
           chmod +x hack/e2e/git-export-assert.sh
           REPO_ROOT="${GITHUB_WORKSPACE}" hack/e2e/git-export-assert.sh
 
+      - name: tenantMode Helm RBAC smoke
+        run: |
+          chmod +x hack/e2e/tenant-mode.sh
+          REPO_ROOT="${GITHUB_WORKSPACE}" hack/e2e/tenant-mode.sh
+
       - name: Multi-tenant namespace isolation
         run: |
           chmod +x hack/e2e/multitenant.sh
