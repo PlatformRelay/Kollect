@@ -75,10 +75,6 @@ func TryPublishReport(
 	}
 
 	items, removed := deltaItems(prev.items, current, hasPrev)
-	lastState[key] = publishSnapshot{
-		generation: inv.Generation,
-		items:      indexByUID(current),
-	}
 	stateMu.Unlock()
 
 	report := hub.SpokeReport{
@@ -108,6 +104,13 @@ func TryPublishReport(
 	if err := pub.Publish(pubCtx, subject, payload); err != nil {
 		return fmt.Errorf("spoke publish: %w", err)
 	}
+
+	stateMu.Lock()
+	lastState[key] = publishSnapshot{
+		generation: inv.Generation,
+		items:      indexByUID(current),
+	}
+	stateMu.Unlock()
 
 	return nil
 }
