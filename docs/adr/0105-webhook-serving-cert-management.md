@@ -55,7 +55,8 @@ The chart must not render both.
 
 ### E2E and CI
 
-- Kind e2e installs cert-manager when webhook tests run (`test/e2e/e2e_suite_test.go`) — path A parity.
+- Kind e2e runs cert-manager Certificate collection smoke via `hack/e2e/cert-manager.sh` (invoked from
+  `hack/kind/e2e/smoke.sh`) — path A parity for generic CRD collection, not operator webhook TLS.
 - Add a **helm-unittest** snapshot for path B (bootstrap enabled, no cert-manager objects) before
   marking bootstrap implemented.
 - Contract: webhook readiness must appear in e2e smoke when webhooks are enabled

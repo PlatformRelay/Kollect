@@ -82,9 +82,6 @@ linters:
           - goconst
           - unparam
         path: _test\.go
-      - linters:
-          - gosec
-        path: test/utils/
     paths:
       - third_party$
       - zz_generated\..*\.go$
