@@ -1,10 +1,10 @@
 # KollectClusterInventory
 
-**Scope:** Cluster · **Reconciled:** Webhook only (Phase 1) · **Short name:** `kcinv`
+**Scope:** Cluster · **Reconciled:** Yes · **Short name:** `kcinv`
 
-!!! info "API only (Phase 1)"
-    Cluster inventory validates at admission but rollup/export requires a future controller. Sinks
-    resolve in `spec.sinkNamespace` (default `kollect-system`), not the inventory CR's namespace.
+!!! note "Sink namespace"
+    `spec.sinkRefs[]` resolve `KollectSink` objects in `spec.sinkNamespace` (default
+    `kollect-system`), not the inventory CR's namespace.
 
 ## What it is for
 
@@ -13,8 +13,8 @@ more `KollectClusterTarget` objects and exports to sinks configured in a designa
 One cluster inventory can roll up **all** cluster targets or a subset via `targetRefs`
 ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
 
-**Phase 1:** API types, validating webhook, and sample YAML only — **no controller** is registered.
-Objects persist and validate at admission; rollup/export requires a future controller milestone.
+The controller aggregates rows from matching `KollectClusterTarget` objects and exports to sinks
+in `spec.sinkNamespace`.
 
 ## How it fits the pipeline
 
@@ -26,8 +26,8 @@ flowchart TD
   Sink[KollectSink in sinkNamespace]
 
   CProf -.->|optional profileRef| CInv
-  CTarget -->|future rollup| CInv
-  CInv -.->|future export| Sink
+  CTarget -->|rollup| CInv
+  CInv --> Sink
 ```
 
 | Relationship | Rule |
@@ -65,16 +65,30 @@ kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterinventory.yaml
 kubectl get kcinv platform-rollup -o yaml
 ```
 
-**Today:** expect admission success only; no `Ready` status or export until controller ships.
+```sh
+kubectl get kcinv platform-rollup -w
+kubectl describe kcinv platform-rollup
+```
+
+Walkthrough: [examples/cluster-rollup.md](../examples/cluster-rollup.md).
 
 ## Status conditions
 
-| Type | When set | Meaning |
+| Type | When set | Meaning | Remediation |
+| --- | --- | --- | --- |
+| `Ready=True` | Healthy | Rollup and export healthy | None |
+| `ExportSucceeded=True` | Last export OK | Sink write succeeded | Check `status.lastExportTime` |
+| `Degraded=True` | Blocked | Scope, targets, size, or export error | See reasons below |
+
+### Common `Degraded` reasons
+
+| Reason | Cause | Fix |
 | --- | --- | --- |
-| `Ready` | Future controller | Rollup healthy |
-| `ExportSucceeded` | Future controller | Last export to sink succeeded |
-| `SinkReachable` | Future controller | Sink probe or export outcome |
-| `Degraded` | Future controller | Scope, size, or terminal export error |
+| `NoTargets` | No matching cluster targets | Create `KollectClusterTarget`; check `targetRefs` / `targetSelector` |
+| `TargetDegraded` | One or more targets not `Ready` | Fix upstream `kctgt` status first |
+| `SinkNotFound` | Bad `sinkRefs` in `sinkNamespace` | Create sink in export namespace |
+| `ExportUnavailable` | Sink registry not configured | Check operator startup / Helm values |
+| `ExportTerminal` | Non-retryable sink error | Fix sink config; check operator logs |
 
 ## RBAC
 
@@ -82,7 +96,7 @@ kubectl get kcinv platform-rollup -o yaml
 | --- | --- | --- | --- |
 | Platform admins | `create`, `update`, `patch`, `delete` | `kollectclusterinventories` | Cluster-scoped |
 | Platform readers | `get`, `list`, `watch` | `kollectclusterinventories` | Audit platform config |
-| Future operator | `get`, `list`, `watch` | `kollectclusterinventories`, `kollectclustertargets`, `kollectsinks` | Rollup + export |
+| Operator | `get`, `list`, `watch` | `kollectclusterinventories`, `kollectclustertargets`, `kollectsinks` | Rollup + export |
 
 ## Common failure modes
 
@@ -90,9 +104,9 @@ kubectl get kcinv platform-rollup -o yaml
 | --- | --- | --- |
 | Admission denied | Missing `namespaceSelector` | Add explicit label selector |
 | Admission denied | `targetRefs` or `sinkRefs` contains `/` | Use name only — no `namespace/name` |
-| No export | Phase 1 — controller not registered | Use namespaced `KollectInventory` for MVP |
-| *(future)* `SinkNotFound` | Bad `sinkRefs` in `sinkNamespace` | Create sink in export namespace |
-| *(future)* `Degraded` | Payload too large or sink error | Check operator logs and sink status |
+| No export | Targets not `Ready` or sink misconfigured | `kubectl describe kctgt`; verify sink in `sinkNamespace` |
+| `SinkNotFound` | Bad `sinkRefs` in `sinkNamespace` | Create sink in export namespace |
+| `Degraded` | Payload too large or terminal sink error | Check operator logs and [KollectSink](kollectsink.md) status |
 
 ## See also
 
