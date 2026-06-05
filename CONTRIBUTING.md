@@ -2,6 +2,9 @@
 
 Thank you for helping improve Kollect.
 
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md) and is governed per
+[GOVERNANCE.md](GOVERNANCE.md).
+
 ## Standards map
 
 Pull requests must meet the linked standards before merge. Each document owns one concern — do not
@@ -14,7 +17,11 @@ duplicate prose across them.
 | [Coding standards](docs/development/coding-standards.md) | Go *how* — lint, formatting, modules, race detector, CI gates |
 | [Testing strategy](docs/development/testing.md) | Test pyramid (L0–L5), coverage floors, integration/e2e tiers |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Process — commits, PR workflow, changelog, doc PR checklist |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community behavior standards (Contributor Covenant v2.1) |
+| [GOVERNANCE.md](GOVERNANCE.md) | Roles, decision making, continuity, security contact |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting and threat model |
+| [Assurance case](docs/ASSURANCE-CASE.md) | Security claims, trust boundaries, countermeasures |
+| [Security review](docs/SECURITY-REVIEW.md) | Dated self-review findings and residual risks |
 | [SCA remediation policy](docs/security/sca-remediation-policy.md) | Dependency CVE and license remediation thresholds (OSPS-VM-05.01) |
 | [Architecture decision records](docs/adr/) | Locked design decisions — update or add ADRs for non-trivial changes |
 | [tooling-setup.md](docs/development/tooling-setup.md) | Maintainer setup for arch-lint, depguard, SonarCloud |
@@ -125,6 +132,78 @@ multi-arch images to `ghcr.io/konih/kollect` and `ghcr.io/konih/kollect-ui`, Tri
 signing, SPDX SBOMs, Helm chart (OCI), and GitHub Release assets (`install.yaml`, `install-crds.yaml`,
 chart tarball, checksums).
 
+## Developer Certificate of Origin (DCO)
+
+By contributing, you certify the [Developer Certificate of Origin (DCO)](DCO) (version 1.1).
+
+Include a `Signed-off-by` line in every commit message when you are able:
+
+```text
+:sparkles: feat(sink): add example validation
+
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+Git can append this automatically: `git commit -s`. The DCO is a statement of license on your
+contribution; it complements the MIT license in [LICENSE](LICENSE). A DCO bot is not required —
+maintainers may ask you to amend commits if sign-off is missing on substantive contributions.
+
+## Reporting bugs
+
+**Open a [GitHub Issue](https://github.com/konih/kollect/issues/new)** for bugs, regressions, and
+feature requests. Do **not** use issues for security vulnerabilities — email
+**konrad.heimel@gmail.com** per [SECURITY.md](SECURITY.md).
+
+Include: Kollect version or commit, Kubernetes version, minimal repro YAML or steps, expected vs
+actual behavior, and relevant operator logs (redact secrets).
+
+## Good first contributions
+
+Looking for a small, review-friendly change? Try one of these:
+
+| Area | Ideas |
+| --- | --- |
+| **Docs** | Fix typos, clarify [QUICKSTART](docs/QUICKSTART.md), improve admonitions on procedural pages |
+| **ADRs** | Typo or link fixes in `docs/adr/` |
+| **Golden tests** | Add or extend extractor golden fixtures under `test/` |
+| **Markdown lint** | Run `task lint:markdown` and fix warnings |
+| **Sample YAML** | Improve `config/samples/` or `docs/examples/` manifests |
+| **UI** | Small accessibility or copy fixes in `ui/src/` (keep PRs focused) |
+
+Search issues labeled
+[`good first issue`](https://github.com/konih/kollect/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+If none exist, pick a row above and mention it in your PR description.
+
+## Code review
+
+All pull requests need **green CI** and **maintainer approval** before merge to `main`.
+
+### Required checks
+
+| Check | Task / workflow |
+| --- | --- |
+| Lint and format | `task lint`, `task format:check` (`CI`) |
+| Tests and coverage floor | `task coverage` (`CI`) |
+| Integration (when sink/backend touched) | `task test-integration` |
+| Codegen drift | `task verify` (`preflight`) |
+| Changelog drift | `task changelog:verify` (`preflight`) |
+| Secret scan | gitleaks (`CI`) |
+| UI (when `ui/` changed) | `task ui-ci` |
+
+### Review expectations
+
+Reviewers (currently the **maintainer only**) verify:
+
+- CI is green and local preflight steps were run
+- Tests cover behavior changes; ADRs updated for architectural decisions
+- No secrets, private strings, or forbidden identities (`task scrub`, gitleaks)
+- User-facing changes have conventional commits suitable for the changelog
+- Security-sensitive paths follow [ADR-0104](docs/adr/0104-security-model.md)
+
+**External contributions** always require maintainer review before merge. Maintainer-authored
+changes may merge without a second human reviewer today (solo-maintainer policy — see
+[GOVERNANCE.md](GOVERNANCE.md) and [ADR-0705](docs/adr/0705-release-supply-chain.md)).
+
 ## Pull request process
 
 1. Fork or branch from `main`.
@@ -188,5 +267,7 @@ Glossary CRD section: regenerate with `python3 hack/gen-glossary.py` after schem
 
 ## License
 
-By contributing, you agree that your contributions are licensed under the project MIT
-license.
+By contributing, you agree that your contributions are licensed under the project [MIT
+license](LICENSE) and that you certify the [DCO](DCO) as described above.
+
+All participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
