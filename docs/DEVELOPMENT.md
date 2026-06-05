@@ -7,7 +7,7 @@ Kubernetes cluster (typically [kind](https://kind.sigs.k8s.io/)).
 
 | Tool | Version / notes |
 | --- | --- |
-| [Go](https://go.dev/dl/) | **1.25+** (see `go.mod`; project targets 1.26) |
+| [Go](https://go.dev/dl/) | **1.26.4+** (see `go.mod`) |
 | [Docker](https://docs.docker.com/get-docker/) | For container image builds and kind |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.28+ recommended |
 | [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) | Local cluster for smoke / e2e |
