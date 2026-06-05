@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          args:
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --enable-pprof
+            - --pprof-bind-address=:6060
+          ports:
+            - name: pprof
+              containerPort: 6060
+              protocol: TCP
