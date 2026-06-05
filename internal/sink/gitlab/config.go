@@ -14,9 +14,10 @@ import (
 
 // Config holds resolved GitLab sink settings (HTTPS git remote).
 type Config struct {
-	Endpoint string
-	TLS      git.TLSConfig
-	CABundle []byte
+	Endpoint     string
+	TLS          git.TLSConfig
+	CABundle     []byte
+	MergeRequest MergeRequestConfig
 }
 
 // ConfigFromSpec validates and resolves a KollectSink GitLab spec.
@@ -53,11 +54,38 @@ func ConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec, caPEM []byte) (Conf
 		pem = spec.TLS.CABundle
 	}
 
+	mrCfg, err := mergeRequestConfigFromSpec(spec)
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
-		Endpoint: endpoint,
-		TLS:      tlsCfg,
-		CABundle: pem,
+		Endpoint:     endpoint,
+		TLS:          tlsCfg,
+		CABundle:     pem,
+		MergeRequest: mrCfg,
 	}, nil
+}
+
+func mergeRequestConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec) (MergeRequestConfig, error) {
+	if spec.GitLab == nil || spec.GitLab.MergeRequest == nil {
+		return MergeRequestConfig{}, nil
+	}
+
+	mr := spec.GitLab.MergeRequest
+	cfg := MergeRequestConfig{
+		Mode:          MergeRequestMode(strings.TrimSpace(mr.Mode)),
+		TargetBranch:  strings.TrimSpace(mr.TargetBranch),
+		BranchPrefix:  strings.TrimSpace(mr.BranchPrefix),
+		TitleTemplate: strings.TrimSpace(mr.TitleTemplate),
+		AutoMerge:     mr.AutoMerge,
+	}
+
+	if err := ValidateMergeRequestConfig(cfg); err != nil {
+		return MergeRequestConfig{}, err
+	}
+
+	return cfg, nil
 }
 
 // GitConfig converts GitLab settings to the shared git export config.

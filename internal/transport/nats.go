@@ -29,6 +29,7 @@ type NATSTransport struct {
 	js     jetstream.JetStream
 	stream string
 	group  string
+	acl    ACLSettings
 	mu     sync.Mutex
 	subs   map[string]jetstream.ConsumeContext
 }
@@ -74,6 +75,7 @@ func newNATSTransport(cfg Config) (Publisher, Subscriber, error) {
 		js:     js,
 		stream: stream,
 		group:  group,
+		acl:    cfg.ACL,
 		subs:   make(map[string]jetstream.ConsumeContext),
 	}
 
@@ -100,6 +102,10 @@ func (n *NATSTransport) ensureStream(ctx context.Context) error {
 
 // Publish writes payload to JetStream on subject.
 func (n *NATSTransport) Publish(ctx context.Context, subject string, payload []byte) error {
+	if err := n.acl.ValidatePublishSubject(subject); err != nil {
+		return err
+	}
+
 	msg := &nats.Msg{Subject: subject, Data: payload}
 	if cluster := WireClusterID(ctx); cluster != "" {
 		if msg.Header == nil {
@@ -137,6 +143,10 @@ func (n *NATSTransport) Subscribe(ctx context.Context, subject string, handler H
 }
 
 func (n *NATSTransport) subscribe(ctx context.Context, subject string, handler func(jetstream.Msg) error) error {
+	if err := n.acl.ValidateSubscribeSubject(subject); err != nil {
+		return err
+	}
+
 	n.mu.Lock()
 	if _, exists := n.subs[subject]; exists {
 		n.mu.Unlock()

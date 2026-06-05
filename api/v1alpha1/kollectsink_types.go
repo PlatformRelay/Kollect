@@ -42,6 +42,41 @@ type KollectSinkSpec struct {
 	// kafka configures a Kafka or Redpanda event sink.
 	// +optional
 	Kafka *KafkaSpec `json:"kafka,omitempty"`
+
+	// gitlab configures GitLab-specific settings when type is gitlab.
+	// +optional
+	GitLab *GitLabSpec `json:"gitlab,omitempty"`
+}
+
+// GitLabSpec configures GitLab sink settings beyond the shared endpoint and TLS fields.
+type GitLabSpec struct {
+	// mergeRequest configures optional branch + merge request workflow after git push.
+	// +optional
+	MergeRequest *MergeRequestSpec `json:"mergeRequest,omitempty"`
+}
+
+// MergeRequestSpec configures GitLab REST merge request workflow (ADR-0025 Phase 2).
+type MergeRequestSpec struct {
+	// mode selects direct push to the default branch or branch + merge request workflow.
+	// +kubebuilder:validation:Enum=direct;merge_request
+	// +optional
+	Mode string `json:"mode,omitempty"`
+
+	// targetBranch is the MR target branch (required when mode is merge_request).
+	// +optional
+	TargetBranch string `json:"targetBranch,omitempty"`
+
+	// branchPrefix prefixes feature branches (default kollect).
+	// +optional
+	BranchPrefix string `json:"branchPrefix,omitempty"`
+
+	// titleTemplate is an optional MR title template with {namespace} and {name} placeholders.
+	// +optional
+	TitleTemplate string `json:"titleTemplate,omitempty"`
+
+	// autoMerge requests auto-merge when the MR pipeline succeeds (not yet implemented).
+	// +optional
+	AutoMerge bool `json:"autoMerge,omitempty"`
 }
 
 // PostgresSpec configures PostgreSQL upsert export.

@@ -30,3 +30,25 @@ func TestACLSettingsValidateClusterID(t *testing.T) {
 		t.Fatal("expected deny for unknown cluster")
 	}
 }
+
+func TestACLSettingsValidateSubjects(t *testing.T) {
+	t.Parallel()
+
+	acl := ACLSettings{
+		PublishSubjects:   []string{"inventory/reports"},
+		SubscribeSubjects: []string{"inventory/reports"},
+	}
+
+	if err := acl.ValidatePublishSubject("inventory/reports"); err != nil {
+		t.Fatalf("allowed publish: %v", err)
+	}
+	if err := acl.ValidatePublishSubject("inventory/other"); err == nil {
+		t.Fatal("expected deny for unknown publish subject")
+	}
+	if err := acl.ValidateSubscribeSubject("inventory/reports"); err != nil {
+		t.Fatalf("allowed subscribe: %v", err)
+	}
+	if err := acl.ValidateSubscribeSubject("inventory/other"); err == nil {
+		t.Fatal("expected deny for unknown subscribe subject")
+	}
+}

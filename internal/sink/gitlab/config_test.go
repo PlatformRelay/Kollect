@@ -57,4 +57,44 @@ func TestConfigFromSpec(t *testing.T) {
 			t.Fatal("expected error for ssh scheme")
 		}
 	})
+
+	t.Run("merge request config", func(t *testing.T) {
+		t.Parallel()
+
+		cfg, err := ConfigFromSpec(kollectdevv1alpha1.KollectSinkSpec{
+			Type:     TypeName,
+			Endpoint: "https://gitlab.example.com/platform/inventory.git",
+			GitLab: &kollectdevv1alpha1.GitLabSpec{
+				MergeRequest: &kollectdevv1alpha1.MergeRequestSpec{
+					Mode:         "merge_request",
+					TargetBranch: "main",
+					BranchPrefix: "exports",
+				},
+			},
+		}, nil)
+		if err != nil {
+			t.Fatalf("ConfigFromSpec() error = %v", err)
+		}
+
+		if cfg.MergeRequest.Mode != MergeRequestModeBranchMR {
+			t.Fatalf("Mode = %q", cfg.MergeRequest.Mode)
+		}
+		if cfg.MergeRequest.TargetBranch != "main" {
+			t.Fatalf("TargetBranch = %q", cfg.MergeRequest.TargetBranch)
+		}
+	})
+
+	t.Run("invalid merge request mode", func(t *testing.T) {
+		t.Parallel()
+
+		if _, err := ConfigFromSpec(kollectdevv1alpha1.KollectSinkSpec{
+			Type:     TypeName,
+			Endpoint: "https://gitlab.example.com/platform/inventory.git",
+			GitLab: &kollectdevv1alpha1.GitLabSpec{
+				MergeRequest: &kollectdevv1alpha1.MergeRequestSpec{Mode: "invalid"},
+			},
+		}, nil); err == nil {
+			t.Fatal("expected error for invalid merge request mode")
+		}
+	})
 }
