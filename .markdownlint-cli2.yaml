@@ -30,7 +30,7 @@ globs:
   - README.md
   - CONTRIBUTING.md
   - SECURITY.md
-  - GUIDELINES.md
+  - docs/development/guidelines.md
   - hack/**/README.md
   - internal/**/README.md
   - .github/**/*.md

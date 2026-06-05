@@ -41,7 +41,7 @@ flags. There is **no** Kubernetes upstream `FeatureGate` API — gates are chart
 | Gate | Helm values | Manager flags | Default | ADR |
 | --- | --- | --- | --- | --- |
 | Inventory HTTP API | `featureGates.inventoryHttp.enabled` | `--inventory-http-enabled`, port, auth mode | **false** | [ADR-0404](0404-inventory-api-auth.md) |
-| pprof | `pprof.enabled` | `--enable-pprof`, bind address | **false** | [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) §5 |
+| pprof | `pprof.enabled` | `--enable-pprof`, bind address | **false** | [Engineering guidelines](https://github.com/konih/kollect/blob/main/docs/development/guidelines.md) §5 |
 | Validating webhooks | `webhooks.enabled` | `--validating-webhooks-enabled` | **true** | [ADR-0105](0105-webhook-serving-cert-management.md) |
 
 **Adding a new gate:** (1) Helm value under `featureGates` or a clearly named top-level block, (2) manager

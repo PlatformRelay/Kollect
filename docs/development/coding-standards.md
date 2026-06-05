@@ -2,7 +2,7 @@
 
 Binding standards for Go code, tests, security, commits, architecture, and merge gates in Kollect.
 Operator-specific engineering principles (error taxonomy, robustness, definition of done) live in
-[GUIDELINES.md](../../GUIDELINES.md). This page is the contributor-facing checklist enforced by
+[engineering guidelines](guidelines.md). This page is the contributor-facing checklist enforced by
 lint, CI, and review.
 
 !!! tip "Before you open a PR"
@@ -30,7 +30,7 @@ the generator config rather than patching generated output.
 ## Go conventions
 
 Short, actionable rules for Go code in this repo. Operator reconcile semantics and error taxonomy:
-[GUIDELINES.md § 1](../../GUIDELINES.md#1-error-handling).
+[guidelines § 1](guidelines.md#1-error-handling).
 
 ### Error handling
 
@@ -100,7 +100,7 @@ Use **structured logging** via `log/slog` or `controller-runtime/log` (`logr`). 
 
 The **`logcheck`** linter enforces [Kubernetes logging conventions](https://github.com/kubernetes-sigs/logcheck):
 stable message strings with variable data in key/value pairs; never log secrets, tokens, or full
-payloads. Operator logging rules: [GUIDELINES.md § 1](../../GUIDELINES.md#1-error-handling).
+payloads. Operator logging rules: [guidelines § 1](guidelines.md#1-error-handling).
 
 ### Dependency policy
 

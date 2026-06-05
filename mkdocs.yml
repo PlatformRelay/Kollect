@@ -155,7 +155,8 @@ nav:
       - Security review: SECURITY-REVIEW.md
       - SCA remediation policy: security/sca-remediation-policy.md
   - Contributing:
-      - Governance: GOVERNANCE.md
+      - Governance: development/governance.md
+      - Engineering guidelines: development/guidelines.md
       - Roadmap: ROADMAP.md
       - Coding standards: development/coding-standards.md
       - Testing strategy: development/testing.md

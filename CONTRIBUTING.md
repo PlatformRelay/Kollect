@@ -13,7 +13,7 @@ duplicate prose across them.
 | Document | Owns |
 | --- | --- |
 | [REQUIREMENTS.md](docs/REQUIREMENTS.md) | Product *what* — functional requirements and NFR targets |
-| [GUIDELINES.md](GUIDELINES.md) | Operator *how well* — error taxonomy, robustness, security model, perf, definition of done |
+| [Engineering guidelines](docs/development/guidelines.md) | Operator *how well* — error taxonomy, robustness, security model, perf, definition of done |
 | [Coding standards](docs/development/coding-standards.md) | Go *how* — lint, formatting, modules, race detector, CI gates |
 | [Testing strategy](docs/development/testing.md) | Test pyramid (L0–L5), coverage floors, integration/e2e tiers |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Process — commits, PR workflow, changelog, doc PR checklist |
@@ -134,7 +134,43 @@ chart tarball, checksums).
 
 ## Developer Certificate of Origin (DCO)
 
-By contributing, you certify the [Developer Certificate of Origin (DCO)](DCO) (version 1.1).
+By contributing, you certify the Developer Certificate of Origin (DCO) (version 1.1):
+
+```text
+Developer Certificate of Origin
+Version 1.1
+
+Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+
+Everyone is permitted to copy and distribute verbatim copies of this
+license document, but changing it is not allowed.
+
+Developer's Certificate of Origin 1.1
+
+By making a contribution to this project, I certify that:
+
+(a) The contribution was created in whole or in part by me and I
+    have the right to submit it under the open source license
+    indicated in the file; or
+
+(b) The contribution is based upon previous work that, to the best
+    of my knowledge, is covered under an appropriate open source
+    license and I have the right under that license to submit that
+    work with modifications, whether created in whole or in part
+    by me, under the same open source license (unless I am
+    permitted to submit under a different license), as indicated
+    in the file; or
+
+(c) The contribution was provided directly to me by some other
+    person who certified (a), (b) or (c) and I have not modified
+    it.
+
+(d) I understand and agree that this project and the contribution
+    are public and that a record of the contribution (including all
+    personal information I submit with it, including my sign-off) is
+    maintained indefinitely and may be redistributed consistent with
+    this project or the open source license(s) involved.
+```
 
 Include a `Signed-off-by` line in every commit message when you are able:
 
@@ -268,6 +304,6 @@ Glossary CRD section: regenerate with `python3 hack/gen-glossary.py` after schem
 ## License
 
 By contributing, you agree that your contributions are licensed under the project [MIT
-license](LICENSE) and that you certify the [DCO](DCO) as described above.
+license](LICENSE) and that you certify the [DCO](#developer-certificate-of-origin-dco) as described above.
 
 All participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).

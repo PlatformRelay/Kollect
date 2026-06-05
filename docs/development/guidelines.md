@@ -1,11 +1,11 @@
 # Kollect — engineering guidelines
 
 Binding guidelines for the Kollect operator: error handling, robustness, security, and testing.
-Enforced by lint, CI, and review. ADRs in `docs/adr/` capture major decisions.
+Enforced by lint, CI, and review. ADRs in `../adr/` capture major decisions.
 
-**Related docs:** Go style and lint rules → [coding-standards.md](docs/development/coding-standards.md);
-contribution process → [CONTRIBUTING.md](CONTRIBUTING.md); product requirements and NFRs →
-[REQUIREMENTS.md](docs/REQUIREMENTS.md).
+**Related docs:** Go style and lint rules → [coding-standards.md](coding-standards.md);
+contribution process → [CONTRIBUTING.md](../../CONTRIBUTING.md); product requirements and NFRs →
+[REQUIREMENTS.md](../REQUIREMENTS.md).
 
 ## 0. Product priorities (summary)
 
@@ -14,13 +14,13 @@ contribution process → [CONTRIBUTING.md](CONTRIBUTING.md); product requirement
 - **Helm chart day 1**; **Prometheus metrics** testable in CI; **connection test** with clear status.
 - **HTTP inventory API** is core, not optional later.
 - **Aggregation** — one export per logical change; design for ~60 clusters without blocking single-cluster.
-- **Reject `KollectPublication` / doc-sync** — use Git/Kafka/Postgres export + external CI ([ADR-0702](docs/adr/0702-doc-sync-templating.md)).
-- **Postgres + Kafka sinks** are first-class export targets ([ADR-0402](docs/adr/0402-sink-backends-database-kafka.md)).
+- **Reject `KollectPublication` / doc-sync** — use Git/Kafka/Postgres export + external CI ([ADR-0702](../adr/0702-doc-sync-templating.md)).
+- **Postgres + Kafka sinks** are first-class export targets ([ADR-0402](../adr/0402-sink-backends-database-kafka.md)).
 
 ## 1. Error handling
 
 Operator-specific error taxonomy drives reconcile behavior. For Go wrapping conventions (`%w`,
-`errors.Is` / `errors.As`), see [coding-standards.md § Go conventions](docs/development/coding-standards.md#go-conventions).
+`errors.Is` / `errors.As`), see [coding-standards.md § Go conventions](coding-standards.md#go-conventions).
 
 - **Typed error taxonomy** drives requeue behavior:
   - `ErrTransient` (network, throttling, conflicts) → requeue with backoff; `Synced=False`, `Reason=Progressing`.
@@ -29,7 +29,7 @@ Operator-specific error taxonomy drives reconcile behavior. For Go wrapping conv
 - **No `panic`** in reconcilers or libraries (except `main`).
 - **Context deadlines** on every external call; propagate reconcile `ctx`.
 - **Structured logs** (`logr`): stable messages + keys. Never log secrets, tokens, or full payloads.
-  Logging package policy: [coding-standards.md § Logging](docs/development/coding-standards.md#logging).
+  Logging package policy: [coding-standards.md § Logging](coding-standards.md#logging).
 
 ## 2. Robustness and reliability
 
@@ -54,12 +54,12 @@ Operator-specific error taxonomy drives reconcile behavior. For Go wrapping conv
 - **Transport** — TLS verification required for sink and doc endpoints; support org **custom CA** (no disable-verify in prod).
 - **Input validation** — CEL in CRD OpenAPI + **validating webhooks before reconcile workarounds**.
 - **Supply chain** — pinned dependencies and GitHub Action SHAs; scans enforced in CI.
-  Tooling and gates: [coding-standards.md § Security](docs/development/coding-standards.md#security).
+  Tooling and gates: [coding-standards.md § Security](coding-standards.md#security).
 
 ## 4. Testing
 
 Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
-[testing.md](docs/development/testing.md) and [coding-standards.md § Testing](docs/development/coding-standards.md#testing).
+[testing.md](testing.md) and [coding-standards.md § Testing](coding-standards.md#testing).
 
 - **Tests alongside code** — unit, envtest, golden contracts, integration (testcontainers), kind e2e.
 - **Mocks** — mockery on small interfaces only.
@@ -69,16 +69,16 @@ Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
 
 ## 5. Performance and scalability
 
-- **Scale target:** 10,000+ watched objects per operator with scoped informers ([ADR-0603](docs/adr/0603-performance-scalability.md)).
+- **Scale target:** 10,000+ watched objects per operator with scoped informers ([ADR-0603](../adr/0603-performance-scalability.md)).
 - **Memory bounded** — paginated `List`, namespace/label selectors, shared informer per GVK; no full
-  payload in etcd status ([ADR-0103](docs/adr/0103-etcd-limit.md)).
+  payload in etcd status ([ADR-0103](../adr/0103-etcd-limit.md)).
 - **Parallel controllers** — tune `MaxConcurrentReconciles`; workqueue rate limiter + exponential
   backoff on `ErrTransient`; separate concurrency for heavy vs light reconcilers where needed.
 - **Backpressure** — monitor workqueue depth and reconcile latency metrics; SAR `ErrForbidden` degrades
   scope for one target without blocking the whole queue.
 - **Rate limits and circuit breakers** — per-sink `gobreaker`; transient sink/API errors requeue with
-  jitter; terminal config errors stop requeue ([ADR-0602](docs/adr/0602-error-taxonomy.md)).
-- **Profiling** — pprof on `:6060` behind feature gate (default off); document in [PERFORMANCE.md](docs/PERFORMANCE.md).
+  jitter; terminal config errors stop requeue ([ADR-0602](../adr/0602-error-taxonomy.md)).
+- **Profiling** — pprof on `:6060` behind feature gate (default off); document in [PERFORMANCE.md](../PERFORMANCE.md).
 - **Benchmarks** — `task bench` (`-short`, `-benchmem`); `BenchmarkExtract` for CEL/JSONPath hot path.
 
 ## 6. Definition of done (per change)
@@ -88,4 +88,4 @@ Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
 - Status conditions and Events updated; no secrets in logs.
 - ADR updated when the decision is non-trivial.
 
-Full contributor checklist: [CONTRIBUTING.md § Pull request process](CONTRIBUTING.md#pull-request-process).
+Full contributor checklist: [CONTRIBUTING.md § Pull request process](../../CONTRIBUTING.md#pull-request-process).
