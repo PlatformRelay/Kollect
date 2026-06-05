@@ -27,7 +27,7 @@ anchor on an older commit.
 
 ### Breaking Changes
 
-- **deps:** Bump github-actions group (7 updates) [aef3ea7](https://github.com/konih/kollect/commit/aef3ea737a4de62de3acf358b032f563316ec58c)
+- **deps:** Bump github-actions group (7 updates) ([#6](https://github.com/konih/kollect/pull/6))[aef3ea7](https://github.com/konih/kollect/commit/aef3ea737a4de62de3acf358b032f563316ec58c)
 
 
 ### Bug Fixes
