@@ -258,6 +258,8 @@ jobs:
       - name: Native Go fuzz (30s)
         run: go test -run=^$ -fuzz=${{ matrix.target }} -fuzztime=30s ${{ matrix.pkg }}
 
+  # SonarCloud: GitHub secret SONAR_TOKEN (SonarCloud analysis token). Local dev uses
+  # SONARCLOUD_TOKEN in .envrc — same value, different name (see tooling-setup.md).
   sonarcloud:
     name: sonarcloud
     runs-on: ubuntu-latest

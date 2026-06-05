@@ -151,7 +151,8 @@ project target when coverage has grown sustainably (see ADR-0706).
 in [ARCHITECTURE.md](docs/ARCHITECTURE.md#package-boundaries).
 
 **SonarCloud** (maintainability / debt trends) is optional in CI until `SONAR_TOKEN` is configured;
-see [tooling-setup.md](docs/development/tooling-setup.md).
+maintainers can run `task sonar:local` with `SONARCLOUD_TOKEN` in `.envrc` — see
+[tooling-setup.md](docs/development/tooling-setup.md#sonarcloud-maintainer-setup).
 
 ## Code guidelines
 

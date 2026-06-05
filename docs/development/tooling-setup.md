@@ -18,6 +18,7 @@ configure once.
 | `task arch-lint` | Import-graph fitness only (`.go-arch-lint.yml`) |
 | `task format:check` | `gofmt` drift gate |
 | `task vulncheck` | `govulncheck` (module CVE scan) |
+| `task sonar` / `task sonar:local` | Local SonarCloud upload (maintainer; needs `SONARCLOUD_TOKEN`) |
 
 Architecture rules live in [`.go-arch-lint.yml`](../../.go-arch-lint.yml) at the repo root.
 See [ARCHITECTURE.md](../ARCHITECTURE.md#package-boundaries) for the intended dependency direction.
@@ -59,13 +60,36 @@ SonarCloud is **optional** until `SONAR_TOKEN` is configured. CI runs the scan w
 3. Add project **`konih_kollect`** (must match `sonar.projectKey`).
 4. Set visibility to **Public** (free for OSS).
 
-### 2. GitHub secret
+### 2. Tokens (GitHub secret + local `.envrc`)
+
+SonarCloud exposes one **project analysis token**. Use the same value in two places — different
+env var names by convention:
+
+| Where | Variable | Notes |
+| --- | --- | --- |
+| GitHub Actions | `SONAR_TOKEN` | Repository secret (`Settings` → `Secrets and variables` → `Actions`) |
+| Local (direnv) | `SONARCLOUD_TOKEN` | Export in `.envrc` (gitignored); run `direnv allow` after edit |
+
+Steps:
 
 1. SonarCloud → **My Account** → **Security** → **Generate Tokens** (project analysis token).
-2. GitHub → `konih/kollect` → **Settings** → **Secrets and variables** → **Actions**.
-3. Add repository secret **`SONAR_TOKEN`** with the analysis token.
+2. GitHub → `konih/kollect` → add repository secret **`SONAR_TOKEN`** with that token.
+3. Locally, add `export SONARCLOUD_TOKEN="<same token>"` to `.envrc` (never commit).
 
-### 3. Quality gate (recommended)
+### 3. Local Sonar scan
+
+After `SONARCLOUD_TOKEN` is in `.envrc` and direnv is loaded:
+
+```sh
+task sonar          # alias for sonar:local
+task sonar:local    # runs task coverage, then sonar-scanner via Docker
+```
+
+Requires Docker. Uploads to org **`konih`**, project **`konih_kollect`** per
+[`sonar-project.properties`](../../sonar-project.properties). First run may take a few minutes;
+confirm the project appears at [SonarCloud](https://sonarcloud.io/project/overview?id=konih_kollect).
+
+### 4. Quality gate (recommended)
 
 After the first successful scan:
 
@@ -73,7 +97,7 @@ After the first successful scan:
 2. Prefer **Sonar way** or a custom gate that fails on **new** issues only (not legacy debt).
 3. Enable **Pull Request decoration** (GitHub App) when ready for PR comments.
 
-### 4. CI wiring
+### 5. CI wiring
 
 | Workflow | When | Coverage |
 | --- | --- | --- |
@@ -87,7 +111,7 @@ Properties file: [`sonar-project.properties`](../../sonar-project.properties).
 | Item | Contributor | Maintainer |
 | --- | --- | --- |
 | `task lint` / `arch-lint` | Run before PR | Keep `.go-arch-lint.yml` todos current |
-| `SONAR_TOKEN` | — | GitHub secret + SonarCloud project |
+| `SONAR_TOKEN` / `SONARCLOUD_TOKEN` | — | GitHub secret + `.envrc` (same token, different names) |
 | `CODECOV_TOKEN` | — | Optional; separate from Sonar |
 | Quality gate blocking | — | Enable after baseline scan (Phase 1) |
 

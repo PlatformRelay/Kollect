@@ -147,6 +147,25 @@ tasks:
     cmds:
       - task: test:coverage:html
 
+  sonar:
+    desc: Run SonarCloud scan locally (alias for sonar:local)
+    cmds:
+      - task: sonar:local
+
+  sonar:local:
+    desc: Run SonarCloud scan locally (SONARCLOUD_TOKEN in .envrc via direnv)
+    preconditions:
+      - sh: test -n "${SONARCLOUD_TOKEN}"
+        msg: "SONARCLOUD_TOKEN unset — add to .envrc and run direnv allow (see docs/development/tooling-setup.md)"
+    cmds:
+      - task: coverage
+      - |
+        {{.CONTAINER_TOOL | default `docker`}} run --rm \
+          -e SONAR_HOST_URL="https://sonarcloud.io" \
+          -e SONAR_TOKEN="${SONARCLOUD_TOKEN}" \
+          -v "${PWD}:/usr/src" \
+          sonarsource/sonar-scanner-cli:latest
+
   bench:
     desc: Run Go micro-benchmarks (-short, -benchmem)
     cmds:
