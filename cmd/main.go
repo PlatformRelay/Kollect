@@ -70,6 +70,7 @@ func main() {
 	var enablePprof bool
 	var pprofAddr string
 	var hubConsumer bool
+	var operatorMode string
 	var watchNamespacesRaw string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
@@ -110,7 +111,9 @@ func main() {
 	flag.StringVar(&pprofAddr, "pprof-bind-address", ":6060",
 		"Bind address for pprof when --enable-pprof is set.")
 	flag.BoolVar(&hubConsumer, "hub-consumer", false,
-		"Run as hub spoke-report consumer (requires KOLLECT_HUB_NAME).")
+		"Deprecated: use --mode=hub. Run as hub spoke-report consumer (requires KOLLECT_HUB_NAME).")
+	flag.StringVar(&operatorMode, "mode", "",
+		"Operator mode: cluster (default), hub, or spoke. Overridden by KOLLECT_MODE when flag is empty.")
 	flag.StringVar(&watchNamespacesRaw, "watch-namespaces", "",
 		"Comma-separated namespaces to watch (empty = all namespaces).")
 	opts := zap.Options{
@@ -121,9 +124,14 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	if hubConsumer {
+	mode := operator.ResolveMode(operatorMode, hubConsumer)
+	if operator.IsHubMode(mode) {
 		runHubConsumer(metricsAddr, probeAddr, secureMetrics, tlsOpts)
 		return
+	}
+
+	if mode == operator.ModeSpoke {
+		setupLog.Info("spoke mode: hub publish enabled when KOLLECT_SPOKE_CLUSTER is set")
 	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
