@@ -16,28 +16,30 @@ Operators differ on whether configuration CRDs get their own reconciler:
 kollect has configuration objects (`KollectProfile`, `KollectSink`) that change infrequently and
 work objects (`KollectTarget`, `KollectInventory`) that drive continuous collection and export.
 
-At **~60 clusters**, shared GVK definitions via cluster `KollectProfile` matter, but per-target
-overrides may be needed later without forking profiles.
+At **~60 clusters**, shared GVK definitions may be duplicated per namespace or published via future
+`KollectClusterProfile`; per-target overrides may be needed later without forking profiles.
 
 ## Decision
 
 | Category | Kinds | Controller | Status | Validation |
 | --- | --- | --- | --- | --- |
-| Static config | `KollectProfile`, `KollectSink`, `KollectScope` (namespaced) | None | None (or minimal metadata only) | CEL `x-kubernetes-validations`, **validating webhook** ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
+| Static config | `KollectProfile`, `KollectScope` (namespaced) | None | None | CEL `x-kubernetes-validations`, **validating webhook** ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
+| Static + probe | `KollectSink` | **Minimal** — connection test only ([ADR-0030](0030-connection-test.md)) | `ConnectionVerified`, `TLSInsecure`, `Degraded` | Webhook + probe reconciler |
 | Reconciled | `KollectTarget`, `KollectInventory` | Yes | Full conditions + `observedGeneration` | Same + runtime SAR checks |
 
 Rationale (Flux-aligned):
 
 - Cuts controllers and status write churn for rarely changing config.
-- Profile/Sink edits still trigger dependent reconciles via secondary watches on referencing objects.
+- Profile edits still trigger dependent reconciles via secondary watches on referencing objects.
 - `spec.suspend` on **reconciled** kinds only; static objects are always "active" when referenced.
 
-**Explicitly reject** reconciling `KollectProfile`/`KollectSink` like ESO SecretStore — the
-validation benefit does not justify status/etcd churn for kollect's read-mostly config.
+**Reject** full reconciliation of `KollectProfile` like ESO `SecretStore`. **`KollectSink`** is the
+exception: a narrow reconciler for connectivity only ([ADR-0030](0030-connection-test.md)).
 
 ### Shared GVK, optional per-target overrides
 
-- **Default:** `KollectTarget.spec.profileRef` points to cluster `KollectProfile` (shared GVK schema).
+- **Default:** `KollectTarget.spec.profileRef` names a `KollectProfile` in the **same namespace**
+  ([ADR-0031](0031-namespaced-profiles.md)).
 - **Future door:** optional inline attribute overrides or `profileRef` + patch fields on Target —
   design keeps API evolvable without breaking shared profiles ([ADR-0004](0004-crd-model.md)).
 
@@ -53,13 +55,14 @@ Prefer **one shared informer per GVK** across Targets ([ADR-0014](0014-event-dri
 
 ### Connection test (first-class)
 
-Without reconciling static sinks, still provide **discoverable connectivity feedback**:
+See **[ADR-0030](0030-connection-test.md)** — **no `KollectConnectionTest` CR**.
 
 | Mechanism | Behavior |
 | --- | --- |
-| **Status on `KollectInventory` / `KollectTarget`** | Condition e.g. `SinkReachable` with reason, latency, last probe time |
-| **Annotation trigger** | `kollect.dev/testConnection=true` on Sink or Inventory requests one-shot probe |
-| **`kubectl`-friendly** | `kubectl wait --for=condition=SinkReachable` on reconciled objects |
+| **`spec.connectionTest: true`** on `KollectSink` | Probe on create/update |
+| **Annotation `kollect.dev/test-connection: "true"`** | One-shot re-test on the sink |
+| **`ConnectionVerified` on `KollectSink`** | `kubectl wait --for=condition=ConnectionVerified=...` |
+| **Pipeline conditions (follow-up)** | `SinkReachable` (or export conditions) on `KollectInventory` / `KollectTarget` |
 
 Connection tests run from the operator with the same TLS trust as export ([ADR-0004](0004-crd-model.md)
 `caBundle` / `caSecretRef`). Errors are **visible and informative** (HTTP status, DNS, TLS handshake)
@@ -79,11 +82,11 @@ sequenceDiagram
   participant User
   participant API as API server
   participant Op as kollect
-  User->>API: apply KollectSink + annotation testConnection
-  API->>Op: watch / webhook
-  Op->>Op: probe Git/GitLab with CA trust
-  Op->>API: patch Target/Inventory conditions
-  User->>API: kubectl wait SinkReachable
+  User->>API: apply KollectSink (connectionTest or test-connection annotation)
+  API->>Op: KollectSink reconciler
+  Op->>Op: probe sink with CA trust
+  Op->>API: patch Sink ConnectionVerified
+  User->>API: kubectl wait ConnectionVerified
 ```
 
 ## Consequences
@@ -92,7 +95,7 @@ sequenceDiagram
 
 - Fewer moving parts, fewer leader-election reconciler loops.
 - Clear mental model: config CRDs are like Flux Providers; workload CRDs are like GitRepositories.
-- Connection test gives human-user-0 fast feedback without a Sink reconciler.
+- Connection test gives human-user-0 fast feedback via minimal Sink reconciler ([ADR-0030](0030-connection-test.md)).
 
 ### Negative
 
@@ -102,5 +105,5 @@ sequenceDiagram
 
 ## Open questions
 
-- **OPEN:** Dedicated `KollectConnectionTest` CR vs annotation-only trigger?
+- **RESOLVED (2026-06-05):** No `KollectConnectionTest` CR — spec + annotation on Sink ([ADR-0030](0030-connection-test.md)).
 - **OPEN:** Per-target profile override API shape — inline map vs `KollectProfilePatch` kind?

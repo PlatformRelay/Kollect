@@ -33,6 +33,7 @@ apiVersion: kollect.dev/v1alpha1
 kind: KollectProfile
 metadata:
   name: deployment-images
+  namespace: default
 spec:
   targetGVK:
     group: apps
@@ -159,7 +160,7 @@ kubectl get kprof,ksink,ktgt -A,kinv
 | Symptom | Likely cause |
 | --- | --- |
 | Target not found | `KollectTarget` is namespaced — ensure namespace matches |
-| Profile not found | `profileRef` must name an existing cluster `KollectProfile` |
+| Profile not found | `profileRef` must name a `KollectProfile` in the **same namespace** as the Target |
 | No export in Git | Phase 1 sink not implemented yet, or missing `secretRef` |
 | Empty item count | No Deployments match selector, or informer not registered |
 | Namespace skipped | `kollect.dev/namespace-watch: disabled` or `watchMode: OptIn` without `enabled` label |

@@ -91,6 +91,23 @@ Set `watchMode: OptIn` to collect only explicitly `enabled` namespaces/resources
 
 Sample opt-in target: `config/samples/kollect_v1alpha1_kollecttarget_opt-in.yaml`.
 
+### Connection test (sink)
+
+Samples set `spec.connectionTest: true` on `KollectSink`. The operator probes Git/Postgres/Kafka
+and sets **`ConnectionVerified`** ([ADR-0030](adr/0030-connection-test.md)).
+
+```sh
+kubectl wait --for=condition=ConnectionVerified kollectsink/git-inventory \
+  -n default --timeout=60s
+kubectl describe kollectsink git-inventory -n default
+```
+
+Re-test without editing spec:
+
+```sh
+kubectl annotate kollectsink git-inventory -n default kollect.dev/test-connection=true --overwrite
+```
+
 ### Optional: Git credentials
 
 The sample Git sink references a placeholder repository. For real exports, create a Secret with

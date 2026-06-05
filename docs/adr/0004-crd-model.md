@@ -30,7 +30,7 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 
 | Kind | Scope | Role |
 | --- | --- | --- |
-| `KollectProfile` | Cluster | Reusable extraction schema: GVK + named CEL/JSONPath attributes |
+| `KollectProfile` | **Namespace** (breaking; was cluster) | Reusable extraction schema: GVK + named CEL/JSONPath attributes ([ADR-0031](0031-namespaced-profiles.md)) |
 | `KollectSink` | Cluster | Backend config: `type` (`git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka`) + endpoint + `secretRef` + TLS trust; resolved via Go registry ([ADR-0025](0025-sink-backends-database-kafka.md)) |
 | `KollectScope` | **Namespace** (Phase 1 priority) | Tenancy boundary: allowed GVKs, namespaces, sinks for a team ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
 
@@ -51,8 +51,9 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 
 - `KollectReceiver` — inbound webhook → trigger (Flux Receiver pattern).
 - `KollectTargetSet` — generator templating many Targets (ApplicationSet pattern).
-- **`KollectClusterInventory`** (cluster) — platform-wide rollup across namespaces; mirrors ESO
-  `ClusterSecretStore` vs `SecretStore`. **No controller in Phase 0–1** — ADR + plan only.
+- **`KollectClusterProfile`** (cluster) — platform-shared extraction schemas; mirrors ESO
+  `ClusterSecretStore` vs `SecretStore` ([ADR-0031](0031-namespaced-profiles.md)).
+- **`KollectClusterInventory`** (cluster) — platform-wide rollup across namespaces. **No controller in Phase 0–1** — ADR + plan only.
 - **`KollectClusterScope`** (cluster) — platform tenancy boundary when namespaced `KollectScope` is
   insufficient; addition after namespaced scope enforcement ships (Phase 3).
 
@@ -94,7 +95,7 @@ Phase 1 API. Schema clarity and aggregation matter more than where filtering run
 ### Positive
 
 - Static Profile/Sink cuts moving parts (validated at admission, read at reconcile time).
-- Namespaced Targets and Inventories align with team ownership; cluster Profiles/Sinks enable shared platform config.
+- Namespaced Profiles align with team ownership; cluster Sinks enable shared platform export backends.
 - Prefix naming is grep-friendly and avoids generic kind collisions in multi-operator clusters.
 - Early webhooks prevent bad profiles from wedging reconcilers.
 - **`KollectClusterInventory`** reserved for platform portal without blocking team-scoped MVP.
@@ -107,7 +108,7 @@ Phase 1 API. Schema clarity and aggregation matter more than where filtering run
 
 ## Open questions
 
-- **OPEN:** Add `KollectClusterSink` + namespaced `KollectSink` split in Phase 1 or defer to Phase 3
-  with `KollectScope`?
+- **RESOLVED (2026-06-05):** Defer **`KollectClusterSink` + namespaced `KollectSink` split to Phase 3**.
+  Phase 1 uses cluster-scoped `KollectSink` + `KollectScope.sinkRefs` allowlists ([ADR-0016](0016-namespaced-multi-tenancy.md)).
 - **OPEN:** Single `caBundle` field vs only `secretRef` for CA — size limits on CRD spec?
 - **OPEN:** `KollectClusterInventory` selector model — all namespaces vs explicit namespace list?

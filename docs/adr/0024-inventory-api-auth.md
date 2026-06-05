@@ -93,7 +93,7 @@ inventory port — no oauth2-proxy hop.
 ### Positive
 
 - Reuses cluster identity — no parallel user database or API-key store.
-- SAR enforces namespace/tenant boundaries consistent with `KollectScope` (Phase 3).
+- SAR enforces namespace/tenant boundaries consistent with `KollectScope` ([ADR-0016](0016-namespaced-multi-tenancy.md)).
 - oauth2-proxy available for OIDC/browser UX without blocking service-to-service auth.
 - `disabled` mode keeps local kind smoke and unit tests simple.
 

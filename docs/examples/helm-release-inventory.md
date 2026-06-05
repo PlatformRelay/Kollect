@@ -37,6 +37,7 @@ apiVersion: kollect.dev/v1alpha1
 kind: KollectProfile
 metadata:
   name: helm-release-summary
+  namespace: default
 spec:
   targetGVK:
     group: helm.toolkit.fluxcd.io
@@ -44,7 +45,7 @@ spec:
     kind: HelmRelease
   attributes:
     - name: chartVersion
-      path: '$.status.history[0].chartVersion'
+      path: '$.status.lastAttemptedRevision'
       type: string
       optional: true
     - name: appVersion
