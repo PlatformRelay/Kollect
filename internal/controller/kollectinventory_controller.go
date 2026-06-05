@@ -49,7 +49,6 @@ func (r *KollectInventoryReconciler) exportDebounce(inv *kollectdevv1alpha1.Koll
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectinventories/finalizers,verbs=update
-// TODO(EC-P1-01): add finalizers for external sink/doc cleanup on inventory deletion.
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollecttargets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectsinks,verbs=get;list;watch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectscopes,verbs=get;list;watch
@@ -67,6 +66,18 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	var inv kollectdevv1alpha1.KollectInventory
 	if err := r.Get(ctx, req.NamespacedName, &inv); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if !inv.DeletionTimestamp.IsZero() {
+		return r.finalizeInventoryDeletion(ctx, &inv)
+	}
+
+	if err := r.ensureInventoryFinalizer(ctx, &inv); err != nil {
+		if apierrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		return ctrl.Result{}, err
 	}
 
 	if inv.Spec.Suspend {

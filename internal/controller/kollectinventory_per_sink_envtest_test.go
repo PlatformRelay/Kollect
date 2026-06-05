@@ -193,3 +193,94 @@ var _ = Describe("KollectInventory per-sink export (envtest)", func() {
 		}
 	})
 })
+
+var _ = Describe("KollectInventory deletion cleanup (envtest)", func() {
+	It("exports empty snapshot and removes finalizer on delete", func() {
+		suffix := fmt.Sprintf("%x", time.Now().UnixNano())
+		invName := "delete-inv-" + suffix
+		sinkName := "delete-pg-" + suffix
+		ns := "default"
+
+		store := collect.NewStore()
+		store.Upsert(collect.Item{
+			TargetNamespace: ns,
+			TargetName:      "demo-target",
+			UID:             "uid-delete",
+			Namespace:       ns,
+			Name:            "nginx",
+			Version:         "v1",
+			Kind:            "Deployment",
+		})
+
+		sinkObj := &kollectdevv1alpha1.KollectSink{
+			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns},
+			Spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type: kollectdevv1alpha1.SinkTypePostgres,
+				Postgres: &kollectdevv1alpha1.PostgresSpec{
+					DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-" + suffix},
+					Table:       "inventory_items",
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
+		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
+
+		pgSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "pg-" + suffix, Namespace: ns},
+			Data:       map[string][]byte{"dsn": []byte("postgres://example")},
+		}
+		Expect(k8sClient.Create(ctx, pgSecret)).To(Succeed())
+		defer func() { _ = k8sClient.Delete(ctx, pgSecret) }()
+
+		inv := &kollectdevv1alpha1.KollectInventory{
+			ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns},
+			Spec: kollectdevv1alpha1.KollectInventorySpec{
+				SinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
+			},
+		}
+		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
+
+		recorder := &relationalRecordingBackend{}
+		reg := sink.NewRegistry()
+		reg.Register(kollectdevv1alpha1.SinkTypePostgres, func(
+			_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext,
+		) (sink.Backend, error) {
+			return recorder, nil
+		})
+
+		reconciler := &KollectInventoryReconciler{
+			Client:   k8sClient,
+			Scheme:   k8sClient.Scheme(),
+			Store:    store,
+			Registry: reg,
+		}
+
+		req := reconcile.Request{NamespacedName: types.NamespacedName{Name: invName, Namespace: ns}}
+		_, err := reconciler.Reconcile(context.Background(), req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(recorder.exported).To(HaveLen(1))
+
+		updated := &kollectdevv1alpha1.KollectInventory{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: invName, Namespace: ns}, updated)).To(Succeed())
+		Expect(updated.Finalizers).To(ContainElement(inventoryCleanupFinalizer))
+
+		Expect(k8sClient.Delete(ctx, updated)).To(Succeed())
+
+		Eventually(func(g Gomega) {
+			var deleting kollectdevv1alpha1.KollectInventory
+			getErr := k8sClient.Get(ctx, types.NamespacedName{Name: invName, Namespace: ns}, &deleting)
+			g.Expect(getErr).NotTo(HaveOccurred())
+			g.Expect(deleting.DeletionTimestamp).NotTo(BeNil())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
+
+		_, err = reconciler.Reconcile(context.Background(), req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(recorder.exported).To(HaveLen(2))
+
+		Eventually(func(g Gomega) {
+			var gone kollectdevv1alpha1.KollectInventory
+			getErr := k8sClient.Get(ctx, types.NamespacedName{Name: invName, Namespace: ns}, &gone)
+			g.Expect(getErr).To(HaveOccurred())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
+	})
+})
