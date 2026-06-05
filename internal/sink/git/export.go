@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -56,6 +55,10 @@ func Export(ctx context.Context, cfg Config, auth Auth, payload []byte, objectPa
 
 	ctx, cancel := context.WithTimeout(ctx, exportTimeout)
 	defer cancel()
+
+	if isFileRemote(cloneURL) {
+		return exportFileRemote(ctx, cloneURL, branch, payload, objectPath)
+	}
 
 	authMethod, err := basicAuth(cloneURL, auth)
 	if err != nil {
@@ -110,7 +113,7 @@ func Export(ctx context.Context, cfg Config, auth Auth, payload []byte, objectPa
 		return fmt.Errorf("git commit: %w", err)
 	}
 
-	return pushCommitted(ctx, repo, cfg, authMethod, tmp, cloneURL, branch, emptyRemote, commit)
+	return pushCommitted(ctx, repo, cfg, authMethod, cloneURL, branch, emptyRemote, commit)
 }
 
 func pushCommitted(
@@ -118,7 +121,7 @@ func pushCommitted(
 	repo *git.Repository,
 	cfg Config,
 	authMethod transport.AuthMethod,
-	workDir, cloneURL, branch string,
+	cloneURL, branch string,
 	emptyRemote bool,
 	commit plumbing.Hash,
 ) error {
@@ -149,10 +152,6 @@ func pushCommitted(
 		return fmt.Errorf("git push: %w", err)
 	}
 
-	if isFileRemote(cloneURL) {
-		return pushFileRemoteCLI(ctx, workDir, branch)
-	}
-
 	return nil
 }
 
@@ -163,17 +162,6 @@ func isFileRemote(cloneURL string) bool {
 	}
 
 	return u.Scheme == "file"
-}
-
-func pushFileRemoteCLI(ctx context.Context, workDir, branch string) error {
-	ref := fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch)
-	//nolint:gosec // G204: workDir from MkdirTemp
-	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "push", "--force", "origin", ref)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git push file remote: %s: %w", strings.TrimSpace(string(out)), err)
-	}
-
-	return nil
 }
 
 func parseRemote(endpoint string) (cloneURL, branch string, err error) {
