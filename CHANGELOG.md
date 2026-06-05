@@ -32,6 +32,22 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **sink:** Gitlab HTTP client timeout [2c2564d](https://github.com/konih/kollect/commit/2c2564de6dc8ac68d6b444f22a94ea2e4e49df8a)
+
+- **sink:** Postgres connect uses request context [fdcb4d2](https://github.com/konih/kollect/commit/fdcb4d26b14ae811aa17fc685b7657822b2bd4ab)
+
+- **collect:** Degrade target on SAR API error [6d4ed37](https://github.com/konih/kollect/commit/6d4ed37800c78e1507f54e387eac0119b00482d3)
+
+- **hub:** Rollback merge when export fails [b8603e6](https://github.com/konih/kollect/commit/b8603e649b8ca8e6e2fedb03392653d72cd2da82)
+
+- **controller:** Requeue conflicts and log map errors [954d1b6](https://github.com/konih/kollect/commit/954d1b69f9737af1f2933fa08c1d445197bf7761)
+
+- **sink:** Close backends and log close errors [bd022c3](https://github.com/konih/kollect/commit/bd022c3dbe26fbd09602b3022331ddd8dd1effd2)
+
+- **transport:** Commit Kafka offset on handler success [86018a8](https://github.com/konih/kollect/commit/86018a83079cb0b70899481a9c07a872d3e57871)
+
+- **spoke:** Retain delta until publish succeeds [566632b](https://github.com/konih/kollect/commit/566632b2e3e96a8200de5225f6c1542ad96519f6)
+
 - **sink:** Validate git CLI args before exec [50fd4cf](https://github.com/konih/kollect/commit/50fd4cf2ff2d0abdb44eaf61e94d12e960681eb9)
 
 - **demo:** Satisfy OpenSSF Scorecard in kind-wide-scope [75915df](https://github.com/konih/kollect/commit/75915df4c5a1d124aaed114af8aa3787b610066e)
