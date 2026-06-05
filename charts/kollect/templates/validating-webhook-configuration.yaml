@@ -1,0 +1,27 @@
+{{- if .Values.webhooks.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "kollect.fullname" . }}-validating-webhook-configuration
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+  {{- if .Values.webhooks.certManager.create }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kollect.fullname" . }}-serving-cert
+  {{- end }}
+webhooks:
+  - admissionReviewVersions: [v1]
+    clientConfig:
+      service:
+        name: {{ include "kollect.webhookServiceName" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /validate-kollect-dev-v1alpha1-kollectprofile
+    failurePolicy: Fail
+    name: vkollectprofile.kb.io
+    rules:
+      - apiGroups: [kollect.dev]
+        apiVersions: [v1alpha1]
+        operations: [CREATE, UPDATE]
+        resources: [kollectprofiles]
+    sideEffects: None
+{{- end }}

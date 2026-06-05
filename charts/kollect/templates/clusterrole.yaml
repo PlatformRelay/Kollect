@@ -1,0 +1,24 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kollect.fullname" . }}-manager
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, watch]
+  - apiGroups: [kollect.dev]
+    resources: [kollectinventories, kollectsinks, kollecttargets]
+    verbs: [create, delete, get, list, patch, update, watch]
+  - apiGroups: [kollect.dev]
+    resources: [kollectinventories/finalizers, kollecttargets/finalizers]
+    verbs: [update]
+  - apiGroups: [kollect.dev]
+    resources: [kollectinventories/status, kollectsinks/status, kollecttargets/status]
+    verbs: [get, patch, update]
+  - apiGroups: [kollect.dev]
+    resources: [kollectprofiles]
+    verbs: [get, list, watch]
+{{- end }}

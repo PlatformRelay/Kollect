@@ -1,0 +1,11 @@
+kollect operator installed in namespace {{ .Release.Namespace }}.
+
+{{- if .Values.featureGates.inventoryHttp.enabled }}
+Inventory HTTP: GET http://<pod-ip>:{{ .Values.featureGates.inventoryHttp.port }}/inventory
+{{- end }}
+
+{{- if .Values.oauth2Proxy.enabled }}
+oauth2-proxy sidecar is not implemented yet (values.oauth2Proxy.enabled is reserved).
+{{- end }}
+
+Apply sample CRs from the kollect repo config/samples/ after the controller is Ready.

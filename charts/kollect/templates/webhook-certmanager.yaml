@@ -1,0 +1,27 @@
+{{- if and .Values.webhooks.enabled .Values.webhooks.certManager.create }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "kollect.fullname" . }}-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kollect.fullname" . }}-serving-cert
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+    - {{ include "kollect.webhookServiceName" . }}.{{ .Release.Namespace }}.svc
+    - {{ include "kollect.webhookServiceName" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: {{ include "kollect.fullname" . }}-selfsigned-issuer
+  secretName: {{ .Values.webhooks.certManager.secretName }}
+{{- end }}

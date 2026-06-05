@@ -1,0 +1,16 @@
+{{- if .Values.webhooks.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kollect.webhookServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+      protocol: TCP
+  selector:
+    {{- include "kollect.selectorLabels" . | nindent 4 }}
+{{- end }}

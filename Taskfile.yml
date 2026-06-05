@@ -112,3 +112,8 @@ tasks:
     desc: Preview unreleased changelog (requires git-cliff in PATH or bin/)
     cmds:
       - git-cliff --config cliff.toml --unreleased
+
+  helm-lint:
+    desc: Lint the kollect Helm chart
+    cmds:
+      - helm lint charts/kollect

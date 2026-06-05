@@ -1,0 +1,77 @@
+# Default values for the kollect operator Helm chart.
+
+nameOverride: ""
+fullnameOverride: ""
+
+createNamespace: false
+
+image:
+  repository: ghcr.io/konih/kollect
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+rbac:
+  create: true
+
+leaderElection:
+  enabled: true
+
+featureGates:
+  inventoryHttp:
+    enabled: false
+    port: 8082
+
+# TODO: optional oauth2-proxy sidecar in front of inventory HTTP when auth is required.
+oauth2Proxy:
+  enabled: false
+
+metrics:
+  enabled: true
+  bindAddress: ":8443"
+  secure: true
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+
+webhooks:
+  enabled: true
+  certManager:
+    create: true
+    secretName: webhook-server-cert
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+extraArgs: []
