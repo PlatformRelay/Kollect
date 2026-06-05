@@ -7,6 +7,7 @@ import {
 import { AppShell } from "./components/AppShell";
 import { OverviewPage } from "./routes/overview";
 import { InventoryPage } from "./routes/inventory";
+import { filtersFromSearch } from "./store/inventory";
 import { TargetsPage } from "./routes/targets";
 import { SinksPage } from "./routes/sinks";
 
@@ -27,6 +28,7 @@ const overviewRoute = createRoute({
 const inventoryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/inventory",
+  validateSearch: (search) => filtersFromSearch(search),
   component: InventoryPage,
 });
 
