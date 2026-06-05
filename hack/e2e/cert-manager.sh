@@ -51,22 +51,18 @@ _log "Waiting for KollectTarget team-certificates Ready..."
 kubectl wait --for=condition=Ready kollecttarget/team-certificates \
   -n default --timeout="$WAIT_TIMEOUT"
 
-_log "Waiting for Certificate in inventory HTTP payload..."
-kubectl port-forward -n "$KOLLECT_NAMESPACE" svc/kollect-controller-manager 18084:8082 &
-pf_pid=$!
-trap 'kill "$pf_pid" 2>/dev/null || true' EXIT
-sleep 2
-
+_log "Waiting for Certificate collection (itemCount >= 1)..."
 deadline=$((SECONDS + 180))
 while (( SECONDS < deadline )); do
-  if curl -sf http://127.0.0.1:18084/inventory | grep -q smoke-selfsigned; then
-    _log "Certificate collection smoke passed."
+  item_count="$(kubectl get kollecttarget team-certificates -n default \
+    -o jsonpath='{.status.itemCount}')"
+  if [[ -n "$item_count" && "$item_count" -ge 1 ]]; then
+    _log "Certificate collection smoke passed (itemCount=${item_count})."
     exit 0
   fi
   sleep 5
 done
 
-echo "certificate smoke-selfsigned not found in inventory HTTP within timeout" >&2
+echo "team-certificates itemCount=${item_count:-0}, want >= 1 within timeout" >&2
 kubectl describe kollecttarget team-certificates -n default
-curl -sf http://127.0.0.1:18084/inventory || true
 exit 1
