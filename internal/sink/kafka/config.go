@@ -10,7 +10,10 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-const typeName = "kafka"
+// TypeName is the KollectSink.spec.type value for Kafka sinks.
+const TypeName = "kafka"
+
+const typeName = TypeName
 
 // Config holds resolved Kafka sink settings.
 type Config struct {
