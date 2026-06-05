@@ -31,7 +31,7 @@ func (v *kollectSinkValidator) ValidateCreate(
 	_ context.Context,
 	ks *kollectdevv1alpha1.KollectSink,
 ) (admission.Warnings, error) {
-	return nil, v.validate(ks)
+	return v.validate(ks)
 }
 
 func (v *kollectSinkValidator) ValidateUpdate(
@@ -43,7 +43,7 @@ func (v *kollectSinkValidator) ValidateUpdate(
 		return nil, nil
 	}
 
-	return nil, v.validate(newKS)
+	return v.validate(newKS)
 }
 
 func (v *kollectSinkValidator) ValidateDelete(
@@ -53,11 +53,11 @@ func (v *kollectSinkValidator) ValidateDelete(
 	return nil, nil
 }
 
-func (v *kollectSinkValidator) validate(ks *kollectdevv1alpha1.KollectSink) error {
+func (v *kollectSinkValidator) validate(ks *kollectdevv1alpha1.KollectSink) (admission.Warnings, error) {
 	errs := validation.ValidateSinkSpec(&ks.Spec)
 	if len(errs) > 0 {
-		return validation.SinkInvalid(ks.Name, errs)
+		return nil, validation.SinkInvalid(ks.Name, errs)
 	}
 
-	return nil
+	return validation.ValidateGitSinkWarnings(&ks.Spec), nil
 }

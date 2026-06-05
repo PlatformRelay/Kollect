@@ -68,9 +68,83 @@ type KollectSinkSpec struct {
 	// +optional
 	ObjectStore *ObjectStoreSpec `json:"objectStore,omitempty"`
 
+	// git configures git sink settings when type is git.
+	// +optional
+	Git *GitSpec `json:"git,omitempty"`
+
 	// gitlab configures GitLab-specific settings when type is gitlab.
 	// +optional
 	GitLab *GitLabSpec `json:"gitlab,omitempty"`
+}
+
+// Git push policy values (ADR-0407).
+const (
+	GitPushPolicyCommit    = "Commit"
+	GitPushPolicyForcePush = "ForcePush"
+)
+
+// Git auth type values.
+const (
+	GitAuthTypeToken = "token"
+	GitAuthTypeSSH   = "ssh"
+)
+
+// GitSpec configures plain git sink export behavior.
+type GitSpec struct {
+	// branch is the target branch for clone and push.
+	// Overrides the endpoint URL fragment (#branch=) when set.
+	// +optional
+	Branch string `json:"branch,omitempty"`
+
+	// pushPolicy selects append-only commits (Commit, default) or force-push snapshot mode (ForcePush).
+	// +kubebuilder:validation:Enum=Commit;ForcePush
+	// +optional
+	PushPolicy string `json:"pushPolicy,omitempty"`
+
+	// auth documents credential mode and optional secret override for git push.
+	// +optional
+	Auth *GitAuthSpec `json:"auth,omitempty"`
+
+	// commitMessage is the git commit message template.
+	// Placeholders: {namespace}, {name}, {cluster}, {generation}.
+	// +optional
+	CommitMessage string `json:"commitMessage,omitempty"`
+
+	// author overrides the default kollect committer identity.
+	// +optional
+	Author *GitAuthorSpec `json:"author,omitempty"`
+
+	// cloneDepth limits shallow clone depth (default 1).
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	CloneDepth *int32 `json:"cloneDepth,omitempty"`
+
+	// prune stages deletions in the worktree before commit (git add -A semantics).
+	// +optional
+	Prune bool `json:"prune,omitempty"`
+}
+
+// GitAuthSpec configures git credential mode for HTTPS or SSH remotes.
+type GitAuthSpec struct {
+	// type selects HTTPS token/basic auth or SSH private-key auth.
+	// +kubebuilder:validation:Enum=token;ssh
+	// +optional
+	Type string `json:"type,omitempty"`
+
+	// secretRef overrides spec.secretRef for git credentials when set.
+	// +optional
+	SecretRef *SecretReference `json:"secretRef,omitempty"`
+}
+
+// GitAuthorSpec overrides the default git commit author.
+type GitAuthorSpec struct {
+	// name is the commit author display name (default kollect).
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// email is the commit author email (default kollect@kollect.dev).
+	// +optional
+	Email string `json:"email,omitempty"`
 }
 
 // ObjectStoreSpec configures S3/GCS snapshot serialization (ADR-0401).

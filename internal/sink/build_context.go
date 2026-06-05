@@ -70,6 +70,15 @@ func BuildContextFromSpec(
 		}
 	}
 
+	if gitSecret := gitAuthSecretRef(spec); gitSecret != nil {
+		gitCreds, err := ResolveSecret(ctx, c, gitSecret, defaultNamespace)
+		if err != nil {
+			return BuildContext{}, err
+		}
+
+		out.SecretData = gitCreds.Data
+	}
+
 	if spec.Type == "nats" && spec.Nats != nil {
 		natsRef := spec.Nats.SecretRef
 		if natsRef == nil {
@@ -87,6 +96,14 @@ func BuildContextFromSpec(
 	}
 
 	return out, nil
+}
+
+func gitAuthSecretRef(spec kollectdevv1alpha1.KollectSinkSpec) *kollectdevv1alpha1.SecretReference {
+	if spec.Type != "git" || spec.Git == nil || spec.Git.Auth == nil {
+		return nil
+	}
+
+	return spec.Git.Auth.SecretRef
 }
 
 func resolveCAPEM(

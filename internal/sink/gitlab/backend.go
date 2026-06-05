@@ -65,7 +65,10 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 		}
 	}
 
-	if err := git.ExportWithBranch(ctx, b.cfg.GitConfig(), b.auth, payload, objectPath, branchSpec); err != nil {
+	commitCtx := git.CommitContextFromObjectPath(objectPath, "")
+	if err := git.ExportWithBranch(
+		ctx, b.cfg.GitConfig(), b.auth, payload, objectPath, branchSpec, commitCtx,
+	); err != nil {
 		return err
 	}
 

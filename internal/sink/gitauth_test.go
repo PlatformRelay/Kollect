@@ -10,7 +10,7 @@ import (
 func TestGitAuthFromSecretData(t *testing.T) {
 	t.Parallel()
 
-	if auth := GitAuthFromSecretData(nil); auth.Username != "" || auth.Token != "" {
+	if auth := GitAuthFromSecretData(nil, ""); auth.Username != "" || auth.Token != "" {
 		t.Fatalf("nil data: %+v", auth)
 	}
 
@@ -18,7 +18,7 @@ func TestGitAuthFromSecretData(t *testing.T) {
 		"username": []byte("bot"),
 		"password": []byte("pw"),
 		"token":    []byte("tok"),
-	})
+	}, "token")
 	if auth.Username != "bot" || auth.Password != "pw" || auth.Token != "tok" {
 		t.Fatalf("auth = %+v", auth)
 	}

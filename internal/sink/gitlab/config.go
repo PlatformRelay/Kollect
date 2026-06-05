@@ -91,8 +91,16 @@ func mergeRequestConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec) (MergeR
 // GitConfig converts GitLab settings to the shared git export config.
 func (c Config) GitConfig() git.Config {
 	return git.Config{
-		Endpoint: c.Endpoint,
-		TLS:      c.TLS,
-		CABundle: c.CABundle,
+		Endpoint:      c.Endpoint,
+		TLS:           c.TLS,
+		CABundle:      c.CABundle,
+		PushPolicy:    git.PushPolicyForcePush,
+		CommitMessage: "kollect: export inventory",
+		Author: git.CommitAuthor{
+			Name:  "kollect",
+			Email: "kollect@kollect.dev",
+		},
+		CloneDepth: 1,
+		AuthType:   git.AuthTypeToken,
 	}
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
@@ -30,27 +29,16 @@ const (
 	exportTimeout    = 2 * time.Minute
 )
 
-// Auth holds optional credentials for git push.
-type Auth struct {
-	Username string
-	Password string
-	Token    string
-}
-
-// BranchSpec optionally overrides clone and push branches for git export.
 type BranchSpec struct {
-	// PushBranch is the branch pushed to the remote. Empty uses the endpoint default branch.
-	PushBranch string
-	// CloneBranch is the branch cloned as the export base. Empty uses PushBranch or endpoint default.
+	PushBranch  string
 	CloneBranch string
 }
 
-// Export clones (or initializes), writes payload at objectPath, commits, and pushes to the remote.
 func Export(ctx context.Context, cfg Config, auth Auth, payload []byte, objectPath string) error {
-	return ExportWithBranch(ctx, cfg, auth, payload, objectPath, nil)
+	commitCtx := CommitContextFromObjectPath(objectPath, cfg.Cluster)
+	return ExportWithBranch(ctx, cfg, auth, payload, objectPath, nil, commitCtx)
 }
 
-// ExportWithBranch is like Export but can push to a feature branch cloned from another ref.
 func ExportWithBranch(
 	ctx context.Context,
 	cfg Config,
@@ -58,10 +46,13 @@ func ExportWithBranch(
 	payload []byte,
 	objectPath string,
 	branch *BranchSpec,
+	commitCtx CommitContext,
 ) error {
 	if len(payload) == 0 {
 		return fmt.Errorf("git export: empty payload")
 	}
+
+	cfg = cfg.withDefaults()
 
 	req, err := validateExportRequest(cfg, objectPath, branch)
 	if err != nil {
@@ -72,10 +63,15 @@ func ExportWithBranch(
 	defer cancel()
 
 	if isFileRemote(req.cloneURL) {
-		return exportFileRemote(ctx, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath)
+		return exportFileRemote(ctx, cfg, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath, commitCtx)
 	}
 
-	authMethod, err := basicAuth(req.cloneURL, auth)
+	authType := auth.AuthType
+	if authType == "" {
+		authType = cfg.AuthType
+	}
+
+	authMethod, err := buildAuthMethod(req.cloneURL, auth, authType)
 	if err != nil {
 		return err
 	}
@@ -113,8 +109,8 @@ func ExportWithBranch(
 		return fmt.Errorf("write object: %w", writeErr)
 	}
 
-	if _, addErr := wt.Add(req.objectPath); addErr != nil {
-		return fmt.Errorf("git add: %w", addErr)
+	if stageErr := stageChanges(wt, req.objectPath, cfg.Prune); stageErr != nil {
+		return stageErr
 	}
 
 	status, err := wt.Status()
@@ -126,10 +122,11 @@ func ExportWithBranch(
 		return nil
 	}
 
-	commit, err := wt.Commit("kollect: export inventory", &git.CommitOptions{
+	message := renderCommitMessage(cfg.CommitMessage, commitCtx)
+	commit, err := wt.Commit(message, &git.CommitOptions{
 		Author: &object.Signature{
-			Name:  "kollect",
-			Email: "kollect@kollect.dev",
+			Name:  cfg.Author.Name,
+			Email: cfg.Author.Email,
 			When:  time.Now(),
 		},
 	})
@@ -138,6 +135,41 @@ func ExportWithBranch(
 	}
 
 	return pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, commit)
+}
+
+func stageChanges(wt *git.Worktree, objectPath string, prune bool) error {
+	if !prune {
+		if _, addErr := wt.Add(objectPath); addErr != nil {
+			return fmt.Errorf("git add: %w", addErr)
+		}
+
+		return nil
+	}
+
+	status, err := wt.Status()
+	if err != nil {
+		return fmt.Errorf("git status: %w", err)
+	}
+
+	for path, fileStatus := range status {
+		if fileStatus.Worktree == git.Unmodified && fileStatus.Staging == git.Unmodified {
+			continue
+		}
+
+		if fileStatus.Worktree == git.Deleted {
+			if _, err := wt.Remove(path); err != nil {
+				return fmt.Errorf("git remove %q: %w", path, err)
+			}
+
+			continue
+		}
+
+		if _, err := wt.Add(path); err != nil {
+			return fmt.Errorf("git add %q: %w", path, err)
+		}
+	}
+
+	return nil
 }
 
 func resolveBranches(defaultBranch string, spec *BranchSpec) (cloneBranch, pushBranch string) {
@@ -181,7 +213,7 @@ func pushCommitted(
 	}
 
 	refSpecStr := fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch)
-	if emptyRemote {
+	if emptyRemote || cfg.PushPolicy == PushPolicyForcePush {
 		refSpecStr = "+" + refSpecStr
 	}
 
@@ -226,38 +258,6 @@ func parseRemote(endpoint string) (cloneURL, branch string, err error) {
 	return cloneURL, branch, nil
 }
 
-func basicAuth(cloneURL string, auth Auth) (transport.AuthMethod, error) {
-	u, err := url.Parse(cloneURL)
-	if err != nil {
-		return nil, err
-	}
-
-	switch u.Scheme {
-	case "http", "https":
-		if auth.Username == "" && auth.Token == "" && auth.Password == "" {
-			return nil, nil
-		}
-
-		user := auth.Username
-		if user == "" {
-			user = "git"
-		}
-
-		pass := auth.Token
-		if pass == "" {
-			pass = auth.Password
-		}
-
-		return &githttp.BasicAuth{Username: user, Password: pass}, nil
-	case "file":
-		return nil, nil
-	case "ssh":
-		return nil, fmt.Errorf("ssh git export is not supported yet; use https")
-	default:
-		return nil, fmt.Errorf("unsupported git URL scheme %q", u.Scheme)
-	}
-}
-
 func cloneOrInit(
 	ctx context.Context,
 	dir, cloneURL, branch string,
@@ -268,7 +268,7 @@ func cloneOrInit(
 		URL:             cloneURL,
 		ReferenceName:   plumbing.NewBranchReferenceName(branch),
 		SingleBranch:    true,
-		Depth:           1,
+		Depth:           cfg.CloneDepth,
 		Auth:            auth,
 		InsecureSkipTLS: cfg.TLS.InsecureSkipVerify,
 		CABundle:        cfg.CABundle,
@@ -315,7 +315,6 @@ func isEmptyRemote(err error) bool {
 		strings.Contains(msg, "reference not found")
 }
 
-// ExportMemory performs an in-memory commit (for unit tests without a remote).
 func ExportMemory(payload []byte, objectPath string) (plumbing.Hash, error) {
 	repo, err := git.Init(memory.NewStorage(), memfs.New())
 	if err != nil {

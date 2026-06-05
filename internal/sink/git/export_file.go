@@ -9,14 +9,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
 func exportFileRemote(
 	ctx context.Context,
+	cfg Config,
 	cloneURL, cloneBranch, pushBranch string,
 	payload []byte,
 	objectPath string,
+	commitCtx CommitContext,
 ) error {
 	if _, err := validateObjectPath(objectPath); err != nil {
 		return fmt.Errorf("git export: %w", err)
@@ -28,7 +31,7 @@ func exportFileRemote(
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	if err = cloneOrInitCLI(ctx, tmp, cloneURL, cloneBranch); err != nil {
+	if err = cloneOrInitCLI(ctx, tmp, cloneURL, cloneBranch, cfg.CloneDepth); err != nil {
 		return err
 	}
 
@@ -52,7 +55,11 @@ func exportFileRemote(
 		return fmt.Errorf("write object: %w", writeErr)
 	}
 
-	if err = runGit(ctx, tmp, "add", gitObjectPath); err != nil {
+	if cfg.Prune {
+		if err = runGit(ctx, tmp, "add", "-A"); err != nil {
+			return err
+		}
+	} else if err = runGit(ctx, tmp, "add", gitObjectPath); err != nil {
 		return err
 	}
 
@@ -61,20 +68,33 @@ func exportFileRemote(
 		return statusErr
 	}
 	if clean {
-		return fmt.Errorf("git add produced no changes for %q", gitObjectPath)
+		return nil
 	}
 
-	if err = runGit(ctx, tmp, "-c", "user.name=kollect", "-c", "user.email=kollect@kollect.dev",
-		"commit", "-m", "kollect: export inventory"); err != nil {
+	message := renderCommitMessage(cfg.CommitMessage, commitCtx)
+	if err = runGit(ctx, tmp, "-c", "user.name="+cfg.Author.Name, "-c", "user.email="+cfg.Author.Email,
+		"commit", "-m", message); err != nil {
 		return err
 	}
 
-	return runGit(ctx, tmp, "push", "--force", "-u", "origin", pushBranch)
+	pushArgs := []string{"push", "-u", "origin", pushBranch}
+	if cfg.PushPolicy == PushPolicyForcePush {
+		pushArgs = []string{"push", "--force", "-u", "origin", pushBranch}
+	}
+
+	return runGit(ctx, tmp, pushArgs...)
 }
 
-func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string) error {
+func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string, depth int) error {
+	cloneArgs := []string{"clone", "--branch", branch, "--single-branch"}
+	if depth > 0 {
+		cloneArgs = append(cloneArgs, "--depth", strconv.Itoa(depth))
+	}
+
+	cloneArgs = append(cloneArgs, cloneURL, dir)
+
 	//nolint:gosec // G204: dir from MkdirTemp; branch/URL validated before invocation
-	clone := exec.CommandContext(ctx, "git", "clone", "--branch", branch, "--single-branch", cloneURL, dir)
+	clone := exec.CommandContext(ctx, "git", cloneArgs...)
 	if out, err := clone.CombinedOutput(); err == nil {
 		return nil
 	} else if !isCLIEmptyRemote(string(out), err) {

@@ -21,7 +21,7 @@ func TestKollectSinkValidator_rejectsUnknownType(t *testing.T) {
 		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "unknown"},
 	}
 
-	if err := v.validate(ks); err == nil {
+	if _, err := v.validate(ks); err == nil {
 		t.Fatal("expected validation error for unknown sink type")
 	}
 }
@@ -76,7 +76,7 @@ func TestKollectSinkValidator_acceptsPostgres(t *testing.T) {
 		},
 	}
 
-	if err := v.validate(ks); err != nil {
+	if _, err := v.validate(ks); err != nil {
 		t.Fatalf("unexpected validation error: %v", err)
 	}
 }

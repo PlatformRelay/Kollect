@@ -34,8 +34,8 @@ inventory/<inventory-namespace>/<inventory-name>.json
 - **Commit identity** is fixed: `kollect <kollect@kollect.dev>`, message `kollect: export inventory`.
 - **No-op guard**: if `git add` produces no change, the export errors rather than pushing an empty
   commit (idempotent exports stay quiet — [ADR-0406](0406-sink-registry.md)).
-- **Force-push** to the push branch (`push --force -u origin`); the export is a **snapshot**, not an
-  append-only history — the latest commit is the source of truth.
+- **Push policy** (2026-06-05): `spec.git.pushPolicy` defaults to **`Commit`** (append-only pushes).
+  Optional **`ForcePush`** restores snapshot semantics (`push --force`) for demo repos.
 - **Empty-remote bootstrap**: a fresh/empty repo is `git init`'d and the branch created, so the first
   export works against a bare repository.
 - **Custom CA**: trusted via resolved `caPEM` from `BuildContext` ([ADR-0104](0104-security-model.md));
@@ -64,7 +64,7 @@ inventory/<inventory-namespace>/<inventory-name>.json
 - **DECIDED (2026-06-05):** Make the object path a **`spec.pathTemplate`** (e.g.
   `{cluster}/{namespace}/{name}.json`, default `inventory/{namespace}/{name}.json`) so layout is
   configurable per sink.
-- **OPEN:** Optional commit-per-export (no force-push) mode for users who want Git history instead of a
-  snapshot HEAD?
+- **DECIDED (2026-06-05):** `spec.git` adds `pushPolicy`, `branch`, `auth`, `commitMessage`, `author`,
+  `cloneDepth`, and `prune` on `KollectSink`.
 - **OPEN:** Object-store (S3/GCS) partition layout for the Parquet snapshot sink — lean toward
   `clusters/<cluster>/date=…/` Hive-style partitioning for DuckDB ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).

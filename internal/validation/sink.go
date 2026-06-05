@@ -49,6 +49,8 @@ func ValidateSinkSpec(spec *kollectdevv1alpha1.KollectSinkSpec) field.ErrorList 
 				))
 			}
 
+			allErrs = append(allErrs, validateGitSpec(spec)...)
+
 			return allErrs
 		}
 	}

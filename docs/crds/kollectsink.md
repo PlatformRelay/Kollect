@@ -65,6 +65,15 @@ Export debouncing and payload flow: [DATA-FLOWS.md](../DATA-FLOWS.md#1-export-de
 | `spec.objectStore` | object | No | S3/GCS snapshot format (`json` or `parquet`) and Parquet hot columns |
 | `spec.postgres` | object | No | `databaseRef`, `table`, `schema` |
 | `spec.kafka` | object | No | `brokers[]`, `topic`, optional `secretRef` |
+| `spec.git` | object | No | Git-only export knobs when `type: git` |
+| `spec.git.branch` | string | No | Target branch (overrides `endpoint#branch=`; default `main`) |
+| `spec.git.pushPolicy` | enum | No | `Commit` (default) or `ForcePush` (snapshot HEAD) |
+| `spec.git.auth.type` | enum | No | `token` (HTTPS) or `ssh` |
+| `spec.git.auth.secretRef` | object | No | Overrides top-level `secretRef` for git credentials |
+| `spec.git.commitMessage` | string | No | Template with `{namespace}`, `{name}`, `{cluster}`, `{generation}` |
+| `spec.git.author` | object | No | `name` / `email` committer override |
+| `spec.git.cloneDepth` | int | No | Shallow clone depth (default `1`) |
+| `spec.git.prune` | bool | No | Stage deletions before commit |
 | `spec.gitlab` | object | No | GitLab-only: `mergeRequest` block when `type: gitlab` |
 | `spec.gitlab.mergeRequest.mode` | enum | No | `direct` (default) or `merge_request` |
 | `spec.gitlab.mergeRequest.targetBranch` | string | Cond. | Required when `mode: merge_request` — branch cloned as export base |
@@ -100,6 +109,15 @@ When `spec.type: gitlab` and `spec.gitlab.mergeRequest.mode: merge_request`:
 and `api` (project access token or personal access token with equivalent scopes).
 
 Direct mode (`merge_request` unset or `mode: direct`) pushes to the endpoint default branch only.
+
+### Git sink options
+
+When `spec.type: git`, optional `spec.git` controls branch, push semantics, auth mode, and commit
+identity ([ADR-0407](../adr/0407-git-object-store-layout.md)). Defaults: `pushPolicy: Commit`,
+`cloneDepth: 1`, `commitMessage: kollect: export inventory`.
+
+**Credentials:** top-level `spec.secretRef` or `spec.git.auth.secretRef`. HTTPS keys: `token`,
+`password`, optional `username`. SSH keys: `ssh-privatekey`, `identity`, or `id_rsa`.
 
 ### Object path template
 

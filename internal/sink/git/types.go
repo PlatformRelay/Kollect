@@ -4,9 +4,28 @@
 package git
 
 const (
-	// TypeName is the KollectSink type value for git backends.
 	TypeName    = "git"
 	schemeHTTP  = "http"
 	schemeHTTPS = "https"
+	schemeSSH   = "ssh"
 	schemeFile  = "file"
+
+	defaultCommitMessage = "kollect: export inventory"
+	defaultAuthorName    = "kollect"
+	defaultAuthorEmail   = "kollect@kollect.dev"
+	defaultCloneDepth    = 1
+)
+
+type PushPolicy string
+
+const (
+	PushPolicyCommit    PushPolicy = "Commit"
+	PushPolicyForcePush PushPolicy = "ForcePush"
+)
+
+type AuthType string
+
+const (
+	AuthTypeToken AuthType = "token"
+	AuthTypeSSH   AuthType = "ssh"
 )

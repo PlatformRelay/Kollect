@@ -114,7 +114,7 @@ func TestExportFileRemoteFeatureBranch(t *testing.T) {
 	if err := ExportWithBranch(t.Context(), cfg, Auth{}, payload, "inventory/feature.json", &BranchSpec{
 		PushBranch:  "kollect/team-a/inventory",
 		CloneBranch: "main",
-	}); err != nil {
+	}, CommitContext{}); err != nil {
 		t.Fatalf("ExportWithBranch() error = %v", err)
 	}
 

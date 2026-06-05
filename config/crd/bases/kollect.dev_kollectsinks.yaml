@@ -53,6 +53,73 @@ spec:
                 description: endpoint is the backend-specific destination (URL, bucket,
                   and so on).
                 type: string
+              git:
+                description: git configures git sink settings when type is git.
+                properties:
+                  auth:
+                    description: auth documents credential mode and optional secret
+                      override for git push.
+                    properties:
+                      secretRef:
+                        description: secretRef overrides spec.secretRef for git credentials
+                          when set.
+                        properties:
+                          name:
+                            description: name is the name of the referenced Secret.
+                            type: string
+                          namespace:
+                            description: namespace is the namespace of the referenced
+                              Secret.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      type:
+                        description: type selects HTTPS token/basic auth or SSH private-key
+                          auth.
+                        enum:
+                        - token
+                        - ssh
+                        type: string
+                    type: object
+                  author:
+                    description: author overrides the default kollect committer identity.
+                    properties:
+                      email:
+                        description: email is the commit author email (default kollect@kollect.dev).
+                        type: string
+                      name:
+                        description: name is the commit author display name (default
+                          kollect).
+                        type: string
+                    type: object
+                  branch:
+                    description: |-
+                      branch is the target branch for clone and push.
+                      Overrides the endpoint URL fragment (#branch=) when set.
+                    type: string
+                  cloneDepth:
+                    description: cloneDepth limits shallow clone depth (default 1).
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  commitMessage:
+                    description: |-
+                      commitMessage is the git commit message template.
+                      Placeholders: {namespace}, {name}, {cluster}, {generation}.
+                    type: string
+                  prune:
+                    description: prune stages deletions in the worktree before commit
+                      (git add -A semantics).
+                    type: boolean
+                  pushPolicy:
+                    description: pushPolicy selects append-only commits (Commit, default)
+                      or force-push snapshot mode (ForcePush).
+                    enum:
+                    - Commit
+                    - ForcePush
+                    type: string
+                type: object
               gitlab:
                 description: gitlab configures GitLab-specific settings when type
                   is gitlab.

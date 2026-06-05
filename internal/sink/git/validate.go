@@ -64,7 +64,7 @@ func objectPathInWorkdir(workdir, objectPath string) (absPath string, relPath st
 	return resolved, relPath, nil
 }
 
-func validateGitRef(ref string) error {
+func ValidateGitRef(ref string) error {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return fmt.Errorf("empty git ref")
@@ -128,13 +128,13 @@ func validateExportRequest(cfg Config, objectPath string, branch *BranchSpec) (e
 		return exportRequest{}, fmt.Errorf("git export: %w", err)
 	}
 
-	cloneBranch, pushBranch := resolveBranches(defaultBranch, branch)
+	cloneBranch, pushBranch := resolveBranches(cfg.EffectiveBranch(defaultBranch), branch)
 
-	if err = validateGitRef(cloneBranch); err != nil {
+	if err = ValidateGitRef(cloneBranch); err != nil {
 		return exportRequest{}, fmt.Errorf("git export: invalid clone branch: %w", err)
 	}
 
-	if err = validateGitRef(pushBranch); err != nil {
+	if err = ValidateGitRef(pushBranch); err != nil {
 		return exportRequest{}, fmt.Errorf("git export: invalid push branch: %w", err)
 	}
 
@@ -162,7 +162,7 @@ func validateCloneURL(cloneURL string) error {
 	}
 
 	switch u.Scheme {
-	case schemeFile, schemeHTTP, schemeHTTPS:
+	case schemeFile, schemeHTTP, schemeHTTPS, schemeSSH:
 		return nil
 	default:
 		return fmt.Errorf("unsupported clone URL scheme %q", u.Scheme)

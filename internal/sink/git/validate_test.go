@@ -89,8 +89,8 @@ func TestValidateGitRef_rejectsInjection(t *testing.T) {
 		t.Run(tc, func(t *testing.T) {
 			t.Parallel()
 
-			if err := validateGitRef(tc); err == nil {
-				t.Fatalf("validateGitRef(%q) = nil, want error", tc)
+			if err := ValidateGitRef(tc); err == nil {
+				t.Fatalf("ValidateGitRef(%q) = nil, want error", tc)
 			}
 		})
 	}
@@ -110,8 +110,8 @@ func TestValidateGitRef_acceptsFeatureBranch(t *testing.T) {
 		t.Run(tc, func(t *testing.T) {
 			t.Parallel()
 
-			if err := validateGitRef(tc); err != nil {
-				t.Fatalf("validateGitRef(%q) error = %v", tc, err)
+			if err := ValidateGitRef(tc); err != nil {
+				t.Fatalf("ValidateGitRef(%q) error = %v", tc, err)
 			}
 		})
 	}
@@ -129,7 +129,7 @@ func TestExportWithBranch_rejectsMaliciousObjectPath(t *testing.T) {
 	t.Parallel()
 
 	cfg := Config{Endpoint: "file:///tmp/repo.git"}
-	err := ExportWithBranch(t.Context(), cfg, Auth{}, []byte("{}"), "../../../etc/passwd", nil)
+	err := ExportWithBranch(t.Context(), cfg, Auth{}, []byte("{}"), "../../../etc/passwd", nil, CommitContext{})
 	if err == nil {
 		t.Fatal("expected error for malicious object path")
 	}
@@ -145,7 +145,7 @@ func TestExportWithBranch_rejectsMaliciousBranch(t *testing.T) {
 	cfg := Config{Endpoint: "file:///tmp/repo.git"}
 	err := ExportWithBranch(t.Context(), cfg, Auth{}, []byte("{}"), "inventory/test.json", &BranchSpec{
 		PushBranch: "; rm -rf /",
-	})
+	}, CommitContext{})
 	if err == nil {
 		t.Fatal("expected error for malicious branch")
 	}
@@ -167,11 +167,13 @@ func TestExportFileRemote_rejectsTraversalBeforeWrite(t *testing.T) {
 	bare := filepath.Join(workdir, "repo.git")
 	err := exportFileRemote(
 		t.Context(),
+		Config{Endpoint: "file://" + bare}.withDefaults(),
 		"file://"+bare,
 		"main",
 		"main",
 		[]byte(`{"x":1}`),
 		"../outside.json",
+		CommitContext{},
 	)
 	if err == nil {
 		t.Fatal("expected traversal rejection")
