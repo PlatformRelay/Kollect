@@ -57,10 +57,7 @@ func TestExportBareRepoIntegration(t *testing.T) {
 		t.Fatalf("rev-parse HEAD: %v", err)
 	}
 
-	hash, err := plumbing.FromHex(string(head[:40]))
-	if err != nil {
-		t.Fatalf("parse commit: %v", err)
-	}
+	hash := plumbing.NewHash(string(head[:40]))
 
 	sum := sha256.Sum256(payload)
 	expected := hex.EncodeToString(sum[:])
