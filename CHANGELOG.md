@@ -27,6 +27,10 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **api:** Drop required status on KollectConnectionTest create [bbe1c82](https://github.com/konih/kollect/commit/bbe1c82d37105c62172059acb008b242ec1d452b)
+
+- **ci:** Repair Go 1.26 internal coverage profile merge [c897773](https://github.com/konih/kollect/commit/c8977735bca2efd38c5afdb962e698a216b41381)
+
 - **ci:** Skip cmd packages in coverage pre-pass [b432fbe](https://github.com/konih/kollect/commit/b432fbe399f0f943a6f4fdafef54be4747f76ee7)
 
 - **controller:** Gate validating webhooks when chart disables TLS [06eef97](https://github.com/konih/kollect/commit/06eef970672722795338529d8acc5cf3066299f0)
