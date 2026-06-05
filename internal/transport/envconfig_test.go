@@ -59,6 +59,16 @@ func TestConfigFromEnvNATS(t *testing.T) {
 	}
 }
 
+func TestConfigFromEnvHTTP(t *testing.T) {
+	t.Setenv("KOLLECT_TRANSPORT_TYPE", "http")
+	t.Setenv("KOLLECT_HUB_URL", "https://hub.example/hub")
+
+	cfg := ConfigFromEnv()
+	if cfg.Type != TypeHTTP || cfg.HTTP.URL != "https://hub.example/hub" {
+		t.Fatalf("http cfg = %#v", cfg)
+	}
+}
+
 func TestConfigFromEnvRedisTLS(t *testing.T) {
 	t.Setenv("KOLLECT_TRANSPORT_TYPE", "redis")
 	t.Setenv("KOLLECT_REDIS_URL", "rediss://localhost:6379")

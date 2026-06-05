@@ -45,4 +45,13 @@ func TestAccessCheckerCachesAllowed(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("expected 1 SAR call, got %d", calls)
 	}
+
+	checker.Invalidate()
+	ok, err = checker.CanAccess(context.Background(), gvr, "default", "list")
+	if err != nil || !ok {
+		t.Fatalf("after invalidate: ok=%v err=%v", ok, err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected 2 SAR calls after invalidate, got %d", calls)
+	}
 }

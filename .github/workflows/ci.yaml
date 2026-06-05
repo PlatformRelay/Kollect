@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      COVERAGE_MIN: "45"
+      COVERAGE_MIN: "60"
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -107,16 +107,17 @@ jobs:
             coverage-summary.txt
           if-no-files-found: error
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
+        if: success()
+        uses: codecov/codecov-action@5a10915bbd043c759cd6bf3fc1fb679b98d6a9b2 # v5.4.3
         with:
           files: coverage.out
           fail_ci_if_error: false
-          use_oidc: true
+          use_oidc: false
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Codecov upload note (no token)
-        if: env.CODECOV_TOKEN == ''
+        if: success() && env.CODECOV_TOKEN == ''
         run: |
-          echo "::notice::Codecov upload uses OIDC for public repos; optional CODECOV_TOKEN secret also supported."
+          echo "::warning::CODECOV_TOKEN secret is unset; Codecov upload skipped (configure repo secret for uploads)."
 
   build:
     name: build

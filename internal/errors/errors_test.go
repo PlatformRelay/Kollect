@@ -79,4 +79,23 @@ func TestClassifyAPI(t *testing.T) {
 	if !IsTerminal(ClassifyAPI(nf)) {
 		t.Fatal("expected terminal for NotFound")
 	}
+
+	fb := apierrors.NewForbidden(schema.GroupResource{}, "x", fmt.Errorf("denied"))
+	if !IsForbidden(ClassifyAPI(fb)) {
+		t.Fatal("expected forbidden")
+	}
+}
+
+func TestIsForbiddenAndFormat(t *testing.T) {
+	t.Parallel()
+
+	if IsForbidden(Transient(fmt.Errorf("retry"))) {
+		t.Fatal("transient must not be forbidden")
+	}
+
+	formatted := Format(ErrTerminal, "sink %q invalid", "demo")
+	var ce *ClassError
+	if !errors.As(formatted, &ce) || !errors.Is(ce.Class, ErrTerminal) {
+		t.Fatalf("Format() = %T %v", formatted, formatted)
+	}
 }
