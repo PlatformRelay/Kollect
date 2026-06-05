@@ -1,0 +1,14 @@
+# Default review routing — @konih owns core paths until additional maintainers join.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @konih
+
+/.github/ @konih
+/api/ @konih
+/cmd/ @konih
+/internal/ @konih
+/config/ @konih
+/charts/ @konih
+/docs/ @konih
+/hack/ @konih
+/test/ @konih

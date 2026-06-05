@@ -17,6 +17,9 @@ vars:
   # renovate: datasource=github-releases depName=orhun/git-cliff
   GIT_CLIFF_VERSION: v2.13.1
   GIT_CLIFF_BIN: "{{.BIN_DIR}}/git-cliff"
+  # renovate: datasource=github-releases depName=helm/helm
+  HELM_VERSION: v3.17.3
+  COVERAGE_MIN: "80"
   MANAGER_BINARY: "{{.BIN_DIR}}/manager"
   DOCKER_IMAGE: kollect-controller-manager:dev
   CLUSTER_NAME:
@@ -104,6 +107,8 @@ tasks:
 
   coverage:
     desc: Run unit tests and export coverage.out (internal/ floor enforced)
+    env:
+      COVERAGE_MIN: "{{.COVERAGE_MIN}}"
     cmds:
       - task: test:coverage
 

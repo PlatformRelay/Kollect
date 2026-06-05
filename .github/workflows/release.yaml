@@ -68,6 +68,8 @@ jobs:
           go-version-file: go.mod
 
       - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: v3.17.3
 
       - uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
 
@@ -135,9 +137,21 @@ jobs:
           OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
           echo "oci=oci://${{ env.REGISTRY }}/${OWNER}" >> "${GITHUB_OUTPUT}"
 
-      - name: Publish Helm chart to GHCR (OCI)
+      - name: Publish and sign Helm chart (OCI)
         run: |
-          helm push "dist/kollect-${{ steps.version.outputs.version }}.tgz" "${{ steps.chart.outputs.oci }}"
+          set -euo pipefail
+          CHART_PKG="dist/kollect-${{ steps.version.outputs.version }}.tgz"
+          PUSH_OUT="$(helm push "${CHART_PKG}" "${{ steps.chart.outputs.oci }}" 2>&1)"
+          echo "$PUSH_OUT"
+          DIGEST="$(echo "$PUSH_OUT" | awk '/Digest:/{print $2; exit}')"
+          if [[ -z "${DIGEST}" ]]; then
+            echo "failed to extract chart digest from helm push output" >&2
+            exit 1
+          fi
+          OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          CHART_REF="${{ env.REGISTRY }}/${OWNER}/kollect@${DIGEST}"
+          echo "Signing ${CHART_REF}"
+          cosign sign --yes "${CHART_REF}"
 
       - name: Generate changelog
         id: cliff
