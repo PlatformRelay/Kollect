@@ -28,14 +28,84 @@
 2. MVP export path — Deployment profile → Postgres (or Kafka) sink
 3. `KollectScope` reconciler enforcement
 4. `KollectConnectionTest` CR + keep Sink annotation/spec probes
-5. Export **debouncing** (per Inventory)
-6. Argo **`Application`** helm sample + **contract test** (TODO)
+5. Export **debouncing** — `KollectInventory.spec.exportMinInterval` (default **30s**; not global)
+6. Argo **`Application`** sample + **contract test** (contract test **first**; then samples)
 7. Hub `mode: hub|spoke` + merge lib (`inprocess`); no hub CRD
+8. **`KollectClusterTarget`** — after namespaced MVP (platform operator path)
+
+### Locked micro-decisions (2026-06-05, session 2)
+
+| Topic | Decision |
+| --- | --- |
+| Argo contract test | **First** — golden fixture locks JSONPath + `history` ordering |
+| Argo samples | Profile `argo-application-summary` + Target `team-argo-applications` |
+| `KollectConnectionTest` GC | **`spec.ttlSecondsAfterFinished`** — default **300s** |
+| Export debounce | **Per Inventory** — `spec.exportMinInterval`, default **30s**; **not** global `--export-debounce` |
+| Hub federated mTLS | **Deferred** — ADR-0028 push-first path stands |
+| Cluster rollup | **`KollectClusterInventory`** + **`KollectClusterTarget`** (no namespaced `inventoryRef` hack) |
+
+### ADR micro-decisions (lock at implement — Phase 1 unless noted)
+
+Coordinator defaults from session 2. **Phase 1** rows ship as written; **Phase 2+** may spike first.
+Update the cited ADR when code merges.
+
+#### HTTP API and auth ([ADR-0006](adr/0006-etcd-limit.md), [ADR-0024](adr/0024-inventory-api-auth.md))
+
+| Topic | Default | Phase |
+| --- | --- | --- |
+| Inventory HTTP path | **`GET /v1alpha1/inventory`**; optional **`GET /v1alpha1/inventory/{namespace}/{name}`** | When HTTP enabled (debug; default off) |
+| OpenAPI | **`openapi/v1alpha1/inventory.yaml`** beside handler | 1 |
+| Inventory read SAR | **`get`** on `kollectinventories` in caller namespace; **`list`** for index | 1 |
+| Hub ingest SAR | **`create`/`update`** on `kollectremoteclusters` or subresource **`kollectremoteclusters/ingest`** | 2 — pick one in RBAC doc |
+| TokenReview/SAR cache | **30s TTL** in-memory per `(token hash, verb, resource)`; flag + `disabled` for dev | 1 |
+| `maxExportBytes` | Global manager default (~**1.5 MiB**) + optional **`KollectInventory.spec.maxExportBytes`**; webhook rejects override > global cap | 1 |
+
+#### Sinks and export ([ADR-0025](adr/0025-sink-backends-database-kafka.md), [ADR-0020](adr/0020-error-taxonomy.md))
+
+| Topic | Default | Phase |
+| --- | --- | --- |
+| SQLite sink | **Skip** — Postgres testcontainers sufficient | — |
+| Postgres upsert PK | **`(inventory_namespace, inventory_name, target_name, source_uid)`**; add `cluster` column when hub merge lands | 1 |
+| Kafka message key | **`{cluster}:{inventory_ns}/{inventory_name}`** when hub; else **`{inventory_ns}/{inventory_name}`** | 2 hub |
+| Kafka value | JSON row batch + metadata (`generation`, `checksum`); at-least-once | 1 |
+| Sink error metric | **`kollect_sink_errors_total{reason}`** — separate from reconcile counter | 1 |
+| Export duration histogram | Default buckets: `.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10` seconds | 1 |
+| Export debounce | **`KollectInventory.spec.exportMinInterval`** — default **30s**; material-change bypass | 1 |
+| Connection test TTL | **`KollectConnectionTest.spec.ttlSecondsAfterFinished`** — default **300** | 1 |
+
+#### Extraction and Helm ([ADR-0003](adr/0003-cel-jsonpath-extraction.md), [ADR-0027](adr/0027-helm-release-inventory.md))
+
+| Topic | Default | Phase |
+| --- | --- | --- |
+| `helm:` decode | Prefix **`helm:release.<field>`** on attribute path; decoder expands `data.release` gzip JSON | 2+ |
+| Values redaction | Global operator **`scrubKeys[]`**; per-attribute `redact: true` later | 2 |
+| JSONPath filter validation | Webhook **warn** only; **reject** unsupported filters | 1 warn / 2 reject |
+| CEL prefix | Webhook **requires** **`cel:`** prefix on CEL expressions | 1 |
+
+#### Hub and transport ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md), [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md))
+
+| Topic | Default | Phase |
+| --- | --- | --- |
+| Hub pull vs push | **Push default**; pull via `credentialsSecretRef` optional | 2 |
+| Delivery semantics | **At-least-once**; idempotent merge on **`(cluster, ns, name, uid)`** | 2 |
+| Spoke binary | **Same image**, **`mode: spoke`** — no split binary until size proof | 2 |
+| Max spoke payload inline | **512 KiB** summarized JSON; larger → **`payloadRef`** object store | 2 spike |
+| Hub shard routing | **`hash(clusterName) % shardCount`** via **Helm values / env** — **no `KollectHub` CRD** | 2 |
+| Git `clusters/*` monorepo | Sufficient for **≤100** spokes; object-store spill beyond | 2+ |
+
+#### CRD model ([ADR-0004](adr/0004-crd-model.md))
+
+| Topic | Default | Phase |
+| --- | --- | --- |
+| `caBundle` vs `caSecretRef` | **Keep both** — `caSecretRef` preferred; **`caBundle` max 64 KiB** (webhook) | 1 |
+| `KollectClusterInventory` selector | **Explicit namespace list** in spec — not cluster-wide implicit | 3+ |
 
 ### TODOs explicitly requested
 
-- [ ] **Argo `Application` contract test** — chart/version paths + status ordering
-- [ ] **`KollectConnectionTest` CR** — API, reconciler, sample, docs
+- [x] **Argo `Application` contract test** — `internal/collect/argo_application_contract_test.go`
+- [x] **Argo samples** — profile + target under `config/samples/`
+- [ ] **`KollectConnectionTest` TTL** — add `spec.ttlSecondsAfterFinished` to API + reconciler GC
+- [ ] **`exportMinInterval`** on `KollectInventory` — migrate off global debounce flag
 
 ---
 
@@ -116,7 +186,9 @@ Do not generate controllers or document samples for reserved kinds unless an ADR
 
 - **One shared informer per GVK** ([ADR-0014](adr/0014-event-driven-informers.md)).
 - **Watch labels** ([ADR-0029](adr/0029-watch-labels.md)): platform runs `watchMode: All`; teams opt out with `kollect.dev/watch: disabled` on a resource or namespace annotation.
-- **Export debouncing:** in-memory store updates on every event; **export to sink coalesced** (min interval + checksum/generation bump). Prevents Git/DB write storms at 10k objects.
+- **Export debouncing:** in-memory store updates on every event; **export to sink coalesced** per
+  Inventory via **`spec.exportMinInterval`** (default **30s**) + checksum/generation bump for
+  material changes. **Not** a global manager flag.
 
 ---
 
@@ -156,6 +228,7 @@ Auth: [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md) push-first.
 ## Connection test
 
 - **`KollectConnectionTest` CR** — primary for audited/CI/composite probes
+- **`spec.ttlSecondsAfterFinished`** — default **300s**; delete CR after probe completes
 - Sink `connectionTest: false` in prod; annotation for quick sink-only retest
 - See [ADR-0032](adr/0032-platform-architecture-pivot.md) (amends [ADR-0030](adr/0030-connection-test.md))
 
@@ -165,9 +238,7 @@ Auth: [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md) push-first.
 
 | Topic | ADR |
 | --- | --- |
-| Hub spoke identity details (federated mTLS behind external LB) | [0028](adr/0028-hub-cluster-auth-istio-pattern.md) |
-| Debounce default interval | [0032](adr/0032-platform-architecture-pivot.md) |
-| `KollectConnectionTest` garbage collection | [0032](adr/0032-platform-architecture-pivot.md) |
+| Hub federated mTLS behind external LB | **Deferred** — [0028](adr/0028-hub-cluster-auth-istio-pattern.md) |
 
 ---
 

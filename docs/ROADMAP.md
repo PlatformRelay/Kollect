@@ -102,12 +102,13 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | `task bench` / `task load-test` (bounded scale tests) | ✅ |
 | Secondary watches (Profile/Sink changes) | ⬜ |
 | Finalizers | ⬜ |
-| Read-only HTTP `GET /inventory` (+ SSE watch) | ✅ |
+| Read-only HTTP `GET /v1alpha1/inventory` (+ OpenAPI; SSE watch) | 🚧 |
 | Inventory HTTP auth: TokenReview + SAR (K8s bearer) | ✅ |
 | `--inventory-auth-mode=kubernetes` (default) | ✅ |
 | Full Prometheus metrics per [ADR-0020](adr/0020-error-taxonomy.md) | ✅ |
 | Sample profiles: Deployment, Service, Ingress | ✅ |
-| Sample profile: Helm release summary (**Argo `Application` primary**) | ⬜ |
+| Sample profile: Helm release summary (**Argo `Application` primary**) | ✅ |
+| Argo `Application` contract test (`internal/collect/`) | ✅ |
 | Sample profile: Helm release summary (Flux `HelmRelease` secondary) | ✅ |
 | Helm values profile + operator scrub | ⬜ |
 | `helm:` decode for `helm.sh/v1` Secret releases | ⬜ |
@@ -219,7 +220,8 @@ Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). 
 | `task bench` (Go benchmarks, `-short`) | ✅ |
 | `task load-test` (`KOLECT_LOAD_TEST=1`, `-tags=load`) | ✅ |
 | `--max-concurrent-reconciles-*` flags + Helm values | ✅ |
-| `--export-debounce` / `--reconcile-rate-limit` flags | ✅ |
+| **`spec.exportMinInterval`** per Inventory (default 30s; migrate off `--export-debounce`) | ⬜ |
+| `--reconcile-rate-limit` flag | ✅ |
 | `--informer-resync-period` flag | ⬜ |
 | pprof on `:6060` (feature gate) | ✅ |
 | `kollect_workqueue_depth` / `kollect_reconcile_duration_seconds` metrics | ✅ |
@@ -276,6 +278,17 @@ namespace scope where appropriate.
 Migration: re-apply profile manifests into each team namespace (or use GitOps templating). Remove
 cluster-scoped profile objects before upgrade.
 
+### Namespaced `KollectSink` (2026-06-05)
+
+`KollectSink` is **namespaced** (breaking — was cluster-scoped). Each `KollectInventory.spec.sinkRefs`
+entry resolves a sink in the **same namespace** as the Inventory. Cross-namespace sink refs are
+forbidden (webhook rejects `namespace/name`). Platform-shared backends are reserved for
+`KollectClusterSink` (not yet implemented).
+
+Migration: re-apply sink manifests into each team namespace alongside profiles and inventories.
+Remove cluster-scoped sink objects before upgrade. Update `KollectScope.spec.sinkRefs` allowlists
+to names in the scope namespace.
+
 ## CI and end-to-end testing
 
 | Item | Status |
@@ -299,7 +312,16 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | **No `KollectHub` CRD** — Helm `mode: hub\|spoke` | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | **Namespaced `KollectSink`**; `KollectClusterSink` reserved | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | **Postgres/Kafka primary**; Git audit; HTTP debug optional | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
-| **`KollectConnectionTest` CR** | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| **`KollectConnectionTest` CR** + **`spec.ttlSecondsAfterFinished`** default **300s** | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| **`spec.exportMinInterval`** default **30s** (not global debounce flag) | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| HTTP **`GET /v1alpha1/inventory`** + **`openapi/v1alpha1/inventory.yaml`** when enabled | Accepted ([ADR-0006](adr/0006-etcd-limit.md), [ADR-0024](adr/0024-inventory-api-auth.md)) |
+| Inventory SAR: **`get`/`list`** on `kollectinventories`; TokenReview cache **30s** | Accepted ([ADR-0024](adr/0024-inventory-api-auth.md)) |
+| **`maxExportBytes`** global + per-Inventory override (webhook capped) | Accepted ([ADR-0006](adr/0006-etcd-limit.md)) |
+| Postgres PK **`(inventory_namespace, inventory_name, target_name, source_uid)`** | Accepted ([ADR-0025](adr/0025-sink-backends-database-kafka.md)) |
+| **`kollect_sink_errors_total{reason}`** + export histogram buckets (ADR-0020) | Accepted |
+| Hub shard: **`hash(clusterName) % shardCount`** via Helm/env — **no `KollectHub` CRD** | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| Hub federated mTLS | **Deferred** ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md)) |
+| **`KollectClusterInventory`** + **`KollectClusterTarget`** rollup (no `inventoryRef` hack) | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | Same image **`mode: hub\|spoke`** | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
 | Transport: **`inprocess` only default**; Redis/NATS/Kafka explicit opt-in | Accepted ([ADR-0023](adr/0023-lean-queue-transport.md)) |
 | Transport backend rule: no merge without integration/e2e proof | Accepted |

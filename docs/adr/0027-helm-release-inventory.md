@@ -126,8 +126,8 @@ Implementation: `internal/validation/profile.go` (`ValidateProfile`); wired from
 
 | File | Purpose |
 | --- | --- |
-| `config/samples/kollect_v1alpha1_kollectprofile_helm-release-summary-argo.yaml` | Summary-tier Profile (**Argo `Application` GVK — primary**) |
-| `config/samples/kollect_v1alpha1_kollecttarget_helm-applications.yaml` | Example Target scoping team Argo Applications |
+| `config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml` | Summary-tier Profile (**Argo `Application` GVK — primary**) |
+| `config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml` | Example Target scoping team Argo Applications |
 | `config/samples/kollect_v1alpha1_kollectprofile_helm-release-summary.yaml` | Summary-tier Profile (Flux `HelmRelease` — secondary) |
 | `config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yaml` | Example Target scoping Flux HelmReleases |
 
@@ -136,11 +136,14 @@ Argo `Application` is the primary demo GVK per [ADR-0032](0032-platform-architec
 
 ### Implementation phases
 
-1. **Now:** Argo **`Application`** summary profile + target + **contract test** for chart/version
-   JSONPath paths; Flux `HelmRelease` sample remains secondary; Profile webhook blocks `Secret.data`
-   without opt-in.
-2. **Later:** export-time scrub in operator for values attributes.
-3. **Later:** `helm:` decode for `helm.sh/v1` Secret + second sample profile (gated).
+1. **Now:** Argo **`Application`** **contract test first** (`internal/collect/argo_application_contract_test.go`),
+   then summary profile + target samples; Flux `HelmRelease` sample remains secondary; Profile webhook
+   blocks `Secret.data` without opt-in; webhook **requires `cel:` prefix** on CEL expressions
+   ([ADR-0003](0003-cel-jsonpath-extraction.md)); JSONPath **filter** validation **warn-only** in Phase 1.
+2. **Phase 2+:** **`helm:release.<field>`** attribute prefix — decoder expands `data.release` gzip JSON
+   (`chartVersion`, `appVersion`, `config` values); never export raw blob.
+3. **Phase 2:** export-time scrub via global operator **`scrubKeys[]`** denylist; per-attribute
+   `redact: true` optional later; JSONPath filter validation **rejects** unsupported filters.
 
 ## Consequences
 
@@ -161,7 +164,9 @@ Argo `Application` is the primary demo GVK per [ADR-0032](0032-platform-architec
 
 ## Open questions
 
-- **OPEN:** `helm:` decode implementation shape (`helm:release.chartVersion` vs CEL library)?
-- **OPEN:** Operator scrub as global config vs per-attribute `redact: true` on `AttributeSpec`?
+- **RESOLVED (2026-06-05):** **`helm:release.<field>`** prefix on attribute paths; decoder expands
+  `data.release` — Phase 2+ ([ADR-0032](0032-platform-architecture-pivot.md)).
+- **RESOLVED (2026-06-05):** Global **`scrubKeys[]`** operator config first; per-attribute `redact: true` later.
+- **RESOLVED (2026-06-05):** JSONPath filters — webhook **warn** Phase 1, **reject** Phase 2.
 - **RESOLVED (2026-06-05):** `chartVersion` from `status.lastAttemptedRevision`; `history[0]` ordering
   validated by contract test in CI.

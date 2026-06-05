@@ -39,10 +39,10 @@ stable key ordering ([GUIDELINES.md](https://github.com/konih/kollect/blob/main/
 
 | Backend | Mode | Notes |
 | --- | --- | --- |
-| **Postgres** | **Upsert** keyed rows (`inventory_id`, `cluster`, `namespace`, `target`, `gvk`, `name`, `uid`, `generation`, `payload` jsonb, `exported_at`) | Schema/table configurable on sink spec |
+| **Postgres** | **Upsert** keyed rows; **primary key** **`(inventory_namespace, inventory_name, target_name, source_uid)`** plus `cluster`, `gvk`, `generation`, `payload` jsonb, `exported_at` | Schema/table configurable on sink spec; add `cluster` column when hub merge lands |
 | **Postgres** | **Append-only events** table (optional alternate `spec.postgres.mode`) | Full snapshot JSON per row |
-| **Kafka** | **Message per export** (aggregated) | Key = `inventory.namespace/name`; value = JSON payload |
-| **Kafka** | **Optional:** finer-grained change events later | Phase 1+ ships aggregated export messages first |
+| **Kafka** | **Message per export** (aggregated) | Key = **`{inventory_ns}/{inventory_name}`**; with hub: **`{cluster}:{inventory_ns}/{inventory_name}`** for partition locality |
+| **Kafka** | **Optional:** finer-grained change events later | Phase 1 value = JSON row batch + metadata (`generation`, `checksum`); at-least-once |
 
 ### `KollectSink` spec (sketch)
 
@@ -99,11 +99,22 @@ flowchart LR
 - Kafka ordering/idempotency is consumer's responsibility; document at-least-once export semantics.
 - Two more backends to test and harden (connection test, circuit breaker per [ADR-0020](0020-error-taxonomy.md)).
 
+### Export observability (Phase 1)
+
+- **`kollect_sink_errors_total{reason}`** — separate from generic reconcile error counter
+  ([ADR-0020](0020-error-taxonomy.md)).
+- **`kollect_export_duration_seconds`** default histogram buckets (seconds):
+  `.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10` — override via manager flag if load tests require.
+- **Export debounce:** **`KollectInventory.spec.exportMinInterval`** — default **30s**; material-change
+  bypass ([ADR-0032](0032-platform-architecture-pivot.md)) — **not** global `--export-debounce`.
+- **Connection test GC:** **`KollectConnectionTest.spec.ttlSecondsAfterFinished`** — default **300**.
+
 ## Open questions
 
-- **OPEN:** SQLite embedded sink for dev-only vs skip entirely (Postgres testcontainers sufficient)?
-- **OPEN:** Kafka message key strategy for multi-cluster hub merge — cluster label in key vs value only?
-- **OPEN:** Postgres `upsert` primary key — `(inventory, target, uid)` vs hash of row body?
+- **RESOLVED (2026-06-05):** **Skip SQLite** — Postgres testcontainers sufficient for dev/CI.
+- **RESOLVED (2026-06-05):** Kafka key includes **`cluster`** prefix when hub merge is active.
+- **RESOLVED (2026-06-05):** Postgres upsert PK
+  **`(inventory_namespace, inventory_name, target_name, source_uid)`**.
 
 ## See also
 

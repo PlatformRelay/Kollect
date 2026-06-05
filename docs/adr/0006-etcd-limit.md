@@ -39,17 +39,22 @@ at scale. Developer portals also need a **read path** without scraping Git — a
    ([ADR-0032](0032-platform-architecture-pivot.md)). Scalable portal read uses **sink export**
    (Postgres/Kafka) and hub merged store — not spoke HTTP at fleet scale. Same schema as sink
    export where possible when enabled.
+   - **Paths (when enabled):** **`GET /v1alpha1/inventory`** (namespace index or caller-scoped
+     list); optional **`GET /v1alpha1/inventory/{namespace}/{name}`** for a single inventory.
+   - **OpenAPI:** ship **`openapi/v1alpha1/inventory.yaml`** beside the handler (Phase 1 when HTTP
+     ships) so portals have a stable schema.
    - **Auth (primary):** delegate to Kubernetes API auth — **TokenReview** + **SubjectAccessReview**;
      callers use standard `Authorization: Bearer` service account tokens;
      `--inventory-auth-mode=kubernetes` (default). See [ADR-0024](0024-inventory-api-auth.md).
    - **Auth (optional):** **oauth2-proxy** Helm sidecar/subchart for OIDC browser access —
      `oauth2Proxy.enabled: false` by default; documented, not required for service-to-service.
    - **TODO:** Async push to clients — **SSE** or **watch** endpoint when inventory changes, not only GET snapshot.
-7. **Optional PVC buffer:** when in-memory aggregate exceeds `maxAggregateSize`, spill full payload
+7. **Optional PVC buffer:** when in-memory aggregate exceeds **`maxExportBytes`**, spill full payload
    to a mounted volume for export and HTTP serve — still not written to etcd status.
-8. **`maxAggregateSize` configuration:** manager flag or `KollectInventory` spec field with a
-   conservative default. Research basis: etcd ~1.5 MB object limit → default **512 KiB** for data
-   kept in status *summaries* and in-memory hot path; full payload only to PVC/sink/HTTP body.
+8. **`maxExportBytes` / aggregate bounds:** **global manager default** (~**1.5 MiB**, etcd safety
+   margin) plus optional **`KollectInventory.spec.maxExportBytes`** override. Validating webhook
+   **rejects** per-inventory override **greater than** the global cap. In-memory hot path and
+   status summaries stay bounded; full payload only to PVC/sink/HTTP body.
 
 ```mermaid
 flowchart LR
@@ -57,11 +62,11 @@ flowchart LR
   Mem[In-memory aggregate]
   Status[status: counts + conditions]
   PVC[(optional PVC)]
-  HTTP[HTTP /inventory]
+  HTTP[HTTP /v1alpha1/inventory]
   Sink[Git / S3 / ...]
   Inv --> Mem
   Mem --> Status
-  Mem -->|over maxAggregateSize| PVC
+  Mem -->|over maxExportBytes| PVC
   Mem --> HTTP
   Mem --> Sink
 ```
@@ -83,7 +88,9 @@ flowchart LR
 
 ## Open questions
 
-- **OPEN:** Exact HTTP paths and OpenAPI schema versioning (`/v1alpha1/inventory` vs negotiation).
-- **OPEN:** Whether `maxAggregateSize` is global manager default only or per-Inventory override.
+- **RESOLVED (2026-06-05):** HTTP paths **`GET /v1alpha1/inventory`** (+ optional
+  `{namespace}/{name}`); OpenAPI at **`openapi/v1alpha1/inventory.yaml`** when HTTP enabled.
+- **RESOLVED (2026-06-05):** Global default ~**1.5 MiB** + per-Inventory **`spec.maxExportBytes`**
+  override capped by webhook — see item 8 above.
 - **RESOLVED (2026-06-05):** Optional Helm sidecar/subchart for oauth2-proxy; K8s-native auth is
   primary — [ADR-0024](0024-inventory-api-auth.md).

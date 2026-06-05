@@ -22,7 +22,7 @@ baseline**) and **100+ cluster** hub deployments. This guide summarizes tuning k
 | --- | --- | --- |
 | `--max-concurrent-reconciles-target` | `5` | `KollectTarget` |
 | `--max-concurrent-reconciles-inventory` | `3` | `KollectInventory` |
-| `--max-concurrent-reconciles-hub` | `2` | `KollectHub` |
+| `--max-concurrent-reconciles-hub` | `2` | Hub mode (`mode: hub`) |
 
 Raise concurrency when reconcile latency grows while CPU is underutilized. Lower it when
 API server throttling or etcd watch pressure appears.
@@ -38,9 +38,11 @@ exponential failure rate limiter (5ms base, 1000s cap). Set a positive duration 
 
 ## Export debouncing
 
-`--export-debounce` (default `30s`) coalesces identical inventory payloads per `KollectInventory`
-before hitting external sinks. Lower for fresher Git/DB exports; raise to reduce sink API load.
-At 100+ spokes, debouncing is **mandatory** on the hub path to avoid export storms.
+**`KollectInventory.spec.exportMinInterval`** (default **`30s`**) coalesces export to external sinks
+per inventory. Material payload changes (generation/checksum bump) may export immediately inside the
+min interval. **Not** a global `--export-debounce` flag ([ADR-0032](adr/0032-platform-architecture-pivot.md)).
+Lower the interval for fresher Postgres/Kafka exports; raise to reduce sink API load. At 100+ spokes,
+debouncing is **mandatory** on the hub path to avoid export storms.
 
 ## Collection engine
 
@@ -89,7 +91,7 @@ Default `go test ./...` excludes `load`-tagged tests.
 | Symptom | Likely cause | First action |
 | --- | --- | --- |
 | High `kollect_informer_objects`, high RSS | Cluster-wide informer for multi-namespace targets | Namespace-scope targets; split profiles |
-| High `kollect_workqueue_depth` on `inventory` | Export or aggregation on hot path | Raise inventory workers; increase `--export-debounce` |
+| High `kollect_workqueue_depth` on `inventory` | Export or aggregation on hot path | Raise inventory workers; increase `spec.exportMinInterval` |
 | High export bytes rate, low object churn | Missing payload dedupe | Verify debounce + content-hash skip |
 | Bench regression in `BenchmarkExtract` | CEL/JSONPath hot path | Profile extractor; check attribute count |
 | Hub OOM at many spokes | Full mirror in hub RAM | Sharded consumers; spoke summaries only ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |

@@ -28,9 +28,12 @@ oauth2-proxy remains a **well-documented optional sidecar**, not the primary aut
    validates callers using the Kubernetes API:
    - **`TokenReview`** — verify the bearer token (`Authorization: Bearer <token>`) and resolve the
      authenticated user (typically a `ServiceAccount` or user subject).
-   - **`SubjectAccessReview`** — authorize the subject for the inventory read action (e.g.
-     `get` on `kollectinventories` or a dedicated non-resource URL / subresource — exact SAR shape
-     is an implementation detail tied to RBAC markers).
+   - **`SubjectAccessReview`** — authorize the subject for inventory read:
+     - **`get`** on **`kollectinventories`** in the caller's namespace for a single inventory;
+     - **`list`** on **`kollectinventories`** for the namespace index endpoint.
+     Same RBAC markers as `kubectl get kinv` / `kubectl get kinv -A` (namespace-scoped list).
+     Hub ingest (Phase 2): **`create`/`update`** on **`kollectremoteclusters`** or subresource
+     **`kollectremoteclusters/ingest`** — pick one in chart RBAC docs ([ADR-0028](0028-hub-cluster-auth-istio-pattern.md)).
 
 2. **Default auth mode:** manager flag **`--inventory-auth-mode=kubernetes`** (default). Modes:
    - `kubernetes` — TokenReview + SAR (production default).
@@ -51,6 +54,13 @@ oauth2-proxy remains a **well-documented optional sidecar**, not the primary aut
 5. **RBAC:** chart and docs ship ClusterRole/Role rules for inventory HTTP consumers; SAR checks align
    with least-privilege read of inventory data in the caller's permitted namespaces.
 
+6. **Auth result cache:** in-memory cache of TokenReview + SAR decisions keyed by
+   **`(token hash, verb, resource)`** with **30s TTL** (configurable; **`disabled`** for local dev).
+
+7. **HTTP paths (when inventory HTTP enabled):** **`GET /v1alpha1/inventory`**; optional
+   **`GET /v1alpha1/inventory/{namespace}/{name}`**. OpenAPI schema:
+   **`openapi/v1alpha1/inventory.yaml`** shipped beside the handler ([ADR-0006](0006-etcd-limit.md)).
+
 ## Auth flow (reference)
 
 ```mermaid
@@ -61,7 +71,7 @@ sequenceDiagram
   participant SAR as SubjectAccessReview API
   participant Store as In-memory store
 
-  Client->>HTTP: GET /inventory<br/>Authorization: Bearer token
+  Client->>HTTP: GET /v1alpha1/inventory<br/>Authorization: Bearer token
   HTTP->>TR: TokenReview(token)
   TR-->>HTTP: authenticated user
   HTTP->>SAR: SubjectAccessReview(user, resource)
@@ -105,9 +115,11 @@ inventory port — no oauth2-proxy hop.
 
 ## Open questions
 
-- **OPEN:** Exact SAR resource (subresource on `KollectInventory` vs custom non-resource URL)?
-- **OPEN:** Cache TTL for TokenReview/SAR results under high portal traffic?
-- **OPEN:** HTTP path versioning (`/v1alpha1/inventory` vs `/inventory`) — see ADR-0006.
+- **RESOLVED (2026-06-05):** SAR — **`get`** / **`list`** on **`kollectinventories`** in caller
+  namespace(s); hub ingest SAR shape deferred to Phase 2 ([ADR-0028](0028-hub-cluster-auth-istio-pattern.md)).
+- **RESOLVED (2026-06-05):** TokenReview/SAR cache **30s TTL** per `(token hash, verb, resource)`.
+- **RESOLVED (2026-06-05):** HTTP paths **`GET /v1alpha1/inventory`** (+ optional `{namespace}/{name}`);
+  OpenAPI **`openapi/v1alpha1/inventory.yaml`** — [ADR-0006](0006-etcd-limit.md).
 
 ## See also
 

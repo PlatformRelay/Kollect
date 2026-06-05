@@ -59,7 +59,8 @@ Export and **test** counters/histograms including at minimum:
 | --- | --- |
 | `kollect_reconcile_total` | `controller`, `result` |
 | `kollect_reconcile_errors_total` | `kind`, `error_class` (`transient`, `terminal`, `forbidden`) |
-| `kollect_export_duration_seconds` | `sink_type` |
+| `kollect_sink_errors_total` | `reason` — **separate** from reconcile errors ([ADR-0025](0025-sink-backends-database-kafka.md)) |
+| `kollect_export_duration_seconds` | `sink_type` — default buckets (seconds): `.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10` |
 | `kollect_collected_objects` | `profile`, `gvk` |
 | `kollect_connection_test_total` | `sink_type`, `result` |
 
@@ -84,5 +85,7 @@ and increment on table-driven reconcile cases.
 
 ## Open questions
 
-- **OPEN:** Separate `kollect_sink_errors_total{reason}` or fold into reconcile errors?
-- **OPEN:** Histogram buckets for export duration — cluster-size dependent defaults?
+- **RESOLVED (2026-06-05):** **`kollect_sink_errors_total{reason}`** — separate metric; do not fold
+  into `kollect_reconcile_errors_total`.
+- **RESOLVED (2026-06-05):** Export duration histogram buckets listed above; flag override if load
+  tests show need ([ADR-0025](0025-sink-backends-database-kafka.md)).

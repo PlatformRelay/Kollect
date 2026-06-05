@@ -46,7 +46,7 @@ namespaces** from one object (ESO `ClusterSecretStore` / cluster-wide operator p
 | `spec.profileRef` | Names a **`KollectClusterProfile`** or a **`KollectProfile`** in a fixed platform namespace (webhook-validated) |
 | `spec.namespaceSelector` | Required for cluster targets — which workload namespaces to scan |
 | `spec.labelSelector` / `names` | Same as namespaced Target |
-| Export rollup | Feeds **`KollectClusterInventory`** when implemented; until then may reference a namespaced `KollectInventory` via `inventoryRef` (implementation detail) |
+| Export rollup | Feeds **`KollectClusterInventory`** when implemented — pairs with cluster target; **no** namespaced `inventoryRef` hack |
 
 Namespaced **`KollectTarget`** remains the **default** for `tenantMode` per-team installs.
 **`KollectClusterTarget`** is for cluster-scoped platform operators — not the per-team MVP path.
@@ -108,16 +108,21 @@ Primary demo GVK for chart/version inventory: **`argoproj.io/v1alpha1` / `Applic
 
 Flux sample may remain as secondary. Plain `helm.sh/v1` Secret still deferred until `helm:` decode.
 
-**Contract test** (TODO): validate Argo `Application` status field paths + ordering assumptions.
+**Contract test** (required, **first**): `internal/collect/argo_application_contract_test.go` +
+golden `Application` fixture — locks chart/version JSONPath set and `status.history` newest-first
+ordering. Samples: `config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml`,
+`config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml`.
 
-### 10. Export debouncing (design direction)
+### 10. Export debouncing
 
 Event-driven collection must not cause **export storms** to Git/Postgres/Kafka.
 
-- Coalesce exports per `KollectInventory` with a **minimum interval** (configurable, e.g. 30s default)
-  and **generation/checksum** trigger for immediate export when inventory materially changes.
+- Coalesce exports **per `KollectInventory`** via **`spec.exportMinInterval`** (duration; **default
+  `30s`** when unset). **Not** a global manager flag — remove or ignore `--export-debounce` once
+  per-Inventory field is wired.
+- **Immediate export** when inventory payload materially changes (generation/checksum bump) even
+  inside the min interval.
 - Per-target collection updates in-memory store immediately; export is **debounced**.
-- Exact flags live on Inventory spec or manager defaults — implement during export hardening.
 
 ### 11. Inventory location (design direction)
 
@@ -146,12 +151,25 @@ all clusters.
 - Argo-primary Helm sample excludes Flux-only shops until secondary sample exists.
 - Debouncing adds latency to export freshness — tunable.
 
+### 12. `KollectConnectionTest` garbage collection
+
+Use **`spec.ttlSecondsAfterFinished`** (Job-style). **Default `300`** when unset. Controller deletes
+the CR after TTL once `status.completed` is true. Manual delete remains valid for CI.
+
+### 13. `KollectClusterTarget` rollup
+
+**`KollectClusterInventory`** pairs with **`KollectClusterTarget`** (and `KollectClusterProfile` /
+`KollectClusterSink`). No interim `inventoryRef` hack to a namespaced `KollectInventory`.
+
+### 14. Hub shard routing (no `KollectHub` CRD)
+
+Shard assignment uses **`hash(clusterName) % shardCount`** configured via **Helm values or
+environment** on hub Deployments (`mode: hub`). **No `KollectHub` CRD** — dynamic shard
+registration is a Phase 2+ spike. See [ADR-0022](0022-multi-cluster-sync-rfc.md).
+
 ## Open questions
 
-- **OPEN:** `KollectConnectionTest` TTL vs manual delete vs `spec.ttlSecondsAfterFinished`?
-- **OPEN:** Default debounce interval — global flag vs per-Inventory?
-- **OPEN:** Argo `Application` exact JSONPath set for chart/app version — lock in contract test.
-- **OPEN:** `KollectClusterTarget` → `KollectClusterInventory` wiring vs interim `inventoryRef` to namespaced Inventory.
+- **Deferred:** Hub federated mTLS behind external LB — [ADR-0028](0028-hub-cluster-auth-istio-pattern.md).
 
 ## Supersedes / amends
 

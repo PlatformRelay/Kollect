@@ -32,8 +32,9 @@ spoke**.
   objects with typical Deployment/Service profiles (measure via pprof and Prometheus RSS).
 - Informer cache: prefer namespace-scoped dynamic informers when all targets for a GVR agree; cluster-wide
   watch only when required — document RSS delta in runbooks when cluster-wide scope is unavoidable.
-- Export payload: coalesce via `--export-debounce`; spill to object storage when payload exceeds hub
-  gRPC/queue limits ([ADR-0006](0006-etcd-limit.md)).
+- Export payload: coalesce via **`KollectInventory.spec.exportMinInterval`** (default **30s**);
+  spill to object storage when payload exceeds hub gRPC/queue limits ([ADR-0006](0006-etcd-limit.md),
+  [ADR-0032](0032-platform-architecture-pivot.md)).
 
 **Hub path (100+ clusters):**
 
@@ -44,14 +45,15 @@ spoke**.
 ## Decision
 
 1. **Controller options:** Expose `MaxConcurrentReconciles` per reconciler
-   (`KollectTarget`, `KollectInventory`, `KollectHub`) via operator flags with documented defaults.
+   (`KollectTarget`, `KollectInventory`, hub mode) via operator flags with documented defaults.
 2. **Workqueue:** Use controller-runtime default exponential failure rate limiting unless
    `--reconcile-rate-limit` overrides the base delay. Approximate queue depth with an in-flight
    reconcile gauge (`kollect_workqueue_depth`).
 3. **Metrics:** Add reconcile duration histogram, informer indexer size gauge, and export byte
    counter alongside existing export latency histogram. Catalog in [PERFORMANCE.md](../PERFORMANCE.md)
    with PromQL hints for operators.
-4. **Export debounce:** Make inventory export debounce configurable via `--export-debounce`.
+4. **Export debounce:** Per **`KollectInventory.spec.exportMinInterval`** (default **30s**); legacy
+   `--export-debounce` flag deprecated once field is wired ([ADR-0032](0032-platform-architecture-pivot.md)).
 5. **Informers:** Scope dynamic informers to a single namespace when all targets for a GVR agree;
    otherwise watch all namespaces and filter by `namespaceSelector` at dispatch. Paginate initial
    `List` where client-go allows.

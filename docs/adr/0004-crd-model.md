@@ -85,8 +85,9 @@ is webhook-validated first.
 
 Git and GitLab sink specs include explicit trust material (at least one of):
 
-- `tls.caBundle` — inline PEM (base64) for org-internal CA
-- `tls.caSecretRef` — namespaced or cluster secret key containing CA bundle
+- `tls.caSecretRef` — **preferred** — namespaced secret key containing CA bundle
+- `tls.caBundle` — inline PEM (base64) for org-internal CA; validating webhook enforces **max 64 KiB**
+  — large CAs must use `caSecretRef`
 
 Default remains **verify TLS**; `insecureSkipVerify` is opt-in only for dev and must be flagged in
 status when used.
@@ -117,5 +118,7 @@ Phase 1 API. Schema clarity and aggregation matter more than where filtering run
 ## Open questions
 
 - **RESOLVED (2026-06-05):** **`KollectSink` is namespaced**; **`KollectClusterSink`** reserved for platform-shared backends ([ADR-0032](0032-platform-architecture-pivot.md)).
-- **OPEN:** Single `caBundle` field vs only `secretRef` for CA — size limits on CRD spec?
-- **OPEN:** `KollectClusterInventory` selector model — all namespaces vs explicit namespace list?
+- **RESOLVED (2026-06-05):** **Keep both** `caBundle` and `caSecretRef`; **`caSecretRef` preferred**;
+  **`caBundle` max 64 KiB** at webhook.
+- **RESOLVED (2026-06-05):** **`KollectClusterInventory`** uses **explicit namespace list** in spec
+  (Phase 3+) — not cluster-wide implicit wildcard.
