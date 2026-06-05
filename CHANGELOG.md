@@ -55,9 +55,13 @@ anchor on an older commit.
 
 - **chart:** Mount writable /tmp for git export [4da294f](https://github.com/konih/kollect/commit/4da294f65f73cfceb9ab3407e5776ef02f5ce612)
 
+- **lint:** Extract goconst strings for CI golangci-lint [c0ba24e](https://github.com/konih/kollect/commit/c0ba24eb2e75f98dacbb05b73d3e8044fb690e57)
+
 - **sink:** Harden git export paths and command args for CodeQL [a336a3b](https://github.com/konih/kollect/commit/a336a3bda77c19ad10b6e96e32f0f96d6fca9d1b)
 
 - **ci:** Add RBAC audit and expand fuzz gates [e6f8b98](https://github.com/konih/kollect/commit/e6f8b983d8b3d05404d1e8151d9510c07cca7d1e)
+
+- **api:** Nolint deprecated scheme.Builder for lint [f5817d0](https://github.com/konih/kollect/commit/f5817d03c828b61965070a19b291fea291559b04)
 
 - **supply-chain:** Address OpenSSF Scorecard findings [2026b16](https://github.com/konih/kollect/commit/2026b165d427cc4b1173b3724660050c17c18f34)
 

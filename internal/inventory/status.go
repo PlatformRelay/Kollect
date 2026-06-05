@@ -19,9 +19,10 @@ import (
 	"github.com/konih/kollect/internal/collect"
 )
 
-const statusUnknown = "unknown"
-
-const statusDegraded = "degraded"
+const (
+	statusUnknown  = "unknown"
+	statusDegraded = "degraded"
+)
 
 // StatusReader lists CRD status for optional Read API proxy endpoints (B3).
 type StatusReader interface {
