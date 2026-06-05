@@ -152,7 +152,7 @@ spec:
               watchMode:
                 default: All
                 description: |-
-                  watchMode controls namespace/resource watch opt-in vs opt-out (ADR-0029).
+                  watchMode controls namespace/resource watch opt-in vs opt-out (ADR-0205).
                   All (default): collect matching selectors except resources/namespaces explicitly disabled.
                   OptIn: only collect resources/namespaces explicitly enabled via kollect.dev/watch or
                   kollect.dev/namespace-watch.

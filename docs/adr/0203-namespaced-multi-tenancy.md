@@ -1,13 +1,13 @@
-# ADR-0016: Namespaced multi-tenancy and operator watch scope
+# ADR-0203: Namespaced multi-tenancy and operator watch scope
 
-## Status
+> Namespaced-by-default tenancy; `KollectScope` hard-degrades a target/inventory that violates it.
 
-Accepted (2026-06-05)
+**Theme:** 02 · API & tenancy · **Status:** Current
 
 ## Context
 
 Platform teams need kollect to run safely alongside many tenant teams on one cluster. Prior art
-([ADR-0013](0013-prior-art.md)) compares:
+([ADR-0102](0102-prior-art.md)) compares:
 
 - **external-secrets** — one cluster-scoped controller reconciling both `ClusterSecretStore` and
   namespaced `SecretStore`, plus optional **per-namespace controller** installs via Helm
@@ -15,7 +15,7 @@ Platform teams need kollect to run safely alongside many tenant teams on one clu
 - **Argo CD** — `AppProject` tenancy boundary with a single cluster-scoped controller.
 
 kollect already ships **namespaced** `KollectTarget`, `KollectInventory`, and `KollectScope`
-([ADR-0004](0004-crd-model.md)). The open question was whether tenancy enforcement and operator
+([ADR-0201](0201-crd-model.md)). The open question was whether tenancy enforcement and operator
 deployment scope should wait until Phase 3.
 
 ## Decision
@@ -26,7 +26,7 @@ Support **both** deployment models:
 
 | Model | When | Mechanism |
 | --- | --- | --- |
-| **Per-team manager (default for now)** | Delegated / team-owned installs | Helm with `watchNamespaces: [team-a]` and **`tenantMode: true`** — namespaced Role RBAC; namespaced Profile/Sink/Target/Inventory in team namespace ([ADR-0032](0032-platform-architecture-pivot.md)) |
+| **Per-team manager (default for now)** | Delegated / team-owned installs | Helm with `watchNamespaces: [team-a]` and **`tenantMode: true`** — namespaced Role RBAC; namespaced Profile/Sink/Target/Inventory in team namespace ([ADR-0703](0703-platform-architecture-pivot.md)) |
 | **Cluster-scoped manager** | Platform team operates one shared operator | Watches all namespaces; **`KollectScope`** per tenant namespace governs GVKs, workload namespaces, and sink refs |
 
 ### Operator watch scope
@@ -48,16 +48,16 @@ Manager flag: `--watch-namespaces=team-a,team-b` (comma-separated).
 
 ### `KollectScope` (namespaced, static)
 
-- **Scope:** namespaced ([ADR-0004](0004-crd-model.md)); one object per tenant namespace.
+- **Scope:** namespaced ([ADR-0201](0201-crd-model.md)); one object per tenant namespace.
 - **Validation:** validating webhook rejects invalid GVK entries, duplicate `sinkRefs`, and blank
-  allowlist entries at admission ([ADR-0015](0015-static-vs-reconciled.md)).
+  allowlist entries at admission ([ADR-0202](0202-static-vs-reconciled.md)).
 - **Enforcement (Phase 1):** **both** validating webhook **and** reconciler-time checks — **hard
   degrade** (no collection / no export) when a `KollectTarget` or `KollectInventory` violates scope.
   Set **`Degraded=True`** with reason `ScopeGVKDenied`, `ScopeNamespaceDenied`, or `ScopeSinkDenied`;
   emit Warning event. Do **not** soft-warn and continue reconciling forbidden config.
 
 `KollectClusterScope` remains reserved for platform-wide policy when namespaced scope is
-insufficient ([ADR-0004](0004-crd-model.md)).
+insufficient ([ADR-0201](0201-crd-model.md)).
 
 ### Enforcement example (GVK denied)
 
@@ -114,7 +114,7 @@ status:
 ### Negative
 
 - Two deployment models require chart and doc clarity to avoid misconfigured RBAC.
-- **Resolved ([ADR-0031](0031-namespaced-profiles.md)):** `KollectProfile` moves to **namespaced**
+- **Resolved ([ADR-0204](0204-namespaced-profiles.md)):** `KollectProfile` moves to **namespaced**
   scope so `tenantMode` installs do not need cluster profile RBAC; `KollectClusterProfile` reserved
   for platform-shared schemas.
 - Reconciler enforcement adds controller complexity and must stay consistent with webhook rules.

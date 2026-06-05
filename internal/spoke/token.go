@@ -16,7 +16,7 @@ const (
 	envSpokeToken = "KOLLECT_SPOKE_TOKEN"
 )
 
-// serviceAccountToken returns the in-cluster service account token for hub push auth (ADR-0028).
+// serviceAccountToken returns the in-cluster service account token for hub push auth (ADR-0503).
 // KOLLECT_SPOKE_TOKEN overrides the default mount path for tests and local dev.
 func serviceAccountToken() (string, error) {
 	if token := strings.TrimSpace(os.Getenv(envSpokeToken)); token != "" {

@@ -1,26 +1,34 @@
 # kollect architecture
 
-kollect is a Kubernetes operator that **collects inventory from arbitrary resources**, **aggregates
-across targets (and later clusters)**, and **exports auditable snapshots to pluggable backends**
-(Postgres, Kafka, Git, …) so portals and automation can query **durable export data** instead of
-scraping the Kubernetes API at scale.
+kollect is a Kubernetes operator that turns selected, live cluster state into a **durable, queryable,
+diffable inventory** — decoupled from the apiserver's availability, RBAC, and scale limits — so portals,
+automation, and auditors read **export data**, never the live API.
 
-**Summary for implementers:** [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) · **ADR:** [adr/0032-platform-architecture-pivot.md](adr/0032-platform-architecture-pivot.md)
+**Summary for implementers:** [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) · **ADR:** [adr/0703-platform-architecture-pivot.md](adr/0703-platform-architecture-pivot.md)
 
 ## Problem statement
 
-Platform and application teams need **versioned, stakeholder-facing inventory** of what runs in
-Kubernetes, but:
+**Kubernetes is the source of truth for what is running, but a poor *system of record* for it.** The
+apiserver is built for control loops, not for portals, audits, and analytics: it is live and ephemeral,
+RBAC-gated, etcd size-limited, schema-rigid, and per-cluster. Pointing stakeholders at it directly has
+four recurring consequences:
 
-- Stakeholders should not depend on unbounded **kube-apiserver** list/watch for portal views.
-- Raw API access does not produce audit-friendly, diffable history.
-- Hardcoded inventory schemas break when new CRDs or attributes are needed.
-- Large fleets must not produce **N export storms** or **N Git commits** per logical change.
+- **Availability coupling** — portal views depend on unbounded **kube-apiserver** list/watch and on
+  cluster uptime/RBAC.
+- **No history** — raw API access yields no audit-friendly, diffable, point-in-time record.
+- **Schema rigidity** — hardcoded collector schemas break whenever a new CRD or attribute is needed.
+- **Fleet storms** — naive per-cluster export produces **N export/commit storms** per logical change.
 
-kollect watches user-defined GVKs, extracts attributes via CEL/JSONPath, **aggregates** in memory,
-**debounces export** to sinks, and keeps **Postgres/Kafka** as the primary integration path for
-portals. **Templated documentation** (Confluence, wiki) stays **outside** the operator
-([ADR-0011](adr/0011-doc-sync-templating.md)).
+kollect resolves this by maintaining a **read model** of the cluster: **select** resources by GVK →
+**extract** the attributes that matter via CEL/JSONPath → **aggregate** in memory across targets (and,
+optionally, clusters) → **debounce** → **export** to role-based pluggable sinks. The per-inventory
+in-memory snapshot is **canonical**; every sink — relational store, object/Git snapshot, or event
+stream — is a **projection** of it ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)), so no single
+backend is privileged. Inventory is **configuration, not code**, owned per-team in its own namespace.
+Rendering and publishing docs/CMS stays **outside** the operator
+([ADR-0702](adr/0702-doc-sync-templating.md)).
+
+> Full first-principles argument (options weighed, users, assumptions): [REQUIREMENTS.md](REQUIREMENTS.md).
 
 ## CRD model
 
@@ -42,28 +50,28 @@ flowchart TD
   Target --> Inv
   Inv --> Sink
   ConnTest -.-> Sink
-  Sink --> DB["Postgres / Kafka (primary)"]
-  Sink --> Git["Git (audit)"]
+  Sink --> DB["Postgres (relational SoR) · NATS/Kafka (event stream)"]
+  Sink --> Git["Git / object store (snapshot + audit)"]
   Inv -.->|"optional, gated"| HTTP["HTTP debug API"]
 ```
 
 | Kind | Scope | Reconciled | Purpose |
 | --- | --- | --- | --- |
-| `KollectProfile` | Namespace | No | Extraction schema ([ADR-0031](adr/0031-namespaced-profiles.md)) |
-| `KollectSink` | **Namespace** | Probe only | Export backend; `ConnectionVerified` ([ADR-0030](adr/0030-connection-test.md), [ADR-0032](adr/0032-platform-architecture-pivot.md)) |
-| `KollectScope` | Namespace | No | Tenancy boundary ([ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
+| `KollectProfile` | Namespace | No | Extraction schema ([ADR-0204](adr/0204-namespaced-profiles.md)) |
+| `KollectSink` | **Namespace** | Probe only | Export backend; `ConnectionVerified` ([ADR-0403](adr/0403-connection-test.md), [ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| `KollectScope` | Namespace | No | Tenancy boundary ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
 | `KollectTarget` | Namespace | Yes | Team-scoped collection (default) |
-| `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | `KollectInventory` | Namespace | Yes | Aggregate namespaced targets; export to sinks |
-| `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | `KollectClusterProfile` | Cluster | No | Webhook only (Phase 1) — platform schemas |
 | `KollectClusterSink` | Cluster | No | **Reserved** — shared backends |
 | `KollectClusterInventory` | Cluster | Webhook only | Platform rollup — pairs with `KollectClusterTarget` |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
-| ~~`KollectHub`~~ | — | **Rejected / stub** | API types may remain in tree; **not** product surface — Helm `mode: hub` ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
-| ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0011](adr/0011-doc-sync-templating.md) |
+| ~~`KollectHub`~~ | — | **Rejected / stub** | API types may remain in tree; **not** product surface — Helm `mode: hub` ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](adr/0702-doc-sync-templating.md) |
 
-See [adr/0004-crd-model.md](adr/0004-crd-model.md). Per-kind field reference:
+See [adr/0201-crd-model.md](adr/0201-crd-model.md). Per-kind field reference:
 [CR-REFERENCE.md](CR-REFERENCE.md). Reserved kinds are design placeholders — see
 [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md#reserved-crds--what-they-mean).
 
@@ -94,11 +102,11 @@ sequenceDiagram
 
 Key properties:
 
-- **Event-driven** informers ([ADR-0014](adr/0014-event-driven-informers.md)) — **one informer per GVK**.
-- **Watch opt-in/out** ([ADR-0029](adr/0029-watch-labels.md)) — platform `watchMode: All`; teams
+- **Event-driven** informers ([ADR-0301](adr/0301-event-driven-informers.md)) — **one informer per GVK**.
+- **Watch opt-in/out** ([ADR-0205](adr/0205-watch-labels.md)) — platform `watchMode: All`; teams
   exclude with `kollect.dev/watch: disabled`.
-- **Export debouncing** — store updates immediately; sink export coalesced ([ADR-0032](adr/0032-platform-architecture-pivot.md)).
-- **Status holds summaries only** — full payload in sinks ([ADR-0006](adr/0006-etcd-limit.md)).
+- **Export debouncing** — store updates immediately; sink export coalesced ([ADR-0703](adr/0703-platform-architecture-pivot.md)).
+- **Status holds summaries only** — full payload in sinks ([ADR-0103](adr/0103-etcd-limit.md)).
 - **HTTP inventory** — optional, off by default; debug/small installs only.
 
 **Diagrams:** collection, debouncing, scope gates, and connection-test lifecycle —
@@ -116,7 +124,7 @@ Key properties:
 
 ## Sinks (by role)
 
-Classified by role, not vendor ([ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md)). The
+Classified by role, not vendor ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)). The
 in-memory snapshot per Inventory is canonical; sinks are projections.
 
 - **Snapshot stores** — **Git** (audit), **S3/GCS Parquet** (queryable via DuckDB, no DB server), **HTTP** (debug). Deletes free.
@@ -127,15 +135,15 @@ in-memory snapshot per Inventory is canonical; sinks are projections.
 ## Multi-cluster (build order)
 
 Hub = **`mode: hub`** on same image + `internal/hub/` merge — **no `KollectHub` CRD**
-([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)). Spokes push summaries; hub writes merged
-Postgres/Kafka. Auth: [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md).
+([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)). Spokes push summaries; hub writes merged
+Postgres/Kafka. Auth: [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md).
 
 Phases in docs are **build order**, not release milestones — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md).
 
 ## Connection test
 
-- **`KollectConnectionTest` CR** — primary for CI/audit ([ADR-0032](adr/0032-platform-architecture-pivot.md))
-- Sink `connectionTest` + annotation — supplementary quick checks ([ADR-0030](adr/0030-connection-test.md))
+- **`KollectConnectionTest` CR** — primary for CI/audit ([ADR-0703](adr/0703-platform-architecture-pivot.md))
+- Sink `connectionTest` + annotation — supplementary quick checks ([ADR-0403](adr/0403-connection-test.md))
 
 ## See also
 

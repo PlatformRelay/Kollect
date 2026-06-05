@@ -79,7 +79,7 @@ The sample `KollectTarget` selects Deployments labeled `app.kubernetes.io/name=n
 
 ### Watch opt-in / opt-out (optional)
 
-Control collection with labels and annotations ([ADR-0029](adr/0029-watch-labels.md)):
+Control collection with labels and annotations ([ADR-0205](adr/0205-watch-labels.md)):
 
 | Key | Values | Effect |
 | --- | --- | --- |
@@ -94,7 +94,7 @@ Sample opt-in target: `config/samples/kollect_v1alpha1_kollecttarget_opt-in.yaml
 ### Connection test (sink)
 
 Samples set `spec.connectionTest: true` on `KollectSink`. The operator probes Git/Postgres/Kafka
-and sets **`ConnectionVerified`** ([ADR-0030](adr/0030-connection-test.md)).
+and sets **`ConnectionVerified`** ([ADR-0403](adr/0403-connection-test.md)).
 
 ```sh
 kubectl wait --for=condition=ConnectionVerified kollectsink/git-inventory \
@@ -129,7 +129,7 @@ without panics. Reconcilers may log minimal activity until collection logic is i
 loops on `KollectTarget`, and extraction errors surfaced as conditions.
 
 **Phase 1 (inventory + Git sink):** expect export attempts, `status.itemCount`, `status.lastExportTime`,
-and Git commit SHAs in status (not full payloads — see [ADR-0006](adr/0006-etcd-limit.md)).
+and Git commit SHAs in status (not full payloads — see [ADR-0103](adr/0103-etcd-limit.md)).
 
 ### CR status
 

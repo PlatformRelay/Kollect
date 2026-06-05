@@ -1,14 +1,15 @@
-# ADR-0028: Hub cluster authentication (Istio remote-secret pattern)
+# ADR-0503: Hub cluster authentication — push-first (Istio remote-secret pattern)
 
-## Status
+> When the hub tier is used, spoke→hub ingest is push-first: TokenReview + SAR `create` on
+> `kollectremoteclusters`; an Istio-style remote credential `Secret` covers hub-pull.
 
-Accepted (2026-06-05)
+**Theme:** 05 · Multi-cluster · **Status:** Current
 
 ## Context
 
-Multi-cluster inventory fan-in ([ADR-0022](0022-multi-cluster-sync-rfc.md)) requires **authenticated
+Multi-cluster inventory fan-in ([ADR-0501](0501-multi-cluster-sync-rfc.md)) requires **authenticated
 spoke → hub** channels at hub scale. Inventory HTTP read auth is already settled
-([ADR-0024](0024-inventory-api-auth.md)); hub/spoke transport auth is a **separate concern** —
+([ADR-0404](0404-inventory-api-auth.md)); hub/spoke transport auth is a **separate concern** —
 spokes push summarized deltas, hubs validate identity before merge.
 
 [Istio multicluster](https://istio.io/latest/docs/setup/install/multicluster/) solves a related
@@ -24,7 +25,7 @@ pattern is:
 | **Trust** | Shared root or federated CA; **mTLS** for east-west workload traffic |
 | **Topologies** | Primary-remote (one control plane) and multi-primary (peered control planes) |
 
-kollect maps to **hub-and-spoke** ([ADR-0022](0022-multi-cluster-sync-rfc.md)): hub aggregates;
+kollect maps to **hub-and-spoke** ([ADR-0501](0501-multi-cluster-sync-rfc.md)): hub aggregates;
 spokes stay lightweight. We do **not** need Istio's full mesh trust plane for inventory deltas, but
 the **credential registration model** transfers cleanly.
 
@@ -33,7 +34,7 @@ Options considered:
 | Approach | Pros | Cons |
 | --- | --- | --- |
 | **Istio-style remote credential `Secret` + `KollectRemoteCluster` CR** | GitOps-friendly; optional hub pull; familiar to platform teams | Secret lifecycle; hub must list/watch secrets |
-| **Push-only Bearer SA token + TokenReview** | Scales to many spokes; no hub API reach into spokes; reuses [ADR-0024](0024-inventory-api-auth.md) | Spokes need routable hub ingress; token rotation |
+| **Push-only Bearer SA token + TokenReview** | Scales to many spokes; no hub API reach into spokes; reuses [ADR-0404](0404-inventory-api-auth.md) | Spokes need routable hub ingress; token rotation |
 | **mTLS client certs per spoke** | Strong transport identity | Cert ops at hub scale; CSR/bootstrap complexity |
 | **OIDC / static API keys** | Simple for non-K8s spokes | Parallel identity stack; rotation burden |
 
@@ -82,7 +83,7 @@ data:
 Spokes POST summarized `SpokeReport` JSON to hub ingress:
 
 - **`Authorization: Bearer <in-cluster SA token>`** — validated on hub via **`TokenReview`**
-  ([ADR-0024](0024-inventory-api-auth.md) pattern), then **`SubjectAccessReview`** for ingest
+  ([ADR-0404](0404-inventory-api-auth.md) pattern), then **`SubjectAccessReview`** for ingest
   permission.
 - **`X-Kollect-Cluster-Id: <spec.clusterName>`** — must match `SpokeReport.cluster` body field.
 - Hub flag **`--hub-ingest-auth-mode=kubernetes`** (default); `disabled` for dev/CI only.
@@ -159,7 +160,7 @@ sequenceDiagram
 | **Default control traffic** | Istiod → remote API (pull watches) | Spoke → hub HTTP push (TokenReview) |
 | **Identity** | SA token in kubeconfig + mesh CA | SA bearer token + `X-Kollect-Cluster-Id` |
 | **Trust** | Shared/federated mesh CA | Hub apiserver TokenReview; optional `trustBundle` for pull/mTLS later |
-| **Topology** | Primary-remote / multi-primary | Hub-and-spoke only ([ADR-0022](0022-multi-cluster-sync-rfc.md)) |
+| **Topology** | Primary-remote / multi-primary | Hub-and-spoke only ([ADR-0501](0501-multi-cluster-sync-rfc.md)) |
 | **Scale bias** | Tens of clusters per mesh | many spokes, push-first |
 
 ## Consequences
@@ -169,7 +170,7 @@ sequenceDiagram
 - Platform teams already running Istio multicluster recognize the credential secret + cluster name model.
 - Push + TokenReview avoids hub→spoke API connectivity requirements at scale.
 - Pull path remains available for health checks and future hub-initiated collection without redesign.
-- Reuses Kubernetes-native auth from [ADR-0024](0024-inventory-api-auth.md).
+- Reuses Kubernetes-native auth from [ADR-0404](0404-inventory-api-auth.md).
 
 ### Negative
 
@@ -219,8 +220,8 @@ queue brokers with vendor ACLs (Redis ACL / NATS accounts) in addition to kollec
 
 ## See also
 
-- [ADR-0022: Multi-cluster sync topology](0022-multi-cluster-sync-rfc.md)
-- [ADR-0023: Lean queue transport](0023-lean-queue-transport.md)
-- [ADR-0024: Inventory HTTP API authentication](0024-inventory-api-auth.md)
+- [ADR-0501: Multi-cluster sync topology](0501-multi-cluster-sync-rfc.md)
+- [ADR-0502: Lean queue transport](0502-lean-queue-transport.md)
+- [ADR-0404: Inventory HTTP API authentication](0404-inventory-api-auth.md)
 - [Istio: Install multi-cluster — primary-remote](https://istio.io/latest/docs/setup/install/multicluster/primary-remote/)
 - [Istio: `istioctl create-remote-secret`](https://github.com/istio/istio/blob/master/istioctl/pkg/multicluster/remote_secret.go)

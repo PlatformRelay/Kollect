@@ -1,14 +1,15 @@
-# ADR-0034: Sink taxonomy — state stores vs event emitters; hub as optional tier
+# ADR-0401: Sink taxonomy — state stores vs event emitters
 
-## Status
+> Sinks classified by role — snapshot store, relational SoR, event emitter. The snapshot is canonical;
+> the hub is an optional tier.
 
-Accepted (2026-06-05)
+**Theme:** 04 · Export & sinks · **Status:** Current
 
 ## Context
 
 Earlier ADRs listed Postgres and Kafka as co-equal "primary sinks"
-([ADR-0025](0025-sink-backends-database-kafka.md)) and positioned a **hub** merge tier as the
-multi-cluster answer ([ADR-0022](0022-multi-cluster-sync-rfc.md), [ADR-0023](0023-lean-queue-transport.md)).
+([ADR-0402](0402-sink-backends-database-kafka.md)) and positioned a **hub** merge tier as the
+multi-cluster answer ([ADR-0501](0501-multi-cluster-sync-rfc.md), [ADR-0502](0502-lean-queue-transport.md)).
 Critical review surfaced three problems:
 
 1. **Postgres and Kafka are not the same kind of thing.** Postgres answers *"what is deployed now?"*
@@ -67,7 +68,7 @@ is a correctness bug.
   best fit for kollect's low-volume, high-fan-out change events.
 - **Kafka (and Redpanda via the Kafka API)** is the **enterprise opt-in** — chosen when an org already
   operates Kafka and wants its connector/schema-registry ecosystem. One `kafka` driver covers both.
-- The **Kafka sink (ADR-0025) and the hub transport (ADR-0023) collapse into one event-emitter
+- The **Kafka sink (ADR-0402) and the hub transport (ADR-0502) collapse into one event-emitter
   abstraction.** Because multi-cluster fan-in is now *direct to a shared sink* (see §5), a spoke
   publishing to a shared NATS/Kafka subject **is** the fan-in — there is no separate transport.
 
@@ -85,7 +86,7 @@ The **hub tier is opt-in**, justified only by constraints a shared backend canno
 | **Credential centralization** | One DB/broker credential at the hub vs N spokes holding write creds |
 | **Schema decoupling** | Spokes speak the stable report schema; hub owns DB schema/migrations |
 
-Otherwise, no hub. This supersedes the "hub is the multi-cluster answer" framing in ADR-0022/0023.
+Otherwise, no hub. This supersedes the "hub is the multi-cluster answer" framing in ADR-0501/0023.
 
 ## Consequences
 
@@ -94,7 +95,7 @@ Otherwise, no hub. This supersedes the "hub is the multi-cluster answer" framing
 - Honest model: **state stores vs event emitters**, not redundant twin primaries.
 - Parquet snapshot gives queryable inventory with **no server** and **correct deletes**.
 - One event-emitter abstraction (NATS/Kafka) for both emit and optional hub fan-in — less surface.
-- Most multi-cluster installs need **no hub** and **no transport auth** (ADR-0028 becomes opt-in).
+- Most multi-cluster installs need **no hub** and **no transport auth** (ADR-0503 becomes opt-in).
 
 ### Negative
 
@@ -105,10 +106,10 @@ Otherwise, no hub. This supersedes the "hub is the multi-cluster answer" framing
 
 ## Supersedes / amends
 
-- [ADR-0025](0025-sink-backends-database-kafka.md) — sinks classified by role; Parquet added; Postgres deletes; NATS added.
-- [ADR-0022](0022-multi-cluster-sync-rfc.md) — hub demoted to optional; direct shared-sink fan-in is default.
-- [ADR-0023](0023-lean-queue-transport.md) — NATS elevated to lean default; transport unified with event sink.
-- [ADR-0032](0032-platform-architecture-pivot.md) — sink/portal narrative refined.
+- [ADR-0402](0402-sink-backends-database-kafka.md) — sinks classified by role; Parquet added; Postgres deletes; NATS added.
+- [ADR-0501](0501-multi-cluster-sync-rfc.md) — hub demoted to optional; direct shared-sink fan-in is default.
+- [ADR-0502](0502-lean-queue-transport.md) — NATS elevated to lean default; transport unified with event sink.
+- [ADR-0703](0703-platform-architecture-pivot.md) — sink/portal narrative refined.
 
 ## Open questions
 

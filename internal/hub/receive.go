@@ -11,7 +11,7 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-// ValidateClusterWire ensures wire metadata matches the report body (ADR-0028 queue + HTTP ingest).
+// ValidateClusterWire ensures wire metadata matches the report body (ADR-0503 queue + HTTP ingest).
 func ValidateClusterWire(wireCluster string, report SpokeReport) error {
 	bodyCluster := strings.TrimSpace(report.Cluster)
 	wireCluster = strings.TrimSpace(wireCluster)

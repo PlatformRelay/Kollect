@@ -1,8 +1,8 @@
-# ADR-0029: Watch opt-in and opt-out labels
+# ADR-0205: Watch opt-in and opt-out labels
 
-## Status
+> `kollect.dev/watch` labels and `watchMode: All|OptIn` decide which objects get collected.
 
-Accepted
+**Theme:** 02 · API & tenancy · **Status:** Current
 
 ## Context
 

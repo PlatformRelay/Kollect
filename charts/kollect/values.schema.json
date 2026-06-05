@@ -86,7 +86,7 @@
           "type": "string",
           "enum": ["inprocess", "redis", "nats", "kafka"],
           "default": "inprocess",
-          "description": "Hub/spoke transport backend (ADR-0023). Only inprocess is the production default."
+          "description": "Hub/spoke transport backend (ADR-0502). Only inprocess is the production default."
         }
       }
     },
@@ -117,7 +117,7 @@
             "enabled": {
               "type": "boolean",
               "default": false,
-              "description": "Expose GET /inventory for debug and small installs only (ADR-0032)."
+              "description": "Expose GET /inventory for debug and small installs only (ADR-0703)."
             },
             "port": {
               "type": "integer",

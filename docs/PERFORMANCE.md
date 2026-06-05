@@ -2,7 +2,7 @@
 
 kollect is designed for **giant single clusters** (1000s of nodes, **10k+ watched resources
 baseline**) and **100+ cluster** hub deployments. This guide summarizes tuning knobs from
-[ADR-0026](adr/0026-performance-scalability.md).
+[ADR-0603](adr/0603-performance-scalability.md).
 
 ## Scale tiers
 
@@ -14,7 +14,7 @@ baseline**) and **100+ cluster** hub deployments. This guide summarizes tuning k
 | Hub platform | 10k × N (summarized) | **100+** | Hub merge benchmarks; sharded queue |
 | Stretch spoke | 50,000+ | 1 | Scoped informers; object-store spillover |
 
-Hub scale targets are defined in [ADR-0026](adr/0026-performance-scalability.md) — hub merge must
+Hub scale targets are defined in [ADR-0603](adr/0603-performance-scalability.md) — hub merge must
 stay **O(total rows)**, never O(spokes²).
 
 ## Controller parallelism
@@ -41,7 +41,7 @@ exponential failure rate limiter (5ms base, 1000s cap). Set a positive duration 
 
 **`KollectInventory.spec.exportMinInterval`** (default **`30s`**) coalesces export to external sinks
 per inventory. Material payload changes (generation/checksum bump) may export immediately inside the
-min interval. **Not** a global `--export-debounce` flag ([ADR-0032](adr/0032-platform-architecture-pivot.md)).
+min interval. **Not** a global `--export-debounce` flag ([ADR-0703](adr/0703-platform-architecture-pivot.md)).
 Lower the interval for fresher Postgres/Kafka exports; raise to reduce sink API load. At 100+ spokes,
 debouncing is **mandatory** on the hub path to avoid export storms.
 
@@ -53,7 +53,7 @@ debouncing is **mandatory** on the hub path to avoid export storms.
   `spec.namespaceSelector`, the dynamic informer is scoped to that namespace. Otherwise the
   informer watches all namespaces and filters events at dispatch time (correctness over cache size).
 - **Resync:** 12h informer resync is a correctness backstop, not a freshness driver.
-- **Spoke → hub:** Push **summarized deltas**, not per-object streams ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)).
+- **Spoke → hub:** Push **summarized deltas**, not per-object streams ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
 
 ## Metrics catalog
 
@@ -65,8 +65,8 @@ Use these names when scraping `/metrics` or writing PromQL in runbooks and issue
 | `kollect_collect_items_total` | Gauge | — | `kollect_collect_items_total` | RSS scales with store size at 10k+ objects |
 | `kollect_collected_objects` | Gauge | `profile`, `gvk` | `sum by (profile, gvk) (kollect_collected_objects)` | Per-target cardinality; split profiles when labels explode |
 | `kollect_reconcile_total` | Counter | `controller`, `result` | `sum(rate(kollect_reconcile_total[5m])) by (controller, result)` | Rising failure ratio → check error-class counters |
-| `kollect_reconcile_errors_total` | Counter | `kind`, `error_class` | `sum(rate(kollect_reconcile_errors_total[5m])) by (error_class)` | See [ADR-0020](adr/0020-error-taxonomy.md) error classes |
-| `kollect_sink_errors_total` | Counter | `reason` | `sum(rate(kollect_sink_errors_total[5m])) by (reason)` | Export failures — separate from reconcile errors ([ADR-0020](adr/0020-error-taxonomy.md)) |
+| `kollect_reconcile_errors_total` | Counter | `kind`, `error_class` | `sum(rate(kollect_reconcile_errors_total[5m])) by (error_class)` | See [ADR-0602](adr/0602-error-taxonomy.md) error classes |
+| `kollect_sink_errors_total` | Counter | `reason` | `sum(rate(kollect_sink_errors_total[5m])) by (reason)` | Export failures — separate from reconcile errors ([ADR-0602](adr/0602-error-taxonomy.md)) |
 | `kollect_sink_connection_test_total` | Counter | `type`, `result` | `sum(rate(kollect_sink_connection_test_total[5m])) by (type, result)` | Spikes on sink CR churn; sustained failure → creds/network |
 | `kollect_workqueue_depth` | Gauge | `controller` | `max_over_time(kollect_workqueue_depth[5m])` | Sustained high values → raise `--max-concurrent-reconciles-*` or reduce reconcile work |
 | `kollect_reconcile_duration_seconds` | Histogram | `controller` | `histogram_quantile(0.99, sum(rate(kollect_reconcile_duration_seconds_bucket[5m])) by (le, controller))` | p99 rising while depth low → slow API/sink; p99 rising with depth → under-provisioned workers |
@@ -102,4 +102,4 @@ Default `go test ./...` excludes `load`-tagged tests.
 | High `kollect_workqueue_depth` on `inventory` | Export or aggregation on hot path | Raise inventory workers; increase `spec.exportMinInterval` |
 | High export bytes rate, low object churn | Missing payload dedupe | Verify debounce + content-hash skip |
 | Bench regression in `BenchmarkExtract` | CEL/JSONPath hot path | Profile extractor; check attribute count |
-| Hub OOM at many spokes | Full mirror in hub RAM | Sharded consumers; spoke summaries only ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
+| Hub OOM at many spokes | Full mirror in hub RAM | Sharded consumers; spoke summaries only ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)) |

@@ -11,8 +11,8 @@ Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 - **Helm chart day 1**; **Prometheus metrics** testable in CI; **connection test** with clear status.
 - **HTTP inventory API** is core, not optional later.
 - **Aggregation** — one export per logical change; design for ~60 clusters without blocking single-cluster.
-- **Reject `KollectPublication` / doc-sync** — use Git/Kafka/Postgres export + external CI ([ADR-0011](docs/adr/0011-doc-sync-templating.md)).
-- **Postgres + Kafka sinks** are first-class export targets ([ADR-0025](docs/adr/0025-sink-backends-database-kafka.md)).
+- **Reject `KollectPublication` / doc-sync** — use Git/Kafka/Postgres export + external CI ([ADR-0702](docs/adr/0702-doc-sync-templating.md)).
+- **Postgres + Kafka sinks** are first-class export targets ([ADR-0402](docs/adr/0402-sink-backends-database-kafka.md)).
 
 ## 1. Error handling
 
@@ -61,15 +61,15 @@ Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
 ## 5. Performance and scalability
 
-- **Scale target:** 10,000+ watched objects per operator with scoped informers ([ADR-0026](docs/adr/0026-performance-scalability.md)).
+- **Scale target:** 10,000+ watched objects per operator with scoped informers ([ADR-0603](docs/adr/0603-performance-scalability.md)).
 - **Memory bounded** — paginated `List`, namespace/label selectors, shared informer per GVK; no full
-  payload in etcd status ([ADR-0006](docs/adr/0006-etcd-limit.md)).
+  payload in etcd status ([ADR-0103](docs/adr/0103-etcd-limit.md)).
 - **Parallel controllers** — tune `MaxConcurrentReconciles`; workqueue rate limiter + exponential
   backoff on `ErrTransient`; separate concurrency for heavy vs light reconcilers where needed.
 - **Backpressure** — monitor workqueue depth and reconcile latency metrics; SAR `ErrForbidden` degrades
   scope for one target without blocking the whole queue.
 - **Rate limits and circuit breakers** — per-sink `gobreaker`; transient sink/API errors requeue with
-  jitter; terminal config errors stop requeue ([ADR-0020](docs/adr/0020-error-taxonomy.md)).
+  jitter; terminal config errors stop requeue ([ADR-0602](docs/adr/0602-error-taxonomy.md)).
 - **Profiling** — pprof on `:6060` behind feature gate (default off); document in [PERFORMANCE.md](docs/PERFORMANCE.md).
 - **Benchmarks** — `task bench` (`-short`, `-benchmem`); `BenchmarkExtract` for CEL/JSONPath hot path.
 

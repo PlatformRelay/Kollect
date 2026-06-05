@@ -324,7 +324,7 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectconnectiontest")
 		os.Exit(1)
 	}
-	// KollectHub controller removed — hub is Helm mode: hub|spoke only (ADR-0032).
+	// KollectHub controller removed — hub is Helm mode: hub|spoke only (ADR-0703).
 	setupLog.Info("KollectHub CRD is deprecated; use --mode=hub and Helm values")
 	if err := (&controller.KollectRemoteClusterReconciler{
 		Client:  mgr.GetClient(),

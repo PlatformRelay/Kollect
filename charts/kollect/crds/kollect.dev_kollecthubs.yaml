@@ -44,10 +44,10 @@ spec:
             properties:
               remoteClusters:
                 description: remoteClusters lists spoke registrations wired into this
-                  hub consumer (ADR-0028).
+                  hub consumer (ADR-0503).
                 items:
                   description: RemoteClusterRef references a registered KollectRemoteCluster
-                    on the hub (ADR-0028).
+                    on the hub (ADR-0503).
                   properties:
                     name:
                       description: name of the KollectRemoteCluster resource.

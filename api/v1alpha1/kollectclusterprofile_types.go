@@ -8,7 +8,7 @@ import (
 )
 
 // KollectClusterProfileSpec defines the desired state of KollectClusterProfile.
-// Same shape as KollectProfileSpec — cluster-scoped platform extraction schema (ADR-0031).
+// Same shape as KollectProfileSpec — cluster-scoped platform extraction schema (ADR-0204).
 type KollectClusterProfileSpec struct {
 	// targetGVK selects the Kubernetes resource kind this profile applies to.
 	// +required

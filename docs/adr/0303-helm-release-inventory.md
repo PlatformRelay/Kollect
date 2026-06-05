@@ -1,8 +1,9 @@
-# ADR-0027: Helm release inventory sample
+# ADR-0303: Helm / Argo release inventory sample and redaction
 
-## Status
+> Argo CD `Application` is the primary Helm sample; never export secrets — redact sensitive keys.
 
-Accepted (2026-06-05)
+**Theme:** 03 · Collection & extraction · **Status:** Current · **Evolution:** primary demo GVK moved
+from Flux `HelmRelease` to Argo `Application`.
 
 ## Context
 
@@ -20,7 +21,7 @@ User requirement (2026-06-05): inventory must expose **chart `version` and `appV
 
 ## Decision
 
-### Primary GVK (default demo and first sample) — amended ADR-0032
+### Primary GVK (default demo and first sample) — amended ADR-0703
 
 **`argoproj.io/v1alpha1` / `Application`** (Argo CD)
 
@@ -28,7 +29,7 @@ User requirement (2026-06-05): inventory must expose **chart `version` and `appV
 - Works with existing JSONPath/CEL extraction.
 - `KollectTarget` scopes Applications via namespace/label selectors.
 
-**Amended (2026-06-05):** Argo primary per [ADR-0032](0032-platform-architecture-pivot.md). Flux
+**Amended (2026-06-05):** Argo primary per [ADR-0703](0703-platform-architecture-pivot.md). Flux
 `HelmRelease` sample may remain secondary.
 
 **Version fields (Argo — lock in contract test):**
@@ -132,14 +133,14 @@ Implementation: `internal/validation/profile.go` (`ValidateProfile`); wired from
 | `config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yaml` | Example Target scoping Flux HelmReleases |
 
 Walkthrough: [docs/examples/helm-release-inventory.md](../examples/helm-release-inventory.md) (Flux secondary;
-Argo `Application` is the primary demo GVK per [ADR-0032](0032-platform-architecture-pivot.md)).
+Argo `Application` is the primary demo GVK per [ADR-0703](0703-platform-architecture-pivot.md)).
 
 ### Implementation phases
 
 1. **Now:** Argo **`Application`** **contract test first** (`internal/collect/argo_application_contract_test.go`),
    then summary profile + target samples; Flux `HelmRelease` sample remains secondary; Profile webhook
    blocks `Secret.data` without opt-in; webhook **requires `cel:` prefix** on CEL expressions
-   ([ADR-0003](0003-cel-jsonpath-extraction.md)); JSONPath **filter** validation **warn-only** in Phase 1.
+   ([ADR-0302](0302-cel-jsonpath-extraction.md)); JSONPath **filter** validation **warn-only** in Phase 1.
 2. **Phase 2+:** **`helm:release.<field>`** attribute prefix — decoder expands `data.release` gzip JSON
    (`chartVersion`, `appVersion`, `config` values); never export raw blob.
 3. **Phase 2:** export-time scrub via global operator **`scrubKeys[]`** denylist; per-attribute
@@ -165,7 +166,7 @@ Argo `Application` is the primary demo GVK per [ADR-0032](0032-platform-architec
 ## Open questions
 
 - **RESOLVED (2026-06-05):** **`helm:release.<field>`** prefix on attribute paths; decoder expands
-  `data.release` — Phase 2+ ([ADR-0032](0032-platform-architecture-pivot.md)).
+  `data.release` — Phase 2+ ([ADR-0703](0703-platform-architecture-pivot.md)).
 - **RESOLVED (2026-06-05):** Global **`scrubKeys[]`** operator config first; per-attribute `redact: true` later.
 - **RESOLVED (2026-06-05):** JSONPath filters — webhook **warn** Phase 1, **reject** Phase 2.
 - **RESOLVED (2026-06-05):** `chartVersion` from `status.lastAttemptedRevision`; `history[0]` ordering

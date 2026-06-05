@@ -1,14 +1,14 @@
-# ADR-0012: Prometheus metrics and export sink (stub)
+# ADR-0601: Operator metrics — no Prometheus export sink
 
-## Status
+> Operator metrics live on `/metrics`; `prometheus` is **not** a `KollectSink.type`.
 
-Accepted (stub, 2026-06-05)
+**Theme:** 06 · Observability & ops · **Status:** Current
 
 ## Context
 
 Phase 4 may add kube-state-metrics-style custom resource metrics. Phase 1 ships **operator**
-metrics per [ADR-0020](0020-error-taxonomy.md). Inventory export uses Git, object storage, Postgres,
-and Kafka sinks ([ADR-0025](0025-sink-backends-database-kafka.md)) — **not** a `KollectSink` of type
+metrics per [ADR-0602](0602-error-taxonomy.md). Inventory export uses Git, object storage, Postgres,
+and Kafka sinks ([ADR-0402](0402-sink-backends-database-kafka.md)) — **not** a `KollectSink` of type
 `prometheus`.
 
 ## Decision
@@ -28,5 +28,5 @@ and Kafka sinks ([ADR-0025](0025-sink-backends-database-kafka.md)) — **not** a
 
 ## See also
 
-- [ADR-0020: Error taxonomy and metrics](0020-error-taxonomy.md)
-- [ADR-0024: Inventory HTTP auth](0024-inventory-api-auth.md)
+- [ADR-0602: Error taxonomy and metrics](0602-error-taxonomy.md)
+- [ADR-0404: Inventory HTTP auth](0404-inventory-api-auth.md)

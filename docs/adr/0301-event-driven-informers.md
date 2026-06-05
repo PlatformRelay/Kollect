@@ -1,8 +1,8 @@
-# ADR-0014: Event-driven dynamic informers
+# ADR-0301: Event-driven dynamic informers
 
-## Status
+> One shared dynamic informer per GVK; collection reacts to events, never polls on an interval.
 
-Accepted
+**Theme:** 03 · Collection & extraction · **Status:** Current
 
 ## Context
 
@@ -36,7 +36,7 @@ Polling the API on a short `RequeueAfter` loop would duplicate informer work and
 8. **One shared informer per GVK** across all `KollectTarget`s referencing that profile GVK —
    not per-Target caches. The engine registers one dynamic informer per distinct
    `(group, version, kind)`; Targets filter in reconcile. Rationale: kube-state-metrics pattern;
-   memory scales with watched objects × GVKs, not Targets ([ADR-0026](0026-performance-scalability.md)).
+   memory scales with watched objects × GVKs, not Targets ([ADR-0603](0603-performance-scalability.md)).
 9. **Committed sample catalog** — maintain **many tested samples** for common use cases, checked into
    `config/samples/` and documented under `docs/examples/`:
 
@@ -46,7 +46,7 @@ Polling the API on a short `RequeueAfter` loop would duplicate informer work and
 | Service endpoints | `v1 Service` | Same |
 | Ingress rules | `networking.k8s.io/v1 Ingress` | Same |
 | Generic CRD | user-defined CRD instance | Golden extraction tests |
-| Helm release summary | `helm.toolkit.fluxcd.io/v2` `HelmRelease` | Sample + example ([ADR-0027](0027-helm-release-inventory.md)) |
+| Helm release summary | `helm.toolkit.fluxcd.io/v2` `HelmRelease` | Sample + example ([ADR-0303](0303-helm-release-inventory.md)) |
 | Helm release values (gated) | Same GVK + scrubbed `spec.values` | Deferred until operator redaction |
 | Plain Helm releases | `helm.sh/v1` `Secret` (`owner=helm`) | Deferred until `helm:` decode |
 
@@ -95,4 +95,4 @@ flowchart TD
 
 - **RESOLVED (2026-06-05):** **Single shared informer per GVK** across all Targets watching that GVK
   (kube-state-metrics pattern) — reduces memory vs per-Target caches.
-- **RESOLVED (2026-06-05):** Primary Helm sample GVK is Flux `HelmRelease` v2 ([ADR-0027](0027-helm-release-inventory.md)).
+- **RESOLVED (2026-06-05):** Primary Helm sample GVK is Flux `HelmRelease` v2 ([ADR-0303](0303-helm-release-inventory.md)).

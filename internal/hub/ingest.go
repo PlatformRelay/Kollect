@@ -20,12 +20,12 @@ import (
 
 const ingestReportsPath = "/hub/v1alpha1/reports"
 
-// IngestReportsPath is the hub HTTP ingest endpoint for spoke push (ADR-0028).
+// IngestReportsPath is the hub HTTP ingest endpoint for spoke push (ADR-0503).
 func IngestReportsPath() string {
 	return ingestReportsPath
 }
 
-// IngestServer accepts authenticated spoke inventory reports over HTTP (ADR-0028).
+// IngestServer accepts authenticated spoke inventory reports over HTTP (ADR-0503).
 type IngestServer struct {
 	Enabled           bool
 	Port              int32

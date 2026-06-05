@@ -1,76 +1,197 @@
-# kollect — product requirements
+# kollect — requirements (first principles)
 
-Binding requirements for kollect beyond engineering guidelines
-([GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md)).
-**Build order** is not a release train — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md).
+> Shared assumptions for architecture reasoning. This document states **what kollect must do and how
+> well**, independent of any specific design. ADRs decide *how*; this decides *what* and *why*. When an
+> ADR and this document disagree, that is a signal to reconcile — flag it.
 
-## MVP (build first)
+**Status:** living · **Audience:** maintainers, reviewers, architecture discussions ·
+**Build order, not a release train** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md).
 
-| Requirement | Rationale |
+---
+
+## 1. Problem statement
+
+Platform and application teams need **versioned, stakeholder-facing inventory** of what runs in their
+Kubernetes clusters — *which* resources exist, with *which* attributes (chart versions, images, sync
+status, certificate expiry, …), aggregated into a queryable, auditable form.
+
+From first principles, the existing options each fail one requirement:
+
+| Option | Why it is insufficient |
 | --- | --- |
-| **Namespaced tenancy** | `KollectProfile`, **`KollectSink`**, `KollectTarget`, `KollectInventory` in team namespace — [ADR-0032](adr/0032-platform-architecture-pivot.md) |
-| **Collect → aggregate → export** | Deployment (or one GVK) through to **Postgres or Kafka** sink |
-| **Shared informer per GVK** | Scalability — [ADR-0014](adr/0014-event-driven-informers.md) |
-| **Default install: `tenantMode`** | Per-team Helm + `watchNamespaces` — [ADR-0016](adr/0016-namespaced-multi-tenancy.md) |
-| **Export debouncing** | Coalesce sink writes under event load — [ADR-0032](adr/0032-platform-architecture-pivot.md) |
-| **`KollectConnectionTest` CR** | Audited connectivity probes — [ADR-0032](adr/0032-platform-architecture-pivot.md) |
+| Query `kube-apiserver` directly | Unbounded list/watch load; no history; couples portals to cluster availability and RBAC |
+| Store inventory in CRD `.status` | etcd object-size limit (~1.5 MB); destabilizes apiserver at scale |
+| Hardcoded collector schemas | Break whenever a new CRD/attribute is needed; no per-team extensibility |
+| kube-state-metrics only | Metrics are observability, not diffable stakeholder inventory |
+| Per-cluster Git commits | O(N) commit/export storms across a fleet; noise without aggregation |
 
-Implemented code for extended features (HTTP, hub, extra sinks) **remains**; MVP success is the export path above.
+**kollect's thesis:** watch user-defined GVKs via shared informers → extract attributes via
+CEL/JSONPath → aggregate in memory → **debounce** → export to **pluggable durable sinks**, so
+consumers read **export data**, never the live API at scale.
 
-## Core engineering (parallel / after MVP)
+## 2. Users and assumptions
 
-| Requirement | Rationale |
+| Persona | Need |
 | --- | --- |
-| **Custom / self-signed CA TLS** for Git and GitLab sinks | Internal CAs — human-user-0 without `insecureSkipVerify` |
-| **Validating webhooks early** | Reject invalid CEL/JSONPath and sink config at admission |
-| **Helm chart day 1** | `helm template`, unittest, schema in CI |
-| **Prometheus metrics early** | `/metrics` in CI — [ADR-0012](adr/0012-prometheus-metrics-stub.md) |
-| **Connection test on Sink** | `connectionTest: false` prod default; annotation for ad-hoc — [ADR-0030](adr/0030-connection-test.md) |
-| **Postgres + Kafka sinks** | Primary integration backends — [ADR-0025](adr/0025-sink-backends-database-kafka.md) |
-| **`KollectScope` enforcement** | Webhook + reconciler — [ADR-0016](adr/0016-namespaced-multi-tenancy.md) |
-| **Tested samples + contract tests** | Deployment, Argo `Application` helm sample + **contract test** — [ADR-0027](adr/0027-helm-release-inventory.md) |
-| **Watch opt-in/out** | `watchMode: All` and `OptIn`; `kollect.dev/watch` labels — [ADR-0029](adr/0029-watch-labels.md) |
+| **Application team** | Inventory of their own namespace's workloads, owned in their namespace |
+| **Platform team** | Cross-namespace / cross-cluster rollup with tenancy guardrails |
+| **Portal / automation** | A stable, queryable, durable read surface (SQL, object store, or stream) |
+| **Auditor** | Diffable, point-in-time history of what was deployed |
 
-## Optional / debug
+Operating assumptions (binding unless revisited):
 
-| Requirement | Rationale |
+- **A1 — No external adopters on `v1alpha1`.** Breaking API changes are acceptable pre-beta.
+- **A2 — Event-driven, not polling.** Collection reacts to informer events ([ADR-0301](adr/0301-event-driven-informers.md)).
+- **A3 — Status is a summary, never a payload store** ([ADR-0103](adr/0103-etcd-limit.md)).
+- **A4 — Single responsibility.** kollect collects and exports; it does **not** render or publish docs/CMS ([ADR-0702](adr/0702-doc-sync-templating.md)).
+- **A5 — The in-memory snapshot per inventory is canonical**; every sink is a projection of it ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
+- **A6 — Internal/self-signed CAs are normal**; TLS trust is a first-class sink concern, not a bolt-on.
+
+## 3. Functional requirements
+
+IDs are stable handles for discussion (`FR-<area>-<n>`).
+
+### 3.1 Configuration & API (FR-API)
+
+| ID | Requirement | Reference |
+| --- | --- | --- |
+| FR-API-1 | Inventory is configured by CRDs, not code: extraction schema (`KollectProfile`), resource selection (`KollectTarget`), aggregation/export (`KollectInventory`), backend (`KollectSink`), tenancy (`KollectScope`) | [ADR-0201](adr/0201-crd-model.md) |
+| FR-API-2 | Namespaced-by-default tenancy; cluster-scoped variants for platform-wide use | [ADR-0201](adr/0201-crd-model.md), [ADR-0203](adr/0203-namespaced-multi-tenancy.md) |
+| FR-API-3 | Config kinds (`Profile`, `Scope`) are static (no controller); work kinds are reconciled | [ADR-0202](adr/0202-static-vs-reconciled.md) |
+| FR-API-4 | Invalid CEL/JSONPath and unknown sink types are rejected at admission, not at runtime | [ADR-0201](adr/0201-crd-model.md), [ADR-0302](adr/0302-cel-jsonpath-extraction.md) |
+| FR-API-5 | Every reconciled kind supports `spec.suspend` and a manual-trigger annotation | [ADR-0201](adr/0201-crd-model.md) |
+
+### 3.2 Collection & extraction (FR-COL)
+
+| ID | Requirement | Reference |
+| --- | --- | --- |
+| FR-COL-1 | Watch arbitrary GVKs declared by profiles via **one shared dynamic informer per GVK** | [ADR-0301](adr/0301-event-driven-informers.md) |
+| FR-COL-2 | Extract named attributes via JSONPath (incl. `[*]` array wildcard) and `cel:`-prefixed CEL | [ADR-0302](adr/0302-cel-jsonpath-extraction.md) |
+| FR-COL-3 | Scope watches by namespace/label selector and name lists to bound memory | [ADR-0301](adr/0301-event-driven-informers.md) |
+| FR-COL-4 | Watch opt-in/opt-out via `kollect.dev/watch` labels and `watchMode: All\|OptIn` | [ADR-0205](adr/0205-watch-labels.md) |
+| FR-COL-5 | Never extract `Secret.data` (incl. Helm `data.release`) without explicit opt-in; redact sensitive keys | [ADR-0303](adr/0303-helm-release-inventory.md) |
+| FR-COL-6 | Ship tested sample profiles + contract tests (Deployment, Argo `Application`, cert-manager `Certificate`, …) | [ADR-0301](adr/0301-event-driven-informers.md), [ADR-0303](adr/0303-helm-release-inventory.md) |
+
+### 3.3 Aggregation & export (FR-EXP)
+
+| ID | Requirement | Reference |
+| --- | --- | --- |
+| FR-EXP-1 | Aggregate target rows into a per-namespace `KollectInventory` snapshot | [ADR-0201](adr/0201-crd-model.md) |
+| FR-EXP-2 | Coalesce identical exports via `spec.exportMinInterval` (default 30s); material changes bypass | [ADR-0703](adr/0703-platform-architecture-pivot.md), [ADR-0603](adr/0603-performance-scalability.md) |
+| FR-EXP-3 | Deterministic, stable-ordered serialization (diffable Git, golden tests) | [ADR-0103](adr/0103-etcd-limit.md) |
+| FR-EXP-4 | Pluggable sinks by **role**: snapshot store (Git, S3/GCS Parquet, HTTP), relational SoR (Postgres), event emitter (NATS, Kafka) | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0402](adr/0402-sink-backends-database-kafka.md) |
+| FR-EXP-5 | Resource deletions are reflected in sinks (snapshot stores free; Postgres/Kafka via reconcile) | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
+| FR-EXP-6 | First-class sink connectivity testing (`KollectConnectionTest` CR + sink probe) | [ADR-0403](adr/0403-connection-test.md) |
+| FR-EXP-7 | Custom CA / self-signed TLS trust for Git/GitLab/Postgres sinks (`caSecretRef` / `caBundle`) | [ADR-0201](adr/0201-crd-model.md) |
+
+### 3.4 Read path (FR-READ)
+
+| ID | Requirement | Reference |
+| --- | --- | --- |
+| FR-READ-1 | Primary scalable read = sink export (SQL/object store/stream), **not** the live API | [ADR-0103](adr/0103-etcd-limit.md) |
+| FR-READ-2 | Optional read-only HTTP inventory API, **feature-gated off by default**, for debug/small installs | [ADR-0103](adr/0103-etcd-limit.md) |
+| FR-READ-3 | When HTTP is enabled, authenticate via Kubernetes TokenReview + SubjectAccessReview | [ADR-0404](adr/0404-inventory-api-auth.md) |
+
+### 3.5 Multi-cluster (FR-MC)
+
+| ID | Requirement | Reference |
+| --- | --- | --- |
+| FR-MC-1 | Default multi-cluster = direct shared-sink fan-in (`spec.cluster`); backend key/PK merges | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) |
+| FR-MC-2 | Optional hub tier (`mode: hub\|spoke`, same image, no `KollectHub` CRD) for Git fan-in / network isolation / credential centralization | [ADR-0501](adr/0501-multi-cluster-sync-rfc.md), [ADR-0703](adr/0703-platform-architecture-pivot.md) |
+| FR-MC-3 | Spokes stay lightweight: summarized delta snapshots, bounded RAM, debounced push | [ADR-0501](adr/0501-multi-cluster-sync-rfc.md), [ADR-0603](adr/0603-performance-scalability.md) |
+| FR-MC-4 | Hub/spoke transport is the same event-emitter abstraction as the Kafka/NATS sink | [ADR-0502](adr/0502-lean-queue-transport.md), [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
+| FR-MC-5 | Hub ingest auth is push-first (TokenReview + SAR `create` on `kollectremoteclusters`) | [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) |
+
+### 3.6 Observability (FR-OBS)
+
+| ID | Requirement | Reference |
+| --- | --- | --- |
+| FR-OBS-1 | Operator Prometheus metrics on `/metrics` (reconcile, export, sink errors, collection counts) | [ADR-0601](adr/0601-prometheus-metrics-stub.md), [ADR-0602](adr/0602-error-taxonomy.md) |
+| FR-OBS-2 | Typed error taxonomy drives requeue behavior and conditions (`Ready`/`Synced`/`Degraded`) | [ADR-0602](adr/0602-error-taxonomy.md) |
+| FR-OBS-3 | Operators can tell **why** export failed from conditions, events, and metrics | [ADR-0602](adr/0602-error-taxonomy.md), [ADR-0403](adr/0403-connection-test.md) |
+| FR-OBS-4 | `prometheus` is **not** a sink type; domain (KSM-style) metrics emit from the collection engine | [ADR-0601](adr/0601-prometheus-metrics-stub.md), [ADR-0304](adr/0304-custom-resource-aggregation-rfc.md) |
+
+## 4. Non-functional requirements
+
+### 4.1 Performance & scale (NFR-PERF) — [ADR-0603](adr/0603-performance-scalability.md)
+
+| ID | Target |
 | --- | --- |
-| **HTTP inventory API** | **Feature-gated, default off** — debug and small installs only; not portal scale path — [ADR-0032](adr/0032-platform-architecture-pivot.md), [ADR-0006](adr/0006-etcd-limit.md) |
-| **Inventory HTTP auth** | When HTTP enabled: TokenReview + SAR — [ADR-0024](adr/0024-inventory-api-auth.md) |
-| **Git sink samples** | Audit/diff and CI determinism — not primary portal narrative |
+| NFR-PERF-1 | Baseline single spoke: **10,000+** watched objects; collection store working set **≤512 MiB** |
+| NFR-PERF-2 | Giant cluster: 1000+ nodes — scoped informers + paginated list mandatory |
+| NFR-PERF-3 | Hub fleet: **100–500+** clusters; merge cost **O(total rows)**, never O(spokes²) |
+| NFR-PERF-4 | One shared informer per GVK; memory scales with objects × GVKs, not with target count |
+| NFR-PERF-5 | Export load bounded by debounce; spill oversized payloads to object store, never etcd |
+| NFR-PERF-6 | Tunable `MaxConcurrentReconciles`; observable queue depth |
 
-## Multi-cluster (build order — not MVP blocker)
+### 4.2 Reliability & correctness (NFR-REL)
 
-| Requirement | Rationale |
+| ID | Requirement |
 | --- | --- |
-| **Hub `mode: hub\|spoke`** | Same image; **no `KollectHub` CRD** — [ADR-0022](adr/0022-multi-cluster-sync-rfc.md), [ADR-0032](adr/0032-platform-architecture-pivot.md) |
-| **`internal/hub/` merge** | Hub Postgres/Kafka as portal read path |
-| **Lean queue transport** | `inprocess` only default — [ADR-0023](adr/0023-lean-queue-transport.md) |
-| **Hub auth** | Push-first — [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md) |
+| NFR-REL-1 | Idempotent, level-based reconcile; safe to repeat |
+| NFR-REL-2 | At-least-once export; sinks idempotent on `(cluster, ns, name, uid)` |
+| NFR-REL-3 | No reconcile spin on terminal errors; exponential backoff + jitter on transient |
+| NFR-REL-4 | Degrade (not crash) under partial RBAC; record `skipped:forbidden` |
+| NFR-REL-5 | Pod restart loses only in-memory cache; rebuilt from informer resync |
 
-## Performance
+### 4.3 Security (NFR-SEC)
 
-See [ADR-0026](adr/0026-performance-scalability.md) and [PERFORMANCE.md](PERFORMANCE.md).
-
-## Architecture principles
-
-- **Postgres/Kafka primary** for portals; **Git** for audit; **HTTP** optional debug.
-- **Schema clarity** — contract is export JSON/rows, not rendered docs.
-- **Single responsibility** — no in-cluster doc-sync ([ADR-0011](adr/0011-doc-sync-templating.md)).
-- **No adopters on v1alpha1** — breaking API changes acceptable until beta.
-
-## Rejected / deferred
-
-| Item | Rationale |
+| ID | Requirement |
 | --- | --- |
-| `KollectPublication` | [ADR-0011](adr/0011-doc-sync-templating.md) |
-| `KollectHub` CRD | Helm `mode: hub` — [ADR-0032](adr/0032-platform-architecture-pivot.md) |
-| `KollectSink.type: prometheus` | [ADR-0012](adr/0012-prometheus-metrics-stub.md) |
-| **`KollectClusterSink`** | Reserved until platform-shared sinks needed |
-| JSONPath filters | After core export |
+| NFR-SEC-1 | Credentials only via `secretRef`; never in spec/status/logs |
+| NFR-SEC-2 | Default verify TLS; `insecureSkipVerify` opt-in and surfaced in status |
+| NFR-SEC-3 | Tenancy enforced by `KollectScope` (hard degrade) + SAR; least-privilege RBAC |
+| NFR-SEC-4 | Sensitive-key redaction before export; no secret material in inventory |
+| NFR-SEC-5 | Distroless nonroot image; minimal attack surface |
+
+### 4.4 Operability (NFR-OPS)
+
+| ID | Requirement |
+| --- | --- |
+| NFR-OPS-1 | Helm chart day one; `tenantMode` + `watchNamespaces` default per-team install |
+| NFR-OPS-2 | Feature gates default to safe values (HTTP off, profiling off, `connectionTest` off in prod) |
+| NFR-OPS-3 | Clear, sanitized, actionable condition/error messages |
+| NFR-OPS-4 | No hard dependency on Kafka/NATS/Postgres for install or CI (`inprocess` defaults) |
+
+### 4.5 Extensibility & compatibility (NFR-EXT)
+
+| ID | Requirement |
+| --- | --- |
+| NFR-EXT-1 | New sink backends register via a factory; no vendor SDK in reconcilers |
+| NFR-EXT-2 | New GVKs need no codegen — profile-driven |
+| NFR-EXT-3 | A sink backend ships only when integration/e2e-testable (testcontainers or kind sidecar) |
+| NFR-EXT-4 | CRD enums/conditions evolve via OpenAPI; pre-beta breaking changes allowed (A1) |
+
+### 4.6 Testability (NFR-TEST)
+
+| ID | Requirement |
+| --- | --- |
+| NFR-TEST-1 | Extraction + error classes covered by table-driven unit tests (no cluster) |
+| NFR-TEST-2 | Samples double as contract/regression tests; breaking extraction fails CI |
+| NFR-TEST-3 | Scheduled full-path e2e (install → apply samples → assert conditions/export) |
+| NFR-TEST-4 | Codegen drift gate (`task verify`) green at every commit |
+
+## 5. Explicit non-goals
+
+| Non-goal | Rationale |
+| --- | --- |
+| In-operator doc/CMS rendering (Confluence, wiki, templating) | Single responsibility — external CI consumes exports ([ADR-0702](adr/0702-doc-sync-templating.md)) |
+| `prometheus` as a `KollectSink.type` | Operator metrics use `/metrics`; avoids scrape/sink confusion ([ADR-0601](adr/0601-prometheus-metrics-stub.md)) |
+| `KollectHub` CRD | Hub is Helm `mode: hub` + library ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| Full inventory payload in CRD status | etcd limit ([ADR-0103](adr/0103-etcd-limit.md)) |
+| Pairwise agent mesh beyond ~20 peers | Does not scale; use hub or shared sink ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)) |
+| In-place ACID lakehouse updates (Iceberg/DuckLake) | kollect overwrites whole snapshots; no catalog/metadata DB needed ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
+
+## 6. Open requirement questions
+
+- Maximum spoke payload size before object-store spill is mandatory? ([ADR-0103](adr/0103-etcd-limit.md))
+- Is at-least-once + idempotent merge sufficient, or is exactly-once ever required for audit? ([ADR-0502](adr/0502-lean-queue-transport.md))
+- Parquet attribute schema: single JSON column vs typed columns per profile attribute? ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md))
+- Should cluster-scoped resources honor a target-level default under `watchMode: OptIn`? ([ADR-0205](adr/0205-watch-labels.md))
 
 ## See also
 
-- [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) — coordinator brief
-- [ARCHITECTURE.md](ARCHITECTURE.md)
-- [ROADMAP.md](ROADMAP.md)
+- [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) — coordinator brief (locked decisions)
+- [ARCHITECTURE.md](ARCHITECTURE.md) — system overview
+- [adr/README.md](adr/README.md) — decision records, grouped by theme
+- [ROADMAP.md](ROADMAP.md) · [PERFORMANCE.md](PERFORMANCE.md)

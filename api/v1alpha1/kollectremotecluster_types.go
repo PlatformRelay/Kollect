@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// KollectRemoteClusterSpec registers a spoke cluster on the hub (ADR-0028).
+// KollectRemoteClusterSpec registers a spoke cluster on the hub (ADR-0503).
 type KollectRemoteClusterSpec struct {
 	// clusterName is the stable DNS-1123 identifier for the spoke cluster.
 	// +kubebuilder:validation:MinLength=1

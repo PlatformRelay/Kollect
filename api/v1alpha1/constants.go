@@ -19,7 +19,7 @@ const (
 
 	AnnotationTestConnection = "kollect.dev/test-connection"
 
-	// Multi-cluster registration (Istio remote-secret parallel — ADR-0028).
+	// Multi-cluster registration (Istio remote-secret parallel — ADR-0503).
 	LabelMultiCluster        = "kollect.dev/multiCluster"
 	AnnotationClusterName    = "kollect.dev/cluster"
 	AnnotationSpokePrincipal = "kollect.dev/spokePrincipal"
@@ -27,7 +27,7 @@ const (
 	//nolint:gosec // G101: Istio-style remote secret name prefix, not a credential
 	RemoteSecretNamePrefix = "kollect-remote-secret-"
 
-	// Watch opt-in/opt-out labels and annotations (ADR-0029).
+	// Watch opt-in/opt-out labels and annotations (ADR-0205).
 	// LabelWatch applies to namespaces and namespaced resources.
 	LabelWatch = "kollect.dev/watch"
 	// AnnotationNamespaceWatch applies to Namespace objects; affects all resources in the namespace

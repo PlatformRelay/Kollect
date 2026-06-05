@@ -11,8 +11,8 @@ informer for the profile GVK (one per GVK cluster-wide) and filters events per t
 This is the **default team-scoped** collection object. Platform cross-namespace collection uses
 `KollectClusterTarget` instead.
 
-See [ADR-0014](../adr/0014-event-driven-informers.md),
-[ADR-0029](../adr/0029-watch-labels.md).
+See [ADR-0301](../adr/0301-event-driven-informers.md),
+[ADR-0205](../adr/0205-watch-labels.md).
 
 ## How it fits the pipeline
 
@@ -126,7 +126,7 @@ for each workload namespace they scrape.
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | `itemCount` stays 0 | Label selector mismatch | `kubectl get deploy -l app.kubernetes.io/name=nginx` |
-| Namespace skipped | Watch label / annotation | See [ADR-0029](../adr/0029-watch-labels.md); check `kollect.dev/watch` |
+| Namespace skipped | Watch label / annotation | See [ADR-0205](../adr/0205-watch-labels.md); check `kollect.dev/watch` |
 | `Forbidden` partial collection | RBAC too narrow | Extend ClusterRole or use namespace-scoped RoleBindings |
 | Target in wrong namespace | Namespaced kind | `kubectl get ktgt -A`; match profile namespace |
 | No reconcile after profile edit | Secondary watch pending | Bump target generation or wait for beta watch |

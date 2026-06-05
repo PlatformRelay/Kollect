@@ -9,14 +9,14 @@ import (
 	"net/http"
 	"time"
 
-	// Registers pprof handlers on DefaultServeMux; exposed only when --enable-pprof is set (ADR-0026).
+	// Registers pprof handlers on DefaultServeMux; exposed only when --enable-pprof is set (ADR-0603).
 	//nolint:gosec // G108: intentional opt-in profiling endpoint.
 	_ "net/http/pprof"
 )
 
 const defaultAddr = ":6060"
 
-// Server exposes Go pprof endpoints on a dedicated listen address (ADR-0026).
+// Server exposes Go pprof endpoints on a dedicated listen address (ADR-0603).
 type Server struct {
 	Addr string
 }

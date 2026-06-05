@@ -26,7 +26,7 @@ const (
 	AuthModeDisabled = "disabled"
 )
 
-// AuthConfig configures inventory HTTP authentication (ADR-0024).
+// AuthConfig configures inventory HTTP authentication (ADR-0404).
 type AuthConfig struct {
 	Mode                string
 	Client              kubernetes.Interface

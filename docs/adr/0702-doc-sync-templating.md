@@ -1,8 +1,9 @@
-# ADR-0011: Doc-sync, templating, and Confluence publication
+# ADR-0702: Doc-sync, templating, and Confluence publication
 
-## Status
+> kollect collects and exports; rendering/publishing to a CMS stays out of the operator and belongs in
+> external CI that consumes the exports.
 
-**Rejected** (2026-06-05) — out of scope for kollect
+**Theme:** 07 · Project & meta · **Status:** Dropped (binding scope guardrail)
 
 ## Context
 
@@ -28,14 +29,14 @@ Rationale (single responsibility):
 - The operator **collects and exports** auditable inventory snapshots.
 - **Templating and Confluence push** add CMS credentials, idempotent page merge, and content drift
   unrelated to Kubernetes watches.
-- Git (or Postgres/Kafka) export already satisfies portal and audit needs ([ADR-0013](0013-prior-art.md)).
+- Git (or Postgres/Kafka) export already satisfies portal and audit needs ([ADR-0102](0102-prior-art.md)).
 
 ## Consequences
 
 ### Positive
 
 - Smaller security surface (no Confluence tokens in the operator).
-- Faster path to production sinks (Git, S3, Postgres, Kafka — [ADR-0025](0025-sink-backends-database-kafka.md)).
+- Faster path to production sinks (Git, S3, Postgres, Kafka — [ADR-0402](0402-sink-backends-database-kafka.md)).
 - Clear boundary for platform teams: export contract in Git JSON; render elsewhere.
 
 ### Negative
@@ -50,7 +51,7 @@ Any feature that smells like doc-sync must be **rejected** unless it is plain in
 | In scope (kollect) | Out of scope (external CI / portal) |
 | --- | --- |
 | Deterministic JSON/YAML/row export to Git, S3, GCS, Postgres, Kafka | Go templates, Confluence REST, wiki merge, CMS credentials |
-| Read-only HTTP `GET /inventory` | Rich portal UI, auth beyond [ADR-0024](0024-inventory-api-auth.md) |
+| Read-only HTTP `GET /inventory` | Rich portal UI, auth beyond [ADR-0404](0404-inventory-api-auth.md) |
 | `checksum`, `generation`, `itemCount` in export metadata | Rendered HTML/Markdown publication pipelines |
 | Stable sort keys for `git diff` | Idempotent page upsert, attachment handling |
 
@@ -65,6 +66,6 @@ samples, or public docs except as historical rejection notes.
 
 ## See also
 
-- [ADR-0004: CRD model](0004-crd-model.md) — `KollectPublication` listed under rejected kinds
-- [ADR-0013: Prior art](0013-prior-art.md) — Publication stance updated to rejected
-- [ADR-0025: Database and Kafka sinks](0025-sink-backends-database-kafka.md) — in-scope export targets
+- [ADR-0201: CRD model](0201-crd-model.md) — `KollectPublication` listed under rejected kinds
+- [ADR-0102: Prior art](0102-prior-art.md) — Publication stance updated to rejected
+- [ADR-0402: Database and Kafka sinks](0402-sink-backends-database-kafka.md) — in-scope export targets

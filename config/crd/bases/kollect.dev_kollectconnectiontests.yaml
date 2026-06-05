@@ -48,7 +48,7 @@ spec:
             type: object
           spec:
             description: KollectConnectionTestSpec defines a one-shot connectivity
-              probe (ADR-0032).
+              probe (ADR-0703).
             properties:
               ownerSink:
                 description: ownerSink sets an ownerReference to the sink when true

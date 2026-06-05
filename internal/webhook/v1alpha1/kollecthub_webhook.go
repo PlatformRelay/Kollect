@@ -50,6 +50,6 @@ func (v *kollectHubValidator) ValidateDelete(
 
 func (v *kollectHubValidator) validate(_ *kollectdevv1alpha1.KollectHub) error {
 	return fmt.Errorf(
-		"KollectHub CRD is deprecated (ADR-0032): use Helm mode: hub — no controller is registered",
+		"KollectHub CRD is deprecated (ADR-0703): use Helm mode: hub — no controller is registered",
 	)
 }

@@ -15,7 +15,7 @@ type namespaceMeta struct {
 }
 
 // ShouldCollect reports whether a resource should be collected for the target after selector
-// matching, based on watch opt-in/opt-out labels and namespace annotations (ADR-0029).
+// matching, based on watch opt-in/opt-out labels and namespace annotations (ADR-0205).
 //
 // Precedence: resource disabled > resource enabled (overrides namespace disabled) > namespace
 // disabled > watchMode (All vs OptIn).

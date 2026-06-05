@@ -65,7 +65,7 @@ Run a central hub that aggregates inventory from spoke clusters via `KollectClus
 | Section | Start here |
 | --- | --- |
 | **Understand the basics** | [Architecture](ARCHITECTURE.md) · [Data flows](DATA-FLOWS.md) · [Platform decisions](PLATFORM-DECISIONS.md) |
-| **Core concepts** | [CRD model](adr/0004-crd-model.md) · [CR reference](CR-REFERENCE.md) · [Hub and spoke](adr/0022-multi-cluster-sync-rfc.md) |
+| **Core concepts** | [CRD model](adr/0201-crd-model.md) · [CR reference](CR-REFERENCE.md) · [Hub and spoke](adr/0501-multi-cluster-sync-rfc.md) |
 | **Getting started** | [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md) |
 | **User guide** | [Deployment inventory example](examples/deployment-inventory.md) · [Performance tuning](PERFORMANCE.md) |
 | **Reference** | [Custom resources](CR-REFERENCE.md) · [ADRs](adr/README.md) |

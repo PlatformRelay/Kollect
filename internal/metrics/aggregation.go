@@ -8,7 +8,7 @@ import (
 )
 
 // MetricPathSpec describes one kube-state-metrics-style series from a collected CR field.
-// Config surface (KollectProfile.spec.metrics vs companion CR) is TBD — see ADR-0033.
+// Config surface (KollectProfile.spec.metrics vs companion CR) is TBD — see ADR-0304.
 type MetricPathSpec struct {
 	// Name is the Prometheus series identifier within a profile (bounded cardinality).
 	Name string
@@ -23,7 +23,7 @@ type MetricPathSpec struct {
 var CustomResourceSeries = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "kollect_custom_resource_series",
-		Help: "Domain metric series from collected custom resources (ADR-0033 Phase 4 stub).",
+		Help: "Domain metric series from collected custom resources (ADR-0304 Phase 4 stub).",
 	},
 	[]string{"profile", "gvk", "series"},
 )

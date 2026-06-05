@@ -1,8 +1,9 @@
-# ADR-0032: Platform architecture pivot (2026-06-05)
+# ADR-0703: Platform architecture pivot — decision log
 
-## Status
+> A running log of the 2026-06-05 platform pivot. Authoritative current-state for each topic lives in
+> the relevant theme ADR; this record preserves the reasoning and the batch of decisions together.
 
-Accepted (2026-06-05)
+**Theme:** 07 · Project & meta · **Status:** Current (decision log)
 
 ## Context
 
@@ -67,7 +68,7 @@ Cluster operator + **`KollectClusterTarget`** supported for platform-wide collec
 - **Not** a core product requirement; **debug and small single-cluster installs** only.
 - **Scalable portal read** uses **sink export** (Postgres/Kafka). **Hub** may expose a read API
   backed by the merged store in a later build step — not spoke in-memory HTTP at fleet scale.
-- Supersedes “HTTP core Phase 1” wording in [ADR-0006](0006-etcd-limit.md) intent (amend that ADR).
+- Supersedes “HTTP core Phase 1” wording in [ADR-0103](0103-etcd-limit.md) intent (amend that ADR).
 
 ### 5. No `KollectHub` CRD
 
@@ -75,11 +76,11 @@ Cluster operator + **`KollectClusterTarget`** supported for platform-wide collec
 - **`internal/hub/`** merge library is the reusable core; no CRD spawns hub Deployments.
 - Existing `KollectHub` API types may remain as **deprecated stubs** in the tree or be removed in a
   breaking cleanup — they are **not** the product surface and must not appear on the active roadmap.
-- Supersedes hub CRD phasing in [ADR-0022](0022-multi-cluster-sync-rfc.md) (amend that RFC).
+- Supersedes hub CRD phasing in [ADR-0501](0501-multi-cluster-sync-rfc.md) (amend that RFC).
 
 ### 6. `KollectConnectionTest` CR — **accepted**
 
-Supersedes [ADR-0030](0030-connection-test.md) rejection.
+Supersedes [ADR-0403](0403-connection-test.md) rejection.
 
 | Mechanism | Use |
 | --- | --- |
@@ -92,13 +93,13 @@ TTL or ownerRef garbage-collection policy is an implementation detail.
 
 ### 7. Shared informer per GVK — locked
 
-One dynamic informer per distinct GVK across all Targets ([ADR-0014](0014-event-driven-informers.md)).
+One dynamic informer per distinct GVK across all Targets ([ADR-0301](0301-event-driven-informers.md)).
 Per-Target informer caches **rejected** for scalability.
 
 ### 8. Watch opt-in / opt-out — both modes
 
 Platform manages collection centrally; teams may **exclude** resources via
-`kollect.dev/watch: disabled` ([ADR-0029](0029-watch-labels.md)). `KollectTarget.spec.watchMode`:
+`kollect.dev/watch: disabled` ([ADR-0205](0205-watch-labels.md)). `KollectTarget.spec.watchMode`:
 `All` (default) or `OptIn` — **offer both**, document trade-offs.
 
 ### 9. Helm release sample — Argo CD primary
@@ -129,7 +130,7 @@ Event-driven collection must not cause **export storms** to Git/Postgres/Kafka.
 | Layer | Holds | Durability |
 | --- | --- | --- |
 | **Informer cache + collect store** | Live extracted rows per Target | Lost on pod restart; rebuilt via resync |
-| **`KollectInventory.status`** | Counts, conditions, export refs only | etcd — never full payload ([ADR-0006](0006-etcd-limit.md)) |
+| **`KollectInventory.status`** | Counts, conditions, export refs only | etcd — never full payload ([ADR-0103](0103-etcd-limit.md)) |
 | **Sink (Postgres/Kafka)** | **System of record** for portals/automation | Durable |
 | **Optional spoke HTTP** | Snapshot of in-memory aggregate | Ephemeral debug only |
 
@@ -173,7 +174,7 @@ export — same merge lib, two sink adapters; spokes may push to either or both 
 
 Shard assignment uses **`hash(clusterName) % shardCount`** configured via **Helm values or
 environment** on hub Deployments (`mode: hub`). **No `KollectHub` CRD** — dynamic shard
-registration is a Phase 2+ spike. See [ADR-0022](0022-multi-cluster-sync-rfc.md).
+registration is a Phase 2+ spike. See [ADR-0501](0501-multi-cluster-sync-rfc.md).
 
 ### 15. Build-order locks (session 4)
 
@@ -185,16 +186,16 @@ registration is a Phase 2+ spike. See [ADR-0022](0022-multi-cluster-sync-rfc.md)
 - **`helm-release-values-redacted`:** deferred until operator **`scrubKeys[]`** export scrub.
 - **GitLab sink:** **Phase 2** — `tls.caSecretRef` for enterprise internal CA; Git default for small
   single-cluster installs without Postgres/Kafka.
-- **Hub ingest SAR:** **`create`** on `kollectremoteclusters` — [ADR-0028](0028-hub-cluster-auth-istio-pattern.md).
+- **Hub ingest SAR:** **`create`** on `kollectremoteclusters` — [ADR-0503](0503-hub-cluster-auth-istio-pattern.md).
 
 ## Open questions
 
-- **Deferred:** Hub federated mTLS behind external LB — [ADR-0028](0028-hub-cluster-auth-istio-pattern.md).
+- **Deferred:** Hub federated mTLS behind external LB — [ADR-0503](0503-hub-cluster-auth-istio-pattern.md).
 
 ## Supersedes / amends
 
-- [ADR-0030](0030-connection-test.md) — connection-test CR **now accepted** (0030 sink-only path remains supplementary).
-- [ADR-0022](0022-multi-cluster-sync-rfc.md) — no `KollectHub` CRD.
-- [ADR-0006](0006-etcd-limit.md) — HTTP not core.
-- [ADR-0004](0004-crd-model.md) — namespaced `KollectSink`.
-- [ADR-0027](0027-helm-release-inventory.md) — Argo `Application` primary over Flux.
+- [ADR-0403](0403-connection-test.md) — connection-test CR **now accepted** (0030 sink-only path remains supplementary).
+- [ADR-0501](0501-multi-cluster-sync-rfc.md) — no `KollectHub` CRD.
+- [ADR-0103](0103-etcd-limit.md) — HTTP not core.
+- [ADR-0201](0201-crd-model.md) — namespaced `KollectSink`.
+- [ADR-0303](0303-helm-release-inventory.md) — Argo `Application` primary over Flux.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Konrad Heimel
 
-// Package remotecredentials loads Istio-style remote kubeconfig secrets (ADR-0028).
+// Package remotecredentials loads Istio-style remote kubeconfig secrets (ADR-0503).
 package remotecredentials
 
 import (

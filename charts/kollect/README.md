@@ -28,8 +28,8 @@ See `values.yaml` for the full list. Critical values are validated by
 
 ### Per-team install (default story)
 
-Documented default for new team installs ([ADR-0016](../../docs/adr/0016-namespaced-multi-tenancy.md),
-[ADR-0032](../../docs/adr/0032-platform-architecture-pivot.md)):
+Documented default for new team installs ([ADR-0203](../../docs/adr/0203-namespaced-multi-tenancy.md),
+[ADR-0703](../../docs/adr/0703-platform-architecture-pivot.md)):
 
 ```yaml
 tenantMode: true
@@ -47,7 +47,7 @@ team namespace. Portal read path: **Postgres or Kafka sink export** — not spok
 ### Hub mode (no `KollectHub` CRD)
 
 Multi-cluster hub/spoke uses **Helm values on the same image** — there is **no `KollectHub` CRD**
-on the product roadmap ([ADR-0032](../../docs/adr/0032-platform-architecture-pivot.md)). Existing
+on the product roadmap ([ADR-0703](../../docs/adr/0703-platform-architecture-pivot.md)). Existing
 `KollectHub` API stubs in the repo are deprecated; do not create hub Deployments via CR.
 
 **Spoke cluster:**
@@ -62,7 +62,7 @@ featureGates:
 ```
 
 Spoke operators collect inventory, export to local Postgres/Kafka (or push summaries to hub ingest
-per [ADR-0028](../../docs/adr/0028-hub-cluster-auth-istio-pattern.md)).
+per [ADR-0503](../../docs/adr/0503-hub-cluster-auth-istio-pattern.md)).
 
 **Hub cluster:**
 
@@ -92,7 +92,7 @@ featureGates:
 ```
 
 Hub merge runs via `internal/hub/` library + ingest HTTP (`POST /hub/v1alpha1/reports`). Register
-spokes with namespaced **`KollectRemoteCluster`** objects ([ADR-0028](../../docs/adr/0028-hub-cluster-auth-istio-pattern.md)).
+spokes with namespaced **`KollectRemoteCluster`** objects ([ADR-0503](../../docs/adr/0503-hub-cluster-auth-istio-pattern.md)).
 `hub.sinkRefs` resolve namespaced **`KollectSink`** objects in `hub.exportNamespace`; post-merge
 export fans out to **Postgres and Kafka in parallel**. `hub.remoteClusters` sets
 `KOLLECT_REMOTE_CLUSTERS` (fail-closed when present, even if empty).
@@ -113,13 +113,13 @@ export fans out to **Postgres and Kafka in parallel**. `hub.remoteClusters` sets
 ### Connection test (`KollectSink`)
 
 Production sink manifests should use **`spec.connectionTest: false`** (default) and trigger probes with
-the **`kollect.dev/test-connection: "true"`** annotation when needed ([ADR-0030](../docs/adr/0030-connection-test.md)).
+the **`kollect.dev/test-connection: "true"`** annotation when needed ([ADR-0403](../docs/adr/0403-connection-test.md)).
 CI/samples may set `connectionTest: true`.
 
 ### Hub transport
 
 Hub/spoke transport defaults to **`inprocess`** until an external backend passes integration tests.
-Do not enable Redis/NATS/Kafka in chart values without explicit ops choice ([ADR-0023](../docs/adr/0023-lean-queue-transport.md)).
+Do not enable Redis/NATS/Kafka in chart values without explicit ops choice ([ADR-0502](../docs/adr/0502-lean-queue-transport.md)).
 
 ## Inventory HTTP authentication
 
@@ -189,7 +189,7 @@ oauth2Proxy:
 - **Service-to-service callers should not route through oauth2-proxy** — use bearer tokens against
   the operator Service directly.
 - Sidecar implementation is reserved for when the HTTP API ships; values and this README document
-  the intended pattern per [ADR-0024](../../docs/adr/0024-inventory-api-auth.md).
+  the intended pattern per [ADR-0404](../../docs/adr/0404-inventory-api-auth.md).
 
 ### Local development
 
@@ -198,5 +198,5 @@ For kind smoke tests and local debugging only, `--inventory-auth-mode=disabled` 
 
 ## See also
 
-- [ADR-0024: Inventory HTTP API authentication](../../docs/adr/0024-inventory-api-auth.md)
-- [ADR-0006: Data storage and etcd limit](../../docs/adr/0006-etcd-limit.md)
+- [ADR-0404: Inventory HTTP API authentication](../../docs/adr/0404-inventory-api-auth.md)
+- [ADR-0103: Data storage and etcd limit](../../docs/adr/0103-etcd-limit.md)

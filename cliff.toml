@@ -26,7 +26,7 @@ release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 | `v0.0.1` | `13546aff` | Kubebuilder scaffold, MIT license |
 | `v0.0.2` | `1e6f6719` | Core `v1alpha1` CRDs (Profile, Sink, Target, Inventory) |
 | `v0.0.3` | `66421337` | Helm chart, CEL/JSONPath extraction, inventory HTTP |
-| `v0.0.4` | `4234960b` | ADR-0032 platform pivot MVP (namespaced API, export pipeline) |
+| `v0.0.4` | `4234960b` | ADR-0703 platform pivot MVP (namespaced API, export pipeline) |
 | `v0.1.0` | `main` HEAD | First published release (includes hub/cluster APIs since MVP) |
 
 Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only

@@ -66,7 +66,7 @@ spec:
               maxExportBytes:
                 description: |-
                   maxExportBytes caps the marshalled namespace payload for export and HTTP (optional).
-                  Webhook rejects values above the operator global cap (ADR-0006).
+                  Webhook rejects values above the operator global cap (ADR-0103).
                 format: int64
                 type: integer
               sinkRefs:

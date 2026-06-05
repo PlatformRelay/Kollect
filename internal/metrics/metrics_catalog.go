@@ -114,7 +114,7 @@ var Catalog = []CatalogEntry{
 		Name:       "kollect_custom_resource_series",
 		Type:       "gauge",
 		Labels:     []string{"profile", "gvk", "series"},
-		Help:       "Domain metric series from collected custom resources (ADR-0033 Phase 4 stub).",
+		Help:       "Domain metric series from collected custom resources (ADR-0304 Phase 4 stub).",
 		PromQLHint: "sum by (profile, gvk, series) (kollect_custom_resource_series)",
 		AgentHint:  "Phase 4 KSM-style paths; misconfigured series names explode cardinality.",
 	},

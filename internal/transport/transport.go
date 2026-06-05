@@ -16,7 +16,7 @@ type Publisher interface {
 // Handler processes a message payload.
 type Handler func(ctx context.Context, payload []byte) error
 
-// WireHandler processes a message with optional queue wire cluster metadata (ADR-0028).
+// WireHandler processes a message with optional queue wire cluster metadata (ADR-0503).
 type WireHandler func(ctx context.Context, wireCluster string, payload []byte) error
 
 // Subscriber receives messages for a subject.

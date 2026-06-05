@@ -21,7 +21,7 @@ type HTTPPublisher struct {
 	Client  *http.Client
 }
 
-// NewHTTPPublisher builds a publisher for hub HTTP ingest (ADR-0028).
+// NewHTTPPublisher builds a publisher for hub HTTP ingest (ADR-0503).
 func NewHTTPPublisher(url, cluster string) *HTTPPublisher {
 	return &HTTPPublisher{
 		URL:     url,

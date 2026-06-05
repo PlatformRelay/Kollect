@@ -32,11 +32,11 @@ properties:
   metrics:
     description: |-
       metrics lists kube-state-metrics-style Prometheus series emitted on operator /metrics.
-      Each path must reference an attribute name from spec.attributes (ADR-0033).
+      Each path must reference an attribute name from spec.attributes (ADR-0304).
     items:
       description: |-
         MetricSpec describes one kube-state-metrics-style Prometheus series from collected CR fields.
-        Paths reference attribute names defined in spec.attributes (ADR-0033 spike).
+        Paths reference attribute names defined in spec.attributes (ADR-0304 spike).
       properties:
         labels:
           description: |-

@@ -45,6 +45,6 @@ Flags for create-remote-secret:
 Example:
   go run ./cmd/kollect create-remote-secret --cluster spoke-a | kubectl apply -f -
 
-See docs/adr/0028-hub-cluster-auth-istio-pattern.md and docs/DEVELOPMENT.md.
+See docs/adr/0503-hub-cluster-auth-istio-pattern.md and docs/DEVELOPMENT.md.
 `)
 }

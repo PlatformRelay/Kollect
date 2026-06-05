@@ -55,7 +55,7 @@ type GitLabSpec struct {
 	MergeRequest *MergeRequestSpec `json:"mergeRequest,omitempty"`
 }
 
-// MergeRequestSpec configures GitLab REST merge request workflow (ADR-0025 Phase 2).
+// MergeRequestSpec configures GitLab REST merge request workflow (ADR-0402 Phase 2).
 type MergeRequestSpec struct {
 	// mode selects direct push to the default branch or branch + merge request workflow.
 	// +kubebuilder:validation:Enum=direct;merge_request

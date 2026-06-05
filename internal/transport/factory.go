@@ -31,7 +31,7 @@ type Config struct {
 	Group  string
 }
 
-// HTTPConfig configures spoke → hub HTTP push ingest (ADR-0028).
+// HTTPConfig configures spoke → hub HTTP push ingest (ADR-0503).
 type HTTPConfig struct {
 	URL string
 }

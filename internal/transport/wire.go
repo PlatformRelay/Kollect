@@ -5,7 +5,7 @@ package transport
 
 import "context"
 
-// WireClusterIDKey is the Redis stream / NATS metadata field for spoke cluster identity (ADR-0028).
+// WireClusterIDKey is the Redis stream / NATS metadata field for spoke cluster identity (ADR-0503).
 const WireClusterIDKey = "cluster_id"
 
 type wireClusterKey struct{}

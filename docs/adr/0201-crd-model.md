@@ -1,8 +1,9 @@
-# ADR-0004: CRD model — prefixed kinds, static vs reconciled split
+# ADR-0201: CRD model — prefixed kinds, static vs reconciled split
 
-## Status
+> The `Kollect*` CRDs, their scopes, and the split between static config and reconciled work kinds.
 
-Accepted (updated 2026-06-05 — `KollectInventory` namespaced; reserved cluster kinds)
+**Theme:** 02 · API & tenancy · **Status:** Current · **Evolution:** `KollectProfile`/`KollectSink`/
+`KollectInventory` moved to namespaced; cluster-scoped variants reserved.
 
 ## Context
 
@@ -17,7 +18,7 @@ this space use different tenancy and config patterns:
 
 kollect must combine generic attribute selection, resource selection, aggregation, and multi-backend
 export — no single OSS project covers all of this. Templated documentation sync (Confluence, etc.)
-is **explicitly rejected** ([ADR-0011](0011-doc-sync-templating.md)).
+is **explicitly rejected** ([ADR-0702](0702-doc-sync-templating.md)).
 
 Platform users commonly terminate TLS to internal Git/GitLab with **custom CAs**; sink configuration
 must support that from early phases, not as a later bolt-on.
@@ -30,37 +31,37 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 
 | Kind | Scope | Role |
 | --- | --- | --- |
-| `KollectProfile` | **Namespace** (breaking; was cluster) | Reusable extraction schema: GVK + named CEL/JSONPath attributes ([ADR-0031](0031-namespaced-profiles.md)) |
-| `KollectSink` | **Namespace** (breaking; was cluster) | Backend config: `type` (`git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka`) + endpoint + `secretRef` + TLS trust ([ADR-0032](0032-platform-architecture-pivot.md)) |
-| `KollectScope` | **Namespace** (Phase 1 priority) | Tenancy boundary: allowed GVKs, namespaces, sinks for a team ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
+| `KollectProfile` | **Namespace** (breaking; was cluster) | Reusable extraction schema: GVK + named CEL/JSONPath attributes ([ADR-0204](0204-namespaced-profiles.md)) |
+| `KollectSink` | **Namespace** (breaking; was cluster) | Backend config: `type` (`git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka`) + endpoint + `secretRef` + TLS trust ([ADR-0703](0703-platform-architecture-pivot.md)) |
+| `KollectScope` | **Namespace** (Phase 1 priority) | Tenancy boundary: allowed GVKs, namespaces, sinks for a team ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
 
 ### Reconciled (controller + dynamic informers)
 
 | Kind | Scope | Role |
 | --- | --- | --- |
-| `KollectTarget` | Namespaced | `profileRef` + selectors; drives collection in team namespace ([ADR-0032](0032-platform-architecture-pivot.md)) |
-| `KollectClusterTarget` | **Cluster** | Platform-wide collection across namespaces via `namespaceSelector`; `profileRef` → `KollectClusterProfile` or platform-namespace profile ([ADR-0032](0032-platform-architecture-pivot.md)) |
+| `KollectTarget` | Namespaced | `profileRef` + selectors; drives collection in team namespace ([ADR-0703](0703-platform-architecture-pivot.md)) |
+| `KollectClusterTarget` | **Cluster** | Platform-wide collection across namespaces via `namespaceSelector`; `profileRef` → `KollectClusterProfile` or platform-namespace profile ([ADR-0703](0703-platform-architecture-pivot.md)) |
 | `KollectInventory` | **Namespaced** | Aggregates namespaced targets **in the same namespace**; dispatches to sinks |
 
 ### Rejected (never ship)
 
 | Kind | Rationale |
 | --- | --- |
-| `KollectPublication` | Doc-sync / Confluence / in-operator templating — out of scope; use Git export + external CI ([ADR-0011](0011-doc-sync-templating.md)) |
-| `KollectHub` | Hub Deployment lifecycle via CRD — **rejected**; use Helm **`mode: hub`**. API stub may remain deprecated in tree ([ADR-0032](0032-platform-architecture-pivot.md)) |
+| `KollectPublication` | Doc-sync / Confluence / in-operator templating — out of scope; use Git export + external CI ([ADR-0702](0702-doc-sync-templating.md)) |
+| `KollectHub` | Hub Deployment lifecycle via CRD — **rejected**; use Helm **`mode: hub`**. API stub may remain deprecated in tree ([ADR-0703](0703-platform-architecture-pivot.md)) |
 
 ### Reconciled (connection test)
 
 | Kind | Scope | Role |
 | --- | --- | --- |
-| `KollectConnectionTest` | Namespace | One-shot / CI probe of sink (+ optional profile); [ADR-0032](0032-platform-architecture-pivot.md) |
+| `KollectConnectionTest` | Namespace | One-shot / CI probe of sink (+ optional profile); [ADR-0703](0703-platform-architecture-pivot.md) |
 
 ### Reserved (designed, not built yet)
 
 - `KollectReceiver` — inbound webhook → trigger (Flux Receiver pattern).
 - `KollectTargetSet` — generator templating many Targets (ApplicationSet pattern).
-- **`KollectClusterProfile`** (cluster) — platform-shared extraction schemas ([ADR-0031](0031-namespaced-profiles.md)).
-- **`KollectClusterSink`** (cluster) — platform-shared export backends ([ADR-0032](0032-platform-architecture-pivot.md)).
+- **`KollectClusterProfile`** (cluster) — platform-shared extraction schemas ([ADR-0204](0204-namespaced-profiles.md)).
+- **`KollectClusterSink`** (cluster) — platform-shared export backends ([ADR-0703](0703-platform-architecture-pivot.md)).
 - **`KollectClusterInventory`** (cluster) — aggregates **`KollectClusterTarget`** rows; platform rollup. **No controller in MVP** — pairs with cluster target.
 - **`KollectClusterScope`** (cluster) — platform tenancy boundary when namespaced `KollectScope` is
   insufficient; addition after namespaced scope enforcement ships (Phase 3).
@@ -75,7 +76,7 @@ All reconciled kinds support `spec.suspend` and `kollect.dev/requestedAt` manual
 **Validating webhooks** (Phase 0/1, not post-hoc workarounds) must reject at apply time:
 
 - Invalid or non-compilable **CEL** and **JSONPath** expressions on `KollectProfile` attributes
-- Unknown `KollectSink.type` values (enum aligned with [ADR-0020](0020-error-taxonomy.md))
+- Unknown `KollectSink.type` values (enum aligned with [ADR-0602](0602-error-taxonomy.md))
 - Cross-field constraints already expressed as CEL `x-kubernetes-validations` in OpenAPI
 
 Runtime collection may still surface `ErrTerminal` for GVK/API discovery failures; expression syntax
@@ -111,13 +112,13 @@ Phase 1 API. Schema clarity and aggregation matter more than where filtering run
 
 ### Negative
 
-- Namespaced inventory requires one object per namespace (or explicit federation via hub — [ADR-0022](0022-multi-cluster-sync-rfc.md)).
+- Namespaced inventory requires one object per namespace (or explicit federation via hub — [ADR-0501](0501-multi-cluster-sync-rfc.md)).
 - Breaking scope migration for Profile and Sink requires sample and RBAC sweep.
 - Webhook + CEL maintenance cost on every new attribute type rule.
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** **`KollectSink` is namespaced**; **`KollectClusterSink`** reserved for platform-shared backends ([ADR-0032](0032-platform-architecture-pivot.md)).
+- **RESOLVED (2026-06-05):** **`KollectSink` is namespaced**; **`KollectClusterSink`** reserved for platform-shared backends ([ADR-0703](0703-platform-architecture-pivot.md)).
 - **RESOLVED (2026-06-05):** **Keep both** `caBundle` and `caSecretRef`; **`caSecretRef` preferred**;
   **`caBundle` max 64 KiB** at webhook.
 - **RESOLVED (2026-06-05):** **`KollectClusterInventory`** uses **explicit namespace list** in spec

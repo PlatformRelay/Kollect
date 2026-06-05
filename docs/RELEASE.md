@@ -24,7 +24,7 @@ History before the first GitHub release is split with lightweight tags (changelo
 | `v0.0.1` | `13546aff` | Kubebuilder scaffold |
 | `v0.0.2` | `1e6f6719` | Core `v1alpha1` CRDs |
 | `v0.0.3` | `66421337` | Helm chart, extraction, inventory HTTP |
-| `v0.0.4` | `4234960b` | ADR-0032 platform pivot MVP |
+| `v0.0.4` | `4234960b` | ADR-0703 platform pivot MVP |
 
 Commits after `4234960b` (hub/cluster APIs, transport, multi-tenant) appear under **Unreleased**
 until you tag **`v0.1.0` at current `main` HEAD** for the first public release.

@@ -13,7 +13,7 @@ import (
 
 const defaultLoadTestMaxObjects = 2000
 
-// TestSyntheticObjectCap verifies the load-test harness respects the ADR-0026 object cap.
+// TestSyntheticObjectCap verifies the load-test harness respects the ADR-0603 object cap.
 // Full collection/export load scenarios are added here as the reconcile path matures.
 func TestSyntheticObjectCap(t *testing.T) {
 	if os.Getenv("KOLECT_LOAD_TEST") != "1" {
