@@ -42,8 +42,9 @@ full inventory payloads in etcd ([ADR-0006](0006-etcd-limit.md)) or exploding la
 - **Spoke:** `KollectInventory` remains the per-namespace rollup contract (debounced export —
   `spec.exportMinInterval`).
 - **Hub:** `KollectClusterInventory` merges spoke summaries; aggregation rules stay **O(total rows)**.
-- **Cross-target rollups (TBD):** optional `KollectTargetSet`-style grouping deferred; Phase 4 spike
-  documents dedupe/checksum strategies for multi-target inventories sharing one sink.
+- **Cross-target rollups (spike):** optional `KollectTargetSet`-style grouping deferred; Phase 4 spike
+  in `internal/aggregate/` documents row identity (`RowIdentity`), `DedupeByResourceUID` merge mode,
+  and `ExportCoalesce` checksum/generation skip rules for multi-target inventories sharing one sink.
 
 ### 3. Relationship to existing metrics
 
@@ -71,7 +72,8 @@ full inventory payloads in etcd ([ADR-0006](0006-etcd-limit.md)) or exploding la
 - **Companion CR:** revisit `KollectMetricsProfile` when platform teams need one metrics schema across many profiles.
 - **Per-metric labels:** ✅ `kollect_custom_resource_labeled_series` emits attribute label values from `spec.metrics[].labels`.
 - **Hub domain series:** `kollect_hub_merged_items_total` wired; federated spoke scrapes vs hub-only domain gauges TBD.
-- **Dedupe:** content-hash skip vs generation-based skip for cross-target aggregation ([ROADMAP](../ROADMAP.md)).
+- **Dedupe:** ✅ spike — `ExportCoalesce` uses content-hash skip with generation bypass; `MergeRows`
+  supports `DedupeByResourceUID` for cross-target collapse ([ROADMAP](../ROADMAP.md)).
 
 ## See also
 
