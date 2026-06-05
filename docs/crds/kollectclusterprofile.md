@@ -45,6 +45,7 @@ flowchart TD
 | `spec.attributes[].path` | string | Yes | JSONPath (`$.…`) or `cel:…` expression |
 | `spec.attributes[].type` | string | No | Hint: `string`, `int`, `list`, … |
 | `spec.attributes[].optional` | bool | No | Non-fatal when extraction yields no value |
+| `spec.metrics[]` | list | No | KSM-style Prometheus series (same shape as `KollectProfile`; [ADR-0033](../adr/0033-custom-resource-aggregation-rfc.md)) |
 
 Validation reuses the `KollectProfile` admission rules: CEL compile, JSONPath shape, duplicate
 attribute names, and forbidden `Secret.data` paths (unless

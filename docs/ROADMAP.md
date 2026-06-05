@@ -202,13 +202,14 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 
 | Item | Status |
 | --- | --- |
-| kube-state-metrics-style custom resource metrics config | 🚧 [ADR-0033](adr/0033-custom-resource-aggregation-rfc.md) — `kollect_custom_resource_series` wired from collect engine snapshot |
-| Collect engine → `RecordCustomResourceSeries` on target snapshot | ✅ sums numeric attributes + `object_count` per profile/GVK |
+| kube-state-metrics-style custom resource metrics config | ✅ [ADR-0033](adr/0033-custom-resource-aggregation-rfc.md) — `KollectProfile.spec.metrics` spike + admission validation |
+| Collect engine → `RecordCustomResourceSeries` on target snapshot | ✅ configured paths or auto-sum fallback + `object_count` per profile/GVK |
+| Hub spoke merge metrics (`kollect_hub_spoke_reports_total`, `kollect_hub_merged_items_total`) | ✅ consumer + HTTP ingest |
 | Cardinality-safe operator metrics (counts, export latency) | ✅ ADR-0020 catalog complete |
 | Advanced cross-target / cross-cluster aggregation | ⬜ |
 | `task perf-report` optional CI gate | ✅ `ci.yaml` job + preflight note |
 
-**Counts:** ✅ 3 · 🚧 1 · ⬜ 1
+**Counts:** ✅ 5 · ⬜ 1
 
 ---
 
