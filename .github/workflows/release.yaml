@@ -10,9 +10,23 @@ on:
         description: "Existing tag to release (e.g. v0.1.0); workflow_dispatch rebuilds assets for testing"
         required: true
         type: string
+      draft:
+        description: "Create/update the GitHub Release as a draft"
+        required: false
+        type: boolean
+        default: false
+      prerelease:
+        description: "Mark the GitHub Release as a pre-release"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -25,7 +39,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-      id-token: write
+      id-token: write # cosign keyless signing (OIDC)
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -85,6 +99,15 @@ jobs:
           cache-to: type=gha,mode=max
           sbom: true
           provenance: mode=max
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.repository }}:${{ steps.version.outputs.version }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
 
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
@@ -146,6 +169,8 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: kollect ${{ steps.version.outputs.version }}
           body_path: ${{ runner.temp }}/release-body.md
+          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           files: |
             dist/install-crds.yaml
             dist/install.yaml
