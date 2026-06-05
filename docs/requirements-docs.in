@@ -1,0 +1,2 @@
+# Input for docs/requirements-docs.txt (regenerate with pip-compile --generate-hashes).
+mkdocs-material==9.6.19

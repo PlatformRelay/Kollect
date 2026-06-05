@@ -36,10 +36,13 @@ jobs:
   release:
     name: release
     runs-on: ubuntu-latest
+    # contents: write — create/update GitHub Release assets (softprops/action-gh-release, git-cliff)
+    # packages: write — push container image and OCI Helm chart to GHCR
+    # id-token: write — cosign keyless signing via Sigstore OIDC
     permissions:
       contents: write
       packages: write
-      id-token: write # cosign keyless signing (OIDC)
+      id-token: write
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
