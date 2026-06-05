@@ -103,7 +103,8 @@ sink checks.
 
 ### Negative
 
-- `KollectConnectionTest` adds CRD surface, RBAC, webhooks, and garbage-collection policy (TTL TBD).
+- `KollectConnectionTest` adds CRD surface, RBAC, webhooks, and garbage-collection via
+  `spec.ttlSecondsAfterFinished` (default **300s**).
 - Annotation-based re-test is weaker for audit than the dedicated test CR (mitigate with audit logs
   on annotation patches if required).
 - Composite “does my pipeline work?” uses `SinkReachable` on Inventory/Target plus `Synced` on export.
@@ -119,6 +120,11 @@ sink checks.
 
 ## Resolved (2026-06-05)
 
+- **Garbage collection:** `spec.ttlSecondsAfterFinished` — default **300**; controller deletes CR
+  after probe completes and TTL elapses.
+- **Re-run on spec change:** any `spec` edit bumps `metadata.generation`; when
+  `status.observedGeneration != generation`, the reconciler **re-probes** (resets `completed` /
+  `completedAt` on the new run). TTL clock restarts after the new probe finishes.
 - **`SinkReachable`** on `KollectInventory` and `KollectTarget`; export outcomes set
   `ExportSucceeded` / `ExportFailed` reasons; `Synced` unchanged for export progress.
 - **Annotation auto-clear:** after a successful probe triggered only by

@@ -33,6 +33,18 @@
 7. Hub `mode: hub|spoke` + merge lib (`inprocess`); no hub CRD
 8. **`KollectClusterTarget`** — after namespaced MVP (platform operator path)
 
+### Locked micro-decisions (2026-06-05, session 3)
+
+| Topic | Decision |
+| --- | --- |
+| `exportMinInterval` unset | **CRD default 30s** (`kubebuilder:default`); operator global flag = deprecated fallback only |
+| `exportMinInterval` bypass | Immediate export on **payload checksum change** or **`metadata.generation`** bump |
+| ConnectionTest re-run | **Re-probe on any spec change** (generation ≠ observedGeneration); TTL restarts after new run |
+| `KollectScope` enforcement | **Hard degrade** — `Degraded` + no collect/export; see [ADR-0016](adr/0016-namespaced-multi-tenancy.md) example |
+| Hub first milestone | **Postgres + Kafka in parallel** on hub ingest |
+| `KollectClusterInventory` | **One CR rolls up all** `KollectClusterTarget`s; optional `targetRefs` for subset / 1:1 |
+| ADR micro-decisions (Postgres PK, HTTP paths, Kafka keys, …) | **Confirmed** — implement as coordinator defaults |
+
 ### Locked micro-decisions (2026-06-05, session 2)
 
 | Topic | Decision |
@@ -98,14 +110,14 @@ Update the cited ADR when code merges.
 | Topic | Default | Phase |
 | --- | --- | --- |
 | `caBundle` vs `caSecretRef` | **Keep both** — `caSecretRef` preferred; **`caBundle` max 64 KiB** (webhook) | 1 |
-| `KollectClusterInventory` selector | **Explicit namespace list** in spec — not cluster-wide implicit | 3+ |
+| `KollectClusterInventory` | **One platform rollup CR** — aggregates all `KollectClusterTarget`s; optional `targetRefs` | 3+ |
 
 ### TODOs explicitly requested
 
 - [x] **Argo `Application` contract test** — `internal/collect/argo_application_contract_test.go`
 - [x] **Argo samples** — profile + target under `config/samples/`
-- [ ] **`KollectConnectionTest` TTL** — add `spec.ttlSecondsAfterFinished` to API + reconciler GC
-- [ ] **`exportMinInterval`** on `KollectInventory` — migrate off global debounce flag
+- [x] **`KollectConnectionTest` TTL** — API + reconciler GC (`ttlSecondsAfterFinished`, default 300s)
+- [x] **`exportMinInterval`** on `KollectInventory` — wired; deprecate global `--export-debounce` in chart/docs
 
 ---
 
