@@ -3,12 +3,56 @@
 
 package v1alpha1
 
-// KollectClusterProfile is reserved for platform-wide shared extraction schemas (ADR-0031).
-// Cluster-scoped counterpart to namespaced KollectProfile — not registered in the scheme until
-// platform rollup needs shared GVK definitions. Short name kcprof when implemented.
-//
-// TODO(platform): add kubebuilder markers, CRD, and webhook when KollectClusterProfile ships:
-//
-//	// +kubebuilder:object:root=true
-//	// +kubebuilder:resource:scope=Cluster,shortName=kcprof
-//	type KollectClusterProfile struct { ... same Spec/Status shape as KollectProfile ... }
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// KollectClusterProfileSpec defines the desired state of KollectClusterProfile.
+// Same shape as KollectProfileSpec — cluster-scoped platform extraction schema (ADR-0031).
+type KollectClusterProfileSpec struct {
+	// targetGVK selects the Kubernetes resource kind this profile applies to.
+	// +required
+	TargetGVK GroupVersionKind `json:"targetGVK"`
+
+	// attributes lists the values to extract from each matching resource.
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	Attributes []AttributeSpec `json:"attributes,omitempty"`
+}
+
+// KollectClusterProfileStatus defines the observed state of KollectClusterProfile.
+type KollectClusterProfileStatus struct {
+	// conditions represent the current state of the KollectClusterProfile resource.
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster,shortName=kcprof
+// +kubebuilder:storageversion
+
+// KollectClusterProfile is the Schema for platform-wide shared extraction schemas.
+type KollectClusterProfile struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	Spec   KollectClusterProfileSpec   `json:"spec"`
+	Status KollectClusterProfileStatus `json:"status,omitzero"`
+}
+
+// +kubebuilder:object:root=true
+
+// KollectClusterProfileList contains a list of KollectClusterProfile.
+type KollectClusterProfileList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitzero"`
+	Items           []KollectClusterProfile `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&KollectClusterProfile{}, &KollectClusterProfileList{})
+}
