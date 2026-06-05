@@ -40,6 +40,19 @@ jobs:
         env:
           CI: "true"
 
+  audit-rbac:
+    name: audit-rbac
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: RBAC security audit (Polaris + kubeaudit)
+        run: bash hack/audit-rbac.sh
+        env:
+          POLARIS_VERSION: "9.6.0"
+          KUBEAUDIT_VERSION: "0.22.2"
+
   vulncheck:
     name: vulncheck
     runs-on: ubuntu-latest
@@ -222,14 +235,26 @@ jobs:
   fuzz:
     name: fuzz
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: FuzzContentHash
+            pkg: ./internal/aggregate/...
+          - target: FuzzExtractJSONPath
+            pkg: ./internal/collect/...
+          - target: FuzzExtractCEL
+            pkg: ./internal/collect/...
+          - target: FuzzValidateAttributePath
+            pkg: ./internal/collect/...
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
       - uses: ./.github/actions/go-cache
       - name: Native Go fuzz (30s)
-        run: go test -fuzz=FuzzContentHash -fuzztime=30s ./internal/aggregate/...
+        run: go test -fuzz=${{ matrix.target }} -fuzztime=30s ${{ matrix.pkg }}
 
   docker-build:
     name: docker-build

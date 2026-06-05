@@ -53,7 +53,8 @@ Binding jobs in `.github/workflows/ci.yaml`:
 | Helm packaging | `task helm-test` (lint + unittest) | Yes |
 | Docker image build | `task docker:build` | Yes |
 | Perf snapshot | `task perf-report` | **No** (`continue-on-error: true`) |
-| Native Go fuzz | `go test -fuzz=FuzzContentHash -fuzztime=30s ./internal/aggregate/...` | Yes |
+| RBAC audit (Q16) | `bash hack/audit-rbac.sh` (Polaris danger + kubeaudit error on `config/rbac/role.yaml`) | Yes |
+| Native Go fuzz | Matrix: `FuzzContentHash` (`internal/aggregate`); `FuzzExtractJSONPath`, `FuzzExtractCEL`, `FuzzValidateAttributePath` (`internal/collect`) — 30s each | Yes |
 
 **Pre-commit / local:** `task verify`, `task lint`, `task scrub` ([ADR-0104](0104-security-model.md)
 scrub list) before commit; `CONTRIBUTING.md` documents the contributor loop.
@@ -83,13 +84,12 @@ validation, not per-commit kind.
 
 ### Planned gates (decided, not yet wired)
 
-- **Q16 — RBAC audit:** kubeaudit-style CI job on rendered RBAC ([ADR-0104](0104-security-model.md)).
 - **Q15 — Supply chain:** cosign attestations, chart signing, OpenSSF scorecard post-rc
   ([ADR-0705](0705-release-supply-chain.md)).
 - **Coverage target:** raise `COVERAGE_MIN` toward **70%** on `./internal/...` once backlog stabilizes
   (coordinator roadmap).
-- **OSS-Fuzz:** upstream integration for high-value parsers (CEL/JSONPath) — native `testing.F` fuzz
-  covers `internal/aggregate` today; expand targets post-`v0.1.0-rc`.
+- **OSS-Fuzz:** upstream integration for CEL/JSONPath parsers — native `testing.F` fuzz now covers
+  `internal/aggregate` and `internal/collect` extractors in CI; OSS-Fuzz remains post-GA.
 
 ### Definition of done (per change)
 

@@ -88,6 +88,11 @@ tasks:
     cmds:
       - bash hack/scrub.sh
 
+  audit:rbac:
+    desc: Audit rendered RBAC for dangerous permissions (Polaris + kubeaudit)
+    cmds:
+      - bash hack/audit-rbac.sh
+
   lint:
     desc: Run golangci-lint v2
     deps: [install]
