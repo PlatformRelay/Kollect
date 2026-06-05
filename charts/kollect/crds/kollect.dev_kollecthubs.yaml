@@ -42,6 +42,25 @@ spec:
           spec:
             description: KollectHubSpec defines the desired state of KollectHub.
             properties:
+              remoteClusters:
+                description: remoteClusters lists spoke registrations wired into this
+                  hub consumer (ADR-0028).
+                items:
+                  description: RemoteClusterRef references a registered KollectRemoteCluster
+                    on the hub (ADR-0028).
+                  properties:
+                    name:
+                      description: name of the KollectRemoteCluster resource.
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: namespace of the KollectRemoteCluster; defaults
+                        to kollect-system when empty.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               replicas:
                 description: replicas is the hub consumer Deployment replica count.
                 format: int32
@@ -142,6 +161,11 @@ spec:
                 description: observedGeneration is the most recent generation observed
                   by the controller.
                 format: int64
+                type: integer
+              registeredRemoteClusters:
+                description: registeredRemoteClusters is the count of resolved remoteClusters
+                  refs.
+                format: int32
                 type: integer
             type: object
         required:

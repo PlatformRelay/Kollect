@@ -93,7 +93,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Kafka export sink (`type: kafka`) | ✅ |
 | Postgres/Kafka testcontainers in CI | ✅ |
 | SAR / RBAC scope degradation | ✅ |
-| Typed reconcile errors + circuit breakers | ⬜ |
+| Typed reconcile errors + circuit breakers | 🚧 |
 | Parallel reconcile workers (`MaxConcurrentReconciles`) | ✅ |
 | Workqueue depth + reconcile latency metrics | ✅ |
 | pprof server (feature-gated `:6060`) | ✅ |
@@ -144,8 +144,10 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 | `KollectRemoteCluster` CRD (hub registration stub) | ✅ |
 | Spoke HTTP push auth (`Bearer` + `X-Kollect-Cluster-Id`) | ✅ |
 | Hub ingest HTTP stub (`POST /hub/v1alpha1/reports`) | ✅ |
+| Hub pull via `credentialsSecretRef` (optional ADR-0028) | ✅ |
+| `KollectHub.spec.remoteClusters[]` reference wiring | ✅ |
 
-**Counts:** ✅ 10 · 🚧 1 · ⬜ 4
+**Counts:** ✅ 12 · 🚧 1 · ⬜ 2
 
 ---
 
@@ -220,10 +222,10 @@ Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). 
 | `kollect_workqueue_depth` / `kollect_reconcile_duration_seconds` metrics | ✅ |
 | `kollect_informer_objects` / `kollect_export_bytes_total` metrics | ✅ |
 | `BenchmarkExtract` in `internal/collect/` | ✅ |
-| envtest synthetic scale harness (cap 500) | ⬜ |
+| envtest synthetic scale harness (cap 500) | ✅ |
 | Load test package (`test/load/`, `-tags=load`) | ✅ |
 
-**Counts:** ✅ 14 · ⬜ 5
+**Counts:** ✅ 15 · ⬜ 4
 
 ---
 
@@ -247,7 +249,7 @@ Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). 
 ## Open questions
 
 - **Hub ingest SAR shape** — `create` on `kollectremoteclusters` vs custom URL ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md))
-- **SinkReachable** on Inventory/Target vs sink-only `ConnectionVerified` ([ADR-0030](adr/0030-connection-test.md))
+- ~~**SinkReachable** on Inventory/Target~~ — implemented with `Synced` export conditions ([ADR-0030](adr/0030-connection-test.md))
 
 See [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) for locked vs still-open items.
 
@@ -278,7 +280,7 @@ cluster-scoped profile objects before upgrade.
 | PR CI: gitleaks, verify, lint, unit tests, build | ✅ |
 | Manual e2e workflow (`workflow_dispatch`) | ✅ |
 | Nightly kind smoke (Helm install + sample CRs + HTTP probe) | 🚧 |
-| Full e2e: conditions, Git export, HTTP body | 🚧 |
+| Full e2e: conditions, Git export SHA, HTTP body | 🚧 |
 | Integration tests in CI (testcontainers) | 🚧 |
 
 ## Architecture decisions (2026-06-05)

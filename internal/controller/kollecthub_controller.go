@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -55,7 +56,7 @@ func (r *KollectHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		replicas = *hub.Spec.Replicas
 	}
 
-	dep := r.desiredDeployment(&hub, replicas)
+	dep := r.desiredDeployment(ctx, &hub, replicas)
 	if err := r.ensureDeployment(ctx, dep); err != nil {
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectHub", metrics.ErrorClassTransient).Inc()
 		log.Error(err, "ensure hub deployment")
@@ -65,7 +66,21 @@ func (r *KollectHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	hub.Status.ObservedGeneration = hub.Generation
-	apimeta.RemoveStatusCondition(&hub.Status.Conditions, conditionDegraded)
+	registered, wireErr := r.resolveRemoteClusters(ctx, &hub)
+	hub.Status.RegisteredRemoteClusters = registered
+	if wireErr != nil {
+		apimeta.SetStatusCondition(&hub.Status.Conditions, metav1.Condition{
+			Type:               conditionDegraded,
+			Status:             metav1.ConditionTrue,
+			Reason:             "RemoteClusterRefInvalid",
+			Message:            wireErr.Error(),
+			ObservedGeneration: hub.Generation,
+			LastTransitionTime: metav1.Now(),
+		})
+	} else {
+		apimeta.RemoveStatusCondition(&hub.Status.Conditions, conditionDegraded)
+	}
+
 	apimeta.SetStatusCondition(&hub.Status.Conditions, metav1.Condition{
 		Type:               conditionReady,
 		Status:             metav1.ConditionTrue,
@@ -87,6 +102,7 @@ func (r *KollectHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 }
 
 func (r *KollectHubReconciler) desiredDeployment(
+	ctx context.Context,
 	hub *kollectdevv1alpha1.KollectHub,
 	replicas int32,
 ) *appsv1.Deployment {
@@ -107,6 +123,13 @@ func (r *KollectHubReconciler) desiredDeployment(
 		env = append(env, corev1.EnvVar{
 			Name:  "KOLLECT_REDIS_URL",
 			Value: hub.Spec.Transport.Redis.URL,
+		})
+	}
+
+	if wire := r.formatRemoteClusterWire(ctx, hub); wire != "" {
+		env = append(env, corev1.EnvVar{
+			Name:  "KOLLECT_REMOTE_CLUSTERS",
+			Value: wire,
 		})
 	}
 
@@ -179,6 +202,72 @@ func (r *KollectHubReconciler) ensureDeployment(ctx context.Context, desired *ap
 	existing.Labels = desired.Labels
 
 	return r.Patch(ctx, &existing, patch)
+}
+
+func (r *KollectHubReconciler) resolveRemoteClusters(
+	ctx context.Context,
+	hub *kollectdevv1alpha1.KollectHub,
+) (int32, error) {
+	if len(hub.Spec.RemoteClusters) == 0 {
+		return 0, nil
+	}
+
+	var firstErr error
+	resolved := int32(0)
+
+	for _, ref := range hub.Spec.RemoteClusters {
+		name := strings.TrimSpace(ref.Name)
+		if name == "" {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("remoteClusters entry has empty name")
+			}
+
+			continue
+		}
+
+		ns := kollectdevv1alpha1.RemoteClusterNamespace(ref)
+		var rc kollectdevv1alpha1.KollectRemoteCluster
+		if err := r.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &rc); err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("remote cluster ref %s/%s: %w", ns, name, err)
+			}
+
+			continue
+		}
+
+		resolved++
+	}
+
+	return resolved, firstErr
+}
+
+func (r *KollectHubReconciler) formatRemoteClusterWire(
+	ctx context.Context,
+	hub *kollectdevv1alpha1.KollectHub,
+) string {
+	if len(hub.Spec.RemoteClusters) == 0 {
+		return ""
+	}
+
+	entries := make([]string, 0, len(hub.Spec.RemoteClusters))
+	for _, ref := range hub.Spec.RemoteClusters {
+		name := strings.TrimSpace(ref.Name)
+		if name == "" {
+			continue
+		}
+
+		ns := kollectdevv1alpha1.RemoteClusterNamespace(ref)
+		var rc kollectdevv1alpha1.KollectRemoteCluster
+		if err := r.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &rc); err != nil {
+			entries = append(entries, fmt.Sprintf("%s/%s:", ns, name))
+
+			continue
+		}
+
+		entries = append(entries, fmt.Sprintf("%s/%s:%s", ns, name, rc.Spec.ClusterName))
+	}
+
+	return strings.Join(entries, ",")
 }
 
 // SetupWithManager sets up the controller with the Manager.
