@@ -2,25 +2,16 @@
 
 Lean publish/subscribe boundary for inventory change notifications inside the operator.
 
-## Phase 1
+## Backends
 
-- `Publisher` / `Subscriber` interfaces in `transport.go`
-- `InProcessBus` — synchronous dispatch in-process (default wiring)
+| Type | Implementation | Integration test |
+| --- | --- | --- |
+| `inprocess` | `InProcessBus` (default) | unit |
+| `redis` | Redis Streams | testcontainers `modules/redis` |
+| `nats` | NATS JetStream | testcontainers `modules/nats` |
+| `kafka` | Kafka/Redpanda | testcontainers `modules/redpanda` |
 
-## Planned: NATS adapter (stub)
+Configure via `transport.Config` or `ConfigFromEnv()` (`KOLLECT_TRANSPORT_TYPE`, backend URLs).
 
-A future `nats.go` package will implement the same interfaces against
-[NATS](https://nats.io/) or JetStream:
-
-```go
-// NATSAdapter — not implemented yet
-type NATSAdapter struct {
-    URL string
-    // Publish: nats.Conn.Publish(subject, payload)
-    // Subscribe: nats.Conn.Subscribe(subject, handler)
-}
-```
-
-Use cases: debounced export triggers across reconcilers, hub CRD fan-out (ADR-0022), and
-optional decoupling of collection from export workers. Until then, controllers call
-`InProcessBus.Publish` directly after store updates.
+Use cases: spoke → hub inventory reports (ADR-0022), debounced export triggers, and optional
+decoupling of collection from export workers.
