@@ -27,6 +27,10 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **security:** Harden inventory auth and SAR caches [c934c80](https://github.com/konih/kollect/commit/c934c80f529725f8634b872d89e599df1d582ccb)
+
+- **ci:** Use codecov-action v5 tag instead of bad SHA [f2a1d24](https://github.com/konih/kollect/commit/f2a1d240e5f31bc74ccd3db4725ec2d5b67a5bf9)
+
 - **ci:** Restore 60% coverage floor for test job [fdcc489](https://github.com/konih/kollect/commit/fdcc48906623238f7a758fa23b439140102fbf06)
 
 - **docs:** Repair open questions list rendering [f559c5a](https://github.com/konih/kollect/commit/f559c5a20105e8fc9e1abfe241d95de385a3cfea)
@@ -110,6 +114,16 @@ anchor on an older commit.
 
 ### Features
 
+- [**breaking**] Remove KollectHub reconciler [9190ee1](https://github.com/konih/kollect/commit/9190ee16026af163083359c8f0e3ce7364689e96)
+
+- [**breaking**] Remove KollectHub CRD surface [d4fd4f0](https://github.com/konih/kollect/commit/d4fd4f068500ae02b5839d6e719d9e0166bfb81f)
+
+- **webhook:** Validate KollectSink spec.type enum [7fb0475](https://github.com/konih/kollect/commit/7fb0475775908d36a343b55f47994a1fae092369)
+
+- **api:** Add KollectClusterInventory spec.dedupe [10d9345](https://github.com/konih/kollect/commit/10d934501e31b008cd9d474a0924886aa9c632d0)
+
+- **export:** Add schemaVersion inventory envelope [eae349e](https://github.com/konih/kollect/commit/eae349ecd93ed44f1414a15f893a0ac0c4f1a4ab)
+
 - **sink:** Add NATS JetStream event sink backend [9ea0fcf](https://github.com/konih/kollect/commit/9ea0fcfb911b39a396f8bb296acb2f97c6774723)
 
 - **export:** Add schemaVersion to export envelopes [52ff2ac](https://github.com/konih/kollect/commit/52ff2acda30f5f5adede43ef10f8ae16feb72926)
@@ -158,6 +172,8 @@ anchor on an older commit.
 
 
 ### Refactoring
+
+- **sink:** Extract shared RunExportItems pipeline [d9494ae](https://github.com/konih/kollect/commit/d9494ae79a68065a9122f8cf538a13f877045930)
 
 - **controller:** Extract cluster inventory export path [5214893](https://github.com/konih/kollect/commit/5214893dda65d7a5957b010b16d6a253140e9f8d)
 
