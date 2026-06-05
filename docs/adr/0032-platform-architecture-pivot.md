@@ -117,9 +117,9 @@ ordering. Samples: `config/samples/kollect_v1alpha1_kollectprofile_argo-applicat
 
 Event-driven collection must not cause **export storms** to Git/Postgres/Kafka.
 
-- Coalesce exports **per `KollectInventory`** via **`spec.exportMinInterval`** (duration; **default
-  `30s`** when unset). **Not** a global manager flag — remove or ignore `--export-debounce` once
-  per-Inventory field is wired.
+- Coalesce exports **per `KollectInventory`** via **`spec.exportMinInterval`** (duration; CRD default
+  **`30s`** when unset). Operator `--export-debounce` is a **deprecated fallback** only when the
+  field is omitted on older manifests; remove from Helm chart once all samples use the spec field.
 - **Immediate export** when inventory payload materially changes (generation/checksum bump) even
   inside the min interval.
 - Per-target collection updates in-memory store immediately; export is **debounced**.
@@ -158,8 +158,16 @@ the CR after TTL once `status.completed` is true. Manual delete remains valid fo
 
 ### 13. `KollectClusterTarget` rollup
 
-**`KollectClusterInventory`** pairs with **`KollectClusterTarget`** (and `KollectClusterProfile` /
-`KollectClusterSink`). No interim `inventoryRef` hack to a namespaced `KollectInventory`.
+**One `KollectClusterInventory`** aggregates **all** `KollectClusterTarget` objects (platform rollup
+in a single CR). Optional `spec.targetRefs` narrows the set; empty/absent means **all cluster
+targets**. If a deployment truly needs 1:1 target↔inventory, use `targetRefs: [that-target]` on the
+same kind — do not introduce a separate per-target inventory CRD. Pairs with `KollectClusterProfile`
+/ `KollectClusterSink`. No interim `inventoryRef` hack to namespaced `KollectInventory`.
+
+### 14. Hub first milestone
+
+Hub `mode: hub` ingest supports **Postgres and Kafka in parallel** from day one of multi-cluster
+export — same merge lib, two sink adapters; spokes may push to either or both per `sinkRefs`.
 
 ### 14. Hub shard routing (no `KollectHub` CRD)
 

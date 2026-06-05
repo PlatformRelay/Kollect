@@ -51,12 +51,57 @@ Manager flag: `--watch-namespaces=team-a,team-b` (comma-separated).
 - **Scope:** namespaced ([ADR-0004](0004-crd-model.md)); one object per tenant namespace.
 - **Validation:** validating webhook rejects invalid GVK entries, duplicate `sinkRefs`, and blank
   allowlist entries at admission ([ADR-0015](0015-static-vs-reconciled.md)).
-- **Enforcement (Phase 1):** **both** validating webhook **and** reconciler-time checks — reject
-  `KollectTarget` / `KollectInventory` that reference disallowed GVKs, workload namespaces, or
-  `KollectSink`s per scope allowlists. Webhook alone is insufficient for multi-tenant isolation.
+- **Enforcement (Phase 1):** **both** validating webhook **and** reconciler-time checks — **hard
+  degrade** (no collection / no export) when a `KollectTarget` or `KollectInventory` violates scope.
+  Set **`Degraded=True`** with reason `ScopeGVKDenied`, `ScopeNamespaceDenied`, or `ScopeSinkDenied`;
+  emit Warning event. Do **not** soft-warn and continue reconciling forbidden config.
 
 `KollectClusterScope` remains reserved for platform-wide policy when namespaced scope is
 insufficient ([ADR-0004](0004-crd-model.md)).
+
+### Enforcement example (GVK denied)
+
+`KollectScope` in `team-a` allows only `apps/v1 Deployment`. A team applies a `KollectTarget` whose
+`profileRef` resolves to a Profile targeting Flux `HelmRelease`:
+
+```yaml
+# team-a/kollectscope.yaml — allowlist
+apiVersion: kollect.dev/v1alpha1
+kind: KollectScope
+metadata:
+  name: team-a-scope
+  namespace: team-a
+spec:
+  allowedGVKs:
+    - group: apps
+      version: v1
+      kind: Deployment
+  allowedNamespaces: [team-a]
+  sinkRefs: [team-a-postgres]
+---
+# team-a/kollecttarget.yaml — violates allowedGVKs
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: helm-releases
+  namespace: team-a
+spec:
+  profileRef: helm-release-summary   # Profile targets helm.toolkit.fluxcd.io/HelmRelease
+```
+
+**Outcome:** Target reconciler does not register the informer watch. Status:
+
+```yaml
+status:
+  conditions:
+    - type: Degraded
+      status: "True"
+      reason: ScopeGVKDenied
+      message: 'profile GVK "helm.toolkit.fluxcd.io/v2/HelmRelease" not in scope allowedGVKs'
+```
+
+**Inventory sink denied** — same pattern when `spec.sinkRefs` lists a sink not in
+`KollectScope.spec.sinkRefs` (`ScopeSinkDenied`). Envtest: `internal/controller/kollecttarget_scope_test.go`.
 
 ## Consequences
 

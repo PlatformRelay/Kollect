@@ -1,8 +1,10 @@
 # Example: Helm release inventory
 
-> **Primary demo GVK (ADR-0032):** `argoproj.io/v1alpha1` **`Application`** (Argo CD). This page
-> documents the **secondary** Flux `HelmRelease` walkthrough until the Argo sample lands. See
-> [ADR-0027](../adr/0027-helm-release-inventory.md) for Argo JSONPath candidates and contract-test TODO.
+> **Primary demo GVK (ADR-0032):** `argoproj.io/v1alpha1` **`Application`** (Argo CD). Samples:
+> `config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml`,
+> `config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml`. Contract test:
+> `internal/collect/argo_application_contract_test.go`. This page documents the **secondary** Flux
+> `HelmRelease` walkthrough. See [ADR-0027](../adr/0027-helm-release-inventory.md).
 
 # Example: Helm release inventory (Flux — secondary)
 
