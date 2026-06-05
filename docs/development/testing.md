@@ -16,6 +16,7 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 | **L2 — Golden / contract** | OpenAPI fragments, sample YAML, extractor goldens | Yes | `task test` |
 | **L3 — Integration** | Real Postgres, Kafka, Git, S3, GCS, Redis, NATS (testcontainers) | Yes | `task test-integration` |
 | **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | Nightly / path-filtered PR | `task test:e2e` |
+| **UI — Playwright** | React SPA smoke (MSW dev server); not backend Kind L4 | No (optional locally) | `task ui-e2e` · `task ui-e2e:docker` |
 | **L5 — Load / perf** | Bounded synthetic scale (≤2000 objects), micro-benchmarks | Opt-in | `task load-test` · `task perf-report` |
 
 **Direction:** Most tests live at L0–L2. Every new sink backend must reach **L3** before merge
@@ -84,6 +85,8 @@ until the maintainer adds `SONAR_TOKEN`. Does not replace `task lint` or arch-li
 | `task test` | Unit + envtest (no floor check) |
 | `task test-integration` | L3 sink/transport integration (Docker) |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
+| `task ui-ci` | UI PR gate — Vitest, lint, build, mock drift (no Playwright) |
+| `task ui-e2e` · `task ui-e2e:docker` | UI Playwright smoke — optional; distinct from backend L4 |
 | `task bench` | Micro-benchmarks on hot paths |
 | `KOLECT_LOAD_TEST=1 task load-test` | L5 bounded load (≤2000 objects, opt-in) |
 | `task perf-report` | Benchmark + unit pass summary (local only, gitignored output) |

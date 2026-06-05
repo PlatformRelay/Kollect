@@ -320,10 +320,16 @@ tasks:
     dir: ui
     env:
       VITE_MOCK_API: "true"
+      PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
     cmds:
       - npm ci
       - npx playwright install chromium
       - npx playwright test
+
+  ui-e2e:docker:
+    desc: Run Playwright smoke tests in Docker (Ubuntu 26.04 host workaround)
+    cmds:
+      - bash hack/ui-e2e-docker.sh
 
   dev-up:
     desc: Bootstrap local dev — build, kind cluster, sample CRs

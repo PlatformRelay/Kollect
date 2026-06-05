@@ -71,6 +71,7 @@ SSE watch fidelity is limited in Prism — use MSW (`VITE_MOCK_API=true`) for wa
 | `npm test` | Vitest unit + MSW handler tests (50 tests) |
 | `task ui-ci` | typecheck, test, lint, build, mock drift gate |
 | `task ui-e2e` | Playwright smoke (`ui/e2e/smoke.spec.ts`, MSW dev server) |
+| `task ui-e2e:docker` | Same smoke tests via Playwright Docker image (see Ubuntu 26.04 below) |
 | `task ui-mock-sync` | Regenerate MSW OpenAPI drift manifest |
 | `npm run test:a11y` | a11y gate stub (Playwright axe in nightly — B8) |
 | `npm run lint` | ESLint |
@@ -115,5 +116,25 @@ selection; inventory filters are primary in URL search params.
 
 **E2E:** `ui/e2e/smoke.spec.ts` covers nav + inventory grid under MSW. Kind+Helm nightly visual job (B8)
 is deferred.
+
+### Ubuntu 26.04 (Playwright)
+
+Playwright 1.60 does not ship Chromium for `ubuntu26.04-x64` yet ([issue #40117](https://github.com/microsoft/playwright/issues/40117)).
+`task ui-e2e` sets `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64` automatically. After that, install
+runtime libs once:
+
+```bash
+sudo apt install -y libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 \
+  libcups2t64 libasound2t64 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+  libgbm1 libdrm2 libpango-1.0-0 libcairo2 libwayland-client0
+```
+
+If native install still fails, use Docker instead (requires Docker):
+
+```bash
+task ui-e2e:docker
+```
+
+The PR merge gate is **`task ui-ci`** (Vitest + lint + build only — no Playwright).
 
 Auth is **not** implemented in the SPA (MVP); production uses oauth2-proxy at ingress post-MVP.
