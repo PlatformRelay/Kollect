@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   e2e-nightly:
@@ -60,7 +61,7 @@ jobs:
         run: task bench
 
       - name: Upload bench artifact
-        uses: actions/upload-artifact@ea165f8d65d661de671f4242b1655b05aa3e2054 # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: bench-latest
           path: artifacts/bench/latest.txt
