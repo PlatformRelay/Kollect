@@ -33,7 +33,11 @@ Polling the API on a short `RequeueAfter` loop would duplicate informer work and
    enqueue mappers.
 7. **SAR-gated degradation:** if cluster-scoped list is forbidden, degrade to namespace scope and
    record `skipped:forbidden` in status (port collector logic).
-8. **Committed sample catalog** — maintain **many tested samples** for common use cases, checked into
+8. **One shared informer per GVK** across all `KollectTarget`s referencing that profile GVK —
+   not per-Target caches. The engine registers one dynamic informer per distinct
+   `(group, version, kind)`; Targets filter in reconcile. Rationale: kube-state-metrics pattern;
+   memory scales with watched objects × GVKs, not Targets ([ADR-0026](0026-performance-scalability.md)).
+9. **Committed sample catalog** — maintain **many tested samples** for common use cases, checked into
    `config/samples/` and documented under `docs/examples/`:
 
 | Sample | GVK / focus | CI |
@@ -49,7 +53,7 @@ Polling the API on a short `RequeueAfter` loop would duplicate informer work and
 Samples double as **documentation and regression contracts** — breaking extractor or selector behavior
 should fail CI before release.
 
-9. **Periodic end-to-end tests** — in addition to unit/envtest and sample decode checks, run a
+10. **Periodic end-to-end tests** — in addition to unit/envtest and sample decode checks, run a
    **full-path e2e** workflow on a schedule and on demand:
 
    - **Trigger:** `cron` (nightly) and `workflow_dispatch` for release validation.
@@ -89,6 +93,6 @@ flowchart TD
 
 ## Open questions
 
-- **OPEN:** Single shared informer per GVK across Targets, or per-Target scoped caches?
-  (Prefer shared per GVK for memory.)
+- **RESOLVED (2026-06-05):** **Single shared informer per GVK** across all Targets watching that GVK
+  (kube-state-metrics pattern) — reduces memory vs per-Target caches.
 - **RESOLVED (2026-06-05):** Primary Helm sample GVK is Flux `HelmRelease` v2 ([ADR-0027](0027-helm-release-inventory.md)).

@@ -33,6 +33,19 @@ User requirement (2026-06-05): inventory must expose **chart `version` and `appV
 Optional attribute: extract `spec.values.image.tag` (or equivalent) when chart `appVersion` is
 stale in generic-chart GitOps layouts.
 
+**Version fields:** prefer Flux **status** authoritative fields over assuming `history[0]` order:
+
+| Attribute | Path | Notes |
+| --- | --- | --- |
+| `chartVersion` | `$.status.lastAttemptedRevision` | **Authoritative** chart revision from controller |
+| `appVersion` | `$.status.history[0].appVersion` | Flux orders newest first — **must pass contract test** against fixture |
+| `revision` | `$.status.history[0].version` | Helm release revision integer — same contract test |
+| `valuesChecksum` | `$.status.lastAttemptedConfigDigest` | Drift without exporting values |
+
+**Contract test (CI):** golden `HelmRelease` fixture in `test/schema/` or envtest asserts
+`history[0]` is newest (compare `lastDeployed` / `version` ordering) and that
+`lastAttemptedRevision` matches expected chart version string.
+
 ### Secondary GVK (plain Helm; deferred implementation)
 
 **`helm.sh/v1` / `Secret`** (`type: helm.sh/release.v1`, label `owner=helm`)
@@ -77,7 +90,7 @@ truncation of secrets).
 **Prefer checksum over full values** when drift detection suffices: Flux
 `status.lastAttemptedConfigDigest` / `status.history[].configDigest`.
 
-**Governance:** `helm-release-values-redacted` is restricted via **`KollectScope`** (Phase 3) and
+**Governance:** `helm-release-values-redacted` is restricted via **`KollectScope`** and
 must use private sinks—not the public demo Git repo.
 
 ### Admission webhook (Secret.data guard)
@@ -111,7 +124,8 @@ Walkthrough: [docs/examples/helm-release-inventory.md](../examples/helm-release-
 ### Implementation phases
 
 1. **Now:** `helm-release-summary` sample + target example + `docs/examples/helm-release-inventory.md`
-   (Flux GVK); Profile webhook blocks `Secret.data` without opt-in.
+   (Flux GVK); Profile webhook blocks `Secret.data` without opt-in; **HelmRelease contract test**
+   for `history[0]` ordering + `lastAttemptedRevision`.
 2. **Later:** export-time scrub in operator for values attributes.
 3. **Later:** `helm:` decode for `helm.sh/v1` Secret + second sample profile (gated).
 
@@ -136,3 +150,5 @@ Walkthrough: [docs/examples/helm-release-inventory.md](../examples/helm-release-
 
 - **OPEN:** `helm:` decode implementation shape (`helm:release.chartVersion` vs CEL library)?
 - **OPEN:** Operator scrub as global config vs per-attribute `redact: true` on `AttributeSpec`?
+- **RESOLVED (2026-06-05):** `chartVersion` from `status.lastAttemptedRevision`; `history[0]` ordering
+  validated by contract test in CI.

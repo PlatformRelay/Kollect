@@ -28,6 +28,7 @@ nav:
   - Performance: PERFORMANCE.md
   - Architecture: ARCHITECTURE.md
   - Roadmap: ROADMAP.md
+  - Platform decisions: PLATFORM-DECISIONS.md
   - Requirements: REQUIREMENTS.md
   - Performance: PERFORMANCE.md
   - Examples:
@@ -44,8 +45,13 @@ nav:
       - "0015 Static vs reconciled": adr/0015-static-vs-reconciled.md
       - "0020 Error taxonomy": adr/0020-error-taxonomy.md
       - "0021 MkDocs GitHub Pages": adr/0021-mkdocs-github-pages.md
-      - "0022 Multi-cluster sync (RFC)": adr/0022-multi-cluster-sync-rfc.md
+      - "0022 Multi-cluster sync": adr/0022-multi-cluster-sync-rfc.md
       - "0026 Performance and scalability": adr/0026-performance-scalability.md
+      - "0027 Helm release inventory": adr/0027-helm-release-inventory.md
+      - "0028 Hub cluster auth (Istio)": adr/0028-hub-cluster-auth-istio-pattern.md
+      - "0029 Watch labels": adr/0029-watch-labels.md
+      - "0030 Connection test": adr/0030-connection-test.md
+      - "0031 Namespaced profiles": adr/0031-namespaced-profiles.md
 
 markdown_extensions:
   - admonition

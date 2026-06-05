@@ -16,8 +16,21 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace
 | `featureGates.inventoryHttp.enabled` | Expose `GET /inventory` | `false` |
 | `oauth2Proxy.enabled` | Optional OIDC sidecar in front of inventory HTTP | `false` |
 | `webhooks.enabled` | Validating webhook for profiles | `true` |
+| `transport.type` | Hub/spoke transport backend | `inprocess` |
+| `sinkDefaults.connectionTest` | Default for sample `KollectSink` probes | `false` (prod); CI/dev overlays use `true` |
 
 See `values.yaml` for the full list.
+
+### Connection test (`KollectSink`)
+
+Production sink manifests should use **`spec.connectionTest: false`** (default) and trigger probes with
+the **`kollect.dev/test-connection: "true"`** annotation when needed ([ADR-0030](../docs/adr/0030-connection-test.md)).
+CI/samples may set `connectionTest: true`.
+
+### Hub transport
+
+Hub/spoke transport defaults to **`inprocess`** until an external backend passes integration tests.
+Do not enable Redis/NATS/Kafka in chart values without explicit ops choice ([ADR-0023](../docs/adr/0023-lean-queue-transport.md)).
 
 ## Inventory HTTP authentication
 

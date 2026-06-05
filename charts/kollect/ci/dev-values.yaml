@@ -14,6 +14,12 @@ pprof:
 watchNamespaces: []
 tenantMode: false
 
+transport:
+  type: inprocess
+
+sinkDefaults:
+  connectionTest: true
+
 metrics:
   enabled: true
   serviceMonitor:

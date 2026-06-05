@@ -13,10 +13,10 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 | **Validating webhooks early** | Reject invalid CEL/JSONPath and sink config at admission — no reconcile-time workarounds |
 | **Helm chart day 1** | Install path matches production; CI runs `helm template`, `helm-unittest`, schema checks |
 | **Prometheus metrics early** | Export latency, reconcile errors, collection counts on operator `/metrics` — testable in CI ([ADR-0012](adr/0012-prometheus-metrics-stub.md)) |
-| **Connection test (first-class)** | Visible, informative, discoverable feedback when sinks/profiles are misconfigured (`kubectl`-friendly status) |
+| **Connection test (first-class)** | `spec.connectionTest` + `kollect.dev/test-connection` on `KollectSink`; `ConnectionVerified` condition — no dedicated test CR; **prod default `connectionTest: false`**; samples/CI use `true` ([ADR-0030](adr/0030-connection-test.md)) |
 | **HTTP inventory API (core)** | Read-only access for portals and automation — not deferred to a later phase |
 | **Inventory HTTP auth (K8s-native)** | TokenReview + SubjectAccessReview; `Authorization: Bearer` SA tokens; `--inventory-auth-mode=kubernetes` default — [ADR-0024](adr/0024-inventory-api-auth.md) |
-| **Tested sample CRs** | Deployment, Service, Ingress, generic CRD, Helm release summary (Flux `HelmRelease`) — contract tests in CI where feasible; see [ADR-0027](adr/0027-helm-release-inventory.md) |
+| **Tested sample CRs** | Deployment, Service, Ingress, generic CRD, Helm release summary (Flux `HelmRelease`) — contract tests in CI; **`lastAttemptedRevision`** + **`history[0]` ordering test** ([ADR-0027](adr/0027-helm-release-inventory.md)) |
 | **Demo Git repo** | Public examples with SSH + token auth; GitLab-compatible endpoints |
 | **Postgres + Kafka export sinks** | First-class `KollectSink` types; testcontainers before merge — [ADR-0025](adr/0025-sink-backends-database-kafka.md) |
 
@@ -29,9 +29,12 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 | **Phase 0 one-pod-does-all** | Single deployment can collect + aggregate + export for first success path |
 | **Per-cluster agents / cross-cluster collector** | Explored in [ADR-0022](adr/0022-multi-cluster-sync-rfc.md); must not block single-cluster MVP |
 | **`KollectHub` CRD (hub cluster)** | Hub is declarative CRD → operator-managed Deployment → lean queue → aggregated export |
-| **Lean queue transport (pluggable)** | `Transport` interface; `inprocess` → **Redis Streams** (Phase 2 spike) → NATS/Kafka via config — [ADR-0023](adr/0023-lean-queue-transport.md); backend only ships with integration/e2e proof |
+| **Lean queue transport (pluggable)** | `Transport` interface; **`inprocess` only default**; Redis/NATS/Kafka explicit opt-in after integration/e2e proof — [ADR-0023](adr/0023-lean-queue-transport.md) |
+| **Hub L1→L4 layering** | Merge library + same image `mode: hub\|spoke` before `KollectHub` CRD owns Deployment — [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) |
 | **Namespaced `KollectInventory`** | Team-owned rollup; **`KollectClusterInventory`** reserved for platform ([ADR-0004](adr/0004-crd-model.md)) |
-| **Namespaced `KollectScope` (Phase 1 — ASAP)** | Tenancy boundary + `watchNamespaces` / `tenantMode` Helm options; **`KollectClusterScope`** for platform teams as addition ([ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
+| **Namespaced `KollectProfile`** | Team-owned extraction schemas; **`KollectClusterProfile`** reserved for platform ([ADR-0031](adr/0031-namespaced-profiles.md)) |
+| **Namespaced `KollectScope` (Phase 1 — ASAP)** | Tenancy boundary + `watchNamespaces` / `tenantMode` Helm options; **webhook and reconciler enforcement**; **`KollectClusterScope`** for platform teams as addition ([ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
+| **Namespaced `KollectProfile`** | Team-owned extraction schema; `profileRef` resolves in Target namespace — [ADR-0031](adr/0031-namespaced-profiles.md) |
 
 ## Performance and scalability
 
@@ -39,7 +42,7 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 | --- | --- |
 | **10,000+ watched objects per cluster (baseline)** | Giant clusters (1000s of nodes) expose large Deployment/Service/Ingress counts; operator must stay responsive |
 | **100+ cluster hub path** | Platform rollup via sharded hub merge — not pairwise mesh; spokes push **summarized deltas** ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
-| **Bounded memory per spoke** | Scoped informers, paginated `List`, shared cache per GVK — target ≤512 MiB at 10k typical rows; no full-cluster mirrors in hub RAM |
+| **Bounded memory per spoke** | Scoped informers, paginated `List`, **shared informer per GVK** — target ≤512 MiB at 10k typical rows; no full-cluster mirrors in hub RAM |
 | **Parallel reconcile workers** | `MaxConcurrentReconciles`, workqueue tuning, optional shard by namespace/GVK or `KollectScope` |
 | **Observability** | pprof on `:6060`; Prometheus metrics catalog with PromQL hints ([PERFORMANCE.md](PERFORMANCE.md)) |
 | **Early bottleneck visibility** | Metrics + bounded benchmarks **before** hub/spoke architectural lock-in |
@@ -77,6 +80,7 @@ See [ADR-0026](adr/0026-performance-scalability.md) and [PERFORMANCE.md](PERFORM
 | Item | When |
 | --- | --- |
 | JSONPath filters on sink targets | After core export path works |
+| **`KollectClusterSink`** + namespaced sink split | Phase 3 ([ROADMAP.md](ROADMAP.md)) |
 | Full oauth2-proxy sidecar on HTTP API | Optional Helm sidecar (`oauth2Proxy.enabled: false`); K8s bearer auth is primary — [ADR-0024](adr/0024-inventory-api-auth.md) |
 
 ## Documentation
@@ -86,8 +90,9 @@ See [ADR-0026](adr/0026-performance-scalability.md) and [PERFORMANCE.md](PERFORM
 
 ## See also
 
+- [Platform decisions (2026-06-05)](PLATFORM-DECISIONS.md)
 - [ARCHITECTURE.md](ARCHITECTURE.md) — system view and multi-cluster outlook
-- [adr/0022-multi-cluster-sync-rfc.md](adr/0022-multi-cluster-sync-rfc.md) — topology options (Proposed)
+- [adr/0022-multi-cluster-sync-rfc.md](adr/0022-multi-cluster-sync-rfc.md) — multi-cluster topology (Accepted)
 - [adr/0023-lean-queue-transport.md](adr/0023-lean-queue-transport.md) — hub queue selection (Accepted)
 - [adr/0024-inventory-api-auth.md](adr/0024-inventory-api-auth.md) — inventory HTTP auth (Accepted)
 - [adr/0025-sink-backends-database-kafka.md](adr/0025-sink-backends-database-kafka.md) — Postgres/Kafka sinks (Accepted)

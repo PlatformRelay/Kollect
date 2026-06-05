@@ -11,3 +11,9 @@ webhooks:
 watchNamespaces: []
 
 tenantMode: false
+
+transport:
+  type: inprocess
+
+sinkDefaults:
+  connectionTest: true

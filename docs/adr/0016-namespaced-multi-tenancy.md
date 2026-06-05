@@ -50,8 +50,9 @@ Manager flag: `--watch-namespaces=team-a,team-b` (comma-separated).
 - **Scope:** namespaced ([ADR-0004](0004-crd-model.md)); one object per tenant namespace.
 - **Validation:** validating webhook rejects invalid GVK entries, duplicate `sinkRefs`, and blank
   allowlist entries at admission ([ADR-0015](0015-static-vs-reconciled.md)).
-- **Enforcement:** runtime checks against scope (targets/inventories referencing allowed sinks and
-  GVKs) follow in Phase 1 reconciler work — webhook is the minimal Phase 1 gate.
+- **Enforcement (Phase 1):** **both** validating webhook **and** reconciler-time checks — reject
+  `KollectTarget` / `KollectInventory` that reference disallowed GVKs, workload namespaces, or
+  `KollectSink`s per scope allowlists. Webhook alone is insufficient for multi-tenant isolation.
 
 `KollectClusterScope` remains reserved for platform-wide policy when namespaced scope is
 insufficient ([ADR-0004](0004-crd-model.md)).
@@ -67,12 +68,12 @@ insufficient ([ADR-0004](0004-crd-model.md)).
 ### Negative
 
 - Two deployment models require chart and doc clarity to avoid misconfigured RBAC.
-- `tenantMode` `Role` cannot grant cluster-scoped `KollectProfile` access — platform must bind a
-  separate read-only `ClusterRole` for profiles or pre-provision shared profiles.
-- Scope enforcement in reconcilers is follow-up work beyond admission validation.
+- **Resolved ([ADR-0031](0031-namespaced-profiles.md)):** `KollectProfile` moves to **namespaced**
+  scope so `tenantMode` installs do not need cluster profile RBAC; `KollectClusterProfile` reserved
+  for platform-shared schemas.
+- Reconciler enforcement adds controller complexity and must stay consistent with webhook rules.
 
 ## Open questions
 
-- **OPEN:** Dedicated `KollectClusterSink` + namespaced `KollectSink` split — still deferred;
-  `KollectScope.sinkRefs` allowlists cluster sink names for now.
-- **OPEN:** Reconciler-time scope enforcement vs webhook-only in Phase 1 MVP?
+- **DEFERRED (Phase 3):** `KollectClusterSink` + namespaced `KollectSink` split — `KollectScope.sinkRefs`
+  allowlists cluster sink names until then ([ROADMAP.md](../ROADMAP.md)).

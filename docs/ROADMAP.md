@@ -64,7 +64,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Validating webhook — Profile Secret.data guard | ✅ |
 | Validating webhook — Sink type enum | ⬜ |
 | Prometheus custom metrics (early) | 🚧 |
-| Connection test infrastructure | ✅ |
+| Connection test infrastructure | ✅ ([ADR-0030](adr/0030-connection-test.md)) |
+| Namespaced `KollectProfile` API | ✅ ([ADR-0031](adr/0031-namespaced-profiles.md)) |
 | Golden OpenAPI contract tests (`test/schema/`) | ⬜ |
 | Kind smoke / operator deploy | ✅ |
 | Release pipeline (SBOM, signing) | ⬜ |
@@ -113,7 +114,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | End-to-end: install → collect → export → HTTP | 🚧 |
 | `spec.suspend` on reconciled kinds | ✅ |
 | **Multi-tenant (ASAP):** `watchNamespaces` / `tenantMode` Helm + `--watch-namespaces` | 🚧 |
-| **Multi-tenant:** `KollectScope` webhook + sample | 🚧 |
+| **Multi-tenant:** `KollectScope` webhook + reconciler enforcement + sample | 🚧 |
 | **Multi-tenant e2e:** dynamic `kollect-tenant-a` / `kollect-tenant-b` isolation | 🚧 |
 | Inventory namespace isolation unit tests | 🚧 |
 
@@ -135,8 +136,8 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 | `KollectHub` CRD (`spec.transport.type`) | ✅ |
 | Spoke operator / agent snapshot reports (lightweight, delta) | ⬜ |
 | Hub merge and deduplication (O(rows), sharded consumers) | ⬜ |
-| Transport: in-process (dev/test) | ✅ |
-| Transport: Redis Streams (Phase 2 spike default) | ✅ |
+| Transport: in-process (dev/test default) | ✅ |
+| Transport: Redis Streams (Phase 2 spike, explicit opt-in) | ✅ |
 | Transport: NATS JetStream (config alternative) | 🚧 |
 | Transport: Kafka backend (optional, integration-tested) | 🔮 |
 | Cross-cluster authentication (Istio-style + push TokenReview) | ✅ |
@@ -152,14 +153,16 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 
 | Item | Status |
 | --- | --- |
-| `KollectScope` reconciler-time enforcement | ⬜ |
+| `KollectScope` reconciler-time enforcement (Phase 1) | 🚧 |
+| `KollectScope` admission webhook | 🚧 |
 | `KollectClusterScope` (platform teams) | 🔮 |
 | `KollectClusterInventory` (platform rollup) | ⬜ |
+| `KollectClusterSink` / namespaced sink split | 🔮 |
 | GCS sink | ✅ |
 | S3 sink CI hardening | 🚧 |
 | `KollectReceiver` / `KollectTargetSet` (design only) | 🔮 |
 
-**Counts:** ✅ 2 · 🚧 1 · ⬜ 1 · 🔮 4 · ❓ 1
+**Counts:** ✅ 2 · 🚧 3 · ⬜ 1 · 🔮 4
 
 ---
 
@@ -233,17 +236,20 @@ Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). 
 
 ## Deferred
 
-| Item | Rationale |
+| Item | When |
 | --- | --- |
-| Kafka as **required** hub transport | Pluggable optional backend only; Redis spike first ([ADR-0023](adr/0023-lean-queue-transport.md)) |
+| `KollectClusterSink` + namespaced `KollectSink` split | Phase 3 — cluster-scoped sinks + `KollectScope.sinkRefs` until then ([ADR-0031](adr/0031-namespaced-profiles.md)) |
+| Kafka as **required** hub transport | Pluggable optional backend only; `inprocess` default ([ADR-0023](adr/0023-lean-queue-transport.md)) |
 | `KollectReceiver`, `KollectTargetSet` implementation | Reserved for future phases |
 | oauth2-proxy sidecar (OIDC browser auth) | Optional Helm sidecar (`oauth2Proxy.enabled: false`); K8s bearer auth is primary — [ADR-0024](adr/0024-inventory-api-auth.md) |
+| `KollectClusterSink` + namespaced sink split | Phase 3 — `KollectScope.sinkRefs` sufficient for Phase 1 ([ADR-0004](adr/0004-crd-model.md)) |
 
 ## Open questions
 
-- **Connection test CR** vs annotation-only trigger on Sink/Inventory
-- **Cluster vs namespaced sink** split timing (`KollectClusterSink`)
 - **Hub ingest SAR shape** — `create` on `kollectremoteclusters` vs custom URL ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md))
+- **SinkReachable** on Inventory/Target vs sink-only `ConnectionVerified` ([ADR-0030](adr/0030-connection-test.md))
+
+See [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) for locked vs still-open items.
 
 ## Breaking changes
 
@@ -255,6 +261,15 @@ aggregates `KollectTarget`s in the same namespace. Platform-wide rollup is reser
 
 Migration: replace cluster-scoped inventory manifests with namespaced equivalents; update RBAC to
 namespace scope where appropriate.
+
+### Namespaced `KollectProfile` (2026-06-05)
+
+`KollectProfile` is **namespaced**. Each `KollectTarget.spec.profileRef` resolves a profile in the
+**same namespace** as the Target. Platform-wide shared schemas are reserved for
+`KollectClusterProfile` (not yet implemented).
+
+Migration: re-apply profile manifests into each team namespace (or use GitOps templating). Remove
+cluster-scoped profile objects before upgrade.
 
 ## CI and end-to-end testing
 
@@ -268,13 +283,21 @@ namespace scope where appropriate.
 
 ## Architecture decisions (2026-06-05)
 
+Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
+
 | Decision | Status |
 | --- | --- |
 | Single-cluster MVP is the default install | Accepted |
 | Namespaced inventory is the hub input contract | Accepted |
-| Hub-and-spoke via **`KollectHub` CRD** (declarative Deployment + queue) | Accepted |
-| Transport: **`Transport` interface**; `inprocess` → **Redis** spike → NATS/Kafka via `spec.transport.type` | Accepted |
+| **`KollectProfile` namespaced**; `KollectClusterProfile` reserved | Accepted ([ADR-0031](adr/0031-namespaced-profiles.md)) |
+| **`KollectScope` Phase 1** — webhook + reconciler enforcement | Accepted ([ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
+| Hub-and-spoke via **`KollectHub` CRD last** (L1→L4 layering) | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
+| Same image **`mode: hub\|spoke`** before CRD packaging | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
+| Transport: **`inprocess` only default**; Redis/NATS/Kafka explicit opt-in | Accepted ([ADR-0023](adr/0023-lean-queue-transport.md)) |
 | Transport backend rule: no merge without integration/e2e proof | Accepted |
+| Connection test: no dedicated CR; prod `connectionTest: false` | Accepted ([ADR-0030](adr/0030-connection-test.md)) |
+| Helm release: `lastAttemptedRevision` + `history[0]` contract test | Accepted ([ADR-0027](adr/0027-helm-release-inventory.md)) |
+| Shared informer per GVK | Accepted ([ADR-0014](adr/0014-event-driven-informers.md)) |
 | Postgres + Kafka as first-class export sinks | Accepted ([ADR-0025](adr/0025-sink-backends-database-kafka.md)) |
 | Doc-sync / `KollectPublication` | Rejected ([ADR-0011](adr/0011-doc-sync-templating.md)) |
 | Inventory HTTP auth: **K8s TokenReview + SAR**; `--inventory-auth-mode=kubernetes` default | Accepted |
@@ -282,9 +305,13 @@ namespace scope where appropriate.
 | Git, object storage, and agent mesh documented as alternatives | Accepted |
 | Extreme scale: 100+ clusters, 10k+ objects/spoke, hub shard not O(n²) | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md), [ADR-0026](adr/0026-performance-scalability.md)) |
 | Hub cluster auth: **Istio remote-secret registration + push TokenReview** | Accepted ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md)) |
+| Namespaced `KollectProfile`; `profileRef` same namespace | Accepted ([ADR-0031](adr/0031-namespaced-profiles.md)) |
+| Connection test: no dedicated CR; `ConnectionVerified` on sink | Accepted ([ADR-0030](adr/0030-connection-test.md)) |
+| **`KollectClusterSink` deferred Phase 3** | Deferred |
 
 ## Further reading
 
+- [Platform decisions (2026-06-05)](PLATFORM-DECISIONS.md)
 - [Product requirements](REQUIREMENTS.md)
 - [Architecture](ARCHITECTURE.md)
 - [Helm chart README](../charts/kollect/README.md) — inventory HTTP auth

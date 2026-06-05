@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (user-aligned, 2026-06-05; scale revision 2026-06-05)
+Accepted (2026-06-05)
 
 ## Context
 
@@ -89,8 +89,8 @@ flowchart TB
   operator-managed **Deployment(s)** with **horizontally scalable** queue consumers.
 - **Sharding** — queue partitions or consumer groups keyed by `tenant` / `cluster` / hash bucket so
   hub work is **O(rows merged)**, not O(spokes × spokes).
-- Hub is a **first-class CRD**, not only standalone hub software — same operator image can run
-  `mode: spoke|hub` or split binaries later (open).
+- Hub is a **first-class CRD**, not only standalone hub software — **same operator image** runs
+  **`mode: spoke|hub`** (manager flag / Helm values); no second binary until proven necessary.
 
 ### C — Agent mesh (no Git hub)
 
@@ -137,6 +137,21 @@ Goal: **one logical inventory view** per product/tenant, not per cluster.
 | **Single portal view** | Hub merge + Postgres/Kafka/Git export; rendered docs via external CI ([ADR-0011](0011-doc-sync-templating.md)) |
 | **Metrics-only fan-in** | Prometheus labels include `cluster`; docs still need aggregated export |
 
+## MVP-first layering (no throwaway hub work)
+
+Single-cluster MVP ships **first** and must not be reworked for scale. Hub work layers on the same
+primitives:
+
+| Layer | Ships when | Reuse |
+| --- | --- | --- |
+| **L1 — Single cluster** | Phase 1 | Namespaced inventory, export contract, HTTP API, `Transport` interface with `inprocess` only |
+| **L2 — Hub library** | Phase 2 spike | Merge/dedupe + shard routing in `internal/hub/`; tested with `inprocess` and optional Redis spike |
+| **L3 — Helm hub mode** | Phase 2 | Manager flag / chart values `mode: hub` + `mode: spoke` on **same image** — no second binary until proven necessary |
+| **L4 — `KollectHub` CRD** | After L2–L3 proof | CRD spawns Deployment + wires `spec.transport` — wraps L2 code; does not replace merge logic |
+
+**Rule:** do not build hub-only merge or transport code that single-cluster export cannot exercise.
+`KollectHub` CRD is **declarative packaging** of proven hub mode, not the first hub implementation.
+
 ## Recommended phasing (non-blocking)
 
 | Phase | Path | Multi-cluster impact |
@@ -149,13 +164,14 @@ Goal: **one logical inventory view** per product/tenant, not per cluster.
 
 Single-cluster users never enable hub/spoke CRs or flags.
 
-## Decision (proposed, user-aligned)
+## Decision
 
-1. **Do not block Phase 0/1** on multi-cluster CRDs — use labels/annotations; hub CRD in Phase 2.
+1. **Do not block Phase 0/1** on multi-cluster CRDs — use labels/annotations; **`KollectHub` CRD last** (L4) after L2–L3 proof.
 2. **Design namespaced `KollectInventory` aggregation** as if 100+ clusters feed a sharded hub export.
 3. **Prefer hub-and-spoke with `KollectHub` CRD** for platform teams at 100+ cluster scale; keep agent mesh and Git-as-transport as documented alternatives.
-4. **Lean queue first**, Kafka optional — see [ADR-0023](0023-lean-queue-transport.md).
+4. **Lean queue pluggable**, **`inprocess` default only** — Redis/NATS/Kafka explicit opt-in ([ADR-0023](0023-lean-queue-transport.md)).
 5. **Spokes must stay lightweight** — delta snapshots, bounded RAM, no hub-side O(n²) coupling.
+6. **One image, `mode: hub|spoke`** — merge library (L2) and Helm mode (L3) before CRD packaging (L4); no throwaway hub-only code paths.
 
 ## Consequences
 
@@ -174,8 +190,9 @@ Single-cluster users never enable hub/spoke CRs or flags.
 
 ## Open questions
 
-- **OPEN:** Spoke agent vs full operator per cluster — binary split or one image with `mode: spoke|hub`?
+- **RESOLVED (2026-06-05):** One operator image with **`mode: spoke|hub`** — no binary split until load proof says otherwise.
 - **RESOLVED (ADR-0028):** Push-first **TokenReview + `X-Kollect-Cluster-Id`**; optional Istio-style remote credential `Secret` for hub pull.
+- **OPEN (ADR-0028):** Spoke cross-cluster identity details (mTLS, OIDC, bootstrap tokens) — see [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md).
 - **OPEN:** Maximum spoke payload size before hub spills to object store ([ADR-0006](0006-etcd-limit.md))?
 - **OPEN:** Hub shard count formula — fixed partitions vs dynamic by spoke registration?
 - **OPEN:** Is Git monorepo with `clusters/*` paths sufficient for Phase 2, or object store required at 100+ spokes?

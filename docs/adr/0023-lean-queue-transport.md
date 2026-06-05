@@ -23,7 +23,7 @@ Requirements:
 | Transport | Ops footprint | Ordering / retention | testcontainers-go | Fit |
 | --- | --- | --- | --- | --- |
 | **In-process channel** | None (single process) | In-memory only; lost on restart | N/A (no container) | **Dev/test default** — unit, envtest, local kind |
-| **Redis Streams** | Often already present; single Deployment | `XREADGROUP`, trimming, persistence | `modules/redis` — mature, fast CI spin-up | **Phase 2 spike default** — easiest local external queue |
+| **Redis Streams** | Often already present; single Deployment | `XREADGROUP`, trimming, persistence | `modules/redis` — mature, fast CI spin-up | **Phase 2 spike candidate only** — not production default |
 | **NATS JetStream** | Small binary; single server or K8s Deployment | Streams, consumer groups, replay | `modules/nats` — available | **Second lean driver** — same interface, config-selected |
 | **Kafka** | Cluster + KRaft, topic ops | Durable log, enterprise tooling | Heavier (KRaft or Redpanda module) | **Optional enterprise backend** — only when team needs it |
 
@@ -58,18 +58,21 @@ Requirements:
 
    | `spec.transport.type` | When |
    | --- | --- |
-   | `inprocess` | Default for single-process dev, envtest, and early hub merge tests |
-   | `redis` | **First external lean backend** — Phase 2 spike and local/CI default |
-   | `nats` | Alternative lean backend — same interface, config switch |
+   | `inprocess` | **Default everywhere** until an external backend passes integration/e2e proof |
+   | `redis` | Phase 2 **spike** backend — testcontainers validation; explicit opt-in only |
+   | `nats` | Alternative lean backend — same interface, explicit opt-in |
    | `kafka` | Optional enterprise backend — never required for install or CI |
+
+   **No transport type is a silent production default except `inprocess`.** Helm chart and
+   `KollectHub` samples must not pre-select Redis/NATS/Kafka.
 
    Connection details (URL, credentials, stream/topic names) live under `spec.transport.config` or
    equivalent secret refs — exact CRD shape is an implementation detail.
 
 3. **Phase order:**
    - **Phase 1 / dev:** `inprocess` — validate merge + export without external infra.
-   - **Phase 2 spike:** **Redis Streams** — chosen for testcontainers ease (`modules/redis`) and
-     simple local spin-up; prove hub fan-in in integration tests.
+   - **Phase 2 spike:** **Redis Streams** — prove hub fan-in via testcontainers; **not** promoted
+     to production default until load test at target spoke count; operators choose backend explicitly.
    - **Phase 2+:** NATS JetStream driver behind the same factory (config, not compile-time).
    - **Enterprise optional:** Kafka driver — ship only when integration-tested; never a hard dependency.
 
@@ -152,8 +155,8 @@ flowchart LR
 
 ### Negative
 
-- Multiple lean backends (Redis + NATS) may both need maintenance if both ship — Redis is default
-  external; NATS follows the same interface.
+- Multiple lean backends (Redis + NATS) may both need maintenance if both ship — none are implicit
+  defaults; `inprocess` remains fallback until ops selects an external type.
 - Message schema versioning requires discipline — `apiVersion` field is mandatory in payloads.
 
 ## Open questions

@@ -39,7 +39,7 @@ patterns — thin reconcilers, workqueues, conditions, and leader election.
   kollect-specific logic — intentional, not a reason to avoid the framework.
 - v1alpha1 API may need breaking changes before beta; document migration in release notes.
 
-## Open questions
+## Resolved questions (2026-06-05)
 
-- **OPEN:** Ship Helm chart from day one (external-secrets model) or defer until Phase 1 sink works?
-- **OPEN:** Enable webhooks in Phase 0 scaffold or add validating webhook only when CEL on CRDs is insufficient?
+- **Helm chart ships day 1** — `charts/kollect/`, CI `helm template` / unittest path ([REQUIREMENTS.md](../REQUIREMENTS.md)).
+- **Validating webhooks early** — Profile CEL/JSONPath and Sink type enum at admission ([ADR-0004](0004-crd-model.md), [ADR-0015](0015-static-vs-reconciled.md)); not deferred to reconcile-time workarounds.

@@ -43,6 +43,26 @@ Rationale (single responsibility):
 - No one-click Confluence update from a CR; teams must wire CI to exported artifacts.
 - `kpub` short name and any Publication samples remain **documentation-only rejected** references.
 
+## Scope creep guardrails (binding)
+
+Any feature that smells like doc-sync must be **rejected** unless it is plain inventory export:
+
+| In scope (kollect) | Out of scope (external CI / portal) |
+| --- | --- |
+| Deterministic JSON/YAML/row export to Git, S3, GCS, Postgres, Kafka | Go templates, Confluence REST, wiki merge, CMS credentials |
+| Read-only HTTP `GET /inventory` | Rich portal UI, auth beyond [ADR-0024](0024-inventory-api-auth.md) |
+| `checksum`, `generation`, `itemCount` in export metadata | Rendered HTML/Markdown publication pipelines |
+| Stable sort keys for `git diff` | Idempotent page upsert, attachment handling |
+
+**Review gate:** before adding a reconciler or sink field, ask: *does this render or publish content
+to a human CMS?* If yes → **reject** and document the external pipeline pattern instead.
+
+**Platform review (2026-06-05):** guardrails **reaffirmed** — no scope creep into templating,
+Confluence, or rendered publication inside the operator. See [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md).
+
+Rejected kind names and short names (`KollectPublication`, `kpub`) must not reappear in codegen,
+samples, or public docs except as historical rejection notes.
+
 ## See also
 
 - [ADR-0004: CRD model](0004-crd-model.md) — `KollectPublication` listed under rejected kinds

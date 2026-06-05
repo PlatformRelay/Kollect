@@ -17,7 +17,7 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0016](0016-namespaced-multi-tenancy.md) | Namespaced multi-tenancy and operator watch scope (Accepted) |
 | [0020](0020-error-taxonomy.md) | Error taxonomy and reconcile behavior |
 | [0021](0021-mkdocs-github-pages.md) | MkDocs Material for documentation site |
-| [0022](0022-multi-cluster-sync-rfc.md) | Multi-cluster sync topology (RFC, Proposed) |
+| [0022](0022-multi-cluster-sync-rfc.md) | Multi-cluster sync topology (Accepted) |
 | [0023](0023-lean-queue-transport.md) | Lean queue transport for hub fan-in (Accepted) |
 | [0024](0024-inventory-api-auth.md) | Inventory HTTP API authentication (Accepted) |
 | [0025](0025-sink-backends-database-kafka.md) | Postgres and Kafka export sinks (Accepted) |
@@ -25,6 +25,8 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0027](0027-helm-release-inventory.md) | Helm release inventory sample (Accepted) |
 | [0028](0028-hub-cluster-auth-istio-pattern.md) | Hub cluster authentication — Istio remote-secret pattern (Accepted) |
 | [0029](0029-watch-labels.md) | Watch opt-in/opt-out labels (Accepted) |
+| [0030](0030-connection-test.md) | Connection test — no dedicated CR (Accepted) |
+| [0031](0031-namespaced-profiles.md) | Namespaced KollectProfile (Accepted) |
 
-See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md), and
-[PERFORMANCE.md](../PERFORMANCE.md).
+See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md),
+[PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md), and [PERFORMANCE.md](../PERFORMANCE.md).
