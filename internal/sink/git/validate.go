@@ -146,9 +146,74 @@ func validateCloneURL(cloneURL string) error {
 	}
 
 	switch u.Scheme {
-	case schemeFile, schemeHTTP, schemeHTTPS, schemeSSH:
+	case schemeFile:
+		if _, err = parseFileGitBarePath(cloneURL); err != nil {
+			return err
+		}
+	case schemeHTTP, schemeHTTPS, schemeSSH:
 		return nil
 	default:
 		return fmt.Errorf("unsupported clone URL scheme %q", u.Scheme)
 	}
+
+	return nil
+}
+
+// parseFileGitBarePath resolves a validated file:// clone URL to an absolute path.
+func parseFileGitBarePath(cloneURL string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(cloneURL))
+	if err != nil {
+		return "", fmt.Errorf("invalid clone URL: %w", err)
+	}
+
+	if u.Scheme != schemeFile {
+		return "", fmt.Errorf("not a file:// URL")
+	}
+
+	p := u.Path
+	if p == "" {
+		return "", fmt.Errorf("empty file path")
+	}
+
+	if strings.Contains(p, "\x00") || strings.ContainsAny(p, "\n\r") {
+		return "", fmt.Errorf("file path contains invalid characters")
+	}
+
+	if strings.HasPrefix(p, "-") {
+		return "", fmt.Errorf("file path must not start with '-'")
+	}
+
+	clean := filepath.Clean(filepath.FromSlash(p))
+	if strings.HasPrefix(clean, "-") {
+		return "", fmt.Errorf("file path must not start with '-'")
+	}
+
+	abs, err := filepath.Abs(clean)
+	if err != nil {
+		return "", fmt.Errorf("resolve file path: %w", err)
+	}
+
+	return abs, nil
+}
+
+func canonicalCloneURL(cloneURL string) (string, error) {
+	if err := validateCloneURL(cloneURL); err != nil {
+		return "", err
+	}
+
+	u, err := url.Parse(strings.TrimSpace(cloneURL))
+	if err != nil {
+		return "", fmt.Errorf("invalid clone URL: %w", err)
+	}
+
+	if u.Scheme != schemeFile {
+		return strings.TrimSpace(cloneURL), nil
+	}
+
+	abs, err := parseFileGitBarePath(cloneURL)
+	if err != nil {
+		return "", err
+	}
+
+	return (&url.URL{Scheme: schemeFile, Path: abs}).String(), nil
 }

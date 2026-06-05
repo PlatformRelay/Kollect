@@ -92,21 +92,29 @@ func exportFileRemote(
 
 func ensureBareHEAD(ctx context.Context, cloneURL, branch string) error {
 	u, err := url.Parse(cloneURL)
-	if err != nil || u.Scheme != "file" {
+	if err != nil || u.Scheme != schemeFile {
 		return nil
 	}
 
-	bareDir := u.Path
+	if err = ValidateGitRef(branch); err != nil {
+		return fmt.Errorf("git export: invalid branch: %w", err)
+	}
+
+	bareDir, err := parseFileGitBarePath(cloneURL)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
 	ref := "refs/heads/" + branch
 
-	//nolint:gosec // G204: bareDir from validated file:// URL
-	head := exec.CommandContext(ctx, "git", "--git-dir="+bareDir, "symbolic-ref", "-q", "HEAD")
+	//nolint:gosec // G204: bareDir from parseFileGitBarePath; branch from ValidateGitRef
+	head := exec.CommandContext(ctx, "git", "--git-dir", bareDir, "symbolic-ref", "-q", "HEAD")
 	if head.Run() == nil {
 		return nil
 	}
 
-	//nolint:gosec // G204: bareDir from validated file:// URL
-	setHead := exec.CommandContext(ctx, "git", "--git-dir="+bareDir, "symbolic-ref", "HEAD", ref)
+	//nolint:gosec // G204: bareDir from parseFileGitBarePath; ref from validated branch
+	setHead := exec.CommandContext(ctx, "git", "--git-dir", bareDir, "symbolic-ref", "HEAD", ref)
 	if out, err := setHead.CombinedOutput(); err != nil {
 		return fmt.Errorf("git symbolic-ref HEAD %s: %s: %w", ref, strings.TrimSpace(string(out)), err)
 	}
@@ -115,12 +123,21 @@ func ensureBareHEAD(ctx context.Context, cloneURL, branch string) error {
 }
 
 func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string, depth int) error {
+	if err := ValidateGitRef(branch); err != nil {
+		return fmt.Errorf("git export: invalid branch: %w", err)
+	}
+
+	safeURL, err := canonicalCloneURL(cloneURL)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
 	cloneArgs := []string{"clone", "--branch", branch, "--single-branch"}
 	if depth > 0 {
 		cloneArgs = append(cloneArgs, "--depth", strconv.Itoa(depth))
 	}
 
-	cloneArgs = append(cloneArgs, cloneURL, dir)
+	cloneArgs = append(cloneArgs, safeURL, dir)
 
 	//nolint:gosec // G204: dir from MkdirTemp; branch/URL validated before invocation
 	clone := exec.CommandContext(ctx, "git", cloneArgs...)
@@ -146,7 +163,7 @@ func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string, depth int
 		return err
 	}
 
-	return runGit(ctx, dir, "remote", "add", "origin", cloneURL)
+	return runGit(ctx, dir, "remote", "add", "origin", safeURL)
 }
 
 func gitStatusClean(ctx context.Context, dir string) (bool, error) {

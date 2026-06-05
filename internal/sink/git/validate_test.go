@@ -125,6 +125,106 @@ func TestValidateCloneURL_rejectsFlagLikeURL(t *testing.T) {
 	}
 }
 
+func TestValidateCloneURL_rejectsMaliciousFileURL(t *testing.T) {
+	t.Parallel()
+
+	cases := []string{
+		"file://--upload-pack=evil",
+		"file:///tmp/repo.git\x00.evil",
+	}
+
+	for _, tc := range cases {
+		t.Run(tc, func(t *testing.T) {
+			t.Parallel()
+
+			if err := validateCloneURL(tc); err == nil {
+				t.Fatalf("validateCloneURL(%q) = nil, want error", tc)
+			}
+		})
+	}
+}
+
+func TestParseFileGitBarePath_resolvesAndRejects(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	bare := filepath.Join(dir, "repo.git")
+	if err := os.MkdirAll(bare, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := parseFileGitBarePath("file://" + bare)
+	if err != nil {
+		t.Fatalf("parseFileGitBarePath() error = %v", err)
+	}
+
+	want, err := filepath.Abs(bare)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got != want {
+		t.Fatalf("parseFileGitBarePath() = %q, want %q", got, want)
+	}
+
+	if _, err := parseFileGitBarePath("file://--upload-pack=evil"); err == nil {
+		t.Fatal("expected rejection of flag-like file path")
+	}
+}
+
+func TestCanonicalCloneURL_normalizesFileURL(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	bare := filepath.Join(dir, "nested", "repo.git")
+	if err := os.MkdirAll(bare, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := canonicalCloneURL("file://" + filepath.Join(dir, "nested", "..", "nested", "repo.git"))
+	if err != nil {
+		t.Fatalf("canonicalCloneURL() error = %v", err)
+	}
+
+	want, err := canonicalCloneURL("file://" + bare)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got != want {
+		t.Fatalf("canonicalCloneURL() = %q, want %q", got, want)
+	}
+}
+
+func TestEnsureBareHEAD_rejectsMaliciousBranch(t *testing.T) {
+	t.Parallel()
+
+	err := ensureBareHEAD(t.Context(), "file:///tmp/repo.git", "; rm -rf /")
+	if err == nil {
+		t.Fatal("expected error for malicious branch")
+	}
+}
+
+func TestCloneOrInitCLI_rejectsMaliciousBranch(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	err := cloneOrInitCLI(t.Context(), dir, "file:///tmp/repo.git", "--upload-pack=evil", 1)
+	if err == nil {
+		t.Fatal("expected error for malicious branch")
+	}
+}
+
+func TestCloneOrInitCLI_rejectsMaliciousCloneURL(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	err := cloneOrInitCLI(t.Context(), dir, "file://--upload-pack=evil", "main", 1)
+	if err == nil {
+		t.Fatal("expected error for malicious clone URL")
+	}
+}
+
 func TestExportWithBranch_rejectsMaliciousObjectPath(t *testing.T) {
 	t.Parallel()
 
