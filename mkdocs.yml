@@ -28,6 +28,15 @@ nav:
   - Performance: PERFORMANCE.md
   - Architecture: ARCHITECTURE.md
   - Data flows: DATA-FLOWS.md
+  - CR reference:
+      - Overview: CR-REFERENCE.md
+      - KollectProfile: crds/kollectprofile.md
+      - KollectSink: crds/kollectsink.md
+      - KollectTarget: crds/kollecttarget.md
+      - KollectInventory: crds/kollectinventory.md
+      - KollectScope: crds/kollectscope.md
+      - KollectConnectionTest: crds/kollectconnectiontest.md
+      - KollectClusterTarget: crds/kollectclustertarget.md
   - Roadmap: ROADMAP.md
   - Platform decisions: PLATFORM-DECISIONS.md
   - Requirements: REQUIREMENTS.md
