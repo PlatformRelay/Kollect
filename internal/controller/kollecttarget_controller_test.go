@@ -21,25 +21,33 @@ import (
 var _ = Describe("KollectTarget Controller", func() {
 	Context("When reconciling a resource", func() {
 		const (
-			resourceName = "test-resource"
-			profileName  = "test-profile"
+			resourceName  = "target-test-resource"
+			profileName   = "target-test-profile"
+			testNamespace = "target-envtest"
 		)
 
 		var (
 			reconcileCtx       context.Context
 			typeNamespacedName types.NamespacedName
-			kollecttarget      *kollectdevv1alpha1.KollectTarget
 		)
 
 		BeforeEach(func() {
 			reconcileCtx = context.Background()
 			typeNamespacedName = types.NamespacedName{
 				Name:      resourceName,
-				Namespace: "default",
+				Namespace: testNamespace,
+			}
+
+			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}}
+			err := k8sClient.Get(reconcileCtx, types.NamespacedName{Name: testNamespace}, ns)
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(reconcileCtx, ns)).To(Succeed())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
 			}
 
 			profile := &kollectdevv1alpha1.KollectProfile{
-				ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: testNamespace},
 				Spec: kollectdevv1alpha1.KollectProfileSpec{
 					TargetGVK: kollectdevv1alpha1.GroupVersionKind{
 						Version: "v1",
@@ -47,31 +55,23 @@ var _ = Describe("KollectTarget Controller", func() {
 					},
 				},
 			}
-			err := k8sClient.Get(reconcileCtx, types.NamespacedName{Name: profileName, Namespace: "default"}, profile)
-			if err != nil && errors.IsNotFound(err) {
-				Expect(k8sClient.Create(reconcileCtx, profile)).To(Succeed())
-			} else {
-				Expect(err).NotTo(HaveOccurred())
-			}
+			_ = k8sClient.Delete(reconcileCtx, &kollectdevv1alpha1.KollectTarget{
+				ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: testNamespace},
+			})
+			_ = k8sClient.Delete(reconcileCtx, profile)
 
-			kollecttarget = &kollectdevv1alpha1.KollectTarget{}
-			err = k8sClient.Get(reconcileCtx, typeNamespacedName, kollecttarget)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &kollectdevv1alpha1.KollectTarget{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					Spec: kollectdevv1alpha1.KollectTargetSpec{
-						ProfileRef: profileName,
-					},
-				}
-				Expect(k8sClient.Create(reconcileCtx, resource)).To(Succeed())
-			} else {
-				Expect(err).NotTo(HaveOccurred())
-				kollecttarget.Spec.ProfileRef = profileName
-				Expect(k8sClient.Update(reconcileCtx, kollecttarget)).To(Succeed())
+			Expect(k8sClient.Create(reconcileCtx, profile)).To(Succeed())
+
+			resource := &kollectdevv1alpha1.KollectTarget{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: testNamespace,
+				},
+				Spec: kollectdevv1alpha1.KollectTargetSpec{
+					ProfileRef: profileName,
+				},
 			}
+			Expect(k8sClient.Create(reconcileCtx, resource)).To(Succeed())
 		})
 
 		AfterEach(func() {
@@ -82,7 +82,7 @@ var _ = Describe("KollectTarget Controller", func() {
 			}
 
 			profile := &kollectdevv1alpha1.KollectProfile{}
-			err = k8sClient.Get(reconcileCtx, types.NamespacedName{Name: profileName, Namespace: "default"}, profile)
+			err = k8sClient.Get(reconcileCtx, types.NamespacedName{Name: profileName, Namespace: testNamespace}, profile)
 			if err == nil {
 				Expect(k8sClient.Delete(reconcileCtx, profile)).To(Succeed())
 			}
@@ -111,7 +111,7 @@ var _ = Describe("KollectTarget Controller", func() {
 
 		It("should not resolve a profile from a different namespace", func() {
 			Expect(k8sClient.Delete(reconcileCtx, &kollectdevv1alpha1.KollectProfile{
-				ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: testNamespace},
 			})).To(Succeed())
 
 			otherNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other"}}
