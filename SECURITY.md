@@ -42,9 +42,9 @@ handling, supply-chain checks in CI).
 
 Release builds ([`.github/workflows/release.yaml`](.github/workflows/release.yaml)) produce:
 
-- **OCI image** — `ghcr.io/konih/kollect` with SBOM and SLSA provenance attestations
+- **OCI image** — `ghcr.io/konih/kollect` and `ghcr.io/konih/kollect-ui` with SBOM and SLSA provenance attestations
 - **cosign** keyless signatures (verify with release notes instructions)
-- **SPDX SBOM** — `sbom.spdx.json` attached to GitHub Releases
+- **SPDX SBOM** — `sbom.spdx.json` and `sbom-ui.spdx.json` attached to GitHub Releases
 - **Checksums** — `sha256sum` manifest for install YAML and chart tarball
 
 Prefer tagged release artifacts over `:latest` in production. Report supply-chain concerns

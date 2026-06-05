@@ -42,7 +42,7 @@ Reuses the collect engine CEL environment with `object` bound to the resource.
 
 ### Evaluation order
 
-![Stacked filter layers showing how Kubernetes resources pass through operator watch scope, Scope denials, Target include and exclude rules, resource rules, CEL match policy, and watch labels before becoming inventory rows.](assets/illustrations/collection-filter-layers-dark.webp){ .kollect-illus .kollect-illus--portrait width="360" }
+![Stacked filter layers showing how Kubernetes resources pass through operator watch scope, Scope denials, Target include and exclude rules, resource rules, CEL match policy, and watch labels before becoming inventory rows.](../assets/illustrations/collection-filter-layers-dark.webp){ .kollect-illus .kollect-illus--portrait width="360" }
 
 1. Helm `watchNamespaces` / operator cache boundary
 2. Scope `deniedNamespaces` (non-overridable)

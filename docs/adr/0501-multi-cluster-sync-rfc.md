@@ -42,7 +42,7 @@ views use reserved **`KollectClusterInventory`** (cluster-scoped, not implemente
 - Git commit per spoke per reconcile cycle
 - Pairwise agent mesh at large fleet scale
 
-![Three spoke clusters each export labeled inventory into a shared Postgres and Git backend, with an optional de-emphasized hub path shown dashed.](assets/illustrations/fleet-shared-sink-topology-dark.webp){ .kollect-illus .kollect-illus--wide width="800" }
+![Three spoke clusters each export labeled inventory into a shared Postgres and Git backend, with an optional de-emphasized hub path shown dashed.](../assets/illustrations/fleet-shared-sink-topology-dark.webp){ .kollect-illus .kollect-illus--wide width="800" }
 
 ## Topology options
 

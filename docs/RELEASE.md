@@ -174,13 +174,15 @@ ls -la dist/
 
 | Output | Location |
 | --- | --- |
-| Container image | `ghcr.io/konih/kollect:0.1.0` (and `:v0.1.0`), `linux/amd64` + `arm64` |
-| OCI SBOM + SLSA provenance | GHCR attestations on the image |
+| Container image (operator) | `ghcr.io/konih/kollect:0.1.0` (and `:v0.1.0`), `linux/amd64` + `arm64` |
+| Container image (kollect-ui) | `ghcr.io/konih/kollect-ui:0.1.0` (and `:v0.1.0`), `linux/amd64` + `arm64` |
+| OCI SBOM + SLSA provenance | GHCR attestations on both images |
 | GitHub Release | git-cliff section + install footer; assets below |
 | `install-crds.yaml` | CRD bundle |
 | `install.yaml` | Full operator install (image pinned to tag) |
 | `kollect-0.1.0.tgz` | Helm chart tarball |
-| `sbom.spdx.json` | SPDX SBOM (Syft) |
+| `sbom.spdx.json` | SPDX SBOM for operator image (Syft) |
+| `sbom-ui.spdx.json` | SPDX SBOM for kollect-ui image (Syft) |
 | `checksums.txt` | SHA256 of release files |
 | Helm chart (OCI) | `oci://ghcr.io/konih/kollect` |
 
@@ -194,6 +196,11 @@ cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp '^https://github.com/konih/kollect/.+' \
   ghcr.io/konih/kollect@<digest>
+
+cosign verify \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/konih/kollect/.+' \
+  ghcr.io/konih/kollect-ui@<digest>
 ```
 
 Confirm `CHANGELOG.md` on `main` has an empty **Unreleased** section (run `task changelog:write`

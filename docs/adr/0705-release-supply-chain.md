@@ -23,8 +23,10 @@ operator how-to; this ADR is the rationale.
 
 ### Image build
 
-- **Multi-arch** `linux/amd64,linux/arm64` via buildx; pushed to **GHCR** (`ghcr.io/<owner>/kollect`).
-- **Distroless, non-root** runtime base ([ADR-0101](0101-kubebuilder-v4.md)).
+- **Multi-arch** `linux/amd64,linux/arm64` via buildx; pushed to **GHCR**:
+  - Operator: `ghcr.io/<owner>/kollect`
+  - UI SPA: `ghcr.io/<owner>/kollect-ui` ([ADR-0409](0409-kollect-ui-deployment.md))
+- **Distroless, non-root** runtime base for the operator ([ADR-0101](0101-kubebuilder-v4.md)); UI uses nginx alpine static server.
 
 ### Supply-chain attestations (binding)
 
@@ -32,7 +34,7 @@ operator how-to; this ADR is the rationale.
    asset (`dist/sbom.spdx.json`).
 2. **Provenance** — buildx `provenance: mode=max` (SLSA-style).
 3. **Signing** — **cosign keyless** (Sigstore OIDC, `id-token: write`) signs the image **by digest**.
-4. **Vulnerability gate** — **Trivy** scans the built image and **fails the release** on fixable
+4. **Vulnerability gate** — **Trivy** scans both release images and **fails the release** on fixable
    `CRITICAL`/`HIGH` (`ignore-unfixed: true`).
 
 ### Action hardening
@@ -44,7 +46,7 @@ operator how-to; this ADR is the rationale.
 
 Each GitHub Release publishes: `install-crds.yaml` and `install.yaml` (kubectl install paths —
 [ADR-0704](0704-helm-chart-crd-lifecycle.md)), the Helm chart `.tgz` **also pushed as OCI** to GHCR,
-`sbom.spdx.json`, and `checksums.txt`.
+`sbom.spdx.json`, `sbom-ui.spdx.json`, and `checksums.txt`.
 
 ## Consequences
 
