@@ -24,23 +24,22 @@ History before the first GitHub release is split with lightweight tags (changelo
 | `v0.0.1` | `13546aff` | Kubebuilder scaffold |
 | `v0.0.2` | `1e6f6719` | Core `v1alpha1` CRDs |
 | `v0.0.3` | `66421337` | Helm chart, extraction, inventory HTTP |
-| `v0.1.0` | `4234960b` | ADR-0032 platform pivot MVP |
+| `v0.0.4` | `4234960b` | ADR-0032 platform pivot MVP |
 
 Commits after `4234960b` (hub/cluster APIs, transport, multi-tenant) appear under **Unreleased**
-until you tag. For the **first public release**, tag **`v0.1.0` at current `main` HEAD** so the
-release includes hub/cluster work; keep the anchor tag `v0.1.0` on `4234960b` only if you need
-strict history — otherwise use `v0.2.0` at HEAD for hub/cluster and `v0.1.0` at `4234960b`.
+until you tag **`v0.1.0` at current `main` HEAD** for the first public release.
 
-Push anchor tags once (if not already on the remote):
+Push changelog anchor tags once (if not already on the remote):
 
 ```sh
 git tag v0.0.1 13546aff
 git tag v0.0.2 1e6f6719
 git tag v0.0.3 66421337
-git tag v0.1.0 4234960b   # changelog anchor; see note above before publishing
-git push origin v0.0.1 v0.0.2 v0.0.3
-# Push v0.1.0 anchor only when documenting history; use a fresh v0.1.0 at HEAD for publish
+git tag v0.0.4 4234960b
+git push origin v0.0.1 v0.0.2 v0.0.3 v0.0.4
 ```
+
+Do **not** push `v0.1.0` until you intend to publish — that tag triggers the release workflow.
 
 ## Pre-release checklist
 
@@ -100,10 +99,9 @@ git commit -m ":bookmark: chore(release): prepare v0.1.0"
 On green `main` at the commit you intend to ship:
 
 ```sh
-# Optional: move or skip the anchor v0.1.0 on 4234960b if tagging HEAD instead
 git tag v0.1.0
 git push origin main
-git push origin v0.1.0
+git push origin v0.1.0   # triggers release workflow — only after CI green on this SHA
 ```
 
 CI publishes the GitHub Release, GHCR image, OCI Helm chart, and attached assets.

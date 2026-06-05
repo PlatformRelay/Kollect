@@ -9,19 +9,19 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ## Version mapping (retroactive anchors)
 
-Retroactive git tags `v0.0.1`–`v0.0.3` and `v0.1.0` segment history before the first
-published GitHub release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
+Retroactive git tags `v0.0.1`–`v0.0.4` segment history before the first published GitHub
+release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 
 | Tag | Anchor commit | Milestone |
 | --- | --- | --- |
 | `v0.0.1` | `13546aff` | Kubebuilder scaffold, MIT license |
 | `v0.0.2` | `1e6f6719` | Core `v1alpha1` CRDs (Profile, Sink, Target, Inventory) |
 | `v0.0.3` | `66421337` | Helm chart, CEL/JSONPath extraction, inventory HTTP |
-| `v0.1.0` | `4234960b` | ADR-0032 platform pivot MVP (namespaced API, export pipeline) |
-| *(next)* | `main` HEAD | Hub/cluster APIs, transport, multi-tenant — tag `v0.2.0` or fold into `v0.1.0` at HEAD |
+| `v0.0.4` | `4234960b` | ADR-0032 platform pivot MVP (namespaced API, export pipeline) |
+| `v0.1.0` | `main` HEAD | First published release (includes hub/cluster APIs since MVP) |
 
-The first **published** release is **`v0.1.0` at current `main` HEAD** unless you intentionally
-ship only the MVP anchor; prefer HEAD when hub/cluster CRDs are part of the release.
+Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
+anchor on an older commit.
 
 ## [Unreleased]
 
@@ -38,6 +38,8 @@ ship only the MVP anchor; prefer HEAD when hub/cluster CRDs are part of the rele
 
 ### Features
 
+- **sink/gitlab:** Scaffold GitLab export backend [553117c](https://github.com/konih/kollect/commit/553117cc30b5fdaaf8bcdf42406287ac403d9d81)
+
 - **hub:** Parallel Postgres+Kafka export on ingest [68c832a](https://github.com/konih/kollect/commit/68c832a4333cacc02dff396a421df710669c6d52)
 
 - **api:** Add KollectClusterProfile CR [c901190](https://github.com/konih/kollect/commit/c9011907df03ae50c01e78e2a0c8f7ec0849091a)
@@ -48,7 +50,7 @@ ship only the MVP anchor; prefer HEAD when hub/cluster CRDs are part of the rele
 
 - **api:** Add KollectClusterTarget CR and webhook [4ed55f2](https://github.com/konih/kollect/commit/4ed55f2d31778465ec844ea60f61b3915a01eea3)
 
-## [0.1.0](https://github.com/konih/kollect/compare/v0.0.3..v0.1.0) - 2026-06-05
+## [0.0.4](https://github.com/konih/kollect/compare/v0.0.3..v0.0.4) - 2026-06-05
 
 ### Bug Fixes
 

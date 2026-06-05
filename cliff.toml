@@ -18,19 +18,19 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ## Version mapping (retroactive anchors)
 
-Retroactive git tags `v0.0.1`–`v0.0.3` and `v0.1.0` segment history before the first
-published GitHub release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
+Retroactive git tags `v0.0.1`–`v0.0.4` segment history before the first published GitHub
+release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 
 | Tag | Anchor commit | Milestone |
 | --- | --- | --- |
 | `v0.0.1` | `13546aff` | Kubebuilder scaffold, MIT license |
 | `v0.0.2` | `1e6f6719` | Core `v1alpha1` CRDs (Profile, Sink, Target, Inventory) |
 | `v0.0.3` | `66421337` | Helm chart, CEL/JSONPath extraction, inventory HTTP |
-| `v0.1.0` | `4234960b` | ADR-0032 platform pivot MVP (namespaced API, export pipeline) |
-| *(next)* | `main` HEAD | Hub/cluster APIs, transport, multi-tenant — tag `v0.2.0` or fold into `v0.1.0` at HEAD |
+| `v0.0.4` | `4234960b` | ADR-0032 platform pivot MVP (namespaced API, export pipeline) |
+| `v0.1.0` | `main` HEAD | First published release (includes hub/cluster APIs since MVP) |
 
-The first **published** release is **`v0.1.0` at current `main` HEAD** unless you intentionally
-ship only the MVP anchor; prefer HEAD when hub/cluster CRDs are part of the release.
+Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
+anchor on an older commit.
 
 """
 body = """
