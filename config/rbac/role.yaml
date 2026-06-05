@@ -113,3 +113,11 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  verbs:
+  - get
+  - list
+  - watch

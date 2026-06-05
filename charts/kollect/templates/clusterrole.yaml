@@ -58,4 +58,7 @@ rules:
   - apiGroups: [kollect.dev]
     resources: [kollectclusterprofiles, kollectprofiles, kollectscopes]
     verbs: [get, list, watch]
+  - apiGroups: [cert-manager.io]
+    resources: [certificates]
+    verbs: [get, list, watch]
 {{- end }}
