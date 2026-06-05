@@ -29,3 +29,7 @@ jobs:
         run: task verify
         env:
           CI: "true"
+      - name: Verify CHANGELOG.md is up to date
+        run: task changelog:verify
+        env:
+          CI: "true"

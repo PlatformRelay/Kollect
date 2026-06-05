@@ -15,52 +15,48 @@ Kubernetes cluster (typically [kind](https://kind.sigs.k8s.io/)).
 | [Kubebuilder](https://book.kubebuilder.io/quick-start.html#installation) | v4.x CLI (scaffolded with **4.14** — see `PROJECT`) |
 | [pre-commit](https://pre-commit.com/#install) | Optional but recommended (`pre-commit install`) |
 
-Optional: [git-cliff](https://git-cliff.org/) for changelog previews (`task changelog`).
+Optional: `task tools:git-cliff` installs a pinned [git-cliff](https://git-cliff.org/) binary into
+`bin/` (also used by `task changelog*`).
 
 ### Releases (maintainers)
 
-```sh
-task changelog              # preview unreleased notes
-task release-dry-run        # build dist/ install YAML + chart (no push)
-task changelog:write        # regenerate CHANGELOG.md
-```
+| Task | Purpose |
+| --- | --- |
+| `task changelog` | Preview unreleased notes |
+| `task changelog:write` | Regenerate `CHANGELOG.md` |
+| `task changelog:verify` | Fail if changelog drift (same as preflight CI) |
+| `task release-dry-run` | Build `dist/` install YAML + chart (no push) |
+
+Full runbook: [RELEASE.md](RELEASE.md). Retroactive version anchors (`v0.0.1`–`v0.1.0`) are
+documented in the `CHANGELOG.md` header and `cliff.toml`.
 
 **Local dry-run** (`task release-dry-run`) runs `hack/release-assets.sh` with
-`VERSION=0.0.0-dry-run` (override with `VERSION=v0.1.0-rc1 task release-dry-run`). Outputs land in
+`VERSION=0.0.0-dry-run` (override with `VERSION=0.1.0 task release-dry-run`). Outputs land in
 `dist/`:
 
 | Artifact | Path |
 | --- | --- |
 | Install manifests | `dist/install.yaml` |
+| CRD bundle | `dist/install-crds.yaml` |
 | Helm chart tarball | `dist/kollect-<version>.tgz` |
-| CRD bundle | synced into `charts/kollect/crds/` |
+| Checksums | `dist/checksums.txt` |
 
 The task does **not** push images or publish GitHub/OCI assets.
 
 **GitHub Release** — tagged `v*.*.*` pushes run
 [`.github/workflows/release.yaml`](../.github/workflows/release.yaml): GHCR image
-(`ghcr.io/konih/kollect`), cosign, SPDX SBOM, Helm OCI chart, GitHub Release assets.
+(`ghcr.io/konih/kollect`), Trivy, cosign, SPDX SBOM, Helm OCI chart, GitHub Release assets.
 
-**Manual release test** (`workflow_dispatch`):
+**Manual release test** (`workflow_dispatch`): Actions → **Release** → enter an existing tag;
+optional `draft` / `prerelease` flags.
 
-1. Create and push an annotated tag locally (assets must exist at that commit):
-   ```sh
-   git tag -a v0.1.0 -m "v0.1.0"
-   git push origin v0.1.0
-   ```
-   The push triggers the release workflow automatically.
+Before the first tag:
 
-2. To **rebuild assets** for an existing tag (e.g. after fixing release scripts):
-   - GitHub → **Actions** → **Release** → **Run workflow**
-   - Enter the existing tag (e.g. `v0.1.0`) in the `tag` input
-   - Run — the workflow checks out `refs/tags/<tag>`, rebuilds `dist/`, and updates the GitHub
-     Release (requires `contents: write` + `packages: write` on the job).
-
-3. Verify locally before tagging:
-   ```sh
-   task release-dry-run
-   ls -la dist/
-   ```
+```sh
+task changelog
+VERSION=0.1.0 task release-dry-run
+task changelog:verify
+```
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) and [SECURITY.md](../SECURITY.md).
 

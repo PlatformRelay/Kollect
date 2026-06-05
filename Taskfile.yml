@@ -14,6 +14,9 @@ env:
 
 vars:
   BIN_DIR: bin
+  # renovate: datasource=github-releases depName=orhun/git-cliff
+  GIT_CLIFF_VERSION: v2.13.1
+  GIT_CLIFF_BIN: "{{.BIN_DIR}}/git-cliff"
   MANAGER_BINARY: "{{.BIN_DIR}}/manager"
   DOCKER_IMAGE: kollect-controller-manager:dev
   CLUSTER_NAME:
@@ -145,20 +148,36 @@ tasks:
         cd config/manager && "{{.TASKFILE_DIR}}/bin/kustomize" edit set image controller={{.DOCKER_IMAGE}}
       - kubectl apply -k config/default
 
-  changelog:
-    desc: Preview unreleased changelog (requires git-cliff in PATH or bin/)
+  tools:git-cliff:
+    desc: Download pinned git-cliff binary ({{.GIT_CLIFF_VERSION}})
+    status:
+      - test -x {{.GIT_CLIFF_BIN}}
     cmds:
-      - git-cliff --config cliff.toml --unreleased
+      - bash hack/install-git-cliff.sh {{.GIT_CLIFF_VERSION}} {{.GIT_CLIFF_BIN}}
+
+  changelog:
+    desc: Preview unreleased changelog section (stdout)
+    deps: [tools:git-cliff]
+    cmds:
+      - "{{.GIT_CLIFF_BIN}} --config cliff.toml --unreleased"
 
   changelog:write:
     desc: Regenerate CHANGELOG.md from git tags and unreleased commits
+    deps: [tools:git-cliff]
     cmds:
-      - git-cliff --config cliff.toml -o CHANGELOG.md
+      - "{{.GIT_CLIFF_BIN}} --config cliff.toml -o CHANGELOG.md"
 
   changelog:release:
     desc: Print changelog section for the latest tag (release notes)
+    deps: [tools:git-cliff]
     cmds:
-      - git-cliff --config cliff.toml --latest
+      - "{{.GIT_CLIFF_BIN}} --config cliff.toml --latest"
+
+  changelog:verify:
+    desc: Fail if CHANGELOG.md is stale (CI/preflight)
+    deps: [tools:git-cliff]
+    cmds:
+      - bash hack/verify-changelog.sh
 
   release-dry-run:
     desc: Build dist/ release assets locally without pushing (VERSION=0.0.0-dry-run)

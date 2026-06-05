@@ -26,20 +26,34 @@ Common gitmoji: `:sparkles:` feat, `:bug:` fix, `:wrench:` build/chore, `:green_
 Types follow [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`,
 `docs`, `test`, `ci`, `build`, `chore`, `refactor`, `perf`.
 
-Release notes are generated with [git-cliff](https://git-cliff.org/) (`cliff.toml`); gitmoji
-tokens are stripped from changelog headings automatically.
+## Changelog and releases
 
-Preview locally:
+[`CHANGELOG.md`](CHANGELOG.md) is generated from git history with
+[git-cliff](https://git-cliff.org/) (`cliff.toml`); gitmoji tokens are stripped from changelog
+headings automatically.
 
-```sh
-task changelog              # unreleased section
-task changelog:write        # regenerate CHANGELOG.md
-task release-dry-run        # build dist/ assets without pushing
-```
+| Task | Purpose |
+| --- | --- |
+| `task changelog` | Preview the **Unreleased** section |
+| `task changelog:write` | Regenerate full `CHANGELOG.md` |
+| `task changelog:release` | Print notes for the latest tag |
+| `task changelog:verify` | Fail if `CHANGELOG.md` is stale (CI/preflight) |
+| `task release-dry-run` | Build `dist/` assets without pushing |
+
+Only `feat`, `fix`, `perf`, `refactor`, and breaking commits appear in the user-facing changelog;
+`docs`, `test`, `chore`, `ci`, `build`, and `style` are skipped (`cliff.toml`).
+
+**Maintainer release flow** — full runbook: [docs/RELEASE.md](docs/RELEASE.md). Summary:
+
+1. Merge work on `main` with conventional commits.
+2. `task changelog` — sanity-check grouping.
+3. Bump `charts/kollect/Chart.yaml` `version` and `appVersion`.
+4. `task changelog:write` — commit `CHANGELOG.md`.
+5. `git tag vX.Y.Z && git push origin vX.Y.Z` — CI publishes image and GitHub Release.
 
 Tagged releases (`v*.*.*`) trigger [`.github/workflows/release.yaml`](.github/workflows/release.yaml):
-multi-arch image to `ghcr.io/konih/kollect`, cosign signing, SPDX SBOM, Helm chart (OCI), and
-GitHub Release assets (`install.yaml`, `install-crds.yaml`, chart tarball, checksums).
+multi-arch image to `ghcr.io/konih/kollect`, Trivy scan, cosign signing, SPDX SBOM, Helm chart
+(OCI), and GitHub Release assets (`install.yaml`, `install-crds.yaml`, chart tarball, checksums).
 
 ## Pull request process
 
