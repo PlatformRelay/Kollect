@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **supply-chain:** Address OpenSSF Scorecard findings [2026b16](https://github.com/konih/kollect/commit/2026b165d427cc4b1173b3724660050c17c18f34)
+
 - **docs:** Restore mkdocs nav for reference hub pages [32d3ba7](https://github.com/konih/kollect/commit/32d3ba70a54e0b7388dbcb58ed7bf9c26c3665e8)
 
 - **docs:** Drop mkdocs nav to uncommitted pages [ae6cb01](https://github.com/konih/kollect/commit/ae6cb01ee751f98396c99127568c7b4d7397c50f)
