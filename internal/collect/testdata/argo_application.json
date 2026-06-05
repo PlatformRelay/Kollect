@@ -1,0 +1,54 @@
+{
+  "apiVersion": "argoproj.io/v1alpha1",
+  "kind": "Application",
+  "metadata": {
+    "name": "demo-app",
+    "namespace": "argocd"
+  },
+  "spec": {
+    "project": "default",
+    "source": {
+      "repoURL": "https://charts.example.com",
+      "chart": "nginx",
+      "targetRevision": "14.3.0"
+    },
+    "destination": {
+      "server": "https://kubernetes.default.svc",
+      "namespace": "team-a"
+    }
+  },
+  "status": {
+    "sync": {
+      "status": "Synced",
+      "revision": "14.3.0"
+    },
+    "history": [
+      {
+        "id": 3,
+        "revision": "14.3.0",
+        "deployedAt": "2026-06-01T10:00:00Z",
+        "source": {
+          "chart": "nginx",
+          "targetRevision": "14.3.0"
+        }
+      },
+      {
+        "id": 2,
+        "revision": "14.2.0",
+        "deployedAt": "2026-05-15T10:00:00Z",
+        "source": {
+          "chart": "nginx",
+          "targetRevision": "14.2.0"
+        }
+      }
+    ],
+    "summary": {
+      "images": ["nginx:2.1.0"]
+    },
+    "operationState": {
+      "syncResult": {
+        "revision": "14.3.0"
+      }
+    }
+  }
+}

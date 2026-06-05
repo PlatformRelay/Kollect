@@ -3,7 +3,6 @@ kind: KollectProfile
 metadata:
   name: helm-release-summary
   namespace: default
-  namespace: default
   labels:
     app.kubernetes.io/name: kollect
     app.kubernetes.io/managed-by: kustomize

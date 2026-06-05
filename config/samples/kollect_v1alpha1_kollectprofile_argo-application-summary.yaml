@@ -1,0 +1,38 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: argo-application-summary
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  targetGVK:
+    group: argoproj.io
+    version: v1alpha1
+    kind: Application
+  attributes:
+    - name: chart
+      path: '$.spec.source.chart'
+      type: string
+      optional: true
+    - name: targetRevision
+      path: '$.spec.source.targetRevision'
+      type: string
+      optional: true
+    - name: chartVersion
+      path: '$.status.sync.revision'
+      type: string
+      optional: true
+    - name: appVersion
+      path: '$.status.summary.images[0]'
+      type: string
+      optional: true
+    - name: revision
+      path: '$.status.history[0].id'
+      type: int
+      optional: true
+    - name: syncStatus
+      path: '$.status.sync.status'
+      type: string
+      optional: true
