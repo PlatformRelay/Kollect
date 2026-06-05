@@ -77,6 +77,7 @@ func main() {
 	var hubConsumer bool
 	var operatorMode string
 	var watchNamespacesRaw string
+	var validatingWebhooksEnabled bool
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -86,6 +87,8 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true,
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
+	flag.BoolVar(&validatingWebhooksEnabled, "validating-webhooks-enabled", true,
+		"Register in-process validating webhooks and start the webhook TLS server.")
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
@@ -164,22 +167,27 @@ func main() {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
-	// Initial webhook TLS options
-	webhookTLSOpts := tlsOpts
-	webhookServerOptions := webhook.Options{
-		TLSOpts: webhookTLSOpts,
+	var webhookServer webhook.Server
+	if validatingWebhooksEnabled {
+		// Initial webhook TLS options
+		webhookTLSOpts := tlsOpts
+		webhookServerOptions := webhook.Options{
+			TLSOpts: webhookTLSOpts,
+		}
+
+		if len(webhookCertPath) > 0 {
+			setupLog.Info("Initializing webhook certificate watcher using provided certificates",
+				"webhook-cert-path", webhookCertPath, "webhook-cert-name", webhookCertName, "webhook-cert-key", webhookCertKey)
+
+			webhookServerOptions.CertDir = webhookCertPath
+			webhookServerOptions.CertName = webhookCertName
+			webhookServerOptions.KeyName = webhookCertKey
+		}
+
+		webhookServer = webhook.NewServer(webhookServerOptions)
+	} else {
+		setupLog.Info("Validating webhooks disabled — skipping webhook server and admission handlers")
 	}
-
-	if len(webhookCertPath) > 0 {
-		setupLog.Info("Initializing webhook certificate watcher using provided certificates",
-			"webhook-cert-path", webhookCertPath, "webhook-cert-name", webhookCertName, "webhook-cert-key", webhookCertKey)
-
-		webhookServerOptions.CertDir = webhookCertPath
-		webhookServerOptions.CertName = webhookCertName
-		webhookServerOptions.KeyName = webhookCertKey
-	}
-
-	webhookServer := webhook.NewServer(webhookServerOptions)
 
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
@@ -346,9 +354,11 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectclusterinventory")
 		os.Exit(1)
 	}
-	if err := webhookv1alpha1.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to set up webhooks")
-		os.Exit(1)
+	if validatingWebhooksEnabled {
+		if err := webhookv1alpha1.SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to set up webhooks")
+			os.Exit(1)
+		}
 	}
 	metrics.Register()
 	if enablePprof {

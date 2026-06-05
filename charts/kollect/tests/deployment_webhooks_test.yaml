@@ -1,0 +1,26 @@
+suite: deployment webhooks
+templates:
+  - deployment.yaml
+tests:
+  - it: disables validating webhooks when chart webhooks.enabled is false
+    set:
+      webhooks:
+        enabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --validating-webhooks-enabled=false
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+  - it: enables validating webhooks and cert path when webhooks.enabled is true
+    set:
+      webhooks:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --validating-webhooks-enabled=true
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs

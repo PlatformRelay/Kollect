@@ -55,6 +55,7 @@ spec:
             - --inventory-http-port={{ .Values.featureGates.inventoryHttp.port }}
             - --inventory-auth-mode={{ .Values.featureGates.inventoryHttp.authMode }}
             {{- end }}
+            - --validating-webhooks-enabled={{ .Values.webhooks.enabled }}
             {{- if .Values.webhooks.enabled }}
             - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
             {{- end }}

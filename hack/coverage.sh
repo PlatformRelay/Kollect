@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-MIN="${COVERAGE_MIN:-40}"
+MIN="${COVERAGE_MIN:-45}"
 RACE_ARGS=()
 if [[ "${COVERAGE_RACE:-0}" == "1" ]]; then
   RACE_ARGS=(-race)
@@ -26,16 +26,13 @@ export CGO_ENABLED="${CGO_ENABLED:-1}"
 
 # Packages outside internal/ run without -coverprofile so they do not append to
 # coverage.out; mixed multi-package cover merge can corrupt the profile.
-other_pkgs="$(go list ./... | grep -v /e2e | grep -v '/internal/' | grep -v '/cmd$' || true)"
+other_pkgs="$(go list ./... | grep -v /e2e | grep -v '/internal/' || true)"
 if [[ -n "${other_pkgs}" ]]; then
   # shellcheck disable=SC2086
   go test "${RACE_ARGS[@]}" -count=1 -p 1 ${other_pkgs}
 fi
 
-coverpkg="$(go list ./internal/... | paste -sd, -)"
-internal_pkgs="$(go list ./internal/...)"
-# shellcheck disable=SC2086
-go test "${RACE_ARGS[@]}" -count=1 -p 1 -coverpkg="${coverpkg}" -coverprofile=coverage.out ${internal_pkgs}
+go test "${RACE_ARGS[@]}" -count=1 -p 1 -coverpkg=./internal/... -coverprofile=coverage.out ./internal/...
 
 if [[ ! -s coverage.out ]] || [[ "$(wc -l < coverage.out)" -lt 2 ]]; then
   echo "coverage.out missing or empty after go test ./internal/..." >&2
