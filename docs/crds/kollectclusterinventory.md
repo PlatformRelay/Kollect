@@ -2,6 +2,10 @@
 
 **Scope:** Cluster · **Reconciled:** Webhook only (Phase 1) · **Short name:** `kcinv`
 
+!!! info "API only (Phase 1)"
+    Cluster inventory validates at admission but rollup/export requires a future controller. Sinks
+    resolve in `spec.sinkNamespace` (default `kollect-system`), not the inventory CR's namespace.
+
 ## What it is for
 
 A `KollectClusterInventory` is the **platform-operator** rollup CR: it aggregates rows from one or

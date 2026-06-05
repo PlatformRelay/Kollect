@@ -2,6 +2,10 @@
 
 **Scope:** Namespace · **Reconciled:** Yes · **Short name:** `ktgt`
 
+!!! tip "Same-namespace profileRef"
+    `spec.profileRef` must name a `KollectProfile` in the **same namespace** as the target. Platform
+    cross-namespace collection uses `KollectClusterTarget` instead.
+
 ## What it is for
 
 A `KollectTarget` binds a `KollectProfile` to **which** resources to watch: workload namespaces,

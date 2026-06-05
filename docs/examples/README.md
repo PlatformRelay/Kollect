@@ -1,5 +1,10 @@
 # Examples
 
+!!! tip "Prerequisites"
+    These walkthroughs assume a running kollect operator and `kubectl` access. Start with
+    [QUICKSTART.md](../QUICKSTART.md) or [Kind local lab](kind-local-lab.md) if you have not
+    installed the controller yet.
+
 Walkthroughs backed by `config/samples/`. Apply defaults:
 
 ```sh
@@ -19,5 +24,9 @@ kubectl apply -k config/samples/
 | [Connection test](connection-test.md) | `KollectConnectionTest` workflow |
 | [Cert-manager webhooks](cert-manager-webhook.md) | Webhook TLS install |
 | [Kind local lab](kind-local-lab.md) | kind quickstart |
+
+!!! note "Samples not in default kustomization"
+    NATS (`kollectsink_nats.yaml`) and some cluster-scoped samples are documented but not included in
+    `kubectl apply -k config/samples/`. Apply those files individually when following their guides.
 
 S3/GCS Parquet: [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) — no kustomized sample yet.

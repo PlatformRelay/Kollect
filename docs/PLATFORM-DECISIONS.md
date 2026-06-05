@@ -5,6 +5,11 @@ the concise reference for **operators**, **contributors**, and **architects** ev
 kollect. For the full decision log and reasoning, see
 [ADR-0703: Platform architecture pivot](adr/0703-platform-architecture-pivot.md).
 
+!!! warning "Pre-beta API"
+    The public API is **`v1alpha1`** and may change without notice while the project is pre-beta.
+    Breaking changes are batched deliberately before a future `v1beta1` freeze (planned around v0.1.0).
+    Do not build production integrations on field names or behavior not yet covered by contract tests.
+
 ### Phases, releases, and API stability
 
 **Phases describe build order**, not release milestones. Work proceeds in the sequence below;
@@ -19,6 +24,10 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 ## Core decisions
 
 ### Non-negotiables
+
+!!! warning "Same-namespace references"
+    `profileRef`, `sinkRefs`, and `KollectConnectionTest.spec.sinkRef` resolve objects in the
+    **same namespace** as the referring CR. Cluster-scoped kinds use `sinkNamespace` instead.
 
 - **Namespaced default:** Profile, **Sink**, Target, Inventory, Scope in team namespace.
 - **Cluster variants:** `KollectClusterTarget` (platform cross-namespace collection), `KollectClusterProfile`, `KollectClusterSink`, `KollectClusterInventory`, `KollectClusterScope`.

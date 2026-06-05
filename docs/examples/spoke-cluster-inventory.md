@@ -1,5 +1,9 @@
 # Example: Spoke cluster inventory
 
+!!! info "Single-cluster default"
+    Most teams start here: one cluster, namespaced CRDs, export to Postgres or Git. Hub aggregation
+    is optional and documented separately in [Hub mode](hub-mode.md).
+
 Install kollect on a **single cluster** with Helm `mode: single` — the default path before hub
 aggregation. Teams run namespaced Profile → Target → Inventory → Sink and export to Postgres or
 Kafka for portal queries
@@ -49,6 +53,10 @@ Full walkthrough: [Deployment inventory](deployment-inventory.md).
 E2e without live backends: `config/samples/e2e/team-inventory.yaml` (`sinkRefs: []`).
 
 ## Hub-and-spoke upgrade
+
+!!! note "No KollectHub CRD"
+    Hub merge uses Helm `mode: hub` on the same operator image — there is no `KollectHub` custom
+    resource. See [ADR-0703](../adr/0703-platform-architecture-pivot.md).
 
 1. Spokes: `mode: spoke` — local collect + export.
 2. Hub: `mode: hub` + merge lib ([Hub mode](hub-mode.md)).

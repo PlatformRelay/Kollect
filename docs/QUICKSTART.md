@@ -3,6 +3,11 @@
 Get kollect running on a local **kind** cluster and apply the sample custom resources. This path
 is optimized for evaluation and feedback — not production deployment.
 
+!!! tip "Assumptions"
+    This guide assumes Docker, [kind](https://kind.sigs.k8s.io/), and kubectl are installed. For
+    build-from-source steps you also need Go and [Task](https://taskfile.dev/) — see
+    [DEVELOPMENT.md](DEVELOPMENT.md).
+
 ## What kollect does
 
 Platform teams need **stakeholder-visible inventory**: what workloads run in which namespaces, which
@@ -142,6 +147,11 @@ kubectl describe kollectinventory -n default team-inventory
 When export works, check your Git sink repository for committed inventory JSON/YAML.
 
 ## Current maturity
+
+!!! warning "Pre-beta API"
+    kollect is **`v1alpha1` pre-beta**. CRD fields, controller behavior, and sample YAML may change
+    without notice. Applying samples validates schema and wiring; full end-to-end export depends on
+    the phase items in [ROADMAP.md](ROADMAP.md).
 
 Be honest about where the project stands:
 

@@ -2,6 +2,10 @@
 
 **Scope:** Namespace · **Reconciled:** Yes · **Short name:** `kconntest`
 
+!!! tip "Audited probes"
+    Prefer this CR over `spec.connectionTest: true` in production — it leaves a probe record without
+    leaving continuous probe side effects on the sink spec. Default TTL auto-deletes the CR after 300s.
+
 ## What it is for
 
 A `KollectConnectionTest` runs a **one-shot, audited** connectivity probe against a

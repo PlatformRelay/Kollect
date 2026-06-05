@@ -1,5 +1,9 @@
 # Example: Postgres state store
 
+!!! warning "Credentials in Secrets only"
+    Never put database passwords on the `KollectSink` CR. The operator reads DSN keys from a
+    referenced Secret (`dsn`, `url`, `connectionString`, or `DATABASE_URL`).
+
 This walkthrough sets up a **relational state-of-record** sink for namespace inventory
 exports. Postgres is the default MVP path in samples (`postgres-inventory-demo`) and the
 recommended backend for portals and SQL analytics
@@ -104,7 +108,8 @@ kubectl wait --for=condition=ConnectionVerified kollectsink/postgres-inventory-d
 
 ## Delete reconciliation
 
-Postgres is a **relational SoR** — stale rows must disappear when objects leave the snapshot.
+!!! tip "Why deletes matter"
+    Postgres is a **relational SoR** — stale rows must disappear when objects leave the snapshot.
 After each export the backend upserts current rows and deletes rows for that inventory +
 cluster that are **not** in the snapshot
 ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md),

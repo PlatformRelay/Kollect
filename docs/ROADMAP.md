@@ -8,6 +8,15 @@ projection ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 
 **Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), [ADR-0703](adr/0703-platform-architecture-pivot.md).
 
+!!! warning "Pre-beta"
+    kollect is not GA. API shapes, sink backends, and hub transport may change until the project
+    reaches beta-quality overall. Check status marks (✅ / 🚧 / ⬜) before relying on a feature in
+    production.
+
+!!! info "Phases vs releases"
+    Phases describe **implementation order**, not semver milestones. Items may land out of phase
+    when dependencies allow; deferred (🔮) items are explicitly not on the near-term path.
+
 **Last updated:** 2026-06-05 (sink taxonomy locked — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md);
 ADR corpus renumbered into thematic ranges + 8 gap-fill ADRs)
 

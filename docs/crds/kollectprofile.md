@@ -2,6 +2,11 @@
 
 **Scope:** Namespace · **Reconciled:** No (static schema) · **Short name:** —
 
+!!! tip "Static schema"
+    Profiles are admission-validated configuration — no controller reconciles them. Changes enqueue
+    referring targets via secondary watch (beta); plan profile edits during maintenance windows on
+    large fleets.
+
 ## What it is for
 
 A `KollectProfile` defines **what** to collect: the target GroupVersionKind (GVK) and a list of

@@ -2,6 +2,10 @@
 
 **Scope:** Cluster · **Reconciled:** Webhook only (Phase 1) · **Short name:** `kctgt`
 
+!!! info "API only (Phase 1)"
+    Cluster targets validate at admission but **do not reconcile** until the platform controller
+    ships. Use namespaced `KollectTarget` for working collection today.
+
 ## What it is for
 
 A `KollectClusterTarget` is the **platform-operator** variant of `KollectTarget`: it collects

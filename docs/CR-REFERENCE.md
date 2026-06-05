@@ -4,6 +4,11 @@ Detailed reference for each kollect API kind. These pages document **purpose**, 
 **status conditions**, **RBAC**, **sample usage**, and **failure modes** for operators and platform
 teams.
 
+!!! warning "Pre-beta API"
+    All kinds are **`v1alpha1`**. Field names, status conditions, and webhook rules may change before
+    beta. Treat [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) as the locked decision summary; per-kind
+    pages track current behavior.
+
 ## Architecture context
 
 | Doc | Contents |
@@ -42,6 +47,10 @@ flowchart LR
 **Typical team flow:** create Profile and Sink → bind Target to Profile → point Inventory at Sink.
 Optional Scope constrains GVKs, namespaces, and sinks. Use ConnectionTest to verify sink reachability
 before export.
+
+!!! tip "Same-namespace rule"
+    `profileRef`, `sinkRefs`, and connection-test `sinkRef` must resolve CRs in the **same namespace**
+    as the referring object. Cluster inventory resolves sinks in `spec.sinkNamespace` instead.
 
 **Platform flow:** `KollectClusterProfile` → `KollectClusterTarget` → `KollectClusterInventory` for
 cross-namespace rollup. `KollectClusterTarget` and `KollectClusterInventory` controllers reconcile

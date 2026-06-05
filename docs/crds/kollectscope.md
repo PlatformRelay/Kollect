@@ -2,6 +2,10 @@
 
 **Scope:** Namespace · **Reconciled:** No (enforced by other controllers) · **Short name:** `kscope`
 
+!!! warning "Hard degrade on violation"
+    When a scope exists, target and inventory reconcilers **stop collection and export** on policy
+    violation — conditions move to `Degraded`. Fix the scope or CR refs before expecting exports.
+
 ## What it is for
 
 A `KollectScope` defines a **tenancy boundary** for a team namespace: which GVKs may be collected,

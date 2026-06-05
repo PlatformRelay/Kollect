@@ -2,6 +2,10 @@
 
 **Scope:** Namespace · **Reconciled:** Connection probe only · **Short name:** —
 
+!!! warning "Same-namespace references"
+    `KollectInventory.spec.sinkRefs` and `KollectConnectionTest.spec.sinkRef` must name sinks in the
+    **same namespace** as the referring CR. Cluster inventory resolves sinks in `spec.sinkNamespace`.
+
 ## What it is for
 
 A `KollectSink` describes **where** inventory exports go. The sink registry ships seven `spec.type`

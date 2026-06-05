@@ -6,6 +6,10 @@ automation, and auditors read **export data**, never the live API.
 
 **Summary for implementers:** [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) · **ADR:** [adr/0703-platform-architecture-pivot.md](adr/0703-platform-architecture-pivot.md)
 
+!!! info "Project maturity"
+    kollect is pre-beta (`v1alpha1`). Phases in this document describe **build order**, not GA
+    release milestones. See [ROADMAP.md](ROADMAP.md) for current implementation status.
+
 ## Problem statement
 
 **Kubernetes is the source of truth for what is running, but a poor *system of record* for it.** The
@@ -77,8 +81,14 @@ See [adr/0201-crd-model.md](adr/0201-crd-model.md). Per-kind field reference:
 
 ## Default deployment
 
-**Per-team Helm** with `tenantMode: true` and `watchNamespaces: [team-ns]` is the **documented
-default** for new installs. Platform-wide cluster operator remains supported.
+!!! tip "Recommended install"
+    **Per-team Helm** with `tenantMode: true` and `watchNamespaces: [team-ns]` is the documented
+    default for new installs. Platform-wide cluster operator remains supported for cross-namespace
+    collection via `KollectClusterTarget`.
+
+!!! warning "Same-namespace sink refs"
+    `KollectInventory.spec.sinkRefs` must name `KollectSink` objects in the **same namespace** as
+    the inventory. Cross-namespace sink references are rejected at admission.
 
 ## Reconciliation flow
 
@@ -133,6 +143,11 @@ in-memory snapshot per Inventory is canonical; sinks are projections.
 - **GitLab** — Phase 2 enterprise Git host (internal CA via `tls.caSecretRef`).
 
 ## Multi-cluster (build order)
+
+!!! note "Fleet vs single-cluster"
+    **Single-cluster** installs export directly to Postgres, Git, or Kafka — no hub required.
+    **Fleet** topologies default to shared-sink fan-in (`spec.cluster` on each sink); the hub tier
+    (`mode: hub`) is optional for Git fan-in, network isolation, or credential centralization.
 
 Hub = **`mode: hub`** on same image + `internal/hub/` merge — **no `KollectHub` CRD**
 ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)). Spokes push summaries; hub writes merged

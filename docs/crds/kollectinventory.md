@@ -2,6 +2,10 @@
 
 **Scope:** Namespace · **Reconciled:** Yes · **Short name:** `kinv`
 
+!!! note "Payload location"
+    Full export payloads live in sinks — `status` holds counts, conditions, and metadata refs only
+    ([ADR-0103](../adr/0103-etcd-limit.md)). Query Postgres or Git for the authoritative snapshot.
+
 ## What it is for
 
 A `KollectInventory` aggregates all collected rows from `KollectTarget` objects in the **same

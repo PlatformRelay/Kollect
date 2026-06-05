@@ -1,5 +1,9 @@
 # Example: Connection test
 
+!!! tip "Production default"
+    Set `spec.connectionTest: false` on sinks in production (Helm chart default). Use the
+    `kollect.dev/test-connection` annotation or a `KollectConnectionTest` CR for on-demand probes.
+
 kollect offers **three** ways to verify sink connectivity before relying on export
 ([ADR-0403](../adr/0403-connection-test.md), [ADR-0703](../adr/0703-platform-architecture-pivot.md)).
 

@@ -1,5 +1,11 @@
 # Example: Helm / Argo release inventory
 
+!!! tip "Argo CD basics"
+    This walkthrough inventories [Argo CD](https://argo-cd.readthedocs.io/) `Application` CRs. You
+    need Argo CD installed and at least one synced `Application` in a namespace your target can
+    watch. For Argo CD concepts and CLI usage, see the
+    [upstream documentation](https://argo-cd.readthedocs.io/en/stable/).
+
 This walkthrough inventories **chart version**, **app version**, and sync metadata from Argo CD
 `Application` objects. It follows the same four-CRD pipeline as
 [Deployment inventory](deployment-inventory.md).
@@ -25,7 +31,10 @@ flowchart LR
 
 ## Step 1 — KollectProfile
 
-Targets **`argoproj.io/v1alpha1` / `Application`**. Summary tier only—no `spec.source.helm.values`.
+!!! note "Summary tier only"
+    Targets **`argoproj.io/v1alpha1` / `Application`**. Extracts chart and sync metadata — not
+    `spec.source.helm.values`. Full values inventory requires a future `helm:` decode path
+    ([ADR-0303](../adr/0303-helm-release-inventory.md)).
 
 Sample: `config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml`
 
@@ -98,6 +107,10 @@ kubectl apply -k config/samples/
 | `valuesChecksum` | `$.status.lastAttemptedConfigDigest` |
 
 ## Troubleshooting
+
+!!! warning "Optional attributes"
+    `chartVersion` and `syncStatus` are marked `optional: true` — empty export rows are normal when
+    an Application has not synced yet. Check `kubectl get application -A` before assuming a profile bug.
 
 | Symptom | Likely cause |
 | --- | --- |

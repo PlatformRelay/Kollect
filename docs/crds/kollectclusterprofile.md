@@ -2,6 +2,11 @@
 
 **Scope:** Cluster · **Reconciled:** No (static schema) · **Short name:** `kcprof`
 
+!!! info "Admission only (Phase 1)"
+    Cluster profiles validate at admission but no controller reads them yet. Until the platform
+    controller ships, `KollectClusterTarget` may reference a namespaced `KollectProfile` in the
+    platform namespace as an MVP fallback.
+
 ## What it is for
 
 A `KollectClusterProfile` is the **platform-operator** variant of `KollectProfile`: a cluster-scoped

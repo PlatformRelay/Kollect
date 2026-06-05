@@ -1,5 +1,10 @@
 # Example: Deployment inventory
 
+!!! tip "What this guide assumes"
+    You have kollect installed (see [QUICKSTART.md](../QUICKSTART.md) or
+    [Kind local lab](kind-local-lab.md)) and can apply manifests from `config/samples/`. The default
+    path uses a Postgres sink; swap to Git for audit-only workflows.
+
 This walkthrough connects the four core **namespaced** CRDs into a minimal pipeline: define **what**
 to extract (`KollectProfile`), **where** to send it (`KollectSink`), **which** resources to watch
 (`KollectTarget`), and **when** to aggregate and export (`KollectInventory`). There is **no
@@ -30,7 +35,8 @@ flowchart LR
 
 ## Scale
 
-The collection path targets **100,000+** watched objects per spoke (typical Deployment/Service
+!!! note "Large fleets"
+    The collection path targets **100,000+** watched objects per spoke (typical Deployment/Service
 profiles). Tune namespace-scoped informers, `KollectInventory.spec.exportMinInterval` (default
 **30s**), and operator reconcile parallelism per [PERFORMANCE.md](../PERFORMANCE.md) and
 [ADR-0603](../adr/0603-performance-scalability.md).
@@ -91,8 +97,10 @@ See [DATA-FLOWS.md](../DATA-FLOWS.md#3-attribute-extraction-jsonpath-arrays) and
 
 ## Step 2 — KollectSink
 
-`KollectSink` is **namespaced** — create sinks in the same namespace as `KollectInventory`
-`sinkRefs` ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+!!! warning "Same-namespace sink refs"
+    `KollectSink` is **namespaced** — create sinks in the same namespace as `KollectInventory`
+    `sinkRefs`. Cross-namespace references fail admission with `SinkNotFound`
+    ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
 
 ### Postgres (default sample)
 
@@ -240,6 +248,11 @@ kubectl describe kollectinventory team-inventory -n default
 ```
 
 ## Troubleshooting
+
+!!! tip "First checks"
+    Run `kubectl describe` on the sink and inventory when export stalls — `ConnectionVerified`,
+    `SinkReachable`, and `Synced` conditions usually pinpoint credential, namespace, or selector
+    issues before diving into controller logs.
 
 | Symptom | Likely cause |
 | --- | --- |
