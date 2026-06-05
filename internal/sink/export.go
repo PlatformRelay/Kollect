@@ -7,9 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
@@ -85,6 +87,12 @@ func RunExportItems(req ExportItemsRequest) error {
 
 		return err
 	}
+	defer func() {
+		if cerr := closeBackend(backend); cerr != nil {
+			logf.FromContext(req.Ctx).Error(cerr, "failed to close sink backend",
+				"sink", req.SinkName, "namespace", req.SinkNamespace)
+		}
+	}()
 
 	items := req.Items
 	if items == nil {
@@ -143,6 +151,19 @@ func RunExportItems(req ExportItemsRequest) error {
 		metrics.SinkErrorsTotal.WithLabelValues(reason).Inc()
 
 		return kollecterrors.Transient(fmt.Errorf("export to %q: %w", req.SinkName, err))
+	}
+
+	return nil
+}
+
+func closeBackend(b Backend) error {
+	switch c := b.(type) {
+	case io.Closer:
+		if err := c.Close(); err != nil {
+			return fmt.Errorf("close sink backend: %w", err)
+		}
+	case interface{ Close() }:
+		c.Close()
 	}
 
 	return nil

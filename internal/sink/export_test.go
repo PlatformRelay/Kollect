@@ -40,6 +40,18 @@ func (s *stubBackend) Export(_ context.Context, payload []byte, path string) err
 	return s.exportErr
 }
 
+type closableStubBackend struct {
+	stubBackend
+	closed   bool
+	closeErr error
+}
+
+func (c *closableStubBackend) Close() error {
+	c.closed = true
+
+	return c.closeErr
+}
+
 func TestExportErrorReason(t *testing.T) {
 	t.Parallel()
 
@@ -230,6 +242,81 @@ func TestRunExportItems_postgresExportsEmptySnapshot(t *testing.T) {
 
 	if len(stub.lastBody) == 0 {
 		t.Fatal("relational store should export empty snapshot for delete reconciliation")
+	}
+}
+
+func TestRunExportItems_closeErrorDoesNotFailExport(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	sinkObj := &kollectdevv1alpha1.KollectSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "git-sink", Namespace: "team-a"},
+		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
+	}
+
+	reg := NewRegistry()
+	stub := &closableStubBackend{
+		stubBackend: stubBackend{caps: cap.SnapshotStore()},
+		closeErr:    errors.New("pool close failed"),
+	}
+	reg.Register("stub", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return stub, nil
+	})
+
+	if err := RunExportItems(ExportItemsRequest{
+		Ctx:           t.Context(),
+		Client:        fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "git-sink",
+		ObjectPath:    "team-a/inv.json",
+		Items:         []collect.Item{{Name: "demo"}},
+	}); err != nil {
+		t.Fatalf("RunExportItems() = %v, want export success despite close error", err)
+	}
+
+	if !stub.closed {
+		t.Fatal("expected backend Close after export")
+	}
+}
+
+func TestRunExportItems_closesBackend(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	sinkObj := &kollectdevv1alpha1.KollectSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "git-sink", Namespace: "team-a"},
+		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
+	}
+
+	reg := NewRegistry()
+	stub := &closableStubBackend{stubBackend: stubBackend{caps: cap.SnapshotStore()}}
+	reg.Register("stub", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return stub, nil
+	})
+
+	if err := RunExportItems(ExportItemsRequest{
+		Ctx:           t.Context(),
+		Client:        fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "git-sink",
+		ObjectPath:    "team-a/inv.json",
+		Items:         []collect.Item{{Name: "demo"}},
+	}); err != nil {
+		t.Fatalf("RunExportItems() = %v", err)
+	}
+
+	if !stub.closed {
+		t.Fatal("expected backend Close after export")
 	}
 }
 
