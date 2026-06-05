@@ -75,7 +75,7 @@ E2E profile (matches nightly workflow):
 
 ```sh
 task kind-e2e-up
-bash hack/kind/e2e/smoke.sh   # post-install checks (includes cert-manager Certificate CRD smoke)
+bash hack/kind/e2e/smoke.sh   # post-install checks (lean samples/ + cert-manager Certificate CRD smoke)
 task kind-e2e-down
 
 # Or one-shot via Task (setup + smoke + teardown):
@@ -111,4 +111,6 @@ hack/kind/
     ├── setup.sh        # cluster + operator only
     ├── smoke.sh        # nightly post-install smoke
     └── teardown.sh
+
+E2e smoke applies `config/samples/e2e/` (lean overlay — no Postgres/Kafka sink probes).
 ```
