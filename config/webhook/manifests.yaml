@@ -10,6 +10,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollectclusterinventory
+  failurePolicy: Fail
+  name: vkollectclusterinventory.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollectclusterinventories
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-kollect-dev-v1alpha1-kollectclustertarget
   failurePolicy: Fail
   name: vkollectclustertarget.kb.io

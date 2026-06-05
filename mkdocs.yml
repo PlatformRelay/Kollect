@@ -37,6 +37,7 @@ nav:
       - KollectScope: crds/kollectscope.md
       - KollectConnectionTest: crds/kollectconnectiontest.md
       - KollectClusterTarget: crds/kollectclustertarget.md
+      - KollectClusterInventory: crds/kollectclusterinventory.md
   - Roadmap: ROADMAP.md
   - Platform decisions: PLATFORM-DECISIONS.md
   - Requirements: REQUIREMENTS.md

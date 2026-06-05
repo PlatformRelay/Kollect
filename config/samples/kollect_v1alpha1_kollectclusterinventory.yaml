@@ -1,0 +1,13 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectClusterInventory
+metadata:
+  name: platform-rollup
+spec:
+  targetRefs:
+    - platform-argo-applications
+  namespaceSelector:
+    matchLabels:
+      kollect.dev/tenant: platform
+  sinkRefs:
+    - postgres
+  sinkNamespace: kollect-system
