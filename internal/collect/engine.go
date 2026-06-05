@@ -312,6 +312,7 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 		if deleted {
 			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
 			metrics.CollectItemsTotal.Set(float64(e.store.Len()))
+			e.refreshTargetSnapshotMetrics(st, target)
 
 			continue
 		}
@@ -369,7 +370,15 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 		metrics.CollectedObjects.WithLabelValues(target.Spec.ProfileRef, gvkLabel).
 			Set(float64(e.store.CountForTarget(target.Namespace, target.Name)))
 		metrics.CollectItemsTotal.Set(float64(e.store.Len()))
+		e.refreshTargetSnapshotMetrics(st, target)
 	}
+}
+
+func (e *Engine) refreshTargetSnapshotMetrics(st targetState, target kollectdevv1alpha1.KollectTarget) {
+	gvkLabel := fmt.Sprintf("%s/%s/%s", st.profile.Spec.TargetGVK.Group,
+		st.profile.Spec.TargetGVK.Version, st.profile.Spec.TargetGVK.Kind)
+	items := e.store.SnapshotTarget(target.Namespace, target.Name)
+	recordTargetSnapshotMetrics(target.Spec.ProfileRef, gvkLabel, items)
 }
 
 func (e *Engine) matchesTarget(
