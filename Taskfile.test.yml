@@ -33,7 +33,13 @@ tasks:
     env:
       CGO_ENABLED: "1"
     cmds:
-      - go test -short -bench=. -benchmem ./internal/collect/...
+      - mkdir -p artifacts/bench
+      - |
+        stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+        out="artifacts/bench/${stamp}.txt"
+        go test -short -bench=. -benchmem ./internal/collect/... 2>&1 | tee "$out"
+        cp "$out" artifacts/bench/latest.txt
+        echo "wrote $out"
 
   load-test:
     desc: Opt-in bounded load tests (KOLECT_LOAD_TEST=1, max 2000 objects); not in default test

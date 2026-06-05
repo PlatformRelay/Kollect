@@ -106,6 +106,15 @@ var (
 		},
 		[]string{"sink_type"},
 	)
+
+	// HubSpokeReportsTotal is a stub for future hub/spoke merge at 100+ cluster scale.
+	HubSpokeReportsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_hub_spoke_reports_total",
+			Help: "Spoke inventory reports received by hub transport (stub until merge wired).",
+		},
+		[]string{"hub", "result"},
+	)
 )
 
 // Register adds kollect custom metrics to the controller-runtime registry.
@@ -122,5 +131,6 @@ func Register() {
 		ReconcileDurationSeconds,
 		InformerObjects,
 		ExportBytesTotal,
+		HubSpokeReportsTotal,
 	)
 }
