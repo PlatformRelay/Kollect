@@ -41,6 +41,8 @@ func (p *HTTPPublisher) Publish(ctx context.Context, _ string, payload []byte) e
 		return fmt.Errorf("spoke http publish token: %w", err)
 	}
 
+	// Hub ingest URL comes from operator/KollectHub config (not arbitrary user input).
+	//nolint:gosec // G704: intentional outbound POST to configured hub endpoint
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.URL, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("spoke http publish request: %w", err)
@@ -55,6 +57,7 @@ func (p *HTTPPublisher) Publish(ctx context.Context, _ string, payload []byte) e
 		client = http.DefaultClient
 	}
 
+	//nolint:gosec // G704: same configured hub endpoint as request above
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("spoke http publish: %w", err)

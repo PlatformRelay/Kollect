@@ -197,6 +197,8 @@ optional hub pull; push path remains default.
 
 ## Open questions
 
+- **RESOLVED (2026-06-05):** Hub/spoke identity model **locked** — this ADR is default; push-first
+  TokenReview + `X-Kollect-Cluster-Id`; optional remote `Secret` for pull; mTLS/OIDC/bootstrap not primary.
 - **OPEN:** Federated trust / mTLS for HTTP ingress behind non-Kubernetes load balancers?
 - **OPEN:** Map `KollectRemoteCluster` list into `KollectHub` spec for shard routing?
 

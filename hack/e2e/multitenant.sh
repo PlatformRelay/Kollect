@@ -22,6 +22,7 @@ apply_tenant() {
   kubectl create namespace "${ns}" --dry-run=client -o yaml | kubectl apply -f -
   kubectl label namespace "${ns}" pod-security.kubernetes.io/enforce=restricted --overwrite
 
+  sed "s/\${TENANT_NS}/${ns}/g" "${FIXTURES}/tenant-profile.yaml.template" | kubectl apply -f -
   sed "s/\${TENANT_NS}/${ns}/g" "${FIXTURES}/tenant-target.yaml.template" | kubectl apply -f -
   sed "s/\${TENANT_NS}/${ns}/g" "${FIXTURES}/tenant-inventory.yaml.template" | kubectl apply -f -
 

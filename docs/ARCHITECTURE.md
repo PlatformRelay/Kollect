@@ -25,9 +25,9 @@ the operator — e.g. GitLab CI over Git export ([ADR-0011](adr/0011-doc-sync-te
 ```mermaid
 flowchart TD
   subgraph staticCfg [Static config — validated, no reconciler]
-    Profile["KollectProfile (cluster)\nGVK + attribute paths"]
+    Profile["KollectProfile (namespaced)\nGVK + attribute paths"]
     Sink["KollectSink (cluster)\ngit | gitlab | s3 | gcs | postgres | kafka\n+ custom CA TLS"]
-    Scope["KollectScope (namespaced, Phase 3)\ntenancy boundary"]
+    Scope["KollectScope (namespaced, Phase 1)\ntenancy boundary"]
     CScope["KollectClusterScope (reserved, cluster)"]
   end
 
@@ -48,9 +48,9 @@ flowchart TD
 
 | Kind | Scope | Reconciled | Purpose |
 | --- | --- | --- | --- |
-| `KollectProfile` | Cluster | No | Extraction schema for a GVK |
-| `KollectSink` | Cluster | No | Export backend + TLS trust (`caBundle` / `caSecretRef`) |
-| `KollectScope` | Namespace | No | Allowed GVKs, namespaces, sinks (Phase 3 priority) |
+| `KollectProfile` | Namespace | No | Extraction schema for a GVK ([ADR-0031](adr/0031-namespaced-profiles.md)) |
+| `KollectSink` | Cluster | Probe only | Export backend + TLS; `ConnectionVerified` ([ADR-0030](adr/0030-connection-test.md)) |
+| `KollectScope` | Namespace | No | Allowed GVKs, namespaces, sinks (Phase 1 — [ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform tenancy (Phase 3+) |
 | `KollectTarget` | Namespace | Yes | Select resources, run collection |
 | `KollectInventory` | Namespace | Yes | Aggregate targets in namespace; export to sinks |
@@ -90,7 +90,7 @@ Key properties:
 - **Level-based** reconcile — safe to retry.
 - **Status holds summaries only** — full payload to sinks, HTTP, optional PVC ([ADR-0006](adr/0006-etcd-limit.md)).
 - **SAR degradation** — cluster scope falls back to namespace scope when forbidden.
-- **Connection test** — `SinkReachable` (or equivalent) condition + optional test annotation ([ADR-0015](adr/0015-static-vs-reconciled.md)).
+- **Connection test** — `ConnectionVerified` on `KollectSink` (`spec.connectionTest` + `kollect.dev/test-connection` annotation); pipeline conditions on Inventory/Target follow-up ([ADR-0030](adr/0030-connection-test.md), [ADR-0015](adr/0015-static-vs-reconciled.md)).
 - **Prometheus metrics** on operator `/metrics` only — not an export sink ([ADR-0012](adr/0012-prometheus-metrics-stub.md), [ADR-0020](adr/0020-error-taxonomy.md)).
 
 ## Aggregation (single cluster)
