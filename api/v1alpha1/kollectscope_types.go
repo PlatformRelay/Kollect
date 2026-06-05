@@ -26,30 +26,16 @@ type KollectScopeSpec struct {
 	SinkRefs []string `json:"sinkRefs,omitempty"`
 }
 
-// KollectScopeStatus defines the observed state of KollectScope.
-type KollectScopeStatus struct {
-	// conditions represent the current state of the KollectScope resource.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// observedGeneration is the most recent generation observed by the controller.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-}
-
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=kscope
 
 // KollectScope is a namespaced governance boundary for targets, inventories, and sinks.
+// Static config only — no controller or status subresource (ADR-0015).
 type KollectScope struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	Spec   KollectScopeSpec   `json:"spec"`
-	Status KollectScopeStatus `json:"status,omitzero"`
+	Spec KollectScopeSpec `json:"spec"`
 }
 
 // +kubebuilder:object:root=true

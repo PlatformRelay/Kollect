@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,7 @@ var _ = Describe("KollectTarget Controller", func() {
 			}
 
 			profile := &kollectdevv1alpha1.KollectProfile{
-				ObjectMeta: metav1.ObjectMeta{Name: profileName},
+				ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: "default"},
 				Spec: kollectdevv1alpha1.KollectProfileSpec{
 					TargetGVK: kollectdevv1alpha1.GroupVersionKind{
 						Version: "v1",
@@ -72,7 +73,7 @@ var _ = Describe("KollectTarget Controller", func() {
 			}
 
 			profile := &kollectdevv1alpha1.KollectProfile{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: profileName}, profile)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: profileName, Namespace: "default"}, profile)
 			if err == nil {
 				Expect(k8sClient.Delete(ctx, profile)).To(Succeed())
 			}
@@ -96,6 +97,47 @@ var _ = Describe("KollectTarget Controller", func() {
 			Expect(ready).NotTo(BeNil())
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
 			Expect(updated.Status.ObservedGeneration).To(Equal(updated.Generation))
+		})
+
+		It("should not resolve a profile from a different namespace", func() {
+			Expect(k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: "default"},
+			})).To(Succeed())
+
+			otherNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other"}}
+			Expect(k8sClient.Create(ctx, otherNS)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, otherNS) }()
+
+			otherProfile := &kollectdevv1alpha1.KollectProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: "other"},
+				Spec: kollectdevv1alpha1.KollectProfileSpec{
+					TargetGVK: kollectdevv1alpha1.GroupVersionKind{
+						Version: "v1",
+						Kind:    "ConfigMap",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, otherProfile)).To(Succeed())
+			defer func() {
+				Expect(k8sClient.Delete(ctx, otherProfile)).To(Succeed())
+			}()
+
+			controllerReconciler := &KollectTargetReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &kollectdevv1alpha1.KollectTarget{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+
+			degraded := apimeta.FindStatusCondition(updated.Status.Conditions, conditionDegraded)
+			Expect(degraded).NotTo(BeNil())
+			Expect(degraded.Reason).To(Equal("ProfileNotFound"))
 		})
 
 		It("should mark the target Degraded when profileRef is missing", func() {

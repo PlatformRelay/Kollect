@@ -9,11 +9,15 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
 const (
-	conditionReady    = "Ready"
-	conditionDegraded = "Degraded"
+	conditionReady         = kollectdevv1alpha1.ConditionReady
+	conditionDegraded      = kollectdevv1alpha1.ConditionDegraded
+	conditionSinkReachable = kollectdevv1alpha1.ConditionSinkReachable
+	conditionSynced        = kollectdevv1alpha1.ConditionSynced
 )
 
 func setTargetCondition(
