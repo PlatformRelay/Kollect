@@ -65,7 +65,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Core documentation + MkDocs (GitHub Pages) | ✅ |
 | CR reference guide (`docs/crds/`, failure modes) | ✅ |
 | Data flows (`DATA-FLOWS.md`) | ✅ |
-| Architecture Decision Records (32, thematic `0Txx` ranges) | ✅ |
+| Architecture Decision Records (34, thematic `0Txx` ranges) | ✅ |
 | ADR-0603 performance & scalability | ✅ |
 | `GUIDELINES.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
 | Validating webhook — Profile CEL/JSONPath | ✅ |
@@ -99,7 +99,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | S3 sink | 🚧 (MinIO integration; nightly + PR `test-integration`) |
 | S3/GCS **Parquet** snapshot sink (DuckDB-queryable, no DB server) | ⬜ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | Postgres sink (`type: postgres`) | ✅ |
-| Postgres **delete reconciliation** (stale-row fix) | ⬜ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
+| Postgres **delete reconciliation** (stale-row fix) | ✅ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | Kafka export sink (`type: kafka`) | ✅ |
 | **NATS JetStream** emitter (`type: nats`, lean default) | ⬜ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | Postgres/Kafka testcontainers in CI | ✅ |

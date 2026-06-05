@@ -4,20 +4,21 @@
 
 ## What it is for
 
-A `KollectSink` describes **where** inventory exports go: Git, Postgres, Kafka, S3, GCS, or
-GitLab (Phase 2). It holds endpoint URLs, credential `secretRef`s, TLS settings, and backend-specific
-blocks (`postgres`, `kafka`). The inventory controller resolves `sinkRefs` and writes serialized
-payloads; status stores summaries (commit SHA, row counts), not full payloads
+A `KollectSink` describes **where** inventory exports go. The sink registry ships seven `spec.type`
+values; inventory and cluster-inventory controllers resolve `sinkRefs` and write serialized payloads.
+Status stores summaries (commit SHA, row counts), not full payloads
 ([ADR-0103](../adr/0103-etcd-limit.md)).
 
 Sinks are classified by **role**, not vendor ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)):
 
-| Role | `type` | Notes |
-| --- | --- | --- |
-| Snapshot store | `git`, `s3`/`gcs` (`format: parquet`), HTTP | deletes free; Parquet queryable via DuckDB, no DB server |
-| Relational SoR | `postgres` | rich SQL; needs delete reconciliation |
-| Event emitter | `nats` (lean default), `kafka` (enterprise opt-in; Redpanda via Kafka API) | doubles as multi-cluster fan-in |
-| Enterprise Git | `gitlab` (Phase 2) | internal CA via `tls.caSecretRef` |
+| Role | `spec.type` | Shipped | Notes |
+| --- | --- | --- | --- |
+| Snapshot store | `git` | ✅ | JSON commits; audit trail |
+| Enterprise Git | `gitlab` | ✅ | Same snapshot role as `git`; internal CA via `tls.caSecretRef`; optional MR mode |
+| Snapshot store | `s3`, `gcs` | ✅ | JSON object export today; Parquet snapshot mode planned ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)) |
+| Relational SoR | `postgres` | ✅ | Upsert + delete reconciliation for stale rows |
+| Event emitter | `nats` | ✅ | Lean default stream sink (JetStream) |
+| Event emitter | `kafka` | ✅ | Enterprise opt-in; Redpanda via Kafka API |
 
 See [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md),
 [ADR-0402](../adr/0402-sink-backends-database-kafka.md),
@@ -50,7 +51,7 @@ Export debouncing and payload flow: [DATA-FLOWS.md](../DATA-FLOWS.md#1-export-de
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `spec.type` | enum | Yes | `git`, `postgres`, `kafka` (shipped); `s3`/`gcs` (Parquet mode planned); `nats`, `gitlab` (planned) |
+| `spec.type` | enum | Yes | See [type enum](#type-enum) — all seven registry values are shipped |
 | `spec.endpoint` | string | No | Backend-specific destination URL or bucket |
 | `spec.secretRef` | object | No | Secret with credentials (`name`, optional `namespace`) |
 | `spec.tls` | object | No | `insecureSkipVerify`, `caSecretRef`, `caBundle` (max 64 KiB) |
@@ -64,6 +65,21 @@ Export debouncing and payload flow: [DATA-FLOWS.md](../DATA-FLOWS.md#1-export-de
 | `spec.gitlab.mergeRequest.branchPrefix` | string | No | Feature branch prefix (default `kollect`) |
 | `spec.gitlab.mergeRequest.titleTemplate` | string | No | MR title; `{namespace}` and `{name}` placeholders |
 | `spec.gitlab.mergeRequest.autoMerge` | bool | No | Reserved — MR auto-merge not wired |
+
+### Type enum
+
+All values below are registered in the sink factory ([ADR-0406](../adr/0406-sink-registry.md)) and
+export inventory payloads when referenced by `KollectInventory` or `KollectClusterInventory`.
+
+| `spec.type` | Role | Deletes | Connection probe |
+| --- | --- | --- | --- |
+| `git` | Snapshot store | Implicit (whole-file replace) | ✅ |
+| `gitlab` | Snapshot store (enterprise Git) | Implicit | ✅ |
+| `s3` | Snapshot store | Implicit | ✅ |
+| `gcs` | Snapshot store | Implicit | ⬜ probe not wired ([ADR-0403](../adr/0403-connection-test.md)) |
+| `postgres` | Relational SoR | Reconciled (`SupportsDelete`) | ✅ |
+| `nats` | Event emitter | Consumer-owned | ⬜ probe not wired |
+| `kafka` | Event emitter | Consumer-owned | ✅ |
 
 ### GitLab merge request mode
 

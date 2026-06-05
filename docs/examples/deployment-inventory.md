@@ -180,7 +180,7 @@ kubectl get kprof,ksink,ktgt -A,kinv
 | --- | --- |
 | Target not found | `KollectTarget` is namespaced — ensure namespace matches |
 | Profile not found | `profileRef` must name a `KollectProfile` in the **same namespace** as the Target |
-| No export in Git | Phase 1 sink not implemented yet, or missing `secretRef` |
+| No export in Git | Missing `secretRef`, sink `ConnectionVerified=False`, or inventory export conditions (`SinkNotFound`, `SinkUnreachable`) — see `kubectl describe kollectsink` and inventory `status.conditions` |
 | Empty item count | No Deployments match selector, or informer not registered |
 | Namespace skipped | `kollect.dev/namespace-watch: disabled` or `watchMode: OptIn` without `enabled` label |
 
