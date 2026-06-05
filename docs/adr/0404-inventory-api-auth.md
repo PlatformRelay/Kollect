@@ -1,12 +1,13 @@
-# ADR-0024: Inventory HTTP API authentication
+# ADR-0404: Inventory HTTP API authentication
 
-## Status
+> When the optional HTTP API is enabled, authenticate with Kubernetes TokenReview + SubjectAccessReview;
+> oauth2-proxy is an optional browser sidecar.
 
-Accepted (2026-06-05)
+**Theme:** 04 · Export & sinks · **Status:** Current
 
 ## Context
 
-The read-only inventory HTTP API ([ADR-0006](0006-etcd-limit.md)) exposes aggregated collection
+The read-only inventory HTTP API ([ADR-0103](0103-etcd-limit.md)) exposes aggregated collection
 data for portals and automation. Production deployments require authentication and authorization without
 forcing every consumer to run inside the cluster network.
 
@@ -33,7 +34,7 @@ oauth2-proxy remains a **well-documented optional sidecar**, not the primary aut
      - **`list`** on **`kollectinventories`** for the namespace index endpoint.
      Same RBAC markers as `kubectl get kinv` / `kubectl get kinv -A` (namespace-scoped list).
      Hub ingest (Phase 2): **`create`/`update`** on **`kollectremoteclusters`** or subresource
-     **`kollectremoteclusters/ingest`** — pick one in chart RBAC docs ([ADR-0028](0028-hub-cluster-auth-istio-pattern.md)).
+     **`kollectremoteclusters/ingest`** — pick one in chart RBAC docs ([ADR-0503](0503-hub-cluster-auth-istio-pattern.md)).
 
 2. **Default auth mode:** manager flag **`--inventory-auth-mode=kubernetes`** (default). Modes:
    - `kubernetes` — TokenReview + SAR (production default).
@@ -59,7 +60,7 @@ oauth2-proxy remains a **well-documented optional sidecar**, not the primary aut
 
 7. **HTTP paths (when inventory HTTP enabled):** **`GET /v1alpha1/inventory`**; optional
    **`GET /v1alpha1/inventory/{namespace}/{name}`**. OpenAPI schema:
-   **`openapi/v1alpha1/inventory.yaml`** shipped beside the handler ([ADR-0006](0006-etcd-limit.md)).
+   **`openapi/v1alpha1/inventory.yaml`** shipped beside the handler ([ADR-0103](0103-etcd-limit.md)).
 
 ## Auth flow (reference)
 
@@ -103,7 +104,7 @@ inventory port — no oauth2-proxy hop.
 ### Positive
 
 - Reuses cluster identity — no parallel user database or API-key store.
-- SAR enforces namespace/tenant boundaries consistent with `KollectScope` ([ADR-0016](0016-namespaced-multi-tenancy.md)).
+- SAR enforces namespace/tenant boundaries consistent with `KollectScope` ([ADR-0203](0203-namespaced-multi-tenancy.md)).
 - oauth2-proxy available for OIDC/browser UX without blocking service-to-service auth.
 - `disabled` mode keeps local kind smoke and unit tests simple.
 
@@ -116,12 +117,12 @@ inventory port — no oauth2-proxy hop.
 ## Open questions
 
 - **RESOLVED (2026-06-05):** SAR — **`get`** / **`list`** on **`kollectinventories`** in caller
-  namespace(s); hub ingest SAR shape deferred to Phase 2 ([ADR-0028](0028-hub-cluster-auth-istio-pattern.md)).
+  namespace(s); hub ingest SAR shape deferred to Phase 2 ([ADR-0503](0503-hub-cluster-auth-istio-pattern.md)).
 - **RESOLVED (2026-06-05):** TokenReview/SAR cache **30s TTL** per `(token hash, verb, resource)`.
 - **RESOLVED (2026-06-05):** HTTP paths **`GET /v1alpha1/inventory`** (+ optional `{namespace}/{name}`);
-  OpenAPI **`openapi/v1alpha1/inventory.yaml`** — [ADR-0006](0006-etcd-limit.md).
+  OpenAPI **`openapi/v1alpha1/inventory.yaml`** — [ADR-0103](0103-etcd-limit.md).
 
 ## See also
 
-- [ADR-0006: Data storage and etcd limit](0006-etcd-limit.md) — HTTP API scope
+- [ADR-0103: Data storage and etcd limit](0103-etcd-limit.md) — HTTP API scope
 - [charts/kollect/README.md](../../charts/kollect/README.md) — Helm auth configuration

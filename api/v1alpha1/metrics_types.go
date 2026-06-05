@@ -4,7 +4,7 @@
 package v1alpha1
 
 // MetricSpec describes one kube-state-metrics-style Prometheus series from collected CR fields.
-// Paths reference attribute names defined in spec.attributes (ADR-0033 spike).
+// Paths reference attribute names defined in spec.attributes (ADR-0304 spike).
 type MetricSpec struct {
 	// name is the bounded Prometheus series identifier within a profile.
 	// +required

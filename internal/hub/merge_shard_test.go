@@ -16,7 +16,7 @@ import (
 //
 // Memory (linux/amd64, go test -count=1, 2026-06): heap rises ~300–500 KiB for 1000 minimal
 // Item structs in the store; linear with row count. At 10k objects/spoke × 100 spokes the
-// hub must shard consumers and avoid full snapshots (see ADR-0026).
+// hub must shard consumers and avoid full snapshots (see ADR-0603).
 func TestMergerApply100Spokes(t *testing.T) {
 	t.Parallel()
 

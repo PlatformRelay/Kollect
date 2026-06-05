@@ -8,9 +8,9 @@ A `KollectSink` describes **where** inventory exports go: Git, Postgres, Kafka, 
 GitLab (Phase 2). It holds endpoint URLs, credential `secretRef`s, TLS settings, and backend-specific
 blocks (`postgres`, `kafka`). The inventory controller resolves `sinkRefs` and writes serialized
 payloads; status stores summaries (commit SHA, row counts), not full payloads
-([ADR-0006](../adr/0006-etcd-limit.md)).
+([ADR-0103](../adr/0103-etcd-limit.md)).
 
-Sinks are classified by **role**, not vendor ([ADR-0034](../adr/0034-sink-taxonomy-state-vs-stream.md)):
+Sinks are classified by **role**, not vendor ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)):
 
 | Role | `type` | Notes |
 | --- | --- | --- |
@@ -19,9 +19,9 @@ Sinks are classified by **role**, not vendor ([ADR-0034](../adr/0034-sink-taxono
 | Event emitter | `nats` (lean default), `kafka` (enterprise opt-in; Redpanda via Kafka API) | doubles as multi-cluster fan-in |
 | Enterprise Git | `gitlab` (Phase 2) | internal CA via `tls.caSecretRef` |
 
-See [ADR-0034](../adr/0034-sink-taxonomy-state-vs-stream.md),
-[ADR-0025](../adr/0025-sink-backends-database-kafka.md),
-[ADR-0030](../adr/0030-connection-test.md), [ADR-0032](../adr/0032-platform-architecture-pivot.md).
+See [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md),
+[ADR-0402](../adr/0402-sink-backends-database-kafka.md),
+[ADR-0403](../adr/0403-connection-test.md), [ADR-0703](../adr/0703-platform-architecture-pivot.md).
 
 ## How it fits the pipeline
 

@@ -1,8 +1,8 @@
-# ADR-0020: Error taxonomy and reconcile behavior
+# ADR-0602: Error taxonomy and reconcile behavior
 
-## Status
+> Typed errors (transient / terminal / forbidden) drive requeue behavior, conditions, and metrics.
 
-Accepted
+**Theme:** 06 · Observability & ops · **Status:** Current
 
 ## Context
 
@@ -45,7 +45,7 @@ Use **OpenAPI enums** (and Go constants) for:
 
 - `KollectSink.spec.type` — `git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka` (extensible via webhook
   allow-list when adding backends). **Not** `prometheus` — operator metrics use `/metrics` only
-  ([ADR-0012](0012-prometheus-metrics-stub.md)).
+  ([ADR-0601](0601-prometheus-metrics-stub.md)).
 - Condition **`reason`** fields on reconciled kinds — e.g. `Progressing`, `InvalidProfile`,
   `SinkUnreachable`, `Forbidden`, `ConnectionTestSucceeded`, `ConnectionTestFailed`
 
@@ -59,7 +59,7 @@ Export and **test** counters/histograms including at minimum:
 | --- | --- |
 | `kollect_reconcile_total` | `controller`, `result` |
 | `kollect_reconcile_errors_total` | `kind`, `error_class` (`transient`, `terminal`, `forbidden`) |
-| `kollect_sink_errors_total` | `reason` — **separate** from reconcile errors ([ADR-0025](0025-sink-backends-database-kafka.md)) |
+| `kollect_sink_errors_total` | `reason` — **separate** from reconcile errors ([ADR-0402](0402-sink-backends-database-kafka.md)) |
 | `kollect_export_duration_seconds` | `sink_type` — default buckets (seconds): `.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10` |
 | `kollect_collected_objects` | `profile`, `gvk` |
 | `kollect_connection_test_total` | `sink_type`, `result` |
@@ -88,4 +88,4 @@ and increment on table-driven reconcile cases.
 - **RESOLVED (2026-06-05):** **`kollect_sink_errors_total{reason}`** — separate metric; do not fold
   into `kollect_reconcile_errors_total`.
 - **RESOLVED (2026-06-05):** Export duration histogram buckets listed above; flag override if load
-  tests show need ([ADR-0025](0025-sink-backends-database-kafka.md)).
+  tests show need ([ADR-0402](0402-sink-backends-database-kafka.md)).

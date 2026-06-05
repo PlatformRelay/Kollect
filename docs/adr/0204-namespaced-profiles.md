@@ -1,15 +1,15 @@
-# ADR-0031: Namespaced KollectProfile
+# ADR-0204: Namespaced KollectProfile
 
-## Status
+> `KollectProfile` is namespaced so `tenantMode` installs need no cluster-profile RBAC.
 
-Accepted (2026-06-05)
+**Theme:** 02 · API & tenancy · **Status:** Current
 
 ## Context
 
 `KollectTarget` and `KollectInventory` are **namespaced**. `KollectProfile` is **cluster-scoped**
-today ([ADR-0004](0004-crd-model.md)). Per-team operator installs with `tenantMode: true` and
+today ([ADR-0201](0201-crd-model.md)). Per-team operator installs with `tenantMode: true` and
 namespaced `Role` RBAC cannot manage cluster profiles without extra platform `ClusterRole` bindings
-([ADR-0016](0016-namespaced-multi-tenancy.md)).
+([ADR-0203](0203-namespaced-multi-tenancy.md)).
 
 external-secrets solves this with **namespaced `SecretStore`** + optional **`ClusterSecretStore`**.
 The same split fits kollect extraction schemas.
@@ -32,7 +32,7 @@ The same split fits kollect extraction schemas.
    Helm summary) that tenants copy or reference via documented GitOps pattern until cluster profile
    kind ships.
 
-5. **`KollectSink` is namespaced** in the same tenancy batch ([ADR-0032](0032-platform-architecture-pivot.md)).
+5. **`KollectSink` is namespaced** in the same tenancy batch ([ADR-0703](0703-platform-architecture-pivot.md)).
    Reserve **`KollectClusterSink`** for platform-shared backends.
 
 ## Consequences
@@ -54,4 +54,4 @@ The same split fits kollect extraction schemas.
 
 - **OPEN:** Implement namespaced profile in one breaking release vs dual-write transition period?
 - **OPEN:** Short name `kprof` remains; reserve `kcprof` for `KollectClusterProfile`?
-- **RESOLVED ([ADR-0032](0032-platform-architecture-pivot.md)):** namespaced `KollectSink`; `KollectClusterSink` reserved.
+- **RESOLVED ([ADR-0703](0703-platform-architecture-pivot.md)):** namespaced `KollectSink`; `KollectClusterSink` reserved.

@@ -11,7 +11,7 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-// Options configures Istio-style remote credential secret generation (ADR-0028).
+// Options configures Istio-style remote credential secret generation (ADR-0503).
 type Options struct {
 	ClusterName string
 	Namespace   string

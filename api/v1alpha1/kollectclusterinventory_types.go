@@ -8,7 +8,7 @@ import (
 )
 
 // KollectClusterInventorySpec defines platform-wide rollup across KollectClusterTarget objects
-// (ADR-0032). No collection controller is registered in Phase 1 — API + webhook + samples only.
+// (ADR-0703). No collection controller is registered in Phase 1 — API + webhook + samples only.
 type KollectClusterInventorySpec struct {
 	// profileRef names a KollectClusterProfile stub for shared extraction schema (optional).
 	// +optional

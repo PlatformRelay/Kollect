@@ -22,7 +22,7 @@ type InventoryRef struct {
 	Name      string `json:"name"`
 }
 
-// SpokeReport is the spoke → hub inventory payload (ADR-0023 sketch).
+// SpokeReport is the spoke → hub inventory payload (ADR-0502 sketch).
 type SpokeReport struct {
 	APIVersion   string         `json:"apiVersion"`
 	Cluster      string         `json:"cluster"`

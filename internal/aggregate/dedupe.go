@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Konrad Heimel
 
-// Package aggregate holds cross-target rollup helpers for Phase 4 (ADR-0033).
+// Package aggregate holds cross-target rollup helpers for Phase 4 (ADR-0304).
 // KollectClusterInventory uses MergeRows and ExportCoalesce on the export path;
 // namespaced KollectInventory still marshals per-namespace snapshots directly.
 package aggregate

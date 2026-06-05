@@ -12,7 +12,7 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-const defaultMaxExportBytesGlobal int64 = 1572864 // 1.5 MiB per ADR-0006
+const defaultMaxExportBytesGlobal int64 = 1572864 // 1.5 MiB per ADR-0103
 
 var maxExportBytesGlobal int64 = defaultMaxExportBytesGlobal
 

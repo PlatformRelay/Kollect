@@ -1,26 +1,25 @@
-# ADR-0025: Sink backends — Postgres and Kafka
+# ADR-0402: Sink backends — Postgres and Kafka
 
-## Status
+> Postgres (queryable state of record) and Kafka (event stream) backends, and how to test them.
 
-Accepted (2026-06-05) · **Amended by [ADR-0034](0034-sink-taxonomy-state-vs-stream.md)** — sinks are
-now classified by **role** (snapshot store / relational SoR / event emitter). Postgres and Kafka are
-**not** co-equal primaries: Postgres is a queryable **state** store (and needs **delete
-reconciliation** — upsert-only is a bug); Kafka is an **event emitter** with **NATS JetStream as the
-lean default**. An **S3/GCS Parquet** snapshot sink (queryable via DuckDB, no DB server) is added.
+**Theme:** 04 · Export & sinks · **Status:** Current · **Evolution:** reframed by
+[ADR-0401](0401-sink-taxonomy-state-vs-stream.md) — Postgres and Kafka are **not** co-equal primaries
+(state store vs event emitter); Postgres needs delete reconciliation; NATS is the lean event default;
+an S3/GCS Parquet snapshot sink is added.
 
 ## Context
 
-kollect exports aggregated inventory to pluggable **`KollectSink`** backends ([ADR-0004](0004-crd-model.md),
+kollect exports aggregated inventory to pluggable **`KollectSink`** backends ([ADR-0201](0201-crd-model.md),
 sink registry). Git and object storage are in flight; the user's platform also needs:
 
 - **Durable queryable storage** (Postgres) for portals and SQL analytics
 - **Event streaming** (Kafka) for downstream consumers (audit, fan-out, hub-adjacent pipelines)
 
-Doc-sync / Confluence is **out of scope** ([ADR-0011](0011-doc-sync-templating.md)). Database and
+Doc-sync / Confluence is **out of scope** ([ADR-0702](0702-doc-sync-templating.md)). Database and
 Kafka sinks are **first-class export targets** alongside Git, S3, and GCS — not deferred to a
 separate "documentation" phase.
 
-Operator **Prometheus metrics** remain on the controller `/metrics` endpoint ([ADR-0012](0012-prometheus-metrics-stub.md));
+Operator **Prometheus metrics** remain on the controller `/metrics` endpoint ([ADR-0601](0601-prometheus-metrics-stub.md));
 they are not a `KollectSink` export type.
 
 ## Decision
@@ -54,7 +53,7 @@ stable key ordering ([GUIDELINES.md](https://github.com/konih/kollect/blob/main/
 
 - `secretRef` — connection string or `username`/`password`/`host` keys (never inline secrets)
 - `database`, `schema`, `table` (required)
-- `tls` — same CA patterns as Git ([ADR-0004](0004-crd-model.md))
+- `tls` — same CA patterns as Git ([ADR-0201](0201-crd-model.md))
 - `mode`: `upsert` | `append` (default `upsert`)
 
 **Kafka**
@@ -93,24 +92,24 @@ flowchart LR
 
 ### Positive
 
-- Fits team Kafka usage without overloading hub transport ([ADR-0023](0023-lean-queue-transport.md)).
+- Fits team Kafka usage without overloading hub transport ([ADR-0502](0502-lean-queue-transport.md)).
 - SQL backends enable portal queries without cloning Git repos.
-- Clear separation from rejected doc-sync ([ADR-0011](0011-doc-sync-templating.md)).
+- Clear separation from rejected doc-sync ([ADR-0702](0702-doc-sync-templating.md)).
 
 ### Negative
 
 - Postgres schema migrations are operator-external unless we ship opinionated DDL in docs.
 - Kafka ordering/idempotency is consumer's responsibility; document at-least-once export semantics.
-- Two more backends to test and harden (connection test, circuit breaker per [ADR-0020](0020-error-taxonomy.md)).
+- Two more backends to test and harden (connection test, circuit breaker per [ADR-0602](0602-error-taxonomy.md)).
 
 ### Export observability (Phase 1)
 
 - **`kollect_sink_errors_total{reason}`** — separate from generic reconcile error counter
-  ([ADR-0020](0020-error-taxonomy.md)).
+  ([ADR-0602](0602-error-taxonomy.md)).
 - **`kollect_export_duration_seconds`** default histogram buckets (seconds):
   `.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10` — override via manager flag if load tests require.
 - **Export debounce:** **`KollectInventory.spec.exportMinInterval`** — default **30s**; material-change
-  bypass ([ADR-0032](0032-platform-architecture-pivot.md)) — **not** global `--export-debounce`.
+  bypass ([ADR-0703](0703-platform-architecture-pivot.md)) — **not** global `--export-debounce`.
 - **Connection test GC:** **`KollectConnectionTest.spec.ttlSecondsAfterFinished`** — default **300**.
 
 ## Open questions
@@ -122,6 +121,6 @@ flowchart LR
 
 ## See also
 
-- [ADR-0004: CRD model](0004-crd-model.md)
-- [ADR-0020: Error taxonomy](0020-error-taxonomy.md)
+- [ADR-0201: CRD model](0201-crd-model.md)
+- [ADR-0602: Error taxonomy](0602-error-taxonomy.md)
 - [REQUIREMENTS.md](../REQUIREMENTS.md)

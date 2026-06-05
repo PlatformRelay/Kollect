@@ -15,7 +15,7 @@ import (
 
 // recordTargetSnapshotMetrics emits Phase 4 domain series from a target snapshot.
 // When metricPaths is empty, numeric extracted attributes are summed per attribute name.
-// When KollectProfile.spec.metrics is set (ADR-0033), only configured series are emitted.
+// When KollectProfile.spec.metrics is set (ADR-0304), only configured series are emitted.
 func recordTargetSnapshotMetrics(profile, gvk string, items []Item, metricPaths []metrics.MetricPathSpec) {
 	metrics.RecordCustomResourceSeries(profile, gvk, "object_count", float64(len(items)))
 	metrics.ResetCustomResourceLabeledSeries(profile, gvk)

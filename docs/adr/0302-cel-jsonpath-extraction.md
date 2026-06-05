@@ -1,8 +1,8 @@
-# ADR-0003: CEL and JSONPath attribute extraction
+# ADR-0302: CEL and JSONPath attribute extraction
 
-## Status
+> Extract attributes via JSONPath (with `[*]` array wildcards) and `cel:`-prefixed CEL expressions.
 
-Accepted
+**Theme:** 03 · Collection & extraction · **Status:** Current
 
 ## Context
 
@@ -11,7 +11,7 @@ unstructured Kubernetes objects. Profiles must support both **JSONPath** (kubect
 selection) and **CEL** (computed predicates and string formatting) without ambiguity.
 
 Prior art: kube-state-metrics custom-resource-state metrics, Flux CEL filtering, and the legacy
-batch collector's fixed Go schema (rejected — see ADR-0004).
+batch collector's fixed Go schema (rejected — see ADR-0201).
 
 ## Decision
 
@@ -29,7 +29,7 @@ batch collector's fixed Go schema (rejected — see ADR-0004).
   `cel:object.spec.template.spec.containers.map(c, c.image)`.
 - **CEL** expressions are prefixed with `cel:` (e.g. `cel:object.metadata.name`). The CEL
   environment exposes the full unstructured object as `object`.
-- Empty paths are terminal errors (`ErrTerminal` per ADR-0020).
+- Empty paths are terminal errors (`ErrTerminal` per ADR-0602).
 - Optional attributes (`spec.attributes[].optional: true`) skip extraction failures and absent
   values without failing the whole object.
 - Required attributes that resolve to `null`/missing still record `null` in the result map for

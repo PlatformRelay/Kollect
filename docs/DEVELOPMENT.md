@@ -157,12 +157,12 @@ task kind-e2e-down
 Helm values: `charts/kollect/ci/e2e-tenant-values.yaml`. Kubernetes version is pinned from
 `go.mod` in `hack/kind/common.sh` (same pin as dev and envtest).
 
-## Multi-cluster hub auth (ADR-0028)
+## Multi-cluster hub auth (ADR-0503)
 
 Hub spoke ingest validates **`TokenReview`** then **`SubjectAccessReview`** (non-resource `POST`
 `/hub/v1alpha1/reports`, or `create` on `kollectremoteclusters`). Spokes send
 `Authorization: Bearer` plus `X-Kollect-Cluster-Id`. See
-[ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md).
+[ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md).
 
 ### Generate Istio-style remote credential secrets
 
@@ -321,7 +321,7 @@ go test -short -bench=. -benchmem ./internal/collect/...
 ```
 
 Uses `-short` so long sub-benchmarks are skipped on laptops. Suitable for CI and quick regression
-checks. See [PERFORMANCE.md](PERFORMANCE.md) and [ADR-0026](adr/0026-performance-scalability.md).
+checks. See [PERFORMANCE.md](PERFORMANCE.md) and [ADR-0603](adr/0603-performance-scalability.md).
 
 ### Load tests (opt-in, bounded)
 
@@ -443,7 +443,7 @@ mkdocs build --strict
 ```
 
 Configuration: `mkdocs.yml` at the repository root. GitHub Pages workflow:
-`.github/workflows/docs.yaml`. See [ADR-0021](adr/0021-mkdocs-github-pages.md).
+`.github/workflows/docs.yaml`. See [ADR-0701](adr/0701-mkdocs-github-pages.md).
 
 | Doc | Audience |
 | --- | --- |

@@ -7,7 +7,7 @@
 A `KollectClusterInventory` is the **platform-operator** rollup CR: it aggregates rows from one or
 more `KollectClusterTarget` objects and exports to sinks configured in a designated export namespace.
 One cluster inventory can roll up **all** cluster targets or a subset via `targetRefs`
-([ADR-0032](../adr/0032-platform-architecture-pivot.md)).
+([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
 
 **Phase 1:** API types, validating webhook, and sample YAML only — **no controller** is registered.
 Objects persist and validate at admission; rollup/export requires a future controller milestone.
@@ -96,4 +96,4 @@ kubectl get kcinv platform-rollup -o yaml
 - [KollectClusterTarget](kollectclustertarget.md) — pairs with this kind
 - [KollectInventory](kollectinventory.md) — namespaced equivalent (shipped)
 - [CR-REFERENCE.md](../CR-REFERENCE.md)
-- [ADR-0032](../adr/0032-platform-architecture-pivot.md)
+- [ADR-0703](../adr/0703-platform-architecture-pivot.md)

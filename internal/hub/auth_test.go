@@ -220,7 +220,7 @@ func TestAuthorizeIngestAllowsCreateOnRemoteCluster(t *testing.T) {
 	}
 
 	if !ok {
-		t.Fatal("expected create SAR on kollectremoteclusters to authorize ingest (ADR-0028)")
+		t.Fatal("expected create SAR on kollectremoteclusters to authorize ingest (ADR-0503)")
 	}
 }
 

@@ -1,12 +1,11 @@
-# ADR-0022: Multi-cluster sync topology (RFC)
+# ADR-0501: Multi-cluster sync topology
 
-## Status
+> Default multi-cluster = direct shared-sink fan-in (`spec.cluster`); the hub is an optional tier for
+> Git fan-in, network isolation, credential centralization, or schema decoupling.
 
-Accepted (2026-06-05) · **Amended by [ADR-0034](0034-sink-taxonomy-state-vs-stream.md)** — the
-**default multi-cluster topology is direct shared-sink fan-in** (each operator exports to a shared
-Postgres/Kafka/object store with `spec.cluster` set; the backend key/PK provides the merge). The
-**hub is an optional tier**, used only for Git fan-in, network isolation, credential centralization,
-or schema decoupling — **not** the default scale answer.
+**Theme:** 05 · Multi-cluster · **Status:** Current · **Evolution:** the hub was originally framed as
+*the* multi-cluster answer; [ADR-0401](0401-sink-taxonomy-state-vs-stream.md) demoted it to optional
+in favor of direct shared-sink fan-in.
 
 ## Context
 
@@ -16,13 +15,13 @@ Many installations need inventory from **many Kubernetes clusters** (and growing
 - Blocking the **single-cluster** path while multi-cluster is designed
 - Premature commitment to **Git-only** fan-in (agent mesh or object storage may fit better)
 
-Design for **hundreds of spokes** (hub scale targets in [ADR-0026](0026-performance-scalability.md))
+Design for **hundreds of spokes** (hub scale targets in [ADR-0603](0603-performance-scalability.md))
 and **giant single clusters**
 (1000s of nodes, 10k+ watched resources per spoke). The hub must **shard and aggregate**, not
 maintain pairwise or full-mesh relationships between spokes.
 
 Phase 0 favors **one pod does all** (collect → aggregate → export). Multi-cluster must layer on
-without rewriting the single-cluster CRD model ([ADR-0004](0004-crd-model.md)).
+without rewriting the single-cluster CRD model ([ADR-0201](0201-crd-model.md)).
 
 `KollectInventory` is **namespaced** (team-owned rollup per namespace). Platform-wide single-cluster
 views use reserved **`KollectClusterInventory`** (cluster-scoped, not implemented in Phase 0–1).
@@ -31,10 +30,10 @@ views use reserved **`KollectClusterInventory`** (cluster-scoped, not implemente
 
 | Dimension | Target | Design implication |
 | --- | --- | --- |
-| **Spoke count** | many clusters (see [ADR-0026](0026-performance-scalability.md)) | Hub merge is **O(spokes)** ingest + **O(rows)** dedupe, never O(spokes²) cross-talk |
+| **Spoke count** | many clusters (see [ADR-0603](0603-performance-scalability.md)) | Hub merge is **O(spokes)** ingest + **O(rows)** dedupe, never O(spokes²) cross-talk |
 | **Spoke size** | 10k+ watched resources, 1000+ nodes | Spoke stays **lightweight** — summarize before push; no full payload fan-in to hub RAM |
 | **Hub throughput** | 1 logical export per tenant change | Queue consumers shard by `(tenant, shard)`; horizontal hub replicas |
-| **Spoke memory** | Bounded per [ADR-0026](0026-performance-scalability.md) | Scoped informers, paginated list, delta snapshots only |
+| **Spoke memory** | Bounded per [ADR-0603](0603-performance-scalability.md) | Scoped informers, paginated list, delta snapshots only |
 
 ### Anti-patterns (explicitly rejected at scale)
 
@@ -87,9 +86,9 @@ flowchart TB
 
 - **Spoke** — **lightweight** per-cluster operator: scoped watches, in-memory aggregation,
   **pushes summarized deltas** on debounced intervals — not raw object streams. Memory and CPU
-  bounded per [ADR-0026](0026-performance-scalability.md).
+  bounded per [ADR-0603](0603-performance-scalability.md).
 - **Hub** — **Helm `mode: hub`** on the **same operator image** (no `KollectHub` CRD —
-  [ADR-0032](0032-platform-architecture-pivot.md)). `internal/hub/` merge library + transport
+  [ADR-0703](0703-platform-architecture-pivot.md)). `internal/hub/` merge library + transport
   values (`transport.type`, shard count, ingest flags).
 - **Sharding** — queue partitions or consumer groups keyed by `tenant` / `cluster` / hash bucket so
   hub work is **O(rows merged)**, not O(spokes × spokes).
@@ -123,11 +122,11 @@ control plane. **Not recommended beyond ~20 peers** without a hub tier — docum
 | **Object storage (S3/GCS)** | Large payloads, cheap; spoke spillover for giant clusters | Eventing needs companion (SQS, notification) |
 | **Agent HTTPS API** | Direct, testable ([REQUIREMENTS](../REQUIREMENTS.md)) | mTLS, CA bundles, auth at hub scale |
 
-**Decision:** investigate **lean queue first** ([ADR-0023](0023-lean-queue-transport.md)); Kafka is an
+**Decision:** investigate **lean queue first** ([ADR-0502](0502-lean-queue-transport.md)); Kafka is an
 optional enterprise plug-in — never a hard dependency. Partition count must scale with spoke count.
 
 **Open:** whether spokes push on change (event-driven, coalesced) or hub pulls on interval (only for
-*external* freshness — not for in-cluster watches per [ADR-0014](0014-event-driven-informers.md)).
+*external* freshness — not for in-cluster watches per [ADR-0301](0301-event-driven-informers.md)).
 
 ## Aggregation strategies
 
@@ -137,7 +136,7 @@ Goal: **one logical inventory view** per product/tenant, not per cluster.
 | --- | --- |
 | **Hub merge (sharded)** | Consumers merge by `(cluster, namespace, name, uid)`; shard by tenant hash; **one** export |
 | **Federated Git** | Monorepo path `clusters/<name>/inventory.json` + single rendered index |
-| **Single portal view** | Hub merge + Postgres/Kafka/Git export; rendered docs via external CI ([ADR-0011](0011-doc-sync-templating.md)) |
+| **Single portal view** | Hub merge + Postgres/Kafka/Git export; rendered docs via external CI ([ADR-0702](0702-doc-sync-templating.md)) |
 | **Metrics-only fan-in** | Prometheus labels include `cluster`; docs still need aggregated export |
 
 ## MVP-first layering (no throwaway hub work)
@@ -149,7 +148,7 @@ primitives:
 | --- | --- | --- |
 | **L1 — Single cluster** | First | Namespaced inventory, export to Postgres/Kafka, `Transport` with `inprocess` only |
 | **L2 — Hub library** | Next | Merge/dedupe + shard routing in `internal/hub/`; `inprocess` tests |
-| **L3 — Helm hub mode** | Next | Chart values / `--mode=hub\|spoke` on **same image** — **no `KollectHub` CRD** ([ADR-0032](0032-platform-architecture-pivot.md)) |
+| **L3 — Helm hub mode** | Next | Chart values / `--mode=hub\|spoke` on **same image** — **no `KollectHub` CRD** ([ADR-0703](0703-platform-architecture-pivot.md)) |
 
 **Rule:** do not build hub-only merge or transport code that single-cluster export cannot exercise.
 Hub is **Helm configuration**, not a CRD lifecycle.
@@ -159,19 +158,19 @@ Hub is **Helm configuration**, not a CRD lifecycle.
 | Phase | Path | Multi-cluster impact |
 | --- | --- | --- |
 | **0** | One pod, one cluster, Helm, webhooks, metrics, connection test | CRDs and status model stay cluster-local |
-| **1** | Namespaced `KollectInventory` aggregation, HTTP `/inventory`, Git/GitLab sink + **custom CA** | Export contract stable for hub to consume; operator metrics + bounded benchmarks ([ADR-0026](0026-performance-scalability.md)) |
+| **1** | Namespaced `KollectInventory` aggregation, HTTP `/inventory`, Git/GitLab sink + **custom CA** | Export contract stable for hub to consume; operator metrics + bounded benchmarks ([ADR-0603](0603-performance-scalability.md)) |
 | **2** | **`mode: hub\|spoke`** + spoke push to hub ingest / queue | Helm hub Deployment + merge lib + shard routing |
-| **3** | Queue-backed async (pluggable per [ADR-0023](0023-lean-queue-transport.md)) | Spokes decoupled from hub uptime; optional Kafka partitions |
-| **Later** | `KollectClusterInventory` | After aggregation proven at hub scale; doc-sync rejected ([ADR-0011](0011-doc-sync-templating.md)) |
+| **3** | Queue-backed async (pluggable per [ADR-0502](0502-lean-queue-transport.md)) | Spokes decoupled from hub uptime; optional Kafka partitions |
+| **Later** | `KollectClusterInventory` | After aggregation proven at hub scale; doc-sync rejected ([ADR-0702](0702-doc-sync-templating.md)) |
 
 Single-cluster users never enable hub/spoke CRs or flags.
 
 ## Decision
 
-1. **Do not block MVP** on multi-cluster — hub is Helm `mode` + library, not a hub CRD ([ADR-0032](0032-platform-architecture-pivot.md)).
+1. **Do not block MVP** on multi-cluster — hub is Helm `mode` + library, not a hub CRD ([ADR-0703](0703-platform-architecture-pivot.md)).
 2. **Design namespaced `KollectInventory` aggregation** as if many clusters feed a sharded hub export.
 3. **Hub-and-spoke** via same image `mode: hub|spoke`; portal reads **hub Postgres/Kafka**, not Git per spoke.
-4. **Lean queue pluggable**, **`inprocess` default only** ([ADR-0023](0023-lean-queue-transport.md)).
+4. **Lean queue pluggable**, **`inprocess` default only** ([ADR-0502](0502-lean-queue-transport.md)).
 5. **Spokes must stay lightweight** — delta snapshots, bounded RAM, debounced export.
 6. **Reject `KollectHub` CRD** — configuration via Helm values and flags only.
 
@@ -182,11 +181,11 @@ Single-cluster users never enable hub/spoke CRs or flags.
 - Clear narrative for platform teams at **hub scale** and giant single clusters.
 - Single-cluster MVP remains the default install story.
 - Hub lifecycle is Helm-native (`mode`, transport, shard flags).
-- Early perf visibility via operator metrics and bounded benchmarks ([ADR-0026](0026-performance-scalability.md)) reduces architectural lock-in risk.
+- Early perf visibility via operator metrics and bounded benchmarks ([ADR-0603](0603-performance-scalability.md)) reduces architectural lock-in risk.
 
 ### Negative
 
-- Cross-cluster auth is hybrid (Istio-style secrets + push TokenReview) — see [ADR-0028](0028-hub-cluster-auth-istio-pattern.md).
+- Cross-cluster auth is hybrid (Istio-style secrets + push TokenReview) — see [ADR-0503](0503-hub-cluster-auth-istio-pattern.md).
 - ~~`KollectHub` CRD~~ **rejected** — existing API stubs may remain in tree but are not the product
   surface; hub is Helm `mode: hub` only. Sharding strategy needs load proof.
 - Spoke summary format must version cleanly as attribute cardinality grows.
@@ -194,8 +193,8 @@ Single-cluster users never enable hub/spoke CRs or flags.
 ## Open questions
 
 - **RESOLVED (2026-06-05):** One operator image with **`mode: spoke|hub`** — no binary split until load proof says otherwise.
-- **RESOLVED (ADR-0028):** Push-first **TokenReview + `X-Kollect-Cluster-Id`**; optional Istio-style remote credential `Secret` for hub pull.
-- **OPEN (ADR-0028):** Spoke cross-cluster identity details (mTLS, OIDC, bootstrap tokens) — see [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md).
-- **OPEN:** Maximum spoke payload size before hub spills to object store ([ADR-0006](0006-etcd-limit.md))?
+- **RESOLVED (ADR-0503):** Push-first **TokenReview + `X-Kollect-Cluster-Id`**; optional Istio-style remote credential `Secret` for hub pull.
+- **OPEN (ADR-0503):** Spoke cross-cluster identity details (mTLS, OIDC, bootstrap tokens) — see [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md).
+- **OPEN:** Maximum spoke payload size before hub spills to object store ([ADR-0103](0103-etcd-limit.md))?
 - **OPEN:** Hub shard count formula — fixed partitions vs dynamic by spoke registration?
 - **OPEN:** Is Git monorepo with `clusters/*` paths sufficient for Phase 2, or object store required at hub scale?

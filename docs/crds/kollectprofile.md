@@ -12,8 +12,8 @@ Profiles are **static configuration** — no controller reconciles them. The tar
 the profile referenced by `KollectTarget.spec.profileRef` when registering collection. Validation
 happens at admission (CEL compile, JSONPath shape, forbidden `Secret.data` paths).
 
-See [ADR-0003](../adr/0003-cel-jsonpath-extraction.md) and
-[ADR-0031](../adr/0031-namespaced-profiles.md).
+See [ADR-0302](../adr/0302-cel-jsonpath-extraction.md) and
+[ADR-0204](../adr/0204-namespaced-profiles.md).
 
 ## How it fits the pipeline
 
@@ -50,7 +50,7 @@ Full flow: [DATA-FLOWS.md](../DATA-FLOWS.md#2-collection-pipeline) ·
 | `spec.attributes[].path` | string | Yes | JSONPath (`$.…`) or `cel:…` expression |
 | `spec.attributes[].type` | string | No | Hint: `string`, `int`, `list`, `map`, … |
 | `spec.attributes[].optional` | bool | No | Non-fatal when extraction yields no value |
-| `spec.metrics[]` | list | No | KSM-style Prometheus series on operator `/metrics` ([ADR-0033](../adr/0033-custom-resource-aggregation-rfc.md)) |
+| `spec.metrics[]` | list | No | KSM-style Prometheus series on operator `/metrics` ([ADR-0304](../adr/0304-custom-resource-aggregation-rfc.md)) |
 | `spec.metrics[].name` | string | Yes | Bounded series identifier (e.g. `ready_replicas_total`) |
 | `spec.metrics[].path` | string | Yes | Attribute name from `spec.attributes` to aggregate |
 | `spec.metrics[].labels[]` | list | No | Optional label keys from attributes (max 5); emits `kollect_custom_resource_labeled_series` |
@@ -108,7 +108,7 @@ ClusterRole includes profile read cluster-wide when not in tenant mode.
 
 | Symptom | Reason | Fix |
 | --- | --- | --- |
-| Admission denied: invalid CEL | Expression does not compile | Prefix with `cel:`; test in unit fixtures; see [ADR-0003](../adr/0003-cel-jsonpath-extraction.md) |
+| Admission denied: invalid CEL | Expression does not compile | Prefix with `cel:`; test in unit fixtures; see [ADR-0302](../adr/0302-cel-jsonpath-extraction.md) |
 | Admission denied: empty path | `spec.attributes[].path` missing | Set JSONPath or CEL for every attribute |
 | Admission denied: Secret.data | Path targets `Secret.data` | Use `Secret` metadata only or redact via operator `scrubKeys` (Phase 2) |
 | Target `ProfileNotFound` | Name/namespace mismatch | Create profile in same namespace as target |

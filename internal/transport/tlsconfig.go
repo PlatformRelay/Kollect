@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-// TLSSettings configures optional TLS for queue transport backends (ADR-0028 wire hardening).
+// TLSSettings configures optional TLS for queue transport backends (ADR-0503 wire hardening).
 type TLSSettings struct {
 	InsecureSkipVerify bool
 	CAFile             string

@@ -13,7 +13,7 @@ Lean publish/subscribe boundary for inventory change notifications inside the op
 
 Configure via `transport.Config` or `ConfigFromEnv()` (`KOLLECT_TRANSPORT_TYPE`, backend URLs).
 Optional TLS for Redis/NATS: `KOLLECT_TRANSPORT_TLS_CA_FILE`, `KOLLECT_TRANSPORT_TLS_CLIENT_CERT_FILE`,
-`KOLLECT_TRANSPORT_TLS_CLIENT_KEY_FILE`, `KOLLECT_TRANSPORT_TLS_INSECURE_SKIP_VERIFY` (ADR-0028).
+`KOLLECT_TRANSPORT_TLS_CLIENT_KEY_FILE`, `KOLLECT_TRANSPORT_TLS_INSECURE_SKIP_VERIFY` (ADR-0503).
 
 Optional wire ACL hints (hub consumer validates `cluster_id` when set):
 
@@ -26,7 +26,7 @@ Optional wire ACL hints (hub consumer validates `cluster_id` when set):
 Production TLS/ACL wiring is **stub-level in the operator**: client TLS for Redis/NATS is supported;
 broker-side stream/subject ACLs and NATS account limits must be configured out-of-band (Helm docs +
 `ACLSettingsFromEnv`). Spoke identity on the wire still flows through report payload + hub
-`KOLLECT_REMOTE_CLUSTERS` allowlist (ADR-0028).
+`KOLLECT_REMOTE_CLUSTERS` allowlist (ADR-0503).
 
 ### Broker setup (operator + external)
 
@@ -44,5 +44,5 @@ Deployment env from the table above. Redis: create a dedicated user with `XADD` 
 `XREADGROUP` for the hub consumer group. NATS: create a JetStream-enabled account limited to
 `inventory/reports` publish (spoke) and durable consume (hub).
 
-Use cases: spoke → hub inventory reports (ADR-0022), debounced export triggers, and optional
+Use cases: spoke → hub inventory reports (ADR-0501), debounced export triggers, and optional
 decoupling of collection from export workers.

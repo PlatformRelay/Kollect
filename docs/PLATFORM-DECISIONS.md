@@ -1,7 +1,7 @@
 # Platform decisions — architecture summary
 
 > **For coordinators and implementers.** Locked outcomes from architecture discussions (2026-06-05).
-> Formal ADR: [adr/0032-platform-architecture-pivot.md](adr/0032-platform-architecture-pivot.md).
+> Formal ADR: [adr/0703-platform-architecture-pivot.md](adr/0703-platform-architecture-pivot.md).
 >
 > **Phases = build order**, not release milestones. No public “release” until the tree is beta-quality.
 > **No adopters** on `v1alpha1` — break APIs when needed.
@@ -17,11 +17,11 @@
   recommended sink for **small single-cluster** installs without a database or Kafka broker.
 - **HTTP inventory:** optional debug (`featureGates.inventoryHttp.enabled: false`); **not** MVP; hub read path uses merged store later.
 - **No `KollectHub` CRD** — `mode: hub|spoke` + Helm values + `internal/hub/` library.
-- **`KollectConnectionTest` CR** — implement (supersedes ADR-0030 rejection).
+- **`KollectConnectionTest` CR** — implement (supersedes ADR-0403 rejection).
 - **Shared informer per GVK** — one cache per GVK, Targets filter in reconcile.
 - **Watch labels** — support `All` and `OptIn`; platform central + per-resource `kollect.dev/watch: disabled`.
 - **Transport:** `inprocess` only default.
-- **No doc-sync** in operator ([ADR-0011](adr/0011-doc-sync-templating.md)).
+- **No doc-sync** in operator ([ADR-0702](adr/0702-doc-sync-templating.md)).
 
 ### Build order (not release gates)
 
@@ -40,7 +40,7 @@
 
 ### Locked micro-decisions (2026-06-05, session 5)
 
-Sink/transport reframe — [ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md).
+Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md).
 
 | Topic | Decision |
 | --- | --- |
@@ -72,7 +72,7 @@ Sink/transport reframe — [ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md)
 | `exportMinInterval` unset | **CRD default 30s** (`kubebuilder:default`); operator global flag = deprecated fallback only |
 | `exportMinInterval` bypass | Immediate export on **payload checksum change** or **`metadata.generation`** bump |
 | ConnectionTest re-run | **Re-probe on any spec change** (generation ≠ observedGeneration); TTL restarts after new run |
-| `KollectScope` enforcement | **Hard degrade** — `Degraded` + no collect/export; see [ADR-0016](adr/0016-namespaced-multi-tenancy.md) example |
+| `KollectScope` enforcement | **Hard degrade** — `Degraded` + no collect/export; see [ADR-0203](adr/0203-namespaced-multi-tenancy.md) example |
 | Hub first milestone | **Postgres + Kafka in parallel** on hub ingest |
 | `KollectClusterInventory` | **One CR rolls up all** `KollectClusterTarget`s; optional `targetRefs` for subset / 1:1 |
 | ADR micro-decisions (Postgres PK, HTTP paths, Kafka keys, …) | **Confirmed** — implement as coordinator defaults |
@@ -85,7 +85,7 @@ Sink/transport reframe — [ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md)
 | Argo samples | Profile `argo-application-summary` + Target `team-argo-applications` |
 | `KollectConnectionTest` GC | **`spec.ttlSecondsAfterFinished`** — default **300s** |
 | Export debounce | **Per Inventory** — `spec.exportMinInterval`, default **30s**; **not** global `--export-debounce` |
-| Hub federated mTLS | **Deferred** — ADR-0028 push-first path stands |
+| Hub federated mTLS | **Deferred** — ADR-0503 push-first path stands |
 | Cluster rollup | **`KollectClusterInventory`** + **`KollectClusterTarget`** (no namespaced `inventoryRef` hack) |
 
 ### ADR micro-decisions (lock at implement — Phase 1 unless noted)
@@ -93,7 +93,7 @@ Sink/transport reframe — [ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md)
 Coordinator defaults from session 2. **Phase 1** rows ship as written; **Phase 2+** may spike first.
 Update the cited ADR when code merges.
 
-#### HTTP API and auth ([ADR-0006](adr/0006-etcd-limit.md), [ADR-0024](adr/0024-inventory-api-auth.md))
+#### HTTP API and auth ([ADR-0103](adr/0103-etcd-limit.md), [ADR-0404](adr/0404-inventory-api-auth.md))
 
 | Topic | Default | Phase |
 | --- | --- | --- |
@@ -106,7 +106,7 @@ Update the cited ADR when code merges.
 | TokenReview/SAR cache | **30s TTL** in-memory per `(token hash, verb, resource)`; flag + `disabled` for dev | 1 |
 | `maxExportBytes` | Global manager default (~**1.5 MiB**) + optional **`KollectInventory.spec.maxExportBytes`**; webhook rejects override > global cap | 1 |
 
-#### Sinks and export ([ADR-0025](adr/0025-sink-backends-database-kafka.md), [ADR-0020](adr/0020-error-taxonomy.md))
+#### Sinks and export ([ADR-0402](adr/0402-sink-backends-database-kafka.md), [ADR-0602](adr/0602-error-taxonomy.md))
 
 | Topic | Default | Phase |
 | --- | --- | --- |
@@ -119,7 +119,7 @@ Update the cited ADR when code merges.
 | Export debounce | **`KollectInventory.spec.exportMinInterval`** — default **30s**; material-change bypass | 1 |
 | Connection test TTL | **`KollectConnectionTest.spec.ttlSecondsAfterFinished`** — default **300** | 1 |
 
-#### Extraction and Helm ([ADR-0003](adr/0003-cel-jsonpath-extraction.md), [ADR-0027](adr/0027-helm-release-inventory.md))
+#### Extraction and Helm ([ADR-0302](adr/0302-cel-jsonpath-extraction.md), [ADR-0303](adr/0303-helm-release-inventory.md))
 
 | Topic | Default | Phase |
 | --- | --- | --- |
@@ -128,7 +128,7 @@ Update the cited ADR when code merges.
 | JSONPath filter validation | Webhook **warn** only; **reject** unsupported filters | 1 warn / 2 reject |
 | CEL prefix | Webhook **requires** **`cel:`** prefix on CEL expressions | 1 |
 
-#### Hub and transport ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md), [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md))
+#### Hub and transport ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md), [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md))
 
 | Topic | Default | Phase |
 | --- | --- | --- |
@@ -139,7 +139,7 @@ Update the cited ADR when code merges.
 | Hub shard routing | **`hash(clusterName) % shardCount`** via **Helm values / env** — **no `KollectHub` CRD** | 2 |
 | Git `clusters/*` monorepo | Sufficient for **≤100** spokes; object-store spill beyond | 2+ |
 
-#### CRD model ([ADR-0004](adr/0004-crd-model.md))
+#### CRD model ([ADR-0201](adr/0201-crd-model.md))
 
 | Topic | Default | Phase |
 | --- | --- | --- |
@@ -151,7 +151,7 @@ Update the cited ADR when code merges.
 - [x] **CR reference guide** — scaffold at [CR-REFERENCE.md](CR-REFERENCE.md) + [crds/](crds/);
   failure-mode detail remains worker TODO.
 - [x] **Architecture data flows** — [DATA-FLOWS.md](DATA-FLOWS.md) (debounce + collection + scope + connection test).
-- [x] **JSONPath `[*]` wildcard** — all array elements; deployment sample updated ([ADR-0003](adr/0003-cel-jsonpath-extraction.md)).
+- [x] **JSONPath `[*]` wildcard** — all array elements; deployment sample updated ([ADR-0302](adr/0302-cel-jsonpath-extraction.md)).
 
 ### TODOs explicitly requested
 
@@ -193,7 +193,7 @@ flowchart TD
 | `KollectInventory` | Namespace | Aggregates namespaced targets in namespace |
 | `KollectScope` | Namespace | Webhook + reconciler enforcement |
 | `KollectConnectionTest` | Namespace | One-shot / CI connectivity probes |
-| `KollectClusterTarget` | **Cluster** | Platform cross-namespace collection — `namespaceSelector` + cluster profile ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| `KollectClusterTarget` | **Cluster** | Platform cross-namespace collection — `namespaceSelector` + cluster profile ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | `KollectClusterProfile` | Cluster | Platform-shared extraction schemas |
 | `KollectClusterSink` | Cluster | Shared export backends (later) |
 | `KollectClusterInventory` | Cluster | Rollup for cluster targets (later) |
@@ -202,7 +202,7 @@ flowchart TD
 | `KollectPublication` | — | **Rejected** — external CI |
 | `KollectReceiver` | — | Reserved — webhook trigger (future) |
 | `KollectTargetSet` | — | Reserved — generator pattern (future) |
-| `KollectRemoteCluster` | Namespace (hub) | Spoke registration; push auth [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md) |
+| `KollectRemoteCluster` | Namespace (hub) | Spoke registration; push auth [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) |
 
 ### Reserved CRDs — what they mean
 
@@ -218,7 +218,7 @@ flowchart TD
 | `KollectReceiver` | Inbound webhook → trigger export (Flux Receiver) | No webhook trigger requirement yet |
 | `KollectTargetSet` | Generate many Targets (ApplicationSet) | Manual Targets OK for MVP |
 | ~~`KollectHub`~~ | Was: CRD spawns hub Deployment | **Rejected / deprecated stub** — Helm `mode: hub` only; remove from roadmap controllers |
-| ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0011](adr/0011-doc-sync-templating.md) |
+| ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0702](adr/0702-doc-sync-templating.md) |
 
 Do not generate controllers or document samples for reserved kinds unless an ADR promotes them.
 
@@ -226,7 +226,7 @@ Do not generate controllers or document samples for reserved kinds unless an ADR
 
 ## Sinks and portals
 
-Sinks are classified by **role**, not vendor ([ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md)).
+Sinks are classified by **role**, not vendor ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 The in-memory snapshot per Inventory is canonical; every sink is a projection.
 
 | Role | Backends | When | Deletes |
@@ -244,8 +244,8 @@ The in-memory snapshot per Inventory is canonical; every sink is a projection.
 
 ## Collection engine
 
-- **One shared informer per GVK** ([ADR-0014](adr/0014-event-driven-informers.md)).
-- **Watch labels** ([ADR-0029](adr/0029-watch-labels.md)): platform runs `watchMode: All`; teams opt out with `kollect.dev/watch: disabled` on a resource or namespace annotation.
+- **One shared informer per GVK** ([ADR-0301](adr/0301-event-driven-informers.md)).
+- **Watch labels** ([ADR-0205](adr/0205-watch-labels.md)): platform runs `watchMode: All`; teams opt out with `kollect.dev/watch: disabled` on a resource or namespace annotation.
 - **Export debouncing:** in-memory store updates on every event; **export to sink coalesced** per
   Inventory via **`spec.exportMinInterval`** (default **30s**) + checksum/generation bump for
   material changes. **Not** a global manager flag.
@@ -262,13 +262,13 @@ The in-memory snapshot per Inventory is canonical; every sink is a projection.
 | Spoke HTTP (if enabled) | RAM snapshot | No — debug only |
 | Hub DB | Merged multi-cluster rows | Yes — portal query target |
 
-Never persist full payloads in etcd ([ADR-0006](adr/0006-etcd-limit.md)).
+Never persist full payloads in etcd ([ADR-0103](adr/0103-etcd-limit.md)).
 
 ---
 
 ## Multi-cluster (build order)
 
-**Default topology = direct shared-sink fan-in** ([ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md)):
+**Default topology = direct shared-sink fan-in** ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)):
 each operator exports to a shared Postgres/Kafka/object store with `spec.cluster` set; the backend
 key/PK provides the merge. **No hub required.**
 
@@ -279,8 +279,8 @@ The **hub is an optional tier**, used only for:
 - **credential centralization** (one DB/broker cred at hub vs N spokes)
 - **schema decoupling** (spokes speak report schema; hub owns DB schema)
 
-Hub auth (when used): [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md) push-first, SAR `create`
-on `kollectremoteclusters`. Transport unified with the event sink ([ADR-0023](adr/0023-lean-queue-transport.md)).
+Hub auth (when used): [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) push-first, SAR `create`
+on `kollectremoteclusters`. Transport unified with the event sink ([ADR-0502](adr/0502-lean-queue-transport.md)).
 
 ---
 
@@ -297,7 +297,7 @@ on `kollectremoteclusters`. Transport unified with the event sink ([ADR-0023](ad
 - **`KollectConnectionTest` CR** — primary for audited/CI/composite probes
 - **`spec.ttlSecondsAfterFinished`** — default **300s**; delete CR after probe completes
 - Sink `connectionTest: false` in prod; annotation for quick sink-only retest
-- See [ADR-0032](adr/0032-platform-architecture-pivot.md) (amends [ADR-0030](adr/0030-connection-test.md))
+- See [ADR-0703](adr/0703-platform-architecture-pivot.md) (amends [ADR-0403](adr/0403-connection-test.md))
 
 ---
 
@@ -305,7 +305,7 @@ on `kollectremoteclusters`. Transport unified with the event sink ([ADR-0023](ad
 
 | Topic | ADR |
 | --- | --- |
-| Hub federated mTLS behind external LB | **Deferred** — [0028](adr/0028-hub-cluster-auth-istio-pattern.md) |
+| Hub federated mTLS behind external LB | **Deferred** — [0028](adr/0503-hub-cluster-auth-istio-pattern.md) |
 
 ---
 

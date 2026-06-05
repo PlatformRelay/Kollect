@@ -1,8 +1,8 @@
-# ADR-0001: Kubebuilder v4 + controller-runtime
+# ADR-0101: Kubebuilder v4 + controller-runtime
 
-## Status
+> Build kollect on Kubebuilder v4 + controller-runtime (Go 1.26) — proven operator scaffolding.
 
-Accepted
+**Theme:** 01 · Foundations · **Status:** Current
 
 ## Context
 
@@ -42,4 +42,4 @@ patterns — thin reconcilers, workqueues, conditions, and leader election.
 ## Resolved questions (2026-06-05)
 
 - **Helm chart ships day 1** — `charts/kollect/`, CI `helm template` / unittest path ([REQUIREMENTS.md](../REQUIREMENTS.md)).
-- **Validating webhooks early** — Profile CEL/JSONPath and Sink type enum at admission ([ADR-0004](0004-crd-model.md), [ADR-0015](0015-static-vs-reconciled.md)); not deferred to reconcile-time workarounds.
+- **Validating webhooks early** — Profile CEL/JSONPath and Sink type enum at admission ([ADR-0201](0201-crd-model.md), [ADR-0202](0202-static-vs-reconciled.md)); not deferred to reconcile-time workarounds.

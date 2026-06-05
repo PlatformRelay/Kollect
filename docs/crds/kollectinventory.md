@@ -8,11 +8,11 @@ A `KollectInventory` aggregates all collected rows from `KollectTarget` objects 
 namespace** and exports the marshalled JSON payload to one or more `KollectSink` backends. Export is
 **debounced per inventory** — the in-memory store updates immediately on every watch event, but
 sink writes coalesce unless the payload checksum or CR generation changes
-([ADR-0032](../adr/0032-platform-architecture-pivot.md)).
+([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
 
 Postgres and Kafka are the **primary** portal integration path; Git suits small single-cluster
 installs. Full payloads live in sinks; `status` holds counts, conditions, and export metadata only
-([ADR-0006](../adr/0006-etcd-limit.md)).
+([ADR-0103](../adr/0103-etcd-limit.md)).
 
 ## How it fits the pipeline
 
@@ -109,7 +109,7 @@ kubectl patch kinv team-inventory -n default --type=merge \
 | Operator | `update`, `patch` | `kollectinventories/status` | Conditions and export metadata |
 
 HTTP inventory read path (when enabled) requires caller SAR `get` on `kollectinventories` —
-[ADR-0024](../adr/0024-inventory-api-auth.md).
+[ADR-0404](../adr/0404-inventory-api-auth.md).
 
 ## Common failure modes
 
@@ -127,4 +127,4 @@ HTTP inventory read path (when enabled) requires caller SAR `get` on `kollectinv
 - [KollectTarget](kollecttarget.md) · [KollectSink](kollectsink.md) · [KollectScope](kollectscope.md)
 - [DATA-FLOWS.md](../DATA-FLOWS.md)
 - [examples/deployment-inventory.md](../examples/deployment-inventory.md)
-- [ADR-0020](../adr/0020-error-taxonomy.md) — error classes
+- [ADR-0602](../adr/0602-error-taxonomy.md) — error classes

@@ -17,7 +17,7 @@ release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 | `v0.0.1` | `13546aff` | Kubebuilder scaffold, MIT license |
 | `v0.0.2` | `1e6f6719` | Core `v1alpha1` CRDs (Profile, Sink, Target, Inventory) |
 | `v0.0.3` | `66421337` | Helm chart, CEL/JSONPath extraction, inventory HTTP |
-| `v0.0.4` | `4234960b` | ADR-0032 platform pivot MVP (namespaced API, export pipeline) |
+| `v0.0.4` | `4234960b` | ADR-0703 platform pivot MVP (namespaced API, export pipeline) |
 | `v0.1.0` | `main` HEAD | First published release (includes hub/cluster APIs since MVP) |
 
 Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
@@ -112,7 +112,7 @@ anchor on an older commit.
 
 - **sink:** Add GitLab API v4 merge request client [8247f4e](https://github.com/konih/kollect/commit/8247f4ec6fa451b7837acce56a0f534193a13352)
 
-- **collect:** Complete ADR-0020 metrics catalog [4d14925](https://github.com/konih/kollect/commit/4d14925b5aebc8665c59c72181e9950cc07ad011)
+- **collect:** Complete ADR-0602 metrics catalog [4d14925](https://github.com/konih/kollect/commit/4d14925b5aebc8665c59c72181e9950cc07ad011)
 
 - **sink:** Add gitlab mergeRequest CRD and transport ACL wire [bd6499f](https://github.com/konih/kollect/commit/bd6499fe1756dc5c7cc24367d49fa46f96f079ca)
 
@@ -206,7 +206,7 @@ anchor on an older commit.
 
 - **transport:** Pluggable factory with Redis Streams [36a8193](https://github.com/konih/kollect/commit/36a819337cba8e799cb6d928563fae1035f35cf1)
 
-- **metrics:** Complete ADR-0020 operator metric set [ec56d86](https://github.com/konih/kollect/commit/ec56d862a5b91942b93805705b2c5cc762865433)
+- **metrics:** Complete ADR-0602 operator metric set [ec56d86](https://github.com/konih/kollect/commit/ec56d862a5b91942b93805705b2c5cc762865433)
 
 - **collect:** SAR degradation and namespaceSelector [e127736](https://github.com/konih/kollect/commit/e1277363aba2a389448ba941af7508ede3550fdc)
 

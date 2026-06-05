@@ -70,7 +70,7 @@ Set `type: list` on multi-value attributes. CEL equivalent:
 `cel:object.spec.template.spec.containers.map(c, c.image)`.
 
 See [DATA-FLOWS.md](../DATA-FLOWS.md#3-attribute-extraction-jsonpath-arrays) and
-[ADR-0003](../adr/0003-cel-jsonpath-extraction.md).
+[ADR-0302](../adr/0302-cel-jsonpath-extraction.md).
 
 ## Step 2 — KollectSink
 
@@ -91,7 +91,7 @@ spec:
 
 **Expected behavior (Phase 1+):** the inventory controller resolves `git` via the sink registry,
 authenticates with `secretRef` when set, and commits deterministic JSON/YAML snapshots. Status
-stores summary refs (commit SHA), not the full payload ([ADR-0006](../adr/0006-etcd-limit.md)).
+stores summary refs (commit SHA), not the full payload ([ADR-0103](../adr/0103-etcd-limit.md)).
 
 **Today:** CR validates and persists; export requires sink implementation.
 
@@ -116,7 +116,7 @@ spec:
 **Watch labels (optional):** set `spec.watchMode: OptIn` to collect only namespaces/resources
 labeled `kollect.dev/watch: enabled`, or annotate a namespace with
 `kollect.dev/namespace-watch: disabled` to skip all workloads in that namespace while keeping
-`watchMode: All` (default). See [ADR-0029](../adr/0029-watch-labels.md).
+`watchMode: All` (default). See [ADR-0205](../adr/0205-watch-labels.md).
 
 ```yaml
 # Opt out an entire namespace (All mode)
@@ -163,7 +163,7 @@ spec:
 
 - `status.itemCount` reflects aggregated rows from all active targets.
 - `status.lastExportTime` updates after a successful Git push.
-- Conditions: `Ready` / `Synced` / `Degraded` per [error taxonomy](../adr/0020-error-taxonomy.md).
+- Conditions: `Ready` / `Synced` / `Degraded` per [error taxonomy](../adr/0602-error-taxonomy.md).
 
 **Today:** status fields remain empty until aggregation and export are implemented.
 

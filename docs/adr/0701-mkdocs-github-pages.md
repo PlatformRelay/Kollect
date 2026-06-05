@@ -1,8 +1,8 @@
-# ADR-0021: MkDocs Material for documentation site
+# ADR-0701: MkDocs Material for documentation site
 
-## Status
+> Build the docs site from in-repo Markdown with MkDocs Material; deploy to GitHub Pages via CI.
 
-Accepted
+**Theme:** 07 · Project & meta · **Status:** Current
 
 ## Context
 

@@ -73,7 +73,7 @@ func (e labeledSeriesEntry) desc() *prometheus.Desc {
 	labelNames := append([]string{"profile", "gvk", "series"}, e.names...)
 	d := prometheus.NewDesc(
 		customResourceLabeledSeriesName,
-		"Domain metric series from collected custom resources with attribute label dimensions (ADR-0033).",
+		"Domain metric series from collected custom resources with attribute label dimensions (ADR-0304).",
 		labelNames,
 		nil,
 	)

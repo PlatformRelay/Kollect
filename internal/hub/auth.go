@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	// IngestAuthModeKubernetes validates bearer tokens via TokenReview + SAR (ADR-0028).
+	// IngestAuthModeKubernetes validates bearer tokens via TokenReview + SAR (ADR-0503).
 	IngestAuthModeKubernetes = "kubernetes"
 	// IngestAuthModeDisabled disables ingest auth (local dev / CI only).
 	IngestAuthModeDisabled = "disabled"

@@ -21,7 +21,7 @@ spec:
       openAPIV3Schema:
         description: |-
           KollectScope is a namespaced governance boundary for targets, inventories, and sinks.
-          Static config only — no controller or status subresource (ADR-0015).
+          Static config only — no controller or status subresource (ADR-0202).
         properties:
           apiVersion:
             description: |-

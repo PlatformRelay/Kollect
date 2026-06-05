@@ -26,7 +26,7 @@ import (
 
 const remoteClusterRequeueInterval = 2 * time.Minute
 
-// KollectRemoteClusterReconciler maintains minimal Connected status for registered spokes (ADR-0028).
+// KollectRemoteClusterReconciler maintains minimal Connected status for registered spokes (ADR-0503).
 type KollectRemoteClusterReconciler struct {
 	client.Client
 	Scheme  *runtime.Scheme

@@ -1,8 +1,9 @@
-# ADR-0006: Data storage and etcd size limit
+# ADR-0103: Data storage and the etcd size limit
 
-## Status
+> Status holds summaries only; full payloads go to sinks — never breach the ~1.5 MB etcd object limit.
 
-Accepted (amended 2026-06-05 by [ADR-0032](0032-platform-architecture-pivot.md) — HTTP optional, not core)
+**Theme:** 01 · Foundations · **Status:** Current · **Evolution:** the read-only HTTP API is now
+optional and off by default (was framed as Phase-1 core) — see [ADR-0703](0703-platform-architecture-pivot.md).
 
 ## Context
 
@@ -36,7 +37,7 @@ at scale. Developer portals also need a **read path** without scraping Git — a
 5. **Status patch discipline:** patch status only when changed; avoid hot loops writing large status.
 6. **Read-only HTTP inventory API (optional):** expose aggregated inventory via operator HTTP
    for **debug and small installs only** — feature-gated, **off in production Helm defaults**
-   ([ADR-0032](0032-platform-architecture-pivot.md)). Scalable portal read uses **sink export**
+   ([ADR-0703](0703-platform-architecture-pivot.md)). Scalable portal read uses **sink export**
    (Postgres/Kafka) and hub merged store — not spoke HTTP at fleet scale. Same schema as sink
    export where possible when enabled.
    - **Paths (when enabled):** **`GET /v1alpha1/inventory`** (namespace index or caller-scoped
@@ -45,7 +46,7 @@ at scale. Developer portals also need a **read path** without scraping Git — a
      ships) so portals have a stable schema.
    - **Auth (primary):** delegate to Kubernetes API auth — **TokenReview** + **SubjectAccessReview**;
      callers use standard `Authorization: Bearer` service account tokens;
-     `--inventory-auth-mode=kubernetes` (default). See [ADR-0024](0024-inventory-api-auth.md).
+     `--inventory-auth-mode=kubernetes` (default). See [ADR-0404](0404-inventory-api-auth.md).
    - **Auth (optional):** **oauth2-proxy** Helm sidecar/subchart for OIDC browser access —
      `oauth2Proxy.enabled: false` by default; documented, not required for service-to-service.
    - **TODO:** Async push to clients — **SSE** or **watch** endpoint when inventory changes, not only GET snapshot.
@@ -93,4 +94,4 @@ flowchart LR
 - **RESOLVED (2026-06-05):** Global default ~**1.5 MiB** + per-Inventory **`spec.maxExportBytes`**
   override capped by webhook — see item 8 above.
 - **RESOLVED (2026-06-05):** Optional Helm sidecar/subchart for oauth2-proxy; K8s-native auth is
-  primary — [ADR-0024](0024-inventory-api-auth.md).
+  primary — [ADR-0404](0404-inventory-api-auth.md).

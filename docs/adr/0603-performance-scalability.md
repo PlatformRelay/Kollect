@@ -1,14 +1,14 @@
-# ADR-0026: Performance and scalability
+# ADR-0603: Performance and scalability
 
-## Status
+> Scale targets and the knobs to meet them: 10k+ objects/spoke, 100+ clusters, O(rows) hub merge.
 
-Accepted (revised 2026-06-05 — extreme scale)
+**Theme:** 06 · Observability & ops · **Status:** Current
 
 ## Context
 
 kollect watches arbitrary GVKs, aggregates attributes in memory, and exports on inventory
 reconcile. Installations span **giant single clusters** (1000s of nodes, **10k+ watched resources
-per cluster as baseline**) and **100+ cluster** hub deployments ([ADR-0022](0022-multi-cluster-sync-rfc.md)).
+per cluster as baseline**) and **100+ cluster** hub deployments ([ADR-0501](0501-multi-cluster-sync-rfc.md)).
 
 Performance bottlenecks must surface **early** — via operator metrics and bounded benchmarks —
 before hub sharding and spoke transport choices lock in.
@@ -33,8 +33,8 @@ spoke**.
 - Informer cache: prefer namespace-scoped dynamic informers when all targets for a GVR agree; cluster-wide
   watch only when required — document RSS delta in runbooks when cluster-wide scope is unavoidable.
 - Export payload: coalesce via **`KollectInventory.spec.exportMinInterval`** (default **30s**);
-  spill to object storage when payload exceeds hub gRPC/queue limits ([ADR-0006](0006-etcd-limit.md),
-  [ADR-0032](0032-platform-architecture-pivot.md)).
+  spill to object storage when payload exceeds hub gRPC/queue limits ([ADR-0103](0103-etcd-limit.md),
+  [ADR-0703](0703-platform-architecture-pivot.md)).
 
 **Hub path (100+ clusters):**
 
@@ -53,7 +53,7 @@ spoke**.
    counter alongside existing export latency histogram. Catalog in [PERFORMANCE.md](../PERFORMANCE.md)
    with PromQL hints for operators.
 4. **Export debounce:** Per **`KollectInventory.spec.exportMinInterval`** (default **30s**); legacy
-   `--export-debounce` flag deprecated once field is wired ([ADR-0032](0032-platform-architecture-pivot.md)).
+   `--export-debounce` flag deprecated once field is wired ([ADR-0703](0703-platform-architecture-pivot.md)).
 5. **Informers:** Scope dynamic informers to a single namespace when all targets for a GVR agree;
    otherwise watch all namespaces and filter by `namespaceSelector` at dispatch. Paginate initial
    `List` where client-go allows.
@@ -72,7 +72,7 @@ spoke**.
 
 ## References
 
-- [ADR-0014](0014-event-driven-informers.md) — event-driven collection
-- [ADR-0020](0020-error-taxonomy.md) — error classes and requeue behavior
-- [ADR-0022](0022-multi-cluster-sync-rfc.md) — multi-cluster scale path
+- [ADR-0301](0301-event-driven-informers.md) — event-driven collection
+- [ADR-0602](0602-error-taxonomy.md) — error classes and requeue behavior
+- [ADR-0501](0501-multi-cluster-sync-rfc.md) — multi-cluster scale path
 - [PERFORMANCE.md](../PERFORMANCE.md) — tuning guide and metrics catalog

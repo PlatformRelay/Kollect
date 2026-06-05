@@ -6,7 +6,7 @@
 
 A `KollectScope` defines a **tenancy boundary** for a team namespace: which GVKs may be collected,
 which workload namespaces targets may scrape, and which sinks inventories may export to. Inspired by
-Argo CD AppProject-style policy ([ADR-0016](../adr/0016-namespaced-multi-tenancy.md)).
+Argo CD AppProject-style policy ([ADR-0203](../adr/0203-namespaced-multi-tenancy.md)).
 
 The scope object itself is static — no dedicated controller. **Target** and **inventory**
 reconcilers load the scope in the same namespace and **hard-degrade** (no collect, no export) on
@@ -107,6 +107,6 @@ profile.
 ## See also
 
 - [KollectTarget](kollecttarget.md) · [KollectInventory](kollectinventory.md)
-- [ADR-0016](../adr/0016-namespaced-multi-tenancy.md)
+- [ADR-0203](../adr/0203-namespaced-multi-tenancy.md)
 - [DATA-FLOWS.md](../DATA-FLOWS.md#4-kollectscope-enforcement-gate)
 - [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md)

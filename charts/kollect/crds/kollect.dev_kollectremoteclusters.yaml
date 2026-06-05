@@ -48,7 +48,7 @@ spec:
             type: object
           spec:
             description: KollectRemoteClusterSpec registers a spoke cluster on the
-              hub (ADR-0028).
+              hub (ADR-0503).
             properties:
               apiServerURL:
                 description: apiServerURL is the spoke Kubernetes API server URL (optional

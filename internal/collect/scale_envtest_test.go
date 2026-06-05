@@ -26,7 +26,7 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-// scaleTestMaxObjects is the ADR-0026 default synthetic object cap for task test.
+// scaleTestMaxObjects is the ADR-0603 default synthetic object cap for task test.
 const scaleTestMaxObjects = 500
 
 func TestStore_Scale500(t *testing.T) {

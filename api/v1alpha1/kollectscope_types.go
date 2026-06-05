@@ -30,7 +30,7 @@ type KollectScopeSpec struct {
 // +kubebuilder:resource:shortName=kscope
 
 // KollectScope is a namespaced governance boundary for targets, inventories, and sinks.
-// Static config only — no controller or status subresource (ADR-0015).
+// Static config only — no controller or status subresource (ADR-0202).
 type KollectScope struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitzero"`

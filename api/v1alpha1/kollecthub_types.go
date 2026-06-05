@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HubTransportSpec selects the lean queue backend for hub fan-in (ADR-0023).
+// HubTransportSpec selects the lean queue backend for hub fan-in (ADR-0502).
 type HubTransportSpec struct {
 	// type selects the transport implementation.
 	// +kubebuilder:validation:Enum=inprocess;redis;nats;kafka
@@ -26,7 +26,7 @@ type RedisTransportSpec struct {
 	URL string `json:"url"`
 }
 
-// RemoteClusterRef references a registered KollectRemoteCluster on the hub (ADR-0028).
+// RemoteClusterRef references a registered KollectRemoteCluster on the hub (ADR-0503).
 type RemoteClusterRef struct {
 	// name of the KollectRemoteCluster resource.
 	// +kubebuilder:validation:MinLength=1
@@ -38,7 +38,7 @@ type RemoteClusterRef struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// Deprecated: KollectHub is not a product surface — use Helm mode: hub|spoke (ADR-0032).
+// Deprecated: KollectHub is not a product surface — use Helm mode: hub|spoke (ADR-0703).
 // The CRD remains as a reserved stub; no controller is registered.
 
 // KollectHubSpec defines the desired state of KollectHub.
@@ -52,7 +52,7 @@ type KollectHubSpec struct {
 	// +required
 	Transport HubTransportSpec `json:"transport"`
 
-	// remoteClusters lists spoke registrations wired into this hub consumer (ADR-0028).
+	// remoteClusters lists spoke registrations wired into this hub consumer (ADR-0503).
 	// +optional
 	RemoteClusters []RemoteClusterRef `json:"remoteClusters,omitempty"`
 }

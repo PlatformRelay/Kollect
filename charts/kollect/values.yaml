@@ -27,10 +27,10 @@ rbac:
 watchNamespaces: []
 
 # When true, render a namespaced Role/RoleBinding instead of ClusterRole/ClusterRoleBinding.
-# Namespaced KollectProfile is managed in the release namespace (ADR-0031).
+# Namespaced KollectProfile is managed in the release namespace (ADR-0204).
 tenantMode: false
 
-# Operator deployment mode on the same image (ADR-0022 L3): single | hub | spoke
+# Operator deployment mode on the same image (ADR-0501 L3): single | hub | spoke
 mode: single
 
 # Hub consumer settings (mode: hub). Namespaced KollectSink refs resolve in exportNamespace.
@@ -43,12 +43,12 @@ hub:
   ingestPort: 8083
   ingestAuthMode: kubernetes
 
-# Hub/spoke transport backend (ADR-0023). Only inprocess is the production default until an
+# Hub/spoke transport backend (ADR-0502). Only inprocess is the production default until an
 # external backend passes integration/e2e proof. Do not set redis/nats/kafka without ops sign-off.
 transport:
   type: inprocess
 
-# Default for KollectSink connection probes in bundled samples (ADR-0030).
+# Default for KollectSink connection probes in bundled samples (ADR-0403).
 # Production manifests should use false; dev/CI overlays set true.
 sinkDefaults:
   connectionTest: false
@@ -62,7 +62,7 @@ featureGates:
     port: 8082
     authMode: kubernetes
 
-# Optional oauth2-proxy sidecar for browser/OIDC access (ADR-0024). Not rendered yet.
+# Optional oauth2-proxy sidecar for browser/OIDC access (ADR-0404). Not rendered yet.
 oauth2Proxy:
   enabled: false
 

@@ -25,7 +25,7 @@ type RuntimeOptions struct {
 	ReconcileRateLimitBase time.Duration
 }
 
-// DefaultRuntimeOptions returns production-oriented defaults (ADR-0026).
+// DefaultRuntimeOptions returns production-oriented defaults (ADR-0603).
 func DefaultRuntimeOptions() RuntimeOptions {
 	return RuntimeOptions{
 		MaxConcurrentTarget:           5,

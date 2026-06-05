@@ -1,8 +1,8 @@
-# ADR-0015: Static config vs reconciled CRDs
+# ADR-0202: Static config vs reconciled CRDs
 
-## Status
+> Config kinds (`Profile`, `Scope`) are static with no controller; work kinds are reconciled.
 
-Accepted
+**Theme:** 02 · API & tenancy · **Status:** Current
 
 ## Context
 
@@ -23,8 +23,8 @@ At **large fleet scale**, shared GVK definitions may be duplicated per namespace
 
 | Category | Kinds | Controller | Status | Validation |
 | --- | --- | --- | --- | --- |
-| Static config | `KollectProfile`, `KollectScope` (namespaced) | None | None | CEL `x-kubernetes-validations`, **validating webhook** ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
-| Static + probe | `KollectSink` | **Minimal** — connection test only ([ADR-0030](0030-connection-test.md)) | `ConnectionVerified`, `TLSInsecure`, `Degraded` | Webhook + probe reconciler |
+| Static config | `KollectProfile`, `KollectScope` (namespaced) | None | None | CEL `x-kubernetes-validations`, **validating webhook** ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
+| Static + probe | `KollectSink` | **Minimal** — connection test only ([ADR-0403](0403-connection-test.md)) | `ConnectionVerified`, `TLSInsecure`, `Degraded` | Webhook + probe reconciler |
 | Reconciled | `KollectTarget`, `KollectInventory` | Yes | Full conditions + `observedGeneration` | Same + runtime SAR checks |
 
 Rationale (Flux-aligned):
@@ -34,14 +34,14 @@ Rationale (Flux-aligned):
 - `spec.suspend` on **reconciled** kinds only; static objects are always "active" when referenced.
 
 **Reject** full reconciliation of `KollectProfile` like ESO `SecretStore`. **`KollectSink`** is the
-exception: a narrow reconciler for connectivity only ([ADR-0030](0030-connection-test.md)).
+exception: a narrow reconciler for connectivity only ([ADR-0403](0403-connection-test.md)).
 
 ### Shared GVK, optional per-target overrides
 
 - **Default:** `KollectTarget.spec.profileRef` names a `KollectProfile` in the **same namespace**
-  ([ADR-0031](0031-namespaced-profiles.md)).
+  ([ADR-0204](0204-namespaced-profiles.md)).
 - **Future door:** optional inline attribute overrides or `profileRef` + patch fields on Target —
-  design keeps API evolvable without breaking shared profiles ([ADR-0004](0004-crd-model.md)).
+  design keeps API evolvable without breaking shared profiles ([ADR-0201](0201-crd-model.md)).
 
 ### Concurrent GVK watches
 
@@ -51,11 +51,11 @@ pressure. Expose manager configuration:
 - `maxConcurrentWatches` — soft limit with warning Event when approached
 - Tune with envtest/load tests; document default in Helm `values.yaml` comments
 
-Prefer **one shared informer per GVK** across Targets ([ADR-0014](0014-event-driven-informers.md)).
+Prefer **one shared informer per GVK** across Targets ([ADR-0301](0301-event-driven-informers.md)).
 
 ### Connection test (first-class)
 
-See **[ADR-0030](0030-connection-test.md)** — **no `KollectConnectionTest` CR**.
+See **[ADR-0403](0403-connection-test.md)** — **no `KollectConnectionTest` CR**.
 
 | Mechanism | Behavior |
 | --- | --- |
@@ -64,7 +64,7 @@ See **[ADR-0030](0030-connection-test.md)** — **no `KollectConnectionTest` CR*
 | **`ConnectionVerified` on `KollectSink`** | `kubectl wait --for=condition=ConnectionVerified=...` |
 | **Pipeline conditions (follow-up)** | `SinkReachable` (or export conditions) on `KollectInventory` / `KollectTarget` |
 
-Connection tests run from the operator with the same TLS trust as export ([ADR-0004](0004-crd-model.md)
+Connection tests run from the operator with the same TLS trust as export ([ADR-0201](0201-crd-model.md)
 `caBundle` / `caSecretRef`). Errors are **visible and informative** (HTTP status, DNS, TLS handshake)
 — sanitized, no secrets in messages.
 
@@ -95,7 +95,7 @@ sequenceDiagram
 
 - Fewer moving parts, fewer leader-election reconciler loops.
 - Clear mental model: config CRDs are like Flux Providers; workload CRDs are like GitRepositories.
-- Connection test gives human-user-0 fast feedback via minimal Sink reconciler ([ADR-0030](0030-connection-test.md)).
+- Connection test gives human-user-0 fast feedback via minimal Sink reconciler ([ADR-0403](0403-connection-test.md)).
 
 ### Negative
 
@@ -105,5 +105,5 @@ sequenceDiagram
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** No `KollectConnectionTest` CR — spec + annotation on Sink ([ADR-0030](0030-connection-test.md)).
+- **RESOLVED (2026-06-05):** No `KollectConnectionTest` CR — spec + annotation on Sink ([ADR-0403](0403-connection-test.md)).
 - **OPEN:** Per-target profile override API shape — inline map vs `KollectProfilePatch` kind?

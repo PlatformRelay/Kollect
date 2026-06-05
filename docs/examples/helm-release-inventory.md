@@ -1,10 +1,10 @@
 # Example: Helm release inventory
 
-> **Primary demo GVK (ADR-0032):** `argoproj.io/v1alpha1` **`Application`** (Argo CD). Samples:
+> **Primary demo GVK (ADR-0703):** `argoproj.io/v1alpha1` **`Application`** (Argo CD). Samples:
 > `config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml`,
 > `config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml`. Contract test:
 > `internal/collect/argo_application_contract_test.go`. This page documents the **secondary** Flux
-> `HelmRelease` walkthrough. See [ADR-0027](../adr/0027-helm-release-inventory.md).
+> `HelmRelease` walkthrough. See [ADR-0303](../adr/0303-helm-release-inventory.md).
 
 # Example: Helm release inventory (Flux — secondary)
 
@@ -12,7 +12,7 @@ This walkthrough inventories **chart version**, **app version**, and deployment 
 `HelmRelease` objects. It follows the same four-CRD pipeline as
 [Deployment inventory](deployment-inventory.md).
 
-Design rationale and redaction policy: [ADR-0027](../adr/0027-helm-release-inventory.md).
+Design rationale and redaction policy: [ADR-0303](../adr/0303-helm-release-inventory.md).
 
 ## Overview
 
@@ -101,11 +101,11 @@ Until scrub exists, do not add `spec.values` to profiles that export to public G
 ## Plain Helm (no Flux)
 
 Clusters using `helm install` store releases in **`helm.sh/v1` Secrets** (`owner=helm`). That GVK
-is a **secondary** target documented in ADR-0027. It requires a future `helm:` decode path in the
+is a **secondary** target documented in ADR-0303. It requires a future `helm:` decode path in the
 extractor—JSONPath on the Secret object cannot read `appVersion` from the opaque `data.release` blob.
 
 ## Related
 
-- [ADR-0027: Helm release inventory](../adr/0027-helm-release-inventory.md)
+- [ADR-0303: Helm release inventory](../adr/0303-helm-release-inventory.md)
 - [Deployment inventory example](deployment-inventory.md)
 - [Flux HelmRelease API](https://fluxcd.io/flux/components/helm/api/v2/)

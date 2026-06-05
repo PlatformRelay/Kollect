@@ -1,16 +1,15 @@
-# ADR-0023: Lean queue transport for hub fan-in
+# ADR-0502: Event-emitter transport for hub fan-in
 
-## Status
+> One event-emitter abstraction — NATS JetStream is the lean default, Kafka/Redpanda the enterprise
+> opt-in, `inprocess` the dev/test default. It is the same abstraction as the event sink.
 
-Accepted (2026-06-05) · **Amended by [ADR-0034](0034-sink-taxonomy-state-vs-stream.md)** — **NATS
-JetStream is the lean default** event backbone (over the earlier Redis-spike framing); Kafka/Redpanda
-is the enterprise opt-in. The **transport and the Kafka event sink are unified** into one
-event-emitter abstraction: since multi-cluster fan-in is now *direct to a shared sink*, a spoke
-publishing to a shared subject **is** the fan-in. `inprocess` remains the dev/test default.
+**Theme:** 05 · Multi-cluster · **Status:** Current · **Evolution:** [ADR-0401](0401-sink-taxonomy-state-vs-stream.md)
+elevated NATS over the earlier Redis-spike framing and unified the transport with the Kafka/NATS event
+sink — a spoke publishing to a shared subject *is* the fan-in.
 
 ## Context
 
-Multi-cluster hub aggregation ([ADR-0022](0022-multi-cluster-sync-rfc.md)) needs a transport between
+Multi-cluster hub aggregation ([ADR-0501](0501-multi-cluster-sync-rfc.md)) needs a transport between
 **spoke** operators (per cluster) and the **hub** (`KollectHub` CRD → operator-managed Deployment).
 Requirements:
 
@@ -18,7 +17,7 @@ Requirements:
 - **Pluggable** — no hard dependency on Kafka or a specific vendor; teams that standardize on Kafka
   must be able to select it via configuration without forking kollect.
 - **At-least-once** delivery acceptable; hub merge is idempotent on `(cluster, namespace, name, uid)`.
-- Payloads are **summarized inventory JSON** (not full object dumps) per [ADR-0006](0006-etcd-limit.md).
+- Payloads are **summarized inventory JSON** (not full object dumps) per [ADR-0103](0103-etcd-limit.md).
 - Every shipped backend must be **provable in integration or e2e tests** with reasonable effort
   (testcontainers or kind-sidecar).
 

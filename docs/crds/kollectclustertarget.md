@@ -7,7 +7,7 @@
 A `KollectClusterTarget` is the **platform-operator** variant of `KollectTarget`: it collects
 across multiple namespaces using a cluster-scoped object and a required `namespaceSelector`. It
 pairs with `KollectClusterInventory` for platform-wide rollup export
-([ADR-0032](../adr/0032-platform-architecture-pivot.md)).
+([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
 
 **Phase 1:** API types, validating webhook, and sample YAML only — **no controller** is registered.
 Objects persist and validate at admission; collection/export requires a future controller milestone.
@@ -99,4 +99,4 @@ Cluster-scoped resources require elevated RBAC — restrict to platform SRE role
 - [KollectTarget](kollecttarget.md) — namespaced equivalent (shipped)
 - [CR-REFERENCE.md](../CR-REFERENCE.md) — reserved cluster kinds
 - [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md)
-- [ADR-0032](../adr/0032-platform-architecture-pivot.md)
+- [ADR-0703](../adr/0703-platform-architecture-pivot.md)

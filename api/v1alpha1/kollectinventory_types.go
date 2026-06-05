@@ -23,7 +23,7 @@ type KollectInventorySpec struct {
 	ExportMinInterval *metav1.Duration `json:"exportMinInterval,omitempty"`
 
 	// maxExportBytes caps the marshalled namespace payload for export and HTTP (optional).
-	// Webhook rejects values above the operator global cap (ADR-0006).
+	// Webhook rejects values above the operator global cap (ADR-0103).
 	// +optional
 	MaxExportBytes *int64 `json:"maxExportBytes,omitempty"`
 

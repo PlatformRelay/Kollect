@@ -1,16 +1,18 @@
-# ADR-0030: Connection test — sink probes (superseded for CR)
+# ADR-0403: Connection test — sink probes and the KollectConnectionTest CR
 
-## Status
+> First-class sink connectivity testing: a sink probe for quick checks plus a `KollectConnectionTest`
+> CR for audited/CI/composite probes.
 
-Accepted (2026-06-05) — **amended:** dedicated CR now **accepted** in [ADR-0032](0032-platform-architecture-pivot.md).
-Sink-only mechanisms below remain valid.
+**Theme:** 04 · Export & sinks · **Status:** Current · **Evolution:** an initial decision to reject a
+dedicated CR was reversed — the `KollectConnectionTest` CR is now part of the model; sink-only probe
+mechanisms remain valid.
 
 ## Context
 
 Product requirements call for a **first-class connection test** with clear, discoverable feedback
 when sinks are misconfigured ([REQUIREMENTS.md](../REQUIREMENTS.md), [GUIDELINES.md](../../GUIDELINES.md)).
 
-[ADR-0015](0015-static-vs-reconciled.md) originally assumed static `KollectSink` objects with **no
+[ADR-0202](0202-static-vs-reconciled.md) originally assumed static `KollectSink` objects with **no
 controller**, probing via annotations and surfacing `SinkReachable` on reconciled
 `KollectTarget` / `KollectInventory`. Implementation added a **minimal `KollectSink` reconciler**
 that runs connectivity checks and writes `ConnectionVerified` on the sink
@@ -22,7 +24,7 @@ webhooks, and orphan CR lifecycle.
 
 ## Decision
 
-### ~~Reject `KollectConnectionTest` CR~~ → **Accepted in ADR-0032**
+### ~~Reject `KollectConnectionTest` CR~~ → **Accepted in ADR-0703**
 
 Add namespaced **`KollectConnectionTest`** for audited/CI/composite probes. Keep **declarative
 spec** + **imperative annotation** on `KollectSink` for quick sink-only retests, plus pipeline
@@ -69,7 +71,7 @@ End-to-end export health belongs on **reconciled** objects, not only the sink:
 
 | Condition | Object | Meaning |
 | --- | --- | --- |
-| **`SinkReachable`** | `KollectInventory`, `KollectTarget` | Sink resolution (`ConnectionVerified` / sink found) before export; **`ExportSucceeded`** / **`ExportFailed`** after inventory export attempts. `Synced` remains the primary export condition per [ADR-0020](0020-error-taxonomy.md). |
+| **`SinkReachable`** | `KollectInventory`, `KollectTarget` | Sink resolution (`ConnectionVerified` / sink found) before export; **`ExportSucceeded`** / **`ExportFailed`** after inventory export attempts. `Synced` remains the primary export condition per [ADR-0602](0602-error-taxonomy.md). |
 
 `KollectTarget` derives sink refs from **`KollectInventory` in the same namespace** (targets have no
 direct `sinkRefs`). Inventory reconciler watches **`KollectSink`** status changes to requeue affected
@@ -84,9 +86,9 @@ prove the full collect → aggregate → export path.
 
 `KollectSink` has a **narrow reconciler** whose sole job is connection test status — not
 collection or export. This is an intentional exception to full static-config purity, documented in
-[ADR-0015](0015-static-vs-reconciled.md).
+[ADR-0202](0202-static-vs-reconciled.md).
 
-### `KollectConnectionTest` CR (ADR-0032)
+### `KollectConnectionTest` CR (ADR-0703)
 
 Namespaced CR with `spec.sinkRef`, optional `spec.profileRef`, status conditions (latency,
 sanitized errors). Use for CI, audit, and composite probes. Sink annotation/spec remain for ad-hoc

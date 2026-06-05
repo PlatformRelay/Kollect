@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Konrad Heimel
 
-// Package errors provides typed reconcile error classes (ADR-0020).
+// Package errors provides typed reconcile error classes (ADR-0602).
 package errors
 
 import (

@@ -106,7 +106,7 @@ flowchart LR
 
 **Key properties:**
 
-- **One informer per GVK** across all targets ([ADR-0014](adr/0014-event-driven-informers.md)).
+- **One informer per GVK** across all targets ([ADR-0301](adr/0301-event-driven-informers.md)).
 - Targets only differ by **namespace/label selectors** and **profileRef**.
 - Extraction runs on the **cached unstructured object** — no per-target API list calls.
 
@@ -138,7 +138,7 @@ flowchart TD
 | `$.spec.template.spec.containers[0].image` | `"app:1.0"` (string) |
 | `$.spec.template.spec.containers[*].image` | `["app:1.0", "sidecar:2.0"]` (list) |
 
-See [ADR-0003](adr/0003-cel-jsonpath-extraction.md) for syntax rules.
+See [ADR-0302](adr/0302-cel-jsonpath-extraction.md) for syntax rules.
 
 ---
 
@@ -163,7 +163,7 @@ flowchart TD
   Sinks -->|yes| Export[Continue export path]
 ```
 
-Example: [ADR-0016](adr/0016-namespaced-multi-tenancy.md#enforcement-example-gvk-denied).
+Example: [ADR-0203](adr/0203-namespaced-multi-tenancy.md#enforcement-example-gvk-denied).
 
 ---
 
@@ -193,8 +193,8 @@ Default TTL: **300s**. Patch `spec.sinkRef` to force a fresh probe.
 
 Spokes run the **same operator image** with `mode: spoke`; the hub runs `mode: hub-consumer`.
 Spokes publish summarized **`SpokeReport`** JSON deltas; the hub merges them into a shared
-in-memory store keyed by **`(cluster, namespace, name, uid)`** ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md),
-[ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md)).
+in-memory store keyed by **`(cluster, namespace, name, uid)`** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md),
+[ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)).
 
 ### Spoke → hub transport
 
@@ -348,7 +348,7 @@ flowchart TD
 
 Multi-cluster rows include a **`cluster`** dimension in each item so downstream consumers can filter
 or partition by spoke. Hub export does **not** persist full payloads in CR `status` — only summaries
-and last-export metadata ([ADR-0006](adr/0006-etcd-limit.md)).
+and last-export metadata ([ADR-0103](adr/0103-etcd-limit.md)).
 
 ### Configuration
 
@@ -361,7 +361,7 @@ and last-export metadata ([ADR-0006](adr/0006-etcd-limit.md)).
 | `KOLLECT_HUB_EXPORT_NAMESPACE` | Namespace for hub `KollectSink` resolution (Helm `hub.exportNamespace`) |
 | `KOLLECT_HUB_SINK_REFS` | Comma-separated hub sink names for parallel export (Helm `hub.sinkRefs`) |
 
-See [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md) for RBAC grants and Istio-style remote
+See [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) for RBAC grants and Istio-style remote
 secret registration.
 
 ---

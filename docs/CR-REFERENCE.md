@@ -66,7 +66,7 @@ cross-namespace rollup — webhook-only in Phase 1 (no controller yet).
 | --- | --- | --- |
 | `KollectClusterSink` | Cluster | Shared export backends |
 | `KollectClusterScope` | Cluster | Platform policy boundary |
-| `KollectRemoteCluster` | Namespace | Hub spoke registration ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md)) |
+| `KollectRemoteCluster` | Namespace | Hub spoke registration ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)) |
 
 ## Short names
 

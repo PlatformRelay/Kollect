@@ -11,7 +11,7 @@ import (
 const (
 	// ModeCluster is the default single-cluster operator (collect + export).
 	ModeCluster = "cluster"
-	// ModeHub runs hub ingest and spoke-report consumer (ADR-0022 L2).
+	// ModeHub runs hub ingest and spoke-report consumer (ADR-0501 L2).
 	ModeHub = "hub"
 	// ModeSpoke is a spoke cluster publishing deltas to a hub.
 	ModeSpoke = "spoke"

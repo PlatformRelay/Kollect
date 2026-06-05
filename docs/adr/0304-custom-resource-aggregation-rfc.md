@@ -1,30 +1,30 @@
-# ADR-0033: Custom-resource metrics and aggregation (RFC stub)
+# ADR-0304: Custom-resource metrics and richer aggregation
 
-## Status
+> KSM-style domain metrics from the collection engine, plus cross-target/cross-cluster aggregation.
 
-Accepted (spike landed — Phase 4, 2026-06-05)
+**Theme:** 03 · Collection & extraction · **Status:** Exploring (Phase 4 spike landed; config + engine wiring ongoing)
 
 ## Context
 
-Phase 1–3 shipped **operator** Prometheus metrics on `/metrics` ([ADR-0020](0020-error-taxonomy.md),
-[ADR-0012](0012-prometheus-metrics-stub.md)) and **inventory aggregation** via `KollectInventory` /
-`KollectClusterInventory` with hub merge ([ADR-0022](0022-multi-cluster-sync-rfc.md)). Stakeholder
+Phase 1–3 shipped **operator** Prometheus metrics on `/metrics` ([ADR-0602](0602-error-taxonomy.md),
+[ADR-0601](0601-prometheus-metrics-stub.md)) and **inventory aggregation** via `KollectInventory` /
+`KollectClusterInventory` with hub merge ([ADR-0501](0501-multi-cluster-sync-rfc.md)). Stakeholder
 export uses Git, Postgres, Kafka, and object-store sinks — not a Prometheus export sink.
 
 [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) (KSM) exposes
 **`CustomResourceStateMetrics`**: config-driven GVK → Prometheus series from informer cache paths.
 That pattern complements kollect's existing operator metrics and is the primary Phase 4 deliverable
-per [prior art](0013-prior-art.md) and [ROADMAP](../ROADMAP.md).
+per [prior art](0102-prior-art.md) and [ROADMAP](../ROADMAP.md).
 
 Phase 4 must also define **richer cross-target / cross-cluster aggregation** without duplicating
-full inventory payloads in etcd ([ADR-0006](0006-etcd-limit.md)) or exploding label cardinality.
+full inventory payloads in etcd ([ADR-0103](0103-etcd-limit.md)) or exploding label cardinality.
 
 ## Decision
 
 ### 1. KSM-style custom-resource metrics
 
 - **Emit from the existing collection engine** (shared dynamic informers per GVK —
-  [ADR-0014](0014-event-driven-informers.md)), not a second watch loop.
+  [ADR-0301](0301-event-driven-informers.md)), not a second watch loop.
 - **Config surface:** `KollectProfile.spec.metrics` (and `KollectClusterProfile.spec.metrics`) —
   companion `KollectMetricsProfile` CR **deferred** until cross-profile reuse is required.
 - **Spike shape (2026-06-05):** `MetricSpec { name, path, labels? }` where `path` references an
@@ -35,7 +35,7 @@ full inventory payloads in etcd ([ADR-0006](0006-etcd-limit.md)) or exploding la
 - **Cardinality rules:** bounded label sets; no unbounded `name`/`namespace` labels unless explicitly
   opted in per metric; document max series per profile in [PERFORMANCE.md](../PERFORMANCE.md).
 - **Serve on operator `/metrics`** alongside existing `kollect_*` counters — no `KollectSink.type:
-  prometheus` ([ADR-0012](0012-prometheus-metrics-stub.md)).
+  prometheus` ([ADR-0601](0601-prometheus-metrics-stub.md)).
 
 ### 2. Richer aggregation
 
@@ -77,7 +77,7 @@ full inventory payloads in etcd ([ADR-0006](0006-etcd-limit.md)) or exploding la
 
 ## See also
 
-- [ADR-0012: Operator metrics stub](0012-prometheus-metrics-stub.md)
-- [ADR-0013: Prior art — kube-state-metrics](0013-prior-art.md)
-- [ADR-0022: Multi-cluster sync](0022-multi-cluster-sync-rfc.md)
+- [ADR-0601: Operator metrics stub](0601-prometheus-metrics-stub.md)
+- [ADR-0102: Prior art — kube-state-metrics](0102-prior-art.md)
+- [ADR-0501: Multi-cluster sync](0501-multi-cluster-sync-rfc.md)
 - [PERFORMANCE.md](../PERFORMANCE.md) — operator metrics catalog
