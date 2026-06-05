@@ -2,8 +2,35 @@
 
 **Scope:** Namespace · **Reconciled:** No (enforced by other controllers) · **Short name:** `kscope`
 
-Namespaced tenancy boundary — AppProject-inspired policy for allowed GVKs, workload namespaces, and
-sinks ([ADR-0016](../adr/0016-namespaced-multi-tenancy.md)).
+## What it is for
+
+A `KollectScope` defines a **tenancy boundary** for a team namespace: which GVKs may be collected,
+which workload namespaces targets may scrape, and which sinks inventories may export to. Inspired by
+Argo CD AppProject-style policy ([ADR-0016](../adr/0016-namespaced-multi-tenancy.md)).
+
+The scope object itself is static — no dedicated controller. **Target** and **inventory**
+reconcilers load the scope in the same namespace and **hard-degrade** (no collect, no export) on
+violation.
+
+## How it fits the pipeline
+
+```mermaid
+flowchart TD
+  Scope[KollectScope]
+  Target[KollectTarget]
+  Inv[KollectInventory]
+
+  Scope -.->|allowedGVKs + NS| Target
+  Scope -.->|sinkRefs allow-list| Inv
+```
+
+| Relationship | Rule |
+| --- | --- |
+| Target enforcement | Profile GVK ∈ `allowedGVKs`; workload NS ∈ `allowedNamespaces` |
+| Inventory enforcement | Every `sinkRefs` entry ⊆ `scope.sinkRefs` |
+| No scope | When absent, collection and export proceed without policy gate |
+
+Enforcement diagram: [DATA-FLOWS.md §4](../DATA-FLOWS.md#4-kollectscope-enforcement-gate).
 
 ## Spec fields
 
@@ -13,24 +40,73 @@ sinks ([ADR-0016](../adr/0016-namespaced-multi-tenancy.md)).
 | `spec.allowedNamespaces[]` | list | No | Permitted workload namespaces (empty = any allowed by targets) |
 | `spec.sinkRefs[]` | list | No | Permitted `KollectSink` names for export |
 
+## Sample usage
+
+Create a team namespace and scope:
+
+```sh
+kubectl create namespace team-a
+kubectl apply -f config/samples/kollect_v1alpha1_kollectscope_team-a.yaml
+kubectl get kscope -n team-a team-a-scope -o yaml
+```
+
+Verify enforcement blocks a disallowed GVK:
+
+```sh
+# Target referencing a Profile with GVK not in scope → Degraded ScopeGVKDenied
+kubectl describe ktgt -n team-a <target-name>
+```
+
+Allow-list sinks for inventory:
+
+```sh
+# Inventory sinkRefs must be subset of scope.sinkRefs
+kubectl get kinv -n team-a -o jsonpath='{.items[*].status.conditions[?(@.type=="Degraded")]}'
+```
+
 ## Status conditions
 
 | Type | When set | Meaning |
 | --- | --- | --- |
-| *(none)* | — | Static CR — violations surface on Target/Inventory status |
+| *(none)* | — | Static CR — violations surface on Target/Inventory `Degraded` |
+
+Inspect downstream objects for policy outcomes:
+
+```sh
+kubectl get ktgt,kinv -n team-a -o custom-columns=\
+NAME:.metadata.name,TYPE:.status.conditions[0].type,REASON:.status.conditions[0].reason
+```
 
 ## RBAC
 
-| Verb | Resource | Notes |
+| Actor | Verbs | Resource | Notes |
+| --- | --- | --- | --- |
+| Platform / team admins | `create`, `update`, `patch`, `delete` | `kollectscopes` | Policy authors |
+| Developers | `get`, `list`, `watch` | `kollectscopes` | Read boundaries |
+| Operator | `get`, `list`, `watch` | `kollectscopes` | Target + inventory enforcement |
+
+Grant scope write sparingly — it controls what teams can collect and where data may flow.
+
+## Common failure modes
+
+| Symptom | Reason on Target/Inventory | Fix |
 | --- | --- | --- |
-| `get`, `list`, `watch` | `kollectscopes` | Target/Inventory controllers read scope |
-| `create`, `update`, `patch`, `delete` | `kollectscopes` | Platform/team admins |
+| Target not collecting | `ScopeGVKDenied` | Add profile GVK to `allowedGVKs` |
+| Target not collecting | `ScopeNamespaceDenied` | Add workload namespace to `allowedNamespaces` |
+| Inventory not exporting | `ScopeSinkDenied` | Add sink name to `scope.sinkRefs` |
+| Unexpected open policy | No scope in namespace | Create `KollectScope` if enforcement required |
+| `ScopeLookupFailed` | Operator cannot read scope | Fix RBAC on `kollectscopes` for operator SA |
+| Empty `allowedGVKs` | All GVKs denied when enforced | Populate allow-list explicitly |
 
-## Samples
+### Example: GVK denied
 
-- [`config/samples/kollect_v1alpha1_kollectscope_team-a.yaml`](../../config/samples/kollect_v1alpha1_kollectscope_team-a.yaml)
+Profile targets `cert-manager.io/Certificate` but scope only lists `Deployment` and `Service` —
+target shows `Degraded=True`, `reason=ScopeGVKDenied`. Add the Certificate GVK or use a permitted
+profile.
 
-## Failure modes
+## See also
 
-> **TODO:** Document hard degrade reasons: `ScopeGVKDenied`, `ScopeNamespaceDenied`, `ScopeSinkDenied`,
-> and missing scope when enforcement expected.
+- [KollectTarget](kollecttarget.md) · [KollectInventory](kollectinventory.md)
+- [ADR-0016](../adr/0016-namespaced-multi-tenancy.md)
+- [DATA-FLOWS.md](../DATA-FLOWS.md#4-kollectscope-enforcement-gate)
+- [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md)

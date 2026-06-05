@@ -2,9 +2,42 @@
 
 **Scope:** Namespace · **Reconciled:** Yes · **Short name:** `ktgt`
 
-Binds a namespaced `KollectProfile` to workload namespaces and label selectors. Registers a shared
-informer per GVK ([ADR-0014](../adr/0014-event-driven-informers.md),
-[ADR-0029](../adr/0029-watch-labels.md)).
+## What it is for
+
+A `KollectTarget` binds a `KollectProfile` to **which** resources to watch: workload namespaces,
+label selectors, explicit names, and watch-mode policy. The target controller registers a shared
+informer for the profile GVK (one per GVK cluster-wide) and filters events per target selectors.
+
+This is the **default team-scoped** collection object. Platform cross-namespace collection uses
+`KollectClusterTarget` instead.
+
+See [ADR-0014](../adr/0014-event-driven-informers.md),
+[ADR-0029](../adr/0029-watch-labels.md).
+
+## How it fits the pipeline
+
+```mermaid
+flowchart LR
+  Profile[KollectProfile]
+  Scope[KollectScope]
+  Target[KollectTarget]
+  Inv[KollectInventory]
+  API[(Kubernetes API)]
+
+  Profile -->|"profileRef"| Target
+  Scope -.->|GVK + NS policy| Target
+  Target -->|informer watch| API
+  Target -->|rows| Inv
+```
+
+| Relationship | Rule |
+| --- | --- |
+| Profile | `spec.profileRef` — same namespace, required |
+| Scope | Optional; when present enforces GVK and workload namespaces |
+| Inventory | All targets in namespace aggregate into `KollectInventory` |
+| Sink | Target status reflects namespace sink reachability for export path |
+
+Collection diagram: [DATA-FLOWS.md §2](../DATA-FLOWS.md#2-collection-pipeline).
 
 ## Spec fields
 
@@ -17,29 +50,92 @@ informer per GVK ([ADR-0014](../adr/0014-event-driven-informers.md),
 | `spec.suspend` | bool | No | Pause reconciliation |
 | `spec.watchMode` | enum | No | `All` (default) or `OptIn` — see watch labels |
 
+## Sample usage
+
+Basic Deployment collection:
+
+```sh
+kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile.yaml
+kubectl apply -f config/samples/kollect_v1alpha1_kollecttarget.yaml
+
+# Optional workload
+kubectl create deployment nginx --image=nginx:1.27
+kubectl label deployment nginx app.kubernetes.io/name=nginx --overwrite
+
+kubectl get ktgt -n default nginx-deployments -w
+kubectl describe ktgt nginx-deployments -n default
+```
+
+**Opt-in** watch mode (only `kollect.dev/watch: enabled`):
+
+```sh
+kubectl apply -f config/samples/kollect_v1alpha1_kollecttarget_opt-in.yaml
+```
+
+**Argo CD Applications**:
+
+```sh
+kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml
+kubectl apply -f config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml
+```
+
+**Helm releases** (Flux):
+
+```sh
+kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile_helm-release-summary.yaml
+kubectl apply -f config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yaml
+```
+
 ## Status conditions
 
-| Type | When set | Meaning |
+| Type | When set | Meaning | Remediation |
+| --- | --- | --- | --- |
+| `Ready=True` | Collecting | Profile resolved; informer registered | None |
+| `Synced=True` | Healthy | `reason`: `Collecting` with item count | Monitor `status` message |
+| `Degraded=True` | Blocked | See `reason` below | Fix root cause; generation bump re-reconciles |
+| `SinkReachable=True/False` | Export path | Namespace inventory sinks reachable | Fix [KollectSink](kollectsink.md) connection |
+
+### Common `Degraded` reasons
+
+| Reason | Cause | Fix |
 | --- | --- | --- |
-| `Ready` | Collection healthy | Target registered with engine |
-| `Degraded` | Scope or profile error | Collection blocked |
-| `SinkReachable` | Inventory export path | Reflects sink reachability for linked inventory |
+| `Suspended` | `spec.suspend: true` | Set `suspend: false` |
+| `MissingProfileRef` | Empty `profileRef` | Set valid profile name |
+| `ProfileNotFound` | No matching profile | `kubectl apply` profile in same namespace |
+| `ScopeGVKDenied` | GVK not allowed | Update [KollectScope](kollectscope.md) `allowedGVKs` |
+| `ScopeNamespaceDenied` | Workload NS blocked | Add namespace to `allowedNamespaces` |
+| `ScopeLookupFailed` | API error loading scope | Check RBAC; apiserver health |
+| `InformerRegistrationFailed` | Dynamic client / GVK error | Verify CRD installed; check operator logs |
+| `Forbidden` | SAR denied list in scoped NS | Grant operator read on target GVK in workload namespaces |
+| `SinkNotFound` / `SinkUnreachable` | Inventory sink broken | Fix sink CR and connection test |
 
 ## RBAC
 
-| Verb | Resource | Notes |
+| Actor | Verbs | Resource | Notes |
+| --- | --- | --- | --- |
+| Team engineers | `get`, `list`, `watch`, `create`, `update`, `patch`, `delete` | `kollecttargets` | Tenant namespace |
+| Operator | `get`, `list`, `watch` | `kollecttargets`, `kollectprofiles`, `kollectscopes`, `kollectsinks` | Reconcile |
+| Operator | `get`, `list`, `watch` | Target GVK resources | Dynamic — per profile (e.g. `deployments`) |
+| Operator | `update`, `patch` | `kollecttargets/status` | Write conditions |
+
+In **tenant mode**, Helm restricts the operator to `watchNamespaces`; targets still need SAR success
+for each workload namespace they scrape.
+
+## Common failure modes
+
+| Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| `get`, `list`, `watch` | `kollecttargets`, `kollectprofiles` | Controller reads profile |
-| `get`, `list`, `watch` | Target GVK resources | Dynamic client per profile |
-| `update`, `patch` | `kollecttargets/status` | Controller writes status |
+| `itemCount` stays 0 | Label selector mismatch | `kubectl get deploy -l app.kubernetes.io/name=nginx` |
+| Namespace skipped | Watch label / annotation | See [ADR-0029](../adr/0029-watch-labels.md); check `kollect.dev/watch` |
+| `Forbidden` partial collection | RBAC too narrow | Extend ClusterRole or use namespace-scoped RoleBindings |
+| Target in wrong namespace | Namespaced kind | `kubectl get ktgt -A`; match profile namespace |
+| No reconcile after profile edit | Secondary watch pending | Bump target generation or wait for beta watch |
+| `OptIn` collects nothing | Missing `enabled` label | Label namespace or resource `kollect.dev/watch: enabled` |
 
-## Samples
+## See also
 
-- [`config/samples/kollect_v1alpha1_kollecttarget.yaml`](../../config/samples/kollect_v1alpha1_kollecttarget.yaml)
-- [`config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml`](../../config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml)
-- [`config/samples/kollect_v1alpha1_kollecttarget_opt-in.yaml`](../../config/samples/kollect_v1alpha1_kollecttarget_opt-in.yaml)
-
-## Failure modes
-
-> **TODO:** Document `ScopeGVKDenied`, profile not found, SAR forbidden on target GVK, and suspended
-> target behavior.
+- [KollectProfile](kollectprofile.md)
+- [KollectInventory](kollectinventory.md)
+- [KollectScope](kollectscope.md)
+- [DATA-FLOWS.md](../DATA-FLOWS.md)
+- [examples/deployment-inventory.md](../examples/deployment-inventory.md)

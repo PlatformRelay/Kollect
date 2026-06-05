@@ -2,16 +2,67 @@
 
 **Scope:** Cluster · **Reconciled:** Webhook only (Phase 1) · **Short name:** `kctgt`
 
-Platform operator collection across namespaces. Pairs with reserved **`KollectClusterInventory`**
-for rollup export ([ADR-0032](../adr/0032-platform-architecture-pivot.md)).
+## What it is for
+
+A `KollectClusterTarget` is the **platform-operator** variant of `KollectTarget`: it collects
+across multiple namespaces using a cluster-scoped object and a required `namespaceSelector`. It
+pairs with `KollectClusterInventory` for platform-wide rollup export
+([ADR-0032](../adr/0032-platform-architecture-pivot.md)).
+
+**Phase 1:** API types, validating webhook, and sample YAML only — **no controller** is registered.
+Objects persist and validate at admission; collection/export requires a future controller milestone.
+
+## How it fits the pipeline
+
+```mermaid
+flowchart TD
+  subgraph platform [Platform namespace]
+    Profile[KollectProfile]
+  end
+  CTarget[KollectClusterTarget]
+  CInv[KollectClusterInventory]
+  Sink[KollectClusterSink]
+
+  Profile -->|"profileRef"| CTarget
+  CTarget -->|future| CInv
+  CInv -.->|future| Sink
+```
+
+| Relationship | Rule |
+| --- | --- |
+| Profile | `spec.profileRef` resolves to `KollectProfile` in **platform namespace** (Helm `platformNamespace`) |
+| Namespaces | `namespaceSelector` **required** — empty selector rejected at admission |
+| Namespaced pipeline | Team flows use `KollectTarget` + `KollectInventory` instead |
+
+Build order: namespaced MVP first, then cluster controller — [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md).
 
 ## Spec fields
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `spec.profileRef` | string | Yes | `KollectClusterProfile` or platform-namespace profile |
-| `spec.namespaceSelector` | labelSelector | No | Restrict collected workload namespaces |
+| `spec.profileRef` | string | Yes | Name of `KollectProfile` in platform namespace (`KollectClusterProfile` later) |
+| `spec.namespaceSelector` | labelSelector | **Yes** | Required — webhook rejects empty selector (no cluster-wide implicit scrape) |
 | `spec.suspend` | bool | No | Pause reconciliation (reserved) |
+
+## Sample usage
+
+```sh
+# Profile must exist in platform namespace (e.g. kollect-system)
+kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml \
+  -n kollect-system
+kubectl apply -f config/samples/kollect_v1alpha1_kollectclustertarget.yaml
+
+kubectl get kctgt platform-argo-applications -o yaml
+kubectl describe kctgt platform-argo-applications
+```
+
+Label namespaces for the sample selector:
+
+```sh
+kubectl label namespace argocd kollect.dev/tenant=platform --overwrite
+```
+
+**Today:** expect admission success only; no `Ready` status or collection until controller ships.
 
 ## Status conditions
 
@@ -19,18 +70,32 @@ for rollup export ([ADR-0032](../adr/0032-platform-architecture-pivot.md)).
 | --- | --- | --- |
 | *(reserved)* | Future controller | `Ready`, `Degraded` — not wired in Phase 1 |
 
+Watch webhook validation via `kubectl apply` errors until controller lands.
+
 ## RBAC
 
-| Verb | Resource | Notes |
+| Actor | Verbs | Resource | Notes |
+| --- | --- | --- | --- |
+| Platform admins | `create`, `update`, `patch`, `delete` | `kollectclustertargets` | Cluster-scoped |
+| Platform readers | `get`, `list`, `watch` | `kollectclustertargets` | Audit platform config |
+| Future operator | `get`, `list`, `watch` + target GVK verbs | cluster + dynamic | Cross-namespace list |
+
+Cluster-scoped resources require elevated RBAC — restrict to platform SRE roles.
+
+## Common failure modes
+
+| Symptom | Cause | Fix |
 | --- | --- | --- |
-| `get`, `list`, `watch` | `kollectclustertargets` | Cluster-scoped — platform RBAC |
-| `create`, `update`, `patch`, `delete` | `kollectclustertargets` | Platform admins |
+| Admission denied | Missing `profileRef` | Set profile name (not `namespace/name`) |
+| Admission denied | Missing `namespaceSelector` | Add explicit label selector |
+| Admission denied | `profileRef` contains `/` | Use name only — profile lives in platform namespace |
+| No collection | Phase 1 — controller not registered | Use namespaced `KollectTarget` for MVP |
+| *(future)* `ProfileNotFound` | No profile in platform NS | Create profile in `platformNamespace` |
+| *(future)* `Degraded` | Scope or RBAC denies cross-namespace list | Extend operator ClusterRole; add `KollectClusterScope` |
 
-## Samples
+## See also
 
-- [`config/samples/kollect_v1alpha1_kollectclustertarget.yaml`](../../config/samples/kollect_v1alpha1_kollectclustertarget.yaml)
-
-## Failure modes
-
-> **TODO:** Document webhook validation (invalid profileRef, namespaceSelector), and future scope
-> interaction when cluster controller lands.
+- [KollectTarget](kollecttarget.md) — namespaced equivalent (shipped)
+- [CR-REFERENCE.md](../CR-REFERENCE.md) — reserved cluster kinds
+- [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md)
+- [ADR-0032](../adr/0032-platform-architecture-pivot.md)
