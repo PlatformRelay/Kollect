@@ -55,6 +55,14 @@ var Catalog = []CatalogEntry{
 		AgentHint:  "forbidden → RBAC/SAR; transient → API or sink backoff.",
 	},
 	{
+		Name:       "kollect_sink_errors_total",
+		Type:       "counter",
+		Labels:     []string{"reason"},
+		Help:       "Inventory export failures by reason (transient, terminal, forbidden, payload_too_large).",
+		PromQLHint: "sum(rate(kollect_sink_errors_total[5m])) by (reason)",
+		AgentHint:  "Separate from reconcile errors — inspect sink creds, payload size, and export path.",
+	},
+	{
 		Name:       "kollect_export_duration_seconds",
 		Type:       "histogram",
 		Labels:     []string{"sink_type"},

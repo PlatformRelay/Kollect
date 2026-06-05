@@ -60,12 +60,19 @@ Use these names when scraping `/metrics` or writing PromQL in runbooks and issue
 
 | Metric | Type | Labels | PromQL hint | What rising values imply |
 | --- | --- | --- | --- | --- |
+| `kollect_inventory_items_total` | Gauge | — | `kollect_inventory_items_total` | Stale while store grows → inventory reconcile or export lag |
+| `kollect_collect_items_total` | Gauge | — | `kollect_collect_items_total` | RSS scales with store size at 10k+ objects |
+| `kollect_collected_objects` | Gauge | `profile`, `gvk` | `sum by (profile, gvk) (kollect_collected_objects)` | Per-target cardinality; split profiles when labels explode |
+| `kollect_reconcile_total` | Counter | `controller`, `result` | `sum(rate(kollect_reconcile_total[5m])) by (controller, result)` | Rising failure ratio → check error-class counters |
+| `kollect_reconcile_errors_total` | Counter | `kind`, `error_class` | `sum(rate(kollect_reconcile_errors_total[5m])) by (error_class)` | See [ADR-0020](adr/0020-error-taxonomy.md) error classes |
+| `kollect_sink_errors_total` | Counter | `reason` | `sum(rate(kollect_sink_errors_total[5m])) by (reason)` | Export failures — separate from reconcile errors ([ADR-0020](adr/0020-error-taxonomy.md)) |
+| `kollect_sink_connection_test_total` | Counter | `type`, `result` | `sum(rate(kollect_sink_connection_test_total[5m])) by (type, result)` | Spikes on sink CR churn; sustained failure → creds/network |
 | `kollect_workqueue_depth` | Gauge | `controller` | `max_over_time(kollect_workqueue_depth[5m])` | Sustained high values → raise `--max-concurrent-reconciles-*` or reduce reconcile work |
 | `kollect_reconcile_duration_seconds` | Histogram | `controller` | `histogram_quantile(0.99, sum(rate(kollect_reconcile_duration_seconds_bucket[5m])) by (le, controller))` | p99 rising while depth low → slow API/sink; p99 rising with depth → under-provisioned workers |
-| `kollect_informer_objects` | Gauge | `gvr` | `sum by (gvr) (kollect_informer_objects)` | Unexpected growth → extra GVR watches or cluster-wide scope; check namespace scoping |
+| `kollect_informer_objects` | Gauge | `group`, `version`, `resource` | `sum by (group, version, resource) (kollect_informer_objects)` | Unexpected growth → extra GVR watches or cluster-wide scope; check namespace scoping |
 | `kollect_export_bytes_total` | Counter | `sink_type` | `rate(kollect_export_bytes_total[5m])` | Spike → debounce too low or inventory churn; flat while stale → export path stuck |
 | `kollect_export_duration_seconds` | Histogram | `sink_type` | `histogram_quantile(0.95, sum(rate(kollect_export_duration_seconds_bucket[5m])) by (le, sink_type))` | Sink slowness (Git/Postgres/Kafka) — not collection |
-| `kollect_reconcile_errors_total` | Counter | `controller`, `class` | `sum(rate(kollect_reconcile_errors_total[5m])) by (class)` | See [ADR-0020](adr/0020-error-taxonomy.md) error classes |
+| `kollect_hub_spoke_reports_total` | Counter | `hub`, `result` | `sum(rate(kollect_hub_spoke_reports_total[5m])) by (hub, result)` | Hub fan-in throughput; flat at zero → transport or spoke agent not wired |
 
 Additional runtime signals: Go `memstats` via pprof (`--enable-pprof`), API server `429` in operator logs.
 

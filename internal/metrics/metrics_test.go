@@ -75,6 +75,11 @@ func TestRegister(t *testing.T) {
 		t.Fatalf("hub spoke reports counter: got %v", v)
 	}
 
+	SinkErrorsTotal.WithLabelValues("transient").Inc()
+	if v := testutil.ToFloat64(SinkErrorsTotal.WithLabelValues("transient")); v < 1 {
+		t.Fatalf("sink errors counter: got %v", v)
+	}
+
 	if len(Catalog) < 10 {
 		t.Fatalf("metrics catalog too short: got %d entries", len(Catalog))
 	}
