@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # Codecov OIDC upload (public repos)
 
 jobs:
   gitleaks:
@@ -126,7 +125,7 @@ jobs:
           if-no-files-found: error
       - name: Upload coverage to Codecov
         if: success()
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           files: coverage.out
           fail_ci_if_error: false
