@@ -38,6 +38,9 @@ type RemoteClusterRef struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
+// Deprecated: KollectHub is not a product surface — use Helm mode: hub|spoke (ADR-0032).
+// The CRD remains as a reserved stub; no controller is registered.
+
 // KollectHubSpec defines the desired state of KollectHub.
 type KollectHubSpec struct {
 	// replicas is the hub consumer Deployment replica count.
