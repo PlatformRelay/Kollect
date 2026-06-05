@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -16,16 +17,17 @@ import (
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/sink/cap"
+	"github.com/konih/kollect/internal/sink/objectstore"
+	parquetenc "github.com/konih/kollect/internal/sink/parquet"
 )
 
-// Backend uploads inventory payloads via S3 PutObject.
 type Backend struct {
 	cfg    Config
 	client *awss3.Client
 }
 
-// NewBackend constructs an S3 sink backend.
 func NewBackend(spec kollectdevv1alpha1.KollectSinkSpec, creds map[string][]byte) (*Backend, error) {
 	cfg, err := ConfigFromSpec(spec, creds)
 	if err != nil {
@@ -40,25 +42,50 @@ func NewBackend(spec kollectdevv1alpha1.KollectSinkSpec, creds map[string][]byte
 	return &Backend{cfg: cfg, client: client}, nil
 }
 
-// Type returns the sink type identifier.
 func (b *Backend) Type() string {
 	return "s3"
 }
 
-// Capabilities reports whole-snapshot export (ADR-0401).
 func (b *Backend) Capabilities() cap.Capabilities {
 	return cap.SnapshotStore()
 }
 
-// Export uploads payload at objectPath under the configured bucket prefix.
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
-	if len(payload) == 0 {
-		return fmt.Errorf("s3 export: empty payload")
-	}
-
 	objectPath = strings.TrimSpace(objectPath)
 	if objectPath == "" {
 		objectPath = "inventory/latest.json"
+	}
+
+	body := payload
+	contentType := "application/json"
+
+	if b.cfg.Format == objectstore.FormatParquet {
+		items, err := export.ItemsFromPayload(payload)
+		if err != nil {
+			return fmt.Errorf("s3 parquet export: decode payload: %w", err)
+		}
+
+		invNS, invName := objectstore.InventoryFromObjectPath(objectPath)
+		cluster := b.cfg.Cluster
+		if cluster == "" {
+			cluster = "default"
+		}
+
+		encoded, err := parquetenc.EncodeItems(items, parquetenc.EncodeOptions{
+			Cluster:            cluster,
+			InventoryNamespace: invNS,
+			InventoryName:      invName,
+			HotAttributes:      b.cfg.HotAttributes,
+			ExportedAt:         time.Now().UTC(),
+		})
+		if err != nil {
+			return fmt.Errorf("s3 parquet export: encode: %w", err)
+		}
+
+		body = encoded
+		contentType = parquetenc.ContentType()
+	} else if len(payload) == 0 {
+		return fmt.Errorf("s3 export: empty payload")
 	}
 
 	key := objectPath
@@ -69,8 +96,8 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 	_, err := b.client.PutObject(ctx, &awss3.PutObjectInput{
 		Bucket:      aws.String(b.cfg.Bucket),
 		Key:         aws.String(key),
-		Body:        bytes.NewReader(payload),
-		ContentType: aws.String("application/json"),
+		Body:        bytes.NewReader(body),
+		ContentType: aws.String(contentType),
 	})
 	if err != nil {
 		return fmt.Errorf("s3 PutObject: %w", err)
@@ -95,12 +122,10 @@ func newClient(cfg Config) (*awss3.Client, error) {
 		return nil, fmt.Errorf("load AWS config: %w", err)
 	}
 
-	client := awss3.NewFromConfig(awsCfg, func(o *awss3.Options) {
+	return awss3.NewFromConfig(awsCfg, func(o *awss3.Options) {
 		if cfg.Endpoint != "" {
 			o.BaseEndpoint = aws.String(cfg.Endpoint)
 			o.UsePathStyle = cfg.ForcePathStyle
 		}
-	})
-
-	return client, nil
+	}), nil
 }

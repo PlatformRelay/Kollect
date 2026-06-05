@@ -58,9 +58,25 @@ type KollectSinkSpec struct {
 	// +optional
 	Nats *NatsSpec `json:"nats,omitempty"`
 
+	// objectStore configures S3/GCS snapshot export format and layout.
+	// +optional
+	ObjectStore *ObjectStoreSpec `json:"objectStore,omitempty"`
+
 	// gitlab configures GitLab-specific settings when type is gitlab.
 	// +optional
 	GitLab *GitLabSpec `json:"gitlab,omitempty"`
+}
+
+// ObjectStoreSpec configures S3/GCS snapshot serialization (ADR-0401).
+type ObjectStoreSpec struct {
+	// format selects the snapshot serialization (default json).
+	// +kubebuilder:validation:Enum=json;parquet
+	// +optional
+	Format string `json:"format,omitempty"`
+	// hotAttributes lists profile attribute keys promoted to typed Parquet columns (ADR-0401, Q11).
+	// +optional
+	// +listType=atomic
+	HotAttributes []string `json:"hotAttributes,omitempty"`
 }
 
 // GitLabSpec configures GitLab sink settings beyond the shared endpoint and TLS fields.

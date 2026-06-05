@@ -17,6 +17,7 @@ import (
 	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink/cap"
+	"github.com/konih/kollect/internal/sink/objectstore"
 )
 
 // Capabilities describes sink backend projection behavior (ADR-0401, ADR-0406).
@@ -120,8 +121,11 @@ func RunExportItems(req ExportItemsRequest) error {
 		return err
 	}
 
+	invNS, invName := objectstore.InventoryFromObjectPath(req.ObjectPath)
+	objectPath := objectstore.ObjectPath(ks.Spec, invNS, invName, req.Meta.Generation)
+
 	start := time.Now()
-	err = backend.Export(req.Ctx, envelope, req.ObjectPath)
+	err = backend.Export(req.Ctx, envelope, objectPath)
 	elapsed := time.Since(start).Seconds()
 	metrics.ExportDurationSeconds.WithLabelValues(ks.Spec.Type).Observe(elapsed)
 	metrics.ExportBytesTotal.WithLabelValues(ks.Spec.Type).Add(float64(len(envelope)))

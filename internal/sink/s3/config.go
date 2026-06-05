@@ -11,7 +11,6 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-// Config holds resolved S3/MinIO sink settings.
 type Config struct {
 	Bucket          string
 	Prefix          string
@@ -20,13 +19,11 @@ type Config struct {
 	ForcePathStyle  bool
 	AccessKeyID     string
 	SecretAccessKey string
+	Cluster         string
+	Format          string
+	HotAttributes   []string
 }
 
-// ConfigFromSpec validates and resolves a KollectSink s3 spec.
-// Endpoint formats:
-//   - s3://bucket/prefix
-//   - bucket/prefix (bucket name only)
-//   - https://minio.example:9000/bucket/prefix (custom endpoint; path-style)
 func ConfigFromSpec(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	creds map[string][]byte,
@@ -61,6 +58,12 @@ func ConfigFromSpec(
 
 	if cfg.Bucket == "" {
 		return Config{}, fmt.Errorf("s3 endpoint must include a bucket")
+	}
+
+	cfg.Cluster = strings.TrimSpace(spec.Cluster)
+	if spec.ObjectStore != nil {
+		cfg.Format = strings.ToLower(strings.TrimSpace(spec.ObjectStore.Format))
+		cfg.HotAttributes = append([]string(nil), spec.ObjectStore.HotAttributes...)
 	}
 
 	return cfg, nil

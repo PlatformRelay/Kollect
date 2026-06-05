@@ -101,6 +101,23 @@ properties:
     required:
     - subject
     type: object
+  objectStore:
+    description: objectStore configures S3/GCS snapshot export format and layout.
+    properties:
+      format:
+        description: format selects the snapshot serialization (default json).
+        enum:
+        - json
+        - parquet
+        type: string
+      hotAttributes:
+        description: hotAttributes lists profile attribute keys promoted to typed
+          Parquet columns (ADR-0401, Q11).
+        items:
+          type: string
+        type: array
+        x-kubernetes-list-type: atomic
+    type: object
   postgres:
     description: postgres configures a PostgreSQL database sink.
     properties:
