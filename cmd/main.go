@@ -388,6 +388,7 @@ func main() {
 			Enabled: true,
 			Port:    int32(inventoryHTTPPort),
 			Store:   collectStore,
+			Status:  &inventory.ClientStatusReader{Client: mgr.GetClient()},
 			Auth: &inventory.AuthConfig{
 				Mode:                inventoryAuthMode,
 				Client:              kubeClient,

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -17,21 +16,13 @@ import (
 	"github.com/konih/kollect/internal/metrics"
 )
 
-// Summary is the JSON payload for GET /v1alpha1/inventory.
-type Summary struct {
-	ItemCount int            `json:"itemCount"`
-	Namespace string         `json:"namespace,omitempty"`
-	Inventory string         `json:"inventory,omitempty"`
-	Items     []collect.Item `json:"items,omitempty"`
-	UpdatedAt string         `json:"updatedAt"`
-}
-
 // Server serves read-only inventory HTTP endpoints backed by the collection store.
 type Server struct {
 	Enabled bool
 	Port    int32
 	Store   *collect.Store
 	Auth    *AuthConfig
+	Status  StatusReader
 }
 
 // Start runs the HTTP server until ctx is cancelled.
@@ -48,15 +39,22 @@ func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 	inventoryHandler := http.Handler(http.HandlerFunc(s.handleInventory))
 	watchHandler := http.Handler(http.HandlerFunc(s.handleWatch))
+	statusInventoriesHandler := http.Handler(http.HandlerFunc(s.handleStatusInventories))
+	statusTargetsHandler := http.Handler(http.HandlerFunc(s.handleStatusTargets))
+
 	if s.Auth != nil {
 		s.Auth.InitCache()
 		inventoryHandler = s.Auth.Middleware(inventoryHandler)
 		watchHandler = s.Auth.Middleware(watchHandler)
+		statusInventoriesHandler = s.Auth.Middleware(statusInventoriesHandler)
+		statusTargetsHandler = s.Auth.Middleware(statusTargetsHandler)
 	}
 
 	mux.Handle("GET /v1alpha1/inventory", inventoryHandler)
 	mux.Handle("GET /v1alpha1/inventory/{namespace}/{name}", inventoryHandler)
 	mux.Handle("GET /v1alpha1/inventory/watch", watchHandler)
+	mux.Handle("GET /v1alpha1/status/inventories", statusInventoriesHandler)
+	mux.Handle("GET /v1alpha1/status/targets", statusTargetsHandler)
 	// Deprecated paths — retained for one release.
 	mux.Handle("GET /inventory", inventoryHandler)
 	mux.Handle("GET /inventory/watch", watchHandler)
@@ -84,17 +82,8 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
-	namespace := strings.TrimSpace(r.URL.Query().Get("namespace"))
-	inventoryName := strings.TrimSpace(r.URL.Query().Get("inventory"))
-
-	if ns := r.PathValue("namespace"); ns != "" {
-		namespace = ns
-	}
-	if name := r.PathValue("name"); name != "" {
-		inventoryName = name
-	}
-
-	summary := s.buildSummary(namespace, inventoryName)
+	filter := parseListFilter(r)
+	summary := s.buildSummary(r.Context(), filter)
 
 	metrics.InventoryItemsTotal.Set(float64(summary.ItemCount))
 	metrics.CollectItemsTotal.Set(float64(summary.ItemCount))
@@ -117,8 +106,7 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	namespace := r.URL.Query().Get("namespace")
-	inventoryName := r.URL.Query().Get("inventory")
+	filter := parseListFilter(r)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -127,7 +115,7 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 	defer s.Store.Unsubscribe(ch)
 
 	send := func() bool {
-		payload, err := json.Marshal(s.buildSummary(namespace, inventoryName))
+		payload, err := json.Marshal(s.buildSummary(r.Context(), filter))
 		if err != nil {
 			return false
 		}
@@ -157,21 +145,59 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) buildSummary(namespace, inventoryName string) Summary {
-	itemCount := 0
-	var items []collect.Item
+func (s *Server) buildSummary(ctx context.Context, filter ListFilter) InventorySummary {
+	items := s.collectItems(filter)
+	items = filterItems(items, filter)
 
-	if s.Store != nil {
-		nsSummary := s.Store.Summary(namespace)
-		itemCount = nsSummary.ItemCount
-		items = nsSummary.Items
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = defaultPageLimit
 	}
 
-	return Summary{
-		ItemCount: itemCount,
-		Namespace: namespace,
-		Inventory: inventoryName,
-		Items:     items,
-		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+	pagedItems, pagination := paginateItems(items, limit, filter.Offset)
+	if len(items) > 0 && pagination == nil {
+		pagination = &Pagination{Limit: len(items), Offset: 0, Total: len(items), HasMore: false}
 	}
+
+	checksum, _ := collect.ItemsFingerprint(pagedItems)
+
+	summary := InventorySummary{
+		SchemaVersion: collect.ExportSchemaVersion,
+		ItemCount:     len(pagedItems),
+		Namespace:     filter.Namespace,
+		Inventory:     filter.Inventory,
+		Items:         pagedItems,
+		UpdatedAt:     time.Now().UTC().Format(time.RFC3339),
+		Pagination:    pagination,
+		Checksum:      checksum,
+	}
+
+	if s.Status != nil && filter.Namespace != "" && filter.Inventory != "" {
+		exportStatus, err := s.Status.GetInventoryExportStatus(ctx, filter.Namespace, filter.Inventory)
+		if err == nil && len(exportStatus) > 0 {
+			summary.ExportStatus = exportStatus
+		}
+	}
+
+	if summary.Items == nil {
+		summary.Items = []collect.Item{}
+	}
+
+	return summary
 }
+
+func (s *Server) collectItems(filter ListFilter) []collect.Item {
+	if s.Store == nil {
+		return nil
+	}
+
+	ns := filter.Namespace
+	if ns == "" && filter.Inventory == "" {
+		return s.Store.Summary("").Items
+	}
+
+	return s.Store.Summary(ns).Items
+}
+
+// Summary is retained as an alias for backward-compatible tests and docs.
+type Summary = InventorySummary

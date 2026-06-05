@@ -54,6 +54,20 @@ func (a *AuthConfig) InitCache() {
 	a.cache = newAuthCache(a.CacheTTL)
 }
 
+func requestAuthScope(r *http.Request) (namespace, name, verb, resource string) {
+	path := r.URL.Path
+	switch {
+	case strings.HasPrefix(path, "/v1alpha1/status/targets"):
+		return strings.TrimSpace(r.URL.Query().Get("namespace")), "", "list", "kollecttargets"
+	case strings.HasPrefix(path, "/v1alpha1/status/inventories"):
+		return strings.TrimSpace(r.URL.Query().Get("namespace")), "", "list", "kollectinventories"
+	default:
+		namespace, name, verb = inventoryAuthScope(r)
+
+		return namespace, name, verb, "kollectinventories"
+	}
+}
+
 func inventoryAuthScope(r *http.Request) (namespace, name, verb string) {
 	namespace = strings.TrimSpace(r.URL.Query().Get("namespace"))
 	name = strings.TrimSpace(r.URL.Query().Get("inventory"))
@@ -90,9 +104,9 @@ func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		namespace, name, verb := inventoryAuthScope(r)
+		namespace, name, verb, resource := requestAuthScope(r)
 		hash := tokenHash(token)
-		cacheKey := authCacheKey(hash, verb, namespace, name)
+		cacheKey := authCacheKey(hash, verb, namespace, name+":"+resource)
 
 		if user, allowed, ok := a.cache.get(cacheKey); ok {
 			if a.RequireInventoryGet && !allowed {
@@ -117,7 +131,7 @@ func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
 		allowed := true
 		if a.RequireInventoryGet {
 			var authErr error
-			allowed, authErr = a.authorizeInventory(r.Context(), user, namespace, name, verb)
+			allowed, authErr = a.authorizeResource(r.Context(), user, resource, namespace, name, verb)
 			if authErr != nil {
 				http.Error(w, "authorization check failed", http.StatusInternalServerError)
 
@@ -174,15 +188,15 @@ func (a AuthConfig) authenticate(ctx context.Context, token string) (authenticat
 	return result.Status.User, nil
 }
 
-func (a AuthConfig) authorizeInventory(
+func (a AuthConfig) authorizeResource(
 	ctx context.Context,
 	user authenticationv1.UserInfo,
-	namespace, name, verb string,
+	resource, namespace, name, verb string,
 ) (bool, error) {
 	attrs := &authorizationv1.ResourceAttributes{
 		Namespace: namespace,
 		Group:     "kollect.dev",
-		Resource:  "kollectinventories",
+		Resource:  resource,
 		Verb:      verb,
 	}
 	if name != "" {
@@ -199,7 +213,7 @@ func (a AuthConfig) authorizeInventory(
 
 	result, err := a.Client.AuthorizationV1().SubjectAccessReviews().Create(ctx, review, metav1.CreateOptions{})
 	if err != nil {
-		return false, fmt.Errorf("inventory SAR: %w", err)
+		return false, fmt.Errorf("%s SAR: %w", resource, err)
 	}
 
 	return result.Status.Allowed, nil

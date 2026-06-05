@@ -1,0 +1,51 @@
+name: UI CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ui/**"
+      - "hack/ci/ui-verify.sh"
+      - ".github/workflows/ui-ci.yaml"
+  pull_request:
+    paths:
+      - "ui/**"
+      - "hack/ci/ui-verify.sh"
+      - ".github/workflows/ui-ci.yaml"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  ui-verify:
+    name: ui-verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@499267760445efe66a932b1621f519267b9ffd2 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: UI verify (build, typecheck, test, lint)
+        run: bash hack/ci/ui-verify.sh
+
+  ui-image:
+    name: ui-image
+    runs-on: ubuntu-latest
+    needs: [ui-verify]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Build UI container image
+        run: docker build -f ui/Dockerfile -t ghcr.io/konih/kollect-ui:sha-${{ github.sha }} ui/
+      - name: Log in to GHCR
+        if: env.PUSH_IMAGE == 'true'
+        run: echo "Image build-only on main; set PUSH_IMAGE=true to push"
+        env:
+          PUSH_IMAGE: "false"

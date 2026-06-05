@@ -248,6 +248,32 @@ tasks:
       - task: helm-lint
       - task: helm-unittest
 
+  ui-dev:
+    desc: Start the kollect-ui Vite dev server (MSW optional via VITE_ENABLE_MSW=true)
+    dir: ui
+    cmds:
+      - npm ci
+      - npm run dev
+
+  build-ui:
+    desc: Build the kollect-ui SPA to ui/dist
+    dir: ui
+    cmds:
+      - npm ci
+      - npm run build
+    sources:
+      - ui/src/**/*
+      - ui/package.json
+      - ui/package-lock.json
+      - ui/vite.config.ts
+    generates:
+      - ui/dist/index.html
+
+  ui-ci:
+    desc: UI verify gate — typecheck, unit tests, lint, build
+    cmds:
+      - bash hack/ci/ui-verify.sh
+
   dev-up:
     desc: Bootstrap local dev — build, kind cluster, sample CRs
     cmds:

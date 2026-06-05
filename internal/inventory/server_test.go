@@ -33,6 +33,43 @@ func freeTCPPort(t *testing.T) int32 {
 	return port
 }
 
+func TestServerHandleInventoryFilters(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	store.Upsert(collect.Item{
+		TargetNamespace: "team-a",
+		TargetName:      "deploys",
+		Namespace:       "apps",
+		Name:            "web",
+		UID:             "uid-1",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+	store.Upsert(collect.Item{
+		TargetNamespace: "team-a",
+		TargetName:      "deploys",
+		Namespace:       "apps",
+		Name:            "cache",
+		UID:             "uid-2",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+
+	srv := &Server{Enabled: true, Store: store}
+	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/inventory?namespace=team-a&kind=Deployment&limit=1&offset=0", nil)
+	rec := httptest.NewRecorder()
+	srv.handleInventory(rec, req)
+
+	var summary Summary
+	if err := json.NewDecoder(rec.Body).Decode(&summary); err != nil {
+		t.Fatal(err)
+	}
+	if summary.ItemCount != 1 || summary.Pagination == nil || summary.Pagination.Total != 2 {
+		t.Fatalf("summary = %#v", summary)
+	}
+}
+
 func TestServerHandleInventory(t *testing.T) {
 	t.Parallel()
 
@@ -62,6 +99,9 @@ func TestServerHandleInventory(t *testing.T) {
 	}
 	if summary.ItemCount != 1 || summary.Items[0].Name != "web" {
 		t.Fatalf("summary = %#v", summary)
+	}
+	if summary.SchemaVersion != collect.ExportSchemaVersion {
+		t.Fatalf("schemaVersion = %q", summary.SchemaVersion)
 	}
 }
 

@@ -125,3 +125,13 @@ tolerations: []
 affinity: {}
 
 extraArgs: []
+
+# Optional kollect-ui subchart (static React SPA — default off).
+ui:
+  enabled: false
+  readApiUrl: "http://kollect:8082"
+  ingress:
+    enabled: false
+  image:
+    repository: ghcr.io/konih/kollect-ui
+    tag: latest

@@ -1,0 +1,43 @@
+# Default values for kollect-ui.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/konih/kollect-ui
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kollect-ui.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Read API base URL injected into the SPA at runtime via env/config map (optional).
+readApiUrl: "http://kollect-controller-manager:8082"
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
