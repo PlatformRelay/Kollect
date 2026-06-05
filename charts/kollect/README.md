@@ -19,7 +19,8 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace
 | `transport.type` | Hub/spoke transport backend | `inprocess` |
 | `sinkDefaults.connectionTest` | Default for sample `KollectSink` probes | `false` (prod); CI/dev overlays use `true` |
 
-See `values.yaml` for the full list.
+See `values.yaml` for the full list. Critical values are validated by
+[`values.schema.json`](values.schema.json); CI runs `task helm-test` (`helm lint` + `helm-unittest`).
 
 ### Connection test (`KollectSink`)
 

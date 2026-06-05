@@ -1,0 +1,52 @@
+suite: rbac tenant mode
+templates:
+  - role.yaml
+  - clusterrole.yaml
+  - rolebinding.yaml
+  - clusterrolebinding.yaml
+tests:
+  - it: renders namespaced Role when tenantMode is true
+    template: role.yaml
+    set:
+      tenantMode: true
+      rbac:
+        create: true
+    asserts:
+      - isKind:
+          of: Role
+      - equal:
+          path: metadata.namespace
+          value: NAMESPACE
+      - hasDocuments:
+          count: 1
+  - it: renders RoleBinding when tenantMode is true
+    template: rolebinding.yaml
+    set:
+      tenantMode: true
+      rbac:
+        create: true
+    asserts:
+      - isKind:
+          of: RoleBinding
+      - hasDocuments:
+          count: 1
+  - it: does not render ClusterRole when tenantMode is true
+    template: clusterrole.yaml
+    set:
+      tenantMode: true
+      rbac:
+        create: true
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: renders ClusterRole when tenantMode is false
+    template: clusterrole.yaml
+    set:
+      tenantMode: false
+      rbac:
+        create: true
+    asserts:
+      - isKind:
+          of: ClusterRole
+      - hasDocuments:
+          count: 1

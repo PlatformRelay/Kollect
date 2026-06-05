@@ -1,0 +1,30 @@
+suite: deployment transport
+templates:
+  - deployment.yaml
+tests:
+  - it: sets KOLLECT_TRANSPORT_TYPE to inprocess from chart defaults
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KOLLECT_TRANSPORT_TYPE
+            value: inprocess
+  - it: defaults transport to inprocess when transport.type is omitted
+    set:
+      transport: {}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KOLLECT_TRANSPORT_TYPE
+            value: inprocess
+  - it: honors explicit redis transport type
+    set:
+      transport:
+        type: redis
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KOLLECT_TRANSPORT_TYPE
+            value: redis

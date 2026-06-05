@@ -205,8 +205,19 @@ E2E is also available as a manual GitHub Actions workflow (`.github/workflows/te
 
 Scheduled and manual workflow `.github/workflows/e2e-nightly.yaml` uses `hack/kind/e2e/setup.sh`
 and `hack/kind/e2e/smoke.sh` on cluster **kollect-e2e**, then runs multi-tenant isolation,
-`task bench` with artifact upload, and a local bare-repo git export assert. Optional remote git
-push step is skipped unless `GITHUB_TOKEN` is configured (no dedicated test repo wired yet).
+`task bench` with artifact upload, and a local bare-repo git export assert. Remote git clone/SHA
+assert in `hack/e2e/git-export-assert.sh` is skipped when `GITHUB_TOKEN` is unset (inventory HTTP
+hash is still verified); set `GIT_EXPORT_TEST_REPO` to override the default demo repo URL.
+
+### tenantMode RBAC e2e
+
+Nightly installs a second Helm release (`kollect-tenant`) in `kollect-tenant-ops` with
+`tenantMode: true` and asserts a namespaced `Role` (no manager `ClusterRole`):
+
+```sh
+chmod +x hack/e2e/tenant-mode.sh
+REPO_ROOT="$(pwd)" hack/e2e/tenant-mode.sh
+```
 
 ### Multi-tenant e2e (default pattern)
 
@@ -284,6 +295,7 @@ See [PERFORMANCE.md](PERFORMANCE.md) for operator tuning and the metrics catalog
 task lint          # golangci-lint v2 (custom plugins via .custom-gcl.yml if present)
 task format        # go fmt ./...
 task format:check  # fail if gofmt would change files
+task helm-test     # helm lint + unittest (transport default, tenantMode RBAC)
 ```
 
 Install hooks once:

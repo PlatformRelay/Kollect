@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "kollect Helm values",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "image": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "create": {
+          "type": "boolean"
+        }
+      }
+    },
+    "tenantMode": {
+      "type": "boolean",
+      "description": "When true, render namespaced Role/RoleBinding instead of ClusterRole/ClusterRoleBinding."
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["single", "hub", "spoke"]
+    },
+    "transport": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["inprocess", "redis", "nats", "kafka"],
+          "default": "inprocess",
+          "description": "Hub/spoke transport backend (ADR-0023). Only inprocess is the production default."
+        }
+      }
+    },
+    "watchNamespaces": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "sinkDefaults": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "connectionTest": {
+          "type": "boolean"
+        }
+      }
+    },
+    "webhooks": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

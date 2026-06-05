@@ -155,6 +155,17 @@ tasks:
     cmds:
       - helm lint charts/kollect
 
+  helm-unittest:
+    desc: Run helm-unittest on charts/kollect
+    cmds:
+      - helm unittest charts/kollect
+
+  helm-test:
+    desc: Lint chart and run helm-unittest
+    cmds:
+      - task: helm-lint
+      - task: helm-unittest
+
   kind-dev-up:
     desc: Create kollect-dev kind cluster (operator + optional dev addons)
     cmds:
