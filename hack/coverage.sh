@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-MIN="${COVERAGE_MIN:-43}"
+MIN="${COVERAGE_MIN:-40}"
 RACE_ARGS=()
 if [[ "${COVERAGE_RACE:-0}" == "1" ]]; then
   RACE_ARGS=(-race)

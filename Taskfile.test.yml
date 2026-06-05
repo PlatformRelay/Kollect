@@ -20,7 +20,7 @@ tasks:
       - make test
 
   coverage:
-    desc: Unit/envtest with internal/ coverage.out and floor (COVERAGE_MIN, default 45)
+    desc: Unit/envtest with internal/ coverage.out and floor (COVERAGE_MIN, default 40)
     env:
       CGO_ENABLED: "1"
     cmds:

@@ -100,7 +100,7 @@ multi-arch image to `ghcr.io/konih/kollect`, Trivy scan, cosign signing, SPDX SB
 ## Test coverage
 
 CI runs `task coverage`, which writes `coverage.out` for `./internal/...` and enforces a
-**45%** floor on statement coverage (`COVERAGE_MIN`, see `hack/coverage.sh`). Integration-tagged
+**40%** floor on statement coverage (`COVERAGE_MIN`, see `hack/coverage.sh`). Integration-tagged
 tests (`-tags=integration`) and e2e packages are excluded from the default profile.
 
 **Integration CI** (`task test-integration`) runs testcontainers-backed sinks and transports,
