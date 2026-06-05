@@ -60,8 +60,18 @@ nav:
       - Requirements: REQUIREMENTS.md
   - User Guide:
       - Examples:
+          - Overview: examples/README.md
           - Deployment inventory: examples/deployment-inventory.md
-          - Helm release inventory: examples/helm-release-inventory.md
+          - Helm / Argo release inventory: examples/helm-release-inventory.md
+          - Spoke cluster inventory: examples/spoke-cluster-inventory.md
+          - Postgres state store: examples/postgres-state-store.md
+          - NATS event sink: examples/nats-event-sink.md
+          - Hub mode: examples/hub-mode.md
+          - Cluster-scoped rollup: examples/cluster-rollup.md
+          - Multi-tenant watch scope: examples/multi-tenant-watch-namespaces.md
+          - Connection test: examples/connection-test.md
+          - Cert-manager webhooks: examples/cert-manager-webhook.md
+          - Kind local lab: examples/kind-local-lab.md
       - Connection test: adr/0403-connection-test.md
       - Performance tuning: PERFORMANCE.md
   - Reference:

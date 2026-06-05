@@ -250,8 +250,8 @@ kubectl describe kollectinventory team-inventory -n default
 | Empty item count | No Deployments match selector, or target suspended / scope denied |
 | Namespace skipped | `kollect.dev/namespace-watch: disabled` or `watchMode: OptIn` without `enabled` label |
 
-See [QUICKSTART.md](../QUICKSTART.md) and [DEVELOPMENT.md](../DEVELOPMENT.md) for cluster setup
-and log inspection.
+See [Kind local lab](kind-local-lab.md), [QUICKSTART.md](../QUICKSTART.md), and
+[DEVELOPMENT.md](../DEVELOPMENT.md) for cluster setup and log inspection.
 
 ## Related
 
