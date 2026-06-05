@@ -53,6 +53,9 @@ tasks:
       CGO_ENABLED: "1"
       CLUSTER_NAME:
         sh: echo "${CLUSTER_NAME:-kollect-e2e}"
+      KIND_CLUSTER_WAIT: 300s
+      KOLLECT_HELM_TIMEOUT: 300s
+      KOLLECT_MANAGER_WAIT: 300s
     cmds:
       - bash hack/kind/e2e/setup.sh
       - bash hack/kind/e2e/smoke.sh

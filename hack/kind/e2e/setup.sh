@@ -13,6 +13,8 @@ readonly E2E_VALUES="${E2E_VALUES:-${REPO_ROOT}/charts/kollect/ci/e2e-tenant-val
 _kind_require_tools
 _kind_detect_provider
 
+bash "${SCRIPT_DIR}/preflight.sh"
+
 kind_create_cluster "$CLUSTER_NAME" "$CLUSTER_CONFIG"
 kollect_install_base "$CLUSTER_NAME" "$E2E_VALUES"
 
