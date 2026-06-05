@@ -30,7 +30,7 @@ func (v *kollectProfileValidator) ValidateCreate(
 	_ context.Context,
 	profile *kollectdevv1alpha1.KollectProfile,
 ) (admission.Warnings, error) {
-	return nil, v.validate(profile)
+	return v.validate(profile)
 }
 
 func (v *kollectProfileValidator) ValidateUpdate(
@@ -42,7 +42,7 @@ func (v *kollectProfileValidator) ValidateUpdate(
 		return nil, nil
 	}
 
-	return nil, v.validate(newProfile)
+	return v.validate(newProfile)
 }
 
 func (v *kollectProfileValidator) ValidateDelete(
@@ -52,11 +52,11 @@ func (v *kollectProfileValidator) ValidateDelete(
 	return nil, nil
 }
 
-func (v *kollectProfileValidator) validate(profile *kollectdevv1alpha1.KollectProfile) error {
+func (v *kollectProfileValidator) validate(profile *kollectdevv1alpha1.KollectProfile) (admission.Warnings, error) {
 	errs := validation.ValidateProfile(profile)
 	if len(errs) > 0 {
-		return validation.ProfileInvalid(profile.Name, errs)
+		return nil, validation.ProfileInvalid(profile.Name, errs)
 	}
 
-	return nil
+	return validation.ProfileWarnings(profile), nil
 }

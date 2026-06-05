@@ -146,8 +146,6 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	r.recordExport(&inv, key, hash)
-
 	if exportErr != nil {
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(exportErr)).Inc()
 		reason := "Progressing"
@@ -165,6 +163,8 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		return result, err
 	}
+
+	r.recordExport(&inv, key, hash)
 
 	return r.updateStatus(ctx, &inv, itemCount, nil)
 }

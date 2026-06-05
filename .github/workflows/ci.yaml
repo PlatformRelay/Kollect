@@ -119,7 +119,7 @@ jobs:
         run: |
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
       - name: Install helm-unittest plugin
-        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.5.1 --verify=false
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.5.1
       - name: Helm lint and unittest
         run: task helm-test
 

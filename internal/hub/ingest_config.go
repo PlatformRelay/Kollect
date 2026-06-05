@@ -6,13 +6,20 @@ package hub
 import (
 	"os"
 	"strconv"
+	"strings"
 )
 
 const (
-	envHubIngestPort     = "KOLLECT_HUB_INGEST_PORT"
-	envHubIngestAuthMode = "KOLLECT_HUB_INGEST_AUTH_MODE"
-	defaultIngestPort    = 8083
+	envHubIngestPort        = "KOLLECT_HUB_INGEST_PORT"
+	envHubIngestAuthMode    = "KOLLECT_HUB_INGEST_AUTH_MODE"
+	envHubPlatformNamespace = "KOLLECT_PLATFORM_NAMESPACE"
+	defaultIngestPort       = 8083
 )
+
+// PlatformNamespaceFromEnv returns the hub platform namespace for namespaced SAR checks.
+func PlatformNamespaceFromEnv() string {
+	return strings.TrimSpace(os.Getenv(envHubPlatformNamespace))
+}
 
 // IngestConfigFromEnv reads hub HTTP ingest settings for hub-consumer mode.
 func IngestConfigFromEnv() (int32, string) {

@@ -40,8 +40,8 @@ func TestNATSTransportRoundTrip(t *testing.T) {
 	}
 
 	pub, sub, err := NewTransport(Config{
-		Type: TypeNATS,
-		NATS: NATSConfig{URL: url},
+		Type:  TypeNATS,
+		NATS:  NATSConfig{URL: url},
 		Group: "kollect-test",
 	})
 	if err != nil {

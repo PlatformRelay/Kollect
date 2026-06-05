@@ -67,7 +67,7 @@ func Export(ctx context.Context, cfg Config, auth Auth, payload []byte, objectPa
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	repo, err := cloneOrInit(ctx, tmp, cloneURL, branch, authMethod, cfg)
+	repo, emptyRemote, err := cloneOrInit(ctx, tmp, cloneURL, branch, authMethod, cfg)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,12 @@ func Export(ctx context.Context, cfg Config, auth Auth, payload []byte, objectPa
 		return fmt.Errorf("remote origin: %w", err)
 	}
 
-	refSpec := config.RefSpec(fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch))
+	refSpecStr := fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch)
+	if emptyRemote {
+		refSpecStr = "+" + refSpecStr
+	}
+
+	refSpec := config.RefSpec(refSpecStr)
 	if err := remote.PushContext(ctx, &git.PushOptions{
 		RemoteURL:       cloneURL,
 		RefSpecs:        []config.RefSpec{refSpec},
@@ -190,7 +195,7 @@ func cloneOrInit(
 	dir, cloneURL, branch string,
 	auth transport.AuthMethod,
 	cfg Config,
-) (*git.Repository, error) {
+) (*git.Repository, bool, error) {
 	cloneOpts := &git.CloneOptions{
 		URL:             cloneURL,
 		ReferenceName:   plumbing.NewBranchReferenceName(branch),
@@ -203,26 +208,26 @@ func cloneOrInit(
 
 	repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
 	if err == nil {
-		return repo, nil
+		return repo, false, nil
 	}
 
 	if !isEmptyRemote(err) {
-		return nil, fmt.Errorf("git clone: %w", err)
+		return nil, false, fmt.Errorf("git clone: %w", err)
 	}
 
 	repo, err = git.PlainInit(dir, false)
 	if err != nil {
-		return nil, fmt.Errorf("git init: %w", err)
+		return nil, false, fmt.Errorf("git init: %w", err)
 	}
 
 	if _, err := repo.CreateRemote(&config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{cloneURL},
 	}); err != nil {
-		return nil, fmt.Errorf("add remote: %w", err)
+		return nil, false, fmt.Errorf("add remote: %w", err)
 	}
 
-	return repo, nil
+	return repo, true, nil
 }
 
 func isEmptyRemote(err error) bool {

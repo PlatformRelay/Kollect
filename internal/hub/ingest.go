@@ -27,11 +27,12 @@ func IngestReportsPath() string {
 
 // IngestServer accepts authenticated spoke inventory reports over HTTP (ADR-0028).
 type IngestServer struct {
-	Enabled      bool
-	Port         int32
-	Auth         IngestAuthConfig
-	Merger       *Merger
-	StatusClient client.Client
+	Enabled         bool
+	Port            int32
+	Auth            IngestAuthConfig
+	Merger          *Merger
+	StatusClient    client.Client
+	AllowedClusters []string
 }
 
 // Start runs the HTTP ingest server until ctx is cancelled.
@@ -92,7 +93,7 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report, _, err := ReceiveReport(headerCluster, body, s.Merger, nil)
+	report, _, err := ReceiveReport(headerCluster, body, s.Merger, s.AllowedClusters)
 	if err != nil {
 		metrics.HubSpokeReportsTotal.WithLabelValues("http-ingest", metrics.ResultFailure).Inc()
 		status := http.StatusBadRequest

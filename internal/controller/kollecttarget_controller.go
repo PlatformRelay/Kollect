@@ -15,7 +15,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
@@ -222,6 +224,36 @@ func (r *KollectTargetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kollectdevv1alpha1.KollectTarget{}).
 		WithOptions(opts).
+		Watches(
+			&kollectdevv1alpha1.KollectProfile{},
+			handler.EnqueueRequestsFromMapFunc(r.mapProfileToTargets),
+		).
 		Named("kollecttarget").
 		Complete(r)
+}
+
+func (r *KollectTargetReconciler) mapProfileToTargets(
+	ctx context.Context,
+	obj client.Object,
+) []reconcile.Request {
+	profile, ok := obj.(*kollectdevv1alpha1.KollectProfile)
+	if !ok {
+		return nil
+	}
+
+	var list kollectdevv1alpha1.KollectTargetList
+	if err := r.List(ctx, &list, client.InNamespace(profile.Namespace)); err != nil {
+		return nil
+	}
+
+	reqs := make([]reconcile.Request, 0)
+	for i := range list.Items {
+		if list.Items[i].Spec.ProfileRef == profile.Name {
+			reqs = append(reqs, reconcile.Request{
+				NamespacedName: client.ObjectKeyFromObject(&list.Items[i]),
+			})
+		}
+	}
+
+	return reqs
 }

@@ -29,8 +29,9 @@ const (
 
 // IngestAuthConfig configures hub spoke-report HTTP authentication.
 type IngestAuthConfig struct {
-	Mode   string
-	Client kubernetes.Interface
+	Mode              string
+	Client            kubernetes.Interface
+	PlatformNamespace string
 }
 
 // AuthDisabled reports whether ingest auth middleware should be bypassed.
@@ -138,18 +139,10 @@ func (a IngestAuthConfig) authorizeIngest(ctx context.Context, user authenticati
 			User:   user.Username,
 			Groups: user.Groups,
 			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Group:    "kollect.dev",
-				Resource: "kollectremoteclusters",
-				Verb:     "create",
-			},
-		},
-		{
-			User:   user.Username,
-			Groups: user.Groups,
-			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Group:    "kollect.dev",
-				Resource: "kollectremoteclusters",
-				Verb:     "patch",
+				Namespace: a.PlatformNamespace,
+				Group:     "kollect.dev",
+				Resource:  "kollectremoteclusters",
+				Verb:      "create",
 			},
 		},
 	}

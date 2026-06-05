@@ -19,6 +19,25 @@ const (
 	AllowSecretExtractionAnnotation = "kollect.dev/allow-secret-extraction"
 )
 
+// ProfileWarnings returns admission warnings for paths that are valid but discouraged (Phase 1).
+func ProfileWarnings(profile *kollectdevv1alpha1.KollectProfile) []string {
+	var warnings []string
+
+	for _, attr := range profile.Spec.Attributes {
+		if collect.HasJSONPathFilter(attr.Path) {
+			warnings = append(warnings,
+				fmt.Sprintf(
+					"attribute %q: JSONPath filter expressions are not supported in Phase 1; "+
+						"path %q will be rejected in a future release",
+					attr.Name, attr.Path,
+				),
+			)
+		}
+	}
+
+	return warnings
+}
+
 // ValidateProfile checks spec, paths, and security policy for a KollectProfile.
 func ValidateProfile(profile *kollectdevv1alpha1.KollectProfile) field.ErrorList {
 	allErrs := ValidateProfileSpec(&profile.Spec)

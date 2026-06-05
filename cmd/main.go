@@ -427,11 +427,16 @@ func runHubConsumer(
 
 	ingestPort, ingestAuthMode := hub.IngestConfigFromEnv()
 	ingestSrv := &hub.IngestServer{
-		Enabled:      true,
-		Port:         ingestPort,
-		Auth:         hub.IngestAuthConfig{Mode: ingestAuthMode, Client: kubeClient},
-		Merger:       merger,
-		StatusClient: statusClient,
+		Enabled: true,
+		Port:    ingestPort,
+		Auth: hub.IngestAuthConfig{
+			Mode:              ingestAuthMode,
+			Client:            kubeClient,
+			PlatformNamespace: hub.PlatformNamespaceFromEnv(),
+		},
+		Merger:          merger,
+		StatusClient:    statusClient,
+		AllowedClusters: hubCfg.RemoteClusters,
 	}
 	if err := mgr.Add(ingestSrv); err != nil {
 		setupLog.Error(err, "Failed to add hub ingest server")
