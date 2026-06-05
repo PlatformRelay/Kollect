@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **ci:** Restore 60% coverage floor for test job [fdcc489](https://github.com/konih/kollect/commit/fdcc48906623238f7a758fa23b439140102fbf06)
+
 - **docs:** Repair open questions list rendering [f559c5a](https://github.com/konih/kollect/commit/f559c5a20105e8fc9e1abfe241d95de385a3cfea)
 
 - **ci:** Perf-report envtest gate and changelog [838850c](https://github.com/konih/kollect/commit/838850c2b84787b2b03d11c3d467a39d4b494ef6)
