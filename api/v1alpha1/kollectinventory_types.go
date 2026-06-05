@@ -74,7 +74,7 @@ type KollectInventoryStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,shortName=kinv
+// +kubebuilder:resource:shortName=kinv
 
 // KollectInventory is the Schema for the kollectinventories API
 type KollectInventory struct {
