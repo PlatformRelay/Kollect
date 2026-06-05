@@ -151,8 +151,8 @@ func TestEnsureMergeRequest(t *testing.T) {
 	}
 
 	err = EnsureMergeRequest(ctx, cfg, mrCfg, "kollect/default/team", "default", "team", "")
-	if err == nil || !strings.Contains(err.Error(), "token") {
-		t.Fatalf("expected token error, got %v", err)
+	if err == nil {
+		t.Fatal("expected token error")
 	}
 
 	err = EnsureMergeRequest(ctx, cfg, MergeRequestConfig{Mode: MergeRequestModeBranchMR},

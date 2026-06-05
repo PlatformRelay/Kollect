@@ -4,7 +4,6 @@
 package validation
 
 import (
-	"strings"
 	"testing"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -18,9 +17,7 @@ func TestClusterScopeInvalid(t *testing.T) {
 	err := ClusterScopeInvalid("platform", k8sfield.ErrorList{
 		k8sfield.Required(k8sfield.NewPath("spec").Child("allowedGVKs"), "required"),
 	})
-	if err == nil || !strings.Contains(err.Error(), "KollectClusterScope") {
-		t.Fatalf("err = %v", err)
-	}
+	assertInvalidResourceError(t, err, "KollectClusterScope", "platform")
 }
 
 func TestValidateProfileMetricsEdgeCases(t *testing.T) {
@@ -46,4 +43,3 @@ func TestValidateProfileMetricsEdgeCases(t *testing.T) {
 		t.Fatalf("expected multiple metric validation errors, got %d: %v", len(errs), errs)
 	}
 }
-

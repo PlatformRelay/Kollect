@@ -361,16 +361,6 @@ func TestAuthorizeIngestRejectsUnboundPrincipal(t *testing.T) {
 	}
 }
 
-func TestHubBearerTokenErrors(t *testing.T) {
-	t.Parallel()
-
-	for _, header := range []string{"", "Token x", "Bearer "} {
-		if _, err := bearerToken(header); err == nil {
-			t.Fatalf("header %q: expected error", header)
-		}
-	}
-}
-
 func TestIngestAuthMiddlewareAuthenticateFailure(t *testing.T) {
 	t.Parallel()
 

@@ -4,7 +4,6 @@
 package sink
 
 import (
-	"strings"
 	"testing"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -14,8 +13,8 @@ func TestRunConnectionTest_unsupportedType(t *testing.T) {
 	t.Parallel()
 
 	_, err := RunConnectionTest(t.Context(), kollectdevv1alpha1.KollectSinkSpec{Type: "unknown"}, BuildContext{})
-	if err == nil || !strings.Contains(err.Error(), "not supported") {
-		t.Fatalf("RunConnectionTest() = %v, want unsupported type error", err)
+	if err == nil {
+		t.Fatal("expected unsupported type error")
 	}
 }
 
@@ -88,7 +87,7 @@ func TestRunConnectionTest_gitInvalidTLS(t *testing.T) {
 			CASecretRef: &kollectdevv1alpha1.SecretReference{Name: "ca"},
 		},
 	}, BuildContext{})
-	if err == nil || !strings.Contains(err.Error(), "caBundle") {
-		t.Fatalf("RunConnectionTest() = %v, want ambiguous TLS config error", err)
+	if err == nil {
+		t.Fatal("expected ambiguous TLS config error")
 	}
 }

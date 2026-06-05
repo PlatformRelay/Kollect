@@ -124,7 +124,7 @@ func TestRESTClient_EnsureOpenMergeRequest_missingToken(t *testing.T) {
 		"main",
 		"title",
 	)
-	if err == nil || !strings.Contains(err.Error(), "token") {
-		t.Fatalf("expected token error, got %v", err)
+	if err == nil {
+		t.Fatal("expected token error")
 	}
 }

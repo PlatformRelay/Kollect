@@ -4,7 +4,6 @@
 package validation
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -93,7 +92,5 @@ func TestInventoryInvalid(t *testing.T) {
 	err := InventoryInvalid("demo", field.ErrorList{
 		field.Required(field.NewPath("spec").Child("sinkRefs"), "required"),
 	})
-	if err == nil || !strings.Contains(err.Error(), "demo") {
-		t.Fatalf("err = %v", err)
-	}
+	assertInvalidResourceError(t, err, "KollectInventory", "demo")
 }
