@@ -397,6 +397,9 @@ They are not in the public module graph.
 
 - Do **not** expect `go mod tidy` to resolve imports from `references/`.
 - Do not commit paths under `agent-context/`, `references/`, or `AGENTS.md`.
+- If present locally, `references/IBM-Message-Queue-Operator/` is an **example reference only**
+  (not production-grade). Borrow layout, Taskfiles, CI, and docs/ADR structure selectively; do not
+  copy MQ-specific logic.
 
 ### Confusing `go mod tidy` with local-only trees
 
