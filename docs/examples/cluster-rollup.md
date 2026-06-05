@@ -1,10 +1,11 @@
 # Example: Cluster-scoped rollup
 
-!!! warning "Controller not wired (Phase 1)"
-    Cluster-scoped CRs validate at admission but **do not reconcile** until the platform controller
-    milestone lands. Use namespaced `KollectTarget` + `KollectInventory` for working e2e today.
+!!! tip "Prerequisites"
+    Platform cross-namespace collection requires cluster-scoped RBAC and labeled workload namespaces.
+    For team-scoped e2e, use [deployment-inventory.md](deployment-inventory.md) first.
 
-`KollectClusterProfile` + `KollectClusterTarget` + `KollectClusterInventory`.
+`KollectClusterProfile` + `KollectClusterTarget` + `KollectClusterInventory` roll up platform-wide
+rows and export to sinks in `spec.sinkNamespace`.
 
 Samples in `config/samples/kustomization.yaml`. `sinkNamespace: kollect-system` resolves sink CRs.
 

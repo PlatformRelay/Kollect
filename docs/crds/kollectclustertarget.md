@@ -1,10 +1,10 @@
 # KollectClusterTarget
 
-**Scope:** Cluster · **Reconciled:** Webhook only (Phase 1) · **Short name:** `kctgt`
+**Scope:** Cluster · **Reconciled:** Yes · **Short name:** `kctgt`
 
-!!! info "API only (Phase 1)"
-    Cluster targets validate at admission but **do not reconcile** until the platform controller
-    ships. Use namespaced `KollectTarget` for working collection today.
+!!! tip "Platform vs team scope"
+    Use `KollectClusterTarget` for cross-namespace platform collection. Team-scoped flows use
+    namespaced `KollectTarget` + `KollectInventory` instead.
 
 ## What it is for
 
@@ -13,8 +13,8 @@ across multiple namespaces using a cluster-scoped object and a required `namespa
 pairs with `KollectClusterInventory` for platform-wide rollup export
 ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
 
-**Phase 1:** API types, validating webhook, and sample YAML only — **no controller** is registered.
-Objects persist and validate at admission; collection/export requires a future controller milestone.
+The controller registers shared informers per profile GVK and filters events across namespaces
+matched by `spec.namespaceSelector`.
 
 ## How it fits the pipeline
 
@@ -28,8 +28,8 @@ flowchart TD
 
   CProf -->|"profileRef (preferred)"| CTarget
   Profile -.->|"profileRef (MVP fallback)"| CTarget
-  CTarget -->|future| CInv
-  CInv -.->|future| Sink
+  CTarget -->|rows| CInv
+  CInv --> Sink
 ```
 
 | Relationship | Rule |
@@ -38,7 +38,7 @@ flowchart TD
 | Namespaces | `namespaceSelector` **required** — empty selector rejected at admission |
 | Namespaced pipeline | Team flows use `KollectTarget` + `KollectInventory` instead |
 
-Build order: namespaced MVP first, then cluster controller — [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md).
+Walkthrough: [examples/cluster-rollup.md](../examples/cluster-rollup.md).
 
 ## Spec fields
 
@@ -65,15 +65,25 @@ Label namespaces for the sample selector:
 kubectl label namespace argocd kollect.dev/tenant=platform --overwrite
 ```
 
-**Today:** expect admission success only; no `Ready` status or collection until controller ships.
+```sh
+kubectl get kctgt platform-argo-applications -w
+kubectl describe kctgt platform-argo-applications
+```
 
 ## Status conditions
 
-| Type | When set | Meaning |
-| --- | --- | --- |
-| *(reserved)* | Future controller | `Ready`, `Degraded` — not wired in Phase 1 |
+| Type | When set | Meaning | Remediation |
+| --- | --- | --- | --- |
+| `Ready=True` | Collecting | Profile resolved; informer registered across matched namespaces | None |
+| `Degraded=True` | Blocked | See `reason` below | Fix root cause; generation bump re-reconciles |
 
-Watch webhook validation via `kubectl apply` errors until controller lands.
+### Common `Degraded` reasons
+
+| Reason | Cause | Fix |
+| --- | --- | --- |
+| `Suspended` | `spec.suspend: true` | Set `suspend: false` |
+| `ProfileNotFound` | No matching cluster or platform profile | Create `KollectClusterProfile` or platform-namespace `KollectProfile` |
+| `InformerRegistrationFailed` | Dynamic client / GVK error | Verify CRD installed; check operator logs |
 
 ## RBAC
 
@@ -81,7 +91,7 @@ Watch webhook validation via `kubectl apply` errors until controller lands.
 | --- | --- | --- | --- |
 | Platform admins | `create`, `update`, `patch`, `delete` | `kollectclustertargets` | Cluster-scoped |
 | Platform readers | `get`, `list`, `watch` | `kollectclustertargets` | Audit platform config |
-| Future operator | `get`, `list`, `watch` + target GVK verbs | cluster + dynamic | Cross-namespace list |
+| Operator | `get`, `list`, `watch` + target GVK verbs | cluster + dynamic | Cross-namespace list |
 
 Cluster-scoped resources require elevated RBAC — restrict to platform SRE roles.
 
@@ -92,9 +102,9 @@ Cluster-scoped resources require elevated RBAC — restrict to platform SRE role
 | Admission denied | Missing `profileRef` | Set profile name (not `namespace/name`) |
 | Admission denied | Missing `namespaceSelector` | Add explicit label selector |
 | Admission denied | `profileRef` contains `/` | Use name only — profile lives in platform namespace |
-| No collection | Phase 1 — controller not registered | Use namespaced `KollectTarget` for MVP |
-| *(future)* `ProfileNotFound` | No `KollectClusterProfile` or platform profile | Create `kcprof` or namespaced profile in `platformNamespace` |
-| *(future)* `Degraded` | Scope or RBAC denies cross-namespace list | Extend operator ClusterRole; add `KollectClusterScope` |
+| No collection | Empty `namespaceSelector` match or RBAC denied | Label namespaces; extend operator ClusterRole for target GVK |
+| `ProfileNotFound` | No `KollectClusterProfile` or platform profile | Create `kcprof` or namespaced profile in platform namespace |
+| `Degraded` / `Forbidden` | SAR denies list in scoped NS | Grant operator read on target GVK in workload namespaces |
 
 ## See also
 

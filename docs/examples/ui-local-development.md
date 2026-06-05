@@ -1,5 +1,9 @@
 # UI local development (mock vs live)
 
+!!! tip "Prerequisites"
+    Mock mode needs Node.js and `pnpm`/`npm` only. Live mode requires a running operator with the
+    Read API enabled — see [Kind local lab](kind-local-lab.md).
+
 The kollect-ui SPA can run **without a cluster** using MSW mocks, or against a live Read API when
 the operator is running.
 

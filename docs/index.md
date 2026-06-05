@@ -96,11 +96,12 @@ required** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
 
 | Section | Start here |
 | --- | --- |
-| **Understand the basics** | [Architecture](ARCHITECTURE.md) · [Data flows](DATA-FLOWS.md) · [Platform decisions](PLATFORM-DECISIONS.md) |
+| **Understand the basics** | [Prerequisites](UNDERSTAND-THE-BASICS.md) · [Architecture](ARCHITECTURE.md) · [Data flows](DATA-FLOWS.md) |
 | **Core concepts** | [CRD model](adr/0201-crd-model.md) · [CR reference](CR-REFERENCE.md) · [Hub and spoke](adr/0501-multi-cluster-sync-rfc.md) |
 | **Getting started** | [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md) |
-| **User guide** | [Deployment inventory example](examples/deployment-inventory.md) · [Performance tuning](PERFORMANCE.md) |
-| **Reference** | [Custom resources](CR-REFERENCE.md) · [ADRs](adr/README.md) |
+| **Operator manual** | [Install & ops](OPERATOR-MANUAL.md) · [Upgrading](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md) |
+| **User guide** | [Examples](examples/README.md) · [Best practices](BEST-PRACTICES.md) · [Troubleshooting](TROUBLESHOOTING.md) |
+| **Reference** | [Custom resources](CR-REFERENCE.md) · [FAQ](FAQ.md) · [ADRs](adr/README.md) |
 | **Contributing** | [Roadmap](ROADMAP.md) · [Release process](RELEASE.md) |
 
 ## Learn more

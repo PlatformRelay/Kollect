@@ -3,6 +3,11 @@
 This guide covers building, testing, and running **Kollect** on your machine against a local
 Kubernetes cluster (typically [kind](https://kind.sigs.k8s.io/)).
 
+!!! tip "Assumptions"
+    This guide assumes Go, Docker, kind, kubectl, and [Task](https://taskfile.dev/) are installed.
+    New to CRDs or the docs site? Start with [Understand the basics](UNDERSTAND-THE-BASICS.md) and
+    [QUICKSTART.md](QUICKSTART.md).
+
 ## Prerequisites
 
 | Tool | Version / notes |
@@ -443,9 +448,9 @@ make deploy IMG=ghcr.io/konih/kollect:dev
 
 ### Sample CRs vs controller maturity
 
-As of Phase 0/early Phase 1, reconcilers may still be scaffolds. Applying samples validates CRD
-schema and wiring; export to Git sinks requires implemented controller logic. See
-[QUICKSTART.md](QUICKSTART.md#current-maturity).
+Controllers reconcile namespaced and cluster-scoped inventory CRs today — see
+[QUICKSTART.md](QUICKSTART.md#current-maturity) for phase-level status. Applying samples validates
+CRD schema, webhook rules, and end-to-end export when sinks are configured.
 
 ## Documentation site (MkDocs)
 
