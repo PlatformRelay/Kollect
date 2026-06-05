@@ -50,13 +50,13 @@ nav:
       - Platform decisions: PLATFORM-DECISIONS.md
       - Requirements & assumptions: REQUIREMENTS.md
   - Core Concepts:
-      - CRD model: adr/0201-crd-model.md
-      - CEL and JSONPath extraction: adr/0302-cel-jsonpath-extraction.md
-      - Sink backends: adr/0402-sink-backends-database-kafka.md
-      - Hub and spoke: adr/0501-multi-cluster-sync-rfc.md
-      - Multi-tenancy: adr/0203-namespaced-multi-tenancy.md
-      - Namespaced profiles: adr/0204-namespaced-profiles.md
-      - Watch labels: adr/0205-watch-labels.md
+      - "0201 — CRD model — prefixed kinds, static vs reconciled": adr/0201-crd-model.md
+      - "0302 — CEL and JSONPath attribute extraction": adr/0302-cel-jsonpath-extraction.md
+      - "0402 — Postgres and Kafka sink backends": adr/0402-sink-backends-database-kafka.md
+      - "0501 — Multi-cluster sync topology (shared-sink default; hub optional)": adr/0501-multi-cluster-sync-rfc.md
+      - "0203 — Namespaced multi-tenancy and operator watch scope": adr/0203-namespaced-multi-tenancy.md
+      - "0204 — Namespaced KollectProfile": adr/0204-namespaced-profiles.md
+      - "0205 — Watch opt-in / opt-out labels": adr/0205-watch-labels.md
   - Getting Started:
       - Quick start: QUICKSTART.md
       - Development setup: DEVELOPMENT.md
@@ -78,7 +78,7 @@ nav:
           - Connection test: examples/connection-test.md
           - Cert-manager webhooks: examples/cert-manager-webhook.md
           - Kind local lab: examples/kind-local-lab.md
-      - Connection test: adr/0403-connection-test.md
+      - "0403 — Connection test — sink probes + KollectConnectionTest CR": adr/0403-connection-test.md
       - Performance tuning: PERFORMANCE.md
       - Best practices: BEST-PRACTICES.md
       - Troubleshooting: TROUBLESHOOTING.md
@@ -96,53 +96,53 @@ nav:
           - KollectClusterInventory: crds/kollectclusterinventory.md
       - Annotations and labels: ANNOTATIONS-LABELS.md
       - Command reference: COMMAND-REFERENCE.md
-      - Inventory HTTP API: adr/0404-inventory-api-auth.md
+      - "0404 — Inventory HTTP API authentication": adr/0404-inventory-api-auth.md
       - Architecture decision records:
           - Overview: adr/README.md
           - 01 Foundations:
-              - "0101 Kubebuilder v4 + controller-runtime": adr/0101-kubebuilder-v4.md
-              - "0102 Prior art and OSS patterns": adr/0102-prior-art.md
-              - "0103 Data storage and etcd limit": adr/0103-etcd-limit.md
-              - "0104 Security model": adr/0104-security-model.md
-              - "0105 Webhook serving and certs": adr/0105-webhook-serving-cert-management.md
+              - "0101 — Kubebuilder v4 + controller-runtime": adr/0101-kubebuilder-v4.md
+              - "0102 — Prior art and OSS reference patterns": adr/0102-prior-art.md
+              - "0103 — Data storage and the etcd size limit": adr/0103-etcd-limit.md
+              - "0104 — Security model — secrets, TLS, RBAC, redaction": adr/0104-security-model.md
+              - "0105 — Webhook serving and certificate management": adr/0105-webhook-serving-cert-management.md
           - 02 API & tenancy:
-              - "0201 CRD model": adr/0201-crd-model.md
-              - "0202 Static vs reconciled CRDs": adr/0202-static-vs-reconciled.md
-              - "0203 Namespaced multi-tenancy": adr/0203-namespaced-multi-tenancy.md
-              - "0204 Namespaced profiles": adr/0204-namespaced-profiles.md
-              - "0205 Watch opt-in/opt-out labels": adr/0205-watch-labels.md
-              - "0206 API versioning and conversion": adr/0206-api-versioning-conversion.md
+              - "0201 — CRD model — prefixed kinds, static vs reconciled": adr/0201-crd-model.md
+              - "0202 — Static config vs reconciled CRDs": adr/0202-static-vs-reconciled.md
+              - "0203 — Namespaced multi-tenancy and operator watch scope": adr/0203-namespaced-multi-tenancy.md
+              - "0204 — Namespaced KollectProfile": adr/0204-namespaced-profiles.md
+              - "0205 — Watch opt-in / opt-out labels": adr/0205-watch-labels.md
+              - "0206 — API versioning and conversion strategy": adr/0206-api-versioning-conversion.md
           - 03 Collection & extraction:
-              - "0301 Event-driven informers": adr/0301-event-driven-informers.md
-              - "0302 CEL / JSONPath extraction": adr/0302-cel-jsonpath-extraction.md
-              - "0303 Helm / Argo release inventory": adr/0303-helm-release-inventory.md
-              - "0304 Custom-resource aggregation (RFC)": adr/0304-custom-resource-aggregation-rfc.md
-              - "0305 Aggregation, identity, and dedupe": adr/0305-aggregation-dedupe.md
+              - "0301 — Event-driven dynamic informers (one per GVK)": adr/0301-event-driven-informers.md
+              - "0302 — CEL and JSONPath attribute extraction": adr/0302-cel-jsonpath-extraction.md
+              - "0303 — Helm / Argo release inventory sample + redaction": adr/0303-helm-release-inventory.md
+              - "0304 — Custom-resource metrics and richer aggregation": adr/0304-custom-resource-aggregation-rfc.md
+              - "0305 — Aggregation, row identity, and dedupe semantics": adr/0305-aggregation-dedupe.md
           - 04 Export & sinks:
-              - "0401 Sink taxonomy — state vs stream": adr/0401-sink-taxonomy-state-vs-stream.md
-              - "0402 Postgres and Kafka sinks": adr/0402-sink-backends-database-kafka.md
-              - "0403 Connection test": adr/0403-connection-test.md
-              - "0404 Inventory API auth": adr/0404-inventory-api-auth.md
-              - "0405 Export data contract": adr/0405-export-data-contract.md
-              - "0406 Sink registry and Backend interface": adr/0406-sink-registry.md
-              - "0407 Git / object-store export layout": adr/0407-git-object-store-layout.md
-              - "0408 Read API and UI architecture": adr/0408-read-api-ui-architecture.md
+              - "0401 — Sink taxonomy — state stores vs event emitters": adr/0401-sink-taxonomy-state-vs-stream.md
+              - "0402 — Postgres and Kafka sink backends": adr/0402-sink-backends-database-kafka.md
+              - "0403 — Connection test — sink probes + KollectConnectionTest CR": adr/0403-connection-test.md
+              - "0404 — Inventory HTTP API authentication": adr/0404-inventory-api-auth.md
+              - "0405 — Export data contract and schema versioning": adr/0405-export-data-contract.md
+              - "0406 — Sink registry and the Backend interface": adr/0406-sink-registry.md
+              - "0407 — Git / object-store export layout and workflow": adr/0407-git-object-store-layout.md
+              - "0408 — Read API and UI architecture (pluggable backing store)": adr/0408-read-api-ui-architecture.md
           - 05 Multi-cluster:
-              - "0501 Multi-cluster sync topology": adr/0501-multi-cluster-sync-rfc.md
-              - "0502 Event-emitter transport": adr/0502-lean-queue-transport.md
-              - "0503 Hub cluster auth": adr/0503-hub-cluster-auth-istio-pattern.md
-              - "0504 Runtime modes and HA": adr/0504-operator-runtime-modes-ha-leader-election.md
+              - "0501 — Multi-cluster sync topology (shared-sink default; hub optional)": adr/0501-multi-cluster-sync-rfc.md
+              - "0502 — Event-emitter transport (NATS default, Kafka opt-in)": adr/0502-lean-queue-transport.md
+              - "0503 — Hub cluster authentication — push-first": adr/0503-hub-cluster-auth-istio-pattern.md
+              - "0504 — Operator runtime modes, HA, and leader election": adr/0504-operator-runtime-modes-ha-leader-election.md
           - 06 Observability & ops:
-              - "0601 Operator metrics": adr/0601-prometheus-metrics-stub.md
-              - "0602 Error taxonomy": adr/0602-error-taxonomy.md
-              - "0603 Performance and scalability": adr/0603-performance-scalability.md
+              - "0601 — Operator metrics (no Prometheus export sink)": adr/0601-prometheus-metrics-stub.md
+              - "0602 — Error taxonomy and reconcile behavior": adr/0602-error-taxonomy.md
+              - "0603 — Performance and scalability targets": adr/0603-performance-scalability.md
           - 07 Project & meta:
-              - "0701 MkDocs documentation site": adr/0701-mkdocs-github-pages.md
-              - "0702 Doc-sync templating (dropped)": adr/0702-doc-sync-templating.md
-              - "0703 Platform architecture pivot": adr/0703-platform-architecture-pivot.md
-              - "0704 Helm chart and CRD lifecycle": adr/0704-helm-chart-crd-lifecycle.md
-              - "0705 Release engineering and supply chain": adr/0705-release-supply-chain.md
-              - "0706 Testing and merge gates": adr/0706-testing-merge-gate-architecture.md
+              - "0701 — MkDocs Material documentation site": adr/0701-mkdocs-github-pages.md
+              - "0702 — Doc-sync / Confluence publication": adr/0702-doc-sync-templating.md
+              - "0703 — Platform architecture pivot — decision log": adr/0703-platform-architecture-pivot.md
+              - "0704 — Helm chart and CRD lifecycle": adr/0704-helm-chart-crd-lifecycle.md
+              - "0705 — Release engineering and supply chain": adr/0705-release-supply-chain.md
+              - "0706 — Testing and merge-gate architecture": adr/0706-testing-merge-gate-architecture.md
   - Contributing:
       - Roadmap: ROADMAP.md
       - Release process: RELEASE.md
