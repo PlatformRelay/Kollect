@@ -59,6 +59,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Core documentation + MkDocs (GitHub Pages) | ✅ |
 | Architecture Decision Records (core set) | 🚧 |
 | ADR-0026 performance & scalability | ✅ |
+| ADR-0027 agent observability feedback | ✅ |
 | `GUIDELINES.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
 | Validating webhook — Profile CEL/JSONPath | ✅ |
 | Validating webhook — Sink type enum | ⬜ |
@@ -115,8 +116,9 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 
 ## Phase 2 — Hub / multi-cluster
 
-Multi-cluster support must **not** block single-cluster installs. See
-[ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
+Multi-cluster support must **not** block single-cluster installs. Design for **100+ clusters**
+(60 is not the ceiling) and **giant spokes** (10k+ resources). Hub **shards and aggregates** —
+never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 [ADR-0023](adr/0023-lean-queue-transport.md).
 
 | Item | Status |
@@ -124,8 +126,8 @@ Multi-cluster support must **not** block single-cluster installs. See
 | Multi-cluster topology RFC | ✅ |
 | Lean queue transport ADR (pluggable factory) | ✅ |
 | `KollectHub` CRD (`spec.transport.type`) | ✅ |
-| Spoke operator / agent snapshot reports | ⬜ |
-| Hub merge and deduplication | ⬜ |
+| Spoke operator / agent snapshot reports (lightweight, delta) | ⬜ |
+| Hub merge and deduplication (O(rows), sharded consumers) | ⬜ |
 | Transport: in-process (dev/test) | ✅ |
 | Transport: Redis Streams (Phase 2 spike default) | ✅ |
 | Transport: NATS JetStream (config alternative) | 🚧 |
@@ -165,12 +167,37 @@ Multi-cluster support must **not** block single-cluster installs. See
 
 ## Performance and scalability
 
-Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). Tuning guide:
+Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). Agent feedback
+loop in [ADR-0027](adr/0027-agent-observability-feedback.md). Tuning guide:
 [PERFORMANCE.md](PERFORMANCE.md).
+
+### Scale targets
+
+| Target | Value | ADR |
+| --- | --- | --- |
+| Watched objects per spoke (baseline) | **10,000+** | [ADR-0026](adr/0026-performance-scalability.md) |
+| Giant single cluster | 1000+ nodes, 10k+ resources | [ADR-0026](adr/0026-performance-scalability.md) |
+| Hub spoke count | **100+** (not capped at 60) | [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) |
+| Spoke working set (typical profiles) | ≤512 MiB at 10k rows | [ADR-0026](adr/0026-performance-scalability.md) |
+| Hub merge complexity | O(total rows), sharded | [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) |
+
+### Agent-visible observability
 
 | Item | Status |
 | --- | --- |
-| Scale target documented (10k+ objects) | ✅ |
+| ADR-0027 agent perf feedback loop | ✅ |
+| Metrics catalog + PromQL hints in PERFORMANCE.md | ✅ |
+| `task perf-report` (JSON / markdown) | ⬜ |
+| `agent-context/PERF-SNAPSHOT.md` (local, gitignored) | ⬜ |
+| `artifacts/bench/` from `task bench` | ⬜ |
+| CI upload of bench artifacts (nightly, optional) | ⬜ |
+
+### Operator tuning and tests
+
+| Item | Status |
+| --- | --- |
+| Scale target documented (10k+ objects per spoke) | ✅ |
+| 100+ cluster hub path documented | ✅ |
 | Bounded test tiers (500 default / 2000 opt-in load) | ✅ |
 | `task bench` (Go benchmarks, `-short`) | ✅ |
 | `task load-test` (`KOLECT_LOAD_TEST=1`, `-tags=load`) | ✅ |
@@ -184,7 +211,7 @@ Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). 
 | envtest synthetic scale harness (cap 500) | ⬜ |
 | Load test package (`test/load/`, `-tags=load`) | ✅ |
 
-**Counts:** ✅ 11 · ⬜ 2
+**Counts:** ✅ 14 · ⬜ 5
 
 ---
 
@@ -246,6 +273,8 @@ namespace scope where appropriate.
 | Inventory HTTP auth: **K8s TokenReview + SAR**; `--inventory-auth-mode=kubernetes` default | Accepted |
 | oauth2-proxy: **optional** Helm sidecar for OIDC browsers; not primary auth | Accepted |
 | Git, object storage, and agent mesh documented as alternatives | Accepted |
+| Extreme scale: 100+ clusters, 10k+ objects/spoke, hub shard not O(n²) | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md), [ADR-0026](adr/0026-performance-scalability.md)) |
+| Agent-visible perf feedback (`task perf-report`, PERF-SNAPSHOT) | Accepted ([ADR-0027](adr/0027-agent-observability-feedback.md)) |
 
 ## Further reading
 
@@ -261,4 +290,5 @@ namespace scope where appropriate.
 - [ADR-0011: Doc-sync rejected](adr/0011-doc-sync-templating.md)
 - [ADR-0025: Postgres and Kafka sinks](adr/0025-sink-backends-database-kafka.md)
 - [ADR-0026: Performance and scalability](adr/0026-performance-scalability.md)
-- [PERFORMANCE.md](PERFORMANCE.md) — tuning guide
+- [ADR-0027: Agent observability feedback](adr/0027-agent-observability-feedback.md)
+- [PERFORMANCE.md](PERFORMANCE.md) — tuning guide and metrics catalog

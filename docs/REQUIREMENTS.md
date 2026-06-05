@@ -24,7 +24,7 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 
 | Requirement | Rationale |
 | --- | --- |
-| **Multi-cluster (~60 clusters)** | Hub aggregation without forcing 60 Git commits or duplicate export events per change |
+| **Multi-cluster (100+ clusters)** | Hub **shard + aggregate** without O(n²) coupling or N Git commits per logical change; **60 is not the ceiling** |
 | **Aggregation** | One inventory roll-up, one export commit/event where possible |
 | **Phase 0 one-pod-does-all** | Single deployment can collect + aggregate + export for first success path |
 | **Per-cluster agents / cross-cluster collector** | Explored in [ADR-0022](adr/0022-multi-cluster-sync-rfc.md); must not block single-cluster MVP |
@@ -37,15 +37,17 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 
 | Requirement | Rationale |
 | --- | --- |
-| **10,000+ watched objects** | Production clusters expose large Deployment/Service/Ingress counts; operator must stay responsive |
-| **Bounded memory** | Scoped informers, paginated `List`, shared cache per GVK — no unbounded full-cluster snapshots in RAM |
+| **10,000+ watched objects per cluster (baseline)** | Giant clusters (1000s of nodes) expose large Deployment/Service/Ingress counts; operator must stay responsive |
+| **100+ cluster hub path** | Platform rollup via sharded hub merge — not pairwise mesh; spokes push **summarized deltas** ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
+| **Bounded memory per spoke** | Scoped informers, paginated `List`, shared cache per GVK — target ≤512 MiB at 10k typical rows; no full-cluster mirrors in hub RAM |
 | **Parallel reconcile workers** | `MaxConcurrentReconciles`, workqueue tuning, optional shard by namespace/GVK or `KollectScope` |
-| **Observability** | pprof on `:6060` (feature-gated); Prometheus metrics for queue depth, reconcile latency, informer cache size |
+| **Observability (human + agent)** | pprof on `:6060`; Prometheus metrics catalog; `task perf-report` + local `PERF-SNAPSHOT` for coordinator agents ([ADR-0027](adr/0027-agent-observability-feedback.md)) |
+| **Early bottleneck visibility** | Metrics + benchmarks + perf-report **before** hub/spoke architectural lock-in |
 | **Failure tolerance at scale** | Rate limits, requeue backoff, per-sink circuit breakers; SAR degrade must not block the whole queue |
 | **Bounded load testing** | Default `task test` ≤500 synthetic objects; opt-in `task load-test` (max 2000) — never 10k in CI/dev default |
-| **Micro-benchmarks** | `task bench` with `-short` for extractor hot path (`BenchmarkExtract`) |
+| **Micro-benchmarks** | `task bench` → `artifacts/bench/`; extractor hot path (`BenchmarkExtract`) |
 
-See [ADR-0026](adr/0026-performance-scalability.md) and [PERFORMANCE.md](PERFORMANCE.md).
+See [ADR-0026](adr/0026-performance-scalability.md), [ADR-0027](adr/0027-agent-observability-feedback.md), and [PERFORMANCE.md](PERFORMANCE.md).
 
 ## Testing
 
@@ -90,4 +92,5 @@ See [ADR-0026](adr/0026-performance-scalability.md) and [PERFORMANCE.md](PERFORM
 - [adr/0024-inventory-api-auth.md](adr/0024-inventory-api-auth.md) — inventory HTTP auth (Accepted)
 - [adr/0025-sink-backends-database-kafka.md](adr/0025-sink-backends-database-kafka.md) — Postgres/Kafka sinks (Accepted)
 - [adr/0026-performance-scalability.md](adr/0026-performance-scalability.md) — performance NFRs (Accepted)
-- [PERFORMANCE.md](PERFORMANCE.md) — operator tuning guide
+- [adr/0027-agent-observability-feedback.md](adr/0027-agent-observability-feedback.md) — agent perf feedback loop (Accepted)
+- [PERFORMANCE.md](PERFORMANCE.md) — operator tuning guide and metrics catalog

@@ -1,5 +1,6 @@
 # --- Local-only working material: never committed ---
 /agent-context/
+agent-context/PERF-SNAPSHOT.md
 references/
 stuff/
 .cursor/
@@ -36,6 +37,7 @@ credentials*.json
 # --- Go / build artifacts ---
 /bin/
 /dist/
+/artifacts/bench/
 *.test
 *.out
 cover.out
