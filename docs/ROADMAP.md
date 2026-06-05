@@ -92,7 +92,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Event-driven path: informer changes → inventory export | 🚧 |
 | Sink registry (factory by `type`) | ✅ |
 | Git sink with custom CA TLS | ✅ |
-| GitLab sink (`tls.caSecretRef` for internal CA) | 🚧 REST client + MR wire — [feature-branch push](#gitlab-sink--merge-request-workflow) deferred |
+| GitLab sink (`tls.caSecretRef` for internal CA) | ✅ REST client + MR wire + feature-branch push |
 | S3 sink | 🚧 (MinIO integration; nightly + PR `test-integration`) |
 | Postgres sink (`type: postgres`) | ✅ |
 | Kafka export sink (`type: kafka`) | ✅ |
@@ -187,7 +187,7 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 | `KollectClusterTarget` engine end-to-end | ✅ |
 | `KollectClusterProfile` stub + profileRef resolution | ✅ |
 | Generic CRD proof (`cert-manager.io/Certificate`) | ✅ |
-| GitLab sink enterprise path (MR/API) | 🚧 REST client + export wire; feature-branch push deferred |
+| GitLab sink enterprise path (MR/API) | ✅ feature-branch push + REST MR client |
 | S3/GCS production CI gate | ✅ PR integration + nightly |
 | Scope at platform boundary (multitenant e2e) | ✅ |
 | Release `workflow_dispatch` dry-run (cosign/SBOM/chart) | 🚧 local PASS; GH Actions untested |
@@ -204,12 +204,13 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 | --- | --- |
 | kube-state-metrics-style custom resource metrics config | ✅ [ADR-0033](adr/0033-custom-resource-aggregation-rfc.md) — `KollectProfile.spec.metrics` spike + admission validation |
 | Collect engine → `RecordCustomResourceSeries` on target snapshot | ✅ configured paths or auto-sum fallback + `object_count` per profile/GVK |
+| `spec.metrics[].labels` → `kollect_custom_resource_labeled_series` | ✅ per-label-tuple sums on target snapshot |
 | Hub spoke merge metrics (`kollect_hub_spoke_reports_total`, `kollect_hub_merged_items_total`) | ✅ consumer + HTTP ingest |
 | Cardinality-safe operator metrics (counts, export latency) | ✅ ADR-0020 catalog complete |
 | Advanced cross-target / cross-cluster aggregation | ⬜ |
 | `task perf-report` optional CI gate | ✅ `ci.yaml` job + preflight note |
 
-**Counts:** ✅ 5 · ⬜ 1
+**Counts:** ✅ 6 · ⬜ 1
 
 ---
 
@@ -326,16 +327,16 @@ Scaffold (`553117cc`) reuses the shared **HTTPS git push** path: `internal/sink/
 `spec.endpoint` + `tls.caSecretRef` / `caBundle`, then delegates to `internal/sink/git.Export`
 (direct push to the default branch). Connection probe runs `git ls-remote` with custom CA trust.
 
-**Partial** — CRD + validation + export wire + REST client stub landed; feature-branch git push still deferred:
+**Partial** — CRD + validation + export wire + REST client + feature-branch git push landed:
 
 | Gap | Status |
 | --- | --- |
 | **CRD fields** | ✅ `spec.gitlab.mergeRequest` (mode `direct` \| `merge_request`), `targetBranch`, `branchPrefix`, `titleTemplate`, `autoMerge` |
-| **Branch + push** | 🚧 branch naming helper wired; feature-branch git push not yet implemented |
+| **Branch + push** | ✅ `merge_request` mode clones `targetBranch`, pushes feature branch via `git.ExportWithBranch` |
 | **GitLab REST API v4** | ✅ `RESTClient` list/create MR; `EnsureMergeRequest` after export when token + `merge_request` mode |
-| **Token scopes** | 🚧 document `write_repository` + `api` in sink CR reference |
-| **Export integration** | ✅ `Backend.Export` calls `EnsureMergeRequest` after `git.Export` |
-| **Integration test** | ✅ httptest MR client unit tests; GitLab CE testcontainer optional when `GITLAB_TEST_*` secret set |
+| **Token scopes** | ✅ document `write_repository` + `api` in sink CR reference |
+| **Export integration** | ✅ `Backend.Export` pushes feature branch then calls `EnsureMergeRequest` |
+| **Integration test** | ✅ httptest MR client unit tests + file-remote feature-branch export test |
 | **Hub/cluster sinks** | Same contract applies to `KollectClusterSink` when implemented (Phase 3) |
 
 **Default:** `direct` mode pushes to the default branch. `merge_request` mode opens/updates an MR via

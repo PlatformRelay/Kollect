@@ -54,6 +54,26 @@ Export debouncing and payload flow: [DATA-FLOWS.md](../DATA-FLOWS.md#1-export-de
 | `spec.cluster` | string | No | Cluster label for multi-cluster exports |
 | `spec.postgres` | object | No | `databaseRef`, `table`, `schema` |
 | `spec.kafka` | object | No | `brokers[]`, `topic`, optional `secretRef` |
+| `spec.gitlab` | object | No | GitLab-only: `mergeRequest` block when `type: gitlab` |
+| `spec.gitlab.mergeRequest.mode` | enum | No | `direct` (default) or `merge_request` |
+| `spec.gitlab.mergeRequest.targetBranch` | string | Cond. | Required when `mode: merge_request` — branch cloned as export base |
+| `spec.gitlab.mergeRequest.branchPrefix` | string | No | Feature branch prefix (default `kollect`) |
+| `spec.gitlab.mergeRequest.titleTemplate` | string | No | MR title; `{namespace}` and `{name}` placeholders |
+| `spec.gitlab.mergeRequest.autoMerge` | bool | No | Reserved — MR auto-merge not wired |
+
+### GitLab merge request mode
+
+When `spec.type: gitlab` and `spec.gitlab.mergeRequest.mode: merge_request`:
+
+1. Export clones `targetBranch` (or endpoint `#branch=` default).
+2. Commits inventory JSON on feature branch `{branchPrefix}/{inventoryNamespace}/{inventoryName}`.
+3. Pushes the feature branch via HTTPS git.
+4. Opens or updates a merge request via GitLab API v4 when `secretRef` provides a token.
+
+**Secret keys:** `token` or `password` for git push **and** REST API. Token scopes: `write_repository`
+and `api` (project access token or personal access token with equivalent scopes).
+
+Direct mode (`merge_request` unset or `mode: direct`) pushes to the endpoint default branch only.
 
 ## Sample usage
 

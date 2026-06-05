@@ -94,6 +94,12 @@ anchor on an older commit.
 
 ### Features
 
+- **collect:** Wire profile metrics paths and hub merge metric [4e7d01d](https://github.com/konih/kollect/commit/4e7d01dcd8dc4c7a81fe573c12d748f19a984cbf)
+
+- **api:** Add KollectProfile.spec.metrics spike [9874d02](https://github.com/konih/kollect/commit/9874d025ef139372678dc93b3e3133b31cf2725b)
+
+- **collect:** Wire RecordCustomResourceSeries on snapshot [1829c85](https://github.com/konih/kollect/commit/1829c858b687c588210e8e44b13f13a846a8733e)
+
 - **collect:** Add Phase 4 aggregation metrics stub [d05fc4c](https://github.com/konih/kollect/commit/d05fc4c5b6a3288c55901734198245b55d50e6fb)
 
 - **sink:** Add GitLab API v4 merge request client [8247f4e](https://github.com/konih/kollect/commit/8247f4ec6fa451b7837acce56a0f534193a13352)

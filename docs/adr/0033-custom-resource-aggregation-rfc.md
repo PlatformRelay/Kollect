@@ -29,8 +29,9 @@ full inventory payloads in etcd ([ADR-0006](0006-etcd-limit.md)) or exploding la
   companion `KollectMetricsProfile` CR **deferred** until cross-profile reuse is required.
 - **Spike shape (2026-06-05):** `MetricSpec { name, path, labels? }` where `path` references an
   attribute name from `spec.attributes`; admission validates bounded label keys (max 5). Engine emits
-  `kollect_custom_resource_series{profile,gvk,series}`; auto-sum of all numeric attributes remains the
-  fallback when `spec.metrics` is empty.
+  `kollect_custom_resource_series{profile,gvk,series}` and, when labels are configured,
+  `kollect_custom_resource_labeled_series{profile,gvk,series,<attribute labels>}`; auto-sum of all
+  numeric attributes remains the fallback when `spec.metrics` is empty.
 - **Cardinality rules:** bounded label sets; no unbounded `name`/`namespace` labels unless explicitly
   opted in per metric; document max series per profile in [PERFORMANCE.md](../PERFORMANCE.md).
 - **Serve on operator `/metrics`** alongside existing `kollect_*` counters — no `KollectSink.type:
@@ -68,7 +69,7 @@ full inventory payloads in etcd ([ADR-0006](0006-etcd-limit.md)) or exploding la
 ## Open questions
 
 - **Companion CR:** revisit `KollectMetricsProfile` when platform teams need one metrics schema across many profiles.
-- **Per-metric labels:** spike stores label keys only; Prometheus label emission from attribute values is next.
+- **Per-metric labels:** ✅ `kollect_custom_resource_labeled_series` emits attribute label values from `spec.metrics[].labels`.
 - **Hub domain series:** `kollect_hub_merged_items_total` wired; federated spoke scrapes vs hub-only domain gauges TBD.
 - **Dedupe:** content-hash skip vs generation-based skip for cross-target aggregation ([ROADMAP](../ROADMAP.md)).
 

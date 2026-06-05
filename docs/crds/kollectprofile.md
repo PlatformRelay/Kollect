@@ -53,7 +53,7 @@ Full flow: [DATA-FLOWS.md](../DATA-FLOWS.md#2-collection-pipeline) ·
 | `spec.metrics[]` | list | No | KSM-style Prometheus series on operator `/metrics` ([ADR-0033](../adr/0033-custom-resource-aggregation-rfc.md)) |
 | `spec.metrics[].name` | string | Yes | Bounded series identifier (e.g. `ready_replicas_total`) |
 | `spec.metrics[].path` | string | Yes | Attribute name from `spec.attributes` to aggregate |
-| `spec.metrics[].labels[]` | list | No | Optional label keys from attributes (max 5; emission deferred) |
+| `spec.metrics[].labels[]` | list | No | Optional label keys from attributes (max 5); emits `kollect_custom_resource_labeled_series` |
 
 ## Sample usage
 
