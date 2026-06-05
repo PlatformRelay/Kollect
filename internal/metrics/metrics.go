@@ -117,6 +117,8 @@ var (
 		[]string{"sink_type"},
 	)
 
+	// CustomResourceSeries is registered via aggregation.go (ADR-0033 Phase 4 stub).
+
 	// HubSpokeReportsTotal is a stub for future hub/spoke merge at 100+ cluster scale.
 	HubSpokeReportsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -142,6 +144,7 @@ func Register() {
 		ReconcileDurationSeconds,
 		InformerObjects,
 		ExportBytesTotal,
+		CustomResourceSeries,
 		HubSpokeReportsTotal,
 	)
 }

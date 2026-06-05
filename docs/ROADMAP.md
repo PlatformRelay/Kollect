@@ -6,7 +6,7 @@ sinks (**Postgres/Kafka primary**; Git audit) with optional HTTP for debug.
 
 **Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), [ADR-0032](adr/0032-platform-architecture-pivot.md).
 
-**Last updated:** 2026-06-05 (session 10 — cluster inventory export, cert-manager e2e, S3/GCS nightly gate)
+**Last updated:** 2026-06-05 (session 13 — e2e green, GitLab MR client, export asserts, Phase 4 metrics stub)
 
 ## Status legend
 
@@ -73,7 +73,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Namespaced `KollectProfile` API | ✅ ([ADR-0031](adr/0031-namespaced-profiles.md)) |
 | Golden OpenAPI contract tests (`test/schema/`, 7 kinds) | ✅ |
 | Kind smoke / operator deploy | ✅ |
-| Release pipeline (SBOM, signing) | 🚧 |
+| Release pipeline (SBOM, signing) | 🚧 local dry-run PASS; GH `workflow_dispatch` untested |
 | Public demo Git inventory repo | ✅ |
 
 **Counts:** ✅ 19 · 🚧 2 · ⬜ 2
@@ -92,7 +92,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Event-driven path: informer changes → inventory export | 🚧 |
 | Sink registry (factory by `type`) | ✅ |
 | Git sink with custom CA TLS | ✅ |
-| GitLab sink (`tls.caSecretRef` for internal CA) | 🚧 scaffold — [MR workflow](#gitlab-sink--merge-request-workflow) deferred |
+| GitLab sink (`tls.caSecretRef` for internal CA) | 🚧 REST client + MR wire — [feature-branch push](#gitlab-sink--merge-request-workflow) deferred |
 | S3 sink | 🚧 (MinIO integration; nightly + PR `test-integration`) |
 | Postgres sink (`type: postgres`) | ✅ |
 | Kafka export sink (`type: kafka`) | ✅ |
@@ -118,14 +118,14 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Sample: generic CRD (`cert-manager.io/Certificate` + contract test) | ✅ |
 | Sample contract tests in CI | 🚧 |
 | Integration tests (testcontainers) in CI | ✅ |
-| End-to-end: install → collect → export → HTTP | 🚧 (nightly kind smoke + cert-manager CRD + git SHA assert) |
+| End-to-end: install → collect → export → HTTP | ✅ (kind smoke green — run `26996964559` @ `42183693`) |
 | `spec.suspend` on reconciled kinds | ✅ |
 | **Multi-tenant (ASAP):** `watchNamespaces` / `tenantMode` Helm + `--watch-namespaces` | ✅ |
 | **Multi-tenant:** `KollectScope` webhook + reconciler enforcement + sample | ✅ |
 | **Multi-tenant e2e:** dynamic `kollect-tenant-a` / `kollect-tenant-b` isolation | ✅ |
 | Inventory namespace isolation unit tests | ✅ |
 
-**Counts:** ✅ 28 · 🚧 6 · ⬜ 5
+**Counts:** ✅ 29 · 🚧 5 · ⬜ 5
 
 ---
 
@@ -187,14 +187,14 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 | `KollectClusterTarget` engine end-to-end | ✅ |
 | `KollectClusterProfile` stub + profileRef resolution | ✅ |
 | Generic CRD proof (`cert-manager.io/Certificate`) | ✅ |
-| GitLab sink enterprise path (MR/API) | 🚧 scaffold + `mr.go` helpers |
+| GitLab sink enterprise path (MR/API) | 🚧 REST client + export wire; feature-branch push deferred |
 | S3/GCS production CI gate | ✅ PR integration + nightly |
 | Scope at platform boundary (multitenant e2e) | ✅ |
 | Release `workflow_dispatch` dry-run (cosign/SBOM/chart) | 🚧 local PASS; GH Actions untested |
-| E2E asserts export (Target Ready, sink conditions, git SHA) | 🚧 nightly scripts; manual dispatch |
+| E2E asserts export (Target Ready, sink conditions, git SHA) | ✅ `68667ca6` — export asserts + multitenant + cert-manager |
 | No `KollectPublication` | ✅ ADR-0011 honored |
 
-**Counts:** ✅ 11 · 🚧 2 · 🔮 3
+**Counts:** ✅ 12 · 🚧 1 · 🔮 3
 
 ---
 
@@ -202,7 +202,7 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 
 | Item | Status |
 | --- | --- |
-| kube-state-metrics-style custom resource metrics config | 🚧 [ADR-0033](adr/0033-custom-resource-aggregation-rfc.md) RFC stub |
+| kube-state-metrics-style custom resource metrics config | 🚧 [ADR-0033](adr/0033-custom-resource-aggregation-rfc.md) — `kollect_custom_resource_series` stub in `internal/metrics/` |
 | Cardinality-safe operator metrics (counts, export latency) | ✅ ADR-0020 catalog complete |
 | Advanced cross-target / cross-cluster aggregation | ⬜ |
 | `task perf-report` optional CI gate | ✅ `ci.yaml` job + preflight note |

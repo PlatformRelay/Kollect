@@ -27,6 +27,34 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **ci:** Seed Certificate before team-certificates target [4218369](https://github.com/konih/kollect/commit/421836930c296c09a49127bb6d4e91749052ebbe)
+
+- **ci:** Poll tenant inventory itemCount in multitenant e2e [41e6bf0](https://github.com/konih/kollect/commit/41e6bf0ff3c227b0f235e161fce7a3454ccd638f)
+
+- **ci:** Seed cert-test namespace before Certificate target [e5ea278](https://github.com/konih/kollect/commit/e5ea2780e7da65ce6916eb56fd4a05e8924df3d6)
+
+- **ci:** Skip git export clone without GIT_EXPORT_TEST_REPO [b78d171](https://github.com/konih/kollect/commit/b78d1718945a2fdfe25c6e13ad7589dfa79a3728)
+
+- **ci:** Assert cert collection via Ready message not itemCount [64c826e](https://github.com/konih/kollect/commit/64c826ea69c5ea5cc095df24e6608c7df3d15e0a)
+
+- **ci:** Create cert-test namespace before target registration [121afcd](https://github.com/konih/kollect/commit/121afcd6ae7e5d0bad70f77fd649457b6d4e9099)
+
+- **ci:** Poll cert-manager target itemCount in e2e [1140863](https://github.com/konih/kollect/commit/1140863edf13d536e0fc010203656b0b75d0a8cd)
+
+- **helm:** Grant cert-manager Certificate list/watch for generic CRD e2e [91f4130](https://github.com/konih/kollect/commit/91f4130ba3b3f40fd57993a4407624544d233590)
+
+- **ci:** Poll inventory HTTP for cert-manager e2e [58faff0](https://github.com/konih/kollect/commit/58faff0c1f249ed406068fbaa0eccc23152399c5)
+
+- **ci:** Wait for manager controllers before e2e smoke [a500542](https://github.com/konih/kollect/commit/a500542160450ed8cbaa6cd7cd2f8bfc8d6ab0f7)
+
+- **ci:** Export env before cert-manager e2e subprocess [04f5a45](https://github.com/konih/kollect/commit/04f5a458a1d89d98ef0b56fe8ee37800ff822e69)
+
+- **helm:** Sync manager ClusterRole with kubebuilder RBAC [4ef1a85](https://github.com/konih/kollect/commit/4ef1a855803f159f50ed314906af6eb6b66d3724)
+
+- **ci:** Apply e2e samples directly without kustomize parent refs [08ae477](https://github.com/konih/kollect/commit/08ae477e0787d3d0ef949475bd4a9e5cd2ca63d0)
+
+- **ci:** Use lean e2e samples without unreachable sinks [6f0f184](https://github.com/konih/kollect/commit/6f0f1843a57936f3dd6f33e25d7ae953ace34fdd)
+
 - **api:** Drop required status on KollectConnectionTest create [bbe1c82](https://github.com/konih/kollect/commit/bbe1c82d37105c62172059acb008b242ec1d452b)
 
 - **ci:** Repair Go 1.26 internal coverage profile merge [c897773](https://github.com/konih/kollect/commit/c8977735bca2efd38c5afdb962e698a216b41381)
@@ -65,6 +93,8 @@ anchor on an older commit.
 
 
 ### Features
+
+- **sink:** Add GitLab API v4 merge request client [8247f4e](https://github.com/konih/kollect/commit/8247f4ec6fa451b7837acce56a0f534193a13352)
 
 - **collect:** Complete ADR-0020 metrics catalog [4d14925](https://github.com/konih/kollect/commit/4d14925b5aebc8665c59c72181e9950cc07ad011)
 

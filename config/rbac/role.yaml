@@ -52,6 +52,14 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - events.k8s.io
   resources:
   - events
@@ -109,14 +117,6 @@ rules:
   - kollectclusterprofiles
   - kollectprofiles
   - kollectscopes
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - cert-manager.io
-  resources:
-  - certificates
   verbs:
   - get
   - list

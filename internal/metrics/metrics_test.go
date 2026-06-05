@@ -70,6 +70,12 @@ func TestRegister(t *testing.T) {
 		t.Fatalf("export bytes counter: got %v", v)
 	}
 
+	RecordCustomResourceSeries("deployments", "apps/v1/Deployment", "ready_replicas", 3)
+	series := CustomResourceSeries.WithLabelValues("deployments", "apps/v1/Deployment", "ready_replicas")
+	if v := testutil.ToFloat64(series); v != 3 {
+		t.Fatalf("custom resource series gauge: got %v", v)
+	}
+
 	HubSpokeReportsTotal.WithLabelValues("platform", ResultSuccess).Inc()
 	if v := testutil.ToFloat64(HubSpokeReportsTotal.WithLabelValues("platform", ResultSuccess)); v < 1 {
 		t.Fatalf("hub spoke reports counter: got %v", v)

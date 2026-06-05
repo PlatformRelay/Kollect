@@ -59,6 +59,22 @@ task changelog:verify
 
 Ensure **CI** and **preflight** are green on `${RELEASE_SHA}` on GitHub Actions.
 
+### v0.1.0 prep status (session 13)
+
+| Gate | Status | Notes |
+| --- | --- | --- |
+| `task changelog:verify` | ✅ after `changelog:write` | Sync before tag |
+| `task release-dry-run` | ✅ | Local `dist/` assets valid |
+| Coverage floor **45%** | ✅ | `COVERAGE_MIN` in CI + `CONTRIBUTING.md` |
+| E2E kind smoke | ✅ | Run `26996964559` @ `42183693` |
+| Export asserts (Ready, git SHA, multitenant) | ✅ | `68667ca6` |
+| GitLab MR REST client | ✅ | `8247f4e` — feature-branch push deferred |
+| Phase 4 metrics stub | ✅ | `kollect_custom_resource_series` per ADR-0033 |
+
+**Remaining before tag:** manual GitHub Actions **Release** `workflow_dispatch` with a test tag
+(e.g. `v0.1.0-rc.1`) to verify cosign keyless, SBOM, GHCR push, and chart upload. Do **not** push
+`v0.1.0` until that passes and CI is green on the release SHA.
+
 ## Version and changelog
 
 ### 1. Preview unreleased notes

@@ -22,6 +22,7 @@ var registeredMetricNames = []string{
 	"kollect_reconcile_duration_seconds",
 	"kollect_informer_objects",
 	"kollect_export_bytes_total",
+	"kollect_custom_resource_series",
 	"kollect_hub_spoke_reports_total",
 }
 
