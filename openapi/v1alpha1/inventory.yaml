@@ -1,0 +1,68 @@
+openapi: 3.0.3
+info:
+  title: kollect inventory HTTP API
+  version: v1alpha1
+  description: |
+    Optional debug read API (default off). Requires Kubernetes bearer auth with
+    get permission on kollectinventories when auth mode is kubernetes.
+paths:
+  /v1alpha1/inventory:
+    get:
+      summary: Aggregated inventory snapshot
+      parameters:
+        - name: namespace
+          in: query
+          schema:
+            type: string
+          description: Filter collected items to a namespace
+      responses:
+        "200":
+          description: Inventory summary JSON
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventorySummary"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+  /v1alpha1/inventory/{namespace}/{name}:
+    get:
+      summary: Inventory snapshot for a namespaced KollectInventory
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Inventory summary JSON
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventorySummary"
+components:
+  schemas:
+    InventorySummary:
+      type: object
+      properties:
+        itemCount:
+          type: integer
+        namespace:
+          type: string
+        inventory:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
