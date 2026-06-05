@@ -72,7 +72,7 @@ Deferrals require a GitHub issue or ADR with expiry — see
 CI runs **golangci-lint v2** on every push and pull request (`task lint`, job **lint** in
 [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)). Configuration: [`.golangci.yaml`](.golangci.yaml)
 (security and correctness linters including `gosec`, `errcheck`, `govet`, `staticcheck`, `depguard`,
-`gomodguard`, and `logcheck` via `.custom-gcl.yml`). Pre-commit runs the same gate on changed Go files.
+`gomodguard`, and `logcheck` via `hack/tooling/.custom-gcl.yml`). Pre-commit runs the same gate on changed Go files.
 
 Run locally:
 

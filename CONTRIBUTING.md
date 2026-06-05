@@ -103,7 +103,7 @@ and vague subjects.
 ## Changelog and releases
 
 [`CHANGELOG.md`](CHANGELOG.md) is generated from git history with
-[git-cliff](https://git-cliff.org/) (`cliff.toml`); gitmoji tokens are stripped from changelog
+[git-cliff](https://git-cliff.org/) (`hack/release/cliff.toml`); gitmoji tokens are stripped from changelog
 headings automatically.
 
 | Task | Purpose |
@@ -115,7 +115,7 @@ headings automatically.
 | `task release-dry-run` | Build `dist/` assets without pushing |
 
 Only `feat`, `fix`, `perf`, `refactor`, and breaking commits appear in the user-facing changelog;
-`docs`, `test`, `chore`, `ci`, `build`, and `style` are skipped (`cliff.toml`).
+`docs`, `test`, `chore`, `ci`, `build`, and `style` are skipped (`hack/release/cliff.toml`).
 
 **Maintainer release flow** — full runbook: [docs/RELEASE.md](docs/RELEASE.md). Summary:
 

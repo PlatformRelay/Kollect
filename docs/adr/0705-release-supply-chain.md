@@ -18,7 +18,7 @@ operator how-to; this ADR is the rationale.
 
 - Releases fire on **`vX.Y.Z` tags** (semver, validated in-workflow); `workflow_dispatch` can rebuild a
   tag's assets for testing.
-- **Conventional Commits + gitmoji** drive versioning and changelog via **git-cliff** (`cliff.toml`);
+- **Conventional Commits + gitmoji** drive versioning and changelog via **git-cliff** (`hack/release/cliff.toml`);
   release notes are generated, not hand-written (per `AGENTS.md`).
 
 ### Image build

@@ -17,6 +17,9 @@ vars:
   # renovate: datasource=github-releases depName=orhun/git-cliff
   GIT_CLIFF_VERSION: v2.13.1
   GIT_CLIFF_BIN: "{{.BIN_DIR}}/git-cliff"
+  CLIFF_CONFIG: hack/release/cliff.toml
+  GO_ARCH_LINT_CONFIG: hack/tooling/go-arch-lint.yml
+  MARKDOWNLINT_CONFIG: hack/tooling/markdownlint-cli2.yaml
   # renovate: datasource=github-releases depName=fe3dback/go-arch-lint
   GO_ARCH_LINT_VERSION: v1.15.0
   # renovate: datasource=github-releases depName=helm/helm
@@ -104,7 +107,7 @@ tasks:
     desc: Enforce internal/ package dependency graph (go-arch-lint)
     deps: [install]
     cmds:
-      - go run -mod=mod github.com/fe3dback/go-arch-lint@{{.GO_ARCH_LINT_VERSION}} check
+      - go run -mod=mod github.com/fe3dback/go-arch-lint@{{.GO_ARCH_LINT_VERSION}} check --arch-file {{.GO_ARCH_LINT_CONFIG}}
 
   lint:
     desc: Run golangci-lint v2 and go-arch-lint
@@ -117,7 +120,7 @@ tasks:
     desc: Lint Markdown docs with markdownlint-cli2
     cmds:
       - npm ci --prefix docs
-      - docs/node_modules/.bin/markdownlint-cli2
+      - docs/node_modules/.bin/markdownlint-cli2 --config {{.MARKDOWNLINT_CONFIG}}
 
   lint:shell:
     desc: Lint shell scripts with ShellCheck v0.11.0
@@ -244,19 +247,19 @@ tasks:
     desc: Preview unreleased changelog section (stdout)
     deps: [tools:git-cliff]
     cmds:
-      - "{{.GIT_CLIFF_BIN}} --config cliff.toml --unreleased"
+      - "{{.GIT_CLIFF_BIN}} --config {{.CLIFF_CONFIG}} --unreleased"
 
   changelog:write:
     desc: Regenerate CHANGELOG.md from git tags and unreleased commits
     deps: [tools:git-cliff]
     cmds:
-      - "{{.GIT_CLIFF_BIN}} --config cliff.toml -o CHANGELOG.md"
+      - "{{.GIT_CLIFF_BIN}} --config {{.CLIFF_CONFIG}} -o CHANGELOG.md"
 
   changelog:release:
     desc: Print changelog section for the latest tag (release notes)
     deps: [tools:git-cliff]
     cmds:
-      - "{{.GIT_CLIFF_BIN}} --config cliff.toml --latest"
+      - "{{.GIT_CLIFF_BIN}} --config {{.CLIFF_CONFIG}} --latest"
 
   changelog:verify:
     desc: Fail if CHANGELOG.md is stale (CI/preflight)

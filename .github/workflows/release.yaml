@@ -254,7 +254,7 @@ jobs:
         uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
         with:
           version: v2.13.1
-          config: cliff.toml
+          config: hack/release/cliff.toml
           args: --latest --strip header
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
