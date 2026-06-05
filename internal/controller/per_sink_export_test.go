@@ -97,6 +97,13 @@ func TestAggregateInventorySync(t *testing.T) {
 	}
 
 	conditions = nil
+	aggregateInventorySync(&conditions, 1, 1, 0, 1)
+	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
+	if synced == nil || synced.Reason != kollectdevv1alpha1.ReasonPartiallySynced {
+		t.Fatalf("partial export failure = %#v", synced)
+	}
+
+	conditions = nil
 	aggregateInventorySync(&conditions, 1, 0, 0, 1)
 	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
 	if synced == nil || synced.Reason != "Progressing" {

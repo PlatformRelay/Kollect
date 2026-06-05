@@ -132,7 +132,7 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	outcome := r.exportToSinks(ctx, log, &inv, req.String(), items, fingerprint)
-	if outcome.ExportErr != nil {
+	if isTotalExportFailure(outcome) {
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(outcome.ExportErr)).Inc()
 		reason := reasonProgressing
 		if kollecterrors.IsTerminal(outcome.ExportErr) {
@@ -148,6 +148,11 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		return result, err
+	}
+
+	if outcome.ExportErr != nil {
+		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(outcome.ExportErr)).Inc()
+		recordWarning(r.Recorder, &inv, reasonExportFailed, outcome.ExportErr.Error())
 	}
 
 	return r.updateStatus(ctx, &inv, itemCount, outcome)
@@ -168,14 +173,15 @@ func (r *KollectInventoryReconciler) exportToSinks(
 	var outcome perSinkExportOutcome
 	outcome.RequeueAfter = defaultInterval
 
-	// TODO(EC-P1-02): on partial multi-sink failure, continue remaining sinks and set PartiallySynced
-	// with per-sink status instead of fail-fast return.
-	for _, ref := range inv.Spec.SinkRefs {
+		for _, ref := range inv.Spec.SinkRefs {
 		sinkObj, err := r.loadSink(ctx, inv.Namespace, ref.Name)
 		if err != nil {
+			status := upsertSinkExportStatus(&outcome.SinkExports, ref.Name)
+			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
+			outcome.FailedCount++
 			outcome.ExportErr = err
 			outcome.FailedSink = ref.Name
-			return outcome
+			continue
 		}
 
 		interval := validation.ResolveSinkExportInterval(ref, sinkObj, defaultInterval, scopeFloor)
@@ -203,10 +209,11 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			Meta:          export.Metadata{Generation: inv.Generation},
 		}); err != nil {
 			log.Error(err, "export failed", "sink", ref.Name)
+			outcome.FailedCount++
 			outcome.ExportErr = err
 			outcome.FailedSink = ref.Name
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
-			return outcome
+			continue
 		}
 
 		r.sinkCoalesce.record(invKey, ref.Name, inv.Generation, checksum, now)
@@ -262,26 +269,42 @@ func (r *KollectInventoryReconciler) updateStatus(
 	inv.Status.ItemCount = itemCount
 	inv.Status.SinkExports = outcome.SinkExports
 
-	if outcome.ExportErr == nil && len(inv.Spec.SinkRefs) > 0 {
+	if len(inv.Spec.SinkRefs) > 0 {
 		if latest := latestExportTime(outcome.SinkExports); latest != nil {
 			inv.Status.LastExportTime = latest
 		}
-		apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
-		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, nil)
+
+		failed := outcome.FailedCount
+		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, outcome.ExportErr)
 		aggregateInventorySync(&inv.Status.Conditions, inv.Generation,
-			outcome.ExportedCount, outcome.DebouncedCount, 0)
-		if outcome.ExportedCount > 0 {
-			recordNormal(r.Recorder, inv, "ExportSucceeded",
-				fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, outcome.ExportedCount))
+			outcome.ExportedCount, outcome.DebouncedCount, failed)
+
+		switch {
+		case failed == 0 && outcome.ExportErr == nil:
+			apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
+			if outcome.ExportedCount > 0 {
+				recordNormal(r.Recorder, inv, "ExportSucceeded",
+					fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, outcome.ExportedCount))
+			}
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               conditionReady,
+				Status:             metav1.ConditionTrue,
+				Reason:             "Exported",
+				Message:            fmt.Sprintf("exported %d item(s) across %d sink(s)", itemCount, len(inv.Spec.SinkRefs)),
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
+		case outcome.ExportedCount > 0:
+			apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               conditionReady,
+				Status:             metav1.ConditionTrue,
+				Reason:             kollectdevv1alpha1.ReasonPartiallySynced,
+				Message:            fmt.Sprintf("exported %d item(s) to %d/%d sink(s)", itemCount, outcome.ExportedCount, len(inv.Spec.SinkRefs)),
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
 		}
-		apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
-			Type:               conditionReady,
-			Status:             metav1.ConditionTrue,
-			Reason:             "Exported",
-			Message:            fmt.Sprintf("exported %d item(s) across %d sink(s)", itemCount, len(inv.Spec.SinkRefs)),
-			ObservedGeneration: inv.Generation,
-			LastTransitionTime: metav1.Now(),
-		})
 	}
 
 	if err := r.Status().Update(ctx, inv); err != nil {

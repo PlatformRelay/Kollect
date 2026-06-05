@@ -157,7 +157,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	items := r.collectRollupItems(inv, targets)
 	outcome := r.exportClusterToSinks(ctx, log, inv, key, sinkNS, items, fingerprint)
 
-	if outcome.ExportErr != nil {
+	if isTotalExportFailure(outcome) {
 		metrics.ReconcileErrorsTotal.WithLabelValues(
 			"KollectClusterInventory", kollecterrors.ClassOf(outcome.ExportErr),
 		).Inc()
@@ -175,6 +175,13 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 		}
 
 		return result, err
+	}
+
+	if outcome.ExportErr != nil {
+		metrics.ReconcileErrorsTotal.WithLabelValues(
+			"KollectClusterInventory", kollecterrors.ClassOf(outcome.ExportErr),
+		).Inc()
+		recordWarning(r.Recorder, inv, reasonExportFailed, outcome.ExportErr.Error())
 	}
 
 	return r.updateStatus(ctx, inv, len(targets), itemCount, outcome)
@@ -198,9 +205,13 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 	for _, ref := range inv.Spec.SinkRefs {
 		var sinkObj kollectdevv1alpha1.KollectSink
 		if err := r.Get(ctx, client.ObjectKey{Namespace: sinkNS, Name: ref.Name}, &sinkObj); err != nil {
-			outcome.ExportErr = fmt.Errorf("get KollectSink %q: %w", ref.Name, err)
+			status := upsertSinkExportStatus(&outcome.SinkExports, ref.Name)
+			err = fmt.Errorf("get KollectSink %q: %w", ref.Name, err)
+			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
+			outcome.FailedCount++
+			outcome.ExportErr = err
 			outcome.FailedSink = ref.Name
-			return outcome
+			continue
 		}
 
 		interval := validation.ResolveSinkExportInterval(ref, &sinkObj, defaultInterval, scopeFloor)
@@ -228,10 +239,11 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 			Meta:          export.Metadata{Generation: inv.Generation},
 		}); err != nil {
 			log.Error(err, "cluster export failed", "sink", ref.Name)
+			outcome.FailedCount++
 			outcome.ExportErr = err
 			outcome.FailedSink = ref.Name
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
-			return outcome
+			continue
 		}
 
 		r.sinkCoalesce.record(invKey, ref.Name, inv.Generation, checksum, now)
@@ -483,35 +495,59 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 	inv.Status.ItemCount = itemCount
 	inv.Status.SinkExports = outcome.SinkExports
 
-	if outcome.ExportErr == nil && len(inv.Spec.SinkRefs) > 0 {
+	if len(inv.Spec.SinkRefs) > 0 {
 		if latest := latestExportTime(outcome.SinkExports); latest != nil {
 			inv.Status.LastExportTime = latest
 		}
-		apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
-		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, nil)
+
+		failed := outcome.FailedCount
+		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, outcome.ExportErr)
 		aggregateInventorySync(&inv.Status.Conditions, inv.Generation,
-			outcome.ExportedCount, outcome.DebouncedCount, 0)
-		if outcome.ExportedCount > 0 {
-			recordNormal(r.Recorder, inv, "ExportSucceeded",
-				fmt.Sprintf("exported %d item(s) from %d target(s) to %d sink(s)",
-					itemCount, targetCount, outcome.ExportedCount))
+			outcome.ExportedCount, outcome.DebouncedCount, failed)
+
+		switch {
+		case failed == 0 && outcome.ExportErr == nil:
+			apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
+			if outcome.ExportedCount > 0 {
+				recordNormal(r.Recorder, inv, "ExportSucceeded",
+					fmt.Sprintf("exported %d item(s) from %d target(s) to %d sink(s)",
+						itemCount, targetCount, outcome.ExportedCount))
+			}
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               kollectdevv1alpha1.ConditionExportSucceeded,
+				Status:             metav1.ConditionTrue,
+				Reason:             "Exported",
+				Message:            fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, outcome.ExportedCount),
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               conditionReady,
+				Status:             metav1.ConditionTrue,
+				Reason:             "Exported",
+				Message:            fmt.Sprintf("rolled up %d target(s), %d item(s)", targetCount, itemCount),
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
+		case outcome.ExportedCount > 0:
+			apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               kollectdevv1alpha1.ConditionExportSucceeded,
+				Status:             metav1.ConditionTrue,
+				Reason:             kollectdevv1alpha1.ReasonPartiallySynced,
+				Message:            fmt.Sprintf("exported %d item(s) to %d/%d sink(s)", itemCount, outcome.ExportedCount, len(inv.Spec.SinkRefs)),
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               conditionReady,
+				Status:             metav1.ConditionTrue,
+				Reason:             kollectdevv1alpha1.ReasonPartiallySynced,
+				Message:            fmt.Sprintf("rolled up %d target(s), %d item(s)", targetCount, itemCount),
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
 		}
-		apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
-			Type:               kollectdevv1alpha1.ConditionExportSucceeded,
-			Status:             metav1.ConditionTrue,
-			Reason:             "Exported",
-			Message:            fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, outcome.ExportedCount),
-			ObservedGeneration: inv.Generation,
-			LastTransitionTime: metav1.Now(),
-		})
-		apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
-			Type:               conditionReady,
-			Status:             metav1.ConditionTrue,
-			Reason:             "Exported",
-			Message:            fmt.Sprintf("rolled up %d target(s), %d item(s)", targetCount, itemCount),
-			ObservedGeneration: inv.Generation,
-			LastTransitionTime: metav1.Now(),
-		})
 	} else if outcome.ExportErr == nil {
 		apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
 		msg := fmt.Sprintf("rolled up %d target(s), %d item(s)", targetCount, itemCount)

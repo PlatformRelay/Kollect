@@ -111,10 +111,15 @@ func (t *perSinkCoalesceTracker) nextDue(
 type perSinkExportOutcome struct {
 	ExportedCount  int
 	DebouncedCount int
+	FailedCount    int
 	FailedSink     string
 	ExportErr      error
 	SinkExports    []kollectdevv1alpha1.InventorySinkExportStatus
 	RequeueAfter   time.Duration
+}
+
+func isTotalExportFailure(outcome perSinkExportOutcome) bool {
+	return outcome.ExportErr != nil && outcome.ExportedCount == 0 && outcome.DebouncedCount == 0
 }
 
 func mergeRequeueAfter(current, next time.Duration) time.Duration {
@@ -169,6 +174,9 @@ func aggregateInventorySync(
 	exported, debounced, failed int,
 ) {
 	switch {
+	case failed > 0 && exported > 0:
+		setSyncedCondition(conditions, generation, false, kollectdevv1alpha1.ReasonPartiallySynced,
+			fmt.Sprintf("%d/%d sinks exported; %d failed", exported, exported+failed, failed))
 	case failed > 0:
 		setSyncedCondition(conditions, generation, false, reasonProgressing,
 			fmt.Sprintf("%d sink(s) failed export", failed))
