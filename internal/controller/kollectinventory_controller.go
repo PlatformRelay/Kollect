@@ -25,6 +25,7 @@ import (
 	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink"
+	"github.com/konih/kollect/internal/spoke"
 )
 
 // KollectInventoryReconciler reconciles a KollectInventory object
@@ -95,6 +96,11 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	itemCount := r.Store.CountForNamespace(inv.Namespace)
+
+	if err := spoke.TryPublishReport(ctx, r.Store, &inv); err != nil {
+		log.Error(err, "spoke hub publish")
+	}
+
 	if len(inv.Spec.SinkRefs) == 0 {
 		return r.updateStatus(ctx, &inv, itemCount, nil)
 	}

@@ -127,8 +127,13 @@ func (r *KollectHubReconciler) desiredDeployment(
 						Image:           "ghcr.io/konih/kollect:latest",
 						ImagePullPolicy: corev1.PullIfNotPresent,
 						Command:         []string{"/manager"},
-						Args:            []string{"--health-probe-bind-address=:8081"},
-						Env:             env,
+						Args: []string{
+							"--hub-consumer",
+							"--health-probe-bind-address=:8081",
+							"--metrics-bind-address=:8080",
+							"--metrics-secure=false",
+						},
+						Env: env,
 						Ports: []corev1.ContainerPort{{
 							Name:          "health",
 							ContainerPort: 8081,

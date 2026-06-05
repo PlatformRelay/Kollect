@@ -28,6 +28,7 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/controller"
+	"github.com/konih/kollect/internal/hub"
 	"github.com/konih/kollect/internal/inventory"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/pprof"
@@ -67,6 +68,7 @@ func main() {
 	var reconcileRateLimit time.Duration
 	var enablePprof bool
 	var pprofAddr string
+	var hubConsumer bool
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -105,6 +107,8 @@ func main() {
 		"Expose Go pprof on --pprof-bind-address (separate from metrics).")
 	flag.StringVar(&pprofAddr, "pprof-bind-address", ":6060",
 		"Bind address for pprof when --enable-pprof is set.")
+	flag.BoolVar(&hubConsumer, "hub-consumer", false,
+		"Run as hub spoke-report consumer (requires KOLLECT_HUB_NAME).")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -112,6 +116,11 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	if hubConsumer {
+		runHubConsumer(metricsAddr, probeAddr, secureMetrics, tlsOpts)
+		return
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -321,6 +330,66 @@ func main() {
 	setupLog.Info("Starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "Failed to run manager")
+		os.Exit(1)
+	}
+}
+
+func runHubConsumer(
+	metricsAddr, probeAddr string,
+	secureMetrics bool,
+	tlsOpts []func(*tls.Config),
+) {
+	hubCfg, err := hub.ConfigFromEnv()
+	if err != nil {
+		setupLog.Error(err, "hub consumer config")
+		os.Exit(1)
+	}
+
+	metricsServerOptions := metricsserver.Options{
+		BindAddress:   metricsAddr,
+		SecureServing: secureMetrics,
+		TLSOpts:       tlsOpts,
+	}
+	if secureMetrics {
+		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:                 scheme,
+		Metrics:                metricsServerOptions,
+		HealthProbeBindAddress: probeAddr,
+	})
+	if err != nil {
+		setupLog.Error(err, "Failed to start hub consumer manager")
+		os.Exit(1)
+	}
+
+	metrics.Register()
+
+	store := collect.NewStore()
+	runner, err := hub.NewRunner(store, hubCfg)
+	if err != nil {
+		setupLog.Error(err, "Failed to create hub consumer")
+		os.Exit(1)
+	}
+
+	if err := mgr.Add(runner); err != nil {
+		setupLog.Error(err, "Failed to add hub consumer")
+		os.Exit(1)
+	}
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		setupLog.Error(err, "Failed to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		setupLog.Error(err, "Failed to set up ready check")
+		os.Exit(1)
+	}
+
+	setupLog.Info("Starting hub consumer", "hub", hubCfg.HubName, "transport", hubCfg.Transport.Type)
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		setupLog.Error(err, "Failed to run hub consumer")
 		os.Exit(1)
 	}
 }
