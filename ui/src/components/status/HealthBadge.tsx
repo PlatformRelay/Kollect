@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import { AlertTriangle, CheckCircle2, HelpCircle, RefreshCw } from "lucide-react";
 import type { Condition } from "@/api/k8s-status";
 import {

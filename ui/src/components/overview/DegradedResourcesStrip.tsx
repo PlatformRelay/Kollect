@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import { AlertTriangle } from "lucide-react";
 import type { ResourceStatus } from "@/api/k8s-status";
 import { collectDegradedResources } from "@/lib/conditions";

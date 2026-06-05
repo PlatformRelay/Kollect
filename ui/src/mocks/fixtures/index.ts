@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import type { ExportStatus, InventorySummary, Item } from "@/api/inventory";
 import type { StatusListResponse } from "@/api/k8s-status";
 import teamAInventory from "./inventory-team-a.json";

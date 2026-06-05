@@ -85,6 +85,11 @@ tasks:
     cmds:
       - bash hack/verify.sh
 
+  verify:headers:
+    desc: Fail if ui/src files lack SPDX + copyright headers
+    cmds:
+      - bash hack/verify-ui-headers.sh
+
   scrub:
     desc: Fail if staged files contain forbidden company/legacy strings
     cmds:

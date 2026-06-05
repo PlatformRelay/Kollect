@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import type { Condition } from "@/api/k8s-status";
 
 export type HealthLevel = "ready" | "degraded" | "syncing" | "unknown";
