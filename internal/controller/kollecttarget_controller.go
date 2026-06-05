@@ -6,7 +6,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -215,10 +214,8 @@ func (r *KollectTargetReconciler) setReady(
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: defaultCollectRequeue}, nil
+	return ctrl.Result{}, nil
 }
-
-const defaultCollectRequeue = 30 * time.Second
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *KollectTargetReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -254,6 +251,9 @@ func (r *KollectTargetReconciler) mapProfileToTargets(
 
 	var list kollectdevv1alpha1.KollectTargetList
 	if err := r.List(ctx, &list, client.InNamespace(profile.Namespace)); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list targets for profile watch mapping",
+			"profile", profile.Name, "namespace", profile.Namespace)
+
 		return nil
 	}
 

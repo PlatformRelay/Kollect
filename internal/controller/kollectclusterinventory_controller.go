@@ -161,7 +161,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 		metrics.ReconcileErrorsTotal.WithLabelValues(
 			"KollectClusterInventory", kollecterrors.ClassOf(outcome.ExportErr),
 		).Inc()
-		reason := "Progressing"
+		reason := reasonProgressing
 		if kollecterrors.IsTerminal(outcome.ExportErr) {
 			reason = kollectdevv1alpha1.ReasonExportTerminal
 		}
@@ -230,7 +230,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 			log.Error(err, "cluster export failed", "sink", ref.Name)
 			outcome.ExportErr = err
 			outcome.FailedSink = ref.Name
-			setSinkExportSynced(status, inv.Generation, false, "ExportFailed", err.Error())
+			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
 			return outcome
 		}
 
@@ -462,6 +462,10 @@ func (r *KollectClusterInventoryReconciler) setDegraded(
 	})
 
 	if err := r.Status().Update(ctx, inv); err != nil {
+		if apierrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -571,6 +575,8 @@ func (r *KollectClusterInventoryReconciler) mapClusterTargetToInventories(
 ) []reconcile.Request {
 	var list kollectdevv1alpha1.KollectClusterInventoryList
 	if err := r.List(ctx, &list); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list cluster inventories for cluster target watch mapping")
+
 		return nil
 	}
 
@@ -595,6 +601,9 @@ func (r *KollectClusterInventoryReconciler) mapSinkToClusterInventories(
 
 	var list kollectdevv1alpha1.KollectClusterInventoryList
 	if err := r.List(ctx, &list); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list cluster inventories for sink watch mapping",
+			"sink", sinkObj.Name, "namespace", sinkObj.Namespace)
+
 		return nil
 	}
 

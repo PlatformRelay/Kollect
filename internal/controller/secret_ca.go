@@ -33,7 +33,7 @@ func resolveCAPEM(ctx context.Context, c client.Reader, tlsSpec *kollectdevv1alp
 	ref := tlsSpec.CASecretRef
 	ns := ref.Namespace
 	if ns == "" {
-		ns = "default"
+		ns = defaultSecretNamespace
 	}
 
 	var secret corev1.Secret

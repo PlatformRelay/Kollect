@@ -124,7 +124,11 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 	}
 
-	return r.setReady(ctx, &ct, effective)
+	if err := r.setReady(ctx, &ct, effective); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (r *KollectClusterTargetReconciler) matchedNamespaces(
@@ -254,7 +258,7 @@ func (r *KollectClusterTargetReconciler) setReady(
 	ctx context.Context,
 	ct *kollectdevv1alpha1.KollectClusterTarget,
 	matched []string,
-) (ctrl.Result, error) {
+) error {
 	count := r.collectedCount(ct, matched)
 	msg := fmt.Sprintf(
 		"profileRef %q resolved; %d namespace(s) matched; collecting %d resource(s)",
@@ -267,14 +271,11 @@ func (r *KollectClusterTargetReconciler) setReady(
 		ct, ct.Status.MatchedNamespaces, ct.Status.EffectiveNamespaces, ct.Status.ActiveResourceRules,
 	)
 	setSyncedCondition(&ct.Status.Conditions, ct.Generation, true, "Collecting", msg)
-	if err := setClusterTargetCondition(
+
+	return setClusterTargetCondition(
 		ctx, r.Client, ct, ct.Generation, &ct.Status.Conditions,
 		conditionReady, metav1.ConditionTrue, "Collecting", msg,
-	); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: defaultCollectRequeue}, nil
+	)
 }
 
 func setClusterTargetCondition(

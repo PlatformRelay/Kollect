@@ -7,36 +7,35 @@ import (
 	"testing"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/cap"
 )
 
-func TestNewBackendRejectsWrongType(t *testing.T) {
+func TestNewBackend_wrongType(t *testing.T) {
 	t.Parallel()
 
 	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "s3"}, nil)
 	if err == nil {
-		t.Fatal("expected type mismatch error")
+		t.Fatal("expected error for non-gcs type")
 	}
 }
 
-func TestNewBackendAndType(t *testing.T) {
+func TestNewBackend_missingEndpoint(t *testing.T) {
 	t.Parallel()
 
-	spec := kollectdevv1alpha1.KollectSinkSpec{
-		Type:     typeName,
-		Endpoint: "https://storage.googleapis.com/my-bucket",
+	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: TypeName}, nil)
+	if err == nil {
+		t.Fatal("expected error without endpoint")
 	}
-	b, err := NewBackend(spec, map[string][]byte{
-		"accessKeyID":     []byte("key"),
-		"secretAccessKey": []byte("secret"),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b.Type() != typeName {
+}
+
+func TestBackend_TypeAndCapabilities(t *testing.T) {
+	t.Parallel()
+
+	b := &Backend{}
+	if b.Type() != TypeName {
 		t.Fatalf("Type() = %q", b.Type())
 	}
-
-	if !b.Capabilities().ObjectStore {
-		t.Fatal("expected object store capabilities")
+	if b.Capabilities() != cap.ObjectStoreSnapshot() {
+		t.Fatalf("Capabilities() = %#v", b.Capabilities())
 	}
 }

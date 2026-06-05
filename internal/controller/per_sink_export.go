@@ -170,7 +170,7 @@ func aggregateInventorySync(
 ) {
 	switch {
 	case failed > 0:
-		setSyncedCondition(conditions, generation, false, "Progressing",
+		setSyncedCondition(conditions, generation, false, reasonProgressing,
 			fmt.Sprintf("%d sink(s) failed export", failed))
 	case debounced > 0 && exported == 0:
 		setSyncedCondition(conditions, generation, false, kollectdevv1alpha1.ReasonPartiallySynced,

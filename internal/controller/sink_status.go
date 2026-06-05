@@ -77,7 +77,7 @@ func setSinkReachableFromExport(conditions *[]metav1.Condition, generation int64
 		return
 	}
 
-	reason := "ExportFailed"
+	reason := reasonExportFailed
 	if kollecterrors.IsTerminal(exportErr) {
 		reason = kollectdevv1alpha1.ReasonExportTerminal
 	}

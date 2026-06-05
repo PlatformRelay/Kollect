@@ -8,6 +8,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
@@ -61,6 +62,71 @@ func TestValidateIntervalsAgainstScopeFloor(t *testing.T) {
 	ok := metav1.Duration{Duration: 2 * time.Minute}
 	if errs := ValidateIntervalsAgainstScopeFloor(&ok, nil, floor); len(errs) != 0 {
 		t.Fatalf("valid default errs = %v", errs)
+	}
+}
+
+func TestInventoryDefaultInterval(t *testing.T) {
+	t.Parallel()
+
+	custom := metav1.Duration{Duration: 2 * time.Minute}
+	spec := &kollectdevv1alpha1.KollectInventorySpec{ExportMinInterval: &custom}
+	if got := InventoryDefaultInterval(spec, time.Hour); got != 2*time.Minute {
+		t.Fatalf("inventory interval = %v", got)
+	}
+	if got := InventoryDefaultInterval(nil, time.Hour); got != time.Hour {
+		t.Fatalf("fallback = %v", got)
+	}
+	if got := InventoryDefaultInterval(&kollectdevv1alpha1.KollectInventorySpec{}, 0); got != DefaultExportMinInterval {
+		t.Fatalf("default = %v", got)
+	}
+}
+
+func TestClusterInventoryDefaultInterval(t *testing.T) {
+	t.Parallel()
+
+	custom := metav1.Duration{Duration: 10 * time.Minute}
+	spec := &kollectdevv1alpha1.KollectClusterInventorySpec{ExportMinInterval: &custom}
+	if got := ClusterInventoryDefaultInterval(spec, 0); got != 10*time.Minute {
+		t.Fatalf("cluster interval = %v", got)
+	}
+}
+
+func TestRequeueAfterForZeroInterval(t *testing.T) {
+	t.Parallel()
+
+	if got := RequeueAfterForZeroInterval(time.Minute); got != time.Minute {
+		t.Fatalf("positive interval = %v", got)
+	}
+	if got := RequeueAfterForZeroInterval(0); got != ZeroIntervalWatchdog {
+		t.Fatalf("zero interval = %v", got)
+	}
+}
+
+func TestValidateDurationInterval(t *testing.T) {
+	t.Parallel()
+
+	path := field.NewPath("spec").Child("exportMinInterval")
+	if errs := ValidateDurationInterval(-time.Second, path); len(errs) != 1 {
+		t.Fatalf("negative errs = %v", errs)
+	}
+	if errs := ValidateDurationInterval(MaxExportInterval+time.Second, path); len(errs) != 1 {
+		t.Fatalf("over max errs = %v", errs)
+	}
+	if errs := ValidateDurationInterval(time.Minute, path); len(errs) != 0 {
+		t.Fatalf("valid errs = %v", errs)
+	}
+}
+
+func TestValidateInventorySinkRefs_duplicates(t *testing.T) {
+	t.Parallel()
+
+	refs := kollectdevv1alpha1.InventorySinkRefList{
+		{Name: "git"},
+		{Name: "git"},
+	}
+	errs := ValidateInventorySinkRefs(refs, nil)
+	if len(errs) != 1 {
+		t.Fatalf("duplicate errs = %v", errs)
 	}
 }
 

@@ -102,6 +102,81 @@ func TestExportGitLabDirectPush(t *testing.T) {
 	}
 }
 
+func TestExportGitLabInventoryObjectPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not in PATH")
+	}
+
+	ctx := context.Background()
+	container, err := forgejo.Run(ctx, "codeberg.org/forgejo/forgejo:11")
+	if err != nil {
+		if integrationtest.IsDockerUnavailable(err) {
+			t.Skipf("docker not available: %v", err)
+		}
+
+		t.Fatalf("start forgejo: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = container.Terminate(ctx)
+	})
+
+	baseURL, err := container.ConnectionString(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user := container.AdminUsername()
+	pass := container.AdminPassword()
+
+	const repoName = "kollect-inventory-path"
+	if err := createForgejoRepo(ctx, baseURL, user, pass, repoName); err != nil {
+		t.Fatalf("create repo: %v", err)
+	}
+
+	gitEndpoint := strings.TrimSuffix(baseURL, "/") + "/" + url.PathEscape(user) + "/" + repoName + ".git"
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type:     TypeName,
+		Endpoint: gitEndpoint,
+	}
+
+	backend, err := NewBackend(spec, nil, git.Auth{Username: user, Password: pass})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const objectPath = "inventory/team-a/platform.json"
+	payload := []byte(`{"schemaVersion":"v1alpha1","items":[]}`)
+
+	if err := backend.Export(ctx, payload, objectPath); err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+
+	cloneURL, err := forgejoCloneURL(gitEndpoint, user, pass)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	clone := filepath.Join(dir, "clone")
+	if out, err := exec.Command("git", "clone", "--branch", "main", "--single-branch", cloneURL, clone).CombinedOutput(); err != nil { //nolint:gosec // G204: test fixture
+		t.Fatalf("clone: %s: %v", out, err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(clone, objectPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(got) != string(payload) {
+		t.Fatalf("file = %q, want %q", got, payload)
+	}
+}
+
 type forgejoRepoCreateRequest struct {
 	Name          string `json:"name"`
 	AutoInit      bool   `json:"auto_init"`

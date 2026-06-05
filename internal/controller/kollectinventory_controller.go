@@ -133,7 +133,7 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	outcome := r.exportToSinks(ctx, log, &inv, req.String(), items, fingerprint)
 	if outcome.ExportErr != nil {
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(outcome.ExportErr)).Inc()
-		reason := "Progressing"
+		reason := reasonProgressing
 		if kollecterrors.IsTerminal(outcome.ExportErr) {
 			reason = kollectdevv1alpha1.ReasonExportTerminal
 		}
@@ -202,7 +202,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			log.Error(err, "export failed", "sink", ref.Name)
 			outcome.ExportErr = err
 			outcome.FailedSink = ref.Name
-			setSinkExportSynced(status, inv.Generation, false, "ExportFailed", err.Error())
+			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
 			return outcome
 		}
 
@@ -316,6 +316,10 @@ func (r *KollectInventoryReconciler) setInventoryDegraded(
 	})
 
 	if err := r.Status().Update(ctx, inv); err != nil {
+		if apierrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -360,6 +364,9 @@ func (r *KollectInventoryReconciler) mapSinkToInventories(
 
 	var list kollectdevv1alpha1.KollectInventoryList
 	if err := r.List(ctx, &list, client.InNamespace(sinkObj.Namespace)); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list inventories for sink watch mapping",
+			"sink", sinkObj.Name, "namespace", sinkObj.Namespace)
+
 		return nil
 	}
 
@@ -390,6 +397,9 @@ func (r *KollectInventoryReconciler) mapTargetToInventories(
 
 	var list kollectdevv1alpha1.KollectInventoryList
 	if err := r.List(ctx, &list, client.InNamespace(target.Namespace)); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list inventories for target watch mapping",
+			"target", target.Name, "namespace", target.Namespace)
+
 		return nil
 	}
 

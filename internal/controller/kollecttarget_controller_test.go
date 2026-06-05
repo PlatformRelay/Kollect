@@ -85,10 +85,11 @@ var _ = Describe("KollectTarget Controller", func() {
 				Scheme: k8sClient.Scheme(),
 			}
 
-			_, err := controllerReconciler.Reconcile(reconcileCtx, reconcile.Request{
+			result, err := controllerReconciler.Reconcile(reconcileCtx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeZero())
 
 			updated := &kollectdevv1alpha1.KollectTarget{}
 			Expect(k8sClient.Get(reconcileCtx, typeNamespacedName, updated)).To(Succeed())

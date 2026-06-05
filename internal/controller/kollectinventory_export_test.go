@@ -120,4 +120,14 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	if got.Status.ItemCount != 1 {
 		t.Fatalf("ItemCount = %d, want 1", got.Status.ItemCount)
 	}
+
+	if len(got.Status.SinkExports) != 1 {
+		t.Fatalf("SinkExports = %d, want 1", len(got.Status.SinkExports))
+	}
+	if got.Status.SinkExports[0].Name != "postgres-demo" {
+		t.Fatalf("sink export name = %q, want postgres-demo", got.Status.SinkExports[0].Name)
+	}
+	if got.Status.SinkExports[0].LastExportTime == nil {
+		t.Fatal("expected lastExportTime on sinkExports[0]")
+	}
 }
