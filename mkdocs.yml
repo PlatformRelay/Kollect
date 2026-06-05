@@ -42,6 +42,7 @@ nav:
   - Overview:
       - Home: index.md
   - Understand the Basics:
+      - Understand the basics: UNDERSTAND-THE-BASICS.md
       - Architecture: ARCHITECTURE.md
       - Data flows: DATA-FLOWS.md
       - Platform decisions: PLATFORM-DECISIONS.md
