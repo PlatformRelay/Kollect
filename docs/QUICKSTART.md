@@ -1,22 +1,23 @@
 # Quick start
 
-Get kollect running on a local **kind** cluster and apply the sample custom resources. This path
+Get Kollect running on a local **kind** cluster and apply the sample custom resources. This path
 is optimized for evaluation and feedback — not production deployment.
 
 !!! tip "Assumptions"
     This guide assumes Docker, [kind](https://kind.sigs.k8s.io/), and kubectl are installed. For
     build-from-source steps you also need Go and [Task](https://taskfile.dev/) — see
-    [DEVELOPMENT.md](DEVELOPMENT.md).
+    [DEVELOPMENT.md](DEVELOPMENT.md). New to CRDs, CEL extraction, or sink roles? Start with
+    [Understand the basics](UNDERSTAND-THE-BASICS.md).
 
-## What kollect does
+## What Kollect does
 
 Platform teams need **stakeholder-visible inventory**: what workloads run in which namespaces, which
 images and labels are in use, and how that state changes over time — without bespoke collectors
 for every CRD or hand-maintained spreadsheets.
 
-**kollect** is a Kubernetes operator that watches arbitrary resource types (by GVK), extracts
+**Kollect** is a Kubernetes operator that watches arbitrary resource types (by GVK), extracts
 attributes with JSONPath or CEL, aggregates results, and exports snapshots to pluggable sinks (Git,
-GitLab, S3, GCS, Postgres, Kafka). Exporting to Git gives
+GitLab, S3, GCS, Postgres, Kafka, NATS). Exporting to Git gives
 auditable, diffable history that developer portals and compliance workflows can consume alongside
 live API access.
 
@@ -116,8 +117,8 @@ kubectl annotate kollectsink git-inventory -n default kollect.dev/test-connectio
 ### Optional: Git credentials
 
 The sample Git sink references a placeholder repository. For real exports, create a Secret with
-credentials and point `spec.secretRef` at it (implementation-dependent). Until Phase 1 sink code
-lands, credentials are not required for validating CR acceptance.
+credentials and point `spec.secretRef` at it. Connection tests can pass without a writable remote;
+export requires valid credentials and endpoint reachability.
 
 ## Verify
 
@@ -127,14 +128,11 @@ lands, credentials are not required for validating CR acceptance.
 kubectl -n kollect-system logs deployment/kollect-controller-manager -f
 ```
 
-**Phase 0 (current bootstrap):** expect the manager to start, register controllers, and reconcile
-without panics. Reconcilers may log minimal activity until collection logic is implemented.
-
-**Phase 1 (target):** logs should show informer registration for the profile GVK, reconcile
-loops on `KollectTarget`, and extraction errors surfaced as conditions.
-
-**Phase 1 (inventory + Git sink):** expect export attempts, `status.itemCount`, `status.lastExportTime`,
-and Git commit SHAs in status (not full payloads — see [ADR-0103](adr/0103-etcd-limit.md)).
+Expect the manager to start, register controllers, and reconcile without panics. On a live cluster
+with sample CRs applied you should see informer registration for the profile GVK, reconcile loops
+on `KollectTarget` and `KollectInventory`, extraction errors surfaced as conditions, and export
+attempts with `status.itemCount`, `status.lastExportTime`, and sink-specific status (Git commit SHAs,
+Postgres row counts, etc. — not full payloads; see [ADR-0103](adr/0103-etcd-limit.md)).
 
 ### CR status
 
@@ -149,23 +147,24 @@ When export works, check your Git sink repository for committed inventory JSON/Y
 ## Current maturity
 
 !!! warning "Pre-beta API"
-    kollect is **`v1alpha1` pre-beta**. CRD fields, controller behavior, and sample YAML may change
-    without notice. Applying samples validates schema and wiring; full end-to-end export depends on
-    the phase items in [ROADMAP.md](ROADMAP.md).
+    Kollect is **`v1alpha1` pre-beta**. CRD fields, controller behavior, and sample YAML may change
+    without notice. See [ROADMAP.md](ROADMAP.md) for item-level status before production use.
 
 Be honest about where the project stands:
 
 | Phase | Status | What works today |
 | --- | --- | --- |
-| **0** | In progress | CRDs, RBAC, manager on kind, CI, samples, docs |
-| **1** | Planned | Dynamic informers, attribute extraction, Git/GitLab export |
+| **0** | ✅ Done | CRDs (9 kinds), RBAC, validating webhooks, manager on kind, CI, Helm chart, samples, docs |
+| **1** | 🚧 Mostly shipped | Dynamic informers, CEL/JSONPath extraction, `KollectTarget`/`KollectInventory` controllers, seven sink types (Git, GitLab, S3, GCS, Postgres incl. delete recon, Kafka, NATS), connection test, `KollectScope` multitenant gate, inventory HTTP API (partial) |
+| **2** | 🚧 In progress | Hub/spoke via Helm `mode`, ingest/merge, pluggable queue transport (in-process, Redis, NATS, Kafka) |
+| **3** | 🚧 Partial | `KollectClusterTarget` + `KollectClusterInventory` controllers (rollup + export); `KollectClusterProfile` admission-only |
 
-Controllers may still contain scaffold `TODO(user)` reconcile loops. Applying samples **validates
-API schema and wiring**; end-to-end export requires Phase 1 implementation. Track progress in
-the repo and [ARCHITECTURE.md](ARCHITECTURE.md).
+End-to-end export on kind is green in CI; some items (event-driven export path, S3 Parquet, finalizers)
+remain 🚧/⬜ in [ROADMAP.md](ROADMAP.md). Track detail in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Next steps
 
+- [UNDERSTAND-THE-BASICS.md](UNDERSTAND-THE-BASICS.md) — prerequisite concepts and curated links
 - [CR-REFERENCE.md](CR-REFERENCE.md) — per-kind fields, RBAC, failure modes
 - [DATA-FLOWS.md](DATA-FLOWS.md) — export debouncing and collection diagrams
 - [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) — locked architecture summary
