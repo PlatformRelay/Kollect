@@ -25,6 +25,12 @@ anchor on an older commit.
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **e2e:** Bootstrap samples for matrix git-export [084c702](https://github.com/konih/kollect/commit/084c702c6d83d063c40dc111a4f3531f2bdd852f)
+
+## [0.1.0-rc.2](https://github.com/konih/kollect/compare/v0.1.0-rc.1..v0.1.0-rc.2) - 2026-06-05
+
 ### Breaking Changes
 
 - **deps:** Bump github-actions group (7 updates) ([#6](https://github.com/konih/kollect/pull/6))[aef3ea7](https://github.com/konih/kollect/commit/aef3ea737a4de62de3acf358b032f563316ec58c)
