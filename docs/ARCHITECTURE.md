@@ -162,6 +162,27 @@ Phases in docs are **build order**, not release milestones — see [PLATFORM-DEC
 - **`KollectConnectionTest` CR** — primary for CI/audit ([ADR-0703](adr/0703-platform-architecture-pivot.md))
 - Sink `connectionTest` + annotation — supplementary quick checks ([ADR-0403](adr/0403-connection-test.md))
 
+## Package boundaries
+
+Domain code under `internal/` is grouped into components (`controller`, `collect`, `aggregate`,
+`sink`, `hub`, `spoke`, `inventory`, `export`, `transport`, `validation`, `webhook`, and shared
+utilities). The **CRD types** in `api/v1alpha1` are a separate component every layer may import.
+
+Intended dependency flow (simplified):
+
+```text
+api/v1alpha1  ←  controller  →  collect, aggregate, sink, hub, scope, validation, export
+collect, aggregate  →  (no controller, no sink)
+sink  →  transport, export (not controller)
+hub  →  sink, aggregate, export (not controller reconciliation loops)
+cmd  →  wires everything
+```
+
+CI enforces this graph with [go-arch-lint](https://github.com/fe3dback/go-arch-lint) via
+`task arch-lint` (also part of `task lint`). Rules and any baseline `todo(arch-NN)` exceptions are
+declared in [`.go-arch-lint.yml`](../.go-arch-lint.yml). Maintainer setup:
+[tooling-setup.md](development/tooling-setup.md).
+
 ## See also
 
 - [REQUIREMENTS.md](REQUIREMENTS.md)

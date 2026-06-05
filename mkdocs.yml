@@ -152,6 +152,8 @@ nav:
               - "0706 — Testing and merge-gate architecture": adr/0706-testing-merge-gate-architecture.md
   - Contributing:
       - Roadmap: ROADMAP.md
+      - Testing strategy: development/testing.md
+      - Tooling setup: development/tooling-setup.md
       - Release process: RELEASE.md
       - Code review notes: CODE-REVIEW.md
 

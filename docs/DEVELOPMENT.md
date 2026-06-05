@@ -226,6 +226,9 @@ miss your types.
 
 ## Tests
 
+See [Testing strategy](development/testing.md) for the full L0–L5 pyramid, coverage targets, and CI
+gate matrix ([ADR-0706](adr/0706-testing-merge-gate-architecture.md)).
+
 ### Unit tests + envtest
 
 ```sh
@@ -378,7 +381,8 @@ Full guide: [examples/ui-local-development.md](examples/ui-local-development.md)
 ## Lint and format
 
 ```sh
-task lint          # golangci-lint v2 (custom plugins via .custom-gcl.yml if present)
+task lint          # golangci-lint v2 + go-arch-lint (custom plugins via .custom-gcl.yml if present)
+task arch-lint     # import-graph fitness only (.go-arch-lint.yml)
 task vulncheck     # govulncheck ./... (same as CI vulncheck job)
 task format        # go fmt ./...
 task format:check  # fail if gofmt would change files
@@ -397,6 +401,9 @@ pre-commit install
 ```
 
 Pre-commit runs gitleaks, scrub, verify, golangci-lint, and markdownlint on relevant changes.
+
+Architecture tooling setup (SonarCloud tokens, arch-lint baseline workflow):
+[development/tooling-setup.md](development/tooling-setup.md).
 
 ## Pre-commit and scrub before push
 
