@@ -63,26 +63,19 @@ func ExportWithBranch(
 		return fmt.Errorf("git export: empty payload")
 	}
 
-	objectPath = strings.TrimSpace(objectPath)
-	if objectPath == "" {
-		objectPath = defaultObjectKey
-	}
-
-	cloneURL, defaultBranch, err := parseRemote(cfg.Endpoint)
+	req, err := validateExportRequest(cfg, objectPath, branch)
 	if err != nil {
 		return err
 	}
 
-	cloneBranch, pushBranch := resolveBranches(defaultBranch, branch)
-
 	ctx, cancel := context.WithTimeout(ctx, exportTimeout)
 	defer cancel()
 
-	if isFileRemote(cloneURL) {
-		return exportFileRemote(ctx, cloneURL, cloneBranch, pushBranch, payload, objectPath)
+	if isFileRemote(req.cloneURL) {
+		return exportFileRemote(ctx, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath)
 	}
 
-	authMethod, err := basicAuth(cloneURL, auth)
+	authMethod, err := basicAuth(req.cloneURL, auth)
 	if err != nil {
 		return err
 	}
@@ -93,7 +86,7 @@ func ExportWithBranch(
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	repo, emptyRemote, err := cloneOrInit(ctx, tmp, cloneURL, cloneBranch, authMethod, cfg)
+	repo, emptyRemote, err := cloneOrInit(ctx, tmp, req.cloneURL, req.cloneBranch, authMethod, cfg)
 	if err != nil {
 		return err
 	}
@@ -103,24 +96,24 @@ func ExportWithBranch(
 		return fmt.Errorf("worktree: %w", err)
 	}
 
-	if pushBranch != cloneBranch {
+	if req.pushBranch != req.cloneBranch {
 		if checkoutErr := wt.Checkout(&git.CheckoutOptions{
-			Branch: plumbing.NewBranchReferenceName(pushBranch),
+			Branch: plumbing.NewBranchReferenceName(req.pushBranch),
 			Create: true,
 		}); checkoutErr != nil {
 			return fmt.Errorf("checkout feature branch: %w", checkoutErr)
 		}
 	}
 
-	if mkdirErr := wt.Filesystem.MkdirAll(filepath.Dir(objectPath), 0o750); mkdirErr != nil {
+	if mkdirErr := wt.Filesystem.MkdirAll(filepath.Dir(req.objectPath), 0o750); mkdirErr != nil {
 		return fmt.Errorf("mkdir object parent: %w", mkdirErr)
 	}
 
-	if writeErr := util.WriteFile(wt.Filesystem, objectPath, payload, 0o600); writeErr != nil {
+	if writeErr := util.WriteFile(wt.Filesystem, req.objectPath, payload, 0o600); writeErr != nil {
 		return fmt.Errorf("write object: %w", writeErr)
 	}
 
-	if _, addErr := wt.Add(objectPath); addErr != nil {
+	if _, addErr := wt.Add(req.objectPath); addErr != nil {
 		return fmt.Errorf("git add: %w", addErr)
 	}
 
@@ -144,7 +137,7 @@ func ExportWithBranch(
 		return fmt.Errorf("git commit: %w", err)
 	}
 
-	return pushCommitted(ctx, repo, cfg, authMethod, cloneURL, pushBranch, emptyRemote, commit)
+	return pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, commit)
 }
 
 func resolveBranches(defaultBranch string, spec *BranchSpec) (cloneBranch, pushBranch string) {
@@ -334,7 +327,12 @@ func ExportMemory(payload []byte, objectPath string) (plumbing.Hash, error) {
 		return plumbing.ZeroHash, err
 	}
 
-	objectPath = strings.TrimSpace(objectPath)
+	validatedPath, err := validateObjectPath(objectPath)
+	if err != nil {
+		return plumbing.ZeroHash, err
+	}
+
+	objectPath = validatedPath
 	if objectPath == "" {
 		objectPath = defaultObjectKey
 	}
