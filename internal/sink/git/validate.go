@@ -1,0 +1,170 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
+package git
+
+import (
+	"fmt"
+	"net/url"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
+
+var safeGitRefPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*$`)
+
+func validateObjectPath(objectPath string) (string, error) {
+	objectPath = strings.TrimSpace(objectPath)
+	if objectPath == "" {
+		return "", nil
+	}
+
+	if strings.Contains(objectPath, "\x00") {
+		return "", fmt.Errorf("object path contains null byte")
+	}
+
+	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(objectPath)))
+	if filepath.IsAbs(clean) || strings.HasPrefix(clean, "/") {
+		return "", fmt.Errorf("object path must be relative")
+	}
+
+	if clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") {
+		return "", fmt.Errorf("object path must not contain '..' segments")
+	}
+
+	return clean, nil
+}
+
+func objectPathInWorkdir(workdir, objectPath string) (absPath string, relPath string, err error) {
+	relPath, err = validateObjectPath(objectPath)
+	if err != nil {
+		return "", "", err
+	}
+
+	absPath = filepath.Join(workdir, filepath.FromSlash(relPath))
+	resolved, err := filepath.Abs(absPath)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve object path: %w", err)
+	}
+
+	workdirAbs, err := filepath.Abs(workdir)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve workdir: %w", err)
+	}
+
+	rel, err := filepath.Rel(workdirAbs, resolved)
+	if err != nil {
+		return "", "", fmt.Errorf("object path: %w", err)
+	}
+
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("object path escapes workdir")
+	}
+
+	return resolved, relPath, nil
+}
+
+func validateGitRef(ref string) error {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return fmt.Errorf("empty git ref")
+	}
+
+	if strings.HasPrefix(ref, "-") {
+		return fmt.Errorf("git ref %q must not start with '-'", ref)
+	}
+
+	if ref == "." || ref == ".." || strings.Contains(ref, "..") {
+		return fmt.Errorf("git ref %q contains invalid '..'", ref)
+	}
+
+	if strings.HasPrefix(ref, ".") {
+		return fmt.Errorf("git ref %q must not start with '.'", ref)
+	}
+
+	if strings.HasSuffix(ref, ".") || strings.HasSuffix(ref, ".lock") {
+		return fmt.Errorf("git ref %q has invalid suffix", ref)
+	}
+
+	if ref == "@" || strings.Contains(ref, "@{") {
+		return fmt.Errorf("git ref %q contains invalid '@'", ref)
+	}
+
+	if strings.HasPrefix(ref, "refs/") {
+		return fmt.Errorf("git ref %q must be a short branch name", ref)
+	}
+
+	if !safeGitRefPattern.MatchString(ref) {
+		return fmt.Errorf("git ref %q contains unsupported characters", ref)
+	}
+
+	return nil
+}
+
+type exportRequest struct {
+	cloneURL    string
+	cloneBranch string
+	pushBranch  string
+	objectPath  string
+}
+
+func validateExportRequest(cfg Config, objectPath string, branch *BranchSpec) (exportRequest, error) {
+	validatedPath, err := validateObjectPath(objectPath)
+	if err != nil {
+		return exportRequest{}, fmt.Errorf("git export: %w", err)
+	}
+
+	objectPath = validatedPath
+	if objectPath == "" {
+		objectPath = defaultObjectKey
+	}
+
+	cloneURL, defaultBranch, err := parseRemote(cfg.Endpoint)
+	if err != nil {
+		return exportRequest{}, err
+	}
+
+	if err = validateCloneURL(cloneURL); err != nil {
+		return exportRequest{}, fmt.Errorf("git export: %w", err)
+	}
+
+	cloneBranch, pushBranch := resolveBranches(defaultBranch, branch)
+
+	if err = validateGitRef(cloneBranch); err != nil {
+		return exportRequest{}, fmt.Errorf("git export: invalid clone branch: %w", err)
+	}
+
+	if err = validateGitRef(pushBranch); err != nil {
+		return exportRequest{}, fmt.Errorf("git export: invalid push branch: %w", err)
+	}
+
+	return exportRequest{
+		cloneURL:    cloneURL,
+		cloneBranch: cloneBranch,
+		pushBranch:  pushBranch,
+		objectPath:  objectPath,
+	}, nil
+}
+
+func validateCloneURL(cloneURL string) error {
+	cloneURL = strings.TrimSpace(cloneURL)
+	if cloneURL == "" {
+		return fmt.Errorf("empty clone URL")
+	}
+
+	if strings.HasPrefix(cloneURL, "-") {
+		return fmt.Errorf("clone URL must not start with '-'")
+	}
+
+	u, err := url.Parse(cloneURL)
+	if err != nil {
+		return fmt.Errorf("invalid clone URL: %w", err)
+	}
+
+	switch u.Scheme {
+	case schemeFile, schemeHTTP, schemeHTTPS:
+		return nil
+	default:
+		return fmt.Errorf("unsupported clone URL scheme %q", u.Scheme)
+	}
+}

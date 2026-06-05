@@ -5,6 +5,8 @@ package git
 
 const (
 	// TypeName is the KollectSink type value for git backends.
-	TypeName   = "git"
-	schemeHTTP = "http"
+	TypeName    = "git"
+	schemeHTTP  = "http"
+	schemeHTTPS = "https"
+	schemeFile  = "file"
 )

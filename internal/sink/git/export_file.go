@@ -18,42 +18,53 @@ func exportFileRemote(
 	payload []byte,
 	objectPath string,
 ) error {
+	if _, err := validateObjectPath(objectPath); err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
 	tmp, err := os.MkdirTemp("", "kollect-git-export-*")
 	if err != nil {
 		return fmt.Errorf("create workdir: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 
-	if err := cloneOrInitCLI(ctx, tmp, cloneURL, cloneBranch); err != nil {
+	if err = cloneOrInitCLI(ctx, tmp, cloneURL, cloneBranch); err != nil {
 		return err
 	}
 
 	if pushBranch != cloneBranch {
-		if err := runGit(ctx, tmp, "checkout", "-B", pushBranch); err != nil {
+		if err = runGit(ctx, tmp, "checkout", "-B", pushBranch); err != nil {
 			return err
 		}
 	}
 
-	target := filepath.Join(tmp, filepath.FromSlash(objectPath))
+	target, gitObjectPath, err := objectPathInWorkdir(tmp, objectPath)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
 	if mkdirErr := os.MkdirAll(filepath.Dir(target), 0o750); mkdirErr != nil { //nolint:gosec // G301: temp dir
 		return fmt.Errorf("mkdir object parent: %w", mkdirErr)
 	}
 
-	if writeErr := os.WriteFile(target, payload, 0o600); writeErr != nil { //nolint:gosec // G306: temp file
+	//nolint:gosec // G306: temp file in validated workdir
+	if writeErr := os.WriteFile(target, payload, 0o600); writeErr != nil {
 		return fmt.Errorf("write object: %w", writeErr)
 	}
 
-	if err := runGit(ctx, tmp, "add", objectPath); err != nil {
+	if err = runGit(ctx, tmp, "add", gitObjectPath); err != nil {
 		return err
 	}
 
-	if clean, err := gitStatusClean(ctx, tmp); err != nil {
-		return err
-	} else if clean {
-		return fmt.Errorf("git add produced no changes for %q", objectPath)
+	clean, statusErr := gitStatusClean(ctx, tmp)
+	if statusErr != nil {
+		return statusErr
+	}
+	if clean {
+		return fmt.Errorf("git add produced no changes for %q", gitObjectPath)
 	}
 
-	if err := runGit(ctx, tmp, "-c", "user.name=kollect", "-c", "user.email=kollect@kollect.dev",
+	if err = runGit(ctx, tmp, "-c", "user.name=kollect", "-c", "user.email=kollect@kollect.dev",
 		"commit", "-m", "kollect: export inventory"); err != nil {
 		return err
 	}
@@ -62,7 +73,7 @@ func exportFileRemote(
 }
 
 func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string) error {
-	//nolint:gosec // G204: dir from MkdirTemp
+	//nolint:gosec // G204: dir from MkdirTemp; branch/URL validated before invocation
 	clone := exec.CommandContext(ctx, "git", "clone", "--branch", branch, "--single-branch", cloneURL, dir)
 	if out, err := clone.CombinedOutput(); err == nil {
 		return nil
@@ -70,7 +81,6 @@ func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string) error {
 		return fmt.Errorf("git clone: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 
-	// Failed clone may leave a partial tree; re-init from scratch.
 	if rmErr := os.RemoveAll(dir); rmErr != nil {
 		return fmt.Errorf("reset workdir: %w", rmErr)
 	}
@@ -103,7 +113,7 @@ func gitStatusClean(ctx context.Context, dir string) (bool, error) {
 
 func runGit(ctx context.Context, dir string, args ...string) error {
 	full := append([]string{"-C", dir}, args...)
-	//nolint:gosec // G204: dir from MkdirTemp
+	//nolint:gosec // G204: dir from MkdirTemp; args validated at export entry
 	cmd := exec.CommandContext(ctx, "git", full...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
