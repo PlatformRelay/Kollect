@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	FormatJSON            = "json"
-	FormatParquet         = "parquet"
-	DefaultPathTemplate   = "inventory/{namespace}/{name}.json"
-	DefaultExtension      = ".json"
+	FormatJSON          = "json"
+	FormatParquet       = "parquet"
+	DefaultPathTemplate = "inventory/{namespace}/{name}.json"
+	DefaultExtension    = ".json"
 )
 
 var (
