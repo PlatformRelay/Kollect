@@ -42,6 +42,68 @@ spec:
           spec:
             description: spec defines the desired state of KollectClusterTarget
             properties:
+              excludedNamespaces:
+                description: excludedNamespaces is a static namespace denylist applied
+                  after include logic.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
+              includedNamespaces:
+                description: |-
+                  includedNamespaces is a static namespace allowlist. Empty means no extra restriction
+                  beyond namespaceSelector.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
+              namespaceExcludeSelector:
+                description: namespaceExcludeSelector excludes namespaces whose labels
+                  match the selector.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                          type: string
+                        values:
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
               namespaceSelector:
                 description: namespaceSelector restricts collection to namespaces
                   matching the selector.
@@ -93,6 +155,128 @@ spec:
                 description: profileRef names a KollectClusterProfile or a platform-namespace
                   KollectProfile stub.
                 type: string
+              resourceRules:
+                description: |-
+                  resourceRules declares GVK-scoped collection rules. When empty, collection falls back to
+                  Profile targetGVK plus legacy labelSelector/names on the Target.
+                items:
+                  description: |-
+                    ResourceRule selects objects of a GVK within optional namespace and resource label constraints.
+                    Multiple rules are OR-unioned (D7). Optional matchPolicy is a CEL expression evaluated pre-store.
+                  properties:
+                    gvk:
+                      description: gvk is the API group, version, and kind this rule
+                        applies to.
+                      properties:
+                        group:
+                          description: group is the API group of the target resource
+                            (empty for the core group).
+                          type: string
+                        kind:
+                          description: kind is the API kind of the target resource.
+                          type: string
+                        version:
+                          description: version is the API version of the target resource.
+                          type: string
+                      required:
+                      - kind
+                      - version
+                      type: object
+                    matchExpressions:
+                      description: matchExpressions requires resource metadata labels
+                        to match.
+                      items:
+                        description: |-
+                          A label selector requirement is a selector that contains values, a key, and an operator that
+                          relates the key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: |-
+                              operator represents a key's relationship to a set of values.
+                              Valid operators are In, NotIn, Exists and DoesNotExist.
+                            type: string
+                          values:
+                            description: |-
+                              values is an array of string values. If the operator is In or NotIn,
+                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                              the values array must be empty. This array is replaced during a strategic
+                              merge patch.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: matchLabels requires resource metadata labels to
+                        match (AND with matchExpressions).
+                      type: object
+                    matchPolicy:
+                      description: |-
+                        matchPolicy is an optional CEL expression with `object` bound to the resource.
+                        Evaluated after label/GVK/namespace gates, before store insert (ADR-0207 Phase 3).
+                      type: string
+                    namespaceSelector:
+                      description: namespaceSelector further restricts this rule to
+                        namespaces matching the selector.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
+                  required:
+                  - gvk
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
               suspend:
                 description: suspend pauses reconciliation when set to true (reserved
                   for future controller).
@@ -103,6 +287,10 @@ spec:
           status:
             description: status defines the observed state of KollectClusterTarget
             properties:
+              activeResourceRules:
+                description: activeResourceRules is the number of compiled resourceRules
+                  entries (0 when using legacy fallback).
+                type: integer
               conditions:
                 description: conditions represent the current state of the KollectClusterTarget
                   resource.
@@ -164,6 +352,21 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              effectiveNamespaces:
+                description: |-
+                  effectiveNamespaces lists namespaces after intersecting Scope allowedNamespaces and subtracting
+                  Target/Scope deny lists.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
+              matchedNamespaces:
+                description: matchedNamespaces lists workload namespaces matched by
+                  Target intent (before Scope ceiling).
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               observedGeneration:
                 description: observedGeneration is the most recent generation observed
                   by a controller.

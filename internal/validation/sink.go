@@ -51,6 +51,9 @@ func ValidateSinkSpec(spec *kollectdevv1alpha1.KollectSinkSpec) field.ErrorList 
 
 			allErrs = append(allErrs, validateGitSpec(spec)...)
 
+			allErrs = append(allErrs, ValidateOptionalDurationInterval(
+				spec.ExportMinInterval, field.NewPath("spec").Child("exportMinInterval"))...)
+
 			return allErrs
 		}
 	}

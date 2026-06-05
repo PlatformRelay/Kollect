@@ -70,10 +70,25 @@ spec:
                 format: int64
                 type: integer
               sinkRefs:
-                description: sinkRefs lists KollectSink names in the same namespace
-                  as this Inventory.
+                description: |-
+                  sinkRefs lists KollectSink names in the same namespace as this Inventory.
+                  Each entry may be a plain name or an object with an optional exportMinInterval override.
                 items:
-                  type: string
+                  description: InventorySinkRef names a KollectSink with an optional
+                    per-ref export interval override.
+                  properties:
+                    exportMinInterval:
+                      description: |-
+                        exportMinInterval overrides the inventory default for this sink ref.
+                        Zero means material-change only (no periodic re-export of identical payload).
+                      type: string
+                    name:
+                      description: name is the KollectSink object name in the same
+                        namespace as the inventory.
+                      type: string
+                  required:
+                  - name
+                  type: object
                 type: array
               suspend:
                 description: suspend pauses reconciliation of this inventory when
@@ -158,7 +173,7 @@ spec:
                 type: integer
               lastExportTime:
                 description: lastExportTime is the timestamp of the last successful
-                  export.
+                  export across all sinks.
                 format: date-time
                 type: string
               observedGeneration:
@@ -166,6 +181,93 @@ spec:
                   by the controller.
                 format: int64
                 type: integer
+              sinkExports:
+                description: sinkExports holds per-sink export timestamps and conditions.
+                items:
+                  description: InventorySinkExportStatus holds per-sink export observation
+                    on an inventory.
+                  properties:
+                    conditions:
+                      description: conditions report per-sink Synced / debounce state.
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    lastChecksum:
+                      description: lastChecksum is the payload fingerprint from the
+                        last successful export.
+                      type: string
+                    lastExportTime:
+                      description: lastExportTime is when this sink last accepted
+                        an export successfully.
+                      format: date-time
+                      type: string
+                    name:
+                      description: name matches spec.sinkRefs[].name.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 20
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
             type: object
         required:
         - spec

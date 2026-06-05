@@ -117,7 +117,7 @@ func TestKollectClusterInventoryReconciler_dedupesCrossTargetRows(t *testing.T) 
 				MatchLabels: map[string]string{tenantLabel: tenantVal},
 			},
 			TargetRefs:    []string{targetA, targetB},
-			SinkRefs:      []string{"postgres-platform"},
+			SinkRefs:      kollectdevv1alpha1.NewSinkRefList("postgres-platform"),
 			SinkNamespace: sinkNS,
 			Dedupe:        kollectdevv1alpha1.ClusterInventoryDedupeByResourceUID,
 		},
@@ -198,33 +198,29 @@ func TestKollectClusterInventoryReconciler_dedupesCrossTargetRows(t *testing.T) 
 func TestKollectClusterInventoryReconciler_shouldDebounce(t *testing.T) {
 	t.Parallel()
 
-	rec := &KollectClusterInventoryReconciler{
-		Options: RuntimeOptions{ExportDebounce: time.Minute},
-	}
+	var tracker perSinkCoalesceTracker
+	invKey := "default/platform"
+	sinkName := "postgres-platform"
+	interval := time.Minute
+	now := time.Now()
+	gen := int64(1)
+	hashA := "hash-a"
+	hashB := "hash-b"
 
-	inv := &kollectdevv1alpha1.KollectClusterInventory{
-		ObjectMeta: metav1.ObjectMeta{Generation: 1},
-	}
-	key := "default/platform"
-	payloadA := []byte(`[{"uid":"a"}]`)
-	payloadB := []byte(`[{"uid":"b"}]`)
-
-	if rec.shouldDebounce(inv, key, payloadA) {
+	if tracker.shouldSkip(invKey, sinkName, gen, hashA, interval, now) {
 		t.Fatal("first export must not debounce")
 	}
 
-	rec.recordExport(inv, key, payloadA)
-
-	if !rec.shouldDebounce(inv, key, payloadA) {
+	tracker.record(invKey, sinkName, gen, hashA, now)
+	if !tracker.shouldSkip(invKey, sinkName, gen, hashA, interval, now) {
 		t.Fatal("identical payload within interval should debounce")
 	}
 
-	if rec.shouldDebounce(inv, key, payloadB) {
+	if tracker.shouldSkip(invKey, sinkName, gen, hashB, interval, now) {
 		t.Fatal("payload change must not debounce")
 	}
 
-	inv.Generation = 2
-	if rec.shouldDebounce(inv, key, payloadA) {
+	if tracker.shouldSkip(invKey, sinkName, gen+1, hashA, interval, now) {
 		t.Fatal("generation bump must not debounce")
 	}
 }
@@ -323,7 +319,7 @@ func TestKollectClusterInventoryReconciler_keepAllPreservesCrossTargetRows(t *te
 				MatchLabels: map[string]string{tenantLabel: tenantVal},
 			},
 			TargetRefs:    []string{targetA, targetB},
-			SinkRefs:      []string{"postgres-platform"},
+			SinkRefs:      kollectdevv1alpha1.NewSinkRefList("postgres-platform"),
 			SinkNamespace: sinkNS,
 			Dedupe:        kollectdevv1alpha1.ClusterInventoryDedupeKeepAll,
 		},

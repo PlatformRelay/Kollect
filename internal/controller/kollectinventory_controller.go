@@ -6,7 +6,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,6 +24,7 @@ import (
 	kollecterrors "github.com/konih/kollect/internal/errors"
 	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/metrics"
+	"github.com/konih/kollect/internal/scope"
 	"github.com/konih/kollect/internal/sink"
 	"github.com/konih/kollect/internal/spoke"
 	"github.com/konih/kollect/internal/validation"
@@ -39,10 +39,7 @@ type KollectInventoryReconciler struct {
 	Options  RuntimeOptions
 	Recorder record.EventRecorder
 
-	mu             sync.Mutex
-	lastExport     map[string]time.Time
-	lastPayload    map[string]string
-	lastGeneration map[string]int64
+	sinkCoalesce perSinkCoalesceTracker
 }
 
 func (r *KollectInventoryReconciler) exportDebounce(inv *kollectdevv1alpha1.KollectInventory) time.Duration {
@@ -90,7 +87,8 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.setInventoryDegraded(ctx, &inv, itemCount, reason, msg)
 	}
 
-	sinkOK, sinkReason, sinkMsg := checkInventorySinksReachable(ctx, r.Client, inv.Namespace, inv.Spec.SinkRefs)
+	sinkNames := inv.Spec.SinkRefs.Names()
+	sinkOK, sinkReason, sinkMsg := checkInventorySinksReachable(ctx, r.Client, inv.Namespace, sinkNames)
 	setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, sinkOK, sinkReason, sinkMsg)
 	if !sinkOK {
 		recordWarning(r.Recorder, &inv, sinkReason, sinkMsg)
@@ -115,7 +113,7 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	gate, err := assessExportSpill(
-		ctx, r.Client, log, int64(len(payload)), r.maxExportBytes(&inv), inv.Namespace, inv.Spec.SinkRefs,
+		ctx, r.Client, log, int64(len(payload)), r.maxExportBytes(&inv), inv.Namespace, sinkNames,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -126,19 +124,6 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.setInventoryDegraded(ctx, &inv, itemCount, gate.reason, gate.message)
 	}
 
-	hash := fingerprint
-	key := req.String()
-
-	if r.shouldDebounce(&inv, key, hash) {
-		debounce := r.exportDebounce(&inv)
-		delay := debounce - time.Since(r.lastExportTime(key))
-		if delay < time.Second {
-			delay = time.Second
-		}
-
-		return ctrl.Result{RequeueAfter: delay}, nil
-	}
-
 	itemCount = r.Store.CountForNamespace(inv.Namespace)
 
 	if err := spoke.TryPublishReport(ctx, r.Store, &inv); err != nil {
@@ -147,47 +132,118 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if len(inv.Spec.SinkRefs) == 0 {
 		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "NoExport", "no sinkRefs configured")
-		return r.updateStatus(ctx, &inv, itemCount, nil)
+		return r.updateStatus(ctx, &inv, itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)})
 	}
 
-	var exportErr error
-	for _, sinkName := range inv.Spec.SinkRefs {
-		if err := sink.RunExportItems(sink.ExportItemsRequest{
-			Ctx:           ctx,
-			Client:        r.Client,
-			Registry:      r.Registry,
-			SinkNamespace: inv.Namespace,
-			SinkName:      sinkName,
-			ObjectPath:    fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name),
-			Items:         items,
-			Meta:          export.Metadata{Generation: inv.Generation},
-		}); err != nil {
-			log.Error(err, "export failed", "sink", sinkName)
-			exportErr = err
-		}
-	}
-
-	if exportErr != nil {
-		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(exportErr)).Inc()
+	outcome := r.exportToSinks(ctx, log, &inv, req.String(), items, fingerprint)
+	if outcome.ExportErr != nil {
+		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(outcome.ExportErr)).Inc()
 		reason := "Progressing"
-		if kollecterrors.IsTerminal(exportErr) {
+		if kollecterrors.IsTerminal(outcome.ExportErr) {
 			reason = kollectdevv1alpha1.ReasonExportTerminal
 		}
-		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, exportErr)
-		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, exportErr.Error())
-		recordWarning(r.Recorder, &inv, reason, exportErr.Error())
+		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, outcome.ExportErr)
+		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, outcome.ExportErr.Error())
+		recordWarning(r.Recorder, &inv, reason, outcome.ExportErr.Error())
 
-		result, err := r.setInventoryDegraded(ctx, &inv, itemCount, reason, exportErr.Error())
-		if kollecterrors.IsTerminal(exportErr) {
+		result, err := r.setInventoryDegraded(ctx, &inv, itemCount, reason, outcome.ExportErr.Error())
+		if kollecterrors.IsTerminal(outcome.ExportErr) {
 			result.RequeueAfter = 0
 		}
 
 		return result, err
 	}
 
-	r.recordExport(&inv, key, hash)
+	return r.updateStatus(ctx, &inv, itemCount, outcome)
+}
 
-	return r.updateStatus(ctx, &inv, itemCount, nil)
+func (r *KollectInventoryReconciler) exportToSinks(
+	ctx context.Context,
+	log logrLogger,
+	inv *kollectdevv1alpha1.KollectInventory,
+	invKey string,
+	items []collect.Item,
+	checksum string,
+) perSinkExportOutcome {
+	now := time.Now()
+	defaultInterval := r.exportDebounce(inv)
+	scopeFloor := r.scopeFloor(ctx, inv.Namespace)
+
+	var outcome perSinkExportOutcome
+	outcome.RequeueAfter = defaultInterval
+
+	for _, ref := range inv.Spec.SinkRefs {
+		sinkObj, err := r.loadSink(ctx, inv.Namespace, ref.Name)
+		if err != nil {
+			outcome.ExportErr = err
+			outcome.FailedSink = ref.Name
+			return outcome
+		}
+
+		interval := validation.ResolveSinkExportInterval(ref, sinkObj, defaultInterval, scopeFloor)
+		status := upsertSinkExportStatus(&outcome.SinkExports, ref.Name)
+
+		if r.sinkCoalesce.shouldSkip(invKey, ref.Name, inv.Generation, checksum, interval, now) {
+			outcome.DebouncedCount++
+			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
+				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
+					r.sinkCoalesce.nextDue(invKey, ref.Name, interval, now).Round(time.Second),
+					interval))
+			nextDue := r.sinkCoalesce.nextDue(invKey, ref.Name, interval, now)
+			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
+			continue
+		}
+
+		if err := sink.RunExportItems(sink.ExportItemsRequest{
+			Ctx:           ctx,
+			Client:        r.Client,
+			Registry:      r.Registry,
+			SinkNamespace: inv.Namespace,
+			SinkName:      ref.Name,
+			ObjectPath:    fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name),
+			Items:         items,
+			Meta:          export.Metadata{Generation: inv.Generation},
+		}); err != nil {
+			log.Error(err, "export failed", "sink", ref.Name)
+			outcome.ExportErr = err
+			outcome.FailedSink = ref.Name
+			setSinkExportSynced(status, inv.Generation, false, "ExportFailed", err.Error())
+			return outcome
+		}
+
+		r.sinkCoalesce.record(invKey, ref.Name, inv.Generation, checksum, now)
+		exportTime := metav1.Now()
+		status.LastExportTime = &exportTime
+		status.LastChecksum = checksum
+		setSinkExportSynced(status, inv.Generation, true, "Exported", "export completed")
+		outcome.ExportedCount++
+		outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, validation.RequeueAfterForZeroInterval(interval))
+	}
+
+	return outcome
+}
+
+type logrLogger interface {
+	Error(err error, msg string, keysAndValues ...any)
+}
+
+func (r *KollectInventoryReconciler) loadSink(
+	ctx context.Context,
+	namespace, name string,
+) (*kollectdevv1alpha1.KollectSink, error) {
+	var ks kollectdevv1alpha1.KollectSink
+	if err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, &ks); err != nil {
+		return nil, fmt.Errorf("get KollectSink %q: %w", name, err)
+	}
+	return &ks, nil
+}
+
+func (r *KollectInventoryReconciler) scopeFloor(ctx context.Context, namespace string) time.Duration {
+	binding, err := scope.Load(ctx, r.Client, namespace)
+	if err != nil || !binding.Enforced || binding.Scope == nil {
+		return 0
+	}
+	return validation.ScopeMinExportInterval(binding.Scope)
 }
 
 func (r *KollectInventoryReconciler) maxExportBytes(inv *kollectdevv1alpha1.KollectInventory) int64 {
@@ -198,79 +254,33 @@ func (r *KollectInventoryReconciler) maxExportBytes(inv *kollectdevv1alpha1.Koll
 	return validation.MaxExportBytesGlobal()
 }
 
-func (r *KollectInventoryReconciler) shouldDebounce(
-	inv *kollectdevv1alpha1.KollectInventory,
-	key, hash string,
-) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.lastPayload == nil {
-		r.lastPayload = make(map[string]string)
-		r.lastExport = make(map[string]time.Time)
-		r.lastGeneration = make(map[string]int64)
-	}
-
-	if r.lastGeneration[key] != inv.Generation {
-		return false
-	}
-
-	prev, ok := r.lastPayload[key]
-	if !ok || prev != hash {
-		return false
-	}
-
-	return time.Since(r.lastExport[key]) < r.exportDebounce(inv)
-}
-
-func (r *KollectInventoryReconciler) recordExport(
-	inv *kollectdevv1alpha1.KollectInventory,
-	key, hash string,
-) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.lastPayload == nil {
-		r.lastPayload = make(map[string]string)
-		r.lastExport = make(map[string]time.Time)
-		r.lastGeneration = make(map[string]int64)
-	}
-
-	r.lastPayload[key] = hash
-	r.lastExport[key] = time.Now()
-	r.lastGeneration[key] = inv.Generation
-}
-
-func (r *KollectInventoryReconciler) lastExportTime(key string) time.Time {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.lastExport[key]
-}
-
 func (r *KollectInventoryReconciler) updateStatus(
 	ctx context.Context,
 	inv *kollectdevv1alpha1.KollectInventory,
 	itemCount int,
-	exportErr error,
+	outcome perSinkExportOutcome,
 ) (ctrl.Result, error) {
 	inv.Status.ObservedGeneration = inv.Generation
 	inv.Status.ItemCount = itemCount
+	inv.Status.SinkExports = outcome.SinkExports
 
-	if exportErr == nil {
-		now := metav1.Now()
-		inv.Status.LastExportTime = &now
+	if outcome.ExportErr == nil && len(inv.Spec.SinkRefs) > 0 {
+		if latest := latestExportTime(outcome.SinkExports); latest != nil {
+			inv.Status.LastExportTime = latest
+		}
 		apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
 		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, nil)
-		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "Exported",
-			fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, len(inv.Spec.SinkRefs)))
-		recordNormal(r.Recorder, inv, "ExportSucceeded",
-			fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, len(inv.Spec.SinkRefs)))
+		aggregateInventorySync(&inv.Status.Conditions, inv.Generation,
+			outcome.ExportedCount, outcome.DebouncedCount, 0)
+		if outcome.ExportedCount > 0 {
+			recordNormal(r.Recorder, inv, "ExportSucceeded",
+				fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, outcome.ExportedCount))
+		}
 		apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
 			Type:               conditionReady,
 			Status:             metav1.ConditionTrue,
 			Reason:             "Exported",
-			Message:            fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, len(inv.Spec.SinkRefs)),
+			Message:            fmt.Sprintf("exported %d item(s) across %d sink(s)", itemCount, len(inv.Spec.SinkRefs)),
 			ObservedGeneration: inv.Generation,
 			LastTransitionTime: metav1.Now(),
 		})
@@ -284,7 +294,12 @@ func (r *KollectInventoryReconciler) updateStatus(
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: r.exportDebounce(inv)}, nil
+	requeue := outcome.RequeueAfter
+	if requeue <= 0 {
+		requeue = r.exportDebounce(inv)
+	}
+
+	return ctrl.Result{RequeueAfter: requeue}, nil
 }
 
 func (r *KollectInventoryReconciler) setInventoryDegraded(
@@ -356,7 +371,7 @@ func (r *KollectInventoryReconciler) mapSinkToInventories(
 	reqs := make([]reconcile.Request, 0)
 	for i := range list.Items {
 		for _, ref := range list.Items[i].Spec.SinkRefs {
-			if ref == sinkObj.Name {
+			if ref.Name == sinkObj.Name {
 				reqs = append(reqs, reconcile.Request{
 					NamespacedName: client.ObjectKeyFromObject(&list.Items[i]),
 				})

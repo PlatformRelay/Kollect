@@ -28,7 +28,7 @@ func TestValidateClusterInventorySpec_rejectsNamespaceNameRefs(t *testing.T) {
 		NamespaceSelector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"team": "a"},
 		},
-		SinkRefs: []string{"kollect-system/sink"},
+		SinkRefs: kollectdevv1alpha1.NewSinkRefList("kollect-system/sink"),
 	})
 	if len(errs) != 2 {
 		t.Fatalf("expected ref format errors, got %d: %v", len(errs), errs)

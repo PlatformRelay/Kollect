@@ -19,7 +19,9 @@ Visual walkthroughs of how data moves through the operator. For CRD roles see
 every watch event would trigger a Postgres upsert or Git commit.
 
 **Design:** The in-memory collect store updates **immediately** on every target reconcile. Only the
-**sink export** step is debounced per `KollectInventory`.
+**sink export** step is debounced **per sink ref** on `KollectInventory` ([ADR-0413](adr/0413-export-interval-scheduling.md)).
+One payload is marshalled per reconcile; each ref exports when its effective interval elapses or the
+checksum/generation bypass rules fire for that sink.
 
 ### Per-inventory state machine
 

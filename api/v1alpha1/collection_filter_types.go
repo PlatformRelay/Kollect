@@ -92,4 +92,8 @@ type ScopeCeilingSpec struct {
 	// +listType=set
 	// +optional
 	DeniedNamespaces []string `json:"deniedNamespaces,omitempty"`
+
+	// minExportInterval is a tenancy floor — inventory and sink intervals below this value are rejected.
+	// +optional
+	MinExportInterval *metav1.Duration `json:"minExportInterval,omitempty"`
 }

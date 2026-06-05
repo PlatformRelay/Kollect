@@ -90,7 +90,7 @@ func TestServerBuildSummaryWithExportStatus(t *testing.T) {
 	now := metav1.Now()
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "platform", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: []string{"git"}},
+		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: kollectdevv1alpha1.NewSinkRefList("git")},
 		Status: kollectdevv1alpha1.KollectInventoryStatus{
 			LastExportTime: &now,
 			Conditions: []metav1.Condition{{

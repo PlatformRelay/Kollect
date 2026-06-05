@@ -87,7 +87,7 @@ func (s scopeCheck) enforceInventory(
 		return true, "", ""
 	}
 
-	if err := scope.ValidateSinkRefs(binding.Scope, inv.Spec.SinkRefs); err != nil {
+	if err := scope.ValidateSinkRefs(binding.Scope, inv.Spec.SinkRefs.Names()); err != nil {
 		recordWarning(s.recorder, inv, scopeReasonSinkDenied, err.Error())
 		return false, scopeReasonSinkDenied, err.Error()
 	}

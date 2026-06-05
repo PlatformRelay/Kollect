@@ -72,7 +72,7 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default"},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			SinkRefs: []string{"postgres-demo"},
+			SinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
 		},
 	}
 

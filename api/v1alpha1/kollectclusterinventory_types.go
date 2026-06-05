@@ -35,9 +35,9 @@ type KollectClusterInventorySpec struct {
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 
 	// sinkRefs lists KollectSink names resolved in sinkNamespace.
-	// Namespaced sinks in the export namespace are the MVP path; KollectClusterSink is reserved.
+	// Each entry may be a plain name or an object with an optional exportMinInterval override.
 	// +optional
-	SinkRefs []string `json:"sinkRefs,omitempty"`
+	SinkRefs InventorySinkRefList `json:"sinkRefs,omitempty"`
 
 	// sinkNamespace is the namespace where namespaced KollectSink objects are resolved.
 	// +kubebuilder:default="kollect-system"
@@ -81,9 +81,16 @@ type KollectClusterInventoryStatus struct {
 	// +optional
 	TargetCount int `json:"targetCount,omitempty"`
 
-	// lastExportTime is the timestamp of the last successful export.
+	// lastExportTime is the timestamp of the last successful export across all sinks.
 	// +optional
 	LastExportTime *metav1.Time `json:"lastExportTime,omitempty"`
+
+	// sinkExports holds per-sink export timestamps and conditions.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=20
+	SinkExports []InventorySinkExportStatus `json:"sinkExports,omitempty"`
 }
 
 // +kubebuilder:object:root=true

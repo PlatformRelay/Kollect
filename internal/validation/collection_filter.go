@@ -73,6 +73,8 @@ func ValidateScopeCeilingSpec(spec *kollectdevv1alpha1.ScopeCeilingSpec, basePat
 		spec.AllowedNamespaces, basePath.Child("allowedNamespaces"))...)
 	allErrs = append(allErrs, validateUniqueNonEmptyStringsField(
 		spec.DeniedNamespaces, basePath.Child("deniedNamespaces"))...)
+	allErrs = append(allErrs, ValidateOptionalDurationInterval(
+		spec.MinExportInterval, basePath.Child("minExportInterval"))...)
 
 	return allErrs
 }

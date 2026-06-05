@@ -37,16 +37,11 @@ func ValidateInventorySpec(spec *kollectdevv1alpha1.KollectInventorySpec) field.
 	var allErrs field.ErrorList
 	base := field.NewPath("spec").Child("sinkRefs")
 
-	for i, ref := range spec.SinkRefs {
-		allErrs = append(allErrs, validateSameNamespaceRef(ref, base.Index(i), "sinkRef")...)
-	}
+	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.SinkRefs, base)...)
 
-	if spec.ExportMinInterval != nil && spec.ExportMinInterval.Duration < 0 {
-		allErrs = append(allErrs, field.Invalid(
-			field.NewPath("spec").Child("exportMinInterval"),
-			spec.ExportMinInterval.Duration.String(),
-			"must be non-negative",
-		))
+	if spec.ExportMinInterval != nil {
+		allErrs = append(allErrs, ValidateOptionalDurationInterval(
+			spec.ExportMinInterval, field.NewPath("spec").Child("exportMinInterval"))...)
 	}
 
 	if spec.MaxExportBytes != nil {
@@ -62,23 +57,17 @@ func ValidateInventorySpec(spec *kollectdevv1alpha1.KollectInventorySpec) field.
 	return allErrs
 }
 
-// ExportMinIntervalFor returns the effective export debounce for an inventory.
+// ExportMinIntervalFor returns the effective inventory-level export debounce default.
 func ExportMinIntervalFor(spec *kollectdevv1alpha1.KollectInventorySpec, fallback time.Duration) time.Duration {
-	if spec != nil && spec.ExportMinInterval != nil {
-		d := spec.ExportMinInterval.Duration
-		if d > 0 {
-			return d
-		}
-	}
-
-	if fallback > 0 {
-		return fallback
-	}
-
-	return 30 * time.Second
+	return InventoryDefaultInterval(spec, fallback)
 }
 
 // InventoryInvalid formats a validation failure for admission.
 func InventoryInvalid(name string, errs field.ErrorList) error {
 	return fmt.Errorf("KollectInventory %q is invalid: %s", name, formatErrors(errs))
+}
+
+// ScopeLoadErrors wraps a scope lookup failure for admission responses.
+func ScopeLoadErrors(err error) field.ErrorList {
+	return field.ErrorList{field.InternalError(field.NewPath("spec"), err)}
 }

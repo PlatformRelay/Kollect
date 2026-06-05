@@ -46,6 +46,7 @@ Enforcement diagram: [DATA-FLOWS.md §4](../DATA-FLOWS.md#4-kollectscope-enforce
 | `spec.allowedNamespaces[]` | list | No | Permitted workload namespaces (empty = any allowed by targets) |
 | `spec.deniedNamespaces[]` | list | No | Platform namespace blacklist — not overridable by Targets |
 | `spec.sinkRefs[]` | list | No | Permitted `KollectSink` names for export |
+| `spec.minExportInterval` | duration | No | Tenancy floor — inventory/sink intervals below this are rejected |
 
 ## Sample usage
 

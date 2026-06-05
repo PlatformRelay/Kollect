@@ -30,7 +30,7 @@ func TestClientStatusReader_listsAndExportStatus(t *testing.T) {
 	now := metav1.Now()
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "platform", Namespace: "team-a", Generation: 2},
-		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: []string{"git", "s3"}},
+		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: kollectdevv1alpha1.NewSinkRefList("git", "s3")},
 		Status: kollectdevv1alpha1.KollectInventoryStatus{
 			ObservedGeneration: 2,
 			ItemCount:          3,
@@ -77,7 +77,7 @@ func TestExportStatusFromInventory_degraded(t *testing.T) {
 	t.Parallel()
 
 	inv := &kollectdevv1alpha1.KollectInventory{
-		Spec: kollectdevv1alpha1.KollectInventorySpec{SinkRefs: []string{"git"}},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{SinkRefs: kollectdevv1alpha1.NewSinkRefList("git")},
 		Status: kollectdevv1alpha1.KollectInventoryStatus{
 			Conditions: []metav1.Condition{{
 				Type:    kollectdevv1alpha1.ConditionSynced,
@@ -191,7 +191,7 @@ func TestInventoryResourceStatus_lastExport(t *testing.T) {
 		Status: metav1.ConditionUnknown,
 	})
 	for _, sink := range exportStatusFromInventory(&kollectdevv1alpha1.KollectInventory{
-		Spec:   kollectdevv1alpha1.KollectInventorySpec{SinkRefs: []string{"git"}},
+		Spec:   kollectdevv1alpha1.KollectInventorySpec{SinkRefs: kollectdevv1alpha1.NewSinkRefList("git")},
 		Status: inv.Status,
 	}) {
 		if sink.Status != "unknown" {

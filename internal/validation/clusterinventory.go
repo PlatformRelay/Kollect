@@ -41,9 +41,7 @@ func ValidateClusterInventorySpec(spec *kollectdevv1alpha1.KollectClusterInvento
 	}
 
 	sinkRefsPath := field.NewPath("spec").Child("sinkRefs")
-	for i, ref := range spec.SinkRefs {
-		allErrs = append(allErrs, validateNameOnlyRef(ref, sinkRefsPath.Index(i), "sinkRef")...)
-	}
+	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.SinkRefs, sinkRefsPath)...)
 
 	if strings.TrimSpace(spec.SinkNamespace) != "" && strings.Contains(spec.SinkNamespace, "/") {
 		allErrs = append(allErrs, field.Invalid(
@@ -53,12 +51,9 @@ func ValidateClusterInventorySpec(spec *kollectdevv1alpha1.KollectClusterInvento
 		))
 	}
 
-	if spec.ExportMinInterval != nil && spec.ExportMinInterval.Duration < 0 {
-		allErrs = append(allErrs, field.Invalid(
-			field.NewPath("spec").Child("exportMinInterval"),
-			spec.ExportMinInterval.Duration.String(),
-			"must be non-negative",
-		))
+	if spec.ExportMinInterval != nil {
+		allErrs = append(allErrs, ValidateOptionalDurationInterval(
+			spec.ExportMinInterval, field.NewPath("spec").Child("exportMinInterval"))...)
 	}
 
 	dedupePath := field.NewPath("spec").Child("dedupe")
@@ -72,23 +67,12 @@ func ValidateClusterInventorySpec(spec *kollectdevv1alpha1.KollectClusterInvento
 	return allErrs
 }
 
-// ClusterExportMinIntervalFor returns the effective export debounce for a cluster inventory.
+// ClusterExportMinIntervalFor returns the effective cluster inventory export debounce default.
 func ClusterExportMinIntervalFor(
 	spec *kollectdevv1alpha1.KollectClusterInventorySpec,
 	fallback time.Duration,
 ) time.Duration {
-	if spec != nil && spec.ExportMinInterval != nil {
-		d := spec.ExportMinInterval.Duration
-		if d > 0 {
-			return d
-		}
-	}
-
-	if fallback > 0 {
-		return fallback
-	}
-
-	return 30 * time.Second
+	return ClusterInventoryDefaultInterval(spec, fallback)
 }
 
 // ClusterInventoryInvalid formats a validation failure for admission.

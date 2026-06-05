@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
-	"github.com/konih/kollect/internal/aggregate"
 )
 
 func TestTargetSelectorFor_defaultsToEverything(t *testing.T) {
@@ -55,24 +54,18 @@ func TestTargetIncluded_respectsTargetRefs(t *testing.T) {
 	}
 }
 
-func TestKollectClusterInventoryReconciler_lastExportTime(t *testing.T) {
+func TestPerSinkCoalesceTracker_nextDue(t *testing.T) {
 	t.Parallel()
 
-	r := &KollectClusterInventoryReconciler{
-		exportCoalesce: make(map[string]*aggregate.ExportCoalesce),
-	}
-	key := "platform"
-
-	if !r.lastExportTime(key).IsZero() {
-		t.Fatal("expected zero time before first export")
-	}
-
+	var tracker perSinkCoalesceTracker
+	invKey := "platform"
+	sinkName := "git"
 	now := time.Now().UTC().Truncate(time.Second)
-	r.exportCoalesce[key] = &aggregate.ExportCoalesce{LastExport: now}
+	tracker.record(invKey, sinkName, 1, "abc", now)
 
-	got := r.lastExportTime(key)
-	if !got.Equal(now) {
-		t.Fatalf("lastExportTime = %v, want %v", got, now)
+	got := tracker.nextDue(invKey, sinkName, time.Minute, now)
+	if got <= 0 {
+		t.Fatalf("nextDue = %v", got)
 	}
 }
 
@@ -178,7 +171,7 @@ func TestMapSinkToClusterInventories(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "platform"},
 		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"team": "a"}},
-			SinkRefs:          []string{"git"},
+			SinkRefs:          kollectdevv1alpha1.NewSinkRefList("git"),
 			SinkNamespace:     "kollect-system",
 		},
 	}

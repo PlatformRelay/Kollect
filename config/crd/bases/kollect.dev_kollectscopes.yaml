@@ -82,6 +82,10 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              minExportInterval:
+                description: minExportInterval is a tenancy floor — inventory and
+                  sink intervals below this value are rejected.
+                type: string
               sinkRefs:
                 description: sinkRefs lists namespaced KollectSink names permitted
                   for export from this scope.

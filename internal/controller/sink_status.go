@@ -56,14 +56,14 @@ func uniqueSinkRefs(inventories []kollectdevv1alpha1.KollectInventory) []string 
 
 	for i := range inventories {
 		for _, ref := range inventories[i].Spec.SinkRefs {
-			if ref == "" {
+			if ref.Name == "" {
 				continue
 			}
-			if _, ok := seen[ref]; ok {
+			if _, ok := seen[ref.Name]; ok {
 				continue
 			}
-			seen[ref] = struct{}{}
-			refs = append(refs, ref)
+			seen[ref.Name] = struct{}{}
+			refs = append(refs, ref.Name)
 		}
 	}
 
