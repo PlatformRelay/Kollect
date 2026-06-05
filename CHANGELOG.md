@@ -52,6 +52,8 @@ anchor on an older commit.
 
 ### Features
 
+- **controller:** Wire cluster inventory export to sinks [b5445a2](https://github.com/konih/kollect/commit/b5445a2c37ea27f91a13b8ba6084cdf201ff4796)
+
 - **transport:** Add queue wire ACL allowlist stub [a4c73a8](https://github.com/konih/kollect/commit/a4c73a8045772781eb845d083f11760b01ff18c7)
 
 - **controller:** Add cluster target and inventory skeletons [737786d](https://github.com/konih/kollect/commit/737786d26ad4551b4d6b7588a34e61b2ce4eed4a)
@@ -67,6 +69,11 @@ anchor on an older commit.
 - **api:** Add KollectClusterInventory CR [1263877](https://github.com/konih/kollect/commit/12638770dbf0a24f15ec420bc35e1b39fec293ab)
 
 - **api:** Add KollectClusterTarget CR and webhook [4ed55f2](https://github.com/konih/kollect/commit/4ed55f2d31778465ec844ea60f61b3915a01eea3)
+
+
+### Refactoring
+
+- **controller:** Extract cluster inventory export path [5214893](https://github.com/konih/kollect/commit/5214893dda65d7a5957b010b16d6a253140e9f8d)
 
 ## [0.0.4](https://github.com/konih/kollect/compare/v0.0.3..v0.0.4) - 2026-06-05
 
