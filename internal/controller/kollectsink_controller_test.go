@@ -105,7 +105,11 @@ func TestKollectSinkReconciler_skipsWithoutProbe(t *testing.T) {
 
 	sinkObj := &kollectdevv1alpha1.KollectSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "quiet", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "git", Endpoint: "https://example.com/repo.git", ConnectionTest: &falseVal},
+		Spec: kollectdevv1alpha1.KollectSinkSpec{
+			Type:           "git",
+			Endpoint:       "https://example.com/repo.git",
+			ConnectionTest: &falseVal,
+		},
 	}
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build()
