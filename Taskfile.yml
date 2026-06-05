@@ -150,6 +150,27 @@ tasks:
     cmds:
       - git-cliff --config cliff.toml --unreleased
 
+  changelog:write:
+    desc: Regenerate CHANGELOG.md from git tags and unreleased commits
+    cmds:
+      - git-cliff --config cliff.toml -o CHANGELOG.md
+
+  changelog:release:
+    desc: Print changelog section for the latest tag (release notes)
+    cmds:
+      - git-cliff --config cliff.toml --latest
+
+  release-dry-run:
+    desc: Build dist/ release assets locally without pushing (VERSION=0.0.0-dry-run)
+    vars:
+      RELEASE_VERSION:
+        sh: echo "${VERSION:-0.0.0-dry-run}"
+      IMAGE_REPO:
+        sh: echo "${IMAGE_REPO:-ghcr.io/konih/kollect}"
+    cmds:
+      - bash hack/release-assets.sh "{{.RELEASE_VERSION}}" "{{.IMAGE_REPO}}"
+      - echo "release assets in dist/ (image tag not pushed)"
+
   helm-lint:
     desc: Lint the kollect Helm chart
     cmds:
