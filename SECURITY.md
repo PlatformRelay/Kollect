@@ -52,10 +52,18 @@ through the private contact above.
 
 ## Dependency and license policy (SCA)
 
-Remediation thresholds for dependency **vulnerabilities** and **licenses** are defined in
-[SCA remediation policy](docs/security/sca-remediation-policy.md) (OpenSSF OSPS-VM-05.01).
-Summary: govulncheck blocks merge on reachable CVEs; release Trivy gates fixable CRITICAL/HIGH;
-denied licenses (GPL/AGPL/proprietary/unknown) require replacement or a documented exception.
+Full thresholds and process: [SCA remediation policy](docs/security/sca-remediation-policy.md)
+(satisfies [OpenSSF OSPS-VM-05.01](https://baseline.openssf.org/versions/2026-02-19.html)).
+
+**Vulnerability SLAs:** Critical **7 days**, High **30 days**, Medium **90 days**, Low by next
+minor release; **zero tolerance** for reachable CVEs (`govulncheck` must pass before merge) and for
+fixable CRITICAL/HIGH in release images (Trivy).
+
+**License classes:** Allow (MIT/Apache/BSD/…), Review (MPL/LGPL — **90 days** to confirm), Deny
+(GPL/AGPL/proprietary/unknown — remove before merge or defer with a dated `security` issue).
+
+Deferrals require a GitHub issue or ADR with expiry — see
+[policy § Exceptions](docs/security/sca-remediation-policy.md#exceptions-and-deferrals).
 
 ## Static analysis and vulnerability scanning
 
@@ -108,7 +116,7 @@ task vulncheck
 
 If a finding is a false positive or only affects an unused code path in a dependency, document the
 exception in this file (module, advisory ID, rationale, review date) before suppressing CI — see
-[SCA remediation policy § Exceptions](docs/security/sca-remediation-policy.md#exceptions-and-accepted-risk).
+[SCA remediation policy § Exceptions and deferrals](docs/security/sca-remediation-policy.md#exceptions-and-deferrals).
 
 Release images are additionally scanned with **Trivy** (CRITICAL/HIGH, fixable only) in
 [`.github/workflows/release.yaml`](.github/workflows/release.yaml).
