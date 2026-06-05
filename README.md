@@ -102,9 +102,18 @@ Default install for new teams: **namespaced Helm** with `tenantMode: true` and s
 Developers: run `task lint`, `task test`, and `task verify` before opening a PR —
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Community
+
+| | |
+| --- | --- |
+| **Contributing** | [CONTRIBUTING.md](CONTRIBUTING.md) — DCO, PR workflow, good first tasks |
+| **Code of Conduct** | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — Contributor Covenant v2.1 |
+| **Governance** | [GOVERNANCE.md](GOVERNANCE.md) — roles, decisions, continuity |
+
 ## Security
 
-Report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
+Report vulnerabilities privately — see [SECURITY.md](SECURITY.md). Security architecture:
+[docs/ASSURANCE-CASE.md](docs/ASSURANCE-CASE.md).
 
 ## License
 
