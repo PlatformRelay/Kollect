@@ -34,7 +34,7 @@ func assessExportSpill(
 	if spill.ExceedsCap {
 		return spillGateResult{
 			degraded: true,
-			reason:   "PayloadTooLarge",
+			reason:   spillReasonPayloadTooLarge,
 			message:  fmt.Sprintf("export payload %d bytes exceeds cap %d", payloadSize, spill.Cap),
 		}, nil
 	}
@@ -57,7 +57,7 @@ func assessExportSpill(
 
 	return spillGateResult{
 		degraded: true,
-		reason:   "SpillRequired",
+		reason:   spillReasonSpillRequired,
 		message: fmt.Sprintf(
 			"export payload %d bytes requires object-store spill (configure s3 or gcs sink)",
 			payloadSize,
@@ -65,15 +65,20 @@ func assessExportSpill(
 	}, nil
 }
 
+const (
+	spillReasonPayloadTooLarge = "PayloadTooLarge"
+	spillReasonSpillRequired   = "SpillRequired"
+)
+
 func recordSpillGateMetrics(gate spillGateResult) {
 	if !gate.degraded {
 		return
 	}
 
 	switch gate.reason {
-	case "PayloadTooLarge":
+	case spillReasonPayloadTooLarge:
 		metrics.SinkErrorsTotal.WithLabelValues("payload_too_large").Inc()
-	case "SpillRequired":
+	case spillReasonSpillRequired:
 		metrics.SinkErrorsTotal.WithLabelValues("spill_required").Inc()
 	}
 }

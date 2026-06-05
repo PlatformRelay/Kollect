@@ -19,6 +19,8 @@ import (
 	"github.com/konih/kollect/internal/collect"
 )
 
+const statusUnknown = "unknown"
+
 // StatusReader lists CRD status for optional Read API proxy endpoints (B3).
 type StatusReader interface {
 	ListInventoryStatus(ctx context.Context, namespace string) ([]ResourceStatus, error)
@@ -123,7 +125,7 @@ func exportStatusFromInventory(inv *kollectdevv1alpha1.KollectInventory) []Expor
 	}
 
 	synced := apimeta.FindStatusCondition(inv.Status.Conditions, kollectdevv1alpha1.ConditionSynced)
-	status := "unknown"
+	status := statusUnknown
 	message := ""
 	if synced != nil {
 		switch synced.Status {
@@ -132,7 +134,7 @@ func exportStatusFromInventory(inv *kollectdevv1alpha1.KollectInventory) []Expor
 		case metav1.ConditionFalse:
 			status = "degraded"
 		default:
-			status = "unknown"
+			status = statusUnknown
 		}
 
 		message = synced.Message
