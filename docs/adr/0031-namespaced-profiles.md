@@ -32,8 +32,8 @@ The same split fits kollect extraction schemas.
    Helm summary) that tenants copy or reference via documented GitOps pattern until cluster profile
    kind ships.
 
-5. **`KollectSink` stays cluster-scoped for Phase 1** — **`KollectClusterSink` deferred Phase 3**
-  ([ROADMAP.md](../ROADMAP.md)); `KollectScope.sinkRefs` allowlists cluster sink names.
+5. **`KollectSink` is namespaced** in the same tenancy batch ([ADR-0032](0032-platform-architecture-pivot.md)).
+   Reserve **`KollectClusterSink`** for platform-shared backends.
 
 ## Consequences
 
@@ -54,4 +54,4 @@ The same split fits kollect extraction schemas.
 
 - **OPEN:** Implement namespaced profile in one breaking release vs dual-write transition period?
 - **OPEN:** Short name `kprof` remains; reserve `kcprof` for `KollectClusterProfile`?
-- **DEFERRED (Phase 3):** `KollectClusterSink` + namespaced sink split.
+- **RESOLVED ([ADR-0032](0032-platform-architecture-pivot.md)):** namespaced `KollectSink`; `KollectClusterSink` reserved.

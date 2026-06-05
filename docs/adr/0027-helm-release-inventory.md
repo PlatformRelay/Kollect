@@ -20,29 +20,39 @@ User requirement (2026-06-05): inventory must expose **chart `version` and `appV
 
 ## Decision
 
-### Primary GVK (default demo and first sample)
+### Primary GVK (default demo and first sample) — amended ADR-0032
 
-**`helm.toolkit.fluxcd.io/v2` / `HelmRelease`**
+**`argoproj.io/v1alpha1` / `Application`** (Argo CD)
 
-- Structured `status.history` fields expose `chartVersion`, `appVersion`, revision, deploy time,
-  and status without decoding Helm storage blobs.
-- Works with existing JSONPath/CEL extraction in `internal/collect/extractor.go`.
-- `KollectTarget` should scope releases via namespace and/or label selectors—not cluster-wide
-  `flux-system` unless intentional.
+- Structured `status` sync history and `spec.source` chart metadata — common in Argo CD estates.
+- Works with existing JSONPath/CEL extraction.
+- `KollectTarget` scopes Applications via namespace/label selectors.
 
-Optional attribute: extract `spec.values.image.tag` (or equivalent) when chart `appVersion` is
-stale in generic-chart GitOps layouts.
+**Amended (2026-06-05):** Argo primary per [ADR-0032](0032-platform-architecture-pivot.md). Flux
+`HelmRelease` sample may remain secondary.
 
-**Version fields:** prefer Flux **status** authoritative fields over assuming `history[0]` order:
+**Version fields (Argo — lock in contract test):**
+
+| Attribute | Path (candidate) | Notes |
+| --- | --- | --- |
+| `chartVersion` | `$.status.sync.revision` or history entry chart revision | **Contract test required** |
+| `appVersion` | From helm parameters / `status.history` | Validate against golden fixture |
+| `revision` | `$.status.history[*].revision` | Ordering validated in CI |
+| `valuesChecksum` | `$.status.sync.comparedTo` digest or equivalent | Drift without full values export |
+
+**Contract test (CI):** golden **`Application`** fixture in `test/schema/` or envtest asserts
+
+### Secondary GVK (Flux)
+
+**`helm.toolkit.fluxcd.io/v2` / `HelmRelease`** — optional sample; paths below for Flux shops:
 
 | Attribute | Path | Notes |
 | --- | --- | --- |
-| `chartVersion` | `$.status.lastAttemptedRevision` | **Authoritative** chart revision from controller |
-| `appVersion` | `$.status.history[0].appVersion` | Flux orders newest first — **must pass contract test** against fixture |
-| `revision` | `$.status.history[0].version` | Helm release revision integer — same contract test |
-| `valuesChecksum` | `$.status.lastAttemptedConfigDigest` | Drift without exporting values |
+| `chartVersion` | `$.status.lastAttemptedRevision` | Authoritative for Flux |
+| `appVersion` | `$.status.history[0].appVersion` | Contract test for ordering |
+| `valuesChecksum` | `$.status.lastAttemptedConfigDigest` | |
 
-**Contract test (CI):** golden `HelmRelease` fixture in `test/schema/` or envtest asserts
+**Contract test (CI):** golden `HelmRelease` fixture (secondary) asserts
 `history[0]` is newest (compare `lastDeployed` / `version` ordering) and that
 `lastAttemptedRevision` matches expected chart version string.
 

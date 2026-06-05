@@ -27,6 +27,7 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0029](0029-watch-labels.md) | Watch opt-in/opt-out labels (Accepted) |
 | [0030](0030-connection-test.md) | Connection test — no dedicated CR (Accepted) |
 | [0031](0031-namespaced-profiles.md) | Namespaced KollectProfile (Accepted) |
+| [0032](0032-platform-architecture-pivot.md) | Platform architecture pivot (Accepted) |
 
 See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md),
 [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md), and [PERFORMANCE.md](../PERFORMANCE.md).

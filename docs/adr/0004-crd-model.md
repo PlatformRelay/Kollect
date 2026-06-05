@@ -31,7 +31,7 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 | Kind | Scope | Role |
 | --- | --- | --- |
 | `KollectProfile` | **Namespace** (breaking; was cluster) | Reusable extraction schema: GVK + named CEL/JSONPath attributes ([ADR-0031](0031-namespaced-profiles.md)) |
-| `KollectSink` | Cluster | Backend config: `type` (`git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka`) + endpoint + `secretRef` + TLS trust; resolved via Go registry ([ADR-0025](0025-sink-backends-database-kafka.md)) |
+| `KollectSink` | **Namespace** (breaking; was cluster) | Backend config: `type` (`git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka`) + endpoint + `secretRef` + TLS trust ([ADR-0032](0032-platform-architecture-pivot.md)) |
 | `KollectScope` | **Namespace** (Phase 1 priority) | Tenancy boundary: allowed GVKs, namespaces, sinks for a team ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
 
 ### Reconciled (controller + dynamic informers)
@@ -46,13 +46,20 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 | Kind | Rationale |
 | --- | --- |
 | `KollectPublication` | Doc-sync / Confluence / in-operator templating — out of scope; use Git export + external CI ([ADR-0011](0011-doc-sync-templating.md)) |
+| `KollectHub` | Hub Deployment lifecycle via CRD — use Helm **`mode: hub`** instead ([ADR-0032](0032-platform-architecture-pivot.md)) |
+
+### Reconciled (connection test)
+
+| Kind | Scope | Role |
+| --- | --- | --- |
+| `KollectConnectionTest` | Namespace | One-shot / CI probe of sink (+ optional profile); [ADR-0032](0032-platform-architecture-pivot.md) |
 
 ### Reserved (designed, not built yet)
 
 - `KollectReceiver` — inbound webhook → trigger (Flux Receiver pattern).
 - `KollectTargetSet` — generator templating many Targets (ApplicationSet pattern).
-- **`KollectClusterProfile`** (cluster) — platform-shared extraction schemas; mirrors ESO
-  `ClusterSecretStore` vs `SecretStore` ([ADR-0031](0031-namespaced-profiles.md)).
+- **`KollectClusterProfile`** (cluster) — platform-shared extraction schemas ([ADR-0031](0031-namespaced-profiles.md)).
+- **`KollectClusterSink`** (cluster) — platform-shared export backends ([ADR-0032](0032-platform-architecture-pivot.md)).
 - **`KollectClusterInventory`** (cluster) — platform-wide rollup across namespaces. **No controller in Phase 0–1** — ADR + plan only.
 - **`KollectClusterScope`** (cluster) — platform tenancy boundary when namespaced `KollectScope` is
   insufficient; addition after namespaced scope enforcement ships (Phase 3).
@@ -95,7 +102,7 @@ Phase 1 API. Schema clarity and aggregation matter more than where filtering run
 ### Positive
 
 - Static Profile/Sink cuts moving parts (validated at admission, read at reconcile time).
-- Namespaced Profiles align with team ownership; cluster Sinks enable shared platform export backends.
+- Namespaced Profiles and Sinks align with team ownership and `tenantMode` installs.
 - Prefix naming is grep-friendly and avoids generic kind collisions in multi-operator clusters.
 - Early webhooks prevent bad profiles from wedging reconcilers.
 - **`KollectClusterInventory`** reserved for platform portal without blocking team-scoped MVP.
@@ -103,12 +110,11 @@ Phase 1 API. Schema clarity and aggregation matter more than where filtering run
 ### Negative
 
 - Namespaced inventory requires one object per namespace (or explicit federation via hub — [ADR-0022](0022-multi-cluster-sync-rfc.md)).
-- `KollectSink` is cluster-scoped only today — no namespaced sink variant unlike ESO's Store split.
+- Breaking scope migration for Profile and Sink requires sample and RBAC sweep.
 - Webhook + CEL maintenance cost on every new attribute type rule.
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** Defer **`KollectClusterSink` + namespaced `KollectSink` split to Phase 3**.
-  Phase 1 uses cluster-scoped `KollectSink` + `KollectScope.sinkRefs` allowlists ([ADR-0016](0016-namespaced-multi-tenancy.md)).
+- **RESOLVED (2026-06-05):** **`KollectSink` is namespaced**; **`KollectClusterSink`** reserved for platform-shared backends ([ADR-0032](0032-platform-architecture-pivot.md)).
 - **OPEN:** Single `caBundle` field vs only `secretRef` for CA — size limits on CRD spec?
 - **OPEN:** `KollectClusterInventory` selector model — all namespaces vs explicit namespace list?

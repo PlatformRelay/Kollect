@@ -34,8 +34,11 @@ at scale. Developer portals also need a **read path** without scraping Git — a
    golden tests are reproducible.
 4. **Bounded lists:** paginate API `List` calls; scope informer caches with namespace/label selectors.
 5. **Status patch discipline:** patch status only when changed; avoid hot loops writing large status.
-6. **Read-only HTTP inventory API (core):** expose aggregated inventory via operator HTTP
-   (feature-gated in spec or manager flags). Same schema as sink export where possible.
+6. **Read-only HTTP inventory API (optional):** expose aggregated inventory via operator HTTP
+   for **debug and small installs only** — feature-gated, **off in production Helm defaults**
+   ([ADR-0032](0032-platform-architecture-pivot.md)). Scalable portal read uses **sink export**
+   (Postgres/Kafka) and hub merged store — not spoke HTTP at fleet scale. Same schema as sink
+   export where possible when enabled.
    - **Auth (primary):** delegate to Kubernetes API auth — **TokenReview** + **SubjectAccessReview**;
      callers use standard `Authorization: Bearer` service account tokens;
      `--inventory-auth-mode=kubernetes` (default). See [ADR-0024](0024-inventory-api-auth.md).

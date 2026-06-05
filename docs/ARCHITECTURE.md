@@ -1,225 +1,135 @@
 # kollect architecture
 
 kollect is a Kubernetes operator that **collects inventory from arbitrary resources**, **aggregates
-across targets (and later clusters)**, and **exports auditable snapshots to pluggable backends** so
-teams without direct cluster or Git access can still see versioned, traceable system state via portals,
-SQL, or event streams.
+across targets (and later clusters)**, and **exports auditable snapshots to pluggable backends**
+(Postgres, Kafka, Git, …) so portals and automation can query **durable export data** instead of
+scraping the Kubernetes API at scale.
+
+**Summary for implementers:** [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) · **ADR:** [adr/0032-platform-architecture-pivot.md](adr/0032-platform-architecture-pivot.md)
 
 ## Problem statement
 
 Platform and application teams need **versioned, stakeholder-facing inventory** of what runs in
 Kubernetes, but:
 
-- Stakeholders often lack repo access, `kubectl` skills, or cluster credentials.
+- Stakeholders should not depend on unbounded **kube-apiserver** list/watch for portal views.
 - Raw API access does not produce audit-friendly, diffable history.
-- Hardcoded inventory schemas (batch collectors) break when new CRDs or attributes are needed.
-- Large fleets (~60 clusters) must not produce **60 commits or 60 export events** per logical change.
+- Hardcoded inventory schemas break when new CRDs or attributes are needed.
+- Large fleets must not produce **N export storms** or **N Git commits** per logical change.
 
-kollect watches user-defined GVKs, extracts attributes via CEL/JSONPath, **aggregates** results, and
-**exports to Git, HTTP, Postgres, Kafka, and other sinks** so a **developer portal** can combine live
-API data with exported history. **Templated documentation** (Confluence, wiki pages) is handled **outside**
-the operator — e.g. GitLab CI over Git export ([ADR-0011](adr/0011-doc-sync-templating.md)).
+kollect watches user-defined GVKs, extracts attributes via CEL/JSONPath, **aggregates** in memory,
+**debounces export** to sinks, and keeps **Postgres/Kafka** as the primary integration path for
+portals. **Templated documentation** (Confluence, wiki) stays **outside** the operator
+([ADR-0011](adr/0011-doc-sync-templating.md)).
 
 ## CRD model
 
 ```mermaid
 flowchart TD
-  subgraph staticCfg [Static config — validated, no reconciler]
-    Profile["KollectProfile (namespaced)\nGVK + attribute paths"]
-    Sink["KollectSink (cluster)\ngit | gitlab | s3 | gcs | postgres | kafka\n+ custom CA TLS"]
-    Scope["KollectScope (namespaced, Phase 1)\ntenancy boundary"]
-    CScope["KollectClusterScope (reserved, cluster)"]
-  end
-
-  subgraph reconciled [Reconciled — controllers + informers]
-    Target["KollectTarget (namespaced)\nprofileRef + selectors + suspend"]
-    Inv["KollectInventory (namespaced)\naggregate + dispatch"]
-    CInv["KollectClusterInventory (reserved, cluster)"]
+  subgraph teamNs [Team namespace — default]
+    Profile["KollectProfile"]
+    Sink["KollectSink"]
+    Scope["KollectScope"]
+    Target["KollectTarget"]
+    Inv["KollectInventory"]
+    ConnTest["KollectConnectionTest"]
   end
 
   Profile --> Target
-  Scope -.governs.-> Target
-  Target -->|"dynamic informer"| K8s["Kubernetes API"]
+  Scope -.-> Target
+  Scope -.-> Inv
+  Target -->|"shared informer per GVK"| K8s["Kubernetes API"]
   Target --> Inv
   Inv --> Sink
-  Inv --> HTTP["HTTP /inventory API"]
-  Sink --> Backends["Git / GitLab / S3 / GCS / Postgres / Kafka"]
+  ConnTest -.-> Sink
+  Sink --> DB["Postgres / Kafka (primary)"]
+  Sink --> Git["Git (audit)"]
+  Inv -.->|"optional, gated"| HTTP["HTTP debug API"]
 ```
 
 | Kind | Scope | Reconciled | Purpose |
 | --- | --- | --- | --- |
-| `KollectProfile` | Namespace | No | Extraction schema for a GVK ([ADR-0031](adr/0031-namespaced-profiles.md)) |
-| `KollectSink` | Cluster | Probe only | Export backend + TLS; `ConnectionVerified` ([ADR-0030](adr/0030-connection-test.md)) |
-| `KollectScope` | Namespace | No | Allowed GVKs, namespaces, sinks (Phase 1 — [ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
-| `KollectClusterScope` | Cluster | No | **Reserved** — platform tenancy (Phase 3+) |
+| `KollectProfile` | Namespace | No | Extraction schema ([ADR-0031](adr/0031-namespaced-profiles.md)) |
+| `KollectSink` | **Namespace** | Probe only | Export backend; `ConnectionVerified` ([ADR-0030](adr/0030-connection-test.md), [ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| `KollectScope` | Namespace | No | Tenancy boundary ([ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
 | `KollectTarget` | Namespace | Yes | Select resources, run collection |
-| `KollectInventory` | Namespace | Yes | Aggregate targets in namespace; export to sinks |
-| `KollectClusterInventory` | Cluster | Yes | **Reserved** — platform rollup (not Phase 0–1) |
-| ~~`KollectPublication`~~ | — | **Rejected** | Doc-sync / Confluence — never ([ADR-0011](adr/0011-doc-sync-templating.md)) |
+| `KollectInventory` | Namespace | Yes | Aggregate targets; export to sinks |
+| `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| `KollectClusterProfile` | Cluster | No | **Reserved** — platform schemas |
+| `KollectClusterSink` | Cluster | No | **Reserved** — shared backends |
+| `KollectClusterInventory` | Cluster | Yes | **Reserved** — platform rollup |
+| `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
+| ~~`KollectHub`~~ | — | **Rejected** | Use Helm `mode: hub` ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0011](adr/0011-doc-sync-templating.md) |
 
-See [adr/0004-crd-model.md](adr/0004-crd-model.md) for webhooks, CA TLS, and tenancy questions.
-Postgres and Kafka sink design: [adr/0025-sink-backends-database-kafka.md](adr/0025-sink-backends-database-kafka.md).
+See [adr/0004-crd-model.md](adr/0004-crd-model.md). Reserved kinds are design placeholders — see
+[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md#reserved-crds--what-they-mean).
+
+## Default deployment
+
+**Per-team Helm** with `tenantMode: true` and `watchNamespaces: [team-ns]` is the **documented
+default** for new installs. Platform-wide cluster operator remains supported.
 
 ## Reconciliation flow
 
 ```mermaid
 sequenceDiagram
   participant API as Kubernetes API
-  participant Inf as Dynamic informer
-  participant Tgt as KollectTarget controller
-  participant Eng as Extractor engine
-  participant Inv as KollectInventory controller
-  participant Sink as Sink backend
-  participant HTTP as HTTP API
+  participant Inf as Shared informer (per GVK)
+  participant Tgt as KollectTarget
+  participant Store as In-memory collect store
+  participant Inv as KollectInventory
+  participant Sink as Sink (Postgres/Kafka/Git)
 
-  API-->>Inf: watch events (GVK from Profile)
-  Inf->>Tgt: enqueue Target
-  Tgt->>Eng: CEL/JSONPath on cached objects
-  Eng->>Tgt: attribute rows (in-memory)
-  Note over Tgt: annotate kollect.dev/collectedGeneration
-  Tgt->>Inv: update aggregation trigger
-  Inv->>Sink: serialize + push (one aggregated export)
-  Inv->>HTTP: serve snapshot (feature gate)
-  Sink-->>Inv: export ref (SHA, key, offset)
-  Inv->>API: patch status (counts, conditions, ref only)
+  API-->>Inf: watch events
+  Inf->>Tgt: enqueue
+  Tgt->>Store: upsert rows
+  Tgt->>Inv: trigger aggregation
+  Note over Inv: debounce export window
+  Inv->>Sink: serialized payload
+  Inv->>API: status metadata only
 ```
 
 Key properties:
 
-- **Event-driven** informers, not interval polling ([ADR-0014](adr/0014-event-driven-informers.md)).
-- **Level-based** reconcile — safe to retry.
-- **Status holds summaries only** — full payload to sinks, HTTP, optional PVC ([ADR-0006](adr/0006-etcd-limit.md)).
-- **SAR degradation** — cluster scope falls back to namespace scope when forbidden.
-- **Connection test** — `ConnectionVerified` on `KollectSink` (`spec.connectionTest` + `kollect.dev/test-connection` annotation); pipeline conditions on Inventory/Target follow-up ([ADR-0030](adr/0030-connection-test.md), [ADR-0015](adr/0015-static-vs-reconciled.md)).
-- **Prometheus metrics** on operator `/metrics` only — not an export sink ([ADR-0012](adr/0012-prometheus-metrics-stub.md), [ADR-0020](adr/0020-error-taxonomy.md)).
+- **Event-driven** informers ([ADR-0014](adr/0014-event-driven-informers.md)) — **one informer per GVK**.
+- **Watch opt-in/out** ([ADR-0029](adr/0029-watch-labels.md)) — platform `watchMode: All`; teams
+  exclude with `kollect.dev/watch: disabled`.
+- **Export debouncing** — store updates immediately; sink export coalesced ([ADR-0032](adr/0032-platform-architecture-pivot.md)).
+- **Status holds summaries only** — full payload in sinks ([ADR-0006](adr/0006-etcd-limit.md)).
+- **HTTP inventory** — optional, off by default; debug/small installs only.
 
-## Aggregation (single cluster)
+## Where inventory lives
 
-```mermaid
-flowchart LR
-  T1[Target A]
-  T2[Target B]
-  T3[Target C]
-  Inv[KollectInventory]
-  Out[One export per cycle]
-  T1 --> Inv
-  T2 --> Inv
-  T3 --> Inv
-  Inv --> Out
-```
+| Layer | Durability | Role |
+| --- | --- | --- |
+| Informer + collect store | Pod lifetime | Live collection |
+| `KollectInventory.status` | etcd | Counts, conditions, export refs |
+| **Postgres / Kafka sink** | Durable | **System of record** for portals |
+| Git sink | Durable | Audit / diff |
+| HTTP (if enabled) | Ephemeral | Debug snapshot |
 
-One inventory object rolls up many targets so portals and Git history show a **single** logical export
-per change cycle when configured — prerequisite for multi-cluster hub merge ([REQUIREMENTS.md](REQUIREMENTS.md)).
+## Sinks (priority)
 
-## Multi-cluster outlook
+1. **Postgres / Kafka** — primary portal and automation integration  
+2. **Git / GitLab** — audit trail and compliance diffs  
+3. **HTTP** — optional debug ([ADR-0032](adr/0032-platform-architecture-pivot.md))
 
-Single-cluster install remains the default. For large fleets, see [ADR-0022](adr/0022-multi-cluster-sync-rfc.md).
+## Multi-cluster (build order)
 
-```mermaid
-flowchart TB
-  subgraph now [Phase 0–1 — single cluster]
-    Op[kollect one-pod]
-    Op --> Git1[(Git / HTTP / Postgres / Kafka)]
-  end
-  subgraph later [Phase 2+ — KollectHub CRD]
-    S1[spoke operator]
-    S2[spoke operator]
-    HubCRD[KollectHub]
-    Dep[hub Deployment]
-    Q[lean queue]
-    HubCRD --> Dep
-    S1 --> Q
-    S2 --> Q
-    Dep --> Q
-    Dep --> Git2[(one aggregated export)]
-  end
-  now -.->|does not block| later
-```
+Hub = **`mode: hub`** on same image + `internal/hub/` merge — **no `KollectHub` CRD**
+([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)). Spokes push summaries; hub writes merged
+Postgres/Kafka. Auth: [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md).
 
-Git is **one** transport option; agent-to-agent and object-storage fan-in are documented in the RFC.
-Transformation may occur in the operator, at the sink repo, or in the portal — **schema clarity** matters
-more than where rendering runs.
+Phases in docs are **build order**, not release milestones — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md).
 
-### Hub cluster authentication
+## Connection test
 
-Cross-cluster identity follows an **Istio remote-secret** registration model with **push-first**
-spoke auth ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md)):
+- **`KollectConnectionTest` CR** — primary for CI/audit ([ADR-0032](adr/0032-platform-architecture-pivot.md))
+- Sink `connectionTest` + annotation — supplementary quick checks ([ADR-0030](adr/0030-connection-test.md))
 
-```mermaid
-flowchart LR
-  subgraph spoke [Spoke cluster]
-    Op[spoke operator]
-    SA[SA token]
-    Op --> SA
-  end
-  subgraph hub [Hub cluster]
-    RC[KollectRemoteCluster]
-    Ingest[POST /hub/v1alpha1/reports]
-    TR[TokenReview]
-    Merge[hub merger]
-    RC -.->|optional pull secret| Ingest
-    Ingest --> TR
-    Ingest --> Merge
-  end
-  Op -->|Bearer + X-Kollect-Cluster-Id| Ingest
-```
+## See also
 
-- **`KollectRemoteCluster`** (namespaced on hub) registers `spec.clusterName` and optional
-  `credentialsSecretRef` (Istio-style kubeconfig fragment for hub pull).
-- **Default push path:** spoke reads in-cluster SA token, POSTs `SpokeReport` with
-  `Authorization: Bearer` and `X-Kollect-Cluster-Id`; hub validates via **TokenReview**
-  (same Kubernetes-native pattern as inventory HTTP — [ADR-0024](adr/0024-inventory-api-auth.md)).
-- **HTTP transport:** `KOLLECT_TRANSPORT_TYPE=http` + `KOLLECT_HUB_URL`; queue transports remain
-  the Phase 2 spike default with wire auth deferred.
-
-## Developer portal use case
-
-```mermaid
-flowchart LR
-  subgraph cluster [Kubernetes cluster]
-    Op[kollect operator]
-    CRs[CRDs + workloads]
-    Op --> CRs
-    Op --> Git[(Git inventory repo)]
-    Op --> APIHTTP[HTTP /inventory]
-    Op --> DB[(Postgres)]
-    Op --> KF[Kafka]
-  end
-
-  subgraph portal [Developer portal]
-    UI[Portal UI]
-    K8sAPI[K8s API proxy]
-    GitRO[Git snapshot reader]
-    InvAPI[Inventory HTTP client]
-    CI[Doc CI optional]
-  end
-
-  UI --> K8sAPI
-  UI --> GitRO
-  UI --> InvAPI
-  K8sAPI --> cluster
-  GitRO --> Git
-  InvAPI --> APIHTTP
-  GitRO -.-> CI
-```
-
-1. Platform team defines `KollectProfile` + `KollectSink` (Git, Postgres, Kafka, custom CA) + `KollectTarget` per namespace.
-2. kollect exports **deterministic JSON/YAML** inventory on meaningful changes — **aggregated** export.
-3. Portal reads live API (authorized users), **HTTP inventory**, Git/DB/Kafka history (audit).
-4. Optional Confluence/wiki updates run in **external CI** reading Git export — not in the operator.
-
-## Phasing (summary)
-
-| Phase | Focus |
-| --- | --- |
-| 0 | Bootstrap, guidelines, ADRs, **Helm day 1**, webhooks, metrics, connection test, samples in CI |
-| 1 | Profile + Target + Inventory + Git/GitLab + **Postgres/Kafka sinks** + **HTTP API** + aggregation |
-| 2 | `KollectHub` CRD + spoke/hub ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)); lean queue ([ADR-0023](adr/0023-lean-queue-transport.md)) |
-| 3 | S3/GCS hardening, `KollectScope`, Receiver/TargetSet design |
-| 4 | Richer KSM-style metrics config; advanced aggregation |
-
-## Further reading
-
-- [Product requirements](REQUIREMENTS.md)
-- [Architecture Decision Records](adr/README.md)
-- [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) — error handling, security, testing
+- [REQUIREMENTS.md](REQUIREMENTS.md)
+- [ROADMAP.md](ROADMAP.md)
+- [PERFORMANCE.md](PERFORMANCE.md)

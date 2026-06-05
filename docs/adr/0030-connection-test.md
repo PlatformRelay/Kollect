@@ -1,8 +1,9 @@
-# ADR-0030: Connection test — no dedicated CR
+# ADR-0030: Connection test — sink probes (superseded for CR)
 
 ## Status
 
-Accepted (2026-06-05)
+Accepted (2026-06-05) — **amended:** dedicated CR now **accepted** in [ADR-0032](0032-platform-architecture-pivot.md).
+Sink-only mechanisms below remain valid.
 
 ## Context
 
@@ -21,10 +22,11 @@ webhooks, and orphan CR lifecycle.
 
 ## Decision
 
-### Reject `KollectConnectionTest` CR (Phase 0–2)
+### ~~Reject `KollectConnectionTest` CR~~ → **Accepted in ADR-0032**
 
-Do **not** add a dedicated connection-test kind. Use **declarative spec** + **imperative annotation**
-on `KollectSink`, plus pipeline conditions on reconciled objects.
+Add namespaced **`KollectConnectionTest`** for audited/CI/composite probes. Keep **declarative
+spec** + **imperative annotation** on `KollectSink` for quick sink-only retests, plus pipeline
+conditions on reconciled objects.
 
 ### Sink connectivity (implemented)
 
@@ -84,15 +86,11 @@ prove the full collect → aggregate → export path.
 collection or export. This is an intentional exception to full static-config purity, documented in
 [ADR-0015](0015-static-vs-reconciled.md).
 
-### When to revisit a dedicated CR
+### `KollectConnectionTest` CR (ADR-0032)
 
-Only if a later phase needs **bundled probes** in one shot, for example:
-
-- Sink + `KollectProfile` list permission + SAR in one audited object
-- Hub → spoke cross-cluster probe independent of mutating `KollectSink`
-- CI job that must not flip `spec.connectionTest` on shared cluster sinks
-
-Until then, prefer annotation + optional **Job** manifest in docs over a new API kind.
+Namespaced CR with `spec.sinkRef`, optional `spec.profileRef`, status conditions (latency,
+sanitized errors). Use for CI, audit, and composite probes. Sink annotation/spec remain for ad-hoc
+sink checks.
 
 ## Consequences
 

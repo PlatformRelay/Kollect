@@ -2,7 +2,9 @@
 
 Phased delivery plan for [kollect](https://github.com/konih/kollect) — a Kubernetes inventory
 operator that watches arbitrary GVKs, aggregates extracted attributes, and exports to pluggable
-sinks (Git, object storage, Postgres, Kafka) with a read-only HTTP API for portals.
+sinks (**Postgres/Kafka primary**; Git audit) with optional HTTP for debug.
+
+**Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), [ADR-0032](adr/0032-platform-architecture-pivot.md).
 
 **Last updated:** 2026-06-05
 
@@ -35,8 +37,8 @@ flowchart LR
 | Phase | Focus | Summary |
 | --- | --- | --- |
 | **0** | Bootstrap | Scaffold, guidelines, ADRs, Helm, CI, webhooks, metrics, docs |
-| **1** | Collection + Sink | Dynamic informers, CEL/JSONPath, namespaced inventory, Git/HTTP export |
-| **2** | Multi-cluster | `KollectHub` CRD, spoke agents, pluggable lean queue fan-in |
+| **1** | Collection + Sink | MVP: namespaced CRDs, export to Postgres/Kafka; optional HTTP |
+| **2** | Multi-cluster | Helm `mode: hub\|spoke`, merge lib, pluggable queue (no hub CRD) |
 | **3** | Governance | `KollectScope`, S3/GCS hardening, cluster inventory |
 | **4** | Metrics + aggregation | kube-state-metrics-style config, richer rollups |
 
@@ -133,7 +135,7 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 | --- | --- |
 | Multi-cluster topology RFC | ✅ |
 | Lean queue transport ADR (pluggable factory) | ✅ |
-| `KollectHub` CRD (`spec.transport.type`) | ✅ |
+| ~~`KollectHub` CRD~~ → **Helm `mode: hub`** | ✅ ADR-0032 |
 | Spoke operator / agent snapshot reports (lightweight, delta) | ⬜ |
 | Hub merge and deduplication (O(rows), sharded consumers) | ⬜ |
 | Transport: in-process (dev/test default) | ✅ |
@@ -145,7 +147,7 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 | Spoke HTTP push auth (`Bearer` + `X-Kollect-Cluster-Id`) | ✅ |
 | Hub ingest HTTP stub (`POST /hub/v1alpha1/reports`) | ✅ |
 | Hub pull via `credentialsSecretRef` (optional ADR-0028) | ✅ |
-| `KollectHub.spec.remoteClusters[]` reference wiring | ✅ |
+| Hub Helm values / flags for transport + shard (no hub CRD) | 🚧 |
 
 **Counts:** ✅ 12 · 🚧 1 · ⬜ 2
 
@@ -293,12 +295,16 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | Namespaced inventory is the hub input contract | Accepted |
 | **`KollectProfile` namespaced**; `KollectClusterProfile` reserved | Accepted ([ADR-0031](adr/0031-namespaced-profiles.md)) |
 | **`KollectScope` Phase 1** — webhook + reconciler enforcement | Accepted ([ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
-| Hub-and-spoke via **`KollectHub` CRD last** (L1→L4 layering) | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
-| Same image **`mode: hub\|spoke`** before CRD packaging | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
+| **No `KollectHub` CRD** — Helm `mode: hub\|spoke` | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| **Namespaced `KollectSink`**; `KollectClusterSink` reserved | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| **Postgres/Kafka primary**; Git audit; HTTP debug optional | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| **`KollectConnectionTest` CR** | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| Same image **`mode: hub\|spoke`** | Accepted ([ADR-0022](adr/0022-multi-cluster-sync-rfc.md)) |
 | Transport: **`inprocess` only default**; Redis/NATS/Kafka explicit opt-in | Accepted ([ADR-0023](adr/0023-lean-queue-transport.md)) |
 | Transport backend rule: no merge without integration/e2e proof | Accepted |
-| Connection test: no dedicated CR; prod `connectionTest: false` | Accepted ([ADR-0030](adr/0030-connection-test.md)) |
-| Helm release: `lastAttemptedRevision` + `history[0]` contract test | Accepted ([ADR-0027](adr/0027-helm-release-inventory.md)) |
+| Connection test: **`KollectConnectionTest` CR** + sink probes; prod `connectionTest: false` | Accepted ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
+| Helm sample: **Argo `Application` primary** + contract test | Accepted ([ADR-0027](adr/0027-helm-release-inventory.md)) |
+| Default install: **`tenantMode: true`** per-team | Accepted ([ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
 | Shared informer per GVK | Accepted ([ADR-0014](adr/0014-event-driven-informers.md)) |
 | Postgres + Kafka as first-class export sinks | Accepted ([ADR-0025](adr/0025-sink-backends-database-kafka.md)) |
 | Doc-sync / `KollectPublication` | Rejected ([ADR-0011](adr/0011-doc-sync-templating.md)) |

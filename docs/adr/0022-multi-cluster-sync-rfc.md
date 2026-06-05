@@ -144,13 +144,12 @@ primitives:
 
 | Layer | Ships when | Reuse |
 | --- | --- | --- |
-| **L1 — Single cluster** | Phase 1 | Namespaced inventory, export contract, HTTP API, `Transport` interface with `inprocess` only |
-| **L2 — Hub library** | Phase 2 spike | Merge/dedupe + shard routing in `internal/hub/`; tested with `inprocess` and optional Redis spike |
-| **L3 — Helm hub mode** | Phase 2 | Manager flag / chart values `mode: hub` + `mode: spoke` on **same image** — no second binary until proven necessary |
-| **L4 — `KollectHub` CRD** | After L2–L3 proof | CRD spawns Deployment + wires `spec.transport` — wraps L2 code; does not replace merge logic |
+| **L1 — Single cluster** | First | Namespaced inventory, export to Postgres/Kafka, `Transport` with `inprocess` only |
+| **L2 — Hub library** | Next | Merge/dedupe + shard routing in `internal/hub/`; `inprocess` tests |
+| **L3 — Helm hub mode** | Next | Chart values / `--mode=hub\|spoke` on **same image** — **no `KollectHub` CRD** ([ADR-0032](0032-platform-architecture-pivot.md)) |
 
 **Rule:** do not build hub-only merge or transport code that single-cluster export cannot exercise.
-`KollectHub` CRD is **declarative packaging** of proven hub mode, not the first hub implementation.
+Hub is **Helm configuration**, not a CRD lifecycle.
 
 ## Recommended phasing (non-blocking)
 
@@ -158,7 +157,7 @@ primitives:
 | --- | --- | --- |
 | **0** | One pod, one cluster, Helm, webhooks, metrics, connection test | CRDs and status model stay cluster-local |
 | **1** | Namespaced `KollectInventory` aggregation, HTTP `/inventory`, Git/GitLab sink + **custom CA** | Export contract stable for hub to consume; operator metrics + bounded benchmarks ([ADR-0026](0026-performance-scalability.md)) |
-| **2** | **`KollectHub` CRD** + lightweight spoke posting to hub queue or HTTPS | Hub Deployment + lean queue + **shard routing** prototype |
+| **2** | **`mode: hub\|spoke`** + spoke push to hub ingest / queue | Helm hub Deployment + merge lib + shard routing |
 | **3** | Queue-backed async (pluggable per [ADR-0023](0023-lean-queue-transport.md)) | Spokes decoupled from hub uptime; optional Kafka partitions |
 | **Later** | `KollectClusterInventory` | After aggregation proven at 100+ spoke scale; doc-sync rejected ([ADR-0011](0011-doc-sync-templating.md)) |
 
@@ -166,12 +165,12 @@ Single-cluster users never enable hub/spoke CRs or flags.
 
 ## Decision
 
-1. **Do not block Phase 0/1** on multi-cluster CRDs — use labels/annotations; **`KollectHub` CRD last** (L4) after L2–L3 proof.
+1. **Do not block MVP** on multi-cluster — hub is Helm `mode` + library, not a hub CRD ([ADR-0032](0032-platform-architecture-pivot.md)).
 2. **Design namespaced `KollectInventory` aggregation** as if 100+ clusters feed a sharded hub export.
-3. **Prefer hub-and-spoke with `KollectHub` CRD** for platform teams at 100+ cluster scale; keep agent mesh and Git-as-transport as documented alternatives.
-4. **Lean queue pluggable**, **`inprocess` default only** — Redis/NATS/Kafka explicit opt-in ([ADR-0023](0023-lean-queue-transport.md)).
-5. **Spokes must stay lightweight** — delta snapshots, bounded RAM, no hub-side O(n²) coupling.
-6. **One image, `mode: hub|spoke`** — merge library (L2) and Helm mode (L3) before CRD packaging (L4); no throwaway hub-only code paths.
+3. **Hub-and-spoke** via same image `mode: hub|spoke`; portal reads **hub Postgres/Kafka**, not Git per spoke.
+4. **Lean queue pluggable**, **`inprocess` default only** ([ADR-0023](0023-lean-queue-transport.md)).
+5. **Spokes must stay lightweight** — delta snapshots, bounded RAM, debounced export.
+6. **Reject `KollectHub` CRD** — configuration via Helm values and flags only.
 
 ## Consequences
 
@@ -179,7 +178,7 @@ Single-cluster users never enable hub/spoke CRs or flags.
 
 - Clear narrative for platform teams at **100+ cluster** scale and giant single clusters.
 - Single-cluster MVP remains the default install story.
-- Hub lifecycle (Deployment, queue wiring, sharding) is declarative via CRD.
+- Hub lifecycle is Helm-native (`mode`, transport, shard flags).
 - Early perf visibility via operator metrics and bounded benchmarks ([ADR-0026](0026-performance-scalability.md)) reduces architectural lock-in risk.
 
 ### Negative

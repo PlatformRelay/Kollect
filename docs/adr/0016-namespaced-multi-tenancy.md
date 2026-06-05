@@ -26,13 +26,14 @@ Support **both** deployment models:
 
 | Model | When | Mechanism |
 | --- | --- | --- |
-| **Cluster-scoped manager (default)** | Platform team runs one operator | Manager watches all namespaces; **`KollectScope`** in each tenant namespace governs allowed GVKs, workload namespaces, and `KollectSink` refs |
-| **Namespaced manager per team** | Strong isolation or delegated installs | Helm release in tenant namespace with `watchNamespaces: [team-a]` and `tenantMode: true` (namespaced `Role` RBAC) — mirrors ESO scoped controller installs |
+| **Per-team manager (default for now)** | Delegated / team-owned installs | Helm with `watchNamespaces: [team-a]` and **`tenantMode: true`** — namespaced Role RBAC; namespaced Profile/Sink/Target/Inventory in team namespace ([ADR-0032](0032-platform-architecture-pivot.md)) |
+| **Cluster-scoped manager** | Platform team operates one shared operator | Watches all namespaces; **`KollectScope`** per tenant namespace governs GVKs, workload namespaces, and sink refs |
 
 ### Operator watch scope
 
-- **Default:** empty `watchNamespaces` / unset `--watch-namespaces` → controller-runtime cache watches
-  **all namespaces** (cluster-scoped operator).
+- **Documented default for new installs (owner preference):** `tenantMode: true` + non-empty
+  `watchNamespaces` for per-team Helm releases.
+- **Platform option:** empty `watchNamespaces` → watches **all namespaces** (cluster-scoped operator).
 - **Team-scoped:** non-empty list → `cache.Options{DefaultNamespaces}` restricts informers and
   reconcilers to those namespaces only ([controller-runtime cache options](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/cache#Options)).
 
