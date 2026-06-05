@@ -1,8 +1,9 @@
-{{- if and .Values.rbac.create (not .Values.tenantMode) }}
+{{- if and .Values.rbac.create .Values.tenantMode }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: {{ include "kollect.fullname" . }}-manager
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kollect.labels" . | nindent 4 }}
 rules:
@@ -18,7 +19,4 @@ rules:
   - apiGroups: [kollect.dev]
     resources: [kollectinventories/status, kollectsinks/status, kollecttargets/status]
     verbs: [get, patch, update]
-  - apiGroups: [kollect.dev]
-    resources: [kollectprofiles]
-    verbs: [get, list, watch]
 {{- end }}

@@ -1,0 +1,27 @@
+{{- if and .Values.rbac.create .Values.tenantMode }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kollect.fullname" . }}-profile-reader
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [kollect.dev]
+    resources: [kollectprofiles]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kollect.fullname" . }}-profile-reader
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kollect.fullname" . }}-profile-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kollect.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

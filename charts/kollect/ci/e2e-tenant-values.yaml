@@ -1,0 +1,13 @@
+# CI / nightly e2e: inventory HTTP on, webhooks off (kind smoke), cluster-scoped manager.
+featureGates:
+  inventoryHttp:
+    enabled: true
+    authMode: disabled
+
+webhooks:
+  enabled: false
+
+# Empty = watch all namespaces; multi-tenant isolation is proven via dynamic tenant NS + inventory rollup.
+watchNamespaces: []
+
+tenantMode: false

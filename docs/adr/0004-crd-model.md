@@ -32,7 +32,7 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 | --- | --- | --- |
 | `KollectProfile` | Cluster | Reusable extraction schema: GVK + named CEL/JSONPath attributes |
 | `KollectSink` | Cluster | Backend config: `type` (`git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka`) + endpoint + `secretRef` + TLS trust; resolved via Go registry ([ADR-0025](0025-sink-backends-database-kafka.md)) |
-| `KollectScope` | **Namespace** (Phase 3 priority) | Tenancy boundary: allowed GVKs, namespaces, sinks for a team |
+| `KollectScope` | **Namespace** (Phase 1 priority) | Tenancy boundary: allowed GVKs, namespaces, sinks for a team ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
 
 ### Reconciled (controller + dynamic informers)
 
@@ -54,7 +54,7 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 - **`KollectClusterInventory`** (cluster) — platform-wide rollup across namespaces; mirrors ESO
   `ClusterSecretStore` vs `SecretStore`. **No controller in Phase 0–1** — ADR + plan only.
 - **`KollectClusterScope`** (cluster) — platform tenancy boundary when namespaced `KollectScope` is
-  insufficient; addition after namespaced scope ships (Phase 3).
+  insufficient; addition after namespaced scope enforcement ships (Phase 3).
 
 Short names: `kprof`, `ksink`, `kscope`, `ktgt`, `kinv` (reserved: `kcinv`, `kcscope`). `kpub` was
 reserved for rejected `KollectPublication` — do not use.

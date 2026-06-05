@@ -31,7 +31,7 @@ ADRs in [adr/README.md](adr/README.md) capture design decisions; this document c
 | **`KollectHub` CRD (hub cluster)** | Hub is declarative CRD → operator-managed Deployment → lean queue → aggregated export |
 | **Lean queue transport (pluggable)** | `Transport` interface; `inprocess` → **Redis Streams** (Phase 2 spike) → NATS/Kafka via config — [ADR-0023](adr/0023-lean-queue-transport.md); backend only ships with integration/e2e proof |
 | **Namespaced `KollectInventory`** | Team-owned rollup; **`KollectClusterInventory`** reserved for platform ([ADR-0004](adr/0004-crd-model.md)) |
-| **Namespaced `KollectScope` (Phase 3)** | Tenancy boundary first; **`KollectClusterScope`** for platform teams as addition |
+| **Namespaced `KollectScope` (Phase 1 — ASAP)** | Tenancy boundary + `watchNamespaces` / `tenantMode` Helm options; **`KollectClusterScope`** for platform teams as addition ([ADR-0016](adr/0016-namespaced-multi-tenancy.md)) |
 
 ## Performance and scalability
 

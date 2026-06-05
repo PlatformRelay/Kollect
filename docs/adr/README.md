@@ -14,6 +14,7 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0013](0013-prior-art.md) | Prior art and OSS reference patterns |
 | [0014](0014-event-driven-informers.md) | Event-driven dynamic informers |
 | [0015](0015-static-vs-reconciled.md) | Static config vs reconciled CRDs |
+| [0016](0016-namespaced-multi-tenancy.md) | Namespaced multi-tenancy and operator watch scope (Accepted) |
 | [0020](0020-error-taxonomy.md) | Error taxonomy and reconcile behavior |
 | [0021](0021-mkdocs-github-pages.md) | MkDocs Material for documentation site |
 | [0022](0022-multi-cluster-sync-rfc.md) | Multi-cluster sync topology (RFC, Proposed) |

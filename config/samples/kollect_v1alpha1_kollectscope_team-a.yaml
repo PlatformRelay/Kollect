@@ -1,0 +1,20 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectScope
+metadata:
+  name: team-a-scope
+  namespace: team-a
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  allowedGVKs:
+    - group: apps
+      version: v1
+      kind: Deployment
+    - group: ""
+      version: v1
+      kind: Service
+  allowedNamespaces:
+    - team-a
+  sinkRefs:
+    - demo-git

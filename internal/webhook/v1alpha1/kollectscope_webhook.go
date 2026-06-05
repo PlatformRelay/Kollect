@@ -55,5 +55,24 @@ func (v *kollectScopeValidator) validate(scope *kollectdevv1alpha1.KollectScope)
 		}
 	}
 
+	if err := validateUniqueNonEmptyStrings(scope.Spec.AllowedNamespaces, "spec.allowedNamespaces"); err != nil {
+		return err
+	}
+
+	return validateUniqueNonEmptyStrings(scope.Spec.SinkRefs, "spec.sinkRefs")
+}
+
+func validateUniqueNonEmptyStrings(values []string, field string) error {
+	seen := make(map[string]struct{}, len(values))
+	for i, value := range values {
+		if value == "" {
+			return fmt.Errorf("%s[%d]: must not be empty", field, i)
+		}
+		if _, ok := seen[value]; ok {
+			return fmt.Errorf("%s[%d]: duplicate entry %q", field, i, value)
+		}
+		seen[value] = struct{}{}
+	}
+
 	return nil
 }

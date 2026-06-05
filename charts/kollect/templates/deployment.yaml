@@ -59,6 +59,9 @@ spec:
             {{- if .Values.webhooks.enabled }}
             - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
             {{- end }}
+            {{- if .Values.watchNamespaces }}
+            - --watch-namespaces={{ join "," .Values.watchNamespaces }}
+            {{- end }}
             {{- with .Values.extraArgs }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

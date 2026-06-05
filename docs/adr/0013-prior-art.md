@@ -26,7 +26,7 @@ Primary OSS references we **actually use** for design and CI patterns:
 | Pattern | Finding | kollect stance |
 | --- | --- | --- |
 | Provider plugin registry | `SecretStoreProvider` discriminated union + Go provider packages | **Adopt** — `KollectSink` `type` + internal registry/factory (ADR-0005) |
-| Cluster vs namespaced stores | `ClusterSecretStore` + namespace `conditions` | **Adopt (defer Phase 3)** — inform `KollectScope` and optional sink split |
+| Cluster vs namespaced stores | `ClusterSecretStore` + namespace `conditions` | **Adopt (Phase 1)** — `KollectScope` + optional `watchNamespaces` / `tenantMode` ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
 | Helm/CI | `helm-docs`, `helm-unittest`, `values.schema.json`, `helm template` → manifests | **Adopt** — Helm chart **day 1** ([REQUIREMENTS.md](../REQUIREMENTS.md)) |
 | Status content | Sync metadata only, never secret bytes | **Adopt** — aligns with ADR-0006 |
 | Reconciled SecretStore | ESO reconciles stores for validation/status | **Reject for Profile/Sink** — follow Flux static config (ADR-0015) |
@@ -46,7 +46,7 @@ Primary OSS references we **actually use** for design and CI patterns:
 
 | Pattern | Finding | kollect stance |
 | --- | --- | --- |
-| AppProject | Allowed repos, destinations, resource GVKs, RBAC roles | **Adopt (Phase 3)** — `KollectScope` |
+| AppProject | Allowed repos, destinations, resource GVKs, RBAC roles | **Adopt (Phase 1)** — namespaced `KollectScope` ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
 | ApplicationSet generators | Matrix/git/cluster generators → many Applications | **Defer** — reserve `KollectTargetSet` |
 | Status conditions | `SetConditions` with evaluated types, health aggregation | **Adopt** — `Ready`/`Synced`/`Degraded` + `observedGeneration` |
 | Application status size | Summaries + revision, not full manifest in status | **Adopt** — reinforces ADR-0006 |
@@ -104,7 +104,8 @@ export noise.
 
 ## Open questions
 
-- **OPEN:** Multi-tenant: one cluster-scoped operator + `KollectScope`, or namespaced operator
-  deployments per team (ESO `controller` field pattern)?
+- **RESOLVED (2026-06-05):** Multi-tenant — **both** deployment models: default cluster-scoped manager
+  with namespaced `KollectScope` tenancy, plus optional per-team installs via Helm `watchNamespaces[]`
+  and `tenantMode` (ESO scoped-controller pattern). Phase 1 priority — [ADR-0016](0016-namespaced-multi-tenancy.md).
 - **RESOLVED (2026-06-05):** Helm release sample — Flux `HelmRelease` summary profile default;
   values profile gated + redacted ([ADR-0027](0027-helm-release-inventory.md)).

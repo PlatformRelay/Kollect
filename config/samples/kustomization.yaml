@@ -10,4 +10,5 @@ resources:
 - kollect_v1alpha1_kollecttarget.yaml
 - kollect_v1alpha1_kollecttarget_helm-releases.yaml
 - kollect_v1alpha1_kollectinventory.yaml
+- kollect_v1alpha1_kollectscope_team-a.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

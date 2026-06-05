@@ -23,7 +23,7 @@ overrides may be needed later without forking profiles.
 
 | Category | Kinds | Controller | Status | Validation |
 | --- | --- | --- | --- | --- |
-| Static config | `KollectProfile`, `KollectSink`, `KollectScope` | None | None (or minimal metadata only) | CEL `x-kubernetes-validations`, **validating webhook** |
+| Static config | `KollectProfile`, `KollectSink`, `KollectScope` (namespaced) | None | None (or minimal metadata only) | CEL `x-kubernetes-validations`, **validating webhook** ([ADR-0016](0016-namespaced-multi-tenancy.md)) |
 | Reconciled | `KollectTarget`, `KollectInventory` | Yes | Full conditions + `observedGeneration` | Same + runtime SAR checks |
 
 Rationale (Flux-aligned):

@@ -22,6 +22,14 @@ serviceAccount:
 rbac:
   create: true
 
+# Restrict the manager informer cache to these namespaces (empty = all namespaces).
+# Use for per-team operator installs — mirrors external-secrets scoped controller pattern.
+watchNamespaces: []
+
+# When true, render a namespaced Role/RoleBinding instead of ClusterRole/ClusterRoleBinding.
+# Cluster-scoped KollectProfile read requires a separate platform ClusterRole binding.
+tenantMode: false
+
 leaderElection:
   enabled: true
 

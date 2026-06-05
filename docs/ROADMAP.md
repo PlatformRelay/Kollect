@@ -112,8 +112,12 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Integration tests (testcontainers) in CI | 🚧 |
 | End-to-end: install → collect → export → HTTP | 🚧 |
 | `spec.suspend` on reconciled kinds | ✅ |
+| **Multi-tenant (ASAP):** `watchNamespaces` / `tenantMode` Helm + `--watch-namespaces` | 🚧 |
+| **Multi-tenant:** `KollectScope` webhook + sample | 🚧 |
+| **Multi-tenant e2e:** dynamic `kollect-tenant-a` / `kollect-tenant-b` isolation | 🚧 |
+| Inventory namespace isolation unit tests | 🚧 |
 
-**Counts:** ✅ 15 · 🚧 5 · ⬜ 14
+**Counts:** ✅ 15 · 🚧 9 · ⬜ 14
 
 ---
 
@@ -148,7 +152,7 @@ never O(spokes²). See [ADR-0022](adr/0022-multi-cluster-sync-rfc.md) and
 
 | Item | Status |
 | --- | --- |
-| `KollectScope` (namespaced tenancy boundary) | ✅ |
+| `KollectScope` reconciler-time enforcement | ⬜ |
 | `KollectClusterScope` (platform teams) | 🔮 |
 | `KollectClusterInventory` (platform rollup) | ⬜ |
 | GCS sink | ✅ |
@@ -239,7 +243,6 @@ Cross-cutting NFRs accepted in [ADR-0026](adr/0026-performance-scalability.md). 
 
 - **Connection test CR** vs annotation-only trigger on Sink/Inventory
 - **Cluster vs namespaced sink** split timing (`KollectClusterSink`)
-- **Operator deployment model** — one cluster-scoped operator vs namespaced per team
 - **Hub ingest SAR shape** — `create` on `kollectremoteclusters` vs custom URL ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md))
 
 ## Breaking changes

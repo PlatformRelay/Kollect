@@ -31,6 +31,7 @@ import (
 	"github.com/konih/kollect/internal/hub"
 	"github.com/konih/kollect/internal/inventory"
 	"github.com/konih/kollect/internal/metrics"
+	"github.com/konih/kollect/internal/operator"
 	"github.com/konih/kollect/internal/pprof"
 	"github.com/konih/kollect/internal/sink"
 	webhookv1alpha1 "github.com/konih/kollect/internal/webhook/v1alpha1"
@@ -69,6 +70,7 @@ func main() {
 	var enablePprof bool
 	var pprofAddr string
 	var hubConsumer bool
+	var watchNamespacesRaw string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -109,6 +111,8 @@ func main() {
 		"Bind address for pprof when --enable-pprof is set.")
 	flag.BoolVar(&hubConsumer, "hub-consumer", false,
 		"Run as hub spoke-report consumer (requires KOLLECT_HUB_NAME).")
+	flag.StringVar(&watchNamespacesRaw, "watch-namespaces", "",
+		"Comma-separated namespaces to watch (empty = all namespaces).")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -189,8 +193,15 @@ func main() {
 		metricsServerOptions.KeyName = metricsCertKey
 	}
 
+	watchNamespaces := operator.ParseWatchNamespaces(watchNamespacesRaw)
+	cacheOpts := operator.CacheOptionsForWatchNamespaces(watchNamespaces)
+	if len(watchNamespaces) > 0 {
+		setupLog.Info("Restricting manager cache to namespaces", "watchNamespaces", watchNamespaces)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
+		Cache:                  cacheOpts,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,

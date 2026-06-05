@@ -1,13 +1,14 @@
-{{- if and .Values.rbac.create (not .Values.tenantMode) }}
+{{- if and .Values.rbac.create .Values.tenantMode }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: {{ include "kollect.fullname" . }}-manager
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kollect.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: {{ include "kollect.fullname" . }}-manager
 subjects:
   - kind: ServiceAccount
