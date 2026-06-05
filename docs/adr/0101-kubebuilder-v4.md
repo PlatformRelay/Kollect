@@ -1,12 +1,12 @@
 # ADR-0101: Kubebuilder v4 + controller-runtime
 
-> Build kollect on Kubebuilder v4 + controller-runtime (Go 1.26) — proven operator scaffolding.
+> Build Kollect on Kubebuilder v4 + controller-runtime (Go 1.26) — proven operator scaffolding.
 
 **Theme:** 01 · Foundations · **Status:** Current
 
 ## Context
 
-kollect is a Kubernetes operator that watches arbitrary GVKs, extracts attributes, aggregates
+Kollect is a Kubernetes operator that watches arbitrary GVKs, extracts attributes, aggregates
 results, and exports to pluggable sinks and doc backends. We need a mature scaffolding stack
 with CRD generation, envtest, RBAC markers, and a large ecosystem.
 

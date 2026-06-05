@@ -1,6 +1,6 @@
-# kollect Helm chart
+# Kollect Helm chart
 
-Installs the [kollect](https://github.com/konih/kollect) operator and CRDs.
+Installs the [Kollect](https://github.com/konih/kollect) operator and CRDs.
 
 ## Install
 

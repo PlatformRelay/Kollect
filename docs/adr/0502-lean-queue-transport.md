@@ -16,7 +16,7 @@ Multi-cluster hub aggregation ([ADR-0501](0501-multi-cluster-sync-rfc.md)) needs
 
 - **Low operational burden** for a Phase 1–2 hub prototype (personal/small-platform scale first).
 - **Pluggable** — no hard dependency on Kafka or a specific vendor; teams that standardize on Kafka
-  must be able to select it via configuration without forking kollect.
+  must be able to select it via configuration without forking Kollect.
 - **At-least-once** delivery acceptable; hub merge is idempotent on `(cluster, namespace, name, uid)`.
 - Payloads are **summarized inventory JSON** (not full object dumps) per [ADR-0103](0103-etcd-limit.md).
 - Every shipped backend must be **provable in integration or e2e tests** with reasonable effort

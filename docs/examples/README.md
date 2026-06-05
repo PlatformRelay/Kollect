@@ -1,7 +1,7 @@
 # Examples
 
 !!! tip "Prerequisites"
-    These walkthroughs assume a running kollect operator and `kubectl` access. Start with
+    These walkthroughs assume a running Kollect operator and `kubectl` access. Start with
     [QUICKSTART.md](../QUICKSTART.md) or [Kind local lab](kind-local-lab.md) if you have not
     installed the controller yet.
 

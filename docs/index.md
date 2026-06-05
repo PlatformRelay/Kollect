@@ -6,7 +6,7 @@ hide:
 
 <div class="kollect-hero" markdown="1">
 
-# kollect
+# Kollect
 
 **Generic Kubernetes inventory export** — watch any GVK, extract fields with CEL or JSONPath, and
 export live cluster state to **Postgres**, **Kafka**, **Git**, and more.
@@ -18,9 +18,9 @@ export live cluster state to **Postgres**, **Kafka**, **Git**, and more.
 
 </div>
 
-## What kollect does
+## What Kollect does
 
-kollect is a Kubernetes operator that **collects inventory from arbitrary resources**, **aggregates
+Kollect is a Kubernetes operator that **collects inventory from arbitrary resources**, **aggregates
 across targets (and clusters)**, and **exports auditable snapshots** so portals and automation query
 durable export data instead of scraping the API at scale.
 

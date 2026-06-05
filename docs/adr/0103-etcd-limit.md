@@ -21,7 +21,7 @@ OSS validation:
 - **Argo CD** Application status holds sync/health summaries and revision metadata, not full manifests
   (those live in Git or the live cluster).
 
-kollect aggregates attributes from many resources; a naive "put everything in status" design fails
+Kollect aggregates attributes from many resources; a naive "put everything in status" design fails
 at scale. Developer portals also need a **read path** without scraping Git — addressed here via HTTP.
 
 ## Decision

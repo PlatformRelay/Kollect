@@ -1,13 +1,13 @@
 # ADR-0704: Helm chart and CRD lifecycle
 
-> How kollect is packaged and installed: the Helm chart layout, tenant/hub install modes, webhook
+> How Kollect is packaged and installed: the Helm chart layout, tenant/hub install modes, webhook
 > certs, and the CRD upgrade story (Helm's notorious footgun).
 
 **Theme:** 07 · Project & meta · **Status:** Current
 
 ## Context
 
-kollect is operator software; **install and upgrade** are first-class product decisions. The chart
+Kollect is operator software; **install and upgrade** are first-class product decisions. The chart
 (`charts/kollect`) is the primary install path and was built day-1, but the packaging decisions —
 especially **CRD lifecycle**, which Helm handles poorly — were never recorded. This ADR captures them.
 

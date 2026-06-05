@@ -1,13 +1,13 @@
 # ADR-0206: API versioning and conversion strategy
 
-> How kollect's CRD API evolves: the pre-beta break-freely policy, the storage version, and the path to
+> How Kollect's CRD API evolves: the pre-beta break-freely policy, the storage version, and the path to
 > a stable conversion-webhook'd API.
 
 **Theme:** 02 · API & tenancy · **Status:** Exploring
 
 ## Context
 
-kollect ships a growing CRD surface (`KollectProfile`, `KollectTarget`, `KollectInventory`, `KollectSink`,
+Kollect ships a growing CRD surface (`KollectProfile`, `KollectTarget`, `KollectInventory`, `KollectSink`,
 `KollectScope`, cluster-scoped variants, `KollectConnectionTest` — [ADR-0201](0201-crd-model.md),
 [ADR-0203](0203-namespaced-multi-tenancy.md)). All are `v1alpha1` today with a single served/stored
 version and **no conversion webhook**. We have a stated break-freely posture for pre-beta
@@ -48,7 +48,7 @@ most "shape" changes are validation tightening, not version bumps.
 
 The **export data contract** ([ADR-0405](0405-export-data-contract.md)) versions **independently** of
 CRD API versions. Consumers (portals, SQL, Kafka subscribers, Read API) branch on envelope
-`schemaVersion`, not on `apiVersion` of kollect CRDs.
+`schemaVersion`, not on `apiVersion` of Kollect CRDs.
 
 | Surface | Versioning today | Pre-beta target |
 | --- | --- | --- |

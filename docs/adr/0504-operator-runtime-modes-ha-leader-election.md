@@ -8,7 +8,7 @@
 
 ## Context
 
-kollect ships as a **single container image** (`ghcr.io/konih/kollect`) configured by Helm values and
+Kollect ships as a **single container image** (`ghcr.io/konih/kollect`) configured by Helm values and
 manager flags ([ADR-0501](0501-multi-cluster-sync-rfc.md), [ADR-0703](0703-platform-architecture-pivot.md)).
 There is **no `KollectHub` CRD** — hub vs spoke is **`values.mode`** (`single` | `hub` | `spoke`) plus
 hub/spoke sub-values.

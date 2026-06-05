@@ -1,6 +1,6 @@
-# kollect — requirements (first principles)
+# Kollect — requirements (first principles)
 
-> Shared assumptions for architecture reasoning. This document states **what kollect must do and how
+> Shared assumptions for architecture reasoning. This document states **what Kollect must do and how
 > well**, independent of any specific design. ADRs decide *how*; this decides *what* and *why*. When an
 > ADR and this document disagree, that is a signal to reconcile — flag it.
 
@@ -25,7 +25,7 @@ From first principles, the existing options each fail one requirement:
 | kube-state-metrics only | Metrics are observability, not diffable stakeholder inventory |
 | Per-cluster Git commits | O(N) commit/export storms across a fleet; noise without aggregation |
 
-**kollect's thesis:** watch user-defined GVKs via shared informers → extract attributes via
+**Kollect's thesis:** watch user-defined GVKs via shared informers → extract attributes via
 CEL/JSONPath → aggregate in memory → **debounce** → export to **pluggable durable sinks**, so
 consumers read **export data**, never the live API at scale.
 
@@ -43,7 +43,7 @@ Operating assumptions (binding unless revisited):
 - **A1 — No external adopters on `v1alpha1`.** Breaking API changes are acceptable pre-beta.
 - **A2 — Event-driven, not polling.** Collection reacts to informer events ([ADR-0301](adr/0301-event-driven-informers.md)).
 - **A3 — Status is a summary, never a payload store** ([ADR-0103](adr/0103-etcd-limit.md)).
-- **A4 — Single responsibility.** kollect collects and exports; it does **not** render or publish docs/CMS ([ADR-0702](adr/0702-doc-sync-templating.md)).
+- **A4 — Single responsibility.** Kollect collects and exports; it does **not** render or publish docs/CMS ([ADR-0702](adr/0702-doc-sync-templating.md)).
 - **A5 — The in-memory snapshot per inventory is canonical**; every sink is a projection of it ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 - **A6 — Internal/self-signed CAs are normal**; TLS trust is a first-class sink concern, not a bolt-on.
 
@@ -180,7 +180,7 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | `KollectHub` CRD | Hub is Helm `mode: hub` + library ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | Full inventory payload in CRD status | etcd limit ([ADR-0103](adr/0103-etcd-limit.md)) |
 | Pairwise agent mesh beyond ~20 peers | Does not scale; use hub or shared sink ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)) |
-| In-place ACID lakehouse updates (Iceberg/DuckLake) | kollect overwrites whole snapshots; no catalog/metadata DB needed ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
+| In-place ACID lakehouse updates (Iceberg/DuckLake) | Kollect overwrites whole snapshots; no catalog/metadata DB needed ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
 
 ## 6. Resolved requirement questions (2026-06-05)
 

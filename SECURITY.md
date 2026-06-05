@@ -23,7 +23,7 @@ and a fix release when appropriate.
 
 ## Threat model (summary)
 
-kollect is a cluster operator that:
+Kollect is a cluster operator that:
 
 - **Reads** Kubernetes resources allowed by its RBAC and SAR checks (configurable per target).
 - **Writes** to external sinks and doc backends using credentials from `Secret` references only.

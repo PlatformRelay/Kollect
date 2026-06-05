@@ -7,7 +7,7 @@
 
 ## Context
 
-kollect exports to many backends (Git, GitLab, S3, GCS, Postgres, Kafka — [ADR-0402](0402-sink-backends-database-kafka.md),
+Kollect exports to many backends (Git, GitLab, S3, GCS, Postgres, Kafka — [ADR-0402](0402-sink-backends-database-kafka.md),
 [ADR-0401](0401-sink-taxonomy-state-vs-stream.md)). Reconcilers must not import vendor SDKs directly,
 and adding a backend must not touch controller code. This decision was implemented in
 `internal/sink/registry.go` but never recorded — earlier ADRs even cited a non-existent "ADR-0005"

@@ -6,7 +6,7 @@
 
 ## Context
 
-kollect needs contributor and user documentation that is easy to maintain in-repo, preview
+Kollect needs contributor and user documentation that is easy to maintain in-repo, preview
 locally, and publish to GitHub Pages without a heavy custom frontend. Docs already live as Markdown
 under `docs/` (architecture, ADRs, guides).
 

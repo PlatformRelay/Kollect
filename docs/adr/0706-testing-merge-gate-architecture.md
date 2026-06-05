@@ -8,7 +8,7 @@
 
 ## Context
 
-kollect is **TDD-first** with binding rules in [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) §4 and
+Kollect is **TDD-first** with binding rules in [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) §4 and
 [NFR-TEST-* in REQUIREMENTS.md](../REQUIREMENTS.md). CI (`.github/workflows/ci.yaml`) enforces a
 subset on every PR; heavier tiers run nightly or on demand. The split — what **blocks merge** vs what
 **signals risk** — was implicit in Taskfiles and workflows but not recorded, which made it hard to add

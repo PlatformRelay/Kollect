@@ -2,7 +2,7 @@
 
 This page summarizes **locked platform decisions** from the architecture review of 2026-06-05. It is
 the concise reference for **operators**, **contributors**, and **architects** evaluating or building
-kollect. For the full decision log and reasoning, see
+Kollect. For the full decision log and reasoning, see
 [ADR-0703: Platform architecture pivot](adr/0703-platform-architecture-pivot.md).
 
 !!! warning "Pre-beta API"
@@ -13,7 +13,7 @@ kollect. For the full decision log and reasoning, see
 ### Phases, releases, and API stability
 
 **Phases describe build order**, not release milestones. Work proceeds in the sequence below;
-individual features may land in parallel, but kollect is not presented as a general-availability
+individual features may land in parallel, but Kollect is not presented as a general-availability
 product until the tree reaches **beta-quality** overall.
 
 The public API is **`v1alpha1`** and **may change without notice** while the project is pre-beta.

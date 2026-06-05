@@ -1,6 +1,6 @@
 # Local development
 
-This guide covers building, testing, and running **kollect** on your machine against a local
+This guide covers building, testing, and running **Kollect** on your machine against a local
 Kubernetes cluster (typically [kind](https://kind.sigs.k8s.io/)).
 
 ## Prerequisites
@@ -185,7 +185,7 @@ go build -o bin/kollect ./cmd/kollect
 
 ## Code generation workflow
 
-kollect commits generated artifacts. After changing API types or `+kubebuilder` markers:
+Kollect commits generated artifacts. After changing API types or `+kubebuilder` markers:
 
 ```sh
 make generate    # deepcopy (api/*/zz_generated.deepcopy.go)

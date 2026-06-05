@@ -6,7 +6,7 @@
 
 ## Context
 
-kollect watches arbitrary GVKs, aggregates attributes in memory, and exports on inventory
+Kollect watches arbitrary GVKs, aggregates attributes in memory, and exports on inventory
 reconcile. Installations span **giant single clusters** (1000s of nodes, **10k+ watched resources
 per cluster as baseline**) and **100+ cluster** hub deployments ([ADR-0501](0501-multi-cluster-sync-rfc.md)).
 

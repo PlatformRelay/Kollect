@@ -1,6 +1,6 @@
-# kollect roadmap
+# Kollect roadmap
 
-Phased delivery plan for [kollect](https://github.com/konih/kollect) — a Kubernetes inventory
+Phased delivery plan for [Kollect](https://github.com/konih/kollect) — a Kubernetes inventory
 operator that watches arbitrary GVKs, aggregates extracted attributes, and exports to **role-based
 pluggable sinks** — state stores (Git / object store, Postgres) and event emitters (NATS default,
 Kafka opt-in) — with optional HTTP for debug. The in-memory snapshot is canonical; every sink is a
@@ -9,7 +9,7 @@ projection ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 **Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), [ADR-0703](adr/0703-platform-architecture-pivot.md).
 
 !!! warning "Pre-beta"
-    kollect is not GA. API shapes, sink backends, and hub transport may change until the project
+    Kollect is not GA. API shapes, sink backends, and hub transport may change until the project
     reaches beta-quality overall. Check status marks (✅ / 🚧 / ⬜) before relying on a feature in
     production.
 

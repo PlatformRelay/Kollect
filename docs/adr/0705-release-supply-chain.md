@@ -1,13 +1,13 @@
 # ADR-0705: Release engineering and supply chain
 
-> How kollect builds, signs, and ships releases: multi-arch images, cosign signing, SBOM + provenance,
+> How Kollect builds, signs, and ships releases: multi-arch images, cosign signing, SBOM + provenance,
 > vulnerability gating, OCI chart publishing, and git-cliff versioning.
 
 **Theme:** 07 · Project & meta · **Status:** Current
 
 ## Context
 
-As OSS infrastructure that runs with broad cluster read access, kollect's **supply-chain trust** is a
+As OSS infrastructure that runs with broad cluster read access, Kollect's **supply-chain trust** is a
 product feature: adopters need to verify what they run. The release pipeline (`.github/workflows/release.yaml`,
 `hack/release-assets.sh`) implements this, but the decisions weren't recorded. `docs/RELEASE.md` is the
 operator how-to; this ADR is the rationale.

@@ -6,7 +6,7 @@
 
 ## Context
 
-kollect occupies a niche: **generic attribute-selection CRD + resource-selection CRD + aggregation +
+Kollect occupies a niche: **generic attribute-selection CRD + resource-selection CRD + aggregation +
 multi-backend export** (Git, object storage, Postgres, Kafka). No single OSS project combines all
 of these. **Doc-sync / Confluence publication is rejected** ([ADR-0702](0702-doc-sync-templating.md)). Local shallow clones
 under `references/oss/` (read-only, never shipped) inform CRD ergonomics, informers, sinks, CI, and
@@ -23,7 +23,7 @@ Primary OSS references we **actually use** for design and CI patterns:
 
 ### external-secrets
 
-| Pattern | Finding | kollect stance |
+| Pattern | Finding | Kollect stance |
 | --- | --- | --- |
 | Provider plugin registry | `SecretStoreProvider` discriminated union + Go provider packages | **Adopt** — `KollectSink` `type` + internal registry/factory ([ADR-0402](0402-sink-backends-database-kafka.md)) |
 | Cluster vs namespaced stores | `ClusterSecretStore` + namespace `conditions` | **Adopt (Phase 1)** — `KollectScope` + optional `watchNamespaces` / `tenantMode` ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
@@ -33,10 +33,10 @@ Primary OSS references we **actually use** for design and CI patterns:
 
 ### Flux (source-controller + notification-controller)
 
-| Pattern | Finding | kollect stance |
+| Pattern | Finding | Kollect stance |
 | --- | --- | --- |
 | Static Provider/Alert | No status subresource, no Provider reconciler | **Adopt** — `KollectProfile`, `KollectSink` static |
-| `spec.suspend` | On all reconciled sources | **Adopt** — all reconciled kollect kinds |
+| `spec.suspend` | On all reconciled sources | **Adopt** — all reconciled Kollect kinds |
 | CEL `XValidation` | Provider-type constraints, source-controller cross-field rules | **Adopt** — CRD OpenAPI + **validating webhooks early** |
 | Receiver | Inbound webhook → enqueue work | **Defer** — reserve `KollectReceiver` |
 | Interval reconciliation | Sources reconcile on `spec.interval` | **Reject as primary** — collection is event-driven (ADR-0301) |
@@ -44,7 +44,7 @@ Primary OSS references we **actually use** for design and CI patterns:
 
 ### Argo CD
 
-| Pattern | Finding | kollect stance |
+| Pattern | Finding | Kollect stance |
 | --- | --- | --- |
 | AppProject | Allowed repos, destinations, resource GVKs, RBAC roles | **Adopt (Phase 1)** — namespaced `KollectScope` ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
 | ApplicationSet generators | Matrix/git/cluster generators → many Applications | **Defer** — reserve `KollectTargetSet` |
@@ -53,12 +53,12 @@ Primary OSS references we **actually use** for design and CI patterns:
 
 ### kube-state-metrics
 
-| Pattern | Finding | kollect stance |
+| Pattern | Finding | Kollect stance |
 | --- | --- | --- |
 | CustomResourceStateMetrics | Config-driven GVK → Prometheus from informer paths | **Adopt (early)** — metrics testable from Phase 0/1 |
 | Generic informers | Dynamic GVK registration, path-based label extraction | **Adopt** — validates `KollectTarget` engine |
 | No persistence | Metrics served from cache, not etcd | **Adopt** — no inventory payload in status |
-| Metrics-only scope | Observability, not stakeholder docs | **Reject as sole solution** — kollect also exports to Git/docs |
+| Metrics-only scope | Observability, not stakeholder docs | **Reject as sole solution** — Kollect also exports to Git/docs |
 
 ### Other cited projects (not primary clones)
 
@@ -85,7 +85,7 @@ Lean on OSS patterns rather than reinvent:
    CI consuming Git or Kafka/Postgres export ([ADR-0702](0702-doc-sync-templating.md)).
 8. **Add Postgres + Kafka sinks** as first-class export targets ([ADR-0402](0402-sink-backends-database-kafka.md)).
 
-kollect's unique value is the **combination** plus **stakeholder-facing export** (Git, HTTP, Postgres,
+Kollect's unique value is the **combination** plus **stakeholder-facing export** (Git, HTTP, Postgres,
 Kafka) with **multi-cluster aggregation** ([ADR-0501](0501-multi-cluster-sync-rfc.md)) without
 per-cluster export noise.
 
@@ -100,7 +100,7 @@ per-cluster export noise.
 ### Negative
 
 - Mixing patterns from GitOps (Flux/Argo), secrets (ESO), and metrics (KSM) requires careful
-  documentation so users understand kollect is an **inventory export** operator, not GitOps or a CMS.
+  documentation so users understand Kollect is an **inventory export** operator, not GitOps or a CMS.
 
 ## Open questions
 

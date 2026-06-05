@@ -1,4 +1,4 @@
-# kollect data flows
+# Kollect data flows
 
 Visual walkthroughs of how data moves through the operator. For CRD roles see
 [ARCHITECTURE.md](ARCHITECTURE.md); for locked decisions see

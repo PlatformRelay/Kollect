@@ -6,7 +6,7 @@
 
 ## Context
 
-kollect must watch **arbitrary GVKs** defined by `KollectProfile`, not a fixed built-in schema.
+Kollect must watch **arbitrary GVKs** defined by `KollectProfile`, not a fixed built-in schema.
 The legacy fleet-inventory-collector used batch listing on an interval — high API load, latent updates,
 and poor fit for an operator.
 

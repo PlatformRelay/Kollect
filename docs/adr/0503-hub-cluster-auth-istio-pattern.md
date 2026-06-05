@@ -27,7 +27,7 @@ pattern is:
 | **Trust** | Shared root or federated CA; **mTLS** for east-west workload traffic |
 | **Topologies** | Primary-remote (one control plane) and multi-primary (peered control planes) |
 
-kollect maps to **hub-and-spoke** ([ADR-0501](0501-multi-cluster-sync-rfc.md)): hub aggregates;
+Kollect maps to **hub-and-spoke** ([ADR-0501](0501-multi-cluster-sync-rfc.md)): hub aggregates;
 spokes stay lightweight. We do **not** need Istio's full mesh trust plane for inventory deltas, but
 the **credential registration model** transfers cleanly.
 
@@ -42,7 +42,7 @@ Options considered:
 
 ## Decision
 
-Adopt a **hybrid** model aligned with Istio's remote-secret **registration** pattern and kollect's
+Adopt a **hybrid** model aligned with Istio's remote-secret **registration** pattern and Kollect's
 **push-first** scale target.
 
 ### 1. `KollectRemoteCluster` CR (namespaced on hub)
@@ -163,9 +163,9 @@ sequenceDiagram
   CR-->>Hub: spec.clusterName + trustBundle
 ```
 
-## Comparison: Istio vs kollect
+## Comparison: Istio vs Kollect
 
-| Dimension | Istio multicluster | kollect hub-and-spoke |
+| Dimension | Istio multicluster | Kollect hub-and-spoke |
 | --- | --- | --- |
 | **Registration** | Labeled `Secret` + cluster annotation | `KollectRemoteCluster` CR + optional same-label `Secret` |
 | **Generator** | `istioctl create-remote-secret` | `kollect create-remote-secret` CLI stub / `hack/create-remote-secret.sh` |
@@ -217,7 +217,7 @@ registration gates** until a future signed-envelope spike.
 | **Hub ACL** | Reject reports whose `report.cluster` ∉ `KOLLECT_REMOTE_CLUSTERS` | Populated from Helm **`hub.remoteClusters[]`** (resolved `KollectRemoteCluster.spec.clusterName` values); **env present (even empty) = fail-closed** |
 
 HTTP ingest continues to use TokenReview + SAR; queue consumer uses ACL only. Platform teams run
-queue brokers with vendor ACLs (Redis ACL / NATS accounts) in addition to kollect's registration gate.
+queue brokers with vendor ACLs (Redis ACL / NATS accounts) in addition to Kollect's registration gate.
 
 **Deferred:** signed `SpokeReport` envelopes, Kafka SASL/TLS (same env pattern when wired).
 

@@ -1,6 +1,6 @@
-# Contributing to kollect
+# Contributing to Kollect
 
-Thank you for helping improve kollect.
+Thank you for helping improve Kollect.
 
 ## Commit messages
 

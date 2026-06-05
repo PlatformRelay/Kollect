@@ -13,7 +13,7 @@ Operators differ on whether configuration CRDs get their own reconciler:
 - **external-secrets `SecretStore`** is reconciled (validates provider, writes status conditions).
 - **Flux source-controller `GitRepository`** is fully reconciled with rich status (artifact revision).
 
-kollect has configuration objects (`KollectProfile`, `KollectSink`) that change infrequently and
+Kollect has configuration objects (`KollectProfile`, `KollectSink`) that change infrequently and
 work objects (`KollectTarget`, `KollectInventory`) that drive continuous collection and export.
 
 At **large fleet scale**, shared GVK definitions may be duplicated per namespace or published via future

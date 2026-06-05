@@ -62,7 +62,7 @@ User requirement (2026-06-05): inventory must expose **chart `version` and `appV
 **`helm.sh/v1` / `Secret`** (`type: helm.sh/release.v1`, label `owner=helm`)
 
 - Covers `helm install` without Flux.
-- **Not** in the public demo sample until kollect adds a **`helm:` decode path** (or CEL helper)
+- **Not** in the public demo sample until Kollect adds a **`helm:` decode path** (or CEL helper)
   that expands `data.release` and exposes `chart.metadata.version`, `chart.metadata.appVersion`,
   and `config` (values).
 - **Never** export raw `data.release` or rendered `manifest` blobs.

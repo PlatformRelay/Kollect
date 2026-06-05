@@ -12,7 +12,7 @@ namespaced `Role` RBAC cannot manage cluster profiles without extra platform `Cl
 ([ADR-0203](0203-namespaced-multi-tenancy.md)).
 
 external-secrets solves this with **namespaced `SecretStore`** + optional **`ClusterSecretStore`**.
-The same split fits kollect extraction schemas.
+The same split fits Kollect extraction schemas.
 
 ## Decision
 

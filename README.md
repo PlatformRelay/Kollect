@@ -1,4 +1,4 @@
-# kollect
+# Kollect
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/konih/kollect/badge)](https://securityscorecards.dev/viewer/?uri=github.com/konih/kollect)
 [![CI](https://github.com/konih/kollect/actions/workflows/ci.yaml/badge.svg)](https://github.com/konih/kollect/actions/workflows/ci.yaml)
@@ -9,13 +9,13 @@
 [![Docs site](https://img.shields.io/badge/docs-konih.github.io%2Fkollect-blue)](https://konih.github.io/kollect/)
 [![Container](https://img.shields.io/badge/ghcr.io-konih%2Fkollect-2496ED?logo=docker&logoColor=white)](https://github.com/konih/kollect/pkgs/container/kollect)
 
-**kollect** is a Kubernetes operator that turns selected, live cluster state into a **durable,
+**Kollect** is a Kubernetes operator that turns selected, live cluster state into a **durable,
 queryable, diffable inventory** — decoupled from the apiserver's availability, RBAC, and scale
 limits. Portals, automation, and auditors read **export data**, not unbounded list/watch against the
 live API.
 
 Kubernetes is the source of truth for *what is running*; it is a poor *system of record* for
-stakeholder inventory. kollect maintains a **read model**: **select** resources by GVK → **extract**
+stakeholder inventory. Kollect maintains a **read model**: **select** resources by GVK → **extract**
 the attributes that matter (CEL or JSONPath) → **aggregate** across targets → **debounce** →
 **export** to pluggable sinks. Inventory is **configuration, not code** — owned per team in its own
 namespace.
@@ -46,7 +46,7 @@ Full payload lives in sinks; CR `.status` holds summaries only ([etcd limits](ht
 
 ## Quick start
 
-Try kollect on a local kind cluster:
+Try Kollect on a local kind cluster:
 
 ```sh
 kind create cluster --name kollect-dev
@@ -63,7 +63,7 @@ Watch `KollectInventory` status and check your sink (Git demo repo, Postgres, Ka
 **Full walkthrough** — prerequisites, Helm options, maturity notes:
 **[Quick start →](https://konih.github.io/kollect/QUICKSTART/)**
 
-## Why kollect?
+## Why Kollect?
 
 | | |
 | --- | --- |

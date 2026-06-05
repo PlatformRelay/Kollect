@@ -7,7 +7,7 @@
 
 ## Context
 
-kollect relies on **validating webhooks** from Phase 0/1 ([ADR-0201](0201-crd-model.md),
+Kollect relies on **validating webhooks** from Phase 0/1 ([ADR-0201](0201-crd-model.md),
 [ADR-0202](0202-static-vs-reconciled.md)) to reject bad profiles, sinks, and scope at admission —
 before reconcilers wedge on terminal config. The operator serves webhooks on **port 9443**
 (controller-runtime default) with certs mounted at `/tmp/k8s-webhook-server/serving-certs`

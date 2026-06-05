@@ -9,7 +9,7 @@ an S3/GCS Parquet snapshot sink is added.
 
 ## Context
 
-kollect exports aggregated inventory to pluggable **`KollectSink`** backends ([ADR-0201](0201-crd-model.md),
+Kollect exports aggregated inventory to pluggable **`KollectSink`** backends ([ADR-0201](0201-crd-model.md),
 sink registry). Git and object storage are in flight; the user's platform also needs:
 
 - **Durable queryable storage** (Postgres) for portals and SQL analytics

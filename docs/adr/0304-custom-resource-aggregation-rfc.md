@@ -13,7 +13,7 @@ export uses Git, Postgres, Kafka, and object-store sinks — not a Prometheus ex
 
 [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) (KSM) exposes
 **`CustomResourceStateMetrics`**: config-driven GVK → Prometheus series from informer cache paths.
-That pattern complements kollect's existing operator metrics and is the primary Phase 4 deliverable
+That pattern complements Kollect's existing operator metrics and is the primary Phase 4 deliverable
 per [prior art](0102-prior-art.md) and [ROADMAP](../ROADMAP.md).
 
 Phase 4 must also define **richer cross-target / cross-cluster aggregation** without duplicating

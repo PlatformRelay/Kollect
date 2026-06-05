@@ -1,6 +1,6 @@
-# kollect — engineering guidelines
+# Kollect — engineering guidelines
 
-Binding guidelines for the kollect operator: error handling, robustness, security, and testing.
+Binding guidelines for the Kollect operator: error handling, robustness, security, and testing.
 Enforced by lint, CI, and review. ADRs in `docs/adr/` capture major decisions.
 Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 

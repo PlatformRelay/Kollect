@@ -1,7 +1,7 @@
 # Example: Deployment inventory
 
 !!! tip "What this guide assumes"
-    You have kollect installed (see [QUICKSTART.md](../QUICKSTART.md) or
+    You have Kollect installed (see [QUICKSTART.md](../QUICKSTART.md) or
     [Kind local lab](kind-local-lab.md)) and can apply manifests from `config/samples/`. The default
     path uses a Postgres sink; swap to Git for audit-only workflows.
 

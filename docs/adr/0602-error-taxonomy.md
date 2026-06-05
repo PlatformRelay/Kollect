@@ -16,7 +16,7 @@ silently swallow transient ones. OSS precedents:
   (sanitized).
 - **Argo CD** Application conditions distinguish `ComparisonError`, `SyncError`, and permission issues.
 
-kollect touches the API server, arbitrary GVKs, SAR boundaries, and external sinks/doc backends —
+Kollect touches the API server, arbitrary GVKs, SAR boundaries, and external sinks/doc backends —
 each failure mode needs predictable behavior. Observability must be **testable from day one**, not
 bolted on after Phase 4.
 

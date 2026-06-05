@@ -41,7 +41,7 @@ oauth2-proxy remains a **well-documented optional sidecar**, not the primary aut
    - `disabled` — no auth (local dev / CI only; must log a startup warning).
 
 3. **Caller contract:** standard **`Authorization: Bearer`** header with a Kubernetes service account
-   token (bound or legacy) or other token accepted by the apiserver's TokenReview. No custom kollect
+   token (bound or legacy) or other token accepted by the apiserver's TokenReview. No custom Kollect
    API-key header in the core path.
 
 4. **Optional oauth2-proxy sidecar (Helm):** for human/browser access via OIDC, document an optional

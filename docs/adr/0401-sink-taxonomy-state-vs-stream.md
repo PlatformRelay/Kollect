@@ -50,7 +50,7 @@ s3://bucket/inventory/cluster=<c>/ns=<ns>/name=<inv>/generation=<g>.parquet
 - **Deletes are correct by construction** — absent from the latest snapshot = gone.
 - Arbitrary profile attributes serialize to a JSON/struct column (DuckDB queries JSON natively).
 - Frequent exports → many small files: rely on **`exportMinInterval`** (default 30s) and document a
-  periodic compaction job. ACID update-in-place (Iceberg/DuckLake) is **out of scope** — kollect
+  periodic compaction job. ACID update-in-place (Iceberg/DuckLake) is **out of scope** — Kollect
   overwrites whole snapshots, so no table catalog/metadata DB is required.
 
 This is the recommended **"small/medium platform wants queryable inventory without running a DB"**
@@ -65,7 +65,7 @@ is a correctness bug.
 ### 4. Event emit: NATS default, Kafka opt-in, unified with transport
 
 - **NATS JetStream** is the **lean default** event backbone — single binary, sub-ms, no JVM/ZooKeeper;
-  best fit for kollect's low-volume, high-fan-out change events.
+  best fit for Kollect's low-volume, high-fan-out change events.
 - **Kafka (and Redpanda via the Kafka API)** is the **enterprise opt-in** — chosen when an org already
   operates Kafka and wants its connector/schema-registry ecosystem. One `kafka` driver covers both.
 - The **Kafka sink (ADR-0402) and the hub transport (ADR-0502) collapse into one event-emitter

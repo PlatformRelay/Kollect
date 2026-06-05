@@ -1,6 +1,6 @@
 # Releasing a new version
 
-Step-by-step guide for maintainers publishing a **kollect** release.
+Step-by-step guide for maintainers publishing a **Kollect** release.
 
 Related: [CONTRIBUTING.md](../CONTRIBUTING.md) (commits), [DEVELOPMENT.md](DEVELOPMENT.md) (local tasks).
 

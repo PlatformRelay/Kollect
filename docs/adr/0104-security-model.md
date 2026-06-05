@@ -1,7 +1,7 @@
 # ADR-0104: Security model — secrets, TLS, RBAC, and redaction
 
 > The consolidated threat model and security posture: how credentials, TLS trust, least-privilege RBAC,
-> and payload redaction are handled across kollect.
+> and payload redaction are handled across Kollect.
 
 **Theme:** 01 · Foundations · **Status:** Current
 
@@ -10,7 +10,7 @@
 Security decisions were spread across many ADRs — TLS trust ([ADR-0201](0201-crd-model.md)), namespaced
 isolation and SAR ([ADR-0203](0203-namespaced-multi-tenancy.md)), redaction ([ADR-0303](0303-helm-release-inventory.md)),
 HTTP/API auth ([ADR-0404](0404-inventory-api-auth.md)), hub mTLS ([ADR-0503](0503-hub-cluster-auth-istio-pattern.md)) —
-but there was no single model a reviewer could read to understand kollect's posture. This ADR
+but there was no single model a reviewer could read to understand Kollect's posture. This ADR
 consolidates it. (`SECURITY.md` at the repo root remains the *disclosure policy*; this is the
 *architecture*.)
 
@@ -40,7 +40,7 @@ consolidates it. (`SECURITY.md` at the repo root remains the *disclosure policy*
 ### RBAC (least privilege)
 
 - The operator's `ClusterRole` grants only the verbs needed (watch/list/get on selected GVKs; CRUD on
-  kollect CRDs; leader-election on a single lease).
+  Kollect CRDs; leader-election on a single lease).
 - **Tenant mode** ([ADR-0203](0203-namespaced-multi-tenancy.md)) narrows watches to configured namespaces;
   chart emits `Role`/`RoleBinding` instead of cluster-wide bindings ([ADR-0704](0704-helm-chart-crd-lifecycle.md)).
 - Cross-namespace reads in namespaced inventories are **SubjectAccessReview-gated**: missing permission

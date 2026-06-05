@@ -4,7 +4,7 @@
     Most teams start here: one cluster, namespaced CRDs, export to Postgres or Git. Hub aggregation
     is optional and documented separately in [Hub mode](hub-mode.md).
 
-Install kollect on a **single cluster** with Helm `mode: single` — the default path before hub
+Install Kollect on a **single cluster** with Helm `mode: single` — the default path before hub
 aggregation. Teams run namespaced Profile → Target → Inventory → Sink and export to Postgres or
 Kafka for portal queries
 ([ADR-0703](../adr/0703-platform-architecture-pivot.md),

@@ -7,7 +7,7 @@
 
 ## Context
 
-kollect's external value is the **exported inventory payload**. Portals, SQL queries, Git diffs,
+Kollect's external value is the **exported inventory payload**. Portals, SQL queries, Git diffs,
 Kafka consumers, and the HTTP API all read this contract — it is the most stability-sensitive surface
 in the project, yet it had no ADR. The shape is implemented in `internal/collect/store.go` but its
 guarantees (field set, ordering, null handling, versioning) were never written down.

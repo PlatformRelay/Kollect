@@ -1,13 +1,13 @@
-# kollect architecture
+# Kollect architecture
 
-kollect is a Kubernetes operator that turns selected, live cluster state into a **durable, queryable,
+Kollect is a Kubernetes operator that turns selected, live cluster state into a **durable, queryable,
 diffable inventory** — decoupled from the apiserver's availability, RBAC, and scale limits — so portals,
 automation, and auditors read **export data**, never the live API.
 
 **Summary for implementers:** [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) · **ADR:** [adr/0703-platform-architecture-pivot.md](adr/0703-platform-architecture-pivot.md)
 
 !!! info "Project maturity"
-    kollect is pre-beta (`v1alpha1`). Phases in this document describe **build order**, not GA
+    Kollect is pre-beta (`v1alpha1`). Phases in this document describe **build order**, not GA
     release milestones. See [ROADMAP.md](ROADMAP.md) for current implementation status.
 
 ## Problem statement
@@ -23,7 +23,7 @@ four recurring consequences:
 - **Schema rigidity** — hardcoded collector schemas break whenever a new CRD or attribute is needed.
 - **Fleet storms** — naive per-cluster export produces **N export/commit storms** per logical change.
 
-kollect resolves this by maintaining a **read model** of the cluster: **select** resources by GVK →
+Kollect resolves this by maintaining a **read model** of the cluster: **select** resources by GVK →
 **extract** the attributes that matter via CEL/JSONPath → **aggregate** in memory across targets (and,
 optionally, clusters) → **debounce** → **export** to role-based pluggable sinks. The per-inventory
 in-memory snapshot is **canonical**; every sink — relational store, object/Git snapshot, or event

@@ -1,6 +1,6 @@
 # Performance and scalability
 
-kollect is designed for **giant single clusters** (1000s of nodes, **10k+ watched resources
+Kollect is designed for **giant single clusters** (1000s of nodes, **10k+ watched resources
 baseline**) and **100+ cluster** hub deployments. This guide summarizes tuning knobs from
 [ADR-0603](adr/0603-performance-scalability.md).
 

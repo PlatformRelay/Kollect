@@ -10,15 +10,15 @@
 
 An inventory product lives or dies on whether people can *see* their inventory. ArgoCD's adoption is
 driven far more by its UI — a live, filterable overview of status, topology, and drift — than by its
-reconciler. For kollect, a read-only UI (searchable resource catalog, export/freshness health,
+reconciler. For Kollect, a read-only UI (searchable resource catalog, export/freshness health,
 multi-cluster rollup, attribute drift over time) is a higher-leverage adoption investment than more
 sink backends or advanced collection features.
 
-But kollect has a tension ArgoCD does not. Our thesis ([ARCHITECTURE.md](../ARCHITECTURE.md),
+But Kollect has a tension ArgoCD does not. Our thesis ([ARCHITECTURE.md](../ARCHITECTURE.md),
 [REQUIREMENTS.md](../REQUIREMENTS.md)) is that consumers must **not** read the live kube-apiserver — they
 read the durable export (the read model). A UI that hammers the apiserver, or couples portal
 availability to the operator process, would violate that. ArgoCD's UI is intentionally coupled to its
-controller; kollect's must remain a **consumer of the read model**.
+controller; Kollect's must remain a **consumer of the read model**.
 
 ## Decision
 
@@ -52,7 +52,7 @@ SPA serve a live console *or* a scale portal by swapping the adapter — no UI c
 
 ### 3. SPA is static and read-only
 
-A React single-page app that talks only to the Read API. **Read-only in v1** — kollect observes; it does
+A React single-page app that talks only to the Read API. **Read-only in v1** — Kollect observes; it does
 not mutate cluster state from the UI. Shipped first **embedded in / served by the operator**
 (all-in-one, feature-gated, like ArgoCD's default), later optionally by a dedicated **`kollect-server`**
 Deployment for scale/HA — keeping a busy web server out of the controller process
@@ -75,7 +75,7 @@ Deployment for scale/HA — keeping a busy web server out of the controller proc
   `postgres`/`parquet` adapters — reinforcing that the scale UI reads a sink.
 - Operator-embedded serving adds a feature-gated HTTP surface to the controller; acceptable at small
   scale, motivates the `kollect-server` split later.
-- Read-only scope avoids turning kollect into a control plane (out of scope; it's an observer).
+- Read-only scope avoids turning Kollect into a control plane (out of scope; it's an observer).
 
 ## Open questions
 

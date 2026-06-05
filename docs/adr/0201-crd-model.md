@@ -7,7 +7,7 @@
 
 ## Context
 
-kollect replaces a hardcoded batch collector schema with CRD-driven configuration. Operators in
+Kollect replaces a hardcoded batch collector schema with CRD-driven configuration. Operators in
 this space use different tenancy and config patterns:
 
 - **external-secrets** splits `SecretStore` (namespaced) vs `ClusterSecretStore` (cluster) with
@@ -16,7 +16,7 @@ this space use different tenancy and config patterns:
   subresource, no dedicated reconciler) while `Receiver` is reconciled.
 - **Argo CD** uses `AppProject` as a tenancy boundary and `Application` as the reconciled unit.
 
-kollect must combine generic attribute selection, resource selection, aggregation, and multi-backend
+Kollect must combine generic attribute selection, resource selection, aggregation, and multi-backend
 export — no single OSS project covers all of this. Templated documentation sync (Confluence, etc.)
 is **explicitly rejected** ([ADR-0702](0702-doc-sync-templating.md)).
 

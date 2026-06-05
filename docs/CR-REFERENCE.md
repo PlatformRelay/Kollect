@@ -1,6 +1,6 @@
 # Custom resource reference
 
-Detailed reference for each kollect API kind. These pages document **purpose**, **spec fields**,
+Detailed reference for each Kollect API kind. These pages document **purpose**, **spec fields**,
 **status conditions**, **RBAC**, **sample usage**, and **failure modes** for operators and platform
 teams.
 

@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Decisions for [kollect](https://github.com/konih/kollect), kept as **living working documents**.
+Decisions for [Kollect](https://github.com/konih/kollect), kept as **living working documents**.
 Numbers are grouped by **theme** (`0Txx`), so reading top-to-bottom is also a tour of the system's
 aspects — not a strict chronology. Each ADR is **current-state-first**: the decision as it stands
 today up top, with the exploration captured in an *Evolution* section.

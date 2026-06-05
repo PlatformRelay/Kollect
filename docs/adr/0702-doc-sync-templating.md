@@ -1,6 +1,6 @@
 # ADR-0702: Doc-sync, templating, and Confluence publication
 
-> kollect collects and exports; rendering/publishing to a CMS stays out of the operator and belongs in
+> Kollect collects and exports; rendering/publishing to a CMS stays out of the operator and belongs in
 > external CI that consumes the exports.
 
 **Theme:** 07 · Project & meta · **Status:** Dropped (binding scope guardrail)
@@ -21,7 +21,7 @@ sync.
 
 | Approach | Owner |
 | --- | --- |
-| Collect + export inventory | **kollect** (`KollectTarget` → `KollectInventory` → sinks) |
+| Collect + export inventory | **Kollect** (`KollectTarget` → `KollectInventory` → sinks) |
 | Template + publish to Confluence/wiki | **External** CI or doc tool consuming Git/object-store export |
 
 Rationale (single responsibility):
@@ -48,7 +48,7 @@ Rationale (single responsibility):
 
 Any feature that smells like doc-sync must be **rejected** unless it is plain inventory export:
 
-| In scope (kollect) | Out of scope (external CI / portal) |
+| In scope (Kollect) | Out of scope (external CI / portal) |
 | --- | --- |
 | Deterministic JSON/YAML/row export to Git, S3, GCS, Postgres, Kafka | Go templates, Confluence REST, wiki merge, CMS credentials |
 | Read-only HTTP `GET /inventory` | Rich portal UI, auth beyond [ADR-0404](0404-inventory-api-auth.md) |

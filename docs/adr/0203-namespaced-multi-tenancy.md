@@ -6,7 +6,7 @@
 
 ## Context
 
-Platform teams need kollect to run safely alongside many tenant teams on one cluster. Prior art
+Platform teams need Kollect to run safely alongside many tenant teams on one cluster. Prior art
 ([ADR-0102](0102-prior-art.md)) compares:
 
 - **external-secrets** — one cluster-scoped controller reconciling both `ClusterSecretStore` and
@@ -14,7 +14,7 @@ Platform teams need kollect to run safely alongside many tenant teams on one clu
   `controller.watchNamespaces` / `scopedNamespace`.
 - **Argo CD** — `AppProject` tenancy boundary with a single cluster-scoped controller.
 
-kollect already ships **namespaced** `KollectTarget`, `KollectInventory`, and `KollectScope`
+Kollect already ships **namespaced** `KollectTarget`, `KollectInventory`, and `KollectScope`
 ([ADR-0201](0201-crd-model.md)). The open question was whether tenancy enforcement and operator
 deployment scope should wait until Phase 3.
 
@@ -107,7 +107,7 @@ status:
 
 ### Positive
 
-- Teams can adopt kollect early with explicit tenancy boundaries.
+- Teams can adopt Kollect early with explicit tenancy boundaries.
 - Platform can offer either shared or per-team operator installs without forking the binary.
 - Aligns with ESO and Flux Helm patterns operators already understand.
 

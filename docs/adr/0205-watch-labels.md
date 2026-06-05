@@ -18,7 +18,7 @@ metadata:
     kustomize.toolkit.fluxcd.io/reconcile: disabled
 ```
 
-kollect needs parallel semantics for **collection watch** — explicit enable/disable signals on
+Kollect needs parallel semantics for **collection watch** — explicit enable/disable signals on
 namespaces and resources that the collection engine honors before attribute extraction.
 
 ## Decision
