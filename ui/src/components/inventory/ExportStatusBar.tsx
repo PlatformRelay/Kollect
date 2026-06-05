@@ -1,5 +1,6 @@
 import type { ExportStatus } from "@/api/inventory";
 import { HealthBadge } from "@/components/status/HealthBadge";
+import { deriveHealthFromExportStatus } from "@/components/status/health";
 
 function formatRelativeTime(iso?: string): string {
   if (!iso) {
@@ -39,6 +40,7 @@ export function ExportStatusBar({ statuses }: ExportStatusBarProps) {
       className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
     >
       {statuses.map((entry) => {
+        const health = deriveHealthFromExportStatus(entry.status);
         const sinkLabel = entry.sinkNamespace
           ? `${entry.sinkNamespace}/${entry.sinkName}`
           : entry.sinkName;
@@ -50,7 +52,7 @@ export function ExportStatusBar({ statuses }: ExportStatusBarProps) {
             title={entry.message}
           >
             <span className="font-medium text-kollect-navy">{sinkLabel}</span>
-            <HealthBadge exportStatus={entry.status} />
+            <HealthBadge level={health} exportStatus={entry.status} />
             <span className="text-slate-500">{formatRelativeTime(entry.lastExportTime)}</span>
           </div>
         );

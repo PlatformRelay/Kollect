@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "kollect.dev/v1alpha1",
+  "source": "openapi/v1alpha1/inventory.yaml",
+  "sha256": "0a2627f47a0ce0431f5772dc221faf659a4797fbc42c4232675c96533c8da9b3",
+  "paths": [
+    "/v1alpha1/inventory",
+    "/v1alpha1/inventory/{namespace}/{name}",
+    "/v1alpha1/inventory/watch",
+    "/v1alpha1/status/targets",
+    "/v1alpha1/status/inventories"
+  ],
+  "generatedAt": "2026-06-05T15:53:34.412Z"
+}
