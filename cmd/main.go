@@ -24,6 +24,9 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/controller"
+	"github.com/konih/kollect/internal/inventory"
+	"github.com/konih/kollect/internal/metrics"
+	webhookv1alpha1 "github.com/konih/kollect/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -48,6 +51,8 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var inventoryHTTPEnabled bool
+	var inventoryHTTPPort int
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -66,6 +71,10 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&inventoryHTTPEnabled, "inventory-http-enabled", false,
+		"Expose GET /inventory with aggregated summary JSON.")
+	flag.IntVar(&inventoryHTTPPort, "inventory-http-port", 8082,
+		"Port for the inventory HTTP server when --inventory-http-enabled is set.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -178,6 +187,29 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectinventory")
 		os.Exit(1)
+	}
+	if err := (&controller.KollectSinkReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "kollectsink")
+		os.Exit(1)
+	}
+	if err := webhookv1alpha1.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to set up webhooks")
+		os.Exit(1)
+	}
+	metrics.Register()
+	if inventoryHTTPEnabled {
+		//nolint:gosec // G115: port comes from operator flag (default 8082)
+		invSrv := &inventory.Server{
+			Enabled: true,
+			Port:    int32(inventoryHTTPPort),
+		}
+		if err := mgr.Add(invSrv); err != nil {
+			setupLog.Error(err, "Failed to add inventory HTTP server")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 
