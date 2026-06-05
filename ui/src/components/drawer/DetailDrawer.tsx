@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import * as Dialog from "@radix-ui/react-dialog";
 import { Copy, X } from "lucide-react";
 import { useState, type RefObject } from "react";

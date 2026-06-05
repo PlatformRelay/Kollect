@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import type { Condition } from "@/api/k8s-status";

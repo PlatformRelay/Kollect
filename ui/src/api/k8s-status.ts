@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 /**
  * CRD status client — primary path uses Read API proxy endpoints (B3).
  * UI may call Kubernetes API directly for conditions in hybrid mode (OQ-3).

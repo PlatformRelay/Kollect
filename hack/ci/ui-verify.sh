@@ -19,6 +19,7 @@ npm run lint
 npm run build
 
 cd "${ROOT}"
+bash hack/verify-ui-headers.sh
 bash hack/verify-ui-mock.sh
 
 if [[ "${UI_VISUAL_REGRESSION:-}" == "1" ]]; then

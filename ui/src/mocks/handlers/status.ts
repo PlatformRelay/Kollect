@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import { http, HttpResponse } from "msw";
 import { getInventoryStatus, getTargetStatus } from "../fixtures";
 import { filterStatusItems } from "./utils";

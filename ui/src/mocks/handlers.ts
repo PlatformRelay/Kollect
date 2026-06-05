@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import { inventoryHandlers } from "./handlers/inventory";
 import { statusHandlers } from "./handlers/status";
 import { sseHandlers } from "./handlers/sse";

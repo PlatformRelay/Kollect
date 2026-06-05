@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import { describe, expect, it } from "vitest";
 import type { ExportStatus } from "@/api/inventory";
 import type { ResourceStatus } from "@/api/k8s-status";

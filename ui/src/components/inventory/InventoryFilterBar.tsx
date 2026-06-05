@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import type { InventoryFilters } from "@/store/inventory";
 
 type InventoryFilterBarProps = {

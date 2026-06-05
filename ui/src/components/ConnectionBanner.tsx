@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Konrad Heimel
+
 import { useConnectionStore } from "@/store/connection";
 
 export function ConnectionBanner() {
