@@ -43,7 +43,6 @@ spec:
             - --max-concurrent-reconciles-target={{ .Values.controller.maxConcurrentReconciles.target }}
             - --max-concurrent-reconciles-inventory={{ .Values.controller.maxConcurrentReconciles.inventory }}
             - --max-concurrent-reconciles-hub={{ .Values.controller.maxConcurrentReconciles.hub }}
-            - --export-debounce={{ .Values.controller.exportDebounce }}
             {{- if .Values.controller.reconcileRateLimit }}
             - --reconcile-rate-limit={{ .Values.controller.reconcileRateLimit }}
             {{- end }}
