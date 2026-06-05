@@ -72,6 +72,40 @@ var (
 		},
 		[]string{"type", "result"},
 	)
+
+	// ReconcileInFlight approximates workqueue depth (items currently being reconciled).
+	ReconcileInFlight = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kollect_workqueue_depth",
+			Help: "Approximate reconcile workqueue depth (in-flight reconciles per controller).",
+		},
+		[]string{"controller"},
+	)
+
+	ReconcileDurationSeconds = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "kollect_reconcile_duration_seconds",
+			Help:    "Controller reconcile latency in seconds.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"controller"},
+	)
+
+	InformerObjects = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kollect_informer_objects",
+			Help: "Objects in the dynamic informer indexer by GVR.",
+		},
+		[]string{"group", "version", "resource"},
+	)
+
+	ExportBytesTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_export_bytes_total",
+			Help: "Total inventory payload bytes exported to sinks.",
+		},
+		[]string{"sink_type"},
+	)
 )
 
 // Register adds kollect custom metrics to the controller-runtime registry.
@@ -84,5 +118,9 @@ func Register() {
 		ReconcileErrorsTotal,
 		ExportDurationSeconds,
 		SinkConnectionTestTotal,
+		ReconcileInFlight,
+		ReconcileDurationSeconds,
+		InformerObjects,
+		ExportBytesTotal,
 	)
 }

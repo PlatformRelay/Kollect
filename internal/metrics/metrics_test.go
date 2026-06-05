@@ -48,4 +48,25 @@ func TestRegister(t *testing.T) {
 	if v := testutil.ToFloat64(SinkConnectionTestTotal.WithLabelValues("git", ResultSuccess)); v < 1 {
 		t.Fatalf("connection test counter: got %v", v)
 	}
+
+	ReconcileInFlight.WithLabelValues("kollecttarget").Inc()
+	if v := testutil.ToFloat64(ReconcileInFlight.WithLabelValues("kollecttarget")); v != 1 {
+		t.Fatalf("workqueue depth gauge: got %v", v)
+	}
+	ReconcileInFlight.WithLabelValues("kollecttarget").Dec()
+
+	ReconcileDurationSeconds.WithLabelValues("kollectinventory").Observe(0.1)
+	if count := testutil.CollectAndCount(ReconcileDurationSeconds); count != 1 {
+		t.Fatalf("reconcile duration histogram count: got %d", count)
+	}
+
+	InformerObjects.WithLabelValues("apps", "v1", "deployments").Set(42)
+	if v := testutil.ToFloat64(InformerObjects.WithLabelValues("apps", "v1", "deployments")); v != 42 {
+		t.Fatalf("informer objects gauge: got %v", v)
+	}
+
+	ExportBytesTotal.WithLabelValues("git").Add(1024)
+	if v := testutil.ToFloat64(ExportBytesTotal.WithLabelValues("git")); v != 1024 {
+		t.Fatalf("export bytes counter: got %v", v)
+	}
 }
