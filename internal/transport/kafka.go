@@ -111,7 +111,7 @@ func (k *KafkaTransport) Subscribe(ctx context.Context, subject string, handler 
 			}
 
 			readCtx, readCancel := context.WithTimeout(loopCtx, 5*time.Second)
-			msg, err := reader.ReadMessage(readCtx)
+			msg, err := reader.FetchMessage(readCtx)
 			readCancel()
 
 			if err != nil {
@@ -132,12 +132,33 @@ func (k *KafkaTransport) Subscribe(ctx context.Context, subject string, handler 
 			}
 
 			if msgSubject != subject {
+				_ = reader.CommitMessages(loopCtx, msg)
+
 				continue
 			}
 
-			_ = handler(loopCtx, msg.Value)
+			if err := kafkaConsumeHandler(loopCtx, msg.Value, handler, func() {
+				_ = reader.CommitMessages(loopCtx, msg)
+			}); err != nil {
+				continue
+			}
 		}
 	}()
+
+	return nil
+}
+
+func kafkaConsumeHandler(
+	ctx context.Context,
+	payload []byte,
+	handler Handler,
+	commit func(),
+) error {
+	if err := handler(ctx, payload); err != nil {
+		return fmt.Errorf("kafka handler: %w", err)
+	}
+
+	commit()
 
 	return nil
 }
