@@ -6,6 +6,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,7 +83,35 @@ func exportFileRemote(
 		pushArgs = []string{"push", "--force", "-u", "origin", pushBranch}
 	}
 
-	return runGit(ctx, tmp, pushArgs...)
+	if err := runGit(ctx, tmp, pushArgs...); err != nil {
+		return err
+	}
+
+	return ensureBareHEAD(ctx, cloneURL, pushBranch)
+}
+
+func ensureBareHEAD(ctx context.Context, cloneURL, branch string) error {
+	u, err := url.Parse(cloneURL)
+	if err != nil || u.Scheme != "file" {
+		return nil
+	}
+
+	bareDir := u.Path
+	ref := "refs/heads/" + branch
+
+	//nolint:gosec // G204: bareDir from validated file:// URL
+	head := exec.CommandContext(ctx, "git", "--git-dir="+bareDir, "symbolic-ref", "-q", "HEAD")
+	if head.Run() == nil {
+		return nil
+	}
+
+	//nolint:gosec // G204: bareDir from validated file:// URL
+	setHead := exec.CommandContext(ctx, "git", "--git-dir="+bareDir, "symbolic-ref", "HEAD", ref)
+	if out, err := setHead.CombinedOutput(); err != nil {
+		return fmt.Errorf("git symbolic-ref HEAD %s: %s: %w", ref, strings.TrimSpace(string(out)), err)
+	}
+
+	return nil
 }
 
 func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string, depth int) error {

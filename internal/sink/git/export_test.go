@@ -135,7 +135,9 @@ func TestExportFileRemoteCommitPolicyOnPopulatedRemote(t *testing.T) {
 	}
 
 	verifyDir := filepath.Join(dir, "verify")
-	verifyClone := exec.Command("git", "clone", bare, verifyDir) //nolint:gosec // G204: test fixture
+	verifyClone := exec.Command( //nolint:gosec // G204: test fixture
+		"git", "clone", "--branch", "main", "--single-branch", bare, verifyDir,
+	)
 	if out, err := verifyClone.CombinedOutput(); err != nil {
 		t.Fatalf("git clone verify: %s: %v", out, err)
 	}
@@ -198,7 +200,9 @@ func TestExportFileRemoteForcePushResolvesNonFastForward(t *testing.T) {
 	cloneA := filepath.Join(dir, "clone-a")
 	cloneB := filepath.Join(dir, "clone-b")
 	for _, dest := range []string{cloneA, cloneB} {
-		cmd := exec.Command("git", "clone", bare, dest) //nolint:gosec // G204: test fixture
+		cmd := exec.Command( //nolint:gosec // G204: test fixture
+			"git", "clone", "--branch", "main", "--single-branch", bare, dest,
+		)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git clone %s: %s: %v", dest, out, err)
 		}
@@ -208,6 +212,9 @@ func TestExportFileRemoteForcePushResolvesNonFastForward(t *testing.T) {
 		t.Helper()
 
 		target := filepath.Join(dir, "inventory", "test.json")
+		if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(target, content, 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -244,7 +251,9 @@ func TestExportFileRemoteForcePushResolvesNonFastForward(t *testing.T) {
 	}
 
 	verifyDir := filepath.Join(dir, "verify")
-	verifyClone := exec.Command("git", "clone", bare, verifyDir) //nolint:gosec // G204: test fixture
+	verifyClone := exec.Command( //nolint:gosec // G204: test fixture
+		"git", "clone", "--branch", "main", "--single-branch", bare, verifyDir,
+	)
 	if out, err := verifyClone.CombinedOutput(); err != nil {
 		t.Fatalf("git clone verify: %s: %v", out, err)
 	}
