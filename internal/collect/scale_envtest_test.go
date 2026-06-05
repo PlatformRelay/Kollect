@@ -64,6 +64,10 @@ func TestStore_Scale500(t *testing.T) {
 }
 
 func TestEngine_ScaleEnvtest500(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping envtest scale in short mode")
+	}
+
 	deadline := time.Now().Add(28 * time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 28*time.Second)
