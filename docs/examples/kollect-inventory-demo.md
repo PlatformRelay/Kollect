@@ -3,6 +3,9 @@
 Minimal **kind** lab that rolls up deployment inventory and exports JSON to the public demo repo
 [github.com/konih/kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo).
 
+For a **wide-scope** demo (5 GVK types, 26 workloads, multi-namespace Targets, churn script), see
+`hack/demo/kind-wide-scope/` and the local playbook `agent-context/DEMO-KIND-WIDE-SCOPE.md`.
+
 ## Prerequisites
 
 - `kind`, `kubectl`, `helm`, `task`, Docker
