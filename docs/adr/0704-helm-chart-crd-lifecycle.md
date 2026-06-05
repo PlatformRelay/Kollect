@@ -49,8 +49,9 @@ flag wired in `deployment.yaml`, (3) snapshot in `charts/kollect/tests/`, (4) do
 feature ADR. Production Helm defaults stay conservative; dev/CI overlays (`ci/dev-values.yaml`) may enable
 gates for smoke tests.
 
-Future gates (planned): Read API / embedded SPA ([ADR-0408](0408-read-api-ui-architecture.md)), optional
-`oauth2Proxy` sidecar ([ADR-0404](0404-inventory-api-auth.md)).
+Future gates (planned): **`ui.enabled`** — separate `kollect-ui` subchart ([ADR-0409](0409-kollect-ui-deployment.md),
+[ADR-0408](0408-read-api-ui-architecture.md)); optional **`oauth2Proxy`** ingress overlay post-MVP
+([ADR-0404](0404-inventory-api-auth.md)).
 
 ### Webhook certificates
 

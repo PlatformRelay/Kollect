@@ -114,6 +114,7 @@ required** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
 | Multi-cluster & hub/spoke | [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) |
 | Sink taxonomy (state vs stream) | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | Build-order phases and status | [Roadmap](ROADMAP.md) |
+| Read-only UI console (planned v0.2) | [ADR-0408](adr/0408-read-api-ui-architecture.md) · [ADR-0409](adr/0409-kollect-ui-deployment.md) |
 | Examples index | [Examples](examples/README.md) |
 | Example: Deployment → Git export | [Walkthrough](examples/deployment-inventory.md) |
 | Live demo inventory (Git sink) | [kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo) |

@@ -129,6 +129,9 @@ nav:
               - "0406 — Sink registry and the Backend interface": adr/0406-sink-registry.md
               - "0407 — Git / object-store export layout and workflow": adr/0407-git-object-store-layout.md
               - "0408 — Read API and UI architecture (pluggable backing store)": adr/0408-read-api-ui-architecture.md
+              - "0409 — Kollect UI deployment — separate static SPA image": adr/0409-kollect-ui-deployment.md
+              - "0410 — UI engineering and quality gates": adr/0410-ui-engineering-and-quality-gates.md
+              - "0411 — Read API extensions for UI": adr/0411-read-api-extensions-for-ui.md
           - 05 Multi-cluster:
               - "0501 — Multi-cluster sync topology (shared-sink default; hub optional)": adr/0501-multi-cluster-sync-rfc.md
               - "0502 — Event-emitter transport (NATS default, Kafka opt-in)": adr/0502-lean-queue-transport.md

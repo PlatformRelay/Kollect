@@ -15,8 +15,9 @@ hub/spoke sub-values.
 
 The chart defaults to **`replicaCount: 1`** and **`leaderElection.enabled: true`**
 (`--leader-elect`). Reconciler HA, webhook serving, and hub consumer sharding had different
-requirements but were never recorded. [ADR-0408](0408-read-api-ui-architecture.md) plans an optional
-**`kollect-server` split** so a busy read API / SPA does not share the controller process at scale.
+requirements but were never recorded. [ADR-0408](0408-read-api-ui-architecture.md) and
+[ADR-0409](0409-kollect-ui-deployment.md) ship the UI as a **separate `kollect-ui` Deployment**; an
+optional **`kollect-server` split** moves the Read API out of the controller process at scale.
 
 ## Decision
 
@@ -57,7 +58,7 @@ requirements but were never recorded. [ADR-0408](0408-read-api-ui-architecture.m
 | Controller replicas | `replicaCount: 1` | `replicaCount: 2+`, `leaderElection.enabled: true`, **PDB** `minAvailable: 1` (template TBD) |
 | Hub ingest | Single pod acceptable for MVP | Scale hub `replicaCount`; shard transport per [ADR-0502](0502-lean-queue-transport.md) before hub RAM becomes bottleneck |
 | Spoke | One pod per cluster | Spokes stay **lightweight**; HA within a spoke cluster is optional (leader-elected collector) |
-| Read API / UI | Operator-embedded when feature-gated | At scale, split to **`kollect-server`** Deployment ([ADR-0408](0408-read-api-ui-architecture.md)) — separate HA story |
+| Read API / UI | Operator Read API when `inventoryHttp` enabled; **`kollect-ui` separate Deployment** ([ADR-0409](0409-kollect-ui-deployment.md)) | At scale, split Read API to **`kollect-server`** Deployment ([ADR-0408](0408-read-api-ui-architecture.md)) — separate HA story |
 
 ### Graceful lifecycle
 

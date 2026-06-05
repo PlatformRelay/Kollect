@@ -52,7 +52,10 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0405](0405-export-data-contract.md) | Export data contract and schema versioning | Current (schema versioning: Exploring) |
 | [0406](0406-sink-registry.md) | Sink registry and the `Backend` interface | Current |
 | [0407](0407-git-object-store-layout.md) | Git / object-store export layout and workflow | Current |
-| [0408](0408-read-api-ui-architecture.md) | Read API and UI architecture (pluggable backing store) | Exploring |
+| [0408](0408-read-api-ui-architecture.md) | Read API and UI architecture (pluggable backing store) | Current |
+| [0409](0409-kollect-ui-deployment.md) | Kollect UI deployment — separate static SPA image | Current |
+| [0410](0410-ui-engineering-and-quality-gates.md) | UI engineering and quality gates | Current |
+| [0411](0411-read-api-extensions-for-ui.md) | Read API extensions for UI | Current |
 
 ## 05 · Multi-cluster — fan-in, transport, and the optional hub
 
