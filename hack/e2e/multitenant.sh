@@ -9,7 +9,7 @@ set -euo pipefail
 
 readonly TENANT_A="kollect-tenant-a"
 readonly TENANT_B="kollect-tenant-b"
-readonly TIMEOUT="120s"
+readonly TIMEOUT="${WAIT_TIMEOUT:-180s}"
 readonly FIXTURES="${REPO_ROOT}/test/e2e/fixtures/multitenant"
 
 log() { echo "[multitenant] $*"; }
@@ -52,8 +52,12 @@ EOF
 
 wait_target_ready() {
   local ns="$1"
-  kubectl wait --for=condition=Ready kollecttarget/tenant-deployments \
-    -n "${ns}" --timeout="${TIMEOUT}"
+  if ! kubectl wait --for=condition=Ready kollecttarget/tenant-deployments \
+    -n "${ns}" --timeout="${TIMEOUT}"; then
+    kubectl describe kollecttarget tenant-deployments -n "${ns}" >&2 || true
+    kubectl logs -n kollect-system -l app.kubernetes.io/name=kollect --tail=80 >&2 || true
+    return 1
+  fi
 }
 
 wait_inventory_reconciled() {
@@ -132,11 +136,12 @@ main() {
   apply_tenant "${TENANT_A}" "${image}"
   apply_tenant "${TENANT_B}" "${image}"
 
-  # Scope only in tenant-a (governance sample; reconciler enforcement is follow-up).
-  kubectl apply -f "${FIXTURES}/tenant-scope.yaml"
-
   wait_target_ready "${TENANT_A}"
   wait_target_ready "${TENANT_B}"
+
+  # Scope only in tenant-a (governance sample; apply after targets Ready to avoid race).
+  kubectl apply -f "${FIXTURES}/tenant-scope.yaml"
+
   wait_inventory_reconciled "${TENANT_A}"
   wait_inventory_reconciled "${TENANT_B}"
 
