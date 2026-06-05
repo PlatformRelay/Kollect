@@ -104,6 +104,7 @@ nav:
           - "0031 Namespaced profiles": adr/0031-namespaced-profiles.md
           - "0032 Platform architecture pivot": adr/0032-platform-architecture-pivot.md
           - "0033 Custom-resource aggregation (RFC)": adr/0033-custom-resource-aggregation-rfc.md
+          - "0034 Sink taxonomy — state vs stream": adr/0034-sink-taxonomy-state-vs-stream.md
   - Contributing:
       - Roadmap: ROADMAP.md
       - Release process: RELEASE.md

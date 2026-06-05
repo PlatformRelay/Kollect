@@ -114,12 +114,15 @@ Key properties:
 | Git sink | Durable | Audit / diff |
 | HTTP (if enabled) | Ephemeral | Debug snapshot |
 
-## Sinks (priority)
+## Sinks (by role)
 
-1. **Postgres / Kafka** — portals, hub merge, automation at scale  
-2. **Git** — recommended for **small single-cluster** installs without DB/Kafka  
-3. **GitLab** — Phase 2 enterprise Git host (internal CA via `tls.caSecretRef`)  
-4. **HTTP** — optional debug ([ADR-0032](adr/0032-platform-architecture-pivot.md))
+Classified by role, not vendor ([ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md)). The
+in-memory snapshot per Inventory is canonical; sinks are projections.
+
+- **Snapshot stores** — **Git** (audit), **S3/GCS Parquet** (queryable via DuckDB, no DB server), **HTTP** (debug). Deletes free.
+- **Relational SoR** — **Postgres** (rich portal SQL; needs delete reconciliation).
+- **Event emitters** — **NATS JetStream** (lean default), **Kafka/Redpanda** (enterprise opt-in). Doubles as multi-cluster fan-in.
+- **GitLab** — Phase 2 enterprise Git host (internal CA via `tls.caSecretRef`).
 
 ## Multi-cluster (build order)
 

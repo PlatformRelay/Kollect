@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted (2026-06-05)
+Accepted (2026-06-05) · **Amended by [ADR-0034](0034-sink-taxonomy-state-vs-stream.md)** — **NATS
+JetStream is the lean default** event backbone (over the earlier Redis-spike framing); Kafka/Redpanda
+is the enterprise opt-in. The **transport and the Kafka event sink are unified** into one
+event-emitter abstraction: since multi-cluster fan-in is now *direct to a shared sink*, a spoke
+publishing to a shared subject **is** the fan-in. `inprocess` remains the dev/test default.
 
 ## Context
 

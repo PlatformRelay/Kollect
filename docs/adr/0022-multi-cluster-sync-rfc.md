@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted (2026-06-05)
+Accepted (2026-06-05) · **Amended by [ADR-0034](0034-sink-taxonomy-state-vs-stream.md)** — the
+**default multi-cluster topology is direct shared-sink fan-in** (each operator exports to a shared
+Postgres/Kafka/object store with `spec.cluster` set; the backend key/PK provides the merge). The
+**hub is an optional tier**, used only for Git fan-in, network isolation, credential centralization,
+or schema decoupling — **not** the default scale answer.
 
 ## Context
 

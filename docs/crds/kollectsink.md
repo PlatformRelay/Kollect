@@ -10,13 +10,17 @@ blocks (`postgres`, `kafka`). The inventory controller resolves `sinkRefs` and w
 payloads; status stores summaries (commit SHA, row counts), not full payloads
 ([ADR-0006](../adr/0006-etcd-limit.md)).
 
-| Install shape | Recommended `type` |
-| --- | --- |
-| Portals / scale / hub | `postgres`, `kafka` |
-| Small single-cluster (no DB/Kafka) | **`git`** |
-| Enterprise GitLab + internal CA | **`gitlab`** (Phase 2 — `tls.caSecretRef`) |
+Sinks are classified by **role**, not vendor ([ADR-0034](../adr/0034-sink-taxonomy-state-vs-stream.md)):
 
-See [ADR-0025](../adr/0025-sink-backends-database-kafka.md),
+| Role | `type` | Notes |
+| --- | --- | --- |
+| Snapshot store | `git`, `s3`/`gcs` (`format: parquet`), HTTP | deletes free; Parquet queryable via DuckDB, no DB server |
+| Relational SoR | `postgres` | rich SQL; needs delete reconciliation |
+| Event emitter | `nats` (lean default), `kafka` (enterprise opt-in; Redpanda via Kafka API) | doubles as multi-cluster fan-in |
+| Enterprise Git | `gitlab` (Phase 2) | internal CA via `tls.caSecretRef` |
+
+See [ADR-0034](../adr/0034-sink-taxonomy-state-vs-stream.md),
+[ADR-0025](../adr/0025-sink-backends-database-kafka.md),
 [ADR-0030](../adr/0030-connection-test.md), [ADR-0032](../adr/0032-platform-architecture-pivot.md).
 
 ## How it fits the pipeline
@@ -46,7 +50,7 @@ Export debouncing and payload flow: [DATA-FLOWS.md](../DATA-FLOWS.md#1-export-de
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `spec.type` | enum | Yes | `git` (shipped), `gitlab` (Phase 2), `postgres`, `kafka`, `s3`, `gcs` |
+| `spec.type` | enum | Yes | `git`, `postgres`, `kafka` (shipped); `s3`/`gcs` (Parquet mode planned); `nats`, `gitlab` (planned) |
 | `spec.endpoint` | string | No | Backend-specific destination URL or bucket |
 | `spec.secretRef` | object | No | Secret with credentials (`name`, optional `namespace`) |
 | `spec.tls` | object | No | `insecureSkipVerify`, `caSecretRef`, `caBundle` (max 64 KiB) |

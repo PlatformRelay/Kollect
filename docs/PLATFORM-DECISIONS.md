@@ -38,6 +38,20 @@
 11. **GitLab sink** — Phase 2 (custom CA via `tls.caSecretRef`; first enterprise presentation path)
 12. **Hub ingest** — SAR **`create`** on `kollectremoteclusters`
 
+### Locked micro-decisions (2026-06-05, session 5)
+
+Sink/transport reframe — [ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md).
+
+| Topic | Decision |
+| --- | --- |
+| Sink taxonomy | **Role-based**: snapshot store (Git/Parquet/HTTP) · relational SoR (Postgres) · event emitter (NATS/Kafka) |
+| Canonical artifact | **In-memory snapshot** per Inventory; all sinks are projections |
+| Queryable, no DB | **Add S3/GCS Parquet sink** queryable by DuckDB/Athena; deletes free; 3 store tiers (Git + Parquet + Postgres) |
+| Postgres deletes | **Add delete reconciliation** (diff vs last export) — upsert-only is a bug |
+| Event default | **NATS JetStream** lean default; **Kafka/Redpanda** enterprise opt-in (one Kafka-API driver) |
+| Sink ↔ transport | **Unified** — spoke publishing to a shared subject *is* the fan-in |
+| Multi-cluster default | **Direct shared-sink fan-in** (`spec.cluster`); **hub optional** (Git fan-in / isolation / cred / schema decoupling) |
+
 ### Locked micro-decisions (2026-06-05, session 4)
 
 | Topic | Decision |
@@ -212,13 +226,19 @@ Do not generate controllers or document samples for reserved kinds unless an ADR
 
 ## Sinks and portals
 
-| Role | Backend | When |
-| --- | --- | --- |
-| **Primary (portals, automation)** | Postgres, Kafka | Scale, hub merge, live query |
-| **Small single-cluster (no DB/Kafka)** | **Git** | Recommended default — durable audit trail without extra infra |
-| **Enterprise Git host** | **GitLab** (Phase 2) | Internal CA via `tls.caSecretRef`; MR/API workflow |
-| **Debug / tiny install** | HTTP inventory (gated off) | kind, local dev |
-| **Hub portal read** | Postgres/Kafka at hub | After merge — not spoke HTTP |
+Sinks are classified by **role**, not vendor ([ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md)).
+The in-memory snapshot per Inventory is canonical; every sink is a projection.
+
+| Role | Backends | When | Deletes |
+| --- | --- | --- | --- |
+| **Snapshot store** | Git (audit), **S3/GCS Parquet** (queryable via DuckDB, **no DB server**), HTTP (debug) | small/medium installs; audit; ad-hoc SQL without a database | free |
+| **Relational SoR** | Postgres | rich portal queries/joins | needs delete reconciliation |
+| **Event emitter** | **NATS JetStream** (lean default), **Kafka/Redpanda** (enterprise opt-in) | downstream integration / change feed | tombstone (consumer-owned) |
+
+- **Postgres vs Kafka are not twins** — Postgres = queryable *state*; Kafka = *event* stream (consumer builds its view).
+- **S3/GCS Parquet** is the recommended "queryable inventory without running a database" tier.
+- **GitLab** (Phase 2) — enterprise Git host, internal CA via `tls.caSecretRef`.
+- **Event sink = hub transport** — unified; spoke publishing to a shared subject *is* the fan-in.
 
 ---
 
@@ -248,12 +268,19 @@ Never persist full payloads in etcd ([ADR-0006](adr/0006-etcd-limit.md)).
 
 ## Multi-cluster (build order)
 
-1. Single-cluster export to Postgres/Kafka (**MVP**)
-2. `internal/hub/` merge + `mode: spoke` push + `mode: hub` ingest (**inprocess** transport)
-3. Optional external transport after e2e proof ([ADR-0023](adr/0023-lean-queue-transport.md))
-4. Hub read API optional, backed by hub store — not required on spokes
+**Default topology = direct shared-sink fan-in** ([ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md)):
+each operator exports to a shared Postgres/Kafka/object store with `spec.cluster` set; the backend
+key/PK provides the merge. **No hub required.**
 
-Auth: [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md) push-first.
+The **hub is an optional tier**, used only for:
+
+- **Git** as multi-cluster SoR (direct Git fan-in = N-commits anti-pattern)
+- **network isolation** (spokes can't reach a central backend)
+- **credential centralization** (one DB/broker cred at hub vs N spokes)
+- **schema decoupling** (spokes speak report schema; hub owns DB schema)
+
+Hub auth (when used): [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md) push-first, SAR `create`
+on `kollectremoteclusters`. Transport unified with the event sink ([ADR-0023](adr/0023-lean-queue-transport.md)).
 
 ---
 

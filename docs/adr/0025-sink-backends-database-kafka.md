@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted (2026-06-05)
+Accepted (2026-06-05) · **Amended by [ADR-0034](0034-sink-taxonomy-state-vs-stream.md)** — sinks are
+now classified by **role** (snapshot store / relational SoR / event emitter). Postgres and Kafka are
+**not** co-equal primaries: Postgres is a queryable **state** store (and needs **delete
+reconciliation** — upsert-only is a bug); Kafka is an **event emitter** with **NATS JetStream as the
+lean default**. An **S3/GCS Parquet** snapshot sink (queryable via DuckDB, no DB server) is added.
 
 ## Context
 

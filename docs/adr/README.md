@@ -29,6 +29,7 @@ Each ADR follows: **Context → Decision → Consequences → Open questions** (
 | [0031](0031-namespaced-profiles.md) | Namespaced KollectProfile (Accepted) |
 | [0032](0032-platform-architecture-pivot.md) | Platform architecture pivot (Accepted) |
 | [0033](0033-custom-resource-aggregation-rfc.md) | Custom-resource metrics and aggregation (RFC stub) |
+| [0034](0034-sink-taxonomy-state-vs-stream.md) | Sink taxonomy — state stores vs event emitters; hub optional (Accepted) |
 
 See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md),
 [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md), and [PERFORMANCE.md](../PERFORMANCE.md).

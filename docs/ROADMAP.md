@@ -94,8 +94,11 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Git sink with custom CA TLS | ✅ |
 | GitLab sink (`tls.caSecretRef` for internal CA) | ✅ REST client + MR wire + feature-branch push |
 | S3 sink | 🚧 (MinIO integration; nightly + PR `test-integration`) |
+| S3/GCS **Parquet** snapshot sink (DuckDB-queryable, no DB server) | ⬜ [ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md) |
 | Postgres sink (`type: postgres`) | ✅ |
+| Postgres **delete reconciliation** (stale-row fix) | ⬜ [ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md) |
 | Kafka export sink (`type: kafka`) | ✅ |
+| **NATS JetStream** emitter (`type: nats`, lean default) | ⬜ [ADR-0034](adr/0034-sink-taxonomy-state-vs-stream.md) |
 | Postgres/Kafka testcontainers in CI | ✅ |
 | SAR / RBAC scope degradation | ✅ |
 | Typed reconcile errors + circuit breakers | 🚧 |
