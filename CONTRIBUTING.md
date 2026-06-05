@@ -1,30 +1,72 @@
 # Contributing to kollect
 
-Thank you for helping improve kollect. This project uses **Conventional Commits** with an
-optional **gitmoji** prefix in the subject line.
+Thank you for helping improve kollect.
 
 ## Commit messages
+
+We follow **[Conventional Commits](https://www.conventionalcommits.org/)** per
+[qoomon's cheatsheet](https://gist.github.com/qoomon/5dfcdf8eec66a051ecd85625518cfd13), with an
+optional **[gitmoji](https://gitmoji.dev/) shortcode prefix** (e.g. `:sparkles:`, not Unicode
+emoji). Use shortcodes when they help scan history; omit them when they add noise.
 
 Format:
 
 ```text
-:gitmoji: type(scope): short summary
+:gitmoji: <type>(<optional scope>): <description>
 
-Optional body with motivation and breaking-change notes.
+<optional body>
+
+<optional footer>
 ```
 
-Examples:
+**Types** — pick the first matching category (do not misuse `feat` for pure docs/ci):
 
-- `:sparkles: feat(api): add KollectScope CRD skeleton`
-- `:wrench: build: pin controller-tools for codegen`
-- `:green_heart: ci: add preflight workflow`
-- `:memo: docs: expand README quickstart`
+| Type | When to use |
+| --- | --- |
+| `feat` | Add, adjust, or remove a user-facing feature — CRDs, webhooks, operator behavior |
+| `fix` | Fix a bug in API/UI behavior |
+| `refactor` | Restructure code without changing API or UI behavior |
+| `perf` | Performance improvement |
+| `style` | Formatting, whitespace, lint-only — no behavior change |
+| `test` | Add or correct tests |
+| `docs` | Documentation only — CR references, README, ADRs |
+| `build` | Build tools, dependencies, Dockerfile, version bumps |
+| `ci` | CI/CD pipelines, GitHub Actions, deployment scripts |
+| `chore` | Maintenance — `.gitignore`, scaffolding, non-user-facing tooling |
 
-Common gitmoji: `:sparkles:` feat, `:bug:` fix, `:wrench:` build/chore, `:green_heart:` ci,
-`:memo:` docs, `:white_check_mark:` test, `:recycle:` refactor, `:tada:` initial/bootstrap.
+**Scopes** — optional, lowercase, ≤ 20 chars: `api`, `controller`, `hub`, `sink`, `collect`,
+`helm`, `webhook`, `validation`, `transport`, `docs`, `ci`, `build`. Do not use issue IDs as
+scopes (reference issues in the footer or description instead).
 
-Types follow [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`,
-`docs`, `test`, `ci`, `build`, `chore`, `refactor`, `perf`.
+**Description** — imperative present tense ("add" not "added"); lowercase first letter; no
+trailing period; ≤ ~72 chars on the subject line (after gitmoji + type/scope).
+
+**Breaking changes** — pre-v0.x default is **no** breaking marker; CRD/schema pivots use plain
+`feat(api):`. Use `feat(scope)!:` / `fix(scope)!:` or a `BREAKING CHANGE:` footer only when a
+**tagged release already exists** and adopters must migrate. If `!` is used, footer
+`BREAKING CHANGE: <migration note>` is **required**. Do not mark breaking for pre-beta CRD churn,
+internal refactors, or dev-only flag removal.
+
+**Examples (good):**
+
+```text
+:sparkles: feat(api): make KollectSink namespaced
+:bug: fix(hub): reject unlisted cluster when allowlist is set
+:recycle: refactor(controller): extract scope check helper
+:page_facing_up: docs: expand KollectProfile CR reference
+:construction_worker: ci: fix e2e-nightly upload-artifact pin
+```
+
+**Examples (avoid):**
+
+```text
+Feat(api): Added sink.
+feat(api)!: change sink scope
+feat: misc fixes
+```
+
+Capitalized or past-tense subjects, trailing periods, `!` without a `BREAKING CHANGE:` footer,
+and vague subjects.
 
 ## Changelog and releases
 
