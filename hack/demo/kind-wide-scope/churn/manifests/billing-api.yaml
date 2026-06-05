@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-api
+  namespace: team-b
+  labels:
+    app.kubernetes.io/name: billing-api
+    app.kubernetes.io/part-of: demo-fleet
+    kollect.dev/inventory: enabled
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: billing-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: billing-api
+    spec:
+      containers:
+        - name: billing
+          image: hashicorp/http-echo:1.0
+          args: ["-text=billing"]

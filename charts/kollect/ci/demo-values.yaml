@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+#
+# Demo Helm values: dev-values + kollect-ui subchart for venue reveal.
+featureGates:
+  inventoryHttp:
+    enabled: true
+    authMode: disabled
+
+webhooks:
+  enabled: false
+
+leaderElection:
+  enabled: false
+
+pprof:
+  enabled: true
+  bindAddress: ":6060"
+
+watchNamespaces: []
+tenantMode: false
+
+transport:
+  type: inprocess
+
+sinkDefaults:
+  connectionTest: true
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+ui:
+  enabled: true
+  readApiUrl: "http://kollect-controller-manager:8082"

@@ -1,12 +1,48 @@
 # Kollect wide-scope demo — sales pitch on kind
 
 **Kollect** turns selected, live cluster state into a **durable, queryable, diffable inventory**.
-This demo is the showcase walkthrough: a motivational story from problem → answer → live cluster →
-measurable outcomes, exporting to
+This demo is the primary adoption story: a venue pitch and early-adopter lab from problem → answer →
+live cluster → **UI reveal** + Git audit trail, exporting to
 [github.com/konih/kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo).
 
-> Run from the repo root. Cluster name **`kollect-dev`** (`kind-kollect-dev` context) matches
-> `task kind-dev-up` / `task kind-dev-down`.
+> Run from the repo root. Cluster **`kollect-dev`** (`kind-kollect-dev`) matches `task kind-dev-up`.
+> Early-adopter checklist: [`ROADMAP.md`](ROADMAP.md).
+
+---
+
+## Venue pitch (one screen)
+
+| Beat | You say | Demo shows |
+| --- | --- | --- |
+| **Problem** | Four teams, four tools, no durable history | Optional scattered `kubectl get -A` |
+| **Answer** | GVK → attributes → aggregate → export — config, not code | Gum step + [`samples/`](samples/) |
+| **Live** | Operators, scope, eight resource types | `demo.sh` spinners |
+| **Steady** | One inventory, many projections | UI catalog + `itemCount` |
+| **Change** | Cluster drift → inventory drift | `--churn` (fast default) |
+| **Reveal** | What stakeholders open | `--reveal` → kollect-ui + Git SHA |
+
+```sh
+bash hack/demo/kind-wide-scope/demo.sh --check
+export GITHUB_TOKEN="$(gh auth token)"
+bash hack/demo/kind-wide-scope/demo.sh --churn --reveal
+```
+
+No GitHub? `DEMO_PERSONA=local bash hack/demo/kind-wide-scope/demo.sh --reveal`
+
+Non-interactive: `DEMO_AUTO_YES=1 bash hack/demo/kind-wide-scope/demo.sh --churn=fast`
+
+---
+
+## Personas
+
+| Persona | Command | Focus |
+| --- | --- | --- |
+| **full** | `demo.sh` (default) | 8 GVK types + Git + UI |
+| **security** | `DEMO_PERSONA=security demo.sh` | Trivy/certs/ESO, lighter fleet |
+| **platform** | `DEMO_PERSONA=platform demo.sh` | Core fleet + meta-target, no security operators |
+| **local** | `DEMO_PERSONA=local demo.sh --reveal` | HTTP + UI only |
+
+Flags: `--reuse-cluster`, `--fresh`, `--skip-platform`, `--help` — see [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
@@ -15,14 +51,12 @@ measurable outcomes, exporting to
 ### 1. The problem
 
 Platform and security teams juggle **fleet topology**, **CVE posture**, **TLS expiry**, and
-**secret sync state** — but stakeholders cannot live-list the apiserver forever. Dashboards break
-when RBAC, scale, or apiserver availability gets in the way.
+**secret sync state** — but stakeholders cannot live-list the apiserver forever.
 
 ### 2. The Kollect answer
 
-**Select** resources by GVK → **extract** attributes (CEL / JSONPath) → **aggregate** across Targets →
-**debounce** → **export** to pluggable sinks. Inventory is **configuration, not code** — owned per
-team in Kubernetes.
+**Select** GVK → **extract** (CEL / JSONPath) → **aggregate** → **debounce** → **export**.
+Inventory is **configuration, not code**.
 
 ```mermaid
 flowchart LR
@@ -34,129 +68,71 @@ flowchart LR
   end
   subgraph sinks [Projections]
     GIT[Git snapshot]
-    HTTP[Inventory HTTP :8082]
+    UI[kollect-ui]
+    HTTP[Read API :8082]
   end
   INV --> GIT
   INV --> HTTP
+  HTTP --> UI
 ```
 
 ### 3. Live walkthrough
 
-One guided script provisions everything:
+Guided driver with **[Charm Gum](https://github.com/charmbracelet/gum)** bubble UX:
 
-```sh
-export GITHUB_TOKEN="$(gh auth token)"   # repo scope — never commit
-bash hack/demo/kind-wide-scope/demo.sh
-```
+| Step | What happens |
+| --- | --- |
+| 1 | kind + operator + **kollect-ui** (`demo-values.yaml`) |
+| 2 | [`install-platform.sh`](install-platform.sh) — Trivy, cert-manager, external-secrets |
+| 3 | Git credentials (skipped for `local` persona) |
+| 4 | Kustomize overlay apply — Scope → Profiles → Targets → Sink → Inventory → fleet |
+| 5 | Wait ConnectionVerified + Ready; Trivy rows grow (~2–5 min) |
+| 6 | Optional [`churn/run.sh`](churn/run.sh); [`--reveal`](lib/reveal.sh) port-forwards UI |
 
-With churn in the background (12-minute scripted mutations → Git diffs):
+#### Eight GVK types
 
-```sh
-bash hack/demo/kind-wide-scope/demo.sh --churn
-```
-
-Non-interactive (CI / automation):
-
-```sh
-DEMO_AUTO_YES=1 bash hack/demo/kind-wide-scope/demo.sh
-```
-
-The driver uses **[Charm Gum](https://github.com/charmbracelet/gum)** for bubble-style guided
-shell UX (auto-installed via `go install` when missing).
-
-#### What happens step-by-step
-
-| Step | Script / manifest | What you see |
-| --- | --- | --- |
-| 1 | [`demo.sh`](demo.sh) + `KOLLECT_DEV_MINIMAL=1 task kind-dev-up` | kind cluster + Kollect operator |
-| 2 | [`install-platform.sh`](install-platform.sh) | Trivy Operator, cert-manager, external-secrets |
-| 3 | [`base/kollect/secret.example.yaml`](base/kollect/secret.example.yaml) pattern | `git-push-credentials` from `GITHUB_TOKEN` |
-| 4 | [`kustomization.yaml`](kustomization.yaml) | Scope → Profiles → Targets → Sink → Inventory → fleet |
-| 5 | [`churn.sh`](churn.sh) (optional) | Adds/updates/deletes rows; Git commits every ~15s |
-| 6 | [`logs.sh`](logs.sh) | Collection + export log followers |
-
-#### Demo topology
-
-```mermaid
-flowchart TB
-  subgraph ns [Namespaces]
-    TA[team-a]
-    TB[team-b]
-    PL[platform]
-    DF[default]
-    ID[inventory-demo]
-    SO[sec-ops]
-  end
-  subgraph gvk [Eight collected GVK types]
-    D[Deployment]
-    S[Service]
-    CM[ConfigMap]
-    CJ[CronJob]
-    KT[KollectTarget meta]
-    VR[VulnerabilityReport]
-    CERT[Certificate]
-    ES[ExternalSecret]
-  end
-  TA --> D
-  TB --> D
-  PL --> D
-  DF --> D
-  VR -.->|Trivy scans workloads| TA
-  VR -.-> TB
-  CERT --> TA
-  CERT --> TB
-  ES --> TA
-  ES --> TB
-```
+Deployment, Service, ConfigMap, CronJob, KollectTarget (meta), VulnerabilityReport, Certificate,
+ExternalSecret — see [`base/kollect/`](base/kollect/) and [`samples/`](samples/).
 
 ### 4. Outcomes
 
-- **Git history** — `chore(inventory): export default/team-inventory` commits with JSON diffs
-- **Security inventory** — Trivy `VulnerabilityReport` rows with CVE counts per workload image
-- **TLS inventory** — cert-manager `Certificate` expiry and issuer attributes
-- **Secrets posture** — `ExternalSecret` sync status without exporting secret bytes
-- **Fleet churn** — scale, image bumps, label patches, deletes visible in export diffs
+- **kollect-ui** — catalog, GVK filters, export/freshness (second screen for venue)
+- **Git history** — `chore(inventory): export default/team-inventory` JSON diffs
+- **Security** — Trivy CVE counts per workload image
+- **TLS** — cert-manager expiry rollup
+- **Secrets posture** — ExternalSecret sync status (no secret bytes exported)
+
+Same CRs extend to Postgres, hub, events — see [`docs/examples/`](../../docs/examples/README.md).
 
 ---
 
 ## Use cases woven in
 
-### Headline: Trivy CVE reports
+### Trivy CVE reports
 
-Trivy Operator scans demo workloads (`traefik/whoami`, `redis`, `prometheus`, …) and creates
-`aquasecurity.github.io/v1alpha1` **VulnerabilityReport** CRs. Kollect collects them via Target
-[`fleet-*` / `trivy-vulnerability-reports`](base/kollect/targets.yaml) and Profile
-[`trivy-vulnerability-summary`](base/kollect/profiles.yaml).
-
-!!! tip "Security team workflow"
-    Export CVE summaries to Git for audit diffs, or point the same Profile at Postgres for SQL
-    dashboards — no bespoke Trivy exporter code.
+Scans demo workloads (`traefik/whoami`, `redis`, `prometheus`, …) → **VulnerabilityReport** CRs.
+Profile [`trivy-vulnerability-summary`](base/kollect/profiles.yaml), Target
+[`trivy-vulnerability-reports`](base/kollect/targets.yaml).
 
 ### cert-manager certificates
 
-Self-signed [`ClusterIssuer`](base/platform/issuers.yaml) plus
-[`Certificate`](base/platform/crs/certificates.yaml) CRs in `team-a` / `team-b`. Target
-[`fleet-certificates`](base/kollect/targets.yaml) rolls up `notAfter`, issuer, and readiness.
+[`ClusterIssuer`](base/platform/issuers.yaml) + [`Certificate`](base/platform/crs/certificates.yaml) CRs.
 
 ### external-secrets sync state
 
-[`ExternalSecret`](base/platform/crs/external-secrets.yaml) CRs (fake + kubernetes providers) show
-how Kollect inventories **platform CRDs** generically — same Profile/Target model as Deployments.
+[`ExternalSecret`](base/platform/crs/external-secrets.yaml) — generic upstream CRD collection.
 
 ---
 
 ## Prerequisites
 
+Run `bash hack/demo/kind-wide-scope/demo.sh --check` — see [`ROADMAP.md`](ROADMAP.md) for versions.
+
 | Item | Notes |
 | --- | --- |
-| Tools | `kind`, `kubectl`, `helm`, `kustomize`, `task`, `docker`, `gh`, `go` (for Gum fallback) |
-| Cluster | `kollect-dev` — created by demo if absent |
-| Token | `GITHUB_TOKEN` with `repo` scope for Git push |
-| Gum | Optional pre-install: `go install github.com/charmbracelet/gum@latest` |
-
-!!! warning "Writable /tmp on manager pod"
-    Git export clones into `/tmp`. The Helm chart mounts `emptyDir` at `/tmp` — use
-    `charts/kollect/ci/dev-values.yaml` via `task kind-dev-up`.
+| Tools | kind, kubectl, helm, kustomize, task, docker; gh + Gum optional |
+| Token | `GITHUB_TOKEN` with `repo` scope (not for `local` persona) |
+| Writable `/tmp` | Chart mounts `emptyDir` at `/tmp` for Git export |
 
 ---
 
@@ -164,136 +140,78 @@ how Kollect inventories **platform CRDs** generically — same Profile/Target mo
 
 ```
 hack/demo/kind-wide-scope/
-├── kustomization.yaml          # kubectl apply -k entry
-├── demo.sh                     # Guided driver (preferred)
-├── bootstrap.sh                # Alias → demo.sh
-├── install-platform.sh         # Helm: Trivy, cert-manager, external-secrets
-├── churn.sh / logs.sh
-├── lib/ui.sh                   # Charm Gum helpers
-├── base/
-│   ├── namespaces.yaml
-│   ├── kollect/                # Kollect CRs
-│   ├── workloads/              # Core fleet (no nginx)
-│   └── platform/
-│       ├── issuers.yaml        # cert-manager ClusterIssuer
-│       └── crs/                # Certificate + ExternalSecret CRs
-└── samples/                    # Annotated CR walkthrough
+├── ROADMAP.md
+├── demo.sh / bootstrap.sh
+├── lib/              config.sh, check.sh, reveal.sh, ui.sh
+├── churn/            steps.yaml, run.sh, manifests/
+├── overlays/
+│   ├── full/         default 8-GVK showcase
+│   ├── security/     lighter fleet + platform CRs
+│   ├── platform/     core fleet, no security targets
+│   └── local/        no Git sink required
+├── base/             shared namespaces, kollect, workloads, platform
+├── install-platform.sh
+└── samples/
 ```
-
-Validate locally:
 
 ```sh
 kustomize build hack/demo/kind-wide-scope/ >/dev/null
+kustomize build hack/demo/kind-wide-scope/overlays/security >/dev/null
 ```
 
 ---
 
-## Annotated samples
+## Churn presets
 
-Step-by-step Kollect CRs with inline comments:
-[`hack/demo/kind-wide-scope/samples/`](samples/).
+| Preset | Wall clock | Flag |
+| --- | --- | --- |
+| **fast** (default) | ~2–4 min | `--churn` |
+| **present** | ~12 min | `--churn=present` |
+| **burst** | ~60 s | `--churn=burst` |
 
-Equivalent to `config/samples/` style but tuned for this demo narrative.
+Image bump runs **first** so Trivy rescans show up early. Full step table: [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
 ## Verify export
 
-### In-cluster HTTP
+### `--reveal` (preferred)
+
+```sh
+bash hack/demo/kind-wide-scope/demo.sh --reveal
+# UI: http://127.0.0.1:8080/  Read API: http://127.0.0.1:8082/inventory
+```
+
+### Manual
 
 ```sh
 kubectl port-forward -n kollect-system svc/kollect-controller-manager 8082:8082 &
-curl -sf http://127.0.0.1:8082/inventory | jq '{itemCount, sample: .items[0]}'
-kubectl get kollectinventory team-inventory -n default -o yaml | grep -A20 'status:'
+kubectl port-forward -n kollect-system svc/kollect-ui 8080:8080 &
+curl -sf http://127.0.0.1:8082/inventory | jq '{itemCount, kinds: [.items[].gvk.kind] | unique}'
+gh api repos/konih/kollect-inventory-demo/commits --jq '.[0] | {sha: .sha[0:7], message: .commit.message}'
 ```
 
-### kollect-ui (optional)
-
-Browse the v0.2 read-only console against the live Read API after the demo inventory is ready:
-
-```sh
-# Terminal 1 — Read API (keep running)
-kubectl port-forward -n kollect-system svc/kollect-controller-manager 8082:8082
-
-# Terminal 2 — UI dev server
-cd ui
-VITE_MOCK_API=false VITE_READ_API_URL=http://127.0.0.1:8082 npm run dev
-```
-
-Open http://localhost:5173 — Inventory filters, SSE watch, and detail drawers use the exported
-`default/team-inventory` rows. Mock-only walkthrough (no cluster): `task ui-dev` from repo root.
-
-Helm deploy: enable `ui.enabled: true` on the parent chart — see
-[ADR-0409](../../docs/adr/0409-kollect-ui-deployment.md).
-
-### Upstream CR row counts
-
-```sh
-kubectl get vulnerabilityreports -A
-kubectl get certificates -A -l app.kubernetes.io/part-of=demo-fleet
-kubectl get externalsecrets -A -l kollect.dev/inventory=enabled
-```
-
-### Demo repo commits
-
-```sh
-export GIT_EXPORT_TEST_REPO=https://github.com/konih/kollect-inventory-demo.git
-bash hack/e2e/git-export-assert.sh
-```
-
-```sh
-gh api repos/konih/kollect-inventory-demo/commits --jq '.[0:5][] | {sha: .sha[0:7], message: .commit.message}'
-```
-
----
-
-## Churn choreography
-
-[`churn.sh`](churn.sh) — ~12 minutes, one mutation every ~2 minutes:
-
-| Time | Action | Inventory delta |
-| --- | --- | --- |
-| T+1m | Scale `api-gateway` 2→3 | `replicas` change |
-| T+3m | `frontend` image `whoami:v1.10.2` → `v1.11.0` | `image` change + new Trivy report |
-| T+5m | Label patch `backend` | `labels` map change |
-| T+7m | `feature-flags` data patch | `keyCount` / `dataKeys` change |
-| T+9m | Delete `catalog-sync` | Row removed |
-| T+11m | Create `billing-api` | New row |
-| T+13m | Suspend `weekly-report` CronJob | `suspend: true` |
-| T+15m | Delete/recreate `storefront-demo` Service | `clusterIP` refresh |
+Dev fallback (UI not in cluster): [`docs/examples/ui-local-development.md`](../../docs/examples/ui-local-development.md).
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-| --- | --- | --- |
-| `mkdir /tmp/kollect-git-export-*: read-only file system` | Missing `/tmp` emptyDir | Reinstall via `task kind-dev-up`; check chart deployment volumeMount |
-| `ConnectionVerified=False` | Missing `git-push-credentials` | Recreate secret from `GITHUB_TOKEN`; see [`secret.example.yaml`](base/kollect/secret.example.yaml) |
-| No Git commits | Egress/DNS to `github.com` | Curl pod from `kollect-system` |
-| `itemCount` stuck low | Targets not matching | `kubectl get ktgt -n default`; check labels / `includedNamespaces` |
-| No VulnerabilityReports | Trivy Operator not ready | `kubectl get pods -n trivy-system`; wait for scans (~2–5 min) |
-| Certificate / ExternalSecret apply errors | Platform operators skipped | Run `bash hack/demo/kind-wide-scope/install-platform.sh` |
-| Scope denied | GVK outside `demo-wide-scope` | `kubectl describe kollectscope demo-wide-scope -n default` |
-
----
-
-## Manual equivalent
-
-```sh
-KOLLECT_DEV_MINIMAL=1 task kind-dev-up
-kubectl config use-context kind-kollect-dev
-bash hack/demo/kind-wide-scope/install-platform.sh
-# secret from GITHUB_TOKEN …
-kubectl apply -k hack/demo/kind-wide-scope/
-bash hack/demo/kind-wide-scope/churn.sh   # optional
-```
+| Symptom | Fix |
+| --- | --- |
+| Prereq failures | `demo.sh --check` — install missing tools |
+| `/tmp` read-only on manager | Reinstall via `task kind-dev-up`; verify emptyDir mount |
+| `ConnectionVerified=False` | Recreate `git-push-credentials`; or use `local` persona |
+| No VulnerabilityReports | Wait 2–5 min; `kubectl get pods -n trivy-system` |
+| Platform CR apply errors | Run `install-platform.sh` first |
+| Scope denied | `kubectl describe kollectscope demo-wide-scope -n default` |
 
 ---
 
 ## See also
 
-- [Kind local lab](../../docs/examples/kind-local-lab.md) — operator install
-- [Git inventory demo](../../docs/examples/kollect-inventory-demo.md) — minimal single-GVK path
-- [Trivy target example](../../docs/examples/kollecttarget_trivy-high.yaml) — `resourceRules` filtering
-- [Deployment inventory](../../docs/examples/deployment-inventory.md) — Profile → Target deep dive
+- [ROADMAP.md](ROADMAP.md) — checklist, personas, deferred items
+- [Kind local lab](../../docs/examples/kind-local-lab.md)
+- [Git inventory demo](../../docs/examples/kollect-inventory-demo.md)
+- [UI local development](../../docs/examples/ui-local-development.md)
+- [Examples index](../../docs/examples/README.md)

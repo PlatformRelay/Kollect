@@ -24,7 +24,8 @@ kubectl apply -k config/samples/
 | [Connection test](connection-test.md) | `KollectConnectionTest` workflow |
 | [Cert-manager webhooks](cert-manager-webhook.md) | Webhook TLS install |
 | [Kind local lab](kind-local-lab.md) | kind quickstart |
-| [Wide-scope kind demo](../../hack/demo/kind-wide-scope/README.md) | Sales-pitch showcase — Trivy, certs, Git export |
+| [Wide-scope kind demo](../../hack/demo/kind-wide-scope/README.md) | Sales-pitch showcase — Trivy, certs, Git export, UI reveal |
+| [Wide-scope demo ROADMAP](../../hack/demo/kind-wide-scope/ROADMAP.md) | Personas, churn presets, early-adopter checklist |
 | [UI local development](ui-local-development.md) | Mock vs live Read API for kollect-ui |
 
 !!! note "Samples not in default kustomization"

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSink
+metadata:
+  name: git-inventory-demo
+  namespace: default
+  annotations:
+    kollect.dev/demo-mode: local-only
+spec:
+  connectionTest: false

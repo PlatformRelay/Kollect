@@ -1,0 +1,54 @@
+{
+  "presets": {
+    "fast": {
+      "initial_wait_sec": 30,
+      "step_gap_sec": 18,
+      "description": "Default venue mode — first diff ~30–45s, full cycle ~2–4 min"
+    },
+    "present": {
+      "initial_wait_sec": 60,
+      "step_gap_sec": 120,
+      "description": "Narrated slow mode — ~12 min total"
+    },
+    "burst": {
+      "initial_wait_sec": 10,
+      "step_gap_sec": 8,
+      "description": "Recorded demo — all steps in ~60s"
+    }
+  },
+  "steps": [
+    {
+      "label": "bump frontend image (team-b) — Trivy rescan early",
+      "cmd": ["set", "image", "deployment/frontend", "-n", "team-b", "web=traefik/whoami:v1.11.0"]
+    },
+    {
+      "label": "scale api-gateway 2 → 3 replicas (team-a)",
+      "cmd": ["scale", "deployment/api-gateway", "-n", "team-a", "--replicas=3"]
+    },
+    {
+      "label": "patch backend labels (team-b)",
+      "cmd": ["patch", "deployment", "backend", "-n", "team-b", "--type=merge", "-p", "{\"metadata\":{\"labels\":{\"demo.kollect.dev/phase\":\"churn\"}}}"]
+    },
+    {
+      "label": "update feature-flags ConfigMap (team-a)",
+      "cmd": ["patch", "configmap", "feature-flags", "-n", "team-a", "--type=merge", "-p", "{\"data\":{\"newCheckout\":\"true\",\"churnMarker\":\"phase\"}}"]
+    },
+    {
+      "label": "delete catalog-sync Deployment (default)",
+      "cmd": ["delete", "deployment", "catalog-sync", "-n", "default", "--ignore-not-found"]
+    },
+    {
+      "label": "create billing-api Deployment (team-b)",
+      "manifest": "manifests/billing-api.yaml"
+    },
+    {
+      "label": "suspend weekly-report CronJob (team-b)",
+      "cmd": ["patch", "cronjob", "weekly-report", "-n", "team-b", "--type=merge", "-p", "{\"spec\":{\"suspend\":true}}"]
+    },
+    {
+      "label": "delete and recreate storefront-demo Service (default)",
+      "delete": ["service", "storefront-demo", "-n", "default", "--ignore-not-found"],
+      "manifest": "manifests/storefront-demo-service.yaml"
+    }
+  ]
+}

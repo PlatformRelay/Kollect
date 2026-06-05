@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Konrad Heimel
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: trivy-vulnerability-reports
+  namespace: default
+$patch: delete
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-certificates
+  namespace: default
+$patch: delete
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: fleet-external-secrets
+  namespace: default
+$patch: delete
