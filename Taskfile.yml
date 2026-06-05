@@ -282,6 +282,21 @@ tasks:
     cmds:
       - bash hack/ci/ui-verify.sh
 
+  ui-mock-sync:
+    desc: Regenerate MSW OpenAPI drift manifest (Phase 2)
+    cmds:
+      - bash hack/ui-mock-sync.sh
+
+  ui-e2e:
+    desc: Run Playwright smoke tests (MSW dev server)
+    dir: ui
+    env:
+      VITE_MOCK_API: "true"
+    cmds:
+      - npm ci
+      - npx playwright install chromium
+      - npx playwright test
+
   dev-up:
     desc: Bootstrap local dev — build, kind cluster, sample CRs
     cmds:
