@@ -3,7 +3,7 @@
 > The serialized inventory shape every sink and consumer depends on: the `Item` row, its ordering,
 > and how the contract is versioned.
 
-**Theme:** 04 · Export & sinks · **Status:** Current
+**Theme:** 04 · Export & sinks · **Status:** Current (schema versioning: Exploring)
 
 ## Context
 
@@ -73,17 +73,28 @@ source `generation`, `itemCount`, `exportedAt`, and `cluster`. These drive debou
 - Golden/contract tests can assert the shape; breaking it fails CI.
 - Consumers can branch on `schemaVersion` without coupling to CRD API versions.
 
-## Implementation
+## Implementation status (schemaVersion milestone)
 
-- **`schemaVersion`** is set on the spoke→hub `SpokeReport` envelope and Kafka `EventEnvelope`
-  (`internal/export/contract.go`). Current value: `kollect.dev/v1alpha1`, aligned with `apiVersion`.
-- Hub ingest defaults a missing `schemaVersion` to the current contract and rejects unsupported values.
-- Golden fixture: `test/schema/golden/spoke-report.json`.
+| Export path | `schemaVersion` envelope | Status |
+| --- | --- | --- |
+| Spoke → hub `SpokeReport` | Yes — `internal/export/contract.go` | **Shipped** |
+| Hub ingest validation | Yes — defaults missing, rejects unsupported | **Shipped** |
+| Kafka `EventEnvelope` | Yes — `internal/sink/kafka/backend.go` | **Shipped** |
+| Inventory / cluster inventory sink export | No — bare `[]Item` JSON array (`MarshalNamespaceJSON`) | **Pre-beta gap** |
+| Git / Postgres / S3 / GCS object payloads | No — canonical array only | **Pre-beta gap** |
+| Read API HTTP responses | No — `NamespaceSummary` without envelope | **Pre-beta gap** ([ADR-0206](0206-api-versioning-conversion.md), [ADR-0408](0408-read-api-ui-architecture.md)) |
+
+Current contract value: `kollect.dev/v1alpha1`, aligned with wire `apiVersion`
+([ADR-0502](0502-lean-queue-transport.md)). Golden fixture: `test/schema/golden/spoke-report.json`.
+
+**Pre-beta milestone:** wrap all sink exports and Read API responses in a versioned envelope
+(`schemaVersion`, `items`, metadata) so consumers decouple from CRD API versions
+([ADR-0206](0206-api-versioning-conversion.md)). Until then, schema versioning remains **Exploring**.
 
 ## Open questions
 
-- **IMPLEMENTED (2026-06-05):** Explicit **`schemaVersion`** on export envelopes (not per-row),
-  aligned with the spoke→hub report `apiVersion` ([ADR-0502](0502-lean-queue-transport.md)).
+- **PARTIAL (2026-06-05):** Explicit **`schemaVersion`** on wire envelopes (hub/spoke/Kafka) —
+  inventory and state-sink JSON exports still emit bare arrays; milestone tracked above.
 - **DECIDED (2026-06-05):** Attributes stay **`map[string]any`** in the contract; stronger typing is a
   **sink-side** concern — the Parquet sink promotes a hot-attribute allowlist to typed columns while
   keeping a JSON `attributes` column ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).

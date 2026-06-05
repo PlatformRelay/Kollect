@@ -5,13 +5,14 @@
 
 **Theme:** 05 · Multi-cluster · **Status:** Current · **Evolution:** [ADR-0401](0401-sink-taxonomy-state-vs-stream.md)
 elevated NATS over the earlier Redis-spike framing and unified the transport with the Kafka/NATS event
-sink — a spoke publishing to a shared subject *is* the fan-in.
+sink — a spoke publishing to a shared subject *is* the fan-in. Hub deployment model superseded by
+[ADR-0703](0703-platform-architecture-pivot.md) — **`mode: hub` Helm values**, not `KollectHub` CRD.
 
 ## Context
 
 Multi-cluster hub aggregation ([ADR-0501](0501-multi-cluster-sync-rfc.md)) needs a transport between
-**spoke** operators (per cluster) and the **hub** (`KollectHub` CRD → operator-managed Deployment).
-Requirements:
+**spoke** operators (per cluster) and the **hub** (same image with Helm **`mode: hub`** — see
+[ADR-0703](0703-platform-architecture-pivot.md)). Requirements:
 
 - **Low operational burden** for a Phase 1–2 hub prototype (personal/small-platform scale first).
 - **Pluggable** — no hard dependency on Kafka or a specific vendor; teams that standardize on Kafka
@@ -57,20 +58,21 @@ Requirements:
    (`Publisher` / `Subscriber` in `internal/transport/`). Backends implement the same contract; no
    controller imports a vendor SDK directly.
 
-2. **Configurable backend selection** (manager flags and/or `KollectHub.spec.transport`):
+2. **Configurable backend selection** (Helm `transport.type` and/or manager flags — **not** a
+   `KollectHub` CRD; see [ADR-0703](0703-platform-architecture-pivot.md)):
 
-   | `spec.transport.type` | When |
+   | `transport.type` (Helm) | When |
    | --- | --- |
    | `inprocess` | **Default everywhere** until an external backend passes integration/e2e proof |
    | `redis` | Phase 2 **spike** backend — testcontainers validation; explicit opt-in only |
    | `nats` | Alternative lean backend — same interface, explicit opt-in |
    | `kafka` | Optional enterprise backend — never required for install or CI |
 
-   **No transport type is a silent production default except `inprocess`.** Helm chart and
-   `KollectHub` samples must not pre-select Redis/NATS/Kafka.
+   **No transport type is a silent production default except `inprocess`.** Helm chart and hub/spoke
+   samples must not pre-select Redis/NATS/Kafka.
 
-   Connection details (URL, credentials, stream/topic names) live under `spec.transport.config` or
-   equivalent secret refs — exact CRD shape is an implementation detail.
+   Connection details (URL, credentials, stream/topic names) live under Helm `transport` values or
+   equivalent env vars / secret refs — exact shape is an implementation detail.
 
 3. **Phase order:**
    - **Phase 1 / dev:** `inprocess` — validate merge + export without external infra.
@@ -102,8 +104,8 @@ Requirements:
 ```mermaid
 flowchart TB
   subgraph config [Configuration]
-    CRD["KollectHub.spec.transport.type"]
-    Env["Manager flags / env"]
+    Helm["Helm transport.type + env"]
+    Flags["Manager flags"]
   end
 
   subgraph factory [Transport factory]
@@ -118,14 +120,14 @@ flowchart TB
   end
 
   subgraph consumers [Hub wiring]
-    Spoke[spoke operator]
-    Hub[hub Deployment]
+    Spoke[spoke operator mode: spoke]
+    Hub[hub operator mode: hub]
     Merge[merge + dedupe]
-    Export[Git / HTTP / S3]
+    Export[Postgres / Kafka / S3]
   end
 
-  CRD --> F
-  Env --> F
+  Helm --> F
+  Flags --> F
   F -->|inprocess| IP
   F -->|redis| RD
   F -->|nats| NT
@@ -141,12 +143,16 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  Spoke[spoke operator] -->|publish report| Q[Transport]
-  HubCRD[KollectHub CRD] --> Dep[hub Deployment]
-  Dep -->|consume| Q
+  Spoke[spoke mode: spoke] -->|publish report| Q[Transport]
+  HelmHub[Helm mode: hub] --> HubProc[hub ingest + merge]
+  HubProc -->|consume| Q
   Q --> Merge[merge + dedupe]
-  Merge --> Export[Git / HTTP / S3]
+  Merge --> Export[Postgres / Kafka / S3]
 ```
+
+Hub Deployments are rendered by the Helm chart when **`mode: hub`** — no `KollectHub` CRD spawns
+hub workloads ([ADR-0703](0703-platform-architecture-pivot.md)). Shard routing uses
+`hash(clusterName) % shardCount` from Helm values / env.
 
 ## Consequences
 
@@ -154,14 +160,15 @@ flowchart LR
 
 - Clear spike order: in-process → Redis → NATS (config) → optional Kafka.
 - Hub collector testable in envtest with in-process transport; Redis provable via testcontainers.
-- Enterprise Kafka teams select backend via CRD — no fork required.
+- Enterprise Kafka teams select backend via Helm — no fork required.
 - Factory pattern keeps vendor SDKs out of reconcilers.
 
 ### Negative
 
 - Multiple lean backends (Redis + NATS) may both need maintenance if both ship — none are implicit
   defaults; `inprocess` remains fallback until ops selects an external type.
-- Message schema versioning requires discipline — `apiVersion` field is mandatory in payloads.
+- Message schema versioning requires discipline — `apiVersion` and `schemaVersion` fields are mandatory
+  in wire payloads ([ADR-0405](0405-export-data-contract.md)).
 
 ## Open questions
 
@@ -170,3 +177,9 @@ flowchart LR
   generation)`; JetStream `Nats-Msg-Id` (= content hash) gives free in-window dedupe. Exactly-once is a
   **non-goal** unless a regulatory event-count requirement appears.
 - **OPEN:** Hub pulls from queue vs queue pushes to hub webhook sidecar?
+
+## See also
+
+- [ADR-0501: Multi-cluster sync topology](0501-multi-cluster-sync-rfc.md)
+- [ADR-0503: Hub cluster authentication](0503-hub-cluster-auth-istio-pattern.md)
+- [ADR-0703: Platform architecture pivot](0703-platform-architecture-pivot.md)

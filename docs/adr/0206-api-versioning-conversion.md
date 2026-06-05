@@ -44,6 +44,24 @@ most "shape" changes are validation tightening, not version bumps.
    `v1alpha1 ↔ v1beta1`; round-trip fuzz tests gate it.
 4. Deprecate, then drop, `v1alpha1` after the documented window.
 
+### Export data contract alignment (Read API)
+
+The **export data contract** ([ADR-0405](0405-export-data-contract.md)) versions **independently** of
+CRD API versions. Consumers (portals, SQL, Kafka subscribers, Read API) branch on envelope
+`schemaVersion`, not on `apiVersion` of kollect CRDs.
+
+| Surface | Versioning today | Pre-beta target |
+| --- | --- | --- |
+| CRD schemas (`v1alpha1`) | Break freely until `v0.1.0` freeze | `v1beta1` + conversion webhook |
+| Wire envelopes (hub/spoke/Kafka) | `schemaVersion: kollect.dev/v1alpha1` — **shipped** | Bump only on breaking contract changes |
+| Sink JSON + Read API | Bare `[]Item` / `NamespaceSummary` — **no envelope yet** | Versioned envelope per ADR-0405 milestone |
+| Read API routes | `/v1alpha1/…` path prefix ([ADR-0408](0408-read-api-ui-architecture.md)) | Stable OpenAPI; response body carries `schemaVersion` |
+
+Read API work ([ADR-0408](0408-read-api-ui-architecture.md)) must return the same envelope contract
+as sink exports — never a divergent shape. HTTP path version (`/v1alpha1/`) and envelope
+`schemaVersion` are orthogonal: path version tracks API route stability; envelope version tracks
+payload semantics.
+
 ## Consequences
 
 - Fast iteration now (no conversion burden) at the cost of forcing reinstalls for adopters of pre-beta
@@ -55,8 +73,8 @@ most "shape" changes are validation tightening, not version bumps.
 ## Open questions
 
 - **DECIDED (2026-06-05):** Cut `v1beta1` at the **`v0.1.0` feature-freeze** milestone.
-- **IMPLEMENTED (2026-06-05):** Export envelopes carry explicit **`schemaVersion`** so consumers
-  decouple from CRD versions ([ADR-0405](0405-export-data-contract.md)).
+- **PARTIAL (2026-06-05):** Wire envelopes (hub/spoke/Kafka) carry **`schemaVersion`**; sink JSON and
+  Read API responses still pending the ADR-0405 pre-beta milestone.
 - **OPEN:** Conversion approach: controller-runtime hub-spoke conversion vs none-with-storage-migration?
 - **OPEN:** Do `status` subresource fields carry their own compatibility guarantees, or follow spec
   versioning? (Leaning: follow spec versioning.)

@@ -3,7 +3,9 @@
 > When the hub tier is used, spoke→hub ingest is push-first: TokenReview + SAR `create` on
 > `kollectremoteclusters`; an Istio-style remote credential `Secret` covers hub-pull.
 
-**Theme:** 05 · Multi-cluster · **Status:** Current
+**Theme:** 05 · Multi-cluster · **Status:** Current · **Evolution:** Hub deployment and ACL wiring
+superseded by [ADR-0703](0703-platform-architecture-pivot.md) — **`mode: hub` Helm values** +
+`hub.remoteClusters` → `KOLLECT_REMOTE_CLUSTERS`; no `KollectHub` CRD on the product surface.
 
 ## Context
 
@@ -92,12 +94,23 @@ Lean queue transports (Redis/NATS/Kafka) carry **`cluster_id` wire metadata** in
 remains the reference **application-auth** channel (TokenReview + SAR). Queue **TLS + hub ACL**
 hardening ships as follows (see § Queue wire hardening).
 
-### 4. `KollectHub` references remote clusters
+### 4. Hub operator configuration (Helm `mode: hub`)
 
-`KollectHub` continues to own transport + Deployment; platform teams pair it with
-`KollectRemoteCluster` objects per registered spoke. Full `spec.remoteClusters[]` on `KollectHub`
-is **deferred** — discovery via `KollectRemoteCluster` list in the hub namespace is sufficient
-for Phase 2.
+Hub transport, ingest, and spoke registration are owned by **Helm values on the same image** — not a
+`KollectHub` CRD ([ADR-0703](0703-platform-architecture-pivot.md)):
+
+| Helm value | Env | Role |
+| --- | --- | --- |
+| `mode: hub` | `KOLLECT_MODE=hub` | Enables hub ingest + merge library |
+| `transport.type` | `KOLLECT_TRANSPORT_TYPE` | Queue backend ([ADR-0502](0502-lean-queue-transport.md)) |
+| `hub.remoteClusters[]` | `KOLLECT_REMOTE_CLUSTERS` | Spoke registration allowlist (fail-closed when set) |
+| `hub.ingestAuthMode` | `KOLLECT_HUB_INGEST_AUTH_MODE` | `kubernetes` (default) or `disabled` (dev/CI) |
+| `hub.platformNamespace` | `KOLLECT_PLATFORM_NAMESPACE` | SAR namespace for `kollectremoteclusters` |
+
+Platform teams pair **`KollectRemoteCluster`** objects (declarative spoke identity) with
+`hub.remoteClusters` (runtime ACL gate). List discovery of `KollectRemoteCluster` in the hub namespace
+is the GitOps source of truth; Helm wires the resolved `spec.clusterName` values into
+`KOLLECT_REMOTE_CLUSTERS`.
 
 ## Push auth flow (default)
 
@@ -142,7 +155,7 @@ sequenceDiagram
   participant GitOps as GitOps / bootstrap Job
   participant HubNS as Hub namespace
   participant CR as KollectRemoteCluster
-  participant Hub as Hub operator (future)
+  participant Hub as Hub operator mode: hub
 
   GitOps->>HubNS: apply Secret<br/>label kollect.dev/multiCluster=true<br/>annotation kollect.dev/cluster=spoke-a
   GitOps->>HubNS: apply KollectRemoteCluster<br/>credentialsSecretRef → secret
@@ -201,7 +214,7 @@ registration gates** until a future signed-envelope spike.
 | --- | --- | --- |
 | **Transport TLS** | `rediss://` / NATS with `nats.Secure` | Shared env: `KOLLECT_TRANSPORT_TLS_CA_FILE`, `KOLLECT_TRANSPORT_TLS_CLIENT_CERT_FILE`, `KOLLECT_TRANSPORT_TLS_CLIENT_KEY_FILE`, `KOLLECT_TRANSPORT_TLS_INSECURE_SKIP_VERIFY` (dev only) |
 | **Wire identity** | `cluster_id` field (Redis stream) or `X-Kollect-Cluster-Id` header (NATS) | Spoke sets via `KOLLECT_SPOKE_CLUSTER` publish context |
-| **Hub ACL** | Reject reports whose `report.cluster` ∉ `KOLLECT_REMOTE_CLUSTERS` | Populated from `KollectHub.spec.remoteClusters[]` → resolved `KollectRemoteCluster.spec.clusterName` values; **empty allowlist = dev open mode** |
+| **Hub ACL** | Reject reports whose `report.cluster` ∉ `KOLLECT_REMOTE_CLUSTERS` | Populated from Helm **`hub.remoteClusters[]`** (resolved `KollectRemoteCluster.spec.clusterName` values); **env present (even empty) = fail-closed** |
 
 HTTP ingest continues to use TokenReview + SAR; queue consumer uses ACL only. Platform teams run
 queue brokers with vendor ACLs (Redis ACL / NATS accounts) in addition to kollect's registration gate.
@@ -214,14 +227,15 @@ queue brokers with vendor ACLs (Redis ACL / NATS accounts) in addition to kollec
   TokenReview + `X-Kollect-Cluster-Id`; optional remote `Secret` for pull; mTLS/OIDC/bootstrap not primary.
 - **RESOLVED (2026-06-05):** Queue wire hardening — TLS via shared `KOLLECT_TRANSPORT_TLS_*` env;
   hub registration ACL via `KOLLECT_REMOTE_CLUSTERS`; vendor broker ACLs remain operator responsibility.
+- **RESOLVED (2026-06-05):** Helm **`hub.remoteClusters[]`** wires `KOLLECT_REMOTE_CLUSTERS` for hub
+  consumer ACL + shard routing inputs — replaces the deprecated `KollectHub.spec.remoteClusters[]` path.
 - **OPEN:** Federated trust / mTLS for HTTP ingress behind non-Kubernetes load balancers?
-- **RESOLVED (2026-06-05):** `KollectHub.spec.remoteClusters[]` wires `KOLLECT_REMOTE_CLUSTERS` env
-  for hub consumer ACL + shard routing inputs — list discovery alone is insufficient for production hubs.
 
 ## See also
 
 - [ADR-0501: Multi-cluster sync topology](0501-multi-cluster-sync-rfc.md)
 - [ADR-0502: Lean queue transport](0502-lean-queue-transport.md)
 - [ADR-0404: Inventory HTTP API authentication](0404-inventory-api-auth.md)
+- [ADR-0703: Platform architecture pivot](0703-platform-architecture-pivot.md)
 - [Istio: Install multi-cluster — primary-remote](https://istio.io/latest/docs/setup/install/multicluster/primary-remote/)
 - [Istio: `istioctl create-remote-secret`](https://github.com/istio/istio/blob/master/istioctl/pkg/multicluster/remote_secret.go)

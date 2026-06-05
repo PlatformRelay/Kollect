@@ -49,7 +49,7 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0402](0402-sink-backends-database-kafka.md) | Postgres and Kafka sink backends | Current |
 | [0403](0403-connection-test.md) | Connection test — sink probes + `KollectConnectionTest` CR | Current |
 | [0404](0404-inventory-api-auth.md) | Inventory HTTP API authentication | Current |
-| [0405](0405-export-data-contract.md) | Export data contract and schema versioning | Current |
+| [0405](0405-export-data-contract.md) | Export data contract and schema versioning | Current (schema versioning: Exploring) |
 | [0406](0406-sink-registry.md) | Sink registry and the `Backend` interface | Current |
 | [0407](0407-git-object-store-layout.md) | Git / object-store export layout and workflow | Current |
 | [0408](0408-read-api-ui-architecture.md) | Read API and UI architecture (pluggable backing store) | Exploring |
