@@ -108,6 +108,24 @@ spec:
           env:
             - name: KOLLECT_TRANSPORT_TYPE
               value: {{ .Values.transport.type | default "inprocess" | quote }}
+            {{- if eq .Values.mode "hub" }}
+            - name: KOLLECT_HUB_NAME
+              value: {{ .Values.hub.name | default "platform" | quote }}
+            - name: KOLLECT_HUB_INGEST_PORT
+              value: {{ .Values.hub.ingestPort | default 8083 | quote }}
+            - name: KOLLECT_HUB_INGEST_AUTH_MODE
+              value: {{ .Values.hub.ingestAuthMode | default "kubernetes" | quote }}
+            - name: KOLLECT_PLATFORM_NAMESPACE
+              value: {{ default .Release.Namespace .Values.hub.platformNamespace | quote }}
+            - name: KOLLECT_HUB_EXPORT_NAMESPACE
+              value: {{ default .Release.Namespace .Values.hub.exportNamespace | quote }}
+            {{- if .Values.hub.sinkRefs }}
+            - name: KOLLECT_HUB_SINK_REFS
+              value: {{ join "," .Values.hub.sinkRefs | quote }}
+            {{- end }}
+            - name: KOLLECT_REMOTE_CLUSTERS
+              value: {{ include "kollect.hubRemoteClusters" . | quote }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.webhooks.enabled }}

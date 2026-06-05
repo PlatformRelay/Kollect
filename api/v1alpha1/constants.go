@@ -18,9 +18,10 @@ const (
 	AnnotationTestConnection = "kollect.dev/test-connection"
 
 	// Multi-cluster registration (Istio remote-secret parallel — ADR-0028).
-	LabelMultiCluster     = "kollect.dev/multiCluster"
-	AnnotationClusterName = "kollect.dev/cluster"
-	HeaderClusterID       = "X-Kollect-Cluster-Id"
+	LabelMultiCluster        = "kollect.dev/multiCluster"
+	AnnotationClusterName    = "kollect.dev/cluster"
+	AnnotationSpokePrincipal = "kollect.dev/spokePrincipal"
+	HeaderClusterID          = "X-Kollect-Cluster-Id"
 	//nolint:gosec // G101: Istio-style remote secret name prefix, not a credential
 	RemoteSecretNamePrefix = "kollect-remote-secret-"
 

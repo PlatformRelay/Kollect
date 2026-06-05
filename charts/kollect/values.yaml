@@ -33,6 +33,16 @@ tenantMode: false
 # Operator deployment mode on the same image (ADR-0022 L3): single | hub | spoke
 mode: single
 
+# Hub consumer settings (mode: hub). Namespaced KollectSink refs resolve in exportNamespace.
+hub:
+  name: platform
+  platformNamespace: ""
+  exportNamespace: ""
+  sinkRefs: []
+  remoteClusters: []
+  ingestPort: 8083
+  ingestAuthMode: kubernetes
+
 # Hub/spoke transport backend (ADR-0023). Only inprocess is the production default until an
 # external backend passes integration/e2e proof. Do not set redis/nats/kafka without ops sign-off.
 transport:

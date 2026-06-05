@@ -39,6 +39,45 @@
       "type": "string",
       "enum": ["single", "hub", "spoke"]
     },
+    "hub": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platformNamespace": {
+          "type": "string"
+        },
+        "exportNamespace": {
+          "type": "string"
+        },
+        "sinkRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "remoteClusters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "ingestPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "ingestAuthMode": {
+          "type": "string",
+          "enum": ["kubernetes", "disabled"]
+        }
+      }
+    },
     "transport": {
       "type": "object",
       "additionalProperties": true,

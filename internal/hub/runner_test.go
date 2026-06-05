@@ -40,6 +40,10 @@ func TestConfigFromEnvDefaults(t *testing.T) {
 	if len(cfg.RemoteClusters) != 2 || cfg.RemoteClusters[0] != "spoke-a" || cfg.RemoteClusters[1] != "spoke-b" {
 		t.Fatalf("remote clusters = %#v", cfg.RemoteClusters)
 	}
+
+	if !cfg.AllowlistEnforced {
+		t.Fatal("expected allowlist enforced when KOLLECT_REMOTE_CLUSTERS is set")
+	}
 }
 
 func TestNewRunnerInProcess(t *testing.T) {
@@ -53,7 +57,7 @@ func TestNewRunnerInProcess(t *testing.T) {
 		},
 	}
 
-	runner, err := hub.NewRunner(collect.NewStore(), cfg, nil)
+	runner, err := hub.NewRunner(collect.NewStore(), cfg, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

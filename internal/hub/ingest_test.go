@@ -94,10 +94,11 @@ func TestIngestHandleReportsRejectsUnregisteredCluster(t *testing.T) {
 
 	store := collect.NewStore()
 	srv := &IngestServer{
-		Enabled:         true,
-		Auth:            IngestAuthConfig{Mode: IngestAuthModeDisabled},
-		Merger:          NewMerger(store),
-		AllowedClusters: []string{"spoke-a"},
+		Enabled:           true,
+		Auth:              IngestAuthConfig{Mode: IngestAuthModeDisabled},
+		Merger:            NewMerger(store),
+		AllowedClusters:   []string{"spoke-a"},
+		AllowlistEnforced: true,
 	}
 
 	report := SpokeReport{

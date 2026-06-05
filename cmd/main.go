@@ -413,8 +413,16 @@ func runHubConsumer(
 	store := collect.NewStore()
 	merger := hub.NewMerger(store)
 	statusClient := mgr.GetClient()
+	sinkRegistry := sink.NewRegistry()
+	exportCfg := hub.ExportConfigFromEnv()
+	exporter := &hub.Exporter{
+		Store:    store,
+		Client:   statusClient,
+		Registry: sinkRegistry,
+		Config:   exportCfg,
+	}
 
-	runner, err := hub.NewRunner(store, hubCfg, statusClient)
+	runner, err := hub.NewRunner(store, hubCfg, statusClient, exporter)
 	if err != nil {
 		setupLog.Error(err, "Failed to create hub consumer")
 		os.Exit(1)
@@ -432,11 +440,14 @@ func runHubConsumer(
 		Auth: hub.IngestAuthConfig{
 			Mode:              ingestAuthMode,
 			Client:            kubeClient,
+			ClusterClient:     statusClient,
 			PlatformNamespace: hub.PlatformNamespaceFromEnv(),
 		},
-		Merger:          merger,
-		StatusClient:    statusClient,
-		AllowedClusters: hubCfg.RemoteClusters,
+		Merger:            merger,
+		StatusClient:      statusClient,
+		AllowedClusters:   hubCfg.RemoteClusters,
+		AllowlistEnforced: hubCfg.AllowlistEnforced,
+		Exporter:          exporter,
 	}
 	if err := mgr.Add(ingestSrv); err != nil {
 		setupLog.Error(err, "Failed to add hub ingest server")

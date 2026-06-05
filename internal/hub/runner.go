@@ -17,10 +17,11 @@ import (
 
 // RunnerConfig configures a hub-side spoke-report consumer.
 type RunnerConfig struct {
-	HubName        string
-	Subject        string
-	Transport      transport.Config
-	RemoteClusters []string
+	HubName           string
+	Subject           string
+	Transport         transport.Config
+	RemoteClusters    []string
+	AllowlistEnforced bool
 }
 
 // ConfigFromEnv reads hub consumer settings from the environment (set by KollectHub Deployment).
@@ -37,18 +38,22 @@ func ConfigFromEnv() (RunnerConfig, error) {
 		subject = defaultSubject
 	}
 
+	remoteClusters, enforced := parseRemoteClustersEnv(os.Getenv("KOLLECT_REMOTE_CLUSTERS"))
+
 	return RunnerConfig{
-		HubName:        hubName,
-		Subject:        subject,
-		Transport:      cfg,
-		RemoteClusters: parseRemoteClustersEnv(os.Getenv("KOLLECT_REMOTE_CLUSTERS")),
+		HubName:           hubName,
+		Subject:           subject,
+		Transport:         cfg,
+		RemoteClusters:    remoteClusters,
+		AllowlistEnforced: enforced,
 	}, nil
 }
 
-func parseRemoteClustersEnv(raw string) []string {
+func parseRemoteClustersEnv(raw string) ([]string, bool) {
+	_, enforced := os.LookupEnv("KOLLECT_REMOTE_CLUSTERS")
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return nil
+		return nil, enforced
 	}
 
 	parts := strings.Split(raw, ",")
@@ -79,7 +84,7 @@ func parseRemoteClustersEnv(raw string) []string {
 		out = append(out, clusterName)
 	}
 
-	return out
+	return out, enforced
 }
 
 // Runner subscribes to spoke reports and merges them into a hub-side store.
@@ -88,14 +93,23 @@ type Runner struct {
 }
 
 // NewRunner wires transport subscriber → merger → consumer.
-func NewRunner(store *collect.Store, cfg RunnerConfig, statusClient client.Client) (*Runner, error) {
+func NewRunner(
+	store *collect.Store,
+	cfg RunnerConfig,
+	statusClient client.Client,
+	exporter *Exporter,
+) (*Runner, error) {
 	_, sub, err := transport.NewTransport(cfg.Transport)
 	if err != nil {
 		return nil, fmt.Errorf("hub runner transport: %w", err)
 	}
 
 	merger := NewMerger(store)
-	consumer := NewConsumer(sub, merger, cfg.Subject, cfg.HubName, statusClient, cfg.RemoteClusters)
+	consumer := NewConsumer(sub, merger, cfg.Subject, cfg.HubName, statusClient, ConsumerOptions{
+		AllowedClusters:   cfg.RemoteClusters,
+		AllowlistEnforced: cfg.AllowlistEnforced,
+		Exporter:          exporter,
+	})
 
 	return &Runner{consumer: consumer}, nil
 }

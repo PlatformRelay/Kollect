@@ -1,0 +1,45 @@
+suite: deployment hub mode
+templates:
+  - deployment.yaml
+tests:
+  - it: sets hub export env when mode is hub
+    set:
+      mode: hub
+      hub:
+        name: platform
+        platformNamespace: kollect-system
+        exportNamespace: kollect-system
+        sinkRefs:
+          - hub-postgres
+          - hub-kafka
+        remoteClusters:
+          - spoke-a
+          - spoke-b
+        ingestPort: 8083
+        ingestAuthMode: kubernetes
+    release:
+      namespace: kollect-system
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KOLLECT_HUB_NAME
+            value: platform
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KOLLECT_HUB_EXPORT_NAMESPACE
+            value: kollect-system
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KOLLECT_HUB_SINK_REFS
+            value: hub-postgres,hub-kafka
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KOLLECT_REMOTE_CLUSTERS
+            value: kollect-system/spoke-a:spoke-a,kollect-system/spoke-b:spoke-b
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --mode=hub

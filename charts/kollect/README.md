@@ -71,6 +71,18 @@ mode: hub
 replicaCount: 2   # horizontal hub consumers when transport scales out
 transport:
   type: inprocess
+hub:
+  name: platform
+  platformNamespace: kollect-system
+  exportNamespace: kollect-system
+  sinkRefs:
+    - hub-postgres
+    - hub-kafka
+  remoteClusters:
+    - spoke-a
+    - spoke-b
+  ingestPort: 8083
+  ingestAuthMode: kubernetes
 controller:
   maxConcurrentReconciles:
     hub: 4
@@ -81,7 +93,16 @@ featureGates:
 
 Hub merge runs via `internal/hub/` library + ingest HTTP (`POST /hub/v1alpha1/reports`). Register
 spokes with namespaced **`KollectRemoteCluster`** objects ([ADR-0028](../../docs/adr/0028-hub-cluster-auth-istio-pattern.md)).
-Merged inventory lands in **hub Postgres/Kafka** — not Git clones per spoke.
+`hub.sinkRefs` resolve namespaced **`KollectSink`** objects in `hub.exportNamespace`; post-merge
+export fans out to **Postgres and Kafka in parallel**. `hub.remoteClusters` sets
+`KOLLECT_REMOTE_CLUSTERS` (fail-closed when present, even if empty).
+
+| Hub value | Env | Role |
+| --- | --- | --- |
+| `hub.exportNamespace` | `KOLLECT_HUB_EXPORT_NAMESPACE` | Namespace for hub sink CRs |
+| `hub.sinkRefs[]` | `KOLLECT_HUB_SINK_REFS` | Parallel Postgres/Kafka export targets |
+| `hub.remoteClusters[]` | `KOLLECT_REMOTE_CLUSTERS` | Spoke registration allowlist |
+| `hub.platformNamespace` | `KOLLECT_PLATFORM_NAMESPACE` | SAR namespace for `kollectremoteclusters` |
 
 | Key | Description | Default |
 | --- | --- | --- |

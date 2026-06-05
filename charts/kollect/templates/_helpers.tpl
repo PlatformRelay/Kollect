@@ -48,3 +48,13 @@ control-plane: controller-manager
 {{- define "kollect.webhookServiceName" -}}
 {{- printf "%s-webhook-service" (include "kollect.fullname" .) }}
 {{- end }}
+
+{{- define "kollect.hubRemoteClusters" -}}
+{{- $ns := default $.Release.Namespace $.Values.hub.platformNamespace -}}
+{{- $clusters := $.Values.hub.remoteClusters | default list -}}
+{{- $parts := list -}}
+{{- range $clusters }}
+{{- $parts = append $parts (printf "%s/%s:%s" $ns . .) -}}
+{{- end }}
+{{- join "," $parts -}}
+{{- end }}

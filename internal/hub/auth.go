@@ -16,6 +16,7 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
@@ -31,6 +32,7 @@ const (
 type IngestAuthConfig struct {
 	Mode              string
 	Client            kubernetes.Interface
+	ClusterClient     client.Reader
 	PlatformNamespace string
 }
 
@@ -58,6 +60,13 @@ func (a IngestAuthConfig) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
+		clusterID := strings.TrimSpace(r.Header.Get(kollectdevv1alpha1.HeaderClusterID))
+		if clusterID == "" {
+			http.Error(w, "missing "+kollectdevv1alpha1.HeaderClusterID+" header", http.StatusBadRequest)
+
+			return
+		}
+
 		user, err := a.authenticate(r.Context(), token)
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -65,7 +74,7 @@ func (a IngestAuthConfig) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ok, err := a.authorizeIngest(r.Context(), user)
+		ok, err := a.authorizeIngest(r.Context(), user, clusterID)
 		if err != nil {
 			http.Error(w, "authorization check failed", http.StatusInternalServerError)
 
@@ -74,12 +83,6 @@ func (a IngestAuthConfig) Middleware(next http.Handler) http.Handler {
 
 		if !ok {
 			http.Error(w, "forbidden", http.StatusForbidden)
-
-			return
-		}
-
-		if strings.TrimSpace(r.Header.Get(kollectdevv1alpha1.HeaderClusterID)) == "" {
-			http.Error(w, "missing "+kollectdevv1alpha1.HeaderClusterID+" header", http.StatusBadRequest)
 
 			return
 		}
@@ -125,7 +128,20 @@ func (a IngestAuthConfig) authenticate(ctx context.Context, token string) (authe
 	return result.Status.User, nil
 }
 
-func (a IngestAuthConfig) authorizeIngest(ctx context.Context, user authenticationv1.UserInfo) (bool, error) {
+func (a IngestAuthConfig) authorizeIngest(
+	ctx context.Context,
+	user authenticationv1.UserInfo,
+	clusterID string,
+) (bool, error) {
+	if a.ClusterClient != nil {
+		_, bindErr := ValidateTokenClusterBinding(
+			ctx, a.ClusterClient, a.PlatformNamespace, clusterID, user.Username,
+		)
+		if bindErr != nil {
+			return false, nil
+		}
+	}
+
 	checks := []authorizationv1.SubjectAccessReviewSpec{
 		{
 			User:   user.Username,
@@ -135,17 +151,35 @@ func (a IngestAuthConfig) authorizeIngest(ctx context.Context, user authenticati
 				Verb: "post",
 			},
 		},
-		{
-			User:   user.Username,
-			Groups: user.Groups,
-			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Namespace: a.PlatformNamespace,
-				Group:     "kollect.dev",
-				Resource:  "kollectremoteclusters",
-				Verb:      "create",
-			},
-		},
 	}
+
+	if a.ClusterClient != nil {
+		rc, err := FindRemoteClusterByClusterName(ctx, a.ClusterClient, a.PlatformNamespace, clusterID)
+		if err == nil && rc != nil {
+			checks = append(checks, authorizationv1.SubjectAccessReviewSpec{
+				User:   user.Username,
+				Groups: user.Groups,
+				ResourceAttributes: &authorizationv1.ResourceAttributes{
+					Namespace: a.PlatformNamespace,
+					Group:     "kollect.dev",
+					Resource:  "kollectremoteclusters",
+					Name:      rc.Name,
+					Verb:      "create",
+				},
+			})
+		}
+	}
+
+	checks = append(checks, authorizationv1.SubjectAccessReviewSpec{
+		User:   user.Username,
+		Groups: user.Groups,
+		ResourceAttributes: &authorizationv1.ResourceAttributes{
+			Namespace: a.PlatformNamespace,
+			Group:     "kollect.dev",
+			Resource:  "kollectremoteclusters",
+			Verb:      "create",
+		},
+	})
 
 	for _, spec := range checks {
 		allowed, err := a.subjectAccessReview(ctx, spec)

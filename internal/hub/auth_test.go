@@ -173,7 +173,7 @@ func TestAuthorizeIngestSARIncludesPlatformNamespace(t *testing.T) {
 	}
 	ok, err := cfg.authorizeIngest(context.Background(), authenticationv1.UserInfo{
 		Username: "system:serviceaccount:spoke-a:kollect-spoke",
-	})
+	}, "spoke-a")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestAuthorizeIngestAllowsCreateOnRemoteCluster(t *testing.T) {
 	cfg := IngestAuthConfig{Mode: IngestAuthModeKubernetes, Client: client}
 	ok, err := cfg.authorizeIngest(context.Background(), authenticationv1.UserInfo{
 		Username: "system:serviceaccount:spoke-a:kollect-spoke",
-	})
+	}, "spoke-a")
 	if err != nil {
 		t.Fatal(err)
 	}

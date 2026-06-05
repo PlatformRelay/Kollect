@@ -115,6 +115,31 @@ func (s *Store) CountForTarget(targetNamespace, targetName string) int {
 	return len(s.items[key])
 }
 
+// SnapshotTarget returns all items for one target (hub merge uses cluster as target namespace).
+func (s *Store) SnapshotTarget(targetNamespace, targetName string) []Item {
+	key := targetKey(targetNamespace, targetName)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	bucket := s.items[key]
+	if len(bucket) == 0 {
+		return nil
+	}
+
+	out := make([]Item, 0, len(bucket))
+	for _, item := range bucket {
+		out = append(out, item)
+	}
+
+	return out
+}
+
+// MarshalTargetJSON returns a JSON array of items for one target.
+func (s *Store) MarshalTargetJSON(targetNamespace, targetName string) ([]byte, error) {
+	return json.Marshal(s.SnapshotTarget(targetNamespace, targetName))
+}
+
 // Remove deletes an item by target and resource UID.
 func (s *Store) Remove(targetNamespace, targetName, uid string) {
 	key := targetKey(targetNamespace, targetName)

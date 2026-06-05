@@ -15,14 +15,23 @@ import (
 
 const defaultSubject = "inventory/reports"
 
+// ConsumerOptions configures hub ingest merge and optional export fan-out.
+type ConsumerOptions struct {
+	AllowedClusters   []string
+	AllowlistEnforced bool
+	Exporter          *Exporter
+}
+
 // Consumer merges spoke reports from a transport subscriber into store.
 type Consumer struct {
-	Subscriber      transport.Subscriber
-	Merger          *Merger
-	Subject         string
-	HubName         string
-	StatusClient    client.Client
-	AllowedClusters []string
+	Subscriber        transport.Subscriber
+	Merger            *Merger
+	Subject           string
+	HubName           string
+	StatusClient      client.Client
+	AllowedClusters   []string
+	AllowlistEnforced bool
+	Exporter          *Exporter
 }
 
 // NewConsumer returns a hub consumer for subject (default inventory/reports).
@@ -31,19 +40,21 @@ func NewConsumer(
 	merger *Merger,
 	subject, hubName string,
 	statusClient client.Client,
-	allowedClusters []string,
+	opts ConsumerOptions,
 ) *Consumer {
 	if subject == "" {
 		subject = defaultSubject
 	}
 
 	return &Consumer{
-		Subscriber:      sub,
-		Merger:          merger,
-		Subject:         subject,
-		HubName:         hubName,
-		StatusClient:    statusClient,
-		AllowedClusters: allowedClusters,
+		Subscriber:        sub,
+		Merger:            merger,
+		Subject:           subject,
+		HubName:           hubName,
+		StatusClient:      statusClient,
+		AllowedClusters:   opts.AllowedClusters,
+		AllowlistEnforced: opts.AllowlistEnforced,
+		Exporter:          opts.Exporter,
 	}
 }
 
@@ -54,7 +65,13 @@ func (c *Consumer) Start(ctx context.Context) error {
 	}
 
 	handler := func(handleCtx context.Context, wireCluster string, payload []byte) error {
-		report, _, err := ReceiveReport(wireCluster, payload, c.Merger, c.AllowedClusters)
+		report, _, err := ReceiveReport(
+			wireCluster,
+			payload,
+			c.Merger,
+			c.AllowedClusters,
+			c.AllowlistEnforced,
+		)
 		if err != nil {
 			metrics.HubSpokeReportsTotal.WithLabelValues(c.hubLabel(), metrics.ResultFailure).Inc()
 
@@ -63,6 +80,14 @@ func (c *Consumer) Start(ctx context.Context) error {
 
 		if c.StatusClient != nil {
 			_ = MarkRemoteClusterConnected(handleCtx, c.StatusClient, report.Cluster)
+		}
+
+		if c.Exporter != nil {
+			if err := c.Exporter.ExportAfterMerge(handleCtx, report); err != nil {
+				metrics.HubSpokeReportsTotal.WithLabelValues(c.hubLabel(), metrics.ResultFailure).Inc()
+
+				return err
+			}
 		}
 
 		metrics.HubSpokeReportsTotal.WithLabelValues(c.hubLabel(), metrics.ResultSuccess).Inc()
@@ -84,5 +109,5 @@ func (c *Consumer) hubLabel() string {
 		return c.HubName
 	}
 
-	return "default"
+	return defaultHubMetricLabel
 }

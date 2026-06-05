@@ -58,7 +58,7 @@ func TestReceiveReportMergesWithWireCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, applied, err := hub.ReceiveReport("spoke-a", payload, merger, nil)
+	got, applied, err := hub.ReceiveReport("spoke-a", payload, merger, nil, false)
 	if err != nil {
 		t.Fatalf("receive: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestReceiveReportRejectsUnregisteredCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = hub.ReceiveReport("rogue", payload, merger, []string{"spoke-a"})
+	_, _, err = hub.ReceiveReport("rogue", payload, merger, []string{"spoke-a"}, true)
 	if err == nil {
 		t.Fatal("expected acl error")
 	}

@@ -10,7 +10,11 @@ import (
 	"github.com/konih/kollect/internal/collect"
 )
 
-const reportAPIVersion = "kollect.dev/v1alpha1"
+const (
+	reportAPIVersion      = "kollect.dev/v1alpha1"
+	defaultInventoryName  = "default"
+	defaultHubMetricLabel = "default"
+)
 
 // InventoryRef identifies the spoke inventory resource backing a report.
 type InventoryRef struct {
@@ -50,7 +54,7 @@ func (m *Merger) Apply(report SpokeReport) (int, error) {
 
 	targetName := report.InventoryRef.Name
 	if targetName == "" {
-		targetName = "default"
+		targetName = defaultInventoryName
 	}
 
 	applied := 0

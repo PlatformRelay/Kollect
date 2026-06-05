@@ -27,12 +27,14 @@ func IngestReportsPath() string {
 
 // IngestServer accepts authenticated spoke inventory reports over HTTP (ADR-0028).
 type IngestServer struct {
-	Enabled         bool
-	Port            int32
-	Auth            IngestAuthConfig
-	Merger          *Merger
-	StatusClient    client.Client
-	AllowedClusters []string
+	Enabled           bool
+	Port              int32
+	Auth              IngestAuthConfig
+	Merger            *Merger
+	StatusClient      client.Client
+	AllowedClusters   []string
+	AllowlistEnforced bool
+	Exporter          *Exporter
 }
 
 // Start runs the HTTP ingest server until ctx is cancelled.
@@ -93,7 +95,13 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report, _, err := ReceiveReport(headerCluster, body, s.Merger, s.AllowedClusters)
+	report, _, err := ReceiveReport(
+		headerCluster,
+		body,
+		s.Merger,
+		s.AllowedClusters,
+		s.AllowlistEnforced,
+	)
 	if err != nil {
 		metrics.HubSpokeReportsTotal.WithLabelValues("http-ingest", metrics.ResultFailure).Inc()
 		status := http.StatusBadRequest
@@ -108,6 +116,15 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 
 	if s.StatusClient != nil {
 		_ = MarkRemoteClusterConnected(r.Context(), s.StatusClient, report.Cluster)
+	}
+
+	if s.Exporter != nil {
+		if err := s.Exporter.ExportAfterMerge(r.Context(), report); err != nil {
+			metrics.HubSpokeReportsTotal.WithLabelValues("http-ingest", metrics.ResultFailure).Inc()
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+
+			return
+		}
 	}
 
 	metrics.HubSpokeReportsTotal.WithLabelValues("http-ingest", metrics.ResultSuccess).Inc()
