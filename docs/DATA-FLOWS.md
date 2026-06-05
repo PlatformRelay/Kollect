@@ -218,6 +218,8 @@ flowchart LR
     Queue --> Recv
     Recv --> Merge
     Merge --> HubStore
+  Export[Parallel sink export<br/>Postgres + Kafka]
+  HubStore --> Export
   end
 
   Pub -->|Bearer + X-Kollect-Cluster-Id| HTTP
@@ -248,6 +250,7 @@ sequenceDiagram
   Recv->>Merge: SpokeReport
   Merge->>Store: upsert items / remove UIDs
   Store-->>Hub: ok
+  Hub->>Hub: export to hub sinks (parallel)
   Hub-->>Spoke: 202 Accepted
 ```
 
@@ -262,15 +265,90 @@ flowchart TD
   ACL -->|yes / dev open| Apply[Merger.Apply]
   Apply --> Upsert[Upsert items<br/>key: cluster + target + uid]
   Apply --> Remove[Remove removedUIDs]
-  Upsert --> HubInv[Hub KollectInventory export path]
-  Remove --> HubInv
+  Upsert --> HubExport[Parallel sink export]
+  Remove --> HubExport
+  HubExport --> PG[Postgres upsert]
+  HubExport --> KF[Kafka publish]
 ```
+
+**Post-merge export:** hub consumer resolves namespaced `KollectSink` objects from
+`KOLLECT_HUB_EXPORT_NAMESPACE` + `KOLLECT_HUB_SINK_REFS`, marshals the merged target inventory
+(`cluster` + `inventoryRef.name`), and fans out to **Postgres and Kafka in parallel** using the
+same payload contract as namespaced `KollectInventory` export.
 
 **Idempotency:** duplicate reports with the same `(cluster, namespace, name, uid)` overwrite the
 stored row; `removedUIDs` tombstones delete stale rows. At-least-once delivery is safe.
 
 **Status:** successful ingest marks `KollectRemoteCluster` **`Connected=True`** when the CR exists
 in the hub platform namespace.
+
+### Spoke queue publish (Phase 2)
+
+When `transport: queue` is configured on the spoke, `spoke.TryPublishReport` enqueues a
+`SpokeReport` JSON message instead of (or in addition to) HTTP push. The hub consumer drains the
+broker and calls the same `ReceiveReport` → `Merger.Apply` path as HTTP ingest.
+
+```mermaid
+sequenceDiagram
+  participant Tgt as KollectTarget reconciler
+  participant Store as Collect store
+  participant Pub as spoke.TryPublishReport
+  participant Broker as Redis / NATS
+  participant Cons as Hub queue consumer
+  participant Recv as ReceiveReport
+  participant Merge as Merger
+  participant HubStore as Hub collect store
+
+  Tgt->>Store: object add/update/delete
+  Store->>Pub: namespace delta ready
+  Pub->>Pub: marshal SpokeReport + cluster_id
+  Pub->>Broker: publish (TLS + ACL)
+  Broker->>Cons: deliver (at-least-once)
+  Cons->>Recv: body + cluster_id metadata
+  Recv->>Recv: ACL + idempotency check
+  Recv->>Merge: SpokeReport
+  Merge->>HubStore: upsert / tombstone UIDs
+```
+
+| Setting | Role |
+| --- | --- |
+| `KOLLECT_SPOKE_CLUSTER` | Wire `cluster_id` and report body `cluster` field |
+| `KOLLECT_TRANSPORT` | `http` (default) or `queue` on spoke |
+| Broker URL / credentials | Operator-owned secret; not in CR spec |
+| `KOLLECT_REMOTE_CLUSTERS` | Hub allowlist — same gate as HTTP ingest |
+
+Queue delivery is **at-least-once**; merge keys `(cluster, namespace, name, uid)` make replays safe.
+
+### Post-merge hub export
+
+After merge, hub `KollectInventory` objects use the **same debounced export path** as single-cluster
+mode ([§1](#1-export-debouncing)): marshal the hub collect store slice, checksum, respect
+`exportMinInterval`, dispatch to configured sinks.
+
+```mermaid
+flowchart TD
+  HubStore[(Hub collect store<br/>key: cluster + target + uid)]
+  HubInv[Hub KollectInventory<br/>reconciler]
+  Scope{KollectScope<br/>in export NS?}
+  Marshal[Marshal multi-cluster payload]
+  Debounce{checksum / interval}
+  Export[Export to sinkRefs]
+  PG[(Postgres / Git / …)]
+
+  HubStore --> HubInv
+  HubInv --> Scope
+  Scope -->|denied| Degrade[Degraded — no export]
+  Scope -->|ok| Marshal
+  Marshal --> Debounce
+  Debounce -->|material change or interval| Export
+  Debounce -->|unchanged| Wait[RequeueAfter]
+  Export --> PG
+  Export --> Status[status.lastExportTime + conditions]
+```
+
+Multi-cluster rows include a **`cluster`** dimension in each item so downstream consumers can filter
+or partition by spoke. Hub export does **not** persist full payloads in CR `status` — only summaries
+and last-export metadata ([ADR-0006](adr/0006-etcd-limit.md)).
 
 ### Configuration
 
@@ -279,7 +357,9 @@ in the hub platform namespace.
 | `KOLLECT_SPOKE_CLUSTER` | Spoke identity; enables publish |
 | `KOLLECT_HUB_INGEST_AUTH_MODE` | `kubernetes` (default) or `disabled` (dev/CI) |
 | `KOLLECT_PLATFORM_NAMESPACE` | Namespace for ingest SAR on `kollectremoteclusters` |
-| `KOLLECT_REMOTE_CLUSTERS` | Hub registration allowlist (comma-separated `spec.clusterName` values) |
+| `KOLLECT_REMOTE_CLUSTERS` | Hub registration allowlist (comma-separated `spec.clusterName` values); **set (even empty) = fail-closed** |
+| `KOLLECT_HUB_EXPORT_NAMESPACE` | Namespace for hub `KollectSink` resolution (Helm `hub.exportNamespace`) |
+| `KOLLECT_HUB_SINK_REFS` | Comma-separated hub sink names for parallel export (Helm `hub.sinkRefs`) |
 
 See [ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md) for RBAC grants and Istio-style remote
 secret registration.

@@ -16,10 +16,12 @@ Objects persist and validate at admission; rollup/export requires a future contr
 
 ```mermaid
 flowchart TD
+  CProf[KollectClusterProfile]
   CTarget[KollectClusterTarget]
   CInv[KollectClusterInventory]
   Sink[KollectSink in sinkNamespace]
 
+  CProf -.->|optional profileRef| CInv
   CTarget -->|future rollup| CInv
   CInv -.->|future export| Sink
 ```
@@ -29,7 +31,7 @@ flowchart TD
 | Targets | `spec.targetRefs[]` names cluster targets; empty = all matching `targetSelector` (or all targets) |
 | Namespaces | `namespaceSelector` **required** — empty selector rejected (no cluster-wide wildcard) |
 | Sinks | `spec.sinkRefs[]` resolved in `spec.sinkNamespace` (default `kollect-system`) |
-| Profile | Optional `spec.profileRef` for future `KollectClusterProfile` stub |
+| Profile | Optional `spec.profileRef` names a `KollectClusterProfile` (rollup schema override, future) |
 
 **Sink design (MVP):** namespaced `KollectSink` objects in the export namespace (`sinkNamespace`).
 `KollectClusterSink` is reserved for a later platform-shared backend.
@@ -38,7 +40,7 @@ flowchart TD
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `spec.profileRef` | string | No | — | Future `KollectClusterProfile` name (stub) |
+| `spec.profileRef` | string | No | — | `KollectClusterProfile` name (optional rollup override) |
 | `spec.targetRefs[]` | list | No | all targets | `KollectClusterTarget` names (name only) |
 | `spec.targetSelector` | labelSelector | No | — | Filter cluster targets when `targetRefs` empty |
 | `spec.namespaceSelector` | labelSelector | **Yes** | — | Explicit namespace scope for rollup |
@@ -50,9 +52,8 @@ flowchart TD
 ## Sample usage
 
 ```sh
-# Prerequisites: cluster target + sink in kollect-system
-kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml \
-  -n kollect-system
+# Prerequisites: cluster profile, cluster target, sink in kollect-system
+kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterprofile.yaml
 kubectl apply -f config/samples/kollect_v1alpha1_kollectsink_postgres.yaml -n kollect-system
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclustertarget.yaml
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterinventory.yaml
@@ -91,6 +92,7 @@ kubectl get kcinv platform-rollup -o yaml
 
 ## See also
 
+- [KollectClusterProfile](kollectclusterprofile.md) — platform extraction schema
 - [KollectClusterTarget](kollectclustertarget.md) — pairs with this kind
 - [KollectInventory](kollectinventory.md) — namespaced equivalent (shipped)
 - [CR-REFERENCE.md](../CR-REFERENCE.md)

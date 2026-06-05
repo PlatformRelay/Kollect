@@ -56,7 +56,7 @@ flowchart TD
 | `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
 | `KollectInventory` | Namespace | Yes | Aggregate namespaced targets; export to sinks |
 | `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0032](adr/0032-platform-architecture-pivot.md)) |
-| `KollectClusterProfile` | Cluster | No | **Reserved** — platform schemas |
+| `KollectClusterProfile` | Cluster | No | Webhook only (Phase 1) — platform schemas |
 | `KollectClusterSink` | Cluster | No | **Reserved** — shared backends |
 | `KollectClusterInventory` | Cluster | Webhook only | Platform rollup — pairs with `KollectClusterTarget` |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |

@@ -24,6 +24,9 @@ flowchart LR
   Inv[KollectInventory<br/>aggregate + export]
   Sink[KollectSink<br/>where to send]
   ConnTest[KollectConnectionTest<br/>probe]
+  CProf[KollectClusterProfile]
+  CTarget[KollectClusterTarget]
+  CInv[KollectClusterInventory]
 
   Profile --> Target
   Scope -.-> Target
@@ -31,14 +34,17 @@ flowchart LR
   Target --> Inv
   Inv --> Sink
   ConnTest -.-> Sink
+  CProf --> CTarget
+  CTarget -.-> CInv
+  CInv -.-> Sink
 ```
 
 **Typical team flow:** create Profile and Sink → bind Target to Profile → point Inventory at Sink.
 Optional Scope constrains GVKs, namespaces, and sinks. Use ConnectionTest to verify sink reachability
 before export.
 
-**Platform flow:** `KollectClusterTarget` + `KollectClusterInventory` for cross-namespace rollup —
-webhook-only in Phase 1 (no controller yet).
+**Platform flow:** `KollectClusterProfile` → `KollectClusterTarget` → `KollectClusterInventory` for
+cross-namespace rollup — webhook-only in Phase 1 (no controller yet).
 
 ## Kinds
 
@@ -50,6 +56,7 @@ webhook-only in Phase 1 (no controller yet).
 | `KollectInventory` | Namespace | Yes | [crds/kollectinventory.md](crds/kollectinventory.md) |
 | `KollectScope` | Namespace | No (enforced) | [crds/kollectscope.md](crds/kollectscope.md) |
 | `KollectConnectionTest` | Namespace | Yes | [crds/kollectconnectiontest.md](crds/kollectconnectiontest.md) |
+| `KollectClusterProfile` | Cluster | Webhook only (Phase 1) | [crds/kollectclusterprofile.md](crds/kollectclusterprofile.md) |
 | `KollectClusterTarget` | Cluster | Webhook only (Phase 1) | [crds/kollectclustertarget.md](crds/kollectclustertarget.md) |
 | `KollectClusterInventory` | Cluster | Webhook only (Phase 1) | [crds/kollectclusterinventory.md](crds/kollectclusterinventory.md) |
 
@@ -57,7 +64,6 @@ webhook-only in Phase 1 (no controller yet).
 
 | Kind | Scope | Notes |
 | --- | --- | --- |
-| `KollectClusterProfile` | Cluster | Platform extraction schemas |
 | `KollectClusterSink` | Cluster | Shared export backends |
 | `KollectClusterScope` | Cluster | Platform policy boundary |
 | `KollectRemoteCluster` | Namespace | Hub spoke registration ([ADR-0028](adr/0028-hub-cluster-auth-istio-pattern.md)) |
@@ -68,6 +74,7 @@ webhook-only in Phase 1 (no controller yet).
 | --- | --- | --- |
 | `KollectInventory` | `kinv` | `kubectl get kinv -A` |
 | `KollectTarget` | `ktgt` | `kubectl get ktgt -n default` |
+| `KollectClusterProfile` | `kcprof` | `kubectl get kcprof` |
 | `KollectClusterTarget` | `kctgt` | `kubectl get kctgt` |
 | `KollectClusterInventory` | `kcinv` | `kubectl get kcinv` |
 | `KollectConnectionTest` | `kconntest` | `kubectl get kconntest -A` |

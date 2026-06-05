@@ -16,21 +16,21 @@ Objects persist and validate at admission; collection/export requires a future c
 
 ```mermaid
 flowchart TD
-  subgraph platform [Platform namespace]
-    Profile[KollectProfile]
-  end
+  CProf[KollectClusterProfile]
+  Profile[KollectProfile in platform NS]
   CTarget[KollectClusterTarget]
   CInv[KollectClusterInventory]
-  Sink[KollectClusterSink]
+  Sink[KollectSink in sinkNamespace]
 
-  Profile -->|"profileRef"| CTarget
+  CProf -->|"profileRef (preferred)"| CTarget
+  Profile -.->|"profileRef (MVP fallback)"| CTarget
   CTarget -->|future| CInv
   CInv -.->|future| Sink
 ```
 
 | Relationship | Rule |
 | --- | --- |
-| Profile | `spec.profileRef` resolves to `KollectProfile` in **platform namespace** (Helm `platformNamespace`) |
+| Profile | `spec.profileRef` resolves to **`KollectClusterProfile`** (preferred) or `KollectProfile` in **platform namespace** (MVP fallback) |
 | Namespaces | `namespaceSelector` **required** — empty selector rejected at admission |
 | Namespaced pipeline | Team flows use `KollectTarget` + `KollectInventory` instead |
 
@@ -40,16 +40,15 @@ Build order: namespaced MVP first, then cluster controller — [PLATFORM-DECISIO
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `spec.profileRef` | string | Yes | Name of `KollectProfile` in platform namespace (`KollectClusterProfile` later) |
+| `spec.profileRef` | string | Yes | Name of `KollectClusterProfile` or platform-namespace `KollectProfile` (name only) |
 | `spec.namespaceSelector` | labelSelector | **Yes** | Required — webhook rejects empty selector (no cluster-wide implicit scrape) |
 | `spec.suspend` | bool | No | Pause reconciliation (reserved) |
 
 ## Sample usage
 
 ```sh
-# Profile must exist in platform namespace (e.g. kollect-system)
-kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml \
-  -n kollect-system
+# Cluster profile (preferred) or namespaced profile in platform namespace
+kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterprofile.yaml
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclustertarget.yaml
 
 kubectl get kctgt platform-argo-applications -o yaml
@@ -90,11 +89,13 @@ Cluster-scoped resources require elevated RBAC — restrict to platform SRE role
 | Admission denied | Missing `namespaceSelector` | Add explicit label selector |
 | Admission denied | `profileRef` contains `/` | Use name only — profile lives in platform namespace |
 | No collection | Phase 1 — controller not registered | Use namespaced `KollectTarget` for MVP |
-| *(future)* `ProfileNotFound` | No profile in platform NS | Create profile in `platformNamespace` |
+| *(future)* `ProfileNotFound` | No `KollectClusterProfile` or platform profile | Create `kcprof` or namespaced profile in `platformNamespace` |
 | *(future)* `Degraded` | Scope or RBAC denies cross-namespace list | Extend operator ClusterRole; add `KollectClusterScope` |
 
 ## See also
 
+- [KollectClusterProfile](kollectclusterprofile.md) — platform extraction schema
+- [KollectClusterInventory](kollectclusterinventory.md) — pairs with this kind
 - [KollectTarget](kollecttarget.md) — namespaced equivalent (shipped)
 - [CR-REFERENCE.md](../CR-REFERENCE.md) — reserved cluster kinds
 - [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md)
