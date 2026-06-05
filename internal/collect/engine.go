@@ -378,7 +378,8 @@ func (e *Engine) refreshTargetSnapshotMetrics(st targetState, target kollectdevv
 	gvkLabel := fmt.Sprintf("%s/%s/%s", st.profile.Spec.TargetGVK.Group,
 		st.profile.Spec.TargetGVK.Version, st.profile.Spec.TargetGVK.Kind)
 	items := e.store.SnapshotTarget(target.Namespace, target.Name)
-	recordTargetSnapshotMetrics(target.Spec.ProfileRef, gvkLabel, items)
+	metricPaths := MetricPathsFromProfile(st.profile.Spec)
+	recordTargetSnapshotMetrics(target.Spec.ProfileRef, gvkLabel, items, metricPaths)
 }
 
 func (e *Engine) matchesTarget(

@@ -95,7 +95,7 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report, _, err := ReceiveReport(
+	report, applied, err := ReceiveReport(
 		headerCluster,
 		body,
 		s.Merger,
@@ -112,6 +112,10 @@ func (s *IngestServer) handleReports(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), status)
 
 		return
+	}
+
+	if applied > 0 {
+		metrics.HubMergedItemsTotal.WithLabelValues("http-ingest", report.Cluster).Add(float64(applied))
 	}
 
 	if s.StatusClient != nil {

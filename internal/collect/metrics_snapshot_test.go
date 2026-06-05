@@ -12,14 +12,12 @@ import (
 )
 
 func TestRecordTargetSnapshotMetrics(t *testing.T) {
-	t.Parallel()
-
-	metrics.Register()
+	ensureMetricsRegistered()
 
 	recordTargetSnapshotMetrics("deployments", "apps/v1/Deployment", []Item{
 		{Attributes: map[string]any{"ready_replicas": 2, "name": "a"}},
 		{Attributes: map[string]any{"ready_replicas": 1, "status": "ok"}},
-	})
+	}, nil)
 
 	count := metrics.CustomResourceSeries.WithLabelValues("deployments", "apps/v1/Deployment", "object_count")
 	if v := testutil.ToFloat64(count); v != 2 {
@@ -31,7 +29,7 @@ func TestRecordTargetSnapshotMetrics(t *testing.T) {
 		t.Fatalf("ready_replicas sum = %v, want 3", v)
 	}
 
-	recordTargetSnapshotMetrics("deployments", "apps/v1/Deployment", nil)
+	recordTargetSnapshotMetrics("deployments", "apps/v1/Deployment", nil, nil)
 	if v := testutil.ToFloat64(count); v != 0 {
 		t.Fatalf("empty snapshot object_count = %v, want 0", v)
 	}

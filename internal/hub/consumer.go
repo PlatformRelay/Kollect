@@ -74,7 +74,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 			return err
 		}
 
-		report, _, err := ReceiveReport(
+		report, applied, err := ReceiveReport(
 			wireCluster,
 			payload,
 			c.Merger,
@@ -85,6 +85,10 @@ func (c *Consumer) Start(ctx context.Context) error {
 			metrics.HubSpokeReportsTotal.WithLabelValues(c.hubLabel(), metrics.ResultFailure).Inc()
 
 			return err
+		}
+
+		if applied > 0 {
+			metrics.HubMergedItemsTotal.WithLabelValues(c.hubLabel(), report.Cluster).Add(float64(applied))
 		}
 
 		if c.StatusClient != nil {

@@ -81,6 +81,11 @@ func TestRegister(t *testing.T) {
 		t.Fatalf("hub spoke reports counter: got %v", v)
 	}
 
+	HubMergedItemsTotal.WithLabelValues("platform", "spoke-a").Add(4)
+	if v := testutil.ToFloat64(HubMergedItemsTotal.WithLabelValues("platform", "spoke-a")); v != 4 {
+		t.Fatalf("hub merged items counter: got %v", v)
+	}
+
 	SinkErrorsTotal.WithLabelValues("transient").Inc()
 	if v := testutil.ToFloat64(SinkErrorsTotal.WithLabelValues("transient")); v < 1 {
 		t.Fatalf("sink errors counter: got %v", v)

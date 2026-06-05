@@ -126,4 +126,12 @@ var Catalog = []CatalogEntry{
 		PromQLHint: "sum(rate(kollect_hub_spoke_reports_total[5m])) by (hub, result)",
 		AgentHint:  "Hub fan-in throughput; flat at zero → transport or spoke agent not wired.",
 	},
+	{
+		Name:       "kollect_hub_merged_items_total",
+		Type:       "counter",
+		Labels:     []string{"hub", "cluster"},
+		Help:       "Inventory rows applied by hub merge (upserts and removals).",
+		PromQLHint: "sum(rate(kollect_hub_merged_items_total[5m])) by (hub, cluster)",
+		AgentHint:  "Per-spoke merge volume; spikes → churn or oversized spoke batches.",
+	},
 }

@@ -11,11 +11,23 @@ import (
 )
 
 // recordTargetSnapshotMetrics emits Phase 4 domain series from a target snapshot.
-// Until KollectProfile.spec.metrics exists (ADR-0033), numeric extracted attributes
-// are summed per attribute name; object_count tracks row cardinality for the target.
-func recordTargetSnapshotMetrics(profile, gvk string, items []Item) {
+// When metricPaths is empty, numeric extracted attributes are summed per attribute name.
+// When KollectProfile.spec.metrics is set (ADR-0033), only configured series are emitted.
+func recordTargetSnapshotMetrics(profile, gvk string, items []Item, metricPaths []metrics.MetricPathSpec) {
 	metrics.RecordCustomResourceSeries(profile, gvk, "object_count", float64(len(items)))
 
+	if len(metricPaths) == 0 {
+		recordAutoSummedMetrics(profile, gvk, items)
+
+		return
+	}
+
+	for _, spec := range metricPaths {
+		metrics.RecordCustomResourceSeries(profile, gvk, spec.Name, sumAttribute(items, spec.Path))
+	}
+}
+
+func recordAutoSummedMetrics(profile, gvk string, items []Item) {
 	sums := make(map[string]float64)
 	for _, item := range items {
 		for name, val := range item.Attributes {
@@ -28,6 +40,18 @@ func recordTargetSnapshotMetrics(profile, gvk string, items []Item) {
 	for name, sum := range sums {
 		metrics.RecordCustomResourceSeries(profile, gvk, name, sum)
 	}
+}
+
+func sumAttribute(items []Item, attribute string) float64 {
+	var sum float64
+
+	for _, item := range items {
+		if f, ok := numericAttribute(item.Attributes[attribute]); ok {
+			sum += f
+		}
+	}
+
+	return sum
 }
 
 func numericAttribute(v any) (float64, bool) {
