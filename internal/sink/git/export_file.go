@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -37,7 +36,7 @@ func exportFileRemote(
 	}
 
 	if pushBranch != cloneBranch {
-		if err = runGit(ctx, tmp, "checkout", "-B", pushBranch); err != nil {
+		if err = gitCheckoutNewBranch(ctx, tmp, pushBranch); err != nil {
 			return err
 		}
 	}
@@ -57,10 +56,10 @@ func exportFileRemote(
 	}
 
 	if cfg.Prune {
-		if err = runGit(ctx, tmp, "add", "-A"); err != nil {
+		if err = gitAddAll(ctx, tmp); err != nil {
 			return err
 		}
-	} else if err = runGit(ctx, tmp, "add", gitObjectPath); err != nil {
+	} else if err = gitAddPath(ctx, tmp, gitObjectPath); err != nil {
 		return err
 	}
 
@@ -73,17 +72,12 @@ func exportFileRemote(
 	}
 
 	message := renderCommitMessage(cfg.CommitMessage, commitCtx)
-	if err = runGit(ctx, tmp, "-c", "user.name="+cfg.Author.Name, "-c", "user.email="+cfg.Author.Email,
-		"commit", "-m", message); err != nil {
+	if err = gitCommit(ctx, tmp, cfg.Author.Name, cfg.Author.Email, message); err != nil {
 		return err
 	}
 
-	pushArgs := []string{"push", "-u", "origin", pushBranch}
-	if cfg.PushPolicy == PushPolicyForcePush {
-		pushArgs = []string{"push", "--force", "-u", "origin", pushBranch}
-	}
-
-	if err := runGit(ctx, tmp, pushArgs...); err != nil {
+	forcePush := cfg.PushPolicy == PushPolicyForcePush
+	if err := gitPushOrigin(ctx, tmp, forcePush, pushBranch); err != nil {
 		return err
 	}
 
@@ -123,28 +117,13 @@ func ensureBareHEAD(ctx context.Context, cloneURL, branch string) error {
 }
 
 func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string, depth int) error {
-	if err := ValidateGitRef(branch); err != nil {
-		return fmt.Errorf("git export: invalid branch: %w", err)
-	}
-
-	safeURL, err := canonicalCloneURL(cloneURL)
+	cloned, err := gitClone(ctx, dir, cloneURL, branch, depth)
 	if err != nil {
-		return fmt.Errorf("git export: %w", err)
+		return err
 	}
 
-	cloneArgs := []string{"clone", "--branch", branch, "--single-branch"}
-	if depth > 0 {
-		cloneArgs = append(cloneArgs, "--depth", strconv.Itoa(depth))
-	}
-
-	cloneArgs = append(cloneArgs, safeURL, dir)
-
-	//nolint:gosec // G204: dir from MkdirTemp; branch/URL validated before invocation
-	clone := exec.CommandContext(ctx, "git", cloneArgs...)
-	if out, err := clone.CombinedOutput(); err == nil {
+	if cloned {
 		return nil
-	} else if !isCLIEmptyRemote(string(out), err) {
-		return fmt.Errorf("git clone: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 
 	if rmErr := os.RemoveAll(dir); rmErr != nil {
@@ -155,38 +134,24 @@ func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string, depth int
 		return fmt.Errorf("mkdir workdir: %w", mkErr)
 	}
 
-	if err := runGit(ctx, dir, "init"); err != nil {
+	if err := gitInit(ctx, dir); err != nil {
 		return err
 	}
 
-	if err := runGit(ctx, dir, "checkout", "-B", branch); err != nil {
+	if err := gitCheckoutNewBranch(ctx, dir, branch); err != nil {
 		return err
 	}
 
-	return runGit(ctx, dir, "remote", "add", "origin", safeURL)
+	return gitRemoteAddOrigin(ctx, dir, cloneURL)
 }
 
 func gitStatusClean(ctx context.Context, dir string) (bool, error) {
-	//nolint:gosec // G204: dir from MkdirTemp
-	cmd := exec.CommandContext(ctx, "git", "-C", dir, "status", "--porcelain")
-	out, err := cmd.CombinedOutput()
+	out, err := gitStatusPorcelain(ctx, dir)
 	if err != nil {
-		return false, fmt.Errorf("git status: %s: %w", strings.TrimSpace(string(out)), err)
+		return false, err
 	}
 
-	return len(strings.TrimSpace(string(out))) == 0, nil
-}
-
-func runGit(ctx context.Context, dir string, args ...string) error {
-	full := append([]string{"-C", dir}, args...)
-	//nolint:gosec // G204: dir from MkdirTemp; args validated at export entry
-	cmd := exec.CommandContext(ctx, "git", full...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(string(out)), err)
-	}
-
-	return nil
+	return len(strings.TrimSpace(out)) == 0, nil
 }
 
 func isCLIEmptyRemote(output string, err error) bool {

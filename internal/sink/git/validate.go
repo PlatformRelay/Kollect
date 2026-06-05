@@ -196,6 +196,54 @@ func parseFileGitBarePath(cloneURL string) (string, error) {
 	return abs, nil
 }
 
+func validateGitWorkdir(dir string) (string, error) {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return "", fmt.Errorf("empty workdir")
+	}
+
+	if strings.Contains(dir, "\x00") || strings.ContainsAny(dir, "\n\r") {
+		return "", fmt.Errorf("workdir contains invalid characters")
+	}
+
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("resolve workdir: %w", err)
+	}
+
+	clean := filepath.Clean(abs)
+	if strings.HasPrefix(clean, "-") {
+		return "", fmt.Errorf("workdir must not start with '-'")
+	}
+
+	return clean, nil
+}
+
+func validateGitConfigValue(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fmt.Errorf("empty git config value")
+	}
+
+	if strings.HasPrefix(value, "-") {
+		return fmt.Errorf("git config value must not start with '-'")
+	}
+
+	if strings.Contains(value, "\x00") {
+		return fmt.Errorf("git config value contains null byte")
+	}
+
+	return nil
+}
+
+func validateGitCommitMessage(message string) error {
+	if strings.Contains(message, "\x00") {
+		return fmt.Errorf("commit message contains null byte")
+	}
+
+	return nil
+}
+
 func canonicalCloneURL(cloneURL string) (string, error) {
 	if err := validateCloneURL(cloneURL); err != nil {
 		return "", err
