@@ -46,8 +46,9 @@ func (b *Backend) Type() string {
 	return "s3"
 }
 
+// Capabilities reports object-store snapshot export (ADR-0401, ADR-0103).
 func (b *Backend) Capabilities() cap.Capabilities {
-	return cap.SnapshotStore()
+	return cap.ObjectStoreSnapshot()
 }
 
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
