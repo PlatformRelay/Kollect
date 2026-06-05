@@ -58,6 +58,28 @@ func TestSampleProfilesValidate(t *testing.T) {
 	}
 }
 
+func TestSampleClusterProfilesValidate(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Join("..", "..", "config", "samples")
+	path := filepath.Join(root, "kollect_v1alpha1_kollectclusterprofile.yaml")
+	//nolint:gosec // G304: path is under repo config/samples only
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+
+	var profile kollectdevv1alpha1.KollectClusterProfile
+	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(string(data)), 4096)
+	if err := decoder.Decode(&profile); err != nil {
+		t.Fatalf("decode %s: %v", path, err)
+	}
+
+	if errs := validation.ValidateClusterProfile(&profile); len(errs) > 0 {
+		t.Fatalf("%s: validation failed: %v", path, errs)
+	}
+}
+
 func TestSampleKindsDecode(t *testing.T) {
 	t.Parallel()
 
@@ -68,6 +90,9 @@ func TestSampleKindsDecode(t *testing.T) {
 		"kollect_v1alpha1_kollectsink_kafka.yaml",
 		"kollect_v1alpha1_kollecttarget.yaml",
 		"kollect_v1alpha1_kollectinventory.yaml",
+		"kollect_v1alpha1_kollectclusterprofile.yaml",
+		"kollect_v1alpha1_kollectclustertarget.yaml",
+		"kollect_v1alpha1_kollectclusterinventory.yaml",
 	}
 
 	for _, name := range patterns {

@@ -9,6 +9,7 @@ resources:
 - bases/kollect.dev_kollectconnectiontests.yaml
 - bases/kollect.dev_kollectclustertargets.yaml
 - bases/kollect.dev_kollectclusterinventories.yaml
+- bases/kollect.dev_kollectclusterprofiles.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
