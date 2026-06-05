@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/pathvalidate"
 )
 
 const (
@@ -113,8 +114,8 @@ func ValidatePathTemplate(template string) error {
 		return nil
 	}
 
-	if strings.HasPrefix(template, "/") || strings.Contains(template, "..") {
-		return fmt.Errorf("pathTemplate must be a relative path without '..' segments")
+	if err := pathvalidate.RejectTraversal(template); err != nil {
+		return fmt.Errorf("pathTemplate: %w", err)
 	}
 
 	if !strings.Contains(template, "{namespace}") || !strings.Contains(template, "{name}") {

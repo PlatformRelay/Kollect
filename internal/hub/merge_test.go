@@ -140,6 +140,29 @@ func TestMergerApplyRemovedUIDs(t *testing.T) {
 	}
 }
 
+func TestMergerApplyJSONRejectsUnsupportedSchemaVersion(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	merger := NewMerger(store)
+
+	payload := []byte(`{
+		"apiVersion":"kollect.dev/v1alpha1",
+		"schemaVersion":"kollect.dev/v99",
+		"cluster":"spoke-a",
+		"inventoryRef":{"namespace":"default","name":"inv"},
+		"items":[{"namespace":"ns","name":"n","uid":"u1","version":"v1","kind":"Pod"}]
+	}`)
+
+	if _, err := merger.ApplyJSON(payload); err == nil {
+		t.Fatal("expected schemaVersion error")
+	}
+
+	if store.TotalCount() != 0 {
+		t.Fatalf("store count = %d, want 0", store.TotalCount())
+	}
+}
+
 func TestMergerApplyNilStore(t *testing.T) {
 	t.Parallel()
 

@@ -6,6 +6,9 @@ package hub_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -85,10 +88,42 @@ func TestNewConsumerDefaultSubject(t *testing.T) {
 	}
 }
 
+// wireTestBus implements WireSubscriber with explicit wire cluster metadata for unit tests.
+type wireTestBus struct {
+	mu      sync.Mutex
+	handler transport.WireHandler
+}
+
+func (b *wireTestBus) Subscribe(_ context.Context, _ string, handler transport.Handler) error {
+	return b.SubscribeWire(context.Background(), "", func(ctx context.Context, wireCluster string, payload []byte) error {
+		return handler(ctx, payload)
+	})
+}
+
+func (b *wireTestBus) SubscribeWire(_ context.Context, _ string, handler transport.WireHandler) error {
+	b.mu.Lock()
+	b.handler = handler
+	b.mu.Unlock()
+
+	return nil
+}
+
+func (b *wireTestBus) PublishWire(ctx context.Context, wireCluster string, payload []byte) error {
+	b.mu.Lock()
+	handler := b.handler
+	b.mu.Unlock()
+
+	if handler == nil {
+		return fmt.Errorf("wire test bus: no subscriber")
+	}
+
+	return handler(ctx, wireCluster, payload)
+}
+
 func TestConsumerRejectsTransportACL(t *testing.T) {
 	t.Parallel()
 
-	bus := transport.NewInProcessBus()
+	bus := &wireTestBus{}
 	store := collect.NewStore()
 	consumer := hub.NewConsumer(
 		bus,
@@ -116,13 +151,62 @@ func TestConsumerRejectsTransportACL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := bus.Publish(ctx, "inventory/reports", payload); err == nil {
-		t.Fatal("expected ACL rejection error from publish")
+	err = bus.PublishWire(ctx, "rogue", payload)
+	if err == nil {
+		t.Fatal("expected ACL rejection for rogue wire cluster")
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	if !strings.Contains(err.Error(), "rogue") {
+		t.Fatalf("ACL error = %q, want mention of rogue wire cluster", err)
+	}
+
 	if store.TotalCount() != 0 {
 		t.Fatalf("store count = %d, want 0 after ACL rejection", store.TotalCount())
+	}
+}
+
+func TestConsumerRejectsWireBodyClusterMismatch(t *testing.T) {
+	t.Parallel()
+
+	bus := &wireTestBus{}
+	store := collect.NewStore()
+	consumer := hub.NewConsumer(
+		bus,
+		hub.NewMerger(store),
+		"inventory/reports",
+		"hub",
+		nil,
+		hub.ConsumerOptions{TransportACL: transport.ACLSettings{AllowedClusterIDs: []string{"spoke-a", "rogue"}}},
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := consumer.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	report := hub.SpokeReport{
+		APIVersion:   "kollect.dev/v1alpha1",
+		Cluster:      "spoke-a",
+		InventoryRef: hub.InventoryRef{Namespace: "team-a", Name: "inv"},
+	}
+	payload, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = bus.PublishWire(ctx, "rogue", payload)
+	if err == nil {
+		t.Fatal("expected wire/body cluster mismatch error")
+	}
+
+	if !strings.Contains(err.Error(), "does not match report cluster") {
+		t.Fatalf("mismatch error = %q", err)
+	}
+
+	if store.TotalCount() != 0 {
+		t.Fatalf("store count = %d, want 0 after mismatch rejection", store.TotalCount())
 	}
 }
 

@@ -9,30 +9,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/konih/kollect/internal/sink/pathvalidate"
 )
 
 var safeGitRefPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*$`)
 
 func validateObjectPath(objectPath string) (string, error) {
-	objectPath = strings.TrimSpace(objectPath)
-	if objectPath == "" {
-		return "", nil
-	}
-
-	if strings.Contains(objectPath, "\x00") {
-		return "", fmt.Errorf("object path contains null byte")
-	}
-
-	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(objectPath)))
-	if filepath.IsAbs(clean) || strings.HasPrefix(clean, "/") {
-		return "", fmt.Errorf("object path must be relative")
-	}
-
-	if clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") {
-		return "", fmt.Errorf("object path must not contain '..' segments")
-	}
-
-	return clean, nil
+	return pathvalidate.ValidateRelativeObjectPath(objectPath)
 }
 
 func objectPathInWorkdir(workdir, objectPath string) (absPath string, relPath string, err error) {
