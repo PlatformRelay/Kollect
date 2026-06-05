@@ -26,11 +26,10 @@ kubectl create namespace "$CERT_TEST_NS" --dry-run=client -o yaml | kubectl appl
 kubectl label namespace "$CERT_TEST_NS" \
   kollect.dev/collect-certificates=enabled --overwrite
 
-_log "Applying Certificate profile and target samples..."
+_log "Applying Certificate profile..."
 kubectl apply -f "${REPO_ROOT}/config/samples/kollect_v1alpha1_kollectprofile_certificate-summary.yaml"
-kubectl apply -f "${REPO_ROOT}/config/samples/kollect_v1alpha1_kollecttarget_certificates.yaml"
 
-_log "Seeding Certificate for generic CRD collection..."
+_log "Seeding Certificate before target registration (informer initial sync)..."
 kubectl apply -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -47,12 +46,17 @@ spec:
     - smoke.example.com
 EOF
 
+_log "Applying team-certificates target..."
+kubectl apply -f "${REPO_ROOT}/config/samples/kollect_v1alpha1_kollecttarget_certificates.yaml"
+
 _log "Waiting for KollectTarget team-certificates Ready..."
 kubectl wait --for=condition=Ready kollecttarget/team-certificates \
   -n default --timeout="$WAIT_TIMEOUT"
 
 _log "Waiting for Certificate collection (Ready message reports >= 1 resource)..."
-deadline=$((SECONDS + 180))
+wait_secs="${WAIT_TIMEOUT%s}"
+deadline=$((SECONDS + wait_secs))
+msg=""
 while (( SECONDS < deadline )); do
   msg="$(kubectl get kollecttarget team-certificates -n default \
     -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}' 2>/dev/null || true)"
