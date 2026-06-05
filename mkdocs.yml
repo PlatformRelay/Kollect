@@ -7,21 +7,21 @@ copyright: Copyright &copy; 2026 Konrad Heimel
 
 theme:
   name: material
-  logo: assets/logo.svg
+  logo: assets/branding/kollect-symbol-dark.svg
   favicon: assets/favicon.ico
   palette:
-    - scheme: slate
-      primary: custom
-      accent: custom
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
     - scheme: default
       primary: custom
       accent: custom
       toggle:
-        icon: material/brightness-7
+        icon: material/brightness-4
         name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
   features:
     - navigation.tabs
     - navigation.tabs.sticky

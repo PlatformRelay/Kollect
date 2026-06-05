@@ -6,7 +6,7 @@ hide:
 
 <div class="kollect-hero" markdown="1">
 
-![Kollect](assets/logo.svg){ .kollect-hero-logo }
+![Kollect](assets/branding/kollect-symbol-dark.svg){ .kollect-hero-logo }
 
 # Kollect
 
