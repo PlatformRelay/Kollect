@@ -29,4 +29,9 @@ kubectl apply -k config/samples/
     NATS (`kollectsink_nats.yaml`) and some cluster-scoped samples are documented but not included in
     `kubectl apply -k config/samples/`. Apply those files individually when following their guides.
 
-S3/GCS Parquet: [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) — no kustomized sample yet.
+!!! info "S3/GCS Parquet — not sampled yet"
+    JSON object export is shipped for `type: s3` and `type: gcs`. DuckDB-queryable **Parquet** snapshot
+    mode is planned per [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) — there is no
+    kustomized sample under `config/samples/` yet. Use the JSON sinks in
+    [postgres-state-store.md](postgres-state-store.md) or deployment-inventory for end-to-end export
+    until a Parquet walkthrough lands.

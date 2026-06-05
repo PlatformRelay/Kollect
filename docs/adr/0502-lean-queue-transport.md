@@ -8,6 +8,11 @@ elevated NATS over the earlier Redis-spike framing and unified the transport wit
 sink — a spoke publishing to a shared subject *is* the fan-in. Hub deployment model superseded by
 [ADR-0703](0703-platform-architecture-pivot.md) — **`mode: hub` Helm values**, not `KollectHub` CRD.
 
+!!! note "Hub export is role-based"
+    Post-merge hub export resolves `KOLLECT_HUB_SINK_REFS` to namespaced `KollectSink` objects and
+    fans out by **sink role** (snapshot store, relational SoR, event emitter) — not a fixed
+    Postgres+Kafka pair ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).
+
 ## Context
 
 Multi-cluster hub aggregation ([ADR-0501](0501-multi-cluster-sync-rfc.md)) needs a transport between
@@ -123,7 +128,7 @@ flowchart TB
     Spoke[spoke operator mode: spoke]
     Hub[hub operator mode: hub]
     Merge[merge + dedupe]
-    Export[Postgres / Kafka / S3]
+    Export[Configured sinks<br/>SoR · snapshot · event]
   end
 
   Helm --> F
@@ -147,7 +152,7 @@ flowchart LR
   HelmHub[Helm mode: hub] --> HubProc[hub ingest + merge]
   HubProc -->|consume| Q
   Q --> Merge[merge + dedupe]
-  Merge --> Export[Postgres / Kafka / S3]
+  Merge --> Export[Configured sinks<br/>per ADR-0401 roles]
 ```
 
 Hub Deployments are rendered by the Helm chart when **`mode: hub`** — no `KollectHub` CRD spawns

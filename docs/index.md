@@ -9,7 +9,8 @@ hide:
 # Kollect
 
 **Generic Kubernetes inventory export** — watch any GVK, extract fields with CEL or JSONPath, and
-export live cluster state to **Postgres**, **Kafka**, **Git**, and more.
+export live cluster state to **Git**, **GitLab**, **S3**, **GCS**, **Postgres**, **Kafka**, and
+**NATS**.
 
 `kollect.dev/v1alpha1` · event-driven · CRD-native · hub/spoke ready
 
@@ -23,6 +24,12 @@ export live cluster state to **Postgres**, **Kafka**, **Git**, and more.
 Kollect is a Kubernetes operator that **collects inventory from arbitrary resources**, **aggregates
 across targets (and clusters)**, and **exports auditable snapshots** so portals and automation query
 durable export data instead of scraping the API at scale.
+
+!!! info "Sink roles"
+    Seven `KollectSink` types ship today — classified by **role**, not vendor
+    ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)): snapshot stores (`git`, `gitlab`, `s3`,
+    `gcs`), relational SoR (`postgres`), and event emitters (`nats`, `kafka`). Pair sinks in
+    `sinkRefs` as needed; Postgres and Kafka are not interchangeable twins.
 
 <div class="kollect-grid" markdown="1">
 
@@ -73,5 +80,7 @@ Run a central hub that aggregates inventory from spoke clusters via `KollectClus
 
 ## Examples
 
-- [Deployment inventory → Postgres/Kafka](examples/deployment-inventory.md)
+- [Deployment inventory → Git / Postgres / Kafka](examples/deployment-inventory.md)
+- [Postgres state store (relational SoR)](examples/postgres-state-store.md)
+- [NATS event sink](examples/nats-event-sink.md)
 - [Helm release inventory (Argo primary; Flux secondary)](examples/helm-release-inventory.md)
