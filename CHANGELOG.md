@@ -27,6 +27,14 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **demo:** Satisfy OpenSSF Scorecard in kind-wide-scope [75915df](https://github.com/konih/kollect/commit/75915df4c5a1d124aaed114af8aa3787b610066e)
+
+## [0.1.0-rc.1](https://github.com/konih/kollect/compare/v0.0.4..v0.1.0-rc.1) - 2026-06-05
+
+### Bug Fixes
+
+- **git:** Set bare HEAD after file-remote push [3b6bc14](https://github.com/konih/kollect/commit/3b6bc14d9da17a088f6a2fe4d46f1e91f8f90ac2)
+
 - **inventory:** Extract degraded status goconst [521a099](https://github.com/konih/kollect/commit/521a099914341199ced421ba534ff3b358dd0018)
 
 - **sink:** Use git.TypeName for goconst CI lint [0d0fdfe](https://github.com/konih/kollect/commit/0d0fdfe48bac1b61e6c8745b4afb7a95dc656157)
