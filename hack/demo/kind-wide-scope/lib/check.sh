@@ -82,7 +82,7 @@ _check_one task required "task --version in repo root" || fail=1
 _check_one docker required "Docker or compatible runtime for kind" || fail=1
 _check_one gh optional "Git export proof — gh auth login" || true
 _check_one go optional "auto-install Charm Gum via go install" || true
-_check_one gum optional "guided UX — or go install github.com/charmbracelet/gum@latest" || true
+_check_one gum optional "guided UX — or go install github.com/charmbracelet/gum@v0.17.0" || true
 
 echo ""
 if ! kustomize build "${DEMO_DIR}" >/dev/null 2>&1; then

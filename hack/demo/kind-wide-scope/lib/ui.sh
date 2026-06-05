@@ -16,7 +16,7 @@ _gum_install() {
   if command -v go >/dev/null 2>&1; then
     GOBIN="${GOBIN:-$(go env GOPATH 2>/dev/null)/bin}"
     export GOBIN
-    go install github.com/charmbracelet/gum@latest
+    go install github.com/charmbracelet/gum@v0.17.0
     export PATH="${GOBIN}:${PATH}"
   fi
   if ! command -v gum >/dev/null 2>&1; then

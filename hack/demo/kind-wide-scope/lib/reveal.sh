@@ -51,10 +51,18 @@ demo_reveal_start() {
   fi
 
   local item_count="?"
-  if command -v curl >/dev/null 2>&1; then
-    item_count="$(curl -sf "http://${read_host}:${read_port}/inventory" 2>/dev/null \
-      | python3 -c "import json,sys; print(json.load(sys.stdin).get('itemCount','?'))" 2>/dev/null \
-      || echo "?")"
+  if command -v python3 >/dev/null 2>&1; then
+    item_count="$(python3 -c "
+import json
+import urllib.error
+import urllib.request
+url = 'http://${read_host}:${read_port}/inventory'
+try:
+    with urllib.request.urlopen(url, timeout=5) as resp:
+        print(json.load(resp).get('itemCount', '?'))
+except (urllib.error.URLError, json.JSONDecodeError, OSError, ValueError):
+    print('?')
+" 2>/dev/null || echo "?")"
   fi
 
   demo_step 9 "Reveal"
