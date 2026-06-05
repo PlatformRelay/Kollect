@@ -51,6 +51,7 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0405](0405-export-data-contract.md) | Export data contract and schema versioning | Current |
 | [0406](0406-sink-registry.md) | Sink registry and the `Backend` interface | Current |
 | [0407](0407-git-object-store-layout.md) | Git / object-store export layout and workflow | Current |
+| [0408](0408-read-api-ui-architecture.md) | Read API and UI architecture (pluggable backing store) | Exploring |
 
 ## 05 · Multi-cluster — fan-in, transport, and the optional hub
 

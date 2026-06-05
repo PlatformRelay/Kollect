@@ -222,6 +222,21 @@ never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) and
 
 ---
 
+## Read API + UI console (planned — [ADR-0408](adr/0408-read-api-ui-architecture.md))
+
+A read-only web console (searchable inventory catalog, export/freshness health, multi-cluster rollup,
+attribute drift over time) is the priority adoption lever after v0.1.0. The UI depends only on a
+**versioned Read API** with a **pluggable backing store** (memory → Postgres → Parquet), so the same
+SPA serves a zero-infra console and a scale portal — and never reads the live cluster API.
+
+| Milestone | Item | Status |
+| --- | --- | --- |
+| **v0.1.0** | Harden + freeze the Read API as the UI contract (filters, `schemaVersion`, OpenAPI) | ⬜ |
+| **v0.2.0** | Read-only SPA on the **memory adapter** (operator-served, feature-gated): catalog, search/filter, freshness/health | ⬜ |
+| **v0.3.0+** | Portal mode on **Postgres/Parquet** adapter; **drift-over-time** views; optional `kollect-server` split | ⬜ |
+
+---
+
 ## Performance and scalability
 
 Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). Tuning guide:
@@ -396,6 +411,7 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | Shared informer per GVK | Accepted ([ADR-0301](adr/0301-event-driven-informers.md)) |
 | Postgres (relational SoR) + Kafka (event emitter) as first-class sinks; in-memory snapshot canonical, sinks are projections | Accepted ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0402](adr/0402-sink-backends-database-kafka.md)) |
 | Doc-sync / `KollectPublication` | Rejected ([ADR-0702](adr/0702-doc-sync-templating.md)) |
+| **Read API + read-only UI console** — versioned API, pluggable backing store (memory→Postgres→Parquet); SPA reads the read model, never live API | Accepted, planned v0.2/v0.3 ([ADR-0408](adr/0408-read-api-ui-architecture.md)) |
 | Inventory HTTP auth: **K8s TokenReview + SAR**; `--inventory-auth-mode=kubernetes` default | Accepted |
 | oauth2-proxy: **optional** Helm sidecar for OIDC browsers; not primary auth | Accepted |
 | Git, object storage, and agent mesh documented as alternatives | Accepted |
