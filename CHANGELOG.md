@@ -50,6 +50,11 @@ anchor on an older commit.
 
 - **sink:** Add per-sink gobreaker circuit breaker [cae4170](https://github.com/konih/kollect/commit/cae4170780fc6a90cec306188da84affcd36383c)
 
+
+### Refactoring
+
+- **docs:** Phase 1 root doc moves [6fc22f3](https://github.com/konih/kollect/commit/6fc22f3ae4a830bbec1a100af4b5d4547a37e4f1)
+
 ## [0.1.0-rc.2](https://github.com/konih/kollect/compare/v0.1.0-rc.1..v0.1.0-rc.2) - 2026-06-05
 
 ### Breaking Changes

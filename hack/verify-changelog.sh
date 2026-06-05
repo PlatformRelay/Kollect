@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fail if CHANGELOG.md is stale relative to git history and cliff.toml.
+# Fail if CHANGELOG.md is stale relative to git history and hack/release/cliff.toml.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,10 +12,12 @@ if [[ ! -x "${CLIFF}" ]]; then
   CLIFF="${ROOT}/bin/git-cliff"
 fi
 
+CLIFF_CONFIG="${CLIFF_CONFIG:-hack/release/cliff.toml}"
+
 scratch="$(mktemp)"
 trap 'rm -f "${scratch}"' EXIT
 
-"${CLIFF}" --config cliff.toml -o "${scratch}"
+"${CLIFF}" --config "${CLIFF_CONFIG}" -o "${scratch}"
 
 if ! diff -u CHANGELOG.md "${scratch}"; then
   echo "verify-changelog: CHANGELOG.md drift — run 'task changelog:write' and commit" >&2

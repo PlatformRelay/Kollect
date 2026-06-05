@@ -22,7 +22,7 @@ jobs:
             | tar -xz -C "${RUNNER_TEMP}" gitleaks
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
       - name: Scan repository
-        run: gitleaks detect --source . --config .gitleaks.toml --verbose --redact --no-git
+        run: gitleaks detect --source . --config .github/gitleaks.toml --verbose --redact --no-git
 
   verify:
     name: verify
@@ -68,7 +68,7 @@ jobs:
         run: task vulncheck
 
   # lint job runs `task lint` → golangci-lint v2 (depguard, gomodguard, …) + go-arch-lint
-  # (internal/ package graph; see .go-arch-lint.yml). No separate arch-lint step needed.
+  # (internal/ package graph; see hack/tooling/go-arch-lint.yml). No separate arch-lint step needed.
   lint:
     name: lint
     runs-on: ubuntu-latest
