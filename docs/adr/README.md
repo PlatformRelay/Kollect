@@ -18,6 +18,7 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0102](0102-prior-art.md) | Prior art and OSS reference patterns | Current (living) |
 | [0103](0103-etcd-limit.md) | Data storage and the etcd size limit | Current |
 | [0104](0104-security-model.md) | Security model — secrets, TLS, RBAC, redaction | Current |
+| [0105](0105-webhook-serving-cert-management.md) | Webhook serving and certificate management | Current |
 
 ## 02 · API & tenancy — the CRD model and how teams are isolated
 
@@ -60,6 +61,7 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0501](0501-multi-cluster-sync-rfc.md) | Multi-cluster sync topology (shared-sink default; hub optional) | Current |
 | [0502](0502-lean-queue-transport.md) | Event-emitter transport (NATS default, Kafka opt-in) | Current |
 | [0503](0503-hub-cluster-auth-istio-pattern.md) | Hub cluster authentication — push-first | Current |
+| [0504](0504-operator-runtime-modes-ha-leader-election.md) | Operator runtime modes, HA, and leader election | Current |
 
 ## 06 · Observability & ops — metrics, errors, performance
 
@@ -78,6 +80,7 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0703](0703-platform-architecture-pivot.md) | Platform architecture pivot — decision log | Current (log) |
 | [0704](0704-helm-chart-crd-lifecycle.md) | Helm chart and CRD lifecycle | Current |
 | [0705](0705-release-supply-chain.md) | Release engineering and supply chain | Current |
+| [0706](0706-testing-merge-gate-architecture.md) | Testing and merge-gate architecture | Current |
 
 ---
 

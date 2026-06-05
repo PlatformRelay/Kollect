@@ -63,6 +63,11 @@ consolidates it. (`SECURITY.md` at the repo root remains the *disclosure policy*
 - Spoke→hub uses mTLS / mesh identity ([ADR-0503](0503-hub-cluster-auth-istio-pattern.md)); the hub
   allowlists clusters and rejects unlisted ones.
 
+### Webhook TLS (serving)
+
+- Validating webhook serving certs: cert-manager default, self-signed bootstrap fallback
+  ([ADR-0105](0105-webhook-serving-cert-management.md)).
+
 ### Supply chain
 
 - Images are signed and SBOM'd; see [ADR-0705](0705-release-supply-chain.md).

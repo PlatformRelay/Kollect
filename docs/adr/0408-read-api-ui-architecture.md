@@ -55,8 +55,8 @@ SPA serve a live console *or* a scale portal by swapping the adapter — no UI c
 A React single-page app that talks only to the Read API. **Read-only in v1** — kollect observes; it does
 not mutate cluster state from the UI. Shipped first **embedded in / served by the operator**
 (all-in-one, feature-gated, like ArgoCD's default), later optionally by a dedicated **`kollect-server`**
-Deployment for scale/HA — keeping a busy web server out of the controller process (planned
-**ADR-0504**, operator runtime modes).
+Deployment for scale/HA — keeping a busy web server out of the controller process
+([ADR-0504](0504-operator-runtime-modes-ha-leader-election.md)).
 
 ### 4. Phasing
 

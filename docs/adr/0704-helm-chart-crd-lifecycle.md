@@ -30,13 +30,33 @@ especially **CRD lifecycle**, which Helm handles poorly — were never recorded.
 - **Tenant mode**: `watchNamespaces` set → namespaced `Role`/`RoleBinding` only, no cluster-wide read
   ([ADR-0203](0203-namespaced-multi-tenancy.md), [ADR-0104](0104-security-model.md)).
 - **Hub mode**: optional hub deployment values for the aggregation tier ([ADR-0501](0501-multi-cluster-sync-rfc.md)).
-- **Feature gates**: off-by-default surfaces (e.g. inventory HTTP API — [ADR-0404](0404-inventory-api-auth.md))
-  are gated in values.
+- **Feature gates** — see [Feature gate strategy](#feature-gate-strategy) below.
+
+### Feature gate strategy
+
+Optional HTTP/debug surfaces are **off by default** and controlled from Helm `featureGates.*` → manager
+flags. There is **no** Kubernetes upstream `FeatureGate` API — gates are chart values + CLI flags only
+(D4: folded here; no standalone ADR).
+
+| Gate | Helm values | Manager flags | Default | ADR |
+| --- | --- | --- | --- | --- |
+| Inventory HTTP API | `featureGates.inventoryHttp.enabled` | `--inventory-http-enabled`, port, auth mode | **false** | [ADR-0404](0404-inventory-api-auth.md) |
+| pprof | `pprof.enabled` | `--enable-pprof`, bind address | **false** | [GUIDELINES.md](https://github.com/konih/kollect/blob/main/GUIDELINES.md) §5 |
+| Validating webhooks | `webhooks.enabled` | `--validating-webhooks-enabled` | **true** | [ADR-0105](0105-webhook-serving-cert-management.md) |
+
+**Adding a new gate:** (1) Helm value under `featureGates` or a clearly named top-level block, (2) manager
+flag wired in `deployment.yaml`, (3) snapshot in `charts/kollect/tests/`, (4) document here and in the
+feature ADR. Production Helm defaults stay conservative; dev/CI overlays (`ci/dev-values.yaml`) may enable
+gates for smoke tests.
+
+Future gates (planned): Read API / embedded SPA ([ADR-0408](0408-read-api-ui-architecture.md)), optional
+`oauth2Proxy` sidecar ([ADR-0404](0404-inventory-api-auth.md)).
 
 ### Webhook certificates
 
 - Default path uses **cert-manager** (`webhook-certmanager.yaml`) for serving + rotation; cert-manager is
-  a documented soft dependency for the webhook ([ADR-0201](0201-crd-model.md)).
+  a documented soft dependency for the webhook ([ADR-0201](0201-crd-model.md), [ADR-0105](0105-webhook-serving-cert-management.md)).
+- **Fallback:** self-signed bootstrap when `webhooks.certManager.create: false` — see [ADR-0105](0105-webhook-serving-cert-management.md) (Q4).
 - The chart's webhook wiring is snapshot-tested (`tests/deployment_webhooks_test.yaml`).
 
 ### CRD lifecycle (the explicit decision)
@@ -62,14 +82,13 @@ my CRDs" one.
 - Two intentional install artifacts: Helm (operator + RBAC + webhooks) and a CRD manifest (schema
   lifecycle). Clear, if it requires documenting the two-step upgrade.
 - Tenant/hub/feature-gate behavior is values-driven and snapshot-tested, so packaging regressions fail in
-  CI ([ADR-0706 testing — planned]).
-- cert-manager as the default adds a dependency; a self-signed fallback is an open item.
+  CI ([ADR-0706](0706-testing-merge-gate-architecture.md)).
+- cert-manager as the default adds a dependency; self-signed bootstrap is documented in [ADR-0105](0105-webhook-serving-cert-management.md).
 
 ## Open questions
 
-- **DECIDED (2026-06-05):** Add a **self-signed/bootstrap webhook-cert option** for clusters without
-  cert-manager (cert-manager stays the recommended default). To be detailed in planned **ADR-0105**
-  (webhook serving & cert management).
+- **DECIDED (2026-06-05, Q4):** Self-signed/bootstrap webhook-cert option for clusters without
+  cert-manager — see [ADR-0105](0105-webhook-serving-cert-management.md) (cert-manager remains recommended).
 - **OPEN:** Should the chart optionally manage CRDs via a templated `crds/` (with a guarded
   `upgradeCRDs` value) to offer a one-command upgrade for non-GitOps users? (Default: keep out-of-band
   `install-crds.yaml`.)
