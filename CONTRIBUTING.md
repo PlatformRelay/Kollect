@@ -100,8 +100,10 @@ multi-arch image to `ghcr.io/konih/kollect`, Trivy scan, cosign signing, SPDX SB
 ## Test coverage
 
 CI runs `task coverage`, which writes `coverage.out` for `./internal/...` and enforces a
-**45%** floor on statement coverage (`COVERAGE_MIN`, see `hack/coverage.sh`). Integration-tagged
-tests (`-tags=integration`) and e2e packages are excluded from the default profile.
+**60%** floor on statement coverage (`COVERAGE_MIN`, see `hack/coverage.sh`). The
+[Codecov](https://codecov.io/gh/konih/kollect) project target is **70%** (`codecov.yml`);
+raise `COVERAGE_MIN` only after sustained growth above the floor. Integration-tagged tests
+(`-tags=integration`) and e2e packages are excluded from the default profile.
 
 **Integration CI** (`task test-integration`) runs testcontainers-backed sinks and transports,
 including **S3** (MinIO) and **GCS** (S3-compatible) under `internal/sink/s3/` and
@@ -117,8 +119,9 @@ object-store tests after kind smoke.
 | `task test:e2e` | Kind smoke (`hack/kind/e2e/` — matches nightly workflow) |
 
 Coverage is published to [Codecov](https://codecov.io/gh/konih/kollect) from the CI `test` job
-(OIDC upload for public repos; optional `CODECOV_TOKEN` secret). Regressions below the floor fail
-CI; raise the floor only when coverage has grown sustainably.
+after tests pass, using `codecov/codecov-action` with the repository `CODECOV_TOKEN` secret
+(`use_oidc: false`). Regressions below the `COVERAGE_MIN` floor fail CI; ratchet the floor toward
+the 70% Codecov target when coverage has grown sustainably.
 
 ## Pull request process
 

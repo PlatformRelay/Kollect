@@ -4,6 +4,7 @@
 package hub_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/konih/kollect/internal/collect"
@@ -43,6 +44,61 @@ func TestConfigFromEnvDefaults(t *testing.T) {
 
 	if !cfg.AllowlistEnforced {
 		t.Fatal("expected allowlist enforced when KOLLECT_REMOTE_CLUSTERS is set")
+	}
+}
+
+func TestExportConfigFromEnv(t *testing.T) {
+	t.Setenv("KOLLECT_HUB_EXPORT_NAMESPACE", "platform")
+	t.Setenv("KOLLECT_HUB_SINK_REFS", "hub-postgres, hub-kafka ,hub-postgres")
+
+	cfg := hub.ExportConfigFromEnv()
+	if !cfg.ExportEnabled() {
+		t.Fatal("expected export enabled")
+	}
+	if cfg.ExportNamespace != "platform" {
+		t.Fatalf("namespace = %q", cfg.ExportNamespace)
+	}
+	if len(cfg.SinkRefs) != 2 {
+		t.Fatalf("sink refs = %#v", cfg.SinkRefs)
+	}
+}
+
+func TestIngestConfigFromEnv(t *testing.T) {
+	t.Setenv("KOLLECT_HUB_INGEST_PORT", "9090")
+	t.Setenv("KOLLECT_HUB_INGEST_AUTH_MODE", "")
+	t.Setenv("KOLLECT_PLATFORM_NAMESPACE", " kollect-system ")
+
+	port, mode := hub.IngestConfigFromEnv()
+	if port != 9090 || mode != hub.IngestAuthModeKubernetes {
+		t.Fatalf("port=%d mode=%q", port, mode)
+	}
+	if hub.PlatformNamespaceFromEnv() != "kollect-system" {
+		t.Fatalf("platform ns = %q", hub.PlatformNamespaceFromEnv())
+	}
+}
+
+func TestRunnerStartRequiresConsumer(t *testing.T) {
+	t.Parallel()
+
+	var r hub.Runner
+	if err := r.Start(context.Background()); err == nil {
+		t.Fatal("expected error for nil runner")
+	}
+}
+
+func TestRunnerNeedLeaderElection(t *testing.T) {
+	t.Parallel()
+
+	r, err := hub.NewRunner(collect.NewStore(), hub.RunnerConfig{
+		HubName:   "hub",
+		Subject:   "inventory/reports",
+		Transport: transport.Config{Type: transport.TypeInProcess},
+	}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.NeedLeaderElection() {
+		t.Fatal("hub runner should not require leader election")
 	}
 }
 

@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"context"
 	"testing"
 )
 
@@ -35,5 +36,31 @@ func TestNewTransportKafkaMissingBrokers(t *testing.T) {
 	_, _, err := NewTransport(Config{Type: TypeKafka})
 	if err == nil {
 		t.Fatal("expected error for kafka without brokers")
+	}
+}
+
+func TestNewTransportUnknownType(t *testing.T) {
+	t.Parallel()
+
+	_, _, err := NewTransport(Config{Type: "mqtt"})
+	if err == nil {
+		t.Fatal("expected error for unknown transport")
+	}
+}
+
+func TestRoundTripInProcess(t *testing.T) {
+	t.Parallel()
+
+	bus := NewInProcessBus()
+	if err := RoundTrip(context.Background(), bus, "inventory/default", []byte("payload")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCloseNoOp(t *testing.T) {
+	t.Parallel()
+
+	if err := Close(NewInProcessBus()); err != nil {
+		t.Fatal(err)
 	}
 }

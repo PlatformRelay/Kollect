@@ -72,3 +72,51 @@ func TestStoreNamespaceIsolation(t *testing.T) {
 		t.Fatalf("tenant-a snapshot = %#v", snapA)
 	}
 }
+
+func TestStoreSubscribeAndMarshal(t *testing.T) {
+	t.Parallel()
+
+	s := NewStore()
+	ch := s.Subscribe()
+	defer s.Unsubscribe(ch)
+
+	s.Upsert(Item{
+		TargetNamespace: "team-a",
+		TargetName:      "deploys",
+		UID:             "uid-1",
+		Namespace:       "apps",
+		Name:            "web",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+
+	select {
+	case <-ch:
+	default:
+		t.Fatal("expected watcher notification")
+	}
+
+	if got := s.CountForTarget("team-a", "deploys"); got != 1 {
+		t.Fatalf("CountForTarget = %d", got)
+	}
+
+	payload, err := s.MarshalTargetJSON("team-a", "deploys")
+	if err != nil || len(payload) == 0 {
+		t.Fatalf("MarshalTargetJSON: %v (%q)", err, payload)
+	}
+
+	nsPayload, err := s.MarshalNamespaceJSON("team-a")
+	if err != nil || len(nsPayload) == 0 {
+		t.Fatalf("MarshalNamespaceJSON: %v", err)
+	}
+
+	s.Remove("team-a", "deploys", "uid-1")
+	if s.TotalCount() != 0 {
+		t.Fatalf("TotalCount = %d", s.TotalCount())
+	}
+
+	summary := s.Summary("")
+	if summary.ItemCount != 0 {
+		t.Fatalf("empty summary count = %d", summary.ItemCount)
+	}
+}

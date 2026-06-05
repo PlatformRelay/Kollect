@@ -10,7 +10,9 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/konih/kollect/internal/remotesecret"
 )
@@ -80,5 +82,22 @@ func TestExtractKubeconfigMissingKey(t *testing.T) {
 
 	if _, err := ExtractKubeconfig(secret, "spoke-a"); err == nil {
 		t.Fatal("expected error for missing key")
+	}
+}
+
+func TestSecretGetErrorClass(t *testing.T) {
+	t.Parallel()
+
+	if SecretGetErrorClass(nil) != "" {
+		t.Fatal("nil err should be empty class")
+	}
+
+	nf := apierrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, "x")
+	if SecretGetErrorClass(nf) != "terminal" {
+		t.Fatalf("not found class = %q", SecretGetErrorClass(nf))
+	}
+
+	if SecretGetErrorClass(context.Canceled) != "transient" {
+		t.Fatalf("generic class = %q", SecretGetErrorClass(context.Canceled))
 	}
 }

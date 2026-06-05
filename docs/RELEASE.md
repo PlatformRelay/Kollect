@@ -65,7 +65,7 @@ Ensure **CI** and **preflight** are green on `${RELEASE_SHA}` on GitHub Actions.
 | --- | --- | --- |
 | `task changelog:verify` | ✅ after `changelog:write` | Sync before tag |
 | `task release-dry-run` | ✅ | Local `dist/` assets valid |
-| Coverage floor **45%** | ✅ | `COVERAGE_MIN` in CI + `CONTRIBUTING.md` |
+| Coverage floor **60%** (Codecov target **70%**) | ✅ | `COVERAGE_MIN` in CI + `codecov.yml` + `CONTRIBUTING.md` |
 | E2E kind smoke | ✅ | Run `26996964559` @ `42183693` |
 | Export asserts (Ready, git SHA, multitenant) | ✅ | `68667ca6` |
 | GitLab MR REST client | ✅ | `8247f4e` — feature-branch push deferred |
