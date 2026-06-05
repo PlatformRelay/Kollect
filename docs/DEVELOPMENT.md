@@ -141,8 +141,12 @@ Controller tests live under `internal/controller/` (`suite_test.go` sets up envt
 
 ### Integration tests (testcontainers)
 
-Sink integration tests use the `integration` build tag and Docker (MinIO module for S3; bare
-`file://` git remote for Git):
+Sink integration tests use the `integration` build tag and Docker:
+
+- **Git:** bare `file://` remote
+- **S3:** MinIO module
+- **Postgres:** official Postgres image (`internal/sink/postgres/`)
+- **Kafka:** Redpanda module (`internal/sink/kafka/`)
 
 ```sh
 task test-integration
@@ -174,6 +178,32 @@ make test
 # cover.out at repo root
 go tool cover -func=cover.out
 ```
+
+### Benchmarks (micro, safe default)
+
+Run extractor and collection hot-path benchmarks without heavy synthetic clusters:
+
+```sh
+task bench
+# equivalent:
+go test -short -bench=. -benchmem ./internal/collect/...
+```
+
+Uses `-short` so long sub-benchmarks are skipped on laptops. Suitable for CI and quick regression
+checks. See [PERFORMANCE.md](PERFORMANCE.md) and [ADR-0026](adr/0026-performance-scalability.md).
+
+### Load tests (opt-in, bounded)
+
+**Not** part of default `task test`. Requires explicit opt-in and caps at **2000** synthetic objects:
+
+```sh
+KOLECT_LOAD_TEST=1 task load-test
+# equivalent:
+KOLECT_LOAD_TEST=1 go test -tags=load -count=1 -timeout=15m ./test/load/...
+```
+
+Never run 10k-object load tests locally unless you have dedicated hardware and understand API-server
+load. Default envtest suites cap synthetic objects at **500**.
 
 ## Lint and format
 
@@ -270,6 +300,7 @@ Configuration: `mkdocs.yml` at the repository root. GitHub Pages workflow:
 | [REQUIREMENTS.md](REQUIREMENTS.md) | Product priorities |
 | [examples/deployment-inventory.md](examples/deployment-inventory.md) | Annotated YAML walkthroughs |
 | [adr/README.md](adr/README.md) | Architecture decision records |
+| [PERFORMANCE.md](PERFORMANCE.md) | Scale targets, metrics, pprof, bounded load tests |
 
 ## Further reading
 

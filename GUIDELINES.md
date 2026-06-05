@@ -56,8 +56,24 @@ Product priorities: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 - **Gates:** `task verify` for codegen drift; race detector on unit/envtest; coverage goals on `internal/`.
 - **Mocks** — mockery on small interfaces only.
 - **Metrics** — assert Prometheus counters/histograms in controller tests where behavior changes.
+- **Scale tests bounded** — default `task test` caps synthetic objects (500); load tests require
+  `KOLECT_LOAD_TEST=1` and `-tags=load` (max 2000). Never run 10k-object suites in default CI.
 
-## 5. Definition of done (per change)
+## 5. Performance and scalability
+
+- **Scale target:** 10,000+ watched objects per operator with scoped informers ([ADR-0026](docs/adr/0026-performance-scalability.md)).
+- **Memory bounded** — paginated `List`, namespace/label selectors, shared informer per GVK; no full
+  payload in etcd status ([ADR-0006](docs/adr/0006-etcd-limit.md)).
+- **Parallel controllers** — tune `MaxConcurrentReconciles`; workqueue rate limiter + exponential
+  backoff on `ErrTransient`; separate concurrency for heavy vs light reconcilers where needed.
+- **Backpressure** — monitor workqueue depth and reconcile latency metrics; SAR `ErrForbidden` degrades
+  scope for one target without blocking the whole queue.
+- **Rate limits and circuit breakers** — per-sink `gobreaker`; transient sink/API errors requeue with
+  jitter; terminal config errors stop requeue ([ADR-0020](docs/adr/0020-error-taxonomy.md)).
+- **Profiling** — pprof on `:6060` behind feature gate (default off); document in [PERFORMANCE.md](docs/PERFORMANCE.md).
+- **Benchmarks** — `task bench` (`-short`, `-benchmem`); `BenchmarkExtract` for CEL/JSONPath hot path.
+
+## 6. Definition of done (per change)
 
 - Relevant tests green; lint clean; `task verify` shows no drift.
 - New external calls have timeouts and backoff where appropriate.

@@ -11,6 +11,7 @@ fit together.
 - **[Development guide](DEVELOPMENT.md)** — build, test, codegen, lint
 - **[Architecture](ARCHITECTURE.md)** — CRD model, reconciliation, phasing
 - **[Requirements](REQUIREMENTS.md)** — product priorities (TLS, aggregation, HTTP API, Helm)
+- **[Performance](PERFORMANCE.md)** — scale targets, metrics, pprof, bounded load tests
 
 ## Examples
 
