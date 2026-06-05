@@ -74,7 +74,6 @@ func inventoryAuthScope(r *http.Request) (namespace, name, verb string) {
 	return namespace, name, verb
 }
 
-
 // Middleware wraps handlers with Kubernetes token validation when enabled.
 func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
 	if a == nil || a.AuthDisabled() || a.Client == nil {

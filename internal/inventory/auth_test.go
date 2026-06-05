@@ -127,7 +127,10 @@ func TestAuthMiddlewareUsesListVerbOnIndex(t *testing.T) {
 	client := fake.NewSimpleClientset() //nolint:staticcheck
 	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		review := action.(k8stesting.CreateAction).GetObject().(*authenticationv1.TokenReview)
-		review.Status = authenticationv1.TokenReviewStatus{Authenticated: true, User: authenticationv1.UserInfo{Username: "u"}}
+		review.Status = authenticationv1.TokenReviewStatus{
+			Authenticated: true,
+			User:          authenticationv1.UserInfo{Username: "u"},
+		}
 
 		return true, review, nil
 	})
@@ -143,7 +146,9 @@ func TestAuthMiddlewareUsesListVerbOnIndex(t *testing.T) {
 	})
 
 	cfg := &AuthConfig{Mode: AuthModeKubernetes, Client: client, RequireInventoryGet: true}
-	handler := cfg.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	handler := cfg.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/inventory?namespace=team-a", nil)
 	req.Header.Set("Authorization", "Bearer tok")
@@ -161,7 +166,10 @@ func TestAuthMiddlewareUsesGetVerbOnNamedPath(t *testing.T) {
 	client := fake.NewSimpleClientset() //nolint:staticcheck
 	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		review := action.(k8stesting.CreateAction).GetObject().(*authenticationv1.TokenReview)
-		review.Status = authenticationv1.TokenReviewStatus{Authenticated: true, User: authenticationv1.UserInfo{Username: "u"}}
+		review.Status = authenticationv1.TokenReviewStatus{
+			Authenticated: true,
+			User:          authenticationv1.UserInfo{Username: "u"},
+		}
 
 		return true, review, nil
 	})
@@ -178,7 +186,9 @@ func TestAuthMiddlewareUsesGetVerbOnNamedPath(t *testing.T) {
 	})
 
 	cfg := &AuthConfig{Mode: AuthModeKubernetes, Client: client, RequireInventoryGet: true}
-	handler := cfg.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	handler := cfg.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/inventory/team-a/my-inventory", nil)
 	req.SetPathValue("namespace", "team-a")
