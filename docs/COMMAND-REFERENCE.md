@@ -14,7 +14,9 @@ Kollect CRDs register short names for faster typing ([CR-REFERENCE.md](CR-REFERE
 | Kind | Short name | Example |
 | --- | --- | --- |
 | `KollectProfile` | `kprof` | `kubectl get kprof -n team-a` |
-| `KollectSink` | `ksink` | `kubectl get ksink -A` |
+| `KollectSnapshotSink` | `ksnap` | `kubectl get ksnap -A` |
+| `KollectDatabaseSink` | `kdb` | `kubectl get kdb -A` |
+| `KollectEventSink` | `kevt` | `kubectl get kevt -A` |
 | `KollectTarget` | `ktgt` | `kubectl get ktgt -A` |
 | `KollectInventory` | `kinv` | `kubectl get kinv -A` |
 | `KollectScope` | `kscope` | `kubectl get kscope -A` |
@@ -27,7 +29,7 @@ Kollect CRDs register short names for faster typing ([CR-REFERENCE.md](CR-REFERE
 ### Pipeline status
 
 ```sh
-kubectl get kprof,ksink,ktgt,kinv,kscope -n <namespace>
+kubectl get kprof,ksnap,kdb,kevt,ktgt,kinv,kscope -n <namespace>
 kubectl apply -k config/samples/
 kubectl explain kollectinventory.spec
 ```
@@ -35,7 +37,9 @@ kubectl explain kollectinventory.spec
 ### Conditions and describe
 
 ```sh
-kubectl describe kollectsink <name> -n <namespace>
+kubectl describe kollectsnapshotsink <name> -n <namespace>
+kubectl describe kollectdatabasesink <name> -n <namespace>
+kubectl describe kollecteventsink <name> -n <namespace>
 kubectl describe kollectinventory <name> -n <namespace>
 kubectl get kinv <name> -n <namespace> -o jsonpath='{.status.conditions}'
 ```
@@ -43,7 +47,7 @@ kubectl get kinv <name> -n <namespace> -o jsonpath='{.status.conditions}'
 ### Wait for probe
 
 ```sh
-kubectl wait --for=condition=ConnectionVerified kollectsink/<name> \
+kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/<name> \
   -n <namespace> --timeout=60s
 kubectl wait --for=condition=ConnectionVerified kollectconnectiontest/<name> \
   -n <namespace> --timeout=60s
@@ -52,7 +56,7 @@ kubectl wait --for=condition=ConnectionVerified kollectconnectiontest/<name> \
 ### Connection test annotation
 
 ```sh
-kubectl annotate kollectsink <name> -n <namespace> \
+kubectl annotate kollectsnapshotsink <name> -n <namespace> \
   kollect.dev/test-connection=true --overwrite
 ```
 
