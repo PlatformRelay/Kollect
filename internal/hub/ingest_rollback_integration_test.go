@@ -60,14 +60,14 @@ func TestHubHTTPIngestPostgresExportRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	schemaBackend, err := postgressink.NewBackend(ctx, kollectdevv1alpha1.KollectDatabaseSinkSpec{
+	schemaBackend, err := postgressink.NewBackend(ctx, (&kollectdevv1alpha1.KollectDatabaseSinkSpec{
 		Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 		Postgres: &kollectdevv1alpha1.PostgresSpec{
 			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-bootstrap"},
 			Table:       "inventory_items",
 			Schema:      "public",
 		},
-	}, map[string][]byte{"dsn": []byte(pgConn)})
+	}).ToKollectSinkSpec(), map[string][]byte{"dsn": []byte(pgConn)})
 	if err != nil {
 		t.Fatalf("bootstrap postgres schema: %v", err)
 	}
@@ -84,8 +84,10 @@ func TestHubHTTPIngestPostgresExportRollback(t *testing.T) {
 	pgSink := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "hub-postgres", Namespace: "platform"},
 		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
-			Type:    "postgres",
-			Cluster: "hub",
+			Type: "postgres",
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+				Cluster: "hub",
+			},
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 				Table:       "inventory_items",
