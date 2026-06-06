@@ -61,21 +61,20 @@ Full payload lives in sinks; CR `.status` holds summaries only ([etcd limits](ht
 
 ## Quick start
 
-Try Kollect on a local kind cluster:
+Spin up Kollect on a local kind cluster in one command (needs Docker, kind, kubectl, and
+[Task](https://taskfile.dev/)):
 
 ```sh
-kind create cluster --name kollect-dev
 git clone https://github.com/konih/kollect.git && cd kollect
-task build
-task install:crds && task docker:build
-kind load docker-image kollect-controller-manager:dev --name kollect-dev
-task deploy:operator
-kubectl apply -k config/samples/
+task dev-up                       # build, create kind cluster, install operator + sample CRs
+kubectl get kinv,ktgt,ksink -A    # watch the pipeline come up
 ```
 
-Watch `KollectInventory` status and check your sink (Git demo repo, Postgres, Kafka, etc.).
+`task dev-up` builds the manager, boots a `kollect-dev` kind cluster, installs the operator, and
+applies the sample `Profile → Sink → Target → Inventory` pipeline. Then watch `KollectInventory`
+status and check your sink (Git demo repo, Postgres, Kafka, …).
 
-**Full walkthrough** — prerequisites, Helm options, maturity notes:
+**Full walkthrough** — prerequisites, Helm install, maturity notes:
 **[Quick start →](https://konih.github.io/kollect/QUICKSTART/)**
 
 ## Why Kollect?
