@@ -73,7 +73,7 @@ func TestKollectInventoryReconciler_addsCleanupFinalizer(t *testing.T) {
 		t.Fatalf("Get inventory: %v", err)
 	}
 
-	if !containsString(got.Finalizers, inventoryCleanupFinalizer) {
+	if !containsFinalizer(got.Finalizers, inventoryCleanupFinalizer) {
 		t.Fatalf("finalizers = %v, want %q", got.Finalizers, inventoryCleanupFinalizer)
 	}
 }
@@ -167,18 +167,8 @@ func TestKollectInventoryReconciler_deleteExportsEmptyAndRemovesFinalizer(t *tes
 	var got kollectdevv1alpha1.KollectInventory
 	err = cl.Get(context.Background(), types.NamespacedName{Name: "team-inventory", Namespace: "default"}, &got)
 	if err == nil {
-		if containsString(got.Finalizers, inventoryCleanupFinalizer) {
+		if containsFinalizer(got.Finalizers, inventoryCleanupFinalizer) {
 			t.Fatalf("finalizer still present after cleanup: %v", got.Finalizers)
 		}
 	}
-}
-
-func containsString(values []string, target string) bool {
-	for _, v := range values {
-		if v == target {
-			return true
-		}
-	}
-
-	return false
 }

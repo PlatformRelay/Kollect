@@ -66,7 +66,9 @@ var _ = Describe("KollectRemoteCluster lifecycle (envtest)", func() {
 			},
 		}
 		Expect(createRemoteClusterWithRequiredStatus(ctx, rc)).To(Succeed())
-		defer func() { _ = k8sClient.Delete(ctx, rc) }()
+		defer func() {
+			Expect(removeKollectRemoteClusterWithFinalizer(ctx, types.NamespacedName{Namespace: ns, Name: rcName}, nil)).To(Succeed())
+		}()
 
 		reconciler := &KollectRemoteClusterReconciler{
 			Client:     k8sClient,
@@ -106,7 +108,9 @@ var _ = Describe("KollectRemoteCluster lifecycle (envtest)", func() {
 			},
 		}
 		Expect(createRemoteClusterWithRequiredStatus(ctx, rc)).To(Succeed())
-		defer func() { _ = k8sClient.Delete(ctx, rc) }()
+		defer func() {
+			Expect(removeKollectRemoteClusterWithFinalizer(ctx, types.NamespacedName{Namespace: ns, Name: rcName}, nil)).To(Succeed())
+		}()
 
 		reconciler := &KollectRemoteClusterReconciler{
 			Client: k8sClient,

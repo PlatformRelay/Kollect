@@ -69,12 +69,9 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 			engineCancel()
 		}
 
-		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectClusterInventory{
-			ObjectMeta: metav1.ObjectMeta{Name: inventoryName},
-		})
-		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectClusterTarget{
-			ObjectMeta: metav1.ObjectMeta{Name: targetName},
-		})
+		reg := newPostgresRecordingRegistry(&recordingBackend{})
+		Expect(removeKollectClusterInventoryWithFinalizer(ctx, inventoryName, store, reg)).To(Succeed())
+		Expect(removeKollectClusterTargetWithFinalizer(ctx, targetName, engine)).To(Succeed())
 		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectSink{
 			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: sink.DefaultSecretNamespace},
 		})

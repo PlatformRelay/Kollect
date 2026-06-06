@@ -66,9 +66,7 @@ var _ = Describe("KollectClusterTarget Controller", func() {
 			engineCancel()
 		}
 
-		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectClusterTarget{
-			ObjectMeta: metav1.ObjectMeta{Name: targetName},
-		})
+		Expect(removeKollectClusterTargetWithFinalizer(ctx, targetName, engine)).To(Succeed())
 		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectProfile{
 			ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: sink.DefaultSecretNamespace},
 		})
@@ -183,9 +181,7 @@ var _ = Describe("KollectClusterTarget Controller", func() {
 		}
 		Expect(k8sClient.Create(ctx, targetB)).To(Succeed())
 		defer func() {
-			_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectClusterTarget{
-				ObjectMeta: metav1.ObjectMeta{Name: targetBName},
-			})
+			Expect(removeKollectClusterTargetWithFinalizer(ctx, targetBName, engine)).To(Succeed())
 		}()
 
 		reconciler := &KollectClusterTargetReconciler{

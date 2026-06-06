@@ -66,12 +66,8 @@ var _ = Describe("KollectClusterInventory Controller", func() {
 			engineCancel()
 		}
 
-		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectClusterInventory{
-			ObjectMeta: metav1.ObjectMeta{Name: inventoryName},
-		})
-		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectClusterTarget{
-			ObjectMeta: metav1.ObjectMeta{Name: targetName},
-		})
+		Expect(removeKollectClusterInventoryWithFinalizer(ctx, inventoryName, nil, nil)).To(Succeed())
+		Expect(removeKollectClusterTargetWithFinalizer(ctx, targetName, engine)).To(Succeed())
 		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectProfile{
 			ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: sink.DefaultSecretNamespace},
 		})

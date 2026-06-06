@@ -59,9 +59,7 @@ var _ = Describe("KollectTarget Controller", func() {
 					},
 				},
 			}
-			_ = k8sClient.Delete(reconcileCtx, &kollectdevv1alpha1.KollectTarget{
-				ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: testNamespace},
-			})
+			Expect(removeKollectTargetWithFinalizer(reconcileCtx, typeNamespacedName)).To(Succeed())
 			_ = k8sClient.Delete(reconcileCtx, profile)
 
 			Expect(k8sClient.Create(reconcileCtx, profile)).To(Succeed())
@@ -79,14 +77,10 @@ var _ = Describe("KollectTarget Controller", func() {
 		})
 
 		AfterEach(func() {
-			target := &kollectdevv1alpha1.KollectTarget{}
-			err := k8sClient.Get(reconcileCtx, typeNamespacedName, target)
-			if err == nil {
-				Expect(k8sClient.Delete(reconcileCtx, target)).To(Succeed())
-			}
+			Expect(removeKollectTargetWithFinalizer(reconcileCtx, typeNamespacedName)).To(Succeed())
 
 			profile := &kollectdevv1alpha1.KollectProfile{}
-			err = k8sClient.Get(reconcileCtx, types.NamespacedName{Name: profileName, Namespace: testNamespace}, profile)
+			err := k8sClient.Get(reconcileCtx, types.NamespacedName{Name: profileName, Namespace: testNamespace}, profile)
 			if err == nil {
 				Expect(k8sClient.Delete(reconcileCtx, profile)).To(Succeed())
 			}
