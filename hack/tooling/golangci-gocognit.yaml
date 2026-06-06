@@ -1,0 +1,35 @@
+# Warn-only cognitive complexity lint (see agent-context/COMPLEXITY-AUDIT.md).
+# Run via `task lint:cognit` — non-blocking in CI (continue-on-error).
+---
+version: "2"
+
+run:
+  timeout: 5m
+  allow-parallel-runners: true
+
+linters:
+  default: none
+  enable:
+    - gocognit
+  settings:
+    gocognit:
+      min-complexity: 30
+  exclusions:
+    rules:
+      - linters:
+          - gocognit
+        path: _test\.go
+
+exclusions:
+  generated: lax
+  paths:
+    - third_party$
+    - builtin$
+    - examples$
+    - references/
+    - zz_generated\..*\.go$
+    - ui/
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
