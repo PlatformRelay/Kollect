@@ -98,7 +98,12 @@ func exportRemote(
 		authType = cfg.AuthType
 	}
 
-	authMethod, err := buildAuthMethod(req.cloneURL, auth, authType)
+	sshCfg := cfg.SSH
+	if cfg.TLS.InsecureSkipVerify {
+		sshCfg.InsecureSkipVerify = true
+	}
+
+	authMethod, err := buildAuthMethod(req.cloneURL, auth, authType, sshCfg)
 	if err != nil {
 		return err
 	}
@@ -251,13 +256,22 @@ func pushCommitted(
 	refSpecStr := pushRefSpec(branch, emptyRemote, cfg.PushPolicy)
 
 	refSpec := config.RefSpec(refSpecStr)
-	if err := remote.PushContext(ctx, &git.PushOptions{
+	pushOpts := &git.PushOptions{
 		RemoteURL:       cloneURL,
 		RefSpecs:        []config.RefSpec{refSpec},
 		Auth:            authMethod,
 		InsecureSkipTLS: cfg.TLS.InsecureSkipVerify,
 		CABundle:        cfg.CABundle,
-	}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+	}
+
+	err = withTransportRetry(ctx, defaultTransportRetry(), func() error {
+		if pushErr := remote.PushContext(ctx, pushOpts); pushErr != nil && !errors.Is(pushErr, git.NoErrAlreadyUpToDate) {
+			return pushErr
+		}
+
+		return nil
+	})
+	if err != nil {
 		return fmt.Errorf("git push: %w", err)
 	}
 

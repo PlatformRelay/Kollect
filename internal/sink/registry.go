@@ -76,7 +76,12 @@ func (r *Registry) NewBackend(
 }
 
 func newGitBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
-	b, err := git.NewBackend(spec, ctx.CAPEM, GitAuthFromSecretData(ctx.SecretData, gitAuthTypeFromSpec(spec)))
+	b, err := git.NewBackend(
+		spec,
+		ctx.CAPEM,
+		GitAuthFromSecretData(ctx.SecretData, gitAuthTypeFromSpec(spec)),
+		GitSSHKnownHostsFromSecretData(ctx.SecretData),
+	)
 	if err != nil {
 		return nil, err
 	}

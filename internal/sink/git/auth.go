@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Konrad Heimel
+//
+// Adapted from Argo CD Image Updater (Apache-2.0): ext/git/client.go, ext/git/creds.go
 
 package git
 
@@ -10,10 +12,12 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
-	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
-const defaultGitUser = "git"
+const (
+	defaultGitUser        = "git"
+	githubAccessTokenUser = "x-access-token"
+)
 
 type Auth struct {
 	Username      string
@@ -23,7 +27,7 @@ type Auth struct {
 	AuthType      AuthType
 }
 
-func buildAuthMethod(cloneURL string, auth Auth, authType AuthType) (transport.AuthMethod, error) {
+func buildAuthMethod(cloneURL string, auth Auth, authType AuthType, sshCfg SSHConfig) (transport.AuthMethod, error) {
 	u, err := url.Parse(cloneURL)
 	if err != nil {
 		return nil, err
@@ -41,7 +45,7 @@ func buildAuthMethod(cloneURL string, auth Auth, authType AuthType) (transport.A
 			return nil, fmt.Errorf("git auth type token requires an https:// endpoint")
 		}
 
-		return sshAuth(auth, u.User.Username())
+		return sshAuth(auth, u.User.Username(), sshCfg)
 	case schemeFile:
 		return nil, nil
 	default:
@@ -80,19 +84,23 @@ func basicAuthHTTPS(auth Auth) (transport.AuthMethod, error) {
 	}
 
 	user := auth.Username
-	if user == "" {
-		user = defaultGitUser
-	}
-
 	pass := auth.Token
 	if pass == "" {
 		pass = auth.Password
 	}
 
+	if user == "" {
+		if pass != "" && auth.Token != "" {
+			user = githubAccessTokenUser
+		} else {
+			user = defaultGitUser
+		}
+	}
+
 	return &githttp.BasicAuth{Username: user, Password: pass}, nil
 }
 
-func sshAuth(auth Auth, endpointUser string) (transport.AuthMethod, error) {
+func sshAuth(auth Auth, endpointUser string, sshCfg SSHConfig) (transport.AuthMethod, error) {
 	if len(auth.SSHPrivateKey) == 0 {
 		return nil, fmt.Errorf("ssh git export requires ssh-privatekey, identity, or id_rsa in secretRef")
 	}
@@ -106,5 +114,5 @@ func sshAuth(auth Auth, endpointUser string) (transport.AuthMethod, error) {
 		user = defaultGitUser
 	}
 
-	return gitssh.NewPublicKeys(user, auth.SSHPrivateKey, "")
+	return sshAuthMethod(user, auth.SSHPrivateKey, sshCfg)
 }

@@ -16,7 +16,7 @@ func TestBackendConfigAndType(t *testing.T) {
 		Type:     TypeName,
 		Endpoint: "https://example.com/inventory.git",
 	}
-	b, err := NewBackend(spec, nil, Auth{Token: "tok"})
+	b, err := NewBackend(spec, nil, Auth{Token: "tok"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

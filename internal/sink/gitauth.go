@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	secretKeyPassword = "password"
-	secretKeyToken    = "token"
-	secretKeySSHKey   = "ssh-privatekey"
-	secretKeyIdentity = "identity"
-	secretKeyIDRSA    = "id_rsa"
+	secretKeyPassword   = "password"
+	secretKeyToken      = "token"
+	secretKeySSHKey     = "ssh-privatekey"
+	secretKeyIdentity   = "identity"
+	secretKeyIDRSA      = "id_rsa"
+	secretKeyKnownHosts = "known_hosts"
 )
 
 // GitAuthFromSecretData maps standard secret keys to git sink credentials.
@@ -39,6 +40,19 @@ func GitAuthFromSecretData(data map[string][]byte, authType string) git.Auth {
 	auth.AuthType = gitAuthType(authType)
 
 	return auth
+}
+
+// GitSSHKnownHostsFromSecretData returns OpenSSH known_hosts bytes from a secret.
+func GitSSHKnownHostsFromSecretData(data map[string][]byte) []byte {
+	if data == nil {
+		return nil
+	}
+
+	if v, ok := data[secretKeyKnownHosts]; ok && len(v) > 0 {
+		return v
+	}
+
+	return nil
 }
 
 func sshPrivateKeyFromSecret(data map[string][]byte) []byte {

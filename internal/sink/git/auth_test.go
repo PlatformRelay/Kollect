@@ -19,7 +19,7 @@ func TestBuildAuthMethod_httpsToken(t *testing.T) {
 
 	method, err := buildAuthMethod("https://git.example/repo.git", Auth{
 		Token: "secret",
-	}, AuthTypeToken)
+	}, AuthTypeToken, SSHConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,27 @@ func TestBuildAuthMethod_httpsToken(t *testing.T) {
 	if !ok {
 		t.Fatalf("method = %T", method)
 	}
-	if basic.Username != defaultGitUser || basic.Password != "secret" {
+	if basic.Username != githubAccessTokenUser || basic.Password != "secret" {
+		t.Fatalf("basic auth = %+v", basic)
+	}
+}
+
+func TestBuildAuthMethod_httpsTokenWithExplicitUser(t *testing.T) {
+	t.Parallel()
+
+	method, err := buildAuthMethod("https://git.example/repo.git", Auth{
+		Username: "bot",
+		Token:    "secret",
+	}, AuthTypeToken, SSHConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	basic, ok := method.(*githttp.BasicAuth)
+	if !ok {
+		t.Fatalf("method = %T", method)
+	}
+	if basic.Username != "bot" || basic.Password != "secret" {
 		t.Fatalf("basic auth = %+v", basic)
 	}
 }
@@ -36,7 +56,7 @@ func TestBuildAuthMethod_httpsToken(t *testing.T) {
 func TestBuildAuthMethod_sshRequiresKey(t *testing.T) {
 	t.Parallel()
 
-	_, err := buildAuthMethod("ssh://git@git.example/repo.git", Auth{}, AuthTypeSSH)
+	_, err := buildAuthMethod("ssh://git@git.example/repo.git", Auth{}, AuthTypeSSH, SSHConfig{})
 	if err == nil {
 		t.Fatal("expected error for missing ssh key")
 	}
@@ -45,12 +65,12 @@ func TestBuildAuthMethod_sshRequiresKey(t *testing.T) {
 func TestBuildAuthMethod_schemeTypeMismatch(t *testing.T) {
 	t.Parallel()
 
-	_, err := buildAuthMethod("https://git.example/repo.git", Auth{}, AuthTypeSSH)
+	_, err := buildAuthMethod("https://git.example/repo.git", Auth{}, AuthTypeSSH, SSHConfig{})
 	if err == nil {
 		t.Fatal("expected error for ssh auth on https endpoint")
 	}
 
-	_, err = buildAuthMethod("ssh://git@git.example/repo.git", Auth{Token: "x"}, AuthTypeToken)
+	_, err = buildAuthMethod("ssh://git@git.example/repo.git", Auth{Token: "x"}, AuthTypeToken, SSHConfig{})
 	if err == nil {
 		t.Fatal("expected error for token auth on ssh endpoint")
 	}
@@ -59,7 +79,7 @@ func TestBuildAuthMethod_schemeTypeMismatch(t *testing.T) {
 func TestBuildAuthMethod_fileSchemeNoAuth(t *testing.T) {
 	t.Parallel()
 
-	method, err := buildAuthMethod("file:///tmp/repo.git", Auth{}, AuthTypeToken)
+	method, err := buildAuthMethod("file:///tmp/repo.git", Auth{}, AuthTypeToken, SSHConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +94,7 @@ func TestBuildAuthMethod_sshWithKey(t *testing.T) {
 	keyPEM := testEd25519PrivateKeyPEM(t)
 	method, err := buildAuthMethod("ssh://git@git.example/repo.git", Auth{
 		SSHPrivateKey: keyPEM,
-	}, AuthTypeSSH)
+	}, AuthTypeSSH, SSHConfig{InsecureSkipVerify: true})
 	if err != nil {
 		t.Fatal(err)
 	}
