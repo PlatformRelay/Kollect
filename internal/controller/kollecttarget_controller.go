@@ -36,7 +36,7 @@ type KollectTargetReconciler struct {
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollecttargets/finalizers,verbs=update
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectprofiles,verbs=get;list;watch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectscopes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=kollect.dev,resources=kollectsinks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollectsnapshotsinks;kollectdatabasesinks;kollecteventsinks,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch

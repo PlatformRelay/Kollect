@@ -59,8 +59,18 @@ spec:
                   composite probes.
                 type: string
               sinkRef:
-                description: sinkRef is the name of a KollectSink in the same namespace.
-                type: string
+                description: sinkRef identifies exactly one family sink to probe (ADR-0414).
+                properties:
+                  databaseSinkRef:
+                    description: databaseSinkRef names a KollectDatabaseSink or KollectClusterDatabaseSink.
+                    type: string
+                  eventSinkRef:
+                    description: eventSinkRef names a KollectEventSink or KollectClusterEventSink.
+                    type: string
+                  snapshotSinkRef:
+                    description: snapshotSinkRef names a KollectSnapshotSink or KollectClusterSnapshotSink.
+                    type: string
+                type: object
               ttlSecondsAfterFinished:
                 default: 300
                 description: ttlSecondsAfterFinished deletes the CR after status.completed

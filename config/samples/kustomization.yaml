@@ -6,9 +6,9 @@ resources:
 - kollect_v1alpha1_kollectprofile_helm-release-summary.yaml
 - kollect_v1alpha1_kollectprofile_helm-release-values-redacted.yaml
 - kollect_v1alpha1_kollectprofile_argo-application-summary.yaml
-- kollect_v1alpha1_kollectsink.yaml
-- kollect_v1alpha1_kollectsink_postgres.yaml
-- kollect_v1alpha1_kollectsink_kafka.yaml
+- kollect_v1alpha1_kollectsnapshotsink.yaml
+- kollect_v1alpha1_kollectdatabasesink.yaml
+- kollect_v1alpha1_kollecteventsink_kafka.yaml
 - kollect_v1alpha1_kollecttarget.yaml
 - kollect_v1alpha1_kollecttarget_opt-in.yaml
 - kollect_v1alpha1_kollecttarget_helm-releases.yaml
