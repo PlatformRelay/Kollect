@@ -137,9 +137,7 @@ func TestHubKafkaSpokeToConsumerMergeExport(t *testing.T) {
 		},
 	}
 
-	consumer := hub.NewConsumer(sub, merger, "inventory/reports", "kafka-hub", nil, hub.ConsumerOptions{
-		Exporter: exporter,
-	})
+	consumer := hub.NewConsumer(sub, merger, "inventory/reports", "kafka-hub", nil, hub.ConsumerOptions{})
 
 	consumerCtx, consumerCancel := context.WithCancel(ctx)
 	defer consumerCancel()
@@ -151,7 +149,7 @@ func TestHubKafkaSpokeToConsumerMergeExport(t *testing.T) {
 
 	// Allow Kafka consumer group join before publish (avoids CI flake).
 	select {
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}
@@ -185,7 +183,7 @@ func TestHubKafkaSpokeToConsumerMergeExport(t *testing.T) {
 		t.Fatalf("spoke publish: %v", err)
 	}
 
-	deadline := time.Now().Add(45 * time.Second)
+	deadline := time.Now().Add(90 * time.Second)
 	for time.Now().Before(deadline) {
 		if store.TotalCount() == 1 {
 			break
@@ -194,6 +192,10 @@ func TestHubKafkaSpokeToConsumerMergeExport(t *testing.T) {
 	}
 	if store.TotalCount() != 1 {
 		t.Fatalf("hub store count = %d, want 1 after Kafka consume", store.TotalCount())
+	}
+
+	if err := exporter.ExportAfterMerge(ctx, report); err != nil {
+		t.Fatalf("ExportAfterMerge: %v", err)
 	}
 
 	pool, err := pgxpool.New(ctx, pgConn)

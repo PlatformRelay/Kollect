@@ -292,8 +292,8 @@ func TestExportGitLabMergeRequestMode(t *testing.T) {
 	if len(mrs) != 1 {
 		t.Fatalf("open MR count = %d, want 1", len(mrs))
 	}
-	if mrs[0].SourceBranch != featureBranch || mrs[0].TargetBranch != "main" {
-		t.Fatalf("MR branches = %+v, want source %q target main", mrs[0], featureBranch)
+	if mrs[0].Head.Ref != featureBranch || mrs[0].Base.Ref != "main" {
+		t.Fatalf("MR branches = head %q base %q, want source %q target main", mrs[0].Head.Ref, mrs[0].Base.Ref, featureBranch)
 	}
 
 	cloneURL, err := forgejoCloneURL(gitEndpoint, user, pass)
@@ -320,9 +320,9 @@ func TestExportGitLabMergeRequestMode(t *testing.T) {
 }
 
 type forgejoMergeRequest struct {
-	SourceBranch string `json:"source_branch"`
-	TargetBranch string `json:"target_branch"`
-	State        string `json:"state"`
+	Head  struct{ Ref string `json:"ref"` } `json:"head"`
+	Base  struct{ Ref string `json:"ref"` } `json:"base"`
+	State string `json:"state"`
 }
 
 func listForgejoMergeRequests(
