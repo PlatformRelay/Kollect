@@ -25,6 +25,13 @@ anchor on an older commit.
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **gitlab:** Basic auth for Forgejo Gitea MR API [3bffe46](https://github.com/konih/kollect/commit/3bffe4683dd7f3bac1cda6db793c1041740a3e9f)
+
+- **e2e:** Wait on family sink CRDs in kind smoke [9ca3eaa](https://github.com/konih/kollect/commit/9ca3eaa8fc3092859cd0d3de34b68a7650ae3777)
+
+
 ### Features
 
 - **controller:** Wire family sink reconcilers and export [baf8af9](https://github.com/konih/kollect/commit/baf8af9aa681d87cce6be58457594c9681192f78)
