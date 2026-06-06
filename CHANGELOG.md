@@ -23,9 +23,19 @@ release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
 anchor on an older commit.
 
-## [Unreleased]
+## [0.1.0-rc.3](https://github.com/konih/kollect/compare/v0.1.0-rc.2..v0.1.0-rc.3) - 2026-06-06
 
 ### Bug Fixes
+
+- **collect,controller:** Resolve race detector findings [5100b8b](https://github.com/konih/kollect/commit/5100b8b89eb64a1d2d016d537a28cabd74c6d702)
+
+- **api:** Keep KollectRemoteCluster status optional in codegen [eff3347](https://github.com/konih/kollect/commit/eff3347a33966233db5a4da462b71b675e43cf62)
+
+- **api:** Drop required status on KollectRemoteCluster create [e533d09](https://github.com/konih/kollect/commit/e533d097580a06b7941c442f141358f377e56eb1)
+
+- **ops:** P2 hardening and chart connectionTest default [c3344cc](https://github.com/konih/kollect/commit/c3344cc3a7a8859f5a190541674efb26e737948b)
+
+- **git:** Terminal auth errors and per-repo export lock [4353766](https://github.com/konih/kollect/commit/4353766a4ad74373d82965f441a53acc25112a72)
 
 - **lint:** Gofmt webhooks and phase A envtest cleanup [522754b](https://github.com/konih/kollect/commit/522754bfb14884895fce07cc852652ae013dc65f)
 
@@ -48,12 +58,34 @@ anchor on an older commit.
 
 ### Features
 
+- **controller:** Add cluster rollup finalizers [8dae08f](https://github.com/konih/kollect/commit/8dae08f9dac29e4b77adaa3ece15a6fd410fd2d7)
+
+- **controller:** Add target finalizers [4f377e6](https://github.com/konih/kollect/commit/4f377e6ef6397f543db262789b5d23f94badd156)
+
+- **controller:** Extend inventory finalizer teardown [735abb0](https://github.com/konih/kollect/commit/735abb080b3232321af867ca5d3bd5c6f2d17854)
+
+- **collect:** Add hub cluster store cleanup [756c2c5](https://github.com/konih/kollect/commit/756c2c517a53b7e61f60603fc9b28625a9bc772d)
+
+- **collect:** Add helm: release Secret decode [abf9a75](https://github.com/konih/kollect/commit/abf9a7528de875b2209e5953880735503b3fa6d6)
+
+- **samples:** Add helm-release-values-redacted profile [2cb55d8](https://github.com/konih/kollect/commit/2cb55d81d9e26613e88ed2ef776940b704ebe6a2)
+
+- **collect:** ScrubKeys redaction at extraction [b3ea87e](https://github.com/konih/kollect/commit/b3ea87ee26763c6ad19c7bfc487b8a5ad0eef083)
+
+- **hub:** Ingest auth cache and structured denial logs [58a6cfc](https://github.com/konih/kollect/commit/58a6cfccce4f7f00eb39a6849c900fa2bc4a61f6)
+
+- **controller:** Parallel sinks, debounce metrics, hub coalesce [b907792](https://github.com/konih/kollect/commit/b9077924663087646d132207a909dbccb1c01360)
+
+- **sink:** Backend pool cache and envelope export path [40d77cf](https://github.com/konih/kollect/commit/40d77cf735c23b421a2ece2f1948cdae6e4bd80c)
+
 - **controller:** Add inventory deletion finalizer [4c70371](https://github.com/konih/kollect/commit/4c70371aba2e50d50314342eebcdfd4a5c9431ea)
 
 - **sink:** Add per-sink gobreaker circuit breaker [cae4170](https://github.com/konih/kollect/commit/cae4170780fc6a90cec306188da84affcd36383c)
 
 
 ### Refactoring
+
+- **collect:** Namespace-scoped store watch driver [8a5b8ef](https://github.com/konih/kollect/commit/8a5b8ef722101dded5c79de9303aa8ed957734b7)
 
 - **arch:** Resolve arch-04, arch-11, arch-12 [dae4f79](https://github.com/konih/kollect/commit/dae4f79d589e0d4e0121ef7dc8ac26cedb100081)
 
