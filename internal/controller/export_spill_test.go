@@ -45,9 +45,12 @@ func TestAssessExportSpill_requiresObjectStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gitSink := &kollectdevv1alpha1.KollectSink{
+	gitSink := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "git", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "git", Endpoint: "https://example.com/repo.git"},
+		Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type:             kollectdevv1alpha1.SnapshotSinkTypeGit,
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/repo.git"},
+		},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(gitSink).Build()
 
@@ -59,7 +62,9 @@ func TestAssessExportSpill_requiresObjectStore(t *testing.T) {
 		payload,
 		validation.MaxExportBytesGlobal(),
 		"team-a",
-		[]string{"git"},
+		[]kollectdevv1alpha1.InventorySinkBinding{
+			{Name: "git", Family: kollectdevv1alpha1.SinkFamilySnapshot},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -77,9 +82,9 @@ func TestAssessExportSpill_objectStoreSatisfiesSpill(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s3Sink := &kollectdevv1alpha1.KollectSink{
+	s3Sink := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "s3", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeS3},
+		Spec:       kollectdevv1alpha1.KollectSnapshotSinkSpec{Type: kollectdevv1alpha1.SnapshotSinkTypeS3},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(s3Sink).Build()
 
@@ -90,7 +95,9 @@ func TestAssessExportSpill_objectStoreSatisfiesSpill(t *testing.T) {
 		export.SpillWarnBytes+1,
 		validation.MaxExportBytesGlobal(),
 		"team-a",
-		[]string{"s3"},
+		[]kollectdevv1alpha1.InventorySinkBinding{
+			{Name: "s3", Family: kollectdevv1alpha1.SinkFamilySnapshot},
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -108,22 +115,27 @@ func TestHasObjectStoreSink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gitSink := &kollectdevv1alpha1.KollectSink{
+	gitSink := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "git", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "git"},
+		Spec:       kollectdevv1alpha1.KollectSnapshotSinkSpec{Type: kollectdevv1alpha1.SnapshotSinkTypeGit},
 	}
-	s3Sink := &kollectdevv1alpha1.KollectSink{
+	s3Sink := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "s3", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeS3},
+		Spec:       kollectdevv1alpha1.KollectSnapshotSinkSpec{Type: kollectdevv1alpha1.SnapshotSinkTypeS3},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(gitSink, s3Sink).Build()
 
-	ok, err := hasObjectStoreSink(context.Background(), cl, "team-a", []string{"git"})
+	ok, err := hasObjectStoreSink(context.Background(), cl, "team-a", []kollectdevv1alpha1.InventorySinkBinding{
+		{Name: "git", Family: kollectdevv1alpha1.SinkFamilySnapshot},
+	})
 	if err != nil || ok {
 		t.Fatalf("git only = ok=%v err=%v", ok, err)
 	}
 
-	ok, err = hasObjectStoreSink(context.Background(), cl, "team-a", []string{"git", "s3"})
+	ok, err = hasObjectStoreSink(context.Background(), cl, "team-a", []kollectdevv1alpha1.InventorySinkBinding{
+		{Name: "git", Family: kollectdevv1alpha1.SinkFamilySnapshot},
+		{Name: "s3", Family: kollectdevv1alpha1.SinkFamilySnapshot},
+	})
 	if err != nil || !ok {
 		t.Fatalf("with s3 = ok=%v err=%v", ok, err)
 	}

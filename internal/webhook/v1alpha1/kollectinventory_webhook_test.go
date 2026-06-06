@@ -33,7 +33,7 @@ func TestKollectInventoryValidator_ValidateCreate(t *testing.T) {
 	_, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "bad", Namespace: "team-a"},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			SinkRefs: kollectdevv1alpha1.NewSinkRefList("other-ns/sink"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("other-ns/sink"),
 		},
 	})
 	if err == nil {

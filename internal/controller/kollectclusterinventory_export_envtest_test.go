@@ -72,7 +72,7 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 		reg := newPostgresRecordingRegistry(&recordingBackend{})
 		Expect(removeKollectClusterInventoryWithFinalizer(ctx, inventoryName, store, reg)).To(Succeed())
 		Expect(removeKollectClusterTargetWithFinalizer(ctx, targetName, engine)).To(Succeed())
-		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectSink{
+		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectDatabaseSink{
 			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: sink.DefaultSecretNamespace},
 		})
 		_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectProfile{
@@ -149,9 +149,9 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{tenantLabel: tenantLabelVal},
 				},
-				TargetRefs:    []string{targetName},
-				SinkRefs:      kollectdevv1alpha1.NewSinkRefList(sinkName),
-				SinkNamespace: sink.DefaultSecretNamespace,
+				TargetRefs:       []string{targetName},
+				DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
+				SinkNamespace:    sink.DefaultSecretNamespace,
 			},
 		}
 		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
@@ -174,7 +174,7 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 		updated := &kollectdevv1alpha1.KollectClusterInventory{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: inventoryName}, updated)).To(Succeed())
 		Expect(updated.Status.SinkExports).To(HaveLen(1))
-		Expect(updated.Status.SinkExports[0].Name).To(Equal(sinkName))
+		Expect(updated.Status.SinkExports[0].Name).To(Equal(string(kollectdevv1alpha1.SinkFamilyDatabase) + "/" + sinkName))
 		Expect(updated.Status.SinkExports[0].LastExportTime).NotTo(BeNil())
 		Expect(updated.Status.ItemCount).To(Equal(2))
 
@@ -207,7 +207,7 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 				TargetRefs:        []string{targetName},
 				SinkNamespace:     sink.DefaultSecretNamespace,
 				ExportMinInterval: &longInterval,
-				SinkRefs: kollectdevv1alpha1.InventorySinkRefList{
+				DatabaseSinkRefs: kollectdevv1alpha1.InventorySinkRefList{
 					{Name: sinkName},
 					{Name: sinkB},
 				},

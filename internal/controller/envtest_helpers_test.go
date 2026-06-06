@@ -49,11 +49,11 @@ func newPostgresRecordingRegistryWithSelector(
 	return reg
 }
 
-func createPostgresSinkFixtures(sinkName, secretName, ns string) (*kollectdevv1alpha1.KollectSink, *corev1.Secret) {
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+func createPostgresSinkFixtures(sinkName, secretName, ns string) (*kollectdevv1alpha1.KollectDatabaseSink, *corev1.Secret) {
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: kollectdevv1alpha1.SinkTypePostgres,
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: secretName},
 				Table:       "inventory_items",

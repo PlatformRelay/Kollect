@@ -95,21 +95,25 @@ func TestCheckClusterInventorySinksReachable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "git", Namespace: "kollect-system"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "git", Endpoint: "https://example.com/repo.git"},
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
+		},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build()
 
 	ok, reason, msg := checkClusterInventorySinksReachable(
-		context.Background(), cl, "kollect-system", []string{"git"},
+		context.Background(), cl, "kollect-system", []kollectdevv1alpha1.InventorySinkBinding{
+			{Name: "git", Family: kollectdevv1alpha1.SinkFamilyDatabase},
+		},
 	)
 	if !ok || reason != reasonSinksReachable || msg == "" {
 		t.Fatalf("reachable = %v reason=%q msg=%q", ok, reason, msg)
 	}
 
 	ok, reason, _ = checkClusterInventorySinksReachable(
-		context.Background(), cl, "kollect-system", []string{"missing"},
+		context.Background(), cl, "kollect-system", []kollectdevv1alpha1.InventorySinkBinding{{Name: "missing", Family: kollectdevv1alpha1.SinkFamilyDatabase}},
 	)
 	if ok || reason != reasonSinkNotFound {
 		t.Fatalf("missing sink = %v reason=%q", ok, reason)
@@ -171,23 +175,23 @@ func TestMapSinkToClusterInventories(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "platform"},
 		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"team": "a"}},
-			SinkRefs:          kollectdevv1alpha1.NewSinkRefList("git"),
+			DatabaseSinkRefs:  kollectdevv1alpha1.NewSinkRefList("git"),
 			SinkNamespace:     "kollect-system",
 		},
 	}
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "git", Namespace: "kollect-system"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "git", Endpoint: "https://example.com/repo.git"},
+		Spec:       kollectdevv1alpha1.KollectDatabaseSinkSpec{},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inv, sinkObj).Build()
 	r := &KollectClusterInventoryReconciler{Client: cl}
 
-	reqs := r.mapSinkToClusterInventories(context.Background(), sinkObj)
+	reqs := r.mapClusterDatabaseSinkToInventories(context.Background(), sinkObj)
 	if len(reqs) != 1 || reqs[0].Name != "platform" {
 		t.Fatalf("reqs = %#v", reqs)
 	}
 
-	if got := r.mapSinkToClusterInventories(context.Background(), inv); got != nil {
+	if got := r.mapClusterDatabaseSinkToInventories(context.Background(), inv); len(got) != 0 {
 		t.Fatalf("non-sink object should return nil, got %#v", got)
 	}
 }

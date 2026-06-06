@@ -13,7 +13,7 @@ func TestValidateConnectionTestSpec(t *testing.T) {
 	t.Parallel()
 
 	errs := ValidateConnectionTestSpec(&kollectdevv1alpha1.KollectConnectionTestSpec{
-		SinkRef:    "demo-git",
+		SinkRef:    kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: "demo-git"},
 		ProfileRef: "demo-profile",
 	})
 	if len(errs) != 0 {
@@ -21,7 +21,7 @@ func TestValidateConnectionTestSpec(t *testing.T) {
 	}
 
 	errs = ValidateConnectionTestSpec(&kollectdevv1alpha1.KollectConnectionTestSpec{
-		SinkRef:    "demo-git",
+		SinkRef:    kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: "demo-git"},
 		ProfileRef: "other/profile",
 	})
 	if len(errs) == 0 {
@@ -38,7 +38,7 @@ func TestConnectionTestInvalid(t *testing.T) {
 	t.Parallel()
 
 	err := ConnectionTestInvalid("probe", ValidateConnectionTestSpec(&kollectdevv1alpha1.KollectConnectionTestSpec{
-		SinkRef: "ns/sink",
-	})) // cross-namespace ref form
+		SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: "ns/sink"},
+	}))
 	assertInvalidResourceError(t, err, "KollectConnectionTest", "probe")
 }

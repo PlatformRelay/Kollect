@@ -42,20 +42,20 @@ func TestKollectInventoryReconciler_exportToSinks_dualSinkIndependentDebounce(t 
 	}
 
 	longInterval := metav1.Duration{Duration: 5 * time.Minute}
-	sinkA := &kollectdevv1alpha1.KollectSink{
+	sinkA := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "sink-a", Namespace: "default"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "postgres",
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-a"},
 				Table:       "items",
 			},
 		},
 	}
-	sinkB := &kollectdevv1alpha1.KollectSink{
+	sinkB := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "sink-b", Namespace: "default"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "postgres",
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-b"},
 				Table:       "items",
@@ -66,7 +66,7 @@ func TestKollectInventoryReconciler_exportToSinks_dualSinkIndependentDebounce(t 
 		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default", Generation: 1},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
 			ExportMinInterval: &longInterval,
-			SinkRefs: kollectdevv1alpha1.InventorySinkRefList{
+			DatabaseSinkRefs: kollectdevv1alpha1.InventorySinkRefList{
 				{Name: "sink-a"},
 				{Name: "sink-b", ExportMinInterval: &metav1.Duration{Duration: time.Minute}},
 			},

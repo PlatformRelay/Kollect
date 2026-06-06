@@ -95,11 +95,12 @@ func TestRunExportItems_sinkNotFound(t *testing.T) {
 		Registry:      NewRegistry(),
 		SinkNamespace: "team-a",
 		SinkName:      "missing",
+		SinkFamily:    kollectdevv1alpha1.SinkFamilySnapshot,
 		ObjectPath:    "team-a/inv.json",
 		Items:         []collect.Item{{Name: "demo"}},
 	})
 	if err == nil {
-		t.Fatal("expected error for missing KollectSink")
+		t.Fatal("expected error for missing sink")
 	}
 }
 
@@ -111,17 +112,14 @@ func TestRunExportItems_exportsSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "git-sink", Namespace: "team-a"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type:     "stub",
-			Endpoint: "https://example.com/inventory.git",
-		},
+		Spec:       kollectdevv1alpha1.KollectSnapshotSinkSpec{Type: kollectdevv1alpha1.SnapshotSinkTypeGit, SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/inventory.git"}},
 	}
 
 	reg := NewRegistry()
 	stub := &stubBackend{caps: cap.SnapshotStore()}
-	reg.Register("stub", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
 		return stub, nil
 	})
 
@@ -131,6 +129,7 @@ func TestRunExportItems_exportsSnapshot(t *testing.T) {
 		Registry:      reg,
 		SinkNamespace: "team-a",
 		SinkName:      "git-sink",
+		SinkFamily:    kollectdevv1alpha1.SinkFamilySnapshot,
 		ObjectPath:    "team-a/platform.json",
 		Items: []collect.Item{
 			{Name: "demo", Namespace: "apps", Kind: "Deployment", Version: "v1"},
@@ -142,7 +141,7 @@ func TestRunExportItems_exportsSnapshot(t *testing.T) {
 	}
 
 	invNS, invName := objectstore.InventoryFromObjectPath("team-a/platform.json")
-	wantPath := objectstore.ObjectPath(sinkObj.Spec, invNS, invName, 1)
+	wantPath := objectstore.ObjectPath(sinkObj.Spec.ToKollectSinkSpec(), invNS, invName, 1)
 	if stub.lastPath != wantPath {
 		t.Fatalf("export path = %q, want %q", stub.lastPath, wantPath)
 	}
@@ -160,10 +159,10 @@ func TestRunExportItems_skipsEmptySnapshotStream(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectEventSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "kafka-sink", Namespace: "team-a"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "stub",
+		Spec: kollectdevv1alpha1.KollectEventSinkSpec{
+			Type: kollectdevv1alpha1.EventSinkTypeKafka,
 			Kafka: &kollectdevv1alpha1.KafkaSpec{
 				Brokers: []string{"localhost:9092"},
 				Topic:   "inventory",
@@ -173,7 +172,7 @@ func TestRunExportItems_skipsEmptySnapshotStream(t *testing.T) {
 
 	reg := NewRegistry()
 	stub := &stubBackend{caps: cap.StreamEmitter()}
-	reg.Register("stub", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
 		return stub, nil
 	})
 
@@ -183,6 +182,7 @@ func TestRunExportItems_skipsEmptySnapshotStream(t *testing.T) {
 		Registry:      reg,
 		SinkNamespace: "team-a",
 		SinkName:      "kafka-sink",
+		SinkFamily:    kollectdevv1alpha1.SinkFamilyEvent,
 		ObjectPath:    "team-a/events",
 		Items:         nil,
 	}); err != nil {
@@ -205,9 +205,9 @@ func TestRunExportItems_postgresExportsEmptySnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "pg-sink", Namespace: "team-a"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 			Type: kollectdevv1alpha1.SinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
@@ -253,9 +253,9 @@ func TestRunExportItems_closeErrorDoesNotFailExport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "close-err", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
+		Spec:       kollectdevv1alpha1.KollectSnapshotSinkSpec{Type: kollectdevv1alpha1.SnapshotSinkTypeGit, SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/repo.git"}},
 	}
 
 	reg := NewRegistry()
@@ -263,7 +263,7 @@ func TestRunExportItems_closeErrorDoesNotFailExport(t *testing.T) {
 		stubBackend: stubBackend{caps: cap.SnapshotStore()},
 		closeErr:    errors.New("pool close failed"),
 	}
-	reg.Register("stub", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
 		return stub, nil
 	})
 
@@ -275,6 +275,7 @@ func TestRunExportItems_closeErrorDoesNotFailExport(t *testing.T) {
 		Registry:      reg,
 		SinkNamespace: "team-a",
 		SinkName:      "close-err",
+		SinkFamily:    kollectdevv1alpha1.SinkFamilySnapshot,
 		ObjectPath:    "team-a/inv.json",
 		Items:         []collect.Item{{Name: "demo"}},
 	}); err != nil {
@@ -295,14 +296,14 @@ func TestRunExportItems_poolsBackendUntilEvict(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "pool-close", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
+		Spec:       kollectdevv1alpha1.KollectSnapshotSinkSpec{Type: kollectdevv1alpha1.SnapshotSinkTypeGit, SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/repo.git"}},
 	}
 
 	reg := NewRegistry()
 	stub := &closableStubBackend{stubBackend: stubBackend{caps: cap.SnapshotStore()}}
-	reg.Register("stub", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
 		return stub, nil
 	})
 
@@ -314,6 +315,7 @@ func TestRunExportItems_poolsBackendUntilEvict(t *testing.T) {
 		Registry:      reg,
 		SinkNamespace: "team-a",
 		SinkName:      "pool-close",
+		SinkFamily:    kollectdevv1alpha1.SinkFamilySnapshot,
 		ObjectPath:    "team-a/inv.json",
 		Items:         []collect.Item{{Name: "demo"}},
 	}); err != nil {
@@ -338,9 +340,9 @@ func TestRunExportItems_exportFailureTransient(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "export-fail", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
+		Spec:       kollectdevv1alpha1.KollectSnapshotSinkSpec{Type: kollectdevv1alpha1.SnapshotSinkTypeGit, SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/repo.git"}},
 	}
 
 	reg := NewRegistry()
@@ -348,7 +350,7 @@ func TestRunExportItems_exportFailureTransient(t *testing.T) {
 		caps:      cap.SnapshotStore(),
 		exportErr: errors.New("network down"),
 	}
-	reg.Register("stub", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
 		return stub, nil
 	})
 
@@ -360,6 +362,7 @@ func TestRunExportItems_exportFailureTransient(t *testing.T) {
 		Registry:      reg,
 		SinkNamespace: "team-a",
 		SinkName:      "export-fail",
+		SinkFamily:    kollectdevv1alpha1.SinkFamilySnapshot,
 		ObjectPath:    "team-a/inv.json",
 		Items:         []collect.Item{{Name: "demo"}},
 	})
