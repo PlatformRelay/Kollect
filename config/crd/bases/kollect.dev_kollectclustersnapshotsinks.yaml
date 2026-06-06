@@ -4,22 +4,23 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: kollectsinks.kollect.dev
+  name: kollectclustersnapshotsinks.kollect.dev
 spec:
   group: kollect.dev
   names:
-    kind: KollectSink
-    listKind: KollectSinkList
-    plural: kollectsinks
+    kind: KollectClusterSnapshotSink
+    listKind: KollectClusterSnapshotSinkList
+    plural: kollectclustersnapshotsinks
     shortNames:
-    - ksink
-    singular: kollectsink
-  scope: Namespaced
+    - kcsnap
+    singular: kollectclustersnapshotsink
+  scope: Cluster
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: KollectSink is the Schema for the kollectsinks API
+        description: KollectClusterSnapshotSink is a cluster-scoped snapshot export
+          sink.
         properties:
           apiVersion:
             description: |-
@@ -39,17 +40,15 @@ spec:
           metadata:
             type: object
           spec:
-            description: spec defines the desired state of KollectSink
+            description: KollectSnapshotSinkSpec defines a snapshot-store export sink
+              (ADR-0414).
             properties:
               cluster:
                 description: cluster labels exported inventory in multi-cluster installs.
                 type: string
               connectionTest:
-                default: true
-                description: |-
-                  connectionTest enables connectivity checks on create/update (default true).
-                  Set to false to skip automatic probes; the annotation kollect.dev/test-connection=true
-                  triggers a one-shot re-test without editing spec.
+                description: connectionTest enables connectivity checks on create/update
+                  (default true).
                 type: boolean
               endpoint:
                 description: endpoint is the backend-specific destination (URL, bucket,
@@ -58,7 +57,7 @@ spec:
               exportMinInterval:
                 description: |-
                   exportMinInterval is the default minimum time between identical exports when an inventory
-                  ref omits a per-ref override. Material payload changes bypass the interval.
+                  ref omits a per-ref override.
                 type: string
               git:
                 description: git configures git sink settings when type is git.
@@ -160,71 +159,17 @@ spec:
                         type: string
                     type: object
                 type: object
-              kafka:
-                description: kafka configures a Kafka or Redpanda event sink.
+              http:
+                description: http configures webhook snapshot export when type is
+                  http.
                 properties:
-                  brokers:
-                    description: brokers lists Kafka bootstrap addresses (host:port).
-                    items:
-                      type: string
-                    type: array
-                    x-kubernetes-list-type: atomic
-                  secretRef:
-                    description: secretRef references a Secret with optional SASL/TLS
-                      credentials.
-                    properties:
-                      name:
-                        description: name is the name of the referenced Secret.
-                        type: string
-                      namespace:
-                        description: namespace is the namespace of the referenced
-                          Secret.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  topic:
-                    description: topic is the destination topic for inventory events.
+                  method:
+                    description: method is the HTTP verb for export requests (default
+                      POST).
                     type: string
-                required:
-                - brokers
-                - topic
-                type: object
-              nats:
-                description: nats configures a NATS JetStream event sink.
-                properties:
-                  secretRef:
-                    description: secretRef references a Secret with optional auth
-                      credentials (token, username/password).
-                    properties:
-                      name:
-                        description: name is the name of the referenced Secret.
-                        type: string
-                      namespace:
-                        description: namespace is the namespace of the referenced
-                          Secret.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  stream:
-                    description: stream is the JetStream stream name (default kollect_events).
-                    type: string
-                  subject:
-                    description: subject is the JetStream publish subject for inventory
-                      events.
-                    type: string
-                  url:
-                    description: |-
-                      url is the NATS server connection URL (nats://host:4222).
-                      When empty, spec.endpoint is used.
-                    type: string
-                required:
-                - subject
                 type: object
               objectStore:
-                description: objectStore configures S3/GCS snapshot export format
-                  and layout.
+                description: objectStore configures S3/GCS/Azure snapshot serialization.
                 properties:
                   format:
                     description: format selects the snapshot serialization (default
@@ -242,38 +187,9 @@ spec:
                     x-kubernetes-list-type: atomic
                 type: object
               pathTemplate:
-                description: |-
-                  pathTemplate selects the Git/object-store export path layout (ADR-0407).
-                  Placeholders: {cluster}, {namespace}, {name}, {generation}, {extension}.
-                  Default: inventory/{namespace}/{name}.json
+                description: pathTemplate selects the Git/object-store export path
+                  layout (ADR-0407).
                 type: string
-              postgres:
-                description: postgres configures a PostgreSQL database sink.
-                properties:
-                  databaseRef:
-                    description: databaseRef references a Secret containing the connection
-                      string (key dsn or url).
-                    properties:
-                      name:
-                        description: name is the name of the referenced Secret.
-                        type: string
-                      namespace:
-                        description: namespace is the namespace of the referenced
-                          Secret.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  schema:
-                    description: schema is the PostgreSQL schema (default public).
-                    type: string
-                  table:
-                    description: table is the destination table name.
-                    type: string
-                required:
-                - databaseRef
-                - table
-                type: object
               secretRef:
                 description: secretRef references a Secret holding credentials for
                   the sink.
@@ -317,25 +233,24 @@ spec:
                     type: boolean
                 type: object
               type:
-                description: type selects the sink backend implementation.
+                description: type selects the snapshot backend implementation.
                 enum:
                 - git
                 - gitlab
                 - s3
                 - gcs
-                - postgres
-                - kafka
-                - nats
+                - azureblob
+                - http
                 type: string
             required:
             - type
             type: object
           status:
-            description: status defines the observed state of KollectSink
+            description: FamilySinkStatus is the shared status shape for family sink
+              CRDs.
             properties:
               conditions:
-                description: conditions represent the current state of the KollectSink
-                  resource.
+                description: conditions represent the current state of the sink resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

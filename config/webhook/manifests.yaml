@@ -10,6 +10,46 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollectclusterdatabasesink
+  failurePolicy: Fail
+  name: vkollectclusterdatabasesink.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollectclusterdatabasesinks
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollectclustereventsink
+  failurePolicy: Fail
+  name: vkollectclustereventsink.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollectclustereventsinks
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-kollect-dev-v1alpha1-kollectclusterinventory
   failurePolicy: Fail
   name: vkollectclusterinventory.kb.io
@@ -70,6 +110,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollectclustersnapshotsink
+  failurePolicy: Fail
+  name: vkollectclustersnapshotsink.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollectclustersnapshotsinks
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-kollect-dev-v1alpha1-kollectclustertarget
   failurePolicy: Fail
   name: vkollectclustertarget.kb.io
@@ -103,6 +163,46 @@ webhooks:
     - UPDATE
     resources:
     - kollectconnectiontests
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollectdatabasesink
+  failurePolicy: Fail
+  name: vkollectdatabasesink.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollectdatabasesinks
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-kollect-dev-v1alpha1-kollecteventsink
+  failurePolicy: Fail
+  name: vkollecteventsink.kb.io
+  rules:
+  - apiGroups:
+    - kollect.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kollecteventsinks
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -190,9 +290,9 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-kollect-dev-v1alpha1-kollectsink
+      path: /validate-kollect-dev-v1alpha1-kollectsnapshotsink
   failurePolicy: Fail
-  name: vkollectsink.kb.io
+  name: vkollectsnapshotsink.kb.io
   rules:
   - apiGroups:
     - kollect.dev
@@ -202,7 +302,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - kollectsinks
+    - kollectsnapshotsinks
   sideEffects: None
 - admissionReviewVersions:
   - v1

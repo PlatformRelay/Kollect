@@ -41,6 +41,46 @@ spec:
           spec:
             description: spec defines the desired state of KollectInventory
             properties:
+              databaseSinkRefs:
+                description: databaseSinkRefs lists KollectDatabaseSink names in this
+                  namespace (ADR-0414).
+                items:
+                  description: InventorySinkRef names a KollectSink with an optional
+                    per-ref export interval override.
+                  properties:
+                    exportMinInterval:
+                      description: |-
+                        exportMinInterval overrides the inventory default for this sink ref.
+                        Zero means material-change only (no periodic re-export of identical payload).
+                      type: string
+                    name:
+                      description: name is the KollectSink object name in the same
+                        namespace as the inventory.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              eventSinkRefs:
+                description: eventSinkRefs lists KollectEventSink names in this namespace
+                  (ADR-0414).
+                items:
+                  description: InventorySinkRef names a KollectSink with an optional
+                    per-ref export interval override.
+                  properties:
+                    exportMinInterval:
+                      description: |-
+                        exportMinInterval overrides the inventory default for this sink ref.
+                        Zero means material-change only (no periodic re-export of identical payload).
+                      type: string
+                    name:
+                      description: name is the KollectSink object name in the same
+                        namespace as the inventory.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               exportMinInterval:
                 default: 30s
                 description: |-
@@ -69,10 +109,9 @@ spec:
                   Webhook rejects values above the operator global cap (ADR-0103).
                 format: int64
                 type: integer
-              sinkRefs:
-                description: |-
-                  sinkRefs lists KollectSink names in the same namespace as this Inventory.
-                  Each entry may be a plain name or an object with an optional exportMinInterval override.
+              snapshotSinkRefs:
+                description: snapshotSinkRefs lists KollectSnapshotSink names in this
+                  namespace (ADR-0414).
                 items:
                   description: InventorySinkRef names a KollectSink with an optional
                     per-ref export interval override.

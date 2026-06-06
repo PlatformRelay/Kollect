@@ -18,7 +18,8 @@ const (
 	SinkTypeNats     = "nats"
 )
 
-// KollectSinkSpec defines the desired state of KollectSink.
+// KollectSinkSpec is the normalized sink configuration passed to the compile-time registry (ADR-0406).
+// It is not a CRD — family CRDs convert via ToKollectSinkSpec (ADR-0414).
 type KollectSinkSpec struct {
 	// type selects the sink backend implementation.
 	// +kubebuilder:validation:Enum=git;gitlab;s3;gcs;postgres;kafka;nats
@@ -275,54 +276,10 @@ type SecretReference struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// KollectSinkStatus defines the observed state of KollectSink.
-type KollectSinkStatus struct {
-	// conditions represent the current state of the KollectSink resource.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-}
-
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,shortName=ksink
-
-// KollectSink is the Schema for the kollectsinks API
-type KollectSink struct {
-	metav1.TypeMeta `json:",inline"`
-
-	// metadata is a standard object metadata
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitzero"`
-
-	// spec defines the desired state of KollectSink
-	// +required
-	Spec KollectSinkSpec `json:"spec"`
-
-	// status defines the observed state of KollectSink
-	// +optional
-	Status KollectSinkStatus `json:"status,omitzero"`
-}
-
-// +kubebuilder:object:root=true
-
-// KollectSinkList contains a list of KollectSink
-type KollectSinkList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []KollectSink `json:"items"`
-}
-
-// ConnectionTestEnabled reports whether automatic sink connectivity probes should run.
-// Unset spec.connectionTest defaults to enabled; set false to opt out.
+// ConnectionTestEnabled reports whether automatic connectivity probes should run for a normalized spec.
 func ConnectionTestEnabled(spec *KollectSinkSpec) bool {
-	if spec == nil || spec.ConnectionTest == nil {
+	if spec == nil {
 		return true
 	}
-	return *spec.ConnectionTest
-}
-
-func init() {
-	SchemeBuilder.Register(&KollectSink{}, &KollectSinkList{})
+	return ConnectionTestEnabledCommon(&SinkCommonFields{ConnectionTest: spec.ConnectionTest})
 }

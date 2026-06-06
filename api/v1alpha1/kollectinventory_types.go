@@ -12,10 +12,17 @@ import (
 
 // KollectInventorySpec defines the desired state of KollectInventory.
 type KollectInventorySpec struct {
-	// sinkRefs lists KollectSink names in the same namespace as this Inventory.
-	// Each entry may be a plain name or an object with an optional exportMinInterval override.
+	// snapshotSinkRefs lists KollectSnapshotSink names in this namespace (ADR-0414).
 	// +optional
-	SinkRefs InventorySinkRefList `json:"sinkRefs,omitempty"`
+	SnapshotSinkRefs InventorySinkRefList `json:"snapshotSinkRefs,omitempty"`
+
+	// databaseSinkRefs lists KollectDatabaseSink names in this namespace (ADR-0414).
+	// +optional
+	DatabaseSinkRefs InventorySinkRefList `json:"databaseSinkRefs,omitempty"`
+
+	// eventSinkRefs lists KollectEventSink names in this namespace (ADR-0414).
+	// +optional
+	EventSinkRefs InventorySinkRefList `json:"eventSinkRefs,omitempty"`
 
 	// exportMinInterval is the minimum time between identical exports for this inventory.
 	// Material changes (payload checksum or spec generation) bypass the interval.

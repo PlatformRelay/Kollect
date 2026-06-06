@@ -11,10 +11,20 @@ import (
 type KollectScopeSpec struct {
 	ScopeCeilingSpec `json:",inline"`
 
-	// sinkRefs lists namespaced KollectSink names permitted for export from this scope.
+	// snapshotSinkRefs lists permitted KollectSnapshotSink names for this scope.
 	// +listType=set
 	// +optional
-	SinkRefs []string `json:"sinkRefs,omitempty"`
+	SnapshotSinkRefs []string `json:"snapshotSinkRefs,omitempty"`
+
+	// databaseSinkRefs lists permitted KollectDatabaseSink names for this scope.
+	// +listType=set
+	// +optional
+	DatabaseSinkRefs []string `json:"databaseSinkRefs,omitempty"`
+
+	// eventSinkRefs lists permitted KollectEventSink names for this scope.
+	// +listType=set
+	// +optional
+	EventSinkRefs []string `json:"eventSinkRefs,omitempty"`
 }
 
 // +kubebuilder:object:root=true

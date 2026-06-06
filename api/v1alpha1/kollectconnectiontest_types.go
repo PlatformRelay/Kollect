@@ -9,9 +9,9 @@ import (
 
 // KollectConnectionTestSpec defines a one-shot connectivity probe (ADR-0703).
 type KollectConnectionTestSpec struct {
-	// sinkRef is the name of a KollectSink in the same namespace.
+	// sinkRef identifies exactly one family sink to probe (ADR-0414).
 	// +required
-	SinkRef string `json:"sinkRef"`
+	SinkRef ConnectionTestSinkRef `json:"sinkRef"`
 
 	// profileRef optionally names a KollectProfile for future composite probes.
 	// +optional

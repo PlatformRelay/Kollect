@@ -34,12 +34,19 @@ type KollectClusterInventorySpec struct {
 	// +optional
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 
-	// sinkRefs lists KollectSink names resolved in sinkNamespace.
-	// Each entry may be a plain name or an object with an optional exportMinInterval override.
+	// snapshotSinkRefs lists KollectSnapshotSink or KollectClusterSnapshotSink names (ADR-0414).
 	// +optional
-	SinkRefs InventorySinkRefList `json:"sinkRefs,omitempty"`
+	SnapshotSinkRefs InventorySinkRefList `json:"snapshotSinkRefs,omitempty"`
 
-	// sinkNamespace is the namespace where namespaced KollectSink objects are resolved.
+	// databaseSinkRefs lists KollectDatabaseSink or KollectClusterDatabaseSink names (ADR-0414).
+	// +optional
+	DatabaseSinkRefs InventorySinkRefList `json:"databaseSinkRefs,omitempty"`
+
+	// eventSinkRefs lists KollectEventSink or KollectClusterEventSink names (ADR-0414).
+	// +optional
+	EventSinkRefs InventorySinkRefList `json:"eventSinkRefs,omitempty"`
+
+	// sinkNamespace is the namespace where namespaced family sinks are resolved.
 	// +kubebuilder:default="kollect-system"
 	// +optional
 	SinkNamespace string `json:"sinkNamespace,omitempty"`
