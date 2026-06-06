@@ -70,7 +70,7 @@ func (v *kollectInventoryValidator) validate(ctx context.Context, inv *kollectde
 	if binding.Enforced && binding.Scope != nil {
 		floor := validation.ScopeMinExportInterval(binding.Scope)
 		errs = validation.ValidateIntervalsAgainstScopeFloor(
-			inv.Spec.ExportMinInterval, inv.Spec.SinkRefs, floor)
+			inv.Spec.ExportMinInterval, kollectdevv1alpha1.AllInventorySinkRefLists(&inv.Spec), floor)
 		if len(errs) > 0 {
 			return validation.InventoryInvalid(inv.Name, errs)
 		}

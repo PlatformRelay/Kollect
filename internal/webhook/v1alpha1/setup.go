@@ -51,8 +51,8 @@ func SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("setup KollectClusterProfile webhook: %w", err)
 	}
 
-	if err := setupKollectSinkWebhook(mgr); err != nil {
-		return fmt.Errorf("setup KollectSink webhook: %w", err)
+	if err := setupFamilySinkWebhooks(mgr); err != nil {
+		return fmt.Errorf("setup family sink webhooks: %w", err)
 	}
 
 	return nil

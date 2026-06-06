@@ -20,22 +20,37 @@ func cleanupSinkExports(
 	c client.Client,
 	registry *sink.Registry,
 	sinkNamespace string,
-	sinkRefs []kollectdevv1alpha1.InventorySinkRef,
+	bindings []kollectdevv1alpha1.InventorySinkBinding,
+	clusterFallback bool,
 	objectPath string,
 	generation int64,
 ) error {
-	if registry == nil || len(sinkRefs) == 0 {
+	if registry == nil || len(bindings) == 0 {
 		return nil
 	}
 
 	var errs []error
-	for _, ref := range sinkRefs {
+	for _, binding := range bindings {
+		var (
+			resolved *sink.ResolvedSink
+			err      error
+		)
+		if clusterFallback {
+			resolved, err = loadClusterInventorySink(ctx, c, sinkNamespace, binding)
+		} else {
+			resolved, err = loadResolvedSink(ctx, c, sinkNamespace, binding, false)
+		}
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
 		if err := sink.RunExportItems(sink.ExportItemsRequest{
 			Ctx:           ctx,
 			Client:        c,
 			Registry:      registry,
-			SinkNamespace: sinkNamespace,
-			SinkName:      ref.Name,
+			SinkNamespace: sink.SinkNamespaceForResolved(resolved, sinkNamespace),
+			SinkName:      binding.Name,
+			SinkFamily:    binding.Family,
 			ObjectPath:    objectPath,
 			Items:         []collect.Item{},
 			Meta:          export.Metadata{Generation: generation},

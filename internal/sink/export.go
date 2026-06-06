@@ -50,6 +50,7 @@ type ExportItemsRequest struct {
 	Registry      *Registry
 	SinkNamespace string
 	SinkName      string
+	SinkFamily    string
 	ObjectPath    string
 	Items         []collect.Item
 	Meta          export.Metadata
@@ -91,12 +92,13 @@ func RunExportItems(req ExportItemsRequest) error {
 		return err
 	}
 
-	var ks kollectdevv1alpha1.KollectSink
-	if err := req.Client.Get(req.Ctx, client.ObjectKey{
+	resolved, err := ResolveSink(req.Ctx, req.Client, ResolveOptions{
 		Namespace: req.SinkNamespace,
 		Name:      req.SinkName,
-	}, &ks); err != nil {
-		err = kollecterrors.ClassifyAPI(fmt.Errorf("load KollectSink %q: %w", req.SinkName, err))
+		Family:    req.SinkFamily,
+	})
+	if err != nil {
+		err = kollecterrors.ClassifyAPI(fmt.Errorf("load sink %q: %w", req.SinkName, err))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
 		return err
@@ -106,11 +108,11 @@ func RunExportItems(req ExportItemsRequest) error {
 		Ctx:           req.Ctx,
 		Client:        req.Client,
 		Registry:      req.Registry,
-		SinkNamespace: req.SinkNamespace,
+		SinkNamespace: sinkNamespaceForExport(resolved, req.SinkNamespace),
 		SinkName:      req.SinkName,
 		ObjectPath:    req.ObjectPath,
 		Envelope:      envelope,
-		SinkSpec:      ks.Spec,
+		SinkSpec:      resolved.Spec,
 	})
 }
 
@@ -120,9 +122,13 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 		return kollecterrors.Terminal(fmt.Errorf("sink registry is not configured"))
 	}
 
-	backend, release, err := acquireBackend(req.Ctx, req.Client, req.Registry, req.SinkNamespace, req.SinkName)
+	if req.SinkSpec.Type == "" {
+		return kollecterrors.Terminal(fmt.Errorf("sink spec is required for export to %q", req.SinkName))
+	}
+
+	backend, release, err := acquireBackend(req.Ctx, req.Client, req.Registry, req.SinkNamespace, req.SinkName, req.SinkSpec)
 	if err != nil {
-		err = kollecterrors.ClassifyAPI(fmt.Errorf("load KollectSink %q: %w", req.SinkName, err))
+		err = kollecterrors.ClassifyAPI(fmt.Errorf("acquire backend for %q: %w", req.SinkName, err))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
 		return err
@@ -185,6 +191,10 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 	}
 
 	return nil
+}
+
+func sinkNamespaceForExport(resolved *ResolvedSink, fallback string) string {
+	return SinkNamespaceForResolved(resolved, fallback)
 }
 
 func classifyExportFailure(sinkName string, err error) error {

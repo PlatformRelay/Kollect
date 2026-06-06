@@ -53,5 +53,20 @@ func (v *kollectClusterScopeValidator) validate(scope *kollectdevv1alpha1.Kollec
 		return validation.ClusterScopeInvalid(scope.Name, errs)
 	}
 
-	return validateUniqueNonEmptyStrings(scope.Spec.SinkRefs)
+	var errs error
+	for _, check := range []struct {
+		field string
+		vals  []string
+	}{
+		{"snapshotSinkRefs", scope.Spec.SnapshotSinkRefs},
+		{"databaseSinkRefs", scope.Spec.DatabaseSinkRefs},
+		{"eventSinkRefs", scope.Spec.EventSinkRefs},
+	} {
+		if err := validateUniqueNonEmptyStrings(check.vals, check.field); err != nil {
+			if errs == nil {
+				errs = err
+			}
+		}
+	}
+	return errs
 }

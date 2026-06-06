@@ -83,27 +83,61 @@ func ValidateWorkloadNamespaces(scope *kollectdevv1alpha1.KollectScope, namespac
 	return nil
 }
 
-// ValidateSinkRefs returns a violation when sinkRefs allowlist is non-empty and a ref is missing.
-func ValidateSinkRefs(scope *kollectdevv1alpha1.KollectScope, refs []string) error {
-	if scope == nil || len(scope.Spec.SinkRefs) == 0 {
+// ValidateInventoryFamilySinkRefs returns a violation when family allowlists are non-empty and a ref is missing.
+func ValidateInventoryFamilySinkRefs(scope *kollectdevv1alpha1.KollectScope, bindings []kollectdevv1alpha1.InventorySinkBinding) error {
+	if scope == nil {
 		return nil
 	}
 
-	allowed := make(map[string]struct{}, len(scope.Spec.SinkRefs))
-	for _, ref := range scope.Spec.SinkRefs {
-		allowed[ref] = struct{}{}
-	}
-
-	for _, ref := range refs {
-		if _, ok := allowed[ref]; !ok {
-			return fmt.Errorf(
-				"sinkRef %q is not in KollectScope %q sinkRefs",
-				ref, scope.Name,
-			)
+	for _, binding := range bindings {
+		var allowed []string
+		switch binding.Family {
+		case kollectdevv1alpha1.SinkFamilySnapshot:
+			allowed = scope.Spec.SnapshotSinkRefs
+		case kollectdevv1alpha1.SinkFamilyDatabase:
+			allowed = scope.Spec.DatabaseSinkRefs
+		case kollectdevv1alpha1.SinkFamilyEvent:
+			allowed = scope.Spec.EventSinkRefs
+		default:
+			continue
+		}
+		if len(allowed) == 0 {
+			continue
+		}
+		if err := validateRefInAllowlist(binding.Name, allowed, binding.Family, scope.Name); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func validateRefInAllowlist(name string, allowed []string, family, scopeName string) error {
+	seen := make(map[string]struct{}, len(allowed))
+	for _, ref := range allowed {
+		seen[ref] = struct{}{}
+	}
+	if _, ok := seen[name]; !ok {
+		return fmt.Errorf(
+			"%s sink ref %q is not in KollectScope %q %sSinkRefs",
+			family, name, scopeName, family,
+		)
+	}
+	return nil
+}
+
+// ValidateSinkRefs is deprecated — use ValidateInventoryFamilySinkRefs (ADR-0414 clean break).
+func ValidateSinkRefs(scope *kollectdevv1alpha1.KollectScope, refs []string) error {
+	if scope == nil {
+		return nil
+	}
+	bindings := make([]kollectdevv1alpha1.InventorySinkBinding, 0, len(refs))
+	for _, ref := range refs {
+		bindings = append(bindings, kollectdevv1alpha1.InventorySinkBinding{
+			Name: ref, Family: kollectdevv1alpha1.SinkFamilySnapshot,
+		})
+	}
+	return ValidateInventoryFamilySinkRefs(scope, bindings)
 }
 
 func gvkMatches(allowed, got kollectdevv1alpha1.GroupVersionKind) bool {

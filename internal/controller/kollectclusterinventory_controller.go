@@ -113,15 +113,16 @@ func (r *KollectClusterInventoryReconciler) Reconcile(ctx context.Context, req c
 		sinkNS = sink.DefaultSecretNamespace
 	}
 
-	if len(inv.Spec.SinkRefs) > 0 {
-		sinkOK, sinkReason, sinkMsg := checkClusterInventorySinksReachable(ctx, r.Client, sinkNS, inv.Spec.SinkRefs.Names())
+	bindings := clusterInventorySinkBindings(&inv)
+	if len(bindings) > 0 {
+		sinkOK, sinkReason, sinkMsg := checkClusterInventorySinksReachable(ctx, r.Client, sinkNS, bindings)
 		setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, sinkOK, sinkReason, sinkMsg)
 		if !sinkOK {
 			recordWarning(r.Recorder, &inv, sinkReason, sinkMsg)
 			return r.setDegraded(ctx, &inv, sinkReason, sinkMsg)
 		}
 	} else {
-		setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, true, "NoSinksConfigured", "no sinkRefs configured")
+		setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, true, "NoSinksConfigured", "no family sink refs configured")
 	}
 
 	if r.Store == nil || r.Engine == nil {
@@ -144,13 +145,14 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	sinkNS string,
 	log logr.Logger,
 ) (ctrl.Result, error) {
+	bindings := clusterInventorySinkBindings(inv)
 	payload, fingerprint, err := r.marshalRollupPayload(inv, targets)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	gate, err := assessExportSpill(
-		ctx, r.Client, log, int64(len(payload)), validation.MaxExportBytesGlobal(), sinkNS, inv.Spec.SinkRefs.Names(),
+		ctx, r.Client, log, int64(len(payload)), validation.MaxExportBytesGlobal(), sinkNS, bindings,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -164,8 +166,9 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	key := req.String()
 	itemCount := r.countRollupItems(inv, targets)
 
-	if len(inv.Spec.SinkRefs) == 0 {
-		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "NoExport", "no sinkRefs configured")
+	bindings = clusterInventorySinkBindings(inv)
+	if len(bindings) == 0 {
+		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "NoExport", "no family sink refs configured")
 		return r.updateStatus(ctx, inv, len(targets), itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(inv)})
 	}
 
@@ -222,28 +225,28 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 	var outcome perSinkExportOutcome
 	outcome.RequeueAfter = defaultInterval
 
-	for _, ref := range inv.Spec.SinkRefs {
-		var sinkObj kollectdevv1alpha1.KollectSink
-		if err := r.Get(ctx, client.ObjectKey{Namespace: sinkNS, Name: ref.Name}, &sinkObj); err != nil {
-			status := upsertSinkExportStatus(&outcome.SinkExports, ref.Name)
-			err = fmt.Errorf("get KollectSink %q: %w", ref.Name, err)
+	for _, binding := range clusterInventorySinkBindings(inv) {
+		ref := binding.Ref
+		exportKey := sinkExportKey(binding)
+		resolved, err := loadClusterInventorySink(ctx, r.Client, sinkNS, binding)
+		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
+		if err != nil {
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
 			outcome.FailedCount++
 			outcome.ExportErr = err
-			outcome.FailedSink = ref.Name
+			outcome.FailedSink = exportKey
 			continue
 		}
 
-		interval := validation.ResolveSinkExportInterval(ref, &sinkObj, defaultInterval, scopeFloor)
-		status := upsertSinkExportStatus(&outcome.SinkExports, ref.Name)
+		interval := validation.ResolveSinkExportInterval(ref, sinkExportMinInterval(resolved), defaultInterval, scopeFloor)
 
-		if r.sinkCoalesce.shouldSkip(invKey, ref.Name, inv.Generation, checksum, interval, now) {
+		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, checksum, interval, now) {
 			outcome.DebouncedCount++
 			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
 				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
-					r.sinkCoalesce.nextDue(invKey, ref.Name, interval, now).Round(time.Second),
+					r.sinkCoalesce.nextDue(invKey, exportKey, interval, now).Round(time.Second),
 					interval))
-			nextDue := r.sinkCoalesce.nextDue(invKey, ref.Name, interval, now)
+			nextDue := r.sinkCoalesce.nextDue(invKey, exportKey, interval, now)
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
 			continue
 		}
@@ -252,21 +255,22 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 			Ctx:           ctx,
 			Client:        r.Client,
 			Registry:      r.Registry,
-			SinkNamespace: sinkNS,
-			SinkName:      ref.Name,
+			SinkNamespace: sink.SinkNamespaceForResolved(resolved, sinkNS),
+			SinkName:      binding.Name,
+			SinkFamily:    binding.Family,
 			ObjectPath:    fmt.Sprintf("inventory/cluster/%s.json", inv.Name),
 			Items:         items,
 			Meta:          export.Metadata{Generation: inv.Generation},
 		}); err != nil {
-			log.Error(err, "cluster export failed", "sink", ref.Name)
+			log.Error(err, "cluster export failed", "sink", exportKey)
 			outcome.FailedCount++
 			outcome.ExportErr = err
-			outcome.FailedSink = ref.Name
+			outcome.FailedSink = exportKey
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
 			continue
 		}
 
-		r.sinkCoalesce.record(invKey, ref.Name, inv.Generation, checksum, now)
+		r.sinkCoalesce.record(invKey, exportKey, inv.Generation, checksum, now)
 		exportTime := metav1.Now()
 		status.LastExportTime = &exportTime
 		status.LastChecksum = checksum
@@ -459,21 +463,9 @@ func checkClusterInventorySinksReachable(
 	ctx context.Context,
 	c client.Client,
 	sinkNamespace string,
-	sinkRefs []string,
+	bindings []kollectdevv1alpha1.InventorySinkBinding,
 ) (bool, string, string) {
-	for _, name := range sinkRefs {
-		var ks kollectdevv1alpha1.KollectSink
-		key := client.ObjectKey{Namespace: sinkNamespace, Name: name}
-		if err := c.Get(ctx, key, &ks); err != nil {
-			if apierrors.IsNotFound(err) {
-				return false, reasonSinkNotFound, fmt.Sprintf("KollectSink %q not found in namespace %q", name, sinkNamespace)
-			}
-
-			return false, "SinkLookupFailed", err.Error()
-		}
-	}
-
-	return true, reasonSinksReachable, fmt.Sprintf("%d sink(s) reachable in %q", len(sinkRefs), sinkNamespace)
+	return checkInventorySinksReachable(ctx, c, sinkNamespace, bindings)
 }
 
 func (r *KollectClusterInventoryReconciler) setDegraded(
@@ -515,7 +507,8 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 	inv.Status.ItemCount = itemCount
 	inv.Status.SinkExports = outcome.SinkExports
 
-	if len(inv.Spec.SinkRefs) > 0 {
+	bindings := clusterInventorySinkBindings(inv)
+	if len(bindings) > 0 {
 		if latest := latestExportTime(outcome.SinkExports); latest != nil {
 			inv.Status.LastExportTime = latest
 		}
@@ -555,7 +548,7 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 				Type:               kollectdevv1alpha1.ConditionExportSucceeded,
 				Status:             metav1.ConditionTrue,
 				Reason:             kollectdevv1alpha1.ReasonPartiallySynced,
-				Message:            fmt.Sprintf("exported %d item(s) to %d/%d sink(s)", itemCount, outcome.ExportedCount, len(inv.Spec.SinkRefs)),
+				Message:            fmt.Sprintf("exported %d item(s) to %d/%d sink(s)", itemCount, outcome.ExportedCount, totalClusterInventorySinkRefs(inv)),
 				ObservedGeneration: inv.Generation,
 				LastTransitionTime: metav1.Now(),
 			})
@@ -618,8 +611,28 @@ func (r *KollectClusterInventoryReconciler) SetupWithManager(mgr ctrl.Manager) e
 			handler.EnqueueRequestsFromMapFunc(r.mapClusterTargetToInventories),
 		).
 		Watches(
-			&kollectdevv1alpha1.KollectSink{},
-			handler.EnqueueRequestsFromMapFunc(r.mapSinkToClusterInventories),
+			&kollectdevv1alpha1.KollectSnapshotSink{},
+			handler.EnqueueRequestsFromMapFunc(r.mapClusterSnapshotSinkToInventories),
+		).
+		Watches(
+			&kollectdevv1alpha1.KollectDatabaseSink{},
+			handler.EnqueueRequestsFromMapFunc(r.mapClusterDatabaseSinkToInventories),
+		).
+		Watches(
+			&kollectdevv1alpha1.KollectEventSink{},
+			handler.EnqueueRequestsFromMapFunc(r.mapClusterEventSinkToInventories),
+		).
+		Watches(
+			&kollectdevv1alpha1.KollectClusterSnapshotSink{},
+			handler.EnqueueRequestsFromMapFunc(r.mapClusterSnapshotSinkToInventories),
+		).
+		Watches(
+			&kollectdevv1alpha1.KollectClusterDatabaseSink{},
+			handler.EnqueueRequestsFromMapFunc(r.mapClusterDatabaseSinkToInventories),
+		).
+		Watches(
+			&kollectdevv1alpha1.KollectClusterEventSink{},
+			handler.EnqueueRequestsFromMapFunc(r.mapClusterEventSinkToInventories),
 		).
 		Named("kollectclusterinventory").
 		Complete(r)
@@ -646,24 +659,34 @@ func (r *KollectClusterInventoryReconciler) mapClusterTargetToInventories(
 	return reqs
 }
 
-func (r *KollectClusterInventoryReconciler) mapSinkToClusterInventories(
+func (r *KollectClusterInventoryReconciler) mapClusterSnapshotSinkToInventories(ctx context.Context, obj client.Object) []reconcile.Request {
+	return r.mapClusterFamilySinkToInventories(ctx, obj, kollectdevv1alpha1.SinkFamilySnapshot)
+}
+
+func (r *KollectClusterInventoryReconciler) mapClusterDatabaseSinkToInventories(ctx context.Context, obj client.Object) []reconcile.Request {
+	return r.mapClusterFamilySinkToInventories(ctx, obj, kollectdevv1alpha1.SinkFamilyDatabase)
+}
+
+func (r *KollectClusterInventoryReconciler) mapClusterEventSinkToInventories(ctx context.Context, obj client.Object) []reconcile.Request {
+	return r.mapClusterFamilySinkToInventories(ctx, obj, kollectdevv1alpha1.SinkFamilyEvent)
+}
+
+func (r *KollectClusterInventoryReconciler) mapClusterFamilySinkToInventories(
 	ctx context.Context,
 	obj client.Object,
+	family string,
 ) []reconcile.Request {
-	sinkObj, ok := obj.(*kollectdevv1alpha1.KollectSink)
-	if !ok {
-		return nil
-	}
+	sinkName := obj.GetName()
+	sinkNS := obj.GetNamespace()
 
 	var list kollectdevv1alpha1.KollectClusterInventoryList
 	if err := r.List(ctx, &list); err != nil {
 		logf.FromContext(ctx).Error(err, "failed to list cluster inventories for sink watch mapping",
-			"sink", sinkObj.Name, "namespace", sinkObj.Namespace)
+			"sink", sinkName, "namespace", sinkNS, "family", family)
 
 		return nil
 	}
 
-	sinkNS := sinkObj.Namespace
 	reqs := make([]reconcile.Request, 0)
 	for i := range list.Items {
 		inv := &list.Items[i]
@@ -671,17 +694,12 @@ func (r *KollectClusterInventoryReconciler) mapSinkToClusterInventories(
 		if invSinkNS == "" {
 			invSinkNS = sink.DefaultSecretNamespace
 		}
-
-		if invSinkNS != sinkNS {
+		if sinkNS != "" && invSinkNS != sinkNS {
 			continue
 		}
-
-		for _, ref := range inv.Spec.SinkRefs {
-			if ref.Name == sinkObj.Name {
-				reqs = append(reqs, reconcile.Request{
-					NamespacedName: types.NamespacedName{Name: inv.Name},
-				})
-
+		for _, binding := range clusterInventorySinkBindings(inv) {
+			if binding.Family == family && binding.Name == sinkName {
+				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{Name: inv.Name}})
 				break
 			}
 		}

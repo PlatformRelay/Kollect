@@ -31,7 +31,8 @@ type KollectConnectionTestReconciler struct {
 
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectconnectiontests,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectconnectiontests/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=kollect.dev,resources=kollectsinks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollectsnapshotsinks;kollectdatabasesinks;kollecteventsinks,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollectclustersnapshotsinks;kollectclusterdatabasesinks;kollectclustereventsinks,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *KollectConnectionTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -50,26 +51,46 @@ func (r *KollectConnectionTestReconciler) Reconcile(ctx context.Context, req ctr
 		return r.reconcileTTL(ctx, &test)
 	}
 
-	var sinkObj kollectdevv1alpha1.KollectSink
-	if err := r.Get(ctx, client.ObjectKey{Namespace: test.Namespace, Name: test.Spec.SinkRef}, &sinkObj); err != nil {
+	family, sinkName, ok := test.Spec.SinkRef.Family()
+	if !ok {
+		retErr = fmt.Errorf("invalid sinkRef")
+		res, setErr := r.setProbeFailed(ctx, &test, "InvalidSinkRef", "exactly one family sink ref must be set")
+
+		return res, setErr
+	}
+
+	binding := kollectdevv1alpha1.InventorySinkBinding{Name: sinkName, Family: family}
+	resolved, err := loadResolvedSink(ctx, r.Client, test.Namespace, binding, false)
+	if err != nil && apierrors.IsNotFound(err) {
+		resolved, err = loadResolvedSink(ctx, r.Client, test.Namespace, binding, true)
+	}
+	if err != nil {
 		retErr = err
 		res, setErr := r.setProbeFailed(
 			ctx, &test, reasonSinkNotFound,
-			fmt.Sprintf("KollectSink %q: %v", test.Spec.SinkRef, err),
+			fmt.Sprintf("%s %q: %v", familySinkKind(family, resolved != nil && resolved.ClusterScoped), sinkName, err),
 		)
 
 		return res, setErr
 	}
 
-	if err := r.ensureOwnerReference(ctx, &test, &sinkObj); err != nil {
-		log.Error(err, "set ownerReference")
+	sinkObj, err := r.familySinkObject(ctx, resolved)
+	if err != nil {
 		retErr = err
+		res, setErr := r.setProbeFailed(ctx, &test, reasonSinkNotFound, err.Error())
 
-		return ctrl.Result{}, err
+		return res, setErr
 	}
 
-	start := time.Now()
-	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, sinkObj.Spec, test.Namespace)
+	if ownRefErr := r.ensureOwnerReference(ctx, &test, sinkObj); ownRefErr != nil {
+		log.Error(ownRefErr, "set ownerReference")
+		retErr = ownRefErr
+
+		return ctrl.Result{}, ownRefErr
+	}
+
+	spec := resolved.Spec
+	buildCtx, err := sink.BuildContextFromSpec(ctx, r.Client, spec, sink.SinkNamespaceForResolved(resolved, test.Namespace))
 	if err != nil {
 		retErr = err
 		res, setErr := r.setProbeFailed(ctx, &test, "SecretResolveFailed", err.Error())
@@ -77,13 +98,14 @@ func (r *KollectConnectionTestReconciler) Reconcile(ctx context.Context, req ctr
 		return res, setErr
 	}
 
-	okMessage, testErr := sink.RunConnectionTest(ctx, sinkObj.Spec, buildCtx)
+	start := time.Now()
+	okMessage, testErr := sink.RunConnectionTest(ctx, spec, buildCtx)
 	elapsed := time.Since(start)
 	test.Status.LatencyMs = elapsed.Milliseconds()
 
 	if testErr != nil {
-		log.Error(testErr, "connection test failed", "sink", test.Spec.SinkRef)
-		metrics.SinkConnectionTestTotal.WithLabelValues(sinkObj.Spec.Type, metrics.ResultFailure).Inc()
+		log.Error(testErr, "connection test failed", "sink", sinkName, "family", family)
+		metrics.SinkConnectionTestTotal.WithLabelValues(spec.Type, metrics.ResultFailure).Inc()
 		retErr = testErr
 
 		res, setErr := r.setProbeFailed(ctx, &test, "ConnectionTestFailed", testErr.Error())
@@ -91,22 +113,74 @@ func (r *KollectConnectionTestReconciler) Reconcile(ctx context.Context, req ctr
 		return res, setErr
 	}
 
-	metrics.SinkConnectionTestTotal.WithLabelValues(sinkObj.Spec.Type, metrics.ResultSuccess).Inc()
+	metrics.SinkConnectionTestTotal.WithLabelValues(spec.Type, metrics.ResultSuccess).Inc()
 
 	return r.setProbeSucceeded(ctx, &test, okMessage)
+}
+
+func (r *KollectConnectionTestReconciler) familySinkObject(
+	ctx context.Context,
+	resolved *sink.ResolvedSink,
+) (client.Object, error) {
+	if resolved == nil {
+		return nil, fmt.Errorf("resolved sink is nil")
+	}
+	switch resolved.Family {
+	case kollectdevv1alpha1.SinkFamilySnapshot:
+		if resolved.ClusterScoped {
+			var obj kollectdevv1alpha1.KollectClusterSnapshotSink
+			if err := r.Get(ctx, client.ObjectKey{Name: resolved.Name}, &obj); err != nil {
+				return nil, err
+			}
+			return &obj, nil
+		}
+		var obj kollectdevv1alpha1.KollectSnapshotSink
+		if err := r.Get(ctx, client.ObjectKey{Namespace: resolved.Namespace, Name: resolved.Name}, &obj); err != nil {
+			return nil, err
+		}
+		return &obj, nil
+	case kollectdevv1alpha1.SinkFamilyDatabase:
+		if resolved.ClusterScoped {
+			var obj kollectdevv1alpha1.KollectClusterDatabaseSink
+			if err := r.Get(ctx, client.ObjectKey{Name: resolved.Name}, &obj); err != nil {
+				return nil, err
+			}
+			return &obj, nil
+		}
+		var obj kollectdevv1alpha1.KollectDatabaseSink
+		if err := r.Get(ctx, client.ObjectKey{Namespace: resolved.Namespace, Name: resolved.Name}, &obj); err != nil {
+			return nil, err
+		}
+		return &obj, nil
+	case kollectdevv1alpha1.SinkFamilyEvent:
+		if resolved.ClusterScoped {
+			var obj kollectdevv1alpha1.KollectClusterEventSink
+			if err := r.Get(ctx, client.ObjectKey{Name: resolved.Name}, &obj); err != nil {
+				return nil, err
+			}
+			return &obj, nil
+		}
+		var obj kollectdevv1alpha1.KollectEventSink
+		if err := r.Get(ctx, client.ObjectKey{Namespace: resolved.Namespace, Name: resolved.Name}, &obj); err != nil {
+			return nil, err
+		}
+		return &obj, nil
+	default:
+		return nil, fmt.Errorf("unknown sink family %q", resolved.Family)
+	}
 }
 
 func (r *KollectConnectionTestReconciler) ensureOwnerReference(
 	ctx context.Context,
 	test *kollectdevv1alpha1.KollectConnectionTest,
-	sinkObj *kollectdevv1alpha1.KollectSink,
+	sinkObj client.Object,
 ) error {
 	if test.Spec.OwnerSink != nil && !*test.Spec.OwnerSink {
 		return nil
 	}
 
 	for _, ref := range test.OwnerReferences {
-		if ref.UID == sinkObj.UID {
+		if ref.UID == sinkObj.GetUID() {
 			return nil
 		}
 	}

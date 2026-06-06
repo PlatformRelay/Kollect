@@ -123,7 +123,8 @@ func targetResourceStatus(target *kollectdevv1alpha1.KollectTarget) ResourceStat
 }
 
 func exportStatusFromInventory(inv *kollectdevv1alpha1.KollectInventory) []ExportStatus {
-	if len(inv.Spec.SinkRefs) == 0 {
+	bindings := kollectdevv1alpha1.CollectInventorySinkBindings(&inv.Spec)
+	if len(bindings) == 0 {
 		return nil
 	}
 
@@ -148,8 +149,9 @@ func exportStatusFromInventory(inv *kollectdevv1alpha1.KollectInventory) []Expor
 		lastExport = inv.Status.LastExportTime.UTC().Format(time.RFC3339)
 	}
 
-	out := make([]ExportStatus, 0, len(inv.Spec.SinkRefs))
-	for _, ref := range inv.Spec.SinkRefs {
+	out := make([]ExportStatus, 0, len(bindings))
+	for _, binding := range bindings {
+		ref := binding.Ref
 		sinkStatus := status
 		sinkMessage := message
 		lastExportSink := lastExport

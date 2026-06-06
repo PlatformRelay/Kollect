@@ -5,10 +5,7 @@ package controller
 
 import (
 	"context"
-	"fmt"
 
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -87,41 +84,10 @@ func (s scopeCheck) enforceInventory(
 		return true, "", ""
 	}
 
-	if err := scope.ValidateSinkRefs(binding.Scope, inv.Spec.SinkRefs.Names()); err != nil {
+	if err := scope.ValidateInventoryFamilySinkRefs(binding.Scope, inventorySinkBindings(inv)); err != nil {
 		recordWarning(s.recorder, inv, scopeReasonSinkDenied, err.Error())
 		return false, scopeReasonSinkDenied, err.Error()
 	}
 
 	return true, "", ""
-}
-
-func (s scopeCheck) sinkReachable(
-	ctx context.Context,
-	namespace, sinkName string,
-) (bool, string, string) {
-	var ks kollectdevv1alpha1.KollectSink
-	if err := s.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: sinkName}, &ks); err != nil {
-		return false, reasonSinkNotFound, fmt.Sprintf("KollectSink %q not found", sinkName)
-	}
-
-	verified := apimeta.FindStatusCondition(ks.Status.Conditions, kollectdevv1alpha1.ConditionConnectionVerified)
-	if verified != nil && verified.Status == metav1.ConditionFalse {
-		msg := "sink connection not verified"
-		if verified.Message != "" {
-			msg = verified.Message
-		}
-
-		return false, reasonSinkUnreachable, msg
-	}
-
-	if verified != nil && verified.Status == metav1.ConditionTrue {
-		msg := fmt.Sprintf("KollectSink %q connection verified", sinkName)
-		if verified.Message != "" {
-			msg = verified.Message
-		}
-
-		return true, "ConnectionVerified", msg
-	}
-
-	return true, "SinkResolved", fmt.Sprintf("KollectSink %q found", sinkName)
 }

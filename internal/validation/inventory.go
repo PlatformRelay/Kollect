@@ -35,9 +35,7 @@ func ValidateInventorySpec(spec *kollectdevv1alpha1.KollectInventorySpec) field.
 	}
 
 	var allErrs field.ErrorList
-	base := field.NewPath("spec").Child("sinkRefs")
-
-	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.SinkRefs, base)...)
+	allErrs = append(allErrs, validateInventoryFamilySinkRefs(spec)...)
 
 	if spec.ExportMinInterval != nil {
 		allErrs = append(allErrs, ValidateOptionalDurationInterval(
@@ -53,6 +51,24 @@ func ValidateInventorySpec(spec *kollectdevv1alpha1.KollectInventorySpec) field.
 				fmt.Sprintf("must not exceed global cap %d bytes", maxExportBytesGlobal)))
 		}
 	}
+
+	return allErrs
+}
+
+func validateInventoryFamilySinkRefs(spec *kollectdevv1alpha1.KollectInventorySpec) field.ErrorList {
+	total := kollectdevv1alpha1.TotalInventorySinkRefCount(spec)
+	if total > MaxInventorySinkRefs {
+		return field.ErrorList{field.Invalid(field.NewPath("spec"), total,
+			fmt.Sprintf("combined family sink refs must contain at most %d entries", MaxInventorySinkRefs))}
+	}
+
+	allErrs := make(field.ErrorList, 0, 3)
+	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.SnapshotSinkRefs,
+		field.NewPath("spec").Child("snapshotSinkRefs"))...)
+	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.DatabaseSinkRefs,
+		field.NewPath("spec").Child("databaseSinkRefs"))...)
+	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.EventSinkRefs,
+		field.NewPath("spec").Child("eventSinkRefs"))...)
 
 	return allErrs
 }

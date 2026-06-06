@@ -18,11 +18,7 @@ func ValidateConnectionTestSpec(spec *kollectdevv1alpha1.KollectConnectionTestSp
 	}
 
 	var allErrs field.ErrorList
-	allErrs = append(allErrs, validateSameNamespaceRef(
-		spec.SinkRef,
-		field.NewPath("spec").Child("sinkRef"),
-		"sinkRef",
-	)...)
+	allErrs = append(allErrs, ValidateConnectionTestSinkRef(spec.SinkRef)...)
 
 	if spec.ProfileRef != "" {
 		allErrs = append(allErrs, validateSameNamespaceRef(

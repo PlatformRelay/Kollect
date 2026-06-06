@@ -40,8 +40,7 @@ func ValidateClusterInventorySpec(spec *kollectdevv1alpha1.KollectClusterInvento
 			"namespaceSelector is required — empty selector would rollup cluster-wide"))
 	}
 
-	sinkRefsPath := field.NewPath("spec").Child("sinkRefs")
-	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.SinkRefs, sinkRefsPath)...)
+	allErrs = append(allErrs, validateClusterInventoryFamilySinkRefs(spec)...)
 
 	if strings.TrimSpace(spec.SinkNamespace) != "" && strings.Contains(spec.SinkNamespace, "/") {
 		allErrs = append(allErrs, field.Invalid(
@@ -63,6 +62,24 @@ func ValidateClusterInventorySpec(spec *kollectdevv1alpha1.KollectClusterInvento
 		allErrs = append(allErrs, field.NotSupported(dedupePath, spec.Dedupe,
 			[]string{kollectdevv1alpha1.ClusterInventoryDedupeKeepAll, kollectdevv1alpha1.ClusterInventoryDedupeByResourceUID}))
 	}
+
+	return allErrs
+}
+
+func validateClusterInventoryFamilySinkRefs(spec *kollectdevv1alpha1.KollectClusterInventorySpec) field.ErrorList {
+	total := kollectdevv1alpha1.TotalClusterInventorySinkRefCount(spec)
+	if total > MaxInventorySinkRefs {
+		return field.ErrorList{field.Invalid(field.NewPath("spec"), total,
+			fmt.Sprintf("combined family sink refs must contain at most %d entries", MaxInventorySinkRefs))}
+	}
+
+	allErrs := make(field.ErrorList, 0, 3)
+	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.SnapshotSinkRefs,
+		field.NewPath("spec").Child("snapshotSinkRefs"))...)
+	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.DatabaseSinkRefs,
+		field.NewPath("spec").Child("databaseSinkRefs"))...)
+	allErrs = append(allErrs, ValidateInventorySinkRefs(spec.EventSinkRefs,
+		field.NewPath("spec").Child("eventSinkRefs"))...)
 
 	return allErrs
 }

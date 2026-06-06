@@ -117,7 +117,7 @@ func ScopeCeilingMinExportInterval(ceiling *kollectdevv1alpha1.ScopeCeilingSpec)
 // ResolveSinkExportInterval computes the effective debounce for one sink ref (ADR-0413 precedence).
 func ResolveSinkExportInterval(
 	ref kollectdevv1alpha1.InventorySinkRef,
-	sink *kollectdevv1alpha1.KollectSink,
+	sinkExportMinInterval *metav1.Duration,
 	inventoryDefault time.Duration,
 	scopeFloor time.Duration,
 ) time.Duration {
@@ -125,8 +125,8 @@ func ResolveSinkExportInterval(
 	switch {
 	case ref.ExportMinInterval != nil:
 		chosen = ref.ExportMinInterval.Duration
-	case sink != nil && sink.Spec.ExportMinInterval != nil:
-		chosen = sink.Spec.ExportMinInterval.Duration
+	case sinkExportMinInterval != nil:
+		chosen = sinkExportMinInterval.Duration
 	default:
 		chosen = inventoryDefault
 	}
@@ -140,7 +140,7 @@ func ResolveSinkExportInterval(
 // ValidateIntervalsAgainstScopeFloor rejects explicit intervals below the scope minimum.
 func ValidateIntervalsAgainstScopeFloor(
 	inventoryDefault *metav1.Duration,
-	refs kollectdevv1alpha1.InventorySinkRefList,
+	refLists []kollectdevv1alpha1.InventorySinkRefList,
 	floor time.Duration,
 ) field.ErrorList {
 	if floor <= 0 {
@@ -154,15 +154,16 @@ func ValidateIntervalsAgainstScopeFloor(
 			fmt.Sprintf("must be at least scope minExportInterval %s", floor)))
 	}
 
-	base := field.NewPath("spec").Child("sinkRefs")
-	for i, ref := range refs {
-		if ref.ExportMinInterval == nil {
-			continue
-		}
-		if intervalBelowFloor(ref.ExportMinInterval.Duration, floor) {
-			allErrs = append(allErrs, field.Invalid(base.Index(i).Child("exportMinInterval"),
-				ref.ExportMinInterval.Duration.String(),
-				fmt.Sprintf("must be at least scope minExportInterval %s", floor)))
+	for _, refs := range refLists {
+		for i, ref := range refs {
+			if ref.ExportMinInterval == nil {
+				continue
+			}
+			if intervalBelowFloor(ref.ExportMinInterval.Duration, floor) {
+				allErrs = append(allErrs, field.Invalid(field.NewPath("spec").Child("sinkRefs").Index(i).Child("exportMinInterval"),
+					ref.ExportMinInterval.Duration.String(),
+					fmt.Sprintf("must be at least scope minExportInterval %s", floor)))
+			}
 		}
 	}
 

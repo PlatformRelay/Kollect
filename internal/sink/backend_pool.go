@@ -60,28 +60,24 @@ func acquireBackend(
 	c client.Client,
 	reg *Registry,
 	sinkNamespace, sinkName string,
+	spec kollectdevv1alpha1.KollectSinkSpec,
 ) (Backend, func(), error) {
 	if reg == nil {
 		return nil, func() {}, fmt.Errorf("sink registry is not configured")
 	}
 
-	var ks kollectdevv1alpha1.KollectSink
-	if err := c.Get(ctx, client.ObjectKey{Namespace: sinkNamespace, Name: sinkName}, &ks); err != nil {
-		return nil, func() {}, err
-	}
-
-	specHash, err := specFingerprint(ks.Spec)
+	specHash, err := specFingerprint(spec)
 	if err != nil {
 		return nil, func() {}, err
 	}
 
 	if backendPoolDisabled.Load() {
-		buildCtx, berr := BuildContextFromSpec(ctx, c, ks.Spec, sinkNamespace)
+		buildCtx, berr := BuildContextFromSpec(ctx, c, spec, sinkNamespace)
 		if berr != nil {
 			return nil, func() {}, berr
 		}
 
-		backend, berr := reg.NewBackend(ks.Spec, buildCtx)
+		backend, berr := reg.NewBackend(spec, buildCtx)
 		if berr != nil {
 			return nil, func() {}, berr
 		}
@@ -100,12 +96,12 @@ func acquireBackend(
 	}
 	globalBackendPool.mu.Unlock()
 
-	buildCtx, err := BuildContextFromSpec(ctx, c, ks.Spec, sinkNamespace)
+	buildCtx, err := BuildContextFromSpec(ctx, c, spec, sinkNamespace)
 	if err != nil {
 		return nil, func() {}, err
 	}
 
-	backend, err := reg.NewBackend(ks.Spec, buildCtx)
+	backend, err := reg.NewBackend(spec, buildCtx)
 	if err != nil {
 		return nil, func() {}, err
 	}

@@ -60,7 +60,8 @@ func (r *KollectClusterInventoryReconciler) cleanupClusterInventorySinks(
 		r.Client,
 		r.Registry,
 		sinkNS,
-		inv.Spec.SinkRefs,
+		clusterInventorySinkBindings(inv),
+		true,
 		fmt.Sprintf("inventory/cluster/%s.json", inv.Name),
 		inv.Generation,
 	)

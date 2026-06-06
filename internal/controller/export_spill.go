@@ -29,7 +29,7 @@ func assessExportSpill(
 	payloadSize int64,
 	maxBytes int64,
 	sinkNamespace string,
-	sinkRefs []string,
+	bindings []kollectdevv1alpha1.InventorySinkBinding,
 ) (spillGateResult, error) {
 	spill := export.AssessSpill(payloadSize, maxBytes)
 	if spill.ExceedsCap {
@@ -42,13 +42,12 @@ func assessExportSpill(
 	if spill.Warn {
 		log.Info("export payload exceeds spill warn threshold",
 			"bytes", payloadSize, "threshold", export.SpillWarnBytes)
-		metrics.ExportSpillWarnTotal.Inc()
 	}
 	if !spill.RequiresSpill {
 		return spillGateResult{}, nil
 	}
 
-	hasObjectStore, err := hasObjectStoreSink(ctx, c, sinkNamespace, sinkRefs)
+	hasObjectStore, err := hasObjectStoreSink(ctx, c, sinkNamespace, bindings)
 	if err != nil {
 		return spillGateResult{}, err
 	}
@@ -60,7 +59,7 @@ func assessExportSpill(
 		degraded: true,
 		reason:   spillReasonSpillRequired,
 		message: fmt.Sprintf(
-			"export payload %d bytes requires object-store spill (configure s3 or gcs sink)",
+			"export payload %d bytes requires object-store spill (configure s3 or gcs snapshot sink)",
 			payloadSize,
 		),
 	}, nil
@@ -88,14 +87,17 @@ func hasObjectStoreSink(
 	ctx context.Context,
 	c client.Client,
 	sinkNamespace string,
-	sinkRefs []string,
+	bindings []kollectdevv1alpha1.InventorySinkBinding,
 ) (bool, error) {
-	for _, name := range sinkRefs {
-		var ks kollectdevv1alpha1.KollectSink
-		if err := c.Get(ctx, client.ObjectKey{Namespace: sinkNamespace, Name: name}, &ks); err != nil {
+	for _, binding := range bindings {
+		if binding.Family != kollectdevv1alpha1.SinkFamilySnapshot {
+			continue
+		}
+		resolved, err := loadClusterInventorySink(ctx, c, sinkNamespace, binding)
+		if err != nil {
 			return false, err
 		}
-		if export.IsObjectStoreSinkType(ks.Spec.Type) {
+		if export.IsObjectStoreSinkType(resolved.Spec.Type) {
 			return true, nil
 		}
 	}

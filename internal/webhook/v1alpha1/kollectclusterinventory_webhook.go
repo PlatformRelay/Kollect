@@ -79,7 +79,7 @@ func (v *kollectClusterInventoryValidator) validate(
 	if binding.Enforced && binding.Scope != nil {
 		floor := validation.ScopeMinExportInterval(binding.Scope)
 		errs = validation.ValidateIntervalsAgainstScopeFloor(
-			inv.Spec.ExportMinInterval, inv.Spec.SinkRefs, floor)
+			inv.Spec.ExportMinInterval, kollectdevv1alpha1.AllClusterInventorySinkRefLists(&inv.Spec), floor)
 		if len(errs) > 0 {
 			return validation.ClusterInventoryInvalid(inv.Name, errs)
 		}

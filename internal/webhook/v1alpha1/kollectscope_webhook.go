@@ -54,11 +54,26 @@ func (v *kollectScopeValidator) validate(scope *kollectdevv1alpha1.KollectScope)
 		return validation.ScopeInvalid(scope.Name, errs)
 	}
 
-	return validateUniqueNonEmptyStrings(scope.Spec.SinkRefs)
+	var errs error
+	for _, check := range []struct {
+		field string
+		vals  []string
+	}{
+		{"snapshotSinkRefs", scope.Spec.SnapshotSinkRefs},
+		{"databaseSinkRefs", scope.Spec.DatabaseSinkRefs},
+		{"eventSinkRefs", scope.Spec.EventSinkRefs},
+	} {
+		if err := validateUniqueNonEmptyStrings(check.vals, check.field); err != nil {
+			if errs == nil {
+				errs = err
+			}
+		}
+	}
+	return errs
 }
 
-func validateUniqueNonEmptyStrings(values []string) error {
-	const field = "spec.sinkRefs"
+func validateUniqueNonEmptyStrings(values []string, field string) error {
+	field = "spec." + field
 	seen := make(map[string]struct{}, len(values))
 	for i, value := range values {
 		if value == "" {

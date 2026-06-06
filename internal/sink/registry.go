@@ -44,6 +44,9 @@ func NewRegistry() *Registry {
 	r.Register("postgres", newPostgresBackend)
 	r.Register("kafka", newKafkaBackend)
 	r.Register("nats", newNatsBackend)
+	r.Register("azureblob", newStubBackend("azureblob"))
+	r.Register("http", newStubBackend("http"))
+	r.Register("bigquery", newStubBackend("bigquery"))
 
 	return r
 }

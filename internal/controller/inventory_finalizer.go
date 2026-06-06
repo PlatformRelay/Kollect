@@ -60,7 +60,8 @@ func (r *KollectInventoryReconciler) cleanupInventoryDeletion(
 		r.Client,
 		r.Registry,
 		inv.Namespace,
-		inv.Spec.SinkRefs,
+		inventorySinkBindings(inv),
+		false,
 		fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name),
 		inv.Generation,
 	)
