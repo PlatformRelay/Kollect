@@ -61,10 +61,6 @@ func TestAccessCheckerCachesAllowed(t *testing.T) {
 func TestAccessCheckerCacheExpiresAfterTTL(t *testing.T) {
 	t.Parallel()
 
-	orig := accessSARCacheTTL
-	accessSARCacheTTL = 25 * time.Millisecond
-	t.Cleanup(func() { accessSARCacheTTL = orig })
-
 	client := fake.NewSimpleClientset() //nolint:staticcheck
 	calls := 0
 	client.PrependReactor(
@@ -78,6 +74,7 @@ func TestAccessCheckerCacheExpiresAfterTTL(t *testing.T) {
 		})
 
 	checker := NewAccessChecker(client)
+	checker.cacheTTL = 25 * time.Millisecond
 	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 
 	_, _ = checker.CanAccess(context.Background(), gvr, "default", "list")

@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +21,7 @@ import (
 )
 
 type recordingBackend struct {
+	mu       sync.Mutex
 	exported [][]byte
 }
 
@@ -30,6 +32,8 @@ func (r *recordingBackend) Capabilities() sink.Capabilities {
 }
 
 func (r *recordingBackend) Export(_ context.Context, payload []byte, _ string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.exported = append(r.exported, append([]byte(nil), payload...))
 
 	return nil

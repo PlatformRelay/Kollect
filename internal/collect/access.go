@@ -18,8 +18,6 @@ import (
 )
 
 // AccessChecker caches SelfSubjectAccessReview results for the operator service account.
-var accessSARCacheTTL = 30 * time.Second
-
 type accessCacheEntry struct {
 	allowed   bool
 	expiresAt time.Time
@@ -27,16 +25,18 @@ type accessCacheEntry struct {
 
 // AccessChecker caches SelfSubjectAccessReview results for the operator service account.
 type AccessChecker struct {
-	client kubernetes.Interface
-	mu     sync.RWMutex
-	cache  map[string]accessCacheEntry
+	client   kubernetes.Interface
+	mu       sync.RWMutex
+	cacheTTL time.Duration
+	cache    map[string]accessCacheEntry
 }
 
 // NewAccessChecker returns a checker backed by the Kubernetes authorization API.
 func NewAccessChecker(client kubernetes.Interface) *AccessChecker {
 	return &AccessChecker{
-		client: client,
-		cache:  make(map[string]accessCacheEntry),
+		client:   client,
+		cacheTTL: 30 * time.Second,
+		cache:    make(map[string]accessCacheEntry),
 	}
 }
 
@@ -86,7 +86,7 @@ func (a *AccessChecker) CanAccess(
 	allowed := result.Status.Allowed
 
 	a.mu.Lock()
-	a.cache[key] = accessCacheEntry{allowed: allowed, expiresAt: time.Now().Add(accessSARCacheTTL)}
+	a.cache[key] = accessCacheEntry{allowed: allowed, expiresAt: time.Now().Add(a.cacheTTL)}
 	a.mu.Unlock()
 
 	return allowed, nil
