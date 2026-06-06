@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **e2e,test:** Stabilize smoke bootstrap and debounce IT [39f87ee](https://github.com/konih/kollect/commit/39f87ee23268b1a61bd6a8968ad29ca686d3080e)
+
 - **samples:** Drop legacy sinkRefs from team-a scope [2173042](https://github.com/konih/kollect/commit/2173042a41c0a03532313f4ee2f0ce7982f34831)
 
 - **e2e:** Wait on family sink CRDs in kind smoke [5de28a0](https://github.com/konih/kollect/commit/5de28a060ea167d232c4fe04e273a3a12d58b4eb)
