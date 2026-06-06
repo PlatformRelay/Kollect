@@ -73,6 +73,33 @@ func TestStoreNamespaceIsolation(t *testing.T) {
 	}
 }
 
+func TestStoreSubscribeNamespaces(t *testing.T) {
+	t.Parallel()
+
+	s := NewStore()
+	ch := s.SubscribeNamespaces()
+	defer s.UnsubscribeNamespaces(ch)
+
+	s.Upsert(Item{
+		TargetNamespace: "team-a",
+		TargetName:      "deploys",
+		UID:             "uid-1",
+		Namespace:       "apps",
+		Name:            "web",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+
+	select {
+	case ns := <-ch:
+		if ns != "team-a" {
+			t.Fatalf("namespace = %q, want team-a", ns)
+		}
+	default:
+		t.Fatal("expected namespace watcher notification")
+	}
+}
+
 func TestStoreSubscribeAndMarshal(t *testing.T) {
 	t.Parallel()
 

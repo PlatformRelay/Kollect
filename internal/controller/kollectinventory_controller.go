@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,9 +15,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crbuilder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -112,6 +115,15 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	if len(inv.Spec.SinkRefs) > 0 {
+		if outcome, allDebounced := r.previewAllSinksDebounced(&inv, req.String(), fingerprint); allDebounced {
+			metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Add(float64(outcome.DebouncedCount))
+			itemCount = len(items)
+
+			return r.updateStatus(ctx, &inv, itemCount, outcome)
+		}
+	}
+
 	payload, err := r.Store.MarshalNamespaceExport(inv.Namespace, collect.ExportMetadata{
 		Generation: inv.Generation,
 	})
@@ -134,7 +146,9 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	itemCount = r.Store.CountForNamespace(inv.Namespace)
 
 	if err := spoke.TryPublishReport(ctx, r.Store, &inv); err != nil {
-		log.Error(err, "spoke hub publish")
+		log.Error(err, "spoke hub publish", "inventory", inv.Name, "namespace", inv.Namespace)
+		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, "SpokePublishFailed", err.Error())
+		recordWarning(r.Recorder, &inv, "SpokePublishFailed", err.Error())
 	}
 
 	if len(inv.Spec.SinkRefs) == 0 {
@@ -142,7 +156,19 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.updateStatus(ctx, &inv, itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)})
 	}
 
-	outcome := r.exportToSinks(ctx, log, &inv, req.String(), items, fingerprint)
+	return r.applyInventoryExportOutcome(ctx, log, &inv, itemCount, req.String(), items, fingerprint)
+}
+
+func (r *KollectInventoryReconciler) applyInventoryExportOutcome(
+	ctx context.Context,
+	log logrLogger,
+	inv *kollectdevv1alpha1.KollectInventory,
+	itemCount int,
+	invKey string,
+	items []collect.Item,
+	fingerprint string,
+) (ctrl.Result, error) {
+	outcome := r.exportToSinks(ctx, log, inv, invKey, items, fingerprint)
 	if isTotalExportFailure(outcome) {
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(outcome.ExportErr)).Inc()
 		reason := reasonProgressing
@@ -151,9 +177,9 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, outcome.ExportErr)
 		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, outcome.ExportErr.Error())
-		recordWarning(r.Recorder, &inv, reason, outcome.ExportErr.Error())
+		recordWarning(r.Recorder, inv, reason, outcome.ExportErr.Error())
 
-		result, err := r.setInventoryDegraded(ctx, &inv, itemCount, reason, outcome.ExportErr.Error())
+		result, err := r.setInventoryDegraded(ctx, inv, itemCount, reason, outcome.ExportErr.Error())
 		if kollecterrors.IsTerminal(outcome.ExportErr) {
 			result.RequeueAfter = 0
 		}
@@ -163,10 +189,10 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if outcome.ExportErr != nil {
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(outcome.ExportErr)).Inc()
-		recordWarning(r.Recorder, &inv, reasonExportFailed, outcome.ExportErr.Error())
+		recordWarning(r.Recorder, inv, reasonExportFailed, outcome.ExportErr.Error())
 	}
 
-	return r.updateStatus(ctx, &inv, itemCount, outcome)
+	return r.updateStatus(ctx, inv, itemCount, outcome)
 }
 
 func (r *KollectInventoryReconciler) exportToSinks(
@@ -183,11 +209,20 @@ func (r *KollectInventoryReconciler) exportToSinks(
 
 	var outcome perSinkExportOutcome
 	outcome.RequeueAfter = defaultInterval
+	outcome.SinkExports = make([]kollectdevv1alpha1.InventorySinkExportStatus, 0, len(inv.Spec.SinkRefs))
 
+	type sinkJob struct {
+		ref      kollectdevv1alpha1.InventorySinkRef
+		sinkObj  *kollectdevv1alpha1.KollectSink
+		interval time.Duration
+		status   *kollectdevv1alpha1.InventorySinkExportStatus
+	}
+
+	jobs := make([]sinkJob, 0, len(inv.Spec.SinkRefs))
 	for _, ref := range inv.Spec.SinkRefs {
 		sinkObj, err := r.loadSink(ctx, inv.Namespace, ref.Name)
+		status := upsertSinkExportStatus(&outcome.SinkExports, ref.Name)
 		if err != nil {
-			status := upsertSinkExportStatus(&outcome.SinkExports, ref.Name)
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
 			outcome.FailedCount++
 			outcome.ExportErr = err
@@ -196,7 +231,109 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		}
 
 		interval := validation.ResolveSinkExportInterval(ref, sinkObj, defaultInterval, scopeFloor)
+		if r.sinkCoalesce.shouldSkip(invKey, ref.Name, inv.Generation, checksum, interval, now) {
+			outcome.DebouncedCount++
+			metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Inc()
+			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
+				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
+					r.sinkCoalesce.nextDue(invKey, ref.Name, interval, now).Round(time.Second),
+					interval))
+			nextDue := r.sinkCoalesce.nextDue(invKey, ref.Name, interval, now)
+			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
+			continue
+		}
+
+		jobs = append(jobs, sinkJob{ref: ref, sinkObj: sinkObj, interval: interval, status: status})
+	}
+
+	if len(jobs) == 0 {
+		return outcome
+	}
+
+	envelope, err := export.MarshalEnvelope(items, export.Metadata{
+		Generation: inv.Generation,
+		ExportedAt: now.UTC(),
+	})
+	if err != nil {
+		outcome.ExportErr = err
+		outcome.FailedCount = len(jobs)
+
+		return outcome
+	}
+
+	objectPath := fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name)
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for _, job := range jobs {
+		wg.Add(1)
+
+		go func(job sinkJob) {
+			defer wg.Done()
+
+			err := sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
+				Ctx:           ctx,
+				Client:        r.Client,
+				Registry:      r.Registry,
+				SinkNamespace: inv.Namespace,
+				SinkName:      job.ref.Name,
+				ObjectPath:    objectPath,
+				Envelope:      envelope,
+				SinkSpec:      job.sinkObj.Spec,
+			})
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if err != nil {
+				log.Error(err, "export failed", "sink", job.ref.Name)
+				outcome.FailedCount++
+				outcome.ExportErr = err
+				outcome.FailedSink = job.ref.Name
+				setSinkExportSynced(job.status, inv.Generation, false, reasonExportFailed, err.Error())
+
+				return
+			}
+
+			r.sinkCoalesce.record(invKey, job.ref.Name, inv.Generation, checksum, now)
+			exportTime := metav1.Now()
+			job.status.LastExportTime = &exportTime
+			job.status.LastChecksum = checksum
+			setSinkExportSynced(job.status, inv.Generation, true, "Exported", "export completed")
+			outcome.ExportedCount++
+			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter,
+				validation.RequeueAfterForZeroInterval(job.interval))
+		}(job)
+	}
+
+	wg.Wait()
+
+	return outcome
+}
+
+func (r *KollectInventoryReconciler) previewAllSinksDebounced(
+	inv *kollectdevv1alpha1.KollectInventory,
+	invKey, checksum string,
+) (perSinkExportOutcome, bool) {
+	if len(inv.Spec.SinkRefs) == 0 {
+		return perSinkExportOutcome{}, false
+	}
+
+	now := time.Now()
+	defaultInterval := r.exportDebounce(inv)
+	scopeFloor := r.scopeFloor(context.Background(), inv.Namespace)
+
+	var outcome perSinkExportOutcome
+	outcome.RequeueAfter = defaultInterval
+	allDebounced := true
+
+	for _, ref := range inv.Spec.SinkRefs {
 		status := upsertSinkExportStatus(&outcome.SinkExports, ref.Name)
+		interval := defaultInterval
+		if sinkObj, err := r.loadSink(context.Background(), inv.Namespace, ref.Name); err == nil {
+			interval = validation.ResolveSinkExportInterval(ref, sinkObj, defaultInterval, scopeFloor)
+		}
 
 		if r.sinkCoalesce.shouldSkip(invKey, ref.Name, inv.Generation, checksum, interval, now) {
 			outcome.DebouncedCount++
@@ -209,34 +346,16 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			continue
 		}
 
-		if err := sink.RunExportItems(sink.ExportItemsRequest{
-			Ctx:           ctx,
-			Client:        r.Client,
-			Registry:      r.Registry,
-			SinkNamespace: inv.Namespace,
-			SinkName:      ref.Name,
-			ObjectPath:    fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name),
-			Items:         items,
-			Meta:          export.Metadata{Generation: inv.Generation},
-		}); err != nil {
-			log.Error(err, "export failed", "sink", ref.Name)
-			outcome.FailedCount++
-			outcome.ExportErr = err
-			outcome.FailedSink = ref.Name
-			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
-			continue
-		}
+		allDebounced = false
 
-		r.sinkCoalesce.record(invKey, ref.Name, inv.Generation, checksum, now)
-		exportTime := metav1.Now()
-		status.LastExportTime = &exportTime
-		status.LastChecksum = checksum
-		setSinkExportSynced(status, inv.Generation, true, "Exported", "export completed")
-		outcome.ExportedCount++
-		outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, validation.RequeueAfterForZeroInterval(interval))
+		break
 	}
 
-	return outcome
+	if !allDebounced || outcome.DebouncedCount != len(inv.Spec.SinkRefs) {
+		return perSinkExportOutcome{}, false
+	}
+
+	return outcome, true
 }
 
 type logrLogger interface {
@@ -249,8 +368,9 @@ func (r *KollectInventoryReconciler) loadSink(
 ) (*kollectdevv1alpha1.KollectSink, error) {
 	var ks kollectdevv1alpha1.KollectSink
 	if err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, &ks); err != nil {
-		return nil, fmt.Errorf("get KollectSink %q: %w", name, err)
+		return nil, kollecterrors.ClassifyAPI(fmt.Errorf("get KollectSink %q: %w", name, err))
 	}
+
 	return &ks, nil
 }
 
@@ -375,19 +495,31 @@ func (r *KollectInventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Recorder = mgr.GetEventRecorderFor("kollectinventory-controller")
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	targetPredicate := predicate.Or(
+		predicate.GenerationChangedPredicate{},
+		predicate.AnnotationChangedPredicate{},
+		predicate.LabelChangedPredicate{},
+	)
+
+	invBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&kollectdevv1alpha1.KollectInventory{}).
 		WithOptions(opts).
 		Watches(
 			&kollectdevv1alpha1.KollectTarget{},
 			handler.EnqueueRequestsFromMapFunc(r.mapTargetToInventories),
+			crbuilder.WithPredicates(targetPredicate),
 		).
 		Watches(
 			&kollectdevv1alpha1.KollectSink{},
 			handler.EnqueueRequestsFromMapFunc(r.mapSinkToInventories),
 		).
-		Named("kollectinventory").
-		Complete(r)
+		Named("kollectinventory")
+
+	if r.Store != nil {
+		invBuilder = invBuilder.WatchesRawSource(newInventoryStoreSource(r.Store, r.Client))
+	}
+
+	return invBuilder.Complete(r)
 }
 
 func (r *KollectInventoryReconciler) mapSinkToInventories(
@@ -403,6 +535,7 @@ func (r *KollectInventoryReconciler) mapSinkToInventories(
 	if err := r.List(ctx, &list, client.InNamespace(sinkObj.Namespace)); err != nil {
 		logf.FromContext(ctx).Error(err, "failed to list inventories for sink watch mapping",
 			"sink", sinkObj.Name, "namespace", sinkObj.Namespace)
+		metrics.WatchMapListErrorsTotal.WithLabelValues("KollectInventory", "sink").Inc()
 
 		return nil
 	}
@@ -436,16 +569,10 @@ func (r *KollectInventoryReconciler) mapTargetToInventories(
 	if err := r.List(ctx, &list, client.InNamespace(target.Namespace)); err != nil {
 		logf.FromContext(ctx).Error(err, "failed to list inventories for target watch mapping",
 			"target", target.Name, "namespace", target.Namespace)
+		metrics.WatchMapListErrorsTotal.WithLabelValues("KollectInventory", "target").Inc()
 
 		return nil
 	}
 
-	reqs := make([]reconcile.Request, 0, len(list.Items))
-	for i := range list.Items {
-		reqs = append(reqs, reconcile.Request{
-			NamespacedName: client.ObjectKeyFromObject(&list.Items[i]),
-		})
-	}
-
-	return reqs
+	return inventoriesInNamespace(ctx, r.Client, target.Namespace)
 }

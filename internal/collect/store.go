@@ -29,17 +29,19 @@ type Item struct {
 //     reduce lock contention and snapshot payload size.
 //   - Hub deployments should not mirror full spoke stores; push summarized deltas only.
 type Store struct {
-	mu       sync.RWMutex
-	items    map[string]map[string]Item
-	watchMu  sync.RWMutex
-	watchers map[chan struct{}]struct{}
+	mu         sync.RWMutex
+	items      map[string]map[string]Item
+	watchMu    sync.RWMutex
+	watchers   map[chan struct{}]struct{}
+	nsWatchers map[chan string]struct{}
 }
 
 // NewStore returns an empty in-memory collection store.
 func NewStore() *Store {
 	return &Store{
-		items:    make(map[string]map[string]Item),
-		watchers: make(map[chan struct{}]struct{}),
+		items:      make(map[string]map[string]Item),
+		watchers:   make(map[chan struct{}]struct{}),
+		nsWatchers: make(map[chan string]struct{}),
 	}
 }
 
@@ -62,13 +64,39 @@ func (s *Store) Unsubscribe(ch chan struct{}) {
 	s.watchMu.Unlock()
 }
 
-func (s *Store) notifyWatchers() {
+// SubscribeNamespaces returns a channel that receives the target namespace on store changes.
+// The caller must call UnsubscribeNamespaces when done.
+func (s *Store) SubscribeNamespaces() chan string {
+	ch := make(chan string, 8)
+
+	s.watchMu.Lock()
+	s.nsWatchers[ch] = struct{}{}
+	s.watchMu.Unlock()
+
+	return ch
+}
+
+// UnsubscribeNamespaces removes a watcher created by SubscribeNamespaces.
+func (s *Store) UnsubscribeNamespaces(ch chan string) {
+	s.watchMu.Lock()
+	delete(s.nsWatchers, ch)
+	s.watchMu.Unlock()
+}
+
+func (s *Store) notifyWatchers(targetNamespace string) {
 	s.watchMu.RLock()
 	defer s.watchMu.RUnlock()
 
 	for ch := range s.watchers {
 		select {
 		case ch <- struct{}{}:
+		default:
+		}
+	}
+
+	for ch := range s.nsWatchers {
+		select {
+		case ch <- targetNamespace:
 		default:
 		}
 	}
@@ -90,7 +118,7 @@ func (s *Store) Upsert(item Item) {
 	}
 
 	s.items[key][item.UID] = item
-	s.notifyWatchers()
+	s.notifyWatchers(item.TargetNamespace)
 }
 
 // RemoveTarget drops all items for a target.
@@ -101,7 +129,7 @@ func (s *Store) RemoveTarget(targetNamespace, targetName string) {
 	defer s.mu.Unlock()
 
 	delete(s.items, key)
-	s.notifyWatchers()
+	s.notifyWatchers(targetNamespace)
 }
 
 // CountForTarget returns items collected for one target.
@@ -152,7 +180,7 @@ func (s *Store) RestoreTarget(targetNamespace, targetName string, prior map[stri
 		s.items[key] = cp
 	}
 
-	s.notifyWatchers()
+	s.notifyWatchers(targetNamespace)
 }
 
 // SnapshotTarget returns all items for one target (hub merge uses cluster as target namespace).
@@ -202,7 +230,7 @@ func (s *Store) Remove(targetNamespace, targetName, uid string) {
 		}
 	}
 
-	s.notifyWatchers()
+	s.notifyWatchers(targetNamespace)
 }
 
 // CountForNamespace returns total items for targets in the given namespace.
