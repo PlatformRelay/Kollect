@@ -234,11 +234,14 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(recorder.exported).To(HaveLen(2))
 
+		updated := &kollectdevv1alpha1.KollectClusterInventory{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: inventoryName}, updated)).To(Succeed())
+		Expect(updated.Status.SinkExports).To(HaveLen(2))
+
 		_, err = invReconciler.Reconcile(context.Background(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(recorder.exported).To(HaveLen(2), "second reconcile should debounce both sinks")
 
-		updated := &kollectdevv1alpha1.KollectClusterInventory{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: inventoryName}, updated)).To(Succeed())
 		for _, exportStatus := range updated.Status.SinkExports {
 			debounced := apimeta.FindStatusCondition(exportStatus.Conditions, conditionSinkSynced)

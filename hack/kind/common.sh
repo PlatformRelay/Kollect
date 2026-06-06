@@ -171,7 +171,9 @@ kollect_wait_crds_established() {
     kollectprofiles.kollect.dev \
     kollecttargets.kollect.dev \
     kollectinventories.kollect.dev \
-    kollectsinks.kollect.dev \
+    kollectsnapshotsinks.kollect.dev \
+    kollectdatabasesinks.kollect.dev \
+    kollecteventsinks.kollect.dev \
     kollectscopes.kollect.dev \
     kollectclusterprofiles.kollect.dev \
     kollectclustertargets.kollect.dev \

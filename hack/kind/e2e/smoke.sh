@@ -21,9 +21,11 @@ _log "Asserting CRDs established..."
 kubectl wait --for=condition=Established crd/kollectprofiles.kollect.dev --timeout="$WAIT_TIMEOUT"
 kubectl wait --for=condition=Established crd/kollecttargets.kollect.dev --timeout="$WAIT_TIMEOUT"
 kubectl wait --for=condition=Established crd/kollectinventories.kollect.dev --timeout="$WAIT_TIMEOUT"
-kubectl wait --for=condition=Established crd/kollectsinks.kollect.dev --timeout="$WAIT_TIMEOUT"
+kubectl wait --for=condition=Established crd/kollectsnapshotsinks.kollect.dev --timeout="$WAIT_TIMEOUT"
+kubectl wait --for=condition=Established crd/kollectdatabasesinks.kollect.dev --timeout="$WAIT_TIMEOUT"
+kubectl wait --for=condition=Established crd/kollecteventsinks.kollect.dev --timeout="$WAIT_TIMEOUT"
 kubectl wait --for=condition=Established crd/kollectscopes.kollect.dev --timeout="$WAIT_TIMEOUT"
-kubectl get kollectprofiles,kollecttargets,kollectinventories,kollectsinks -A
+kubectl get kollectprofiles,kollecttargets,kollectinventories,kollectsnapshotsinks,kollectdatabasesinks -A
 
 _log "Probing inventory HTTP..."
 kubectl port-forward -n "$KOLLECT_NAMESPACE" svc/kollect-controller-manager 18082:8082 &
