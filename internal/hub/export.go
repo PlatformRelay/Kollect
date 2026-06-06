@@ -11,11 +11,13 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/export"
+	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink"
 )
 
@@ -25,6 +27,8 @@ type Exporter struct {
 	Client   client.Client
 	Registry *sink.Registry
 	Config   ExportConfig
+
+	coalesce hubExportCoalesce
 }
 
 // ExportAfterMerge exports the merged target inventory to all configured sinks.
@@ -44,6 +48,9 @@ func (e *Exporter) ExportAfterMerge(ctx context.Context, report SpokeReport) err
 	}
 
 	items := e.Store.SnapshotTarget(targetNS, targetName)
+	checksum := checksumForItems(items, report)
+	interval := e.Config.ExportMinInterval
+	now := time.Now()
 
 	invNS := report.InventoryRef.Namespace
 	if invNS == "" {
@@ -64,6 +71,11 @@ func (e *Exporter) ExportAfterMerge(ctx context.Context, report SpokeReport) err
 	)
 
 	for _, sinkName := range e.Config.SinkRefs {
+		if e.coalesce.shouldSkip(report.Cluster, sinkName, report.Generation, checksum, interval, now) {
+			metrics.ExportDebouncedTotal.WithLabelValues("KollectHub").Inc()
+			continue
+		}
+
 		wg.Add(1)
 
 		go func(name string) {
@@ -85,7 +97,11 @@ func (e *Exporter) ExportAfterMerge(ctx context.Context, report SpokeReport) err
 				mu.Lock()
 				errs = append(errs, fmt.Errorf("sink %q: %w", name, err))
 				mu.Unlock()
+
+				return
 			}
+
+			e.coalesce.record(report.Cluster, name, report.Generation, checksum, now)
 		}(sinkName)
 	}
 

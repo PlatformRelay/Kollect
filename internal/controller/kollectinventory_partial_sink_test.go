@@ -57,7 +57,7 @@ func TestKollectInventoryReconciler_exportToSinks_continuesOnPartialFailure(t *t
 	}
 
 	sinkOK := &kollectdevv1alpha1.KollectSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "sink-ok", Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: "partial-sink-ok", Namespace: "default"},
 		Spec: kollectdevv1alpha1.KollectSinkSpec{
 			Type: "postgres",
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
@@ -67,7 +67,7 @@ func TestKollectInventoryReconciler_exportToSinks_continuesOnPartialFailure(t *t
 		},
 	}
 	sinkFail := &kollectdevv1alpha1.KollectSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "sink-fail", Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: "partial-sink-fail", Namespace: "default"},
 		Spec: kollectdevv1alpha1.KollectSinkSpec{
 			Type: "postgres",
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
@@ -80,8 +80,8 @@ func TestKollectInventoryReconciler_exportToSinks_continuesOnPartialFailure(t *t
 		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default", Generation: 1},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
 			SinkRefs: kollectdevv1alpha1.InventorySinkRefList{
-				{Name: "sink-fail"},
-				{Name: "sink-ok"},
+				{Name: "partial-sink-fail"},
+				{Name: "partial-sink-ok"},
 			},
 		},
 	}
@@ -116,6 +116,11 @@ func TestKollectInventoryReconciler_exportToSinks_continuesOnPartialFailure(t *t
 		Registry: reg,
 	}
 
+	t.Cleanup(func() {
+		sink.EvictBackendPool("default", "partial-sink-fail")
+		sink.EvictBackendPool("default", "partial-sink-ok")
+	})
+
 	outcome := rec.exportToSinks(
 		context.Background(),
 		noopLogger{},
@@ -138,7 +143,14 @@ func TestKollectInventoryReconciler_exportToSinks_continuesOnPartialFailure(t *t
 	if okSynced == nil || okSynced.Status != metav1.ConditionTrue {
 		t.Fatalf("ok sink condition = %#v", okSynced)
 	}
-	failSynced := apimeta.FindStatusCondition(outcome.SinkExports[0].Conditions, conditionSinkSynced)
+	var failSynced *metav1.Condition
+	for i := range outcome.SinkExports {
+		if outcome.SinkExports[i].Name == "partial-sink-fail" {
+			failSynced = apimeta.FindStatusCondition(outcome.SinkExports[i].Conditions, conditionSinkSynced)
+
+			break
+		}
+	}
 	if failSynced == nil || failSynced.Reason != reasonExportFailed {
 		t.Fatalf("failed sink condition = %#v", failSynced)
 	}

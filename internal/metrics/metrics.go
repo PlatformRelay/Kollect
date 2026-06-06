@@ -141,6 +141,22 @@ var (
 		},
 		[]string{"hub", "cluster"},
 	)
+
+	ExportDebouncedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_export_debounced_total",
+			Help: "Export attempts skipped by per-sink debounce coalescing.",
+		},
+		[]string{"controller"},
+	)
+
+	WatchMapListErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_watch_map_list_errors_total",
+			Help: "Secondary watch map handlers that failed to list related objects.",
+		},
+		[]string{"controller", "watch"},
+	)
 )
 
 // Register adds kollect custom metrics to the controller-runtime registry.
@@ -163,5 +179,7 @@ func Register() {
 		customResourceLabeledCollector{},
 		HubSpokeReportsTotal,
 		HubMergedItemsTotal,
+		ExportDebouncedTotal,
+		WatchMapListErrorsTotal,
 	)
 }

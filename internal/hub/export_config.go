@@ -6,6 +6,7 @@ package hub
 import (
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -15,8 +16,9 @@ const (
 
 // ExportConfig configures hub-side parallel sink fan-out after spoke merge.
 type ExportConfig struct {
-	ExportNamespace string
-	SinkRefs        []string
+	ExportNamespace   string
+	SinkRefs          []string
+	ExportMinInterval time.Duration
 }
 
 // ExportEnabled reports whether post-merge sink export is configured.
