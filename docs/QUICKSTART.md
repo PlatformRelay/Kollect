@@ -32,37 +32,51 @@ live API access.
 
 === "kind (local dev)"
 
-    From the repo root, **`task kind-dev-up`** creates the `kollect-dev` cluster, loads the operator image,
-    and deploys Helm (ingress/Grafana addons unless `KOLLECT_DEV_MINIMAL=1`). See [DEVELOPMENT.md](DEVELOPMENT.md).
+    From the repo root, **one command** builds the manager, creates the `kollect-dev` cluster, loads the
+    image, and installs the operator (ingress/Grafana addons unless `KOLLECT_DEV_MINIMAL=1`):
 
     ```sh
-    # 1. Cluster
-    kind create cluster --name kollect-dev
-
-    # 2. Clone and build (skip if already in repo root)
     git clone https://github.com/konih/kollect.git && cd kollect
-    task build
-
-    # 3. CRDs + operator
-    task install:crds
-    task docker:build
-    kind load docker-image kollect-controller-manager:dev --name kollect-dev
-    task deploy:operator
-
-    # 4. Wait for manager pod
-    kubectl -n kollect-system rollout status deployment/kollect-controller-manager --timeout=120s
-
-    # 5. Sample inventory pipeline (profile → sink → target → inventory)
-    kubectl apply -k config/samples/
+    task dev-up                       # build + kind cluster + operator + sample CRs
     ```
 
-    Consolidated install manifest (alternative):
+    `task dev-up` already applies `config/samples/`. To wait for the manager and re-apply samples
+    yourself:
 
     ```sh
-    make build-installer IMG=kollect-controller-manager:dev
-    kubectl apply -f dist/install.yaml
-    kubectl apply -k config/samples/
+    kubectl -n kollect-system rollout status deployment/kollect-controller-manager --timeout=120s
+    kubectl apply -k config/samples/   # profile → sink → target → inventory
     ```
+
+    ??? note "Prefer explicit steps? (build and deploy by hand)"
+
+        ```sh
+        # 1. Cluster
+        kind create cluster --name kollect-dev
+
+        # 2. Build
+        task build
+
+        # 3. CRDs + operator image
+        task install:crds
+        task docker:build
+        kind load docker-image kollect-controller-manager:dev --name kollect-dev
+        task deploy:operator
+
+        # 4. Wait for the manager pod
+        kubectl -n kollect-system rollout status deployment/kollect-controller-manager --timeout=120s
+
+        # 5. Sample inventory pipeline (profile → sink → target → inventory)
+        kubectl apply -k config/samples/
+        ```
+
+        Consolidated install manifest (alternative):
+
+        ```sh
+        make build-installer IMG=kollect-controller-manager:dev
+        kubectl apply -f dist/install.yaml
+        kubectl apply -k config/samples/
+        ```
 
 === "Helm"
 

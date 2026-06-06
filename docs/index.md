@@ -67,6 +67,68 @@ The in-memory snapshot per inventory is **canonical**; every sink is a **project
 single backend is privileged. Sink roles (snapshot store, relational store, event emitter) are
 documented in [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), not repeated here.
 
+## The resource model
+
+A pipeline is just a handful of Kubernetes resources: **config you declare** (`KollectProfile`,
+`KollectSink`, `KollectScope`) and **objects the operator reconciles** (`KollectTarget`,
+`KollectInventory`). Cluster-scoped `KollectCluster*` variants add cross-namespace rollup.
+
+```mermaid
+flowchart LR
+  K8s(["Kubernetes API"]):::api
+
+  subgraph declare["You declare — static config"]
+    direction TB
+    Profile["<b>KollectProfile</b><br/>what to extract"]
+    Scope["<b>KollectScope</b><br/>guardrails"]
+    Sink["<b>KollectSink</b><br/>where to send"]
+  end
+
+  subgraph run["Operator reconciles"]
+    direction TB
+    Target["<b>KollectTarget</b><br/>what to watch"]
+    Inv["<b>KollectInventory</b><br/>aggregate · debounce · export"]
+  end
+
+  subgraph out["Sink projections — choose any"]
+    direction TB
+    Snap["Git · GitLab · S3 · GCS<br/><i>snapshot store</i>"]
+    Rel["Postgres<br/><i>relational SoR</i>"]
+    Evt["NATS · Kafka<br/><i>event emitter</i>"]
+  end
+
+  K8s -- "informer per GVK" --> Target
+  Profile --> Target
+  Target --> Inv
+  Scope -. gates .-> Target
+  Scope -. gates .-> Inv
+  Inv --> Sink
+  Sink --> Snap
+  Sink --> Rel
+  Sink --> Evt
+
+  classDef api fill:#1F2937,stroke:#6B7280,color:#fff;
+  classDef config fill:#326CE5,stroke:#1b3a8c,color:#fff;
+  classDef work fill:#18B6A3,stroke:#0e6f63,color:#fff;
+  classDef proj fill:#7FB3FF,stroke:#326CE5,color:#081A4B;
+
+  class Profile,Scope,Sink config;
+  class Target,Inv work;
+  class Snap,Rel,Evt proj;
+```
+
+| Kind | You set | Role |
+| --- | --- | --- |
+| `KollectProfile` | GVK + CEL / JSONPath attributes | **What to extract** from each object |
+| `KollectTarget` | selectors + `profileRef` | **What to watch** and collect |
+| `KollectInventory` | `sinkRefs` + cadence | **Aggregate, debounce, and export** |
+| `KollectSink` | type + endpoint + `secretRef` | **Where to send** (Git, Postgres, Kafka, …) |
+| `KollectScope` | allowed GVKs / namespaces / sinks | **Guardrails** for the team namespace |
+
+Full fields: [CR reference](CR-REFERENCE.md) · model rationale: [ADR-0201](adr/0201-crd-model.md).
+
+## Why Kollect?
+
 <div class="kollect-grid" markdown="1">
 
 <div class="kollect-card" markdown="1">
@@ -118,24 +180,17 @@ required** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
 | **Reference** | [Custom resources](CR-REFERENCE.md) · [FAQ](FAQ.md) · [ADRs](adr/README.md) |
 | **Contributing** | [Roadmap](ROADMAP.md) · [Release process](RELEASE.md) |
 
-## Learn more
+## Try an example
 
-| Topic | Link |
-| --- | --- |
-| Problem statement, CRD model, reconciliation | [Architecture](ARCHITECTURE.md) |
-| Locked platform decisions | [Platform decisions](PLATFORM-DECISIONS.md) |
-| CR fields, RBAC, failure modes | [CR reference](CR-REFERENCE.md) |
-| Multi-cluster & hub/spoke | [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) |
-| Sink taxonomy (state vs stream) | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
-| Build-order phases and status | [Roadmap](ROADMAP.md) |
-| Read-only UI console (v0.2 MVP) | [ADR-0408](adr/0408-read-api-ui-architecture.md) · [ADR-0409](adr/0409-kollect-ui-deployment.md) |
-| Examples index | [Examples](examples/README.md) |
-| Example: Deployment → Git export | [Walkthrough](examples/deployment-inventory.md) |
-| Live demo inventory (Git sink) | [kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo) |
-
-## Examples
-
-- [Deployment inventory → Git / Postgres / Kafka](examples/deployment-inventory.md)
+- [Deployment inventory → Git / Postgres / Kafka](examples/deployment-inventory.md) — the end-to-end walkthrough
 - [Postgres state store (relational SoR)](examples/postgres-state-store.md)
 - [NATS event sink](examples/nats-event-sink.md)
 - [Helm release inventory (Argo primary; Flux secondary)](examples/helm-release-inventory.md)
+- [Live demo inventory exported to Git](https://github.com/konih/kollect-inventory-demo) — see real output
+
+## Go deeper
+
+- [Platform decisions](PLATFORM-DECISIONS.md) — the locked design summary
+- [Sink taxonomy: state vs stream](adr/0401-sink-taxonomy-state-vs-stream.md) — why no backend is privileged
+- [Read-only UI console](adr/0408-read-api-ui-architecture.md) — v0.2 MVP ([deployment](adr/0409-kollect-ui-deployment.md))
+- [Roadmap](ROADMAP.md) — build-order phases and current status
