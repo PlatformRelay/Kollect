@@ -106,9 +106,10 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 
 | | |
 | --- | --- |
-| **Status** | Planned |
-| **Summary** | Wire **`KollectConnectionTest`** and sink annotation probes for **`gcs`** and **`nats`** sink types (Git, Postgres, Kafka, S3, GitLab probes exist; GCS/NATS marked ⬜ in CR reference). |
-| **Related ADRs** | [ADR-0403](../adr/0403-connection-test.md) · [kollectsink CR reference](../crds/kollectsink.md) |
+| **Status** | Shipped (Phase 1) |
+| **Roadmap** | Phase 1 ✅ |
+| **Summary** | **`KollectConnectionTest`** and family sink annotation probes for **`gcs`** (`KollectSnapshotSink`) and **`nats`** (`KollectEventSink`) — alongside Git, Postgres, Kafka, S3, and GitLab probes. |
+| **Related ADRs** | [ADR-0403](../adr/0403-connection-test.md) · [ADR-0414](../adr/0414-sink-family-crds.md) · [KollectSnapshotSink](../crds/kollectsnapshotsink.md) · [KollectEventSink](../crds/kollecteventsink.md) |
 
 ---
 

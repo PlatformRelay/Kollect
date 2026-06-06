@@ -12,11 +12,12 @@ mechanisms remain valid.
 Product requirements call for a **first-class connection test** with clear, discoverable feedback
 when sinks are misconfigured ([REQUIREMENTS.md](../REQUIREMENTS.md), [engineering guidelines](../development/guidelines.md)).
 
-[ADR-0202](0202-static-vs-reconciled.md) originally assumed static `KollectSink` objects with **no
+[ADR-0202](0202-static-vs-reconciled.md) originally assumed static sink config objects with **no
 controller**, probing via annotations and surfacing `SinkReachable` on reconciled
-`KollectTarget` / `KollectInventory`. Implementation added a **minimal `KollectSink` reconciler**
-that runs connectivity checks and writes `ConnectionVerified` on the sink
-(`internal/controller/kollectsink_controller.go`).
+`KollectTarget` / `KollectInventory`. Implementation added **minimal family sink reconcilers**
+(`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) that run connectivity checks
+and write `ConnectionVerified` on the sink
+(`internal/controller/family_sink_connection.go`).
 
 An alternative is a dedicated **`KollectConnectionTest`** CR (apply a test object, wait on status,
 garbage-collect). That pattern helps composite or cross-cluster probes but adds API surface, RBAC,
@@ -27,7 +28,7 @@ webhooks, and orphan CR lifecycle.
 ### ~~Reject `KollectConnectionTest` CR~~ → **Accepted in ADR-0703**
 
 Add namespaced **`KollectConnectionTest`** for audited/CI/composite probes. Keep **declarative
-spec** + **imperative annotation** on `KollectSink` for quick sink-only retests, plus pipeline
+spec** + **imperative annotation** on family sink CRDs for quick sink-only retests, plus pipeline
 conditions on reconciled objects.
 
 ### Sink connectivity (implemented)
@@ -39,16 +40,20 @@ conditions on reconciled objects.
 | **Annotation `kollect.dev/test-connection: "true"`** | One-shot re-test without editing spec |
 
 Probe uses the same TLS trust and secret resolution as export (`caBundle` / `caSecretRef`,
-`secretRef`). Supported types today:
+`secretRef`). Supported types today (per family CRD):
 
-| `spec.type` | Probe wired |
-| --- | --- |
-| `git`, `gitlab`, `postgres`, `kafka`, `s3` | ✅ |
-| `nats`, `gcs` | ⬜ not wired ([kollectsink.md](../crds/kollectsink.md)) |
+| Family CRD | `spec.type` | Probe wired |
+| --- | --- | --- |
+| `KollectSnapshotSink` | `git`, `gitlab`, `s3`, `gcs` | ✅ |
+| `KollectDatabaseSink` | `postgres` | ✅ |
+| `KollectEventSink` | `kafka`, `nats` | ✅ |
+
+Stub backends (`azureblob`, `http`, `bigquery`) register in the sink registry but return *not
+implemented* at probe/export time until shipped.
 
 Extend per sink as backends mature.
 
-**Status on `KollectSink`:**
+**Status on family sink CRDs:**
 
 | Condition | Meaning |
 | --- | --- |
@@ -62,14 +67,14 @@ Extend per sink as backends mature.
 **`kubectl` example:**
 
 ```sh
-kubectl wait --for=condition=ConnectionVerified kollectsink/git-inventory \
+kubectl wait --for=condition=ConnectionVerified kollectsnapshotsink/git-inventory-demo \
   -n default --timeout=60s
 ```
 
 Re-run without spec change:
 
 ```sh
-kubectl annotate kollectsink git-inventory -n kollect-system \
+kubectl annotate kollectsnapshotsink git-inventory-demo -n default \
   kollect.dev/test-connection=true --overwrite
 ```
 
@@ -82,8 +87,8 @@ End-to-end export health belongs on **reconciled** objects, not only the sink:
 | **`SinkReachable`** | `KollectInventory`, `KollectTarget` | Sink resolution (`ConnectionVerified` / sink found) before export; **`ExportSucceeded`** / **`ExportFailed`** after inventory export attempts. `Synced` remains the primary export condition per [ADR-0602](0602-error-taxonomy.md). |
 
 `KollectTarget` derives sink refs from **`KollectInventory` in the same namespace** (targets have no
-direct `sinkRefs`). Inventory reconciler watches **`KollectSink`** status changes to requeue affected
-inventories.
+direct family sink refs). Inventory reconciler watches **family sink** status changes to requeue
+affected inventories.
 
 Sink-only `ConnectionVerified` proves **credentials and network to the backend**; it does not
 prove the full collect → aggregate → export path.
@@ -92,8 +97,9 @@ prove the full collect → aggregate → export path.
 
 `KollectProfile` and `KollectScope` remain **webhook-validated static config** (no controller).
 
-`KollectSink` has a **narrow reconciler** whose sole job is connection test status — not
-collection or export. This is an intentional exception to full static-config purity, documented in
+Family sink CRDs (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) each have a
+**narrow reconciler** whose sole job is connection test status — not collection or export. This is
+an intentional exception to full static-config purity, documented in
 [ADR-0202](0202-static-vs-reconciled.md).
 
 ### `KollectConnectionTest` CR (ADR-0703)
