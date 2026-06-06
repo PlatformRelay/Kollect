@@ -77,7 +77,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 		token = strings.TrimSpace(b.auth.Password)
 	}
 
-	return EnsureMergeRequest(ctx, b.cfg, b.cfg.MergeRequest, featureBranch, invNS, invName, token)
+	return EnsureMergeRequest(ctx, b.cfg, b.cfg.MergeRequest, featureBranch, invNS, invName, token, strings.TrimSpace(b.auth.Username))
 }
 
 func inventoryFromObjectPath(objectPath string) (namespace, name string, err error) {

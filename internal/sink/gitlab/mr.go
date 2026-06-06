@@ -100,7 +100,7 @@ func EnsureMergeRequest(
 	ctx context.Context,
 	cfg Config,
 	mrCfg MergeRequestConfig,
-	sourceBranch, inventoryNamespace, inventoryName, apiToken string,
+	sourceBranch, inventoryNamespace, inventoryName, apiToken, apiUser string,
 ) error {
 	if err := ValidateMergeRequestConfig(mrCfg); err != nil {
 		return err
@@ -114,7 +114,7 @@ func EnsureMergeRequest(
 		return err
 	}
 
-	client, err := NewRESTClient(cfg.Endpoint, apiToken, nil)
+	client, err := NewRESTClient(cfg.Endpoint, apiToken, apiUser, nil)
 	if err != nil {
 		return err
 	}

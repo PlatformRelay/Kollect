@@ -123,7 +123,7 @@ func TestEnsureMergeRequest(t *testing.T) {
 	ctx := context.Background()
 	cfg := Config{Endpoint: "https://gitlab.example.com/platform/inventory.git"}
 
-	if err := EnsureMergeRequest(ctx, cfg, MergeRequestConfig{}, "feature", "default", "team", ""); err != nil {
+	if err := EnsureMergeRequest(ctx, cfg, MergeRequestConfig{}, "feature", "default", "team", "", ""); err != nil {
 		t.Fatalf("direct mode: %v", err)
 	}
 
@@ -147,18 +147,18 @@ func TestEnsureMergeRequest(t *testing.T) {
 	}
 	gitEndpoint := srv.URL + "/platform/inventory.git"
 	err := EnsureMergeRequest(ctx, Config{Endpoint: gitEndpoint}, mrCfg,
-		"kollect/default/team", "default", "team", "tok")
+		"kollect/default/team", "default", "team", "tok", "")
 	if err != nil {
 		t.Fatalf("MR mode with token: %v", err)
 	}
 
-	err = EnsureMergeRequest(ctx, cfg, mrCfg, "kollect/default/team", "default", "team", "")
+	err = EnsureMergeRequest(ctx, cfg, mrCfg, "kollect/default/team", "default", "team", "", "")
 	if err == nil {
 		t.Fatal("expected token error")
 	}
 
 	err = EnsureMergeRequest(ctx, cfg, MergeRequestConfig{Mode: MergeRequestModeBranchMR},
-		"x", "ns", "n", "")
+		"x", "ns", "n", "", "")
 	if err == nil {
 		t.Fatal("expected validation error")
 	}

@@ -149,6 +149,13 @@ func TestHubKafkaSpokeToConsumerMergeExport(t *testing.T) {
 		consumerErr <- consumer.Start(consumerCtx)
 	}()
 
+	// Allow Kafka consumer group join before publish (avoids CI flake).
+	select {
+	case <-time.After(3 * time.Second):
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+
 	report := hub.SpokeReport{
 		APIVersion:    export.WireAPIVersion,
 		SchemaVersion: export.SchemaVersion,
