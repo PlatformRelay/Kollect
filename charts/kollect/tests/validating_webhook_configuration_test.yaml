@@ -1,0 +1,40 @@
+suite: validating webhook configuration
+templates:
+  - validating-webhook-configuration.yaml
+tests:
+  - it: renders no VWC when webhooks.enabled is false
+    set:
+      webhooks:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: registers all sixteen validating webhooks when enabled
+    set:
+      webhooks:
+        enabled: true
+        certManager:
+          create: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ValidatingWebhookConfiguration
+      - equal:
+          path: metadata.annotations["cert-manager.io/inject-ca-from"]
+          value: NAMESPACE/RELEASE-NAME-kollect-serving-cert
+      - lengthEqual:
+          path: webhooks
+          count: 16
+      - equal:
+          path: webhooks[0].name
+          value: vkollectclusterdatabasesink.kb.io
+      - equal:
+          path: webhooks[0].clientConfig.service.path
+          value: /validate-kollect-dev-v1alpha1-kollectclusterdatabasesink
+      - equal:
+          path: webhooks[15].name
+          value: vkollecttarget.kb.io
+      - equal:
+          path: webhooks[15].rules[0].resources[0]
+          value: kollecttargets

@@ -1,4 +1,22 @@
 {{- if .Values.webhooks.enabled }}
+{{- $hooks := list
+  (dict "name" "vkollectclusterdatabasesink.kb.io" "kind" "kollectclusterdatabasesink" "resource" "kollectclusterdatabasesinks")
+  (dict "name" "vkollectclustereventsink.kb.io" "kind" "kollectclustereventsink" "resource" "kollectclustereventsinks")
+  (dict "name" "vkollectclusterinventory.kb.io" "kind" "kollectclusterinventory" "resource" "kollectclusterinventories")
+  (dict "name" "vkollectclusterprofile.kb.io" "kind" "kollectclusterprofile" "resource" "kollectclusterprofiles")
+  (dict "name" "vkollectclusterscope.kb.io" "kind" "kollectclusterscope" "resource" "kollectclusterscopes")
+  (dict "name" "vkollectclustersnapshotsink.kb.io" "kind" "kollectclustersnapshotsink" "resource" "kollectclustersnapshotsinks")
+  (dict "name" "vkollectclustertarget.kb.io" "kind" "kollectclustertarget" "resource" "kollectclustertargets")
+  (dict "name" "vkollectconnectiontest.kb.io" "kind" "kollectconnectiontest" "resource" "kollectconnectiontests")
+  (dict "name" "vkollectdatabasesink.kb.io" "kind" "kollectdatabasesink" "resource" "kollectdatabasesinks")
+  (dict "name" "vkollecteventsink.kb.io" "kind" "kollecteventsink" "resource" "kollecteventsinks")
+  (dict "name" "vkollectinventory.kb.io" "kind" "kollectinventory" "resource" "kollectinventories")
+  (dict "name" "vkollectprofile.kb.io" "kind" "kollectprofile" "resource" "kollectprofiles")
+  (dict "name" "vkollectremotecluster.kb.io" "kind" "kollectremotecluster" "resource" "kollectremoteclusters")
+  (dict "name" "vkollectscope.kb.io" "kind" "kollectscope" "resource" "kollectscopes")
+  (dict "name" "vkollectsnapshotsink.kb.io" "kind" "kollectsnapshotsink" "resource" "kollectsnapshotsinks")
+  (dict "name" "vkollecttarget.kb.io" "kind" "kollecttarget" "resource" "kollecttargets")
+-}}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -10,18 +28,20 @@ metadata:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kollect.fullname" . }}-serving-cert
   {{- end }}
 webhooks:
+{{- range $hooks }}
   - admissionReviewVersions: [v1]
     clientConfig:
       service:
-        name: {{ include "kollect.webhookServiceName" . }}
-        namespace: {{ .Release.Namespace }}
-        path: /validate-kollect-dev-v1alpha1-kollectprofile
+        name: {{ include "kollect.webhookServiceName" $ }}
+        namespace: {{ $.Release.Namespace }}
+        path: /validate-kollect-dev-v1alpha1-{{ .kind }}
     failurePolicy: Fail
-    name: vkollectprofile.kb.io
+    name: {{ .name }}
     rules:
       - apiGroups: [kollect.dev]
         apiVersions: [v1alpha1]
         operations: [CREATE, UPDATE]
-        resources: [kollectprofiles]
+        resources: [{{ .resource }}]
     sideEffects: None
+{{- end }}
 {{- end }}
