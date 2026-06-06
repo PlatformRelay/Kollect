@@ -7,6 +7,19 @@ import (
 	"testing"
 )
 
+func TestGitSSHKnownHostsFromSecretData(t *testing.T) {
+	t.Parallel()
+
+	if got := GitSSHKnownHostsFromSecretData(nil); got != nil {
+		t.Fatalf("nil data = %q", got)
+	}
+
+	data := map[string][]byte{"known_hosts": []byte("host key")}
+	if got := GitSSHKnownHostsFromSecretData(data); string(got) != "host key" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestGitAuthFromSecretData(t *testing.T) {
 	t.Parallel()
 

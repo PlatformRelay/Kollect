@@ -19,6 +19,7 @@ type CommitAuthor struct {
 type Config struct {
 	Endpoint      string
 	TLS           TLSConfig
+	SSH           SSHConfig
 	CABundle      []byte
 	Cluster       string
 	Branch        string

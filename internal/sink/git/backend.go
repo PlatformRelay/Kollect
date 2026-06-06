@@ -21,10 +21,15 @@ func NewBackend(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	caPEM []byte,
 	auth Auth,
+	sshKnownHosts []byte,
 ) (*Backend, error) {
 	cfg, err := ConfigFromSpec(spec, caPEM)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(sshKnownHosts) > 0 {
+		cfg.SSH.KnownHosts = sshKnownHosts
 	}
 
 	return &Backend{cfg: cfg, auth: auth}, nil

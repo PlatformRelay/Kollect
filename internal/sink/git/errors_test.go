@@ -24,8 +24,8 @@ func TestClassifyExportError_transientPush(t *testing.T) {
 	t.Parallel()
 
 	err := ClassifyExportError(errors.New("connection reset"))
-	if kollecterrors.IsTerminal(err) {
-		t.Fatalf("expected transient/default, got terminal: %v", err)
+	if !kollecterrors.IsTransient(err) {
+		t.Fatalf("expected transient, got %v", err)
 	}
 }
 
