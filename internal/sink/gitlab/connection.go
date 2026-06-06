@@ -10,6 +10,6 @@ import (
 )
 
 // TestConnection verifies TLS to the GitLab remote and optionally runs git ls-remote.
-func TestConnection(ctx context.Context, cfg Config) error {
-	return git.TestConnection(ctx, cfg.GitConfig())
+func TestConnection(ctx context.Context, cfg Config, auth git.Auth) error {
+	return git.TestConnection(ctx, cfg.GitConfig(), auth)
 }

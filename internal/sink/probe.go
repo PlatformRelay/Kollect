@@ -30,7 +30,8 @@ func RunConnectionTest(
 			return "", err
 		}
 
-		if err := git.TestConnection(ctx, cfg); err != nil {
+		auth := GitAuthFromSecretData(buildCtx.SecretData, gitAuthTypeFromSpec(spec))
+		if err := git.TestConnection(ctx, cfg, auth); err != nil {
 			return "", err
 		}
 
@@ -41,7 +42,8 @@ func RunConnectionTest(
 			return "", err
 		}
 
-		if err := gitlab.TestConnection(ctx, cfg); err != nil {
+		auth := GitAuthFromSecretData(buildCtx.SecretData, "")
+		if err := gitlab.TestConnection(ctx, cfg, auth); err != nil {
 			return "", err
 		}
 

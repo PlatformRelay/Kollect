@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/konih/kollect/internal/sink/git"
 )
 
 func TestResolveProjectRef(t *testing.T) {
@@ -165,7 +167,7 @@ func TestEnsureMergeRequest(t *testing.T) {
 func TestTestConnection_invalidURL(t *testing.T) {
 	t.Parallel()
 
-	err := TestConnection(context.Background(), Config{Endpoint: "://bad"})
+	err := TestConnection(context.Background(), Config{Endpoint: "://bad"}, git.Auth{})
 	if err == nil {
 		t.Fatal("expected error for invalid endpoint")
 	}

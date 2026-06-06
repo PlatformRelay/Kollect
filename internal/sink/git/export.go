@@ -63,9 +63,36 @@ func ExportWithBranch(
 	defer cancel()
 
 	if isFileRemote(req.cloneURL) {
-		return exportFileRemote(ctx, cfg, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath, commitCtx)
+		err := exportFileRemote(ctx, cfg, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath, commitCtx)
+
+		return ClassifyExportError(err)
 	}
 
+	lockKey := cfg.Endpoint
+	if lockKey == "" {
+		lockKey = req.cloneURL
+	}
+
+	var exportErr error
+	if err := withRepoExportLock(lockKey, req.pushBranch, func() error {
+		exportErr = exportRemote(ctx, cfg, auth, req, payload, commitCtx)
+
+		return exportErr
+	}); err != nil {
+		return ClassifyExportError(err)
+	}
+
+	return ClassifyExportError(exportErr)
+}
+
+func exportRemote(
+	ctx context.Context,
+	cfg Config,
+	auth Auth,
+	req exportRequest,
+	payload []byte,
+	commitCtx CommitContext,
+) error {
 	authType := auth.AuthType
 	if authType == "" {
 		authType = cfg.AuthType

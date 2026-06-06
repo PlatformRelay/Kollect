@@ -13,6 +13,8 @@ import (
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
+const defaultGitUser = "git"
+
 type Auth struct {
 	Username      string
 	Password      string
@@ -47,6 +49,31 @@ func buildAuthMethod(cloneURL string, auth Auth, authType AuthType) (transport.A
 	}
 }
 
+func (a Auth) embedInURL(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Scheme != schemeHTTPS && u.Scheme != schemeHTTP {
+		return ""
+	}
+
+	user := a.Username
+	if user == "" {
+		user = defaultGitUser
+	}
+
+	pass := strings.TrimSpace(a.Token)
+	if pass == "" {
+		pass = a.Password
+	}
+
+	if pass == "" {
+		return ""
+	}
+
+	u.User = url.UserPassword(user, pass)
+
+	return u.String()
+}
+
 func basicAuthHTTPS(auth Auth) (transport.AuthMethod, error) {
 	if auth.Username == "" && auth.Token == "" && auth.Password == "" {
 		return nil, nil
@@ -54,7 +81,7 @@ func basicAuthHTTPS(auth Auth) (transport.AuthMethod, error) {
 
 	user := auth.Username
 	if user == "" {
-		user = "git"
+		user = defaultGitUser
 	}
 
 	pass := auth.Token
@@ -76,7 +103,7 @@ func sshAuth(auth Auth, endpointUser string) (transport.AuthMethod, error) {
 	}
 
 	if user == "" {
-		user = "git"
+		user = defaultGitUser
 	}
 
 	return gitssh.NewPublicKeys(user, auth.SSHPrivateKey, "")

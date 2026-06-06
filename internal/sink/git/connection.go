@@ -17,14 +17,14 @@ import (
 const connectionTimeout = 15 * time.Second
 
 // TestConnection verifies TLS to the git remote and optionally runs git ls-remote.
-func TestConnection(ctx context.Context, cfg Config) error {
+func TestConnection(ctx context.Context, cfg Config, auth Auth) error {
 	u, err := url.Parse(cfg.Endpoint)
 	if err != nil {
 		return fmt.Errorf("invalid endpoint URL: %w", err)
 	}
 
 	if u.Scheme == schemeHTTP {
-		return lsRemote(ctx, cfg)
+		return lsRemote(ctx, cfg, auth)
 	}
 
 	if u.Scheme != "https" && u.Scheme != "" {
@@ -56,7 +56,7 @@ func TestConnection(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("TLS handshake failed: %w", err)
 	}
 
-	return lsRemote(ctx, cfg)
+	return lsRemote(ctx, cfg, auth)
 }
 
 func tlsHandshake(ctx context.Context, host, port string, tlsCfg TLSConfig) error {
@@ -92,7 +92,7 @@ func tlsHandshake(ctx context.Context, host, port string, tlsCfg TLSConfig) erro
 	return conn.Close()
 }
 
-func lsRemote(ctx context.Context, cfg Config) error {
+func lsRemote(ctx context.Context, cfg Config, auth Auth) error {
 	if _, err := exec.LookPath("git"); err != nil {
 		return nil
 	}
@@ -100,8 +100,13 @@ func lsRemote(ctx context.Context, cfg Config) error {
 	ctx, cancel := context.WithTimeout(ctx, connectionTimeout)
 	defer cancel()
 
+	endpoint := cfg.Endpoint
+	if creds := auth.embedInURL(endpoint); creds != "" {
+		endpoint = creds
+	}
+
 	//nolint:gosec // G204: endpoint validated at admission and ConfigFromSpec URL parse
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", cfg.Endpoint)
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", endpoint)
 	if cfg.TLS.InsecureSkipVerify {
 		cmd.Env = append(cmd.Environ(), "GIT_SSL_NO_VERIFY=true")
 	}
