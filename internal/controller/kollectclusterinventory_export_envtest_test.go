@@ -238,9 +238,17 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: inventoryName}, updated)).To(Succeed())
 		Expect(updated.Status.SinkExports).To(HaveLen(2))
 
+		recorder.mu.Lock()
+		recorder.exported = recorder.exported[:0]
+		recorder.mu.Unlock()
+
 		_, err = invReconciler.Reconcile(context.Background(), req)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(recorder.exported).To(HaveLen(2), "second reconcile should debounce both sinks")
+
+		recorder.mu.Lock()
+		secondExports := len(recorder.exported)
+		recorder.mu.Unlock()
+		Expect(secondExports).To(Equal(0), "second reconcile should debounce both sinks")
 
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: inventoryName}, updated)).To(Succeed())
 		for _, exportStatus := range updated.Status.SinkExports {
