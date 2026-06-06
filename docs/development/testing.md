@@ -53,7 +53,7 @@ Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
 
 - Secret scan (`gitleaks`), codegen drift (`task verify`), vulncheck, lint/format
 - **Architecture fitness:** `go-arch-lint` via `task arch-lint` (import boundaries in
-  `hack/tooling/go-arch-lint.yml`)
+  `.go-arch-lint.yml`)
 - **Dependency policy:** golangci-lint `depguard` + `gomodguard` (same `task lint` job)
 - **L0–L2:** `task coverage` with coverage floor
 - **L3:** `task test-integration` (Docker required)

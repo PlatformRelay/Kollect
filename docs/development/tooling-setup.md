@@ -15,17 +15,18 @@ configure once.
 | Task | Purpose |
 | --- | --- |
 | `task lint` | golangci-lint v2 **and** `go-arch-lint check` |
-| `task arch-lint` | Import-graph fitness only (`hack/tooling/go-arch-lint.yml`) |
+| `task arch-lint` | Import-graph fitness only (`.go-arch-lint.yml`) |
+| `task arch-lint:graph` | Render dependency graph to `docs/architecture-graph.svg` |
 | `task format:check` | `gofmt` + `goimports` drift gate (`golangci-lint fmt --diff`) |
 | `task vulncheck` | `govulncheck` (module CVE scan) |
 | `task sonar` / `task sonar:local` | Local SonarCloud upload (maintainer; needs `SONARCLOUD_TOKEN`) |
 
-Architecture rules live in [`hack/tooling/go-arch-lint.yml`](../../hack/tooling/go-arch-lint.yml).
+Architecture rules live in [`.go-arch-lint.yml`](../../.go-arch-lint.yml).
 See [ARCHITECTURE.md](../ARCHITECTURE.md#package-boundaries) for the intended dependency direction.
 
 ### go-arch-lint baseline workflow
 
-1. Edit `hack/tooling/go-arch-lint.yml` to describe the **target** graph (components + `mayDependOn`).
+1. Edit `.go-arch-lint.yml` to describe the **target** graph (components + `mayDependOn`).
 2. Run `task arch-lint`.
 3. For each existing violation, **legalize** it in config (add `mayDependOn` or `# todo(arch-NN)`
    comment) rather than fixing all imports in one PR.
@@ -34,10 +35,10 @@ See [ARCHITECTURE.md](../ARCHITECTURE.md#package-boundaries) for the intended de
 Generate a dependency graph (optional):
 
 ```sh
-go run github.com/fe3dback/go-arch-lint@v1.15.0 graph --arch-file hack/tooling/go-arch-lint.yml
+task arch-lint:graph
 ```
 
-Pinned version: `GO_ARCH_LINT_VERSION` in `Taskfile.yml` (invoked via `go run …@version`, not linked
+Output: `docs/architecture-graph.svg`. Pinned version: `GO_ARCH_LINT_VERSION` in `Taskfile.yml` (invoked via `go run …@version`, not linked
 into the operator module — go-arch-lint's module graph conflicts with `go mod tidy`).
 
 ### golangci-lint dependency policy
@@ -111,7 +112,7 @@ Properties file: [`sonar-project.properties`](../../sonar-project.properties).
 
 | Item | Contributor | Maintainer |
 | --- | --- | --- |
-| `task lint` / `arch-lint` | Run before PR | Keep `hack/tooling/go-arch-lint.yml` todos current |
+| `task lint` / `arch-lint` | Run before PR | Keep `.go-arch-lint.yml` todos current |
 | `SONAR_TOKEN` / `SONARCLOUD_TOKEN` | — | GitHub secret + `.envrc` (same token, different names) |
 | `CODECOV_TOKEN` | — | Optional; separate from Sonar |
 | Quality gate blocking | — | Enable after baseline scan (Phase 1) |

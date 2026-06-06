@@ -18,7 +18,8 @@ vars:
   GIT_CLIFF_VERSION: v2.13.1
   GIT_CLIFF_BIN: "{{.BIN_DIR}}/git-cliff"
   CLIFF_CONFIG: hack/release/cliff.toml
-  GO_ARCH_LINT_CONFIG: hack/tooling/go-arch-lint.yml
+  GO_ARCH_LINT_CONFIG: .go-arch-lint.yml
+  GO_ARCH_LINT_GRAPH: docs/architecture-graph.svg
   MARKDOWNLINT_CONFIG: hack/tooling/markdownlint-cli2.yaml
   # renovate: datasource=github-releases depName=fe3dback/go-arch-lint
   GO_ARCH_LINT_VERSION: v1.15.0
@@ -111,6 +112,14 @@ tasks:
     deps: [install]
     cmds:
       - go run -mod=mod github.com/fe3dback/go-arch-lint@{{.GO_ARCH_LINT_VERSION}} check --arch-file {{.GO_ARCH_LINT_CONFIG}}
+
+  arch-lint:graph:
+    desc: Render go-arch-lint dependency graph to SVG
+    deps: [install]
+    cmds:
+      - go run -mod=mod github.com/fe3dback/go-arch-lint@{{.GO_ARCH_LINT_VERSION}} graph --arch-file {{.GO_ARCH_LINT_CONFIG}} --out {{.GO_ARCH_LINT_GRAPH}}
+    generates:
+      - "{{.GO_ARCH_LINT_GRAPH}}"
 
   lint:
     desc: Run golangci-lint v2 and go-arch-lint

@@ -180,7 +180,7 @@ cmd  →  wires everything
 
 CI enforces this graph with [go-arch-lint](https://github.com/fe3dback/go-arch-lint) via
 `task arch-lint` (also part of `task lint`). Rules and any baseline `todo(arch-NN)` exceptions are
-declared in [`hack/tooling/go-arch-lint.yml`](../hack/tooling/go-arch-lint.yml). Maintainer setup:
+declared in [`.go-arch-lint.yml`](../.go-arch-lint.yml). Maintainer setup:
 [tooling-setup.md](development/tooling-setup.md).
 
 ## See also

@@ -68,7 +68,7 @@ jobs:
         run: task vulncheck
 
   # lint job runs `task lint` → golangci-lint v2 (depguard, gomodguard, …) + go-arch-lint
-  # (internal/ package graph; see hack/tooling/go-arch-lint.yml). No separate arch-lint step needed.
+  # (internal/ package graph; see .go-arch-lint.yml). No separate arch-lint step needed.
   lint:
     name: lint
     runs-on: ubuntu-latest

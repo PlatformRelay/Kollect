@@ -82,7 +82,7 @@ Short, actionable rules for Go code in this repo. Operator reconcile semantics a
 | Tool | Config / command | Purpose |
 | --- | --- | --- |
 | **golangci-lint v2** | [`.golangci.yaml`](../../.golangci.yaml) · `task lint` | Static analysis, formatters, dependency policy |
-| **go-arch-lint** | [`hack/tooling/go-arch-lint.yml`](../../hack/tooling/go-arch-lint.yml) · `task arch-lint` | Package import boundaries |
+| **go-arch-lint** | [`.go-arch-lint.yml`](../../.go-arch-lint.yml) · `task arch-lint` | Package import boundaries |
 | **gofmt / goimports** | `task format:check` | Formatting drift gate (gofmt + goimports) |
 
 Run `task lint` locally before every PR. It includes golangci-lint **and** `go-arch-lint check`.
@@ -180,10 +180,10 @@ Changelog entries are generated with [git-cliff](https://git-cliff.org/) (`hack/
 Package layout and dependency flow are documented in
 [ARCHITECTURE.md § Package boundaries](../ARCHITECTURE.md#package-boundaries).
 
-Import rules are enforced by [`hack/tooling/go-arch-lint.yml`](../../hack/tooling/go-arch-lint.yml) (`task arch-lint`).
+Import rules are enforced by [`.go-arch-lint.yml`](../../.go-arch-lint.yml) (`task arch-lint`).
 When introducing a new `internal/` package or cross-component import:
 
-1. Update `hack/tooling/go-arch-lint.yml` to describe the intended graph.
+1. Update `.go-arch-lint.yml` to describe the intended graph.
 2. Run `task arch-lint` and legalize existing violations incrementally (see
    [tooling-setup.md](tooling-setup.md#go-arch-lint-baseline-workflow)).
 3. Record non-trivial decisions in `docs/adr/`.
