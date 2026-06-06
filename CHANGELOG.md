@@ -36,6 +36,8 @@ anchor on an older commit.
 
 ### Features
 
+- **git:** Port transport retry and SSH host keys [4914faa](https://github.com/konih/kollect/commit/4914faa482353ab03f7a932472548b2878ce9e9f)
+
 - **controller:** Wire family sink reconcilers and export [d14f346](https://github.com/konih/kollect/commit/d14f346e3031edaa711777d50d9c059fa25fb2e6)
 
 - **api:** Add sink family CRDs and remove KollectSink [40bc907](https://github.com/konih/kollect/commit/40bc9072225767cdfceb07254c0de516090a3b74)

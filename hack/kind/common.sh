@@ -194,7 +194,7 @@ kollect_wait_controllers_started() {
   local deadline=$((SECONDS + ${timeout%s}))
   while (( SECONDS < deadline )); do
     if kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=400 2>/dev/null \
-      | grep -q 'Starting Controller.*kollecttarget'; then
+      | grep -Eq 'Starting Controller.*(kollecttarget|kollectinventory)'; then
       _kind_log "Manager controllers started."
       return 0
     fi

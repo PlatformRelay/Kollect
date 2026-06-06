@@ -23,7 +23,6 @@ readonly E2E_SAMPLE_DIR="${REPO_ROOT}/config/samples"
 readonly E2E_SAMPLE_FILES=(
   kollect_v1alpha1_kollectprofile.yaml
   kollect_v1alpha1_kollecttarget.yaml
-  e2e/team-inventory.yaml
   kollect_v1alpha1_kollectscope_team-a.yaml
 )
 for sample in "${E2E_SAMPLE_FILES[@]}"; do
@@ -61,6 +60,10 @@ if ! kubectl wait --for=condition=Ready kollecttarget/nginx-deployments \
   kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=80 || true
   exit 1
 fi
+
+
+_log "Applying KollectInventory after target is Ready..."
+kubectl apply -f "${E2E_SAMPLE_DIR}/e2e/team-inventory.yaml"
 
 _log "Waiting for KollectInventory reconciled..."
 for i in $(seq 1 24); do
