@@ -73,7 +73,7 @@ are **documented and deferred** — not enabled — so one maintainer can ship w
 | --- | ---: | --- | --- |
 | Dangerous-Workflow | 0 critical | **Done** | No `pull_request_target`; workflow inputs passed via env vars; actions SHA-pinned |
 | Token-Permissions | 0 high | **Done** | Default `contents: read`; `security-events: write` scoped to CodeQL/Scorecard analyze jobs only; release job documents why `contents: write` is required |
-| Pinned-Dependencies | 0 medium | **Done** | Actions pinned to commit SHA; distroless base image by digest; Helm tarball SHA256-verified; pip docs deps hash-locked (`--require-hashes`) |
+| Pinned-Dependencies | 0 medium | **Done** | Actions pinned to commit SHA; runtime base image by digest (Debian bookworm-slim); Helm tarball SHA256-verified; pip docs deps hash-locked (`--require-hashes`) |
 | SAST | 0 medium | **Done** | `golangci-lint` + `govulncheck` in CI; **CodeQL** for Go (`.github/workflows/codeql.yaml`) |
 | Vulnerabilities | 0 | **Done** | `govulncheck` on every PR; grpc ≥1.79.3 and otel/sdk ≥1.43.0; Trivy gates release images; Dependabot alerts enabled |
 | Security-Policy | 10 | **Done** | `SECURITY.md` |

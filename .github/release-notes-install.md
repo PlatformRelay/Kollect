@@ -4,7 +4,7 @@
 ${IMAGE_REPO}:${VERSION}
 ```
 
-Multi-arch (`linux/amd64`, `linux/arm64`), distroless nonroot base.
+Multi-arch (`linux/amd64`, `linux/arm64`), Debian bookworm-slim nonroot base (includes `git` and `openssh-client` for `spec.git.engine: cli`).
 
 OCI attestations (SBOM + SLSA provenance) are attached in GHCR and on the repository
 [Attestations](https://github.com/${GITHUB_REPOSITORY}/attestations) page. Verify the signature:

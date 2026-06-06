@@ -17,6 +17,7 @@ snapshot sinks via `KollectInventory.spec.snapshotSinkRefs`.
 | `spec.type` | Backend: `git`, `gitlab`, `s3`, `gcs`, `azureblob`, `http` |
 | `spec.endpoint` | Repository URL, bucket URI, or webhook URL |
 | `spec.git` / `spec.gitlab` / `spec.objectStore` / `spec.http` | Type-specific settings |
+| `spec.git.engine` | Git export backend: `go-git` (default, pure Go) or `cli` (native `git` binary). `cli` is required for some SSH/KEX edge cases; shipped operator image includes `git` and `openssh-client` |
 | `spec.exportMinInterval` | Default per-ref debounce when inventory ref omits override |
 | `spec.connectionTest` | Automatic probe on create/update (default `true`) |
 

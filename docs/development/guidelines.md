@@ -49,7 +49,7 @@ Operator-specific error taxonomy drives reconcile behavior. For Go wrapping conv
 - **Least-privilege RBAC** — minimal generated roles; SAR pre-check before list/watch.
 - **Tenancy** — optional `KollectScope` (future) for allowed GVKs, namespaces, sinks.
 - **Secrets** — credentials only via `secretRef`; never in spec/status or logs.
-- **Container hardening** — distroless non-root, read-only rootfs, dropped capabilities, seccomp.
+- **Container hardening** — non-root runtime image (UID 65532), read-only rootfs, dropped capabilities, seccomp.
 - **Network** — restrictive `NetworkPolicy` for production egress.
 - **Transport** — TLS verification required for sink and doc endpoints; support org **custom CA** (no disable-verify in prod).
 - **Input validation** — CEL in CRD OpenAPI + **validating webhooks before reconcile workarounds**.

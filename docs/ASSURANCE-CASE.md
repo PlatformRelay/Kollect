@@ -21,7 +21,7 @@ Security requirements are tracked as NFR-SEC in [REQUIREMENTS.md](REQUIREMENTS.m
 | NFR-SEC-2 | Default verify TLS; `insecureSkipVerify` opt-in and surfaced | ADR-0104, sink validators |
 | NFR-SEC-3 | Tenancy via `KollectScope` + SAR; least-privilege RBAC | ADR-0203, ADR-0704, `task audit:rbac` |
 | NFR-SEC-4 | Sensitive-key redaction before export | ADR-0303, ADR-0405 |
-| NFR-SEC-5 | Distroless nonroot image; minimal attack surface | Dockerfile, ADR-0705 |
+| NFR-SEC-5 | Nonroot image (UID 65532); minimal runtime deps (`git`/`openssh-client` for git CLI engine) | Dockerfile, ADR-0705 |
 
 ## Trust boundaries
 

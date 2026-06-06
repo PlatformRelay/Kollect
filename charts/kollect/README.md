@@ -10,6 +10,13 @@ Installs the [Kollect](https://github.com/konih/kollect) operator and CRDs.
 helm install kollect ./charts/kollect -n kollect-system --create-namespace
 ```
 
+### Container image
+
+The default image is **Debian bookworm-slim** (UID/GID 65532) with `git` and `openssh-client` so
+`spec.git.engine: cli` and `git ls-remote` connection probes work out of the box. Default
+`spec.git.engine: go-git` does not require those binaries. Pod `securityContext` defaults are
+unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDir` for git workdirs).
+
 ## Values
 
 | Key | Type | Default | Description |

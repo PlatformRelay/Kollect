@@ -107,6 +107,19 @@ Walkthrough: [Postgres state store](examples/postgres-state-store.md).
 TLS trust for sinks uses `caBundle` or `caSecretRef` on the sink spec — same resolution as export
 and connection probes ([ADR-0403](adr/0403-connection-test.md)).
 
+### Git snapshot sinks (`spec.git.engine`)
+
+| `spec.git.engine` | Runtime needs | Notes |
+| --- | --- | --- |
+| `go-git` (default) | None beyond the manager binary | Pure Go transport; works on minimal images |
+| `cli` | `git` and `openssh-client` in `PATH` | Native clone/commit/push; SSH uses `GIT_SSH_COMMAND` with `openssh-client` |
+
+The published operator image (`ghcr.io/konih/kollect`) ships **Debian bookworm-slim** with
+`git`, `openssh-client`, and `ca-certificates` on UID/GID **65532**. Default `go-git` export is
+unchanged; the image change enables `engine: cli` and full `git ls-remote` connection probes.
+Custom images built from an older distroless base must install `git` (and `openssh-client` for SSH)
+when using `engine: cli`.
+
 ### Webhook serving certificate
 
 Validating webhooks require a TLS serving cert mounted on every manager replica

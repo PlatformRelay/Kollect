@@ -35,7 +35,7 @@ Risks to consider when deploying:
 - Sink endpoints must use verified TLS; credentials must not appear in CR specs or logs.
 - Restrict egress with `NetworkPolicy` in production.
 
-See [engineering guidelines](docs/development/guidelines.md) for hardening baselines (distroless image, non-root, secret
+See [engineering guidelines](docs/development/guidelines.md) for hardening baselines (non-root runtime image, secret
 handling, supply-chain checks in CI).
 
 ## Supply chain (releases)

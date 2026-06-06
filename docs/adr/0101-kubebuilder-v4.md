@@ -23,7 +23,7 @@ patterns — thin reconcilers, workqueues, conditions, and leader election.
 - **Layout:** standard Kubebuilder v4 project structure (`api/v1alpha1`, `internal/{controller,collect,sink}`,
   `cmd/main.go`, `config/`, `charts/kollect/`).
 - **API version:** `kollect.dev/v1alpha1` (alpha until export/doc flows stabilize).
-- **Image:** distroless nonroot; evaluate `ko` for reproducible builds (see PLAN Phase 0 tooling).
+- **Image:** Debian bookworm-slim nonroot (UID 65532) with `git`/`openssh-client` for git CLI engine; evaluate `ko` for reproducible builds (see PLAN Phase 0 tooling).
 
 ## Consequences
 
