@@ -27,7 +27,7 @@ var _ = Describe("KollectTarget scope enforcement", func() {
 					},
 					AllowedNamespaces: []string{testNS},
 				},
-				SinkRefs: []string{"demo-git"},
+				SnapshotSinkRefs: []string{"demo-git"},
 			},
 		}
 		Expect(k8sClient.Create(ctx, teamScope)).To(Succeed())

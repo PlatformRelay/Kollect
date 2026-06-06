@@ -103,9 +103,9 @@ func TestHubKafkaSpokeToConsumerMergeExport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pgSink := &kollectdevv1alpha1.KollectSink{
+	pgSink := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "hub-postgres", Namespace: "platform"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 			Type:    "postgres",
 			Cluster: "hub",
 			Postgres: &kollectdevv1alpha1.PostgresSpec{

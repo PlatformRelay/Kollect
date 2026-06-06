@@ -75,10 +75,10 @@ func TestKollectClusterInventoryReconciler_exportsRollupToSink(t *testing.T) {
 		},
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "postgres-platform", Namespace: sinkNS},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "postgres",
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 				Table:       "inventory_items",
@@ -92,9 +92,9 @@ func TestKollectClusterInventoryReconciler_exportsRollupToSink(t *testing.T) {
 			NamespaceSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{tenantLabel: tenantVal},
 			},
-			TargetRefs:    []string{targetName},
-			SinkRefs:      kollectdevv1alpha1.NewSinkRefList("postgres-platform"),
-			SinkNamespace: sinkNS,
+			TargetRefs:       []string{targetName},
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-platform"),
+			SinkNamespace:    sinkNS,
 		},
 	}
 

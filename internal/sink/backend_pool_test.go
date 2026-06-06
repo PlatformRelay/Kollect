@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -32,12 +31,8 @@ func TestAcquireBackend_reusesPooledInstance(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = kollectdevv1alpha1.AddToScheme(scheme)
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "pool", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "counting"},
-	}
-
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build()
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "counting"}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 	reg := NewRegistry()
 	reg.Register("counting", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
 		cb := &countingBackend{}
@@ -49,13 +44,13 @@ func TestAcquireBackend_reusesPooledInstance(t *testing.T) {
 	ctx := context.Background()
 	t.Cleanup(func() { EvictBackendPool("team-a", "pool") })
 
-	b1, release1, err := acquireBackend(ctx, cl, reg, "team-a", "pool")
+	b1, release1, err := acquireBackend(ctx, cl, reg, "team-a", "pool", spec)
 	if err != nil {
 		t.Fatalf("first acquire: %v", err)
 	}
 	release1()
 
-	b2, release2, err := acquireBackend(ctx, cl, reg, "team-a", "pool")
+	b2, release2, err := acquireBackend(ctx, cl, reg, "team-a", "pool", spec)
 	if err != nil {
 		t.Fatalf("second acquire: %v", err)
 	}
@@ -66,7 +61,6 @@ func TestAcquireBackend_reusesPooledInstance(t *testing.T) {
 	}
 }
 
-// 40d77cf7: disabled pool creates a fresh backend per acquire (envtest isolation).
 func TestAcquireBackend_disabledPoolCreatesNewEachTime(t *testing.T) {
 	DisableBackendPoolForTest()
 	t.Cleanup(func() {
@@ -77,12 +71,8 @@ func TestAcquireBackend_disabledPoolCreatesNewEachTime(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = kollectdevv1alpha1.AddToScheme(scheme)
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "pool", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "counting"},
-	}
-
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build()
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "counting"}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 	reg := NewRegistry()
 	reg.Register("counting", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
 		cb := &countingBackend{}
@@ -93,13 +83,13 @@ func TestAcquireBackend_disabledPoolCreatesNewEachTime(t *testing.T) {
 
 	ctx := context.Background()
 
-	b1, release1, err := acquireBackend(ctx, cl, reg, "team-a", "pool")
+	b1, release1, err := acquireBackend(ctx, cl, reg, "team-a", "pool", spec)
 	if err != nil {
 		t.Fatalf("first acquire: %v", err)
 	}
 	release1()
 
-	b2, release2, err := acquireBackend(ctx, cl, reg, "team-a", "pool")
+	b2, release2, err := acquireBackend(ctx, cl, reg, "team-a", "pool", spec)
 	if err != nil {
 		t.Fatalf("second acquire: %v", err)
 	}
