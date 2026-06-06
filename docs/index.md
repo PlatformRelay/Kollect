@@ -172,7 +172,7 @@ required** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
 
 | Section | Start here |
 | --- | --- |
-| **Understand the basics** | [Prerequisites](UNDERSTAND-THE-BASICS.md) · [Architecture](ARCHITECTURE.md) · [Data flows](DATA-FLOWS.md) |
+| **Understand the basics** | [Prerequisites](UNDERSTAND-THE-BASICS.md) · [Architecture](ARCHITECTURE.md) ([package graph](architecture-graph.svg)) · [Data flows](DATA-FLOWS.md) |
 | **Core concepts** | [CRD model](adr/0201-crd-model.md) · [CR reference](CR-REFERENCE.md) · [Hub and spoke](adr/0501-multi-cluster-sync-rfc.md) |
 | **Getting started** | [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md) |
 | **Operator manual** | [Install & ops](OPERATOR-MANUAL.md) · [Upgrading](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md) |

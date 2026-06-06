@@ -16,7 +16,8 @@ configure once.
 | --- | --- |
 | `task lint` | golangci-lint v2 **and** `go-arch-lint check` |
 | `task arch-lint` | Import-graph fitness only (`.go-arch-lint.yml`) |
-| `task arch-lint:graph` | Render dependency graph to `docs/architecture-graph.svg` |
+| `task arch-lint:graph` | Render DI dependency graph (`--type di --include-vendors`) to `docs/architecture-graph.svg` |
+| `task arch-lint:graph:flow` | Same graph in flow (reverse-DI) view — optional |
 | `task format:check` | `gofmt` + `goimports` drift gate (`golangci-lint fmt --diff`) |
 | `task vulncheck` | `govulncheck` (module CVE scan) |
 | `task sonar` / `task sonar:local` | Local SonarCloud upload (maintainer; needs `SONARCLOUD_TOKEN`) |
@@ -35,11 +36,18 @@ See [ARCHITECTURE.md](../ARCHITECTURE.md#package-boundaries) for the intended de
 Generate a dependency graph (optional):
 
 ```sh
-task arch-lint:graph
+task arch-lint:graph          # DI view + vendors (default, linked from ARCHITECTURE.md)
+task arch-lint:graph:flow     # reverse-DI / execution-flow view
 ```
 
-Output: `docs/architecture-graph.svg`. Pinned version: `GO_ARCH_LINT_VERSION` in `Taskfile.yml` (invoked via `go run …@version`, not linked
+Output: `docs/architecture-graph.svg` (both tasks write the same path; run only one before commit).
+Flags are fixed in `Taskfile.yml`: `--type di|flow`, `--include-vendors`. Vendor nodes require the
+`vendors` and per-component `canUse` entries in `.go-arch-lint.yml`. Pinned version:
+`GO_ARCH_LINT_VERSION` in `Taskfile.yml` (invoked via `go run …@version`, not linked
 into the operator module — go-arch-lint's module graph conflicts with `go mod tidy`).
+
+See [ARCHITECTURE.md § Package boundaries](../ARCHITECTURE.md#package-boundaries) for the rendered
+graph.
 
 ### golangci-lint dependency policy
 

@@ -183,6 +183,16 @@ CI enforces this graph with [go-arch-lint](https://github.com/fe3dback/go-arch-l
 declared in [`.go-arch-lint.yml`](../.go-arch-lint.yml). Maintainer setup:
 [tooling-setup.md](development/tooling-setup.md).
 
+Regenerate the visual overview with `task arch-lint:graph` (DI view, vendors included). The SVG is
+checked in at [`architecture-graph.svg`](architecture-graph.svg):
+
+![Kollect internal package dependency graph — DI view with key third-party vendors (controller-runtime, client-go, AWS SDK, NATS/Kafka, Postgres, etc.)](architecture-graph.svg)
+
+The graph shows **component dependencies** (`--type di`): arrows point from a component to what it
+imports. Green vendor nodes come from the `vendors` / `canUse` blocks in `.go-arch-lint.yml` when
+rendered with `--include-vendors`. For the reverse (execution-flow) view, use
+`task arch-lint:graph:flow`.
+
 ## See also
 
 - [REQUIREMENTS.md](REQUIREMENTS.md)
