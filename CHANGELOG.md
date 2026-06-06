@@ -25,6 +25,12 @@ anchor on an older commit.
 
 ## [Unreleased]
 
+### Features
+
+- **controller:** Wire family sink reconcilers and export [baf8af9](https://github.com/konih/kollect/commit/baf8af9aa681d87cce6be58457594c9681192f78)
+
+- **api:** Add sink family CRDs and remove KollectSink [a44c7f2](https://github.com/konih/kollect/commit/a44c7f24d6217ea52af93cd3a4ad043555f2ea15)
+
 ### Bug Fixes
 
 - **gitlab:** Basic auth for Forgejo Gitea MR API [e9314cf](https://github.com/konih/kollect/commit/e9314cfaa24b2e4e3f8985ae50e7fe788bdc657f)
