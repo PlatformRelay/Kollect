@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **lint:** Gofmt webhooks and phase A envtest cleanup [522754b](https://github.com/konih/kollect/commit/522754bfb14884895fce07cc852652ae013dc65f)
+
 - **sink:** Isolate circuit breaker test from parallel pollution [ff1159a](https://github.com/konih/kollect/commit/ff1159a72fac7d8162b084d3e9211ca94b13c54b)
 
 - **e2e:** Revert multitenant namespaceSelector [926daf0](https://github.com/konih/kollect/commit/926daf0e977e7d491aa060cd5f2e3e3b69c69a7f)
@@ -52,6 +54,8 @@ anchor on an older commit.
 
 
 ### Refactoring
+
+- **arch:** Resolve arch-04, arch-11, arch-12 [dae4f79](https://github.com/konih/kollect/commit/dae4f79d589e0d4e0121ef7dc8ac26cedb100081)
 
 - **docs:** Phase 1 root doc moves [6fc22f3](https://github.com/konih/kollect/commit/6fc22f3ae4a830bbec1a100af4b5d4547a37e4f1)
 
