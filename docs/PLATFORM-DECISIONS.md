@@ -52,7 +52,7 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 6. Argo **`Application`** sample + **contract test** (contract test **first**; then samples)
 7. Hub `mode: hub|spoke` + merge lib (`inprocess`); no hub CRD
 8. **`KollectClusterTarget`** — API + webhook only until namespaced MVP proven; controller later
-9. **Secondary watches** — Profile → Targets, Sink → Inventories (beta requirement)
+9. **Secondary watches** — Profile → Targets, family Sink → Inventories (beta requirement)
 10. **Generic CRD sample** — `cert-manager.io/Certificate` + contract test
 11. **GitLab sink** — Phase 2 (custom CA via `tls.caSecretRef`; first enterprise presentation path)
 12. **Hub ingest** — SAR **`create`** on `kollectremoteclusters`
@@ -75,7 +75,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 
 | Topic | Decision |
 | --- | --- |
-| Secondary watches | **Ship** — `KollectProfile` change enqueues referring Targets; `KollectSink` change enqueues Inventories with `sinkRefs` |
+| Secondary watches | **Ship** — `KollectProfile` change enqueues referring Targets; family sink change enqueues Inventories with matching `snapshotSinkRefs`, `databaseSinkRefs`, or `eventSinkRefs` |
 | Generic CRD sample | **`cert-manager.io/Certificate`** — contract test first, then profile + target + walkthrough |
 | `KollectClusterTarget` controller | **Defer** — API + webhook + sample only until namespaced e2e solid |
 | `profileRef` (cluster target) | Resolves **`KollectProfile` in platform namespace** (Helm `platformNamespace`); `KollectClusterProfile` later |
@@ -122,7 +122,7 @@ the corresponding code merges.
 | Inventory read SAR | **`get`** on `kollectinventories` in caller namespace; **`list`** for index | 1 |
 | Hub ingest SAR | **`create`** on **`kollectremoteclusters`** in hub namespace | 2 |
 | GitLab sink | **`type: gitlab`** backend + custom CA TLS; Phase 2 after Git path proven | 2 |
-| Secondary watches | Profile → Targets; Sink → Inventories | 1 (beta) |
+| Secondary watches | Profile → Targets; family Sink → Inventories | 1 (beta) |
 | TokenReview/SAR cache | **30s TTL** in-memory per `(token hash, verb, resource)`; flag + `disabled` for dev | 1 |
 | `maxExportBytes` | Global manager default (~**1.5 MiB**) + optional **`KollectInventory.spec.maxExportBytes`**; webhook rejects override > global cap | 1 |
 
@@ -188,7 +188,9 @@ the corresponding code merges.
 flowchart TD
   subgraph teamNs [Team namespace]
     Prof[KollectProfile]
-    Sink[KollectSink]
+    Snap[KollectSnapshotSink]
+    Db[KollectDatabaseSink]
+    Ev[KollectEventSink]
     Scope[KollectScope]
     Tgt[KollectTarget]
     Inv[KollectInventory]
@@ -199,15 +201,20 @@ flowchart TD
   Scope -.-> Tgt
   Scope -.-> Inv
   Tgt --> Inv
-  Inv --> Sink
-  ConnTest -.-> Sink
-  ConnTest -.-> Prof
+  Inv --> Snap
+  Inv --> Db
+  Inv --> Ev
+  ConnTest -.-> Snap
+  ConnTest -.-> Db
+  ConnTest -.-> Ev
 ```
 
 | Kind | Scope | Notes |
 | --- | --- | --- |
 | `KollectProfile` | Namespace | Same-ns `profileRef` on Target |
-| `KollectSink` | **Namespace** | Same-ns `sinkRefs` on Inventory |
+| `KollectSnapshotSink` | **Namespace** | Same-ns `snapshotSinkRefs` on Inventory |
+| `KollectDatabaseSink` | **Namespace** | Same-ns `databaseSinkRefs` on Inventory |
+| `KollectEventSink` | **Namespace** | Same-ns `eventSinkRefs` on Inventory |
 | `KollectTarget` | Namespace | Default for `tenantMode`; same-ns `profileRef` |
 | `KollectClusterTarget` | **Cluster** | Platform operator; `namespaceSelector` + `KollectClusterProfile` ref |
 | `KollectInventory` | Namespace | Aggregates namespaced targets in namespace |

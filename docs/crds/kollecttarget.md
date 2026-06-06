@@ -101,7 +101,7 @@ kubectl apply -f config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yam
 | `Ready=True` | Collecting | Profile resolved; informer registered | None |
 | `Synced=True` | Healthy | `reason`: `Collecting` with item count | Monitor `status` message |
 | `Degraded=True` | Blocked | See `reason` below | Fix root cause; generation bump re-reconciles |
-| `SinkReachable=True/False` | Export path | Namespace inventory sinks reachable | Fix [KollectSink](kollectsink.md) connection |
+| `SinkReachable=True/False` | Export path | Namespace inventory family sinks reachable | Fix [KollectSnapshotSink](kollectsnapshotsink.md), [KollectDatabaseSink](kollectdatabasesink.md), or [KollectEventSink](kollecteventsink.md) connection |
 
 ### Common `Degraded` reasons
 
@@ -122,7 +122,7 @@ kubectl apply -f config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yam
 | Actor | Verbs | Resource | Notes |
 | --- | --- | --- | --- |
 | Team engineers | `get`, `list`, `watch`, `create`, `update`, `patch`, `delete` | `kollecttargets` | Tenant namespace |
-| Operator | `get`, `list`, `watch` | `kollecttargets`, `kollectprofiles`, `kollectscopes`, `kollectsinks` | Reconcile |
+| Operator | `get`, `list`, `watch` | `kollecttargets`, `kollectprofiles`, `kollectscopes`, `kollectsnapshotsinks`, `kollectdatabasesinks`, `kollecteventsinks` | Reconcile |
 | Operator | `get`, `list`, `watch` | Target GVK resources | Dynamic — per profile (e.g. `deployments`) |
 | Operator | `update`, `patch` | `kollecttargets/status` | Write conditions |
 

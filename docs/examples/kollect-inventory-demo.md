@@ -46,11 +46,11 @@ kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile.yaml
 kubectl apply -f config/samples/kollect_v1alpha1_kollecttarget.yaml
 ```
 
-Git sink + inventory (same namespace as `sinkRefs`):
+Git snapshot sink + inventory (same namespace as family sink refs):
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
-kind: KollectSink
+kind: KollectSnapshotSink
 metadata:
   name: git-inventory-demo
   namespace: default
@@ -68,7 +68,7 @@ metadata:
   name: team-inventory
   namespace: default
 spec:
-  sinkRefs:
+  snapshotSinkRefs:
     - git-inventory-demo
   suspend: false
 ```

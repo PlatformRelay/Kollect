@@ -103,9 +103,10 @@ live API access.
 | File | Kind | Role |
 | --- | --- | --- |
 | `kollect_v1alpha1_kollectprofile.yaml` | `KollectProfile` | Extract Deployment image + labels |
-| `kollect_v1alpha1_kollectsink.yaml` | `KollectSink` | Git sink (example repo URL) |
+| `kollect_v1alpha1_kollectdatabasesink.yaml` | `KollectDatabaseSink` | Postgres sink (portal SoR) |
+| `kollect_v1alpha1_kollectsnapshotsink.yaml` | `KollectSnapshotSink` | Git snapshot sink (audit) |
 | `kollect_v1alpha1_kollecttarget.yaml` | `KollectTarget` | Collect Deployments using the profile |
-| `kollect_v1alpha1_kollectinventory.yaml` | `KollectInventory` | Aggregate and export to the sink |
+| `kollect_v1alpha1_kollectinventory.yaml` | `KollectInventory` | Aggregate and export to family sinks |
 
 Narrative walkthrough with expected behavior notes:
 [examples/deployment-inventory.md](examples/deployment-inventory.md).
@@ -135,28 +136,37 @@ Set `watchMode: OptIn` to collect only explicitly `enabled` namespaces/resources
 
 Sample opt-in target: `config/samples/kollect_v1alpha1_kollecttarget_opt-in.yaml`.
 
-### Connection test (sink)
+### Connection test (family sinks)
 
-Samples set `spec.connectionTest: true` on `KollectSink`. The operator probes Git/Postgres/Kafka
-and sets **`ConnectionVerified`** ([ADR-0403](adr/0403-connection-test.md)).
+Samples set `spec.connectionTest: true` on **`KollectDatabaseSink`** and **`KollectSnapshotSink`**.
+The operator probes Postgres/Git (and other wired backends) and sets **`ConnectionVerified`**
+([ADR-0403](adr/0403-connection-test.md), [ADR-0414](adr/0414-sink-family-crds.md)).
 
 ```sh
-kubectl wait --for=condition=ConnectionVerified kollectsink/git-inventory \
+kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/postgres-inventory-demo \
   -n default --timeout=60s
-kubectl describe kollectsink git-inventory -n default
+kubectl describe kollectdatabasesink postgres-inventory-demo -n default
+```
+
+Git snapshot sink:
+
+```sh
+kubectl wait --for=condition=ConnectionVerified kollectsnapshotsink/git-inventory-demo \
+  -n default --timeout=60s
 ```
 
 Re-test without editing spec:
 
 ```sh
-kubectl annotate kollectsink git-inventory -n default kollect.dev/test-connection=true --overwrite
+kubectl annotate kollectsnapshotsink git-inventory-demo -n default \
+  kollect.dev/test-connection=true --overwrite
 ```
 
 ### Optional: Git credentials
 
-The sample Git sink references a placeholder repository. For real exports, create a Secret with
-credentials and point `spec.secretRef` at it. Connection tests can pass without a writable remote;
-export requires valid credentials and endpoint reachability.
+The sample Git snapshot sink references a placeholder repository. For real exports, create a Secret
+with credentials and point `spec.secretRef` at it. Connection tests can pass without a writable
+remote; export requires valid credentials and endpoint reachability.
 
 ## Verify
 
@@ -175,7 +185,7 @@ Postgres row counts, etc. — not full payloads; see [ADR-0103](adr/0103-etcd-li
 ### CR status
 
 ```sh
-kubectl get kollectprofiles,kollectsinks,kollectinventories
+kubectl get kprof,ksnap,kdb,kinv -A
 kubectl get kollecttargets -A
 kubectl describe kollectinventory -n default team-inventory
 ```
