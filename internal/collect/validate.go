@@ -42,6 +42,10 @@ func ValidateAttributePath(extractor *Extractor, path string) error {
 		return nil
 	}
 
+	if strings.HasPrefix(path, HelmReleasePathPrefix) {
+		return ValidateHelmReleaseAttributePath(path)
+	}
+
 	jp := jsonpath.New("validate")
 	if err := jp.Parse(normalizeJSONPath(path)); err != nil {
 		return fmt.Errorf("parse JSONPath: %w", err)

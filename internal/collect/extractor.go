@@ -72,6 +72,10 @@ func (e *Extractor) extractOne(obj *unstructured.Unstructured, path string) (any
 		return e.evalCEL(obj, strings.TrimPrefix(path, celPrefix))
 	}
 
+	if strings.HasPrefix(path, HelmReleasePathPrefix) {
+		return extractHelmReleaseField(obj, path)
+	}
+
 	return evalJSONPath(obj.Object, normalizeJSONPath(path))
 }
 

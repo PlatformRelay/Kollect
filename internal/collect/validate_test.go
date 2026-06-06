@@ -25,6 +25,8 @@ func TestValidateAttributePathCELPrefixRequired(t *testing.T) {
 		{path: "object['metadata']['name']", wantErr: true, wantCELMsg: true},
 		{path: "$.metadata.name", wantErr: false},
 		{path: "cel:object.metadata.name", wantErr: false},
+		{path: "helm:release.chartVersion", wantErr: false},
+		{path: "helm:release.manifest", wantErr: true},
 	}
 
 	for _, tt := range tests {

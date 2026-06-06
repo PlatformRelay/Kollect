@@ -56,6 +56,29 @@ func TestValidateProfileSecretDataPaths(t *testing.T) {
 			path:    "cel:object.data.release",
 			wantErr: true,
 		},
+		{
+			name:    "helm summary path allowed without opt-in",
+			path:    "helm:release.chartVersion",
+			wantErr: false,
+		},
+		{
+			name:    "helm config path rejected without opt-in",
+			path:    "helm:release.config",
+			wantErr: true,
+		},
+		{
+			name: "helm config path allowed with opt-in annotation",
+			annotations: map[string]string{
+				AllowSecretExtractionAnnotation: "true",
+			},
+			path:    "helm:release.config",
+			wantErr: false,
+		},
+		{
+			name:    "helm manifest path rejected by path validation",
+			path:    "helm:release.manifest",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -97,6 +120,7 @@ func TestPathTargetsSecretData(t *testing.T) {
 		{path: "$.metadata.name", want: false},
 		{path: "$.data.release", want: true},
 		{path: "cel:object.data.release", want: true},
+		{path: "helm:release.chartVersion", want: false},
 		{path: "cel:object.status.phase", want: false},
 	}
 

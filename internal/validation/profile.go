@@ -186,15 +186,17 @@ func validateSecretDataAccess(profile *kollectdevv1alpha1.KollectProfile) field.
 	var allErrs field.ErrorList
 
 	for i, attr := range profile.Spec.Attributes {
-		if pathTargetsSecretData(attr.Path) {
-			allErrs = append(allErrs, field.Forbidden(
-				attrPath.Index(i).Child("path"),
-				fmt.Sprintf(
-					"Secret.data paths require annotation %q: \"true\"",
-					AllowSecretExtractionAnnotation,
-				),
-			))
+		if !pathRequiresSecretExtractionOptIn(attr.Path) {
+			continue
 		}
+
+		allErrs = append(allErrs, field.Forbidden(
+			attrPath.Index(i).Child("path"),
+			fmt.Sprintf(
+				"Secret.data paths require annotation %q: \"true\"",
+				AllowSecretExtractionAnnotation,
+			),
+		))
 	}
 
 	return allErrs
@@ -217,9 +219,26 @@ func allowSecretExtraction(annotations map[string]string) bool {
 	return annotations != nil && annotations[AllowSecretExtractionAnnotation] == "true"
 }
 
+func pathRequiresSecretExtractionOptIn(path string) bool {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return false
+	}
+
+	if strings.HasPrefix(path, collect.HelmReleasePathPrefix) {
+		return collect.HelmReleasePathRequiresSecretOptIn(path)
+	}
+
+	return pathTargetsSecretData(path)
+}
+
 func pathTargetsSecretData(path string) bool {
 	path = strings.TrimSpace(path)
 	if path == "" {
+		return false
+	}
+
+	if strings.HasPrefix(path, collect.HelmReleasePathPrefix) {
 		return false
 	}
 
