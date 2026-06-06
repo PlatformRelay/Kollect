@@ -3,8 +3,9 @@
 **Scope:** Cluster · **Reconciled:** Yes · **Short name:** `kcinv`
 
 !!! note "Sink namespace"
-    `spec.sinkRefs[]` resolve `KollectSink` objects in `spec.sinkNamespace` (default
-    `kollect-system`), not the inventory CR's namespace.
+    Family sink refs (`snapshotSinkRefs`, `databaseSinkRefs`, `eventSinkRefs`) resolve namespaced
+    sinks in `spec.sinkNamespace` (default `kollect-system`), or cluster-scoped `KollectCluster*Sink`
+    when no namespaced match exists.
 
 ## What it is for
 
@@ -23,22 +24,24 @@ flowchart TD
   CProf[KollectClusterProfile]
   CTarget[KollectClusterTarget]
   CInv[KollectClusterInventory]
-  Sink[KollectSink in sinkNamespace]
+  Snap[KollectSnapshotSink]
+  Db[KollectDatabaseSink]
 
   CProf -.->|optional profileRef| CInv
   CTarget -->|rollup| CInv
-  CInv --> Sink
+  CInv --> Snap
+  CInv --> Db
 ```
 
 | Relationship | Rule |
 | --- | --- |
 | Targets | `spec.targetRefs[]` names cluster targets; empty = all matching `targetSelector` (or all targets) |
 | Namespaces | `namespaceSelector` **required** — empty selector rejected (no cluster-wide wildcard) |
-| Sinks | `spec.sinkRefs[]` resolved in `spec.sinkNamespace` (default `kollect-system`) |
+| Sinks | Family ref lists resolved in `spec.sinkNamespace` (default `kollect-system`) |
 | Profile | Optional `spec.profileRef` names a `KollectClusterProfile` (rollup schema override, future) |
 
-**Sink design (MVP):** namespaced `KollectSink` objects in the export namespace (`sinkNamespace`).
-`KollectClusterSink` is reserved for a later platform-shared backend.
+**Sink design:** namespaced family sinks in the export namespace, or cluster-scoped
+`KollectCluster*Sink` for platform-wide backends ([ADR-0414](../adr/0414-sink-family-crds.md)).
 
 ## Spec fields
 

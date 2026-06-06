@@ -9,8 +9,9 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   exportMinInterval: 30s
-  sinkRefs:
+  databaseSinkRefs:
     - postgres-inventory-demo
+  snapshotSinkRefs:
     - name: git-inventory-demo
       exportMinInterval: 1h
   suspend: false

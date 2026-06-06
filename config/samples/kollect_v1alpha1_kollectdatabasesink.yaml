@@ -1,5 +1,5 @@
 apiVersion: kollect.dev/v1alpha1
-kind: KollectSink
+kind: KollectDatabaseSink
 metadata:
   name: postgres-inventory-demo
   namespace: default
