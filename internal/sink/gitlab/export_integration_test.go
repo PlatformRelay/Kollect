@@ -320,8 +320,12 @@ func TestExportGitLabMergeRequestMode(t *testing.T) {
 }
 
 type forgejoMergeRequest struct {
-	Head  struct{ Ref string `json:"ref"` } `json:"head"`
-	Base  struct{ Ref string `json:"ref"` } `json:"base"`
+	Head struct {
+		Ref string `json:"ref"`
+	} `json:"head"`
+	Base struct {
+		Ref string `json:"ref"`
+	} `json:"base"`
 	State string `json:"state"`
 }
 
