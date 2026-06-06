@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -257,5 +258,129 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		Expect(verified).NotTo(BeNil())
 		Expect(verified.Status).To(Equal(metav1.ConditionTrue))
 		Expect(verified.Reason).To(Equal("ConnectionOK"))
+	})
+
+	It("marks probe failure terminal on KollectConnectionTest", func() {
+		suffix := testNameSuffix()
+		sinkName := "probe-fail-sink-" + suffix
+		testName := "probe-fail-" + suffix
+		ns := "default"
+
+		sinkObj := &kollectdevv1alpha1.KollectSink{
+			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns},
+			Spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type:     "git",
+				Endpoint: "://invalid",
+			},
+		}
+		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
+		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
+
+		test := &kollectdevv1alpha1.KollectConnectionTest{
+			ObjectMeta: metav1.ObjectMeta{Name: testName, Namespace: ns, Generation: 1},
+			Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: sinkName},
+		}
+		Expect(k8sClient.Create(ctx, test)).To(Succeed())
+		defer func() { _ = k8sClient.Delete(ctx, test) }()
+
+		reconciler := &KollectConnectionTestReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
+		}
+
+		_, err := reconciler.Reconcile(context.Background(), reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: testName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updated := &kollectdevv1alpha1.KollectConnectionTest{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testName, Namespace: ns}, updated)).To(Succeed())
+		Expect(updated.Status.Completed).To(BeTrue())
+
+		verified := apimeta.FindStatusCondition(updated.Status.Conditions, kollectdevv1alpha1.ConditionConnectionVerified)
+		Expect(verified).NotTo(BeNil())
+		Expect(verified.Status).To(Equal(metav1.ConditionFalse))
+		Expect(verified.Reason).To(Equal("ConnectionTestFailed"))
+	})
+
+	It("deletes KollectConnectionTest after TTL expiry", func() {
+		suffix := testNameSuffix()
+		testName := "probe-ttl-" + suffix
+		ns := "default"
+
+		zero := int32(0)
+		completedAt := metav1.NewTime(time.Now().Add(-time.Minute))
+		test := &kollectdevv1alpha1.KollectConnectionTest{
+			ObjectMeta: metav1.ObjectMeta{Name: testName, Namespace: ns, Generation: 1},
+			Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+				SinkRef:                 "any",
+				TTLSecondsAfterFinished: &zero,
+			},
+			Status: kollectdevv1alpha1.KollectConnectionTestStatus{Conditions: []metav1.Condition{}},
+		}
+		Expect(k8sClient.Create(ctx, test)).To(Succeed())
+
+		test.Status = kollectdevv1alpha1.KollectConnectionTestStatus{
+			Completed:          true,
+			ObservedGeneration: 1,
+			CompletedAt:        &completedAt,
+			Conditions: []metav1.Condition{{
+				Type:               kollectdevv1alpha1.ConditionConnectionVerified,
+				Status:             metav1.ConditionTrue,
+				Reason:             "ConnectionOK",
+				Message:            "completed",
+				LastTransitionTime: completedAt,
+			}},
+		}
+		Expect(k8sClient.Status().Update(ctx, test)).To(Succeed())
+
+		reconciler := &KollectConnectionTestReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
+		}
+
+		_, err := reconciler.Reconcile(context.Background(), reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: testName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		Eventually(func(g Gomega) {
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: testName, Namespace: ns}, &kollectdevv1alpha1.KollectConnectionTest{})
+			g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
+	})
+
+	It("skips automatic probe when connectionTest is false on KollectSink", func() {
+		suffix := testNameSuffix()
+		sinkName := "no-probe-" + suffix
+		ns := "default"
+
+		falseVal := false
+		sinkObj := &kollectdevv1alpha1.KollectSink{
+			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns, Generation: 1},
+			Spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type:           "git",
+				Endpoint:       "://invalid",
+				ConnectionTest: &falseVal,
+			},
+		}
+		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
+		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
+
+		reconciler := &KollectSinkReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
+		}
+
+		_, err := reconciler.Reconcile(context.Background(), reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: sinkName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updated := &kollectdevv1alpha1.KollectSink{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: sinkName, Namespace: ns}, updated)).To(Succeed())
+
+		verified := apimeta.FindStatusCondition(updated.Status.Conditions, kollectdevv1alpha1.ConditionConnectionVerified)
+		Expect(verified).To(BeNil())
 	})
 })
