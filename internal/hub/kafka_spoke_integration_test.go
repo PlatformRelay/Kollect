@@ -106,8 +106,10 @@ func TestHubKafkaSpokeToConsumerMergeExport(t *testing.T) {
 	pgSink := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "hub-postgres", Namespace: "platform"},
 		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
-			Type:    "postgres",
-			Cluster: "hub",
+			Type: "postgres",
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+				Cluster: "hub",
+			},
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 				Table:       "inventory_items",

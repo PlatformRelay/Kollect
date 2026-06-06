@@ -224,6 +224,28 @@ func TestValidateEventSinkSpec_kafkaAcceptsBlock(t *testing.T) {
 	}
 }
 
+func TestValidateConnectionTestSinkRef_databaseRef(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateConnectionTestSinkRef(kollectdevv1alpha1.ConnectionTestSinkRef{
+		DatabaseSinkRef: "warehouse",
+	})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+}
+
+func TestValidateConnectionTestSinkRef_eventRef(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateConnectionTestSinkRef(kollectdevv1alpha1.ConnectionTestSinkRef{
+		EventSinkRef: "audit",
+	})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+}
+
 func TestValidateConnectionTestSinkRef_invalidName(t *testing.T) {
 	t.Parallel()
 
