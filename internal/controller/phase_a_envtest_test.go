@@ -56,9 +56,9 @@ var _ = Describe("Phase A envtest — map sink and degraded conflict", func() {
 			Kind:            "Deployment",
 		})
 
-		sinkObj := &kollectdevv1alpha1.KollectSink{
+		sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns},
-			Spec: kollectdevv1alpha1.KollectSinkSpec{
+			Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 				Type: kollectdevv1alpha1.SinkTypePostgres,
 				Postgres: &kollectdevv1alpha1.PostgresSpec{
 					DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-" + suffix},
@@ -79,7 +79,7 @@ var _ = Describe("Phase A envtest — map sink and degraded conflict", func() {
 		inv := &kollectdevv1alpha1.KollectInventory{
 			ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns},
 			Spec: kollectdevv1alpha1.KollectInventorySpec{
-				SinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
+				DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 			},
 		}
 		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
@@ -105,12 +105,12 @@ var _ = Describe("Phase A envtest — map sink and degraded conflict", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(recorder.exported).To(HaveLen(1))
 
-		updatedSink := &kollectdevv1alpha1.KollectSink{}
+		updatedSink := &kollectdevv1alpha1.KollectDatabaseSink{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: sinkName, Namespace: ns}, updatedSink)).To(Succeed())
 		updatedSink.Spec.Postgres.Table = "inventory_items_v2"
 		Expect(k8sClient.Update(ctx, updatedSink)).To(Succeed())
 
-		reqs := reconciler.mapSinkToInventories(ctx, updatedSink)
+		reqs := reconciler.mapDatabaseSinkToInventories(ctx, updatedSink)
 		Expect(reqs).To(ConsistOf(req))
 
 		store.Upsert(collect.Item{
@@ -136,7 +136,7 @@ var _ = Describe("Phase A envtest — map sink and degraded conflict", func() {
 		inv := &kollectdevv1alpha1.KollectInventory{
 			ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns, Generation: 1},
 			Spec: kollectdevv1alpha1.KollectInventorySpec{
-				SinkRefs: kollectdevv1alpha1.NewSinkRefList("missing-sink"),
+				DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("missing-sink"),
 			},
 		}
 		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
@@ -188,11 +188,13 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		testName := "probe-test-" + suffix
 		ns := "default"
 
-		sinkObj := &kollectdevv1alpha1.KollectSink{
+		sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns},
-			Spec: kollectdevv1alpha1.KollectSinkSpec{
-				Type:     "git",
-				Endpoint: envtestGitProbeEndpoint,
+			Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+				Type: kollectdevv1alpha1.SnapshotSinkTypeGit,
+				SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+					Endpoint: envtestGitProbeEndpoint,
+				},
 			},
 		}
 		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
@@ -200,7 +202,9 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 
 		test := &kollectdevv1alpha1.KollectConnectionTest{
 			ObjectMeta: metav1.ObjectMeta{Name: testName, Namespace: ns, Generation: 1},
-			Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: sinkName},
+			Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+				SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: sinkName},
+			},
 		}
 		Expect(k8sClient.Create(ctx, test)).To(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, test) }()
@@ -226,22 +230,24 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		Expect(verified.Reason).To(Equal("ConnectionOK"))
 	})
 
-	It("runs connection test on KollectSink reconcile when probe is enabled", func() {
+	It("runs connection test on snapshot sink reconcile when probe is enabled", func() {
 		suffix := fmt.Sprintf("%x", time.Now().UnixNano())
 		sinkName := "conn-sink-" + suffix
 		ns := "default"
 
-		sinkObj := &kollectdevv1alpha1.KollectSink{
+		sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns, Generation: 1},
-			Spec: kollectdevv1alpha1.KollectSinkSpec{
-				Type:     "git",
-				Endpoint: envtestGitProbeEndpoint,
+			Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+				Type: kollectdevv1alpha1.SnapshotSinkTypeGit,
+				SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+					Endpoint: envtestGitProbeEndpoint,
+				},
 			},
 		}
 		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
 
-		reconciler := &KollectSinkReconciler{
+		reconciler := &FamilySnapshotSinkReconciler{
 			Client: k8sClient,
 			Scheme: k8sClient.Scheme(),
 		}
@@ -251,7 +257,7 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		updated := &kollectdevv1alpha1.KollectSink{}
+		updated := &kollectdevv1alpha1.KollectSnapshotSink{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: sinkName, Namespace: ns}, updated)).To(Succeed())
 
 		verified := apimeta.FindStatusCondition(updated.Status.Conditions, kollectdevv1alpha1.ConditionConnectionVerified)
@@ -266,11 +272,13 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		testName := "probe-fail-" + suffix
 		ns := "default"
 
-		sinkObj := &kollectdevv1alpha1.KollectSink{
+		sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns},
-			Spec: kollectdevv1alpha1.KollectSinkSpec{
-				Type:     "git",
-				Endpoint: "://invalid",
+			Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+				Type: kollectdevv1alpha1.SnapshotSinkTypeGit,
+				SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+					Endpoint: "://invalid",
+				},
 			},
 		}
 		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
@@ -278,7 +286,9 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 
 		test := &kollectdevv1alpha1.KollectConnectionTest{
 			ObjectMeta: metav1.ObjectMeta{Name: testName, Namespace: ns, Generation: 1},
-			Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: sinkName},
+			Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+				SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: sinkName},
+			},
 		}
 		Expect(k8sClient.Create(ctx, test)).To(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, test) }()
@@ -313,7 +323,7 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		test := &kollectdevv1alpha1.KollectConnectionTest{
 			ObjectMeta: metav1.ObjectMeta{Name: testName, Namespace: ns, Generation: 1},
 			Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
-				SinkRef:                 "any",
+				SinkRef:                 kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: "any"},
 				TTLSecondsAfterFinished: &zero,
 			},
 			Status: kollectdevv1alpha1.KollectConnectionTestStatus{Conditions: []metav1.Condition{}},
@@ -350,24 +360,26 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		}).WithTimeout(5 * time.Second).Should(Succeed())
 	})
 
-	It("skips automatic probe when connectionTest is false on KollectSink", func() {
+	It("skips automatic probe when connectionTest is false on snapshot sink", func() {
 		suffix := testNameSuffix()
 		sinkName := "no-probe-" + suffix
 		ns := "default"
 
 		falseVal := false
-		sinkObj := &kollectdevv1alpha1.KollectSink{
+		sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns, Generation: 1},
-			Spec: kollectdevv1alpha1.KollectSinkSpec{
-				Type:           "git",
-				Endpoint:       "://invalid",
-				ConnectionTest: &falseVal,
+			Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+				Type: kollectdevv1alpha1.SnapshotSinkTypeGit,
+				SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+					Endpoint:       "://invalid",
+					ConnectionTest: &falseVal,
+				},
 			},
 		}
 		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
 
-		reconciler := &KollectSinkReconciler{
+		reconciler := &FamilySnapshotSinkReconciler{
 			Client: k8sClient,
 			Scheme: k8sClient.Scheme(),
 		}
@@ -377,7 +389,7 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		updated := &kollectdevv1alpha1.KollectSink{}
+		updated := &kollectdevv1alpha1.KollectSnapshotSink{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: sinkName, Namespace: ns}, updated)).To(Succeed())
 
 		verified := apimeta.FindStatusCondition(updated.Status.Conditions, kollectdevv1alpha1.ConditionConnectionVerified)

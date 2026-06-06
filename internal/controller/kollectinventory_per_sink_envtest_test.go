@@ -45,9 +45,9 @@ var _ = Describe("KollectInventory per-sink export (envtest)", func() {
 			Attributes:      map[string]any{"image": "nginx:1.27"},
 		})
 
-		sinkObj := &kollectdevv1alpha1.KollectSink{
+		sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns},
-			Spec: kollectdevv1alpha1.KollectSinkSpec{
+			Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 				Type: kollectdevv1alpha1.SinkTypePostgres,
 				Postgres: &kollectdevv1alpha1.PostgresSpec{
 					DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-" + suffix},
@@ -68,7 +68,7 @@ var _ = Describe("KollectInventory per-sink export (envtest)", func() {
 		inv := &kollectdevv1alpha1.KollectInventory{
 			ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns},
 			Spec: kollectdevv1alpha1.KollectInventorySpec{
-				SinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
+				DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 			},
 		}
 		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
@@ -98,7 +98,7 @@ var _ = Describe("KollectInventory per-sink export (envtest)", func() {
 		updated := &kollectdevv1alpha1.KollectInventory{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: invName, Namespace: ns}, updated)).To(Succeed())
 		Expect(updated.Status.SinkExports).To(HaveLen(1))
-		Expect(updated.Status.SinkExports[0].Name).To(Equal(sinkName))
+		Expect(updated.Status.SinkExports[0].Name).To(Equal(string(kollectdevv1alpha1.SinkFamilyDatabase) + "/" + sinkName))
 		Expect(updated.Status.SinkExports[0].LastExportTime).NotTo(BeNil())
 
 		synced := apimeta.FindStatusCondition(updated.Status.SinkExports[0].Conditions, conditionSinkSynced)
@@ -134,7 +134,7 @@ var _ = Describe("KollectInventory per-sink export (envtest)", func() {
 		for _, name := range []string{sinkA, sinkB} {
 			sinkObj, _ := createPostgresSinkFixtures(name, "pg-"+suffix, ns)
 			Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
-			defer func(obj *kollectdevv1alpha1.KollectSink) { _ = k8sClient.Delete(ctx, obj) }(sinkObj)
+			defer func(obj *kollectdevv1alpha1.KollectDatabaseSink) { _ = k8sClient.Delete(ctx, obj) }(sinkObj)
 		}
 
 		pgSecret := &corev1.Secret{
@@ -148,7 +148,7 @@ var _ = Describe("KollectInventory per-sink export (envtest)", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns},
 			Spec: kollectdevv1alpha1.KollectInventorySpec{
 				ExportMinInterval: &longInterval,
-				SinkRefs: kollectdevv1alpha1.InventorySinkRefList{
+				DatabaseSinkRefs: kollectdevv1alpha1.InventorySinkRefList{
 					{Name: sinkA},
 					{Name: sinkB},
 				},
@@ -212,9 +212,9 @@ var _ = Describe("KollectInventory deletion cleanup (envtest)", func() {
 			Kind:            "Deployment",
 		})
 
-		sinkObj := &kollectdevv1alpha1.KollectSink{
+		sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns},
-			Spec: kollectdevv1alpha1.KollectSinkSpec{
+			Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 				Type: kollectdevv1alpha1.SinkTypePostgres,
 				Postgres: &kollectdevv1alpha1.PostgresSpec{
 					DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-" + suffix},
@@ -235,7 +235,7 @@ var _ = Describe("KollectInventory deletion cleanup (envtest)", func() {
 		inv := &kollectdevv1alpha1.KollectInventory{
 			ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns},
 			Spec: kollectdevv1alpha1.KollectInventorySpec{
-				SinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
+				DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 			},
 		}
 		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
@@ -314,7 +314,7 @@ var _ = Describe("KollectInventory partial multi-sink export (envtest)", func() 
 			sinkObj, pgSecret := createPostgresSinkFixtures(pair.sinkName, pair.secretName, ns)
 			sinkObj.Spec.Postgres.Table = pair.table
 			Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
-			defer func(obj *kollectdevv1alpha1.KollectSink) { _ = k8sClient.Delete(ctx, obj) }(sinkObj)
+			defer func(obj *kollectdevv1alpha1.KollectDatabaseSink) { _ = k8sClient.Delete(ctx, obj) }(sinkObj)
 			Expect(k8sClient.Create(ctx, pgSecret)).To(Succeed())
 			defer func(obj *corev1.Secret) { _ = k8sClient.Delete(ctx, obj) }(pgSecret)
 		}
@@ -322,7 +322,7 @@ var _ = Describe("KollectInventory partial multi-sink export (envtest)", func() 
 		inv := &kollectdevv1alpha1.KollectInventory{
 			ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns, Generation: 1},
 			Spec: kollectdevv1alpha1.KollectInventorySpec{
-				SinkRefs: kollectdevv1alpha1.InventorySinkRefList{
+				DatabaseSinkRefs: kollectdevv1alpha1.InventorySinkRefList{
 					{Name: sinkFail},
 					{Name: sinkOK},
 				},
@@ -367,7 +367,7 @@ var _ = Describe("KollectInventory partial multi-sink export (envtest)", func() 
 
 		var failExport *kollectdevv1alpha1.InventorySinkExportStatus
 		for i := range updated.Status.SinkExports {
-			if updated.Status.SinkExports[i].Name == sinkFail {
+			if updated.Status.SinkExports[i].Name == string(kollectdevv1alpha1.SinkFamilyDatabase)+"/"+sinkFail {
 				failExport = &updated.Status.SinkExports[i]
 				break
 			}

@@ -31,10 +31,10 @@ func TestKollectClusterInventoryReconciler_deleteExportsEmptyAndRemovesFinalizer
 		t.Fatalf("AddToScheme corev1: %v", err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "postgres-demo", Namespace: "kollect-system"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: kollectdevv1alpha1.SinkTypePostgres,
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 				Table:       "inventory_items",
@@ -50,7 +50,7 @@ func TestKollectClusterInventoryReconciler_deleteExportsEmptyAndRemovesFinalizer
 			DeletionTimestamp: &now,
 		},
 		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
-			SinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
 		},
 	}
 

@@ -85,11 +85,12 @@ func TestSampleKindsDecode(t *testing.T) {
 
 	root := filepath.Join("..", "..", "config", "samples")
 	patterns := []string{
-		"kollect_v1alpha1_kollectsink.yaml",
-		"kollect_v1alpha1_kollectsink_postgres.yaml",
-		"kollect_v1alpha1_kollectsink_kafka.yaml",
+
 		"kollect_v1alpha1_kollecttarget.yaml",
 		"kollect_v1alpha1_kollectinventory.yaml",
+		"kollect_v1alpha1_kollectdatabasesink.yaml",
+		"kollect_v1alpha1_kollectsnapshotsink.yaml",
+		"kollect_v1alpha1_kollecteventsink_kafka.yaml",
 		"kollect_v1alpha1_kollectclusterprofile.yaml",
 		"kollect_v1alpha1_kollectclustertarget.yaml",
 		"kollect_v1alpha1_kollectclusterinventory.yaml",

@@ -58,7 +58,7 @@ func TestKollectConnectionTestReconciler_sinkNotFound(t *testing.T) {
 			Namespace:  "team-a",
 			Generation: 1,
 		},
-		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: "missing-sink"},
+		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{DatabaseSinkRef: "missing-sink"}},
 	}
 
 	c := fake.NewClientBuilder().
@@ -99,11 +99,13 @@ func TestKollectConnectionTestReconciler_probeFailed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "bad-git", Namespace: "team-a"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type:     "git",
-			Endpoint: "://invalid",
+		Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type: kollectdevv1alpha1.SnapshotSinkTypeGit,
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+				Endpoint: "://invalid",
+			},
 		},
 	}
 	test := &kollectdevv1alpha1.KollectConnectionTest{
@@ -112,7 +114,9 @@ func TestKollectConnectionTestReconciler_probeFailed(t *testing.T) {
 			Namespace:  "team-a",
 			Generation: 1,
 		},
-		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: sinkObj.Name},
+		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+			SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: sinkObj.Name},
+		},
 	}
 
 	c := fake.NewClientBuilder().
@@ -148,15 +152,17 @@ func TestKollectConnectionTestReconciler_ownerReference(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "team-git",
 			Namespace: "team-a",
 			UID:       types.UID("sink-uid"),
 		},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type:     "git",
-			Endpoint: "://invalid",
+		Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type: kollectdevv1alpha1.SnapshotSinkTypeGit,
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+				Endpoint: "://invalid",
+			},
 		},
 	}
 	test := &kollectdevv1alpha1.KollectConnectionTest{
@@ -165,7 +171,9 @@ func TestKollectConnectionTestReconciler_ownerReference(t *testing.T) {
 			Namespace:  "team-a",
 			Generation: 1,
 		},
-		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: sinkObj.Name},
+		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+			SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: sinkObj.Name},
+		},
 	}
 
 	c := fake.NewClientBuilder().
@@ -200,7 +208,7 @@ func TestKollectConnectionTestReconciler_setProbeSucceeded(t *testing.T) {
 
 	test := &kollectdevv1alpha1.KollectConnectionTest{
 		ObjectMeta: metav1.ObjectMeta{Name: "probe-ok", Namespace: "team-a", Generation: 2},
-		Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: "demo"},
+		Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{DatabaseSinkRef: "demo"}},
 	}
 
 	c := fake.NewClientBuilder().
@@ -233,7 +241,7 @@ func TestKollectConnectionTestReconciler_reconcileTTLDeletes(t *testing.T) {
 	test := &kollectdevv1alpha1.KollectConnectionTest{
 		ObjectMeta: metav1.ObjectMeta{Name: "probe-ttl", Namespace: "team-a", Generation: 1},
 		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
-			SinkRef:                 "any",
+			SinkRef:                 kollectdevv1alpha1.ConnectionTestSinkRef{DatabaseSinkRef: "any"},
 			TTLSecondsAfterFinished: &zero,
 		},
 		Status: kollectdevv1alpha1.KollectConnectionTestStatus{

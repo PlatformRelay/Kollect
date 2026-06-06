@@ -30,9 +30,12 @@ func TestRunExportItems_circuitBreakerTripsAfterRepeatedFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
 		ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: sinkNamespace},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
+		Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type:             "stub",
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/repo.git"},
+		},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build()
 

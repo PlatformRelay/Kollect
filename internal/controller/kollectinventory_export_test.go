@@ -62,10 +62,10 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 		t.Fatalf("AddToScheme corev1: %v", err)
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "postgres-demo", Namespace: "default"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "postgres",
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 				Table:       "inventory_items",
@@ -76,7 +76,7 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default"},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			SinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-demo"),
 		},
 	}
 
@@ -128,8 +128,9 @@ func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	if len(got.Status.SinkExports) != 1 {
 		t.Fatalf("SinkExports = %d, want 1", len(got.Status.SinkExports))
 	}
-	if got.Status.SinkExports[0].Name != "postgres-demo" {
-		t.Fatalf("sink export name = %q, want postgres-demo", got.Status.SinkExports[0].Name)
+	wantName := string(kollectdevv1alpha1.SinkFamilyDatabase) + "/postgres-demo"
+	if got.Status.SinkExports[0].Name != wantName {
+		t.Fatalf("sink export name = %q, want %s", got.Status.SinkExports[0].Name, wantName)
 	}
 	if got.Status.SinkExports[0].LastExportTime == nil {
 		t.Fatal("expected lastExportTime on sinkExports[0]")

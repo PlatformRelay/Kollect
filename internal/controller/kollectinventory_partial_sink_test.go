@@ -56,20 +56,20 @@ func TestKollectInventoryReconciler_exportToSinks_continuesOnPartialFailure(t *t
 		t.Fatal(err)
 	}
 
-	sinkOK := &kollectdevv1alpha1.KollectSink{
+	sinkOK := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "partial-sink-ok", Namespace: "default"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "postgres",
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-ok"},
 				Table:       "items",
 			},
 		},
 	}
-	sinkFail := &kollectdevv1alpha1.KollectSink{
+	sinkFail := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "partial-sink-fail", Namespace: "default"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "postgres",
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-fail"},
 				Table:       "fail",
@@ -79,7 +79,7 @@ func TestKollectInventoryReconciler_exportToSinks_continuesOnPartialFailure(t *t
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default", Generation: 1},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			SinkRefs: kollectdevv1alpha1.InventorySinkRefList{
+			DatabaseSinkRefs: kollectdevv1alpha1.InventorySinkRefList{
 				{Name: "partial-sink-fail"},
 				{Name: "partial-sink-ok"},
 			},
@@ -145,7 +145,7 @@ func TestKollectInventoryReconciler_exportToSinks_continuesOnPartialFailure(t *t
 	}
 	var failSynced *metav1.Condition
 	for i := range outcome.SinkExports {
-		if outcome.SinkExports[i].Name == "partial-sink-fail" {
+		if outcome.SinkExports[i].Name == string(kollectdevv1alpha1.SinkFamilyDatabase)+"/partial-sink-fail" {
 			failSynced = apimeta.FindStatusCondition(outcome.SinkExports[i].Conditions, conditionSinkSynced)
 
 			break
