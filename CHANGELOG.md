@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **samples:** Drop legacy sinkRefs from team-a scope [57d0e00](https://github.com/konih/kollect/commit/57d0e00620d9506cefedb9a4562a65eceb51fceb)
+
 - **gitlab:** Basic auth for Forgejo Gitea MR API [3bffe46](https://github.com/konih/kollect/commit/3bffe4683dd7f3bac1cda6db793c1041740a3e9f)
 
 - **e2e:** Wait on family sink CRDs in kind smoke [9ca3eaa](https://github.com/konih/kollect/commit/9ca3eaa8fc3092859cd0d3de34b68a7650ae3777)
