@@ -1,110 +1,147 @@
 # Default values for the kollect operator Helm chart.
 
+# -- Override the chart name used in labels and resource names.
 nameOverride: ""
+# -- Override the full resource name prefix (defaults to release name + chart name).
 fullnameOverride: ""
 
+# -- Create the release namespace if it does not exist.
 createNamespace: false
 
 image:
+  # -- Controller container image repository.
   repository: ghcr.io/konih/kollect
+  # -- Controller image tag (defaults to chart appVersion when empty).
   tag: latest
+  # -- Controller image pull policy.
   pullPolicy: IfNotPresent
 
+# -- Image pull secrets for private registries.
 imagePullSecrets: []
 
+# -- Manager Deployment replica count (hub mode may scale consumers horizontally).
 replicaCount: 1
 
 serviceAccount:
+  # -- Create a ServiceAccount for the manager pod.
   create: true
+  # -- ServiceAccount name (generated when empty).
   name: ""
+  # -- Annotations added to the ServiceAccount.
   annotations: {}
 
 rbac:
+  # -- Create RBAC roles/bindings for the manager.
   create: true
 
-# Restrict the manager informer cache to these namespaces (empty = all namespaces).
-# Use for per-team operator installs — mirrors external-secrets scoped controller pattern.
+# -- Restrict the manager informer cache to these namespaces (empty = all namespaces). Use for per-team operator installs.
 watchNamespaces: []
 
-# Optional default namespace include/exclude lists for Target collection intent (ADR-0207).
-# CRD fields on KollectTarget override these chart defaults.
+# -- Default namespace allowlist for Target collection intent (CRD fields on KollectTarget override).
 defaultIncludedNamespaces: []
+# -- Default namespace denylist for Target collection intent (CRD fields on KollectTarget override).
 defaultExcludedNamespaces: []
 
-# When true, render a namespaced Role/RoleBinding instead of ClusterRole/ClusterRoleBinding.
-# Namespaced KollectProfile is managed in the release namespace (ADR-0204).
+# -- When true, render namespaced Role/RoleBinding instead of ClusterRole/ClusterRoleBinding.
 tenantMode: false
 
-# Operator deployment mode on the same image (ADR-0501 L3): single | hub | spoke
+# -- Operator deployment mode on the same image: single, hub, or spoke.
 mode: single
 
-# Hub consumer settings (mode: hub). Namespaced KollectSink refs resolve in exportNamespace.
+# -- Hub consumer settings (mode hub). Namespaced KollectSink refs resolve in exportNamespace.
 hub:
+  # -- Hub platform identifier.
   name: platform
+  # -- Namespace for platform SAR checks on KollectRemoteCluster (defaults to release namespace).
   platformNamespace: ""
+  # -- Namespace for hub sink CRs and merged export.
   exportNamespace: ""
+  # -- Namespaced KollectSink refs for parallel post-merge export (Postgres/Kafka).
   sinkRefs: []
+  # -- Spoke registration allowlist (fail-closed when set, even if empty).
   remoteClusters: []
+  # -- Hub ingest HTTP port for spoke reports.
   ingestPort: 8083
+  # -- Hub ingest authentication mode (kubernetes TokenReview/SAR).
   ingestAuthMode: kubernetes
 
-# Hub/spoke transport backend (ADR-0502). Only inprocess is the production default until an
-# external backend passes integration/e2e proof. Do not set redis/nats/kafka without ops sign-off.
+# -- Hub/spoke transport backend. Only inprocess is the production default until external backends pass integration proof.
 transport:
+  # -- Transport type: inprocess, redis, nats, or kafka (non-inprocess requires ops sign-off).
   type: inprocess
 
-# Default for KollectSink connection probes in bundled samples (ADR-0403).
-# CRD default is true; set false to opt out of automatic probes.
+# -- Defaults for KollectSink connection probes in bundled samples (CRD default is true).
 sinkDefaults:
+  # -- Default spec.connectionTest for sample sinks (CI/dev overlays often set true).
   connectionTest: false
 
 leaderElection:
+  # -- Enable controller-runtime leader election.
   enabled: true
 
 featureGates:
   inventoryHttp:
+    # -- Expose read-only GET /inventory HTTP API (debug/small installs only).
     enabled: false
+    # -- Inventory HTTP listen port.
     port: 8082
+    # -- Inventory HTTP auth mode: kubernetes (TokenReview/SAR) or disabled (dev only).
     authMode: kubernetes
 
-# Optional oauth2-proxy sidecar for browser/OIDC access (ADR-0404). Not rendered yet.
+# -- Optional oauth2-proxy sidecar for browser/OIDC access (not rendered yet).
 oauth2Proxy:
+  # -- Enable oauth2-proxy sidecar in front of inventory HTTP.
   enabled: false
 
 pprof:
+  # -- Enable Go pprof debug endpoint on the manager.
   enabled: false
+  # -- pprof bind address.
   bindAddress: ":6060"
 
 controller:
   maxConcurrentReconciles:
+    # -- Max concurrent reconciles for KollectTarget.
     target: 5
+    # -- Max concurrent reconciles for KollectInventory.
     inventory: 3
+    # -- Max concurrent reconciles for hub ingest/merge.
     hub: 2
-  # Export debounce is per KollectInventory.spec.exportMinInterval (CRD default 30s).
+  # -- Optional controller-runtime reconcile rate limit (empty = default).
   reconcileRateLimit: ""
 
 metrics:
+  # -- Expose Prometheus metrics endpoint.
   enabled: true
+  # -- Metrics bind address.
   bindAddress: ":8443"
+  # -- Serve metrics over HTTPS with bearer token auth.
   secure: true
-  # Prometheus Operator integration (requires monitoring.coreos.com CRDs, e.g. kube-prometheus-stack).
+  # -- Prometheus Operator ServiceMonitor integration (requires monitoring.coreos.com CRDs).
   serviceMonitor:
+    # -- Create a ServiceMonitor resource.
     enabled: false
+    # -- Scrape interval.
     interval: 30s
+    # -- Scrape timeout.
     scrapeTimeout: 10s
-    # Labels must match your Prometheus serviceMonitorSelector (kube-prometheus-stack default: release: kube-prometheus-stack).
+    # -- Labels merged onto ServiceMonitor (must match Prometheus serviceMonitorSelector).
     labels: {}
   prometheusRule:
+    # -- Create a PrometheusRule with starter kollect alerts.
     enabled: false
-    # Labels must match your Prometheus ruleSelector (kube-prometheus-stack default: release: kube-prometheus-stack).
+    # -- Labels merged onto PrometheusRule (must match Prometheus ruleSelector).
     labels: {}
-    # Optional extra PrometheusRule entries appended to the kollect.rules group.
+    # -- Extra PrometheusRule entries appended to the kollect.rules group.
     additionalRules: []
 
 webhooks:
+  # -- Enable validating admission webhooks for Kollect CRDs.
   enabled: true
   certManager:
+    # -- Create cert-manager Certificate/Issuer for webhook serving cert.
     create: true
+    # -- Secret name for webhook TLS material.
     secretName: webhook-server-cert
 
 resources:
@@ -131,14 +168,20 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# -- Extra arguments passed to the manager container.
 extraArgs: []
 
-# Optional kollect-ui subchart (static React SPA — default off).
+# -- Optional kollect-ui subchart (static React SPA — default off).
 ui:
+  # -- Enable the kollect-ui subchart.
   enabled: false
+  # -- Read API base URL injected into the UI bundle.
   readApiUrl: "http://kollect:8082"
   ingress:
+    # -- Expose kollect-ui via Ingress.
     enabled: false
   image:
+    # -- kollect-ui container image repository.
     repository: ghcr.io/konih/kollect-ui
+    # -- kollect-ui image tag (defaults to chart appVersion when empty).
     tag: ""

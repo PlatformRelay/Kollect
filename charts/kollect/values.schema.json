@@ -97,6 +97,14 @@
         "minLength": 1
       }
     },
+    "scrubKeys": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Extra attribute map keys redacted before store insert (built-in denylist always applies)."
+    },
     "sinkDefaults": {
       "type": "object",
       "additionalProperties": true,

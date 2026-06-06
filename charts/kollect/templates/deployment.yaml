@@ -68,6 +68,9 @@ spec:
             {{- if .Values.defaultExcludedNamespaces }}
             - --default-excluded-namespaces={{ join "," .Values.defaultExcludedNamespaces }}
             {{- end }}
+            {{- if .Values.scrubKeys }}
+            - --scrub-keys={{ join "," .Values.scrubKeys }}
+            {{- end }}
             {{- if and .Values.mode (ne .Values.mode "single") (ne .Values.mode "cluster") }}
             - --mode={{ .Values.mode }}
             {{- end }}
