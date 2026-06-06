@@ -31,8 +31,18 @@ _log "Probing inventory HTTP..."
 kubectl port-forward -n "$KOLLECT_NAMESPACE" svc/kollect-controller-manager 18082:8082 &
 PF_PID=$!
 trap 'kill "$PF_PID" 2>/dev/null || true' EXIT
-sleep 3
-curl -sf http://127.0.0.1:18082/inventory | grep -q itemCount
+for i in $(seq 1 30); do
+  if curl -sf http://127.0.0.1:18082/inventory | grep -q '"itemCount"'; then
+    break
+  fi
+  if [[ "$i" -eq 30 ]]; then
+    echo "inventory HTTP probe failed within timeout" >&2
+    curl -sv http://127.0.0.1:18082/inventory || true
+    kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=120 || true
+    exit 1
+  fi
+  sleep 2
+done
 
 _log "Generic CRD collection (cert-manager Certificate)..."
 chmod +x "${REPO_ROOT}/hack/e2e/cert-manager.sh"

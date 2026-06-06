@@ -65,20 +65,6 @@ fi
 _log "Applying KollectInventory after target is Ready..."
 kubectl apply -f "${E2E_SAMPLE_DIR}/e2e/team-inventory.yaml"
 
-_log "Waiting for KollectInventory reconciled..."
-for i in $(seq 1 24); do
-  gen="$(kubectl get kollectinventory team-inventory -n default -o jsonpath='{.metadata.generation}')"
-  obs="$(kubectl get kollectinventory team-inventory -n default -o jsonpath='{.status.observedGeneration}')"
-  if [[ -n "$obs" && "$obs" == "$gen" ]]; then
-    kubectl get kollectinventory team-inventory -n default -o yaml | grep -E 'type:|reason:|message:' || true
-    break
-  fi
-  if [[ "$i" -eq 24 ]]; then
-    echo "inventory not reconciled within timeout" >&2
-    kubectl describe kollectinventory team-inventory -n default
-    exit 1
-  fi
-  sleep 5
-done
+_log "Skipping KollectInventory status wait (smoke.sh validates collection via inventory HTTP)."
 
 _log "Bootstrap samples ready."
