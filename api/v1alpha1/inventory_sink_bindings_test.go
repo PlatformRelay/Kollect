@@ -80,6 +80,34 @@ func TestAllInventorySinkRefLists(t *testing.T) {
 	}
 }
 
+func TestAllClusterInventorySinkRefLists(t *testing.T) {
+	t.Parallel()
+
+	if AllClusterInventorySinkRefLists(nil) != nil {
+		t.Fatal("expected nil for nil spec")
+	}
+	spec := &KollectClusterInventorySpec{
+		EventSinkRefs: InventorySinkRefList{{Name: "stream"}},
+	}
+	lists := AllClusterInventorySinkRefLists(spec)
+	if len(lists) != 3 || len(lists[2]) != 1 {
+		t.Fatalf("lists: %+v", lists)
+	}
+}
+
+func TestToKollectSinkSpec_nilDatabaseAndEvent(t *testing.T) {
+	t.Parallel()
+
+	var db *KollectDatabaseSinkSpec
+	var ev *KollectEventSinkSpec
+	if got := db.ToKollectSinkSpec(); got.Type != "" {
+		t.Fatalf("nil database = %#v", got)
+	}
+	if got := ev.ToKollectSinkSpec(); got.Type != "" {
+		t.Fatalf("nil event = %#v", got)
+	}
+}
+
 func TestConnectionTestSinkRefFamily(t *testing.T) {
 	t.Parallel()
 

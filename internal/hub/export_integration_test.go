@@ -92,8 +92,10 @@ func TestHubExportPostgresAndKafkaParallel(t *testing.T) {
 	pgSink := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "hub-postgres", Namespace: "platform"},
 		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
-			Type:    "postgres",
-			Cluster: "hub",
+			Type: "postgres",
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+				Cluster: "hub",
+			},
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 				Table:       "inventory_items",
@@ -101,11 +103,13 @@ func TestHubExportPostgresAndKafkaParallel(t *testing.T) {
 			},
 		},
 	}
-	kafkaSink := &kollectdevv1alpha1.KollectDatabaseSink{
+	kafkaSink := &kollectdevv1alpha1.KollectEventSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "hub-kafka", Namespace: "platform"},
-		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
-			Type:    "kafka",
-			Cluster: "hub",
+		Spec: kollectdevv1alpha1.KollectEventSinkSpec{
+			Type: "kafka",
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+				Cluster: "hub",
+			},
 			Kafka: &kollectdevv1alpha1.KafkaSpec{
 				Brokers: []string{broker},
 				Topic:   topic,
