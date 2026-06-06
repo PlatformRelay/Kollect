@@ -54,8 +54,8 @@ flowchart LR
 | **3** | Governance | `KollectScope`, cluster inventory APIs, S3/GCS hardening |
 | **4** | Metrics + aggregation | kube-state-metrics-style config, richer rollups |
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
-[adr/README.md](adr/README.md) for design detail.
+See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
+[adr/README.md](adr/README.md), and [planned features](roadmap/planned-features.md) for design detail.
 
 ---
 
@@ -74,7 +74,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Core documentation + MkDocs (GitHub Pages) | ✅ |
 | CR reference guide (`docs/crds/`, failure modes) | ✅ |
 | Data flows (`DATA-FLOWS.md`) | ✅ |
-| Architecture Decision Records (44, thematic `0Txx` ranges) | ✅ |
+| Architecture Decision Records (46, thematic `0Txx` ranges) | ✅ |
 | ADR-0603 performance & scalability | ✅ |
 | `docs/development/guidelines.md`, `SECURITY.md`, `CONTRIBUTING.md` | ✅ |
 | Validating webhook — Profile CEL/JSONPath | ✅ |
@@ -223,11 +223,13 @@ never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) and
 | `spec.metrics[].labels` → `kollect_custom_resource_labeled_series` | ✅ per-label-tuple sums on target snapshot |
 | Hub spoke merge metrics (`kollect_hub_spoke_reports_total`, `kollect_hub_merged_items_total`) | ✅ consumer + HTTP ingest |
 | Cardinality-safe operator metrics (counts, export latency) | ✅ ADR-0602 catalog complete |
+| Target/inventory-scoped domain metrics (`metricsScope`, Tier B/C) | 🚧 [ADR-0604](adr/0604-target-scoped-prometheus-metrics.md) Exploring |
+| OpenTelemetry tracing (reconcile, export, hub ingest) | 🚧 [ADR-0605](adr/0605-opentelemetry-tracing.md) Exploring |
 | Cross-target dedupe spike (`internal/aggregate/`) | ✅ row identity, `DedupeByResourceUID`, `ExportCoalesce` checksum skip |
 | Advanced cross-target / cross-cluster aggregation (controller wire) | ✅ `KollectClusterInventory` — `MergeRows` + `ExportCoalesce` |
 | `task perf-report` optional CI gate | ✅ `ci.yaml` job + preflight note |
 
-**Counts:** ✅ 8 · ⬜ 0
+**Counts:** ✅ 8 · 🚧 2 · ⬜ 0
 
 ---
 
@@ -432,6 +434,8 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 
 ## Further reading
 
+- [Planned features (backlog and Exploring specs)](roadmap/planned-features.md)
+- [ADR and RFC process](development/adr-rfc-process.md)
 - [Platform decisions (2026-06-05)](PLATFORM-DECISIONS.md)
 - [Product requirements](REQUIREMENTS.md)
 - [Architecture](ARCHITECTURE.md)

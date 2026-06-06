@@ -74,6 +74,8 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0601](0601-prometheus-metrics-stub.md) | Operator metrics (no Prometheus export sink) | Current |
 | [0602](0602-error-taxonomy.md) | Error taxonomy and reconcile behavior | Current |
 | [0603](0603-performance-scalability.md) | Performance and scalability targets | Current |
+| [0604](0604-target-scoped-prometheus-metrics.md) | Target- and inventory-scoped Prometheus metrics | Exploring |
+| [0605](0605-opentelemetry-tracing.md) | OpenTelemetry tracing | Exploring |
 
 ## 07 · Project & meta — docs, scope guardrails, the big pivot
 
@@ -94,4 +96,6 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 > Old number → new number mapping lives in the git history of this change.
 
 See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md),
-[PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md), and [PERFORMANCE.md](../PERFORMANCE.md).
+[PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md), [PERFORMANCE.md](../PERFORMANCE.md),
+[planned features](../roadmap/planned-features.md), [RFC index](../rfc/README.md), and
+[ADR/RFC process](../development/adr-rfc-process.md).

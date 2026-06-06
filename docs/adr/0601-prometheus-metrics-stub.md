@@ -18,8 +18,10 @@ and Kafka sinks ([ADR-0402](0402-sink-backends-database-kafka.md)) — **not** a
    `kollect_export_duration_seconds`, and reconcile counters.
 2. **No Prometheus export sink:** `prometheus` is **not** a valid `KollectSink.spec.type`. Do not
    register a prometheus sink in the export registry; avoids confusion with scrape endpoints.
-3. **Full kube-state-metrics-style `CustomResourceStateMetrics` config:** deferred to Phase 4; optional
-   `KollectProfile.spec.metrics` field reserved in design docs only (emitted via operator metrics path).
+3. **KSM-style domain metrics and target/inventory scope:** Phase 4 spike landed on operator
+   `/metrics` ([ADR-0304](0304-custom-resource-aggregation-rfc.md)); richer target/inventory labels
+   and `metricsScope` are **Exploring** in [ADR-0604](0604-target-scoped-prometheus-metrics.md).
+   Scalar attribute gauges remain RFC-only ([Prometheus attribute metrics](../rfc/prometheus-attribute-metrics.md)).
 
 ## Consequences
 
@@ -29,5 +31,9 @@ and Kafka sinks ([ADR-0402](0402-sink-backends-database-kafka.md)) — **not** a
 
 ## See also
 
+- [ADR-0304: Custom-resource metrics and aggregation](0304-custom-resource-aggregation-rfc.md)
+- [ADR-0604: Target- and inventory-scoped Prometheus metrics](0604-target-scoped-prometheus-metrics.md)
+- [ADR-0605: OpenTelemetry tracing](0605-opentelemetry-tracing.md)
+- [RFC: Prometheus attribute metrics](../rfc/prometheus-attribute-metrics.md)
 - [ADR-0602: Error taxonomy and metrics](0602-error-taxonomy.md)
 - [ADR-0404: Inventory HTTP auth](0404-inventory-api-auth.md)

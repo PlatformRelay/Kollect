@@ -177,8 +177,8 @@ required** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
 | **Getting started** | [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md) |
 | **Operator manual** | [Install & ops](OPERATOR-MANUAL.md) · [Upgrading](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md) |
 | **User guide** | [Examples](examples/README.md) · [Best practices](BEST-PRACTICES.md) · [Troubleshooting](TROUBLESHOOTING.md) |
-| **Reference** | [Custom resources](CR-REFERENCE.md) · [FAQ](FAQ.md) · [ADRs](adr/README.md) |
-| **Contributing** | [Roadmap](ROADMAP.md) · [Release process](RELEASE.md) |
+| **Reference** | [Custom resources](CR-REFERENCE.md) · [FAQ](FAQ.md) · [ADRs](adr/README.md) · [RFCs](rfc/README.md) |
+| **Contributing** | [Roadmap](ROADMAP.md) · [Planned features](roadmap/planned-features.md) · [ADR/RFC process](development/adr-rfc-process.md) · [Release process](RELEASE.md) |
 
 ## Try an example
 

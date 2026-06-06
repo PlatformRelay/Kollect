@@ -143,6 +143,8 @@ nav:
               - "0601 — Operator metrics (no Prometheus export sink)": adr/0601-prometheus-metrics-stub.md
               - "0602 — Error taxonomy and reconcile behavior": adr/0602-error-taxonomy.md
               - "0603 — Performance and scalability targets": adr/0603-performance-scalability.md
+              - "0604 — Target- and inventory-scoped Prometheus metrics": adr/0604-target-scoped-prometheus-metrics.md
+              - "0605 — OpenTelemetry tracing": adr/0605-opentelemetry-tracing.md
           - 07 Project & meta:
               - "0701 — MkDocs Material documentation site": adr/0701-mkdocs-github-pages.md
               - "0702 — Doc-sync / Confluence publication": adr/0702-doc-sync-templating.md
@@ -150,6 +152,9 @@ nav:
               - "0704 — Helm chart and CRD lifecycle": adr/0704-helm-chart-crd-lifecycle.md
               - "0705 — Release engineering and supply chain": adr/0705-release-supply-chain.md
               - "0706 — Testing and merge-gate architecture": adr/0706-testing-merge-gate-architecture.md
+      - Request for Comments:
+          - Overview: rfc/README.md
+          - "Prometheus attribute metrics (scalar export)": rfc/prometheus-attribute-metrics.md
   - Security:
       - Assurance case: ASSURANCE-CASE.md
       - Security review: SECURITY-REVIEW.md
@@ -158,6 +163,8 @@ nav:
       - Governance: development/governance.md
       - Engineering guidelines: development/guidelines.md
       - Roadmap: ROADMAP.md
+      - Planned features: roadmap/planned-features.md
+      - ADR and RFC process: development/adr-rfc-process.md
       - Coding standards: development/coding-standards.md
       - Testing strategy: development/testing.md
       - Tooling setup: development/tooling-setup.md

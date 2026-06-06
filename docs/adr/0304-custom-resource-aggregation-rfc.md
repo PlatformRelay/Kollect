@@ -36,6 +36,11 @@ full inventory payloads in etcd ([ADR-0103](0103-etcd-limit.md)) or exploding la
   opted in per metric; document max series per profile in [PERFORMANCE.md](../PERFORMANCE.md).
 - **Serve on operator `/metrics`** alongside existing `kollect_*` counters — no `KollectSink.type:
   prometheus` ([ADR-0601](0601-prometheus-metrics-stub.md)).
+- **`metricsScope`:** ship on profile ([ADR-0604](0604-target-scoped-prometheus-metrics.md)) —
+  `profile` (default) vs `target` emission keys for sum series.
+- **Future scalar export:** individual numeric attribute values as gauges/counters are **RFC-only**
+  ([RFC: Prometheus attribute metrics](../rfc/prometheus-attribute-metrics.md)) — complements sum
+  series, not in the first ADR-0604 ship window.
 
 ### 2. Richer aggregation
 
@@ -71,12 +76,16 @@ full inventory payloads in etcd ([ADR-0103](0103-etcd-limit.md)) or exploding la
 
 - **Companion CR:** revisit `KollectMetricsProfile` when platform teams need one metrics schema across many profiles.
 - **Per-metric labels:** ✅ `kollect_custom_resource_labeled_series` emits attribute label values from `spec.metrics[].labels`.
-- **Hub domain series:** `kollect_hub_merged_items_total` wired; federated spoke scrapes vs hub-only domain gauges TBD.
+- **Hub domain series:** `kollect_hub_merged_items_total` wired; **scrape at spoke** for domain
+  metrics per [ADR-0604](0604-target-scoped-prometheus-metrics.md); optional hub-only federated
+  gauges deferred.
 - **Dedupe:** ✅ spike — `ExportCoalesce` uses content-hash skip with generation bypass; `MergeRows`
   supports `DedupeByResourceUID` for cross-target collapse ([ROADMAP](../ROADMAP.md)).
 
 ## See also
 
+- [ADR-0604: Target- and inventory-scoped Prometheus metrics](0604-target-scoped-prometheus-metrics.md)
+- [RFC: Prometheus metrics from collected attribute values](../rfc/prometheus-attribute-metrics.md)
 - [ADR-0601: Operator metrics stub](0601-prometheus-metrics-stub.md)
 - [ADR-0102: Prior art — kube-state-metrics](0102-prior-art.md)
 - [ADR-0501: Multi-cluster sync](0501-multi-cluster-sync-rfc.md)

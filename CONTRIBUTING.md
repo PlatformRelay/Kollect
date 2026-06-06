@@ -24,6 +24,8 @@ duplicate prose across them.
 | [Security review](docs/SECURITY-REVIEW.md) | Dated self-review findings and residual risks |
 | [SCA remediation policy](docs/security/sca-remediation-policy.md) | Dependency CVE and license remediation thresholds (OSPS-VM-05.01) |
 | [Architecture decision records](docs/adr/) | Locked design decisions — update or add ADRs for non-trivial changes |
+| [ADR and RFC process](docs/development/adr-rfc-process.md) | When to write ADRs vs RFCs, numbering, lifecycle, review checklist |
+| [Planned features](docs/roadmap/planned-features.md) | Backlog and Exploring specs before they land on the phased roadmap |
 | [tooling-setup.md](docs/development/tooling-setup.md) | Maintainer setup for arch-lint, depguard, SonarCloud |
 
 **Merge policy:** use **Rebase and merge** on pull requests (see
@@ -294,7 +296,8 @@ troubleshooting tables need more.
 
 ### Doc PR checklist
 
-- New feature → update [ROADMAP](docs/ROADMAP.md) status
+- New feature → update [ROADMAP](docs/ROADMAP.md) status and [planned features](docs/roadmap/planned-features.md) when backlog-facing
+- Architectural decision → ADR or RFC per [ADR/RFC process](docs/development/adr-rfc-process.md) (`docs/adr/README.md`, `mkdocs.yml` nav)
 - New CR field → `docs/crds/*.md` and [CR-REFERENCE](docs/CR-REFERENCE.md)
 - New label/annotation → [ANNOTATIONS-LABELS](docs/ANNOTATIONS-LABELS.md) and relevant CR page
 - Add or move pages in `mkdocs.yml` nav
