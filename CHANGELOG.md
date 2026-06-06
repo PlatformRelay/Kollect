@@ -27,22 +27,18 @@ anchor on an older commit.
 
 ### Bug Fixes
 
-- **samples:** Drop legacy sinkRefs from team-a scope [57d0e00](https://github.com/konih/kollect/commit/57d0e00620d9506cefedb9a4562a65eceb51fceb)
+- **samples:** Drop legacy sinkRefs from team-a scope [2173042](https://github.com/konih/kollect/commit/2173042a41c0a03532313f4ee2f0ce7982f34831)
 
-- **gitlab:** Basic auth for Forgejo Gitea MR API [3bffe46](https://github.com/konih/kollect/commit/3bffe4683dd7f3bac1cda6db793c1041740a3e9f)
+- **e2e:** Wait on family sink CRDs in kind smoke [5de28a0](https://github.com/konih/kollect/commit/5de28a060ea167d232c4fe04e273a3a12d58b4eb)
 
-- **e2e:** Wait on family sink CRDs in kind smoke [9ca3eaa](https://github.com/konih/kollect/commit/9ca3eaa8fc3092859cd0d3de34b68a7650ae3777)
+- **gitlab:** Basic auth for Forgejo Gitea MR API [c2b0f3d](https://github.com/konih/kollect/commit/c2b0f3d528365385a3e60cef3a95e791c9210abe)
 
 
 ### Features
 
-- **controller:** Wire family sink reconcilers and export [baf8af9](https://github.com/konih/kollect/commit/baf8af9aa681d87cce6be58457594c9681192f78)
+- **controller:** Wire family sink reconcilers and export [d14f346](https://github.com/konih/kollect/commit/d14f346e3031edaa711777d50d9c059fa25fb2e6)
 
-- **api:** Add sink family CRDs and remove KollectSink [a44c7f2](https://github.com/konih/kollect/commit/a44c7f24d6217ea52af93cd3a4ad043555f2ea15)
-
-### Bug Fixes
-
-- **gitlab:** Basic auth for Forgejo Gitea MR API [e9314cf](https://github.com/konih/kollect/commit/e9314cfaa24b2e4e3f8985ae50e7fe788bdc657f)
+- **api:** Add sink family CRDs and remove KollectSink [40bc907](https://github.com/konih/kollect/commit/40bc9072225767cdfceb07254c0de516090a3b74)
 
 ## [0.1.0-rc.3](https://github.com/konih/kollect/compare/v0.1.0-rc.2..v0.1.0-rc.3) - 2026-06-06
 
