@@ -75,9 +75,23 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              databaseSinkRefs:
+                description: databaseSinkRefs lists permitted KollectClusterDatabaseSink
+                  names for this scope.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               deniedNamespaces:
                 description: deniedNamespaces is a platform blacklist; Target intent
                   cannot override (D8).
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
+              eventSinkRefs:
+                description: eventSinkRefs lists permitted KollectClusterEventSink
+                  names for this scope.
                 items:
                   type: string
                 type: array
@@ -86,9 +100,9 @@ spec:
                 description: minExportInterval is a tenancy floor — inventory and
                   sink intervals below this value are rejected.
                 type: string
-              sinkRefs:
-                description: sinkRefs lists cluster-scoped KollectSink names permitted
-                  for export from this scope.
+              snapshotSinkRefs:
+                description: snapshotSinkRefs lists permitted KollectClusterSnapshotSink
+                  names for this scope.
                 items:
                   type: string
                 type: array

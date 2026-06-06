@@ -47,8 +47,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: KollectRemoteClusterSpec registers a spoke cluster on the
-              hub (ADR-0503).
+            description: spec defines the desired state of KollectRemoteCluster.
             properties:
               apiServerURL:
                 description: apiServerURL is the spoke Kubernetes API server URL (optional
@@ -84,8 +83,7 @@ spec:
             - clusterName
             type: object
           status:
-            description: KollectRemoteClusterStatus reports minimal hub-side observation
-              (full reconciler deferred).
+            description: status defines the observed state of KollectRemoteCluster.
             properties:
               conditions:
                 description: conditions represent the current state of the KollectRemoteCluster
@@ -157,7 +155,6 @@ spec:
         required:
         - metadata
         - spec
-        - status
         type: object
     served: true
     storage: true

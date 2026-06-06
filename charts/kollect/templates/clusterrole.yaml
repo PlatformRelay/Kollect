@@ -31,7 +31,12 @@ rules:
       - kollectconnectiontests
       - kollectinventories
       - kollectremoteclusters
-      - kollectsinks
+      - kollectclustersnapshotsinks
+      - kollectclusterdatabasesinks
+      - kollectclustereventsinks
+      - kollectdatabasesinks
+      - kollecteventsinks
+      - kollectsnapshotsinks
       - kollecttargets
     verbs: [create, delete, get, list, patch, update, watch]
   - apiGroups: [kollect.dev]
@@ -49,7 +54,12 @@ rules:
       - kollectconnectiontests/status
       - kollectinventories/status
       - kollectremoteclusters/status
-      - kollectsinks/status
+      - kollectclustersnapshotsinks/status
+      - kollectclusterdatabasesinks/status
+      - kollectclustereventsinks/status
+      - kollectdatabasesinks/status
+      - kollecteventsinks/status
+      - kollectsnapshotsinks/status
       - kollecttargets/status
     verbs: [get, patch, update]
   - apiGroups: [kollect.dev]

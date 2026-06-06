@@ -108,7 +108,6 @@ rules:
   - kollectclusterprofiles
   - kollectprofiles
   - kollectscopes
-  - kollectsinks
   verbs:
   - get
   - list

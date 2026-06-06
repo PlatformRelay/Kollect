@@ -3,7 +3,12 @@
 # It should be run by config/default
 resources:
 - bases/kollect.dev_kollectprofiles.yaml
-- bases/kollect.dev_kollectsinks.yaml
+- bases/kollect.dev_kollectsnapshotsinks.yaml
+- bases/kollect.dev_kollectdatabasesinks.yaml
+- bases/kollect.dev_kollecteventsinks.yaml
+- bases/kollect.dev_kollectclustersnapshotsinks.yaml
+- bases/kollect.dev_kollectclusterdatabasesinks.yaml
+- bases/kollect.dev_kollectclustereventsinks.yaml
 - bases/kollect.dev_kollecttargets.yaml
 - bases/kollect.dev_kollectinventories.yaml
 - bases/kollect.dev_kollectconnectiontests.yaml
