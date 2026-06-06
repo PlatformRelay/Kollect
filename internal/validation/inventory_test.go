@@ -90,7 +90,7 @@ func TestInventoryInvalid(t *testing.T) {
 	t.Parallel()
 
 	err := InventoryInvalid("demo", field.ErrorList{
-		field.Required(field.NewPath("spec").Child("sinkRefs"), "required"),
+		field.Required(field.NewPath("spec").Child("snapshotSinkRefs"), "required"),
 	})
 	assertInvalidResourceError(t, err, "KollectInventory", "demo")
 }

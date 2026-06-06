@@ -42,7 +42,9 @@ Rendering and publishing docs/CMS stays **outside** the operator
 flowchart TD
   subgraph teamNs [Team namespace — default]
     Profile["KollectProfile"]
-    Sink["KollectSink"]
+    Snap["KollectSnapshotSink"]
+    Db["KollectDatabaseSink"]
+    Ev["KollectEventSink"]
     Scope["KollectScope"]
     Target["KollectTarget"]
     Inv["KollectInventory"]
@@ -54,24 +56,32 @@ flowchart TD
   Scope -.-> Inv
   Target -->|"shared informer per GVK"| K8s["Kubernetes API"]
   Target --> Inv
-  Inv --> Sink
-  ConnTest -.-> Sink
-  Sink --> DB["Postgres (relational SoR) · NATS/Kafka (event stream)"]
-  Sink --> Git["Git / object store (snapshot + audit)"]
+  Inv --> Snap
+  Inv --> Db
+  Inv --> Ev
+  ConnTest -.-> Snap
+  ConnTest -.-> Db
+  ConnTest -.-> Ev
+  Db --> DB["Postgres / BigQuery (relational SoR)"]
+  Ev --> Stream["NATS / Kafka (event stream)"]
+  Snap --> Git["Git / object store (snapshot + audit)"]
   Inv -.->|"optional, gated"| HTTP["HTTP debug API"]
 ```
 
 | Kind | Scope | Reconciled | Purpose |
 | --- | --- | --- | --- |
 | `KollectProfile` | Namespace | No | Extraction schema ([ADR-0204](adr/0204-namespaced-profiles.md)) |
-| `KollectSink` | **Namespace** | Probe only | Export backend; `ConnectionVerified` ([ADR-0403](adr/0403-connection-test.md), [ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| `KollectSnapshotSink` | **Namespace** | Probe only | Snapshot export; `ConnectionVerified` ([ADR-0414](adr/0414-sink-family-crds.md)) |
+| `KollectDatabaseSink` | **Namespace** | Probe only | Relational SoR export |
+| `KollectEventSink` | **Namespace** | Probe only | Event emitter export |
+| `KollectCluster*Sink` | Cluster | Probe only | Platform-shared backends |
 | `KollectScope` | Namespace | No | Tenancy boundary ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
 | `KollectTarget` | Namespace | Yes | Team-scoped collection (default) |
 | `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | `KollectInventory` | Namespace | Yes | Aggregate namespaced targets; export to sinks |
 | `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
 | `KollectClusterProfile` | Cluster | No | Admission only — platform schemas (no controller) |
-| `KollectClusterSink` | Cluster | No | **Reserved** — shared backends |
+| ~~`KollectSink`~~ | — | — | **Removed** — family CRDs ([ADR-0414](adr/0414-sink-family-crds.md)) |
 | `KollectClusterInventory` | Cluster | Yes | Platform rollup — pairs with `KollectClusterTarget` |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
 | ~~`KollectHub`~~ | — | **Rejected / stub** | **Removed** from tree — was never product surface — Helm `mode: hub` ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
@@ -89,8 +99,8 @@ See [adr/0201-crd-model.md](adr/0201-crd-model.md). Per-kind field reference:
     collection via `KollectClusterTarget`.
 
 !!! warning "Same-namespace sink refs"
-    `KollectInventory.spec.sinkRefs` must name `KollectSink` objects in the **same namespace** as
-    the inventory. Cross-namespace sink references are rejected at admission.
+    `KollectInventory` family sink refs must name family sink objects in the **same namespace** as the
+    inventory. Cross-namespace sink references are rejected at admission.
 
 ## Reconciliation flow
 
