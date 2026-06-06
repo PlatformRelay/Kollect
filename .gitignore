@@ -53,6 +53,15 @@ testbin/
 *.so
 vendor/
 
+# --- Local Go test caches (when /tmp quota fails) ---
+.gocache/
+.gotmp/
+
+# --- Race-detector / coverage debug logs (local-only) ---
+.race-*.log
+.race-summary.txt
+race*.log
+
 # --- Tooling caches ---
 /.task/
 /site/
