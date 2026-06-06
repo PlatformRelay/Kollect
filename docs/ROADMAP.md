@@ -128,7 +128,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 | Sample profile: Helm release summary (**Argo `Application` primary**) | ✅ |
 | Argo `Application` contract test (`internal/collect/`) | ✅ |
 | Sample profile: Helm release summary (Flux `HelmRelease` secondary) | ✅ |
-| Helm values profile + operator scrub | ⬜ |
+| Helm values profile + operator scrub | ✅ |
 | `helm:` decode for `helm.sh/v1` Secret releases | ⬜ |
 | Sample: generic CRD (`cert-manager.io/Certificate` + contract test) | ✅ |
 | Sample contract tests in CI | 🚧 |

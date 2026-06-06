@@ -130,6 +130,7 @@ Implementation: `internal/validation/profile.go` (`ValidateProfile`); wired from
 | `config/samples/kollect_v1alpha1_kollectprofile_argo-application-summary.yaml` | Summary-tier Profile (**Argo `Application` GVK — primary**) |
 | `config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml` | Example Target scoping team Argo Applications |
 | `config/samples/kollect_v1alpha1_kollectprofile_helm-release-summary.yaml` | Summary-tier Profile (Flux `HelmRelease` — secondary) |
+| `config/samples/kollect_v1alpha1_kollectprofile_helm-release-values-redacted.yaml` | Values-tier Profile (Flux `HelmRelease` — gated, scrubbed `spec.values`) |
 | `config/samples/kollect_v1alpha1_kollecttarget_helm-releases.yaml` | Example Target scoping Flux HelmReleases |
 
 Walkthrough: [docs/examples/helm-release-inventory.md](../examples/helm-release-inventory.md) (Argo

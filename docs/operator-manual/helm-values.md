@@ -37,6 +37,7 @@ knobs; the authoritative full list lives in the chart tree.
 | `webhooks.enabled` | Validating webhook for profiles | `true` |
 | `webhooks.certManager.create` | cert-manager `Certificate` for webhook TLS | `true` |
 | `sinkDefaults.connectionTest` | Default for sample `KollectSink` probes | `false` |
+| `scrubKeys` | Extra attribute map keys redacted before store insert | `[]` (built-in denylist always on) |
 
 Export debouncing is configured per **sink ref** on `KollectInventory` / `KollectClusterInventory`
 ([ADR-0413](../adr/0413-export-interval-scheduling.md)): ref override → sink default → inventory

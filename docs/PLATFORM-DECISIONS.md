@@ -80,7 +80,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | `KollectClusterTarget` controller | **Defer** — API + webhook + sample only until namespaced e2e solid |
 | `profileRef` (cluster target) | Resolves **`KollectProfile` in platform namespace** (Helm `platformNamespace`); `KollectClusterProfile` later |
 | `namespaceSelector` | **Required** — webhook rejects empty/missing selector |
-| Helm values profile | **Defer** until operator export-time **`scrubKeys[]`** exists |
+| Helm values profile | **`helm-release-values-redacted`** + operator **`scrubKeys[]`** at extraction |
 | GitLab sink | **Phase 2** — implement with **`tls.caSecretRef`** for internal CA; Git remains small-install default |
 | Hub ingest SAR | **`create`** on **`kollectremoteclusters`** in hub namespace |
 

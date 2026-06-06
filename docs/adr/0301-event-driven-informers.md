@@ -47,7 +47,7 @@ Polling the API on a short `RequeueAfter` loop would duplicate informer work and
 | Ingress rules | `networking.k8s.io/v1 Ingress` | Same |
 | Generic CRD | user-defined CRD instance | Golden extraction tests |
 | Helm release summary | `helm.toolkit.fluxcd.io/v2` `HelmRelease` | Sample + example ([ADR-0303](0303-helm-release-inventory.md)) |
-| Helm release values (gated) | Same GVK + scrubbed `spec.values` | Deferred until operator redaction |
+| Helm release values (gated) | Same GVK + scrubbed `spec.values` | `helm-release-values-redacted` sample + `scrubKeys[]` |
 | Plain Helm releases | `helm.sh/v1` `Secret` (`owner=helm`) | Deferred until `helm:` decode |
 
 Samples double as **documentation and regression contracts** — breaking extractor or selector behavior
