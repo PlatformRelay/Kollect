@@ -15,6 +15,37 @@ exclude:
 allow:
   depOnAnyVendor: true
 
+# Vendor nodes for `task arch-lint:graph` (--include-vendors reads canUse below).
+vendors:
+  controller-runtime:
+    in: sigs.k8s.io/controller-runtime/**
+  client-go:
+    in: k8s.io/client-go/**
+  k8s-api:
+    in:
+      - k8s.io/api/**
+      - k8s.io/apimachinery/**
+  cel-go:
+    in: github.com/google/cel-go/**
+  aws-sdk:
+    in: github.com/aws/aws-sdk-go-v2/**
+  go-git:
+    in: github.com/go-git/**
+  pgx:
+    in: github.com/jackc/pgx/**
+  nats:
+    in: github.com/nats-io/**
+  kafka:
+    in: github.com/segmentio/kafka-go/**
+  prometheus:
+    in: github.com/prometheus/client_golang/**
+  redis:
+    in: github.com/redis/go-redis/**
+  parquet:
+    in: github.com/parquet-go/**
+  otel:
+    in: go.opentelemetry.io/**
+
 components:
   api:
     in: api/**
@@ -73,9 +104,18 @@ deps:
       - export
       # todo(arch-01): extract spoke publish behind export/transport facade; controller should not import spoke
       - spoke
+    canUse:
+      - controller-runtime
+      - client-go
+      - k8s-api
   collect:
     mayDependOn:
       - aggregate
+    canUse:
+      - controller-runtime
+      - client-go
+      - k8s-api
+      - cel-go
   aggregate:
     mayDependOn:
       # todo(arch-02): dedupe.go imports collect.Row; move row types to aggregate or shared
@@ -87,6 +127,15 @@ deps:
       - sink
       # todo(arch-03): sink backends read collect rows during export; narrow to export envelope types
       - collect
+    canUse:
+      - aws-sdk
+      - go-git
+      - pgx
+      - nats
+      - kafka
+      - prometheus
+      - redis
+      - parquet
   hub:
     mayDependOn:
       - sink
@@ -97,6 +146,10 @@ deps:
       - collect
       # todo(arch-06): hub consumer wires NATS/Kafka transport directly
       - transport
+    canUse:
+      - controller-runtime
+      - client-go
+      - k8s-api
   spoke:
     mayDependOn:
       - transport
@@ -105,11 +158,19 @@ deps:
       # todo(arch-07): spoke publisher builds collect rows + export envelope
       - collect
       - export
+    canUse:
+      - controller-runtime
+      - client-go
+      - k8s-api
   inventory:
     mayDependOn:
       - collect
       - aggregate
       - scope
+    canUse:
+      - controller-runtime
+      - client-go
+      - k8s-api
   export:
     mayDependOn:
       # todo(arch-08): export.Envelope wraps collect.Row; introduce neutral DTO in export
@@ -119,11 +180,19 @@ deps:
       - transport
       # todo(arch-09): transport helpers reference hub ingest config
       - hub
+    canUse:
+      - nats
+      - kafka
   validation:
     mayDependOn:
       # todo(arch-10): validation reuses collect attribute paths for profiles
       - collect
+    canUse:
+      - k8s-api
   webhook:
     mayDependOn:
       - validation
       - scope
+    canUse:
+      - controller-runtime
+      - k8s-api
