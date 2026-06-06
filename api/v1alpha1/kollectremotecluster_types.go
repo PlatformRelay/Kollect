@@ -54,7 +54,12 @@ type KollectRemoteCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	Spec   KollectRemoteClusterSpec   `json:"spec"`
+	// spec defines the desired state of KollectRemoteCluster.
+	// +required
+	Spec KollectRemoteClusterSpec `json:"spec"`
+
+	// status defines the observed state of KollectRemoteCluster.
+	// +optional
 	Status KollectRemoteClusterStatus `json:"status,omitzero"`
 }
 
