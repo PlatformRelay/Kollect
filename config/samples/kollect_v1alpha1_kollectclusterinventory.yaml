@@ -8,6 +8,6 @@ spec:
   namespaceSelector:
     matchLabels:
       kollect.dev/tenant: platform
-  sinkRefs:
+  databaseSinkRefs:
     - postgres
   sinkNamespace: kollect-system

@@ -8,8 +8,8 @@
 
 ## What it is for
 
-A `KollectConnectionTest` runs a **one-shot, audited** connectivity probe against a
-`KollectSink`. Use it in CI pipelines, runbooks, or after credential rotation when you need a
+A `KollectConnectionTest` runs a **one-shot, audited** connectivity probe against a **family sink**
+(`KollectSnapshotSink`, `KollectDatabaseSink`, or `KollectEventSink`). Use it in CI pipelines, runbooks, or after credential rotation when you need a
 durable record of probe outcome without mutating the sink spec.
 
 Supplements sink `spec.connectionTest` and the `kollect.dev/test-connection` annotation
@@ -20,7 +20,7 @@ Supplements sink `spec.connectionTest` and the `kollect.dev/test-connection` ann
 ```mermaid
 flowchart LR
   ConnTest[KollectConnectionTest]
-  Sink[KollectSink]
+  Sink[Family sink CR]
   Secret[(Secret)]
   Backend[(Git / Postgres / Kafka)]
 
@@ -31,7 +31,7 @@ flowchart LR
 
 | Relationship | Rule |
 | --- | --- |
-| Sink | `spec.sinkRef` required — same namespace |
+| Sink | `spec.sinkRef` object — exactly one of `snapshotSinkRef`, `databaseSinkRef`, or `eventSinkRef` |
 | Profile | `spec.profileRef` reserved for future composite probes |
 | Owner | `spec.ownerSink: true` (default) sets ownerReference on sink |
 
@@ -41,7 +41,9 @@ Lifecycle: [DATA-FLOWS.md §5](../DATA-FLOWS.md#5-kollectconnectiontest-lifecycl
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `spec.sinkRef` | string | Yes | — | `KollectSink` name in same namespace |
+| `spec.sinkRef.snapshotSinkRef` | string | One of three | — | `KollectSnapshotSink` name (same namespace) |
+| `spec.sinkRef.databaseSinkRef` | string | One of three | — | `KollectDatabaseSink` name |
+| `spec.sinkRef.eventSinkRef` | string | One of three | — | `KollectEventSink` name |
 | `spec.profileRef` | string | No | — | Reserved for composite probes |
 | `spec.ownerSink` | bool | No | true | Set ownerReference to sink |
 | `spec.ttlSecondsAfterFinished` | int32 | No | **300** | Delete CR after completion + TTL |
@@ -49,7 +51,7 @@ Lifecycle: [DATA-FLOWS.md §5](../DATA-FLOWS.md#5-kollectconnectiontest-lifecycl
 ## Sample usage
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollectsink_postgres.yaml
+kubectl apply -f config/samples/kollect_v1alpha1_kollectdatabasesink.yaml
 kubectl apply -f config/samples/kollect_v1alpha1_kollectconnectiontest.yaml
 
 kubectl wait --for=condition=ConnectionVerified kollectconnectiontest/postgres-sink-probe \
