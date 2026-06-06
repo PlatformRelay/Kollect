@@ -33,11 +33,12 @@ type MergeRequestAPI interface {
 type RESTClient struct {
 	BaseURL    string
 	Token      string
+	BasicUser  string
 	HTTPClient *http.Client
 }
 
 // NewRESTClient builds a client for GitLab API v4 from a git remote endpoint and token.
-func NewRESTClient(endpoint, token string, httpClient *http.Client) (*RESTClient, error) {
+func NewRESTClient(endpoint, token, basicUser string, httpClient *http.Client) (*RESTClient, error) {
 	base, err := APIBaseURL(endpoint)
 	if err != nil {
 		return nil, err
@@ -50,6 +51,7 @@ func NewRESTClient(endpoint, token string, httpClient *http.Client) (*RESTClient
 	return &RESTClient{
 		BaseURL:    strings.TrimSuffix(base, "/"),
 		Token:      strings.TrimSpace(token),
+		BasicUser:  strings.TrimSpace(basicUser),
 		HTTPClient: httpClient,
 	}, nil
 }
@@ -330,6 +332,10 @@ func (c *RESTClient) setGitLabAuth(req *http.Request) {
 }
 
 func (c *RESTClient) setGiteaAuth(req *http.Request) {
+	if c.BasicUser != "" && c.Token != "" {
+		req.SetBasicAuth(c.BasicUser, c.Token)
+		return
+	}
 	if c.Token == "" {
 		return
 	}
