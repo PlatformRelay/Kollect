@@ -27,6 +27,8 @@ import (
 )
 
 // scaleTestMaxObjects is the ADR-0603 default synthetic object cap for task test.
+// SAR-forbidden → Degraded (EC-P1-06) is not exercised here: envtest runs with
+// cluster-admin-equivalent credentials; see KollectTargetReconciler unit/envtest paths.
 const scaleTestMaxObjects = 500
 
 func TestStore_Scale500(t *testing.T) {

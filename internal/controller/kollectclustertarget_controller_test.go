@@ -153,4 +153,51 @@ var _ = Describe("KollectClusterTarget Controller", func() {
 
 		Expect(engine.NamespacesForClusterTarget(targetName)).To(ConsistOf(nsMatched))
 	})
+
+	It("re-enqueues targets when cluster profile changes", func() {
+		profile := &kollectdevv1alpha1.KollectClusterProfile{
+			ObjectMeta: metav1.ObjectMeta{Name: profileName},
+			Spec: kollectdevv1alpha1.KollectClusterProfileSpec{
+				TargetGVK: kollectdevv1alpha1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+			},
+		}
+		Expect(k8sClient.Create(ctx, profile)).To(Succeed())
+
+		targetA := &kollectdevv1alpha1.KollectClusterTarget{
+			ObjectMeta: metav1.ObjectMeta{Name: targetName},
+			Spec: kollectdevv1alpha1.KollectClusterTargetSpec{
+				ProfileRef: profileName,
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{tenantLabel: tenantValue},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, targetA)).To(Succeed())
+
+		targetBName := "cluster-cm-target-b-" + testNameSuffix()
+		targetB := &kollectdevv1alpha1.KollectClusterTarget{
+			ObjectMeta: metav1.ObjectMeta{Name: targetBName},
+			Spec: kollectdevv1alpha1.KollectClusterTargetSpec{
+				ProfileRef: profileName,
+			},
+		}
+		Expect(k8sClient.Create(ctx, targetB)).To(Succeed())
+		defer func() {
+			_ = k8sClient.Delete(ctx, &kollectdevv1alpha1.KollectClusterTarget{
+				ObjectMeta: metav1.ObjectMeta{Name: targetBName},
+			})
+		}()
+
+		reconciler := &KollectClusterTargetReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
+			Engine: engine,
+		}
+
+		reqs := reconciler.mapClusterProfileToClusterTargets(ctx, profile)
+		Expect(reqs).To(ConsistOf(
+			reconcile.Request{NamespacedName: types.NamespacedName{Name: targetName}},
+			reconcile.Request{NamespacedName: types.NamespacedName{Name: targetBName}},
+		))
+	})
 })
