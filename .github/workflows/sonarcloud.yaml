@@ -11,6 +11,7 @@ permissions:
 jobs:
   sonarcloud:
     name: sonarcloud
+    if: false # SonarCloud org migration — manual rescans paused until new org
     runs-on: ubuntu-latest
     continue-on-error: true
     env:

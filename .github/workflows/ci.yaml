@@ -262,8 +262,10 @@ jobs:
 
   # SonarCloud: GitHub secret SONAR_TOKEN (SonarCloud analysis token). Local dev uses
   # SONARCLOUD_TOKEN in .envrc — same value, different name (see tooling-setup.md).
+  # Job disabled until the repository moves to the new SonarCloud org (re-enable after migration).
   sonarcloud:
     name: sonarcloud
+    if: false # SonarCloud org migration — see docs/development/tooling-setup.md
     runs-on: ubuntu-latest
     needs: [test]
     continue-on-error: true
