@@ -65,6 +65,14 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	if result, done, err := r.reconcileTargetFinalizers(ctx, &target); done {
+		if err != nil {
+			retErr = err
+		}
+
+		return result, err
+	}
+
 	if target.Spec.Suspend {
 		log.Info("target suspended", "name", target.Name, "namespace", target.Namespace)
 		if r.Engine != nil {

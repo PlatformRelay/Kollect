@@ -60,6 +60,25 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, err
 	}
 
+	if !ct.DeletionTimestamp.IsZero() {
+		result, err := r.finalizeClusterTargetDeletion(ctx, &ct)
+		if err != nil {
+			retErr = err
+		}
+
+		return result, err
+	}
+
+	if err := r.ensureClusterTargetFinalizer(ctx, &ct); err != nil {
+		if apierrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		retErr = err
+
+		return ctrl.Result{}, err
+	}
+
 	if ct.Spec.Suspend {
 		r.unregisterAll(&ct)
 		if err := r.setDegraded(ctx, &ct, "Suspended", "spec.suspend is true"); err != nil {
