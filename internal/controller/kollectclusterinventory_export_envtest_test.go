@@ -188,6 +188,12 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 
 	It("exports to two sinks and debounces independently on second reconcile", func() {
 		setupCollectFixtures()
+		// Freeze the store so async informer updates cannot change the rollup checksum
+		// between back-to-back reconciles (full-suite timing otherwise flakes debounce).
+		if engineCancel != nil {
+			engineCancel()
+			engineCancel = nil
+		}
 
 		sinkB := "export-pg-b-" + suffix
 		sinkObjB, pgSecretB := createPostgresSinkFixtures(sinkB, "pg-b-"+suffix, sink.DefaultSecretNamespace)
