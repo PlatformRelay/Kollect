@@ -4,6 +4,7 @@
 package export
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -37,6 +38,26 @@ func ItemsFingerprint(items []collect.Item) (string, error) {
 // ItemsFromPayload decodes items from a versioned envelope or legacy bare array.
 func ItemsFromPayload(payload []byte) ([]collect.Item, error) {
 	return collect.ItemsFromExportPayload(payload)
+}
+
+// ItemsJSONFromEnvelope returns the canonical items JSON array from an export envelope.
+func ItemsJSONFromEnvelope(payload []byte) ([]byte, error) {
+	items, err := collect.ItemsFromExportPayload(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(items)
+}
+
+// GenerationFromEnvelope reads generation metadata from a versioned export envelope.
+func GenerationFromEnvelope(payload []byte) int64 {
+	var env collect.ExportEnvelope
+	if err := json.Unmarshal(payload, &env); err != nil {
+		return 0
+	}
+
+	return env.Generation
 }
 
 // ValidateEnvelopeSchemaVersion rejects unsupported export contract versions.

@@ -21,8 +21,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink"
 	// +kubebuilder:scaffold:imports
 )
+
+func TestMain(m *testing.M) {
+	sink.DisableBackendPoolForTest()
+	os.Exit(m.Run())
+}
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.

@@ -254,7 +254,7 @@ func TestRunExportItems_closeErrorDoesNotFailExport(t *testing.T) {
 	}
 
 	sinkObj := &kollectdevv1alpha1.KollectSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "git-sink", Namespace: "team-a"},
+		ObjectMeta: metav1.ObjectMeta{Name: "close-err", Namespace: "team-a"},
 		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
 	}
 
@@ -267,24 +267,27 @@ func TestRunExportItems_closeErrorDoesNotFailExport(t *testing.T) {
 		return stub, nil
 	})
 
+	t.Cleanup(func() { EvictBackendPool("team-a", "close-err") })
+
 	if err := RunExportItems(ExportItemsRequest{
 		Ctx:           t.Context(),
 		Client:        fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build(),
 		Registry:      reg,
 		SinkNamespace: "team-a",
-		SinkName:      "git-sink",
+		SinkName:      "close-err",
 		ObjectPath:    "team-a/inv.json",
 		Items:         []collect.Item{{Name: "demo"}},
 	}); err != nil {
 		t.Fatalf("RunExportItems() = %v, want export success despite close error", err)
 	}
 
+	EvictBackendPool("team-a", "close-err")
 	if !stub.closed {
-		t.Fatal("expected backend Close after export")
+		t.Fatal("expected backend Close on pool eviction")
 	}
 }
 
-func TestRunExportItems_closesBackend(t *testing.T) {
+func TestRunExportItems_poolsBackendUntilEvict(t *testing.T) {
 	t.Parallel()
 
 	scheme := runtime.NewScheme()
@@ -293,7 +296,7 @@ func TestRunExportItems_closesBackend(t *testing.T) {
 	}
 
 	sinkObj := &kollectdevv1alpha1.KollectSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "git-sink", Namespace: "team-a"},
+		ObjectMeta: metav1.ObjectMeta{Name: "pool-close", Namespace: "team-a"},
 		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
 	}
 
@@ -303,20 +306,27 @@ func TestRunExportItems_closesBackend(t *testing.T) {
 		return stub, nil
 	})
 
+	t.Cleanup(func() { EvictBackendPool("team-a", "pool-close") })
+
 	if err := RunExportItems(ExportItemsRequest{
 		Ctx:           t.Context(),
 		Client:        fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build(),
 		Registry:      reg,
 		SinkNamespace: "team-a",
-		SinkName:      "git-sink",
+		SinkName:      "pool-close",
 		ObjectPath:    "team-a/inv.json",
 		Items:         []collect.Item{{Name: "demo"}},
 	}); err != nil {
 		t.Fatalf("RunExportItems() = %v", err)
 	}
 
+	if stub.closed {
+		t.Fatal("pooled backend must not Close after each export")
+	}
+
+	EvictBackendPool("team-a", "pool-close")
 	if !stub.closed {
-		t.Fatal("expected backend Close after export")
+		t.Fatal("expected backend Close on pool eviction")
 	}
 }
 
@@ -329,7 +339,7 @@ func TestRunExportItems_exportFailureTransient(t *testing.T) {
 	}
 
 	sinkObj := &kollectdevv1alpha1.KollectSink{
-		ObjectMeta: metav1.ObjectMeta{Name: "git-sink", Namespace: "team-a"},
+		ObjectMeta: metav1.ObjectMeta{Name: "export-fail", Namespace: "team-a"},
 		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
 	}
 
@@ -342,12 +352,14 @@ func TestRunExportItems_exportFailureTransient(t *testing.T) {
 		return stub, nil
 	})
 
+	t.Cleanup(func() { EvictBackendPool("team-a", "export-fail") })
+
 	err := RunExportItems(ExportItemsRequest{
 		Ctx:           t.Context(),
 		Client:        fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build(),
 		Registry:      reg,
 		SinkNamespace: "team-a",
-		SinkName:      "git-sink",
+		SinkName:      "export-fail",
 		ObjectPath:    "team-a/inv.json",
 		Items:         []collect.Item{{Name: "demo"}},
 	})

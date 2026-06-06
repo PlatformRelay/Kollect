@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
@@ -19,6 +18,7 @@ import (
 	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink/cap"
+	"github.com/konih/kollect/internal/sink/git"
 	"github.com/konih/kollect/internal/sink/objectstore"
 	"github.com/konih/kollect/internal/validation"
 )
@@ -55,10 +55,40 @@ type ExportItemsRequest struct {
 	Meta          export.Metadata
 }
 
+// ExportEnvelopeRequest carries a pre-marshalled export envelope to a sink.
+type ExportEnvelopeRequest struct {
+	Ctx           context.Context
+	Client        client.Client
+	Registry      *Registry
+	SinkNamespace string
+	SinkName      string
+	ObjectPath    string
+	Envelope      []byte
+	SinkSpec      kollectdevv1alpha1.KollectSinkSpec
+}
+
 // RunExportItems loads the sink, applies capability gating, wraps the envelope, and exports.
 func RunExportItems(req ExportItemsRequest) error {
 	if req.Registry == nil {
 		return kollecterrors.Terminal(fmt.Errorf("sink registry is not configured"))
+	}
+
+	items := req.Items
+	if items == nil {
+		items = []collect.Item{}
+	}
+
+	meta := req.Meta
+	if meta.ExportedAt.IsZero() {
+		meta.ExportedAt = time.Now().UTC()
+	}
+
+	envelope, err := export.MarshalEnvelope(items, meta)
+	if err != nil {
+		err = kollecterrors.Terminal(err)
+		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
+
+		return err
 	}
 
 	var ks kollectdevv1alpha1.KollectSink
@@ -72,36 +102,37 @@ func RunExportItems(req ExportItemsRequest) error {
 		return err
 	}
 
-	buildCtx, err := BuildContextFromSpec(req.Ctx, req.Client, ks.Spec, req.SinkNamespace)
+	return RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           req.Ctx,
+		Client:        req.Client,
+		Registry:      req.Registry,
+		SinkNamespace: req.SinkNamespace,
+		SinkName:      req.SinkName,
+		ObjectPath:    req.ObjectPath,
+		Envelope:      envelope,
+		SinkSpec:      ks.Spec,
+	})
+}
+
+// RunExportEnvelope exports a pre-built envelope without re-marshalling items.
+func RunExportEnvelope(req ExportEnvelopeRequest) error {
+	if req.Registry == nil {
+		return kollecterrors.Terminal(fmt.Errorf("sink registry is not configured"))
+	}
+
+	backend, release, err := acquireBackend(req.Ctx, req.Client, req.Registry, req.SinkNamespace, req.SinkName)
 	if err != nil {
-		err = kollecterrors.Terminal(err)
+		err = kollecterrors.ClassifyAPI(fmt.Errorf("load KollectSink %q: %w", req.SinkName, err))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
 		return err
 	}
+	defer release()
 
-	backend, err := req.Registry.NewBackend(ks.Spec, buildCtx)
+	envelope := req.Envelope
+	itemsJSON, err := export.ItemsJSONFromEnvelope(envelope)
 	if err != nil {
 		err = kollecterrors.Terminal(err)
-		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
-
-		return err
-	}
-	defer func() {
-		if cerr := closeBackend(backend); cerr != nil {
-			logf.FromContext(req.Ctx).Error(cerr, "failed to close sink backend",
-				"sink", req.SinkName, "namespace", req.SinkNamespace)
-		}
-	}()
-
-	items := req.Items
-	if items == nil {
-		items = []collect.Item{}
-	}
-
-	itemsJSON, err := json.Marshal(items)
-	if err != nil {
-		err = kollecterrors.Terminal(fmt.Errorf("marshal export items: %w", err))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
 		return err
@@ -112,25 +143,22 @@ func RunExportItems(req ExportItemsRequest) error {
 		return nil
 	}
 
-	var exportItems []collect.Item
-	if unmarshalErr := json.Unmarshal(exportItemsJSON, &exportItems); unmarshalErr != nil {
-		err = kollecterrors.Terminal(fmt.Errorf("decode export items: %w", unmarshalErr))
-		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
+	if len(exportItemsJSON) != len(itemsJSON) {
+		var exportItems []collect.Item
+		if unmarshalErr := json.Unmarshal(exportItemsJSON, &exportItems); unmarshalErr != nil {
+			err = kollecterrors.Terminal(fmt.Errorf("decode export items: %w", unmarshalErr))
+			metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
-		return err
-	}
+			return err
+		}
 
-	meta := req.Meta
-	if meta.ExportedAt.IsZero() {
-		meta.ExportedAt = time.Now().UTC()
-	}
+		envelope, err = export.MarshalEnvelope(exportItems, export.Metadata{ExportedAt: time.Now().UTC()})
+		if err != nil {
+			err = kollecterrors.Terminal(err)
+			metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
-	envelope, err := export.MarshalEnvelope(exportItems, meta)
-	if err != nil {
-		err = kollecterrors.Terminal(err)
-		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
-
-		return err
+			return err
+		}
 	}
 
 	if !shouldExportForSpill(backend.Capabilities(), int64(len(envelope))) {
@@ -138,24 +166,33 @@ func RunExportItems(req ExportItemsRequest) error {
 	}
 
 	invNS, invName := objectstore.InventoryFromObjectPath(req.ObjectPath)
-	objectPath := objectstore.ObjectPath(ks.Spec, invNS, invName, req.Meta.Generation)
+	objectPath := objectstore.ObjectPath(req.SinkSpec, invNS, invName, export.GenerationFromEnvelope(envelope))
 
 	start := time.Now()
 	err = exportThroughBreaker(req.SinkNamespace+"/"+req.SinkName, func() error {
 		return backend.Export(req.Ctx, envelope, objectPath)
 	})
 	elapsed := time.Since(start).Seconds()
-	metrics.ExportDurationSeconds.WithLabelValues(ks.Spec.Type).Observe(elapsed)
-	metrics.ExportBytesTotal.WithLabelValues(ks.Spec.Type).Add(float64(len(envelope)))
+	metrics.ExportDurationSeconds.WithLabelValues(req.SinkSpec.Type).Observe(elapsed)
+	metrics.ExportBytesTotal.WithLabelValues(req.SinkSpec.Type).Add(float64(len(envelope)))
 
 	if err != nil {
+		err = git.ClassifyExportError(err)
 		reason := ExportErrorReason(err)
 		metrics.SinkErrorsTotal.WithLabelValues(reason).Inc()
 
-		return kollecterrors.Transient(fmt.Errorf("export to %q: %w", req.SinkName, err))
+		return classifyExportFailure(req.SinkName, err)
 	}
 
 	return nil
+}
+
+func classifyExportFailure(sinkName string, err error) error {
+	if kollecterrors.IsTerminal(err) {
+		return fmt.Errorf("export to %q: %w", sinkName, err)
+	}
+
+	return kollecterrors.Transient(fmt.Errorf("export to %q: %w", sinkName, err))
 }
 
 func closeBackend(b Backend) error {
