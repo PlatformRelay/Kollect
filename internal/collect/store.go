@@ -132,6 +132,26 @@ func (s *Store) RemoveTarget(targetNamespace, targetName string) {
 	s.notifyWatchers(targetNamespace)
 }
 
+// RemoveCluster drops all targets keyed under cluster (hub merge uses cluster as target namespace).
+func (s *Store) RemoveCluster(cluster string) {
+	if cluster == "" {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for key := range s.items {
+		if !hasPrefixNamespace(key, cluster) {
+			continue
+		}
+
+		delete(s.items, key)
+	}
+
+	s.notifyWatchers(cluster)
+}
+
 // CountForTarget returns items collected for one target.
 func (s *Store) CountForTarget(targetNamespace, targetName string) int {
 	key := targetKey(targetNamespace, targetName)
