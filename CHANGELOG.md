@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **e2e:** Validate collection via inventory HTTP [f55df27](https://github.com/konih/kollect/commit/f55df27ff8bb77d65d7a7e06b6897b92277aa282)
+
 - **e2e,test:** Stabilize smoke bootstrap and debounce IT [39f87ee](https://github.com/konih/kollect/commit/39f87ee23268b1a61bd6a8968ad29ca686d3080e)
 
 - **samples:** Drop legacy sinkRefs from team-a scope [2173042](https://github.com/konih/kollect/commit/2173042a41c0a03532313f4ee2f0ce7982f34831)
