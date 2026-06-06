@@ -27,7 +27,7 @@ anchor on an older commit.
 
 ### Bug Fixes
 
-- **gitlab:** Basic auth for Forgejo Gitea MR API [4efef59](https://github.com/konih/kollect/commit/4efef59b192d4a202834e39ac0282db26a3593d2)
+- **gitlab:** Basic auth for Forgejo Gitea MR API [e9314cf](https://github.com/konih/kollect/commit/e9314cfaa24b2e4e3f8985ae50e7fe788bdc657f)
 
 ## [0.1.0-rc.3](https://github.com/konih/kollect/compare/v0.1.0-rc.2..v0.1.0-rc.3) - 2026-06-06
 
