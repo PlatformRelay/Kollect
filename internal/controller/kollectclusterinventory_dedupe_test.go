@@ -99,10 +99,10 @@ func TestKollectClusterInventoryReconciler_dedupesCrossTargetRows(t *testing.T) 
 		},
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "postgres-platform", Namespace: sinkNS},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "postgres",
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 				Table:       "inventory_items",
@@ -116,10 +116,10 @@ func TestKollectClusterInventoryReconciler_dedupesCrossTargetRows(t *testing.T) 
 			NamespaceSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{tenantLabel: tenantVal},
 			},
-			TargetRefs:    []string{targetA, targetB},
-			SinkRefs:      kollectdevv1alpha1.NewSinkRefList("postgres-platform"),
-			SinkNamespace: sinkNS,
-			Dedupe:        kollectdevv1alpha1.ClusterInventoryDedupeByResourceUID,
+			TargetRefs:       []string{targetA, targetB},
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-platform"),
+			SinkNamespace:    sinkNS,
+			Dedupe:           kollectdevv1alpha1.ClusterInventoryDedupeByResourceUID,
 		},
 	}
 
@@ -300,10 +300,10 @@ func TestKollectClusterInventoryReconciler_keepAllPreservesCrossTargetRows(t *te
 		},
 	}
 
-	sinkObj := &kollectdevv1alpha1.KollectSink{
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "postgres-platform", Namespace: sinkNS},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "postgres",
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 				Table:       "inventory_items",
@@ -317,10 +317,10 @@ func TestKollectClusterInventoryReconciler_keepAllPreservesCrossTargetRows(t *te
 			NamespaceSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{tenantLabel: tenantVal},
 			},
-			TargetRefs:    []string{targetA, targetB},
-			SinkRefs:      kollectdevv1alpha1.NewSinkRefList("postgres-platform"),
-			SinkNamespace: sinkNS,
-			Dedupe:        kollectdevv1alpha1.ClusterInventoryDedupeKeepAll,
+			TargetRefs:       []string{targetA, targetB},
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("postgres-platform"),
+			SinkNamespace:    sinkNS,
+			Dedupe:           kollectdevv1alpha1.ClusterInventoryDedupeKeepAll,
 		},
 	}
 

@@ -24,10 +24,10 @@ func TestCheckInventorySinksReachable_connectionFailed(t *testing.T) {
 		t.Fatalf("AddToScheme: %v", err)
 	}
 
-	sink := &kollectdevv1alpha1.KollectSink{
+	sink := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "bad-sink", Namespace: "default"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "git"},
-		Status: kollectdevv1alpha1.KollectSinkStatus{
+		Spec:       kollectdevv1alpha1.KollectDatabaseSinkSpec{Type: kollectdevv1alpha1.DatabaseSinkTypePostgres},
+		Status: kollectdevv1alpha1.FamilySinkStatus{
 			Conditions: []metav1.Condition{{
 				Type:    kollectdevv1alpha1.ConditionConnectionVerified,
 				Status:  metav1.ConditionFalse,
@@ -38,7 +38,7 @@ func TestCheckInventorySinksReachable_connectionFailed(t *testing.T) {
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sink).WithStatusSubresource(sink).Build()
 
-	ok, reason, _ := checkInventorySinksReachable(context.Background(), cl, "default", []string{"bad-sink"})
+	ok, reason, _ := checkInventorySinksReachable(context.Background(), cl, "default", []kollectdevv1alpha1.InventorySinkBinding{{Name: "bad-sink", Family: kollectdevv1alpha1.SinkFamilyDatabase}})
 	if ok {
 		t.Fatal("expected sinks unreachable")
 	}
@@ -81,29 +81,5 @@ func TestSetSinkReachableFromExport(t *testing.T) {
 	c = apimeta.FindStatusCondition(conds, kollectdevv1alpha1.ConditionSinkReachable)
 	if c == nil || c.Status != metav1.ConditionFalse || c.Reason != kollectdevv1alpha1.ReasonExportTerminal {
 		t.Fatalf("terminal export condition: %+v", c)
-	}
-}
-
-func TestShouldClearTestConnectionAnnotation(t *testing.T) {
-	t.Parallel()
-
-	falseVal := false
-	trueVal := true
-
-	sink := &kollectdevv1alpha1.KollectSink{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				kollectdevv1alpha1.AnnotationTestConnection: "true",
-			},
-		},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{ConnectionTest: &falseVal},
-	}
-	if !shouldClearTestConnectionAnnotation(sink) {
-		t.Fatal("expected clear when annotation set and spec.connectionTest false")
-	}
-
-	sink.Spec.ConnectionTest = &trueVal
-	if shouldClearTestConnectionAnnotation(sink) {
-		t.Fatal("expected no clear when spec.connectionTest true")
 	}
 }

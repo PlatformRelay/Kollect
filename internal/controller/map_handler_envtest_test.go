@@ -33,18 +33,19 @@ var _ = Describe("Map handler List failure (envtest)", func() {
 		inv := &kollectdevv1alpha1.KollectInventory{
 			ObjectMeta: metav1.ObjectMeta{Name: "inv-" + suffix, Namespace: ns},
 			Spec: kollectdevv1alpha1.KollectInventorySpec{
-				SinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
+				DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 			},
 		}
 		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, inv) }()
 
-		sinkObj := &kollectdevv1alpha1.KollectSink{
-			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: ns},
-			Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "git", Endpoint: "https://example.com/repo.git"},
-		}
+		sinkObj, pgSecret := createPostgresSinkFixtures(sinkName, "pg-"+suffix, ns)
 		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
-		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
+		Expect(k8sClient.Create(ctx, pgSecret)).To(Succeed())
+		defer func() {
+			_ = k8sClient.Delete(ctx, sinkObj)
+			_ = k8sClient.Delete(ctx, pgSecret)
+		}()
 
 		before := counterValue(metrics.WatchMapListErrorsTotal, "KollectInventory", "sink")
 
@@ -54,7 +55,7 @@ var _ = Describe("Map handler List failure (envtest)", func() {
 			Scheme: k8sClient.Scheme(),
 		}
 
-		reqs := reconciler.mapSinkToInventories(ctx, sinkObj)
+		reqs := reconciler.mapDatabaseSinkToInventories(ctx, sinkObj)
 		Expect(reqs).To(BeEmpty(), "List failure must not silently enqueue stale requests")
 
 		after := counterValue(metrics.WatchMapListErrorsTotal, "KollectInventory", "sink")

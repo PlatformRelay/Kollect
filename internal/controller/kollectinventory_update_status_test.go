@@ -26,7 +26,7 @@ func TestKollectInventoryReconciler_updateStatus_success(t *testing.T) {
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "platform", Namespace: "team-a", Generation: 4},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			SinkRefs: kollectdevv1alpha1.NewSinkRefList("git"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("git"),
 		},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inv).WithStatusSubresource(inv).Build()

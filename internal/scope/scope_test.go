@@ -113,29 +113,33 @@ func TestValidateTargetGVKNilScopeAllows(t *testing.T) {
 	}
 }
 
-func TestValidateSinkRefsNilScope(t *testing.T) {
+func TestValidateInventoryFamilySinkRefsNilScope(t *testing.T) {
 	t.Parallel()
 
-	if err := ValidateSinkRefs(nil, []string{"demo"}); err != nil {
+	if err := ValidateInventoryFamilySinkRefs(nil, nil); err != nil {
 		t.Fatalf("nil scope should allow: %v", err)
 	}
 }
 
-func TestValidateSinkRefs(t *testing.T) {
+func TestValidateInventoryFamilySinkRefs(t *testing.T) {
 	t.Parallel()
 
 	scope := &kollectdevv1alpha1.KollectScope{
 		ObjectMeta: metav1.ObjectMeta{Name: "team-a-scope"},
 		Spec: kollectdevv1alpha1.KollectScopeSpec{
-			SinkRefs: []string{"demo-git"},
+			SnapshotSinkRefs: []string{"demo-git"},
 		},
 	}
 
-	if err := ValidateSinkRefs(scope, []string{"demo-git"}); err != nil {
+	if err := ValidateInventoryFamilySinkRefs(scope, []kollectdevv1alpha1.InventorySinkBinding{
+		{Name: "demo-git", Family: kollectdevv1alpha1.SinkFamilySnapshot},
+	}); err != nil {
 		t.Fatalf("expected allowed sink: %v", err)
 	}
 
-	if err := ValidateSinkRefs(scope, []string{"other"}); err == nil {
+	if err := ValidateInventoryFamilySinkRefs(scope, []kollectdevv1alpha1.InventorySinkBinding{
+		{Name: "other", Family: kollectdevv1alpha1.SinkFamilySnapshot},
+	}); err == nil {
 		t.Fatal("expected sink violation")
 	}
 }

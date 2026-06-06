@@ -19,7 +19,9 @@ func TestKollectConnectionTestValidator_ValidateCreate(t *testing.T) {
 
 	_, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectConnectionTest{
 		ObjectMeta: metav1.ObjectMeta{Name: "ok"},
-		Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: "demo-git"},
+		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+			SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: "demo-git"},
+		},
 	})
 	if err != nil {
 		t.Fatalf("valid create: %v", err)
@@ -27,7 +29,9 @@ func TestKollectConnectionTestValidator_ValidateCreate(t *testing.T) {
 
 	_, err = v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectConnectionTest{
 		ObjectMeta: metav1.ObjectMeta{Name: "bad"},
-		Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: "other/demo"},
+		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+			SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: "other/demo"},
+		},
 	})
 	if err == nil {
 		t.Fatal("expected validation error for cross-namespace sinkRef")
@@ -41,14 +45,18 @@ func TestKollectConnectionTestValidator_validate(t *testing.T) {
 
 	if err := v.validate(&kollectdevv1alpha1.KollectConnectionTest{
 		ObjectMeta: metav1.ObjectMeta{Name: "ok"},
-		Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: "demo-git"},
+		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+			SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: "demo-git"},
+		},
 	}); err != nil {
 		t.Fatalf("valid spec: %v", err)
 	}
 
 	if err := v.validate(&kollectdevv1alpha1.KollectConnectionTest{
 		ObjectMeta: metav1.ObjectMeta{Name: "bad"},
-		Spec:       kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: "other/demo"},
+		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+			SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: "other/demo"},
+		},
 	}); err == nil {
 		t.Fatal("expected validation error for cross-namespace sinkRef")
 	}
@@ -60,7 +68,9 @@ func TestKollectConnectionTestValidator_ValidateUpdateDeletion(t *testing.T) {
 	v := &kollectConnectionTestValidator{}
 	now := metav1.Now()
 	old := &kollectdevv1alpha1.KollectConnectionTest{
-		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{SinkRef: "demo"},
+		Spec: kollectdevv1alpha1.KollectConnectionTestSpec{
+			SinkRef: kollectdevv1alpha1.ConnectionTestSinkRef{SnapshotSinkRef: "demo"},
+		},
 	}
 	newTest := old.DeepCopy()
 	newTest.DeletionTimestamp = &now

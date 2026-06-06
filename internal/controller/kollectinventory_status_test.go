@@ -26,7 +26,7 @@ func TestKollectInventoryReconciler_setInventoryDegraded(t *testing.T) {
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "platform", Namespace: "team-a", Generation: 3},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			SinkRefs: kollectdevv1alpha1.NewSinkRefList("git"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("git"),
 		},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inv).WithStatusSubresource(inv).Build()
@@ -49,7 +49,7 @@ func TestKollectInventoryReconciler_setInventoryDegraded(t *testing.T) {
 	}
 }
 
-func TestKollectInventoryReconciler_mapSinkToInventories(t *testing.T) {
+func TestKollectInventoryReconciler_mapDatabaseSinkToInventories(t *testing.T) {
 	t.Parallel()
 
 	scheme := runtime.NewScheme()
@@ -59,25 +59,25 @@ func TestKollectInventoryReconciler_mapSinkToInventories(t *testing.T) {
 
 	invMatch := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "platform", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: kollectdevv1alpha1.NewSinkRefList("git", "s3")},
+		Spec:       kollectdevv1alpha1.KollectInventorySpec{DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("git", "s3")},
 	}
 	invOther := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: kollectdevv1alpha1.NewSinkRefList("kafka")},
+		Spec:       kollectdevv1alpha1.KollectInventorySpec{DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("kafka")},
 	}
-	sink := &kollectdevv1alpha1.KollectSink{
+	sink := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "git", Namespace: "team-a"},
 	}
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(invMatch, invOther, sink).Build()
 	r := &KollectInventoryReconciler{Client: cl}
 
-	reqs := r.mapSinkToInventories(context.Background(), sink)
+	reqs := r.mapDatabaseSinkToInventories(context.Background(), sink)
 	if len(reqs) != 1 || reqs[0].Namespace != "team-a" || reqs[0].Name != "platform" {
 		t.Fatalf("reqs = %#v", reqs)
 	}
 
-	if got := r.mapSinkToInventories(context.Background(), invMatch); got != nil {
+	if got := r.mapDatabaseSinkToInventories(context.Background(), invMatch); len(got) != 0 {
 		t.Fatalf("non-sink object should return nil, got %#v", got)
 	}
 }

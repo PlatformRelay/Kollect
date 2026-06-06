@@ -64,7 +64,7 @@ var _ = Describe("KollectInventory Controller", func() {
 		It("should mark Degraded when a referenced sink is missing", func() {
 			inv := &kollectdevv1alpha1.KollectInventory{}
 			Expect(k8sClient.Get(reconcileCtx, typeNamespacedName, inv)).To(Succeed())
-			inv.Spec.SinkRefs = kollectdevv1alpha1.NewSinkRefList("missing-sink-" + testNameSuffix())
+			inv.Spec.DatabaseSinkRefs = kollectdevv1alpha1.NewSinkRefList("missing-sink-" + testNameSuffix())
 			Expect(k8sClient.Update(reconcileCtx, inv)).To(Succeed())
 
 			store := collect.NewStore()
@@ -109,7 +109,7 @@ var _ = Describe("KollectInventory Controller", func() {
 			inv := &kollectdevv1alpha1.KollectInventory{
 				ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns},
 				Spec: kollectdevv1alpha1.KollectInventorySpec{
-					SinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
+					DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList(sinkName),
 				},
 			}
 			Expect(k8sClient.Create(reconcileCtx, inv)).To(Succeed())

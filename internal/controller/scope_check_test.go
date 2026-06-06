@@ -60,9 +60,9 @@ func TestScopeCheckSinkReachable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	verified := &kollectdevv1alpha1.KollectSink{
+	verified := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "ok", Namespace: "team-a"},
-		Status: kollectdevv1alpha1.KollectSinkStatus{
+		Status: kollectdevv1alpha1.FamilySinkStatus{
 			Conditions: []metav1.Condition{{
 				Type:   kollectdevv1alpha1.ConditionConnectionVerified,
 				Status: metav1.ConditionTrue,
@@ -79,12 +79,12 @@ func TestScopeCheckSinkReachable(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(verified, failed).Build()
 	check := scopeCheck{client: c}
 
-	ok, reason, _ := check.sinkReachable(context.Background(), "team-a", "ok")
+	ok, reason, _ := check.familySinkReachable(context.Background(), "team-a", kollectdevv1alpha1.InventorySinkBinding{Name: "ok", Family: kollectdevv1alpha1.SinkFamilyDatabase})
 	if !ok || reason != "ConnectionVerified" {
 		t.Fatalf("verified sink: ok=%v reason=%q", ok, reason)
 	}
 
-	ok, reason, _ = check.sinkReachable(context.Background(), "team-a", "bad")
+	ok, reason, _ = check.familySinkReachable(context.Background(), "team-a", kollectdevv1alpha1.InventorySinkBinding{Name: "bad", Family: kollectdevv1alpha1.SinkFamilyDatabase})
 	if ok || reason != reasonSinkUnreachable {
 		t.Fatalf("failed sink: ok=%v reason=%q", ok, reason)
 	}
@@ -100,11 +100,11 @@ func TestScopeCheckEnforceInventory(t *testing.T) {
 
 	scopeCR := &kollectdevv1alpha1.KollectScope{
 		ObjectMeta: metav1.ObjectMeta{Name: "team-scope", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectScopeSpec{SinkRefs: []string{"allowed-git"}},
+		Spec:       kollectdevv1alpha1.KollectScopeSpec{SnapshotSinkRefs: []string{"allowed-git"}},
 	}
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "rollup", Namespace: "team-a"},
-		Spec:       kollectdevv1alpha1.KollectInventorySpec{SinkRefs: kollectdevv1alpha1.NewSinkRefList("other-git")},
+		Spec:       kollectdevv1alpha1.KollectInventorySpec{SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("other-git")},
 	}
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(scopeCR).Build()

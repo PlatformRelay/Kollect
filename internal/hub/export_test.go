@@ -69,19 +69,19 @@ func TestExporterParallelFanOut(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pgSink := &kollectdevv1alpha1.KollectSink{
+	pgSink := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "hub-postgres", Namespace: "platform"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
-			Type: "postgres",
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
 				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 				Table:       "inventory_items",
 			},
 		},
 	}
-	kafkaSink := &kollectdevv1alpha1.KollectSink{
+	kafkaSink := &kollectdevv1alpha1.KollectEventSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "hub-kafka", Namespace: "platform"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "kafka"},
+		Spec:       kollectdevv1alpha1.KollectEventSinkSpec{Type: kollectdevv1alpha1.EventSinkTypeKafka},
 	}
 	pgSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "pg", Namespace: "platform"},
@@ -195,13 +195,13 @@ func TestExporterAggregatesMultiSinkErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sinkA := &kollectdevv1alpha1.KollectSink{
+	sinkA := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "sink-a", Namespace: "platform"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "failing-a"},
+		Spec:       kollectdevv1alpha1.KollectDatabaseSinkSpec{Type: "failing-a"},
 	}
-	sinkB := &kollectdevv1alpha1.KollectSink{
+	sinkB := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "sink-b", Namespace: "platform"},
-		Spec:       kollectdevv1alpha1.KollectSinkSpec{Type: "failing-b"},
+		Spec:       kollectdevv1alpha1.KollectDatabaseSinkSpec{Type: "failing-b"},
 	}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkA, sinkB).Build()
 

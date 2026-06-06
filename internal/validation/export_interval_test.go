@@ -17,7 +17,6 @@ func TestResolveSinkExportInterval_precedence(t *testing.T) {
 	t.Parallel()
 
 	refOverride := metav1.Duration{Duration: time.Hour}
-	sinkDefault := metav1.Duration{Duration: 5 * time.Minute}
 	inventoryDefault := 30 * time.Second
 	floor := time.Minute
 
@@ -25,16 +24,14 @@ func TestResolveSinkExportInterval_precedence(t *testing.T) {
 		Name:              "audit-git",
 		ExportMinInterval: &refOverride,
 	}
-	sink := &kollectdevv1alpha1.KollectSink{
-		Spec: kollectdevv1alpha1.KollectSinkSpec{ExportMinInterval: &sinkDefault},
-	}
+	sinkInterval := &metav1.Duration{Duration: 5 * time.Minute}
 
-	if got := ResolveSinkExportInterval(ref, sink, inventoryDefault, floor); got != time.Hour {
+	if got := ResolveSinkExportInterval(ref, sinkInterval, inventoryDefault, floor); got != time.Hour {
 		t.Fatalf("ref override = %v, want 1h", got)
 	}
 
 	ref.ExportMinInterval = nil
-	if got := ResolveSinkExportInterval(ref, sink, inventoryDefault, floor); got != 5*time.Minute {
+	if got := ResolveSinkExportInterval(ref, sinkInterval, inventoryDefault, floor); got != 5*time.Minute {
 		t.Fatalf("sink default = %v, want 5m", got)
 	}
 
@@ -54,7 +51,7 @@ func TestValidateIntervalsAgainstScopeFloor(t *testing.T) {
 
 	floor := time.Minute
 	tooFast := metav1.Duration{Duration: 10 * time.Second}
-	errs := ValidateIntervalsAgainstScopeFloor(&tooFast, kollectdevv1alpha1.NewSinkRefList("pg"), floor)
+	errs := ValidateIntervalsAgainstScopeFloor(&tooFast, []kollectdevv1alpha1.InventorySinkRefList{kollectdevv1alpha1.NewSinkRefList("pg")}, floor)
 	if len(errs) != 1 {
 		t.Fatalf("errs = %v", errs)
 	}

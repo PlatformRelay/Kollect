@@ -60,8 +60,8 @@ func TestHubHTTPIngestPostgresExportRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	schemaBackend, err := postgressink.NewBackend(ctx, kollectdevv1alpha1.KollectSinkSpec{
-		Type: "postgres",
+	schemaBackend, err := postgressink.NewBackend(ctx, kollectdevv1alpha1.KollectDatabaseSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
 		Postgres: &kollectdevv1alpha1.PostgresSpec{
 			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg-bootstrap"},
 			Table:       "inventory_items",
@@ -81,9 +81,9 @@ func TestHubHTTPIngestPostgresExportRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pgSink := &kollectdevv1alpha1.KollectSink{
+	pgSink := &kollectdevv1alpha1.KollectDatabaseSink{
 		ObjectMeta: metav1.ObjectMeta{Name: "hub-postgres", Namespace: "platform"},
-		Spec: kollectdevv1alpha1.KollectSinkSpec{
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
 			Type:    "postgres",
 			Cluster: "hub",
 			Postgres: &kollectdevv1alpha1.PostgresSpec{
