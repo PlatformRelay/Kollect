@@ -196,6 +196,45 @@ func TestValidateSnapshotSinkSpec_invalidPathTemplate(t *testing.T) {
 	}
 }
 
+func TestValidateDatabaseSinkSpec_bigQueryAcceptsBlock(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateDatabaseSinkSpec(&kollectdevv1alpha1.KollectDatabaseSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypeBigQuery,
+		BigQuery: &kollectdevv1alpha1.BigQuerySpec{
+			Dataset: "analytics",
+		},
+	})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+}
+
+func TestValidateEventSinkSpec_kafkaAcceptsBlock(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateEventSinkSpec(&kollectdevv1alpha1.KollectEventSinkSpec{
+		Type: kollectdevv1alpha1.EventSinkTypeKafka,
+		Kafka: &kollectdevv1alpha1.KafkaSpec{
+			Topic: "inventory",
+		},
+	})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+}
+
+func TestValidateConnectionTestSinkRef_invalidName(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateConnectionTestSinkRef(kollectdevv1alpha1.ConnectionTestSinkRef{
+		SnapshotSinkRef: "team-a/git",
+	})
+	if len(errs) == 0 {
+		t.Fatal("expected invalid ref name")
+	}
+}
+
 func TestValidateSnapshotSinkSpec_exportMinInterval(t *testing.T) {
 	t.Parallel()
 

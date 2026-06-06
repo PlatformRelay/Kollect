@@ -94,7 +94,7 @@ kubectl patch kconntest postgres-sink-probe -n default --type=merge \
 
 | Reason | Cause | Fix |
 | --- | --- | --- |
-| `SinkNotFound` | Missing sink | Apply `KollectSink` first |
+| `SinkNotFound` | Missing sink | Apply family sink CR first |
 | `SecretResolveFailed` | Bad `secretRef` / `databaseRef` | Create Secret with expected keys |
 | `ConnectionTestFailed` | Backend unreachable or auth failure | Curl endpoint from cluster; verify DSN/brokers |
 
@@ -107,7 +107,7 @@ After success or failure, the CR is deleted automatically after `ttlSecondsAfter
 | --- | --- | --- | --- |
 | CI / developers | `create`, `delete`, `get`, `list`, `watch` | `kollectconnectiontests` | Trigger probes |
 | Operator | `update`, `patch` | `kollectconnectiontests/status` | Write outcome |
-| Operator | `get`, `list`, `watch` | `kollectsinks`, `secrets` | Resolve sink + credentials |
+| Operator | `get`, `list`, `watch` | family sinks, `secrets` | Resolve sink + credentials |
 
 ## Common failure modes
 
@@ -121,6 +121,6 @@ After success or failure, the CR is deleted automatically after `ttlSecondsAfter
 
 ## See also
 
-- [KollectSink](kollectsink.md)
+- [KollectSnapshotSink](kollectsnapshotsink.md) · [KollectDatabaseSink](kollectdatabasesink.md) · [KollectEventSink](kollecteventsink.md)
 - [DATA-FLOWS.md](../DATA-FLOWS.md#5-kollectconnectiontest-lifecycle)
 - [QUICKSTART.md](../QUICKSTART.md) — sink annotation quick test

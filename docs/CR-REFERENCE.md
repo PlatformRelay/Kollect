@@ -27,7 +27,9 @@ flowchart LR
   Scope[KollectScope<br/>policy]
   Target[KollectTarget<br/>what to watch]
   Inv[KollectInventory<br/>aggregate + export]
-  Sink[KollectSink<br/>where to send]
+  Snap[KollectSnapshotSink]
+  Db[KollectDatabaseSink]
+  Ev[KollectEventSink]
   ConnTest[KollectConnectionTest<br/>probe]
   CProf[KollectClusterProfile]
   CTarget[KollectClusterTarget]
@@ -37,20 +39,29 @@ flowchart LR
   Scope -.-> Target
   Scope -.-> Inv
   Target --> Inv
-  Inv --> Sink
-  ConnTest -.-> Sink
+  Inv --> Snap
+  Inv --> Db
+  Inv --> Ev
+  ConnTest -.-> Snap
+  ConnTest -.-> Db
+  ConnTest -.-> Ev
   CProf --> CTarget
   CTarget -.-> CInv
-  CInv -.-> Sink
+  CInv -.-> Snap
+  CInv -.-> Db
+  CInv -.-> Ev
 ```
 
-**Typical team flow:** create Profile and Sink → bind Target to Profile → point Inventory at Sink.
+**Typical team flow:** create Profile and family Sinks → bind Target to Profile → point Inventory at
+snapshot/database/event sink refs.
 Optional Scope constrains GVKs, namespaces, and sinks. Use ConnectionTest to verify sink reachability
 before export.
 
 !!! tip "Same-namespace rule"
-    `profileRef`, `sinkRefs`, and connection-test `sinkRef` must resolve CRs in the **same namespace**
-    as the referring object. Cluster inventory resolves sinks in `spec.sinkNamespace` instead.
+    `profileRef`, family sink refs (`snapshotSinkRefs`, `databaseSinkRefs`, `eventSinkRefs`), and
+    connection-test `sinkRef` must resolve CRs in the **same namespace** as the referring object.
+    Cluster inventory resolves namespaced sinks in `spec.sinkNamespace`; cluster family sinks are
+    cluster-scoped.
 
 **Platform flow:** `KollectClusterProfile` → `KollectClusterTarget` → `KollectClusterInventory` for
 cross-namespace rollup. `KollectClusterTarget` and `KollectClusterInventory` controllers reconcile
@@ -58,15 +69,15 @@ and export; `KollectClusterProfile` remains admission-only (no controller).
 
 ### Snapshot export layout and spill
 
-`KollectSink.spec.pathTemplate` selects the Git/object-store object path (default
+`KollectSnapshotSink.spec.pathTemplate` selects the Git/object-store object path (default
 `inventory/{namespace}/{name}.json`; placeholders `{cluster}`, `{namespace}`, `{name}`,
 `{generation}`, `{extension}`) — see [ADR-0407](adr/0407-git-object-store-layout.md).
 
-Payloads **≥ 1 MiB** warn; **> 1 MiB** require an `s3` or `gcs` sink in inventory `sinkRefs` (Git
-receives smaller exports only). Hard cap ~**1.5 MiB** `maxExportBytes` blocks export entirely. Details:
-[KollectSink — spill policy](crds/kollectsink.md#export-payload-spill).
+Payloads **≥ 1 MiB** warn; **> 1 MiB** require an `s3` or `gcs` snapshot sink in
+`spec.snapshotSinkRefs` (Git receives smaller exports only). Hard cap ~**1.5 MiB** `maxExportBytes`
+blocks export entirely.
 
-Per-sink export cadence is configured on inventory/cluster-inventory `sinkRefs` (string or object),
+Per-sink export cadence is configured on inventory/cluster-inventory family refs (string or object),
 optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval-scheduling.md).
 
 ## Kinds
@@ -74,7 +85,12 @@ optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval
 | Kind | Scope | Reconciled | Reference |
 | --- | --- | --- | --- |
 | `KollectProfile` | Namespace | No | [crds/kollectprofile.md](crds/kollectprofile.md) |
-| `KollectSink` | Namespace | Probe only | [crds/kollectsink.md](crds/kollectsink.md) |
+| `KollectSnapshotSink` | Namespace | Probe only | [crds/kollectsnapshotsink.md](crds/kollectsnapshotsink.md) |
+| `KollectDatabaseSink` | Namespace | Probe only | [crds/kollectdatabasesink.md](crds/kollectdatabasesink.md) |
+| `KollectEventSink` | Namespace | Probe only | [crds/kollecteventsink.md](crds/kollecteventsink.md) |
+| `KollectClusterSnapshotSink` | Cluster | Probe only | [crds/kollectsnapshotsink.md](crds/kollectsnapshotsink.md) |
+| `KollectClusterDatabaseSink` | Cluster | Probe only | [crds/kollectdatabasesink.md](crds/kollectdatabasesink.md) |
+| `KollectClusterEventSink` | Cluster | Probe only | [crds/kollecteventsink.md](crds/kollecteventsink.md) |
 | `KollectTarget` | Namespace | Yes | [crds/kollecttarget.md](crds/kollecttarget.md) |
 | `KollectInventory` | Namespace | Yes | [crds/kollectinventory.md](crds/kollectinventory.md) |
 | `KollectScope` | Namespace | No (enforced) | [crds/kollectscope.md](crds/kollectscope.md) |
@@ -87,7 +103,7 @@ optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval
 
 | Kind | Scope | Notes |
 | --- | --- | --- |
-| `KollectClusterSink` | Cluster | Shared export backends |
+| ~~`KollectSink`~~ | — | **Removed** — use family sinks ([ADR-0414](adr/0414-sink-family-crds.md)) |
 | `KollectClusterScope` | Cluster | Platform policy boundary |
 | `KollectRemoteCluster` | Namespace | Hub spoke registration ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)) |
 
@@ -107,7 +123,7 @@ optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval
 
 ```sh
 kubectl apply -k config/samples/
-kubectl get kprof,ksink,ktgt,kinv,kscope,kconntest -A
+kubectl get kprof,ksnap,kdb,kevt,ktgt,kinv,kscope,kconntest -A
 ```
 
 See [QUICKSTART.md](QUICKSTART.md) for kind cluster install prerequisites.

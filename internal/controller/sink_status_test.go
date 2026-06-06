@@ -59,7 +59,7 @@ func TestCheckTargetNamespaceSinksReachable_noInventory(t *testing.T) {
 
 	ok, reason, _ := checkTargetNamespaceSinksReachable(context.Background(), cl, "team-a")
 	if !ok {
-		t.Fatal("expected reachable when no inventory sinkRefs")
+		t.Fatal("expected reachable when no inventory sink refs")
 	}
 	if reason != "NoSinksInNamespace" {
 		t.Fatalf("reason = %q, want NoSinksInNamespace", reason)

@@ -51,8 +51,10 @@ flowchart TD
 | `spec.targetRefs[]` | list | No | all targets | `KollectClusterTarget` names (name only) |
 | `spec.targetSelector` | labelSelector | No | — | Filter cluster targets when `targetRefs` empty |
 | `spec.namespaceSelector` | labelSelector | **Yes** | — | Explicit namespace scope for rollup |
-| `spec.sinkRefs[]` | list | No | — | Sink names (string) or `{ name, exportMinInterval? }` in `sinkNamespace` — max 20 |
-| `spec.sinkNamespace` | string | No | `kollect-system` | Namespace for sink resolution |
+| `spec.snapshotSinkRefs[]` | list | No | — | Snapshot sink refs (string or `{ name, exportMinInterval? }`) |
+| `spec.databaseSinkRefs[]` | list | No | — | Database sink refs (same shape) |
+| `spec.eventSinkRefs[]` | list | No | — | Event sink refs (same shape); combined max **20** |
+| `spec.sinkNamespace` | string | No | `kollect-system` | Namespace for namespaced family sink resolution |
 | `spec.exportMinInterval` | duration | No | **30s** | Default min gap for refs without override; bypass on checksum or generation change |
 | `spec.suspend` | bool | No | false | Pause reconciliation (reserved) |
 
@@ -61,7 +63,7 @@ flowchart TD
 ```sh
 # Prerequisites: cluster profile, cluster target, sink in kollect-system
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterprofile.yaml
-kubectl apply -f config/samples/kollect_v1alpha1_kollectsink_postgres.yaml -n kollect-system
+kubectl apply -f config/samples/kollect_v1alpha1_kollectdatabasesink.yaml -n kollect-system
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclustertarget.yaml
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterinventory.yaml
 
@@ -97,7 +99,7 @@ inventory ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 | --- | --- | --- |
 | `NoTargets` | No matching cluster targets | Create `KollectClusterTarget`; check `targetRefs` / `targetSelector` |
 | `TargetDegraded` | One or more targets not `Ready` | Fix upstream `kctgt` status first |
-| `SinkNotFound` | Bad `sinkRefs` in `sinkNamespace` | Create sink in export namespace |
+| `SinkNotFound` | Bad family sink ref in `sinkNamespace` | Create family sink in export namespace |
 | `ExportUnavailable` | Sink registry not configured | Check operator startup / Helm values |
 | `ExportTerminal` | Non-retryable sink error | Fix sink config; check operator logs |
 
@@ -107,17 +109,17 @@ inventory ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 | --- | --- | --- | --- |
 | Platform admins | `create`, `update`, `patch`, `delete` | `kollectclusterinventories` | Cluster-scoped |
 | Platform readers | `get`, `list`, `watch` | `kollectclusterinventories` | Audit platform config |
-| Operator | `get`, `list`, `watch` | `kollectclusterinventories`, `kollectclustertargets`, `kollectsinks` | Rollup + export |
+| Operator | `get`, `list`, `watch` | `kollectclusterinventories`, `kollectclustertargets`, family sinks | Rollup + export |
 
 ## Common failure modes
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | Admission denied | Missing `namespaceSelector` | Add explicit label selector |
-| Admission denied | `targetRefs` or `sinkRefs` contains `/` | Use name only — no `namespace/name` |
+| Admission denied | `targetRefs` or family sink refs contain `/` | Use name only — no `namespace/name` |
 | No export | Targets not `Ready` or sink misconfigured | `kubectl describe kctgt`; verify sink in `sinkNamespace` |
-| `SinkNotFound` | Bad `sinkRefs` in `sinkNamespace` | Create sink in export namespace |
-| `Degraded` | Payload too large or terminal sink error | Check operator logs and [KollectSink](kollectsink.md) status |
+| `SinkNotFound` | Bad family sink ref in `sinkNamespace` | Create family sink in export namespace |
+| `Degraded` | Payload too large or terminal sink error | Check operator logs and family sink status |
 
 ## See also
 
