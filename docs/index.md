@@ -70,8 +70,9 @@ documented in [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), not repeate
 ## The resource model
 
 A pipeline is just a handful of Kubernetes resources: **config you declare** (`KollectProfile`,
-`KollectSink`, `KollectScope`) and **objects the operator reconciles** (`KollectTarget`,
-`KollectInventory`). Cluster-scoped `KollectCluster*` variants add cross-namespace rollup.
+family sinks — `KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`, `KollectScope`)
+and **objects the operator reconciles** (`KollectTarget`, `KollectInventory`). Cluster-scoped
+`KollectCluster*` variants add cross-namespace rollup.
 
 ```mermaid
 flowchart LR
@@ -81,7 +82,9 @@ flowchart LR
     direction TB
     Profile["<b>KollectProfile</b><br/>what to extract"]
     Scope["<b>KollectScope</b><br/>guardrails"]
-    Sink["<b>KollectSink</b><br/>where to send"]
+    Snap["<b>KollectSnapshotSink</b><br/>snapshot store"]
+    Db["<b>KollectDatabaseSink</b><br/>relational SoR"]
+    Ev["<b>KollectEventSink</b><br/>event emitter"]
   end
 
   subgraph run["Operator reconciles"]
@@ -92,9 +95,9 @@ flowchart LR
 
   subgraph out["Sink projections — choose any"]
     direction TB
-    Snap["Git · GitLab · S3 · GCS<br/><i>snapshot store</i>"]
+    SnapOut["Git · GitLab · S3 · GCS<br/><i>snapshot store</i>"]
     Rel["Postgres<br/><i>relational SoR</i>"]
-    Evt["NATS · Kafka<br/><i>event emitter</i>"]
+    EvtOut["NATS · Kafka<br/><i>event emitter</i>"]
   end
 
   K8s -- "informer per GVK" --> Target
@@ -102,27 +105,31 @@ flowchart LR
   Target --> Inv
   Scope -. gates .-> Target
   Scope -. gates .-> Inv
-  Inv --> Sink
-  Sink --> Snap
-  Sink --> Rel
-  Sink --> Evt
+  Inv --> Snap
+  Inv --> Db
+  Inv --> Ev
+  Snap --> SnapOut
+  Db --> Rel
+  Ev --> EvtOut
 
   classDef api fill:#1F2937,stroke:#6B7280,color:#fff;
   classDef config fill:#326CE5,stroke:#1b3a8c,color:#fff;
   classDef work fill:#18B6A3,stroke:#0e6f63,color:#fff;
   classDef proj fill:#7FB3FF,stroke:#326CE5,color:#081A4B;
 
-  class Profile,Scope,Sink config;
+  class Profile,Scope,Snap,Db,Ev config;
   class Target,Inv work;
-  class Snap,Rel,Evt proj;
+  class SnapOut,Rel,EvtOut proj;
 ```
 
 | Kind | You set | Role |
 | --- | --- | --- |
 | `KollectProfile` | GVK + CEL / JSONPath attributes | **What to extract** from each object |
 | `KollectTarget` | selectors + `profileRef` | **What to watch** and collect |
-| `KollectInventory` | `sinkRefs` + cadence | **Aggregate, debounce, and export** |
-| `KollectSink` | type + endpoint + `secretRef` | **Where to send** (Git, Postgres, Kafka, …) |
+| `KollectInventory` | family sink refs + cadence | **Aggregate, debounce, and export** |
+| `KollectSnapshotSink` | type + endpoint + `secretRef` | **Snapshot store** (Git, S3, GCS, …) |
+| `KollectDatabaseSink` | type + credentials | **Relational SoR** (Postgres, …) |
+| `KollectEventSink` | type + brokers | **Event emitter** (NATS, Kafka) |
 | `KollectScope` | allowed GVKs / namespaces / sinks | **Guardrails** for the team namespace |
 
 Full fields: [CR reference](CR-REFERENCE.md) · model rationale: [ADR-0201](adr/0201-crd-model.md).

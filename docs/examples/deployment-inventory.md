@@ -5,10 +5,11 @@
     [Kind local lab](kind-local-lab.md)) and can apply manifests from `config/samples/`. The default
     path uses a Postgres sink; swap to Git for audit-only workflows.
 
-This walkthrough connects the four core **namespaced** CRDs into a minimal pipeline: define **what**
-to extract (`KollectProfile`), **where** to send it (`KollectSink`), **which** resources to watch
-(`KollectTarget`), and **when** to aggregate and export (`KollectInventory`). There is **no
-`KollectHub` CRD** — hub aggregation uses Helm `mode: hub` ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+This walkthrough connects the core **namespaced** CRDs into a minimal pipeline: define **what**
+to extract (`KollectProfile`), **where** to send it (family sinks — `KollectDatabaseSink`,
+`KollectSnapshotSink`), **which** resources to watch (`KollectTarget`), and **when** to aggregate
+and export (`KollectInventory`). There is **no `KollectHub` CRD** — hub aggregation uses Helm
+`mode: hub` ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
 
 **Default sample path:** Postgres state store (`postgres-inventory-demo`). Swap to `git-inventory-demo`
 for Git audit/CI. See [Postgres state store](postgres-state-store.md) and
@@ -23,14 +24,17 @@ flowchart LR
   Profile[KollectProfile<br/>Deployment schema]
   Target[KollectTarget<br/>select Deployments]
   Inv[KollectInventory<br/>aggregate + export]
-  Sink[KollectSink<br/>Postgres or Git]
+  Db[KollectDatabaseSink<br/>Postgres]
+  Snap[KollectSnapshotSink<br/>Git]
   K8s[(Kubernetes API)]
 
   Profile --> Target
   Target --> K8s
   Target --> Inv
-  Inv --> Sink
-  Sink --> Store[(Postgres / Git)]
+  Inv --> Db
+  Inv --> Snap
+  Db --> PG[(Postgres)]
+  Snap --> Git[(Git repo)]
 ```
 
 ## Scale
@@ -95,20 +99,21 @@ Set `type: list` on multi-value attributes. CEL equivalent:
 See [DATA-FLOWS.md](../DATA-FLOWS.md#3-attribute-extraction-jsonpath-arrays) and
 [ADR-0302](../adr/0302-cel-jsonpath-extraction.md).
 
-## Step 2 — KollectSink
+## Step 2 — Family sinks
 
 !!! warning "Same-namespace sink refs"
-    `KollectSink` is **namespaced** — create sinks in the same namespace as `KollectInventory`
-    `sinkRefs`. Cross-namespace references fail admission with `SinkNotFound`
-    ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+    Family sink CRDs are **namespaced** — create sinks in the same namespace as
+    `KollectInventory` family ref lists (`snapshotSinkRefs`, `databaseSinkRefs`, `eventSinkRefs`).
+    Cross-namespace references fail admission with `SinkNotFound`
+    ([ADR-0414](../adr/0414-sink-family-crds.md)).
 
-### Postgres (default sample)
+### KollectDatabaseSink (default sample — Postgres)
 
-`config/samples/kollect_v1alpha1_kollectsink_postgres.yaml`
+`config/samples/kollect_v1alpha1_kollectdatabasesink.yaml`
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
-kind: KollectSink
+kind: KollectDatabaseSink
 metadata:
   name: postgres-inventory-demo
   namespace: default
@@ -126,13 +131,13 @@ spec:
 
 Create the DSN secret before export — see [Postgres state store](postgres-state-store.md).
 
-### Git (audit / CI)
+### KollectSnapshotSink (Git audit / CI)
 
-`config/samples/kollect_v1alpha1_kollectsink.yaml`
+`config/samples/kollect_v1alpha1_kollectsnapshotsink.yaml`
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
-kind: KollectSink
+kind: KollectSnapshotSink
 metadata:
   name: git-inventory-demo
   namespace: default
@@ -140,16 +145,19 @@ spec:
   type: git
   endpoint: https://github.com/konih/kollect-inventory-demo.git
   connectionTest: true
+  git:
+    branch: main
+    pushPolicy: Commit
+    commitMessage: "chore(inventory): export {namespace}/{name}"
   # secretRef:
   #   name: git-push-credentials
   #   namespace: kollect-system
 ```
 
-**Behavior:** the inventory controller resolves sinks via the registry (`git`, `postgres`, `kafka`,
-`gitlab`, `s3`, `gcs`). With `connectionTest: true`, the operator probes on create/update and sets
-`ConnectionVerified` on the sink. Export commits deterministic JSON snapshots to Git or upserts rows
-to Postgres; status stores summary refs (commit SHA), not the full payload
-([ADR-0103](../adr/0103-etcd-limit.md)).
+**Behavior:** the inventory controller resolves family sinks via the registry. With
+`connectionTest: true`, family sink reconcilers probe on create/update and set `ConnectionVerified`.
+Export commits deterministic JSON snapshots to Git or upserts rows to Postgres; status stores
+summary refs (commit SHA), not the full payload ([ADR-0103](../adr/0103-etcd-limit.md)).
 
 Production installs should set `connectionTest: false` (chart default) and re-probe on demand —
 see [Connection test](connection-test.md).
@@ -207,7 +215,7 @@ kubectl label deployment nginx app.kubernetes.io/name=nginx --overwrite
 
 ## Step 4 — KollectInventory
 
-Namespaced aggregator (same namespace as targets) referencing one or more sinks.
+Namespaced aggregator (same namespace as targets) referencing family sinks.
 
 `config/samples/kollect_v1alpha1_kollectinventory.yaml`
 
@@ -219,8 +227,9 @@ metadata:
   namespace: default
 spec:
   exportMinInterval: 30s
-  sinkRefs:
+  databaseSinkRefs:
     - postgres-inventory-demo
+  snapshotSinkRefs:
     - name: git-inventory-demo
       exportMinInterval: 1h
   suspend: false
@@ -232,7 +241,7 @@ spec:
     ref → sink default → inventory default → scope floor — see
     [ADR-0413](../adr/0413-export-interval-scheduling.md).
 
-For Git-only audit, use a single string ref: `sinkRefs: [git-inventory-demo]`.
+For Git-only audit, use a single snapshot ref: `snapshotSinkRefs: [git-inventory-demo]`.
 
 **Behavior:**
 
@@ -246,13 +255,13 @@ For Git-only audit, use a single string ref: `sinkRefs: [git-inventory-demo]`.
 
 ```sh
 kubectl apply -k config/samples/
-kubectl get kprof,ksink,ktgt,kinv -A
+kubectl get kinv,ktgt,ksnap,kdb -A
 ```
 
 Verify sink connectivity before relying on export:
 
 ```sh
-kubectl wait --for=condition=ConnectionVerified kollectsink/postgres-inventory-demo \
+kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/postgres-inventory-demo \
   -n default --timeout=60s
 kubectl describe kollectinventory team-inventory -n default
 ```
@@ -268,8 +277,8 @@ kubectl describe kollectinventory team-inventory -n default
 | --- | --- |
 | Target not found | `KollectTarget` is namespaced — ensure namespace matches |
 | Profile not found | `profileRef` must name a `KollectProfile` in the **same namespace** as the Target |
-| Sink not found | `sinkRefs` must name a `KollectSink` in the **same namespace** as the Inventory |
-| No export | Missing DSN/`secretRef`, `ConnectionVerified=False`, or `SinkReachable=False` with reason `SinkNotFound` / `SinkUnreachable` — see `kubectl describe kollectsink` and inventory `status.conditions` |
+| Sink not found | Family ref must name a sink in the **same namespace** as the Inventory (`snapshotSinkRefs`, `databaseSinkRefs`, or `eventSinkRefs`) |
+| No export | Missing DSN/`secretRef`, `ConnectionVerified=False`, or `SinkReachable=False` with reason `SinkNotFound` / `SinkUnreachable` — see `kubectl describe kollectdatabasesink` / `kollectsnapshotsink` and inventory `status.conditions` |
 | Empty item count | No Deployments match selector, or target suspended / scope denied |
 | Namespace skipped | `kollect.dev/namespace-watch: disabled` or `watchMode: OptIn` without `enabled` label |
 
@@ -281,7 +290,8 @@ See [Kind local lab](kind-local-lab.md), [QUICKSTART.md](../QUICKSTART.md), and
 - [Spoke cluster inventory](spoke-cluster-inventory.md) — Helm `mode: single` install narrative
 - [Postgres state store](postgres-state-store.md) — DSN secret and delete reconciliation
 - [Connection test](connection-test.md) — `ConnectionVerified` and `KollectConnectionTest`
-- [KollectProfile](../crds/kollectprofile.md) · [KollectSink](../crds/kollectsink.md) ·
+- [KollectProfile](../crds/kollectprofile.md) · [KollectSnapshotSink](../crds/kollectsnapshotsink.md) ·
+  [KollectDatabaseSink](../crds/kollectdatabasesink.md) · [KollectEventSink](../crds/kollecteventsink.md) ·
   [KollectTarget](../crds/kollecttarget.md) · [KollectInventory](../crds/kollectinventory.md)
 - [CR reference](../CR-REFERENCE.md)
 - [ADR-0703: Platform architecture pivot](../adr/0703-platform-architecture-pivot.md)
