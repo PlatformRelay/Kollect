@@ -27,24 +27,24 @@ anchor on an older commit.
 
 ### Bug Fixes
 
-- **e2e:** Validate collection via inventory HTTP [f55df27](https://github.com/konih/kollect/commit/f55df27ff8bb77d65d7a7e06b6897b92277aa282)
+- **e2e:** Validate collection via inventory HTTP [cd77870](https://github.com/konih/kollect/commit/cd778701acdd95cb4d2bf74e677499b856bbc702)
 
-- **e2e,test:** Stabilize smoke bootstrap and debounce IT [39f87ee](https://github.com/konih/kollect/commit/39f87ee23268b1a61bd6a8968ad29ca686d3080e)
+- **e2e,test:** Stabilize smoke bootstrap and debounce IT [99d72bb](https://github.com/konih/kollect/commit/99d72bb35ba1cffe4a8c7dbd6777bc5ae37665e2)
 
-- **samples:** Drop legacy sinkRefs from team-a scope [2173042](https://github.com/konih/kollect/commit/2173042a41c0a03532313f4ee2f0ce7982f34831)
+- **samples:** Drop legacy sinkRefs from team-a scope [1648ab3](https://github.com/konih/kollect/commit/1648ab3ce0b67e58d8129da909487db91bf3c23b)
 
-- **e2e:** Wait on family sink CRDs in kind smoke [5de28a0](https://github.com/konih/kollect/commit/5de28a060ea167d232c4fe04e273a3a12d58b4eb)
+- **e2e:** Wait on family sink CRDs in kind smoke [933dc36](https://github.com/konih/kollect/commit/933dc366f1343efc960932c56862b5b5061612e0)
 
 - **gitlab:** Basic auth for Forgejo Gitea MR API [c2b0f3d](https://github.com/konih/kollect/commit/c2b0f3d528365385a3e60cef3a95e791c9210abe)
 
 
 ### Features
 
-- **git:** Port transport retry and SSH host keys [4914faa](https://github.com/konih/kollect/commit/4914faa482353ab03f7a932472548b2878ce9e9f)
+- **git:** Port transport retry and SSH host keys [b8bab57](https://github.com/konih/kollect/commit/b8bab57eba8ed6f554edad951ee761dc8c39a5a4)
 
-- **controller:** Wire family sink reconcilers and export [d14f346](https://github.com/konih/kollect/commit/d14f346e3031edaa711777d50d9c059fa25fb2e6)
+- **controller:** Wire family sink reconcilers and export [8162345](https://github.com/konih/kollect/commit/8162345b399d75ae315d05e06bb25a43c7eb4e0f)
 
-- **api:** Add sink family CRDs and remove KollectSink [40bc907](https://github.com/konih/kollect/commit/40bc9072225767cdfceb07254c0de516090a3b74)
+- **api:** Add sink family CRDs and remove KollectSink [0ec8ea2](https://github.com/konih/kollect/commit/0ec8ea204c7d864d7c54bf104bfd173d8630261c)
 
 ## [0.1.0-rc.3](https://github.com/konih/kollect/compare/v0.1.0-rc.2..v0.1.0-rc.3) - 2026-06-06
 
