@@ -86,7 +86,9 @@ nav:
       - Custom resources:
           - Overview: CR-REFERENCE.md
           - KollectProfile: crds/kollectprofile.md
-          - KollectSink: crds/kollectsink.md
+          - KollectSnapshotSink: crds/kollectsnapshotsink.md
+          - KollectDatabaseSink: crds/kollectdatabasesink.md
+          - KollectEventSink: crds/kollecteventsink.md
           - KollectTarget: crds/kollecttarget.md
           - KollectInventory: crds/kollectinventory.md
           - KollectScope: crds/kollectscope.md
@@ -134,6 +136,7 @@ nav:
               - "0411 — Read API extensions for UI": adr/0411-read-api-extensions-for-ui.md
               - "0412 — Mock Read API for UI development": adr/0412-mock-read-api-for-ui-development.md
               - "0413 — Per-sink export interval scheduling": adr/0413-export-interval-scheduling.md
+              - "0414 — Sink family CRDs (clean break, pre-GA)": adr/0414-sink-family-crds.md
           - 05 Multi-cluster:
               - "0501 — Multi-cluster sync topology (shared-sink default; hub optional)": adr/0501-multi-cluster-sync-rfc.md
               - "0502 — Event-emitter transport (NATS default, Kafka opt-in)": adr/0502-lean-queue-transport.md

@@ -1,0 +1,15 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectEventSink
+metadata:
+  name: kafka-inventory-demo
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: kafka
+  connectionTest: false
+  kafka:
+    brokers:
+      - kafka.kollect-system.svc:9092
+    topic: inventory.changes

@@ -38,6 +38,12 @@ Exploring ADRs that began as RFC-style work:
 | [ADR-0304](../adr/0304-custom-resource-aggregation-rfc.md) | Custom-resource metrics and richer aggregation |
 | [ADR-0501](../adr/0501-multi-cluster-sync-rfc.md) | Multi-cluster sync topology |
 
+## Superseded RFCs
+
+| RFC | Topic | Status |
+| --- | --- | --- |
+| [Sink family CRDs](sink-family-crds.md) | Option C — three family CRDs instead of unified `KollectSink` | Superseded → [ADR-0414](../adr/0414-sink-family-crds.md) |
+
 ## Backlog without RFCs yet
 
 Items tracked on [Planned features](../roadmap/planned-features.md) until a draft opens here or in
