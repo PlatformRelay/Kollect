@@ -85,7 +85,6 @@ func validateGitSpec(spec *kollectdevv1alpha1.KollectSinkSpec) field.ErrorList {
 		}
 	}
 
-
 	if engine := strings.TrimSpace(spec.Git.Engine); engine != "" {
 		switch engine {
 		case kollectdevv1alpha1.GitEngineGoGit, kollectdevv1alpha1.GitEngineCLI:

@@ -17,20 +17,20 @@ type CommitAuthor struct {
 }
 
 type Config struct {
-	Endpoint      string
-	TLS           TLSConfig
-	SSH           SSHConfig
-	CABundle      []byte
-	Cluster       string
-	Branch        string
-	PushPolicy    PushPolicy
-	CommitMessage string
-	Author        CommitAuthor
-	CloneDepth    int
-	Prune           bool
-	AuthType        AuthType
-	Engine          GitEngine
-	ForceBasicAuth  bool
+	Endpoint       string
+	TLS            TLSConfig
+	SSH            SSHConfig
+	CABundle       []byte
+	Cluster        string
+	Branch         string
+	PushPolicy     PushPolicy
+	CommitMessage  string
+	Author         CommitAuthor
+	CloneDepth     int
+	Prune          bool
+	AuthType       AuthType
+	Engine         GitEngine
+	ForceBasicAuth bool
 }
 
 func ConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec, caPEM []byte) (Config, error) {

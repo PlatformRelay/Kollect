@@ -5,8 +5,8 @@ package git
 
 import (
 	"crypto/sha256"
-	"strings"
 	"encoding/hex"
+	"strings"
 	"sync"
 	"time"
 )

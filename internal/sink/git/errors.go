@@ -97,4 +97,3 @@ func isNonFastForwardError(err error) bool {
 		strings.Contains(msg, "non fast forward") ||
 		strings.Contains(msg, "failed to push some refs") && strings.Contains(msg, "updates were rejected")
 }
-
