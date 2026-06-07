@@ -26,11 +26,13 @@ flowchart TD
   CInv[KollectClusterInventory]
   Snap[KollectSnapshotSink]
   Db[KollectDatabaseSink]
+  Ev[KollectEventSink]
 
   CProf -.->|optional profileRef| CInv
   CTarget -->|rollup| CInv
   CInv --> Snap
   CInv --> Db
+  CInv --> Ev
 ```
 
 | Relationship | Rule |

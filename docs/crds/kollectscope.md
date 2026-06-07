@@ -45,7 +45,7 @@ Enforcement diagram: [DATA-FLOWS.md §4](../DATA-FLOWS.md#4-kollectscope-enforce
 | `spec.allowedGVKs[]` | list | No | Permitted target resource kinds (`group`, `version`, `kind`) |
 | `spec.allowedNamespaces[]` | list | No | Permitted workload namespaces (empty = any allowed by targets) |
 | `spec.deniedNamespaces[]` | list | No | Platform namespace blacklist — not overridable by Targets |
-| `spec.sinkRefs[]` | list | No | Permitted `KollectSink` names for export |
+| `spec.sinkRefs[]` | list | No | Permitted family sink names for export (snapshot, database, event) |
 | `spec.minExportInterval` | duration | No | Tenancy floor — inventory/sink intervals below this are rejected |
 
 ## Example

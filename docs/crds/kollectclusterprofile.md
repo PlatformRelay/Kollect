@@ -25,11 +25,15 @@ flowchart TD
   CProf[KollectClusterProfile]
   CTarget[KollectClusterTarget]
   CInv[KollectClusterInventory]
-  Sink[KollectSink in sinkNamespace]
+  Snap[KollectSnapshotSink]
+  Db[KollectDatabaseSink]
+  Ev[KollectEventSink]
 
   CProf -->|"profileRef"| CTarget
   CTarget -->|future| CInv
-  CInv -.->|future| Sink
+  CInv -.->|future| Snap
+  CInv -.->|future| Db
+  CInv -.->|future| Ev
 ```
 
 | Relationship | Rule |

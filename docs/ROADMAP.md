@@ -2,9 +2,9 @@
 
 Phased delivery plan for [Kollect](https://github.com/konih/kollect) — a Kubernetes inventory
 operator that watches arbitrary GVKs, aggregates extracted attributes, and exports to **role-based
-pluggable sinks** — state stores (Git / object store, Postgres) and event emitters (NATS default,
-Kafka opt-in) — with optional HTTP for debug. The in-memory snapshot is canonical; every sink is a
-projection ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
+pluggable sinks** — **`KollectSnapshotSink`** (Git, GitLab, S3, GCS), **`KollectDatabaseSink`**
+(Postgres, MongoDB), and **`KollectEventSink`** (Kafka) — with optional HTTP for debug. The
+in-memory snapshot is canonical; every sink is a projection ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 
 **Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), ADR-0703 (archived).
 

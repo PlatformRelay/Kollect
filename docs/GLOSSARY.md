@@ -11,13 +11,13 @@ architecture context see [Understand the basics](UNDERSTAND-THE-BASICS.md) and
 | **Profile** | A `KollectProfile` — static schema defining **what** to extract: target GVK plus JSONPath/CEL attribute rules. Not reconciled; admission-validated. See [ADR-0204](adr/0204-namespaced-profiles.md). |
 | **Target** | A `KollectTarget` — **what to watch**: namespace selectors, label selectors, `profileRef`, and informer registration. The target controller reconciles collection state. |
 | **Inventory** | A `KollectInventory` — **aggregate + export**: binds targets, holds the in-memory snapshot, debounces export, and writes to `sinkRefs`. |
-| **Sink** | A `KollectSink` — **where to send** inventory: Git, GitLab, S3, GCS, Postgres, Kafka, or NATS endpoint configuration in the tenant namespace. |
+| **Sink** | A family sink CR — **`KollectSnapshotSink`** (Git, GitLab, S3, GCS), **`KollectDatabaseSink`** (Postgres, MongoDB), or **`KollectEventSink`** (Kafka) — **where to send** inventory in the tenant namespace. |
 | **Scope** | A `KollectScope` — optional **policy gate** limiting allowed GVKs, namespaces, and sinks for multitenant installs. Enforced at admission, not reconciled. |
-| **Connection test** | A `KollectConnectionTest` or `spec.connectionTest` on `KollectSink` — probes sink reachability and sets `ConnectionVerified` ([ADR-0403](adr/0403-connection-test.md)). |
+| **Connection test** | A `KollectConnectionTest` — probes family sink reachability and sets `ConnectionVerified` ([ADR-0403](adr/0403-connection-test.md)). |
 | **GVK** | Group, Version, Kind — identifies the Kubernetes API type a profile collects (for example `apps/v1` `Deployment`). |
 | **Attribute** | Named extraction rule on a profile: maps a logical key (for example `image`) to a JSONPath or `cel:` expression. |
 | **Snapshot** | The canonical in-memory inventory artifact per `KollectInventory` before any sink write. All exports are projections of this snapshot ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)). |
-| **Projection** | A sink-specific rendering of the snapshot — Parquet on S3, JSON in Git, upsert rows in Postgres, or events on NATS/Kafka. |
+| **Projection** | A sink-specific rendering of the snapshot — JSON in Git, objects on S3/GCS, upsert rows in Postgres/MongoDB, or events on Kafka. |
 | **Export debounce** | Minimum interval between identical exports **per sink ref** (`exportMinInterval` precedence); reduces write amplification ([ADR-0413](adr/0413-export-interval-scheduling.md), [ADR-0603](adr/0603-performance-scalability.md)). |
 
 ## Sink roles

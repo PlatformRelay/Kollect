@@ -24,17 +24,20 @@ flowchart LR
   Profile[KollectProfile<br/>Deployment schema]
   Target[KollectTarget<br/>select Deployments]
   Inv[KollectInventory<br/>aggregate + export]
-  Db[KollectDatabaseSink<br/>Postgres]
-  Snap[KollectSnapshotSink<br/>Git]
+  Snap[KollectSnapshotSink]
+  Db[KollectDatabaseSink]
+  Ev[KollectEventSink]
   K8s[(Kubernetes API)]
 
   Profile --> Target
   Target --> K8s
   Target --> Inv
-  Inv --> Db
   Inv --> Snap
-  Db --> PG[(Postgres)]
-  Snap --> Git[(Git repo)]
+  Inv --> Db
+  Inv --> Ev
+  Snap --> SnapOut[Git · GitLab · S3 · GCS]
+  Db --> DbOut[Postgres · MongoDB]
+  Ev --> EvOut[Kafka]
 ```
 
 ## Scale

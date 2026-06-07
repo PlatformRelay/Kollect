@@ -108,7 +108,7 @@ When some sinks export and others are debounced, aggregate `Synced=False` with r
 
 How a watched object becomes an inventory row.
 
-![Left-to-right operator pipeline from Kubernetes API through shared per-GVK informers and an in-memory collect store, KollectInventory debounce, to fan-out sink projections for Git, object store, and Postgres.](assets/illustrations/how-it-works-informer-sink-dark.webp){ .kollect-illus .kollect-illus--wide width="800" }
+![Left-to-right operator pipeline from Kubernetes API through shared per-GVK informers and an in-memory collect store, KollectInventory debounce, to fan-out sink projections for Git, GitLab, S3, GCS, Postgres, MongoDB, and Kafka.](assets/illustrations/how-it-works-informer-sink-dark.webp){ .kollect-illus .kollect-illus--wide }
 
 ```mermaid
 flowchart LR

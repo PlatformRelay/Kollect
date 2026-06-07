@@ -62,9 +62,9 @@ flowchart TD
   ConnTest -.-> Snap
   ConnTest -.-> Db
   ConnTest -.-> Ev
-  Db --> DB["Postgres / BigQuery (relational SoR)"]
-  Ev --> Stream["NATS / Kafka (event stream)"]
-  Snap --> Git["Git / object store (snapshot + audit)"]
+  Db --> DB["Postgres · MongoDB (relational SoR)"]
+  Ev --> Stream["Kafka (event emitter)"]
+  Snap --> Git["Git · GitLab · S3 · GCS (snapshot store)"]
   Inv -.->|"optional, gated"| HTTP["HTTP debug API"]
 ```
 
@@ -111,7 +111,7 @@ sequenceDiagram
   participant Tgt as KollectTarget
   participant Store as In-memory collect store
   participant Inv as KollectInventory
-  participant Sink as Sink (Postgres/Kafka/Git)
+  participant Sink as Sink families (snapshot · database · event)
 
   API-->>Inf: watch events
   Inf->>Tgt: enqueue
