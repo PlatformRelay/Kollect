@@ -60,6 +60,43 @@ Full flow: [DATA-FLOWS.md](../DATA-FLOWS.md#2-collection-pipeline) ·
 | `spec.metrics[].path` | string | Yes | Attribute name from `spec.attributes` to aggregate |
 | `spec.metrics[].labels[]` | list | No | Optional label keys from attributes (max 5); emits `kollect_custom_resource_labeled_series` |
 
+## Example
+
+A profile that extracts container images and a CEL-derived container count from `Deployment`
+objects ([`config/samples/kollect_v1alpha1_kollectprofile.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectprofile.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: deployment-images
+  namespace: default
+spec:
+  targetGVK:
+    group: apps
+    version: v1
+    kind: Deployment
+  attributes:
+    - name: image
+      path: '$.spec.template.spec.containers[0].image'
+      type: string
+    - name: images
+      path: '$.spec.template.spec.containers[*].image'
+      type: list
+    - name: containerCount
+      path: "cel:size(object.spec.template.spec.containers)"
+      type: int
+    - name: labels
+      path: '$.metadata.labels'
+      type: map
+      optional: true
+```
+
+More schemas live in [`config/samples/`](https://github.com/konih/kollect/tree/main/config/samples):
+`*_kollectprofile_helm-release-summary.yaml`, `*_certificate-summary.yaml`,
+`*_ingress-hosts.yaml`, `*_service-endpoints.yaml`, and the redaction-aware
+`*_helm-release-values-redacted.yaml`.
+
 ## Sample usage
 
 Apply the Deployment profile sample:

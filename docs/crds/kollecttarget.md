@@ -58,6 +58,30 @@ Collection diagram: [DATA-FLOWS.md §2](../DATA-FLOWS.md#2-collection-pipeline).
 | `spec.suspend` | bool | No | Pause reconciliation |
 | `spec.watchMode` | enum | No | `All` (default) or `OptIn` — see watch labels |
 
+## Example
+
+A target that binds the `deployment-images` profile to workloads labelled
+`app.kubernetes.io/name=nginx`
+([`config/samples/kollect_v1alpha1_kollecttarget.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollecttarget.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: nginx-deployments
+  namespace: default
+spec:
+  profileRef: deployment-images
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/name: nginx
+  suspend: false
+```
+
+Opt-in watch and Argo/Helm targets live alongside it in
+[`config/samples/`](https://github.com/konih/kollect/tree/main/config/samples)
+(`*_kollecttarget_opt-in.yaml`, `*_argo-applications.yaml`, `*_helm-releases.yaml`).
+
 ## Sample usage
 
 Basic Deployment collection:

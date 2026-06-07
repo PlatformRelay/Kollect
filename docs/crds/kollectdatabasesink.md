@@ -6,10 +6,10 @@ Cluster-scoped variant: **`KollectClusterDatabaseSink`** (`kcdb`).
 
 ## What it is for
 
-A `KollectDatabaseSink` configures **database** export backends — PostgreSQL, MongoDB
+A `KollectDatabaseSink` configures **relational / document** export backends — PostgreSQL, MongoDB
 ([ADR-0417](../adr/0417-mongodb-database-sink.md)), and BigQuery (stub)
 ([ADR-0402](../adr/0402-sink-backends-database-kafka.md)). Inventories reference database sinks via
-`KollectInventory.spec.databaseSinkRefs`.
+`KollectInventory.spec.databaseSinkRefs`. Postgres uses a bulk upsert path for high-row exports.
 
 ## Spec highlights
 
@@ -17,12 +17,44 @@ A `KollectDatabaseSink` configures **database** export backends — PostgreSQL, 
 | --- | --- |
 | `spec.type` | Backend: `postgres`, `mongodb`, `bigquery` |
 | `spec.postgres` / `spec.mongodb` / `spec.bigquery` | Type-specific connection and table/collection settings |
+| `spec.provisioning.mode` | `ensure` (create table, default) or `existing` (never issue DDL) ([ADR-0416](../adr/0416-sink-config-layering.md)) |
+| `spec.options` | Non-secret pass-through tuning (secret-like keys rejected by the webhook) |
 | `spec.exportMinInterval` | Default per-ref debounce when inventory ref omits override |
 | `spec.connectionTest` | Automatic probe on create/update (default `true`) |
 
 MongoDB upserts one document per inventory item into `spec.mongodb.database`/`spec.mongodb.collection`,
 keyed on `(inventory_namespace, inventory_name, target_name, source_uid)`
 ([ADR-0417](../adr/0417-mongodb-database-sink.md)).
+
+## Example
+
+A Postgres sink that upserts into an existing table and never issues DDL
+([`config/samples/kollect_v1alpha1_kollectdatabasesink.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectdatabasesink.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectDatabaseSink
+metadata:
+  name: postgres-inventory-demo
+  namespace: default
+spec:
+  type: postgres
+  cluster: kind-kollect-dev
+  connectionTest: true
+  provisioning:
+    mode: existing          # 'ensure' (default) creates the table; 'existing' never touches DDL
+  options:
+    statement_timeout: "30000"
+  postgres:
+    databaseRef:            # DSN lives in a Secret — never inline credentials
+      name: inventory-postgres-dsn
+      namespace: kollect-system
+    schema: public
+    table: inventory_items
+```
+
+MongoDB variant:
+[`config/samples/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml).
 
 ## Status
 
@@ -37,4 +69,5 @@ preview of its export implications under `status.preview`
 serialization format, plus the expected Postgres DDL or MongoDB index keys for the configured
 backend, and any warnings. Removing the annotation clears `status.preview`.
 
-See [ADR-0414](../adr/0414-sink-family-crds.md) for the family CRD model.
+See [ADR-0414](../adr/0414-sink-family-crds.md) for the family CRD model and
+[ADR-0416](../adr/0416-sink-config-layering.md) for provisioning and option layering.

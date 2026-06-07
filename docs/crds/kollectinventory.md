@@ -66,6 +66,30 @@ Debouncing state machine: [DATA-FLOWS.md §1](../DATA-FLOWS.md#1-export-debounci
 | `spec.httpEndpoint.enabled` | bool | No | false | Per-CR HTTP debug (operator gate also required) |
 | `spec.httpEndpoint.port` | int32 | No | 8082 | Listen port when HTTP enabled |
 
+## Example
+
+A dual-cadence inventory: export to Postgres every 30s for portals, and to a Git audit repo
+hourly ([`config/samples/kollect_v1alpha1_kollectinventory.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectinventory.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectInventory
+metadata:
+  name: team-inventory
+  namespace: default
+spec:
+  exportMinInterval: 30s          # default cadence for refs without an override
+  databaseSinkRefs:
+    - postgres-inventory-demo
+  snapshotSinkRefs:
+    - name: git-inventory-demo     # per-ref override: audit trail at a slower cadence
+      exportMinInterval: 1h
+  suspend: false
+```
+
+See [`config/samples/kollect_v1alpha1_kollectinventory_sharded.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectinventory_sharded.yaml)
+for a large-profile sharded variant.
+
 ## Sample usage
 
 ```sh

@@ -48,6 +48,31 @@ Enforcement diagram: [DATA-FLOWS.md §4](../DATA-FLOWS.md#4-kollectscope-enforce
 | `spec.sinkRefs[]` | list | No | Permitted `KollectSink` names for export |
 | `spec.minExportInterval` | duration | No | Tenancy floor — inventory/sink intervals below this are rejected |
 
+## Example
+
+A scope that limits the `team-a` namespace to `Deployment`/`Service` collection, confines workload
+collection to its own namespace, and sets a 1-minute export floor
+([`config/samples/kollect_v1alpha1_kollectscope_team-a.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectscope_team-a.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectScope
+metadata:
+  name: team-a-scope
+  namespace: team-a
+spec:
+  allowedGVKs:
+    - group: apps
+      version: v1
+      kind: Deployment
+    - group: ""
+      version: v1
+      kind: Service
+  allowedNamespaces:
+    - team-a
+  minExportInterval: 1m
+```
+
 ## Sample usage
 
 Create a team namespace and scope:

@@ -48,6 +48,23 @@ Walkthrough: [examples/cluster-rollup.md](../examples/cluster-rollup.md).
 | `spec.namespaceSelector` | labelSelector | **Yes** | Required — webhook rejects empty selector (no cluster-wide implicit scrape) |
 | `spec.suspend` | bool | No | Pause reconciliation (reserved) |
 
+## Example
+
+A cluster target that collects Argo `Application`s across namespaces labelled
+`kollect.dev/tenant=platform` ([`config/samples/kollect_v1alpha1_kollectclustertarget.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectclustertarget.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectClusterTarget
+metadata:
+  name: platform-argo-applications   # cluster-scoped — no namespace
+spec:
+  profileRef: argo-application-summary
+  namespaceSelector:                  # required — empty selector is rejected at admission
+    matchLabels:
+      kollect.dev/tenant: platform
+```
+
 ## Sample usage
 
 ```sh

@@ -58,6 +58,27 @@ flowchart TD
 | `spec.exportMinInterval` | duration | No | **30s** | Default min gap for refs without override; bypass on checksum or generation change |
 | `spec.suspend` | bool | No | false | Pause reconciliation (reserved) |
 
+## Example
+
+A platform rollup that aggregates one cluster target and exports to a Postgres sink in
+`kollect-system` ([`config/samples/kollect_v1alpha1_kollectclusterinventory.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectclusterinventory.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectClusterInventory
+metadata:
+  name: platform-rollup            # cluster-scoped — no namespace
+spec:
+  targetRefs:
+    - platform-argo-applications
+  namespaceSelector:               # required — explicit scope, no cluster-wide wildcard
+    matchLabels:
+      kollect.dev/tenant: platform
+  databaseSinkRefs:
+    - postgres
+  sinkNamespace: kollect-system    # where namespaced family sinks are resolved
+```
+
 ## Sample usage
 
 ```sh

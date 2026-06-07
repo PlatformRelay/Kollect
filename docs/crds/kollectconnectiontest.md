@@ -48,6 +48,24 @@ Lifecycle: [DATA-FLOWS.md §5](../DATA-FLOWS.md#5-kollectconnectiontest-lifecycl
 | `spec.ownerSink` | bool | No | true | Set ownerReference to sink |
 | `spec.ttlSecondsAfterFinished` | int32 | No | **300** | Delete CR after completion + TTL |
 
+## Example
+
+A one-shot probe against a `KollectDatabaseSink`
+([`config/samples/kollect_v1alpha1_kollectconnectiontest.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectconnectiontest.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectConnectionTest
+metadata:
+  name: postgres-sink-probe
+  namespace: default
+spec:
+  sinkRef:
+    databaseSinkRef: postgres-inventory-demo   # exactly one of snapshot/database/eventSinkRef
+  ownerSink: true                               # set ownerReference on the sink (default)
+  # ttlSecondsAfterFinished: 300                # auto-delete after completion (default 300s)
+```
+
 ## Sample usage
 
 ```sh

@@ -56,6 +56,36 @@ Validation reuses the `KollectProfile` admission rules: CEL compile, JSONPath sh
 attribute names, and forbidden `Secret.data` paths (unless
 `kollect.dev/allow-secret-extraction: "true"`).
 
+## Example
+
+A cluster-scoped Argo CD `Application` summary schema shared across namespaces
+([`config/samples/kollect_v1alpha1_kollectclusterprofile.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectclusterprofile.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectClusterProfile
+metadata:
+  name: argo-application-summary    # cluster-scoped — no namespace
+spec:
+  targetGVK:
+    group: argoproj.io
+    version: v1alpha1
+    kind: Application
+  attributes:
+    - name: chart
+      path: '$.spec.source.chart'
+      type: string
+      optional: true
+    - name: targetRevision
+      path: '$.spec.source.targetRevision'
+      type: string
+      optional: true
+    - name: syncStatus
+      path: '$.status.sync.status'
+      type: string
+      optional: true
+```
+
 ## Sample usage
 
 ```sh

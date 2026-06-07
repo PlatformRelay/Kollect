@@ -19,6 +19,29 @@ A `KollectEventSink` configures **stream/event** export backends — Kafka and N
 | `spec.exportMinInterval` | Default per-ref debounce when inventory ref omits override |
 | `spec.connectionTest` | Automatic probe on create/update (default `true`) |
 
+## Example
+
+A Kafka event sink that emits one message per aggregated export
+([`config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml)):
+
+```yaml
+apiVersion: kollect.dev/v1alpha1
+kind: KollectEventSink
+metadata:
+  name: kafka-inventory-demo
+  namespace: default
+spec:
+  type: kafka
+  connectionTest: false
+  kafka:
+    brokers:
+      - kafka.kollect-system.svc:9092
+    topic: inventory.changes
+```
+
+A NATS JetStream variant is shown in the
+[NATS event sink example](../examples/nats-event-sink.md).
+
 ## Status
 
 `status.conditions` includes `ConnectionVerified` after the family sink reconciler runs an optional
