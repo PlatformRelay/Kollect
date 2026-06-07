@@ -1,6 +1,6 @@
 # Tier 0 — mandatory Kind smoke on every non-docs PR and push to main.
 # Required check name for branch protection: kind-smoke
-# See docs/development/coding-standards.md and agent-context/E2E-TEST-STRATEGY.md (local).
+# See docs/development/coding-standards.md and docs/development/testing.md.
 name: E2E smoke
 
 on:

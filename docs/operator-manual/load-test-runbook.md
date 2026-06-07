@@ -116,7 +116,7 @@ go tool pprof http://localhost:6060/debug/pprof/heap
 ### Local perf snapshot
 
 ```bash
-task perf-report   # → agent-context/PERF-SNAPSHOT.md (maintainer local)
+task perf-report   # local → agent-context/PERF-SNAPSHOT.md; CI → artifacts/perf-snapshot.md (artifact)
 ```
 
 ### Log keys

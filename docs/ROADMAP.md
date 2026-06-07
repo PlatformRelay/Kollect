@@ -269,8 +269,8 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 | Metrics catalog + PromQL hints in PERFORMANCE.md | ✅ |
 | `task perf-report` + `hack/perf-report.sh` | ✅ |
 | `artifacts/bench/` from `task bench` | ✅ |
-| CI upload of bench artifacts (nightly) | ✅ nightly bench + **blocking** perf-report |
-| `task perf-report` PR CI job | ✅ non-blocking `ci.yaml` job |
+| CI upload of bench artifacts (nightly) | ✅ nightly `e2e-bench` job |
+| `task perf-report` PR CI job | ✅ non-blocking `ci.yaml` job (artifact upload) |
 | `--collect-dispatch-workers` / queue size (PERF-03) | ✅ v0.4 |
 
 **Counts:** ✅ 3 · 🚧 1

@@ -202,7 +202,7 @@ tasks:
       - task: test:load-test:10k
 
   perf-report:
-    desc: Local perf snapshot via hack/perf-report.sh (see DEVELOPMENT.md)
+    desc: Local perf snapshot via hack/perf-report.sh (CI writes artifacts/perf-snapshot.md)
     env:
       CGO_ENABLED: "1"
     cmds:

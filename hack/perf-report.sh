@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Konrad Heimel
 #
-# Local dev performance snapshot. Writes agent-context/PERF-SNAPSHOT.md (gitignored).
-# (local-only, gitignored). Exit 0 on success; exit 1 when unit tests fail.
+# Performance snapshot for local dev or CI.
+# Local: agent-context/PERF-SNAPSHOT.md (gitignored maintainer path).
+# CI:    artifacts/perf-snapshot.md (uploaded as a workflow artifact; never agent-context/).
+# Exit 0 on success; exit 1 when unit tests fail.
 
 set -euo pipefail
 
@@ -11,7 +13,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 BENCH_DIR="${ROOT}/artifacts/bench"
-SNAPSHOT="${ROOT}/agent-context/PERF-SNAPSHOT.md"
+if [[ "${CI:-}" == "true" ]]; then
+  SNAPSHOT="${ROOT}/artifacts/perf-snapshot.md"
+  SNAPSHOT_LABEL="CI artifact"
+else
+  SNAPSHOT="${ROOT}/agent-context/PERF-SNAPSHOT.md"
+  SNAPSHOT_LABEL="local only — do not commit"
+fi
 
 mkdir -p "$BENCH_DIR" "$(dirname "$SNAPSHOT")"
 
@@ -103,7 +111,7 @@ if [[ "$UNIT_RC" -ne 0 ]]; then
 fi
 
 cat >"$SNAPSHOT" <<EOF
-# kollect performance snapshot (local only — do not commit)
+# kollect performance snapshot (${SNAPSHOT_LABEL})
 
 Generated: ${TIMESTAMP}
 Git SHA: ${GIT_SHA}

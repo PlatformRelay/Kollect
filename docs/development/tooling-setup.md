@@ -130,5 +130,3 @@ Properties file: [`sonar-project.properties`](../../sonar-project.properties).
 - [Testing strategy](testing.md) — coverage floors, CI matrix, Sonar as trend dashboard
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) — PR lint checklist
 - [DEVELOPMENT.md](../DEVELOPMENT.md) — local dev commands
-- Local maintainer checklist (secrets, no tokens in repo): `agent-context/TOOLING-SETUP-MAINTAINER.md`
-  (not committed — maintainer copy)

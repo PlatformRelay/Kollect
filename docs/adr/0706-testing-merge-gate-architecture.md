@@ -124,7 +124,7 @@ From [engineering guidelines](https://github.com/konih/kollect/blob/main/docs/de
 ## Open questions
 
 - **OPEN:** Promote **`task perf-report`** from optional to blocking at **v0.4** once baseline is stable in
-  `PERF-SNAPSHOT`?
+  CI perf-snapshot artifacts?
 - **RESOLVED :** Mandatory **Tier 0 `kind-smoke`** on all non-docs PRs via
   `.github/workflows/e2e-smoke.yaml`; webhook profile moved to optional **`e2e-extended.yaml`**
   ([ADR-0105](0105-webhook-serving-cert-management.md)).
