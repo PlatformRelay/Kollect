@@ -23,22 +23,84 @@
 
 # Kollect
 
-**Kollect** is a Kubernetes operator that turns selected, live cluster state into a **durable,
-queryable, diffable inventory** — decoupled from the apiserver's availability, RBAC, and scale
-limits. Portals, automation, and auditors read **export data**, not unbounded list/watch against the
-live API.
+> **Turn live Kubernetes state into a durable, queryable, diffable inventory — without hammering the
+> API server.** Declare *what* to collect; Kollect watches it, extracts the fields that matter, and
+> exports a clean read model to Git, Postgres, S3, or Kafka. Portals, dashboards, automation, and
+> auditors read **export data**, never unbounded list/watch against the live cluster.
 
 Kubernetes is the source of truth for *what is running*; it is a poor *system of record* for
-stakeholder inventory. Kollect maintains a **read model**: **select** resources by GVK → **extract**
-the attributes that matter (CEL or JSONPath) → **aggregate** across targets → **debounce** →
-**export** to pluggable sinks. Inventory is **configuration, not code** — owned per team in its own
-namespace.
+stakeholder inventory. Kollect closes that gap: **select** resources by GVK → **extract** attributes
+(CEL or JSONPath) → **aggregate** across targets → **debounce** → **export** to pluggable sinks.
+Inventory is **configuration, not code** — owned per team in its own namespace, GitOps-friendly from
+day one.
 
 **Read the docs:** **[konih.github.io/kollect](https://konih.github.io/kollect/)** — architecture,
 quick start, CR reference, ADRs, and examples. This README is the front door; the site is the map.
 
 > **Pre-beta.** APIs and defaults may change until the first release candidate. See the
 > [roadmap](https://konih.github.io/kollect/ROADMAP/) for current status.
+
+## Why Kollect?
+
+- **Decoupled read model** — consumers query a sink, not the apiserver. No RBAC blast radius, no
+  watch-storm risk, no etcd size limits ([why](https://konih.github.io/kollect/adr/0103-etcd-limit/)).
+- **Event-driven, no polling** — one shared informer per GVK keeps inventory current as the cluster
+  changes ([ADR-0301](https://konih.github.io/kollect/adr/0301-event-driven-informers/)).
+- **Schema-flexible** — declare the attributes you want in a `KollectProfile`; no bespoke collector
+  per resource kind.
+- **Pluggable sinks, no privileged backend** — the same snapshot fans out to Git, Postgres, object
+  store, or an event stream ([sink taxonomy](https://konih.github.io/kollect/adr/0401-sink-taxonomy-state-vs-stream/)).
+- **Multi-tenant by design** — `KollectScope` gates which teams, namespaces, and sinks each tenant
+  may use.
+- **Fleet-ready** — **N single-mode operators → one shared sink**, partitioned by `spec.cluster`; no
+  central hub tier to operate ([ADR-0501](https://konih.github.io/kollect/adr/0501-multi-cluster-fleet/)).
+- **Built for scale** — a **10,000-row baseline validated in CI**, a **100,000-row design target**
+  per cluster with export sharding, plus tunable reconcile/dispatch concurrency
+  ([performance](https://konih.github.io/kollect/PERFORMANCE/)).
+
+## See it end-to-end
+
+A real pipeline is a handful of Kubernetes resources. This is the
+[Deployment-inventory walkthrough](https://konih.github.io/kollect/examples/deployment-inventory/) —
+collect container images from Deployments and export them to Postgres (for portals) and Git (for
+audit) at the same time:
+
+```mermaid
+flowchart LR
+  Profile["<b>KollectProfile</b><br/>Deployment schema"]
+  Target["<b>KollectTarget</b><br/>select Deployments"]
+  Inv["<b>KollectInventory</b><br/>aggregate · debounce · export"]
+  Db["<b>KollectDatabaseSink</b><br/>Postgres"]
+  Snap["<b>KollectSnapshotSink</b><br/>Git"]
+  K8s[("Kubernetes API")]
+
+  Profile --> Target
+  K8s -- "informer per GVK" --> Target
+  Target --> Inv
+  Inv --> Db
+  Inv --> Snap
+  Db --> PG[("Postgres")]
+  Snap --> Git[("Git repo")]
+```
+
+## Quick start (MVP)
+
+Spin up the full pipeline on a local kind cluster in one command (needs Docker, kind, kubectl, and
+[Task](https://taskfile.dev/)):
+
+```sh
+git clone https://github.com/konih/kollect.git && cd kollect
+task dev-up                       # build, create kind cluster, install operator + sample CRs
+kubectl get kinv,ktgt,ksnap,kdb -A    # watch the pipeline come up
+```
+
+`task dev-up` builds the manager, boots a `kollect-dev` kind cluster, installs the operator, and
+applies the sample `Profile → Sink → Target → Inventory` pipeline. Watch the `KollectInventory`
+`Ready` condition, then read your sink — the [live demo repo](https://github.com/konih/kollect-inventory-demo)
+shows what the Git export looks like.
+
+**Full walkthrough** — prerequisites, Helm install, maturity notes:
+**[Quick start →](https://konih.github.io/kollect/QUICKSTART/)**
 
 ## How it works
 
@@ -51,45 +113,30 @@ Kubernetes API  →  shared informer (per GVK)  →  in-memory collect store
 
 The in-memory snapshot per inventory is **canonical**; every sink is a **projection** of it — no
 single backend is privileged ([sink roles](https://konih.github.io/kollect/adr/0401-sink-taxonomy-state-vs-stream/)).
+Sinks are split into three CRD families ([ADR-0414](https://konih.github.io/kollect/adr/0414-sink-family-crds/)):
 
-| Sink role | Examples | Good for |
+| Sink family | Examples | Good for |
 | --- | --- | --- |
-| **Snapshot store** | Git, GitLab, S3/GCS (JSON today) | Audit, diff, GitOps-friendly history |
-| **Relational store** | Postgres | Rich SQL for portals and dashboards |
-| **Event emitter** | Kafka / Redpanda / NATS | Change streams, downstream consumers |
+| **`KollectSnapshotSink`** | Git, GitLab, S3/GCS (JSON today) | Audit, diff, GitOps-friendly history |
+| **`KollectDatabaseSink`** | Postgres, MongoDB | Rich queries for portals and dashboards |
+| **`KollectEventSink`** | Kafka / Redpanda / NATS | Change streams, downstream consumers |
 
 Full payload lives in sinks; CR `.status` holds summaries only ([etcd limits](https://konih.github.io/kollect/adr/0103-etcd-limit/)).
 
-## Quick start
+## Performance
 
-Spin up Kollect on a local kind cluster in one command (needs Docker, kind, kubectl, and
-[Task](https://taskfile.dev/)):
+Kollect is built for **large single clusters** and **multi-cluster fleets**, with honest, tested
+targets ([ADR-0603](https://konih.github.io/kollect/adr/0603-performance-scalability/)):
 
-```sh
-git clone https://github.com/konih/kollect.git && cd kollect
-task dev-up                       # build, create kind cluster, install operator + sample CRs
-kubectl get kinv,ktgt,ksink -A    # watch the pipeline come up
-```
+| Tier | Scope | Collected rows | Status |
+| --- | --- | --- | --- |
+| **Baseline** | 1 cluster | **10,000+** | Validated in nightly load tests |
+| **Design target** | 1 cluster | **100,000** | Requires export sharding + Postgres bulk upsert + `resourcesProfile: large` |
+| **Fleet** | Shared sink | 10k–100k × **N** operators | Partitioned by `spec.cluster`; no hub merge tier |
 
-`task dev-up` builds the manager, boots a `kollect-dev` kind cluster, installs the operator, and
-applies the sample `Profile → Sink → Target → Inventory` pipeline. Then watch `KollectInventory`
-status and check your sink (Git demo repo, Postgres, Kafka, …).
-
-**Full walkthrough** — prerequisites, Helm install, maturity notes:
-**[Quick start →](https://konih.github.io/kollect/QUICKSTART/)**
-
-## Why Kollect?
-
-| | |
-| --- | --- |
-| **Event-driven** | Shared informers per GVK — inventory stays current without polling loops ([ADR-0301](https://konih.github.io/kollect/adr/0301-event-driven-informers/)). |
-| **Schema-flexible** | Declare attributes in `KollectProfile`; no bespoke collector per CRD. |
-| **CRD-native & GitOps-friendly** | Profiles, sinks, targets, and inventory are Kubernetes resources in team namespaces. |
-| **Multi-tenant** | `KollectScope` gates which teams and namespaces may export to which sinks. |
-| **Fleet-ready** | **N operators → shared sink** — one single-mode install per cluster, `spec.cluster` labels exports for merge ([ADR-0501](https://konih.github.io/kollect/adr/0501-multi-cluster-fleet/)). |
-
-Default install for new teams: **namespaced Helm** with `tenantMode: true` and scoped
-`watchNamespaces`. Platform-wide cluster operators remain supported.
+Tuning knobs — reconcile/dispatch concurrency, export debounce (`exportMinInterval`, default `30s`),
+namespace-scoped informers, Git commit fingerprinting, and `maxExportBytes` caps — are catalogued in
+the **[performance guide](https://konih.github.io/kollect/PERFORMANCE/)**.
 
 ## Learn more
 
