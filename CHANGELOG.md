@@ -25,18 +25,31 @@ anchor on an older commit.
 
 ## [Unreleased]
 
-## [0.4.1](https://github.com/konih/kollect/compare/v0.4.0..v0.4.1) - 2026-06-08
+### Bug Fixes
+
+- **ui:** Disambiguate Playwright inventory row locator [f422a78](https://github.com/konih/kollect/commit/f422a78335266a150280d79d0b9c86b0c10b170d)
+
+- **ci:** Stabilize nightly Playwright and perf-report [b6ea35f](https://github.com/konih/kollect/commit/b6ea35f25b6503bb90281277db54cd347664dea6)
+
+
+### Features
+
+- **api:** ADR-0416 sink config layering [dcc5fa9](https://github.com/konih/kollect/commit/dcc5fa9b1564af39a28c5ebe30534c26f1683a4e)
+
+## [0.4.1](https://github.com/konih/kollect/compare/v0.4.0..v0.4.1) - 2026-06-07
 
 ### Bug Fixes
 
 - **build:** Upgrade debian packages for Trivy gate [b6515c0](https://github.com/konih/kollect/commit/b6515c04e05107e5ec97c9020435f76943f5a68f)
 
+
 ### Features
 
-- **perf:** Scale lane PERF-08/09/15 and 10k load tier [dbda1c2](https://github.com/konih/kollect/commit/dbda1c2ab89ea1f5041638932124d7f34748fb88)
 - **sink/git:** PERF-10 mirror and fingerprint skip [e6288c1](https://github.com/konih/kollect/commit/e6288c174c32b69c38d0caec5676338ae6217fd0)
 
-## [0.4.0](https://github.com/konih/kollect/compare/v0.3.0..v0.4.0) - 2026-06-07
+- **perf:** Scale lane PERF-08/09/15 and 10k load tier [dbda1c2](https://github.com/konih/kollect/commit/dbda1c2ab89ea1f5041638932124d7f34748fb88)
+
+## [0.4.0](https://github.com/konih/kollect/compare/v0.3.0-rc.1..v0.4.0) - 2026-06-07
 
 ### Features
 
