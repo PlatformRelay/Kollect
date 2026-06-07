@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "0 3 * * *"
   workflow_dispatch:
+    inputs:
+      run_scale_jobs:
+        description: Run 8-core scale jobs (requires ubuntu-latest-8-cores — currently unavailable)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -90,6 +95,9 @@ jobs:
 
   load-test-10k:
     name: load-test-10k
+    # Skipped by default: ubuntu-latest-8-cores runners unavailable (jobs never leave queue).
+    # Re-enable via workflow_dispatch with run_scale_jobs=true once org runners are provisioned.
+    if: github.event_name == 'workflow_dispatch' && inputs.run_scale_jobs == true
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 45
     steps:
@@ -112,6 +120,9 @@ jobs:
 
   scale-envtest-10k:
     name: scale-envtest-10k
+    # Skipped by default: ubuntu-latest-8-cores runners unavailable (jobs never leave queue).
+    # Re-enable via workflow_dispatch with run_scale_jobs=true once org runners are provisioned.
+    if: github.event_name == 'workflow_dispatch' && inputs.run_scale_jobs == true
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 45
     steps:
