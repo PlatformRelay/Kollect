@@ -23,15 +23,24 @@ release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
 anchor on an older commit.
 
+## [Unreleased]
+
+## [0.4.1](https://github.com/konih/kollect/compare/v0.4.0..v0.4.1) - 2026-06-08
+
+### Bug Fixes
+
+- **build:** Upgrade debian packages for Trivy gate [b6515c0](https://github.com/konih/kollect/commit/b6515c04e05107e5ec97c9020435f76943f5a68f)
+
+### Features
+
+- **perf:** Scale lane PERF-08/09/15 and 10k load tier [dbda1c2](https://github.com/konih/kollect/commit/dbda1c2ab89ea1f5041638932124d7f34748fb88)
+- **sink/git:** PERF-10 mirror and fingerprint skip [e6288c1](https://github.com/konih/kollect/commit/e6288c174c32b69c38d0caec5676338ae6217fd0)
+
 ## [0.4.0](https://github.com/konih/kollect/compare/v0.3.0..v0.4.0) - 2026-06-07
 
 ### Features
 
 - **collect:** PERF-03 tunable dispatch pool [d3cfc5d](https://github.com/konih/kollect/commit/d3cfc5d121859780ad5fd588835b984947595bd1)
-
-## [0.3.0](https://github.com/konih/kollect/compare/v0.3.0-rc.1..v0.3.0) - 2026-06-07
-
-### Features
 
 - **ui:** Align sink families and add UI docs ([#17](https://github.com/konih/kollect/pull/17))[bcca60d](https://github.com/konih/kollect/commit/bcca60d9d1bdfedb7595cfc3b1d57d9fbb6bfc68)
 
