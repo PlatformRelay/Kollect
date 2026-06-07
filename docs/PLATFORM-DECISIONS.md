@@ -3,7 +3,7 @@
 This page summarizes **locked platform decisions** from the architecture review of 2026-06-05. It is
 the concise reference for **operators**, **contributors**, and **architects** evaluating or building
 Kollect. For the full decision log and reasoning, see
-[ADR-0201: Platform architecture pivot](adr/0201-crd-model.md).
+[ADR-0201: CRD model](adr/0201-crd-model.md).
 
 !!! warning "Pre-beta API"
     The public API is **`v1alpha1`** and may change without notice while the project is pre-beta.
@@ -35,11 +35,11 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 - **Default install:** per-team Helm — `tenantMode: true`, `watchNamespaces: [team-ns]`.
 - **MVP:** collect → aggregate → export to **Postgres or Kafka** for portals/scale; **Git** is the
   recommended sink for **small single-cluster** installs without a database or Kafka broker.
-- **HTTP inventory:** optional debug (`featureGates.inventoryHttp.enabled: false`); **not** MVP; hub read path uses merged store later.
-- **No `KollectHub` CRD** — `- **`KollectConnectionTest` CR** — implement (supersedes ADR-0403 rejection).
+- **HTTP inventory:** optional debug (`featureGates.inventoryHttp.enabled: false`); **not** MVP; portal read uses sink export or Read API ([ADR-0408](adr/0408-read-api-ui-architecture.md)).
+- **`KollectConnectionTest` CR** — implement ([ADR-0403](adr/0403-connection-test.md)).
 - **Shared informer per GVK** — one cache per GVK, Targets filter in reconcile.
 - **Watch labels** — support `All` and `OptIn`; platform central + per-resource `kollect.dev/watch: disabled`.
-- **Transport:** `inprocess` only default.
+- **Single operator mode** — `mode: single` (cluster collect + export); no hub/spoke runtime modes.
 - **No doc-sync** in operator ([ADR-0702](adr/0702-doc-sync-templating.md)).
 
 ### Build order
@@ -50,13 +50,12 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 4. `KollectConnectionTest` CR + keep Sink annotation/spec probes
 5. Export **debouncing** — per sink ref via `exportMinInterval` precedence ([ADR-0413](adr/0413-export-interval-scheduling.md)); inventory default **30s**
 6. Argo **`Application`** sample + **contract test** (contract test **first**; then samples)
-7. Hub `8. **`KollectClusterTarget`** — API + webhook only until namespaced MVP proven; controller later
+7. **`KollectClusterTarget`** — API + webhook only until namespaced MVP proven; controller later
 9. **Secondary watches** — Profile → Targets, family Sink → Inventories (beta requirement)
 10. **Generic CRD sample** — `cert-manager.io/Certificate` + contract test
 11. **GitLab sink** — Phase 2 (custom CA via `tls.caSecretRef`; first enterprise presentation path)
-12. **Hub ingest** — SAR **`create`** on `kollectremoteclusters`
 
-### Sink and transport
+### Sink taxonomy
 
 Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md).
 
@@ -67,8 +66,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | Queryable, no DB | **Add S3/GCS Parquet sink** queryable by DuckDB/Athena; deletes free; 3 store tiers (Git + Parquet + Postgres) |
 | Postgres deletes | **Add delete reconciliation** (diff vs last export) — upsert-only is a bug |
 | Event default | **NATS JetStream** lean default; **Kafka/Redpanda** enterprise opt-in (one Kafka-API driver) |
-| Sink ↔ transport | **Unified** — spoke publishing to a shared subject *is* the fan-in |
-| Multi-cluster default | **Direct shared-sink fan-in** (`spec.cluster`); **hub optional** (Git fan-in / isolation / cred / schema decoupling) |
+| Multi-cluster default | **Direct shared-sink fan-in** (`spec.cluster`) per [ADR-0501](adr/0501-multi-cluster-fleet.md) |
 
 ### Collection, cluster targets, and enterprise sinks
 
@@ -130,8 +128,8 @@ the corresponding code merges.
 | Topic | Default | Phase |
 | --- | --- | --- |
 | SQLite sink | **Skip** — Postgres testcontainers sufficient | — |
-| Postgres upsert PK | **`(inventory_namespace, inventory_name, target_name, source_uid)`**; add `cluster` column when hub merge lands | 1 |
-| Kafka message key | **`{cluster}:{inventory_ns}/{inventory_name}`** when hub; else **`{inventory_ns}/{inventory_name}`** | 2 hub |
+| Postgres upsert PK | **`(cluster, inventory_namespace, inventory_name, target_name, source_uid)`** | 1 |
+| Kafka message key | **`{cluster}:{inventory_ns}/{inventory_name}`** when fleet; else **`{inventory_ns}/{inventory_name}`** | 1 |
 | Kafka value | JSON row batch + metadata (`generation`, `checksum`); at-least-once | 1 |
 | Sink error metric | **`kollect_sink_errors_total{reason}`** — separate from reconcile counter | 1 |
 | Export duration histogram | Default buckets: `.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10` seconds | 1 |
@@ -147,15 +145,13 @@ the corresponding code merges.
 | JSONPath filter validation | Webhook **warn** only; **reject** unsupported filters | 1 warn / 2 reject |
 | CEL prefix | Webhook **requires** **`cel:`** prefix on CEL expressions | 1 |
 
-#### Hub and transport ([ADR-0501](adr/0501-multi-cluster-fleet.md), ADR-0503)
+#### Fleet export ([ADR-0501](adr/0501-multi-cluster-fleet.md))
 
 | Topic | Default | Phase |
 | --- | --- | --- |
-| Hub pull vs push | **Push default**; pull via `credentialsSecretRef` optional | 2 |
-| Delivery semantics | **At-least-once**; idempotent merge on **`(cluster, ns, name, uid)`** | 2 |
-| Spoke binary | **Same image**, **`| Max spoke payload inline | **512 KiB** summarized JSON; larger → **`payloadRef`** object store | 2 spike |
-| Hub shard routing | **`hash(clusterName) % shardCount`** via **Helm values / env** — **no `KollectHub` CRD** | 2 |
-| Git `clusters/*` monorepo | Sufficient for **≤100** spokes; object-store spill beyond | 2+ |
+| Topology | **Shared sink fan-in** — `spec.cluster` per installation | 1 |
+| Git layout | `pathTemplate: clusters/{cluster}/…` on snapshot sinks | 1 |
+| Delivery semantics | **At-least-once** export; idempotent merge on **`(cluster, ns, name, uid)`** | 1 |
 
 #### CRD model ([ADR-0201](adr/0201-crd-model.md))
 
@@ -218,15 +214,11 @@ flowchart TD
 | `KollectInventory` | Namespace | Aggregates namespaced targets in namespace |
 | `KollectScope` | Namespace | Webhook + reconciler enforcement |
 | `KollectConnectionTest` | Namespace | One-shot / CI connectivity probes |
-| `KollectClusterTarget` | **Cluster** | Platform cross-namespace collection — `namespaceSelector` + cluster profile ([ADR-0201](adr/0201-crd-model.md)) |
 | `KollectClusterProfile` | Cluster | Platform-shared extraction schemas |
 | `KollectClusterSink` | Cluster | Shared export backends (later) |
 | `KollectClusterInventory` | Cluster | Rollup for cluster targets (later) |
 | `KollectClusterScope` | Cluster | Reserved — platform policy |
-| `KollectHub` | — | **Removed** — use Helm `| `KollectPublication` | — | **Rejected** — external CI |
-| `KollectReceiver` | — | Reserved — webhook trigger (future) |
-| `KollectTargetSet` | — | Reserved — generator pattern (future) |
-| `
+
 ### Reserved CRDs — what they mean
 
 **Reserved** kinds are **design placeholders**, not promises to ship soon:
@@ -236,11 +228,11 @@ flowchart TD
 | **`KollectClusterTarget`** | One cluster object collects across namespaces (platform operator) | After namespaced MVP; needs `KollectClusterProfile` + merge/export path |
 | `KollectClusterProfile` | One schema for all teams (like `ClusterSecretStore`) | With cluster target / platform operator |
 | `KollectClusterSink` | Central Postgres/Git for all tenants | Namespaced sinks cover team-owned destinations first |
-| `KollectClusterInventory` | Roll up all namespaces for platform portal | Hub merge + hub DB is the scale path; not single CRD status |
+| `KollectClusterInventory` | Roll up all namespaces for platform portal | Shared sink + cluster-scoped export |
 | `KollectClusterScope` | Cluster-wide policy when namespaced Scope is too weak | Phase 1 namespaced Scope first |
 | `KollectReceiver` | Inbound webhook → trigger export (Flux Receiver) | No webhook trigger requirement yet |
 | `KollectTargetSet` | Generate many Targets (ApplicationSet) | Manual Targets OK for MVP |
-| ~~`KollectHub`~~ | Was: CRD spawns hub Deployment | **Removed** — Helm `| ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0702](adr/0702-doc-sync-templating.md) |
+| ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0702](adr/0702-doc-sync-templating.md) |
 
 Do not add controllers or document samples for reserved kinds unless an ADR promotes them.
 
@@ -260,7 +252,7 @@ The in-memory snapshot per Inventory is canonical; every sink is a projection.
 - **Postgres vs Kafka are not twins** — Postgres = queryable *state*; Kafka = *event* stream (consumer builds its view).
 - **S3/GCS Parquet** is the recommended "queryable inventory without running a database" tier.
 - **GitLab** (Phase 2) — enterprise Git host, internal CA via `tls.caSecretRef`.
-- **Event sink = hub transport** — unified; spoke publishing to a shared subject *is* the fan-in.
+- **Fleet fan-in** — each operator exports to shared sinks with `spec.cluster` ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 ---
 
@@ -281,28 +273,17 @@ The in-memory snapshot per Inventory is canonical; every sink is a projection.
 | Collect engine / informer cache | Extracted attribute rows | Rebuilt on resync after restart |
 | `KollectInventory.status` | Counts, conditions, last export SHA/ref | Yes (metadata only) |
 | **Postgres / Kafka sink** | Full inventory payload | **Yes — system of record** |
-| Spoke HTTP (if enabled) | RAM snapshot | No — debug only |
-| Hub DB | Merged multi-cluster rows | Yes — portal query target |
+| Inventory HTTP (optional) | RAM snapshot | No — debug only |
 
 Never persist full payloads in etcd ([ADR-0103](adr/0103-etcd-limit.md)).
 
 ---
 
-## Multi-cluster (build order)
+## Multi-cluster fleet
 
-**Default topology = direct shared-sink fan-in** ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)):
-each operator exports to a shared Postgres/Kafka/object store with `spec.cluster` set; the backend
-key/PK provides the merge. **No hub required.**
-
-The **hub is an optional tier**, used only for:
-
-- **Git** as multi-cluster SoR (direct Git fan-in = N-commits anti-pattern)
-- **network isolation** (spokes can't reach a central backend)
-- **credential centralization** (one DB/broker cred at hub vs N spokes)
-- **schema decoupling** (spokes speak report schema; hub owns DB schema)
-
-Hub auth (when used): ADR-0503 push-first, SAR `create`
-on `kollectremoteclusters`. Transport unified with the event sink (ADR-0502).
+**Topology = direct shared-sink fan-in** ([ADR-0501](adr/0501-multi-cluster-fleet.md)): each operator
+exports to a shared Postgres/Git/event backend with `spec.cluster` set; the backend key/PK provides
+the merge. See [Multi-cluster fleet example](examples/multi-cluster-fleet.md).
 
 ---
 
@@ -319,7 +300,7 @@ on `kollectremoteclusters`. Transport unified with the event sink (ADR-0502).
 - **`KollectConnectionTest` CR** — primary for audited/CI/composite probes
 - **`spec.ttlSecondsAfterFinished`** — default **300s**; delete CR after probe completes
 - Sink `connectionTest: false` in prod; annotation for quick sink-only retest
-- See [ADR-0201](adr/0201-crd-model.md) (amends [ADR-0403](adr/0403-connection-test.md))
+- See [ADR-0403](adr/0403-connection-test.md)
 
 ---
 
@@ -327,7 +308,7 @@ on `kollectremoteclusters`. Transport unified with the event sink (ADR-0502).
 
 | Topic | ADR |
 | --- | --- |
-| Hub federated mTLS behind external LB | **Deferred** — ADR-0503 |
+| Hub federated mTLS behind external LB | **Deferred** — [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) |
 
 ---
 

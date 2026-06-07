@@ -158,7 +158,7 @@ Numbered or headed subsections with the locked choice(s).
 
 **Style notes** (match existing corpus):
 
-- Lead with **current-state-first** prose; optional *Evolution* section for historical options.
+- Use **Context / Decision / Consequences** — architecture-first; no project timeline or session logs.
 - Link sibling ADRs by relative path; link requirements and roadmap where relevant.
 - Use admonitions sparingly; prefer tables for option comparisons.
 - No private or internal-only paths in shipped docs.

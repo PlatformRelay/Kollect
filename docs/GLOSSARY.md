@@ -29,13 +29,13 @@ architecture context see [Understand the basics](UNDERSTAND-THE-BASICS.md) and
 | **Event emitter** | Sink role that publishes **change streams** (NATS JetStream, Kafka) for downstream consumers; tombstones and materialized views are consumer-owned. |
 | **Delete reconciliation** | Postgres-specific logic to remove rows when UIDs leave the snapshot; snapshot stores get correct deletes for free. |
 
-## Multi-cluster
+## Multi-cluster fleet
 
 | Term | Definition |
 | --- | --- |
-| **Hub** | Central cluster that **ingests** inventory events from spoke clusters, optionally merges, and exports to shared backends. Helm `| **Spoke** | Workload cluster running the operator in **single** or **tenant** mode; pushes or exports inventory toward hub-configured sinks or transport. |
+| **Fleet** | Many clusters each running `mode: single`, exporting to a **shared sink** with distinct `spec.cluster` ([ADR-0501](adr/0501-multi-cluster-fleet.md)). |
+| **Cluster label** | `spec.cluster` on database/event/snapshot sinks — merge dimension for Postgres PK, Git `pathTemplate`, or event subject. |
 | **Cluster profile / target / inventory** | Cluster-scoped counterparts (`KollectClusterProfile`, `KollectClusterTarget`, `KollectClusterInventory`) for cross-namespace rollup and platform-wide export. |
-| **Remote cluster** | Hub registration object (`| **Transport** | Pluggable queue between spoke emitters and hub ingest: in-process (dev), Redis, NATS, or Kafka (ADR-0502). |
 
 ## Runtime and ops
 
@@ -44,7 +44,7 @@ architecture context see [Understand the basics](UNDERSTAND-THE-BASICS.md) and
 | **Reconciled CRD** | Kind with an active controller loop updating `status` (targets, inventories, connection tests). Contrast **static** profiles/scopes ([ADR-0202](adr/0202-static-vs-reconciled.md)). |
 | **Watch mode** | `KollectTarget.spec.watchMode`: `All` (default, respect opt-out) or `OptIn` (only `kollect.dev/watch=enabled`). See [ADR-0205](adr/0205-watch-labels.md). |
 | **Tenant mode** | Helm values restricting the operator informer cache and RBAC to listed namespaces ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)). |
-| **Leader election** | HA mode where only one manager pod reconciles; required for production multi-replica Deployments (ADR-0504). |
+| **Leader election** | Optional HA mode where only one manager pod reconciles; enable for production multi-replica Deployments ([ADR-0706](adr/0706-testing-merge-gate-architecture.md)). |
 
 <!-- BEGIN AUTO-CRD -->
 
@@ -133,7 +133,9 @@ KollectProfile is the Schema for the kollectprofiles API
 
 Full reference: [KollectProfile](crds/kollectprofile.md).
 
-### `
+### `KollectRemoteCluster` (namespaced)
+
+KollectRemoteCluster declares a registered spoke cluster on the inventory hub.
 
 | Spec field | Description |
 | --- | --- |
@@ -142,7 +144,8 @@ Full reference: [KollectProfile](crds/kollectprofile.md).
 | `credentialsSecretRef` | credentialsSecretRef points to an Istio-style remote kubeconfig secret for optional hub pull. |
 | `trustBundle` | trustBundle is a PEM-encoded CA bundle for spoke API TLS or future mTLS (optional). |
 
-Full reference: [
+Full reference: [KollectRemoteCluster](CR-REFERENCE.md#kinds).
+
 ### `KollectScope` (namespaced)
 
 KollectScope is a namespaced governance boundary for targets, inventories, and sinks.
