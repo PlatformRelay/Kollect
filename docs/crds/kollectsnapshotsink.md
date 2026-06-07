@@ -26,4 +26,11 @@ snapshot sinks via `KollectInventory.spec.snapshotSinkRefs`.
 `status.conditions` includes `ConnectionVerified` after the family sink reconciler runs an optional
 connectivity probe ([ADR-0403](../adr/0403-connection-test.md)).
 
+### Preview (`status.preview`)
+
+Annotate a sink with `kollect.dev/preview: "true"` to render a side-effect-free preview under
+`status.preview` ([ADR-0416](../adr/0416-sink-config-layering.md) §8): the resolved object path and,
+for `git`/`gitlab`, a sample commit subject and body rendered from the configured templates. Removing
+the annotation clears `status.preview`.
+
 See [ADR-0414](../adr/0414-sink-family-crds.md) for the family CRD model.
