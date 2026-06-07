@@ -142,6 +142,7 @@ nav:
               - "0414 — Sink family CRDs (clean break, pre-GA)": adr/0414-sink-family-crds.md
               - "0415 — Git sink commit ergonomics": adr/0415-git-sink-commit-ergonomics.md
               - "0416 — Sink configuration layering": adr/0416-sink-config-layering.md
+              - "0417 — MongoDB database sink": adr/0417-mongodb-database-sink.md
               - "0418 — Fleet console read plane (event-fed, cluster dimension)": adr/0418-fleet-console-read-plane.md
           - 05 Multi-cluster fleet:
               - "0501 — Multi-cluster fleet (shared sink fan-in)": adr/0501-multi-cluster-fleet.md

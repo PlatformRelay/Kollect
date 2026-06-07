@@ -10,7 +10,7 @@ Replace the unified **`KollectSink`** CRD with **three sink-family CRDs** aligne
 | Family CRD (namespaced) | Cluster variant | Role | `spec.type` values |
 | --- | --- | --- | --- |
 | `KollectSnapshotSink` | `KollectClusterSnapshotSink` | Snapshot store | `git`, `gitlab`, `s3`, `gcs`, `azureblob`, `http` |
-| `KollectDatabaseSink` | `KollectClusterDatabaseSink` | Relational SoR | `postgres`, `bigquery` |
+| `KollectDatabaseSink` | `KollectClusterDatabaseSink` | Relational SoR | `postgres`, `mongodb`, `bigquery` ([ADR-0417](0417-mongodb-database-sink.md)) |
 | `KollectEventSink` | `KollectClusterEventSink` | Event emitter | `nats`, `kafka` |
 
 **Clean break (pre-GA):** `KollectSink` is **removed** — no deprecation period, no conversion webhook,

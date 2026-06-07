@@ -1,0 +1,31 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectDatabaseSink
+metadata:
+  name: mongodb-inventory-demo
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: mongodb
+  cluster: kind-kollect-dev
+  connectionTest: true
+  # Cross-cutting provisioning ownership (ADR-0416). mode: ensure (default) creates the
+  # collection and the unique identity index if missing; mode: existing never creates and
+  # preflight verifies the collection already exists.
+  provisioning:
+    mode: ensure
+  mongodb:
+    databaseRef:
+      name: inventory-mongodb-uri
+      namespace: kollect-system
+    database: inventory
+    collection: inventory_items
+  # Secret example (create separately; never commit real credentials):
+  # apiVersion: v1
+  # kind: Secret
+  # metadata:
+  #   name: inventory-mongodb-uri
+  #   namespace: kollect-system
+  # stringData:
+  #   uri: mongodb://kollect:example@mongodb.kollect-system.svc:27017/inventory?authSource=admin

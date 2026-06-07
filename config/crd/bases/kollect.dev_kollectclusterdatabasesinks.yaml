@@ -69,6 +69,35 @@ spec:
                   exportMinInterval is the default minimum time between identical exports when an inventory
                   ref omits a per-ref override.
                 type: string
+              mongodb:
+                description: mongodb configures MongoDB document upsert export (ADR-0417).
+                properties:
+                  collection:
+                    description: collection is the destination collection name.
+                    type: string
+                  database:
+                    description: database is the destination MongoDB database name.
+                    type: string
+                  databaseRef:
+                    description: |-
+                      databaseRef references a Secret containing the connection URI
+                      (key uri, url, connectionString, or MONGODB_URI).
+                    properties:
+                      name:
+                        description: name is the name of the referenced Secret.
+                        type: string
+                      namespace:
+                        description: namespace is the namespace of the referenced
+                          Secret.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                required:
+                - collection
+                - database
+                - databaseRef
+                type: object
               options:
                 additionalProperties:
                   type: string
@@ -201,6 +230,7 @@ spec:
                 enum:
                 - postgres
                 - bigquery
+                - mongodb
                 type: string
             required:
             - type

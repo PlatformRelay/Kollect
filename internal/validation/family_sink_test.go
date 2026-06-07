@@ -140,6 +140,53 @@ func TestValidateDatabaseSinkSpec_postgresForbidsBigQuery(t *testing.T) {
 	}
 }
 
+func TestValidateDatabaseSinkSpec_mongoRequiresBlock(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateDatabaseSinkSpec(&kollectdevv1alpha1.KollectDatabaseSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypeMongoDB,
+	})
+	if len(errs) == 0 {
+		t.Fatal("expected mongodb block required")
+	}
+}
+
+func TestValidateDatabaseSinkSpec_mongoAcceptsBlock(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateDatabaseSinkSpec(&kollectdevv1alpha1.KollectDatabaseSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypeMongoDB,
+		MongoDB: &kollectdevv1alpha1.MongoSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "mongo"},
+			Database:    "inventory",
+			Collection:  "items",
+		},
+	})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors for valid mongodb spec: %v", errs)
+	}
+}
+
+func TestValidateDatabaseSinkSpec_mongoForbidsPostgres(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateDatabaseSinkSpec(&kollectdevv1alpha1.KollectDatabaseSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypeMongoDB,
+		MongoDB: &kollectdevv1alpha1.MongoSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "mongo"},
+			Database:    "inventory",
+			Collection:  "items",
+		},
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+			Table:       "inventory",
+		},
+	})
+	if len(errs) == 0 {
+		t.Fatal("expected forbidden postgres block for mongodb type")
+	}
+}
+
 func TestValidateEventSinkSpec_kafkaRequiresBlock(t *testing.T) {
 	t.Parallel()
 

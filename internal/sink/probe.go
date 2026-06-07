@@ -12,6 +12,7 @@ import (
 	"github.com/konih/kollect/internal/sink/git"
 	"github.com/konih/kollect/internal/sink/gitlab"
 	kafkasink "github.com/konih/kollect/internal/sink/kafka"
+	"github.com/konih/kollect/internal/sink/mongodb"
 	natssink "github.com/konih/kollect/internal/sink/nats"
 	"github.com/konih/kollect/internal/sink/postgres"
 	s3sink "github.com/konih/kollect/internal/sink/s3"
@@ -54,6 +55,12 @@ func RunConnectionTest(
 		}
 
 		return "PostgreSQL ping succeeded", nil
+	case mongodb.TypeName:
+		if err := mongodb.TestConnection(ctx, spec, buildCtx.DatabaseSecretData); err != nil {
+			return "", err
+		}
+
+		return "MongoDB ping succeeded", nil
 	case kafkasink.TypeName:
 		if err := kafkasink.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
 			return "", err

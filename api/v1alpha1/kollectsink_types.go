@@ -59,6 +59,10 @@ type KollectSinkSpec struct {
 	// +optional
 	Postgres *PostgresSpec `json:"postgres,omitempty"`
 
+	// mongodb configures a MongoDB document database sink.
+	// +optional
+	MongoDB *MongoSpec `json:"mongodb,omitempty"`
+
 	// kafka configures a Kafka or Redpanda event sink.
 	// +optional
 	Kafka *KafkaSpec `json:"kafka,omitempty"`
@@ -250,6 +254,22 @@ type PostgresSpec struct {
 	// schema is the PostgreSQL schema (default public).
 	// +optional
 	Schema string `json:"schema,omitempty"`
+}
+
+// MongoSpec configures MongoDB document upsert export (ADR-0417).
+type MongoSpec struct {
+	// databaseRef references a Secret containing the connection URI
+	// (key uri, url, connectionString, or MONGODB_URI).
+	// +required
+	DatabaseRef *SecretReference `json:"databaseRef"`
+
+	// database is the destination MongoDB database name.
+	// +required
+	Database string `json:"database"`
+
+	// collection is the destination collection name.
+	// +required
+	Collection string `json:"collection"`
 }
 
 // NatsSpec configures NATS JetStream inventory change events.

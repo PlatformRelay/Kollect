@@ -61,6 +61,9 @@ New readers: [REQUIREMENTS.md](../REQUIREMENTS.md) → theme **02** (CRD model) 
 | [0412](0412-mock-read-api-for-ui-development.md) | Mock Read API for UI development | Current |
 | [0413](0413-export-interval-scheduling.md) | Per-sink export interval scheduling | Current |
 | [0414](0414-sink-family-crds.md) | Sink family CRDs (`KollectSnapshotSink`, etc.) | Current |
+| [0415](0415-git-sink-commit-ergonomics.md) | Git sink commit ergonomics | Current |
+| [0416](0416-sink-config-layering.md) | Sink configuration layering | Current |
+| [0417](0417-mongodb-database-sink.md) | MongoDB database sink | Current |
 | [0418](0418-fleet-console-read-plane.md) | Fleet console read plane (event-fed, `cluster` dimension) | Exploring |
 
 ## 05 · Multi-cluster fleet

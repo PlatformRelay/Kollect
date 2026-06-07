@@ -8,7 +8,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // KollectDatabaseSinkSpec defines a relational database export sink (ADR-0414).
 type KollectDatabaseSinkSpec struct {
 	// type selects the database backend implementation.
-	// +kubebuilder:validation:Enum=postgres;bigquery
+	// +kubebuilder:validation:Enum=postgres;bigquery;mongodb
 	// +required
 	Type string `json:"type"`
 
@@ -21,6 +21,10 @@ type KollectDatabaseSinkSpec struct {
 	// bigquery configures BigQuery export (stub).
 	// +optional
 	BigQuery *BigQuerySpec `json:"bigquery,omitempty"`
+
+	// mongodb configures MongoDB document upsert export (ADR-0417).
+	// +optional
+	MongoDB *MongoSpec `json:"mongodb,omitempty"`
 }
 
 // +kubebuilder:object:root=true

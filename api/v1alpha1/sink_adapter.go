@@ -44,6 +44,7 @@ func (s *KollectDatabaseSinkSpec) ToKollectSinkSpec() KollectSinkSpec {
 		Provisioning:      s.Provisioning,
 		Options:           s.Options,
 		Postgres:          s.Postgres,
+		MongoDB:           s.MongoDB,
 	}
 }
 

@@ -41,6 +41,26 @@ func TestToKollectSinkSpec_database(t *testing.T) {
 	}
 }
 
+func TestToKollectSinkSpec_databaseMongo(t *testing.T) {
+	t.Parallel()
+
+	spec := (&KollectDatabaseSinkSpec{
+		Type: DatabaseSinkTypeMongoDB,
+		MongoDB: &MongoSpec{
+			DatabaseRef: &SecretReference{Name: "mongo"},
+			Database:    "inventory",
+			Collection:  "items",
+		},
+	}).ToKollectSinkSpec()
+
+	if spec.Type != DatabaseSinkTypeMongoDB || spec.MongoDB == nil {
+		t.Fatalf("spec = %#v", spec)
+	}
+	if spec.MongoDB.Collection != "items" {
+		t.Fatalf("mongo block not copied: %#v", spec.MongoDB)
+	}
+}
+
 func TestToKollectSinkSpec_event(t *testing.T) {
 	t.Parallel()
 

@@ -18,8 +18,11 @@ var (
 		kollectdevv1alpha1.SnapshotSinkTypeS3, kollectdevv1alpha1.SnapshotSinkTypeGCS,
 		kollectdevv1alpha1.SnapshotSinkTypeAzureBlob, kollectdevv1alpha1.SnapshotSinkTypeHTTP,
 	}
-	validDatabaseSinkTypes = []string{kollectdevv1alpha1.DatabaseSinkTypePostgres, kollectdevv1alpha1.DatabaseSinkTypeBigQuery}
-	validEventSinkTypes    = []string{kollectdevv1alpha1.EventSinkTypeNats, kollectdevv1alpha1.EventSinkTypeKafka}
+	validDatabaseSinkTypes = []string{
+		kollectdevv1alpha1.DatabaseSinkTypePostgres, kollectdevv1alpha1.DatabaseSinkTypeBigQuery,
+		kollectdevv1alpha1.DatabaseSinkTypeMongoDB,
+	}
+	validEventSinkTypes = []string{kollectdevv1alpha1.EventSinkTypeNats, kollectdevv1alpha1.EventSinkTypeKafka}
 )
 
 type forbiddenBlock struct {
@@ -68,10 +71,22 @@ func ValidateDatabaseSinkSpec(spec *kollectdevv1alpha1.KollectDatabaseSinkSpec) 
 	switch spec.Type {
 	case kollectdevv1alpha1.DatabaseSinkTypePostgres:
 		allErrs = append(allErrs, requireBlock(spec.Postgres, field.NewPath("spec").Child("postgres"), "required when type is postgres")...)
-		allErrs = append(allErrs, forbidBlocks([]forbiddenBlock{{field.NewPath("spec").Child("bigquery"), spec.BigQuery != nil}})...)
+		allErrs = append(allErrs, forbidBlocks([]forbiddenBlock{
+			{field.NewPath("spec").Child("bigquery"), spec.BigQuery != nil},
+			{field.NewPath("spec").Child("mongodb"), spec.MongoDB != nil},
+		})...)
 	case kollectdevv1alpha1.DatabaseSinkTypeBigQuery:
 		allErrs = append(allErrs, requireBlock(spec.BigQuery, field.NewPath("spec").Child("bigquery"), "required when type is bigquery")...)
-		allErrs = append(allErrs, forbidBlocks([]forbiddenBlock{{field.NewPath("spec").Child("postgres"), spec.Postgres != nil}})...)
+		allErrs = append(allErrs, forbidBlocks([]forbiddenBlock{
+			{field.NewPath("spec").Child("postgres"), spec.Postgres != nil},
+			{field.NewPath("spec").Child("mongodb"), spec.MongoDB != nil},
+		})...)
+	case kollectdevv1alpha1.DatabaseSinkTypeMongoDB:
+		allErrs = append(allErrs, requireBlock(spec.MongoDB, field.NewPath("spec").Child("mongodb"), "required when type is mongodb")...)
+		allErrs = append(allErrs, forbidBlocks([]forbiddenBlock{
+			{field.NewPath("spec").Child("postgres"), spec.Postgres != nil},
+			{field.NewPath("spec").Child("bigquery"), spec.BigQuery != nil},
+		})...)
 	}
 	return allErrs
 }

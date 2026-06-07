@@ -28,6 +28,7 @@ const (
 const (
 	DatabaseSinkTypePostgres = "postgres"
 	DatabaseSinkTypeBigQuery = "bigquery"
+	DatabaseSinkTypeMongoDB  = "mongodb"
 )
 
 // Event sink type values (KollectEventSink.spec.type).
