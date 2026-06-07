@@ -43,7 +43,7 @@ func ConfigFromSpec(
 
 	schema := strings.TrimSpace(pg.Schema)
 	if schema == "" {
-		schema = "public"
+		schema = defaultSchema
 	}
 
 	dsn, err := dsnFromSecret(databaseSecret)

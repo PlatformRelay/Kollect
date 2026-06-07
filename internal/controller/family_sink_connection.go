@@ -15,6 +15,7 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/sink"
+	"github.com/konih/kollect/internal/sink/preview"
 )
 
 type familySinkConnection struct {
@@ -27,8 +28,21 @@ func (f familySinkConnection) reconcile(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	common *kollectdevv1alpha1.SinkCommonFields,
 	conditions *[]metav1.Condition,
+	previewTarget **kollectdevv1alpha1.SinkPreviewStatus,
 ) error {
+	previewChanged := renderFamilyPreview(obj, spec, previewTarget)
+
 	if !shouldTestFamilyConnection(common, obj) {
+		if previewChanged {
+			if err := f.client.Status().Update(ctx, obj); err != nil {
+				if apierrors.IsConflict(err) {
+					return nil
+				}
+
+				return err
+			}
+		}
+
 		return nil
 	}
 
@@ -48,6 +62,35 @@ func (f familySinkConnection) reconcile(
 	metrics.SinkConnectionTestTotal.WithLabelValues(spec.Type, metrics.ResultSuccess).Inc()
 
 	return f.setConnectionVerified(ctx, obj, spec, common, conditions, okMessage)
+}
+
+// renderFamilyPreview populates status.preview from a synthetic sample when the
+// kollect.dev/preview annotation is set, and clears it once the annotation is removed
+// (ADR-0416 §8). It reports whether the preview field changed so callers can persist it
+// even when no connection test runs.
+func renderFamilyPreview(
+	obj client.Object,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	target **kollectdevv1alpha1.SinkPreviewStatus,
+) bool {
+	if target == nil {
+		return false
+	}
+
+	had := *target != nil
+	if kollectdevv1alpha1.PreviewEnabled(obj.GetAnnotations()) {
+		*target = preview.Render(spec, obj.GetName())
+
+		return true
+	}
+
+	if had {
+		*target = nil
+
+		return true
+	}
+
+	return false
 }
 
 func shouldTestFamilyConnection(common *kollectdevv1alpha1.SinkCommonFields, obj client.Object) bool {
