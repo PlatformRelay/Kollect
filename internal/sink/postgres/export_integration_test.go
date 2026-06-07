@@ -190,6 +190,97 @@ WHERE inventory_namespace = $1 AND inventory_name = $2 AND source_uid = $3
 	}
 }
 
+func TestExportPostgresBulk(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx := context.Background()
+	container, err := postgres.Run(ctx,
+		"postgres:16-alpine",
+		postgres.WithDatabase("inventory"),
+		postgres.WithUsername("kollect"),
+		postgres.WithPassword("kollect"),
+	)
+	if err != nil {
+		if integrationtest.IsDockerUnavailable(err) {
+			t.Skipf("docker not available: %v", err)
+		}
+
+		t.Fatalf("start postgres: %v", err)
+	}
+
+	t.Cleanup(func() { _ = container.Terminate(ctx) })
+
+	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := waitForPostgres(ctx, connStr); err != nil {
+		t.Fatal(err)
+	}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type:    "postgres",
+		Cluster: "bulk-cluster",
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+			Table:       "inventory_items",
+			Schema:      "public",
+		},
+	}
+
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(backend.Close)
+
+	const rowCount = 500
+	items := make([]collect.Item, rowCount)
+	for i := range rowCount {
+		items[i] = collect.Item{
+			TargetNamespace: "apps",
+			TargetName:      "web",
+			Namespace:       "apps",
+			Name:            fmt.Sprintf("demo-%04d", i),
+			Version:         "v1",
+			Kind:            "Deployment",
+			UID:             fmt.Sprintf("uid-%04d", i),
+			Attributes:      map[string]any{"replicas": i},
+		}
+	}
+
+	payload, err := json.Marshal(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Now()
+	if err := backend.Export(ctx, payload, "inventory/apps/bulk.json"); err != nil {
+		t.Fatalf("Export bulk: %v", err)
+	}
+	t.Logf("bulk export %d rows in %s", rowCount, time.Since(start))
+
+	pool, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+
+	var count int
+	if err := pool.QueryRow(ctx, `
+SELECT COUNT(*) FROM public.inventory_items
+WHERE inventory_namespace = $1 AND inventory_name = $2 AND cluster = $3
+`, "apps", "bulk", "bulk-cluster").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != rowCount {
+		t.Fatalf("row count = %d, want %d", count, rowCount)
+	}
+}
+
 func waitForPostgres(ctx context.Context, connStr string) error {
 	deadline := time.Now().Add(60 * time.Second)
 	var lastErr error

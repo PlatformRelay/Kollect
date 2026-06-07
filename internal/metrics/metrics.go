@@ -163,6 +163,22 @@ var (
 			Help: "Informer events processed synchronously when the dispatch queue was full.",
 		},
 	)
+
+	InformerResyncDispatchesTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_informer_resync_dispatches_total",
+			Help: "Informer Update events driven by periodic resync (same resourceVersion).",
+		},
+		[]string{"group", "version", "resource"},
+	)
+
+	InformerClusterWideScope = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kollect_informer_cluster_wide_scope",
+			Help: "1 when a GVR informer watches all namespaces; 0 when namespace-scoped.",
+		},
+		[]string{"group", "version", "resource"},
+	)
 )
 
 // Register adds kollect custom metrics to the controller-runtime registry.
@@ -188,5 +204,7 @@ func Register() {
 		CollectDispatchDurationSeconds,
 		CollectDispatchQueueDepth,
 		CollectDispatchSyncFallbackTotal,
+		InformerResyncDispatchesTotal,
+		InformerClusterWideScope,
 	)
 }

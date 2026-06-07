@@ -1,0 +1,8 @@
+# Helm values overlay for 100k manual cloud load test.
+resourcesProfile: large
+collect:
+  dispatchWorkers: 8
+  dispatchQueueSize: 1024
+metrics:
+  serviceMonitor:
+    enabled: true

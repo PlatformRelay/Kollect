@@ -41,6 +41,7 @@ See [`charts/kollect/ci/monitoring-values.yaml`](../../charts/kollect/ci/monitor
 | `KollectSinkConnectionTestFailures` | warning | Connection test failures |
 | `KollectExportLatencyHigh` | warning | p95 export duration &gt; 10s |
 | `KollectWorkqueueBacklog` | warning | In-flight reconciles &gt; 10 sustained |
+| `KollectHubSpokeReportFailures` | warning | Hub spoke report merge failures (hub mode) |
 
 Append custom rules via `metrics.prometheusRule.additionalRules`.
 
@@ -89,19 +90,16 @@ All custom metrics use the `kollect_` prefix. Controller-runtime also exposes st
 | `kollect_custom_resource_series` | gauge | `profile`, `gvk`, `series` | KSM-style series from `KollectProfile.spec.metrics` |
 | `kollect_custom_resource_labeled_series` | gauge | `profile`, `gvk`, `series`, … | Same with attribute label dimensions |
 
-### Export debounce
-
-| Metric | Type | Labels | Help |
-| --- | --- | --- | --- |
-| `kollect_export_debounced_total` | counter | `controller` | Exports skipped by per-inventory debounce coalescing |
-
 ### Collection dispatch
 
 | Metric | Type | Labels | Help |
 | --- | --- | --- | --- |
+| `kollect_export_debounced_total` | counter | `controller` | Exports skipped by per-inventory debounce coalescing |
 | `kollect_collect_dispatch_duration_seconds` | histogram | — | Informer dispatch latency (extract + store upsert) |
 | `kollect_collect_dispatch_queue_depth` | gauge | — | Approximate dispatch queue depth |
 | `kollect_collect_dispatch_sync_fallback_total` | counter | — | Events processed synchronously when queue was full |
+| `kollect_informer_resync_dispatches_total` | counter | `group`, `version`, `resource` | Resync-driven Update dispatches |
+| `kollect_informer_cluster_wide_scope` | gauge | `group`, `version`, `resource` | 1 when watching all namespaces for a GVR |
 
 ## Useful PromQL
 

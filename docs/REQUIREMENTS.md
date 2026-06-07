@@ -118,12 +118,12 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 
 | ID | Target |
 | --- | --- |
-| NFR-PERF-1 | Baseline single spoke: **10,000+** watched objects; collection store working set **≤512 MiB** |
-| NFR-PERF-2 | Giant cluster: 1000+ nodes — scoped informers + paginated list mandatory |
-| NFR-PERF-3 | Hub fleet: **100–500+** clusters; merge cost **O(total rows)**, never O(spokes²) |
+| NFR-PERF-1 | **Design target:** **100,000** collected rows/cluster (sharded exports); **10,000+** validated in CI tiers; store **≤512 MiB @ 10k**, operator RSS **2–4 GiB @ 100k** |
+| NFR-PERF-2 | Giant cluster: 1000+ nodes — namespace-scoped informers + paginated list mandatory |
+| NFR-PERF-3 | Fleet: **100–500+** clusters via **shared sink** ([ADR-0501](adr/0501-multi-cluster-fleet.md)); no hub merge tier |
 | NFR-PERF-4 | One shared informer per GVK; memory scales with objects × GVKs, not with target count |
-| NFR-PERF-5 | Export load bounded by debounce; spill oversized payloads to object store, never etcd |
-| NFR-PERF-6 | Tunable `MaxConcurrentReconciles`; observable queue depth |
+| NFR-PERF-5 | Export load bounded by debounce; spill oversized payloads to object store; **≤~2k rows/inventory** at default `maxExportBytes` |
+| NFR-PERF-6 | Tunable `MaxConcurrentReconciles`, dispatch pool, resync period; observable queue depth |
 
 ### 4.2 Reliability & correctness (NFR-REL)
 

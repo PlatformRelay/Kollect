@@ -1,8 +1,7 @@
 # Performance and scalability
 
-Kollect is designed for **large single clusters** (1000s of nodes, **10k+ watched resources
-validated**, **100k design target**) and **multi-cluster fleets** where **N operators** export to
-shared sinks ([ADR-0501](adr/0501-multi-cluster-fleet.md)). This guide summarizes tuning knobs from
+Kollect is designed for **giant single clusters** (1000s of nodes, **10k+ watched resources
+baseline**) and **100+ cluster** hub deployments. This guide summarizes tuning knobs from
 [ADR-0603](adr/0603-performance-scalability.md).
 
 ## Scale tiers
@@ -11,14 +10,12 @@ shared sinks ([ADR-0501](adr/0501-multi-cluster-fleet.md)). This guide summarize
 | --- | --- | --- | --- |
 | Dev / CI default | ≤500 synthetic | 1 | `task test` |
 | Opt-in load | ≤2000 synthetic | 1 | `KOLECT_LOAD_TEST=1 task load-test` |
-| Baseline production | 10,000+ | 1 | Metrics + pprof; manual load |
-| Design target | 100,000 | 1 | perf-report tiers; delivery v0.5+ |
-| Fleet (shared sink) | 10k–100k × N | many | One ServiceMonitor per cluster Helm release |
+| Baseline production spoke | 10,000+ | 1 | Metrics + pprof; manual load |
+| Hub platform | 10k × N (summarized) | **100+** | Hub merge benchmarks; sharded queue |
 | Stretch spoke | 50,000+ | 1 | Scoped informers; object-store spillover |
 
-Fleet scale targets are defined in [ADR-0603](adr/0603-performance-scalability.md) and
-[ADR-0501](adr/0501-multi-cluster-fleet.md) — **no central merge tier**; correlate rows via
-`spec.cluster` on export payloads.
+Hub scale targets are defined in [ADR-0603](adr/0603-performance-scalability.md) — hub merge must
+stay **O(total rows)**, never O(spokes²).
 
 ## Controller parallelism
 
@@ -49,7 +46,7 @@ exponential failure rate limiter (5ms base, 1000s cap). Set a positive duration 
 per inventory. Material payload changes (generation/checksum bump) may export immediately inside the
 min interval ([ADR-0201](adr/0201-crd-model.md)).
 Lower the interval for fresher Postgres/Kafka exports; raise to reduce sink API load. At 100+ spokes,
-debouncing is **mandatory** on busy inventories to avoid export storms.
+debouncing is **mandatory** on the hub path to avoid export storms.
 
 ## Collection engine
 
@@ -59,8 +56,7 @@ debouncing is **mandatory** on busy inventories to avoid export storms.
   `spec.namespaceSelector`, the dynamic informer is scoped to that namespace. Otherwise the
   informer watches all namespaces and filters events at dispatch time (correctness over cache size).
 - **Resync:** 12h informer resync is a correctness backstop, not a freshness driver.
-- **Fleet:** Each cluster operator exports to shared Postgres/Git with `spec.cluster` partitioning
-  ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
+- **Spoke → hub:** Push **summarized deltas**, not per-object streams ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 ## Metrics catalog
 
@@ -84,6 +80,8 @@ Use these names when scraping `/metrics` or writing PromQL in runbooks and issue
 | `kollect_collect_dispatch_duration_seconds` | Histogram | — | `histogram_quantile(0.95, sum(rate(kollect_collect_dispatch_duration_seconds_bucket[5m])) by (le))` | Collection extract/upsert latency |
 | `kollect_collect_dispatch_queue_depth` | Gauge | — | `max_over_time(kollect_collect_dispatch_queue_depth[5m])` | Sustained high → raise dispatch workers/queue |
 | `kollect_collect_dispatch_sync_fallback_total` | Counter | — | `increase(kollect_collect_dispatch_sync_fallback_total[15m])` | Queue overflow — dispatch pool undersized |
+| `kollect_informer_resync_dispatches_total` | Counter | `group`, `version`, `resource` | `sum(increase(kollect_informer_resync_dispatches_total[1h])) by (group, version, resource)` | Resync-driven dispatch volume |
+| `kollect_informer_cluster_wide_scope` | Gauge | `group`, `version`, `resource` | `max by (group, version, resource) (kollect_informer_cluster_wide_scope)` | 1 = cluster-wide watch (RSS risk at scale) |
 
 Additional runtime signals: Go `memstats` via pprof (`--enable-pprof`), API server `429` in operator logs.
 

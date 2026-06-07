@@ -40,10 +40,11 @@ flowchart LR
 ## Scale
 
 !!! note "Large fleets"
-    The collection path targets **100,000+** watched objects per spoke (typical Deployment/Service
-profiles). Tune namespace-scoped informers, `KollectInventory.spec.exportMinInterval` (default
-**30s**), and operator reconcile parallelism per [PERFORMANCE.md](../PERFORMANCE.md) and
-[ADR-0603](../adr/0603-performance-scalability.md).
+    The collection path targets **100,000** collected rows **per cluster operator** (typical
+    Deployment/Service profiles). **Export must be sharded:** one `KollectInventory` per workload
+    namespace (or smaller groups) so each export stays **below ~2,000 rows** (~1.5 MiB). Tune
+    namespace-scoped informers, `exportMinInterval`, Helm `resourcesProfile: large`, and reconcile
+    parallelism per [PERFORMANCE.md](../PERFORMANCE.md) and [ADR-0603](../adr/0603-performance-scalability.md).
 
 ## Step 1 — KollectProfile
 

@@ -1,0 +1,26 @@
+# Shared sink stubs — replace endpoints/secrets before cloud run.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectDatabaseSink
+metadata:
+  name: postgres-loadtest
+  namespace: kollect-system
+spec:
+  type: postgres
+  endpoint: postgres://kollect:REPLACE@shared-postgres:5432/kollect
+  cluster: CLUSTER_NAME
+  connectionTest: true
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSnapshotSink
+metadata:
+  name: git-loadtest
+  namespace: kollect-system
+spec:
+  type: git
+  endpoint: https://github.com/REPLACE/kollect-loadtest.git
+  cluster: CLUSTER_NAME
+  pathTemplate: clusters/{cluster}/inventory/{namespace}/{name}.json
+  git:
+    branch: main
+    pushPolicy: Commit
+  connectionTest: false

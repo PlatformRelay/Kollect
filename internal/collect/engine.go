@@ -29,15 +29,20 @@ import (
 )
 
 const (
-	informerResync           = 12 * time.Hour
-	defaultDispatchWorkers   = 4
-	defaultDispatchQueueSize = 512
+	defaultInformerResync        = 12 * time.Hour
+	defaultDispatchWorkers       = 4
+	defaultDispatchQueueSize     = 512
+	defaultMetricsSampleInterval = 30 * time.Second
+	defaultDispatchEnqueueWait   = 25 * time.Millisecond
 )
 
-// EngineConfig tunes collection engine concurrency (PERF-03).
+// EngineConfig tunes collection engine concurrency and observability (PERF-03/08/15).
 type EngineConfig struct {
-	DispatchWorkers   int
-	DispatchQueueSize int
+	DispatchWorkers       int
+	DispatchQueueSize     int
+	ResyncPeriod          time.Duration
+	MetricsSampleInterval time.Duration
+	DispatchEnqueueWait   time.Duration
 }
 
 func normalizeEngineConfig(cfg EngineConfig) EngineConfig {
@@ -46,6 +51,15 @@ func normalizeEngineConfig(cfg EngineConfig) EngineConfig {
 	}
 	if cfg.DispatchQueueSize <= 0 {
 		cfg.DispatchQueueSize = defaultDispatchQueueSize
+	}
+	if cfg.ResyncPeriod <= 0 {
+		cfg.ResyncPeriod = defaultInformerResync
+	}
+	if cfg.MetricsSampleInterval <= 0 {
+		cfg.MetricsSampleInterval = defaultMetricsSampleInterval
+	}
+	if cfg.DispatchEnqueueWait < 0 {
+		cfg.DispatchEnqueueWait = 0
 	}
 
 	return cfg
@@ -81,20 +95,25 @@ type Engine struct {
 	store     *Store
 	runCtx    context.Context
 
-	mu               sync.RWMutex
-	factories        map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory
-	started          map[schema.GroupVersionResource]bool
-	targets          map[string]targetState
-	targetsByGVR     map[schema.GroupVersionResource][]string
-	nsMeta           map[string]namespaceMeta
-	nsMu             sync.RWMutex
-	forbidden        map[string]struct{}
-	accessErr        map[string]struct{}
-	defaults         NamespaceDefaults
-	dispatchCh       chan dispatchJob
-	dispatchWorkers  int
-	dispatchQueueCap int
-	dispatchOnce     sync.Once
+	mu                    sync.RWMutex
+	factories             map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory
+	started               map[schema.GroupVersionResource]bool
+	targets               map[string]targetState
+	targetsByGVR          map[schema.GroupVersionResource][]string
+	nsMeta                map[string]namespaceMeta
+	nsMu                  sync.RWMutex
+	forbidden             map[string]struct{}
+	accessErr             map[string]struct{}
+	defaults              NamespaceDefaults
+	dispatchCh            chan dispatchJob
+	dispatchWorkers       int
+	dispatchQueueCap      int
+	dispatchEnqueueWait   time.Duration
+	resyncPeriod          time.Duration
+	metricsSampleInterval time.Duration
+	metricsLastRefresh    map[string]time.Time
+	metricsMu             sync.Mutex
+	dispatchOnce          sync.Once
 }
 
 // NewEngine constructs a collection engine.
@@ -112,22 +131,26 @@ func NewEngine(
 	cfg = normalizeEngineConfig(cfg)
 
 	return &Engine{
-		dynamic:          dynamicClient,
-		kube:             kubeClient,
-		access:           NewAccessChecker(kubeClient),
-		extractor:        ext,
-		scrubber:         NewScrubber(nil),
-		store:            store,
-		factories:        make(map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory),
-		started:          make(map[schema.GroupVersionResource]bool),
-		targets:          make(map[string]targetState),
-		targetsByGVR:     make(map[schema.GroupVersionResource][]string),
-		nsMeta:           make(map[string]namespaceMeta),
-		forbidden:        make(map[string]struct{}),
-		accessErr:        make(map[string]struct{}),
-		dispatchCh:       make(chan dispatchJob, cfg.DispatchQueueSize),
-		dispatchWorkers:  cfg.DispatchWorkers,
-		dispatchQueueCap: cfg.DispatchQueueSize,
+		dynamic:               dynamicClient,
+		kube:                  kubeClient,
+		access:                NewAccessChecker(kubeClient),
+		extractor:             ext,
+		scrubber:              NewScrubber(nil),
+		store:                 store,
+		factories:             make(map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory),
+		started:               make(map[schema.GroupVersionResource]bool),
+		targets:               make(map[string]targetState),
+		targetsByGVR:          make(map[schema.GroupVersionResource][]string),
+		nsMeta:                make(map[string]namespaceMeta),
+		forbidden:             make(map[string]struct{}),
+		accessErr:             make(map[string]struct{}),
+		dispatchCh:            make(chan dispatchJob, cfg.DispatchQueueSize),
+		dispatchWorkers:       cfg.DispatchWorkers,
+		dispatchQueueCap:      cfg.DispatchQueueSize,
+		dispatchEnqueueWait:   cfg.DispatchEnqueueWait,
+		resyncPeriod:          cfg.ResyncPeriod,
+		metricsSampleInterval: cfg.MetricsSampleInterval,
+		metricsLastRefresh:    make(map[string]time.Time),
 	}, nil
 }
 
@@ -229,6 +252,10 @@ func (e *Engine) UnregisterTarget(namespace, name string) {
 	delete(e.forbidden, key)
 	delete(e.accessErr, key)
 	e.mu.Unlock()
+
+	e.metricsMu.Lock()
+	delete(e.metricsLastRefresh, key)
+	e.metricsMu.Unlock()
 
 	e.store.RemoveTarget(namespace, name)
 }
@@ -400,7 +427,7 @@ func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResou
 
 	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
 		e.dynamic,
-		informerResync,
+		e.resyncPeriod,
 		watchNS,
 		nil,
 	)
@@ -408,13 +435,27 @@ func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResou
 	e.started[gvr] = true
 	e.mu.Unlock()
 
+	gvrLabels := []string{gvr.Group, gvr.Version, gvr.Resource}
+	if watchNS == metav1.NamespaceAll {
+		log.FromContext(ctx).Info(
+			"cluster-wide informer scope for GVR; prefer namespace-scoped targets at scale",
+			"group", gvr.Group, "version", gvr.Version, "resource", gvr.Resource,
+		)
+		metrics.InformerClusterWideScope.WithLabelValues(gvrLabels...).Set(1)
+	} else {
+		metrics.InformerClusterWideScope.WithLabelValues(gvrLabels...).Set(0)
+	}
+
 	informer := factory.ForResource(gvr).Informer()
 	runCtx := e.informerContext()
 	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			e.dispatch(runCtx, gvr, obj, false)
 		},
-		UpdateFunc: func(_, newObj interface{}) {
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			if isInformerResync(oldObj, newObj) {
+				metrics.InformerResyncDispatchesTotal.WithLabelValues(gvrLabels...).Inc()
+			}
 			e.dispatch(runCtx, gvr, newObj, false)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -448,10 +489,23 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 	metrics.CollectDispatchQueueDepth.Set(float64(len(e.dispatchCh)))
 	select {
 	case e.dispatchCh <- job:
+		return
 	default:
-		metrics.CollectDispatchSyncFallbackTotal.Inc()
-		e.processDispatch(ctx, gvr, obj, deleted)
 	}
+
+	wait := e.dispatchEnqueueWait
+	if wait > 0 {
+		timer := time.NewTimer(wait)
+		defer timer.Stop()
+		select {
+		case e.dispatchCh <- job:
+			return
+		case <-timer.C:
+		}
+	}
+
+	metrics.CollectDispatchSyncFallbackTotal.Inc()
+	e.processDispatch(ctx, gvr, obj, deleted)
 }
 
 func (e *Engine) processDispatch(
@@ -566,11 +620,40 @@ func (e *Engine) processDispatch(
 }
 
 func (e *Engine) refreshTargetSnapshotMetrics(st targetState, target kollectdevv1alpha1.KollectTarget) {
+	key := targetKey(target.Namespace, target.Name)
+	interval := e.metricsSampleInterval
+	if interval <= 0 {
+		interval = defaultMetricsSampleInterval
+	}
+
+	now := time.Now()
+	e.metricsMu.Lock()
+	if e.metricsLastRefresh == nil {
+		e.metricsLastRefresh = make(map[string]time.Time)
+	}
+	if last, ok := e.metricsLastRefresh[key]; ok && now.Sub(last) < interval {
+		e.metricsMu.Unlock()
+
+		return
+	}
+	e.metricsLastRefresh[key] = now
+	e.metricsMu.Unlock()
+
 	gvkLabel := fmt.Sprintf("%s/%s/%s", st.profile.Spec.TargetGVK.Group,
 		st.profile.Spec.TargetGVK.Version, st.profile.Spec.TargetGVK.Kind)
 	items := e.store.SnapshotTarget(target.Namespace, target.Name)
 	metricPaths := MetricPathsFromProfile(st.profile.Spec)
 	recordTargetSnapshotMetrics(target.Spec.ProfileRef, gvkLabel, items, metricPaths)
+}
+
+func isInformerResync(oldObj, newObj interface{}) bool {
+	oldU := toUnstructured(oldObj)
+	newU := toUnstructured(newObj)
+	if oldU == nil || newU == nil {
+		return false
+	}
+
+	return oldU.GetResourceVersion() == newU.GetResourceVersion()
 }
 
 func (e *Engine) matchesTarget(

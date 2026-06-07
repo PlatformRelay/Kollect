@@ -155,6 +155,22 @@ var Catalog = []CatalogEntry{
 		AgentHint:  "Non-zero sustained rate → dispatch pool undersized for churn.",
 	},
 	{
+		Name:       "kollect_informer_resync_dispatches_total",
+		Type:       "counter",
+		Labels:     []string{"group", "version", "resource"},
+		Help:       "Informer Update events from periodic resync (unchanged resourceVersion).",
+		PromQLHint: "sum(increase(kollect_informer_resync_dispatches_total[1h])) by (group, version, resource)",
+		AgentHint:  "Spike every resync period → expected; tune --informer-resync-period if costly.",
+	},
+	{
+		Name:       "kollect_informer_cluster_wide_scope",
+		Type:       "gauge",
+		Labels:     []string{"group", "version", "resource"},
+		Help:       "1 when informer watches all namespaces for a GVR; 0 when namespace-scoped.",
+		PromQLHint: "max by (group, version, resource) (kollect_informer_cluster_wide_scope)",
+		AgentHint:  "Value 1 at scale → high RSS risk; tighten namespace selectors.",
+	},
+	{
 		Name:       "kollect_custom_resource_series",
 		Type:       "gauge",
 		Labels:     []string{"profile", "gvk", "series"},

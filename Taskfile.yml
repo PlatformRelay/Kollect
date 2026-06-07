@@ -192,9 +192,14 @@ tasks:
       - task: test:bench
 
   load-test:
-    desc: Opt-in bounded load tests (requires KOLECT_LOAD_TEST=1)
+    desc: Opt-in bounded load tests (requires KOLECT_LOAD_TEST=1, max 10000)
     cmds:
       - task: test:load-test
+
+  load-test:10k:
+    desc: Opt-in 10k load tier (KOLECT_LOAD_TEST_MAX=10000)
+    cmds:
+      - task: test:load-test:10k
 
   perf-report:
     desc: Local perf snapshot via hack/perf-report.sh (see DEVELOPMENT.md)

@@ -87,8 +87,26 @@ controller:
   collectDispatchWorkers: 4
   # -- Collection informer dispatch queue depth.
   collectDispatchQueueSize: 512
-  # -- Optional controller-runtime reconcile rate limit (empty = default).
+  informerResyncPeriod: 12h
+  collectMetricsSampleInterval: 30s
   reconcileRateLimit: ""
+
+resourcesProfile: default
+
+largeCluster:
+  resources:
+    limits:
+      cpu: "2"
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 2Gi
+  controller:
+    maxConcurrentReconciles:
+      target: 10
+      inventory: 10
+    collectDispatchWorkers: 8
+    collectDispatchQueueSize: 2048
 
 metrics:
   # -- Expose Prometheus metrics endpoint.

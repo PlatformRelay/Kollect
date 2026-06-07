@@ -62,6 +62,8 @@ nav:
       - Development setup: DEVELOPMENT.md
   - Operator Manual:
       - Operator manual: OPERATOR-MANUAL.md
+      - Scaling and fleet: operator-manual/scaling-and-fleet.md
+      - Load test runbook: operator-manual/load-test-runbook.md
       - Read-only UI: operator-manual/ui.md
       - Upgrading: operator-manual/upgrading.md
       - Helm values: operator-manual/helm-values.md

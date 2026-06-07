@@ -7,6 +7,7 @@ package load_test
 
 import (
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -17,6 +18,21 @@ import (
 )
 
 const maxLoadObjects = 2000
+
+func loadTestObjectCount(t *testing.T) int {
+	t.Helper()
+
+	max := maxLoadObjects
+	if v := os.Getenv("KOLECT_LOAD_TEST_MAX"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 || n > 10000 {
+			t.Fatalf("KOLECT_LOAD_TEST_MAX must be 1..10000: %q", v)
+		}
+		max = n
+	}
+
+	return max
+}
 
 func TestLoadExtract(t *testing.T) {
 	if os.Getenv("KOLECT_LOAD_TEST") != "1" {
@@ -42,8 +58,10 @@ func TestLoadExtract(t *testing.T) {
 		"spec": map[string]any{"replicas": int64(1)},
 	}}
 
+	max := loadTestObjectCount(t)
+
 	start := time.Now()
-	for i := 0; i < maxLoadObjects; i++ {
+	for i := 0; i < max; i++ {
 		if _, err := extractor.Extract(obj, attrs); err != nil {
 			t.Fatalf("extract %d: %v", i, err)
 		}
@@ -51,5 +69,5 @@ func TestLoadExtract(t *testing.T) {
 
 	elapsed := time.Since(start)
 	t.Logf("extracted %d objects in %s (%.0f ops/s)",
-		maxLoadObjects, elapsed, float64(maxLoadObjects)/elapsed.Seconds())
+		max, elapsed, float64(max)/elapsed.Seconds())
 }

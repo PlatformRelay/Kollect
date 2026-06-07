@@ -40,10 +40,12 @@ spec:
             - --metrics-bind-address={{ .Values.metrics.bindAddress }}
             - --metrics-secure={{ .Values.metrics.secure }}
             {{- end }}
-            - --max-concurrent-reconciles-target={{ .Values.controller.maxConcurrentReconciles.target }}
-            - --max-concurrent-reconciles-inventory={{ .Values.controller.maxConcurrentReconciles.inventory }}
-            - --collect-dispatch-workers={{ .Values.controller.collectDispatchWorkers }}
-            - --collect-dispatch-queue-size={{ .Values.controller.collectDispatchQueueSize }}
+            - --max-concurrent-reconciles-target={{ include "kollect.controllerReconcilesTarget" . }}
+            - --max-concurrent-reconciles-inventory={{ include "kollect.controllerReconcilesInventory" . }}
+            - --collect-dispatch-workers={{ include "kollect.collectDispatchWorkers" . }}
+            - --collect-dispatch-queue-size={{ include "kollect.collectDispatchQueueSize" . }}
+            - --informer-resync-period={{ .Values.controller.informerResyncPeriod }}
+            - --collect-metrics-sample-interval={{ .Values.controller.collectMetricsSampleInterval }}
             {{- if .Values.controller.reconcileRateLimit }}
             - --reconcile-rate-limit={{ .Values.controller.reconcileRateLimit }}
             {{- end }}
@@ -114,7 +116,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- include "kollect.managerResources" . | nindent 12 }}
           volumeMounts:
             - name: tmp
               mountPath: /tmp

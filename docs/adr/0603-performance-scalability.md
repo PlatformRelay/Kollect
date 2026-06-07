@@ -24,57 +24,46 @@ operator**.
 | --- | --- | --- | --- | --- |
 | **CI / dev** | Synthetic envtest | ≤500 | 1 | `task test` |
 | **Opt-in load** | Synthetic | ≤2,000 | 1 | `KOLECT_LOAD_TEST=1 task load-test` |
-| **Baseline production** | Single cluster | **10,000+** (validated) | 1 | Metrics + pprof; nightly optional |
-| **Design target** | Single cluster | **100,000** | 1 | Manual / perf-report; delivery **v0.5+** ([gap analysis](../PERFORMANCE.md)) |
-| **Fleet** | Shared Postgres/Git sink | 10k–100k × N operators | **many** | One ServiceMonitor per cluster release; correlate via `spec.cluster` |
+| **Nightly load** | Synthetic | **10,000** | 1 | `task load-test:10k` on `ubuntu-latest-8-cores` |
+| **Baseline production** | Single cluster | **10,000+** (validated) | 1 | Metrics + pprof |
+| **Design target** | Single cluster | **100,000** | 1 | Manual / perf-report; claim gate **v0.5+** |
+| **Fleet** | Shared Postgres/Git sink | 10k–100k × N operators | **many** | One ServiceMonitor per cluster release |
 
 **Memory bounds (per operator):**
 
-- Collection store: O(collected rows × attribute width); target **≤512 MiB** working set at 10k
-  objects with typical Deployment/Service profiles (measure via pprof and Prometheus RSS).
-- Informer cache: prefer namespace-scoped dynamic informers when all targets for a GVR agree; cluster-wide
-  watch only when required — document RSS delta in runbooks when cluster-wide scope is unavoidable.
-- Export payload: coalesce via **`KollectInventory.spec.exportMinInterval`** (default **30s**);
-  spill to object storage when payload exceeds inline limits ([ADR-0103](0103-etcd-limit.md),
-  [ADR-0201](0201-crd-model.md)).
+- Collection store: O(collected rows × attribute width); **≤512 MiB** at 10k typical profiles;
+  **≤400 MiB** store component at 100k when export-sharded.
+- **Operator RSS @ 100k:** request **≥2 GiB**, limit **≥4 GiB** — Helm `resourcesProfile: large`.
+- Informer cache: prefer namespace-scoped dynamic informers; `kollect_informer_cluster_wide_scope`
+  alerts when a GVR watches all namespaces.
+- Export: **mandatory multi-namespace sharding** (<~2k rows/inventory) or per-target envelopes;
+  `maxExportBytes` default **1.5 MiB** ([ADR-0103](0103-etcd-limit.md)).
 
 **Fleet path:**
 
-- Each cluster operator exports **full inventory snapshots** (or partitioned exports when
-  `pathTemplate` lands) to shared backends — no central merge tier.
-- Cross-cluster correlation uses **sink row metadata** (`spec.cluster`), not hub merge counters.
+- Each cluster operator exports inventory snapshots to shared backends — no central merge tier.
+- Cross-cluster correlation uses **sink row metadata** (`spec.cluster`).
 
 ## Decision
 
-1. **Controller options:** Expose `MaxConcurrentReconciles` per reconciler
-   (`KollectTarget`, `KollectInventory`, cluster rollup kinds) via operator flags with documented defaults.
-2. **Workqueue:** Use controller-runtime default exponential failure rate limiting unless
-   `--reconcile-rate-limit` overrides the base delay. Approximate queue depth with an in-flight
-   reconcile gauge (`kollect_workqueue_depth`).
-3. **Metrics:** Reconcile duration histogram, informer indexer size gauge, export byte
-   counter, export debounce counter alongside existing export latency histogram. Catalog in
-   [PERFORMANCE.md](../PERFORMANCE.md) with PromQL hints.
-4. **Export debounce:** Per **`KollectInventory.spec.exportMinInterval`** (default **30s**)
-   ([ADR-0201](0201-crd-model.md)).
-5. **Informers:** Scope dynamic informers to a single namespace when all targets for a GVR agree;
-   otherwise watch all namespaces and filter by `namespaceSelector` at dispatch. Paginate initial
-   `List` where client-go allows.
-6. **Dispatch pool:** GVR-indexed worker pool for collect engine refresh (shipped v0.3); tunable
-   workers/queue deferred to v0.4+ ([PERF-SNAPSHOT](../PERFORMANCE.md)).
-7. **Profiling:** Optional `--enable-pprof` on `:6060`; disabled in production Helm values.
-8. **Tests:** `go test -bench` for extraction; optional `load`-tagged test gated by
-   `KOLECT_LOAD_TEST=1`. Results written to `artifacts/bench/` for local regression tracking.
-9. **100k claim gate:** Do not advertise 100k/cluster production readiness until export
-   partitioning, Postgres bulk upsert, and perf-report tiers pass ([SCALABILITY gap — local agent-context]).
+1. **Controller options:** Expose `MaxConcurrentReconciles` per reconciler via operator flags.
+2. **Workqueue:** Default exponential failure rate limiting; in-flight gauge `kollect_workqueue_depth`.
+3. **Metrics:** Reconcile/export histograms, informer size, dispatch pool, resync rate — catalog in
+   [PERFORMANCE.md](../PERFORMANCE.md).
+4. **Export debounce:** Per `KollectInventory.spec.exportMinInterval` (default **30s**).
+5. **Informers:** Namespace-scoped when targets agree; paginated initial `List` where allowed.
+6. **Dispatch pool:** Tunable `--collect-dispatch-workers` / queue; enqueue wait before sync fallback.
+7. **Resync / metrics sampling:** `--informer-resync-period`; `--collect-metrics-sample-interval`.
+8. **Profiling:** Optional `--enable-pprof` on `:6060`; disabled in production Helm values.
+9. **Tests:** `load`-tagged tests to **10k** (nightly); 100k manual design proof only.
+10. **100k claim gate:** Export sharding enforced + Postgres bulk upsert + **10k nightly green**.
 
 ## Consequences
 
-- Operators can scale reconcile throughput without rebuilding images.
-- In-flight gauge is an approximation, not a substitute for controller-runtime's internal queue metrics.
-- Multi-namespace targets still use cluster-wide informer caches when scopes differ — document as
-  known RSS cost in operator runbooks.
-- 10k baseline is **validated in CI tiers**; 100k is a **design target** with honest delivery timeline.
-- Fleet observability = **scrape `/metrics` on each cluster operator** — no hub federation tier.
+- Operators scale reconcile and dispatch throughput without rebuilding images.
+- 100k/cluster requires **many inventories** — monolithic namespace rollups fail export caps.
+- Fleet Postgres growth is **ops/DBA** (partition by cluster or month at >10M rows).
+- 10k baseline validated in CI tiers; 100k is design target until v0.5+ sign-off.
 
 ## References
 

@@ -79,13 +79,22 @@ tasks:
         echo "wrote $out"
 
   load-test:
-    desc: Opt-in bounded load tests (KOLECT_LOAD_TEST=1, max 2000 objects); not in default test
+    desc: Opt-in bounded load tests (KOLECT_LOAD_TEST=1, max 10000 objects); not in default test
     env:
       CGO_ENABLED: "1"
     cmds:
       - |
         if [ "${KOLECT_LOAD_TEST:-}" != "1" ]; then
-          echo "Refusing load test: set KOLECT_LOAD_TEST=1 to opt in (max 2000 synthetic objects)." >&2
+          echo "Refusing load test: set KOLECT_LOAD_TEST=1 to opt in (max 10000 synthetic objects)." >&2
           exit 1
         fi
-      - go test -tags=load -count=1 -timeout=15m ./test/load/...
+      - go test -tags=load -count=1 -timeout=30m ./test/load/...
+
+  load-test:10k:
+    desc: Opt-in 10k load tier (nightly ubuntu-latest-8-cores)
+    env:
+      CGO_ENABLED: "1"
+      KOLECT_LOAD_TEST: "1"
+      KOLECT_LOAD_TEST_MAX: "10000"
+    cmds:
+      - go test -tags=load -count=1 -timeout=30m ./test/load/...

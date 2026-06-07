@@ -78,6 +78,9 @@ func main() {
 	var validatingWebhooksEnabled bool
 	var collectDispatchWorkers int
 	var collectDispatchQueueSize int
+	var informerResyncPeriod time.Duration
+	var collectMetricsSampleInterval time.Duration
+	var collectDispatchEnqueueWait time.Duration
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -134,6 +137,12 @@ func main() {
 		"Worker goroutines draining the collection informer dispatch queue (PERF-03).")
 	flag.IntVar(&collectDispatchQueueSize, "collect-dispatch-queue-size", 512,
 		"Bounded queue depth for collection informer dispatch jobs.")
+	flag.DurationVar(&informerResyncPeriod, "informer-resync-period", 12*time.Hour,
+		"Dynamic informer resync period as a correctness backstop (PERF-15).")
+	flag.DurationVar(&collectMetricsSampleInterval, "collect-metrics-sample-interval", 30*time.Second,
+		"Minimum interval between domain snapshot metric refreshes per target (PERF-08).")
+	flag.DurationVar(&collectDispatchEnqueueWait, "collect-dispatch-enqueue-wait", 25*time.Millisecond,
+		"Brief wait before synchronous dispatch fallback when the queue is full.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -261,8 +270,11 @@ func main() {
 
 	collectStore := collect.NewStore()
 	collectEngine, err := collect.NewEngine(dynamicClient, kubeClient, collectStore, collect.EngineConfig{
-		DispatchWorkers:   collectDispatchWorkers,
-		DispatchQueueSize: collectDispatchQueueSize,
+		DispatchWorkers:       collectDispatchWorkers,
+		DispatchQueueSize:     collectDispatchQueueSize,
+		ResyncPeriod:          informerResyncPeriod,
+		MetricsSampleInterval: collectMetricsSampleInterval,
+		DispatchEnqueueWait:   collectDispatchEnqueueWait,
 	})
 	if err != nil {
 		setupLog.Error(err, "Failed to create collection engine")

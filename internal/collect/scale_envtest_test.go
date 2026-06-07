@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -27,9 +28,24 @@ import (
 )
 
 // scaleTestMaxObjects is the ADR-0603 default synthetic object cap for task test.
-// SAR-forbidden → Degraded (EC-P1-06) is not exercised here: envtest runs with
-// cluster-admin-equivalent credentials; see KollectTargetReconciler unit/envtest paths.
 const scaleTestMaxObjects = 500
+const scaleTestMaxExtended = 10000
+
+func scaleEnvtestObjectCap(t *testing.T) int {
+	t.Helper()
+
+	objectCap := scaleTestMaxObjects
+	if v := os.Getenv("KOLECT_SCALE_TEST_MAX"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= scaleTestMaxObjects || n > scaleTestMaxExtended {
+			t.Fatalf("KOLECT_SCALE_TEST_MAX must be %d..%d: %q",
+				scaleTestMaxObjects+1, scaleTestMaxExtended, v)
+		}
+		objectCap = n
+	}
+
+	return objectCap
+}
 
 func TestStore_Scale500(t *testing.T) {
 	t.Parallel()
@@ -153,6 +169,98 @@ func TestEngine_ScaleEnvtest500(t *testing.T) {
 
 	t.Logf("engine collected %d deployments in %s (envtest cap=%d)",
 		scaleTestMaxObjects, time.Since(waitStart), scaleTestMaxObjects)
+}
+
+func TestEngine_ScaleEnvtestOptIn(t *testing.T) {
+	if os.Getenv("KOLECT_SCALE_TEST_MAX") == "" {
+		t.Skip("set KOLECT_SCALE_TEST_MAX=10000 for extended envtest scale (nightly)")
+	}
+
+	objectCap := scaleEnvtestObjectCap(t)
+	if objectCap <= scaleTestMaxObjects {
+		t.Skip("KOLECT_SCALE_TEST_MAX must exceed default CI cap")
+	}
+
+	if testing.Short() {
+		t.Skip("skipping extended envtest scale in short mode")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+
+	testEnv, cfg := startScaleEnvtest(t)
+	defer stopScaleEnvtest(t, testEnv)
+
+	if err := seedScaleNamespace(ctx, cfg); err != nil {
+		t.Fatalf("seed namespace: %v", err)
+	}
+
+	if err := createScaleDeployments(ctx, cfg, objectCap); err != nil {
+		t.Fatalf("create deployments: %v", err)
+	}
+
+	dyn, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		t.Fatalf("dynamic client: %v", err)
+	}
+
+	kube, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		t.Fatalf("kubernetes client: %v", err)
+	}
+
+	store := NewStore()
+	engine, err := NewEngine(dyn, kube, store, EngineConfig{
+		DispatchWorkers:   8,
+		DispatchQueueSize: 2048,
+	})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	runCtx, runCancel := context.WithCancel(ctx)
+	defer runCancel()
+	if err := engine.Start(runCtx); err != nil {
+		t.Fatalf("engine.Start: %v", err)
+	}
+
+	target := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "scale-target", Namespace: "scale-test"},
+		Spec:       kollectdevv1alpha1.KollectTargetSpec{ProfileRef: "scale-profile"},
+	}
+	profile := &kollectdevv1alpha1.KollectProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "scale-profile"},
+		Spec: kollectdevv1alpha1.KollectProfileSpec{
+			TargetGVK: kollectdevv1alpha1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+			Attributes: []kollectdevv1alpha1.AttributeSpec{
+				{Name: "name", Path: "{.metadata.name}"},
+				{Name: "replicas", Path: "{.spec.replicas}"},
+			},
+		},
+	}
+
+	if err := engine.RegisterTarget(ctx, target, profile, RegisterTargetOptions{}); err != nil {
+		t.Fatalf("RegisterTarget: %v", err)
+	}
+
+	deadline := time.Now().Add(19 * time.Minute)
+	waitStart := time.Now()
+	for store.TotalCount() < objectCap {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out after %s with %d/%d items", time.Since(waitStart), store.TotalCount(), objectCap)
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("context cancelled with %d/%d items", store.TotalCount(), objectCap)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+
+	if got := engine.ItemCount("scale-test", "scale-target"); got != objectCap {
+		t.Fatalf("ItemCount = %d, want %d", got, objectCap)
+	}
+
+	t.Logf("engine collected %d deployments in %s (opt-in cap=%d)", objectCap, time.Since(waitStart), objectCap)
 }
 
 func startScaleEnvtest(t *testing.T) (*envtest.Environment, *rest.Config) {

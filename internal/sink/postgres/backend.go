@@ -5,7 +5,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -101,38 +100,8 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	for _, item := range items {
-		itemJSON, err := json.Marshal(item)
-		if err != nil {
-			return fmt.Errorf("postgres export: marshal item: %w", err)
-		}
-
-		resourceNS := item.Namespace
-		if resourceNS == "" {
-			resourceNS = invNS
-		}
-
-		_, err = tx.Exec(ctx, fmt.Sprintf(`
-INSERT INTO %s (
-  inventory_namespace, inventory_name, target_name, source_uid,
-  cluster, resource_namespace, payload, exported_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
-ON CONFLICT (inventory_namespace, inventory_name, target_name, source_uid)
-DO UPDATE SET payload = EXCLUDED.payload, exported_at = EXCLUDED.exported_at,
-  cluster = EXCLUDED.cluster, resource_namespace = EXCLUDED.resource_namespace
-`, qualifiedTable),
-			invNS,
-			invName,
-			item.TargetName,
-			item.UID,
-			b.cfg.Cluster,
-			resourceNS,
-			string(itemJSON),
-			exportedAt,
-		)
-		if err != nil {
-			return fmt.Errorf("postgres upsert: %w", err)
-		}
+	if err := b.upsertItems(ctx, tx, qualifiedTable, invNS, invName, b.cfg.Cluster, items, exportedAt); err != nil {
+		return err
 	}
 
 	if err := deleteStaleRows(ctx, tx, qualifiedTable, invNS, invName, b.cfg.Cluster, items); err != nil {
