@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **e2e:** Drop removed inventory sinkRefs field [48af9c4](https://github.com/konih/kollect/commit/48af9c4924c150bea36694dac1f691f3b7a88d82)
+
 - **e2e:** Validate collection via inventory HTTP [ca816a0](https://github.com/konih/kollect/commit/ca816a072b89326d0bc6c6a6dae5f4d2f0ec8159)
 
 - **e2e,test:** Stabilize smoke bootstrap and debounce IT [3677bb5](https://github.com/konih/kollect/commit/3677bb5dc2b1685def8a7aec05f066604e18985c)
