@@ -11,21 +11,37 @@ import (
 	"strings"
 )
 
-func gitInWorkdir(ctx context.Context, workdir string, args ...string) *exec.Cmd {
-	argv := make([]string, 0, 2+len(args))
-	argv = append(argv, "git", "-C", workdir)
+func gitInWorkdir(ctx context.Context, workdir string, cli *cliEnv, args ...string) *exec.Cmd {
+	argv := make([]string, 0, 4+len(args))
+	argv = append(argv, "git")
+	if cli != nil {
+		argv = append(argv, cli.prependGitArgs("-C", workdir)...)
+	} else {
+		argv = append(argv, "-C", workdir)
+	}
 	argv = append(argv, args...)
 	//nolint:gosec // G204: workdir validated by validateGitWorkdir before call
-	return exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	applyCLIEnv(cmd, cli)
+
+	return cmd
 }
 
-func gitCloneCmd(ctx context.Context, args ...string) *exec.Cmd {
-	argv := append([]string{"git", "clone"}, args...)
+func gitCloneCmd(ctx context.Context, cli *cliEnv, args ...string) *exec.Cmd {
+	cloneArgs := args
+	if cli != nil {
+		cloneArgs = cli.prependGitArgs(args...)
+	}
+
+	argv := append([]string{"git", "clone"}, cloneArgs...)
 	//nolint:gosec // G204: cloneURL, workdir, and branch validated before call
-	return exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	applyCLIEnv(cmd, cli)
+
+	return cmd
 }
 
-func gitClone(ctx context.Context, workdir, cloneURL, branch string, depth int) (cloned bool, err error) {
+func gitClone(ctx context.Context, workdir, cloneURL, branch string, depth int, cli *cliEnv) (cloned bool, err error) {
 	if validateErr := ValidateGitRef(branch); validateErr != nil {
 		return false, fmt.Errorf("git export: invalid branch: %w", validateErr)
 	}
@@ -40,14 +56,31 @@ func gitClone(ctx context.Context, workdir, cloneURL, branch string, depth int) 
 		return false, fmt.Errorf("git export: %w", err)
 	}
 
-	var cmd *exec.Cmd
+	var cloneArgs []string
 	if depth > 0 {
-		cmd = gitCloneCmd(ctx, "--branch", branch, "--single-branch", "--depth", strconv.Itoa(depth), "--", safeURL, workdir)
+		cloneArgs = []string{"--branch", branch, "--single-branch", "--depth", strconv.Itoa(depth), "--", safeURL, workdir}
 	} else {
-		cmd = gitCloneCmd(ctx, "--branch", branch, "--single-branch", "--", safeURL, workdir)
+		cloneArgs = []string{"--branch", branch, "--single-branch", "--", safeURL, workdir}
 	}
 
-	out, err := cmd.CombinedOutput()
+	var out []byte
+	retryErr := withTransportRetry(ctx, defaultTransportRetry(), func() error {
+		cmd := gitCloneCmd(ctx, cli, cloneArgs...)
+		out, err = cmd.CombinedOutput()
+		if err == nil {
+			return nil
+		}
+
+		if isCLIEmptyRemote(string(out), err) {
+			return nil
+		}
+
+		return fmt.Errorf("git clone: %s: %w", strings.TrimSpace(string(out)), err)
+	})
+	if retryErr != nil {
+		return false, retryErr
+	}
+
 	if err == nil {
 		return true, nil
 	}
@@ -59,17 +92,17 @@ func gitClone(ctx context.Context, workdir, cloneURL, branch string, depth int) 
 	return false, fmt.Errorf("git clone: %s: %w", strings.TrimSpace(string(out)), err)
 }
 
-func gitInit(ctx context.Context, workdir string) error {
+func gitInit(ctx context.Context, workdir string, cli *cliEnv) error {
 	workdir, err := validateGitWorkdir(workdir)
 	if err != nil {
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir, "init")
+	cmd := gitInWorkdir(ctx, workdir, cli, "init")
 	return runGitOutput(cmd, "init")
 }
 
-func gitCheckoutNewBranch(ctx context.Context, workdir, branch string) error {
+func gitCheckoutNewBranch(ctx context.Context, workdir, branch string, cli *cliEnv) error {
 	if err := ValidateGitRef(branch); err != nil {
 		return fmt.Errorf("git export: invalid branch: %w", err)
 	}
@@ -79,11 +112,11 @@ func gitCheckoutNewBranch(ctx context.Context, workdir, branch string) error {
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir, "checkout", "-B", branch)
+	cmd := gitInWorkdir(ctx, workdir, cli, "checkout", "-B", branch)
 	return runGitOutput(cmd, "checkout -B "+branch)
 }
 
-func gitRemoteAddOrigin(ctx context.Context, workdir, cloneURL string) error {
+func gitRemoteAddOrigin(ctx context.Context, workdir, cloneURL string, cli *cliEnv) error {
 	safeURL, err := canonicalCloneURL(cloneURL)
 	if err != nil {
 		return fmt.Errorf("git export: %w", err)
@@ -94,11 +127,11 @@ func gitRemoteAddOrigin(ctx context.Context, workdir, cloneURL string) error {
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir, "remote", "add", "origin", safeURL)
+	cmd := gitInWorkdir(ctx, workdir, cli, "remote", "add", "origin", safeURL)
 	return runGitOutput(cmd, "remote add origin")
 }
 
-func gitAddPath(ctx context.Context, workdir, objectPath string) error {
+func gitAddPath(ctx context.Context, workdir, objectPath string, cli *cliEnv) error {
 	validatedPath, err := validateObjectPath(objectPath)
 	if err != nil {
 		return fmt.Errorf("git export: %w", err)
@@ -109,21 +142,21 @@ func gitAddPath(ctx context.Context, workdir, objectPath string) error {
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir, "add", validatedPath)
+	cmd := gitInWorkdir(ctx, workdir, cli, "add", validatedPath)
 	return runGitOutput(cmd, "add "+validatedPath)
 }
 
-func gitAddAll(ctx context.Context, workdir string) error {
+func gitAddAll(ctx context.Context, workdir string, cli *cliEnv) error {
 	workdir, err := validateGitWorkdir(workdir)
 	if err != nil {
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir, "add", "-A")
+	cmd := gitInWorkdir(ctx, workdir, cli, "add", "-A")
 	return runGitOutput(cmd, "add -A")
 }
 
-func gitCommit(ctx context.Context, workdir, authorName, authorEmail, message string) error {
+func gitCommit(ctx context.Context, workdir, authorName, authorEmail, message string, cli *cliEnv) error {
 	if err := validateGitConfigValue(authorName); err != nil {
 		return fmt.Errorf("git export: invalid author name: %w", err)
 	}
@@ -141,7 +174,7 @@ func gitCommit(ctx context.Context, workdir, authorName, authorEmail, message st
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir,
+	cmd := gitInWorkdir(ctx, workdir, cli,
 		"-c", "user.name="+authorName,
 		"-c", "user.email="+authorEmail,
 		"commit", "-m", message,
@@ -149,7 +182,7 @@ func gitCommit(ctx context.Context, workdir, authorName, authorEmail, message st
 	return runGitOutput(cmd, "commit")
 }
 
-func gitPushOrigin(ctx context.Context, workdir string, force bool, branch string) error {
+func gitPushOrigin(ctx context.Context, workdir string, force bool, branch string, cli *cliEnv) error {
 	if err := ValidateGitRef(branch); err != nil {
 		return fmt.Errorf("git export: invalid branch: %w", err)
 	}
@@ -161,21 +194,35 @@ func gitPushOrigin(ctx context.Context, workdir string, force bool, branch strin
 
 	var cmd *exec.Cmd
 	if force {
-		cmd = gitInWorkdir(ctx, workdir, "push", "--force", "-u", "origin", branch)
+		cmd = gitInWorkdir(ctx, workdir, cli, "push", "--force", "-u", "origin", branch)
 	} else {
-		cmd = gitInWorkdir(ctx, workdir, "push", "-u", "origin", branch)
+		cmd = gitInWorkdir(ctx, workdir, cli, "push", "-u", "origin", branch)
 	}
 
 	return runGitOutput(cmd, "push")
 }
 
-func gitStatusPorcelain(ctx context.Context, workdir string) (string, error) {
+func gitPullRebase(ctx context.Context, workdir string, branch string, cli *cliEnv) error {
+	if err := ValidateGitRef(branch); err != nil {
+		return fmt.Errorf("git export: invalid branch: %w", err)
+	}
+
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "pull", "--rebase", "origin", branch)
+	return runGitOutput(cmd, "pull --rebase")
+}
+
+func gitStatusPorcelain(ctx context.Context, workdir string, cli *cliEnv) (string, error) {
 	workdir, err := validateGitWorkdir(workdir)
 	if err != nil {
 		return "", fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir, "status", "--porcelain")
+	cmd := gitInWorkdir(ctx, workdir, cli, "status", "--porcelain")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("git status: %s: %w", strings.TrimSpace(string(out)), err)

@@ -6,7 +6,9 @@
 package git
 
 import (
+	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -115,4 +117,86 @@ func sshAuth(auth Auth, endpointUser string, sshCfg SSHConfig) (transport.AuthMe
 	}
 
 	return sshAuthMethod(user, auth.SSHPrivateKey, sshCfg)
+}
+
+func buildAuthMethodWithForce(
+	cloneURL string,
+	auth Auth,
+	authType AuthType,
+	sshCfg SSHConfig,
+	useForceBasicAuth bool,
+) (transport.AuthMethod, error) {
+	method, err := buildAuthMethod(cloneURL, auth, authType, sshCfg)
+	if err != nil || !useForceBasicAuth {
+		return method, err
+	}
+
+	u, err := url.Parse(cloneURL)
+	if err != nil {
+		return nil, err
+	}
+
+	if u.Scheme != schemeHTTP && u.Scheme != schemeHTTPS {
+		return method, nil
+	}
+
+	header, err := basicAuthHeader(auth)
+	if err != nil {
+		return nil, err
+	}
+
+	if header == "" {
+		return method, nil
+	}
+
+	return &forceBasicAuthMethod{header: header}, nil
+}
+
+func basicAuthHeader(auth Auth) (string, error) {
+	user := auth.Username
+	pass := auth.Token
+	if pass == "" {
+		pass = auth.Password
+	}
+
+	if pass == "" && user == "" {
+		return "", nil
+	}
+
+	if user == "" {
+		if auth.Token != "" {
+			user = githubAccessTokenUser
+		} else {
+			user = defaultGitUser
+		}
+	}
+
+	creds := base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
+
+	return "Authorization: Basic " + creds, nil
+}
+
+type forceBasicAuthMethod struct {
+	header string
+}
+
+func (a *forceBasicAuthMethod) Name() string {
+	return "force-basic-auth"
+}
+
+func (a *forceBasicAuthMethod) String() string {
+	return a.Name()
+}
+
+func (a *forceBasicAuthMethod) SetAuth(req *http.Request) {
+	if req == nil || a.header == "" {
+		return
+	}
+
+	parts := strings.SplitN(a.header, ":", 2)
+	if len(parts) != 2 {
+		return
+	}
+
+	req.Header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
 }
