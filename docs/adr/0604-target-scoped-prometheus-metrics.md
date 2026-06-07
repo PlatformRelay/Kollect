@@ -189,7 +189,7 @@ Existing hub counters remain Tier A/B hybrid ([operator manual](../operator-manu
 | Target labels | One series per **CR** (`target_namespace` + `target_name`), not per collected object |
 | Domain attribute labels | Webhook: max 5 label keys per `MetricSpec`; reject `name`/`namespace` unless allow-listed |
 | Operator budget | Document **soft cap** 10k active series per operator instance at baseline tier ([ADR-0603](0603-performance-scalability.md)); split profiles or reduce targets when exceeded |
-| HA | Only the **leader** pod runs collection reconcilers ([ADR-0504](0504-operator-runtime-modes-ha-leader-election.md)) — `/metrics` on non-leader replicas expose Tier A only (controller-runtime defaults) unless documented otherwise |
+| HA | Only the **leader** pod runs collection reconcilers ([ADR-0504](0706-testing-merge-gate-architecture.md)) — `/metrics` on non-leader replicas expose Tier A only (controller-runtime defaults) unless documented otherwise |
 | Hub mode | Hub consumer pods may expose hub Tier A metrics on all replicas; collection Tier B/C absent on hub-only installs |
 
 Add a `kollect_metrics_series_estimated` internal gauge (optional implementation detail) for

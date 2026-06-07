@@ -164,7 +164,7 @@ validators when adding git-related fields; do not bypass with `#nosec` without a
 
 Sink and doc endpoints must use **verified TLS** with org CA support (`caBundle` / `caSecretRef`).
 Hub HTTP ingest listens in plain HTTP inside the pod — **terminate TLS at the ingress or service
-mesh** before traffic reaches the operator ([ADR-0503](../adr/0503-hub-cluster-auth-istio-pattern.md)).
+mesh** before traffic reaches the operator (ADR-0503).
 
 ## Commits
 

@@ -101,8 +101,7 @@ bumping versions. Common upgrade touchpoints:
 | Area | Check |
 | --- | --- |
 | `tenantMode` / `watchNamespaces` | RBAC shape changes require reconciling Role vs ClusterRole |
-| `mode: hub` / `spoke` | Hub ingest transport still defaults to `inprocess` pre-GA ([ADR-0502](../adr/0502-lean-queue-transport.md)) |
-| `featureGates.*` | New gates default off; dev overlays may differ from production values |
+| `| `featureGates.*` | New gates default off; dev overlays may differ from production values |
 | `webhooks.certManager.create` | Clusters without cert-manager need the self-signed bootstrap path |
 
 !!! info "Export debouncing"
@@ -142,7 +141,7 @@ kubectl get kollectinventories.kollect.dev -A
 ```
 
 Check `Ready` conditions on sample `KollectInventory` objects and sink export timestamps. For hub
-installs, confirm ingest health on hub replicas ([ADR-0504](../adr/0504-operator-runtime-modes-ha-leader-election.md)).
+installs, confirm ingest health on hub replicas (ADR-0504).
 
 ## See also
 

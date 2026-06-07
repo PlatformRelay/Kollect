@@ -1,6 +1,6 @@
 # ADR-0414: Sink family CRDs (clean break, pre-GA)
 
-**Status:** Current · **Date:** 2026-06-06 · **Supersedes:** [RFC: sink family CRDs](../rfc/sink-family-crds.md)
+**Status:** Current · **Supersedes:** [RFC: sink family CRDs](../rfc/sink-family-crds.md)
 
 ## Decision
 
@@ -64,10 +64,7 @@ conversion story; that is explicitly out of scope for v1alpha1.
 - **Stubs:** `azureblob`, `http`, `bigquery` — valid CRD apply + webhook pass; registry returns error
   until backend ships.
 
-## Evolution
-
-Promoted from [RFC: sink family CRDs](../rfc/sink-family-crds.md) (2026-06-06). Original RFC assumed
-a v1beta1 dual-support window; user direction locked a **pre-GA clean break** instead.
+Promoted from [RFC: sink family CRDs](../rfc/sink-family-crds.md). Pre-GA clean break — no dual-write window.
 
 ## References
 

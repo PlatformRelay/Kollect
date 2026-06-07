@@ -2,7 +2,7 @@
 
 > Postgres (queryable state of record) and Kafka (event stream) backends, and how to test them.
 
-**Theme:** 04 · Export & sinks · **Status:** Current · **Evolution:** reframed by
+**Theme:** 04 · Export & sinks · **Status:** Current
 [ADR-0401](0401-sink-taxonomy-state-vs-stream.md) — Postgres and Kafka are **not** co-equal primaries
 (state store vs event emitter); Postgres needs delete reconciliation; NATS is the lean event default;
 an S3/GCS Parquet snapshot sink is added.
@@ -92,7 +92,7 @@ flowchart LR
 
 ### Positive
 
-- Fits team Kafka usage without overloading hub transport ([ADR-0502](0502-lean-queue-transport.md)).
+- Fits team Kafka usage without overloading hub transport ([ADR-0502](0402-sink-backends-database-kafka.md)).
 - SQL backends enable portal queries without cloning Git repos.
 - Clear separation from rejected doc-sync ([ADR-0702](0702-doc-sync-templating.md)).
 
@@ -109,14 +109,14 @@ flowchart LR
 - **`kollect_export_duration_seconds`** default histogram buckets (seconds):
   `.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10` — override via manager flag if load tests require.
 - **Export debounce:** **`KollectInventory.spec.exportMinInterval`** — default **30s**; material-change
-  bypass ([ADR-0703](0703-platform-architecture-pivot.md)).
+  bypass ([ADR-0201](0201-crd-model.md)).
 - **Connection test GC:** **`KollectConnectionTest.spec.ttlSecondsAfterFinished`** — default **300**.
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** **Skip SQLite** — Postgres testcontainers sufficient for dev/CI.
-- **RESOLVED (2026-06-05):** Kafka key includes **`cluster`** prefix when hub merge is active.
-- **RESOLVED (2026-06-05):** Postgres upsert PK
+- **RESOLVED :** **Skip SQLite** — Postgres testcontainers sufficient for dev/CI.
+- **RESOLVED :** Kafka key includes **`cluster`** prefix when hub merge is active.
+- **RESOLVED :** Postgres upsert PK
   **`(inventory_namespace, inventory_name, target_name, source_uid)`**.
 
 ## See also

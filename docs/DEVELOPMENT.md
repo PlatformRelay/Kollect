@@ -167,7 +167,7 @@ Helm values: `charts/kollect/ci/e2e-tenant-values.yaml`. Kubernetes version is p
 Hub spoke ingest validates **`TokenReview`** then **`SubjectAccessReview`** (non-resource `POST`
 `/hub/v1alpha1/reports`, or `create` on `kollectremoteclusters`). Spokes send
 `Authorization: Bearer` plus `X-Kollect-Cluster-Id`. See
-[ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md).
+ADR-0503.
 
 ### Generate Istio-style remote credential secrets
 
@@ -180,8 +180,7 @@ hack/create-remote-secret.sh --cluster spoke-a --api-server https://spoke-a.exam
 ```
 
 Omitted `--token` / `--ca-file` emit placeholders; pipe to `kubectl apply -f -` after editing or
-substituting real spoke credentials. Pair with `KollectRemoteCluster.spec.credentialsSecretRef`.
-
+substituting real spoke credentials. Pair with `
 Build the helper binary:
 
 ```sh

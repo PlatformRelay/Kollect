@@ -3,7 +3,7 @@
 This page summarizes **locked platform decisions** from the architecture review of 2026-06-05. It is
 the concise reference for **operators**, **contributors**, and **architects** evaluating or building
 Kollect. For the full decision log and reasoning, see
-[ADR-0703: Platform architecture pivot](adr/0703-platform-architecture-pivot.md).
+[ADR-0201: Platform architecture pivot](adr/0201-crd-model.md).
 
 !!! warning "Pre-beta API"
     The public API is **`v1alpha1`** and may change without notice while the project is pre-beta.
@@ -36,8 +36,7 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 - **MVP:** collect → aggregate → export to **Postgres or Kafka** for portals/scale; **Git** is the
   recommended sink for **small single-cluster** installs without a database or Kafka broker.
 - **HTTP inventory:** optional debug (`featureGates.inventoryHttp.enabled: false`); **not** MVP; hub read path uses merged store later.
-- **No `KollectHub` CRD** — `mode: hub|spoke` + Helm values + `internal/hub/` library.
-- **`KollectConnectionTest` CR** — implement (supersedes ADR-0403 rejection).
+- **No `KollectHub` CRD** — `- **`KollectConnectionTest` CR** — implement (supersedes ADR-0403 rejection).
 - **Shared informer per GVK** — one cache per GVK, Targets filter in reconcile.
 - **Watch labels** — support `All` and `OptIn`; platform central + per-resource `kollect.dev/watch: disabled`.
 - **Transport:** `inprocess` only default.
@@ -51,8 +50,7 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 4. `KollectConnectionTest` CR + keep Sink annotation/spec probes
 5. Export **debouncing** — per sink ref via `exportMinInterval` precedence ([ADR-0413](adr/0413-export-interval-scheduling.md)); inventory default **30s**
 6. Argo **`Application`** sample + **contract test** (contract test **first**; then samples)
-7. Hub `mode: hub|spoke` + merge lib (`inprocess`); no hub CRD
-8. **`KollectClusterTarget`** — API + webhook only until namespaced MVP proven; controller later
+7. Hub `8. **`KollectClusterTarget`** — API + webhook only until namespaced MVP proven; controller later
 9. **Secondary watches** — Profile → Targets, family Sink → Inventories (beta requirement)
 10. **Generic CRD sample** — `cert-manager.io/Certificate` + contract test
 11. **GitLab sink** — Phase 2 (custom CA via `tls.caSecretRef`; first enterprise presentation path)
@@ -149,14 +147,13 @@ the corresponding code merges.
 | JSONPath filter validation | Webhook **warn** only; **reject** unsupported filters | 1 warn / 2 reject |
 | CEL prefix | Webhook **requires** **`cel:`** prefix on CEL expressions | 1 |
 
-#### Hub and transport ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md), [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md))
+#### Hub and transport ([ADR-0501](adr/0501-multi-cluster-fleet.md), ADR-0503)
 
 | Topic | Default | Phase |
 | --- | --- | --- |
 | Hub pull vs push | **Push default**; pull via `credentialsSecretRef` optional | 2 |
 | Delivery semantics | **At-least-once**; idempotent merge on **`(cluster, ns, name, uid)`** | 2 |
-| Spoke binary | **Same image**, **`mode: spoke`** — no split binary until size proof | 2 |
-| Max spoke payload inline | **512 KiB** summarized JSON; larger → **`payloadRef`** object store | 2 spike |
+| Spoke binary | **Same image**, **`| Max spoke payload inline | **512 KiB** summarized JSON; larger → **`payloadRef`** object store | 2 spike |
 | Hub shard routing | **`hash(clusterName) % shardCount`** via **Helm values / env** — **no `KollectHub` CRD** | 2 |
 | Git `clusters/*` monorepo | Sufficient for **≤100** spokes; object-store spill beyond | 2+ |
 
@@ -221,17 +218,15 @@ flowchart TD
 | `KollectInventory` | Namespace | Aggregates namespaced targets in namespace |
 | `KollectScope` | Namespace | Webhook + reconciler enforcement |
 | `KollectConnectionTest` | Namespace | One-shot / CI connectivity probes |
-| `KollectClusterTarget` | **Cluster** | Platform cross-namespace collection — `namespaceSelector` + cluster profile ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| `KollectClusterTarget` | **Cluster** | Platform cross-namespace collection — `namespaceSelector` + cluster profile ([ADR-0201](adr/0201-crd-model.md)) |
 | `KollectClusterProfile` | Cluster | Platform-shared extraction schemas |
 | `KollectClusterSink` | Cluster | Shared export backends (later) |
 | `KollectClusterInventory` | Cluster | Rollup for cluster targets (later) |
 | `KollectClusterScope` | Cluster | Reserved — platform policy |
-| `KollectHub` | — | **Removed** — use Helm `mode: hub`; no controller on roadmap |
-| `KollectPublication` | — | **Rejected** — external CI |
+| `KollectHub` | — | **Removed** — use Helm `| `KollectPublication` | — | **Rejected** — external CI |
 | `KollectReceiver` | — | Reserved — webhook trigger (future) |
 | `KollectTargetSet` | — | Reserved — generator pattern (future) |
-| `KollectRemoteCluster` | Namespace (hub) | Spoke registration; push auth [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) |
-
+| `
 ### Reserved CRDs — what they mean
 
 **Reserved** kinds are **design placeholders**, not promises to ship soon:
@@ -245,8 +240,7 @@ flowchart TD
 | `KollectClusterScope` | Cluster-wide policy when namespaced Scope is too weak | Phase 1 namespaced Scope first |
 | `KollectReceiver` | Inbound webhook → trigger export (Flux Receiver) | No webhook trigger requirement yet |
 | `KollectTargetSet` | Generate many Targets (ApplicationSet) | Manual Targets OK for MVP |
-| ~~`KollectHub`~~ | Was: CRD spawns hub Deployment | **Removed** — Helm `mode: hub` only; remove from roadmap controllers |
-| ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0702](adr/0702-doc-sync-templating.md) |
+| ~~`KollectHub`~~ | Was: CRD spawns hub Deployment | **Removed** — Helm `| ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0702](adr/0702-doc-sync-templating.md) |
 
 Do not add controllers or document samples for reserved kinds unless an ADR promotes them.
 
@@ -307,8 +301,8 @@ The **hub is an optional tier**, used only for:
 - **credential centralization** (one DB/broker cred at hub vs N spokes)
 - **schema decoupling** (spokes speak report schema; hub owns DB schema)
 
-Hub auth (when used): [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) push-first, SAR `create`
-on `kollectremoteclusters`. Transport unified with the event sink ([ADR-0502](adr/0502-lean-queue-transport.md)).
+Hub auth (when used): ADR-0503 push-first, SAR `create`
+on `kollectremoteclusters`. Transport unified with the event sink (ADR-0502).
 
 ---
 
@@ -325,7 +319,7 @@ on `kollectremoteclusters`. Transport unified with the event sink ([ADR-0502](ad
 - **`KollectConnectionTest` CR** — primary for audited/CI/composite probes
 - **`spec.ttlSecondsAfterFinished`** — default **300s**; delete CR after probe completes
 - Sink `connectionTest: false` in prod; annotation for quick sink-only retest
-- See [ADR-0703](adr/0703-platform-architecture-pivot.md) (amends [ADR-0403](adr/0403-connection-test.md))
+- See [ADR-0201](adr/0201-crd-model.md) (amends [ADR-0403](adr/0403-connection-test.md))
 
 ---
 
@@ -333,7 +327,7 @@ on `kollectremoteclusters`. Transport unified with the event sink ([ADR-0502](ad
 
 | Topic | ADR |
 | --- | --- |
-| Hub federated mTLS behind external LB | **Deferred** — [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) |
+| Hub federated mTLS behind external LB | **Deferred** — ADR-0503 |
 
 ---
 

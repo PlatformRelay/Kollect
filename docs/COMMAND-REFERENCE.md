@@ -24,8 +24,7 @@ Kollect CRDs register short names for faster typing ([CR-REFERENCE.md](CR-REFERE
 | `KollectClusterProfile` | `kcprof` | `kubectl get kcprof` |
 | `KollectClusterTarget` | `kctgt` | `kubectl get kctgt` |
 | `KollectClusterInventory` | `kcinv` | `kubectl get kcinv` |
-| `KollectRemoteCluster` | `kremote` | `kubectl get kremote -n kollect-system` |
-
+| `
 ### Pipeline status
 
 ```sh

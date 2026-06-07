@@ -11,7 +11,7 @@ Kollect ships a growing CRD surface (`KollectProfile`, `KollectTarget`, `Kollect
 `KollectScope`, cluster-scoped variants, `KollectConnectionTest` — [ADR-0201](0201-crd-model.md),
 [ADR-0203](0203-namespaced-multi-tenancy.md)). All are `v1alpha1` today with a single served/stored
 version and **no conversion webhook**. We have a stated break-freely posture for pre-beta
-([ADR-0703](0703-platform-architecture-pivot.md)) but no recorded plan for how and when the API
+([ADR-0201](0201-crd-model.md)) but no recorded plan for how and when the API
 stabilizes, how breaking changes are signaled, and how conversion will work. This ADR makes the policy
 explicit and marks the open decisions.
 
@@ -26,7 +26,7 @@ While on `v1alpha1` and **before any beta tag**:
   already requires migration (per `AGENTS.md` commit policy) — but they **must** be called out in
   `CHANGELOG.md` and release notes.
 - `v1alpha1` is the single served and **storage** version; codegen drift (CRDs, deepcopy) is gated by
-  `task verify` ([ADR-0703](0703-platform-architecture-pivot.md)).
+  `task verify` ([ADR-0201](0201-crd-model.md)).
 
 ### Validation is webhook-first
 
@@ -53,8 +53,7 @@ CRD API versions. Consumers (portals, SQL, Kafka subscribers, Read API) branch o
 | Surface | Versioning today | Pre-beta target |
 | --- | --- | --- |
 | CRD schemas (`v1alpha1`) | Break freely until **v0.10 presentation gate** | `v1beta1` + conversion webhook |
-| Wire envelopes (hub/spoke/Kafka) | `schemaVersion: kollect.dev/v1alpha1` — **shipped** | Bump only on breaking contract changes |
-| Sink JSON + Read API | Bare `[]Item` / `NamespaceSummary` — **no envelope yet** | Versioned envelope per ADR-0405 milestone |
+| Wire envelopes (| Sink JSON + Read API | Bare `[]Item` / `NamespaceSummary` — **no envelope yet** | Versioned envelope per ADR-0405 milestone |
 | Read API routes | `/v1alpha1/…` path prefix ([ADR-0408](0408-read-api-ui-architecture.md)) | Stable OpenAPI; response body carries `schemaVersion` |
 
 Read API work ([ADR-0408](0408-read-api-ui-architecture.md)) must return the same envelope contract
@@ -72,9 +71,8 @@ payload semantics.
 
 ## Open questions
 
-- **DECIDED (2026-06-07):** Cut `v1beta1` at the **v0.10 presentation gate** milestone (revised from v0.1.0).
-- **PARTIAL (2026-06-05):** Wire envelopes (hub/spoke/Kafka) carry **`schemaVersion`**; sink JSON and
-  Read API responses still pending the ADR-0405 pre-beta milestone.
+- **DECIDED :** Cut `v1beta1` at the **v0.10 presentation gate** milestone (revised from v0.1.0).
+- **PARTIAL :** Wire envelopes (  Read API responses still pending the ADR-0405 pre-beta milestone.
 - **OPEN:** Conversion approach: controller-runtime hub-spoke conversion vs none-with-storage-migration?
 - **OPEN:** Do `status` subresource fields carry their own compatibility guarantees, or follow spec
   versioning? (Leaning: follow spec versioning.)

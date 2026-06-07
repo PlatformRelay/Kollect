@@ -13,8 +13,7 @@ controller-runtime structured logging. Reconcile paths span multiple subsystems:
 
 | Subsystem | Entry points | External I/O |
 | --- | --- | --- |
-| **Reconcile** | `KollectTarget`, `KollectInventory`, `KollectClusterTarget`, `KollectClusterInventory`, `KollectConnectionTest`, `KollectRemoteCluster` | Kubernetes API (status patches, SAR) |
-| **Collect** | Dynamic informer callbacks → `internal/collect/engine.go` | API server list/watch (via informer) |
+| **Reconcile** | `KollectTarget`, `KollectInventory`, `KollectClusterTarget`, `KollectClusterInventory`, `KollectConnectionTest`, `| **Collect** | Dynamic informer callbacks → `internal/collect/engine.go` | API server list/watch (via informer) |
 | **Export** | Inventory / cluster-inventory reconcilers → `internal/export`, `internal/sink` | Git, S3/GCS, Postgres, Kafka, NATS |
 | **Hub ingest** | `internal/hub/ingest.go` HTTP handler, `internal/hub/consumer.go` transport subscriber | Queue / HTTP push from spokes |
 
@@ -57,7 +56,7 @@ ship.
 - **Exporter:** OTLP over gRPC (primary) and HTTP/protobuf (fallback) — standard
   `OTEL_EXPORTER_OTLP_*` env vars supported.
 - **Resource attributes:** `service.name`, `service.version` (image tag / `--version`), `k8s.pod.name`,
-  `k8s.namespace.name`, `kollect.mode` (`single` | `hub` | `spoke` from [ADR-0504](0504-operator-runtime-modes-ha-leader-election.md)).
+  `k8s.namespace.name`, `kollect.mode` (`single` | `hub` | `spoke` from [ADR-0504](0706-testing-merge-gate-architecture.md)).
 - **Idempotent setup:** `internal/telemetry/tracer.go` (new package) initializes once from
   `Manager` setup in `cmd/main.go`; noop tracer when disabled (zero overhead on hot path aside from
   one atomic check).
@@ -120,7 +119,7 @@ open for Phase 2.
   when span context present — not required for v1 ship.
 - **Hub / spoke:** propagate `traceparent` on spoke **HTTP push** to hub ingest when both sides have
   tracing enabled (optional v1.1); queue transport may carry trace context in message headers per
-  [ADR-0502](0502-lean-queue-transport.md) extension.
+  [ADR-0502](0402-sink-backends-database-kafka.md) extension.
 
 ### 7. kollect-lab validation story
 
@@ -132,8 +131,7 @@ the default chart:
 2. Install kollect with `tracing.enabled=true` and endpoint pointing at the collector.
 3. Apply sample targets/inventories (`config/samples/` or wide-scope demo).
 4. **Assert:** at least one `kollect.reconcile` span per controller kind, one `kollect.collect.refresh`
-   after object churn, one `kollect.export` on inventory export, and hub spans when `mode: hub` /
-   spoke push is exercised.
+   after object churn, one `kollect.export` on inventory export, and hub spans when `   spoke push is exercised.
 5. **Regression gate:** optional `KOLECT_TRACING_SMOKE=1` integration test in repo (skipped in default
    CI) mirroring kollect-lab — aligns with [ADR-0706](0706-testing-merge-gate-architecture.md) opt-in
    tier.
@@ -168,7 +166,7 @@ implementation lands — keep collector manifests under `config/telemetry/` or `
 ## Open questions
 
 - **Tail sampling:** adopt collector-side tail sampling for error-only retention vs in-process hooks?
-- **Trace propagation on NATS/Kafka** ([ADR-0502](0502-lean-queue-transport.md)): header schema and
+- **Trace propagation on NATS/Kafka** ([ADR-0502](0402-sink-backends-database-kafka.md)): header schema and
   compatibility with non-Go consumers.
 - **Leader election:** only leader emits collect/reconcile traces — document gap on standby pods.
 - **UI / Read API:** expose trace IDs on failed export status for portal drill-down
@@ -182,7 +180,7 @@ implementation lands — keep collector manifests under `config/telemetry/` or `
 - [ADR-0601: Operator metrics — no Prometheus export sink](0601-prometheus-metrics-stub.md)
 - [ADR-0602: Error taxonomy and reconcile behavior](0602-error-taxonomy.md)
 - [ADR-0603: Performance and scalability](0603-performance-scalability.md)
-- [ADR-0502: Lean queue transport](0502-lean-queue-transport.md)
-- [ADR-0504: Operator runtime modes, HA, and leader election](0504-operator-runtime-modes-ha-leader-election.md)
+- [ADR-0502: Lean queue transport](0402-sink-backends-database-kafka.md)
+- [ADR-0504: Operator runtime modes, HA, and leader election](0706-testing-merge-gate-architecture.md)
 - [Kind local lab](../examples/kind-local-lab.md)
 - [ADR and RFC process](../development/adr-rfc-process.md)

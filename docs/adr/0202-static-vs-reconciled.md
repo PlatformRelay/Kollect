@@ -105,5 +105,5 @@ sequenceDiagram
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** No `KollectConnectionTest` CR — spec + annotation on Sink ([ADR-0403](0403-connection-test.md)).
+- **RESOLVED :** No `KollectConnectionTest` CR — spec + annotation on Sink ([ADR-0403](0403-connection-test.md)).
 - **OPEN:** Per-target profile override API shape — inline map vs `KollectProfilePatch` kind?

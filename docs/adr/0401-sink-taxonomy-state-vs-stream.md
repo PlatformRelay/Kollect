@@ -1,26 +1,23 @@
 # ADR-0401: Sink taxonomy — state stores vs event emitters
 
-> Sinks classified by role — snapshot store, relational SoR, event emitter. The snapshot is canonical;
-> the hub is an optional tier.
+> Sinks classified by role — snapshot store, relational SoR, event emitter. The in-memory snapshot is canonical.
 
 **Theme:** 04 · Export & sinks · **Status:** Current
 
 ## Context
 
-Earlier ADRs listed Postgres and Kafka as co-equal "primary sinks"
-([ADR-0402](0402-sink-backends-database-kafka.md)) and positioned a **hub** merge tier as the
-multi-cluster answer ([ADR-0501](0501-multi-cluster-sync-rfc.md), [ADR-0502](0502-lean-queue-transport.md)).
-Critical review surfaced three problems:
+Postgres and Kafka serve different roles: Postgres answers *"what is deployed now?"* (queryable state);
+Kafka answers *"what changed?"* (event log). Listing them as co-equal "primary sinks"
+([ADR-0402](0402-sink-backends-database-kafka.md)) obscures that distinction.
 
-1. **Postgres and Kafka are not the same kind of thing.** Postgres answers *"what is deployed now?"*
-   (queryable state); Kafka answers *"what changed?"* (an event log whose consumer builds its own
-   view). Listing them side-by-side conflates a **destination** with a **pipe**.
-2. **The hub re-implements what the backend already does.** For a shared Postgres, the upsert primary
-   key `(cluster, ns, name, uid)` *is* the cross-cluster merge; for Kafka, partitioning *is* the
-   sharding. A separate hub merge library + transport + push-auth is redundant for these backends.
-3. **The current Postgres sink only upserts — it never deletes.** When a resource disappears its row
-   persists, so the inventory drifts stale. Delete reconciliation is the genuinely hard, shared work
-   — and snapshot-shaped sinks (Git/object store/HTTP) get deletes for free.
+Multi-cluster fan-in uses **direct shared-sink export** with `spec.cluster`
+([ADR-0501](0501-multi-cluster-fleet.md)) — no operator merge tier.
+
+Critical gaps addressed in this ADR:
+
+1. **Role clarity** — classify backends as snapshot store, relational SoR, or event emitter.
+2. **Postgres deletes** — upsert-only drifts when resources disappear; delete reconciliation is required.
+3. **Event emitters** — NATS JetStream (lean default) and Kafka (enterprise opt-in) share one abstraction.
 
 ## Decision
 
@@ -64,31 +61,19 @@ The Postgres sink must diff the current snapshot against the prior export per `(
 and **delete rows** for resources no longer present (or write a `deleted_at` tombstone). Upsert-only
 is a correctness bug.
 
-### 4. Event emit: NATS default, Kafka opt-in, unified with transport
+### 4. Event emit: NATS default, Kafka opt-in
 
-- **NATS JetStream** is the **lean default** event backbone — single binary, sub-ms, no JVM/ZooKeeper;
-  best fit for Kollect's low-volume, high-fan-out change events.
-- **Kafka (and Redpanda via the Kafka API)** is the **enterprise opt-in** — chosen when an org already
-  operates Kafka and wants its connector/schema-registry ecosystem. One `kafka` driver covers both.
-- The **Kafka sink (ADR-0402) and the hub transport (ADR-0502) collapse into one event-emitter
-  abstraction.** Because multi-cluster fan-in is now *direct to a shared sink* (see §5), a spoke
-  publishing to a shared NATS/Kafka subject **is** the fan-in — there is no separate transport.
+- **NATS JetStream** is the **lean default** event backbone — single binary, sub-ms latency.
+- **Kafka (and Redpanda via the Kafka API)** is the **enterprise opt-in** when an org already
+  operates Kafka connectors and schema registry.
+- Multi-cluster fan-in: each operator publishes to a **shared** NATS/Kafka destination with a
+  cluster label ([ADR-0501](0501-multi-cluster-fleet.md)).
 
-### 5. Hub demoted to an optional aggregation tier
+### 5. Multi-cluster = shared sink
 
-Direct **shared-sink fan-in** is the default multi-cluster topology: each operator exports to a shared
-backend with `spec.cluster` set; the backend's key/PK provides the merge.
-
-The **hub tier is opt-in**, justified only by constraints a shared backend cannot meet:
-
-| Use the hub when | Why |
-| --- | --- |
-| **Git is the multi-cluster SoR** | Direct Git fan-in = N commits per change (rejected anti-pattern); needs aggregation |
-| **Network isolation** | Spokes cannot reach a central DB/broker; one hub ingress is firewall/mTLS-friendly |
-| **Credential centralization** | One DB/broker credential at the hub vs N spokes holding write creds |
-| **Schema decoupling** | Spokes speak the stable report schema; hub owns DB schema/migrations |
-
-Otherwise, no hub. This supersedes the "hub is the multi-cluster answer" framing in ADR-0501/0023.
+Direct **shared-sink fan-in** is the fleet topology: each operator exports with `spec.cluster` set;
+Postgres PK, Git `pathTemplate`, or event subject provides merge semantics
+([ADR-0501](0501-multi-cluster-fleet.md)).
 
 ## Consequences
 
@@ -96,8 +81,8 @@ Otherwise, no hub. This supersedes the "hub is the multi-cluster answer" framing
 
 - Honest model: **state stores vs event emitters**, not redundant twin primaries.
 - Parquet snapshot gives queryable inventory with **no server** and **correct deletes**.
-- One event-emitter abstraction (NATS/Kafka) for both emit and optional hub fan-in — less surface.
-- Most multi-cluster installs need **no hub** and **no transport auth** (ADR-0503 becomes opt-in).
+- One event-emitter abstraction (NATS/Kafka) with clear fleet fan-in story.
+- Most multi-cluster installs use **shared sinks only** — no aggregation tier in the operator.
 
 ### Negative
 
@@ -106,19 +91,18 @@ Otherwise, no hub. This supersedes the "hub is the multi-cluster answer" framing
 - NATS is a new system for Kafka-only shops; mitigated by Kafka opt-in.
 - Sink enum gains `nats`; object-store sinks gain a `format: parquet` mode — codegen + webhook + tests.
 
-## Supersedes / amends
+## Related
 
-- [ADR-0402](0402-sink-backends-database-kafka.md) — sinks classified by role; Parquet added; Postgres deletes; NATS added.
-- [ADR-0501](0501-multi-cluster-sync-rfc.md) — hub demoted to optional; direct shared-sink fan-in is default.
-- [ADR-0502](0502-lean-queue-transport.md) — NATS elevated to lean default; transport unified with event sink.
-- [ADR-0703](0703-platform-architecture-pivot.md) — sink/portal narrative refined.
+- [ADR-0402](0402-sink-backends-database-kafka.md) — Postgres/Kafka backends
+- [ADR-0501](0501-multi-cluster-fleet.md) — fleet topology
+- [ADR-0405](0405-export-data-contract.md) — export row shape
 
 ## Open questions
 
-- **DECIDED (2026-06-05):** Parquet schema is **hybrid** — typed identity columns (`cluster`,
+- **DECIDED :** Parquet schema is **hybrid** — typed identity columns (`cluster`,
   `namespace`, `name`, `uid`, `group/version/kind`, `exportedAt`) + a JSON/variant `attributes` column,
   and a **promoted allowlist of hot attributes** (e.g. `image`, `version`) materialized as typed columns
   from the start. Stable across profiles; no per-profile schema migration ([ADR-0405](0405-export-data-contract.md)).
-- **DECIDED (2026-06-05):** The NATS emit channel is a **JetStream stream** (not KV) — durable,
-  replayable, with `Nats-Msg-Id` dedupe ([ADR-0502](0502-lean-queue-transport.md)).
+- **DECIDED:** The NATS emit channel is a **JetStream stream** (not KV) — durable, replayable,
+  with `Nats-Msg-Id` dedupe.
 - **OPEN:** Compaction — operator-run job, external (S3 Tables auto-compaction), or documented only?

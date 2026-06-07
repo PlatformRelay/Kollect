@@ -2,8 +2,8 @@
 
 > Status holds summaries only; full payloads go to sinks — never breach the ~1.5 MB etcd object limit.
 
-**Theme:** 01 · Foundations · **Status:** Current · **Evolution:** the read-only HTTP API is now
-optional and off by default (was framed as Phase-1 core) — see [ADR-0703](0703-platform-architecture-pivot.md).
+**Theme:** 01 · Foundations · **Status:** Current
+optional and off by default (was framed as Phase-1 core) — see [ADR-0201](0201-crd-model.md).
 
 ## Context
 
@@ -38,7 +38,7 @@ at scale. Developer portals also need a **read path** without scraping Git — a
 5. **Status patch discipline:** patch status only when changed; avoid hot loops writing large status.
 6. **Read-only HTTP inventory API (optional):** expose aggregated inventory via operator HTTP
    for **debug and small installs only** — feature-gated, **off in production Helm defaults**
-   ([ADR-0703](0703-platform-architecture-pivot.md)). Scalable portal read uses **sink export**
+   ([ADR-0201](0201-crd-model.md)). Scalable portal read uses **sink export**
    (Postgres/Kafka) and hub merged store — not spoke HTTP at fleet scale. Same schema as sink
    export where possible when enabled.
    - **Paths (when enabled):** **`GET /v1alpha1/inventory`** (namespace index or caller-scoped
@@ -90,9 +90,9 @@ flowchart LR
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** HTTP paths **`GET /v1alpha1/inventory`** (+ optional
+- **RESOLVED :** HTTP paths **`GET /v1alpha1/inventory`** (+ optional
   `{namespace}/{name}`); OpenAPI at **`openapi/v1alpha1/inventory.yaml`** when HTTP enabled.
-- **RESOLVED (2026-06-05):** Global default ~**1.5 MiB** + per-Inventory **`spec.maxExportBytes`**
+- **RESOLVED :** Global default ~**1.5 MiB** + per-Inventory **`spec.maxExportBytes`**
   override capped by webhook — see item 8 above.
-- **RESOLVED (2026-06-05):** Optional Helm sidecar/subchart for oauth2-proxy; K8s-native auth is
+- **RESOLVED :** Optional Helm sidecar/subchart for oauth2-proxy; K8s-native auth is
   primary — [ADR-0404](0404-inventory-api-auth.md).

@@ -70,7 +70,7 @@ Full per-kind tables: [KollectInventory](crds/kollectinventory.md#status-conditi
 | Empty `status.itemCount` | Selector mismatch, suspended target, scope denied | [Deployment inventory — Troubleshooting](examples/deployment-inventory.md#troubleshooting) |
 | Namespace skipped | Watch label or `OptIn` without `enabled` | [Annotations and labels](ANNOTATIONS-LABELS.md) |
 | Postgres rows stale | Upsert-only drift or export error | [Postgres state store](examples/postgres-state-store.md#troubleshooting) |
-| Hub spoke not merging | Transport or registration misconfig | [Hub mode](examples/hub-mode.md) |
+| Hub spoke not merging | Transport or registration misconfig | [Hub mode](examples/multi-cluster-fleet.md) |
 | CR stopped working after upgrade | Pre-beta schema change | [FAQ — pre-beta](FAQ.md#why-did-my-cr-stop-working-after-an-upgrade) |
 
 ## Diagnostic commands
@@ -104,8 +104,8 @@ More shortcuts: [Command reference](COMMAND-REFERENCE.md).
 | Helm / Argo Application attributes | [Helm release inventory](examples/helm-release-inventory.md#troubleshooting) |
 | Sink connectivity probes | [Connection test](examples/connection-test.md) |
 | Multi-tenant watch scope | [Multi-tenant watch namespaces](examples/multi-tenant-watch-namespaces.md) |
-| Spoke → shared sink | [Spoke cluster inventory](examples/spoke-cluster-inventory.md) |
-| Hub aggregation | [Hub mode](examples/hub-mode.md) |
+| Spoke → shared sink | [Spoke cluster inventory](examples/multi-cluster-fleet.md) |
+| Hub aggregation | [Hub mode](examples/multi-cluster-fleet.md) |
 
 ## When to escalate
 

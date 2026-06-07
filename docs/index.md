@@ -167,9 +167,8 @@ Declare profiles, sinks, targets, and inventory in Kubernetes; GitOps-friendly f
 
 ### :material-hub: Fleet-ready
 
-Default path: spokes write to **shared sinks** with a cluster label. Optional **hub mode**
-(`mode: hub|spoke` on the same image) for Git fan-in or credential centralization — **no hub CRD
-required** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
+Each cluster runs `mode: single` and exports to **shared sinks** with a cluster label
+([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 </div>
 
@@ -180,7 +179,7 @@ required** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
 | Section | Start here |
 | --- | --- |
 | **Understand the basics** | [Prerequisites](UNDERSTAND-THE-BASICS.md) · [Architecture](ARCHITECTURE.md) ([package graph](architecture-graph.svg)) · [Data flows](DATA-FLOWS.md) |
-| **Core concepts** | [CRD model](adr/0201-crd-model.md) · [CR reference](CR-REFERENCE.md) · [Hub and spoke](adr/0501-multi-cluster-sync-rfc.md) |
+| **Core concepts** | [CRD model](adr/0201-crd-model.md) · [CR reference](CR-REFERENCE.md) · [Multi-cluster fleet](adr/0501-multi-cluster-fleet.md) |
 | **Getting started** | [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md) |
 | **Operator manual** | [Install & ops](OPERATOR-MANUAL.md) · [Upgrading](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md) |
 | **User guide** | [Examples](examples/README.md) · [Best practices](BEST-PRACTICES.md) · [Troubleshooting](TROUBLESHOOTING.md) |

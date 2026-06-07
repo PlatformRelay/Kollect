@@ -62,7 +62,7 @@ See [Metrics](metrics.md) for the alert catalog and [chart README — monitoring
 ## Per-team install (recommended default)
 
 For tenant isolation, enable namespaced RBAC and restrict the informer cache
-([ADR-0203](../adr/0203-namespaced-multi-tenancy.md), [ADR-0703](../adr/0703-platform-architecture-pivot.md)):
+([ADR-0203](../adr/0203-namespaced-multi-tenancy.md), [ADR-0201](../adr/0201-crd-model.md)):
 
 ```yaml
 tenantMode: true
@@ -79,25 +79,17 @@ namespace. Portal read path uses **Postgres or Kafka sink export** — not spoke
 
 Example walkthrough: [Multi-tenant watch scope](../examples/multi-tenant-watch-namespaces.md).
 
-## Hub and spoke
+## Multi-cluster fleet
 
-Multi-cluster hub/spoke uses **Helm `mode`** on the same image — there is **no `KollectHub` CRD**
-([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+Run one operator per cluster; export to a **shared sink** with distinct `spec.cluster` values
+([ADR-0501](../adr/0501-multi-cluster-fleet.md)).
 
-| Mode | Key values | Notes |
+| Pattern | Key values | Notes |
 | --- | --- | --- |
-| Spoke | `mode: spoke`, `transport.type: inprocess` | Collect locally; optional hub push per [ADR-0503](../adr/0503-hub-cluster-auth-istio-pattern.md) |
-| Hub | `mode: hub`, `hub.sinkRefs`, `hub.remoteClusters`, `hub.exportNamespace` | Merge + parallel Postgres/Kafka export |
+| Postgres fleet | Same DSN, different `spec.cluster` on `KollectDatabaseSink` | Rows merge by PK |
+| Git fleet | `pathTemplate: clusters/{cluster}/…` on snapshot sink | Per-cluster paths |
 
-Spoke and hub value blocks, env var mapping, and `KollectRemoteCluster` registration are documented in
-the [chart README — Hub mode](../../charts/kollect/README.md#hub-mode-no-kollecthub-crd).
-
-Walkthrough: [Hub mode example](../examples/hub-mode.md).
-
-!!! warning "Pre-beta hub transport"
-    Default transport is `inprocess` until an external backend passes integration proof
-    ([ADR-0502](../adr/0502-lean-queue-transport.md)). Do not enable Redis/NATS/Kafka in chart values
-    without explicit ops sign-off.
+Walkthrough: [Multi-cluster fleet](../examples/multi-cluster-fleet.md).
 
 ## Feature gates
 

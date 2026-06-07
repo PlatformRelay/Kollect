@@ -1,6 +1,6 @@
 # ADR-0207: Target collection filtering — intent vs Scope ceiling
 
-> **Theme:** 02 · API & tenancy · **Status:** Current · **Date:** 2026-06-05
+> **Theme:** 02 · API & tenancy · **Status:** Current
 
 ## Context
 

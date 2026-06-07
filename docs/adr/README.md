@@ -1,26 +1,27 @@
 # Architecture Decision Records
 
-Decisions for [Kollect](https://github.com/konih/kollect), kept as **living working documents**.
-Numbers are grouped by **theme** (`0Txx`), so reading top-to-bottom is also a tour of the system's
-aspects — not a strict chronology. Each ADR is **current-state-first**: the decision as it stands
-today up top, with the exploration captured in an *Evolution* section.
+Architecture decisions for [Kollect](https://github.com/konih/kollect). Numbers are grouped by
+**theme** (`0Txx`) so the index reads as a system overview — foundations → API → collection →
+export → fleet → observability → project engineering.
 
-**Status vocabulary:** `Current` (in effect) · `Exploring` (RFC / spike) · `Parked` (deferred) ·
-`Dropped` (decided against).
+**Status:** `Current` · `Exploring` (RFC / spike) · `Parked` · `Dropped`
 
-New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS.md](../REQUIREMENTS.md).
+Each ADR uses **Context / Decision / Consequences** — written for readers who need the design,
+not the project timeline.
 
-## 01 · Foundations — language, framework, storage limits
+New readers: [REQUIREMENTS.md](../REQUIREMENTS.md) → theme **02** (CRD model) → **03** (collection) → **04** (sinks).
+
+## 01 · Foundations
 
 | ADR | Title | Status |
 | --- | --- | --- |
 | [0101](0101-kubebuilder-v4.md) | Kubebuilder v4 + controller-runtime | Current |
-| [0102](0102-prior-art.md) | Prior art and OSS reference patterns | Current (living) |
+| [0102](0102-prior-art.md) | Prior art and OSS reference patterns | Current |
 | [0103](0103-etcd-limit.md) | Data storage and the etcd size limit | Current |
 | [0104](0104-security-model.md) | Security model — secrets, TLS, RBAC, redaction | Current |
 | [0105](0105-webhook-serving-cert-management.md) | Webhook serving and certificate management | Current |
 
-## 02 · API & tenancy — the CRD model and how teams are isolated
+## 02 · API & tenancy
 
 | ADR | Title | Status |
 | --- | --- | --- |
@@ -30,8 +31,9 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0204](0204-namespaced-profiles.md) | Namespaced `KollectProfile` | Current |
 | [0205](0205-watch-labels.md) | Watch opt-in / opt-out labels | Current |
 | [0206](0206-api-versioning-conversion.md) | API versioning and conversion strategy | Exploring |
+| [0207](0207-target-collection-filtering.md) | Target collection filtering | Current |
 
-## 03 · Collection & extraction — turning live objects into rows
+## 03 · Collection & extraction
 
 | ADR | Title | Status |
 | --- | --- | --- |
@@ -41,7 +43,7 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0304](0304-custom-resource-aggregation-rfc.md) | Custom-resource metrics and richer aggregation | Exploring |
 | [0305](0305-aggregation-dedupe.md) | Aggregation, row identity, and dedupe semantics | Current |
 
-## 04 · Export & sinks — where inventory lands and how it's read
+## 04 · Export, sinks, read API & UI
 
 | ADR | Title | Status |
 | --- | --- | --- |
@@ -49,7 +51,7 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0402](0402-sink-backends-database-kafka.md) | Postgres and Kafka sink backends | Current |
 | [0403](0403-connection-test.md) | Connection test — sink probes + `KollectConnectionTest` CR | Current |
 | [0404](0404-inventory-api-auth.md) | Inventory HTTP API authentication | Current |
-| [0405](0405-export-data-contract.md) | Export data contract and schema versioning | Current (schema versioning: Exploring) |
+| [0405](0405-export-data-contract.md) | Export data contract and schema versioning | Current |
 | [0406](0406-sink-registry.md) | Sink registry and the `Backend` interface | Current |
 | [0407](0407-git-object-store-layout.md) | Git / object-store export layout and workflow | Current |
 | [0408](0408-read-api-ui-architecture.md) | Read API and UI architecture (pluggable backing store) | Current |
@@ -57,19 +59,16 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0410](0410-ui-engineering-and-quality-gates.md) | UI engineering and quality gates | Current |
 | [0411](0411-read-api-extensions-for-ui.md) | Read API extensions for UI | Current |
 | [0412](0412-mock-read-api-for-ui-development.md) | Mock Read API for UI development | Current |
-| [0413](0413-export-interval-scheduling.md) | Export interval scheduling and debounce | Current |
-| [0414](0414-sink-family-crds.md) | Sink family CRDs (clean break, pre-GA) | Current |
+| [0413](0413-export-interval-scheduling.md) | Per-sink export interval scheduling | Current |
+| [0414](0414-sink-family-crds.md) | Sink family CRDs (`KollectSnapshotSink`, etc.) | Current |
 
-## 05 · Multi-cluster — fan-in, transport, and the optional hub
+## 05 · Multi-cluster fleet
 
 | ADR | Title | Status |
 | --- | --- | --- |
-| [0501](0501-multi-cluster-sync-rfc.md) | Multi-cluster sync topology (shared-sink default; hub optional) | Current |
-| [0502](0502-lean-queue-transport.md) | Event-emitter transport (NATS default, Kafka opt-in) | Current |
-| [0503](0503-hub-cluster-auth-istio-pattern.md) | Hub cluster authentication — push-first | Current |
-| [0504](0504-operator-runtime-modes-ha-leader-election.md) | Operator runtime modes, HA, and leader election | Current |
+| [0501](0501-multi-cluster-fleet.md) | Multi-cluster fleet — shared sink fan-in | Current |
 
-## 06 · Observability & ops — metrics, errors, performance
+## 06 · Observability & ops
 
 | ADR | Title | Status |
 | --- | --- | --- |
@@ -79,25 +78,17 @@ New to the project? Read in theme order; for the *why*, start with [REQUIREMENTS
 | [0604](0604-target-scoped-prometheus-metrics.md) | Target- and inventory-scoped Prometheus metrics | Exploring |
 | [0605](0605-opentelemetry-tracing.md) | OpenTelemetry tracing | Exploring |
 
-## 07 · Project & meta — docs, scope guardrails, the big pivot
+## 07 · Project engineering
 
 | ADR | Title | Status |
 | --- | --- | --- |
 | [0701](0701-mkdocs-github-pages.md) | MkDocs Material documentation site | Current |
 | [0702](0702-doc-sync-templating.md) | Doc-sync / Confluence publication | Dropped |
-| [0703](0703-platform-architecture-pivot.md) | Platform architecture pivot — decision log | Current (log) |
 | [0704](0704-helm-chart-crd-lifecycle.md) | Helm chart and CRD lifecycle | Current |
 | [0705](0705-release-supply-chain.md) | Release engineering and supply chain | Current |
 | [0706](0706-testing-merge-gate-architecture.md) | Testing and merge-gate architecture | Current |
 
 ---
 
-> **Numbering note (2026-06-05):** ADRs were renumbered from a flat chronological sequence into these
-> thematic ranges to make the corpus readable as a project overview. Pre-beta, with no external
-> adopters, we treat ADRs as working docs and optimize for clarity over historical immutability.
-> Old number → new number mapping lives in the git history of this change.
-
-See also [ARCHITECTURE.md](../ARCHITECTURE.md), [REQUIREMENTS.md](../REQUIREMENTS.md),
-[PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md), [PERFORMANCE.md](../PERFORMANCE.md),
-[planned features](../roadmap/planned-features.md), [RFC index](../rfc/README.md), and
-[ADR/RFC process](../development/adr-rfc-process.md).
+See [ARCHITECTURE.md](../ARCHITECTURE.md), [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md),
+[development/adr-rfc-process.md](../development/adr-rfc-process.md).

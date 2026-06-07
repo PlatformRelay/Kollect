@@ -39,7 +39,7 @@ patterns — thin reconcilers, workqueues, conditions, and leader election.
   kollect-specific logic — intentional, not a reason to avoid the framework.
 - v1alpha1 API may need breaking changes before beta; document migration in release notes.
 
-## Resolved questions (2026-06-05)
+## Resolved questions 
 
 - **Helm chart ships day 1** — `charts/kollect/`, CI `helm template` / unittest path ([REQUIREMENTS.md](../REQUIREMENTS.md)).
 - **Validating webhooks early** — Profile CEL/JSONPath and Sink type enum at admission ([ADR-0201](0201-crd-model.md), [ADR-0202](0202-static-vs-reconciled.md)); not deferred to reconcile-time workarounds.

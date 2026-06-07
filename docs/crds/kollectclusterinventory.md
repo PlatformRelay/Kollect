@@ -12,7 +12,7 @@
 A `KollectClusterInventory` is the **platform-operator** rollup CR: it aggregates rows from one or
 more `KollectClusterTarget` objects and exports to sinks configured in a designated export namespace.
 One cluster inventory can roll up **all** cluster targets or a subset via `targetRefs`
-([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+([ADR-0201](../adr/0201-crd-model.md)).
 
 The controller aggregates rows from matching `KollectClusterTarget` objects and exports to sinks
 in `spec.sinkNamespace`.
@@ -127,4 +127,4 @@ inventory ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 - [KollectClusterTarget](kollectclustertarget.md) — pairs with this kind
 - [KollectInventory](kollectinventory.md) — namespaced equivalent (shipped)
 - [CR-REFERENCE.md](../CR-REFERENCE.md)
-- [ADR-0703](../adr/0703-platform-architecture-pivot.md)
+- [ADR-0201](../adr/0201-crd-model.md)

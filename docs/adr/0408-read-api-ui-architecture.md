@@ -158,6 +158,6 @@ source of truth for shareable inventory filters.
 - [ADR-0409: Kollect UI deployment](0409-kollect-ui-deployment.md)
 - [ADR-0410: UI engineering and quality gates](0410-ui-engineering-and-quality-gates.md)
 - [ADR-0411: Read API extensions for UI](0411-read-api-extensions-for-ui.md)
-- [ADR-0504: Operator runtime modes](0504-operator-runtime-modes-ha-leader-election.md) — optional
+- [ADR-0504: Operator runtime modes](0706-testing-merge-gate-architecture.md) — optional
   `kollect-server` split at scale
 - [ROADMAP.md](../ROADMAP.md) § Read API + UI console

@@ -140,8 +140,8 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 | --- | --- |
 | **Status** | Deferred |
 | **Roadmap** | Phase 3 🔮 · [Deferred](../ROADMAP.md#deferred) |
-| **Summary** | **`KollectClusterSink`** for platform-shared backends referenced from `KollectClusterInventory` and future `KollectClusterScope.sinkRefs`. Namespaced `KollectSink` is the team default today ([ADR-0703](../adr/0703-platform-architecture-pivot.md)). |
-| **Related ADRs** | [ADR-0204](../adr/0204-namespaced-profiles.md) · [ADR-0703](../adr/0703-platform-architecture-pivot.md) |
+| **Summary** | **`KollectClusterSink`** for platform-shared backends referenced from `KollectClusterInventory` and future `KollectClusterScope.sinkRefs`. Namespaced `KollectSink` is the team default today ([ADR-0201](../adr/0201-crd-model.md)). |
+| **Related ADRs** | [ADR-0204](../adr/0204-namespaced-profiles.md) · [ADR-0201](../adr/0201-crd-model.md) |
 
 ---
 
@@ -210,7 +210,7 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 | --- | --- |
 | **Status** | Exploring |
 | **Summary** | Introduce **`v1beta1`** as storage version with a **conversion webhook** (`v1alpha1 ↔ v1beta1`) at the **v0.10 presentation gate** (or post) — until then `v1alpha1` breaks freely. |
-| **Related ADRs** | [ADR-0206](../adr/0206-api-versioning-conversion.md) · [ADR-0703](../adr/0703-platform-architecture-pivot.md) |
+| **Related ADRs** | [ADR-0206](../adr/0206-api-versioning-conversion.md) · [ADR-0201](../adr/0201-crd-model.md) |
 
 ---
 
@@ -254,8 +254,7 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 | --- | --- |
 | **Status** | Deferred |
 | **Roadmap** | [Deferred](../ROADMAP.md#deferred) |
-| **Summary** | Optional **hub federated mTLS** for spoke→hub ingest (beyond push **TokenReview + SAR** default). `KollectRemoteCluster.spec.trustBundle` reserved for future mTLS wiring. |
-| **Related ADRs** | [ADR-0503](../adr/0503-hub-cluster-auth-istio-pattern.md) |
+| **Summary** | Optional **hub federated mTLS** for spoke→hub ingest (beyond push **TokenReview + SAR** default). `| **Related ADRs** | ADR-0503 |
 
 ---
 
@@ -265,8 +264,8 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 | --- | --- |
 | **Status** | Deferred |
 | **Roadmap** | Phase 2 🚧 (TLS shipped; ACL allowlist stub) · [Deferred](../ROADMAP.md#deferred) |
-| **Summary** | Production-grade **TLS/ACL hardening** for Redis/NATS/Kafka hub transport backends — beyond `cluster_id` wire metadata and dev/test defaults ([ADR-0502](../adr/0502-lean-queue-transport.md)). |
-| **Related ADRs** | [ADR-0502](../adr/0502-lean-queue-transport.md) · [ADR-0501](../adr/0501-multi-cluster-sync-rfc.md) |
+| **Summary** | Production-grade **TLS/ACL hardening** for Redis/NATS/Kafka hub transport backends — beyond `cluster_id` wire metadata and dev/test defaults (ADR-0502). |
+| **Related ADRs** | ADR-0502 · [ADR-0501](../adr/0501-multi-cluster-fleet.md) |
 
 ---
 
@@ -302,7 +301,7 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 | **Summary** | Distributed tracing for reconcile loops, collection refresh batches, sink export attempts, and hub ingest (OTel SDK, OTLP export). Complements structured logs and Prometheus metrics. |
 | **Spec** | [ADR-0605](../adr/0605-opentelemetry-tracing.md) — span map (`kollect.reconcile`, `kollect.collect.refresh`, `kollect.export`, `kollect.hub.ingest`); operator flags/env; default off in Helm. |
 | **Validation home** | Exercised in **kollect-lab** (local companion environment for integration demos) alongside [kind local lab](../examples/kind-local-lab.md) — not required for default Helm install. |
-| **Related ADRs** | [ADR-0605](../adr/0605-opentelemetry-tracing.md) · [ADR-0602](../adr/0602-error-taxonomy.md) · [ADR-0603](../adr/0603-performance-scalability.md) · [ADR-0504](../adr/0504-operator-runtime-modes-ha-leader-election.md) |
+| **Related ADRs** | [ADR-0605](../adr/0605-opentelemetry-tracing.md) · [ADR-0602](../adr/0602-error-taxonomy.md) · [ADR-0603](../adr/0603-performance-scalability.md) · ADR-0504 |
 
 ---
 

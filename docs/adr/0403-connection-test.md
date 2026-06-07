@@ -3,7 +3,7 @@
 > First-class sink connectivity testing: a sink probe for quick checks plus a `KollectConnectionTest`
 > CR for audited/CI/composite probes.
 
-**Theme:** 04 · Export & sinks · **Status:** Current · **Evolution:** an initial decision to reject a
+**Theme:** 04 · Export & sinks · **Status:** Current
 dedicated CR was reversed — the `KollectConnectionTest` CR is now part of the model; sink-only probe
 mechanisms remain valid.
 
@@ -25,7 +25,7 @@ webhooks, and orphan CR lifecycle.
 
 ## Decision
 
-### ~~Reject `KollectConnectionTest` CR~~ → **Accepted in ADR-0703**
+### ~~Reject `KollectConnectionTest` CR~~ → **Accepted in ADR-0201**
 
 Add namespaced **`KollectConnectionTest`** for audited/CI/composite probes. Keep **declarative
 spec** + **imperative annotation** on family sink CRDs for quick sink-only retests, plus pipeline
@@ -102,7 +102,7 @@ Family sink CRDs (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSin
 an intentional exception to full static-config purity, documented in
 [ADR-0202](0202-static-vs-reconciled.md).
 
-### `KollectConnectionTest` CR (ADR-0703)
+### `KollectConnectionTest` CR (ADR-0201)
 
 Namespaced CR with `spec.sinkRef`, optional `spec.profileRef`, status conditions (latency,
 sanitized errors). Use for CI, audit, and composite probes. Sink annotation/spec remain for ad-hoc
@@ -133,7 +133,7 @@ sink checks.
   to opt out of automatic probes on every spec change.
 - **`kollect.dev/test-connection: "true"`** remains for one-shot re-tests when probes are disabled.
 
-## Resolved (2026-06-05)
+## Resolved 
 
 - **Garbage collection:** `spec.ttlSecondsAfterFinished` — default **300**; controller deletes CR
   after probe completes and TTL elapses.

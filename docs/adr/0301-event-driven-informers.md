@@ -93,6 +93,6 @@ flowchart TD
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** **Single shared informer per GVK** across all Targets watching that GVK
+- **RESOLVED :** **Single shared informer per GVK** across all Targets watching that GVK
   (kube-state-metrics pattern) — reduces memory vs per-Target caches.
-- **RESOLVED (2026-06-05):** Primary Helm sample GVK is Flux `HelmRelease` v2 ([ADR-0303](0303-helm-release-inventory.md)).
+- **RESOLVED :** Primary Helm sample GVK is Flux `HelmRelease` v2 ([ADR-0303](0303-helm-release-inventory.md)).

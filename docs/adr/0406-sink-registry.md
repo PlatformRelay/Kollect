@@ -51,7 +51,7 @@ Connectivity probing is a parallel concern ([ADR-0403](0403-connection-test.md))
 3. **A backend ships only when integration/e2e-testable** (testcontainers or kind sidecar —
    [ADR-0402](0402-sink-backends-database-kafka.md)); do not register a type without a backend
    (the GitLab/`nats`/Parquet enum lesson).
-4. **Idempotent export** — `Export` is safe to retry; at-least-once semantics ([ADR-0502](0502-lean-queue-transport.md)).
+4. **Idempotent export** — `Export` is safe to retry; at-least-once semantics ([ADR-0502](0402-sink-backends-database-kafka.md)).
 
 ## Consequences
 
@@ -63,7 +63,7 @@ Connectivity probing is a parallel concern ([ADR-0403](0403-connection-test.md))
 
 ## Open questions
 
-- **DECIDED (2026-06-05):** Add a **`Capabilities()`** method (snapshot vs stream, supports-delete) so
+- **DECIDED :** Add a **`Capabilities()`** method (snapshot vs stream, supports-delete) so
   the inventory controller picks delete-reconciliation vs whole-snapshot behavior per
   [ADR-0401](0401-sink-taxonomy-state-vs-stream.md).
 - **OPEN:** Out-of-tree backend registration (plugin) — or keep the registry compile-time only?

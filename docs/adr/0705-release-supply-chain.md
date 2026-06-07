@@ -58,7 +58,7 @@ Each GitHub Release publishes: `install-crds.yaml` and `install.yaml` (kubectl i
 - Adopters can `cosign verify` by digest and inspect the SBOM before deploying — trust is verifiable.
 - A new fixable CRITICAL/HIGH CVE blocks the release until the base/deps are bumped (intentional friction).
 - SHA-pinned actions mean Dependabot/maintenance keeps the pipeline current; stale pins are a known cost.
-- Tag-driven releases keep `main` always-releasable ([ADR-0703](0703-platform-architecture-pivot.md)).
+- Tag-driven releases keep `main` always-releasable ([ADR-0201](0201-crd-model.md)).
 
 ## OpenSSF Scorecard follow-ups
 

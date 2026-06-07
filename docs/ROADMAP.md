@@ -6,7 +6,7 @@ pluggable sinks** — state stores (Git / object store, Postgres) and event emit
 Kafka opt-in) — with optional HTTP for debug. The in-memory snapshot is canonical; every sink is a
 projection ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 
-**Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), [ADR-0703](adr/0703-platform-architecture-pivot.md).
+**Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), [ADR-0201](adr/0201-crd-model.md).
 
 !!! warning "Pre-beta"
     Kollect is not GA. API shapes, sink backends, and hub transport may change until the project
@@ -54,8 +54,7 @@ flowchart LR
 | --- | --- | --- |
 | **0** | Bootstrap | Scaffold, guidelines, ADRs, Helm, CI, webhooks, metrics, docs |
 | **1** | Collection + Sink | MVP: namespaced CRDs, export to role-based sinks (state store / event emitter); optional HTTP |
-| **2** | Multi-cluster | Helm `mode: hub\|spoke`, merge lib, pluggable queue (no hub CRD) |
-| **3** | Governance | `KollectScope`, cluster inventory APIs, S3/GCS hardening |
+| **2** | Multi-cluster | Helm `| **3** | Governance | `KollectScope`, cluster inventory APIs, S3/GCS hardening |
 | **4** | Metrics + aggregation | kube-state-metrics-style config, richer rollups |
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
@@ -154,15 +153,14 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 Multi-cluster support must **not** block single-cluster installs. Design for **many clusters**
 (hub scale targets in [ADR-0603](adr/0603-performance-scalability.md)) and **giant spokes**
 (10k+ resources). Hub **shards and aggregates** —
-never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) and
-[ADR-0502](adr/0502-lean-queue-transport.md).
+never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-fleet.md) and
+ADR-0502.
 
 | Item | Status |
 | --- | --- |
 | Multi-cluster topology RFC | ✅ |
 | Lean queue transport ADR (pluggable factory) | ✅ |
-| `KollectHub` CRD (rejected) → **Helm `mode: hub`** | ✅ ADR-0703 |
-| Spoke operator / agent snapshot reports (lightweight, delta) | ✅ |
+| `KollectHub` CRD (rejected) → **Helm `| Spoke operator / agent snapshot reports (lightweight, delta) | ✅ |
 | Hub merge and deduplication (O(rows), sharded consumers) | ✅ |
 | Hub Postgres + Kafka parallel export on ingest | ✅ |
 | Transport: in-process (dev/test default) | ✅ |
@@ -170,8 +168,7 @@ never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) and
 | Transport: NATS JetStream (config alternative) | ✅ |
 | Transport: Kafka backend (optional, integration-tested) | ✅ |
 | Cross-cluster authentication (Istio-style + push TokenReview) | ✅ |
-| `KollectRemoteCluster` CRD (hub registration stub) | ✅ |
-| Spoke HTTP push auth (`Bearer` + `X-Kollect-Cluster-Id`) | ✅ |
+| `| Spoke HTTP push auth (`Bearer` + `X-Kollect-Cluster-Id`) | ✅ |
 | Hub ingest HTTP (`POST /hub/v1alpha1/reports`) | ✅ |
 | Hub pull via `credentialsSecretRef` (optional ADR-0503) | ✅ |
 | Hub Helm values / flags for transport + shard (no hub CRD) | ✅ |
@@ -271,9 +268,9 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 | --- | --- | --- |
 | Watched objects per spoke (baseline) | **10,000+** | [ADR-0603](adr/0603-performance-scalability.md) |
 | Giant single cluster | 1000+ nodes, 10k+ resources | [ADR-0603](adr/0603-performance-scalability.md) |
-| Hub spoke count | many spokes (see [ADR-0603](adr/0603-performance-scalability.md)) | [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) |
+| Hub spoke count | many spokes (see [ADR-0603](adr/0603-performance-scalability.md)) | [ADR-0501](adr/0501-multi-cluster-fleet.md) |
 | Spoke working set (typical profiles) | ≤512 MiB at 10k rows | [ADR-0603](adr/0603-performance-scalability.md) |
-| Hub merge complexity | O(total rows), sharded | [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) |
+| Hub merge complexity | O(total rows), sharded | [ADR-0501](adr/0501-multi-cluster-fleet.md) |
 
 ### Developer perf tooling
 
@@ -324,7 +321,7 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 | Item | When |
 | --- | --- |
 | `KollectClusterSink` + namespaced `KollectSink` split | Phase 3 — cluster-scoped sinks + `KollectScope.sinkRefs` until then ([ADR-0204](adr/0204-namespaced-profiles.md)) |
-| Kafka as **required** hub transport | Pluggable optional backend only; `inprocess` default ([ADR-0502](adr/0502-lean-queue-transport.md)) |
+| Kafka as **required** hub transport | Pluggable optional backend only; `inprocess` default (ADR-0502) |
 | `KollectReceiver`, `KollectTargetSet` implementation | Reserved for future phases |
 | oauth2-proxy sidecar (OIDC browser auth) | Optional Helm sidecar (`oauth2Proxy.enabled: false`); K8s bearer auth is primary — [ADR-0404](adr/0404-inventory-api-auth.md) |
 | Hub federated mTLS | ADR-0503 deferred — push TokenReview default |
@@ -332,7 +329,7 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 
 ## Resolved questions
 
-- ✅ **Hub ingest SAR shape** — `create` on `kollectremoteclusters` locked ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md))
+- ✅ **Hub ingest SAR shape** — `create` on `kollectremoteclusters` locked (ADR-0503)
 - ✅ **SinkReachable** on Inventory/Target — implemented with `Synced` export conditions ([ADR-0403](adr/0403-connection-test.md))
 
 See [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) for locked vs still-open items.
@@ -412,23 +409,21 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | Namespaced inventory is the hub input contract | Accepted |
 | **`KollectProfile` namespaced**; `KollectClusterProfile` reserved | Accepted ([ADR-0204](adr/0204-namespaced-profiles.md)) |
 | **`KollectScope` Phase 1** — webhook + reconciler enforcement | Accepted ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
-| **No `KollectHub` CRD** — Helm `mode: hub\|spoke` | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
-| **Namespaced `KollectSink`**; `KollectClusterSink` reserved | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| **No `KollectHub` CRD** — Helm `| **Namespaced `KollectSink`**; `KollectClusterSink` reserved | Accepted ([ADR-0201](adr/0201-crd-model.md)) |
 | **Role-based sinks** — state stores (Git/object store, Postgres) vs event emitters (NATS default, Kafka opt-in); no single "primary"; HTTP debug optional | Accepted ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
-| **`KollectConnectionTest` CR** + **`spec.ttlSecondsAfterFinished`** default **300s** | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
-| **`spec.exportMinInterval`** default **30s** (not global debounce flag) | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| **`KollectConnectionTest` CR** + **`spec.ttlSecondsAfterFinished`** default **300s** | Accepted ([ADR-0201](adr/0201-crd-model.md)) |
+| **`spec.exportMinInterval`** default **30s** (not global debounce flag) | Accepted ([ADR-0201](adr/0201-crd-model.md)) |
 | HTTP **`GET /v1alpha1/inventory`** + **`openapi/v1alpha1/inventory.yaml`** when enabled | Accepted ([ADR-0103](adr/0103-etcd-limit.md), [ADR-0404](adr/0404-inventory-api-auth.md)) |
 | Inventory SAR: **`get`/`list`** on `kollectinventories`; TokenReview cache **30s** | Accepted ([ADR-0404](adr/0404-inventory-api-auth.md)) |
 | **`maxExportBytes`** global + per-Inventory override (webhook capped) | Accepted ([ADR-0103](adr/0103-etcd-limit.md)) |
 | Postgres PK **`(inventory_namespace, inventory_name, target_name, source_uid)`** | Accepted ([ADR-0402](adr/0402-sink-backends-database-kafka.md)) |
 | **`kollect_sink_errors_total{reason}`** + export histogram buckets (ADR-0602) | Accepted |
-| Hub shard: **`hash(clusterName) % shardCount`** via Helm/env — **no `KollectHub` CRD** | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
-| Hub federated mTLS | **Deferred** ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)) |
-| **`KollectClusterInventory`** + **`KollectClusterTarget`** rollup (no `inventoryRef` hack) | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
-| Same image **`mode: hub\|spoke`** | Accepted ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)) |
-| Transport: **`inprocess` only default**; Redis/NATS/Kafka explicit opt-in | Accepted ([ADR-0502](adr/0502-lean-queue-transport.md)) |
+| Hub shard: **`hash(clusterName) % shardCount`** via Helm/env — **no `KollectHub` CRD** | Accepted ([ADR-0201](adr/0201-crd-model.md)) |
+| Hub federated mTLS | **Deferred** (ADR-0503) |
+| **`KollectClusterInventory`** + **`KollectClusterTarget`** rollup (no `inventoryRef` hack) | Accepted ([ADR-0201](adr/0201-crd-model.md)) |
+| Same image **`| Transport: **`inprocess` only default**; Redis/NATS/Kafka explicit opt-in | Accepted (ADR-0502) |
 | Transport backend rule: no merge without integration/e2e proof | Accepted |
-| Connection test: **`KollectConnectionTest` CR** + sink probes; prod `connectionTest: false` | Accepted ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| Connection test: **`KollectConnectionTest` CR** + sink probes; prod `connectionTest: false` | Accepted ([ADR-0201](adr/0201-crd-model.md)) |
 | Helm sample: **Argo `Application` primary** + contract test | Accepted ([ADR-0303](adr/0303-helm-release-inventory.md)) |
 | Generic CRD sample: **`cert-manager.io/Certificate`** + contract test | Accepted |
 | Default install: **`tenantMode: true`** per-team | Accepted ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
@@ -439,8 +434,8 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | Inventory HTTP auth: **K8s TokenReview + SAR**; `--inventory-auth-mode=kubernetes` default | Accepted |
 | oauth2-proxy: **optional** Helm sidecar for OIDC browsers; not primary auth | Accepted |
 | Git, object storage, and agent mesh documented as alternatives | Accepted |
-| Extreme scale: many clusters, 10k+ objects/spoke, hub shard not O(n²) | Accepted ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md), [ADR-0603](adr/0603-performance-scalability.md)) |
-| Hub cluster auth: **Istio remote-secret registration + push TokenReview** | Accepted ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)) |
+| Extreme scale: many clusters, 10k+ objects/spoke, hub shard not O(n²) | Accepted ([ADR-0501](adr/0501-multi-cluster-fleet.md), [ADR-0603](adr/0603-performance-scalability.md)) |
+| Hub cluster auth: **Istio remote-secret registration + push TokenReview** | Accepted (ADR-0503) |
 | Namespaced `KollectProfile`; `profileRef` same namespace | Accepted ([ADR-0204](adr/0204-namespaced-profiles.md)) |
 | **`KollectClusterSink` deferred Phase 3** | Deferred |
 
@@ -455,8 +450,8 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 - [ADR-0201: CRD model](adr/0201-crd-model.md)
 - [ADR-0103: etcd limit + HTTP API](adr/0103-etcd-limit.md)
 - [ADR-0301: Event-driven informers](adr/0301-event-driven-informers.md)
-- [ADR-0501: Multi-cluster RFC](adr/0501-multi-cluster-sync-rfc.md)
-- [ADR-0502: Lean queue transport](adr/0502-lean-queue-transport.md)
+- [ADR-0501: Multi-cluster RFC](adr/0501-multi-cluster-fleet.md)
+- ADR-0502: Lean queue transport
 - [ADR-0404: Inventory API auth](adr/0404-inventory-api-auth.md)
 - [ADR-0702: Doc-sync rejected](adr/0702-doc-sync-templating.md)
 - [ADR-0402: Postgres and Kafka sinks](adr/0402-sink-backends-database-kafka.md)

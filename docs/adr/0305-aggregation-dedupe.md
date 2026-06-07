@@ -21,7 +21,7 @@ RowIdentity = (targetNamespace, targetName, namespace, name, uid)
 ```
 
 The stable key for one collected row (`aggregate.RowIdentity`). Hub merge extends it with cluster id
-(`internal/hub/merge.go`, [ADR-0501](0501-multi-cluster-sync-rfc.md)). `uid` is the authority — names
+(`internal/hub/merge.go`, [ADR-0501](0501-multi-cluster-fleet.md)). `uid` is the authority — names
 recur after recreation, uids do not.
 
 ### Dedupe modes
@@ -58,9 +58,9 @@ So config changes and content changes bypass the timer; pure churn within the wi
 
 ## Open questions
 
-- **DECIDED (2026-06-05):** Expose **`spec.dedupe`** (`keepAll` | `byResourceUID`) on
+- **DECIDED :** Expose **`spec.dedupe`** (`keepAll` | `byResourceUID`) on
   `KollectClusterInventory`, **default `keepAll`** — explicit, not inferred.
-- **DECIDED (2026-06-05):** Collision resolution stays **last-writer-wins** (no attribute union).
-- **DECIDED (2026-06-05):** Add **hub-side delete reconciliation** when a spoke stops reporting an
+- **DECIDED :** Collision resolution stays **last-writer-wins** (no attribute union).
+- **DECIDED :** Add **hub-side delete reconciliation** when a spoke stops reporting an
   object, tracked with Postgres delete recon ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md),
   [ADR-0402](0402-sink-backends-database-kafka.md)).

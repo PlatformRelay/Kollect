@@ -9,8 +9,7 @@ This walkthrough connects the core **namespaced** CRDs into a minimal pipeline: 
 to extract (`KollectProfile`), **where** to send it (family sinks — `KollectDatabaseSink`,
 `KollectSnapshotSink`), **which** resources to watch (`KollectTarget`), and **when** to aggregate
 and export (`KollectInventory`). There is **no `KollectHub` CRD** — hub aggregation uses Helm
-`mode: hub` ([ADR-0703](../adr/0703-platform-architecture-pivot.md)).
-
+`
 **Default sample path:** Postgres state store (`postgres-inventory-demo`). Swap to `git-inventory-demo`
 for Git audit/CI. See [Postgres state store](postgres-state-store.md) and
 [Connection test](connection-test.md).
@@ -287,12 +286,12 @@ See [Kind local lab](kind-local-lab.md), [QUICKSTART.md](../QUICKSTART.md), and
 
 ## Related
 
-- [Spoke cluster inventory](spoke-cluster-inventory.md) — Helm `mode: single` install narrative
+- [Spoke cluster inventory](multi-cluster-fleet.md) — Helm `mode: single` install narrative
 - [Postgres state store](postgres-state-store.md) — DSN secret and delete reconciliation
 - [Connection test](connection-test.md) — `ConnectionVerified` and `KollectConnectionTest`
 - [KollectProfile](../crds/kollectprofile.md) · [KollectSnapshotSink](../crds/kollectsnapshotsink.md) ·
   [KollectDatabaseSink](../crds/kollectdatabasesink.md) · [KollectEventSink](../crds/kollecteventsink.md) ·
   [KollectTarget](../crds/kollecttarget.md) · [KollectInventory](../crds/kollectinventory.md)
 - [CR reference](../CR-REFERENCE.md)
-- [ADR-0703: Platform architecture pivot](../adr/0703-platform-architecture-pivot.md)
+- [ADR-0201: Platform architecture pivot](../adr/0201-crd-model.md)
 - [ADR-0603: Performance and scalability](../adr/0603-performance-scalability.md)

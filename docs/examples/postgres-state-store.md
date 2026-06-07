@@ -8,7 +8,7 @@ This walkthrough sets up a **relational state-of-record** sink for namespace inv
 exports. Postgres is the default MVP path in samples (`postgres-inventory-demo`) and the
 recommended backend for portals and SQL analytics
 ([ADR-0402](../adr/0402-sink-backends-database-kafka.md),
-[ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+[ADR-0201](../adr/0201-crd-model.md)).
 
 Pair with [Deployment inventory](deployment-inventory.md) for the full Profile → Target →
 Inventory pipeline, or apply only the sink + secret pieces here.

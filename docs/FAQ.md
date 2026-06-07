@@ -41,7 +41,7 @@ See [Operator manual — Watch scope](OPERATOR-MANUAL.md#watch-scope) and
 
 `KollectInventory.spec.sinkRefs` must name `KollectSink` objects in the **same namespace** as the
 Inventory. Cross-namespace sink refs are not supported for namespaced inventory
-([ADR-0201](adr/0201-crd-model.md), [ADR-0703](adr/0703-platform-architecture-pivot.md)).
+([ADR-0201](adr/0201-crd-model.md), [ADR-0201](adr/0201-crd-model.md)).
 
 ```sh
 kubectl get kollectsink -n <inventory-namespace>
@@ -125,13 +125,11 @@ possible wrapper fields before `v1.0`.
 
 ### When do I need hub mode?
 
-**Default multi-cluster path:** each cluster runs Kollect with `mode: single` (or `mode: spoke`
-without a hub) and exports to a **shared sink** (Postgres, Kafka, NATS) with `spec.cluster` set.
+**Default multi-cluster path:** each cluster runs Kollect with `mode: single` (or `without a hub) and exports to a **shared sink** (Postgres, Kafka, NATS) with `spec.cluster` set.
 The backend primary key merges rows across clusters — no hub required
 ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 
-**Use hub mode (`mode: hub`)** only when a shared backend cannot meet your constraints:
-
+**Use hub mode (`
 | Scenario | Why hub |
 | --- | --- |
 | Git is the multi-cluster SoR | Direct Git fan-in = N commits per change; needs aggregation |
@@ -139,21 +137,20 @@ The backend primary key merges rows across clusters — no hub required
 | Credential centralization | One write credential at hub vs N spokes |
 | Schema decoupling | Spokes send stable report schema; hub owns DB migrations |
 
-Walkthroughs: [Spoke cluster inventory](examples/spoke-cluster-inventory.md),
-[Hub mode](examples/hub-mode.md).
+Walkthroughs: [Spoke cluster inventory](examples/multi-cluster-fleet.md),
+[Hub mode](examples/multi-cluster-fleet.md).
 
 ### Is there a `KollectHub` CRD?
 
 **No.** Hub and spoke are Helm `mode` values on the same operator image
-([ADR-0703](adr/0703-platform-architecture-pivot.md)). Register spokes with namespaced
-`KollectRemoteCluster` objects ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)).
-
+([ADR-0201](adr/0201-crd-model.md)). Register spokes with namespaced
+`
 ### Hub transport is `inprocess` — is that production-ready?
 
 !!! warning "Pre-beta hub transport"
     Hub ingest and spoke push paths are still maturing. `transport.type: inprocess` is the only
     default until external backends pass integration proof. Validate in your environment before
-    fleet rollout ([ADR-0502](adr/0502-lean-queue-transport.md)).
+    fleet rollout (ADR-0502).
 
 ## Performance and scope
 

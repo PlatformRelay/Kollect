@@ -64,7 +64,7 @@ kubectl apply -f dist/install-crds.yaml
 ### Per-team install (recommended default)
 
 For tenant isolation, enable namespaced RBAC and restrict the informer cache
-([ADR-0203](adr/0203-namespaced-multi-tenancy.md), [ADR-0703](adr/0703-platform-architecture-pivot.md)):
+([ADR-0203](adr/0203-namespaced-multi-tenancy.md), [ADR-0201](adr/0201-crd-model.md)):
 
 ```yaml
 tenantMode: true
@@ -175,7 +175,7 @@ Teams can opt individual namespaces or resources in or out without changing Helm
 ## High availability
 
 Controller HA, leader election, webhook serving, and hub consumer scaling are documented in
-[ADR-0504: Operator runtime modes, HA, and leader election](adr/0504-operator-runtime-modes-ha-leader-election.md).
+ADR-0504: Operator runtime modes, HA, and leader election.
 
 Summary for operators:
 
@@ -187,9 +187,7 @@ Summary for operators:
 | Hub ingest | Single pod acceptable for MVP | Scale `replicaCount`; shard transport per ADR-0502 before RAM limits |
 
 !!! info "Same image, three modes"
-    `mode: single` (default), `mode: spoke`, and `mode: hub` use one container image configured by
-    Helm values — no forked binaries ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
-
+    `mode: single` (default), `
 ## See also
 
 - [Upgrading Kollect](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md)
@@ -198,5 +196,5 @@ Summary for operators:
 - [Chart README](../charts/kollect/README.md) — hub YAML and inventory HTTP auth at source
 - [RELEASE](RELEASE.md) — version bumps and release artifacts
 - [ADR-0704: Helm chart and CRD lifecycle](adr/0704-helm-chart-crd-lifecycle.md)
-- [ADR-0504: Runtime modes and HA](adr/0504-operator-runtime-modes-ha-leader-election.md)
+- ADR-0504: Runtime modes and HA
 - [ADR-0104: Security model](adr/0104-security-model.md)

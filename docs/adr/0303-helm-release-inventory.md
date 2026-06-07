@@ -2,7 +2,7 @@
 
 > Argo CD `Application` is the primary Helm sample; never export secrets — redact sensitive keys.
 
-**Theme:** 03 · Collection & extraction · **Status:** Current · **Evolution:** primary demo GVK moved
+**Theme:** 03 · Collection & extraction · **Status:** Current
 from Flux `HelmRelease` to Argo `Application`.
 
 ## Context
@@ -16,12 +16,12 @@ Those objects—and GitOps `HelmRelease` `spec.values`—can contain passwords, 
 `secretKeyRef` blocks. Exporting them to Git, Postgres, or the inventory HTTP API without policy
 would leak credentials into logs and public demo repos.
 
-User requirement (2026-06-05): inventory must expose **chart `version` and `appVersion`** by default;
+User requirement : inventory must expose **chart `version` and `appVersion`** by default;
 **deployed values** are useful for some teams but must be optional and gated.
 
 ## Decision
 
-### Primary GVK (default demo and first sample) — amended ADR-0703
+### Primary GVK (default demo and first sample) — amended ADR-0201
 
 **`argoproj.io/v1alpha1` / `Application`** (Argo CD)
 
@@ -29,7 +29,7 @@ User requirement (2026-06-05): inventory must expose **chart `version` and `appV
 - Works with existing JSONPath/CEL extraction.
 - `KollectTarget` scopes Applications via namespace/label selectors.
 
-**Amended (2026-06-05):** Argo primary per [ADR-0703](0703-platform-architecture-pivot.md). Flux
+**Amended :** Argo primary per [ADR-0201](0201-crd-model.md). Flux
 `HelmRelease` sample may remain secondary.
 
 **Version fields (Argo — lock in contract test):**
@@ -166,9 +166,9 @@ Walkthrough: [docs/examples/helm-release-inventory.md](../examples/helm-release-
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** **`helm:release.<field>`** prefix on attribute paths; decoder expands
-  `data.release` — Phase 2+ ([ADR-0703](0703-platform-architecture-pivot.md)).
-- **RESOLVED (2026-06-05):** Global **`scrubKeys[]`** operator config first; per-attribute `redact: true` later.
-- **RESOLVED (2026-06-05):** JSONPath filters — webhook **warn** Phase 1, **reject** Phase 2.
-- **RESOLVED (2026-06-05):** `chartVersion` from `status.lastAttemptedRevision`; `history[0]` ordering
+- **RESOLVED :** **`helm:release.<field>`** prefix on attribute paths; decoder expands
+  `data.release` — Phase 2+ ([ADR-0201](0201-crd-model.md)).
+- **RESOLVED :** Global **`scrubKeys[]`** operator config first; per-attribute `redact: true` later.
+- **RESOLVED :** JSONPath filters — webhook **warn** Phase 1, **reject** Phase 2.
+- **RESOLVED :** `chartVersion` from `status.lastAttemptedRevision`; `history[0]` ordering
   validated by contract test in CI.

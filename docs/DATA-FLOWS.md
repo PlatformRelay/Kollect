@@ -229,10 +229,8 @@ Default TTL: **300s**. Patch `spec.sinkRef` to force a fresh probe.
 
 ## 6. Hub merge and multi-cluster ingest
 
-Spokes run the **same operator image** with `mode: spoke`; the hub runs `mode: hub-consumer`.
-Spokes publish summarized **`SpokeReport`** JSON deltas; the hub merges them into a shared
-in-memory store keyed by **`(cluster, namespace, name, uid)`** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md),
-[ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)).
+Spokes run the **same operator image** with `in-memory store keyed by **`(cluster, namespace, name, uid)`** ([ADR-0501](adr/0501-multi-cluster-fleet.md),
+ADR-0503).
 
 ### Spoke → hub transport
 
@@ -319,8 +317,7 @@ as namespaced `KollectInventory` export ([ADR-0401](adr/0401-sink-taxonomy-state
 **Idempotency:** duplicate reports with the same `(cluster, namespace, name, uid)` overwrite the
 stored row; `removedUIDs` tombstones delete stale rows. At-least-once delivery is safe.
 
-**Status:** successful ingest marks `KollectRemoteCluster` **`Connected=True`** when the CR exists
-in the hub platform namespace.
+**Status:** successful ingest marks `in the hub platform namespace.
 
 ### Spoke queue publish (Phase 2)
 
@@ -402,7 +399,7 @@ and last-export metadata ([ADR-0103](adr/0103-etcd-limit.md)).
 | `KOLLECT_HUB_EXPORT_NAMESPACE` | Namespace for hub `KollectSink` resolution (Helm `hub.exportNamespace`) |
 | `KOLLECT_HUB_SINK_REFS` | Comma-separated hub sink names for parallel export (Helm `hub.sinkRefs`) |
 
-See [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) for RBAC grants and Istio-style remote
+See ADR-0503 for RBAC grants and Istio-style remote
 secret registration.
 
 ---

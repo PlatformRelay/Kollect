@@ -61,7 +61,7 @@ History before the first GitHub release is split with lightweight tags (changelo
 | `v0.0.1` | `13546aff` | Kubebuilder scaffold |
 | `v0.0.2` | `1e6f6719` | Core `v1alpha1` CRDs |
 | `v0.0.3` | `66421337` | Helm chart, extraction, inventory HTTP |
-| `v0.0.4` | `4234960b` | ADR-0703 platform pivot MVP |
+| `v0.0.4` | `4234960b` | ADR-0201 platform pivot MVP |
 | `v0.1.0-rc.1` – `rc.3` | 2026-06-05 – 06 | Pre-strategy RCs (finalizers, helm, e2e, release pipeline) |
 | **`v0.2.0-rc.1`** | 2026-06-07 | Sink-family tranche |
 

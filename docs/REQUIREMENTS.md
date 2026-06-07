@@ -80,7 +80,7 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | ID | Requirement | Reference |
 | --- | --- | --- |
 | FR-EXP-1 | Aggregate target rows into a per-namespace `KollectInventory` snapshot | [ADR-0201](adr/0201-crd-model.md) |
-| FR-EXP-2 | Coalesce identical exports via `spec.exportMinInterval` (default 30s); material changes bypass | [ADR-0703](adr/0703-platform-architecture-pivot.md), [ADR-0603](adr/0603-performance-scalability.md) |
+| FR-EXP-2 | Coalesce identical exports via `spec.exportMinInterval` (default 30s); material changes bypass | [ADR-0201](adr/0201-crd-model.md), [ADR-0603](adr/0603-performance-scalability.md) |
 | FR-EXP-3 | Deterministic, stable-ordered serialization (diffable Git, golden tests) | [ADR-0103](adr/0103-etcd-limit.md) |
 | FR-EXP-4 | Pluggable sinks by **role**: snapshot store (Git, S3/GCS Parquet, HTTP), relational SoR (Postgres), event emitter (NATS, Kafka) | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0402](adr/0402-sink-backends-database-kafka.md) |
 | FR-EXP-5 | Resource deletions are reflected in sinks (snapshot stores free; Postgres/Kafka via reconcile) | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
@@ -99,11 +99,10 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 
 | ID | Requirement | Reference |
 | --- | --- | --- |
-| FR-MC-1 | Default multi-cluster = direct shared-sink fan-in (`spec.cluster`); backend key/PK merges | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) |
-| FR-MC-2 | Optional hub tier (`mode: hub\|spoke`, same image, no `KollectHub` CRD) for Git fan-in / network isolation / credential centralization | [ADR-0501](adr/0501-multi-cluster-sync-rfc.md), [ADR-0703](adr/0703-platform-architecture-pivot.md) |
-| FR-MC-3 | Spokes stay lightweight: summarized delta snapshots, bounded RAM, debounced push | [ADR-0501](adr/0501-multi-cluster-sync-rfc.md), [ADR-0603](adr/0603-performance-scalability.md) |
-| FR-MC-4 | Hub/spoke transport is the same event-emitter abstraction as the Kafka/NATS sink | [ADR-0502](adr/0502-lean-queue-transport.md), [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
-| FR-MC-5 | Hub ingest auth is push-first (TokenReview + SAR `create` on `kollectremoteclusters`) | [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) |
+| FR-MC-1 | Default multi-cluster = direct shared-sink fan-in (`spec.cluster`); backend key/PK merges | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0501](adr/0501-multi-cluster-fleet.md) |
+| FR-MC-2 | Optional hub tier (`| FR-MC-3 | Spokes stay lightweight: summarized delta snapshots, bounded RAM, debounced push | [ADR-0501](adr/0501-multi-cluster-fleet.md), [ADR-0603](adr/0603-performance-scalability.md) |
+| FR-MC-4 | Hub/spoke transport is the same event-emitter abstraction as the Kafka/NATS sink | ADR-0502, [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
+| FR-MC-5 | Hub ingest auth is push-first (TokenReview + SAR `create` on `kollectremoteclusters`) | ADR-0503 |
 
 ### 3.6 Observability (FR-OBS)
 
@@ -188,9 +187,8 @@ Enforcement: [guidelines § 4](development/guidelines.md#4-testing),
 | --- | --- |
 | In-operator doc/CMS rendering (Confluence, wiki, templating) | Single responsibility — external CI consumes exports ([ADR-0702](adr/0702-doc-sync-templating.md)) |
 | `prometheus` as a `KollectSink.type` | Operator metrics use `/metrics`; avoids scrape/sink confusion ([ADR-0601](adr/0601-prometheus-metrics-stub.md)) |
-| `KollectHub` CRD | Hub is Helm `mode: hub` + library ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
-| Full inventory payload in CRD status | etcd limit ([ADR-0103](adr/0103-etcd-limit.md)) |
-| Pairwise agent mesh beyond ~20 peers | Does not scale; use hub or shared sink ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)) |
+| `KollectHub` CRD | Hub is Helm `| Full inventory payload in CRD status | etcd limit ([ADR-0103](adr/0103-etcd-limit.md)) |
+| Pairwise agent mesh beyond ~20 peers | Does not scale; use hub or shared sink ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |
 | In-place ACID lakehouse updates (Iceberg/DuckLake) | Kollect overwrites whole snapshots; no catalog/metadata DB needed ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
 
 ## 6. Resolved requirement questions (2026-06-05)
@@ -198,7 +196,7 @@ Enforcement: [guidelines § 4](development/guidelines.md#4-testing),
 - **Payload spill:** object-store spill is **mandatory above 1 MiB** (warn at 1 MiB; hard cap
   ~1.5 MiB `maxExportBytes`) ([ADR-0103](adr/0103-etcd-limit.md)).
 - **Delivery semantics:** **at-least-once + idempotent** (effectively-once for state); exactly-once is a
-  non-goal ([ADR-0502](adr/0502-lean-queue-transport.md)).
+  non-goal (ADR-0502).
 - **Parquet schema:** **hybrid** — typed identity columns + JSON `attributes` + a promoted hot-attribute
   allowlist ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 - **Cluster-scoped under OptIn:** honor a **target-level default opt-in**, per-object opt-out wins

@@ -12,7 +12,7 @@
 A `KollectClusterProfile` is the **platform-operator** variant of `KollectProfile`: a cluster-scoped
 extraction schema shared across namespaces. Platform teams publish one profile object; multiple
 `KollectClusterTarget` resources reference it by name via `spec.profileRef`
-([ADR-0204](../adr/0204-namespaced-profiles.md), [ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+([ADR-0204](../adr/0204-namespaced-profiles.md), [ADR-0201](../adr/0201-crd-model.md)).
 
 **Phase 1:** API types, validating webhook, and sample YAML only — **no controller** reads cluster
 profiles yet. `KollectClusterTarget` may still reference a namespaced `KollectProfile` in the

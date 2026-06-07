@@ -13,7 +13,7 @@ A `KollectConnectionTest` runs a **one-shot, audited** connectivity probe agains
 durable record of probe outcome without mutating the sink spec.
 
 Supplements sink `spec.connectionTest` and the `kollect.dev/test-connection` annotation
-([ADR-0403](../adr/0403-connection-test.md), [ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+([ADR-0403](../adr/0403-connection-test.md), [ADR-0201](../adr/0201-crd-model.md)).
 
 ## How it fits the pipeline
 

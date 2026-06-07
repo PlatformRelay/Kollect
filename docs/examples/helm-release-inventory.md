@@ -10,7 +10,7 @@ This walkthrough inventories **chart version**, **app version**, and sync metada
 `Application` objects. It follows the same four-CRD pipeline as
 [Deployment inventory](deployment-inventory.md).
 
-**Primary demo GVK (ADR-0703):** `argoproj.io/v1alpha1` / `Application`. Contract test:
+**Primary demo GVK (ADR-0201):** `argoproj.io/v1alpha1` / `Application`. Contract test:
 `internal/collect/argo_application_contract_test.go`. Design rationale:
 [ADR-0303](../adr/0303-helm-release-inventory.md).
 
@@ -66,7 +66,7 @@ spec:
 
 ## Step 2 — KollectSink
 
-Namespaced ([ADR-0703](../adr/0703-platform-architecture-pivot.md)). Default inventory uses Postgres:
+Namespaced ([ADR-0201](../adr/0201-crd-model.md)). Default inventory uses Postgres:
 `config/samples/kollect_v1alpha1_kollectsink_postgres.yaml`. See [Postgres state store](postgres-state-store.md).
 
 ## Step 3 — KollectTarget

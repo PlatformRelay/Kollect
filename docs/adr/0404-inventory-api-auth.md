@@ -20,7 +20,7 @@ Options considered:
 | **Static API keys in operator** | Simple | Secret rotation burden; not K8s-native |
 | **mTLS only** | Strong transport identity | Certificate lifecycle; awkward for portal browsers |
 
-Early design notes mentioned oauth2-proxy as a possible auth layer. User feedback (2026-06-05):
+Early design notes mentioned oauth2-proxy as a possible auth layer. User feedback :
 oauth2-proxy remains a **well-documented optional sidecar**, not the primary auth mechanism.
 
 ## Decision
@@ -34,7 +34,7 @@ oauth2-proxy remains a **well-documented optional sidecar**, not the primary aut
      - **`list`** on **`kollectinventories`** for the namespace index endpoint.
      Same RBAC markers as `kubectl get kinv` / `kubectl get kinv -A` (namespace-scoped list).
      Hub ingest (Phase 2): **`create`/`update`** on **`kollectremoteclusters`** or subresource
-     **`kollectremoteclusters/ingest`** — pick one in chart RBAC docs ([ADR-0503](0503-hub-cluster-auth-istio-pattern.md)).
+     **`kollectremoteclusters/ingest`** — pick one in chart RBAC docs ([ADR-0503](0104-security-model.md)).
 
 2. **Default auth mode:** manager flag **`--inventory-auth-mode=kubernetes`** (default). Modes:
    - `kubernetes` — TokenReview + SAR (production default).
@@ -119,10 +119,10 @@ inventory port — no oauth2-proxy hop.
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** SAR — **`get`** / **`list`** on **`kollectinventories`** in caller
-  namespace(s); hub ingest SAR shape deferred to Phase 2 ([ADR-0503](0503-hub-cluster-auth-istio-pattern.md)).
-- **RESOLVED (2026-06-05):** TokenReview/SAR cache **30s TTL** per `(token hash, verb, resource)`.
-- **RESOLVED (2026-06-05):** HTTP paths **`GET /v1alpha1/inventory`** (+ optional `{namespace}/{name}`);
+- **RESOLVED :** SAR — **`get`** / **`list`** on **`kollectinventories`** in caller
+  namespace(s); hub ingest SAR shape deferred to Phase 2 ([ADR-0503](0104-security-model.md)).
+- **RESOLVED :** TokenReview/SAR cache **30s TTL** per `(token hash, verb, resource)`.
+- **RESOLVED :** HTTP paths **`GET /v1alpha1/inventory`** (+ optional `{namespace}/{name}`);
   OpenAPI **`openapi/v1alpha1/inventory.yaml`** — [ADR-0103](0103-etcd-limit.md).
 
 ## See also

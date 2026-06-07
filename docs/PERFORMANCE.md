@@ -23,8 +23,7 @@ stay **O(total rows)**, never O(spokes²).
 | --- | --- | --- |
 | `--max-concurrent-reconciles-target` | `5` | `KollectTarget` |
 | `--max-concurrent-reconciles-inventory` | `3` | `KollectInventory` |
-| `--max-concurrent-reconciles-hub` | `2` | Hub mode (`mode: hub`) |
-
+| `--max-concurrent-reconciles-hub` | `2` | Hub mode (`
 Raise concurrency when reconcile latency grows while CPU is underutilized. Lower it when
 API server throttling or etcd watch pressure appears.
 
@@ -41,7 +40,7 @@ exponential failure rate limiter (5ms base, 1000s cap). Set a positive duration 
 
 **`KollectInventory.spec.exportMinInterval`** (default **`30s`**) coalesces export to external sinks
 per inventory. Material payload changes (generation/checksum bump) may export immediately inside the
-min interval ([ADR-0703](adr/0703-platform-architecture-pivot.md)).
+min interval ([ADR-0201](adr/0201-crd-model.md)).
 Lower the interval for fresher Postgres/Kafka exports; raise to reduce sink API load. At 100+ spokes,
 debouncing is **mandatory** on the hub path to avoid export storms.
 
@@ -53,7 +52,7 @@ debouncing is **mandatory** on the hub path to avoid export storms.
   `spec.namespaceSelector`, the dynamic informer is scoped to that namespace. Otherwise the
   informer watches all namespaces and filters events at dispatch time (correctness over cache size).
 - **Resync:** 12h informer resync is a correctness backstop, not a freshness driver.
-- **Spoke → hub:** Push **summarized deltas**, not per-object streams ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)).
+- **Spoke → hub:** Push **summarized deltas**, not per-object streams ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 ## Metrics catalog
 
@@ -102,4 +101,4 @@ Default `go test ./...` excludes `load`-tagged tests.
 | High `kollect_workqueue_depth` on `inventory` | Export or aggregation on hot path | Raise inventory workers; increase `spec.exportMinInterval` |
 | High export bytes rate, low object churn | Missing payload dedupe | Verify debounce + content-hash skip |
 | Bench regression in `BenchmarkExtract` | CEL/JSONPath hot path | Profile extractor; check attribute count |
-| Hub OOM at many spokes | Full mirror in hub RAM | Sharded consumers; spoke summaries only ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)) |
+| Hub OOM at many spokes | Full mirror in hub RAM | Sharded consumers; spoke summaries only ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |

@@ -58,7 +58,7 @@ Any feature that smells like doc-sync must be **rejected** unless it is plain in
 **Review gate:** before adding a reconciler or sink field, ask: *does this render or publish content
 to a human CMS?* If yes → **reject** and document the external pipeline pattern instead.
 
-**Platform review (2026-06-05):** guardrails **reaffirmed** — no scope creep into templating,
+**Platform review :** guardrails **reaffirmed** — no scope creep into templating,
 Confluence, or rendered publication inside the operator. See [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md).
 
 Rejected kind names and short names (`KollectPublication`, `kpub`) must not reappear in codegen,

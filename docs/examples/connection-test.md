@@ -7,7 +7,7 @@
 
 Kollect offers **three** ways to verify sink connectivity before relying on export
 ([ADR-0403](../adr/0403-connection-test.md), [ADR-0414](../adr/0414-sink-family-crds.md),
-[ADR-0703](../adr/0703-platform-architecture-pivot.md)).
+[ADR-0201](../adr/0201-crd-model.md)).
 
 ## Overview
 

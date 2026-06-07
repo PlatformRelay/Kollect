@@ -17,7 +17,7 @@ For install defaults, see [Operator manual](OPERATOR-MANUAL.md).
 ### Per-team install (recommended default)
 
 Install one operator per tenant boundary with namespaced RBAC and a restricted informer cache
-([ADR-0203](adr/0203-namespaced-multi-tenancy.md), [ADR-0703](adr/0703-platform-architecture-pivot.md)):
+([ADR-0203](adr/0203-namespaced-multi-tenancy.md), [ADR-0201](adr/0201-crd-model.md)):
 
 ```yaml
 tenantMode: true
@@ -103,8 +103,7 @@ Keep `spec.connectionTest: false` in Git-managed manifests. Probe on demand with
 
 ## Hub vs shared sink
 
-**Default multi-cluster path:** each cluster runs Kollect with `mode: single` (or `mode: spoke`
-without a hub) and exports to a **shared sink** (Postgres, Kafka, NATS) with `spec.cluster` set.
+**Default multi-cluster path:** each cluster runs Kollect with `mode: single` (or `without a hub) and exports to a **shared sink** (Postgres, Kafka, NATS) with `spec.cluster` set.
 The backend primary key merges rows across clusters — **no hub required**
 ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 
@@ -121,8 +120,7 @@ flowchart LR
   S2 -->|export + cluster id| PG
 ```
 
-### When to use hub mode (`mode: hub`)
-
+### When to use hub mode (`
 | Scenario | Why hub |
 | --- | --- |
 | Git is the multi-cluster SoR | Direct Git fan-in = N commits per change; needs aggregation |
@@ -131,15 +129,14 @@ flowchart LR
 | Schema decoupling | Spokes send stable report schema; hub owns DB migrations |
 
 There is **no `KollectHub` CRD** — hub and spoke are Helm `mode` values on the same operator image
-([ADR-0703](adr/0703-platform-architecture-pivot.md)). Register spokes with `KollectRemoteCluster`
-([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)).
+([ADR-0201](adr/0201-crd-model.md)). Register spokes with `(ADR-0503).
 
 !!! warning "Pre-beta hub transport"
     Hub ingest and spoke push paths are still maturing. Default transport is `inprocess` until an
-    external backend passes integration proof ([ADR-0502](adr/0502-lean-queue-transport.md)).
+    external backend passes integration proof (ADR-0502).
 
-Walkthroughs: [Spoke cluster inventory](examples/spoke-cluster-inventory.md),
-[Hub mode](examples/hub-mode.md).
+Walkthroughs: [Spoke cluster inventory](examples/multi-cluster-fleet.md),
+[Hub mode](examples/multi-cluster-fleet.md).
 
 ## Operational checklist
 
@@ -154,6 +151,6 @@ Walkthroughs: [Spoke cluster inventory](examples/spoke-cluster-inventory.md),
 ## Related
 
 - [ADR-0401: Sink taxonomy](adr/0401-sink-taxonomy-state-vs-stream.md)
-- [ADR-0501: Multi-cluster sync](adr/0501-multi-cluster-sync-rfc.md)
+- [ADR-0501: Multi-cluster sync](adr/0501-multi-cluster-fleet.md)
 - [Operator manual](OPERATOR-MANUAL.md) · [Troubleshooting](TROUBLESHOOTING.md) · [FAQ](FAQ.md)
 - [Examples](examples/README.md)

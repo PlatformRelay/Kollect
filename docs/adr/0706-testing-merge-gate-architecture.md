@@ -93,8 +93,8 @@ Statement coverage on `./internal/...` is enforced by `hack/coverage.sh` / `task
 | **Now (PR / `main`)** | **65%** | `.github/workflows/ci.yaml`, `Taskfile.yml`, `hack/coverage.sh` default |
 | **Release candidate / tag** | **70%** | Ratchet when measured coverage is **≥ 70%** sustained on `main`, or at **`v0.3.0-rc`** tag cut — whichever comes first |
 
-Measured coverage after the TEST-PYRAMID #3 tranche (2026-06-05): **~69.4%**. A follow-on unit-test tranche
-(2026-06-05) raised measured `./internal/...` coverage to **~74%**; aspirational target before the **70%**
+Measured coverage after the TEST-PYRAMID #3 tranche : **~69.4%**. A follow-on unit-test tranche
+ raised measured `./internal/...` coverage to **~74%**; aspirational target before the **70%**
 ratchet is **~80%** — merge gate stays at **65%** until then. **Codecov** target remains **70%** (see
 `codecov.yml`).
 
@@ -125,12 +125,12 @@ From [engineering guidelines](https://github.com/konih/kollect/blob/main/docs/de
 
 - **OPEN:** Promote **`task perf-report`** from optional to blocking at **v0.4** once baseline is stable in
   `PERF-SNAPSHOT`?
-- **RESOLVED (2026-06-07):** Mandatory **Tier 0 `kind-smoke`** on all non-docs PRs via
+- **RESOLVED :** Mandatory **Tier 0 `kind-smoke`** on all non-docs PRs via
   `.github/workflows/e2e-smoke.yaml`; webhook profile moved to optional **`e2e-extended.yaml`**
   ([ADR-0105](0105-webhook-serving-cert-management.md)).
-- **RESOLVED (2026-06-05):** Per-PR **path-filtered e2e** for webhook/cert changes — superseded by
+- **RESOLVED :** Per-PR **path-filtered e2e** for webhook/cert changes — superseded by
   Tier 0 smoke + Tier 1 extended webhook job (formerly `e2e-webhook-path.yaml`).
-- **RESOLVED (2026-06-07):** **`COVERAGE_MIN=70`** — ratchet at **`v0.3.0-rc`** tag or when
+- **RESOLVED :** **`COVERAGE_MIN=70`** — ratchet at **`v0.3.0-rc`** tag or when
   measured `./internal/...` coverage is **≥ 70%** sustained on `main` (see **Coverage floor** above).
   PR floor remains **65%** until then.
 - **OPEN:** Integration job sharding (Postgres vs Kafka vs object-store) if `test-integration` runtime

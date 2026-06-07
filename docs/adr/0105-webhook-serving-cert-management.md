@@ -15,7 +15,7 @@ before reconcilers wedge on terminal config. The operator serves webhooks on **p
 
 The Helm chart already wires **cert-manager** (`Certificate` + self-signed `Issuer` →
 `webhook-server-cert` Secret) and snapshot-tests that path. Many adopters run cert-manager; many
-small/lab clusters do not. **Q4 (2026-06-05):** support a **self-signed bootstrap fallback**
+small/lab clusters do not. **Q4 :** support a **self-signed bootstrap fallback**
 alongside cert-manager — cert-manager remains the **recommended** production default
 ([ADR-0104](0104-security-model.md)).
 

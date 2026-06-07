@@ -105,8 +105,7 @@ optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval
 | --- | --- | --- |
 | ~~`KollectSink`~~ | — | **Removed** — use family sinks ([ADR-0414](adr/0414-sink-family-crds.md)) |
 | `KollectClusterScope` | Cluster | Platform policy boundary |
-| `KollectRemoteCluster` | Namespace | Hub spoke registration ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)) |
-
+| `
 ## Short names
 
 | Kind | Short name | `kubectl` example |

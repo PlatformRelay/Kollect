@@ -86,7 +86,7 @@ Lean on OSS patterns rather than reinvent:
 8. **Add Postgres + Kafka sinks** as first-class export targets ([ADR-0402](0402-sink-backends-database-kafka.md)).
 
 Kollect's unique value is the **combination** plus **stakeholder-facing export** (Git, HTTP, Postgres,
-Kafka) with **multi-cluster aggregation** ([ADR-0501](0501-multi-cluster-sync-rfc.md)) without
+Kafka) with **multi-cluster aggregation** ([ADR-0501](0501-multi-cluster-fleet.md)) without
 per-cluster export noise.
 
 ## Consequences
@@ -104,8 +104,8 @@ per-cluster export noise.
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** Multi-tenant — **both** deployment models: default cluster-scoped manager
+- **RESOLVED :** Multi-tenant — **both** deployment models: default cluster-scoped manager
   with namespaced `KollectScope` tenancy, plus optional per-team installs via Helm `watchNamespaces[]`
   and `tenantMode` (ESO scoped-controller pattern). Phase 1 priority — [ADR-0203](0203-namespaced-multi-tenancy.md).
-- **RESOLVED (2026-06-05):** Helm release sample — Flux `HelmRelease` summary profile default;
+- **RESOLVED :** Helm release sample — Flux `HelmRelease` summary profile default;
   values profile gated + redacted ([ADR-0303](0303-helm-release-inventory.md)).

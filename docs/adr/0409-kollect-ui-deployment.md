@@ -130,7 +130,7 @@ post-MVP implementation.
 
 ### 6. Optional co-location (v0.3+)
 
-When Read API splits to **`kollect-server`** ([ADR-0504](0504-operator-runtime-modes-ha-leader-election.md)),
+When Read API splits to **`kollect-server`** ([ADR-0504](0706-testing-merge-gate-architecture.md)),
 `kollect-ui` may share a namespace and ingress host with `kollect-server` — still separate Deployments
 and images.
 

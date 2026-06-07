@@ -9,7 +9,7 @@
 
 Security decisions were spread across many ADRs — TLS trust ([ADR-0201](0201-crd-model.md)), namespaced
 isolation and SAR ([ADR-0203](0203-namespaced-multi-tenancy.md)), redaction ([ADR-0303](0303-helm-release-inventory.md)),
-HTTP/API auth ([ADR-0404](0404-inventory-api-auth.md)), hub mTLS ([ADR-0503](0503-hub-cluster-auth-istio-pattern.md)) —
+HTTP/API auth ([ADR-0404](0404-inventory-api-auth.md)), hub mTLS ([ADR-0503](0104-security-model.md)) —
 but there was no single model a reviewer could read to understand Kollect's posture. This ADR
 consolidates it. (`SECURITY.md` at the repo root remains the *disclosure policy*; this is the
 *architecture*.)
@@ -60,7 +60,7 @@ consolidates it. (`SECURITY.md` at the repo root remains the *disclosure policy*
 
 ### Multi-cluster
 
-- Spoke→hub uses mTLS / mesh identity ([ADR-0503](0503-hub-cluster-auth-istio-pattern.md)); the hub
+- Spoke→hub uses mTLS / mesh identity ([ADR-0503](0104-security-model.md)); the hub
   allowlists clusters and rejects unlisted ones.
 
 ### Webhook TLS (serving)
@@ -80,8 +80,8 @@ consolidates it. (`SECURITY.md` at the repo root remains the *disclosure policy*
 
 ## Open questions
 
-- **DECIDED (2026-06-05):** Encryption-at-rest for sinks (Postgres/object-store) is **recommended and
+- **DECIDED :** Encryption-at-rest for sinks (Postgres/object-store) is **recommended and
   documented**, not enforced by the operator (it's a backend/infra responsibility).
-- **DECIDED (2026-06-05):** Add a **formal RBAC audit gate in CI** (`kubeaudit`-style) as a maturity
+- **DECIDED :** Add a **formal RBAC audit gate in CI** (`kubeaudit`-style) as a maturity
   signal ([ADR-0705](0705-release-supply-chain.md)).
 - **OPEN:** A built-in secret-leak scanner over outgoing payloads as defense-in-depth beyond `scrubKeys`?

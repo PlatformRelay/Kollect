@@ -85,7 +85,7 @@ and increment on table-driven reconcile cases.
 
 ## Open questions
 
-- **RESOLVED (2026-06-05):** **`kollect_sink_errors_total{reason}`** — separate metric; do not fold
+- **RESOLVED :** **`kollect_sink_errors_total{reason}`** — separate metric; do not fold
   into `kollect_reconcile_errors_total`.
-- **RESOLVED (2026-06-05):** Export duration histogram buckets listed above; flag override if load
+- **RESOLVED :** Export duration histogram buckets listed above; flag override if load
   tests show need ([ADR-0402](0402-sink-backends-database-kafka.md)).

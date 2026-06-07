@@ -29,7 +29,7 @@ especially **CRD lifecycle**, which Helm handles poorly — were never recorded.
 - **Cluster-wide** (default): `ClusterRole`/`ClusterRoleBinding`, operator watches all namespaces.
 - **Tenant mode**: `watchNamespaces` set → namespaced `Role`/`RoleBinding` only, no cluster-wide read
   ([ADR-0203](0203-namespaced-multi-tenancy.md), [ADR-0104](0104-security-model.md)).
-- **Hub mode**: optional hub deployment values for the aggregation tier ([ADR-0501](0501-multi-cluster-sync-rfc.md)).
+- **Hub mode**: optional hub deployment values for the aggregation tier ([ADR-0501](0501-multi-cluster-fleet.md)).
 - **Feature gates** — see [Feature gate strategy](#feature-gate-strategy) below.
 
 ### Feature gate strategy

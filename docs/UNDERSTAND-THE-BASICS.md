@@ -113,9 +113,8 @@ See [examples/postgres-state-store.md](examples/postgres-state-store.md) and
 
 ## Multi-cluster (optional)
 
-Single-cluster installs are fully supported. **Hub/spoke** mode uses Helm `mode: hub|spoke` (no
-`KollectHub` CRD) with HTTP ingest and pluggable queue transport
-([ADR-0501](adr/0501-multi-cluster-sync-rfc.md), [examples/hub-mode.md](examples/hub-mode.md)).
+Single-cluster installs are fully supported. **Hub/spoke** mode uses Helm ``KollectHub` CRD) with HTTP ingest and pluggable queue transport
+([ADR-0501](adr/0501-multi-cluster-fleet.md), [examples/multi-cluster-fleet.md](examples/multi-cluster-fleet.md)).
 `KollectClusterTarget` and `KollectClusterInventory` controllers reconcile cluster-scoped rollup
 and export to namespaced sinks.
 

@@ -28,7 +28,7 @@ not a new ADR.
 
 Kollect does **not** require a separate RFC for every ADR. Many records start life as ADRs with status
 **Exploring** (for example [ADR-0304](../adr/0304-custom-resource-aggregation-rfc.md),
-[ADR-0501](../adr/0501-multi-cluster-sync-rfc.md)). Use a standalone RFC under [`docs/rfc/`](../rfc/README.md)
+[ADR-0501](../adr/0501-multi-cluster-fleet.md)). Use a standalone RFC under [`docs/rfc/`](../rfc/README.md)
 when:
 
 - The write-up is long, speculative, or option-heavy and would clutter the ADR index
@@ -48,7 +48,7 @@ ADRs use **thematic ranges** — `0Txx` where `T` is the theme digit:
 | **02xx** | API & tenancy | CRD model, namespaced profiles, scope |
 | **03xx** | Collection & extraction | Informers, CEL/JSONPath, aggregation |
 | **04xx** | Export & sinks | Taxonomy, Postgres/Kafka, registry, Read API |
-| **05xx** | Multi-cluster | Hub/spoke, transport, auth |
+| **05xx** | Multi-cluster fleet | Shared sink fan-in (`spec.cluster`) |
 | **06xx** | Observability & ops | Metrics, errors, performance |
 | **07xx** | Project & meta | Docs site, release engineering, testing gates |
 

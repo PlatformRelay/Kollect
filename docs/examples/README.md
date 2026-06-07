@@ -15,10 +15,9 @@ kubectl apply -k config/samples/
 | --- | --- |
 | [Deployment inventory](deployment-inventory.md) | Profile → Target → Inventory → Postgres **30s** + Git **1h** dual-cadence ([ADR-0413](../adr/0413-export-interval-scheduling.md)) |
 | [Helm / Argo release inventory](helm-release-inventory.md) | Argo CD `Application` (Flux secondary) |
-| [Spoke cluster inventory](spoke-cluster-inventory.md) | Per-team Postgres/Git export |
+| [Multi-cluster fleet](multi-cluster-fleet.md) | N operators → shared Postgres/Git ([ADR-0501](../adr/0501-multi-cluster-fleet.md)) |
 | [Postgres state store](postgres-state-store.md) | Relational SoR + delete reconciliation |
 | [NATS event sink](nats-event-sink.md) | JetStream events |
-| [Hub mode](hub-mode.md) | `mode: hub`, no `KollectHub` CRD |
 | [Cluster-scoped rollup](cluster-rollup.md) | Cluster CRDs + dedupe |
 | [Multi-tenant watch scope](multi-tenant-watch-namespaces.md) | Scope + watchNamespaces |
 | [Connection test](connection-test.md) | `KollectConnectionTest` workflow |
@@ -29,7 +28,7 @@ kubectl apply -k config/samples/
 | [UI local development](ui-local-development.md) | Mock vs live Read API for kollect-ui |
 
 !!! note "Samples not in default kustomization"
-    NATS (`kollectsink_nats.yaml`) and some cluster-scoped samples are documented but not included in
+    NATS and some cluster-scoped samples are documented but not included in
     `kubectl apply -k config/samples/`. Apply those files individually when following their guides.
 
 !!! info "S3/GCS Parquet — not sampled yet"

@@ -77,15 +77,12 @@ source `generation`, `itemCount`, `exportedAt`, and `cluster`. These drive debou
 
 | Export path | `schemaVersion` envelope | Status |
 | --- | --- | --- |
-| Spoke → hub `SpokeReport` | Yes — `internal/export/contract.go` | **Shipped** |
-| Hub ingest validation | Yes — defaults missing, rejects unsupported | **Shipped** |
 | Kafka `EventEnvelope` | Yes — `internal/sink/kafka/backend.go` | **Shipped** |
 | Inventory / cluster inventory sink export | No — bare `[]Item` JSON array (`MarshalNamespaceJSON`) | **Pre-beta gap** |
 | Git / Postgres / S3 / GCS object payloads | No — canonical array only | **Pre-beta gap** |
 | Read API HTTP responses | No — `NamespaceSummary` without envelope | **Pre-beta gap** — **v0.5** gate per [ADR-0411](0411-read-api-extensions-for-ui.md) |
 
-Current contract value: `kollect.dev/v1alpha1`, aligned with wire `apiVersion`
-([ADR-0502](0502-lean-queue-transport.md)). Golden fixture: `test/schema/golden/spoke-report.json`.
+Contract value: `kollect.dev/v1alpha1` ([ADR-0206](0206-api-versioning-conversion.md)).
 
 **Pre-beta milestone:** wrap all sink exports and Read API responses in a versioned envelope
 (`schemaVersion`, `items`, metadata) so consumers decouple from CRD API versions
@@ -93,11 +90,11 @@ Current contract value: `kollect.dev/v1alpha1`, aligned with wire `apiVersion`
 
 ## Open questions
 
-- **PARTIAL (2026-06-05):** Explicit **`schemaVersion`** on wire envelopes (hub/spoke/Kafka) —
-  inventory and state-sink JSON exports still emit bare arrays; milestone tracked above.
-- **DECIDED (2026-06-05):** Attributes stay **`map[string]any`** in the contract; stronger typing is a
+- **PARTIAL:** Explicit **`schemaVersion`** on Kafka event envelopes — inventory and state-sink JSON
+  exports still emit bare arrays; milestone tracked above.
+- **DECIDED :** Attributes stay **`map[string]any`** in the contract; stronger typing is a
   **sink-side** concern — the Parquet sink promotes a hot-attribute allowlist to typed columns while
   keeping a JSON `attributes` column ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).
-- **PARTIAL (2026-06-05):** OpenAPI extensions (pagination, filters, envelope, `exportStatus`) tracked in
+- **PARTIAL :** OpenAPI extensions (pagination, filters, envelope, `exportStatus`) tracked in
   [ADR-0411](0411-read-api-extensions-for-ui.md); publish JSON Schema for `Item` alongside OpenAPI when
   envelope milestone closes.

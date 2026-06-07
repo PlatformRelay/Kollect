@@ -8,7 +8,7 @@
 
 Phase 1–3 shipped **operator** Prometheus metrics on `/metrics` ([ADR-0602](0602-error-taxonomy.md),
 [ADR-0601](0601-prometheus-metrics-stub.md)) and **inventory aggregation** via `KollectInventory` /
-`KollectClusterInventory` with hub merge ([ADR-0501](0501-multi-cluster-sync-rfc.md)). Stakeholder
+`KollectClusterInventory` with hub merge ([ADR-0501](0501-multi-cluster-fleet.md)). Stakeholder
 export uses Git, Postgres, Kafka, and object-store sinks — not a Prometheus export sink.
 
 [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) (KSM) exposes
@@ -27,7 +27,7 @@ full inventory payloads in etcd ([ADR-0103](0103-etcd-limit.md)) or exploding la
   [ADR-0301](0301-event-driven-informers.md)), not a second watch loop.
 - **Config surface:** `KollectProfile.spec.metrics` (and `KollectClusterProfile.spec.metrics`) —
   companion `KollectMetricsProfile` CR **deferred** until cross-profile reuse is required.
-- **Spike shape (2026-06-05):** `MetricSpec { name, path, labels? }` where `path` references an
+- **Spike shape :** `MetricSpec { name, path, labels? }` where `path` references an
   attribute name from `spec.attributes`; admission validates bounded label keys (max 5). Engine emits
   `kollect_custom_resource_series{profile,gvk,series}` and, when labels are configured,
   `kollect_custom_resource_labeled_series{profile,gvk,series,<attribute labels>}`; auto-sum of all
@@ -88,5 +88,5 @@ full inventory payloads in etcd ([ADR-0103](0103-etcd-limit.md)) or exploding la
 - [RFC: Prometheus metrics from collected attribute values](../rfc/prometheus-attribute-metrics.md)
 - [ADR-0601: Operator metrics stub](0601-prometheus-metrics-stub.md)
 - [ADR-0102: Prior art — kube-state-metrics](0102-prior-art.md)
-- [ADR-0501: Multi-cluster sync](0501-multi-cluster-sync-rfc.md)
+- [ADR-0501: Multi-cluster sync](0501-multi-cluster-fleet.md)
 - [PERFORMANCE.md](../PERFORMANCE.md) — operator metrics catalog

@@ -28,7 +28,7 @@ Support **both** deployment models:
 
 | Model | When | Mechanism |
 | --- | --- | --- |
-| **Per-team manager (default for now)** | Delegated / team-owned installs | Helm with `watchNamespaces: [team-a]` and **`tenantMode: true`** — namespaced Role RBAC; namespaced Profile/Sink/Target/Inventory in team namespace ([ADR-0703](0703-platform-architecture-pivot.md)) |
+| **Per-team manager (default for now)** | Delegated / team-owned installs | Helm with `watchNamespaces: [team-a]` and **`tenantMode: true`** — namespaced Role RBAC; namespaced Profile/Sink/Target/Inventory in team namespace ([ADR-0201](0201-crd-model.md)) |
 | **Cluster-scoped manager** | Platform team operates one shared operator | Watches all namespaces; **`KollectScope`** per tenant namespace governs GVKs, workload namespaces, and sink refs |
 
 ### Operator watch scope

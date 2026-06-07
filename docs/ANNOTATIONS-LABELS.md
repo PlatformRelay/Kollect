@@ -81,14 +81,13 @@ See [Connection test example](examples/connection-test.md).
 
 ## Multi-cluster registration
 
-Used when registering spoke clusters at the hub ([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)).
+Used when registering spoke clusters at the hub (ADR-0503).
 
 | Key | Type | On | Values | Effect |
 | --- | --- | --- | --- | --- |
 | `kollect.dev/multiCluster` | Label | Secret (remote-cluster credential) | `"true"` | Marks Istio-style remote secret for hub registration |
 | `kollect.dev/cluster` | Annotation | Secret | cluster ID string | Spoke identity for merge and auth |
-| `kollect.dev/spokePrincipal` | Annotation | `KollectRemoteCluster` | username | Optional binding — must match authenticated spoke principal |
-
+| `kollect.dev/spokePrincipal` | Annotation | `
 HTTP header `X-Kollect-Cluster-Id` carries cluster identity on hub ingest paths.
 
 ## Profile and export metadata
@@ -153,6 +152,6 @@ kubectl get pods -n kollect-system -l app.kubernetes.io/name=kollect
 
 - [ADR-0205: Watch labels](adr/0205-watch-labels.md)
 - [ADR-0403: Connection test](adr/0403-connection-test.md)
-- [ADR-0503: Hub cluster auth](adr/0503-hub-cluster-auth-istio-pattern.md)
+- ADR-0503: Hub cluster auth
 - [Operator manual — Watch scope](OPERATOR-MANUAL.md#watch-scope)
 - [Troubleshooting](TROUBLESHOOTING.md) · [Best practices](BEST-PRACTICES.md)

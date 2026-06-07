@@ -4,7 +4,7 @@ Kollect is a Kubernetes operator that turns selected, live cluster state into a 
 diffable inventory** — decoupled from the apiserver's availability, RBAC, and scale limits — so portals,
 automation, and auditors read **export data**, never the live API.
 
-**Summary for implementers:** [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) · **ADR:** [adr/0703-platform-architecture-pivot.md](adr/0703-platform-architecture-pivot.md)
+**Summary for implementers:** [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) · **ADR:** [adr/0201-crd-model.md](adr/0201-crd-model.md)
 
 !!! info "Project maturity"
     Kollect is pre-beta (`v1alpha1`). Phases in this document describe **build order**, not GA
@@ -77,15 +77,14 @@ flowchart TD
 | `KollectCluster*Sink` | Cluster | Probe only | Platform-shared backends |
 | `KollectScope` | Namespace | No | Tenancy boundary ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
 | `KollectTarget` | Namespace | Yes | Team-scoped collection (default) |
-| `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0201](adr/0201-crd-model.md)) |
 | `KollectInventory` | Namespace | Yes | Aggregate namespaced targets; export to sinks |
-| `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
+| `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0201](adr/0201-crd-model.md)) |
 | `KollectClusterProfile` | Cluster | No | Admission only — platform schemas (no controller) |
 | ~~`KollectSink`~~ | — | — | **Removed** — family CRDs ([ADR-0414](adr/0414-sink-family-crds.md)) |
 | `KollectClusterInventory` | Cluster | Yes | Platform rollup — pairs with `KollectClusterTarget` |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
-| ~~`KollectHub`~~ | — | **Rejected / stub** | **Removed** from tree — was never product surface — Helm `mode: hub` ([ADR-0703](adr/0703-platform-architecture-pivot.md)) |
-| ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](adr/0702-doc-sync-templating.md) |
+| ~~`KollectHub`~~ | — | **Rejected / stub** | **Removed** from tree — was never product surface — Helm `| ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](adr/0702-doc-sync-templating.md) |
 
 See [adr/0201-crd-model.md](adr/0201-crd-model.md). Per-kind field reference:
 [CR-REFERENCE.md](CR-REFERENCE.md). Reserved kinds are design placeholders — see
@@ -127,7 +126,7 @@ Key properties:
 - **Event-driven** informers ([ADR-0301](adr/0301-event-driven-informers.md)) — **one informer per GVK**.
 - **Watch opt-in/out** ([ADR-0205](adr/0205-watch-labels.md)) — platform `watchMode: All`; teams
   exclude with `kollect.dev/watch: disabled`.
-- **Export debouncing** — store updates immediately; sink export coalesced ([ADR-0703](adr/0703-platform-architecture-pivot.md)).
+- **Export debouncing** — store updates immediately; sink export coalesced ([ADR-0201](adr/0201-crd-model.md)).
 - **Status holds summaries only** — full payload in sinks ([ADR-0103](adr/0103-etcd-limit.md)).
 - **HTTP inventory** — optional, off by default; debug/small installs only.
 
@@ -159,17 +158,15 @@ in-memory snapshot per Inventory is canonical; sinks are projections.
 !!! note "Fleet vs single-cluster"
     **Single-cluster** installs export directly to Postgres, Git, or Kafka — no hub required.
     **Fleet** topologies default to shared-sink fan-in (`spec.cluster` on each sink); the hub tier
-    (`mode: hub`) is optional for Git fan-in, network isolation, or credential centralization.
-
-Hub = **`mode: hub`** on same image + `internal/hub/` merge — **no `KollectHub` CRD**
-([ADR-0501](adr/0501-multi-cluster-sync-rfc.md)). Spokes push summaries; hub writes merged
-Postgres/Kafka. Auth: [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md).
+    (`
+Hub = **`([ADR-0501](adr/0501-multi-cluster-fleet.md)). Spokes push summaries; hub writes merged
+Postgres/Kafka. Auth: ADR-0503.
 
 Phases in docs are **build order**, not release milestones — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md).
 
 ## Connection test
 
-- **`KollectConnectionTest` CR** — primary for CI/audit ([ADR-0703](adr/0703-platform-architecture-pivot.md))
+- **`KollectConnectionTest` CR** — primary for CI/audit ([ADR-0201](adr/0201-crd-model.md))
 - Sink `connectionTest` + annotation — supplementary quick checks ([ADR-0403](adr/0403-connection-test.md))
 
 ## Package boundaries

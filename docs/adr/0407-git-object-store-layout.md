@@ -24,7 +24,7 @@ inventory/<inventory-namespace>/<inventory-name>.json
 
 - Git/GitLab/S3/GCS write the JSON payload ([ADR-0405](0405-export-data-contract.md)) at that path.
 - Multi-cluster fan-in disambiguates by cluster in the path/key
-  (`clusters/<cluster>/…` or a cluster column/header — [ADR-0501](0501-multi-cluster-sync-rfc.md)),
+  (`clusters/<cluster>/…` or a cluster column/header — [ADR-0501](0501-multi-cluster-fleet.md)),
   so concurrent spokes never collide on the same object.
 
 ### Git write workflow
@@ -34,7 +34,7 @@ inventory/<inventory-namespace>/<inventory-name>.json
 - **Commit identity** is fixed: `kollect <kollect@kollect.dev>`, message `kollect: export inventory`.
 - **No-op guard**: if `git add` produces no change, the export errors rather than pushing an empty
   commit (idempotent exports stay quiet — [ADR-0406](0406-sink-registry.md)).
-- **Push policy** (2026-06-05): `spec.git.pushPolicy` defaults to **`Commit`** (append-only pushes).
+- **Push policy** : `spec.git.pushPolicy` defaults to **`Commit`** (append-only pushes).
   Optional **`ForcePush`** restores snapshot semantics (`push --force`) for demo repos.
 - **Empty-remote bootstrap**: a fresh/empty repo is `git init`'d and the branch created, so the first
   export works against a bare repository.
@@ -61,10 +61,10 @@ inventory/<inventory-namespace>/<inventory-name>.json
 
 ## Open questions
 
-- **DECIDED (2026-06-05):** Make the object path a **`spec.pathTemplate`** (e.g.
+- **DECIDED :** Make the object path a **`spec.pathTemplate`** (e.g.
   `{cluster}/{namespace}/{name}.json`, default `inventory/{namespace}/{name}.json`) so layout is
   configurable per sink.
-- **DECIDED (2026-06-05):** `spec.git` adds `pushPolicy`, `branch`, `auth`, `commitMessage`, `author`,
+- **DECIDED :** `spec.git` adds `pushPolicy`, `branch`, `auth`, `commitMessage`, `author`,
   `cloneDepth`, and `prune` on `KollectSink`.
 - **OPEN:** Object-store (S3/GCS) partition layout for the Parquet snapshot sink — lean toward
   `clusters/<cluster>/date=…/` Hive-style partitioning for DuckDB ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).
