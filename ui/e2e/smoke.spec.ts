@@ -16,6 +16,8 @@ test.describe("kollect-ui smoke", () => {
     await expect(page.getByRole("heading", { name: "Inventory" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Export status" })).toBeVisible();
     await expect(page.getByRole("grid", { name: "Inventory rows" })).toBeVisible();
-    await expect(page.getByText("web")).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "web", exact: true }),
+    ).toBeVisible();
   });
 });
