@@ -20,6 +20,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **sink:** Wire ADR-0419 git layout into export pipeline [12d7f80](https://github.com/konih/kollect/commit/12d7f8023223c7f20c4f3badcd0b57bbc017974f)
+
 - **export:** Full-resource pruning and Git layout [3df4027](https://github.com/konih/kollect/commit/3df4027e0fc43970df9599996241693c0886fd86)
 
 - **sink:** Render status.preview surface (ADR-0416) [5c9c80f](https://github.com/konih/kollect/commit/5c9c80f0798e8fdbe20848525e48ff085d29b274)

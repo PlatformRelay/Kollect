@@ -4,12 +4,22 @@
 package validation
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
-	"github.com/konih/kollect/internal/sink/layout"
+)
+
+var (
+	layoutPathPlaceholders = map[string]struct{}{
+		"cluster": {}, "namespace": {}, "name": {}, "targetNamespace": {}, "targetName": {},
+		"sourceNamespace": {}, "sourceName": {}, "group": {}, "kind": {}, "uid": {},
+		"generation": {}, "extension": {},
+	}
+	layoutPathPlaceholderPattern = regexp.MustCompile(`\{([a-zA-Z]+)\}`)
 )
 
 // ValidateLayoutSpec checks the structural validity of a snapshot layout block (ADR-0419).
@@ -48,7 +58,7 @@ func ValidateLayoutSpec(l *kollectdevv1alpha1.LayoutSpec, path *field.Path) fiel
 		}
 	}
 
-	if err := layout.ValidateLayoutPathTemplate(l.PathTemplate); err != nil {
+	if err := validateLayoutPathTemplate(l.PathTemplate); err != nil {
 		allErrs = append(allErrs, field.Invalid(path.Child("pathTemplate"), l.PathTemplate, err.Error()))
 	}
 
@@ -101,4 +111,29 @@ func LayoutWarnings(l *kollectdevv1alpha1.LayoutSpec) []string {
 	}
 
 	return warns
+}
+
+// validateLayoutPathTemplate checks layout.pathTemplate placeholders (ADR-0419).
+// Duplicated from internal/sink/layout to keep validation independent of sink.
+func validateLayoutPathTemplate(template string) error {
+	template = strings.TrimSpace(template)
+	if template == "" {
+		return nil
+	}
+	if strings.Contains(template, "..") {
+		return fmt.Errorf("layout.pathTemplate must not contain '..'")
+	}
+	for _, match := range layoutPathPlaceholderPattern.FindAllStringSubmatch(template, -1) {
+		if len(match) < 2 {
+			continue
+		}
+		if _, ok := layoutPathPlaceholders[match[1]]; !ok {
+			return fmt.Errorf("layout.pathTemplate contains unsupported placeholder {%s}", match[1])
+		}
+	}
+	if !strings.Contains(template, "{sourceName}") && !strings.Contains(template, "{name}") &&
+		!strings.Contains(template, "{uid}") {
+		return fmt.Errorf("layout.pathTemplate must include a per-resource identifier ({sourceName}, {name}, or {uid})")
+	}
+	return nil
 }
