@@ -100,7 +100,7 @@ The in-memory inventory snapshot is **canonical**; sinks are **projections** cla
 | --- | --- | --- |
 | **Snapshot store** | `git`, `gitlab`, `s3`, `gcs` | Auditable JSON history, object-store archives |
 | **Relational SoR** | `postgres` | Queryable tables; delete reconciliation removes stale rows |
-| **Event emitter** | `nats`, `kafka` | Change streams for automation and hub fan-in |
+| **Event emitter** | `nats`, `kafka` | Change streams for automation and downstream consumers |
 
 Git/GitLab exports produce **commits** portals and compliance workflows can diff. Postgres holds
 **queryable state**; NATS/Kafka emit **events** — many teams pair Postgres + NATS in `sinkRefs`.
@@ -113,7 +113,8 @@ See [examples/postgres-state-store.md](examples/postgres-state-store.md) and
 
 ## Multi-cluster (optional)
 
-Single-cluster installs are fully supported. **Hub/spoke** mode uses Helm ``KollectHub` CRD) with HTTP ingest and pluggable queue transport
+Single-cluster installs are fully supported. **Multi-cluster fleet** mode runs one operator per
+cluster and merges inventory in shared sinks via `spec.cluster` and `pathTemplate`
 ([ADR-0501](adr/0501-multi-cluster-fleet.md), [examples/multi-cluster-fleet.md](examples/multi-cluster-fleet.md)).
 `KollectClusterTarget` and `KollectClusterInventory` controllers reconcile cluster-scoped rollup
 and export to namespaced sinks.

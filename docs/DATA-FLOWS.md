@@ -227,183 +227,44 @@ Default TTL: **300s**. Patch `spec.sinkRef` to force a fresh probe.
 
 ---
 
-## 6. Hub merge and multi-cluster ingest
+## 6. Multi-cluster fleet (shared sink fan-in)
 
-Spokes run the **same operator image** with `mode: spoke`; the hub runs `mode: hub-consumer`.
-Spokes publish summarized **`SpokeReport`** JSON deltas; the hub merges them into a shared
-in-memory store keyed by **`(cluster, namespace, name, uid)`** ([ADR-0501](adr/0501-multi-cluster-sync-rfc.md),
-[ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)).
-
-### Spoke → hub transport
+Each cluster runs the **same single-mode operator**. `KollectInventory` export includes a
+**`cluster`** dimension via `spec.cluster` on database sinks or `{cluster}` in Git
+`pathTemplate` so shared backends merge rows without an in-tree aggregation tier
+([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 ```mermaid
 flowchart LR
-  subgraph spoke [Spoke cluster]
-    Tgt[KollectTarget<br/>reconciler]
-    Store[(Collect store)]
-    Pub[spoke.TryPublishReport]
-    Tgt --> Store
-    Store --> Pub
+  subgraph c1 [Cluster A]
+    Tgt1[KollectTarget]
+    Inv1[KollectInventory]
+    Tgt1 --> Inv1
   end
-
-  subgraph hub [Hub cluster]
-    HTTP[HTTP ingest<br/>POST /hub/v1alpha1/reports]
-    Queue[Queue consumer<br/>Redis / NATS]
-    Recv[ReceiveReport]
-    Merge[Merger.Apply]
-    HubStore[(Hub collect store)]
-    HTTP --> Recv
-    Queue --> Recv
-    Recv --> Merge
-    Merge --> HubStore
-  Export[Parallel sink export<br/>per sinkRefs roles]
-  HubStore --> Export
+  subgraph c2 [Cluster B]
+    Tgt2[KollectTarget]
+    Inv2[KollectInventory]
+    Tgt2 --> Inv2
   end
-
-  Pub -->|Bearer + X-Kollect-Cluster-Id| HTTP
-  Pub -->|cluster_id metadata| Queue
+  subgraph sink [Shared backend]
+    PG[(Postgres PK: cluster + uid)]
+    GIT[Git pathTemplate clusters/cluster/…]
+  end
+  Inv1 -->|export cluster=a| PG
+  Inv2 -->|export cluster=b| PG
+  Inv1 --> GIT
+  Inv2 --> GIT
 ```
 
-| Channel | Identity | Registration gate |
-| --- | --- | --- |
-| **HTTP push** (default) | `TokenReview` + SAR **`create`** on `kollectremoteclusters` | `KOLLECT_REMOTE_CLUSTERS` allowlist |
-| **Queue** (Phase 2) | `cluster_id` wire field / header + TLS | Same allowlist; broker ACL is operator-owned |
+**Merge semantics:** Postgres delete reconciliation keys on `(cluster, namespace, name, uid)`.
+Git and object-store layouts partition by `pathTemplate`. Event sinks include cluster in subject
+or headers for downstream consumers.
 
-### HTTP ingest sequence
+**Export path:** identical per-sink debouncing as single-cluster mode ([§1](#1-export-debouncing)).
+Multi-cluster rows carry **`cluster`** in each item; CR `status` stores summaries only
+([ADR-0103](adr/0103-etcd-limit.md)).
 
-```mermaid
-sequenceDiagram
-  participant Spoke as Spoke operator
-  participant Hub as Hub ingest HTTP
-  participant Auth as TokenReview + SAR
-  participant Recv as ReceiveReport
-  participant Merge as Merger
-  participant Store as Hub collect store
-
-  Spoke->>Hub: POST /hub/v1alpha1/reports<br/>Authorization: Bearer token<br/>X-Kollect-Cluster-Id: spoke-a
-  Hub->>Auth: validate token + create on kollectremoteclusters
-  Auth-->>Hub: allowed
-  Hub->>Recv: body + header cluster id
-  Recv->>Recv: cluster id match + ACL check
-  Recv->>Merge: SpokeReport
-  Merge->>Store: upsert items / remove UIDs
-  Store-->>Hub: ok
-  Hub->>Hub: export to hub sinks (parallel)
-  Hub-->>Spoke: 202 Accepted
-```
-
-### Merge semantics
-
-```mermaid
-flowchart TD
-  Report[SpokeReport JSON] --> Wire{X-Kollect-Cluster-Id<br/>matches body.cluster?}
-  Wire -->|no| Reject[400 Bad Request]
-  Wire -->|yes| ACL{cluster in<br/>KOLLECT_REMOTE_CLUSTERS?}
-  ACL -->|no when enforced| Reject
-  ACL -->|yes / dev open| Apply[Merger.Apply]
-  Apply --> Upsert[Upsert items<br/>key: cluster + target + uid]
-  Apply --> Remove[Remove removedUIDs]
-  Upsert --> HubExport[Parallel sink export]
-  Remove --> HubExport
-  HubExport --> SoR[Relational SoR<br/>e.g. Postgres]
-  HubExport --> Emit[Event emitter<br/>e.g. NATS / Kafka]
-  HubExport --> Snap[Snapshot store<br/>e.g. Git / S3]
-```
-
-**Post-merge export:** hub consumer resolves namespaced `KollectSink` objects from
-`KOLLECT_HUB_EXPORT_NAMESPACE` + `KOLLECT_HUB_SINK_REFS`, marshals the merged target inventory
-(`cluster` + `inventoryRef.name`), and fans out to **each configured sink in parallel** — typically
-a relational SoR (Postgres) plus optional snapshot or event sinks — using the same payload contract
-as namespaced `KollectInventory` export ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
-
-**Idempotency:** duplicate reports with the same `(cluster, namespace, name, uid)` overwrite the
-stored row; `removedUIDs` tombstones delete stale rows. At-least-once delivery is safe.
-
-**Status:** successful ingest marks `KollectRemoteCluster` **`Connected=True`** when the CR exists
-in the hub platform namespace.
-
-### Spoke queue publish (Phase 2)
-
-When `transport: queue` is configured on the spoke, `spoke.TryPublishReport` enqueues a
-`SpokeReport` JSON message instead of (or in addition to) HTTP push. The hub consumer drains the
-broker and calls the same `ReceiveReport` → `Merger.Apply` path as HTTP ingest.
-
-```mermaid
-sequenceDiagram
-  participant Tgt as KollectTarget reconciler
-  participant Store as Collect store
-  participant Pub as spoke.TryPublishReport
-  participant Broker as Redis / NATS
-  participant Cons as Hub queue consumer
-  participant Recv as ReceiveReport
-  participant Merge as Merger
-  participant HubStore as Hub collect store
-
-  Tgt->>Store: object add/update/delete
-  Store->>Pub: namespace delta ready
-  Pub->>Pub: marshal SpokeReport + cluster_id
-  Pub->>Broker: publish (TLS + ACL)
-  Broker->>Cons: deliver (at-least-once)
-  Cons->>Recv: body + cluster_id metadata
-  Recv->>Recv: ACL + idempotency check
-  Recv->>Merge: SpokeReport
-  Merge->>HubStore: upsert / tombstone UIDs
-```
-
-| Setting | Role |
-| --- | --- |
-| `KOLLECT_SPOKE_CLUSTER` | Wire `cluster_id` and report body `cluster` field |
-| `KOLLECT_TRANSPORT` | `http` (default) or `queue` on spoke |
-| Broker URL / credentials | Operator-owned secret; not in CR spec |
-| `KOLLECT_REMOTE_CLUSTERS` | Hub allowlist — same gate as HTTP ingest |
-
-Queue delivery is **at-least-once**; merge keys `(cluster, namespace, name, uid)` make replays safe.
-
-### Post-merge hub export
-
-After merge, hub `KollectInventory` objects use the **same per-sink debounced export path** as
-single-cluster mode ([§1](#1-export-debouncing)): marshal once, then fan out with per-ref intervals.
-Hub env `KOLLECT_HUB_SINK_REFS` remains comma-separated names — structured hub intervals deferred
-([ADR-0413](adr/0413-export-interval-scheduling.md)).
-
-```mermaid
-flowchart TD
-  HubStore[(Hub collect store<br/>key: cluster + target + uid)]
-  HubInv[Hub KollectInventory<br/>reconciler]
-  Scope{KollectScope<br/>in export NS?}
-  Marshal[Marshal multi-cluster payload]
-  Debounce{checksum / interval}
-  Export[Export to sinkRefs]
-  PG[(Postgres / Git / …)]
-
-  HubStore --> HubInv
-  HubInv --> Scope
-  Scope -->|denied| Degrade[Degraded — no export]
-  Scope -->|ok| Marshal
-  Marshal --> Debounce
-  Debounce -->|material change or interval| Export
-  Debounce -->|unchanged| Wait[RequeueAfter]
-  Export --> Sinks[(Configured sinks)]
-  Export --> Status[status.lastExportTime + conditions]
-```
-
-Multi-cluster rows include a **`cluster`** dimension in each item so downstream consumers can filter
-or partition by spoke. Hub export does **not** persist full payloads in CR `status` — only summaries
-and last-export metadata ([ADR-0103](adr/0103-etcd-limit.md)).
-
-### Configuration
-
-| Env / setting | Role |
-| --- | --- |
-| `KOLLECT_SPOKE_CLUSTER` | Spoke identity; enables publish |
-| `KOLLECT_HUB_INGEST_AUTH_MODE` | `kubernetes` (default) or `disabled` (dev/CI) |
-| `KOLLECT_PLATFORM_NAMESPACE` | Namespace for ingest SAR on `kollectremoteclusters` |
-| `KOLLECT_REMOTE_CLUSTERS` | Hub registration allowlist (comma-separated `spec.clusterName` values); **set (even empty) = fail-closed** |
-| `KOLLECT_HUB_EXPORT_NAMESPACE` | Namespace for hub `KollectSink` resolution (Helm `hub.exportNamespace`) |
-| `KOLLECT_HUB_SINK_REFS` | Comma-separated hub sink names for parallel export (Helm `hub.sinkRefs`) |
-
-See [ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md) for RBAC grants and Istio-style remote
-secret registration.
+Walkthrough: [Multi-cluster fleet](examples/multi-cluster-fleet.md).
 
 ---
 

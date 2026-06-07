@@ -101,45 +101,28 @@ Keep `spec.connectionTest: false` in Git-managed manifests. Probe on demand with
 `kollect.dev/test-connection` annotation or a `KollectConnectionTest` CR
 ([Connection test example](examples/connection-test.md)).
 
-## Hub vs shared sink
+## Multi-cluster fleet (shared sink)
 
-**Default multi-cluster path:** each cluster runs Kollect with `mode: single` (or `mode: spoke`
-without a hub) and exports to a **shared sink** (Postgres, Kafka, NATS) with `spec.cluster` set.
-The backend primary key merges rows across clusters — **no hub required**
-([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
+**Default multi-cluster path:** each cluster runs the same single-mode operator and exports to a
+**shared sink** (Postgres, Git, Kafka, NATS) with `spec.cluster` set (or `{cluster}` in
+`pathTemplate`). The backend primary key merges rows across clusters — **no aggregation tier**
+inside the operator ([ADR-0501](adr/0501-multi-cluster-fleet.md),
+[ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 
 ```mermaid
 flowchart LR
-  subgraph spokes [Spoke clusters]
-    S1[Kollect single]
-    S2[Kollect single]
+  subgraph clusters [Per-cluster operators]
+    S1[Kollect cluster A]
+    S2[Kollect cluster B]
   end
   subgraph backend [Shared backend]
-    PG[(Postgres / Kafka / NATS)]
+    PG[(Postgres / Git / Kafka)]
   end
   S1 -->|export + cluster id| PG
   S2 -->|export + cluster id| PG
 ```
 
-### When to use hub mode (`mode: hub`)
-
-| Scenario | Why hub |
-| --- | --- |
-| Git is the multi-cluster SoR | Direct Git fan-in = N commits per change; needs aggregation |
-| Network isolation | Spokes cannot reach central DB/broker; hub provides one ingress |
-| Credential centralization | One write credential at hub vs N spokes |
-| Schema decoupling | Spokes send stable report schema; hub owns DB migrations |
-
-There is **no `KollectHub` CRD** — hub and spoke are Helm `mode` values on the same operator image
-([ADR-0703](adr/0703-platform-architecture-pivot.md)). Register spokes with `KollectRemoteCluster`
-([ADR-0503](adr/0503-hub-cluster-auth-istio-pattern.md)).
-
-!!! warning "Pre-beta hub transport"
-    Hub ingest and spoke push paths are still maturing. Default transport is `inprocess` until an
-    external backend passes integration proof ([ADR-0502](adr/0502-lean-queue-transport.md)).
-
-Walkthroughs: [Spoke cluster inventory](examples/spoke-cluster-inventory.md),
-[Hub mode](examples/hub-mode.md).
+Walkthrough: [Multi-cluster fleet](examples/multi-cluster-fleet.md).
 
 ## Operational checklist
 

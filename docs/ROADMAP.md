@@ -54,7 +54,7 @@ flowchart LR
 | --- | --- | --- |
 | **0** | Bootstrap | Scaffold, guidelines, ADRs, Helm, CI, webhooks, metrics, docs |
 | **1** | Collection + Sink | MVP: namespaced CRDs, export to role-based sinks (state store / event emitter); optional HTTP |
-| **2** | Multi-cluster | Helm `mode: hub\|spoke`, merge lib, pluggable queue (no hub CRD) |
+| **2** | Multi-cluster | N operators → shared sink (`spec.cluster`); fleet model per ADR-0501 |
 | **3** | Governance | `KollectScope`, cluster inventory APIs, S3/GCS hardening |
 | **4** | Metrics + aggregation | kube-state-metrics-style config, richer rollups |
 

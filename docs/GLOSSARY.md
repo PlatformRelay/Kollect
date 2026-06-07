@@ -133,18 +133,11 @@ KollectProfile is the Schema for the kollectprofiles API
 
 Full reference: [KollectProfile](crds/kollectprofile.md).
 
-### `KollectRemoteCluster` (namespaced)
+### Fleet cluster identity
 
-KollectRemoteCluster declares a registered spoke cluster on the inventory hub.
-
-| Spec field | Description |
-| --- | --- |
-| `apiServerURL` | apiServerURL is the spoke Kubernetes API server URL (optional for push-only spokes). |
-| `clusterName` | clusterName is the stable DNS-1123 identifier for the spoke cluster. |
-| `credentialsSecretRef` | credentialsSecretRef points to an Istio-style remote kubeconfig secret for optional hub pull. |
-| `trustBundle` | trustBundle is a PEM-encoded CA bundle for spoke API TLS or future mTLS (optional). |
-
-Full reference: [KollectRemoteCluster](CR-REFERENCE.md#kinds).
+Multi-cluster installs set **`spec.cluster`** on database sinks (and `{cluster}` in Git
+`pathTemplate`) so shared Postgres or Git backends partition rows per cluster without a hub
+operator tier ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 ### `KollectScope` (namespaced)
 
