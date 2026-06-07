@@ -23,13 +23,13 @@ release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
 anchor on an older commit.
 
-## [Unreleased]
+## [0.2.0-rc.1](https://github.com/konih/kollect/compare/v0.1.0-rc.3..v0.2.0-rc.1) - 2026-06-07
 
 ### Bug Fixes
 
-- **e2e:** Drop legacy sinkRefs from multitenant scope fixture
+- **e2e:** Drop legacy sinkRefs from multitenant scope ([#14](https://github.com/konih/kollect/pull/14))[8f7a156](https://github.com/konih/kollect/commit/8f7a1565ff3cf06ac29debe91a54a4ec5047dd60)
 
-- **e2e:** Drop removed inventory sinkRefs field [48af9c4](https://github.com/konih/kollect/commit/48af9c4924c150bea36694dac1f691f3b7a88d82)
+- **e2e:** Drop removed inventory sinkRefs field [e912dbe](https://github.com/konih/kollect/commit/e912dbe384378c9b84cef4b6646ca51851a32df4)
 
 - **e2e:** Validate collection via inventory HTTP [ca816a0](https://github.com/konih/kollect/commit/ca816a072b89326d0bc6c6a6dae5f4d2f0ec8159)
 
