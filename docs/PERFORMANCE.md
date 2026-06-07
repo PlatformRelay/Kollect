@@ -23,6 +23,9 @@ stay **O(total rows)**, never O(spokes²).
 | --- | --- | --- |
 | `--max-concurrent-reconciles-target` | `5` | `KollectTarget` |
 | `--max-concurrent-reconciles-inventory` | `3` | `KollectInventory` |
+| `--max-concurrent-reconciles-cluster-target` | `2` | `KollectClusterTarget` |
+| `--max-concurrent-reconciles-cluster-inventory` | `2` | `KollectClusterInventory` |
+
 Raise concurrency when reconcile latency grows while CPU is underutilized. Lower it when
 API server throttling or etcd watch pressure appears.
 

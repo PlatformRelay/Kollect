@@ -48,7 +48,8 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 | Kind | Rationale |
 | --- | --- |
 | `KollectPublication` | Doc-sync / Confluence / in-operator templating — out of scope; use Git export + external CI ([ADR-0702](0702-doc-sync-templating.md)) |
-| `KollectHub` | Hub Deployment lifecycle via CRD — **rejected**; use Helm **`
+| `KollectHub` | Hub Deployment lifecycle via CRD — **rejected**; use shared-sink fleet ([ADR-0501](0501-multi-cluster-fleet.md)) |
+
 ### Reconciled (connection test)
 
 | Kind | Scope | Role |
