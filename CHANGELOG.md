@@ -28,7 +28,9 @@ See [docs/RELEASE.md](docs/RELEASE.md#versioning-policy).
 
 ### Bug Fixes
 
-- **e2e:** Validate git-export and multitenant via HTTP [09c9cb3](https://github.com/konih/kollect/commit/09c9cb36dde57286ce7664fa6f994915e04730a3)
+- **e2e:** Use object form for snapshotSinkRefs [5be08f5](https://github.com/konih/kollect/commit/5be08f59b5b913505121fc252f506aafa0fb1456)
+
+- **e2e:** Validate git-export and multitenant via HTTP [85d160a](https://github.com/konih/kollect/commit/85d160ad2cfb59a967697e2791f698bd4a80b5bd)
 
 ## [0.2.0-rc.1](https://github.com/konih/kollect/compare/v0.1.0-rc.3..v0.2.0-rc.1) - 2026-06-07
 
