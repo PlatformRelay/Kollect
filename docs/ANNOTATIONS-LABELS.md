@@ -101,7 +101,7 @@ headers are **not** used in the default architecture.
 ## Export payload spill
 
 Not an annotation — operator policy for marshalled inventory size
-([ADR-0103](adr/0103-etcd-limit.md), [KollectSink spill](crds/kollectsink.md#export-payload-spill)):
+([ADR-0103](adr/0103-etcd-limit.md), [KollectInventory `maxExportBytes`](crds/kollectinventory.md#spec-fields)):
 
 | Signal | When | Meaning |
 | --- | --- | --- |

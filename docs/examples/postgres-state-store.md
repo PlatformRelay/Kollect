@@ -127,4 +127,4 @@ Integration coverage: `internal/sink/postgres/export_integration_test.go`.
 ## Related
 
 - [Deployment inventory](deployment-inventory.md) · [Connection test](connection-test.md)
-- [KollectSink](../crds/kollectsink.md) · [ADR-0402](../adr/0402-sink-backends-database-kafka.md)
+- [KollectDatabaseSink](../crds/kollectdatabasesink.md) · [ADR-0402](../adr/0402-sink-backends-database-kafka.md)

@@ -22,7 +22,7 @@ types on static kinds. See [ADR-0602](adr/0602-error-taxonomy.md) for reconcile 
 
 | Kind | Conditions | When to inspect |
 | --- | --- | --- |
-| [`KollectSink`](crds/kollectsink.md) | `ConnectionVerified`, `TLSInsecure`, `Degraded` | Before export; credential or endpoint problems |
+| Family sinks ([`KollectSnapshotSink`](crds/kollectsnapshotsink.md), [`KollectDatabaseSink`](crds/kollectdatabasesink.md), [`KollectEventSink`](crds/kollecteventsink.md)) | `ConnectionVerified`, `TLSInsecure`, `Degraded` | Before export; credential or endpoint problems |
 | [`KollectTarget`](crds/kollecttarget.md) | `Ready`, `Synced`, `Degraded`, `SinkReachable` | Collection stalled or scope denied |
 | [`KollectInventory`](crds/kollectinventory.md) | `Ready`, `Synced`, `Degraded`, `SinkReachable` | Export not running or payload errors |
 | [`KollectConnectionTest`](crds/kollectconnectiontest.md) | `ConnectionVerified`, `Ready` | Audited composite probes |
@@ -59,7 +59,7 @@ or namespace** in `sinkRefs` is wrong — fix the reference, not just credential
 
 Full per-kind tables: [KollectInventory](crds/kollectinventory.md#status-conditions),
 [KollectTarget](crds/kollecttarget.md#status-conditions),
-[KollectSink](crds/kollectsink.md#status-conditions).
+[KollectSnapshotSink](crds/kollectsnapshotsink.md#status).
 
 ## Symptom → cause quick reference
 

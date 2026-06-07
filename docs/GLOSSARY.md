@@ -166,7 +166,8 @@ KollectSink is the Schema for the kollectsinks API
 | `objectStore` | objectStore configures S3/GCS snapshot export format and layout. |
 | `postgres` | postgres configures a PostgreSQL database sink. |
 
-Full reference: [KollectSink](crds/kollectsink.md).
+Full reference: [KollectSnapshotSink](crds/kollectsnapshotsink.md),
+[KollectDatabaseSink](crds/kollectdatabasesink.md), [KollectEventSink](crds/kollecteventsink.md).
 
 ### `KollectTarget` (namespaced)
 

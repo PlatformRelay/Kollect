@@ -81,4 +81,4 @@ as backstop (`ScopeNamespaceDenied`, `ScopeGVKDenied`).
 ## See also
 
 - [ADR-0201](0201-crd-model.md) · [ADR-0203](0203-namespaced-multi-tenancy.md)
-- [ADR-0205](0205-watch-labels.md) · [ADR-0302](0302-cel-extraction.md)
+- [ADR-0205](0205-watch-labels.md) · [ADR-0302](0302-cel-jsonpath-extraction.md)

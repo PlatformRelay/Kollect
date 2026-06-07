@@ -17,7 +17,7 @@ For install defaults, see [Operator manual](OPERATOR-MANUAL.md).
 ### Per-team install (recommended default)
 
 Install one operator per tenant boundary with namespaced RBAC and a restricted informer cache
-([ADR-0203](adr/0203-namespaced-multi-tenancy.md), [ADR-0703](adr/0703-platform-architecture-pivot.md)):
+([ADR-0203](adr/0203-namespaced-multi-tenancy.md), ADR-0703 (archived)):
 
 ```yaml
 tenantMode: true
@@ -137,6 +137,6 @@ Walkthrough: [Multi-cluster fleet](examples/multi-cluster-fleet.md).
 ## Related
 
 - [ADR-0401: Sink taxonomy](adr/0401-sink-taxonomy-state-vs-stream.md)
-- [ADR-0501: Multi-cluster sync](adr/0501-multi-cluster-sync-rfc.md)
+- [ADR-0501: Multi-cluster sync](adr/0501-multi-cluster-fleet.md)
 - [Operator manual](OPERATOR-MANUAL.md) · [Troubleshooting](TROUBLESHOOTING.md) · [FAQ](FAQ.md)
 - [Examples](examples/README.md)
