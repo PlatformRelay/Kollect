@@ -7,6 +7,7 @@ resources:
 - kollect_v1alpha1_kollectprofile_helm-release-values-redacted.yaml
 - kollect_v1alpha1_kollectprofile_argo-application-summary.yaml
 - kollect_v1alpha1_kollectsnapshotsink.yaml
+- kollect_v1alpha1_kollectsnapshotsink_s3.yaml
 - kollect_v1alpha1_kollectdatabasesink.yaml
 - kollect_v1alpha1_kollecteventsink_kafka.yaml
 - kollect_v1alpha1_kollecttarget.yaml

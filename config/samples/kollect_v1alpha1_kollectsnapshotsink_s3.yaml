@@ -1,0 +1,33 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSnapshotSink
+metadata:
+  name: s3-inventory-demo
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: s3
+  endpoint: s3://kollect-inventory-demo
+  cluster: lab-west
+  connectionTest: true
+  # Cross-cutting serialization block (ADR-0416). json is the zero-config default; object stores
+  # also support parquet and csv. The validating webhook rejects formats a backend cannot honor
+  # (e.g. serialization.format: parquet on a Kafka event sink).
+  serialization:
+    format: parquet
+    compression: zstd
+  # Platform teams point kollect at a bucket they own; kollect never creates it (ADR-0416).
+  provisioning:
+    mode: existing
+  objectStore:
+    # hotAttributes are promoted to typed Parquet columns (ADR-0401).
+    hotAttributes:
+      - image
+      - version
+  # Non-secret S3 pass-through (ADR-0416); credentials go via secretRef only.
+  options:
+    storageClass: INTELLIGENT_TIERING
+  # secretRef:
+  #   name: s3-inventory-credentials
+  #   namespace: kollect-system

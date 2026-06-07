@@ -141,6 +141,7 @@ nav:
               - "0413 — Per-sink export interval scheduling": adr/0413-export-interval-scheduling.md
               - "0414 — Sink family CRDs (clean break, pre-GA)": adr/0414-sink-family-crds.md
               - "0415 — Git sink commit ergonomics": adr/0415-git-sink-commit-ergonomics.md
+              - "0416 — Sink configuration layering": adr/0416-sink-config-layering.md
           - 05 Multi-cluster fleet:
               - "0501 — Multi-cluster fleet (shared sink fan-in)": adr/0501-multi-cluster-fleet.md
           - 06 Observability & ops:
