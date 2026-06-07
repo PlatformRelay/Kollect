@@ -98,6 +98,9 @@ until the maintainer adds `SONAR_TOKEN`. Does not replace `task lint` or arch-li
 Set repository variable **`GIT_EXPORT_TEST_REPO`** (Settings → Actions → Variables) to enable full
 remote git SHA assert in git-export scenarios. Without it, jobs verify inventory HTTP hash only.
 
+For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a dedicated test repo
+(or `file://` bare remote) when exercising push assertions; unit and envtest tiers do not require it.
+
 ## Local development commands
 
 | Task | Purpose |

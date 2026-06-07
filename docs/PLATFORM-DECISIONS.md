@@ -79,9 +79,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | `namespaceSelector` | **Required** — webhook rejects empty/missing selector |
 | Helm values profile | **`helm-release-values-redacted`** + operator **`scrubKeys[]`** at extraction |
 | GitLab sink | **Phase 2** — implement with **`tls.caSecretRef`** for internal CA; Git remains small-install default |
-| Hub ingest SAR | **`create`** on **`kollectremoteclusters`** in hub namespace |
-
-### Export debouncing, scope, and hub ingest
+### Export debouncing and scope
 
 | Topic | Decision |
 | --- | --- |
@@ -89,7 +87,6 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | `exportMinInterval` bypass | Immediate export on **payload checksum change** or **`metadata.generation`** bump |
 | ConnectionTest re-run | **Re-probe on any spec change** (generation ≠ observedGeneration); TTL restarts after new run |
 | `KollectScope` enforcement | **Hard degrade** — `Degraded` + no collect/export; see [ADR-0203](adr/0203-namespaced-multi-tenancy.md) example |
-| Hub first milestone | **Postgres + Kafka in parallel** on hub ingest |
 | `KollectClusterInventory` | **One CR rolls up all** `KollectClusterTarget`s; optional `targetRefs` for subset / 1:1 |
 | ADR micro-decisions (Postgres PK, HTTP paths, Kafka keys, …) | **Confirmed** — see [Implementation defaults](#implementation-defaults) below |
 
@@ -101,7 +98,6 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | Argo samples | Profile `argo-application-summary` + Target `team-argo-applications` |
 | `KollectConnectionTest` GC | **`spec.ttlSecondsAfterFinished`** — default **300s** |
 | Export debounce | **Per Inventory** — `spec.exportMinInterval`, default **30s** |
-| Hub federated mTLS | **Deferred** — ADR-0503 push-first path stands |
 | Cluster rollup | **`KollectClusterInventory`** + **`KollectClusterTarget`** (no namespaced `inventoryRef` hack) |
 
 ### Implementation defaults
@@ -117,7 +113,6 @@ the corresponding code merges.
 | Inventory HTTP path | **`GET /v1alpha1/inventory`**; optional **`GET /v1alpha1/inventory/{namespace}/{name}`** | When HTTP enabled (debug; default off) |
 | OpenAPI | **`openapi/v1alpha1/inventory.yaml`** beside handler | 1 |
 | Inventory read SAR | **`get`** on `kollectinventories` in caller namespace; **`list`** for index | 1 |
-| Hub ingest SAR | **`create`** on **`kollectremoteclusters`** in hub namespace | 2 |
 | GitLab sink | **`type: gitlab`** backend + custom CA TLS; Phase 2 after Git path proven | 2 |
 | Secondary watches | Profile → Targets; family Sink → Inventories | 1 (beta) |
 | TokenReview/SAR cache | **30s TTL** in-memory per `(token hash, verb, resource)`; flag + `disabled` for dev | 1 |

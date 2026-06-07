@@ -31,7 +31,8 @@ inventory/<inventory-namespace>/<inventory-name>.json
 
 `internal/sink/git/export_file.go` clones a single branch into a temp dir, writes the file, and:
 
-- **Commit identity** is fixed: `kollect <kollect@kollect.dev>`, message `kollect: export inventory`.
+- **Commit identity** defaults to `kollect <kollect@kollect.dev>`; message templates and rich
+  defaults are defined in [ADR-0415](0415-git-sink-commit-ergonomics.md).
 - **No-op guard**: if `git add` produces no change, the export errors rather than pushing an empty
   commit (idempotent exports stay quiet — [ADR-0406](0406-sink-registry.md)).
 - **Push policy** : `spec.git.pushPolicy` defaults to **`Commit`** (append-only pushes).
@@ -64,7 +65,8 @@ inventory/<inventory-namespace>/<inventory-name>.json
 - **DECIDED :** Make the object path a **`spec.pathTemplate`** (e.g.
   `{cluster}/{namespace}/{name}.json`, default `inventory/{namespace}/{name}.json`) so layout is
   configurable per sink.
-- **DECIDED :** `spec.git` adds `pushPolicy`, `branch`, `auth`, `commitMessage`, `author`,
-  `cloneDepth`, and `prune` on `KollectSink`.
+- **DECIDED :** `spec.git` adds `pushPolicy`, `branch`, `auth`, `commitMessage`, `commitBody`,
+  `commitTrailers`, `author`, `cloneDepth`, and `prune` on snapshot sinks — see
+  [ADR-0415](0415-git-sink-commit-ergonomics.md).
 - **OPEN:** Object-store (S3/GCS) partition layout for the Parquet snapshot sink — lean toward
   `clusters/<cluster>/date=…/` Hive-style partitioning for DuckDB ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).
