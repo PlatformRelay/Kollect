@@ -40,6 +40,7 @@ credentials*.json
 /bin/
 /dist/
 /artifacts/bench/
+/artifacts/perf-snapshot.md
 *.test
 *.out
 cover.out

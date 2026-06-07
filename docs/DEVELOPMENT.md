@@ -273,7 +273,8 @@ load. Default envtest suites cap synthetic objects at **500**.
 
 Runs `hack/perf-report.sh`: micro-benchmarks under `internal/collect/`, a quick unit-test pass, and
 writes a markdown summary useful when comparing regressions on a laptop. Output is written to a
-**gitignored** local path (`agent-context/PERF-SNAPSHOT.md`); never commit it.
+**gitignored** local path (`agent-context/PERF-SNAPSHOT.md`); in CI the same script writes
+`artifacts/perf-snapshot.md` and uploads it as a workflow artifact — never commit either path.
 
 ```sh
 task perf-report

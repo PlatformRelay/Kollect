@@ -1,5 +1,4 @@
-# Warn-only cognitive complexity lint (see agent-context/COMPLEXITY-AUDIT.md).
-# Run via `task lint:cognit` — non-blocking in CI (continue-on-error).
+# Warn-only cognitive complexity lint (non-blocking; run via `task lint:cognit`).
 ---
 version: "2"
 

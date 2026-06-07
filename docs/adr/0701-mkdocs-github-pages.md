@@ -33,5 +33,5 @@ Mermaid diagrams in existing docs are supported via `pymdownx.superfences`.
 
 ## Open questions
 
-- Custom domain (e.g. `docs.kollect.dev`) — see `agent-context/QUESTIONS.md`
+- Custom domain (e.g. `docs.kollect.dev`) — deferred until DNS is configured
 - Whether to pin MkDocs/Material versions in a `requirements-docs.txt` (deferred)

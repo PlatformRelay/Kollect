@@ -230,12 +230,29 @@ jobs:
         run: task perf-report
         env:
           CI: "true"
+      - name: Upload perf snapshot
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-snapshot
+          path: artifacts/perf-snapshot.md
+          retention-days: 14
+          if-no-files-found: warn
       - name: Job summary
         if: always()
         run: |
-          echo "### perf-report (optional)" >> "${GITHUB_STEP_SUMMARY}"
-          echo "Runs \`task perf-report\` (bench excerpt + unit pass). Does not block merge." >> "${GITHUB_STEP_SUMMARY}"
-          echo "Regenerate locally before scale work — see [PERFORMANCE.md](https://github.com/konih/kollect/blob/main/docs/PERFORMANCE.md)." >> "${GITHUB_STEP_SUMMARY}"
+          {
+            echo "### perf-report (optional)"
+            echo "Runs \`task perf-report\` (bench excerpt + unit pass). Does not block merge."
+            if [[ -f artifacts/perf-snapshot.md ]]; then
+              echo ""
+              echo "Snapshot excerpt:"
+              echo '```'
+              sed -n '1,24p' artifacts/perf-snapshot.md
+              echo '```'
+            fi
+            echo "Download \`perf-snapshot\` artifact for full report. Regenerate locally before scale work — see [PERFORMANCE.md](https://github.com/konih/kollect/blob/main/docs/PERFORMANCE.md)."
+          } >> "${GITHUB_STEP_SUMMARY}"
 
   fuzz:
     name: fuzz
