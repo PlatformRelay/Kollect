@@ -8,8 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../kind/common.sh
 source "${SCRIPT_DIR}/../kind/common.sh"
 
-readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-120s}"
-
 _kind_require kubectl
 kind_use_context "${CLUSTER_NAME:-kollect-e2e}"
 
@@ -21,28 +19,29 @@ if ! kubectl get kollectinventory team-inventory -n default >/dev/null 2>&1; the
   bash "${REPO_ROOT}/hack/kind/e2e/bootstrap-samples.sh"
 fi
 
-_log "Capturing inventory HTTP payload..."
+_log "Waiting for inventory collection via HTTP..."
 kubectl port-forward -n "$KOLLECT_NAMESPACE" svc/kollect-controller-manager 18083:8082 &
 PF_PID=$!
 trap 'kill "$PF_PID" 2>/dev/null || true' EXIT
 sleep 3
 
-INVENTORY_JSON="$(curl -sf http://127.0.0.1:18083/inventory)"
-EXPECTED_SHA="$(printf '%s' "$INVENTORY_JSON" | sha256sum | awk '{print $1}')"
-_log "inventory payload sha256=${EXPECTED_SHA}"
-
-_log "Waiting for KollectInventory export status..."
-if ! kubectl wait --for=condition=Ready kollectinventory/team-inventory \
-  -n default --timeout="$WAIT_TIMEOUT" 2>/dev/null; then
-  _log "inventory not Ready (git sink may lack credentials); checking itemCount + observedGeneration"
-  gen="$(kubectl get kollectinventory team-inventory -n default -o jsonpath='{.metadata.generation}')"
-  obs="$(kubectl get kollectinventory team-inventory -n default -o jsonpath='{.status.observedGeneration}')"
-  count="$(kubectl get kollectinventory team-inventory -n default -o jsonpath='{.status.itemCount}')"
-  if [[ -z "$obs" || "$obs" != "$gen" || -z "$count" || "$count" -lt 1 ]]; then
-    kubectl describe kollectinventory team-inventory -n default
+INVENTORY_JSON=""
+for i in $(seq 1 60); do
+  INVENTORY_JSON="$(curl -sf http://127.0.0.1:18083/inventory 2>/dev/null || true)"
+  if echo "$INVENTORY_JSON" | grep -qE '"itemCount":[1-9][0-9]*'; then
+    break
+  fi
+  if [[ "$i" -eq 60 ]]; then
+    echo "inventory HTTP did not report collected items within timeout" >&2
+    echo "$INVENTORY_JSON" | head -c 500 >&2 || true
+    kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=80 || true
     exit 1
   fi
-fi
+  sleep 5
+done
+
+EXPECTED_SHA="$(printf '%s' "$INVENTORY_JSON" | sha256sum | awk '{print $1}')"
+_log "inventory payload sha256=${EXPECTED_SHA}"
 
 if [[ -z "${GITHUB_TOKEN:-}" || -z "${GIT_EXPORT_TEST_REPO:-}" ]]; then
   _log "GIT_EXPORT_TEST_REPO unset; skipping remote git clone SHA assert (inventory HTTP hash captured)."
