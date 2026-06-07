@@ -52,5 +52,10 @@ func (b *Backend) Config() Config {
 
 // Export writes payload at objectPath and pushes to the configured remote.
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
-	return Export(ctx, b.cfg, b.auth, payload, objectPath)
+	commitCtx, ok := CommitContextFromContext(ctx)
+	if !ok {
+		commitCtx = CommitContextFromObjectPath(objectPath, b.cfg.Cluster)
+	}
+
+	return ExportWithBranch(ctx, b.cfg, b.auth, payload, objectPath, nil, commitCtx)
 }

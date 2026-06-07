@@ -13,7 +13,7 @@ spec:
   git:
     branch: main
     pushPolicy: Commit
-    commitMessage: "chore(inventory): export {namespace}/{name}"
+    # commitMessage optional — default includes cluster, namespace, name, item count, checksum
     auth:
       type: token
   # Uncomment when pushing to a private repo (Phase 1+):

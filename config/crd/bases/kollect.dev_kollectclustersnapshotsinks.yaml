@@ -109,11 +109,22 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  commitBody:
+                    description: commitBody is an optional multi-line commit body
+                      template (same placeholders as commitMessage).
+                    type: string
                   commitMessage:
                     description: |-
-                      commitMessage is the git commit message template.
-                      Placeholders: {namespace}, {name}, {cluster}, {generation}.
+                      commitMessage is the git commit subject template.
+                      Placeholders: {namespace}, {name}, {cluster}, {generation}, {itemCount},
+                      {checksum}, {checksumShort}, {exportedAt}, {sink}, {path}.
                     type: string
+                  commitTrailers:
+                    description: 'commitTrailers appends git commit trailers (e.g.
+                      Kollect-Checksum: {checksum}).'
+                    items:
+                      type: string
+                    type: array
                   engine:
                     description: |-
                       engine selects the git implementation: go-git (default) or host git CLI.

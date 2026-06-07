@@ -204,6 +204,11 @@ func (in *GitSpec) DeepCopyInto(out *GitSpec) {
 		*out = new(GitAuthSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.CommitTrailers != nil {
+		in, out := &in.CommitTrailers, &out.CommitTrailers
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Author != nil {
 		in, out := &in.Author, &out.Author
 		*out = new(GitAuthorSpec)

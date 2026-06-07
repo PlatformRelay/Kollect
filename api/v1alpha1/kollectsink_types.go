@@ -119,10 +119,19 @@ type GitSpec struct {
 	// +optional
 	Auth *GitAuthSpec `json:"auth,omitempty"`
 
-	// commitMessage is the git commit message template.
-	// Placeholders: {namespace}, {name}, {cluster}, {generation}.
+	// commitMessage is the git commit subject template.
+	// Placeholders: {namespace}, {name}, {cluster}, {generation}, {itemCount},
+	// {checksum}, {checksumShort}, {exportedAt}, {sink}, {path}.
 	// +optional
 	CommitMessage string `json:"commitMessage,omitempty"`
+
+	// commitBody is an optional multi-line commit body template (same placeholders as commitMessage).
+	// +optional
+	CommitBody string `json:"commitBody,omitempty"`
+
+	// commitTrailers appends git commit trailers (e.g. Kollect-Checksum: {checksum}).
+	// +optional
+	CommitTrailers []string `json:"commitTrailers,omitempty"`
 
 	// author overrides the default kollect committer identity.
 	// +optional

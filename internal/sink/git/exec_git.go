@@ -156,7 +156,7 @@ func gitAddAll(ctx context.Context, workdir string, cli *cliEnv) error {
 	return runGitOutput(cmd, "add -A")
 }
 
-func gitCommit(ctx context.Context, workdir, authorName, authorEmail, message string, cli *cliEnv) error {
+func gitCommit(ctx context.Context, workdir, authorName, authorEmail string, commit renderedCommit, cli *cliEnv) error {
 	if err := validateGitConfigValue(authorName); err != nil {
 		return fmt.Errorf("git export: invalid author name: %w", err)
 	}
@@ -165,7 +165,7 @@ func gitCommit(ctx context.Context, workdir, authorName, authorEmail, message st
 		return fmt.Errorf("git export: invalid author email: %w", err)
 	}
 
-	if err := validateGitCommitMessage(message); err != nil {
+	if err := validateGitCommitMessage(commit.Subject); err != nil {
 		return fmt.Errorf("git export: invalid commit message: %w", err)
 	}
 
@@ -174,11 +174,21 @@ func gitCommit(ctx context.Context, workdir, authorName, authorEmail, message st
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir, cli,
-		"-c", "user.name="+authorName,
-		"-c", "user.email="+authorEmail,
-		"commit", "-m", message,
-	)
+	args := []string{
+		"-c", "user.name=" + authorName,
+		"-c", "user.email=" + authorEmail,
+		"commit",
+		"-m", commit.Subject,
+	}
+	if commit.Body != "" {
+		args = append(args, "-m", commit.Body)
+	}
+
+	for _, line := range commit.Trailers {
+		args = append(args, "-m", line)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, args...)
 	return runGitOutput(cmd, "commit")
 }
 
