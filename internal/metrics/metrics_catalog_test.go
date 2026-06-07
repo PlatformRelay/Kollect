@@ -23,6 +23,8 @@ var registeredMetricNames = []string{
 	"kollect_informer_objects",
 	"kollect_export_bytes_total",
 	"kollect_export_spill_warn_total",
+	"kollect_export_debounced_total",
+	"kollect_watch_map_list_errors_total",
 	"kollect_custom_resource_series",
 	"kollect_custom_resource_labeled_series",
 }

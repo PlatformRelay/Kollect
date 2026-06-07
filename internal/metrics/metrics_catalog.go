@@ -118,6 +118,21 @@ var Catalog = []CatalogEntry{
 		AgentHint:  "Approaching spill gate — shrink inventory or raise maxExportBytes/spill config.",
 	},
 	{
+		Name:       "kollect_export_debounced_total",
+		Type:       "counter",
+		Labels:     []string{"sink_type"},
+		Help:       "Exports skipped by per-sink min interval (ADR-0413).",
+		PromQLHint: "sum(rate(kollect_export_debounced_total[5m])) by (sink_type)",
+		AgentHint:  "High rate is expected when exportMinInterval is tight; use status.sinkExports for per-sink detail.",
+	},
+	{
+		Name:       "kollect_watch_map_list_errors_total",
+		Type:       "counter",
+		Help:       "Errors listing resources during watch map handler setup.",
+		PromQLHint: "increase(kollect_watch_map_list_errors_total[15m])",
+		AgentHint:  "Sustained increase → RBAC or API list failures for a GVR.",
+	},
+	{
 		Name:       "kollect_custom_resource_series",
 		Type:       "gauge",
 		Labels:     []string{"profile", "gvk", "series"},

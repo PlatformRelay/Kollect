@@ -3,7 +3,14 @@
 > Domain and collection metrics keyed by `KollectTarget` / `KollectInventory` boundaries on the operator
 > `/metrics` scrape path — without a `KollectSink.type: prometheus` export sink.
 
-**Theme:** 06 · Observability & ops · **Status:** Exploring
+**Theme:** 06 · Observability & ops · **Status:** Parked
+
+!!! note "Implementation deferred"
+    Tier A operator metrics ship today ([ADR-0601](0601-prometheus-metrics-stub.md)). Tier B/C
+    target/inventory labels and `metricsScope` **are not implemented** — no CRD field, profile-only
+    labels on `kollect_collected_objects`. Revisit when per-target alerting is a proven user need.
+    Fleet installs scrape **each cluster operator** ([ADR-0501](0501-multi-cluster-fleet.md)) — no
+    hub federation tier.
 
 ## Context
 

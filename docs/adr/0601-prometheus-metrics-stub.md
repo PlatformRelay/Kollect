@@ -20,8 +20,9 @@ and Kafka sinks ([ADR-0402](0402-sink-backends-database-kafka.md)) — **not** a
    register a prometheus sink in the export registry; avoids confusion with scrape endpoints.
 3. **KSM-style domain metrics and target/inventory scope:** Phase 4 spike landed on operator
    `/metrics` ([ADR-0304](0304-custom-resource-aggregation-rfc.md)); richer target/inventory labels
-   and `metricsScope` are **Exploring** in [ADR-0604](0604-target-scoped-prometheus-metrics.md).
-   Scalar attribute gauges remain RFC-only ([Prometheus attribute metrics](../rfc/prometheus-attribute-metrics.md)).
+   and `metricsScope` are **Parked** in [ADR-0604](0604-target-scoped-prometheus-metrics.md).
+   Hub merge metrics were never shipped (hub tier removed v0.3). Scalar attribute gauges remain
+   RFC-only ([Prometheus attribute metrics](../rfc/prometheus-attribute-metrics.md)).
 
 ## Consequences
 
