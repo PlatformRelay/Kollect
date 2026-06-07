@@ -1,21 +1,26 @@
 # Performance and scalability
 
-Kollect is designed for **giant single clusters** (1000s of nodes, **10k+ watched resources
-baseline**) and **100+ cluster** hub deployments. This guide summarizes tuning knobs from
+Kollect is designed for **large single clusters** (1000s of nodes, **10k+ watched resources
+baseline**) and **multi-cluster fleets** — **N independent single-mode operators** exporting to a
+**shared sink** partitioned by `spec.cluster`. There is **no hub/spoke runtime tier**
+([ADR-0501](adr/0501-multi-cluster-fleet.md)). This guide summarizes tuning knobs from
 [ADR-0603](adr/0603-performance-scalability.md).
 
 ## Scale tiers
 
-| Tier | Watched objects | Clusters | How to validate |
+| Tier | Collected rows | Clusters | How to validate |
 | --- | --- | --- | --- |
 | Dev / CI default | ≤500 synthetic | 1 | `task test` |
-| Opt-in load | ≤2000 synthetic | 1 | `KOLECT_LOAD_TEST=1 task load-test` |
-| Baseline production spoke | 10,000+ | 1 | Metrics + pprof; manual load |
-| Hub platform | 10k × N (summarized) | **100+** | Hub merge benchmarks; sharded queue |
-| Stretch spoke | 50,000+ | 1 | Scoped informers; object-store spillover |
+| Opt-in load | ≤2,000 synthetic | 1 | `KOLECT_LOAD_TEST=1 task load-test` |
+| Nightly load | **10,000** synthetic | 1 | `task load-test:10k` on 8-core runners |
+| Baseline production | **10,000+** (validated) | 1 | Metrics + pprof; manual load |
+| Design target | **100,000** | 1 | Manual / `perf-report`; needs export sharding + Postgres bulk upsert (claim gate v0.5+) |
+| Fleet | 10k–100k × **N** | **many** | One `ServiceMonitor` per cluster release; correlate by `spec.cluster` |
 
-Hub scale targets are defined in [ADR-0603](adr/0603-performance-scalability.md) — hub merge must
-stay **O(total rows)**, never O(spokes²).
+The **100,000-row design target** requires **mandatory export sharding** — one `KollectInventory`
+per workload namespace (or smaller groups) so each export stays **below ~2,000 rows** (~1.5 MiB) —
+plus `resourcesProfile: large` (request ≥2 GiB, limit ≥4 GiB). Fleet scale fans out across
+operators; there is no central merge process to bottleneck ([ADR-0603](adr/0603-performance-scalability.md)).
 
 ## Controller parallelism
 
@@ -45,8 +50,9 @@ exponential failure rate limiter (5ms base, 1000s cap). Set a positive duration 
 **`KollectInventory.spec.exportMinInterval`** (default **`30s`**) coalesces export to external sinks
 per inventory. Material payload changes (generation/checksum bump) may export immediately inside the
 min interval ([ADR-0201](adr/0201-crd-model.md)).
-Lower the interval for fresher Postgres/Kafka exports; raise to reduce sink API load. At 100+ spokes,
-debouncing is **mandatory** on the hub path to avoid export storms.
+Lower the interval for fresher Postgres/Kafka exports; raise to reduce sink API load. Across a large
+fleet writing to a shared sink, debouncing is **mandatory** to avoid export storms against the
+backend.
 
 ## Collection engine
 
@@ -56,7 +62,8 @@ debouncing is **mandatory** on the hub path to avoid export storms.
   `spec.namespaceSelector`, the dynamic informer is scoped to that namespace. Otherwise the
   informer watches all namespaces and filters events at dispatch time (correctness over cache size).
 - **Resync:** 12h informer resync is a correctness backstop, not a freshness driver.
-- **Spoke → hub:** Push **summarized deltas**, not per-object streams ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
+- **Fleet exports:** Each operator writes its own debounced inventory snapshot to the shared sink,
+  partitioned by `spec.cluster` — no cross-cluster merge on the hot path ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 ## Metrics catalog
 

@@ -40,8 +40,8 @@ flowchart LR
 ## Scale
 
 !!! note "Large fleets"
-    The collection path targets **100,000** collected rows **per cluster operator** (typical
-    Deployment/Service profiles). **Export must be sharded:** one `KollectInventory` per workload
+    The collection path is **validated to 10,000+ rows** per cluster operator, with a **100,000-row
+    design target** (typical Deployment/Service profiles). **Export must be sharded:** one `KollectInventory` per workload
     namespace (or smaller groups) so each export stays **below ~2,000 rows** (~1.5 MiB). Tune
     namespace-scoped informers, `exportMinInterval`, Helm `resourcesProfile: large`, and reconcile
     parallelism per [PERFORMANCE.md](../PERFORMANCE.md) and [ADR-0603](../adr/0603-performance-scalability.md).
