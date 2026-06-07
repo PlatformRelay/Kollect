@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#f1f5f9"/>
+  <rect x="24" y="24" width="912" height="492" rx="8" fill="#ffffff" stroke="#326CE5" stroke-width="3"/>
+  <text x="48" y="72" font-family="sans-serif" font-size="28" fill="#081A4B">kollect-ui inventory list</text>
+  <text x="48" y="112" font-family="sans-serif" font-size="18" fill="#64748b">Screenshot pending</text>
+  <rect x="48" y="140" width="864" height="48" rx="4" fill="#e2e8f0"/>
+  <rect x="48" y="208" width="864" height="280" rx="4" fill="#f8fafc" stroke="#cbd5e1"/>
+</svg>

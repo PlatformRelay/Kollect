@@ -48,6 +48,6 @@ describe("SinksPage", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("Resource YAML snippet")).toHaveTextContent("s3-backup");
     });
-    expect(screen.getByLabelText("Resource YAML snippet")).toHaveTextContent("KollectSink");
+    expect(screen.getByLabelText("Resource YAML snippet")).toHaveTextContent("KollectSnapshotSink");
   });
 });

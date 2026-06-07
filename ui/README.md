@@ -1,8 +1,8 @@
 # kollect-ui
 
 Read-only React SPA for the Kollect inventory Read API ([ADR-0408](../docs/adr/0408-read-api-ui-architecture.md)).
-**v0.2.0 MVP** ships on `main`: inventory filters, SSE live refresh, detail drawers, Playwright smoke,
-and OpenAPI→MSW drift gates.
+**v0.3.x backend / v0.7 UI MVP** — read-only SPA on `main`: inventory filters, SSE live refresh, detail drawers, Playwright smoke,
+and OpenAPI→MSW drift gates. Uses **sink family CRDs** (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) in YAML snippets — not the removed `KollectSink`.
 
 ## Stack
 

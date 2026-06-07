@@ -62,6 +62,7 @@ nav:
       - Development setup: DEVELOPMENT.md
   - Operator Manual:
       - Operator manual: OPERATOR-MANUAL.md
+      - Read-only UI: operator-manual/ui.md
       - Upgrading: operator-manual/upgrading.md
       - Helm values: operator-manual/helm-values.md
   - User Guide:

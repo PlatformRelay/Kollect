@@ -38,9 +38,9 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 
 | | |
 | --- | --- |
-| **Status** | Planned |
+| **Status** | In progress (early adopter preview on `main`) |
 | **Roadmap** | [Read API + UI console](../ROADMAP.md#read-api-ui-console-planned-adr-0408) |
-| **Summary** | Read-only **SPA** (`ui/`, separate `kollect-ui` image) on the **memory `InventoryReader`** adapter: searchable catalog, export/freshness health, SSE watch — zero extra infra, feature-gated on the operator. **Deferred from v0.2** — `v0.2.0-rc.1` shipped sink families instead. |
+| **Summary** | Read-only **SPA** (`ui/`, separate `kollect-ui` image) on the **memory `InventoryReader`** adapter: searchable catalog, export/freshness health, SSE watch — zero extra infra, feature-gated on the operator. **Backend for v0.3.x** shipped sink families ([ADR-0414](../adr/0414-sink-family-crds.md)); UI docs and mock MVP are available for early adopters ahead of the **v0.7** milestone. |
 | **Related ADRs** | [ADR-0408](../adr/0408-read-api-ui-architecture.md) · [ADR-0409](../adr/0409-kollect-ui-deployment.md) · [ADR-0410](../adr/0410-ui-engineering-and-quality-gates.md) · [ADR-0412](../adr/0412-mock-read-api-for-ui-development.md) |
 
 ---

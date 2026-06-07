@@ -9,12 +9,70 @@ type ResourceYamlInput = {
   generation?: number;
 };
 
+export type SinkFamilyKind =
+  | "KollectSnapshotSink"
+  | "KollectDatabaseSink"
+  | "KollectEventSink";
+
 type SinkYamlInput = {
   name: string;
   namespace: string;
   status?: string;
   message?: string;
+  family?: SinkFamilyKind;
 };
+
+export function inferSinkFamily(sinkName: string): SinkFamilyKind {
+  const normalized = sinkName.toLowerCase();
+
+  if (
+    normalized.includes("postgres") ||
+    normalized.includes("database") ||
+    normalized.endsWith("-pg") ||
+    normalized.startsWith("pg-")
+  ) {
+    return "KollectDatabaseSink";
+  }
+
+  if (
+    normalized.includes("kafka") ||
+    normalized.includes("nats") ||
+    normalized.includes("prometheus") ||
+    normalized.includes("event")
+  ) {
+    return "KollectEventSink";
+  }
+
+  return "KollectSnapshotSink";
+}
+
+function snapshotTypeForName(name: string): string {
+  const normalized = name.toLowerCase();
+  if (normalized.includes("s3")) {
+    return "s3";
+  }
+  if (normalized.includes("gitlab")) {
+    return "gitlab";
+  }
+  return "git";
+}
+
+function buildSinkSpecSnippet(family: SinkFamilyKind, name: string): string[] {
+  switch (family) {
+    case "KollectDatabaseSink":
+      return ["spec:", "  type: postgres", "  connectionTest: true"];
+    case "KollectEventSink":
+      return ["spec:", "  type: kafka", "  connectionTest: true"];
+    default: {
+      const snapType = snapshotTypeForName(name);
+      const lines = ["spec:", `  type: ${snapType}`, "  connectionTest: true"];
+      if (snapType === "git" || snapType === "gitlab") {
+        lines.push("  git:", "    branch: main", "    pushPolicy: Commit");
+      }
+      return lines;
+    }
+  }
+}
 
 export function buildResourceYamlSnippet({
   apiVersion,
@@ -72,14 +130,16 @@ export function buildSinkYamlSnippet({
   namespace,
   status,
   message,
+  family,
 }: SinkYamlInput): string {
+  const sinkFamily = family ?? inferSinkFamily(name);
   const lines = [
     "apiVersion: kollect.dev/v1alpha1",
-    "kind: KollectSink",
+    `kind: ${sinkFamily}`,
     "metadata:",
     `  name: ${name}`,
     `  namespace: ${namespace}`,
-    "spec: {}",
+    ...buildSinkSpecSnippet(sinkFamily, name),
   ];
 
   if (status || message) {

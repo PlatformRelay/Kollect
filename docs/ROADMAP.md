@@ -253,8 +253,8 @@ cluster API.
 | Milestone | Item | Status |
 | --- | --- | --- |
 | **v0.5.x** | Harden + freeze the Read API as the UI contract (filters, `schemaVersion`, OpenAPI) | ⬜ |
-| **v0.6.x** | Memory `InventoryReader` adapter + `ui/` scaffold hardening | ⬜ |
-| **v0.7.x** | Read-only SPA on **memory adapter**: catalog, search/filter, freshness/health | ⬜ |
+| **v0.6.x** | Memory `InventoryReader` adapter + `ui/` scaffold hardening | 🚧 early adopter preview on `main` |
+| **v0.7.x** | Read-only SPA on **memory adapter**: catalog, search/filter, freshness/health | 🚧 mock MVP + docs; production gate |
 | **v0.8.x – v0.9.x** | Portal mode on **Postgres/Parquet**; **drift-over-time**; optional `kollect-server` split | ⬜ |
 | **v0.10.0** | Presentation-ready demo (UI + docs + stable soak) | ⬜ |
 

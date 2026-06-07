@@ -23,7 +23,7 @@ workloads. If you are evaluating locally, start with [Quick start](QUICKSTART.md
 | Sink and webhook secrets | [Secrets](#secrets) (below) |
 | Informer scope and tenancy | [Watch scope](#watch-scope) (below) |
 | Replicas and leader election | [High availability](#high-availability) (below) |
-| Read-only UI (v0.2 MVP) | [ADR-0409 — Kollect UI deployment](adr/0409-kollect-ui-deployment.md) · [UI local dev (mock)](examples/ui-local-development.md) |
+| Read-only UI (early adopter preview) | [Read-only UI](operator-manual/ui.md) · [ADR-0409](adr/0409-kollect-ui-deployment.md) · [UI local dev (mock)](examples/ui-local-development.md) |
 
 ## Install
 
