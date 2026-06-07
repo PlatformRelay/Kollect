@@ -81,7 +81,7 @@ Default author remains `kollect <kollect@kollect.dev>`; overridable via `spec.gi
 | --- | --- |
 | `status.sinkExports[].lastCommit` | v0.4.x — SHA write-back after push |
 | `branchWorkflow` on plain git | v0.4.x — feature branch parity with GitLab MR mode |
-| Persistent mirror (`spec.git.mirror`) | PERF-10 — replace clone-per-export |
+| `spec.git.mirror` CRD field | Optional future; PERF-10 mirror ships via `KOLLECT_GIT_MIRROR_DIR` env |
 | GitLab `descriptionTemplate` | shared template engine with git |
 | Coalesced fleet commits | one commit per inventory export (no hub tier) |
 

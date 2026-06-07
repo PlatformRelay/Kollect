@@ -66,20 +66,38 @@ func ExportWithBranch(
 	ctx, cancel := context.WithTimeout(ctx, exportTimeout)
 	defer cancel()
 
-	if isFileRemote(req.cloneURL) || cfg.Engine == GitEngineCLI {
-		err := exportViaCLI(ctx, cfg, auth, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath, commitCtx)
-
-		return ClassifyExportError(err)
-	}
-
 	lockKey := cfg.Endpoint
 	if lockKey == "" {
 		lockKey = req.cloneURL
 	}
 
+	fpKey := exportFingerprintKey(lockKey, req.pushBranch, req.objectPath)
+	if fingerprintTracker.shouldSkip(fpKey, commitCtx.Checksum) {
+		return nil
+	}
+
+	if isFileRemote(req.cloneURL) || cfg.Engine == GitEngineCLI {
+		var exportErr error
+		if err := withRepoExportLock(lockKey, req.pushBranch, func() error {
+			exportErr = exportViaCLI(ctx, cfg, auth, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath, commitCtx)
+			if exportErr == nil {
+				fingerprintTracker.record(fpKey, commitCtx.Checksum)
+			}
+
+			return exportErr
+		}); err != nil {
+			return ClassifyExportError(err)
+		}
+
+		return ClassifyExportError(exportErr)
+	}
+
 	var exportErr error
 	if err := withRepoExportLock(lockKey, req.pushBranch, func() error {
 		exportErr = exportRemote(ctx, cfg, auth, req, payload, commitCtx)
+		if exportErr == nil {
+			fingerprintTracker.record(fpKey, commitCtx.Checksum)
+		}
 
 		return exportErr
 	}); err != nil {
@@ -112,13 +130,15 @@ func exportRemote(
 		return err
 	}
 
-	tmp, err := os.MkdirTemp("", "kollect-git-export-*")
+	workdir, err := prepareMirrorWorkdir(ctx, cfg, auth, req.cloneURL, req.cloneBranch)
 	if err != nil {
-		return fmt.Errorf("create workdir: %w", err)
+		return err
 	}
-	defer func() { _ = os.RemoveAll(tmp) }()
+	if isFileRemote(req.cloneURL) {
+		defer func() { _ = os.RemoveAll(workdir) }()
+	}
 
-	repo, emptyRemote, err := cloneOrInit(ctx, tmp, req.cloneURL, req.cloneBranch, authMethod, cfg)
+	repo, emptyRemote, err := openOrWarmMirror(ctx, workdir, req.cloneURL, req.cloneBranch, cfg.CloneDepth, authMethod, cfg)
 	if err != nil {
 		return err
 	}
@@ -129,12 +149,11 @@ func exportRemote(
 	}
 
 	if req.pushBranch != req.cloneBranch {
-		if checkoutErr := wt.Checkout(&git.CheckoutOptions{
-			Branch: plumbing.NewBranchReferenceName(req.pushBranch),
-			Create: true,
-		}); checkoutErr != nil {
+		if checkoutErr := checkoutMirrorBranch(wt, req.pushBranch); checkoutErr != nil {
 			return fmt.Errorf("checkout feature branch: %w", checkoutErr)
 		}
+	} else if checkoutErr := checkoutMirrorBranch(wt, req.pushBranch); checkoutErr != nil {
+		return fmt.Errorf("checkout branch: %w", checkoutErr)
 	}
 
 	if mkdirErr := wt.Filesystem.MkdirAll(filepath.Dir(req.objectPath), 0o750); mkdirErr != nil {

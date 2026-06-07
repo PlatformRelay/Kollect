@@ -1,0 +1,37 @@
+# Multi-namespace export sharding pattern (100k/cluster design target).
+# One KollectInventory per workload namespace keeps each export <~2k rows (~1.5 MiB).
+# Apply team-a and team-b inventories together with matching targets in each namespace.
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectInventory
+metadata:
+  name: team-a-inventory
+  namespace: team-a
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  exportMinInterval: 30s
+  databaseSinkRefs:
+    - postgres-inventory-demo
+  snapshotSinkRefs:
+    - name: git-inventory-demo
+      exportMinInterval: 1h
+  suspend: false
+---
+apiVersion: kollect.dev/v1alpha1
+kind: KollectInventory
+metadata:
+  name: team-b-inventory
+  namespace: team-b
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  exportMinInterval: 30s
+  databaseSinkRefs:
+    - postgres-inventory-demo
+  snapshotSinkRefs:
+    - name: git-inventory-demo
+      exportMinInterval: 1h
+  suspend: false

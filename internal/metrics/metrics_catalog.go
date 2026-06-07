@@ -118,6 +118,13 @@ var Catalog = []CatalogEntry{
 		AgentHint:  "Approaching spill gate — shrink inventory or raise maxExportBytes/spill config.",
 	},
 	{
+		Name:       "kollect_export_shard_warn_total",
+		Type:       "counter",
+		Help:       "Inventory namespace aggregates at or above the export sharding warn row threshold (~1800 rows).",
+		PromQLHint: "increase(kollect_export_shard_warn_total[1h])",
+		AgentHint:  "Split workloads across multiple KollectInventory resources per namespace shard.",
+	},
+	{
 		Name:       "kollect_export_debounced_total",
 		Type:       "counter",
 		Labels:     []string{"controller"},
