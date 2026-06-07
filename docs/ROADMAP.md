@@ -9,9 +9,8 @@ projection ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 **Build order, not releases** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md), [ADR-0703](adr/0703-platform-architecture-pivot.md).
 
 !!! warning "Pre-beta"
-    Kollect is not GA. API shapes, sink backends, and hub transport may change until the project
-    reaches beta-quality overall. Check status marks (✅ / 🚧 / ⬜) before relying on a feature in
-    production.
+    Kollect is not GA. API shapes and sink backends may change until the project reaches
+    beta-quality overall. Check status marks (✅ / 🚧 / ⬜) before relying on a feature in production.
 
 !!! info "Phases vs releases"
     Phases describe **implementation order**, not semver milestones. Items may land out of phase
@@ -40,7 +39,7 @@ projection ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 flowchart LR
   P0[Phase 0<br/>Bootstrap]
   P1[Phase 1<br/>Collection + Sink]
-  P2[Phase 2<br/>Hub / multi-cluster]
+  P2[Phase 2<br/>Multi-cluster fleet]
   P3[Phase 3<br/>Governance + scope]
   P4[Phase 4<br/>Metrics + aggregation]
   P0 --> P1
@@ -149,35 +148,22 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 
 ---
 
-## Phase 2 — Hub / multi-cluster
+## Phase 2 — Multi-cluster fleet
 
-Multi-cluster support must **not** block single-cluster installs. Design for **many clusters**
-(hub scale targets in [ADR-0603](adr/0603-performance-scalability.md)) and **giant spokes**
-(10k+ resources). Hub **shards and aggregates** —
-never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) and
-[ADR-0502](adr/0502-lean-queue-transport.md).
+Multi-cluster support must **not** block single-cluster installs. **Fleet model:** deploy one
+**single-mode operator per cluster**; export to a **shared sink** (Postgres, Git) with
+`spec.cluster` row partitioning — no hub/spoke runtime tier ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 | Item | Status |
 | --- | --- |
-| Multi-cluster topology RFC | ✅ |
-| Lean queue transport ADR (pluggable factory) | ✅ |
-| `KollectHub` CRD (rejected) → **Helm `mode: hub`** | ✅ ADR-0703 |
-| Spoke operator / agent snapshot reports (lightweight, delta) | ✅ |
-| Hub merge and deduplication (O(rows), sharded consumers) | ✅ |
-| Hub Postgres + Kafka parallel export on ingest | ✅ |
-| Transport: in-process (dev/test default) | ✅ |
-| Transport: Redis Streams (Phase 2 spike, explicit opt-in) | ✅ |
-| Transport: NATS JetStream (config alternative) | ✅ |
-| Transport: Kafka backend (optional, integration-tested) | ✅ |
-| Cross-cluster authentication (Istio-style + push TokenReview) | ✅ |
-| `KollectRemoteCluster` CRD (hub registration stub) | ✅ |
-| Spoke HTTP push auth (`Bearer` + `X-Kollect-Cluster-Id`) | ✅ |
-| Hub ingest HTTP (`POST /hub/v1alpha1/reports`) | ✅ |
-| Hub pull via `credentialsSecretRef` (optional ADR-0503) | ✅ |
-| Hub Helm values / flags for transport + shard (no hub CRD) | ✅ |
-| Queue transport TLS/ACL hardening | 🚧 (TLS shipped; ACL allowlist stub) |
+| Multi-cluster fleet ADR (N operators → shared sink) | ✅ [ADR-0501](adr/0501-multi-cluster-fleet.md) |
+| `spec.cluster` on inventory / export payloads | ✅ |
+| Per-cluster Helm release + ServiceMonitor scrape | ✅ documented |
+| Hub/spoke runtime (`mode: hub`, transport, ingest) | ❌ **Removed** v0.3 — see archive ADR retcon |
+| Queue transport (Redis/NATS/Kafka between operators) | ❌ **Removed** with hub tier |
+| Cross-cluster sink auth (mTLS, workload identity) | 🔮 Deferred — sink-specific |
 
-**Counts:** ✅ 15 · 🚧 1
+**Counts:** ✅ 3 · ❌ 2 (removed) · 🔮 1
 
 ---
 
@@ -226,15 +212,15 @@ never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) and
 | kube-state-metrics-style custom resource metrics config | ✅ [ADR-0304](adr/0304-custom-resource-aggregation-rfc.md) — `KollectProfile.spec.metrics` spike + admission validation |
 | Collect engine → `RecordCustomResourceSeries` on target snapshot | ✅ configured paths or auto-sum fallback + `object_count` per profile/GVK |
 | `spec.metrics[].labels` → `kollect_custom_resource_labeled_series` | ✅ per-label-tuple sums on target snapshot |
-| Hub spoke merge metrics (`kollect_hub_spoke_reports_total`, `kollect_hub_merged_items_total`) | ✅ consumer + HTTP ingest |
+| Hub spoke merge metrics | ❌ Removed with hub tier — use per-cluster `/metrics` + `spec.cluster` |
 | Cardinality-safe operator metrics (counts, export latency) | ✅ ADR-0602 catalog complete |
-| Target/inventory-scoped domain metrics (`metricsScope`, Tier B/C) | 🚧 [ADR-0604](adr/0604-target-scoped-prometheus-metrics.md) Exploring |
-| OpenTelemetry tracing (reconcile, export, hub ingest) | 🚧 [ADR-0605](adr/0605-opentelemetry-tracing.md) Exploring |
+| Target/inventory-scoped domain metrics (`metricsScope`, Tier B/C) | 🔮 Parked [ADR-0604](adr/0604-target-scoped-prometheus-metrics.md) |
+| OpenTelemetry tracing | 🔮 Parked [ADR-0605](adr/0605-opentelemetry-tracing.md) — not planned v0.x |
 | Cross-target dedupe spike (`internal/aggregate/`) | ✅ row identity, `DedupeByResourceUID`, `ExportCoalesce` checksum skip |
 | Advanced cross-target / cross-cluster aggregation (controller wire) | ✅ `KollectClusterInventory` — `MergeRows` + `ExportCoalesce` |
 | `task perf-report` optional CI gate | ✅ `ci.yaml` job + preflight note |
 
-**Counts:** ✅ 8 · 🚧 2 · ⬜ 0
+**Counts:** ✅ 7 · 🔮 2 · ❌ 1
 
 ---
 

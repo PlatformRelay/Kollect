@@ -277,8 +277,8 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 | | |
 | --- | --- |
 | **Status** | Exploring |
-| **Summary** | Richer **domain metrics** derived from collected resources and target/inventory boundaries — beyond operator health counters on `/metrics`. Target-scoped collection gauges, inventory rollup gauges, optional per-target domain series (`metricsScope`), and **spoke-local Prometheus scrape** in multi-cluster installs. |
-| **Spec** | [ADR-0604](../adr/0604-target-scoped-prometheus-metrics.md) — three metric tiers (operator / collection boundary / KSM-style domain); affirms no `KollectSink.type: prometheus` ([ADR-0601](../adr/0601-prometheus-metrics-stub.md)); ships `KollectProfile.spec.metricsScope` (`profile` \| `target`); scrape `/metrics` on **each spoke** (not hub-only federation). Verification matrix: unit, envtest, integration, e2e (kind/nightly). |
+| **Summary** | Richer **domain metrics** at target/inventory boundaries — beyond operator health counters on `/metrics`. Target-scoped collection gauges, inventory rollup gauges, optional per-target domain series (`metricsScope`). **Fleet:** scrape `/metrics` on **each cluster operator** ([ADR-0501](../adr/0501-multi-cluster-fleet.md)). |
+| **Spec** | [ADR-0604](../adr/0604-target-scoped-prometheus-metrics.md) — three metric tiers; affirms no `KollectSink.type: prometheus` ([ADR-0601](../adr/0601-prometheus-metrics-stub.md)). **`metricsScope` CRD field not shipped** — defer until alerting need is proven. |
 | **Related ADRs** | [ADR-0604](../adr/0604-target-scoped-prometheus-metrics.md) · [ADR-0304](../adr/0304-custom-resource-aggregation-rfc.md) · [ADR-0601](../adr/0601-prometheus-metrics-stub.md) · [ADR-0602](../adr/0602-error-taxonomy.md) · [ADR-0603](../adr/0603-performance-scalability.md) · [ADR-0706](../adr/0706-testing-merge-gate-architecture.md) |
 
 ---
@@ -298,11 +298,10 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 
 | | |
 | --- | --- |
-| **Status** | Exploring |
-| **Summary** | Distributed tracing for reconcile loops, collection refresh batches, sink export attempts, and hub ingest (OTel SDK, OTLP export). Complements structured logs and Prometheus metrics. |
-| **Spec** | [ADR-0605](../adr/0605-opentelemetry-tracing.md) — span map (`kollect.reconcile`, `kollect.collect.refresh`, `kollect.export`, `kollect.hub.ingest`); operator flags/env; default off in Helm. |
-| **Validation home** | Exercised in **kollect-lab** (local companion environment for integration demos) alongside [kind local lab](../examples/kind-local-lab.md) — not required for default Helm install. |
-| **Related ADRs** | [ADR-0605](../adr/0605-opentelemetry-tracing.md) · [ADR-0602](../adr/0602-error-taxonomy.md) · [ADR-0603](../adr/0603-performance-scalability.md) · ADR-0504 |
+| **Status** | Deferred |
+| **Summary** | Distributed tracing for reconcile, collection, and export (OTel SDK, OTLP export). **Parked** — no code in v0.x; Prometheus + logs cover SLOs today. |
+| **Spec** | [ADR-0605](../adr/0605-opentelemetry-tracing.md) — design reference only; spans would cover `kollect.reconcile`, `kollect.collect.refresh`, `kollect.export` **in-process**. Reopen when OTLP is mandated or UI needs trace IDs. |
+| **Related ADRs** | [ADR-0605](../adr/0605-opentelemetry-tracing.md) (Parked) · [ADR-0602](../adr/0602-error-taxonomy.md) · [ADR-0603](../adr/0603-performance-scalability.md) |
 
 ---
 
