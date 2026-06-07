@@ -127,6 +127,85 @@ func TestValidateInventorySinkRefs_duplicates(t *testing.T) {
 	}
 }
 
+func TestScopeMinExportInterval(t *testing.T) {
+	t.Parallel()
+
+	if got := ScopeMinExportInterval(nil); got != 0 {
+		t.Fatalf("nil scope = %v, want 0", got)
+	}
+	if got := ScopeMinExportInterval(&kollectdevv1alpha1.KollectScope{}); got != 0 {
+		t.Fatalf("unset interval = %v, want 0", got)
+	}
+
+	floor := metav1.Duration{Duration: 90 * time.Second}
+	scope := &kollectdevv1alpha1.KollectScope{
+		Spec: kollectdevv1alpha1.KollectScopeSpec{
+			ScopeCeilingSpec: kollectdevv1alpha1.ScopeCeilingSpec{MinExportInterval: &floor},
+		},
+	}
+	if got := ScopeMinExportInterval(scope); got != 90*time.Second {
+		t.Fatalf("scope floor = %v, want 90s", got)
+	}
+}
+
+func TestScopeCeilingMinExportInterval(t *testing.T) {
+	t.Parallel()
+
+	if got := ScopeCeilingMinExportInterval(nil); got != 0 {
+		t.Fatalf("nil ceiling = %v, want 0", got)
+	}
+	if got := ScopeCeilingMinExportInterval(&kollectdevv1alpha1.ScopeCeilingSpec{}); got != 0 {
+		t.Fatalf("unset ceiling = %v, want 0", got)
+	}
+
+	floor := metav1.Duration{Duration: 2 * time.Minute}
+	ceiling := &kollectdevv1alpha1.ScopeCeilingSpec{MinExportInterval: &floor}
+	if got := ScopeCeilingMinExportInterval(ceiling); got != 2*time.Minute {
+		t.Fatalf("ceiling floor = %v, want 2m", got)
+	}
+}
+
+func TestValidateSinkIntervalAgainstScopeFloor(t *testing.T) {
+	t.Parallel()
+
+	floor := time.Minute
+
+	if errs := ValidateSinkIntervalAgainstScopeFloor(nil, 0); len(errs) != 0 {
+		t.Fatalf("no floor errs = %v", errs)
+	}
+	if errs := ValidateSinkIntervalAgainstScopeFloor(nil, floor); len(errs) != 0 {
+		t.Fatalf("nil interval errs = %v", errs)
+	}
+
+	tooFast := &metav1.Duration{Duration: 10 * time.Second}
+	if errs := ValidateSinkIntervalAgainstScopeFloor(tooFast, floor); len(errs) != 1 {
+		t.Fatalf("below floor errs = %v, want 1", errs)
+	}
+
+	ok := &metav1.Duration{Duration: 5 * time.Minute}
+	if errs := ValidateSinkIntervalAgainstScopeFloor(ok, floor); len(errs) != 0 {
+		t.Fatalf("above floor errs = %v", errs)
+	}
+}
+
+func TestValidateIntervalsAgainstScopeFloor_refBelowFloor(t *testing.T) {
+	t.Parallel()
+
+	floor := time.Minute
+	refs := kollectdevv1alpha1.InventorySinkRefList{
+		{Name: "pg", ExportMinInterval: &metav1.Duration{Duration: 5 * time.Second}},
+	}
+	errs := ValidateIntervalsAgainstScopeFloor(nil, []kollectdevv1alpha1.InventorySinkRefList{refs}, floor)
+	if len(errs) != 1 {
+		t.Fatalf("ref below floor errs = %v, want 1", errs)
+	}
+
+	// A non-positive floor disables enforcement entirely.
+	if errs := ValidateIntervalsAgainstScopeFloor(nil, []kollectdevv1alpha1.InventorySinkRefList{refs}, 0); len(errs) != 0 {
+		t.Fatalf("disabled floor errs = %v", errs)
+	}
+}
+
 func TestInventorySinkRefListJSON(t *testing.T) {
 	t.Parallel()
 
