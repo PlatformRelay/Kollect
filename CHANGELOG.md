@@ -23,6 +23,12 @@ release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
 anchor on an older commit.
 
+## [Unreleased]
+
+### Features
+
+- **collect:** PERF-03 tunable dispatch pool [d3cfc5d](https://github.com/konih/kollect/commit/d3cfc5d121859780ad5fd588835b984947595bd1)
+
 ## [0.3.0](https://github.com/konih/kollect/compare/v0.3.0-rc.1..v0.3.0) - 2026-06-07
 
 ### Features
