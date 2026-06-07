@@ -23,6 +23,12 @@ release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
 anchor on an older commit.
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **e2e:** Validate git-export and multitenant via HTTP [09c9cb3](https://github.com/konih/kollect/commit/09c9cb36dde57286ce7664fa6f994915e04730a3)
+
 ## [0.2.0-rc.1](https://github.com/konih/kollect/compare/v0.1.0-rc.3..v0.2.0-rc.1) - 2026-06-07
 
 ### Bug Fixes
