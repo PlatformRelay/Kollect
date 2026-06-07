@@ -116,8 +116,10 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Codecov OIDC upload; GitHub App still required for reliable PR comments
     env:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       COVERAGE_MIN: "70"
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -154,12 +156,7 @@ jobs:
         with:
           files: coverage.out
           fail_ci_if_error: false
-          use_oidc: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-      - name: Codecov upload note (no token)
-        if: success() && env.CODECOV_TOKEN == ''
-        run: |
-          echo "::warning::CODECOV_TOKEN secret is unset; Codecov upload skipped (configure repo secret for uploads)."
+          use_oidc: true
 
   build:
     name: build

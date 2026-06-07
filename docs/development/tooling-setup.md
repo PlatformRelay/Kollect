@@ -116,14 +116,53 @@ After the first successful scan:
 
 Properties file: [`sonar-project.properties`](../../sonar-project.properties).
 
+## Codecov (maintainer setup)
+
+Codecov complements the merge gate (`task coverage` / `COVERAGE_MIN` in CI) with PR patch
+coverage comments, project trends, and the README badge. Uploads are **non-blocking**
+(`fail_ci_if_error: false`); the **`test`** job enforces the coverage floor.
+
+### 1. Install the Codecov GitHub App (required for reliable PR comments)
+
+Codecov uploads can succeed without the app, but PR comments and status checks are rate-limited
+when Codecov calls the GitHub API with a shared token instead of app credentials. If you see
+*“install Codecov GitHub App for reliable uploads/comments”* on a PR, complete this step once:
+
+1. Open [github.com/apps/codecov](https://github.com/apps/codecov) and click **Configure**.
+2. Select the **`konih`** account (user or org that owns `konih/kollect`).
+3. Grant access to **`kollect`** (or all repositories if you prefer org-wide setup).
+4. Confirm the repo appears at [codecov.io/gh/konih/kollect](https://codecov.io/gh/konih/kollect).
+
+No repository secret is required for uploads when CI uses OIDC (see below).
+
+### 2. CI wiring
+
+| Item | Location |
+| --- | --- |
+| Upload step | `.github/workflows/ci.yaml` job **`test`** — `codecov/codecov-action` v6 with `use_oidc: true` |
+| Project / patch targets | [`codecov.yml`](../../codecov.yml) at repo root |
+| Merge gate (blocking) | `COVERAGE_MIN` env on the same job — independent of Codecov |
+
+The **`test`** job requests `id-token: write` so GitHub Actions can mint an OIDC token for
+Codecov upload authentication ([Codecov OIDC docs](https://docs.codecov.com/docs/codecov-tokens)).
+
+Legacy **`CODECOV_TOKEN`** repository secrets are optional and ignored when `use_oidc: true`; you
+may remove the secret after verifying uploads on `main`.
+
+### 3. Local coverage (contributors)
+
+Contributors do not need Codecov accounts. Run `task coverage` before opening a PR; CI uploads
+`coverage.out` automatically when the **`test`** job passes.
+
 ## What maintainers configure vs contributors
 
 | Item | Contributor | Maintainer |
 | --- | --- | --- |
 | `task lint` / `arch-lint` | Run before PR | Keep `.go-arch-lint.yml` todos current |
 | `SONAR_TOKEN` / `SONARCLOUD_TOKEN` | — | GitHub secret + `.envrc` (same token, different names) |
-| `CODECOV_TOKEN` | — | Optional; separate from Sonar |
-| Quality gate blocking | — | Enable after baseline scan (Phase 1) |
+| Codecov GitHub App | — | [Install app](https://github.com/apps/codecov) on `konih/kollect` for reliable PR comments |
+| `CODECOV_TOKEN` | — | Legacy optional; CI uses OIDC — safe to delete after upload verified |
+| SonarCloud quality gate blocking | — | Enable after baseline scan (Phase 1) |
 
 ## Further reading
 

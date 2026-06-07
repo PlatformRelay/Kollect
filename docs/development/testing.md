@@ -84,6 +84,10 @@ SonarCloud mirrors coverage trends and surfaces duplication / technical-debt rat
 complementing point-in-time `dupl` and Codecov. Configured in `sonar-project.properties`; optional
 until the maintainer adds `SONAR_TOKEN`. Does not replace `task lint` or arch-lint.
 
+**Codecov** uploads run in the **`test`** job (OIDC auth, non-blocking). PR patch comments require
+the maintainer to install the [Codecov GitHub App](https://github.com/apps/codecov) once — see
+[tooling-setup.md § Codecov](tooling-setup.md#codecov-maintainer-setup).
+
 ## Scheduled and manual tiers
 
 | Workflow | Tier | Purpose |
