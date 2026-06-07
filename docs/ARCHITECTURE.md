@@ -84,7 +84,8 @@ flowchart TD
 | ~~`KollectSink`~~ | — | — | **Removed** — family CRDs ([ADR-0414](adr/0414-sink-family-crds.md)) |
 | `KollectClusterInventory` | Cluster | Yes | Platform rollup — pairs with `KollectClusterTarget` |
 | `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
-| ~~`KollectHub`~~ | — | **Rejected / stub** | **Removed** from tree — was never product surface — Helm `| ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](adr/0702-doc-sync-templating.md) |
+| ~~`KollectHub`~~ | — | **Rejected / stub** | **Removed** from tree — was never product surface |
+| ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](adr/0702-doc-sync-templating.md) |
 
 See [adr/0201-crd-model.md](adr/0201-crd-model.md). Per-kind field reference:
 [CR-REFERENCE.md](CR-REFERENCE.md). Reserved kinds are design placeholders — see

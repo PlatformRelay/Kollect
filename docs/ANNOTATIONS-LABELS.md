@@ -79,16 +79,12 @@ kubectl wait --for=condition=ConnectionVerified kollectsink/<name> \
 
 See [Connection test example](examples/connection-test.md).
 
-## Multi-cluster registration
+## Multi-cluster identity
 
-Used when registering spoke clusters at the hub (ADR-0503).
+Fleet installs distinguish clusters via **`spec.cluster`** on inventory and export rows
+([ADR-0501](adr/0501-multi-cluster-fleet.md)). Remote-cluster registration labels and hub ingest
+headers are **not** used in the default architecture.
 
-| Key | Type | On | Values | Effect |
-| --- | --- | --- | --- | --- |
-| `kollect.dev/multiCluster` | Label | Secret (remote-cluster credential) | `"true"` | Marks Istio-style remote secret for hub registration |
-| `kollect.dev/cluster` | Annotation | Secret | cluster ID string | Spoke identity for merge and auth |
-| `kollect.dev/spokePrincipal` | Annotation | `
-HTTP header `X-Kollect-Cluster-Id` carries cluster identity on hub ingest paths.
 
 ## Profile and export metadata
 

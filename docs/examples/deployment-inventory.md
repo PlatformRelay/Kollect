@@ -8,8 +8,9 @@
 This walkthrough connects the core **namespaced** CRDs into a minimal pipeline: define **what**
 to extract (`KollectProfile`), **where** to send it (family sinks — `KollectDatabaseSink`,
 `KollectSnapshotSink`), **which** resources to watch (`KollectTarget`), and **when** to aggregate
-and export (`KollectInventory`). There is **no `KollectHub` CRD** — hub aggregation uses Helm
-`
+and export (`KollectInventory`). Multi-cluster rollups use a **shared sink** and `spec.cluster` — see
+[multi-cluster fleet](multi-cluster-fleet.md).
+
 **Default sample path:** Postgres state store (`postgres-inventory-demo`). Swap to `git-inventory-demo`
 for Git audit/CI. See [Postgres state store](postgres-state-store.md) and
 [Connection test](connection-test.md).

@@ -100,9 +100,8 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | ID | Requirement | Reference |
 | --- | --- | --- |
 | FR-MC-1 | Default multi-cluster = direct shared-sink fan-in (`spec.cluster`); backend key/PK merges | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0501](adr/0501-multi-cluster-fleet.md) |
-| FR-MC-2 | Optional hub tier (`| FR-MC-3 | Spokes stay lightweight: summarized delta snapshots, bounded RAM, debounced push | [ADR-0501](adr/0501-multi-cluster-fleet.md), [ADR-0603](adr/0603-performance-scalability.md) |
-| FR-MC-4 | Hub/spoke transport is the same event-emitter abstraction as the Kafka/NATS sink | ADR-0502, [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
-| FR-MC-5 | Hub ingest auth is push-first (TokenReview + SAR `create` on `kollectremoteclusters`) | ADR-0503 |
+| FR-MC-2 | Each cluster runs an independent operator (`mode: single`); no hub tier | [ADR-0501](adr/0501-multi-cluster-fleet.md) |
+| FR-MC-3 | Operators stay lightweight: debounced export, bounded in-memory collect store | [ADR-0501](adr/0501-multi-cluster-fleet.md), [ADR-0603](adr/0603-performance-scalability.md) |
 
 ### 3.6 Observability (FR-OBS)
 
@@ -187,8 +186,9 @@ Enforcement: [guidelines § 4](development/guidelines.md#4-testing),
 | --- | --- |
 | In-operator doc/CMS rendering (Confluence, wiki, templating) | Single responsibility — external CI consumes exports ([ADR-0702](adr/0702-doc-sync-templating.md)) |
 | `prometheus` as a `KollectSink.type` | Operator metrics use `/metrics`; avoids scrape/sink confusion ([ADR-0601](adr/0601-prometheus-metrics-stub.md)) |
-| `KollectHub` CRD | Hub is Helm `| Full inventory payload in CRD status | etcd limit ([ADR-0103](adr/0103-etcd-limit.md)) |
-| Pairwise agent mesh beyond ~20 peers | Does not scale; use hub or shared sink ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |
+| `KollectHub` CRD | Never shipped — hub tier removed ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |
+| Full inventory payload in CRD status | etcd limit ([ADR-0103](adr/0103-etcd-limit.md)) |
+| Pairwise agent mesh beyond ~20 peers | Does not scale; use shared sink ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |
 | In-place ACID lakehouse updates (Iceberg/DuckLake) | Kollect overwrites whole snapshots; no catalog/metadata DB needed ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
 
 ## 6. Resolved requirement questions (2026-06-05)

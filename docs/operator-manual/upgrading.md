@@ -101,7 +101,8 @@ bumping versions. Common upgrade touchpoints:
 | Area | Check |
 | --- | --- |
 | `tenantMode` / `watchNamespaces` | RBAC shape changes require reconciling Role vs ClusterRole |
-| `| `featureGates.*` | New gates default off; dev overlays may differ from production values |
+| `mode` | Single-cluster only; remove legacy hub/spoke values from overlays |
+| `featureGates.*` | New gates default off; dev overlays may differ from production values |
 | `webhooks.certManager.create` | Clusters without cert-manager need the self-signed bootstrap path |
 
 !!! info "Export debouncing"

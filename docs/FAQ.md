@@ -121,28 +121,20 @@ Sink payloads and Read API responses are moving toward a versioned envelope — 
 emit a bare JSON array ([ADR-0405](adr/0405-export-data-contract.md)). Plan downstream consumers for
 possible wrapper fields before `v1.0`.
 
-## Hub mode vs shared sink
+## Multi-cluster fleet
 
-### When do I need hub mode?
+### How do I inventory many clusters?
 
-**Default multi-cluster path:** each cluster runs Kollect with `mode: single` (or `without a hub) and exports to a **shared sink** (Postgres, Kafka, NATS) with `spec.cluster` set.
-The backend primary key merges rows across clusters — no hub required
-([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
+**Default path:** run one Kollect operator per cluster with `mode: single` and export to a **shared sink**
+(Postgres, Kafka, NATS, Git) with **`spec.cluster`** set on inventory. The sink backend merges rows by
+cluster id — no central hub tier
+([ADR-0501](adr/0501-multi-cluster-fleet.md), [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 
-**Use hub mode (`
-| Scenario | Why hub |
-| --- | --- |
-| Git is the multi-cluster SoR | Direct Git fan-in = N commits per change; needs aggregation |
-| Network isolation | Spokes cannot reach central DB/broker; hub provides one ingress |
-| Credential centralization | One write credential at hub vs N spokes |
-| Schema decoupling | Spokes send stable report schema; hub owns DB migrations |
-
-Walkthroughs: [Spoke cluster inventory](examples/multi-cluster-fleet.md),
-[Hub mode](examples/multi-cluster-fleet.md).
+Walkthrough: [Multi-cluster fleet](examples/multi-cluster-fleet.md).
 
 ### Is there a `KollectHub` CRD?
 
-**No.** Hub and spoke are Helm `mode` values on the same operator image
+**No.** There is no hub/spoke Helm mode — only single-cluster deployment on the operator image
 ([ADR-0201](adr/0201-crd-model.md)). Register spokes with namespaced
 `
 ### Hub transport is `inprocess` — is that production-ready?

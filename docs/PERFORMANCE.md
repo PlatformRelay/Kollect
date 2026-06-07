@@ -23,7 +23,6 @@ stay **O(total rows)**, never O(spokes²).
 | --- | --- | --- |
 | `--max-concurrent-reconciles-target` | `5` | `KollectTarget` |
 | `--max-concurrent-reconciles-inventory` | `3` | `KollectInventory` |
-| `--max-concurrent-reconciles-hub` | `2` | Hub mode (`
 Raise concurrency when reconcile latency grows while CPU is underutilized. Lower it when
 API server throttling or etcd watch pressure appears.
 
@@ -101,4 +100,4 @@ Default `go test ./...` excludes `load`-tagged tests.
 | High `kollect_workqueue_depth` on `inventory` | Export or aggregation on hot path | Raise inventory workers; increase `spec.exportMinInterval` |
 | High export bytes rate, low object churn | Missing payload dedupe | Verify debounce + content-hash skip |
 | Bench regression in `BenchmarkExtract` | CEL/JSONPath hot path | Profile extractor; check attribute count |
-| Hub OOM at many spokes | Full mirror in hub RAM | Sharded consumers; spoke summaries only ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |
+| High RSS on large clusters | Full in-memory collect store | Namespace-scoped targets; raise export interval ([ADR-0603](adr/0603-performance-scalability.md)) |

@@ -254,7 +254,8 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 | --- | --- |
 | **Status** | Deferred |
 | **Roadmap** | [Deferred](../ROADMAP.md#deferred) |
-| **Summary** | Optional **hub federated mTLS** for spoke→hub ingest (beyond push **TokenReview + SAR** default). `| **Related ADRs** | ADR-0503 |
+| **Summary** | **Cancelled** — hub/spoke tier removed; multi-cluster uses shared-sink fan-in ([ADR-0501](../adr/0501-multi-cluster-fleet.md)). |
+| **Related ADRs** | [ADR-0501](../adr/0501-multi-cluster-fleet.md) |
 
 ---
 

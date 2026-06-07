@@ -22,7 +22,6 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
-| controller.maxConcurrentReconciles.hub | int | `2` | Max concurrent reconciles for hub ingest/merge. |
 | controller.maxConcurrentReconciles.inventory | int | `3` | Max concurrent reconciles for KollectInventory. |
 | controller.maxConcurrentReconciles.target | int | `5` | Max concurrent reconciles for KollectTarget. |
 | controller.reconcileRateLimit | string | `""` | Optional controller-runtime reconcile rate limit (empty = default). |
@@ -34,14 +33,6 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | featureGates.inventoryHttp.enabled | bool | `false` | Expose read-only GET /inventory HTTP API (debug/small installs only). |
 | featureGates.inventoryHttp.port | int | `8082` | Inventory HTTP listen port. |
 | fullnameOverride | string | `""` | Override the full resource name prefix (defaults to release name + chart name). |
-| hub | object | `{"exportNamespace":"","ingestAuthMode":"kubernetes","ingestPort":8083,"name":"platform","platformNamespace":"","remoteClusters":[],"sinkRefs":[]}` | Hub consumer settings (mode hub). Namespaced KollectSink refs resolve in exportNamespace. |
-| hub.exportNamespace | string | `""` | Namespace for hub sink CRs and merged export. |
-| hub.ingestAuthMode | string | `"kubernetes"` | Hub ingest authentication mode (kubernetes TokenReview/SAR). |
-| hub.ingestPort | int | `8083` | Hub ingest HTTP port for spoke reports. |
-| hub.name | string | `"platform"` | Hub platform identifier. |
-| hub.platformNamespace | string | `""` | Namespace for platform SAR checks on KollectRemoteCluster (defaults to release namespace). |
-| hub.remoteClusters | list | `[]` | Spoke registration allowlist (fail-closed when set, even if empty). |
-| hub.sinkRefs | list | `[]` | Namespaced KollectSink refs for parallel post-merge export (Postgres/Kafka). |
 | image.pullPolicy | string | `"IfNotPresent"` | Controller image pull policy. |
 | image.repository | string | `"ghcr.io/konih/kollect"` | Controller container image repository. |
 | image.tag | string | `"latest"` | Controller image tag (defaults to chart appVersion when empty). |
@@ -58,7 +49,7 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | metrics.serviceMonitor.interval | string | `"30s"` | Scrape interval. |
 | metrics.serviceMonitor.labels | object | `{}` | Labels merged onto ServiceMonitor (must match Prometheus serviceMonitorSelector). |
 | metrics.serviceMonitor.scrapeTimeout | string | `"10s"` | Scrape timeout. |
-| mode | string | `"single"` | Operator deployment mode on the same image: single, hub, or spoke. |
+| mode | string | `"single"` | Operator deployment mode (single-cluster only). |
 | nameOverride | string | `""` | Override the chart name used in labels and resource names. |
 | nodeSelector | object | `{}` |  |
 | oauth2Proxy | object | `{"enabled":false}` | Optional oauth2-proxy sidecar for browser/OIDC access (not rendered yet). |
@@ -68,7 +59,7 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | pprof.bindAddress | string | `":6060"` | pprof bind address. |
 | pprof.enabled | bool | `false` | Enable Go pprof debug endpoint on the manager. |
 | rbac.create | bool | `true` | Create RBAC roles/bindings for the manager. |
-| replicaCount | int | `1` | Manager Deployment replica count (hub mode may scale consumers horizontally). |
+| replicaCount | int | `1` | Manager Deployment replica count. |
 | resources.limits.cpu | string | `"500m"` |  |
 | resources.limits.memory | string | `"256Mi"` |  |
 | resources.requests.cpu | string | `"10m"` |  |
@@ -83,8 +74,6 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | sinkDefaults.connectionTest | bool | `false` | Default spec.connectionTest for sample sinks (CI/dev overlays often set true). |
 | tenantMode | bool | `false` | When true, render namespaced Role/RoleBinding instead of ClusterRole/ClusterRoleBinding. |
 | tolerations | list | `[]` |  |
-| transport | object | `{"type":"inprocess"}` | Hub/spoke transport backend. Only inprocess is the production default until external backends pass integration proof. |
-| transport.type | string | `"inprocess"` | Transport type: inprocess, redis, nats, or kafka (non-inprocess requires ops sign-off). |
 | ui | object | `{"enabled":false,"image":{"repository":"ghcr.io/konih/kollect-ui","tag":""},"ingress":{"enabled":false},"readApiUrl":"http://kollect:8082"}` | Optional kollect-ui subchart (static React SPA — default off). |
 | ui.enabled | bool | `false` | Enable the kollect-ui subchart. |
 | ui.image.repository | string | `"ghcr.io/konih/kollect-ui"` | kollect-ui container image repository. |
