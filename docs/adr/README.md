@@ -66,7 +66,7 @@ New readers: [REQUIREMENTS.md](../REQUIREMENTS.md) → theme **02** (CRD model) 
 | [0416](0416-sink-config-layering.md) | Sink configuration layering | Current |
 | [0417](0417-mongodb-database-sink.md) | MongoDB database sink | Current |
 | [0418](0418-fleet-console-read-plane.md) | Fleet console read plane (event-fed, `cluster` dimension) | Exploring |
-| [0419](0419-git-export-serialization-layout.md) | Git export serialization and layout (YAML default, zero-config) | Exploring |
+| [0419](0419-git-export-serialization-layout.md) | Git export serialization and layout (YAML default, zero-config) | Current |
 
 ## 05 · Multi-cluster fleet
 

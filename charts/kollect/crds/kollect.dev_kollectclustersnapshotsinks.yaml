@@ -486,6 +486,30 @@ spec:
                           published to.
                         type: string
                     type: object
+                  layout:
+                    description: layout previews the resolved export layout for git
+                      and gitlab snapshot sinks (ADR-0419).
+                    properties:
+                      content:
+                        description: content is the resolved per-file content shape
+                          (item, attributes, or manifest).
+                        type: string
+                      mode:
+                        description: mode is the resolved layout mode (document, perResource,
+                          or split).
+                        type: string
+                      prune:
+                        description: prune reports whether stale files are removed
+                          on export (auto for perResource/split).
+                        type: boolean
+                      samplePaths:
+                        description: samplePaths lists example repo paths the layout
+                          would write for the synthetic sample.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    type: object
                   mongodb:
                     description: mongodb previews the expected identity index for
                       mongodb sinks.

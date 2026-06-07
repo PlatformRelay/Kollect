@@ -87,6 +87,7 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | FR-EXP-5 | Resource deletions are reflected in sinks (snapshot stores free; Postgres/Kafka via reconcile) | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | FR-EXP-6 | First-class sink connectivity testing (`KollectConnectionTest` CR + sink probe) | [ADR-0403](adr/0403-connection-test.md) |
 | FR-EXP-7 | Custom CA / self-signed TLS trust for Git/GitLab/Postgres sinks (`caSecretRef` / `caBundle`) | [ADR-0201](adr/0201-crd-model.md) |
+| FR-EXP-8 | Git/GitLab sinks default to human-readable **YAML** with zero config; optional `spec.layout` (`document`/`perResource`/`split`), path templates, and auto-prune for per-resource trees | [ADR-0419](adr/0419-git-export-serialization-layout.md), [ADR-0416](adr/0416-sink-config-layering.md), [ADR-0306](adr/0306-full-resource-export-pruning.md) |
 
 ### 3.4 Read path (FR-READ)
 

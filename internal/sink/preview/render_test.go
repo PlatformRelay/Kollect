@@ -29,3 +29,35 @@ func TestRender_gitCommitSubject(t *testing.T) {
 		t.Fatalf("expected git preview, got %#v", out.Git)
 	}
 }
+
+func TestRender_gitDefaultLayoutPreview(t *testing.T) {
+	out := Render(kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SnapshotSinkTypeGit}, "git-backup")
+	if out.SerializationFormat != kollectdevv1alpha1.SerializationFormatYAML {
+		t.Errorf("git default format = %q, want yaml", out.SerializationFormat)
+	}
+	if out.Layout == nil || out.Layout.Mode != kollectdevv1alpha1.LayoutModeDocument {
+		t.Fatalf("expected document layout preview, got %#v", out.Layout)
+	}
+	if want := "inventory/team-a/api.yaml"; len(out.Layout.SamplePaths) != 1 || out.Layout.SamplePaths[0] != want {
+		t.Errorf("sample paths = %v, want [%q]", out.Layout.SamplePaths, want)
+	}
+}
+
+func TestRender_gitPerResourceLayoutPreview(t *testing.T) {
+	out := Render(kollectdevv1alpha1.KollectSinkSpec{
+		Type:    kollectdevv1alpha1.SnapshotSinkTypeGit,
+		Cluster: "prod-west",
+		Layout:  &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource},
+	}, "git-backup")
+	if out.Layout == nil || out.Layout.Mode != kollectdevv1alpha1.LayoutModePerResource || !out.Layout.Prune {
+		t.Fatalf("expected pruning perResource preview, got %#v", out.Layout)
+	}
+	if len(out.Layout.SamplePaths) == 0 {
+		t.Fatal("expected sample paths")
+	}
+	for _, p := range out.Layout.SamplePaths {
+		if !strings.HasPrefix(p, "prod-west/team-a/deployment/") {
+			t.Errorf("unexpected sample path %q", p)
+		}
+	}
+}

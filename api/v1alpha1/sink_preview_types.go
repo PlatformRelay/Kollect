@@ -32,6 +32,10 @@ type SinkPreviewStatus struct {
 	// +optional
 	Git *GitPreviewStatus `json:"git,omitempty"`
 
+	// layout previews the resolved export layout for git and gitlab snapshot sinks (ADR-0419).
+	// +optional
+	Layout *LayoutPreviewStatus `json:"layout,omitempty"`
+
 	// postgres previews the expected CREATE TABLE DDL for postgres sinks.
 	// +optional
 	Postgres *PostgresPreviewStatus `json:"postgres,omitempty"`
@@ -59,6 +63,26 @@ type GitPreviewStatus struct {
 	// sampleCommitBody is the rendered commit body.
 	// +optional
 	SampleCommitBody string `json:"sampleCommitBody,omitempty"`
+}
+
+// LayoutPreviewStatus previews the resolved export layout for git/gitlab snapshot sinks (ADR-0419).
+type LayoutPreviewStatus struct {
+	// mode is the resolved layout mode (document, perResource, or split).
+	// +optional
+	Mode string `json:"mode,omitempty"`
+
+	// content is the resolved per-file content shape (item, attributes, or manifest).
+	// +optional
+	Content string `json:"content,omitempty"`
+
+	// prune reports whether stale files are removed on export (auto for perResource/split).
+	// +optional
+	Prune bool `json:"prune,omitempty"`
+
+	// samplePaths lists example repo paths the layout would write for the synthetic sample.
+	// +optional
+	// +listType=atomic
+	SamplePaths []string `json:"samplePaths,omitempty"`
 }
 
 // PostgresPreviewStatus previews the DDL a postgres sink would run in ensure mode.

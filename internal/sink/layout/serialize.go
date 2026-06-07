@@ -18,6 +18,11 @@ import (
 	"github.com/konih/kollect/internal/collect"
 )
 
+// DefaultManifestKey is the Item.attributes key holding the embedded Kubernetes object for manifest
+// content (ADR-0419). It mirrors ADR-0306 export.as default ("resource") and is used when a sink
+// resolves manifest content without an explicit ResolveInput.ManifestKey.
+const DefaultManifestKey = "resource"
+
 // ExtensionForFormat returns the canonical file extension (with leading dot) for a format.
 func ExtensionForFormat(format string) string {
 	switch strings.ToLower(strings.TrimSpace(format)) {

@@ -1,0 +1,22 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSnapshotSink
+metadata:
+  name: git-inventory-resource-tree
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  # Resource-mode tree (ADR-0419 + ADR-0306): when the referenced profile uses
+  # export.mode: Resource, this zero-extra-field Git sink auto-upgrades to a
+  # per-resource manifest tree — layout.mode: perResource, layout.content: manifest,
+  # and git.prune: true are inferred. Each file is native Kubernetes YAML
+  # (kubectl get -o yaml style), e.g. prod-west/team-a/deployment/api.yaml.
+  #
+  # Set layout.mode: document explicitly to keep a single inventory file instead.
+  type: git
+  endpoint: https://git.example.com/platform/inventory.git
+  cluster: prod-west
+  # secretRef:
+  #   name: git-push-credentials
+  #   namespace: kollect-system

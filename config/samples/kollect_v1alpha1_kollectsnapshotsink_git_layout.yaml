@@ -1,0 +1,28 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSnapshotSink
+metadata:
+  name: git-inventory-layout
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  # Explicit layout override (ADR-0419): one file per Item in a reviewable folder tree.
+  # git.prune auto-enables for perResource/split; stale files are removed on export.
+  type: git
+  endpoint: https://git.example.com/platform/inventory.git
+  cluster: prod-west
+  serialization:
+    format: yaml              # default for git/gitlab; shown for clarity
+  layout:
+    mode: perResource         # document (default) | perResource | split
+    content: item             # item (default) | attributes | manifest
+    # Default per-resource path: {cluster}/{sourceNamespace}/{kind}/{sourceName}{extension}
+    pathTemplate: 'clusters/{cluster}/{sourceNamespace}/{kind}/{sourceName}{extension}'
+    filename:
+      groupInPath: auto       # omit {group} segment for core types
+      lowercaseKind: true
+      maxSegmentLength: 63
+  git:
+    branch: main
+    pushPolicy: Commit

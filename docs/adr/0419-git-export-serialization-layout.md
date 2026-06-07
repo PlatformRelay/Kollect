@@ -3,7 +3,7 @@
 > Readable YAML in Git sync repos **by default with zero extra config** — override format, layout, or
 > paths only when you need something different.
 
-**Theme:** 04 · Export & sinks · **Status:** Exploring
+**Theme:** 04 · Export & sinks · **Status:** Current
 
 ## Context
 

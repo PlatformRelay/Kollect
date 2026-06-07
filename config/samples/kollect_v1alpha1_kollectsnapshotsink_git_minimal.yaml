@@ -1,0 +1,17 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSnapshotSink
+metadata:
+  name: git-inventory-minimal
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  # Zero-config Git sink (ADR-0419): type + endpoint is enough.
+  # Writes a human-readable YAML inventory at inventory/{namespace}/{name}.yaml
+  # (serialization.format defaults to yaml, layout.mode defaults to document).
+  type: git
+  endpoint: https://github.com/konih/kollect-inventory-demo.git
+  # secretRef:                  # required for private repos
+  #   name: git-push-credentials
+  #   namespace: kollect-system
