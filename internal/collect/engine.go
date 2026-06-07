@@ -29,10 +29,27 @@ import (
 )
 
 const (
-	informerResync    = 12 * time.Hour
-	dispatchWorkers   = 4
-	dispatchQueueSize = 512
+	informerResync           = 12 * time.Hour
+	defaultDispatchWorkers   = 4
+	defaultDispatchQueueSize = 512
 )
+
+// EngineConfig tunes collection engine concurrency (PERF-03).
+type EngineConfig struct {
+	DispatchWorkers   int
+	DispatchQueueSize int
+}
+
+func normalizeEngineConfig(cfg EngineConfig) EngineConfig {
+	if cfg.DispatchWorkers <= 0 {
+		cfg.DispatchWorkers = defaultDispatchWorkers
+	}
+	if cfg.DispatchQueueSize <= 0 {
+		cfg.DispatchQueueSize = defaultDispatchQueueSize
+	}
+
+	return cfg
+}
 
 type dispatchJob struct {
 	ctx     context.Context
@@ -64,42 +81,53 @@ type Engine struct {
 	store     *Store
 	runCtx    context.Context
 
-	mu           sync.RWMutex
-	factories    map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory
-	started      map[schema.GroupVersionResource]bool
-	targets      map[string]targetState
-	targetsByGVR map[schema.GroupVersionResource][]string
-	nsMeta       map[string]namespaceMeta
-	nsMu         sync.RWMutex
-	forbidden    map[string]struct{}
-	accessErr    map[string]struct{}
-	defaults     NamespaceDefaults
-	dispatchCh   chan dispatchJob
-	dispatchOnce sync.Once
+	mu               sync.RWMutex
+	factories        map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory
+	started          map[schema.GroupVersionResource]bool
+	targets          map[string]targetState
+	targetsByGVR     map[schema.GroupVersionResource][]string
+	nsMeta           map[string]namespaceMeta
+	nsMu             sync.RWMutex
+	forbidden        map[string]struct{}
+	accessErr        map[string]struct{}
+	defaults         NamespaceDefaults
+	dispatchCh       chan dispatchJob
+	dispatchWorkers  int
+	dispatchQueueCap int
+	dispatchOnce     sync.Once
 }
 
 // NewEngine constructs a collection engine.
-func NewEngine(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface, store *Store) (*Engine, error) {
+func NewEngine(
+	dynamicClient dynamic.Interface,
+	kubeClient kubernetes.Interface,
+	store *Store,
+	cfg EngineConfig,
+) (*Engine, error) {
 	ext, err := NewExtractor()
 	if err != nil {
 		return nil, err
 	}
 
+	cfg = normalizeEngineConfig(cfg)
+
 	return &Engine{
-		dynamic:      dynamicClient,
-		kube:         kubeClient,
-		access:       NewAccessChecker(kubeClient),
-		extractor:    ext,
-		scrubber:     NewScrubber(nil),
-		store:        store,
-		factories:    make(map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory),
-		started:      make(map[schema.GroupVersionResource]bool),
-		targets:      make(map[string]targetState),
-		targetsByGVR: make(map[schema.GroupVersionResource][]string),
-		nsMeta:       make(map[string]namespaceMeta),
-		forbidden:    make(map[string]struct{}),
-		accessErr:    make(map[string]struct{}),
-		dispatchCh:   make(chan dispatchJob, dispatchQueueSize),
+		dynamic:          dynamicClient,
+		kube:             kubeClient,
+		access:           NewAccessChecker(kubeClient),
+		extractor:        ext,
+		scrubber:         NewScrubber(nil),
+		store:            store,
+		factories:        make(map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory),
+		started:          make(map[schema.GroupVersionResource]bool),
+		targets:          make(map[string]targetState),
+		targetsByGVR:     make(map[schema.GroupVersionResource][]string),
+		nsMeta:           make(map[string]namespaceMeta),
+		forbidden:        make(map[string]struct{}),
+		accessErr:        make(map[string]struct{}),
+		dispatchCh:       make(chan dispatchJob, cfg.DispatchQueueSize),
+		dispatchWorkers:  cfg.DispatchWorkers,
+		dispatchQueueCap: cfg.DispatchQueueSize,
 	}, nil
 }
 
@@ -281,7 +309,11 @@ func (e *Engine) Start(ctx context.Context) error {
 
 func (e *Engine) startDispatchWorkers() {
 	e.dispatchOnce.Do(func() {
-		for i := 0; i < dispatchWorkers; i++ {
+		workers := e.dispatchWorkers
+		if workers <= 0 {
+			workers = defaultDispatchWorkers
+		}
+		for i := 0; i < workers; i++ {
 			go e.dispatchWorker()
 		}
 	})
@@ -413,9 +445,11 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 	e.startDispatchWorkers()
 
 	job := dispatchJob{ctx: ctx, gvr: gvr, obj: obj, deleted: deleted}
+	metrics.CollectDispatchQueueDepth.Set(float64(len(e.dispatchCh)))
 	select {
 	case e.dispatchCh <- job:
 	default:
+		metrics.CollectDispatchSyncFallbackTotal.Inc()
 		e.processDispatch(ctx, gvr, obj, deleted)
 	}
 }
@@ -426,6 +460,12 @@ func (e *Engine) processDispatch(
 	obj interface{},
 	deleted bool,
 ) {
+	start := time.Now()
+	defer func() {
+		metrics.CollectDispatchDurationSeconds.Observe(time.Since(start).Seconds())
+		metrics.CollectDispatchQueueDepth.Set(float64(len(e.dispatchCh)))
+	}()
+
 	u := toUnstructured(obj)
 	if u == nil {
 		return

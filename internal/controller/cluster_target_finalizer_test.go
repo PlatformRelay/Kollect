@@ -52,7 +52,7 @@ func TestKollectClusterTargetReconciler_deleteUnregistersAndRemovesFinalizer(t *
 		WithStatusSubresource(ct).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store)
+	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}

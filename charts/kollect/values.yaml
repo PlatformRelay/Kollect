@@ -83,6 +83,10 @@ controller:
     target: 5
     # -- Max concurrent reconciles for KollectInventory.
     inventory: 3
+  # -- Collection informer dispatch worker count (PERF-03).
+  collectDispatchWorkers: 4
+  # -- Collection informer dispatch queue depth.
+  collectDispatchQueueSize: 512
   # -- Optional controller-runtime reconcile rate limit (empty = default).
   reconcileRateLimit: ""
 

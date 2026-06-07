@@ -27,7 +27,7 @@ func TestKollectClusterTargetReconciler_suspend(t *testing.T) {
 	}
 
 	store := collect.NewStore()
-	engine, err := collect.NewEngine(nil, nil, store)
+	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}

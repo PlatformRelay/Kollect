@@ -38,7 +38,7 @@ func TestKollectTargetReconciler_addsCleanupFinalizer(t *testing.T) {
 		WithStatusSubresource(target).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, collect.NewStore())
+	engine, err := collect.NewEngine(nil, nil, collect.NewStore(), collect.EngineConfig{})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestKollectTargetReconciler_deleteUnregistersAndRemovesFinalizer(t *testing
 		WithStatusSubresource(target).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store)
+	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}

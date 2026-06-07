@@ -42,6 +42,8 @@ spec:
             {{- end }}
             - --max-concurrent-reconciles-target={{ .Values.controller.maxConcurrentReconciles.target }}
             - --max-concurrent-reconciles-inventory={{ .Values.controller.maxConcurrentReconciles.inventory }}
+            - --collect-dispatch-workers={{ .Values.controller.collectDispatchWorkers }}
+            - --collect-dispatch-queue-size={{ .Values.controller.collectDispatchQueueSize }}
             {{- if .Values.controller.reconcileRateLimit }}
             - --reconcile-rate-limit={{ .Values.controller.reconcileRateLimit }}
             {{- end }}

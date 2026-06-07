@@ -140,7 +140,7 @@ func TestKollectClusterInventoryReconciler_dedupesCrossTargetRows(t *testing.T) 
 		WithStatusSubresource(targetObjs[0], targetObjs[1], sinkObj, inv).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store)
+	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
@@ -341,7 +341,7 @@ func TestKollectClusterInventoryReconciler_keepAllPreservesCrossTargetRows(t *te
 		WithStatusSubresource(targetObjs[0], targetObjs[1], sinkObj, inv).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store)
+	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}

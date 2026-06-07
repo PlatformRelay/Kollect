@@ -76,6 +76,8 @@ func main() {
 	var defaultExcludedNamespacesRaw string
 	var scrubKeysRaw string
 	var validatingWebhooksEnabled bool
+	var collectDispatchWorkers int
+	var collectDispatchQueueSize int
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -128,6 +130,10 @@ func main() {
 		"Comma-separated default Target excludedNamespaces when unset on the CRD (Helm defaultExcludedNamespaces).")
 	flag.StringVar(&scrubKeysRaw, "scrub-keys", "",
 		"Comma-separated extra attribute keys to redact before store insert (built-in denylist always applies).")
+	flag.IntVar(&collectDispatchWorkers, "collect-dispatch-workers", 4,
+		"Worker goroutines draining the collection informer dispatch queue (PERF-03).")
+	flag.IntVar(&collectDispatchQueueSize, "collect-dispatch-queue-size", 512,
+		"Bounded queue depth for collection informer dispatch jobs.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -254,7 +260,10 @@ func main() {
 	}
 
 	collectStore := collect.NewStore()
-	collectEngine, err := collect.NewEngine(dynamicClient, kubeClient, collectStore)
+	collectEngine, err := collect.NewEngine(dynamicClient, kubeClient, collectStore, collect.EngineConfig{
+		DispatchWorkers:   collectDispatchWorkers,
+		DispatchQueueSize: collectDispatchQueueSize,
+	})
 	if err != nil {
 		setupLog.Error(err, "Failed to create collection engine")
 		os.Exit(1)

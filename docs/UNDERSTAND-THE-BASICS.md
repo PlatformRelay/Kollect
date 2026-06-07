@@ -98,7 +98,7 @@ The in-memory inventory snapshot is **canonical**; sinks are **projections** cla
 
 | Role | Shipped `spec.type` values | Typical use |
 | --- | --- | --- |
-| **Snapshot store** | `git`, `gitlab`, `s3`, `gcs` | Auditable JSON history, object-store archives |
+| **Snapshot store** | `git`, `gitlab`, `s3`, `gcs` | Auditable JSON history; S3/GCS **`format: parquet`** for analytics ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
 | **Relational SoR** | `postgres` | Queryable tables; delete reconciliation removes stale rows |
 | **Event emitter** | `nats`, `kafka` | Change streams for automation and downstream consumers |
 
@@ -114,8 +114,9 @@ See [examples/postgres-state-store.md](examples/postgres-state-store.md) and
 ## Multi-cluster (optional)
 
 Single-cluster installs are fully supported. **Multi-cluster fleet** mode runs one operator per
-cluster and merges inventory in shared sinks via `spec.cluster` and `pathTemplate`
-([ADR-0501](adr/0501-multi-cluster-fleet.md), [examples/multi-cluster-fleet.md](examples/multi-cluster-fleet.md)).
+cluster and partitions shared sinks via `spec.cluster` and optional `spec.pathTemplate`
+([ADR-0501](adr/0501-multi-cluster-fleet.md), [ADR-0407](adr/0407-git-object-store-layout.md),
+[examples/multi-cluster-fleet.md](examples/multi-cluster-fleet.md)).
 `KollectClusterTarget` and `KollectClusterInventory` controllers reconcile cluster-scoped rollup
 and export to namespaced sinks.
 

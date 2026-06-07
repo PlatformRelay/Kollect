@@ -93,7 +93,15 @@ All custom metrics use the `kollect_` prefix. Controller-runtime also exposes st
 
 | Metric | Type | Labels | Help |
 | --- | --- | --- | --- |
-| `kollect_export_debounced_total` | counter | `sink_type` | Exports skipped by per-sink min interval ([ADR-0413](../adr/0413-export-interval-scheduling.md)) |
+| `kollect_export_debounced_total` | counter | `controller` | Exports skipped by per-inventory debounce coalescing |
+
+### Collection dispatch
+
+| Metric | Type | Labels | Help |
+| --- | --- | --- | --- |
+| `kollect_collect_dispatch_duration_seconds` | histogram | — | Informer dispatch latency (extract + store upsert) |
+| `kollect_collect_dispatch_queue_depth` | gauge | — | Approximate dispatch queue depth |
+| `kollect_collect_dispatch_sync_fallback_total` | counter | — | Events processed synchronously when queue was full |
 
 ## Useful PromQL
 

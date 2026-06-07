@@ -68,5 +68,4 @@ inventory/<inventory-namespace>/<inventory-name>.json
 - **DECIDED :** `spec.git` adds `pushPolicy`, `branch`, `auth`, `commitMessage`, `commitBody`,
   `commitTrailers`, `author`, `cloneDepth`, and `prune` on snapshot sinks — see
   [ADR-0415](0415-git-sink-commit-ergonomics.md).
-- **OPEN:** Object-store (S3/GCS) partition layout for the Parquet snapshot sink — lean toward
-  `clusters/<cluster>/date=…/` Hive-style partitioning for DuckDB ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).
+- **OPEN:** GCS Parquet export — S3 ships `format: parquet` in v0.4; GCS JSON default until parity lands.

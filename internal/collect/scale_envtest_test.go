@@ -97,7 +97,7 @@ func TestEngine_ScaleEnvtest500(t *testing.T) {
 	}
 
 	store := NewStore()
-	engine, err := NewEngine(dyn, kube, store)
+	engine, err := NewEngine(dyn, kube, store, EngineConfig{})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}

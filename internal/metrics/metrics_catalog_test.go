@@ -25,6 +25,9 @@ var registeredMetricNames = []string{
 	"kollect_export_spill_warn_total",
 	"kollect_export_debounced_total",
 	"kollect_watch_map_list_errors_total",
+	"kollect_collect_dispatch_duration_seconds",
+	"kollect_collect_dispatch_queue_depth",
+	"kollect_collect_dispatch_sync_fallback_total",
 	"kollect_custom_resource_series",
 	"kollect_custom_resource_labeled_series",
 }

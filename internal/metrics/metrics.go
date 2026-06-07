@@ -141,6 +141,28 @@ var (
 		},
 		[]string{"controller", "watch"},
 	)
+
+	CollectDispatchDurationSeconds = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "kollect_collect_dispatch_duration_seconds",
+			Help:    "Collection informer dispatch latency (extract + store upsert) in seconds.",
+			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, .1, .25, .5, 1},
+		},
+	)
+
+	CollectDispatchQueueDepth = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "kollect_collect_dispatch_queue_depth",
+			Help: "Approximate depth of the collection dispatch queue (channel length).",
+		},
+	)
+
+	CollectDispatchSyncFallbackTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "kollect_collect_dispatch_sync_fallback_total",
+			Help: "Informer events processed synchronously when the dispatch queue was full.",
+		},
+	)
 )
 
 // Register adds kollect custom metrics to the controller-runtime registry.
@@ -163,5 +185,8 @@ func Register() {
 		customResourceLabeledCollector{},
 		ExportDebouncedTotal,
 		WatchMapListErrorsTotal,
+		CollectDispatchDurationSeconds,
+		CollectDispatchQueueDepth,
+		CollectDispatchSyncFallbackTotal,
 	)
 }

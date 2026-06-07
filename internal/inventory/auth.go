@@ -26,6 +26,8 @@ const (
 	AuthModeKubernetes = "kubernetes"
 	// AuthModeDisabled disables auth (local dev / CI only).
 	AuthModeDisabled = "disabled"
+
+	sarVerbList = "list"
 )
 
 // AuthConfig configures inventory HTTP authentication (ADR-0404).
@@ -60,9 +62,9 @@ func requestAuthScope(r *http.Request) (namespace, name, verb, resource string) 
 	path := r.URL.Path
 	switch {
 	case strings.HasPrefix(path, "/v1alpha1/status/targets"):
-		return strings.TrimSpace(r.URL.Query().Get("namespace")), "", "list", "kollecttargets"
+		return strings.TrimSpace(r.URL.Query().Get("namespace")), "", sarVerbList, "kollecttargets"
 	case strings.HasPrefix(path, "/v1alpha1/status/inventories"):
-		return strings.TrimSpace(r.URL.Query().Get("namespace")), "", "list", "kollectinventories"
+		return strings.TrimSpace(r.URL.Query().Get("namespace")), "", sarVerbList, "kollectinventories"
 	default:
 		namespace, name, verb = inventoryAuthScope(r)
 
@@ -84,7 +86,7 @@ func inventoryAuthScope(r *http.Request) (namespace, name, verb string) {
 	if name != "" {
 		verb = "get"
 	} else {
-		verb = "list"
+		verb = sarVerbList
 	}
 
 	return namespace, name, verb

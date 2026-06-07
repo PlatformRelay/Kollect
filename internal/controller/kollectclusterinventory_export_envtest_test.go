@@ -57,7 +57,7 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		store = collect.NewStore()
-		engine, err = collect.NewEngine(dyn, kubeClient, store)
+		engine, err = collect.NewEngine(dyn, kubeClient, store, collect.EngineConfig{})
 		Expect(err).NotTo(HaveOccurred())
 
 		engineCtx, engineCancel = context.WithCancel(ctx)

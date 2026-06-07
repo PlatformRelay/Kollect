@@ -109,7 +109,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 | Git sink with custom CA TLS | ✅ |
 | GitLab sink (`tls.caSecretRef` for internal CA) | ✅ REST client + MR wire + feature-branch push |
 | S3 sink | 🚧 (MinIO integration; nightly + PR `test-integration`) |
-| S3/GCS **Parquet** snapshot sink (DuckDB-queryable, no DB server) | ⬜ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
+| S3/GCS **Parquet** snapshot export (`format: parquet`) | 🚧 S3 shipped v0.4; GCS JSON default ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
+| `spec.pathTemplate` on snapshot sinks | ✅ [ADR-0407](adr/0407-git-object-store-layout.md) |
 | Postgres sink (`type: postgres`) | ✅ |
 | Postgres **delete reconciliation** (stale-row fix) | ✅ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | Kafka export sink (`type: kafka`) | ✅ |
@@ -268,8 +269,9 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 | Metrics catalog + PromQL hints in PERFORMANCE.md | ✅ |
 | `task perf-report` + `hack/perf-report.sh` | ✅ |
 | `artifacts/bench/` from `task bench` | ✅ |
-| CI upload of bench artifacts (nightly, optional) | ✅ nightly bench + perf-report |
-| `task perf-report` optional CI job | ✅ non-blocking `ci.yaml` job |
+| CI upload of bench artifacts (nightly) | ✅ nightly bench + **blocking** perf-report |
+| `task perf-report` PR CI job | ✅ non-blocking `ci.yaml` job |
+| `--collect-dispatch-workers` / queue size (PERF-03) | ✅ v0.4 |
 
 **Counts:** ✅ 3 · 🚧 1
 
@@ -277,8 +279,8 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 
 | Item | Status |
 | --- | --- |
-| Scale target documented (10k+ objects per spoke) | ✅ |
-| Hub-scale path documented | ✅ |
+| Scale target documented (10k validated; 100k design) | ✅ [ADR-0603](adr/0603-performance-scalability.md) |
+| Fleet model documented (N operators → shared sink) | ✅ [ADR-0501](adr/0501-multi-cluster-fleet.md) |
 | Bounded test tiers (500 default / 2000 opt-in load) | ✅ |
 | `task bench` (Go benchmarks, `-short`) | ✅ |
 | `task load-test` (`KOLECT_LOAD_TEST=1`, `-tags=load`) | ✅ |

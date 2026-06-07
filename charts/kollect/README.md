@@ -22,6 +22,8 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
+| controller.collectDispatchQueueSize | int | `512` | Collection informer dispatch queue depth. |
+| controller.collectDispatchWorkers | int | `4` | Collection informer dispatch worker count (PERF-03). |
 | controller.maxConcurrentReconciles.inventory | int | `3` | Max concurrent reconciles for KollectInventory. |
 | controller.maxConcurrentReconciles.target | int | `5` | Max concurrent reconciles for KollectTarget. |
 | controller.reconcileRateLimit | string | `""` | Optional controller-runtime reconcile rate limit (empty = default). |

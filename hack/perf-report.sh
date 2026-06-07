@@ -114,7 +114,8 @@ ${METRICS_LIST}
 
 - \`--max-concurrent-reconciles-target\`
 - \`--max-concurrent-reconciles-inventory\`
-- \`--max-concurrent-reconciles-hub\`
+- \`--collect-dispatch-workers\`
+- \`--collect-dispatch-queue-size\`
 - \`KollectInventory.spec.exportMinInterval\` (CRD default 30s; per-inventory debounce)
 - \`--reconcile-rate-limit\`
 - \`--enable-pprof\`
@@ -126,6 +127,7 @@ ${METRICS_LIST}
 | --- | --- |
 | BenchmarkExtract | ${BENCH_HINT} |
 | kollect_workqueue_depth sustained high | Raise \`--max-concurrent-reconciles-*\` or increase \`spec.exportMinInterval\` on hot inventories |
+| kollect_collect_dispatch_sync_fallback_total rising | Raise \`--collect-dispatch-workers\` or \`--collect-dispatch-queue-size\` |
 | kollect_informer_objects growing | Prefer namespace-scoped targets; split profiles by GVK |
 | kollect_export_bytes_total spike | Lower churn or raise debounce; verify payload hash skip |
 
