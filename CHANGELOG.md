@@ -27,6 +27,8 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **controller:** Recover panics and suspend status [4cf28cf](https://github.com/konih/kollect/commit/4cf28cff4b647e208a8b5e2f9ec603081ad1e58b)
+
 - **git:** Resolve lint issues in sink hardening [452c72b](https://github.com/konih/kollect/commit/452c72b2527c28d217c6b4a150e251f668e57284)
 
 - **docs:** Remove extra blank line in git-sink-attribution [3dcc34b](https://github.com/konih/kollect/commit/3dcc34b7cd7ed4750a5883daec78092817a69078)
@@ -39,6 +41,8 @@ anchor on an older commit.
 
 
 ### Features
+
+- **sink/git:** Rich commit context and templates [981a18a](https://github.com/konih/kollect/commit/981a18a1c27d8340368b69e5657e5676fc3c09e2)
 
 - [**breaking**] Remove hub/spoke tier and KollectRemoteCluster [8c02b47](https://github.com/konih/kollect/commit/8c02b47e1d46228a397d717f908a5f60f44d2874)
 
