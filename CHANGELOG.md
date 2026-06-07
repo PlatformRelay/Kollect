@@ -11,10 +11,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Purge stale hub/spoke from operator manual [5135c41](https://github.com/konih/kollect/commit/5135c418f6a9e8a5338b99700425367988da2c3a)
+
+- **docs:** Repair broken links and stale ADR references [d8b37cb](https://github.com/konih/kollect/commit/d8b37cbb706560b6d69c9b315cf0ba75db331be9)
+
 - **chart:** Sync family-sink CRDs with ADR-0416 fields [067c5c7](https://github.com/konih/kollect/commit/067c5c7008fb6ba2693a79a11a7d658796fca0f0)
 
 
 ### Features
+
+- **sink:** Render status.preview surface (ADR-0416) [5c9c80f](https://github.com/konih/kollect/commit/5c9c80f0798e8fdbe20848525e48ff085d29b274)
 
 - **sink:** MongoDB database sink (ADR-0417) [f49bf3e](https://github.com/konih/kollect/commit/f49bf3e21deabb89f36f7c01ef96feba40449764)
 
