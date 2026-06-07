@@ -2,7 +2,7 @@
 
 Installs the [Kollect](https://github.com/konih/kollect) operator and CRDs.
 
-![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.3.0](https://img.shields.io/badge/AppVersion-0.3.0-informational?style=flat-square)
+![Version: 0.4.1](https://img.shields.io/badge/Version-0.4.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.4.1](https://img.shields.io/badge/AppVersion-0.4.1-informational?style=flat-square)
 
 ## Install
 
@@ -24,9 +24,11 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | affinity | object | `{}` |  |
 | controller.collectDispatchQueueSize | int | `512` | Collection informer dispatch queue depth. |
 | controller.collectDispatchWorkers | int | `4` | Collection informer dispatch worker count (PERF-03). |
+| controller.collectMetricsSampleInterval | string | `"30s"` |  |
+| controller.informerResyncPeriod | string | `"12h"` |  |
 | controller.maxConcurrentReconciles.inventory | int | `3` | Max concurrent reconciles for KollectInventory. |
 | controller.maxConcurrentReconciles.target | int | `5` | Max concurrent reconciles for KollectTarget. |
-| controller.reconcileRateLimit | string | `""` | Optional controller-runtime reconcile rate limit (empty = default). |
+| controller.reconcileRateLimit | string | `""` |  |
 | createNamespace | bool | `false` | Create the release namespace if it does not exist. |
 | defaultExcludedNamespaces | list | `[]` | Default namespace denylist for Target collection intent (CRD fields on KollectTarget override). |
 | defaultIncludedNamespaces | list | `[]` | Default namespace allowlist for Target collection intent (CRD fields on KollectTarget override). |
@@ -39,6 +41,14 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | image.repository | string | `"ghcr.io/konih/kollect"` | Controller container image repository. |
 | image.tag | string | `"latest"` | Controller image tag (defaults to chart appVersion when empty). |
 | imagePullSecrets | list | `[]` | Image pull secrets for private registries. |
+| largeCluster.controller.collectDispatchQueueSize | int | `2048` |  |
+| largeCluster.controller.collectDispatchWorkers | int | `8` |  |
+| largeCluster.controller.maxConcurrentReconciles.inventory | int | `10` |  |
+| largeCluster.controller.maxConcurrentReconciles.target | int | `10` |  |
+| largeCluster.resources.limits.cpu | string | `"2"` |  |
+| largeCluster.resources.limits.memory | string | `"4Gi"` |  |
+| largeCluster.resources.requests.cpu | string | `"500m"` |  |
+| largeCluster.resources.requests.memory | string | `"2Gi"` |  |
 | leaderElection.enabled | bool | `true` | Enable controller-runtime leader election. |
 | metrics.bindAddress | string | `":8443"` | Metrics bind address. |
 | metrics.enabled | bool | `true` | Expose Prometheus metrics endpoint. |
@@ -66,6 +76,7 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | resources.limits.memory | string | `"256Mi"` |  |
 | resources.requests.cpu | string | `"10m"` |  |
 | resources.requests.memory | string | `"64Mi"` |  |
+| resourcesProfile | string | `"default"` |  |
 | securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | securityContext.readOnlyRootFilesystem | bool | `true` |  |
