@@ -37,6 +37,7 @@ func ValidateSnapshotSinkSpec(spec *kollectdevv1alpha1.KollectSnapshotSinkSpec) 
 		return allErrs
 	}
 	allErrs = append(allErrs, validateCommonSinkFields(&spec.SinkCommonFields)...)
+	allErrs = append(allErrs, validateFormatCapability(spec.Type, spec.Serialization)...)
 	switch spec.Type {
 	case kollectdevv1alpha1.SnapshotSinkTypeGit:
 		allErrs = append(allErrs, requireBlock(spec.Git, field.NewPath("spec").Child("git"), "required when type is git")...)
@@ -63,6 +64,7 @@ func ValidateDatabaseSinkSpec(spec *kollectdevv1alpha1.KollectDatabaseSinkSpec) 
 		return allErrs
 	}
 	allErrs = append(allErrs, validateCommonSinkFields(&spec.SinkCommonFields)...)
+	allErrs = append(allErrs, validateFormatCapability(spec.Type, spec.Serialization)...)
 	switch spec.Type {
 	case kollectdevv1alpha1.DatabaseSinkTypePostgres:
 		allErrs = append(allErrs, requireBlock(spec.Postgres, field.NewPath("spec").Child("postgres"), "required when type is postgres")...)
@@ -84,6 +86,7 @@ func ValidateEventSinkSpec(spec *kollectdevv1alpha1.KollectEventSinkSpec) field.
 		return allErrs
 	}
 	allErrs = append(allErrs, validateCommonSinkFields(&spec.SinkCommonFields)...)
+	allErrs = append(allErrs, validateFormatCapability(spec.Type, spec.Serialization)...)
 	switch spec.Type {
 	case kollectdevv1alpha1.EventSinkTypeNats:
 		allErrs = append(allErrs, requireBlock(spec.Nats, field.NewPath("spec").Child("nats"), "required when type is nats")...)
@@ -116,7 +119,17 @@ func validateCommonSinkFields(fields *kollectdevv1alpha1.SinkCommonFields) field
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec").Child("pathTemplate"), fields.PathTemplate, err.Error()))
 	}
 	allErrs = append(allErrs, ValidateOptionalDurationInterval(fields.ExportMinInterval, field.NewPath("spec").Child("exportMinInterval"))...)
+	allErrs = append(allErrs, ValidateSinkCommonConfig(fields)...)
+	allErrs = append(allErrs, ValidateOptionsMap(fields.Options, field.NewPath("spec").Child("options"))...)
 	return allErrs
+}
+
+func validateFormatCapability(sinkType string, serialization *kollectdevv1alpha1.SerializationSpec) field.ErrorList {
+	if serialization == nil || serialization.Format == "" {
+		return nil
+	}
+	return ValidateSinkFormatCapability(sinkType, serialization.Format,
+		field.NewPath("spec").Child("serialization").Child("format"))
 }
 
 func forbidBlocks(blocks []forbiddenBlock) field.ErrorList {

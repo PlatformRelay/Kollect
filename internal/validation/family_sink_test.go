@@ -24,6 +24,39 @@ func TestValidateSnapshotSinkSpec_gitRequiresBlock(t *testing.T) {
 	}
 }
 
+func TestValidateEventSinkSpec_rejectsParquetSerialization(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateEventSinkSpec(&kollectdevv1alpha1.KollectEventSinkSpec{
+		Type:  kollectdevv1alpha1.EventSinkTypeKafka,
+		Kafka: &kollectdevv1alpha1.KafkaSpec{Brokers: []string{"localhost:9092"}, Topic: "inv"},
+		SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+			Serialization: &kollectdevv1alpha1.SerializationSpec{Format: kollectdevv1alpha1.SerializationFormatParquet},
+		},
+	})
+	if len(errs) == 0 {
+		t.Fatal("expected serialization.format=parquet rejected for kafka (ADR-0416 capability matrix)")
+	}
+}
+
+func TestValidateDatabaseSinkSpec_rejectsSecretLikeOption(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateDatabaseSinkSpec(&kollectdevv1alpha1.KollectDatabaseSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "dsn"},
+			Table:       "inventory_items",
+		},
+		SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+			Options: map[string]string{"password": "hunter2"},
+		},
+	})
+	if len(errs) == 0 {
+		t.Fatal("expected secret-like options key rejected (ADR-0416 guardrail)")
+	}
+}
+
 func TestValidateSnapshotSinkSpec_gitForbidsSiblings(t *testing.T) {
 	t.Parallel()
 

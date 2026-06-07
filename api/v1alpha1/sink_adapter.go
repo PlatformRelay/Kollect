@@ -17,6 +17,9 @@ func (s *KollectSnapshotSinkSpec) ToKollectSinkSpec() KollectSinkSpec {
 		Cluster:           s.Cluster,
 		PathTemplate:      s.PathTemplate,
 		ExportMinInterval: s.ExportMinInterval,
+		Serialization:     s.Serialization,
+		Provisioning:      s.Provisioning,
+		Options:           s.Options,
 		Git:               s.Git,
 		GitLab:            s.GitLab,
 		ObjectStore:       s.ObjectStore,
@@ -37,6 +40,9 @@ func (s *KollectDatabaseSinkSpec) ToKollectSinkSpec() KollectSinkSpec {
 		Cluster:           s.Cluster,
 		PathTemplate:      s.PathTemplate,
 		ExportMinInterval: s.ExportMinInterval,
+		Serialization:     s.Serialization,
+		Provisioning:      s.Provisioning,
+		Options:           s.Options,
 		Postgres:          s.Postgres,
 	}
 }
@@ -55,6 +61,9 @@ func (s *KollectEventSinkSpec) ToKollectSinkSpec() KollectSinkSpec {
 		Cluster:           s.Cluster,
 		PathTemplate:      s.PathTemplate,
 		ExportMinInterval: s.ExportMinInterval,
+		Serialization:     s.Serialization,
+		Provisioning:      s.Provisioning,
+		Options:           s.Options,
 		Nats:              s.Nats,
 		Kafka:             s.Kafka,
 	}

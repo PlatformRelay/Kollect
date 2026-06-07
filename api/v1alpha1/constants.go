@@ -19,6 +19,10 @@ const (
 
 	AnnotationTestConnection = "kollect.dev/test-connection"
 
+	// AnnotationPreview opts a sink into status.preview rendering of its export
+	// implications without side effects (ADR-0416 §8).
+	AnnotationPreview = "kollect.dev/preview"
+
 	// Multi-cluster registration (Istio remote-secret parallel — ADR-0503).
 	LabelMultiCluster        = "kollect.dev/multiCluster"
 	AnnotationClusterName    = "kollect.dev/cluster"
@@ -39,4 +43,21 @@ const (
 
 	WatchModeAll   = "All"
 	WatchModeOptIn = "OptIn"
+)
+
+// Cross-cutting serialization formats for the serialization block (ADR-0416 §4).
+// json is the zero-config default; backend capability gates which others are honored.
+const (
+	SerializationFormatJSON    = "json"
+	SerializationFormatParquet = "parquet"
+	SerializationFormatCSV     = "csv"
+	SerializationFormatNDJSON  = "ndjson"
+)
+
+// Provisioning ownership modes for the provisioning block (ADR-0416 §5).
+//   - ensure (default): create destination resources if missing; never destructive.
+//   - existing: never issue create/admin calls; preflight verifies the resource exists.
+const (
+	ProvisioningModeEnsure   = "ensure"
+	ProvisioningModeExisting = "existing"
 )

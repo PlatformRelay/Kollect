@@ -83,6 +83,18 @@ type KollectSinkSpec struct {
 	// ref omits a per-ref override. Material payload changes bypass the interval.
 	// +optional
 	ExportMinInterval *metav1.Duration `json:"exportMinInterval,omitempty"`
+
+	// serialization is the normalized cross-cutting serialization block (ADR-0416 §4).
+	// +optional
+	Serialization *SerializationSpec `json:"serialization,omitempty"`
+
+	// provisioning is the normalized cross-cutting resource-ownership block (ADR-0416 §5).
+	// +optional
+	Provisioning *ProvisioningSpec `json:"provisioning,omitempty"`
+
+	// options carries normalized non-secret backend pass-through settings (ADR-0416 §4).
+	// +optional
+	Options map[string]string `json:"options,omitempty"`
 }
 
 // Git push policy values (ADR-0407).

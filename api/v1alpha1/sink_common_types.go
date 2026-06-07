@@ -66,6 +66,56 @@ type SinkCommonFields struct {
 	// ref omits a per-ref override.
 	// +optional
 	ExportMinInterval *metav1.Duration `json:"exportMinInterval,omitempty"`
+
+	// serialization configures the cross-cutting on-wire format and schema contract (ADR-0416 §4).
+	// json is the zero-config default; the backend capability matrix gates which formats are honored.
+	// +optional
+	Serialization *SerializationSpec `json:"serialization,omitempty"`
+
+	// provisioning configures destination resource ownership (ADR-0416 §5).
+	// mode ensure (default) creates resources if missing; existing never creates and preflights existence.
+	// +optional
+	Provisioning *ProvisioningSpec `json:"provisioning,omitempty"`
+
+	// options carries non-secret, backend-specific pass-through settings (ADR-0416 §4, Option 2).
+	// Secret-like keys are rejected by the webhook; supply credentials via secretRef only.
+	// +optional
+	Options map[string]string `json:"options,omitempty"`
+}
+
+// SerializationSpec is the cross-cutting serialization and schema block shared by all sink
+// families (ADR-0416 §4). Honored fields depend on the backend capability matrix.
+type SerializationSpec struct {
+	// format selects the on-wire serialization (default json).
+	// +kubebuilder:validation:Enum=json;parquet;csv;ndjson
+	// +optional
+	Format string `json:"format,omitempty"`
+
+	// compression selects payload compression where the backend supports it (default none).
+	// +kubebuilder:validation:Enum=none;gzip;snappy;zstd
+	// +optional
+	Compression string `json:"compression,omitempty"`
+}
+
+// ProvisioningSpec is the cross-cutting resource-ownership block shared by all sink families
+// (ADR-0416 §5). It generalizes "who creates and owns the destination topic/table/bucket".
+type ProvisioningSpec struct {
+	// mode selects ensure (create-if-missing, default) or existing (never create; preflight verifies).
+	// +kubebuilder:validation:Enum=ensure;existing
+	// +optional
+	Mode string `json:"mode,omitempty"`
+
+	// naming optionally templates the destination resource name using the shared placeholder grammar.
+	// +optional
+	Naming *ProvisioningNamingSpec `json:"naming,omitempty"`
+}
+
+// ProvisioningNamingSpec templates the destination resource name (ADR-0416 §5).
+type ProvisioningNamingSpec struct {
+	// template is the destination name template; placeholders match pathTemplate
+	// ({cluster}, {namespace}, {name}, {generation}).
+	// +optional
+	Template string `json:"template,omitempty"`
 }
 
 // FamilySinkStatus is the shared status shape for family sink CRDs.

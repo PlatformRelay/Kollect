@@ -120,10 +120,40 @@ spec:
                 required:
                 - subject
                 type: object
+              options:
+                additionalProperties:
+                  type: string
+                description: |-
+                  options carries non-secret, backend-specific pass-through settings (ADR-0416 §4, Option 2).
+                  Secret-like keys are rejected by the webhook; supply credentials via secretRef only.
+                type: object
               pathTemplate:
                 description: pathTemplate selects the Git/object-store export path
                   layout (ADR-0407).
                 type: string
+              provisioning:
+                description: |-
+                  provisioning configures destination resource ownership (ADR-0416 §5).
+                  mode ensure (default) creates resources if missing; existing never creates and preflights existence.
+                properties:
+                  mode:
+                    description: mode selects ensure (create-if-missing, default)
+                      or existing (never create; preflight verifies).
+                    enum:
+                    - ensure
+                    - existing
+                    type: string
+                  naming:
+                    description: naming optionally templates the destination resource
+                      name using the shared placeholder grammar.
+                    properties:
+                      template:
+                        description: |-
+                          template is the destination name template; placeholders match pathTemplate
+                          ({cluster}, {namespace}, {name}, {generation}).
+                        type: string
+                    type: object
+                type: object
               secretRef:
                 description: secretRef references a Secret holding credentials for
                   the sink.
@@ -136,6 +166,30 @@ spec:
                     type: string
                 required:
                 - name
+                type: object
+              serialization:
+                description: |-
+                  serialization configures the cross-cutting on-wire format and schema contract (ADR-0416 §4).
+                  json is the zero-config default; the backend capability matrix gates which formats are honored.
+                properties:
+                  compression:
+                    description: compression selects payload compression where the
+                      backend supports it (default none).
+                    enum:
+                    - none
+                    - gzip
+                    - snappy
+                    - zstd
+                    type: string
+                  format:
+                    description: format selects the on-wire serialization (default
+                      json).
+                    enum:
+                    - json
+                    - parquet
+                    - csv
+                    - ndjson
+                    type: string
                 type: object
               tls:
                 description: tls configures TLS verification for HTTPS git and similar

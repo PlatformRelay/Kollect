@@ -63,12 +63,13 @@ func (v *kollectSnapshotSinkValidator) validate(ctx context.Context, obj *kollec
 	if len(errs) > 0 {
 		return nil, validation.SnapshotSinkInvalid(obj.Name, errs)
 	}
-	_, err := validateNamespacedSinkScopeFloor(ctx, v.client, obj.Namespace, &obj.Spec.SinkCommonFields, validation.SnapshotSinkInvalid, obj.Name)
-	if err != nil {
+	if err := validateNamespacedSinkScopeFloor(ctx, v.client, obj.Namespace, &obj.Spec.SinkCommonFields, validation.SnapshotSinkInvalid, obj.Name); err != nil {
 		return nil, err
 	}
-	gitWarns := validation.ValidateGitSinkWarnings(&kollectdevv1alpha1.KollectSinkSpec{Type: obj.Spec.Type, Git: obj.Spec.Git})
-	return gitWarns, nil
+	normalized := obj.Spec.ToKollectSinkSpec()
+	warns := validation.ValidateGitSinkWarnings(&kollectdevv1alpha1.KollectSinkSpec{Type: obj.Spec.Type, Git: obj.Spec.Git})
+	warns = append(warns, validation.ValidateSinkConfigWarnings(&normalized)...)
+	return warns, nil
 }
 
 type kollectDatabaseSinkValidator struct{ client client.Client }
@@ -101,7 +102,11 @@ func (v *kollectDatabaseSinkValidator) validate(ctx context.Context, obj *kollec
 	if len(errs) > 0 {
 		return nil, validation.DatabaseSinkInvalid(obj.Name, errs)
 	}
-	return validateNamespacedSinkScopeFloor(ctx, v.client, obj.Namespace, &obj.Spec.SinkCommonFields, validation.DatabaseSinkInvalid, obj.Name)
+	if err := validateNamespacedSinkScopeFloor(ctx, v.client, obj.Namespace, &obj.Spec.SinkCommonFields, validation.DatabaseSinkInvalid, obj.Name); err != nil {
+		return nil, err
+	}
+	normalized := obj.Spec.ToKollectSinkSpec()
+	return validation.ValidateSinkConfigWarnings(&normalized), nil
 }
 
 type kollectEventSinkValidator struct{ client client.Client }
@@ -134,7 +139,11 @@ func (v *kollectEventSinkValidator) validate(ctx context.Context, obj *kollectde
 	if len(errs) > 0 {
 		return nil, validation.EventSinkInvalid(obj.Name, errs)
 	}
-	return validateNamespacedSinkScopeFloor(ctx, v.client, obj.Namespace, &obj.Spec.SinkCommonFields, validation.EventSinkInvalid, obj.Name)
+	if err := validateNamespacedSinkScopeFloor(ctx, v.client, obj.Namespace, &obj.Spec.SinkCommonFields, validation.EventSinkInvalid, obj.Name); err != nil {
+		return nil, err
+	}
+	normalized := obj.Spec.ToKollectSinkSpec()
+	return validation.ValidateSinkConfigWarnings(&normalized), nil
 }
 
 type kollectClusterSnapshotSinkValidator struct{ client client.Client }
@@ -245,19 +254,19 @@ func validateNamespacedSinkScopeFloor(
 	common *kollectdevv1alpha1.SinkCommonFields,
 	invalid sinkInvalidFn,
 	name string,
-) (admission.Warnings, error) {
+) error {
 	binding, err := scope.Load(ctx, c, namespace)
 	if err != nil {
-		return nil, invalid(name, validation.ScopeLoadErrors(err))
+		return invalid(name, validation.ScopeLoadErrors(err))
 	}
 	if binding.Enforced && binding.Scope != nil {
 		floor := validation.ScopeMinExportInterval(binding.Scope)
 		if common != nil {
 			errs := validation.ValidateSinkIntervalAgainstScopeFloor(common.ExportMinInterval, floor)
 			if len(errs) > 0 {
-				return nil, invalid(name, errs)
+				return invalid(name, errs)
 			}
 		}
 	}
-	return nil, nil
+	return nil
 }
