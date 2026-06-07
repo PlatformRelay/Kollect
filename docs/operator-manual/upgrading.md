@@ -141,8 +141,9 @@ kubectl -n kollect-system get deploy,pod
 kubectl get kollectinventories.kollect.dev -A
 ```
 
-Check `Ready` conditions on sample `KollectInventory` objects and sink export timestamps. For hub
-installs, confirm ingest health on hub replicas (ADR-0504).
+Check `Ready` conditions on sample `KollectInventory` objects and sink export timestamps. In a
+multi-cluster fleet, repeat per cluster and confirm rows land in the shared sink under each
+`spec.cluster` partition.
 
 ## See also
 

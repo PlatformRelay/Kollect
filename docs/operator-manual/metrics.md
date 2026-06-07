@@ -41,7 +41,6 @@ See [`charts/kollect/ci/monitoring-values.yaml`](../../charts/kollect/ci/monitor
 | `KollectSinkConnectionTestFailures` | warning | Connection test failures |
 | `KollectExportLatencyHigh` | warning | p95 export duration &gt; 10s |
 | `KollectWorkqueueBacklog` | warning | In-flight reconciles &gt; 10 sustained |
-| `KollectHubSpokeReportFailures` | warning | Hub spoke report merge failures (hub mode) |
 
 Append custom rules via `metrics.prometheusRule.additionalRules`.
 

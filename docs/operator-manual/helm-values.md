@@ -16,11 +16,11 @@ knobs; the authoritative full list lives in the chart tree.
 | --- | --- |
 | [`charts/kollect/values.yaml`](../../charts/kollect/values.yaml) | All defaults |
 | [`charts/kollect/values.schema.json`](../../charts/kollect/values.schema.json) | JSON Schema validation (CI: `task helm-test`) |
-| [`charts/kollect/README.md`](../../charts/kollect/README.md) | Hub/spoke YAML, inventory HTTP auth, connection-test detail |
+| [`charts/kollect/README.md`](../../charts/kollect/README.md) | Inventory HTTP auth, connection-test detail |
 
 !!! note "Do not duplicate the chart README"
-    Hub ingest env mapping, oauth2-proxy sidecar layout, and inventory HTTP RBAC examples are maintained
-    in the chart README only — link there instead of copying large blocks into docs.
+    The oauth2-proxy sidecar layout and inventory HTTP RBAC examples are maintained in the chart
+    README only — link there instead of copying large blocks into docs.
 
 ## Core values
 
@@ -30,7 +30,7 @@ knobs; the authoritative full list lives in the chart tree.
 | `image.tag` | Image tag | `latest` (**pin in production**) |
 | `replicaCount` | Manager pod replicas | `1` |
 | `leaderElection.enabled` | Controller-runtime leader election | `true` |
-| `mode` | Operator mode: `single`, `hub`, or `spoke` | `single` |
+| `mode` | Operator deployment mode — **single-cluster only**; fleets run N single-mode operators ([ADR-0501](../adr/0501-multi-cluster-fleet.md)) | `single` |
 | `tenantMode` | Namespaced Role RBAC for per-team installs | `false` |
 | `watchNamespaces` | Restrict informer cache to these namespaces | `[]` (all) |
 | `webhooks.enabled` | Validating webhook for profiles | `true` |
@@ -73,8 +73,8 @@ featureGates:
     enabled: false
 ```
 
-Namespaced `KollectProfile`, `KollectSink`, `KollectTarget`, and `KollectInventory` live in the team
-namespace. Portal read path uses **Postgres or Kafka sink export** — not spoke HTTP.
+Namespaced `KollectProfile`, family sinks, `KollectTarget`, and `KollectInventory` live in the team
+namespace. Portal read path uses **Postgres or Kafka sink export** — not direct operator HTTP.
 
 Example walkthrough: [Multi-tenant watch scope](../examples/multi-tenant-watch-namespaces.md).
 

@@ -80,8 +80,8 @@ featureGates:
 helm install kollect ./charts/kollect -n kollect-system --create-namespace -f values-team.yaml
 ```
 
-Namespaced `KollectProfile`, `KollectSink`, `KollectTarget`, and `KollectInventory` live in the team
-namespace. Portal read path uses **Postgres or Kafka sink export** — not spoke HTTP.
+Namespaced `KollectProfile`, family sinks, `KollectTarget`, and `KollectInventory` live in the team
+namespace. Portal read path uses **Postgres or Kafka sink export** — not direct operator HTTP.
 
 Full value reference: [Helm values](operator-manual/helm-values.md).
 
@@ -174,8 +174,8 @@ Teams can opt individual namespaces or resources in or out without changing Helm
 
 ## High availability
 
-Controller HA, leader election, webhook serving, and hub consumer scaling are documented in
-ADR-0504: Operator runtime modes, HA, and leader election.
+Controller HA relies on controller-runtime leader election: scale `replicaCount` and let one elected
+leader own reconciliation while standby replicas wait.
 
 Summary for operators:
 
@@ -184,18 +184,21 @@ Summary for operators:
 | Controller replicas | `replicaCount: 1` | `replicaCount: 2+`, `leaderElection.enabled: true` |
 | Duplicate exports | Prevented by leader election | **Never** set `replicaCount > 1` with `leaderElection.enabled: false` |
 | Webhooks | Served on every ready replica | Apiserver targets webhook `Service`; not gated by leader election |
-| Hub ingest | Single pod acceptable for MVP | Scale `replicaCount`; shard transport per ADR-0502 before RAM limits |
+| Memory at scale | `resourcesProfile` default | Use `resourcesProfile: large` for 100k-row design target ([ADR-0603](adr/0603-performance-scalability.md)) |
 
-!!! info "Same image, three modes"
-    `mode: single` (default), `
+!!! info "Single-cluster mode only"
+    The operator runs `mode: single`. Multi-cluster fleets run **one single-mode operator per
+    cluster** exporting to a shared sink, partitioned by `spec.cluster` — there is no hub/spoke
+    runtime tier ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
+
 ## See also
 
 - [Upgrading Kollect](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md)
 - [Common errors](operator-manual/common-errors.md) — full catalog: conditions, metrics, and fixes
 - [FAQ](FAQ.md) — symptom-oriented troubleshooting
 - [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md)
-- [Chart README](../charts/kollect/README.md) — hub YAML and inventory HTTP auth at source
+- [Chart README](../charts/kollect/README.md) — inventory HTTP auth at source
 - [RELEASE](RELEASE.md) — version bumps and release artifacts
 - [ADR-0704: Helm chart and CRD lifecycle](adr/0704-helm-chart-crd-lifecycle.md)
-- ADR-0504: Runtime modes and HA
+- [ADR-0501: Multi-cluster fleet](adr/0501-multi-cluster-fleet.md)
 - [ADR-0104: Security model](adr/0104-security-model.md)
