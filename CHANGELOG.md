@@ -20,6 +20,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **export:** Full-resource pruning and Git layout [3df4027](https://github.com/konih/kollect/commit/3df4027e0fc43970df9599996241693c0886fd86)
+
 - **sink:** Render status.preview surface (ADR-0416) [5c9c80f](https://github.com/konih/kollect/commit/5c9c80f0798e8fdbe20848525e48ff085d29b274)
 
 - **sink:** MongoDB database sink (ADR-0417) [f49bf3e](https://github.com/konih/kollect/commit/f49bf3e21deabb89f36f7c01ef96feba40449764)
