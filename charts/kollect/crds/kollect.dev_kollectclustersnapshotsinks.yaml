@@ -109,11 +109,36 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  commitBody:
+                    description: commitBody is an optional multi-line commit body
+                      template (same placeholders as commitMessage).
+                    type: string
                   commitMessage:
                     description: |-
-                      commitMessage is the git commit message template.
-                      Placeholders: {namespace}, {name}, {cluster}, {generation}.
+                      commitMessage is the git commit subject template.
+                      Placeholders: {namespace}, {name}, {cluster}, {generation}, {itemCount},
+                      {checksum}, {checksumShort}, {exportedAt}, {sink}, {path}.
                     type: string
+                  commitTrailers:
+                    description: 'commitTrailers appends git commit trailers (e.g.
+                      Kollect-Checksum: {checksum}).'
+                    items:
+                      type: string
+                    type: array
+                  engine:
+                    description: |-
+                      engine selects the git implementation: go-git (default) or host git CLI.
+                      file:// remotes always use the CLI path regardless of this field.
+                    enum:
+                    - go-git
+                    - cli
+                    type: string
+                  forceBasicAuth:
+                    description: |-
+                      forceBasicAuth sends an explicit Authorization header on HTTPS remotes.
+                      Useful when git hosts ignore embedded URL credentials. May also be enabled
+                      via the KOLLECT_GIT_FORCE_BASIC_AUTH environment variable on the operator.
+                    type: boolean
                   prune:
                     description: prune stages deletions in the worktree before commit
                       (git add -A semantics).
@@ -186,10 +211,40 @@ spec:
                     type: array
                     x-kubernetes-list-type: atomic
                 type: object
+              options:
+                additionalProperties:
+                  type: string
+                description: |-
+                  options carries non-secret, backend-specific pass-through settings (ADR-0416 §4, Option 2).
+                  Secret-like keys are rejected by the webhook; supply credentials via secretRef only.
+                type: object
               pathTemplate:
                 description: pathTemplate selects the Git/object-store export path
                   layout (ADR-0407).
                 type: string
+              provisioning:
+                description: |-
+                  provisioning configures destination resource ownership (ADR-0416 §5).
+                  mode ensure (default) creates resources if missing; existing never creates and preflights existence.
+                properties:
+                  mode:
+                    description: mode selects ensure (create-if-missing, default)
+                      or existing (never create; preflight verifies).
+                    enum:
+                    - ensure
+                    - existing
+                    type: string
+                  naming:
+                    description: naming optionally templates the destination resource
+                      name using the shared placeholder grammar.
+                    properties:
+                      template:
+                        description: |-
+                          template is the destination name template; placeholders match pathTemplate
+                          ({cluster}, {namespace}, {name}, {generation}).
+                        type: string
+                    type: object
+                type: object
               secretRef:
                 description: secretRef references a Secret holding credentials for
                   the sink.
@@ -202,6 +257,30 @@ spec:
                     type: string
                 required:
                 - name
+                type: object
+              serialization:
+                description: |-
+                  serialization configures the cross-cutting on-wire format and schema contract (ADR-0416 §4).
+                  json is the zero-config default; the backend capability matrix gates which formats are honored.
+                properties:
+                  compression:
+                    description: compression selects payload compression where the
+                      backend supports it (default none).
+                    enum:
+                    - none
+                    - gzip
+                    - snappy
+                    - zstd
+                    type: string
+                  format:
+                    description: format selects the on-wire serialization (default
+                      json).
+                    enum:
+                    - json
+                    - parquet
+                    - csv
+                    - ndjson
+                    type: string
                 type: object
               tls:
                 description: tls configures TLS verification for HTTPS git and similar
