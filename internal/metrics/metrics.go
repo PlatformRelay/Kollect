@@ -82,6 +82,13 @@ var (
 		},
 	)
 
+	ExportShardWarnTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "kollect_export_shard_warn_total",
+			Help: "Inventory namespace aggregates at or above the export sharding warn row threshold.",
+		},
+	)
+
 	SinkConnectionTestTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "kollect_sink_connection_test_total",
@@ -192,6 +199,7 @@ func Register() {
 		ExportDurationSeconds,
 		SinkErrorsTotal,
 		ExportSpillWarnTotal,
+		ExportShardWarnTotal,
 		SinkConnectionTestTotal,
 		ReconcileInFlight,
 		ReconcileDurationSeconds,

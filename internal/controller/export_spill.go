@@ -8,11 +8,14 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/metrics"
+	"github.com/konih/kollect/internal/validation"
 )
 
 type spillGateResult struct {
@@ -68,7 +71,29 @@ func assessExportSpill(
 const (
 	spillReasonPayloadTooLarge = "PayloadTooLarge"
 	spillReasonSpillRequired   = "SpillRequired"
+
+	conditionExportShardWarn = "ExportShardWarning"
+	reasonExportShardWarn    = "ApproachingExportCap"
 )
+
+func noteExportShardWarning(conditions *[]metav1.Condition, generation int64, itemCount int) bool {
+	if itemCount < validation.ExportShardWarnRows {
+		apimeta.RemoveStatusCondition(conditions, conditionExportShardWarn)
+
+		return false
+	}
+
+	apimeta.SetStatusCondition(conditions, metav1.Condition{
+		Type:               conditionExportShardWarn,
+		Status:             metav1.ConditionTrue,
+		Reason:             reasonExportShardWarn,
+		Message:            fmt.Sprintf("%d collected rows in namespace — split into multiple KollectInventory resources (<~%d rows each)", itemCount, validation.ExportShardWarnRows),
+		ObservedGeneration: generation,
+		LastTransitionTime: metav1.Now(),
+	})
+
+	return true
+}
 
 func recordSpillGateMetrics(gate spillGateResult) {
 	if !gate.degraded {

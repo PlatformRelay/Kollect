@@ -143,6 +143,12 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		itemCount = r.Store.CountForNamespace(inv.Namespace)
 
+		if noteExportShardWarning(&inv.Status.Conditions, inv.Generation, itemCount) {
+			metrics.ExportShardWarnTotal.Inc()
+			recordWarning(r.Recorder, &inv, reasonExportShardWarn,
+				fmt.Sprintf("%d rows in namespace — shard exports across multiple KollectInventory resources", itemCount))
+		}
+
 		if totalInventorySinkRefs(&inv) == 0 {
 			setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "NoExport", "no family sink refs configured")
 			return r.updateStatus(ctx, &inv, itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)})

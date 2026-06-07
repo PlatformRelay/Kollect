@@ -212,6 +212,25 @@ func gitPushOrigin(ctx context.Context, workdir string, force bool, branch strin
 	return runGitOutput(cmd, "push")
 }
 
+func gitFetchShallow(ctx context.Context, workdir, branch string, depth int, cli *cliEnv) error {
+	if err := ValidateGitRef(branch); err != nil {
+		return fmt.Errorf("git export: invalid branch: %w", err)
+	}
+
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	args := []string{"fetch", "origin", branch}
+	if depth > 0 {
+		args = append(args, "--depth", strconv.Itoa(depth))
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, args...)
+	return runGitOutput(cmd, "fetch")
+}
+
 func gitPullRebase(ctx context.Context, workdir string, branch string, cli *cliEnv) error {
 	if err := ValidateGitRef(branch); err != nil {
 		return fmt.Errorf("git export: invalid branch: %w", err)

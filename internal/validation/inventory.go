@@ -14,6 +14,9 @@ import (
 
 const defaultMaxExportBytesGlobal int64 = 1572864 // 1.5 MiB per ADR-0103
 
+// ExportShardWarnRows is the row count at which operators should split inventories (Q4).
+const ExportShardWarnRows = 1800
+
 var maxExportBytesGlobal int64 = defaultMaxExportBytesGlobal
 
 // SetMaxExportBytesGlobal configures the operator cap for spec.maxExportBytes validation.

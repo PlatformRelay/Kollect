@@ -37,28 +37,24 @@ func exportViaCLI(
 	}
 	defer cli.cleanup()
 
-	tmp, err := os.MkdirTemp("", "kollect-git-export-*")
+	workdir, err := prepareMirrorWorkdir(ctx, cfg, auth, cloneURL, cloneBranch)
 	if err != nil {
-		return fmt.Errorf("create workdir: %w", err)
+		return err
 	}
-	defer func() { _ = os.RemoveAll(tmp) }()
+	if isFileRemote(cloneURL) {
+		defer func() { _ = os.RemoveAll(workdir) }()
+	}
 
 	cloneURLForCLI := cloneURL
 	if creds := auth.embedInURL(cloneURL); creds != "" && !cfg.ForceBasicAuth {
 		cloneURLForCLI = creds
 	}
 
-	if err = cloneOrInitCLI(ctx, tmp, cloneURLForCLI, cloneBranch, cfg.CloneDepth, cli); err != nil {
+	if err = prepareCLIWorkdir(ctx, workdir, cloneURLForCLI, cloneBranch, pushBranch, cfg, cli); err != nil {
 		return err
 	}
 
-	if pushBranch != cloneBranch {
-		if err = gitCheckoutNewBranch(ctx, tmp, pushBranch, cli); err != nil {
-			return err
-		}
-	}
-
-	target, gitObjectPath, err := objectPathInWorkdir(tmp, objectPath)
+	target, gitObjectPath, err := objectPathInWorkdir(workdir, objectPath)
 	if err != nil {
 		return fmt.Errorf("git export: %w", err)
 	}
@@ -73,14 +69,14 @@ func exportViaCLI(
 	}
 
 	if cfg.Prune {
-		if err = gitAddAll(ctx, tmp, cli); err != nil {
+		if err = gitAddAll(ctx, workdir, cli); err != nil {
 			return err
 		}
-	} else if err = gitAddPath(ctx, tmp, gitObjectPath, cli); err != nil {
+	} else if err = gitAddPath(ctx, workdir, gitObjectPath, cli); err != nil {
 		return err
 	}
 
-	clean, statusErr := gitStatusClean(ctx, tmp, cli)
+	clean, statusErr := gitStatusClean(ctx, workdir, cli)
 	if statusErr != nil {
 		return statusErr
 	}
@@ -89,16 +85,41 @@ func exportViaCLI(
 	}
 
 	commitText := renderCommit(cfg, commitCtx)
-	if err = gitCommit(ctx, tmp, cfg.Author.Name, cfg.Author.Email, commitText, cli); err != nil {
+	if err = gitCommit(ctx, workdir, cfg.Author.Name, cfg.Author.Email, commitText, cli); err != nil {
 		return err
 	}
 
 	forcePush := cfg.PushPolicy == PushPolicyForcePush
-	if err := gitPushOriginWithRecovery(ctx, tmp, forcePush, pushBranch, cfg, cli); err != nil {
+	if err := gitPushOriginWithRecovery(ctx, workdir, forcePush, pushBranch, cfg, cli); err != nil {
 		return err
 	}
 
 	return ensureBareHEAD(ctx, cloneURL, pushBranch, cli)
+}
+
+func prepareCLIWorkdir(
+	ctx context.Context,
+	workdir, cloneURL, cloneBranch, pushBranch string,
+	cfg Config,
+	cli *cliEnv,
+) error {
+	if mirrorWarm(workdir) {
+		if err := gitFetchShallow(ctx, workdir, cloneBranch, cfg.CloneDepth, cli); err != nil {
+			return err
+		}
+
+		return gitCheckoutNewBranch(ctx, workdir, pushBranch, cli)
+	}
+
+	if err := cloneOrInitCLI(ctx, workdir, cloneURL, cloneBranch, cfg.CloneDepth, cli); err != nil {
+		return err
+	}
+
+	if pushBranch == cloneBranch {
+		return nil
+	}
+
+	return gitCheckoutNewBranch(ctx, workdir, pushBranch, cli)
 }
 
 func gitPushOriginWithRecovery(
