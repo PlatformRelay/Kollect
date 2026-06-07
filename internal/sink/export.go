@@ -10,6 +10,7 @@ import (
 	"io"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -63,6 +64,7 @@ type ExportEnvelopeRequest struct {
 	Registry      *Registry
 	SinkNamespace string
 	SinkName      string
+	SinkUID       types.UID
 	ObjectPath    string
 	Envelope      []byte
 	SinkSpec      kollectdevv1alpha1.KollectSinkSpec
@@ -110,6 +112,7 @@ func RunExportItems(req ExportItemsRequest) error {
 		Registry:      req.Registry,
 		SinkNamespace: sinkNamespaceForExport(resolved, req.SinkNamespace),
 		SinkName:      req.SinkName,
+		SinkUID:       resolved.UID,
 		ObjectPath:    req.ObjectPath,
 		Envelope:      envelope,
 		SinkSpec:      resolved.Spec,
@@ -126,7 +129,9 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 		return kollecterrors.Terminal(fmt.Errorf("sink spec is required for export to %q", req.SinkName))
 	}
 
-	backend, release, err := acquireBackend(req.Ctx, req.Client, req.Registry, req.SinkNamespace, req.SinkName, req.SinkSpec)
+	backend, release, err := acquireBackend(
+		req.Ctx, req.Client, req.Registry, req.SinkNamespace, req.SinkName, req.SinkUID, req.SinkSpec,
+	)
 	if err != nil {
 		err = kollecterrors.ClassifyAPI(fmt.Errorf("acquire backend for %q: %w", req.SinkName, err))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()

@@ -64,45 +64,74 @@ func (e *Exporter) ExportAfterMerge(ctx context.Context, report SpokeReport) err
 
 	objectPath := fmt.Sprintf("inventory/%s/%s.json", invNS, invName)
 
-	var (
-		wg   sync.WaitGroup
-		mu   sync.Mutex
-		errs []error
-	)
+	type sinkJob struct {
+		name     string
+		resolved *sink.ResolvedSink
+	}
 
+	jobs := make([]sinkJob, 0, len(e.Config.SinkRefs))
 	for _, sinkName := range e.Config.SinkRefs {
 		if e.coalesce.shouldSkip(report.Cluster, sinkName, report.Generation, checksum, interval, now) {
 			metrics.ExportDebouncedTotal.WithLabelValues("KollectHub").Inc()
 			continue
 		}
 
+		resolved, err := sink.ResolveSink(ctx, e.Client, sink.ResolveOptions{
+			Namespace: e.Config.ExportNamespace,
+			Name:      sinkName,
+		})
+		if err != nil {
+			return fmt.Errorf("hub export: load sink %q: %w", sinkName, err)
+		}
+
+		jobs = append(jobs, sinkJob{name: sinkName, resolved: resolved})
+	}
+
+	if len(jobs) == 0 {
+		return nil
+	}
+
+	envelope, err := export.MarshalEnvelope(items, export.Metadata{
+		Generation: report.Generation,
+		ExportedAt: now.UTC(),
+		Cluster:    report.Cluster,
+	})
+	if err != nil {
+		return fmt.Errorf("hub export: marshal envelope: %w", err)
+	}
+
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errs []error
+	)
+
+	for _, job := range jobs {
 		wg.Add(1)
 
-		go func(name string) {
+		go func(job sinkJob) {
 			defer wg.Done()
 
-			if err := sink.RunExportItems(sink.ExportItemsRequest{
+			if err := sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
 				Ctx:           ctx,
 				Client:        e.Client,
 				Registry:      e.Registry,
-				SinkNamespace: e.Config.ExportNamespace,
-				SinkName:      name,
+				SinkNamespace: sink.SinkNamespaceForResolved(job.resolved, e.Config.ExportNamespace),
+				SinkName:      job.name,
+				SinkUID:       job.resolved.UID,
 				ObjectPath:    objectPath,
-				Items:         items,
-				Meta: export.Metadata{
-					Generation: report.Generation,
-					Cluster:    report.Cluster,
-				},
+				Envelope:      envelope,
+				SinkSpec:      job.resolved.Spec,
 			}); err != nil {
 				mu.Lock()
-				errs = append(errs, fmt.Errorf("sink %q: %w", name, err))
+				errs = append(errs, fmt.Errorf("sink %q: %w", job.name, err))
 				mu.Unlock()
 
 				return
 			}
 
-			e.coalesce.record(report.Cluster, name, report.Generation, checksum, now)
-		}(sinkName)
+			e.coalesce.record(report.Cluster, job.name, report.Generation, checksum, now)
+		}(job)
 	}
 
 	wg.Wait()

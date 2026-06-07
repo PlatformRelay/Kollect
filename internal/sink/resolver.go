@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -21,6 +22,7 @@ type ResolvedSink struct {
 	Name              string
 	Family            string
 	ClusterScoped     bool
+	UID               types.UID
 }
 
 // ResolveOptions configures sink loading for inventory export.
@@ -67,6 +69,7 @@ func resolveSnapshotSink(ctx context.Context, c client.Client, opts ResolveOptio
 			Name:              opts.Name,
 			Family:            kollectdevv1alpha1.SinkFamilySnapshot,
 			ClusterScoped:     true,
+			UID:               ks.UID,
 		}, nil
 	}
 	var ks kollectdevv1alpha1.KollectSnapshotSink
@@ -79,6 +82,7 @@ func resolveSnapshotSink(ctx context.Context, c client.Client, opts ResolveOptio
 		Namespace:         opts.Namespace,
 		Name:              opts.Name,
 		Family:            kollectdevv1alpha1.SinkFamilySnapshot,
+		UID:               ks.UID,
 	}, nil
 }
 
@@ -94,6 +98,7 @@ func resolveDatabaseSink(ctx context.Context, c client.Client, opts ResolveOptio
 			Name:              opts.Name,
 			Family:            kollectdevv1alpha1.SinkFamilyDatabase,
 			ClusterScoped:     true,
+			UID:               ks.UID,
 		}, nil
 	}
 	var ks kollectdevv1alpha1.KollectDatabaseSink
@@ -106,6 +111,7 @@ func resolveDatabaseSink(ctx context.Context, c client.Client, opts ResolveOptio
 		Namespace:         opts.Namespace,
 		Name:              opts.Name,
 		Family:            kollectdevv1alpha1.SinkFamilyDatabase,
+		UID:               ks.UID,
 	}, nil
 }
 
@@ -121,6 +127,7 @@ func resolveEventSink(ctx context.Context, c client.Client, opts ResolveOptions)
 			Name:              opts.Name,
 			Family:            kollectdevv1alpha1.SinkFamilyEvent,
 			ClusterScoped:     true,
+			UID:               ks.UID,
 		}, nil
 	}
 	var ks kollectdevv1alpha1.KollectEventSink
@@ -133,6 +140,7 @@ func resolveEventSink(ctx context.Context, c client.Client, opts ResolveOptions)
 		Namespace:         opts.Namespace,
 		Name:              opts.Name,
 		Family:            kollectdevv1alpha1.SinkFamilyEvent,
+		UID:               ks.UID,
 	}, nil
 }
 

@@ -55,6 +55,8 @@ func NewBackend(
 	}
 
 	b := &Backend{cfg: cfg, pool: pool}
+	// ensureTable runs once when the backend is constructed; pooled backends reuse the same
+	// instance so DDL is not repeated on every export (PERF-02).
 	if err := b.ensureTable(connectCtx); err != nil {
 		pool.Close()
 

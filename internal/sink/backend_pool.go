@@ -12,15 +12,13 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-type poolKey struct {
-	namespace string
-	name      string
-}
+type poolKey string
 
 type pooledEntry struct {
 	backend  Backend
@@ -55,11 +53,20 @@ func ResetBackendPoolForTest() {
 	}
 }
 
+func poolKeyForSink(sinkUID types.UID, sinkNamespace, sinkName string) poolKey {
+	if sinkUID != "" {
+		return poolKey("uid:" + string(sinkUID))
+	}
+
+	return poolKey("ns:" + sinkNamespace + "/" + sinkName)
+}
+
 func acquireBackend(
 	ctx context.Context,
 	c client.Client,
 	reg *Registry,
 	sinkNamespace, sinkName string,
+	sinkUID types.UID,
 	spec kollectdevv1alpha1.KollectSinkSpec,
 ) (Backend, func(), error) {
 	if reg == nil {
@@ -85,7 +92,7 @@ func acquireBackend(
 		return backend, func() { _ = closeBackend(backend) }, nil
 	}
 
-	key := poolKey{namespace: sinkNamespace, name: sinkName}
+	key := poolKeyForSink(sinkUID, sinkNamespace, sinkName)
 
 	globalBackendPool.mu.Lock()
 	if entry, ok := globalBackendPool.entries[key]; ok && entry.specHash == specHash {
@@ -131,14 +138,25 @@ func specFingerprint(spec kollectdevv1alpha1.KollectSinkSpec) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-// EvictBackendPool removes a cached backend (tests and sink spec updates).
+// EvictBackendPool removes a cached backend by namespace/name (tests and sink spec updates).
 func EvictBackendPool(namespace, name string) {
 	if backendPoolDisabled.Load() {
 		return
 	}
 
-	key := poolKey{namespace: namespace, name: name}
+	evictPoolKey(poolKeyForSink("", namespace, name))
+}
 
+// EvictBackendPoolByUID removes a cached backend keyed by sink object UID.
+func EvictBackendPoolByUID(uid types.UID) {
+	if backendPoolDisabled.Load() || uid == "" {
+		return
+	}
+
+	evictPoolKey(poolKeyForSink(uid, "", ""))
+}
+
+func evictPoolKey(key poolKey) {
 	globalBackendPool.mu.Lock()
 	defer globalBackendPool.mu.Unlock()
 

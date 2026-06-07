@@ -15,11 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	crbuilder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -286,6 +284,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 				Registry:      r.Registry,
 				SinkNamespace: sink.SinkNamespaceForResolved(job.resolved, inv.Namespace),
 				SinkName:      job.binding.Name,
+				SinkUID:       job.resolved.UID,
 				ObjectPath:    objectPath,
 				Envelope:      envelope,
 				SinkSpec:      job.resolved.Spec,
@@ -500,20 +499,9 @@ func (r *KollectInventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Recorder = mgr.GetEventRecorderFor("kollectinventory-controller")
 	}
 
-	targetPredicate := predicate.Or(
-		predicate.GenerationChangedPredicate{},
-		predicate.AnnotationChangedPredicate{},
-		predicate.LabelChangedPredicate{},
-	)
-
 	invBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&kollectdevv1alpha1.KollectInventory{}).
 		WithOptions(opts).
-		Watches(
-			&kollectdevv1alpha1.KollectTarget{},
-			handler.EnqueueRequestsFromMapFunc(r.mapTargetToInventories),
-			crbuilder.WithPredicates(targetPredicate),
-		).
 		Watches(
 			&kollectdevv1alpha1.KollectSnapshotSink{},
 			handler.EnqueueRequestsFromMapFunc(r.mapSnapshotSinkToInventories),
@@ -578,25 +566,4 @@ func (r *KollectInventoryReconciler) mapFamilySinkToInventories(
 	}
 
 	return reqs
-}
-
-func (r *KollectInventoryReconciler) mapTargetToInventories(
-	ctx context.Context,
-	obj client.Object,
-) []reconcile.Request {
-	target, ok := obj.(*kollectdevv1alpha1.KollectTarget)
-	if !ok {
-		return nil
-	}
-
-	var list kollectdevv1alpha1.KollectInventoryList
-	if err := r.List(ctx, &list, client.InNamespace(target.Namespace)); err != nil {
-		logf.FromContext(ctx).Error(err, "failed to list inventories for target watch mapping",
-			"target", target.Name, "namespace", target.Namespace)
-		metrics.WatchMapListErrorsTotal.WithLabelValues("KollectInventory", "target").Inc()
-
-		return nil
-	}
-
-	return inventoriesInNamespace(ctx, r.Client, target.Namespace)
 }

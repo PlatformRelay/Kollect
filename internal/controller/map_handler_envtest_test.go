@@ -62,7 +62,7 @@ var _ = Describe("Map handler List failure (envtest)", func() {
 		Expect(after - before).To(Equal(float64(1)))
 	})
 
-	It("mapTargetToInventories enqueues only inventories in the target namespace (PERF-01)", func() {
+	It("inventoriesInNamespace enqueues only inventories in changed namespace (PERF-01 / ADR-0301)", func() {
 		suffix := testNameSuffix()
 		nsA := "map-target-a-" + suffix
 		nsB := "map-target-b-" + suffix
@@ -92,19 +92,7 @@ var _ = Describe("Map handler List failure (envtest)", func() {
 			})
 		}()
 
-		target := &kollectdevv1alpha1.KollectTarget{
-			ObjectMeta: metav1.ObjectMeta{Name: "tgt", Namespace: nsA},
-			Spec:       kollectdevv1alpha1.KollectTargetSpec{ProfileRef: "unused"},
-		}
-		Expect(k8sClient.Create(ctx, target)).To(Succeed())
-		defer func() { _ = k8sClient.Delete(ctx, target) }()
-
-		reconciler := &KollectInventoryReconciler{
-			Client: k8sClient,
-			Scheme: k8sClient.Scheme(),
-		}
-
-		reqs := reconciler.mapTargetToInventories(ctx, target)
+		reqs := inventoriesInNamespace(ctx, k8sClient, nsA)
 		Expect(reqs).To(ConsistOf(reconcile.Request{
 			NamespacedName: types.NamespacedName{Namespace: nsA, Name: "inv-a"},
 		}))
