@@ -68,7 +68,7 @@ Format:
 | `ci` | CI/CD pipelines, GitHub Actions, deployment scripts |
 | `chore` | Maintenance — `.gitignore`, scaffolding, non-user-facing tooling |
 
-**Scopes** — optional, lowercase, ≤ 20 chars: `api`, `controller`, `hub`, `sink`, `collect`,
+**Scopes** — optional, lowercase, ≤ 20 chars: `api`, `controller`, `collect`, `sink`,
 `helm`, `webhook`, `validation`, `transport`, `docs`, `ci`, `build`. Do not use issue IDs as
 scopes (reference issues in the footer or description instead).
 
@@ -85,7 +85,7 @@ internal refactors, or dev-only flag removal.
 
 ```text
 :sparkles: feat(api): make KollectSink namespaced
-:bug: fix(hub): reject unlisted cluster when allowlist is set
+:bug: fix(controller): set Degraded when export payload exceeds cap
 :recycle: refactor(controller): extract scope check helper
 :page_facing_up: docs: expand KollectProfile CR reference
 :construction_worker: ci: fix e2e-nightly upload-artifact pin
@@ -312,7 +312,7 @@ Glossary CRD section: regenerate with `python3 hack/gen-glossary.py` after schem
 [`README.md.gotmpl`](charts/kollect/README.md.gotmpl) via [helm-docs](https://github.com/norwoodj/helm-docs).
 
 - Document values with `# -- description` comments in `values.yaml`.
-- Edit narrative sections in `README.md.gotmpl` (install recipes, hub mode, monitoring, auth).
+- Edit narrative sections in `README.md.gotmpl` (install recipes, fleet/multi-cluster, monitoring, auth).
 - Regenerate: `task helm-docs` — CI enforces drift via `task helm-docs:verify` in the `helm` job (`task helm-test`).
 
 ## License

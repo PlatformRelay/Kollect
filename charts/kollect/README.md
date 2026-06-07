@@ -119,79 +119,34 @@ featureGates:
     enabled: false
 ```
 
-Namespaced `KollectProfile`, `KollectSink`, `KollectTarget`, and `KollectInventory` live in the
-team namespace. Portal read path: **Postgres or Kafka sink export** — not spoke HTTP.
+Namespaced `KollectProfile`, sink family CRs (`KollectSnapshotSink`, `KollectDatabaseSink`,
+`KollectEventSink`), `KollectTarget`, and `KollectInventory` live in the team namespace.
+Portal read path: **Postgres or event sink export** (or Git snapshot for audit).
 
-### Hub mode (no `KollectHub` CRD)
+### Multi-cluster fleet
 
-Multi-cluster hub/spoke uses **Helm values on the same image** — there is **no `KollectHub` CRD**
-on the product roadmap ([ADR-0703](../../docs/adr/0703-platform-architecture-pivot.md)). Existing
-`KollectHub` was removed from the repo; do not create hub Deployments via CR.
-
-**Spoke cluster:**
-
-```yaml
-mode: spoke
-transport:
-  type: inprocess   # only default until external backend passes integration proof
-featureGates:
-  inventoryHttp:
-    enabled: false
-```
-
-Spoke operators collect inventory, export to local Postgres/Kafka (or push summaries to hub ingest
-per [ADR-0503](../../docs/adr/0503-hub-cluster-auth-istio-pattern.md)).
-
-**Hub cluster:**
+Fleet scale uses **one operator per cluster** writing to a **shared sink** (Postgres, Git, S3/GCS,
+Kafka). Label exports with **`spec.cluster`** on each `KollectInventory` so the sink can merge rows
+from many clusters ([ADR-0501](../../docs/adr/0501-multi-cluster-fleet.md),
+[fleet scaling](../../docs/operator-manual/scaling-and-fleet.md)).
 
 ```yaml
-mode: hub
-replicaCount: 2   # horizontal hub consumers when transport scales out
-transport:
-  type: inprocess
-hub:
-  name: platform
-  platformNamespace: kollect-system
-  exportNamespace: kollect-system
-  sinkRefs:
-    - hub-postgres
-    - hub-kafka
-  remoteClusters:
-    - spoke-a
-    - spoke-b
-  ingestPort: 8083
-  ingestAuthMode: kubernetes
-controller:
-  maxConcurrentReconciles:
-    hub: 4
-featureGates:
-  inventoryHttp:
-    enabled: false   # hub portal read uses merged Postgres/Kafka later
+# Each cluster — same chart, different release/namespace as needed
+mode: single
+tenantMode: true
+watchNamespaces:
+  - team-a
+resourcesProfile: large   # optional: 2–4 GiB for large inventories
 ```
 
-Hub merge runs via `internal/hub/` library + ingest HTTP (`POST /hub/v1alpha1/reports`). Register
-spokes with namespaced **`KollectRemoteCluster`** objects ([ADR-0503](../../docs/adr/0503-hub-cluster-auth-istio-pattern.md)).
-`hub.sinkRefs` resolve namespaced **`KollectSink`** objects in `hub.exportNamespace`; post-merge
-export fans out to **Postgres and Kafka in parallel**. `hub.remoteClusters` sets
-`KOLLECT_REMOTE_CLUSTERS` (fail-closed when present, even if empty).
+Install the chart once per cluster; configure sink endpoints to point at the shared backend.
+There is **no hub/spoke Helm mode** and no `KollectRemoteCluster` CR.
 
-| Hub value | Env | Role |
-| --- | --- | --- |
-| `hub.exportNamespace` | `KOLLECT_HUB_EXPORT_NAMESPACE` | Namespace for hub sink CRs |
-| `hub.sinkRefs[]` | `KOLLECT_HUB_SINK_REFS` | Parallel Postgres/Kafka export targets |
-| `hub.remoteClusters[]` | `KOLLECT_REMOTE_CLUSTERS` | Spoke registration allowlist |
-| `hub.platformNamespace` | `KOLLECT_PLATFORM_NAMESPACE` | SAR namespace for `kollectremoteclusters` |
-
-### Connection test (`KollectSink`)
+### Connection test (sink CRs)
 
 Production sink manifests should use **`spec.connectionTest: false`** (default) and trigger probes with
 the **`kollect.dev/test-connection: "true"`** annotation when needed ([ADR-0403](../../docs/adr/0403-connection-test.md)).
 CI/samples may set `connectionTest: true`.
-
-### Hub transport
-
-Hub/spoke transport defaults to **`inprocess`** until an external backend passes integration tests.
-Do not enable Redis/NATS/Kafka in chart values without explicit ops choice ([ADR-0502](../../docs/adr/0502-lean-queue-transport.md)).
 
 ## Prometheus Operator monitoring
 
@@ -220,7 +175,7 @@ The `ServiceMonitor` targets Service `<release>-kollect-controller-manager` port
 to your Prometheus service account so SAR succeeds on `/metrics`.
 
 Starter alerts (group `kollect.rules`): reconcile errors, inventory export errors, sink export
-failures, connection test failures, high export latency, workqueue backlog, hub spoke report failures
+failures, connection test failures, high export latency, workqueue backlog
 (all expressions use `kollect_*` metrics only). See [operator metrics reference](../../docs/operator-manual/metrics.md).
 
 CI overlay: [`ci/monitoring-values.yaml`](ci/monitoring-values.yaml).
