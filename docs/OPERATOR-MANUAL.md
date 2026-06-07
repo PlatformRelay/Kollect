@@ -89,14 +89,14 @@ Full value reference: [Helm values](operator-manual/helm-values.md).
 
 ### Sink credentials
 
-Never put passwords or tokens on `KollectSink` CRs. Reference Kubernetes Secrets instead:
+Never put passwords or tokens on family sink CRs (`KollectSnapshotSink`, `KollectDatabaseSink`,
+`KollectEventSink`). Reference Kubernetes Secrets instead:
 
-| Sink type | Secret keys | Field |
-| --- | --- | --- |
-| Postgres | `dsn`, `url`, `connectionString`, or `DATABASE_URL` | `spec.postgres.databaseRef` |
-| Git / GitLab | deploy key or token | `spec.secretRef` |
-| S3 / GCS | access credentials | `spec.secretRef` or provider-specific refs |
-| Kafka / NATS | broker credentials | `spec.secretRef` |
+| Sink family | Backends | Secret keys | Field |
+| --- | --- | --- | --- |
+| `KollectDatabaseSink` | Postgres, MongoDB | `dsn`, `url`, `connectionString`, or `DATABASE_URL` | `spec.postgres.databaseRef` / MongoDB ref |
+| `KollectSnapshotSink` | Git, GitLab, S3, GCS | deploy key or token | `spec.secretRef` |
+| `KollectEventSink` | Kafka | broker credentials | `spec.secretRef` |
 
 Walkthrough: [Postgres state store](examples/postgres-state-store.md).
 

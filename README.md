@@ -25,7 +25,7 @@
 
 > **Turn live Kubernetes state into a durable, queryable, diffable inventory — without hammering the
 > API server.** Declare *what* to collect; Kollect watches it, extracts the fields that matter, and
-> exports a clean read model to Git, Postgres, S3, or Kafka. Portals, dashboards, automation, and
+> exports a clean read model to Git, Postgres, MongoDB, S3, GCS, or Kafka. Portals, dashboards, automation, and
 > auditors read **export data**, never unbounded list/watch against the live cluster.
 
 Kubernetes is the source of truth for *what is running*; it is a poor *system of record* for
@@ -70,17 +70,20 @@ flowchart LR
   Profile["<b>KollectProfile</b><br/>Deployment schema"]
   Target["<b>KollectTarget</b><br/>select Deployments"]
   Inv["<b>KollectInventory</b><br/>aggregate · debounce · export"]
-  Db["<b>KollectDatabaseSink</b><br/>Postgres"]
-  Snap["<b>KollectSnapshotSink</b><br/>Git"]
+  Snap["<b>KollectSnapshotSink</b>"]
+  Db["<b>KollectDatabaseSink</b>"]
+  Ev["<b>KollectEventSink</b>"]
   K8s[("Kubernetes API")]
 
   Profile --> Target
   K8s -- "informer per GVK" --> Target
   Target --> Inv
-  Inv --> Db
   Inv --> Snap
-  Db --> PG[("Postgres")]
-  Snap --> Git[("Git repo")]
+  Inv --> Db
+  Inv --> Ev
+  Snap --> SnapOut["Git · GitLab · S3 · GCS"]
+  Db --> DbOut["Postgres · MongoDB"]
+  Ev --> EvOut["Kafka"]
 ```
 
 ## Quick start (MVP)
@@ -104,12 +107,7 @@ shows what the Git export looks like.
 
 ## How it works
 
-```text
-Kubernetes API  →  shared informer (per GVK)  →  in-memory collect store
-       →  KollectInventory debounce  →  sink projection(s)
-```
-
-![Kollect operator pipeline from Kubernetes API through shared informers, in-memory collect store, and debounced KollectInventory export to Git, object store, and Postgres sink projections.](docs/assets/illustrations/readme-how-it-works-dark.webp)
+![Kollect operator pipeline from Kubernetes API through shared informers, in-memory collect store, and debounced KollectInventory export to Git, GitLab, S3, GCS, Postgres, MongoDB, and Kafka sink projections.](docs/assets/illustrations/readme-how-it-works-dark.webp)
 
 The in-memory snapshot per inventory is **canonical**; every sink is a **projection** of it — no
 single backend is privileged ([sink roles](https://konih.github.io/kollect/adr/0401-sink-taxonomy-state-vs-stream/)).
@@ -117,9 +115,9 @@ Sinks are split into three CRD families ([ADR-0414](https://konih.github.io/koll
 
 | Sink family | Examples | Good for |
 | --- | --- | --- |
-| **`KollectSnapshotSink`** | Git, GitLab, S3/GCS (JSON today) | Audit, diff, GitOps-friendly history |
+| **`KollectSnapshotSink`** | Git, GitLab, S3, GCS | Audit, diff, GitOps-friendly history |
 | **`KollectDatabaseSink`** | Postgres, MongoDB | Rich queries for portals and dashboards |
-| **`KollectEventSink`** | Kafka / Redpanda / NATS | Change streams, downstream consumers |
+| **`KollectEventSink`** | Kafka | Change streams, downstream consumers |
 
 Full payload lives in sinks; CR `.status` holds summaries only ([etcd limits](https://konih.github.io/kollect/adr/0103-etcd-limit/)).
 

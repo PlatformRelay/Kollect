@@ -1,7 +1,7 @@
 # Example: Postgres state store
 
 !!! warning "Credentials in Secrets only"
-    Never put database passwords on the `KollectSink` CR. The operator reads DSN keys from a
+    Never put database passwords on the `KollectDatabaseSink` CR. The operator reads DSN keys from a
     referenced Secret (`dsn`, `url`, `connectionString`, or `DATABASE_URL`).
 
 This walkthrough sets up a **relational state-of-record** sink for namespace inventory
@@ -18,7 +18,7 @@ Inventory pipeline, or apply only the sink + secret pieces here.
 ```mermaid
 flowchart LR
   Inv[KollectInventory]
-  Sink[KollectSink<br/>type: postgres]
+  Sink[KollectDatabaseSink<br/>Postgres]
   Secret[(Secret<br/>dsn / url)]
   PG[(Postgres<br/>inventory_items)]
 
@@ -29,7 +29,7 @@ flowchart LR
 
 ## Step 1 — DSN secret
 
-`KollectSink.spec.postgres.databaseRef` points at a Secret containing the connection string.
+`KollectDatabaseSink.spec.postgres.databaseRef` points at a Secret containing the connection string.
 The operator reads **`dsn`**, **`url`**, **`connectionString`**, or **`DATABASE_URL`** — never
 inline credentials on the sink CR.
 

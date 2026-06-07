@@ -116,7 +116,7 @@ flowchart LR
     S2[Kollect cluster B]
   end
   subgraph backend [Shared backend]
-    PG[(Postgres / Git / Kafka)]
+    PG[(Snapshot · Database · Event sinks)]
   end
   S1 -->|export + cluster id| PG
   S2 -->|export + cluster id| PG

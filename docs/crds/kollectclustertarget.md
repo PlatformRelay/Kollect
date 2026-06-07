@@ -24,12 +24,16 @@ flowchart TD
   Profile[KollectProfile in platform NS]
   CTarget[KollectClusterTarget]
   CInv[KollectClusterInventory]
-  Sink[KollectSink in sinkNamespace]
+  Snap[KollectSnapshotSink]
+  Db[KollectDatabaseSink]
+  Ev[KollectEventSink]
 
   CProf -->|"profileRef (preferred)"| CTarget
   Profile -.->|"profileRef (MVP fallback)"| CTarget
   CTarget -->|rows| CInv
-  CInv --> Sink
+  CInv --> Snap
+  CInv --> Db
+  CInv --> Ev
 ```
 
 | Relationship | Rule |

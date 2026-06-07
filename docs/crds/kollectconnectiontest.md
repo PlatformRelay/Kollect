@@ -22,7 +22,7 @@ flowchart LR
   ConnTest[KollectConnectionTest]
   Sink[Family sink CR]
   Secret[(Secret)]
-  Backend[(Git / Postgres / Kafka)]
+  Backend[(Git · S3 · Postgres · MongoDB · Kafka)]
 
   ConnTest -->|sinkRef| Sink
   Sink --> Secret

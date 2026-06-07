@@ -68,6 +68,7 @@
 .kollect-hero-logo {
   display: block;
   width: min(14rem, 55vw);
+  max-width: 720px;
   height: auto;
   margin: 0 auto 0.75rem;
   border-radius: 0.45rem;
@@ -139,17 +140,18 @@
 .kollect-illus {
   display: block;
   width: 100%;
-  max-width: 48rem;
+  max-width: min(100%, 720px);
+  height: auto;
   margin: 1.25rem auto 1.75rem;
   border-radius: 0.35rem;
 }
 
 .kollect-illus--wide {
-  max-width: 56rem;
+  max-width: min(100%, 720px);
 }
 
 .kollect-illus--portrait {
-  max-width: 26rem;
+  max-width: min(100%, 20rem);
 }
 
 [data-md-color-scheme="slate"] .kollect-illus {

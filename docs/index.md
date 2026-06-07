@@ -48,91 +48,11 @@ stakeholder inventory. Kollect maintains a **read model**:
 
 Inventory is **configuration, not code** — owned per team in its own namespace.
 
-![Vertical K-shaped funnel diagram showing Kubernetes resources filtered by Scope and Target, attributes extracted by Profile, aggregated into Inventory rows, and exported to sinks.](assets/illustrations/k-funnel-crd-pipeline-dark.webp){ .kollect-illus .kollect-illus--portrait width="320" }
+![Vertical K-shaped funnel diagram showing Kubernetes resources filtered by Scope and Target, attributes extracted by Profile, aggregated into Inventory rows, and exported to sinks.](assets/illustrations/k-funnel-crd-pipeline-dark.webp){ .kollect-illus .kollect-illus--portrait }
 
 !!! warning "Pre-beta"
     APIs and defaults may change until the first release candidate. See the
     [roadmap](ROADMAP.md) for current status.
-
-## How it works
-
-```text
-Kubernetes API  →  shared informer (per GVK)  →  in-memory collect store
-       →  KollectInventory debounce  →  sink projection(s)
-```
-
-![Left-to-right operator pipeline from Kubernetes API through shared per-GVK informers and an in-memory collect store, KollectInventory debounce, to fan-out sink projections for Git, object store, and Postgres.](assets/illustrations/how-it-works-informer-sink-dark.webp){ .kollect-illus .kollect-illus--wide width="800" }
-
-The in-memory snapshot per inventory is **canonical**; every sink is a **projection** of it — no
-single backend is privileged. Sink roles (snapshot store, relational store, event emitter) are
-documented in [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), not repeated here.
-
-## The resource model
-
-A pipeline is just a handful of Kubernetes resources: **config you declare** (`KollectProfile`,
-family sinks — `KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`, `KollectScope`)
-and **objects the operator reconciles** (`KollectTarget`, `KollectInventory`). Cluster-scoped
-`KollectCluster*` variants add cross-namespace rollup.
-
-```mermaid
-flowchart LR
-  K8s(["Kubernetes API"]):::api
-
-  subgraph declare["You declare — static config"]
-    direction TB
-    Profile["<b>KollectProfile</b><br/>what to extract"]
-    Scope["<b>KollectScope</b><br/>guardrails"]
-    Snap["<b>KollectSnapshotSink</b><br/>snapshot store"]
-    Db["<b>KollectDatabaseSink</b><br/>relational SoR"]
-    Ev["<b>KollectEventSink</b><br/>event emitter"]
-  end
-
-  subgraph run["Operator reconciles"]
-    direction TB
-    Target["<b>KollectTarget</b><br/>what to watch"]
-    Inv["<b>KollectInventory</b><br/>aggregate · debounce · export"]
-  end
-
-  subgraph out["Sink projections — choose any"]
-    direction TB
-    SnapOut["Git · GitLab · S3 · GCS<br/><i>snapshot store</i>"]
-    Rel["Postgres<br/><i>relational SoR</i>"]
-    EvtOut["NATS · Kafka<br/><i>event emitter</i>"]
-  end
-
-  K8s -- "informer per GVK" --> Target
-  Profile --> Target
-  Target --> Inv
-  Scope -. gates .-> Target
-  Scope -. gates .-> Inv
-  Inv --> Snap
-  Inv --> Db
-  Inv --> Ev
-  Snap --> SnapOut
-  Db --> Rel
-  Ev --> EvtOut
-
-  classDef api fill:#1F2937,stroke:#6B7280,color:#fff;
-  classDef config fill:#326CE5,stroke:#1b3a8c,color:#fff;
-  classDef work fill:#18B6A3,stroke:#0e6f63,color:#fff;
-  classDef proj fill:#7FB3FF,stroke:#326CE5,color:#081A4B;
-
-  class Profile,Scope,Snap,Db,Ev config;
-  class Target,Inv work;
-  class SnapOut,Rel,EvtOut proj;
-```
-
-| Kind | You set | Role |
-| --- | --- | --- |
-| `KollectProfile` | GVK + CEL / JSONPath attributes | **What to extract** from each object |
-| `KollectTarget` | selectors + `profileRef` | **What to watch** and collect |
-| `KollectInventory` | family sink refs + cadence | **Aggregate, debounce, and export** |
-| `KollectSnapshotSink` | type + endpoint + `secretRef` | **Snapshot store** (Git, S3, GCS, …) |
-| `KollectDatabaseSink` | type + credentials | **Relational SoR** (Postgres, …) |
-| `KollectEventSink` | type + brokers | **Event emitter** (NATS, Kafka) |
-| `KollectScope` | allowed GVKs / namespaces / sinks | **Guardrails** for the team namespace |
-
-Full fields: [CR reference](CR-REFERENCE.md) · model rationale: [ADR-0201](adr/0201-crd-model.md).
 
 ## Why Kollect?
 
@@ -173,6 +93,82 @@ Each cluster runs `mode: single` and exports to **shared sinks** with a cluster 
 </div>
 
 </div>
+
+## How it works
+
+![Left-to-right operator pipeline from Kubernetes API through shared per-GVK informers and an in-memory collect store, KollectInventory debounce, to fan-out sink projections for Git, GitLab, S3, GCS, Postgres, MongoDB, and Kafka.](assets/illustrations/how-it-works-informer-sink-dark.webp){ .kollect-illus .kollect-illus--wide }
+
+The in-memory snapshot per inventory is **canonical**; every sink is a **projection** of it — no
+single backend is privileged. Sink roles (snapshot store, relational store, event emitter) are
+documented in [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md); reconciliation detail in
+[Architecture](ARCHITECTURE.md) and [Data flows](DATA-FLOWS.md).
+
+## The resource model
+
+A pipeline is just a handful of Kubernetes resources: **config you declare** (`KollectProfile`,
+family sinks — `KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`, `KollectScope`)
+and **objects the operator reconciles** (`KollectTarget`, `KollectInventory`). Cluster-scoped
+`KollectCluster*` variants add cross-namespace rollup.
+
+```mermaid
+flowchart LR
+  K8s(["Kubernetes API"]):::api
+
+  subgraph declare["You declare — static config"]
+    direction TB
+    Profile["<b>KollectProfile</b><br/>what to extract"]
+    Scope["<b>KollectScope</b><br/>guardrails"]
+    Snap["<b>KollectSnapshotSink</b><br/>snapshot store"]
+    Db["<b>KollectDatabaseSink</b><br/>relational SoR"]
+    Ev["<b>KollectEventSink</b><br/>event emitter"]
+  end
+
+  subgraph run["Operator reconciles"]
+    direction TB
+    Target["<b>KollectTarget</b><br/>what to watch"]
+    Inv["<b>KollectInventory</b><br/>aggregate · debounce · export"]
+  end
+
+  subgraph out["Sink projections — choose any"]
+    direction TB
+    SnapOut["Git · GitLab · S3 · GCS<br/><i>snapshot store</i>"]
+    Rel["Postgres · MongoDB<br/><i>relational SoR</i>"]
+    EvtOut["Kafka<br/><i>event emitter</i>"]
+  end
+
+  K8s -- "informer per GVK" --> Target
+  Profile --> Target
+  Target --> Inv
+  Scope -. gates .-> Target
+  Scope -. gates .-> Inv
+  Inv --> Snap
+  Inv --> Db
+  Inv --> Ev
+  Snap --> SnapOut
+  Db --> Rel
+  Ev --> EvtOut
+
+  classDef api fill:#1F2937,stroke:#6B7280,color:#fff;
+  classDef config fill:#326CE5,stroke:#1b3a8c,color:#fff;
+  classDef work fill:#18B6A3,stroke:#0e6f63,color:#fff;
+  classDef proj fill:#7FB3FF,stroke:#326CE5,color:#081A4B;
+
+  class Profile,Scope,Snap,Db,Ev config;
+  class Target,Inv work;
+  class SnapOut,Rel,EvtOut proj;
+```
+
+| Kind | You set | Role |
+| --- | --- | --- |
+| `KollectProfile` | GVK + CEL / JSONPath attributes | **What to extract** from each object |
+| `KollectTarget` | selectors + `profileRef` | **What to watch** and collect |
+| `KollectInventory` | family sink refs + cadence | **Aggregate, debounce, and export** |
+| `KollectSnapshotSink` | type + endpoint + `secretRef` | **Snapshot store** (Git, GitLab, S3, GCS) |
+| `KollectDatabaseSink` | type + credentials | **Relational SoR** (Postgres, MongoDB) |
+| `KollectEventSink` | type + brokers | **Event emitter** (Kafka) |
+| `KollectScope` | allowed GVKs / namespaces / sinks | **Guardrails** for the team namespace |
+
+Full fields: [CR reference](CR-REFERENCE.md) · model rationale: [ADR-0201](adr/0201-crd-model.md).
 
 ## Performance
 

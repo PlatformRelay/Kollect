@@ -27,11 +27,15 @@ flowchart LR
   Profile[KollectProfile]
   Target[KollectTarget]
   Inv[KollectInventory]
-  Sink[KollectSink]
+  Snap[KollectSnapshotSink]
+  Db[KollectDatabaseSink]
+  Ev[KollectEventSink]
 
   Profile -->|"profileRef"| Target
   Target --> Inv
-  Inv --> Sink
+  Inv --> Snap
+  Inv --> Db
+  Inv --> Ev
 ```
 
 | Relationship | Rule |
