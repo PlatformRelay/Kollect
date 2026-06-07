@@ -17,12 +17,12 @@ func TestRefCache_ttl(t *testing.T) {
 	errSentinel := errors.New("probe failed")
 
 	cache.set(key, errSentinel)
-	if got, ok := cache.get(key); !ok || got != errSentinel {
+	if ok, got := cache.get(key); !ok || got != errSentinel {
 		t.Fatalf("expected cached error, got %v ok=%v", got, ok)
 	}
 
 	time.Sleep(40 * time.Millisecond)
-	if _, ok := cache.get(key); ok {
+	if ok, _ := cache.get(key); ok {
 		t.Fatal("expected cache expiry")
 	}
 }

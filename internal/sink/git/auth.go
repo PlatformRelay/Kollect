@@ -140,11 +140,7 @@ func buildAuthMethodWithForce(
 		return method, nil
 	}
 
-	header, err := basicAuthHeader(auth)
-	if err != nil {
-		return nil, err
-	}
-
+	header := basicAuthHeader(auth)
 	if header == "" {
 		return method, nil
 	}
@@ -152,7 +148,7 @@ func buildAuthMethodWithForce(
 	return &forceBasicAuthMethod{header: header}, nil
 }
 
-func basicAuthHeader(auth Auth) (string, error) {
+func basicAuthHeader(auth Auth) string {
 	user := auth.Username
 	pass := auth.Token
 	if pass == "" {
@@ -160,7 +156,7 @@ func basicAuthHeader(auth Auth) (string, error) {
 	}
 
 	if pass == "" && user == "" {
-		return "", nil
+		return ""
 	}
 
 	if user == "" {
@@ -173,7 +169,7 @@ func basicAuthHeader(auth Auth) (string, error) {
 
 	creds := base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
 
-	return "Authorization: Basic " + creds, nil
+	return "Authorization: Basic " + creds
 }
 
 type forceBasicAuthMethod struct {

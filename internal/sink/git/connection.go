@@ -104,7 +104,7 @@ func lsRemote(ctx context.Context, cfg Config, auth Auth) error {
 	}
 
 	key := refCacheKey(cfg.Endpoint, auth)
-	if cached, ok := lsRemoteRefCache.get(key); ok {
+	if ok, cached := lsRemoteRefCache.get(key); ok {
 		return cached
 	}
 
@@ -135,8 +135,8 @@ func lsRemoteUncached(ctx context.Context, cfg Config, auth Auth) error {
 	}
 
 	lsArgs := cli.prependGitArgs("ls-remote", "--heads", endpoint)
-	//nolint:gosec // G204: endpoint validated at admission and ConfigFromSpec URL parse
 	argv := append([]string{"git"}, lsArgs...)
+	//nolint:gosec // G204: argv from validated git CLI args only; endpoint checked at admission
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	applyCLIEnv(cmd, cli)
 

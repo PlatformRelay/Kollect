@@ -11,11 +11,7 @@ import (
 func TestBasicAuthHeader_token(t *testing.T) {
 	t.Parallel()
 
-	header, err := basicAuthHeader(Auth{Token: "secret-token"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	header := basicAuthHeader(Auth{Token: "secret-token"})
 	if header == "" {
 		t.Fatal("expected non-empty header")
 	}

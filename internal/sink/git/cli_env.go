@@ -36,12 +36,7 @@ func newCLIEnv(cfg Config, auth Auth, authType AuthType) (*cliEnv, error) {
 	}
 
 	if cfg.ForceBasicAuth {
-		header, err := basicAuthHeader(auth)
-		if err != nil {
-			return nil, err
-		}
-
-		if header != "" {
+		if header := basicAuthHeader(auth); header != "" {
 			cli.extraEnv = append(cli.extraEnv, envAuthHeader+"="+header)
 			cli.configEnvArgs = append(cli.configEnvArgs, "--config-env", "http.extraHeader="+envAuthHeader)
 		}

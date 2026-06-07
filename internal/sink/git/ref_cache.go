@@ -53,7 +53,7 @@ func refCacheKey(endpoint string, auth Auth) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (c *refCache) get(key string) (error, bool) {
+func (c *refCache) get(key string) (found bool, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -61,10 +61,10 @@ func (c *refCache) get(key string) (error, bool) {
 	if !ok || time.Now().After(entry.expiresAt) {
 		delete(c.entries, key)
 
-		return nil, false
+		return false, nil
 	}
 
-	return entry.err, true
+	return true, entry.err
 }
 
 func (c *refCache) set(key string, err error) {
