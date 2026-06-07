@@ -29,3 +29,10 @@ const (
 	AuthTypeToken AuthType = "token"
 	AuthTypeSSH   AuthType = "ssh"
 )
+
+type GitEngine string
+
+const (
+	GitEngineGoGit GitEngine = "go-git"
+	GitEngineCLI   GitEngine = "cli"
+)

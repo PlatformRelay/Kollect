@@ -85,3 +85,16 @@ func isAuthFailure(msg string, err error) bool {
 
 	return false
 }
+
+func isNonFastForwardError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+
+	return strings.Contains(msg, "non-fast-forward") ||
+		strings.Contains(msg, "non fast forward") ||
+		strings.Contains(msg, "failed to push some refs") && strings.Contains(msg, "updates were rejected")
+}
+

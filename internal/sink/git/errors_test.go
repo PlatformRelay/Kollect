@@ -65,3 +65,15 @@ func TestClassifyExportError_preservesExistingTerminal(t *testing.T) {
 		t.Fatal("expected terminal wrapper preserved")
 	}
 }
+
+func TestIsNonFastForwardError(t *testing.T) {
+	t.Parallel()
+
+	if !isNonFastForwardError(errors.New("! [rejected] main -> main (non-fast-forward)")) {
+		t.Fatal("expected non-fast-forward")
+	}
+
+	if isNonFastForwardError(errors.New("connection reset")) {
+		t.Fatal("expected false for transient")
+	}
+}

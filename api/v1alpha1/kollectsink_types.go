@@ -97,6 +97,12 @@ const (
 	GitAuthTypeSSH   = "ssh"
 )
 
+// Git engine values select go-git (default) or the host git CLI.
+const (
+	GitEngineGoGit = "go-git"
+	GitEngineCLI   = "cli"
+)
+
 // GitSpec configures plain git sink export behavior.
 type GitSpec struct {
 	// branch is the target branch for clone and push.
@@ -130,6 +136,18 @@ type GitSpec struct {
 	// prune stages deletions in the worktree before commit (git add -A semantics).
 	// +optional
 	Prune bool `json:"prune,omitempty"`
+
+	// engine selects the git implementation: go-git (default) or host git CLI.
+	// file:// remotes always use the CLI path regardless of this field.
+	// +kubebuilder:validation:Enum=go-git;cli
+	// +optional
+	Engine string `json:"engine,omitempty"`
+
+	// forceBasicAuth sends an explicit Authorization header on HTTPS remotes.
+	// Useful when git hosts ignore embedded URL credentials. May also be enabled
+	// via the KOLLECT_GIT_FORCE_BASIC_AUTH environment variable on the operator.
+	// +optional
+	ForceBasicAuth bool `json:"forceBasicAuth,omitempty"`
 }
 
 // GitAuthSpec configures git credential mode for HTTPS or SSH remotes.

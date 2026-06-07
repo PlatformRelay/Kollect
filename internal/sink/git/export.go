@@ -62,8 +62,8 @@ func ExportWithBranch(
 	ctx, cancel := context.WithTimeout(ctx, exportTimeout)
 	defer cancel()
 
-	if isFileRemote(req.cloneURL) {
-		err := exportFileRemote(ctx, cfg, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath, commitCtx)
+	if isFileRemote(req.cloneURL) || cfg.Engine == GitEngineCLI {
+		err := exportViaCLI(ctx, cfg, auth, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath, commitCtx)
 
 		return ClassifyExportError(err)
 	}
@@ -103,7 +103,7 @@ func exportRemote(
 		sshCfg.InsecureSkipVerify = true
 	}
 
-	authMethod, err := buildAuthMethod(req.cloneURL, auth, authType, sshCfg)
+	authMethod, err := buildAuthMethodWithForce(req.cloneURL, auth, authType, sshCfg, cfg.ForceBasicAuth)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func exportRemote(
 		return fmt.Errorf("git commit: %w", err)
 	}
 
-	return pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, commit)
+	return pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, commit, wt)
 }
 
 func stageChanges(wt *git.Worktree, objectPath string, prune bool) error {
@@ -241,6 +241,7 @@ func pushCommitted(
 	cloneURL, branch string,
 	emptyRemote bool,
 	commit plumbing.Hash,
+	wt *git.Worktree,
 ) error {
 	if refErr := repo.Storer.SetReference(plumbing.NewHashReference(
 		plumbing.NewBranchReferenceName(branch), commit,
@@ -265,11 +266,33 @@ func pushCommitted(
 	}
 
 	err = withTransportRetry(ctx, defaultTransportRetry(), func() error {
-		if pushErr := remote.PushContext(ctx, pushOpts); pushErr != nil && !errors.Is(pushErr, git.NoErrAlreadyUpToDate) {
-			return pushErr
+		pushErr := remote.PushContext(ctx, pushOpts)
+		if pushErr == nil || errors.Is(pushErr, git.NoErrAlreadyUpToDate) {
+			return nil
 		}
 
-		return nil
+		if cfg.PushPolicy == PushPolicyCommit && isNonFastForwardError(pushErr) {
+			if syncErr := syncRemoteBeforePush(ctx, repo, wt, authMethod, cloneURL, branch, cfg); syncErr != nil {
+				return syncErr
+			}
+
+			if head, headErr := repo.Head(); headErr == nil {
+				commit = head.Hash()
+				if refErr := repo.Storer.SetReference(plumbing.NewHashReference(
+					plumbing.NewBranchReferenceName(branch), commit,
+				)); refErr != nil {
+					return fmt.Errorf("set branch ref after merge: %w", refErr)
+				}
+			}
+
+			if retryErr := remote.PushContext(ctx, pushOpts); retryErr != nil && !errors.Is(retryErr, git.NoErrAlreadyUpToDate) {
+				return retryErr
+			}
+
+			return nil
+		}
+
+		return pushErr
 	})
 	if err != nil {
 		return fmt.Errorf("git push: %w", err)
@@ -321,8 +344,26 @@ func cloneOrInit(
 		CABundle:        cfg.CABundle,
 	}
 
-	repo, err := git.PlainCloneContext(ctx, dir, false, cloneOpts)
-	if err == nil {
+	var repo *git.Repository
+	var cloneErr error
+
+	err := withTransportRetry(ctx, defaultTransportRetry(), func() error {
+		repo, cloneErr = git.PlainCloneContext(ctx, dir, false, cloneOpts)
+		if cloneErr == nil {
+			return nil
+		}
+
+		if isEmptyRemote(cloneErr) {
+			return nil
+		}
+
+		return cloneErr
+	})
+	if err != nil {
+		return nil, false, fmt.Errorf("git clone: %w", err)
+	}
+
+	if cloneErr == nil {
 		emptyRemote := false
 		if _, headErr := repo.Head(); headErr != nil {
 			emptyRemote = true
@@ -331,8 +372,8 @@ func cloneOrInit(
 		return repo, emptyRemote, nil
 	}
 
-	if !isEmptyRemote(err) {
-		return nil, false, fmt.Errorf("git clone: %w", err)
+	if !isEmptyRemote(cloneErr) {
+		return nil, false, fmt.Errorf("git clone: %w", cloneErr)
 	}
 
 	repo, err = git.PlainInit(dir, false)

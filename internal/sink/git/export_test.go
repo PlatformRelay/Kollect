@@ -308,3 +308,88 @@ func TestExportFileRemoteFeatureBranch(t *testing.T) {
 		t.Fatalf("payload = %q, want %q", data, payload)
 	}
 }
+
+func TestExportGoGit_nonFastForwardCommitPolicy(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not in PATH")
+	}
+
+	dir := t.TempDir()
+	bare := filepath.Join(dir, "repo.git")
+	initCmd := exec.Command("git", "init", "--bare", bare) //nolint:gosec // G204: test fixture
+	if out, err := initCmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare: %s: %v", out, err)
+	}
+
+	endpoint := "file://" + bare
+	cfg := Config{Endpoint: endpoint, PushPolicy: PushPolicyCommit, Engine: GitEngineGoGit}
+	if err := Export(t.Context(), cfg, Auth{}, []byte(`{"base":true}`), "inventory/test.json"); err != nil {
+		t.Fatalf("seed export: %v", err)
+	}
+
+	cloneA := filepath.Join(dir, "clone-a")
+	cloneB := filepath.Join(dir, "clone-b")
+	for _, dest := range []string{cloneA, cloneB} {
+		cmd := exec.Command("git", "clone", "--branch", "main", "--single-branch", bare, dest) //nolint:gosec // G204: test fixture
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git clone %s: %s: %v", dest, out, err)
+		}
+	}
+
+	writeAndCommit := func(dir string, content []byte, msg string) {
+		t.Helper()
+
+		target := filepath.Join(dir, "inventory", "test.json")
+		if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, args := range [][]string{
+			{"add", "inventory/test.json"},
+			{"-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", msg},
+		} {
+			cmd := exec.Command("git", args...) //nolint:gosec // G204: test fixture
+			cmd.Dir = dir
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v in %s: %s: %v", args, dir, out, err)
+			}
+		}
+	}
+
+	writeAndCommit(cloneA, []byte(`{"winner":"a"}`), "advance remote")
+	pushA := exec.Command("git", "push", "origin", "main") //nolint:gosec // G204: test fixture
+	pushA.Dir = cloneA
+	if out, err := pushA.CombinedOutput(); err != nil {
+		t.Fatalf("git push clone-a: %s: %v", out, err)
+	}
+
+	writeAndCommit(cloneB, []byte(`{"stale":"b"}`), "stale divergent commit")
+	pushB := exec.Command("git", "push", "origin", "main") //nolint:gosec // G204: test fixture
+	pushB.Dir = cloneB
+	if out, err := pushB.CombinedOutput(); err == nil {
+		t.Fatalf("expected non-fast-forward push failure, got success: %s", out)
+	}
+
+	cfg.PushPolicy = PushPolicyCommit
+	if err := Export(t.Context(), cfg, Auth{}, []byte(`{"export":"merged"}`), "inventory/test.json"); err != nil {
+		t.Fatalf("Commit policy export after divergence: %v", err)
+	}
+
+	verifyDir := filepath.Join(dir, "verify")
+	verifyClone := exec.Command("git", "clone", "--branch", "main", "--single-branch", bare, verifyDir) //nolint:gosec // G204: test fixture
+	if out, err := verifyClone.CombinedOutput(); err != nil {
+		t.Fatalf("git clone verify: %s: %v", out, err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(verifyDir, "inventory", "test.json")) //nolint:gosec // G304: test clone dir
+	if err != nil {
+		t.Fatalf("read merged file: %v", err)
+	}
+
+	if string(data) != `{"export":"merged"}` {
+		t.Fatalf("payload after merge recovery = %q", data)
+	}
+}

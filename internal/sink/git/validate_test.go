@@ -199,7 +199,7 @@ func TestCanonicalCloneURL_normalizesFileURL(t *testing.T) {
 func TestEnsureBareHEAD_rejectsMaliciousBranch(t *testing.T) {
 	t.Parallel()
 
-	err := ensureBareHEAD(t.Context(), "file:///tmp/repo.git", "; rm -rf /")
+	err := ensureBareHEAD(t.Context(), "file:///tmp/repo.git", "; rm -rf /", nil)
 	if err == nil {
 		t.Fatal("expected error for malicious branch")
 	}
@@ -209,7 +209,7 @@ func TestCloneOrInitCLI_rejectsMaliciousBranch(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	err := cloneOrInitCLI(t.Context(), dir, "file:///tmp/repo.git", "--upload-pack=evil", 1)
+	err := cloneOrInitCLI(t.Context(), dir, "file:///tmp/repo.git", "--upload-pack=evil", 1, nil)
 	if err == nil {
 		t.Fatal("expected error for malicious branch")
 	}
@@ -219,7 +219,7 @@ func TestCloneOrInitCLI_rejectsMaliciousCloneURL(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	err := cloneOrInitCLI(t.Context(), dir, "file://--upload-pack=evil", "main", 1)
+	err := cloneOrInitCLI(t.Context(), dir, "file://--upload-pack=evil", "main", 1, nil)
 	if err == nil {
 		t.Fatal("expected error for malicious clone URL")
 	}
@@ -247,7 +247,7 @@ func TestExportWithBranch_rejectsMaliciousBranch(t *testing.T) {
 	}
 }
 
-func TestExportFileRemote_rejectsTraversalBeforeWrite(t *testing.T) {
+func TestExportViaCLI_rejectsTraversalBeforeWrite(t *testing.T) {
 	t.Parallel()
 
 	workdir := t.TempDir()
@@ -257,9 +257,10 @@ func TestExportFileRemote_rejectsTraversalBeforeWrite(t *testing.T) {
 	}
 
 	bare := filepath.Join(workdir, "repo.git")
-	err := exportFileRemote(
+	err := exportViaCLI(
 		t.Context(),
 		Config{Endpoint: "file://" + bare}.withDefaults(),
+		Auth{},
 		"file://"+bare,
 		"main",
 		"main",

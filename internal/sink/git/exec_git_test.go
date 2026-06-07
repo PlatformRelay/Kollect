@@ -11,7 +11,7 @@ func TestGitClone_rejectsMaliciousBranch(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	_, err := gitClone(t.Context(), dir, "file:///tmp/repo.git", "--upload-pack=evil", 1)
+	_, err := gitClone(t.Context(), dir, "file:///tmp/repo.git", "--upload-pack=evil", 1, nil)
 	if err == nil {
 		t.Fatal("expected error for malicious branch")
 	}
@@ -21,7 +21,7 @@ func TestGitClone_rejectsMaliciousCloneURL(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	_, err := gitClone(t.Context(), dir, "file://--upload-pack=evil", "main", 1)
+	_, err := gitClone(t.Context(), dir, "file://--upload-pack=evil", "main", 1, nil)
 	if err == nil {
 		t.Fatal("expected error for malicious clone URL")
 	}
@@ -31,7 +31,7 @@ func TestGitCheckoutNewBranch_rejectsMaliciousBranch(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	err := gitCheckoutNewBranch(t.Context(), dir, "; rm -rf /")
+	err := gitCheckoutNewBranch(t.Context(), dir, "; rm -rf /", nil)
 	if err == nil {
 		t.Fatal("expected error for malicious branch")
 	}
@@ -41,7 +41,7 @@ func TestGitAddPath_rejectsTraversal(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	err := gitAddPath(t.Context(), dir, "../../../etc/passwd")
+	err := gitAddPath(t.Context(), dir, "../../../etc/passwd", nil)
 	if err == nil {
 		t.Fatal("expected traversal rejection")
 	}
@@ -51,7 +51,7 @@ func TestGitPushOrigin_rejectsMaliciousBranch(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	err := gitPushOrigin(t.Context(), dir, false, "-B evil")
+	err := gitPushOrigin(t.Context(), dir, false, "-B evil", nil)
 	if err == nil {
 		t.Fatal("expected error for malicious branch")
 	}
@@ -61,7 +61,7 @@ func TestGitRemoteAddOrigin_rejectsMaliciousCloneURL(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	err := gitRemoteAddOrigin(t.Context(), dir, "--upload-pack=evil")
+	err := gitRemoteAddOrigin(t.Context(), dir, "--upload-pack=evil", nil)
 	if err == nil {
 		t.Fatal("expected error for malicious clone URL")
 	}
