@@ -126,6 +126,11 @@ type FamilySinkStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// preview is a read-only, side-effect-free preview of export implications, populated when the
+	// kollect.dev/preview annotation is set (ADR-0416 §8).
+	// +optional
+	Preview *SinkPreviewStatus `json:"preview,omitempty"`
 }
 
 // HTTPSinkSpec configures HTTP/webhook snapshot export (stub — ADR-0414).

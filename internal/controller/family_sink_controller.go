@@ -39,7 +39,7 @@ func (r *FamilySnapshotSinkReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	conn := familySinkConnection{client: r.Client}
-	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions)
+	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview)
 	if err != nil {
 		log.Error(err, "snapshot sink connection test failed")
 		retErr = err
@@ -72,7 +72,7 @@ func (r *FamilyClusterSnapshotSinkReconciler) Reconcile(ctx context.Context, req
 	}
 
 	conn := familySinkConnection{client: r.Client}
-	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions)
+	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview)
 	retErr = err
 
 	return ctrl.Result{}, err
@@ -107,7 +107,7 @@ func (r *FamilyDatabaseSinkReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	conn := familySinkConnection{client: r.Client}
-	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions)
+	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview)
 	retErr = err
 
 	return ctrl.Result{}, err
@@ -137,7 +137,7 @@ func (r *FamilyClusterDatabaseSinkReconciler) Reconcile(ctx context.Context, req
 	}
 
 	conn := familySinkConnection{client: r.Client}
-	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions)
+	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview)
 	retErr = err
 
 	return ctrl.Result{}, err
@@ -172,7 +172,7 @@ func (r *FamilyEventSinkReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	conn := familySinkConnection{client: r.Client}
-	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions)
+	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview)
 	retErr = err
 
 	return ctrl.Result{}, err
@@ -202,7 +202,7 @@ func (r *FamilyClusterEventSinkReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	conn := familySinkConnection{client: r.Client}
-	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions)
+	err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview)
 	retErr = err
 
 	return ctrl.Result{}, err

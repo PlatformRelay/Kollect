@@ -299,6 +299,80 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              preview:
+                description: |-
+                  preview is a read-only, side-effect-free preview of export implications, populated when the
+                  kollect.dev/preview annotation is set (ADR-0416 §8).
+                properties:
+                  git:
+                    description: git previews the commit subject/body for git and
+                      gitlab snapshot sinks.
+                    properties:
+                      sampleCommitBody:
+                        description: sampleCommitBody is the rendered commit body.
+                        type: string
+                      sampleCommitSubject:
+                        description: sampleCommitSubject is the rendered commit subject
+                          line.
+                        type: string
+                    type: object
+                  inputSampleSource:
+                    description: inputSampleSource names the sample input used to
+                      render the preview (e.g. synthetic).
+                    type: string
+                  kafka:
+                    description: kafka previews the destination topic for kafka sinks.
+                    properties:
+                      topic:
+                        description: topic is the destination topic events would be
+                          published to.
+                        type: string
+                    type: object
+                  mongodb:
+                    description: mongodb previews the expected identity index for
+                      mongodb sinks.
+                    properties:
+                      expectedIndexKeys:
+                        description: expectedIndexKeys lists the fields of the unique
+                          identity index.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    type: object
+                  objectPath:
+                    description: objectPath is the rendered destination path/object
+                      key for snapshot sinks.
+                    type: string
+                  postgres:
+                    description: postgres previews the expected CREATE TABLE DDL for
+                      postgres sinks.
+                    properties:
+                      expectedDDL:
+                        description: expectedDDL is the CREATE TABLE statement used
+                          in provisioning.mode=ensure.
+                        type: string
+                    type: object
+                  provisioningMode:
+                    description: provisioningMode is the effective provisioning mode
+                      (ensure or existing).
+                    type: string
+                  renderedAt:
+                    description: renderedAt is the time the preview was last computed.
+                    format: date-time
+                    type: string
+                  serializationFormat:
+                    description: serializationFormat is the effective on-wire format
+                      (json, parquet, ...).
+                    type: string
+                  warnings:
+                    description: warnings lists non-blocking implications surfaced
+                      by the preview.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
             type: object
         required:
         - spec
