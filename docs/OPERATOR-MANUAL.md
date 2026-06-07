@@ -191,6 +191,7 @@ Summary for operators:
 ## See also
 
 - [Upgrading Kollect](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md)
+- [Common errors](operator-manual/common-errors.md) — full catalog: conditions, metrics, and fixes
 - [FAQ](FAQ.md) — symptom-oriented troubleshooting
 - [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md)
 - [Chart README](../charts/kollect/README.md) — hub YAML and inventory HTTP auth at source
