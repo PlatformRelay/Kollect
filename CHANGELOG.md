@@ -18,19 +18,30 @@ release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 | `v0.0.2` | `1e6f6719` | Core `v1alpha1` CRDs (Profile, Sink, Target, Inventory) |
 | `v0.0.3` | `66421337` | Helm chart, CEL/JSONPath extraction, inventory HTTP |
 | `v0.0.4` | `4234960b` | ADR-0703 platform pivot MVP (namespaced API, export pipeline) |
-| `v0.1.0-rc.1` – `rc.3` | 2026-06-05 – 06 | Pre-strategy RCs (finalizers, helm decode, e2e, release pipeline) |
-| **`v0.2.0-rc.1`** | 2026-06-07 | Sink-family tranche ([ADR-0414](docs/adr/0414-sink-family-crds.md)) — **not** UI |
+| `v0.1.0` | `main` HEAD | First published release (includes hub/cluster APIs since MVP) |
 
-**Next targets:** `v0.3.0-rc.1` (quality/perf) → … → **`v0.10.0`** presentation gate.
-See [docs/RELEASE.md](docs/RELEASE.md#versioning-policy).
+Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
+anchor on an older commit.
 
 ## [Unreleased]
 
 ### Bug Fixes
 
-- **e2e:** Use object form for snapshotSinkRefs [5be08f5](https://github.com/konih/kollect/commit/5be08f59b5b913505121fc252f506aafa0fb1456)
+- **e2e:** Guard multitenant port-forward cleanup trap [d04f292](https://github.com/konih/kollect/commit/d04f2929233efd9b072cdce85d6d47c42386ad44)
+
+- **e2e:** Use object form for snapshotSinkRefs [468bca9](https://github.com/konih/kollect/commit/468bca94aafa745c2e24250d6914baad5eeac7e4)
 
 - **e2e:** Validate git-export and multitenant via HTTP [85d160a](https://github.com/konih/kollect/commit/85d160ad2cfb59a967697e2791f698bd4a80b5bd)
+
+
+### Features
+
+- **git:** Harden export clone, auth, and push recovery [8dc426c](https://github.com/konih/kollect/commit/8dc426c358e9085e8af294c52fff7e2ba96cf590)
+
+
+### Refactoring
+
+- **perf:** P0/P1 export path optimizations [cb16812](https://github.com/konih/kollect/commit/cb168127b0da5700047176e71b5cf6a0cc4ce9c5)
 
 ## [0.2.0-rc.1](https://github.com/konih/kollect/compare/v0.1.0-rc.3..v0.2.0-rc.1) - 2026-06-07
 
