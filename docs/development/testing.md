@@ -30,7 +30,7 @@ Statement coverage on `./internal/...` is enforced by `hack/coverage.sh` via `ta
 
 | Setting | Value |
 | --- | --- |
-| **Target (pre-v0.1.0)** | **80%** — ratchet `COVERAGE_MIN` when measured coverage is sustained |
+| **Target (pre-v0.10)** | **80%** — ratchet `COVERAGE_MIN` when measured coverage is sustained |
 | **Current CI floor** | 65% (`COVERAGE_MIN` in `.github/workflows/ci.yaml`) |
 | **Codecov project target** | 70% (`codecov.yml`) |
 
@@ -69,7 +69,7 @@ Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
 - Native Go fuzz (CEL/JSONPath extractors, content hash)
 - RBAC audit (`hack/audit-rbac.sh`)
 
-**Non-blocking on PR:** `task perf-report` (promoted to blocking at **v0.2.0** per ADR-0706);
+**Non-blocking on PR:** `task perf-report` (promoted to blocking at **v0.4** per ADR-0706);
 **SonarCloud** scan (`sonarcloud` job — needs `SONAR_TOKEN`; see
 [tooling-setup.md](tooling-setup.md)).
 

@@ -99,9 +99,12 @@ Aligned with [ROADMAP.md](../ROADMAP.md) and engineering spec §12:
 
 | Milestone | Backend prerequisite | Frontend deliverable |
 | --- | --- | --- |
-| **v0.1.0** | Harden Read API: filters, `schemaVersion`, export status in OpenAPI ([ADR-0411](0411-read-api-extensions-for-ui.md)) | Monorepo `ui/` scaffold; MSW mocks; contract + unit tests |
-| **v0.2.0** | Memory adapter complete; Read API SAR-gated | **Read-only MVP SPA** in separate **`kollect-ui` image**: Overview, Inventory, Targets/Sinks **lists + detail drawers** (no Target create forms); onboarding = copy-YAML + docs; **no auth UI** |
-| **v0.3.0** | Postgres Read adapter; hub merged metadata API | Portal mode, drift chart, multi-cluster picker; **oauth2-proxy at ingress** + cross-cluster auth spike |
+| **v0.5.x** | Harden Read API: filters, `schemaVersion`, export status in OpenAPI ([ADR-0411](0411-read-api-extensions-for-ui.md)) | Monorepo `ui/` scaffold; MSW mocks; contract + unit tests |
+| **v0.6.x** | Memory adapter complete; Read API SAR-gated | UI foundation: store shell, SSE wiring |
+| **v0.7.x** | Memory adapter stable | **Read-only MVP SPA** in separate **`kollect-ui` image**: Overview, Inventory, Targets/Sinks **lists + detail drawers** (no Target create forms); onboarding = copy-YAML + docs; **no auth UI** |
+| **v0.8.x** | Postgres Read adapter; hub merged metadata API | Portal mode begins |
+| **v0.9.x** | Parquet adapter; drift queries | Portal mode, drift chart, multi-cluster picker; **oauth2-proxy at ingress** + cross-cluster auth spike |
+| **v0.10.0** | Presentation soak | Demo-ready release |
 | **Phase 3** | `KollectScope` deniedNamespaces UI API | Scope comparison; policy violation explainer; optional BFF |
 | **Phase 4** | Custom resource metrics in Read API | Metrics sparklines in Target detail |
 
@@ -121,8 +124,8 @@ Aligned with [ROADMAP.md](../ROADMAP.md) and engineering spec §12:
   `postgres`/`parquet` adapters only.
 - Hybrid K8s API calls require a browser-accessible apiserver endpoint (or post-MVP BFF) for CRD status;
   cluster-network / port-forward assumptions apply in MVP.
-- Read API extensions ([ADR-0411](0411-read-api-extensions-for-ui.md)) block v0.2 feature work until
-  shipped.
+- Read API extensions ([ADR-0411](0411-read-api-extensions-for-ui.md)) block **v0.7** UI feature work until
+  shipped (planned **v0.5** band).
 
 ## Resolved questions (formerly open)
 
@@ -141,7 +144,7 @@ Aligned with [ROADMAP.md](../ROADMAP.md) and engineering spec §12:
 | OQ-11 | Reader vs sink `Backend`? | **Distinct `InventoryReader`** |
 | OQ-12 | Target create form in MVP? | **Read-only UI** — no create forms |
 
-## Client UI state (v0.2)
+## Client UI state (v0.7 band)
 
 Inventory filter prefs, column visibility, and drawer selection use **Zustand** slices in
 `ui/src/store/` with Vitest unit tests — see [ADR-0410 §2](0410-ui-engineering-and-quality-gates.md).

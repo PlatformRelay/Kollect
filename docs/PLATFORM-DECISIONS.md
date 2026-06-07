@@ -7,8 +7,9 @@ Kollect. For the full decision log and reasoning, see
 
 !!! warning "Pre-beta API"
     The public API is **`v1alpha1`** and may change without notice while the project is pre-beta.
-    Breaking changes are batched deliberately before a future `v1beta1` freeze (planned around v0.1.0).
-    Do not build production integrations on field names or behavior not yet covered by contract tests.
+    Breaking changes are batched deliberately before a future `v1beta1` freeze (planned around the
+    **v0.10 presentation gate**). Do not build production integrations on field names or behavior
+    not yet covered by contract tests.
 
 ### Phases, releases, and API stability
 
@@ -19,7 +20,7 @@ product until the tree reaches **beta-quality** overall.
 The public API is **`v1alpha1`** and **may change without notice** while the project is pre-beta.
 There are no external adopters yet — tenancy, scalability, and correctness take priority over
 backward compatibility. Breaking changes are batched deliberately before a future `v1beta1` freeze
-(planned around v0.1.0).
+(planned around the **v0.10 presentation gate** — see [RELEASE.md](RELEASE.md#versioning-policy)).
 
 ## Core decisions
 

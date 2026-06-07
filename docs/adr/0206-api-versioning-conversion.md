@@ -36,7 +36,7 @@ most "shape" changes are validation tightening, not version bumps.
 
 ### Path to beta (trigger decided 2026-06-05)
 
-**Cut `v1beta1` at the `v0.1.0` feature-freeze** — not before. Until then, `v1alpha1` churns freely.
+**Cut `v1beta1` at the v0.10 presentation gate** (or shortly after) — not before. Until then, `v1alpha1` churns freely.
 
 1. Freeze the `v1alpha1` field set; introduce `v1beta1` as a new served version.
 2. Set `v1beta1` as storage version; keep `v1alpha1` served for one release window.
@@ -52,7 +52,7 @@ CRD API versions. Consumers (portals, SQL, Kafka subscribers, Read API) branch o
 
 | Surface | Versioning today | Pre-beta target |
 | --- | --- | --- |
-| CRD schemas (`v1alpha1`) | Break freely until `v0.1.0` freeze | `v1beta1` + conversion webhook |
+| CRD schemas (`v1alpha1`) | Break freely until **v0.10 presentation gate** | `v1beta1` + conversion webhook |
 | Wire envelopes (hub/spoke/Kafka) | `schemaVersion: kollect.dev/v1alpha1` — **shipped** | Bump only on breaking contract changes |
 | Sink JSON + Read API | Bare `[]Item` / `NamespaceSummary` — **no envelope yet** | Versioned envelope per ADR-0405 milestone |
 | Read API routes | `/v1alpha1/…` path prefix ([ADR-0408](0408-read-api-ui-architecture.md)) | Stable OpenAPI; response body carries `schemaVersion` |
@@ -72,7 +72,7 @@ payload semantics.
 
 ## Open questions
 
-- **DECIDED (2026-06-05):** Cut `v1beta1` at the **`v0.1.0` feature-freeze** milestone.
+- **DECIDED (2026-06-07):** Cut `v1beta1` at the **v0.10 presentation gate** milestone (revised from v0.1.0).
 - **PARTIAL (2026-06-05):** Wire envelopes (hub/spoke/Kafka) carry **`schemaVersion`**; sink JSON and
   Read API responses still pending the ADR-0405 pre-beta milestone.
 - **OPEN:** Conversion approach: controller-runtime hub-spoke conversion vs none-with-storage-migration?

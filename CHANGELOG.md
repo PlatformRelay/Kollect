@@ -18,10 +18,11 @@ release. See [docs/RELEASE.md](docs/RELEASE.md) for the maintainer runbook.
 | `v0.0.2` | `1e6f6719` | Core `v1alpha1` CRDs (Profile, Sink, Target, Inventory) |
 | `v0.0.3` | `66421337` | Helm chart, CEL/JSONPath extraction, inventory HTTP |
 | `v0.0.4` | `4234960b` | ADR-0703 platform pivot MVP (namespaced API, export pipeline) |
-| `v0.1.0` | `main` HEAD | First published release (includes hub/cluster APIs since MVP) |
+| `v0.1.0-rc.1` – `rc.3` | 2026-06-05 – 06 | Pre-strategy RCs (finalizers, helm decode, e2e, release pipeline) |
+| **`v0.2.0-rc.1`** | 2026-06-07 | Sink-family tranche ([ADR-0414](docs/adr/0414-sink-family-crds.md)) — **not** UI |
 
-Reserve **`v0.1.0` for the first tag pushed at `main` HEAD** — do not use it as a changelog-only
-anchor on an older commit.
+**Next targets:** `v0.3.0-rc.1` (quality/perf) → … → **`v0.10.0`** presentation gate.
+See [docs/RELEASE.md](docs/RELEASE.md#versioning-policy).
 
 ## [Unreleased]
 

@@ -82,7 +82,7 @@ are **documented and deferred** — not enabled — so one maintainer can ship w
 | License | 10 | **Done** | MIT |
 | Code-Review | 0 high | **Deferred** | Branch protection + required reviewers blocks solo push-to-main workflow |
 | Branch-Protection | 0 high | **Deferred** | Optional for single maintainer; CI merge gates substitute for GitHub branch rules |
-| Maintained | 0 high | **Deferred** | Activity-based; improves with regular releases and issue triage post-`v0.1.0` |
+| Maintained | 0 high | **Deferred** | Activity-based; improves with regular releases post-**v0.10** |
 | Fuzzing | 0 medium | **Partial** | Native Go fuzz (`FuzzContentHash`, `internal/aggregate`) in CI (`fuzz` job, 30s); OSS-Fuzz deferred |
 | CII-Best-Practices | 0 low | **Deferred** | Core Infrastructure Initiative badge application not pursued pre-GA |
 | Contributors | 0 low | **N/A** | Solo OSS; diversity metric not applicable |
@@ -94,7 +94,7 @@ linters and `govulncheck` — not a replacement.
 **Native Go fuzz:** CI job **fuzz** runs `go test -fuzz=FuzzContentHash -fuzztime=30s` on
 `internal/aggregate` (export coalesce checksum path). Full OSS-Fuzz integration remains deferred.
 
-## Decided follow-ups (2026-06-05, planned post-`v0.1.0-rc`)
+## Decided follow-ups (2026-06-05, planned **v0.4** band)
 
 - **DONE:** Publish signed **provenance + SBOM attestations** (`actions/attest` → GHCR + attestations
   API) and **release-asset signatures** (`cosign sign-blob` + `release-provenance.intoto.jsonl`).

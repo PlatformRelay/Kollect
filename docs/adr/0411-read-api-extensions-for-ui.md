@@ -167,7 +167,7 @@ type InventoryReader interface {
 
 Sink write path unchanged; reader adapters registered separately at operator startup.
 
-### 8. Implementation priority (v0.1.0 gate)
+### 8. Implementation priority (v0.5 band)
 
 | Priority | Deliverable | Blocks |
 | --- | --- | --- |
