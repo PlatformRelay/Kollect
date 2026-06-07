@@ -174,15 +174,30 @@ Each cluster runs `mode: single` and exports to **shared sinks** with a cluster 
 
 </div>
 
+## Performance
+
+Kollect is built for **large single clusters** and **multi-cluster fleets**, with honest, tested
+targets ([ADR-0603](adr/0603-performance-scalability.md)):
+
+| Tier | Scope | Collected rows | Status |
+| --- | --- | --- | --- |
+| **Baseline** | 1 cluster | **10,000+** | Validated in nightly load tests |
+| **Design target** | 1 cluster | **100,000** | Requires export sharding + Postgres bulk upsert + `resourcesProfile: large` |
+| **Fleet** | Shared sink | 10k–100k × **N** operators | Partitioned by `spec.cluster`; no hub merge tier |
+
+Tuning knobs — reconcile/dispatch concurrency, export debounce (`exportMinInterval`, default `30s`),
+namespace-scoped informers, Git commit fingerprinting, and `maxExportBytes` caps — are catalogued in
+the [performance guide](PERFORMANCE.md).
+
 ## Documentation map
 
 | Section | Start here |
 | --- | --- |
-| **Understand the basics** | [Prerequisites](UNDERSTAND-THE-BASICS.md) · [Architecture](ARCHITECTURE.md) ([package graph](architecture-graph.svg)) · [Data flows](DATA-FLOWS.md) |
+| **Getting started** | [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md) · [Examples](examples/README.md) |
 | **Core concepts** | [CRD model](adr/0201-crd-model.md) · [CR reference](CR-REFERENCE.md) · [Multi-cluster fleet](adr/0501-multi-cluster-fleet.md) |
-| **Getting started** | [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md) |
 | **Operator manual** | [Install & ops](OPERATOR-MANUAL.md) · [Upgrading](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md) |
-| **User guide** | [Examples](examples/README.md) · [Best practices](BEST-PRACTICES.md) · [Troubleshooting](TROUBLESHOOTING.md) |
+| **Performance & ops** | [Performance tuning](PERFORMANCE.md) · [Scaling & fleet](operator-manual/scaling-and-fleet.md) · [Best practices](BEST-PRACTICES.md) · [Troubleshooting](TROUBLESHOOTING.md) |
+| **Background** | [Prerequisites & basics](UNDERSTAND-THE-BASICS.md) · [Architecture](ARCHITECTURE.md) ([package graph](architecture-graph.svg)) · [Data flows](DATA-FLOWS.md) |
 | **Reference** | [Custom resources](CR-REFERENCE.md) · [FAQ](FAQ.md) · [ADRs](adr/README.md) · [RFCs](rfc/README.md) |
 | **Contributing** | [Roadmap](ROADMAP.md) · [Planned features](roadmap/planned-features.md) · [ADR/RFC process](development/adr-rfc-process.md) · [Release process](RELEASE.md) |
 

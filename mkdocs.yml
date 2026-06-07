@@ -43,12 +43,9 @@ nav:
       - Home: index.md
       - FAQ: FAQ.md
       - Glossary: GLOSSARY.md
-  - Understand the Basics:
-      - Understand the basics: UNDERSTAND-THE-BASICS.md
-      - Architecture: ARCHITECTURE.md
-      - Data flows: DATA-FLOWS.md
-      - Platform decisions: PLATFORM-DECISIONS.md
-      - Requirements & assumptions: REQUIREMENTS.md
+  - Getting Started:
+      - Quick start: QUICKSTART.md
+      - Development setup: DEVELOPMENT.md
   - Core Concepts:
       - "0201 — CRD model — prefixed kinds, static vs reconciled": adr/0201-crd-model.md
       - "0302 — CEL and JSONPath attribute extraction": adr/0302-cel-jsonpath-extraction.md
@@ -57,9 +54,12 @@ nav:
       - "0203 — Namespaced multi-tenancy and operator watch scope": adr/0203-namespaced-multi-tenancy.md
       - "0204 — Namespaced KollectProfile": adr/0204-namespaced-profiles.md
       - "0205 — Watch opt-in / opt-out labels": adr/0205-watch-labels.md
-  - Getting Started:
-      - Quick start: QUICKSTART.md
-      - Development setup: DEVELOPMENT.md
+  - Understand the Basics:
+      - Understand the basics: UNDERSTAND-THE-BASICS.md
+      - Architecture: ARCHITECTURE.md
+      - Data flows: DATA-FLOWS.md
+      - Platform decisions: PLATFORM-DECISIONS.md
+      - Requirements & assumptions: REQUIREMENTS.md
   - Operator Manual:
       - Operator manual: OPERATOR-MANUAL.md
       - Common errors: operator-manual/common-errors.md
@@ -102,7 +102,6 @@ nav:
           - KollectClusterInventory: crds/kollectclusterinventory.md
       - Annotations and labels: ANNOTATIONS-LABELS.md
       - Command reference: COMMAND-REFERENCE.md
-      - "0404 — Inventory HTTP API authentication": adr/0404-inventory-api-auth.md
       - Architecture decision records:
           - Overview: adr/README.md
           - 01 Foundations:
