@@ -166,11 +166,10 @@ Or use a values file — see [Operator manual — Per-team install](OPERATOR-MAN
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `mode` | `single` | `hub` or `spoke` for multi-cluster |
+| `mode` | `single` | Only supported runtime mode ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |
 | `tenantMode` | `false` | Namespaced RBAC for team installs |
 | `watchNamespaces` | `[]` | Restrict informer cache |
 | `featureGates.inventoryHttp.enabled` | `false` | Debug HTTP API |
-| `transport.type` | `inprocess` | Hub/spoke transport backend |
 | `image.tag` | chart default | Pin in production |
 
 Full list: [`charts/kollect/values.yaml`](../charts/kollect/values.yaml). Validation:

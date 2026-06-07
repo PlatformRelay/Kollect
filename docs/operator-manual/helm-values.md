@@ -33,7 +33,6 @@ knobs; the authoritative full list lives in the chart tree.
 | `mode` | Operator mode: `single`, `hub`, or `spoke` | `single` |
 | `tenantMode` | Namespaced Role RBAC for per-team installs | `false` |
 | `watchNamespaces` | Restrict informer cache to these namespaces | `[]` (all) |
-| `transport.type` | Hub/spoke transport backend | `inprocess` |
 | `webhooks.enabled` | Validating webhook for profiles | `true` |
 | `webhooks.certManager.create` | cert-manager `Certificate` for webhook TLS | `true` |
 | `sinkDefaults.connectionTest` | Default for sample `KollectSink` probes | `false` |

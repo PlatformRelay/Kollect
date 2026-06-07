@@ -160,36 +160,20 @@ Optional companion gauges (same label pair):
 **Deprecation:** remove unlabeled `kollect_inventory_items_total` after one release with both gauges
 (pre-beta: may hard-cut).
 
-### 6. Multi-cluster scrape topology — scrape at spoke
+### 6. Multi-cluster scrape topology — per cluster operator
 
-**For now:** Prometheus scrapes the operator **`/metrics` on each spoke cluster** where collection
-runs. Platform teams install `ServiceMonitor` (or equivalent) per spoke Helm release — same pattern
-as single-cluster installs ([operator manual](../operator-manual/metrics.md)).
+**Fleet model:** Deploy one operator per cluster (`mode: single`). Prometheus scrapes **`/metrics`
+on each cluster Helm release** where collection runs ([ADR-0501](0501-multi-cluster-fleet.md),
+[operator manual](../operator-manual/metrics.md)).
 
 | Install | What `/metrics` exposes |
 | --- | --- |
-| **Spoke** (collection active) | Tier A + B + C for that cluster's watch scope |
-| **Hub-only** (consumer, no local collection) | Tier A hub counters (`kollect_hub_*`); Tier B/C absent |
-| **Hub + local collection** (unusual) | Union of hub Tier A and local Tier B/C |
+| **Single cluster** | Tier A (+ Tier B/C when ADR-0604 ships) for that watch scope |
+| **Fleet** | Same per cluster — correlate alerts with `spec.cluster` on export rows, not hub counters |
 
-**Not in v1:** hub-only federated scrape that aggregates spoke domain series into a single Prometheus
-without scraping each spoke. Optional hub domain extension remains deferred:
+Hub/spoke federation and `kollect_hub_*` counters were **removed** with the hub tier (v0.3).
 
-```
-kollect_hub_custom_resource_series{hub, cluster, profile, gvk, series}
-```
-
-Fed from merged hub store when a concrete multi-cluster alerting requirement lands — spokes continue
-to be the primary scrape target for cert-expiry and domain alerts until then.
-
-### 7. Hub metrics (baseline)
-
-Existing hub counters remain Tier A/B hybrid ([operator manual](../operator-manual/metrics.md)):
-
-- `kollect_hub_spoke_reports_total{hub, result}`
-- `kollect_hub_merged_items_total{hub, cluster}`
-
-### 8. Cardinality rules
+### 7. Cardinality rules
 
 | Rule | Enforcement |
 | --- | --- |
@@ -197,12 +181,11 @@ Existing hub counters remain Tier A/B hybrid ([operator manual](../operator-manu
 | Domain attribute labels | Webhook: max 5 label keys per `MetricSpec`; reject `name`/`namespace` unless allow-listed |
 | Operator budget | Document **soft cap** 10k active series per operator instance at baseline tier ([ADR-0603](0603-performance-scalability.md)); split profiles or reduce targets when exceeded |
 | HA | Only the **leader** pod runs collection reconcilers ([ADR-0504](0706-testing-merge-gate-architecture.md)) — `/metrics` on non-leader replicas expose Tier A only (controller-runtime defaults) unless documented otherwise |
-| Hub mode | Hub consumer pods may expose hub Tier A metrics on all replicas; collection Tier B/C absent on hub-only installs |
 
 Add a `kollect_metrics_series_estimated` internal gauge (optional implementation detail) for
 operators to alert on cardinality growth — not required for first ship.
 
-### 9. Scrape configuration
+### 8. Scrape configuration
 
 No new Service type. Extend existing Helm `metrics.serviceMonitor` per **spoke** install
 ([operator manual](../operator-manual/metrics.md)):
@@ -220,9 +203,9 @@ Document in PERFORMANCE.md:
 - Scrape interval ≥ 30s when Tier C enabled (aligns with default export debounce).
 - `honorLabels: true` not required — kollect does not expose `target` Kubernetes labels on metrics.
 - Prometheus Operator `PrometheusRule` alerts should prefer Tier B for tenant alerts (`kollect_target_ready == 0`) and Tier A for operator health.
-- Multi-cluster: one `ServiceMonitor` per spoke cluster; hub Prometheus is optional for `kollect_hub_*` only.
+- Multi-cluster: one `ServiceMonitor` per cluster operator release.
 
-### 10. Verification
+### 9. Verification
 
 ADR-0604 metrics must be **well tested** across the pyramid defined in
 [ADR-0706](0706-testing-merge-gate-architecture.md). Implementation is not complete until all rows

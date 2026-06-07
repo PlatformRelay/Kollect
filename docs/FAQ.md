@@ -134,15 +134,8 @@ Walkthrough: [Multi-cluster fleet](examples/multi-cluster-fleet.md).
 
 ### Is there a `KollectHub` CRD?
 
-**No.** There is no hub/spoke Helm mode — only single-cluster deployment on the operator image
-([ADR-0201](adr/0201-crd-model.md)). Register spokes with namespaced
-`
-### Hub transport is `inprocess` — is that production-ready?
-
-!!! warning "Pre-beta hub transport"
-    Hub ingest and spoke push paths are still maturing. `transport.type: inprocess` is the only
-    default until external backends pass integration proof. Validate in your environment before
-    fleet rollout (ADR-0502).
+**No.** Hub/spoke runtime was removed in v0.3. Multi-cluster uses **N single-mode operators** exporting
+to a shared sink with `spec.cluster` ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 ## Performance and scope
 
