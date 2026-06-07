@@ -19,7 +19,7 @@ image:
 # -- Image pull secrets for private registries.
 imagePullSecrets: []
 
-# -- Manager Deployment replica count (hub mode may scale consumers horizontally).
+# -- Manager Deployment replica count.
 replicaCount: 1
 
 serviceAccount:
@@ -45,30 +45,8 @@ defaultExcludedNamespaces: []
 # -- When true, render namespaced Role/RoleBinding instead of ClusterRole/ClusterRoleBinding.
 tenantMode: false
 
-# -- Operator deployment mode on the same image: single, hub, or spoke.
+# -- Operator deployment mode (single-cluster only).
 mode: single
-
-# -- Hub consumer settings (mode hub). Namespaced KollectSink refs resolve in exportNamespace.
-hub:
-  # -- Hub platform identifier.
-  name: platform
-  # -- Namespace for platform SAR checks on KollectRemoteCluster (defaults to release namespace).
-  platformNamespace: ""
-  # -- Namespace for hub sink CRs and merged export.
-  exportNamespace: ""
-  # -- Namespaced KollectSink refs for parallel post-merge export (Postgres/Kafka).
-  sinkRefs: []
-  # -- Spoke registration allowlist (fail-closed when set, even if empty).
-  remoteClusters: []
-  # -- Hub ingest HTTP port for spoke reports.
-  ingestPort: 8083
-  # -- Hub ingest authentication mode (kubernetes TokenReview/SAR).
-  ingestAuthMode: kubernetes
-
-# -- Hub/spoke transport backend. Only inprocess is the production default until external backends pass integration proof.
-transport:
-  # -- Transport type: inprocess, redis, nats, or kafka (non-inprocess requires ops sign-off).
-  type: inprocess
 
 # -- Defaults for KollectSink connection probes in bundled samples (CRD default is true).
 sinkDefaults:
@@ -105,8 +83,6 @@ controller:
     target: 5
     # -- Max concurrent reconciles for KollectInventory.
     inventory: 3
-    # -- Max concurrent reconciles for hub ingest/merge.
-    hub: 2
   # -- Optional controller-runtime reconcile rate limit (empty = default).
   reconcileRateLimit: ""
 

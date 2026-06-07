@@ -126,22 +126,6 @@ var (
 
 	// CustomResourceSeries is registered via aggregation.go (ADR-0304 Phase 4 stub).
 
-	HubSpokeReportsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "kollect_hub_spoke_reports_total",
-			Help: "Spoke inventory reports merged by hub consumer.",
-		},
-		[]string{"hub", "result"},
-	)
-
-	HubMergedItemsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "kollect_hub_merged_items_total",
-			Help: "Inventory rows applied by hub merge (upserts and removals).",
-		},
-		[]string{"hub", "cluster"},
-	)
-
 	ExportDebouncedTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "kollect_export_debounced_total",
@@ -177,8 +161,6 @@ func Register() {
 		ExportBytesTotal,
 		CustomResourceSeries,
 		customResourceLabeledCollector{},
-		HubSpokeReportsTotal,
-		HubMergedItemsTotal,
 		ExportDebouncedTotal,
 		WatchMapListErrorsTotal,
 	)

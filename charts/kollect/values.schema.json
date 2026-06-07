@@ -37,58 +37,7 @@
     },
     "mode": {
       "type": "string",
-      "enum": ["single", "hub", "spoke"]
-    },
-    "hub": {
-      "type": "object",
-      "additionalProperties": true,
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "platformNamespace": {
-          "type": "string"
-        },
-        "exportNamespace": {
-          "type": "string"
-        },
-        "sinkRefs": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "remoteClusters": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "ingestPort": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 65535
-        },
-        "ingestAuthMode": {
-          "type": "string",
-          "enum": ["kubernetes", "disabled"]
-        }
-      }
-    },
-    "transport": {
-      "type": "object",
-      "additionalProperties": true,
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["inprocess", "redis", "nats", "kafka"],
-          "default": "inprocess",
-          "description": "Hub/spoke transport backend (ADR-0502). Only inprocess is the production default."
-        }
-      }
+      "enum": ["single", "cluster"]
     },
     "watchNamespaces": {
       "type": "array",

@@ -25,8 +25,6 @@ var registeredMetricNames = []string{
 	"kollect_export_spill_warn_total",
 	"kollect_custom_resource_series",
 	"kollect_custom_resource_labeled_series",
-	"kollect_hub_spoke_reports_total",
-	"kollect_hub_merged_items_total",
 }
 
 func TestCatalogMatchesRegisteredMetrics(t *testing.T) {

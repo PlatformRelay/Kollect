@@ -15,7 +15,6 @@ import (
 )
 
 // RowIdentity is the stable key for one collected row across targets.
-// Hub merge extends this with cluster id (see internal/hub/merge.go).
 type RowIdentity struct {
 	TargetNamespace string
 	TargetName      string

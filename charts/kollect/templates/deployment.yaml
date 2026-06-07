@@ -42,7 +42,6 @@ spec:
             {{- end }}
             - --max-concurrent-reconciles-target={{ .Values.controller.maxConcurrentReconciles.target }}
             - --max-concurrent-reconciles-inventory={{ .Values.controller.maxConcurrentReconciles.inventory }}
-            - --max-concurrent-reconciles-hub={{ .Values.controller.maxConcurrentReconciles.hub }}
             {{- if .Values.controller.reconcileRateLimit }}
             - --reconcile-rate-limit={{ .Values.controller.reconcileRateLimit }}
             {{- end }}
@@ -70,9 +69,6 @@ spec:
             {{- end }}
             {{- if .Values.scrubKeys }}
             - --scrub-keys={{ join "," .Values.scrubKeys }}
-            {{- end }}
-            {{- if and .Values.mode (ne .Values.mode "single") (ne .Values.mode "cluster") }}
-            - --mode={{ .Values.mode }}
             {{- end }}
             {{- with .Values.extraArgs }}
             {{- toYaml . | nindent 12 }}
@@ -115,27 +111,6 @@ spec:
             periodSeconds: 10
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          env:
-            - name: KOLLECT_TRANSPORT_TYPE
-              value: {{ .Values.transport.type | default "inprocess" | quote }}
-            {{- if eq .Values.mode "hub" }}
-            - name: KOLLECT_HUB_NAME
-              value: {{ .Values.hub.name | default "platform" | quote }}
-            - name: KOLLECT_HUB_INGEST_PORT
-              value: {{ .Values.hub.ingestPort | default 8083 | quote }}
-            - name: KOLLECT_HUB_INGEST_AUTH_MODE
-              value: {{ .Values.hub.ingestAuthMode | default "kubernetes" | quote }}
-            - name: KOLLECT_PLATFORM_NAMESPACE
-              value: {{ default .Release.Namespace .Values.hub.platformNamespace | quote }}
-            - name: KOLLECT_HUB_EXPORT_NAMESPACE
-              value: {{ default .Release.Namespace .Values.hub.exportNamespace | quote }}
-            {{- if .Values.hub.sinkRefs }}
-            - name: KOLLECT_HUB_SINK_REFS
-              value: {{ join "," .Values.hub.sinkRefs | quote }}
-            {{- end }}
-            - name: KOLLECT_REMOTE_CLUSTERS
-              value: {{ include "kollect.hubRemoteClusters" . | quote }}
-            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

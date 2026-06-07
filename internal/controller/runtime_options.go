@@ -17,7 +17,6 @@ type RuntimeOptions struct {
 	MaxConcurrentInventory        int
 	MaxConcurrentClusterTarget    int
 	MaxConcurrentClusterInventory int
-	MaxConcurrentHub              int
 	// ReconcileRateLimitBase, when > 0, sets the base delay for the per-item exponential
 	// failure rate limiter on each controller. When zero, controller-runtime defaults apply
 	// (5ms base, 1000s max — see controller-runtime pkg/controller/controller.go).
@@ -31,7 +30,6 @@ func DefaultRuntimeOptions() RuntimeOptions {
 		MaxConcurrentInventory:        3,
 		MaxConcurrentClusterTarget:    2,
 		MaxConcurrentClusterInventory: 2,
-		MaxConcurrentHub:              2,
 	}
 }
 

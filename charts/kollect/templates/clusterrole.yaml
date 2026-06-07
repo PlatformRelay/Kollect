@@ -30,7 +30,6 @@ rules:
       - kollectclustertargets
       - kollectconnectiontests
       - kollectinventories
-      - kollectremoteclusters
       - kollectclustersnapshotsinks
       - kollectclusterdatabasesinks
       - kollectclustereventsinks
@@ -44,7 +43,6 @@ rules:
       - kollectclusterinventories/finalizers
       - kollectclustertargets/finalizers
       - kollectinventories/finalizers
-      - kollectremoteclusters/finalizers
       - kollecttargets/finalizers
     verbs: [update]
   - apiGroups: [kollect.dev]
@@ -53,7 +51,6 @@ rules:
       - kollectclustertargets/status
       - kollectconnectiontests/status
       - kollectinventories/status
-      - kollectremoteclusters/status
       - kollectclustersnapshotsinks/status
       - kollectclusterdatabasesinks/status
       - kollectclustereventsinks/status

@@ -70,15 +70,6 @@ spec:
           annotations:
             summary: Kollect reconcile workqueue backlog
             description: In-flight reconciles are sustained above 10 — consider raising controller.maxConcurrentReconciles or reducing churn.
-        - alert: KollectHubSpokeReportFailures
-          expr: |
-            sum(increase(kollect_hub_spoke_reports_total{result="failure"}[15m])) > 0
-          for: 10m
-          labels:
-            severity: warning
-          annotations:
-            summary: Kollect hub spoke report failures
-            description: Hub ingest or transport failed to merge spoke inventory reports.
         {{- with dig "prometheusRule" "additionalRules" list .Values.metrics }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
