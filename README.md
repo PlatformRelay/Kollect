@@ -13,7 +13,7 @@
 <br />
 <a href="https://github.com/konih/kollect/actions/workflows/docs.yaml"><img src="https://github.com/konih/kollect/actions/workflows/docs.yaml/badge.svg" alt="Docs"></a>
 <a href="https://github.com/konih/kollect/actions/workflows/codeql.yaml"><img src="https://github.com/konih/kollect/actions/workflows/codeql.yaml/badge.svg" alt="CodeQL"></a>
-<a href="https://github.com/konih/kollect/releases"><img src="https://img.shields.io/github/v/release/konih/kollect?label=release" alt="Release"></a>
+<a href="https://github.com/konih/kollect/releases"><img src="https://img.shields.io/github/v/tag/konih/kollect?label=release" alt="Release"></a>
 <a href="https://codecov.io/gh/konih/kollect"><img src="https://codecov.io/gh/konih/kollect/graph/badge.svg" alt="codecov"></a>
 <br />
 <a href="https://github.com/konih/kollect/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
