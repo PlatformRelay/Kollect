@@ -73,6 +73,11 @@ type SinkCommonFields struct {
 	// +optional
 	Serialization *SerializationSpec `json:"serialization,omitempty"`
 
+	// layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419).
+	// The entire block is optional; omitting it yields a single readable inventory document.
+	// +optional
+	Layout *LayoutSpec `json:"layout,omitempty"`
+
 	// provisioning configures destination resource ownership (ADR-0416 §5).
 	// mode ensure (default) creates resources if missing; existing never creates and preflights existence.
 	// +optional
@@ -87,8 +92,8 @@ type SinkCommonFields struct {
 // SerializationSpec is the cross-cutting serialization and schema block shared by all sink
 // families (ADR-0416 §4). Honored fields depend on the backend capability matrix.
 type SerializationSpec struct {
-	// format selects the on-wire serialization (default json).
-	// +kubebuilder:validation:Enum=json;parquet;csv;ndjson
+	// format selects the on-wire serialization (default json; yaml default for git/gitlab).
+	// +kubebuilder:validation:Enum=json;yaml;parquet;csv;ndjson
 	// +optional
 	Format string `json:"format,omitempty"`
 

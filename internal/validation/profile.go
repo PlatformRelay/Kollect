@@ -17,6 +17,11 @@ const (
 	// AllowSecretExtractionAnnotation opts a Profile into Secret.data extraction paths.
 	//nolint:gosec // G101: annotation key name, not a credential
 	AllowSecretExtractionAnnotation = "kollect.dev/allow-secret-extraction"
+
+	// AllowFullResourceExportAnnotation opts a Profile into full-object export for
+	// sensitive kinds when export.mode is Resource (ADR-0306 §Security).
+	//nolint:gosec // G101: annotation key name, not a credential
+	AllowFullResourceExportAnnotation = kollectdevv1alpha1.AllowFullResourceExportAnnotation
 )
 
 // ProfileWarnings returns admission warnings for paths that are valid but discouraged (Phase 1).
@@ -35,6 +40,34 @@ func ProfileWarnings(profile *kollectdevv1alpha1.KollectProfile) []string {
 		}
 	}
 
+	warnings = append(warnings, exportWarnings(profile.Spec.Export)...)
+
+	return warnings
+}
+
+// exportWarnings flags export.prune features that are accepted but not yet enforced (Phase 1).
+func exportWarnings(export *kollectdevv1alpha1.ExportSpec) []string {
+	if export == nil || export.Prune == nil {
+		return nil
+	}
+
+	var warnings []string
+
+	for _, expr := range export.Prune.CEL {
+		warnings = append(warnings, fmt.Sprintf(
+			"export.prune.cel %q is reserved for Phase 2 and is not yet enforced by the collector",
+			expr,
+		))
+	}
+
+	for _, jp := range export.Prune.JSONPaths {
+		if collect.HasJSONPathFilter(jp) || strings.Contains(jp, "[*]") {
+			warnings = append(warnings, fmt.Sprintf(
+				"export.prune.jsonPaths %q: filter/wildcard expressions are not pruned in Phase 1", jp,
+			))
+		}
+	}
+
 	return warnings
 }
 
@@ -42,8 +75,110 @@ func ProfileWarnings(profile *kollectdevv1alpha1.KollectProfile) []string {
 func ValidateProfile(profile *kollectdevv1alpha1.KollectProfile) field.ErrorList {
 	allErrs := ValidateProfileSpec(&profile.Spec)
 	allErrs = append(allErrs, validateSecretDataAccess(profile)...)
+	allErrs = append(allErrs, validateExport(profile)...)
 
 	return allErrs
+}
+
+// validateExport enforces the export contract for full-resource export (ADR-0306).
+func validateExport(profile *kollectdevv1alpha1.KollectProfile) field.ErrorList {
+	export := profile.Spec.Export
+	if export == nil {
+		return nil
+	}
+
+	var allErrs field.ErrorList
+
+	exportPath := field.NewPath("spec").Child("export")
+	resourceMode := export.ResourceExportEnabled()
+
+	// mode: Attributes (explicit export block) still requires curated attributes.
+	if !resourceMode && len(profile.Spec.Attributes) == 0 {
+		allErrs = append(allErrs, field.Required(
+			field.NewPath("spec").Child("attributes"),
+			"spec.attributes is required when export.mode is Attributes",
+		))
+	}
+
+	// export.as must not collide with an explicit attribute name (ADR-0306).
+	asKey := export.AttributeKey()
+	if resourceMode {
+		for _, attr := range profile.Spec.Attributes {
+			if attr.Name == asKey {
+				allErrs = append(allErrs, field.Duplicate(exportPath.Child("as"), asKey))
+
+				break
+			}
+		}
+	}
+
+	if export.Prune != nil {
+		ptrPath := exportPath.Child("prune", "jsonPointers")
+		for i, ptr := range export.Prune.JSONPointers {
+			if err := validateRFC6901Pointer(ptr); err != nil {
+				allErrs = append(allErrs, field.Invalid(ptrPath.Index(i), ptr, err.Error()))
+			}
+		}
+	}
+
+	allErrs = append(allErrs, validateFullResourceExportSecret(profile, exportPath)...)
+
+	return allErrs
+}
+
+// validateFullResourceExportSecret guards Secret full-object export behind opt-in (ADR-0306 §Security).
+func validateFullResourceExportSecret(
+	profile *kollectdevv1alpha1.KollectProfile,
+	exportPath *field.Path,
+) field.ErrorList {
+	if !profile.Spec.Export.ResourceExportEnabled() {
+		return nil
+	}
+
+	if !isSecretTargetGVK(profile.Spec.TargetGVK) {
+		return nil
+	}
+
+	if allowFullResourceExport(profile.Annotations) {
+		return nil
+	}
+
+	return field.ErrorList{field.Forbidden(
+		exportPath.Child("mode"),
+		fmt.Sprintf(
+			"Resource export of Secret requires annotation %q: \"true\"",
+			AllowFullResourceExportAnnotation,
+		),
+	)}
+}
+
+func allowFullResourceExport(annotations map[string]string) bool {
+	return annotations != nil && annotations[AllowFullResourceExportAnnotation] == "true"
+}
+
+// validateRFC6901Pointer checks JSON Pointer syntax (RFC 6901): empty, or "/"-prefixed
+// tokens where "~" is only followed by 0 or 1.
+func validateRFC6901Pointer(pointer string) error {
+	pointer = strings.TrimSpace(pointer)
+	if pointer == "" {
+		return fmt.Errorf("empty JSON pointer")
+	}
+
+	if !strings.HasPrefix(pointer, "/") {
+		return fmt.Errorf("JSON pointer must start with '/'")
+	}
+
+	for i := 0; i < len(pointer); i++ {
+		if pointer[i] != '~' {
+			continue
+		}
+
+		if i+1 >= len(pointer) || (pointer[i+1] != '0' && pointer[i+1] != '1') {
+			return fmt.Errorf("invalid escape: '~' must be followed by '0' or '1'")
+		}
+	}
+
+	return nil
 }
 
 // ValidateProfileSpec checks target GVK and attribute paths (CEL compile + JSONPath syntax).

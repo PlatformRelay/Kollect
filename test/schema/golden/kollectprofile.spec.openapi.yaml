@@ -1,7 +1,9 @@
 description: spec defines the desired state of KollectProfile
 properties:
   attributes:
-    description: attributes lists the values to extract from each matching resource.
+    description: |-
+      attributes lists the values to extract from each matching resource.
+      Required when export.mode is Attributes (default); optional when export.mode is Resource.
     items:
       description: AttributeSpec describes a single value extracted from a target
         resource.
@@ -29,6 +31,78 @@ properties:
     x-kubernetes-list-map-keys:
     - name
     x-kubernetes-list-type: map
+  export:
+    description: |-
+      export optionally enables full-resource export with path pruning (ADR-0306).
+      When omitted, the profile behaves as export.mode: Attributes.
+    properties:
+      as:
+        default: resource
+        description: as is the attribute key under which the embedded pruned object
+          is stored.
+        type: string
+      dedupeIdentity:
+        description: |-
+          dedupeIdentity strips identity fields already carried on the Item envelope
+          (uid, namespace, name, GVK) from the embedded object to avoid triple storage.
+          Defaults to true.
+        type: boolean
+      include:
+        default: SpecAndStatus
+        description: include selects which top-level object sections survive pruning.
+        enum:
+        - MetadataOnly
+        - SpecOnly
+        - StatusOnly
+        - SpecAndStatus
+        - All
+        type: string
+      mode:
+        default: Attributes
+        description: |-
+          mode selects between curated attribute extraction and full-resource export.
+          Attributes (default) keeps current behaviour; Resource embeds a pruned object.
+        enum:
+        - Attributes
+        - Resource
+        type: string
+      prune:
+        description: prune declares path-based exclusions applied to the embedded
+          object.
+        properties:
+          cel:
+            description: |-
+              cel lists CEL predicates evaluated against the object; true drops the matched
+              value. Reserved for Phase 2 — not yet enforced by the collector.
+            items:
+              type: string
+            type: array
+          defaults:
+            description: |-
+              defaults applies built-in noise exclusions (managedFields, resourceVersion,
+              generation, last-applied-configuration, argo tracking-id). Defaults to true.
+            type: boolean
+          jsonPaths:
+            description: jsonPaths lists kubectl/JSONPath expressions to drop (warn-only
+              parse in Phase 1).
+            items:
+              type: string
+            type: array
+          jsonPointers:
+            description: jsonPointers lists RFC 6901 pointers to drop, matching Argo
+              CD ignoreDifferences UX.
+            items:
+              type: string
+            type: array
+          scrubKeys:
+            description: |-
+              scrubKeys lists case-insensitive key names redacted at any depth, merging with
+              the operator scrubKeys denylist (ADR-0303).
+            items:
+              type: string
+            type: array
+        type: object
+    type: object
   metrics:
     description: |-
       metrics lists kube-state-metrics-style Prometheus series emitted on operator /metrics.

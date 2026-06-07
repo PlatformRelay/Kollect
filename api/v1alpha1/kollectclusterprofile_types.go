@@ -15,10 +15,16 @@ type KollectClusterProfileSpec struct {
 	TargetGVK GroupVersionKind `json:"targetGVK"`
 
 	// attributes lists the values to extract from each matching resource.
+	// Required when export.mode is Attributes (default); optional when export.mode is Resource.
 	// +listType=map
 	// +listMapKey=name
 	// +optional
 	Attributes []AttributeSpec `json:"attributes,omitempty"`
+
+	// export optionally enables full-resource export with path pruning (ADR-0306).
+	// When omitted, the profile behaves as export.mode: Attributes.
+	// +optional
+	Export *ExportSpec `json:"export,omitempty"`
 
 	// metrics lists kube-state-metrics-style Prometheus series emitted on operator /metrics.
 	// +listType=map

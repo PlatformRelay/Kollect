@@ -88,6 +88,74 @@ spec:
                 - brokers
                 - topic
                 type: object
+              layout:
+                description: |-
+                  layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419).
+                  The entire block is optional; omitting it yields a single readable inventory document.
+                properties:
+                  content:
+                    default: item
+                    description: |-
+                      content selects the per-file payload: item (full Item row, default),
+                      attributes (Item.attributes only), or manifest (native object, ADR-0306 Resource export).
+                    enum:
+                    - item
+                    - attributes
+                    - manifest
+                    type: string
+                  filename:
+                    description: filename tunes path-segment sanitization and grouping.
+                    properties:
+                      groupInPath:
+                        description: |-
+                          groupInPath controls the {group} segment: auto (omit for core types, default),
+                          always, or never.
+                        enum:
+                        - auto
+                        - always
+                        - never
+                        type: string
+                      lowercaseKind:
+                        description: lowercaseKind lowercases {kind} in paths (default
+                          true).
+                        type: boolean
+                      maxSegmentLength:
+                        description: maxSegmentLength caps each path segment for DNS
+                          safety (default 63).
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    type: object
+                  index:
+                    description: index configures the split-mode index sidecar.
+                    properties:
+                      enabled:
+                        description: enabled toggles the index sidecar (default false;
+                          true in split mode).
+                        type: boolean
+                      pathTemplate:
+                        description: pathTemplate is the index file path (default
+                          inventory/{namespace}/{name}{extension}).
+                        type: string
+                    type: object
+                  mode:
+                    default: document
+                    description: |-
+                      mode selects the on-disk layout: document (one inventory file, default),
+                      perResource (one file per Item), or split (index sidecar + per-resource tree).
+                    enum:
+                    - document
+                    - perResource
+                    - split
+                    type: string
+                  pathTemplate:
+                    description: |-
+                      pathTemplate is the per-item path used when mode is perResource or split.
+                      Placeholders: {cluster}, {namespace}, {name}, {targetNamespace}, {targetName},
+                      {sourceNamespace}, {sourceName}, {group}, {kind}, {uid}, {generation}, {extension}.
+                      Default: {cluster}/{sourceNamespace}/{kind}/{sourceName}{extension}
+                    type: string
+                type: object
               nats:
                 description: nats configures NATS JetStream inventory change events.
                 properties:
@@ -183,9 +251,10 @@ spec:
                     type: string
                   format:
                     description: format selects the on-wire serialization (default
-                      json).
+                      json; yaml default for git/gitlab).
                     enum:
                     - json
+                    - yaml
                     - parquet
                     - csv
                     - ndjson

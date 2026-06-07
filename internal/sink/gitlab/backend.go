@@ -84,6 +84,43 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 	return EnsureMergeRequest(ctx, b.cfg, b.cfg.MergeRequest, featureBranch, invNS, invName, token, strings.TrimSpace(b.auth.Username))
 }
 
+// ExportFiles writes a projected layout tree in a single commit and pushes to GitLab (ADR-0419).
+func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, prune bool) error {
+	if len(files) == 0 {
+		return fmt.Errorf("gitlab export: no files to write")
+	}
+
+	commitCtx, ok := git.CommitContextFromContext(ctx)
+	if !ok {
+		commitCtx = git.CommitContextFromObjectPath(files[0].Path, b.cfg.GitConfig().Cluster)
+	}
+
+	invNS, invName := commitCtx.Namespace, commitCtx.Name
+
+	var branchSpec *git.BranchSpec
+	featureBranch := BranchNameForExport(b.cfg.MergeRequest.BranchPrefix, invNS, invName)
+	if b.cfg.MergeRequest.Mode == MergeRequestModeBranchMR {
+		branchSpec = &git.BranchSpec{
+			PushBranch:  featureBranch,
+			CloneBranch: b.cfg.MergeRequest.TargetBranch,
+		}
+	}
+
+	cfg := b.cfg.GitConfig()
+	cfg.Prune = cfg.Prune || prune
+
+	if err := git.ExportFilesWithBranch(ctx, cfg, b.auth, files, branchSpec, commitCtx); err != nil {
+		return err
+	}
+
+	token := strings.TrimSpace(b.auth.Token)
+	if token == "" {
+		token = strings.TrimSpace(b.auth.Password)
+	}
+
+	return EnsureMergeRequest(ctx, b.cfg, b.cfg.MergeRequest, featureBranch, invNS, invName, token, strings.TrimSpace(b.auth.Username))
+}
+
 func inventoryFromObjectPath(objectPath string) (namespace, name string, err error) {
 	clean := strings.Trim(path.Clean(objectPath), "/")
 	parts := strings.Split(clean, "/")

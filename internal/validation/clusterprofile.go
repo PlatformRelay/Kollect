@@ -22,6 +22,7 @@ func ValidateClusterProfile(profile *kollectdevv1alpha1.KollectClusterProfile) f
 		Spec: kollectdevv1alpha1.KollectProfileSpec{
 			TargetGVK:  profile.Spec.TargetGVK,
 			Attributes: profile.Spec.Attributes,
+			Export:     profile.Spec.Export,
 			Metrics:    profile.Spec.Metrics,
 		},
 	}
@@ -32,9 +33,11 @@ func ValidateClusterProfile(profile *kollectdevv1alpha1.KollectClusterProfile) f
 // ClusterProfileWarnings returns admission warnings for paths that are valid but discouraged.
 func ClusterProfileWarnings(profile *kollectdevv1alpha1.KollectClusterProfile) []string {
 	proxy := &kollectdevv1alpha1.KollectProfile{
+		ObjectMeta: profile.ObjectMeta,
 		Spec: kollectdevv1alpha1.KollectProfileSpec{
 			TargetGVK:  profile.Spec.TargetGVK,
 			Attributes: profile.Spec.Attributes,
+			Export:     profile.Spec.Export,
 			Metrics:    profile.Spec.Metrics,
 		},
 	}

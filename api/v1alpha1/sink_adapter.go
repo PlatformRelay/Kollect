@@ -18,6 +18,7 @@ func (s *KollectSnapshotSinkSpec) ToKollectSinkSpec() KollectSinkSpec {
 		PathTemplate:      s.PathTemplate,
 		ExportMinInterval: s.ExportMinInterval,
 		Serialization:     s.Serialization,
+		Layout:            s.Layout,
 		Provisioning:      s.Provisioning,
 		Options:           s.Options,
 		Git:               s.Git,

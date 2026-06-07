@@ -48,6 +48,8 @@ func clusterProfileAsProfile(cp *kollectdevv1alpha1.KollectClusterProfile) *koll
 		Spec: kollectdevv1alpha1.KollectProfileSpec{
 			TargetGVK:  cp.Spec.TargetGVK,
 			Attributes: cp.Spec.Attributes,
+			Export:     cp.Spec.Export,
+			Metrics:    cp.Spec.Metrics,
 		},
 	}
 }

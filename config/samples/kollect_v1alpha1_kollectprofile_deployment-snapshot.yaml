@@ -1,0 +1,36 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: deployment-snapshot
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  targetGVK:
+    group: apps
+    version: v1
+    kind: Deployment
+  # Full-resource export with path pruning (ADR-0306). The pruned object is stored
+  # under Item.attributes.resource; built-in noise (managedFields, resourceVersion,
+  # generation, last-applied-configuration) is dropped automatically.
+  export:
+    mode: Resource
+    as: resource
+    include: SpecAndStatus
+    prune:
+      defaults: true
+      jsonPointers:
+        - /status/conditions
+        - /metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration
+      jsonPaths:
+        - '$.metadata.labels["pod-template-hash"]'
+      scrubKeys:
+        - password
+        - token
+  # Hybrid mode: derived attributes computed alongside the embedded object.
+  attributes:
+    - name: containerCount
+      path: 'cel:size(object.spec.template.spec.containers)'
+      type: int
+      optional: true

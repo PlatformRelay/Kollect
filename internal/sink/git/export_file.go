@@ -18,14 +18,9 @@ func exportViaCLI(
 	cfg Config,
 	auth Auth,
 	cloneURL, cloneBranch, pushBranch string,
-	payload []byte,
-	objectPath string,
+	files []FileEntry,
 	commitCtx CommitContext,
 ) error {
-	if _, err := validateObjectPath(objectPath); err != nil {
-		return fmt.Errorf("git export: %w", err)
-	}
-
 	authType := auth.AuthType
 	if authType == "" {
 		authType = cfg.AuthType
@@ -54,26 +49,35 @@ func exportViaCLI(
 		return err
 	}
 
-	target, gitObjectPath, err := objectPathInWorkdir(workdir, objectPath)
-	if err != nil {
-		return fmt.Errorf("git export: %w", err)
-	}
+	gitObjectPaths := make([]string, 0, len(files))
+	for _, f := range files {
+		target, gitObjectPath, pathErr := objectPathInWorkdir(workdir, f.Path)
+		if pathErr != nil {
+			return fmt.Errorf("git export: %w", pathErr)
+		}
 
-	if mkdirErr := os.MkdirAll(filepath.Dir(target), 0o750); mkdirErr != nil { //nolint:gosec // G301: temp dir
-		return fmt.Errorf("mkdir object parent: %w", mkdirErr)
-	}
+		if mkdirErr := os.MkdirAll(filepath.Dir(target), 0o750); mkdirErr != nil { //nolint:gosec // G301: temp dir
+			return fmt.Errorf("mkdir object parent: %w", mkdirErr)
+		}
 
-	//nolint:gosec // G306: temp file in validated workdir
-	if writeErr := os.WriteFile(target, payload, 0o600); writeErr != nil {
-		return fmt.Errorf("write object: %w", writeErr)
+		//nolint:gosec // G306: temp file in validated workdir
+		if writeErr := os.WriteFile(target, f.Data, 0o600); writeErr != nil {
+			return fmt.Errorf("write object: %w", writeErr)
+		}
+
+		gitObjectPaths = append(gitObjectPaths, gitObjectPath)
 	}
 
 	if cfg.Prune {
 		if err = gitAddAll(ctx, workdir, cli); err != nil {
 			return err
 		}
-	} else if err = gitAddPath(ctx, workdir, gitObjectPath, cli); err != nil {
-		return err
+	} else {
+		for _, gitObjectPath := range gitObjectPaths {
+			if err = gitAddPath(ctx, workdir, gitObjectPath, cli); err != nil {
+				return err
+			}
+		}
 	}
 
 	clean, statusErr := gitStatusClean(ctx, workdir, cli)

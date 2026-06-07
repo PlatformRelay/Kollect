@@ -56,9 +56,35 @@ func ExportWithBranch(
 		return fmt.Errorf("git export: empty payload")
 	}
 
+	return ExportFilesWithBranch(ctx, cfg, auth, []FileEntry{{Path: objectPath, Data: payload}}, branch, commitCtx)
+}
+
+// FileEntry is one repo file written in a multi-file git export (ADR-0419 layout tree).
+type FileEntry struct {
+	// Path is the repo-relative slash path.
+	Path string
+	// Data is the file content.
+	Data []byte
+}
+
+// ExportFilesWithBranch writes a set of files in a single commit and pushes to the remote (ADR-0419).
+// Document-mode exports pass one file; perResource/split layouts pass the projected tree. Prune
+// (cfg.Prune) stages deletions of stale files so removed resources drop out of the repo.
+func ExportFilesWithBranch(
+	ctx context.Context,
+	cfg Config,
+	auth Auth,
+	files []FileEntry,
+	branch *BranchSpec,
+	commitCtx CommitContext,
+) error {
+	if len(files) == 0 {
+		return fmt.Errorf("git export: no files to write")
+	}
+
 	cfg = cfg.withDefaults()
 
-	req, err := validateExportRequest(cfg, objectPath, branch)
+	req, validated, err := validateExportFiles(cfg, files, branch)
 	if err != nil {
 		return err
 	}
@@ -79,7 +105,7 @@ func ExportWithBranch(
 	if isFileRemote(req.cloneURL) || cfg.Engine == GitEngineCLI {
 		var exportErr error
 		if err := withRepoExportLock(lockKey, req.pushBranch, func() error {
-			exportErr = exportViaCLI(ctx, cfg, auth, req.cloneURL, req.cloneBranch, req.pushBranch, payload, req.objectPath, commitCtx)
+			exportErr = exportViaCLI(ctx, cfg, auth, req.cloneURL, req.cloneBranch, req.pushBranch, validated, commitCtx)
 			if exportErr == nil {
 				fingerprintTracker.record(fpKey, commitCtx.Checksum)
 			}
@@ -94,7 +120,7 @@ func ExportWithBranch(
 
 	var exportErr error
 	if err := withRepoExportLock(lockKey, req.pushBranch, func() error {
-		exportErr = exportRemote(ctx, cfg, auth, req, payload, commitCtx)
+		exportErr = exportRemote(ctx, cfg, auth, req, validated, commitCtx)
 		if exportErr == nil {
 			fingerprintTracker.record(fpKey, commitCtx.Checksum)
 		}
@@ -112,7 +138,7 @@ func exportRemote(
 	cfg Config,
 	auth Auth,
 	req exportRequest,
-	payload []byte,
+	files []FileEntry,
 	commitCtx CommitContext,
 ) error {
 	authType := auth.AuthType
@@ -156,15 +182,20 @@ func exportRemote(
 		return fmt.Errorf("checkout branch: %w", checkoutErr)
 	}
 
-	if mkdirErr := wt.Filesystem.MkdirAll(filepath.Dir(req.objectPath), 0o750); mkdirErr != nil {
-		return fmt.Errorf("mkdir object parent: %w", mkdirErr)
+	writtenPaths := make([]string, 0, len(files))
+	for _, f := range files {
+		if mkdirErr := wt.Filesystem.MkdirAll(filepath.Dir(f.Path), 0o750); mkdirErr != nil {
+			return fmt.Errorf("mkdir object parent: %w", mkdirErr)
+		}
+
+		if writeErr := util.WriteFile(wt.Filesystem, f.Path, f.Data, 0o600); writeErr != nil {
+			return fmt.Errorf("write object: %w", writeErr)
+		}
+
+		writtenPaths = append(writtenPaths, f.Path)
 	}
 
-	if writeErr := util.WriteFile(wt.Filesystem, req.objectPath, payload, 0o600); writeErr != nil {
-		return fmt.Errorf("write object: %w", writeErr)
-	}
-
-	if stageErr := stageChanges(wt, req.objectPath, cfg.Prune); stageErr != nil {
+	if stageErr := stageChanges(wt, writtenPaths, cfg.Prune); stageErr != nil {
 		return stageErr
 	}
 
@@ -192,10 +223,12 @@ func exportRemote(
 	return pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, commit, wt)
 }
 
-func stageChanges(wt *git.Worktree, objectPath string, prune bool) error {
+func stageChanges(wt *git.Worktree, objectPaths []string, prune bool) error {
 	if !prune {
-		if _, addErr := wt.Add(objectPath); addErr != nil {
-			return fmt.Errorf("git add: %w", addErr)
+		for _, objectPath := range objectPaths {
+			if _, addErr := wt.Add(objectPath); addErr != nil {
+				return fmt.Errorf("git add: %w", addErr)
+			}
 		}
 
 		return nil

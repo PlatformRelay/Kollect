@@ -45,6 +45,38 @@ func TestKollectProfileValidator_ValidateCreate(t *testing.T) {
 	}
 }
 
+func TestKollectProfileValidator_resourceExportSecretGuard(t *testing.T) {
+	t.Parallel()
+
+	v := &kollectProfileValidator{}
+	secret := kollectdevv1alpha1.GroupVersionKind{Version: "v1", Kind: "Secret"}
+
+	_, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "secret-snapshot"},
+		Spec: kollectdevv1alpha1.KollectProfileSpec{
+			TargetGVK: secret,
+			Export:    &kollectdevv1alpha1.ExportSpec{Mode: kollectdevv1alpha1.ExportModeResource},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected Secret resource export to be rejected without opt-in annotation")
+	}
+
+	_, err = v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "secret-snapshot",
+			Annotations: map[string]string{kollectdevv1alpha1.AllowFullResourceExportAnnotation: "true"},
+		},
+		Spec: kollectdevv1alpha1.KollectProfileSpec{
+			TargetGVK: secret,
+			Export:    &kollectdevv1alpha1.ExportSpec{Mode: kollectdevv1alpha1.ExportModeResource},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected Secret resource export to pass with annotation: %v", err)
+	}
+}
+
 func TestKollectProfileValidator_ValidateUpdateDelete(t *testing.T) {
 	t.Parallel()
 

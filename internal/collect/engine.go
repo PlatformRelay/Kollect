@@ -92,6 +92,7 @@ type Engine struct {
 	access    *AccessChecker
 	extractor *Extractor
 	scrubber  *Scrubber
+	scrubKeys []string
 	store     *Store
 	runCtx    context.Context
 
@@ -171,7 +172,32 @@ func (e *Engine) SetNamespaceDefaults(defaults NamespaceDefaults) {
 func (e *Engine) SetScrubKeys(keys []string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	e.scrubKeys = append([]string(nil), keys...)
 	e.scrubber = NewScrubber(keys)
+}
+
+// scrubberForProfile returns the operator scrubber, merging in profile prune.scrubKeys
+// for full-resource export (ADR-0306 §Security). Built-in denylist always applies.
+func (e *Engine) scrubberForProfile(profile kollectdevv1alpha1.KollectProfile) *Scrubber {
+	e.mu.RLock()
+	base := e.scrubber
+	opKeys := e.scrubKeys
+	e.mu.RUnlock()
+
+	var extra []string
+	if profile.Spec.Export != nil && profile.Spec.Export.Prune != nil {
+		extra = profile.Spec.Export.Prune.ScrubKeys
+	}
+
+	if len(extra) == 0 {
+		return base
+	}
+
+	merged := make([]string, 0, len(opKeys)+len(extra))
+	merged = append(merged, opKeys...)
+	merged = append(merged, extra...)
+
+	return NewScrubber(merged)
 }
 
 // RegisterTarget records the target and ensures a dynamic informer exists for its profile GVK.
@@ -596,7 +622,16 @@ func (e *Engine) processDispatch(
 			continue
 		}
 
-		attrs = e.scrubber.ScrubAttributes(attrs)
+		scrubber := e.scrubberForProfile(st.profile)
+		attrs = scrubber.ScrubAttributes(attrs)
+
+		if st.profile.Spec.Export.ResourceExportEnabled() {
+			if attrs == nil {
+				attrs = make(map[string]any, 1)
+			}
+
+			attrs[st.profile.Spec.Export.AttributeKey()] = PruneResource(u, st.profile.Spec.Export, scrubber)
+		}
 
 		gvkLabel := fmt.Sprintf("%s/%s/%s", st.profile.Spec.TargetGVK.Group,
 			st.profile.Spec.TargetGVK.Version, st.profile.Spec.TargetGVK.Kind)

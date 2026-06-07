@@ -54,6 +54,7 @@ flowchart TD
 | `spec.attributes[].path` | string | Yes | JSONPath (`$.…`) or `cel:…` expression |
 | `spec.attributes[].type` | string | No | Hint: `string`, `int`, `list`, … |
 | `spec.attributes[].optional` | bool | No | Non-fatal when extraction yields no value |
+| `spec.export` | object | No | Full-resource export with path pruning (same shape as `KollectProfile`; [ADR-0306](../adr/0306-full-resource-export-pruning.md)) |
 | `spec.metrics[]` | list | No | KSM-style Prometheus series (same shape as `KollectProfile`; [ADR-0304](../adr/0304-custom-resource-aggregation-rfc.md)) |
 
 Validation reuses the `KollectProfile` admission rules: CEL compile, JSONPath shape, duplicate

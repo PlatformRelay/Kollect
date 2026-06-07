@@ -42,6 +42,7 @@ New readers: [REQUIREMENTS.md](../REQUIREMENTS.md) → theme **02** (CRD model) 
 | [0303](0303-helm-release-inventory.md) | Helm / Argo release inventory sample + redaction | Current |
 | [0304](0304-custom-resource-aggregation-rfc.md) | Custom-resource metrics and richer aggregation | Exploring |
 | [0305](0305-aggregation-dedupe.md) | Aggregation, row identity, and dedupe semantics | Current |
+| [0306](0306-full-resource-export-pruning.md) | Full resource export with path pruning | Accepted |
 
 ## 04 · Export, sinks, read API & UI
 
@@ -65,6 +66,7 @@ New readers: [REQUIREMENTS.md](../REQUIREMENTS.md) → theme **02** (CRD model) 
 | [0416](0416-sink-config-layering.md) | Sink configuration layering | Current |
 | [0417](0417-mongodb-database-sink.md) | MongoDB database sink | Current |
 | [0418](0418-fleet-console-read-plane.md) | Fleet console read plane (event-fed, `cluster` dimension) | Exploring |
+| [0419](0419-git-export-serialization-layout.md) | Git export serialization and layout (YAML default, zero-config) | Exploring |
 
 ## 05 · Multi-cluster fleet
 

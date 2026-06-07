@@ -47,8 +47,10 @@ const (
 
 // Cross-cutting serialization formats for the serialization block (ADR-0416 §4).
 // json is the zero-config default; backend capability gates which others are honored.
+// yaml is the Git/GitLab default for human-readable snapshots (ADR-0419).
 const (
 	SerializationFormatJSON    = "json"
+	SerializationFormatYAML    = "yaml"
 	SerializationFormatParquet = "parquet"
 	SerializationFormatCSV     = "csv"
 	SerializationFormatNDJSON  = "ndjson"

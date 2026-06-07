@@ -92,6 +92,10 @@ type KollectSinkSpec struct {
 	// +optional
 	Serialization *SerializationSpec `json:"serialization,omitempty"`
 
+	// layout is the normalized snapshot Git/GitLab layout block (ADR-0419).
+	// +optional
+	Layout *LayoutSpec `json:"layout,omitempty"`
+
 	// provisioning is the normalized cross-cutting resource-ownership block (ADR-0416 §5).
 	// +optional
 	Provisioning *ProvisioningSpec `json:"provisioning,omitempty"`

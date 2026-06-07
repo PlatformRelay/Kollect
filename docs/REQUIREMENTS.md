@@ -74,6 +74,7 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | FR-COL-4 | Watch opt-in/opt-out via `kollect.dev/watch` labels and `watchMode: All\|OptIn` | [ADR-0205](adr/0205-watch-labels.md) |
 | FR-COL-5 | Never extract `Secret.data` (incl. Helm `data.release`) without explicit opt-in; redact sensitive keys | [ADR-0303](adr/0303-helm-release-inventory.md) |
 | FR-COL-6 | Ship tested sample profiles + contract tests (Deployment, Argo `Application`, cert-manager `Certificate`, …) | [ADR-0301](adr/0301-event-driven-informers.md), [ADR-0303](adr/0303-helm-release-inventory.md) |
+| FR-COL-7 | Optional **full-resource export** (`export.mode: Resource`): embed a pruned target object via Argo-style RFC 6901 `jsonPointers`, JSONPath, built-in defaults, and merged `scrubKeys`; Secret/sensitive kinds require `kollect.dev/allow-full-resource-export` opt-in and stay within size governance | [ADR-0306](adr/0306-full-resource-export-pruning.md), [ADR-0303](adr/0303-helm-release-inventory.md), [ADR-0405](adr/0405-export-data-contract.md) |
 
 ### 3.3 Aggregation & export (FR-EXP)
 

@@ -23,6 +23,26 @@ in-memory snapshot is canonical; every sink is a projection ([ADR-0401](adr/0401
     Semver milestones (0.2 → 0.10) track **release tranches**, not build phases. Phases 0–4 below
     describe **implementation order**. See [RELEASE.md — Versioning policy](RELEASE.md#versioning-policy).
 
+## Top priority — Full resource export + pruning (ADR-0306)
+
+**#1 build item.** Full-resource export lets a profile snapshot an entire target object (minus noise)
+instead of hand-authoring every attribute — the foundation for audit/drift snapshots, exploratory
+profiles, and GitOps debugging. It precedes the Fleet UI, Read API freeze, and remaining sink work.
+
+See [ADR-0306](adr/0306-full-resource-export-pruning.md) — **Accepted, Phase 1 shipped**.
+
+| Scope item | Status |
+| --- | --- |
+| `spec.export` block on `KollectProfile` / `KollectClusterProfile` (`mode`, `as`, `include`, `dedupeIdentity`) | ✅ |
+| Collector serializes pruned informer object when `export.mode: Resource` | ✅ |
+| Built-in defaults pruning (`prune.defaults`: managedFields, resourceVersion, generation, last-applied-config) | ✅ |
+| Argo-style `prune.jsonPointers` (RFC 6901) + JSONPath subset `prune.jsonPaths` | ✅ |
+| `prune.scrubKeys` merged with operator scrubKeys + integration with scrub/redaction stack ([ADR-0303](adr/0303-helm-release-inventory.md), [ADR-0104](adr/0104-security-model.md)) | ✅ |
+| Admission guard: Secret/sensitive kinds require `kollect.dev/allow-full-resource-export` annotation | ✅ |
+| Size governance honored — full-object rows count toward `maxExportBytes` ([ADR-0405](adr/0405-export-data-contract.md)) | ✅ |
+| Docs, `config/samples/` (deployment-snapshot, argo-application-snapshot), unit + envtest coverage | ✅ |
+| Phase 2: `prune.cel`, `prune.preset`, jqPathExpressions alias, nested-object metrics, scope-level `allowResourceExport` | ⬜ |
+
 ## Status legend
 
 | Mark | Meaning |

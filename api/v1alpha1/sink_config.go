@@ -6,6 +6,8 @@ package v1alpha1
 import "strings"
 
 // EffectiveSerializationFormat returns the on-wire format for a normalized sink spec (ADR-0416).
+// Git and GitLab snapshot sinks default to yaml for human-readable repos (ADR-0419); all other
+// backends keep json as the zero-config default.
 func EffectiveSerializationFormat(spec *KollectSinkSpec) string {
 	if spec == nil {
 		return SerializationFormatJSON
@@ -23,7 +25,18 @@ func EffectiveSerializationFormat(spec *KollectSinkSpec) string {
 		}
 	}
 
-	return SerializationFormatJSON
+	return DefaultFormatForSinkType(spec.Type)
+}
+
+// DefaultFormatForSinkType returns the zero-config serialization format for a sink type (ADR-0419).
+// Git/GitLab default to yaml; everything else defaults to json.
+func DefaultFormatForSinkType(sinkType string) string {
+	switch strings.ToLower(strings.TrimSpace(sinkType)) {
+	case SinkTypeGit, SinkTypeGitLab:
+		return SerializationFormatYAML
+	default:
+		return SerializationFormatJSON
+	}
 }
 
 // EffectiveProvisioningMode returns the provisioning mode for a normalized sink spec (ADR-0416).

@@ -264,8 +264,7 @@ func TestExportViaCLI_rejectsTraversalBeforeWrite(t *testing.T) {
 		"file://"+bare,
 		"main",
 		"main",
-		[]byte(`{"x":1}`),
-		"../outside.json",
+		[]FileEntry{{Path: "../outside.json", Data: []byte(`{"x":1}`)}},
 		CommitContext{},
 	)
 	if err == nil {

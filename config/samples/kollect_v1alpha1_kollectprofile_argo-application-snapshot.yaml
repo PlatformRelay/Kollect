@@ -1,0 +1,29 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: argo-application-snapshot
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  targetGVK:
+    group: argoproj.io
+    version: v1alpha1
+    kind: Application
+  # Audit-friendly snapshot of Argo CD Applications using Argo-style ignoreDifferences
+  # JSON Pointers to drop high-churn status subtrees (ADR-0306).
+  export:
+    mode: Resource
+    as: application
+    include: SpecAndStatus
+    prune:
+      defaults: true
+      jsonPointers:
+        - /status/operationState
+        - /status/reconciledAt
+  attributes:
+    - name: syncRevision
+      path: '$.status.sync.revision'
+      type: string
+      optional: true

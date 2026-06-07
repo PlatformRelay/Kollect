@@ -57,42 +57,61 @@ type exportRequest struct {
 	objectPath  string
 }
 
-func validateExportRequest(cfg Config, objectPath string, branch *BranchSpec) (exportRequest, error) {
-	validatedPath, err := validateObjectPath(objectPath)
-	if err != nil {
-		return exportRequest{}, fmt.Errorf("git export: %w", err)
+// validateExportFiles validates the remote, branches, and every file path for a multi-file export.
+// It returns the resolved request (with a representative objectPath for fingerprinting) and the
+// validated file set with normalized relative paths.
+func validateExportFiles(cfg Config, files []FileEntry, branch *BranchSpec) (exportRequest, []FileEntry, error) {
+	if len(files) == 0 {
+		return exportRequest{}, nil, fmt.Errorf("git export: no files to write")
 	}
 
-	objectPath = validatedPath
-	if objectPath == "" {
-		objectPath = defaultObjectKey
+	validated := make([]FileEntry, 0, len(files))
+	seen := make(map[string]struct{}, len(files))
+	for _, f := range files {
+		if len(f.Data) == 0 {
+			return exportRequest{}, nil, fmt.Errorf("git export: empty payload for %q", f.Path)
+		}
+
+		validatedPath, err := validateObjectPath(f.Path)
+		if err != nil {
+			return exportRequest{}, nil, fmt.Errorf("git export: %w", err)
+		}
+		if validatedPath == "" {
+			validatedPath = defaultObjectKey
+		}
+		if _, dup := seen[validatedPath]; dup {
+			return exportRequest{}, nil, fmt.Errorf("git export: duplicate path %q", validatedPath)
+		}
+		seen[validatedPath] = struct{}{}
+
+		validated = append(validated, FileEntry{Path: validatedPath, Data: f.Data})
 	}
 
 	cloneURL, defaultBranch, err := parseRemote(cfg.Endpoint)
 	if err != nil {
-		return exportRequest{}, err
+		return exportRequest{}, nil, err
 	}
 
 	if err = validateCloneURL(cloneURL); err != nil {
-		return exportRequest{}, fmt.Errorf("git export: %w", err)
+		return exportRequest{}, nil, fmt.Errorf("git export: %w", err)
 	}
 
 	cloneBranch, pushBranch := resolveBranches(cfg.EffectiveBranch(defaultBranch), branch)
 
 	if err = ValidateGitRef(cloneBranch); err != nil {
-		return exportRequest{}, fmt.Errorf("git export: invalid clone branch: %w", err)
+		return exportRequest{}, nil, fmt.Errorf("git export: invalid clone branch: %w", err)
 	}
 
 	if err = ValidateGitRef(pushBranch); err != nil {
-		return exportRequest{}, fmt.Errorf("git export: invalid push branch: %w", err)
+		return exportRequest{}, nil, fmt.Errorf("git export: invalid push branch: %w", err)
 	}
 
 	return exportRequest{
 		cloneURL:    cloneURL,
 		cloneBranch: cloneBranch,
 		pushBranch:  pushBranch,
-		objectPath:  objectPath,
-	}, nil
+		objectPath:  validated[0].Path,
+	}, validated, nil
 }
 
 func validateCloneURL(cloneURL string) error {

@@ -6,6 +6,8 @@ resources:
 - kollect_v1alpha1_kollectprofile_helm-release-summary.yaml
 - kollect_v1alpha1_kollectprofile_helm-release-values-redacted.yaml
 - kollect_v1alpha1_kollectprofile_argo-application-summary.yaml
+- kollect_v1alpha1_kollectprofile_deployment-snapshot.yaml
+- kollect_v1alpha1_kollectprofile_argo-application-snapshot.yaml
 - kollect_v1alpha1_kollectsnapshotsink.yaml
 - kollect_v1alpha1_kollectsnapshotsink_s3.yaml
 - kollect_v1alpha1_kollectdatabasesink.yaml
