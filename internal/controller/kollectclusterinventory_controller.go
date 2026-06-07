@@ -72,68 +72,71 @@ func (r *KollectClusterInventoryReconciler) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if !inv.DeletionTimestamp.IsZero() {
-		return r.finalizeClusterInventoryDeletion(ctx, &inv)
-	}
-
-	if err := r.ensureClusterInventoryFinalizer(ctx, &inv); err != nil {
-		if apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+	return guardReconcile(ctx, r.Recorder, &inv, func() (ctrl.Result, error) {
+		if !inv.DeletionTimestamp.IsZero() {
+			return r.finalizeClusterInventoryDeletion(ctx, &inv)
 		}
 
-		return ctrl.Result{}, err
-	}
+		if err := r.ensureClusterInventoryFinalizer(ctx, &inv); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
 
-	if inv.Spec.Suspend {
-		return ctrl.Result{}, nil
-	}
-
-	targets, err := r.selectedClusterTargets(ctx, &inv)
-	if err != nil {
-		retErr = err
-		return ctrl.Result{}, err
-	}
-
-	if len(targets) == 0 {
-		if inv.CreationTimestamp.Time.Add(clusterTargetBootstrapWindow).After(time.Now()) {
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			return ctrl.Result{}, err
 		}
 
-		return r.setDegraded(ctx, &inv, "NoTargets", "no KollectClusterTarget objects matched")
-	}
-
-	itemCount, degradedTargets := r.rollupCounts(&inv, targets)
-	if len(degradedTargets) > 0 {
-		msg := fmt.Sprintf("%d target(s) not Ready: %v", len(degradedTargets), degradedTargets)
-		return r.setDegraded(ctx, &inv, "TargetDegraded", msg)
-	}
-
-	sinkNS := inv.Spec.SinkNamespace
-	if sinkNS == "" {
-		sinkNS = sink.DefaultSecretNamespace
-	}
-
-	bindings := clusterInventorySinkBindings(&inv)
-	if len(bindings) > 0 {
-		sinkOK, sinkReason, sinkMsg := checkClusterInventorySinksReachable(ctx, r.Client, sinkNS, bindings)
-		setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, sinkOK, sinkReason, sinkMsg)
-		if !sinkOK {
-			recordWarning(r.Recorder, &inv, sinkReason, sinkMsg)
-			return r.setDegraded(ctx, &inv, sinkReason, sinkMsg)
+		if inv.Spec.Suspend {
+			return r.setDegraded(ctx, &inv, "Suspended", "spec.suspend is true")
 		}
-	} else {
-		setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, true, "NoSinksConfigured", "no family sink refs configured")
-	}
 
-	if r.Store == nil || r.Engine == nil {
-		return r.updateStatus(ctx, &inv, len(targets), itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)})
-	}
+		targets, err := r.selectedClusterTargets(ctx, &inv)
+		if err != nil {
+			retErr = err
+			return ctrl.Result{}, err
+		}
 
-	result, err := r.reconcileRollupExport(ctx, req, &inv, targets, sinkNS, log)
-	if err != nil {
-		retErr = err
-	}
-	return result, err
+		if len(targets) == 0 {
+			if inv.CreationTimestamp.Time.Add(clusterTargetBootstrapWindow).After(time.Now()) {
+				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			}
+
+			return r.setDegraded(ctx, &inv, "NoTargets", "no KollectClusterTarget objects matched")
+		}
+
+		itemCount, degradedTargets := r.rollupCounts(&inv, targets)
+		if len(degradedTargets) > 0 {
+			msg := fmt.Sprintf("%d target(s) not Ready: %v", len(degradedTargets), degradedTargets)
+			return r.setDegraded(ctx, &inv, "TargetDegraded", msg)
+		}
+
+		sinkNS := inv.Spec.SinkNamespace
+		if sinkNS == "" {
+			sinkNS = sink.DefaultSecretNamespace
+		}
+
+		bindings := clusterInventorySinkBindings(&inv)
+		if len(bindings) > 0 {
+			sinkOK, sinkReason, sinkMsg := checkClusterInventorySinksReachable(ctx, r.Client, sinkNS, bindings)
+			setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, sinkOK, sinkReason, sinkMsg)
+			if !sinkOK {
+				recordWarning(r.Recorder, &inv, sinkReason, sinkMsg)
+				return r.setDegraded(ctx, &inv, sinkReason, sinkMsg)
+			}
+		} else {
+			setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, true, "NoSinksConfigured", "no family sink refs configured")
+		}
+
+		if r.Store == nil || r.Engine == nil {
+			return r.updateStatus(ctx, &inv, len(targets), itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)})
+		}
+
+		result, err := r.reconcileRollupExport(ctx, req, &inv, targets, sinkNS, log)
+		if err != nil {
+			retErr = err
+		}
+
+		return result, err
+	})
 }
 
 //nolint:logcheck // cluster rollup export passes named reconcile logger alongside ctx deadline

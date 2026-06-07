@@ -396,3 +396,40 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		Expect(verified).To(BeNil())
 	})
 })
+
+var _ = Describe("Inventory suspend status (EC-P2-12)", func() {
+	It("sets Degraded when spec.suspend is true", func() {
+		suffix := fmt.Sprintf("%x", time.Now().UnixNano())
+		invName := "suspend-inv-" + suffix
+		ns := "default"
+
+		inv := &kollectdevv1alpha1.KollectInventory{
+			ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns},
+			Spec: kollectdevv1alpha1.KollectInventorySpec{
+				Suspend: true,
+			},
+		}
+		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
+		defer func() { _ = k8sClient.Delete(ctx, inv) }()
+
+		reconciler := &KollectInventoryReconciler{
+			Client:   k8sClient,
+			Scheme:   k8sClient.Scheme(),
+			Store:    collect.NewStore(),
+			Registry: sink.NewRegistry(),
+		}
+
+		_, err := reconciler.Reconcile(ctx, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: invName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updated := &kollectdevv1alpha1.KollectInventory{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: invName, Namespace: ns}, updated)).To(Succeed())
+
+		degraded := apimeta.FindStatusCondition(updated.Status.Conditions, kollectdevv1alpha1.ConditionDegraded)
+		Expect(degraded).NotTo(BeNil())
+		Expect(degraded.Reason).To(Equal("Suspended"))
+		Expect(degraded.Status).To(Equal(metav1.ConditionTrue))
+	})
+})

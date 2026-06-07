@@ -68,86 +68,88 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if !inv.DeletionTimestamp.IsZero() {
-		return r.finalizeInventoryDeletion(ctx, &inv)
-	}
-
-	if err := r.ensureInventoryFinalizer(ctx, &inv); err != nil {
-		if apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+	return guardReconcile(ctx, r.Recorder, &inv, func() (ctrl.Result, error) {
+		if !inv.DeletionTimestamp.IsZero() {
+			return r.finalizeInventoryDeletion(ctx, &inv)
 		}
 
-		return ctrl.Result{}, err
-	}
+		if err := r.ensureInventoryFinalizer(ctx, &inv); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
 
-	if inv.Spec.Suspend {
-		return ctrl.Result{}, nil
-	}
+			return ctrl.Result{}, err
+		}
 
-	itemCount := 0
-	if r.Store != nil {
+		itemCount := 0
+		if r.Store != nil {
+			itemCount = r.Store.CountForNamespace(inv.Namespace)
+		}
+
+		if inv.Spec.Suspend {
+			return r.setInventoryDegraded(ctx, &inv, itemCount, "Suspended", "spec.suspend is true")
+		}
+
+		checker := scopeCheck{client: r.Client, recorder: r.Recorder}
+		if ok, reason, msg := checker.enforceInventory(ctx, &inv); !ok {
+			return r.setInventoryDegraded(ctx, &inv, itemCount, reason, msg)
+		}
+
+		bindings := inventorySinkBindings(&inv)
+		sinkOK, sinkReason, sinkMsg := checkInventorySinksReachable(ctx, r.Client, inv.Namespace, bindings)
+		setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, sinkOK, sinkReason, sinkMsg)
+		if !sinkOK {
+			recordWarning(r.Recorder, &inv, sinkReason, sinkMsg)
+			return r.setInventoryDegraded(ctx, &inv, itemCount, sinkReason, sinkMsg)
+		}
+
+		if r.Store == nil {
+			return ctrl.Result{}, nil
+		}
+
+		items := r.Store.SnapshotNamespace(inv.Namespace)
+		fingerprint, err := export.ItemsFingerprint(items)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if totalInventorySinkRefs(&inv) > 0 {
+			if outcome, allDebounced := r.previewAllSinksDebounced(&inv, req.String(), fingerprint); allDebounced {
+				metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Add(float64(outcome.DebouncedCount))
+				itemCount = len(items)
+
+				return r.updateStatus(ctx, &inv, itemCount, outcome)
+			}
+		}
+
+		payload, err := r.Store.MarshalNamespaceExport(inv.Namespace, collect.ExportMetadata{
+			Generation: inv.Generation,
+		})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		gate, err := assessExportSpill(
+			ctx, r.Client, log, int64(len(payload)), r.maxExportBytes(&inv), inv.Namespace, bindings,
+		)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if gate.degraded {
+			recordSpillGateMetrics(gate)
+
+			return r.setInventoryDegraded(ctx, &inv, itemCount, gate.reason, gate.message)
+		}
+
 		itemCount = r.Store.CountForNamespace(inv.Namespace)
-	}
 
-	checker := scopeCheck{client: r.Client, recorder: r.Recorder}
-	if ok, reason, msg := checker.enforceInventory(ctx, &inv); !ok {
-		return r.setInventoryDegraded(ctx, &inv, itemCount, reason, msg)
-	}
-
-	bindings := inventorySinkBindings(&inv)
-	sinkOK, sinkReason, sinkMsg := checkInventorySinksReachable(ctx, r.Client, inv.Namespace, bindings)
-	setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, sinkOK, sinkReason, sinkMsg)
-	if !sinkOK {
-		recordWarning(r.Recorder, &inv, sinkReason, sinkMsg)
-		return r.setInventoryDegraded(ctx, &inv, itemCount, sinkReason, sinkMsg)
-	}
-
-	if r.Store == nil {
-		return ctrl.Result{}, nil
-	}
-
-	items := r.Store.SnapshotNamespace(inv.Namespace)
-	fingerprint, err := export.ItemsFingerprint(items)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if totalInventorySinkRefs(&inv) > 0 {
-		if outcome, allDebounced := r.previewAllSinksDebounced(&inv, req.String(), fingerprint); allDebounced {
-			metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Add(float64(outcome.DebouncedCount))
-			itemCount = len(items)
-
-			return r.updateStatus(ctx, &inv, itemCount, outcome)
+		if totalInventorySinkRefs(&inv) == 0 {
+			setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "NoExport", "no family sink refs configured")
+			return r.updateStatus(ctx, &inv, itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)})
 		}
-	}
 
-	payload, err := r.Store.MarshalNamespaceExport(inv.Namespace, collect.ExportMetadata{
-		Generation: inv.Generation,
+		return r.applyInventoryExportOutcome(ctx, log, &inv, itemCount, req.String(), items, fingerprint)
 	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	gate, err := assessExportSpill(
-		ctx, r.Client, log, int64(len(payload)), r.maxExportBytes(&inv), inv.Namespace, bindings,
-	)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if gate.degraded {
-		recordSpillGateMetrics(gate)
-
-		return r.setInventoryDegraded(ctx, &inv, itemCount, gate.reason, gate.message)
-	}
-
-	itemCount = r.Store.CountForNamespace(inv.Namespace)
-
-	if totalInventorySinkRefs(&inv) == 0 {
-		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "NoExport", "no family sink refs configured")
-		return r.updateStatus(ctx, &inv, itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)})
-	}
-
-	return r.applyInventoryExportOutcome(ctx, log, &inv, itemCount, req.String(), items, fingerprint)
 }
 
 func (r *KollectInventoryReconciler) applyInventoryExportOutcome(

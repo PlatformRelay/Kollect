@@ -65,89 +65,91 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	if result, done, err := r.reconcileTargetFinalizers(ctx, &target); done {
+	return guardReconcile(ctx, r.Recorder, &target, func() (ctrl.Result, error) {
+		if result, done, err := r.reconcileTargetFinalizers(ctx, &target); done {
+			if err != nil {
+				retErr = err
+			}
+
+			return result, err
+		}
+
+		if target.Spec.Suspend {
+			log.Info("target suspended", "name", target.Name, "namespace", target.Namespace)
+			if r.Engine != nil {
+				r.Engine.UnregisterTarget(target.Namespace, target.Name)
+			}
+
+			if err := r.setDegraded(ctx, &target, "Suspended", "spec.suspend is true"); err != nil {
+				retErr = err
+				return ctrl.Result{}, err
+			}
+
+			return ctrl.Result{}, nil
+		}
+
+		if target.Spec.ProfileRef == "" {
+			if err := r.setDegraded(ctx, &target, "MissingProfileRef", "spec.profileRef is required"); err != nil {
+				retErr = err
+				return ctrl.Result{}, err
+			}
+
+			return ctrl.Result{}, nil
+		}
+
+		profileKey := client.ObjectKey{Namespace: target.Namespace, Name: target.Spec.ProfileRef}
+		var profile kollectdevv1alpha1.KollectProfile
+		if err := r.Get(ctx, profileKey, &profile); err != nil {
+			if apierrors.IsNotFound(err) {
+				if degErr := r.setDegraded(ctx, &target, "ProfileNotFound",
+					fmt.Sprintf("KollectProfile %q not found in namespace %q",
+						target.Spec.ProfileRef, target.Namespace)); degErr != nil {
+					retErr = degErr
+					return ctrl.Result{}, degErr
+				}
+
+				return ctrl.Result{}, nil
+			}
+
+			retErr = err
+
+			return ctrl.Result{}, err
+		}
+
+		checker := scopeCheck{client: r.Client, recorder: r.Recorder, engine: r.Engine}
+		if ok, reason, msg := checker.enforceTarget(ctx, &target, &profile); !ok {
+			if degErr := r.setDegraded(ctx, &target, reason, msg); degErr != nil {
+				retErr = degErr
+				return ctrl.Result{}, degErr
+			}
+
+			return ctrl.Result{}, nil
+		}
+
+		matched, effective, activeRules, ceiling := resolveTargetFilterStatus(ctx, r.Client, r.Engine, &target)
+		updateTargetFilterStatus(&target, matched, effective, activeRules)
+
+		if r.Engine != nil {
+			if err := r.Engine.RegisterTarget(ctx, &target, &profile, collect.RegisterTargetOptions{
+				ScopeCeiling:        ceiling,
+				EffectiveNamespaces: effective,
+			}); err != nil {
+				if degErr := r.setDegraded(ctx, &target, "InformerRegistrationFailed", err.Error()); degErr != nil {
+					retErr = degErr
+					return ctrl.Result{}, degErr
+				}
+
+				return ctrl.Result{}, nil
+			}
+		}
+
+		result, err := r.reconcileTargetReady(ctx, &target)
 		if err != nil {
 			retErr = err
 		}
 
 		return result, err
-	}
-
-	if target.Spec.Suspend {
-		log.Info("target suspended", "name", target.Name, "namespace", target.Namespace)
-		if r.Engine != nil {
-			r.Engine.UnregisterTarget(target.Namespace, target.Name)
-		}
-
-		if err := r.setDegraded(ctx, &target, "Suspended", "spec.suspend is true"); err != nil {
-			retErr = err
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, nil
-	}
-
-	if target.Spec.ProfileRef == "" {
-		if err := r.setDegraded(ctx, &target, "MissingProfileRef", "spec.profileRef is required"); err != nil {
-			retErr = err
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, nil
-	}
-
-	profileKey := client.ObjectKey{Namespace: target.Namespace, Name: target.Spec.ProfileRef}
-	var profile kollectdevv1alpha1.KollectProfile
-	if err := r.Get(ctx, profileKey, &profile); err != nil {
-		if apierrors.IsNotFound(err) {
-			if degErr := r.setDegraded(ctx, &target, "ProfileNotFound",
-				fmt.Sprintf("KollectProfile %q not found in namespace %q",
-					target.Spec.ProfileRef, target.Namespace)); degErr != nil {
-				retErr = degErr
-				return ctrl.Result{}, degErr
-			}
-
-			return ctrl.Result{}, nil
-		}
-
-		retErr = err
-
-		return ctrl.Result{}, err
-	}
-
-	checker := scopeCheck{client: r.Client, recorder: r.Recorder, engine: r.Engine}
-	if ok, reason, msg := checker.enforceTarget(ctx, &target, &profile); !ok {
-		if degErr := r.setDegraded(ctx, &target, reason, msg); degErr != nil {
-			retErr = degErr
-			return ctrl.Result{}, degErr
-		}
-
-		return ctrl.Result{}, nil
-	}
-
-	matched, effective, activeRules, ceiling := resolveTargetFilterStatus(ctx, r.Client, r.Engine, &target)
-	updateTargetFilterStatus(&target, matched, effective, activeRules)
-
-	if r.Engine != nil {
-		if err := r.Engine.RegisterTarget(ctx, &target, &profile, collect.RegisterTargetOptions{
-			ScopeCeiling:        ceiling,
-			EffectiveNamespaces: effective,
-		}); err != nil {
-			if degErr := r.setDegraded(ctx, &target, "InformerRegistrationFailed", err.Error()); degErr != nil {
-				retErr = degErr
-				return ctrl.Result{}, degErr
-			}
-
-			return ctrl.Result{}, nil
-		}
-	}
-
-	result, err := r.reconcileTargetReady(ctx, &target)
-	if err != nil {
-		retErr = err
-	}
-
-	return result, err
+	})
 }
 
 func (r *KollectTargetReconciler) reconcileTargetReady(

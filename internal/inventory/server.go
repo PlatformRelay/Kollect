@@ -89,7 +89,10 @@ func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
 	metrics.CollectItemsTotal.Set(float64(summary.ItemCount))
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(summary)
+	if err := json.NewEncoder(w).Encode(summary); err != nil {
+		log.FromContext(r.Context()).Error(err, "inventory JSON encode failed")
+		http.Error(w, "encode failed", http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
@@ -117,10 +120,14 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 	send := func() bool {
 		payload, err := json.Marshal(s.buildSummary(r.Context(), filter))
 		if err != nil {
+			log.FromContext(r.Context()).Error(err, "inventory SSE marshal failed")
+
 			return false
 		}
 
 		if _, err := fmt.Fprintf(w, "event: inventory\ndata: %s\n\n", payload); err != nil {
+			log.FromContext(r.Context()).Error(err, "inventory SSE write failed")
+
 			return false
 		}
 

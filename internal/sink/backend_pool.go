@@ -48,7 +48,7 @@ func ResetBackendPoolForTest() {
 	defer globalBackendPool.mu.Unlock()
 
 	for k, e := range globalBackendPool.entries {
-		_ = closeBackend(e.backend)
+		closeBackendLogged(e.backend, "pool reset")
 		delete(globalBackendPool.entries, k)
 	}
 }
@@ -89,7 +89,7 @@ func acquireBackend(
 			return nil, func() {}, berr
 		}
 
-		return backend, func() { _ = closeBackend(backend) }, nil
+		return backend, func() { closeBackendLogged(backend, "pool disabled release") }, nil
 	}
 
 	key := poolKeyForSink(sinkUID, sinkNamespace, sinkName)
@@ -115,7 +115,7 @@ func acquireBackend(
 
 	globalBackendPool.mu.Lock()
 	if old, ok := globalBackendPool.entries[key]; ok && old.specHash != specHash {
-		_ = closeBackend(old.backend)
+		closeBackendLogged(old.backend, "spec hash change")
 	}
 
 	globalBackendPool.entries[key] = &pooledEntry{
@@ -161,7 +161,7 @@ func evictPoolKey(key poolKey) {
 	defer globalBackendPool.mu.Unlock()
 
 	if entry, ok := globalBackendPool.entries[key]; ok {
-		_ = closeBackend(entry.backend)
+		closeBackendLogged(entry.backend, "explicit eviction")
 		delete(globalBackendPool.entries, key)
 	}
 }
