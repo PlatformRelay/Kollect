@@ -27,6 +27,10 @@ anchor on an older commit.
 
 ### Bug Fixes
 
+- **git:** Resolve lint issues in sink hardening [452c72b](https://github.com/konih/kollect/commit/452c72b2527c28d217c6b4a150e251f668e57284)
+
+- **docs:** Remove extra blank line in git-sink-attribution [3dcc34b](https://github.com/konih/kollect/commit/3dcc34b7cd7ed4750a5883daec78092817a69078)
+
 - **e2e:** Guard multitenant port-forward cleanup trap [d04f292](https://github.com/konih/kollect/commit/d04f2929233efd9b072cdce85d6d47c42386ad44)
 
 - **e2e:** Use object form for snapshotSinkRefs [468bca9](https://github.com/konih/kollect/commit/468bca94aafa745c2e24250d6914baad5eeac7e4)
@@ -35,6 +39,8 @@ anchor on an older commit.
 
 
 ### Features
+
+- [**breaking**] Remove hub/spoke tier and KollectRemoteCluster [8c02b47](https://github.com/konih/kollect/commit/8c02b47e1d46228a397d717f908a5f60f44d2874)
 
 - **git:** Harden export clone, auth, and push recovery [8dc426c](https://github.com/konih/kollect/commit/8dc426c358e9085e8af294c52fff7e2ba96cf590)
 
