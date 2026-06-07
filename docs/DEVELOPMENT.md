@@ -32,7 +32,7 @@ Optional: `task tools:git-cliff` installs a pinned [git-cliff](https://git-cliff
 | `task changelog:verify` | Fail if changelog drift (same as preflight CI) |
 | `task release-dry-run` | Build `dist/` install YAML + chart (no push) |
 
-Full runbook: [RELEASE.md](RELEASE.md). Retroactive version anchors (`v0.0.1`–`v0.1.0`) are
+Full runbook: [RELEASE.md](RELEASE.md). Retroactive version anchors (`v0.0.1`–`v0.0.4`, RC series) are
 documented in the `CHANGELOG.md` header and `hack/release/cliff.toml`.
 
 **Local dry-run** (`task release-dry-run`) runs `hack/release-assets.sh` with

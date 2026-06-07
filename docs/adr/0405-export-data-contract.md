@@ -82,7 +82,7 @@ source `generation`, `itemCount`, `exportedAt`, and `cluster`. These drive debou
 | Kafka `EventEnvelope` | Yes — `internal/sink/kafka/backend.go` | **Shipped** |
 | Inventory / cluster inventory sink export | No — bare `[]Item` JSON array (`MarshalNamespaceJSON`) | **Pre-beta gap** |
 | Git / Postgres / S3 / GCS object payloads | No — canonical array only | **Pre-beta gap** |
-| Read API HTTP responses | No — `NamespaceSummary` without envelope | **Pre-beta gap** — v0.1.0 gate per [ADR-0411](0411-read-api-extensions-for-ui.md) ([ADR-0206](0206-api-versioning-conversion.md), [ADR-0408](0408-read-api-ui-architecture.md)) |
+| Read API HTTP responses | No — `NamespaceSummary` without envelope | **Pre-beta gap** — **v0.5** gate per [ADR-0411](0411-read-api-extensions-for-ui.md) |
 
 Current contract value: `kollect.dev/v1alpha1`, aligned with wire `apiVersion`
 ([ADR-0502](0502-lean-queue-transport.md)). Golden fixture: `test/schema/golden/spoke-report.json`.

@@ -9,7 +9,7 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
     Items here are **intent and backlog**, not release promises. Status may change as ADRs land or
     scope is rejected. Pre-beta APIs may shift until the first release candidate.
 
-**Last updated:** 2026-06-06
+**Last updated:** 2026-06-07
 
 ## Status legend
 
@@ -23,29 +23,29 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 
 ## Read API & UI
 
-### Read API contract freeze (v0.1.0)
+### Read API contract freeze (v0.5.x)
 
 | | |
 | --- | --- |
 | **Status** | Planned |
 | **Roadmap** | [Read API + UI console](../ROADMAP.md#read-api-ui-console-planned-adr-0408) · Phase 1 HTTP 🚧 |
-| **Summary** | Harden and **freeze the Read API** as the UI contract: list/filter/search, envelope `schemaVersion`, OpenAPI (`openapi/v1alpha1/inventory.yaml`), and auth parity with [ADR-0404](../adr/0404-inventory-api-auth.md). |
+| **Summary** | Harden and **freeze the Read API** as the UI contract: list/filter/search, envelope `schemaVersion`, OpenAPI (`openapi/v1alpha1/inventory.yaml`), and auth parity with [ADR-0404](../adr/0404-inventory-api-auth.md). Planned for **v0.5** band (not v0.1/v0.2). |
 | **Related ADRs** | [ADR-0408](../adr/0408-read-api-ui-architecture.md) · [ADR-0411](../adr/0411-read-api-extensions-for-ui.md) · [ADR-0405](../adr/0405-export-data-contract.md) · [ADR-0103](../adr/0103-etcd-limit.md) |
 
 ---
 
-### Inventory UI — memory adapter (v0.2.0)
+### Inventory UI — memory adapter (v0.7.x)
 
 | | |
 | --- | --- |
 | **Status** | Planned |
 | **Roadmap** | [Read API + UI console](../ROADMAP.md#read-api-ui-console-planned-adr-0408) |
-| **Summary** | Read-only **SPA** (`ui/`, separate `kollect-ui` image) on the **memory `InventoryReader`** adapter: searchable catalog, export/freshness health, SSE watch — zero extra infra, feature-gated on the operator. |
+| **Summary** | Read-only **SPA** (`ui/`, separate `kollect-ui` image) on the **memory `InventoryReader`** adapter: searchable catalog, export/freshness health, SSE watch — zero extra infra, feature-gated on the operator. **Deferred from v0.2** — `v0.2.0-rc.1` shipped sink families instead. |
 | **Related ADRs** | [ADR-0408](../adr/0408-read-api-ui-architecture.md) · [ADR-0409](../adr/0409-kollect-ui-deployment.md) · [ADR-0410](../adr/0410-ui-engineering-and-quality-gates.md) · [ADR-0412](../adr/0412-mock-read-api-for-ui-development.md) |
 
 ---
 
-### Portal UI — Postgres/Parquet adapter + drift (v0.3.0+)
+### Portal UI — Postgres/Parquet adapter + drift (v0.8.x – v0.9.x)
 
 | | |
 | --- | --- |
@@ -68,6 +68,17 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 ---
 
 ## Sinks & export
+
+### Sink family CRDs (ADR-0414)
+
+| | |
+| --- | --- |
+| **Status** | Shipped (`v0.2.0-rc.1`) |
+| **Roadmap** | Phase 1 ✅ |
+| **Summary** | **`KollectSnapshotSink`**, **`KollectEventSink`**, **`KollectDatabaseSink`** replace monolithic **`KollectSink`**; family reconcilers, validating webhooks, and e2e bootstrap. |
+| **Related ADRs** | [ADR-0414](../adr/0414-sink-family-crds.md) |
+
+---
 
 ### S3/GCS Parquet snapshot sink
 
@@ -151,9 +162,9 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 
 | | |
 | --- | --- |
-| **Status** | Planned |
-| **Roadmap** | Phase 1 ⬜ |
-| **Summary** | Gated **`helm:`** decode path for plain **`helm.sh/v1`** release Secrets (Flux `HelmRelease` secondary sample exists; Argo `Application` is primary). Required before non-Argo Helm release inventory at scale. |
+| **Status** | Shipped (`v0.1.0-rc.3`) |
+| **Roadmap** | Phase 1 ✅ |
+| **Summary** | Gated **`helm:`** decode path for plain **`helm.sh/v1`** release Secrets (Flux `HelmRelease` secondary sample exists; Argo `Application` is primary). |
 | **Related ADRs** | [ADR-0303](../adr/0303-helm-release-inventory.md) |
 
 ---
@@ -186,9 +197,9 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 
 | | |
 | --- | --- |
-| **Status** | Planned |
-| **Roadmap** | Phase 1 ⬜ |
-| **Summary** | **Finalizers** on `KollectTarget`, `KollectInventory`, and cluster rollup kinds so deletion waits for store teardown, in-flight exports, and hub report cleanup. |
+| **Status** | Shipped (`v0.1.0-rc.3`) |
+| **Roadmap** | Phase 1 ✅ |
+| **Summary** | **Finalizers** on `KollectTarget`, `KollectInventory`, and cluster rollup kinds — deletion waits for store teardown, in-flight exports, and hub report cleanup. |
 | **Related ADRs** | [ADR-0201](../adr/0201-crd-model.md) · [ADR-0202](../adr/0202-static-vs-reconciled.md) |
 
 ---
@@ -198,7 +209,7 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 | | |
 | --- | --- |
 | **Status** | Exploring |
-| **Summary** | At **`v0.1.0` feature-freeze**, introduce **`v1beta1`** as storage version with a **conversion webhook** (`v1alpha1 ↔ v1beta1`), documented migration window, and round-trip fuzz tests — until then `v1alpha1` breaks freely. |
+| **Summary** | Introduce **`v1beta1`** as storage version with a **conversion webhook** (`v1alpha1 ↔ v1beta1`) at the **v0.10 presentation gate** (or post) — until then `v1alpha1` breaks freely. |
 | **Related ADRs** | [ADR-0206](../adr/0206-api-versioning-conversion.md) · [ADR-0703](../adr/0703-platform-architecture-pivot.md) |
 
 ---

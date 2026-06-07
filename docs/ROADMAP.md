@@ -17,8 +17,12 @@ projection ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
     Phases describe **implementation order**, not semver milestones. Items may land out of phase
     when dependencies allow; deferred (🔮) items are explicitly not on the near-term path.
 
-**Last updated:** 2026-06-05 (sink taxonomy locked — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md);
-ADR corpus renumbered into thematic ranges + 8 gap-fill ADRs)
+**Last updated:** 2026-06-07 (versioning strategy — fast minors to **v0.10** presentation gate;
+**`v0.2.0-rc.1`** = platform/sink-family tranche, not UI — see [RELEASE.md](RELEASE.md#versioning-policy))
+
+!!! tip "Versioning"
+    Semver milestones (0.2 → 0.10) track **release tranches**, not build phases. Phases 0–4 below
+    describe **implementation order**. See [RELEASE.md — Versioning policy](RELEASE.md#versioning-policy).
 
 ## Status legend
 
@@ -85,10 +89,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 | Namespaced `KollectProfile` API | ✅ ([ADR-0204](adr/0204-namespaced-profiles.md)) |
 | Golden OpenAPI contract tests (`test/schema/`, 7 kinds) | ✅ |
 | Kind smoke / operator deploy | ✅ |
-| Release pipeline (SBOM, signing) | 🚧 local dry-run PASS; GH `workflow_dispatch` untested |
+| Release pipeline (SBOM, signing) | ✅ `v0.2.0-rc.1` on GHCR + chart ([RELEASE.md](RELEASE.md)) |
 | Public demo Git inventory repo | ✅ |
 
-**Counts:** ✅ 22 · 🚧 1 · ⬜ 0
+**Counts:** ✅ 23 · 🚧 0 · ⬜ 0
 
 ---
 
@@ -119,7 +123,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 | pprof server (feature-gated `:6060`) | ✅ |
 | `task bench` / `task load-test` (bounded scale tests) | ✅ |
 | Secondary watches (Profile → Targets, Sink → Inventories) | ✅ |
-| Finalizers | ⬜ |
+| Finalizers | ✅ `v0.1.0-rc.3` — inventory, target, cluster rollup |
 | Read-only HTTP `GET /v1alpha1/inventory` (+ OpenAPI; SSE watch) | 🚧 |
 | Inventory HTTP auth: TokenReview + SAR (K8s bearer) | ✅ |
 | `--inventory-auth-mode=kubernetes` (default) | ✅ |
@@ -129,18 +133,19 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 | Argo `Application` contract test (`internal/collect/`) | ✅ |
 | Sample profile: Helm release summary (Flux `HelmRelease` secondary) | ✅ |
 | Helm values profile + operator scrub | ✅ |
-| `helm:` decode for `helm.sh/v1` Secret releases | ⬜ |
+| `helm:` decode for `helm.sh/v1` Secret releases | ✅ `v0.1.0-rc.3` |
 | Sample: generic CRD (`cert-manager.io/Certificate` + contract test) | ✅ |
 | Sample contract tests in CI | 🚧 |
 | Integration tests (testcontainers) in CI | ✅ |
-| End-to-end: install → collect → export → HTTP | ✅ (kind smoke green — run `26996964559` @ `42183693`) |
+| End-to-end: install → collect → export → HTTP | ✅ (kind smoke + tier-0 PR gate) |
 | `spec.suspend` on reconciled kinds | ✅ |
 | **Multi-tenant (ASAP):** `watchNamespaces` / `tenantMode` Helm + `--watch-namespaces` | ✅ |
 | **Multi-tenant:** `KollectScope` webhook + reconciler enforcement + sample | ✅ |
 | **Multi-tenant e2e:** dynamic `kollect-tenant-a` / `kollect-tenant-b` isolation | ✅ |
 | Inventory namespace isolation unit tests | ✅ |
+| Sink family CRDs (`KollectSnapshotSink`, `KollectEventSink`, `KollectDatabaseSink`; `KollectSink` removed) | ✅ `v0.2.0-rc.1` [ADR-0414](adr/0414-sink-family-crds.md) |
 
-**Counts:** ✅ 30 · 🚧 5 · ⬜ 4
+**Counts:** ✅ 33 · 🚧 5 · ⬜ 2
 
 ---
 
@@ -206,7 +211,7 @@ never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) and
 | GitLab sink enterprise path (MR/API) | ✅ feature-branch push + REST MR client |
 | S3/GCS production CI gate | ✅ PR integration + nightly |
 | Scope at platform boundary (multitenant e2e) | ✅ |
-| Release `workflow_dispatch` dry-run (cosign/SBOM/chart) | 🚧 local PASS; GH Actions untested |
+| Release `workflow_dispatch` (cosign/SBOM/chart) | ✅ `v0.1.0-rc` – `v0.2.0-rc.1` |
 | E2E asserts export (Target Ready, sink conditions, git SHA) | ✅ `68667ca6` — export asserts + multitenant + cert-manager |
 | No `KollectPublication` | ✅ ADR-0702 honored |
 
@@ -236,15 +241,22 @@ never O(spokes²). See [ADR-0501](adr/0501-multi-cluster-sync-rfc.md) and
 ## Read API + UI console (planned — [ADR-0408](adr/0408-read-api-ui-architecture.md))
 
 A read-only web console (searchable inventory catalog, export/freshness health, multi-cluster rollup,
-attribute drift over time) is the priority adoption lever after v0.1.0. The UI depends only on a
-**versioned Read API** with a **pluggable backing store** (memory → Postgres → Parquet), so the same
-SPA serves a zero-infra console and a scale portal — and never reads the live cluster API.
+attribute drift over time) is the priority adoption lever before the **v0.10 presentation gate**. The
+UI depends only on a **versioned Read API** with a **pluggable backing store** (memory → Postgres →
+Parquet), so the same SPA serves a zero-infra console and a scale portal — and never reads the live
+cluster API.
+
+!!! note "`v0.2.0` was not the UI release"
+    **`v0.2.0-rc.1`** shipped the **sink-family platform tranche** ([ADR-0414](adr/0414-sink-family-crds.md)).
+    UI milestones are planned in the **v0.5–v0.10** band — see [RELEASE.md](RELEASE.md#versioning-policy).
 
 | Milestone | Item | Status |
 | --- | --- | --- |
-| **v0.1.0** | Harden + freeze the Read API as the UI contract (filters, `schemaVersion`, OpenAPI) | ⬜ |
-| **v0.2.0** | Read-only SPA on the **memory adapter** (operator-served, feature-gated): catalog, search/filter, freshness/health | ⬜ |
-| **v0.3.0+** | Portal mode on **Postgres/Parquet** adapter; **drift-over-time** views; optional `kollect-server` split | ⬜ |
+| **v0.5.x** | Harden + freeze the Read API as the UI contract (filters, `schemaVersion`, OpenAPI) | ⬜ |
+| **v0.6.x** | Memory `InventoryReader` adapter + `ui/` scaffold hardening | ⬜ |
+| **v0.7.x** | Read-only SPA on **memory adapter**: catalog, search/filter, freshness/health | ⬜ |
+| **v0.8.x – v0.9.x** | Portal mode on **Postgres/Parquet**; **drift-over-time**; optional `kollect-server` split | ⬜ |
+| **v0.10.0** | Presentation-ready demo (UI + docs + stable soak) | ⬜ |
 
 ---
 
@@ -388,7 +400,7 @@ GitLab API v4 when `secretRef` provides an API token (`token` or `password` key)
 | Nightly kind smoke (Helm + samples + cert-manager CRD + HTTP probe) | ✅ |
 | Full e2e: conditions, Git export SHA, HTTP body, multitenant | ✅ |
 | Object store sinks (S3/GCS MinIO) in PR integration + nightly | ✅ |
-| Release workflow (`workflow_dispatch` dry-run) | 🚧 `task release-dry-run` PASS locally; GH Actions rc via `workflow_dispatch` (see [RELEASE.md](RELEASE.md#rc-pre-release-on-github-actions)) |
+| Release workflow (`workflow_dispatch`) | ✅ Tags `v0.1.0-rc.*` – `v0.2.0-rc.1` ([RELEASE.md](RELEASE.md)) |
 
 ## Architecture decisions (2026-06-05)
 
@@ -423,7 +435,7 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | Shared informer per GVK | Accepted ([ADR-0301](adr/0301-event-driven-informers.md)) |
 | Postgres (relational SoR) + Kafka (event emitter) as first-class sinks; in-memory snapshot canonical, sinks are projections | Accepted ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0402](adr/0402-sink-backends-database-kafka.md)) |
 | Doc-sync / `KollectPublication` | Rejected ([ADR-0702](adr/0702-doc-sync-templating.md)) |
-| **Read API + read-only UI console** — versioned API, pluggable backing store (memory→Postgres→Parquet); SPA reads the read model, never live API | Accepted, planned v0.2/v0.3 ([ADR-0408](adr/0408-read-api-ui-architecture.md)) |
+| **Read API + read-only UI console** — versioned API, pluggable backing store (memory→Postgres→Parquet); SPA reads the read model, never live API | Accepted, planned **v0.5–v0.10** ([ADR-0408](adr/0408-read-api-ui-architecture.md)) |
 | Inventory HTTP auth: **K8s TokenReview + SAR**; `--inventory-auth-mode=kubernetes` default | Accepted |
 | oauth2-proxy: **optional** Helm sidecar for OIDC browsers; not primary auth | Accepted |
 | Git, object storage, and agent mesh documented as alternatives | Accepted |
