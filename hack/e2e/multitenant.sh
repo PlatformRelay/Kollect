@@ -139,11 +139,12 @@ main() {
   apply_tenant_inventory "${TENANT_A}"
   apply_tenant_inventory "${TENANT_B}"
 
-  local pf_pid http_port=18082
+  pf_pid=""
+  local http_port=18082
   kubectl port-forward -n kollect-system svc/kollect-controller-manager "${http_port}:8082" &
   pf_pid=$!
   sleep 3
-  trap 'kill "${pf_pid}" 2>/dev/null || true' EXIT
+  trap '[[ -n "${pf_pid}" ]] && kill "${pf_pid}" 2>/dev/null || true' EXIT
 
   wait_inventory_http_collected "${TENANT_A}" "${http_port}"
   wait_inventory_http_collected "${TENANT_B}" "${http_port}"
