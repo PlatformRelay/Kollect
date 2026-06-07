@@ -4,5 +4,4 @@ metadata:
   name: tenant-inventory
   namespace: ${TENANT_NS}
 spec:
-  sinkRefs: []
   suspend: false

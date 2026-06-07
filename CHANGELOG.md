@@ -27,9 +27,9 @@ anchor on an older commit.
 
 ### Bug Fixes
 
-- **e2e:** Validate collection via inventory HTTP [cd77870](https://github.com/konih/kollect/commit/cd778701acdd95cb4d2bf74e677499b856bbc702)
+- **e2e:** Validate collection via inventory HTTP [ca816a0](https://github.com/konih/kollect/commit/ca816a072b89326d0bc6c6a6dae5f4d2f0ec8159)
 
-- **e2e,test:** Stabilize smoke bootstrap and debounce IT [99d72bb](https://github.com/konih/kollect/commit/99d72bb35ba1cffe4a8c7dbd6777bc5ae37665e2)
+- **e2e,test:** Stabilize smoke bootstrap and debounce IT [3677bb5](https://github.com/konih/kollect/commit/3677bb5dc2b1685def8a7aec05f066604e18985c)
 
 - **samples:** Drop legacy sinkRefs from team-a scope [1648ab3](https://github.com/konih/kollect/commit/1648ab3ce0b67e58d8129da909487db91bf3c23b)
 
@@ -40,7 +40,7 @@ anchor on an older commit.
 
 ### Features
 
-- **git:** Port transport retry and SSH host keys [b8bab57](https://github.com/konih/kollect/commit/b8bab57eba8ed6f554edad951ee761dc8c39a5a4)
+- **git:** Port transport retry and SSH host keys [9f5b17f](https://github.com/konih/kollect/commit/9f5b17f40d0eda7b8e482e2c03cb69aac66f370a)
 
 - **controller:** Wire family sink reconcilers and export [8162345](https://github.com/konih/kollect/commit/8162345b399d75ae315d05e06bb25a43c7eb4e0f)
 
