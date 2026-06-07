@@ -31,7 +31,7 @@ Statement coverage on `./internal/...` is enforced by `hack/coverage.sh` via `ta
 | Setting | Value |
 | --- | --- |
 | **Target (pre-v0.10)** | **80%** — ratchet `COVERAGE_MIN` when measured coverage is sustained |
-| **Current CI floor** | 70% (`COVERAGE_MIN` in `.github/workflows/ci.yaml`) |
+| **Current CI floor** | 72% (`COVERAGE_MIN` in `.github/workflows/ci.yaml`) |
 | **Codecov project target** | 70% (`codecov.yml`) |
 
 Regressions below the enforced floor fail CI. Raise the floor only after coverage has grown
@@ -110,7 +110,7 @@ For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a 
 | Task | Purpose |
 | --- | --- |
 | `task test` | Unit + envtest (no floor check; no race detector) |
-| `task coverage` | Unit + envtest + 70% floor (CI; CGO off, no `-race`) |
+| `task coverage` | Unit + envtest + 72% floor (CI; CGO off, no `-race`) |
 | `task coverage:race` | Same as coverage with race detector (local pre-PR) |
 | `task test-integration` | L3 sink/transport integration (Docker) |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
