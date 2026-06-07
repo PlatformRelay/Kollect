@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -179,9 +180,14 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 	invNS, invName := objectstore.InventoryFromObjectPath(req.ObjectPath)
 	objectPath := objectstore.ObjectPath(req.SinkSpec, invNS, invName, export.GenerationFromEnvelope(envelope))
 
+	commitCtx := git.CommitContextFromExport(
+		envelope, objectPath, strings.TrimSpace(req.SinkSpec.Cluster), req.SinkName,
+	)
+	exportCtx := git.WithCommitContext(req.Ctx, commitCtx)
+
 	start := time.Now()
 	err = exportThroughBreaker(req.SinkNamespace+"/"+req.SinkName, func() error {
-		return backend.Export(req.Ctx, envelope, objectPath)
+		return backend.Export(exportCtx, envelope, objectPath)
 	})
 	elapsed := time.Since(start).Seconds()
 	metrics.ExportDurationSeconds.WithLabelValues(req.SinkSpec.Type).Observe(elapsed)

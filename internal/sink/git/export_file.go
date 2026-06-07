@@ -88,8 +88,8 @@ func exportViaCLI(
 		return nil
 	}
 
-	message := renderCommitMessage(cfg.CommitMessage, commitCtx)
-	if err = gitCommit(ctx, tmp, cfg.Author.Name, cfg.Author.Email, message, cli); err != nil {
+	commitText := renderCommit(cfg, commitCtx)
+	if err = gitCommit(ctx, tmp, cfg.Author.Name, cfg.Author.Email, commitText, cli); err != nil {
 		return err
 	}
 

@@ -10,7 +10,7 @@ const (
 	schemeSSH   = "ssh"
 	schemeFile  = "file"
 
-	defaultCommitMessage = "kollect: export inventory"
+	defaultCommitMessage = "chore({cluster}/{namespace}/{name}): export {itemCount} items @ {checksumShort}"
 	defaultAuthorName    = "kollect"
 	defaultAuthorEmail   = "kollect@kollect.dev"
 	defaultCloneDepth    = 1

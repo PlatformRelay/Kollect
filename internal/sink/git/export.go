@@ -35,7 +35,11 @@ type BranchSpec struct {
 }
 
 func Export(ctx context.Context, cfg Config, auth Auth, payload []byte, objectPath string) error {
-	commitCtx := CommitContextFromObjectPath(objectPath, cfg.Cluster)
+	commitCtx, ok := CommitContextFromContext(ctx)
+	if !ok {
+		commitCtx = CommitContextFromObjectPath(objectPath, cfg.Cluster)
+	}
+
 	return ExportWithBranch(ctx, cfg, auth, payload, objectPath, nil, commitCtx)
 }
 
@@ -154,8 +158,8 @@ func exportRemote(
 		return nil
 	}
 
-	message := renderCommitMessage(cfg.CommitMessage, commitCtx)
-	commit, err := wt.Commit(message, &git.CommitOptions{
+	commitText := renderCommit(cfg, commitCtx)
+	commit, err := wt.Commit(commitText.Full, &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  cfg.Author.Name,
 			Email: cfg.Author.Email,

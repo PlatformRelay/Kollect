@@ -25,6 +25,8 @@ type Config struct {
 	Branch         string
 	PushPolicy     PushPolicy
 	CommitMessage  string
+	CommitBody     string
+	CommitTrailers []string
 	Author         CommitAuthor
 	CloneDepth     int
 	Prune          bool
@@ -113,6 +115,14 @@ func applyGitSpec(cfg *Config, gitSpec *kollectdevv1alpha1.GitSpec) error {
 
 	if msg := strings.TrimSpace(gitSpec.CommitMessage); msg != "" {
 		cfg.CommitMessage = msg
+	}
+
+	if body := strings.TrimSpace(gitSpec.CommitBody); body != "" {
+		cfg.CommitBody = body
+	}
+
+	if len(gitSpec.CommitTrailers) > 0 {
+		cfg.CommitTrailers = append([]string(nil), gitSpec.CommitTrailers...)
 	}
 
 	if gitSpec.Author != nil {
