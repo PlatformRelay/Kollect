@@ -1,7 +1,10 @@
 # Example: Git inventory demo (`konih/kollect-inventory-demo`)
 
-Minimal **kind** lab that rolls up deployment inventory and exports JSON to the public demo repo
-[github.com/konih/kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo).
+Minimal **kind** lab that rolls up deployment inventory and exports human-readable **YAML** to the
+public demo repo [github.com/konih/kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo).
+Git/GitLab sinks default to a YAML `Item` list with zero extra config
+([ADR-0419](../adr/0419-git-export-serialization-layout.md)); add `serialization.format: json` to
+pin the pre-0419 JSON document.
 
 For the **wide-scope sales-pitch demo** (8 GVK types including Trivy CVE reports, cert-manager
 Certificates, external-secrets, multi-namespace Targets, guided `demo.sh`, churn script), see
@@ -73,7 +76,11 @@ spec:
   suspend: false
 ```
 
-Object path (ADR-0407): `inventory/default/team-inventory.json`.
+Object path ([ADR-0407](../adr/0407-git-object-store-layout.md) +
+[ADR-0419](../adr/0419-git-export-serialization-layout.md)):
+`inventory/default/team-inventory.yaml` — a YAML list of `Item` rows. For a per-resource manifest
+tree instead, set `spec.layout.mode: perResource` on the sink (auto-inferred when the profile uses
+`export.mode: Resource`).
 
 ## 5. Verify
 

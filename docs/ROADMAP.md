@@ -131,6 +131,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 | S3 sink | 🚧 (MinIO integration; nightly + PR `test-integration`) |
 | S3/GCS **Parquet** snapshot export (`format: parquet`) | 🚧 S3 shipped v0.4; GCS JSON default ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
 | `spec.pathTemplate` on snapshot sinks | ✅ [ADR-0407](adr/0407-git-object-store-layout.md) |
+| **Git readability tranche** — YAML default + `layout` block (`document`/`perResource`/`split`), path templates, prune | ✅ [ADR-0419](adr/0419-git-export-serialization-layout.md) |
+| Git **per-resource manifest tree** (auto from `export.mode: Resource`) | 🚧 [ADR-0419](adr/0419-git-export-serialization-layout.md) + [ADR-0306](adr/0306-full-resource-export-pruning.md) |
 | Postgres sink (`type: postgres`) | ✅ |
 | Postgres **delete reconciliation** (stale-row fix) | ✅ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | Kafka export sink (`type: kafka`) | ✅ |
@@ -165,7 +167,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 | Inventory namespace isolation unit tests | ✅ |
 | Sink family CRDs (`KollectSnapshotSink`, `KollectEventSink`, `KollectDatabaseSink`; `KollectSink` removed) | ✅ `v0.2.0-rc.1` [ADR-0414](adr/0414-sink-family-crds.md) |
 
-**Counts:** ✅ 33 · 🚧 5 · ⬜ 2
+**Counts:** ✅ 34 · 🚧 6 · ⬜ 2
 
 ---
 

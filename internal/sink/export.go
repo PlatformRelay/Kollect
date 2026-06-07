@@ -178,16 +178,25 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 	}
 
 	invNS, invName := objectstore.InventoryFromObjectPath(req.ObjectPath)
-	objectPath := objectstore.ObjectPath(req.SinkSpec, invNS, invName, export.GenerationFromEnvelope(envelope))
+	generation := export.GenerationFromEnvelope(envelope)
+	defaultObjectPath := objectstore.ObjectPath(req.SinkSpec, invNS, invName, generation)
+
+	plan, err := resolveSnapshotExport(backend, req.SinkSpec, envelope, invNS, invName, generation, defaultObjectPath)
+	if err != nil {
+		err = kollecterrors.Terminal(fmt.Errorf("resolve layout for %q: %w", req.SinkName, err))
+		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
+
+		return err
+	}
 
 	commitCtx := git.CommitContextFromExport(
-		envelope, objectPath, strings.TrimSpace(req.SinkSpec.Cluster), req.SinkName,
+		envelope, plan.objectPath, strings.TrimSpace(req.SinkSpec.Cluster), req.SinkName,
 	)
 	exportCtx := git.WithCommitContext(req.Ctx, commitCtx)
 
 	start := time.Now()
 	err = exportThroughBreaker(req.SinkNamespace+"/"+req.SinkName, func() error {
-		return backend.Export(exportCtx, envelope, objectPath)
+		return plan.run(exportCtx)
 	})
 	elapsed := time.Since(start).Seconds()
 	metrics.ExportDurationSeconds.WithLabelValues(req.SinkSpec.Type).Observe(elapsed)

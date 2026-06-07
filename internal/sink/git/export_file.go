@@ -68,16 +68,8 @@ func exportViaCLI(
 		gitObjectPaths = append(gitObjectPaths, gitObjectPath)
 	}
 
-	if cfg.Prune {
-		if err = gitAddAll(ctx, workdir, cli); err != nil {
-			return err
-		}
-	} else {
-		for _, gitObjectPath := range gitObjectPaths {
-			if err = gitAddPath(ctx, workdir, gitObjectPath, cli); err != nil {
-				return err
-			}
-		}
+	if err = stageCLIChanges(ctx, workdir, gitObjectPaths, cfg, cli); err != nil {
+		return err
 	}
 
 	clean, statusErr := gitStatusClean(ctx, workdir, cli)
@@ -99,6 +91,26 @@ func exportViaCLI(
 	}
 
 	return ensureBareHEAD(ctx, cloneURL, pushBranch, cli)
+}
+
+// stageCLIChanges stages the written paths. With prune enabled it first removes directory-scoped
+// orphans and uses git add -A so deletions are captured; otherwise it adds each path explicitly.
+func stageCLIChanges(ctx context.Context, workdir string, gitObjectPaths []string, cfg Config, cli *cliEnv) error {
+	if cfg.Prune {
+		if pruneErr := removeDiskOrphans(workdir, gitObjectPaths); pruneErr != nil {
+			return fmt.Errorf("git export: %w", pruneErr)
+		}
+
+		return gitAddAll(ctx, workdir, cli)
+	}
+
+	for _, gitObjectPath := range gitObjectPaths {
+		if err := gitAddPath(ctx, workdir, gitObjectPath, cli); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func prepareCLIWorkdir(

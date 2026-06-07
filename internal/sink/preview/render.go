@@ -12,7 +12,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/sink/git"
+	"github.com/konih/kollect/internal/sink/layout"
 	"github.com/konih/kollect/internal/sink/objectstore"
 	"github.com/konih/kollect/internal/sink/postgres"
 )
@@ -39,18 +41,15 @@ func Render(spec kollectdevv1alpha1.KollectSinkSpec, sinkName string) *kollectde
 
 	switch spec.Type {
 	case kollectdevv1alpha1.SnapshotSinkTypeGit, kollectdevv1alpha1.SnapshotSinkTypeGitLab:
-		ext := objectstore.DefaultExtension
-		if format == kollectdevv1alpha1.SerializationFormatParquet {
-			ext = ".parquet"
-		}
-		path := objectstore.RenderPathTemplate(templateOrDefault(spec.PathTemplate), objectstore.PathVars{
-			Cluster:    strings.TrimSpace(spec.Cluster),
-			Namespace:  "team-a",
-			Name:       "api",
-			Generation: 1,
-			Extension:  ext,
+		resolved := layout.Resolve(layout.ResolveInput{
+			Spec:               spec,
+			InventoryNamespace: "team-a",
+			InventoryName:      "api",
+			Generation:         1,
 		})
+		path := resolved.DocumentPath()
 		preview.ObjectPath = path
+		preview.Layout = renderLayoutPreview(resolved)
 		ctx := git.CommitContext{
 			Namespace:  "team-a",
 			Name:       "api",
@@ -100,12 +99,58 @@ func Render(spec kollectdevv1alpha1.KollectSinkSpec, sinkName string) *kollectde
 	return preview
 }
 
-func templateOrDefault(template string) string {
-	if strings.TrimSpace(template) == "" {
-		return objectstore.DefaultPathTemplate
+func renderLayoutPreview(r layout.ResolvedLayout) *kollectdevv1alpha1.LayoutPreviewStatus {
+	p := &kollectdevv1alpha1.LayoutPreviewStatus{
+		Mode:    r.Mode,
+		Content: r.Content,
+		Prune:   r.Prune,
 	}
 
-	return template
+	if r.IsDocument() {
+		p.SamplePaths = []string{r.DocumentPath()}
+
+		return p
+	}
+
+	files, err := layout.Project(samplePreviewItems(), r)
+	if err != nil {
+		p.SamplePaths = []string{r.DocumentPath()}
+
+		return p
+	}
+
+	const maxSamplePaths = 3
+	paths := make([]string, 0, maxSamplePaths)
+	for i, f := range files {
+		if i >= maxSamplePaths {
+			break
+		}
+		paths = append(paths, f.Path)
+	}
+	p.SamplePaths = paths
+
+	return p
+}
+
+func samplePreviewItems() []collect.Item {
+	manifest := map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"spec":       map[string]any{"replicas": 3},
+	}
+
+	return []collect.Item{
+		{
+			TargetNamespace: "team-a", TargetName: "api", Namespace: "team-a", Name: "api",
+			Group: "apps", Version: "v1", Kind: "Deployment", UID: "uid-api",
+			Attributes: map[string]any{layout.DefaultManifestKey: manifest, "image": "nginx:1.27"},
+		},
+		{
+			TargetNamespace: "team-a", TargetName: "web", Namespace: "team-a", Name: "web",
+			Group: "apps", Version: "v1", Kind: "Deployment", UID: "uid-web",
+			Attributes: map[string]any{layout.DefaultManifestKey: manifest, "image": "nginx:1.27"},
+		},
+	}
 }
 
 func defaultCluster(cluster string) string {

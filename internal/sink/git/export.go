@@ -195,6 +195,12 @@ func exportRemote(
 		writtenPaths = append(writtenPaths, f.Path)
 	}
 
+	if cfg.Prune {
+		if pruneErr := removeBillyOrphans(wt.Filesystem, writtenPaths); pruneErr != nil {
+			return pruneErr
+		}
+	}
+
 	if stageErr := stageChanges(wt, writtenPaths, cfg.Prune); stageErr != nil {
 		return stageErr
 	}

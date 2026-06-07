@@ -41,20 +41,32 @@ func ValidateSnapshotSinkSpec(spec *kollectdevv1alpha1.KollectSnapshotSinkSpec) 
 	}
 	allErrs = append(allErrs, validateCommonSinkFields(&spec.SinkCommonFields)...)
 	allErrs = append(allErrs, validateFormatCapability(spec.Type, spec.Serialization)...)
+	layoutPath := field.NewPath("spec").Child("layout")
 	switch spec.Type {
 	case kollectdevv1alpha1.SnapshotSinkTypeGit:
 		allErrs = append(allErrs, requireBlock(spec.Git, field.NewPath("spec").Child("git"), "required when type is git")...)
 		allErrs = append(allErrs, forbidBlocks(snapshotForbiddenWhenGit(spec))...)
 		allErrs = append(allErrs, validateGitSpec(&kollectdevv1alpha1.KollectSinkSpec{Type: spec.Type, Git: spec.Git})...)
+		allErrs = append(allErrs, ValidateLayoutSpec(spec.Layout, layoutPath)...)
 	case kollectdevv1alpha1.SnapshotSinkTypeGitLab:
 		allErrs = append(allErrs, forbidBlocks(snapshotForbiddenWhenGitLab(spec))...)
+		allErrs = append(allErrs, ValidateLayoutSpec(spec.Layout, layoutPath)...)
 	case kollectdevv1alpha1.SnapshotSinkTypeS3, kollectdevv1alpha1.SnapshotSinkTypeGCS, kollectdevv1alpha1.SnapshotSinkTypeAzureBlob:
 		allErrs = append(allErrs, forbidBlocks(snapshotForbiddenWhenObjectStore(spec))...)
+		allErrs = append(allErrs, forbidLayout(spec.Layout, layoutPath)...)
 	case kollectdevv1alpha1.SnapshotSinkTypeHTTP:
 		allErrs = append(allErrs, requireBlock(spec.HTTP, field.NewPath("spec").Child("http"), "required when type is http")...)
 		allErrs = append(allErrs, forbidBlocks(snapshotForbiddenWhenHTTP(spec))...)
+		allErrs = append(allErrs, forbidLayout(spec.Layout, layoutPath)...)
 	}
 	return allErrs
+}
+
+func forbidLayout(layout *kollectdevv1alpha1.LayoutSpec, path *field.Path) field.ErrorList {
+	if layout == nil {
+		return nil
+	}
+	return field.ErrorList{field.Forbidden(path, "layout is only supported for git and gitlab sinks")}
 }
 
 // ValidateDatabaseSinkSpec checks KollectDatabaseSink cross-field rules.
@@ -68,6 +80,7 @@ func ValidateDatabaseSinkSpec(spec *kollectdevv1alpha1.KollectDatabaseSinkSpec) 
 	}
 	allErrs = append(allErrs, validateCommonSinkFields(&spec.SinkCommonFields)...)
 	allErrs = append(allErrs, validateFormatCapability(spec.Type, spec.Serialization)...)
+	allErrs = append(allErrs, forbidLayout(spec.Layout, field.NewPath("spec").Child("layout"))...)
 	switch spec.Type {
 	case kollectdevv1alpha1.DatabaseSinkTypePostgres:
 		allErrs = append(allErrs, requireBlock(spec.Postgres, field.NewPath("spec").Child("postgres"), "required when type is postgres")...)
@@ -102,6 +115,7 @@ func ValidateEventSinkSpec(spec *kollectdevv1alpha1.KollectEventSinkSpec) field.
 	}
 	allErrs = append(allErrs, validateCommonSinkFields(&spec.SinkCommonFields)...)
 	allErrs = append(allErrs, validateFormatCapability(spec.Type, spec.Serialization)...)
+	allErrs = append(allErrs, forbidLayout(spec.Layout, field.NewPath("spec").Child("layout"))...)
 	switch spec.Type {
 	case kollectdevv1alpha1.EventSinkTypeNats:
 		allErrs = append(allErrs, requireBlock(spec.Nats, field.NewPath("spec").Child("nats"), "required when type is nats")...)

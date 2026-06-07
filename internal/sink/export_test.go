@@ -19,7 +19,6 @@ import (
 	kollecterrors "github.com/konih/kollect/internal/errors"
 	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/sink/cap"
-	"github.com/konih/kollect/internal/sink/objectstore"
 )
 
 type stubBackend struct {
@@ -140,14 +139,16 @@ func TestRunExportItems_exportsSnapshot(t *testing.T) {
 		t.Fatalf("RunExportItems() = %v", err)
 	}
 
-	invNS, invName := objectstore.InventoryFromObjectPath("team-a/platform.json")
-	wantPath := objectstore.ObjectPath(sinkObj.Spec.ToKollectSinkSpec(), invNS, invName, 1)
+	// Git sinks default to a human-readable YAML inventory document (ADR-0419). The stub backend
+	// does not implement FileExporter, so the pipeline falls back to a single-document Export at
+	// the resolved .yaml path with a YAML Items list (not the legacy JSON envelope).
+	const wantPath = "inventory/team-a/platform.yaml"
 	if stub.lastPath != wantPath {
 		t.Fatalf("export path = %q, want %q", stub.lastPath, wantPath)
 	}
 
-	if len(stub.lastBody) == 0 || !strings.Contains(string(stub.lastBody), "schemaVersion") {
-		t.Fatalf("expected envelope payload, got %q", stub.lastBody)
+	if len(stub.lastBody) == 0 || !strings.Contains(string(stub.lastBody), "kind: Deployment") {
+		t.Fatalf("expected YAML inventory payload, got %q", stub.lastBody)
 	}
 }
 

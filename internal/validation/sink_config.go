@@ -38,11 +38,13 @@ func validateSerializationSpec(spec *kollectdevv1alpha1.SerializationSpec, path 
 	if spec.Format != "" {
 		format := strings.ToLower(strings.TrimSpace(spec.Format))
 		switch format {
-		case kollectdevv1alpha1.SerializationFormatJSON, kollectdevv1alpha1.SerializationFormatParquet,
-			kollectdevv1alpha1.SerializationFormatCSV, kollectdevv1alpha1.SerializationFormatNDJSON:
+		case kollectdevv1alpha1.SerializationFormatJSON, kollectdevv1alpha1.SerializationFormatYAML,
+			kollectdevv1alpha1.SerializationFormatParquet, kollectdevv1alpha1.SerializationFormatCSV,
+			kollectdevv1alpha1.SerializationFormatNDJSON:
 		default:
 			allErrs = append(allErrs, field.NotSupported(path.Child("format"), spec.Format, []string{
 				kollectdevv1alpha1.SerializationFormatJSON,
+				kollectdevv1alpha1.SerializationFormatYAML,
 				kollectdevv1alpha1.SerializationFormatParquet,
 				kollectdevv1alpha1.SerializationFormatCSV,
 				kollectdevv1alpha1.SerializationFormatNDJSON,
@@ -130,6 +132,13 @@ func ValidateSinkFormatCapability(sinkType, format string, path *field.Path) fie
 
 func supportedFormatsForType(sinkType string) []string {
 	switch sinkType {
+	case kollectdevv1alpha1.SnapshotSinkTypeGit, kollectdevv1alpha1.SnapshotSinkTypeGitLab:
+		// Git/GitLab honor human-readable yaml (default), legacy json, and ndjson for ETL (ADR-0419).
+		return []string{
+			kollectdevv1alpha1.SerializationFormatJSON,
+			kollectdevv1alpha1.SerializationFormatYAML,
+			kollectdevv1alpha1.SerializationFormatNDJSON,
+		}
 	case kollectdevv1alpha1.SnapshotSinkTypeS3, kollectdevv1alpha1.SnapshotSinkTypeGCS,
 		kollectdevv1alpha1.SnapshotSinkTypeAzureBlob:
 		return []string{
@@ -169,5 +178,24 @@ func ValidateSinkConfigWarnings(spec *kollectdevv1alpha1.KollectSinkSpec) []stri
 		warns = append(warns, "spec.serialization.format takes precedence over spec.objectStore.format")
 	}
 
+	if isGitFamilyType(spec.Type) {
+		if format == kollectdevv1alpha1.SerializationFormatYAML &&
+			(spec.Serialization == nil || strings.TrimSpace(spec.Serialization.Format) == "") {
+			warns = append(warns, "git/gitlab default to serialization.format=yaml (ADR-0419); set serialization.format=json to pin legacy JSON exports")
+		}
+
+		if format != kollectdevv1alpha1.SerializationFormatJSON &&
+			strings.HasSuffix(strings.TrimSpace(spec.PathTemplate), ".json") {
+			warns = append(warns, "pathTemplate ends with .json but serialization.format is not json; use the {extension} placeholder instead")
+		}
+
+		warns = append(warns, LayoutWarnings(spec.Layout)...)
+	}
+
 	return warns
+}
+
+func isGitFamilyType(sinkType string) bool {
+	return sinkType == kollectdevv1alpha1.SnapshotSinkTypeGit ||
+		sinkType == kollectdevv1alpha1.SnapshotSinkTypeGitLab
 }
