@@ -154,5 +154,6 @@ resources, `watchMode: OptIn` without `enabled` labels, or `KollectScope` deny r
 ## Related
 
 - [Operator manual](OPERATOR-MANUAL.md)
+- [Common errors](operator-manual/common-errors.md) — full catalog: conditions, metrics, and fixes
 - [CR reference](CR-REFERENCE.md) · [Error taxonomy](adr/0602-error-taxonomy.md)
 - [Connection test](adr/0403-connection-test.md) · [Examples](examples/README.md)

@@ -284,7 +284,8 @@ kubectl describe kollectinventory team-inventory -n default
 | Namespace skipped | `kollect.dev/namespace-watch: disabled` or `watchMode: OptIn` without `enabled` label |
 
 See [Kind local lab](kind-local-lab.md), [QUICKSTART.md](../QUICKSTART.md), and
-[DEVELOPMENT.md](../DEVELOPMENT.md) for cluster setup and log inspection.
+[DEVELOPMENT.md](../DEVELOPMENT.md) for cluster setup and log inspection. Full error catalog:
+[Common errors](../operator-manual/common-errors.md).
 
 ## Related
 
