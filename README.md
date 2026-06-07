@@ -86,7 +86,7 @@ status and check your sink (Git demo repo, Postgres, Kafka, …).
 | **Schema-flexible** | Declare attributes in `KollectProfile`; no bespoke collector per CRD. |
 | **CRD-native & GitOps-friendly** | Profiles, sinks, targets, and inventory are Kubernetes resources in team namespaces. |
 | **Multi-tenant** | `KollectScope` gates which teams and namespaces may export to which sinks. |
-| **Fleet-ready** | Default path: spokes write to **shared sinks** with a cluster label. Optional **hub mode** (`mode: hub\|spoke` on the same image) for Git fan-in or credential centralization — no hub CRD required. |
+| **Fleet-ready** | **N operators → shared sink** — one single-mode install per cluster, `spec.cluster` labels exports for merge ([ADR-0501](https://konih.github.io/kollect/adr/0501-multi-cluster-fleet/)). |
 
 Default install for new teams: **namespaced Helm** with `tenantMode: true` and scoped
 `watchNamespaces`. Platform-wide cluster operators remain supported.
@@ -98,7 +98,7 @@ Default install for new teams: **namespaced Helm** with `tenantMode: true` and s
 | Problem statement, CRD model, reconciliation | [Architecture](https://konih.github.io/kollect/ARCHITECTURE/) |
 | Locked platform decisions | [Platform decisions](https://konih.github.io/kollect/PLATFORM-DECISIONS/) |
 | CR fields, RBAC, failure modes | [CR reference](https://konih.github.io/kollect/CR-REFERENCE/) |
-| Multi-cluster & hub/spoke | [ADR-0501](https://konih.github.io/kollect/adr/0501-multi-cluster-sync-rfc/) |
+| Multi-cluster fleet | [ADR-0501](https://konih.github.io/kollect/adr/0501-multi-cluster-fleet/) |
 | Sink taxonomy (state vs stream) | [ADR-0401](https://konih.github.io/kollect/adr/0401-sink-taxonomy-state-vs-stream/) |
 | Build-order phases and status | [Roadmap](https://konih.github.io/kollect/ROADMAP/) |
 | Examples index | [Examples](https://konih.github.io/kollect/examples/) |
