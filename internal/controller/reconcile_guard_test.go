@@ -29,8 +29,8 @@ func TestGuardReconcile_recoversPanicAndRequeues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("guardReconcile err = %v", err)
 	}
-	if !result.Requeue {
-		t.Fatal("expected Requeue after panic")
+	if result.RequeueAfter == 0 && !result.Requeue { //nolint:staticcheck // SA1019: guard uses Requeue for immediate requeue
+		t.Fatal("expected requeue after panic")
 	}
 
 	select {
