@@ -21,6 +21,10 @@ shipped with kollect):
 | `internal/sink/git/retry.go` | `ext/git/client.go` (`LsRemote` retry loop) |
 | `internal/sink/git/errors.go` | `ext/git/client.go` (transient error signals) |
 | `internal/sink/git/auth.go` | `ext/git/client.go`, `ext/git/creds.go` |
+| `internal/sink/git/cli_env.go` | CLI `GIT_SSH_COMMAND`, `http.extraHeader` via `--config-env` |
+| `internal/sink/git/sync_remote.go` | Non-fast-forward fetch/merge before push retry |
+| `internal/sink/git/ref_cache.go` | Connection probe `ls-remote` result cache |
+
 
 Apache 2.0 requires retaining copyright and license notices in derivative
 works. Adapted Go source files include an inline attribution comment pointing

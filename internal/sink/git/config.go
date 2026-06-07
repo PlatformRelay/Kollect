@@ -27,8 +27,10 @@ type Config struct {
 	CommitMessage string
 	Author        CommitAuthor
 	CloneDepth    int
-	Prune         bool
-	AuthType      AuthType
+	Prune           bool
+	AuthType        AuthType
+	Engine          GitEngine
+	ForceBasicAuth  bool
 }
 
 func ConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec, caPEM []byte) (Config, error) {
@@ -86,6 +88,7 @@ func ConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec, caPEM []byte) (Conf
 	}
 
 	cfg.AuthType = authType
+	cfg.ForceBasicAuth = cfg.ForceBasicAuth || forceBasicAuthFromEnv()
 
 	return cfg, nil
 }
@@ -132,6 +135,19 @@ func applyGitSpec(cfg *Config, gitSpec *kollectdevv1alpha1.GitSpec) error {
 	}
 
 	cfg.Prune = gitSpec.Prune
+
+	if engine := strings.TrimSpace(gitSpec.Engine); engine != "" {
+		switch engine {
+		case kollectdevv1alpha1.GitEngineGoGit:
+			cfg.Engine = GitEngineGoGit
+		case kollectdevv1alpha1.GitEngineCLI:
+			cfg.Engine = GitEngineCLI
+		default:
+			return fmt.Errorf("unsupported git engine %q", gitSpec.Engine)
+		}
+	}
+
+	cfg.ForceBasicAuth = gitSpec.ForceBasicAuth || forceBasicAuthFromEnv()
 
 	return nil
 }
@@ -205,6 +221,10 @@ func (c Config) withDefaults() Config {
 
 	if c.AuthType == "" {
 		c.AuthType = AuthTypeToken
+	}
+
+	if c.Engine == "" {
+		c.Engine = GitEngineGoGit
 	}
 
 	return c

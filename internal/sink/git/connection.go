@@ -18,22 +18,28 @@ const connectionTimeout = 15 * time.Second
 
 // TestConnection verifies TLS to the git remote and optionally runs git ls-remote.
 func TestConnection(ctx context.Context, cfg Config, auth Auth) error {
+	cfg = cfg.withDefaults()
+
 	u, err := url.Parse(cfg.Endpoint)
 	if err != nil {
-		return fmt.Errorf("invalid endpoint URL: %w", err)
+		return ClassifyExportError(fmt.Errorf("invalid endpoint URL: %w", err))
 	}
 
 	if u.Scheme == schemeHTTP {
-		return lsRemote(ctx, cfg, auth)
+		return ClassifyExportError(lsRemote(ctx, cfg, auth))
 	}
 
 	if u.Scheme != "https" && u.Scheme != "" {
-		return fmt.Errorf("unsupported URL scheme %q for TLS connection test", u.Scheme)
+		if u.Scheme == schemeSSH || u.Scheme == schemeFile {
+			return ClassifyExportError(lsRemote(ctx, cfg, auth))
+		}
+
+		return ClassifyExportError(fmt.Errorf("unsupported URL scheme %q for TLS connection test", u.Scheme))
 	}
 
 	host := u.Hostname()
 	if host == "" {
-		return fmt.Errorf("endpoint URL has no host")
+		return ClassifyExportError(fmt.Errorf("endpoint URL has no host"))
 	}
 
 	port := u.Port()
@@ -47,16 +53,16 @@ func TestConnection(ctx context.Context, cfg Config, auth Auth) error {
 
 	if err := tlsHandshake(ctx, host, port, cfg.TLS); err != nil {
 		if cfg.TLS.RootCAs != nil {
-			return fmt.Errorf(
+			return ClassifyExportError(fmt.Errorf(
 				"TLS handshake failed: custom CA may be wrong or incomplete: %w",
 				err,
-			)
+			))
 		}
 
-		return fmt.Errorf("TLS handshake failed: %w", err)
+		return ClassifyExportError(fmt.Errorf("TLS handshake failed: %w", err))
 	}
 
-	return lsRemote(ctx, cfg, auth)
+	return ClassifyExportError(lsRemote(ctx, cfg, auth))
 }
 
 func tlsHandshake(ctx context.Context, host, port string, tlsCfg TLSConfig) error {
@@ -97,16 +103,43 @@ func lsRemote(ctx context.Context, cfg Config, auth Auth) error {
 		return nil
 	}
 
+	key := refCacheKey(cfg.Endpoint, auth)
+	if cached, ok := lsRemoteRefCache.get(key); ok {
+		return cached
+	}
+
+	err := lsRemoteUncached(ctx, cfg, auth)
+	lsRemoteRefCache.set(key, err)
+
+	return err
+}
+
+func lsRemoteUncached(ctx context.Context, cfg Config, auth Auth) error {
 	ctx, cancel := context.WithTimeout(ctx, connectionTimeout)
 	defer cancel()
 
+	authType := auth.AuthType
+	if authType == "" {
+		authType = cfg.AuthType
+	}
+
+	cli, err := newCLIEnv(cfg, auth, authType)
+	if err != nil {
+		return err
+	}
+	defer cli.cleanup()
+
 	endpoint := cfg.Endpoint
-	if creds := auth.embedInURL(endpoint); creds != "" {
+	if creds := auth.embedInURL(endpoint); creds != "" && !cfg.ForceBasicAuth {
 		endpoint = creds
 	}
 
+	lsArgs := cli.prependGitArgs("ls-remote", "--heads", endpoint)
 	//nolint:gosec // G204: endpoint validated at admission and ConfigFromSpec URL parse
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", endpoint)
+	argv := append([]string{"git"}, lsArgs...)
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	applyCLIEnv(cmd, cli)
+
 	if cfg.TLS.InsecureSkipVerify {
 		cmd.Env = append(cmd.Environ(), "GIT_SSL_NO_VERIFY=true")
 	}
