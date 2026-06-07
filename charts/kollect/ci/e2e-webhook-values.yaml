@@ -1,0 +1,22 @@
+# CI / Tier 1 webhook e2e: validating webhooks on (requires cert-manager controller).
+featureGates:
+  inventoryHttp:
+    enabled: true
+    authMode: disabled
+
+webhooks:
+  enabled: true
+  certManager:
+    create: true
+
+leaderElection:
+  enabled: false
+
+watchNamespaces: []
+tenantMode: false
+
+transport:
+  type: inprocess
+
+sinkDefaults:
+  connectionTest: false

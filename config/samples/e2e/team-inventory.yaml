@@ -9,3 +9,5 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 spec:
   suspend: false
+  snapshotSinkRefs:
+    - e2e-snapshot-sink

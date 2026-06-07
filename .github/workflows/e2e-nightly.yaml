@@ -1,3 +1,4 @@
+# Nightly L4 Kind matrix (deduped — L3 export/object-store runs in ci.yaml test-integration).
 name: E2E nightly
 
 on:
@@ -8,13 +9,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: e2e-nightly-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Each scenario gets its own Kind cluster (setup → scenario → teardown) so failures
   # are isolated and parallelized. fail-fast: false keeps other scenarios running.
   e2e-scenario:
     name: e2e-${{ matrix.scenario }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -25,9 +30,6 @@ jobs:
           - scenario: git-export
             script: hack/e2e/git-export-assert.sh
             run_mode: repo_root
-          - scenario: export-integration
-            script: hack/e2e/export-integration-assert.sh
-            run_mode: bash
           - scenario: tenant-mode
             script: hack/e2e/tenant-mode.sh
             run_mode: repo_root
@@ -39,44 +41,24 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/go-cache
+      - uses: ./.github/actions/kind-e2e-setup
         with:
-          envtest: true
+          scenario-script: ${{ matrix.script }}
+          run-mode: ${{ matrix.run_mode }}
+          wait-timeout: 300s
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          git-export-test-repo: ${{ vars.GIT_EXPORT_TEST_REPO }}
 
-      - uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
-        with:
-          version: 3.51.1
-
-      - name: Install kind and helm
-        env:
-          HELM_VERSION: v3.17.3
+      - name: Summarize nightly failure
+        if: failure()
+        shell: bash
         run: |
-          curl -fsSL -o kind "https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64"
-          chmod +x kind && sudo mv kind /usr/local/bin/kind
-          bash hack/install-helm.sh
-
-      - name: Create kind cluster and install operator
-        env:
-          KIND_CLUSTER_WAIT: 300s
-          KOLLECT_HELM_TIMEOUT: 300s
-          KOLLECT_MANAGER_WAIT: 300s
-        run: bash hack/kind/e2e/setup.sh
-
-      - name: Run e2e scenario
-        env:
-          WAIT_TIMEOUT: 300s
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GIT_EXPORT_TEST_REPO: ${{ vars.GIT_EXPORT_TEST_REPO }}
-        run: |
-          chmod +x "${{ matrix.script }}"
-          case "${{ matrix.run_mode }}" in
-            bash) bash "${{ matrix.script }}" ;;
-            repo_root) REPO_ROOT="${GITHUB_WORKSPACE}" "${{ matrix.script }}" ;;
-          esac
-
-      - name: Delete kind cluster
-        if: always()
-        run: bash hack/kind/e2e/teardown.sh
+          {
+            echo "::error title=Nightly e2e failed::Scenario '${{ matrix.scenario }}' failed."
+            echo "Triage: check inventory reconciliation timeouts, kind.sigs.k8s.io download flakes,"
+            echo "and Helm install waits. Re-run via workflow_dispatch or \`task test:e2e\` locally."
+            echo "Maintainer notes: agent-context/E2E-TEST-STRATEGY.md"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
   e2e-bench:
     name: e2e-bench
@@ -128,19 +110,3 @@ jobs:
         run: task perf-report
         env:
           CI: "true"
-
-  e2e-object-store:
-    name: e2e-object-store
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/go-cache
-
-      - name: Object store sink integration (S3/GCS)
-        run: |
-          go test -count=1 -timeout=10m -tags=integration \
-            ./internal/sink/s3/... ./internal/sink/gcs/...

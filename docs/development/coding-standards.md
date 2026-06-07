@@ -195,12 +195,15 @@ Non-trivial API, tenancy, sink, or multi-cluster changes require an ADR before m
 
 ## Pull request and CI gates
 
-`main` is protected: linear history, required checks **`preflight`** and **`test`**, no force-push.
-Use **Rebase and merge** on PRs ([CONTRIBUTING.md § Changelog and releases](../../CONTRIBUTING.md#changelog-and-releases)).
+`main` is protected: linear history, required checks **`preflight`**, **`test`**, and **`kind-smoke`**
+(E2E Tier 0), no force-push. Add **`kind-smoke`** in GitHub branch protection after the workflow
+has run green on `main` at least once. Use **Rebase and merge** on PRs
+([CONTRIBUTING.md § Changelog and releases](../../CONTRIBUTING.md#changelog-and-releases)).
 
 | Gate | Workflow / task | Blocks merge? |
 | --- | --- | --- |
 | **Preflight** | `.github/workflows/preflight.yaml` | Yes |
+| **E2E smoke** | `.github/workflows/e2e-smoke.yaml` → job `kind-smoke` | Yes |
 | `go mod tidy` drift | preflight job | Yes |
 | `go mod verify` | preflight job | Yes |
 | Codegen drift | `task verify` | Yes |
@@ -213,4 +216,5 @@ Use **Rebase and merge** on PRs ([CONTRIBUTING.md § Changelog and releases](../
 | Secret scan | gitleaks | Yes |
 | Helm / image smoke | `task helm-test`, `task docker:build` | Yes |
 
-Optional jobs (perf-report, SonarCloud, e2e-nightly) do not block merge unless noted in ADR-0706.
+Optional jobs (e2e-extended Tier 1, e2e-nightly, perf-report, SonarCloud) do not block merge unless
+noted in ADR-0706.

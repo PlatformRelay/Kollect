@@ -1,0 +1,120 @@
+# Tier 1 — optional extended Kind scenarios (non-blocking unless branch protection updated).
+# Triggers: path-filtered PR, label e2e/full, or workflow_dispatch.
+name: E2E extended
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-extended-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: decide
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "run=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+            if echo "${LABELS}" | grep -q '"e2e/full"'; then
+              echo "run=true" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+
+            mapfile -t changed < <(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")
+            patterns=(
+              '^(api|internal|cmd|config|hack/kind|hack/e2e)/'
+              '^charts/kollect/'
+              '^go\.(mod|sum)$'
+              '^Dockerfile$'
+              '^\.github/workflows/e2e-extended\.yaml$'
+            )
+            for file in "${changed[@]}"; do
+              for pattern in "${patterns[@]}"; do
+                if [[ "${file}" =~ ${pattern} ]]; then
+                  echo "run=true" >> "${GITHUB_OUTPUT}"
+                  exit 0
+                fi
+              done
+            done
+          fi
+
+          echo "run=false" >> "${GITHUB_OUTPUT}"
+
+  e2e-scenario:
+    name: e2e-${{ matrix.scenario }}
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scenario: git-export
+            script: hack/e2e/git-export-assert.sh
+            run_mode: repo_root
+            setup_script: hack/kind/e2e/setup.sh
+          - scenario: tenant-mode
+            script: hack/e2e/tenant-mode.sh
+            run_mode: repo_root
+            setup_script: hack/kind/e2e/setup.sh
+          - scenario: multitenant
+            script: hack/e2e/multitenant.sh
+            run_mode: repo_root
+            setup_script: hack/kind/e2e/setup.sh
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/kind-e2e-setup
+        with:
+          setup-script: ${{ matrix.setup_script }}
+          scenario-script: ${{ matrix.script }}
+          run-mode: ${{ matrix.run_mode }}
+          wait-timeout: 300s
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          git-export-test-repo: ${{ vars.GIT_EXPORT_TEST_REPO }}
+
+  kind-webhook-smoke:
+    name: kind-webhook-smoke
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/kind-e2e-setup
+        with:
+          setup-script: hack/kind/e2e/setup-webhook.sh
+          scenario-script: hack/e2e/webhook-smoke.sh
+          wait-timeout: 300s

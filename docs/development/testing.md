@@ -16,7 +16,7 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 | **L1 — Controller / API** | envtest reconcilers, webhooks | Yes | `task coverage` (no `-race` in CI) |
 | **L2 — Golden / contract** | OpenAPI fragments, sample YAML, extractor goldens | Yes | `task test` |
 | **L3 — Integration** | Real Postgres, Kafka, Git, S3, GCS, Redis, NATS (testcontainers) | Yes | `task test-integration` |
-| **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | Nightly / path-filtered PR | `task test:e2e` |
+| **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | **PR smoke (required)** + nightly / extended | `task test:e2e` |
 | **UI — Playwright** | React SPA smoke (MSW dev server); not backend Kind L4 | No (optional locally) | `task ui-e2e` · `task ui-e2e:docker` |
 | **L5 — Load / perf** | Bounded synthetic scale (≤2000 objects), micro-benchmarks | Opt-in | `task load-test` · `task perf-report` |
 
@@ -69,7 +69,12 @@ Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
 - Native Go fuzz (CEL/JSONPath extractors, content hash)
 - RBAC audit (`hack/audit-rbac.sh`)
 
-**Non-blocking on PR:** `task perf-report` (promoted to blocking at **v0.4** per ADR-0706);
+**E2E smoke (L4 Tier 0):** `.github/workflows/e2e-smoke.yaml` job **`kind-smoke`** on every
+non-docs PR and push to `main` (same `paths-ignore` as CI). Required for branch protection — see
+[coding-standards.md](coding-standards.md).
+
+**Non-blocking on PR:** `e2e-extended.yaml` (Tier 1 matrix + webhook profile; label `e2e/full` or
+path-filtered), `task perf-report` (promoted to blocking at **v0.4** per ADR-0706);
 **SonarCloud** scan (`sonarcloud` job — needs `SONAR_TOKEN`; see
 [tooling-setup.md](tooling-setup.md)).
 
@@ -84,10 +89,14 @@ until the maintainer adds `SONAR_TOKEN`. Does not replace `task lint` or arch-li
 | Workflow | Tier | Purpose |
 | --- | --- | --- |
 | `docs.yaml` | Docs | Markdown lint, MkDocs build, GitHub Pages deploy (`main` only) |
-| `e2e-nightly.yaml` | L4 | Kind smoke, git-export assert, integration re-check |
-| `e2e-webhook-path.yaml` | L4 | Path-filtered kind smoke for webhook/cert changes |
-| `test-e2e.yaml` | L4 | Extended e2e on demand |
+| `e2e-smoke.yaml` | L4 Tier 0 | **Mandatory** kind smoke on PR + `main` (job `kind-smoke`) |
+| `e2e-extended.yaml` | L4 Tier 1 | Optional git-export, multitenant, tenant-mode, webhook profile |
+| `e2e-nightly.yaml` | L4 Tier 2 | Full Kind matrix + bench/perf (deduped L3) |
+| `test-e2e.yaml` | L4 Tier 3 | Manual full matrix (`workflow_dispatch`) |
 | `release.yaml` | Supply chain | Image signing, SBOM, chart publish |
+
+Set repository variable **`GIT_EXPORT_TEST_REPO`** (Settings → Actions → Variables) to enable full
+remote git SHA assert in git-export scenarios. Without it, jobs verify inventory HTTP hash only.
 
 ## Local development commands
 

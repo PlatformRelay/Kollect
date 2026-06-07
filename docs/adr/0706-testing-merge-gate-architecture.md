@@ -67,14 +67,15 @@ Binding jobs in `.github/workflows/ci.yaml`:
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
-| `e2e-nightly.yaml` | cron + `workflow_dispatch` | Kind setup/smoke, git-export assert, integration asserts |
-| `e2e-webhook-path.yaml` | PR path filter (webhook/cert) | Kind smoke only — cert-manager collection + inventory HTTP |
-| `test-e2e.yaml` | `workflow_dispatch` | Extended e2e (full nightly subset, optional skip) |
+| `e2e-smoke.yaml` | PR + push `main` (non-docs) | **Mandatory** kind smoke — inventory HTTP + family sink sample |
+| `e2e-extended.yaml` | PR path / label `e2e/full` / dispatch | Tier 1 git-export, multitenant, tenant-mode, webhook profile |
+| `e2e-nightly.yaml` | cron + `workflow_dispatch` | Full Kind matrix + bench/perf (L3 deduped) |
+| `test-e2e.yaml` | `workflow_dispatch` | Manual full nightly matrix |
 | `release.yaml` | tag | Supply chain gates ([ADR-0705](0705-release-supply-chain.md)) |
 | `codeql.yaml` | push/PR `main`, weekly | CodeQL SAST for Go; SARIF → Code Scanning |
 
-E2e does **not** block every PR (cost/latency); **NFR-TEST-3** is satisfied by nightly + release
-validation, not per-commit kind.
+E2e **Tier 0 (`kind-smoke`)** blocks merge on every non-docs PR and `main` push; **NFR-TEST-3** full
+matrix remains nightly + manual dispatch.
 
 ### Scale and load bounds
 
@@ -124,10 +125,11 @@ From [engineering guidelines](https://github.com/konih/kollect/blob/main/docs/de
 
 - **OPEN:** Promote **`task perf-report`** from optional to blocking at **v0.4** once baseline is stable in
   `PERF-SNAPSHOT`?
-- **RESOLVED (2026-06-05):** Per-PR **path-filtered e2e** for webhook/cert changes —
-  `.github/workflows/e2e-webhook-path.yaml` runs kind smoke (including `hack/e2e/cert-manager.sh`)
-  when webhook, chart webhook/cert templates, or Certificate sample paths change; full L4 remains
-  nightly-only for cost/latency ([ADR-0105](0105-webhook-serving-cert-management.md)).
+- **RESOLVED (2026-06-07):** Mandatory **Tier 0 `kind-smoke`** on all non-docs PRs via
+  `.github/workflows/e2e-smoke.yaml`; webhook profile moved to optional **`e2e-extended.yaml`**
+  ([ADR-0105](0105-webhook-serving-cert-management.md)).
+- **RESOLVED (2026-06-05):** Per-PR **path-filtered e2e** for webhook/cert changes — superseded by
+  Tier 0 smoke + Tier 1 extended webhook job (formerly `e2e-webhook-path.yaml`).
 - **RESOLVED (2026-06-07):** **`COVERAGE_MIN=70`** — ratchet at **`v0.3.0-rc`** tag or when
   measured `./internal/...` coverage is **≥ 70%** sustained on `main` (see **Coverage floor** above).
   PR floor remains **65%** until then.

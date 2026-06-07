@@ -27,6 +27,12 @@ kubectl wait --for=condition=Established crd/kollecteventsinks.kollect.dev --tim
 kubectl wait --for=condition=Established crd/kollectscopes.kollect.dev --timeout="$WAIT_TIMEOUT"
 kubectl get kollectprofiles,kollecttargets,kollectinventories,kollectsnapshotsinks,kollectdatabasesinks -A
 
+_log "Asserting family snapshot sink CR accepted..."
+if ! kubectl get kollectsnapshotsink e2e-snapshot-sink -n default >/dev/null 2>&1; then
+  echo "expected KollectSnapshotSink e2e-snapshot-sink in default namespace" >&2
+  exit 1
+fi
+
 _log "Probing inventory HTTP..."
 kubectl port-forward -n "$KOLLECT_NAMESPACE" svc/kollect-controller-manager 18082:8082 &
 PF_PID=$!

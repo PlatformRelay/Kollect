@@ -29,6 +29,13 @@ for sample in "${E2E_SAMPLE_FILES[@]}"; do
   kubectl apply -f "${E2E_SAMPLE_DIR}/${sample}"
 done
 
+_log "Applying family snapshot sink sample..."
+kubectl apply -f "${E2E_SAMPLE_DIR}/e2e/snapshot-sink.yaml"
+if ! kubectl get kollectsnapshotsink e2e-snapshot-sink -n default >/dev/null 2>&1; then
+  echo "KollectSnapshotSink e2e-snapshot-sink not found after apply" >&2
+  exit 1
+fi
+
 _log "Seeding nginx Deployment for target collection..."
 kubectl apply -f - <<'EOF'
 apiVersion: apps/v1

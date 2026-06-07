@@ -91,7 +91,28 @@ task helm-test
 task changelog:verify
 ```
 
-Ensure **CI** and **preflight** are green on `${RELEASE_SHA}` on GitHub Actions.
+Ensure **CI**, **preflight**, and **`kind-smoke`** (`e2e-smoke.yaml`) are green on `${RELEASE_SHA}`
+on GitHub Actions.
+
+### L4 pre-release gate
+
+Before tagging, require **one** of:
+
+1. Green **`e2e-nightly`** workflow run on `${RELEASE_SHA}` (re-run via `workflow_dispatch` if the
+   scheduled cron has not yet picked up the commit), or
+2. Manual **`test-e2e`** workflow dispatch on that SHA, or
+3. Local **`task test:e2e`** on the release commit (document run ID / timestamp in the release notes).
+
+L3 integration (`test-integration` in CI) remains the merge gate for sink backends; nightly L4
+no longer duplicates export-integration or object-store jobs.
+
+### Git export test repository (optional)
+
+For full remote git SHA assert in **`e2e-nightly`**, **`e2e-extended`**, and **`test-e2e`**
+git-export jobs, set repository variable **`GIT_EXPORT_TEST_REPO`** in GitHub → Settings →
+Actions → Variables (clone URL of a dedicated test repo). Workflows pass `${{ vars.GIT_EXPORT_TEST_REPO }}`
+with `GITHUB_TOKEN`; this cannot be set from workflow YAML. Without the variable, git-export jobs
+verify inventory HTTP hash only (degraded mode).
 
 ### Current release status
 
