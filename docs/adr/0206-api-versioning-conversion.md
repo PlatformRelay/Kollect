@@ -53,7 +53,7 @@ CRD API versions. Consumers (portals, SQL, Kafka subscribers, Read API) branch o
 | Surface | Versioning today | Pre-beta target |
 | --- | --- | --- |
 | CRD schemas (`v1alpha1`) | Break freely until **v0.10 presentation gate** | `v1beta1` + conversion webhook |
-| Wire envelopes (| Sink JSON + Read API | Bare `[]Item` / `NamespaceSummary` — **no envelope yet** | Versioned envelope per ADR-0405 milestone |
+| Wire envelopes (Sink JSON + Read API) | Bare `[]Item` / `NamespaceSummary` — **no envelope yet** | Versioned envelope per ADR-0405 milestone |
 | Read API routes | `/v1alpha1/…` path prefix ([ADR-0408](0408-read-api-ui-architecture.md)) | Stable OpenAPI; response body carries `schemaVersion` |
 
 Read API work ([ADR-0408](0408-read-api-ui-architecture.md)) must return the same envelope contract

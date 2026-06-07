@@ -21,7 +21,8 @@ Prior `archive/hub-spoke-pre-removal` for reference only — not supported in cu
 | --- | --- |
 | **Per cluster** | `KollectTarget` → in-memory store → `KollectInventory` → family sinks |
 | **Shared sink** | Postgres PK `(cluster, namespace, name, uid)`; Git `pathTemplate: clusters/{cluster}/…`; Kafka/NATS subject/key with cluster label |
-| **No operator hub** | No `
+| **No operator hub** | No `KollectRemoteCluster`, hub Helm mode, or in-tree queue transport |
+
 ```mermaid
 flowchart LR
   subgraph c1 [Cluster A]

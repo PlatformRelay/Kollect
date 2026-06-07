@@ -85,7 +85,6 @@ Fleet installs distinguish clusters via **`spec.cluster`** on inventory and expo
 ([ADR-0501](adr/0501-multi-cluster-fleet.md)). Remote-cluster registration labels and hub ingest
 headers are **not** used in the default architecture.
 
-
 ## Profile and export metadata
 
 | Key | Type | On | Values | Effect |

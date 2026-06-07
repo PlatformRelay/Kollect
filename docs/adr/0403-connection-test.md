@@ -133,7 +133,7 @@ sink checks.
   to opt out of automatic probes on every spec change.
 - **`kollect.dev/test-connection: "true"`** remains for one-shot re-tests when probes are disabled.
 
-## Resolved 
+## Resolved
 
 - **Garbage collection:** `spec.ttlSecondsAfterFinished` — default **300**; controller deletes CR
   after probe completes and TTL elapses.
