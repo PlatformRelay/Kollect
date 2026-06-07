@@ -12,7 +12,6 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	kollecterrors "github.com/konih/kollect/internal/errors"
-	"github.com/konih/kollect/internal/spoke"
 )
 
 const inventoryCleanupFinalizer = "kollect.dev/inventory-cleanup"
@@ -51,10 +50,6 @@ func (r *KollectInventoryReconciler) cleanupInventoryDeletion(
 	ctx context.Context,
 	inv *kollectdevv1alpha1.KollectInventory,
 ) error {
-	if err := spoke.PublishInventoryDeletion(ctx, r.Store, inv); err != nil {
-		return err
-	}
-
 	return cleanupSinkExports(
 		ctx,
 		r.Client,

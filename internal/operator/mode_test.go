@@ -12,34 +12,23 @@ func TestResolveMode(t *testing.T) {
 
 	tests := []struct {
 		flag string
-		hub  bool
 		want string
 	}{
-		{"", false, ModeCluster},
-		{"single", false, ModeCluster},
-		{"hub", false, ModeHub},
-		{"", true, ModeHub},
-		{"spoke", false, ModeSpoke},
+		{"", ModeCluster},
+		{"single", ModeCluster},
+		{"cluster", ModeCluster},
 	}
 
 	for _, tc := range tests {
-		if got := ResolveMode(tc.flag, tc.hub); got != tc.want {
-			t.Fatalf("ResolveMode(%q, %v) = %q, want %q", tc.flag, tc.hub, got, tc.want)
+		if got := ResolveMode(tc.flag); got != tc.want {
+			t.Fatalf("ResolveMode(%q) = %q, want %q", tc.flag, got, tc.want)
 		}
 	}
 }
 
-func TestIsHubMode(t *testing.T) {
-	t.Parallel()
-
-	if !IsHubMode(ModeHub) || IsHubMode(ModeSpoke) {
-		t.Fatal("IsHubMode mismatch")
-	}
-}
-
 func TestResolveModeFromEnv(t *testing.T) {
-	t.Setenv(envMode, "spoke")
-	if got := ResolveMode("", false); got != ModeSpoke {
+	t.Setenv(envMode, "cluster")
+	if got := ResolveMode(""); got != ModeCluster {
 		t.Fatalf("env mode = %q", got)
 	}
 }
@@ -47,7 +36,7 @@ func TestResolveModeFromEnv(t *testing.T) {
 func TestResolveModeUnknownFallsBackToCluster(t *testing.T) {
 	t.Parallel()
 
-	if got := ResolveMode("mystery", false); got != ModeCluster {
+	if got := ResolveMode("mystery"); got != ModeCluster {
 		t.Fatalf("unknown mode = %q", got)
 	}
 }

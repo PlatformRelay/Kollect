@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -15,7 +14,6 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1 "k8s.io/api/core/v1"
@@ -384,56 +382,5 @@ var _ = Describe("KollectInventory partial multi-sink export (envtest)", func() 
 		failSynced := apimeta.FindStatusCondition(failExport.Conditions, conditionSinkSynced)
 		Expect(failSynced).NotTo(BeNil())
 		Expect(failSynced.Reason).To(Equal(reasonExportFailed))
-	})
-
-	It("sets SpokePublishFailed when hub publish fails (EC-P1-07)", func() {
-		suffix := testNameSuffix()
-		invName := "spoke-fail-" + suffix
-		ns := "spoke-fail-ns-" + suffix
-
-		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})).To(Succeed())
-		defer func() {
-			_ = k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})
-		}()
-
-		DeferCleanup(func() {
-			_ = os.Unsetenv("KOLLECT_SPOKE_CLUSTER")
-			_ = os.Unsetenv("KOLLECT_TRANSPORT_TYPE")
-		})
-		Expect(os.Setenv("KOLLECT_SPOKE_CLUSTER", "spoke-a")).To(Succeed())
-		Expect(os.Setenv("KOLLECT_TRANSPORT_TYPE", "not-a-real-transport")).To(Succeed())
-
-		store := collect.NewStore()
-		store.Upsert(collect.Item{
-			TargetNamespace: ns,
-			TargetName:      "demo-target",
-			UID:             "uid-spoke",
-			Namespace:       ns,
-			Name:            "nginx",
-			Version:         "v1",
-			Kind:            "Deployment",
-		})
-
-		inv := &kollectdevv1alpha1.KollectInventory{
-			ObjectMeta: metav1.ObjectMeta{Name: invName, Namespace: ns, Generation: 1},
-			Spec:       kollectdevv1alpha1.KollectInventorySpec{},
-		}
-		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
-		defer func() { _ = k8sClient.Delete(ctx, inv) }()
-
-		fakeRecorder := record.NewFakeRecorder(1)
-		reconciler := &KollectInventoryReconciler{
-			Client:   k8sClient,
-			Scheme:   k8sClient.Scheme(),
-			Store:    store,
-			Recorder: fakeRecorder,
-		}
-
-		_, err := reconciler.Reconcile(context.Background(), reconcile.Request{
-			NamespacedName: types.NamespacedName{Name: invName, Namespace: ns},
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		Eventually(fakeRecorder.Events, 5*time.Second).Should(Receive(ContainSubstring("SpokePublishFailed")))
 	})
 })

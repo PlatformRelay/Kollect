@@ -7,7 +7,7 @@ package export
 import "fmt"
 
 const (
-	// WireAPIVersion is the SpokeReport apiVersion field (ADR-0502).
+	// WireAPIVersion is the export envelope apiVersion field (ADR-0405).
 	WireAPIVersion = "kollect.dev/v1alpha1"
 
 	// SchemaVersion is the export envelope contract version (ADR-0405).

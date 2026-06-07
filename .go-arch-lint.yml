@@ -59,14 +59,8 @@ components:
     in: internal/scope/**
   sink:
     in: internal/sink/**
-  transport:
-    in: internal/transport/**
   controller:
     in: internal/controller/**
-  hub:
-    in: internal/hub/**
-  spoke:
-    in: internal/spoke/**
   inventory:
     in: internal/inventory/**
   export:
@@ -80,8 +74,6 @@ components:
       - internal/metrics/**
       - internal/httpauth/**
       - internal/pathvalidate/**
-      - internal/remotecredentials/**
-      - internal/remotesecret/**
       - internal/operator/**
       - internal/pprof/**
       - internal/integrationtest/**
@@ -98,12 +90,9 @@ deps:
       - collect
       - aggregate
       - sink
-      - hub
       - scope
       - validation
       - export
-      # todo(arch-01): extract spoke publish behind export/transport facade; controller should not import spoke
-      - spoke
     canUse:
       - controller-runtime
       - client-go
@@ -122,7 +111,6 @@ deps:
       - collect
   sink:
     mayDependOn:
-      - transport
       - export
       - sink
       # todo(arch-03): sink backends read collect rows during export; narrow to export envelope types
@@ -136,32 +124,6 @@ deps:
       - prometheus
       - redis
       - parquet
-  hub:
-    mayDependOn:
-      - sink
-      - aggregate
-      - export
-      - hub
-      # todo(arch-05): hub merge/ingest uses collect.Row; target: aggregate-only merge API
-      - collect
-      # todo(arch-06): hub consumer wires NATS/Kafka transport directly
-      - transport
-    canUse:
-      - controller-runtime
-      - client-go
-      - k8s-api
-  spoke:
-    mayDependOn:
-      - transport
-      - hub
-      - spoke
-      # todo(arch-07): spoke publisher builds collect rows + export envelope
-      - collect
-      - export
-    canUse:
-      - controller-runtime
-      - client-go
-      - k8s-api
   inventory:
     mayDependOn:
       - collect
@@ -175,14 +137,6 @@ deps:
     mayDependOn:
       # todo(arch-08): export.Envelope wraps collect.Row; introduce neutral DTO in export
       - collect
-  transport:
-    mayDependOn:
-      - transport
-      # todo(arch-09): transport helpers reference hub ingest config
-      - hub
-    canUse:
-      - nats
-      - kafka
   validation:
     mayDependOn:
       # todo(arch-10): validation reuses collect attribute paths for profiles

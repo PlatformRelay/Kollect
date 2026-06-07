@@ -28,7 +28,6 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/controller"
-	"github.com/konih/kollect/internal/hub"
 	"github.com/konih/kollect/internal/inventory"
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/operator"
@@ -69,12 +68,9 @@ func main() {
 	var maxConcurrentInventory int
 	var maxConcurrentClusterTarget int
 	var maxConcurrentClusterInventory int
-	var maxConcurrentHub int
 	var reconcileRateLimit time.Duration
 	var enablePprof bool
 	var pprofAddr string
-	var hubConsumer bool
-	var operatorMode string
 	var watchNamespacesRaw string
 	var defaultIncludedNamespacesRaw string
 	var defaultExcludedNamespacesRaw string
@@ -118,18 +114,12 @@ func main() {
 		"Max concurrent KollectClusterTarget reconciles.")
 	flag.IntVar(&maxConcurrentClusterInventory, "max-concurrent-reconciles-cluster-inventory", 2,
 		"Max concurrent KollectClusterInventory reconciles.")
-	flag.IntVar(&maxConcurrentHub, "max-concurrent-reconciles-hub", 2,
-		"Max concurrent KollectRemoteCluster reconciles.")
 	flag.DurationVar(&reconcileRateLimit, "reconcile-rate-limit", 0,
 		"Base delay for per-item exponential reconcile failure rate limiting (0 = controller-runtime default 5ms).")
 	flag.BoolVar(&enablePprof, "enable-pprof", false,
 		"Expose Go pprof on --pprof-bind-address (separate from metrics).")
 	flag.StringVar(&pprofAddr, "pprof-bind-address", ":6060",
 		"Bind address for pprof when --enable-pprof is set.")
-	flag.BoolVar(&hubConsumer, "hub-consumer", false,
-		"Deprecated: use --mode=hub. Run as hub spoke-report consumer (requires KOLLECT_HUB_NAME).")
-	flag.StringVar(&operatorMode, "mode", "",
-		"Operator mode: cluster (default), hub, or spoke. Overridden by KOLLECT_MODE when flag is empty.")
 	flag.StringVar(&watchNamespacesRaw, "watch-namespaces", "",
 		"Comma-separated namespaces to watch (empty = all namespaces).")
 	flag.StringVar(&defaultIncludedNamespacesRaw, "default-included-namespaces", "",
@@ -147,16 +137,6 @@ func main() {
 	validation.SetMaxExportBytesGlobal(maxExportBytes)
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
-	mode := operator.ResolveMode(operatorMode, hubConsumer)
-	if operator.IsHubMode(mode) {
-		runHubConsumer(metricsAddr, probeAddr, secureMetrics, tlsOpts, maxConcurrentHub, reconcileRateLimit)
-		return
-	}
-
-	if mode == operator.ModeSpoke {
-		setupLog.Info("spoke mode: hub publish enabled when KOLLECT_SPOKE_CLUSTER is set")
-	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -297,7 +277,6 @@ func main() {
 		MaxConcurrentInventory:        maxConcurrentInventory,
 		MaxConcurrentClusterTarget:    maxConcurrentClusterTarget,
 		MaxConcurrentClusterInventory: maxConcurrentClusterInventory,
-		MaxConcurrentHub:              maxConcurrentHub,
 		ReconcileRateLimitBase:        reconcileRateLimit,
 	}
 
@@ -367,15 +346,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectconnectiontest")
-		os.Exit(1)
-	}
-	if err := (&controller.KollectRemoteClusterReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Store:   collectStore,
-		Options: ctrlOpts,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "kollectremotecluster")
 		os.Exit(1)
 	}
 	if err := (&controller.KollectClusterTargetReconciler{
@@ -451,120 +421,6 @@ func main() {
 	setupLog.Info("Starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "Failed to run manager")
-		os.Exit(1)
-	}
-}
-
-func runHubConsumer(
-	metricsAddr, probeAddr string,
-	secureMetrics bool,
-	tlsOpts []func(*tls.Config),
-	maxConcurrentHub int,
-	reconcileRateLimit time.Duration,
-) {
-	hubCfg, err := hub.ConfigFromEnv()
-	if err != nil {
-		setupLog.Error(err, "hub consumer config")
-		os.Exit(1)
-	}
-
-	metricsServerOptions := metricsserver.Options{
-		BindAddress:   metricsAddr,
-		SecureServing: secureMetrics,
-		TLSOpts:       tlsOpts,
-	}
-	if secureMetrics {
-		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
-	}
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsServerOptions,
-		HealthProbeBindAddress: probeAddr,
-	})
-	if err != nil {
-		setupLog.Error(err, "Failed to start hub consumer manager")
-		os.Exit(1)
-	}
-
-	metrics.Register()
-
-	kubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		setupLog.Error(err, "Failed to create kubernetes client for hub consumer")
-		os.Exit(1)
-	}
-
-	store := collect.NewStore()
-	merger := hub.NewMerger(store)
-	statusClient := mgr.GetClient()
-	sinkRegistry := sink.NewRegistry()
-	exportCfg := hub.ExportConfigFromEnv()
-	exporter := &hub.Exporter{
-		Store:    store,
-		Client:   statusClient,
-		Registry: sinkRegistry,
-		Config:   exportCfg,
-	}
-
-	runner, err := hub.NewRunner(store, hubCfg, statusClient, exporter)
-	if err != nil {
-		setupLog.Error(err, "Failed to create hub consumer")
-		os.Exit(1)
-	}
-
-	if err := mgr.Add(runner); err != nil {
-		setupLog.Error(err, "Failed to add hub consumer")
-		os.Exit(1)
-	}
-
-	ctrlOpts := controller.RuntimeOptions{
-		MaxConcurrentHub:       maxConcurrentHub,
-		ReconcileRateLimitBase: reconcileRateLimit,
-	}
-	if err := (&controller.KollectRemoteClusterReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Store:   store,
-		Options: ctrlOpts,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "kollectremotecluster")
-		os.Exit(1)
-	}
-
-	ingestPort, ingestAuthMode := hub.IngestConfigFromEnv()
-	ingestSrv := &hub.IngestServer{
-		Enabled: true,
-		Port:    ingestPort,
-		Auth: hub.IngestAuthConfig{
-			Mode:              ingestAuthMode,
-			Client:            kubeClient,
-			ClusterClient:     statusClient,
-			PlatformNamespace: hub.PlatformNamespaceFromEnv(),
-		},
-		Merger:            merger,
-		StatusClient:      statusClient,
-		AllowedClusters:   hubCfg.RemoteClusters,
-		AllowlistEnforced: hubCfg.AllowlistEnforced,
-		Exporter:          exporter,
-	}
-	if err := mgr.Add(ingestSrv); err != nil {
-		setupLog.Error(err, "Failed to add hub ingest server")
-		os.Exit(1)
-	}
-
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "Failed to set up health check")
-		os.Exit(1)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "Failed to set up ready check")
-		os.Exit(1)
-	}
-
-	setupLog.Info("Starting hub consumer", "hub", hubCfg.HubName, "transport", hubCfg.Transport.Type)
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "Failed to run hub consumer")
 		os.Exit(1)
 	}
 }

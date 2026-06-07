@@ -12,7 +12,6 @@
   (dict "name" "vkollecteventsink.kb.io" "kind" "kollecteventsink" "resource" "kollecteventsinks")
   (dict "name" "vkollectinventory.kb.io" "kind" "kollectinventory" "resource" "kollectinventories")
   (dict "name" "vkollectprofile.kb.io" "kind" "kollectprofile" "resource" "kollectprofiles")
-  (dict "name" "vkollectremotecluster.kb.io" "kind" "kollectremotecluster" "resource" "kollectremoteclusters")
   (dict "name" "vkollectscope.kb.io" "kind" "kollectscope" "resource" "kollectscopes")
   (dict "name" "vkollectsnapshotsink.kb.io" "kind" "kollectsnapshotsink" "resource" "kollectsnapshotsinks")
   (dict "name" "vkollecttarget.kb.io" "kind" "kollecttarget" "resource" "kollecttargets")

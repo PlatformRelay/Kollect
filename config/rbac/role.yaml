@@ -62,7 +62,6 @@ rules:
   - kollectdatabasesinks
   - kollecteventsinks
   - kollectinventories
-  - kollectremoteclusters
   - kollectsnapshotsinks
   - kollecttargets
   verbs:
@@ -85,7 +84,6 @@ rules:
   - kollectdatabasesinks/status
   - kollecteventsinks/status
   - kollectinventories/status
-  - kollectremoteclusters/status
   - kollectsnapshotsinks/status
   - kollecttargets/status
   verbs:
@@ -98,7 +96,6 @@ rules:
   - kollectclusterinventories/finalizers
   - kollectclustertargets/finalizers
   - kollectinventories/finalizers
-  - kollectremoteclusters/finalizers
   - kollecttargets/finalizers
   verbs:
   - update

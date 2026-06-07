@@ -27,7 +27,6 @@ import (
 	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/scope"
 	"github.com/konih/kollect/internal/sink"
-	"github.com/konih/kollect/internal/spoke"
 	"github.com/konih/kollect/internal/validation"
 )
 
@@ -142,12 +141,6 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	itemCount = r.Store.CountForNamespace(inv.Namespace)
-
-	if err := spoke.TryPublishReport(ctx, r.Store, &inv); err != nil {
-		log.Error(err, "spoke hub publish", "inventory", inv.Name, "namespace", inv.Namespace)
-		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, "SpokePublishFailed", err.Error())
-		recordWarning(r.Recorder, &inv, "SpokePublishFailed", err.Error())
-	}
 
 	if totalInventorySinkRefs(&inv) == 0 {
 		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "NoExport", "no family sink refs configured")
