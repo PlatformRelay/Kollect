@@ -1,9 +1,30 @@
+# CI path filter matrix (see docs/development/testing.md):
+# - Docs-only changes (docs/**, mkdocs.yml, root prose *.md, CHANGELOG, LICENSE, issue templates)
+#   skip this workflow; Docs workflow runs lint-markdown + MkDocs build/deploy instead.
+# - Any change under api/, internal/, charts/, cmd/, config/, hack/, ui/, test/, go.mod, or
+#   .github/workflows/ always runs full CI. Mixed PRs (docs + code) run everything.
 name: CI
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
 
 permissions:
   contents: read
@@ -91,24 +112,6 @@ jobs:
         run: task lint:shell
       - name: Lint
         run: task lint
-
-  lint-markdown:
-    name: lint-markdown
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: docs/package-lock.json
-      - uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
-        with:
-          version: 3.51.1
-      - name: Markdown lint
-        run: task lint:markdown
 
   test:
     name: test

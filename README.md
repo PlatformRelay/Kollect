@@ -7,6 +7,7 @@
 <p align="center">
 <a href="https://securityscorecards.dev/viewer/?uri=github.com/konih/kollect"><img src="https://api.securityscorecards.dev/projects/github.com/konih/kollect/badge" alt="OpenSSF Scorecard"></a>
 <a href="https://www.bestpractices.dev/projects/13106"><img src="https://www.bestpractices.dev/projects/13106/badge" alt="OpenSSF Best Practices"></a>
+<a href="https://konih.github.io/kollect/"><img src="https://img.shields.io/badge/docs-konih.github.io%2Fkollect-blue?style=flat-square&logo=readthedocs&logoColor=white" alt="Documentation"></a>
 <a href="https://github.com/konih/kollect/actions/workflows/ci.yaml"><img src="https://github.com/konih/kollect/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
 <a href="https://github.com/konih/kollect/actions/workflows/preflight.yaml"><img src="https://github.com/konih/kollect/actions/workflows/preflight.yaml/badge.svg" alt="Preflight"></a>
 <br />

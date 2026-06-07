@@ -49,6 +49,14 @@ coverage profile.
 
 ## What CI runs on every PR
 
+**Path filters:** GitHub skips **CI**, **Preflight**, and **CodeQL** when a PR or push to `main`
+changes *only* documentation paths (`docs/**`, `mkdocs.yml`, root prose `*.md`, `CHANGELOG.md`,
+`LICENSE`, issue templates). The **Docs** workflow then runs `task lint:markdown`, `mkdocs build`,
+and (on `main` push) deploys to [konih.github.io/kollect](https://konih.github.io/kollect/). Any
+change under `api/`, `internal/`, `charts/`, `cmd/`, `config/`, `hack/`, `ui/`, `test/`, `go.mod`,
+or `.github/workflows/` — or a mixed docs+code PR — runs the full gate below. Release tags no
+longer trigger docs deploys; the site tracks `main` only.
+
 Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
 
 - Secret scan (`gitleaks`), codegen drift (`task verify`), vulncheck, lint/format
@@ -75,6 +83,7 @@ until the maintainer adds `SONAR_TOKEN`. Does not replace `task lint` or arch-li
 
 | Workflow | Tier | Purpose |
 | --- | --- | --- |
+| `docs.yaml` | Docs | Markdown lint, MkDocs build, GitHub Pages deploy (`main` only) |
 | `e2e-nightly.yaml` | L4 | Kind smoke, git-export assert, integration re-check |
 | `e2e-webhook-path.yaml` | L4 | Path-filtered kind smoke for webhook/cert changes |
 | `test-e2e.yaml` | L4 | Extended e2e on demand |
