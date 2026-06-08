@@ -41,14 +41,15 @@ auditors read **export data**, not unbounded list/watch against the live API.
 ## What Kollect does
 
 Kubernetes is the source of truth for *what is running*; it is a poor *system of record* for
-stakeholder inventory. Kollect maintains a **read model**:
+stakeholder inventory. Kollect maintains a **read model** — live state captured once, then served
+from export data:
 
-**select** resources by GVK → **extract** the attributes that matter (CEL or JSONPath) →
-**aggregate** across targets → **debounce** → **export** to pluggable sinks.
+**Scope** and **Target** select resources by GVK and namespace; **Profile** extracts the attributes
+that matter (CEL or JSONPath); **Inventory** rolls up matching objects, **debounces** churn, and
+**exports** snapshots to pluggable sinks (Git, object stores, databases, event streams). Every
+backend sees the same aggregated rows; sinks are interchangeable projections.
 
 Inventory is **configuration, not code** — owned per team in its own namespace.
-
-![Vertical K-shaped funnel diagram showing Kubernetes resources filtered by Scope and Target, attributes extracted by Profile, aggregated into Inventory rows, and exported to sinks.](assets/illustrations/k-funnel-crd-pipeline-dark.webp){ .kollect-illus .kollect-illus--portrait }
 
 !!! warning "Pre-beta"
     APIs and defaults may change until the first release candidate. See the
