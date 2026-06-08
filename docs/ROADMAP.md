@@ -16,8 +16,8 @@ in-memory snapshot is canonical; every sink is a projection ([ADR-0401](adr/0401
     Phases describe **implementation order**, not semver milestones. Items may land out of phase
     when dependencies allow; deferred (🔮) items are explicitly not on the near-term path.
 
-**Last updated:** 2026-06-07 (versioning strategy — fast minors to **v0.10** presentation gate;
-**`v0.2.0-rc.1`** = platform/sink-family tranche, not UI — see [RELEASE.md](RELEASE.md#versioning-policy))
+**Last updated:** 2026-06-08 (**`v0.5.0`** shipped — sink config + export tranche; Read API freeze still ⬜;
+see [RELEASE.md](RELEASE.md#versioning-policy))
 
 !!! tip "Versioning"
     Semver milestones (0.2 → 0.10) track **release tranches**, not build phases. Phases 0–4 below
@@ -29,7 +29,8 @@ in-memory snapshot is canonical; every sink is a projection ([ADR-0401](adr/0401
 instead of hand-authoring every attribute — the foundation for audit/drift snapshots, exploratory
 profiles, and GitOps debugging. It precedes the Fleet UI, Read API freeze, and remaining sink work.
 
-See [ADR-0306](adr/0306-full-resource-export-pruning.md) — **Accepted, Phase 1 shipped**.
+See [ADR-0306](adr/0306-full-resource-export-pruning.md) — **Accepted; Phase 1 ✅ on `main`**
+(post-**`v0.5.0`** tag — listed under Unreleased in [CHANGELOG.md](../CHANGELOG.md) until next release).
 
 | Scope item | Status |
 | --- | --- |
@@ -108,7 +109,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 | Namespaced `KollectProfile` API | ✅ ([ADR-0204](adr/0204-namespaced-profiles.md)) |
 | Golden OpenAPI contract tests (`test/schema/`, 7 kinds) | ✅ |
 | Kind smoke / operator deploy | ✅ |
-| Release pipeline (SBOM, signing) | ✅ `v0.2.0-rc.1` on GHCR + chart ([RELEASE.md](RELEASE.md)) |
+| Release pipeline (SBOM, signing) | ✅ through **`v0.5.0`** on GHCR + chart ([RELEASE.md](RELEASE.md)) |
 | Public demo Git inventory repo | ✅ |
 
 **Counts:** ✅ 23 · 🚧 0 · ⬜ 0
@@ -132,8 +133,11 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 | S3/GCS **Parquet** snapshot export (`format: parquet`) | 🚧 S3 shipped v0.4; GCS JSON default ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
 | `spec.pathTemplate` on snapshot sinks | ✅ [ADR-0407](adr/0407-git-object-store-layout.md) |
 | **Git readability tranche** — YAML default + `layout` block (`document`/`perResource`/`split`), path templates, prune | ✅ [ADR-0419](adr/0419-git-export-serialization-layout.md) |
-| Git **per-resource manifest tree** (auto from `export.mode: Resource`) | 🚧 [ADR-0419](adr/0419-git-export-serialization-layout.md) + [ADR-0306](adr/0306-full-resource-export-pruning.md) |
+| Git **per-resource manifest tree** (auto from `export.mode: Resource`) | ✅ on `main` post-**`v0.5.0`** [ADR-0419](adr/0419-git-export-serialization-layout.md) + [ADR-0306](adr/0306-full-resource-export-pruning.md) |
+| **Sink config layering** — cross-cutting `serialization` / `provisioning` / `options` ([ADR-0416](adr/0416-sink-config-layering.md)) | ✅ **`v0.5.0`** |
+| **`status.preview`** on family sinks (resolved paths + sample snippet) | ✅ on `main` post-**`v0.5.0`** [ADR-0416](adr/0416-sink-config-layering.md) |
 | Postgres sink (`type: postgres`) | ✅ |
+| MongoDB sink (`type: mongodb`) | ✅ on `main` post-**`v0.5.0`** [ADR-0417](adr/0417-mongodb-database-sink.md) |
 | Postgres **delete reconciliation** (stale-row fix) | ✅ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
 | Kafka export sink (`type: kafka`) | ✅ |
 | **NATS JetStream** emitter (`type: nats`, lean default) | ✅ [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md) |
@@ -167,7 +171,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [REQUIREMENTS.md](REQUIREMENTS.md),
 | Inventory namespace isolation unit tests | ✅ |
 | Sink family CRDs (`KollectSnapshotSink`, `KollectEventSink`, `KollectDatabaseSink`; `KollectSink` removed) | ✅ `v0.2.0-rc.1` [ADR-0414](adr/0414-sink-family-crds.md) |
 
-**Counts:** ✅ 34 · 🚧 6 · ⬜ 2
+**Counts:** ✅ 44 · 🚧 6 · ⬜ 0
 
 ---
 
@@ -220,11 +224,11 @@ Multi-cluster support must **not** block single-cluster installs. **Fleet model:
 | GitLab sink enterprise path (MR/API) | ✅ feature-branch push + REST MR client |
 | S3/GCS production CI gate | ✅ PR integration + nightly |
 | Scope at platform boundary (multitenant e2e) | ✅ |
-| Release `workflow_dispatch` (cosign/SBOM/chart) | ✅ `v0.1.0-rc` – `v0.2.0-rc.1` |
+| Release `workflow_dispatch` (cosign/SBOM/chart) | ✅ `v0.1.0-rc` – **`v0.5.0`** |
 | E2E asserts export (Target Ready, sink conditions, git SHA) | ✅ `68667ca6` — export asserts + multitenant + cert-manager |
 | No `KollectPublication` | ✅ ADR-0702 honored |
 
-**Counts:** ✅ 12 · 🚧 1 · 🔮 3
+**Counts:** ✅ 20 · 🔮 3
 
 ---
 
@@ -255,9 +259,10 @@ UI depends only on a **versioned Read API** with a **pluggable backing store** (
 Parquet), so the same SPA serves a zero-infra console and a scale portal — and never reads the live
 cluster API.
 
-!!! note "`v0.2.0` was not the UI release"
-    **`v0.2.0-rc.1`** shipped the **sink-family platform tranche** ([ADR-0414](adr/0414-sink-family-crds.md)).
-    UI milestones are planned in the **v0.5–v0.10** band — see [RELEASE.md](RELEASE.md#versioning-policy).
+!!! note "`v0.5.0` was not the Read API freeze"
+    **`v0.5.0`** shipped **sink config layering** ([ADR-0416](adr/0416-sink-config-layering.md)) plus export/git
+    hardening on `main` post-tag (ADR-0306, ADR-0419, MongoDB). **Read API contract freeze** remains ⬜ —
+    UI milestones stay in the **v0.5–v0.10** band ([RELEASE.md](RELEASE.md#versioning-policy)).
 
 | Milestone | Item | Status |
 | --- | --- | --- |
@@ -322,7 +327,7 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 | `task perf-report` PR CI job | ✅ non-blocking `ci.yaml` job (artifact upload) |
 | `--collect-dispatch-workers` / queue size (PERF-03) | ✅ v0.4 |
 
-**Counts:** ✅ 3 · 🚧 1
+**Counts:** ✅ 6
 
 ### Operator tuning and tests
 
@@ -437,7 +442,7 @@ GitLab API v4 when `secretRef` provides an API token (`token` or `password` key)
 | Nightly kind smoke (Helm + samples + cert-manager CRD + HTTP probe) | ✅ |
 | Full e2e: conditions, Git export SHA, HTTP body, multitenant | ✅ |
 | Object store sinks (S3/GCS MinIO) in PR integration + nightly | ✅ |
-| Release workflow (`workflow_dispatch`) | ✅ Tags `v0.1.0-rc.*` – `v0.2.0-rc.1` ([RELEASE.md](RELEASE.md)) |
+| Release workflow (`workflow_dispatch`) | ✅ Tags `v0.1.0-rc.*` – **`v0.5.0`** ([RELEASE.md](RELEASE.md)) |
 
 ## Architecture decisions (2026-06-05)
 

@@ -9,7 +9,7 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
     Items here are **intent and backlog**, not release promises. Status may change as ADRs land or
     scope is rejected. Pre-beta APIs may shift until the first release candidate.
 
-**Last updated:** 2026-06-07
+**Last updated:** 2026-06-08
 
 ## Status legend
 
@@ -68,6 +68,28 @@ phased ⬜ backlog, and items that need a design pass before implementation. For
 ---
 
 ## Sinks & export
+
+### Sink config layering (ADR-0416)
+
+| | |
+| --- | --- |
+| **Status** | Shipped (**`v0.5.0`**) |
+| **Roadmap** | Phase 1 ✅ |
+| **Summary** | Cross-cutting **`spec.serialization`**, **`spec.provisioning`**, and **`spec.options`** on family sinks; capability matrix + **`status.preview`** surface. |
+| **Related ADRs** | [ADR-0416](../adr/0416-sink-config-layering.md) · [ADR-0419](../adr/0419-git-export-serialization-layout.md) |
+
+---
+
+### MongoDB database sink (ADR-0417)
+
+| | |
+| --- | --- |
+| **Status** | Shipped on `main` post-**`v0.5.0`** |
+| **Roadmap** | Phase 1 ✅ |
+| **Summary** | **`KollectDatabaseSink.type: mongodb`** — document upsert/delete reconciliation peer to Postgres. |
+| **Related ADRs** | [ADR-0417](../adr/0417-mongodb-database-sink.md) · [ADR-0416](../adr/0416-sink-config-layering.md) |
+
+---
 
 ### Sink family CRDs (ADR-0414)
 
