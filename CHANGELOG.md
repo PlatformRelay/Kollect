@@ -28,6 +28,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **sink:** MongoDB database sink (ADR-0417) [f49bf3e](https://github.com/konih/kollect/commit/f49bf3e21deabb89f36f7c01ef96feba40449764)
 
+
+### Refactoring
+
+- **validation:** Decouple layout path checks from sink package [a558394](https://github.com/konih/kollect/commit/a558394204f2425a1ce27c5be8a5dfa47660827f)
+
 ## [0.5.0-rc.1](https://github.com/konih/kollect/compare/v0.4.1..v0.5.0-rc.1) - 2026-06-07
 
 ### Bug Fixes

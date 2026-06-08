@@ -8,6 +8,7 @@ package collect
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -324,6 +325,8 @@ func (e *Engine) NamespacesForClusterTarget(targetName string) []string {
 
 		namespaces = append(namespaces, ns)
 	}
+
+	slices.Sort(namespaces)
 
 	return namespaces
 }

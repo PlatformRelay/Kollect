@@ -158,6 +158,30 @@ func TestItemsFingerprint_stable(t *testing.T) {
 	}
 }
 
+func TestItemsFingerprint_orderIndependent(t *testing.T) {
+	t.Parallel()
+
+	first := []Item{
+		{UID: "uid-1", Namespace: "ns", Name: "export-cm-1", Version: "v1", Kind: "ConfigMap"},
+		{UID: "uid-2", Namespace: "ns", Name: "export-cm-2", Version: "v1", Kind: "ConfigMap"},
+	}
+	second := []Item{first[1], first[0]}
+
+	fp1, err := ItemsFingerprint(first)
+	if err != nil {
+		t.Fatalf("ItemsFingerprint: %v", err)
+	}
+
+	fp2, err := ItemsFingerprint(second)
+	if err != nil {
+		t.Fatalf("ItemsFingerprint: %v", err)
+	}
+
+	if fp1 != fp2 || fp1 == "" {
+		t.Fatalf("fingerprints = %q / %q", fp1, fp2)
+	}
+}
+
 func TestItemsFromExportPayloadEdgeCases(t *testing.T) {
 	t.Parallel()
 

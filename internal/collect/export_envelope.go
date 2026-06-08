@@ -4,10 +4,13 @@
 package collect
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -33,11 +36,44 @@ type ExportEnvelope struct {
 	Items         []Item `json:"items"`
 }
 
+func itemCanonicalKey(item Item) string {
+	var b strings.Builder
+	b.Grow(128)
+	b.WriteString(item.TargetNamespace)
+	b.WriteByte(0)
+	b.WriteString(item.TargetName)
+	b.WriteByte(0)
+	b.WriteString(item.Namespace)
+	b.WriteByte(0)
+	b.WriteString(item.Name)
+	b.WriteByte(0)
+	b.WriteString(item.UID)
+	b.WriteByte(0)
+	b.WriteString(item.Group)
+	b.WriteByte(0)
+	b.WriteString(item.Version)
+	b.WriteByte(0)
+	b.WriteString(item.Kind)
+
+	return b.String()
+}
+
+func canonicalItems(items []Item) []Item {
+	if len(items) == 0 {
+		return []Item{}
+	}
+
+	out := slices.Clone(items)
+	slices.SortFunc(out, func(a, b Item) int {
+		return cmp.Compare(itemCanonicalKey(a), itemCanonicalKey(b))
+	})
+
+	return out
+}
+
 // MarshalExportEnvelope serializes items with contract metadata (ADR-0405).
 func MarshalExportEnvelope(items []Item, meta ExportMetadata) ([]byte, error) {
-	if items == nil {
-		items = []Item{}
-	}
+	items = canonicalItems(items)
 
 	itemsJSON, err := json.Marshal(items)
 	if err != nil {
@@ -64,9 +100,7 @@ func MarshalExportEnvelope(items []Item, meta ExportMetadata) ([]byte, error) {
 
 // ItemsFingerprint returns a SHA-256 hex digest of the canonical items JSON.
 func ItemsFingerprint(items []Item) (string, error) {
-	if items == nil {
-		items = []Item{}
-	}
+	items = canonicalItems(items)
 
 	itemsJSON, err := json.Marshal(items)
 	if err != nil {
