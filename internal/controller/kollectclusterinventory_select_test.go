@@ -75,11 +75,67 @@ func TestKollectClusterInventoryReconciler_selectedClusterTargets(t *testing.T) 
 		},
 	}
 
-	selected, err := r.selectedClusterTargets(context.Background(), inv)
+	inventoryNamespaces, err := r.selectedInventoryNamespaces(context.Background(), inv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	selected, err := r.selectedClusterTargets(context.Background(), inv, inventoryNamespaces)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(selected) != 1 || selected[0].Name != "ct-match" {
 		t.Fatalf("selected = %#v", selected)
+	}
+}
+
+func TestKollectClusterInventoryReconciler_selectedInventoryNamespaces_intersectsListAndSelector(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	nsTeamA := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "team-a",
+			Labels: map[string]string{"tenant": "platform"},
+		},
+	}
+	nsTeamB := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "team-b",
+			Labels: map[string]string{"tenant": "other"},
+		},
+	}
+	nsTeamC := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "team-c",
+			Labels: map[string]string{"tenant": "platform"},
+		},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(nsTeamA, nsTeamB, nsTeamC).Build()
+	r := &KollectClusterInventoryReconciler{Client: cl}
+
+	inv := &kollectdevv1alpha1.KollectClusterInventory{
+		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"tenant": "platform"},
+			},
+			Namespaces: []string{"team-a", "team-b"},
+		},
+	}
+
+	selected, err := r.selectedInventoryNamespaces(context.Background(), inv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(selected) != 1 || selected[0].Name != "team-a" {
+		t.Fatalf("selected namespaces = %#v", selected)
 	}
 }
