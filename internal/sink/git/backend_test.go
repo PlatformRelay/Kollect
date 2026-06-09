@@ -96,20 +96,20 @@ func TestBackend_ExportFiles_PruneRemovesStaleEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewBackend() error = %v", err)
 	}
-	if err := backend.ExportFiles(t.Context(), []FileEntry{{
+	if exportErr := backend.ExportFiles(t.Context(), []FileEntry{{
 		Path: "inventory/keep.json",
 		Data: []byte(`{"fresh":true}`),
-	}}, true); err != nil {
-		t.Fatalf("ExportFiles() error = %v", err)
+	}}, true); exportErr != nil {
+		t.Fatalf("ExportFiles() error = %v", exportErr)
 	}
 
 	verify := filepath.Join(dir, "verify")
-	if out, err := exec.Command("git", "clone", "--branch", "main", "--single-branch", bare, verify).CombinedOutput(); err != nil { //nolint:gosec // G204: test fixture
-		t.Fatalf("git clone verify: %s: %v", out, err)
+	if out, cloneErr := exec.Command("git", "clone", "--branch", "main", "--single-branch", bare, verify).CombinedOutput(); cloneErr != nil { //nolint:gosec // G204: test fixture
+		t.Fatalf("git clone verify: %s: %v", out, cloneErr)
 	}
 
-	if _, err := os.Stat(filepath.Join(verify, "inventory", "stale.json")); !os.IsNotExist(err) {
-		t.Fatalf("stale file should be pruned, stat err=%v", err)
+	if _, staleErr := os.Stat(filepath.Join(verify, "inventory", "stale.json")); !os.IsNotExist(staleErr) {
+		t.Fatalf("stale file should be pruned, stat err=%v", staleErr)
 	}
 	data, err := os.ReadFile(filepath.Join(verify, "inventory", "keep.json")) //nolint:gosec // G304: test fixture
 	if err != nil {

@@ -50,7 +50,7 @@ func TestRunDeleteAll_DelegatesToExecutor(t *testing.T) {
 
 	exec := &fakeQueryExecutor{}
 	b := &Backend{
-		cfg: Config{Project: "proj", Dataset: "inventory", Table: "items", Location: "EU"},
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items", Location: "EU"},
 		executor: exec,
 	}
 
@@ -73,7 +73,7 @@ func TestRunMergeUpsert_WrapsExecutorErrors(t *testing.T) {
 
 	exec := &fakeQueryExecutor{errs: []error{errors.New("run failed")}}
 	b := &Backend{
-		cfg: Config{Project: "proj", Dataset: "inventory", Table: "items"},
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items"},
 		executor: exec,
 	}
 
@@ -96,7 +96,7 @@ func TestExport_EmptySnapshotDeletesAll(t *testing.T) {
 
 	exec := &fakeQueryExecutor{}
 	b := &Backend{
-		cfg: Config{Project: "proj", Dataset: "inventory", Table: "items", Cluster: "cluster-a"},
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items", Cluster: "cluster-a"},
 		executor: exec,
 	}
 
@@ -116,7 +116,7 @@ func TestExport_NonEmptySnapshotMergesThenDeletesStale(t *testing.T) {
 
 	exec := &fakeQueryExecutor{}
 	b := &Backend{
-		cfg: Config{Project: "proj", Dataset: "inventory", Table: "items", Cluster: "cluster-a"},
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items", Cluster: "cluster-a"},
 		executor: exec,
 	}
 
@@ -147,7 +147,7 @@ func TestExport_EmulatorModeUsesReplaceStrategy(t *testing.T) {
 
 	exec := &fakeQueryExecutor{}
 	b := &Backend{
-		cfg: Config{Project: "proj", Dataset: "inventory", Table: "items", Cluster: "cluster-a"},
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items", Cluster: "cluster-a"},
 		executor: exec,
 	}
 
@@ -178,7 +178,7 @@ func TestExport_InvalidPayloadReturnsDecodeError(t *testing.T) {
 
 	exec := &fakeQueryExecutor{}
 	b := &Backend{
-		cfg: Config{Project: "proj", Dataset: "inventory", Table: "items"},
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items"},
 		executor: exec,
 	}
 	err := b.Export(t.Context(), []byte(`{"schemaVersion":"kollect.dev/v99","items":[]}`), "inventory/team-a/apps.json")
