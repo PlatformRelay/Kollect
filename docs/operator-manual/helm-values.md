@@ -58,25 +58,38 @@ metrics:
 
 See [Metrics](metrics.md) for the alert catalog and [chart README — monitoring](../../charts/kollect/README.md#prometheus-operator-monitoring).
 
-## Per-team install (recommended default)
+## Per-team install (minimal RBAC)
 
-For tenant isolation, enable namespaced RBAC and restrict the informer cache
-([ADR-0203](../adr/0203-namespaced-multi-tenancy.md), [ADR-0201](../adr/0201-crd-model.md)):
+**Golden path:** platform cluster-wide operator + namespaced `KollectScope` per tenant.
+**Team path:** chart profile [`values-minimal-rbac.yaml`](../../charts/kollect/values-minimal-rbac.yaml)
+([ADR-0203](../adr/0203-namespaced-multi-tenancy.md)).
+
+```bash
+helm upgrade --install kollect-team ./charts/kollect \
+  --namespace team-a --create-namespace \
+  -f charts/kollect/values-minimal-rbac.yaml \
+  --set watchNamespaces[0]=team-a
+```
+
+Key values:
 
 ```yaml
 tenantMode: true
 watchNamespaces:
   - team-a
-mode: single
+webhooks:
+  enabled: false
 featureGates:
   inventoryHttp:
     enabled: false
 ```
 
 Namespaced `KollectProfile`, family sinks, `KollectTarget`, and `KollectInventory` live in the team
-namespace. Portal read path uses **Postgres or Kafka sink export** — not direct operator HTTP.
+namespace. Grant workload `get`/`list`/`watch` via a separate RoleBinding — see
+[Team-owned operator](../deployment/team-operator.md).
 
-Example walkthrough: [Multi-tenant watch scope](../examples/multi-tenant-watch-namespaces.md).
+Walkthroughs: [Team-owned operator](../deployment/team-operator.md) ·
+[Multi-tenant watch scope](../examples/multi-tenant-watch-namespaces.md).
 
 ## Multi-cluster fleet
 

@@ -6,7 +6,12 @@
 
 `tenantMode` + `watchNamespaces` + `KollectScope` ([ADR-0203](../adr/0203-namespaced-multi-tenancy.md)).
 
-Scope sample: `kollect_v1alpha1_kollectscope_team-a.yaml`. Opt-in: `kollecttarget_opt-in.yaml`.
+**Team-owned install:** use chart profile [`values-minimal-rbac.yaml`](../../charts/kollect/values-minimal-rbac.yaml)
+and the full walkthrough in [Team-owned operator (minimal RBAC)](../deployment/team-operator.md).
+Apply `kubectl apply -k config/samples/team-operator/` after the Helm install.
+
+Scope sample: `kollect_v1alpha1_kollectscope_team-a.yaml` or `config/samples/team-operator/`.
+Opt-in: `kollecttarget_opt-in.yaml`.
 
 !!! note "Watch labels"
     Teams can opt out individual namespaces or resources with `kollect.dev/watch` and

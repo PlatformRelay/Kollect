@@ -1,0 +1,10 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: deployments
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  profileRef: deployment-snapshot
+  suspend: false

@@ -1,0 +1,23 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: deployment-snapshot
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  targetGVK:
+    group: apps
+    version: v1
+    kind: Deployment
+  export:
+    mode: Resource
+    as: resource
+    include: SpecAndStatus
+    prune:
+      defaults: true
+  attributes:
+    - name: containerCount
+      path: 'cel:size(object.spec.template.spec.containers)'
+      type: int
+      optional: true

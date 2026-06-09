@@ -1,0 +1,13 @@
+# Team-owned operator sample: KollectScope + Deployment inventory in namespace team-a.
+# Apply after installing the operator with values-minimal-rbac.yaml (watchNamespaces: [team-a]).
+# Also apply workload-collector-rbac.yaml so the operator SA can list/watch Deployments.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: team-a
+resources:
+  - kollectscope.yaml
+  - profile.yaml
+  - target.yaml
+  - snapshot-sink.yaml
+  - inventory.yaml
+  - workload-collector-rbac.yaml

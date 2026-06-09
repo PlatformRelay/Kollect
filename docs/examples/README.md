@@ -20,6 +20,7 @@ kubectl apply -k config/samples/
 | [NATS event sink](nats-event-sink.md) | JetStream events |
 | [Cluster-scoped rollup](cluster-rollup.md) | Cluster CRDs + dedupe |
 | [Multi-tenant watch scope](multi-tenant-watch-namespaces.md) | Scope + watchNamespaces |
+| [Team-owned operator](../deployment/team-operator.md) | `values-minimal-rbac.yaml` + `config/samples/team-operator/` |
 | [Connection test](connection-test.md) | `KollectConnectionTest` workflow |
 | [Cert-manager webhooks](cert-manager-webhook.md) | Webhook TLS install |
 | [Kind local lab](kind-local-lab.md) | kind quickstart |

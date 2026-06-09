@@ -68,6 +68,7 @@ nav:
       - Read-only UI: operator-manual/ui.md
       - Upgrading: operator-manual/upgrading.md
       - Helm values: operator-manual/helm-values.md
+      - Team-owned operator (minimal RBAC): deployment/team-operator.md
   - User Guide:
       - Examples:
           - Overview: examples/README.md

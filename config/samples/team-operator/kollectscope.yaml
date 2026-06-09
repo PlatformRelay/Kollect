@@ -1,0 +1,17 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectScope
+metadata:
+  name: team-a-scope
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  allowedGVKs:
+    - group: apps
+      version: v1
+      kind: Deployment
+  allowedNamespaces:
+    - team-a
+  sinkRefs:
+    - team-a-snapshot
+  minExportInterval: 1m

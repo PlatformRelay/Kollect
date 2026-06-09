@@ -1,0 +1,14 @@
+# Minimal Git snapshot sink — connectionTest off; export may degrade without credentials.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSnapshotSink
+metadata:
+  name: team-a-snapshot
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  connectionTest: false
+  git:
+    endpoint: https://github.com/example/kollect-team-a-inventory.git
+    branch: main
+    pathTemplate: inventory/snapshot.json

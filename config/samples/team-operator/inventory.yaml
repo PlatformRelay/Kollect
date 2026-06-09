@@ -1,0 +1,12 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectInventory
+metadata:
+  name: team-a-inventory
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  suspend: false
+  exportMinInterval: 30s
+  snapshotSinkRefs:
+    - name: team-a-snapshot

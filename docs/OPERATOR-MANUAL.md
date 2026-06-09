@@ -152,7 +152,8 @@ set `connectionTest: true` ([ADR-0403](adr/0403-connection-test.md)).
 | `tenantMode: true` | Namespaced `Role`/`RoleBinding` instead of `ClusterRole` |
 
 Use **`tenantMode: true` + `watchNamespaces`** for per-team operator installs
-([ADR-0203](adr/0203-namespaced-multi-tenancy.md)). Example:
+([ADR-0203](adr/0203-namespaced-multi-tenancy.md)). Team path profile:
+[Team-owned operator (minimal RBAC)](deployment/team-operator.md). Example:
 [Multi-tenant watch scope](examples/multi-tenant-watch-namespaces.md).
 
 Helm keys: [Helm values reference](operator-manual/helm-values.md).
