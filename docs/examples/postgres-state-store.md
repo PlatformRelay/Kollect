@@ -59,16 +59,17 @@ stringData:
 EOF
 ```
 
-For local **kind** dev, provision Postgres alongside the operator or point at an external
-instance. Never commit real credentials to Git.
+For local **kind** dev, apply the disposable Postgres manifest
+(`config/samples/dev/postgres.yaml` — see the [Quick start](../QUICKSTART.md)) or point at an
+external instance. Never commit real credentials to Git.
 
-## Step 2 — KollectSink
+## Step 2 — KollectDatabaseSink
 
-Sample: `config/samples/kollect_v1alpha1_kollectsink_postgres.yaml`
+Sample: `config/samples/kollect_v1alpha1_kollectdatabasesink.yaml`
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
-kind: KollectSink
+kind: KollectDatabaseSink
 metadata:
   name: postgres-inventory-demo
   namespace: default
@@ -76,6 +77,10 @@ spec:
   type: postgres
   cluster: kind-kollect-dev
   connectionTest: true
+  provisioning:
+    mode: ensure         # existing never touches DDL (bring your own schema)
+  options:
+    statement_timeout: "30000"
   postgres:
     databaseRef:
       name: inventory-postgres-dsn
@@ -87,7 +92,8 @@ spec:
 | Field | Role |
 | --- | --- |
 | `spec.cluster` | Labels rows for multi-cluster fan-in |
-| `spec.postgres.schema` / `table` | Target table; DDL created on first export |
+| `spec.postgres.schema` / `table` | Target table; DDL created on first export with `provisioning.mode: ensure` |
+| `spec.provisioning.mode` | `ensure` (default) creates the table; `existing` never issues DDL ([ADR-0416](../adr/0416-sink-config-layering.md)) |
 | `spec.connectionTest` | Samples/CI only — sets `ConnectionVerified` |
 
 ## Step 3 — Wire inventory
@@ -96,13 +102,13 @@ Reference the sink from `KollectInventory` in the **same namespace**:
 
 ```yaml
 spec:
-  sinkRefs:
+  databaseSinkRefs:
     - postgres-inventory-demo
 ```
 
 ```sh
 kubectl apply -k config/samples/
-kubectl wait --for=condition=ConnectionVerified kollectsink/postgres-inventory-demo \
+kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/postgres-inventory-demo \
   -n default --timeout=60s
 ```
 
