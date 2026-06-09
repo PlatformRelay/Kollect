@@ -75,7 +75,7 @@ func gitClone(ctx context.Context, workdir, cloneURL, branch string, depth int, 
 			return nil
 		}
 
-		return fmt.Errorf("git clone: %s: %w", strings.TrimSpace(string(out)), err)
+		return fmt.Errorf("git clone: %s: %w", cli.redact(strings.TrimSpace(string(out))), err)
 	})
 	if retryErr != nil {
 		return false, retryErr
@@ -89,7 +89,7 @@ func gitClone(ctx context.Context, workdir, cloneURL, branch string, depth int, 
 		return false, nil
 	}
 
-	return false, fmt.Errorf("git clone: %s: %w", strings.TrimSpace(string(out)), err)
+	return false, fmt.Errorf("git clone: %s: %w", cli.redact(strings.TrimSpace(string(out))), err)
 }
 
 func gitInit(ctx context.Context, workdir string, cli *cliEnv) error {
@@ -99,7 +99,7 @@ func gitInit(ctx context.Context, workdir string, cli *cliEnv) error {
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, "init")
-	return runGitOutput(cmd, "init")
+	return runGitOutput(cmd, "init", cli)
 }
 
 func gitCheckoutNewBranch(ctx context.Context, workdir, branch string, cli *cliEnv) error {
@@ -113,7 +113,7 @@ func gitCheckoutNewBranch(ctx context.Context, workdir, branch string, cli *cliE
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, "checkout", "-B", branch)
-	return runGitOutput(cmd, "checkout -B "+branch)
+	return runGitOutput(cmd, "checkout -B "+branch, cli)
 }
 
 func gitRemoteAddOrigin(ctx context.Context, workdir, cloneURL string, cli *cliEnv) error {
@@ -128,7 +128,7 @@ func gitRemoteAddOrigin(ctx context.Context, workdir, cloneURL string, cli *cliE
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, "remote", "add", "origin", safeURL)
-	return runGitOutput(cmd, "remote add origin")
+	return runGitOutput(cmd, "remote add origin", cli)
 }
 
 func gitAddPath(ctx context.Context, workdir, objectPath string, cli *cliEnv) error {
@@ -143,7 +143,7 @@ func gitAddPath(ctx context.Context, workdir, objectPath string, cli *cliEnv) er
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, "add", validatedPath)
-	return runGitOutput(cmd, "add "+validatedPath)
+	return runGitOutput(cmd, "add "+validatedPath, cli)
 }
 
 func gitAddAll(ctx context.Context, workdir string, cli *cliEnv) error {
@@ -153,7 +153,7 @@ func gitAddAll(ctx context.Context, workdir string, cli *cliEnv) error {
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, "add", "-A")
-	return runGitOutput(cmd, "add -A")
+	return runGitOutput(cmd, "add -A", cli)
 }
 
 func gitCommit(ctx context.Context, workdir, authorName, authorEmail string, commit renderedCommit, cli *cliEnv) error {
@@ -189,7 +189,7 @@ func gitCommit(ctx context.Context, workdir, authorName, authorEmail string, com
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, args...)
-	return runGitOutput(cmd, "commit")
+	return runGitOutput(cmd, "commit", cli)
 }
 
 func gitPushOrigin(ctx context.Context, workdir string, force bool, branch string, cli *cliEnv) error {
@@ -209,7 +209,7 @@ func gitPushOrigin(ctx context.Context, workdir string, force bool, branch strin
 		cmd = gitInWorkdir(ctx, workdir, cli, "push", "-u", "origin", branch)
 	}
 
-	return runGitOutput(cmd, "push")
+	return runGitOutput(cmd, "push", cli)
 }
 
 func gitFetchShallow(ctx context.Context, workdir, branch string, depth int, cli *cliEnv) error {
@@ -228,7 +228,7 @@ func gitFetchShallow(ctx context.Context, workdir, branch string, depth int, cli
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, args...)
-	return runGitOutput(cmd, "fetch")
+	return runGitOutput(cmd, "fetch", cli)
 }
 
 func gitPullRebase(ctx context.Context, workdir string, branch string, cli *cliEnv) error {
@@ -242,7 +242,7 @@ func gitPullRebase(ctx context.Context, workdir string, branch string, cli *cliE
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, "pull", "--rebase", "origin", branch)
-	return runGitOutput(cmd, "pull --rebase")
+	return runGitOutput(cmd, "pull --rebase", cli)
 }
 
 func gitStatusPorcelain(ctx context.Context, workdir string, cli *cliEnv) (string, error) {
@@ -254,16 +254,16 @@ func gitStatusPorcelain(ctx context.Context, workdir string, cli *cliEnv) (strin
 	cmd := gitInWorkdir(ctx, workdir, cli, "status", "--porcelain")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("git status: %s: %w", strings.TrimSpace(string(out)), err)
+		return "", fmt.Errorf("git status: %s: %w", cli.redact(strings.TrimSpace(string(out))), err)
 	}
 
 	return string(out), nil
 }
 
-func runGitOutput(cmd *exec.Cmd, label string) error {
+func runGitOutput(cmd *exec.Cmd, label string, cli *cliEnv) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("git %s: %s: %w", label, strings.TrimSpace(string(out)), err)
+		return fmt.Errorf("git %s: %s: %w", label, cli.redact(strings.TrimSpace(string(out))), err)
 	}
 
 	return nil

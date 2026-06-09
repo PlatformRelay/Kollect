@@ -190,7 +190,7 @@ func ensureBareHEAD(ctx context.Context, cloneURL, branch string, cli *cliEnv) e
 	setHead := exec.CommandContext(ctx, "git", "--git-dir", bareDir, "symbolic-ref", "HEAD", ref)
 	applyCLIEnv(setHead, cli)
 	if out, err := setHead.CombinedOutput(); err != nil {
-		return fmt.Errorf("git symbolic-ref HEAD %s: %s: %w", ref, strings.TrimSpace(string(out)), err)
+		return fmt.Errorf("git symbolic-ref HEAD %s: %s: %w", ref, cli.redact(strings.TrimSpace(string(out))), err)
 	}
 
 	return nil

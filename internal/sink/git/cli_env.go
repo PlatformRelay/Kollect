@@ -26,10 +26,13 @@ type cliEnv struct {
 	extraEnv      []string
 	configEnvArgs []string
 	cleanupFns    []func()
+	// secrets holds credential values that must be scrubbed from git CLI
+	// output before it is wrapped into errors (EC-P1-02).
+	secrets []string
 }
 
 func newCLIEnv(cfg Config, auth Auth, authType AuthType) (*cliEnv, error) {
-	cli := &cliEnv{}
+	cli := &cliEnv{secrets: redactionSecrets(auth)}
 
 	if cfg.TLS.InsecureSkipVerify {
 		cli.extraEnv = append(cli.extraEnv, "GIT_SSL_NO_VERIFY=true")
@@ -63,6 +66,15 @@ func newCLIEnv(cfg Config, auth Auth, authType AuthType) (*cliEnv, error) {
 	}
 
 	return cli, nil
+}
+
+// redact masks URL userinfo and any known secret values in msg; safe on nil.
+func (c *cliEnv) redact(msg string) string {
+	if c == nil {
+		return redactCredentials(msg)
+	}
+
+	return redactCredentials(msg, c.secrets...)
 }
 
 func (c *cliEnv) cleanup() {

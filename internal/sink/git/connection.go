@@ -146,7 +146,7 @@ func lsRemoteUncached(ctx context.Context, cfg Config, auth Auth) error {
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		msg := strings.TrimSpace(string(out))
+		msg := cli.redact(strings.TrimSpace(string(out)))
 		if msg != "" {
 			return fmt.Errorf("git ls-remote failed: %s: %w", msg, err)
 		}
