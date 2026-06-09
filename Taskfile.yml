@@ -9,6 +9,8 @@ run: once
 
 env:
   CGO_ENABLED: "0"
+  # Coverage floor for hack/coverage.sh — keep aligned with .github/workflows/ci.yaml and codecov.yml.
+  COVERAGE_MIN: "72"
   GOTOOLCHAIN:
     sh: echo "go$(sed -n 's/^go //p' go.mod | head -1)"
 
