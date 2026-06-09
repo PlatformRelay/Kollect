@@ -22,6 +22,19 @@ func TestTestConnection_missingURL(t *testing.T) {
 	}
 }
 
+func TestTestConnection_missingSubject(t *testing.T) {
+	t.Parallel()
+
+	err := TestConnection(context.Background(), kollectdevv1alpha1.KollectSinkSpec{
+		Type:     "nats",
+		Endpoint: "nats://broker:4222",
+		Nats:     &kollectdevv1alpha1.NatsSpec{},
+	}, nil, nil)
+	if err == nil {
+		t.Fatal("expected error when subject is missing")
+	}
+}
+
 func TestTestConnection_unreachableServer(t *testing.T) {
 	t.Parallel()
 
@@ -32,6 +45,24 @@ func TestTestConnection_unreachableServer(t *testing.T) {
 			Subject: "inventory.events",
 		},
 	}, nil, nil)
+	if err == nil {
+		t.Fatal("expected connect error for unreachable server")
+	}
+}
+
+func TestTestConnection_unreachableWithCredentials(t *testing.T) {
+	t.Parallel()
+
+	err := TestConnection(context.Background(), kollectdevv1alpha1.KollectSinkSpec{
+		Type: "nats",
+		Nats: &kollectdevv1alpha1.NatsSpec{
+			URL:     "nats://127.0.0.1:1",
+			Subject: "inventory.events",
+		},
+	}, map[string][]byte{
+		"username": []byte("nats-user"),
+		"password": []byte("nats-pass"),
+	}, nil)
 	if err == nil {
 		t.Fatal("expected connect error for unreachable server")
 	}
