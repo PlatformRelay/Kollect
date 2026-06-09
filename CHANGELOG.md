@@ -34,6 +34,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **demo:** Add hero harness with in-kind Forgejo [c64c14c](https://github.com/konih/kollect/commit/c64c14c5e64f893d30a9a12bce56c4501c943856)
+
 - **sink:** Wire ADR-0419 git layout into export pipeline [12d7f80](https://github.com/konih/kollect/commit/12d7f8023223c7f20c4f3badcd0b57bbc017974f)
 
 - **export:** Full-resource pruning and Git layout [3df4027](https://github.com/konih/kollect/commit/3df4027e0fc43970df9599996241693c0886fd86)
