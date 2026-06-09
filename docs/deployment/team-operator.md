@@ -19,7 +19,8 @@ bootstrap (see [ADR-0203](../adr/0203-namespaced-multi-tenancy.md) RBAC expectat
 | Overlap | N/A (single operator) | **Allowed** — multiple operators may watch the same GVK/namespace |
 
 Overlapping watch scopes are **not prohibited**. Duplicate collection is an operational choice;
-optional sink dedupe is a backstop only ([ADR-0305](../adr/0305-aggregation-dedupe.md)).
+optional sink dedupe is a backstop only ([ADR-0305](../adr/0305-aggregation-dedupe.md),
+[topology matrix — dedupe runbook](topology-matrix.md#multi-operator-sink-dedupe-runbook)).
 
 ## Install
 
@@ -132,6 +133,7 @@ install namespace.
 
 ## See also
 
+- [Deployment topology matrix](topology-matrix.md) — compare golden path, team path, hybrid, and overlap scenarios
 - [ADR-0203: Namespaced multi-tenancy](../adr/0203-namespaced-multi-tenancy.md)
 - [Helm values — per-team install](../operator-manual/helm-values.md#per-team-install-recommended-default)
 - [Multi-tenant watch scope example](../examples/multi-tenant-watch-namespaces.md)

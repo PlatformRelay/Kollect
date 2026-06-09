@@ -55,7 +55,9 @@ with per-tenant namespaced **`KollectScope`**. Team-owned operator installs are 
 Multiple independent operator deployments **may** watch the same GVK/namespace data intentionally.
 Kollect does **not** enforce namespace ownership or reject overlapping watch scopes via webhook.
 Operational policy and optional sink dedupe ([ADR-0305](0305-aggregation-dedupe.md)) are the
-backstop when duplicate collection is undesirable — not admission guardrails.
+backstop when duplicate collection is undesirable — not admission guardrails. See the
+[deployment topology matrix](../deployment/topology-matrix.md) for path comparison and the
+multi-operator dedupe runbook.
 
 Helm values:
 
@@ -148,7 +150,8 @@ status:
 
 - Two deployment models require chart and doc clarity to avoid misconfigured RBAC.
 - Overlapping collection when multiple operators watch the same scope is possible — operators must
-  plan sink dedupe or accept duplicate rows ([ADR-0305](0305-aggregation-dedupe.md)).
+  plan sink dedupe or accept duplicate rows ([ADR-0305](0305-aggregation-dedupe.md),
+  [topology matrix](../deployment/topology-matrix.md#multi-operator-sink-dedupe-runbook)).
 - **Resolved ([ADR-0204](0204-namespaced-profiles.md)):** `KollectProfile` moves to **namespaced**
   scope so `tenantMode` installs do not need cluster profile RBAC; `KollectClusterProfile` reserved
   for platform-shared schemas.
