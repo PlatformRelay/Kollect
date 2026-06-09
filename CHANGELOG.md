@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Infer resource manifest layout [90725d6](https://github.com/konih/kollect/commit/90725d67500b5d0aef3392de422e735ae94c7e87)
+
 - **build:** Compile full cmd package after pprof fold [5045839](https://github.com/konih/kollect/commit/50458391f52d6d35df2e080c642c8e14fe89d8c7)
 
 - **controller:** Panic-guard family-sink, connection-test, cluster-target reconcilers [95f2cae](https://github.com/konih/kollect/commit/95f2cae91e0055a269cc0ddfd3d59ee0aad583ed)
@@ -35,6 +37,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **sink/nats:** Version event envelope schema [48fd7dd](https://github.com/konih/kollect/commit/48fd7dd989d7dd20587917af6b064ab5f591200e)
 
 - **demo:** Add hero harness with in-kind Forgejo [c64c14c](https://github.com/konih/kollect/commit/c64c14c5e64f893d30a9a12bce56c4501c943856)
 
