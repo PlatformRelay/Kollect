@@ -19,11 +19,13 @@ import (
 	"github.com/konih/kollect/internal/sink/cap"
 )
 
+// EventEnvelope is the JSON message published to NATS JetStream subjects.
 type EventEnvelope struct {
-	Timestamp string          `json:"timestamp"`
-	Cluster   string          `json:"cluster"`
-	Namespace string          `json:"namespace"`
-	Payload   json.RawMessage `json:"payload"`
+	SchemaVersion string          `json:"schemaVersion"`
+	Timestamp     string          `json:"timestamp"`
+	Cluster       string          `json:"cluster"`
+	Namespace     string          `json:"namespace"`
+	Payload       json.RawMessage `json:"payload"`
 }
 
 type Backend struct {
@@ -73,18 +75,13 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 	if err != nil {
 		return err
 	}
-	envelope := EventEnvelope{
-		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
-		Cluster:   b.cfg.Cluster,
-		Namespace: namespaceFromObjectPath(objectPath),
-		Payload:   json.RawMessage(payload),
-	}
-	body, err := json.Marshal(envelope)
+	namespace := namespaceFromObjectPath(objectPath)
+	body, err := marshalEventEnvelope(b.cfg.Cluster, namespace, payload, time.Now())
 	if err != nil {
 		return fmt.Errorf("nats export: marshal envelope: %w", err)
 	}
 
-	msgID := digest.ContentHash(append([]byte(b.cfg.Cluster+"/"+envelope.Namespace+"/"), payload...))
+	msgID := digest.ContentHash(append([]byte(b.cfg.Cluster+"/"+namespace+"/"), payload...))
 	_, err = js.Publish(ctx, b.cfg.Subject, body, jetstream.WithMsgID(msgID))
 	if err != nil {
 		return fmt.Errorf("nats publish: %w", err)

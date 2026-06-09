@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "kollect.dev/v1alpha1",
+  "timestamp": "2026-01-15T12:00:00Z",
+  "cluster": "prod-west",
+  "namespace": "team-a",
+  "payload": [{"namespace":"apps","uid":"uid-1"}]
+}
