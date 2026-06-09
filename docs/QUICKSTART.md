@@ -98,6 +98,32 @@ live API access.
 
 <!-- markdownlint-disable MD046 -->
 
+## Postgres backing store (required for the default samples)
+
+The default samples wire a Postgres `KollectDatabaseSink` (`postgres-inventory-demo`) that reads its
+DSN from a Secret named `inventory-postgres-dsn` in `kollect-system`. Neither `task dev-up` nor
+`kubectl apply -k config/samples/` creates that Secret or a database — without them the sink stays
+`ConnectionVerified=False` and nothing is exported. Create both with two commands (the manifest is a
+**disposable, emptyDir-backed** Postgres for local evaluation only):
+
+```sh
+kubectl apply -f config/samples/dev/postgres.yaml
+kubectl -n kollect-system rollout status deployment/postgres --timeout=120s
+kubectl -n kollect-system create secret generic inventory-postgres-dsn \
+  --from-literal=dsn='postgres://kollect:example@postgres.kollect-system.svc:5432/inventory?sslmode=disable'
+```
+
+If you applied the samples before the Secret existed, re-trigger the connectivity probe:
+
+```sh
+kubectl annotate kollectdatabasesink postgres-inventory-demo -n default \
+  kollect.dev/test-connection=true --overwrite
+```
+
+The sample sink uses `provisioning.mode: ensure`, so the `inventory_items` table is created on first
+export. To point at your own Postgres instead, put its DSN in the Secret and skip the manifest —
+see [examples/postgres-state-store.md](examples/postgres-state-store.md).
+
 ## Sample CRs
 
 | File | Kind | Role |

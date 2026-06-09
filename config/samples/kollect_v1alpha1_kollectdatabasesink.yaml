@@ -10,11 +10,13 @@ spec:
   type: postgres
   cluster: kind-kollect-dev
   connectionTest: true
-  # Cross-cutting provisioning ownership (ADR-0416). Platform teams that own their schema
-  # (e.g. created via Flyway/Liquibase) set mode: existing so kollect never issues DDL —
-  # it only upserts rows and surfaces a missing-table error loudly via preflight.
+  # Cross-cutting provisioning ownership (ADR-0416). ensure (the default) creates the
+  # table on first export — required for the out-of-the-box quickstart path. Platform
+  # teams that own their schema (e.g. created via Flyway/Liquibase) set mode: existing
+  # so kollect never issues DDL — it only upserts rows and surfaces a missing-table
+  # error loudly via preflight.
   provisioning:
-    mode: existing       # ensure (default) creates the table; existing never touches DDL
+    mode: ensure         # existing never touches DDL (bring your own schema)
   # Non-secret pass-through tuning (ADR-0416). Secret-like keys are rejected by the webhook;
   # credentials always travel via databaseRef/secretRef.
   options:
