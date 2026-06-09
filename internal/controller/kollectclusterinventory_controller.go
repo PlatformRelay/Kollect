@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -89,7 +90,14 @@ func (r *KollectClusterInventoryReconciler) Reconcile(ctx context.Context, req c
 			return r.setDegraded(ctx, &inv, "Suspended", "spec.suspend is true")
 		}
 
-		targets, err := r.selectedClusterTargets(ctx, &inv)
+		inventoryNamespaces, err := r.selectedInventoryNamespaces(ctx, &inv)
+		if err != nil {
+			retErr = err
+			return ctrl.Result{}, err
+		}
+		selectedNamespaceNames := namespaceNameSet(inventoryNamespaces)
+
+		targets, err := r.selectedClusterTargets(ctx, &inv, inventoryNamespaces)
 		if err != nil {
 			retErr = err
 			return ctrl.Result{}, err
@@ -103,7 +111,7 @@ func (r *KollectClusterInventoryReconciler) Reconcile(ctx context.Context, req c
 			return r.setDegraded(ctx, &inv, "NoTargets", "no KollectClusterTarget objects matched")
 		}
 
-		itemCount, degradedTargets := r.rollupCounts(&inv, targets)
+		itemCount, degradedTargets := r.rollupCounts(&inv, targets, selectedNamespaceNames)
 		if len(degradedTargets) > 0 {
 			msg := fmt.Sprintf("%d target(s) not Ready: %v", len(degradedTargets), degradedTargets)
 			return r.setDegraded(ctx, &inv, "TargetDegraded", msg)
@@ -130,7 +138,7 @@ func (r *KollectClusterInventoryReconciler) Reconcile(ctx context.Context, req c
 			return r.updateStatus(ctx, &inv, len(targets), itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)})
 		}
 
-		result, err := r.reconcileRollupExport(ctx, req, &inv, targets, sinkNS, log)
+		result, err := r.reconcileRollupExport(ctx, req, &inv, targets, selectedNamespaceNames, sinkNS, log)
 		if err != nil {
 			retErr = err
 		}
@@ -145,11 +153,12 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	req ctrl.Request,
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 	targets []kollectdevv1alpha1.KollectClusterTarget,
+	selectedNamespaceNames map[string]struct{},
 	sinkNS string,
 	log logr.Logger,
 ) (ctrl.Result, error) {
 	bindings := clusterInventorySinkBindings(inv)
-	payload, fingerprint, err := r.marshalRollupPayload(inv, targets)
+	payload, fingerprint, err := r.marshalRollupPayload(inv, targets, selectedNamespaceNames)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -167,7 +176,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	}
 
 	key := req.String()
-	itemCount := r.countRollupItems(inv, targets)
+	itemCount := r.countRollupItems(inv, targets, selectedNamespaceNames)
 
 	bindings = clusterInventorySinkBindings(inv)
 	if len(bindings) == 0 {
@@ -179,7 +188,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 		return r.setDegraded(ctx, inv, "ExportUnavailable", "sink registry is not configured")
 	}
 
-	items := r.collectRollupItems(inv, targets)
+	items := r.collectRollupItems(inv, targets, selectedNamespaceNames)
 	outcome := r.exportClusterToSinks(ctx, log, inv, key, sinkNS, items, fingerprint)
 
 	if isTotalExportFailure(outcome) {
@@ -298,11 +307,17 @@ func (r *KollectClusterInventoryReconciler) exportDebounce(
 func (r *KollectClusterInventoryReconciler) collectRollupItems(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 	targets []kollectdevv1alpha1.KollectClusterTarget,
+	selectedNamespaceNames map[string]struct{},
 ) []collect.Item {
 	var items []collect.Item
 	for i := range targets {
 		ct := &targets[i]
 		for _, ns := range r.Engine.NamespacesForClusterTarget(ct.Name) {
+			if len(selectedNamespaceNames) > 0 {
+				if _, ok := selectedNamespaceNames[ns]; !ok {
+					continue
+				}
+			}
 			items = append(items, r.Store.SnapshotTarget(ns, ct.Name)...)
 		}
 	}
@@ -313,15 +328,17 @@ func (r *KollectClusterInventoryReconciler) collectRollupItems(
 func (r *KollectClusterInventoryReconciler) countRollupItems(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 	targets []kollectdevv1alpha1.KollectClusterTarget,
+	selectedNamespaceNames map[string]struct{},
 ) int {
-	return len(r.collectRollupItems(inv, targets))
+	return len(r.collectRollupItems(inv, targets, selectedNamespaceNames))
 }
 
 func (r *KollectClusterInventoryReconciler) marshalRollupPayload(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 	targets []kollectdevv1alpha1.KollectClusterTarget,
+	selectedNamespaceNames map[string]struct{},
 ) ([]byte, string, error) {
-	items := r.collectRollupItems(inv, targets)
+	items := r.collectRollupItems(inv, targets, selectedNamespaceNames)
 	fingerprint, err := export.ItemsFingerprint(items)
 	if err != nil {
 		return nil, "", err
@@ -340,15 +357,11 @@ func (r *KollectClusterInventoryReconciler) marshalRollupPayload(
 func (r *KollectClusterInventoryReconciler) selectedClusterTargets(
 	ctx context.Context,
 	inv *kollectdevv1alpha1.KollectClusterInventory,
+	inventoryNamespaces []corev1.Namespace,
 ) ([]kollectdevv1alpha1.KollectClusterTarget, error) {
 	var list kollectdevv1alpha1.KollectClusterTargetList
 	if err := r.List(ctx, &list); err != nil {
 		return nil, err
-	}
-
-	invSel, err := metav1.LabelSelectorAsSelector(inv.Spec.NamespaceSelector)
-	if err != nil {
-		return nil, fmt.Errorf("namespaceSelector: %w", err)
 	}
 
 	targetSel, err := targetSelectorFor(inv)
@@ -367,7 +380,7 @@ func (r *KollectClusterInventoryReconciler) selectedClusterTargets(
 			continue
 		}
 
-		if !clusterTargetMatchesInventoryNS(ctx, r.Client, &ct, invSel) {
+		if !clusterTargetMatchesInventoryNS(&ct, inventoryNamespaces) {
 			continue
 		}
 
@@ -378,11 +391,62 @@ func (r *KollectClusterInventoryReconciler) selectedClusterTargets(
 }
 
 func targetSelectorFor(inv *kollectdevv1alpha1.KollectClusterInventory) (labels.Selector, error) {
-	if inv.Spec.TargetSelector == nil {
-		return labels.Everything(), nil
+	if len(inv.Spec.TargetRefs) > 0 || inv.Spec.TargetSelector == nil {
+		return nil, nil
 	}
 
 	return metav1.LabelSelectorAsSelector(inv.Spec.TargetSelector)
+}
+
+func (r *KollectClusterInventoryReconciler) selectedInventoryNamespaces(
+	ctx context.Context,
+	inv *kollectdevv1alpha1.KollectClusterInventory,
+) ([]corev1.Namespace, error) {
+	invSel, err := metav1.LabelSelectorAsSelector(inv.Spec.NamespaceSelector)
+	if err != nil {
+		return nil, fmt.Errorf("namespaceSelector: %w", err)
+	}
+
+	explicitNames := make(map[string]struct{}, len(inv.Spec.Namespaces))
+	for _, name := range inv.Spec.Namespaces {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" {
+			continue
+		}
+		explicitNames[trimmed] = struct{}{}
+	}
+
+	var nsList corev1.NamespaceList
+	if err := r.List(ctx, &nsList); err != nil {
+		return nil, err
+	}
+
+	filtered := make([]corev1.Namespace, 0, len(nsList.Items))
+	for i := range nsList.Items {
+		ns := nsList.Items[i]
+		if len(explicitNames) > 0 {
+			if _, ok := explicitNames[ns.Name]; !ok {
+				continue
+			}
+		}
+
+		if !invSel.Matches(labels.Set(ns.Labels)) {
+			continue
+		}
+
+		filtered = append(filtered, ns)
+	}
+
+	return filtered, nil
+}
+
+func namespaceNameSet(namespaces []corev1.Namespace) map[string]struct{} {
+	set := make(map[string]struct{}, len(namespaces))
+	for i := range namespaces {
+		set[namespaces[i].Name] = struct{}{}
+	}
+
+	return set
 }
 
 func targetIncluded(inv *kollectdevv1alpha1.KollectClusterInventory, ct *kollectdevv1alpha1.KollectClusterTarget) bool {
@@ -400,25 +464,18 @@ func targetIncluded(inv *kollectdevv1alpha1.KollectClusterInventory, ct *kollect
 }
 
 func clusterTargetMatchesInventoryNS(
-	ctx context.Context,
-	c client.Client,
 	ct *kollectdevv1alpha1.KollectClusterTarget,
-	invSel labels.Selector,
+	inventoryNamespaces []corev1.Namespace,
 ) bool {
-	var nsList corev1.NamespaceList
-	if err := c.List(ctx, &nsList); err != nil {
-		return false
-	}
-
 	targetSel, err := metav1.LabelSelectorAsSelector(ct.Spec.NamespaceSelector)
 	if err != nil {
 		return false
 	}
 
-	for i := range nsList.Items {
-		ns := &nsList.Items[i]
+	for i := range inventoryNamespaces {
+		ns := &inventoryNamespaces[i]
 		nsLabels := labels.Set(ns.Labels)
-		if targetSel.Matches(nsLabels) && invSel.Matches(nsLabels) {
+		if targetSel.Matches(nsLabels) {
 			return true
 		}
 	}
@@ -429,6 +486,7 @@ func clusterTargetMatchesInventoryNS(
 func (r *KollectClusterInventoryReconciler) rollupCounts(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 	targets []kollectdevv1alpha1.KollectClusterTarget,
+	selectedNamespaceNames map[string]struct{},
 ) (itemCount int, degraded []string) {
 	for i := range targets {
 		ct := &targets[i]
@@ -438,13 +496,18 @@ func (r *KollectClusterInventoryReconciler) rollupCounts(
 	}
 
 	if r.Engine != nil && r.Store != nil {
-		return len(r.collectRollupItems(inv, targets)), degraded
+		return len(r.collectRollupItems(inv, targets, selectedNamespaceNames)), degraded
 	}
 
 	for i := range targets {
 		ct := &targets[i]
 		if r.Engine != nil {
 			for _, ns := range r.Engine.NamespacesForClusterTarget(ct.Name) {
+				if len(selectedNamespaceNames) > 0 {
+					if _, ok := selectedNamespaceNames[ns]; !ok {
+						continue
+					}
+				}
 				itemCount += r.Engine.ItemCount(ns, ct.Name)
 			}
 		}

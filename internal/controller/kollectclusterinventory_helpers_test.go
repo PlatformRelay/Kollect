@@ -10,7 +10,6 @@ import (
 
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -18,7 +17,7 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-func TestTargetSelectorFor_defaultsToEverything(t *testing.T) {
+func TestTargetSelectorFor_defaultsToNil(t *testing.T) {
 	t.Parallel()
 
 	sel, err := targetSelectorFor(&kollectdevv1alpha1.KollectClusterInventory{})
@@ -26,8 +25,8 @@ func TestTargetSelectorFor_defaultsToEverything(t *testing.T) {
 		t.Fatalf("targetSelectorFor: %v", err)
 	}
 
-	if !sel.Matches(labels.Set{"any": "label"}) {
-		t.Fatal("nil targetSelector should match everything")
+	if sel != nil {
+		t.Fatal("nil targetSelector should return nil selector")
 	}
 }
 
@@ -134,7 +133,7 @@ func TestRollupCounts_marksNotReadyTargets(t *testing.T) {
 		Status: metav1.ConditionTrue,
 	})
 
-	_, degraded := r.rollupCounts(inv, targets)
+	_, degraded := r.rollupCounts(inv, targets, nil)
 	if len(degraded) != 1 || degraded[0] != "pending" {
 		t.Fatalf("degraded = %v, want [pending]", degraded)
 	}
