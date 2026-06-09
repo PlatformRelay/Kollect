@@ -102,29 +102,21 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 		return fmt.Errorf("mongodb export: decode payload: %w", err)
 	}
 
-	invNS, invName := inventoryFromObjectPath(objectPath)
+	scope := newExportScope(objectPath, b.cfg.Cluster)
 	exportedAt := time.Now().UTC()
-	cluster := b.cfg.Cluster
 
 	for _, item := range items {
-		doc, err := itemDocument(invNS, invName, cluster, item, exportedAt)
+		doc, err := itemDocument(scope, item, exportedAt)
 		if err != nil {
 			return err
 		}
 
-		filter := bson.M{
-			"inventory_namespace": invNS,
-			"inventory_name":      invName,
-			"target_name":         item.TargetName,
-			"source_uid":          item.UID,
-		}
-
-		if _, err := b.coll.ReplaceOne(ctx, filter, doc, options.Replace().SetUpsert(true)); err != nil {
+		if _, err := b.coll.ReplaceOne(ctx, upsertFilter(scope, item), doc, options.Replace().SetUpsert(true)); err != nil {
 			return fmt.Errorf("mongodb upsert: %w", err)
 		}
 	}
 
-	return deleteStaleDocuments(ctx, b.coll, invNS, invName, cluster, items)
+	return deleteStaleDocuments(ctx, b.coll, scope, items)
 }
 
 func (b *Backend) verifyCollection(ctx context.Context) error {
@@ -179,7 +171,7 @@ func (b *Backend) ensureCollection(ctx context.Context) error {
 	return nil
 }
 
-func itemDocument(invNS, invName, cluster string, item collect.Item, exportedAt time.Time) (bson.M, error) {
+func itemDocument(scope exportScope, item collect.Item, exportedAt time.Time) (bson.M, error) {
 	itemJSON, err := json.Marshal(item)
 	if err != nil {
 		return nil, fmt.Errorf("mongodb export: marshal item: %w", err)
@@ -187,7 +179,7 @@ func itemDocument(invNS, invName, cluster string, item collect.Item, exportedAt 
 
 	resourceNS := item.Namespace
 	if resourceNS == "" {
-		resourceNS = invNS
+		resourceNS = scope.inventoryNamespace
 	}
 
 	var payload any
@@ -196,11 +188,11 @@ func itemDocument(invNS, invName, cluster string, item collect.Item, exportedAt 
 	}
 
 	return bson.M{
-		"inventory_namespace": invNS,
-		"inventory_name":      invName,
+		"inventory_namespace": scope.inventoryNamespace,
+		"inventory_name":      scope.inventoryName,
 		"target_name":         item.TargetName,
 		"source_uid":          item.UID,
-		"cluster":             cluster,
+		"cluster":             scope.cluster,
 		"resource_namespace":  resourceNS,
 		"payload":             payload,
 		"exported_at":         exportedAt,
@@ -210,10 +202,10 @@ func itemDocument(invNS, invName, cluster string, item collect.Item, exportedAt 
 func deleteStaleDocuments(
 	ctx context.Context,
 	coll *mongo.Collection,
-	invNS, invName, cluster string,
+	scope exportScope,
 	items []collect.Item,
 ) error {
-	filter, deleteAll := staleDeleteFilter(invNS, invName, cluster, items)
+	filter, deleteAll := staleDeleteFilter(scope, items)
 	_, err := coll.DeleteMany(ctx, filter)
 	if err != nil {
 		if deleteAll {
@@ -226,13 +218,8 @@ func deleteStaleDocuments(
 	return nil
 }
 
-func staleDeleteFilter(invNS, invName, cluster string, items []collect.Item) (bson.M, bool) {
-	filter := bson.M{
-		"inventory_namespace": invNS,
-		"inventory_name":      invName,
-		"cluster":             cluster,
-	}
-
+func staleDeleteFilter(scope exportScope, items []collect.Item) (bson.M, bool) {
+	filter := scope.filter()
 	if len(items) == 0 {
 		return filter, true
 	}
