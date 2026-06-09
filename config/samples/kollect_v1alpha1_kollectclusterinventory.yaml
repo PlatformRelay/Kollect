@@ -5,6 +5,9 @@ metadata:
 spec:
   targetRefs:
     - platform-argo-applications
+  namespaces:
+    - team-a
+    - team-b
   namespaceSelector:
     matchLabels:
       kollect.dev/tenant: platform
