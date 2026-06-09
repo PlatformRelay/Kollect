@@ -11,6 +11,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **api:** [**breaking**] Reject stub sink types at admission [2ebc8df](https://github.com/konih/kollect/commit/2ebc8df3a0cd904136e45dbf2d599801bea214fa)
+
+- **sink:** Remove stub backends, make unknown sink type terminal [f39d19c](https://github.com/konih/kollect/commit/f39d19c6846bf2afe4d2b5bfe25f9cc61e48f23d)
+
+- **sink/git:** Redact credentials from git CLI errors [f25cafb](https://github.com/konih/kollect/commit/f25cafb67bc8f9080140136e1f03764587ad7ea5)
+
 - **collect:** Stabilize export fingerprints for debounce [76813eb](https://github.com/konih/kollect/commit/76813eb84f3d7e2cb2ef9115939c69c97d68ccbc)
 
 - **docs:** Purge stale hub/spoke from operator manual [5135c41](https://github.com/konih/kollect/commit/5135c418f6a9e8a5338b99700425367988da2c3a)
