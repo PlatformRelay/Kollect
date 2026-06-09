@@ -28,7 +28,7 @@ vars:
   # renovate: datasource=github-releases depName=norwoodj/helm-docs
   HELM_DOCS_VERSION: v1.14.2
   HELM_DOCS_BIN: "{{.BIN_DIR}}/helm-docs"
-  COVERAGE_MIN: "65"
+  COVERAGE_MIN: "72"
   MANAGER_BINARY: "{{.BIN_DIR}}/manager"
   DOCKER_IMAGE: kollect-controller-manager:dev
   CLUSTER_NAME:

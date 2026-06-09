@@ -39,8 +39,7 @@ credentials*.json
 # --- Go / build artifacts ---
 /bin/
 /dist/
-/artifacts/bench/
-/artifacts/perf-snapshot.md
+/artifacts/
 *.test
 *.out
 cover.out
