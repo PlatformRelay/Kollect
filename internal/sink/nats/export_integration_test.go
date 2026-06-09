@@ -12,12 +12,10 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/testcontainers/testcontainers-go/modules/nats"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/digest"
-
-	"github.com/konih/kollect/internal/integrationtest"
+	"github.com/konih/kollect/internal/export"
 )
 
 func TestExportNATS(t *testing.T) {
@@ -26,23 +24,7 @@ func TestExportNATS(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	container, err := nats.Run(ctx, "nats:2.11")
-	if err != nil {
-		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
-		}
-
-		t.Fatalf("start nats: %v", err)
-	}
-
-	t.Cleanup(func() {
-		_ = container.Terminate(context.Background())
-	})
-
-	url, err := container.ConnectionString(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	url := startNATSTestContainer(t)
 
 	const (
 		subject    = "inventory.events"
@@ -118,6 +100,10 @@ func TestExportNATS(t *testing.T) {
 	var envelope EventEnvelope
 	if err := json.Unmarshal(gotMsg.Data(), &envelope); err != nil {
 		t.Fatalf("unmarshal envelope: %v", err)
+	}
+
+	if envelope.SchemaVersion != export.SchemaVersion {
+		t.Fatalf("schemaVersion = %q, want %q", envelope.SchemaVersion, export.SchemaVersion)
 	}
 
 	if envelope.Cluster != "test-cluster" {

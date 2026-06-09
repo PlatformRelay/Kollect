@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/sink/cap"
 )
 
@@ -64,5 +65,37 @@ func TestBackend_Export_rejectsEmptyPayload(t *testing.T) {
 	err := b.Export(context.Background(), nil, "inventory/default/inv.json")
 	if err == nil {
 		t.Fatal("expected error for empty payload")
+	}
+}
+
+func TestNewBackend_invalidSpec(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "nats"}, nil, nil)
+	if err == nil {
+		t.Fatal("expected error without nats spec")
+	}
+}
+
+func TestNewBackend_validSpec(t *testing.T) {
+	t.Parallel()
+
+	backend, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: "nats",
+		Nats: &kollectdevv1alpha1.NatsSpec{
+			URL:     "nats://broker:4222",
+			Subject: "inventory.events",
+		},
+	}, nil, nil)
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+
+	if backend.Type() != typeName {
+		t.Fatalf("Type() = %q", backend.Type())
+	}
+
+	if err := backend.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
 	}
 }
