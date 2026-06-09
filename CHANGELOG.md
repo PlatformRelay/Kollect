@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **build:** Compile full cmd package after pprof fold [5045839](https://github.com/konih/kollect/commit/50458391f52d6d35df2e080c642c8e14fe89d8c7)
+
 - **controller:** Panic-guard family-sink, connection-test, cluster-target reconcilers [95f2cae](https://github.com/konih/kollect/commit/95f2cae91e0055a269cc0ddfd3d59ee0aad583ed)
 
 - **controller:** Aggregate per-sink export errors [61d28d4](https://github.com/konih/kollect/commit/61d28d44b671029c97f441afe00fa23750cbe16c)
