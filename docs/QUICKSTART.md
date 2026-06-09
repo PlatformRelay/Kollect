@@ -239,6 +239,19 @@ Be honest about where the project stands:
 End-to-end export on kind is green in CI; some items (GCS Parquet export, terminal finalizer cleanup)
 remain 🚧/⬜ in [ROADMAP.md](ROADMAP.md). Track detail in [ARCHITECTURE.md](ARCHITECTURE.md).
 
+## Demo (hero story)
+
+> **Your cluster, in Git, diffable.** Record a deterministic terminal demo with the in-kind Forgejo
+> harness — no GitHub tokens required.
+
+| Variant | Command | Artifact |
+| --- | --- | --- |
+| Git-only teaser (≤60s) | `task demo-hero-up` → `task demo-hero-record-git-only` | `docs/assets/demo/hero-git-only.gif` |
+| Git + Postgres deep dive | `task demo-hero-up-postgres` → `task demo-hero-record-git-postgres` | `docs/assets/demo/hero-git-postgres.mp4` |
+
+Full step-by-step playbook (prerequisites, storyboard, troubleshooting, embed instructions):
+**[DEMO-GIF-GUIDE.md](DEMO-GIF-GUIDE.md)**.
+
 ## Next steps
 
 - [UNDERSTAND-THE-BASICS.md](UNDERSTAND-THE-BASICS.md) — prerequisite concepts and curated links
