@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/testcontainers/testcontainers-go"
@@ -44,8 +46,11 @@ func TestExportBigQuery(t *testing.T) {
 		t.Fatalf("new client: %v", err)
 	}
 	t.Cleanup(func() { _ = client.Close() })
+	if err := waitForBigQueryEmulator(ctx, client); err != nil {
+		t.Fatalf("wait for emulator: %v", err)
+	}
 
-	if err := client.Dataset("inventory").Create(ctx, &bigquery.DatasetMetadata{}); err != nil {
+	if err := createDatasetWithRetry(ctx, client, "inventory", &bigquery.DatasetMetadata{}); err != nil {
 		t.Fatalf("create dataset: %v", err)
 	}
 
@@ -186,7 +191,10 @@ func TestBigQueryExistingModeMissingTable(t *testing.T) {
 		t.Fatalf("new client: %v", err)
 	}
 	t.Cleanup(func() { _ = client.Close() })
-	if err := client.Dataset("inventory").Create(ctx, &bigquery.DatasetMetadata{}); err != nil {
+	if err := waitForBigQueryEmulator(ctx, client); err != nil {
+		t.Fatalf("wait for emulator: %v", err)
+	}
+	if err := createDatasetWithRetry(ctx, client, "inventory", &bigquery.DatasetMetadata{}); err != nil {
 		t.Fatalf("create dataset: %v", err)
 	}
 
@@ -227,7 +235,10 @@ func TestBigQueryConnectionProbe(t *testing.T) {
 		t.Fatalf("new client: %v", err)
 	}
 	t.Cleanup(func() { _ = client.Close() })
-	if err := client.Dataset("inventory").Create(ctx, &bigquery.DatasetMetadata{}); err != nil {
+	if err := waitForBigQueryEmulator(ctx, client); err != nil {
+		t.Fatalf("wait for emulator: %v", err)
+	}
+	if err := createDatasetWithRetry(ctx, client, "inventory", &bigquery.DatasetMetadata{}); err != nil {
 		t.Fatalf("create dataset: %v", err)
 	}
 
@@ -332,4 +343,50 @@ func newEmulatorClient(ctx context.Context, project, host string) (*bigquery.Cli
 		option.WithEndpoint("http://"+host),
 		option.WithoutAuthentication(),
 	)
+}
+
+func waitForBigQueryEmulator(ctx context.Context, client *bigquery.Client) error {
+	deadline := time.Now().Add(60 * time.Second)
+	probe := client.Dataset("_kollect_probe")
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		err := probe.Create(ctx, &bigquery.DatasetMetadata{})
+		if err == nil {
+			_ = probe.Delete(ctx)
+
+			return nil
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "already exists") {
+			_ = probe.Delete(ctx)
+
+			return nil
+		}
+
+		lastErr = err
+		time.Sleep(time.Second)
+	}
+
+	return fmt.Errorf("bigquery emulator not ready: %w", lastErr)
+}
+
+func createDatasetWithRetry(ctx context.Context, client *bigquery.Client, datasetID string, md *bigquery.DatasetMetadata) error {
+	deadline := time.Now().Add(60 * time.Second)
+	ds := client.Dataset(datasetID)
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		err := ds.Create(ctx, md)
+		if err == nil {
+			return nil
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "already exists") {
+			return nil
+		}
+
+		lastErr = err
+		time.Sleep(time.Second)
+	}
+
+	return fmt.Errorf("create dataset %q: %w", datasetID, lastErr)
 }
