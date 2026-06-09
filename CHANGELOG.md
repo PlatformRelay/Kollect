@@ -44,6 +44,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **api:** Add cluster rollup shard status [4809cfd](https://github.com/konih/kollect/commit/4809cfd995362af22c7b2709d5359c6db24b5345)
+
 - **api:** Add cluster inventory namespaces list [3959ba2](https://github.com/konih/kollect/commit/3959ba241cc281c21b76d2ff0e60cc0edf46dc2d)
 
 - **helm:** Add minimal RBAC team install profile [907487e](https://github.com/konih/kollect/commit/907487ed167ac744d8093c4508c263b2c2edbd01)
@@ -64,6 +66,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Refactoring
+
+- **controller:** Compose cluster rollups by namespace [b1af6b1](https://github.com/konih/kollect/commit/b1af6b1022c9d9ee57baaf6699e9ab53f19e848b)
 
 - **inventory:** Fold internal/httpauth into inventory [f89e2cd](https://github.com/konih/kollect/commit/f89e2cdb4955c8aaa2ab307f2137aa24d29b091c)
 
