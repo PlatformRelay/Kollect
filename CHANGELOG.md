@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **controller:** Enforce namespace intersections in rollups [8e11ab6](https://github.com/konih/kollect/commit/8e11ab6993c282a28823c71d7469dc91be184742)
+
+- **sink:** Re-enable backend pool after layout integration test [95a417c](https://github.com/konih/kollect/commit/95a417c19ee0e4be041b7b0b2c51667b4354048a)
+
 - **sink:** Infer resource manifest layout [90725d6](https://github.com/konih/kollect/commit/90725d67500b5d0aef3392de422e735ae94c7e87)
 
 - **build:** Compile full cmd package after pprof fold [5045839](https://github.com/konih/kollect/commit/50458391f52d6d35df2e080c642c8e14fe89d8c7)
@@ -37,6 +41,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **api:** Add cluster inventory namespaces list [3959ba2](https://github.com/konih/kollect/commit/3959ba241cc281c21b76d2ff0e60cc0edf46dc2d)
+
+- **helm:** Add minimal RBAC team install profile [907487e](https://github.com/konih/kollect/commit/907487ed167ac744d8093c4508c263b2c2edbd01)
+
+- **sink:** Add BigQuery database backend [83fb2f3](https://github.com/konih/kollect/commit/83fb2f31c17a966220c922eb8c15c08ea38f9b20)
 
 - **sink/nats:** Version event envelope schema [48fd7dd](https://github.com/konih/kollect/commit/48fd7dd989d7dd20587917af6b064ab5f591200e)
 
