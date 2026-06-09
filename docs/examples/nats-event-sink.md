@@ -7,8 +7,8 @@
 `config/samples/kollect_v1alpha1_kollecteventsink_nats.yaml` — not in default kustomization.
 
 !!! tip "Event + state pairing"
-    Event emitters complement relational sinks — pair NATS with Postgres in `sinkRefs` when portals
-    need queryable state and downstream systems need change notifications.
+    Event emitters complement relational sinks — pair NATS with Postgres via `databaseSinkRefs` and
+    `eventSinkRefs` when portals need queryable state and downstream systems need change notifications.
 
 ## Sample manifest
 
@@ -38,7 +38,8 @@ spec:
 | `spec.secretRef` | Optional `token` or `username`/`password` keys |
 | `spec.cluster` | Cluster label embedded in each event envelope |
 
-Event emitter role ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)). Pair with Postgres in `sinkRefs`.
+Event emitter role ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)). Pair with Postgres via
+`databaseSinkRefs` + `eventSinkRefs` on the same `KollectInventory`.
 
 ## Message contract
 
@@ -105,4 +106,5 @@ Golden fixture: `test/schema/golden/nats-event-envelope.json`.
    })
    ```
 
-Kafka alternative: `kollect_v1alpha1_kollecteventsink_kafka.yaml`.
+Kafka alternative: [Kafka event sink](kafka-event-sink.md) ·
+`config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml`.
