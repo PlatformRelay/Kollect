@@ -644,6 +644,11 @@ func (in *KollectClusterInventorySpec) DeepCopyInto(out *KollectClusterInventory
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Namespaces != nil {
+		in, out := &in.Namespaces, &out.Namespaces
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.SnapshotSinkRefs != nil {
 		in, out := &in.SnapshotSinkRefs, &out.SnapshotSinkRefs
 		*out = make(InventorySinkRefList, len(*in))

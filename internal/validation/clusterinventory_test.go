@@ -75,3 +75,31 @@ func TestValidateClusterInventorySpec_rejectsEmptyTargetRef(t *testing.T) {
 		t.Fatalf("expected empty targetRef error, got %v", errs)
 	}
 }
+
+func TestValidateClusterInventorySpec_rejectsInvalidNamespaces(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateClusterInventorySpec(&kollectdevv1alpha1.KollectClusterInventorySpec{
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"team": "a"},
+		},
+		Namespaces: []string{"team-a", "team-a", "Team_B"},
+	})
+	if len(errs) != 2 {
+		t.Fatalf("expected duplicate and format errors, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidateClusterInventorySpec_acceptsValidNamespaces(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateClusterInventorySpec(&kollectdevv1alpha1.KollectClusterInventorySpec{
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"team": "a"},
+		},
+		Namespaces: []string{"team-a", "team-b"},
+	})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+}

@@ -98,6 +98,16 @@ properties:
         type: object
     type: object
     x-kubernetes-map-type: atomic
+  namespaces:
+    description: |-
+      namespaces explicitly lists namespace names that may contribute to the rollup.
+      When set with namespaceSelector, the effective rollup scope is their intersection.
+    items:
+      maxLength: 63
+      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+      type: string
+    type: array
+    x-kubernetes-list-type: set
   profileRef:
     description: profileRef names a KollectClusterProfile stub for shared extraction
       schema (optional).

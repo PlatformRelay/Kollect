@@ -34,6 +34,14 @@ type KollectClusterInventorySpec struct {
 	// +optional
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 
+	// namespaces explicitly lists namespace names that may contribute to the rollup.
+	// When set with namespaceSelector, the effective rollup scope is their intersection.
+	// +listType=set
+	// +kubebuilder:validation:items:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:items:MaxLength=63
+	// +optional
+	Namespaces []string `json:"namespaces,omitempty"`
+
 	// snapshotSinkRefs lists KollectSnapshotSink or KollectClusterSnapshotSink names (ADR-0414).
 	// +optional
 	SnapshotSinkRefs InventorySinkRefList `json:"snapshotSinkRefs,omitempty"`

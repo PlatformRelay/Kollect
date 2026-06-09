@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -32,6 +33,29 @@ func ValidateClusterInventorySpec(spec *kollectdevv1alpha1.KollectClusterInvento
 	targetRefsPath := field.NewPath("spec").Child("targetRefs")
 	for i, ref := range spec.TargetRefs {
 		allErrs = append(allErrs, validateNameOnlyRef(ref, targetRefsPath.Index(i), "targetRef")...)
+	}
+
+	namespacesPath := field.NewPath("spec").Child("namespaces")
+	seenNamespaces := make(map[string]struct{}, len(spec.Namespaces))
+	for i, ns := range spec.Namespaces {
+		idxPath := namespacesPath.Index(i)
+		trimmed := strings.TrimSpace(ns)
+		if trimmed == "" {
+			allErrs = append(allErrs, field.Required(idxPath, "namespace name must be non-empty"))
+			continue
+		}
+		if trimmed != ns {
+			allErrs = append(allErrs, field.Invalid(idxPath, ns, "namespace name must not contain leading/trailing whitespace"))
+			continue
+		}
+		if _, ok := seenNamespaces[ns]; ok {
+			allErrs = append(allErrs, field.Duplicate(idxPath, ns))
+		} else {
+			seenNamespaces[ns] = struct{}{}
+		}
+		if errs := k8svalidation.IsDNS1123Label(ns); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(idxPath, ns, strings.Join(errs, "; ")))
+		}
 	}
 
 	nsPath := field.NewPath("spec").Child("namespaceSelector")
