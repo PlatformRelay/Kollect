@@ -27,9 +27,11 @@ hide:
 
 </p>
 
-**Kollect** turns selected, live cluster state into a **durable, queryable, diffable inventory** —
-decoupled from the apiserver's availability, RBAC, and scale limits. Portals, automation, and
-auditors read **export data**, not unbounded list/watch against the live API.
+**Your cluster, in Git, diffable.** Kollect turns selected live state into a **durable, queryable,
+diffable inventory** — decoupled from the apiserver's availability, RBAC, and scale limits. Portals,
+automation, and auditors read **export data**, not unbounded list/watch against the live API.
+
+Record the hero demo locally: [DEMO-GIF-GUIDE.md](DEMO-GIF-GUIDE.md).
 
 `kollect.dev/v1alpha1` · event-driven · CRD-native · fleet-ready
 

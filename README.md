@@ -23,10 +23,13 @@
 
 # Kollect
 
-> **Turn live Kubernetes state into a durable, queryable, diffable inventory — without hammering the
-> API server.** Declare *what* to collect; Kollect watches it, extracts the fields that matter, and
-> exports a clean read model to Git, Postgres, MongoDB, S3, GCS, or Kafka. Portals, dashboards, automation, and
-> auditors read **export data**, never unbounded list/watch against the live cluster.
+> **Your cluster, in Git, diffable.** Declare GVK + CEL in CRDs and get a clean, Git-committed
+> inventory of anything running in your cluster — no scripts, no apiserver hammering. When the
+> cluster changes, the inventory commits change; `git log` is your audit trail and `git diff` is
+> your drift report. The same snapshot fans out to Postgres, object stores, and event streams —
+> consumers read **export data**, never unbounded list/watch against the live cluster.
+
+<!-- Hero GIF (generate locally): docs/assets/demo/hero-git-only.gif — see docs/DEMO-GIF-GUIDE.md -->
 
 Kubernetes is the source of truth for *what is running*; it is a poor *system of record* for
 stakeholder inventory. Kollect closes that gap: **select** resources by GVK → **extract** attributes
