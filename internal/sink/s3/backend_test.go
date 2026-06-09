@@ -10,14 +10,17 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
+	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/sink/cap"
 	"github.com/konih/kollect/internal/sink/objectstore"
+	parquetenc "github.com/konih/kollect/internal/sink/parquet"
 )
 
 func TestBackend_TypeAndCapabilities(t *testing.T) {
@@ -212,4 +215,123 @@ func TestBackend_Export_withPrefix(t *testing.T) {
 	if gotKey != "exports/inventory/team-a/inv.json" {
 		t.Fatalf("prefixed key = %q", gotKey)
 	}
+}
+
+func TestBackend_Export_parquetSetsContentTypeAndWritesBinary(t *testing.T) {
+	t.Parallel()
+
+	var gotContentType string
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			http.NotFound(w, r)
+			return
+		}
+		gotContentType = r.Header.Get("Content-Type")
+		body, _ := io.ReadAll(r.Body)
+		gotBody = body
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	client := testS3Client(t, srv.URL)
+	b := &Backend{
+		cfg: Config{
+			Bucket:         "inventory",
+			Region:         "us-east-1",
+			Endpoint:       srv.URL,
+			ForcePathStyle: true,
+			Format:         objectstore.FormatParquet,
+		},
+		client: client,
+	}
+
+	payload := mustMarshalEnvelope(t, []collect.Item{{
+		TargetNamespace: "team-a",
+		TargetName:      "deployments",
+		Namespace:       "team-a",
+		Name:            "api",
+		UID:             "uid-1",
+		Kind:            "Deployment",
+		Attributes:      map[string]any{"replicas": 2},
+	}})
+	if err := b.Export(context.Background(), payload, "inventory/team-a/apps.json"); err != nil {
+		t.Fatalf("Export() error = %v", err)
+	}
+	if gotContentType != parquetenc.ContentType() {
+		t.Fatalf("content-type = %q, want %q", gotContentType, parquetenc.ContentType())
+	}
+	if len(gotBody) == 0 || strings.Contains(string(gotBody), "schemaVersion") {
+		t.Fatalf("expected parquet payload bytes, got %q", gotBody)
+	}
+}
+
+func TestBackend_Export_parquetDecodeError(t *testing.T) {
+	t.Parallel()
+
+	b := &Backend{
+		cfg:    Config{Bucket: "inventory", Region: "us-east-1", Format: objectstore.FormatParquet},
+		client: testS3Client(t, "http://127.0.0.1:1"),
+	}
+	err := b.Export(context.Background(), []byte(`{"schemaVersion":"kollect.dev/v99","items":[]}`), "inventory/team-a/inv.json")
+	if err == nil || !strings.Contains(err.Error(), "decode payload") {
+		t.Fatalf("Export() error = %v, want decode payload error", err)
+	}
+}
+
+func TestBackend_Export_wrapsPutObjectError(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("boom"))
+	}))
+	t.Cleanup(srv.Close)
+
+	b := &Backend{
+		cfg: Config{
+			Bucket:         "inventory",
+			Region:         "us-east-1",
+			Endpoint:       srv.URL,
+			ForcePathStyle: true,
+		},
+		client: testS3Client(t, srv.URL),
+	}
+
+	err := b.Export(context.Background(), []byte(`{"items":[]}`), "inventory/team-a/inv.json")
+	if err == nil || !strings.Contains(err.Error(), "s3 PutObject") {
+		t.Fatalf("Export() error = %v, want PutObject wrapper", err)
+	}
+}
+
+func testS3Client(t *testing.T, endpoint string) *awss3.Client {
+	t.Helper()
+
+	awsCfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+		awsconfig.WithRegion("us-east-1"),
+		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("key", "secret", "")),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return awss3.NewFromConfig(awsCfg, func(o *awss3.Options) {
+		o.BaseEndpoint = aws.String(endpoint)
+		o.UsePathStyle = true
+	})
+}
+
+func mustMarshalEnvelope(t *testing.T, items []collect.Item) []byte {
+	t.Helper()
+
+	out, err := collect.MarshalExportEnvelope(items, collect.ExportMetadata{
+		Generation: 1,
+		Cluster:    "cluster-a",
+		ExportedAt: time.Date(2026, time.June, 10, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("MarshalExportEnvelope() error = %v", err)
+	}
+
+	return out
 }
