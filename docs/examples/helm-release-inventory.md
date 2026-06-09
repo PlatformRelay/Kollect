@@ -21,7 +21,7 @@ flowchart LR
   Profile[KollectProfile<br/>argo-application-summary]
   Target[KollectTarget<br/>select Applications]
   Inv[KollectInventory<br/>aggregate + export]
-  Sink[KollectSink<br/>Postgres / Git]
+  Sink[KollectDatabaseSink<br/>Postgres]
   Argo[(Argo CD Application)]
   Profile --> Target
   Target --> Argo
@@ -62,12 +62,13 @@ spec:
       path: '$.status.sync.status'
       type: string
       optional: true
+    # ... the sample file also extracts targetRevision, appVersion, and revision
 ```
 
-## Step 2 — KollectSink
+## Step 2 — KollectDatabaseSink
 
 Namespaced ([ADR-0201](../adr/0201-crd-model.md)). Default inventory uses Postgres:
-`config/samples/kollect_v1alpha1_kollectsink_postgres.yaml`. See [Postgres state store](postgres-state-store.md).
+`config/samples/kollect_v1alpha1_kollectdatabasesink.yaml`. See [Postgres state store](postgres-state-store.md).
 
 ## Step 3 — KollectTarget
 
@@ -85,7 +86,7 @@ spec:
 
 ## Step 4 — KollectInventory
 
-`config/samples/kollect_v1alpha1_kollectinventory.yaml` — `sinkRefs: [postgres-inventory-demo]`.
+`config/samples/kollect_v1alpha1_kollectinventory.yaml` — `databaseSinkRefs: [postgres-inventory-demo]`.
 
 ## Apply
 
