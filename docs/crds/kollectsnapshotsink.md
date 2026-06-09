@@ -6,17 +6,17 @@ Cluster-scoped variant: **`KollectClusterSnapshotSink`** (`kcsnap`).
 
 ## What it is for
 
-A `KollectSnapshotSink` configures **snapshot-store** export backends — Git, GitLab, S3, GCS, Azure
-Blob, and HTTP/webhook ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)). Inventories reference
+A `KollectSnapshotSink` configures **snapshot-store** export backends — Git, GitLab, S3, and GCS
+([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)). Inventories reference
 snapshot sinks via `KollectInventory.spec.snapshotSinkRefs`.
 
 ## Spec highlights
 
 | Field | Purpose |
 | --- | --- |
-| `spec.type` | Backend: `git`, `gitlab`, `s3`, `gcs`, `azureblob`, `http` |
-| `spec.endpoint` | Repository URL, bucket URI, or webhook URL |
-| `spec.git` / `spec.gitlab` / `spec.objectStore` / `spec.http` | Type-specific settings |
+| `spec.type` | Backend: `git`, `gitlab`, `s3`, `gcs` |
+| `spec.endpoint` | Repository URL or bucket URI |
+| `spec.git` / `spec.gitlab` / `spec.objectStore` | Type-specific settings |
 | `spec.git.engine` | Git export backend: `go-git` (default, pure Go) or `cli` (native `git` binary). `cli` is required for some SSH/KEX edge cases; shipped operator image includes `git` and `openssh-client` |
 | `spec.serialization.format` | Output format. **Git/GitLab default `yaml`**; object stores default `json` ([ADR-0419](../adr/0419-git-export-serialization-layout.md)) |
 | `spec.pathTemplate` | Inventory document path; `{extension}` resolves from the format (e.g. `.yaml`) |

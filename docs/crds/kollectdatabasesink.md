@@ -6,17 +6,16 @@ Cluster-scoped variant: **`KollectClusterDatabaseSink`** (`kcdb`).
 
 ## What it is for
 
-A `KollectDatabaseSink` configures **relational / document** export backends — PostgreSQL, MongoDB
-([ADR-0417](../adr/0417-mongodb-database-sink.md)), and BigQuery (stub)
-([ADR-0402](../adr/0402-sink-backends-database-kafka.md)). Inventories reference database sinks via
+A `KollectDatabaseSink` configures **relational / document** export backends — PostgreSQL and MongoDB
+([ADR-0417](../adr/0417-mongodb-database-sink.md)). Inventories reference database sinks via
 `KollectInventory.spec.databaseSinkRefs`. Postgres uses a bulk upsert path for high-row exports.
 
 ## Spec highlights
 
 | Field | Purpose |
 | --- | --- |
-| `spec.type` | Backend: `postgres`, `mongodb`, `bigquery` |
-| `spec.postgres` / `spec.mongodb` / `spec.bigquery` | Type-specific connection and table/collection settings |
+| `spec.type` | Backend: `postgres`, `mongodb` |
+| `spec.postgres` / `spec.mongodb` | Type-specific connection and table/collection settings |
 | `spec.provisioning.mode` | `ensure` (create table, default) or `existing` (never issue DDL) ([ADR-0416](../adr/0416-sink-config-layering.md)) |
 | `spec.options` | Non-secret pass-through tuning (secret-like keys rejected by the webhook) |
 | `spec.exportMinInterval` | Default per-ref debounce when inventory ref omits override |
