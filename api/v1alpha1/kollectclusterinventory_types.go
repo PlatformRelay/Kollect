@@ -96,6 +96,16 @@ type KollectClusterInventoryStatus struct {
 	// +optional
 	TargetCount int `json:"targetCount,omitempty"`
 
+	// namespaceShardCount is the number of namespace shards composed into the last rollup.
+	// +optional
+	NamespaceShardCount int `json:"namespaceShardCount,omitempty"`
+
+	// namespaceShards holds per-namespace shard metadata used to compose the rollup.
+	// +optional
+	// +listType=map
+	// +listMapKey=namespace
+	NamespaceShards []InventoryNamespaceShardStatus `json:"namespaceShards,omitempty"`
+
 	// lastExportTime is the timestamp of the last successful export across all sinks.
 	// +optional
 	LastExportTime *metav1.Time `json:"lastExportTime,omitempty"`
@@ -106,6 +116,25 @@ type KollectClusterInventoryStatus struct {
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=20
 	SinkExports []InventorySinkExportStatus `json:"sinkExports,omitempty"`
+}
+
+// InventoryNamespaceShardStatus tracks one namespace shard contributing to a rollup.
+type InventoryNamespaceShardStatus struct {
+	// namespace is the namespace name represented by this shard.
+	// +required
+	Namespace string `json:"namespace"`
+
+	// itemCount is the number of rows in this namespace shard after dedupe.
+	// +optional
+	ItemCount int `json:"itemCount,omitempty"`
+
+	// targetCount is the number of targets that contributed rows to this shard.
+	// +optional
+	TargetCount int `json:"targetCount,omitempty"`
+
+	// checksum is the canonical checksum of shard rows.
+	// +optional
+	Checksum string `json:"checksum,omitempty"`
 }
 
 // +kubebuilder:object:root=true

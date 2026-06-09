@@ -314,6 +314,39 @@ spec:
                   export across all sinks.
                 format: date-time
                 type: string
+              namespaceShardCount:
+                description: namespaceShardCount is the number of namespace shards
+                  composed into the last rollup.
+                type: integer
+              namespaceShards:
+                description: namespaceShards holds per-namespace shard metadata used
+                  to compose the rollup.
+                items:
+                  description: InventoryNamespaceShardStatus tracks one namespace
+                    shard contributing to a rollup.
+                  properties:
+                    checksum:
+                      description: checksum is the canonical checksum of shard rows.
+                      type: string
+                    itemCount:
+                      description: itemCount is the number of rows in this namespace
+                        shard after dedupe.
+                      type: integer
+                    namespace:
+                      description: namespace is the namespace name represented by
+                        this shard.
+                      type: string
+                    targetCount:
+                      description: targetCount is the number of targets that contributed
+                        rows to this shard.
+                      type: integer
+                  required:
+                  - namespace
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - namespace
+                x-kubernetes-list-type: map
               observedGeneration:
                 description: observedGeneration is the most recent generation observed
                   by a controller.
