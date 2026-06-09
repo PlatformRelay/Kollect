@@ -35,3 +35,32 @@ func TestValidateSinkConfigWarnings_existingMode(t *testing.T) {
 		t.Fatal("expected warning for existing mode")
 	}
 }
+
+func TestValidateSinkCommonConfig_RejectsInvalidProvisioningMode(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateSinkCommonConfig(&kollectdevv1alpha1.SinkCommonFields{
+		Provisioning: &kollectdevv1alpha1.ProvisioningSpec{
+			Mode: "auto",
+		},
+	})
+	if len(errs) == 0 {
+		t.Fatal("expected provisioning mode validation error")
+	}
+}
+
+func TestValidateSinkCommonConfig_RejectsInvalidNamingTemplate(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateSinkCommonConfig(&kollectdevv1alpha1.SinkCommonFields{
+		Provisioning: &kollectdevv1alpha1.ProvisioningSpec{
+			Mode: kollectdevv1alpha1.ProvisioningModeEnsure,
+			Naming: &kollectdevv1alpha1.ProvisioningNamingSpec{
+				Template: "{cluster}/{unsupported}/{name}",
+			},
+		},
+	})
+	if len(errs) == 0 {
+		t.Fatal("expected invalid naming template error")
+	}
+}
