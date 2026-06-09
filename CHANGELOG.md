@@ -14,7 +14,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **validation:** Block private sink endpoint targets [f1c0d79](https://github.com/konih/kollect/commit/f1c0d7900f873c1557faccbc1fd7635ff105289a)
 
 
+### Features
+
+- **controller:** Shard snapshot exports by max bytes [d6ee50a](https://github.com/konih/kollect/commit/d6ee50a7ff5e53e670b1e020ad968d8a7284d3fa)
+
+
 ### Refactoring
+
+- **export:** Extract envelope partition helpers [391bbb8](https://github.com/konih/kollect/commit/391bbb8d625481dc7e16c370b73ea29f176aedf7)
 
 - **mongodb:** Isolate export scope planning [51154e7](https://github.com/konih/kollect/commit/51154e7d2dca1509562f904d74253c96486afb56)
 
