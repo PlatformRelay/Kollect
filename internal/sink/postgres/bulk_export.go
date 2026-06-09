@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/konih/kollect/internal/collect"
@@ -15,9 +16,23 @@ import (
 
 const bulkUpsertThreshold = 32
 
+type execTx interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}
+
+type copyTx interface {
+	execTx
+	CopyFrom(
+		ctx context.Context,
+		tableName pgx.Identifier,
+		columnNames []string,
+		rowSrc pgx.CopyFromSource,
+	) (int64, error)
+}
+
 func (b *Backend) upsertItems(
 	ctx context.Context,
-	tx pgx.Tx,
+	tx copyTx,
 	qualifiedTable string,
 	invNS, invName, cluster string,
 	items []collect.Item,
@@ -32,7 +47,7 @@ func (b *Backend) upsertItems(
 
 func (b *Backend) rowUpsertItems(
 	ctx context.Context,
-	tx pgx.Tx,
+	tx execTx,
 	qualifiedTable string,
 	invNS, invName, cluster string,
 	items []collect.Item,
@@ -63,7 +78,7 @@ DO UPDATE SET payload = EXCLUDED.payload, exported_at = EXCLUDED.exported_at,
 
 func (b *Backend) bulkUpsertItems(
 	ctx context.Context,
-	tx pgx.Tx,
+	tx copyTx,
 	qualifiedTable string,
 	invNS, invName, cluster string,
 	items []collect.Item,
