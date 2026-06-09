@@ -9,9 +9,9 @@ exclude:
   - config/**
   - bin/**
   - dist/**
-  - references/**
-  - kollect-repos/**
-  - agent-context/**
+  - references
+  - kollect-repos
+  - agent-context
 allow:
   depOnAnyVendor: true
 
