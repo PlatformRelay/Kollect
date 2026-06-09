@@ -21,6 +21,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Refactoring
 
+- **bigquery:** Inject query execution adapter [0d2208d](https://github.com/konih/kollect/commit/0d2208d2cb0f83dd5ff30fb5b3e359faad75166a)
+
+- **s3:** Isolate head-bucket check helper [12a47ea](https://github.com/konih/kollect/commit/12a47ea867988f958320867070138a7a7bb076c6)
+
+- **postgres:** Narrow upsert tx interfaces [82e7bb1](https://github.com/konih/kollect/commit/82e7bb1a4e2829b1f84ff496eaea0a3a3f150ecc)
+
 - **export:** Extract envelope partition helpers [391bbb8](https://github.com/konih/kollect/commit/391bbb8d625481dc7e16c370b73ea29f176aedf7)
 
 - **mongodb:** Isolate export scope planning [51154e7](https://github.com/konih/kollect/commit/51154e7d2dca1509562f904d74253c96486afb56)
