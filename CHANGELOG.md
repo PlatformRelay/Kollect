@@ -9,6 +9,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ## [Unreleased]
 
+### Refactoring
+
+- **mongodb:** Isolate export scope planning [51154e7](https://github.com/konih/kollect/commit/51154e7d2dca1509562f904d74253c96486afb56)
+
+- **postgres:** Extract export planning helpers [1e0248f](https://github.com/konih/kollect/commit/1e0248fbfcce991fa4ab5a8fac105dd1dcb19f00)
+
+## [0.6.0-rc.1](https://github.com/konih/kollect/compare/v0.5.0..v0.6.0-rc.1) - 2026-06-09
+
 ### Bug Fixes
 
 - **sink:** Retry BigQuery emulator readiness in L3 tests [b5a6b85](https://github.com/konih/kollect/commit/b5a6b850e9653ddfd7ea9321260c9399ae182c6b)
