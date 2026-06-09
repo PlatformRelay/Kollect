@@ -6,6 +6,8 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 
@@ -21,12 +23,14 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
 	kollecterrors "github.com/konih/kollect/internal/errors"
+	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/sink"
 )
 
 type recordingBackend struct {
 	mu       sync.Mutex
 	exported [][]byte
+	paths    []string
 }
 
 func (r *recordingBackend) Type() string { return "recording" }
@@ -35,12 +39,112 @@ func (r *recordingBackend) Capabilities() sink.Capabilities {
 	return sink.SnapshotStoreCapabilities()
 }
 
-func (r *recordingBackend) Export(_ context.Context, payload []byte, _ string) error {
+func (r *recordingBackend) Export(_ context.Context, payload []byte, path string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.exported = append(r.exported, append([]byte(nil), payload...))
+	r.paths = append(r.paths, path)
 
 	return nil
+}
+
+func TestKollectInventoryReconciler_partitionsSnapshotExports(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	for i := range 3 {
+		store.Upsert(collect.Item{
+			TargetNamespace: "default",
+			TargetName:      "nginx-deployments",
+			UID:             fmt.Sprintf("uid-%d", i),
+			Namespace:       "default",
+			Name:            fmt.Sprintf("nginx-%d", i),
+			Version:         "v1",
+			Kind:            "Deployment",
+			Attributes:      map[string]any{"payload": strings.Repeat("x", 220)},
+		})
+	}
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme corev1: %v", err)
+	}
+
+	limit := int64(900)
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "git-demo", Namespace: "default"},
+		Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type:             kollectdevv1alpha1.SnapshotSinkTypeGit,
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/inventory.git"},
+		},
+	}
+
+	inv := &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default"},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("git-demo"),
+			MaxExportBytes:   &limit,
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(sinkObj, inv).
+		WithStatusSubresource(sinkObj, inv).
+		Build()
+
+	recorder := &recordingBackend{}
+	reg := sink.NewRegistry()
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext) (sink.Backend, error) {
+		return recorder, nil
+	})
+
+	rec := &KollectInventoryReconciler{
+		Client:   cl,
+		Scheme:   scheme,
+		Store:    store,
+		Registry: reg,
+	}
+
+	_, err := rec.Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "team-inventory", Namespace: "default"},
+	})
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if len(recorder.exported) < 2 {
+		t.Fatalf("export count = %d, want >= 2 shards", len(recorder.exported))
+	}
+	for i := range recorder.exported {
+		if int64(len(recorder.exported[i])) > limit {
+			t.Fatalf("shard %d size = %d, want <= %d", i+1, len(recorder.exported[i]), limit)
+		}
+	}
+	if recorder.paths[0] == "inventory/default/team-inventory.json" {
+		t.Fatal("multipart export should use part-suffixed object paths")
+	}
+
+	parts, err := export.PartitionEnvelopes(store.SnapshotNamespace("default"), export.Metadata{Generation: 1}, limit)
+	if err != nil {
+		t.Fatalf("PartitionEnvelopes: %v", err)
+	}
+	expectedChecksum := export.PartitionsChecksum(parts)
+
+	var got kollectdevv1alpha1.KollectInventory
+	invKey := types.NamespacedName{Name: "team-inventory", Namespace: "default"}
+	if err := cl.Get(context.Background(), invKey, &got); err != nil {
+		t.Fatalf("Get inventory: %v", err)
+	}
+	if len(got.Status.SinkExports) != 1 {
+		t.Fatalf("SinkExports = %d, want 1", len(got.Status.SinkExports))
+	}
+	if got.Status.SinkExports[0].LastChecksum != expectedChecksum {
+		t.Fatalf("LastChecksum = %q, want %q", got.Status.SinkExports[0].LastChecksum, expectedChecksum)
+	}
 }
 
 func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
