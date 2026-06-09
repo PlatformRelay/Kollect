@@ -5,9 +5,11 @@ package sink
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/export"
 	"github.com/konih/kollect/internal/sink/git"
 	"github.com/konih/kollect/internal/sink/layout"
@@ -52,11 +54,19 @@ func resolveSnapshotExport(
 		}, nil
 	}
 
+	items, err := export.ItemsFromPayload(envelope)
+	if err != nil {
+		return snapshotExport{}, err
+	}
+	resourceExportMode, manifestKey := inferResourceLayoutHints(items)
+
 	resolved := layout.Resolve(layout.ResolveInput{
 		Spec:               spec,
 		InventoryNamespace: invNS,
 		InventoryName:      invName,
 		Generation:         generation,
+		ResourceExportMode: resourceExportMode,
+		ManifestKey:        manifestKey,
 	})
 
 	fileExporter, canTree := backend.(FileExporter)
@@ -74,11 +84,6 @@ func resolveSnapshotExport(
 
 	if meta := export.EnvelopeMetaFromPayload(envelope); !meta.ExportedAt.IsZero() {
 		resolved.ExportedAt = meta.ExportedAt.UTC().Format(time.RFC3339)
-	}
-
-	items, err := export.ItemsFromPayload(envelope)
-	if err != nil {
-		return snapshotExport{}, err
 	}
 
 	files, err := layout.Project(items, resolved)
@@ -119,4 +124,51 @@ func resolveSnapshotExport(
 		objectPath: resolved.DocumentPath(),
 		run:        func(ctx context.Context) error { return fileExporter.ExportFiles(ctx, gitFiles, prune) },
 	}, nil
+}
+
+func inferResourceLayoutHints(items []collect.Item) (bool, string) {
+	if len(items) == 0 {
+		return false, ""
+	}
+
+	manifestKey := ""
+	for _, item := range items {
+		key := inferManifestKey(item)
+		if key == "" {
+			return false, ""
+		}
+		if manifestKey == "" {
+			manifestKey = key
+			continue
+		}
+		if manifestKey != key {
+			return false, ""
+		}
+	}
+
+	return true, manifestKey
+}
+
+func inferManifestKey(item collect.Item) string {
+	found := ""
+	for key, value := range item.Attributes {
+		obj, ok := value.(map[string]any)
+		if !ok {
+			continue
+		}
+		apiVersion, _ := obj["apiVersion"].(string)
+		kind, _ := obj["kind"].(string)
+		if strings.TrimSpace(apiVersion) == "" || strings.TrimSpace(kind) == "" {
+			continue
+		}
+		if strings.TrimSpace(item.Kind) != "" && !strings.EqualFold(strings.TrimSpace(kind), strings.TrimSpace(item.Kind)) {
+			continue
+		}
+		if found != "" {
+			return ""
+		}
+		found = key
+	}
+
+	return found
 }
