@@ -17,8 +17,6 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
-	"github.com/konih/kollect/internal/httpauth"
 )
 
 const (
@@ -105,7 +103,7 @@ func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
 	a.InitCache()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, err := httpauth.BearerToken(r.Header.Get("Authorization"))
+		token, err := bearerToken(r.Header.Get("Authorization"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 

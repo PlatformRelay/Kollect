@@ -72,7 +72,6 @@ components:
       - internal/digest/**
       - internal/errors/**
       - internal/metrics/**
-      - internal/httpauth/**
       - internal/pathvalidate/**
       - internal/operator/**
       - internal/integrationtest/**
