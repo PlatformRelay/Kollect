@@ -122,23 +122,25 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 		}
 
-		payload, err := r.Store.MarshalNamespaceExport(inv.Namespace, collect.ExportMetadata{
-			Generation: inv.Generation,
-		})
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+		if !hasSnapshotSinkBinding(bindings) {
+			payload, err := r.Store.MarshalNamespaceExport(inv.Namespace, collect.ExportMetadata{
+				Generation: inv.Generation,
+			})
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 
-		gate, err := assessExportSpill(
-			ctx, r.Client, log, int64(len(payload)), r.maxExportBytes(&inv), inv.Namespace, bindings,
-		)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if gate.degraded {
-			recordSpillGateMetrics(gate)
+			gate, err := assessExportSpill(
+				ctx, r.Client, log, int64(len(payload)), r.maxExportBytes(&inv), inv.Namespace, bindings,
+			)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if gate.degraded {
+				recordSpillGateMetrics(gate)
 
-			return r.setInventoryDegraded(ctx, &inv, itemCount, gate.reason, gate.message)
+				return r.setInventoryDegraded(ctx, &inv, itemCount, gate.reason, gate.message)
+			}
 		}
 
 		itemCount = r.Store.CountForNamespace(inv.Namespace)
@@ -205,6 +207,20 @@ func (r *KollectInventoryReconciler) exportToSinks(
 	now := time.Now()
 	defaultInterval := r.exportDebounce(inv)
 	scopeFloor := r.scopeFloor(ctx, inv.Namespace)
+	maxExportBytes := r.maxExportBytes(inv)
+
+	snapshotParts, err := export.PartitionEnvelopes(items, export.Metadata{
+		Generation: inv.Generation,
+		ExportedAt: now.UTC(),
+	}, maxExportBytes)
+	if err != nil {
+		var outcome perSinkExportOutcome
+		outcome.ExportErr = kollecterrors.Terminal(err)
+		outcome.RequeueAfter = defaultInterval
+
+		return outcome
+	}
+	snapshotChecksum := export.PartitionsChecksum(snapshotParts)
 
 	bindings := inventorySinkBindings(inv)
 	var outcome perSinkExportOutcome
@@ -223,11 +239,11 @@ func (r *KollectInventoryReconciler) exportToSinks(
 	for _, binding := range bindings {
 		ref := binding.Ref
 		exportKey := sinkExportKey(binding)
-		resolved, err := loadResolvedSink(ctx, r.Client, inv.Namespace, binding, false)
+		resolved, resolvedErr := loadResolvedSink(ctx, r.Client, inv.Namespace, binding, false)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
-		if err != nil {
-			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
-			outcome.addSinkFailure(exportKey, err)
+		if resolvedErr != nil {
+			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, resolvedErr.Error())
+			outcome.addSinkFailure(exportKey, resolvedErr)
 			continue
 		}
 
@@ -236,7 +252,11 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			sinkInterval = resolved.ExportMinInterval.ExportMinInterval
 		}
 		interval := validation.ResolveSinkExportInterval(ref, sinkInterval, defaultInterval, scopeFloor)
-		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, checksum, interval, now) {
+		sinkChecksum := checksum
+		if binding.Family == kollectdevv1alpha1.SinkFamilySnapshot {
+			sinkChecksum = snapshotChecksum
+		}
+		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, interval, now) {
 			outcome.DebouncedCount++
 			metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Inc()
 			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
@@ -277,34 +297,57 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		go func(job sinkJob) {
 			defer wg.Done()
 
-			err := sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
-				Ctx:           ctx,
-				Client:        r.Client,
-				Registry:      r.Registry,
-				SinkNamespace: sink.SinkNamespaceForResolved(job.resolved, inv.Namespace),
-				SinkName:      job.binding.Name,
-				SinkUID:       job.resolved.UID,
-				ObjectPath:    objectPath,
-				Envelope:      envelope,
-				SinkSpec:      job.resolved.Spec,
-			})
+			sinkChecksum := checksum
+			exportErr := error(nil)
+			if job.binding.Family == kollectdevv1alpha1.SinkFamilySnapshot {
+				sinkChecksum = snapshotChecksum
+				for _, part := range snapshotParts {
+					partPath := export.PartitionObjectPath(objectPath, part.Index, part.Total)
+					exportErr = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
+						Ctx:           ctx,
+						Client:        r.Client,
+						Registry:      r.Registry,
+						SinkNamespace: sink.SinkNamespaceForResolved(job.resolved, inv.Namespace),
+						SinkName:      job.binding.Name,
+						SinkUID:       job.resolved.UID,
+						ObjectPath:    partPath,
+						Envelope:      part.Envelope,
+						SinkSpec:      job.resolved.Spec,
+					})
+					if exportErr != nil {
+						break
+					}
+				}
+			} else {
+				exportErr = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
+					Ctx:           ctx,
+					Client:        r.Client,
+					Registry:      r.Registry,
+					SinkNamespace: sink.SinkNamespaceForResolved(job.resolved, inv.Namespace),
+					SinkName:      job.binding.Name,
+					SinkUID:       job.resolved.UID,
+					ObjectPath:    objectPath,
+					Envelope:      envelope,
+					SinkSpec:      job.resolved.Spec,
+				})
+			}
 
 			mu.Lock()
 			defer mu.Unlock()
 
 			exportKey := sinkExportKey(job.binding)
-			if err != nil {
-				log.Error(err, "export failed", "sink", exportKey)
-				outcome.addSinkFailure(exportKey, err)
-				setSinkExportSynced(job.status, inv.Generation, false, reasonExportFailed, err.Error())
+			if exportErr != nil {
+				log.Error(exportErr, "export failed", "sink", exportKey)
+				outcome.addSinkFailure(exportKey, exportErr)
+				setSinkExportSynced(job.status, inv.Generation, false, reasonExportFailed, exportErr.Error())
 
 				return
 			}
 
-			r.sinkCoalesce.record(invKey, exportKey, inv.Generation, checksum, now)
+			r.sinkCoalesce.record(invKey, exportKey, inv.Generation, sinkChecksum, now)
 			exportTime := metav1.Now()
 			job.status.LastExportTime = &exportTime
-			job.status.LastChecksum = checksum
+			job.status.LastChecksum = sinkChecksum
 			setSinkExportSynced(job.status, inv.Generation, true, "Exported", "export completed")
 			outcome.ExportedCount++
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter,
@@ -482,6 +525,16 @@ func (r *KollectInventoryReconciler) setInventoryDegraded(
 	}
 
 	return ctrl.Result{RequeueAfter: r.exportDebounce(inv)}, nil
+}
+
+func hasSnapshotSinkBinding(bindings []kollectdevv1alpha1.InventorySinkBinding) bool {
+	for i := range bindings {
+		if bindings[i].Family == kollectdevv1alpha1.SinkFamilySnapshot {
+			return true
+		}
+	}
+
+	return false
 }
 
 // SetupWithManager sets up the controller with the Manager.
