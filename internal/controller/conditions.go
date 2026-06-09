@@ -24,6 +24,7 @@ const (
 	reasonSinksReachable  = "SinksReachable"
 	reasonExportFailed    = "ExportFailed"
 	reasonProgressing     = "Progressing"
+	reasonCleanupTerminal = "CleanupTerminal"
 )
 
 func setTargetCondition(

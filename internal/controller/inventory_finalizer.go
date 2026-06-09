@@ -35,12 +35,20 @@ func (r *KollectInventoryReconciler) finalizeInventoryDeletion(
 		logf.FromContext(ctx).Error(err, "inventory cleanup failed",
 			"inventory", inv.Name, "namespace", inv.Namespace)
 
-		result := ctrl.Result{RequeueAfter: r.exportDebounce(inv)}
 		if kollecterrors.IsTerminal(err) {
-			result.RequeueAfter = 0
+			// Returning a non-nil error would make controller-runtime requeue
+			// with backoff, defeating the no-requeue intent for terminal errors.
+			msg := fmt.Sprintf(
+				"sink cleanup failed terminally: %v — fix the sink configuration or remove the %q finalizer manually",
+				err, inventoryCleanupFinalizer)
+			recordWarning(r.Recorder, inv, reasonCleanupTerminal, msg)
+			// Best-effort Degraded status: the object is deleting, update errors are ignored.
+			_, _ = r.setInventoryDegraded(ctx, inv, inv.Status.ItemCount, reasonCleanupTerminal, msg)
+
+			return ctrl.Result{}, nil
 		}
 
-		return result, err
+		return ctrl.Result{RequeueAfter: r.exportDebounce(inv)}, err
 	}
 
 	return removeFinalizerAndUpdate(ctx, r.Client, inv, inventoryCleanupFinalizer)
