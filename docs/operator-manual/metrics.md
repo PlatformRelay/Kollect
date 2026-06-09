@@ -120,6 +120,7 @@ Source of truth for registration: `internal/metrics/metrics.go` and `internal/me
 
 ## See also
 
+- [Performance tuning](../PERFORMANCE.md) — scale tiers, dispatch workers, debounce knobs, perf-focused PromQL
 - [ADR-0602: Error taxonomy and metrics](../adr/0602-error-taxonomy.md)
 - [ADR-0603: Performance and scalability](../adr/0603-performance-scalability.md)
 - [Helm values — metrics](helm-values.md#resources-metrics-and-webhooks)

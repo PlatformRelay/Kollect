@@ -62,6 +62,7 @@ nav:
       - Requirements & assumptions: REQUIREMENTS.md
   - Operator Manual:
       - Operator manual: OPERATOR-MANUAL.md
+      - Operator metrics: operator-manual/metrics.md
       - Common errors: operator-manual/common-errors.md
       - Scaling and fleet: operator-manual/scaling-and-fleet.md
       - Load test runbook: operator-manual/load-test-runbook.md
@@ -78,6 +79,7 @@ nav:
           - Multi-cluster fleet: examples/multi-cluster-fleet.md
           - Postgres state store: examples/postgres-state-store.md
           - NATS event sink: examples/nats-event-sink.md
+          - Kafka event sink: examples/kafka-event-sink.md
           - Cluster-scoped rollup: examples/cluster-rollup.md
           - Multi-tenant watch scope: examples/multi-tenant-watch-namespaces.md
           - Connection test: examples/connection-test.md

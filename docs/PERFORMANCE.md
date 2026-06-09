@@ -67,7 +67,9 @@ backend.
 
 ## Metrics catalog
 
-Use these names when scraping `/metrics` or writing PromQL in runbooks and issues.
+Full scrape setup, default PrometheusRule alerts, and the complete `kollect_*` metric reference live in
+[Operator metrics](operator-manual/metrics.md). The table below highlights **performance and
+scalability** signals — use it with the [bottleneck checklist](#early-bottleneck-checklist) below.
 
 | Metric | Type | Labels | PromQL hint | What rising values imply |
 | --- | --- | --- | --- | --- |
@@ -91,6 +93,8 @@ Use these names when scraping `/metrics` or writing PromQL in runbooks and issue
 | `kollect_informer_cluster_wide_scope` | Gauge | `group`, `version`, `resource` | `max by (group, version, resource) (kollect_informer_cluster_wide_scope)` | 1 = cluster-wide watch (RSS risk at scale) |
 
 Additional runtime signals: Go `memstats` via pprof (`--enable-pprof`), API server `429` in operator logs.
+See [Operator metrics](operator-manual/metrics.md) for profile-derived series, connection-test counters,
+and example PromQL for alerting.
 
 ## Profiling
 

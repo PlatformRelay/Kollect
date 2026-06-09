@@ -20,6 +20,7 @@ workloads. If you are evaluating locally, start with [Quick start](QUICKSTART.md
 | Install (Helm, OCI, CRDs, tenant mode) | [Install](#install) (below) |
 | Version upgrades (CRD + operator two-step) | [Upgrading Kollect](operator-manual/upgrading.md) |
 | Helm values (production knobs) | [Helm values reference](operator-manual/helm-values.md) |
+| Prometheus metrics and alerts | [Operator metrics](operator-manual/metrics.md) |
 | Sink and webhook secrets | [Secrets](#secrets) (below) |
 | Informer scope and tenancy | [Watch scope](#watch-scope) (below) |
 | Replicas and leader election | [High availability](#high-availability) (below) |
