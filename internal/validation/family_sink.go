@@ -43,6 +43,7 @@ func ValidateSnapshotSinkSpec(spec *kollectdevv1alpha1.KollectSnapshotSinkSpec) 
 	}
 	allErrs = append(allErrs, validateCommonSinkFields(&spec.SinkCommonFields)...)
 	allErrs = append(allErrs, validateFormatCapability(spec.Type, spec.Serialization)...)
+	allErrs = append(allErrs, validateSnapshotSinkEndpointGuards(spec)...)
 	layoutPath := field.NewPath("spec").Child("layout")
 	switch spec.Type {
 	case kollectdevv1alpha1.SnapshotSinkTypeGit:
@@ -139,6 +140,7 @@ func ValidateEventSinkSpec(spec *kollectdevv1alpha1.KollectEventSinkSpec) field.
 	allErrs = append(allErrs, validateCommonSinkFields(&spec.SinkCommonFields)...)
 	allErrs = append(allErrs, validateFormatCapability(spec.Type, spec.Serialization)...)
 	allErrs = append(allErrs, forbidLayout(spec.Layout, field.NewPath("spec").Child("layout"))...)
+	allErrs = append(allErrs, validateEventSinkEndpointGuards(spec)...)
 	switch spec.Type {
 	case kollectdevv1alpha1.EventSinkTypeNats:
 		allErrs = append(allErrs, requireBlock(spec.Nats, field.NewPath("spec").Child("nats"), "required when type is nats")...)
