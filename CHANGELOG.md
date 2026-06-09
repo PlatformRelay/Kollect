@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Retry BigQuery emulator readiness in L3 tests [b5a6b85](https://github.com/konih/kollect/commit/b5a6b850e9653ddfd7ea9321260c9399ae182c6b)
+
 - **controller:** Enforce namespace intersections in rollups [8e11ab6](https://github.com/konih/kollect/commit/8e11ab6993c282a28823c71d7469dc91be184742)
 
 - **sink:** Re-enable backend pool after layout integration test [95a417c](https://github.com/konih/kollect/commit/95a417c19ee0e4be041b7b0b2c51667b4354048a)
