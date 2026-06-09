@@ -1,0 +1,77 @@
+# Disposable Postgres for the local quickstart ONLY — never use in production.
+#
+# Backs the default sample KollectDatabaseSink (postgres-inventory-demo). The Service DNS
+# matches the DSN documented in docs/QUICKSTART.md and in the sample sink comment:
+#   postgres://kollect:example@postgres.kollect-system.svc:5432/inventory?sslmode=disable
+#
+# Storage is emptyDir — data is thrown away with the pod by design. Not part of
+# `kubectl apply -k config/samples/` (it is backing infrastructure, not a sample CR);
+# apply it explicitly:
+#   kubectl apply -f config/samples/dev/postgres.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: kollect-system
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: kollect-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/part-of: kollect-dev
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: kollect-dev
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_USER
+              value: kollect
+            - name: POSTGRES_PASSWORD
+              value: example # dev-only throwaway credential, matches the documented DSN
+            - name: POSTGRES_DB
+              value: inventory
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "kollect", "-d", "inventory"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: kollect-system
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: kollect-dev
+spec:
+  selector:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: kollect-dev
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
