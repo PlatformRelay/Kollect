@@ -68,6 +68,22 @@ func TestPruneResource_includeSpecAndStatusDropsMetadata(t *testing.T) {
 	}
 }
 
+func TestBuiltinPrunePointers_ReturnsCopy(t *testing.T) {
+	t.Parallel()
+
+	got := BuiltinPrunePointers()
+	if len(got) == 0 {
+		t.Fatal("BuiltinPrunePointers returned empty defaults")
+	}
+
+	orig := BuiltinPrunePointers()
+	got[0] = "/mutated"
+	again := BuiltinPrunePointers()
+	if again[0] != orig[0] {
+		t.Fatalf("BuiltinPrunePointers leaked mutation: got %q want %q", again[0], orig[0])
+	}
+}
+
 func TestPruneResource_includeModes(t *testing.T) {
 	t.Parallel()
 

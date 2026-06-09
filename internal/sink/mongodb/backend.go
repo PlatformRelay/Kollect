@@ -28,6 +28,10 @@ type Backend struct {
 	coll   *mongo.Collection
 }
 
+type deleteManyCollection interface {
+	DeleteMany(context.Context, interface{}, ...*options.DeleteOptions) (*mongo.DeleteResult, error)
+}
+
 // NewBackend constructs a MongoDB sink backend.
 func NewBackend(
 	ctx context.Context,
@@ -201,7 +205,7 @@ func itemDocument(scope exportScope, item collect.Item, exportedAt time.Time) (b
 
 func deleteStaleDocuments(
 	ctx context.Context,
-	coll *mongo.Collection,
+	coll deleteManyCollection,
 	scope exportScope,
 	items []collect.Item,
 ) error {

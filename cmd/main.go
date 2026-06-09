@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
-	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -51,104 +50,15 @@ func init() {
 
 // nolint:gocyclo
 func main() {
-	var metricsAddr string
-	var metricsCertPath, metricsCertName, metricsCertKey string
-	var webhookCertPath, webhookCertName, webhookCertKey string
-	var enableLeaderElection bool
-	var probeAddr string
-	var secureMetrics bool
-	var enableHTTP2 bool
-	var inventoryHTTPEnabled bool
-	var inventoryHTTPPort int
-	var inventoryAuthMode string
-	var inventoryAuthCacheTTL time.Duration
-	var maxExportBytes int64
-	var maxConcurrentTarget int
-	var maxConcurrentInventory int
-	var maxConcurrentClusterTarget int
-	var maxConcurrentClusterInventory int
-	var reconcileRateLimit time.Duration
-	var enablePprof bool
-	var pprofAddr string
-	var watchNamespacesRaw string
-	var defaultIncludedNamespacesRaw string
-	var defaultExcludedNamespacesRaw string
-	var scrubKeysRaw string
-	var validatingWebhooksEnabled bool
-	var collectDispatchWorkers int
-	var collectDispatchQueueSize int
-	var informerResyncPeriod time.Duration
-	var collectMetricsSampleInterval time.Duration
-	var collectDispatchEnqueueWait time.Duration
-	var tlsOpts []func(*tls.Config)
-	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
-		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&secureMetrics, "metrics-secure", true,
-		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
-	flag.BoolVar(&validatingWebhooksEnabled, "validating-webhooks-enabled", true,
-		"Register in-process validating webhooks and start the webhook TLS server.")
-	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
-	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
-	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
-	flag.StringVar(&metricsCertPath, "metrics-cert-path", "",
-		"The directory that contains the metrics server certificate.")
-	flag.StringVar(&metricsCertName, "metrics-cert-name", "tls.crt", "The name of the metrics server certificate file.")
-	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
-	flag.BoolVar(&enableHTTP2, "enable-http2", false,
-		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.BoolVar(&inventoryHTTPEnabled, "inventory-http-enabled", false,
-		"Expose GET /v1alpha1/inventory with aggregated summary JSON (debug only).")
-	flag.IntVar(&inventoryHTTPPort, "inventory-http-port", 8082,
-		"Port for the inventory HTTP server when --inventory-http-enabled is set.")
-	flag.StringVar(&inventoryAuthMode, "inventory-auth-mode", inventory.AuthModeKubernetes,
-		"Inventory HTTP auth mode: kubernetes (TokenReview+SAR) or disabled (dev/CI only).")
-	flag.DurationVar(&inventoryAuthCacheTTL, "inventory-auth-cache-ttl", 30*time.Second,
-		"TTL for in-memory TokenReview/SAR cache (0 disables cache).")
-	flag.Int64Var(&maxExportBytes, "max-export-bytes", validation.MaxExportBytesGlobal(),
-		"Global cap for KollectInventory.spec.maxExportBytes and export payload size.")
-	flag.IntVar(&maxConcurrentTarget, "max-concurrent-reconciles-target", 5,
-		"Max concurrent KollectTarget reconciles.")
-	flag.IntVar(&maxConcurrentInventory, "max-concurrent-reconciles-inventory", 3,
-		"Max concurrent KollectInventory reconciles.")
-	flag.IntVar(&maxConcurrentClusterTarget, "max-concurrent-reconciles-cluster-target", 2,
-		"Max concurrent KollectClusterTarget reconciles.")
-	flag.IntVar(&maxConcurrentClusterInventory, "max-concurrent-reconciles-cluster-inventory", 2,
-		"Max concurrent KollectClusterInventory reconciles.")
-	flag.DurationVar(&reconcileRateLimit, "reconcile-rate-limit", 0,
-		"Base delay for per-item exponential reconcile failure rate limiting (0 = controller-runtime default 5ms).")
-	flag.BoolVar(&enablePprof, "enable-pprof", false,
-		"Expose Go pprof on --pprof-bind-address (separate from metrics).")
-	flag.StringVar(&pprofAddr, "pprof-bind-address", ":6060",
-		"Bind address for pprof when --enable-pprof is set.")
-	flag.StringVar(&watchNamespacesRaw, "watch-namespaces", "",
-		"Comma-separated namespaces to watch (empty = all namespaces).")
-	flag.StringVar(&defaultIncludedNamespacesRaw, "default-included-namespaces", "",
-		"Comma-separated default Target includedNamespaces when unset on the CRD (Helm defaultIncludedNamespaces).")
-	flag.StringVar(&defaultExcludedNamespacesRaw, "default-excluded-namespaces", "",
-		"Comma-separated default Target excludedNamespaces when unset on the CRD (Helm defaultExcludedNamespaces).")
-	flag.StringVar(&scrubKeysRaw, "scrub-keys", "",
-		"Comma-separated extra attribute keys to redact before store insert (built-in denylist always applies).")
-	flag.IntVar(&collectDispatchWorkers, "collect-dispatch-workers", 4,
-		"Worker goroutines draining the collection informer dispatch queue (PERF-03).")
-	flag.IntVar(&collectDispatchQueueSize, "collect-dispatch-queue-size", 512,
-		"Bounded queue depth for collection informer dispatch jobs.")
-	flag.DurationVar(&informerResyncPeriod, "informer-resync-period", 12*time.Hour,
-		"Dynamic informer resync period as a correctness backstop (PERF-15).")
-	flag.DurationVar(&collectMetricsSampleInterval, "collect-metrics-sample-interval", 30*time.Second,
-		"Minimum interval between domain snapshot metric refreshes per target (PERF-08).")
-	flag.DurationVar(&collectDispatchEnqueueWait, "collect-dispatch-enqueue-wait", 25*time.Millisecond,
-		"Brief wait before synchronous dispatch fallback when the queue is full.")
+	cfg := startupConfig{}
+	bindStartupFlags(flag.CommandLine, &cfg)
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	validation.SetMaxExportBytesGlobal(maxExportBytes)
+	validation.SetMaxExportBytesGlobal(cfg.maxExportBytes)
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -163,25 +73,29 @@ func main() {
 		c.NextProtos = []string{"http/1.1"}
 	}
 
-	if !enableHTTP2 {
-		tlsOpts = append(tlsOpts, disableHTTP2)
+	if !cfg.enableHTTP2 {
+		cfg.tlsOpts = append(cfg.tlsOpts, disableHTTP2)
 	}
 
 	var webhookServer webhook.Server
-	if validatingWebhooksEnabled {
+	if cfg.validatingWebhooksEnabled {
 		// Initial webhook TLS options
-		webhookTLSOpts := tlsOpts
+		webhookTLSOpts := cfg.tlsOpts
 		webhookServerOptions := webhook.Options{
 			TLSOpts: webhookTLSOpts,
 		}
 
-		if len(webhookCertPath) > 0 {
-			setupLog.Info("Initializing webhook certificate watcher using provided certificates",
-				"webhook-cert-path", webhookCertPath, "webhook-cert-name", webhookCertName, "webhook-cert-key", webhookCertKey)
+		if len(cfg.webhookCertPath) > 0 {
+			setupLog.Info(
+				"Initializing webhook certificate watcher using provided certificates",
+				"webhook-cert-path", cfg.webhookCertPath,
+				"webhook-cert-name", cfg.webhookCertName,
+				"webhook-cert-key", cfg.webhookCertKey,
+			)
 
-			webhookServerOptions.CertDir = webhookCertPath
-			webhookServerOptions.CertName = webhookCertName
-			webhookServerOptions.KeyName = webhookCertKey
+			webhookServerOptions.CertDir = cfg.webhookCertPath
+			webhookServerOptions.CertName = cfg.webhookCertName
+			webhookServerOptions.KeyName = cfg.webhookCertKey
 		}
 
 		webhookServer = webhook.NewServer(webhookServerOptions)
@@ -194,12 +108,12 @@ func main() {
 	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/metrics/server
 	// - https://book.kubebuilder.io/reference/metrics.html
 	metricsServerOptions := metricsserver.Options{
-		BindAddress:   metricsAddr,
-		SecureServing: secureMetrics,
-		TLSOpts:       tlsOpts,
+		BindAddress:   cfg.metricsAddr,
+		SecureServing: cfg.secureMetrics,
+		TLSOpts:       cfg.tlsOpts,
 	}
 
-	if secureMetrics {
+	if cfg.secureMetrics {
 		// FilterProvider is used to protect the metrics endpoint with authn/authz.
 		// These configurations ensure that only authorized users and service accounts
 		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
@@ -215,16 +129,20 @@ func main() {
 	// - [METRICS-WITH-CERTS] at config/default/kustomization.yaml to generate and use certificates
 	// managed by cert-manager for the metrics server.
 	// - [PROMETHEUS-WITH-CERTS] at config/prometheus/kustomization.yaml for TLS certification.
-	if len(metricsCertPath) > 0 {
-		setupLog.Info("Initializing metrics certificate watcher using provided certificates",
-			"metrics-cert-path", metricsCertPath, "metrics-cert-name", metricsCertName, "metrics-cert-key", metricsCertKey)
+	if len(cfg.metricsCertPath) > 0 {
+		setupLog.Info(
+			"Initializing metrics certificate watcher using provided certificates",
+			"metrics-cert-path", cfg.metricsCertPath,
+			"metrics-cert-name", cfg.metricsCertName,
+			"metrics-cert-key", cfg.metricsCertKey,
+		)
 
-		metricsServerOptions.CertDir = metricsCertPath
-		metricsServerOptions.CertName = metricsCertName
-		metricsServerOptions.KeyName = metricsCertKey
+		metricsServerOptions.CertDir = cfg.metricsCertPath
+		metricsServerOptions.CertName = cfg.metricsCertName
+		metricsServerOptions.KeyName = cfg.metricsCertKey
 	}
 
-	watchNamespaces := operator.ParseWatchNamespaces(watchNamespacesRaw)
+	watchNamespaces := operator.ParseWatchNamespaces(cfg.watchNamespacesRaw)
 	cacheOpts := operator.CacheOptionsForWatchNamespaces(watchNamespaces)
 	if len(watchNamespaces) > 0 {
 		setupLog.Info("Restricting manager cache to namespaces", "watchNamespaces", watchNamespaces)
@@ -235,8 +153,8 @@ func main() {
 		Cache:                  cacheOpts,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
+		HealthProbeBindAddress: cfg.probeAddr,
+		LeaderElection:         cfg.enableLeaderElection,
 		LeaderElectionID:       "3274ac8a.kollect.dev",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
@@ -269,21 +187,21 @@ func main() {
 
 	collectStore := collect.NewStore()
 	collectEngine, err := collect.NewEngine(dynamicClient, kubeClient, collectStore, collect.EngineConfig{
-		DispatchWorkers:       collectDispatchWorkers,
-		DispatchQueueSize:     collectDispatchQueueSize,
-		ResyncPeriod:          informerResyncPeriod,
-		MetricsSampleInterval: collectMetricsSampleInterval,
-		DispatchEnqueueWait:   collectDispatchEnqueueWait,
+		DispatchWorkers:       cfg.collectDispatchWorkers,
+		DispatchQueueSize:     cfg.collectDispatchQueueSize,
+		ResyncPeriod:          cfg.informerResyncPeriod,
+		MetricsSampleInterval: cfg.collectMetricsSampleInterval,
+		DispatchEnqueueWait:   cfg.collectDispatchEnqueueWait,
 	})
 	if err != nil {
 		setupLog.Error(err, "Failed to create collection engine")
 		os.Exit(1)
 	}
 	collectEngine.SetNamespaceDefaults(collect.NamespaceDefaults{
-		Included: operator.ParseWatchNamespaces(defaultIncludedNamespacesRaw),
-		Excluded: operator.ParseWatchNamespaces(defaultExcludedNamespacesRaw),
+		Included: operator.ParseWatchNamespaces(cfg.defaultIncludedNamespacesRaw),
+		Excluded: operator.ParseWatchNamespaces(cfg.defaultExcludedNamespacesRaw),
 	})
-	collectEngine.SetScrubKeys(operator.ParseScrubKeys(scrubKeysRaw))
+	collectEngine.SetScrubKeys(operator.ParseScrubKeys(cfg.scrubKeysRaw))
 
 	if err := mgr.Add(collectEngine); err != nil {
 		setupLog.Error(err, "Failed to add collection engine")
@@ -293,11 +211,11 @@ func main() {
 	sinkRegistry := sink.NewRegistry()
 
 	ctrlOpts := controller.RuntimeOptions{
-		MaxConcurrentTarget:           maxConcurrentTarget,
-		MaxConcurrentInventory:        maxConcurrentInventory,
-		MaxConcurrentClusterTarget:    maxConcurrentClusterTarget,
-		MaxConcurrentClusterInventory: maxConcurrentClusterInventory,
-		ReconcileRateLimitBase:        reconcileRateLimit,
+		MaxConcurrentTarget:           cfg.maxConcurrentTarget,
+		MaxConcurrentInventory:        cfg.maxConcurrentInventory,
+		MaxConcurrentClusterTarget:    cfg.maxConcurrentClusterTarget,
+		MaxConcurrentClusterInventory: cfg.maxConcurrentClusterInventory,
+		ReconcileRateLimitBase:        cfg.reconcileRateLimit,
 	}
 
 	if err := (&controller.KollectTargetReconciler{
@@ -388,38 +306,38 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectclusterinventory")
 		os.Exit(1)
 	}
-	if validatingWebhooksEnabled {
+	if cfg.validatingWebhooksEnabled {
 		if err := webhookv1alpha1.SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to set up webhooks")
 			os.Exit(1)
 		}
 	}
 	metrics.Register()
-	if enablePprof {
-		if err := mgr.Add(&pprofServer{Addr: pprofAddr}); err != nil {
+	if cfg.enablePprof {
+		if err := mgr.Add(&pprofServer{Addr: cfg.pprofAddr}); err != nil {
 			setupLog.Error(err, "Failed to add pprof server")
 			os.Exit(1)
 		}
 
-		setupLog.Info("pprof enabled", "bindAddress", pprofAddr)
+		setupLog.Info("pprof enabled", "bindAddress", cfg.pprofAddr)
 	}
 
-	if inventoryHTTPEnabled {
-		if inventoryAuthMode == inventory.AuthModeDisabled {
+	if cfg.inventoryHTTPEnabled {
+		if cfg.inventoryAuthMode == inventory.AuthModeDisabled {
 			setupLog.Info("WARNING: inventory HTTP auth disabled — for local dev and CI only")
 		}
 
 		//nolint:gosec // G115: port comes from operator flag (default 8082)
 		invSrv := &inventory.Server{
 			Enabled: true,
-			Port:    int32(inventoryHTTPPort),
+			Port:    int32(cfg.inventoryHTTPPort),
 			Store:   collectStore,
 			Status:  &inventory.ClientStatusReader{Client: mgr.GetClient()},
 			Auth: &inventory.AuthConfig{
-				Mode:                inventoryAuthMode,
+				Mode:                cfg.inventoryAuthMode,
 				Client:              kubeClient,
-				RequireInventoryGet: inventoryAuthMode == inventory.AuthModeKubernetes,
-				CacheTTL:            inventoryAuthCacheTTL,
+				RequireInventoryGet: cfg.inventoryAuthMode == inventory.AuthModeKubernetes,
+				CacheTTL:            cfg.inventoryAuthCacheTTL,
 			},
 		}
 		if err := mgr.Add(invSrv); err != nil {

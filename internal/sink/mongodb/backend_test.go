@@ -4,13 +4,36 @@
 package mongodb
 
 import (
+	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/konih/kollect/internal/collect"
 )
+
+type fakeDeleteManyCollection struct {
+	gotFilter any
+	err       error
+}
+
+func (f *fakeDeleteManyCollection) DeleteMany(
+	_ context.Context,
+	filter interface{},
+	_ ...*options.DeleteOptions,
+) (*mongo.DeleteResult, error) {
+	f.gotFilter = filter
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &mongo.DeleteResult{DeletedCount: 1}, nil
+}
 
 func TestItemDocument_UsesInventoryNamespaceFallback(t *testing.T) {
 	t.Parallel()
@@ -116,5 +139,119 @@ func TestNewExportScopeAndUpsertFilter(t *testing.T) {
 	}
 	if got := filter["source_uid"]; got != "uid-1" {
 		t.Fatalf("source_uid = %v, want uid-1", got)
+	}
+}
+
+func TestDeleteStaleDocuments_ReportsDeleteAllFailure(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeDeleteManyCollection{err: errors.New("boom")}
+	scope := exportScope{
+		inventoryNamespace: "team-a",
+		inventoryName:      "apps",
+		cluster:            "prod-a",
+	}
+
+	err := deleteStaleDocuments(context.Background(), fake, scope, nil)
+	if err == nil {
+		t.Fatal("deleteStaleDocuments returned nil error, want failure")
+	}
+	if !strings.Contains(err.Error(), "mongodb delete all: boom") {
+		t.Fatalf("error = %q, want mongodb delete all context", err)
+	}
+}
+
+func TestDeleteStaleDocuments_ReportsDeleteStaleFailure(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeDeleteManyCollection{err: errors.New("boom")}
+	scope := exportScope{
+		inventoryNamespace: "team-a",
+		inventoryName:      "apps",
+		cluster:            "prod-a",
+	}
+	items := []collect.Item{{TargetName: "pods", UID: "uid-1"}}
+
+	err := deleteStaleDocuments(context.Background(), fake, scope, items)
+	if err == nil {
+		t.Fatal("deleteStaleDocuments returned nil error, want failure")
+	}
+	if !strings.Contains(err.Error(), "mongodb delete stale: boom") {
+		t.Fatalf("error = %q, want mongodb delete stale context", err)
+	}
+}
+
+func TestDeleteStaleDocuments_PassesScopeAndNorFilter(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeDeleteManyCollection{}
+	scope := exportScope{
+		inventoryNamespace: "team-a",
+		inventoryName:      "apps",
+		cluster:            "prod-a",
+	}
+	items := []collect.Item{{TargetName: "deployments", UID: "uid-1"}}
+
+	if err := deleteStaleDocuments(context.Background(), fake, scope, items); err != nil {
+		t.Fatalf("deleteStaleDocuments: %v", err)
+	}
+
+	filter, ok := fake.gotFilter.(bson.M)
+	if !ok {
+		t.Fatalf("DeleteMany filter type = %T, want bson.M", fake.gotFilter)
+	}
+	if got := filter["inventory_namespace"]; got != "team-a" {
+		t.Fatalf("inventory_namespace = %v, want team-a", got)
+	}
+	nor, ok := filter["$nor"].([]bson.M)
+	if !ok || len(nor) != 1 {
+		t.Fatalf("$nor = %#v, want single delete guard", filter["$nor"])
+	}
+}
+
+func TestInventoryFromObjectPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		path     string
+		wantNS   string
+		wantName string
+	}{
+		{
+			name:     "full path with prefix",
+			path:     "inventory/team-a/apps.json",
+			wantNS:   "team-a",
+			wantName: "apps",
+		},
+		{
+			name:     "trimmed with spaces",
+			path:     "  inventory/team-b/workloads.json  ",
+			wantNS:   "team-b",
+			wantName: "workloads",
+		},
+		{
+			name:     "namespace only",
+			path:     "inventory/team-c",
+			wantNS:   "team-c",
+			wantName: "",
+		},
+		{
+			name:     "empty path",
+			path:     "",
+			wantNS:   "",
+			wantName: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			gotNS, gotName := inventoryFromObjectPath(tc.path)
+			if gotNS != tc.wantNS || gotName != tc.wantName {
+				t.Fatalf("inventoryFromObjectPath(%q) = (%q, %q), want (%q, %q)",
+					tc.path, gotNS, gotName, tc.wantNS, tc.wantName)
+			}
+		})
 	}
 }

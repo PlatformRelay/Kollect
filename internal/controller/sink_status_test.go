@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -14,6 +15,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	kollecterrors "github.com/konih/kollect/internal/errors"
+	"github.com/konih/kollect/internal/sink"
 )
 
 func TestCheckInventorySinksReachable_connectionFailed(t *testing.T) {
@@ -81,5 +83,124 @@ func TestSetSinkReachableFromExport(t *testing.T) {
 	c = apimeta.FindStatusCondition(conds, kollectdevv1alpha1.ConditionSinkReachable)
 	if c == nil || c.Status != metav1.ConditionFalse || c.Reason != kollectdevv1alpha1.ReasonExportTerminal {
 		t.Fatalf("terminal export condition: %+v", c)
+	}
+}
+
+func TestUniqueInventorySinkBindings_DedupesByFamilyAndName(t *testing.T) {
+	t.Parallel()
+
+	inventories := []kollectdevv1alpha1.KollectInventory{
+		{
+			Spec: kollectdevv1alpha1.KollectInventorySpec{
+				SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("snap-a"),
+				DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("db-a"),
+			},
+		},
+		{
+			Spec: kollectdevv1alpha1.KollectInventorySpec{
+				SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("snap-a"),
+				EventSinkRefs:    kollectdevv1alpha1.NewSinkRefList("events-a"),
+			},
+		},
+	}
+
+	got := uniqueInventorySinkBindings(inventories)
+	if len(got) != 3 {
+		t.Fatalf("uniqueInventorySinkBindings len = %d, want 3", len(got))
+	}
+}
+
+func TestFamilySinkConditions_AllFamiliesAndScopes(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	snapshot := &kollectdevv1alpha1.KollectSnapshotSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "snap", Namespace: "default"},
+		Status:     kollectdevv1alpha1.FamilySinkStatus{Conditions: []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}}},
+	}
+	database := &kollectdevv1alpha1.KollectDatabaseSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "db", Namespace: "default"},
+		Status:     kollectdevv1alpha1.FamilySinkStatus{Conditions: []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}}},
+	}
+	event := &kollectdevv1alpha1.KollectEventSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "events", Namespace: "default"},
+		Status:     kollectdevv1alpha1.FamilySinkStatus{Conditions: []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}}},
+	}
+	clusterSnapshot := &kollectdevv1alpha1.KollectClusterSnapshotSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-snap"},
+		Status:     kollectdevv1alpha1.FamilySinkStatus{Conditions: []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}}},
+	}
+	clusterDatabase := &kollectdevv1alpha1.KollectClusterDatabaseSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-db"},
+		Status:     kollectdevv1alpha1.FamilySinkStatus{Conditions: []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}}},
+	}
+	clusterEvent := &kollectdevv1alpha1.KollectClusterEventSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-events"},
+		Status:     kollectdevv1alpha1.FamilySinkStatus{Conditions: []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}}},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(snapshot, database, event, clusterSnapshot, clusterDatabase, clusterEvent).
+		WithStatusSubresource(snapshot, database, event, clusterSnapshot, clusterDatabase, clusterEvent).
+		Build()
+
+	tests := []struct {
+		name     string
+		resolved *sink.ResolvedSink
+	}{
+		{name: "snapshot namespaced", resolved: &sink.ResolvedSink{Family: kollectdevv1alpha1.SinkFamilySnapshot, Namespace: "default", Name: "snap"}},
+		{name: "database namespaced", resolved: &sink.ResolvedSink{Family: kollectdevv1alpha1.SinkFamilyDatabase, Namespace: "default", Name: "db"}},
+		{name: "event namespaced", resolved: &sink.ResolvedSink{Family: kollectdevv1alpha1.SinkFamilyEvent, Namespace: "default", Name: "events"}},
+		{name: "snapshot cluster", resolved: &sink.ResolvedSink{Family: kollectdevv1alpha1.SinkFamilySnapshot, ClusterScoped: true, Name: "cluster-snap"}},
+		{name: "database cluster", resolved: &sink.ResolvedSink{Family: kollectdevv1alpha1.SinkFamilyDatabase, ClusterScoped: true, Name: "cluster-db"}},
+		{name: "event cluster", resolved: &sink.ResolvedSink{Family: kollectdevv1alpha1.SinkFamilyEvent, ClusterScoped: true, Name: "cluster-events"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			conds, err := familySinkConditions(context.Background(), cl, tc.resolved)
+			if err != nil {
+				t.Fatalf("familySinkConditions: %v", err)
+			}
+			if len(conds) == 0 {
+				t.Fatal("familySinkConditions returned no conditions")
+			}
+		})
+	}
+}
+
+func TestFamilySinkConditions_UnknownFamily(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	_, err := familySinkConditions(context.Background(), cl, &sink.ResolvedSink{Family: "custom"})
+	if err == nil {
+		t.Fatal("familySinkConditions returned nil error, want unknown family")
+	}
+}
+
+func TestSetSinkReachableFromExport_NonTerminalErrorReason(t *testing.T) {
+	t.Parallel()
+
+	var conds []metav1.Condition
+	setSinkReachableFromExport(&conds, 4, errors.New("temporary outage"))
+
+	c := apimeta.FindStatusCondition(conds, kollectdevv1alpha1.ConditionSinkReachable)
+	if c == nil {
+		t.Fatal("sink reachable condition missing")
+	}
+	if c.Status != metav1.ConditionFalse || c.Reason != reasonExportFailed {
+		t.Fatalf("condition = %+v, want false/%s", c, reasonExportFailed)
 	}
 }
