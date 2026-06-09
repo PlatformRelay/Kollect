@@ -64,6 +64,41 @@ func testEnvelope(t *testing.T) []byte {
 	return env
 }
 
+func testResourceEnvelope(t *testing.T, manifestKey string) []byte {
+	t.Helper()
+
+	manifest := map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]any{"namespace": "team-a"},
+		"spec":       map[string]any{"replicas": 1},
+	}
+
+	items := []collect.Item{
+		{
+			Namespace: "team-a", Name: "api", Version: "v1", Kind: "Deployment", UID: "u1",
+			Attributes: map[string]any{
+				manifestKey: manifest,
+				"image":     "nginx",
+			},
+		},
+		{
+			Namespace: "team-a", Name: "web", Version: "v1", Kind: "Deployment", UID: "u2",
+			Attributes: map[string]any{
+				manifestKey: manifest,
+				"image":     "nginx",
+			},
+		},
+	}
+
+	env, err := export.MarshalEnvelope(items, export.Metadata{ExportedAt: time.Now().UTC()})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return env
+}
+
 func TestResolveSnapshotExport_NonGitUsesDefaultPath(t *testing.T) {
 	t.Parallel()
 	be := &fakeBackend{}
@@ -162,6 +197,39 @@ func TestResolveSnapshotExport_GitPerResourceTree(t *testing.T) {
 	for _, f := range be.files {
 		if !strings.HasPrefix(f.Path, "prod-west/team-a/deployment/") {
 			t.Errorf("unexpected path %q", f.Path)
+		}
+	}
+}
+
+func TestResolveSnapshotExport_GitAutoInfersResourceModeFromEnvelope(t *testing.T) {
+	t.Parallel()
+	be := &fakeTreeBackend{}
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit}
+
+	plan, err := resolveSnapshotExport(be, spec, testResourceEnvelope(t, "payload"), "team-a", "api", 1, "inventory/team-a/api.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if !be.filesCalled || !be.prune {
+		t.Fatalf("resource-mode envelope must use ExportFiles with prune, filesCalled=%v prune=%v", be.filesCalled, be.prune)
+	}
+	if len(be.files) != 2 {
+		t.Fatalf("want 2 files, got %d", len(be.files))
+	}
+
+	for _, f := range be.files {
+		if !strings.HasPrefix(f.Path, "default/team-a/deployment/") {
+			t.Fatalf("unexpected per-resource path %q", f.Path)
+		}
+		data := string(f.Data)
+		if !strings.Contains(data, "apiVersion: apps/v1") || !strings.Contains(data, "kind: Deployment") {
+			t.Fatalf("expected manifest yaml, got:\n%s", data)
+		}
+		if strings.Contains(data, "attributes:") {
+			t.Fatalf("manifest content must not include item envelope:\n%s", data)
 		}
 	}
 }
