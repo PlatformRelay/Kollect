@@ -89,12 +89,15 @@ live API access.
     kubectl apply -k config/samples/
     ```
 
-    From a release (pin chart and image version):
+    From a release (omit `--version` to install the latest published chart):
 
     ```sh
-    helm install kollect oci://ghcr.io/konih/kollect --version 0.1.0 -n kollect-system --create-namespace
+    helm install kollect oci://ghcr.io/konih/kollect -n kollect-system --create-namespace
     kubectl apply -k config/samples/
     ```
+
+    To pin a specific chart version, add `--version` (e.g. `--version 0.5.0` — current versions in
+    `charts/kollect/Chart.yaml` and on the [releases page](https://github.com/konih/kollect/releases)).
 
 <!-- markdownlint-disable MD046 -->
 

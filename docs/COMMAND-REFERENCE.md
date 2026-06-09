@@ -137,7 +137,8 @@ mkdocs build --strict # CI-equivalent build
 === "From GHCR (OCI)"
 
     ```sh
-    helm install kollect oci://ghcr.io/konih/kollect --version 0.1.0 \
+    # omit --version for latest; pin e.g. --version 0.5.0 in production
+    helm install kollect oci://ghcr.io/konih/kollect \
       -n kollect-system --create-namespace
     ```
 

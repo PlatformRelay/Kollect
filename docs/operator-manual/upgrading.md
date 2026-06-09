@@ -70,8 +70,9 @@ helm upgrade kollect ./charts/kollect -n kollect-system -f values.yaml
 **OCI chart (GHCR):**
 
 ```sh
+# pin the target release version, e.g. --version 0.5.0
 helm upgrade kollect oci://ghcr.io/konih/kollect \
-  --version 0.1.0 \
+  --version <chart-version> \
   -n kollect-system \
   -f values.yaml
 ```

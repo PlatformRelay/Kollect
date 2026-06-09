@@ -42,8 +42,11 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace
 Published releases push the chart to GHCR ([ADR-0705](adr/0705-release-supply-chain.md)):
 
 ```sh
-helm install kollect oci://ghcr.io/konih/kollect --version 0.1.0 -n kollect-system --create-namespace
+helm install kollect oci://ghcr.io/konih/kollect -n kollect-system --create-namespace
 ```
+
+Omitting `--version` installs the latest published chart. In production, pin a specific version
+(e.g. `--version 0.5.0` — see the [releases page](https://github.com/konih/kollect/releases)).
 
 Pin `image.tag` to the release image when not using the chart default — see
 [Helm values reference](operator-manual/helm-values.md).
