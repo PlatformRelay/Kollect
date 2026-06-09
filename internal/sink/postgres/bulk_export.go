@@ -5,7 +5,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -39,17 +38,12 @@ func (b *Backend) rowUpsertItems(
 	items []collect.Item,
 	exportedAt time.Time,
 ) error {
-	for _, item := range items {
-		itemJSON, err := json.Marshal(item)
-		if err != nil {
-			return fmt.Errorf("postgres export: marshal item: %w", err)
-		}
+	rows, err := buildUpsertRows(invNS, invName, cluster, items, exportedAt)
+	if err != nil {
+		return err
+	}
 
-		resourceNS := item.Namespace
-		if resourceNS == "" {
-			resourceNS = invNS
-		}
-
+	for _, row := range rows {
 		_, err = tx.Exec(ctx, fmt.Sprintf(`
 INSERT INTO %s (
   inventory_namespace, inventory_name, target_name, source_uid,
@@ -58,16 +52,7 @@ INSERT INTO %s (
 ON CONFLICT (inventory_namespace, inventory_name, target_name, source_uid)
 DO UPDATE SET payload = EXCLUDED.payload, exported_at = EXCLUDED.exported_at,
   cluster = EXCLUDED.cluster, resource_namespace = EXCLUDED.resource_namespace
-`, qualifiedTable),
-			invNS,
-			invName,
-			item.TargetName,
-			item.UID,
-			cluster,
-			resourceNS,
-			string(itemJSON),
-			exportedAt,
-		)
+`, qualifiedTable), row.values...)
 		if err != nil {
 			return fmt.Errorf("postgres upsert: %w", err)
 		}
@@ -99,21 +84,13 @@ CREATE TEMP TABLE kollect_export_staging (
 		return fmt.Errorf("postgres bulk upsert: create staging: %w", err)
 	}
 
-	rows := make([][]any, len(items))
-	for i, item := range items {
-		itemJSON, marshalErr := json.Marshal(item)
-		if marshalErr != nil {
-			return fmt.Errorf("postgres bulk upsert: marshal item: %w", marshalErr)
-		}
-
-		resourceNS := item.Namespace
-		if resourceNS == "" {
-			resourceNS = invNS
-		}
-
-		rows[i] = []any{
-			invNS, invName, item.TargetName, item.UID, cluster, resourceNS, string(itemJSON), exportedAt,
-		}
+	upsertRows, err := buildUpsertRows(invNS, invName, cluster, items, exportedAt)
+	if err != nil {
+		return fmt.Errorf("postgres bulk upsert: %w", err)
+	}
+	rows := make([][]any, len(upsertRows))
+	for i := range upsertRows {
+		rows[i] = upsertRows[i].values
 	}
 
 	_, err = tx.CopyFrom(

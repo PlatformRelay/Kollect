@@ -122,7 +122,8 @@ func deleteStaleRows(
 	invNS, invName, cluster string,
 	items []collect.Item,
 ) error {
-	if len(items) == 0 {
+	plan := buildStaleDeletePlan(items)
+	if plan.deleteAll {
 		_, err := tx.Exec(ctx, fmt.Sprintf(`
 DELETE FROM %s
 WHERE inventory_namespace = $1 AND inventory_name = $2 AND cluster = $3
@@ -132,13 +133,6 @@ WHERE inventory_namespace = $1 AND inventory_name = $2 AND cluster = $3
 		}
 
 		return nil
-	}
-
-	targetNames := make([]string, len(items))
-	sourceUIDs := make([]string, len(items))
-	for i, item := range items {
-		targetNames[i] = item.TargetName
-		sourceUIDs[i] = item.UID
 	}
 
 	_, err := tx.Exec(ctx, fmt.Sprintf(`
@@ -151,7 +145,7 @@ WHERE t.inventory_namespace = $1
     FROM unnest($4::text[], $5::text[]) AS s(target_name, source_uid)
     WHERE s.target_name = t.target_name AND s.source_uid = t.source_uid
   )
-`, qualifiedTable), invNS, invName, cluster, targetNames, sourceUIDs)
+`, qualifiedTable), invNS, invName, cluster, plan.targetNames, plan.sourceUIDs)
 	if err != nil {
 		return fmt.Errorf("postgres delete stale: %w", err)
 	}
