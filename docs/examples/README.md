@@ -18,6 +18,7 @@ kubectl apply -k config/samples/
 | [Multi-cluster fleet](multi-cluster-fleet.md) | N operators → shared Postgres/Git ([ADR-0501](../adr/0501-multi-cluster-fleet.md)) |
 | [Postgres state store](postgres-state-store.md) | Relational SoR + delete reconciliation |
 | [NATS event sink](nats-event-sink.md) | JetStream events |
+| [Kafka event sink](kafka-event-sink.md) | Kafka topic export |
 | [Cluster-scoped rollup](cluster-rollup.md) | Cluster CRDs + dedupe |
 | [Multi-tenant watch scope](multi-tenant-watch-namespaces.md) | Scope + watchNamespaces |
 | [Team-owned operator](../deployment/team-operator.md) | `values-minimal-rbac.yaml` + `config/samples/team-operator/` |
@@ -29,7 +30,7 @@ kubectl apply -k config/samples/
 | [UI local development](ui-local-development.md) | Mock vs live Read API for kollect-ui |
 
 !!! note "Samples not in default kustomization"
-    NATS and some cluster-scoped samples are documented but not included in
+    NATS, Kafka, and some cluster-scoped samples are documented but not included in
     `kubectl apply -k config/samples/`. Apply those files individually when following their guides.
 
 !!! info "S3/GCS Parquet — not sampled yet"
