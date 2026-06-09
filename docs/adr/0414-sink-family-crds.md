@@ -48,6 +48,8 @@ conversion story; that is explicitly out of scope for v1alpha1.
 - Webhook validation is per-family (`ValidateSnapshotSinkSpec`, …) with forbidden sibling blocks.
 - Inventory export resolves sinks through `ResolveSink(family, name, clusterScoped)`.
 - Cluster-scoped sinks (`KollectCluster*Sink`) support platform-wide destinations.
+- **Long-term retention:** cluster family sink kinds are **not** candidates for pre-v1 removal;
+  namespaced and cluster variants coexist for all deployment paths ([ADR-0203](0203-namespaced-multi-tenancy.md)).
 
 **Negative / trade-offs**
 
@@ -65,6 +67,13 @@ conversion story; that is explicitly out of scope for v1alpha1.
   until backend ships.
 
 Promoted from [RFC: sink family CRDs](../rfc/sink-family-crds.md). Pre-GA clean break — no dual-write window.
+
+### Cluster sink kinds — retained
+
+`KollectClusterSnapshotSink`, `KollectClusterDatabaseSink`, and `KollectClusterEventSink` remain
+**shipped and supported long-term**. Collapsing to namespaced sinks only is **rejected** — platform
+shared destinations and per-cluster fleet fan-in ([ADR-0501](0501-multi-cluster-fleet.md)) both need
+explicit cluster-scoped sink APIs.
 
 ## References
 

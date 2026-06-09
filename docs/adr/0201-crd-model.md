@@ -42,6 +42,7 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 | `KollectTarget` | Namespaced | `profileRef` + selectors; drives collection in team namespace ([ADR-0201](0201-crd-model.md)) |
 | `KollectClusterTarget` | **Cluster** | Platform-wide collection across namespaces via `namespaceSelector`; `profileRef` → `KollectClusterProfile` or platform-namespace profile ([ADR-0201](0201-crd-model.md)) |
 | `KollectInventory` | **Namespaced** | Aggregates namespaced targets **in the same namespace**; dispatches to sinks |
+| `KollectClusterInventory` | **Cluster** | Platform rollup: composes namespace snapshots/shards from federated targets — explicit federation, not implicit whole-cluster capture ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
 
 ### Rejected (never ship)
 
@@ -61,10 +62,13 @@ API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avo
 - `KollectReceiver` — inbound webhook → trigger (Flux Receiver pattern).
 - `KollectTargetSet` — generator templating many Targets (ApplicationSet pattern).
 - **`KollectClusterProfile`** (cluster) — platform-shared extraction schemas ([ADR-0204](0204-namespaced-profiles.md)).
-- **`KollectClusterSink`** (cluster) — platform-shared export backends ([ADR-0201](0201-crd-model.md)).
-- **`KollectClusterInventory`** (cluster) — aggregates **`KollectClusterTarget`** rows; platform rollup. **No controller in MVP** — pairs with cluster target.
 - **`KollectClusterScope`** (cluster) — platform tenancy boundary when namespaced `KollectScope` is
   insufficient; ships with collection ceiling fields ([ADR-0207](0207-target-collection-filtering.md)).
+  **Frozen/minimal** — no new behavioral knobs without a concrete platform blocker.
+
+Cluster-scoped **family sink** kinds (`KollectClusterSnapshotSink`, `KollectClusterDatabaseSink`,
+`KollectClusterEventSink`) are **shipped and retained long-term** ([ADR-0414](0414-sink-family-crds.md)).
+The historical unified `KollectClusterSink` name remains reserved; use family cluster variants.
 
 Short names: `kprof`, `ksink`, `kscope`, `ktgt`, `kinv` (reserved: `kcinv`, `kcscope`). `kpub` was
 reserved for rejected `KollectPublication` — do not use.
@@ -113,10 +117,20 @@ is distinct from export-time Inventory row filters, which remain deferred.
 - Prefix naming is grep-friendly and avoids generic kind collisions in multi-operator clusters.
 - Early webhooks prevent bad profiles from wedging reconcilers.
 - **`KollectClusterInventory`** reserved for platform portal without blocking team-scoped MVP.
+- **`KollectClusterInventory`** federation uses optional `spec.namespaces` plus optional selectors —
+  shard-composed rollups, not one monolithic payload.
+
+### Multi-operator clusters
+
+Multiple independent operator installs may watch overlapping GVK/namespace scopes **by design**
+— no admission guardrails block duplicate collection. Default golden path: one platform
+cluster-wide operator with per-tenant **`KollectScope`**; team-owned namespace-scoped installs
+remain supported with minimal RBAC beyond CRD install ([ADR-0203](0203-namespaced-multi-tenancy.md)).
 
 ### Negative
 
-- Namespaced inventory requires one object per namespace (or explicit federation via hub — [ADR-0501](0501-multi-cluster-fleet.md)).
+- Namespaced inventory requires one object per namespace (or explicit federation via
+  **`KollectClusterInventory`** — [ADR-0203](0203-namespaced-multi-tenancy.md)).
 - Breaking scope migration for Profile and Sink requires sample and RBAC sweep.
 - Webhook + CEL maintenance cost on every new attribute type rule.
 
@@ -125,5 +139,6 @@ is distinct from export-time Inventory row filters, which remain deferred.
 - **RESOLVED :** **`KollectSink` is namespaced**; **`KollectClusterSink`** reserved for platform-shared backends ([ADR-0201](0201-crd-model.md)).
 - **RESOLVED :** **Keep both** `caBundle` and `caSecretRef`; **`caSecretRef` preferred**;
   **`caBundle` max 64 KiB** at webhook.
-- **RESOLVED :** **`KollectClusterInventory`** uses **explicit namespace list** in spec
-  (Phase 3+) — not cluster-wide implicit wildcard.
+- **RESOLVED :** **`KollectClusterInventory`** federation supports optional **`spec.namespaces`**
+  (empty or absent = documented semantics; not required) plus optional selectors — shard-composed
+  rollups, not implicit cluster-wide wildcard.

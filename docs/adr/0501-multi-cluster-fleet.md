@@ -20,6 +20,7 @@ Prior `archive/hub-spoke-pre-removal` for reference only — not supported in cu
 | Layer | Responsibility |
 | --- | --- |
 | **Per cluster** | `KollectTarget` → in-memory store → `KollectInventory` → family sinks |
+| **Platform rollup (single cluster)** | Optional `KollectClusterInventory` composes namespace snapshots/shards for platform portal views ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
 | **Shared sink** | Postgres PK `(cluster, namespace, name, uid)`; Git `pathTemplate: clusters/{cluster}/…`; Kafka/NATS subject/key with cluster label |
 | **No operator hub** | No `KollectRemoteCluster`, hub Helm mode, or in-tree queue transport |
 
@@ -81,4 +82,4 @@ not by a central hub process.
 
 - Sample: [`config/samples/e2e/team-inventory.yaml`](../../config/samples/e2e/team-inventory.yaml) (single cluster); fleet walkthrough [`../examples/multi-cluster-fleet.md`](../examples/multi-cluster-fleet.md)
 - Archive: `git show archive/hub-spoke-pre-removal:internal/hub/` (historical only)
-- Related: [ADR-0401](0401-sink-taxonomy-state-vs-stream.md), [ADR-0305](0305-aggregation-dedupe.md)
+- Related: [ADR-0203](0203-namespaced-multi-tenancy.md) (tenancy + `KollectClusterInventory` federation), [ADR-0401](0401-sink-taxonomy-state-vs-stream.md), [ADR-0305](0305-aggregation-dedupe.md)
