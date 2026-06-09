@@ -9,6 +9,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **validation:** Block private sink endpoint targets [f1c0d79](https://github.com/konih/kollect/commit/f1c0d7900f873c1557faccbc1fd7635ff105289a)
+
+
 ### Refactoring
 
 - **mongodb:** Isolate export scope planning [51154e7](https://github.com/konih/kollect/commit/51154e7d2dca1509562f904d74253c96486afb56)
