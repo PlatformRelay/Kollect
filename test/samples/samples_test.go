@@ -103,6 +103,12 @@ func TestSampleSinksValidate(t *testing.T) {
 		t.Fatalf("database sink sample validation failed: %v", errs)
 	}
 
+	var bq kollectdevv1alpha1.KollectDatabaseSink
+	decodeSample(t, filepath.Join(root, "kollect_v1alpha1_kollectdatabasesink_bigquery.yaml"), &bq)
+	if errs := validation.ValidateDatabaseSinkSpec(&bq.Spec); len(errs) > 0 {
+		t.Fatalf("bigquery sink sample validation failed: %v", errs)
+	}
+
 	for _, name := range []string{
 		"kollect_v1alpha1_kollecteventsink_kafka.yaml",
 		"kollect_v1alpha1_kollecteventsink_nats.yaml",
@@ -137,6 +143,7 @@ func TestSampleKindsDecode(t *testing.T) {
 		"kollect_v1alpha1_kollecttarget.yaml",
 		"kollect_v1alpha1_kollectinventory.yaml",
 		"kollect_v1alpha1_kollectdatabasesink.yaml",
+		"kollect_v1alpha1_kollectdatabasesink_bigquery.yaml",
 		"kollect_v1alpha1_kollectsnapshotsink.yaml",
 		"kollect_v1alpha1_kollecteventsink_kafka.yaml",
 		"kollect_v1alpha1_kollecteventsink_nats.yaml",

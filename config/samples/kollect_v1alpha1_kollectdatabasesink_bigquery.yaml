@@ -1,0 +1,37 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectDatabaseSink
+metadata:
+  name: bigquery-inventory-demo
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: bigquery
+  cluster: kind-kollect-dev
+  connectionTest: true
+  # Cross-cutting provisioning ownership (ADR-0416). mode: ensure (default) creates the
+  # destination table if missing; mode: existing never creates and fails when the table
+  # is absent.
+  provisioning:
+    mode: ensure
+  # exportMinInterval directly controls BigQuery query-job cadence and cost.
+  exportMinInterval: 5m
+  bigquery:
+    project: fleet-analytics
+    dataset: inventory
+    table: inventory_items
+    location: EU
+    # secretRef is optional. Omit it to use ADC / Workload Identity.
+    secretRef:
+      name: inventory-bigquery-credentials
+      namespace: kollect-system
+  # Secret example (create separately; never commit real credentials):
+  # apiVersion: v1
+  # kind: Secret
+  # metadata:
+  #   name: inventory-bigquery-credentials
+  #   namespace: kollect-system
+  # stringData:
+  #   credentials.json: |
+  #     {"type":"service_account","project_id":"fleet-analytics", ...}

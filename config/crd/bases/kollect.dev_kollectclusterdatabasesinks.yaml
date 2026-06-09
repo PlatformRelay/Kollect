@@ -44,14 +44,41 @@ spec:
               sink (ADR-0414).
             properties:
               bigquery:
-                description: bigquery configures BigQuery export (stub).
+                description: bigquery configures BigQuery relational export (ADR-0420).
                 properties:
                   dataset:
-                    description: dataset is the BigQuery dataset id.
+                    description: dataset is the BigQuery dataset id; it must already
+                      exist.
                     type: string
+                  location:
+                    description: location pins job placement (for example EU); defaults
+                      to the dataset location.
+                    type: string
+                  project:
+                    description: project is the GCP project id that owns the dataset.
+                    type: string
+                  secretRef:
+                    description: |-
+                      secretRef references a Secret holding a service-account JSON key
+                      (key credentials.json). When absent, Application Default Credentials are used.
+                    properties:
+                      name:
+                        description: name is the name of the referenced Secret.
+                        type: string
+                      namespace:
+                        description: namespace is the namespace of the referenced
+                          Secret.
+                        type: string
+                    required:
+                    - name
+                    type: object
                   table:
                     description: table is the destination table name.
                     type: string
+                required:
+                - dataset
+                - project
+                - table
                 type: object
               cluster:
                 description: cluster labels exported inventory in multi-cluster installs.
@@ -298,6 +325,7 @@ spec:
                 description: type selects the database backend implementation.
                 enum:
                 - postgres
+                - bigquery
                 - mongodb
                 type: string
             required:

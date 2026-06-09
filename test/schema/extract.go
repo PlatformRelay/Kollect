@@ -26,6 +26,7 @@ var DefaultCases = []SpecFragmentCase{
 	{CRDFile: "kollect.dev_kollectinventories.yaml", GoldenFile: "kollectinventory.spec.openapi.yaml"},
 	{CRDFile: "kollect.dev_kollectclustertargets.yaml", GoldenFile: "kollectclustertarget.spec.openapi.yaml"},
 	{CRDFile: "kollect.dev_kollectclusterinventories.yaml", GoldenFile: "kollectclusterinventory.spec.openapi.yaml"},
+	{CRDFile: "kollect.dev_kollectdatabasesinks.yaml", GoldenFile: "kollectdatabasesink.spec.openapi.yaml"},
 	{CRDFile: "kollect.dev_kollecteventsinks.yaml", GoldenFile: "kollecteventsink.spec.openapi.yaml"},
 }
 
