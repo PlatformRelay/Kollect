@@ -1,0 +1,42 @@
+# Team-owned operator install profile (ADR-0203, ADR-0421).
+#
+# Golden path: platform cluster-wide operator + namespaced KollectScope per tenant.
+# This profile is the lowest-priority but supported team path: one operator release
+# in the team namespace with namespace-scoped reconciler RBAC only.
+#
+# Prerequisites (cluster admin, one-time):
+#   helm install kollect-crds ./charts/kollect --namespace team-a --create-namespace \
+#     --set rbac.create=false --skip-crds=false   # CRDs only — or use platform CRD bootstrap
+#
+# Team install:
+#   helm upgrade --install kollect-team ./charts/kollect \
+#     --namespace team-a --create-namespace \
+#     -f charts/kollect/values-minimal-rbac.yaml \
+#     --set watchNamespaces[0]=team-a
+#
+# See docs/deployment/team-operator.md for RBAC verbs, workload grants, and tradeoffs.
+
+# Restrict informer cache to team namespace(s). Must be non-empty for minimal RBAC.
+watchNamespaces:
+  - team-a
+
+# Namespaced Role/RoleBinding for manager SA (no ClusterRole).
+tenantMode: true
+
+mode: single
+
+# ValidatingWebhookConfiguration is cluster-scoped; disable unless platform installs webhooks.
+webhooks:
+  enabled: false
+
+featureGates:
+  inventoryHttp:
+    enabled: false
+
+sinkDefaults:
+  connectionTest: false
+
+leaderElection:
+  enabled: true
+
+replicaCount: 1

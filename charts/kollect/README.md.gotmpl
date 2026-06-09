@@ -25,16 +25,28 @@ Export debouncing is configured per **`KollectInventory.spec.exportMinInterval`*
 Critical values are validated by [`values.schema.json`](values.schema.json); CI runs `task helm-test`
 (`helm lint`, `helm-unittest`, and `helm-docs` drift check).
 
-### Per-team install (default story)
+### Per-team install (minimal RBAC profile)
 
-Documented default for new team installs ([ADR-0203](../../docs/adr/0203-namespaced-multi-tenancy.md),
-[ADR-0703](../../docs/adr/0703-platform-architecture-pivot.md)):
+**Golden path:** platform cluster-wide operator + namespaced `KollectScope` per tenant.
+**Team path:** supported with namespace-scoped reconciler RBAC — see
+[Team-owned operator (minimal RBAC)](../../docs/deployment/team-operator.md).
+
+Helm profile: [`values-minimal-rbac.yaml`](values-minimal-rbac.yaml)
+
+```bash
+helm upgrade --install kollect-team ./charts/kollect \
+  --namespace team-a --create-namespace \
+  -f charts/kollect/values-minimal-rbac.yaml \
+  --set watchNamespaces[0]=team-a
+```
 
 ```yaml
 tenantMode: true
 watchNamespaces:
   - team-a
 mode: single
+webhooks:
+  enabled: false
 featureGates:
   inventoryHttp:
     enabled: false
@@ -42,6 +54,7 @@ featureGates:
 
 Namespaced `KollectProfile`, sink family CRs (`KollectSnapshotSink`, `KollectDatabaseSink`,
 `KollectEventSink`), `KollectTarget`, and `KollectInventory` live in the team namespace.
+Sample CRs: [`config/samples/team-operator/`](../../config/samples/team-operator/).
 Portal read path: **Postgres or event sink export** (or Git snapshot for audit).
 
 ### Multi-cluster fleet

@@ -7,6 +7,12 @@ metadata:
   labels:
     {{- include "kollect.labels" . | nindent 4 }}
 rules:
+  - apiGroups: [authorization.k8s.io]
+    resources: [selfsubjectaccessreviews]
+    verbs: [create]
+  - apiGroups: [events.k8s.io]
+    resources: [events]
+    verbs: [create, patch]
   - apiGroups: [""]
     resources: [secrets]
     verbs: [get, list, watch]

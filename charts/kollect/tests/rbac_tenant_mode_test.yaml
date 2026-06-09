@@ -19,6 +19,41 @@ tests:
           value: NAMESPACE
       - hasDocuments:
           count: 1
+  - it: tenant Role includes SAR and events for minimal RBAC profile
+    template: role.yaml
+    set:
+      tenantMode: true
+      rbac:
+        create: true
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [authorization.k8s.io]
+            resources: [selfsubjectaccessreviews]
+            verbs: [create]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [events.k8s.io]
+            resources: [events]
+            verbs: [create, patch]
+  - it: minimal RBAC values profile renders tenant Role without ClusterRole
+    templates:
+      - role.yaml
+      - clusterrole.yaml
+    values:
+      - ../values-minimal-rbac.yaml
+    set:
+      rbac:
+        create: true
+    asserts:
+      - template: role.yaml
+        isKind:
+          of: Role
+      - template: clusterrole.yaml
+        hasDocuments:
+          count: 0
   - it: renders RoleBinding when tenantMode is true
     template: rolebinding.yaml
     set:

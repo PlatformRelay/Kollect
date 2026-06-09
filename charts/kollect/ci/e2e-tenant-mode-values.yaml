@@ -1,4 +1,5 @@
 # Nightly tenantMode e2e: namespaced Role RBAC, scoped watchNamespaces.
+# Base profile: charts/kollect/values-minimal-rbac.yaml (inventory HTTP enabled for smoke).
 featureGates:
   inventoryHttp:
     enabled: true
