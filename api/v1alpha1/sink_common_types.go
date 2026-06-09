@@ -145,15 +145,28 @@ type HTTPSinkSpec struct {
 	Method string `json:"method,omitempty"`
 }
 
-// BigQuerySpec configures BigQuery relational export (stub — ADR-0414).
+// BigQuerySpec configures BigQuery relational export (ADR-0420).
 type BigQuerySpec struct {
-	// dataset is the BigQuery dataset id.
-	// +optional
-	Dataset string `json:"dataset,omitempty"`
+	// project is the GCP project id that owns the dataset.
+	// +required
+	Project string `json:"project"`
+
+	// dataset is the BigQuery dataset id; it must already exist.
+	// +required
+	Dataset string `json:"dataset"`
 
 	// table is the destination table name.
+	// +required
+	Table string `json:"table"`
+
+	// location pins job placement (for example EU); defaults to the dataset location.
 	// +optional
-	Table string `json:"table,omitempty"`
+	Location string `json:"location,omitempty"`
+
+	// secretRef references a Secret holding a service-account JSON key
+	// (key credentials.json). When absent, Application Default Credentials are used.
+	// +optional
+	SecretRef *SecretReference `json:"secretRef,omitempty"`
 }
 
 // ConnectionTestEnabledCommon reports whether automatic connectivity probes should run.

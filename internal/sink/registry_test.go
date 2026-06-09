@@ -118,7 +118,7 @@ func TestRegistry_NewBackend_unknownTypeIsTerminal(t *testing.T) {
 	reg := NewRegistry()
 
 	// Former ADR-0414 stub types must fail terminally, not retry forever (EC-P1-04).
-	for _, sinkType := range []string{"unknown", "http", "azureblob", "bigquery"} {
+	for _, sinkType := range []string{"unknown", "http", "azureblob"} {
 		_, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: sinkType}, BuildContext{})
 		if err == nil {
 			t.Fatalf("NewBackend(%s) expected error", sinkType)

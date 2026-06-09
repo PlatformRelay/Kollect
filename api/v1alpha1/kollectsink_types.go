@@ -14,6 +14,7 @@ const (
 	SinkTypeS3       = "s3"
 	SinkTypeGCS      = "gcs"
 	SinkTypePostgres = "postgres"
+	SinkTypeBigQuery = "bigquery"
 	SinkTypeKafka    = "kafka"
 	SinkTypeNats     = "nats"
 )
@@ -62,6 +63,10 @@ type KollectSinkSpec struct {
 	// mongodb configures a MongoDB document database sink.
 	// +optional
 	MongoDB *MongoSpec `json:"mongodb,omitempty"`
+
+	// bigquery configures a BigQuery relational database sink.
+	// +optional
+	BigQuery *BigQuerySpec `json:"bigquery,omitempty"`
 
 	// kafka configures a Kafka or Redpanda event sink.
 	// +optional

@@ -41,6 +41,16 @@ func TestRunConnectionTest_configErrors(t *testing.T) {
 			},
 		},
 		{
+			name: "bigquery missing project",
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type: kollectdevv1alpha1.SinkTypeBigQuery,
+				BigQuery: &kollectdevv1alpha1.BigQuerySpec{
+					Dataset: "inventory",
+					Table:   "items",
+				},
+			},
+		},
+		{
 			name: "kafka missing brokers",
 			spec: kollectdevv1alpha1.KollectSinkSpec{
 				Type:  "kafka",

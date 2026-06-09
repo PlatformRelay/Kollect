@@ -42,64 +42,155 @@ func BuildContextFromSpec(
 
 	out := BuildContext{Ctx: ctx, CAPEM: caPEM}
 
+	if err := populateDefaultSecretData(ctx, c, spec, defaultNamespace, &out); err != nil {
+		return BuildContext{}, err
+	}
+	if err := populateDatabaseSecretData(ctx, c, spec, defaultNamespace, &out); err != nil {
+		return BuildContext{}, err
+	}
+	if err := overrideKafkaSecretData(ctx, c, spec, defaultNamespace, &out); err != nil {
+		return BuildContext{}, err
+	}
+	if err := overrideGitSecretData(ctx, c, spec, defaultNamespace, &out); err != nil {
+		return BuildContext{}, err
+	}
+	if err := overrideNatsSecretData(ctx, c, spec, defaultNamespace, &out); err != nil {
+		return BuildContext{}, err
+	}
+
+	return out, nil
+}
+
+func populateDefaultSecretData(
+	ctx context.Context,
+	c client.Reader,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	defaultNamespace string,
+	out *BuildContext,
+) error {
 	creds, err := ResolveSecret(ctx, c, spec.SecretRef, defaultNamespace)
 	if err != nil {
-		return BuildContext{}, err
+		return err
 	}
 
 	out.SecretData = creds.Data
 
-	if spec.Type == "postgres" && spec.Postgres != nil {
+	return nil
+}
+
+func populateDatabaseSecretData(
+	ctx context.Context,
+	c client.Reader,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	defaultNamespace string,
+	out *BuildContext,
+) error {
+	switch spec.Type {
+	case "postgres":
+		if spec.Postgres == nil {
+			return nil
+		}
+
 		dbCreds, err := ResolveSecret(ctx, c, spec.Postgres.DatabaseRef, defaultNamespace)
 		if err != nil {
-			return BuildContext{}, err
+			return err
 		}
 
 		out.DatabaseSecretData = dbCreds.Data
-	}
-
-	if spec.Type == "kafka" && spec.Kafka != nil {
-		kafkaRef := spec.Kafka.SecretRef
-		if kafkaRef == nil {
-			kafkaRef = spec.SecretRef
+	case "bigquery":
+		if spec.BigQuery == nil || spec.BigQuery.SecretRef == nil {
+			return nil
 		}
 
-		if kafkaRef != nil {
-			kafkaCreds, err := ResolveSecret(ctx, c, kafkaRef, defaultNamespace)
-			if err != nil {
-				return BuildContext{}, err
-			}
-
-			out.SecretData = kafkaCreds.Data
-		}
-	}
-
-	if gitSecret := gitAuthSecretRef(spec); gitSecret != nil {
-		gitCreds, err := ResolveSecret(ctx, c, gitSecret, defaultNamespace)
+		bqCreds, err := ResolveSecret(ctx, c, spec.BigQuery.SecretRef, defaultNamespace)
 		if err != nil {
-			return BuildContext{}, err
+			return err
 		}
 
-		out.SecretData = gitCreds.Data
+		out.DatabaseSecretData = bqCreds.Data
 	}
 
-	if spec.Type == "nats" && spec.Nats != nil {
-		natsRef := spec.Nats.SecretRef
-		if natsRef == nil {
-			natsRef = spec.SecretRef
-		}
+	return nil
+}
 
-		if natsRef != nil {
-			natsCreds, err := ResolveSecret(ctx, c, natsRef, defaultNamespace)
-			if err != nil {
-				return BuildContext{}, err
-			}
-
-			out.SecretData = natsCreds.Data
-		}
+func overrideKafkaSecretData(
+	ctx context.Context,
+	c client.Reader,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	defaultNamespace string,
+	out *BuildContext,
+) error {
+	if spec.Type != "kafka" || spec.Kafka == nil {
+		return nil
 	}
 
-	return out, nil
+	kafkaRef := spec.Kafka.SecretRef
+	if kafkaRef == nil {
+		kafkaRef = spec.SecretRef
+	}
+	if kafkaRef == nil {
+		return nil
+	}
+
+	kafkaCreds, err := ResolveSecret(ctx, c, kafkaRef, defaultNamespace)
+	if err != nil {
+		return err
+	}
+
+	out.SecretData = kafkaCreds.Data
+
+	return nil
+}
+
+func overrideGitSecretData(
+	ctx context.Context,
+	c client.Reader,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	defaultNamespace string,
+	out *BuildContext,
+) error {
+	gitSecret := gitAuthSecretRef(spec)
+	if gitSecret == nil {
+		return nil
+	}
+
+	gitCreds, err := ResolveSecret(ctx, c, gitSecret, defaultNamespace)
+	if err != nil {
+		return err
+	}
+
+	out.SecretData = gitCreds.Data
+
+	return nil
+}
+
+func overrideNatsSecretData(
+	ctx context.Context,
+	c client.Reader,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	defaultNamespace string,
+	out *BuildContext,
+) error {
+	if spec.Type != "nats" || spec.Nats == nil {
+		return nil
+	}
+
+	natsRef := spec.Nats.SecretRef
+	if natsRef == nil {
+		natsRef = spec.SecretRef
+	}
+	if natsRef == nil {
+		return nil
+	}
+
+	natsCreds, err := ResolveSecret(ctx, c, natsRef, defaultNamespace)
+	if err != nil {
+		return err
+	}
+
+	out.SecretData = natsCreds.Data
+
+	return nil
 }
 
 func gitAuthSecretRef(spec kollectdevv1alpha1.KollectSinkSpec) *kollectdevv1alpha1.SecretReference {

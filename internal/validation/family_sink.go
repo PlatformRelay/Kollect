@@ -13,14 +13,16 @@ import (
 )
 
 var (
-	// http, azureblob, and bigquery are intentionally absent: ADR-0414 stubs were removed
+	// http and azureblob are intentionally absent: ADR-0414 stubs were removed
 	// (EC-P1-04) and each type only re-enters the allowlist together with a real backend.
 	validSnapshotSinkTypes = []string{
 		kollectdevv1alpha1.SnapshotSinkTypeGit, kollectdevv1alpha1.SnapshotSinkTypeGitLab,
 		kollectdevv1alpha1.SnapshotSinkTypeS3, kollectdevv1alpha1.SnapshotSinkTypeGCS,
 	}
 	validDatabaseSinkTypes = []string{
-		kollectdevv1alpha1.DatabaseSinkTypePostgres, kollectdevv1alpha1.DatabaseSinkTypeMongoDB,
+		kollectdevv1alpha1.DatabaseSinkTypePostgres,
+		kollectdevv1alpha1.DatabaseSinkTypeBigQuery,
+		kollectdevv1alpha1.DatabaseSinkTypeMongoDB,
 	}
 	validEventSinkTypes = []string{kollectdevv1alpha1.EventSinkTypeNats, kollectdevv1alpha1.EventSinkTypeKafka}
 )
@@ -90,7 +92,38 @@ func ValidateDatabaseSinkSpec(spec *kollectdevv1alpha1.KollectDatabaseSinkSpec) 
 			{field.NewPath("spec").Child("postgres"), spec.Postgres != nil},
 			{field.NewPath("spec").Child("bigquery"), spec.BigQuery != nil},
 		})...)
+	case kollectdevv1alpha1.DatabaseSinkTypeBigQuery:
+		allErrs = append(allErrs, requireBlock(spec.BigQuery, field.NewPath("spec").Child("bigquery"), "required when type is bigquery")...)
+		allErrs = append(allErrs, forbidBlocks([]forbiddenBlock{
+			{field.NewPath("spec").Child("postgres"), spec.Postgres != nil},
+			{field.NewPath("spec").Child("mongodb"), spec.MongoDB != nil},
+		})...)
+		allErrs = append(allErrs, validateBigQuerySpec(spec.BigQuery)...)
 	}
+	return allErrs
+}
+
+func validateBigQuerySpec(spec *kollectdevv1alpha1.BigQuerySpec) field.ErrorList {
+	if spec == nil {
+		return nil
+	}
+
+	var allErrs field.ErrorList
+	base := field.NewPath("spec").Child("bigquery")
+
+	if strings.TrimSpace(spec.Project) == "" {
+		allErrs = append(allErrs, field.Required(base.Child("project"), "required when type is bigquery"))
+	}
+	if strings.TrimSpace(spec.Dataset) == "" {
+		allErrs = append(allErrs, field.Required(base.Child("dataset"), "required when type is bigquery"))
+	}
+	if strings.TrimSpace(spec.Table) == "" {
+		allErrs = append(allErrs, field.Required(base.Child("table"), "required when type is bigquery"))
+	}
+	if spec.SecretRef != nil && strings.TrimSpace(spec.SecretRef.Name) == "" {
+		allErrs = append(allErrs, field.Required(base.Child("secretRef").Child("name"), "name is required when secretRef is set"))
+	}
+
 	return allErrs
 }
 

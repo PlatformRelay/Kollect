@@ -61,6 +61,26 @@ func TestToKollectSinkSpec_databaseMongo(t *testing.T) {
 	}
 }
 
+func TestToKollectSinkSpec_databaseBigQuery(t *testing.T) {
+	t.Parallel()
+
+	spec := (&KollectDatabaseSinkSpec{
+		Type: DatabaseSinkTypeBigQuery,
+		BigQuery: &BigQuerySpec{
+			Project: "fleet-analytics",
+			Dataset: "inventory",
+			Table:   "items",
+		},
+	}).ToKollectSinkSpec()
+
+	if spec.Type != DatabaseSinkTypeBigQuery || spec.BigQuery == nil {
+		t.Fatalf("spec = %#v", spec)
+	}
+	if spec.BigQuery.Dataset != "inventory" {
+		t.Fatalf("bigquery block not copied: %#v", spec.BigQuery)
+	}
+}
+
 func TestToKollectSinkSpec_event(t *testing.T) {
 	t.Parallel()
 

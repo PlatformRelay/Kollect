@@ -66,6 +66,24 @@ func TestBuildContextFromSpec(t *testing.T) {
 			wantDBVal: "postgres://localhost/db",
 		},
 		{
+			name: "bigquery database secret",
+			secrets: []*corev1.Secret{{
+				ObjectMeta: metav1.ObjectMeta{Name: "bq", Namespace: "kollect-system"},
+				Data:       map[string][]byte{"credentials.json": []byte(`{"type":"service_account"}`)},
+			}},
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type: "bigquery",
+				BigQuery: &kollectdevv1alpha1.BigQuerySpec{
+					Project:   "fleet-analytics",
+					Dataset:   "inventory",
+					Table:     "items",
+					SecretRef: &kollectdevv1alpha1.SecretReference{Name: "bq"},
+				},
+			},
+			wantDBKey: "credentials.json",
+			wantDBVal: `{"type":"service_account"}`,
+		},
+		{
 			name: "kafka secret fallback",
 			secrets: []*corev1.Secret{{
 				ObjectMeta: metav1.ObjectMeta{Name: "kafka", Namespace: "kollect-system"},

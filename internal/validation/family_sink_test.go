@@ -119,24 +119,14 @@ func TestValidateDatabaseSinkSpec_postgresRequiresBlock(t *testing.T) {
 	}
 }
 
-func TestValidateDatabaseSinkSpec_rejectsBigQueryStubType(t *testing.T) {
+func TestValidateDatabaseSinkSpec_bigQueryRequiresBlock(t *testing.T) {
 	t.Parallel()
 
-	// bigquery re-enters the allowlist only together with a real backend (EC-P1-04).
 	errs := ValidateDatabaseSinkSpec(&kollectdevv1alpha1.KollectDatabaseSinkSpec{
 		Type: kollectdevv1alpha1.DatabaseSinkTypeBigQuery,
-		BigQuery: &kollectdevv1alpha1.BigQuerySpec{
-			Dataset: "analytics",
-		},
 	})
-	if len(errs) != 1 {
-		t.Fatalf("expected exactly one unsupported-type error, got %v", errs)
-	}
-	if errs[0].Type != field.ErrorTypeNotSupported {
-		t.Fatalf("error type = %s, want NotSupported: %v", errs[0].Type, errs[0])
-	}
-	if !strings.Contains(errs[0].Error(), kollectdevv1alpha1.DatabaseSinkTypePostgres) {
-		t.Fatalf("error should list supported values: %v", errs[0])
+	if len(errs) == 0 {
+		t.Fatal("expected bigquery block required")
 	}
 }
 
@@ -153,6 +143,42 @@ func TestValidateDatabaseSinkSpec_postgresForbidsBigQuery(t *testing.T) {
 	})
 	if len(errs) == 0 {
 		t.Fatal("expected forbidden bigquery block")
+	}
+}
+
+func TestValidateDatabaseSinkSpec_bigQueryAcceptsBlock(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateDatabaseSinkSpec(&kollectdevv1alpha1.KollectDatabaseSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypeBigQuery,
+		BigQuery: &kollectdevv1alpha1.BigQuerySpec{
+			Project: "fleet-analytics",
+			Dataset: "inventory",
+			Table:   "items",
+		},
+	})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors for valid bigquery spec: %v", errs)
+	}
+}
+
+func TestValidateDatabaseSinkSpec_bigQueryForbidsPostgres(t *testing.T) {
+	t.Parallel()
+
+	errs := ValidateDatabaseSinkSpec(&kollectdevv1alpha1.KollectDatabaseSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypeBigQuery,
+		BigQuery: &kollectdevv1alpha1.BigQuerySpec{
+			Project: "fleet-analytics",
+			Dataset: "inventory",
+			Table:   "items",
+		},
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+			Table:       "inventory",
+		},
+	})
+	if len(errs) == 0 {
+		t.Fatal("expected forbidden postgres block for bigquery type")
 	}
 }
 
