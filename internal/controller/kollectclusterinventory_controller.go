@@ -5,7 +5,10 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -135,7 +138,7 @@ func (r *KollectClusterInventoryReconciler) Reconcile(ctx context.Context, req c
 		}
 
 		if r.Store == nil || r.Engine == nil {
-			return r.updateStatus(ctx, &inv, len(targets), itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)})
+			return r.updateStatus(ctx, &inv, len(targets), itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(&inv)}, nil)
 		}
 
 		result, err := r.reconcileRollupExport(ctx, req, &inv, targets, selectedNamespaceNames, sinkNS, log)
@@ -158,13 +161,13 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	log logr.Logger,
 ) (ctrl.Result, error) {
 	bindings := clusterInventorySinkBindings(inv)
-	payload, fingerprint, err := r.marshalRollupPayload(inv, targets, selectedNamespaceNames)
+	rollup, err := r.composeNamespaceRollup(inv, targets, selectedNamespaceNames)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	gate, err := assessExportSpill(
-		ctx, r.Client, log, int64(len(payload)), validation.MaxExportBytesGlobal(), sinkNS, bindings,
+		ctx, r.Client, log, int64(len(rollup.Payload)), validation.MaxExportBytesGlobal(), sinkNS, bindings,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -176,20 +179,19 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 	}
 
 	key := req.String()
-	itemCount := r.countRollupItems(inv, targets, selectedNamespaceNames)
+	itemCount := len(rollup.Items)
 
 	bindings = clusterInventorySinkBindings(inv)
 	if len(bindings) == 0 {
 		setSyncedCondition(&inv.Status.Conditions, inv.Generation, true, "NoExport", "no family sink refs configured")
-		return r.updateStatus(ctx, inv, len(targets), itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(inv)})
+		return r.updateStatus(ctx, inv, len(targets), itemCount, perSinkExportOutcome{RequeueAfter: r.exportDebounce(inv)}, rollup.NamespaceShards)
 	}
 
 	if r.Registry == nil {
 		return r.setDegraded(ctx, inv, "ExportUnavailable", "sink registry is not configured")
 	}
 
-	items := r.collectRollupItems(inv, targets, selectedNamespaceNames)
-	outcome := r.exportClusterToSinks(ctx, log, inv, key, sinkNS, items, fingerprint)
+	outcome := r.exportClusterToSinks(ctx, log, inv, key, sinkNS, rollup.Items, rollup.Checksum)
 
 	if isTotalExportFailure(outcome) {
 		metrics.ReconcileErrorsTotal.WithLabelValues(
@@ -218,7 +220,7 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 		recordWarning(r.Recorder, inv, reasonExportFailed, outcome.ExportErr.Error())
 	}
 
-	return r.updateStatus(ctx, inv, len(targets), itemCount, outcome)
+	return r.updateStatus(ctx, inv, len(targets), itemCount, outcome, rollup.NamespaceShards)
 }
 
 //nolint:logcheck // per-sink export passes named reconcile logger alongside ctx deadline
@@ -325,33 +327,105 @@ func (r *KollectClusterInventoryReconciler) collectRollupItems(
 	return aggregate.MergeRows(items, aggregate.DedupeModeFromSpec(&inv.Spec))
 }
 
-func (r *KollectClusterInventoryReconciler) countRollupItems(
-	inv *kollectdevv1alpha1.KollectClusterInventory,
-	targets []kollectdevv1alpha1.KollectClusterTarget,
-	selectedNamespaceNames map[string]struct{},
-) int {
-	return len(r.collectRollupItems(inv, targets, selectedNamespaceNames))
+type clusterRollup struct {
+	Items           []collect.Item
+	Payload         []byte
+	Checksum        string
+	NamespaceShards []kollectdevv1alpha1.InventoryNamespaceShardStatus
 }
 
-func (r *KollectClusterInventoryReconciler) marshalRollupPayload(
+type namespaceRollupShard struct {
+	namespace string
+	items     []collect.Item
+	targets   map[string]struct{}
+}
+
+func (r *KollectClusterInventoryReconciler) composeNamespaceRollup(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 	targets []kollectdevv1alpha1.KollectClusterTarget,
 	selectedNamespaceNames map[string]struct{},
-) ([]byte, string, error) {
-	items := r.collectRollupItems(inv, targets, selectedNamespaceNames)
-	fingerprint, err := export.ItemsFingerprint(items)
-	if err != nil {
-		return nil, "", err
+) (clusterRollup, error) {
+	shards := make(map[string]*namespaceRollupShard)
+	for i := range targets {
+		ct := &targets[i]
+		for _, ns := range r.Engine.NamespacesForClusterTarget(ct.Name) {
+			if len(selectedNamespaceNames) > 0 {
+				if _, ok := selectedNamespaceNames[ns]; !ok {
+					continue
+				}
+			}
+
+			snapshot := r.Store.SnapshotTarget(ns, ct.Name)
+			if len(snapshot) == 0 {
+				continue
+			}
+
+			shard, ok := shards[ns]
+			if !ok {
+				shard = &namespaceRollupShard{
+					namespace: ns,
+					targets:   make(map[string]struct{}),
+				}
+				shards[ns] = shard
+			}
+			shard.items = append(shard.items, snapshot...)
+			shard.targets[ct.Name] = struct{}{}
+		}
 	}
 
+	namespaceNames := make([]string, 0, len(shards))
+	for ns := range shards {
+		namespaceNames = append(namespaceNames, ns)
+	}
+	slices.Sort(namespaceNames)
+
+	dedupeMode := aggregate.DedupeModeFromSpec(&inv.Spec)
+	namespaceShards := make([]kollectdevv1alpha1.InventoryNamespaceShardStatus, 0, len(namespaceNames))
+	composed := make([]collect.Item, 0)
+	namespaceChecksums := make([]string, 0, len(namespaceNames))
+
+	for _, namespace := range namespaceNames {
+		shard := shards[namespace]
+		shardItems := aggregate.MergeRows(shard.items, dedupeMode)
+		checksum, err := export.ItemsFingerprint(shardItems)
+		if err != nil {
+			return clusterRollup{}, err
+		}
+
+		namespaceShards = append(namespaceShards, kollectdevv1alpha1.InventoryNamespaceShardStatus{
+			Namespace:   namespace,
+			ItemCount:   len(shardItems),
+			TargetCount: len(shard.targets),
+			Checksum:    checksum,
+		})
+		namespaceChecksums = append(namespaceChecksums, namespace+":"+checksum)
+		composed = append(composed, shardItems...)
+	}
+
+	items := aggregate.MergeRows(composed, dedupeMode)
 	payload, err := collect.MarshalExportEnvelope(items, collect.ExportMetadata{
 		Generation: inv.Generation,
 	})
 	if err != nil {
-		return nil, "", err
+		return clusterRollup{}, err
 	}
 
-	return payload, fingerprint, nil
+	return clusterRollup{
+		Items:           items,
+		Payload:         payload,
+		Checksum:        composeNamespaceShardChecksum(namespaceChecksums),
+		NamespaceShards: namespaceShards,
+	}, nil
+}
+
+func composeNamespaceShardChecksum(shardChecksums []string) string {
+	h := sha256.New()
+	for i := range shardChecksums {
+		_, _ = h.Write([]byte(shardChecksums[i]))
+		_, _ = h.Write([]byte{'\n'})
+	}
+
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (r *KollectClusterInventoryReconciler) selectedClusterTargets(
@@ -563,10 +637,13 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 	targetCount, itemCount int,
 	outcome perSinkExportOutcome,
+	namespaceShards []kollectdevv1alpha1.InventoryNamespaceShardStatus,
 ) (ctrl.Result, error) {
 	inv.Status.ObservedGeneration = inv.Generation
 	inv.Status.TargetCount = targetCount
 	inv.Status.ItemCount = itemCount
+	inv.Status.NamespaceShardCount = len(namespaceShards)
+	inv.Status.NamespaceShards = namespaceShards
 	inv.Status.SinkExports = outcome.SinkExports
 
 	bindings := clusterInventorySinkBindings(inv)
