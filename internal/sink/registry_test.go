@@ -5,9 +5,11 @@ package sink
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	kollecterrors "github.com/konih/kollect/internal/errors"
 )
 
 func TestRegistry_NewBackend(t *testing.T) {
@@ -108,4 +110,30 @@ func TestRegistry_NewBackend(t *testing.T) {
 	_ = gitBackend
 	_ = gitlabBackend
 	_ = s3Backend
+}
+
+func TestRegistry_NewBackend_unknownTypeIsTerminal(t *testing.T) {
+	t.Parallel()
+
+	reg := NewRegistry()
+
+	// Former ADR-0414 stub types must fail terminally, not retry forever (EC-P1-04).
+	for _, sinkType := range []string{"unknown", "http", "azureblob", "bigquery"} {
+		_, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: sinkType}, BuildContext{})
+		if err == nil {
+			t.Fatalf("NewBackend(%s) expected error", sinkType)
+		}
+
+		if !kollecterrors.IsTerminal(err) {
+			t.Fatalf("NewBackend(%s) error class = %s, want terminal: %v", sinkType, kollecterrors.ClassOf(err), err)
+		}
+
+		if !strings.Contains(err.Error(), sinkType) {
+			t.Fatalf("NewBackend(%s) error should name the offending type: %v", sinkType, err)
+		}
+
+		if !strings.Contains(err.Error(), "supported:") || !strings.Contains(err.Error(), "git") {
+			t.Fatalf("NewBackend(%s) error should list supported types: %v", sinkType, err)
+		}
+	}
 }

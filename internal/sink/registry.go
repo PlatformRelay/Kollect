@@ -6,9 +6,12 @@ package sink
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	kollecterrors "github.com/konih/kollect/internal/errors"
 	"github.com/konih/kollect/internal/sink/gcs"
 	"github.com/konih/kollect/internal/sink/git"
 	"github.com/konih/kollect/internal/sink/gitlab"
@@ -46,9 +49,6 @@ func NewRegistry() *Registry {
 	r.Register(mongodb.TypeName, newMongoBackend)
 	r.Register("kafka", newKafkaBackend)
 	r.Register("nats", newNatsBackend)
-	r.Register("azureblob", newStubBackend("azureblob"))
-	r.Register("http", newStubBackend("http"))
-	r.Register("bigquery", newStubBackend("bigquery"))
 
 	return r
 }
@@ -68,10 +68,23 @@ func (r *Registry) NewBackend(
 ) (Backend, error) {
 	r.mu.RLock()
 	factory, ok := r.factories[spec.Type]
+
+	var supported []string
+	if !ok {
+		supported = make([]string, 0, len(r.factories))
+		for t := range r.factories {
+			supported = append(supported, t)
+		}
+	}
 	r.mu.RUnlock()
 
 	if !ok {
-		return nil, fmt.Errorf("unknown sink type %q", spec.Type)
+		// Terminal: an unknown type cannot succeed on retry — only a spec change fixes it.
+		sort.Strings(supported)
+
+		return nil, kollecterrors.Terminal(fmt.Errorf(
+			"unknown sink type %q (supported: %s)", spec.Type, strings.Join(supported, ", "),
+		))
 	}
 
 	return factory(spec, ctx)
