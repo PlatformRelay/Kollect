@@ -13,6 +13,10 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
+type headBucketClient interface {
+	HeadBucket(ctx context.Context, params *awss3.HeadBucketInput, optFns ...func(*awss3.Options)) (*awss3.HeadBucketOutput, error)
+}
+
 // TestConnection verifies bucket reachability via HeadBucket.
 func TestConnection(
 	ctx context.Context,
@@ -29,7 +33,11 @@ func TestConnection(
 		return fmt.Errorf("s3 client: %w", err)
 	}
 
-	_, err = client.HeadBucket(ctx, &awss3.HeadBucketInput{
+	return testConnectionWithClient(ctx, cfg, client)
+}
+
+func testConnectionWithClient(ctx context.Context, cfg Config, client headBucketClient) error {
+	_, err := client.HeadBucket(ctx, &awss3.HeadBucketInput{
 		Bucket: aws.String(cfg.Bucket),
 	})
 	if err != nil {
