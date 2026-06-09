@@ -28,7 +28,10 @@ func TestRunExportEnvelope_GitAutoInfersResourceMode(t *testing.T) {
 	}
 
 	DisableBackendPoolForTest()
-	ResetBackendPoolForTest()
+	t.Cleanup(func() {
+		EnableBackendPoolForTest()
+		ResetBackendPoolForTest()
+	})
 
 	work := t.TempDir()
 	remote := filepath.Join(work, "remote.git")

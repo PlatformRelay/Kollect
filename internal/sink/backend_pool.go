@@ -42,6 +42,11 @@ func DisableBackendPoolForTest() {
 	ResetBackendPoolForTest()
 }
 
+// EnableBackendPoolForTest re-enables pooling after DisableBackendPoolForTest (test cleanup).
+func EnableBackendPoolForTest() {
+	backendPoolDisabled.Store(false)
+}
+
 // ResetBackendPoolForTest evicts all pooled backends.
 func ResetBackendPoolForTest() {
 	globalBackendPool.mu.Lock()
