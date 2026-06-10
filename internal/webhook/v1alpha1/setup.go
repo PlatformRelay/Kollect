@@ -9,8 +9,25 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// SetupWithManager registers validating webhooks with the manager.
-func SetupWithManager(mgr ctrl.Manager) error {
+// clusterKindRejectedInTenantMode builds the admission denial returned for
+// cluster-scoped reconciled kinds when the operator runs in tenantMode. In
+// tenantMode the operator only holds namespaced RBAC (Role/RoleBinding in the
+// watched namespaces), so it cannot reconcile cluster-scoped kinds — reject
+// them at admission rather than letting them degrade via the forbidden path at
+// reconcile time (ADR-0208).
+func clusterKindRejectedInTenantMode(kind, name string) error {
+	return fmt.Errorf(
+		"%s %q is not supported when the operator runs in tenantMode: cluster-scoped kinds "+
+			"require cluster-wide RBAC. Install the operator with cluster RBAC or use the "+
+			"namespaced KollectTarget/KollectInventory kinds instead (ADR-0208)",
+		kind, name,
+	)
+}
+
+// SetupWithManager registers validating webhooks with the manager. When
+// tenantMode is true the cluster-scoped reconciled kinds are rejected at
+// admission (see clusterKindRejectedInTenantMode).
+func SetupWithManager(mgr ctrl.Manager, tenantMode bool) error {
 	if err := setupKollectProfileWebhook(mgr); err != nil {
 		return fmt.Errorf("setup KollectProfile webhook: %w", err)
 	}
@@ -35,11 +52,11 @@ func SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("setup KollectConnectionTest webhook: %w", err)
 	}
 
-	if err := setupKollectClusterTargetWebhook(mgr); err != nil {
+	if err := setupKollectClusterTargetWebhook(mgr, tenantMode); err != nil {
 		return fmt.Errorf("setup KollectClusterTarget webhook: %w", err)
 	}
 
-	if err := setupKollectClusterInventoryWebhook(mgr); err != nil {
+	if err := setupKollectClusterInventoryWebhook(mgr, tenantMode); err != nil {
 		return fmt.Errorf("setup KollectClusterInventory webhook: %w", err)
 	}
 

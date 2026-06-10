@@ -22,14 +22,15 @@ import (
 // +kubebuilder:webhook:path=/validate-kollect-dev-v1alpha1-kollectclustertarget,mutating=false,failurePolicy=fail,sideEffects=None,groups=kollect.dev,resources=kollectclustertargets,verbs=create;update,versions=v1alpha1,name=vkollectclustertarget.kb.io,admissionReviewVersions=v1
 
 type kollectClusterTargetValidator struct {
-	client client.Client
+	client     client.Client
+	tenantMode bool
 }
 
 var _ admission.Validator[*kollectdevv1alpha1.KollectClusterTarget] = &kollectClusterTargetValidator{}
 
-func setupKollectClusterTargetWebhook(mgr ctrl.Manager) error {
+func setupKollectClusterTargetWebhook(mgr ctrl.Manager, tenantMode bool) error {
 	return ctrl.NewWebhookManagedBy(mgr, &kollectdevv1alpha1.KollectClusterTarget{}).
-		WithValidator(&kollectClusterTargetValidator{client: mgr.GetClient()}).
+		WithValidator(&kollectClusterTargetValidator{client: mgr.GetClient(), tenantMode: tenantMode}).
 		Complete()
 }
 
@@ -63,6 +64,10 @@ func (v *kollectClusterTargetValidator) validate(
 	ctx context.Context,
 	target *kollectdevv1alpha1.KollectClusterTarget,
 ) error {
+	if v.tenantMode {
+		return clusterKindRejectedInTenantMode("KollectClusterTarget", target.Name)
+	}
+
 	errs := validation.ValidateClusterTargetSpec(&target.Spec)
 	if len(errs) > 0 {
 		return validation.ClusterTargetInvalid(target.Name, errs)

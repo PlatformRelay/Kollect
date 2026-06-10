@@ -286,7 +286,7 @@ func main() {
 		os.Exit(1)
 	}
 	if cfg.validatingWebhooksEnabled {
-		if err := webhookv1alpha1.SetupWithManager(mgr); err != nil {
+		if err := webhookv1alpha1.SetupWithManager(mgr, cfg.tenantMode); err != nil {
 			setupLog.Error(err, "Failed to set up webhooks")
 			os.Exit(1)
 		}

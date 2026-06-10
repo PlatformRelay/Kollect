@@ -41,6 +41,7 @@ type startupConfig struct {
 	defaultExcludedNamespacesRaw  string
 	scrubKeysRaw                  string
 	validatingWebhooksEnabled     bool
+	tenantMode                    bool
 	collectDispatchWorkers        int
 	collectDispatchQueueSize      int
 	informerResyncPeriod          time.Duration
@@ -60,6 +61,9 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	fs.BoolVar(&cfg.validatingWebhooksEnabled, "validating-webhooks-enabled", true,
 		"Register in-process validating webhooks and start the webhook TLS server.")
+	fs.BoolVar(&cfg.tenantMode, "tenant-mode", false,
+		"Operator runs with namespaced RBAC only (Helm tenantMode). Cluster-scoped kinds "+
+			"(KollectClusterTarget/KollectClusterInventory) are rejected at admission.")
 	fs.StringVar(&cfg.webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	fs.StringVar(&cfg.webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	fs.StringVar(&cfg.webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")

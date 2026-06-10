@@ -24,3 +24,15 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].args
           content: --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+  - it: does not pass --tenant-mode by default
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --tenant-mode
+  - it: passes --tenant-mode when tenantMode is enabled
+    set:
+      tenantMode: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --tenant-mode

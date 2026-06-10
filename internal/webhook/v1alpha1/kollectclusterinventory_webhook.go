@@ -21,14 +21,15 @@ import (
 // +kubebuilder:webhook:path=/validate-kollect-dev-v1alpha1-kollectclusterinventory,mutating=false,failurePolicy=fail,sideEffects=None,groups=kollect.dev,resources=kollectclusterinventories,verbs=create;update,versions=v1alpha1,name=vkollectclusterinventory.kb.io,admissionReviewVersions=v1
 
 type kollectClusterInventoryValidator struct {
-	client client.Client
+	client     client.Client
+	tenantMode bool
 }
 
 var _ admission.Validator[*kollectdevv1alpha1.KollectClusterInventory] = &kollectClusterInventoryValidator{}
 
-func setupKollectClusterInventoryWebhook(mgr ctrl.Manager) error {
+func setupKollectClusterInventoryWebhook(mgr ctrl.Manager, tenantMode bool) error {
 	return ctrl.NewWebhookManagedBy(mgr, &kollectdevv1alpha1.KollectClusterInventory{}).
-		WithValidator(&kollectClusterInventoryValidator{client: mgr.GetClient()}).
+		WithValidator(&kollectClusterInventoryValidator{client: mgr.GetClient(), tenantMode: tenantMode}).
 		Complete()
 }
 
@@ -62,6 +63,10 @@ func (v *kollectClusterInventoryValidator) validate(
 	ctx context.Context,
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 ) error {
+	if v.tenantMode {
+		return clusterKindRejectedInTenantMode("KollectClusterInventory", inv.Name)
+	}
+
 	errs := validation.ValidateClusterInventorySpec(&inv.Spec)
 	if len(errs) > 0 {
 		return validation.ClusterInventoryInvalid(inv.Name, errs)

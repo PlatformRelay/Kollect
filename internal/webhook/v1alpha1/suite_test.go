@@ -75,7 +75,7 @@ var _ = BeforeSuite(func() {
 		}),
 	})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(SetupWithManager(mgr)).To(Succeed())
+	Expect(SetupWithManager(mgr, false)).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()
