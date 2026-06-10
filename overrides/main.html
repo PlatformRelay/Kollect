@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{#
+  Announcement bar. Update or remove the message when cutting a new release.
+  Material renders this above the header and lets readers dismiss it.
+#}
+{% block announce %}
+  <a href="https://github.com/konih/kollect/releases/tag/v0.7.0-rc.1">
+    kollect <strong>v0.7.0-rc.1</strong> is available for testing &mdash; namespaced static
+    references for cluster kinds (ADR-0208). Try the release candidate &rarr;
+  </a>
+{% endblock %}
