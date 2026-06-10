@@ -12,21 +12,23 @@
 <a href="https://github.com/konih/kollect/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
+<p align="center"><em>Git-simple to start · platform-grade to grow</em></p>
+
 # Kollect
 
-> **Your cluster, in Git, diffable.** Declare GVK + CEL in CRDs and get a clean, Git-committed
-> inventory of anything running in your cluster — no scripts, no apiserver hammering. When the
-> cluster changes, the inventory commits change; `git log` is your audit trail and `git diff` is
-> your drift report. **Git export is the hero** — Postgres and every other sink get the same rows
-> in parallel, for free.
+**Kubernetes knows what's running *right now*. Kollect turns that into a durable record your
+whole platform can use** — a Git history you can `diff`, a database your portal can query, an
+event stream your automation can react to. Declare what matters in a few CRs (select by GVK,
+extract with CEL), and every sink receives the same rows, in parallel.
 
 <!-- Hero GIF (generate locally): docs/assets/demo/hero-git-only.gif — see docs/DEMO-GIF-GUIDE.md -->
 
-Kubernetes is the source of truth for *what is running*; it is a poor *system of record* for
-stakeholder inventory. Kollect closes that gap: **select** resources by GVK → **extract** attributes
-(CEL or JSONPath) → **aggregate** across targets → **debounce** → **export** to pluggable sinks.
-Inventory is **configuration, not code** — owned per team in its own namespace, GitOps-friendly from
-day one. Consumers read **export data**, never unbounded list/watch against the live cluster.
+**Start with one Git repo. Grow to a whole platform.** On day one, a single pipeline gives you a
+Git-committed inventory — `git log` is your audit trail, `git diff` is your drift report, no
+scripts, no apiserver hammering. As adoption grows, nothing gets rebuilt: the same rows fan out to
+Postgres, Kafka, and object storage, and `KollectScope` keeps it multi-tenant — every team owns
+its inventory as **configuration, not code**, in its own namespace. Consumers read **export
+data**, never unbounded list/watch against the live cluster.
 
 **Read the docs:** **[konih.github.io/kollect](https://konih.github.io/kollect/)** — architecture,
 quick start, CR reference, ADRs, and examples. This README is the front door; the site is the map.

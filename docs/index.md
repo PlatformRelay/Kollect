@@ -27,15 +27,14 @@ hide:
 
 </p>
 
-**Your cluster, in Git, diffable.** Declare GVK + CEL in CRDs and get a clean, Git-committed
-inventory — when the cluster changes, the inventory commits change; `git log` is your audit trail
-and `git diff` is your drift report. **Git export is the hero** — Postgres and every other sink get
-the same rows in parallel, for free. Portals, automation, and auditors read **export data**, not
-unbounded list/watch against the live API.
+**Kubernetes knows what's running. Kollect makes it a record.** Declare what matters in a few CRs
+and get a durable, always-current inventory wherever your platform needs it — a Git history you
+can `diff`, a database your portal can query, an event stream your automation can react to. Start
+with one Git repo; grow to multi-tenant fan-out across teams without rebuilding anything.
 
 Record the hero demo locally: [DEMO-GIF-GUIDE.md](DEMO-GIF-GUIDE.md).
 
-`kollect.dev/v1alpha1` · event-driven · CRD-native · fleet-ready
+*Git-simple to start · platform-grade to grow* — `kollect.dev/v1alpha1` · event-driven · CRD-native · fleet-ready
 
 [Quick start :octicons-arrow-right-24:](QUICKSTART.md){ .md-button .md-button--primary }
 [CR reference :octicons-arrow-right-24:](CR-REFERENCE.md){ .md-button }
