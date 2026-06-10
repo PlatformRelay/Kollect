@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Features
+
+- **api:** [**breaking**] Reference namespaced static config from cluster kinds [9753744](https://github.com/konih/kollect/commit/97537449b7fa94b52a11b72509c3a0fbc10e5ca2)
+
 ## [0.6.0-rc.2](https://github.com/konih/kollect/compare/v0.6.0-rc.1..v0.6.0-rc.2) - 2026-06-10
 
 ### Bug Fixes
