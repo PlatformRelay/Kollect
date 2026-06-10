@@ -14,7 +14,7 @@ bootstrap (see [ADR-0203](../adr/0203-namespaced-multi-tenancy.md) RBAC expectat
 | Watch scope | All namespaces (`watchNamespaces: []`) | Explicit list (`watchNamespaces: [team-a]`) |
 | Tenancy policy | `KollectScope` per tenant namespace | Same — `KollectScope` in team namespace |
 | CRD install | Cluster-scoped (standard) | Same — still requires cluster-level CRD apply |
-| Cluster CRDs | `KollectClusterInventory`, `KollectCluster*Sink`, etc. | **Not reconciled** — namespaced CRDs only |
+| Cluster CRDs | `KollectClusterInventory`, `KollectClusterTarget`, etc. | **Not reconciled** — namespaced CRDs only |
 | Validating webhooks | On by default | Usually **off** — `ValidatingWebhookConfiguration` is cluster-scoped |
 | Overlap | N/A (single operator) | **Allowed** — multiple operators may watch the same GVK/namespace |
 
@@ -126,7 +126,7 @@ install namespace.
   cannot read Secrets in other namespaces.
 - **Webhooks:** With `webhooks.enabled: false`, invalid CRs are caught at reconcile time, not admission.
   Platform teams may run a shared validating webhook if policy requires admission-time rejection.
-- **Cluster rollups:** `KollectClusterInventory` and `KollectCluster*Sink` require cluster-scoped
+- **Cluster rollups:** `KollectClusterInventory` and `KollectClusterTarget` require cluster-scoped
   reconciler RBAC — use the platform golden-path operator for federation.
 - **Overlap:** A team operator and a platform operator may both watch `team-a`. Kollect does not block
   this; coordinate via ops policy or sink dedupe if duplicate rows are undesirable.

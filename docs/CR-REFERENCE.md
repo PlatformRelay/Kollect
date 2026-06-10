@@ -31,7 +31,6 @@ flowchart LR
   Db[KollectDatabaseSink]
   Ev[KollectEventSink]
   ConnTest[KollectConnectionTest<br/>probe]
-  CProf[KollectClusterProfile]
   CTarget[KollectClusterTarget]
   CInv[KollectClusterInventory]
 
@@ -45,7 +44,7 @@ flowchart LR
   ConnTest -.-> Snap
   ConnTest -.-> Db
   ConnTest -.-> Ev
-  CProf --> CTarget
+  Profile -.->|"profileRef (name + namespace)"| CTarget
   CTarget -.-> CInv
   CInv -.-> Snap
   CInv -.-> Db
@@ -57,15 +56,17 @@ snapshot/database/event sink refs.
 Optional Scope constrains GVKs, namespaces, and sinks. Use ConnectionTest to verify sink reachability
 before export.
 
-!!! tip "Same-namespace rule"
-    `profileRef`, family sink refs (`snapshotSinkRefs`, `databaseSinkRefs`, `eventSinkRefs`), and
-    connection-test `sinkRef` must resolve CRs in the **same namespace** as the referring object.
-    Cluster inventory resolves namespaced sinks in `spec.sinkNamespace`; cluster family sinks are
-    cluster-scoped.
+!!! tip "Namespace rules"
+    On **namespaced** kinds, `profileRef`, family sink refs (`snapshotSinkRefs`, `databaseSinkRefs`,
+    `eventSinkRefs`), and connection-test `sinkRef` resolve CRs in the **same namespace** as the
+    referring object. On **cluster** kinds, `profileRef` requires an explicit `name` + `namespace`;
+    cluster-inventory sink refs resolve by `name` + `namespace`, defaulting to `spec.sinkNamespace`
+    when a ref omits `namespace`. There are no cluster-scoped static config kinds (ADR-0208).
 
-**Platform flow:** `KollectClusterProfile` → `KollectClusterTarget` → `KollectClusterInventory` for
-cross-namespace rollup. `KollectClusterTarget` and `KollectClusterInventory` controllers reconcile
-and export; `KollectClusterProfile` remains admission-only (no controller).
+**Platform flow:** publish a namespaced `KollectProfile` (and family sinks) in `kollect-system`, then
+`KollectClusterTarget` → `KollectClusterInventory` roll up and export cross-namespace. Both cluster
+reconciled kinds reference the namespaced static config by `name` + `namespace`
+([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)).
 
 ### Snapshot export layout and spill
 
@@ -88,14 +89,11 @@ optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval
 | `KollectSnapshotSink` | Namespace | Probe only | [crds/kollectsnapshotsink.md](crds/kollectsnapshotsink.md) |
 | `KollectDatabaseSink` | Namespace | Probe only | [crds/kollectdatabasesink.md](crds/kollectdatabasesink.md) |
 | `KollectEventSink` | Namespace | Probe only | [crds/kollecteventsink.md](crds/kollecteventsink.md) |
-| `KollectClusterSnapshotSink` | Cluster | Probe only | [crds/kollectsnapshotsink.md](crds/kollectsnapshotsink.md) |
-| `KollectClusterDatabaseSink` | Cluster | Probe only | [crds/kollectdatabasesink.md](crds/kollectdatabasesink.md) |
-| `KollectClusterEventSink` | Cluster | Probe only | [crds/kollecteventsink.md](crds/kollecteventsink.md) |
 | `KollectTarget` | Namespace | Yes | [crds/kollecttarget.md](crds/kollecttarget.md) |
 | `KollectInventory` | Namespace | Yes | [crds/kollectinventory.md](crds/kollectinventory.md) |
 | `KollectScope` | Namespace | No (enforced) | [crds/kollectscope.md](crds/kollectscope.md) |
 | `KollectConnectionTest` | Namespace | Yes | [crds/kollectconnectiontest.md](crds/kollectconnectiontest.md) |
-| `KollectClusterProfile` | Cluster | No (webhook only) | [crds/kollectclusterprofile.md](crds/kollectclusterprofile.md) |
+| `KollectClusterScope` | Cluster | No (enforced) | [crds/kollectclusterscope.md](crds/kollectclusterscope.md) |
 | `KollectClusterTarget` | Cluster | Yes | [crds/kollectclustertarget.md](crds/kollectclustertarget.md) |
 | `KollectClusterInventory` | Cluster | Yes | [crds/kollectclusterinventory.md](crds/kollectclusterinventory.md) |
 
@@ -104,7 +102,8 @@ optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval
 | Kind | Scope | Notes |
 | --- | --- | --- |
 | ~~`KollectSink`~~ | — | **Removed** — use family sinks ([ADR-0414](adr/0414-sink-family-crds.md)) |
-| `KollectClusterScope` | Cluster | Platform policy boundary |
+| ~~`KollectClusterProfile`~~ | — | **Removed** — reference a namespaced `KollectProfile` by `name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
+| ~~`KollectCluster*Sink`~~ | — | **Removed** — reference namespaced family sinks per ref namespace ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 | ~~`KollectRemoteCluster`~~ | — | **Removed** — shared sink + `spec.cluster` ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |
 
 ## Short names
@@ -113,7 +112,6 @@ optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval
 | --- | --- | --- |
 | `KollectInventory` | `kinv` | `kubectl get kinv -A` |
 | `KollectTarget` | `ktgt` | `kubectl get ktgt -n default` |
-| `KollectClusterProfile` | `kcprof` | `kubectl get kcprof` |
 | `KollectClusterTarget` | `kctgt` | `kubectl get kctgt` |
 | `KollectClusterInventory` | `kcinv` | `kubectl get kcinv` |
 | `KollectConnectionTest` | `kconntest` | `kubectl get kconntest -A` |

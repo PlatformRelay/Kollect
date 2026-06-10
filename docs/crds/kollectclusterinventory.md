@@ -4,8 +4,8 @@
 
 !!! note "Sink namespace"
     Family sink refs (`snapshotSinkRefs`, `databaseSinkRefs`, `eventSinkRefs`) resolve namespaced
-    sinks in `spec.sinkNamespace` (default `kollect-system`), or cluster-scoped `KollectCluster*Sink`
-    when no namespaced match exists.
+    sinks by `name` + `namespace`. A ref that omits `namespace` defaults to `spec.sinkNamespace`
+    (default `kollect-system`). There is **no** cluster-scoped sink fallback (ADR-0208).
 
 ## What it is for
 
@@ -21,14 +21,14 @@ in `spec.sinkNamespace`.
 
 ```mermaid
 flowchart TD
-  CProf[KollectClusterProfile]
+  Profile[KollectProfile in kollect-system]
   CTarget[KollectClusterTarget]
   CInv[KollectClusterInventory]
   Snap[KollectSnapshotSink]
   Db[KollectDatabaseSink]
   Ev[KollectEventSink]
 
-  CProf -.->|optional profileRef| CInv
+  Profile -.->|"optional profileRef (name + namespace)"| CInv
   CTarget -->|rollup| CInv
   CInv --> Snap
   CInv --> Db
@@ -39,25 +39,26 @@ flowchart TD
 | --- | --- |
 | Targets | `spec.targetRefs[]` names cluster targets; empty = all matching `targetSelector` (or all targets) |
 | Namespaces | Optional `spec.namespaces` (explicit list) **intersected** with `spec.namespaceSelector` when both set; at least one scope mechanism should be configured for intentional rollups |
-| Sinks | Family ref lists resolved in `spec.sinkNamespace` (default `kollect-system`) |
-| Profile | Optional `spec.profileRef` names a `KollectClusterProfile` (rollup schema override, future) |
+| Sinks | Family ref lists resolved by `name` + `namespace`; refs omitting `namespace` default to `spec.sinkNamespace` (default `kollect-system`) |
+| Profile | Optional `spec.profileRef` names a namespaced `KollectProfile` by `name` + `namespace` (rollup schema override, future) |
 
-**Sink design:** namespaced family sinks in the export namespace, or cluster-scoped
-`KollectCluster*Sink` for platform-wide backends ([ADR-0414](../adr/0414-sink-family-crds.md)).
+**Sink design:** namespaced family sinks resolved per ref namespace; publish platform-wide backends
+once in `kollect-system` and reference them from cluster inventories (ADR-0208,
+[ADR-0414](../adr/0414-sink-family-crds.md)).
 
 ## Spec fields
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `spec.profileRef` | string | No | — | `KollectClusterProfile` name (optional rollup override) |
+| `spec.profileRef` | object | No | — | Namespaced `KollectProfile` ref (`{ name, namespace }`, optional rollup override) |
 | `spec.targetRefs[]` | list | No | all targets | `KollectClusterTarget` names (name only) |
 | `spec.targetSelector` | labelSelector | No | — | Filter cluster targets when `targetRefs` empty |
 | `spec.namespaces[]` | list | No | — | Explicit namespace allow-list (DNS-1123 labels); intersected with `namespaceSelector` |
 | `spec.namespaceSelector` | labelSelector | No | — | Label filter for namespace scope; intersected with `namespaces` when both set |
-| `spec.snapshotSinkRefs[]` | list | No | — | Snapshot sink refs (string or `{ name, exportMinInterval? }`) |
+| `spec.snapshotSinkRefs[]` | list | No | — | Snapshot sink refs (string or `{ name, namespace?, exportMinInterval? }`) |
 | `spec.databaseSinkRefs[]` | list | No | — | Database sink refs (same shape) |
 | `spec.eventSinkRefs[]` | list | No | — | Event sink refs (same shape); combined max **20** |
-| `spec.sinkNamespace` | string | No | `kollect-system` | Namespace for namespaced family sink resolution |
+| `spec.sinkNamespace` | string | No | `kollect-system` | Default namespace for sink refs that omit `namespace` |
 | `spec.exportMinInterval` | duration | No | **30s** | Debounce for **identical payloads** per ref without override; material changes always export immediately; `0s` = material-change only |
 | `spec.suspend` | bool | No | false | Pause reconciliation (reserved) |
 
@@ -82,20 +83,24 @@ spec:
   targetRefs:
     - platform-argo-applications
   namespaces:                      # optional explicit list — intersected with namespaceSelector
-    - platform-apps
+    - team-a
+    - team-b
   namespaceSelector:
     matchLabels:
       kollect.dev/tenant: platform
+  sinkNamespace: kollect-system    # default namespace for sink refs omitting namespace
   databaseSinkRefs:
-    - postgres
-  sinkNamespace: kollect-system    # where namespaced family sinks are resolved
+    - name: postgres               # resolves in sinkNamespace (kollect-system)
+  snapshotSinkRefs:
+    - name: team-git               # explicit cross-namespace export
+      namespace: team-a
 ```
 
 ## Sample usage
 
 ```sh
-# Prerequisites: cluster profile, cluster target, sink in kollect-system
-kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterprofile.yaml
+# Prerequisites: namespaced profile, cluster target, sink in kollect-system
+kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile_platform-argo-summary.yaml
 kubectl apply -f config/samples/kollect_v1alpha1_kollectdatabasesink.yaml -n kollect-system
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclustertarget.yaml
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterinventory.yaml
@@ -149,15 +154,17 @@ inventory ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | Admission denied | Invalid or duplicate `namespaces` entry | Use unique DNS-1123 namespace names |
-| Admission denied | `targetRefs` or family sink refs contain `/` | Use name only — no `namespace/name` |
+| Admission denied | `targetRefs` entry contains `/` | Use name only — cluster targets are cluster-scoped |
+| `SinkNotFound` | Sink ref namespace wrong/empty | Set `name` (+ optional `namespace`); refs without `namespace` default to `sinkNamespace` |
 | No export | Targets not `Ready` or sink misconfigured | `kubectl describe kctgt`; verify sink in `sinkNamespace` |
 | `SinkNotFound` | Bad family sink ref in `sinkNamespace` | Create family sink in export namespace |
 | `Degraded` | Payload too large or terminal sink error | Check operator logs and family sink status |
 
 ## See also
 
-- [KollectClusterProfile](kollectclusterprofile.md) — platform extraction schema
+- [KollectProfile](kollectprofile.md) — namespaced extraction schema referenced by `profileRef`
 - [KollectClusterTarget](kollectclustertarget.md) — pairs with this kind
 - [KollectInventory](kollectinventory.md) — namespaced equivalent (shipped)
 - [CR-REFERENCE.md](../CR-REFERENCE.md)
+- [ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)
 - [ADR-0201](../adr/0201-crd-model.md)

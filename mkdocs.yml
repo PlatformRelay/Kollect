@@ -102,7 +102,6 @@ nav:
           - KollectScope: crds/kollectscope.md
           - KollectClusterScope: crds/kollectclusterscope.md
           - KollectConnectionTest: crds/kollectconnectiontest.md
-          - KollectClusterProfile: crds/kollectclusterprofile.md
           - KollectClusterTarget: crds/kollectclustertarget.md
           - KollectClusterInventory: crds/kollectclusterinventory.md
       - Annotations and labels: ANNOTATIONS-LABELS.md

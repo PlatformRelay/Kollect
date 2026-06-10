@@ -28,10 +28,11 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 
 !!! warning "Same-namespace references"
     `profileRef`, `sinkRefs`, and `KollectConnectionTest.spec.sinkRef` resolve objects in the
-    **same namespace** as the referring CR. Cluster-scoped kinds use `sinkNamespace` instead.
+    **same namespace** as the referring CR. Cluster reconciled kinds reference namespaced config by
+    explicit `name` + `namespace` (sink refs default to `sinkNamespace`) ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)).
 
 - **Namespaced default:** Profile, **Sink**, Target, Inventory, Scope in team namespace.
-- **Cluster variants:** `KollectClusterTarget` (platform cross-namespace collection), `KollectClusterProfile`, `KollectClusterSink`, `KollectClusterInventory`, `KollectClusterScope`.
+- **Cluster reconciled kinds:** `KollectClusterTarget` (platform cross-namespace collection), `KollectClusterInventory`, `KollectClusterScope`. They reference namespaced `KollectProfile` / family sinks by `name` + `namespace` — no cluster-scoped static config kinds ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)).
 - **Default install:** per-team Helm — `tenantMode: true`, `watchNamespaces: [team-ns]`.
 - **MVP:** collect → aggregate → export to **Postgres or Kafka** for portals/scale; **Git** is the
   recommended sink for **small single-cluster** installs without a database or Kafka broker.
@@ -75,7 +76,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 | Secondary watches | **Ship** — `KollectProfile` change enqueues referring Targets; family sink change enqueues Inventories with matching `snapshotSinkRefs`, `databaseSinkRefs`, or `eventSinkRefs` |
 | Generic CRD sample | **`cert-manager.io/Certificate`** — contract test first, then profile + target + walkthrough |
 | `KollectClusterTarget` controller | **Defer** — API + webhook + sample only until namespaced e2e solid |
-| `profileRef` (cluster target) | Resolves **`KollectProfile` in platform namespace** (Helm `platformNamespace`); `KollectClusterProfile` later |
+| `profileRef` (cluster target) | Resolves a namespaced **`KollectProfile`** by explicit `name` + `namespace` — required at admission, no implicit fallback ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 | `namespaceSelector` | **Required** — webhook rejects empty/missing selector |
 | Helm values profile | **`helm-release-values-redacted`** + operator **`scrubKeys[]`** at extraction |
 | GitLab sink | **Phase 2** — implement with **`tls.caSecretRef`** for internal CA; Git remains small-install default |
@@ -206,14 +207,12 @@ flowchart TD
 | `KollectDatabaseSink` | **Namespace** | Same-ns `databaseSinkRefs` on Inventory |
 | `KollectEventSink` | **Namespace** | Same-ns `eventSinkRefs` on Inventory |
 | `KollectTarget` | Namespace | Default for `tenantMode`; same-ns `profileRef` |
-| `KollectClusterTarget` | **Cluster** | Platform operator; `namespaceSelector` + `KollectClusterProfile` ref |
+| `KollectClusterTarget` | **Cluster** | Platform operator; `namespaceSelector` + namespaced `profileRef` (`name` + `namespace`) |
 | `KollectInventory` | Namespace | Aggregates namespaced targets in namespace |
 | `KollectScope` | Namespace | Webhook + reconciler enforcement |
 | `KollectConnectionTest` | Namespace | One-shot / CI connectivity probes |
-| `KollectClusterProfile` | Cluster | Platform-shared extraction schemas |
-| `KollectClusterSink` | Cluster | Shared export backends (later) |
-| `KollectClusterInventory` | Cluster | Rollup for cluster targets (later) |
-| `KollectClusterScope` | Cluster | Reserved — platform policy |
+| `KollectClusterInventory` | Cluster | Rollup for cluster targets; namespaced family-sink refs by `name` + `namespace` |
+| `KollectClusterScope` | Cluster | Platform policy ceiling |
 
 ### Reserved CRDs — what they mean
 
@@ -221,11 +220,9 @@ flowchart TD
 
 | Kind | Intent | When |
 | --- | --- | --- |
-| **`KollectClusterTarget`** | One cluster object collects across namespaces (platform operator) | After namespaced MVP; needs `KollectClusterProfile` + merge/export path |
-| `KollectClusterProfile` | One schema for all teams (like `ClusterSecretStore`) | With cluster target / platform operator |
-| `KollectClusterSink` | Central Postgres/Git for all tenants | Namespaced sinks cover team-owned destinations first |
-| `KollectClusterInventory` | Roll up all namespaces for platform portal | Shared sink + cluster-scoped export |
-| `KollectClusterScope` | Cluster-wide policy when namespaced Scope is too weak | Phase 1 namespaced Scope first |
+| **`KollectClusterTarget`** | One cluster object collects across namespaces (platform operator) | Shipped — references a namespaced `KollectProfile` by `name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
+| `KollectClusterInventory` | Roll up all namespaces for platform portal | Shipped — namespaced family-sink refs (`name` + `namespace`, default `sinkNamespace`) |
+| `KollectClusterScope` | Cluster-wide policy when namespaced Scope is too weak | Shipped — platform ceiling |
 | `KollectReceiver` | Inbound webhook → trigger export (Flux Receiver) | No webhook trigger requirement yet |
 | `KollectTargetSet` | Generate many Targets (ApplicationSet) | Manual Targets OK for MVP |
 | ~~`KollectPublication`~~ | Confluence/doc sync | **Rejected** — [ADR-0702](adr/0702-doc-sync-templating.md) |

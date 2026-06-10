@@ -2,7 +2,9 @@
 
 **Scope:** Namespace · **Reconciled:** Yes (connection test) · **Short name:** `kevt`
 
-Cluster-scoped variant: **`KollectClusterEventSink`** (`kcevt`).
+Platform-shared backends: publish a `KollectEventSink` in `kollect-system` and reference it from a
+`KollectClusterInventory` sink ref by `name` + `namespace` — there is no cluster-scoped sink kind
+([ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)).
 
 ## What it is for
 

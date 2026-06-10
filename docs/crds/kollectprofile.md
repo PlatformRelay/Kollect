@@ -224,7 +224,7 @@ ClusterRole includes profile read cluster-wide when not in tenant mode.
 
 ## See also
 
-- [KollectClusterProfile](kollectclusterprofile.md) — cluster-scoped platform variant
+- [KollectClusterTarget](kollectclustertarget.md) — references this profile by `name` + `namespace` for platform rollups ([ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md))
 - [KollectTarget](kollecttarget.md) — binds a profile to selectors
 - [KollectScope](kollectscope.md) — GVK allow-list
 - [examples/deployment-inventory.md](../examples/deployment-inventory.md)

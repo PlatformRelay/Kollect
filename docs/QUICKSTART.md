@@ -234,7 +234,7 @@ Be honest about where the project stands:
 | **0** | ✅ Done | CRDs (9 kinds), RBAC, validating webhooks, manager on kind, CI, Helm chart, samples, docs |
 | **1** | 🚧 Mostly shipped | Dynamic informers, CEL/JSONPath extraction, `KollectTarget`/`KollectInventory` controllers, seven sink types (Git, GitLab, S3, GCS, Postgres incl. delete recon, Kafka, NATS), connection test, `KollectScope` multitenant gate, inventory HTTP API (partial) |
 | **2** | ✅ Fleet model | Multi-cluster = one operator per cluster exporting to a shared sink with `spec.cluster` row partitioning ([ADR-0501](adr/0501-multi-cluster-fleet.md)). There is **no** hub/spoke runtime, ingest tier, or queue transport — that design was removed in v0.3 |
-| **3** | ✅ Mostly shipped | `KollectClusterTarget` + `KollectClusterInventory` controllers (rollup + export); `KollectClusterProfile` admission-only; `KollectScope` enforcement |
+| **3** | ✅ Mostly shipped | `KollectClusterTarget` + `KollectClusterInventory` controllers (rollup + export) referencing namespaced `KollectProfile` / family sinks by `name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)); `KollectScope`/`KollectClusterScope` enforcement |
 
 End-to-end export on kind is green in CI; some items (GCS Parquet export, terminal finalizer cleanup)
 remain 🚧/⬜ in [ROADMAP.md](ROADMAP.md). Track detail in [ARCHITECTURE.md](ARCHITECTURE.md).

@@ -9,7 +9,7 @@ introducing anti-overlap guardrails — overlapping collection is allowed.
 
 | Path | Priority | Operator installs | Watch scope | Tenancy policy | Cluster CRDs reconciled |
 | --- | --- | --- | --- | --- | --- |
-| **A. Platform golden path** | Default | One cluster-wide release | All namespaces (`watchNamespaces: []`) | `KollectScope` per tenant namespace | Yes — rollups + `KollectCluster*Sink` |
+| **A. Platform golden path** | Default | One cluster-wide release | All namespaces (`watchNamespaces: []`) | `KollectScope` per tenant namespace | Yes — rollups + namespaced family sinks in `kollect-system` |
 | **B. Team-owned operator** | Supported, lower doc priority | One release per team namespace | Explicit list (`watchNamespaces: [team-a, …]`) | `KollectScope` in team namespace | No — namespaced CRDs only |
 | **C. Hybrid** | Supported | Platform + one or more team releases | Platform: all; teams: subset | Platform + per-team `KollectScope` | Platform reconciles cluster CRDs; teams namespaced only |
 | **D. Multi-team overlap** | Operational scenario (not blocked) | Two or more independent installs | Overlapping namespace/GVK sets | Each install's `KollectScope` (if any) | Depends on which paths are combined |
@@ -42,14 +42,13 @@ and sink refs. Violations hard-degrade targets and inventories (`ScopeGVKDenied`
 | `KollectInventory` | Namespaced | Primary product unit — aggregates targets in the same namespace |
 | `KollectClusterInventory` | Cluster | Platform rollup — composes namespace snapshots/shards (explicit federation) |
 | `KollectTarget` / `KollectClusterTarget` | Namespace / cluster | Collection drivers |
-| `KollectProfile` / `KollectClusterProfile` | Namespace / cluster | Extraction schemas |
+| `KollectProfile` | Namespace | Extraction schemas — cluster targets reference by `name` + `namespace` ([ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)) |
 
 **Sink resolution:**
 
 | Sink kind | Scope | Resolved by |
 | --- | --- | --- |
-| `KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink` | Namespaced | Inventory in same namespace via `snapshotSinkRefs`, `databaseSinkRefs`, `eventSinkRefs` |
-| `KollectClusterSnapshotSink`, `KollectClusterDatabaseSink`, `KollectClusterEventSink` | Cluster | `KollectClusterInventory` — sinks in `spec.sinkNamespace` ([ADR-0414](../adr/0414-sink-family-crds.md)) |
+| `KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink` | Namespaced | Namespaced inventory in same namespace; `KollectClusterInventory` by `name` + `namespace`, defaulting to `spec.sinkNamespace` ([ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)) |
 
 See [cluster rollup example](../examples/cluster-rollup.md) and [ADR-0501](../adr/0501-multi-cluster-fleet.md)
 for fleet fan-in to shared sinks.
@@ -66,7 +65,7 @@ RBAC.
 | CRD bootstrap | Still cluster-level (platform admin once per cluster) |
 | Workload RBAC | Team grants `Role` per scraped namespace for target GVKs; SAR pre-check before informers |
 | Validating webhooks | Usually off — team install cannot own cluster-scoped webhook config |
-| Cluster CRDs | **Not reconciled** — no `KollectClusterInventory`, `KollectClusterTarget`, or `KollectCluster*Sink` |
+| Cluster CRDs | **Not reconciled** — no `KollectClusterInventory` or `KollectClusterTarget` |
 
 **Inventory CR kinds (team path only):**
 
@@ -74,7 +73,7 @@ RBAC.
 | --- | --- |
 | `KollectScope`, `KollectProfile`, family sinks, `KollectTarget`, `KollectInventory` | Yes |
 | `KollectConnectionTest` | Yes (namespaced probe) |
-| `KollectClusterInventory`, `KollectClusterTarget`, `KollectClusterProfile`, `KollectCluster*Sink` | No — require platform golden-path RBAC |
+| `KollectClusterInventory`, `KollectClusterTarget` | No — require platform golden-path RBAC |
 
 **Sink resolution:** Namespaced family sinks in the team namespace. Inventory `*SinkRefs` resolve
 `snapshotSinkRefs` / `databaseSinkRefs` / `eventSinkRefs` to CRs in the **same namespace**. Secrets
@@ -89,7 +88,7 @@ for delegated collection.
 
 | Component | Path | Reconciles |
 | --- | --- | --- |
-| Platform release | A | `KollectClusterInventory`, `KollectCluster*Sink`, optional `KollectClusterTarget` |
+| Platform release | A | `KollectClusterInventory`, namespaced family sinks in `kollect-system`, optional `KollectClusterTarget` |
 | Team release(s) | B | Namespaced targets, inventories, sinks in team namespace |
 
 **Main risks (honest):**
@@ -101,9 +100,9 @@ for delegated collection.
 - **Metrics cardinality:** Multiple installs increase instance/namespace/profile/sink label dimensions
   — keep dashboards bounded ([ADR-0604](../adr/0604-target-scoped-prometheus-metrics.md)).
 
-**Sink resolution on hybrid:** Platform cluster inventories resolve `KollectCluster*Sink` in
-`sinkNamespace`. Team inventories resolve namespaced family sinks locally. **No automatic cross-install
-dedupe** — see [Multi-operator sink dedupe](#multi-operator-sink-dedupe-runbook) below.
+**Sink resolution on hybrid:** Platform cluster inventories resolve namespaced family sinks by `name` +
+`namespace` (default `sinkNamespace`). Team inventories resolve namespaced family sinks locally. **No
+automatic cross-install dedupe** — see [Multi-operator sink dedupe](#multi-operator-sink-dedupe-runbook) below.
 
 ## Path D — Multi-team overlap (no guardrails)
 
@@ -142,7 +141,7 @@ installs each run their own leader election lease.
 | Inventory kind | Sink CR kinds | Resolution rule |
 | --- | --- | --- |
 | `KollectInventory` | Namespaced family sinks | Same namespace as inventory; refs in `snapshotSinkRefs`, `databaseSinkRefs`, `eventSinkRefs` |
-| `KollectClusterInventory` | `KollectCluster*Sink` | `spec.sinkNamespace` + family refs; optional `spec.dedupe` for cross-target merge ([ADR-0305](../adr/0305-aggregation-dedupe.md)) |
+| `KollectClusterInventory` | namespaced family sinks | `name` + `namespace` per ref (default `spec.sinkNamespace`); optional `spec.dedupe` for cross-target merge ([ADR-0305](../adr/0305-aggregation-dedupe.md)) |
 
 `KollectScope` allowlists use the same ref shapes — denied sinks hard-degrade the inventory.
 

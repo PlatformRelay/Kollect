@@ -9,14 +9,14 @@ Cluster-scoped tenancy **ceiling** for platform operators ([ADR-0207](../adr/020
 | `allowedGVKs` | Cap on GVKs cluster targets may collect |
 | `allowedNamespaces` | Cap on workload namespaces |
 | `deniedNamespaces` | Platform blacklist — not overridable by Targets |
-| `sinkRefs` | Permitted cluster sink names for export |
+| `sinkRefs` | Permitted namespaced family-sink names for export |
 
 Static config only — no status subresource ([ADR-0202](../adr/0202-static-vs-reconciled.md)).
 
 ## Example
 
 A cluster-wide ceiling that caps platform collection to `Deployment`/`Service`, blocks
-`kube-system`, and allows export only to a named cluster sink:
+`kube-system`, and allows export only to a named namespaced family sink:
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1

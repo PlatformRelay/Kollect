@@ -1,6 +1,7 @@
 # ADR-0414: Sink family CRDs (clean break, pre-GA)
 
-**Status:** Current · **Supersedes:** [RFC: sink family CRDs](../rfc/sink-family-crds.md)
+**Status:** Current · **Supersedes:** [RFC: sink family CRDs](../rfc/sink-family-crds.md) ·
+**Amended by:** [ADR-0208](0208-cluster-static-refs-via-namespace.md) (cluster sink kinds removed)
 
 ## Decision
 
@@ -68,12 +69,17 @@ conversion story; that is explicitly out of scope for v1alpha1.
 
 Promoted from [RFC: sink family CRDs](../rfc/sink-family-crds.md). Pre-GA clean break — no dual-write window.
 
-### Cluster sink kinds — retained
+### Cluster sink kinds — ~~retained~~ removed by [ADR-0208](0208-cluster-static-refs-via-namespace.md)
 
-`KollectClusterSnapshotSink`, `KollectClusterDatabaseSink`, and `KollectClusterEventSink` remain
+> **Superseded:** the decision below was reversed pre-GA. `KollectClusterSnapshotSink`,
+> `KollectClusterDatabaseSink`, and `KollectClusterEventSink` are **removed**; cluster reconciled
+> kinds reference **namespaced** family sinks by explicit `name` + `namespace`. See
+> [ADR-0208](0208-cluster-static-refs-via-namespace.md).
+
+~~`KollectClusterSnapshotSink`, `KollectClusterDatabaseSink`, and `KollectClusterEventSink` remain
 **shipped and supported long-term**. Collapsing to namespaced sinks only is **rejected** — platform
 shared destinations and per-cluster fleet fan-in ([ADR-0501](0501-multi-cluster-fleet.md)) both need
-explicit cluster-scoped sink APIs.
+explicit cluster-scoped sink APIs.~~
 
 ## References
 

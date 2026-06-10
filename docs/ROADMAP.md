@@ -41,7 +41,7 @@ See [ADR-0306](adr/0306-full-resource-export-pruning.md) — **Accepted; Phase 1
 
 | Scope item | Status |
 | --- | --- |
-| `spec.export` block on `KollectProfile` / `KollectClusterProfile` (`mode`, `as`, `include`, `dedupeIdentity`) | ✅ |
+| `spec.export` block on `KollectProfile` (`mode`, `as`, `include`, `dedupeIdentity`) | ✅ |
 | Collector serializes pruned informer object when `export.mode: Resource` | ✅ |
 | Built-in defaults pruning (`prune.defaults`: managedFields, resourceVersion, generation, last-applied-config) | ✅ |
 | Argo-style `prune.jsonPointers` (RFC 6901) + JSONPath subset `prune.jsonPaths` | ✅ |
@@ -286,11 +286,11 @@ Multi-cluster support must **not** block single-cluster installs. **Fleet model:
 | `KollectScope` admission webhook | ✅ |
 | `KollectClusterScope` (platform teams) | 🔮 |
 | `KollectClusterTarget` API + webhook | ✅ |
-| `KollectClusterProfile` API + webhook (no controller) | ✅ |
+| `KollectClusterProfile` API + webhook | ✅ then removed — cluster targets reference namespaced `KollectProfile` by `name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 | `KollectClusterInventory` API + webhook | ✅ |
 | `KollectClusterTarget` controller (engine + namespaceSelector) | ✅ |
 | `KollectClusterInventory` controller (rollup + export to sinks) | ✅ |
-| `KollectClusterSink` / namespaced sink split | 🔮 |
+| `KollectCluster*Sink` kinds | ✅ then removed — cluster inventories reference namespaced family sinks ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 | GCS sink | ✅ |
 | S3/GCS object-store CI gate (integration + nightly) | ✅ |
 | Generic CRD proof (`cert-manager.io/Certificate` e2e) | ✅ |
@@ -303,7 +303,7 @@ Multi-cluster support must **not** block single-cluster installs. **Fleet model:
 | Parallel multi-sink export (one inventory → Postgres **and** Kafka concurrently) | ✅ |
 | `KollectClusterInventory` rollup + export to namespaced sinks | ✅ |
 | `KollectClusterTarget` engine end-to-end | ✅ |
-| `KollectClusterProfile` stub + profileRef resolution | ✅ |
+| Cluster target `profileRef` resolution (namespaced `KollectProfile` by `name` + `namespace`) | ✅ ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 | Generic CRD proof (`cert-manager.io/Certificate`) | ✅ |
 | GitLab sink enterprise path (MR/API) | ✅ feature-branch push + REST MR client |
 | S3/GCS production CI gate | ✅ PR integration + nightly |
@@ -426,7 +426,7 @@ Cross-cutting NFRs accepted in [ADR-0603](adr/0603-performance-scalability.md). 
 
 | Item | When |
 | --- | --- |
-| `KollectClusterSink` + namespaced `KollectSink` split | Phase 3 — cluster-scoped sinks + `KollectScope.sinkRefs` until then ([ADR-0204](adr/0204-namespaced-profiles.md)) |
+| Platform-shared sinks | Published as namespaced family sinks; cluster inventories reference them by `name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 | Kafka as **required** hub transport | Pluggable optional backend only; `inprocess` default (ADR-0502 (archived)) |
 | `KollectReceiver`, `KollectTargetSet` implementation | Reserved for future phases |
 | oauth2-proxy sidecar (OIDC browser auth) | Optional Helm sidecar (`oauth2Proxy.enabled: false`); K8s bearer auth is primary — [ADR-0404](adr/0404-inventory-api-auth.md) |
@@ -441,6 +441,21 @@ See [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) for locked vs still-open item
 
 ## Breaking changes
 
+### Cluster kinds reference namespaced static config (2026-06-10, ADR-0208)
+
+`KollectClusterProfile`, `KollectClusterSnapshotSink`, `KollectClusterDatabaseSink`, and
+`KollectClusterEventSink` are **removed**. Cluster reconciled kinds reference namespaced
+`KollectProfile` / family sinks by explicit `name` + `namespace`:
+
+- `KollectClusterTarget.spec.profileRef` is now an object `{ name, namespace }`; `namespace` is
+  **required** at admission (no implicit `kollect-system` fallback, no plain-string ref).
+- `KollectClusterInventory` sink refs resolve by `name` + optional `namespace`, defaulting to
+  `spec.sinkNamespace`; the cluster-sink fallback resolution is gone.
+
+Migration: republish shared profiles/sinks as namespaced objects (typically `kollect-system`) and
+rewrite cluster target/inventory refs to `name` + `namespace`. See
+[ADR-0208](adr/0208-cluster-static-refs-via-namespace.md).
+
 ### Namespaced `KollectInventory` (2026-06-05)
 
 `KollectInventory` is **namespaced**. Each team owns an inventory object in their namespace that
@@ -453,8 +468,10 @@ namespace scope where appropriate.
 ### Namespaced `KollectProfile` (2026-06-05)
 
 `KollectProfile` is **namespaced**. Each `KollectTarget.spec.profileRef` resolves a profile in the
-**same namespace** as the Target. Platform-wide shared schemas use `KollectClusterProfile`
-(cluster-scoped API shipped; controller pending).
+**same namespace** as the Target. Platform-wide shared schemas are published as namespaced
+`KollectProfile` objects (typically `kollect-system`) and referenced from `KollectClusterTarget` by
+`name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) — there is no
+`KollectClusterProfile` kind.
 
 Migration: re-apply profile manifests into each team namespace (or use GitOps templating). Remove
 cluster-scoped profile objects before upgrade.
@@ -464,9 +481,10 @@ cluster-scoped profile objects before upgrade.
 The monolithic **`KollectSink`** CRD was **removed** and replaced by three family kinds:
 `KollectSnapshotSink`, `KollectDatabaseSink`, and `KollectEventSink`. Each
 `KollectInventory` references sinks via **`snapshotSinkRefs`**, **`databaseSinkRefs`**, and
-**`eventSinkRefs`** (not a single `sinkRefs` list). Refs resolve in the **same namespace** as the
-inventory; cross-namespace refs are rejected at admission. Platform-shared backends use
-`KollectCluster*Sink` kinds ([ADR-0414](adr/0414-sink-family-crds.md)).
+**`eventSinkRefs`** (not a single `sinkRefs` list). On namespaced inventories, refs resolve in the
+**same namespace** as the inventory; cross-namespace refs are rejected at admission. Platform-shared
+backends are published as namespaced family sinks and referenced from `KollectClusterInventory` by
+`name` + `namespace` ([ADR-0414](adr/0414-sink-family-crds.md), [ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)).
 
 Migration: split each legacy `KollectSink` manifest into the matching family kind; rewrite inventory
 `sinkRefs` into the three family ref lists. Update `KollectScope` allowlists to
@@ -488,7 +506,7 @@ Scaffold (`553117cc`) reuses the shared **HTTPS git push** path: `internal/sink/
 | **Token scopes** | ✅ document `write_repository` + `api` in sink CR reference |
 | **Export integration** | ✅ `Backend.Export` pushes feature branch then calls `EnsureMergeRequest` |
 | **Integration test** | ✅ httptest MR client unit tests + file-remote feature-branch export test |
-| **Hub/cluster sinks** | Same contract applies to `KollectClusterSink` when implemented (Phase 3) |
+| **Platform-shared sinks** | Same contract applies to namespaced family sinks referenced cross-namespace by `KollectClusterInventory` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 
 **Default:** `direct` mode pushes to the default branch. `merge_request` mode opens/updates an MR via
 GitLab API v4 when `secretRef` provides an API token (`token` or `password` key).
@@ -514,10 +532,10 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | --- | --- |
 | Single-cluster MVP is the default install | Accepted |
 | Namespaced inventory is the primary rollup contract | Accepted |
-| **`KollectProfile` namespaced**; `KollectClusterProfile` reserved | Accepted ([ADR-0204](adr/0204-namespaced-profiles.md)) |
+| **`KollectProfile` namespaced**; cluster kinds reference it by `name` + `namespace` (no `KollectClusterProfile`) | Accepted ([ADR-0204](adr/0204-namespaced-profiles.md), superseded by [ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 | **`KollectScope` Phase 1** — webhook + reconciler enforcement | Accepted ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
 | **No `KollectHub` CRD** — single-mode operator per cluster | Accepted ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |
-| **Sink family CRDs** (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`); `KollectCluster*Sink` for platform | Accepted ([ADR-0414](adr/0414-sink-family-crds.md)) |
+| **Sink family CRDs** (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`); cluster inventories reference them by `name` + `namespace` (no `KollectCluster*Sink`) | Accepted ([ADR-0414](adr/0414-sink-family-crds.md), superseded by [ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 | **Role-based sinks** — state stores (Git/object store, Postgres) vs event emitters (NATS default, Kafka opt-in); no single "primary"; HTTP debug optional | Accepted ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)) |
 | **`KollectConnectionTest` CR** + **`spec.ttlSecondsAfterFinished`** default **300s** | Accepted (ADR-0703 (archived)) |
 | **`spec.exportMinInterval`** default **30s** (not global debounce flag) | Accepted (ADR-0703 (archived)) |
@@ -542,7 +560,7 @@ Full locked table: **[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md)**.
 | Extreme scale: many clusters, 10k+ objects/spoke, hub shard not O(n²) | Accepted ([ADR-0501](adr/0501-multi-cluster-fleet.md), [ADR-0603](adr/0603-performance-scalability.md)) |
 | Hub cluster auth: **Istio remote-secret registration + push TokenReview** | Accepted (ADR-0503 (archived)) |
 | Namespaced `KollectProfile`; `profileRef` same namespace | Accepted ([ADR-0204](adr/0204-namespaced-profiles.md)) |
-| **`KollectClusterSink` deferred Phase 3** | Deferred |
+| **No `KollectClusterSink` / cluster static kinds** — reference namespaced sinks by `name` + `namespace` | Accepted ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 
 ## Further reading
 

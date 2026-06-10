@@ -73,17 +73,16 @@ flowchart TD
 | `KollectProfile` | Namespace | No | Extraction schema ([ADR-0204](adr/0204-namespaced-profiles.md)) |
 | `KollectSnapshotSink` | **Namespace** | Probe only | Snapshot export; `ConnectionVerified` ([ADR-0414](adr/0414-sink-family-crds.md)) |
 | `KollectDatabaseSink` | **Namespace** | Probe only | Relational SoR export |
-| `KollectEventSink` | **Namespace** | Probe only | Event emitter export |
-| `KollectCluster*Sink` | Cluster | Probe only | Platform-shared backends |
+| `KollectEventSink` | **Namespace** | Probe only | Event emitter export; platform-shared backends published in `kollect-system` |
 | `KollectScope` | Namespace | No | Tenancy boundary ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
 | `KollectTarget` | Namespace | Yes | Team-scoped collection (default) |
 | `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0201](adr/0201-crd-model.md)) |
 | `KollectInventory` | Namespace | Yes | Aggregate namespaced targets; export to sinks |
 | `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0201](adr/0201-crd-model.md)) |
-| `KollectClusterProfile` | Cluster | No | Admission only — platform schemas (no controller) |
 | ~~`KollectSink`~~ | — | — | **Removed** — family CRDs ([ADR-0414](adr/0414-sink-family-crds.md)) |
+| ~~`KollectClusterProfile` / `KollectCluster*Sink`~~ | — | — | **Removed** — cluster kinds reference namespaced config by `name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
 | `KollectClusterInventory` | Cluster | Yes | Platform rollup — pairs with `KollectClusterTarget` |
-| `KollectClusterScope` | Cluster | No | **Reserved** — platform policy |
+| `KollectClusterScope` | Cluster | No | Platform policy boundary ([ADR-0207](adr/0207-target-collection-filtering.md)) |
 | ~~`KollectHub`~~ | — | **Rejected / stub** | **Removed** from tree — was never product surface |
 | ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](adr/0702-doc-sync-templating.md) |
 

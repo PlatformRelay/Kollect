@@ -21,7 +21,7 @@ Kollect CRDs register short names for faster typing ([CR-REFERENCE.md](CR-REFERE
 | `KollectInventory` | `kinv` | `kubectl get kinv -A` |
 | `KollectScope` | `kscope` | `kubectl get kscope -A` |
 | `KollectConnectionTest` | `kconntest` | `kubectl get kconntest -A` |
-| `KollectClusterProfile` | `kcprof` | `kubectl get kcprof` |
+| `KollectClusterScope` | `kcscope` | `kubectl get kcscope` |
 | `KollectClusterTarget` | `kctgt` | `kubectl get kctgt` |
 | `KollectClusterInventory` | `kcinv` | `kubectl get kcinv` |
 

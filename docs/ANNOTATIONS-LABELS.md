@@ -89,14 +89,14 @@ headers are **not** used in the default architecture.
 
 | Key | Type | On | Values | Effect |
 | --- | --- | --- | --- | --- |
-| `kollect.dev/allow-secret-extraction` | Annotation | `KollectProfile`, `KollectClusterProfile` | `"true"` | Admission allows CEL/JSONPath paths into `Secret.data` |
+| `kollect.dev/allow-secret-extraction` | Annotation | `KollectProfile` | `"true"` | Admission allows CEL/JSONPath paths into `Secret.data` |
 | `kollect.dev/collectedGeneration` | Annotation | Exported source objects (metadata) | `"<n>"` | Records source `metadata.generation` for staleness detection |
 | `kollect.dev/requestedAt` | Annotation | Reconciled Kollect CRs | RFC3339 timestamp | Manual reconcile trigger ([ADR-0201](adr/0201-crd-model.md)) |
 
 !!! warning "Secret extraction"
     Profiles that read `Secret.data` require explicit opt-in via `kollect.dev/allow-secret-extraction: "true"`.
     Prefer indirect references (e.g. cert-manager status) when possible
-    ([KollectClusterProfile](crds/kollectclusterprofile.md)).
+    ([KollectProfile](crds/kollectprofile.md)).
 
 ## Export payload spill
 

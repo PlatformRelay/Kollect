@@ -35,7 +35,7 @@ architecture context see [Understand the basics](UNDERSTAND-THE-BASICS.md) and
 | --- | --- |
 | **Fleet** | Many clusters each running `mode: single`, exporting to a **shared sink** with distinct `spec.cluster` ([ADR-0501](adr/0501-multi-cluster-fleet.md)). |
 | **Cluster label** | `spec.cluster` on database/event/snapshot sinks — merge dimension for Postgres PK, Git `pathTemplate`, or event subject. |
-| **Cluster profile / target / inventory** | Cluster-scoped counterparts (`KollectClusterProfile`, `KollectClusterTarget`, `KollectClusterInventory`) for cross-namespace rollup and platform-wide export. |
+| **Cluster target / inventory** | Cluster-scoped reconciled kinds (`KollectClusterTarget`, `KollectClusterInventory`) for cross-namespace rollup and platform-wide export. They reference namespaced `KollectProfile` / family sinks by `name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)). |
 
 ## Runtime and ops
 
@@ -59,28 +59,32 @@ KollectClusterInventory rolls up cluster targets for platform operators.
 
 | Spec field | Description |
 | --- | --- |
+| `databaseSinkRefs` | databaseSinkRefs lists namespaced KollectDatabaseSink refs (ADR-0414, ADR-0208). |
 | `dedupe` | dedupe selects how overlapping target rows collapse on export (ADR-0305). |
+| `eventSinkRefs` | eventSinkRefs lists namespaced KollectEventSink refs (ADR-0414, ADR-0208). |
 | `exportMinInterval` | exportMinInterval is the minimum time between identical exports for this inventory. |
 | `namespaceSelector` | namespaceSelector restricts rollup to namespaces matching the selector. |
-| `profileRef` | profileRef names a KollectClusterProfile stub for shared extraction schema (optional). |
-| `sinkNamespace` | sinkNamespace is the namespace where namespaced KollectSink objects are resolved. |
-| `sinkRefs` | sinkRefs lists KollectSink names resolved in sinkNamespace. |
-| `suspend` | suspend pauses reconciliation when set to true. |
-| `targetRefs` | targetRefs lists KollectClusterTarget names to aggregate. |
+| `namespaces` | namespaces explicitly lists namespace names that may contribute to the rollup. |
+| `profileRef` | profileRef optionally overrides the rollup extraction schema with a namespaced |
+| `sinkNamespace` | sinkNamespace is the default namespace for family sink refs that omit a namespace. |
 
 Full reference: [KollectClusterInventory](crds/kollectclusterinventory.md).
 
-### `KollectClusterProfile` (cluster)
+### `KollectClusterScope` (cluster)
 
-KollectClusterProfile is the Schema for platform-wide shared extraction schemas.
+KollectClusterScope is a cluster governance boundary for cluster targets and inventories.
 
 | Spec field | Description |
 | --- | --- |
-| `attributes` | attributes lists the values to extract from each matching resource. |
-| `metrics` | metrics lists kube-state-metrics-style Prometheus series emitted on operator /metrics. |
-| `targetGVK` | targetGVK selects the Kubernetes resource kind this profile applies to. |
+| `allowedGVKs` | allowedGVKs restricts which target resource kinds may be collected in this scope. |
+| `allowedNamespaces` | allowedNamespaces restricts which workload namespaces may be collected. |
+| `databaseSinkRefs` | databaseSinkRefs lists permitted KollectDatabaseSink names for this scope. |
+| `deniedNamespaces` | deniedNamespaces is a platform blacklist; Target intent cannot override (D8). |
+| `eventSinkRefs` | eventSinkRefs lists permitted KollectEventSink names for this scope. |
+| `minExportInterval` | minExportInterval is a tenancy floor — inventory and sink intervals below this value are rejected. |
+| `snapshotSinkRefs` | snapshotSinkRefs lists permitted KollectSnapshotSink names for this scope. |
 
-Full reference: [KollectClusterProfile](crds/kollectclusterprofile.md).
+Full reference: [KollectClusterScope](crds/kollectclusterscope.md).
 
 ### `KollectClusterTarget` (cluster)
 
@@ -88,8 +92,12 @@ KollectClusterTarget selects resources cluster-wide for platform operators.
 
 | Spec field | Description |
 | --- | --- |
+| `excludedNamespaces` | excludedNamespaces is a static namespace denylist applied after include logic. |
+| `includedNamespaces` | includedNamespaces is a static namespace allowlist. Empty means no extra restriction |
+| `namespaceExcludeSelector` | namespaceExcludeSelector excludes namespaces whose labels match the selector. |
 | `namespaceSelector` | namespaceSelector restricts collection to namespaces matching the selector. |
-| `profileRef` | profileRef names a KollectClusterProfile or a platform-namespace KollectProfile stub. |
+| `profileRef` | profileRef points at a namespaced KollectProfile by name and namespace (ADR-0208). |
+| `resourceRules` | resourceRules declares GVK-scoped collection rules. When empty, collection falls back to |
 | `suspend` | suspend pauses reconciliation when set to true (reserved for future controller). |
 
 Full reference: [KollectClusterTarget](crds/kollectclustertarget.md).
@@ -102,10 +110,44 @@ KollectConnectionTest triggers an audited one-shot sink connectivity probe.
 | --- | --- |
 | `ownerSink` | ownerSink sets an ownerReference to the sink when true (default). |
 | `profileRef` | profileRef optionally names a KollectProfile for future composite probes. |
-| `sinkRef` | sinkRef is the name of a KollectSink in the same namespace. |
+| `sinkRef` | sinkRef identifies exactly one family sink to probe (ADR-0414). |
 | `ttlSecondsAfterFinished` | ttlSecondsAfterFinished deletes the CR after status.completed plus this TTL. |
 
 Full reference: [KollectConnectionTest](crds/kollectconnectiontest.md).
+
+### `KollectDatabaseSink` (namespaced)
+
+KollectDatabaseSink is the Schema for relational export sinks.
+
+| Spec field | Description |
+| --- | --- |
+| `bigquery` | bigquery configures BigQuery relational export (ADR-0420). |
+| `cluster` | cluster labels exported inventory in multi-cluster installs. |
+| `connectionTest` | connectionTest enables connectivity checks on create/update (default true). |
+| `endpoint` | endpoint is the backend-specific destination (URL, bucket, and so on). |
+| `exportMinInterval` | exportMinInterval is the default minimum time between identical exports when an inventory |
+| `layout` | layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419). |
+| `mongodb` | mongodb configures MongoDB document upsert export (ADR-0417). |
+| `options` | options carries non-secret, backend-specific pass-through settings (ADR-0416 §4, Option 2). |
+
+Full reference: [KollectDatabaseSink](crds/kollectdatabasesink.md).
+
+### `KollectEventSink` (namespaced)
+
+KollectEventSink is the Schema for event export sinks.
+
+| Spec field | Description |
+| --- | --- |
+| `cluster` | cluster labels exported inventory in multi-cluster installs. |
+| `connectionTest` | connectionTest enables connectivity checks on create/update (default true). |
+| `endpoint` | endpoint is the backend-specific destination (URL, bucket, and so on). |
+| `exportMinInterval` | exportMinInterval is the default minimum time between identical exports when an inventory |
+| `kafka` | kafka configures Kafka inventory change events. |
+| `layout` | layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419). |
+| `nats` | nats configures NATS JetStream inventory change events. |
+| `options` | options carries non-secret, backend-specific pass-through settings (ADR-0416 §4, Option 2). |
+
+Full reference: [KollectEventSink](crds/kollecteventsink.md).
 
 ### `KollectInventory` (namespaced)
 
@@ -113,10 +155,12 @@ KollectInventory is the Schema for the kollectinventories API
 
 | Spec field | Description |
 | --- | --- |
+| `databaseSinkRefs` | databaseSinkRefs lists KollectDatabaseSink names in this namespace (ADR-0414). |
+| `eventSinkRefs` | eventSinkRefs lists KollectEventSink names in this namespace (ADR-0414). |
 | `exportMinInterval` | exportMinInterval is the minimum time between identical exports for this inventory. |
 | `httpEndpoint` | httpEndpoint exposes a read-only inventory summary over HTTP when enabled. |
 | `maxExportBytes` | maxExportBytes caps the marshalled namespace payload for export and HTTP (optional). |
-| `sinkRefs` | sinkRefs lists KollectSink names in the same namespace as this Inventory. |
+| `snapshotSinkRefs` | snapshotSinkRefs lists KollectSnapshotSink names in this namespace (ADR-0414). |
 | `suspend` | suspend pauses reconciliation of this inventory when set to true. |
 
 Full reference: [KollectInventory](crds/kollectinventory.md).
@@ -128,16 +172,11 @@ KollectProfile is the Schema for the kollectprofiles API
 | Spec field | Description |
 | --- | --- |
 | `attributes` | attributes lists the values to extract from each matching resource. |
+| `export` | export optionally enables full-resource export with path pruning (ADR-0306). |
 | `metrics` | metrics lists kube-state-metrics-style Prometheus series emitted on operator /metrics. |
 | `targetGVK` | targetGVK selects the Kubernetes resource kind this profile applies to. |
 
 Full reference: [KollectProfile](crds/kollectprofile.md).
-
-### Fleet cluster identity
-
-Multi-cluster installs set **`spec.cluster`** on database sinks (and `{cluster}` in Git
-`pathTemplate`) so shared Postgres or Git backends partition rows per cluster without a hub
-operator tier ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 ### `KollectScope` (namespaced)
 
@@ -147,27 +186,30 @@ KollectScope is a namespaced governance boundary for targets, inventories, and s
 | --- | --- |
 | `allowedGVKs` | allowedGVKs restricts which target resource kinds may be collected in this scope. |
 | `allowedNamespaces` | allowedNamespaces restricts which workload namespaces may be collected. |
-| `sinkRefs` | sinkRefs lists namespaced KollectSink names permitted for export from this scope. |
+| `databaseSinkRefs` | databaseSinkRefs lists permitted KollectDatabaseSink names for this scope. |
+| `deniedNamespaces` | deniedNamespaces is a platform blacklist; Target intent cannot override (D8). |
+| `eventSinkRefs` | eventSinkRefs lists permitted KollectEventSink names for this scope. |
+| `minExportInterval` | minExportInterval is a tenancy floor — inventory and sink intervals below this value are rejected. |
+| `snapshotSinkRefs` | snapshotSinkRefs lists permitted KollectSnapshotSink names for this scope. |
 
 Full reference: [KollectScope](crds/kollectscope.md).
 
-### `KollectSink` (namespaced)
+### `KollectSnapshotSink` (namespaced)
 
-KollectSink is the Schema for the kollectsinks API
+KollectSnapshotSink is the Schema for snapshot export sinks.
 
 | Spec field | Description |
 | --- | --- |
 | `cluster` | cluster labels exported inventory in multi-cluster installs. |
-| `connectionTest` | connectionTest requests a connectivity check on create/update when true. |
+| `connectionTest` | connectionTest enables connectivity checks on create/update (default true). |
 | `endpoint` | endpoint is the backend-specific destination (URL, bucket, and so on). |
+| `exportMinInterval` | exportMinInterval is the default minimum time between identical exports when an inventory |
+| `git` | git configures git sink settings when type is git. |
 | `gitlab` | gitlab configures GitLab-specific settings when type is gitlab. |
-| `kafka` | kafka configures a Kafka or Redpanda event sink. |
-| `nats` | nats configures a NATS JetStream event sink. |
-| `objectStore` | objectStore configures S3/GCS snapshot export format and layout. |
-| `postgres` | postgres configures a PostgreSQL database sink. |
+| `http` | http configures webhook snapshot export when type is http. |
+| `layout` | layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419). |
 
-Full reference: [KollectSnapshotSink](crds/kollectsnapshotsink.md),
-[KollectDatabaseSink](crds/kollectdatabasesink.md), [KollectEventSink](crds/kollecteventsink.md).
+Full reference: [KollectSnapshotSink](crds/kollectsnapshotsink.md).
 
 ### `KollectTarget` (namespaced)
 
@@ -175,12 +217,14 @@ KollectTarget is the Schema for the kollecttargets API
 
 | Spec field | Description |
 | --- | --- |
+| `excludedNamespaces` | excludedNamespaces is a static namespace denylist applied after include logic. |
+| `includedNamespaces` | includedNamespaces is a static namespace allowlist. Empty means no extra restriction |
 | `labelSelector` | labelSelector restricts collection to resources matching the selector. |
 | `names` | names optionally restricts collection to resources with these names. |
+| `namespaceExcludeSelector` | namespaceExcludeSelector excludes namespaces whose labels match the selector. |
 | `namespaceSelector` | namespaceSelector restricts collection to namespaces matching the selector. |
 | `profileRef` | profileRef is the name of a KollectProfile in the same namespace as this Target. |
-| `suspend` | suspend pauses reconciliation of this target when set to true. |
-| `watchMode` | watchMode controls namespace/resource watch opt-in vs opt-out (ADR-0205). |
+| `resourceRules` | resourceRules declares GVK-scoped collection rules. When empty, collection falls back to |
 
 Full reference: [KollectTarget](crds/kollecttarget.md).
 

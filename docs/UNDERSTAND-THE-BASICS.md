@@ -54,8 +54,10 @@ Start here after this page:
 
 ## CEL and JSONPath extraction
 
-`KollectProfile` (and `KollectClusterProfile`) define **named attributes** — field paths evaluated
-against each watched object. Kollect supports:
+`KollectProfile` defines **named attributes** — field paths evaluated against each watched object.
+Cluster targets reference a namespaced `KollectProfile` by `name` + `namespace`
+([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)); there is no `KollectClusterProfile`
+kind. Kollect supports:
 
 - **JSONPath** — kubectl-style (`{.metadata.name}`) or `$`-prefixed paths; use `[*]` for all array
   elements ([ADR-0302](adr/0302-cel-jsonpath-extraction.md))

@@ -2,7 +2,9 @@
 
 **Scope:** Namespace · **Reconciled:** Yes (connection test) · **Short name:** `kdb`
 
-Cluster-scoped variant: **`KollectClusterDatabaseSink`** (`kcdb`).
+Platform-shared backends: publish a `KollectDatabaseSink` in `kollect-system` and reference it from a
+`KollectClusterInventory` sink ref by `name` + `namespace` — there is no cluster-scoped sink kind
+([ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)).
 
 ## What it is for
 
