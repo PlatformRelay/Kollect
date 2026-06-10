@@ -281,12 +281,13 @@ Amends [ADR-0203](0203-namespaced-multi-tenancy.md) (tenantMode vs cluster kinds
   `SinkNotFound`. `kollect_static_ref_resolution_total{kind,ref_type,result}` records
   `ok`/`not_found`/`forbidden` outcomes (transient errors stay on `kollect_reconcile_errors_total`).
 
-**Tracked follow-ups (not yet implemented):**
+**Tracked follow-ups:**
 
-- **tenantMode admission rejection** of `KollectClusterTarget` / `KollectClusterInventory` — needs
-  the tenantMode flag plumbed from operator config into the validating webhook (today tenantMode is
-  a Helm/RBAC concept only). Until then, trimmed RBAC degrades the cluster kind via the forbidden
-  path above rather than rejecting at admission.
+- ~~**tenantMode admission rejection** of `KollectClusterTarget` / `KollectClusterInventory`.~~
+  **Landed (2026-06-11):** the operator now takes a `--tenant-mode` flag (set by Helm when
+  `tenantMode: true`) that is plumbed into the cluster target/inventory validating webhooks. In
+  tenantMode, create/update of those cluster kinds is rejected at admission with an explanatory
+  error; deletion of pre-existing objects is still allowed so trimmed-RBAC installs can clean up.
 - **`KollectClusterScope` sink/profile-namespace allowlist** (`SinkNamespaceDenied`) — gated on the
   `KollectClusterScope` allowlist fields shipping.
 - **Proactive SSAR pre-check** before resolve (the GET-error path covers the degrade + observability
