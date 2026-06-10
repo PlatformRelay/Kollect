@@ -60,7 +60,12 @@ commit_parsers = [
   { message = "^fix", group = "Bug Fixes" },
   { message = "^perf", group = "Performance" },
   { message = "^refactor", group = "Refactoring" },
-  { message = "!", group = "Breaking Changes" },
+  # Breaking changes for non-feat/fix types: anchor the conventional-commit "!"
+  # marker to the type/scope at the start of the subject (e.g. "chore(api)!:").
+  # Anchoring is required: an unanchored `!` also matches bodies that merely
+  # mention a marker like "feat!", which misclassifies unrelated commits
+  # (e.g. a chore(release) prep commit) as breaking changes.
+  { message = '^[a-z]+(\(.+\))?!:', group = "Breaking Changes" },
   { message = "^docs", skip = true },
   { message = "^(test|chore|ci|build|style)", skip = true },
   { message = "^revert", group = "Reverts" },
