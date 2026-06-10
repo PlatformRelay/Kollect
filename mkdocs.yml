@@ -1,5 +1,5 @@
 site_name: Kollect
-site_description: Durable Kubernetes inventory — select, extract, aggregate, export
+site_description: Your cluster, in Git, diffable.
 site_url: https://konih.github.io/kollect/
 repo_url: https://github.com/konih/kollect
 repo_name: konih/kollect
@@ -7,7 +7,7 @@ copyright: Copyright &copy; 2026 Konrad Heimel
 
 theme:
   name: material
-  logo: assets/branding/kollect-symbol-light.svg
+  logo: assets/branding/kollect-app-icon-1024.png
   favicon: assets/favicon.ico
   palette:
     - scheme: slate
@@ -54,6 +54,7 @@ nav:
       - "0203 — Namespaced multi-tenancy and operator watch scope": adr/0203-namespaced-multi-tenancy.md
       - "0204 — Namespaced KollectProfile": adr/0204-namespaced-profiles.md
       - "0205 — Watch opt-in / opt-out labels": adr/0205-watch-labels.md
+      - "0208 — Cluster static refs via namespace": adr/0208-cluster-static-refs-via-namespace.md
   - Understand the Basics:
       - Understand the basics: UNDERSTAND-THE-BASICS.md
       - Architecture: ARCHITECTURE.md
@@ -66,7 +67,7 @@ nav:
       - Common errors: operator-manual/common-errors.md
       - Scaling and fleet: operator-manual/scaling-and-fleet.md
       - Load test runbook: operator-manual/load-test-runbook.md
-      - Read-only UI: operator-manual/ui.md
+      - "Read-only UI (frozen preview)": operator-manual/ui.md
       - Upgrading: operator-manual/upgrading.md
       - Helm values: operator-manual/helm-values.md
       - Deployment topology matrix: deployment/topology-matrix.md
@@ -122,6 +123,7 @@ nav:
               - "0205 — Watch opt-in / opt-out labels": adr/0205-watch-labels.md
               - "0206 — API versioning and conversion strategy": adr/0206-api-versioning-conversion.md
               - "0207 — Target collection filtering": adr/0207-target-collection-filtering.md
+              - "0208 — Cluster static refs via namespace": adr/0208-cluster-static-refs-via-namespace.md
           - 03 Collection & extraction:
               - "0301 — Event-driven dynamic informers (one per GVK)": adr/0301-event-driven-informers.md
               - "0302 — CEL and JSONPath attribute extraction": adr/0302-cel-jsonpath-extraction.md
@@ -198,6 +200,12 @@ markdown_extensions:
   - pymdownx.details
   - toc:
       permalink: true
+
+plugins:
+  - social:
+      cards_layout_options:
+        background_color: "#0F172A"
+        color: "#F8FAFC"
 
 docs_dir: docs
 site_dir: site

@@ -11,6 +11,22 @@ not the project timeline.
 
 New readers: [REQUIREMENTS.md](../REQUIREMENTS.md) → theme **02** (CRD model) → **03** (collection) → **04** (sinks).
 
+## Five ADRs that explain Kollect
+
+Start here if forty-eight ADRs feels like a wall. Each stands alone; together they tell the product
+story an adopter needs.
+
+| ADR | Why read it |
+| --- | --- |
+| [0201 — CRD model](0201-crd-model.md) | What you declare (`Profile`, family sinks, `Target`, `Inventory`) vs what the operator reconciles |
+| [0301 — Event-driven informers](0301-event-driven-informers.md) | How inventory stays current without polling the apiserver |
+| [0401 — Sink taxonomy](0401-sink-taxonomy-state-vs-stream.md) | Why Git is the hero and every sink is an interchangeable projection |
+| [0407 — Git / object-store layout](0407-git-object-store-layout.md) | What lands in Git — the diffable inventory contract |
+| [0501 — Multi-cluster fleet](0501-multi-cluster-fleet.md) | N operators → one shared sink, partitioned by `spec.cluster` |
+
+Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wiring sinks, or
+[0603 — Performance targets](0603-performance-scalability.md) when sizing a deployment.
+
 ## 01 · Foundations
 
 | ADR | Title | Status |
@@ -32,6 +48,7 @@ New readers: [REQUIREMENTS.md](../REQUIREMENTS.md) → theme **02** (CRD model) 
 | [0205](0205-watch-labels.md) | Watch opt-in / opt-out labels | Current |
 | [0206](0206-api-versioning-conversion.md) | API versioning and conversion strategy | Exploring |
 | [0207](0207-target-collection-filtering.md) | Target collection filtering | Current |
+| [0208](0208-cluster-static-refs-via-namespace.md) | Cluster kinds reference namespaced profiles/sinks | Exploring |
 
 ## 03 · Collection & extraction
 

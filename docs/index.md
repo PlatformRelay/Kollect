@@ -27,9 +27,11 @@ hide:
 
 </p>
 
-**Your cluster, in Git, diffable.** Kollect turns selected live state into a **durable, queryable,
-diffable inventory** — decoupled from the apiserver's availability, RBAC, and scale limits. Portals,
-automation, and auditors read **export data**, not unbounded list/watch against the live API.
+**Your cluster, in Git, diffable.** Declare GVK + CEL in CRDs and get a clean, Git-committed
+inventory — when the cluster changes, the inventory commits change; `git log` is your audit trail
+and `git diff` is your drift report. **Git export is the hero** — Postgres and every other sink get
+the same rows in parallel, for free. Portals, automation, and auditors read **export data**, not
+unbounded list/watch against the live API.
 
 Record the hero demo locally: [DEMO-GIF-GUIDE.md](DEMO-GIF-GUIDE.md).
 
@@ -106,6 +108,20 @@ single backend is privileged. Sink roles (snapshot store, relational store, even
 documented in [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md); reconciliation detail in
 [Architecture](ARCHITECTURE.md) and [Data flows](DATA-FLOWS.md).
 
+### Supported & planned sinks
+
+| Family CRD | `spec.type` | Status |
+| --- | --- | --- |
+| `KollectSnapshotSink` | `git`, `gitlab`, `s3` | **Core** — production-ready |
+| `KollectSnapshotSink` | `gcs` | **Beta** — shipped, maturing |
+| `KollectDatabaseSink` | `postgres` | **Core** |
+| `KollectDatabaseSink` | `mongodb`, `bigquery` | **Beta** — `bigquery` v0.7.x hardening |
+| `KollectEventSink` | `kafka`, `nats` | **Beta** — `nats` v0.7.x hardening |
+| `KollectSnapshotSink` | `azureblob` | **Planned** |
+| Object-store sinks | Parquet layout | **Planned** — on S3/GCS |
+
+Release timing and deferred backends: [Roadmap — Supported & planned sinks](ROADMAP.md#supported-planned-sinks).
+
 ## The resource model
 
 A pipeline is just a handful of Kubernetes resources: **config you declare** (`KollectProfile`,
@@ -176,17 +192,9 @@ Full fields: [CR reference](CR-REFERENCE.md) · model rationale: [ADR-0201](adr/
 ## Performance
 
 Kollect is built for **large single clusters** and **multi-cluster fleets**, with honest, tested
-targets ([ADR-0603](adr/0603-performance-scalability.md)):
-
-| Tier | Scope | Collected rows | Status |
-| --- | --- | --- | --- |
-| **Baseline** | 1 cluster | **10,000+** | Validated in nightly load tests |
-| **Design target** | 1 cluster | **100,000** | Requires export sharding + Postgres bulk upsert + `resourcesProfile: large` |
-| **Fleet** | Shared sink | 10k–100k × **N** operators | Partitioned by `spec.cluster`; no hub merge tier |
-
-Tuning knobs — reconcile/dispatch concurrency, export debounce (`exportMinInterval`, default `30s`),
-namespace-scoped informers, Git commit fingerprinting, and `maxExportBytes` caps — are catalogued in
-the [performance guide](PERFORMANCE.md).
+targets ([ADR-0603](adr/0603-performance-scalability.md)) — **10,000+** rows validated in nightly
+load tests, **100,000-row** design target per cluster, and fleet fan-in with no hub merge tier.
+Tuning knobs are catalogued in the [performance guide](PERFORMANCE.md).
 
 ## Documentation map
 
@@ -212,5 +220,5 @@ the [performance guide](PERFORMANCE.md).
 
 - [Platform decisions](PLATFORM-DECISIONS.md) — the locked design summary
 - [Sink taxonomy: state vs stream](adr/0401-sink-taxonomy-state-vs-stream.md) — why no backend is privileged
-- [Read-only UI console](adr/0408-read-api-ui-architecture.md) — v0.2 MVP ([deployment](adr/0409-kollect-ui-deployment.md))
+- [Read-only UI console (frozen preview)](operator-manual/ui.md) — early adopter SPA; program frozen until v0.7.x+
 - [Roadmap](ROADMAP.md) — build-order phases and current status

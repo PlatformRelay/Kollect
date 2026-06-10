@@ -115,6 +115,29 @@ not webhook stubs. Plus the coverage ramp and documenting parallel multi-sink ex
 | 🔮 | Deferred |
 | ❓ | Open decision |
 
+## Supported & planned sinks
+
+Honest maturity tiers for family-sink backends. **Core** backends are production-ready with L3
+integration coverage; **Beta** backends ship on `main` but are still maturing (v0.7.x hardening for
+BigQuery and NATS); **Planned** items need a real backend or layout work before admission.
+
+| Family CRD | `spec.type` | Status | Notes |
+| --- | --- | --- | --- |
+| `KollectSnapshotSink` | `git` | **Core** | GitOps audit trail — the hero export |
+| `KollectSnapshotSink` | `gitlab` | **Core** | MR workflow for reviewable drift |
+| `KollectSnapshotSink` | `s3` | **Core** | Object-store snapshot store |
+| `KollectSnapshotSink` | `gcs` | **Beta** | Same contract as S3; connection-test shipped |
+| `KollectDatabaseSink` | `postgres` | **Core** | Relational SoR — query it like a database |
+| `KollectDatabaseSink` | `mongodb` | **Beta** | Document store projection |
+| `KollectDatabaseSink` | `bigquery` | **Beta** | Analytics SQL; [ADR-0420](adr/0420-bigquery-database-sink.md) — v0.7.x 🚧 |
+| `KollectEventSink` | `kafka` | **Beta** | Event emitter / change stream |
+| `KollectEventSink` | `nats` | **Beta** | JetStream emitter — v0.7.x first-class hardening 🚧 |
+| `KollectSnapshotSink` | `azureblob` | **Planned** | Removed from admission until real backend ([planned features](roadmap/planned-features.md)) |
+| S3/GCS | Parquet layout | **Planned** | Analytics-friendly snapshot format on existing types |
+
+Former stub types (`http`, `azureblob`) were removed from admission (EC-P1-04); they re-enter only
+with real backends. No **Stub** sink types remain on `main`.
+
 ## Phase overview
 
 ```mermaid

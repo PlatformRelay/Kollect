@@ -1,13 +1,12 @@
-# Read-only UI (early adopter preview)
+# Read-only UI (frozen preview)
+
+!!! warning "Program frozen"
+    The read-only UI program is **frozen** on `main` until the v0.7.x+ band. The `ui/` tree is an
+    early adopter preview (MSW mocks, CI smoke tests); production Helm wiring stays off by default
+    (`ui.enabled: false`). See [ROADMAP — Read API + UI console](ROADMAP.md#read-api-ui-console-frozen).
 
 The **kollect-ui** SPA is a read-only console for inventory catalog browsing, export health, and
 Target status — backed by the optional [Read API](../adr/0408-read-api-ui-architecture.md) (`/v1alpha1/*`).
-
-!!! note "Versioning"
-    **v0.3.x** shipped the sink-family backend ([ADR-0414](../adr/0414-sink-family-crds.md)). The
-    read-only UI MVP is planned for the **v0.7.x** band per [VERSIONING-STRATEGY](../RELEASE.md#versioning-policy).
-    The `ui/` tree on `main` is an **early adopter preview**: MSW mocks, Vitest, and Playwright smoke
-    run in CI; production Helm wiring remains optional (`ui.enabled: false` by default).
 
 ## What it does today
 
@@ -22,8 +21,7 @@ The UI reads **family sink CRDs** indirectly via export status (`snapshotSinkRef
 `eventSinkRefs` on `KollectInventory`) — not the removed monolithic `KollectSink` kind. There is **no**
 hub/spoke cluster picker; single-cluster Read API only until portal mode ([ADR-0408](../adr/0408-read-api-ui-architecture.md)).
 
-<!-- MAINTAINER-TODO: add screenshot of inventory list view -->
-![Inventory UI (screenshot pending)](../assets/ui-inventory-placeholder.png)
+<!-- Screenshot deferred until UI program unfreezes — placeholder removed from nav prominence. -->
 
 ## Run locally (mock — no cluster)
 

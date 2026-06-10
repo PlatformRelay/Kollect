@@ -6,19 +6,10 @@
 
 <p align="center">
 <a href="https://securityscorecards.dev/viewer/?uri=github.com/konih/kollect"><img src="https://api.securityscorecards.dev/projects/github.com/konih/kollect/badge" alt="OpenSSF Scorecard"></a>
-<a href="https://www.bestpractices.dev/projects/13106"><img src="https://www.bestpractices.dev/projects/13106/badge" alt="OpenSSF Best Practices"></a>
-<a href="https://konih.github.io/kollect/"><img src="https://img.shields.io/badge/docs-konih.github.io%2Fkollect-blue?style=flat-square&logo=readthedocs&logoColor=white" alt="Documentation"></a>
 <a href="https://github.com/konih/kollect/actions/workflows/ci.yaml"><img src="https://github.com/konih/kollect/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
-<a href="https://github.com/konih/kollect/actions/workflows/preflight.yaml"><img src="https://github.com/konih/kollect/actions/workflows/preflight.yaml/badge.svg" alt="Preflight"></a>
-<br />
-<a href="https://github.com/konih/kollect/actions/workflows/docs.yaml"><img src="https://github.com/konih/kollect/actions/workflows/docs.yaml/badge.svg" alt="Docs"></a>
-<a href="https://github.com/konih/kollect/actions/workflows/codeql.yaml"><img src="https://github.com/konih/kollect/actions/workflows/codeql.yaml/badge.svg" alt="CodeQL"></a>
 <a href="https://github.com/konih/kollect/releases"><img src="https://img.shields.io/github/v/tag/konih/kollect?label=release" alt="Release"></a>
 <a href="https://codecov.io/gh/konih/kollect"><img src="https://codecov.io/gh/konih/kollect/graph/badge.svg" alt="codecov"></a>
-<br />
 <a href="https://github.com/konih/kollect/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-<a href="https://pkg.go.dev/github.com/konih/kollect"><img src="https://img.shields.io/github/go-mod/go-version/konih/kollect" alt="Go"></a>
-<a href="https://github.com/konih/kollect/pkgs/container/kollect"><img src="https://img.shields.io/badge/ghcr.io-konih%2Fkollect-2496ED?logo=docker&logoColor=white" alt="Container"></a>
 </p>
 
 # Kollect
@@ -26,8 +17,8 @@
 > **Your cluster, in Git, diffable.** Declare GVK + CEL in CRDs and get a clean, Git-committed
 > inventory of anything running in your cluster — no scripts, no apiserver hammering. When the
 > cluster changes, the inventory commits change; `git log` is your audit trail and `git diff` is
-> your drift report. The same snapshot fans out to Postgres, object stores, and event streams —
-> consumers read **export data**, never unbounded list/watch against the live cluster.
+> your drift report. **Git export is the hero** — Postgres and every other sink get the same rows
+> in parallel, for free.
 
 <!-- Hero GIF (generate locally): docs/assets/demo/hero-git-only.gif — see docs/DEMO-GIF-GUIDE.md -->
 
@@ -35,7 +26,7 @@ Kubernetes is the source of truth for *what is running*; it is a poor *system of
 stakeholder inventory. Kollect closes that gap: **select** resources by GVK → **extract** attributes
 (CEL or JSONPath) → **aggregate** across targets → **debounce** → **export** to pluggable sinks.
 Inventory is **configuration, not code** — owned per team in its own namespace, GitOps-friendly from
-day one.
+day one. Consumers read **export data**, never unbounded list/watch against the live cluster.
 
 **Read the docs:** **[konih.github.io/kollect](https://konih.github.io/kollect/)** — architecture,
 quick start, CR reference, ADRs, and examples. This README is the front door; the site is the map.
@@ -120,24 +111,36 @@ Sinks are split into three CRD families ([ADR-0414](https://konih.github.io/koll
 | --- | --- | --- |
 | **`KollectSnapshotSink`** | Git, GitLab, S3, GCS | Audit, diff, GitOps-friendly history |
 | **`KollectDatabaseSink`** | Postgres, MongoDB | Rich queries for portals and dashboards |
-| **`KollectEventSink`** | Kafka | Change streams, downstream consumers |
+| **`KollectEventSink`** | Kafka, NATS | Change streams, downstream consumers |
+
+### Supported & planned sinks
+
+Honest maturity tiers — see the [roadmap](https://konih.github.io/kollect/ROADMAP/#supported-planned-sinks)
+for release timing.
+
+| Family CRD | `spec.type` | Status |
+| --- | --- | --- |
+| `KollectSnapshotSink` | `git` | **Core** — production-ready |
+| `KollectSnapshotSink` | `gitlab` | **Core** |
+| `KollectSnapshotSink` | `s3` | **Core** |
+| `KollectSnapshotSink` | `gcs` | **Beta** — shipped, maturing |
+| `KollectDatabaseSink` | `postgres` | **Core** |
+| `KollectDatabaseSink` | `mongodb` | **Beta** |
+| `KollectDatabaseSink` | `bigquery` | **Beta** — analytics SQL; v0.7.x hardening |
+| `KollectEventSink` | `kafka` | **Beta** |
+| `KollectEventSink` | `nats` | **Beta** — JetStream emitter; v0.7.x hardening |
+| `KollectSnapshotSink` | `azureblob` | **Planned** — needs real backend ([roadmap](https://konih.github.io/kollect/roadmap/planned-features/)) |
+| `KollectSnapshotSink` | Parquet on S3/GCS | **Planned** — layout on existing object-store sinks |
 
 Full payload lives in sinks; CR `.status` holds summaries only ([etcd limits](https://konih.github.io/kollect/adr/0103-etcd-limit/)).
 
 ## Performance
 
 Kollect is built for **large single clusters** and **multi-cluster fleets**, with honest, tested
-targets ([ADR-0603](https://konih.github.io/kollect/adr/0603-performance-scalability/)):
-
-| Tier | Scope | Collected rows | Status |
-| --- | --- | --- | --- |
-| **Baseline** | 1 cluster | **10,000+** | Validated in nightly load tests |
-| **Design target** | 1 cluster | **100,000** | Requires export sharding + Postgres bulk upsert + `resourcesProfile: large` |
-| **Fleet** | Shared sink | 10k–100k × **N** operators | Partitioned by `spec.cluster`; no hub merge tier |
-
-Tuning knobs — reconcile/dispatch concurrency, export debounce (`exportMinInterval`, default `30s`),
-namespace-scoped informers, Git commit fingerprinting, and `maxExportBytes` caps — are catalogued in
-the **[performance guide](https://konih.github.io/kollect/PERFORMANCE/)**.
+targets ([ADR-0603](https://konih.github.io/kollect/adr/0603-performance-scalability/)) — **10,000+**
+rows validated in nightly load tests, **100,000-row** design target per cluster, and fleet fan-in
+with no hub merge tier. Tuning knobs (reconcile concurrency, export debounce, sharding) are in the
+**[performance guide](https://konih.github.io/kollect/PERFORMANCE/)**.
 
 ## Learn more
 

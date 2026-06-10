@@ -100,7 +100,9 @@ Never put passwords or tokens on family sink CRs (`KollectSnapshotSink`, `Kollec
 | --- | --- | --- | --- |
 | `KollectDatabaseSink` | Postgres, MongoDB | `dsn`, `url`, `connectionString`, or `DATABASE_URL` | `spec.postgres.databaseRef` / MongoDB ref |
 | `KollectSnapshotSink` | Git, GitLab, S3, GCS | deploy key or token | `spec.secretRef` |
-| `KollectEventSink` | Kafka | broker credentials | `spec.secretRef` |
+| `KollectEventSink` | Kafka, NATS | broker credentials | `spec.secretRef` |
+
+Maturity tiers (Core / Beta / Planned): [Roadmap — Supported & planned sinks](ROADMAP.md#supported-planned-sinks).
 
 Walkthrough: [Postgres state store](examples/postgres-state-store.md).
 
