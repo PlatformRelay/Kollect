@@ -93,7 +93,18 @@ func (b *Backend) jetStream(ctx context.Context) (jetstream.JetStream, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.js != nil {
-		return b.js, nil
+		if b.nc != nil && !b.nc.IsClosed() {
+			return b.js, nil
+		}
+		// The cached connection is closed (e.g. the server went away and the
+		// client exhausted its reconnect attempts). Drop it so a fresh
+		// connection is established below instead of failing every Export
+		// for the lifetime of the operator process.
+		if b.nc != nil {
+			b.nc.Close()
+		}
+		b.nc = nil
+		b.js = nil
 	}
 	nc, err := connect(b.cfg, b.tls)
 	if err != nil {

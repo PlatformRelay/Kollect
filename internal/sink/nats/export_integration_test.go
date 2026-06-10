@@ -141,3 +141,65 @@ func TestExportNATS(t *testing.T) {
 		t.Fatalf("stream messages = %d, want 1 after duplicate export (Msg-Id dedupe)", si.State.Msgs)
 	}
 }
+
+// TestExport_ReconnectsAfterConnectionClosed verifies that a Backend whose
+// cached connection has been closed (simulating an exhausted reconnect after
+// the server dropped) transparently re-establishes the connection on the next
+// Export instead of failing permanently.
+func TestExport_ReconnectsAfterConnectionClosed(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx := context.Background()
+	url := startNATSTestContainer(t)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type:    "nats",
+		Cluster: "test-cluster",
+		Nats: &kollectdevv1alpha1.NatsSpec{
+			URL:     url,
+			Subject: "inventory.reconnect",
+			Stream:  "kollect_reconnect_events",
+		},
+	}
+
+	backend, err := NewBackend(spec, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = backend.Close()
+	})
+
+	payload := []byte(`[{"namespace":"apps","uid":"uid-1"}]`)
+	if err := backend.Export(ctx, payload, "inventory/apps/demo.json"); err != nil {
+		t.Fatalf("initial Export: %v", err)
+	}
+
+	// Simulate a permanently dropped connection: close the cached conn directly.
+	backend.mu.Lock()
+	if backend.nc == nil {
+		backend.mu.Unlock()
+		t.Fatal("expected a cached connection after first Export")
+	}
+	backend.nc.Close()
+	closedSeen := backend.nc.IsClosed()
+	backend.mu.Unlock()
+
+	if !closedSeen {
+		t.Fatal("expected cached connection to report IsClosed after Close")
+	}
+
+	// The next Export must re-establish the connection and succeed.
+	if err := backend.Export(ctx, payload, "inventory/apps/demo.json"); err != nil {
+		t.Fatalf("Export after connection closed: %v", err)
+	}
+
+	backend.mu.Lock()
+	reconnected := backend.nc != nil && !backend.nc.IsClosed()
+	backend.mu.Unlock()
+	if !reconnected {
+		t.Fatal("expected backend to hold a live connection after reconnect")
+	}
+}
