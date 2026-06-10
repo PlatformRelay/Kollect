@@ -9,6 +9,13 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **sink/nats:** Reconnect when cached connection is closed [319a2bf](https://github.com/konih/kollect/commit/319a2bf79da165da0c74ce02b5697a614e01268f)
+
+- **sink/bigquery:** Snapshot emulator mode in Config [4c58988](https://github.com/konih/kollect/commit/4c58988b1e931c01a7169df6320b79c1f2d3ccd6)
+
+
 ### Features
 
 - **webhook:** Reject cluster kinds in tenantMode [3dbfd6b](https://github.com/konih/kollect/commit/3dbfd6bb14fbcb24d162c6e3edf4aad21593e4a6)
