@@ -15,6 +15,17 @@ const (
 	ErrorClassTransient = "transient"
 	ErrorClassTerminal  = "terminal"
 	ErrorClassForbidden = "forbidden"
+
+	// Static-ref resolution results for cluster kinds (ADR-0208). Bounded enum.
+	StaticRefResultOK        = "ok"
+	StaticRefResultNotFound  = "not_found"
+	StaticRefResultForbidden = "forbidden"
+
+	// Static-ref types for cluster kinds (ADR-0208). Bounded enum.
+	StaticRefTypeProfile  = "profile"
+	StaticRefTypeSnapshot = "snapshot"
+	StaticRefTypeDatabase = "database"
+	StaticRefTypeEvent    = "event"
 )
 
 var (
@@ -186,6 +197,16 @@ var (
 		},
 		[]string{"group", "version", "resource"},
 	)
+
+	// StaticRefResolutionTotal counts cluster-kind namespaced static-ref resolutions (ADR-0208).
+	// Labels are bounded enums — never pass free-form values.
+	StaticRefResolutionTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_static_ref_resolution_total",
+			Help: "Cluster-kind namespaced static-ref resolutions by kind, ref_type, and result (ok/not_found/forbidden).",
+		},
+		[]string{"kind", "ref_type", "result"},
+	)
 )
 
 // Register adds kollect custom metrics to the controller-runtime registry.
@@ -214,5 +235,6 @@ func Register() {
 		CollectDispatchSyncFallbackTotal,
 		InformerResyncDispatchesTotal,
 		InformerClusterWideScope,
+		StaticRefResolutionTotal,
 	)
 }

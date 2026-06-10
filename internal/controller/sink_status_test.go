@@ -8,10 +8,14 @@ import (
 	"errors"
 	"testing"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	kollecterrors "github.com/konih/kollect/internal/errors"
@@ -46,6 +50,33 @@ func TestCheckInventorySinksReachable_connectionFailed(t *testing.T) {
 	}
 	if reason != reasonSinkUnreachable {
 		t.Fatalf("reason = %q, want %s", reason, reasonSinkUnreachable)
+	}
+}
+
+func TestCheckInventorySinksReachable_forbidden(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	gr := schema.GroupResource{Group: "kollect.dev", Resource: "kollectdatabasesinks"}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
+			return apierrors.NewForbidden(gr, "warehouse", errors.New("RBAC denied"))
+		},
+	}).Build()
+
+	ok, reason, _ := checkInventorySinksReachable(
+		context.Background(), cl, "kollect-system",
+		[]kollectdevv1alpha1.InventorySinkBinding{{Name: "warehouse", Family: kollectdevv1alpha1.SinkFamilyDatabase}},
+	)
+	if ok {
+		t.Fatal("expected sinks unreachable on forbidden")
+	}
+	if reason != reasonSinkForbidden {
+		t.Fatalf("reason = %q, want %s", reason, reasonSinkForbidden)
 	}
 }
 

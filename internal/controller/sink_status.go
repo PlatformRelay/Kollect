@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -75,8 +76,14 @@ func (s scopeCheck) familySinkReachable(
 	binding kollectdevv1alpha1.InventorySinkBinding,
 ) (bool, string, string) {
 	resolved, err := loadClusterInventorySink(ctx, s.client, namespace, binding)
+	recordStaticRefResolution("KollectClusterInventory", staticRefTypeForFamily(binding.Family), err)
 	if err != nil {
-		return false, reasonSinkNotFound, err.Error()
+		reason := reasonSinkNotFound
+		if apierrors.IsForbidden(err) {
+			reason = reasonSinkForbidden
+		}
+
+		return false, reason, err.Error()
 	}
 
 	conditions, err := familySinkConditions(ctx, s.client, resolved)

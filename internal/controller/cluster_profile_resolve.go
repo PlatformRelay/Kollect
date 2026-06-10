@@ -26,8 +26,8 @@ func resolveClusterTargetProfile(
 	if err := c.Get(ctx, key, &profile); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf(
-				"KollectProfile %q not found in namespace %q",
-				profileRef.Name, profileRef.Namespace,
+				"KollectProfile %q not found in namespace %q: %w",
+				profileRef.Name, profileRef.Namespace, err,
 			)
 		}
 

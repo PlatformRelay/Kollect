@@ -25,6 +25,11 @@ const (
 	reasonExportFailed    = "ExportFailed"
 	reasonProgressing     = "Progressing"
 	reasonCleanupTerminal = "CleanupTerminal"
+
+	// ADR-0208 static-ref resolution reasons (forbidden classification on cross-namespace refs).
+	reasonProfileNotFound  = "ProfileNotFound"
+	reasonProfileForbidden = "ProfileForbidden"
+	reasonSinkForbidden    = "SinkForbidden"
 )
 
 func setTargetCondition(

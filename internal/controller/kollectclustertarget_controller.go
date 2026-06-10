@@ -22,6 +22,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
+	"github.com/konih/kollect/internal/metrics"
 	"github.com/konih/kollect/internal/scope"
 )
 
@@ -90,9 +91,15 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 
 		profile, err := resolveClusterTargetProfile(ctx, r.Client, ct.Spec.ProfileRef)
+		recordStaticRefResolution("KollectClusterTarget", metrics.StaticRefTypeProfile, err)
 		if err != nil {
 			r.unregisterAll(&ct)
-			if degErr := r.setDegraded(ctx, &ct, "ProfileNotFound", err.Error()); degErr != nil {
+			reason := reasonProfileNotFound
+			if apierrors.IsForbidden(err) {
+				reason = reasonProfileForbidden
+				recordWarning(r.Recorder, &ct, reason, err.Error())
+			}
+			if degErr := r.setDegraded(ctx, &ct, reason, err.Error()); degErr != nil {
 				retErr = degErr
 				return ctrl.Result{}, degErr
 			}

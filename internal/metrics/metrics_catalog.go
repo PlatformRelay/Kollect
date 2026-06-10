@@ -193,4 +193,12 @@ var Catalog = []CatalogEntry{
 		PromQLHint: "sum by (profile, gvk, series) (kollect_custom_resource_labeled_series)",
 		AgentHint:  "Per-label-tuple sums when profile metrics declare labels; bounded by distinct tuples.",
 	},
+	{
+		Name:       "kollect_static_ref_resolution_total",
+		Type:       "counter",
+		Labels:     []string{"kind", "ref_type", "result"},
+		Help:       "Cluster-kind namespaced static-ref resolutions by kind, ref_type, and result (ADR-0208).",
+		PromQLHint: "sum(rate(kollect_static_ref_resolution_total[5m])) by (ref_type, result)",
+		AgentHint:  "result=forbidden → trim/extend cross-namespace RBAC; not_found → fix ref namespace/name.",
+	},
 }
