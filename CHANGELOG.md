@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **release:** Tolerate Rekor 409 on asset re-sign [94de025](https://github.com/konih/kollect/commit/94de025138b78d4130d079d820381a38b53462f6)
+
 - **sink/nats:** Reconnect when cached connection is closed [319a2bf](https://github.com/konih/kollect/commit/319a2bf79da165da0c74ce02b5697a614e01268f)
 
 - **sink/bigquery:** Snapshot emulator mode in Config [4c58988](https://github.com/konih/kollect/commit/4c58988b1e931c01a7169df6320b79c1f2d3ccd6)
