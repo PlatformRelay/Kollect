@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
-## [Unreleased]
+## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-13
 
 ### Bug Fixes
 
@@ -21,10 +21,6 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 ### Features
 
 - **webhook:** Reject cluster kinds in tenantMode [3dbfd6b](https://github.com/konih/kollect/commit/3dbfd6bb14fbcb24d162c6e3edf4aad21593e4a6)
-
-## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-10
-
-### Features
 
 - **controller:** Classify forbidden static refs for cluster kinds [ae3057d](https://github.com/konih/kollect/commit/ae3057ddf3946554cd246a6475fb18bc1c0f2a31)
 
