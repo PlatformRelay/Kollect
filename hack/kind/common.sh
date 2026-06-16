@@ -72,7 +72,7 @@ readonly KOLLECT_MANAGER_WAIT="${KOLLECT_MANAGER_WAIT:-300s}"
 readonly KIND_HOST_HTTP_PORT="${KIND_HOST_HTTP_PORT:-30080}"
 readonly KIND_HOST_HTTPS_PORT="${KIND_HOST_HTTPS_PORT:-30443}"
 
-_kind_log() { echo "[kind] $*"; }
+_kind_log() { echo "[kind] $*" >&2; }
 
 _kind_require() {
   local cmd="$1" hint="${2:-}"
