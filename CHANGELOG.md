@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **kind:** Send kind logs to stderr [57c356d](https://github.com/konih/kollect/commit/57c356d40736cf285ad67780029fb882fc8f8867)
+
+- **kind:** Fall back when kindest/node patch image is missing [e1e7b6b](https://github.com/konih/kollect/commit/e1e7b6bca3989c750e7170fd9532d3b7f0572492)
+
 ## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-13
 
 ### Bug Fixes
