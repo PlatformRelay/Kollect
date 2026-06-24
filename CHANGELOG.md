@@ -13,6 +13,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **scope:** Add cluster static-ref namespace allowlist [a8af5d4](https://github.com/konih/kollect/commit/a8af5d44c1ddb3ebfcddd29f52dcf8555e0162b1)
 
+
+### Refactoring
+
+- **controller:** Extract cluster scope enforcement [85daa4c](https://github.com/konih/kollect/commit/85daa4ccbc63ce983ee31ceba815fbb76c7df22d)
+
 ## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-13
 
 ### Bug Fixes
