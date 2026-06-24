@@ -126,6 +126,15 @@ func (r *KollectClusterInventoryReconciler) Reconcile(ctx context.Context, req c
 		}
 
 		bindings := clusterInventorySinkBindings(&inv)
+		scopeResult, enforceErr := r.enforceClusterScopePolicy(ctx, &inv, sinkNS, bindings)
+		if enforceErr != nil {
+			retErr = enforceErr
+			return ctrl.Result{}, enforceErr
+		}
+		if !scopeResult.IsZero() {
+			return scopeResult, nil
+		}
+
 		if len(bindings) > 0 {
 			sinkOK, sinkReason, sinkMsg := checkClusterInventorySinksReachable(ctx, r.Client, sinkNS, bindings)
 			setSinkReachableCondition(&inv.Status.Conditions, inv.Generation, sinkOK, sinkReason, sinkMsg)

@@ -106,7 +106,11 @@ func (v *kollectClusterTargetValidator) validateClusterScope(
 	}
 
 	intentNS := scope.NormalizeNamespaceList(target.Spec.IncludedNamespaces)
-	return scope.ValidateClusterScopeNamespaces(binding.Scope, intentNS)
+	if err := scope.ValidateClusterScopeNamespaces(binding.Scope, intentNS); err != nil {
+		return err
+	}
+
+	return scope.ValidateClusterScopeStaticRefNamespace(binding.Scope, target.Spec.ProfileRef.Namespace)
 }
 
 func resolveClusterTargetProfileForWebhook(

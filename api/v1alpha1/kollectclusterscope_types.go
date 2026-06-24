@@ -25,6 +25,12 @@ type KollectClusterScopeSpec struct {
 	// +listType=set
 	// +optional
 	EventSinkRefs []string `json:"eventSinkRefs,omitempty"`
+
+	// allowedStaticRefNamespaces restricts namespaces cluster kinds may reference for
+	// profiles and family sinks (ADR-0208). Empty means any namespace is permitted.
+	// +listType=set
+	// +optional
+	AllowedStaticRefNamespaces []string `json:"allowedStaticRefNamespaces,omitempty"`
 }
 
 // +kubebuilder:object:root=true

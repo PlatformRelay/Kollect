@@ -22,8 +22,6 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
-	"github.com/konih/kollect/internal/metrics"
-	"github.com/konih/kollect/internal/scope"
 )
 
 // KollectClusterTargetReconciler wires cluster-scoped targets to the collection engine per
@@ -90,20 +88,12 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 			return ctrl.Result{}, nil
 		}
 
-		profile, err := resolveClusterTargetProfile(ctx, r.Client, ct.Spec.ProfileRef)
-		recordStaticRefResolution("KollectClusterTarget", metrics.StaticRefTypeProfile, err)
+		profile, profileDegraded, err := r.resolveProfileOrDegrade(ctx, &ct)
 		if err != nil {
-			r.unregisterAll(&ct)
-			reason := reasonProfileNotFound
-			if apierrors.IsForbidden(err) {
-				reason = reasonProfileForbidden
-				recordWarning(r.Recorder, &ct, reason, err.Error())
-			}
-			if degErr := r.setDegraded(ctx, &ct, reason, err.Error()); degErr != nil {
-				retErr = degErr
-				return ctrl.Result{}, degErr
-			}
-
+			retErr = err
+			return ctrl.Result{}, err
+		}
+		if profileDegraded {
 			return ctrl.Result{}, nil
 		}
 
@@ -113,10 +103,13 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 			return ctrl.Result{}, err
 		}
 
-		clusterBinding, err := scope.LoadCluster(ctx, r.Client)
-		if err != nil {
-			retErr = err
-			return ctrl.Result{}, err
+		clusterBinding, scopeDegraded, scopeErr := r.loadClusterScopeBinding(ctx, &ct)
+		if scopeErr != nil {
+			retErr = scopeErr
+			return ctrl.Result{}, scopeErr
+		}
+		if scopeDegraded {
+			return ctrl.Result{}, nil
 		}
 
 		ceiling := collect.ScopeCeiling{}

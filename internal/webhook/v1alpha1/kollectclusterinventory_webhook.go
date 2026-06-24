@@ -90,5 +90,37 @@ func (v *kollectClusterInventoryValidator) validate(
 		}
 	}
 
+	return v.validateClusterScope(ctx, inv)
+}
+
+func (v *kollectClusterInventoryValidator) validateClusterScope(
+	ctx context.Context,
+	inv *kollectdevv1alpha1.KollectClusterInventory,
+) error {
+	binding, err := scope.LoadCluster(ctx, v.client)
+	if err != nil {
+		return validation.ClusterInventoryInvalid(inv.Name, validation.ScopeLoadErrors(err))
+	}
+
+	if !binding.Enforced {
+		return nil
+	}
+
+	sinkNS := inv.Spec.SinkNamespace
+	if sinkNS == "" {
+		sinkNS = operator.DefaultSecretNamespace
+	}
+
+	for _, ns := range scope.ClusterInventoryStaticRefNamespaces(&inv.Spec, sinkNS) {
+		if err := scope.ValidateClusterScopeStaticRefNamespace(binding.Scope, ns); err != nil {
+			return validation.ClusterInventoryInvalid(inv.Name, validation.ScopeViolationErrors(err))
+		}
+	}
+
+	bindings := kollectdevv1alpha1.CollectClusterInventorySinkBindings(&inv.Spec)
+	if err := scope.ValidateClusterInventoryClusterScopeSinkRefs(binding.Scope, bindings); err != nil {
+		return validation.ClusterInventoryInvalid(inv.Name, validation.ScopeViolationErrors(err))
+	}
+
 	return nil
 }

@@ -127,6 +127,48 @@ func TestNormalizeNamespaceList(t *testing.T) {
 	}
 }
 
+func TestValidateClusterScopeStaticRefNamespace(t *testing.T) {
+	t.Parallel()
+
+	scope := &kollectdevv1alpha1.KollectClusterScope{
+		ObjectMeta: metav1.ObjectMeta{Name: "platform"},
+		Spec: kollectdevv1alpha1.KollectClusterScopeSpec{
+			AllowedStaticRefNamespaces: []string{"kollect-system", "exports"},
+		},
+	}
+
+	if err := ValidateClusterScopeStaticRefNamespace(scope, "kollect-system"); err != nil {
+		t.Fatalf("expected allow: %v", err)
+	}
+
+	if err := ValidateClusterScopeStaticRefNamespace(scope, "team-a"); err == nil {
+		t.Fatal("expected static ref namespace violation")
+	}
+
+	if err := ValidateClusterScopeStaticRefNamespace(nil, "team-a"); err != nil {
+		t.Fatalf("nil scope should allow: %v", err)
+	}
+}
+
+func TestClusterInventoryStaticRefNamespaces(t *testing.T) {
+	t.Parallel()
+
+	spec := &kollectdevv1alpha1.KollectClusterInventorySpec{
+		ProfileRef: &kollectdevv1alpha1.NamespacedObjectReference{
+			Name: "rollup", Namespace: "exports",
+		},
+		DatabaseSinkRefs: kollectdevv1alpha1.InventorySinkRefList{
+			{Name: "git", Namespace: "kollect-system"},
+			{Name: "pg"},
+		},
+	}
+
+	got := ClusterInventoryStaticRefNamespaces(spec, "kollect-system")
+	if len(got) != 2 || got[0] != "exports" || got[1] != "kollect-system" {
+		t.Fatalf("got = %#v", got)
+	}
+}
+
 func TestCollectRuleGVKs_fromRules(t *testing.T) {
 	t.Parallel()
 

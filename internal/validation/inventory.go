@@ -90,3 +90,8 @@ func InventoryInvalid(name string, errs field.ErrorList) error {
 func ScopeLoadErrors(err error) field.ErrorList {
 	return field.ErrorList{field.InternalError(field.NewPath("spec"), err)}
 }
+
+// ScopeViolationErrors wraps a KollectClusterScope policy violation for admission responses.
+func ScopeViolationErrors(err error) field.ErrorList {
+	return field.ErrorList{field.Forbidden(field.NewPath("spec"), err.Error())}
+}
