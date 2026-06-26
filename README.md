@@ -5,11 +5,20 @@
 </p>
 
 <p align="center">
-<a href="https://securityscorecards.dev/viewer/?uri=github.com/konih/kollect"><img src="https://api.securityscorecards.dev/projects/github.com/konih/kollect/badge" alt="OpenSSF Scorecard"></a>
 <a href="https://github.com/konih/kollect/actions/workflows/ci.yaml"><img src="https://github.com/konih/kollect/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
-<a href="https://github.com/konih/kollect/releases"><img src="https://img.shields.io/github/v/tag/konih/kollect?label=release" alt="Release"></a>
+<a href="https://github.com/konih/kollect/actions/workflows/preflight.yaml"><img src="https://github.com/konih/kollect/actions/workflows/preflight.yaml/badge.svg" alt="Preflight"></a>
+<a href="https://github.com/konih/kollect/actions/workflows/e2e-smoke.yaml"><img src="https://github.com/konih/kollect/actions/workflows/e2e-smoke.yaml/badge.svg" alt="E2E"></a>
+<a href="https://konih.github.io/kollect/"><img src="https://img.shields.io/badge/documentation-GitHub%20Pages-2ea44f?logo=readthedocs&logoColor=white" alt="Documentation"></a>
+<a href="https://github.com/konih/kollect/actions/workflows/docs.yaml"><img src="https://github.com/konih/kollect/actions/workflows/docs.yaml/badge.svg" alt="Docs CI"></a>
+<a href="https://github.com/konih/kollect/actions/workflows/codeql.yaml"><img src="https://github.com/konih/kollect/actions/workflows/codeql.yaml/badge.svg" alt="CodeQL"></a>
+<a href="https://securityscorecards.dev/viewer/?uri=github.com/konih/kollect"><img src="https://api.securityscorecards.dev/projects/github.com/konih/kollect/badge" alt="OpenSSF Scorecard"></a>
+<a href="https://github.com/konih/kollect/blob/main/LICENSE"><img src="https://img.shields.io/github/license/konih/kollect" alt="License: MIT"></a>
+<a href="https://github.com/konih/kollect/releases"><img src="https://img.shields.io/github/v/release/konih/kollect" alt="Release"></a>
 <a href="https://codecov.io/gh/konih/kollect"><img src="https://codecov.io/gh/konih/kollect/graph/badge.svg" alt="codecov"></a>
-<a href="https://github.com/konih/kollect/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+<a href="https://pkg.go.dev/github.com/konih/kollect"><img src="https://img.shields.io/github/go-mod/go-version/konih/kollect" alt="Go"></a>
+<a href="https://pkg.go.dev/github.com/konih/kollect"><img src="https://pkg.go.dev/badge/github.com/konih/kollect.svg" alt="Go Reference"></a>
+<a href="https://goreportcard.com/report/github.com/konih/kollect"><img src="https://goreportcard.com/badge/github.com/konih/kollect" alt="Go Report Card"></a>
+<a href="https://github.com/orgs/konih/packages?repo_name=kollect"><img src="https://img.shields.io/badge/ghcr.io-konih%2Fkollect-2496ED?logo=docker&logoColor=white" alt="Container"></a>
 </p>
 
 <p align="center"><em>Git-simple to start · platform-grade to grow</em></p>
