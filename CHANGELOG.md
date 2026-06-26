@@ -11,14 +11,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
-- **scope:** Add cluster static-ref namespace allowlist [a8af5d4](https://github.com/konih/kollect/commit/a8af5d44c1ddb3ebfcddd29f52dcf8555e0162b1)
-
-
-### Refactoring
-
-- **controller:** Trim cluster target reconcile complexity [4d8e5ad](https://github.com/konih/kollect/commit/4d8e5ad9cac5967d09a8697fa249e5ce0525fcfe)
-
-- **controller:** Extract cluster scope enforcement [85daa4c](https://github.com/konih/kollect/commit/85daa4ccbc63ce983ee31ceba815fbb76c7df22d)
+- **scope:** Cluster static-ref namespace allowlist (#23) ([#23](https://github.com/konih/kollect/pull/23))[c55f538](https://github.com/konih/kollect/commit/c55f5380d99ab9cf30dbd3f4122c18f6ff4fb3dc)
 
 ## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-13
 
