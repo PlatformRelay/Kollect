@@ -119,3 +119,37 @@ func TestBackend_ExportFiles_PruneRemovesStaleEntries(t *testing.T) {
 		t.Fatalf("keep.json payload = %q", data)
 	}
 }
+
+func TestBackend_Export_PushesSingleObject(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not in PATH")
+	}
+
+	remote := createBareRemoteWithMainCommit(t)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type:     TypeName,
+		Endpoint: "file://" + remote,
+	}
+	backend, err := NewBackend(spec, nil, Auth{}, nil)
+	if err != nil {
+		t.Fatalf("NewBackend() error = %v", err)
+	}
+
+	if exportErr := backend.Export(t.Context(), []byte(`{"hello":"world"}`), "inventory/latest.json"); exportErr != nil {
+		t.Fatalf("Export() error = %v", exportErr)
+	}
+
+	verify := t.TempDir()
+	if out, cloneErr := exec.Command("git", "clone", "--branch", "main", "--single-branch", remote, verify).CombinedOutput(); cloneErr != nil { //nolint:gosec // G204: test fixture
+		t.Fatalf("git clone verify: %s: %v", out, cloneErr)
+	}
+
+	data, err := os.ReadFile(filepath.Join(verify, "inventory", "latest.json")) //nolint:gosec // G304: test fixture
+	if err != nil {
+		t.Fatalf("read inventory/latest.json: %v", err)
+	}
+	if string(data) != `{"hello":"world"}` {
+		t.Fatalf("payload = %q", data)
+	}
+}

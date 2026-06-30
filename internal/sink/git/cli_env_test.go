@@ -44,6 +44,88 @@ func TestNewCLIEnv_forceBasicAuthHeader(t *testing.T) {
 	}
 }
 
+func TestNewCLIEnv_insecureSkipVerify(t *testing.T) {
+	t.Parallel()
+
+	cfg := Config{Endpoint: "https://example.com/r.git", TLS: TLSConfig{InsecureSkipVerify: true}}
+
+	cli, err := newCLIEnv(cfg, Auth{}, AuthTypeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cli.cleanup()
+
+	found := false
+	for _, e := range cli.extraEnv {
+		if e == "GIT_SSL_NO_VERIFY=true" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("extraEnv = %v, want GIT_SSL_NO_VERIFY=true", cli.extraEnv)
+	}
+}
+
+func TestNewCLIEnv_forceBasicAuth_emptyHeaderSkipped(t *testing.T) {
+	t.Parallel()
+
+	cfg := Config{Endpoint: "https://example.com/r.git", ForceBasicAuth: true}
+
+	cli, err := newCLIEnv(cfg, Auth{}, AuthTypeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cli.cleanup()
+
+	if len(cli.configEnvArgs) != 0 {
+		t.Fatalf("configEnvArgs = %v, want empty when there are no credentials", cli.configEnvArgs)
+	}
+}
+
+func TestNewCLIEnv_sshPath_setsCommandAndCleansUp(t *testing.T) {
+	t.Parallel()
+
+	cfg := Config{Endpoint: "ssh://git@example.com/r.git"}
+	auth := Auth{SSHPrivateKey: testEd25519PrivateKeyPEM(t)}
+
+	cli, err := newCLIEnv(cfg, auth, AuthTypeSSH)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found := false
+	var keyPath string
+	for _, e := range cli.extraEnv {
+		if strings.HasPrefix(e, "GIT_SSH_COMMAND=") {
+			found = true
+
+			for _, part := range strings.Split(e, " ") {
+				if !strings.HasPrefix(part, "-") && strings.Contains(part, "kollect-git-identity-") {
+					keyPath = part
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("extraEnv = %v, want GIT_SSH_COMMAND set", cli.extraEnv)
+	}
+	if len(cli.cleanupFns) == 0 {
+		t.Fatal("expected cleanupFns to be populated for ssh identity temp file")
+	}
+	if keyPath == "" {
+		t.Fatal("could not locate temp ssh key path in GIT_SSH_COMMAND")
+	}
+	if _, statErr := os.Stat(keyPath); statErr != nil {
+		t.Fatalf("key file missing before cleanup: %v", statErr)
+	}
+
+	cli.cleanup()
+
+	if _, statErr := os.Stat(keyPath); !os.IsNotExist(statErr) {
+		t.Fatalf("key file should be removed after cleanup, stat err=%v", statErr)
+	}
+}
+
 func TestForceBasicAuthFromEnv(t *testing.T) {
 	t.Setenv(envForceBasicAuth, "true")
 	if !forceBasicAuthFromEnv() {
@@ -143,6 +225,23 @@ func TestApplyCLIEnvAndPrependGitArgs(t *testing.T) {
 	args := cli.prependGitArgs("push", "origin", "main")
 	if len(args) < 4 || args[0] != "--config-env" {
 		t.Fatalf("prependGitArgs() = %v", args)
+	}
+}
+
+func TestApplyCLIEnv_nilCmdIsNoop(t *testing.T) {
+	t.Parallel()
+
+	applyCLIEnv(nil, &cliEnv{extraEnv: []string{"X=1"}}) // must not panic
+}
+
+func TestPrependGitArgs_nilReceiverReturnsArgsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	var cli *cliEnv
+
+	args := cli.prependGitArgs("push", "origin", "main")
+	if len(args) != 3 || args[0] != "push" {
+		t.Fatalf("prependGitArgs() = %v, want unchanged args", args)
 	}
 }
 

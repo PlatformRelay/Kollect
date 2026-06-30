@@ -98,3 +98,61 @@ func TestCommitContextFromExport(t *testing.T) {
 		t.Fatalf("sink = %q", ctx.SinkName)
 	}
 }
+
+func TestCommitContextFromExport_fallsBackToSinkClusterAndNow(t *testing.T) {
+	t.Parallel()
+
+	envelope := []byte(`{
+		"schemaVersion":"kollect.dev/v1alpha1",
+		"checksum":"abc123",
+		"generation":1,
+		"itemCount":0,
+		"items":[]
+	}`)
+
+	before := time.Now().UTC()
+	ctx := CommitContextFromExport(envelope, "inventory/team-a/demo.json", "fallback-cluster", "git-sink")
+
+	if ctx.Cluster != "fallback-cluster" {
+		t.Fatalf("cluster = %q, want fallback-cluster", ctx.Cluster)
+	}
+	if ctx.ExportedAt.Before(before) {
+		t.Fatalf("ExportedAt = %v, want defaulted to roughly now (>= %v)", ctx.ExportedAt, before)
+	}
+}
+
+func TestCommitContextFromExport_defaultsClusterWhenBothEmpty(t *testing.T) {
+	t.Parallel()
+
+	envelope := []byte(`{"schemaVersion":"kollect.dev/v1alpha1","items":[]}`)
+
+	ctx := CommitContextFromExport(envelope, "inventory/team-a/demo.json", "", "git-sink")
+	if ctx.Cluster != defaultClusterName {
+		t.Fatalf("cluster = %q, want default", ctx.Cluster)
+	}
+}
+
+func TestCommitContextFromObjectPath(t *testing.T) {
+	t.Parallel()
+
+	t.Run("defaults cluster when blank", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := CommitContextFromObjectPath("inventory/team-a/demo.json", "")
+		if ctx.Cluster != defaultClusterName {
+			t.Fatalf("Cluster = %q, want default", ctx.Cluster)
+		}
+	})
+
+	t.Run("extracts generation from path", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := CommitContextFromObjectPath("inventory/team-a/demo.json?generation=42", "prod")
+		if ctx.Generation != 42 || ctx.ExportGen != 42 {
+			t.Fatalf("Generation = %d, ExportGen = %d, want 42", ctx.Generation, ctx.ExportGen)
+		}
+		if ctx.Cluster != "prod" {
+			t.Fatalf("Cluster = %q, want prod", ctx.Cluster)
+		}
+	})
+}

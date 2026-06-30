@@ -14,6 +14,9 @@ import (
 
 var generationPathPattern = regexp.MustCompile(`generation=(\d+)`)
 
+// defaultClusterName is used when neither the envelope nor the sink config name a cluster.
+const defaultClusterName = "default"
+
 // CommitContext carries inventory and export metadata for commit message templates (ADR-0415).
 type CommitContext struct {
 	Namespace  string
@@ -38,7 +41,7 @@ func CommitContextFromObjectPath(objectPath, cluster string) CommitContext {
 	}
 
 	if ctx.Cluster == "" {
-		ctx.Cluster = "default"
+		ctx.Cluster = defaultClusterName
 	}
 
 	if matches := generationPathPattern.FindStringSubmatch(objectPath); len(matches) == 2 {

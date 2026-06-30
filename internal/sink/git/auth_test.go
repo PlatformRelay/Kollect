@@ -128,6 +128,100 @@ func TestBasicAuthHTTPS_emptyReturnsNil(t *testing.T) {
 	}
 }
 
+func TestBasicAuthHTTPS_passwordOnlyDefaultsUser(t *testing.T) {
+	t.Parallel()
+
+	method, err := basicAuthHTTPS(Auth{Password: "p"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	basic, ok := method.(*githttp.BasicAuth)
+	if !ok {
+		t.Fatalf("method = %T", method)
+	}
+	if basic.Username != defaultGitUser || basic.Password != "p" {
+		t.Fatalf("basic auth = %+v", basic)
+	}
+}
+
+func TestBuildAuthMethod_unsupportedScheme(t *testing.T) {
+	t.Parallel()
+
+	_, err := buildAuthMethod("ftp://git.example/repo.git", Auth{}, AuthTypeToken, SSHConfig{})
+	if err == nil {
+		t.Fatal("expected error for unsupported scheme")
+	}
+}
+
+func TestSSHAuth_userResolution(t *testing.T) {
+	t.Parallel()
+
+	key := testEd25519PrivateKeyPEM(t)
+	cases := []struct {
+		name         string
+		authUsername string
+		endpointUser string
+		wantUser     string
+	}{
+		{name: "explicit auth username wins", authUsername: "bot", endpointUser: "git", wantUser: "bot"},
+		{name: "falls back to endpoint user", authUsername: "", endpointUser: "deploy", wantUser: "deploy"},
+		{name: "falls back to default git user", authUsername: "", endpointUser: "", wantUser: defaultGitUser},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			method, err := sshAuth(Auth{Username: tc.authUsername, SSHPrivateKey: key}, tc.endpointUser, SSHConfig{InsecureSkipVerify: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			pk, ok := method.(*publicKeysAuth)
+			if !ok {
+				t.Fatalf("method = %T", method)
+			}
+			if pk.User != tc.wantUser {
+				t.Fatalf("User = %q, want %q", pk.User, tc.wantUser)
+			}
+		})
+	}
+}
+
+func TestBasicAuthHeader_branches(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		auth     Auth
+		wantNone bool
+	}{
+		{name: "empty auth", auth: Auth{}, wantNone: true},
+		{name: "token only", auth: Auth{Token: "tok"}},
+		{name: "password only", auth: Auth{Password: "p"}},
+		{name: "explicit username", auth: Auth{Username: "bot", Token: "tok"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			header := basicAuthHeader(tc.auth)
+			if tc.wantNone {
+				if header != "" {
+					t.Fatalf("header = %q, want empty", header)
+				}
+
+				return
+			}
+			if header == "" {
+				t.Fatal("expected non-empty header")
+			}
+		})
+	}
+}
+
 func testEd25519PrivateKeyPEM(t *testing.T) []byte {
 	t.Helper()
 
