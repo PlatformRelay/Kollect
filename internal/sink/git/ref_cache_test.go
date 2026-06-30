@@ -27,6 +27,15 @@ func TestRefCache_ttl(t *testing.T) {
 	}
 }
 
+func TestNewRefCache_nonPositiveTTLDefaults(t *testing.T) {
+	t.Parallel()
+
+	cache := newRefCache(0)
+	if cache.ttl != defaultRefCacheTTL {
+		t.Fatalf("ttl = %v, want default %v", cache.ttl, defaultRefCacheTTL)
+	}
+}
+
 func TestRefCacheKey_stable(t *testing.T) {
 	t.Parallel()
 

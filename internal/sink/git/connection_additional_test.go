@@ -5,6 +5,9 @@ package git
 
 import (
 	"crypto/x509"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -47,6 +50,42 @@ func TestTestConnection_TLSHandshakeErrorMentionsCustomCA(t *testing.T) {
 	}, Auth{})
 	if err == nil || !strings.Contains(err.Error(), "custom CA may be wrong or incomplete") {
 		t.Fatalf("TestConnection() error = %v, want custom CA hint", err)
+	}
+}
+
+func TestTLSHandshake_succeedsWithInsecureSkipVerify(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	host, port, err := net.SplitHostPort(srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := tlsHandshake(t.Context(), host, port, TLSConfig{InsecureSkipVerify: true}); err != nil {
+		t.Fatalf("tlsHandshake() error = %v, want success", err)
+	}
+}
+
+func TestTLSHandshake_failsOnUntrustedCert(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	host, port, err := net.SplitHostPort(srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := tlsHandshake(t.Context(), host, port, TLSConfig{RootCAs: x509.NewCertPool()}); err == nil {
+		t.Fatal("expected handshake error for untrusted certificate")
 	}
 }
 

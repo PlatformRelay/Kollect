@@ -12,6 +12,24 @@ import (
 	"github.com/go-git/go-git/v5"
 )
 
+func TestMirrorRootDir_envOverride(t *testing.T) {
+	custom := filepath.Join(t.TempDir(), "custom-mirrors")
+	t.Setenv(envMirrorDir, custom)
+
+	if got := mirrorRootDir(); got != custom {
+		t.Fatalf("mirrorRootDir() = %q, want %q", got, custom)
+	}
+}
+
+func TestMirrorRootDir_defaultsToTempDir(t *testing.T) {
+	t.Setenv(envMirrorDir, "")
+
+	want := filepath.Join(os.TempDir(), "kollect-git-mirrors")
+	if got := mirrorRootDir(); got != want {
+		t.Fatalf("mirrorRootDir() = %q, want %q", got, want)
+	}
+}
+
 func TestOpenOrWarmMirror_ColdThenWarm(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not in PATH")

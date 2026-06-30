@@ -55,3 +55,31 @@ func TestSSHAuthMethod_knownHosts(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPublicKeysAuth_ClientConfig(t *testing.T) {
+	t.Parallel()
+
+	key := testEd25519PrivateKeyPEM(t)
+	auth, err := sshAuthMethod("deploy", key, SSHConfig{InsecureSkipVerify: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := auth.ClientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.User != "deploy" {
+		t.Fatalf("User = %q, want deploy", cfg.User)
+	}
+	if len(cfg.Auth) != 1 {
+		t.Fatalf("Auth = %v, want one public-key auth method", cfg.Auth)
+	}
+	if cfg.HostKeyCallback == nil {
+		t.Fatal("expected HostKeyCallback to be wired from the auth method")
+	}
+	if len(cfg.KeyExchanges) != len(defaultSSHKeyExchangeAlgorithms) {
+		t.Fatalf("KeyExchanges = %v, want %v", cfg.KeyExchanges, defaultSSHKeyExchangeAlgorithms)
+	}
+}

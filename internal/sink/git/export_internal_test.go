@@ -86,6 +86,20 @@ func TestPushCommitted_WrapsMissingOriginError(t *testing.T) {
 	}
 }
 
+func TestIsFileRemote(t *testing.T) {
+	t.Parallel()
+
+	if !isFileRemote("file:///tmp/repo.git") {
+		t.Fatal("expected file:// URL to be recognized as a file remote")
+	}
+	if isFileRemote("https://example.com/repo.git") {
+		t.Fatal("expected https:// URL to not be a file remote")
+	}
+	if isFileRemote("\x7f://bad") {
+		t.Fatal("expected unparseable URL to not be a file remote")
+	}
+}
+
 func TestIsEmptyRemote_RecognizesKnownMessages(t *testing.T) {
 	t.Parallel()
 
