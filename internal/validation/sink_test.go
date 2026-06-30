@@ -4,7 +4,10 @@
 package validation
 
 import (
+	"strings"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
@@ -47,5 +50,28 @@ func TestValidateSinkSpec_rejectsUnknownType(t *testing.T) {
 	errs := ValidateSinkSpec(&kollectdevv1alpha1.KollectSinkSpec{Type: "minio"})
 	if len(errs) != 1 {
 		t.Fatalf("expected unsupported type error, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidateSinkSpec_nilIsNoop(t *testing.T) {
+	t.Parallel()
+
+	if errs := ValidateSinkSpec(nil); errs != nil {
+		t.Fatalf("expected nil errors for nil spec, got: %v", errs)
+	}
+}
+
+func TestSinkInvalid_formats(t *testing.T) {
+	t.Parallel()
+
+	errs := field.ErrorList{
+		field.Required(field.NewPath("spec").Child("type"), "type is required"),
+	}
+	err := SinkInvalid("my-sink", errs)
+	if err == nil {
+		t.Fatal("expected non-nil error")
+	}
+	if !strings.Contains(err.Error(), "KollectSink") || !strings.Contains(err.Error(), "my-sink") {
+		t.Fatalf("unexpected error format: %v", err)
 	}
 }

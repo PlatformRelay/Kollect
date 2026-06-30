@@ -4,6 +4,7 @@
 package validation
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -93,4 +94,22 @@ func TestInventoryInvalid(t *testing.T) {
 		field.Required(field.NewPath("spec").Child("snapshotSinkRefs"), "required"),
 	})
 	assertInvalidResourceError(t, err, "KollectInventory", "demo")
+}
+
+func TestScopeLoadErrors_wrapsInternalError(t *testing.T) {
+	t.Parallel()
+
+	errs := ScopeLoadErrors(errors.New("scope not found"))
+	if len(errs) != 1 || errs[0].Type != field.ErrorTypeInternal {
+		t.Fatalf("expected one internal error, got %v", errs)
+	}
+}
+
+func TestScopeViolationErrors_wrapsForbidden(t *testing.T) {
+	t.Parallel()
+
+	errs := ScopeViolationErrors(errors.New("quota exceeded"))
+	if len(errs) != 1 || errs[0].Type != field.ErrorTypeForbidden {
+		t.Fatalf("expected one forbidden error, got %v", errs)
+	}
 }

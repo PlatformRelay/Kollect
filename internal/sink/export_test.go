@@ -371,3 +371,27 @@ func TestRunExportItems_exportFailureTransient(t *testing.T) {
 		t.Fatalf("RunExportItems() = %v (%v), want transient export error", err, kollecterrors.ClassOf(err))
 	}
 }
+
+func TestObjectStoreSnapshotCapabilities(t *testing.T) {
+	t.Parallel()
+
+	caps := ObjectStoreSnapshotCapabilities()
+	if !caps.ObjectStore {
+		t.Fatal("ObjectStoreSnapshotCapabilities must set ObjectStore")
+	}
+	if caps.SupportsDelete || caps.Stream {
+		t.Fatalf("unexpected flags: %+v", caps)
+	}
+}
+
+func TestStreamEmitterCapabilities(t *testing.T) {
+	t.Parallel()
+
+	caps := StreamEmitterCapabilities()
+	if !caps.Stream {
+		t.Fatal("StreamEmitterCapabilities must set Stream")
+	}
+	if caps.ObjectStore || caps.SupportsDelete {
+		t.Fatalf("unexpected flags: %+v", caps)
+	}
+}

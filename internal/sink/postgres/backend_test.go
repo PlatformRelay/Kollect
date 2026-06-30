@@ -3,7 +3,40 @@
 
 package postgres
 
-import "testing"
+import (
+	"context"
+	"strings"
+	"testing"
+)
+
+func TestBackend_Type(t *testing.T) {
+	t.Parallel()
+
+	b := &Backend{}
+	if b.Type() != TypeName {
+		t.Fatalf("Type() = %q, want %q", b.Type(), TypeName)
+	}
+}
+
+func TestBackend_Close_nilPoolIsNoop(t *testing.T) {
+	t.Parallel()
+
+	b := &Backend{pool: nil}
+	b.Close() // must not panic
+}
+
+func TestBackend_Export_decodeError(t *testing.T) {
+	t.Parallel()
+
+	b := &Backend{}
+	err := b.Export(context.Background(), []byte(`{"schemaVersion":"kollect.dev/v99","items":[]}`), "")
+	if err == nil {
+		t.Fatal("expected decode error for unsupported schema version")
+	}
+	if !strings.Contains(err.Error(), "decode payload") {
+		t.Fatalf("error = %q, want decode payload context", err)
+	}
+}
 
 // inventoryFromObjectPath behavior is now centrally tested in
 // internal/pathvalidate (TestInventoryFromObjectPath); this package only
