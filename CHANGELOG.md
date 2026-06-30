@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect:** Bump namespace version atomically with content, not after unlock [4c26ff1](https://github.com/konih/kollect/commit/4c26ff1cf44ea7dc87ac7b3ab2418277272612d3)
+
 - **controller,collect:** Keep namespace fingerprint cache version monotonic across RemoveCluster [7700c57](https://github.com/konih/kollect/commit/7700c57c8ff9685a6679e7f8e74f8cafd3066c01)
 
 - **controller:** Degrade scope not whole target on RBAC-forbidden namespace (#28) ([#28](https://github.com/konih/kollect/pull/28))[0cd7e8d](https://github.com/konih/kollect/commit/0cd7e8dd3e648471aae59e2bd371d5c73f9d3941)
