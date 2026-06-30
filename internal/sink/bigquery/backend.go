@@ -15,6 +15,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
+	"github.com/konih/kollect/internal/pathvalidate"
 	"github.com/konih/kollect/internal/sink/cap"
 )
 
@@ -119,7 +120,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 		return classifyError(fmt.Errorf("bigquery export: decode payload: %w", err))
 	}
 
-	invNS, invName := inventoryFromObjectPath(objectPath)
+	invNS, invName := pathvalidate.InventoryFromObjectPath(objectPath)
 	cluster := b.cfg.Cluster
 
 	if len(items) == 0 {
@@ -305,20 +306,6 @@ func toMergeRows(items []collect.Item, invNS, invName, cluster string) ([]mergeR
 	}
 
 	return rows, nil
-}
-
-func inventoryFromObjectPath(objectPath string) (namespace, name string) {
-	objectPath = strings.TrimPrefix(strings.TrimSpace(objectPath), "inventory/")
-	parts := strings.Split(objectPath, "/")
-	if len(parts) >= 2 {
-		return parts[0], strings.TrimSuffix(parts[1], ".json")
-	}
-
-	if len(parts) == 1 && parts[0] != "" {
-		return parts[0], ""
-	}
-
-	return "", ""
 }
 
 func qualifiedTable(project, dataset, table string) string {

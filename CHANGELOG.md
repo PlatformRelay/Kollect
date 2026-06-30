@@ -18,6 +18,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **scope:** Cluster static-ref namespace allowlist (#23) ([#23](https://github.com/konih/kollect/pull/23))[c55f538](https://github.com/konih/kollect/commit/c55f5380d99ab9cf30dbd3f4122c18f6ff4fb3dc)
 
+
+### Refactoring
+
+- **sink:** Extract inventoryFromObjectPath into pathvalidate [dceb6c8](https://github.com/konih/kollect/commit/dceb6c8b5c881cda13dcf70c28ed191ec553db0d)
+
 ## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-13
 
 ### Bug Fixes

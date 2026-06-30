@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/konih/kollect/internal/collect"
+	"github.com/konih/kollect/internal/pathvalidate"
 )
 
 type exportScope struct {
@@ -16,7 +17,7 @@ type exportScope struct {
 }
 
 func newExportScope(objectPath, cluster string) exportScope {
-	invNS, invName := inventoryFromObjectPath(objectPath)
+	invNS, invName := pathvalidate.InventoryFromObjectPath(objectPath)
 	return exportScope{
 		inventoryNamespace: invNS,
 		inventoryName:      invName,
