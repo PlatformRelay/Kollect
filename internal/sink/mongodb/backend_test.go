@@ -209,49 +209,6 @@ func TestDeleteStaleDocuments_PassesScopeAndNorFilter(t *testing.T) {
 	}
 }
 
-func TestInventoryFromObjectPath(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		path     string
-		wantNS   string
-		wantName string
-	}{
-		{
-			name:     "full path with prefix",
-			path:     "inventory/team-a/apps.json",
-			wantNS:   "team-a",
-			wantName: "apps",
-		},
-		{
-			name:     "trimmed with spaces",
-			path:     "  inventory/team-b/workloads.json  ",
-			wantNS:   "team-b",
-			wantName: "workloads",
-		},
-		{
-			name:     "namespace only",
-			path:     "inventory/team-c",
-			wantNS:   "team-c",
-			wantName: "",
-		},
-		{
-			name:     "empty path",
-			path:     "",
-			wantNS:   "",
-			wantName: "",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			gotNS, gotName := inventoryFromObjectPath(tc.path)
-			if gotNS != tc.wantNS || gotName != tc.wantName {
-				t.Fatalf("inventoryFromObjectPath(%q) = (%q, %q), want (%q, %q)",
-					tc.path, gotNS, gotName, tc.wantNS, tc.wantName)
-			}
-		})
-	}
-}
+// inventoryFromObjectPath behavior is now centrally tested in
+// internal/pathvalidate (TestInventoryFromObjectPath); TestNewExportScopeAndUpsertFilter
+// above exercises the wiring through newExportScope.

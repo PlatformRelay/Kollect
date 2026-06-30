@@ -50,3 +50,37 @@ func TestRejectTraversal(t *testing.T) {
 		t.Fatal("expected traversal error")
 	}
 }
+
+// InventoryFromObjectPath used to be duplicated byte-for-byte across the
+// postgres, bigquery, and mongodb sink backends; this case set merges all
+// behaviors previously exercised by their three independent test tables.
+func TestInventoryFromObjectPath(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		path     string
+		wantNS   string
+		wantName string
+	}{
+		{name: "namespace and name", path: "inventory/team-a/rollup.json", wantNS: "team-a", wantName: "rollup"},
+		{name: "ns/name no special chars", path: "inventory/ns/name.json", wantNS: "ns", wantName: "name"},
+		{name: "single segment treated as namespace", path: "inventory/solo.json", wantNS: "solo.json", wantName: ""},
+		{name: "no inventory prefix", path: "exports/latest.json", wantNS: "exports", wantName: "latest"},
+		{name: "empty path", path: "", wantNS: "", wantName: ""},
+		{name: "trimmed surrounding spaces", path: "  inventory/team-b/workloads.json  ", wantNS: "team-b", wantName: "workloads"},
+		{name: "namespace only, no file segment", path: "inventory/team-c", wantNS: "team-c", wantName: ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotNS, gotName := InventoryFromObjectPath(tc.path)
+			if gotNS != tc.wantNS || gotName != tc.wantName {
+				t.Fatalf("InventoryFromObjectPath(%q) = (%q, %q), want (%q, %q)",
+					tc.path, gotNS, gotName, tc.wantNS, tc.wantName)
+			}
+		})
+	}
+}

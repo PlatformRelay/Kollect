@@ -46,3 +46,19 @@ func RejectTraversal(path string) error {
 
 	return nil
 }
+
+// InventoryFromObjectPath extracts the namespace and inventory name from a
+// snapshot export object path of the form "inventory/<namespace>/<name>.json".
+func InventoryFromObjectPath(objectPath string) (namespace, name string) {
+	objectPath = strings.TrimPrefix(strings.TrimSpace(objectPath), "inventory/")
+	parts := strings.Split(objectPath, "/")
+	if len(parts) >= 2 {
+		return parts[0], strings.TrimSuffix(parts[1], ".json")
+	}
+
+	if len(parts) == 1 && parts[0] != "" {
+		return parts[0], ""
+	}
+
+	return "", ""
+}

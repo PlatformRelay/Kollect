@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -238,18 +237,4 @@ func staleDeleteFilter(scope exportScope, items []collect.Item) (bson.M, bool) {
 	filter["$nor"] = orFilters
 
 	return filter, false
-}
-
-func inventoryFromObjectPath(objectPath string) (namespace, name string) {
-	objectPath = strings.TrimPrefix(strings.TrimSpace(objectPath), "inventory/")
-	parts := strings.Split(objectPath, "/")
-	if len(parts) >= 2 {
-		return parts[0], strings.TrimSuffix(parts[1], ".json")
-	}
-
-	if len(parts) == 1 && parts[0] != "" {
-		return parts[0], ""
-	}
-
-	return "", ""
 }
