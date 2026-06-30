@@ -13,6 +13,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **controller:** Degrade scope not whole target on RBAC-forbidden namespace (#28) ([#28](https://github.com/konih/kollect/pull/28))[0cd7e8d](https://github.com/konih/kollect/commit/0cd7e8dd3e648471aae59e2bd371d5c73f9d3941)
 
+- **collect:** Block on dispatch backpressure instead of inline sync fallback [7f37860](https://github.com/konih/kollect/commit/7f378608d61f836ee76f0dd42a2310ec0cab8b88)
+
 
 ### Features
 
