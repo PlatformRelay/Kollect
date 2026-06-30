@@ -73,11 +73,11 @@ jobs:
           echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
 
-      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v3.17.3
 
@@ -184,14 +184,14 @@ jobs:
           registry-password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Attest operator image (SLSA provenance)
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.2.0
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.2.0
         with:
           subject-name: ${{ steps.image.outputs.repository }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
       - name: Attest operator image (SBOM)
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.2.0
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.2.0
         with:
           subject-name: ${{ steps.image.outputs.repository }}
           subject-digest: ${{ steps.build.outputs.digest }}
@@ -199,14 +199,14 @@ jobs:
           push-to-registry: true
 
       - name: Attest kollect-ui image (SLSA provenance)
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.2.0
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.2.0
         with:
           subject-name: ${{ steps.ui-image.outputs.repository }}
           subject-digest: ${{ steps.ui-build.outputs.digest }}
           push-to-registry: true
 
       - name: Attest kollect-ui image (SBOM)
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.2.0
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.2.0
         with:
           subject-name: ${{ steps.ui-image.outputs.repository }}
           subject-digest: ${{ steps.ui-build.outputs.digest }}
@@ -221,7 +221,7 @@ jobs:
 
       - name: Attest GitHub Release assets (SLSA provenance)
         id: attest-release
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.2.0
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.2.0
         with:
           subject-checksums: dist/checksums.txt
 
