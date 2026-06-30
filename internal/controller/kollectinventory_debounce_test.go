@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -41,6 +42,53 @@ func TestPerSinkCoalesceTracker(t *testing.T) {
 
 	if tracker.shouldSkip(invKey, sinkName, gen+1, hashA, interval, now) {
 		t.Fatal("spec generation bump must bypass debounce")
+	}
+}
+
+// TestNamespaceFingerprintCache_SkipsRecomputeWhenVersionUnchanged backs AR-10
+// (PERF-01 remainder): the cache must serve a memoized fingerprint without
+// invoking the (expensive, full-namespace-snapshot) compute function again as
+// long as the namespace's Store mutation version hasn't moved — and must
+// invoke it again the moment the version does move.
+func TestNamespaceFingerprintCache_SkipsRecomputeWhenVersionUnchanged(t *testing.T) {
+	t.Parallel()
+
+	var c namespaceFingerprintCache
+	calls := 0
+	compute := func() string {
+		calls++
+
+		return fmt.Sprintf("fp-call-%d", calls)
+	}
+
+	fp1 := c.getOrCompute("ns-a", 1, compute)
+	if calls != 1 {
+		t.Fatalf("first call: calls = %d, want 1", calls)
+	}
+
+	fp2 := c.getOrCompute("ns-a", 1, compute)
+	if calls != 1 {
+		t.Fatalf("same version: calls = %d, want still 1 (cache hit)", calls)
+	}
+	if fp2 != fp1 {
+		t.Fatalf("same version returned different fingerprint: %q vs %q", fp1, fp2)
+	}
+
+	fp3 := c.getOrCompute("ns-a", 2, compute)
+	if calls != 2 {
+		t.Fatalf("version bumped: calls = %d, want 2 (recompute)", calls)
+	}
+	if fp3 == fp1 {
+		t.Fatalf("version bumped but fingerprint unchanged: %q", fp3)
+	}
+
+	// A different namespace must not share cache state with ns-a.
+	fp4 := c.getOrCompute("ns-b", 1, compute)
+	if calls != 3 {
+		t.Fatalf("different namespace: calls = %d, want 3 (no shared cache)", calls)
+	}
+	if fp4 == fp3 {
+		t.Fatalf("different namespace returned same fingerprint as ns-a: %q", fp4)
 	}
 }
 
