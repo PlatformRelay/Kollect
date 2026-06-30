@@ -4,6 +4,7 @@
 package validation
 
 import (
+	"net/netip"
 	"testing"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
@@ -249,21 +250,21 @@ func TestValidateSinkSpec_legacyEndpointHostGuard(t *testing.T) {
 func TestIsDeniedIP(t *testing.T) {
 	t.Parallel()
 
-	import_netip := func(s string) netip.Addr {
+	parseAddr := func(s string) netip.Addr {
 		a, _ := netip.ParseAddr(s)
 		return a
 	}
 
-	if !isDeniedIP(import_netip("192.168.1.1")) {
+	if !isDeniedIP(parseAddr("192.168.1.1")) {
 		t.Error("private RFC1918 address must be denied")
 	}
-	if !isDeniedIP(import_netip("100.64.0.1")) {
+	if !isDeniedIP(parseAddr("100.64.0.1")) {
 		t.Error("carrier-grade NAT address must be denied via denyCIDRs")
 	}
-	if !isDeniedIP(import_netip("198.18.0.1")) {
+	if !isDeniedIP(parseAddr("198.18.0.1")) {
 		t.Error("benchmark-testing address must be denied via denyCIDRs")
 	}
-	if isDeniedIP(import_netip("8.8.8.8")) {
+	if isDeniedIP(parseAddr("8.8.8.8")) {
 		t.Error("public address must not be denied")
 	}
 }
