@@ -151,9 +151,14 @@ func (s *Store) Upsert(item Item) {
 	}
 
 	sh.targets[item.TargetName][item.UID] = item
+	// Bump while still holding sh.mu (AR-10): content and version must
+	// commit atomically, or a reader can observe the new content via
+	// SnapshotNamespace while NamespaceVersion still reports the old value
+	// — a stale cache *hit* that returns a fingerprint for content that no
+	// longer matches it, not just a harmless miss.
+	s.bumpNamespaceVersion(item.TargetNamespace)
 	sh.mu.Unlock()
 
-	s.bumpNamespaceVersion(item.TargetNamespace)
 	s.notifyWatchers(item.TargetNamespace)
 }
 
@@ -172,7 +177,12 @@ func (s *Store) bumpNamespaceVersion(namespace string) {
 // fingerprint recompute when the version is unchanged since the last one
 // they computed. The counter is strictly monotonic per namespace for the
 // lifetime of the Store — including across RemoveCluster, which deletes the
-// shard but never the version entry, so a value is never re-issued.
+// shard but never the version entry, so a value is never re-issued. Every
+// bump happens while the caller still holds the content lock (shard mu or
+// shardsMu) that made the corresponding change visible, so "this version was
+// observed" always implies "this content (or later) is visible" — never the
+// reverse, which would let a cache entry serve a fingerprint for content
+// that has already moved on.
 func (s *Store) NamespaceVersion(namespace string) uint64 {
 	s.versionMu.Lock()
 	defer s.versionMu.Unlock()
@@ -186,9 +196,9 @@ func (s *Store) RemoveTarget(targetNamespace, targetName string) {
 
 	sh.mu.Lock()
 	delete(sh.targets, targetName)
+	s.bumpNamespaceVersion(targetNamespace) // atomic with the content change; see Upsert
 	sh.mu.Unlock()
 
-	s.bumpNamespaceVersion(targetNamespace)
 	s.notifyWatchers(targetNamespace)
 }
 
@@ -200,9 +210,9 @@ func (s *Store) RemoveCluster(cluster string) {
 
 	s.shardsMu.Lock()
 	delete(s.shards, cluster)
+	s.bumpNamespaceVersion(cluster) // atomic with the content change; see Upsert
 	s.shardsMu.Unlock()
 
-	s.bumpNamespaceVersion(cluster)
 	s.notifyWatchers(cluster)
 }
 
@@ -254,19 +264,15 @@ func (s *Store) Remove(targetNamespace, targetName, uid string) {
 	sh := s.shardFor(targetNamespace)
 
 	sh.mu.Lock()
-	removed := false
 	if bucket, ok := sh.targets[targetName]; ok {
 		delete(bucket, uid)
 		if len(bucket) == 0 {
 			delete(sh.targets, targetName)
 		}
-		removed = true
+		s.bumpNamespaceVersion(targetNamespace) // atomic with the content change; see Upsert
 	}
 	sh.mu.Unlock()
 
-	if removed {
-		s.bumpNamespaceVersion(targetNamespace)
-	}
 	s.notifyWatchers(targetNamespace)
 }
 
