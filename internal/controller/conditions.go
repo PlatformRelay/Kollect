@@ -35,6 +35,10 @@ const (
 	// reasonScopeForbidden marks a degraded (not hard-failed) scope: RBAC denied
 	// list access for one or more scoped namespaces (GUIDELINES.md §1 ErrForbidden).
 	reasonScopeForbidden = "ScopeForbidden"
+
+	// reasonExtractionFailed marks a hard-failed (Degraded) target: one or more resources
+	// failed CEL/JSONPath attribute extraction (GUIDELINES.md §1 ErrTerminal — EC-P1-05).
+	reasonExtractionFailed = "ExtractionFailed"
 )
 
 func setTargetCondition(
