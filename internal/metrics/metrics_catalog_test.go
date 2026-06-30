@@ -29,7 +29,7 @@ var registeredMetricNames = []string{
 	"kollect_watch_map_list_errors_total",
 	"kollect_collect_dispatch_duration_seconds",
 	"kollect_collect_dispatch_queue_depth",
-	"kollect_collect_dispatch_sync_fallback_total",
+	"kollect_collect_dispatch_backpressure_total",
 	"kollect_informer_resync_dispatches_total",
 	"kollect_informer_cluster_wide_scope",
 	"kollect_custom_resource_series",

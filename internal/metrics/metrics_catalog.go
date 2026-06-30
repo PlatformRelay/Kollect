@@ -161,13 +161,13 @@ var Catalog = []CatalogEntry{
 		Type:       "gauge",
 		Help:       "Approximate collection dispatch queue depth.",
 		PromQLHint: "max_over_time(kollect_collect_dispatch_queue_depth[5m])",
-		AgentHint:  "Sustained high depth → increase workers/queue; watch sync_fallback counter.",
+		AgentHint:  "Sustained high depth → increase workers/queue; watch backpressure counter.",
 	},
 	{
-		Name:       "kollect_collect_dispatch_sync_fallback_total",
+		Name:       "kollect_collect_dispatch_backpressure_total",
 		Type:       "counter",
-		Help:       "Informer events processed synchronously when dispatch queue was full.",
-		PromQLHint: "increase(kollect_collect_dispatch_sync_fallback_total[15m])",
+		Help:       "Informer dispatch sends that blocked waiting for dispatch queue capacity.",
+		PromQLHint: "increase(kollect_collect_dispatch_backpressure_total[15m])",
 		AgentHint:  "Non-zero sustained rate → dispatch pool undersized for churn.",
 	},
 	{

@@ -52,7 +52,9 @@ operator**.
    [PERFORMANCE.md](../PERFORMANCE.md).
 4. **Export debounce:** Per `KollectInventory.spec.exportMinInterval` (default **30s**).
 5. **Informers:** Namespace-scoped when targets agree; paginated initial `List` where allowed.
-6. **Dispatch pool:** Tunable `--collect-dispatch-workers` / queue; enqueue wait before sync fallback.
+6. **Dispatch pool:** Tunable `--collect-dispatch-workers` / queue; enqueue wait, then block
+   (backpressure) on the informer goroutine until queue capacity frees or ctx cancels — never
+   processes inline, to keep worker concurrency the only path that does extract/access-check work.
 7. **Resync / metrics sampling:** `--informer-resync-period`; `--collect-metrics-sample-interval`.
 8. **Profiling:** Optional `--enable-pprof` on `:6060`; disabled in production Helm values.
 9. **Tests:** `load`-tagged tests to **10k** (nightly); 100k manual design proof only.

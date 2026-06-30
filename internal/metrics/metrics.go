@@ -184,10 +184,10 @@ var (
 		},
 	)
 
-	CollectDispatchSyncFallbackTotal = prometheus.NewCounter(
+	CollectDispatchBackpressureTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "kollect_collect_dispatch_sync_fallback_total",
-			Help: "Informer events processed synchronously when the dispatch queue was full.",
+			Name: "kollect_collect_dispatch_backpressure_total",
+			Help: "Informer dispatch sends that blocked waiting for dispatch queue capacity.",
 		},
 	)
 
@@ -253,7 +253,7 @@ func Register() {
 		WatchMapListErrorsTotal,
 		CollectDispatchDurationSeconds,
 		CollectDispatchQueueDepth,
-		CollectDispatchSyncFallbackTotal,
+		CollectDispatchBackpressureTotal,
 		InformerResyncDispatchesTotal,
 		InformerClusterWideScope,
 		StaticRefResolutionTotal,
