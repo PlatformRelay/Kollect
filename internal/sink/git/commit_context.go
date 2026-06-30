@@ -40,7 +40,7 @@ func CommitContextFromExport(
 		cluster = sinkCluster
 	}
 	if cluster == "" {
-		cluster = "default"
+		cluster = defaultClusterName
 	}
 
 	exportedAt := meta.ExportedAt

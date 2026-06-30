@@ -76,4 +76,12 @@ func TestIsNonFastForwardError(t *testing.T) {
 	if isNonFastForwardError(errors.New("connection reset")) {
 		t.Fatal("expected false for transient")
 	}
+
+	if isNonFastForwardError(nil) {
+		t.Fatal("expected false for nil error")
+	}
+
+	if !isNonFastForwardError(errors.New("failed to push some refs: updates were rejected")) {
+		t.Fatal("expected non-fast-forward for combined rejected-refs message")
+	}
 }

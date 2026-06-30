@@ -172,6 +172,164 @@ func TestParseFileGitBarePath_resolvesAndRejects(t *testing.T) {
 	}
 }
 
+func TestParseFileGitBarePath_errorBranches(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		cloneURL string
+	}{
+		{name: "non-file scheme", cloneURL: "https://example.com/repo.git"},
+		{name: "empty path", cloneURL: "file://"},
+		{name: "null byte", cloneURL: "file:///tmp/repo%00.git"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, err := parseFileGitBarePath(tc.cloneURL); err == nil {
+				t.Fatalf("parseFileGitBarePath(%q) expected error", tc.cloneURL)
+			}
+		})
+	}
+}
+
+func TestValidateGitConfigValue(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "valid", value: "Bot Name"},
+		{name: "empty", value: "", wantErr: true},
+		{name: "flag-like", value: "-x", wantErr: true},
+		{name: "null byte", value: "bad\x00value", wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validateGitConfigValue(tc.value)
+			if tc.wantErr && err == nil {
+				t.Fatalf("validateGitConfigValue(%q) expected error", tc.value)
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("validateGitConfigValue(%q) unexpected error: %v", tc.value, err)
+			}
+		})
+	}
+}
+
+func TestValidateGitWorkdir(t *testing.T) {
+	t.Parallel()
+
+	if _, err := validateGitWorkdir(""); err == nil {
+		t.Fatal("expected error for empty workdir")
+	}
+	if _, err := validateGitWorkdir("bad\ndir"); err == nil {
+		t.Fatal("expected error for newline in workdir")
+	}
+
+	dir := t.TempDir()
+	got, err := validateGitWorkdir(dir)
+	if err != nil {
+		t.Fatalf("validateGitWorkdir() error = %v", err)
+	}
+	if got == "" {
+		t.Fatal("expected resolved workdir path")
+	}
+}
+
+func TestCanonicalCloneURL_nonFilePassesThrough(t *testing.T) {
+	t.Parallel()
+
+	got, err := canonicalCloneURL("https://example.com/repo.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "https://example.com/repo.git" {
+		t.Fatalf("canonicalCloneURL() = %q", got)
+	}
+}
+
+func TestCanonicalCloneURL_propagatesValidationError(t *testing.T) {
+	t.Parallel()
+
+	if _, err := canonicalCloneURL("file://--upload-pack=evil"); err == nil {
+		t.Fatal("expected error for flag-like clone URL")
+	}
+}
+
+func TestValidateExportFiles_errorBranches(t *testing.T) {
+	t.Parallel()
+
+	cfg := Config{Endpoint: "https://example.com/repo.git"}
+
+	t.Run("no files", func(t *testing.T) {
+		t.Parallel()
+
+		if _, _, err := validateExportFiles(cfg, nil, nil); err == nil {
+			t.Fatal("expected error for empty file set")
+		}
+	})
+
+	t.Run("empty payload", func(t *testing.T) {
+		t.Parallel()
+
+		_, _, err := validateExportFiles(cfg, []FileEntry{{Path: "a.json", Data: nil}}, nil)
+		if err == nil {
+			t.Fatal("expected error for empty payload")
+		}
+	})
+
+	t.Run("duplicate path", func(t *testing.T) {
+		t.Parallel()
+
+		files := []FileEntry{
+			{Path: "a.json", Data: []byte("x")},
+			{Path: "a.json", Data: []byte("y")},
+		}
+		if _, _, err := validateExportFiles(cfg, files, nil); err == nil {
+			t.Fatal("expected error for duplicate object path")
+		}
+	})
+
+	t.Run("invalid clone branch", func(t *testing.T) {
+		t.Parallel()
+
+		files := []FileEntry{{Path: "a.json", Data: []byte("x")}}
+		_, _, err := validateExportFiles(cfg, files, &BranchSpec{CloneBranch: "-bad"})
+		if err == nil {
+			t.Fatal("expected error for invalid clone branch")
+		}
+	})
+
+	t.Run("invalid push branch", func(t *testing.T) {
+		t.Parallel()
+
+		files := []FileEntry{{Path: "a.json", Data: []byte("x")}}
+		_, _, err := validateExportFiles(cfg, files, &BranchSpec{CloneBranch: "main", PushBranch: "-bad"})
+		if err == nil {
+			t.Fatal("expected error for invalid push branch")
+		}
+	})
+}
+
+func TestValidateGitCommitMessage(t *testing.T) {
+	t.Parallel()
+
+	if err := validateGitCommitMessage("chore: export inventory"); err != nil {
+		t.Fatalf("unexpected error for clean message: %v", err)
+	}
+	if err := validateGitCommitMessage("bad\x00message"); err == nil {
+		t.Fatal("expected error for null byte in commit message")
+	}
+}
+
 func TestCanonicalCloneURL_normalizesFileURL(t *testing.T) {
 	t.Parallel()
 

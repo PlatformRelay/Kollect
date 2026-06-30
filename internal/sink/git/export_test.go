@@ -24,6 +24,26 @@ func TestExportMemory(t *testing.T) {
 	}
 }
 
+func TestExportMemory_emptyPathUsesDefaultObjectKey(t *testing.T) {
+	t.Parallel()
+
+	hash, err := ExportMemory([]byte(`{"items":[]}`), "")
+	if err != nil {
+		t.Fatalf("ExportMemory() error = %v", err)
+	}
+	if hash.IsZero() {
+		t.Fatal("expected non-zero commit hash")
+	}
+}
+
+func TestExportMemory_rejectsTraversal(t *testing.T) {
+	t.Parallel()
+
+	if _, err := ExportMemory([]byte(`{"items":[]}`), "../escape.json"); err == nil {
+		t.Fatal("expected error for path traversal")
+	}
+}
+
 func TestExportFileRemote(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not in PATH")
