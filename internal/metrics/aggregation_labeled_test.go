@@ -47,3 +47,26 @@ func TestCustomResourceLabeledSeries(t *testing.T) {
 		t.Fatal("expected reset to clear series")
 	}
 }
+
+func TestMaxLabeledSeriesPerKeyGlobal(t *testing.T) {
+	t.Cleanup(func() { SetMaxLabeledSeriesPerKeyGlobal(DefaultMaxLabeledSeriesPerKey) })
+
+	if got := MaxLabeledSeriesPerKeyGlobal(); got != DefaultMaxLabeledSeriesPerKey {
+		t.Fatalf("default cap = %d, want %d", got, DefaultMaxLabeledSeriesPerKey)
+	}
+
+	SetMaxLabeledSeriesPerKeyGlobal(5)
+	if got := MaxLabeledSeriesPerKeyGlobal(); got != 5 {
+		t.Fatalf("cap after Set(5) = %d, want 5", got)
+	}
+
+	// Non-positive values are ignored, not treated as "unlimited".
+	SetMaxLabeledSeriesPerKeyGlobal(0)
+	if got := MaxLabeledSeriesPerKeyGlobal(); got != 5 {
+		t.Fatalf("cap after Set(0) = %d, want unchanged 5", got)
+	}
+	SetMaxLabeledSeriesPerKeyGlobal(-1)
+	if got := MaxLabeledSeriesPerKeyGlobal(); got != 5 {
+		t.Fatalf("cap after Set(-1) = %d, want unchanged 5", got)
+	}
+}

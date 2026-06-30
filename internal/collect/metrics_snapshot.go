@@ -60,7 +60,25 @@ func recordLabeledMetricSeries(profile, gvk string, spec metrics.MetricPathSpec,
 		grouped[key] = entry
 	}
 
-	for _, entry := range grouped {
+	// EC-P2-09: cap distinct label tuples deterministically. The full tuple set
+	// for this series is known here (unlike inside RecordCustomResourceLabeledSeries,
+	// which only ever sees one tuple at a time), so a stable sort lets the same
+	// tuples survive every snapshot refresh instead of an arbitrary random N from
+	// Go map iteration order.
+	keys := make([]string, 0, len(grouped))
+	for key := range grouped {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	if limit := metrics.MaxLabeledSeriesPerKeyGlobal(); len(keys) > limit {
+		metrics.LabeledSeriesCardinalityCappedTotal.WithLabelValues(profile, gvk, spec.Name).
+			Add(float64(len(keys) - limit))
+		keys = keys[:limit]
+	}
+
+	for _, key := range keys {
+		entry := grouped[key]
 		metrics.RecordCustomResourceLabeledSeries(profile, gvk, spec.Name, entry.labels, entry.sum)
 	}
 }

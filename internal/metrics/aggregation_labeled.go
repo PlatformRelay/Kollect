@@ -13,6 +13,30 @@ import (
 
 const customResourceLabeledSeriesName = "kollect_custom_resource_labeled_series"
 
+// DefaultMaxLabeledSeriesPerKey bounds the number of distinct label tuples a
+// single (profile, gvk, series) may emit (EC-P2-09). KollectProfile.spec.metrics[].labels
+// takes label values straight from collected attributes, which can be
+// arbitrarily high-cardinality (UIDs, timestamps, free text); without a cap
+// each distinct value becomes a permanent Prometheus series.
+const DefaultMaxLabeledSeriesPerKey = 200
+
+var maxLabeledSeriesPerKey = DefaultMaxLabeledSeriesPerKey
+
+// SetMaxLabeledSeriesPerKeyGlobal configures the per (profile, gvk, series) cap
+// on distinct label tuples. Values <= 0 are ignored.
+func SetMaxLabeledSeriesPerKeyGlobal(n int) {
+	if n <= 0 {
+		return
+	}
+
+	maxLabeledSeriesPerKey = n
+}
+
+// MaxLabeledSeriesPerKeyGlobal returns the configured cap.
+func MaxLabeledSeriesPerKeyGlobal() int {
+	return maxLabeledSeriesPerKey
+}
+
 type labeledSeriesID struct {
 	profile  string
 	gvk      string

@@ -33,6 +33,7 @@ var registeredMetricNames = []string{
 	"kollect_informer_cluster_wide_scope",
 	"kollect_custom_resource_series",
 	"kollect_custom_resource_labeled_series",
+	"kollect_custom_resource_labeled_series_capped_total",
 	"kollect_static_ref_resolution_total",
 }
 

@@ -207,6 +207,17 @@ var (
 		},
 		[]string{"kind", "ref_type", "result"},
 	)
+
+	// LabeledSeriesCardinalityCappedTotal counts label tuples dropped by the
+	// EC-P2-09 cardinality guard (DefaultMaxLabeledSeriesPerKey). profile/gvk/series
+	// are config-bounded (from KollectProfile specs), not user data, so this stays low-cardinality.
+	LabeledSeriesCardinalityCappedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_custom_resource_labeled_series_capped_total",
+			Help: "Distinct label tuples dropped because they exceeded the per-series cardinality cap.",
+		},
+		[]string{"profile", "gvk", "series"},
+	)
 )
 
 // Register adds kollect custom metrics to the controller-runtime registry.
@@ -236,5 +247,6 @@ func Register() {
 		InformerResyncDispatchesTotal,
 		InformerClusterWideScope,
 		StaticRefResolutionTotal,
+		LabeledSeriesCardinalityCappedTotal,
 	)
 }

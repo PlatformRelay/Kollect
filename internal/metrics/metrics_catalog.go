@@ -194,6 +194,14 @@ var Catalog = []CatalogEntry{
 		AgentHint:  "Per-label-tuple sums when profile metrics declare labels; bounded by distinct tuples.",
 	},
 	{
+		Name:       "kollect_custom_resource_labeled_series_capped_total",
+		Type:       "counter",
+		Labels:     []string{"profile", "gvk", "series"},
+		Help:       "Distinct label tuples dropped by the per-series cardinality cap (EC-P2-09).",
+		PromQLHint: "sum by (profile, gvk, series) (kollect_custom_resource_labeled_series_capped_total)",
+		AgentHint:  "Nonzero → a spec.metrics[].labels attribute is high-cardinality; pick a bounded attribute instead.",
+	},
+	{
 		Name:       "kollect_static_ref_resolution_total",
 		Type:       "counter",
 		Labels:     []string{"kind", "ref_type", "result"},

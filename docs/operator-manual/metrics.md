@@ -87,7 +87,8 @@ All custom metrics use the `kollect_` prefix. Controller-runtime also exposes st
 | Metric | Type | Labels | Help |
 | --- | --- | --- | --- |
 | `kollect_custom_resource_series` | gauge | `profile`, `gvk`, `series` | KSM-style series from `KollectProfile.spec.metrics` |
-| `kollect_custom_resource_labeled_series` | gauge | `profile`, `gvk`, `series`, … | Same with attribute label dimensions |
+| `kollect_custom_resource_labeled_series` | gauge | `profile`, `gvk`, `series`, … | Same with attribute label dimensions, capped at 200 distinct tuples per series |
+| `kollect_custom_resource_labeled_series_capped_total` | counter | `profile`, `gvk`, `series` | Distinct label tuples dropped by the cardinality cap — nonzero means the configured label attribute is too high-cardinality |
 
 ### Collection dispatch
 
