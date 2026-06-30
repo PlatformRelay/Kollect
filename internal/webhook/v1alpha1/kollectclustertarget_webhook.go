@@ -22,6 +22,7 @@ import (
 // +kubebuilder:webhook:path=/validate-kollect-dev-v1alpha1-kollectclustertarget,mutating=false,failurePolicy=fail,sideEffects=None,groups=kollect.dev,resources=kollectclustertargets,verbs=create;update,versions=v1alpha1,name=vkollectclustertarget.kb.io,admissionReviewVersions=v1
 
 type kollectClusterTargetValidator struct {
+	noopDelete[*kollectdevv1alpha1.KollectClusterTarget]
 	client     client.Client
 	tenantMode bool
 }
@@ -51,13 +52,6 @@ func (v *kollectClusterTargetValidator) ValidateUpdate(
 	}
 
 	return nil, v.validate(ctx, newTarget)
-}
-
-func (v *kollectClusterTargetValidator) ValidateDelete(
-	_ context.Context,
-	_ *kollectdevv1alpha1.KollectClusterTarget,
-) (admission.Warnings, error) {
-	return nil, nil
 }
 
 func (v *kollectClusterTargetValidator) validate(

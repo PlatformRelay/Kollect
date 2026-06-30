@@ -11,19 +11,21 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **controller:** Degrade scope not whole target on RBAC-forbidden namespace (#28) [0cd7e8d](https://github.com/konih/kollect/commit/0cd7e8dd3e648471aae59e2bd371d5c73f9d3941)
+- **controller:** Degrade scope not whole target on RBAC-forbidden namespace (#28) ([#28](https://github.com/konih/kollect/pull/28))[0cd7e8d](https://github.com/konih/kollect/commit/0cd7e8dd3e648471aae59e2bd371d5c73f9d3941)
 
 
 ### Features
 
-- **metrics:** Bound profile label cardinality (EC-P2-09) (#32) [51e1f4b](https://github.com/konih/kollect/commit/51e1f4b26e6e821ecf46ecdb3eb9287d7b9b0266)
+- **metrics:** Bound profile label cardinality (EC-P2-09) (#32) ([#32](https://github.com/konih/kollect/pull/32))[51e1f4b](https://github.com/konih/kollect/commit/51e1f4b26e6e821ecf46ecdb3eb9287d7b9b0266)
 
 - **scope:** Cluster static-ref namespace allowlist (#23) ([#23](https://github.com/konih/kollect/pull/23))[c55f538](https://github.com/konih/kollect/commit/c55f5380d99ab9cf30dbd3f4122c18f6ff4fb3dc)
 
 
 ### Refactoring
 
-- **sink:** Extract inventoryFromObjectPath into pathvalidate (#29) [123f6a5](https://github.com/konih/kollect/commit/123f6a580c976a99a3c31074b9043db105a3eea8)
+- **webhook:** Dedup ValidateDelete boilerplate across validators [f129126](https://github.com/konih/kollect/commit/f1291261d8278f7ae5ac8e0d815f44c3571e39be)
+
+- **sink:** Extract inventoryFromObjectPath into pathvalidate (#29) ([#29](https://github.com/konih/kollect/pull/29))[123f6a5](https://github.com/konih/kollect/commit/123f6a580c976a99a3c31074b9043db105a3eea8)
 
 ## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-13
 
