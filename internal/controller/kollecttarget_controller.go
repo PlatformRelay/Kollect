@@ -157,24 +157,43 @@ func (r *KollectTargetReconciler) reconcileTargetReady(
 	target *kollectdevv1alpha1.KollectTarget,
 ) (ctrl.Result, error) {
 	count := 0
+	forbiddenScope, accessCheckFailed := false, false
 	if r.Engine != nil {
 		count = r.Engine.ItemCount(target.Namespace, target.Name)
-		if r.Engine.HasForbiddenScope(target.Namespace, target.Name) {
-			if err := r.setDegraded(ctx, target, "Forbidden",
-				"RBAC denied list access for one or more scoped namespaces; partial collection skipped"); err != nil {
-				return ctrl.Result{}, err
-			}
+		forbiddenScope = r.Engine.HasForbiddenScope(target.Namespace, target.Name)
+		accessCheckFailed = r.Engine.HasAccessCheckFailure(target.Namespace, target.Name)
+	}
 
-			return ctrl.Result{}, nil
-		}
-		if r.Engine.HasAccessCheckFailure(target.Namespace, target.Name) {
-			if err := r.setDegraded(ctx, target, "AccessCheckFailed",
-				"RBAC access review API failed; collection paused until access checks succeed"); err != nil {
-				return ctrl.Result{}, err
-			}
+	return r.applyTargetReadyState(ctx, target, count, forbiddenScope, accessCheckFailed)
+}
 
-			return ctrl.Result{}, nil
+// applyTargetReadyState computes the target's status from already-resolved
+// engine signals. It is decoupled from *collect.Engine so the scope-degrade
+// behavior (EC-P2-01) is directly unit-testable.
+func (r *KollectTargetReconciler) applyTargetReadyState(
+	ctx context.Context,
+	target *kollectdevv1alpha1.KollectTarget,
+	count int,
+	forbiddenScope, accessCheckFailed bool,
+) (ctrl.Result, error) {
+	// ErrForbidden degrades scope, not the whole reconcile (GUIDELINES.md §1):
+	// keep the target Ready and surface the forbidden namespaces via Synced +
+	// a Warning event instead of hard-failing into Degraded.
+	scopeReason, scopeMsg := "", ""
+	if forbiddenScope {
+		scopeReason = reasonScopeForbidden
+		scopeMsg = "RBAC denied list access for one or more scoped namespaces; " +
+			"partial collection continues for allowed namespaces"
+		recordWarning(r.Recorder, target, scopeReason, scopeMsg)
+	}
+
+	if accessCheckFailed {
+		if err := r.setDegraded(ctx, target, "AccessCheckFailed",
+			"RBAC access review API failed; collection paused until access checks succeed"); err != nil {
+			return ctrl.Result{}, err
 		}
+
+		return ctrl.Result{}, nil
 	}
 
 	sinkOK, sinkReason, sinkMsg := checkTargetNamespaceSinksReachable(ctx, r.Client, target.Namespace)
@@ -187,7 +206,7 @@ func (r *KollectTargetReconciler) reconcileTargetReady(
 		return ctrl.Result{}, nil
 	}
 
-	return r.setReady(ctx, target, count, sinkReason, sinkMsg)
+	return r.setReady(ctx, target, count, sinkReason, sinkMsg, scopeReason, scopeMsg)
 }
 
 func (r *KollectTargetReconciler) setDegraded(
@@ -209,6 +228,7 @@ func (r *KollectTargetReconciler) setReady(
 	target *kollectdevv1alpha1.KollectTarget,
 	collected int,
 	sinkReason, sinkMsg string,
+	scopeReason, scopeMsg string,
 ) (ctrl.Result, error) {
 	apimeta.RemoveStatusCondition(&target.Status.Conditions, conditionDegraded)
 	target.Status.ObservedGeneration = target.Generation
@@ -223,7 +243,12 @@ func (r *KollectTargetReconciler) setReady(
 	}
 	setSinkReachableCondition(&target.Status.Conditions, target.Generation, true, sinkReason, sinkMsg)
 	recordNormal(r.Recorder, target, sinkReason, sinkMsg)
-	setSyncedCondition(&target.Status.Conditions, target.Generation, true, "Collecting", msg)
+
+	syncedReason, syncedMsg := "Collecting", msg
+	if scopeReason != "" {
+		syncedReason, syncedMsg = scopeReason, scopeMsg
+	}
+	setSyncedCondition(&target.Status.Conditions, target.Generation, true, syncedReason, syncedMsg)
 	if err := setTargetCondition(
 		ctx, r.Client, target, target.Generation, &target.Status.Conditions,
 		conditionReady, metav1.ConditionTrue, "Collecting",

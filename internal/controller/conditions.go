@@ -31,6 +31,10 @@ const (
 	reasonProfileForbidden    = "ProfileForbidden"
 	reasonSinkForbidden       = "SinkForbidden"
 	reasonSinkNamespaceDenied = "SinkNamespaceDenied"
+
+	// reasonScopeForbidden marks a degraded (not hard-failed) scope: RBAC denied
+	// list access for one or more scoped namespaces (GUIDELINES.md §1 ErrForbidden).
+	reasonScopeForbidden = "ScopeForbidden"
 )
 
 func setTargetCondition(

@@ -9,6 +9,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **controller:** Degrade scope not whole target on RBAC-forbidden namespace [bc20bfd](https://github.com/konih/kollect/commit/bc20bfdd14f065488103711176c6f802d17c05ce)
+
+
 ### Features
 
 - **scope:** Cluster static-ref namespace allowlist (#23) ([#23](https://github.com/konih/kollect/pull/23))[c55f538](https://github.com/konih/kollect/commit/c55f5380d99ab9cf30dbd3f4122c18f6ff4fb3dc)
