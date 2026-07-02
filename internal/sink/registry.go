@@ -17,6 +17,7 @@ import (
 	"github.com/konih/kollect/internal/sink/git"
 	"github.com/konih/kollect/internal/sink/gitlab"
 	kafkasink "github.com/konih/kollect/internal/sink/kafka"
+	"github.com/konih/kollect/internal/sink/local"
 	"github.com/konih/kollect/internal/sink/mongodb"
 	natssink "github.com/konih/kollect/internal/sink/nats"
 	"github.com/konih/kollect/internal/sink/postgres"
@@ -51,6 +52,7 @@ func NewRegistry() *Registry {
 	r.Register(mongodb.TypeName, newMongoBackend)
 	r.Register("kafka", newKafkaBackend)
 	r.Register("nats", newNatsBackend)
+	r.Register(local.TypeName, newLocalBackend)
 
 	return r
 }
@@ -121,6 +123,10 @@ func newS3Backend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Ba
 
 func newGCSBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
 	return gcs.NewBackend(spec, ctx.SecretData)
+}
+
+func newLocalBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
+	return local.NewBackend(spec, ctx.SecretData)
 }
 
 func newPostgresBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
