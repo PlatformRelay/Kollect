@@ -3,7 +3,7 @@
 
 package main
 
-import "github.com/konih/kollect/internal/collect"
+import "github.com/konih/kollect/internal/pipeline"
 
 // Process exit codes (ADR-0801).
 const (
@@ -16,14 +16,30 @@ const (
 	ExitFatalError = 2
 )
 
-// mapResultToExit maps a single-context RunResult to a process exit code.
-func mapResultToExit(r collect.RunResult) int {
+// mapContextResultsToExit aggregates per-context results into one process exit code:
+// worst-of across all contexts (ExitFatalError > ExitPartialFailure > ExitSuccess). A
+// single-context run (the default, no --context flag) reduces to the outcome of that one
+// context.
+func mapContextResultsToExit(results []pipeline.ContextResult) int {
+	worst := ExitSuccess
+
+	for _, r := range results {
+		code := exitCodeForContext(r)
+		if code > worst {
+			worst = code
+		}
+	}
+
+	return worst
+}
+
+func exitCodeForContext(r pipeline.ContextResult) int {
 	switch {
-	case len(r.Errors) > 0:
+	case r.Fatal != nil:
 		return ExitFatalError
-	case len(r.SkippedTargets) > 0 && r.ItemCount == 0:
+	case len(r.Errs) > 0 && r.Exported == 0:
 		return ExitFatalError
-	case len(r.SkippedTargets) > 0:
+	case len(r.Errs) > 0:
 		return ExitPartialFailure
 	default:
 		return ExitSuccess

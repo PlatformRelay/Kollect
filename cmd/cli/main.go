@@ -21,9 +21,13 @@ func newRootCmd() *cobra.Command {
 
 func main() {
 	root := newRootCmd()
-	root.AddCommand(newCollectCmd())
+
+	collectCmd, exitCode := newCollectCmd()
+	root.AddCommand(collectCmd)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(ExitFatalError)
 	}
+
+	os.Exit(*exitCode)
 }
