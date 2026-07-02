@@ -157,3 +157,4 @@ deps:
     canUse:
       - client-go
       - k8s-api
+      - controller-runtime
