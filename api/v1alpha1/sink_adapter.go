@@ -71,3 +71,42 @@ func (s *KollectEventSinkSpec) ToKollectSinkSpec() KollectSinkSpec {
 		Kafka:             s.Kafka,
 	}
 }
+
+// FamilySinkObject is implemented by the three family-sink CRD kinds
+// (KollectSnapshotSink, KollectDatabaseSink, KollectEventSink). It gives the
+// controller package a uniform way to read the normalized sink spec, the
+// common fields, and the shared status shape, so one generic reconciler can
+// drive all three kinds instead of three near-identical ones (AR-08).
+// +k8s:deepcopy-gen=false
+type FamilySinkObject interface {
+	FamilySinkSpec() KollectSinkSpec
+	FamilySinkCommon() *SinkCommonFields
+	FamilySinkStatus() *FamilySinkStatus
+}
+
+// FamilySinkSpec implements FamilySinkObject.
+func (s *KollectSnapshotSink) FamilySinkSpec() KollectSinkSpec { return s.Spec.ToKollectSinkSpec() }
+
+// FamilySinkCommon implements FamilySinkObject.
+func (s *KollectSnapshotSink) FamilySinkCommon() *SinkCommonFields { return &s.Spec.SinkCommonFields }
+
+// FamilySinkStatus implements FamilySinkObject.
+func (s *KollectSnapshotSink) FamilySinkStatus() *FamilySinkStatus { return &s.Status }
+
+// FamilySinkSpec implements FamilySinkObject.
+func (s *KollectDatabaseSink) FamilySinkSpec() KollectSinkSpec { return s.Spec.ToKollectSinkSpec() }
+
+// FamilySinkCommon implements FamilySinkObject.
+func (s *KollectDatabaseSink) FamilySinkCommon() *SinkCommonFields { return &s.Spec.SinkCommonFields }
+
+// FamilySinkStatus implements FamilySinkObject.
+func (s *KollectDatabaseSink) FamilySinkStatus() *FamilySinkStatus { return &s.Status }
+
+// FamilySinkSpec implements FamilySinkObject.
+func (s *KollectEventSink) FamilySinkSpec() KollectSinkSpec { return s.Spec.ToKollectSinkSpec() }
+
+// FamilySinkCommon implements FamilySinkObject.
+func (s *KollectEventSink) FamilySinkCommon() *SinkCommonFields { return &s.Spec.SinkCommonFields }
+
+// FamilySinkStatus implements FamilySinkObject.
+func (s *KollectEventSink) FamilySinkStatus() *FamilySinkStatus { return &s.Status }
