@@ -67,6 +67,8 @@ components:
     in: internal/export/**
   webhook:
     in: internal/webhook/**
+  pipeline:
+    in: internal/pipeline/**
   shared:
     in:
       - internal/digest/**
@@ -147,4 +149,11 @@ deps:
       - scope
     canUse:
       - controller-runtime
+      - k8s-api
+  pipeline:
+    mayDependOn:
+      - collect
+      - sink
+    canUse:
+      - client-go
       - k8s-api

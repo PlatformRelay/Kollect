@@ -1,0 +1,7 @@
+apiVersion: kollect.dev/v1alpha1
+kind: SomethingUnknown
+metadata:
+  name: mystery
+  namespace: default
+spec:
+  foo: bar
