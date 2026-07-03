@@ -23,7 +23,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Refactoring
 
-- **webhook:** Dedup ValidateDelete boilerplate across validators [f129126](https://github.com/konih/kollect/commit/f1291261d8278f7ae5ac8e0d815f44c3571e39be)
+- **webhook:** Dedup ValidateDelete boilerplate across validators (#33) ([#33](https://github.com/konih/kollect/pull/33))[f147642](https://github.com/konih/kollect/commit/f147642d87a32cd002881c70b2d34d75c672c50c)
 
 - **sink:** Extract inventoryFromObjectPath into pathvalidate (#29) ([#29](https://github.com/konih/kollect/pull/29))[123f6a5](https://github.com/konih/kollect/commit/123f6a580c976a99a3c31074b9043db105a3eea8)
 
