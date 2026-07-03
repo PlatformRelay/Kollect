@@ -133,6 +133,15 @@ var Catalog = []CatalogEntry{
 		AgentHint:  "High rate is expected when exportMinInterval is tight; use status.sinkExports for per-sink detail.",
 	},
 	{
+		Name:   "kollect_namespace_fingerprint_cache_total",
+		Type:   "counter",
+		Labels: []string{"controller", "result"},
+		Help: "Namespace content fingerprint cache outcomes (AR-10): hit skips the " +
+			"SnapshotNamespace + ItemsFingerprint recompute, miss pays for it.",
+		PromQLHint: "sum(rate(kollect_namespace_fingerprint_cache_total[5m])) by (result)",
+		AgentHint:  "Low hit ratio under steady churn-free load → cache not paying off; check Store mutation rate.",
+	},
+	{
 		Name:       "kollect_watch_map_list_errors_total",
 		Type:       "counter",
 		Labels:     []string{"controller", "watch"},
