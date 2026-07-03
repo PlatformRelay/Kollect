@@ -39,7 +39,57 @@ type KollectInventoryReconciler struct {
 	Options  RuntimeOptions
 	Recorder record.EventRecorder
 
-	sinkCoalesce perSinkCoalesceTracker
+	sinkCoalesce       perSinkCoalesceTracker
+	nsFingerprintCache namespaceFingerprintCache
+}
+
+// namespaceFingerprintCache memoizes the namespace content fingerprint
+// against the Store's per-namespace mutation version (AR-10 / PERF-01
+// remainder). Reconcile calls this every cycle; as long as nothing was
+// upserted/removed for the namespace since the last call, the expensive
+// SnapshotNamespace + ItemsFingerprint pair is skipped entirely.
+type namespaceFingerprintCache struct {
+	mu    sync.Mutex
+	state map[string]namespaceFingerprintEntry
+}
+
+type namespaceFingerprintEntry struct {
+	version     uint64
+	fingerprint string
+}
+
+// getOrCompute returns the cached fingerprint for namespace if it was last
+// computed at the given version; otherwise it calls compute, caches the
+// result against version, and returns it.
+func (c *namespaceFingerprintCache) getOrCompute(namespace string, version uint64, compute func() string) string {
+	c.mu.Lock()
+	if entry, ok := c.state[namespace]; ok && entry.version == version {
+		c.mu.Unlock()
+
+		return entry.fingerprint
+	}
+	c.mu.Unlock()
+
+	fingerprint := compute()
+
+	c.mu.Lock()
+	if c.state == nil {
+		c.state = make(map[string]namespaceFingerprintEntry)
+	}
+	c.state[namespace] = namespaceFingerprintEntry{version: version, fingerprint: fingerprint}
+	c.mu.Unlock()
+
+	return fingerprint
+}
+
+// cacheResultLabel maps the namespaceFingerprintCache compute outcome to the
+// kollect_namespace_fingerprint_cache_total "result" label value.
+func cacheResultLabel(computed bool) string {
+	if computed {
+		return "miss"
+	}
+
+	return "hit"
 }
 
 func (r *KollectInventoryReconciler) exportDebounce(inv *kollectdevv1alpha1.KollectInventory) time.Duration {
@@ -107,19 +157,42 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, nil
 		}
 
-		items := r.Store.SnapshotNamespace(inv.Namespace)
-		fingerprint, err := export.ItemsFingerprint(items)
-		if err != nil {
-			return ctrl.Result{}, err
+		// AR-10 (PERF-01 remainder): the namespace content fingerprint is only
+		// needed to decide whether to skip export (all sinks debounced) or,
+		// failing that, to build the actual export payload. As long as the
+		// Store hasn't been mutated for this namespace since the last
+		// reconcile, the cached fingerprint from that reconcile is still
+		// exactly the value a fresh SnapshotNamespace + ItemsFingerprint
+		// would produce, so the (O(n) item-copy + JSON-marshal + hash) work
+		// is skipped in the common steady-state case.
+		var items []collect.Item
+		var itemsComputed bool
+		var fingerprintErr error
+		nsVersion := r.Store.NamespaceVersion(inv.Namespace)
+		fingerprint := r.nsFingerprintCache.getOrCompute(inv.Namespace, nsVersion, func() string {
+			itemsComputed = true
+			items = r.Store.SnapshotNamespace(inv.Namespace)
+			fp, err := export.ItemsFingerprint(items)
+			fingerprintErr = err
+
+			return fp
+		})
+		if fingerprintErr != nil {
+			return ctrl.Result{}, fingerprintErr
 		}
+
+		metrics.NamespaceFingerprintCacheTotal.WithLabelValues("KollectInventory", cacheResultLabel(itemsComputed)).Inc()
 
 		if totalInventorySinkRefs(&inv) > 0 {
 			if outcome, allDebounced := r.previewAllSinksDebounced(&inv, req.String(), fingerprint); allDebounced {
 				metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Add(float64(outcome.DebouncedCount))
-				itemCount = len(items)
 
 				return r.updateStatus(ctx, &inv, itemCount, outcome)
 			}
+		}
+
+		if items == nil {
+			items = r.Store.SnapshotNamespace(inv.Namespace)
 		}
 
 		if !hasSnapshotSinkBinding(bindings) {

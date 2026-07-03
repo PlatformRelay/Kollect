@@ -152,6 +152,15 @@ var (
 		[]string{"controller"},
 	)
 
+	NamespaceFingerprintCacheTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_namespace_fingerprint_cache_total",
+			Help: "Namespace content fingerprint cache outcomes (AR-10): hit skips the " +
+				"SnapshotNamespace + ItemsFingerprint recompute, miss pays for it.",
+		},
+		[]string{"controller", "result"},
+	)
+
 	WatchMapListErrorsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "kollect_watch_map_list_errors_total",
@@ -240,6 +249,7 @@ func Register() {
 		CustomResourceSeries,
 		customResourceLabeledCollector{},
 		ExportDebouncedTotal,
+		NamespaceFingerprintCacheTotal,
 		WatchMapListErrorsTotal,
 		CollectDispatchDurationSeconds,
 		CollectDispatchQueueDepth,

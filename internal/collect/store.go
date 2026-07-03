@@ -38,6 +38,15 @@ type Store struct {
 	watchMu    sync.RWMutex
 	watchers   map[chan struct{}]struct{}
 	nsWatchers map[chan string]struct{}
+
+	// versionMu/versions track a per-namespace mutation counter (AR-10),
+	// deliberately kept separate from shards: RemoveCluster deletes the
+	// shard entirely, and a counter living on the shard would reset to 0
+	// and could re-issue a value a stale cache entry already holds. Keeping
+	// it in its own map (never deleted, only incremented) makes it survive
+	// shard deletion/recreation and stay strictly monotonic per namespace.
+	versionMu sync.Mutex
+	versions  map[string]uint64
 }
 
 // NewStore returns an empty in-memory collection store.
@@ -46,6 +55,7 @@ func NewStore() *Store {
 		shards:     make(map[string]*storeShard),
 		watchers:   make(map[chan struct{}]struct{}),
 		nsWatchers: make(map[chan string]struct{}),
+		versions:   make(map[string]uint64),
 	}
 }
 
@@ -141,9 +151,43 @@ func (s *Store) Upsert(item Item) {
 	}
 
 	sh.targets[item.TargetName][item.UID] = item
+	// Bump while still holding sh.mu (AR-10): content and version must
+	// commit atomically, or a reader can observe the new content via
+	// SnapshotNamespace while NamespaceVersion still reports the old value
+	// — a stale cache *hit* that returns a fingerprint for content that no
+	// longer matches it, not just a harmless miss.
+	s.bumpNamespaceVersion(item.TargetNamespace)
 	sh.mu.Unlock()
 
 	s.notifyWatchers(item.TargetNamespace)
+}
+
+// bumpNamespaceVersion increments the mutation counter for namespace (AR-10).
+// Deliberately independent of the shard map: see the Store.versions doc comment.
+func (s *Store) bumpNamespaceVersion(namespace string) {
+	s.versionMu.Lock()
+	s.versions[namespace]++
+	s.versionMu.Unlock()
+}
+
+// NamespaceVersion returns a counter bumped on every mutation (Upsert/Remove/
+// RemoveTarget/RemoveCluster) scoped to this namespace (AR-10). Two reads
+// returning the same value guarantee the namespace's item content has not
+// changed in between, so callers can skip a full SnapshotNamespace + content
+// fingerprint recompute when the version is unchanged since the last one
+// they computed. The counter is strictly monotonic per namespace for the
+// lifetime of the Store — including across RemoveCluster, which deletes the
+// shard but never the version entry, so a value is never re-issued. Every
+// bump happens while the caller still holds the content lock (shard mu or
+// shardsMu) that made the corresponding change visible, so "this version was
+// observed" always implies "this content (or later) is visible" — never the
+// reverse, which would let a cache entry serve a fingerprint for content
+// that has already moved on.
+func (s *Store) NamespaceVersion(namespace string) uint64 {
+	s.versionMu.Lock()
+	defer s.versionMu.Unlock()
+
+	return s.versions[namespace]
 }
 
 // RemoveTarget drops all items for a target.
@@ -152,6 +196,7 @@ func (s *Store) RemoveTarget(targetNamespace, targetName string) {
 
 	sh.mu.Lock()
 	delete(sh.targets, targetName)
+	s.bumpNamespaceVersion(targetNamespace) // atomic with the content change; see Upsert
 	sh.mu.Unlock()
 
 	s.notifyWatchers(targetNamespace)
@@ -165,6 +210,7 @@ func (s *Store) RemoveCluster(cluster string) {
 
 	s.shardsMu.Lock()
 	delete(s.shards, cluster)
+	s.bumpNamespaceVersion(cluster) // atomic with the content change; see Upsert
 	s.shardsMu.Unlock()
 
 	s.notifyWatchers(cluster)
@@ -223,6 +269,7 @@ func (s *Store) Remove(targetNamespace, targetName, uid string) {
 		if len(bucket) == 0 {
 			delete(sh.targets, targetName)
 		}
+		s.bumpNamespaceVersion(targetNamespace) // atomic with the content change; see Upsert
 	}
 	sh.mu.Unlock()
 
