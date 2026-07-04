@@ -140,3 +140,79 @@ func TestHasObjectStoreSink(t *testing.T) {
 		t.Fatalf("with s3 = ok=%v err=%v", ok, err)
 	}
 }
+
+func TestHasObjectStoreSink_skipsNonSnapshotFamily(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	// database-family bindings are skipped, so hasObjectStoreSink returns false without error
+	ok, err := hasObjectStoreSink(context.Background(), cl, "team-a", []kollectdevv1alpha1.InventorySinkBinding{
+		{Name: "pg", Family: kollectdevv1alpha1.SinkFamilyDatabase},
+	})
+	if err != nil || ok {
+		t.Fatalf("database binding should be skipped: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestNoteExportShardWarning_belowThreshold(t *testing.T) {
+	t.Parallel()
+
+	conditions := []metav1.Condition{{
+		Type:   conditionExportShardWarn,
+		Status: metav1.ConditionTrue,
+		Reason: reasonExportShardWarn,
+	}}
+	changed := noteExportShardWarning(&conditions, 1, validation.ExportShardWarnRows-1)
+	if changed {
+		t.Fatal("expected false for count below threshold")
+	}
+	for _, c := range conditions {
+		if c.Type == conditionExportShardWarn {
+			t.Fatal("condition should have been removed")
+		}
+	}
+}
+
+func TestNoteExportShardWarning_atThreshold(t *testing.T) {
+	t.Parallel()
+
+	var conditions []metav1.Condition
+	changed := noteExportShardWarning(&conditions, 1, validation.ExportShardWarnRows)
+	if !changed {
+		t.Fatal("expected true for count at threshold")
+	}
+	found := false
+	for _, c := range conditions {
+		if c.Type == conditionExportShardWarn && c.Status == metav1.ConditionTrue {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("ExportShardWarning condition not set")
+	}
+}
+
+func TestRecordSpillGateMetrics_notDegraded(t *testing.T) {
+	t.Parallel()
+
+	// must not panic or error on non-degraded gate
+	recordSpillGateMetrics(spillGateResult{degraded: false})
+}
+
+func TestRecordSpillGateMetrics_payloadTooLarge(t *testing.T) {
+	t.Parallel()
+
+	recordSpillGateMetrics(spillGateResult{degraded: true, reason: spillReasonPayloadTooLarge})
+}
+
+func TestRecordSpillGateMetrics_spillRequired(t *testing.T) {
+	t.Parallel()
+
+	recordSpillGateMetrics(spillGateResult{degraded: true, reason: spillReasonSpillRequired})
+}

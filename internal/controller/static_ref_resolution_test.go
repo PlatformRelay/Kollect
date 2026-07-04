@@ -48,6 +48,7 @@ func TestStaticRefTypeForFamily(t *testing.T) {
 		kollectdevv1alpha1.SinkFamilySnapshot: metrics.StaticRefTypeSnapshot,
 		kollectdevv1alpha1.SinkFamilyDatabase: metrics.StaticRefTypeDatabase,
 		kollectdevv1alpha1.SinkFamilyEvent:    metrics.StaticRefTypeEvent,
+		"unknown-family":                      metrics.StaticRefTypeSnapshot, // default branch
 	}
 	for family, want := range cases {
 		if got := staticRefTypeForFamily(family); got != want {

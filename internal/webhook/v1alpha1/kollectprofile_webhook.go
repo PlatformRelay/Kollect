@@ -17,7 +17,9 @@ import (
 //nolint:lll // kubebuilder webhook marker must stay on one line
 // +kubebuilder:webhook:path=/validate-kollect-dev-v1alpha1-kollectprofile,mutating=false,failurePolicy=fail,sideEffects=None,groups=kollect.dev,resources=kollectprofiles,verbs=create;update,versions=v1alpha1,name=vkollectprofile.kb.io,admissionReviewVersions=v1
 
-type kollectProfileValidator struct{}
+type kollectProfileValidator struct {
+	noopDelete[*kollectdevv1alpha1.KollectProfile]
+}
 
 var _ admission.Validator[*kollectdevv1alpha1.KollectProfile] = &kollectProfileValidator{}
 
@@ -44,13 +46,6 @@ func (v *kollectProfileValidator) ValidateUpdate(
 	}
 
 	return v.validate(newProfile)
-}
-
-func (v *kollectProfileValidator) ValidateDelete(
-	_ context.Context,
-	_ *kollectdevv1alpha1.KollectProfile,
-) (admission.Warnings, error) {
-	return nil, nil
 }
 
 func (v *kollectProfileValidator) validate(profile *kollectdevv1alpha1.KollectProfile) (admission.Warnings, error) {

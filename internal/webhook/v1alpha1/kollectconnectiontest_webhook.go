@@ -17,7 +17,9 @@ import (
 //nolint:lll // kubebuilder webhook marker must stay on one line
 // +kubebuilder:webhook:path=/validate-kollect-dev-v1alpha1-kollectconnectiontest,mutating=false,failurePolicy=fail,sideEffects=None,groups=kollect.dev,resources=kollectconnectiontests,verbs=create;update,versions=v1alpha1,name=vkollectconnectiontest.kb.io,admissionReviewVersions=v1
 
-type kollectConnectionTestValidator struct{}
+type kollectConnectionTestValidator struct {
+	noopDelete[*kollectdevv1alpha1.KollectConnectionTest]
+}
 
 var _ admission.Validator[*kollectdevv1alpha1.KollectConnectionTest] = &kollectConnectionTestValidator{}
 
@@ -44,13 +46,6 @@ func (v *kollectConnectionTestValidator) ValidateUpdate(
 	}
 
 	return nil, v.validate(newTest)
-}
-
-func (v *kollectConnectionTestValidator) ValidateDelete(
-	_ context.Context,
-	_ *kollectdevv1alpha1.KollectConnectionTest,
-) (admission.Warnings, error) {
-	return nil, nil
 }
 
 func (v *kollectConnectionTestValidator) validate(test *kollectdevv1alpha1.KollectConnectionTest) error {

@@ -21,6 +21,7 @@ import (
 // +kubebuilder:webhook:path=/validate-kollect-dev-v1alpha1-kollectclusterinventory,mutating=false,failurePolicy=fail,sideEffects=None,groups=kollect.dev,resources=kollectclusterinventories,verbs=create;update,versions=v1alpha1,name=vkollectclusterinventory.kb.io,admissionReviewVersions=v1
 
 type kollectClusterInventoryValidator struct {
+	noopDelete[*kollectdevv1alpha1.KollectClusterInventory]
 	client     client.Client
 	tenantMode bool
 }
@@ -50,13 +51,6 @@ func (v *kollectClusterInventoryValidator) ValidateUpdate(
 	}
 
 	return nil, v.validate(ctx, newInv)
-}
-
-func (v *kollectClusterInventoryValidator) ValidateDelete(
-	_ context.Context,
-	_ *kollectdevv1alpha1.KollectClusterInventory,
-) (admission.Warnings, error) {
-	return nil, nil
 }
 
 func (v *kollectClusterInventoryValidator) validate(

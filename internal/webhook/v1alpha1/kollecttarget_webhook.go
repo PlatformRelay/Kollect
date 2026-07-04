@@ -21,6 +21,7 @@ import (
 // +kubebuilder:webhook:path=/validate-kollect-dev-v1alpha1-kollecttarget,mutating=false,failurePolicy=fail,sideEffects=None,groups=kollect.dev,resources=kollecttargets,verbs=create;update,versions=v1alpha1,name=vkollecttarget.kb.io,admissionReviewVersions=v1
 
 type kollectTargetValidator struct {
+	noopDelete[*kollectdevv1alpha1.KollectTarget]
 	client client.Client
 }
 
@@ -45,13 +46,6 @@ func (v *kollectTargetValidator) ValidateUpdate(
 	newTarget *kollectdevv1alpha1.KollectTarget,
 ) (admission.Warnings, error) {
 	return nil, v.validate(ctx, newTarget)
-}
-
-func (v *kollectTargetValidator) ValidateDelete(
-	_ context.Context,
-	_ *kollectdevv1alpha1.KollectTarget,
-) (admission.Warnings, error) {
-	return nil, nil
 }
 
 func (v *kollectTargetValidator) validate(ctx context.Context, target *kollectdevv1alpha1.KollectTarget) error {

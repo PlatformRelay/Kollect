@@ -158,7 +158,7 @@ Production sinks should keep `spec.connectionTest: false` and use annotation for
 | --- | --- | --- | --- | --- |
 | Slow inventory updates, no `Degraded` | Optimistic-lock conflicts, high churn | `kollect_workqueue_depth` sustained; conflict requeues in logs | Raise `maxConcurrentReconciles`; increase `exportMinInterval`; shard inventories | etcd/apiserver slow |
 | Event `ReconcilePanic` | Unexpected panic (should not crash pod) | Event reason; log `reconcile panic recovered` | Upgrade to fixed release; file bug with stack from logs | Repeat panics on same controller |
-| `kollect_collect_dispatch_sync_fallback_total` rising | Dispatch queue saturated | Metric + dispatch queue depth | Increase `collect.dispatchWorkers` / `dispatchQueueSize` | CPU throttle on controller |
+| `kollect_collect_dispatch_backpressure_total` rising | Dispatch queue saturated — informer events blocking on enqueue | Metric + dispatch queue depth | Increase `collect.dispatchWorkers` / `dispatchQueueSize` | CPU throttle on controller |
 | Status update lag | Many inventories, frequent export | Reconcile duration p95; etcd metrics | Debounce, sharding, fewer sinks per inventory | [Load test runbook](load-test-runbook.md) |
 
 ### Webhook vs runtime validation
@@ -236,7 +236,6 @@ Structured controller logs (`logr`). Grep operator pod logs (namespace typically
 | `export failed` | Sink export path |
 | `export payload exceeds spill warn threshold` | Approaching 1 MiB — shard soon |
 | `debounced` | Export skipped by interval/coalesce |
-| `dispatch sync fallback` | Dispatch queue full — performance tuning |
 | `sink circuit breaker open` | Repeated transient sink failures |
 | `reconcile panic recovered` | Panic converted to requeue (EC-P2-01) |
 | `git push` / `git auth failed` | Snapshot sink transport |

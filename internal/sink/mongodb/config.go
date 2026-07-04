@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/secretkv"
 )
 
 // TypeName is the KollectSink.spec.type value for MongoDB sinks.
@@ -71,10 +72,8 @@ func uriFromSecret(data map[string][]byte) (string, error) {
 		return "", fmt.Errorf("mongodb databaseRef secret is empty")
 	}
 
-	for _, key := range []string{"uri", "url", "connectionString", "MONGODB_URI"} {
-		if v, ok := data[key]; ok && len(strings.TrimSpace(string(v))) > 0 {
-			return strings.TrimSpace(string(v)), nil
-		}
+	if uri, ok := secretkv.FirstValue(data, "uri", "url", "connectionString", "MONGODB_URI"); ok {
+		return uri, nil
 	}
 
 	return "", fmt.Errorf("mongodb secret must contain uri or connectionString key")

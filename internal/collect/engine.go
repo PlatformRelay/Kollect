@@ -533,8 +533,17 @@ func (e *Engine) dispatch(ctx context.Context, gvr schema.GroupVersionResource, 
 		}
 	}
 
-	metrics.CollectDispatchSyncFallbackTotal.Inc()
-	e.processDispatch(ctx, gvr, obj, deleted)
+	// Backpressure: block on the queue rather than running the job inline on
+	// this goroutine (the informer's event-handler thread). Inline execution
+	// bypasses the dispatch worker pool's concurrency cap entirely, including
+	// API-server calls (access checks), which removes the very backpressure
+	// the queue+workers are meant to provide (EC-P0-02). Blocking still
+	// respects ctx cancellation so shutdown doesn't leak this goroutine.
+	metrics.CollectDispatchBackpressureTotal.Inc()
+	select {
+	case e.dispatchCh <- job:
+	case <-ctx.Done():
+	}
 }
 
 func (e *Engine) processDispatch(

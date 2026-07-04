@@ -371,3 +371,54 @@ func TestRunExportItems_exportFailureTransient(t *testing.T) {
 		t.Fatalf("RunExportItems() = %v (%v), want transient export error", err, kollecterrors.ClassOf(err))
 	}
 }
+
+func TestRunExportEnvelope_guards(t *testing.T) {
+	t.Parallel()
+
+	// nil registry → terminal error (line 125-127)
+	err := RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:      context.Background(),
+		Registry: nil,
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{Type: "postgres"},
+	})
+	if err == nil || kollecterrors.ClassOf(err) != kollecterrors.ClassTerminal {
+		t.Fatalf("nil registry: want terminal error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "registry") {
+		t.Fatalf("nil registry error = %q, want registry mention", err)
+	}
+
+	// empty sink type → terminal error (line 129-131)
+	err = RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:      context.Background(),
+		Registry: NewRegistry(),
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{},
+	})
+	if err == nil || kollecterrors.ClassOf(err) != kollecterrors.ClassTerminal {
+		t.Fatalf("empty type: want terminal error, got %v", err)
+	}
+}
+
+func TestObjectStoreSnapshotCapabilities(t *testing.T) {
+	t.Parallel()
+
+	caps := ObjectStoreSnapshotCapabilities()
+	if !caps.ObjectStore {
+		t.Fatal("ObjectStoreSnapshotCapabilities must set ObjectStore")
+	}
+	if caps.SupportsDelete || caps.Stream {
+		t.Fatalf("unexpected flags: %+v", caps)
+	}
+}
+
+func TestStreamEmitterCapabilities(t *testing.T) {
+	t.Parallel()
+
+	caps := StreamEmitterCapabilities()
+	if !caps.Stream {
+		t.Fatal("StreamEmitterCapabilities must set Stream")
+	}
+	if caps.ObjectStore || caps.SupportsDelete {
+		t.Fatalf("unexpected flags: %+v", caps)
+	}
+}
