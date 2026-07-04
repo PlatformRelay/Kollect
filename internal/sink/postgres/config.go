@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/secretkv"
 )
 
 // Config holds resolved PostgreSQL sink settings.
@@ -64,10 +65,8 @@ func dsnFromSecret(data map[string][]byte) (string, error) {
 		return "", fmt.Errorf("postgres databaseRef secret is empty")
 	}
 
-	for _, key := range []string{"dsn", "url", "connectionString", "DATABASE_URL"} {
-		if v, ok := data[key]; ok && len(strings.TrimSpace(string(v))) > 0 {
-			return strings.TrimSpace(string(v)), nil
-		}
+	if dsn, ok := secretkv.FirstValue(data, "dsn", "url", "connectionString", "DATABASE_URL"); ok {
+		return dsn, nil
 	}
 
 	return "", fmt.Errorf("postgres secret must contain dsn or url key")

@@ -225,3 +225,31 @@ func TestInventorySinkRefListJSON(t *testing.T) {
 		t.Fatalf("object ref = %+v", refs[0])
 	}
 }
+
+func TestValidateInventorySinkRefNamespace(t *testing.T) {
+	t.Parallel()
+
+	path := field.NewPath("spec").Child("sinkRefs").Index(0).Child("namespace")
+
+	// empty namespace → no error
+	if errs := validateInventorySinkRefNamespace("", path, false); len(errs) != 0 {
+		t.Fatalf("empty namespace: %v", errs)
+	}
+
+	// namespace not allowed → forbidden
+	errs := validateInventorySinkRefNamespace("team-a", path, false)
+	if len(errs) != 1 || errs[0].Type != field.ErrorTypeForbidden {
+		t.Fatalf("disallowed namespace: %v", errs)
+	}
+
+	// invalid DNS label → invalid
+	errs = validateInventorySinkRefNamespace("NOT_VALID", path, true)
+	if len(errs) != 1 || errs[0].Type != field.ErrorTypeInvalid {
+		t.Fatalf("bad dns label: %v", errs)
+	}
+
+	// valid allowed namespace → no error
+	if errs := validateInventorySinkRefNamespace("team-b", path, true); len(errs) != 0 {
+		t.Fatalf("valid allowed namespace: %v", errs)
+	}
+}

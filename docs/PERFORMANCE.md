@@ -31,7 +31,7 @@ operators; there is no central merge process to bottleneck ([ADR-0603](adr/0603-
 | `--max-concurrent-reconciles-cluster-target` | `2` | `KollectClusterTarget` |
 | `--max-concurrent-reconciles-cluster-inventory` | `2` | `KollectClusterInventory` |
 | `--collect-dispatch-workers` | `4` | Collection informer dispatch pool |
-| `--collect-dispatch-queue-size` | `512` | Dispatch queue depth before sync fallback |
+| `--collect-dispatch-queue-size` | `512` | Dispatch queue depth before informer dispatch blocks (backpressure) |
 
 Raise concurrency when reconcile latency grows while CPU is underutilized. Lower it when
 API server throttling or etcd watch pressure appears.
@@ -86,9 +86,10 @@ scalability** signals — use it with the [bottleneck checklist](#early-bottlene
 | `kollect_export_bytes_total` | Counter | `sink_type` | `rate(kollect_export_bytes_total[5m])` | Spike → debounce too low or inventory churn; flat while stale → export path stuck |
 | `kollect_export_duration_seconds` | Histogram | `sink_type` | `histogram_quantile(0.95, sum(rate(kollect_export_duration_seconds_bucket[5m])) by (le, sink_type))` | Sink slowness (Git/Postgres/Kafka) — not collection |
 | `kollect_export_debounced_total` | Counter | `controller` | `sum(rate(kollect_export_debounced_total[5m])) by (controller)` | Exports skipped by min interval — expected when debounce is tight |
+| `kollect_namespace_fingerprint_cache_total` | Counter | `controller`, `result` | `sum(rate(kollect_namespace_fingerprint_cache_total[5m])) by (result)` | `hit` skips the namespace snapshot+fingerprint recompute (AR-10); low hit ratio under steady churn-free load → check Store mutation rate |
 | `kollect_collect_dispatch_duration_seconds` | Histogram | — | `histogram_quantile(0.95, sum(rate(kollect_collect_dispatch_duration_seconds_bucket[5m])) by (le))` | Collection extract/upsert latency |
 | `kollect_collect_dispatch_queue_depth` | Gauge | — | `max_over_time(kollect_collect_dispatch_queue_depth[5m])` | Sustained high → raise dispatch workers/queue |
-| `kollect_collect_dispatch_sync_fallback_total` | Counter | — | `increase(kollect_collect_dispatch_sync_fallback_total[15m])` | Queue overflow — dispatch pool undersized |
+| `kollect_collect_dispatch_backpressure_total` | Counter | — | `increase(kollect_collect_dispatch_backpressure_total[15m])` | Queue overflow — dispatch pool undersized |
 | `kollect_informer_resync_dispatches_total` | Counter | `group`, `version`, `resource` | `sum(increase(kollect_informer_resync_dispatches_total[1h])) by (group, version, resource)` | Resync-driven dispatch volume |
 | `kollect_informer_cluster_wide_scope` | Gauge | `group`, `version`, `resource` | `max by (group, version, resource) (kollect_informer_cluster_wide_scope)` | 1 = cluster-wide watch (RSS risk at scale) |
 

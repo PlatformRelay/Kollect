@@ -7,7 +7,6 @@ import (
 	"context"
 	"strings"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,10 +34,6 @@ func (f familySinkConnection) reconcile(
 	if !shouldTestFamilyConnection(common, obj) {
 		if previewChanged {
 			if err := f.client.Status().Update(ctx, obj); err != nil {
-				if apierrors.IsConflict(err) {
-					return nil
-				}
-
 				return err
 			}
 		}
@@ -161,15 +156,7 @@ func (f familySinkConnection) setConnectionFailed(
 		LastTransitionTime: metav1.Now(),
 	})
 
-	if err := f.client.Status().Update(ctx, obj); err != nil {
-		if apierrors.IsConflict(err) {
-			return nil
-		}
-
-		return err
-	}
-
-	return nil
+	return f.client.Status().Update(ctx, obj)
 }
 
 func shouldClearFamilyTestConnectionAnnotation(common *kollectdevv1alpha1.SinkCommonFields, obj client.Object) bool {

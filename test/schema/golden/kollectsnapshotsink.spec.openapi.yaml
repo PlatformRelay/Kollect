@@ -1,0 +1,336 @@
+description: KollectSnapshotSinkSpec defines a snapshot-store export sink (ADR-0414).
+properties:
+  cluster:
+    description: cluster labels exported inventory in multi-cluster installs.
+    type: string
+  connectionTest:
+    description: connectionTest enables connectivity checks on create/update (default
+      true).
+    type: boolean
+  endpoint:
+    description: endpoint is the backend-specific destination (URL, bucket, and so
+      on).
+    type: string
+  exportMinInterval:
+    description: |-
+      exportMinInterval is the default minimum time between identical exports when an inventory
+      ref omits a per-ref override.
+    type: string
+  git:
+    description: git configures git sink settings when type is git.
+    properties:
+      auth:
+        description: auth documents credential mode and optional secret override for
+          git push.
+        properties:
+          secretRef:
+            description: secretRef overrides spec.secretRef for git credentials when
+              set.
+            properties:
+              name:
+                description: name is the name of the referenced Secret.
+                type: string
+              namespace:
+                description: namespace is the namespace of the referenced Secret.
+                type: string
+            required:
+            - name
+            type: object
+          type:
+            description: type selects HTTPS token/basic auth or SSH private-key auth.
+            enum:
+            - token
+            - ssh
+            type: string
+        type: object
+      author:
+        description: author overrides the default kollect committer identity.
+        properties:
+          email:
+            description: email is the commit author email (default kollect@kollect.dev).
+            type: string
+          name:
+            description: name is the commit author display name (default kollect).
+            type: string
+        type: object
+      branch:
+        description: |-
+          branch is the target branch for clone and push.
+          Overrides the endpoint URL fragment (#branch=) when set.
+        type: string
+      cloneDepth:
+        description: cloneDepth limits shallow clone depth (default 1).
+        format: int32
+        minimum: 1
+        type: integer
+      commitBody:
+        description: commitBody is an optional multi-line commit body template (same
+          placeholders as commitMessage).
+        type: string
+      commitMessage:
+        description: |-
+          commitMessage is the git commit subject template.
+          Placeholders: {namespace}, {name}, {cluster}, {generation}, {itemCount},
+          {checksum}, {checksumShort}, {exportedAt}, {sink}, {path}.
+        type: string
+      commitTrailers:
+        description: 'commitTrailers appends git commit trailers (e.g. Kollect-Checksum:
+          {checksum}).'
+        items:
+          type: string
+        type: array
+      engine:
+        description: |-
+          engine selects the git implementation: go-git (default) or host git CLI.
+          file:// remotes always use the CLI path regardless of this field.
+        enum:
+        - go-git
+        - cli
+        type: string
+      forceBasicAuth:
+        description: |-
+          forceBasicAuth sends an explicit Authorization header on HTTPS remotes.
+          Useful when git hosts ignore embedded URL credentials. May also be enabled
+          via the KOLLECT_GIT_FORCE_BASIC_AUTH environment variable on the operator.
+        type: boolean
+      prune:
+        description: prune stages deletions in the worktree before commit (git add
+          -A semantics).
+        type: boolean
+      pushPolicy:
+        description: pushPolicy selects append-only commits (Commit, default) or force-push
+          snapshot mode (ForcePush).
+        enum:
+        - Commit
+        - ForcePush
+        type: string
+    type: object
+  gitlab:
+    description: gitlab configures GitLab-specific settings when type is gitlab.
+    properties:
+      mergeRequest:
+        description: mergeRequest configures optional branch + merge request workflow
+          after git push.
+        properties:
+          autoMerge:
+            description: autoMerge requests auto-merge when the MR pipeline succeeds
+              (not yet implemented).
+            type: boolean
+          branchPrefix:
+            description: branchPrefix prefixes feature branches (default kollect).
+            type: string
+          mode:
+            description: mode selects direct push to the default branch or branch
+              + merge request workflow.
+            enum:
+            - direct
+            - merge_request
+            type: string
+          targetBranch:
+            description: targetBranch is the MR target branch (required when mode
+              is merge_request).
+            type: string
+          titleTemplate:
+            description: titleTemplate is an optional MR title template with {namespace}
+              and {name} placeholders.
+            type: string
+        type: object
+    type: object
+  http:
+    description: http configures webhook snapshot export when type is http.
+    properties:
+      method:
+        description: method is the HTTP verb for export requests (default POST).
+        type: string
+    type: object
+  layout:
+    description: |-
+      layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419).
+      The entire block is optional; omitting it yields a single readable inventory document.
+    properties:
+      content:
+        default: item
+        description: |-
+          content selects the per-file payload: item (full Item row, default),
+          attributes (Item.attributes only), or manifest (native object, ADR-0306 Resource export).
+        enum:
+        - item
+        - attributes
+        - manifest
+        type: string
+      filename:
+        description: filename tunes path-segment sanitization and grouping.
+        properties:
+          groupInPath:
+            description: |-
+              groupInPath controls the {group} segment: auto (omit for core types, default),
+              always, or never.
+            enum:
+            - auto
+            - always
+            - never
+            type: string
+          lowercaseKind:
+            description: lowercaseKind lowercases {kind} in paths (default true).
+            type: boolean
+          maxSegmentLength:
+            description: maxSegmentLength caps each path segment for DNS safety (default
+              63).
+            format: int32
+            minimum: 1
+            type: integer
+        type: object
+      index:
+        description: index configures the split-mode index sidecar.
+        properties:
+          enabled:
+            description: enabled toggles the index sidecar (default false; true in
+              split mode).
+            type: boolean
+          pathTemplate:
+            description: pathTemplate is the index file path (default inventory/{namespace}/{name}{extension}).
+            type: string
+        type: object
+      mode:
+        default: document
+        description: |-
+          mode selects the on-disk layout: document (one inventory file, default),
+          perResource (one file per Item), or split (index sidecar + per-resource tree).
+        enum:
+        - document
+        - perResource
+        - split
+        type: string
+      pathTemplate:
+        description: |-
+          pathTemplate is the per-item path used when mode is perResource or split.
+          Placeholders: {cluster}, {namespace}, {name}, {targetNamespace}, {targetName},
+          {sourceNamespace}, {sourceName}, {group}, {kind}, {uid}, {generation}, {extension}.
+          Default: {cluster}/{sourceNamespace}/{kind}/{sourceName}{extension}
+        type: string
+    type: object
+  objectStore:
+    description: objectStore configures S3/GCS/Azure snapshot serialization.
+    properties:
+      format:
+        description: format selects the snapshot serialization (default json).
+        enum:
+        - json
+        - parquet
+        type: string
+      hotAttributes:
+        description: hotAttributes lists profile attribute keys promoted to typed
+          Parquet columns (ADR-0401, Q11).
+        items:
+          type: string
+        type: array
+        x-kubernetes-list-type: atomic
+    type: object
+  options:
+    additionalProperties:
+      type: string
+    description: |-
+      options carries non-secret, backend-specific pass-through settings (ADR-0416 §4, Option 2).
+      Secret-like keys are rejected by the webhook; supply credentials via secretRef only.
+    type: object
+  pathTemplate:
+    description: pathTemplate selects the Git/object-store export path layout (ADR-0407).
+    type: string
+  provisioning:
+    description: |-
+      provisioning configures destination resource ownership (ADR-0416 §5).
+      mode ensure (default) creates resources if missing; existing never creates and preflights existence.
+    properties:
+      mode:
+        description: mode selects ensure (create-if-missing, default) or existing
+          (never create; preflight verifies).
+        enum:
+        - ensure
+        - existing
+        type: string
+      naming:
+        description: naming optionally templates the destination resource name using
+          the shared placeholder grammar.
+        properties:
+          template:
+            description: |-
+              template is the destination name template; placeholders match pathTemplate
+              ({cluster}, {namespace}, {name}, {generation}).
+            type: string
+        type: object
+    type: object
+  secretRef:
+    description: secretRef references a Secret holding credentials for the sink.
+    properties:
+      name:
+        description: name is the name of the referenced Secret.
+        type: string
+      namespace:
+        description: namespace is the namespace of the referenced Secret.
+        type: string
+    required:
+    - name
+    type: object
+  serialization:
+    description: |-
+      serialization configures the cross-cutting on-wire format and schema contract (ADR-0416 §4).
+      json is the zero-config default; the backend capability matrix gates which formats are honored.
+    properties:
+      compression:
+        description: compression selects payload compression where the backend supports
+          it (default none).
+        enum:
+        - none
+        - gzip
+        - snappy
+        - zstd
+        type: string
+      format:
+        description: format selects the on-wire serialization (default json; yaml
+          default for git/gitlab).
+        enum:
+        - json
+        - yaml
+        - parquet
+        - csv
+        - ndjson
+        type: string
+    type: object
+  tls:
+    description: tls configures TLS verification for HTTPS git and similar endpoints.
+    properties:
+      caBundle:
+        description: |-
+          caBundle is an inline PEM-encoded CA certificate bundle.
+          Prefer caSecretRef for production; do not set both caBundle and caSecretRef.
+        format: byte
+        type: string
+      caSecretRef:
+        description: caSecretRef references a Secret containing a PEM CA bundle (key
+          tls.crt or ca.crt).
+        properties:
+          name:
+            description: name is the name of the referenced Secret.
+            type: string
+          namespace:
+            description: namespace is the namespace of the referenced Secret.
+            type: string
+        required:
+        - name
+        type: object
+      insecureSkipVerify:
+        description: insecureSkipVerify disables server certificate verification (not
+          recommended).
+        type: boolean
+    type: object
+  type:
+    description: type selects the snapshot backend implementation.
+    enum:
+    - git
+    - gitlab
+    - s3
+    - gcs
+    type: string
+required:
+- type
+type: object

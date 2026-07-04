@@ -51,6 +51,13 @@ func TestUpsertSinkExportStatus(t *testing.T) {
 	}
 }
 
+func TestSetSinkExportSynced_nilStatusIsNoop(t *testing.T) {
+	t.Parallel()
+
+	// nil status must not panic
+	setSinkExportSynced(nil, 1, true, "Exported", "ok")
+}
+
 func TestSetSinkExportSynced(t *testing.T) {
 	t.Parallel()
 

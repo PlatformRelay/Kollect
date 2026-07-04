@@ -133,6 +133,15 @@ var Catalog = []CatalogEntry{
 		AgentHint:  "High rate is expected when exportMinInterval is tight; use status.sinkExports for per-sink detail.",
 	},
 	{
+		Name:   "kollect_namespace_fingerprint_cache_total",
+		Type:   "counter",
+		Labels: []string{"controller", "result"},
+		Help: "Namespace content fingerprint cache outcomes (AR-10): hit skips the " +
+			"SnapshotNamespace + ItemsFingerprint recompute, miss pays for it.",
+		PromQLHint: "sum(rate(kollect_namespace_fingerprint_cache_total[5m])) by (result)",
+		AgentHint:  "Low hit ratio under steady churn-free load → cache not paying off; check Store mutation rate.",
+	},
+	{
 		Name:       "kollect_watch_map_list_errors_total",
 		Type:       "counter",
 		Labels:     []string{"controller", "watch"},
@@ -152,13 +161,13 @@ var Catalog = []CatalogEntry{
 		Type:       "gauge",
 		Help:       "Approximate collection dispatch queue depth.",
 		PromQLHint: "max_over_time(kollect_collect_dispatch_queue_depth[5m])",
-		AgentHint:  "Sustained high depth → increase workers/queue; watch sync_fallback counter.",
+		AgentHint:  "Sustained high depth → increase workers/queue; watch backpressure counter.",
 	},
 	{
-		Name:       "kollect_collect_dispatch_sync_fallback_total",
+		Name:       "kollect_collect_dispatch_backpressure_total",
 		Type:       "counter",
-		Help:       "Informer events processed synchronously when dispatch queue was full.",
-		PromQLHint: "increase(kollect_collect_dispatch_sync_fallback_total[15m])",
+		Help:       "Informer dispatch sends that blocked waiting for dispatch queue capacity.",
+		PromQLHint: "increase(kollect_collect_dispatch_backpressure_total[15m])",
 		AgentHint:  "Non-zero sustained rate → dispatch pool undersized for churn.",
 	},
 	{
