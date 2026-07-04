@@ -121,8 +121,9 @@ task perf-report   # local → agent-context/PERF-SNAPSHOT.md; CI → artifacts/
 
 ### Log keys
 
-Search operator logs for: `export failed`, `PayloadTooLarge`, `debounced`, `dispatch sync fallback`,
-`export payload exceeds spill warn`.
+Search operator logs for: `export failed`, `PayloadTooLarge`, `debounced`,
+`export payload exceeds spill warn`. Watch `kollect_collect_dispatch_backpressure_total` for
+dispatch queue saturation (no dedicated log line — metric only).
 
 ## Explicit non-goals
 

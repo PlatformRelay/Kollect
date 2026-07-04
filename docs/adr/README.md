@@ -111,6 +111,12 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 | [0705](0705-release-supply-chain.md) | Release engineering and supply chain | Current |
 | [0706](0706-testing-merge-gate-architecture.md) | Testing and merge-gate architecture | Current |
 
+## 08 · Pipeline & CLI
+
+| ADR | Title | Status |
+| --- | --- | --- |
+| [0801](0801-pipeline-cli-mode.md) | Pipeline CLI mode — kubeconfig-based collection without operator deployment | Exploring |
+
 ---
 
 See [ARCHITECTURE.md](../ARCHITECTURE.md), [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md),

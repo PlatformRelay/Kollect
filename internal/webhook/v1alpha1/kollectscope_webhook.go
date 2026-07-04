@@ -17,7 +17,9 @@ import (
 //nolint:lll // kubebuilder webhook marker must stay on one line
 // +kubebuilder:webhook:path=/validate-kollect-dev-v1alpha1-kollectscope,mutating=false,failurePolicy=fail,sideEffects=None,groups=kollect.dev,resources=kollectscopes,verbs=create;update,versions=v1alpha1,name=vkollectscope.kb.io,admissionReviewVersions=v1
 
-type kollectScopeValidator struct{}
+type kollectScopeValidator struct {
+	noopDelete[*kollectdevv1alpha1.KollectScope]
+}
 
 var _ admission.Validator[*kollectdevv1alpha1.KollectScope] = &kollectScopeValidator{}
 
@@ -40,13 +42,6 @@ func (v *kollectScopeValidator) ValidateUpdate(
 	newScope *kollectdevv1alpha1.KollectScope,
 ) (admission.Warnings, error) {
 	return nil, v.validate(newScope)
-}
-
-func (v *kollectScopeValidator) ValidateDelete(
-	_ context.Context,
-	_ *kollectdevv1alpha1.KollectScope,
-) (admission.Warnings, error) {
-	return nil, nil
 }
 
 func (v *kollectScopeValidator) validate(scope *kollectdevv1alpha1.KollectScope) error {

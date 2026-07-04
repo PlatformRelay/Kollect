@@ -90,6 +90,51 @@ func TestScopeCheckSinkReachable(t *testing.T) {
 	}
 }
 
+func TestScopeCheckEnforceTarget_noScopeNotEnforced(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	// No KollectScope in namespace → Load returns Enforced=false → pass
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	check := scopeCheck{client: c}
+
+	target := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "t1", Namespace: "team-a"},
+	}
+	profile := &kollectdevv1alpha1.KollectProfile{}
+
+	ok, reason, _ := check.enforceTarget(context.Background(), target, profile)
+	if !ok || reason != "" {
+		t.Fatalf("no-scope: ok=%v reason=%q; expected ok=true reason=\"\"", ok, reason)
+	}
+}
+
+func TestScopeCheckEnforceInventory_noScopeNotEnforced(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	// No KollectScope in namespace → Load returns Enforced=false → pass
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	check := scopeCheck{client: c}
+
+	inv := &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "inv", Namespace: "team-a"},
+	}
+
+	ok, reason, _ := check.enforceInventory(context.Background(), inv)
+	if !ok || reason != "" {
+		t.Fatalf("no-scope: ok=%v reason=%q; expected ok=true reason=\"\"", ok, reason)
+	}
+}
+
 func TestScopeCheckEnforceInventory(t *testing.T) {
 	t.Parallel()
 

@@ -17,6 +17,46 @@ import (
 	"github.com/konih/kollect/internal/collect"
 )
 
+func TestBackend_TypeAndCapabilities(t *testing.T) {
+	t.Parallel()
+
+	b := &Backend{}
+	if b.Type() != TypeName {
+		t.Fatalf("Type() = %q, want %q", b.Type(), TypeName)
+	}
+
+	caps := b.Capabilities()
+	if !caps.SupportsDelete {
+		t.Fatal("mongodb must support delete reconciliation")
+	}
+	if caps.ObjectStore {
+		t.Fatal("mongodb must not be an object-store")
+	}
+	if caps.Stream {
+		t.Fatal("mongodb must not be a stream emitter")
+	}
+}
+
+func TestBackend_Close_nilClientIsNoop(t *testing.T) {
+	t.Parallel()
+
+	b := &Backend{client: nil}
+	b.Close() // must not panic
+}
+
+func TestBackend_Export_decodeError(t *testing.T) {
+	t.Parallel()
+
+	b := &Backend{}
+	err := b.Export(context.Background(), []byte(`{"schemaVersion":"kollect.dev/v99","items":[]}`), "")
+	if err == nil {
+		t.Fatal("expected decode error for unsupported schema version")
+	}
+	if !strings.Contains(err.Error(), "decode payload") {
+		t.Fatalf("error = %q, want decode payload context", err)
+	}
+}
+
 type fakeDeleteManyCollection struct {
 	gotFilter any
 	err       error

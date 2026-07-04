@@ -30,7 +30,10 @@ func setupFamilySinkWebhooks(mgr ctrl.Manager) error {
 	return nil
 }
 
-type kollectSnapshotSinkValidator struct{ client client.Client }
+type kollectSnapshotSinkValidator struct {
+	noopDelete[*kollectdevv1alpha1.KollectSnapshotSink]
+	client client.Client
+}
 
 var _ admission.Validator[*kollectdevv1alpha1.KollectSnapshotSink] = &kollectSnapshotSinkValidator{}
 
@@ -52,9 +55,6 @@ func (v *kollectSnapshotSinkValidator) ValidateUpdate(ctx context.Context, _ *ko
 	}
 	return v.validate(ctx, obj)
 }
-func (v *kollectSnapshotSinkValidator) ValidateDelete(context.Context, *kollectdevv1alpha1.KollectSnapshotSink) (admission.Warnings, error) {
-	return nil, nil
-}
 func (v *kollectSnapshotSinkValidator) validate(ctx context.Context, obj *kollectdevv1alpha1.KollectSnapshotSink) (admission.Warnings, error) {
 	errs := validation.ValidateSnapshotSinkSpec(&obj.Spec)
 	if len(errs) > 0 {
@@ -69,7 +69,10 @@ func (v *kollectSnapshotSinkValidator) validate(ctx context.Context, obj *kollec
 	return warns, nil
 }
 
-type kollectDatabaseSinkValidator struct{ client client.Client }
+type kollectDatabaseSinkValidator struct {
+	noopDelete[*kollectdevv1alpha1.KollectDatabaseSink]
+	client client.Client
+}
 
 var _ admission.Validator[*kollectdevv1alpha1.KollectDatabaseSink] = &kollectDatabaseSinkValidator{}
 
@@ -91,9 +94,6 @@ func (v *kollectDatabaseSinkValidator) ValidateUpdate(ctx context.Context, _ *ko
 	}
 	return v.validate(ctx, obj)
 }
-func (v *kollectDatabaseSinkValidator) ValidateDelete(context.Context, *kollectdevv1alpha1.KollectDatabaseSink) (admission.Warnings, error) {
-	return nil, nil
-}
 func (v *kollectDatabaseSinkValidator) validate(ctx context.Context, obj *kollectdevv1alpha1.KollectDatabaseSink) (admission.Warnings, error) {
 	errs := validation.ValidateDatabaseSinkSpec(&obj.Spec)
 	if len(errs) > 0 {
@@ -106,7 +106,10 @@ func (v *kollectDatabaseSinkValidator) validate(ctx context.Context, obj *kollec
 	return validation.ValidateSinkConfigWarnings(&normalized), nil
 }
 
-type kollectEventSinkValidator struct{ client client.Client }
+type kollectEventSinkValidator struct {
+	noopDelete[*kollectdevv1alpha1.KollectEventSink]
+	client client.Client
+}
 
 var _ admission.Validator[*kollectdevv1alpha1.KollectEventSink] = &kollectEventSinkValidator{}
 
@@ -127,9 +130,6 @@ func (v *kollectEventSinkValidator) ValidateUpdate(ctx context.Context, _ *kolle
 		return nil, nil
 	}
 	return v.validate(ctx, obj)
-}
-func (v *kollectEventSinkValidator) ValidateDelete(context.Context, *kollectdevv1alpha1.KollectEventSink) (admission.Warnings, error) {
-	return nil, nil
 }
 func (v *kollectEventSinkValidator) validate(ctx context.Context, obj *kollectdevv1alpha1.KollectEventSink) (admission.Warnings, error) {
 	errs := validation.ValidateEventSinkSpec(&obj.Spec)
