@@ -11,11 +11,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **controller:** Requeue on family-sink status conflict instead of dropping it [d1a9e24](https://github.com/konih/kollect/commit/d1a9e24f29c554c4dfd51f963d8a436c85350e6a)
+
+- **collect:** Block on dispatch backpressure instead of inline sync fallback [a3e8efb](https://github.com/konih/kollect/commit/a3e8efb4757bd469b75241e17a0633c49d58bd2d)
+
 - **controller:** Degrade scope not whole target on RBAC-forbidden namespace (#28) ([#28](https://github.com/konih/kollect/pull/28))[0cd7e8d](https://github.com/konih/kollect/commit/0cd7e8dd3e648471aae59e2bd371d5c73f9d3941)
-
-- **controller:** Requeue on family-sink status conflict instead of dropping it [abd9533](https://github.com/konih/kollect/commit/abd953350f1b8fb3d8030fe09dd196bd0a83ada7)
-
-- **collect:** Block on dispatch backpressure instead of inline sync fallback [7f37860](https://github.com/konih/kollect/commit/7f378608d61f836ee76f0dd42a2310ec0cab8b88)
 
 
 ### Features
@@ -25,11 +25,6 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **scope:** Cluster static-ref namespace allowlist (#23) ([#23](https://github.com/konih/kollect/pull/23))[c55f538](https://github.com/konih/kollect/commit/c55f5380d99ab9cf30dbd3f4122c18f6ff4fb3dc)
 
 
-### Merge
-
-- **adr:** ADR-0801 pipeline CLI mode from worktree lane [f6022a0](https://github.com/konih/kollect/commit/f6022a081c8a57e1fe7cc32bd74ee0aa1068a323)
-
-
 ### Performance
 
 - **controller,collect:** Incremental namespace fingerprint cache (AR-10) (#37) ([#37](https://github.com/konih/kollect/pull/37))[f28b93e](https://github.com/konih/kollect/commit/f28b93ee20f86e2ad2e2f008fc70535b1eaba599)
@@ -37,7 +32,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Refactoring
 
-- **sink:** Extract shared secret-value-from-keys helper (dup audit) [72c878f](https://github.com/konih/kollect/commit/72c878fcd047e3a375d46dd35300029c811ec44b)
+- **sink:** Extract shared secret-value-from-keys helper (dup audit) (#38) ([#38](https://github.com/konih/kollect/pull/38))[2f166a5](https://github.com/konih/kollect/commit/2f166a5bdd3fa1b035f0a6f2a9e0ba7da3c05da1)
 
 - **webhook:** Dedup ValidateDelete boilerplate across validators (#33) ([#33](https://github.com/konih/kollect/pull/33))[f147642](https://github.com/konih/kollect/commit/f147642d87a32cd002881c70b2d34d75c672c50c)
 
