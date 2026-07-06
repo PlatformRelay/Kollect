@@ -20,6 +20,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **controller:** Surface extraction failures in target status (EC-P1-05) [2c1fc93](https://github.com/konih/kollect/commit/2c1fc93a4f170ba0f0f483a39e407abb37231906)
+
 - **metrics:** Bound profile label cardinality (EC-P2-09) (#32) ([#32](https://github.com/konih/kollect/pull/32))[51e1f4b](https://github.com/konih/kollect/commit/51e1f4b26e6e821ecf46ecdb3eb9287d7b9b0266)
 
 - **scope:** Cluster static-ref namespace allowlist (#23) ([#23](https://github.com/konih/kollect/pull/23))[c55f538](https://github.com/konih/kollect/commit/c55f5380d99ab9cf30dbd3f4122c18f6ff4fb3dc)

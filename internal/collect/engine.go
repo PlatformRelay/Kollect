@@ -106,6 +106,7 @@ type Engine struct {
 	nsMu                  sync.RWMutex
 	forbidden             map[string]struct{}
 	accessErr             map[string]struct{}
+	extractErr            map[string]*extractFailureState
 	defaults              NamespaceDefaults
 	dispatchCh            chan dispatchJob
 	dispatchWorkers       int
@@ -146,6 +147,7 @@ func NewEngine(
 		nsMeta:                make(map[string]namespaceMeta),
 		forbidden:             make(map[string]struct{}),
 		accessErr:             make(map[string]struct{}),
+		extractErr:            make(map[string]*extractFailureState),
 		dispatchCh:            make(chan dispatchJob, cfg.DispatchQueueSize),
 		dispatchWorkers:       cfg.DispatchWorkers,
 		dispatchQueueCap:      cfg.DispatchQueueSize,
@@ -278,6 +280,7 @@ func (e *Engine) UnregisterTarget(namespace, name string) {
 	delete(e.targets, key)
 	delete(e.forbidden, key)
 	delete(e.accessErr, key)
+	delete(e.extractErr, key)
 	e.mu.Unlock()
 
 	e.metricsMu.Lock()
@@ -353,6 +356,61 @@ func (e *Engine) HasAccessCheckFailure(targetNamespace, targetName string) bool 
 	_, ok := e.accessErr[key]
 
 	return ok
+}
+
+// extractFailureState tracks resources currently failing attribute extraction for a target
+// (ADR-0020 ErrTerminal class — invalid CEL/JSONPath or per-resource evaluation error).
+type extractFailureState struct {
+	resources map[string]struct{} // resource UID -> currently failing
+	lastErr   string
+}
+
+// ExtractFailures reports how many resources are currently failing attribute extraction for
+// the target, and the most recently observed extraction error message (GUIDELINES.md §1, §2:
+// a count + last message only, never per-resource payload).
+func (e *Engine) ExtractFailures(targetNamespace, targetName string) (count int, lastErr string) {
+	key := targetKey(targetNamespace, targetName)
+
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	st, ok := e.extractErr[key]
+	if !ok {
+		return 0, ""
+	}
+
+	return len(st.resources), st.lastErr
+}
+
+// recordExtractFailure marks resourceUID as currently failing extraction for targetKeyStr.
+func (e *Engine) recordExtractFailure(targetKeyStr, resourceUID, errMsg string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	st, ok := e.extractErr[targetKeyStr]
+	if !ok {
+		st = &extractFailureState{resources: make(map[string]struct{})}
+		e.extractErr[targetKeyStr] = st
+	}
+
+	st.resources[resourceUID] = struct{}{}
+	st.lastErr = errMsg
+}
+
+// clearExtractFailure clears resourceUID's extraction-failure state for targetKeyStr, if any.
+func (e *Engine) clearExtractFailure(targetKeyStr, resourceUID string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	st, ok := e.extractErr[targetKeyStr]
+	if !ok {
+		return
+	}
+
+	delete(st.resources, resourceUID)
+	if len(st.resources) == 0 {
+		delete(e.extractErr, targetKeyStr)
+	}
 }
 
 // Start stores the manager context used for informer factories and starts dispatch workers.
@@ -586,12 +644,14 @@ func (e *Engine) processDispatch(
 			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
 			metrics.CollectItemsTotal.Set(float64(e.store.Len()))
 			e.refreshTargetSnapshotMetrics(st, target)
+			e.clearExtractFailure(targetKeyStr, string(u.GetUID()))
 
 			continue
 		}
 
 		if !e.matchesTarget(ctx, st, gvr, u) {
 			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
+			e.clearExtractFailure(targetKeyStr, string(u.GetUID()))
 			continue
 		}
 
@@ -625,14 +685,20 @@ func (e *Engine) processDispatch(
 		delete(e.forbidden, targetKeyStr)
 		e.mu.Unlock()
 
+		resourceUID := string(u.GetUID())
+
 		attrs, err := e.extractor.Extract(u, st.profile.Spec.Attributes)
 		if err != nil {
 			log.FromContext(ctx).Error(err, "extract attributes",
 				"target", target.Namespace+"/"+target.Name,
 				"resource", u.GetNamespace()+"/"+u.GetName())
+			e.recordExtractFailure(targetKeyStr, resourceUID, err.Error())
+			metrics.ReconcileErrorsTotal.WithLabelValues("KollectTarget", metrics.ErrorClassTerminal).Inc()
 
 			continue
 		}
+
+		e.clearExtractFailure(targetKeyStr, resourceUID)
 
 		scrubber := e.scrubberForProfile(st.profile)
 		attrs = scrubber.ScrubAttributes(attrs)
