@@ -40,6 +40,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **sink:** Extract inventoryFromObjectPath into pathvalidate (#29) ([#29](https://github.com/konih/kollect/pull/29))[123f6a5](https://github.com/konih/kollect/commit/123f6a580c976a99a3c31074b9043db105a3eea8)
 
+
+### Merge
+
+- Sync test/f59-export-spill-l3 with origin/main to resolve preflight changelog drift [32fb0c1](https://github.com/konih/kollect/commit/32fb0c18aff6ff75bf76b59c566d025b6d931abf)
+
 ## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-13
 
 ### Bug Fixes
