@@ -34,6 +34,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Refactoring
 
+- **sink/postgres:** Typed sentinel errors for Export stages (F61) [89a6c25](https://github.com/konih/kollect/commit/89a6c25a235b3d381e81784661e5b49c38e47359)
+
 - **sink:** Extract shared secret-value-from-keys helper (dup audit) (#38) ([#38](https://github.com/konih/kollect/pull/38))[2f166a5](https://github.com/konih/kollect/commit/2f166a5bdd3fa1b035f0a6f2a9e0ba7da3c05da1)
 
 - **webhook:** Dedup ValidateDelete boilerplate across validators (#33) ([#33](https://github.com/konih/kollect/pull/33))[f147642](https://github.com/konih/kollect/commit/f147642d87a32cd002881c70b2d34d75c672c50c)
