@@ -20,7 +20,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
-- **controller:** Surface extraction failures in target status (EC-P1-05) [2c1fc93](https://github.com/konih/kollect/commit/2c1fc93a4f170ba0f0f483a39e407abb37231906)
+- **controller:** Surface extraction failures in target status (EC-P1-05) (#36) ([#36](https://github.com/konih/kollect/pull/36))[f5186ea](https://github.com/konih/kollect/commit/f5186ea519bb767b1795b1548bdb2fc9584f4b4b)
 
 - **metrics:** Bound profile label cardinality (EC-P2-09) (#32) ([#32](https://github.com/konih/kollect/pull/32))[51e1f4b](https://github.com/konih/kollect/commit/51e1f4b26e6e821ecf46ecdb3eb9287d7b9b0266)
 
@@ -34,16 +34,13 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Refactoring
 
+- **sink/bigquery:** Typed sentinel errors for Export failure stages (F66) [6790065](https://github.com/konih/kollect/commit/679006591cbf58338397302650086af9d8333a11)
+
 - **sink:** Extract shared secret-value-from-keys helper (dup audit) (#38) ([#38](https://github.com/konih/kollect/pull/38))[2f166a5](https://github.com/konih/kollect/commit/2f166a5bdd3fa1b035f0a6f2a9e0ba7da3c05da1)
 
 - **webhook:** Dedup ValidateDelete boilerplate across validators (#33) ([#33](https://github.com/konih/kollect/pull/33))[f147642](https://github.com/konih/kollect/commit/f147642d87a32cd002881c70b2d34d75c672c50c)
 
 - **sink:** Extract inventoryFromObjectPath into pathvalidate (#29) ([#29](https://github.com/konih/kollect/pull/29))[123f6a5](https://github.com/konih/kollect/commit/123f6a580c976a99a3c31074b9043db105a3eea8)
-
-
-### Merge
-
-- Sync test/f59-export-spill-l3 with origin/main to resolve preflight changelog drift [32fb0c1](https://github.com/konih/kollect/commit/32fb0c18aff6ff75bf76b59c566d025b6d931abf)
 
 ## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-13
 
