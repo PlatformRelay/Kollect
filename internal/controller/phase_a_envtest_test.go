@@ -110,7 +110,11 @@ var _ = Describe("Phase A envtest — map sink and degraded conflict", func() {
 		updatedSink.Spec.Postgres.Table = "inventory_items_v2"
 		Expect(k8sClient.Update(ctx, updatedSink)).To(Succeed())
 
-		reqs := reconciler.mapDatabaseSinkToInventories(ctx, updatedSink)
+		mapperRec := &KollectInventoryReconciler{
+			Client: mapperEnvtestClient(),
+			Scheme: reconciler.Scheme,
+		}
+		reqs := mapperRec.mapDatabaseSinkToInventories(ctx, updatedSink)
 		Expect(reqs).To(ConsistOf(req))
 
 		store.Upsert(collect.Item{
