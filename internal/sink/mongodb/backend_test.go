@@ -14,6 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
 )
 
@@ -54,6 +55,39 @@ func TestBackend_Export_decodeError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "decode payload") {
 		t.Fatalf("error = %q, want decode payload context", err)
+	}
+}
+
+func TestNewBackend_configError(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewBackend(context.Background(), kollectdevv1alpha1.KollectSinkSpec{Type: "postgres"}, nil)
+	if err == nil {
+		t.Fatal("expected config error for wrong sink type")
+	}
+}
+
+func TestNewBackend_unreachableHost(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type: TypeName,
+		MongoDB: &kollectdevv1alpha1.MongoSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "mongo"},
+			Database:    "inventory",
+			Collection:  "items",
+		},
+	}
+
+	_, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte("mongodb://127.0.0.1:1/unreachable")})
+	if err == nil {
+		t.Fatal("expected connect error for unreachable host")
+	}
+	if !strings.Contains(err.Error(), "mongodb") {
+		t.Fatalf("error = %q, want mongodb context", err)
 	}
 }
 
@@ -110,6 +144,40 @@ func TestItemDocument_UsesInventoryNamespaceFallback(t *testing.T) {
 	}
 	if got := payload["name"]; got != "api" {
 		t.Fatalf("payload.name = %v, want api", got)
+	}
+}
+
+func TestItemDocument_UsesItemNamespaceWhenSet(t *testing.T) {
+	t.Parallel()
+
+	scope := exportScope{
+		inventoryNamespace: "team-a",
+		inventoryName:      "apps",
+		cluster:            "prod-a",
+	}
+	ts := time.Date(2026, time.June, 10, 0, 0, 0, 0, time.UTC)
+	doc, err := itemDocument(
+		scope,
+		collect.Item{
+			UID:        "uid-1",
+			TargetName: "deployments",
+			Namespace:  "workloads",
+			Name:       "api",
+		},
+		ts,
+	)
+	if err != nil {
+		t.Fatalf("itemDocument: %v", err)
+	}
+
+	if got := doc["resource_namespace"]; got != "workloads" {
+		t.Fatalf("resource_namespace = %v, want workloads", got)
+	}
+	if got := doc["cluster"]; got != "prod-a" {
+		t.Fatalf("cluster = %v, want prod-a", got)
+	}
+	if got := doc["exported_at"]; !got.(time.Time).Equal(ts) {
+		t.Fatalf("exported_at = %v, want %v", got, ts)
 	}
 }
 
