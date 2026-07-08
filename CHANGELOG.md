@@ -44,6 +44,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **sink/bigquery:** Typed sentinel errors for Export failure stages (F66) [6790065](https://github.com/konih/kollect/commit/679006591cbf58338397302650086af9d8333a11)
 
+- **sink/gitlab:** Dedup inventory path parsing via pathvalidate [5e8cb05](https://github.com/konih/kollect/commit/5e8cb05fda87bfa6902be59b96591a0adf5c039c)
+
 - **sink:** Extract shared secret-value-from-keys helper (dup audit) (#38) ([#38](https://github.com/konih/kollect/pull/38))[2f166a5](https://github.com/konih/kollect/commit/2f166a5bdd3fa1b035f0a6f2a9e0ba7da3c05da1)
 
 - **webhook:** Dedup ValidateDelete boilerplate across validators (#33) ([#33](https://github.com/konih/kollect/pull/33))[f147642](https://github.com/konih/kollect/commit/f147642d87a32cd002881c70b2d34d75c672c50c)
