@@ -30,6 +30,7 @@ job.
 ### Why not fork or create a new project
 
 A fork would duplicate ~6,000 lines of active, tested code:
+
 - `internal/collect.Extractor` (CEL + JSONPath + Helm decode)
 - `internal/collect.Store` + `MarshalTargetExport`
 - `internal/sink.Registry` + all 9 Backend implementations (git, gitlab, s3, gcs, postgres,
