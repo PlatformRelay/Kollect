@@ -40,6 +40,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **validation,sink:** Typed errors for family-sink and s3 empty-payload [318fab0](https://github.com/konih/kollect/commit/318fab05fa59f6f41e4b8e9e5778c73425d4092b)
 
+- **controller,api:** Generic family-sink reconciler (AR-08/F68) [98a461d](https://github.com/konih/kollect/commit/98a461d5b6cf17aee2b4bb3be343ff7b99a78daa)
+
 - **sink:** Extract shared secret-value-from-keys helper (dup audit) (#38) ([#38](https://github.com/konih/kollect/pull/38))[2f166a5](https://github.com/konih/kollect/commit/2f166a5bdd3fa1b035f0a6f2a9e0ba7da3c05da1)
 
 - **webhook:** Dedup ValidateDelete boilerplate across validators (#33) ([#33](https://github.com/konih/kollect/pull/33))[f147642](https://github.com/konih/kollect/commit/f147642d87a32cd002881c70b2d34d75c672c50c)
