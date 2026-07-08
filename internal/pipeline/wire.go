@@ -6,6 +6,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -173,7 +174,14 @@ func ApplyNamespaceOverride(targets []kollectdevv1alpha1.KollectTarget, namespac
 // that SkippedTargets must survive into the exit-code decision, not just get logged -- is
 // unit-testable without a cluster.
 func buildContextResult(contextName string, runResult collect.RunResult, exported int, exportErrs []error) ContextResult {
-	errs := make([]error, 0, len(runResult.Errors)+len(exportErrs))
+	runErrsLen := len(runResult.Errors)
+	exportErrsLen := len(exportErrs)
+
+	var errs []error
+	if runErrsLen <= math.MaxInt-exportErrsLen {
+		errs = make([]error, 0, runErrsLen+exportErrsLen)
+	}
+
 	errs = append(errs, runResult.Errors...)
 	errs = append(errs, exportErrs...)
 
