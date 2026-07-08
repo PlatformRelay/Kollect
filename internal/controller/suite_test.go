@@ -34,11 +34,13 @@ func TestMain(m *testing.M) {
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	ctx       context.Context
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	cfg       *rest.Config
-	k8sClient client.Client
+	ctx               context.Context
+	cancel            context.CancelFunc
+	testEnv           *envtest.Environment
+	cfg               *rest.Config
+	k8sClient         client.Client
+	cacheBackedClient client.Client
+	cacheStop         context.CancelFunc
 )
 
 func TestControllers(t *testing.T) {
@@ -77,10 +79,17 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	cacheBackedClient, cacheStop, err = newCacheBackedEnvtestClient(ctx, cfg, scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cacheBackedClient).NotTo(BeNil())
 })
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	if cacheStop != nil {
+		cacheStop()
+	}
 	cancel()
 	Eventually(func() error {
 		return testEnv.Stop()

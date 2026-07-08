@@ -49,7 +49,7 @@ var _ = Describe("Map handler List failure (envtest)", func() {
 
 		before := counterValue(metrics.WatchMapListErrorsTotal, "KollectInventory", "sink")
 
-		failClient := newListFailInventoryClient(k8sClient, errors.New("simulated RBAC list denied"))
+		failClient := newListFailInventoryClient(mapperEnvtestClient(), errors.New("simulated RBAC list denied"))
 		reconciler := &KollectInventoryReconciler{
 			Client: failClient,
 			Scheme: k8sClient.Scheme(),

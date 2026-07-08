@@ -92,10 +92,10 @@ func TestInventoryStoreSourceStart_nilDependenciesWaitsForCancel(t *testing.T) {
 	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	defer queue.ShutDown()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	testCtx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- src.Start(ctx, queue)
+		done <- src.Start(testCtx, queue)
 	}()
 	cancel()
 
@@ -127,10 +127,10 @@ func TestInventoryStoreSourceStart_enqueuesInventoryRequests(t *testing.T) {
 	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	defer queue.ShutDown()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	testCtx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- src.Start(ctx, queue)
+		done <- src.Start(testCtx, queue)
 	}()
 	time.Sleep(25 * time.Millisecond)
 
