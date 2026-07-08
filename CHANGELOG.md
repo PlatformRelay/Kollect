@@ -20,6 +20,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **controller,sink:** Add TTL prune to coalesce tracker and backend pool [267cac7](https://github.com/konih/kollect/commit/267cac7230b267bf584d66b4a48d74551e050b6e)
+
 - **controller:** Surface extraction failures in target status (EC-P1-05) (#36) ([#36](https://github.com/konih/kollect/pull/36))[f5186ea](https://github.com/konih/kollect/commit/f5186ea519bb767b1795b1548bdb2fc9584f4b4b)
 
 - **metrics:** Bound profile label cardinality (EC-P2-09) (#32) ([#32](https://github.com/konih/kollect/pull/32))[51e1f4b](https://github.com/konih/kollect/commit/51e1f4b26e6e821ecf46ecdb3eb9287d7b9b0266)
@@ -33,6 +35,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Refactoring
+
+- **sink/postgres:** Typed sentinel errors for Export stages (F61) [b7f484f](https://github.com/konih/kollect/commit/b7f484ff96f369e5de1da7c0b67211b4dbd67852)
+
+- **validation,sink:** Typed errors for family-sink and s3 empty-payload [318fab0](https://github.com/konih/kollect/commit/318fab05fa59f6f41e4b8e9e5778c73425d4092b)
+
+- **controller,api:** Generic family-sink reconciler (AR-08/F68) [98a461d](https://github.com/konih/kollect/commit/98a461d5b6cf17aee2b4bb3be343ff7b99a78daa)
+
+- **sink/bigquery:** Typed sentinel errors for Export failure stages (F66) [6790065](https://github.com/konih/kollect/commit/679006591cbf58338397302650086af9d8333a11)
+
+- **sink/gitlab:** Dedup inventory path parsing via pathvalidate [5e8cb05](https://github.com/konih/kollect/commit/5e8cb05fda87bfa6902be59b96591a0adf5c039c)
 
 - **sink:** Extract shared secret-value-from-keys helper (dup audit) (#38) ([#38](https://github.com/konih/kollect/pull/38))[2f166a5](https://github.com/konih/kollect/commit/2f166a5bdd3fa1b035f0a6f2a9e0ba7da3c05da1)
 
