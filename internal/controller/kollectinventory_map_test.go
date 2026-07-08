@@ -35,7 +35,9 @@ func TestMapEventSinkToInventories(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "inv2", Namespace: "team-a"},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inv, other).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithIndex(&kollectdevv1alpha1.KollectInventory{}, inventorySinkFieldIndex, indexInventorySinkBindings).
+		WithObjects(inv, other).Build()
 	r := &KollectInventoryReconciler{Client: cl}
 
 	reqs := r.mapEventSinkToInventories(context.Background(), eventSink)
@@ -62,7 +64,9 @@ func TestMapEventSinkToInventories_noMatch(t *testing.T) {
 		},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inv).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithIndex(&kollectdevv1alpha1.KollectInventory{}, inventorySinkFieldIndex, indexInventorySinkBindings).
+		WithObjects(inv).Build()
 	r := &KollectInventoryReconciler{Client: cl}
 
 	reqs := r.mapEventSinkToInventories(context.Background(), eventSink)

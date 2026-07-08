@@ -45,6 +45,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Performance
 
+- **controller:** Indexed FieldIndexer lookup for sink-watch mappers (AR-09) [355185c](https://github.com/konih/kollect/commit/355185c33775a4fa3a7e635bb906bdfa4f960a01)
+
 - **controller,collect:** Incremental namespace fingerprint cache (AR-10) (#37) ([#37](https://github.com/konih/kollect/pull/37))[f28b93e](https://github.com/konih/kollect/commit/f28b93ee20f86e2ad2e2f008fc70535b1eaba599)
 
 

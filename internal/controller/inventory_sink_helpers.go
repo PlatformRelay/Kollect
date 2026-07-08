@@ -82,6 +82,57 @@ func sinkExportKey(binding kollectdevv1alpha1.InventorySinkBinding) string {
 	return binding.Family + "/" + binding.Name
 }
 
+// inventorySinkFieldIndex is the cache field-index name for a KollectInventory's sink bindings.
+// AR-09: sink-watch mappers do an indexed client.MatchingFields lookup on this index instead of
+// listing every inventory in the namespace and filtering in memory, so a single sink event costs
+// O(matching) rather than O(all inventories in namespace). Each indexed value is "<family>/<name>".
+const inventorySinkFieldIndex = "spec.sinkBindings"
+
+// indexInventorySinkBindings extracts the "<family>/<name>" keys a KollectInventory binds to,
+// for registration via FieldIndexer. Returns nil for non-KollectInventory objects.
+func indexInventorySinkBindings(obj client.Object) []string {
+	inv, ok := obj.(*kollectdevv1alpha1.KollectInventory)
+	if !ok {
+		return nil
+	}
+
+	bindings := inventorySinkBindings(inv)
+	keys := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		keys = append(keys, sinkExportKey(binding))
+	}
+
+	return keys
+}
+
+// clusterInventorySinkFieldIndex is the cache field-index name for a KollectClusterInventory's
+// sink bindings. Each indexed value is "<family>/<name>/<effectiveNamespace>": cluster inventory
+// refs resolve per-namespace (spec.sinkNamespace, or sink.DefaultSecretNamespace when unset —
+// ADR-0208), so the watch mapper must also match the sink object's own namespace.
+const clusterInventorySinkFieldIndex = "spec.sinkBindings"
+
+// indexClusterInventorySinkBindings extracts the "<family>/<name>/<effectiveNamespace>" keys a
+// KollectClusterInventory binds to. Returns nil for non-KollectClusterInventory objects.
+func indexClusterInventorySinkBindings(obj client.Object) []string {
+	inv, ok := obj.(*kollectdevv1alpha1.KollectClusterInventory)
+	if !ok {
+		return nil
+	}
+
+	invSinkNS := inv.Spec.SinkNamespace
+	if invSinkNS == "" {
+		invSinkNS = sink.DefaultSecretNamespace
+	}
+
+	bindings := clusterInventorySinkBindings(inv)
+	keys := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		keys = append(keys, sinkExportKey(binding)+"/"+sinkBindingNamespace(binding, invSinkNS))
+	}
+
+	return keys
+}
+
 func sinkExportMinInterval(resolved *sink.ResolvedSink) *metav1.Duration {
 	if resolved == nil || resolved.ExportMinInterval == nil {
 		return nil
