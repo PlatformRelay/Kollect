@@ -1,0 +1,8 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSnapshotSink
+metadata:
+  name: local-sink
+  namespace: default
+spec:
+  type: local
+  pathTemplate: "{namespace}/{name}.yaml"

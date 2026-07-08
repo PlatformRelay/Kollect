@@ -1,0 +1,7 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: helmrelease-target
+  namespace: default
+spec:
+  profileRef: helmrelease-profile

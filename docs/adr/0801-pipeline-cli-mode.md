@@ -1,6 +1,6 @@
 # ADR-0801: Pipeline CLI mode — kubeconfig-based collection without operator deployment
 
-**Theme:** 08 · Pipeline & CLI · **Status:** Exploring
+**Theme:** 08 · Pipeline & CLI · **Status:** Accepted (2026-07-02, maintainer directive)
 
 ## Context
 
@@ -30,6 +30,7 @@ job.
 ### Why not fork or create a new project
 
 A fork would duplicate ~6,000 lines of active, tested code:
+
 - `internal/collect.Extractor` (CEL + JSONPath + Helm decode)
 - `internal/collect.Store` + `MarshalTargetExport`
 - `internal/sink.Registry` + all 9 Backend implementations (git, gitlab, s3, gcs, postgres,
@@ -205,16 +206,73 @@ collect-inventory:
     paths: [inventory/]
 ```
 
-For multi-cluster, one CI job per kubeconfig; set `spec.cluster` on the sink (consistent with
-ADR-0501's `pathTemplate: {cluster}/...` convention):
+Two supported patterns for multi-cluster, depending on how clusters are reached:
+
+1. **Separate kubeconfigs** (different clouds/accounts, no single merged kubeconfig available) —
+   one CI job per kubeconfig; set `spec.cluster` on the sink explicitly (consistent with ADR-0501's
+   `pathTemplate: {cluster}/...` convention):
+
+   ```yaml
+   # collect-config/sink-cluster-a.yaml
+   spec:
+     type: local
+     cluster: cluster-a
+     pathTemplate: "{cluster}/{namespace}/{name}.yaml"
+   ```
+
+2. **One kubeconfig, many contexts** (the common case for `eksctl`/`gcloud container clusters
+   get-credentials`-style tooling, or a team-merged kubeconfig) — one CI job fans out across a
+   named list or wildcard-matched subset of contexts via `--context`. See "Multi-context selection"
+   below.
+
+### Multi-context selection (`--context`)
+
+`--context` accepts repeated values and/or glob patterns (`*`/`?`, `path.Match` semantics — no
+`**`), matched against the context names present in the loaded kubeconfig:
+
+```
+kollect-pipeline collect --context prod-eu-1 --context prod-us-1      # explicit list
+kollect-pipeline collect --context "prod-*"                           # wildcard
+kollect-pipeline collect --context "prod-*" --context staging-canary  # mixed
+kollect-pipeline collect                                              # default: current-context only
+```
+
+Resolution rules:
+
+- No `--context` flag → unchanged from single-context behavior: only `kubeconfig.CurrentContext`.
+- One or more `--context` values → each is matched against the kubeconfig's context names. A
+  pattern containing `*`/`?` is a glob; a literal name is matched exactly. The result is the
+  de-duplicated union of all matches, processed in **sorted order** (deterministic, diffable CI
+  output).
+- A **literal** pattern matching nothing is a fatal config error (`ExitFatalError`) — almost always
+  a typo.
+- A **wildcard** pattern matching nothing is a warning, not fatal — e.g. `staging-*` matching zero
+  contexts during a staging teardown should not break the job.
+- An empty resolved set after all patterns are applied **is** fatal (nothing to collect).
+
+**Run semantics:** each resolved context runs the full collect → export pass independently and
+sequentially. One context's failure (unreachable API server, RBAC denial) does not abort the
+others — it is recorded and folded into the aggregate exit code (worst-of:
+`ExitFatalError` > `ExitPartialFailure` > `ExitSuccess`, across all contexts).
+
+**`{cluster}` placeholder default:** in multi-context mode, the `{cluster}` path-template
+placeholder (ADR-0501 convention) defaults to **the context name** when `spec.cluster` is unset, so
+output naturally partitions per cluster without per-cluster sink YAML:
 
 ```yaml
-# collect-config/sink-cluster-a.yaml
 spec:
   type: local
-  cluster: cluster-a
   pathTemplate: "{cluster}/{namespace}/{name}.yaml"
+  # spec.cluster left unset — each context run substitutes its own context name
 ```
+
+If `spec.cluster` is set explicitly alongside multiple `--context` values, that is rejected at
+startup (before any collection begins) — an explicit single cluster identity conflicts with a
+multi-cluster run by construction, and silently picking one would produce misleading output paths.
+
+Sequential (not parallel) execution is the v0.8.0 choice — simplicity over throughput; N clusters
+× one CI job's wall-clock budget is the explicit trade-off. Parallel per-context execution (bounded
+worker pool) is deferred (see Post-MVP).
 
 ### Git sink in pipeline mode
 
@@ -272,6 +330,8 @@ is incremental with no config migration:
 - CRDs-in-cluster config reading (Option B) — deferred; the upgrade path covers the need.
 - Database and event sink types (postgres, bigquery, kafka, nats) in pipeline mode — technically
   free (backends are reused), but not in scope for v0.8 stories.
+- **Parallel multi-context execution** — v0.8.0 runs resolved contexts sequentially; a bounded
+  worker pool for concurrent per-context collection is deferred (see pipeline-cli Post-MVP table).
 
 ---
 
@@ -283,3 +343,4 @@ is incremental with no config migration:
 | 2 | Secret resolution: local Secret YAML file vs env-variable mapping? | Local file for v0.8; `secretRef.env` deferred. |
 | 3 | Should `--output` be a zero-config shorthand that implies `type: local`, or must the user always supply a Sink YAML? | `--output` as zero-config shorthand; explicit Sink YAML in config dir overrides it. |
 | 4 | Ship `kollect-pipeline` in v0.8.0 alongside the operator, or a separate tag/workflow? | Same tag; second image built in the same `release.yaml` workflow job. |
+| 5 | Single context only, or a list/wildcard selection across contexts in one kubeconfig? | Added 2026-06-30 (maintainer request): `--context` is repeatable and glob-aware; resolved set runs sequentially with worst-of exit-code aggregation. See "Multi-context selection" above. |

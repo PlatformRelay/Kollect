@@ -256,3 +256,14 @@ func TestKnownSidewaysDepsAreExplicit(t *testing.T) {
 		}
 	}
 }
+
+// TestCLIDoesNotImportOperatorInternals: the pipeline CLI (ADR-0801) must be usable
+// without installing the operator; it must not reach into the operator's composition
+// layer (controller, webhook admission, or the read API's inventory package).
+func TestCLIDoesNotImportOperatorInternals(t *testing.T) {
+	t.Parallel()
+	forbid(t, collectImports(t),
+		`cmd/cli(/.*)?|internal/pipeline(/.*)?`,
+		`internal/controller(/.*)?|internal/webhook(/.*)?|internal/inventory(/.*)?`,
+		"cmd/cli and internal/pipeline must not import operator-only internals")
+}

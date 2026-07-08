@@ -1,0 +1,7 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: broken
+  namespace: default
+spec:
+  targetGVK: [this is not valid: yaml: structure
