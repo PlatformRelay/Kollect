@@ -69,7 +69,7 @@ DO UPDATE SET payload = EXCLUDED.payload, exported_at = EXCLUDED.exported_at,
   cluster = EXCLUDED.cluster, resource_namespace = EXCLUDED.resource_namespace
 `, qualifiedTable), row.values...)
 		if err != nil {
-			return fmt.Errorf("postgres upsert: %w", err)
+			return fmt.Errorf("%w: %w", ErrUpsertFailed, err)
 		}
 	}
 
@@ -96,12 +96,12 @@ CREATE TEMP TABLE kollect_export_staging (
   exported_at TIMESTAMPTZ NOT NULL
 ) ON COMMIT DROP`)
 	if err != nil {
-		return fmt.Errorf("postgres bulk upsert: create staging: %w", err)
+		return fmt.Errorf("%w: %w", ErrBulkUpsertCreateStagingFailed, err)
 	}
 
 	upsertRows, err := buildUpsertRows(invNS, invName, cluster, items, exportedAt)
 	if err != nil {
-		return fmt.Errorf("postgres bulk upsert: %w", err)
+		return fmt.Errorf("%w: %w", ErrBulkUpsertFailed, err)
 	}
 	rows := make([][]any, len(upsertRows))
 	for i := range upsertRows {
@@ -118,7 +118,7 @@ CREATE TEMP TABLE kollect_export_staging (
 		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
-		return fmt.Errorf("postgres bulk upsert: copy: %w", err)
+		return fmt.Errorf("%w: %w", ErrBulkUpsertCopyFailed, err)
 	}
 
 	_, err = tx.Exec(ctx, fmt.Sprintf(`
@@ -135,7 +135,7 @@ DO UPDATE SET payload = EXCLUDED.payload, exported_at = EXCLUDED.exported_at,
   cluster = EXCLUDED.cluster, resource_namespace = EXCLUDED.resource_namespace
 `, qualifiedTable))
 	if err != nil {
-		return fmt.Errorf("postgres bulk upsert: merge: %w", err)
+		return fmt.Errorf("%w: %w", ErrBulkUpsertMergeFailed, err)
 	}
 
 	return nil

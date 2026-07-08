@@ -102,3 +102,80 @@ func TestToKollectSinkSpec_nilReceiver(t *testing.T) {
 		t.Fatalf("nil snapshot = %#v", got)
 	}
 }
+
+// TestFamilySinkObject_accessors verifies the FamilySinkObject wiring (AR-08)
+// that internal/controller's generic FamilySinkReconciler relies on: each of
+// the three family-sink kinds must return its own spec/common/status, not a
+// shared or zero value.
+func TestFamilySinkObject_accessors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("snapshot", func(t *testing.T) {
+		t.Parallel()
+
+		obj := &KollectSnapshotSink{
+			Spec: KollectSnapshotSinkSpec{
+				Type:             SnapshotSinkTypeS3,
+				SinkCommonFields: SinkCommonFields{Endpoint: "s3://bucket"},
+			},
+			Status: FamilySinkStatus{Preview: &SinkPreviewStatus{}},
+		}
+
+		var fs FamilySinkObject = obj
+		if got := fs.FamilySinkSpec(); got.Type != SnapshotSinkTypeS3 || got.Endpoint != "s3://bucket" {
+			t.Fatalf("FamilySinkSpec = %#v", got)
+		}
+		if got := fs.FamilySinkCommon(); got != &obj.Spec.SinkCommonFields {
+			t.Fatalf("FamilySinkCommon = %p, want %p", got, &obj.Spec.SinkCommonFields)
+		}
+		if got := fs.FamilySinkStatus(); got != &obj.Status {
+			t.Fatalf("FamilySinkStatus = %p, want %p", got, &obj.Status)
+		}
+	})
+
+	t.Run("database", func(t *testing.T) {
+		t.Parallel()
+
+		obj := &KollectDatabaseSink{
+			Spec: KollectDatabaseSinkSpec{
+				Type:             DatabaseSinkTypePostgres,
+				SinkCommonFields: SinkCommonFields{Endpoint: "postgres://db"},
+			},
+			Status: FamilySinkStatus{Preview: &SinkPreviewStatus{}},
+		}
+
+		var fs FamilySinkObject = obj
+		if got := fs.FamilySinkSpec(); got.Type != DatabaseSinkTypePostgres || got.Endpoint != "postgres://db" {
+			t.Fatalf("FamilySinkSpec = %#v", got)
+		}
+		if got := fs.FamilySinkCommon(); got != &obj.Spec.SinkCommonFields {
+			t.Fatalf("FamilySinkCommon = %p, want %p", got, &obj.Spec.SinkCommonFields)
+		}
+		if got := fs.FamilySinkStatus(); got != &obj.Status {
+			t.Fatalf("FamilySinkStatus = %p, want %p", got, &obj.Status)
+		}
+	})
+
+	t.Run("event", func(t *testing.T) {
+		t.Parallel()
+
+		obj := &KollectEventSink{
+			Spec: KollectEventSinkSpec{
+				Type:             EventSinkTypeNats,
+				SinkCommonFields: SinkCommonFields{Endpoint: "nats://events"},
+			},
+			Status: FamilySinkStatus{Preview: &SinkPreviewStatus{}},
+		}
+
+		var fs FamilySinkObject = obj
+		if got := fs.FamilySinkSpec(); got.Type != EventSinkTypeNats || got.Endpoint != "nats://events" {
+			t.Fatalf("FamilySinkSpec = %#v", got)
+		}
+		if got := fs.FamilySinkCommon(); got != &obj.Spec.SinkCommonFields {
+			t.Fatalf("FamilySinkCommon = %p, want %p", got, &obj.Spec.SinkCommonFields)
+		}
+		if got := fs.FamilySinkStatus(); got != &obj.Status {
+			t.Fatalf("FamilySinkStatus = %p, want %p", got, &obj.Status)
+		}
+	})
+}

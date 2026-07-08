@@ -110,7 +110,11 @@ var _ = Describe("Phase A envtest — map sink and degraded conflict", func() {
 		updatedSink.Spec.Postgres.Table = "inventory_items_v2"
 		Expect(k8sClient.Update(ctx, updatedSink)).To(Succeed())
 
-		reqs := reconciler.mapDatabaseSinkToInventories(ctx, updatedSink)
+		mapperRec := &KollectInventoryReconciler{
+			Client: mapperEnvtestClient(),
+			Scheme: reconciler.Scheme,
+		}
+		reqs := mapperRec.mapDatabaseSinkToInventories(ctx, updatedSink)
 		Expect(reqs).To(ConsistOf(req))
 
 		store.Upsert(collect.Item{
@@ -247,7 +251,7 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
 
-		reconciler := &FamilySnapshotSinkReconciler{
+		reconciler := &FamilySinkReconciler[kollectdevv1alpha1.KollectSnapshotSink, *kollectdevv1alpha1.KollectSnapshotSink]{
 			Client: k8sClient,
 			Scheme: k8sClient.Scheme(),
 		}
@@ -379,7 +383,7 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
 
-		reconciler := &FamilySnapshotSinkReconciler{
+		reconciler := &FamilySinkReconciler[kollectdevv1alpha1.KollectSnapshotSink, *kollectdevv1alpha1.KollectSnapshotSink]{
 			Client: k8sClient,
 			Scheme: k8sClient.Scheme(),
 		}

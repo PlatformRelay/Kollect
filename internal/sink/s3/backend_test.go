@@ -5,6 +5,7 @@ package s3
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -40,8 +41,8 @@ func TestBackend_Export_rejectsEmptyJSONPayload(t *testing.T) {
 
 	b := &Backend{cfg: Config{Bucket: "inventory", Region: "us-east-1"}}
 	err := b.Export(context.Background(), nil, "inventory/default/inv.json")
-	if err == nil || !strings.Contains(err.Error(), "empty payload") {
-		t.Fatalf("Export() = %v, want empty payload error", err)
+	if !errors.Is(err, ErrEmptyPayload) {
+		t.Fatalf("Export() = %v, want ErrEmptyPayload", err)
 	}
 }
 
