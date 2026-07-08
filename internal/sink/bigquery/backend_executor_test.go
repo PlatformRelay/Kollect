@@ -86,8 +86,8 @@ func TestRunMergeUpsert_WrapsExecutorErrors(t *testing.T) {
 		ResourceNamespace:  "team-a",
 		PayloadJSON:        `{"name":"api"}`,
 	}})
-	if err == nil || !strings.Contains(err.Error(), "bigquery merge upsert") {
-		t.Fatalf("runMergeUpsert() error = %v, want merge upsert wrapper", err)
+	if err == nil || !errors.Is(err, ErrMergeUpsertFailed) {
+		t.Fatalf("runMergeUpsert() error = %v, want ErrMergeUpsertFailed", err)
 	}
 }
 
@@ -182,8 +182,8 @@ func TestExport_InvalidPayloadReturnsDecodeError(t *testing.T) {
 		executor: exec,
 	}
 	err := b.Export(t.Context(), []byte(`{"schemaVersion":"kollect.dev/v99","items":[]}`), "inventory/team-a/apps.json")
-	if err == nil || !strings.Contains(err.Error(), "decode payload") {
-		t.Fatalf("Export() error = %v, want decode error", err)
+	if err == nil || !errors.Is(err, ErrDecodePayloadFailed) {
+		t.Fatalf("Export() error = %v, want ErrDecodePayloadFailed", err)
 	}
 }
 

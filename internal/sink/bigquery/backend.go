@@ -117,7 +117,7 @@ func (b *Backend) Close() {
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
 	items, err := collect.ItemsFromExportPayload(payload)
 	if err != nil {
-		return classifyError(fmt.Errorf("bigquery export: decode payload: %w", err))
+		return classifyError(fmt.Errorf("%w: %w", ErrDecodePayloadFailed, err))
 	}
 
 	invNS, invName := pathvalidate.InventoryFromObjectPath(objectPath)
@@ -227,7 +227,7 @@ WHEN NOT MATCHED BY TARGET THEN
 		{Name: "exported_at", Value: time.Now().UTC()},
 	}
 	if err := b.executeQuery(ctx, statement, params); err != nil {
-		return classifyError(fmt.Errorf("bigquery merge upsert: %w", err))
+		return classifyError(fmt.Errorf("%w: %w", ErrMergeUpsertFailed, err))
 	}
 
 	return nil
@@ -256,7 +256,7 @@ WHERE t.inventory_namespace = @inv_ns
 		{Name: "cluster", Value: cluster},
 	}
 	if err := b.executeQuery(ctx, statement, params); err != nil {
-		return classifyError(fmt.Errorf("bigquery delete stale: %w", err))
+		return classifyError(fmt.Errorf("%w: %w", ErrDeleteStaleFailed, err))
 	}
 
 	return nil
@@ -378,7 +378,7 @@ FROM %s AS s
 		{Name: "exported_at", Value: time.Now().UTC()},
 	}
 	if err := b.executeQuery(ctx, statement, params); err != nil {
-		return classifyError(fmt.Errorf("bigquery emulator insert: %w", err))
+		return classifyError(fmt.Errorf("%w: %w", ErrEmulatorInsertFailed, err))
 	}
 
 	return nil

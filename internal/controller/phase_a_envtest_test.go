@@ -247,7 +247,7 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
 
-		reconciler := &FamilySnapshotSinkReconciler{
+		reconciler := &FamilySinkReconciler[kollectdevv1alpha1.KollectSnapshotSink, *kollectdevv1alpha1.KollectSnapshotSink]{
 			Client: k8sClient,
 			Scheme: k8sClient.Scheme(),
 		}
@@ -379,7 +379,7 @@ var _ = Describe("Phase A envtest — connection test reconcilers", func() {
 		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
 		defer func() { _ = k8sClient.Delete(ctx, sinkObj) }()
 
-		reconciler := &FamilySnapshotSinkReconciler{
+		reconciler := &FamilySinkReconciler[kollectdevv1alpha1.KollectSnapshotSink, *kollectdevv1alpha1.KollectSnapshotSink]{
 			Client: k8sClient,
 			Scheme: k8sClient.Scheme(),
 		}
