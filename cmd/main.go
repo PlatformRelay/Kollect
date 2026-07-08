@@ -237,23 +237,30 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectinventory")
 		os.Exit(1)
 	}
-	if err := (&controller.FamilySnapshotSinkReconciler{
+	if err := (&controller.FamilySinkReconciler[
+		kollectdevv1alpha1.KollectSnapshotSink, *kollectdevv1alpha1.KollectSnapshotSink,
+	]{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Name:   "kollectsnapshotsink",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectsnapshotsink")
 		os.Exit(1)
 	}
-	if err := (&controller.FamilyDatabaseSinkReconciler{
+	if err := (&controller.FamilySinkReconciler[
+		kollectdevv1alpha1.KollectDatabaseSink, *kollectdevv1alpha1.KollectDatabaseSink,
+	]{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Name:   "kollectdatabasesink",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectdatabasesink")
 		os.Exit(1)
 	}
-	if err := (&controller.FamilyEventSinkReconciler{
+	if err := (&controller.FamilySinkReconciler[kollectdevv1alpha1.KollectEventSink, *kollectdevv1alpha1.KollectEventSink]{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Name:   "kollecteventsink",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollecteventsink")
 		os.Exit(1)
