@@ -275,7 +275,27 @@ jobs:
         with:
           cache-suffix: fuzz-${{ matrix.target }}
       - name: Native Go fuzz (30s)
-        run: go test -run=^$ -fuzz=${{ matrix.target }} -fuzztime=30s ${{ matrix.pkg }}
+        env:
+          FUZZ_TARGET: ${{ matrix.target }}
+          FUZZ_PKG: ${{ matrix.pkg }}
+        # Retry transient failures only. A reproducible crash writes a seed
+        # under testdata/fuzz/ and fails every run, so if that corpus appears
+        # we bail immediately rather than mask a real finding. Retries cover
+        # the runner-contention artifact where the engine reports
+        # "context deadline exceeded" at the fuzztime boundary.
+        run: |
+          set -uo pipefail
+          for attempt in 1 2; do
+            if go test -run='^$' -fuzz="${FUZZ_TARGET}" -fuzztime=30s "${FUZZ_PKG}"; then
+              exit 0
+            fi
+            if git status --porcelain | grep -q 'testdata/fuzz/'; then
+              echo "::error::${FUZZ_TARGET} produced a crashing input — not retrying"
+              exit 1
+            fi
+            echo "::warning::${FUZZ_TARGET} failed transiently on attempt ${attempt} (no crash corpus); retrying"
+          done
+          exit 1
 
   # SonarCloud: GitHub secret SONAR_TOKEN (SonarCloud analysis token). Local dev uses
   # SONARCLOUD_TOKEN in .envrc — same value, different name (see tooling-setup.md).

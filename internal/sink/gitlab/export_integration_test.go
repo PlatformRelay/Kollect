@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/testcontainers/testcontainers-go/modules/forgejo"
 
@@ -184,7 +185,31 @@ type forgejoRepoCreateRequest struct {
 	Private       bool   `json:"private"`
 }
 
+// createForgejoRepo provisions the test repository, retrying while Forgejo
+// finishes first-boot provisioning. The container's HTTP port accepts
+// connections before the admin user is created, so the first requests can
+// fail with connection-refused or HTTP 401 "user does not exist [uid: 0,
+// name: forgejo-admin]" — both transient. Retry until the API is ready or the
+// deadline elapses.
 func createForgejoRepo(ctx context.Context, baseURL, user, pass, name string) error {
+	deadline := time.Now().Add(90 * time.Second)
+	for {
+		err := attemptCreateForgejoRepo(ctx, baseURL, user, pass, name)
+		if err == nil {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("create repo (giving up after retries): %w", err)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+func attemptCreateForgejoRepo(ctx context.Context, baseURL, user, pass, name string) error {
 	body, err := json.Marshal(forgejoRepoCreateRequest{
 		Name:          name,
 		AutoInit:      true,
@@ -216,6 +241,11 @@ func createForgejoRepo(ctx context.Context, baseURL, user, pass, name string) er
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return err
+	}
+	// A prior attempt may have created the repo before its response reached
+	// us; treat "already exists" as success so retries are idempotent.
+	if resp.StatusCode == http.StatusConflict {
+		return nil
 	}
 	if resp.StatusCode >= 300 {
 		return fmt.Errorf("create repo HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
