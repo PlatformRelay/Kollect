@@ -1,0 +1,32 @@
+description: KollectConnectionTestSpec defines a one-shot connectivity probe (ADR-0703).
+properties:
+  ownerSink:
+    description: ownerSink sets an ownerReference to the sink when true (default).
+    type: boolean
+  profileRef:
+    description: profileRef optionally names a KollectProfile for future composite
+      probes.
+    type: string
+  sinkRef:
+    description: sinkRef identifies exactly one family sink to probe (ADR-0414).
+    properties:
+      databaseSinkRef:
+        description: databaseSinkRef names a KollectDatabaseSink in the test's namespace.
+        type: string
+      eventSinkRef:
+        description: eventSinkRef names a KollectEventSink in the test's namespace.
+        type: string
+      snapshotSinkRef:
+        description: snapshotSinkRef names a KollectSnapshotSink in the test's namespace.
+        type: string
+    type: object
+  ttlSecondsAfterFinished:
+    default: 300
+    description: ttlSecondsAfterFinished deletes the CR after status.completed plus
+      this TTL.
+    format: int32
+    minimum: 0
+    type: integer
+required:
+- sinkRef
+type: object

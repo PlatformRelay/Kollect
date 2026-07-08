@@ -28,6 +28,8 @@ var DefaultCases = []SpecFragmentCase{
 	{CRDFile: "kollect.dev_kollectdatabasesinks.yaml", GoldenFile: "kollectdatabasesink.spec.openapi.yaml"},
 	{CRDFile: "kollect.dev_kollecteventsinks.yaml", GoldenFile: "kollecteventsink.spec.openapi.yaml"},
 	{CRDFile: "kollect.dev_kollectsnapshotsinks.yaml", GoldenFile: "kollectsnapshotsink.spec.openapi.yaml"},
+	{CRDFile: "kollect.dev_kollectscopes.yaml", GoldenFile: "kollectscope.spec.openapi.yaml"},
+	{CRDFile: "kollect.dev_kollectconnectiontests.yaml", GoldenFile: "kollectconnectiontest.spec.openapi.yaml"},
 }
 
 // ExtractSpecOpenAPIFragment returns the storage-version .spec OpenAPI subtree from a CRD YAML file.

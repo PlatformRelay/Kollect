@@ -11,11 +11,13 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/validation"
 )
 
 type poolKey string
@@ -23,7 +25,23 @@ type poolKey string
 type pooledEntry struct {
 	backend  Backend
 	specHash string
+	lastUsed time.Time
 }
+
+// backendPoolTTL bounds the lifetime of an idle pooled backend entry.
+// globalBackendPool is a process-lifetime map keyed by sink UID/namespace-
+// name; EvictBackendPool/EvictBackendPoolByUID have no caller in this
+// codebase today, so without this TTL the pool grows unbounded as sinks are
+// created/deleted/renamed over the life of a long-running controller.
+//
+// This mirrors coalesceStateTTL's reasoning in internal/controller: it must
+// stay comfortably above validation.MaxExportInterval (24h) so a slow-but-
+// active sink's pooled backend is never pruned out from under it between
+// export cycles, which would force an unnecessary reconnect/rebuild.
+const backendPoolTTL = 2 * validation.MaxExportInterval
+
+// timeNow is a test seam for backendPoolTTL pruning.
+var timeNow = time.Now
 
 var (
 	backendPoolDisabled atomic.Bool
@@ -98,9 +116,12 @@ func acquireBackend(
 	}
 
 	key := poolKeyForSink(sinkUID, sinkNamespace, sinkName)
+	now := timeNow()
 
 	globalBackendPool.mu.Lock()
+	pruneStaleEntriesLocked(now)
 	if entry, ok := globalBackendPool.entries[key]; ok && entry.specHash == specHash {
+		entry.lastUsed = now
 		backend := entry.backend
 		globalBackendPool.mu.Unlock()
 
@@ -126,10 +147,30 @@ func acquireBackend(
 	globalBackendPool.entries[key] = &pooledEntry{
 		backend:  backend,
 		specHash: specHash,
+		lastUsed: now,
 	}
 	globalBackendPool.mu.Unlock()
 
 	return backend, func() {}, nil
+}
+
+// pruneStaleEntriesLocked evicts pooled backends that haven't been acquired
+// in backendPoolTTL. Callers must hold globalBackendPool.mu. Triggered
+// opportunistically on every acquireBackend call (AR-11) so the pool doesn't
+// grow unbounded for long-lived controller processes as sinks churn —
+// entries for deleted/renamed sinks stop being acquired and age out the next
+// time any other key is acquired.
+func pruneStaleEntriesLocked(now time.Time) {
+	for k, entry := range globalBackendPool.entries {
+		if entry == nil {
+			delete(globalBackendPool.entries, k)
+			continue
+		}
+		if now.Sub(entry.lastUsed) > backendPoolTTL {
+			closeBackendLogged(entry.backend, "ttl expired")
+			delete(globalBackendPool.entries, k)
+		}
+	}
 }
 
 func specFingerprint(spec kollectdevv1alpha1.KollectSinkSpec) (string, error) {
