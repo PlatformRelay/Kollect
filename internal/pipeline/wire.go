@@ -6,7 +6,6 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"math"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -174,14 +173,12 @@ func ApplyNamespaceOverride(targets []kollectdevv1alpha1.KollectTarget, namespac
 // that SkippedTargets must survive into the exit-code decision, not just get logged -- is
 // unit-testable without a cluster.
 func buildContextResult(contextName string, runResult collect.RunResult, exported int, exportErrs []error) ContextResult {
-	runErrsLen := len(runResult.Errors)
-	exportErrsLen := len(exportErrs)
-
+	// Concatenate run and export errors onto a nil slice; append grows as needed. We
+	// deliberately avoid a computed make() capacity (len(a)+len(b)) here -- the sum is a
+	// size-computation CodeQL flags as a potential overflow, and pre-sizing a handful of
+	// error values buys nothing.
+	//nolint:prealloc // computed make() capacity is flagged by CodeQL go/size-computation-overflow; see comment above
 	var errs []error
-	if runErrsLen <= math.MaxInt-exportErrsLen {
-		errs = make([]error, 0, runErrsLen+exportErrsLen)
-	}
-
 	errs = append(errs, runResult.Errors...)
 	errs = append(errs, exportErrs...)
 
