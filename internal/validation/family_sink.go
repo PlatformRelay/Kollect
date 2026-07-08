@@ -236,16 +236,30 @@ func containsString(list []string, v string) bool {
 	return false
 }
 
+// FamilySinkInvalidError reports a family-sink CR validation failure. Kind
+// identifies the originating CRD ("KollectSnapshotSink", "KollectDatabaseSink",
+// "KollectEventSink") so callers can use errors.As instead of matching Error()
+// substrings.
+type FamilySinkInvalidError struct {
+	Kind string
+	Name string
+	Errs field.ErrorList
+}
+
+func (e *FamilySinkInvalidError) Error() string {
+	return fmt.Sprintf("%s %q is invalid: %s", e.Kind, e.Name, formatErrors(e.Errs))
+}
+
 func SnapshotSinkInvalid(name string, errs field.ErrorList) error {
-	return fmt.Errorf("KollectSnapshotSink %q is invalid: %s", name, formatErrors(errs))
+	return &FamilySinkInvalidError{Kind: "KollectSnapshotSink", Name: name, Errs: errs}
 }
 
 func DatabaseSinkInvalid(name string, errs field.ErrorList) error {
-	return fmt.Errorf("KollectDatabaseSink %q is invalid: %s", name, formatErrors(errs))
+	return &FamilySinkInvalidError{Kind: "KollectDatabaseSink", Name: name, Errs: errs}
 }
 
 func EventSinkInvalid(name string, errs field.ErrorList) error {
-	return fmt.Errorf("KollectEventSink %q is invalid: %s", name, formatErrors(errs))
+	return &FamilySinkInvalidError{Kind: "KollectEventSink", Name: name, Errs: errs}
 }
 
 // ValidateConnectionTestSinkRef requires exactly one family ref field.

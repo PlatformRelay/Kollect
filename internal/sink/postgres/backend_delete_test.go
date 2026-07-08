@@ -6,7 +6,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -69,7 +68,7 @@ func TestDeleteStaleRows_WrapsExecError(t *testing.T) {
 	}}
 
 	err := deleteStaleRows(t.Context(), tx, `"public"."items"`, "team-a", "inventory", "cluster-a", items)
-	if err == nil || !strings.Contains(err.Error(), "postgres delete stale") {
-		t.Fatalf("deleteStaleRows() error = %v, want wrapped stale delete error", err)
+	if err == nil || !errors.Is(err, ErrDeleteStaleFailed) {
+		t.Fatalf("deleteStaleRows() error = %v, want ErrDeleteStaleFailed", err)
 	}
 }
