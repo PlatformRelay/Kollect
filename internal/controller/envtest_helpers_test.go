@@ -282,6 +282,23 @@ func newCacheBackedEnvtestClient(
 		return nil, nil, fmt.Errorf("envtest cache: new: %w", err)
 	}
 
+	// AR-09: mirror the production FieldIndexer registrations (SetupWithManager) on this cache so
+	// sink-watch mapper specs driven through the cache-backed client resolve MatchingFields via the
+	// informer index. IndexField must be called before the informers start.
+	if err = c.IndexField(
+		cacheCtx, &kollectdevv1alpha1.KollectInventory{}, inventorySinkFieldIndex, indexInventorySinkBindings,
+	); err != nil {
+		cancel()
+		return nil, nil, fmt.Errorf("envtest cache: index KollectInventory: %w", err)
+	}
+	if err = c.IndexField(
+		cacheCtx, &kollectdevv1alpha1.KollectClusterInventory{},
+		clusterInventorySinkFieldIndex, indexClusterInventorySinkBindings,
+	); err != nil {
+		cancel()
+		return nil, nil, fmt.Errorf("envtest cache: index KollectClusterInventory: %w", err)
+	}
+
 	go func() {
 		_ = c.Start(cacheCtx)
 	}()

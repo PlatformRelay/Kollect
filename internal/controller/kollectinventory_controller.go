@@ -622,6 +622,14 @@ func (r *KollectInventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Recorder = mgr.GetEventRecorderFor("kollectinventory-controller")
 	}
 
+	// AR-09: index KollectInventory by its sink bindings so sink-watch mappers can do an indexed
+	// MatchingFields lookup instead of listing + filtering every inventory in the namespace.
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(), &kollectdevv1alpha1.KollectInventory{}, inventorySinkFieldIndex, indexInventorySinkBindings,
+	); err != nil {
+		return fmt.Errorf("index %s on KollectInventory: %w", inventorySinkFieldIndex, err)
+	}
+
 	invBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&kollectdevv1alpha1.KollectInventory{}).
 		WithOptions(opts).
@@ -666,8 +674,13 @@ func (r *KollectInventoryReconciler) mapFamilySinkToInventories(
 	sinkName := obj.GetName()
 	sinkNS := obj.GetNamespace()
 
+	indexKey := sinkExportKey(kollectdevv1alpha1.InventorySinkBinding{Family: family, Name: sinkName})
+
 	var list kollectdevv1alpha1.KollectInventoryList
-	if err := r.List(ctx, &list, client.InNamespace(sinkNS)); err != nil {
+	if err := r.List(ctx, &list,
+		client.InNamespace(sinkNS),
+		client.MatchingFields{inventorySinkFieldIndex: indexKey},
+	); err != nil {
 		logf.FromContext(ctx).Error(err, "failed to list inventories for sink watch mapping",
 			"sink", sinkName, "namespace", sinkNS, "family", family)
 		metrics.WatchMapListErrorsTotal.WithLabelValues("KollectInventory", "sink").Inc()
@@ -675,17 +688,13 @@ func (r *KollectInventoryReconciler) mapFamilySinkToInventories(
 		return nil
 	}
 
-	reqs := make([]reconcile.Request, 0)
+	// The field index already restricts the list to inventories binding this family/name in this
+	// namespace (AR-09), so every returned item is a match — no in-memory filter needed.
+	reqs := make([]reconcile.Request, 0, len(list.Items))
 	for i := range list.Items {
-		for _, binding := range inventorySinkBindings(&list.Items[i]) {
-			if binding.Family == family && binding.Name == sinkName {
-				reqs = append(reqs, reconcile.Request{
-					NamespacedName: client.ObjectKeyFromObject(&list.Items[i]),
-				})
-
-				break
-			}
-		}
+		reqs = append(reqs, reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(&list.Items[i]),
+		})
 	}
 
 	return reqs

@@ -69,7 +69,9 @@ func TestKollectInventoryReconciler_mapDatabaseSinkToInventories(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "git", Namespace: "team-a"},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(invMatch, invOther, sink).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithIndex(&kollectdevv1alpha1.KollectInventory{}, inventorySinkFieldIndex, indexInventorySinkBindings).
+		WithObjects(invMatch, invOther, sink).Build()
 	r := &KollectInventoryReconciler{Client: cl}
 
 	reqs := r.mapDatabaseSinkToInventories(context.Background(), sink)

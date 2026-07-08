@@ -752,6 +752,16 @@ func (r *KollectClusterInventoryReconciler) SetupWithManager(mgr ctrl.Manager) e
 		r.Recorder = mgr.GetEventRecorderFor("kollectclusterinventory-controller")
 	}
 
+	// AR-09: index KollectClusterInventory by its sink bindings (family/name/namespace) so
+	// sink-watch mappers can do an indexed MatchingFields lookup instead of listing + filtering
+	// every cluster inventory.
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(), &kollectdevv1alpha1.KollectClusterInventory{},
+		clusterInventorySinkFieldIndex, indexClusterInventorySinkBindings,
+	); err != nil {
+		return fmt.Errorf("index %s on KollectClusterInventory: %w", clusterInventorySinkFieldIndex, err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kollectdevv1alpha1.KollectClusterInventory{}).
 		WithOptions(opts).
@@ -816,31 +826,24 @@ func (r *KollectClusterInventoryReconciler) mapClusterFamilySinkToInventories(
 	sinkName := obj.GetName()
 	sinkNS := obj.GetNamespace()
 
+	// AR-09: the index key folds in the sink's own namespace ("<family>/<name>/<namespace>") so
+	// the indexed lookup matches only cluster inventories whose binding resolves to this sink in
+	// this namespace — the same predicate the previous in-memory filter applied for a non-empty
+	// sinkNS. (Watch events for namespaced sinks always carry a namespace, so sinkNS is non-empty
+	// here in practice.)
+	indexKey := sinkExportKey(kollectdevv1alpha1.InventorySinkBinding{Family: family, Name: sinkName}) + "/" + sinkNS
+
 	var list kollectdevv1alpha1.KollectClusterInventoryList
-	if err := r.List(ctx, &list); err != nil {
+	if err := r.List(ctx, &list, client.MatchingFields{clusterInventorySinkFieldIndex: indexKey}); err != nil {
 		logf.FromContext(ctx).Error(err, "failed to list cluster inventories for sink watch mapping",
 			"sink", sinkName, "namespace", sinkNS, "family", family)
 
 		return nil
 	}
 
-	reqs := make([]reconcile.Request, 0)
+	reqs := make([]reconcile.Request, 0, len(list.Items))
 	for i := range list.Items {
-		inv := &list.Items[i]
-		invSinkNS := inv.Spec.SinkNamespace
-		if invSinkNS == "" {
-			invSinkNS = sink.DefaultSecretNamespace
-		}
-		for _, binding := range clusterInventorySinkBindings(inv) {
-			if binding.Family != family || binding.Name != sinkName {
-				continue
-			}
-			if sinkNS != "" && sinkBindingNamespace(binding, invSinkNS) != sinkNS {
-				continue
-			}
-			reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{Name: inv.Name}})
-			break
-		}
+		reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{Name: list.Items[i].Name}})
 	}
 
 	return reqs

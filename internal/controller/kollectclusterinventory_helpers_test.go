@@ -183,7 +183,12 @@ func TestMapSinkToClusterInventories(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "git", Namespace: "kollect-system"},
 		Spec:       kollectdevv1alpha1.KollectDatabaseSinkSpec{},
 	}
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inv, sinkObj).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).
+		WithIndex(
+			&kollectdevv1alpha1.KollectClusterInventory{},
+			clusterInventorySinkFieldIndex, indexClusterInventorySinkBindings,
+		).
+		WithObjects(inv, sinkObj).Build()
 	r := &KollectClusterInventoryReconciler{Client: cl}
 
 	reqs := r.mapClusterDatabaseSinkToInventories(context.Background(), sinkObj)
