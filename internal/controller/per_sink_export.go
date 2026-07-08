@@ -20,6 +20,19 @@ import (
 
 const conditionSinkSynced = "Synced"
 
+// coalesceStateTTL bounds the lifetime of an idle tracker entry. The tracker
+// is a long-lived field on each reconciler (kept for the life of the
+// controller-manager process), so entries for inventories/sinks that have
+// since been deleted must eventually be reclaimed or the map grows
+// unbounded for long-lived clusters with churning targets.
+//
+// This must stay comfortably above validation.MaxExportInterval (24h): an
+// entry can legitimately go up to one full export interval between
+// record() calls, and pruning it early would make the tracker forget an
+// active sink's debounce state, forcing an unnecessary re-export. 2x the
+// max interval leaves headroom for reconcile jitter/backoff.
+const coalesceStateTTL = 2 * validation.MaxExportInterval
+
 type sinkCoalesceState struct {
 	lastExport     time.Time
 	lastChecksum   string
@@ -74,6 +87,8 @@ func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int6
 		t.states = make(map[string]*sinkCoalesceState)
 	}
 
+	t.pruneStaleLocked(now)
+
 	k := t.key(invKey, sinkName)
 	state := t.states[k]
 	if state == nil {
@@ -84,6 +99,20 @@ func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int6
 	state.lastExport = now
 	state.lastChecksum = checksum
 	state.lastGeneration = generation
+}
+
+// pruneStaleLocked evicts entries that haven't recorded an export in
+// coalesceStateTTL. Callers must hold t.mu. Triggered opportunistically on
+// every record() (AR-11) so the map doesn't grow unbounded for long-lived
+// controller processes as inventories/sinks churn — entries for deleted
+// inventories/sinks stop receiving record() calls and age out the next time
+// any other key is recorded.
+func (t *perSinkCoalesceTracker) pruneStaleLocked(now time.Time) {
+	for k, state := range t.states {
+		if state == nil || now.Sub(state.lastExport) > coalesceStateTTL {
+			delete(t.states, k)
+		}
+	}
 }
 
 func (t *perSinkCoalesceTracker) nextDue(

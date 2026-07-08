@@ -5,7 +5,7 @@ package postgres
 
 import (
 	"context"
-	"strings"
+	"errors"
 	"testing"
 )
 
@@ -33,8 +33,8 @@ func TestBackend_Export_decodeError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected decode error for unsupported schema version")
 	}
-	if !strings.Contains(err.Error(), "decode payload") {
-		t.Fatalf("error = %q, want decode payload context", err)
+	if !errors.Is(err, ErrDecodePayloadFailed) {
+		t.Fatalf("error = %q, want ErrDecodePayloadFailed", err)
 	}
 }
 
