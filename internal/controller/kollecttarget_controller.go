@@ -158,13 +158,18 @@ func (r *KollectTargetReconciler) reconcileTargetReady(
 ) (ctrl.Result, error) {
 	count := 0
 	forbiddenScope, accessCheckFailed := false, false
+	extractFailCount := 0
+	lastExtractErr := ""
 	if r.Engine != nil {
 		count = r.Engine.ItemCount(target.Namespace, target.Name)
 		forbiddenScope = r.Engine.HasForbiddenScope(target.Namespace, target.Name)
 		accessCheckFailed = r.Engine.HasAccessCheckFailure(target.Namespace, target.Name)
+		extractFailCount, lastExtractErr = r.Engine.ExtractFailures(target.Namespace, target.Name)
 	}
 
-	return r.applyTargetReadyState(ctx, target, count, forbiddenScope, accessCheckFailed)
+	return r.applyTargetReadyState(
+		ctx, target, count, forbiddenScope, accessCheckFailed, extractFailCount, lastExtractErr,
+	)
 }
 
 // applyTargetReadyState computes the target's status from already-resolved
@@ -175,7 +180,14 @@ func (r *KollectTargetReconciler) applyTargetReadyState(
 	target *kollectdevv1alpha1.KollectTarget,
 	count int,
 	forbiddenScope, accessCheckFailed bool,
+	extractFailCount int,
+	lastExtractErr string,
 ) (ctrl.Result, error) {
+	// Extraction-failure visibility (EC-P1-05) is independent of the Ready/Degraded
+	// decision below: surface it whenever the engine reports it.
+	target.Status.ExtractionFailures = extractFailCount
+	target.Status.LastExtractionError = lastExtractErr
+
 	// ErrForbidden degrades scope, not the whole reconcile (GUIDELINES.md §1):
 	// keep the target Ready and surface the forbidden namespaces via Synced +
 	// a Warning event instead of hard-failing into Degraded.
@@ -190,6 +202,18 @@ func (r *KollectTargetReconciler) applyTargetReadyState(
 	if accessCheckFailed {
 		if err := r.setDegraded(ctx, target, "AccessCheckFailed",
 			"RBAC access review API failed; collection paused until access checks succeed"); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	// ErrTerminal (GUIDELINES.md §1 — invalid CEL/JSONPath, unsupported GVK): do not
+	// requeue silently, hard-degrade the whole target until the profile spec is fixed.
+	if extractFailCount > 0 {
+		msg := fmt.Sprintf("%d resource(s) failed attribute extraction: %s", extractFailCount, lastExtractErr)
+		recordWarning(r.Recorder, target, reasonExtractionFailed, msg)
+		if err := r.setDegraded(ctx, target, reasonExtractionFailed, msg); err != nil {
 			return ctrl.Result{}, err
 		}
 

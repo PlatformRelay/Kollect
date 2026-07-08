@@ -69,6 +69,15 @@ type KollectTargetStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// extractionFailures is the count of resources currently failing CEL/JSONPath
+	// attribute extraction for this target.
+	// +optional
+	ExtractionFailures int `json:"extractionFailures,omitempty"`
+
+	// lastExtractionError is the most recently observed extraction failure message.
+	// +optional
+	LastExtractionError string `json:"lastExtractionError,omitempty"`
+
 	CollectionFilterStatus `json:",inline"`
 }
 

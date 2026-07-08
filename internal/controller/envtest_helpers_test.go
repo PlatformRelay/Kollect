@@ -97,6 +97,62 @@ func newListFailInventoryClient(base client.Client, listErr error) client.Client
 	return &listFailInventoryClient{Client: base, listErr: listErr}
 }
 
+// listFailTargetClient injects List errors for KollectTargetList (map-handler tests).
+type listFailTargetClient struct {
+	client.Client
+	listErr error
+}
+
+func (c *listFailTargetClient) List(
+	ctx context.Context,
+	list client.ObjectList,
+	opts ...client.ListOption,
+) error {
+	if c.listErr != nil {
+		if _, ok := list.(*kollectdevv1alpha1.KollectTargetList); ok {
+			return c.listErr
+		}
+	}
+
+	return c.Client.List(ctx, list, opts...)
+}
+
+func newListFailTargetClient(base client.Client, listErr error) client.Client {
+	if listErr == nil {
+		listErr = errors.New("simulated target list failure")
+	}
+
+	return &listFailTargetClient{Client: base, listErr: listErr}
+}
+
+// listFailClusterTargetClient injects List errors for KollectClusterTargetList (map-handler tests).
+type listFailClusterTargetClient struct {
+	client.Client
+	listErr error
+}
+
+func (c *listFailClusterTargetClient) List(
+	ctx context.Context,
+	list client.ObjectList,
+	opts ...client.ListOption,
+) error {
+	if c.listErr != nil {
+		if _, ok := list.(*kollectdevv1alpha1.KollectClusterTargetList); ok {
+			return c.listErr
+		}
+	}
+
+	return c.Client.List(ctx, list, opts...)
+}
+
+func newListFailClusterTargetClient(base client.Client, listErr error) client.Client {
+	if listErr == nil {
+		listErr = errors.New("simulated cluster target list failure")
+	}
+
+	return &listFailClusterTargetClient{Client: base, listErr: listErr}
+}
+
 func removeKollectTargetWithFinalizer(ctx context.Context, key types.NamespacedName) error {
 	target := &kollectdevv1alpha1.KollectTarget{}
 	if err := k8sClient.Get(ctx, key, target); err != nil {

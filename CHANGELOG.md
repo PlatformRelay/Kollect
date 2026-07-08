@@ -20,6 +20,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **controller:** Surface extraction failures in target status (EC-P1-05) (#36) ([#36](https://github.com/konih/kollect/pull/36))[f5186ea](https://github.com/konih/kollect/commit/f5186ea519bb767b1795b1548bdb2fc9584f4b4b)
+
 - **metrics:** Bound profile label cardinality (EC-P2-09) (#32) ([#32](https://github.com/konih/kollect/pull/32))[51e1f4b](https://github.com/konih/kollect/commit/51e1f4b26e6e821ecf46ecdb3eb9287d7b9b0266)
 
 - **scope:** Cluster static-ref namespace allowlist (#23) ([#23](https://github.com/konih/kollect/pull/23))[c55f538](https://github.com/konih/kollect/commit/c55f5380d99ab9cf30dbd3f4122c18f6ff4fb3dc)
@@ -31,6 +33,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Refactoring
+
+- **sink/postgres:** Typed sentinel errors for Export stages (F61) [89a6c25](https://github.com/konih/kollect/commit/89a6c25a235b3d381e81784661e5b49c38e47359)
 
 - **sink:** Extract shared secret-value-from-keys helper (dup audit) (#38) ([#38](https://github.com/konih/kollect/pull/38))[2f166a5](https://github.com/konih/kollect/commit/2f166a5bdd3fa1b035f0a6f2a9e0ba7da3c05da1)
 

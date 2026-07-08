@@ -51,7 +51,7 @@ func TestApplyTargetReadyState_ForbiddenScope_DegradesScopeNotWholeTarget(t *tes
 	target := newScopeTestTarget()
 	r, recorder := newScopeTestReconciler(t, target)
 
-	if _, err := r.applyTargetReadyState(context.Background(), target, 3, true, false); err != nil {
+	if _, err := r.applyTargetReadyState(context.Background(), target, 3, true, false, 0, ""); err != nil {
 		t.Fatalf("applyTargetReadyState: %v", err)
 	}
 
@@ -87,7 +87,7 @@ func TestApplyTargetReadyState_NoIssues_SyncedReasonCollecting(t *testing.T) {
 	target := newScopeTestTarget()
 	r, _ := newScopeTestReconciler(t, target)
 
-	if _, err := r.applyTargetReadyState(context.Background(), target, 2, false, false); err != nil {
+	if _, err := r.applyTargetReadyState(context.Background(), target, 2, false, false, 0, ""); err != nil {
 		t.Fatalf("applyTargetReadyState: %v", err)
 	}
 
@@ -110,7 +110,7 @@ func TestApplyTargetReadyState_AccessCheckFailure_StillFullyDegrades(t *testing.
 	target := newScopeTestTarget()
 	r, _ := newScopeTestReconciler(t, target)
 
-	if _, err := r.applyTargetReadyState(context.Background(), target, 0, false, true); err != nil {
+	if _, err := r.applyTargetReadyState(context.Background(), target, 0, false, true, 0, ""); err != nil {
 		t.Fatalf("applyTargetReadyState: %v", err)
 	}
 
