@@ -12,7 +12,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -95,6 +98,62 @@ func newListFailInventoryClient(base client.Client, listErr error) client.Client
 	}
 
 	return &listFailInventoryClient{Client: base, listErr: listErr}
+}
+
+// listFailTargetClient injects List errors for KollectTargetList (map-handler tests).
+type listFailTargetClient struct {
+	client.Client
+	listErr error
+}
+
+func (c *listFailTargetClient) List(
+	ctx context.Context,
+	list client.ObjectList,
+	opts ...client.ListOption,
+) error {
+	if c.listErr != nil {
+		if _, ok := list.(*kollectdevv1alpha1.KollectTargetList); ok {
+			return c.listErr
+		}
+	}
+
+	return c.Client.List(ctx, list, opts...)
+}
+
+func newListFailTargetClient(base client.Client, listErr error) client.Client {
+	if listErr == nil {
+		listErr = errors.New("simulated target list failure")
+	}
+
+	return &listFailTargetClient{Client: base, listErr: listErr}
+}
+
+// listFailClusterTargetClient injects List errors for KollectClusterTargetList (map-handler tests).
+type listFailClusterTargetClient struct {
+	client.Client
+	listErr error
+}
+
+func (c *listFailClusterTargetClient) List(
+	ctx context.Context,
+	list client.ObjectList,
+	opts ...client.ListOption,
+) error {
+	if c.listErr != nil {
+		if _, ok := list.(*kollectdevv1alpha1.KollectClusterTargetList); ok {
+			return c.listErr
+		}
+	}
+
+	return c.Client.List(ctx, list, opts...)
+}
+
+func newListFailClusterTargetClient(base client.Client, listErr error) client.Client {
+	if listErr == nil {
+		listErr = errors.New("simulated cluster target list failure")
+	}
+
+	return &listFailClusterTargetClient{Client: base, listErr: listErr}
 }
 
 func removeKollectTargetWithFinalizer(ctx context.Context, key types.NamespacedName) error {
@@ -198,4 +257,50 @@ func removeKollectClusterInventoryWithFinalizer(
 	}
 
 	return errors.New("timed out waiting for KollectClusterInventory deletion")
+}
+
+// mapperEnvtestClient returns the cache-backed envtest client used by sink-watch
+// mapper specs. Falls back to the direct apiserver client when the cache is unavailable.
+func mapperEnvtestClient() client.Client {
+	if cacheBackedClient != nil {
+		return cacheBackedClient
+	}
+
+	return k8sClient
+}
+
+func newCacheBackedEnvtestClient(
+	ctx context.Context,
+	cfg *rest.Config,
+	scheme *runtime.Scheme,
+) (client.Client, context.CancelFunc, error) {
+	cacheCtx, cancel := context.WithCancel(ctx)
+
+	c, err := cache.New(cfg, cache.Options{Scheme: scheme})
+	if err != nil {
+		cancel()
+		return nil, nil, fmt.Errorf("envtest cache: new: %w", err)
+	}
+
+	go func() {
+		_ = c.Start(cacheCtx)
+	}()
+
+	if !c.WaitForCacheSync(ctx) {
+		cancel()
+		return nil, nil, fmt.Errorf("envtest cache: sync failed")
+	}
+
+	cl, err := client.New(cfg, client.Options{
+		Scheme: scheme,
+		Cache: &client.CacheOptions{
+			Reader: c,
+		},
+	})
+	if err != nil {
+		cancel()
+		return nil, nil, fmt.Errorf("envtest cache-backed client: %w", err)
+	}
+
+	return cl, cancel, nil
 }

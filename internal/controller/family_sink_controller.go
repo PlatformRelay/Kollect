@@ -14,33 +14,55 @@ import (
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 )
 
-// FamilySnapshotSinkReconciler runs connection tests for KollectSnapshotSink.
-type FamilySnapshotSinkReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
-}
-
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectsnapshotsinks,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectsnapshotsinks/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollectdatabasesinks,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollectdatabasesinks/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollecteventsinks,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollecteventsinks/status,verbs=get;update;patch
 
-func (r *FamilySnapshotSinkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	finish := trackReconcile("kollectsnapshotsink")
+// familySinkPtr constrains a type parameter T to a family-sink CRD kind
+// accessed through its pointer receiver: a client.Object that also satisfies
+// FamilySinkObject. This lets FamilySinkReconciler drive KollectSnapshotSink,
+// KollectDatabaseSink, and KollectEventSink through one implementation
+// (AR-08) instead of three near-identical reconcilers.
+type familySinkPtr[T any] interface {
+	*T
+	client.Object
+	kollectdevv1alpha1.FamilySinkObject
+}
+
+// FamilySinkReconciler runs connection tests for any family-sink CRD kind
+// (KollectSnapshotSink, KollectDatabaseSink, KollectEventSink).
+type FamilySinkReconciler[T any, PT familySinkPtr[T]] struct {
+	client.Client
+	Scheme *runtime.Scheme
+	// Name is both the controller name (SetupWithManager) and the metric
+	// label used by trackReconcile — the three concrete kinds always used
+	// the same string for both, so one field covers it.
+	Name string
+}
+
+func (r *FamilySinkReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	finish := trackReconcile(r.Name)
 	var retErr error
 	defer func() { finish(retErr) }()
 
 	log := logf.FromContext(ctx)
 
-	var obj kollectdevv1alpha1.KollectSnapshotSink
-	if err := r.Get(ctx, req.NamespacedName, &obj); err != nil {
+	var obj T
+	p := PT(&obj)
+	if err := r.Get(ctx, req.NamespacedName, p); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	return guardReconcile(ctx, nil, &obj, func() (ctrl.Result, error) {
+	return guardReconcile(ctx, nil, p, func() (ctrl.Result, error) {
 		conn := familySinkConnection{client: r.Client}
-		err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview)
+		status := p.FamilySinkStatus()
+		err := conn.reconcile(ctx, p, p.FamilySinkSpec(), p.FamilySinkCommon(), &status.Conditions, &status.Preview)
 		if err != nil {
-			log.Error(err, "snapshot sink connection test failed")
+			log.Error(err, "sink connection test failed", "controller", r.Name)
 			retErr = err
 		}
 
@@ -48,79 +70,11 @@ func (r *FamilySnapshotSinkReconciler) Reconcile(ctx context.Context, req ctrl.R
 	})
 }
 
-func (r *FamilySnapshotSinkReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *FamilySinkReconciler[T, PT]) SetupWithManager(mgr ctrl.Manager) error {
+	var t T
+
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kollectdevv1alpha1.KollectSnapshotSink{}).
-		Named("kollectsnapshotsink").
-		Complete(r)
-}
-
-// FamilyDatabaseSinkReconciler runs connection tests for KollectDatabaseSink.
-type FamilyDatabaseSinkReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
-}
-
-// +kubebuilder:rbac:groups=kollect.dev,resources=kollectdatabasesinks,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=kollect.dev,resources=kollectdatabasesinks/status,verbs=get;update;patch
-
-func (r *FamilyDatabaseSinkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	finish := trackReconcile("kollectdatabasesink")
-	var retErr error
-	defer func() { finish(retErr) }()
-
-	var obj kollectdevv1alpha1.KollectDatabaseSink
-	if err := r.Get(ctx, req.NamespacedName, &obj); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	return guardReconcile(ctx, nil, &obj, func() (ctrl.Result, error) {
-		conn := familySinkConnection{client: r.Client}
-		err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview)
-		retErr = err
-
-		return ctrl.Result{}, err
-	})
-}
-
-func (r *FamilyDatabaseSinkReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&kollectdevv1alpha1.KollectDatabaseSink{}).
-		Named("kollectdatabasesink").
-		Complete(r)
-}
-
-// FamilyEventSinkReconciler runs connection tests for KollectEventSink.
-type FamilyEventSinkReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
-}
-
-// +kubebuilder:rbac:groups=kollect.dev,resources=kollecteventsinks,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=kollect.dev,resources=kollecteventsinks/status,verbs=get;update;patch
-
-func (r *FamilyEventSinkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	finish := trackReconcile("kollecteventsink")
-	var retErr error
-	defer func() { finish(retErr) }()
-
-	var obj kollectdevv1alpha1.KollectEventSink
-	if err := r.Get(ctx, req.NamespacedName, &obj); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	return guardReconcile(ctx, nil, &obj, func() (ctrl.Result, error) {
-		conn := familySinkConnection{client: r.Client}
-		err := conn.reconcile(ctx, &obj, obj.Spec.ToKollectSinkSpec(), &obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview)
-		retErr = err
-
-		return ctrl.Result{}, err
-	})
-}
-
-func (r *FamilyEventSinkReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&kollectdevv1alpha1.KollectEventSink{}).
-		Named("kollecteventsink").
+		For(PT(&t)).
+		Named(r.Name).
 		Complete(r)
 }

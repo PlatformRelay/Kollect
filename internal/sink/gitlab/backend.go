@@ -6,10 +6,10 @@ package gitlab
 import (
 	"context"
 	"fmt"
-	"path"
 	"strings"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/pathvalidate"
 	"github.com/konih/kollect/internal/sink/cap"
 	"github.com/konih/kollect/internal/sink/git"
 )
@@ -51,10 +51,7 @@ func (b *Backend) Config() Config {
 
 // Export writes payload at objectPath and pushes to the configured GitLab remote.
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
-	invNS, invName, err := inventoryFromObjectPath(objectPath)
-	if err != nil {
-		return err
-	}
+	invNS, invName := pathvalidate.InventoryFromObjectPath(objectPath)
 
 	var branchSpec *git.BranchSpec
 	featureBranch := BranchNameForExport(b.cfg.MergeRequest.BranchPrefix, invNS, invName)
@@ -119,19 +116,4 @@ func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, prune 
 	}
 
 	return EnsureMergeRequest(ctx, b.cfg, b.cfg.MergeRequest, featureBranch, invNS, invName, token, strings.TrimSpace(b.auth.Username))
-}
-
-func inventoryFromObjectPath(objectPath string) (namespace, name string, err error) {
-	clean := strings.Trim(path.Clean(objectPath), "/")
-	parts := strings.Split(clean, "/")
-	if len(parts) < 3 || parts[0] != "inventory" {
-		return "", "", fmt.Errorf("gitlab export: unexpected object path %q", objectPath)
-	}
-
-	base := strings.TrimSuffix(parts[2], path.Ext(parts[2]))
-	if base == "" {
-		return "", "", fmt.Errorf("gitlab export: missing inventory name in %q", objectPath)
-	}
-
-	return parts[1], base, nil
 }

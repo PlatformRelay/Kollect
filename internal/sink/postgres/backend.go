@@ -88,7 +88,7 @@ func (b *Backend) Close() {
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
 	items, err := collect.ItemsFromExportPayload(payload)
 	if err != nil {
-		return fmt.Errorf("postgres export: decode payload: %w", err)
+		return fmt.Errorf("%w: %w", ErrDecodePayloadFailed, err)
 	}
 
 	invNS, invName := pathvalidate.InventoryFromObjectPath(objectPath)
@@ -97,7 +97,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 
 	tx, err := b.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("postgres export: begin tx: %w", err)
+		return fmt.Errorf("%w: %w", ErrBeginTxFailed, err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -110,7 +110,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("postgres export: commit tx: %w", err)
+		return fmt.Errorf("%w: %w", ErrCommitTxFailed, err)
 	}
 
 	return nil
@@ -130,7 +130,7 @@ DELETE FROM %s
 WHERE inventory_namespace = $1 AND inventory_name = $2 AND cluster = $3
 `, qualifiedTable), invNS, invName, cluster)
 		if err != nil {
-			return fmt.Errorf("postgres delete all: %w", err)
+			return fmt.Errorf("%w: %w", ErrDeleteAllFailed, err)
 		}
 
 		return nil
@@ -148,7 +148,7 @@ WHERE t.inventory_namespace = $1
   )
 `, qualifiedTable), invNS, invName, cluster, plan.targetNames, plan.sourceUIDs)
 	if err != nil {
-		return fmt.Errorf("postgres delete stale: %w", err)
+		return fmt.Errorf("%w: %w", ErrDeleteStaleFailed, err)
 	}
 
 	return nil

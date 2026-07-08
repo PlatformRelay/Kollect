@@ -13,6 +13,16 @@ import (
 	kollecterrors "github.com/konih/kollect/internal/errors"
 )
 
+// Sentinel errors for errors.Is classification of Export failure stages.
+// Error() text matches the pre-existing fmt.Errorf prefixes byte-for-byte, so
+// wrapping with these sentinels changes no observable error message.
+var (
+	ErrDecodePayloadFailed  = errors.New("bigquery export: decode payload")
+	ErrMergeUpsertFailed    = errors.New("bigquery merge upsert")
+	ErrDeleteStaleFailed    = errors.New("bigquery delete stale")
+	ErrEmulatorInsertFailed = errors.New("bigquery emulator insert")
+)
+
 func classifyError(err error) error {
 	if err == nil {
 		return nil

@@ -170,6 +170,56 @@ func TestPerSinkCoalesceTracker_shouldSkip_zeroIntervalAfterRecord(t *testing.T)
 }
 
 // EC-P1-06: per-sink failures must aggregate instead of last-write-wins.
+// AR-11: the tracker is a long-lived field on each reconciler and must not
+// grow unbounded as inventories/sinks churn over the life of the controller
+// process. Entries that haven't recorded an export in coalesceStateTTL are
+// stale (their owning inventory/sink was almost certainly deleted) and must
+// be pruned, while entries still actively exporting must survive untouched.
+func TestPerSinkCoalesceTracker_prunesStaleEntries(t *testing.T) {
+	t.Parallel()
+
+	var tracker perSinkCoalesceTracker
+	base := time.Now()
+
+	staleInvKey, staleSink := "default/inv-stale", "git"
+	activeInvKey, activeSink := "default/inv-active", "git"
+
+	// Stale entry: recorded once, then its owning inventory/sink is deleted
+	// and nothing ever touches this key again.
+	tracker.record(staleInvKey, staleSink, 1, "hash-v1", base)
+
+	// Active entry: keeps recording well within the TTL window.
+	activeNow := base
+	for i := 0; i < 3; i++ {
+		activeNow = activeNow.Add(coalesceStateTTL / 4)
+		tracker.record(activeInvKey, activeSink, int64(i), "hash-active", activeNow)
+	}
+
+	// Long after the stale entry's TTL has elapsed, the active sink records
+	// again. This is the prune trigger point: any record() call sweeps the
+	// whole map for entries that have aged out.
+	farFuture := base.Add(coalesceStateTTL + time.Minute)
+	tracker.record(activeInvKey, activeSink, 5, "hash-final", farFuture)
+
+	tracker.mu.Lock()
+	_, staleStillPresent := tracker.states[tracker.key(staleInvKey, staleSink)]
+	_, activeStillPresent := tracker.states[tracker.key(activeInvKey, activeSink)]
+	tracker.mu.Unlock()
+
+	if staleStillPresent {
+		t.Fatal("stale entry should have been pruned after coalesceStateTTL elapsed with no activity")
+	}
+	if !activeStillPresent {
+		t.Fatal("active entry must survive the sweep")
+	}
+
+	// The active entry must still coalesce correctly after surviving a sweep:
+	// an identical payload at the same generation should be skipped.
+	if !tracker.shouldSkip(activeInvKey, activeSink, 5, "hash-final", 0, farFuture) {
+		t.Fatal("active entry's coalescing state must remain intact after a sweep")
+	}
+}
+
 func TestPerSinkExportOutcome_addSinkFailure_aggregates(t *testing.T) {
 	t.Parallel()
 
