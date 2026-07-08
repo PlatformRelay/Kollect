@@ -6,6 +6,7 @@ package s3
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -22,6 +23,11 @@ import (
 	"github.com/konih/kollect/internal/sink/objectstore"
 	parquetenc "github.com/konih/kollect/internal/sink/parquet"
 )
+
+// ErrEmptyPayload is returned when Export is called with a non-parquet,
+// zero-length payload, letting callers check via errors.Is instead of
+// matching the message text.
+var ErrEmptyPayload = errors.New("s3 export: empty payload")
 
 type Backend struct {
 	cfg    Config
@@ -86,7 +92,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 		body = encoded
 		contentType = parquetenc.ContentType()
 	} else if len(payload) == 0 {
-		return fmt.Errorf("s3 export: empty payload")
+		return ErrEmptyPayload
 	}
 
 	key := objectPath

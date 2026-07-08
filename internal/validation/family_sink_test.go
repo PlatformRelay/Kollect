@@ -4,6 +4,7 @@
 package validation
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -273,14 +274,32 @@ func TestFamilySinkInvalidMessages(t *testing.T) {
 	t.Parallel()
 
 	errs := field.ErrorList{field.Required(field.NewPath("spec").Child("type"), "bad")}
-	if err := SnapshotSinkInvalid("snap", errs); !strings.Contains(err.Error(), "KollectSnapshotSink") {
-		t.Fatalf("SnapshotSinkInvalid: %v", err)
+
+	cases := []struct {
+		name     string
+		err      error
+		wantKind string
+		wantName string
+	}{
+		{"snapshot", SnapshotSinkInvalid("snap", errs), "KollectSnapshotSink", "snap"},
+		{"database", DatabaseSinkInvalid("db", errs), "KollectDatabaseSink", "db"},
+		{"event", EventSinkInvalid("ev", errs), "KollectEventSink", "ev"},
 	}
-	if err := DatabaseSinkInvalid("db", errs); !strings.Contains(err.Error(), "KollectDatabaseSink") {
-		t.Fatalf("DatabaseSinkInvalid: %v", err)
-	}
-	if err := EventSinkInvalid("ev", errs); !strings.Contains(err.Error(), "KollectEventSink") {
-		t.Fatalf("EventSinkInvalid: %v", err)
+
+	for _, tc := range cases {
+		var fsErr *FamilySinkInvalidError
+		if !errors.As(tc.err, &fsErr) {
+			t.Fatalf("%s: expected *FamilySinkInvalidError, got %T: %v", tc.name, tc.err, tc.err)
+		}
+		if fsErr.Kind != tc.wantKind {
+			t.Errorf("%s: Kind = %q, want %q", tc.name, fsErr.Kind, tc.wantKind)
+		}
+		if fsErr.Name != tc.wantName {
+			t.Errorf("%s: Name = %q, want %q", tc.name, fsErr.Name, tc.wantName)
+		}
+		if !strings.Contains(tc.err.Error(), tc.wantKind) {
+			t.Errorf("%s: Error() = %q, want substring %q", tc.name, tc.err.Error(), tc.wantKind)
+		}
 	}
 }
 

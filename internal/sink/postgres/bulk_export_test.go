@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 	"testing"
 	"time"
 
@@ -108,8 +107,8 @@ func TestRowUpsertItems_WrapsExecError(t *testing.T) {
 	b := &Backend{}
 
 	err := b.rowUpsertItems(t.Context(), tx, `"public"."items"`, "team-a", "inventory", "cluster-a", makeItems(1), time.Now().UTC())
-	if err == nil || !strings.Contains(err.Error(), "postgres upsert") {
-		t.Fatalf("rowUpsertItems() error = %v, want postgres upsert wrapper", err)
+	if err == nil || !errors.Is(err, ErrUpsertFailed) {
+		t.Fatalf("rowUpsertItems() error = %v, want ErrUpsertFailed", err)
 	}
 }
 
@@ -120,8 +119,8 @@ func TestBulkUpsertItems_PropagatesCreateError(t *testing.T) {
 	b := &Backend{}
 
 	err := b.bulkUpsertItems(t.Context(), tx, `"public"."items"`, "team-a", "inventory", "cluster-a", makeItems(2), time.Now().UTC())
-	if err == nil || !strings.Contains(err.Error(), "create staging") {
-		t.Fatalf("bulkUpsertItems() error = %v, want create staging error", err)
+	if err == nil || !errors.Is(err, ErrBulkUpsertCreateStagingFailed) {
+		t.Fatalf("bulkUpsertItems() error = %v, want ErrBulkUpsertCreateStagingFailed", err)
 	}
 }
 
@@ -132,8 +131,8 @@ func TestBulkUpsertItems_PropagatesCopyError(t *testing.T) {
 	b := &Backend{}
 
 	err := b.bulkUpsertItems(t.Context(), tx, `"public"."items"`, "team-a", "inventory", "cluster-a", makeItems(2), time.Now().UTC())
-	if err == nil || !strings.Contains(err.Error(), "copy") {
-		t.Fatalf("bulkUpsertItems() error = %v, want copy error", err)
+	if err == nil || !errors.Is(err, ErrBulkUpsertCopyFailed) {
+		t.Fatalf("bulkUpsertItems() error = %v, want ErrBulkUpsertCopyFailed", err)
 	}
 }
 
@@ -144,8 +143,8 @@ func TestBulkUpsertItems_PropagatesMergeError(t *testing.T) {
 	b := &Backend{}
 
 	err := b.bulkUpsertItems(t.Context(), tx, `"public"."items"`, "team-a", "inventory", "cluster-a", makeItems(2), time.Now().UTC())
-	if err == nil || !strings.Contains(err.Error(), "merge") {
-		t.Fatalf("bulkUpsertItems() error = %v, want merge error", err)
+	if err == nil || !errors.Is(err, ErrBulkUpsertMergeFailed) {
+		t.Fatalf("bulkUpsertItems() error = %v, want ErrBulkUpsertMergeFailed", err)
 	}
 }
 
@@ -162,8 +161,8 @@ func TestBulkUpsertItems_PropagatesBuildRowError(t *testing.T) {
 	b := &Backend{}
 
 	err := b.bulkUpsertItems(t.Context(), tx, `"public"."items"`, "team-a", "inventory", "cluster-a", bad, time.Now().UTC())
-	if err == nil || !strings.Contains(err.Error(), "postgres bulk upsert") {
-		t.Fatalf("bulkUpsertItems() error = %v, want bulk upsert build error", err)
+	if err == nil || !errors.Is(err, ErrBulkUpsertFailed) {
+		t.Fatalf("bulkUpsertItems() error = %v, want ErrBulkUpsertFailed", err)
 	}
 }
 
