@@ -5,7 +5,6 @@ package aggregate
 
 import (
 	"testing"
-	"time"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
@@ -23,42 +22,6 @@ func TestContentHashStable(t *testing.T) {
 	c := ContentHash([]byte(`{"items":2}`))
 	if a == c {
 		t.Fatal("different payloads must produce different hashes")
-	}
-}
-
-func TestExportCoalesceShouldSkip(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC)
-	payloadA := []byte(`{"items":1}`)
-	payloadB := []byte(`{"items":2}`)
-	interval := 30 * time.Second
-
-	var c ExportCoalesce
-	if c.ShouldSkip(now, interval, 1, payloadA) {
-		t.Fatal("first export must not skip")
-	}
-
-	c.RecordExport(now, 1, payloadA)
-
-	if !c.ShouldSkip(now.Add(5*time.Second), interval, 1, payloadA) {
-		t.Fatal("identical payload within interval should skip")
-	}
-
-	if c.ShouldSkip(now.Add(5*time.Second), interval, 1, payloadB) {
-		t.Fatal("payload change must not skip")
-	}
-
-	if c.ShouldSkip(now.Add(5*time.Second), interval, 2, payloadA) {
-		t.Fatal("generation bump must not skip")
-	}
-
-	if !c.ShouldSkip(now.Add(interval-time.Second), interval, 1, payloadA) {
-		t.Fatal("still within interval should skip")
-	}
-
-	if c.ShouldSkip(now.Add(interval+time.Second), interval, 1, payloadA) {
-		t.Fatal("after interval elapsed export should run again")
 	}
 }
 
@@ -164,17 +127,6 @@ func TestIdentityFromItem(t *testing.T) {
 	if id.TargetNamespace != "ns" || id.TargetName != "tgt" || id.UID != "uid-abc" {
 		t.Fatalf("IdentityFromItem() = %#v", id)
 	}
-}
-
-func TestExportCoalesceNilReceiver(t *testing.T) {
-	t.Parallel()
-
-	var coalesce *ExportCoalesce
-	if coalesce.ShouldSkip(time.Now(), time.Minute, 1, []byte("x")) {
-		t.Fatal("nil coalesce should not skip")
-	}
-
-	coalesce.RecordExport(time.Now(), 1, []byte("x"))
 }
 
 func TestResourceKeyFromItem(t *testing.T) {

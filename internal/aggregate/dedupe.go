@@ -2,13 +2,12 @@
 // Copyright (c) 2026 Konrad Heimel
 
 // Package aggregate holds cross-target rollup helpers for Phase 4 (ADR-0304).
-// KollectClusterInventory uses MergeRows and ExportCoalesce on the export path;
-// namespaced KollectInventory still marshals per-namespace snapshots directly.
+// KollectClusterInventory uses MergeRows to collapse overlapping target rows; per-sink export
+// coalescing/debounce lives in the controller (perSinkCoalesceTracker). Namespaced
+// KollectInventory still marshals per-namespace snapshots directly.
 package aggregate
 
 import (
-	"time"
-
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
 	"github.com/konih/kollect/internal/collect"
 	"github.com/konih/kollect/internal/digest"
@@ -48,53 +47,6 @@ func ResourceKeyFromItem(item collect.Item) ResourceUID {
 // ContentHash returns a SHA-256 hex digest of an export payload.
 func ContentHash(payload []byte) string {
 	return digest.ContentHash(payload)
-}
-
-// ExportCoalesce tracks the last successful export fingerprint for debouncing.
-type ExportCoalesce struct {
-	LastGeneration int64
-	LastHash       string
-	LastExport     time.Time
-}
-
-// ShouldSkip reports whether an export can be coalesced within minInterval.
-// Spec generation bumps and payload checksum changes bypass the interval
-// (same rules as KollectInventory reconciler debounce).
-func (c *ExportCoalesce) ShouldSkip(
-	now time.Time,
-	minInterval time.Duration,
-	generation int64,
-	payload []byte,
-) bool {
-	if c == nil {
-		return false
-	}
-
-	if c.LastGeneration != generation {
-		return false
-	}
-
-	hash := ContentHash(payload)
-	if c.LastHash == "" || c.LastHash != hash {
-		return false
-	}
-
-	if c.LastExport.IsZero() {
-		return false
-	}
-
-	return now.Sub(c.LastExport) < minInterval
-}
-
-// RecordExport stores the fingerprint after a successful export.
-func (c *ExportCoalesce) RecordExport(now time.Time, generation int64, payload []byte) {
-	if c == nil {
-		return
-	}
-
-	c.LastGeneration = generation
-	c.LastHash = ContentHash(payload)
-	c.LastExport = now
 }
 
 // DedupeMode selects how MergeRows collapses overlapping target rows.
