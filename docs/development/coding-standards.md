@@ -160,6 +160,18 @@ block path traversal, shell injection, and unsafe refs:
 Implementation: `internal/sink/git/validate.go`, `internal/validation/git.go`. Extend these
 validators when adding git-related fields; do not bypass with `#nosec` without an ADR note.
 
+**CodeQL remediation (SEC-01).** CodeQL previously reported 11 `error`-severity alerts in this
+package (alerts **#1–#11**: `go/command-injection` and `go/path-injection` in
+`internal/sink/git/exec_git.go` and `internal/sink/git/export_file.go`). All are **`state=fixed` by
+code** — not dismissed or `#nosec`-suppressed. The remediation invariant is: every untrusted input
+(branch/ref, workdir, config values, object path, `file://` clone URL) is validated **before** the
+`git` argv is assembled, git is invoked via an argv slice (never a shell), and options are
+terminated with `--`. Each exec-invoking helper has a direct regression guard that turns RED if a
+validator is dropped — see `exec_git_test.go`, `exec_git_additional_test.go`, `validate_test.go`,
+and `codeql_regression_test.go`. Keep these guards in lockstep when refactoring the sink; the
+`//nolint:gosec // G204` markers in `exec_git.go`/`export_file.go` are justified by these
+validators, not blanket suppressions.
+
 ### Transport and hub ingest
 
 Sink and doc endpoints must use **verified TLS** with org CA support (`caBundle` / `caSecretRef`).
