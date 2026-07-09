@@ -52,6 +52,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Refactoring
 
+- **aggregate:** Remove dead ExportCoalesce abstraction (AR-12) [ff969a7](https://github.com/konih/kollect/commit/ff969a76e06c478988577537cd7cf3b0673154ea)
+
 - **sink/postgres:** Typed sentinel errors for Export stages (F61) [b7f484f](https://github.com/konih/kollect/commit/b7f484ff96f369e5de1da7c0b67211b4dbd67852)
 
 - **validation,sink:** Typed errors for family-sink and s3 empty-payload [318fab0](https://github.com/konih/kollect/commit/318fab05fa59f6f41e4b8e9e5778c73425d4092b)
