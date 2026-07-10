@@ -32,6 +32,7 @@ vars:
   HELM_DOCS_BIN: "{{.BIN_DIR}}/helm-docs"
   COVERAGE_MIN: "72"
   MANAGER_BINARY: "{{.BIN_DIR}}/manager"
+  PIPELINE_BINARY: "{{.BIN_DIR}}/kollect-pipeline"
   DOCKER_IMAGE: kollect-controller-manager:dev
   CLUSTER_NAME:
     sh: echo "${CLUSTER_NAME:-kollect-smoke}"
@@ -64,6 +65,21 @@ tasks:
       - go.sum
     generates:
       - "{{.MANAGER_BINARY}}"
+
+  build:cli:
+    desc: Build the kollect-pipeline CLI binary (ADR-0801)
+    deps: [install]
+    cmds:
+      - go build -ldflags="-w -s" -o {{.PIPELINE_BINARY}} ./cmd/cli
+    sources:
+      - "cmd/cli/**/*.go"
+      - "internal/pipeline/**/*.go"
+      - "internal/collect/**/*.go"
+      - "internal/sink/**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.PIPELINE_BINARY}}"
 
   manifests:
     desc: Generate CRDs, RBAC, and webhook configuration
@@ -215,7 +231,10 @@ tasks:
     env:
       CGO_ENABLED: "1"
     cmds:
-      - go test -tags=integration -count=1 ./internal/sink/...
+      # internal/pipeline carries the L3 pipeline->git-sink Forgejo test (ADR-0801 P-008). Its
+      # untagged L2 envtest test compiles here too but self-skips when envtest assets are absent
+      # (this job sets up testcontainers, not KUBEBUILDER_ASSETS) — see integration_test.go.
+      - go test -tags=integration -count=1 ./internal/sink/... ./internal/pipeline/...
 
   format:
     desc: Run go fmt on all packages
