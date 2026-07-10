@@ -7,736 +7,749 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
-## [0.8.0](https://github.com/konih/kollect/compare/v0.7.0..v0.8.0) - 2026-07-10
-
-### Bug Fixes
-
-- **pipeline:** Drop computed make() capacity flagged by CodeQL overflow [eb44dda](https://github.com/konih/kollect/commit/eb44dda5054613a61dd7076dbbeaca3fdbdb0f54)
-
-- **cli:** Context selection, skip-to-exitcode, and dead --namespace flag [83ec113](https://github.com/konih/kollect/commit/83ec113b7cd214e1f0a4da3d25727a7f7c1245e4)
-
-- **controller:** Requeue on family-sink status conflict instead of dropping it [d1a9e24](https://github.com/konih/kollect/commit/d1a9e24f29c554c4dfd51f963d8a436c85350e6a)
-
-- **collect:** Block on dispatch backpressure instead of inline sync fallback [a3e8efb](https://github.com/konih/kollect/commit/a3e8efb4757bd469b75241e17a0633c49d58bd2d)
-
-- **controller:** Degrade scope not whole target on RBAC-forbidden namespace (#28) ([#28](https://github.com/konih/kollect/pull/28))[0cd7e8d](https://github.com/konih/kollect/commit/0cd7e8dd3e648471aae59e2bd371d5c73f9d3941)
-
+## [Unreleased]
 
 ### Features
 
-- **cli:** Wire collect -> runner -> store -> sink end-to-end (P-005) [d7b7ce1](https://github.com/konih/kollect/commit/d7b7ce11f71dd0d290faf501337e3f2d58ad05ea)
+- **api:** Per-sink-binding maxExportBytes override (merge feat/export-partitioning, AR-01/EC-P0-01 Option B) [37596e9](https://github.com/konih/kollect/commit/37596e9685fd89c179ad729e7487b1d8d0e268bb)
 
-- **cli:** Kollect-pipeline cobra entrypoint + multi-context resolution (P-001) [cbf31a5](https://github.com/konih/kollect/commit/cbf31a5060edaf442ad625c3ea64132447d56df4)
-
-- **collect:** One-shot List-based collection runner (P-003) [ae7ca74](https://github.com/konih/kollect/commit/ae7ca74b3a755fb407b95cd4cb0a008319e39c91)
-
-- **sink:** Local filesystem sink backend (P-004) [9fb8bc2](https://github.com/konih/kollect/commit/9fb8bc23590726ec623c1a0ea2963a8c5a836527)
-
-- **pipeline:** Local config loader (P-002) [b31f794](https://github.com/konih/kollect/commit/b31f794d49051a76feee3de3e039e2a21636fa3f)
-
-- **controller,sink:** Add TTL prune to coalesce tracker and backend pool [267cac7](https://github.com/konih/kollect/commit/267cac7230b267bf584d66b4a48d74551e050b6e)
-
-- **controller:** Surface extraction failures in target status (EC-P1-05) (#36) ([#36](https://github.com/konih/kollect/pull/36))[f5186ea](https://github.com/konih/kollect/commit/f5186ea519bb767b1795b1548bdb2fc9584f4b4b)
-
-- **metrics:** Bound profile label cardinality (EC-P2-09) (#32) ([#32](https://github.com/konih/kollect/pull/32))[51e1f4b](https://github.com/konih/kollect/commit/51e1f4b26e6e821ecf46ecdb3eb9287d7b9b0266)
-
-- **scope:** Cluster static-ref namespace allowlist (#23) ([#23](https://github.com/konih/kollect/pull/23))[c55f538](https://github.com/konih/kollect/commit/c55f5380d99ab9cf30dbd3f4122c18f6ff4fb3dc)
-
-
-### Performance
-
-- **controller:** Indexed FieldIndexer lookup for sink-watch mappers (AR-09) [355185c](https://github.com/konih/kollect/commit/355185c33775a4fa3a7e635bb906bdfa4f960a01)
-
-- **controller,collect:** Incremental namespace fingerprint cache (AR-10) (#37) ([#37](https://github.com/konih/kollect/pull/37))[f28b93e](https://github.com/konih/kollect/commit/f28b93ee20f86e2ad2e2f008fc70535b1eaba599)
+- **api:** Per-sink-binding maxExportBytes override (AR-01/EC-P0-01 Phase C, Option B) [1d26bfc](https://github.com/konih/kollect/commit/1d26bfcc0ca10cfabd20621b1bfb471a92cee2be)
 
 
 ### Refactoring
 
-- **aggregate:** Remove dead ExportCoalesce abstraction (AR-12) [ff969a7](https://github.com/konih/kollect/commit/ff969a76e06c478988577537cd7cf3b0673154ea)
+- **sink:** Extract event-sink secret->auth helper into secretkv [4f14450](https://github.com/konih/kollect/commit/4f144500d9d7e7828522a89e6ae46ef38279a20a)
 
-- **sink/postgres:** Typed sentinel errors for Export stages (F61) [b7f484f](https://github.com/konih/kollect/commit/b7f484ff96f369e5de1da7c0b67211b4dbd67852)
+## [0.8.0](https://github.com/konih/kollect/compare/v0.7.0..v0.8.0) - 2026-07-10
 
-- **validation,sink:** Typed errors for family-sink and s3 empty-payload [318fab0](https://github.com/konih/kollect/commit/318fab05fa59f6f41e4b8e9e5778c73425d4092b)
+### Bug Fixes
 
-- **controller,api:** Generic family-sink reconciler (AR-08/F68) [98a461d](https://github.com/konih/kollect/commit/98a461d5b6cf17aee2b4bb3be343ff7b99a78daa)
+- **pipeline:** Drop computed make() capacity flagged by CodeQL overflow [11b9ee3](https://github.com/konih/kollect/commit/11b9ee3aca8538fc2f18b4658fe973ea42795fd6)
 
-- **sink/bigquery:** Typed sentinel errors for Export failure stages (F66) [6790065](https://github.com/konih/kollect/commit/679006591cbf58338397302650086af9d8333a11)
+- **cli:** Context selection, skip-to-exitcode, and dead --namespace flag [ba53f06](https://github.com/konih/kollect/commit/ba53f06f5aaae4f6370294b234ab75bb0215a52e)
 
-- **sink/gitlab:** Dedup inventory path parsing via pathvalidate [5e8cb05](https://github.com/konih/kollect/commit/5e8cb05fda87bfa6902be59b96591a0adf5c039c)
+- **controller:** Requeue on family-sink status conflict instead of dropping it [7cb5cbe](https://github.com/konih/kollect/commit/7cb5cbe742bbf30e2f8fed2c69aad01a7681823b)
 
-- **sink:** Extract shared secret-value-from-keys helper (dup audit) (#38) ([#38](https://github.com/konih/kollect/pull/38))[2f166a5](https://github.com/konih/kollect/commit/2f166a5bdd3fa1b035f0a6f2a9e0ba7da3c05da1)
+- **collect:** Block on dispatch backpressure instead of inline sync fallback [c570338](https://github.com/konih/kollect/commit/c5703386668390884d85b5e9327faba3a5b24e1e)
 
-- **webhook:** Dedup ValidateDelete boilerplate across validators (#33) ([#33](https://github.com/konih/kollect/pull/33))[f147642](https://github.com/konih/kollect/commit/f147642d87a32cd002881c70b2d34d75c672c50c)
+- **controller:** Degrade scope not whole target on RBAC-forbidden namespace (#28) [7cdc108](https://github.com/konih/kollect/commit/7cdc108591e6adf1efb2cd4e498c4d5d69f77637)
 
-- **sink:** Extract inventoryFromObjectPath into pathvalidate (#29) ([#29](https://github.com/konih/kollect/pull/29))[123f6a5](https://github.com/konih/kollect/commit/123f6a580c976a99a3c31074b9043db105a3eea8)
+
+### Features
+
+- **cli:** Wire collect -> runner -> store -> sink end-to-end (P-005) [4e40389](https://github.com/konih/kollect/commit/4e40389b0d95a4fb5e29a6b13685a0f4d466d956)
+
+- **cli:** Kollect-pipeline cobra entrypoint + multi-context resolution (P-001) [7a29f6e](https://github.com/konih/kollect/commit/7a29f6eea99feea100bc3db8e442651836b90f61)
+
+- **collect:** One-shot List-based collection runner (P-003) [48e779a](https://github.com/konih/kollect/commit/48e779a1f53f2913f7bcd9141f224867da5e05b2)
+
+- **sink:** Local filesystem sink backend (P-004) [e8f6cd1](https://github.com/konih/kollect/commit/e8f6cd1319464dec69162eb70f3a4b9b730d1a0a)
+
+- **pipeline:** Local config loader (P-002) [63c4eff](https://github.com/konih/kollect/commit/63c4eff9f1b592ced5b4501d7a75eff6533af3cc)
+
+- **controller,sink:** Add TTL prune to coalesce tracker and backend pool [ff18055](https://github.com/konih/kollect/commit/ff180555f590acaaf2a61381130be8e0fcce9a26)
+
+- **controller:** Surface extraction failures in target status (EC-P1-05) (#36) [3c489e4](https://github.com/konih/kollect/commit/3c489e406bc7929a28e39671d83854d7cb9e237d)
+
+- **metrics:** Bound profile label cardinality (EC-P2-09) (#32) [fea790e](https://github.com/konih/kollect/commit/fea790efbd11301f72ca3c295f04e248b4adfc5f)
+
+- **scope:** Cluster static-ref namespace allowlist (#23) [789135f](https://github.com/konih/kollect/commit/789135fa0f9e0ac07ba5c509690bf8c5ef1e357a)
+
+
+### Performance
+
+- **controller:** Indexed FieldIndexer lookup for sink-watch mappers (AR-09) [64494f4](https://github.com/konih/kollect/commit/64494f47213f783c692e9d6db79fb9cfc36748a7)
+
+- **controller,collect:** Incremental namespace fingerprint cache (AR-10) (#37) [6ca0c8e](https://github.com/konih/kollect/commit/6ca0c8e565c730898d95ed538954de368329a220)
+
+
+### Refactoring
+
+- **aggregate:** Remove dead ExportCoalesce abstraction (AR-12) [1c1b14e](https://github.com/konih/kollect/commit/1c1b14e71e1f091d66e4d32bf033d9dd1f944a12)
+
+- **sink/postgres:** Typed sentinel errors for Export stages (F61) [0d81aba](https://github.com/konih/kollect/commit/0d81aba4a8fd9e505d0af392afc07340210733f8)
+
+- **validation,sink:** Typed errors for family-sink and s3 empty-payload [8568765](https://github.com/konih/kollect/commit/856876525949480416dc9ab936d35da3c3580d08)
+
+- **controller,api:** Generic family-sink reconciler (AR-08/F68) [afa3e85](https://github.com/konih/kollect/commit/afa3e85a7b6f8261e0b68fce8b2e4a0a415b056c)
+
+- **sink/bigquery:** Typed sentinel errors for Export failure stages (F66) [59da86f](https://github.com/konih/kollect/commit/59da86f56090d605a52bc579249ea22b39081884)
+
+- **sink/gitlab:** Dedup inventory path parsing via pathvalidate [10a4988](https://github.com/konih/kollect/commit/10a4988efa2c0241e070862b6dcda8cfc6e45056)
+
+- **sink:** Extract shared secret-value-from-keys helper (dup audit) (#38) [dacbece](https://github.com/konih/kollect/commit/dacbecea88232e784ac1392fe1e1faf825f6108d)
+
+- **webhook:** Dedup ValidateDelete boilerplate across validators (#33) [d333c26](https://github.com/konih/kollect/commit/d333c26e81c721f2e5fa07083bddc348fde8287b)
+
+- **sink:** Extract inventoryFromObjectPath into pathvalidate (#29) [4f4c6f2](https://github.com/konih/kollect/commit/4f4c6f2e8595b1816dd47eb57599baaac660f7a2)
 
 ## [0.7.0-rc.1](https://github.com/konih/kollect/compare/v0.6.0-rc.2..v0.7.0-rc.1) - 2026-06-13
 
 ### Bug Fixes
 
-- **release:** Tolerate Rekor 409 on asset re-sign [94de025](https://github.com/konih/kollect/commit/94de025138b78d4130d079d820381a38b53462f6)
+- **release:** Tolerate Rekor 409 on asset re-sign [0a8f61a](https://github.com/konih/kollect/commit/0a8f61aeacba831e9f5c0d0df65066c8a3f429e5)
 
-- **sink/nats:** Reconnect when cached connection is closed [319a2bf](https://github.com/konih/kollect/commit/319a2bf79da165da0c74ce02b5697a614e01268f)
+- **sink/nats:** Reconnect when cached connection is closed [05323e7](https://github.com/konih/kollect/commit/05323e705067893d282d8fcde4de3310739369d3)
 
-- **sink/bigquery:** Snapshot emulator mode in Config [4c58988](https://github.com/konih/kollect/commit/4c58988b1e931c01a7169df6320b79c1f2d3ccd6)
+- **sink/bigquery:** Snapshot emulator mode in Config [7ab6387](https://github.com/konih/kollect/commit/7ab6387ae4260c81d131f60128e3d399cfb5bd24)
 
 
 ### Features
 
-- **webhook:** Reject cluster kinds in tenantMode [3dbfd6b](https://github.com/konih/kollect/commit/3dbfd6bb14fbcb24d162c6e3edf4aad21593e4a6)
+- **webhook:** Reject cluster kinds in tenantMode [da49cd3](https://github.com/konih/kollect/commit/da49cd3b159fd973b4ae4f086aab470cc330d0a9)
 
-- **controller:** Classify forbidden static refs for cluster kinds [ae3057d](https://github.com/konih/kollect/commit/ae3057ddf3946554cd246a6475fb18bc1c0f2a31)
+- **controller:** Classify forbidden static refs for cluster kinds [0825198](https://github.com/konih/kollect/commit/08251983133c63e217aa53b3f1ad991d2051a066)
 
-- **api:** [**breaking**] Reference namespaced static config from cluster kinds [9753744](https://github.com/konih/kollect/commit/97537449b7fa94b52a11b72509c3a0fbc10e5ca2)
+- **api:** [**breaking**] Reference namespaced static config from cluster kinds [7b30097](https://github.com/konih/kollect/commit/7b3009777e1af48736820c387d098ddd5b4c81fc)
 
 ## [0.6.0-rc.2](https://github.com/konih/kollect/compare/v0.6.0-rc.1..v0.6.0-rc.2) - 2026-06-10
 
 ### Bug Fixes
 
-- **test:** Drop duplicate family sink condition tests [f0bfb36](https://github.com/konih/kollect/commit/f0bfb36b9dbce465daf5773741a71a2f3ea8b76d)
+- **test:** Drop duplicate family sink condition tests [b6bfdb7](https://github.com/konih/kollect/commit/b6bfdb77c085ca8893d0921acd98ff31335cba7d)
 
-- **build:** Fix go-arch-lint exclude paths for local dirs [4e443f6](https://github.com/konih/kollect/commit/4e443f62ad787577a286719ec9561b111a68355e)
+- **build:** Fix go-arch-lint exclude paths for local dirs [95850bb](https://github.com/konih/kollect/commit/95850bbee5a7cc2adba50a9088f5d629fb42ce9d)
 
-- **validation:** Block private sink endpoint targets [f1c0d79](https://github.com/konih/kollect/commit/f1c0d7900f873c1557faccbc1fd7635ff105289a)
+- **validation:** Block private sink endpoint targets [6c1ed5b](https://github.com/konih/kollect/commit/6c1ed5ba0fa094553837d71764d8e1924b53d18d)
 
 
 ### Features
 
-- **controller:** Shard snapshot exports by max bytes [d6ee50a](https://github.com/konih/kollect/commit/d6ee50a7ff5e53e670b1e020ad968d8a7284d3fa)
+- **controller:** Shard snapshot exports by max bytes [8184257](https://github.com/konih/kollect/commit/81842573dc7410decf22bee507b7eefa277b642e)
 
 
 ### Refactoring
 
-- **bigquery:** Inject query execution adapter [0d2208d](https://github.com/konih/kollect/commit/0d2208d2cb0f83dd5ff30fb5b3e359faad75166a)
+- **bigquery:** Inject query execution adapter [71491d6](https://github.com/konih/kollect/commit/71491d69e8813392d87c6454e9ecbc2a248fe8d1)
 
-- **s3:** Isolate head-bucket check helper [12a47ea](https://github.com/konih/kollect/commit/12a47ea867988f958320867070138a7a7bb076c6)
+- **s3:** Isolate head-bucket check helper [8393135](https://github.com/konih/kollect/commit/839313550ef779d07000b1bf3f5e04588f9b559b)
 
-- **postgres:** Narrow upsert tx interfaces [82e7bb1](https://github.com/konih/kollect/commit/82e7bb1a4e2829b1f84ff496eaea0a3a3f150ecc)
+- **postgres:** Narrow upsert tx interfaces [75bb338](https://github.com/konih/kollect/commit/75bb33871c23840747e22f66a82c45040d81eb29)
 
-- **export:** Extract envelope partition helpers [391bbb8](https://github.com/konih/kollect/commit/391bbb8d625481dc7e16c370b73ea29f176aedf7)
+- **export:** Extract envelope partition helpers [6e13c42](https://github.com/konih/kollect/commit/6e13c42438de4bda7d349ec5c9e2db91a254a9da)
 
-- **mongodb:** Isolate export scope planning [51154e7](https://github.com/konih/kollect/commit/51154e7d2dca1509562f904d74253c96486afb56)
+- **mongodb:** Isolate export scope planning [cc264c9](https://github.com/konih/kollect/commit/cc264c9a6a11d0b58f7b117e02ef4b6817aec1f3)
 
-- **postgres:** Extract export planning helpers [1e0248f](https://github.com/konih/kollect/commit/1e0248fbfcce991fa4ab5a8fac105dd1dcb19f00)
+- **postgres:** Extract export planning helpers [d858a67](https://github.com/konih/kollect/commit/d858a674d30c1ef7993455b00790f9b319f4aff1)
 
 ## [0.6.0-rc.1](https://github.com/konih/kollect/compare/v0.5.0..v0.6.0-rc.1) - 2026-06-09
 
 ### Bug Fixes
 
-- **sink:** Retry BigQuery emulator readiness in L3 tests [b5a6b85](https://github.com/konih/kollect/commit/b5a6b850e9653ddfd7ea9321260c9399ae182c6b)
+- **sink:** Retry BigQuery emulator readiness in L3 tests [5106a32](https://github.com/konih/kollect/commit/5106a328badf17bed2449b5390e846cce5680aec)
 
-- **controller:** Enforce namespace intersections in rollups [8e11ab6](https://github.com/konih/kollect/commit/8e11ab6993c282a28823c71d7469dc91be184742)
+- **controller:** Enforce namespace intersections in rollups [c4439c3](https://github.com/konih/kollect/commit/c4439c3fa09aca329ae3eb124b85e0fed7feaf67)
 
-- **sink:** Re-enable backend pool after layout integration test [95a417c](https://github.com/konih/kollect/commit/95a417c19ee0e4be041b7b0b2c51667b4354048a)
+- **sink:** Re-enable backend pool after layout integration test [bea1372](https://github.com/konih/kollect/commit/bea13724b8dbe03a6a219f64ac408d32f110767b)
 
-- **sink:** Infer resource manifest layout [90725d6](https://github.com/konih/kollect/commit/90725d67500b5d0aef3392de422e735ae94c7e87)
+- **sink:** Infer resource manifest layout [e83c30f](https://github.com/konih/kollect/commit/e83c30f685408d590054b9bbb92088e3984ca204)
 
-- **build:** Compile full cmd package after pprof fold [5045839](https://github.com/konih/kollect/commit/50458391f52d6d35df2e080c642c8e14fe89d8c7)
+- **build:** Compile full cmd package after pprof fold [796e744](https://github.com/konih/kollect/commit/796e74473316723cc99c290cdc102e30f8974275)
 
-- **controller:** Panic-guard family-sink, connection-test, cluster-target reconcilers [95f2cae](https://github.com/konih/kollect/commit/95f2cae91e0055a269cc0ddfd3d59ee0aad583ed)
+- **controller:** Panic-guard family-sink, connection-test, cluster-target reconcilers [b333ce0](https://github.com/konih/kollect/commit/b333ce03bc101e3c0eaece0634bffb7faebcf4c5)
 
-- **controller:** Aggregate per-sink export errors [61d28d4](https://github.com/konih/kollect/commit/61d28d44b671029c97f441afe00fa23750cbe16c)
+- **controller:** Aggregate per-sink export errors [af341f8](https://github.com/konih/kollect/commit/af341f8d54103a4bd04bc58fa9ce514e4ed8a69c)
 
-- **controller:** Stop requeue on terminal finalizer cleanup [439e5dd](https://github.com/konih/kollect/commit/439e5dd0e8cd5855b89a9ac4e81011fa3306b30c)
+- **controller:** Stop requeue on terminal finalizer cleanup [b3ae025](https://github.com/konih/kollect/commit/b3ae025003dee70b913eb7328d627b22d13c246a)
 
-- **api:** [**breaking**] Reject stub sink types at admission [2ebc8df](https://github.com/konih/kollect/commit/2ebc8df3a0cd904136e45dbf2d599801bea214fa)
+- **api:** [**breaking**] Reject stub sink types at admission [5eee44d](https://github.com/konih/kollect/commit/5eee44dadbce102a61a57101e3d5bcc8a1ee7f80)
 
-- **sink:** Remove stub backends, make unknown sink type terminal [f39d19c](https://github.com/konih/kollect/commit/f39d19c6846bf2afe4d2b5bfe25f9cc61e48f23d)
+- **sink:** Remove stub backends, make unknown sink type terminal [eaf5a15](https://github.com/konih/kollect/commit/eaf5a15d848916316f12bddbd4ae227940125ca9)
 
-- **sink/git:** Redact credentials from git CLI errors [f25cafb](https://github.com/konih/kollect/commit/f25cafb67bc8f9080140136e1f03764587ad7ea5)
+- **sink/git:** Redact credentials from git CLI errors [7a8e6d0](https://github.com/konih/kollect/commit/7a8e6d0ad81876bb797a0fd06d501e24b9f49431)
 
-- **collect:** Stabilize export fingerprints for debounce [76813eb](https://github.com/konih/kollect/commit/76813eb84f3d7e2cb2ef9115939c69c97d68ccbc)
+- **collect:** Stabilize export fingerprints for debounce [038cbec](https://github.com/konih/kollect/commit/038cbec031e23c38181f38a038f0726d1c2fb6a0)
 
-- **docs:** Purge stale hub/spoke from operator manual [5135c41](https://github.com/konih/kollect/commit/5135c418f6a9e8a5338b99700425367988da2c3a)
+- **docs:** Purge stale hub/spoke from operator manual [367b6bf](https://github.com/konih/kollect/commit/367b6bfcb2b1009dcbf301d85660d4cb8109df6d)
 
-- **docs:** Repair broken links and stale ADR references [d8b37cb](https://github.com/konih/kollect/commit/d8b37cbb706560b6d69c9b315cf0ba75db331be9)
+- **docs:** Repair broken links and stale ADR references [be7c448](https://github.com/konih/kollect/commit/be7c448a0e3882dfc78d249d0ac15ae5ce479abc)
 
-- **chart:** Sync family-sink CRDs with ADR-0416 fields [067c5c7](https://github.com/konih/kollect/commit/067c5c7008fb6ba2693a79a11a7d658796fca0f0)
+- **chart:** Sync family-sink CRDs with ADR-0416 fields [7baaa66](https://github.com/konih/kollect/commit/7baaa6667157cc1ff1d396e272d68e5155132382)
 
 
 ### Features
 
-- **api:** Add cluster rollup shard status [4809cfd](https://github.com/konih/kollect/commit/4809cfd995362af22c7b2709d5359c6db24b5345)
+- **api:** Add cluster rollup shard status [59dcdaf](https://github.com/konih/kollect/commit/59dcdafdad14b816f9d988fb1b066e70fee5a200)
 
-- **api:** Add cluster inventory namespaces list [3959ba2](https://github.com/konih/kollect/commit/3959ba241cc281c21b76d2ff0e60cc0edf46dc2d)
+- **api:** Add cluster inventory namespaces list [713cdf0](https://github.com/konih/kollect/commit/713cdf038a47ecbfda1aa64b8f2e6ce69da89df4)
 
-- **helm:** Add minimal RBAC team install profile [907487e](https://github.com/konih/kollect/commit/907487ed167ac744d8093c4508c263b2c2edbd01)
+- **helm:** Add minimal RBAC team install profile [925a8d8](https://github.com/konih/kollect/commit/925a8d80804dd8f11fe95df81584047793a20061)
 
-- **sink:** Add BigQuery database backend [83fb2f3](https://github.com/konih/kollect/commit/83fb2f31c17a966220c922eb8c15c08ea38f9b20)
+- **sink:** Add BigQuery database backend [ec64d81](https://github.com/konih/kollect/commit/ec64d81b0165c8bf7b639489107935b82c183997)
 
-- **sink/nats:** Version event envelope schema [48fd7dd](https://github.com/konih/kollect/commit/48fd7dd989d7dd20587917af6b064ab5f591200e)
+- **sink/nats:** Version event envelope schema [58a4bf4](https://github.com/konih/kollect/commit/58a4bf454abce40ad45cd8eb9bddbb7174982e85)
 
-- **demo:** Add hero harness with in-kind Forgejo [c64c14c](https://github.com/konih/kollect/commit/c64c14c5e64f893d30a9a12bce56c4501c943856)
+- **demo:** Add hero harness with in-kind Forgejo [6e6a86a](https://github.com/konih/kollect/commit/6e6a86af8d55bf2e713995a32ff5225609012e5e)
 
-- **sink:** Wire ADR-0419 git layout into export pipeline [12d7f80](https://github.com/konih/kollect/commit/12d7f8023223c7f20c4f3badcd0b57bbc017974f)
+- **sink:** Wire ADR-0419 git layout into export pipeline [c33baa6](https://github.com/konih/kollect/commit/c33baa65eb8d08edbe2a53ae5308e8adb1648653)
 
-- **export:** Full-resource pruning and Git layout [3df4027](https://github.com/konih/kollect/commit/3df4027e0fc43970df9599996241693c0886fd86)
+- **export:** Full-resource pruning and Git layout [8502f58](https://github.com/konih/kollect/commit/8502f585c4e67b61c3e43b04e389c367087f183a)
 
-- **sink:** Render status.preview surface (ADR-0416) [5c9c80f](https://github.com/konih/kollect/commit/5c9c80f0798e8fdbe20848525e48ff085d29b274)
+- **sink:** Render status.preview surface (ADR-0416) [f1931fc](https://github.com/konih/kollect/commit/f1931fc08df4ef9230daead45df28b6200381222)
 
-- **sink:** MongoDB database sink (ADR-0417) [f49bf3e](https://github.com/konih/kollect/commit/f49bf3e21deabb89f36f7c01ef96feba40449764)
+- **sink:** MongoDB database sink (ADR-0417) [3796733](https://github.com/konih/kollect/commit/3796733b10b89ae712117ac5e5e975f190c310a8)
 
 
 ### Refactoring
 
-- **controller:** Compose cluster rollups by namespace [b1af6b1](https://github.com/konih/kollect/commit/b1af6b1022c9d9ee57baaf6699e9ab53f19e848b)
+- **controller:** Compose cluster rollups by namespace [374f6e6](https://github.com/konih/kollect/commit/374f6e6f7ad9010e97f4673777e2644f01d074f0)
 
-- **inventory:** Fold internal/httpauth into inventory [f89e2cd](https://github.com/konih/kollect/commit/f89e2cdb4955c8aaa2ab307f2137aa24d29b091c)
+- **inventory:** Fold internal/httpauth into inventory [e570f82](https://github.com/konih/kollect/commit/e570f824ea656e0080970ee9103228bb25d617e4)
 
-- **cmd:** Fold internal/pprof into cmd [8a3004f](https://github.com/konih/kollect/commit/8a3004fd6d2ed38916cc27b3a8ad8801e9a16469)
+- **cmd:** Fold internal/pprof into cmd [d0c7f82](https://github.com/konih/kollect/commit/d0c7f827387e0815a70ae72150077cc84d24e829)
 
-- **validation:** Decouple layout path checks from sink package [a558394](https://github.com/konih/kollect/commit/a558394204f2425a1ce27c5be8a5dfa47660827f)
+- **validation:** Decouple layout path checks from sink package [43d89c6](https://github.com/konih/kollect/commit/43d89c6d8704699ee563813056720daf8e38729b)
 
 ## [0.5.0-rc.1](https://github.com/konih/kollect/compare/v0.4.1..v0.5.0-rc.1) - 2026-06-07
 
 ### Bug Fixes
 
-- **build:** Upgrade alpine packages in UI image for Trivy [45d08ce](https://github.com/konih/kollect/commit/45d08ce46221541fbb3b35e00dc7a202488528be)
+- **build:** Upgrade alpine packages in UI image for Trivy [3cdce54](https://github.com/konih/kollect/commit/3cdce5435241add437f7205c0adaa9ba5271fa22)
 
-- **ci:** Stop perf-report writing agent-context in CI [5ee2088](https://github.com/konih/kollect/commit/5ee208848043b6749362b1d0ddc83ab0c2812fa9)
+- **ci:** Stop perf-report writing agent-context in CI [5efafd6](https://github.com/konih/kollect/commit/5efafd691f447055aa866d2f927325b8bd020c74)
 
-- **ui:** Disambiguate Playwright inventory row locator [f422a78](https://github.com/konih/kollect/commit/f422a78335266a150280d79d0b9c86b0c10b170d)
+- **ui:** Disambiguate Playwright inventory row locator [878dff2](https://github.com/konih/kollect/commit/878dff280b05ba10ea609616b8dcceffc79a15e5)
 
-- **ci:** Stabilize nightly Playwright and perf-report [b6ea35f](https://github.com/konih/kollect/commit/b6ea35f25b6503bb90281277db54cd347664dea6)
+- **ci:** Stabilize nightly Playwright and perf-report [fcb0533](https://github.com/konih/kollect/commit/fcb0533e963be476064d7b7c9ae41d06fddcd88b)
 
 
 ### Features
 
-- **api:** ADR-0416 sink config layering [dcc5fa9](https://github.com/konih/kollect/commit/dcc5fa9b1564af39a28c5ebe30534c26f1683a4e)
+- **api:** ADR-0416 sink config layering [5f07736](https://github.com/konih/kollect/commit/5f07736405d2c9f929810873d231f2123342e7b3)
 
 ## [0.4.1](https://github.com/konih/kollect/compare/v0.4.0..v0.4.1) - 2026-06-07
 
 ### Bug Fixes
 
-- **build:** Upgrade debian packages for Trivy gate [b6515c0](https://github.com/konih/kollect/commit/b6515c04e05107e5ec97c9020435f76943f5a68f)
+- **build:** Upgrade debian packages for Trivy gate [5c8f07f](https://github.com/konih/kollect/commit/5c8f07f4242066cc56c0846e0ed9caab342e7ff5)
 
 
 ### Features
 
-- **sink/git:** PERF-10 mirror and fingerprint skip [e6288c1](https://github.com/konih/kollect/commit/e6288c174c32b69c38d0caec5676338ae6217fd0)
+- **sink/git:** PERF-10 mirror and fingerprint skip [f8d3d23](https://github.com/konih/kollect/commit/f8d3d2363b91f2db3d457fe0fb94bf01bf6a2690)
 
-- **perf:** Scale lane PERF-08/09/15 and 10k load tier [dbda1c2](https://github.com/konih/kollect/commit/dbda1c2ab89ea1f5041638932124d7f34748fb88)
+- **perf:** Scale lane PERF-08/09/15 and 10k load tier [f2444ff](https://github.com/konih/kollect/commit/f2444ffc3f7eecc683db53a352cbf2e8fc404fbe)
 
 ## [0.4.0](https://github.com/konih/kollect/compare/v0.3.0-rc.1..v0.4.0) - 2026-06-07
 
 ### Features
 
-- **collect:** PERF-03 tunable dispatch pool [d3cfc5d](https://github.com/konih/kollect/commit/d3cfc5d121859780ad5fd588835b984947595bd1)
+- **collect:** PERF-03 tunable dispatch pool [66426c8](https://github.com/konih/kollect/commit/66426c8115a0c4fab5be4b1a3b955b8bd47ce38b)
 
-- **ui:** Align sink families and add UI docs ([#17](https://github.com/konih/kollect/pull/17))[bcca60d](https://github.com/konih/kollect/commit/bcca60d9d1bdfedb7595cfc3b1d57d9fbb6bfc68)
+- **ui:** Align sink families and add UI docs [5b1cc94](https://github.com/konih/kollect/commit/5b1cc94280650c0c2c30ceb870c92fe47f76f3ea)
 
 
 ### Refactoring
 
-- **collect:** GVR index and sharded store [2391a55](https://github.com/konih/kollect/commit/2391a551b41d6c2474a3c1eb7670c2e40c744fa3)
+- **collect:** GVR index and sharded store [0c97ee7](https://github.com/konih/kollect/commit/0c97ee74f575a674d610e02b6d75b7b0d66a24c8)
 
 ## [0.3.0-rc.1](https://github.com/konih/kollect/compare/v0.2.0-rc.1..v0.3.0-rc.1) - 2026-06-07
 
 ### Bug Fixes
 
-- **controller:** Recover panics and suspend status [4cf28cf](https://github.com/konih/kollect/commit/4cf28cff4b647e208a8b5e2f9ec603081ad1e58b)
+- **controller:** Recover panics and suspend status [3bb8c55](https://github.com/konih/kollect/commit/3bb8c55ce4a4b7241a1c7147e1113e4c91f6cca4)
 
-- **git:** Resolve lint issues in sink hardening [452c72b](https://github.com/konih/kollect/commit/452c72b2527c28d217c6b4a150e251f668e57284)
+- **git:** Resolve lint issues in sink hardening [1cd7ef7](https://github.com/konih/kollect/commit/1cd7ef77e3feae46775a14b3ab0c195776dae1e7)
 
-- **docs:** Remove extra blank line in git-sink-attribution [3dcc34b](https://github.com/konih/kollect/commit/3dcc34b7cd7ed4750a5883daec78092817a69078)
+- **docs:** Remove extra blank line in git-sink-attribution [152cb40](https://github.com/konih/kollect/commit/152cb40349985a45d58f78b1778afb07d0b4ccf6)
 
-- **e2e:** Guard multitenant port-forward cleanup trap [d04f292](https://github.com/konih/kollect/commit/d04f2929233efd9b072cdce85d6d47c42386ad44)
+- **e2e:** Guard multitenant port-forward cleanup trap [fde54d4](https://github.com/konih/kollect/commit/fde54d4bf52938efbd662c91931de9ab27df5284)
 
-- **e2e:** Use object form for snapshotSinkRefs [468bca9](https://github.com/konih/kollect/commit/468bca94aafa745c2e24250d6914baad5eeac7e4)
+- **e2e:** Use object form for snapshotSinkRefs [c434c9e](https://github.com/konih/kollect/commit/c434c9e5007a4400d123c75da733db50f12bb5dc)
 
-- **e2e:** Validate git-export and multitenant via HTTP [85d160a](https://github.com/konih/kollect/commit/85d160ad2cfb59a967697e2791f698bd4a80b5bd)
+- **e2e:** Validate git-export and multitenant via HTTP [b934eb2](https://github.com/konih/kollect/commit/b934eb20a27f8299e1acfe9d2c74245b0e9e02d5)
 
 
 ### Features
 
-- **sink/git:** Rich commit context and templates [981a18a](https://github.com/konih/kollect/commit/981a18a1c27d8340368b69e5657e5676fc3c09e2)
+- **sink/git:** Rich commit context and templates [96834ba](https://github.com/konih/kollect/commit/96834baf767688e781c21776941c2dff09e238b4)
 
-- [**breaking**] Remove hub/spoke tier and KollectRemoteCluster [8c02b47](https://github.com/konih/kollect/commit/8c02b47e1d46228a397d717f908a5f60f44d2874)
+- [**breaking**] Remove hub/spoke tier and KollectRemoteCluster [edfb2b6](https://github.com/konih/kollect/commit/edfb2b683fc3eb37a4c8089985a2d31fd30519fb)
 
-- **git:** Harden export clone, auth, and push recovery [8dc426c](https://github.com/konih/kollect/commit/8dc426c358e9085e8af294c52fff7e2ba96cf590)
+- **git:** Harden export clone, auth, and push recovery [22921a0](https://github.com/konih/kollect/commit/22921a0a9350b017409fed13fb627386a6622c6d)
 
 
 ### Refactoring
 
-- **perf:** P0/P1 export path optimizations [cb16812](https://github.com/konih/kollect/commit/cb168127b0da5700047176e71b5cf6a0cc4ce9c5)
+- **perf:** P0/P1 export path optimizations [3e12aaf](https://github.com/konih/kollect/commit/3e12aaf86cf5c8968f58d2448037bcb50218eafe)
 
 ## [0.2.0-rc.1](https://github.com/konih/kollect/compare/v0.1.0-rc.3..v0.2.0-rc.1) - 2026-06-07
 
 ### Bug Fixes
 
-- **e2e:** Drop legacy sinkRefs from multitenant scope ([#14](https://github.com/konih/kollect/pull/14))[8f7a156](https://github.com/konih/kollect/commit/8f7a1565ff3cf06ac29debe91a54a4ec5047dd60)
+- **e2e:** Drop legacy sinkRefs from multitenant scope [7efd330](https://github.com/konih/kollect/commit/7efd330cc3b723fd6c617818feb8228bc7cc3154)
 
-- **e2e:** Drop removed inventory sinkRefs field [e912dbe](https://github.com/konih/kollect/commit/e912dbe384378c9b84cef4b6646ca51851a32df4)
+- **e2e:** Drop removed inventory sinkRefs field [f7de7af](https://github.com/konih/kollect/commit/f7de7af9fb10c20b02ca7bedb5dc8277723180c6)
 
-- **e2e:** Validate collection via inventory HTTP [ca816a0](https://github.com/konih/kollect/commit/ca816a072b89326d0bc6c6a6dae5f4d2f0ec8159)
+- **e2e:** Validate collection via inventory HTTP [67404df](https://github.com/konih/kollect/commit/67404df05408ed0a78ce45d736766c844e36fe47)
 
-- **e2e,test:** Stabilize smoke bootstrap and debounce IT [3677bb5](https://github.com/konih/kollect/commit/3677bb5dc2b1685def8a7aec05f066604e18985c)
+- **e2e,test:** Stabilize smoke bootstrap and debounce IT [2b7b31d](https://github.com/konih/kollect/commit/2b7b31d773dcf5f1b54243e460957c9059b19be3)
 
-- **samples:** Drop legacy sinkRefs from team-a scope [1648ab3](https://github.com/konih/kollect/commit/1648ab3ce0b67e58d8129da909487db91bf3c23b)
+- **samples:** Drop legacy sinkRefs from team-a scope [4598ce5](https://github.com/konih/kollect/commit/4598ce5325c048f77dbe1b606f8bb91fb1cf1185)
 
-- **e2e:** Wait on family sink CRDs in kind smoke [933dc36](https://github.com/konih/kollect/commit/933dc366f1343efc960932c56862b5b5061612e0)
+- **e2e:** Wait on family sink CRDs in kind smoke [fac0a82](https://github.com/konih/kollect/commit/fac0a8262bd7899fc3228dd2f9626a460e5499ea)
 
-- **gitlab:** Basic auth for Forgejo Gitea MR API [c2b0f3d](https://github.com/konih/kollect/commit/c2b0f3d528365385a3e60cef3a95e791c9210abe)
+- **gitlab:** Basic auth for Forgejo Gitea MR API [92e2ce0](https://github.com/konih/kollect/commit/92e2ce027fcae1010e14093f667ad6fe15a23e80)
 
 
 ### Features
 
-- **git:** Port transport retry and SSH host keys [9f5b17f](https://github.com/konih/kollect/commit/9f5b17f40d0eda7b8e482e2c03cb69aac66f370a)
+- **git:** Port transport retry and SSH host keys [1486898](https://github.com/konih/kollect/commit/1486898b3dde1ac26a51dad7bd11abcbf30312ed)
 
-- **controller:** Wire family sink reconcilers and export [8162345](https://github.com/konih/kollect/commit/8162345b399d75ae315d05e06bb25a43c7eb4e0f)
+- **controller:** Wire family sink reconcilers and export [61d1a33](https://github.com/konih/kollect/commit/61d1a33cdf0ea7b59bde6bf467d1eefc79b28d9b)
 
-- **api:** Add sink family CRDs and remove KollectSink [0ec8ea2](https://github.com/konih/kollect/commit/0ec8ea204c7d864d7c54bf104bfd173d8630261c)
+- **api:** Add sink family CRDs and remove KollectSink [efc1b1a](https://github.com/konih/kollect/commit/efc1b1a6d5c59904a4659323f70af76450f542ce)
 
 ## [0.1.0-rc.3](https://github.com/konih/kollect/compare/v0.1.0-rc.2..v0.1.0-rc.3) - 2026-06-06
 
 ### Bug Fixes
 
-- **collect,controller:** Resolve race detector findings [5100b8b](https://github.com/konih/kollect/commit/5100b8b89eb64a1d2d016d537a28cabd74c6d702)
+- **collect,controller:** Resolve race detector findings [2fc1aff](https://github.com/konih/kollect/commit/2fc1affd712b0e6476770f51dec55394aeb13495)
 
-- **api:** Keep KollectRemoteCluster status optional in codegen [eff3347](https://github.com/konih/kollect/commit/eff3347a33966233db5a4da462b71b675e43cf62)
+- **api:** Keep KollectRemoteCluster status optional in codegen [578af5e](https://github.com/konih/kollect/commit/578af5e53e8f9d9d095694eab4e436ec26ebe8ce)
 
-- **api:** Drop required status on KollectRemoteCluster create [e533d09](https://github.com/konih/kollect/commit/e533d097580a06b7941c442f141358f377e56eb1)
+- **api:** Drop required status on KollectRemoteCluster create [88e7bc5](https://github.com/konih/kollect/commit/88e7bc573dc4b13fec222a684d61486aec5f74f1)
 
-- **ops:** P2 hardening and chart connectionTest default [c3344cc](https://github.com/konih/kollect/commit/c3344cc3a7a8859f5a190541674efb26e737948b)
+- **ops:** P2 hardening and chart connectionTest default [4a07ab6](https://github.com/konih/kollect/commit/4a07ab6fbeb42fc2e1254028cc9b91b52b13e1d5)
 
-- **git:** Terminal auth errors and per-repo export lock [4353766](https://github.com/konih/kollect/commit/4353766a4ad74373d82965f441a53acc25112a72)
+- **git:** Terminal auth errors and per-repo export lock [2b596ba](https://github.com/konih/kollect/commit/2b596ba23707440c86dff934a84ad87cc565a21d)
 
-- **lint:** Gofmt webhooks and phase A envtest cleanup [522754b](https://github.com/konih/kollect/commit/522754bfb14884895fce07cc852652ae013dc65f)
+- **lint:** Gofmt webhooks and phase A envtest cleanup [f132bf9](https://github.com/konih/kollect/commit/f132bf9d126d2d3a23aadcc549aed8dc2c93725a)
 
-- **sink:** Isolate circuit breaker test from parallel pollution [ff1159a](https://github.com/konih/kollect/commit/ff1159a72fac7d8162b084d3e9211ca94b13c54b)
+- **sink:** Isolate circuit breaker test from parallel pollution [d5ec865](https://github.com/konih/kollect/commit/d5ec8650f1d6235002b923204b5ff4f9ba051ae0)
 
-- **e2e:** Revert multitenant namespaceSelector [926daf0](https://github.com/konih/kollect/commit/926daf0e977e7d491aa060cd5f2e3e3b69c69a7f)
+- **e2e:** Revert multitenant namespaceSelector [4ba734c](https://github.com/konih/kollect/commit/4ba734c4621d3e24fe498cb3b42b14879020d1b5)
 
-- **controller:** Continue multi-sink export on partial failure [e07add5](https://github.com/konih/kollect/commit/e07add5973538de59b0ec1166ce84cb17057e10a)
+- **controller:** Continue multi-sink export on partial failure [6b1fa36](https://github.com/konih/kollect/commit/6b1fa364bf38895c42a227f68cbfdd6a120e37f5)
 
-- **e2e:** Apply tenant-scope after multitenant asserts [003fe99](https://github.com/konih/kollect/commit/003fe992a2b13ff7078b348351e1e65d3607e826)
+- **e2e:** Apply tenant-scope after multitenant asserts [475f3f9](https://github.com/konih/kollect/commit/475f3f95f8635edb2e0cbabf8165b9fe20be27a1)
 
-- **e2e:** Stabilize multitenant matrix job waits [81df96c](https://github.com/konih/kollect/commit/81df96c354b05868ef1db0ef0f88c454a63bacb6)
+- **e2e:** Stabilize multitenant matrix job waits [9ed2c7a](https://github.com/konih/kollect/commit/9ed2c7a6942e05918a1ce3798be3d9147fad3f42)
 
-- **sink:** Validate git export paths for CodeQL [b67ee61](https://github.com/konih/kollect/commit/b67ee6107897fe04dcdb6f6c3fea8e1108aa9270)
+- **sink:** Validate git export paths for CodeQL [4855b3d](https://github.com/konih/kollect/commit/4855b3db351127ccfc4ddadcfb0aa51f78046efa)
 
-- **ci:** Sync CHANGELOG and UI Docker npm ci [e004476](https://github.com/konih/kollect/commit/e0044763813189d308d68f2a08388dd61e458e0f)
+- **ci:** Sync CHANGELOG and UI Docker npm ci [0eef82c](https://github.com/konih/kollect/commit/0eef82caad5ad086467331672732eb4bfc45a1f1)
 
-- **e2e:** Bootstrap samples for matrix git-export [084c702](https://github.com/konih/kollect/commit/084c702c6d83d063c40dc111a4f3531f2bdd852f)
+- **e2e:** Bootstrap samples for matrix git-export [7957b7b](https://github.com/konih/kollect/commit/7957b7b0e4ff0c2c0b99083d59b8e0f2934b4e05)
 
 
 ### Features
 
-- **controller:** Add cluster rollup finalizers [8dae08f](https://github.com/konih/kollect/commit/8dae08f9dac29e4b77adaa3ece15a6fd410fd2d7)
+- **controller:** Add cluster rollup finalizers [a371b8b](https://github.com/konih/kollect/commit/a371b8b0a4eb0de7da3844fe726aca167617eddb)
 
-- **controller:** Add target finalizers [4f377e6](https://github.com/konih/kollect/commit/4f377e6ef6397f543db262789b5d23f94badd156)
+- **controller:** Add target finalizers [240f4be](https://github.com/konih/kollect/commit/240f4be405d5d55d527b9bf6ba0c180bdc49490a)
 
-- **controller:** Extend inventory finalizer teardown [735abb0](https://github.com/konih/kollect/commit/735abb080b3232321af867ca5d3bd5c6f2d17854)
+- **controller:** Extend inventory finalizer teardown [db06c39](https://github.com/konih/kollect/commit/db06c39668b4947b89a42ae153192c31929a3abc)
 
-- **collect:** Add hub cluster store cleanup [756c2c5](https://github.com/konih/kollect/commit/756c2c517a53b7e61f60603fc9b28625a9bc772d)
+- **collect:** Add hub cluster store cleanup [23ef632](https://github.com/konih/kollect/commit/23ef632458e58f5c4c78c4a60f3a1052daff4d38)
 
-- **collect:** Add helm: release Secret decode [abf9a75](https://github.com/konih/kollect/commit/abf9a7528de875b2209e5953880735503b3fa6d6)
+- **collect:** Add helm: release Secret decode [a5be27a](https://github.com/konih/kollect/commit/a5be27a19ad2cfd6cf655dbcc12805a13aed7b8b)
 
-- **samples:** Add helm-release-values-redacted profile [2cb55d8](https://github.com/konih/kollect/commit/2cb55d81d9e26613e88ed2ef776940b704ebe6a2)
+- **samples:** Add helm-release-values-redacted profile [2bb8a36](https://github.com/konih/kollect/commit/2bb8a36b2e243453f37f1b066850a4f8e893be8b)
 
-- **collect:** ScrubKeys redaction at extraction [b3ea87e](https://github.com/konih/kollect/commit/b3ea87ee26763c6ad19c7bfc487b8a5ad0eef083)
+- **collect:** ScrubKeys redaction at extraction [36d3b53](https://github.com/konih/kollect/commit/36d3b539fc8050b632fffcf5fab96922b5e9bc83)
 
-- **hub:** Ingest auth cache and structured denial logs [58a6cfc](https://github.com/konih/kollect/commit/58a6cfccce4f7f00eb39a6849c900fa2bc4a61f6)
+- **hub:** Ingest auth cache and structured denial logs [d987846](https://github.com/konih/kollect/commit/d987846e4b0e378c7133b6ddeec25de539c45a9d)
 
-- **controller:** Parallel sinks, debounce metrics, hub coalesce [b907792](https://github.com/konih/kollect/commit/b9077924663087646d132207a909dbccb1c01360)
+- **controller:** Parallel sinks, debounce metrics, hub coalesce [e34a482](https://github.com/konih/kollect/commit/e34a482d10dea8f316774de2bc328003031fccfb)
 
-- **sink:** Backend pool cache and envelope export path [40d77cf](https://github.com/konih/kollect/commit/40d77cf735c23b421a2ece2f1948cdae6e4bd80c)
+- **sink:** Backend pool cache and envelope export path [d238c8c](https://github.com/konih/kollect/commit/d238c8cca54c9c4fd03ccb2dee96c3f1fddabdc7)
 
-- **controller:** Add inventory deletion finalizer [4c70371](https://github.com/konih/kollect/commit/4c70371aba2e50d50314342eebcdfd4a5c9431ea)
+- **controller:** Add inventory deletion finalizer [128f1a7](https://github.com/konih/kollect/commit/128f1a7372fe484b4382af3d5e6ed5c9688fbb7e)
 
-- **sink:** Add per-sink gobreaker circuit breaker [cae4170](https://github.com/konih/kollect/commit/cae4170780fc6a90cec306188da84affcd36383c)
+- **sink:** Add per-sink gobreaker circuit breaker [e136296](https://github.com/konih/kollect/commit/e136296e87fdd5e67884743f4a66f7e40ff98bb1)
 
 
 ### Refactoring
 
-- **collect:** Namespace-scoped store watch driver [8a5b8ef](https://github.com/konih/kollect/commit/8a5b8ef722101dded5c79de9303aa8ed957734b7)
+- **collect:** Namespace-scoped store watch driver [4f1210c](https://github.com/konih/kollect/commit/4f1210cc55af2591cc046a949d72c1b017a9eea3)
 
-- **arch:** Resolve arch-04, arch-11, arch-12 [dae4f79](https://github.com/konih/kollect/commit/dae4f79d589e0d4e0121ef7dc8ac26cedb100081)
+- **arch:** Resolve arch-04, arch-11, arch-12 [1709158](https://github.com/konih/kollect/commit/17091585ea0f5e199f29c96173bd80ae180360c4)
 
-- **docs:** Phase 1 root doc moves [6fc22f3](https://github.com/konih/kollect/commit/6fc22f3ae4a830bbec1a100af4b5d4547a37e4f1)
+- **docs:** Phase 1 root doc moves [fcbaca0](https://github.com/konih/kollect/commit/fcbaca084f1c1ace15645f970b5842f31c303396)
 
 ## [0.1.0-rc.2](https://github.com/konih/kollect/compare/v0.1.0-rc.1..v0.1.0-rc.2) - 2026-06-05
 
 ### Bug Fixes
 
-- **sink:** Gitlab HTTP client timeout [2c2564d](https://github.com/konih/kollect/commit/2c2564de6dc8ac68d6b444f22a94ea2e4e49df8a)
+- **sink:** Gitlab HTTP client timeout [2c1377c](https://github.com/konih/kollect/commit/2c1377c06cc6cc64f637660d35096f92a85db49c)
 
-- **sink:** Postgres connect uses request context [fdcb4d2](https://github.com/konih/kollect/commit/fdcb4d26b14ae811aa17fc685b7657822b2bd4ab)
+- **sink:** Postgres connect uses request context [3590d22](https://github.com/konih/kollect/commit/3590d2270cd377e8c25a99b3f4bd7f78e194277c)
 
-- **collect:** Degrade target on SAR API error [6d4ed37](https://github.com/konih/kollect/commit/6d4ed37800c78e1507f54e387eac0119b00482d3)
+- **collect:** Degrade target on SAR API error [9ada555](https://github.com/konih/kollect/commit/9ada555dc19e32d12857a2b532c01b5cc1c11243)
 
-- **hub:** Rollback merge when export fails [b8603e6](https://github.com/konih/kollect/commit/b8603e649b8ca8e6e2fedb03392653d72cd2da82)
+- **hub:** Rollback merge when export fails [6065122](https://github.com/konih/kollect/commit/60651222e8246cdc3352c2b529f9f9ea64005a43)
 
-- **controller:** Requeue conflicts and log map errors [954d1b6](https://github.com/konih/kollect/commit/954d1b69f9737af1f2933fa08c1d445197bf7761)
+- **controller:** Requeue conflicts and log map errors [a9cd353](https://github.com/konih/kollect/commit/a9cd353e67f84f8a284e0b90a21292f57d8be450)
 
-- **sink:** Close backends and log close errors [bd022c3](https://github.com/konih/kollect/commit/bd022c3dbe26fbd09602b3022331ddd8dd1effd2)
+- **sink:** Close backends and log close errors [a52d779](https://github.com/konih/kollect/commit/a52d779df204b736d2d1719519b8e89a2f027ef2)
 
-- **transport:** Commit Kafka offset on handler success [86018a8](https://github.com/konih/kollect/commit/86018a83079cb0b70899481a9c07a872d3e57871)
+- **transport:** Commit Kafka offset on handler success [e15ef5b](https://github.com/konih/kollect/commit/e15ef5bf78559521b88013b98db1c3d9debd1f37)
 
-- **spoke:** Retain delta until publish succeeds [566632b](https://github.com/konih/kollect/commit/566632b2e3e96a8200de5225f6c1542ad96519f6)
+- **spoke:** Retain delta until publish succeeds [42fe240](https://github.com/konih/kollect/commit/42fe240e3326e74274aea674833230037f77013d)
 
-- **sink:** Validate git CLI args before exec [50fd4cf](https://github.com/konih/kollect/commit/50fd4cf2ff2d0abdb44eaf61e94d12e960681eb9)
+- **sink:** Validate git CLI args before exec [0625bcc](https://github.com/konih/kollect/commit/0625bcc3ff04985926f06956ce95d5e7e5f86648)
 
-- **demo:** Satisfy OpenSSF Scorecard in kind-wide-scope [75915df](https://github.com/konih/kollect/commit/75915df4c5a1d124aaed114af8aa3787b610066e)
+- **demo:** Satisfy OpenSSF Scorecard in kind-wide-scope [78be170](https://github.com/konih/kollect/commit/78be17053024e8c7d1b150f175fd1b2c6bc13853)
 
 ## [0.1.0-rc.1](https://github.com/konih/kollect/compare/v0.0.4..v0.1.0-rc.1) - 2026-06-05
 
 ### Bug Fixes
 
-- **git:** Set bare HEAD after file-remote push [3b6bc14](https://github.com/konih/kollect/commit/3b6bc14d9da17a088f6a2fe4d46f1e91f8f90ac2)
+- **git:** Set bare HEAD after file-remote push [e591f74](https://github.com/konih/kollect/commit/e591f743faa38bbb05f56a96ff932f370f43084e)
 
-- **inventory:** Extract degraded status goconst [521a099](https://github.com/konih/kollect/commit/521a099914341199ced421ba534ff3b358dd0018)
+- **inventory:** Extract degraded status goconst [9b264c2](https://github.com/konih/kollect/commit/9b264c26ae6c293e53b39e18befd0460819b3b4d)
 
-- **sink:** Use git.TypeName for goconst CI lint [0d0fdfe](https://github.com/konih/kollect/commit/0d0fdfe48bac1b61e6c8745b4afb7a95dc656157)
+- **sink:** Use git.TypeName for goconst CI lint [1d5fd48](https://github.com/konih/kollect/commit/1d5fd489c2d00d843abb10a616b685ce8a564059)
 
-- **demo:** Survive Step 2 bootstrap failures [e729a7b](https://github.com/konih/kollect/commit/e729a7b4ce84c3b40aa2ad08f5cbede18fb60876)
+- **demo:** Survive Step 2 bootstrap failures [4561c6a](https://github.com/konih/kollect/commit/4561c6a2bc16bb6be5344206e77ed6fe2e79dda8)
 
-- **demo:** Continue past prerequisite check [84f742e](https://github.com/konih/kollect/commit/84f742e5eebfd7298f21b0b1b06f440e805ff360)
+- **demo:** Continue past prerequisite check [b3ed1c2](https://github.com/konih/kollect/commit/b3ed1c2e1efe87c2bee3d1c214f5676cf7312162)
 
-- **chart:** Restrict PrometheusRule alerts to kollect metrics [1c19520](https://github.com/konih/kollect/commit/1c195209c427355ff4409bf50494a1af95bb6093)
+- **chart:** Restrict PrometheusRule alerts to kollect metrics [818af18](https://github.com/konih/kollect/commit/818af18b1d02910b26a1f00d70dc8ce71f858d7a)
 
-- **ui:** Exclude Playwright specs from Vitest runner [9cc1f35](https://github.com/konih/kollect/commit/9cc1f355bb0fe8cb224a4191e570ddd67bcb2167)
+- **ui:** Exclude Playwright specs from Vitest runner [c6f250d](https://github.com/konih/kollect/commit/c6f250d73d8b57ece1c558be3a6171862bea57f9)
 
-- **ui:** Align inventory drawer and badge props with merged API [3580e8a](https://github.com/konih/kollect/commit/3580e8a7d4920e7ed92aa9d1c0d3cecf275bff9d)
+- **ui:** Align inventory drawer and badge props with merged API [cfad0ba](https://github.com/konih/kollect/commit/cfad0ba0c4bae79550a35412ff014d2014172e41)
 
-- **ui:** Align inventory drawer with merged status APIs [7659378](https://github.com/konih/kollect/commit/76593788b73ef3fde78f52044f22b32e13b0edde)
+- **ui:** Align inventory drawer with merged status APIs [00014bc](https://github.com/konih/kollect/commit/00014bca99b49da58a6e361c31f04222962399d2)
 
-- **lint:** Extract goconst strings for CI golangci-lint [3ed8703](https://github.com/konih/kollect/commit/3ed87038efb0d509c562d4d02d4309807ee99b48)
+- **lint:** Extract goconst strings for CI golangci-lint [f974805](https://github.com/konih/kollect/commit/f974805e9c5ca1e5bbd54b885402b8cfe3bdd280)
 
-- **chart:** Mount writable /tmp for git export [4da294f](https://github.com/konih/kollect/commit/4da294f65f73cfceb9ab3407e5776ef02f5ce612)
+- **chart:** Mount writable /tmp for git export [d605752](https://github.com/konih/kollect/commit/d605752ea2dc895e206d06c3b08c17979f8cae6d)
 
-- **sink:** Harden git export paths and command args for CodeQL [a336a3b](https://github.com/konih/kollect/commit/a336a3bda77c19ad10b6e96e32f0f96d6fca9d1b)
+- **sink:** Harden git export paths and command args for CodeQL [0493418](https://github.com/konih/kollect/commit/04934180fbdfe4a965a21b47839e41b8001fdda4)
 
-- **ci:** Add RBAC audit and expand fuzz gates [e6f8b98](https://github.com/konih/kollect/commit/e6f8b983d8b3d05404d1e8151d9510c07cca7d1e)
+- **ci:** Add RBAC audit and expand fuzz gates [e538490](https://github.com/konih/kollect/commit/e538490889d7201e660e6e5141ffe0565293a74c)
 
-- **supply-chain:** Address OpenSSF Scorecard findings [2026b16](https://github.com/konih/kollect/commit/2026b165d427cc4b1173b3724660050c17c18f34)
+- **supply-chain:** Address OpenSSF Scorecard findings [27cb90f](https://github.com/konih/kollect/commit/27cb90fa26609bdc4dcc1988c6d15790fd5e1715)
 
-- **docs:** Restore mkdocs nav for reference hub pages [32d3ba7](https://github.com/konih/kollect/commit/32d3ba70a54e0b7388dbcb58ed7bf9c26c3665e8)
+- **docs:** Restore mkdocs nav for reference hub pages [0f01235](https://github.com/konih/kollect/commit/0f01235f8808fc231cae2840015c672dc6e7bbbb)
 
-- **docs:** Drop mkdocs nav to uncommitted pages [ae6cb01](https://github.com/konih/kollect/commit/ae6cb01ee751f98396c99127568c7b4d7397c50f)
+- **docs:** Drop mkdocs nav to uncommitted pages [3e49484](https://github.com/konih/kollect/commit/3e49484c9ab7479cbebf595e797a91721f64b8a6)
 
-- **e2e:** Recreate unhealthy kind clusters [4dc6f35](https://github.com/konih/kollect/commit/4dc6f35106b93f714e2eb3316dd5651a7aec8370)
+- **e2e:** Recreate unhealthy kind clusters [8d4b654](https://github.com/konih/kollect/commit/8d4b654d050c9bb68ae8c8e28e48c8896c33b27f)
 
-- **ci:** Harden workflows for OpenSSF Scorecard [bbd0815](https://github.com/konih/kollect/commit/bbd08154179cf13c6d7edddb44d653874499523e)
+- **ci:** Harden workflows for OpenSSF Scorecard [1fe5aa4](https://github.com/konih/kollect/commit/1fe5aa4208f366bc6e4394df9670f5c76a6541c0)
 
-- **security:** Harden inventory auth and SAR caches [c934c80](https://github.com/konih/kollect/commit/c934c80f529725f8634b872d89e599df1d582ccb)
+- **security:** Harden inventory auth and SAR caches [4ab89e3](https://github.com/konih/kollect/commit/4ab89e3d5a54c60cb0eff13c26bf5c317780b54e)
 
-- **ci:** Use codecov-action v5 tag instead of bad SHA [f2a1d24](https://github.com/konih/kollect/commit/f2a1d240e5f31bc74ccd3db4725ec2d5b67a5bf9)
+- **ci:** Use codecov-action v5 tag instead of bad SHA [0c0247d](https://github.com/konih/kollect/commit/0c0247dbd32720536eb99b9d11654ac23d6f67c0)
 
-- **ci:** Restore 60% coverage floor for test job [fdcc489](https://github.com/konih/kollect/commit/fdcc48906623238f7a758fa23b439140102fbf06)
+- **ci:** Restore 60% coverage floor for test job [6fe3ed7](https://github.com/konih/kollect/commit/6fe3ed724c6017b858eeb8d9053af1b831121e84)
 
-- **docs:** Repair open questions list rendering [f559c5a](https://github.com/konih/kollect/commit/f559c5a20105e8fc9e1abfe241d95de385a3cfea)
+- **docs:** Repair open questions list rendering [4bd0486](https://github.com/konih/kollect/commit/4bd048637b8c1a482ee3110a987197f0472e64e4)
 
-- **ci:** Perf-report envtest gate and changelog [838850c](https://github.com/konih/kollect/commit/838850c2b84787b2b03d11c3d467a39d4b494ef6)
+- **ci:** Perf-report envtest gate and changelog [147a16c](https://github.com/konih/kollect/commit/147a16c956e81178202df95cca95f50ffd42e03c)
 
-- **ci:** Lll wrap, coverage floor, and changelog [21bfec3](https://github.com/konih/kollect/commit/21bfec3672d096877e90cb6b5501eb954af725aa)
+- **ci:** Lll wrap, coverage floor, and changelog [04e854e](https://github.com/konih/kollect/commit/04e854e4a24fcb63c4fa2cb0147b269ad092b478)
 
-- **ci:** Pin scorecard-action to commit SHA [8911e2f](https://github.com/konih/kollect/commit/8911e2f4d22147edd6db663997dfb6c236ee49d0)
+- **ci:** Pin scorecard-action to commit SHA [86e3217](https://github.com/konih/kollect/commit/86e32179511c4da4c64636533a7d6074c03decf4)
 
-- **docs:** Repair attribute extraction mermaid flowchart [5238169](https://github.com/konih/kollect/commit/52381691002dcbde2c0bf2ee08b5b5740a622da5)
+- **docs:** Repair attribute extraction mermaid flowchart [abc875e](https://github.com/konih/kollect/commit/abc875ec02421aaa50fe8c8a6c86196323ce33b9)
 
-- **docs:** Restore material icon rendering [6504754](https://github.com/konih/kollect/commit/6504754ececf2bc92f2bb28bd41d3fb2a202b78f)
+- **docs:** Restore material icon rendering [fdc6296](https://github.com/konih/kollect/commit/fdc6296e8e132f8bf56ee02951c41ab337323f67)
 
-- **ci:** Resolve goconst lint and codecov action pin [67519f4](https://github.com/konih/kollect/commit/67519f4af51183885d7f51d4e3713aa50d725241)
+- **ci:** Resolve goconst lint and codecov action pin [914ddd7](https://github.com/konih/kollect/commit/914ddd7f313d490113ffe81fc0ffd38d18261083)
 
-- **ci:** Seed Certificate before team-certificates target [4218369](https://github.com/konih/kollect/commit/421836930c296c09a49127bb6d4e91749052ebbe)
+- **ci:** Seed Certificate before team-certificates target [00095b9](https://github.com/konih/kollect/commit/00095b96f578468218e710a7eae79e81906e08e0)
 
-- **ci:** Poll tenant inventory itemCount in multitenant e2e [41e6bf0](https://github.com/konih/kollect/commit/41e6bf0ff3c227b0f235e161fce7a3454ccd638f)
+- **ci:** Poll tenant inventory itemCount in multitenant e2e [50953e1](https://github.com/konih/kollect/commit/50953e109107ed592bc2b430d3fbda6b70a3818d)
 
-- **ci:** Seed cert-test namespace before Certificate target [e5ea278](https://github.com/konih/kollect/commit/e5ea2780e7da65ce6916eb56fd4a05e8924df3d6)
+- **ci:** Seed cert-test namespace before Certificate target [7e15f6c](https://github.com/konih/kollect/commit/7e15f6ceaf508728631ac12b2204a0d732e37612)
 
-- **ci:** Skip git export clone without GIT_EXPORT_TEST_REPO [b78d171](https://github.com/konih/kollect/commit/b78d1718945a2fdfe25c6e13ad7589dfa79a3728)
+- **ci:** Skip git export clone without GIT_EXPORT_TEST_REPO [c780773](https://github.com/konih/kollect/commit/c78077351dd3c1db49b2436fd462dab3dfdd3844)
 
-- **ci:** Assert cert collection via Ready message not itemCount [64c826e](https://github.com/konih/kollect/commit/64c826ea69c5ea5cc095df24e6608c7df3d15e0a)
+- **ci:** Assert cert collection via Ready message not itemCount [ced6d28](https://github.com/konih/kollect/commit/ced6d284c6684912854de450f50788f98aa0575f)
 
-- **ci:** Create cert-test namespace before target registration [121afcd](https://github.com/konih/kollect/commit/121afcd6ae7e5d0bad70f77fd649457b6d4e9099)
+- **ci:** Create cert-test namespace before target registration [497cf32](https://github.com/konih/kollect/commit/497cf3275fc64abdd391affa07138e5946967d31)
 
-- **ci:** Poll cert-manager target itemCount in e2e [1140863](https://github.com/konih/kollect/commit/1140863edf13d536e0fc010203656b0b75d0a8cd)
+- **ci:** Poll cert-manager target itemCount in e2e [7e2fdb4](https://github.com/konih/kollect/commit/7e2fdb45eeb6c4ec7e055ac6f45e3d24a734fb9b)
 
-- **helm:** Grant cert-manager Certificate list/watch for generic CRD e2e [91f4130](https://github.com/konih/kollect/commit/91f4130ba3b3f40fd57993a4407624544d233590)
+- **helm:** Grant cert-manager Certificate list/watch for generic CRD e2e [eb32441](https://github.com/konih/kollect/commit/eb32441c53c38c1063f193bd49f9baa2fc5a46f6)
 
-- **ci:** Poll inventory HTTP for cert-manager e2e [58faff0](https://github.com/konih/kollect/commit/58faff0c1f249ed406068fbaa0eccc23152399c5)
+- **ci:** Poll inventory HTTP for cert-manager e2e [cfcc9ca](https://github.com/konih/kollect/commit/cfcc9ca07568bf9cbf051eb05785bc2a6c3b9ef5)
 
-- **ci:** Wait for manager controllers before e2e smoke [a500542](https://github.com/konih/kollect/commit/a500542160450ed8cbaa6cd7cd2f8bfc8d6ab0f7)
+- **ci:** Wait for manager controllers before e2e smoke [941f2b5](https://github.com/konih/kollect/commit/941f2b5bffe58c88c656b46e140a67338b06d91a)
 
-- **ci:** Export env before cert-manager e2e subprocess [04f5a45](https://github.com/konih/kollect/commit/04f5a458a1d89d98ef0b56fe8ee37800ff822e69)
+- **ci:** Export env before cert-manager e2e subprocess [839ac6d](https://github.com/konih/kollect/commit/839ac6dfde1943af8283d1512fedb8e48037f595)
 
-- **helm:** Sync manager ClusterRole with kubebuilder RBAC [4ef1a85](https://github.com/konih/kollect/commit/4ef1a855803f159f50ed314906af6eb6b66d3724)
+- **helm:** Sync manager ClusterRole with kubebuilder RBAC [8036e9c](https://github.com/konih/kollect/commit/8036e9c132d7dfcf5a65c2ae29e455aa2d388f0e)
 
-- **ci:** Apply e2e samples directly without kustomize parent refs [08ae477](https://github.com/konih/kollect/commit/08ae477e0787d3d0ef949475bd4a9e5cd2ca63d0)
+- **ci:** Apply e2e samples directly without kustomize parent refs [aa46947](https://github.com/konih/kollect/commit/aa46947af41ae42269e9938fdf5388b21e08194d)
 
-- **ci:** Use lean e2e samples without unreachable sinks [6f0f184](https://github.com/konih/kollect/commit/6f0f1843a57936f3dd6f33e25d7ae953ace34fdd)
+- **ci:** Use lean e2e samples without unreachable sinks [ce757ae](https://github.com/konih/kollect/commit/ce757aee53c7f0b86a868ba1792b5384eb5e06bd)
 
-- **api:** Drop required status on KollectConnectionTest create [bbe1c82](https://github.com/konih/kollect/commit/bbe1c82d37105c62172059acb008b242ec1d452b)
+- **api:** Drop required status on KollectConnectionTest create [4f98d27](https://github.com/konih/kollect/commit/4f98d27bce8a6f31c058e839be629474c877767e)
 
-- **ci:** Repair Go 1.26 internal coverage profile merge [c897773](https://github.com/konih/kollect/commit/c8977735bca2efd38c5afdb962e698a216b41381)
+- **ci:** Repair Go 1.26 internal coverage profile merge [8f25a28](https://github.com/konih/kollect/commit/8f25a28ba459bb8df531983fc3e3d9b80412b24e)
 
-- **ci:** Skip cmd packages in coverage pre-pass [b432fbe](https://github.com/konih/kollect/commit/b432fbe399f0f943a6f4fdafef54be4747f76ee7)
+- **ci:** Skip cmd packages in coverage pre-pass [1053e74](https://github.com/konih/kollect/commit/1053e74cc4b2c9bb668945b22ae26b2a5ad13340)
 
-- **controller:** Gate validating webhooks when chart disables TLS [06eef97](https://github.com/konih/kollect/commit/06eef970672722795338529d8acc5cf3066299f0)
+- **controller:** Gate validating webhooks when chart disables TLS [fff187d](https://github.com/konih/kollect/commit/fff187d9c9512450ebeb7a8ed30b0427c10e582c)
 
-- **ci:** Merge internal coverage profile without -p 1 [db8d50e](https://github.com/konih/kollect/commit/db8d50e81901ff30e11691c43cd09be1b1f48200)
+- **ci:** Merge internal coverage profile without -p 1 [707216e](https://github.com/konih/kollect/commit/707216e0c8f182c21eca81fb940b8065959f7224)
 
-- **ci:** Stabilize coverage profile merge and cmd skip [758cb29](https://github.com/konih/kollect/commit/758cb298d96e9dbd426df823726c9635818f920b)
+- **ci:** Stabilize coverage profile merge and cmd skip [6462139](https://github.com/konih/kollect/commit/6462139ea78be652b2e5cb77633e08ce90e13b21)
 
-- **ci:** Raise kind e2e helm install wait timeouts [61c61f2](https://github.com/konih/kollect/commit/61c61f25735fe7ed3b2f8e2b35c7b96452c2e429)
+- **ci:** Raise kind e2e helm install wait timeouts [b197499](https://github.com/konih/kollect/commit/b1974998510650151ba0482be952b7d82422df16)
 
-- **controller:** Stabilize cluster target and inventory envtests [4ce24c3](https://github.com/konih/kollect/commit/4ce24c3b1fa337db75f1a8d74bc091567ca3908d)
+- **controller:** Stabilize cluster target and inventory envtests [56e3c1d](https://github.com/konih/kollect/commit/56e3c1d35c3304fa42229237916bba4ad2cadc18)
 
-- **sink/git:** Simplify file remote push and clone tests [ce84b2e](https://github.com/konih/kollect/commit/ce84b2ecce27f647c6fbaa83fcd9d991735f2aea)
+- **sink/git:** Simplify file remote push and clone tests [3737454](https://github.com/konih/kollect/commit/37374544b5237ad5143099348527887b9026896e)
 
-- **ci:** Pin git export tests to main branch [7d6dcf9](https://github.com/konih/kollect/commit/7d6dcf9ea93f1c2c3e8f34e565b799f694bdcea8)
+- **ci:** Pin git export tests to main branch [7abe06e](https://github.com/konih/kollect/commit/7abe06e8ecc4722325b14c684fcfa198c32c348f)
 
-- **sink/git:** Reset workdir after failed file clone [359093a](https://github.com/konih/kollect/commit/359093a3760f3d354ff8c2b3bc72477a0f21bf58)
+- **sink/git:** Reset workdir after failed file clone [acf644a](https://github.com/konih/kollect/commit/acf644a9d2ce2a7965f9167f5e52a5f79d57e5c1)
 
-- **sink/git:** Use native git for file:// export path [af9dd48](https://github.com/konih/kollect/commit/af9dd480ea9c7390c3848a2b30afe83a690c1ca3)
+- **sink/git:** Use native git for file:// export path [f6c58f1](https://github.com/konih/kollect/commit/f6c58f10caf6bdd3f0ed35f3fbf310feab81b0ff)
 
-- **sink/git:** Write export payload via worktree FS [57d97b0](https://github.com/konih/kollect/commit/57d97b078c8a76f2bb855ae26ae684d49e830636)
+- **sink/git:** Write export payload via worktree FS [6eb020c](https://github.com/konih/kollect/commit/6eb020c8d541b336d976b2c8159264c12318108e)
 
-- **release:** Use v0.0.4 MVP anchor, reserve v0.1.0 for publish [47706eb](https://github.com/konih/kollect/commit/47706eb217c1fd4e6002b23d746213a4a52692f5)
+- **release:** Use v0.0.4 MVP anchor, reserve v0.1.0 for publish [11fc310](https://github.com/konih/kollect/commit/11fc31028a7320a47c3b6785289f415909e103a5)
 
-- **sink/git:** Native push for file remotes on CI [d25d83a](https://github.com/konih/kollect/commit/d25d83a7c209115edf52590956dc80bc35c6377c)
+- **sink/git:** Native push for file remotes on CI [78be033](https://github.com/konih/kollect/commit/78be0330214367d35812582c0dadce56a8318312)
 
-- **sink/git:** Force-push when bare clone has no HEAD [cc1473b](https://github.com/konih/kollect/commit/cc1473bd4ff428b62762fd56ac7257dbd5f4239b)
+- **sink/git:** Force-push when bare clone has no HEAD [53e34cc](https://github.com/konih/kollect/commit/53e34cc8d6bdc1baa343360868018accfc466b62)
 
-- Address code review P0/P1 findings [cd1642f](https://github.com/konih/kollect/commit/cd1642f0662517a2ef5fffd55ddb2b16ed5fe178)
+- Address code review P0/P1 findings [7423030](https://github.com/konih/kollect/commit/7423030c3995b93da665b30fea9f24201c2eec7b)
 
-- **validation:** Require ClusterTarget namespaceSelector [2363386](https://github.com/konih/kollect/commit/2363386f217fe96d8887c7f2c4459a6f7678538e)
+- **validation:** Require ClusterTarget namespaceSelector [4669000](https://github.com/konih/kollect/commit/46690004fa67a5bbefece8981e6ae4751b05560d)
 
 
 ### Features
 
-- **api:** Per-sink export interval scheduling [296577b](https://github.com/konih/kollect/commit/296577bc0f2c682ea54d9cd3aea61275f93cf335)
+- **api:** Per-sink export interval scheduling [83c7085](https://github.com/konih/kollect/commit/83c7085d1722475757eae776587268720103bd8d)
 
-- **demo:** Venue pitch personas, fast churn, UI reveal [29f8046](https://github.com/konih/kollect/commit/29f80464d70a206ebb48baefbd197e464178edf5)
+- **demo:** Venue pitch personas, fast churn, UI reveal [674a336](https://github.com/konih/kollect/commit/674a3367e26f27282285f0f3e4a75e0f1769d02a)
 
-- **chart:** Add Prometheus Operator monitoring [cfbe62f](https://github.com/konih/kollect/commit/cfbe62f6aba27de52ac01b38fcff899dd1ddfa3c)
+- **chart:** Add Prometheus Operator monitoring [92a682a](https://github.com/konih/kollect/commit/92a682a2aeb43974c81810ae619d72bc0076bdf9)
 
-- **api:** Default KollectSink connectionTest to true [495068e](https://github.com/konih/kollect/commit/495068e7706df3223f3c775809fca21b3dbd997f)
+- **api:** Default KollectSink connectionTest to true [528c5b2](https://github.com/konih/kollect/commit/528c5b29a1b3b1d82a334f00a6468efc8be39a39)
 
-- **ui:** Merge inventory MVP with filters and virtualization [3971d8e](https://github.com/konih/kollect/commit/3971d8e3790f56e8aa868271b75b8c0fdee6a434)
+- **ui:** Merge inventory MVP with filters and virtualization [f63f6fd](https://github.com/konih/kollect/commit/f63f6fd4222e9f89bcc25f9822d726ae0d64b99a)
 
-- **demo:** Refactor wide-scope kind showcase [b1b3d91](https://github.com/konih/kollect/commit/b1b3d9177527f593c2abeef7b21ec9f83e31dbcb)
+- **demo:** Refactor wide-scope kind showcase [c944750](https://github.com/konih/kollect/commit/c9447502e508dcdb501765b088ed37da106cdeb3)
 
-- **ui:** Wire inventory rows to detail drawer [a1d7fd7](https://github.com/konih/kollect/commit/a1d7fd7fbf0bea1f26217edd41be848715c1a8e2)
+- **ui:** Wire inventory rows to detail drawer [fc99b52](https://github.com/konih/kollect/commit/fc99b52b8f92b306869d13e4818ed2f36c7d94aa)
 
-- **ui:** Add inventory MVP with filters and virtualization [9f5e04b](https://github.com/konih/kollect/commit/9f5e04b731703551d5bd28efcc5c42cd9f095404)
+- **ui:** Add inventory MVP with filters and virtualization [d27069d](https://github.com/konih/kollect/commit/d27069d12e4decc9ad23f94b5100b80d586f6da9)
 
-- **ui:** Merge overview degraded strip and export stats [c5ca56e](https://github.com/konih/kollect/commit/c5ca56e59366f9fcbd74d9405f2d9b2b45a89051)
+- **ui:** Merge overview degraded strip and export stats [e921580](https://github.com/konih/kollect/commit/e9215804894ca21a957b823bd3c22f89e4eefffd)
 
-- **ui:** Merge detail drawers for targets and sinks [5690d4d](https://github.com/konih/kollect/commit/5690d4dfecff2da35bfefeecbb415fad1c9a2bc1)
+- **ui:** Merge detail drawers for targets and sinks [c19a410](https://github.com/konih/kollect/commit/c19a410ef070b92e3d2d43cbada92c95a00ada08)
 
-- **ui:** Add detail drawers for targets and sinks [8f3ebe3](https://github.com/konih/kollect/commit/8f3ebe3b47cbcd4e82638cbd4784b0c77aee05e0)
+- **ui:** Add detail drawers for targets and sinks [8752432](https://github.com/konih/kollect/commit/8752432c4a04e6307bdc9e58c20700091b875f5b)
 
-- **sink:** Add git push policy branch and auth options [f175929](https://github.com/konih/kollect/commit/f175929280f18d2e3a2ba0363005e18610b1e25e)
+- **sink:** Add git push policy branch and auth options [90319b2](https://github.com/konih/kollect/commit/90319b213e3970cf8f86cf23edb6049827eb0464)
 
-- **ui:** Implement Phase 1 mock Read API (MSW + Prism) [a2d9308](https://github.com/konih/kollect/commit/a2d9308b49a717ee2a2bd19454eaacf54567f693)
+- **ui:** Implement Phase 1 mock Read API (MSW + Prism) [6b0485c](https://github.com/konih/kollect/commit/6b0485c8f159f64cb01fb546e542104896e2659c)
 
-- **inventory:** Extend Read API for UI contract [0e56c19](https://github.com/konih/kollect/commit/0e56c196cf90b1cff90d113cca5074b7f3ccc0c6)
+- **inventory:** Extend Read API for UI contract [d1f0871](https://github.com/konih/kollect/commit/d1f087102a6995835b6b27d4dc2d1a656e937daf)
 
-- **api:** Add Target collection filtering (ADR-0207) [34b1ebf](https://github.com/konih/kollect/commit/34b1ebf02500491f83a2727d5671a5518e089b02)
+- **api:** Add Target collection filtering (ADR-0207) [8c63fcb](https://github.com/konih/kollect/commit/8c63fcb677f790c9bf98aa96184e62a81b2086f0)
 
-- **export:** Enforce object-store spill above 1 MiB [88e9158](https://github.com/konih/kollect/commit/88e91588486e66b0393f60aa070d637371eac743)
+- **export:** Enforce object-store spill above 1 MiB [938f63d](https://github.com/konih/kollect/commit/938f63d30bce829d11d43307e7b642a80a64b502)
 
-- **api:** Add KollectSink spec.pathTemplate [cb45ae6](https://github.com/konih/kollect/commit/cb45ae654fff5d71fecd6dda719d7392acb2c30a)
+- **api:** Add KollectSink spec.pathTemplate [31004c5](https://github.com/konih/kollect/commit/31004c504c98357174eb2c4e772032edc98c71b9)
 
-- **sink:** Add S3/GCS Parquet snapshot export [f66d3be](https://github.com/konih/kollect/commit/f66d3bee667b177c2445132bb7b7655b00635a22)
+- **sink:** Add S3/GCS Parquet snapshot export [8704e76](https://github.com/konih/kollect/commit/8704e761efa47e49c8178151fa48519d101281bf)
 
-- [**breaking**] Remove KollectHub reconciler [9190ee1](https://github.com/konih/kollect/commit/9190ee16026af163083359c8f0e3ce7364689e96)
+- [**breaking**] Remove KollectHub reconciler [3c30605](https://github.com/konih/kollect/commit/3c306052c1a01720f37e19ac482b48678c3e3703)
 
-- [**breaking**] Remove KollectHub CRD surface [d4fd4f0](https://github.com/konih/kollect/commit/d4fd4f068500ae02b5839d6e719d9e0166bfb81f)
+- [**breaking**] Remove KollectHub CRD surface [6470a34](https://github.com/konih/kollect/commit/6470a34ee66f932e990a95e169bfd7575ec468fa)
 
-- **webhook:** Validate KollectSink spec.type enum [7fb0475](https://github.com/konih/kollect/commit/7fb0475775908d36a343b55f47994a1fae092369)
+- **webhook:** Validate KollectSink spec.type enum [5b509e7](https://github.com/konih/kollect/commit/5b509e73a77c87ec8122628dd4d14578b8ac1e3e)
 
-- **api:** Add KollectClusterInventory spec.dedupe [10d9345](https://github.com/konih/kollect/commit/10d934501e31b008cd9d474a0924886aa9c632d0)
+- **api:** Add KollectClusterInventory spec.dedupe [e8bf743](https://github.com/konih/kollect/commit/e8bf74398b69b8b79d5f21ffcc14d991a3ef0ef9)
 
-- **export:** Add schemaVersion inventory envelope [eae349e](https://github.com/konih/kollect/commit/eae349ecd93ed44f1414a15f893a0ac0c4f1a4ab)
+- **export:** Add schemaVersion inventory envelope [e115d27](https://github.com/konih/kollect/commit/e115d27f486cdbc086a28f011101ce0fad229b5f)
 
-- **sink:** Add NATS JetStream event sink backend [9ea0fcf](https://github.com/konih/kollect/commit/9ea0fcfb911b39a396f8bb296acb2f97c6774723)
+- **sink:** Add NATS JetStream event sink backend [135021c](https://github.com/konih/kollect/commit/135021cc8a5de549d64df2cb8aa66e350649a7bf)
 
-- **export:** Add schemaVersion to export envelopes [52ff2ac](https://github.com/konih/kollect/commit/52ff2acda30f5f5adede43ef10f8ae16feb72926)
+- **export:** Add schemaVersion to export envelopes [0b69ae9](https://github.com/konih/kollect/commit/0b69ae99830dae57035e2c46462ac2ac53d59001)
 
-- **sink:** Add Capabilities and postgres delete reconciliation [4f26f1c](https://github.com/konih/kollect/commit/4f26f1cc96f702a388f30755e0d03d1ed973803a)
+- **sink:** Add Capabilities and postgres delete reconciliation [119e861](https://github.com/konih/kollect/commit/119e861f4dd502adb1dc1bb1242cc70239f712c3)
 
-- **controller:** Wire cluster inventory aggregate dedupe [e5ac7b5](https://github.com/konih/kollect/commit/e5ac7b5361e2369cae51f06519a14c047273531f)
+- **controller:** Wire cluster inventory aggregate dedupe [9e87710](https://github.com/konih/kollect/commit/9e87710738adeb7003bb944cdd8b1c562af8f5fd)
 
-- **aggregate:** Add cross-target dedupe spike stub [2327b8b](https://github.com/konih/kollect/commit/2327b8bb4e36f0a5a9334e383ce1c9a43333bb7e)
+- **aggregate:** Add cross-target dedupe spike stub [1592473](https://github.com/konih/kollect/commit/15924733d6ae724690e746b7280443e779850241)
 
-- **sink:** Push gitlab exports to feature branch in mr mode [08843d1](https://github.com/konih/kollect/commit/08843d19a74aa129afdd9b75d2994f090e5f05fc)
+- **sink:** Push gitlab exports to feature branch in mr mode [2f1f2df](https://github.com/konih/kollect/commit/2f1f2df017fab82f594380a8fe33c928d597b503)
 
-- **collect:** Emit prometheus label values from profile metrics [a3c72ec](https://github.com/konih/kollect/commit/a3c72ecdcc88fbf9784fe9882b684534152628b9)
+- **collect:** Emit prometheus label values from profile metrics [033fa15](https://github.com/konih/kollect/commit/033fa15e7084bdf918207ce825f26a735d35d93a)
 
-- **collect:** Wire profile metrics paths and hub merge metric [4e7d01d](https://github.com/konih/kollect/commit/4e7d01dcd8dc4c7a81fe573c12d748f19a984cbf)
+- **collect:** Wire profile metrics paths and hub merge metric [fbdd059](https://github.com/konih/kollect/commit/fbdd059f695813cf933277943af1b160832de7c2)
 
-- **api:** Add KollectProfile.spec.metrics spike [9874d02](https://github.com/konih/kollect/commit/9874d025ef139372678dc93b3e3133b31cf2725b)
+- **api:** Add KollectProfile.spec.metrics spike [25fc642](https://github.com/konih/kollect/commit/25fc642c6fa12afdce231a55c05457d70f8e3131)
 
-- **collect:** Wire RecordCustomResourceSeries on snapshot [1829c85](https://github.com/konih/kollect/commit/1829c858b687c588210e8e44b13f13a846a8733e)
+- **collect:** Wire RecordCustomResourceSeries on snapshot [fcf0c5d](https://github.com/konih/kollect/commit/fcf0c5d0bedd0ac07332fcb8d982f3bf9d157386)
 
-- **collect:** Add Phase 4 aggregation metrics stub [d05fc4c](https://github.com/konih/kollect/commit/d05fc4c5b6a3288c55901734198245b55d50e6fb)
+- **collect:** Add Phase 4 aggregation metrics stub [1806597](https://github.com/konih/kollect/commit/1806597daf0973d0ecb961c93eaad2d1070384ff)
 
-- **sink:** Add GitLab API v4 merge request client [8247f4e](https://github.com/konih/kollect/commit/8247f4ec6fa451b7837acce56a0f534193a13352)
+- **sink:** Add GitLab API v4 merge request client [6af3630](https://github.com/konih/kollect/commit/6af3630eff335fcef7f0cd655970e471fea4f89c)
 
-- **collect:** Complete ADR-0020 metrics catalog [4d14925](https://github.com/konih/kollect/commit/4d14925b5aebc8665c59c72181e9950cc07ad011)
+- **collect:** Complete ADR-0020 metrics catalog [9c940b1](https://github.com/konih/kollect/commit/9c940b14993d7688d0518db5fc3a1c9e9bf75941)
 
-- **sink:** Add gitlab mergeRequest CRD and transport ACL wire [bd6499f](https://github.com/konih/kollect/commit/bd6499fe1756dc5c7cc24367d49fa46f96f079ca)
+- **sink:** Add gitlab mergeRequest CRD and transport ACL wire [304c50d](https://github.com/konih/kollect/commit/304c50d23073dfc586d38dc488a83c1b016f03a2)
 
-- **controller:** Wire cluster inventory export to sinks [b5445a2](https://github.com/konih/kollect/commit/b5445a2c37ea27f91a13b8ba6084cdf201ff4796)
+- **controller:** Wire cluster inventory export to sinks [18ed358](https://github.com/konih/kollect/commit/18ed35802631497b5946e285e30ba1b03327431f)
 
-- **transport:** Add queue wire ACL allowlist stub [a4c73a8](https://github.com/konih/kollect/commit/a4c73a8045772781eb845d083f11760b01ff18c7)
+- **transport:** Add queue wire ACL allowlist stub [83beaf5](https://github.com/konih/kollect/commit/83beaf56d868e67ff9b8ae88024157821c6929d8)
 
-- **controller:** Add cluster target and inventory skeletons [737786d](https://github.com/konih/kollect/commit/737786d26ad4551b4d6b7588a34e61b2ce4eed4a)
+- **controller:** Add cluster target and inventory skeletons [741d35f](https://github.com/konih/kollect/commit/741d35f275db06d6c018b67e0a085bb7d0747944)
 
-- **sink/gitlab:** Scaffold GitLab export backend [553117c](https://github.com/konih/kollect/commit/553117cc30b5fdaaf8bcdf42406287ac403d9d81)
+- **sink/gitlab:** Scaffold GitLab export backend [b2c1527](https://github.com/konih/kollect/commit/b2c152717ef9fc4bcf75784ea74710486cd77f75)
 
-- **hub:** Parallel Postgres+Kafka export on ingest [68c832a](https://github.com/konih/kollect/commit/68c832a4333cacc02dff396a421df710669c6d52)
+- **hub:** Parallel Postgres+Kafka export on ingest [d5a97e4](https://github.com/konih/kollect/commit/d5a97e47a5d7c215f3fbd8a8045284548db50663)
 
-- **api:** Add KollectClusterProfile CR [c901190](https://github.com/konih/kollect/commit/c9011907df03ae50c01e78e2a0c8f7ec0849091a)
+- **api:** Add KollectClusterProfile CR [ee6ff58](https://github.com/konih/kollect/commit/ee6ff58bd49c87c956f58aba48827308fc089618)
 
-- **api:** Add KollectClusterInventory CR [47d1647](https://github.com/konih/kollect/commit/47d1647637b550984337e166d01cc34dca06cf4e)
+- **api:** Add KollectClusterInventory CR [91465f2](https://github.com/konih/kollect/commit/91465f2fdd890b3accb51d0ee353084758a41584)
 
-- **api:** Add KollectClusterInventory CR [1263877](https://github.com/konih/kollect/commit/12638770dbf0a24f15ec420bc35e1b39fec293ab)
+- **api:** Add KollectClusterInventory CR [d7eb87a](https://github.com/konih/kollect/commit/d7eb87aff77f6cde6b96c115b8410959dc919091)
 
-- **api:** Add KollectClusterTarget CR and webhook [4ed55f2](https://github.com/konih/kollect/commit/4ed55f2d31778465ec844ea60f61b3915a01eea3)
+- **api:** Add KollectClusterTarget CR and webhook [2c7d6a9](https://github.com/konih/kollect/commit/2c7d6a98433ca9f8131131d4bda1e662ead4ade9)
 
 
 ### Refactoring
 
-- **controller:** Remove --export-debounce flag [d5a01fa](https://github.com/konih/kollect/commit/d5a01fa5cf631431df16536de9bc34b3b563b552)
+- **controller:** Remove --export-debounce flag [3d5b729](https://github.com/konih/kollect/commit/3d5b7291f01abe6bc03cceb4c626836e4b0455c8)
 
-- Unify bearer auth and brittle error assertions [d382a28](https://github.com/konih/kollect/commit/d382a28ff5e9188e1547f2f176857bb0c8752047)
+- Unify bearer auth and brittle error assertions [13fdc78](https://github.com/konih/kollect/commit/13fdc7888098c5ea86e3ec01489ed2d5a2a5b18c)
 
-- **sink:** Extract shared RunExportItems pipeline [d9494ae](https://github.com/konih/kollect/commit/d9494ae79a68065a9122f8cf538a13f877045930)
+- **sink:** Extract shared RunExportItems pipeline [3762989](https://github.com/konih/kollect/commit/3762989f27adc203853f66b4e12c142347a0734b)
 
-- **controller:** Extract cluster inventory export path [5214893](https://github.com/konih/kollect/commit/5214893dda65d7a5957b010b16d6a253140e9f8d)
+- **controller:** Extract cluster inventory export path [535cca4](https://github.com/konih/kollect/commit/535cca47a7f5e66d4b8d37c6fcfb4eb79a26713f)
 
 ## [0.0.4](https://github.com/konih/kollect/compare/v0.0.3..v0.0.4) - 2026-06-05
 
 ### Bug Fixes
 
-- **inventory:** V1alpha1 HTTP paths and export caps [aa9f9c6](https://github.com/konih/kollect/commit/aa9f9c6d991aadda47a61e764bf4525f83ff84b3)
+- **inventory:** V1alpha1 HTTP paths and export caps [796168e](https://github.com/konih/kollect/commit/796168ebf57340d5ef89412051f16d8fc666e08e)
 
-- **collect:** Avoid startInformer mutex deadlock [50fb789](https://github.com/konih/kollect/commit/50fb7893316d71fa6275c74270919a7e7bb9b5a4)
+- **collect:** Avoid startInformer mutex deadlock [7b614f5](https://github.com/konih/kollect/commit/7b614f5045b80ba4478982b93d0a3e14ab3f1ff1)
 
-- **obs:** Standalone perf-report shell script [f51e0be](https://github.com/konih/kollect/commit/f51e0be5df4fcdf3d4f05ebca771316a8964e877)
+- **obs:** Standalone perf-report shell script [98d6d33](https://github.com/konih/kollect/commit/98d6d33041660883ee813badb971ae6d53d6d647)
 
 
 ### Features
 
-- **api:** Add KollectConnectionTest CR [176a945](https://github.com/konih/kollect/commit/176a945ac03b093ac35fb8d394b5b423b73e82e7)
+- **api:** Add KollectConnectionTest CR [b1036cd](https://github.com/konih/kollect/commit/b1036cd779f4a8bd62039a9f8515836ef917de4d)
 
-- **inventory:** Export debouncing with checksum [23c575d](https://github.com/konih/kollect/commit/23c575d58e83b84e998c7c5f668bd142fcfebaa0)
+- **inventory:** Export debouncing with checksum [377b091](https://github.com/konih/kollect/commit/377b0912d4aa9f0720949e8c64d0ae6958808d43)
 
-- **api:** [**breaking**] Namespaced KollectSink and same-ns sinkRefs [9c0e361](https://github.com/konih/kollect/commit/9c0e3619c88c314137f9f27f493ecf2cf8484779)
+- **api:** [**breaking**] Namespaced KollectSink and same-ns sinkRefs [687c4c7](https://github.com/konih/kollect/commit/687c4c7311c416ac0f09c5f8eee2c4d84aa1a804)
 
-- **transport:** Queue TLS and hub ACL hardening [bf0139a](https://github.com/konih/kollect/commit/bf0139a0b70b74b88bb3bacdbc440e2ef6fbe0f9)
+- **transport:** Queue TLS and hub ACL hardening [65caa30](https://github.com/konih/kollect/commit/65caa30f68b5b74e9bb1e9633096c41bb92b889e)
 
-- **controller:** SinkReachable export and probe cleanup [4940cd0](https://github.com/konih/kollect/commit/4940cd08f285b64ae2e3994f726cc73efcb6af88)
+- **controller:** SinkReachable export and probe cleanup [92598d9](https://github.com/konih/kollect/commit/92598d95cf4f5f0e1fbc61cbcb2ac8fefb536c68)
 
-- **operator:** Add hub and spoke mode flag [c8da5b3](https://github.com/konih/kollect/commit/c8da5b3243bf628a6ff9e7f7b888b29aaff75105)
+- **operator:** Add hub and spoke mode flag [d2bc4da](https://github.com/konih/kollect/commit/d2bc4dacedf2339967468b41a5845e459baeb786)
 
-- **api:** [**breaking**] Make KollectProfile namespaced [92240c3](https://github.com/konih/kollect/commit/92240c330f8122837230f8c5ec66d363cb984d6b)
+- **api:** [**breaking**] Make KollectProfile namespaced [64687aa](https://github.com/konih/kollect/commit/64687aaac778404a965a8582fa62a9d49b4dc60c)
 
-- **scope:** Enforce KollectScope in reconcilers [2e74b41](https://github.com/konih/kollect/commit/2e74b415d9b24c71efa5bb5d83eaa9c0041e6643)
+- **scope:** Enforce KollectScope in reconcilers [60e79ce](https://github.com/konih/kollect/commit/60e79ce65d0d90e6b88f0698329be0d51988d1a2)
 
-- **hub:** Wire remoteClusters and credential pull [bd919cd](https://github.com/konih/kollect/commit/bd919cd9e4de2d8ae01a8986390d5dc48d998f15)
+- **hub:** Wire remoteClusters and credential pull [d1ca137](https://github.com/konih/kollect/commit/d1ca137d1ebda0f68b5c1ece5fea655b5fb1c9f4)
 
-- **cli:** Add create-remote-secret stub [df19fd6](https://github.com/konih/kollect/commit/df19fd6569d16733fe46ec061a977874b99f95e3)
+- **cli:** Add create-remote-secret stub [ef6ec64](https://github.com/konih/kollect/commit/ef6ec64b56687afa29ef5ede3888bb914765c1b6)
 
-- **hub:** Add SAR on ingest auth [d0f06b3](https://github.com/konih/kollect/commit/d0f06b3bab5417188d41f093a5cf016671aac252)
+- **hub:** Add SAR on ingest auth [da8e632](https://github.com/konih/kollect/commit/da8e632bef00eb3bb9c302e53b83454fe57c4bdc)
 
-- **hub:** Remote cluster Connected and queue wire auth [32ef269](https://github.com/konih/kollect/commit/32ef269c6747041b4bcfc03635d281b7f2e0c87e)
+- **hub:** Remote cluster Connected and queue wire auth [203509d](https://github.com/konih/kollect/commit/203509dc1f373a46da22209066520f43f7c297da)
 
-- **collect:** Namespace and resource watch labels [d1c059a](https://github.com/konih/kollect/commit/d1c059a83066116140089f01074ba9dcf01afec7)
+- **collect:** Namespace and resource watch labels [156e196](https://github.com/konih/kollect/commit/156e196804d35dbc144636a1aa773ca5f8ad1132)
 
-- **hub:** Spoke push auth via TokenReview [080435f](https://github.com/konih/kollect/commit/080435f56fd0a7d6e1d168e0a68ac00d6fa19e2c)
+- **hub:** Spoke push auth via TokenReview [8ef9bef](https://github.com/konih/kollect/commit/8ef9befa6b46beeb118fcee7d6de0eb33f200620)
 
-- Namespaced multi-tenant operator support [f19cc4e](https://github.com/konih/kollect/commit/f19cc4ec437c35daabc640579bfa6832247a82da)
+- Namespaced multi-tenant operator support [e2020df](https://github.com/konih/kollect/commit/e2020df5ac9d9a9bb91effe36237cd420084ab2b)
 
-- **spoke:** Delta publish with transport reuse [2e4b217](https://github.com/konih/kollect/commit/2e4b2171ac50826d440676ccc9545a23fdbe9dca)
+- **spoke:** Delta publish with transport reuse [e75a5d9](https://github.com/konih/kollect/commit/e75a5d9b02a7cf032954cea3244fa3444d7c5b46)
 
-- **hub:** 100-spoke merge spike and delta removals [cdc79b2](https://github.com/konih/kollect/commit/cdc79b246b541dcbcf15c26afc0e6008a0e47123)
+- **hub:** 100-spoke merge spike and delta removals [aeba1f3](https://github.com/konih/kollect/commit/aeba1f31141acd6ac8e3585cc3a888440701cffa)
 
-- **transport:** Add NATS JetStream backend [9f185e4](https://github.com/konih/kollect/commit/9f185e4c3c74c912dcb751a3cecddf71774ea30d)
+- **transport:** Add NATS JetStream backend [d981a90](https://github.com/konih/kollect/commit/d981a900437fcef0a428445abec0001ffa23ca07)
 
-- **hub:** Wire consumer mode and spoke publish stub [b16321a](https://github.com/konih/kollect/commit/b16321ac7d597a6270a09e7043fcd95292e585a0)
+- **hub:** Wire consumer mode and spoke publish stub [9a3940e](https://github.com/konih/kollect/commit/9a3940e9c7650dd7d28e0d94b20649e2de114bb0)
 
-- **hub:** Spoke report merge consumer [b06659e](https://github.com/konih/kollect/commit/b06659e2339d2442e52db341948adb7d96026322)
+- **hub:** Spoke report merge consumer [da9daa9](https://github.com/konih/kollect/commit/da9daa9501c77c947a7291b7f7d2bd3b24a9e38e)
 
-- **transport:** Kafka backend with redpanda tests [b795ceb](https://github.com/konih/kollect/commit/b795cebe9d35f446c8c6c41b86ccd650a67cd582)
+- **transport:** Kafka backend with redpanda tests [5ef18a7](https://github.com/konih/kollect/commit/5ef18a78bcbf4cc43406805ba2bd18d76f79e807)
 
-- **obs:** Task perf-report and metrics catalog [e5ce1a9](https://github.com/konih/kollect/commit/e5ce1a9b092f6d7a74e188d2be3334c285ba0215)
+- **obs:** Task perf-report and metrics catalog [4de96e8](https://github.com/konih/kollect/commit/4de96e810b4a9217fd1b451569a04d51e5a5eae8)
 
-- **perf:** Parallelism, metrics, and pprof [53efb00](https://github.com/konih/kollect/commit/53efb00c0c9945048c12e795cbc77c6b03e00c9d)
+- **perf:** Parallelism, metrics, and pprof [3da5ff8](https://github.com/konih/kollect/commit/3da5ff84ace7754ca143129a72b902708135dcac)
 
-- **sink:** Postgres and kafka export backends [5eb2b71](https://github.com/konih/kollect/commit/5eb2b7101a45746487e47975a97aa8ef24e5b411)
+- **sink:** Postgres and kafka export backends [fa8aeb5](https://github.com/konih/kollect/commit/fa8aeb50ad40ee250cf88b8d532289f516b7534f)
 
-- **sink:** GCS backend and prometheus stub [0d6ab00](https://github.com/konih/kollect/commit/0d6ab0024c5ced84999463fc47df50ef6db4398d)
+- **sink:** GCS backend and prometheus stub [7bde2ba](https://github.com/konih/kollect/commit/7bde2ba420e8aba1f078e6235e7a8be41c4859d6)
 
-- **api:** KollectHub and KollectScope CRDs [c61ef78](https://github.com/konih/kollect/commit/c61ef781052c23febd8589de5bd94de7a334801f)
+- **api:** KollectHub and KollectScope CRDs [ae90224](https://github.com/konih/kollect/commit/ae90224d7045e4f3abeb408d3df489e2922f7bce)
 
-- **transport:** Pluggable factory with Redis Streams [36a8193](https://github.com/konih/kollect/commit/36a819337cba8e799cb6d928563fae1035f35cf1)
+- **transport:** Pluggable factory with Redis Streams [d08d612](https://github.com/konih/kollect/commit/d08d61206624a752b194687055736fb2c400d7ff)
 
-- **metrics:** Complete ADR-0020 operator metric set [ec56d86](https://github.com/konih/kollect/commit/ec56d862a5b91942b93805705b2c5cc762865433)
+- **metrics:** Complete ADR-0020 operator metric set [0e14c05](https://github.com/konih/kollect/commit/0e14c05359ed185caba89641eb2072a7310e788c)
 
-- **collect:** SAR degradation and namespaceSelector [e127736](https://github.com/konih/kollect/commit/e1277363aba2a389448ba941af7508ede3550fdc)
+- **collect:** SAR degradation and namespaceSelector [39ae427](https://github.com/konih/kollect/commit/39ae427eccd8a9faa3f2e9500c9b59b6a0518a4e)
 
-- **inventory:** Store-backed HTTP API and K8s auth [3c84ec9](https://github.com/konih/kollect/commit/3c84ec957cb53a74b5f8cbf70a96c9016a963553)
+- **inventory:** Store-backed HTTP API and K8s auth [ee03b72](https://github.com/konih/kollect/commit/ee03b7204a02c1f4815aaad5beecf7c9dd912277)
 
-- **controller:** Wire collection and inventory export [dd31026](https://github.com/konih/kollect/commit/dd310269acdf34e0d2dc9005e9f49d2f5eb463d5)
+- **controller:** Wire collection and inventory export [b40252f](https://github.com/konih/kollect/commit/b40252ffd041371e54ab5506c93614617964c619)
 
-- **transport:** Add in-process pub/sub bus [33344c2](https://github.com/konih/kollect/commit/33344c26729ffdee6d9da3b76617203bc636c425)
+- **transport:** Add in-process pub/sub bus [9154c22](https://github.com/konih/kollect/commit/9154c22709d5b5265ea6fd7e8963730ad9a7949a)
 
-- **collect:** Add dynamic informer engine and store [db23db0](https://github.com/konih/kollect/commit/db23db001e7bbb4bb5413d492d5726b84f2ec1e6)
+- **collect:** Add dynamic informer engine and store [666bded](https://github.com/konih/kollect/commit/666bded58c64bfadbfe557e550506e2d2ab28b15)
 
-- **sink:** Add git export and s3 PutObject backends [4b5f7a8](https://github.com/konih/kollect/commit/4b5f7a8a69aeb8fe29783ac4191259ec65617b01)
+- **sink:** Add git export and s3 PutObject backends [8157739](https://github.com/konih/kollect/commit/81577397c2190332b704f4eed3bbd5bd483e469c)
 
-- **inventory:** Add toggleable HTTP endpoint and metrics [3f5c194](https://github.com/konih/kollect/commit/3f5c1941dd888021810ec4c4f7c4b5ff9314b624)
+- **inventory:** Add toggleable HTTP endpoint and metrics [1b6f907](https://github.com/konih/kollect/commit/1b6f9077518ad9e87603dbaaf54804199c8d94d3)
 
-- **sink:** Add connection test with TLS CA support [a907332](https://github.com/konih/kollect/commit/a907332ff869fb65139e60550c2bb4fd7af78a54)
+- **sink:** Add connection test with TLS CA support [dcc6e48](https://github.com/konih/kollect/commit/dcc6e48174983fe5e58b79a41eaaa10902251939)
 
-- **webhook:** Validate Profile CEL and JSONPath paths [ab044e5](https://github.com/konih/kollect/commit/ab044e5cb41717c459fb84a86510c85a553608ab)
+- **webhook:** Validate Profile CEL and JSONPath paths [6329e86](https://github.com/konih/kollect/commit/6329e8645a7cf6bb7eaf2394a3fa5712ece134f3)
 
 
 ### Refactoring
 
-- **hub:** Deprecate KollectHub controller [a0789ba](https://github.com/konih/kollect/commit/a0789ba2fcb3b4f2e945a4e056f3968a97bb1ded)
+- **hub:** Deprecate KollectHub controller [6cf1bb3](https://github.com/konih/kollect/commit/6cf1bb3b32e975b57bab161b091402d83c3a94ce)
 
-- **collect:** Store Len and reconcile metrics [b30dd3d](https://github.com/konih/kollect/commit/b30dd3de07d6d3ab61a7fcdaeef64afe63ee9dea)
+- **collect:** Store Len and reconcile metrics [09e1ca0](https://github.com/konih/kollect/commit/09e1ca0c0a7a63306c72f95e4c9e51c390760d74)
 
-- **api:** [**breaking**] Make KollectInventory namespaced [cdd06d2](https://github.com/konih/kollect/commit/cdd06d265ac37fef3b0750999ffcf5822c5598f0)
+- **api:** [**breaking**] Make KollectInventory namespaced [1db8ed6](https://github.com/konih/kollect/commit/1db8ed68602c086c19d4d8581966d659b3770896)
 
 ## [0.0.3](https://github.com/konih/kollect/compare/v0.0.2..v0.0.3) - 2026-06-05
 
 ### Bug Fixes
 
-- **build:** Use repo-root kustomize in deploy task [ab0f434](https://github.com/konih/kollect/commit/ab0f434336684a5d43e06129521d9ea28d3a7a79)
+- **build:** Use repo-root kustomize in deploy task [6812cee](https://github.com/konih/kollect/commit/6812cee8b46094b7b9391cdad94eb5a9cd484381)
 
-- **build:** Move scrub patterns out of Taskfile [8a435c4](https://github.com/konih/kollect/commit/8a435c43ff5c2e674e6c93eae359caa29386df9c)
+- **build:** Move scrub patterns out of Taskfile [023da6f](https://github.com/konih/kollect/commit/023da6f64edd4409835867203a8c431ff7740c50)
 
-- **test:** Satisfy ginkgolinter and shorten status comments [15eef6d](https://github.com/konih/kollect/commit/15eef6df77ec514caa4ca727b91b5f6b9bc5d006)
+- **test:** Satisfy ginkgolinter and shorten status comments [d6cf08c](https://github.com/konih/kollect/commit/d6cf08c16d09eebfcabc5d2e4480c020035baa11)
 
 
 ### Features
 
-- **helm:** Add kollect operator chart [6642133](https://github.com/konih/kollect/commit/66421337fb48ecadbae4856d51e7dc2433470eee)
+- **helm:** Add kollect operator chart [9b3e0da](https://github.com/konih/kollect/commit/9b3e0da2bb35e2a864899e06da4de5d390d65190)
 
-- **api:** Add sink TLS and inventory HTTP fields [9fc70ee](https://github.com/konih/kollect/commit/9fc70ee230d3c6a05a095bf24c7622653b9393f1)
+- **api:** Add sink TLS and inventory HTTP fields [fba40b7](https://github.com/konih/kollect/commit/fba40b7fd7d284d69db22488721485c393357330)
 
-- **controller:** Validate KollectTarget profileRef [1fccc36](https://github.com/konih/kollect/commit/1fccc3657e5bcbc71938eeb27a2e4017d3a7874f)
+- **controller:** Validate KollectTarget profileRef [51a3c51](https://github.com/konih/kollect/commit/51a3c51225f25113d139168117f230c71869ed34)
 
-- **sink:** Add backend registry with git stub [d7f0e1c](https://github.com/konih/kollect/commit/d7f0e1c4aeb7eeb58b974de689efe2020db38bfe)
+- **sink:** Add backend registry with git stub [472800c](https://github.com/konih/kollect/commit/472800c0037d328aa31a942e79185651d01a158f)
 
-- **collect:** Add CEL and JSONPath extractor [91ab137](https://github.com/konih/kollect/commit/91ab1379f9a7357baef656d53afd044964223f73)
+- **collect:** Add CEL and JSONPath extractor [8b079e4](https://github.com/konih/kollect/commit/8b079e49cf7bdfa4248ca877ef1e0cd35b90cfe5)
 
 
 ### Refactoring
 
-- **samples:** Consolidate on kollect_v1alpha1_* set [237b805](https://github.com/konih/kollect/commit/237b8051278150ad58d45ff9233b45bbb7e12d90)
+- **samples:** Consolidate on kollect_v1alpha1_* set [8c6263d](https://github.com/konih/kollect/commit/8c6263dda34ab3cc6a182f2cb244bff00601faed)
 
 ## [0.0.2](https://github.com/konih/kollect/compare/v0.0.1..v0.0.2) - 2026-06-04
 
 ### Features
 
-- **api:** Add KollectProfile/Sink/Target/Inventory v1alpha1 types [1e6f671](https://github.com/konih/kollect/commit/1e6f6719bcab81d3c18eb17d066bb29946a9f70e)
+- **api:** Add KollectProfile/Sink/Target/Inventory v1alpha1 types [5f5866f](https://github.com/konih/kollect/commit/5f5866fa72b05e4a4b961b56a5ec9da780af7e37)
 
 ## [0.0.1] - 2026-06-04
