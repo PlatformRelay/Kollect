@@ -74,6 +74,8 @@ nav:
       - Deployment topology matrix: deployment/topology-matrix.md
       - Team-owned operator (minimal RBAC): deployment/team-operator.md
   - User Guide:
+      - Guides:
+          - "Pipeline CLI (CI/CD collection)": guides/pipeline-cli.md
       - Examples:
           - Overview: examples/README.md
           - Deployment inventory: examples/deployment-inventory.md
