@@ -89,6 +89,38 @@ func TestSampleClusterInventoryValidates(t *testing.T) {
 	}
 }
 
+func TestSampleInventoryExportPartitioningValidates(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Join("..", "..", "config", "samples")
+	path := filepath.Join(root, "kollect_v1alpha1_kollectinventory_export-partitioning.yaml")
+
+	var inv kollectdevv1alpha1.KollectInventory
+	decodeSample(t, path, &inv)
+
+	if errs := validation.ValidateInventorySpec(&inv.Spec); len(errs) > 0 {
+		t.Fatalf("%s: validation failed: %v", path, errs)
+	}
+
+	if inv.Spec.MaxExportBytes == nil {
+		t.Fatalf("%s: expected an inventory-wide spec.maxExportBytes ceiling", path)
+	}
+
+	var override *int64
+	for _, ref := range inv.Spec.SnapshotSinkRefs {
+		if ref.MaxExportBytes != nil {
+			override = ref.MaxExportBytes
+		}
+	}
+	if override == nil {
+		t.Fatalf("%s: expected a snapshot sink ref with a maxExportBytes override", path)
+	}
+
+	if got := validation.ResolveBindingMaxExportBytes(override, *inv.Spec.MaxExportBytes); got != *override {
+		t.Fatalf("%s: override %d not effective, resolved %d", path, *override, got)
+	}
+}
+
 func TestSampleSinksValidate(t *testing.T) {
 	t.Parallel()
 

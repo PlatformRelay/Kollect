@@ -62,15 +62,24 @@ Debouncing state machine: [DATA-FLOWS.md §1](../DATA-FLOWS.md#1-export-debounci
     requeue wake-ups floor at **1s** — prefer `0s`, which event sinks (Kafka/NATS) typically use.
     Full semantics: [DATA-FLOWS §1](../DATA-FLOWS.md#1-export-debouncing).
 
+!!! info "Export size ceiling precedence (per sink binding)"
+    For each sink ref: **ref `maxExportBytes`** → **`spec.maxExportBytes`** → **operator global cap**
+    (default **1.5 MiB**, [ADR-0103](../adr/0103-etcd-limit.md)). A ref override **replaces** the
+    inventory-wide ceiling wholesale (override, not clamp), so a binding may set a smaller **or
+    larger** ceiling than `spec.maxExportBytes` — the webhook only rejects values that are
+    non-positive or above the operator global cap. Payloads exceeding the effective ceiling are
+    split into multiple export parts. Typical use: keep a large ceiling for Postgres while forcing
+    smaller parts for a Git audit sink.
+
 ## Spec fields
 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `spec.snapshotSinkRefs[]` | list | No | — | Snapshot sink names (string) or `{ name, exportMinInterval? }` |
+| `spec.snapshotSinkRefs[]` | list | No | — | Snapshot sink names (string) or `{ name, exportMinInterval?, maxExportBytes? }` |
 | `spec.databaseSinkRefs[]` | list | No | — | Database sink refs (same shape) |
 | `spec.eventSinkRefs[]` | list | No | — | Event sink refs (same shape); combined max **20** refs |
 | `spec.exportMinInterval` | duration | No | **30s** | Debounce for **identical payloads** per ref without override; material changes always export immediately; `0s` = material-change only |
-| `spec.maxExportBytes` | int64 | No | global cap | Max marshalled payload size |
+| `spec.maxExportBytes` | int64 | No | global cap | Inventory-wide export size ceiling; per-ref `maxExportBytes` overrides it per sink binding |
 | `spec.suspend` | bool | No | false | Pause reconciliation |
 | `spec.httpEndpoint.enabled` | bool | No | false | Per-CR HTTP debug (operator gate also required) |
 | `spec.httpEndpoint.port` | int32 | No | 8082 | Listen port when HTTP enabled |
@@ -97,7 +106,9 @@ spec:
 ```
 
 See [`config/samples/kollect_v1alpha1_kollectinventory_sharded.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectinventory_sharded.yaml)
-for a large-profile sharded variant.
+for a large-profile sharded variant, and
+[`config/samples/kollect_v1alpha1_kollectinventory_export-partitioning.yaml`](https://github.com/konih/kollect/blob/main/config/samples/kollect_v1alpha1_kollectinventory_export-partitioning.yaml)
+for a per-sink-binding `maxExportBytes` override (1 MiB inventory-wide ceiling, 512 KiB Git parts).
 
 ## Sample usage
 
@@ -159,7 +170,7 @@ Aggregate `status.lastExportTime` is the **max** of per-sink times (backward com
 | `ScopeLookupFailed` | Cannot read scope | RBAC / API error |
 | `SinkNotFound` | Bad `sinkRefs` entry | Correct sink name |
 | `SinkUnreachable` | `ConnectionVerified=False` | Fix sink credentials / network |
-| `PayloadTooLarge` | Exceeds `maxExportBytes` | Split targets, raise cap within global limit, or trim attributes |
+| `PayloadTooLarge` | Exceeds `maxExportBytes` | Split targets, raise the inventory-wide or per-ref `maxExportBytes` within the global cap, or trim attributes |
 | `ExportTerminal` | Non-retryable sink error | Fix sink config; check operator logs |
 | `Progressing` | Transient network/429 | Usually self-heals; inspect `kollect_sink_errors_total` |
 

@@ -1,0 +1,24 @@
+# Export partitioning with a per-sink-binding size ceiling (AR-01 / EC-P0-01, Option B).
+# The inventory-wide spec.maxExportBytes (1 MiB) applies to every sink ref without an
+# override; the Git snapshot ref overrides it down to 512 KiB so the Git backend receives
+# smaller export parts. A ref override replaces the inventory-wide ceiling wholesale
+# (override, not clamp) and may also exceed it — the webhook only rejects values above
+# the operator global cap (default 1.5 MiB, ADR-0103).
+apiVersion: kollect.dev/v1alpha1
+kind: KollectInventory
+metadata:
+  name: partitioned-inventory
+  namespace: default
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  exportMinInterval: 30s
+  maxExportBytes: 1048576          # inventory-wide ceiling: 1 MiB
+  databaseSinkRefs:
+    - postgres-inventory-demo      # no override -> inventory-wide 1 MiB ceiling
+  snapshotSinkRefs:
+    - name: git-inventory-demo
+      exportMinInterval: 1h
+      maxExportBytes: 524288       # per-binding override: split Git exports at 512 KiB
+  suspend: false

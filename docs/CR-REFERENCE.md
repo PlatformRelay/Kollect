@@ -76,7 +76,10 @@ reconciled kinds reference the namespaced static config by `name` + `namespace`
 
 Payloads **≥ 1 MiB** warn; **> 1 MiB** require an `s3` or `gcs` snapshot sink in
 `spec.snapshotSinkRefs` (Git receives smaller exports only). Hard cap ~**1.5 MiB** `maxExportBytes`
-blocks export entirely.
+blocks export entirely. The ceiling is configurable per sink binding: each inventory family ref
+accepts a `maxExportBytes` override that replaces the inventory-wide value (or, on cluster
+inventories, the global cap) for that sink only — see
+[KollectInventory](crds/kollectinventory.md#spec-fields).
 
 Per-sink export cadence is configured on inventory/cluster-inventory family refs (string or object),
 optional sink defaults, and scope floors — [ADR-0413](adr/0413-export-interval-scheduling.md).

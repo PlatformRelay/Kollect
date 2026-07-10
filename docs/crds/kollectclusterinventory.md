@@ -55,12 +55,20 @@ once in `kollect-system` and reference them from cluster inventories (ADR-0208,
 | `spec.targetSelector` | labelSelector | No | — | Filter cluster targets when `targetRefs` empty |
 | `spec.namespaces[]` | list | No | — | Explicit namespace allow-list (DNS-1123 labels); intersected with `namespaceSelector` |
 | `spec.namespaceSelector` | labelSelector | No | — | Label filter for namespace scope; intersected with `namespaces` when both set |
-| `spec.snapshotSinkRefs[]` | list | No | — | Snapshot sink refs (string or `{ name, namespace?, exportMinInterval? }`) |
+| `spec.snapshotSinkRefs[]` | list | No | — | Snapshot sink refs (string or `{ name, namespace?, exportMinInterval?, maxExportBytes? }`) |
 | `spec.databaseSinkRefs[]` | list | No | — | Database sink refs (same shape) |
 | `spec.eventSinkRefs[]` | list | No | — | Event sink refs (same shape); combined max **20** |
 | `spec.sinkNamespace` | string | No | `kollect-system` | Default namespace for sink refs that omit `namespace` |
 | `spec.exportMinInterval` | duration | No | **30s** | Debounce for **identical payloads** per ref without override; material changes always export immediately; `0s` = material-change only |
 | `spec.suspend` | bool | No | false | Pause reconciliation (reserved) |
+
+!!! info "Export size ceiling (per sink binding)"
+    A cluster inventory has **no** spec-wide `maxExportBytes` field — each sink ref uses the
+    **operator global cap** (default **1.5 MiB**, [ADR-0103](../adr/0103-etcd-limit.md)) unless the
+    ref sets its own `maxExportBytes` override. The webhook rejects overrides that are non-positive
+    or above the global cap; payloads exceeding the effective ceiling are split into multiple
+    export parts. Same override semantics as
+    [KollectInventory](kollectinventory.md#spec-fields).
 
 !!! info "Interval semantics"
     Same rules as `KollectInventory`: the interval never delays a changed payload — material checksum

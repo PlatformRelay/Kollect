@@ -24,6 +24,7 @@ resources:
 - kollect_v1alpha1_kollecttarget_argo-applications.yaml
 - kollect_v1alpha1_kollectinventory.yaml
 - kollect_v1alpha1_kollectinventory_sharded.yaml
+- kollect_v1alpha1_kollectinventory_export-partitioning.yaml
 - kollect_v1alpha1_kollectscope_team-a.yaml
 - kollect_v1alpha1_kollectconnectiontest.yaml
 - kollect_v1alpha1_kollectclustertarget.yaml
