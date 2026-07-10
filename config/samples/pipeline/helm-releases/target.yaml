@@ -1,0 +1,14 @@
+# Match Helm 3 release Secrets across all namespaces. Helm labels its release Secrets with
+# owner=helm; status=deployed restricts collection to the currently active revision (skipping
+# superseded/failed history entries).
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: helm-releases
+  namespace: kollect-system
+spec:
+  profileRef: helm-releases
+  labelSelector:
+    matchLabels:
+      owner: helm
+      status: deployed

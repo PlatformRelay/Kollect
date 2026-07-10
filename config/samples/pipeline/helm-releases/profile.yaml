@@ -1,0 +1,37 @@
+# Helm release versions — collect the chart/app version of every deployed Helm 3 release.
+# Helm 3 stores each release as a v1/Secret (type helm.sh/release.v1); the "helm:release."
+# path prefix decodes that Secret and exposes release metadata without reading raw Secret data
+# (chart name/version, app version, status — no values/config, so no opt-in annotation needed).
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: helm-releases
+  namespace: kollect-system
+spec:
+  targetGVK:
+    group: ""
+    version: v1
+    kind: Secret
+  attributes:
+    - name: releaseName
+      path: "helm:release.releaseName"
+      type: string
+    - name: chart
+      path: "helm:release.chartName"
+      type: string
+    - name: chartVersion
+      path: "helm:release.chartVersion"
+      type: string
+    - name: appVersion
+      path: "helm:release.appVersion"
+      type: string
+    - name: status
+      path: "helm:release.status"
+      type: string
+    - name: namespace
+      path: "helm:release.namespace"
+      type: string
+    - name: revision
+      path: "helm:release.revision"
+      type: int
+      optional: true

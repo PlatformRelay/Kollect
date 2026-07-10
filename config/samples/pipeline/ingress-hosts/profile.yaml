@@ -1,0 +1,24 @@
+# Ingress hostnames — collect the external hostname(s) exposed by every Ingress.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: ingress-hosts
+  namespace: kollect-system
+spec:
+  targetGVK:
+    group: networking.k8s.io
+    version: v1
+    kind: Ingress
+  attributes:
+    - name: ingressClass
+      path: "$.spec.ingressClassName"
+      type: string
+      optional: true
+    - name: firstHost
+      path: "$.spec.rules[0].host"
+      type: string
+      optional: true
+    - name: hosts
+      path: "$.spec.rules[*].host"
+      type: list
+      optional: true

@@ -1,0 +1,9 @@
+# Collect every Deployment in every namespace. Narrow with labelSelector or
+# spec.includedNamespaces / spec.excludedNamespaces if you only want a subset.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: deployment-images
+  namespace: kollect-system
+spec:
+  profileRef: deployment-images

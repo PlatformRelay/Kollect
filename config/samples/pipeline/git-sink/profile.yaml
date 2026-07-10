@@ -1,0 +1,19 @@
+# Same "image versions" profile as ../deployment-images, paired here with a git sink so the
+# directory is a complete, standalone example of kollect committing the inventory itself.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: deployment-images
+  namespace: kollect-system
+spec:
+  targetGVK:
+    group: apps
+    version: v1
+    kind: Deployment
+  attributes:
+    - name: image
+      path: "$.spec.template.spec.containers[0].image"
+      type: string
+    - name: images
+      path: "$.spec.template.spec.containers[*].image"
+      type: list

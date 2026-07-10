@@ -1,0 +1,7 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: deployment-images
+  namespace: kollect-system
+spec:
+  profileRef: deployment-images

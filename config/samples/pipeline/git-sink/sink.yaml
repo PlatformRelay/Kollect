@@ -1,0 +1,25 @@
+# Git snapshot sink: kollect-pipeline commits the rendered inventory straight to a git repo,
+# instead of writing files locally with --output. Use this when you want kollect (not the CI
+# job's own `git push`) to own the commit. Exactly one sink manifest is allowed per config dir.
+#
+# Local output alternative: omit any sink manifest and pass --output <dir> instead.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectSnapshotSink
+metadata:
+  name: inventory-git
+  namespace: kollect-system
+spec:
+  type: git
+  endpoint: https://gitlab.example.com/platform-team/cluster-inventory.git
+  # Only {cluster}, {namespace} and {name} placeholders are substituted.
+  pathTemplate: clusters/{cluster}/{namespace}/{name}.yaml
+  cluster: my-cluster
+  git:
+    branch: main
+    pushPolicy: Commit
+    auth:
+      type: token
+  # For a private repo, add a v1/Secret manifest (key: token) to this directory and reference
+  # it here. kollect-pipeline resolves secretRef against Secret manifests in the config dir:
+  # secretRef:
+  #   name: git-credentials
