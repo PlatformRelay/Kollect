@@ -1,0 +1,8 @@
+# Collect every Ingress in every namespace.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: ingress-hosts
+  namespace: kollect-system
+spec:
+  profileRef: ingress-hosts

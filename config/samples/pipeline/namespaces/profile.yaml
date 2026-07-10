@@ -1,0 +1,21 @@
+# Namespace list — collect every namespace in the cluster with its phase and labels.
+# Namespace is a cluster-scoped kind: kollect lists it cluster-wide (the collected {namespace}
+# path placeholder is empty for cluster-scoped resources, so exports land at the path root).
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: cluster-namespaces
+  namespace: kollect-system
+spec:
+  targetGVK:
+    group: ""
+    version: v1
+    kind: Namespace
+  attributes:
+    - name: phase
+      path: "$.status.phase"
+      type: string
+    - name: labels
+      path: "$.metadata.labels"
+      type: map
+      optional: true

@@ -1,0 +1,9 @@
+# Collect all namespaces. Namespace is cluster-scoped, so namespace/label selectors that
+# scope by namespace do not apply; kollect performs a single cluster-wide List.
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: cluster-namespaces
+  namespace: kollect-system
+spec:
+  profileRef: cluster-namespaces
