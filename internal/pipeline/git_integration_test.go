@@ -108,10 +108,10 @@ func TestPipelineCLI_collectAndPushToGit(t *testing.T) {
 		t.Errorf("pushed inventory missing collected attribute; payload=%s", got)
 	}
 
-	commitsAfterFirst := gitCommitCountPipeline(t, firstClone)
-
-	// Second byte-identical export: the snapshot-store no-op guard (export_file.go gitStatusClean)
-	// must skip the commit, so the remote history does not grow.
+	// A second pipeline export must remain a valid, error-free operation (idempotent to re-run).
+	// Note: it is not byte-identical to the first — ExportTargets embeds a per-run exportedAt
+	// timestamp in the envelope — so it legitimately produces a new commit. The git no-op guard is
+	// asserted separately below with content the test controls.
 	exported2, errs2 := ExportTargets(ctx, store, targets, backend, sinkSpec, "test-cluster", false)
 	if len(errs2) != 0 {
 		t.Fatalf("second export errors: %v", errs2)
@@ -120,13 +120,29 @@ func TestPipelineCLI_collectAndPushToGit(t *testing.T) {
 		t.Fatalf("second export exported = %d, want 1", exported2)
 	}
 
-	secondClone := filepath.Join(dir, "second")
-	gitClonePipeline(t, cloneURL, secondClone)
+	// The git sink's no-op guard (export_file.go gitStatusClean) must skip the commit when the
+	// pushed content is byte-identical. Drive it directly through the backend with a fixed payload
+	// (the pipeline envelope's timestamp makes ExportTargets output non-identical across runs).
+	const stablePath = "raw/stable.json"
+	stable := []byte(`{"stable":"payload"}`)
 
-	commitsAfterSecond := gitCommitCountPipeline(t, secondClone)
-	if commitsAfterSecond != commitsAfterFirst {
-		t.Fatalf("no-op guard failed: commit count went %d -> %d on identical re-export",
-			commitsAfterFirst, commitsAfterSecond)
+	if err := backend.Export(ctx, stable, stablePath); err != nil {
+		t.Fatalf("stable export 1: %v", err)
+	}
+	stableClone1 := filepath.Join(dir, "stable1")
+	gitClonePipeline(t, cloneURL, stableClone1)
+	commitsAfterStable := gitCommitCountPipeline(t, stableClone1)
+
+	if err := backend.Export(ctx, stable, stablePath); err != nil {
+		t.Fatalf("stable export 2 (byte-identical): %v", err)
+	}
+	stableClone2 := filepath.Join(dir, "stable2")
+	gitClonePipeline(t, cloneURL, stableClone2)
+	commitsAfterStable2 := gitCommitCountPipeline(t, stableClone2)
+
+	if commitsAfterStable2 != commitsAfterStable {
+		t.Fatalf("no-op guard failed: commit count went %d -> %d on byte-identical re-export",
+			commitsAfterStable, commitsAfterStable2)
 	}
 }
 
