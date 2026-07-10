@@ -1,0 +1,13 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: deployment-images
+  namespace: pipeline-it
+spec:
+  targetGVK:
+    group: apps
+    version: v1
+    kind: Deployment
+  attributes:
+    - name: image
+      path: "$.spec.template.spec.containers[0].image"

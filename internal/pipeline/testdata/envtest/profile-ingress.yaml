@@ -1,0 +1,14 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectProfile
+metadata:
+  name: ingress-hosts
+  namespace: pipeline-it
+spec:
+  targetGVK:
+    group: networking.k8s.io
+    version: v1
+    kind: Ingress
+  attributes:
+    - name: firstHost
+      path: "$.spec.rules[0].host"
+      optional: true

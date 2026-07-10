@@ -1,0 +1,9 @@
+apiVersion: kollect.dev/v1alpha1
+kind: KollectTarget
+metadata:
+  name: deploy-target
+  namespace: pipeline-it
+spec:
+  profileRef: deployment-images
+  includedNamespaces:
+    - pipeline-it

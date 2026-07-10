@@ -45,3 +45,21 @@ jobs:
         with:
           scenario-script: hack/kind/e2e/smoke.sh
           wait-timeout: 300s
+
+  # L4 for the pipeline CLI (ADR-0801, P-008). The CLI is standalone — it collects via kubeconfig
+  # without the operator — so it runs as its own isolated-cluster scenario rather than bolting onto
+  # the operator smoke. run-mode repo_root sets REPO_ROOT so the scenario can `task build:cli`.
+  pipeline-cli-smoke:
+    name: pipeline-cli-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/kind-e2e-setup
+        with:
+          scenario-script: hack/kind/e2e/pipeline-cli-smoke.sh
+          run-mode: repo_root
+          wait-timeout: 300s
