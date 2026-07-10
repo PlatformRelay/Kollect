@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/secretkv"
 )
 
 // TypeName is the KollectSink.spec.type value for Kafka sinks.
@@ -65,16 +66,12 @@ func ConfigFromSpec(
 		Cluster: strings.TrimSpace(spec.Cluster),
 	}
 
-	if len(secretData) > 0 {
-		if v, ok := secretData["username"]; ok {
-			cfg.Username = string(v)
-		}
+	secretkv.AssignIfPresent(secretData, "username", &cfg.Username)
 
-		for _, key := range []string{"password", "token"} {
-			if v, ok := secretData[key]; ok {
-				cfg.Password = string(v)
-			}
-		}
+	// Kafka has no separate token field: a present "token" key overrides
+	// "password" (token last wins), matching the pre-extraction loop.
+	for _, key := range []string{"password", "token"} {
+		secretkv.AssignIfPresent(secretData, key, &cfg.Password)
 	}
 
 	return cfg, nil

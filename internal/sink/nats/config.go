@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	kollectdevv1alpha1 "github.com/konih/kollect/api/v1alpha1"
+	"github.com/konih/kollect/internal/sink/secretkv"
 )
 
 const TypeName = "nats"
@@ -65,19 +66,9 @@ func ConfigFromSpec(
 		Cluster: strings.TrimSpace(spec.Cluster),
 	}
 
-	if len(secretData) > 0 {
-		if v, ok := secretData["token"]; ok {
-			cfg.Token = string(v)
-		}
-
-		if v, ok := secretData["username"]; ok {
-			cfg.Username = string(v)
-		}
-
-		if v, ok := secretData["password"]; ok {
-			cfg.Password = string(v)
-		}
-	}
+	secretkv.AssignIfPresent(secretData, "token", &cfg.Token)
+	secretkv.AssignIfPresent(secretData, "username", &cfg.Username)
+	secretkv.AssignIfPresent(secretData, "password", &cfg.Password)
 
 	return cfg, nil
 }
