@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
-## [Unreleased]
+## [0.8.0](https://github.com/konih/kollect/compare/v0.7.0..v0.8.0) - 2026-07-10
 
 ### Bug Fixes
 
