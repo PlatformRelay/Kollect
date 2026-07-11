@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -276,6 +277,155 @@ func TestResolveSinkSecretData_notFoundReturnsError(t *testing.T) {
 	_, err := ResolveSinkSecretData(spec, nil)
 	if err == nil {
 		t.Fatal("expected error for unresolved secretRef, got nil")
+	}
+}
+
+func TestResolveSinkSecretData_stringDataMergedOverData(t *testing.T) {
+	t.Parallel()
+
+	secret := corev1.Secret{}
+	secret.Name = "sink-creds"
+	secret.Data = map[string][]byte{"token": []byte("from-data"), "username": []byte("bot")}
+	secret.StringData = map[string]string{"token": "from-string-data"}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		SecretRef: &kollectdevv1alpha1.SecretReference{Name: "sink-creds"},
+	}
+
+	data, err := ResolveSinkSecretData(spec, []corev1.Secret{secret})
+	if err != nil {
+		t.Fatalf("ResolveSinkSecretData() error = %v", err)
+	}
+	if got := string(data["token"]); got != "from-string-data" {
+		t.Errorf("data[token] = %q, want from-string-data (stringData wins over data)", got)
+	}
+	if got := string(data["username"]); got != "bot" {
+		t.Errorf("data[username] = %q, want bot (data keys without stringData override kept)", got)
+	}
+}
+
+func TestResolveSinkSecretData_envPlaceholderSubstituted(t *testing.T) {
+	t.Setenv("KOLLECT_TEST_GIT_TOKEN", "masked-ci-value")
+
+	secret := corev1.Secret{}
+	secret.Name = "sink-creds"
+	//nolint:gosec // G101: ${env:...} placeholder literal, not a credential
+	secret.StringData = map[string]string{"token": "${env:KOLLECT_TEST_GIT_TOKEN}"}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		SecretRef: &kollectdevv1alpha1.SecretReference{Name: "sink-creds"},
+	}
+
+	data, err := ResolveSinkSecretData(spec, []corev1.Secret{secret})
+	if err != nil {
+		t.Fatalf("ResolveSinkSecretData() error = %v", err)
+	}
+	if got := string(data["token"]); got != "masked-ci-value" {
+		t.Errorf("data[token] = %q, want masked-ci-value", got)
+	}
+}
+
+func TestResolveSinkSecretData_envPlaceholderInDataValueSubstituted(t *testing.T) {
+	t.Setenv("KOLLECT_TEST_DATA_TOKEN", "from-env-via-data")
+
+	secret := corev1.Secret{}
+	secret.Name = "sink-creds"
+	secret.Data = map[string][]byte{"token": []byte("${env:KOLLECT_TEST_DATA_TOKEN}")}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		SecretRef: &kollectdevv1alpha1.SecretReference{Name: "sink-creds"},
+	}
+
+	data, err := ResolveSinkSecretData(spec, []corev1.Secret{secret})
+	if err != nil {
+		t.Fatalf("ResolveSinkSecretData() error = %v", err)
+	}
+	if got := string(data["token"]); got != "from-env-via-data" {
+		t.Errorf("data[token] = %q, want from-env-via-data", got)
+	}
+}
+
+func TestResolveSinkSecretData_envPlaceholderUnsetVarErrors(t *testing.T) {
+	t.Parallel()
+
+	secret := corev1.Secret{}
+	secret.Name = "sink-creds"
+	//nolint:gosec // G101: ${env:...} placeholder literal, not a credential
+	secret.StringData = map[string]string{"token": "${env:KOLLECT_TEST_DEFINITELY_UNSET_VAR}"}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		SecretRef: &kollectdevv1alpha1.SecretReference{Name: "sink-creds"},
+	}
+
+	_, err := ResolveSinkSecretData(spec, []corev1.Secret{secret})
+	if !errors.Is(err, ErrSecretEnvVarNotSet) {
+		t.Fatalf("error = %v, want ErrSecretEnvVarNotSet", err)
+	}
+	for _, want := range []string{"sink-creds", "token", "KOLLECT_TEST_DEFINITELY_UNSET_VAR"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name %q", err.Error(), want)
+		}
+	}
+}
+
+func TestResolveSinkSecretData_envPlaceholderEmptyVarErrors(t *testing.T) {
+	t.Setenv("KOLLECT_TEST_EMPTY_VAR", "")
+
+	secret := corev1.Secret{}
+	secret.Name = "sink-creds"
+	//nolint:gosec // G101: ${env:...} placeholder literal, not a credential
+	secret.StringData = map[string]string{"token": "${env:KOLLECT_TEST_EMPTY_VAR}"}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		SecretRef: &kollectdevv1alpha1.SecretReference{Name: "sink-creds"},
+	}
+
+	_, err := ResolveSinkSecretData(spec, []corev1.Secret{secret})
+	if !errors.Is(err, ErrSecretEnvVarNotSet) {
+		t.Fatalf("error = %v, want ErrSecretEnvVarNotSet for empty env var", err)
+	}
+}
+
+func TestResolveSinkSecretData_partialPlaceholderLeftVerbatim(t *testing.T) {
+	t.Setenv("KOLLECT_TEST_PARTIAL_VAR", "should-not-appear")
+
+	secret := corev1.Secret{}
+	secret.Name = "sink-creds"
+	//nolint:gosec // G101: ${env:...} placeholder literal, not a credential
+	secret.StringData = map[string]string{
+		"token": "prefix-${env:KOLLECT_TEST_PARTIAL_VAR}",
+	}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		SecretRef: &kollectdevv1alpha1.SecretReference{Name: "sink-creds"},
+	}
+
+	data, err := ResolveSinkSecretData(spec, []corev1.Secret{secret})
+	if err != nil {
+		t.Fatalf("ResolveSinkSecretData() error = %v", err)
+	}
+	if got := string(data["token"]); got != "prefix-${env:KOLLECT_TEST_PARTIAL_VAR}" {
+		t.Errorf("data[token] = %q, want the literal partial-placeholder value (full-value match only)", got)
+	}
+}
+
+func TestResolveSinkSecretData_sourceSecretNotMutated(t *testing.T) {
+	t.Setenv("KOLLECT_TEST_MUTATE_VAR", "resolved")
+
+	secret := corev1.Secret{}
+	secret.Name = "sink-creds"
+	secret.Data = map[string][]byte{"token": []byte("${env:KOLLECT_TEST_MUTATE_VAR}")}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		SecretRef: &kollectdevv1alpha1.SecretReference{Name: "sink-creds"},
+	}
+
+	secrets := []corev1.Secret{secret}
+	if _, err := ResolveSinkSecretData(spec, secrets); err != nil {
+		t.Fatalf("ResolveSinkSecretData() error = %v", err)
+	}
+	if got := string(secrets[0].Data["token"]); got != "${env:KOLLECT_TEST_MUTATE_VAR}" {
+		t.Errorf("source secret mutated: data[token] = %q, want the raw placeholder", got)
 	}
 }
 

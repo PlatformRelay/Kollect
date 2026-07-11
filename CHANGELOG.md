@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **pipeline:** Sink credentials from env vars via ${env:VAR} secret placeholders [53b3d48](https://github.com/konih/kollect/commit/53b3d48de4bd83df8484fe35a5de6a3e0ef13e59)
+
 - **api:** Per-sink-binding maxExportBytes override (merge feat/export-partitioning, AR-01/EC-P0-01 Option B) [37596e9](https://github.com/konih/kollect/commit/37596e9685fd89c179ad729e7487b1d8d0e268bb)
 
 - **api:** Per-sink-binding maxExportBytes override (AR-01/EC-P0-01 Phase C, Option B) [1d26bfc](https://github.com/konih/kollect/commit/1d26bfcc0ca10cfabd20621b1bfb471a92cee2be)

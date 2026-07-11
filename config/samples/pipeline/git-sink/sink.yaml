@@ -19,7 +19,9 @@ spec:
     pushPolicy: Commit
     auth:
       type: token
-  # For a private repo, add a v1/Secret manifest (key: token) to this directory and reference
-  # it here. kollect-pipeline resolves secretRef against Secret manifests in the config dir:
-  # secretRef:
-  #   name: git-credentials
+  # kollect-pipeline resolves secretRef against Secret manifests in the config dir (not the
+  # cluster API). The committed credentials.yaml here holds a ${env:KOLLECT_GIT_TOKEN}
+  # placeholder substituted from the CI environment at run time — see credentials.yaml.
+  # (The file is not named secret*.yaml — that pattern is gitignored repo-wide by design.)
+  secretRef:
+    name: git-credentials

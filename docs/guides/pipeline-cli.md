@@ -60,7 +60,7 @@ go build -o bin/kollect-pipeline ./cmd/cli
 | `KollectProfile` | **what** to extract from each resource | one or more |
 | `KollectTarget` | **where** to collect from (GVK selectors); its `profileRef` names a profile in the same directory | one or more |
 | `KollectSnapshotSink` | **where** to write, when kollect owns the write | **at most one** (or zero + `--output`) |
-| `v1/Secret` | credentials referenced by a sink's `secretRef` | optional |
+| `v1/Secret` | credentials referenced by a sink's `secretRef`; values may be `${env:VAR}` placeholders resolved from the CI environment | optional |
 
 Unknown kinds are ignored with a warning. Every `KollectTarget.spec.profileRef` must match a
 `KollectProfile` name loaded from the same directory, or the run fails before contacting any cluster.
@@ -134,13 +134,44 @@ spec:
     pushPolicy: Commit
     auth:
       type: token
-  # secretRef:
-  #   name: git-credentials    # a v1/Secret manifest (key: token) placed in the same --config dir
+  secretRef:
+    name: git-credentials      # a v1/Secret manifest (key: token) placed in the same --config dir
 ```
 
 For a private repo, add the referenced `v1/Secret` manifest (with a `token` key) to the config
 directory; `kollect-pipeline` resolves `secretRef` against Secrets in that directory, not the
 cluster.
+
+### Sink credentials from the CI environment (`${env:VAR}`)
+
+Committing a real token in the Secret manifest is wrong for CI. Instead, keep the credential in
+your CI system's variable store and reference it with an env placeholder — a `stringData` (or
+decoded `data`) value that is **exactly** `${env:VAR_NAME}` is substituted from the process
+environment when the sink's `secretRef` is resolved:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-credentials
+  namespace: kollect-system
+stringData:
+  token: ${env:KOLLECT_GIT_TOKEN}
+```
+
+- **GitLab CI:** define `KOLLECT_GIT_TOKEN` as a masked (and, for protected branches, protected)
+  variable under *Settings → CI/CD → Variables*; it is exported into the job environment
+  automatically.
+- **GitHub Actions:** map a repository secret into the step env:
+  `env: { KOLLECT_GIT_TOKEN: "${{ secrets.KOLLECT_GIT_TOKEN }}" }`.
+
+Rules: substitution applies only when the whole value is a single `${env:VAR}` placeholder
+(values that merely contain one mid-string stay verbatim, so real credentials are never
+rewritten); an **unset or empty** variable fails the run with an error naming the secret, key,
+and variable; literal `data`/`stringData` values keep working unchanged, and `stringData` wins
+over `data` for the same key. See the shipped
+[`git-sink` sample](https://github.com/konih/kollect/tree/main/config/samples/pipeline/git-sink)
+for the complete flow.
 
 ## Use case examples
 
@@ -314,5 +345,6 @@ continuous, event-driven collection instead of scheduled runs.
 | `N KollectSnapshotSink objects found … only one is supported` | Keep at most one sink manifest per config dir (or use `--output`). |
 | `--output and a KollectSnapshotSink … are ambiguous` | Use `--output` **or** a sink manifest, not both. |
 | `sink secretRef "…" not found` | Add the referenced `v1/Secret` manifest to the config dir. |
+| `environment variable for secret placeholder not set` | A Secret value is `${env:VAR}` but `VAR` is unset/empty — define it in the CI job env (e.g. a GitLab masked variable). |
 | Exit code `1` | Some targets were skipped (RBAC forbidden / GVK absent). Run with `--log-level debug` to see which. |
 | Exit code `2` | Cluster unreachable or config invalid — check `--kubeconfig` and the manifests. |

@@ -109,3 +109,35 @@ func TestPipelineSampleDirsLoad(t *testing.T) {
 		})
 	}
 }
+
+// TestPipelineGitSinkSampleSecretResolvesFromEnv locks the shipped git-sink sample's
+// CI-credential flow end to end: its committed Secret manifest carries only a
+// ${env:KOLLECT_GIT_TOKEN} placeholder, and the real resolver substitutes the value
+// from the environment (the pipeline "secretRef.env" binding — GitLab masked
+// variables and friends). Not parallel: t.Setenv forbids it.
+func TestPipelineGitSinkSampleSecretResolvesFromEnv(t *testing.T) {
+	t.Setenv("KOLLECT_GIT_TOKEN", "masked-ci-token")
+
+	dir := filepath.Join("..", "..", "config", "samples", "pipeline", "git-sink")
+
+	loaded, err := pipeline.LoadConfig(dir)
+	if err != nil {
+		t.Fatalf("LoadConfig(%q): %v", dir, err)
+	}
+
+	sinkSpec, err := pipeline.ResolveSink(loaded, "")
+	if err != nil {
+		t.Fatalf("ResolveSink: %v", err)
+	}
+	if sinkSpec.SecretRef == nil {
+		t.Fatalf("%s: expected the git-sink sample to reference its committed Secret manifest", dir)
+	}
+
+	data, err := pipeline.ResolveSinkSecretData(sinkSpec, loaded.Secrets)
+	if err != nil {
+		t.Fatalf("ResolveSinkSecretData: %v", err)
+	}
+	if got := string(data["token"]); got != "masked-ci-token" {
+		t.Errorf("data[token] = %q, want the env-substituted masked-ci-token", got)
+	}
+}

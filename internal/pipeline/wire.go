@@ -5,7 +5,10 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,9 +51,27 @@ func ResolveSink(loaded LoadResult, output string) (kollectdevv1alpha1.KollectSi
 	}
 }
 
+// ErrSecretEnvVarNotSet is returned when a config-dir Secret value is a ${env:VAR}
+// placeholder but VAR is unset or empty in the process environment.
+var ErrSecretEnvVarNotSet = errors.New("environment variable for secret placeholder not set")
+
+// envPlaceholderPattern matches a Secret value that consists entirely of one
+// ${env:VAR_NAME} placeholder. Full-value match only — a value that merely contains a
+// placeholder mid-string is left verbatim, so a real credential can never be partially
+// rewritten.
+var envPlaceholderPattern = regexp.MustCompile(`^\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}$`)
+
 // ResolveSinkSecretData resolves sinkSpec.SecretRef against Secrets loaded from the config
 // directory (pipeline mode reads a local v1.Secret manifest instead of the cluster API).
 // Returns nil when SecretRef is unset (no credentials required, e.g. type: local).
+//
+// The returned map merges the manifest's stringData over data (apiserver semantics —
+// client-side decoding never performs that merge), then substitutes any value that is
+// exactly a ${env:VAR} placeholder from the process environment. This is the pipeline
+// "secretRef.env" binding: CI systems inject the credential via the environment (e.g. a
+// GitLab masked variable) and the committed Secret manifest carries only the placeholder.
+// An unset or empty variable is a hard error naming the secret, key, and variable —
+// never a silently empty credential.
 func ResolveSinkSecretData(sinkSpec kollectdevv1alpha1.KollectSinkSpec, secrets []corev1.Secret) (map[string][]byte, error) {
 	if sinkSpec.SecretRef == nil {
 		return nil, nil
@@ -65,11 +86,44 @@ func ResolveSinkSecretData(sinkSpec kollectdevv1alpha1.KollectSinkSpec, secrets 
 			continue
 		}
 
-		return s.Data, nil
+		return resolveSecretValues(&s)
 	}
 
 	return nil, fmt.Errorf(
 		"sink secretRef %q not found in config directory (expected a v1.Secret YAML manifest)", sinkSpec.SecretRef.Name)
+}
+
+// resolveSecretValues builds the effective credential map for one config-dir Secret:
+// data first, stringData overlaid, then ${env:VAR} placeholder substitution. The source
+// Secret is never mutated.
+func resolveSecretValues(secret *corev1.Secret) (map[string][]byte, error) {
+	merged := make(map[string][]byte, len(secret.Data)+len(secret.StringData))
+	for k, v := range secret.Data {
+		merged[k] = v
+	}
+
+	for k, v := range secret.StringData {
+		merged[k] = []byte(v)
+	}
+
+	for key, value := range merged {
+		m := envPlaceholderPattern.FindStringSubmatch(string(value))
+		if m == nil {
+			continue
+		}
+
+		envName := m[1]
+		envValue := os.Getenv(envName)
+		if envValue == "" {
+			return nil, fmt.Errorf(
+				"secret %q key %q: %w: %s (set it in the CI environment, e.g. a GitLab masked variable)",
+				secret.Name, key, ErrSecretEnvVarNotSet, envName)
+		}
+
+		merged[key] = []byte(envValue)
+	}
+
+	return merged, nil
 }
 
 // ExportTargets serializes each target's collected items from store and writes them via
