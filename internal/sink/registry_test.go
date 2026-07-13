@@ -112,6 +112,86 @@ func TestRegistry_NewBackend(t *testing.T) {
 	_ = s3Backend
 }
 
+func TestRegistry_NewBackend_gcsAndLocal(t *testing.T) {
+	t.Parallel()
+
+	reg := NewRegistry()
+
+	// GCS and local backends construct without dialing; a valid spec yields a backend.
+	gcsBackend, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type:     "gcs",
+		Endpoint: "gs://inventory-bucket/prefix",
+	}, BuildContext{
+		SecretData: map[string][]byte{
+			"accessKeyID":     []byte("key"),
+			"secretAccessKey": []byte("secret"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewBackend(gcs) error = %v", err)
+	}
+	if gcsBackend.Type() != "gcs" {
+		t.Fatalf("Type() = %q, want gcs", gcsBackend.Type())
+	}
+
+	localBackend, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type:     "local",
+		Endpoint: t.TempDir(),
+	}, BuildContext{})
+	if err != nil {
+		t.Fatalf("NewBackend(local) error = %v", err)
+	}
+	if localBackend.Type() != "local" {
+		t.Fatalf("Type() = %q, want local", localBackend.Type())
+	}
+}
+
+func TestRegistry_NewBackend_localMissingEndpoint(t *testing.T) {
+	t.Parallel()
+
+	reg := NewRegistry()
+
+	// An invalid spec (no output directory) must fail the local factory's ConfigFromSpec.
+	if _, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: "local",
+	}, BuildContext{}); err == nil {
+		t.Fatal("NewBackend(local) expected config error without endpoint")
+	}
+}
+
+func TestRegistry_NewBackend_databaseFactoriesDial(t *testing.T) {
+	t.Parallel()
+
+	reg := NewRegistry()
+
+	// bigquery and mongodb factories surface a construction error rather than a
+	// usable Backend for an invalid spec. Both specs below fail their factory's
+	// config/credential validation BEFORE any network dial, so no live backend is
+	// required and the tests never block on a connection timeout.
+	if _, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypeMongoDB,
+		// Omit spec.mongodb entirely: mongodb.NewBackend runs ConfigFromSpec first,
+		// which rejects the nil spec.mongodb before mongo.Connect is ever reached.
+	}, BuildContext{}); err == nil {
+		t.Fatal("NewBackend(mongodb) expected config error for missing spec.mongodb")
+	}
+
+	if _, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: kollectdevv1alpha1.DatabaseSinkTypeBigQuery,
+		BigQuery: &kollectdevv1alpha1.BigQuerySpec{
+			Project: "demo-project",
+			Dataset: "inventory",
+			Table:   "items",
+		},
+	}, BuildContext{
+		DatabaseSecretData: map[string][]byte{
+			"credentials.json": []byte("{not-valid-json}"),
+		},
+	}); err == nil {
+		t.Fatal("NewBackend(bigquery) expected error with invalid credentials")
+	}
+}
+
 func TestRegistry_NewBackend_unknownTypeIsTerminal(t *testing.T) {
 	t.Parallel()
 

@@ -108,6 +108,53 @@ func TestSinkNamespaceForResolved(t *testing.T) {
 	}
 }
 
+func TestResolveSink_guardErrors(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	// nil client guard.
+	if _, err := ResolveSink(context.Background(), nil, ResolveOptions{Name: "x"}); err == nil {
+		t.Fatal("nil client: expected error")
+	}
+
+	// empty name guard.
+	if _, err := ResolveSink(context.Background(), cl, ResolveOptions{Family: kollectdevv1alpha1.SinkFamilySnapshot}); err == nil {
+		t.Fatal("empty name: expected error")
+	}
+
+	// unknown family default branch.
+	if _, err := ResolveSink(context.Background(), cl, ResolveOptions{
+		Name:   "x",
+		Family: "bogus-family",
+	}); err == nil {
+		t.Fatal("unknown family: expected error")
+	}
+}
+
+func TestResolveSink_anyFamilyNotFound(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	// No sink of any family exists → resolveSinkAnyFamily exhausts all families
+	// and returns the last not-found error (unresolved ref path).
+	if _, err := ResolveSink(context.Background(), cl, ResolveOptions{
+		Namespace: "team-a",
+		Name:      "does-not-exist",
+	}); err == nil {
+		t.Fatal("missing sink across all families: expected not-found error")
+	}
+}
+
 func TestResolveSinkAnyFamily(t *testing.T) {
 	t.Parallel()
 

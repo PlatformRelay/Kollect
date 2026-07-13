@@ -399,6 +399,62 @@ func TestRunExportEnvelope_guards(t *testing.T) {
 	}
 }
 
+func TestSnapshotStoreCapabilities(t *testing.T) {
+	t.Parallel()
+
+	caps := SnapshotStoreCapabilities()
+	if caps.ObjectStore || caps.Stream || caps.SupportsDelete {
+		t.Fatalf("SnapshotStoreCapabilities must leave all projection flags unset: %+v", caps)
+	}
+}
+
+func TestRelationalStoreCapabilities(t *testing.T) {
+	t.Parallel()
+
+	caps := RelationalStoreCapabilities()
+	if !caps.SupportsDelete {
+		t.Fatal("RelationalStoreCapabilities must set SupportsDelete for stale-row pruning")
+	}
+	if caps.Stream || caps.ObjectStore {
+		t.Fatalf("unexpected flags: %+v", caps)
+	}
+}
+
+func TestClassifyExportFailure_terminalStaysTerminal(t *testing.T) {
+	t.Parallel()
+
+	// A terminal cause must be wrapped without being re-classified as retryable.
+	terminal := kollecterrors.Terminal(errors.New("bad layout"))
+	got := classifyExportFailure("git-sink", terminal)
+
+	if !kollecterrors.IsTerminal(got) {
+		t.Fatalf("classifyExportFailure(terminal) class = %s, want terminal", kollecterrors.ClassOf(got))
+	}
+	if !errors.Is(got, kollecterrors.ErrTerminal) {
+		t.Fatal("classifyExportFailure(terminal) should satisfy errors.Is(ErrTerminal)")
+	}
+	if errors.Is(got, kollecterrors.ErrTransient) {
+		t.Fatal("terminal failure must not become transient")
+	}
+	if !strings.Contains(got.Error(), "git-sink") {
+		t.Fatalf("error should name the sink: %v", got)
+	}
+}
+
+func TestClassifyExportFailure_nonTerminalBecomesTransient(t *testing.T) {
+	t.Parallel()
+
+	// A plain (unclassified) failure is retryable: wrap as transient.
+	got := classifyExportFailure("git-sink", errors.New("network down"))
+
+	if !errors.Is(got, kollecterrors.ErrTransient) {
+		t.Fatalf("classifyExportFailure(plain) class = %s, want transient", kollecterrors.ClassOf(got))
+	}
+	if !strings.Contains(got.Error(), "git-sink") {
+		t.Fatalf("error should name the sink: %v", got)
+	}
+}
+
 func TestObjectStoreSnapshotCapabilities(t *testing.T) {
 	t.Parallel()
 

@@ -72,6 +72,12 @@ func TestRunConnectionTest_configErrors(t *testing.T) {
 			name: "gcs missing bucket",
 			spec: kollectdevv1alpha1.KollectSinkSpec{Type: "gcs"},
 		},
+		{
+			// mongodb.TestConnection would dial with a 15s timeout if config passed;
+			// an absent spec.mongodb fails ConfigFromSpec before any network probe.
+			name: "mongo missing spec",
+			spec: kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.DatabaseSinkTypeMongoDB},
+		},
 	}
 
 	for _, tt := range tests {
