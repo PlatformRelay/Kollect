@@ -11,7 +11,7 @@ hide:
 
 <p class="kollect-badges" markdown="1">
 
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/platformrelay/kollect/badge)](https://securityscorecards.dev/viewer/?uri=github.com/platformrelay/kollect)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/PlatformRelay/Kollect/badge)](https://securityscorecards.dev/viewer/?uri=github.com/PlatformRelay/Kollect)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13106/badge)](https://www.bestpractices.dev/projects/13106)
 [![CI](https://github.com/platformrelay/kollect/actions/workflows/ci.yaml/badge.svg)](https://github.com/platformrelay/kollect/actions/workflows/ci.yaml)
 [![Preflight](https://github.com/platformrelay/kollect/actions/workflows/preflight.yaml/badge.svg)](https://github.com/platformrelay/kollect/actions/workflows/preflight.yaml)

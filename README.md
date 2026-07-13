@@ -11,7 +11,7 @@
 <a href="https://platformrelay.github.io/kollect/"><img src="https://img.shields.io/badge/documentation-GitHub%20Pages-2ea44f?logo=readthedocs&logoColor=white" alt="Documentation"></a>
 <a href="https://github.com/platformrelay/kollect/actions/workflows/docs.yaml"><img src="https://github.com/platformrelay/kollect/actions/workflows/docs.yaml/badge.svg" alt="Docs CI"></a>
 <a href="https://github.com/platformrelay/kollect/actions/workflows/codeql.yaml"><img src="https://github.com/platformrelay/kollect/actions/workflows/codeql.yaml/badge.svg" alt="CodeQL"></a>
-<a href="https://securityscorecards.dev/viewer/?uri=github.com/platformrelay/kollect"><img src="https://api.securityscorecards.dev/projects/github.com/platformrelay/kollect/badge" alt="OpenSSF Scorecard"></a>
+<a href="https://securityscorecards.dev/viewer/?uri=github.com/PlatformRelay/Kollect"><img src="https://api.securityscorecards.dev/projects/github.com/PlatformRelay/Kollect/badge" alt="OpenSSF Scorecard"></a>
 <a href="https://github.com/platformrelay/kollect/blob/main/LICENSE"><img src="https://img.shields.io/github/license/platformrelay/kollect" alt="License: MIT"></a>
 <a href="https://github.com/platformrelay/kollect/releases"><img src="https://img.shields.io/github/v/release/platformrelay/kollect" alt="Release"></a>
 <a href="https://codecov.io/gh/platformrelay/kollect"><img src="https://codecov.io/gh/platformrelay/kollect/graph/badge.svg" alt="codecov"></a>

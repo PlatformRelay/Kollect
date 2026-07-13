@@ -130,6 +130,6 @@ add a VEX statement and link the GitHub issue or ADR in the statement metadata.
 
 ## OpenSSF Scorecard
 
-Supply-chain posture is tracked via the [OpenSSF Scorecard](https://securityscorecards.dev/viewer/?uri=github.com/platformrelay/kollect)
+Supply-chain posture is tracked via the [OpenSSF Scorecard](https://securityscorecards.dev/viewer/?uri=github.com/PlatformRelay/Kollect)
 badge in `README.md`. Implemented checks, deferred solo-maintainer items, and rationale are documented in
 [ADR-0705 § OpenSSF Scorecard follow-ups](docs/adr/0705-release-supply-chain.md#openssf-scorecard-follow-ups).

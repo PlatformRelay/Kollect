@@ -62,7 +62,7 @@ Each GitHub Release publishes: `install-crds.yaml` and `install.yaml` (kubectl i
 
 ## OpenSSF Scorecard follow-ups
 
-The project publishes an [OpenSSF Scorecard badge](https://securityscorecards.dev/viewer/?uri=github.com/platformrelay/kollect)
+The project publishes an [OpenSSF Scorecard badge](https://securityscorecards.dev/viewer/?uri=github.com/PlatformRelay/Kollect)
 (see `README.md`). A scheduled workflow (`.github/workflows/scorecard.yaml`) runs on every `main` push and
 weekly; SARIF results are uploaded to GitHub Code Scanning.
 
