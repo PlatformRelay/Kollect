@@ -9,6 +9,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **docs:** Correct OpenSSF Scorecard badge repo-name casing [f5fe647](https://github.com/platformrelay/kollect/commit/f5fe647357da0e47a1d83e66adf0253b4bceb1b1)
+
+
 ### Features
 
 - **pipeline:** Sink credentials from env vars via ${env:VAR} secret placeholders [53b3d48](https://github.com/platformrelay/kollect/commit/53b3d48de4bd83df8484fe35a5de6a3e0ef13e59)
