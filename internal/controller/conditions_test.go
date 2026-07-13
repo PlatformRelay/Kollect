@@ -45,10 +45,10 @@ func TestSetTargetCondition_skipsUnchanged(t *testing.T) {
 		WithStatusSubresource(target).
 		Build()
 
-	ctx := context.Background()
+	bgCtx := context.Background()
 	msg := "profileRef \"apps\" resolved; collecting 3 resource(s)"
 	if err := setTargetCondition(
-		ctx, cl, target, 2, &target.Status.Conditions,
+		bgCtx, cl, target, 2, &target.Status.Conditions,
 		conditionReady, metav1.ConditionTrue, "Collecting", msg,
 	); err != nil {
 		t.Fatalf("setTargetCondition: %v", err)
