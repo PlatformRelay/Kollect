@@ -11,7 +11,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **docs:** Correct OpenSSF Scorecard badge repo-name casing [f5fe647](https://github.com/platformrelay/kollect/commit/f5fe647357da0e47a1d83e66adf0253b4bceb1b1)
+- **docs:** Correct OpenSSF Scorecard badge repo-name casing [4984cc7](https://github.com/platformrelay/kollect/commit/4984cc772611f4e88d4348f96b50d24178a9e48f)
 
 
 ### Features
