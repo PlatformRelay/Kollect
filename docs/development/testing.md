@@ -52,7 +52,7 @@ coverage profile.
 **Path filters:** GitHub skips **CI**, **Preflight**, and **CodeQL** when a PR or push to `main`
 changes *only* documentation paths (`docs/**`, `mkdocs.yml`, root prose `*.md`, `CHANGELOG.md`,
 `LICENSE`, issue templates). The **Docs** workflow then runs `task lint:markdown`, `mkdocs build`,
-and (on `main` push) deploys to [platformrelay.github.io/kollect](https://platformrelay.github.io/kollect/). Any
+and (on `main` push) deploys to [platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/). Any
 change under `api/`, `internal/`, `charts/`, `cmd/`, `config/`, `hack/`, `ui/`, `test/`, `go.mod`,
 or `.github/workflows/` — or a mixed docs+code PR — runs the full gate below. Release tags no
 longer trigger docs deploys; the site tracks `main` only.

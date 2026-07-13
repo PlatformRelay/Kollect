@@ -1,4 +1,4 @@
-# Docs site (https://platformrelay.github.io/kollect/) — deploy from main only, not release tags.
+# Docs site (https://platformrelay.github.io/Kollect/) — deploy from main only, not release tags.
 # Path-filtered on PR/push; manual workflow_dispatch for on-demand rebuilds.
 name: Docs
 

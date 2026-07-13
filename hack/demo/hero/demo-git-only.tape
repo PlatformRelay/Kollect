@@ -65,5 +65,5 @@ Ctrl+L
 Type "# git log = audit trail · git diff = drift report"
 Enter
 Sleep 1s
-Type "# https://platformrelay.github.io/kollect/"
+Type "# https://platformrelay.github.io/Kollect/"
 Sleep 3s

@@ -28,7 +28,7 @@ Mermaid diagrams in existing docs are supported via `pymdownx.superfences`.
 
 - Contributors preview with `pip install mkdocs-material && mkdocs serve`
 - Navigation is declared in `mkdocs.yml` — new top-level docs must be added to `nav`
-- Site URL defaults to `https://platformrelay.github.io/kollect/` until a custom domain is configured
+- Site URL defaults to `https://platformrelay.github.io/Kollect/` until a custom domain is configured
 - Python is a **docs-only** dependency; the operator build remains Go-only
 
 ## Open questions
