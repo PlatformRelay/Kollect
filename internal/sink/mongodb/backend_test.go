@@ -6,6 +6,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -178,6 +179,28 @@ func TestItemDocument_UsesItemNamespaceWhenSet(t *testing.T) {
 	}
 	if got := doc["exported_at"]; !got.(time.Time).Equal(ts) {
 		t.Fatalf("exported_at = %v, want %v", got, ts)
+	}
+}
+
+func TestItemDocument_ReportsMarshalError(t *testing.T) {
+	t.Parallel()
+
+	scope := exportScope{
+		inventoryNamespace: "team-a",
+		inventoryName:      "apps",
+		cluster:            "prod-a",
+	}
+	_, err := itemDocument(
+		scope,
+		collect.Item{
+			UID:        "uid-1",
+			TargetName: "deployments",
+			Attributes: map[string]any{"ratio": math.NaN()},
+		},
+		time.Now().UTC(),
+	)
+	if err == nil {
+		t.Fatal("expected marshal error for NaN payload")
 	}
 }
 

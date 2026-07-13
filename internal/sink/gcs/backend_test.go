@@ -28,6 +28,30 @@ func TestNewBackend_missingEndpoint(t *testing.T) {
 	}
 }
 
+func TestNewBackend_valid(t *testing.T) {
+	t.Parallel()
+
+	// NewBackend construction is pure: it clones the spec to an s3 sink and
+	// builds the inner client lazily (no network). A bucket-bearing endpoint is
+	// enough for ConfigFromSpec to succeed.
+	b, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type:     TypeName,
+		Endpoint: "https://storage.googleapis.com/my-bucket/inventory",
+	}, map[string][]byte{
+		"accessKeyID":     []byte("a"),
+		"secretAccessKey": []byte("b"),
+	})
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	if b == nil {
+		t.Fatal("NewBackend returned nil backend")
+	}
+	if b.Type() != TypeName {
+		t.Fatalf("Type() = %q, want %q", b.Type(), TypeName)
+	}
+}
+
 func TestBackend_TypeAndCapabilities(t *testing.T) {
 	t.Parallel()
 
