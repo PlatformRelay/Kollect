@@ -15,6 +15,7 @@
 <a href="https://github.com/platformrelay/kollect/blob/main/LICENSE"><img src="https://img.shields.io/github/license/platformrelay/kollect" alt="License: MIT"></a>
 <a href="https://github.com/platformrelay/kollect/releases"><img src="https://img.shields.io/github/v/release/platformrelay/kollect" alt="Release"></a>
 <a href="https://codecov.io/gh/platformrelay/kollect"><img src="https://codecov.io/gh/platformrelay/kollect/graph/badge.svg" alt="codecov"></a>
+<a href="https://sonarcloud.io/summary/new_code?id=PlatformRelay_Kollect"><img src="https://sonarcloud.io/api/project_badges/measure?project=PlatformRelay_Kollect&metric=alert_status" alt="Quality Gate Status"></a>
 <a href="https://pkg.go.dev/github.com/platformrelay/kollect"><img src="https://img.shields.io/github/go-mod/go-version/platformrelay/kollect" alt="Go"></a>
 <a href="https://pkg.go.dev/github.com/platformrelay/kollect"><img src="https://pkg.go.dev/badge/github.com/platformrelay/kollect.svg" alt="Go Reference"></a>
 <a href="https://goreportcard.com/report/github.com/platformrelay/kollect"><img src="https://goreportcard.com/badge/github.com/platformrelay/kollect" alt="Go Report Card"></a>
