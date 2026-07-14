@@ -10,7 +10,7 @@ run: once
 env:
   CGO_ENABLED: "0"
   # Coverage floor for hack/coverage.sh — keep aligned with .github/workflows/ci.yaml and codecov.yml.
-  COVERAGE_MIN: "72"
+  COVERAGE_MIN: "80"
   GOTOOLCHAIN:
     sh: echo "go$(sed -n 's/^go //p' go.mod | head -1)"
 
@@ -30,7 +30,7 @@ vars:
   # renovate: datasource=github-releases depName=norwoodj/helm-docs
   HELM_DOCS_VERSION: v1.14.2
   HELM_DOCS_BIN: "{{.BIN_DIR}}/helm-docs"
-  COVERAGE_MIN: "72"
+  COVERAGE_MIN: "80"
   MANAGER_BINARY: "{{.BIN_DIR}}/manager"
   PIPELINE_BINARY: "{{.BIN_DIR}}/kollect-pipeline"
   DOCKER_IMAGE: kollect-controller-manager:dev

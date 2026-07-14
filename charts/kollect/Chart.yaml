@@ -2,8 +2,8 @@ apiVersion: v2
 name: kollect
 description: Kubernetes inventory export operator (kollect.dev)
 type: application
-version: 0.8.0
-appVersion: "0.8.0"
+version: 0.9.0
+appVersion: "0.9.0"
 dependencies:
   - name: kollect-ui
     alias: ui

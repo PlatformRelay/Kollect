@@ -16,6 +16,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **branding:** Add favicon and social preview assets ([#74](https://github.com/platformrelay/kollect/pull/74))[930a82b](https://github.com/platformrelay/kollect/commit/930a82b30334aab63ae48d98bd1e56ccd4b5d604)
+
 - **pipeline:** Sink credentials from env vars via ${env:VAR} secret placeholders [53b3d48](https://github.com/platformrelay/kollect/commit/53b3d48de4bd83df8484fe35a5de6a3e0ef13e59)
 
 - **api:** Per-sink-binding maxExportBytes override (merge feat/export-partitioning, AR-01/EC-P0-01 Option B) [37596e9](https://github.com/platformrelay/kollect/commit/37596e9685fd89c179ad729e7487b1d8d0e268bb)

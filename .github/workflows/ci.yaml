@@ -120,7 +120,7 @@ jobs:
       contents: read
       id-token: write # Codecov OIDC upload; GitHub App still required for reliable PR comments
     env:
-      COVERAGE_MIN: "72"
+      COVERAGE_MIN: "80"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
