@@ -5,6 +5,7 @@ package validation
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -17,18 +18,25 @@ const defaultMaxExportBytesGlobal int64 = 1572864 // 1.5 MiB per ADR-0103
 // ExportShardWarnRows is the row count at which operators should split inventories (Q4).
 const ExportShardWarnRows = 1800
 
-var maxExportBytesGlobal int64 = defaultMaxExportBytesGlobal
+// maxExportBytesGlobal is read on every validation call and may be reconfigured
+// at runtime (SetMaxExportBytesGlobal), so guard it with atomic access to stay
+// race-free under concurrent admission webhooks and parallel tests.
+var maxExportBytesGlobal atomic.Int64
+
+func init() {
+	maxExportBytesGlobal.Store(defaultMaxExportBytesGlobal)
+}
 
 // SetMaxExportBytesGlobal configures the operator cap for spec.maxExportBytes validation.
 func SetMaxExportBytesGlobal(bytes int64) {
 	if bytes > 0 {
-		maxExportBytesGlobal = bytes
+		maxExportBytesGlobal.Store(bytes)
 	}
 }
 
 // MaxExportBytesGlobal returns the configured global export size cap.
 func MaxExportBytesGlobal() int64 {
-	return maxExportBytesGlobal
+	return maxExportBytesGlobal.Load()
 }
 
 // ResolveBindingMaxExportBytes returns the effective export size ceiling for one
@@ -63,9 +71,9 @@ func ValidateInventorySpec(spec *kollectdevv1alpha1.KollectInventorySpec) field.
 		fld := field.NewPath("spec").Child("maxExportBytes")
 		if *spec.MaxExportBytes <= 0 {
 			allErrs = append(allErrs, field.Invalid(fld, *spec.MaxExportBytes, "must be positive when set"))
-		} else if *spec.MaxExportBytes > maxExportBytesGlobal {
+		} else if capBytes := maxExportBytesGlobal.Load(); *spec.MaxExportBytes > capBytes {
 			allErrs = append(allErrs, field.Invalid(fld, *spec.MaxExportBytes,
-				fmt.Sprintf("must not exceed global cap %d bytes", maxExportBytesGlobal)))
+				fmt.Sprintf("must not exceed global cap %d bytes", capBytes)))
 		}
 	}
 

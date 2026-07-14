@@ -4,6 +4,7 @@
 package validation
 
 import (
+	"sync"
 	"testing"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -73,4 +74,29 @@ func TestValidateInventorySinkRefs_maxExportBytes(t *testing.T) {
 	if errs := ValidateInventorySinkRefs(refs, nil); len(errs) != 1 {
 		t.Fatalf("zero maxExportBytes errs = %v, want 1", errs)
 	}
+}
+
+// TestMaxExportBytesGlobal_concurrentAccess guards the global operator cap against
+// data races: it is read on every admission validation yet may be reconfigured at
+// runtime. Regressing the atomic backing (e.g. back to a plain int64) makes this
+// fail under `go test -race`.
+func TestMaxExportBytesGlobal_concurrentAccess(t *testing.T) {
+	t.Cleanup(func() { SetMaxExportBytesGlobal(defaultMaxExportBytesGlobal) })
+
+	over := int64(1 << 40)
+	refs := kollectdevv1alpha1.InventorySinkRefList{
+		{Name: "audit-git", MaxExportBytes: &over},
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(2)
+		go func() { defer wg.Done(); SetMaxExportBytesGlobal(1000) }()
+		go func() {
+			defer wg.Done()
+			_ = ValidateInventorySinkRefs(refs, nil)
+			_ = MaxExportBytesGlobal()
+		}()
+	}
+	wg.Wait()
 }
