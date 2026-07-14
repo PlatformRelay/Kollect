@@ -105,9 +105,9 @@ func validateSinkRefMaxExportBytes(maxExportBytes *int64, path *field.Path) fiel
 	if *maxExportBytes <= 0 {
 		return field.ErrorList{field.Invalid(path, *maxExportBytes, "must be positive when set")}
 	}
-	if *maxExportBytes > maxExportBytesGlobal {
+	if capBytes := maxExportBytesGlobal.Load(); *maxExportBytes > capBytes {
 		return field.ErrorList{field.Invalid(path, *maxExportBytes,
-			fmt.Sprintf("must not exceed global cap %d bytes", maxExportBytesGlobal))}
+			fmt.Sprintf("must not exceed global cap %d bytes", capBytes))}
 	}
 
 	return nil
