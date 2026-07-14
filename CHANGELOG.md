@@ -11,6 +11,17 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **validation:** Atomic maxExportBytesGlobal to remove admission/test data race [2a2d03e](https://github.com/platformrelay/kollect/commit/2a2d03e5cb70036dd1db948753438fb3b449ad2a)
+
+
+### Features
+
+- **branding:** Kollect-style horizontal social cards ([#80](https://github.com/platformrelay/kollect/pull/80))[a287e66](https://github.com/platformrelay/kollect/commit/a287e66160b1c7393a501f2da6957ab8814b222e)
+
+## [0.9.0](https://github.com/platformrelay/kollect/compare/v0.8.0..v0.9.0) - 2026-07-14
+
+### Bug Fixes
+
 - **docs:** Correct OpenSSF Scorecard badge repo-name casing [4984cc7](https://github.com/platformrelay/kollect/commit/4984cc772611f4e88d4348f96b50d24178a9e48f)
 
 
