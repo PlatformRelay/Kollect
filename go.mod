@@ -3,11 +3,11 @@ module github.com/platformrelay/kollect
 go 1.26.5
 
 require (
-	cloud.google.com/go/bigquery v1.78.0
+	cloud.google.com/go/bigquery v1.79.0
 	github.com/aws/aws-sdk-go-v2 v1.42.1
-	github.com/aws/aws-sdk-go-v2/config v1.32.29
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.28
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.105.0
+	github.com/aws/aws-sdk-go-v2/config v1.32.30
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.29
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.105.1
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/go-logr/logr v1.4.3
@@ -31,7 +31,7 @@ require (
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/oauth2 v0.36.0
-	google.golang.org/api v0.287.1
+	google.golang.org/api v0.288.0
 	k8s.io/api v0.36.2
 	k8s.io/apiextensions-apiserver v0.36.2
 	k8s.io/apimachinery v0.36.2
@@ -64,10 +64,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.23 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.30 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.31 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.4.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.32.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.37.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.44.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.4.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.32.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.37.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.44.1 // indirect
 	github.com/aws/smithy-go v1.27.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
