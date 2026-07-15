@@ -18,6 +18,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **branding:** Kollect-style horizontal social cards ([#80](https://github.com/platformrelay/kollect/pull/80))[a287e66](https://github.com/platformrelay/kollect/commit/a287e66160b1c7393a501f2da6957ab8814b222e)
 
+
+### Refactoring
+
+- **sink:** Inject writer/jetstream seam for kafka+nats Export unit tests (COV-90-04) [9bd0007](https://github.com/platformrelay/kollect/commit/9bd000750a646280d604c653f77f4e7f674b37e9)
+
 ## [0.9.0](https://github.com/platformrelay/kollect/compare/v0.8.0..v0.9.0) - 2026-07-14
 
 ### Bug Fixes
