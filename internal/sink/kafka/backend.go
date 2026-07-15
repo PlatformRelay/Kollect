@@ -27,10 +27,17 @@ type EventEnvelope struct {
 	Payload       json.RawMessage `json:"payload"`
 }
 
+// messageWriter is the seam over *kafka.Writer that lets Export be unit-tested
+// with a fake writer instead of a real broker. *kafka.Writer satisfies it.
+type messageWriter interface {
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+	Close() error
+}
+
 // Backend publishes inventory change events to Kafka.
 type Backend struct {
 	cfg    Config
-	writer *kafka.Writer
+	writer messageWriter
 }
 
 // NewBackend constructs a kafka sink backend.

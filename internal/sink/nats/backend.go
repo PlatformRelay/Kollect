@@ -34,6 +34,11 @@ type Backend struct {
 	mu  sync.Mutex
 	nc  *natsgo.Conn
 	js  jetstream.JetStream
+
+	// jsProvider is the seam over jetStream that lets Export be unit-tested
+	// with a fake JetStream instead of a real connection. NewBackend defaults
+	// it to b.jetStream, preserving connection caching and reconnect behavior.
+	jsProvider func(ctx context.Context) (jetstream.JetStream, error)
 }
 
 func NewBackend(
@@ -49,7 +54,9 @@ func NewBackend(
 	if err != nil {
 		return nil, err
 	}
-	return &Backend{cfg: cfg, tls: tlsCfg}, nil
+	b := &Backend{cfg: cfg, tls: tlsCfg}
+	b.jsProvider = b.jetStream
+	return b, nil
 }
 
 func (b *Backend) Type() string { return typeName }
@@ -71,7 +78,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 	if len(payload) == 0 {
 		return fmt.Errorf("nats export: empty payload")
 	}
-	js, err := b.jetStream(ctx)
+	js, err := b.jsProvider(ctx)
 	if err != nil {
 		return err
 	}
@@ -81,8 +88,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 		return fmt.Errorf("nats export: marshal envelope: %w", err)
 	}
 
-	msgID := digest.ContentHash(append([]byte(b.cfg.Cluster+"/"+namespace+"/"), payload...))
-	_, err = js.Publish(ctx, b.cfg.Subject, body, jetstream.WithMsgID(msgID))
+	_, err = js.Publish(ctx, b.cfg.Subject, body, jetstream.WithMsgID(msgID(b.cfg.Cluster, namespace, payload)))
 	if err != nil {
 		return fmt.Errorf("nats publish: %w", err)
 	}
@@ -122,6 +128,12 @@ func (b *Backend) jetStream(ctx context.Context) (jetstream.JetStream, error) {
 	b.nc = nc
 	b.js = js
 	return b.js, nil
+}
+
+// msgID derives the deterministic JetStream message ID for a payload, used for
+// server-side de-duplication. Isolated so it can be unit-tested directly.
+func msgID(cluster, namespace string, payload []byte) string {
+	return digest.ContentHash(append([]byte(cluster+"/"+namespace+"/"), payload...))
 }
 
 func ensureStream(ctx context.Context, js jetstream.JetStream, cfg Config) error {
