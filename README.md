@@ -18,7 +18,6 @@
 <a href="https://sonarcloud.io/summary/new_code?id=PlatformRelay_Kollect"><img src="https://sonarcloud.io/api/project_badges/measure?project=PlatformRelay_Kollect&metric=alert_status" alt="Quality Gate Status"></a>
 <a href="https://pkg.go.dev/github.com/platformrelay/kollect"><img src="https://img.shields.io/github/go-mod/go-version/platformrelay/kollect" alt="Go"></a>
 <a href="https://pkg.go.dev/github.com/platformrelay/kollect"><img src="https://pkg.go.dev/badge/github.com/platformrelay/kollect.svg" alt="Go Reference"></a>
-<a href="https://goreportcard.com/report/github.com/platformrelay/kollect"><img src="https://goreportcard.com/badge/github.com/platformrelay/kollect" alt="Go Report Card"></a>
 <a href="https://github.com/orgs/platformrelay/packages?repo_name=kollect"><img src="https://img.shields.io/badge/ghcr.io-platformrelay%2Fkollect-2496ED?logo=docker&logoColor=white" alt="Container"></a>
 </p>
 
