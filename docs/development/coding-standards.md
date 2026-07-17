@@ -207,9 +207,11 @@ Non-trivial API, tenancy, sink, or multi-cluster changes require an ADR before m
 
 ## Pull request and CI gates
 
-`main` is protected: linear history, required checks **`preflight`**, **`test`**, and **`kind-smoke`**
-(E2E Tier 0), no force-push. Add **`kind-smoke`** in GitHub branch protection after the workflow
-has run green on `main` at least once. Use **Rebase and merge** on PRs
+`main` is protected via ruleset **`protect-main`** plus classic branch protection: linear history,
+required checks **`preflight`**, **`test`**, **`kind-smoke`** (E2E Tier 0), and **`Analyze (Go)`**
+(CodeQL), no force-push, **1 approving review** for non-bypass actors. Solo maintainers keep
+**Admin** on the ruleset bypass list (`pull_request` mode only) so self-authored PRs merge without
+a second human (`gh pr merge --rebase --admin`). Use **Rebase and merge** on PRs
 ([CONTRIBUTING.md § Changelog and releases](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md#changelog-and-releases)).
 
 | Gate | Workflow / task | Blocks merge? |

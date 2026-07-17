@@ -49,13 +49,16 @@ coverage profile.
 
 ## What CI runs on every PR
 
-**Path filters:** GitHub skips **CI**, **Preflight**, and **CodeQL** when a PR or push to `main`
+**Path filters:** GitHub skips **CI**, **Preflight**, and **E2E smoke** when a PR or push to `main`
 changes *only* documentation paths (`docs/**`, `mkdocs.yml`, root prose `*.md`, `CHANGELOG.md`,
-`LICENSE`, issue templates). The **Docs** workflow then runs `task lint:markdown`, `mkdocs build`,
+`LICENSE`, issue templates). **CodeQL** always runs (no `paths-ignore`) so OpenSSF Scorecard SAST
+sees analysis on every commit. The **Docs** workflow then runs `task lint:markdown`, `mkdocs build`,
 and (on `main` push) deploys to [platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/). Any
 change under `api/`, `internal/`, `charts/`, `cmd/`, `config/`, `hack/`, `ui/`, `test/`, `go.mod`,
 or `.github/workflows/` — or a mixed docs+code PR — runs the full gate below. Release tags no
-longer trigger docs deploys; the site tracks `main` only.
+longer trigger docs deploys; the site tracks `main` only. Docs-only PRs still need a maintainer
+**ruleset bypass** (or admin merge) because required checks `preflight` / `test` / `kind-smoke` do
+not run when those workflows are path-skipped.
 
 Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
 

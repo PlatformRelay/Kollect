@@ -66,30 +66,40 @@ The project publishes an [OpenSSF Scorecard badge](https://securityscorecards.de
 (see `README.md`). A scheduled workflow (`.github/workflows/scorecard.yaml`) runs on every `main` push and
 weekly; SARIF results are uploaded to GitHub Code Scanning.
 
-**Solo-maintainer policy:** checks that require multi-person review gates or block direct pushes to `main`
-are **documented and deferred** — not enabled — so one maintainer can ship without self-approval friction.
+**Solo-maintainer policy (2026-07-17):** raise OpenSSF Branch-Protection / SAST without a second
+human reviewer.
+
+- Ruleset **`protect-main`**: require PR, **1 approval**, dismiss stale, last-push approval, required
+  status checks (`preflight`, `test`, `kind-smoke`, `Analyze (Go)`), up-to-date before merge,
+  rebase-only merge methods. **Admin** is a bypass actor with `bypass_mode: pull_request` only —
+  maintainer merges via `gh pr merge --rebase --admin`; force-push and direct push to `main` stay
+  blocked. Scorecard will still report “admins can bypass” while any bypass actor exists — accept
+  ~6–8 Branch-Protection, not 10.
+- **CodeQL** has no `paths-ignore` so Scorecard SAST sees analysis on every recent commit (target 10).
+- **Code-Review** (approved changesets from a second person) and **2-reviewer / CODEOWNERS-required**
+  gates remain deferred until a second maintainer joins.
 
 | Check | Score (snapshot) | Status | Rationale |
 | --- | ---: | --- | --- |
-| Dangerous-Workflow | 0 critical | **Done** | No `pull_request_target`; workflow inputs passed via env vars; actions SHA-pinned |
-| Token-Permissions | 0 high | **Done** | Default `contents: read`; `security-events: write` scoped to CodeQL/Scorecard analyze jobs only; release job documents why `contents: write` is required |
-| Pinned-Dependencies | 0 medium | **Done** | Actions pinned to commit SHA; runtime base image by digest (Debian bookworm-slim); Helm tarball SHA256-verified; pip docs deps hash-locked (`--require-hashes`) |
-| SAST | 0 medium | **Done** | `golangci-lint` + `govulncheck` in CI; **CodeQL** for Go (`.github/workflows/codeql.yaml`) |
-| Vulnerabilities | 0 | **Done** | `govulncheck` on every PR; grpc ≥1.79.3 and otel/sdk ≥1.43.0; Trivy gates release images; Dependabot alerts enabled |
+| Dangerous-Workflow | 10 | **Done** | No `pull_request_target`; workflow inputs passed via env vars; actions SHA-pinned |
+| Token-Permissions | 0 high | **Partial** | Default `contents: read`; release + changelog-sync still need `contents: write` |
+| Pinned-Dependencies | 10 | **Done** | Actions pinned to commit SHA; runtime base image by digest; Helm SHA256-verified; pip hash-locked |
+| SAST | 9→10 | **Done** | CodeQL on every push/PR to `main` (no `paths-ignore`) + golangci-lint / govulncheck |
+| Vulnerabilities | 0 | **Open** | Re-score after docs dep bumps (`click`/`pillow`); OSV may still flag `x/crypto/openpgp` |
 | Security-Policy | 10 | **Done** | `SECURITY.md` |
 | Dependency-Update-Tool | 10 | **Done** | Dependabot |
 | Binary-Artifacts | 10 | **Done** | No committed binaries |
 | License | 10 | **Done** | MIT |
-| Code-Review | 0 high | **Deferred** | Branch protection + required reviewers blocks solo push-to-main workflow |
-| Branch-Protection | 0 high | **Deferred** | Optional for single maintainer; CI merge gates substitute for GitHub branch rules |
-| Maintained | 0 high | **Deferred** | Activity-based; improves with regular releases post-**v0.10** |
-| Fuzzing | 0 medium | **Partial** | Native Go fuzz (`FuzzContentHash`, `internal/aggregate`) in CI (`fuzz` job, 30s); OSS-Fuzz deferred |
-| CII-Best-Practices | 0 low | **Deferred** | Core Infrastructure Initiative badge application not pursued pre-GA |
+| Code-Review | 0 high | **Deferred** | Needs second-person approved PRs; solo bypass does not satisfy this check |
+| Branch-Protection | 3→6–8 | **Done** | 1 approval + required checks + last-push approval; Admin PR-only bypass for solo merges |
+| Maintained | 0 high | **Deferred** | Repo &lt; 90 days; improves with continued activity |
+| Fuzzing | 10 | **Done** | Native Go fuzz in CI; OSS-Fuzz deferred |
+| CII-Best-Practices | 0 low | **Open** | Passing badge exists but Best Practices project URL still points at old `konih/kollect` |
 | Contributors | 0 low | **N/A** | Solo OSS; diversity metric not applicable |
 
-**CodeQL (SAST):** GitHub CodeQL for Go runs on every push/PR to `main`, weekly on Mondays, and uploads
-results to GitHub Code Scanning (`.github/workflows/codeql.yaml`). Complements `golangci-lint` security
-linters and `govulncheck` — not a replacement.
+**CodeQL (SAST):** GitHub CodeQL for Go runs on every push/PR to `main` (including docs-only), weekly
+on Mondays, and uploads results to GitHub Code Scanning (`.github/workflows/codeql.yaml`). Complements
+`golangci-lint` security linters and `govulncheck` — not a replacement.
 
 **Native Go fuzz:** CI job **fuzz** runs `go test -fuzz=FuzzContentHash -fuzztime=30s` on
 `internal/aggregate` (export coalesce checksum path). Full OSS-Fuzz integration remains deferred.

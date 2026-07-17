@@ -1,26 +1,13 @@
 name: CodeQL
 
+# Runs on every push/PR to main (no paths-ignore) so OpenSSF Scorecard SAST
+# sees CodeQL on all recent commits. Docs-only PRs pay a short Go CodeQL run.
+
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "mkdocs.yml"
-      - "README.md"
-      - "CHANGELOG.md"
-      - "CONTRIBUTING.md"
-      - "LICENSE"
-      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "mkdocs.yml"
-      - "README.md"
-      - "CHANGELOG.md"
-      - "CONTRIBUTING.md"
-      - "LICENSE"
-      - ".github/ISSUE_TEMPLATE/**"
   schedule:
     - cron: "18 6 * * 1"
 
