@@ -3,4 +3,4 @@ mkdocs-material[imaging]==9.7.6
 mkdocs-redirects==1.2.2
 # GHSA-5xmw-vc9v-4wf2, GHSA-cfh3-3jmp-rvhc, GHSA-pwv6-vv43-88gr,
 # GHSA-r73j-pqj5-w3x7, GHSA-whj4-6x5x-4v2j, GHSA-wjx4-4jcj-g98j (PYSEC-2026-165)
-pillow>=12.2.0
+pillow>=12.3.0
