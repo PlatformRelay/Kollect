@@ -35,8 +35,27 @@ env:
   PIPELINE_IMAGE_NAME: kollect-pipeline
 
 jobs:
+  eligibility:
+    name: release eligibility
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+      - name: Prove reviewed-main release eligibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash hack/ci/verify-release-eligibility.sh "$(git rev-parse HEAD)"
+
   release:
     name: release
+    needs: eligibility
     runs-on: ubuntu-latest
     # contents: write — create/update GitHub Release assets (softprops/action-gh-release, git-cliff)
     # packages: write — push container image and OCI Helm chart to GHCR

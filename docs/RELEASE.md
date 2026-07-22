@@ -94,6 +94,19 @@ task changelog:verify
 Ensure **CI**, **preflight**, and **`kind-smoke`** (`e2e-smoke.yaml`) are green on `${RELEASE_SHA}`
 on GitHub Actions.
 
+Then run the read-only **Release gate** against that immutable SHA. It rejects commits not reachable
+from protected `main`, missing or unsuccessful required checks, and commits without a merged PR and
+an approval from someone other than the PR author:
+
+```sh
+gh workflow run release-gate.yaml -f sha="${RELEASE_SHA}"
+gh run list --workflow release-gate.yaml --commit "${RELEASE_SHA}" --limit 1
+```
+
+The publishing workflow independently repeats this eligibility check before it receives access to
+registry login, signing, attestations, or release uploads. A missing check on a docs-only commit is a
+failure; dispatch the skipped workflow on the exact SHA and rerun the gate.
+
 ### L4 pre-release gate
 
 Before tagging, require **one** of:
@@ -189,12 +202,23 @@ git commit -m ":bookmark: chore(release): prepare v0.3.0"
 
 ## Cut a release
 
-On green `main` at the commit you intend to ship:
+Prepare the chart and changelog on a topic branch, open a pull request, and obtain an approval from a
+reviewer other than the author. Rebase-merge the PR through the protected branch, then refetch and
+record the exact resulting `main` SHA:
 
 ```sh
-git tag v0.3.0
-git push origin main
-git push origin v0.3.0   # triggers release workflow — only after CI green on this SHA
+git fetch origin main
+git switch main
+git pull --ff-only origin main
+RELEASE_SHA="$(git rev-parse HEAD)"
+gh workflow run release-gate.yaml -f sha="${RELEASE_SHA}"
+```
+
+Only after that gate succeeds on the same immutable SHA:
+
+```sh
+git tag v0.3.0 "${RELEASE_SHA}"
+git push origin v0.3.0   # triggers release workflow, which repeats eligibility checks
 ```
 
 CI publishes the GitHub Release, GHCR image, OCI Helm chart, and attached assets.
