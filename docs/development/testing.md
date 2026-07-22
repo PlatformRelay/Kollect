@@ -49,16 +49,18 @@ coverage profile.
 
 ## What CI runs on every PR
 
-**Path filters:** GitHub skips **CI**, **Preflight**, and **E2E smoke** when a PR or push to `main`
-changes *only* documentation paths (`docs/**`, `mkdocs.yml`, root prose `*.md`, `CHANGELOG.md`,
-`LICENSE`, issue templates). **CodeQL** always runs (no `paths-ignore`) so OpenSSF Scorecard SAST
-sees analysis on every commit. The **Docs** workflow then runs `task lint:markdown`, `mkdocs build`,
-and (on `main` push) deploys to [platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/). Any
-change under `api/`, `internal/`, `charts/`, `cmd/`, `config/`, `hack/`, `ui/`, `test/`, `go.mod`,
-or `.github/workflows/` — or a mixed docs+code PR — runs the full gate below. Release tags no
-longer trigger docs deploys; the site tracks `main` only. Docs-only PRs still need a maintainer
-**ruleset bypass** (or admin merge) because required checks `preflight` / `test` / `kind-smoke` do
-not run when those workflows are path-skipped.
+**Path filters:** **Preflight** and **CodeQL** run on every PR. Preflight always runs
+`task lint:markdown`, so Markdown in code, docs-only, and mixed PRs is checked consistently.
+GitHub skips **CI** and **E2E smoke** when a PR or push to `main` changes *only* documentation
+paths (`docs/**`, `mkdocs.yml`, root prose `*.md`, `CHANGELOG.md`, `LICENSE`, issue templates).
+The path-scoped **Docs** workflow runs `task lint:markdown` and `mkdocs build --strict`, then (on
+`main` push) deploys to
+[platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/). Any change under
+`api/`, `internal/`, `charts/`, `cmd/`, `config/`, `hack/`, `ui/`, `test/`, `go.mod`, or
+`.github/workflows/` — or a mixed docs+code PR — runs the full gate below. Release tags no longer
+trigger docs deploys; the site tracks `main` only. Docs-only PRs still need a maintainer
+**ruleset bypass** (or admin merge) because required checks `test` / `kind-smoke` do not run when
+those workflows are path-skipped.
 
 Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
 
@@ -95,7 +97,8 @@ the maintainer to install the [Codecov GitHub App](https://github.com/apps/codec
 
 | Workflow | Tier | Purpose |
 | --- | --- | --- |
-| `docs.yaml` | Docs | Markdown lint, MkDocs build, GitHub Pages deploy (`main` only) |
+| `preflight.yaml` | All PRs | Markdown lint, codegen and changelog drift, module consistency |
+| `docs.yaml` | Docs paths | Markdown lint, strict MkDocs build, GitHub Pages deploy (`main` only) |
 | `e2e-smoke.yaml` | L4 Tier 0 | **Mandatory** kind smoke on PR + `main` (job `kind-smoke`) |
 | `e2e-extended.yaml` | L4 Tier 1 | Optional git-export, multitenant, tenant-mode, webhook profile |
 | `e2e-nightly.yaml` | L4 Tier 2 | Full Kind matrix + bench/perf (deduped L3) |
