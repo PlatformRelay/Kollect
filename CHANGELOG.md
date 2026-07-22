@@ -21,6 +21,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Refactoring
 
+- **operator:** Simplify mode normalization [be20718](https://github.com/platformrelay/kollect/commit/be207186cedddd54002fdc8305a2a80774f30033)
+
 - **sink:** Inject writer/jetstream seam for kafka+nats Export unit tests (COV-90-04) [53708d0](https://github.com/platformrelay/kollect/commit/53708d03e34e591c203bfd8bcc8759606f2d163f)
 
 ## [0.9.0](https://github.com/platformrelay/kollect/compare/v0.8.0..v0.9.0) - 2026-07-14
