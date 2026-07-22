@@ -30,9 +30,9 @@ func TestClientOptions_EmulatorAddsEndpointOption(t *testing.T) {
 	if err != nil {
 		t.Fatalf("clientOptions: %v", err)
 	}
-	// Endpoint + WithoutAuthentication.
-	if len(opts) != 2 {
-		t.Fatalf("expected 2 emulator options, got %d", len(opts))
+	// Endpoint + WithoutAuthentication + guarded HTTP client.
+	if len(opts) != 3 {
+		t.Fatalf("expected 3 emulator options, got %d", len(opts))
 	}
 }
 
@@ -43,8 +43,8 @@ func TestClientOptions_EmulatorSchemePreserved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("clientOptions: %v", err)
 	}
-	if len(opts) != 2 {
-		t.Fatalf("expected 2 emulator options, got %d", len(opts))
+	if len(opts) != 3 {
+		t.Fatalf("expected 3 emulator options, got %d", len(opts))
 	}
 }
 

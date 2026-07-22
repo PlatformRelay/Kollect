@@ -16,6 +16,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/sink/cap"
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
 // EventEnvelope is the JSON message published to Kafka topics.
@@ -131,7 +132,7 @@ func namespaceFromObjectPath(objectPath string) string {
 }
 
 func dialTransport(cfg Config) (*kafka.Transport, error) {
-	transport := &kafka.Transport{}
+	transport := &kafka.Transport{Dial: netguard.DefaultDialer.DialContext}
 
 	if cfg.Username != "" {
 		mechanism, err := scram.Mechanism(scram.SHA256, cfg.Username, cfg.Password)

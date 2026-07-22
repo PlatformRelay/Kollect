@@ -114,7 +114,7 @@ func EnsureMergeRequest(
 		return err
 	}
 
-	client, err := NewRESTClient(cfg.Endpoint, apiToken, apiUser, nil)
+	client, err := NewRESTClient(cfg.Endpoint, apiToken, apiUser, cfg.HTTPClient)
 	if err != nil {
 		return err
 	}

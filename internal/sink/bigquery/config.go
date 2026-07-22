@@ -14,6 +14,7 @@ import (
 	"google.golang.org/api/option"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
 // TypeName is the KollectSink.spec.type value for BigQuery sinks.
@@ -104,13 +105,14 @@ func credentialsJSONFromSecret(data map[string][]byte) ([]byte, error) {
 }
 
 func (c Config) clientOptions(ctx context.Context) ([]option.ClientOption, error) {
-	opts := make([]option.ClientOption, 0, 2)
+	opts := make([]option.ClientOption, 0, 3)
 
 	if emulatorHost := strings.TrimSpace(os.Getenv("BIGQUERY_EMULATOR_HOST")); emulatorHost != "" {
 		if !strings.HasPrefix(emulatorHost, "http://") && !strings.HasPrefix(emulatorHost, "https://") {
 			emulatorHost = "http://" + emulatorHost
 		}
-		opts = append(opts, option.WithEndpoint(emulatorHost), option.WithoutAuthentication())
+		opts = append(opts, option.WithEndpoint(emulatorHost), option.WithoutAuthentication(),
+			option.WithHTTPClient(netguard.HTTPClient(0)))
 	}
 
 	if len(c.CredentialsJSON) > 0 {

@@ -146,7 +146,7 @@ func TestEnsureMergeRequest(t *testing.T) {
 		TargetBranch: "main",
 	}
 	gitEndpoint := srv.URL + "/platform/inventory.git"
-	err := EnsureMergeRequest(ctx, Config{Endpoint: gitEndpoint}, mrCfg,
+	err := EnsureMergeRequest(ctx, Config{Endpoint: gitEndpoint, HTTPClient: srv.Client()}, mrCfg,
 		"kollect/default/team", "default", "team", "tok", "")
 	if err != nil {
 		t.Fatalf("MR mode with token: %v", err)

@@ -20,6 +20,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/sink/cap"
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 	"github.com/platformrelay/kollect/internal/sink/objectstore"
 	parquetenc "github.com/platformrelay/kollect/internal/sink/parquet"
 )
@@ -116,6 +117,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 func newClient(cfg Config) (*awss3.Client, error) {
 	loadOpts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(cfg.Region),
+		awsconfig.WithHTTPClient(netguard.HTTPClient(0)),
 	}
 
 	if cfg.AccessKeyID != "" || cfg.SecretAccessKey != "" {
