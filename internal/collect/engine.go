@@ -98,8 +98,11 @@ type Engine struct {
 	runCtx    context.Context
 
 	mu                    sync.RWMutex
+	informerMu            sync.Mutex
 	factories             map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory
 	started               map[schema.GroupVersionResource]bool
+	informerScopes        map[schema.GroupVersionResource]string
+	informerCancels       map[schema.GroupVersionResource]context.CancelFunc
 	targets               map[string]targetState
 	targetsByGVR          map[schema.GroupVersionResource][]string
 	nsMeta                map[string]namespaceMeta
@@ -142,6 +145,8 @@ func NewEngine(
 		store:                 store,
 		factories:             make(map[schema.GroupVersionResource]dynamicinformer.DynamicSharedInformerFactory),
 		started:               make(map[schema.GroupVersionResource]bool),
+		informerScopes:        make(map[schema.GroupVersionResource]string),
+		informerCancels:       make(map[schema.GroupVersionResource]context.CancelFunc),
 		targets:               make(map[string]targetState),
 		targetsByGVR:          make(map[schema.GroupVersionResource][]string),
 		nsMeta:                make(map[string]namespaceMeta),
@@ -255,13 +260,10 @@ func (e *Engine) RegisterTarget(
 		compiledRules:       compiled,
 	}
 	e.indexTargetLocked(key, gvr)
-	needStart := !e.started[gvr]
 	e.mu.Unlock()
 
-	if needStart {
-		if err := e.startInformer(e.informerContext(), gvr); err != nil {
-			return err
-		}
+	if err := e.startInformer(e.informerContext(), gvr); err != nil {
+		return err
 	}
 
 	return nil
@@ -495,22 +497,26 @@ func (e *Engine) refreshNamespaceCache(ctx context.Context) error {
 }
 
 func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResource) error {
-	e.mu.Lock()
-	if e.started[gvr] {
-		e.mu.Unlock()
+	// Registration can race across reconcilers. Serialize informer lifecycle transitions so
+	// exactly one replacement is built for a GVR and the previous factory is cancelled only
+	// after its replacement has completed the initial List and cache sync.
+	e.informerMu.Lock()
+	defer e.informerMu.Unlock()
 
+	desiredScope := e.watchNamespaceForGVR(gvr)
+	e.mu.RLock()
+	currentScope := e.informerScopes[gvr]
+	informerStarted := e.started[gvr]
+	e.mu.RUnlock()
+	if informerStarted && (currentScope == metav1.NamespaceAll || currentScope == desiredScope) {
 		return nil
 	}
-	e.mu.Unlock()
 
-	watchNS := e.watchNamespaceForGVR(gvr)
-
-	e.mu.Lock()
-	if e.started[gvr] {
-		e.mu.Unlock()
-
-		return nil
-	}
+	// A running namespace-scoped informer may only widen. If active targets disagree about
+	// their single namespace (or any target spans namespaces), watchNamespaceForGVR returns
+	// NamespaceAll. Narrowing an all-namespace informer is deliberately deferred to avoid
+	// churn and gaps when targets are removed.
+	watchNS := desiredScope
 
 	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
 		e.dynamic,
@@ -518,10 +524,6 @@ func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResou
 		watchNS,
 		nil,
 	)
-	e.factories[gvr] = factory
-	e.started[gvr] = true
-	e.mu.Unlock()
-
 	gvrLabels := []string{gvr.Group, gvr.Version, gvr.Resource}
 	if watchNS == metav1.NamespaceAll {
 		log.FromContext(ctx).Info(
@@ -553,11 +555,39 @@ func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResou
 		return fmt.Errorf("add informer handler: %w", err)
 	}
 
-	go factory.Start(ctx.Done())
-	factory.WaitForCacheSync(ctx.Done())
+	informerCtx, cancel := context.WithCancel(ctx)
+	factory.Start(informerCtx.Done())
+	syncs := factory.WaitForCacheSync(informerCtx.Done())
+	if synced, ok := syncs[gvr]; !ok || !synced {
+		cancel()
+		return fmt.Errorf("sync informer cache for %s", gvr.String())
+	}
+
+	e.mu.Lock()
+	oldCancel := e.informerCancels[gvr]
+	e.factories[gvr] = factory
+	e.started[gvr] = true
+	e.informerScopes[gvr] = watchNS
+	e.informerCancels[gvr] = cancel
+	e.mu.Unlock()
+
+	if oldCancel != nil {
+		oldCancel()
+	}
 	e.updateInformerMetrics(gvr, informer)
 
 	return nil
+}
+
+func (e *Engine) informerScope(gvr schema.GroupVersionResource) string {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	if !e.started[gvr] {
+		return ""
+	}
+
+	return e.informerScopes[gvr]
 }
 
 func (e *Engine) updateInformerMetrics(gvr schema.GroupVersionResource, informer cache.SharedIndexInformer) {
