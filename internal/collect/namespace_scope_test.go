@@ -4,7 +4,9 @@
 package collect
 
 import (
+	"runtime"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -30,6 +32,53 @@ func TestNamespaceMatchesSelector(t *testing.T) {
 
 	if !namespaceMatchesSelector(nil, labels.Set{}) {
 		t.Fatal("nil selector should match all")
+	}
+}
+
+func TestWatchNamespaceForGVRDoesNotRetainEngineReadLockWhileResolvingNamespaces(t *testing.T) {
+	t.Parallel()
+
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	engine := &Engine{
+		targets: map[string]targetState{
+			"ops/demo": {
+				target: kollectdevv1alpha1.KollectTarget{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "ops", Name: "demo"},
+				},
+				profile: kollectdevv1alpha1.KollectProfile{Spec: kollectdevv1alpha1.KollectProfileSpec{
+					TargetGVK: kollectdevv1alpha1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+				}},
+			},
+		},
+		nsMeta: map[string]namespaceMeta{"team-a": {}},
+	}
+
+	// Hold namespace metadata so scope resolution pauses after snapshotting target state.
+	// A writer must still be able to acquire e.mu; retaining an outer read lock while
+	// resolving namespaces can deadlock once that writer queues ahead of a nested RLock.
+	engine.nsMu.Lock()
+	done := make(chan string, 1)
+	go func() { done <- engine.watchNamespaceForGVR(gvr) }()
+
+	writerAcquired := false
+	deadline := time.Now().Add(250 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if engine.mu.TryLock() {
+			writerAcquired = true
+			engine.mu.Unlock()
+			break
+		}
+		runtime.Gosched()
+	}
+	engine.nsMu.Unlock()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("scope resolution did not complete")
+	}
+	if !writerAcquired {
+		t.Fatal("engine writer could not acquire mu while scope resolution waited on namespace metadata")
 	}
 }
 

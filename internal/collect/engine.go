@@ -103,6 +103,7 @@ type Engine struct {
 	started               map[schema.GroupVersionResource]bool
 	informerScopes        map[schema.GroupVersionResource]string
 	informerCancels       map[schema.GroupVersionResource]context.CancelFunc
+	retireInformer        func(dynamicinformer.DynamicSharedInformerFactory, context.CancelFunc)
 	targets               map[string]targetState
 	targetsByGVR          map[schema.GroupVersionResource][]string
 	nsMeta                map[string]namespaceMeta
@@ -147,6 +148,7 @@ func NewEngine(
 		started:               make(map[schema.GroupVersionResource]bool),
 		informerScopes:        make(map[schema.GroupVersionResource]string),
 		informerCancels:       make(map[schema.GroupVersionResource]context.CancelFunc),
+		retireInformer:        retireDynamicInformer,
 		targets:               make(map[string]targetState),
 		targetsByGVR:          make(map[schema.GroupVersionResource][]string),
 		nsMeta:                make(map[string]namespaceMeta),
@@ -559,24 +561,34 @@ func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResou
 	factory.Start(informerCtx.Done())
 	syncs := factory.WaitForCacheSync(informerCtx.Done())
 	if synced, ok := syncs[gvr]; !ok || !synced {
-		cancel()
+		retireDynamicInformer(factory, cancel)
 		return fmt.Errorf("sync informer cache for %s", gvr.String())
 	}
 
 	e.mu.Lock()
 	oldCancel := e.informerCancels[gvr]
+	oldFactory := e.factories[gvr]
 	e.factories[gvr] = factory
 	e.started[gvr] = true
 	e.informerScopes[gvr] = watchNS
 	e.informerCancels[gvr] = cancel
 	e.mu.Unlock()
 
-	if oldCancel != nil {
-		oldCancel()
+	if oldCancel != nil && oldFactory != nil {
+		retire := e.retireInformer
+		if retire == nil {
+			retire = retireDynamicInformer
+		}
+		retire(oldFactory, oldCancel)
 	}
 	e.updateInformerMetrics(gvr, informer)
 
 	return nil
+}
+
+func retireDynamicInformer(factory dynamicinformer.DynamicSharedInformerFactory, cancel context.CancelFunc) {
+	cancel()
+	factory.Shutdown()
 }
 
 func (e *Engine) informerScope(gvr schema.GroupVersionResource) string {
