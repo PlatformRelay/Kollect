@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Describe CI filters exactly [73bc0eb](https://github.com/platformrelay/kollect/commit/73bc0ebe47bbd319914be9ee5c4b5aacd5ca4849)
+
 - **validation:** Atomic maxExportBytesGlobal to remove admission/test data race [afd5d3a](https://github.com/platformrelay/kollect/commit/afd5d3a1ad63b9a2a86dbc613ab9e05c155e288f)
 
 

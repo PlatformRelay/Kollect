@@ -1,4 +1,4 @@
-# markdownlint-cli2 config — scoped to project docs (see Taskfile lint:markdown).
+# markdownlint-cli2 config — covers every Markdown file in the repository.
 # MkDocs-friendly: allow mermaid/HTML; relax rules that fight tables, ADRs, git-cliff output.
 config:
   default: true
@@ -23,17 +23,11 @@ config:
   MD003: false
   MD050: false
   MD059: false
+  # git-cliff intentionally separates generated release groups with two blank lines.
+  MD012: false
 
 globs:
-  - docs/**/*.md
-  - charts/**/README.md
-  - README.md
-  - CONTRIBUTING.md
-  - SECURITY.md
-  - docs/development/guidelines.md
-  - hack/**/README.md
-  - internal/**/README.md
-  - .github/**/*.md
+  - "**/*.md"
 
 ignores:
   - site/**
@@ -42,4 +36,3 @@ ignores:
   - agent-context/**
   - .mkdocs-venv/**
   - docs/node_modules/**
-  - CHANGELOG.md
