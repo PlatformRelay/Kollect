@@ -11,7 +11,9 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **docs:** Describe CI filters exactly [73bc0eb](https://github.com/platformrelay/kollect/commit/73bc0ebe47bbd319914be9ee5c4b5aacd5ca4849)
+- **ci:** Correct Renovate scheduling [c4d831f](https://github.com/platformrelay/kollect/commit/c4d831febf3f5be6f659d6521cb48e85ab591882)
+
+- **docs:** Describe CI filters exactly [e449712](https://github.com/platformrelay/kollect/commit/e4497122881726c71308e8eb675bea908e251019)
 
 - **validation:** Atomic maxExportBytesGlobal to remove admission/test data race [afd5d3a](https://github.com/platformrelay/kollect/commit/afd5d3a1ad63b9a2a86dbc613ab9e05c155e288f)
 
@@ -23,7 +25,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Refactoring
 
-- **operator:** Simplify mode normalization [be20718](https://github.com/platformrelay/kollect/commit/be207186cedddd54002fdc8305a2a80774f30033)
+- **operator:** Simplify mode normalization [c03042e](https://github.com/platformrelay/kollect/commit/c03042e13834f92d58b1ee2518f3790eb213f1da)
 
 - **sink:** Inject writer/jetstream seam for kafka+nats Export unit tests (COV-90-04) [53708d0](https://github.com/platformrelay/kollect/commit/53708d03e34e591c203bfd8bcc8759606f2d163f)
 
