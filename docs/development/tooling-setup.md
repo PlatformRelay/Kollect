@@ -154,6 +154,30 @@ may remove the secret after verifying uploads on `main`.
 Contributors do not need Codecov accounts. Run `task coverage` before opening a PR; CI uploads
 `coverage.out` automatically when the **`test`** job passes.
 
+## Renovate dependency updates
+
+Renovate runs every Monday at 04:00 UTC and can also be started manually from the
+**Renovate** GitHub Actions workflow. It replaces scheduled Dependabot version-update PRs and
+groups updates for Go modules, Kubernetes libraries, GitHub Actions, container images, the docs
+and UI package locks, docs Python requirements, and pinned build tools. Dependabot vulnerability
+alerts and security updates remain enabled in repository settings; deleting
+`.github/dependabot.yml` only retires its scheduled version-update jobs.
+
+The workflow needs a repository secret named `RENOVATE_TOKEN` whose GitHub App or fine-grained PAT
+can write contents and pull requests. Configure it under **Settings → Secrets and variables →
+Actions**. Renovate falls back to the workflow's `github.token` when the secret is absent, so the
+scheduled job remains usable, but GitHub suppresses workflows triggered by pull requests created
+with that token. Those fallback PRs therefore do not satisfy required CI checks; provision
+`RENOVATE_TOKEN` before treating the migration as operationally complete.
+
+Configuration is split between `.github/renovate-config.json` (self-hosted runner bootstrap) and
+`renovate.json` (repository dependency rules). Validate changes with:
+
+```sh
+npx --yes --package renovate renovate-config-validator \
+  .github/renovate-config.json renovate.json
+```
+
 ## What maintainers configure vs contributors
 
 | Item | Contributor | Maintainer |
@@ -162,6 +186,7 @@ Contributors do not need Codecov accounts. Run `task coverage` before opening a 
 | `SONAR_TOKEN` / `SONARCLOUD_TOKEN` | — | GitHub secret + `.envrc` (same token, different names) |
 | Codecov GitHub App | — | [Install app](https://github.com/apps/codecov) on `platformrelay/kollect` for reliable PR comments |
 | `CODECOV_TOKEN` | — | Legacy optional; CI uses OIDC — safe to delete after upload verified |
+| `RENOVATE_TOKEN` | — | GitHub App/PAT with contents + pull-request write access so bot PRs trigger CI |
 | SonarCloud quality gate blocking | — | Enable after baseline scan (Phase 1) |
 
 ## Further reading

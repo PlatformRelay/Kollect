@@ -1,0 +1,116 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":disableDependencyDashboard"
+  ],
+  "labels": ["dependencies"],
+  "timezone": "Europe/Berlin",
+  "schedule": ["before 6am on Monday"],
+  "semanticCommits": "disabled",
+  "commitMessagePrefix": ":arrow_up:",
+  "commitMessageAction": "chore(deps): update",
+  "ignorePaths": [
+    "references/**",
+    "bin/**",
+    ".task/**"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Annotated Taskfile tool versions",
+      "managerFilePatterns": ["/Taskfile\\.yml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n\\s+[A-Z0-9_]+_VERSION: (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "{{datasource}}",
+      "depNameTemplate": "{{depName}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Pinned gitleaks release download in CI",
+      "managerFilePatterns": ["/^\\.github/workflows/ci\\.yaml$/"],
+      "matchStrings": [
+        "releases/download/v[0-9.]+/gitleaks_(?<currentValue>[0-9.]+)_linux_x64\\.tar\\.gz"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "gitleaks/gitleaks",
+      "autoReplaceStringTemplate": "releases/download/v{{{newValue}}}/gitleaks_{{{newValue}}}_linux_x64.tar.gz"
+    },
+    {
+      "customType": "regex",
+      "description": "Pinned ShellCheck release download in CI",
+      "managerFilePatterns": ["/^\\.github/workflows/ci\\.yaml$/"],
+      "matchStrings": [
+        "releases/download/v[0-9.]+/shellcheck-v(?<currentValue>[0-9.]+)\\.linux\\.x86_64\\.tar\\.xz"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "koalaman/shellcheck",
+      "autoReplaceStringTemplate": "releases/download/v{{{newValue}}}/shellcheck-v{{{newValue}}}.linux.x86_64.tar.xz"
+    },
+    {
+      "customType": "regex",
+      "description": "Helm release versions in CI and install scripts",
+      "managerFilePatterns": [
+        "/^\\.github/(actions|workflows)/.+\\.ya?ml$/",
+        "/^hack/install-helm\\.sh$/"
+      ],
+      "matchStrings": [
+        "HELM_VERSION[^\\n]*?(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "helm/helm"
+    },
+    {
+      "customType": "regex",
+      "description": "go-task action input versions",
+      "managerFilePatterns": ["/^\\.github/(actions|workflows)/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "uses: go-task/setup-task@[^#\\n]+(?:#[^\\n]+)?\\n\\s+with:\\n\\s+version: (?<currentValue>[0-9.]+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "go-task/task"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["gomod"],
+      "groupName": "go minor and patch dependencies",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["/^k8s\\.io\\//", "/^sigs\\.k8s\\.io\\//"],
+      "groupName": "kubernetes packages"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "pinDigests": true
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "groupName": "docker images",
+      "pinDigests": true
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchFileNames": ["docs/**"],
+      "groupName": "docs npm dependencies"
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchFileNames": ["ui/**"],
+      "groupName": "ui npm dependencies"
+    },
+    {
+      "matchManagers": ["pip_requirements"],
+      "matchFileNames": ["docs/**"],
+      "groupName": "docs Python dependencies"
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "groupName": "pinned build tools"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+# Renovate uses RENOVATE_TOKEN when configured so its pull requests trigger CI.
+# Without that secret, github.token is a safe fallback, but GitHub will not start
+# workflows for pull requests created by the repository token.
+name: Renovate
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    name: renovate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      RENOVATE_REPOSITORIES: ${{ github.repository }}
+      # Manual runs ignore the repository schedule and emit debug logs.
+      RENOVATE_FORCE: ${{ github.event_name == 'workflow_dispatch' && '{"schedule":null}' || '' }}
+      LOG_LEVEL: ${{ github.event_name == 'workflow_dispatch' && 'debug' || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: renovatebot/github-action@3064367f740a1a91cca218698a63902689cce200 # v46.1.20
+        with:
+          configurationFile: .github/renovate-config.json
+          token: ${{ secrets.RENOVATE_TOKEN != '' && secrets.RENOVATE_TOKEN || github.token }}
