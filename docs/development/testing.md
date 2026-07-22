@@ -52,7 +52,8 @@ coverage profile.
 **Path filters:** **Preflight** and **CodeQL** run on every PR. Preflight always runs
 `task lint:markdown`, so Markdown in code, docs-only, and mixed PRs is checked consistently.
 GitHub skips **CI** and **E2E smoke** when a PR or push to `main` changes *only* documentation
-paths (`docs/**`, `mkdocs.yml`, root prose `*.md`, `CHANGELOG.md`, `LICENSE`, issue templates).
+paths (`docs/**`, `mkdocs.yml`, `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `LICENSE`, and
+issue templates). Other root Markdown files still trigger both workflows.
 The path-scoped **Docs** workflow runs `task lint:markdown` and `mkdocs build --strict`, then (on
 `main` push) deploys to
 [platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/). Any change under
