@@ -23,8 +23,14 @@ config:
   MD003: false
   MD050: false
   MD059: false
+
+overrides:
   # git-cliff intentionally separates generated release groups with two blank lines.
-  MD012: false
+  - filter:
+      - CHANGELOG.md
+    config:
+      MD012: false
+    combine: merge
 
 globs:
   - "**/*.md"
