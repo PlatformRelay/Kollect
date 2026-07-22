@@ -8,35 +8,32 @@ import (
 )
 
 func TestResolveMode(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
-		flag string
-		want string
+		name    string
+		flag    string
+		envMode string
 	}{
-		{"", ModeCluster},
-		{"single", ModeCluster},
-		{"cluster", ModeCluster},
+		{name: "empty"},
+		{name: "flag cluster", flag: "cluster"},
+		{name: "flag single", flag: "single"},
+		{name: "flag mixed case", flag: "ClUsTeR"},
+		{name: "flag whitespace", flag: "  single\t"},
+		{name: "flag unknown", flag: "mystery"},
+		{name: "environment cluster", envMode: "cluster"},
+		{name: "environment single", envMode: "single"},
+		{name: "environment mixed case", envMode: "SiNgLe"},
+		{name: "environment whitespace", envMode: "  cluster\n"},
+		{name: "environment unknown", envMode: "mystery"},
+		{name: "flag takes precedence", flag: "unknown", envMode: "single"},
 	}
 
 	for _, tc := range tests {
-		if got := ResolveMode(tc.flag); got != tc.want {
-			t.Fatalf("ResolveMode(%q) = %q, want %q", tc.flag, got, tc.want)
-		}
-	}
-}
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(envMode, tc.envMode)
 
-func TestResolveModeFromEnv(t *testing.T) {
-	t.Setenv(envMode, "cluster")
-	if got := ResolveMode(""); got != ModeCluster {
-		t.Fatalf("env mode = %q", got)
-	}
-}
-
-func TestResolveModeUnknownFallsBackToCluster(t *testing.T) {
-	t.Parallel()
-
-	if got := ResolveMode("mystery"); got != ModeCluster {
-		t.Fatalf("unknown mode = %q", got)
+			if got := ResolveMode(tc.flag); got != ModeCluster {
+				t.Fatalf("ResolveMode(%q) with %s=%q = %q, want %q", tc.flag, envMode, tc.envMode, got, ModeCluster)
+			}
+		})
 	}
 }
