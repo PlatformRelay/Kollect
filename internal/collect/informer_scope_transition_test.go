@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/dynamic/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -38,6 +39,23 @@ func TestEngineRegisterTargetWidensRunningInformerScope(t *testing.T) {
 		t.Fatalf("register target A: %v", err)
 	}
 	waitForTargetItems(t, engine, store, targetA.Namespace, targetA.Name, 1)
+	oldFactory := engine.factories[profileGVR()]
+	retireCalls := 0
+	engine.retireInformer = func(factory dynamicinformer.DynamicSharedInformerFactory, cancel context.CancelFunc) {
+		retireCalls++
+		if factory != oldFactory {
+			t.Errorf("retired factory = %p, want original %p", factory, oldFactory)
+		}
+		current := engine.factories[profileGVR()]
+		if current == oldFactory {
+			t.Error("old factory retired before replacement was installed")
+		}
+		if !current.ForResource(profileGVR()).Informer().HasSynced() {
+			t.Error("old factory retired before replacement cache synced")
+		}
+		cancel()
+		factory.Shutdown()
+	}
 
 	targetB := scopeTransitionTarget("target-b", "team-b")
 	if err := engine.RegisterTarget(ctx, targetB, profile, RegisterTargetOptions{
@@ -46,17 +64,24 @@ func TestEngineRegisterTargetWidensRunningInformerScope(t *testing.T) {
 		t.Fatalf("register target B: %v", err)
 	}
 	waitForTargetItems(t, engine, store, targetB.Namespace, targetB.Name, 1)
+	if retireCalls != 1 {
+		t.Fatalf("retire calls = %d, want 1", retireCalls)
+	}
 
 	if got := engine.informerScope(profileGVR()); got != metav1.NamespaceAll {
 		t.Fatalf("informer scope = %q, want all namespaces", got)
 	}
 
 	engine.UnregisterTarget(targetB.Namespace, targetB.Name)
+	versionBefore := store.NamespaceVersion("team-a")
 	obj := scopeTransitionDeployment("team-a", "second-a", "uid-a-2")
 	if _, err := engine.dynamic.Resource(profileGVR()).Namespace("team-a").Create(ctx, obj, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("create second team-a object: %v", err)
 	}
 	waitForTargetItems(t, engine, store, targetA.Namespace, targetA.Name, 2)
+	if got := store.NamespaceVersion("team-a"); got != versionBefore+1 {
+		t.Fatalf("namespace version = %d, want %d (event dispatched more than once)", got, versionBefore+1)
+	}
 	if got := store.CountForTarget(targetB.Namespace, targetB.Name); got != 0 {
 		t.Fatalf("removed target item count = %d, want 0", got)
 	}

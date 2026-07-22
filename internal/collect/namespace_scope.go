@@ -7,8 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
 
 // namespaceMatchesSelector reports whether namespace labels satisfy the target selector.
@@ -30,32 +28,21 @@ func namespaceMatchesSelector(selector *metav1.LabelSelector, nsLabels labels.Se
 func (e *Engine) MatchedNamespacesForTarget(targetNamespace, targetName string) []string {
 	e.mu.RLock()
 	st, ok := e.targets[targetKey(targetNamespace, targetName)]
+	defaults := e.defaults
 	e.mu.RUnlock()
 	if !ok {
 		return nil
 	}
 
-	return e.matchedNamespacesForTarget(&st.target)
-}
-
-func (e *Engine) matchedNamespacesForTarget(target *kollectdevv1alpha1.KollectTarget) []string {
 	e.nsMu.RLock()
 	nsMeta := e.nsMeta
-	defaults := e.defaults
 	e.nsMu.RUnlock()
 
-	matched := MatchIntentNamespaces(
-		target.Spec.CollectionFilterSpec,
-		target.Spec.NamespaceSelector,
-		namespaceMetaMapToFilter(nsMeta),
-		defaults,
-	)
+	return matchedNamespacesForState(st, nsMeta, defaults)
+}
 
-	key := targetKey(target.Namespace, target.Name)
-	e.mu.RLock()
-	st, ok := e.targets[key]
-	e.mu.RUnlock()
-	if ok && len(st.effectiveNamespaces) > 0 {
+func matchedNamespacesForState(st targetState, nsMeta map[string]namespaceMeta, defaults NamespaceDefaults) []string {
+	if len(st.effectiveNamespaces) > 0 {
 		out := make([]string, 0, len(st.effectiveNamespaces))
 		for ns := range st.effectiveNamespaces {
 			out = append(out, ns)
@@ -64,6 +51,14 @@ func (e *Engine) matchedNamespacesForTarget(target *kollectdevv1alpha1.KollectTa
 		return sortedUniqueStrings(out)
 	}
 
+	target := &st.target
+	matched := MatchIntentNamespaces(
+		target.Spec.CollectionFilterSpec,
+		target.Spec.NamespaceSelector,
+		namespaceMetaMapToFilter(nsMeta),
+		defaults,
+	)
+
 	return matched
 }
 
@@ -71,17 +66,24 @@ func (e *Engine) matchedNamespacesForTarget(target *kollectdevv1alpha1.KollectTa
 // target for the GVR agrees on exactly one watched namespace; otherwise metav1.NamespaceAll.
 func (e *Engine) watchNamespaceForGVR(gvr schema.GroupVersionResource) string {
 	e.mu.RLock()
-	defer e.mu.RUnlock()
+	states := make([]targetState, 0, len(e.targetsByGVR[gvr]))
+	for _, st := range e.targets {
+		if gvrFromProfile(st.profile.Spec.TargetGVK) == gvr {
+			states = append(states, st)
+		}
+	}
+	defaults := e.defaults
+	e.mu.RUnlock()
+
+	e.nsMu.RLock()
+	nsMeta := e.nsMeta
+	e.nsMu.RUnlock()
 
 	var single string
 	seen := false
 
-	for _, st := range e.targets {
-		if gvrFromProfile(st.profile.Spec.TargetGVK) != gvr {
-			continue
-		}
-
-		namespaces := e.matchedNamespacesForTarget(&st.target)
+	for _, st := range states {
+		namespaces := matchedNamespacesForState(st, nsMeta, defaults)
 		if len(namespaces) != 1 {
 			return metav1.NamespaceAll
 		}
