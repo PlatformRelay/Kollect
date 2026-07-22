@@ -1,6 +1,7 @@
 # CI path filter matrix (see docs/development/testing.md):
-# - Docs-only changes (docs/**, mkdocs.yml, root prose *.md, CHANGELOG, LICENSE, issue templates)
-#   skip this workflow; Docs workflow runs lint-markdown + MkDocs build/deploy instead.
+# - Changes limited to docs/**, mkdocs.yml, README.md, CHANGELOG.md, CONTRIBUTING.md, LICENSE,
+#   or issue templates skip this workflow; other root Markdown files still run full CI.
+#   The Docs workflow runs lint-markdown + MkDocs build/deploy for its path-scoped inputs.
 # - Any change under api/, internal/, charts/, cmd/, config/, hack/, ui/, test/, go.mod, or
 #   .github/workflows/ always runs full CI. Mixed PRs (docs + code) run everything.
 name: CI
