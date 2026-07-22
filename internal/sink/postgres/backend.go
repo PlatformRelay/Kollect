@@ -49,7 +49,7 @@ func NewBackend(
 		defer cancel()
 	}
 
-	pool, err := pgxpool.New(connectCtx, cfg.DSN)
+	pool, err := newGuardedPool(connectCtx, cfg.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("postgres connect: %w", err)
 	}

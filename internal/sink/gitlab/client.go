@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
 const defaultAPIVersion = "v4"
@@ -45,7 +47,7 @@ func NewRESTClient(endpoint, token, basicUser string, httpClient *http.Client) (
 	}
 
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: HTTPClientTimeout}
+		httpClient = netguard.HTTPClient(HTTPClientTimeout)
 	}
 
 	return &RESTClient{

@@ -107,7 +107,7 @@ func TestTLSHandshake_succeedsWithInsecureSkipVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := tlsHandshake(t.Context(), host, port, TLSConfig{InsecureSkipVerify: true}); err != nil {
+	if err := tlsHandshakeWithDialer(t.Context(), host, port, TLSConfig{InsecureSkipVerify: true}, &net.Dialer{}); err != nil {
 		t.Fatalf("tlsHandshake() error = %v, want success", err)
 	}
 }
@@ -125,7 +125,7 @@ func TestTLSHandshake_failsOnUntrustedCert(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := tlsHandshake(t.Context(), host, port, TLSConfig{RootCAs: x509.NewCertPool()}); err == nil {
+	if err := tlsHandshakeWithDialer(t.Context(), host, port, TLSConfig{RootCAs: x509.NewCertPool()}, &net.Dialer{}); err == nil {
 		t.Fatal("expected handshake error for untrusted certificate")
 	}
 }

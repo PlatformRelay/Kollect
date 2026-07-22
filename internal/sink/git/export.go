@@ -151,10 +151,11 @@ func exportRemote(
 		sshCfg.InsecureSkipVerify = true
 	}
 
-	authMethod, err := buildAuthMethodWithForce(req.cloneURL, auth, authType, sshCfg, cfg.ForceBasicAuth)
+	authMethod, guardedReq, err := guardedGoGitAuth(ctx, req, auth, authType, sshCfg, cfg.ForceBasicAuth)
 	if err != nil {
 		return err
 	}
+	req = guardedReq
 
 	workdir, err := prepareMirrorWorkdir(ctx, cfg, auth, req.cloneURL, req.cloneBranch)
 	if err != nil {
@@ -227,6 +228,27 @@ func exportRemote(
 	}
 
 	return pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, commit, wt)
+}
+
+func guardedGoGitAuth(
+	ctx context.Context,
+	req exportRequest,
+	auth Auth,
+	authType AuthType,
+	sshCfg SSHConfig,
+	forceBasicAuth bool,
+) (transport.AuthMethod, exportRequest, error) {
+	authMethod, err := buildAuthMethodWithForce(req.cloneURL, auth, authType, sshCfg, forceBasicAuth)
+	if err != nil {
+		return nil, exportRequest{}, err
+	}
+	guardedCloneURL, err := pinGoGitSSHResolution(ctx, req.cloneURL, authMethod)
+	if err != nil {
+		return nil, exportRequest{}, fmt.Errorf("git export: %w", err)
+	}
+	req.cloneURL = guardedCloneURL
+
+	return authMethod, req, nil
 }
 
 func stageChanges(wt *git.Worktree, objectPaths []string, prune bool) error {

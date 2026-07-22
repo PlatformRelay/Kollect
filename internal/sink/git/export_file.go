@@ -31,6 +31,9 @@ func exportViaCLI(
 		return err
 	}
 	defer cli.cleanup()
+	if guardErr := cli.guardResolution(ctx, cfg.Endpoint); guardErr != nil {
+		return fmt.Errorf("git export: %w", guardErr)
+	}
 
 	workdir, err := prepareMirrorWorkdir(ctx, cfg, auth, cloneURL, cloneBranch)
 	if err != nil {

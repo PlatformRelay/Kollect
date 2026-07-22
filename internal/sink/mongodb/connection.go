@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
 const probeTimeout = 15 * time.Second
@@ -30,7 +31,7 @@ func TestConnection(
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 
-	client, err := mongo.Connect(probeCtx, options.Client().ApplyURI(cfg.URI))
+	client, err := mongo.Connect(probeCtx, options.Client().ApplyURI(cfg.URI).SetDialer(netguard.DefaultDialer))
 	if err != nil {
 		return fmt.Errorf("mongodb connect: %w", err)
 	}

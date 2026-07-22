@@ -7,10 +7,12 @@ import (
 	"fmt"
 
 	natsgo "github.com/nats-io/nats.go"
+
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
 func connect(cfg Config, tlsCfg TLSConfig) (*natsgo.Conn, error) {
-	opts := []natsgo.Option{}
+	opts := []natsgo.Option{natsgo.SetCustomDialer(netguard.DefaultDialer)}
 	if tlsClient, err := tlsCfg.ClientConfig(); err != nil {
 		return nil, err
 	} else if tlsClient != nil {

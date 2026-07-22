@@ -10,6 +10,7 @@ import (
 	"github.com/segmentio/kafka-go"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
 // TestConnection requests broker metadata to verify reachability.
@@ -31,6 +32,7 @@ func TestConnection(
 	dialer := &kafka.Dialer{
 		Timeout:   kafka.DefaultDialer.Timeout,
 		DualStack: kafka.DefaultDialer.DualStack,
+		DialFunc:  netguard.DefaultDialer.DialContext,
 	}
 	if transport != nil && transport.SASL != nil {
 		dialer.SASLMechanism = transport.SASL

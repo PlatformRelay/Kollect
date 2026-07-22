@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
 
@@ -23,7 +21,7 @@ func TestConnection(
 		return err
 	}
 
-	pool, err := pgxpool.New(ctx, cfg.DSN)
+	pool, err := newGuardedPool(ctx, cfg.DSN)
 	if err != nil {
 		return fmt.Errorf("postgres connect: %w", err)
 	}

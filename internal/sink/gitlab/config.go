@@ -5,6 +5,7 @@ package gitlab
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -18,6 +19,7 @@ type Config struct {
 	TLS          git.TLSConfig
 	CABundle     []byte
 	MergeRequest MergeRequestConfig
+	HTTPClient   *http.Client
 }
 
 // ConfigFromSpec validates and resolves a KollectSink GitLab spec.

@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
 const connectionTimeout = 15 * time.Second
@@ -66,7 +68,19 @@ func TestConnection(ctx context.Context, cfg Config, auth Auth) error {
 }
 
 func tlsHandshake(ctx context.Context, host, port string, tlsCfg TLSConfig) error {
-	dialer := &net.Dialer{Timeout: connectionTimeout}
+	return tlsHandshakeWithDialer(ctx, host, port, tlsCfg, netguard.DefaultDialer)
+}
+
+type contextDialer interface {
+	DialContext(context.Context, string, string) (net.Conn, error)
+}
+
+func tlsHandshakeWithDialer(
+	ctx context.Context,
+	host, port string,
+	tlsCfg TLSConfig,
+	dialer contextDialer,
+) error {
 	addr := net.JoinHostPort(host, port)
 
 	var conn *tls.Conn
@@ -128,6 +142,9 @@ func lsRemoteUncached(ctx context.Context, cfg Config, auth Auth) error {
 		return err
 	}
 	defer cli.cleanup()
+	if guardErr := cli.guardResolution(ctx, cfg.Endpoint); guardErr != nil {
+		return guardErr
+	}
 
 	endpoint := cfg.Endpoint
 	if creds := auth.embedInURL(endpoint); creds != "" && !cfg.ForceBasicAuth {
