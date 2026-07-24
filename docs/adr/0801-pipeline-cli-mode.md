@@ -71,7 +71,8 @@ kollect-pipeline collect \
   --output ./inventory/               # local filesystem output directory (type: local sink)
 ```
 
-The binary exits `0` on full success, `1` on partial failure (some targets skipped/forbidden),
+The binary exits `0` on full success, `1` on partial failure (some targets skipped/forbidden, or
+per-object extraction failures with successful siblings retained),
 `2` on configuration or connection error.
 
 ### Architecture: what is reused vs. what is new
