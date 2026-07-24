@@ -11,7 +11,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **ci:** Correct Renovate scheduling [c4d831f](https://github.com/platformrelay/kollect/commit/c4d831febf3f5be6f659d6521cb48e85ab591882)
+- **ci:** Correct Renovate scheduling [96b370b](https://github.com/platformrelay/kollect/commit/96b370b9448bc9e4020b3c66b9943e7a36396372)
 
 - **docs:** Describe CI filters exactly [e449712](https://github.com/platformrelay/kollect/commit/e4497122881726c71308e8eb675bea908e251019)
 
