@@ -65,3 +65,23 @@ func TestCLIResolutionPinsSSHAddressAndHostKeyAlias(t *testing.T) {
 		t.Fatalf("SSH resolution was not pinned with hostname verification: %s", joined)
 	}
 }
+
+func TestCLIResolutionAllowsFileSchemeWithoutPinning(t *testing.T) {
+	cli := &cliEnv{}
+	if err := cli.guardResolution(t.Context(), "file:///tmp/repo.git"); err != nil {
+		t.Fatalf("guardResolution(file): %v", err)
+	}
+	if len(cli.extraEnv) != 0 {
+		t.Fatalf("file:// remotes must not mutate CLI env: %v", cli.extraEnv)
+	}
+}
+
+func TestCLIResolutionRejectsUnknownScheme(t *testing.T) {
+	cli := &cliEnv{}
+	if err := cli.guardResolution(t.Context(), "git://git.example/repo.git"); err == nil {
+		t.Fatal("expected unknown scheme to fail closed")
+	}
+	if len(cli.extraEnv) != 0 {
+		t.Fatalf("CLI environment mutated for unsupported scheme: %v", cli.extraEnv)
+	}
+}

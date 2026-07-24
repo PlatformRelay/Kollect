@@ -5,7 +5,12 @@ package bigquery
 
 import (
 	"context"
+	"net/http"
 	"testing"
+
+	"google.golang.org/api/option"
+
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
 // clientOptions reads BIGQUERY_EMULATOR_HOST via t.Setenv, so these tests
@@ -18,8 +23,41 @@ func TestClientOptions_NoEmulatorNoCreds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("clientOptions: %v", err)
 	}
-	if len(opts) != 0 {
-		t.Fatalf("expected no options without emulator/creds, got %d", len(opts))
+	if len(opts) != 1 {
+		t.Fatalf("expected guarded HTTP client option only, got %d", len(opts))
+	}
+}
+
+func TestClientOptions_ProductionPathAttachesGuardedHTTPClient(t *testing.T) {
+	t.Setenv("BIGQUERY_EMULATOR_HOST", "")
+
+	var attached *http.Client
+	old := guardedHTTPClientOption
+	guardedHTTPClientOption = func() option.ClientOption {
+		attached = netguard.HTTPClient(0)
+		return option.WithHTTPClient(attached)
+	}
+	t.Cleanup(func() { guardedHTTPClientOption = old })
+
+	opts, err := Config{}.clientOptions(context.Background())
+	if err != nil {
+		t.Fatalf("clientOptions: %v", err)
+	}
+	if attached == nil {
+		t.Fatal("expected production clientOptions to attach netguard.HTTPClient")
+	}
+	if len(opts) != 1 {
+		t.Fatalf("expected a single guarded HTTP client option, got %d", len(opts))
+	}
+	transport, ok := attached.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("HTTP client transport type = %T", attached.Transport)
+	}
+	if transport.DialContext == nil {
+		t.Fatal("production BigQuery HTTP client is missing a guarded DialContext")
+	}
+	if transport.Proxy != nil {
+		t.Fatal("production BigQuery HTTP client must disable proxy resolution")
 	}
 }
 
