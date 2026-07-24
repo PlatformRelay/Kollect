@@ -120,3 +120,62 @@ func TestDialerRejectsMetadataHostnameWithoutResolution(t *testing.T) {
 		t.Fatalf("metadata hostname unexpectedly resolved %d times", resolver.calls)
 	}
 }
+
+func TestHTTPClientRefusesRedirectToPrivateResolvedHost(t *testing.T) {
+	t.Parallel()
+
+	resolver := &fakeResolver{answers: [][]netip.Addr{
+		{netip.MustParseAddr("169.254.169.254")},
+	}}
+	dialed := false
+	d := NewDialer(resolver, func(context.Context, string, string) (net.Conn, error) {
+		dialed = true
+		return nil, errors.New("unexpected dial of redirect target")
+	})
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = d.DialContext
+	transport.Proxy = nil
+
+	rt := &redirectThenDial{
+		location: "http://evil.example/latest/meta-data/",
+		next:     transport,
+	}
+	client := &http.Client{Transport: rt}
+
+	resp, err := client.Get("http://first.example/")
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("expected redirect to private/metadata address to be refused")
+	}
+	if dialed {
+		t.Fatal("socket opened for private redirect target before authorization")
+	}
+	if resolver.calls != 1 {
+		t.Fatalf("redirect target resolved %d times, want 1", resolver.calls)
+	}
+}
+
+// redirectThenDial returns a synthetic 302 on the first hop, then delegates
+// follow-up requests to the real transport so DialContext re-applies policy.
+type redirectThenDial struct {
+	location string
+	next     http.RoundTripper
+	hops     int
+}
+
+func (r *redirectThenDial) RoundTrip(req *http.Request) (*http.Response, error) {
+	r.hops++
+	if r.hops == 1 {
+		return &http.Response{
+			StatusCode: http.StatusFound,
+			Header:     http.Header{"Location": {r.location}},
+			Body:       http.NoBody,
+			Request:    req,
+		}, nil
+	}
+
+	return r.next.RoundTrip(req)
+}

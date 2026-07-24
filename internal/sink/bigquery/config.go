@@ -104,15 +104,21 @@ func credentialsJSONFromSecret(data map[string][]byte) ([]byte, error) {
 	return raw, nil
 }
 
+// guardedHTTPClientOption attaches the dial-time SSRF HTTP client. It is a
+// package var so tests can prove every dial path (emulator and production
+// googleapis) installs the guarded transport.
+var guardedHTTPClientOption = func() option.ClientOption {
+	return option.WithHTTPClient(netguard.HTTPClient(0))
+}
+
 func (c Config) clientOptions(ctx context.Context) ([]option.ClientOption, error) {
-	opts := make([]option.ClientOption, 0, 3)
+	opts := make([]option.ClientOption, 0, 4)
 
 	if emulatorHost := strings.TrimSpace(os.Getenv("BIGQUERY_EMULATOR_HOST")); emulatorHost != "" {
 		if !strings.HasPrefix(emulatorHost, "http://") && !strings.HasPrefix(emulatorHost, "https://") {
 			emulatorHost = "http://" + emulatorHost
 		}
-		opts = append(opts, option.WithEndpoint(emulatorHost), option.WithoutAuthentication(),
-			option.WithHTTPClient(netguard.HTTPClient(0)))
+		opts = append(opts, option.WithEndpoint(emulatorHost), option.WithoutAuthentication())
 	}
 
 	if len(c.CredentialsJSON) > 0 {
@@ -128,6 +134,11 @@ func (c Config) clientOptions(ctx context.Context) ([]option.ClientOption, error
 
 		opts = append(opts, option.WithCredentials(creds))
 	}
+
+	// Always pin googleapis (and emulator) dials through the resolved-address
+	// policy. Emulator-only attachment previously left the production path on
+	// the default transport and reopenable to DNS rebinding.
+	opts = append(opts, guardedHTTPClientOption())
 
 	return opts, nil
 }

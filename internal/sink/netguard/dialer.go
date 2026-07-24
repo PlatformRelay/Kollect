@@ -16,7 +16,8 @@ import (
 )
 
 // DefaultDialer is the process-wide deny-private dialer used by sink clients.
-// It carries no mutable policy state; DNS is resolved afresh for every dial.
+// DNS is resolved afresh for every dial. Production builds keep allowPrivate
+// false; the integration build tag may flip it for loopback testcontainers only.
 var DefaultDialer = NewDialer(nil, nil)
 
 // Resolver is the DNS surface used by Dialer. It is intentionally injectable so

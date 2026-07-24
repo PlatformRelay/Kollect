@@ -22,12 +22,20 @@ func (c *cliEnv) guardResolution(ctx context.Context, endpoint string) error {
 	if err != nil {
 		return fmt.Errorf("parse git endpoint for guarded resolution: %w", err)
 	}
-	if u.Scheme == schemeSSH {
+	switch u.Scheme {
+	case schemeSSH:
 		return c.guardSSHResolution(ctx, u)
-	}
-	if u.Scheme != schemeHTTP && u.Scheme != schemeHTTPS {
+	case schemeHTTP, schemeHTTPS:
+		return c.guardHTTPResolution(ctx, u)
+	case schemeFile:
+		// Local filesystem remotes never dial; no DNS pin is required.
 		return nil
+	default:
+		return fmt.Errorf("unsupported git endpoint scheme %q for guarded resolution", u.Scheme)
 	}
+}
+
+func (c *cliEnv) guardHTTPResolution(ctx context.Context, u *url.URL) error {
 	port := u.Port()
 	if port == "" {
 		if u.Scheme == schemeHTTP {
