@@ -6,6 +6,7 @@ package collect
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -333,5 +334,141 @@ func TestRunner_multipleTargetsSameGVK(t *testing.T) {
 	}
 	if len(itemsB) != 1 || itemsB[0].Namespace != "ns-b" {
 		t.Errorf("target-b items = %+v", itemsB)
+	}
+}
+
+// TestRunner_partialExtractionFailureIsNotSuccess is the REL-02 red proof: when one listed
+// object extracts and another fails a required attribute, the runner must preserve the good
+// object, omit the bad one, and surface a structured ExtractionFailure so the run cannot be
+// classified successful (today listAndExtract silently continues and RunResult looks clean).
+func TestRunner_partialExtractionFailureIsNotSuccess(t *testing.T) {
+	t.Parallel()
+
+	good := unstructuredSecret("default", "good-release", map[string]string{"chart": "myapp-1.0"})
+	bad := unstructuredSecret("default", "bad-release", nil) // no annotations → CEL key miss
+	dyn := newFakeDynClient(good, bad)
+	kube := kubefake.NewSimpleClientset(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}})
+
+	r, err := NewRunnerWithMapper(dyn, kube, staticSecretMapper(), nil)
+	if err != nil {
+		t.Fatalf("NewRunnerWithMapper() error = %v", err)
+	}
+
+	profile := testProfile(kollectdevv1alpha1.AttributeSpec{
+		Name: "chart",
+		Path: "cel:object.metadata.annotations.chart",
+	})
+	target := testTarget("default", "t1", "test-profile")
+
+	result, err := r.Run(context.Background(),
+		[]kollectdevv1alpha1.KollectProfile{profile},
+		[]kollectdevv1alpha1.KollectTarget{target})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	if result.ItemCount != 1 {
+		t.Fatalf("ItemCount = %d, want 1 (only the successfully extracted object)", result.ItemCount)
+	}
+
+	items := r.Store().SnapshotTarget("default", "t1")
+	if len(items) != 1 || items[0].Name != "good-release" {
+		t.Fatalf("store = %+v, want only good-release", items)
+	}
+
+	if len(result.ExtractionFailures) != 1 {
+		t.Fatalf("ExtractionFailures = %#v, want exactly 1 structured failure (REL-02)", result.ExtractionFailures)
+	}
+
+	fail := result.ExtractionFailures[0]
+	if fail.Target != "default/t1" {
+		t.Errorf("failure.Target = %q, want default/t1", fail.Target)
+	}
+	if fail.Namespace != "default" || fail.Name != "bad-release" {
+		t.Errorf("failure object = %s/%s, want default/bad-release", fail.Namespace, fail.Name)
+	}
+	if fail.UID == "" {
+		t.Error("failure.UID is empty, want object UID")
+	}
+	if fail.Reason == "" {
+		t.Error("failure.Reason is empty, want redacted actionable reason")
+	}
+	// Never leak object payload / secret-bearing values into the structured failure.
+	if strings.Contains(fail.Reason, "myapp-1.0") || strings.Contains(fail.Reason, "password") {
+		t.Errorf("failure.Reason leaked payload/secret material: %q", fail.Reason)
+	}
+
+	if !result.Degraded() {
+		t.Fatal("RunResult.Degraded() = false, want true when extraction failures are present")
+	}
+}
+
+func TestRunner_allObjectsExtractSuccessfullyUnchanged(t *testing.T) {
+	t.Parallel()
+
+	obj := unstructuredSecret("default", "my-release", map[string]string{"chart": "myapp-1.2.3"})
+	dyn := newFakeDynClient(obj)
+	kube := kubefake.NewSimpleClientset(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}})
+
+	r, err := NewRunnerWithMapper(dyn, kube, staticSecretMapper(), nil)
+	if err != nil {
+		t.Fatalf("NewRunnerWithMapper() error = %v", err)
+	}
+
+	profile := testProfile(kollectdevv1alpha1.AttributeSpec{
+		Name: "chart",
+		Path: "cel:object.metadata.annotations.chart",
+	})
+	target := testTarget("default", "t1", "test-profile")
+
+	result, err := r.Run(context.Background(),
+		[]kollectdevv1alpha1.KollectProfile{profile},
+		[]kollectdevv1alpha1.KollectTarget{target})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if result.ItemCount != 1 {
+		t.Fatalf("ItemCount = %d, want 1", result.ItemCount)
+	}
+	if len(result.ExtractionFailures) != 0 {
+		t.Fatalf("ExtractionFailures = %#v, want none on full success", result.ExtractionFailures)
+	}
+	if result.Degraded() {
+		t.Fatal("RunResult.Degraded() = true, want false on full success")
+	}
+}
+
+func TestRunner_extractionFailuresAreDeterministic(t *testing.T) {
+	t.Parallel()
+
+	// Two failing objects listed out of name order; failures must sort deterministically.
+	b := unstructuredSecret("default", "b-fail", nil)
+	a := unstructuredSecret("default", "a-fail", nil)
+	dyn := newFakeDynClient(b, a)
+	kube := kubefake.NewSimpleClientset(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}})
+
+	r, err := NewRunnerWithMapper(dyn, kube, staticSecretMapper(), nil)
+	if err != nil {
+		t.Fatalf("NewRunnerWithMapper() error = %v", err)
+	}
+
+	profile := testProfile(kollectdevv1alpha1.AttributeSpec{
+		Name: "chart",
+		Path: "cel:object.metadata.annotations.chart",
+	})
+	target := testTarget("default", "t1", "test-profile")
+
+	result, err := r.Run(context.Background(),
+		[]kollectdevv1alpha1.KollectProfile{profile},
+		[]kollectdevv1alpha1.KollectTarget{target})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if len(result.ExtractionFailures) != 2 {
+		t.Fatalf("ExtractionFailures len = %d, want 2", len(result.ExtractionFailures))
+	}
+	if result.ExtractionFailures[0].Name != "a-fail" || result.ExtractionFailures[1].Name != "b-fail" {
+		t.Fatalf("failure order = [%s, %s], want [a-fail, b-fail]",
+			result.ExtractionFailures[0].Name, result.ExtractionFailures[1].Name)
 	}
 }
