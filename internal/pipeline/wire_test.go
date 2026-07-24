@@ -490,6 +490,41 @@ func TestBuildContextResult_combinesRunAndExportErrors(t *testing.T) {
 	}
 }
 
+// TestBuildContextResult_foldsExtractionFailuresDegradesExit is the REL-02 pipeline bridge:
+// per-object extraction failures must appear in ContextResult.Errs so exit classification
+// (ExitPartialFailure when Exported > 0) cannot treat a partial snapshot as success.
+func TestBuildContextResult_foldsExtractionFailuresDegradesExit(t *testing.T) {
+	t.Parallel()
+
+	runResult := collect.RunResult{
+		ItemCount: 1,
+		ExtractionFailures: []collect.ExtractionFailure{{
+			Target:    "default/t1",
+			Namespace: "default",
+			Name:      "bad-release",
+			UID:       "uid-bad",
+			Reason:    `attribute "chart": eval CEL: no such key: annotations`,
+		}},
+	}
+
+	got := buildContextResult("ctx-a", runResult, 1, nil)
+
+	if len(got.Errs) != 1 {
+		t.Fatalf("Errs = %v, want 1 extraction failure folded in", got.Errs)
+	}
+	if got.Exported != 1 {
+		t.Errorf("Exported = %d, want 1 (successful siblings still exported)", got.Exported)
+	}
+
+	msg := got.Errs[0].Error()
+	if !strings.Contains(msg, "default/t1") || !strings.Contains(msg, "bad-release") {
+		t.Errorf("Errs[0] = %q, want target + object identity", msg)
+	}
+	if strings.Contains(msg, "password") || strings.Contains(msg, "token=") {
+		t.Errorf("Errs[0] leaked secret-looking material: %q", msg)
+	}
+}
+
 // TestRestConfigForContext_selectsNamedContextsServer guards against a real bug: passing
 // a context name as clientcmd.BuildConfigFromFlags' first argument (masterUrl) silently
 // ignores context selection and treats the context name as a server hostname override.
