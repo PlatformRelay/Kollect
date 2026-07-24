@@ -197,7 +197,10 @@ type ContextResult struct {
 	// It is folded into exit-code aggregation: skips alone (no other errors) still degrade
 	// a run below ExitSuccess, matching the collect.RunResult contract this bridges from.
 	Skipped int
-	Errs    []error
+	// Errs holds fatal collect errors, export errors, and per-object extraction failures
+	// (collect.ExtractionFailure values). Any non-empty Errs degrades the process exit
+	// below success (ADR-0801 / REL-02): partial inventory must not exit 0.
+	Errs []error
 	// Fatal is set when this context could not even start (REST config / client / runner
 	// construction, or a structural collection failure). A fatal context does not stop the
 	// others from running.
@@ -224,16 +227,19 @@ func ApplyNamespaceOverride(targets []kollectdevv1alpha1.KollectTarget, namespac
 
 // buildContextResult assembles a ContextResult from a completed collection pass. It is
 // separated from runOneContext so the RunResult -> ContextResult bridge -- in particular,
-// that SkippedTargets must survive into the exit-code decision, not just get logged -- is
-// unit-testable without a cluster.
+// that SkippedTargets and ExtractionFailures must survive into the exit-code decision, not
+// just get logged -- is unit-testable without a cluster.
 func buildContextResult(contextName string, runResult collect.RunResult, exported int, exportErrs []error) ContextResult {
-	// Concatenate run and export errors onto a nil slice; append grows as needed. We
-	// deliberately avoid a computed make() capacity (len(a)+len(b)) here -- the sum is a
-	// size-computation CodeQL flags as a potential overflow, and pre-sizing a handful of
-	// error values buys nothing.
+	// Concatenate run errors, extraction failures, and export errors onto a nil slice;
+	// append grows as needed. We deliberately avoid a computed make() capacity
+	// (len(a)+len(b)+…) here -- the sum is a size-computation CodeQL flags as a potential
+	// overflow, and pre-sizing a handful of error values buys nothing.
 	//nolint:prealloc // computed make() capacity is flagged by CodeQL go/size-computation-overflow; see comment above
 	var errs []error
 	errs = append(errs, runResult.Errors...)
+	for _, f := range runResult.ExtractionFailures {
+		errs = append(errs, f)
+	}
 	errs = append(errs, exportErrs...)
 
 	return ContextResult{
@@ -320,6 +326,16 @@ func runOneContext(
 	for _, skipped := range runResult.SkippedTargets {
 		ctrllog.FromContext(ctx).Info("target skipped",
 			"context", contextName, "target", skipped.Name, "reason", skipped.Reason)
+	}
+
+	for _, fail := range runResult.ExtractionFailures {
+		// Identity + redacted reason only — ExtractionFailure never carries object payloads.
+		ctrllog.FromContext(ctx).Info("object extraction failed",
+			"context", contextName,
+			"target", fail.Target,
+			"object", fail.Namespace+"/"+fail.Name,
+			"uid", fail.UID,
+			"reason", fail.Reason)
 	}
 
 	backend, err := registry.NewBackend(sinkSpec, sink.BuildContext{Ctx: ctx, SecretData: secretData})

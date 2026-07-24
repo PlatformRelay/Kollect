@@ -204,6 +204,20 @@ func TestMapContextResultsToExit_someTargetsSkippedWithExportsIsPartial(t *testi
 	}
 }
 
+// TestMapContextResultsToExit_extractionFailureWithExportIsPartial covers REL-02: a
+// ContextResult that folded collect.ExtractionFailure into Errs (via buildContextResult)
+// must exit 1 when something was still exported — never 0.
+func TestMapContextResultsToExit_extractionFailureWithExportIsPartial(t *testing.T) {
+	t.Parallel()
+
+	got := mapContextResultsToExit([]pipeline.ContextResult{
+		{Context: "a", Exported: 1, Errs: []error{errFixture{}}},
+	})
+	if got != ExitPartialFailure {
+		t.Errorf("got %d, want ExitPartialFailure", got)
+	}
+}
+
 type errFixture struct{}
 
 func (errFixture) Error() string { return "fixture error" }

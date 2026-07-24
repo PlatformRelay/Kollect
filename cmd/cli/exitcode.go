@@ -10,7 +10,8 @@ const (
 	// ExitSuccess: all targets collected and written.
 	ExitSuccess = 0
 	// ExitPartialFailure: at least one target was skipped (forbidden/transient/gvk-not-found)
-	// but at least one item was still collected.
+	// or at least one per-object extraction failure was recorded, but at least one item was
+	// still collected/exported (ADR-0801 / REL-02).
 	ExitPartialFailure = 1
 	// ExitFatalError: config invalid, cluster unreachable, or every target failed.
 	ExitFatalError = 2
