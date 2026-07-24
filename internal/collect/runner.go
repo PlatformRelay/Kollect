@@ -6,6 +6,7 @@ package collect
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -93,20 +94,61 @@ type SkippedTarget struct {
 	Reason string
 }
 
+// ExtractionFailure is a redacted record of a per-object attribute extraction failure
+// (REL-02). It carries target and object identity only — never the object payload or
+// secret-bearing attribute values. Failures are aggregated deterministically into
+// RunResult; successfully extracted sibling objects are still retained and exported.
+type ExtractionFailure struct {
+	// Target is "<namespace>/<name>" of the KollectTarget.
+	Target string
+	// Namespace is the object's namespace (empty for cluster-scoped resources).
+	Namespace string
+	// Name is the object's name.
+	Name string
+	// UID is the object's Kubernetes UID.
+	UID string
+	// Reason is an actionable, redacted explanation (attribute name + error class).
+	Reason string
+}
+
+// Error implements error so pipeline exit classification can fold extraction failures
+// into ContextResult.Errs without losing identity in the message.
+func (f ExtractionFailure) Error() string {
+	object := f.Name
+	if f.Namespace != "" {
+		object = f.Namespace + "/" + f.Name
+	}
+
+	return fmt.Sprintf("target %s: extract %s (uid=%s): %s", f.Target, object, f.UID, f.Reason)
+}
+
 // RunResult summarises the outcome of a Run call.
 type RunResult struct {
 	ItemCount      int
 	SkippedTargets []SkippedTarget
+	// ExtractionFailures holds per-object required-attribute extraction failures.
+	// Presence of any entry means the run is partial/degraded (REL-02): good objects are
+	// still counted in ItemCount, failing objects are omitted from the store.
+	ExtractionFailures []ExtractionFailure
 	// Errors holds fatal per-target errors: failures in a step that isn't a per-namespace
 	// List call (currently: namespace resolution). Forbidden/transient/gvk-not-found List
 	// failures are non-fatal and recorded in SkippedTargets instead.
 	Errors []error
 }
 
+// Degraded reports whether the run was incomplete: skipped targets, fatal per-target
+// errors, or per-object extraction failures. A degraded result must not be classified as
+// full success by pipeline exit-code aggregation.
+func (r RunResult) Degraded() bool {
+	return len(r.SkippedTargets) > 0 || len(r.Errors) > 0 || len(r.ExtractionFailures) > 0
+}
+
 // Run executes the collection pass for all profiles + targets. Partial failures (forbidden
-// GVKs, empty namespace lists, RBAC-forbidden lists) are recorded in the returned RunResult,
-// not returned as an error. Only a structural failure (extractor construction, which happens
-// in NewRunner) prevents Run from returning a result at all.
+// GVKs, empty namespace lists, RBAC-forbidden lists, and per-object extraction failures) are
+// recorded in the returned RunResult, not returned as an error. Successfully extracted
+// objects are retained; failing objects are omitted with a structured ExtractionFailure
+// (REL-02). Only a structural failure (extractor construction, which happens in NewRunner)
+// prevents Run from returning a result at all.
 func (r *Runner) Run(
 	ctx context.Context,
 	profiles []kollectdevv1alpha1.KollectProfile,
@@ -132,6 +174,8 @@ func (r *Runner) Run(
 
 		r.runTarget(ctx, profile, target, &result)
 	}
+
+	sortExtractionFailures(result.ExtractionFailures)
 
 	return result, nil
 }
@@ -171,11 +215,12 @@ func (r *Runner) runTarget(
 	nameFilter := namesSet(target.Spec.Names)
 
 	for _, ns := range namespaces {
-		count, listErr := r.listAndExtract(ctx, mapping.Resource, ns, labelSelector, profile, target, nameFilter)
+		count, extractFails, listErr := r.listAndExtract(ctx, mapping.Resource, ns, labelSelector, profile, target, nameFilter)
 
 		switch {
 		case listErr == nil:
 			result.ItemCount += count
+			result.ExtractionFailures = append(result.ExtractionFailures, extractFails...)
 		case kollecterrors.IsForbidden(listErr):
 			result.SkippedTargets = append(result.SkippedTargets, SkippedTarget{
 				Name:   targetKeyName(target),
@@ -267,7 +312,7 @@ func (r *Runner) listAndExtract(
 	profile kollectdevv1alpha1.KollectProfile,
 	target kollectdevv1alpha1.KollectTarget,
 	nameFilter map[string]struct{},
-) (int, error) {
+) (int, []ExtractionFailure, error) {
 	opts := metav1.ListOptions{LabelSelector: labelSelector}
 
 	var (
@@ -292,10 +337,11 @@ func (r *Runner) listAndExtract(
 	}
 
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	count := 0
+	var failures []ExtractionFailure
 
 	for i := range items {
 		item := items[i]
@@ -308,7 +354,16 @@ func (r *Runner) listAndExtract(
 
 		attrs, extractErr := r.extractor.Extract(&item, profile.Spec.Attributes)
 		if extractErr != nil {
-			// Required attribute failed to extract: skip this item, not the whole target.
+			// Required attribute failed: omit this object, keep siblings, record a redacted
+			// structured failure (REL-02). Never attach the object payload or attribute values.
+			failures = append(failures, ExtractionFailure{
+				Target:    targetKeyName(target),
+				Namespace: item.GetNamespace(),
+				Name:      item.GetName(),
+				UID:       string(item.GetUID()),
+				Reason:    redactExtractionReason(extractErr),
+			})
+
 			continue
 		}
 
@@ -328,7 +383,41 @@ func (r *Runner) listAndExtract(
 		count++
 	}
 
-	return count, nil
+	return count, failures, nil
+}
+
+// redactExtractionReason keeps the extractor's attribute-scoped message and strips anything
+// that looks like an embedded payload. Extractor errors are already attribute-scoped
+// (`attribute "x": …`); we still bound length so a pathological backend cannot flood logs.
+func redactExtractionReason(err error) string {
+	if err == nil {
+		return "extraction failed"
+	}
+
+	msg := err.Error()
+	const maxReasonLen = 256
+	if len(msg) > maxReasonLen {
+		msg = msg[:maxReasonLen] + "…"
+	}
+
+	return msg
+}
+
+func sortExtractionFailures(failures []ExtractionFailure) {
+	sort.SliceStable(failures, func(i, j int) bool {
+		a, b := failures[i], failures[j]
+		if a.Target != b.Target {
+			return a.Target < b.Target
+		}
+		if a.Namespace != b.Namespace {
+			return a.Namespace < b.Namespace
+		}
+		if a.Name != b.Name {
+			return a.Name < b.Name
+		}
+
+		return a.UID < b.UID
+	})
 }
 
 func labelSelectorString(sel *metav1.LabelSelector) string {
