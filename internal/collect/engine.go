@@ -264,11 +264,7 @@ func (e *Engine) RegisterTarget(
 	e.indexTargetLocked(key, gvr)
 	e.mu.Unlock()
 
-	if err := e.startInformer(e.informerContext(), gvr); err != nil {
-		return err
-	}
-
-	return nil
+	return e.startInformer(e.informerContext(), gvr)
 }
 
 // UnregisterTarget stops tracking a target and removes its items from the store.
