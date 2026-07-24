@@ -11,9 +11,13 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **collect:** Harden informer replacement [4a26c91](https://github.com/platformrelay/kollect/commit/4a26c914d22aec9a6df2feadb51d0f082f0336ad)
+- **pipeline:** Degrade exit on extraction failures [b760659](https://github.com/platformrelay/kollect/commit/b76065904f284aa9156a8b3a0b3d5b714495c6dd)
 
-- **collect:** Widen shared informer scope [64fa374](https://github.com/platformrelay/kollect/commit/64fa374d1269cb7d50a4ce9686226378cc3a3452)
+- **collect:** Surface per-object extraction failures [13310dc](https://github.com/platformrelay/kollect/commit/13310dc5c919a67fd7fe9057b6c297870aa53c67)
+
+- **collect:** Harden informer replacement [f253e39](https://github.com/platformrelay/kollect/commit/f253e39187f4f0742a7d1e7a14066e81bc1eda51)
+
+- **collect:** Widen shared informer scope [60f0ade](https://github.com/platformrelay/kollect/commit/60f0adebbe468b24b07d40499d3ba7aef44eb3f2)
 
 - **ci:** Correct Renovate scheduling [96b370b](https://github.com/platformrelay/kollect/commit/96b370b9448bc9e4020b3c66b9943e7a36396372)
 
