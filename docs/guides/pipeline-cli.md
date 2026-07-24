@@ -237,11 +237,13 @@ files under `./inventory`.
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Success — all targets collected and written. |
-| `1` | Partial — at least one target was skipped (forbidden / transient / GVK not found) but something was still collected. |
-| `2` | Fatal — config invalid, cluster unreachable, or every target failed. |
+| `0` | Success — all targets collected and written; every listed object extracted successfully. |
+| `1` | Partial — at least one target was skipped (forbidden / transient / GVK not found), **or** at least one per-object attribute extraction failed, but something was still collected/exported. Failing objects are omitted; successful siblings are retained. |
+| `2` | Fatal — config invalid, cluster unreachable, or every target failed (nothing exported). |
 
 In a multi-context run the process exit code is the worst outcome across all contexts.
+Extraction failures are logged with target + object identity and a redacted reason (never the
+object payload or secret-bearing values).
 
 ## GitLab CI integration
 
@@ -346,5 +348,5 @@ continuous, event-driven collection instead of scheduled runs.
 | `--output and a KollectSnapshotSink … are ambiguous` | Use `--output` **or** a sink manifest, not both. |
 | `sink secretRef "…" not found` | Add the referenced `v1/Secret` manifest to the config dir. |
 | `environment variable for secret placeholder not set` | A Secret value is `${env:VAR}` but `VAR` is unset/empty — define it in the CI job env (e.g. a GitLab masked variable). |
-| Exit code `1` | Some targets were skipped (RBAC forbidden / GVK absent). Run with `--log-level debug` to see which. |
+| Exit code `1` | Some targets were skipped (RBAC forbidden / GVK absent), or some objects failed required attribute extraction. Run with `--log-level debug` to see which. |
 | Exit code `2` | Cluster unreachable or config invalid — check `--kubeconfig` and the manifests. |
