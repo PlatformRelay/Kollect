@@ -730,6 +730,11 @@ func (e *Engine) processDispatch(
 			log.FromContext(ctx).Error(err, "extract attributes",
 				"target", target.Namespace+"/"+target.Name,
 				"resource", u.GetNamespace()+"/"+u.GetName())
+			// REL-01: fail closed — drop any prior last-good row for this UID
+			// before recording degradation so exports never present stale values.
+			e.store.Remove(target.Namespace, target.Name, resourceUID)
+			metrics.CollectItemsTotal.Set(float64(e.store.Len()))
+			e.refreshTargetSnapshotMetrics(st, target)
 			e.recordExtractFailure(targetKeyStr, resourceUID, err.Error())
 			metrics.ReconcileErrorsTotal.WithLabelValues("KollectTarget", metrics.ErrorClassTerminal).Inc()
 
