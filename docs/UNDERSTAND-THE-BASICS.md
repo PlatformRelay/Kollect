@@ -106,7 +106,7 @@ The in-memory inventory snapshot is **canonical**; sinks are **projections** cla
 | **Event emitter** | `nats`, `kafka` | Change streams for automation and downstream consumers |
 
 Git/GitLab exports produce **commits** portals and compliance workflows can diff. Postgres holds
-**queryable state**; NATS/Kafka emit **events** — many teams pair Postgres + NATS in `sinkRefs`.
+**queryable state**; NATS/Kafka emit **events** — many teams pair Postgres + NATS via `databaseSinkRefs` + `eventSinkRefs`.
 See [examples/postgres-state-store.md](examples/postgres-state-store.md) and
 [examples/nats-event-sink.md](examples/nats-event-sink.md).
 

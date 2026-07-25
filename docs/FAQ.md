@@ -90,7 +90,7 @@ Production manifests should keep `spec.connectionTest: false` and use the annota
 
 | Symptom | Likely cause |
 | --- | --- |
-| `SinkReachable=False`, reason `SinkNotFound` | `sinkRefs` name or namespace mismatch |
+| `SinkReachable=False`, reason `SinkNotFound` | `*SinkRefs` name or namespace mismatch |
 | `SinkReachable=False`, reason `SinkUnreachable` | Backend down, bad DSN, or TLS failure — check `ConnectionVerified` on the sink |
 | `ConnectionVerified=False` | Missing `secretRef`, wrong Secret key, or unreachable endpoint |
 | `Synced=False` | Prior export failed — see manager logs and `Degraded` condition |
