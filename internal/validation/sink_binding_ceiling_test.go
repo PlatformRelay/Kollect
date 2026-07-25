@@ -44,9 +44,7 @@ func TestResolveBindingMaxExportBytes(t *testing.T) {
 // binding above the inventory value but below global is accepted; above global rejected.
 func TestValidateInventorySinkRefs_maxExportBytes(t *testing.T) {
 	t.Parallel()
-
-	SetMaxExportBytesGlobal(1000)
-	t.Cleanup(func() { SetMaxExportBytesGlobal(defaultMaxExportBytesGlobal) })
+	withMaxExportBytesGlobal(t, 1000)
 
 	// Accepted: positive, at or below global.
 	underGlobal := int64(800)
@@ -81,7 +79,7 @@ func TestValidateInventorySinkRefs_maxExportBytes(t *testing.T) {
 // runtime. Regressing the atomic backing (e.g. back to a plain int64) makes this
 // fail under `go test -race`.
 func TestMaxExportBytesGlobal_concurrentAccess(t *testing.T) {
-	t.Cleanup(func() { SetMaxExportBytesGlobal(defaultMaxExportBytesGlobal) })
+	lockMaxExportBytesGlobalForTest(t)
 
 	over := int64(1 << 40)
 	refs := kollectdevv1alpha1.InventorySinkRefList{
