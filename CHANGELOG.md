@@ -11,9 +11,13 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **pipeline:** Degrade exit on extraction failures [b760659](https://github.com/platformrelay/kollect/commit/b76065904f284aa9156a8b3a0b3d5b714495c6dd)
+- **security:** Close BigQuery and git SSRF gaps [6820489](https://github.com/platformrelay/kollect/commit/6820489dd820075d04a25bf05aa73882efcb1516)
 
-- **collect:** Surface per-object extraction failures [13310dc](https://github.com/platformrelay/kollect/commit/13310dc5c919a67fd7fe9057b6c297870aa53c67)
+- **security:** Guard resolved sink addresses [786da23](https://github.com/platformrelay/kollect/commit/786da230a4a54ca6877eaf11314d0714f74bf600)
+
+- **pipeline:** Degrade exit on extraction failures [ca7fa80](https://github.com/platformrelay/kollect/commit/ca7fa80d5a8b2c51e4767249a2997ea7e0450c30)
+
+- **collect:** Surface per-object extraction failures [d3123e9](https://github.com/platformrelay/kollect/commit/d3123e94945b113b88be7c631bf850914532f9f8)
 
 - **collect:** Harden informer replacement [f253e39](https://github.com/platformrelay/kollect/commit/f253e39187f4f0742a7d1e7a14066e81bc1eda51)
 
