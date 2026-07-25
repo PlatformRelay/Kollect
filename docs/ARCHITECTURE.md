@@ -88,7 +88,7 @@ flowchart TD
 
 See [adr/0201-crd-model.md](adr/0201-crd-model.md). Per-kind field reference:
 [CR-REFERENCE.md](CR-REFERENCE.md). Reserved kinds are design placeholders — see
-[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md#reserved-crds--what-they-mean).
+[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md#reserved-crds-what-they-mean).
 
 ## Default deployment
 

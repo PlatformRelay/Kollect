@@ -135,6 +135,6 @@ install namespace.
 
 - [Deployment topology matrix](topology-matrix.md) — compare golden path, team path, hybrid, and overlap scenarios
 - [ADR-0203: Namespaced multi-tenancy](../adr/0203-namespaced-multi-tenancy.md)
-- [Helm values — per-team install](../operator-manual/helm-values.md#per-team-install-recommended-default)
+- [Helm values — per-team install](../operator-manual/helm-values.md#per-team-install-minimal-rbac)
 - [Multi-tenant watch scope example](../examples/multi-tenant-watch-namespaces.md)
 - [Chart `values-minimal-rbac.yaml`](https://github.com/platformrelay/kollect/blob/main/charts/kollect/values-minimal-rbac.yaml)

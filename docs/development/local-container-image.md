@@ -29,7 +29,7 @@ CONTAINER_TOOL=podman task docker:build:local
 ```
 
 The legacy kind workflow (`task docker:build` → `kollect-controller-manager:dev`) remains
-unchanged; see [DEVELOPMENT.md](../DEVELOPMENT.md#manual--kustomize-deploy-legacy).
+unchanged; see [DEVELOPMENT.md](../DEVELOPMENT.md#manual-kustomize-deploy-legacy).
 
 ## Build and push to GHCR
 
