@@ -41,7 +41,7 @@ Namespaced pipeline objects must reference peers in the **same namespace**:
 | Field | Must resolve in |
 | --- | --- |
 | `KollectTarget.spec.profileRef` | Target namespace |
-| `KollectInventory.spec.sinkRefs` | Inventory namespace |
+| `KollectInventory.spec.*SinkRefs` | Inventory namespace |
 | `KollectConnectionTest.spec.sinkRef` | Test namespace |
 
 Cluster-wide rollup uses `KollectClusterInventory` with `spec.sinkNamespace` instead.
@@ -92,7 +92,7 @@ canonical artifact; every sink is a projection of it.
   drifts stale ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
 - Set `spec.cluster` on sinks in multi-cluster installs so the backend primary key merges rows
   across clusters.
-- Tune per-sink `exportMinInterval` on structured `sinkRefs[]` before adding more backends —
+- Tune per-sink `exportMinInterval` on structured `*SinkRefs[]` entries before adding more backends —
   portal Postgres at **30s** + Git audit at **1h** is the default sample
   ([ADR-0413](adr/0413-export-interval-scheduling.md)). See [Performance tuning](PERFORMANCE.md).
 
