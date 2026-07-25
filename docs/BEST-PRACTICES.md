@@ -29,7 +29,8 @@ featureGates:
     enabled: false
 ```
 
-Place `KollectProfile`, `KollectSink`, `KollectTarget`, and `KollectInventory` in the **team
+Place `KollectProfile`, family sinks (`KollectSnapshotSink` / `KollectDatabaseSink` /
+`KollectEventSink`), `KollectTarget`, and `KollectInventory` in the **team
 namespace**. Portal read paths should use **Postgres or Kafka sink export** — not the optional HTTP
 inventory API in production.
 
@@ -82,8 +83,8 @@ canonical artifact; every sink is a projection of it.
 | Event-driven integrations, fan-out | **NATS** or **Kafka** emitter |
 
 !!! info "Not a sink type"
-    Prometheus metrics come from the operator `/metrics` endpoint only — not a `KollectSink` type
-    ([ADR-0601](adr/0601-prometheus-metrics-stub.md)).
+    Prometheus metrics come from the operator `/metrics` endpoint only — not a family sink type
+    (there is no `prometheus` sink kind; see [ADR-0601](adr/0601-prometheus-metrics-stub.md)).
 
 ### Postgres and event emitters
 
