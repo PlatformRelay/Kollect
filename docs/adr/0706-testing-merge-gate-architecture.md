@@ -47,7 +47,7 @@ Binding jobs in `.github/workflows/ci.yaml`:
 | Codegen drift | `task verify` | Yes |
 | Vulnerabilities | `task vulncheck` | Yes |
 | Format + lint | `task format:check`, `task lint` | Yes |
-| Unit + envtest + coverage floor | `task coverage` (`COVERAGE_MIN`, default **65** on `./internal/...`) | Yes |
+| Unit + envtest + coverage floor | `task coverage` (`COVERAGE_MIN`, default **85** on `./internal/...`) | Yes |
 | Compile | `task build` | Yes |
 | Sink / transport integration | `task test-integration` (Docker) | Yes |
 | Helm packaging | `task helm-test` (lint + unittest) | Yes |
@@ -90,12 +90,12 @@ Statement coverage on `./internal/...` is enforced by `hack/coverage.sh` / `task
 
 | Phase | `COVERAGE_MIN` | When |
 | --- | --- | --- |
-| **Now (PR / `main`)** | **65%** | `.github/workflows/ci.yaml`, `Taskfile.yml`, `hack/coverage.sh` default |
+| **Now (PR / `main`)** | **85%** | `.github/workflows/ci.yaml`, `Taskfile.yml`, `hack/coverage.sh` / `COVERAGE_MIN` |
 | **Release candidate / tag** | **70%** | Ratchet when measured coverage is **≥ 70%** sustained on `main`, or at **`v0.3.0-rc`** tag cut — whichever comes first |
 
 Measured coverage after the TEST-PYRAMID #3 tranche : **~69.4%**. A follow-on unit-test tranche
  raised measured `./internal/...` coverage to **~74%**; aspirational target before the **70%**
-ratchet is **~80%** — merge gate stays at **65%** until then. **Codecov** target remains **70%** (see
+ratchet toward **90%** only after measured coverage sustains ≥90.5%. **Codecov** project target tracks the CI floor (see
 `codecov.yml`).
 
 ### Planned gates (decided, not yet wired)
@@ -131,7 +131,7 @@ From [engineering guidelines](https://github.com/platformrelay/kollect/blob/main
 - **RESOLVED :** Per-PR **path-filtered e2e** for webhook/cert changes — superseded by
   Tier 0 smoke + Tier 1 extended webhook job (formerly `e2e-webhook-path.yaml`).
 - **RESOLVED :** **`COVERAGE_MIN=70`** — ratchet at **`v0.3.0-rc`** tag or when
-  measured `./internal/...` coverage is **≥ 70%** sustained on `main` (see **Coverage floor** above).
-  PR floor remains **65%** until then.
+  measured `./internal/...` coverage is **≥ 90.5%** sustained on `main` (see **Coverage floor** above).
+  PR floor remains **85%** until then.
 - **OPEN:** Integration job sharding (Postgres vs Kafka vs object-store) if `test-integration` runtime
   exceeds ~15 minutes?

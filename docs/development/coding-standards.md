@@ -122,8 +122,8 @@ Follow the six-tier pyramid (L0–L5) in [Testing strategy](testing.md) and
 
 | Requirement | Detail |
 | --- | --- |
-| **Coverage floor** | 65% statement coverage on `./internal/...` today (`task coverage`, `COVERAGE_MIN`) |
-| **Pre-v0.10 target** | 80% — ratchet the floor only when coverage is sustained |
+| **Coverage floor** | **85%** statement coverage on `./internal/...` (`task coverage`, `COVERAGE_MIN`) |
+| **Next target** | 90% — ratchet only when measured coverage sustains ≥90.5% (COV-90-00) |
 | **Behavior tests** | Table-driven unit tests; envtest for controllers/webhooks; golden contracts for extractors |
 | **New sink backends** | Must reach L3 integration (`task test-integration`) before merge |
 | **Codegen drift** | `task verify` must pass (manifests, deepcopy, RBAC, mocks committed) |
