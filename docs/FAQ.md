@@ -39,27 +39,28 @@ See [Operator manual — Watch scope](OPERATOR-MANUAL.md#watch-scope) and
 
 ### Why does my inventory show `SinkNotFound` or `SinkReachable=False`?
 
-`KollectInventory.spec.sinkRefs` must name `KollectSink` objects in the **same namespace** as the
-Inventory. Cross-namespace sink refs are not supported for namespaced inventory
-([ADR-0201](adr/0201-crd-model.md), [ADR-0201](adr/0201-crd-model.md)).
+`KollectInventory` binds sinks via typed lists — `spec.snapshotSinkRefs`,
+`spec.databaseSinkRefs`, and/or `spec.eventSinkRefs` — naming family sink objects in the **same
+namespace** as the Inventory. Cross-namespace sink refs are not supported for namespaced inventory
+([ADR-0201](adr/0201-crd-model.md), [ADR-0414](adr/0414-sink-family-crds.md)).
 
 ```sh
-kubectl get kollectsink -n <inventory-namespace>
+kubectl get ksnap,kdb,kevt -n <inventory-namespace>
 kubectl describe kollectinventory <name> -n <inventory-namespace>
 ```
 
 The same rule applies to `KollectTarget.spec.profileRef` → `KollectProfile` in the target namespace,
-and `KollectConnectionTest.spec.sinkRef` → sink in the test namespace.
+and `KollectConnectionTest.spec.sinkRef` → a family sink in the test namespace.
 
 !!! warning "Same-namespace sink refs"
-    Create sinks in the same namespace as `KollectInventory` before expecting export. Cluster-wide
-    rollup uses `KollectClusterInventory` with `spec.sinkNamespace` instead.
+    Create family sinks in the same namespace as `KollectInventory` before expecting export.
+    Cluster-wide rollup uses `KollectClusterInventory` with `spec.sinkNamespace` instead.
 
 ### I moved the sink to another namespace — why did export stop?
 
-Update `sinkRefs` on the Inventory to names in the **new** namespace, or recreate the Inventory in
-the sink namespace. The operator does not follow cross-namespace sink references for namespaced
-inventory.
+Update the matching `*SinkRefs` list on the Inventory to names in the **new** namespace, or recreate
+the Inventory in the sink namespace. The operator does not follow cross-namespace sink references for
+namespaced inventory.
 
 ## SinkReachable and connection conditions
 
@@ -67,20 +68,20 @@ inventory.
 
 | Condition | Object | Meaning |
 | --- | --- | --- |
-| `ConnectionVerified` | `KollectSink` | Last connectivity **probe** succeeded (credentials, TLS, network) |
+| `ConnectionVerified` | Family sinks (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) | Last connectivity **probe** succeeded (credentials, TLS, network) |
 | `SinkReachable` | `KollectInventory` / `KollectTarget` | Export pipeline can resolve and reach the referenced sink |
 | `Synced` | `KollectInventory` / `KollectTarget` | Last export cycle completed successfully |
 
 A sink can show `ConnectionVerified=True` while inventory shows `SinkReachable=False` if the
-**name or namespace** in `sinkRefs` is wrong — fix the reference, not just credentials.
+**name or namespace** in a `*SinkRefs` entry is wrong — fix the reference, not just credentials.
 
 ### How do I re-test sink connectivity without editing the CR?
 
-Annotate the sink for a one-shot probe ([ADR-0403](adr/0403-connection-test.md)):
+Annotate the family sink for a one-shot probe ([ADR-0403](adr/0403-connection-test.md)):
 
 ```sh
-kubectl annotate kollectsink <name> -n <namespace> kollect.dev/test-connection=true --overwrite
-kubectl wait --for=condition=ConnectionVerified kollectsink/<name> -n <namespace> --timeout=60s
+kubectl annotate kollectdatabasesink <name> -n <namespace> kollect.dev/test-connection=true --overwrite
+kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/<name> -n <namespace> --timeout=60s
 ```
 
 Production manifests should keep `spec.connectionTest: false` and use the annotation for ad-hoc tests.

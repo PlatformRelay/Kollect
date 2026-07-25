@@ -40,15 +40,15 @@ events surface validation errors instead.
 | `Degraded` | Reconciled kinds | Hard block — fix `reason` before expecting progress |
 
 A sink can show `ConnectionVerified=True` while inventory shows `SinkReachable=False` if the **name
-or namespace** in `sinkRefs` is wrong — fix the reference, not just credentials.
+or namespace** in a `*SinkRefs` entry is wrong — fix the reference, not just credentials.
 
 ### Common `Degraded` reasons
 
 | Reason | Typical object | Cause | Fix |
 | --- | --- | --- | --- |
-| `SinkNotFound` | Inventory, Target | Typo or wrong namespace in `sinkRefs` | Match exact sink name in **same namespace** |
+| `SinkNotFound` | Inventory, Target | Typo or wrong namespace in `*SinkRefs` | Match exact sink name in **same namespace** |
 | `SinkUnreachable` | Inventory, Target | `ConnectionVerified=False` on sink | Fix Secret, DSN, network; re-probe sink |
-| `ScopeSinkDenied` | Inventory | Sink not in `KollectScope` allow-list | Add sink to `spec.sinkRefs` on scope |
+| `ScopeSinkDenied` | Inventory | Sink not in `KollectScope` allow-list | Add sink to scope allow-list refs |
 | `ScopeGVKDenied` | Target | GVK blocked by scope | Update `KollectScope.spec.allowedGVKs` |
 | `ScopeNamespaceDenied` | Target | Workload namespace blocked | Add to `allowedNamespaces` |
 | `ProfileNotFound` | Target | Missing `KollectProfile` | Apply profile in same namespace as target |
@@ -105,8 +105,8 @@ More shortcuts: [Command reference](COMMAND-REFERENCE.md).
 | Helm / Argo Application attributes | [Helm release inventory](examples/helm-release-inventory.md#troubleshooting) |
 | Sink connectivity probes | [Connection test](examples/connection-test.md) |
 | Multi-tenant watch scope | [Multi-tenant watch namespaces](examples/multi-tenant-watch-namespaces.md) |
-| Spoke → shared sink | [Spoke cluster inventory](examples/multi-cluster-fleet.md) |
-| Hub aggregation | [Hub mode](examples/multi-cluster-fleet.md) |
+| Fleet rows / shared sink | [Multi-cluster fleet](examples/multi-cluster-fleet.md) |
+| Missing `spec.cluster` partitioning | [Multi-cluster fleet](examples/multi-cluster-fleet.md) |
 
 ## When to escalate
 
