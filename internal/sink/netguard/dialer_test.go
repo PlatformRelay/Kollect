@@ -121,6 +121,61 @@ func TestDialerRejectsMetadataHostnameWithoutResolution(t *testing.T) {
 	}
 }
 
+func TestDialerAllowPrivatePermitsLocalhostHostnameFamily(t *testing.T) {
+	t.Parallel()
+
+	hosts := []string{"localhost:5432", "localhost.localdomain:5432", "db.localhost:5432"}
+	for _, address := range hosts {
+		t.Run(address, func(t *testing.T) {
+			t.Parallel()
+
+			resolver := &fakeResolver{answers: [][]netip.Addr{{netip.MustParseAddr("127.0.0.1")}}}
+			dialed := make([]string, 0, 1)
+			d := NewDialer(resolver, func(_ context.Context, _, dialAddr string) (net.Conn, error) {
+				dialed = append(dialed, dialAddr)
+
+				return nil, errors.New("fixture stops after authorized dial")
+			})
+			d.allowPrivate = true
+
+			_, _ = d.DialContext(context.Background(), "tcp", address)
+			if resolver.calls != 1 {
+				t.Fatalf("localhost hostname resolved %d times, want 1", resolver.calls)
+			}
+			if len(dialed) != 1 || dialed[0] != "127.0.0.1:5432" {
+				t.Fatalf("dialed addresses = %v, want 127.0.0.1:5432", dialed)
+			}
+		})
+	}
+}
+
+func TestDialerAllowPrivateStillRejectsMetadataHostname(t *testing.T) {
+	t.Parallel()
+
+	resolver := &fakeResolver{answers: [][]netip.Addr{{netip.MustParseAddr("169.254.169.254")}}}
+	d := NewDialer(resolver, nil)
+	d.allowPrivate = true
+	if _, err := d.DialContext(context.Background(), "tcp", "metadata.google.internal:80"); err == nil {
+		t.Fatal("expected metadata hostname to stay forbidden under allowPrivate")
+	}
+	if resolver.calls != 0 {
+		t.Fatalf("metadata hostname unexpectedly resolved %d times", resolver.calls)
+	}
+}
+
+func TestDialerRejectsLocalhostHostnameByDefault(t *testing.T) {
+	t.Parallel()
+
+	resolver := &fakeResolver{answers: [][]netip.Addr{{netip.MustParseAddr("127.0.0.1")}}}
+	d := NewDialer(resolver, nil)
+	if _, err := d.DialContext(context.Background(), "tcp", "localhost:5432"); err == nil {
+		t.Fatal("expected localhost hostname to be forbidden without allowPrivate")
+	}
+	if resolver.calls != 0 {
+		t.Fatalf("localhost hostname unexpectedly resolved %d times", resolver.calls)
+	}
+}
+
 func TestHTTPClientRefusesRedirectToPrivateResolvedHost(t *testing.T) {
 	t.Parallel()
 

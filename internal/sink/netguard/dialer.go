@@ -101,7 +101,11 @@ func (d *Dialer) Resolve(
 	}
 	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
 	if hostErr := validateHostname(host); hostErr != nil {
-		return nil, "", "", hostErr
+		// allowPrivate (integration build only) permits the localhost hostname
+		// family used by testcontainers; metadata hostnames stay denied.
+		if !d.allowPrivate || isMetadataHostname(host) {
+			return nil, "", "", hostErr
+		}
 	}
 
 	addresses, err = d.resolve(ctx, network, host)
@@ -162,17 +166,39 @@ func networkForLookup(network string) string {
 }
 
 func validateHostname(host string) error {
-	normalized := strings.Trim(strings.ToLower(strings.TrimSpace(host)), ".")
-	switch normalized {
-	case "localhost", "localhost.localdomain", "metadata", "metadata.google.internal",
-		"instance-data", "instance-data.ec2.internal":
-		return fmt.Errorf("sink host %q is forbidden", host)
-	}
-	if strings.HasSuffix(normalized, ".localhost") {
+	normalized := normalizeHostname(host)
+	if isLocalhostHostname(normalized) || isMetadataHostnameNormalized(normalized) {
 		return fmt.Errorf("sink host %q is forbidden", host)
 	}
 
 	return nil
+}
+
+func isMetadataHostname(host string) bool {
+	return isMetadataHostnameNormalized(normalizeHostname(host))
+}
+
+func normalizeHostname(host string) string {
+	return strings.Trim(strings.ToLower(strings.TrimSpace(host)), ".")
+}
+
+func isLocalhostHostname(normalized string) bool {
+	switch normalized {
+	case "localhost", "localhost.localdomain":
+		return true
+	}
+
+	return strings.HasSuffix(normalized, ".localhost")
+}
+
+func isMetadataHostnameNormalized(normalized string) bool {
+	switch normalized {
+	case "metadata", "metadata.google.internal",
+		"instance-data", "instance-data.ec2.internal":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateAddress(address netip.Addr) error {
