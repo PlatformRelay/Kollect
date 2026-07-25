@@ -30,7 +30,7 @@ Statement coverage on `./internal/...` is enforced by `hack/coverage.sh` via `ta
 
 | Setting | Value |
 | --- | --- |
-| **Target (pre-v0.10)** | **85–90%** — ratchet `COVERAGE_MIN` when measured coverage is sustained |
+| **Target (pre-v0.10)** | Raise toward 85% only after measured CI coverage sustains ≥85.5% (COV-90-00) |
 | **Current CI floor** | **80%** (`COVERAGE_MIN` in `Taskfile.yml` and `.github/workflows/ci.yaml`) |
 | **Codecov project target** | See `codecov.yml` (advisory relative to CI floor) |
 
