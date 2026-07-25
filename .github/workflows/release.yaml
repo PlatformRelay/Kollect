@@ -35,9 +35,67 @@ env:
   PIPELINE_IMAGE_NAME: kollect-pipeline
 
 jobs:
+  # Read-only gate. Verifier scripts are loaded from the default branch so a
+  # candidate tag cannot supply its own eligibility logic (AUD-SEC-02).
+  eligibility:
+    name: release eligibility
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+    outputs:
+      sha: ${{ steps.prove.outputs.sha }}
+      tag: ${{ steps.prove.outputs.tag }}
+      version: ${{ steps.prove.outputs.version }}
+    steps:
+      - name: Checkout trusted gate scripts from default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            hack/release
+          sparse-checkout-cone-mode: true
+          persist-credentials: false
+          path: trusted-gate
+
+      - name: Resolve tag SHA and prove reviewed-main eligibility
+        id: prove
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TAG="${INPUT_TAG}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "tag must look like vX.Y.Z (got ${TAG})" >&2
+            exit 1
+          fi
+          # Resolve via API (peels annotated tags). Do not trust a candidate checkout.
+          SHA="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TAG}" --jq .sha)"
+          if [[ ! "${SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "failed to resolve ${TAG} to a full commit SHA" >&2
+            exit 1
+          fi
+          bash trusted-gate/hack/release/verify-eligibility.sh "${SHA}"
+          {
+            echo "sha=${SHA}"
+            echo "tag=${TAG}"
+            echo "version=${TAG#v}"
+          } >> "${GITHUB_OUTPUT}"
+
   release:
     name: release
+    needs: eligibility
     runs-on: ubuntu-latest
+    # Require a protected "release" environment (required reviewers / wait timer)
+    # so write credentials cannot be obtained by stripping the eligibility job from
+    # a malicious tagged workflow copy alone.
+    environment: release
     # contents: write — create/update GitHub Release assets (softprops/action-gh-release, git-cliff)
     # packages: write — push container image and OCI Helm chart to GHCR
     # id-token: write — cosign keyless signing via Sigstore OIDC
@@ -54,23 +112,29 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+          # Bind publication to the immutable SHA proven by eligibility — never the
+          # mutable tag ref alone.
+          ref: ${{ needs.eligibility.outputs.sha }}
 
-      - name: Resolve version
+      - name: Confirm immutable publication SHA
         id: version
         env:
-          INPUT_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}
+          EXPECT_SHA: ${{ needs.eligibility.outputs.sha }}
+          TAG: ${{ needs.eligibility.outputs.tag }}
+          VERSION: ${{ needs.eligibility.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            TAG="${INPUT_TAG}"
-          else
-            TAG="${GITHUB_REF_NAME}"
-          fi
-          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
-            echo "tag must look like vX.Y.Z (got ${TAG})" >&2
+          set -euo pipefail
+          GOT="$(git rev-parse HEAD)"
+          if [[ "${GOT}" != "${EXPECT_SHA}" ]]; then
+            echo "checked-out HEAD ${GOT} != eligibility SHA ${EXPECT_SHA}" >&2
             exit 1
           fi
-          VERSION="${TAG#v}"
+          TAG_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TAG}" --jq .sha)"
+          if [[ "${TAG_SHA}" != "${EXPECT_SHA}" ]]; then
+            echo "tag ${TAG} now resolves to ${TAG_SHA}, not proven SHA ${EXPECT_SHA}" >&2
+            exit 1
+          fi
           echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 

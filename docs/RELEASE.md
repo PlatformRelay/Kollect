@@ -92,7 +92,33 @@ task changelog:verify
 ```
 
 Ensure **CI**, **preflight**, and **`kind-smoke`** (`e2e-smoke.yaml`) are green on `${RELEASE_SHA}`
-on GitHub Actions.
+on GitHub Actions. Docs-only or path-filtered commits that skipped a required job are **not**
+eligible — re-dispatch the skipped workflow on that exact SHA.
+
+Then run the read-only **Release gate** against that immutable SHA. It rejects commits not reachable
+from protected `main`, missing/cancelled/unsuccessful required checks, and commits without a
+merged-to-`main` PR whose **latest** non-author review is `APPROVED` on the **final PR head**
+(approvals superseded by `CHANGES_REQUESTED`, or approvals of an earlier tip, fail):
+
+```sh
+gh workflow run release-gate.yaml -f sha="${RELEASE_SHA}"
+gh run list --workflow release-gate.yaml --limit 1
+```
+
+The publishing workflow independently repeats this eligibility check **before** registry login,
+signing, attestations, or release uploads. Gate scripts are always loaded from the default branch
+so a candidate tag cannot supply its own verifier. Publication checks out the proven immutable SHA
+(not a movable tag ref alone) and refuses to continue if the tag no longer resolves to that SHA.
+
+### Operator protection (required)
+
+Configure these in the GitHub repo settings (not expressible in workflow YAML alone):
+
+1. **Environment `release`** — required reviewers (and optionally a wait timer) on the write-capable
+   Release job. Without this, a malicious tagged workflow copy that drops the eligibility job could
+   still obtain write/`id-token` permissions.
+2. **Tag rules** — restrict `v*.*.*` creation to protected `main` / allowed actors so arbitrary
+   commits cannot be tagged into the release path.
 
 ### L4 pre-release gate
 
@@ -189,13 +215,25 @@ git commit -m ":bookmark: chore(release): prepare v0.3.0"
 
 ## Cut a release
 
-On green `main` at the commit you intend to ship:
+Land the release prep through a **protected-main PR** with a distinct approving reviewer (not the
+author). Rebase-merge the PR, then refetch and record the exact resulting `main` SHA:
 
 ```sh
-git tag v0.3.0
-git push origin main
-git push origin v0.3.0   # triggers release workflow — only after CI green on this SHA
+git fetch origin main
+git switch main
+git pull --ff-only origin main
+RELEASE_SHA="$(git rev-parse HEAD)"
+gh workflow run release-gate.yaml -f sha="${RELEASE_SHA}"
 ```
+
+Only after that gate succeeds on the same immutable SHA:
+
+```sh
+git tag v0.3.0 "${RELEASE_SHA}"
+git push origin v0.3.0   # triggers release workflow, which repeats eligibility before login
+```
+
+Do **not** `git push origin main` outside branch protection, and do not move an existing release tag.
 
 CI publishes the GitHub Release, GHCR image, OCI Helm chart, and attached assets.
 
@@ -207,7 +245,8 @@ ls -la dist/
 ```
 
 **Rebuild assets** for an existing tag: Actions → **Release** → **Run workflow** → enter the tag
-(optional `draft` / `prerelease` inputs).
+(optional `draft` / `prerelease` inputs). Rebuilds still require eligibility on the tag's commit SHA
+and the protected `release` environment.
 
 ## What CI publishes
 
