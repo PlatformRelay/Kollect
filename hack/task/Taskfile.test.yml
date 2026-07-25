@@ -23,7 +23,7 @@ tasks:
       - bash hack/coverage.sh
 
   coverage:race:
-    desc: Same as coverage with COVERAGE_RACE=1 (local-only race detector; requires CGO)
+    desc: Same as coverage with COVERAGE_RACE=1 (local + nightly advisory; requires CGO)
     env:
       CGO_ENABLED: "1"
       COVERAGE_RACE: "1"
