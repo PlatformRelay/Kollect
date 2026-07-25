@@ -29,8 +29,9 @@ Useful primers:
 
 ## Custom resources (CRDs)
 
-Kollect extends the API with **nine** `kollect.dev/v1alpha1` kinds. You declare *what* to collect
-(`KollectProfile`), *where* to export (`KollectSink`), *which resources* (`KollectTarget`), and
+Kollect extends the API with `kollect.dev/v1alpha1` kinds. You declare *what* to collect
+(`KollectProfile`), *where* to export (family sinks: `KollectSnapshotSink`, `KollectDatabaseSink`,
+`KollectEventSink`), *which resources* (`KollectTarget`), and
 *how to roll up* (`KollectInventory`). Cluster-scoped kinds (`KollectCluster*`) add cross-namespace
 rollup on platform clusters.
 

@@ -61,7 +61,7 @@ metadata:
 
 | Key | Type | On | Values | Effect |
 | --- | --- | --- | --- | --- |
-| `kollect.dev/test-connection` | Annotation | `KollectSink` | `"true"` | One-shot connectivity probe; sets `ConnectionVerified` on status |
+| `kollect.dev/test-connection` | Annotation | Family sinks (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) | `"true"` | One-shot connectivity probe; sets `ConnectionVerified` on status |
 
 Equivalent to `spec.connectionTest: true` on the sink CR ([ADR-0403](adr/0403-connection-test.md)).
 The reconciler removes the annotation after a successful probe (kept when the probe fails).
@@ -71,9 +71,9 @@ The reconciler removes the annotation after a successful probe (kept when the pr
     re-tests:
 
 ```sh
-kubectl annotate kollectsink <name> -n <namespace> \
+kubectl annotate kollectdatabasesink <name> -n <namespace> \
   kollect.dev/test-connection=true --overwrite
-kubectl wait --for=condition=ConnectionVerified kollectsink/<name> \
+kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/<name> \
   -n <namespace> --timeout=60s
 ```
 
@@ -111,8 +111,8 @@ Not an annotation — operator policy for marshalled inventory size
 | Inventory `Degraded` `PayloadTooLarge` | Payload > **`maxExportBytes`** (~1.5 MiB default) | Split targets, trim attributes, or raise cap within global limit |
 | `kollect_sink_errors_total{reason="spill_required"}` | Spill gate blocked export | Same remediation as `SpillRequired` |
 
-`KollectSink.spec.pathTemplate` controls where spill payloads land in Git/S3/GCS (not related to watch
-labels above).
+Family sink `spec.pathTemplate` (snapshot/object-store backends) controls where spill payloads land
+in Git/S3/GCS (not related to watch labels above).
 
 ## Tenant and example labels
 

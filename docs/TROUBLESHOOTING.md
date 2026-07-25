@@ -34,7 +34,7 @@ events surface validation errors instead.
 
 | Condition | Object | Meaning |
 | --- | --- | --- |
-| `ConnectionVerified` | `KollectSink` | Last connectivity **probe** succeeded (credentials, TLS, network) |
+| `ConnectionVerified` | Family sinks (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) | Last connectivity **probe** succeeded (credentials, TLS, network) |
 | `SinkReachable` | `KollectInventory`, `KollectTarget` | Export pipeline resolved and can reach the referenced sink |
 | `Synced` | `KollectInventory`, `KollectTarget` | Last export or collection cycle completed successfully |
 | `Degraded` | Reconciled kinds | Hard block — fix `reason` before expecting progress |
@@ -70,23 +70,24 @@ Full per-kind tables: [KollectInventory](crds/kollectinventory.md#status-conditi
 | Empty `status.itemCount` | Selector mismatch, suspended target, scope denied | [Deployment inventory — Troubleshooting](examples/deployment-inventory.md#troubleshooting) |
 | Namespace skipped | Watch label or `OptIn` without `enabled` | [Annotations and labels](ANNOTATIONS-LABELS.md) |
 | Postgres rows stale | Upsert-only drift or export error | [Postgres state store](examples/postgres-state-store.md#troubleshooting) |
-| Hub spoke not merging | Transport or registration misconfig | [Hub mode](examples/multi-cluster-fleet.md) |
+| Fleet rows missing a cluster | Wrong or empty `spec.cluster` on inventory | [Multi-cluster fleet](examples/multi-cluster-fleet.md) |
 | CR stopped working after upgrade | Pre-beta schema change | [FAQ — pre-beta](FAQ.md#why-did-my-cr-stop-working-after-an-upgrade) |
 
 ## Diagnostic commands
 
 ```sh
-# Pipeline status (short names)
-kubectl get kprof,ksink,ktgt,kinv -n <namespace>
-kubectl describe kollectsink <name> -n <namespace>
+# Pipeline status (short names — family sinks: ksnap/kdb/kevt)
+kubectl get kprof,ksnap,kdb,kevt,ktgt,kinv -n <namespace>
+kubectl describe kollectsnapshotsink <name> -n <namespace>
+kubectl describe kollectdatabasesink <name> -n <namespace>
 kubectl describe kollectinventory <name> -n <namespace>
 
-# Wait for sink probe
-kubectl wait --for=condition=ConnectionVerified kollectsink/<name> \
+# Wait for sink probe (pick the family kind you installed)
+kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/<name> \
   -n <namespace> --timeout=60s
 
 # Re-probe without editing spec
-kubectl annotate kollectsink <name> -n <namespace> \
+kubectl annotate kollectdatabasesink <name> -n <namespace> \
   kollect.dev/test-connection=true --overwrite
 
 # Operator logs

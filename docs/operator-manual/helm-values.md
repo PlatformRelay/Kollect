@@ -35,7 +35,7 @@ knobs; the authoritative full list lives in the chart tree.
 | `watchNamespaces` | Restrict informer cache to these namespaces | `[]` (all) |
 | `webhooks.enabled` | Validating webhook for profiles | `true` |
 | `webhooks.certManager.create` | cert-manager `Certificate` for webhook TLS | `true` |
-| `sinkDefaults.connectionTest` | Default for sample `KollectSink` probes | `false` |
+| `sinkDefaults.connectionTest` | Default for sample family-sink probes | `false` |
 | `scrubKeys` | Extra attribute map keys redacted before store insert | `[]` (built-in denylist always on) |
 
 Export debouncing is configured per **sink ref** on `KollectInventory` / `KollectClusterInventory`
