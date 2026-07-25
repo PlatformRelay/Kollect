@@ -11,9 +11,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **security:** Close BigQuery and git SSRF gaps [6820489](https://github.com/platformrelay/kollect/commit/6820489dd820075d04a25bf05aa73882efcb1516)
+- **netguard:** Allow localhost under integration allowPrivate [ed6326c](https://github.com/platformrelay/kollect/commit/ed6326cae865d142b6dfd6e6992b8233963bfde1)
 
-- **security:** Guard resolved sink addresses [786da23](https://github.com/platformrelay/kollect/commit/786da230a4a54ca6877eaf11314d0714f74bf600)
+- **security:** Close BigQuery and git SSRF gaps [d648824](https://github.com/platformrelay/kollect/commit/d64882483df9b0507041366c6462062f693512af)
+
+- **security:** Guard resolved sink addresses [747aff8](https://github.com/platformrelay/kollect/commit/747aff85b2b2fa2a753a3575fc1b53b0d46d1f24)
 
 - **pipeline:** Degrade exit on extraction failures [ca7fa80](https://github.com/platformrelay/kollect/commit/ca7fa80d5a8b2c51e4767249a2997ea7e0450c30)
 
