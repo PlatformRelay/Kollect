@@ -10,16 +10,20 @@ name: changelog-sync
 # This workflow regenerates CHANGELOG.md after each push to main and commits the
 # result, so those merges self-heal instead of needing a manual post-merge sync.
 #
-# ACTIVATION (one-time, operator): pushing to `main` is gated by the `protect-main`
-# ruleset ("changes must be made through a pull request"). For the push below to
-# succeed, the CI identity must be a ruleset **bypass actor**:
-#   - simplest: add `github-actions[bot]` as a bypass actor (bypass_mode: always)
-#     and leave CHANGELOG_SYNC_TOKEN unset (uses GITHUB_TOKEN; its pushes also do
-#     not re-trigger workflows, so no extra loop guard is needed); or
-#   - set the `CHANGELOG_SYNC_TOKEN` secret to a PAT/App token whose identity is a
-#     bypass actor.
-# Until activated, the push soft-fails with a warning (this job is NOT a required
-# check, so it never blocks a merge).
+# ACTIVATION (operator): pushing to `main` is gated by the `protect-main` ruleset
+# ("changes must be made through a pull request"). `github-actions[bot]` / the
+# default `GITHUB_TOKEN` cannot be a ruleset bypass actor — GitHub only allows
+# Users, Teams, Roles, and Integrations (GitHub Apps) on ruleset bypass lists.
+#
+# Bypass (done): Integration App ID 4389790 is on `protect-main` with
+# bypass_mode: always.
+#
+# Secrets (repo): mint an installation token with
+#   CHANGELOG_SYNC_GITHUB_APP_ID
+#   CHANGELOG_SYNC_GITHUB_APP_PRIVATE_KEY
+# (App private key PEM — Client ID/Secret alone cannot mint installation tokens.)
+# Until both secrets are set and the push succeeds, this job soft-fails with a
+# warning (it is NOT a required check, so it never blocks a merge).
 
 on:
   push:
@@ -42,11 +46,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        id: app-token
+        with:
+          app-id: ${{ secrets.CHANGELOG_SYNC_GITHUB_APP_ID }}
+          private-key: ${{ secrets.CHANGELOG_SYNC_GITHUB_APP_PRIVATE_KEY }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # git-cliff needs full history + tags
           fetch-tags: true
-          token: ${{ secrets.CHANGELOG_SYNC_TOKEN || github.token }}
+          token: ${{ steps.app-token.outputs.token }}
       - uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
         with:
           version: 3.51.1
@@ -63,10 +72,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
-          # [skip ci] keeps any PAT-authenticated push from re-triggering workflows.
+          # [skip ci] keeps App-token pushes from re-triggering workflows; paths-ignore
+          # is the primary loop guard when only CHANGELOG.md changes.
           git commit -m ":page_facing_up: docs: sync CHANGELOG.md [skip ci]"
           if git push origin HEAD:main; then
             echo "::notice title=changelog-sync::Pushed regenerated CHANGELOG.md to main."
           else
-            echo "::warning title=changelog-sync::Could not push CHANGELOG.md — add the CI identity (github-actions[bot] or CHANGELOG_SYNC_TOKEN owner) as a protect-main ruleset bypass actor to activate. CHANGELOG.md remains drifted until then."
+            echo "::warning title=changelog-sync::Could not push CHANGELOG.md — ensure CHANGELOG_SYNC_GITHUB_APP_ID + CHANGELOG_SYNC_GITHUB_APP_PRIVATE_KEY are set and Integration 4389790 remains a protect-main bypass actor (always). CHANGELOG.md remains drifted until then."
           fi
