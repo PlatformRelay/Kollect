@@ -29,9 +29,7 @@ func TestMaxExportBytesGlobalDefault(t *testing.T) {
 
 func TestValidateInventorySpec_maxExportBytesCap(t *testing.T) {
 	t.Parallel()
-
-	SetMaxExportBytesGlobal(1000)
-	t.Cleanup(func() { SetMaxExportBytesGlobal(defaultMaxExportBytesGlobal) })
+	withMaxExportBytesGlobal(t, 1000)
 
 	over := int64(2000)
 	spec := &kollectdevv1alpha1.KollectInventorySpec{MaxExportBytes: &over}
