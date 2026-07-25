@@ -206,4 +206,4 @@ the same Postgres table or Git branch.
 - [ADR-0305: Aggregation and dedupe](../adr/0305-aggregation-dedupe.md)
 - [ADR-0414: Sink family CRDs](../adr/0414-sink-family-crds.md)
 - [Multi-tenant watch scope example](../examples/multi-tenant-watch-namespaces.md)
-- [Helm values — per-team install](../operator-manual/helm-values.md#per-team-install-recommended-default)
+- [Helm values — per-team install](../operator-manual/helm-values.md#per-team-install-minimal-rbac)

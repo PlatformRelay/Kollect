@@ -65,7 +65,7 @@ Full per-kind tables: [KollectInventory](crds/kollectinventory.md#status-conditi
 
 | Symptom | Likely cause | Next step |
 | --- | --- | --- |
-| Export never runs | `SinkReachable=False` (`SinkNotFound` / `SinkUnreachable`) | [FAQ — export never runs](FAQ.md#export-never-runs--what-should-i-check) |
+| Export never runs | `SinkReachable=False` (`SinkNotFound` / `SinkUnreachable`) | [FAQ — export never runs](FAQ.md#export-never-runs-what-should-i-check) |
 | `ConnectionVerified=False` | Missing Secret, bad DSN, TLS failure | [Connection test](examples/connection-test.md) |
 | Empty `status.itemCount` | Selector mismatch, suspended target, scope denied | [Deployment inventory — Troubleshooting](examples/deployment-inventory.md#troubleshooting) |
 | Namespace skipped | Watch label or `OptIn` without `enabled` | [Annotations and labels](ANNOTATIONS-LABELS.md) |

@@ -173,6 +173,7 @@ nav:
       - Assurance case: ASSURANCE-CASE.md
       - Security review: SECURITY-REVIEW.md
       - SCA remediation policy: security/sca-remediation-policy.md
+      - Resolved-address policy: security/resolved-address-policy.md
   - Contributing:
       - Governance: development/governance.md
       - Engineering guidelines: development/guidelines.md
