@@ -13,7 +13,7 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 | Tier | Scope | Blocks merge? | Typical command |
 | --- | --- | --- | --- |
 | **L0 — Unit** | Pure packages, table-driven tests, mocks | Yes | `task test` |
-| **L1 — Controller / API** | envtest reconcilers, webhooks | Yes | `task coverage` (no `-race` in CI) |
+| **L1 — Controller / API** | envtest reconcilers, webhooks | Yes | `task coverage`; nightly advisory `task coverage:race` |
 | **L2 — Golden / contract** | OpenAPI fragments, sample YAML, extractor goldens | Yes | `task test` |
 | **L3 — Integration** | Real Postgres, Kafka, Git, S3, GCS, Redis, NATS (testcontainers) | Yes | `task test-integration` |
 | **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | **PR smoke (required)** + nightly / extended | `task test:e2e` |
@@ -30,16 +30,16 @@ Statement coverage on `./internal/...` is enforced by `hack/coverage.sh` via `ta
 
 | Setting | Value |
 | --- | --- |
-| **Target (pre-v0.10)** | **80%** — ratchet `COVERAGE_MIN` when measured coverage is sustained |
-| **Current CI floor** | 72% (`COVERAGE_MIN` in `.github/workflows/ci.yaml`) |
-| **Codecov project target** | 70% (`codecov.yml`) |
+| **Target (pre-v0.10)** | **85–90%** — ratchet `COVERAGE_MIN` when measured coverage is sustained |
+| **Current CI floor** | **80%** (`COVERAGE_MIN` in `Taskfile.yml` and `.github/workflows/ci.yaml`) |
+| **Codecov project target** | See `codecov.yml` (advisory relative to CI floor) |
 
 Regressions below the enforced floor fail CI. Raise the floor only after coverage has grown
 sustainably — see ADR-0706 for the ratchet policy.
 
 ```sh
 task coverage          # unit + envtest + floor check → coverage.out (CI path; no -race)
-task coverage:race     # local-only: COVERAGE_RACE=1 + CGO_ENABLED=1
+task coverage:race     # COVERAGE_RACE=1 + CGO_ENABLED=1 (local + nightly advisory CI)
 task coverage:report   # go tool cover -func summary
 task coverage:html     # coverage.html for browser review
 ```
@@ -117,8 +117,8 @@ For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a 
 | Task | Purpose |
 | --- | --- |
 | `task test` | Unit + envtest (no floor check; no race detector) |
-| `task coverage` | Unit + envtest + 72% floor (CI; CGO off, no `-race`) |
-| `task coverage:race` | Same as coverage with race detector (local pre-PR) |
+| `task coverage` | Unit + envtest + 80% floor (CI; CGO off, no `-race`) |
+| `task coverage:race` | Same as coverage with race detector (local + nightly advisory) |
 | `task test-integration` | L3 sink/transport integration (Docker) |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
 | `task ui-ci` | UI PR gate — Vitest, lint, build, mock drift (no Playwright) |
