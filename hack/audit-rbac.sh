@@ -24,9 +24,7 @@ fi
 
 if ! command -v kubeaudit >/dev/null 2>&1; then
   KUBEAUDIT_DIR="$(mktemp -d)"
-  curl -fsSL "https://github.com/Shopify/kubeaudit/releases/download/v${KUBEAUDIT_VERSION}/kubeaudit_${KUBEAUDIT_VERSION}_linux_amd64.tar.gz" \
-    | tar -xz -C "${KUBEAUDIT_DIR}" kubeaudit
-  chmod +x "${KUBEAUDIT_DIR}/kubeaudit"
+  KUBEAUDIT_VERSION="${KUBEAUDIT_VERSION}" bash "${ROOT}/hack/install-kubeaudit.sh" "${KUBEAUDIT_DIR}"
   PATH="${KUBEAUDIT_DIR}:${PATH}"
   export PATH
 fi
