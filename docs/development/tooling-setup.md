@@ -67,7 +67,7 @@ SonarCloud is **optional** until `SONAR_TOKEN` is configured. CI runs the scan w
 1. Sign in at [SonarCloud](https://sonarcloud.io/) with a GitHub account that administers the `platformrelay` organization.
 2. Create or import organization **`platformrelay`** (must match `sonar.organization` in
    `sonar-project.properties`).
-3. Add project **`platformrelay_kollect`** (must match `sonar.projectKey`).
+3. Add project **`PlatformRelay_Kollect`** (must match `sonar.projectKey`).
 4. Set visibility to **Public** (free for OSS).
 
 ### 2. Tokens (GitHub secret + local `.envrc`)
@@ -95,9 +95,9 @@ task sonar          # alias for sonar:local
 task sonar:local    # runs task coverage, then sonar-scanner via Docker
 ```
 
-Requires Docker. Uploads to org **`platformrelay`**, project **`platformrelay_kollect`** per
+Requires Docker. Uploads to org **`platformrelay`**, project **`PlatformRelay_Kollect`** per
 [`sonar-project.properties`](https://github.com/platformrelay/kollect/blob/main/sonar-project.properties). First run may take a few minutes;
-confirm the project appears at [SonarCloud](https://sonarcloud.io/project/overview?id=platformrelay_kollect).
+confirm the project appears at [SonarCloud](https://sonarcloud.io/project/overview?id=PlatformRelay_Kollect).
 
 ### 4. Quality gate (recommended)
 
