@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Restore CHANGELOG after shallow-clone wipe [skip ci] [0a91358](https://github.com/platformrelay/kollect/commit/0a913586d88ff61d5146ade5c12aeb67716081d2)
+
 - **security:** Verify CI scanner archive checksums ([#115](https://github.com/platformrelay/kollect/pull/115))[491e6e1](https://github.com/platformrelay/kollect/commit/491e6e120941392cb375f5d04451a0405db8607a)
 
 - **collect:** Drop stale row on extract failure ([#113](https://github.com/platformrelay/kollect/pull/113))[705fe31](https://github.com/platformrelay/kollect/commit/705fe31f15ef606e015811cb4c15d63732f8c20a)
