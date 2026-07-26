@@ -802,3 +802,4 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **api:** Add KollectProfile/Sink/Target/Inventory v1alpha1 types [5f5866f](https://github.com/platformrelay/kollect/commit/5f5866fa72b05e4a4b961b56a5ec9da780af7e37)
 
 ## [0.0.1] - 2026-06-04
+
