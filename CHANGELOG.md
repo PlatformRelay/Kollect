@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **security:** Scope workflow token permissions (docs top-level read, changelog-sync job-scoped write) (SEC-05e) ([#134](https://github.com/platformrelay/kollect/pull/134))[3fad4c2](https://github.com/platformrelay/kollect/commit/3fad4c2a0c35802464f95f52062e9a3ca2485bcd)
+
 - **security:** Pin PATH for git subprocess exec in export_file.go ([#132](https://github.com/platformrelay/kollect/pull/132))[72af154](https://github.com/platformrelay/kollect/commit/72af15441071bd50bb1ded5169cde21aca4bd2c2)
 
 - **deps:** Bump grpc v1.82.0 -> v1.82.1 (GO-2026-6061) ([#133](https://github.com/platformrelay/kollect/pull/133))[d6fe17e](https://github.com/platformrelay/kollect/commit/d6fe17e5a04637c1bba88dd51f403adeaba6c30a)
