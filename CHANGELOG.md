@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **security:** Bump click>=8.3.3 & pymdown-extensions>=11 docs toolchain (SEC-05c) ([#136](https://github.com/platformrelay/kollect/pull/136))[0a4c3e0](https://github.com/platformrelay/kollect/commit/0a4c3e024c51fee34a690622b22f4a6681594cef)
+
 - **security:** Bump js-yaml 5.2.1->5.2.2 via override in docs (GHSA-pm4m-ph32-ghv5, SEC-05b) ([#135](https://github.com/platformrelay/kollect/pull/135))[f6d10c0](https://github.com/platformrelay/kollect/commit/f6d10c01832f793028e387a2fea12f2eeddc71d4)
 
 - **security:** Scope workflow token permissions (docs top-level read, changelog-sync job-scoped write) (SEC-05e) ([#134](https://github.com/platformrelay/kollect/pull/134))[3fad4c2](https://github.com/platformrelay/kollect/commit/3fad4c2a0c35802464f95f52062e9a3ca2485bcd)
