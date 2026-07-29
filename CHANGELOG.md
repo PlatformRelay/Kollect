@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **security:** Close TOCTOU window in mirror root creation [f628fae](https://github.com/platformrelay/kollect/commit/f628fae5d694fd113db0637ee6cb41f17f7eb087)
+
+- **security:** Stop trusting a pre-created git mirror /tmp dir [b1fc177](https://github.com/platformrelay/kollect/commit/b1fc1772a8f78cd25d969b5d5492a23c6140e361)
+
 - **docs:** Restore CHANGELOG after shallow-clone wipe [skip ci] [0a91358](https://github.com/platformrelay/kollect/commit/0a913586d88ff61d5146ade5c12aeb67716081d2)
 
 - **security:** Verify CI scanner archive checksums ([#115](https://github.com/platformrelay/kollect/pull/115))[491e6e1](https://github.com/platformrelay/kollect/commit/491e6e120941392cb375f5d04451a0405db8607a)
