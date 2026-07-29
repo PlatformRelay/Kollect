@@ -1,0 +1,28 @@
+# osv-scanner configuration
+# Schema: https://google.github.io/osv-scanner/configuration/
+#
+# Suppressed advisories are documented here with an explicit justification so
+# that each ignore can be independently audited and periodically re-reviewed.
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+# GO-2026-5932: golang.org/x/crypto/openpgp is unmaintained, unsafe by design,
+# and has known security issues. Suppressed for the following reasons:
+#
+#   (a) Not reachable. No kollect Go source imports the golang.org/x/crypto/openpgp
+#       package, and `govulncheck ./...` reports 0 called vulnerabilities
+#       ("your code doesn't appear to call these vulnerabilities"). The advisory
+#       is flagged only because the openpgp package is present in the module graph.
+#
+#   (b) No upstream fix exists. The package is permanently deprecated; the
+#       advisory lists "Fixed in: N/A". There is no version to upgrade to, so the
+#       finding cannot be resolved by a dependency bump.
+#
+#   (c) Presence is module-graph-only. golang.org/x/crypto is pulled in for other,
+#       non-openpgp functionality; the vulnerable openpgp subpackage is never
+#       imported or called by kollect code.
+#
+# No `ignoreUntil` is set: because no fixed version will ever be published, this
+# suppression is intentionally indefinite. Revisit if kollect ever begins
+# importing golang.org/x/crypto/openpgp, or if the module drops the package.
+reason = "Not reachable (govulncheck: 0 called; kollect imports no crypto/openpgp package), no upstream fix exists (package permanently deprecated, Fixed in: N/A), and the vulnerable openpgp subpackage is present only via the module graph and never imported by kollect code."
