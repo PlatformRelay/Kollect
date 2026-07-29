@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **security:** Bump js-yaml 5.2.1->5.2.2 via override in docs (GHSA-pm4m-ph32-ghv5, SEC-05b) ([#135](https://github.com/platformrelay/kollect/pull/135))[f6d10c0](https://github.com/platformrelay/kollect/commit/f6d10c01832f793028e387a2fea12f2eeddc71d4)
+
 - **security:** Scope workflow token permissions (docs top-level read, changelog-sync job-scoped write) (SEC-05e) ([#134](https://github.com/platformrelay/kollect/pull/134))[3fad4c2](https://github.com/platformrelay/kollect/commit/3fad4c2a0c35802464f95f52062e9a3ca2485bcd)
 
 - **security:** Pin PATH for git subprocess exec in export_file.go ([#132](https://github.com/platformrelay/kollect/pull/132))[72af154](https://github.com/platformrelay/kollect/commit/72af15441071bd50bb1ded5169cde21aca4bd2c2)
