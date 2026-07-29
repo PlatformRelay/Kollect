@@ -98,6 +98,7 @@ largeCluster:
     limits:
       cpu: "2"
       memory: 4Gi
+      ephemeral-storage: 4Gi
     requests:
       cpu: 500m
       memory: 2Gi
@@ -146,6 +147,8 @@ resources:
   limits:
     cpu: 500m
     memory: 256Mi
+    # -- Ephemeral-storage limit bounding writable-layer/tmp emptyDir usage (git mirror clones, exports) so a runaway container cannot exhaust node disk (KO-05).
+    ephemeral-storage: 1Gi
   requests:
     cpu: 10m
     memory: 64Mi

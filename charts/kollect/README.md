@@ -46,6 +46,7 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | largeCluster.controller.maxConcurrentReconciles.inventory | int | `10` |  |
 | largeCluster.controller.maxConcurrentReconciles.target | int | `10` |  |
 | largeCluster.resources.limits.cpu | string | `"2"` |  |
+| largeCluster.resources.limits.ephemeral-storage | string | `"4Gi"` |  |
 | largeCluster.resources.limits.memory | string | `"4Gi"` |  |
 | largeCluster.resources.requests.cpu | string | `"500m"` |  |
 | largeCluster.resources.requests.memory | string | `"2Gi"` |  |
@@ -73,6 +74,7 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | rbac.create | bool | `true` | Create RBAC roles/bindings for the manager. |
 | replicaCount | int | `1` | Manager Deployment replica count. |
 | resources.limits.cpu | string | `"500m"` |  |
+| resources.limits.ephemeral-storage | string | `"1Gi"` | Ephemeral-storage limit bounding writable-layer/tmp emptyDir usage (git mirror clones, exports) so a runaway container cannot exhaust node disk (KO-05). |
 | resources.limits.memory | string | `"256Mi"` |  |
 | resources.requests.cpu | string | `"10m"` |  |
 | resources.requests.memory | string | `"64Mi"` |  |
