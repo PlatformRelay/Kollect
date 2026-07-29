@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **security:** Pin PATH for git subprocess exec in export_file.go ([#132](https://github.com/platformrelay/kollect/pull/132))[72af154](https://github.com/platformrelay/kollect/commit/72af15441071bd50bb1ded5169cde21aca4bd2c2)
+
 - **deps:** Bump grpc v1.82.0 -> v1.82.1 (GO-2026-6061) ([#133](https://github.com/platformrelay/kollect/pull/133))[d6fe17e](https://github.com/platformrelay/kollect/commit/d6fe17e5a04637c1bba88dd51f403adeaba6c30a)
 
 - **security:** Set ephemeral-storage limit on kollect manager container ([#128](https://github.com/platformrelay/kollect/pull/128))[89cb65f](https://github.com/platformrelay/kollect/commit/89cb65f8c20067a9f8145977de2a1d50fa8836ed)
