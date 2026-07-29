@@ -116,6 +116,22 @@ func TestDefaultMirrorRoot_containerWithoutHomeFallsBackToTempDir(t *testing.T) 
 	}
 }
 
+func TestMirrorRootDir_hostileRegularFileNotAdopted(t *testing.T) {
+	hostile := filepath.Join(t.TempDir(), "kollect-git-mirrors")
+	if err := os.WriteFile(hostile, []byte("not a directory"), 0o600); err != nil {
+		t.Fatalf("WriteFile(hostile): %v", err)
+	}
+	t.Setenv(envMirrorDir, hostile)
+
+	_, err := mirrorRootDir()
+	if err == nil {
+		t.Fatal("mirrorRootDir() error = nil, want refusal of a pre-existing regular file")
+	}
+	if !errors.Is(err, errMirrorRootInsecure) {
+		t.Fatalf("mirrorRootDir() error = %v, want errMirrorRootInsecure", err)
+	}
+}
+
 func TestMirrorRootDir_existingNonWritableDirIsReused(t *testing.T) {
 	// t.TempDir() dirs are owned by the current user with no group/other
 	// write bit (mode varies by platform, e.g. 0700 or 0755) -- safe to reuse.
