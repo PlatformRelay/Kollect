@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **security:** Replace wildcard admin verbs with explicit RBAC list ([#125](https://github.com/platformrelay/kollect/pull/125))[7ce2a7c](https://github.com/platformrelay/kollect/commit/7ce2a7c8b3e336fc1772d3236f3462e6ee261c76)
+
 - **security:** Disable SA token automount on kollect-ui chart Pod ([#127](https://github.com/platformrelay/kollect/pull/127))[78ccfd3](https://github.com/platformrelay/kollect/commit/78ccfd31460d6b33de94e4da6569a98aea0298a8)
 
 - **security:** Scope docs.yaml permissions per job (SEC-04f / KO-06) ([#126](https://github.com/platformrelay/kollect/pull/126))[e74d9bc](https://github.com/platformrelay/kollect/commit/e74d9bcad93dd4bc3fc087aff5ee14109ac49d30)
