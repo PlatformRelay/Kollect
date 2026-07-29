@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **security:** Scope docs.yaml permissions per job (SEC-04f / KO-06) ([#126](https://github.com/platformrelay/kollect/pull/126))[e74d9bc](https://github.com/platformrelay/kollect/commit/e74d9bcad93dd4bc3fc087aff5ee14109ac49d30)
+
 - **security:** Close TOCTOU window in mirror root creation [f628fae](https://github.com/platformrelay/kollect/commit/f628fae5d694fd113db0637ee6cb41f17f7eb087)
 
 - **security:** Stop trusting a pre-created git mirror /tmp dir [b1fc177](https://github.com/platformrelay/kollect/commit/b1fc1772a8f78cd25d969b5d5492a23c6140e361)
