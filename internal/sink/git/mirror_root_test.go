@@ -102,6 +102,20 @@ func TestMirrorRootDir_hostileSymlinkNotAdopted(t *testing.T) {
 	}
 }
 
+func TestDefaultMirrorRoot_containerWithoutHomeFallsBackToTempDir(t *testing.T) {
+	// The shipped container runs as a fixed non-root UID with neither HOME
+	// nor XDG_CACHE_HOME set, so os.UserCacheDir() always errors there.
+	// Lock in that this falls back to the historical, still-guarded path
+	// rather than silently producing something else.
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CACHE_HOME", "")
+
+	want := filepath.Join(os.TempDir(), "kollect-git-mirrors")
+	if got := defaultMirrorRoot(); got != want {
+		t.Fatalf("defaultMirrorRoot() = %q, want %q (container no-HOME fallback)", got, want)
+	}
+}
+
 func TestMirrorRootDir_existingNonWritableDirIsReused(t *testing.T) {
 	// t.TempDir() dirs are owned by the current user with no group/other
 	// write bit (mode varies by platform, e.g. 0700 or 0755) -- safe to reuse.
