@@ -180,23 +180,65 @@ func ensureBareHEAD(ctx context.Context, cloneURL, branch string, cli *cliEnv) e
 		return fmt.Errorf("git export: %w", err)
 	}
 
+	gitPath, err := resolveGitExecutable()
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
 	ref := "refs/heads/" + branch
 
-	//nolint:gosec // G204: bareDir from parseFileGitBarePath; branch from ValidateGitRef
-	head := exec.CommandContext(ctx, "git", "--git-dir", bareDir, "symbolic-ref", "-q", "HEAD")
+	//nolint:gosec // G204: bareDir from parseFileGitBarePath; branch from ValidateGitRef; gitPath pinned via resolveGitExecutable
+	head := exec.CommandContext(ctx, gitPath, "--git-dir", bareDir, "symbolic-ref", "-q", "HEAD")
 	applyCLIEnv(head, cli)
 	if head.Run() == nil {
 		return nil
 	}
 
-	//nolint:gosec // G204: bareDir from parseFileGitBarePath; ref from validated branch
-	setHead := exec.CommandContext(ctx, "git", "--git-dir", bareDir, "symbolic-ref", "HEAD", ref)
+	//nolint:gosec // G204: bareDir from parseFileGitBarePath; ref from validated branch; gitPath pinned via resolveGitExecutable
+	setHead := exec.CommandContext(ctx, gitPath, "--git-dir", bareDir, "symbolic-ref", "HEAD", ref)
 	applyCLIEnv(setHead, cli)
 	if out, err := setHead.CombinedOutput(); err != nil {
 		return fmt.Errorf("git symbolic-ref HEAD %s: %s: %w", ref, cli.redact(strings.TrimSpace(string(out))), err)
 	}
 
 	return nil
+}
+
+// pinnedGitPATH is used only to resolve the absolute path of the git binary invoked by this
+// file's exec sinks. It deliberately never trusts the ambient, possibly attacker-influenced
+// process PATH: exec.CommandContext(ctx, "git", ...) would otherwise resolve a bare "git" name
+// via os.Getenv("PATH") at Cmd-creation time, so a writable directory placed earlier on PATH
+// (e.g. an attacker-controlled environment, or simply an overly permissive PATH) could plant a
+// trojan "git" that runs in place of the real system binary. Walking this fixed, minimal list of
+// trusted system directories instead closes that hole.
+const pinnedGitPATH = "/usr/bin:/bin:/usr/local/bin"
+
+// resolveGitExecutable returns the absolute path of the git binary, resolved against
+// pinnedGitPATH rather than the ambient environment PATH. If git cannot be found in any of the
+// pinned directories, it returns an *exec.Error wrapping exec.ErrNotFound -- the same error
+// exec.CommandContext(ctx, "git", ...) already surfaces today when git is missing from PATH --
+// so callers see the same error taxonomy as before; only the trojan-PATH hole is closed.
+func resolveGitExecutable() (string, error) {
+	for _, dir := range strings.Split(pinnedGitPATH, string(os.PathListSeparator)) {
+		if dir == "" {
+			continue
+		}
+
+		candidate := filepath.Join(dir, "git")
+
+		info, statErr := os.Stat(candidate)
+		if statErr != nil || info.IsDir() {
+			continue
+		}
+
+		if info.Mode()&0o111 == 0 {
+			continue
+		}
+
+		return candidate, nil
+	}
+
+	return "", &exec.Error{Name: "git", Err: exec.ErrNotFound}
 }
 
 func cloneOrInitCLI(ctx context.Context, dir, cloneURL, branch string, depth int, cli *cliEnv) error {
