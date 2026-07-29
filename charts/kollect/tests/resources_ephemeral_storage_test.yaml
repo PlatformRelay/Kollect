@@ -1,0 +1,23 @@
+suite: manager resources ephemeral-storage limit (SEC-04e / KO-05)
+templates:
+  - deployment.yaml
+tests:
+  - it: sets a non-empty ephemeral-storage limit on the manager container by default
+    asserts:
+      - isNotEmpty:
+          path: spec.template.spec.containers[0].resources.limits.ephemeral-storage
+  - it: sets a non-empty ephemeral-storage limit on the manager container with the large-cluster resources profile
+    set:
+      resourcesProfile: large
+    asserts:
+      - isNotEmpty:
+          path: spec.template.spec.containers[0].resources.limits.ephemeral-storage
+  - it: allows overriding the default ephemeral-storage limit
+    set:
+      resources:
+        limits:
+          ephemeral-storage: 2Gi
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.ephemeral-storage
+          value: 2Gi
