@@ -12,6 +12,13 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 CRD_DIR = ROOT / "config" / "crd" / "bases"
+# SAFE / false-positive (SonarCloud pythonsecurity:S2083, KO-01, SEC-04a): this
+# looks like a "path traversal" write target, but it is a module-level
+# constant derived only from the script's own location (ROOT), never from
+# sys.argv, os.environ, or os.getenv. There is no user-controlled input here.
+# See hack/test/sonar_ko_01_glossary_path_constant_test.sh, which fails if
+# this constant is ever changed away from this exact form. Reviewed-safe:
+# do not "fix" this into a dynamic path.
 GLOSSARY = ROOT / "docs" / "GLOSSARY.md"
 BEGIN = "<!-- BEGIN AUTO-CRD -->"
 END = "<!-- END AUTO-CRD -->"
