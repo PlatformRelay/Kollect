@@ -20,8 +20,8 @@ on:
       - ".github/workflows/docs.yaml"
   workflow_dispatch:
 
-permissions:
-  contents: read
+# No workflow-level `permissions:` — each job below declares only what it needs
+# (least privilege, job-scoped per SonarCloud rule / KO-06).
 
 concurrency:
   group: pages
@@ -31,6 +31,8 @@ jobs:
   lint-markdown:
     name: lint-markdown
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,6 +52,8 @@ jobs:
     name: Build MkDocs site
     needs: [lint-markdown]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
