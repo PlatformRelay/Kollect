@@ -32,6 +32,14 @@ const (
 // symlink or a fake "warm" mirror for kollect to read from or write into.
 var errMirrorRootInsecure = errors.New("mirror root directory is not safe to reuse")
 
+// defaultMirrorRoot prefers a per-user cache dir when the environment
+// defines one. The shipped container image runs as a fixed non-root UID
+// with neither HOME nor XDG_CACHE_HOME set, so os.UserCacheDir() always
+// errors there and this intentionally falls back to the historical
+// TempDir()-based path -- that's fine: ensureSecureMirrorRoot's
+// ownership/permission checks are the actual control, not which parent
+// directory gets chosen, and the container's /tmp is a per-pod emptyDir
+// with no co-tenant to plant a hostile entry.
 func defaultMirrorRoot() string {
 	if cacheDir, err := os.UserCacheDir(); err == nil && cacheDir != "" {
 		return filepath.Join(cacheDir, "kollect", "git-mirrors")
@@ -50,19 +58,37 @@ func mirrorRootDir() (string, error) {
 }
 
 // ensureSecureMirrorRoot creates dir (mode mirrorRootPerm) if it doesn't
-// exist yet. If it does exist, it refuses to adopt it unless it is a real
-// directory, owned by the current process, with no group/other write bit.
-// dir is operator config (KOLLECT_GIT_MIRROR_DIR) or our own computed
+// exist yet, and refuses to adopt whatever's already there unless it's a
+// real directory, owned by the current process, with no group/other write
+// bit. dir is operator config (KOLLECT_GIT_MIRROR_DIR) or our own computed
 // default, not attacker input -- validating it is this function's job.
+//
+// The existence check and the create must be one atomic step: os.Mkdir on
+// the leaf either creates it or fails EEXIST without following a symlink
+// planted there (mkdir(2) never resolves the final path component). A
+// separate Lstat-then-MkdirAll would leave a window where an attacker who
+// wins the race gets a directory (or symlink to one) silently trusted --
+// MkdirAll's own "does this already exist" check uses Stat, which *does*
+// follow symlinks, so it would treat a planted symlink-to-directory as
+// already satisfied and skip validation entirely.
 func ensureSecureMirrorRoot(dir string) (string, error) {
-	info, err := os.Lstat(dir) //nolint:gosec // G703: dir is operator/default config, validated below
-	if errors.Is(err, os.ErrNotExist) {
-		if mkErr := os.MkdirAll(dir, mirrorRootPerm); mkErr != nil { //nolint:gosec // G703: see above
-			return "", fmt.Errorf("mirror root: %w", mkErr)
-		}
+	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil { //nolint:gosec // G703: parent chain only, leaf is validated below
+		return "", fmt.Errorf("mirror root parent: %w", err)
+	}
 
+	mkErr := os.Mkdir(dir, mirrorRootPerm) //nolint:gosec // G703: dir is operator/default config; EEXIST falls through to validation
+	if mkErr == nil {
 		return dir, nil
 	}
+	if !errors.Is(mkErr, os.ErrExist) {
+		return "", fmt.Errorf("mirror root: %w", mkErr)
+	}
+
+	return validateExistingMirrorRoot(dir)
+}
+
+func validateExistingMirrorRoot(dir string) (string, error) {
+	info, err := os.Lstat(dir) //nolint:gosec // G703: dir is operator/default config, validated here
 	if err != nil {
 		return "", fmt.Errorf("mirror root: %w", err)
 	}
