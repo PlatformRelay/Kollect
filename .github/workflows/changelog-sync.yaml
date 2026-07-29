@@ -33,8 +33,10 @@ on:
     paths-ignore:
       - "CHANGELOG.md"
 
+# Read-only baseline (OpenSSF Scorecard "Token-Permissions"). The write grant is
+# scoped to the `sync` job below — the only job that commits/pushes CHANGELOG.md.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: changelog-sync-main
@@ -45,6 +47,8 @@ jobs:
     name: sync
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write # commits & pushes the regenerated CHANGELOG.md back to main
     steps:
       - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         id: app-token

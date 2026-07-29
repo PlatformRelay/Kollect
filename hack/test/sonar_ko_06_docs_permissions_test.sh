@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Unit test for SEC-04f / KO-06: docs.yaml permissions must be job-scoped,
-# not granted workflow-wide (SonarCloud least-privilege rule).
+# Unit test for SEC-04f / KO-06 + SEC-05e: docs.yaml permissions must be
+# job-scoped (SonarCloud least-privilege rule) AND declare an explicit
+# top-level read baseline (OpenSSF Scorecard "Token-Permissions", which flags
+# a workflow with no top-level `permissions:` block).
 #
 # Asserts:
-#   (a) no workflow-top-level `permissions:` block grants anything beyond
-#       `contents: read` (a block that is absent entirely also passes).
+#   (a) the workflow declares an explicit top-level `permissions:` block set to
+#       exactly `contents: read` (no longer allowed to be absent — Scorecard
+#       Token-Permissions requires a read-only baseline).
 #   (b) every job under `jobs:` defines its own explicit `permissions:` block,
-#       so none silently inherits a workflow-wide grant.
+#       so none silently inherits (and per-job overrides still win).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -28,19 +31,18 @@ fi
 
 [[ -f "${WORKFLOW}" ]] || fail "workflow file not found: ${WORKFLOW}"
 
-# --- (a) workflow-top-level permissions must grant nothing beyond contents: read ---
+# --- (a) workflow MUST declare an explicit top-level contents: read baseline ---
 TOP_PERMS="$(yq eval '.permissions' "${WORKFLOW}")"
-if [[ "${TOP_PERMS}" != "null" ]]; then
-  TOP_KEYS="$(yq eval '.permissions | keys | join(",")' "${WORKFLOW}")"
-  if [[ "${TOP_KEYS}" != "contents" ]]; then
-    fail "workflow-top-level permissions grants more than contents: read (keys: ${TOP_KEYS})"
-  fi
-  TOP_CONTENTS="$(yq eval '.permissions.contents' "${WORKFLOW}")"
-  if [[ "${TOP_CONTENTS}" != "read" ]]; then
-    fail "workflow-top-level permissions.contents must be 'read', got: ${TOP_CONTENTS}"
-  fi
+[[ "${TOP_PERMS}" != "null" ]] || fail "workflow has no top-level permissions block (OpenSSF Scorecard Token-Permissions expects an explicit contents: read baseline)"
+TOP_KEYS="$(yq eval '.permissions | keys | join(",")' "${WORKFLOW}")"
+if [[ "${TOP_KEYS}" != "contents" ]]; then
+  fail "workflow-top-level permissions grants more than contents: read (keys: ${TOP_KEYS})"
 fi
-pass "workflow-top-level permissions grants nothing beyond contents: read (or is absent)"
+TOP_CONTENTS="$(yq eval '.permissions.contents' "${WORKFLOW}")"
+if [[ "${TOP_CONTENTS}" != "read" ]]; then
+  fail "workflow-top-level permissions.contents must be 'read', got: ${TOP_CONTENTS}"
+fi
+pass "workflow declares an explicit top-level contents: read baseline"
 
 # --- (b) every job must define its own explicit permissions block ---
 mapfile -t JOBS < <(yq eval '.jobs | keys | .[]' "${WORKFLOW}")

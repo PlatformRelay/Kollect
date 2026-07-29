@@ -20,8 +20,12 @@ on:
       - ".github/workflows/docs.yaml"
   workflow_dispatch:
 
-# No workflow-level `permissions:` — each job below declares only what it needs
-# (least privilege, job-scoped per SonarCloud rule / KO-06).
+# Explicit top-level read-only baseline (OpenSSF Scorecard "Token-Permissions"
+# flags workflows with no top-level `permissions:`). Each job below still
+# declares only what it needs (least privilege, job-scoped per SonarCloud rule /
+# KO-06); job-level blocks override this baseline where a job needs more.
+permissions:
+  contents: read
 
 concurrency:
   group: pages
