@@ -1,7 +1,9 @@
 # This rule is not used by the project kollect itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants full permissions ('*') over kollect.dev.
+# Grants full admin permissions over kollect.dev, spelled out explicitly
+# (get, list, watch, create, update, patch, delete, deletecollection) instead
+# of a wildcard verb, so the exact scope is auditable (SonarCloud KO-03 / SEC-04c).
 # This role is intended for users authorized to modify roles and bindings within the cluster,
 # enabling them to delegate specific permissions to other users or groups as needed.
 
@@ -18,7 +20,14 @@ rules:
   resources:
   - kollectsnapshotsinks
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+  - deletecollection
 - apiGroups:
   - kollect.dev
   resources:
