@@ -15,6 +15,22 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
 
+// SAFE (SonarCloud go:S1313 "hardcoded IP address"): the literal CIDRs and
+// hostnames below are the intentional SSRF deny-list security control, not
+// accidental hardcoded configuration. They block sink endpoints from
+// resolving to loopback, link-local, carrier-grade-NAT, benchmark-testing,
+// or well-known cloud-metadata targets (e.g. the AWS/GCP instance-metadata
+// service at 169.254.169.254), which are classic SSRF pivot points.
+//
+// Do NOT "fix" this finding by externalizing these values into a
+// configurable/overridable list (env var, ConfigMap, CRD field, etc.). Doing
+// so would let an attacker-influenced input widen or bypass the deny-list,
+// which defeats the control this code exists to provide. Changing deny-list
+// membership is a security-relevant decision that needs its own review, not
+// a side effect of a Sonar cleanup.
+//
+// Verified by hack/test/sonar_ko_07_deny_cidr_comment_test.sh, which locks in
+// both this comment and the known-critical entries below staying verbatim.
 var (
 	denyCIDRs = []netip.Prefix{
 		netip.MustParsePrefix("127.0.0.0/8"),    // loopback
