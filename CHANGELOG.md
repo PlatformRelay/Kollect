@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **release:** Stop combining gh --slurp with --jq ([#142](https://github.com/platformrelay/kollect/pull/142))[b5bcb4b](https://github.com/platformrelay/kollect/commit/b5bcb4b6c1017231147e24c1d80e2fffad3ef767)
+
 - **ci:** Drop doomed changelog:verify from preflight ([#139](https://github.com/platformrelay/kollect/pull/139))[33ac595](https://github.com/platformrelay/kollect/commit/33ac5959d2763d57d7d46a5f2322efb1edfb22ef)
 
 - **security:** Bump ui npm deps for GHSA-52cp/mh99/4c8g/v2hh/r28c (SEC-05a) ([#137](https://github.com/platformrelay/kollect/pull/137))[a5a8d99](https://github.com/platformrelay/kollect/commit/a5a8d998d45436b7d543feedc306e4cfc146bb0a)
