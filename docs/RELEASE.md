@@ -96,9 +96,9 @@ on GitHub Actions. Docs-only or path-filtered commits that skipped a required jo
 eligible — re-dispatch the skipped workflow on that exact SHA.
 
 Then run the read-only **Release gate** against that immutable SHA. It rejects commits not reachable
-from protected `main`, missing/cancelled/unsuccessful required checks, and commits without a
-merged-to-`main` PR whose **latest** non-author review is `APPROVED` on the **final PR head**
-(approvals superseded by `CHANGES_REQUESTED`, or approvals of an earlier tip, fail):
+from protected `main`, missing/cancelled/unsuccessful required checks, and commits that are not the
+merge commit of a merged-to-`main` PR. **Non-author APPROVE is not required** (solo-maintainer
+policy; Environment `release` + tag ruleset still gate publication):
 
 ```sh
 gh workflow run release-gate.yaml -f sha="${RELEASE_SHA}"
@@ -215,8 +215,8 @@ git commit -m ":bookmark: chore(release): prepare v0.3.0"
 
 ## Cut a release
 
-Land the release prep through a **protected-main PR** with a distinct approving reviewer (not the
-author). Rebase-merge the PR, then refetch and record the exact resulting `main` SHA:
+Land the release prep through a **protected-main PR** (rebase-merge). A second human review is not
+required for solo-maintainer releases. Refetch and record the exact resulting `main` SHA:
 
 ```sh
 git fetch origin main

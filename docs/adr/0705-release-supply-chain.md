@@ -69,12 +69,13 @@ weekly; SARIF results are uploaded to GitHub Code Scanning.
 **Solo-maintainer policy (2026-07-17):** raise OpenSSF Branch-Protection / SAST without a second
 human reviewer.
 
-- Ruleset **`protect-main`**: require PR, **1 approval**, dismiss stale, last-push approval, required
-  status checks (`preflight`, `test`, `kind-smoke`, `Analyze (Go)`), up-to-date before merge,
-  rebase-only merge methods. **Admin** is a bypass actor with `bypass_mode: pull_request` only —
-  maintainer merges via `gh pr merge --rebase --admin`; force-push and direct push to `main` stay
-  blocked. Scorecard will still report “admins can bypass” while any bypass actor exists — accept
-  ~6–8 Branch-Protection, not 10.
+- Ruleset **`protect-main`**: require PR, **0 approving reviews** while solo-maintained (2026-07-30
+  operator decision — no second GitHub identity / paid seat for fake review), required status checks
+  (`preflight`, `test`, `kind-smoke`, `Analyze (Go)`), up-to-date before merge, rebase-only merge
+  methods. **Admin** remains a bypass actor with `bypass_mode: pull_request` only. Force-push and
+  direct push to `main` stay blocked. Scorecard Branch-Protection / Code-Review scores stay low
+  until a real second maintainer joins — accepted residual risk; Environment `release` + tag
+  ruleset still gate publication.
 - **CodeQL** has no `paths-ignore` so Scorecard SAST sees analysis on every recent commit (target 10).
 - **Code-Review** (approved changesets from a second person) and **2-reviewer / CODEOWNERS-required**
   gates remain deferred until a second maintainer joins.
@@ -90,8 +91,8 @@ human reviewer.
 | Dependency-Update-Tool | 10 | **Done** | Dependabot |
 | Binary-Artifacts | 10 | **Done** | No committed binaries |
 | License | 10 | **Done** | MIT |
-| Code-Review | 0 high | **Deferred** | Needs second-person approved PRs; solo bypass does not satisfy this check |
-| Branch-Protection | 3→6–8 | **Done** | 1 approval + required checks + last-push approval; Admin PR-only bypass for solo merges |
+| Code-Review | 0 high | **Deferred** | Solo maintainer; non-author APPROVE deliberately not required (2026-07-30) |
+| Branch-Protection | 3→6–8 | **Done** | PR + required checks; 0 review count while solo; Admin PR-only bypass remains |
 | Maintained | 0 high | **Deferred** | Repo &lt; 90 days; improves with continued activity |
 | Fuzzing | 10 | **Done** | Native Go fuzz in CI; OSS-Fuzz deferred |
 | CII-Best-Practices | 0 low | **Open** | Passing badge exists but Best Practices project URL still points at old `konih/kollect` |
