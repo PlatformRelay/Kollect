@@ -49,10 +49,14 @@ jobs:
         run: task verify
         env:
           CI: "true"
-      - name: Verify CHANGELOG.md is up to date
-        run: task changelog:verify
-        env:
-          CI: "true"
+      # NOTE: `task changelog:verify` is deliberately NOT gated here. git-cliff
+      # embeds each [Unreleased] entry's commit SHA (hack/release/cliff.toml), and
+      # rebase-merges reassign SHAs, so the check ALWAYS drifts on the merge commit
+      # and on PRs. The self-healing changelog-sync workflow owns CHANGELOG.md
+      # correctness; gating it here only produced a permanently-red badge (the
+      # healed commit is paths-ignored, so preflight could never re-run to clear
+      # it). Run `task changelog:verify` locally instead. See decisions log
+      # (2026-07-30). Do NOT re-add this step.
       - name: Perf-report preflight note
         run: |
           echo "::notice title=perf-report::Run task perf-report locally before scale or perf work (ADR-0603). Optional CI job perf-report runs the same gate without blocking merge."
