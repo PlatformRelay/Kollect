@@ -16,6 +16,11 @@ cat >"${TMP}/gh" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
 args="$*"
+# Mirror gh ≥2.x: --slurp cannot be combined with --jq/--template.
+if [[ "${args}" == *--slurp* && ( "${args}" == *--jq* || "${args}" == *--template* ) ]]; then
+	echo 'the `--slurp` option is not supported with `--jq` or `--template`' >&2
+	exit 1
+fi
 case "${args}" in
   *"/commits/main"*)
     printf '%s\n' "${MOCK_MAIN}"
@@ -38,15 +43,16 @@ MOCK
 chmod +x "${TMP}/gh"
 
 write_green_checks() {
+	# Shape matches `gh api --paginate --slurp` (array of pages).
 	jq -n \
 		--arg names "${REQUIRED_NAMES}" \
-		'($names | split(" ") | to_entries | map({
+		'[{check_runs: ($names | split(" ") | to_entries | map({
 			id: (.key + 1),
 			name: .value,
 			status: "completed",
 			conclusion: "success",
 			head_sha: $sha
-		}))' --arg sha "${SHA}" >"${TMP}/checks.json"
+		}))}]' --arg sha "${SHA}" >"${TMP}/checks.json"
 }
 
 run_case() {
@@ -87,19 +93,19 @@ fail_if_passes "non-main SHA"
 grep -q 'not reachable from protected main' "${TMP}/err"
 
 MOCK_COMPARE=ahead
-jq 'del(.[] | select(.name == "preflight"))' "${TMP}/checks.json" >"${TMP}/missing.json"
+jq '.[0].check_runs |= map(select(.name != "preflight"))' "${TMP}/checks.json" >"${TMP}/missing.json"
 mv "${TMP}/missing.json" "${TMP}/checks.json"
 fail_if_passes "missing check"
 grep -q 'required exact-SHA check preflight: missing' "${TMP}/err"
 
 write_green_checks
-jq '(.[] | select(.name == "lint")).conclusion = "failure"' "${TMP}/checks.json" >"${TMP}/red.json"
+jq '(.[0].check_runs[] | select(.name == "lint")).conclusion = "failure"' "${TMP}/checks.json" >"${TMP}/red.json"
 mv "${TMP}/red.json" "${TMP}/checks.json"
 fail_if_passes "red check"
 grep -q 'required exact-SHA check lint: completed/failure' "${TMP}/err"
 
 write_green_checks
-jq '(.[] | select(.name == "kind-smoke")).conclusion = "cancelled"' "${TMP}/checks.json" >"${TMP}/cancel.json"
+jq '(.[0].check_runs[] | select(.name == "kind-smoke")).conclusion = "cancelled"' "${TMP}/checks.json" >"${TMP}/cancel.json"
 mv "${TMP}/cancel.json" "${TMP}/checks.json"
 fail_if_passes "cancelled check"
 grep -q 'required exact-SHA check kind-smoke: completed/cancelled' "${TMP}/err"

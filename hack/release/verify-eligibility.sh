@@ -28,8 +28,10 @@ if [[ "${comparison}" != "ahead" && "${comparison}" != "identical" ]]; then
 	exit 1
 fi
 
-checks="$(gh api --paginate --slurp "repos/${REPO}/commits/${SHA}/check-runs?per_page=100" \
-	--jq '[.[].check_runs[] | select(.head_sha == "'"${SHA}"'") | {id, name, status, conclusion, head_sha}]')"
+# gh ≥2.x rejects combining --slurp with --jq; flatten pages in a separate jq pass.
+checks_pages="$(gh api --paginate --slurp "repos/${REPO}/commits/${SHA}/check-runs?per_page=100")"
+checks="$(jq '[.[].check_runs[] | select(.head_sha == "'"${SHA}"'") | {id, name, status, conclusion, head_sha}]' \
+	<<<"${checks_pages}")"
 
 failed=0
 for name in "${required_checks[@]}"; do
