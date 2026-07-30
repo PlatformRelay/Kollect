@@ -5,7 +5,7 @@ name: changelog-sync
 # Why this exists: git-cliff renders each [Unreleased] entry with the commit's
 # SHA (hack/release/cliff.toml). Every squash/rebase merge assigns a NEW SHA that
 # the pre-merge CHANGELOG.md cannot know, so `task changelog:verify` drifts and
-# preflight goes red on main after any user-facing (feat/fix/perf/refactor) merge.
+# CHANGELOG.md drifts on main after any user-facing (feat/fix/perf/refactor) merge.
 # (test/docs/ci/chore/build/style commits are cliff-skipped and never drift.)
 # This workflow regenerates CHANGELOG.md after each push to main and commits the
 # result, so those merges self-heal instead of needing a manual post-merge sync.
