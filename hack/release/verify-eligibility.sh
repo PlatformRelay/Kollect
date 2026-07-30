@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Fail closed unless a release commit is on protected main with exact-SHA checks
-# and non-stale review evidence. Intended to run from a trusted checkout (default
-# branch), never from a candidate tag tree.
+# and merge evidence (merged-to-main PR). Intended to run from a trusted checkout
+# (default branch), never from a candidate tag tree.
+#
+# Solo-maintainer policy (2026-07-30): non-author APPROVE is not required. Residual
+# risk of solo-publish is accepted; Environment `release` + tag ruleset remain.
 set -euo pipefail
 
 SHA="${1:?usage: verify-eligibility.sh <full-commit-sha>}"
@@ -50,38 +53,17 @@ fi
 pulls="$(gh api "repos/${REPO}/commits/${SHA}/pulls" \
 	--jq '[.[] | select(.base.ref == "'"${DEFAULT_BRANCH}"'" and .merged_at != null) | {number, user: .user.login, merge_sha: .merge_commit_sha}]')"
 
-approved_pr=""
-while IFS=$'\t' read -r number author merge_sha; do
+merged_pr=""
+while IFS=$'\t' read -r number _author merge_sha; do
 	[[ -n "${number}" ]] || continue
 	[[ "${merge_sha}" == "${SHA}" ]] || continue
-
-	tip="$(gh api --paginate "repos/${REPO}/pulls/${number}/commits?per_page=100" \
-		--jq '.[-1].sha')"
-	if [[ ! "${tip}" =~ ^[0-9a-f]{40}$ ]]; then
-		echo "error: could not resolve final head commit for PR #${number}" >&2
-		continue
-	fi
-
-	reviews="$(gh api --paginate --slurp "repos/${REPO}/pulls/${number}/reviews?per_page=100" \
-		--jq '[.[][] | {user: .user.login, state, submitted_at, commit_id}]')"
-
-	if jq -e --arg author "${author}" --arg tip "${tip}" '
-		# Latest review per reviewer (submitted_at ascending, last wins).
-		group_by(.user) | map(sort_by(.submitted_at) | last) |
-		map(select(
-			.state == "APPROVED"
-			and .user != $author
-			and .commit_id == $tip
-		)) | length > 0
-	' <<<"${reviews}" >/dev/null; then
-		approved_pr="${number}"
-		break
-	fi
+	merged_pr="${number}"
+	break
 done < <(jq -r '.[] | [.number, .user, .merge_sha] | @tsv' <<<"${pulls}")
 
-if [[ -z "${approved_pr}" ]]; then
-	echo "error: no merged-to-${DEFAULT_BRANCH} PR for ${SHA} has a non-author approval of the final PR head" >&2
+if [[ -z "${merged_pr}" ]]; then
+	echo "error: no merged-to-${DEFAULT_BRANCH} PR whose merge commit is ${SHA}" >&2
 	exit 1
 fi
 
-echo "Release eligibility passed for ${REPO}@${SHA} (reviewed PR #${approved_pr}, main ${main_sha})."
+echo "Release eligibility passed for ${REPO}@${SHA} (merged PR #${merged_pr}, main ${main_sha})."
