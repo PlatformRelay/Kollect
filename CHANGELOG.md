@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Drop doomed changelog:verify from preflight ([#139](https://github.com/platformrelay/kollect/pull/139))[33ac595](https://github.com/platformrelay/kollect/commit/33ac5959d2763d57d7d46a5f2322efb1edfb22ef)
+
 - **security:** Bump ui npm deps for GHSA-52cp/mh99/4c8g/v2hh/r28c (SEC-05a) ([#137](https://github.com/platformrelay/kollect/pull/137))[a5a8d99](https://github.com/platformrelay/kollect/commit/a5a8d998d45436b7d543feedc306e4cfc146bb0a)
 
 - **security:** Add osv-scanner.toml ignore for non-reachable GO-2026-5932 (SEC-05d) ([#138](https://github.com/platformrelay/kollect/pull/138))[76efd2e](https://github.com/platformrelay/kollect/commit/76efd2efcf1160d74759470bf16daa2b6683eaaf)
