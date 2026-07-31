@@ -7,11 +7,35 @@ answer set if any address is forbidden, and open the socket to an authorized num
 prevents DNS rebinding between admission and connection and applies again when HTTP redirects or
 backend reconnects create a new socket.
 
-The default policy does not provide an `allowPrivate` escape hatch. Private-address sinks therefore
-require an explicit future operator policy decision; weakening the guard through DNS aliases,
-`HTTP_PROXY`, or per-workload environment variables is unsupported. The `integration` Go build tag
-uses a compile-time-only permissive dialer so local testcontainers can exercise real protocols; that
-code is absent from production builds.
+## Default (secure by default)
+
+The **default** policy denies private, loopback, link-local, metadata, and `file://` targets.
+Weakening the guard through DNS aliases, `HTTP_PROXY`, or per-workload environment variables is
+unsupported. The `integration` Go build tag uses a compile-time-only permissive dialer so local
+testcontainers can exercise real protocols; that code is absent from production builds.
+
+## Planned production opt-in (NET-01)
+
+Operators who need **cluster-local** sinks (RFC1918 / ULA ClusterIP services such as in-cluster
+Postgres, MinIO, or NATS) on a **published production image** will get an explicit, secure-by-default
+**OFF** opt-in:
+
+| Control | Shape | Notes |
+| --- | --- | --- |
+| Manager flag | `--allow-private-sinks` | Bool; **default `false`** |
+| Helm value | `manager.allowPrivateSinks` | Renders the flag only when `true` (cluster-admin install surface) |
+
+**Not** a CRD / tenant field — sink authors must not be able to widen the deny-list. When enabled,
+admission (literal ClusterIP) and dial-time netguard (literal + DNS→RFC1918/ULA) must stay
+**consistent**. Metadata hostnames, link-local, loopback, and `file://` remain denied even when the
+opt-in is on (narrower than the `integration` dialer’s full private skip).
+
+**Residual SSRF risk (document clearly when shipping):** a principal who can create or edit sink CRs
+can then aim connection-tests and exports at RFC1918 / VPC peers reachable from the manager pod.
+Enable only in environments that accept that trade-off (typically private clusters with trusted CR
+authors). Tracked as backlog **NET-01** (DR-FIND-05 Option A, operator decision 2026-07-31).
+
+Until NET-01 ships, production images keep deny-by-default with **no** runtime hatch.
 
 Git transports follow the same rule. The pure-Go HTTP transport uses the guarded dialer, Git CLI
 HTTP operations pin libcurl with `http.curloptResolve`, and SSH operations pin the checked numeric

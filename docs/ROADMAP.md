@@ -96,7 +96,8 @@ not webhook stubs. Plus the coverage ramp and documenting parallel multi-sink ex
 | **NATS event sink — first-class** — promote the shipped JetStream emitter (`KollectEventSink.type: nats`) to fully supported: L3 testcontainers, coverage to standard, golden schema, connection-test parity, sample + docs | 🚧 |
 | **Parallel multi-sink export** documented as the differentiator (fan-out diagram, per-sink interval/breaker, partial-success semantics) in ARCHITECTURE + a hero example (harness landed; recorded GIF + ARCHITECTURE prose ⬜) | 🚧 |
 | **Coverage floor 72 → 75 → 80%** via audit-guided behavior tests (not floor-chasing): `internal/controller` envtest (largest lever), `internal/sink/postgres` + `mongodb` testcontainers (terminal-no-requeue + debounce tests ✅ in Phase 1) | ⬜ |
-| SSRF guard (deny RFC1918/link-local/metadata + `file://`; dial-time resolved-address policy — no production `allowPrivate` escape hatch) | ✅ |
+| SSRF guard (deny RFC1918/link-local/metadata + `file://`; dial-time resolved-address policy; default deny) | ✅ |
+| **NET-01** — production `--allow-private-sinks` / `manager.allowPrivateSinks` (default OFF, cluster-admin only; dial-time + admission consistent) for ClusterIP sinks — [resolved-address policy](security/resolved-address-policy.md) | ⬜ |
 | Export partitioning design → implementation (AR-01) — the one P0 scale lever | ⬜ |
 
 !!! note "Why these two backends"
