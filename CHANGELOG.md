@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **docs:** Correct probe backend matrix ([#156](https://github.com/platformrelay/kollect/pull/156))[21d4a6c](https://github.com/platformrelay/kollect/commit/21d4a6cad7b29d19cbea41beeb275dc142d2c2f8)
+
 ## [0.11.0](https://github.com/platformrelay/kollect/compare/v0.10.0..v0.11.0) - 2026-07-31
 
 ### Bug Fixes
