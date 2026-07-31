@@ -13,6 +13,7 @@ type collectFlags struct {
 	kubeconfig string
 	config     string
 	output     string
+	format     string
 	dryRun     bool
 	logLevel   string
 	context    []string
@@ -33,7 +34,10 @@ func bindCollectFlags(cmd *cobra.Command, f *collectFlags) {
 	cmd.Flags().StringVar(&f.config, "config", "",
 		"directory of KollectProfile + KollectTarget + Sink YAML files (required)")
 	cmd.Flags().StringVar(&f.output, "output", "",
-		"local filesystem output directory (implies type:local sink when no Sink YAML is found)")
+		"local filesystem output directory, or - to stream export records to stdout "+
+			"(implies type:local sink when no Sink YAML is found)")
+	cmd.Flags().StringVar(&f.format, "format", "ndjson",
+		"stdout record encoding when --output - is used: ndjson|yaml|json")
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false,
 		"collect and print what would be written; do not write files or push git")
 	cmd.Flags().StringVar(&f.logLevel, "log-level", "info", "debug|info|warn|error")

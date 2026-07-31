@@ -221,6 +221,36 @@ kollect-pipeline collect \
 `--dry-run` prints what would be written without touching the filesystem or git. Drop it to write
 files under `./inventory`.
 
+### Stream to stdout (`--output -`)
+
+Use `--output -` to stream the collected inventory to **stdout** instead of writing files — handy for
+piping into `jq`, a diff, or another program without a scratch directory:
+
+```sh
+kollect-pipeline collect --config ./config --output - | jq 'select(.envelope.itemCount > 0)'
+```
+
+Each line (or document) is one self-describing record carrying the kubecontext, target identity, the
+rendered export path, and the **same versioned export envelope** — with identical redaction and
+extraction — a file or database sink would receive. So a stdout run is a faithful preview of what a
+real sink would store.
+
+**Only data goes to stdout.** All logs, warnings, progress, and per-target errors go to **stderr**, so
+`… --output - > inventory.ndjson` captures clean records while diagnostics stay on your terminal. Exit
+codes are unchanged (see below): records collected before a partial failure still reach stdout, while
+the exit code and stderr carry completeness.
+
+`--format` selects the encoding (only valid with `--output -`):
+
+| `--format` | Shape |
+| --- | --- |
+| `ndjson` (default) | One compact JSON object per line — stream-friendly and greppable. |
+| `yaml` | A multi-document YAML stream (`---`-separated), one document per record. |
+| `json` | A single buffered, indented JSON array of all records. |
+
+`--output -` is mutually exclusive with a `KollectSnapshotSink` manifest, with `--output <dir>`, and
+with `--dry-run`.
+
 ### Flags
 
 | Flag | Meaning |
@@ -228,6 +258,8 @@ files under `./inventory`.
 | `--config <dir>` | **Required.** Directory of profile/target/sink YAML. |
 | `--kubeconfig <path>` | Kubeconfig to use. Default: `$KUBECONFIG`, then `~/.kube/config`. |
 | `--output <dir>` | Write inventory files here (synthesizes a local sink). Mutually exclusive with a sink manifest. |
+| `--output -` | Stream export records to **stdout** (data only; logs go to stderr). Mutually exclusive with a sink manifest, `--output <dir>`, and `--dry-run`. |
+| `--format <enc>` | Stdout encoding when `--output -` is used: `ndjson` (default) \| `yaml` \| `json`. Error if given without `--output -`. |
 | `--context <name\|glob>` | Kubecontext(s) to collect from; repeatable and comma-separated; globs allowed. Default: current context. |
 | `--namespace <ns>` | Restrict collection to a single namespace (overrides target selectors). |
 | `--dry-run` | Collect and log what would be written; write nothing. |

@@ -34,6 +34,11 @@ const defaultPathTemplate = "inventory/{namespace}/{name}.yaml"
 // one of the two must be present; both or neither is a configuration error.
 func ResolveSink(loaded LoadResult, output string) (kollectdevv1alpha1.KollectSinkSpec, error) {
 	switch {
+	case output == StdoutSentinel && len(loaded.Sinks) > 0:
+		return kollectdevv1alpha1.KollectSinkSpec{}, fmt.Errorf(
+			"--output - (stdout) and a KollectSnapshotSink found in the config directory are ambiguous; use one or the other")
+	case output == StdoutSentinel:
+		return kollectdevv1alpha1.KollectSinkSpec{Type: StdoutSinkType, Endpoint: StdoutSentinel}, nil
 	case output != "" && len(loaded.Sinks) > 0:
 		return kollectdevv1alpha1.KollectSinkSpec{}, fmt.Errorf(
 			"--output and a KollectSnapshotSink found in the config directory are ambiguous; use one or the other")
@@ -205,6 +210,11 @@ type ContextResult struct {
 	// construction, or a structural collection failure). A fatal context does not stop the
 	// others from running.
 	Fatal error
+	// Records holds the per-target stdout export records for this context, populated only in
+	// stdout-sink mode (`--output -`). The caller flattens Records across all contexts, in
+	// context+target order, and writes them to stdout once collection finishes. Empty for
+	// filesystem/backend sinks.
+	Records []StdoutRecord
 }
 
 // ApplyNamespaceOverride returns a copy of targets with spec.includedNamespaces forced to
@@ -336,6 +346,18 @@ func runOneContext(
 			"object", fail.Namespace+"/"+fail.Name,
 			"uid", fail.UID,
 			"reason", fail.Reason)
+	}
+
+	// Stdout mode never builds a network/filesystem backend: collect self-describing records
+	// from the same store the filesystem export path reads, and let the caller frame them to
+	// stdout once every context is done (so `--format json` can buffer one array across all
+	// contexts). --dry-run is rejected upstream for stdout, so it is not consulted here.
+	if IsStdoutSink(sinkSpec) {
+		records, exportErrs := CollectStdoutRecords(runner.Store(), loaded.Targets, sinkSpec, contextName)
+		cr := buildContextResult(contextName, runResult, len(records), exportErrs)
+		cr.Records = records
+
+		return cr
 	}
 
 	backend, err := registry.NewBackend(sinkSpec, sink.BuildContext{Ctx: ctx, SecretData: secretData})
