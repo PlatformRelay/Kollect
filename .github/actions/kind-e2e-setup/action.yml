@@ -60,7 +60,8 @@ runs:
         mkdir -p ~/.cache/kind
         if [[ "${{ steps.kind-cache.outputs.cache-hit }}" != "true" ]]; then
           for attempt in 1 2 3; do
-            if curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 30 \
+            if curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
+              -fsSL --retry 5 --retry-delay 5 --connect-timeout 30 \
               -o ~/.cache/kind/kind-0.32.0 \
               "https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64"; then
               break

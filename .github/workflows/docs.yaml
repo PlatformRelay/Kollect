@@ -68,7 +68,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install MkDocs Material
-        run: pip install --require-hashes -r docs/requirements-docs.txt
+        run: "pip install --require-hashes --only-binary=:all: -r docs/requirements-docs.txt"
 
       - name: Build site
         # --strict fails the build on broken internal links, orphaned pages, or
