@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96" role="img" aria-labelledby="title">
+  <title id="title">Kollect</title>
+  <path fill="#173e8f" d="M14 12h14v29L54 12h17L41 45l31 39H54L28 51v33H14z"/>
+  <circle cx="69" cy="18" r="6" fill="#0e7490"/>
+  <text x="88" y="68" fill="#172033" font-family="Inter,system-ui,sans-serif" font-size="58" font-weight="700" letter-spacing="-2">kollect</text>
+</svg>

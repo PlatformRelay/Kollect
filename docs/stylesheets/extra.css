@@ -1,35 +1,71 @@
-/* kollect docs — brand palette (#326CE5 / #18B6A3); dark (slate) is default */
+/* Kollect documentation visual system. Components consume semantic tokens only. */
 
 [data-md-color-scheme="default"] {
-  --md-primary-fg-color: #326ce5;
-  --md-primary-fg-color--light: #5b8aed;
-  --md-primary-fg-color--dark: #2859c7;
-  --md-accent-fg-color: #18b6a3;
-  --md-accent-fg-color--transparent: rgba(24, 182, 163, 0.1);
+  --kollect-background: #f7f9fc;
+  --kollect-surface: #ffffff;
+  --kollect-text: #172033;
+  --kollect-muted: #52617a;
+  --kollect-primary: #173e8f;
+  --kollect-link: #174ea6;
+  --kollect-focus: #0e7490;
+  --kollect-success: #137333;
+  --kollect-warning: #8a4b08;
+  --kollect-danger: #b42318;
+  --kollect-border: #d4dbe7;
+  --kollect-code: #eef2f8;
+
+  --md-primary-fg-color: var(--kollect-primary);
+  --md-primary-fg-color--light: #315fae;
+  --md-primary-fg-color--dark: #102f70;
+  --md-accent-fg-color: var(--kollect-link);
+  --md-accent-fg-color--transparent: rgb(23 78 166 / 12%);
+  --md-default-bg-color: var(--kollect-background);
+  --md-default-fg-color: var(--kollect-text);
+  --md-default-fg-color--light: var(--kollect-muted);
+  --md-code-bg-color: var(--kollect-code);
+  --md-code-fg-color: var(--kollect-text);
+  --md-typeset-a-color: var(--kollect-link);
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #326ce5;
-  --md-primary-fg-color--light: #5b8aed;
-  --md-primary-fg-color--dark: #2859c7;
-  --md-accent-fg-color: #18b6a3;
-  --md-accent-fg-color--transparent: rgba(24, 182, 163, 0.1);
-  --md-default-bg-color: #081a4b;
-  --md-default-bg-color--light: #0c2258;
-  --md-default-bg-color--lighter: #122a66;
-  --md-default-bg-color--lightest: #1a3578;
+  --kollect-background: #071426;
+  --kollect-surface: #0d1e35;
+  --kollect-text: #eaf0fa;
+  --kollect-muted: #aebbd0;
+  --kollect-primary: #2e5da8;
+  --kollect-link: #9ec5ff;
+  --kollect-focus: #5eead4;
+  --kollect-success: #72d99b;
+  --kollect-warning: #f6c76b;
+  --kollect-danger: #ff9b93;
+  --kollect-border: #2c405d;
+  --kollect-code: #132741;
+
+  --md-primary-fg-color: var(--kollect-primary);
+  --md-primary-fg-color--light: #4778c5;
+  --md-primary-fg-color--dark: #244b89;
+  --md-accent-fg-color: var(--kollect-link);
+  --md-accent-fg-color--transparent: rgb(158 197 255 / 14%);
+  --md-default-bg-color: var(--kollect-background);
+  --md-default-bg-color--light: var(--kollect-surface);
+  --md-default-bg-color--lighter: #142a48;
+  --md-default-bg-color--lightest: #1b3558;
+  --md-default-fg-color: var(--kollect-text);
+  --md-default-fg-color--light: var(--kollect-muted);
+  --md-code-bg-color: var(--kollect-code);
+  --md-code-fg-color: var(--kollect-text);
+  --md-typeset-a-color: var(--kollect-link);
 }
 
-/* Subtle brand border on the light header only */
-[data-md-color-scheme="default"] .md-header {
-  border-bottom: 1px solid rgba(50, 108, 229, 0.18);
+.md-header {
+  border-bottom: 1px solid color-mix(in srgb, var(--kollect-border) 75%, transparent);
 }
 
-/*
- * Theme-aware logos (Material palette toggle: default ↔ slate)
- * - Header symbol: dark on light palette, light on slate
- * - Overview hero stacked lockup: dark on light palette, light on slate
- */
+.md-header__button.md-logo img {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
 [data-md-color-scheme="default"] .md-header__button.md-logo img {
   content: url("../assets/branding/kollect-symbol-dark.svg");
 }
@@ -38,64 +74,48 @@
   content: url("../assets/branding/kollect-symbol-light.svg");
 }
 
-/* Stacked hero logo includes wordmark — hide Material's auto-injected page title */
 .md-content__inner > h1:has(+ .kollect-hero) {
   display: none;
 }
 
 .kollect-hero {
-  text-align: center;
-  padding: 2.5rem 1rem 2rem;
+  padding: 2.75rem clamp(1rem, 4vw, 3rem) 2.25rem;
   margin: -0.5rem -0.8rem 2rem;
-  border-radius: 0.4rem;
-  background: linear-gradient(
-    145deg,
-    rgba(50, 108, 229, 0.1) 0%,
-    rgba(24, 182, 163, 0.05) 55%,
-    transparent 100%
-  );
-}
-
-[data-md-color-scheme="slate"] .kollect-hero {
-  background: linear-gradient(
-    145deg,
-    rgba(50, 108, 229, 0.18) 0%,
-    rgba(24, 182, 163, 0.08) 55%,
-    rgba(8, 26, 75, 0.4) 100%
-  );
+  text-align: center;
+  border: 1px solid var(--kollect-border);
+  border-radius: 0.65rem;
+  background:
+    radial-gradient(circle at 82% 12%, rgb(14 116 144 / 12%), transparent 32%),
+    linear-gradient(145deg, color-mix(in srgb, var(--kollect-primary) 12%, var(--kollect-surface)), var(--kollect-surface));
 }
 
 .kollect-hero-logo {
   display: block;
-  width: min(14rem, 55vw);
-  max-width: 720px;
+  width: min(21rem, 78vw);
   height: auto;
-  margin: 0 auto 0.75rem;
-  border-radius: 0.45rem;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+  margin: 0 auto 1rem;
 }
 
 [data-md-color-scheme="default"] .kollect-hero-logo {
-  content: url("../assets/branding/kollect-logo-stacked-dark.png");
+  content: url("../assets/branding/kollect-wordmark-dark.svg");
 }
 
 [data-md-color-scheme="slate"] .kollect-hero-logo {
-  content: url("../assets/branding/kollect-logo-stacked-light.png");
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+  content: url("../assets/branding/kollect-wordmark-light.svg");
 }
 
 .kollect-hero p {
-  font-size: 1.05rem;
   max-width: 42rem;
-  margin-left: auto;
   margin-right: auto;
-  opacity: 0.92;
+  margin-left: auto;
+  color: var(--kollect-muted);
+  font-size: 1.05rem;
 }
 
 .kollect-badges {
   display: block;
-  text-align: center;
   margin: 0 auto 1rem;
+  text-align: center;
   line-height: 1.6;
 }
 
@@ -115,14 +135,15 @@
 
 .kollect-card {
   padding: 1.1rem 1.25rem;
-  border-radius: 0.35rem;
-  border: 1px solid var(--md-default-fg-color--lightest);
-  background: var(--md-code-bg-color);
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  border: 1px solid var(--kollect-border);
+  border-radius: 0.45rem;
+  background: var(--kollect-surface);
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .kollect-card:hover {
-  border-color: var(--md-accent-fg-color);
+  border-color: var(--kollect-link);
+  box-shadow: 0 0.5rem 1.5rem rgb(7 20 38 / 10%);
   transform: translateY(-2px);
 }
 
@@ -131,35 +152,44 @@
   font-size: 1rem;
 }
 
-/* Slightly stronger tab underline on dark palette */
-[data-md-color-scheme="slate"] .md-tabs__link--active {
-  opacity: 1;
+.md-typeset a:not(.md-button) {
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.14em;
 }
 
-/* Branded illustrations — authored for Deep Navy #081A4B canvas */
-.kollect-illus {
-  display: block;
-  width: 100%;
-  max-width: min(100%, 720px);
-  height: auto;
-  margin: 1.25rem auto 1.75rem;
-  border-radius: 0.35rem;
+.md-typeset table:not([class]) {
+  border: 1px solid var(--kollect-border);
+  background: var(--kollect-surface);
 }
 
-.kollect-illus--wide {
-  max-width: min(100%, 720px);
+.md-typeset .admonition,
+.md-typeset details {
+  color: var(--kollect-text);
+  background: var(--kollect-surface);
 }
 
-.kollect-illus--portrait {
-  max-width: min(100%, 20rem);
+.md-typeset .success > .admonition-title { color: var(--kollect-success); }
+.md-typeset .warning > .admonition-title { color: var(--kollect-warning); }
+.md-typeset .danger > .admonition-title { color: var(--kollect-danger); }
+
+:where(a, button, input, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--kollect-focus);
+  outline-offset: 3px;
+  border-radius: 0.15rem;
 }
 
-[data-md-color-scheme="slate"] .kollect-illus {
-  border: 1px solid rgba(50, 108, 229, 0.22);
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.22);
+@media screen and (max-width: 44.9844em) {
+  .kollect-hero {
+    padding: 2rem 1rem 1.5rem;
+  }
+
+  .kollect-badges img {
+    height: 1.15rem;
+  }
 }
 
-[data-md-color-scheme="default"] .kollect-illus {
-  border: 1px solid rgba(50, 108, 229, 0.15);
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+@media (prefers-reduced-motion: reduce) {
+  .kollect-card {
+    transition: none;
+  }
 }

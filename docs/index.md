@@ -7,23 +7,15 @@ hide:
 
 <div class="kollect-hero" markdown="1">
 
-![Kollect — durable Kubernetes inventory](assets/branding/kollect-logo-stacked-dark.png){ .kollect-hero-logo }
+![Kollect — durable Kubernetes inventory](assets/branding/kollect-wordmark-dark.svg){ .kollect-hero-logo }
 
 <p class="kollect-badges" markdown="1">
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/PlatformRelay/Kollect/badge)](https://securityscorecards.dev/viewer/?uri=github.com/PlatformRelay/Kollect)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13106/badge)](https://www.bestpractices.dev/projects/13106)
-[![CI](https://github.com/platformrelay/kollect/actions/workflows/ci.yaml/badge.svg)](https://github.com/platformrelay/kollect/actions/workflows/ci.yaml)
-[![Preflight](https://github.com/platformrelay/kollect/actions/workflows/preflight.yaml/badge.svg)](https://github.com/platformrelay/kollect/actions/workflows/preflight.yaml)
-<br />
-[![Docs](https://github.com/platformrelay/kollect/actions/workflows/docs.yaml/badge.svg)](https://github.com/platformrelay/kollect/actions/workflows/docs.yaml)
 [![CodeQL](https://github.com/platformrelay/kollect/actions/workflows/codeql.yaml/badge.svg)](https://github.com/platformrelay/kollect/actions/workflows/codeql.yaml)
 [![Release](https://img.shields.io/github/v/release/platformrelay/kollect?label=release)](https://github.com/platformrelay/kollect/releases)
-[![codecov](https://codecov.io/gh/platformrelay/kollect/graph/badge.svg)](https://codecov.io/gh/platformrelay/kollect)
-<br />
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/platformrelay/kollect/blob/main/LICENSE)
-[![Go](https://img.shields.io/github/go-mod/go-version/platformrelay/kollect)](https://pkg.go.dev/github.com/platformrelay/kollect)
-[![Container](https://img.shields.io/badge/ghcr.io-platformrelay%2Fkollect-2496ED?logo=docker&logoColor=white)](https://github.com/platformrelay/kollect/pkgs/container/kollect)
 
 </p>
 
@@ -101,7 +93,15 @@ Each cluster runs `mode: single` and exports to **shared sinks** with a cluster 
 
 ## How it works
 
-![Left-to-right operator pipeline from Kubernetes API through shared per-GVK informers and an in-memory collect store, KollectInventory debounce, to fan-out sink projections for Git, GitLab, S3, GCS, Postgres, MongoDB, and Kafka.](assets/illustrations/how-it-works-informer-sink-dark.webp){ .kollect-illus .kollect-illus--wide }
+```mermaid
+flowchart LR
+  API["Kubernetes API"] -->|watch| Informers["Shared informers<br/>per GVK"]
+  Informers --> Store["Canonical<br/>inventory snapshot"]
+  Store -->|debounce| Inventory["KollectInventory"]
+  Inventory --> Snapshot["Git · GitLab<br/>S3 · GCS"]
+  Inventory --> Database["Postgres · MongoDB<br/>BigQuery"]
+  Inventory --> Event["Kafka · NATS"]
+```
 
 The in-memory snapshot per inventory is **canonical**; every sink is a **projection** of it — no
 single backend is privileged. Sink roles (snapshot store, relational store, event emitter) are

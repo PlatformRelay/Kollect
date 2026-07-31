@@ -23,7 +23,13 @@ Critical gaps addressed in this ADR:
 
 ### 1. Classify sinks by role, not by vendor
 
-![Central in-memory inventory snapshot with equal projection arrows to Git, object store, Postgres, NATS, and Kafka sinks grouped by snapshot, relational, and event roles.](../assets/illustrations/canonical-snapshot-projections-dark.webp){ .kollect-illus .kollect-illus--wide width="800" }
+```mermaid
+flowchart LR
+  Snapshot["Canonical inventory snapshot"]
+  Snapshot --> SS["Snapshot store<br/>Git · GitLab · S3 · GCS"]
+  Snapshot --> DB["Database store<br/>Postgres · MongoDB · BigQuery"]
+  Snapshot --> ES["Event emitter<br/>Kafka · NATS"]
+```
 
 | Role | Backends | Answers | Deletes |
 | --- | --- | --- | --- |

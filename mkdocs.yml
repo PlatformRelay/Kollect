@@ -8,8 +8,8 @@ copyright: Copyright &copy; 2026 Konrad Heimel
 theme:
   name: material
   custom_dir: overrides
-  logo: assets/branding/kollect-app-icon-1024.png
-  favicon: assets/favicon.ico
+  logo: assets/branding/kollect-symbol-light.svg
+  favicon: assets/branding/favicon.svg
   palette:
     - scheme: slate
       primary: custom
