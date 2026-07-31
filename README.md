@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://platformrelay.github.io/Kollect/">
-    <img src="docs/assets/branding/kollect-logo-light.png" alt="Kollect — durable Kubernetes inventory" width="360">
+    <img src="docs/assets/branding/kollect-wordmark-dark.svg" alt="Kollect — durable Kubernetes inventory" width="360">
   </a>
 </p>
 
@@ -112,7 +112,14 @@ shows what the Git export looks like.
 
 ## How it works
 
-![Kollect operator pipeline from Kubernetes API through shared informers, in-memory collect store, and debounced KollectInventory export to Git, GitLab, S3, GCS, Postgres, MongoDB, and Kafka sink projections.](docs/assets/illustrations/readme-how-it-works-dark.webp)
+```mermaid
+flowchart LR
+  API["Kubernetes API"] -->|shared informers| Snapshot["Canonical inventory snapshot"]
+  Snapshot -->|debounce| Inventory["KollectInventory"]
+  Inventory --> SnapshotSinks["Git · GitLab · S3 · GCS"]
+  Inventory --> DatabaseSinks["Postgres · MongoDB · BigQuery"]
+  Inventory --> EventSinks["Kafka · NATS"]
+```
 
 The in-memory snapshot per inventory is **canonical**; every sink is a **projection** of it — no
 single backend is privileged ([sink roles](https://platformrelay.github.io/Kollect/adr/0401-sink-taxonomy-state-vs-stream/)).

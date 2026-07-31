@@ -53,4 +53,10 @@ Opt-in: `kollecttarget_opt-in.yaml`.
 
 Watch labels: `kollect.dev/watch`, `kollect.dev/namespace-watch` ([ADR-0205](../adr/0205-watch-labels.md)).
 
-![Three tenant namespaces inside one cluster, each bounded by KollectScope policy, with separate inventory pipelines exporting to allowed sinks and one namespace denied by scope rules.](../assets/illustrations/multi-tenant-scope-boundaries-dark.webp){ .kollect-illus .kollect-illus--wide width="800" }
+```mermaid
+flowchart LR
+  Namespace["Tenant namespace"] -->|watchNamespaces| Operator["Team operator"]
+  Scope["KollectScope"] -. GVK · namespace · sink policy .-> Operator
+  Operator --> Allowed["Allowed family sink"]
+  Denied["Out-of-scope resource"] -. rejected .-> Scope
+```

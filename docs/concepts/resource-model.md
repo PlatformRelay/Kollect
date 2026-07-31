@@ -72,7 +72,14 @@ Start here after this page:
 - [CR-REFERENCE.md](../crds/index.md) — pipeline diagram and per-kind index
 - [adr/0201-crd-model.md](../adr/0201-crd-model.md) — why these kinds exist
 
-![Vertical K-shaped funnel diagram showing Kubernetes resources filtered by Scope and Target, attributes extracted by Profile, aggregated into Inventory rows, and exported to sinks.](../assets/illustrations/k-funnel-crd-pipeline-dark.webp){ .kollect-illus .kollect-illus--portrait width="320" }
+```mermaid
+flowchart TD
+  Resources["Kubernetes resources"] --> Scope["Scope policy"]
+  Scope --> Target["Target selectors"]
+  Target --> Profile["Profile extraction<br/>CEL · JSONPath"]
+  Profile --> Inventory["Inventory rows"]
+  Inventory --> Sinks["Family sinks"]
+```
 
 !!! note "Pre-beta API"
     Fields and status conditions may change until beta. Check [ROADMAP.md](../ROADMAP.md) before
@@ -122,7 +129,13 @@ attributes on change; inventory controllers debounce and export to sinks
 The in-memory inventory snapshot is **canonical**; sinks are **projections** classified by role
 ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)):
 
-![Central in-memory inventory snapshot with equal projection arrows to Git, object store, Postgres, NATS, and Kafka sinks grouped by snapshot, relational, and event roles.](../assets/illustrations/canonical-snapshot-projections-dark.webp){ .kollect-illus .kollect-illus--wide width="800" }
+```mermaid
+flowchart LR
+  Snapshot["Canonical inventory snapshot"]
+  Snapshot --> SS["Snapshot stores<br/>Git · GitLab · S3 · GCS"]
+  Snapshot --> DB["Database stores<br/>Postgres · MongoDB · BigQuery"]
+  Snapshot --> ES["Event streams<br/>Kafka · NATS"]
+```
 
 | Role | Shipped `spec.type` values | Typical use |
 | --- | --- | --- |
