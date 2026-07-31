@@ -23,6 +23,12 @@ import (
 // with parallel subtests that each drive the full RunE path.
 var setLoggerOnce sync.Once
 
+// runAllContexts is the collection entry point, indirected through a package var so tests can
+// substitute a fake that returns canned ContextResults — this makes the stdout emission seam in
+// runCollectPipeline (flatten records → WriteStdoutRecords → exit mapping) unit-testable without a
+// cluster. Production always uses pipeline.RunAllContexts.
+var runAllContexts = pipeline.RunAllContexts
+
 // newCollectCmd builds the `collect` subcommand. The returned *int is written once RunE
 // finishes a full (non-flag-validation) run; main reads it after cmd.Execute() returns to
 // decide the process exit code (ExitSuccess/ExitPartialFailure/ExitFatalError) without
@@ -117,7 +123,7 @@ func runCollectPipeline(cmd *cobra.Command, flags *collectFlags, format pipeline
 
 	loaded.Targets = pipeline.ApplyNamespaceOverride(loaded.Targets, flags.namespace)
 
-	results := pipeline.RunAllContexts(cmd.Context(), contexts, kubeconfigPath, loaded,
+	results := runAllContexts(cmd.Context(), contexts, kubeconfigPath, loaded,
 		sinkSpec, secretData, sink.NewRegistry(), nil, flags.dryRun)
 
 	// Stdout export: data-only records go to stdout in context+target order; logs, warnings,

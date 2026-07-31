@@ -4,11 +4,19 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/pipeline"
+	"github.com/platformrelay/kollect/internal/sink"
 )
 
 func TestCollectCmd_helpExitsZero(t *testing.T) {
@@ -287,3 +295,190 @@ func TestMapContextResultsToExit_extractionFailureWithExportIsPartial(t *testing
 type errFixture struct{}
 
 func (errFixture) Error() string { return "fixture error" }
+
+// --- stdout emission wiring (REQ-PIPE-02) ---
+//
+// These drive the real `collect --output -` command through cobra with runAllContexts faked, so the
+// stdout branch in runCollectPipeline (flatten records -> WriteStdoutRecords -> exit mapping) and the
+// data-on-stdout/errors-on-stderr contract are exercised without a cluster.
+
+// fakeRunAllContexts swaps the collection seam for the duration of a test.
+func fakeRunAllContexts(t *testing.T, results ...pipeline.ContextResult) {
+	t.Helper()
+
+	orig := runAllContexts
+	t.Cleanup(func() { runAllContexts = orig })
+	runAllContexts = func(
+		_ context.Context, _ []string, _ string, _ pipeline.LoadResult,
+		_ kollectdevv1alpha1.KollectSinkSpec, _ map[string][]byte, _ *sink.Registry, _ []string, _ bool,
+	) []pipeline.ContextResult {
+		return results
+	}
+}
+
+// stdoutRecord builds a minimal but valid export record for a target.
+func stdoutRecord(ctxName, ns, name string) pipeline.StdoutRecord {
+	return pipeline.StdoutRecord{
+		Context:         ctxName,
+		TargetNamespace: ns,
+		TargetName:      name,
+		Path:            "inventory/" + ns + "/" + name + ".yaml",
+		Envelope: collect.ExportEnvelope{
+			SchemaVersion: collect.ExportSchemaVersion,
+			ItemCount:     1,
+			Items:         []collect.Item{{Namespace: ns, Name: name, Version: "v1", Kind: "ConfigMap", UID: "u-" + name}},
+		},
+	}
+}
+
+func stdoutCollectArgs(t *testing.T) []string {
+	t.Helper()
+
+	return []string{"--config", writeValidConfigDir(t), "--output", "-", "--kubeconfig", writeFixtureKubeconfig(t)}
+}
+
+func TestCollectCmd_stdoutEmitsNDJSONToStdoutNotStderr(t *testing.T) {
+	fakeRunAllContexts(t, pipeline.ContextResult{
+		Context: "c1", Exported: 1, Records: []pipeline.StdoutRecord{stdoutRecord("c1", "default", "t1")},
+	})
+
+	cmd, code := newCollectCmd()
+
+	var out, errBuf bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&errBuf)
+	cmd.SetArgs(stdoutCollectArgs(t))
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	line := strings.TrimSpace(out.String())
+	if strings.Count(line, "\n") != 0 {
+		t.Fatalf("expected exactly one NDJSON line, got:\n%s", out.String())
+	}
+
+	var got pipeline.StdoutRecord
+	if err := json.Unmarshal([]byte(line), &got); err != nil {
+		t.Fatalf("stdout is not NDJSON (%q): %v", out.String(), err)
+	}
+
+	if got.TargetName != "t1" || got.Envelope.ItemCount != 1 {
+		t.Errorf("record = %+v, want target t1 / itemCount 1", got)
+	}
+
+	if errBuf.Len() != 0 {
+		t.Errorf("stderr should be empty on a clean run, got %q", errBuf.String())
+	}
+
+	if *code != ExitSuccess {
+		t.Errorf("exit = %d, want ExitSuccess", *code)
+	}
+}
+
+func TestCollectCmd_stdoutMultiContextRecordsInOrderErrorsToStderr(t *testing.T) {
+	fakeRunAllContexts(t,
+		pipeline.ContextResult{Context: "a", Exported: 1, Records: []pipeline.StdoutRecord{stdoutRecord("a", "ns", "t-a")}},
+		pipeline.ContextResult{
+			Context: "b", Exported: 1,
+			Records: []pipeline.StdoutRecord{stdoutRecord("b", "ns", "t-b")},
+			Errs:    []error{errFixture{}},
+		},
+	)
+
+	cmd, code := newCollectCmd()
+
+	var out, errBuf bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&errBuf)
+	cmd.SetArgs(stdoutCollectArgs(t))
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 NDJSON lines, got %d:\n%s", len(lines), out.String())
+	}
+
+	var first pipeline.StdoutRecord
+	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
+		t.Fatalf("line 0 not NDJSON: %v", err)
+	}
+
+	if first.TargetName != "t-a" {
+		t.Errorf("context order not preserved: first record target = %q, want t-a", first.TargetName)
+	}
+
+	// The context 'b' error must land on stderr, never mixed into the stdout records.
+	if !strings.Contains(errBuf.String(), "fixture error") {
+		t.Errorf("stderr missing the context error; got %q", errBuf.String())
+	}
+
+	if strings.Contains(out.String(), "fixture error") {
+		t.Error("stdout was contaminated with an error message")
+	}
+
+	if *code != ExitPartialFailure {
+		t.Errorf("exit = %d, want ExitPartialFailure (one context had errors)", *code)
+	}
+}
+
+func TestCollectCmd_stdoutFormatJSONEmitsArray(t *testing.T) {
+	fakeRunAllContexts(t, pipeline.ContextResult{
+		Context: "c1", Exported: 1, Records: []pipeline.StdoutRecord{stdoutRecord("c1", "default", "t1")},
+	})
+
+	cmd, _ := newCollectCmd()
+
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs(append(stdoutCollectArgs(t), "--format", "json"))
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var arr []pipeline.StdoutRecord
+	if err := json.Unmarshal(out.Bytes(), &arr); err != nil {
+		t.Fatalf("stdout is not a JSON array (%q): %v", out.String(), err)
+	}
+
+	if len(arr) != 1 || arr[0].TargetName != "t1" {
+		t.Errorf("json array = %+v, want one record for t1", arr)
+	}
+}
+
+// failingWriter errors on every Write, to exercise the fatal-output path.
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, fmt.Errorf("disk full") }
+
+func TestCollectCmd_stdoutWriteFailureIsExitFatal(t *testing.T) {
+	fakeRunAllContexts(t, pipeline.ContextResult{
+		Context: "c1", Exported: 1, Records: []pipeline.StdoutRecord{stdoutRecord("c1", "default", "t1")},
+	})
+
+	cmd, code := newCollectCmd()
+	cmd.SetOut(failingWriter{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs(stdoutCollectArgs(t))
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected a fatal write error, got nil")
+	}
+
+	if *code != ExitFatalError {
+		t.Errorf("exit = %d, want ExitFatalError on stdout write failure", *code)
+	}
+}
