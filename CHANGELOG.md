@@ -13,6 +13,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **docs:** Correct probe backend matrix ([#156](https://github.com/platformrelay/kollect/pull/156))[21d4a6c](https://github.com/platformrelay/kollect/commit/21d4a6cad7b29d19cbea41beeb275dc142d2c2f8)
 
+
+### Features
+
+- **pipeline:** Stream collect export to stdout (--output -, --format) [025adf8](https://github.com/platformrelay/kollect/commit/025adf81b94ef73f21c24dd09d172d68082195df)
+
 ## [0.11.0](https://github.com/platformrelay/kollect/compare/v0.10.0..v0.11.0) - 2026-07-31
 
 ### Bug Fixes
