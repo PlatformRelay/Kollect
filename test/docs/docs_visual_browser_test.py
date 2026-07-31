@@ -68,9 +68,12 @@ def find_chrome() -> Path:
     override = os.environ.get("CHROME_BIN")
     if override:
         path = Path(override)
-        if path.is_file():
+        if path.is_file() and os.access(path, os.X_OK):
             return path
-        raise SystemExit(f"CHROME_BIN does not point to an executable file: {path}")
+        raise SystemExit(
+            "CHROME_BIN must point to an executable regular file; "
+            f"check the path and execute permissions: {path}"
+        )
     for candidate in CHROME_CANDIDATES:
         discovered = shutil.which(candidate)
         if discovered:
