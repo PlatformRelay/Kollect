@@ -15,12 +15,15 @@ fail() {
 test_workflow_wiring() {
   [[ -x "${PULL_SCRIPT}" ]] || fail "retry helper is missing or not executable"
 
-  local prepull_line integration_line
-  prepull_line="$(grep -nF "bash hack/ci/pull-image-with-retry.sh \"${FORGEJO_IMAGE}\"" "${WORKFLOW}" | cut -d: -f1)"
-  integration_line="$(grep -nF "run: task test-integration" "${WORKFLOW}" | cut -d: -f1)"
+  local regression_line prepull_line integration_line
+  regression_line="$(grep -nF "run: bash test/ci/forgejo_prepull_test.sh" "${WORKFLOW}" | cut -d: -f1 || true)"
+  prepull_line="$(grep -nF "bash hack/ci/pull-image-with-retry.sh \"${FORGEJO_IMAGE}\"" "${WORKFLOW}" | cut -d: -f1 || true)"
+  integration_line="$(grep -nF "run: task test-integration" "${WORKFLOW}" | cut -d: -f1 || true)"
 
+  [[ -n "${regression_line}" ]] || fail "required integration job does not run this regression test"
   [[ -n "${prepull_line}" ]] || fail "workflow does not pre-pull the pinned Forgejo image"
   [[ -n "${integration_line}" ]] || fail "integration test step is missing"
+  ((regression_line < prepull_line)) || fail "regression test must run before the Forgejo pre-pull"
   ((prepull_line < integration_line)) || fail "Forgejo pre-pull must run before integration tests"
 }
 
