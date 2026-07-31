@@ -224,7 +224,12 @@ jobs:
           cache-dependency-path: ui/package-lock.json
 
       - name: Install UI dependencies
-        run: npm ci
+        # --ignore-scripts blocks dependency lifecycle (postinstall) scripts from
+        # executing in CI (supply-chain hardening); npm ci already pins to the
+        # lockfile. Vite/esbuild/rollup ship native binaries via optionalDependencies
+        # (not scripts), and Playwright browsers are installed explicitly below, so
+        # the build is unaffected (verified: npm ci --ignore-scripts && npm run build).
+        run: npm ci --ignore-scripts
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
