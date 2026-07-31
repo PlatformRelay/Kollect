@@ -45,7 +45,7 @@ bounded enum mapped to numeric codes) without hand-rolling PromQL over inventory
 | **C′ — Attribute value export (proposed)** | **This RFC** — export the **scalar value** of a path per aggregation scope, not only sum/count |
 
 When promoted, Tier C and C′ should share admission webhooks and cardinality budgets documented in
-[PERFORMANCE.md](../PERFORMANCE.md).
+[operator-manual/performance.md](../operator-manual/performance.md).
 
 ## Proposal
 

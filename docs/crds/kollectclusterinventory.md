@@ -74,7 +74,7 @@ once in `kollect-system` and reference them from cluster inventories (ADR-0208,
     Same rules as `KollectInventory`: the interval never delays a changed payload — material checksum
     or generation changes export immediately per sink; `0s` means material-change only (30s status
     watchdog, no re-export); sub-second values are accepted but floor at 1s wake-ups. See
-    [DATA-FLOWS §1](../DATA-FLOWS.md#1-export-debouncing) and
+    [DATA-FLOWS §1](../concepts/export-pipeline.md#1-export-debouncing) and
     [ADR-0413](../adr/0413-export-interval-scheduling.md).
 
 ## Example
@@ -173,6 +173,6 @@ inventory ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 - [KollectProfile](kollectprofile.md) — namespaced extraction schema referenced by `profileRef`
 - [KollectClusterTarget](kollectclustertarget.md) — pairs with this kind
 - [KollectInventory](kollectinventory.md) — namespaced equivalent (shipped)
-- [CR-REFERENCE.md](../CR-REFERENCE.md)
+- [crds/index.md](../crds/index.md)
 - [ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)
 - [ADR-0201](../adr/0201-crd-model.md)

@@ -44,8 +44,8 @@ flowchart LR
 | `KollectScope` → Profile | When scope exists, profile GVK must appear in `allowedGVKs` |
 | Profile change | Secondary watch enqueues referring targets (beta) |
 
-Full flow: [DATA-FLOWS.md](../DATA-FLOWS.md#2-collection-pipeline) ·
-[examples/deployment-inventory.md](../examples/deployment-inventory.md).
+Full flow: [concepts/export-pipeline.md](../concepts/export-pipeline.md#2-collection-pipeline) ·
+[getting-started/first-inventory.md](../getting-started/first-inventory.md).
 
 ## Spec fields
 
@@ -220,12 +220,12 @@ ClusterRole includes profile read cluster-wide when not in tenant mode.
 | Target `ProfileNotFound` | Name/namespace mismatch | Create profile in same namespace as target |
 | Target `ScopeGVKDenied` | GVK not in `KollectScope` | Add GVK to scope `allowedGVKs` or remove scope |
 | Empty export rows | Wrong GVK or optional-only attrs | Confirm `targetGVK` matches watched resources; mark sparse fields `optional: true` |
-| Wildcard returns scalar | Single match only | Use `[*]` for all elements — [DATA-FLOWS §3](../DATA-FLOWS.md#3-attribute-extraction-jsonpath-arrays) |
+| Wildcard returns scalar | Single match only | Use `[*]` for all elements — [DATA-FLOWS §3](../concepts/export-pipeline.md#3-attribute-extraction-jsonpath-arrays) |
 
 ## See also
 
 - [KollectClusterTarget](kollectclustertarget.md) — references this profile by `name` + `namespace` for platform rollups ([ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md))
 - [KollectTarget](kollecttarget.md) — binds a profile to selectors
 - [KollectScope](kollectscope.md) — GVK allow-list
-- [examples/deployment-inventory.md](../examples/deployment-inventory.md)
+- [getting-started/first-inventory.md](../getting-started/first-inventory.md)
 - [examples/helm-release-inventory.md](../examples/helm-release-inventory.md)

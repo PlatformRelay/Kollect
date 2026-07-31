@@ -133,7 +133,7 @@ Cluster-scoped resources require elevated RBAC — restrict to platform SRE role
 - [KollectProfile](kollectprofile.md) — namespaced extraction schema referenced by `profileRef`
 - [KollectClusterInventory](kollectclusterinventory.md) — pairs with this kind
 - [KollectTarget](kollecttarget.md) — namespaced equivalent (shipped)
-- [CR-REFERENCE.md](../CR-REFERENCE.md) — cluster reconciled kinds
+- [crds/index.md](../crds/index.md) — cluster reconciled kinds
 - [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md)
 - [ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)
 - [ADR-0201](../adr/0201-crd-model.md)

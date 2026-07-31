@@ -5,7 +5,7 @@ Constants live in `api/v1alpha1/constants.go`.
 
 !!! tip "Assumptions"
     This reference assumes you understand watch scope and sink probes. For context, read
-    [Understand the basics](UNDERSTAND-THE-BASICS.md) and [ADR-0205](adr/0205-watch-labels.md).
+    [Understand the basics](concepts/resource-model.md) and [ADR-0205](adr/0205-watch-labels.md).
 
 ## Watch scope
 
@@ -148,5 +148,5 @@ kubectl get pods -n kollect-system -l app.kubernetes.io/name=kollect
 - [ADR-0205: Watch labels](adr/0205-watch-labels.md)
 - [ADR-0403: Connection test](adr/0403-connection-test.md)
 - ADR-0503: Hub cluster auth
-- [Operator manual — Watch scope](OPERATOR-MANUAL.md#watch-scope)
-- [Troubleshooting](TROUBLESHOOTING.md) · [Best practices](BEST-PRACTICES.md)
+- [Operator manual — Watch scope](operator-manual/index.md#watch-scope)
+- [Troubleshooting](operator-manual/troubleshooting.md) · [Best practices](operator-manual/production-checklist.md)

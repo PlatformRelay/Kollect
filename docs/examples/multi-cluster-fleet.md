@@ -54,7 +54,7 @@ Each cluster commits under its own path; CI can aggregate `clusters/*` if a sing
 
 ## Inventory collection
 
-Per cluster, use the same pattern as [`deployment-inventory.md`](deployment-inventory.md):
+Per cluster, use the same pattern as [`deployment-inventory.md`](../getting-started/first-inventory.md):
 
 - `KollectProfile` for the GVK schema
 - `KollectTarget` selecting workloads
@@ -65,5 +65,5 @@ Samples: `config/samples/e2e/team-inventory.yaml` in the repository (single-clus
 ## Related
 
 - [ADR-0501 — Multi-cluster fleet](../adr/0501-multi-cluster-fleet.md)
-- [Best practices — fleet deployments](../BEST-PRACTICES.md)
+- [Best practices — fleet deployments](../operator-manual/production-checklist.md)
 - [Postgres state store](postgres-state-store.md)

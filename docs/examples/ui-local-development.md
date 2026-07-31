@@ -2,7 +2,7 @@
 
 !!! tip "Prerequisites"
     Mock mode needs Node.js and `pnpm`/`npm` only. Live mode requires a running operator with the
-    Read API enabled — see [Kind local lab](kind-local-lab.md).
+    Read API enabled — see [Kind local lab](../getting-started/install.md).
 
 The kollect-ui SPA can run **without a cluster** using MSW mocks, or against a live Read API when
 the operator is running.
@@ -28,7 +28,7 @@ VITE_MOCK_API=false VITE_READ_API_URL=http://127.0.0.1:8082 npm run dev
 ```
 
 Requires a populated cluster with `KollectInventory` / `KollectTarget` CRs — see
-[Kind local lab](kind-local-lab.md).
+[Kind local lab](../getting-started/install.md).
 
 ## Prism (real HTTP, e2e)
 

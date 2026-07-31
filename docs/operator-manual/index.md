@@ -1,36 +1,36 @@
 # Operator manual
 
 Production-oriented guide for **platform teams** installing and operating **Kollect** for tenant
-workloads. If you are evaluating locally, start with [Quick start](QUICKSTART.md) or
-[Kind local lab](examples/kind-local-lab.md) first.
+workloads. If you are evaluating locally, start with [Quick start](../getting-started/install.md) or
+[Kind local lab](../getting-started/install.md) first.
 
 !!! tip "Assumptions"
     This guide assumes Helm 3, kubectl, and a working Kubernetes cluster. New to **Kollect** CRDs,
-    sink roles, or watch scope? Read [Understand the basics](UNDERSTAND-THE-BASICS.md) and
-    [Platform decisions](PLATFORM-DECISIONS.md) before changing production values.
+    sink roles, or watch scope? Read [Understand the basics](../concepts/resource-model.md) and
+    [Platform decisions](../PLATFORM-DECISIONS.md) before changing production values.
 
 !!! warning "Pre-beta API"
     `v1alpha1` fields and defaults may change until the first release candidate. Check
-    [ROADMAP](ROADMAP.md) before production rollout.
+    [ROADMAP](../ROADMAP.md) before production rollout.
 
 ## In this manual
 
 | Topic | Page |
 | --- | --- |
 | Install (Helm, OCI, CRDs, tenant mode) | [Install](#install) (below) |
-| Version upgrades (CRD + operator two-step) | [Upgrading Kollect](operator-manual/upgrading.md) |
-| Helm values (production knobs) | [Helm values reference](operator-manual/helm-values.md) |
-| Prometheus metrics and alerts | [Operator metrics](operator-manual/metrics.md) |
+| Version upgrades (CRD + operator two-step) | [Upgrading Kollect](upgrading.md) |
+| Helm values (production knobs) | [Helm values reference](helm-values.md) |
+| Prometheus metrics and alerts | [Operator metrics](metrics.md) |
 | Sink and webhook secrets | [Secrets](#secrets) (below) |
 | Informer scope and tenancy | [Watch scope](#watch-scope) (below) |
 | Replicas and leader election | [High availability](#high-availability) (below) |
-| Read-only UI (early adopter preview) | [Read-only UI](operator-manual/ui.md) · [ADR-0409](adr/0409-kollect-ui-deployment.md) · [UI local dev (mock)](examples/ui-local-development.md) |
+| Read-only UI (early adopter preview) | [Read-only UI](ui.md) · [ADR-0409](../adr/0409-kollect-ui-deployment.md) · [UI local dev (mock)](../examples/ui-local-development.md) |
 
 ## Install
 
 **Kollect** ships as a **Helm chart** (`charts/kollect`) with CRDs in `crds/` and the controller
 Deployment in `templates/`. Chart structure and install modes are documented in
-[ADR-0704: Helm chart and CRD lifecycle](adr/0704-helm-chart-crd-lifecycle.md).
+[ADR-0704: Helm chart and CRD lifecycle](../adr/0704-helm-chart-crd-lifecycle.md).
 
 ### From the repository
 
@@ -40,7 +40,7 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace
 
 ### From GHCR (OCI)
 
-Published releases push the chart to GHCR ([ADR-0705](adr/0705-release-supply-chain.md)):
+Published releases push the chart to GHCR ([ADR-0705](../adr/0705-release-supply-chain.md)):
 
 ```sh
 helm install kollect oci://ghcr.io/platformrelay/kollect -n kollect-system --create-namespace
@@ -50,7 +50,7 @@ Omitting `--version` installs the latest published chart. In production, pin a s
 (e.g. `--version 0.5.0` — see the [releases page](https://github.com/platformrelay/kollect/releases)).
 
 Pin `image.tag` to the release image when not using the chart default — see
-[Helm values reference](operator-manual/helm-values.md).
+[Helm values reference](helm-values.md).
 
 !!! note "Lab clusters where GHCR is denied"
     A live OCI pull is the preferred path. When package ACLs return **403** on a
@@ -68,12 +68,12 @@ kubectl apply -f dist/install-crds.yaml
 
 !!! note "Two install artifacts"
     Day-2 upgrades treat **CRD schema** and **operator Deployment** as separate steps — see
-    [Upgrading Kollect](operator-manual/upgrading.md). Full operator manifest: `dist/install.yaml`.
+    [Upgrading Kollect](upgrading.md). Full operator manifest: `dist/install.yaml`.
 
 ### Per-team install (recommended default)
 
 For tenant isolation, enable namespaced RBAC and restrict the informer cache
-([ADR-0203](adr/0203-namespaced-multi-tenancy.md), [ADR-0201](adr/0201-crd-model.md)):
+([ADR-0203](../adr/0203-namespaced-multi-tenancy.md), [ADR-0201](../adr/0201-crd-model.md)):
 
 ```yaml
 tenantMode: true
@@ -92,7 +92,7 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace -f va
 Namespaced `KollectProfile`, family sinks, `KollectTarget`, and `KollectInventory` live in the team
 namespace. Portal read path uses **Postgres or Kafka sink export** — not direct operator HTTP.
 
-Full value reference: [Helm values](operator-manual/helm-values.md).
+Full value reference: [Helm values](helm-values.md).
 
 ## Secrets
 
@@ -107,16 +107,16 @@ Never put passwords or tokens on family sink CRs (`KollectSnapshotSink`, `Kollec
 | `KollectSnapshotSink` | Git, GitLab, S3, GCS | deploy key or token | `spec.secretRef` |
 | `KollectEventSink` | Kafka, NATS | broker credentials | `spec.secretRef` |
 
-Maturity tiers (Core / Beta / Planned): [Roadmap — Supported & planned sinks](ROADMAP.md#supported-planned-sinks).
+Maturity tiers (Core / Beta / Planned): [Roadmap — Supported & planned sinks](../ROADMAP.md#supported-planned-sinks).
 
-Walkthrough: [Postgres state store](examples/postgres-state-store.md).
+Walkthrough: [Postgres state store](../examples/postgres-state-store.md).
 
 !!! warning "Credentials in Secrets only"
     Inline credentials on CRs are rejected by policy and leak in `kubectl get -o yaml`. Store DSNs
     and tokens in Secrets; grant the operator ServiceAccount read access via RBAC.
 
 TLS trust for sinks uses `caBundle` or `caSecretRef` on the sink spec — same resolution as export
-and connection probes ([ADR-0403](adr/0403-connection-test.md)).
+and connection probes ([ADR-0403](../adr/0403-connection-test.md)).
 
 ### Git snapshot sinks (`spec.git.engine`)
 
@@ -134,18 +134,20 @@ when using `engine: cli`.
 ### Webhook serving certificate
 
 Validating webhooks require a TLS serving cert mounted on every manager replica
-([ADR-0105](adr/0105-webhook-serving-cert-management.md)):
+([ADR-0105](../adr/0105-webhook-serving-cert-management.md)):
+
+### Webhook TLS
 
 - **Default:** cert-manager `Certificate` in `webhook-certmanager.yaml` (soft dependency).
 - **Fallback:** self-signed bootstrap when `webhooks.certManager.create: false`.
 
-Example: [Cert-manager webhooks](examples/cert-manager-webhook.md).
+Example: [Cert-manager webhooks](index.md#webhook-tls).
 
 ### Production connection tests
 
 Production sink manifests should use **`spec.connectionTest: false`** (chart default) and trigger
 probes with the **`kollect.dev/test-connection: "true"`** annotation when needed. CI and samples may
-set `connectionTest: true` ([ADR-0403](adr/0403-connection-test.md)).
+set `connectionTest: true` ([ADR-0403](../adr/0403-connection-test.md)).
 
 ## Watch scope
 
@@ -160,21 +162,21 @@ set `connectionTest: true` ([ADR-0403](adr/0403-connection-test.md)).
 | `tenantMode: true` | Namespaced `Role`/`RoleBinding` instead of `ClusterRole` |
 
 Use **`tenantMode: true` + `watchNamespaces`** for per-team operator installs
-([ADR-0203](adr/0203-namespaced-multi-tenancy.md)). Team path profile:
-[Team-owned operator (minimal RBAC)](deployment/team-operator.md). Example:
-[Multi-tenant watch scope](examples/multi-tenant-watch-namespaces.md).
+([ADR-0203](../adr/0203-namespaced-multi-tenancy.md)). Team path profile:
+[Team-owned operator (minimal RBAC)](../examples/team-operator.md). Example:
+[Multi-tenant watch scope](../examples/multi-tenant-watch-namespaces.md).
 
-Helm keys: [Helm values reference](operator-manual/helm-values.md).
+Helm keys: [Helm values reference](helm-values.md).
 
 ### `KollectScope` allow-lists
 
 Optional `KollectScope` CRs enforce GVK, namespace, and sink allow-lists. Violations set
-`Degraded` on affected pipelines ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)).
+`Degraded` on affected pipelines ([ADR-0203](../adr/0203-namespaced-multi-tenancy.md)).
 
 ### Watch labels and annotations
 
 Teams can opt individual namespaces or resources in or out without changing Helm values
-([ADR-0205](adr/0205-watch-labels.md)):
+([ADR-0205](../adr/0205-watch-labels.md)):
 
 | Key | Values | Effect |
 | --- | --- | --- |
@@ -196,12 +198,12 @@ Summary for operators:
 | Controller replicas | `replicaCount: 1` | `replicaCount: 2+`, `leaderElection.enabled: true` |
 | Duplicate exports | Prevented by leader election | **Never** set `replicaCount > 1` with `leaderElection.enabled: false` |
 | Webhooks | Served on every ready replica | Apiserver targets webhook `Service`; not gated by leader election |
-| Memory at scale | `resourcesProfile` default | Use `resourcesProfile: large` for 100k-row design target ([ADR-0603](adr/0603-performance-scalability.md)) |
+| Memory at scale | `resourcesProfile` default | Use `resourcesProfile: large` for 100k-row design target ([ADR-0603](../adr/0603-performance-scalability.md)) |
 
 !!! info "Single-cluster mode only"
     The operator runs `mode: single`. Multi-cluster fleets run **one single-mode operator per
     cluster** exporting to a shared sink, partitioned by `spec.cluster` — there is no hub/spoke
-    runtime tier ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
+    runtime tier ([ADR-0501](../adr/0501-multi-cluster-fleet.md)).
 
 ## Lab image bootstrap when GHCR is unavailable (403)
 
@@ -310,12 +312,12 @@ this bootstrap should not outlive the access outage that forced it.
 
 ## See also
 
-- [Upgrading Kollect](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md)
-- [Common errors](operator-manual/common-errors.md) — full catalog: conditions, metrics, and fixes
-- [FAQ](FAQ.md) — symptom-oriented troubleshooting
-- [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md)
+- [Upgrading Kollect](upgrading.md) · [Helm values](helm-values.md)
+- [Common errors](troubleshooting.md) — full catalog: conditions, metrics, and fixes
+- [FAQ](troubleshooting.md) — symptom-oriented troubleshooting
+- [Quick start](../getting-started/install.md) · [Development setup](../development/setup.md)
 - [Chart README](https://github.com/platformrelay/kollect/blob/main/charts/kollect/README.md) — inventory HTTP auth at source
-- [RELEASE](RELEASE.md) — version bumps and release artifacts
-- [ADR-0704: Helm chart and CRD lifecycle](adr/0704-helm-chart-crd-lifecycle.md)
-- [ADR-0501: Multi-cluster fleet](adr/0501-multi-cluster-fleet.md)
-- [ADR-0104: Security model](adr/0104-security-model.md)
+- [RELEASE](../RELEASE.md) — version bumps and release artifacts
+- [ADR-0704: Helm chart and CRD lifecycle](../adr/0704-helm-chart-crd-lifecycle.md)
+- [ADR-0501: Multi-cluster fleet](../adr/0501-multi-cluster-fleet.md)
+- [ADR-0104: Security model](../adr/0104-security-model.md)

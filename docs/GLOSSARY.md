@@ -1,7 +1,7 @@
 # Glossary
 
 Product vocabulary for Kollect — custom resources, sink roles, and multi-cluster terms. For
-architecture context see [Understand the basics](UNDERSTAND-THE-BASICS.md) and
+architecture context see [Understand the basics](concepts/resource-model.md) and
 [Platform decisions](PLATFORM-DECISIONS.md).
 
 ## Core pipeline
@@ -51,7 +51,7 @@ architecture context see [Understand the basics](UNDERSTAND-THE-BASICS.md) and
 ## Custom resources (from CRD schema)
 
 Auto-generated from `config/crd/bases/` OpenAPI descriptions. Regenerate with
-`python3 hack/gen-glossary.py`. Field-level detail: [CR reference](CR-REFERENCE.md).
+`python3 hack/gen-glossary.py`. Field-level detail: [CR reference](crds/index.md).
 
 ### `KollectClusterInventory` (cluster)
 
@@ -232,6 +232,6 @@ Full reference: [KollectTarget](crds/kollecttarget.md).
 
 ## See also
 
-- [CR reference](CR-REFERENCE.md) — per-kind fields, conditions, failure modes
-- [FAQ](FAQ.md) — symptom-oriented answers
-- [Data flows](DATA-FLOWS.md) — collection and export diagrams
+- [CR reference](crds/index.md) — per-kind fields, conditions, failure modes
+- [FAQ](operator-manual/troubleshooting.md) — symptom-oriented answers
+- [Data flows](concepts/export-pipeline.md) — collection and export diagrams

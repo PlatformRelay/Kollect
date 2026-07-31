@@ -192,7 +192,7 @@ Changelog entries are generated with [git-cliff](https://git-cliff.org/) (`hack/
 ## Architecture
 
 Package layout and dependency flow are documented in
-[ARCHITECTURE.md § Package boundaries](../ARCHITECTURE.md#package-boundaries).
+[concepts/architecture.md § Package boundaries](../concepts/architecture.md#package-boundaries).
 
 Import rules are enforced by [`.go-arch-lint.yml`](https://github.com/platformrelay/kollect/blob/main/.go-arch-lint.yml) (`task arch-lint`).
 When introducing a new `internal/` package or cross-component import:

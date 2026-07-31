@@ -1,4 +1,321 @@
-# Common errors — operator guide
+# Troubleshooting
+
+Central hub for diagnosing **Kollect** export, collection, and sink issues. Start with the condition
+catalog below, then follow links to symptom-specific guides.
+
+!!! tip "First checks"
+    Run `kubectl describe` on the sink and inventory when export stalls — `ConnectionVerified`,
+    `SinkReachable`, and `Synced` conditions usually pinpoint credential, namespace, or selector
+    issues before diving into controller logs.
+
+!!! note "Related guides"
+    Symptom Q&A: [FAQ](troubleshooting.md). Step-by-step install and upgrade:
+    [Operator manual](index.md). Per-scenario walkthroughs:
+    [Examples](../examples/README.md).
+
+## Condition catalog
+
+Kollect follows Kubernetes condition conventions (`Ready`, `Synced`, `Degraded`) with sink-specific
+types on static kinds. See [ADR-0602](../adr/0602-error-taxonomy.md) for reconcile behavior.
+
+### By kind
+
+| Kind | Conditions | When to inspect |
+| --- | --- | --- |
+| Family sinks ([`KollectSnapshotSink`](../crds/kollectsnapshotsink.md), [`KollectDatabaseSink`](../crds/kollectdatabasesink.md), [`KollectEventSink`](../crds/kollecteventsink.md)) | `ConnectionVerified`, `TLSInsecure`, `Degraded` | Before export; credential or endpoint problems |
+| [`KollectTarget`](../crds/kollecttarget.md) | `Ready`, `Synced`, `Degraded`, `SinkReachable` | Collection stalled or scope denied |
+| [`KollectInventory`](../crds/kollectinventory.md) | `Ready`, `Synced`, `Degraded`, `SinkReachable` | Export not running or payload errors |
+| [`KollectConnectionTest`](../crds/kollectconnectiontest.md) | `ConnectionVerified`, `Ready` | Audited composite probes |
+
+Static kinds (`KollectProfile`, `KollectScope`) do **not** set `Ready` — admission webhooks and
+events surface validation errors instead.
+
+### Cross-object conditions
+
+| Condition | Object | Meaning |
+| --- | --- | --- |
+| `ConnectionVerified` | Family sinks (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) | Last connectivity **probe** succeeded (credentials, TLS, network) |
+| `SinkReachable` | `KollectInventory`, `KollectTarget` | Export pipeline resolved and can reach the referenced sink |
+| `Synced` | `KollectInventory`, `KollectTarget` | Last export or collection cycle completed successfully |
+| `Degraded` | Reconciled kinds | Hard block — fix `reason` before expecting progress |
+
+A sink can show `ConnectionVerified=True` while inventory shows `SinkReachable=False` if the **name
+or namespace** in a `*SinkRefs` entry is wrong — fix the reference, not just credentials.
+
+### Common `Degraded` reasons
+
+| Reason | Typical object | Cause | Fix |
+| --- | --- | --- | --- |
+| `SinkNotFound` | Inventory, Target | Typo or wrong namespace in `*SinkRefs` | Match exact sink name in **same namespace** |
+| `SinkUnreachable` | Inventory, Target | `ConnectionVerified=False` on sink | Fix Secret, DSN, network; re-probe sink |
+| `ScopeSinkDenied` | Inventory | Sink not in `KollectScope` allow-list | Add sink to scope allow-list refs |
+| `ScopeGVKDenied` | Target | GVK blocked by scope | Update `KollectScope.spec.allowedGVKs` |
+| `ScopeNamespaceDenied` | Target | Workload namespace blocked | Add to `allowedNamespaces` |
+| `ProfileNotFound` | Target | Missing `KollectProfile` | Apply profile in same namespace as target |
+| `PayloadTooLarge` | Inventory | Exceeds `maxExportBytes` | Split targets or trim attributes |
+| `ExportTerminal` | Inventory | Non-retryable sink error | Fix sink config; check operator logs |
+| `Suspended` | Target, Inventory | `spec.suspend: true` | Set `suspend: false` |
+| `Progressing` | Inventory | Transient network or 429 | Usually self-heals; inspect metrics |
+
+Full per-kind tables: [KollectInventory](../crds/kollectinventory.md#status-conditions),
+[KollectTarget](../crds/kollecttarget.md#status-conditions),
+[KollectSnapshotSink](../crds/kollectsnapshotsink.md#status).
+
+## Symptom → cause quick reference
+
+| Symptom | Likely cause | Next step |
+| --- | --- | --- |
+| Export never runs | `SinkReachable=False` (`SinkNotFound` / `SinkUnreachable`) | Resolve the family sink in the inventory namespace and inspect Events. |
+| `ConnectionVerified=False` | Missing Secret, bad DSN, TLS failure | [Connection test](../examples/connection-test.md) |
+| Empty `status.itemCount` | Selector mismatch, suspended target, scope denied | [First inventory](../getting-started/first-inventory.md#if-it-didnt-work) |
+| Namespace skipped | Watch label or `OptIn` without `enabled` | [Annotations and labels](../ANNOTATIONS-LABELS.md) |
+| Postgres rows stale | Upsert-only drift or export error | [Postgres state store](../examples/postgres-state-store.md#troubleshooting) |
+| Fleet rows missing a cluster | Wrong or empty `spec.cluster` on inventory | [Multi-cluster fleet](../examples/multi-cluster-fleet.md) |
+| CR stopped working after upgrade | Pre-beta schema change | [Upgrading](upgrading.md) |
+
+## Diagnostic commands
+
+```sh
+# Pipeline status (short names — family sinks: ksnap/kdb/kevt)
+kubectl get kprof,ksnap,kdb,kevt,ktgt,kinv -n <namespace>
+kubectl describe kollectsnapshotsink <name> -n <namespace>
+kubectl describe kollectdatabasesink <name> -n <namespace>
+kubectl describe kollectinventory <name> -n <namespace>
+
+# Wait for sink probe (pick the family kind you installed)
+kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/<name> \
+  -n <namespace> --timeout=60s
+
+# Re-probe without editing spec
+kubectl annotate kollectdatabasesink <name> -n <namespace> \
+  kollect.dev/test-connection=true --overwrite
+
+# Operator logs
+kubectl -n kollect-system logs deployment/kollect-controller-manager -f --tail=200
+```
+
+More shortcuts: [Command reference](../COMMAND-REFERENCE.md).
+
+## Example troubleshooting guides
+
+| Scenario | Guide |
+| --- | --- |
+| First inventory pipeline on kind | [First inventory](../getting-started/first-inventory.md#if-it-didnt-work) |
+| Postgres DSN and delete reconciliation | [Postgres state store](../examples/postgres-state-store.md#troubleshooting) |
+| Helm / Argo Application attributes | [Helm release inventory](../examples/helm-release-inventory.md#troubleshooting) |
+| Sink connectivity probes | [Connection test](../examples/connection-test.md) |
+| Multi-tenant watch scope | [Multi-tenant watch namespaces](../examples/multi-tenant-watch-namespaces.md) |
+| Fleet rows / shared sink | [Multi-cluster fleet](../examples/multi-cluster-fleet.md) |
+| Missing `spec.cluster` partitioning | [Multi-cluster fleet](../examples/multi-cluster-fleet.md) |
+
+## When to escalate
+
+!!! warning "Pre-beta API"
+    `v1alpha1` fields may change without conversion webhook. Check [ROADMAP](../ROADMAP.md) before
+    production use.
+
+1. Collect `kubectl describe` output for sink, target, and inventory.
+2. Capture operator logs (sanitize Secrets before sharing).
+3. Note Helm `mode`, `tenantMode`, and `watchNamespaces` values.
+4. Open a GitHub issue with repro steps and condition JSON from `status.conditions`.
+
+## Common questions
+
+**Should I delete CRDs to fix an upgrade?** No. Apply the release CRDs before upgrading the
+controller; deleting them also deletes custom resources. Follow [Upgrading](upgrading.md).
+
+**Why did moving a sink break export?** Namespaced inventories resolve family sinks in their own
+namespace. Move or recreate the reference together, or use an appropriate cluster resource.
+
+**Does `exportMinInterval` delay every change?** It coalesces changes since the last successful
+export. The effective interval follows the precedence described in
+[Export pipeline and debouncing](../concepts/export-pipeline.md).
+
+**Is there a fleet hub?** No. Each cluster operator writes a cluster-partitioned record to a shared
+sink; see [Multi-cluster fleet](../concepts/multi-cluster.md).
+
+## FAQ links
+
+- [Error taxonomy](../adr/0602-error-taxonomy.md)
+- [CR reference](../crds/index.md) · [Performance tuning](performance.md)
+- [Operator manual](index.md) · [Production checklist](production-checklist.md)
+
+---
+
+<!-- Consolidated from the former docs/FAQ.md page. -->
+
+Symptom-oriented answers for platform operators running **Kollect**. For step-by-step install and
+upgrade, see [Operator manual](index.md). For pipeline walkthroughs, see
+[Examples](../examples/README.md).
+
+!!! tip "First checks"
+    When export stalls, run `kubectl describe` on the sink and inventory — `ConnectionVerified`,
+    `SinkReachable`, and `Synced` conditions usually pinpoint credential, namespace, or selector
+    issues before diving into controller logs.
+
+## Installation and upgrades
+
+### Why do CRD schema changes not apply on `helm upgrade`?
+
+Helm installs CRDs from `crds/` on first install but **does not upgrade them** on `helm upgrade`.
+Kollect documents an explicit two-step path: `kubectl apply -f dist/install-crds.yaml`, then
+`helm upgrade` ([ADR-0704](../adr/0704-helm-chart-crd-lifecycle.md),
+[Operator manual — Upgrade](upgrading.md)).
+
+### Should I delete CRDs to fix a schema mismatch?
+
+**No.** Deleting a CRD garbage-collects all custom resources. Apply the new CRD bundle instead;
+never delete CRDs in production.
+
+### What is the recommended per-team install?
+
+```yaml
+tenantMode: true
+watchNamespaces:
+  - team-a
+mode: single
+```
+
+See [Operator manual — Watch scope](index.md#watch-scope) and
+[Multi-tenant watch scope](../examples/multi-tenant-watch-namespaces.md).
+
+## Same-namespace references
+
+### Why does my inventory show `SinkNotFound` or `SinkReachable=False`?
+
+`KollectInventory` binds sinks via typed lists — `spec.snapshotSinkRefs`,
+`spec.databaseSinkRefs`, and/or `spec.eventSinkRefs` — naming family sink objects in the **same
+namespace** as the Inventory. Cross-namespace sink refs are not supported for namespaced inventory
+([ADR-0201](../adr/0201-crd-model.md), [ADR-0414](../adr/0414-sink-family-crds.md)).
+
+```sh
+kubectl get ksnap,kdb,kevt -n <inventory-namespace>
+kubectl describe kollectinventory <name> -n <inventory-namespace>
+```
+
+The same rule applies to `KollectTarget.spec.profileRef` → `KollectProfile` in the target namespace,
+and `KollectConnectionTest.spec.sinkRef` → a family sink in the test namespace.
+
+!!! warning "Same-namespace sink refs"
+    Create family sinks in the same namespace as `KollectInventory` before expecting export.
+    Cluster-wide rollup uses `KollectClusterInventory` with `spec.sinkNamespace` instead.
+
+### I moved the sink to another namespace — why did export stop?
+
+Update the matching `*SinkRefs` list on the Inventory to names in the **new** namespace, or recreate
+the Inventory in the sink namespace. The operator does not follow cross-namespace sink references for
+namespaced inventory.
+
+## SinkReachable and connection conditions
+
+### What is the difference between `ConnectionVerified` and `SinkReachable`?
+
+| Condition | Object | Meaning |
+| --- | --- | --- |
+| `ConnectionVerified` | Family sinks (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) | Last connectivity **probe** succeeded (credentials, TLS, network) |
+| `SinkReachable` | `KollectInventory` / `KollectTarget` | Export pipeline can resolve and reach the referenced sink |
+| `Synced` | `KollectInventory` / `KollectTarget` | Last export cycle completed successfully |
+
+A sink can show `ConnectionVerified=True` while inventory shows `SinkReachable=False` if the
+**name or namespace** in a `*SinkRefs` entry is wrong — fix the reference, not just credentials.
+
+### How do I re-test sink connectivity without editing the CR?
+
+Annotate the family sink for a one-shot probe ([ADR-0403](../adr/0403-connection-test.md)):
+
+```sh
+kubectl annotate kollectdatabasesink <name> -n <namespace> kollect.dev/test-connection=true --overwrite
+kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/<name> -n <namespace> --timeout=60s
+```
+
+Production manifests should keep `spec.connectionTest: false` and use the annotation for ad-hoc tests.
+
+### Export never runs — what should I check?
+
+| Symptom | Likely cause |
+| --- | --- |
+| `SinkReachable=False`, reason `SinkNotFound` | `*SinkRefs` name or namespace mismatch |
+| `SinkReachable=False`, reason `SinkUnreachable` | Backend down, bad DSN, or TLS failure — check `ConnectionVerified` on the sink |
+| `ConnectionVerified=False` | Missing `secretRef`, wrong Secret key, or unreachable endpoint |
+| `Synced=False` | Prior export failed — see manager logs and `Degraded` condition |
+| Empty `status.itemCount` | No resources match target selector, target suspended, or scope denied |
+
+Detailed table: [Deployment inventory — Troubleshooting](../getting-started/first-inventory.md#if-it-didnt-work).
+
+### Does `exportMinInterval` delay exports after a change?
+
+**No.** The interval debounces re-export of an **identical payload** only. A material change
+(payload checksum or `metadata.generation` bump) exports immediately per sink, regardless of the
+configured interval. Set `exportMinInterval: 0s` for *material-change only* semantics (typical for
+Kafka/NATS event sinks): instant export on change, identical payloads never re-sent. `0` and
+sub-second durations are valid (cap: 24h), but wake-ups floor at 1s, so anything below `1s` behaves
+like `0s`. See [DATA-FLOWS §1](../concepts/export-pipeline.md#1-export-debouncing) and
+[ADR-0413](../adr/0413-export-interval-scheduling.md).
+
+## Pre-beta expectations
+
+### Is Kollect safe for production today?
+
+!!! warning "Pre-beta API"
+    APIs and defaults may change until the first release candidate. `v1alpha1` has **no conversion
+    webhook** — schema changes may require CRD re-apply and CR updates
+    ([ADR-0206](../adr/0206-api-versioning-conversion.md), [ROADMAP](../ROADMAP.md)).
+
+Evaluate against your risk tolerance. Use pinned chart and image versions; read **Unreleased**
+notes in `CHANGELOG.md` before upgrading.
+
+### Why did my CR stop working after an upgrade?
+
+Pre-beta CRD fields can change without conversion. After upgrading CRDs (`install-crds.yaml`),
+validate sample manifests and `kubectl explain` for renamed or removed fields. Breaking changes use
+`feat!:` or `BREAKING CHANGE:` in commit messages ([CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md)).
+
+### Is the export JSON format stable?
+
+Sink payloads and Read API responses are moving toward a versioned envelope — today many exports
+emit a bare JSON array ([ADR-0405](../adr/0405-export-data-contract.md)). Plan downstream consumers for
+possible wrapper fields before `v1.0`.
+
+## Multi-cluster fleet
+
+### How do I inventory many clusters?
+
+**Default path:** run one Kollect operator per cluster with `mode: single` and export to a **shared sink**
+(Postgres, Kafka, NATS, Git) with **`spec.cluster`** set on inventory. The sink backend merges rows by
+cluster id — no central hub tier
+([ADR-0501](../adr/0501-multi-cluster-fleet.md), [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)).
+
+Walkthrough: [Multi-cluster fleet](../examples/multi-cluster-fleet.md).
+
+### Is there a `KollectHub` CRD?
+
+**No.** Hub/spoke runtime was removed in v0.3. Multi-cluster uses **N single-mode operators** exporting
+to a shared sink with `spec.cluster` ([ADR-0501](../adr/0501-multi-cluster-fleet.md)).
+
+## Performance and scope
+
+### My operator uses too much memory — what can I tune?
+
+Restrict `watchNamespaces`, use `tenantMode`, narrow `KollectTarget` selectors, and increase
+`exportMinInterval` on inventories. See [Performance tuning](performance.md) and
+[ADR-0603](../adr/0603-performance-scalability.md).
+
+### A namespace is skipped even though a target exists
+
+Check `kollect.dev/namespace-watch: disabled` on the namespace, `kollect.dev/watch: disabled` on
+resources, `watchMode: OptIn` without `enabled` labels, or `KollectScope` deny rules
+([ADR-0205](../adr/0205-watch-labels.md)).
+
+## Related
+
+- [Operator manual](index.md)
+- [Common errors](troubleshooting.md) — full catalog: conditions, metrics, and fixes
+- [CR reference](../crds/index.md) · [Error taxonomy](../adr/0602-error-taxonomy.md)
+- [Connection test](../adr/0403-connection-test.md) · [Examples](../examples/README.md)
+
+---
+
+<!-- Consolidated from the former docs/operator-manual/troubleshooting.md page. -->
 
 Symptom-oriented catalog for production failures in **Kollect** reconcilers, collection, and export.
 For error-class semantics and reconcile behavior, see [ADR-0602: Error taxonomy](../adr/0602-error-taxonomy.md)
@@ -114,7 +431,7 @@ Each row: what you see → likely cause → how to confirm → fix → escalate 
 | --- | --- | --- | --- | --- |
 | Inventory `Degraded`, `PayloadTooLarge` | Monolithic export &gt; ~1.5 MiB (`maxExportBytes`) | Condition message with byte counts; `kollect_sink_errors_total{reason="payload_too_large"}` | **Shard**: multiple `KollectInventory` per namespace (&lt;~2k rows each) | Architecture review for 10k+ row namespaces |
 | Inventory `Degraded`, `SpillRequired` | Large payload needs object-store spill, none configured | Reason `SpillRequired`; `spill_required` metric | Add `KollectSnapshotSink` type `s3` or `gcs` to inventory refs | — |
-| `ExportShardWarning=True` | ≥ ~1,800 rows in one namespace aggregate | Condition + `increase(kollect_export_shard_warn_total[1h])` | Split inventories **before** hard cap | See [scaling and fleet](scaling-and-fleet.md) |
+| `ExportShardWarning=True` | ≥ ~1,800 rows in one namespace aggregate | Condition + `increase(kollect_export_shard_warn_total[1h])` | Split inventories **before** hard cap | See [scaling and fleet](performance.md) |
 | `kollect_export_spill_warn_total` increasing | Payload ≥ 1 MiB warn threshold | Metric + log `export payload exceeds spill warn threshold` | Shard or tune `spec.maxExportBytes` (within global cap) | — |
 
 ### Export — sink backends
@@ -253,7 +570,7 @@ kubectl logs -n kollect-system deploy/kollect-controller-manager --tail=500 \
 
 - [ADR-0602: Error taxonomy](../adr/0602-error-taxonomy.md) — class definitions and reconcile rules
 - [Operator metrics](metrics.md) — full metric catalog and Prometheus Operator setup
-- [FAQ](../FAQ.md) — installation, same-namespace refs, connection conditions
+- [FAQ](troubleshooting.md) — installation, same-namespace refs, connection conditions
 - [Load test runbook](load-test-runbook.md) — scale diagnosis matrix and pprof
-- [Scaling and fleet](scaling-and-fleet.md) — export sharding and multi-cluster shared sinks
-- [Deployment inventory troubleshooting](../examples/deployment-inventory.md#troubleshooting) — first-check table for namespaced pipelines
+- [Scaling and fleet](performance.md) — export sharding and multi-cluster shared sinks
+- [Deployment inventory troubleshooting](../getting-started/first-inventory.md#if-it-didnt-work) — first-check table for namespaced pipelines

@@ -2,7 +2,7 @@
 
 !!! tip "Prerequisites"
     Platform cross-namespace collection requires cluster-scoped RBAC and labeled workload namespaces.
-    For team-scoped e2e, use [deployment-inventory.md](deployment-inventory.md) first.
+    For team-scoped e2e, use [deployment-inventory.md](../getting-started/first-inventory.md) first.
 
 A namespaced `KollectProfile` (in `kollect-system`) + `KollectClusterTarget` + `KollectClusterInventory`
 roll up platform-wide rows and export to sinks resolved per ref namespace.

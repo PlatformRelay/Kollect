@@ -117,7 +117,7 @@ export health belongs on reconciled objects:
 | **`SinkReachable`** | `KollectInventory`, `KollectTarget` | Family sink resolution before export |
 | **`Synced`** | `KollectInventory` | Export succeeded for a sink ref |
 
-See [Deployment inventory](deployment-inventory.md) for the full Profile → Target → Inventory →
+See [Deployment inventory](../getting-started/first-inventory.md) for the full Profile → Target → Inventory →
 family sink path.
 
 ## Related

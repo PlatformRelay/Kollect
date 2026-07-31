@@ -45,7 +45,7 @@ flowchart LR
 | Sinks | `spec.snapshotSinkRefs`, `spec.databaseSinkRefs`, `spec.eventSinkRefs` — names in same namespace |
 | Scope | When present, every sink must appear in the matching family list on `KollectScope` |
 
-Debouncing state machine: [DATA-FLOWS.md §1](../DATA-FLOWS.md#1-export-debouncing).
+Debouncing state machine: [concepts/export-pipeline.md §1](../concepts/export-pipeline.md#1-export-debouncing).
 
 !!! info "Effective interval precedence"
     For each family ref: **ref override** → **family sink `spec.exportMinInterval`** →
@@ -60,7 +60,7 @@ Debouncing state machine: [DATA-FLOWS.md §1](../DATA-FLOWS.md#1-export-debounci
     only*: instant export on change, no periodic re-export (a 30s status watchdog still requeues
     without exporting). Sub-second values (e.g. `500ms`) are accepted up to the **24h** cap, but
     requeue wake-ups floor at **1s** — prefer `0s`, which event sinks (Kafka/NATS) typically use.
-    Full semantics: [DATA-FLOWS §1](../DATA-FLOWS.md#1-export-debouncing).
+    Full semantics: [DATA-FLOWS §1](../concepts/export-pipeline.md#1-export-debouncing).
 
 !!! info "Export size ceiling precedence (per sink binding)"
     For each sink ref: **ref `maxExportBytes`** → **`spec.maxExportBytes`** → **operator global cap**
@@ -195,13 +195,13 @@ HTTP inventory read path (when enabled) requires caller SAR `get` on `kollectinv
 | Exports every 30s identical payload | Debounce working as designed | Lower `exportMinInterval` only if needed |
 | No export for minutes | Debounced identical checksum | Change inventory material (deploy patch) or wait interval |
 | Postgres empty table | Export not implemented / sink error | `kubectl logs -n kollect-system deploy/kollect-controller-manager` |
-| `RequeueAfter` in logs | Debounce wait | Normal — see [DATA-FLOWS](../DATA-FLOWS.md) timing example |
+| `RequeueAfter` in logs | Debounce wait | Normal — see [DATA-FLOWS](../concepts/export-pipeline.md) timing example |
 | HTTP endpoint unreachable | Feature gate off | Enable Helm `featureGates.inventoryHttp` **and** `spec.httpEndpoint.enabled` |
 
 ## See also
 
 - [KollectTarget](kollecttarget.md) · [KollectSnapshotSink](kollectsnapshotsink.md) · [KollectDatabaseSink](kollectdatabasesink.md) · [KollectEventSink](kollecteventsink.md) · [KollectScope](kollectscope.md)
 - [ADR-0414](../adr/0414-sink-family-crds.md)
-- [DATA-FLOWS.md](../DATA-FLOWS.md)
-- [examples/deployment-inventory.md](../examples/deployment-inventory.md)
+- [concepts/export-pipeline.md](../concepts/export-pipeline.md)
+- [getting-started/first-inventory.md](../getting-started/first-inventory.md)
 - [ADR-0602](../adr/0602-error-taxonomy.md) — error classes

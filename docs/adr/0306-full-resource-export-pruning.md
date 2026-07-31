@@ -249,7 +249,7 @@ Export row (conceptual):
 ### Negative
 
 - Payload size and Git diff noise increase — authors must opt in and tune `prune`.
-- Deep scrub walks add CPU per object; needs benchmarks in [PERFORMANCE.md](../PERFORMANCE.md).
+- Deep scrub walks add CPU per object; needs benchmarks in [operator-manual/performance.md](../operator-manual/performance.md).
 - Nested-object metrics and SQL column promotion need follow-up ([ADR-0304](0304-custom-resource-aggregation-rfc.md), [ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).
 
 ## Implementation phases

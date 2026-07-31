@@ -18,7 +18,7 @@ Write an ADR when a change affects **any** of:
 
 - CRD shape, validation, or conversion strategy
 - Sink/export contracts, security boundaries, or multi-cluster topology
-- Performance or cardinality assumptions documented in [PERFORMANCE.md](../PERFORMANCE.md)
+- Performance or cardinality assumptions documented in [operator-manual/performance.md](../operator-manual/performance.md)
 - Rejected scope (prevents re-litigation — see [ADR-0702](../adr/0702-doc-sync-templating.md))
 
 Small implementation details that follow an existing ADR belong in code comments or the CR reference —

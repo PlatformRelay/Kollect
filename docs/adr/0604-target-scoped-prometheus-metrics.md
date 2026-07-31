@@ -35,7 +35,7 @@ Prometheus as an export artifact. Platform teams still need **scrape-native** se
 `KollectTarget` / `KollectInventory` CR boundaries for alerting (e.g. “target X has zero collected
 objects”, “inventory Y export stale”). This ADR reconciles that need with the single-endpoint model
 and cardinality guardrails in [ADR-0603](0603-performance-scalability.md) and
-[PERFORMANCE.md](../PERFORMANCE.md).
+[operator-manual/performance.md](../operator-manual/performance.md).
 
 Future **scalar attribute export** (gauge/counter from individual numeric fields) is spec-only in
 [RFC: Prometheus metrics from collected attribute values](../rfc/prometheus-attribute-metrics.md) —
@@ -128,7 +128,7 @@ spec:
   current aggregate behavior for shared profiles.
 - **Labeled series:** `kollect_custom_resource_labeled_series` follows the same scope rule; attribute
   label keys remain admission-bounded (max 5 keys per `MetricSpec`, max distinct tuples documented in
-  PERFORMANCE.md).
+  operator-manual/performance.md).
 - **`object_count` series:** always emitted for the chosen scope (per ADR-0304 spike).
 
 **Forbidden by default:** `name`, `namespace`, or `uid` as Prometheus labels on domain metrics unless
@@ -198,7 +198,7 @@ metricRelabelings:
     action: drop
 ```
 
-Document in PERFORMANCE.md:
+Document in operator-manual/performance.md:
 
 - Scrape interval ≥ 30s when Tier C enabled (aligns with default export debounce).
 - `honorLabels: true` not required — kollect does not expose `target` Kubernetes labels on metrics.
@@ -265,4 +265,4 @@ below have passing tests.
 - [ADR-0603: Performance and scalability](0603-performance-scalability.md)
 - [ADR-0706: Testing and merge-gate architecture](0706-testing-merge-gate-architecture.md)
 - [Operator metrics](../operator-manual/metrics.md)
-- [PERFORMANCE.md](../PERFORMANCE.md)
+- [operator-manual/performance.md](../operator-manual/performance.md)

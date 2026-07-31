@@ -132,6 +132,6 @@ dispatch queue saturation (no dedicated log line — metric only).
 
 ## Related
 
-- [Scaling and fleet](scaling-and-fleet.md)
-- [PERFORMANCE.md](../PERFORMANCE.md)
+- [Scaling and fleet](performance.md)
+- [operator-manual/performance.md](../operator-manual/performance.md)
 - [ADR-0603](../adr/0603-performance-scalability.md)

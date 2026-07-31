@@ -10,7 +10,7 @@ recommended backend for portals and SQL analytics
 ([ADR-0402](../adr/0402-sink-backends-database-kafka.md),
 [ADR-0201](../adr/0201-crd-model.md)).
 
-Pair with [Deployment inventory](deployment-inventory.md) for the full Profile → Target →
+Pair with [Deployment inventory](../getting-started/first-inventory.md) for the full Profile → Target →
 Inventory pipeline, or apply only the sink + secret pieces here.
 
 ## Overview
@@ -60,7 +60,7 @@ EOF
 ```
 
 For local **kind** dev, apply the disposable Postgres manifest
-(`config/samples/dev/postgres.yaml` — see the [Quick start](../QUICKSTART.md)) or point at an
+(`config/samples/dev/postgres.yaml` — see the [Quick start](../getting-started/install.md)) or point at an
 external instance. Never commit real credentials to Git.
 
 ## Step 2 — KollectDatabaseSink
@@ -132,5 +132,5 @@ Integration coverage: `internal/sink/postgres/export_integration_test.go`.
 
 ## Related
 
-- [Deployment inventory](deployment-inventory.md) · [Connection test](connection-test.md)
+- [Deployment inventory](../getting-started/first-inventory.md) · [Connection test](connection-test.md)
 - [KollectDatabaseSink](../crds/kollectdatabasesink.md) · [ADR-0402](../adr/0402-sink-backends-database-kafka.md)

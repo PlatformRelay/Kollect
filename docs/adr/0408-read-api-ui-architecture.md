@@ -14,7 +14,7 @@ reconciler. For Kollect, a read-only UI (searchable resource catalog, export/fre
 multi-cluster rollup, attribute drift over time) is a higher-leverage adoption investment than more
 sink backends or advanced collection features.
 
-But Kollect has a tension Argo CD does not. Our thesis ([ARCHITECTURE.md](../ARCHITECTURE.md),
+But Kollect has a tension Argo CD does not. Our thesis ([concepts/architecture.md](../concepts/architecture.md),
 [REQUIREMENTS.md](../REQUIREMENTS.md)) is that consumers must **not** read the live kube-apiserver for
 inventory rows at scale — they read the durable export (the read model). A UI that hammers the apiserver
 for catalog data, or couples portal availability to the controller process, would violate that. Argo CD's
