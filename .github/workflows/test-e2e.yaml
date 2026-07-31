@@ -15,7 +15,8 @@ permissions:
 
 concurrency:
   group: test-e2e-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # HY-06: never cancel in-flight runs on main (would leave CI-UNKNOWN); PR runs still supersede.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   e2e-scenario:
