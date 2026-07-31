@@ -54,7 +54,7 @@ coverage profile.
 GitHub skips **CI** and **E2E smoke** when a PR or push to `main` changes *only* documentation
 paths (`docs/**`, `mkdocs.yml`, `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `LICENSE`, and
 issue templates). Other root Markdown files still trigger both workflows.
-The path-scoped **Docs** workflow runs `task lint:markdown` and `mkdocs build --strict`, then (on
+The path-scoped **Docs** workflow runs the complete `task docs:verify` gate, then (on
 `main` push) deploys to
 [platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/). Any change under
 `api/`, `internal/`, `charts/`, `cmd/`, `config/`, `hack/`, `ui/`, `test/`, `go.mod`, or
@@ -116,6 +116,7 @@ For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a 
 
 | Task | Purpose |
 | --- | --- |
+| `task docs:verify` | Tracked Markdown, truth/freshness contracts, samples, strict site build, and browser layout when Chrome is available |
 | `task test` | Unit + envtest (no floor check; no race detector) |
 | `task coverage` | Unit + envtest + 85% floor (CI; CGO off, no `-race`) |
 | `task coverage:race` | Same as coverage with race detector (local + nightly advisory) |
@@ -128,6 +129,11 @@ For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a 
 | `task perf-report` | Benchmark + unit pass summary (local only, gitignored output) |
 
 Full local setup: [development/setup.md](../development/setup.md).
+
+`task docs:verify` is the canonical local reproduction for the required Docs workflow. It skips
+only the real-browser layout check when Chrome/Chromium is unavailable. To reproduce CI's hard
+requirement exactly, run `DOCS_REQUIRE_CHROME=1 task docs:verify`; set `CHROME_BIN` when the browser
+is not on `PATH`.
 
 ## Definition of done
 

@@ -141,11 +141,15 @@ tasks:
       - task: arch-lint
 
   lint:markdown:
-    desc: Lint Markdown docs with markdownlint-cli2
+    desc: Lint tracked Markdown source with markdownlint-cli2
     cmds:
       - npm ci --prefix docs
-      - docs/node_modules/.bin/markdownlint-cli2 --config {{.MARKDOWNLINT_CONFIG}}
-      - bash hack/test/docs_launch_truth_test.sh
+      - git ls-files -z -- '*.md' | xargs -0 docs/node_modules/.bin/markdownlint-cli2 --config {{.MARKDOWNLINT_CONFIG}}
+
+  docs:verify:
+    desc: Run the complete documentation freshness and rendering gate
+    cmds:
+      - bash hack/docs/verify.sh
 
   lint:shell:
     desc: Lint shell scripts with ShellCheck v0.11.0
