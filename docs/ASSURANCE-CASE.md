@@ -1,96 +1,84 @@
 # Security assurance case
 
-This document synthesizes Kollect's security claims, trust boundaries, and countermeasures.
-It supports OpenSSF Best Practices **assurance_case** criteria and complements
-[ADR-0104](adr/0104-security-model.md) (architecture) and [SECURITY.md](https://github.com/platformrelay/kollect/blob/main/SECURITY.md)
-(disclosure policy).
+This assurance case summarizes why Kollect's security claims are credible and where they stop. The
+adopter-facing control description is [Security architecture and controls](security/security-architecture.md);
+the private-reporting process remains in [SECURITY.md](https://github.com/platformrelay/kollect/blob/main/SECURITY.md).
 
-**Last updated:** 2026-06-05
+**Last reviewed:** 2026-07-31 against implementation snapshot `65047b1ac`.
 
-## Claims and scope
+**Scope:** manager, pipeline CLI, CRDs and webhooks, Helm chart, sink transports, CI, and release flow.
 
-Kollect is a Kubernetes operator that reads selected cluster resources and exports
-aggregated inventory to external sinks. The operator runs with cluster credentials and
-must not leak secrets, exceed RBAC, or export data outside tenant boundaries.
+This is a structured engineering argument, not an external audit or certification.
 
-Security requirements are tracked as NFR-SEC in [REQUIREMENTS.md](REQUIREMENTS.md#43-security-nfr-sec):
+## Claims
 
-| ID | Requirement | Primary enforcement |
+| Claim | Argument | Primary evidence |
 | --- | --- | --- |
-| NFR-SEC-1 | Credentials only via `secretRef`; never in spec/status/logs | ADR-0104, ADR-0602, `logcheck` |
-| NFR-SEC-2 | Default verify TLS; `insecureSkipVerify` opt-in and surfaced | ADR-0104, sink validators |
-| NFR-SEC-3 | Tenancy via `KollectScope` + SAR; least-privilege RBAC | ADR-0203, ADR-0704, `task audit:rbac` |
-| NFR-SEC-4 | Sensitive-key redaction before export | ADR-0303, ADR-0405 |
-| NFR-SEC-5 | Nonroot image (UID 65532); minimal runtime deps (`git`/`openssh-client` for git CLI engine) | Dockerfile, ADR-0705 |
+| Kubernetes reads are bounded by authorization | Generated RBAC bounds manager list/watch; controller SSAR gates per-object processing; tenant mode and watch namespaces reduce breadth | `config/rbac/`, `internal/collect/access.go`, `internal/inventory/auth.go`, `hack/audit-rbac.sh` |
+| Tenant configuration cannot silently expand policy | `KollectScope`, admission, same-namespace references, and SAR checks layer application policy over Kubernetes RBAC | `internal/scope/`, `internal/validation/`, tenancy envtests |
+| Credentials need not appear in CR data | Sink credentials and CA material use `secretRef`; secret-like generic options are rejected; backends receive resolved data in memory | `api/v1alpha1/sink_common_types.go`, `internal/validation/sink_config.go`, sink constructors |
+| Exported data is minimized before leaving the manager | Secret-data paths are guarded; scrub keys and resource pruning run before rows reach sinks; status holds summaries and references | `internal/validation/profile.go`, `internal/collect/scrub.go`, ADR-0303, ADR-0405 |
+| Sink endpoints are treated as untrusted | Literal endpoint checks are repeated after DNS resolution at dial time; private reachability is default-off and always-blocked targets remain denied | `internal/validation/endpoint_guard.go`, `internal/sink/netguard/`, resolved-address tests |
+| The pod starts with a restrictive runtime profile | Helm defaults are non-root, seccomp `RuntimeDefault`, read-only root, no privilege escalation, dropped capabilities, and bounded ephemeral storage | `charts/kollect/values.yaml`, Helm unit tests |
+| Published artifacts can be traced to reviewed history | Release eligibility checks protected-main ancestry and required CI; artifacts are scanned, signed, checksummed, SBOM'd, and attested | `hack/release/verify-eligibility.sh`, `.github/workflows/release.yaml`, ADR-0705 |
 
-## Trust boundaries
+## Trust-boundary argument
 
 ```mermaid
-flowchart TB
-  subgraph cluster["Kubernetes cluster"]
-    API["Kubernetes API"]
-    CRDs["Kollect CRDs"]
-    Secrets["Secrets / ConfigMaps"]
-    Op["Kollect operator"]
-    Store["In-memory collect store"]
-    API --> Op
-    CRDs --> Op
-    Secrets --> Op
-    Op --> Store
-  end
-
-  subgraph external["External (untrusted network)"]
-    Sinks["Sinks — Git, S3, Postgres, Kafka/NATS"]
-    ReadAPI["Read API (optional, auth-gated)"]
-  end
-
-  Store -->|"redacted export contract"| Sinks
-  Store -->|"Bearer / mTLS"| ReadAPI
-
-  Tenant["Tenant namespace boundary"] -.-> Op
-  SAR["SubjectAccessReview"] -.-> Op
+flowchart LR
+  CR["Untrusted CR configuration"] -->|"admission + RBAC"| API["Kubernetes API"]
+  API -->|"RBAC-authorized watch/list<br/>per-object SSAR gate"| Manager["Kollect manager"]
+  Secret["Referenced Secrets"] -->|"scoped resolution"| Manager
+  Manager -->|"redact + bound"| Snapshot["Canonical in-memory rows"]
+  Snapshot -->|"NetGuard + configured transport"| Sink["External sink"]
+  Main["Protected main + required CI"] -->|"signed + attested release"| Deploy["Cluster operator"]
 ```
 
-| Boundary | Trust assumption | Controls |
-| --- | --- | --- |
-| **Operator ↔ Kubernetes API** | Apiserver is authentic; RBAC is correctly configured | Least-privilege ClusterRole/Role; SAR before cross-namespace reads |
-| **Operator ↔ Secrets** | Secret objects are readable only where RBAC allows | `secretRef` only; secrets resolved in reconciler, never logged |
-| **Operator ↔ Sinks** | Network path may be hostile | TLS verify by default; CA from secret/configmap; no skip for Git/hub |
-| **Tenant ↔ Tenant** | Namespaced inventories must not read foreign namespaces | `KollectScope`, watch namespace limits, SAR-gated degrade |
-| **Read API ↔ Client** | HTTP surface is optional and must be authenticated | Token/mTLS ([ADR-0404](adr/0404-inventory-api-auth.md)); off by default |
-| **Supply chain ↔ Adopter** | Registry and release artifacts may be tampered | cosign signatures, SPDX SBOM, SLSA provenance ([ADR-0705](adr/0705-release-supply-chain.md)) |
+The manager is trusted to enforce policy but is not treated as harmless: a compromise inherits the
+service account's readable objects, referenced sink credentials, and network reachability. The
+design therefore combines least privilege, access review, data minimization, endpoint controls,
+runtime restrictions, and verifiable delivery rather than relying on one boundary.
 
-## Threats and countermeasures
+## Countermeasure matrix
 
-| Threat | Impact | Countermeasure | Verification |
+| Threat | Preventive controls | Detective / verification controls | Residual risk |
 | --- | --- | --- | --- |
-| Cross-tenant data exfiltration | High | `KollectScope`, namespace-scoped watches, SAR checks | envtest tenancy tests; `task audit:rbac` |
-| Secret leakage to sinks/logs/status | Critical | Redaction at extraction (`scrubKeys`); no secret logging; status summaries only | Unit/golden tests; `logcheck`; CodeQL |
-| MITM on sink/cluster connections | High | TLS verify default; configurable CA; hub mTLS pattern | Integration tests; ADR-0503 |
-| Over-broad operator RBAC | High | Minimal verbs; tenant mode Role instead of ClusterRole | Rendered RBAC audit; Polaris/kubeaudit |
-| Compromised release artifact | High | cosign, SBOM, Trivy on release images | Release workflow; [SECURITY-REVIEW.md](SECURITY-REVIEW.md) |
-| Dependency CVE in build/runtime | Medium–High | `govulncheck` CI gate; Dependabot; SCA policy | CI `vulncheck` job; [SCA policy](security/sca-remediation-policy.md) |
-| Path traversal / injection via Git sink | Medium | Ref and path validators at admission and export | `internal/sink/git/validate.go` tests |
-| Unauthenticated Read API access | High | Auth required; feature-gated deployment | ADR-0404; API tests |
+| Cross-namespace or cross-tenant export | RBAC, SAR/SSAR, `KollectScope`, namespace limits | envtest denial paths, `task audit:rbac` | An authorized policy author can still select sensitive data |
+| Credential leakage | `secretRef`, inline secret-key rejection, scrubber, bounded status | logcheck, gitleaks, CodeQL, redaction tests | Key-based scrubbing cannot classify every business-sensitive value |
+| SSRF / metadata access | Admission endpoint guard, resolved-address NetGuard, metadata hostname and CIDR denials | netguard/admission matrices, connection tests | `allowPrivateSinks` intentionally exposes reachable private services |
+| MITM or wrong sink identity | TLS verification by default, CA references, SSH host-key verification | backend integration tests | Explicit insecure compatibility fields can weaken identity checks |
+| Privilege escalation through deployment | Non-root, seccomp, read-only root, no capabilities, audited RBAC | Helm tests, Polaris, kubeaudit | Cluster policy may allow an operator to override chart defaults |
+| Dependency or source compromise | Renovate, govulncheck, OSV, CodeQL, pinned Actions and scanner checksums | CI gates, OpenVEX and checked-in exception rationale | No scanner proves absence; accepted exceptions require periodic review |
+| Artifact substitution | protected-main release eligibility, cosign, checksums, SBOM, SLSA provenance | `cosign verify`, `gh attestation verify` | Trust still depends on GitHub/Sigstore identities and maintainer account security |
 
-## Residual risks
+## Evidence quality and limitations
 
-| Risk | Mitigation status | Owner action |
-| --- | --- | --- |
-| Solo maintainer (bus factor 1) | Documented in [GOVERNANCE.md](https://github.com/platformrelay/kollect/blob/main/GOVERNANCE.md) | Appoint co-maintainer when feasible |
-| Encryption-at-rest for external sinks | **Recommended**, not enforced by operator | Adopter configures Postgres/S3 encryption |
-| Built-in secret-leak scanner on payloads | Open question (ADR-0104) | Defense-in-depth beyond `scrubKeys` |
-| Hub plain HTTP inside pod | TLS terminated at ingress/mesh | Documented in ADR-0503; deployer responsibility |
+- Unit, envtest, integration, Helm, smoke, and release-script tests are stronger evidence than prose.
+- CI results prove the checked revision passed configured gates; they do not prove production
+  configuration or runtime behavior.
+- `task audit:rbac` checks generated manifests for dangerous permissions but cannot determine which
+  arbitrary workload GVKs an adopter will grant.
+- NetGuard constrains address classes and DNS rebinding; it does not authenticate an allowed
+  private service.
+- The chart does not ship a sink-aware egress `NetworkPolicy`. Deployers must provide one.
+- External-sink encryption at rest, retention, deletion, backup, service authorization, and
+  credential rotation remain adopter responsibilities.
+- The optional read API adds a network surface when enabled; it is off by default and uses
+  Kubernetes authentication by default, while a development-only disabled-auth mode also exists.
+- Validating webhooks are enabled by default; disabling them removes the admission-time controls
+  from this argument.
 
 ## Evidence and review cadence
 
-| Artifact | Location |
+| Evidence | Location |
 | --- | --- |
-| Security architecture ADR | [ADR-0104](adr/0104-security-model.md) |
-| Operator guidelines | [guidelines § 3](development/guidelines.md#3-security) |
-| Self security review (2026-06-05) | [SECURITY-REVIEW.md](SECURITY-REVIEW.md) |
-| VEX / vulnerability exceptions | [docs/security/vex.json](security/vex.json) |
-| SCA remediation SLAs | [SCA policy](security/sca-remediation-policy.md) |
+| Security controls and verification | [Security architecture and controls](security/security-architecture.md) |
+| Dated review and open findings | [Security review](SECURITY-REVIEW.md) |
+| Core security decision | [ADR-0104](adr/0104-security-model.md) |
+| Resolved-address enforcement | [Resolved-address policy](security/resolved-address-policy.md) |
+| Vulnerability and license handling | [SCA remediation policy](security/sca-remediation-policy.md) |
+| VEX dispositions | [OpenVEX](security/vex.json) |
+| Release verification | [Release guide](RELEASE.md#verify-after-release) |
 
-Revisit this assurance case when adding sink backends, changing tenancy, or after a
-security review or incident.
+Re-review this case after changes to RBAC, tenancy, sensitive-data handling, endpoint policy, sink
+transports, runtime security context, CI permissions, or release publication.

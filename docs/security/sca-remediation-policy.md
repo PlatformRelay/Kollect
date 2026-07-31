@@ -19,7 +19,7 @@ remediate them (per OSPS recommendation).
 | --- | --- |
 | **VM-05.01** | Threshold table below — severity bands, calendar-day SLAs, license classes |
 | **VM-05.02** | [Pre-release gates](#enforcement-model) — Trivy + SBOM review before `v*.*.*` tags |
-| **VM-05.03** | `govulncheck` on every push/PR; violations block merge in practice via CI signal and maintainer policy (see [Enforcement model](#enforcement-model)) |
+| **VM-05.03** | `govulncheck` on code-affecting pushes and PRs; violations block merge in practice via CI signal and maintainer policy (see [Enforcement model](#enforcement-model)) |
 
 !!! note "Scope"
     Secret scanning (`gitleaks`) and Go SAST (golangci-lint, CodeQL) run in the same CI pipeline but
@@ -27,7 +27,7 @@ remediate them (per OSPS recommendation).
 
 ## Remediation thresholds
 
-**Clock starts** when a finding is first reported by govulncheck, a Dependabot alert, Trivy, or manual
+**Clock starts** when a finding is first reported by govulncheck, a GitHub advisory alert, Trivy, or manual
 SBOM/license review — whichever occurs first.
 
 ### Vulnerability findings
@@ -39,7 +39,7 @@ Severity follows the [Go vulnerability database](https://vuln.go.dev/) and GitHu
 | --- | --- | --- | --- |
 | **Critical** | ≥ 9.0; RCE in reachable operator or UI path | **7 calendar days** | Treat as release blocker; escalate issue |
 | **High** | 7.0–8.9; auth bypass, significant exposure | **30 calendar days** | Same |
-| **Medium** | 4.0–6.9; limited or hard-to-trigger impact | **90 calendar days** | Track in Dependabot/issue |
+| **Medium** | 4.0–6.9; limited or hard-to-trigger impact | **90 calendar days** | Track in a security issue |
 | **Low** | &lt; 4.0; defense-in-depth | **Next minor release** | Best-effort advisory |
 
 **Zero-tolerance gates** (no SLA — must be fixed or excepted before merge/release):
@@ -72,11 +72,12 @@ These tools **find** SCA findings; remediation deadlines are in the table above.
 
 | Tool | Finds | When | Workflow |
 | --- | --- | --- | --- |
-| [**govulncheck**](https://go.dev/security/vuln/) | Known Go CVEs in **imported** packages | Every push and PR | [`ci.yaml` job **vulncheck**](https://github.com/platformrelay/kollect/blob/main/.github/workflows/ci.yaml) · `task vulncheck` |
-| [**Dependabot**](https://docs.github.com/en/code-security/dependabot) | Advisory DB alerts; update PRs for `go.mod` and Actions | Continuous + weekly | [`.github/dependabot.yml`](https://github.com/platformrelay/kollect/blob/main/.github/dependabot.yml) |
+| [**govulncheck**](https://go.dev/security/vuln/) | Known Go CVEs in **imported** packages | Code-affecting push / PR | [`ci.yaml` job **vulncheck**](https://github.com/platformrelay/kollect/blob/main/.github/workflows/ci.yaml) · `task vulncheck` |
+| **GitHub advisory alerts + Renovate** | Advisory detection plus scheduled dependency-update PRs | Continuous + scheduled | [Renovate workflow](https://github.com/platformrelay/kollect/blob/main/.github/workflows/renovate.yaml) |
+| **OSV Scanner** | Dependency inventory advisories; checked-in reviewed exceptions | Maintainer audit | [`osv-scanner.toml`](https://github.com/platformrelay/kollect/blob/main/osv-scanner.toml) |
 | [**Trivy**](https://github.com/aquasecurity/trivy) | Fixable CRITICAL/HIGH in release images | On `v*.*.*` tag | [`release.yaml`](https://github.com/platformrelay/kollect/blob/main/.github/workflows/release.yaml) |
-| **Release SBOM** | SPDX inventory for license review | On release | `sbom.spdx.json` / `sbom-ui.spdx.json` ([ADR-0705](../adr/0705-release-supply-chain.md)) |
-| **`depguard` / `gomodguard`** | Blocklisted imports and modules (`logrus`, `pkg/errors`, …) | Every push and PR | `task lint` in [`ci.yaml`](https://github.com/platformrelay/kollect/blob/main/.github/workflows/ci.yaml) |
+| **Release SBOM** | SPDX inventory for license review | On release | Operator, pipeline, and UI SBOMs ([ADR-0705](../adr/0705-release-supply-chain.md)) |
+| **`depguard` / `gomodguard`** | Blocklisted imports and modules (`logrus`, `pkg/errors`, …) | Code-affecting push / PR | `task lint` in [`ci.yaml`](https://github.com/platformrelay/kollect/blob/main/.github/workflows/ci.yaml) |
 
 Contributors run `task vulncheck` locally before opening a PR.
 
@@ -87,17 +88,17 @@ review provide audit evidence until then.
 
 When a finding is open, address in this order:
 
-1. **Upgrade** — bump module or transitive (`go get`, Dependabot security PR).
+1. **Upgrade** — bump the direct module or the transitive parent; prefer an automated update PR.
 2. **Replace** — swap to a maintained alternative if upstream has no fix.
 3. **Remove** — drop unused dependency (`go mod tidy`; re-run `govulncheck`).
 4. **Defer** — documented exception with expiry (see below); does not override Trivy release gates.
 
 **Prioritization** when multiple findings are open:
 
-1. Critical / High with known fixes (govulncheck failures, Dependabot security PRs).
+1. Critical / High with known fixes (govulncheck failures, advisory alerts, update PRs).
 2. Deny-class licenses on direct dependencies.
 3. Medium vulnerabilities and Review-class licenses pending compatibility analysis.
-4. Low severity and version-update hygiene (Dependabot grouped PRs).
+4. Low severity and version-update hygiene (Renovate update PRs).
 
 ## Enforcement model
 
@@ -107,13 +108,14 @@ Be explicit about what automation **blocks** vs what maintainers **track** under
 | --- | --- | --- | --- |
 | **Reachable Go CVEs** | `govulncheck` CI job | No (not a required branch check) — **red job + maintainer policy**; contributors MUST fix before merge | Yes — release only from green CI on tag commit |
 | **Blocklisted modules** | `depguard` / `gomodguard` in `task lint` | Same as vulncheck (CI signal) | Same |
-| **Dependabot advisories** | GitHub alerts + security PRs | No — **SLA-tracked** (7 / 30 / 90 days by severity) | Reviewed before tag |
-| **Image CVEs** | Trivy on `ghcr.io/platformrelay/kollect` (+ UI) | N/A | **Yes** — fixable CRITICAL/HIGH fails release workflow |
+| **Dependency advisories** | GitHub alerts, OSV, and update PRs | No — **SLA-tracked** (7 / 30 / 90 days by severity) | Reviewed before tag |
+| **Image CVEs** | Trivy on operator, pipeline, and UI images | N/A | **Yes** — fixable CRITICAL/HIGH fails release workflow |
 | **License (Deny)** | Manual / SBOM review + lint blocklists | Maintainer blocks merge | SBOM spot-check before tag |
 
-GitHub branch protection requires **`preflight`** and **`test`** only
-([CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md)). All other CI jobs (including **vulncheck** and **lint**)
-run on every PR; maintainers treat failing SCA jobs as merge blockers even when not branch-protected.
+GitHub branch protection requires a subset of named checks
+([CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md)). Other
+code-affecting CI jobs, including **vulncheck** and **lint**, are maintainer-policy merge blockers.
+Some code jobs are path-filtered for docs-only changes.
 
 ### Pre-release checklist (OSPS-VM-05.02)
 
@@ -139,7 +141,8 @@ Record in **one** of:
 
 - GitHub issue labeled `security` (preferred for time-bound CVE deferrals);
 - ADR in `docs/adr/` (policy-level or long-lived);
-- [SECURITY.md § Exceptions](https://github.com/platformrelay/kollect/blob/main/SECURITY.md) (short-lived govulncheck suppressions only).
+- [OpenVEX](vex.json) plus the relevant checked-in scanner configuration (product disposition);
+- [SECURITY.md § VEX](https://github.com/platformrelay/kollect/blob/main/SECURITY.md) (policy summary).
 
 ### Valid deferral reasons
 
@@ -154,7 +157,7 @@ Deferrals do **not** override **Trivy** release gates for fixable CRITICAL/HIGH 
 | Role | Responsibility |
 | --- | --- |
 | **Contributors** | Run `task vulncheck`; do not introduce Deny-class licenses; open issues for deferrals |
-| **Maintainer** | Triage Dependabot alerts within SLA; do not merge red vulncheck/lint; approve deferrals |
+| **Maintainer** | Triage dependency alerts within SLA; do not merge red vulncheck/lint; approve deferrals |
 | **Release manager** | Verify Trivy + SBOM gates before `v*.*.*` tags |
 
 ## Related documents
@@ -162,7 +165,7 @@ Deferrals do **not** override **Trivy** release gates for fixable CRITICAL/HIGH 
 - [SECURITY.md](https://github.com/platformrelay/kollect/blob/main/SECURITY.md) — disclosure, scanning overview, exception stub
 - [Coding standards § Security](../development/coding-standards.md#security) — contributor CI gates
 - [ADR-0104: Security model](../adr/0104-security-model.md) — runtime threat model
-- [ADR-0705: Release supply chain](../adr/0705-release-supply-chain.md) — SBOM, Trivy, Dependabot
+- [ADR-0705: Release supply chain](../adr/0705-release-supply-chain.md) — SBOM, Trivy, Renovate
 - [ADR-0706: Testing merge gates](../adr/0706-testing-merge-gate-architecture.md) — CI job matrix
 
 ## Revision history
@@ -171,3 +174,4 @@ Deferrals do **not** override **Trivy** release gates for fixable CRITICAL/HIGH 
 | --- | --- |
 | 2026-06-05 | Initial policy (OSPS-VM-05.01) |
 | 2026-06-05 | OSPS mapping, unified thresholds, detection vs enforcement split |
+| 2026-07-31 | Align Renovate, OSV/OpenVEX exceptions, and three-image release evidence |

@@ -25,8 +25,10 @@ operator how-to; this ADR is the rationale.
 
 - **Multi-arch** `linux/amd64,linux/arm64` via buildx; pushed to **GHCR**:
   - Operator: `ghcr.io/<owner>/kollect`
+  - Pipeline CLI: `ghcr.io/<owner>/kollect-pipeline`
   - UI SPA: `ghcr.io/<owner>/kollect-ui` ([ADR-0409](0409-kollect-ui-deployment.md))
-- **Distroless, non-root** runtime base for the operator ([ADR-0101](0101-kubebuilder-v4.md)); UI uses nginx alpine static server.
+- **Non-root** runtime for the operator (Debian slim with the Git/OpenSSH tools required by the Git
+  backend); UI uses an nginx alpine static server.
 
 ### Supply-chain attestations (binding)
 
@@ -38,7 +40,7 @@ operator how-to; this ADR is the rationale.
    bundles for OpenSSF Scorecard).
 4. **Attestations** — **`actions/attest`** publishes SLSA provenance and SPDX SBOM attestations to GHCR
    and the repository attestations API; release-level provenance is exported as `release-provenance.intoto.jsonl`.
-5. **Vulnerability gate** — **Trivy** scans both release images and **fails the release** on fixable
+5. **Vulnerability gate** — **Trivy** scans all three release images and **fails the release** on fixable
    `CRITICAL`/`HIGH` (`ignore-unfixed: true`).
 
 ### Action hardening
@@ -50,14 +52,15 @@ operator how-to; this ADR is the rationale.
 
 Each GitHub Release publishes: `install-crds.yaml` and `install.yaml` (kubectl install paths —
 [ADR-0704](0704-helm-chart-crd-lifecycle.md)), the Helm chart `.tgz` **also pushed as OCI** to GHCR,
-`sbom.spdx.json`, `sbom-ui.spdx.json`, `checksums.txt`, per-asset `*.sigstore.json` bundles, and
-`release-provenance.intoto.jsonl`.
+`sbom.spdx.json`, `sbom-pipeline.spdx.json`, `sbom-ui.spdx.json`, `checksums.txt`, per-asset
+`*.sigstore.json` bundles, and `release-provenance.intoto.jsonl`.
 
 ## Consequences
 
 - Adopters can `cosign verify` by digest and inspect the SBOM before deploying — trust is verifiable.
 - A new fixable CRITICAL/HIGH CVE blocks the release until the base/deps are bumped (intentional friction).
-- SHA-pinned actions mean Dependabot/maintenance keeps the pipeline current; stale pins are a known cost.
+- SHA-pinned actions mean Renovate and maintainer review keep the pipeline current; stale pins are a
+  known cost.
 - Tag-driven releases keep `main` always-releasable ([ADR-0201](0201-crd-model.md)).
 
 ## OpenSSF Scorecard follow-ups
@@ -88,7 +91,7 @@ human reviewer.
 | SAST | 9→10 | **Done** | CodeQL on every push/PR to `main` (no `paths-ignore`) + golangci-lint / govulncheck |
 | Vulnerabilities | 0 | **Open** | Re-score after docs dep bumps (`click`/`pillow`); OSV may still flag `x/crypto/openpgp` |
 | Security-Policy | 10 | **Done** | `SECURITY.md` |
-| Dependency-Update-Tool | 10 | **Done** | Dependabot |
+| Dependency-Update-Tool | 10 | **Done** | Renovate |
 | Binary-Artifacts | 10 | **Done** | No committed binaries |
 | License | 10 | **Done** | MIT |
 | Code-Review | 0 high | **Deferred** | Solo maintainer; non-author APPROVE deliberately not required (2026-07-30) |

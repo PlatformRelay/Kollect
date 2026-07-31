@@ -2,7 +2,22 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/platformrelay/kollect/blob/main/docs/security/vex.json",
   "author": "Konrad Heimel <konrad.heimel@gmail.com>",
-  "timestamp": "2026-06-05T00:00:00Z",
-  "version": 1,
-  "statements": []
+  "timestamp": "2026-07-31T00:00:00Z",
+  "version": 2,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "GO-2026-5932"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/platformrelay/kollect@0.10.0"
+        }
+      ],
+      "timestamp": "2026-07-31T00:00:00Z",
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "Kollect does not import or call golang.org/x/crypto/openpgp. govulncheck reports zero called vulnerabilities; the package is present only in the module graph and has no upstream fixed version. Re-review by 2026-10-29 or sooner if the import graph changes."
+    }
+  ]
 }
