@@ -125,6 +125,72 @@ spec:
 	}
 }
 
+func TestCollectCmd_stdoutAndDryRunMutuallyExclusive(t *testing.T) {
+	t.Parallel()
+
+	cmd, _ := newCollectCmd()
+	cmd.SetArgs([]string{"--config", writeValidConfigDir(t), "--output", "-", "--dry-run"})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error: --output - and --dry-run are mutually exclusive, got nil")
+	}
+}
+
+func TestCollectCmd_formatWithNonStdoutOutputIsError(t *testing.T) {
+	t.Parallel()
+
+	cmd, _ := newCollectCmd()
+	cmd.SetArgs([]string{"--config", writeValidConfigDir(t), "--output", t.TempDir(), "--format", "yaml"})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error: --format applies only with --output -, got nil")
+	}
+}
+
+func TestCollectCmd_invalidFormatIsError(t *testing.T) {
+	t.Parallel()
+
+	cmd, _ := newCollectCmd()
+	cmd.SetArgs([]string{"--config", writeValidConfigDir(t), "--output", "-", "--format", "toml"})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error: invalid --format toml, got nil")
+	}
+}
+
+func TestCollectCmd_stdoutAndSinkYAMLAreAmbiguous(t *testing.T) {
+	t.Parallel()
+
+	dir := writeValidConfigDir(t)
+	sinkYAML := `apiVersion: kollect.dev/v1alpha1
+kind: KollectSnapshotSink
+metadata:
+  name: s1
+  namespace: default
+spec:
+  type: local
+  pathTemplate: "{namespace}/{name}.yaml"
+`
+	if err := os.WriteFile(filepath.Join(dir, "sink.yaml"), []byte(sinkYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd, _ := newCollectCmd()
+	cmd.SetArgs([]string{"--config", dir, "--output", "-", "--kubeconfig", writeFixtureKubeconfig(t)})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error: --output - and Sink YAML are ambiguous, got nil")
+	}
+}
+
 func TestMapContextResultsToExit_allSucceeded(t *testing.T) {
 	t.Parallel()
 

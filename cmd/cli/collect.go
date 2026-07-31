@@ -61,14 +61,28 @@ func runCollect(cmd *cobra.Command, flags *collectFlags) (int, error) {
 		return ExitFatalError, fmt.Errorf("invalid --log-level %q: must be one of debug|info|warn|error", flags.logLevel)
 	}
 
+	format, err := pipeline.ParseStdoutFormat(flags.format)
+	if err != nil {
+		return ExitFatalError, err
+	}
+
+	stdoutMode := flags.output == pipeline.StdoutSentinel
+	if stdoutMode && flags.dryRun {
+		return ExitFatalError, fmt.Errorf("--output - (stdout) and --dry-run are mutually exclusive")
+	}
+
+	if cmd.Flags().Changed("format") && !stdoutMode {
+		return ExitFatalError, fmt.Errorf("--format applies only with --output - (stdout export)")
+	}
+
 	setLoggerOnce.Do(func() {
 		ctrl.SetLogger(zap.New(zap.Level(level)))
 	})
 
-	return runCollectPipeline(cmd, flags)
+	return runCollectPipeline(cmd, flags, format)
 }
 
-func runCollectPipeline(cmd *cobra.Command, flags *collectFlags) (int, error) {
+func runCollectPipeline(cmd *cobra.Command, flags *collectFlags, format pipeline.StdoutFormat) (int, error) {
 	loaded, err := pipeline.LoadConfig(flags.config)
 	if err != nil {
 		return ExitFatalError, err
@@ -105,6 +119,20 @@ func runCollectPipeline(cmd *cobra.Command, flags *collectFlags) (int, error) {
 
 	results := pipeline.RunAllContexts(cmd.Context(), contexts, kubeconfigPath, loaded,
 		sinkSpec, secretData, sink.NewRegistry(), nil, flags.dryRun)
+
+	// Stdout export: data-only records go to stdout in context+target order; logs, warnings,
+	// and the per-context errors below all go to stderr, so a consumer can pipe stdout to a
+	// parser untouched. A write/marshal failure here is a fatal output error (exit 2).
+	if pipeline.IsStdoutSink(sinkSpec) {
+		var records []pipeline.StdoutRecord
+		for _, r := range results {
+			records = append(records, r.Records...)
+		}
+
+		if err := pipeline.WriteStdoutRecords(cmd.OutOrStdout(), format, records); err != nil {
+			return ExitFatalError, err
+		}
+	}
 
 	for _, r := range results {
 		if r.Fatal != nil {
