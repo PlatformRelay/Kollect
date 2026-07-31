@@ -34,53 +34,63 @@ func (s *inventoryNamespaceSource) Start(
 	ctx context.Context,
 	queue workqueue.TypedRateLimitingInterface[reconcile.Request],
 ) error {
+	// controller-runtime's source contract requires Start to arm the watch
+	// and return promptly: it waits for every raw-source Start to RETURN
+	// before starting the controller's workers. A blocking Start here stalls
+	// worker startup for the namespaced KollectInventory controller (DR-FIND-01).
 	if s == nil || s.store == nil || s.reader == nil {
-		<-ctx.Done()
-
 		return nil
 	}
 
+	// Subscribe synchronously on the caller's goroutine, BEFORE returning, so
+	// notifications fired between Start returning and the loop goroutine
+	// starting are not lost.
 	ch := s.store.SubscribeNamespaces()
-	defer s.store.UnsubscribeNamespaces(ch)
 
-	var (
-		mu      sync.Mutex
-		pending = make(map[string]struct{})
-	)
+	go func() {
+		defer s.store.UnsubscribeNamespaces(ch)
 
-	flush := func() {
-		mu.Lock()
-		namespaces := pending
-		pending = make(map[string]struct{})
-		mu.Unlock()
+		var (
+			mu      sync.Mutex
+			pending = make(map[string]struct{})
+		)
 
-		for ns := range namespaces {
-			for _, req := range inventoriesInNamespace(ctx, s.reader, ns) {
-				queue.Add(req)
+		flush := func() {
+			mu.Lock()
+			namespaces := pending
+			pending = make(map[string]struct{})
+			mu.Unlock()
+
+			for ns := range namespaces {
+				for _, req := range inventoriesInNamespace(ctx, s.reader, ns) {
+					queue.Add(req)
+				}
 			}
 		}
-	}
 
-	timer := time.NewTimer(0)
-	if !timer.Stop() {
-		<-timer.C
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-
-			return nil
-		case ns := <-ch:
-			mu.Lock()
-			pending[ns] = struct{}{}
-			mu.Unlock()
-			timer.Reset(storeCoalesceDelay)
-		case <-timer.C:
-			flush()
+		timer := time.NewTimer(0)
+		if !timer.Stop() {
+			<-timer.C
 		}
-	}
+
+		for {
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+
+				return
+			case ns := <-ch:
+				mu.Lock()
+				pending[ns] = struct{}{}
+				mu.Unlock()
+				timer.Reset(storeCoalesceDelay)
+			case <-timer.C:
+				flush()
+			}
+		}
+	}()
+
+	return nil
 }
 
 func inventoriesInNamespace(

@@ -85,19 +85,21 @@ func TestNewInventoryStoreSource_nonNil(t *testing.T) {
 	}
 }
 
-func TestInventoryStoreSourceStart_nilDependenciesWaitsForCancel(t *testing.T) {
+// DR-FIND-01: Start must not block. With nil dependencies it must return nil
+// promptly WITHOUT waiting for the context to be cancelled. The context here is
+// deliberately never cancelled — the old blocking implementation (<-ctx.Done())
+// would hang forever and fail the timeout guard.
+func TestInventoryStoreSourceStart_nilDependenciesReturnsPromptly(t *testing.T) {
 	t.Parallel()
 
 	src := &inventoryNamespaceSource{}
 	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	defer queue.ShutDown()
 
-	testCtx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- src.Start(testCtx, queue)
+		done <- src.Start(context.Background(), queue)
 	}()
-	cancel()
 
 	select {
 	case err := <-done:
@@ -105,10 +107,16 @@ func TestInventoryStoreSourceStart_nilDependenciesWaitsForCancel(t *testing.T) {
 			t.Fatalf("Start() error = %v", err)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("Start() did not return after context cancellation")
+		t.Fatal("Start() blocked with an un-cancelled context; it must return promptly")
 	}
 }
 
+// DR-FIND-01: Start must RETURN (non-blocking) after arming the watch, while a
+// background goroutine keeps delivering. Calling Start directly on the test
+// goroutine (no manual `go func`, no pre-Upsert sleep) is the discriminator: the
+// old blocking loop would hang here and never reach the Upsert. Because the
+// subscription is armed synchronously inside Start before it returns, the Upsert
+// issued immediately afterwards is still delivered.
 func TestInventoryStoreSourceStart_enqueuesInventoryRequests(t *testing.T) {
 	t.Parallel()
 
@@ -128,12 +136,16 @@ func TestInventoryStoreSourceStart_enqueuesInventoryRequests(t *testing.T) {
 	defer queue.ShutDown()
 
 	testCtx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() {
-		done <- src.Start(testCtx, queue)
-	}()
-	time.Sleep(25 * time.Millisecond)
+	defer cancel()
 
+	// Start must return promptly; if it blocks, the test deadlocks here — which
+	// is exactly the production defect this test guards against.
+	if err := src.Start(testCtx, queue); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	// No sleep: the subscription is armed synchronously before Start returned,
+	// so this notification must still reach the background goroutine.
 	store.Upsert(collect.Item{
 		TargetNamespace: "team-a",
 		TargetName:      "target-a",
@@ -145,13 +157,6 @@ func TestInventoryStoreSourceStart_enqueuesInventoryRequests(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	if queue.Len() == 0 {
-		cancel()
-		<-done
-		t.Fatal("queue did not receive inventory reconcile request")
-	}
-
-	cancel()
-	if err := <-done; err != nil {
-		t.Fatalf("Start() error = %v", err)
+		t.Fatal("queue did not receive inventory reconcile request after Start returned")
 	}
 }
