@@ -13,8 +13,8 @@ New readers: [REQUIREMENTS.md](../REQUIREMENTS.md) → theme **02** (CRD model) 
 
 ## Five ADRs that explain Kollect
 
-Start here if forty-eight ADRs feels like a wall. Each stands alone; together they tell the product
-story an adopter needs.
+Start here if the full ADR index feels like a wall. Each stands alone; together they tell the
+product story an adopter needs.
 
 | ADR | Why read it |
 | --- | --- |
@@ -115,7 +115,7 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 
 | ADR | Title | Status |
 | --- | --- | --- |
-| [0801](0801-pipeline-cli-mode.md) | Pipeline CLI mode — kubeconfig-based collection without operator deployment | Exploring |
+| [0801](0801-pipeline-cli-mode.md) | Pipeline CLI mode — kubeconfig-based collection without operator deployment | Accepted |
 
 ---
 

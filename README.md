@@ -42,8 +42,9 @@ data**, never unbounded list/watch against the live cluster.
 **Read the docs:** **[platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/)** — architecture,
 quick start, CR reference, ADRs, and examples. This README is the front door; the site is the map.
 
-> **Pre-beta.** APIs and defaults may change until the first release candidate. See the
-> [roadmap](https://platformrelay.github.io/Kollect/ROADMAP/) for current status.
+> **Pre-1.0.** Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor
+> releases before 1.0; release notes and migration guidance call them out. See the
+> [roadmap](https://platformrelay.github.io/Kollect/ROADMAP/) for current maturity.
 
 ## Why Kollect?
 
@@ -59,8 +60,8 @@ quick start, CR reference, ADRs, and examples. This README is the front door; th
   may use.
 - **Fleet-ready** — **N single-mode operators → one shared sink**, partitioned by `spec.cluster`; no
   central hub tier to operate ([ADR-0501](https://platformrelay.github.io/Kollect/adr/0501-multi-cluster-fleet/)).
-- **Built for scale** — a **10,000-row baseline validated in CI**, a **100,000-row design target**
-  per cluster with export sharding, plus tunable reconcile/dispatch concurrency
+- **Scale-aware architecture** — shared informers, export sharding, and tunable
+  reconcile/dispatch concurrency; the performance guide separates measured evidence from targets
   ([performance](https://platformrelay.github.io/Kollect/PERFORMANCE/)).
 
 ## See it end-to-end
@@ -137,9 +138,9 @@ for release timing.
 | `KollectSnapshotSink` | `gcs` | **Beta** — shipped, maturing |
 | `KollectDatabaseSink` | `postgres` | **Core** |
 | `KollectDatabaseSink` | `mongodb` | **Beta** |
-| `KollectDatabaseSink` | `bigquery` | **Beta** — analytics SQL; v0.7.x hardening |
+| `KollectDatabaseSink` | `bigquery` | **Beta** — analytics SQL |
 | `KollectEventSink` | `kafka` | **Beta** |
-| `KollectEventSink` | `nats` | **Beta** — JetStream emitter; v0.7.x hardening |
+| `KollectEventSink` | `nats` | **Beta** — JetStream emitter |
 | `KollectSnapshotSink` | `azureblob` | **Planned** — needs real backend ([roadmap](https://platformrelay.github.io/Kollect/roadmap/planned-features/)) |
 | `KollectSnapshotSink` | Parquet on S3/GCS | **Planned** — layout on existing object-store sinks |
 
@@ -147,11 +148,10 @@ Full payload lives in sinks; CR `.status` holds summaries only ([etcd limits](ht
 
 ## Performance
 
-Kollect is built for **large single clusters** and **multi-cluster fleets**, with honest, tested
-targets ([ADR-0603](https://platformrelay.github.io/Kollect/adr/0603-performance-scalability/)) — **10,000+**
-rows validated in nightly load tests, **100,000-row** design target per cluster, and fleet fan-in
-with no hub merge tier. Tuning knobs (reconcile concurrency, export debounce, sharding) are in the
-**[performance guide](https://platformrelay.github.io/Kollect/PERFORMANCE/)**.
+Kollect is designed for **large single clusters** and **multi-cluster fleets**. The
+**[performance guide](https://platformrelay.github.io/Kollect/PERFORMANCE/)** distinguishes
+reproducible results from design targets and documents tuning for reconcile concurrency, export
+debounce, and sharding. Fleet fan-in uses shared sinks rather than a hub merge tier.
 
 ## Learn more
 
@@ -162,7 +162,7 @@ with no hub merge tier. Tuning knobs (reconcile concurrency, export debounce, sh
 | CR fields, RBAC, failure modes | [CR reference](https://platformrelay.github.io/Kollect/CR-REFERENCE/) |
 | Multi-cluster fleet | [ADR-0501](https://platformrelay.github.io/Kollect/adr/0501-multi-cluster-fleet/) |
 | Sink taxonomy (state vs stream) | [ADR-0401](https://platformrelay.github.io/Kollect/adr/0401-sink-taxonomy-state-vs-stream/) |
-| Build-order phases and status | [Roadmap](https://platformrelay.github.io/Kollect/ROADMAP/) |
+| Shipped, next, and later work | [Roadmap](https://platformrelay.github.io/Kollect/ROADMAP/) |
 | Examples index | [Examples](https://platformrelay.github.io/Kollect/examples/) |
 | Example: Deployment → Git export | [Walkthrough](https://platformrelay.github.io/Kollect/examples/deployment-inventory/) |
 | Live demo inventory (Git sink) | [kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo) |

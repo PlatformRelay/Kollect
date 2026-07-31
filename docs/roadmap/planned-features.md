@@ -1,406 +1,120 @@
 # Planned features
 
-Forward-looking capabilities that complement [ROADMAP.md](../ROADMAP.md): deferred work (🔮),
-phased ⬜ backlog, and items that need a design pass before implementation. For **build-order status**
-(Phase 0–4, shipped vs in progress), see the phase tables in the roadmap. For locked decisions, see
-[ADR index](../adr/README.md).
+Forward-looking work that has not shipped. This page is intentionally shorter than the engineering
+backlog: it describes user-visible directions, not every implementation task.
 
-!!! info "Not a commitment"
-    Items here are **intent and backlog**, not release promises. Status may change as ADRs land or
-    scope is rejected. Pre-beta APIs may shift until the first release candidate.
-
-**Last updated:** 2026-06-09 — `main` @ `72674ecf4`. Phase 1 audit-fix wave ✅; **`v0.6.0` cut 🚧**;
-**BigQuery** + **NATS** v0.7.x lanes in flight. UI program **frozen**.
+**Last verified:** 2026-07-31 against **v0.10.0**. BigQuery and NATS already ship; completed work
+belongs in the [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md).
 
 ## Status legend
 
 | Status | Meaning |
 | --- | --- |
-| **Planned** | Accepted direction; implementation not started (⬜ on roadmap where phased) |
-| **Spec needed** | Problem space agreed; ADR or RFC required before code |
-| **Exploring** | Active design spike or RFC in review |
-| **Deferred** | Accepted but explicitly not on the near-term path (🔮 on roadmap) |
-| **Sample / docs** | Reference implementation or walkthrough, not operator code |
+| **Next** | Active near-term direction; release assignment waits for implementation evidence |
+| **Exploring** | Design or spike exists; scope may change |
+| **Deferred** | Valid direction with no near-term commitment |
+| **Frozen** | No feature development; maintenance or retirement only |
 
-## Read API & UI (frozen)
+## Next
 
-!!! warning "The UI program is frozen — maintenance-only"
-    The `ui/` mock SPA and the experimental inventory HTTP API are **frozen**: no active SPA, fleet-
-    console, or Read-API-freeze milestones. The Read API freeze is **deferred** (it only ever served
-    to stabilize the UI contract). The `ui/` subtree and `kollect-ui` chart/image are kept building in
-    CI but may be **removed before v1** if no external adopter materializes. See
-    [ROADMAP § Read API + UI console (frozen)](../ROADMAP.md#read-api-ui-console-frozen).
+### Launch-quality documentation
 
-### Read API contract freeze
+**Status: Next**
 
-| | |
-| --- | --- |
-| **Status** | Deferred — only needed for the UI; not gating any tranche |
-| **Roadmap** | [Read API + UI console (frozen)](../ROADMAP.md#read-api-ui-console-frozen) · Phase 1 HTTP 🚧 (experimental, gated off) |
-| **Summary** | Hardening and **freezing the Read API** as a UI contract (list/filter/search, envelope `schemaVersion`, OpenAPI) is **deferred** while the UI is frozen. The durable read surface remains the **sink export** ([FR-READ-1](../REQUIREMENTS.md)), not the live HTTP API. |
-| **Related ADRs** | [ADR-0408](../adr/0408-read-api-ui-architecture.md) · [ADR-0411](../adr/0411-read-api-extensions-for-ui.md) · [ADR-0405](../adr/0405-export-data-contract.md) · [ADR-0103](../adr/0103-etcd-limit.md) |
+- Keep the published security architecture visible and synchronized with trust-boundary, NetGuard,
+  RBAC, redaction, transport, runtime, and release-control changes.
+- Replace inaccurate raster architecture diagrams with maintainable Mermaid sources.
+- Improve information architecture, newcomer paths, visual contrast, and document freshness checks.
+- Incorporate lab results only after the method and evidence are reproducible.
 
----
+### Pre-1.0 stabilization
 
-### Inventory UI — mock SPA
+**Status: Next**
 
-| | |
-| --- | --- |
-| **Status** | **Frozen** — maintenance-only (mock MVP on `main`; keep CI green, may remove pre-v1) |
-| **Roadmap** | [Read API + UI console (frozen)](../ROADMAP.md#read-api-ui-console-frozen) |
-| **Summary** | A read-only **mock SPA** (`ui/`, separate `kollect-ui` image): GET-only catalog/inventory/targets/sinks views against an MSW mock and an unfrozen live API. It is **not** a production read path and has no validated external users. No further SPA milestones are planned; effort goes to export/sinks instead. |
-| **Related ADRs** | [ADR-0408](../adr/0408-read-api-ui-architecture.md) · [ADR-0409](../adr/0409-kollect-ui-deployment.md) · [ADR-0410](../adr/0410-ui-engineering-and-quality-gates.md) · [ADR-0412](../adr/0412-mock-read-api-for-ui-development.md) |
-
----
-
-### Portal / fleet console — Postgres/Parquet adapter + drift
-
-| | |
-| --- | --- |
-| **Status** | **Exploring** (design only) — frozen, not active v0.x work |
-| **Roadmap** | [Read API + UI console (frozen)](../ROADMAP.md#read-api-ui-console-frozen) |
-| **Summary** | **Portal mode** on Postgres/Parquet backing stores (multi-cluster rollup, attribute drift over time, optional `kollect-server` split) remains a **design-only** read-stream consumer per [ADR-0418](../adr/0418-fleet-console-read-plane.md) — **no hub** ([ADR-0501](../adr/0501-multi-cluster-fleet.md)). Not started; thaws only if the UI program reopens. |
-| **Related ADRs** | [ADR-0418](../adr/0418-fleet-console-read-plane.md) · [ADR-0408](../adr/0408-read-api-ui-architecture.md) · [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) · [ADR-0411](../adr/0411-read-api-extensions-for-ui.md) |
-
----
-
-### oauth2-proxy OIDC browser auth (optional Helm sidecar)
-
-| | |
-| --- | --- |
-| **Status** | Deferred |
-| **Roadmap** | [Deferred](../ROADMAP.md#deferred) |
-| **Summary** | Optional **oauth2-proxy** sidecar (`oauth2Proxy.enabled: false`) for browser OIDC at ingress. Primary auth remains Kubernetes **TokenReview + SAR** on the Read/inventory HTTP API ([ADR-0404](../adr/0404-inventory-api-auth.md)). |
-| **Related ADRs** | [ADR-0404](../adr/0404-inventory-api-auth.md) · [ADR-0409](../adr/0409-kollect-ui-deployment.md) |
-
----
+Focus on compatibility guidance, upgrades, failure recovery, observability, and production
+validation. New surface area should clear a higher bar than hardening existing workflows.
 
 ## Sinks & export
 
-### Sink config layering (ADR-0416)
+### S3/GCS Parquet snapshot layout
 
-| | |
-| --- | --- |
-| **Status** | Shipped (**`v0.5.0`**) |
-| **Roadmap** | Phase 1 ✅ |
-| **Summary** | Cross-cutting **`spec.serialization`**, **`spec.provisioning`**, and **`spec.options`** on family sinks; capability matrix + **`status.preview`** surface. |
-| **Related ADRs** | [ADR-0416](../adr/0416-sink-config-layering.md) · [ADR-0419](../adr/0419-git-export-serialization-layout.md) |
+**Status: Exploring**
 
----
-
-### MongoDB database sink (ADR-0417)
-
-| | |
-| --- | --- |
-| **Status** | Shipped on `main` post-**`v0.5.0`** |
-| **Roadmap** | Phase 1 ✅ |
-| **Summary** | **`KollectDatabaseSink.type: mongodb`** — document upsert/delete reconciliation peer to Postgres. |
-| **Related ADRs** | [ADR-0417](../adr/0417-mongodb-database-sink.md) · [ADR-0416](../adr/0416-sink-config-layering.md) |
-
----
-
-### Sink family CRDs (ADR-0414)
-
-| | |
-| --- | --- |
-| **Status** | Shipped (`v0.2.0-rc.1`) |
-| **Roadmap** | Phase 1 ✅ |
-| **Summary** | **`KollectSnapshotSink`**, **`KollectEventSink`**, **`KollectDatabaseSink`** replace monolithic **`KollectSink`**; family reconcilers, validating webhooks, and e2e bootstrap. |
-| **Related ADRs** | [ADR-0414](../adr/0414-sink-family-crds.md) |
-
----
-
-### S3/GCS Parquet snapshot sink
-
-| | |
-| --- | --- |
-| **Status** | Planned |
-| **Roadmap** | Phase 1 ⬜ |
-| **Summary** | **Parquet snapshot layout** on S3 and GCS (JSON snapshot export is shipped today) for DuckDB/Athena-style queries without running Postgres — whole-file snapshots per export generation, partition paths, and documented "latest generation" views. |
-| **Related ADRs** | [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) § Parquet snapshot · [ADR-0407](../adr/0407-git-object-store-layout.md) |
-
----
-
-### BigQuery sink (DatabaseSink, v0.7.x)
-
-| | |
-| --- | --- |
-| **Status** | **Exploring** — [ADR-0420](../adr/0420-bigquery-database-sink.md) drafted on `main`; implementation lane in flight (re-admits `bigquery` only with a real backend) |
-| **Summary** | **`KollectDatabaseSink.type: bigquery`** as a **relational / analytics** projection of the canonical snapshot — batch load (or streaming insert) of inventory rows into BigQuery for SQL dashboards and fleet analytics. Shipped as a **real backend with L3 testcontainers/emulator coverage and a sample**, not a webhook stub. |
-| **Scope** | New ADR (theme **04**, e.g. ADR-0420) covering: role vs Postgres ([ADR-0402](../adr/0402-sink-backends-database-kafka.md)); CRD fields (`dataset`, `table`, `partitionField`/`clusteringFields`, `writeMode` load vs streaming); delete reconciliation (truncate-and-load vs MERGE on `(cluster, ns, name, uid)`); credential model (Workload Identity Federation vs service-account JSON key in `secretRef`); connection-test probe ([ADR-0403](../adr/0403-connection-test.md)). Remove `bigquery` from the webhook stub allowlist when the backend lands. |
-| **Tests/samples** | L0 config/validation units, L3 integration (BigQuery emulator or `testcontainers` GCP), golden OpenAPI schema for the new type, `config/samples/` `KollectDatabaseSink` example, CRD reference page. |
-| **Related ADRs** | [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) · [ADR-0402](../adr/0402-sink-backends-database-kafka.md) · [ADR-0406](../adr/0406-sink-registry.md) · [ADR-0403](../adr/0403-connection-test.md) |
-
----
-
-### NATS event sink — first-class hardening (v0.7.x)
-
-| | |
-| --- | --- |
-| **Status** | **Planned / in flight** — **v0.7.x** (promote the shipped JetStream emitter to fully supported; worker lane active) |
-| **Summary** | **`KollectEventSink.type: nats`** already ships a JetStream emitter (`internal/sink/nats/`, envelope publish with content-hash dedupe, TLS, connection probe). The v0.7 work **hardens it to first-class**: deepen L3 testcontainers coverage, raise unit coverage to standard, add a golden OpenAPI schema, document the subject/stream contract, and ship a `config/samples/` `KollectEventSink` example with a consumer walkthrough. |
-| **Scope** | No new CRD shape expected; harden config validation, ensure delete/tombstone semantics match Kafka, document at-least-once + idempotent `MsgID` dedupe, and add the sink to the parallel-export sample. |
-| **Related ADRs** | [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) · [ADR-0402](../adr/0402-sink-backends-database-kafka.md) · [ADR-0403](../adr/0403-connection-test.md) · [KollectEventSink](../crds/kollecteventsink.md) |
-
----
-
-### Parallel multi-sink export (differentiator)
-
-| | |
-| --- | --- |
-| **Status** | Shipped (code) — **docs 🚧** (hero harness + [DEMO-GIF-GUIDE](../DEMO-GIF-GUIDE.md) on `main`; ARCHITECTURE fan-out prose + recorded GIF ⬜) |
-| **Roadmap** | Phase 1 ✅ · [Near-term tranches](../ROADMAP.md#near-term-tranches-v06-v07) |
-| **Summary** | A single `KollectInventory` fans out to **all** referenced sinks **concurrently** in one debounced pass — the same snapshot reaches Git, a database, and an event stream together, each with its own `exportMinInterval` and per-sink circuit breaker; partial failure degrades to `PartiallySynced`. Phase 1 also landed EC-P1-06 error aggregation + WB-02 debounce coverage. Remaining work is **docs/marketing**: fan-out diagram in ARCHITECTURE and a recorded hero GIF. |
-| **Related ADRs** | [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) · [ADR-0413](../adr/0413-export-interval-scheduling.md) |
-
----
+Add a columnar layout to the existing object-store sinks. Define partitioning, schema evolution,
+manifest metadata, and interoperability tests before exposing configuration.
 
 ### Azure Blob Storage sink
 
-| | |
-| --- | --- |
-| **Status** | Spec needed — `azureblob` removed from admission (EC-P1-04); re-entry needs a real backend |
-| **Summary** | **`KollectSink.type: azureblob`** (name TBD) as a **snapshot store** peer to S3/GCS — same canonical JSON (and future Parquet) contract, Azure-specific auth (`secretRef`, managed identity patterns). |
-| **Open design** | Shared object-store backend abstraction vs separate package; connection test probe shape ([ADR-0403](../adr/0403-connection-test.md)); path template parity with [ADR-0407](../adr/0407-git-object-store-layout.md). |
-| **Related ADRs** | [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) · [ADR-0406](../adr/0406-sink-registry.md) · [ADR-0403](../adr/0403-connection-test.md) |
+**Status: Deferred**
 
----
-
-### GCS and NATS connection test probes
-
-| | |
-| --- | --- |
-| **Status** | Shipped (Phase 1) |
-| **Roadmap** | Phase 1 ✅ |
-| **Summary** | **`KollectConnectionTest`** and family sink annotation probes for **`gcs`** (`KollectSnapshotSink`) and **`nats`** (`KollectEventSink`) — alongside Git, Postgres, Kafka, S3, and GitLab probes. |
-| **Related ADRs** | [ADR-0403](../adr/0403-connection-test.md) · [ADR-0414](../adr/0414-sink-family-crds.md) · [KollectSnapshotSink](../crds/kollectsnapshotsink.md) · [KollectEventSink](../crds/kollecteventsink.md) |
-
----
-
-### Export data contract — versioned envelope
-
-| | |
-| --- | --- |
-| **Status** | Exploring |
-| **Summary** | Ship a **versioned envelope** on sink JSON and Read API responses (`schemaVersion` in body, stable ordering per [ADR-0405](../adr/0405-export-data-contract.md)) so portals and golden tests detect breaking contract changes independently of CRD `apiVersion`. |
-| **Related ADRs** | [ADR-0405](../adr/0405-export-data-contract.md) · [ADR-0206](../adr/0206-api-versioning-conversion.md) · [ADR-0408](../adr/0408-read-api-ui-architecture.md) |
-
----
-
-### KollectClusterSink — cluster-scoped sink API
-
-| | |
-| --- | --- |
-| **Status** | Deferred |
-| **Roadmap** | Phase 3 🔮 · [Deferred](../ROADMAP.md#deferred) |
-| **Summary** | **`KollectClusterSink`** for platform-shared backends referenced from `KollectClusterInventory` and future `KollectClusterScope.sinkRefs`. Namespaced `KollectSink` is the team default today ([ADR-0201](../adr/0201-crd-model.md)). |
-| **Related ADRs** | [ADR-0204](../adr/0204-namespaced-profiles.md) · [ADR-0201](../adr/0201-crd-model.md) |
-
----
-
-## Collection & samples
-
-### Helm values profile + operator export scrub
-
-| | |
-| --- | --- |
-| **Status** | Shipped (Phase 1) |
-| **Roadmap** | Phase 1 ✅ |
-| **Summary** | **`helm-release-values-redacted`** sample profile and operator **`scrubKeys[]`** extraction-time redaction so full Helm values inventory is safe without leaking secrets ([ADR-0303](../adr/0303-helm-release-inventory.md)). |
-| **Related ADRs** | [ADR-0303](../adr/0303-helm-release-inventory.md) · [ADR-0104](../adr/0104-security-model.md) |
-
----
-
-### `helm:` decode for `helm.sh/v1` Secret releases
-
-| | |
-| --- | --- |
-| **Status** | Shipped (`v0.1.0-rc.3`) |
-| **Roadmap** | Phase 1 ✅ |
-| **Summary** | Gated **`helm:`** decode path for plain **`helm.sh/v1`** release Secrets (Flux `HelmRelease` secondary sample exists; Argo `Application` is primary). |
-| **Related ADRs** | [ADR-0303](../adr/0303-helm-release-inventory.md) |
-
----
-
-### Target collection filtering — `resourceRules` and CEL `matchPolicy`
-
-| | |
-| --- | --- |
-| **Status** | Planned |
-| **Summary** | Phase 2 **`resourceRules[]`** (OR-union GVK/label rules on Target) and Phase 3 per-rule **CEL `matchPolicy`** evaluated before store insert — platform deny via Scope, team intent via Target ([ADR-0207](../adr/0207-target-collection-filtering.md)). |
-| **Related ADRs** | [ADR-0207](../adr/0207-target-collection-filtering.md) · [ADR-0205](../adr/0205-watch-labels.md) |
-
----
-
-### Sample project — Git sink → Confluence (external CI)
-
-| | |
-| --- | --- |
-| **Status** | Sample / docs |
-| **Summary** | End-to-end **reference project** showing Kollect exporting inventory to a Git snapshot sink, then an **external** pipeline (CI job or small tool) rendering Markdown/HTML and publishing to Confluence or another wiki. |
-| **Why external** | In-operator doc-sync and `KollectPublication` are **out of scope** — Kollect collects and exports; templating and CMS credentials stay outside the cluster ([ADR-0702](../adr/0702-doc-sync-templating.md)). |
-| **Deliverable** | Standalone sample repo (manifests + CI template + optional render script), linked from [Examples](../examples/README.md). |
-| **Related ADRs** | [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) · [ADR-0407](../adr/0407-git-object-store-layout.md) · [ADR-0702](../adr/0702-doc-sync-templating.md) |
-
----
+No Azure backend ships today. Graduation requires a concrete authentication model, emulator or
+integration coverage, connection tests, redacted errors, and operator documentation.
 
 ## API & tenancy
 
-### Finalizers on reconciled kinds
+### API v1beta1 and conversion webhook
 
-| | |
-| --- | --- |
-| **Status** | Shipped (`v0.1.0-rc.3`) |
-| **Roadmap** | Phase 1 ✅ |
-| **Summary** | **Finalizers** on `KollectTarget`, `KollectInventory`, and cluster rollup kinds — deletion waits for store teardown, in-flight exports, and hub report cleanup. |
-| **Related ADRs** | [ADR-0201](../adr/0201-crd-model.md) · [ADR-0202](../adr/0202-static-vs-reconciled.md) |
+**Status: Exploring**
 
----
+Define the compatibility contract, storage-version migration, conversion strategy, and supported
+upgrade paths before promoting the API beyond `v1alpha1`.
 
-### API v1beta1 + conversion webhook
+### Additional reusable policy abstractions
 
-| | |
-| --- | --- |
-| **Status** | Exploring |
-| **Summary** | Introduce **`v1beta1`** as storage version with a **conversion webhook** (`v1alpha1 ↔ v1beta1`) at the **v0.10 presentation gate** (or post) — until then `v1alpha1` breaks freely. |
-| **Related ADRs** | [ADR-0206](../adr/0206-api-versioning-conversion.md) · [ADR-0201](../adr/0201-crd-model.md) |
+**Status: Deferred**
 
----
+Potential collection-rule or receiver abstractions must demonstrate that they simplify real
+multi-team configurations without weakening `KollectScope` boundaries.
 
-### KollectClusterScope — platform team scope CRD
+## Read API & UI (frozen)
 
-| | |
-| --- | --- |
-| **Status** | Deferred |
-| **Roadmap** | Phase 3 🔮 |
-| **Summary** | Cluster-scoped **`KollectClusterScope`** for platform teams to cap GVKs, namespaces, and (future) sink allowlists across tenant namespaces — complement to namespaced `KollectScope`. |
-| **Related ADRs** | [ADR-0203](../adr/0203-namespaced-multi-tenancy.md) · [ADR-0207](../adr/0207-target-collection-filtering.md) |
+### Read API contract
 
----
+**Status: Frozen**
 
-### KollectReceiver and KollectTargetSet
+The optional read plane is not the current adoption path. Its contract is not stable and no browser
+client should receive Kubernetes, database, or event-bus credentials.
 
-| | |
-| --- | --- |
-| **Status** | Deferred |
-| **Roadmap** | Phase 3 🔮 · [Deferred](../ROADMAP.md#deferred) |
-| **Summary** | Reserved CRDs: **`KollectReceiver`** (webhook-triggered collection) and **`KollectTargetSet`** (generator-style target grouping). Design-only placeholders; no controller until a concrete use case lands. |
-| **Related ADRs** | [ADR-0201](../adr/0201-crd-model.md) · [ADR-0304](../adr/0304-custom-resource-aggregation-rfc.md) |
+### Inventory UI
 
----
+**Status: Frozen**
 
-### KollectCollectionRule CRD
-
-| | |
-| --- | --- |
-| **Status** | Deferred |
-| **Summary** | Standalone **`KollectCollectionRule`** CRD deferred until inline **`resourceRules[]`** on Target ([ADR-0207](../adr/0207-target-collection-filtering.md)) proves insufficient for reuse across many targets. |
-| **Related ADRs** | [ADR-0207](../adr/0207-target-collection-filtering.md) |
-
----
-
-## Multi-cluster & transport
-
-### Hub federated mTLS
-
-| | |
-| --- | --- |
-| **Status** | Deferred |
-| **Roadmap** | [Deferred](../ROADMAP.md#deferred) |
-| **Summary** | **Cancelled** — hub/spoke tier removed; multi-cluster uses shared-sink fan-in ([ADR-0501](../adr/0501-multi-cluster-fleet.md)). |
-| **Related ADRs** | [ADR-0501](../adr/0501-multi-cluster-fleet.md) |
-
----
-
-### Queue transport TLS/ACL production hardening
-
-| | |
-| --- | --- |
-| **Status** | Deferred |
-| **Roadmap** | Phase 2 🚧 (TLS shipped; ACL allowlist stub) · [Deferred](../ROADMAP.md#deferred) |
-| **Summary** | Production-grade **TLS/ACL hardening** for Redis/NATS/Kafka hub transport backends — beyond `cluster_id` wire metadata and dev/test defaults (ADR-0502). |
-| **Related ADRs** | ADR-0502 · [ADR-0501](../adr/0501-multi-cluster-fleet.md) |
-
----
+The preview UI is maintenance-only and disabled by default. Do not build new integrations against
+it.
 
 ## Observability & performance
 
 ### Prometheus metrics scoped to targets / inventory rows
 
-| | |
-| --- | --- |
-| **Status** | Exploring |
-| **Summary** | Richer **domain metrics** at target/inventory boundaries — beyond operator health counters on `/metrics`. Target-scoped collection gauges, inventory rollup gauges, optional per-target domain series (`metricsScope`). **Fleet:** scrape `/metrics` on **each cluster operator** ([ADR-0501](../adr/0501-multi-cluster-fleet.md)). |
-| **Spec** | [ADR-0604](../adr/0604-target-scoped-prometheus-metrics.md) — three metric tiers; affirms no `KollectSink.type: prometheus` ([ADR-0601](../adr/0601-prometheus-metrics-stub.md)). **`metricsScope` CRD field not shipped** — defer until alerting need is proven. |
-| **Related ADRs** | [ADR-0604](../adr/0604-target-scoped-prometheus-metrics.md) · [ADR-0304](../adr/0304-custom-resource-aggregation-rfc.md) · [ADR-0601](../adr/0601-prometheus-metrics-stub.md) · [ADR-0602](../adr/0602-error-taxonomy.md) · [ADR-0603](../adr/0603-performance-scalability.md) · [ADR-0706](../adr/0706-testing-merge-gate-architecture.md) |
+**Status: Exploring**
 
----
+Expose bounded-cardinality health, row-count, duration, and error signals useful to operators.
+Avoid resource identity or extracted attribute values as labels.
 
 ### Prometheus metrics from collected attribute values
 
-| | |
-| --- | --- |
-| **Status** | Proposed (Exploring) — spec only, no implementation yet |
-| **Summary** | Export **scalar numeric values** from CEL/JSONPath attributes as Prometheus gauges/counters on `/metrics` — complementing ADR-0304 **sum** series. Label vs value rules and cardinality guardrails. |
-| **Spec** | [RFC: Prometheus attribute metrics](../rfc/prometheus-attribute-metrics.md) — revisit after ADR-0604 Tier B/C lands. |
-| **Related** | [ADR-0604](../adr/0604-target-scoped-prometheus-metrics.md) · [ADR-0304](../adr/0304-custom-resource-aggregation-rfc.md) · [ADR-0302](../adr/0302-cel-jsonpath-extraction.md) |
+**Status: Deferred**
 
----
+This remains high risk because user-selected values can create unbounded cardinality and expose
+sensitive data. Any proposal needs explicit allowlists, budgets, and safe defaults.
 
 ### OpenTelemetry tracing
 
-| | |
-| --- | --- |
-| **Status** | Deferred |
-| **Summary** | Distributed tracing for reconcile, collection, and export (OTel SDK, OTLP export). **Parked** — no code in v0.x; Prometheus + logs cover SLOs today. |
-| **Spec** | [ADR-0605](../adr/0605-opentelemetry-tracing.md) — design reference only; spans would cover `kollect.reconcile`, `kollect.collect.refresh`, `kollect.export` **in-process**. Reopen when OTLP is mandated or UI needs trace IDs. |
-| **Related ADRs** | [ADR-0605](../adr/0605-opentelemetry-tracing.md) (Parked) · [ADR-0602](../adr/0602-error-taxonomy.md) · [ADR-0603](../adr/0603-performance-scalability.md) |
+**Status: Deferred**
 
----
-
-### `--informer-resync-period` operator flag
-
-| | |
-| --- | --- |
-| **Status** | Planned |
-| **Roadmap** | [Performance and scalability](../ROADMAP.md#operator-tuning-and-tests) ⬜ |
-| **Summary** | Configurable **informer resync period** flag (and Helm value) for operators who need periodic full relist beyond event-driven reconcile — default remains conservative for large fleets ([ADR-0301](../adr/0301-event-driven-informers.md)). |
-| **Related ADRs** | [ADR-0301](../adr/0301-event-driven-informers.md) · [ADR-0603](../adr/0603-performance-scalability.md) |
-
----
-
-## Tooling & release
-
-### Helm chart docs generation (`helm-docs`)
-
-| | |
-| --- | --- |
-| **Status** | Done |
-| **Roadmap** | Phase 0 ✅ |
-| **Summary** | Automate **`helm-docs`** generation for `charts/kollect/README.md` from `values.yaml` comments — keep chart reference in sync with values schema ([ADR-0704](../adr/0704-helm-chart-crd-lifecycle.md)). |
-| **Related ADRs** | [ADR-0704](../adr/0704-helm-chart-crd-lifecycle.md) |
-
----
-
-### Release supply chain attestations (post-rc)
-
-| | |
-| --- | --- |
-| **Status** | Planned |
-| **Summary** | Post-release-candidate hardening: **cosign attestations**, Helm chart signing, OpenSSF scorecard — documented in [ADR-0705](../adr/0705-release-supply-chain.md), deferred until after first rc to avoid maintainer self-approval friction. Local `task release-dry-run` passes today; GH Actions `workflow_dispatch` rc remains 🚧 on roadmap. |
-| **Related ADRs** | [ADR-0705](../adr/0705-release-supply-chain.md) · [RELEASE.md](../RELEASE.md) |
-
----
+Trace reconciliation and export flow only after metric names, error taxonomy, and cardinality
+policy stabilize. See [ADR-0605](../adr/0605-opentelemetry-tracing.md).
 
 ## How items graduate
 
-1. **Spec needed** → draft an [RFC](../rfc/README.md) or ADR in **Exploring** status ([ADR/RFC process](../development/adr-rfc-process.md)).
-2. **Accepted ADR** → track implementation on [ROADMAP.md](../ROADMAP.md) with phase and status marks.
-3. **Rejected** → move to ROADMAP *Rejected* or ADR **Dropped** with rationale (see [ADR-0702](../adr/0702-doc-sync-templating.md)).
+1. Explore in an issue or RFC; use an ADR for a cross-cutting or hard-to-reverse decision.
+2. Accept the design and identify compatibility, security, and operational consequences.
+3. Implement with the required test layers and documentation.
+4. Move shipped behavior to the [roadmap](../ROADMAP.md) and changelog; remove stale planning copy.
 
 ## See also
 
-- [Roadmap (phased delivery)](../ROADMAP.md)
-- [Platform decisions](../PLATFORM-DECISIONS.md)
-- [Sink taxonomy](../adr/0401-sink-taxonomy-state-vs-stream.md)
-- [ADR and RFC process](../development/adr-rfc-process.md)
+- [Roadmap](../ROADMAP.md)
+- [ADR index](../adr/README.md)
+- [ADR / RFC process](../development/adr-rfc-process.md)
+- [Contributing](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md)
