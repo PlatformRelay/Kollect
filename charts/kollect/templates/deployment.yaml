@@ -65,6 +65,9 @@ spec:
             {{- if .Values.tenantMode }}
             - --tenant-mode
             {{- end }}
+            {{- if .Values.allowPrivateSinks }}
+            - --allow-private-sinks
+            {{- end }}
             {{- if .Values.watchNamespaces }}
             - --watch-namespaces={{ join "," .Values.watchNamespaces }}
             {{- end }}

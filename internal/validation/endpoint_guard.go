@@ -9,11 +9,29 @@ import (
 	"net/netip"
 	"net/url"
 	"strings"
+	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
+
+// allowPrivateSinks is the NET-01 production opt-in (DR-FIND-05 Option A) mirror
+// of netguard's dial-time flag: when true, admission permits literal RFC1918 /
+// IPv6-ULA sink endpoints (in-cluster ClusterIP services) while every other
+// deny-list entry below still applies. Default false (deny by default); set
+// process-wide from the manager --allow-private-sinks flag via
+// SetAllowPrivateSinks. Atomic so concurrent admission reads stay race-free
+// (mirrors maxExportBytesGlobal). This never widens the loopback/link-local/
+// metadata/CGNAT/benchmark denials and is not a CRD/tenant-controllable field.
+var allowPrivateSinks atomic.Bool
+
+// SetAllowPrivateSinks configures whether admission permits literal private
+// (RFC1918/ULA) sink endpoints (NET-01). Keep consistent with
+// netguard.SetAllowPrivateSinks — both derive from the one manager flag.
+func SetAllowPrivateSinks(allow bool) {
+	allowPrivateSinks.Store(allow)
+}
 
 // SAFE (SonarCloud go:S1313 "hardcoded IP address"): the literal CIDRs and
 // hostnames below are the intentional SSRF deny-list security control, not
@@ -200,7 +218,14 @@ func validateHost(host string, path *field.Path, raw string) field.ErrorList {
 }
 
 func isDeniedIP(addr netip.Addr) bool {
-	if addr.IsPrivate() || addr.IsLoopback() || addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast() || addr.IsUnspecified() {
+	if addr.IsLoopback() || addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast() || addr.IsUnspecified() {
+		return true
+	}
+	// RFC1918 / IPv6-ULA are denied unless the NET-01 production opt-in is on
+	// (--allow-private-sinks). Every other deny-list entry stays enforced
+	// regardless, including the link-local/metadata range above and the
+	// denyCIDRs below (169.254.0.0/16 covers 169.254.169.254).
+	if addr.IsPrivate() && !allowPrivateSinks.Load() {
 		return true
 	}
 	for _, prefix := range denyCIDRs {

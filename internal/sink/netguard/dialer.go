@@ -53,6 +53,23 @@ type Dialer struct {
 	// real backends run in loopback/testcontainer networks. Production
 	// constructors never enable it.
 	allowPrivate bool
+	// allowPrivateSinks is the NET-01 production opt-in (DR-FIND-05 Option A):
+	// when true it permits RFC1918 / IPv6-ULA sink targets (e.g. in-cluster
+	// ClusterIP services) while STILL denying loopback, link-local (which
+	// includes the cloud-metadata IP 169.254.169.254), unspecified, multicast,
+	// carrier-grade-NAT, and benchmark ranges. It is strictly narrower than
+	// allowPrivate. Default false (deny); set process-wide from the manager
+	// --allow-private-sinks flag via SetAllowPrivateSinks.
+	allowPrivateSinks bool
+}
+
+// SetAllowPrivateSinks configures the process-wide DefaultDialer to permit
+// RFC1918/ULA sink dials (NET-01). Call once at manager startup from the
+// --allow-private-sinks flag before any sink dials; the unset default stays
+// deny-by-default. Keep consistent with validation.SetAllowPrivateSinks so
+// admission and dial-time apply the same policy.
+func SetAllowPrivateSinks(allow bool) {
+	DefaultDialer.allowPrivateSinks = allow
 }
 
 // NewDialer constructs a guarded dialer. Nil dependencies select the system
@@ -126,7 +143,7 @@ func (d *Dialer) validateAddress(address netip.Addr) error {
 		return nil
 	}
 
-	return validateAddress(address)
+	return validateAddress(address, d.allowPrivateSinks)
 }
 
 // Dial implements libraries' context-free custom-dialer interfaces. The
@@ -201,10 +218,18 @@ func isMetadataHostnameNormalized(normalized string) bool {
 	}
 }
 
-func validateAddress(address netip.Addr) error {
+// validateAddress rejects non-globally-routable sink targets. When allowPrivate
+// is true (the NET-01 opt-in) RFC1918 / IPv6-ULA addresses are permitted, but
+// every other denial — loopback, link-local (incl. cloud metadata), unspecified,
+// multicast, carrier-grade-NAT, and benchmark — still applies. allowPrivate
+// false is the deny-by-default path (fail closed).
+func validateAddress(address netip.Addr, allowPrivate bool) error {
 	address = address.Unmap()
-	if !address.IsValid() || address.IsUnspecified() || address.IsLoopback() || address.IsPrivate() ||
+	if !address.IsValid() || address.IsUnspecified() || address.IsLoopback() ||
 		address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() || address.IsMulticast() {
+		return fmt.Errorf("IP %s is not globally routable", address)
+	}
+	if address.IsPrivate() && !allowPrivate {
 		return fmt.Errorf("IP %s is not globally routable", address)
 	}
 	if address.Is4() {
