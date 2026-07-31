@@ -2,18 +2,16 @@
 
 > A real `type: bigquery` backend for the database sink family: snapshot upserts with delete
 > reconciliation into a partitioned, clustered BigQuery table via atomic `MERGE` DML — Workload
-> Identity first, service-account key as the explicit fallback. Replaces the ADR-0414 stub.
+> Identity first, service-account key as the explicit fallback.
 
-**Theme:** 04 · Export & sinks · **Status:** Accepted (design 2026-06-09 — implementation pending)
+**Theme:** 04 · Export & sinks · **Status:** Current
 
 ## Context
 
-The database sink family ([ADR-0414](0414-sink-family-crds.md)) ships two real backends — Postgres
-([ADR-0402](0402-sink-backends-database-kafka.md)) and MongoDB ([ADR-0417](0417-mongodb-database-sink.md)) —
-plus a `bigquery` stub that passes CRD/webhook validation and fails at export with *not implemented*.
-The stub admission is being removed in a parallel change; **`bigquery` re-enters the CRD enum and the
-webhook allowlist only together with this real backend**, so a `type: bigquery` sink is never
-admissible without a working export path.
+The database sink family ([ADR-0414](0414-sink-family-crds.md)) ships Postgres
+([ADR-0402](0402-sink-backends-database-kafka.md)), MongoDB
+([ADR-0417](0417-mongodb-database-sink.md)), and BigQuery. The `bigquery` type is registered in the
+backend registry and admitted by the CRD and webhook together, so an admissible sink is exportable.
 
 Why BigQuery as the next database backend:
 
@@ -96,9 +94,9 @@ type BigQuerySpec struct {
 }
 ```
 
-Pre-GA breaking change to the stub shape: `dataset`/`table` were optional on the stub and become
-required; `project`, `location`, and `secretRef` are new. No conversion machinery — `v1alpha1`
-posture per [ADR-0414](0414-sink-family-crds.md).
+`project`, `dataset`, and `table` are required; `location` and `secretRef` are optional. No
+conversion machinery is provided under the `v1alpha1` posture in
+[ADR-0414](0414-sink-family-crds.md).
 
 ### 2. Authentication — ADC first, key file as the explicit alternative
 
@@ -245,25 +243,20 @@ and forbids the `postgres`/`mongodb` sibling blocks for `type: bigquery`. This A
   the absence of `secretRef`.
 - `spec.layout` stays forbidden and `serialization.format` stays JSON-only for the database family
   (capability matrix, [ADR-0419](0419-git-export-serialization-layout.md)).
-- Sequencing: the stub registration (`internal/sink/stub_backends.go`) and the `bigquery` entries in
-  the CRD enum / `validDatabaseSinkTypes` are being **removed** in a parallel change; they
-  **re-enter only in the change that ships this backend**, keeping "admissible implies exportable"
-  true at every commit.
+- The CRD enum, webhook allowlist, and backend registry all contain `bigquery`, keeping
+  "admissible implies exportable" true.
 
-### 9. Test plan (merge gate)
+### 9. Test evidence
 
-Per the [ADR-0706](0706-testing-merge-gate-architecture.md) ladder — every new sink backend must
-reach L3 before merge:
+The implementation satisfies the [ADR-0706](0706-testing-merge-gate-architecture.md) ladder:
 
 - **L0 unit:** config resolution (required fields, secret-key lookup, ADC default), `MERGE`/DDL SQL
   builders (golden statement fixtures), error-classification table tests, webhook validation cases.
 - **L3 integration** (`-tags=integration`, testcontainers): the
   [goccy/bigquery-emulator](https://github.com/goccy/bigquery-emulator) image — export rows and
   assert content, re-export mutated snapshot and assert upsert + stale delete, empty snapshot clears
-  the partition, `existing` mode fails on a missing table, probe path. **Spike gate:** emulator
-  support for `MERGE … UNNEST(@rows)` must be validated *first*; if its ZetaSQL coverage falls
-  short, the L3 suite drives the load-job + staging variant and the primary write path is
-  re-decided before implementation proceeds.
+  the partition, `existing` mode fails on a missing table, and the probe path. The emulator suite
+  validates `MERGE … UNNEST(@rows)` directly.
 - **Schema/manifests:** golden OpenAPI spec fragment for the database sink CRD under
   `test/schema/golden/` (extending the cases in `test/schema/extract.go`), a
   `config/samples/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml` sample, and a refreshed
@@ -310,22 +303,13 @@ reach L3 before merge:
 - **Streaming inserts as the primary write path** — rejected (§3): append-only duplicates conflict
   with snapshot-upsert semantics, and the streaming buffer blocks DML deletes for up to ~90
   minutes, breaking delete-reconcile parity.
-- **Keeping the webhook stub until the backend lands** — rejected: an admissible CR that can never
-  export is a standing foot-gun; the stub is removed first and `bigquery` returns to the allowlist
-  atomically with the real backend.
 
 ## Open questions
 
-- **OPEN:** Emulator coverage of `MERGE … UNNEST(@rows)` — the implementation spike must confirm it
-  before code lands; on failure, choose between the load-job + staging path as primary or
-  emulator-only divergence in L3.
 - **OPEN:** Should `ensure` ever create the **dataset** (currently: never, by design)? Creating it
   would need a location decision kollect should arguably not own.
 - **OPEN:** Optional partition-expiration / retention field on `BigQuerySpec` (cost control for
   high-churn fleets) — out of scope for v1, revisit with operator feedback.
-- **OPEN:** None of the sink-family CRDs have golden OpenAPI fragments today
-  (`test/schema/extract.go` covers profiles/targets/inventories) — adding the database sink golden
-  here sets the precedent; confirm the other families should follow.
 
 ## See also
 
