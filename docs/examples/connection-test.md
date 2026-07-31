@@ -51,10 +51,10 @@ Family sink CRDs ([ADR-0414](../adr/0414-sink-family-crds.md)):
 | CRD | Role | Wired probe types |
 | --- | --- | --- |
 | `KollectSnapshotSink` | Snapshot store | `git`, `gitlab`, `s3`, `gcs` |
-| `KollectDatabaseSink` | Relational SoR | `postgres` |
+| `KollectDatabaseSink` | Queryable state | `postgres`, `mongodb`, `bigquery` |
 | `KollectEventSink` | Event emitter | `kafka`, `nats` |
 
-Stub backends (`azureblob`, `http`, `bigquery`) pass admission but return *not implemented* at probe
+Stub backends (`azureblob`, `http`) pass admission but return *not implemented* at probe
 time until shipped.
 
 ## Sink probe — `spec.connectionTest`
