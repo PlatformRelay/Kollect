@@ -11,7 +11,13 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **controller:** Make inventory store source Start non-blocking ([#143](https://github.com/platformrelay/kollect/pull/143))[519a62d](https://github.com/platformrelay/kollect/commit/519a62d1a2167159b2a6c7c1d13347652dc6f220)
+
 - **release:** Stop combining gh --slurp with --jq ([#142](https://github.com/platformrelay/kollect/pull/142))[b5bcb4b](https://github.com/platformrelay/kollect/commit/b5bcb4b6c1017231147e24c1d80e2fffad3ef767)
+
+## [0.10.0](https://github.com/platformrelay/kollect/compare/v0.9.0..v0.10.0) - 2026-07-30
+
+### Bug Fixes
 
 - **ci:** Drop doomed changelog:verify from preflight ([#139](https://github.com/platformrelay/kollect/pull/139))[33ac595](https://github.com/platformrelay/kollect/commit/33ac5959d2763d57d7d46a5f2322efb1edfb22ef)
 
