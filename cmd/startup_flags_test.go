@@ -33,6 +33,9 @@ func TestBindStartupFlags_Defaults(t *testing.T) {
 	if cfg.inventoryAuthMode != inventory.AuthModeKubernetes {
 		t.Fatalf("inventoryAuthMode = %q, want %q", cfg.inventoryAuthMode, inventory.AuthModeKubernetes)
 	}
+	if cfg.allowPrivateSinks {
+		t.Fatal("allowPrivateSinks must default to false (NET-01 deny by default)")
+	}
 	if cfg.maxExportBytes != validation.MaxExportBytesGlobal() {
 		t.Fatalf("maxExportBytes = %d, want %d", cfg.maxExportBytes, validation.MaxExportBytesGlobal())
 	}
@@ -86,9 +89,14 @@ func TestBindStartupFlags_ParsesCustomValues(t *testing.T) {
 		"--informer-resync-period=1h",
 		"--collect-metrics-sample-interval=10s",
 		"--collect-dispatch-enqueue-wait=100ms",
+		"--allow-private-sinks=true",
 	}
 	if err := fs.Parse(args); err != nil {
 		t.Fatalf("Parse: %v", err)
+	}
+
+	if !cfg.allowPrivateSinks {
+		t.Fatal("--allow-private-sinks=true did not set allowPrivateSinks")
 	}
 
 	if cfg.metricsAddr != ":8443" || cfg.probeAddr != ":18081" {

@@ -22,6 +22,7 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
+| allowPrivateSinks | bool | `false` | NET-01 (SSRF opt-in, cluster-admin only). When true, sink endpoints may resolve to RFC1918 / IPv6-ULA (in-cluster ClusterIP) addresses at both admission and dial time — for exporting to in-cluster Postgres/MinIO/NATS. Default false (deny). Loopback, link-local, cloud-metadata, and file:// stay denied even when enabled. Enabling widens SSRF reach to RFC1918/VPC peers reachable from the manager pod: a principal who can create/edit sink CRs can then aim connection-tests/exports at those targets. Enable only in private clusters with trusted sink-CR authors. This is NOT a per-tenant/CRD field. |
 | controller.collectDispatchQueueSize | int | `512` | Collection informer dispatch queue depth. |
 | controller.collectDispatchWorkers | int | `4` | Collection informer dispatch worker count (PERF-03). |
 | controller.collectMetricsSampleInterval | string | `"30s"` |  |

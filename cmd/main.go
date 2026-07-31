@@ -31,6 +31,7 @@ import (
 	"github.com/platformrelay/kollect/internal/metrics"
 	"github.com/platformrelay/kollect/internal/operator"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/netguard"
 	"github.com/platformrelay/kollect/internal/validation"
 	webhookv1alpha1 "github.com/platformrelay/kollect/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -59,6 +60,12 @@ func main() {
 	flag.Parse()
 
 	validation.SetMaxExportBytesGlobal(cfg.maxExportBytes)
+
+	// NET-01: one manager flag drives both admission and dial-time private-sink
+	// policy so they never diverge. Default false keeps deny-by-default SSRF
+	// protection; cluster-admins opt in via Helm allowPrivateSinks.
+	validation.SetAllowPrivateSinks(cfg.allowPrivateSinks)
+	netguard.SetAllowPrivateSinks(cfg.allowPrivateSinks)
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 

@@ -1,0 +1,23 @@
+suite: deployment allow-private-sinks (NET-01)
+templates:
+  - deployment.yaml
+tests:
+  - it: does not pass --allow-private-sinks by default (deny by default)
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --allow-private-sinks
+  - it: passes --allow-private-sinks when allowPrivateSinks is enabled
+    set:
+      allowPrivateSinks: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --allow-private-sinks
+  - it: omits --allow-private-sinks when allowPrivateSinks is explicitly false
+    set:
+      allowPrivateSinks: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --allow-private-sinks

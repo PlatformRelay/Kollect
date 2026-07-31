@@ -42,6 +42,7 @@ type startupConfig struct {
 	scrubKeysRaw                  string
 	validatingWebhooksEnabled     bool
 	tenantMode                    bool
+	allowPrivateSinks             bool
 	collectDispatchWorkers        int
 	collectDispatchQueueSize      int
 	informerResyncPeriod          time.Duration
@@ -64,6 +65,10 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 	fs.BoolVar(&cfg.tenantMode, "tenant-mode", false,
 		"Operator runs with namespaced RBAC only (Helm tenantMode). Cluster-scoped kinds "+
 			"(KollectClusterTarget/KollectClusterInventory) are rejected at admission.")
+	fs.BoolVar(&cfg.allowPrivateSinks, "allow-private-sinks", false,
+		"Permit sink endpoints that resolve to RFC1918 / IPv6-ULA (in-cluster ClusterIP) addresses "+
+			"(NET-01). Default false (deny). Cluster-admin only via Helm allowPrivateSinks; loopback, "+
+			"link-local, cloud-metadata, and file:// stay denied even when enabled.")
 	fs.StringVar(&cfg.webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	fs.StringVar(&cfg.webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	fs.StringVar(&cfg.webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
