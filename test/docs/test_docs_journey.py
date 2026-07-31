@@ -81,6 +81,13 @@ class DocsJourneyTest(unittest.TestCase):
         self.assertIn("eventSinkRefs", export)
         self.assertIn("nine", export.lower())
 
+    def test_connection_probe_matrix_matches_wired_database_backends(self) -> None:
+        page = (ROOT / "docs/examples/connection-test.md").read_text(encoding="utf-8")
+        self.assertIn("`postgres`, `mongodb`, `bigquery`", page)
+        stub_sentence = re.search(r"Stub backends \(([^)]*)\)", page)
+        self.assertIsNotNone(stub_sentence)
+        self.assertNotIn("bigquery", stub_sentence.group(1))
+
     def test_current_backend_examples_follow_task_template(self) -> None:
         pages = [
             "git-snapshot-sink.md",
