@@ -3,6 +3,8 @@
 
 from pathlib import Path
 import re
+import subprocess
+import tempfile
 import unittest
 
 
@@ -16,7 +18,8 @@ class DocsFreshnessGateTest(unittest.TestCase):
 
         self.assertIn("docs:verify:", taskfile)
         self.assertIn("bash hack/docs/verify.sh", taskfile)
-        self.assertIn("git ls-files -z", taskfile)
+        self.assertIn("tracked-markdown.sh", taskfile)
+        self.assertIn("--no-globs", taskfile)
         self.assertIn("docs_launch_truth_test.sh", verifier)
         self.assertIn("security_architecture_docs_test.sh", verifier)
         self.assertIn("test/docs", verifier)
@@ -31,6 +34,46 @@ class DocsFreshnessGateTest(unittest.TestCase):
         self.assertNotIn("mkdocs build --strict", workflow)
         self.assertNotIn("bash hack/test/security_architecture_docs_test.sh", workflow)
         self.assertIn("DOCS_REQUIRE_CHROME: \"1\"", workflow)
+
+    def test_tracked_markdown_selector_ignores_other_markdown(self) -> None:
+        selector = ROOT / "hack/docs/tracked-markdown.sh"
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            (repo / ".gitignore").write_text("ignored.md\n", encoding="utf-8")
+            (repo / "tracked.md").write_text("#tracked-invalid\n", encoding="utf-8")
+            (repo / "ignored.md").write_text("#ignored-invalid\n", encoding="utf-8")
+            (repo / "untracked.md").write_text("#untracked-invalid\n", encoding="utf-8")
+            subprocess.run(["git", "add", ".gitignore", "tracked.md"], cwd=repo, check=True)
+            selected = subprocess.check_output([selector], cwd=repo).split(b"\0")
+            self.assertIn(b"tracked.md", selected)
+            self.assertNotIn(b"ignored.md", selected)
+            self.assertNotIn(b"untracked.md", selected)
+
+    def test_workflow_watches_every_external_truth_input(self) -> None:
+        workflow = (ROOT / ".github/workflows/docs.yaml").read_text(encoding="utf-8")
+        for source in (
+            "SECURITY.md",
+            "osv-scanner.toml",
+            "api/v1alpha1/**",
+            "config/crd/bases/**",
+            "config/samples/**",
+            "charts/kollect/Chart.yaml",
+            "CHANGELOG.md",
+            "overrides/**",
+        ):
+            self.assertEqual(workflow.count(f'- "{source}"'), 2, source)
+
+    def test_bigquery_adr_matches_the_registered_backend(self) -> None:
+        registry = (ROOT / "internal/sink/registry.go").read_text(encoding="utf-8")
+        config = (ROOT / "internal/sink/bigquery/config.go").read_text(encoding="utf-8")
+        adr = (ROOT / "docs/adr/0420-bigquery-database-sink.md").read_text(encoding="utf-8")
+        index = (ROOT / "docs/adr/README.md").read_text(encoding="utf-8")
+        self.assertIn("Register(bigquery.TypeName, newBigQueryBackend)", registry)
+        self.assertIn('TypeName = "bigquery"', config)
+        self.assertIn("**Status:** Current", adr)
+        self.assertNotRegex(adr.lower(), r"implementation pending|stub|re-enters|parallel change")
+        self.assertRegex(index, r"\[0420\].*\| Current \|")
 
     def test_reproduction_is_documented(self) -> None:
         testing = (ROOT / "docs/development/testing.md").read_text(encoding="utf-8")
