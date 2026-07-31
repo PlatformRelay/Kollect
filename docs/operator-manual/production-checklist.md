@@ -89,7 +89,7 @@ canonical artifact; every sink is a projection of it.
 
 | Role | Backends | Answers | Deletes |
 | --- | --- | --- | --- |
-| **Snapshot store** | Git, S3/GCS Parquet, HTTP | Current state, written whole each cycle | **Free** — absent from snapshot = deleted |
+| **Snapshot store** | Git/GitLab, S3/GCS (`json` or `parquet`) | Current state, written whole each cycle | **Free** — absent from snapshot = deleted |
 | **Relational SoR** | Postgres | Queryable current state, SQL joins for portals | Requires **delete reconciliation** |
 | **Event emitter** | NATS JetStream (lean default), Kafka/Redpanda | Change stream for downstream integration | Tombstone (consumer-owned) |
 

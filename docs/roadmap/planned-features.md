@@ -36,12 +36,12 @@ validation. New surface area should clear a higher bar than hardening existing w
 
 ## Sinks & export
 
-### S3/GCS Parquet snapshot layout
+### S3/GCS Parquet follow-ups
 
-**Status: Exploring**
+**Status: Shipped; hardening continues**
 
-Add a columnar layout to the existing object-store sinks. Define partitioning, schema evolution,
-manifest metadata, and interoperability tests before exposing configuration.
+S3 and GCS already accept `serialization.format: parquet`. Remaining work is compaction guidance,
+schema-evolution documentation, manifest metadata, and broader interoperability evidence.
 
 ### Azure Blob Storage sink
 

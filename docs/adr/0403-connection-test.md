@@ -45,11 +45,11 @@ Probe uses the same TLS trust and secret resolution as export (`caBundle` / `caS
 | Family CRD | `spec.type` | Probe wired |
 | --- | --- | --- |
 | `KollectSnapshotSink` | `git`, `gitlab`, `s3`, `gcs` | ✅ |
-| `KollectDatabaseSink` | `postgres` | ✅ |
+| `KollectDatabaseSink` | `postgres`, `mongodb`, `bigquery` | ✅ |
 | `KollectEventSink` | `kafka`, `nats` | ✅ |
 
-Stub backends (`azureblob`, `http`, `bigquery`) register in the sink registry but return *not
-implemented* at probe/export time until shipped.
+Reserved snapshot names (`azureblob`, `http`) are rejected by admission and cannot be probed.
+BigQuery is a shipped database backend with a wired probe.
 
 Extend per sink as backends mature.
 

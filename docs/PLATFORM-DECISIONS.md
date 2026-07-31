@@ -62,7 +62,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 
 | Topic | Decision |
 | --- | --- |
-| Sink taxonomy | **Role-based**: snapshot store (Git/Parquet/HTTP) · relational SoR (Postgres) · event emitter (NATS/Kafka) |
+| Sink taxonomy | **Role-based**: snapshot store (Git/GitLab/S3/GCS) · relational SoR (Postgres/MongoDB/BigQuery) · event emitter (NATS/Kafka) |
 | Canonical artifact | **In-memory snapshot** per Inventory; all sinks are projections |
 | Queryable, no DB | **Add S3/GCS Parquet sink** queryable by DuckDB/Athena; deletes free; 3 store tiers (Git + Parquet + Postgres) |
 | Postgres deletes | **Add delete reconciliation** (diff vs last export) — upsert-only is a bug |
@@ -238,7 +238,7 @@ The in-memory snapshot per Inventory is canonical; every sink is a projection.
 
 | Role | Backends | When | Deletes |
 | --- | --- | --- | --- |
-| **Snapshot store** | Git (audit), **S3/GCS Parquet** (queryable via DuckDB, **no DB server**), HTTP (debug) | small/medium installs; audit; ad-hoc SQL without a database | free |
+| **Snapshot store** | Git/GitLab (audit), **S3/GCS JSON or Parquet** (queryable via DuckDB, **no DB server**) | small/medium installs; audit; ad-hoc SQL without a database | free |
 | **Relational SoR** | Postgres | rich portal queries/joins | needs delete reconciliation |
 | **Event emitter** | **NATS JetStream** (lean default), **Kafka/Redpanda** (enterprise opt-in) | downstream integration / change feed | tombstone (consumer-owned) |
 

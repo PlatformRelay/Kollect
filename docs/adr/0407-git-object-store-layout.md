@@ -68,4 +68,4 @@ inventory/<inventory-namespace>/<inventory-name>.json
 - **DECIDED :** `spec.git` adds `pushPolicy`, `branch`, `auth`, `commitMessage`, `commitBody`,
   `commitTrailers`, `author`, `cloneDepth`, and `prune` on snapshot sinks — see
   [ADR-0415](0415-git-sink-commit-ergonomics.md).
-- **OPEN:** GCS Parquet export — S3 ships `format: parquet` in v0.4; GCS JSON default until parity lands.
+- **RESOLVED:** S3 and GCS both support `serialization.format: parquet`; JSON remains the default.

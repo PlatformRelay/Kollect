@@ -48,7 +48,7 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 | [0205](0205-watch-labels.md) | Watch opt-in / opt-out labels | Current |
 | [0206](0206-api-versioning-conversion.md) | API versioning and conversion strategy | Exploring |
 | [0207](0207-target-collection-filtering.md) | Target collection filtering | Current |
-| [0208](0208-cluster-static-refs-via-namespace.md) | Cluster kinds reference namespaced profiles/sinks | Exploring |
+| [0208](0208-cluster-static-refs-via-namespace.md) | Cluster kinds reference namespaced profiles/sinks | Current |
 
 ## 03 · Collection & extraction
 

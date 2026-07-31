@@ -33,6 +33,14 @@ kubectl api-resources --api-group=kollect.dev
 
 ## Helm on an existing cluster
 
+The default chart enables validating webhooks and creates cert-manager `Issuer` and `Certificate`
+resources. Install [cert-manager](https://cert-manager.io/docs/installation/) first and verify its
+CRDs are available:
+
+```sh
+kubectl get crd certificates.cert-manager.io issuers.cert-manager.io
+```
+
 Install the published OCI chart, or use the chart in your checkout:
 
 ```sh
@@ -45,6 +53,11 @@ kubectl -n kollect-system rollout status \
 For production values, restricted watch scope, secrets, and webhook TLS, use the
 [operator manual](../operator-manual/index.md). See the [release page](../RELEASE.md) before
 upgrading a pinned installation.
+
+If cert-manager cannot be installed, either provide the webhook serving Secret and CA injection
+yourself before installing with `webhooks.certManager.create=false`, or explicitly disable webhooks
+for a constrained development environment. The chart does not generate certificates when
+`webhooks.certManager.create=false`; disabling admission is not the recommended production path.
 
 ## Next step
 

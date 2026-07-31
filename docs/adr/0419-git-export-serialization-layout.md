@@ -21,9 +21,8 @@ stable and easy to test, but poor for human review:
 - Reviewers cannot open a single resource in an editor and read it like `kubectl get -o yaml`.
 - Fleet repos accumulate `.json` blobs that do not match how platform teams organize GitOps trees.
 
-Cross-cutting **`spec.serialization`** already exists ([ADR-0416](0416-sink-config-layering.md)) with
-`format: json | parquet | csv | ndjson`, but the **Git/GitLab capability matrix today only honors
-`json`**. Object-store backends own Parquet; Git never got a human-oriented format.
+Cross-cutting **`spec.serialization`** already exists ([ADR-0416](0416-sink-config-layering.md)).
+Git and GitLab honor `yaml` (default), `json`, and `ndjson`; object-store backends own Parquet.
 
 Separately, [ADR-0306](0306-full-resource-export-pruning.md) proposes embedding pruned Kubernetes
 objects in export rows. The natural Git presentation is **one manifest file per resource**, not a
@@ -449,9 +448,10 @@ One `Item` JSON object per line; still single-file `document` mode by default.
 | Family / type | `serialization.format` |
 | --- | --- |
 | **git, gitlab** | **yaml (default), json, ndjson** |
-| s3, gcs, azureblob | json (default), parquet, csv |
-| http | json (default), ndjson |
+| s3, gcs | json (default), parquet, csv |
 | database, event | json only |
+
+`azureblob` and `http` are reserved names rejected by admission, not current capabilities.
 
 ### Internal pipeline
 

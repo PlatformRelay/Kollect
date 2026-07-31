@@ -1,144 +1,58 @@
-# ADR-0201: CRD model — prefixed kinds, static vs reconciled split
+# ADR-0201: CRD model — prefixed kinds and explicit scope
 
-> The `Kollect*` CRDs, their scopes, and the split between static config and reconciled work kinds.
+> The current `Kollect*` API, its scopes, and the split between configuration and work resources.
 
 **Theme:** 02 · API & tenancy · **Status:** Current
-`KollectInventory` moved to namespaced; cluster-scoped variants reserved.
 
 ## Context
 
-Kollect replaces a hardcoded batch collector schema with CRD-driven configuration. Operators in
-this space use different tenancy and config patterns:
-
-- **external-secrets** splits `SecretStore` (namespaced) vs `ClusterSecretStore` (cluster) with
-  namespace `conditions` on the cluster variant; provider config is a discriminated union in spec.
-- **Flux notification-controller** keeps `Provider` and `Alert` as **static** objects (no status
-  subresource, no dedicated reconciler) while `Receiver` is reconciled.
-- **Argo CD** uses `AppProject` as a tenancy boundary and `Application` as the reconciled unit.
-
-Kollect must combine generic attribute selection, resource selection, aggregation, and multi-backend
-export — no single OSS project covers all of this. Templated documentation sync (Confluence, etc.)
-is **explicitly rejected** ([ADR-0702](0702-doc-sync-templating.md)).
-
-Platform users commonly terminate TLS to internal Git/GitLab with **custom CAs**; sink configuration
-must support that from early phases, not as a later bolt-on.
+Kollect needs reusable extraction configuration, typed destinations, collection selectors, and
+durable inventory composition without placing exported payloads in etcd. Public kind names are
+prefixed to avoid collisions in clusters with many operators.
 
 ## Decision
 
-API group `kollect.dev/v1alpha1`. All kinds are **prefixed** (`Kollect*`) to avoid collisions.
-
-### Static config (validated, no controller)
+The API group is `kollect.dev/v1alpha1` and the shipped kinds are:
 
 | Kind | Scope | Role |
 | --- | --- | --- |
-| `KollectProfile` | **Namespace** (breaking; was cluster) | Reusable extraction schema: GVK + named CEL/JSONPath attributes ([ADR-0204](0204-namespaced-profiles.md)) |
-| `KollectSink` | **Namespace** (breaking; was cluster) | Backend config: `type` (`git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka`) + endpoint + `secretRef` + TLS trust ([ADR-0201](0201-crd-model.md)) |
-| `KollectScope` | **Namespace** (Phase 1 priority) | Tenancy boundary: allowed GVKs, namespaces, sinks for a team ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
+| `KollectProfile` | Namespace | Reusable GVK and CEL/JSONPath extraction schema |
+| `KollectSnapshotSink` | Namespace | Git, GitLab, S3, or GCS snapshot destination |
+| `KollectDatabaseSink` | Namespace | Postgres, MongoDB, or BigQuery state destination |
+| `KollectEventSink` | Namespace | Kafka or NATS event destination |
+| `KollectScope` | Namespace | Tenant allowlists for GVKs, namespaces, and sink references |
+| `KollectTarget` | Namespace | Profile reference plus resource selectors; drives collection |
+| `KollectInventory` | Namespace | Composes targets and exports their canonical snapshot |
+| `KollectClusterTarget` | Cluster | Cross-namespace collection with explicit namespace selection |
+| `KollectClusterInventory` | Cluster | Composes namespaced targets/snapshots for platform rollups |
+| `KollectClusterScope` | Cluster | Collection ceiling for cluster-scoped work |
+| `KollectConnectionTest` | Namespace | Explicit one-shot destination probe |
 
-### Reconciled (controller + dynamic informers)
+Cluster-scoped work resources reference namespaced profiles and sinks using a name plus namespace;
+there are no cluster-scoped profile or sink kinds ([ADR-0208](0208-cluster-static-refs-via-namespace.md)).
+The old unified `KollectSink` is not a public kind; the similarly named Go struct is only an internal
+adapter for family sink implementations ([ADR-0414](0414-sink-family-crds.md)).
 
-| Kind | Scope | Role |
-| --- | --- | --- |
-| `KollectTarget` | Namespaced | `profileRef` + selectors; drives collection in team namespace ([ADR-0201](0201-crd-model.md)) |
-| `KollectClusterTarget` | **Cluster** | Platform-wide collection across namespaces via `namespaceSelector`; `profileRef` → `KollectClusterProfile` or platform-namespace profile ([ADR-0201](0201-crd-model.md)) |
-| `KollectInventory` | **Namespaced** | Aggregates namespaced targets **in the same namespace**; dispatches to sinks |
-| `KollectClusterInventory` | **Cluster** | Platform rollup: composes namespace snapshots/shards from federated targets — explicit federation, not implicit whole-cluster capture ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
+All reconciled work kinds expose status conditions and `observedGeneration`. Full collected payloads
+are exported to sinks; status contains only bounded summaries and references.
 
-### Rejected (never ship)
+## Validation and trust
 
-| Kind | Rationale |
-| --- | --- |
-| `KollectPublication` | Doc-sync / Confluence / in-operator templating — out of scope; use Git export + external CI ([ADR-0702](0702-doc-sync-templating.md)) |
-| `KollectHub` | Hub Deployment lifecycle via CRD — **rejected**; use shared-sink fleet ([ADR-0501](0501-multi-cluster-fleet.md)) |
+- CRD schema and validating webhooks reject invalid expressions, unknown sink types, incompatible
+  family fields, and unsafe endpoints.
+- Sink credentials use `secretRef`; outbound TLS trust uses `tls.caSecretRef` or a size-bounded
+  inline `tls.caBundle`. TLS verification remains the default.
+- Namespace and scope checks are enforced before collection and export.
 
-### Reconciled (connection test)
+## Rejected kinds
 
-| Kind | Scope | Role |
-| --- | --- | --- |
-| `KollectConnectionTest` | Namespace | One-shot / CI probe of sink (+ optional profile); [ADR-0201](0201-crd-model.md) |
-
-### Reserved (designed, not built yet)
-
-- `KollectReceiver` — inbound webhook → trigger (Flux Receiver pattern).
-- `KollectTargetSet` — generator templating many Targets (ApplicationSet pattern).
-- **`KollectClusterProfile`** (cluster) — platform-shared extraction schemas ([ADR-0204](0204-namespaced-profiles.md)).
-- **`KollectClusterScope`** (cluster) — platform tenancy boundary when namespaced `KollectScope` is
-  insufficient; ships with collection ceiling fields ([ADR-0207](0207-target-collection-filtering.md)).
-  **Frozen/minimal** — no new behavioral knobs without a concrete platform blocker.
-
-Cluster-scoped **family sink** kinds (`KollectClusterSnapshotSink`, `KollectClusterDatabaseSink`,
-`KollectClusterEventSink`) are **shipped and retained long-term** ([ADR-0414](0414-sink-family-crds.md)).
-The historical unified `KollectClusterSink` name remains reserved; use family cluster variants.
-
-Short names: `kprof`, `ksink`, `kscope`, `ktgt`, `kinv` (reserved: `kcinv`, `kcscope`). `kpub` was
-reserved for rejected `KollectPublication` — do not use.
-
-All reconciled kinds support `spec.suspend` and `kollect.dev/requestedAt` manual-trigger annotation.
-
-### Validating admission (early)
-
-**Validating webhooks** (Phase 0/1, not post-hoc workarounds) must reject at apply time:
-
-- Invalid or non-compilable **CEL** and **JSONPath** expressions on `KollectProfile` attributes
-- Unknown `KollectSink.type` values (enum aligned with [ADR-0602](0602-error-taxonomy.md))
-- Cross-field constraints already expressed as CEL `x-kubernetes-validations` in OpenAPI
-
-Runtime collection may still surface `ErrTerminal` for GVK/API discovery failures; expression syntax
-is webhook-validated first.
-
-### `KollectSink` TLS trust (custom CA)
-
-Git and GitLab sink specs include explicit trust material (at least one of):
-
-- `tls.caSecretRef` — **preferred** — namespaced secret key containing CA bundle
-- `tls.caBundle` — inline PEM (base64) for org-internal CA; validating webhook enforces **max 64 KiB**
-  — large CAs must use `caSecretRef`
-
-Default remains **verify TLS**; `insecureSkipVerify` is opt-in only for dev and must be flagged in
-status when used.
-
-Credential material stays in `secretRef` (tokens, SSH keys) — never in spec/status.
-
-### JSONPath filters on targets
-
-**Deferred:** sink-side or target-side JSONPath *filters* (post-extraction row filtering) are not
-Phase 1 API. Schema clarity and aggregation matter more than where filtering runs ([REQUIREMENTS.md](../REQUIREMENTS.md)).
-
-**Pre-store collection gates** (namespace allow/deny, `resourceRules`, CEL `matchPolicy`) live on
-`KollectTarget` / `KollectClusterTarget` — see [ADR-0207](0207-target-collection-filtering.md). That
-is distinct from export-time Inventory row filters, which remain deferred.
+- `KollectPublication`: documentation publication belongs in external CI
+  ([ADR-0702](0702-doc-sync-templating.md)).
+- `KollectHub`: fleets use shared-sink fan-in ([ADR-0501](0501-multi-cluster-fleet.md)).
 
 ## Consequences
 
-### Positive
-
-- Static Profile/Sink cuts moving parts (validated at admission, read at reconcile time).
-- Namespaced Profiles and Sinks align with team ownership and `tenantMode` installs.
-- Prefix naming is grep-friendly and avoids generic kind collisions in multi-operator clusters.
-- Early webhooks prevent bad profiles from wedging reconcilers.
-- **`KollectClusterInventory`** reserved for platform portal without blocking team-scoped MVP.
-- **`KollectClusterInventory`** federation uses optional `spec.namespaces` plus optional selectors —
-  shard-composed rollups, not one monolithic payload.
-
-### Multi-operator clusters
-
-Multiple independent operator installs may watch overlapping GVK/namespace scopes **by design**
-— no admission guardrails block duplicate collection. Default golden path: one platform
-cluster-wide operator with per-tenant **`KollectScope`**; team-owned namespace-scoped installs
-remain supported with minimal RBAC beyond CRD install ([ADR-0203](0203-namespaced-multi-tenancy.md)).
-
-### Negative
-
-- Namespaced inventory requires one object per namespace (or explicit federation via
-  **`KollectClusterInventory`** — [ADR-0203](0203-namespaced-multi-tenancy.md)).
-- Breaking scope migration for Profile and Sink requires sample and RBAC sweep.
-- Webhook + CEL maintenance cost on every new attribute type rule.
-
-## Open questions
-
-- **RESOLVED :** **`KollectSink` is namespaced**; **`KollectClusterSink`** reserved for platform-shared backends ([ADR-0201](0201-crd-model.md)).
-- **RESOLVED :** **Keep both** `caBundle` and `caSecretRef`; **`caSecretRef` preferred**;
-  **`caBundle` max 64 KiB** at webhook.
-- **RESOLVED :** **`KollectClusterInventory`** federation supports optional **`spec.namespaces`**
-  (empty or absent = documented semantics; not required) plus optional selectors — shard-composed
-  rollups, not implicit cluster-wide wildcard.
+- Namespaced configuration aligns ownership and Secret access with teams.
+- Cluster rollups remain possible without duplicating platform configuration into cluster-scoped
+  APIs.
+- Family-specific schemas and webhooks prevent invalid destination combinations at admission.

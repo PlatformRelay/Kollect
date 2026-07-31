@@ -20,7 +20,7 @@ snapshot sinks via `KollectInventory.spec.snapshotSinkRefs`.
 | `spec.endpoint` | Repository URL or bucket URI |
 | `spec.git` / `spec.gitlab` / `spec.objectStore` | Type-specific settings |
 | `spec.git.engine` | Git export backend: `go-git` (default, pure Go) or `cli` (native `git` binary). `cli` is required for some SSH/KEX edge cases; shipped operator image includes `git` and `openssh-client` |
-| `spec.serialization.format` | Output format. **Git/GitLab default `yaml`**; object stores default `json` ([ADR-0419](../adr/0419-git-export-serialization-layout.md)) |
+| `spec.serialization.format` | Output format. **Git/GitLab: `yaml` or `json`**; **S3/GCS: `json` or `parquet`**. Git defaults to `yaml`; object stores default to `json` ([ADR-0419](../adr/0419-git-export-serialization-layout.md)) |
 | `spec.pathTemplate` | Inventory document path; `{extension}` resolves from the format (e.g. `.yaml`) |
 | `spec.layout` | **Git/GitLab only** — document shape and folder layout (`document`/`perResource`/`split`) ([ADR-0419](../adr/0419-git-export-serialization-layout.md)) |
 | `spec.exportMinInterval` | Default per-ref debounce when inventory ref omits override |
@@ -56,6 +56,10 @@ spec:
 
 S3 object-store variant:
 [`config/samples/kollect_v1alpha1_kollectsnapshotsink_s3.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectsnapshotsink_s3.yaml).
+
+`azureblob` and `http` remain reserved API constants but are **not accepted by admission** and have
+no shipped backend. Parquet is not a separate sink type: select `s3` or `gcs` and set
+`spec.serialization.format: parquet`.
 
 ## Git serialization & layout (ADR-0419)
 

@@ -88,8 +88,8 @@ could read to understand Kollect's posture. This ADR records the decision; the m
 
 - Validating webhooks are enabled by default and the chart provisions their serving certificate
   through cert-manager. Disabling chart-managed certificate resources requires operator-provided
-  serving certificates and CA injection; the self-signed fallback described in
-  [ADR-0105](0105-webhook-serving-cert-management.md) is not implemented.
+  serving certificates and CA injection; the chart does not generate TLS material on that path
+  ([ADR-0105](0105-webhook-serving-cert-management.md)).
 
 ### Supply chain
 

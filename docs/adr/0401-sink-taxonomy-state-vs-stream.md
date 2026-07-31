@@ -33,7 +33,7 @@ flowchart LR
 
 | Role | Backends | Answers | Deletes |
 | --- | --- | --- | --- |
-| **Snapshot store** | Git, **S3/GCS Parquet**, HTTP | current state, written whole each cycle | **free** (absent = deleted) |
+| **Snapshot store** | Git/GitLab, **S3/GCS JSON or Parquet** | current state, written whole each cycle | **free** (absent = deleted) |
 | **Relational SoR** | Postgres | current state, rich SQL/joins for portals | requires **delete reconciliation** |
 | **Event emitter** | **NATS JetStream** (lean default), **Kafka/Redpanda** (enterprise opt-in) | change stream for downstream integration | tombstone (consumer-owned) |
 

@@ -148,7 +148,7 @@ for release timing.
 | `KollectEventSink` | `kafka` | **Beta** |
 | `KollectEventSink` | `nats` | **Beta** — JetStream emitter |
 | `KollectSnapshotSink` | `azureblob` | **Planned** — needs real backend ([roadmap](https://platformrelay.github.io/Kollect/roadmap/planned-features/)) |
-| `KollectSnapshotSink` | Parquet on S3/GCS | **Planned** — layout on existing object-store sinks |
+| `KollectSnapshotSink` | `s3`, `gcs` with `serialization.format: parquet` | **Beta** — shipped object-store output mode |
 
 Full payload lives in sinks; CR `.status` holds summaries only ([etcd limits](https://platformrelay.github.io/Kollect/adr/0103-etcd-limit/)).
 
