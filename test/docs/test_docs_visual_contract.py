@@ -106,6 +106,11 @@ class DocsVisualContractTest(unittest.TestCase):
         self.assertIn("kollect-wordmark-dark.svg", index)
         self.assertNotRegex(index, r"kollect-logo[^)]*\.png")
 
+    def test_docs_workflow_requires_browser_layout_regression(self) -> None:
+        workflow = (ROOT / ".github/workflows/docs.yaml").read_text(encoding="utf-8")
+        self.assertIn("test/docs/docs_visual_browser_test.py", workflow)
+        self.assertIn("CHROME_BIN", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

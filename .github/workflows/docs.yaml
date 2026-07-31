@@ -78,6 +78,19 @@ jobs:
         # missing snippets/redirect targets (see mkdocs.yml `validation:`).
         run: mkdocs build --strict
 
+      - name: Select preinstalled Chrome
+        shell: bash
+        run: |
+          chrome="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          if [[ -z "${chrome}" ]]; then
+            echo "A preinstalled Chrome/Chromium binary is required for the docs layout regression." >&2
+            exit 1
+          fi
+          echo "CHROME_BIN=${chrome}" >> "${GITHUB_ENV}"
+
+      - name: Browser layout regression
+        run: python3 test/docs/docs_visual_browser_test.py
+
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
