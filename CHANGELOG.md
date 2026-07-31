@@ -11,6 +11,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Validate Chrome executable ([#158](https://github.com/platformrelay/kollect/pull/158))[f71f4c2](https://github.com/platformrelay/kollect/commit/f71f4c222ef787bb70312acdbd411ec81fea475a)
+
+- **docs:** Contain mobile hero [08fe274](https://github.com/platformrelay/kollect/commit/08fe27422dbef865e41a6760f872244b47ec0de3)
+
+## [0.12.0](https://github.com/platformrelay/kollect/compare/v0.11.0..v0.12.0) - 2026-07-31
+
+### Bug Fixes
+
 - **docs:** Correct probe backend matrix ([#156](https://github.com/platformrelay/kollect/pull/156))[21d4a6c](https://github.com/platformrelay/kollect/commit/21d4a6cad7b29d19cbea41beeb275dc142d2c2f8)
 
 
