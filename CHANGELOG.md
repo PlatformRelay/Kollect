@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Tighten freshness contracts ([#159](https://github.com/platformrelay/kollect/pull/159))[38aa5e9](https://github.com/platformrelay/kollect/commit/38aa5e98bc7651ad149186b14a805879dc1b384e)
+
 - **docs:** Validate Chrome executable ([#158](https://github.com/platformrelay/kollect/pull/158))[f71f4c2](https://github.com/platformrelay/kollect/commit/f71f4c222ef787bb70312acdbd411ec81fea475a)
 
 - **docs:** Contain mobile hero [08fe274](https://github.com/platformrelay/kollect/commit/08fe27422dbef865e41a6760f872244b47ec0de3)
