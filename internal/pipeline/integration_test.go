@@ -4,6 +4,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io/fs"
@@ -115,6 +116,103 @@ func TestPipelineCLI_collectAndWrite(t *testing.T) {
 	assertEnvelope(t, deployFile, "nginx:1.25")
 	// The ingress envelope must be a valid, non-empty export (host attribute is optional).
 	assertEnvelope(t, ingressFile, "")
+}
+
+// TestPipelineCLI_collectToStdout is the L2 integration counterpart for stdout export (ADR-0802,
+// REQ-PIPE-02). It drives the same RunAllContexts wiring against a live envtest API server but with
+// the stdout sink (ResolveSink(-)), then asserts the per-context records the CLI would stream —
+// exercising the runOneContext stdout branch (CollectStdoutRecords) end to end and confirming the
+// records carry the same collected attributes a filesystem sink would, with no files written. Like
+// its sibling it runs in the Linux `task test` job and skips cleanly when envtest assets are absent.
+func TestPipelineCLI_collectToStdout(t *testing.T) {
+	assetsDir := pipelineEnvtestAssetsDir()
+	if assetsDir == "" {
+		t.Skip("envtest assets unavailable (KUBEBUILDER_ASSETS unset and no bin/k8s); L2 runs in `task test`, not the tags=integration job")
+	}
+
+	testEnv := &envtest.Environment{BinaryAssetsDirectory: assetsDir}
+
+	cfg, err := testEnv.Start()
+	if err != nil {
+		t.Fatalf("envtest start: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if stopErr := testEnv.Stop(); stopErr != nil {
+			t.Errorf("envtest stop: %v", stopErr)
+		}
+	})
+
+	ctx := context.Background()
+
+	kube, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		t.Fatalf("kubernetes client: %v", err)
+	}
+
+	const namespace = "pipeline-it"
+	seedEnvtestObjects(ctx, t, kube, namespace)
+
+	loaded, err := LoadConfig("testdata/envtest")
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	sinkSpec, err := ResolveSink(loaded, StdoutSentinel)
+	if err != nil {
+		t.Fatalf("resolve stdout sink: %v", err)
+	}
+	if !IsStdoutSink(sinkSpec) {
+		t.Fatalf("expected stdout sink, got type %q", sinkSpec.Type)
+	}
+
+	const contextName = "envtest"
+	kubeconfigPath := writeEnvtestKubeconfig(t, cfg, contextName)
+
+	outDir := t.TempDir()
+
+	results := RunAllContexts(ctx, []string{contextName}, kubeconfigPath, loaded, sinkSpec, nil, sink.NewRegistry(), nil, false)
+	if len(results) != 1 {
+		t.Fatalf("got %d context results, want 1", len(results))
+	}
+
+	res := results[0]
+	if res.Fatal != nil {
+		t.Fatalf("context fatal: %v", res.Fatal)
+	}
+	if len(res.Errs) != 0 {
+		t.Fatalf("context errors: %v", res.Errs)
+	}
+	if len(res.Records) != 2 {
+		t.Fatalf("got %d stdout records, want 2 (one per target)", len(res.Records))
+	}
+	if res.Exported != 2 {
+		t.Fatalf("exported = %d, want 2", res.Exported)
+	}
+
+	// Stdout mode writes nothing to disk; a scratch dir stays empty.
+	if got := countFiles(t, outDir); got != 0 {
+		t.Fatalf("stdout mode wrote %d files, want 0", got)
+	}
+
+	// Envelope fidelity: encoding the records reproduces the collected deployment image, exactly as
+	// the filesystem path's envelope would, and every record carries a non-empty rendered path.
+	var buf bytes.Buffer
+	if err := WriteStdoutRecords(&buf, FormatNDJSON, res.Records); err != nil {
+		t.Fatalf("write ndjson: %v", err)
+	}
+	if !strings.Contains(buf.String(), "nginx:1.25") {
+		t.Errorf("stdout records missing the collected image nginx:1.25; got:\n%s", buf.String())
+	}
+
+	for _, r := range res.Records {
+		if r.Envelope.ItemCount < 1 {
+			t.Errorf("record %s/%s itemCount = %d, want >= 1", r.TargetNamespace, r.TargetName, r.Envelope.ItemCount)
+		}
+		if r.Path == "" {
+			t.Errorf("record %s/%s has no rendered path", r.TargetNamespace, r.TargetName)
+		}
+	}
 }
 
 // seedEnvtestObjects creates the namespace plus one Deployment and one Ingress that the two
