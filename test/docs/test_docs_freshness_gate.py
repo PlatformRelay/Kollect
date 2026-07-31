@@ -165,6 +165,28 @@ class DocsFreshnessGateTest(unittest.TestCase):
         self.assertIn("**Status:** Current", (ROOT / "docs/adr/0208-cluster-static-refs-via-namespace.md").read_text(encoding="utf-8"))
         self.assertRegex(index, r"\[0208\].*\| Current \|")
 
+    def test_sink_configuration_adrs_describe_only_current_architecture(self) -> None:
+        adr0416 = (ROOT / "docs/adr/0416-sink-config-layering.md").read_text(encoding="utf-8")
+        adr0419 = (ROOT / "docs/adr/0419-git-export-serialization-layout.md").read_text(encoding="utf-8")
+        for name, text in (("ADR-0416", adr0416), ("ADR-0419", adr0419)):
+            lowered = text.lower()
+            for retired in (
+                "kollectclustersnapshotsink",
+                "cluster-scoped",
+                "azureblob",
+                "azure blob",
+                "http",
+                "## open questions",
+                "## implementation phases",
+                "### crd shape (proposed)",
+                "## deferred",
+            ):
+                self.assertNotIn(retired, lowered, f"{name}: {retired}")
+        self.assertIn("`KollectSnapshotSink`", adr0416)
+        self.assertIn("`git`, `gitlab`, `s3`, and `gcs`", adr0416)
+        self.assertIn("**`yaml` (default), `json`, and `ndjson`**", adr0419)
+        self.assertIn("**`json` (default), `parquet`, and `csv`**", adr0419)
+
 
 if __name__ == "__main__":
     unittest.main()
