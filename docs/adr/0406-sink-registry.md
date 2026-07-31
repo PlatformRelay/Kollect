@@ -67,5 +67,5 @@ Connectivity probing is a parallel concern ([ADR-0403](0403-connection-test.md))
   the inventory controller picks delete-reconciliation vs whole-snapshot behavior per
   [ADR-0401](0401-sink-taxonomy-state-vs-stream.md).
 - **OPEN:** Out-of-tree backend registration (plugin) — or keep the registry compile-time only?
-- **OPEN:** Should `Export` take the structured snapshot instead of `[]byte` so backends choose their
-  own serialization (Parquet, row batches) without re-parsing JSON? (Revisit with the Parquet sink.)
+- **RESOLVED:** `Export` retains the byte contract; object-store Parquet encoding decodes the
+  canonical item payload inside the backend.

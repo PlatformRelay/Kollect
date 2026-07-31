@@ -104,7 +104,7 @@ bumping versions. Common upgrade touchpoints:
 | `tenantMode` / `watchNamespaces` | RBAC shape changes require reconciling Role vs ClusterRole |
 | `mode` | Single-cluster only; remove legacy hub/spoke values from overlays |
 | `featureGates.*` | New gates default off; dev overlays may differ from production values |
-| `webhooks.certManager.create` | Clusters without cert-manager need the self-signed bootstrap path |
+| `webhooks.certManager.create` | `false` requires an operator-provided serving Secret and webhook CA trust; the chart does not generate either |
 
 !!! info "Export debouncing"
     Debounce interval is per **`KollectInventory.spec.exportMinInterval`** (CRD default **30s**).

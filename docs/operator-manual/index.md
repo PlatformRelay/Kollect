@@ -5,7 +5,8 @@ workloads. If you are evaluating locally, start with [Quick start](../getting-st
 [Kind local lab](../getting-started/install.md) first.
 
 !!! tip "Assumptions"
-    This guide assumes Helm 3, kubectl, and a working Kubernetes cluster. New to **Kollect** CRDs,
+    This guide assumes Helm 3, kubectl, a working Kubernetes cluster, and cert-manager for the
+    default webhook-enabled chart. New to **Kollect** CRDs,
     sink roles, or watch scope? Read [Understand the basics](../concepts/resource-model.md) and
     [Platform decisions](../PLATFORM-DECISIONS.md) before changing production values.
 
@@ -138,8 +139,13 @@ Validating webhooks require a TLS serving cert mounted on every manager replica
 
 ### Webhook TLS
 
-- **Default:** cert-manager `Certificate` in `webhook-certmanager.yaml` (soft dependency).
-- **Fallback:** self-signed bootstrap when `webhooks.certManager.create: false`.
+- **Default:** cert-manager `Certificate` in `webhook-certmanager.yaml`. cert-manager is required
+  for the default chart values.
+- **Operator-provided certificates:** set `webhooks.certManager.create: false` only after arranging
+  the named serving Secret and CA trust for the `ValidatingWebhookConfiguration`. This setting
+  suppresses cert-manager resources; it does not generate a certificate.
+- **Development only:** `webhooks.enabled: false` avoids the TLS dependency by disabling validating
+  admission. Do not use this as the production workaround.
 
 Example: [Cert-manager webhooks](index.md#webhook-tls).
 

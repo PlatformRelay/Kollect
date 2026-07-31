@@ -24,7 +24,7 @@ architecture context see [Understand the basics](concepts/resource-model.md) and
 
 | Term | Definition |
 | --- | --- |
-| **Snapshot store** | Sink role that writes **whole current state** each cycle (Git, S3/GCS Parquet, HTTP). Deletes are implicit — absent resources are not in the latest file ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)). |
+| **Snapshot store** | Sink role that writes **whole current state** each cycle (Git/GitLab or S3/GCS as JSON/Parquet). Deletes are implicit — absent resources are not in the latest file ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)). |
 | **SoR (system of record)** | Relational **state store** — typically Postgres — answering *what is deployed now?* with queryable rows. Requires **delete reconciliation** when resources disappear. |
 | **Event emitter** | Sink role that publishes **change streams** (NATS JetStream, Kafka) for downstream consumers; tombstones and materialized views are consumer-owned. |
 | **Delete reconciliation** | Postgres-specific logic to remove rows when UIDs leave the snapshot; snapshot stores get correct deletes for free. |
@@ -206,7 +206,7 @@ KollectSnapshotSink is the Schema for snapshot export sinks.
 | `exportMinInterval` | exportMinInterval is the default minimum time between identical exports when an inventory |
 | `git` | git configures git sink settings when type is git. |
 | `gitlab` | gitlab configures GitLab-specific settings when type is gitlab. |
-| `http` | http configures webhook snapshot export when type is http. |
+| `http` | Reserved snapshot type that is rejected by admission; do not confuse it with the optional Inventory HTTP read API. |
 | `layout` | layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419). |
 
 Full reference: [KollectSnapshotSink](crds/kollectsnapshotsink.md).

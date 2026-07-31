@@ -114,6 +114,57 @@ class DocsFreshnessGateTest(unittest.TestCase):
                 path = (page.parent / target.split("#", 1)[0]).resolve()
                 self.assertTrue(path.is_file(), f"{page.relative_to(ROOT)}: missing image {target}")
 
+    def test_webhook_tls_docs_match_the_chart(self) -> None:
+        install = (ROOT / "docs/getting-started/install.md").read_text(encoding="utf-8")
+        manual = (ROOT / "docs/operator-manual/index.md").read_text(encoding="utf-8")
+        public = "\n".join(
+            path.read_text(encoding="utf-8")
+            for base in (ROOT / "README.md", ROOT / "docs", ROOT / "charts/kollect/README.md")
+            for path in ([base] if base.is_file() else base.rglob("*.md"))
+        ).lower()
+        self.assertIn("cert-manager", install.lower())
+        self.assertIn("kubectl get crd certificates.cert-manager.io", install)
+        self.assertIn("operator-provided", manual.lower())
+        self.assertNotRegex(public, r"self-signed bootstrap|self signed bootstrap")
+        self.assertNotRegex(public, r"certmanager\.create[^\n]{0,100}(selects|enables)[^\n]{0,40}(fallback|bootstrap)")
+
+    def test_public_sink_contract_matches_admission_and_formats(self) -> None:
+        validation = (ROOT / "internal/validation/family_sink.go").read_text(encoding="utf-8")
+        source = (ROOT / "api/v1alpha1/sink_common_types.go").read_text(encoding="utf-8")
+        pages = {
+            path.relative_to(ROOT).as_posix(): path.read_text(encoding="utf-8")
+            for base in (ROOT / "README.md", ROOT / "docs")
+            for path in ([base] if base.is_file() else base.rglob("*.md"))
+        }
+        self.assertIn("validSnapshotSinkTypes", validation)
+        self.assertNotIn("SnapshotSinkTypeHTTP,", validation)
+        self.assertNotIn("SnapshotSinkTypeAzureBlob,", validation)
+        self.assertIn("SerializationFormatParquet", (ROOT / "api/v1alpha1/constants.go").read_text(encoding="utf-8"))
+        self.assertIn("SnapshotSinkTypeHTTP", source)  # reserved API constant, not admitted
+        for name, text in pages.items():
+            lowered = text.lower()
+            self.assertNotRegex(lowered, r"parquet.{0,40}\*\*planned\*\*|\*\*planned\*\*.{0,40}parquet", name)
+            self.assertNotRegex(lowered, r"stub backends?.{0,80}(pass admission|valid crd)", name)
+        reference = (ROOT / "docs/crds/kollectsnapshotsink.md").read_text(encoding="utf-8").lower()
+        for sink_type in ("git", "gitlab", "s3", "gcs"):
+            self.assertIn(f"`{sink_type}`", reference)
+        self.assertIn("parquet", reference)
+        self.assertIn("not accepted by admission", reference)
+
+    def test_current_adrs_do_not_publish_retired_architecture(self) -> None:
+        adr0201 = (ROOT / "docs/adr/0201-crd-model.md").read_text(encoding="utf-8")
+        adr0414 = (ROOT / "docs/adr/0414-sink-family-crds.md").read_text(encoding="utf-8")
+        adr0801 = (ROOT / "docs/adr/0801-pipeline-cli-mode.md").read_text(encoding="utf-8")
+        index = (ROOT / "docs/adr/README.md").read_text(encoding="utf-8")
+        for text in (adr0201, adr0414):
+            self.assertNotIn("KollectClusterSnapshotSink", text)
+            self.assertNotIn("KollectClusterDatabaseSink", text)
+            self.assertNotIn("KollectClusterEventSink", text)
+        self.assertNotRegex(adr0414.lower(), r"stub backends?.*(azureblob|http)")
+        self.assertNotIn("## Open questions", adr0801)
+        self.assertIn("**Status:** Current", (ROOT / "docs/adr/0208-cluster-static-refs-via-namespace.md").read_text(encoding="utf-8"))
+        self.assertRegex(index, r"\[0208\].*\| Current \|")
+
 
 if __name__ == "__main__":
     unittest.main()

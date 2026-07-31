@@ -40,10 +40,12 @@ honored; the validating webhook rejects nonsensical combinations at admission:
 
 | Family | Supported `serialization.format` |
 | --- | --- |
-| object store (s3/gcs/azureblob) | json, parquet, csv |
-| http | json, ndjson |
+| object store (`s3`, `gcs`) | json, parquet, csv |
 | event (kafka/nats) | json (avro/protobuf deferred to v1beta1) |
-| database (postgres/bigquery) | native rows — only json accepted |
+| database (postgres/mongodb/bigquery) | native rows — only json accepted |
+
+`azureblob` and `http` are reserved but rejected by family-sink admission, so they are not part of
+the capability matrix.
 
 `serialization.format` takes precedence over the legacy `objectStore.format`; the webhook emits a
 warning when both are set.

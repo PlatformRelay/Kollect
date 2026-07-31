@@ -5,7 +5,7 @@
 **Theme:** 04 · Export & sinks · **Status:** Current
 [ADR-0401](0401-sink-taxonomy-state-vs-stream.md) — Postgres and Kafka are **not** co-equal primaries
 (state store vs event emitter); Postgres needs delete reconciliation; NATS is the lean event default;
-an S3/GCS Parquet snapshot sink is added.
+S3/GCS object-store sinks support Parquet serialization.
 
 ## Context
 

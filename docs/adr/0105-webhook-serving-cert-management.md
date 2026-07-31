@@ -1,82 +1,44 @@
 # ADR-0105: Webhook serving and certificate management
 
-> How validating webhooks are served, how TLS serving certs are provisioned and rotated, and the
-> cert-manager vs self-signed bootstrap paths for clusters without cert-manager.
+> How validating webhooks are served and how their TLS certificates are provisioned.
 
 **Theme:** 01 · Foundations · **Status:** Current
 
 ## Context
 
-Kollect relies on **validating webhooks** from Phase 0/1 ([ADR-0201](0201-crd-model.md),
-[ADR-0202](0202-static-vs-reconciled.md)) to reject bad profiles, sinks, and scope at admission —
-before reconcilers wedge on terminal config. The operator serves webhooks on **port 9443**
-(controller-runtime default) with certs mounted at `/tmp/k8s-webhook-server/serving-certs`
-([ADR-0704](0704-helm-chart-crd-lifecycle.md)).
-
-The Helm chart already wires **cert-manager** (`Certificate` + self-signed `Issuer` →
-`webhook-server-cert` Secret) and snapshot-tests that path. Many adopters run cert-manager; many
-small/lab clusters do not. **Q4 :** support a **self-signed bootstrap fallback**
-alongside cert-manager — cert-manager remains the **recommended** production default
-([ADR-0104](0104-security-model.md)).
+Kollect uses validating webhooks to reject invalid profiles, sinks, and scopes before reconciliation.
+The manager serves them on port 9443 and mounts TLS material from the Secret named by
+`webhooks.certManager.secretName` (default `webhook-server-cert`).
 
 ## Decision
 
-### Serving model
+- Validating webhooks are enabled by default; there are no mutating webhooks.
+- The default Helm path requires cert-manager. The chart renders a namespaced self-signed `Issuer`
+  and a `Certificate`; cert-manager creates and rotates the serving Secret and injects CA trust into
+  the `ValidatingWebhookConfiguration`.
+- `webhooks.certManager.create: false` only suppresses those cert-manager resources. It does not
+  generate a Secret or inject a CA. Operators selecting it must provision the named TLS Secret and
+  establish webhook CA trust outside the chart before the manager starts.
+- `webhooks.enabled: false` disables validating admission and its serving-certificate mount. It is
+  supported for constrained development overlays, not recommended as a production workaround.
+- Every ready replica may serve webhook traffic through the chart's Service.
 
-- **Validating only** — no mutating webhooks in v1alpha1; `failurePolicy=fail`, `sideEffects=None`.
-- Webhooks are **enabled by default** in the Helm chart (`webhooks.enabled: true`); dev overlays may
-  disable them for fast iteration (`charts/kollect/ci/dev-values.yaml`).
-- The manager registers webhooks only when `--validating-webhooks-enabled=true` (chart sets this from
-  values).
-- **All ready replicas** may serve webhook traffic; the apiserver load-balances to the webhook
-  `Service`. Serving cert trust is cluster-wide via `ValidatingWebhookConfiguration.clientConfig.caBundle`.
+## Trust and rotation
 
-### Certificate provisioning (two supported paths)
+cert-manager owns rotation on the default path. On the operator-provided path, rotation and CA
+rollover are also operator-owned. Sink `caBundle` and `caSecretRef` fields are unrelated: they
+configure outbound sink trust, not the manager's serving certificate.
 
-| Path | When | Mechanism |
-| --- | --- | --- |
-| **A — cert-manager (default)** | Production and any cluster with cert-manager | Chart renders `Issuer` + `Certificate`; cert-manager writes `tls.crt`/`tls.key`/`ca.crt` into the serving `Secret` and keeps them rotated. Documented soft dependency. |
-| **B — self-signed bootstrap (fallback)** | Clusters **without** cert-manager | Chart renders a **one-shot bootstrap** (Helm hook `Job` or equivalent) that generates a long-lived self-signed serving cert + CA, writes the `Secret`, and patches `ValidatingWebhookConfiguration.clientConfig.caBundle`. No cert-manager CRs. |
+## Verification
 
-**Mutual exclusion:** `webhooks.certManager.create: true` (default) selects path A;
-`webhooks.certManager.create: false` with `webhooks.selfSigned.bootstrap: true` selects path B.
-The chart must not render both.
-
-### Trust and rotation
-
-- **Path A:** cert-manager owns rotation; operator mounts the Secret read-only; no in-process cert
-  generation.
-- **Path B:** bootstrap runs on install/upgrade when the Secret or `caBundle` is missing or stale
-  (checksum annotation on the webhook config). Rotation is **manual or upgrade-triggered** — acceptable
-  for lab/small installs; document that path A is preferred for production.
-- **`caBundle` size:** inline PEM in CR specs remains capped at **64 KiB** at webhook
-  ([ADR-0201](0201-crd-model.md)); this ADR governs **serving** certs for the operator webhook
-  endpoint, not sink `caBundle` fields.
-
-### E2E and CI
-
-- Kind e2e runs cert-manager Certificate collection smoke via `hack/e2e/cert-manager.sh` (invoked from
-  `hack/kind/e2e/smoke.sh`) — path A parity for generic CRD collection, not operator webhook TLS.
-- Add a **helm-unittest** snapshot for path B (bootstrap enabled, no cert-manager objects) before
-  marking bootstrap implemented.
-- Contract: webhook readiness must appear in e2e smoke when webhooks are enabled
-  ([ADR-0301](0301-event-driven-informers.md), [ADR-0706](0706-testing-merge-gate-architecture.md)).
+Helm tests cover the default `Issuer`, `Certificate`, Secret mount, webhook service, and CA-injection
+annotations. Existing-cluster installation documentation names cert-manager as a prerequisite and
+states the obligations of the operator-provided path.
 
 ## Consequences
 
-- Small installs can enable webhooks without cert-manager; production guidance stays "install
-  cert-manager or use path A."
-- Two chart paths increase snapshot-test surface; mutual exclusion keeps runtime simple.
-- Self-signed bootstrap does not auto-rotate like cert-manager — operators must plan upgrades or migrate
-  to path A for long-lived fleets.
-- Security posture for webhook TLS is explicit in one ADR; [ADR-0104](0104-security-model.md) links here
-  for serving trust.
-
-## Open questions
-
-- **DECIDED (2026-06-05, Q4):** Self-signed fallback **yes**; cert-manager **recommended default**.
-- **OPEN:** Bootstrap implementation detail — Helm hook `Job` vs in-manager cert writer on first start?
-  (Default leaning: Helm hook to avoid running cert logic in the reconciler process.)
-- **OPEN:** Should path B also support `--webhook-cert-path` for bring-your-own Secret (no generation)?
-- **OPEN:** NetworkPolicy template for webhook ingress from control-plane / apiserver — chart optional
-  or doc-only?
+- The secure default provides automated certificate rotation, at the cost of a hard cert-manager
+  dependency for the default install.
+- Clusters with another PKI controller can integrate it by disabling chart-created cert-manager
+  resources and owning both the Secret and CA trust explicitly.
+- Kollect does not ship an automatic certificate-generation alternative.

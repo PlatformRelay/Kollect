@@ -118,7 +118,7 @@ documented in [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md); reconciliat
 | `KollectDatabaseSink` | `mongodb`, `bigquery` | **Beta** |
 | `KollectEventSink` | `kafka`, `nats` | **Beta** |
 | `KollectSnapshotSink` | `azureblob` | **Planned** |
-| Object-store sinks | Parquet layout | **Planned** — on S3/GCS |
+| `KollectSnapshotSink` | S3/GCS `serialization.format: parquet` | **Beta** — shipped output mode |
 
 Release timing and deferred backends: [Roadmap — Supported & planned sinks](ROADMAP.md#supported-planned-sinks).
 

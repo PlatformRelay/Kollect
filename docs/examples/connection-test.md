@@ -54,8 +54,8 @@ Family sink CRDs ([ADR-0414](../adr/0414-sink-family-crds.md)):
 | `KollectDatabaseSink` | Queryable state | `postgres`, `mongodb`, `bigquery` |
 | `KollectEventSink` | Event emitter | `kafka`, `nats` |
 
-Stub backends (`azureblob`, `http`) pass admission but return *not implemented* at probe
-time until shipped.
+Reserved backend names (`azureblob`, `http`) are rejected by admission because no implementation
+ships. They cannot be used as placeholders in manifests.
 
 ## Sink probe — `spec.connectionTest`
 

@@ -84,9 +84,8 @@ class DocsJourneyTest(unittest.TestCase):
     def test_connection_probe_matrix_matches_wired_database_backends(self) -> None:
         page = (ROOT / "docs/examples/connection-test.md").read_text(encoding="utf-8")
         self.assertIn("`postgres`, `mongodb`, `bigquery`", page)
-        stub_sentence = re.search(r"Stub backends \(([^)]*)\)", page)
-        self.assertIsNotNone(stub_sentence)
-        self.assertNotIn("bigquery", stub_sentence.group(1))
+        self.assertIn("Reserved backend names (`azureblob`, `http`) are rejected by admission", page)
+        self.assertNotRegex(page, r"Stub backends.*pass admission")
 
     def test_current_backend_examples_follow_task_template(self) -> None:
         pages = [

@@ -134,8 +134,9 @@ with the **`kollect.dev/test-connection: "true"`** annotation when needed. CI an
 | `controller.maxConcurrentReconciles.*` | Per-controller concurrency | See `values.yaml` |
 | `extraArgs` | Additional manager flags (debug only) | `[]` |
 
-Webhook serving certificates: cert-manager default or self-signed bootstrap —
-[ADR-0105](../adr/0105-webhook-serving-cert-management.md) ·
+Webhook serving certificates use cert-manager by default. With
+`webhooks.certManager.create: false`, the operator must provide the serving Secret and webhook CA
+trust; the chart performs no certificate generation — [ADR-0105](../adr/0105-webhook-serving-cert-management.md) ·
 [Cert-manager webhooks example](index.md#webhook-tls).
 
 ## See also

@@ -148,14 +148,14 @@ Key properties:
 | `KollectInventory.status` | etcd | Counts, conditions, export refs |
 | **Postgres / Kafka sink** | Durable | **System of record** for portals |
 | Git sink | Durable | Audit / diff |
-| HTTP (if enabled) | Ephemeral | Debug snapshot |
+| Inventory HTTP read API (optional) | Ephemeral | Read-only debugging; not an export sink |
 
 ## Sinks (by role)
 
 Classified by role, not vendor ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)). The
 in-memory snapshot per Inventory is canonical; sinks are projections.
 
-- **Snapshot stores** — **Git** (audit), **S3/GCS Parquet** (queryable via DuckDB, no DB server), **HTTP** (debug). Deletes free.
+- **Snapshot stores** — **Git/GitLab** (audit) and **S3/GCS** (`json` or `parquet`). Deletes are free.
 - **Relational SoR** — **Postgres** (rich portal SQL; needs delete reconciliation).
 - **Event emitters** — **NATS JetStream** (lean default), **Kafka/Redpanda** (enterprise opt-in). Doubles as multi-cluster fan-in.
 - **GitLab** — Phase 2 enterprise Git host (internal CA via `tls.caSecretRef`).

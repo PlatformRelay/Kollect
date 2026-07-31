@@ -37,9 +37,8 @@ kubeconfig ──▶ kollect-pipeline collect ──▶ inventory files (--outpu
 docker run --rm ghcr.io/platformrelay/kollect-pipeline:<version> --help
 ```
 
-> The `kollect-pipeline` container image is published to GHCR as part of the release that ships
-> ADR-0801 P-006 (image + release wiring). Until that lands, build the binary from source with the
-> options below.
+> The `kollect-pipeline` container image is published to GHCR with each release. Pin `<version>` to
+> the same release used for your configuration. Building from source remains available below.
 
 **Build from source:**
 

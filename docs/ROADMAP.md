@@ -59,7 +59,7 @@ v0.12.0.
 | `KollectDatabaseSink` | `mongodb`, `bigquery` | **Beta** |
 | `KollectEventSink` | `kafka`, `nats` | **Beta** |
 | `KollectSnapshotSink` | `azureblob` | **Planned** — no backend ships today |
-| S3 / GCS layout | Parquet | **Planned** |
+| `KollectSnapshotSink` | S3/GCS `serialization.format: parquet` | **Beta** — shipped output mode |
 
 The source of truth for accepted values is the
 [CR reference](crds/index.md#kinds). Planned backends are not accepted by admission
@@ -79,7 +79,7 @@ Current installations should leave `ui.enabled: false`, which is the chart defau
 These directions remain useful but are not scheduled:
 
 - `v1beta1` API design and conversion-webhook strategy.
-- Parquet layout for object-store snapshots.
+- Parquet compaction and richer query guidance for the shipped S3/GCS output mode.
 - Azure Blob Storage after a real backend, emulator coverage, and credential model exist.
 - Richer target- and inventory-scoped metrics.
 - OpenTelemetry tracing after the metric surface and cardinality policy stabilize.
