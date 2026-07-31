@@ -84,6 +84,7 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 | [0417](0417-mongodb-database-sink.md) | MongoDB database sink | Current |
 | [0418](0418-fleet-console-read-plane.md) | Fleet console read plane (event-fed, `cluster` dimension) | Exploring |
 | [0419](0419-git-export-serialization-layout.md) | Git export serialization and layout (YAML default, zero-config) | Current |
+| [0420](0420-bigquery-database-sink.md) | BigQuery database sink | Accepted |
 
 ## 05 · Multi-cluster fleet
 

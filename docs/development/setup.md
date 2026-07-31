@@ -370,8 +370,12 @@ Open http://127.0.0.1:8000/
 Strict build (matches CI):
 
 ```sh
-mkdocs build --strict
+task docs:verify
 ```
+
+This also checks tracked Markdown, documentation truth and freshness contracts, committed samples,
+and the browser layout when Chrome/Chromium is available. Use
+`DOCS_REQUIRE_CHROME=1 task docs:verify` to require the browser exactly as CI does.
 
 Configuration: `mkdocs.yml` at the repository root. GitHub Pages workflow:
 `.github/workflows/docs.yaml`. See [ADR-0701](../adr/0701-mkdocs-github-pages.md).

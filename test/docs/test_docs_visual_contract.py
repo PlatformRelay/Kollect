@@ -108,8 +108,9 @@ class DocsVisualContractTest(unittest.TestCase):
 
     def test_docs_workflow_requires_browser_layout_regression(self) -> None:
         workflow = (ROOT / ".github/workflows/docs.yaml").read_text(encoding="utf-8")
-        self.assertIn("test/docs/docs_visual_browser_test.py", workflow)
+        self.assertIn("task docs:verify", workflow)
         self.assertIn("CHROME_BIN", workflow)
+        self.assertIn('DOCS_REQUIRE_CHROME: "1"', workflow)
 
 
 if __name__ == "__main__":
