@@ -16,7 +16,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+CHROME_CANDIDATES = ("google-chrome-stable", "google-chrome", "chromium", "chromium-browser")
+MAC_CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
 PROBE = r"""
 <script>
 addEventListener("load", () => setTimeout(() => {
@@ -63,12 +64,36 @@ def parse_result(rendered: str) -> dict[str, object]:
     return json.loads(html.unescape(encoded))
 
 
+def find_chrome() -> Path:
+    override = os.environ.get("CHROME_BIN")
+    if override:
+        path = Path(override)
+        if path.is_file():
+            return path
+        raise SystemExit(f"CHROME_BIN does not point to an executable file: {path}")
+    for candidate in CHROME_CANDIDATES:
+        discovered = shutil.which(candidate)
+        if discovered:
+            return Path(discovered)
+    if MAC_CHROME.is_file():
+        return MAC_CHROME
+    names = ", ".join(CHROME_CANDIDATES)
+    raise SystemExit(
+        "Chrome is required for the docs layout regression. Set CHROME_BIN or install one of: "
+        f"{names}."
+    )
+
+
 def assert_layout(result: dict[str, object], width: int, scheme: str) -> None:
-    assert result["documentScroll"] <= result["documentClient"], (width, scheme, result)
-    assert result["heroScroll"] <= result["heroClient"], (width, scheme, result)
+    if result["documentScroll"] > result["documentClient"]:
+        raise AssertionError(f"{scheme} {width}px document overflow: {result}")
+    if result["heroScroll"] > result["heroClient"]:
+        raise AssertionError(f"{scheme} {width}px hero overflow: {result}")
     for button in result["buttons"]:
-        assert button["left"] >= 0, (width, scheme, button)
-        assert button["right"] <= width, (width, scheme, button)
+        if button["left"] < 0:
+            raise AssertionError(f"{scheme} {width}px CTA starts outside viewport: {button}")
+        if button["right"] > width:
+            raise AssertionError(f"{scheme} {width}px CTA ends outside viewport: {button}")
 
 
 def main() -> None:
@@ -76,9 +101,7 @@ def main() -> None:
     parser.add_argument("--screenshots", type=Path, help="optional evidence directory")
     args = parser.parse_args()
     mkdocs = os.environ.get("MKDOCS_BIN", shutil.which("mkdocs") or "mkdocs")
-    chrome = Path(os.environ.get("CHROME_BIN", DEFAULT_CHROME))
-    if not chrome.is_file():
-        raise SystemExit(f"Chrome not found: {chrome}")
+    chrome = find_chrome()
 
     with tempfile.TemporaryDirectory(prefix="kollect-docs-browser-") as temporary:
         site = Path(temporary) / "site"
