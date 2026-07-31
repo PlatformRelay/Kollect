@@ -54,9 +54,10 @@ backend sees the same aggregated rows; sinks are interchangeable projections.
 
 Inventory is **configuration, not code** — owned per team in its own namespace.
 
-!!! warning "Pre-beta"
-    APIs and defaults may change until the first release candidate. See the
-    [roadmap](ROADMAP.md) for current status.
+!!! warning "Pre-1.0 API"
+    Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor releases
+    before 1.0; release notes and migration guidance call them out. See the
+    [roadmap](ROADMAP.md) for current maturity.
 
 ## Why Kollect?
 
@@ -114,8 +115,8 @@ documented in [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md); reconciliat
 | `KollectSnapshotSink` | `git`, `gitlab`, `s3` | **Core** — production-ready |
 | `KollectSnapshotSink` | `gcs` | **Beta** — shipped, maturing |
 | `KollectDatabaseSink` | `postgres` | **Core** |
-| `KollectDatabaseSink` | `mongodb`, `bigquery` | **Beta** — `bigquery` v0.7.x hardening |
-| `KollectEventSink` | `kafka`, `nats` | **Beta** — `nats` v0.7.x hardening |
+| `KollectDatabaseSink` | `mongodb`, `bigquery` | **Beta** |
+| `KollectEventSink` | `kafka`, `nats` | **Beta** |
 | `KollectSnapshotSink` | `azureblob` | **Planned** |
 | Object-store sinks | Parquet layout | **Planned** — on S3/GCS |
 
@@ -190,10 +191,10 @@ Full fields: [CR reference](CR-REFERENCE.md) · model rationale: [ADR-0201](adr/
 
 ## Performance
 
-Kollect is built for **large single clusters** and **multi-cluster fleets**, with honest, tested
-targets ([ADR-0603](adr/0603-performance-scalability.md)) — **10,000+** rows validated in nightly
-load tests, **100,000-row** design target per cluster, and fleet fan-in with no hub merge tier.
-Tuning knobs are catalogued in the [performance guide](PERFORMANCE.md).
+Kollect is designed for **large single clusters** and **multi-cluster fleets**. The
+[performance guide](PERFORMANCE.md) distinguishes reproducible results from design targets and
+catalogues tuning knobs. Fleet fan-in uses shared sinks rather than a hub merge tier
+([ADR-0603](adr/0603-performance-scalability.md)).
 
 ## Documentation map
 
@@ -219,5 +220,5 @@ Tuning knobs are catalogued in the [performance guide](PERFORMANCE.md).
 
 - [Platform decisions](PLATFORM-DECISIONS.md) — the locked design summary
 - [Sink taxonomy: state vs stream](adr/0401-sink-taxonomy-state-vs-stream.md) — why no backend is privileged
-- [Read-only UI console (frozen preview)](operator-manual/ui.md) — early adopter SPA; program frozen until v0.7.x+
-- [Roadmap](ROADMAP.md) — build-order phases and current status
+- [Read-only UI console (frozen preview)](operator-manual/ui.md) — maintenance-only and disabled by default
+- [Roadmap](ROADMAP.md) — shipped, next, and later work

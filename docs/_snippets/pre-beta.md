@@ -1,4 +1,4 @@
-!!! warning "Pre-beta API"
-    Kollect is **`v1alpha1` pre-beta**. CRD fields, defaults, and sample YAML may change
-    without notice until the first release candidate. See [ROADMAP](/ROADMAP.md) for
-    item-level status before production use.
+!!! warning "Pre-1.0 API"
+    **Pre-1.0 API** — Kollect currently uses `v1alpha1`. Breaking API or default changes may ship
+    in minor releases before 1.0. Review the [changelog](/CHANGELOG.md) for migration notes and the
+    [roadmap](/ROADMAP.md) for current maturity before production use.

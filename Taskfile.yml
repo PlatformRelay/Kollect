@@ -145,6 +145,7 @@ tasks:
     cmds:
       - npm ci --prefix docs
       - docs/node_modules/.bin/markdownlint-cli2 --config {{.MARKDOWNLINT_CONFIG}}
+      - bash hack/test/docs_launch_truth_test.sh
 
   lint:shell:
     desc: Lint shell scripts with ShellCheck v0.11.0

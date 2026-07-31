@@ -18,39 +18,20 @@ commits use `!` in the subject (see [CONTRIBUTING.md](https://github.com/platfor
 
 ## Versioning policy
 
-Kollect uses **frequent pre-1.0 minors** with a **presentation gate at ~v0.10.0** — not a single
-early GA at v0.1.0.
+Kollect uses **frequent pre-1.0 minors**. The current release is shown in
+[GitHub Releases](https://github.com/platformrelay/kollect/releases); the authoritative history is
+the [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md).
 
 | Policy | Detail |
 | --- | --- |
-| **Cadence** | Target one minor (or rc → minor) every **1–3 weeks** while building toward v0.10 |
+| **Cadence** | Release when a coherent, validated change set is ready; no fixed calendar |
 | **RC tags** | `vX.Y.Z-rc.N` — soak on green `main`; use `workflow_dispatch` with `draft` + `prerelease` |
 | **Breaking changes** | `feat!:` / `BREAKING CHANGE:` → **minor** bump pre-v1.0 |
-| **Phases vs semver** | [ROADMAP.md](ROADMAP.md) phases 0–4 = build order; semver bands = release tranches |
+| **Compatibility** | Patch releases stay compatible with their minor line; breaking changes require a minor |
 
-### What `v0.2.0-rc.1` shipped (2026-06-07)
-
-The first post-strategy tranche was **platform / sinks**, not UI:
-
-- Sink family CRDs ([ADR-0414](adr/0414-sink-family-crds.md)) and removal of monolithic `KollectSink`
-- Family sink reconcilers, validating webhooks, e2e bootstrap for family CRDs
-- Git transport retry, SSH host keys, Forgejo/Gitea MR auth fixes
-
-Read API + UI milestones moved to the **v0.5–v0.10** band ([ADR-0408](adr/0408-read-api-ui-architecture.md)).
-
-### Version ladder (summary)
-
-| Band | Theme |
-| --- | --- |
-| **0.2.x** | Platform / sink families — **rc.1 shipped** |
-| **0.3.x** | Quality, perf, coverage ratchet — **`v0.3.0`** shipped |
-| **0.4.x** | Parquet sink, supply-chain attestations — **`v0.4.0`–`v0.4.1`** shipped |
-| **0.5.x** | Sink config layering + export/git hardening (**`v0.5.0`**) |
-| **0.6.0** | Cut the export tranche on `main` (ADR-0306, ADR-0419, MongoDB, `status.preview`) + audit correctness/security fixes + `ResourceExportMode` wiring (⬜ next target) |
-| **0.7.x** | **BigQuery** + **NATS** sinks (full backends) · parallel-export docs · coverage floor 72 → 75 → 80% |
-| **UI** | **Frozen** — mock SPA maintenance-only; Read API freeze deferred; may remove pre-v1 |
-
-Full ladder: [ROADMAP.md § Near-term tranches](ROADMAP.md#near-term-tranches-v06-v07).
+Before 1.0, a minor release may include breaking API or default changes. Mark them with `feat!:` or
+`BREAKING CHANGE:`, document migration steps in the changelog, and call them out in release notes.
+Patch releases stay compatible with their minor line.
 
 ## Retroactive version anchors
 
@@ -139,15 +120,6 @@ git-export jobs, set repository variable **`GIT_EXPORT_TEST_REPO`** in GitHub �
 Actions → Variables (clone URL of a dedicated test repo). Workflows pass `${{ vars.GIT_EXPORT_TEST_REPO }}`
 with `GITHUB_TOKEN`; this cannot be set from workflow YAML. Without the variable, git-export jobs
 verify inventory HTTP hash only (degraded mode).
-
-### Current release status
-
-| Item | Status |
-| --- | --- |
-| **`v0.5.0`** | ✅ Shipped 2026-06-07 — sink config layering ([ADR-0416](adr/0416-sink-config-layering.md)) |
-| On `main` post-tag | ADR-0306 full-resource export, ADR-0419 git layout, MongoDB sink, `status.preview` (Unreleased in changelog) |
-| Next target | **`v0.6.0`** — cut the export/layout/MongoDB/preview tranche + audit "Now" fixes + `ResourceExportMode` wiring |
-| After v0.6 | **`v0.7.x`** — BigQuery + NATS sinks, parallel-export docs, coverage → 80% |
 
 ### RC pre-release on GitHub Actions
 
@@ -254,13 +226,15 @@ and the protected `release` environment.
 | --- | --- |
 | Container image (operator) | `ghcr.io/platformrelay/kollect:<version>` (and `:v<version>`), `linux/amd64` + `arm64` |
 | Container image (kollect-ui) | `ghcr.io/platformrelay/kollect-ui:<version>` (and `:v<version>`), `linux/amd64` + `arm64` |
-| OCI SBOM + SLSA provenance | GHCR attestations on both images |
+| Container image (pipeline CLI) | `ghcr.io/platformrelay/kollect-pipeline:<version>` (and `:v<version>`), `linux/amd64` + `arm64` |
+| OCI SBOM + SLSA provenance | GHCR attestations on all three images |
 | GitHub Release | git-cliff section + install footer; assets below |
 | `install-crds.yaml` | CRD bundle |
 | `install.yaml` | Full operator install (image pinned to tag) |
 | `kollect-<version>.tgz` | Helm chart tarball |
 | `sbom.spdx.json` | SPDX SBOM for operator image (Syft) |
 | `sbom-ui.spdx.json` | SPDX SBOM for kollect-ui image (Syft) |
+| `sbom-pipeline.spdx.json` | SPDX SBOM for kollect-pipeline image (Syft) |
 | `checksums.txt` | SHA256 of release files |
 | `<asset>.sigstore.json` | Sigstore bundle for each release asset (cosign keyless) |
 | `release-provenance.intoto.jsonl` | Combined SLSA provenance attestation for release assets |
@@ -279,6 +253,7 @@ REPO=platformrelay/kollect
 
 OP_DIGEST="$(crane digest ghcr.io/${REPO}/kollect:${TAG#v})"
 UI_DIGEST="$(crane digest ghcr.io/${REPO}/kollect-ui:${TAG#v})"
+PIPELINE_DIGEST="$(crane digest ghcr.io/${REPO}/kollect-pipeline:${TAG#v})"
 
 cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
@@ -289,6 +264,11 @@ cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
   "ghcr.io/${REPO}/kollect-ui@${UI_DIGEST}"
+
+cosign verify \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
+  "ghcr.io/${REPO}/kollect-pipeline@${PIPELINE_DIGEST}"
 ```
 
 SLSA provenance and SPDX SBOM attestations are published to GHCR (via `actions/attest`) and the
@@ -296,6 +276,10 @@ repository [Attestations](https://github.com/platformrelay/kollect/attestations)
 
 ```sh
 gh attestation verify "ghcr.io/${REPO}/kollect@${OP_DIGEST}" \
+  --owner platformrelay --repo kollect
+gh attestation verify "ghcr.io/${REPO}/kollect-ui@${UI_DIGEST}" \
+  --owner platformrelay --repo kollect
+gh attestation verify "ghcr.io/${REPO}/kollect-pipeline@${PIPELINE_DIGEST}" \
   --owner platformrelay --repo kollect
 ```
 
