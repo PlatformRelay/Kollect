@@ -249,7 +249,7 @@ Detailed table: [Deployment inventory — Troubleshooting](../getting-started/fi
 configured interval. Set `exportMinInterval: 0s` for *material-change only* semantics (typical for
 Kafka/NATS event sinks): instant export on change, identical payloads never re-sent. `0` and
 sub-second durations are valid (cap: 24h), but wake-ups floor at 1s, so anything below `1s` behaves
-like `0s`. See [DATA-FLOWS §1](../concepts/export-pipeline.md#1-export-debouncing) and
+like `0s`. See [DATA-FLOWS §1](../concepts/export-pipeline.md#debounce-and-interval-precedence) and
 [ADR-0413](../adr/0413-export-interval-scheduling.md).
 
 ## Pre-beta expectations

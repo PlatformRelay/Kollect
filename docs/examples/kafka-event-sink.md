@@ -1,5 +1,36 @@
 # Example: Kafka event sink
 
+## Prerequisites
+
+A running operator, reachable Kafka brokers, and any required SASL/TLS Secret.
+
+## Apply
+
+```sh
+kubectl apply -f config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml
+```
+
+## Verify
+
+```sh
+kubectl get kevt kafka-inventory-demo -n default
+kubectl describe kevt kafka-inventory-demo -n default
+```
+
+## If it didn't work
+
+Check broker DNS/TLS, topic permissions, and Secret resolution.
+
+## Cleanup
+
+```sh
+kubectl delete -f config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml
+```
+
+## Further reading
+
+[Event sink reference](../crds/kollecteventsink.md) · [Troubleshooting](../operator-manual/troubleshooting.md)
+
 !!! note "Apply separately"
     `config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml` is **not** in the default kustomization.
     Apply it explicitly after a Kafka broker is reachable from the operator namespace.

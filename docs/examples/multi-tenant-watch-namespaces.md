@@ -1,5 +1,38 @@
 # Example: Multi-tenant watch scope
 
+## Prerequisites
+
+A running operator, a tenant namespace, and permission to create a `KollectScope` there.
+
+## Apply
+
+```sh
+kubectl apply -f config/samples/kollect_v1alpha1_kollectscope_team-a.yaml
+```
+
+Apply the target and workload shown below only after their namespaces match the scope policy.
+
+## Verify
+
+```sh
+kubectl get kscope -n team-a
+kubectl describe kscope -n team-a
+```
+
+## If it didn't work
+
+Check allowed GVKs, namespaces, family sinks, watch labels, and the target's degraded reason.
+
+## Cleanup
+
+```sh
+kubectl delete -f config/samples/kollect_v1alpha1_kollectscope_team-a.yaml
+```
+
+## Further reading
+
+[Multi-tenancy](../concepts/multi-tenancy.md) · [Annotations and labels](../ANNOTATIONS-LABELS.md)
+
 !!! tip "Platform operator setup"
     Combine Helm `tenantMode: true` with `watchNamespaces` so each team namespace gets an isolated
     collection boundary. Add `KollectScope` when you need GVK, namespace, or sink allow-lists.

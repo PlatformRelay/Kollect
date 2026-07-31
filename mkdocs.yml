@@ -51,9 +51,14 @@ nav:
       - Cluster-scoped rollup: examples/cluster-rollup.md
       - Multi-tenant watch scope: examples/multi-tenant-watch-namespaces.md
       - Team-owned operator: examples/team-operator.md
+      - Git snapshot sink: examples/git-snapshot-sink.md
+      - S3 and GCS object storage: examples/object-store-sink.md
       - Postgres state store: examples/postgres-state-store.md
+      - MongoDB sink: examples/mongodb-sink.md
+      - BigQuery sink: examples/bigquery-sink.md
       - Kafka event sink: examples/kafka-event-sink.md
       - NATS event sink: examples/nats-event-sink.md
+      - Multi-sink fan-out: examples/multi-sink-fanout.md
       - Test sink connectivity: examples/connection-test.md
       - Multi-cluster fleet: examples/multi-cluster-fleet.md
       - Collect from CI: guides/pipeline-cli.md

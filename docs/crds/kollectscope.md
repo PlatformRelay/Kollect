@@ -36,7 +36,7 @@ flowchart TD
 | Inventory enforcement | Every `sinkRefs` entry ⊆ `scope.sinkRefs` |
 | No scope | When absent, collection and export proceed without policy gate |
 
-Enforcement diagram: [concepts/export-pipeline.md §4](../concepts/export-pipeline.md#4-kollectscope-enforcement-gate).
+Enforcement diagram: [concepts/export-pipeline.md §4](../concepts/multi-tenancy.md).
 
 ## Spec fields
 
@@ -145,5 +145,5 @@ profile.
 
 - [KollectTarget](kollecttarget.md) · [KollectInventory](kollectinventory.md)
 - [ADR-0203](../adr/0203-namespaced-multi-tenancy.md)
-- [concepts/export-pipeline.md](../concepts/export-pipeline.md#4-kollectscope-enforcement-gate)
+- [concepts/export-pipeline.md](../concepts/multi-tenancy.md)
 - [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md)

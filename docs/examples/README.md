@@ -14,15 +14,20 @@ your consumer needs.
 
 ## Export
 
-6. [Postgres state store](postgres-state-store.md) — query current inventory relationally.
-7. [Kafka event sink](kafka-event-sink.md) — publish changes for stream consumers.
-8. [NATS event sink](nats-event-sink.md) — emit changes through JetStream.
-9. [Connection tests](connection-test.md) — probe a sink without exporting inventory.
+6. [Git snapshot sink](git-snapshot-sink.md) — export a diffable snapshot.
+7. [S3 and GCS object storage](object-store-sink.md) — write durable bucket objects.
+8. [Postgres state store](postgres-state-store.md) — query current inventory relationally.
+9. [MongoDB sink](mongodb-sink.md) — maintain document-oriented current state.
+10. [BigQuery sink](bigquery-sink.md) — export analytics-ready inventory.
+11. [Kafka event sink](kafka-event-sink.md) — publish changes for stream consumers.
+12. [NATS event sink](nats-event-sink.md) — emit changes through JetStream.
+13. [Multi-sink fan-out](multi-sink-fanout.md) — drive independent destinations from one inventory.
+14. [Connection tests](connection-test.md) — probe a sink without exporting inventory.
 
 ## Fleet and automation
 
-10. [Multi-cluster fleet](multi-cluster-fleet.md) — partition several cluster writers in a shared sink.
-11. [Pipeline CLI](../guides/pipeline-cli.md) — collect from CI/CD without running the operator.
+15. [Multi-cluster fleet](multi-cluster-fleet.md) — partition several cluster writers in a shared sink.
+16. [Pipeline CLI](../guides/pipeline-cli.md) — collect from CI/CD without running the operator.
 
 The [custom-resource reference](../crds/index.md) documents every supported field. For a failed
 example, use the page's troubleshooting section and the canonical

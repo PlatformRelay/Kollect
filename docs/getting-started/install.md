@@ -14,14 +14,15 @@ From a fresh checkout:
 ```sh
 git clone https://github.com/platformrelay/kollect.git
 cd kollect
-KOLLECT_DEV_MINIMAL=1 task dev-up
+task build
+task kind-dev-up
 kubectl -n kollect-system rollout status \
   deployment/kollect-controller-manager --timeout=120s
 ```
 
-`task dev-up` builds the manager, creates the `kollect-dev` kind cluster, installs the CRDs and
-operator, and applies the repository samples. The default samples include optional backends; the
-next guide applies a separate Git-only pipeline.
+`task kind-dev-up` creates the `kollect-dev` cluster and installs only the operator and its CRDs.
+It deliberately does not apply `config/samples/`, so the next guide starts with an empty Kollect
+API and a collision-free Git-only pipeline.
 
 Verify that the operator is ready:
 
@@ -55,7 +56,7 @@ export in Git.
 For the local path:
 
 ```sh
-task dev-down
+task kind-dev-down
 ```
 
 If installation fails, check the manager logs and the

@@ -1,5 +1,32 @@
 # Example: Connection test
 
+## Prerequisites
+
+A running operator and the family sink you want to probe.
+
+## Apply
+
+Apply a validated sink sample, then use the annotation or `KollectConnectionTest` flow below.
+
+## Verify
+
+```sh
+kubectl get ksnap,kdb,kevt -n default
+kubectl get kconn -n default
+```
+
+## If it didn't work
+
+Inspect the probe condition, Events, Secret reference, endpoint, and TLS trust.
+
+## Cleanup
+
+Delete the one-shot test CR; completed tests also honor their configured TTL.
+
+## Further reading
+
+[Connection-test CRD](../crds/kollectconnectiontest.md) · [ADR-0403](../adr/0403-connection-test.md)
+
 !!! tip "Opt out in production"
     `spec.connectionTest` defaults to **true** on family sink CRDs. Set `connectionTest: false` when
     automatic probes on every spec change are undesirable. Use the `kollect.dev/test-connection`

@@ -82,4 +82,4 @@ All duration fields validated ≤ **24h** without cron (`MaxExportInterval`). Cr
 ## See also
 
 - [ADR-0401](0401-sink-taxonomy-state-vs-stream.md) · [ADR-0201](0201-crd-model.md) §10
-- [concepts/export-pipeline.md](../concepts/export-pipeline.md#1-export-debouncing) · [kollectinventory.md](../crds/kollectinventory.md)
+- [concepts/export-pipeline.md](../concepts/export-pipeline.md#debounce-and-interval-precedence) · [kollectinventory.md](../crds/kollectinventory.md)

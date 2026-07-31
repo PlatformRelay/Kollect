@@ -8,6 +8,11 @@ Use a cluster-scoped resource only when cluster-wide ownership is intentional. P
 identity and namespace-local references, and keep the operator's watched namespaces as narrow as
 the platform model permits.
 
+At target reconcile, the scope checks the profile GVK and selected namespaces. At inventory
+reconcile, it checks every family-sink reference and applies the minimum export interval. A denial
+sets a stable `Degraded` reason and prevents that operation; it never widens the service account's
+permissions.
+
 See [ADR-0203](../adr/0203-namespaced-multi-tenancy.md),
 [ADR-0205](../adr/0205-watch-labels.md), and the
 [production checklist](../operator-manual/production-checklist.md).

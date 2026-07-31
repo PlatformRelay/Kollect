@@ -45,7 +45,7 @@ flowchart LR
 | Sinks | `spec.snapshotSinkRefs`, `spec.databaseSinkRefs`, `spec.eventSinkRefs` — names in same namespace |
 | Scope | When present, every sink must appear in the matching family list on `KollectScope` |
 
-Debouncing state machine: [concepts/export-pipeline.md §1](../concepts/export-pipeline.md#1-export-debouncing).
+Debouncing state machine: [concepts/export-pipeline.md §1](../concepts/export-pipeline.md#debounce-and-interval-precedence).
 
 !!! info "Effective interval precedence"
     For each family ref: **ref override** → **family sink `spec.exportMinInterval`** →
@@ -60,7 +60,7 @@ Debouncing state machine: [concepts/export-pipeline.md §1](../concepts/export-p
     only*: instant export on change, no periodic re-export (a 30s status watchdog still requeues
     without exporting). Sub-second values (e.g. `500ms`) are accepted up to the **24h** cap, but
     requeue wake-ups floor at **1s** — prefer `0s`, which event sinks (Kafka/NATS) typically use.
-    Full semantics: [DATA-FLOWS §1](../concepts/export-pipeline.md#1-export-debouncing).
+    Full semantics: [DATA-FLOWS §1](../concepts/export-pipeline.md#debounce-and-interval-precedence).
 
 !!! info "Export size ceiling precedence (per sink binding)"
     For each sink ref: **ref `maxExportBytes`** → **`spec.maxExportBytes`** → **operator global cap**
