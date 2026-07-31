@@ -15,6 +15,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **release:** Stop combining gh --slurp with --jq ([#142](https://github.com/platformrelay/kollect/pull/142))[b5bcb4b](https://github.com/platformrelay/kollect/commit/b5bcb4b6c1017231147e24c1d80e2fffad3ef767)
 
+
+### Features
+
+- **netguard:** Production --allow-private-sinks opt-in (NET-01) ([#146](https://github.com/platformrelay/kollect/pull/146))[65047b1](https://github.com/platformrelay/kollect/commit/65047b1ac2538772a6f01367e4739176c1326880)
+
 ## [0.10.0](https://github.com/platformrelay/kollect/compare/v0.9.0..v0.10.0) - 2026-07-30
 
 ### Bug Fixes
