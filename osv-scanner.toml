@@ -22,7 +22,8 @@ id = "GO-2026-5932"
 #       non-openpgp functionality; the vulnerable openpgp subpackage is never
 #       imported or called by kollect code.
 #
-# No `ignoreUntil` is set: because no fixed version will ever be published, this
-# suppression is intentionally indefinite. Revisit if kollect ever begins
-# importing golang.org/x/crypto/openpgp, or if the module drops the package.
+# Reviewed 2026-07-31; next review due 2026-10-29. No `ignoreUntil` is set because
+# no fixed version will ever be published. Revisit sooner if kollect begins
+# importing golang.org/x/crypto/openpgp or if the module drops the package.
+# Matching product disposition: docs/security/vex.json.
 reason = "Not reachable (govulncheck: 0 called; kollect imports no crypto/openpgp package), no upstream fix exists (package permanently deprecated, Fixed in: N/A), and the vulnerable openpgp subpackage is present only via the module graph and never imported by kollect code."

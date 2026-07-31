@@ -1,11 +1,11 @@
 # Resolved-address policy for sink connections
 
-Kollect treats every configured sink endpoint as untrusted network input. Admission rejects literal
-loopback, private, link-local, metadata, and `file://` targets. Outbound sink clients repeat that
-decision at connection time: they resolve the hostname for each new connection, reject the complete
-answer set if any address is forbidden, and open the socket to an authorized numeric address. This
-prevents DNS rebinding between admission and connection and applies again when HTTP redirects or
-backend reconnects create a new socket.
+Kollect treats every configured sink endpoint as untrusted network input. By default, admission
+rejects literal loopback, private, link-local, metadata, and `file://` targets. Outbound sink clients
+repeat the address decision at connection time: they resolve the hostname for each new connection,
+reject the complete answer set if any address is forbidden, and open the socket to an authorized
+numeric address. This reduces DNS rebinding between admission and connection and applies again when
+HTTP redirects or backend reconnects create a new socket.
 
 ## Default (secure by default)
 
@@ -41,3 +41,8 @@ runtime hatch.
 Git transports follow the same rule. The pure-Go HTTP transport uses the guarded dialer, Git CLI
 HTTP operations pin libcurl with `http.curloptResolve`, and SSH operations pin the checked numeric
 address while retaining the original hostname for host-key verification.
+
+Pure-Go HTTP disables inherited proxy use. Git CLI processes can inherit proxy variables from the
+manager environment, so proxy-based weakening is unsupported but not centrally prevented. Do not
+inject proxy variables into the manager; enforce approved destinations with an egress
+`NetworkPolicy`. See [Security architecture and controls](security-architecture.md#residual-risk).

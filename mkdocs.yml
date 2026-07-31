@@ -170,6 +170,7 @@ nav:
           - Overview: rfc/README.md
           - "Prometheus attribute metrics (scalar export)": rfc/prometheus-attribute-metrics.md
   - Security:
+      - Security architecture: security/security-architecture.md
       - Assurance case: ASSURANCE-CASE.md
       - Security review: SECURITY-REVIEW.md
       - SCA remediation policy: security/sca-remediation-policy.md

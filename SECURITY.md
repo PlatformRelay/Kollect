@@ -26,7 +26,7 @@ and a fix release when appropriate.
 Kollect is a cluster operator that:
 
 - **Reads** Kubernetes resources allowed by its RBAC and SAR checks (configurable per target).
-- **Writes** to external sinks and doc backends using credentials from `Secret` references only.
+- **Writes** to external sinks using credentials from `Secret` references only.
 - **Stores** aggregated metadata in CR `status` (summaries, not full payloads — see ADRs).
 
 Risks to consider when deploying:
@@ -35,16 +35,18 @@ Risks to consider when deploying:
 - Sink endpoints must use verified TLS; credentials must not appear in CR specs or logs.
 - Restrict egress with `NetworkPolicy` in production.
 
-See [engineering guidelines](docs/development/guidelines.md) for hardening baselines (non-root runtime image, secret
-handling, supply-chain checks in CI).
+See [Security architecture and controls](docs/security/security-architecture.md) for trust
+boundaries, NetGuard, RBAC/SAR, tenancy, redaction, runtime hardening, CI/CD controls, and shared
+responsibility.
 
 ## Supply chain (releases)
 
 Release builds ([`.github/workflows/release.yaml`](.github/workflows/release.yaml)) produce:
 
-- **OCI image** — `ghcr.io/platformrelay/kollect` and `ghcr.io/platformrelay/kollect-ui` with SBOM and SLSA provenance attestations
+- **OCI images** — `ghcr.io/platformrelay/kollect`, `kollect-pipeline`, and `kollect-ui`, each signed
+  and published with SBOM and SLSA provenance attestations
 - **cosign** keyless signatures (verify with release notes instructions)
-- **SPDX SBOM** — `sbom.spdx.json` and `sbom-ui.spdx.json` attached to GitHub Releases
+- **SPDX SBOM** — operator, pipeline, and UI SBOMs attached to GitHub Releases
 - **Checksums** — `sha256sum` manifest for install YAML and chart tarball
 
 Prefer tagged release artifacts over `:latest` in production. Report supply-chain concerns
@@ -69,7 +71,7 @@ Deferrals require a GitHub issue or ADR with expiry — see
 
 ### golangci-lint (SAST)
 
-CI runs **golangci-lint v2** on every push and pull request (`task lint`, job **lint** in
+CI runs **golangci-lint v2** on code-affecting pushes and pull requests (`task lint`, job **lint** in
 [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)). Configuration: [`.golangci.yaml`](.golangci.yaml)
 (security and correctness linters including `gosec`, `errcheck`, `govet`, `staticcheck`, `depguard`,
 `gomodguard`, and `logcheck` via `hack/tooling/.custom-gcl.yml`). Pre-commit runs the same gate on changed Go files.
@@ -90,20 +92,19 @@ Run locally (requires [CodeQL CLI](https://github.com/github/codeql-cli-binaries
 task lint
 ```
 
-### Dependabot
+### Dependency updates
 
 Repository settings (enabled 2026-06-05):
 
-- **Dependabot alerts** — GitHub Advisory Database notifications for vulnerable dependencies
-- **Dependabot security updates** — automated patch PRs for known CVEs in `go.mod` and Actions
-- **Dependabot version updates** — weekly grouped PRs via [`.github/dependabot.yml`](.github/dependabot.yml)
-  (`gomod` minor/patch group, `github-actions` SHA group)
-
-Renovate is not used; Dependabot covers dependency update automation for this solo-maintainer OSS repo.
+- **Dependabot alerts and security updates** — GitHub Advisory Database notifications and security
+  patch PRs where GitHub supports the ecosystem.
+- **Renovate** — scheduled dependency-update PRs using the repository
+  [configuration](.github/renovate-config.json) and least-privilege
+  [workflow](.github/workflows/renovate.yaml).
 
 ### govulncheck
 
-CI runs [`govulncheck`](https://go.dev/security/vuln/) on every push and pull request
+CI runs [`govulncheck`](https://go.dev/security/vuln/) on code-affecting pushes and pull requests
 (`task vulncheck`, job **vulncheck** in [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)).
 The scan uses the Go vulnerability database and reports issues that affect **imported packages in
 this module** (including test code). The job fails when govulncheck exits non-zero.
@@ -124,9 +125,13 @@ Release images are additionally scanned with **Trivy** (CRITICAL/HIGH, fixable o
 ## VEX (vulnerability exceptions)
 
 Kollect publishes an [OpenVEX](https://openvex.dev/) document at
-[`docs/security/vex.json`](docs/security/vex.json). The `statements` array is **empty** today — no CVE
-findings are suppressed. When a deferral or false positive requires a documented exception,
-add a VEX statement and link the GitHub issue or ADR in the statement metadata.
+[`docs/security/vex.json`](docs/security/vex.json). Scanner-specific exceptions are also recorded
+in their checked-in configuration with reachability evidence; currently `osv-scanner.toml`
+documents `GO-2026-5932` as not called and without an upstream fix.
+
+An ignore is not permission to hide a reachable vulnerability. When a deferral or false positive
+is accepted, record the advisory, product impact, justification, review trigger, and supporting
+issue or ADR in OpenVEX and the relevant scanner configuration.
 
 ## OpenSSF Scorecard
 
