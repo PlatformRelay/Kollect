@@ -52,6 +52,11 @@ Omitting `--version` installs the latest published chart. In production, pin a s
 Pin `image.tag` to the release image when not using the chart default — see
 [Helm values reference](operator-manual/helm-values.md).
 
+!!! note "Lab clusters where GHCR is denied"
+    A live OCI pull is the preferred path. When package ACLs return **403** on a
+    disconnected lab (for example a Talos driving-range), use the fallback in
+    [Lab image bootstrap when GHCR is unavailable (403)](#lab-image-bootstrap-when-ghcr-is-unavailable-403).
+
 ### CRDs (first install)
 
 Helm installs CRDs from `crds/` on **first install only**. Apply the release CRD bundle explicitly
@@ -197,6 +202,111 @@ Summary for operators:
     The operator runs `mode: single`. Multi-cluster fleets run **one single-mode operator per
     cluster** exporting to a shared sink, partitioned by `spec.cluster` — there is no hub/spoke
     runtime tier ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
+
+## Lab image bootstrap when GHCR is unavailable (403)
+
+!!! warning "Fallback only — not a production path"
+    A **live OCI pull from GHCR is the preferred install path** (see [Install](#install)). Use this
+    bootstrap **only** when package ACLs deny access — for example a disconnected Talos
+    driving-range where `ghcr.io/platformrelay/kollect:<tag>` returns **403** to anonymous *and*
+    authenticated pulls, and a personal `ghcr.io` push is also denied (no `write:packages`). It
+    stands up a plain-HTTP lab registry and a temporary Talos registry mirror; both are insecure by
+    design and **must be torn down after the run**.
+
+The bootstrap has three parts: install the **chart** from the GitHub Release asset, rebuild the
+**manager image** from the release git tag into a lab registry, and point a temporary Talos
+**registry mirror** at that registry so nodes resolve `ghcr.io` pulls locally.
+
+Set these placeholders for your lab (do not hard-code a single lab's addresses):
+
+```sh
+export LAB_HOST_IP=192.168.100.1                 # lab host IP reachable by Talos nodes
+export TALOS_NODES=192.168.100.10,192.168.100.11,192.168.100.12  # all control-plane + workers
+export VERSION=0.10.0                             # target release, matches the chart/image tag
+```
+
+### 1. Chart from the GitHub Release asset
+
+Install the chart from the release `.tgz` instead of the OCI `oci://ghcr.io/platformrelay/kollect`
+pull:
+
+```sh
+curl -sSLO https://github.com/platformrelay/kollect/releases/download/v${VERSION}/kollect-${VERSION}.tgz
+helm install kollect ./kollect-${VERSION}.tgz -n kollect-system --create-namespace -f values.yaml \
+  --set image.tag=${VERSION}
+```
+
+The chart keeps its default `ghcr.io/platformrelay/kollect` **repository** — step 3 makes nodes
+resolve that host from the lab registry, so no `image.repository` override is needed. You **must**,
+however, set `image.tag=${VERSION}`: the chart's default tag is `latest`, but step 2 pushes only
+`:${VERSION}` to the lab registry (the mirror rewrites the host, not the tag), so a default-tag
+install would try to pull a `:latest` image that was never pushed and fail with `ImagePullBackOff`.
+
+### 2. Rebuild the manager image into a dual-bound lab registry
+
+Run a host registry bound to **both** loopback (for an insecure local push — Docker treats
+`127.0.0.1` as insecure automatically) and the node-facing lab IP (so Talos nodes can pull):
+
+```sh
+docker run -d --restart=always --name kollect-dr-registry \
+  -p 127.0.0.1:5000:5000 -p ${LAB_HOST_IP}:5000:5000 registry:2
+```
+
+Rebuild the manager image from the **release git tag** and push it under the `platformrelay/kollect`
+repository path (so the mirror in step 3 resolves the same path GHCR would):
+
+```sh
+git fetch --tags
+git checkout v${VERSION}
+docker build -t 127.0.0.1:5000/platformrelay/kollect:${VERSION} .
+docker push 127.0.0.1:5000/platformrelay/kollect:${VERSION}
+```
+
+!!! note "Rebuilt digest differs from the release"
+    This image is rebuilt from source, so its digest will **not** match the published release digest
+    and cosign verification against the release will not apply. That is acceptable for a lab; never
+    ship a self-rebuilt image to production.
+
+### 3. Temporary Talos registry mirror (with mandatory revert)
+
+Point the `ghcr.io` mirror at the lab registry on **every** node. Applying the whole
+`/machine/registries` block (absent by default) keeps the revert a clean wholesale remove:
+
+```sh
+cat > /tmp/registries.patch.yaml <<EOF
+- op: add
+  path: /machine/registries
+  value:
+    mirrors:
+      ghcr.io:
+        endpoints:
+          - http://${LAB_HOST_IP}:5000
+EOF
+talosctl -n ${TALOS_NODES} patch mc --patch @/tmp/registries.patch.yaml
+```
+
+!!! warning "If nodes already define `machine.registries`"
+    The `add` above assumes the block is absent (the driving-range default). If your nodes already
+    carry a `machine.registries` block, **merge** the `ghcr.io` mirror into it instead — and on
+    revert restore the prior block rather than removing the whole path.
+
+**Cleanup / revert is mandatory.** After the run, remove the mirror and confirm no node still
+references the lab host:
+
+```sh
+# revert: remove the entire block added above
+talosctl -n ${TALOS_NODES} patch mc --patch '[{"op":"remove","path":"/machine/registries"}]'
+
+# verify machine.registries no longer references the lab host (expect no output)
+talosctl -n ${TALOS_NODES} get mc v1alpha1 -o yaml | grep -F "${LAB_HOST_IP}:5000"
+
+# tear down the lab registry container
+docker rm -f kollect-dr-registry
+```
+
+Then uninstall the release and delete the lab namespace as usual (`helm uninstall kollect -n
+kollect-system`). Once the org GHCR ACL is fixed, revert to the [live OCI pull](#from-ghcr-oci) —
+this bootstrap should not outlive the access outage that forced it.
 
 ## See also
 
