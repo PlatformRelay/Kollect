@@ -1,5 +1,36 @@
 # Example: NATS event sink
 
+## Prerequisites
+
+A running operator, reachable NATS JetStream, and any required credentials Secret.
+
+## Apply
+
+```sh
+kubectl apply -f config/samples/kollect_v1alpha1_kollecteventsink_nats.yaml
+```
+
+## Verify
+
+```sh
+kubectl get kevt nats-inventory-demo -n default
+kubectl describe kevt nats-inventory-demo -n default
+```
+
+## If it didn't work
+
+Check server URL, stream and subject permissions, TLS, and Secret resolution.
+
+## Cleanup
+
+```sh
+kubectl delete -f config/samples/kollect_v1alpha1_kollecteventsink_nats.yaml
+```
+
+## Further reading
+
+[Event sink reference](../crds/kollecteventsink.md) · [Troubleshooting](../operator-manual/troubleshooting.md)
+
 !!! note "Apply separately"
     `config/samples/kollect_v1alpha1_kollecteventsink_nats.yaml` is **not** in the default kustomization.
     Apply it explicitly after creating a NATS JetStream endpoint and credentials Secret.

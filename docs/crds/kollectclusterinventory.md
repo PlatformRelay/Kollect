@@ -74,7 +74,7 @@ once in `kollect-system` and reference them from cluster inventories (ADR-0208,
     Same rules as `KollectInventory`: the interval never delays a changed payload — material checksum
     or generation changes export immediately per sink; `0s` means material-change only (30s status
     watchdog, no re-export); sub-second values are accepted but floor at 1s wake-ups. See
-    [DATA-FLOWS §1](../concepts/export-pipeline.md#1-export-debouncing) and
+    [DATA-FLOWS §1](../concepts/export-pipeline.md#debounce-and-interval-precedence) and
     [ADR-0413](../adr/0413-export-interval-scheduling.md).
 
 ## Example

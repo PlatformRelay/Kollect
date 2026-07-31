@@ -1,5 +1,35 @@
 # Team-owned operator (minimal RBAC)
 
+## Prerequisites
+
+A cluster, Helm 3, and permission to create the team namespace and namespaced RBAC.
+
+## Apply
+
+```sh
+kubectl apply -k config/samples/team-operator/
+```
+
+## Verify
+
+```sh
+kubectl get kprof,ktgt,kinv,ksnap -n team-a
+```
+
+## If it didn't work
+
+Check the namespace, service-account RBAC, `KollectScope`, and same-namespace references.
+
+## Cleanup
+
+```sh
+kubectl delete -k config/samples/team-operator/
+```
+
+## Further reading
+
+[Multi-tenancy](../concepts/multi-tenancy.md) · [Topology matrix](../deployment/topology-matrix.md)
+
 Platform teams run the **golden path**: one cluster-wide Kollect operator plus per-tenant
 `KollectScope` objects ([ADR-0203](../adr/0203-namespaced-multi-tenancy.md)). Team-owned installs
 are supported at **lower documentation priority** but must work with **minimal RBAC** beyond CRD

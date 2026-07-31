@@ -41,7 +41,7 @@ flowchart LR
 | Inventory | All targets in namespace aggregate into `KollectInventory` |
 | Sink | Target status reflects namespace sink reachability for export path |
 
-Collection diagram: [concepts/export-pipeline.md §2](../concepts/export-pipeline.md#2-collection-pipeline).
+Collection diagram: [concepts/export-pipeline.md §2](../concepts/collection.md).
 
 ## Spec fields
 

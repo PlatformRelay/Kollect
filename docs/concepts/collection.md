@@ -15,6 +15,13 @@ The operator is level-based: a reconcile recomputes desired state from observed 
 long resync is only a correctness backstop. Missing optional attributes are omitted; required
 extraction failures surface in target conditions and events.
 
+Filters are cumulative: the operator watch boundary, scope policy, target namespace and label
+selectors, resource rules, CEL match policy, and watch labels must all permit an object. Targets
+sharing a GVK reuse one informer, so adding a selector does not add another API-server watch.
+
+JSONPath wildcards produce lists; CEL can compute typed values. Extracted rows enter the
+namespace inventory store with stable identity and ordering before export sees them.
+
 See [ADR-0301](../adr/0301-event-driven-informers.md),
 [ADR-0302](../adr/0302-cel-jsonpath-extraction.md), and
 [annotations and labels](../ANNOTATIONS-LABELS.md).
