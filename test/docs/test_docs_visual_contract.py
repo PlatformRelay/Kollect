@@ -57,7 +57,7 @@ class DocsVisualContractTest(unittest.TestCase):
             self.assertIsNotNone(block, scheme)
             for token in tokens:
                 self.assertIn(f"--kollect-{token}:", block.group(1), f"{scheme}: {token}")
-            colors = dict(re.findall(r"--kollect-([a-z]+):\s*(#[0-9a-f]{6});", block.group(1)))
+            colors = dict(re.findall(r"--kollect-([a-z-]+):\s*(#[0-9a-f]{6});", block.group(1)))
             for foreground in ("text", "muted", "link", "success", "warning", "danger"):
                 self.assertGreaterEqual(
                     contrast_ratio(colors[foreground], colors["background"]),
@@ -65,7 +65,23 @@ class DocsVisualContractTest(unittest.TestCase):
                     f"{scheme}: {foreground} on background",
                 )
             self.assertGreaterEqual(contrast_ratio(colors["focus"], colors["background"]), 3.0)
+            self.assertGreaterEqual(
+                contrast_ratio(colors["on-primary"], colors["primary"]),
+                4.5,
+                f"{scheme}: primary button text",
+            )
+            self.assertGreaterEqual(
+                contrast_ratio(colors["link"], colors["surface"]),
+                4.5,
+                f"{scheme}: outlined button text",
+            )
+            self.assertGreaterEqual(
+                contrast_ratio(colors["link"], colors["surface"]),
+                3.0,
+                f"{scheme}: outlined button border",
+            )
         self.assertIn(":focus-visible", css)
+        self.assertIn(".kollect-hero .md-button:not(.md-button--primary)", css)
         self.assertNotIn(".kollect-illus", css)
 
     def test_brand_assets_are_canonical_transparent_vectors(self) -> None:

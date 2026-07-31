@@ -6,6 +6,7 @@
   --kollect-text: #172033;
   --kollect-muted: #52617a;
   --kollect-primary: #173e8f;
+  --kollect-on-primary: #ffffff;
   --kollect-link: #174ea6;
   --kollect-focus: #0e7490;
   --kollect-success: #137333;
@@ -33,6 +34,7 @@
   --kollect-text: #eaf0fa;
   --kollect-muted: #aebbd0;
   --kollect-primary: #2e5da8;
+  --kollect-on-primary: #eaf0fa;
   --kollect-link: #9ec5ff;
   --kollect-focus: #5eead4;
   --kollect-success: #72d99b;
@@ -79,6 +81,10 @@
 }
 
 .kollect-hero {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
   padding: 2.75rem clamp(1rem, 4vw, 3rem) 2.25rem;
   margin: -0.5rem -0.8rem 2rem;
   text-align: center;
@@ -87,6 +93,12 @@
   background:
     radial-gradient(circle at 82% 12%, rgb(14 116 144 / 12%), transparent 32%),
     linear-gradient(145deg, color-mix(in srgb, var(--kollect-primary) 12%, var(--kollect-surface)), var(--kollect-surface));
+}
+
+.kollect-hero :where(p, a) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .kollect-hero-logo {
@@ -113,17 +125,32 @@
 }
 
 .kollect-badges {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3rem 0.4rem;
   margin: 0 auto 1rem;
   text-align: center;
   line-height: 1.6;
 }
 
 .kollect-badges img {
-  display: inline;
+  display: block;
+  max-width: 100%;
   height: 1.25rem;
-  margin: 0.15rem 0.2rem;
+  margin: 0;
   vertical-align: middle;
+}
+
+.kollect-hero .md-button--primary {
+  color: var(--kollect-on-primary);
+  border-color: var(--kollect-primary);
+  background: var(--kollect-primary);
+}
+
+.kollect-hero .md-button:not(.md-button--primary) {
+  color: var(--kollect-link);
+  border-color: var(--kollect-link);
 }
 
 .kollect-grid {
@@ -180,11 +207,22 @@
 
 @media screen and (max-width: 44.9844em) {
   .kollect-hero {
+    width: 100%;
     padding: 2rem 1rem 1.5rem;
+    margin-right: 0;
+    margin-left: 0;
   }
 
   .kollect-badges img {
     height: 1.15rem;
+  }
+
+  .kollect-hero > .md-button {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin: 0.4rem 0 0;
+    white-space: normal;
   }
 }
 
