@@ -4,11 +4,11 @@ Kollect is a Kubernetes operator that turns selected, live cluster state into a 
 diffable inventory** — decoupled from the apiserver's availability, RBAC, and scale limits — so portals,
 automation, and auditors read **export data**, never the live API.
 
-**Summary for implementers:** [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) · **ADR:** [adr/0201-crd-model.md](adr/0201-crd-model.md)
+**Summary for implementers:** [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md) · **ADR:** [adr/0201-crd-model.md](../adr/0201-crd-model.md)
 
 !!! info "Project maturity"
     Kollect is pre-beta (`v1alpha1`). Phases in this document describe **build order**, not GA
-    release milestones. See [ROADMAP.md](ROADMAP.md) for current implementation status.
+    release milestones. See [ROADMAP.md](../ROADMAP.md) for current implementation status.
 
 ## Problem statement
 
@@ -23,18 +23,18 @@ four recurring consequences:
 - **Schema rigidity** — hardcoded collector schemas break whenever a new CRD or attribute is needed.
 - **Fleet storms** — naive per-cluster export produces **N export/commit storms** per logical change.
 
-![Split diagram contrasting unbounded live Kubernetes API access (chaotic loops) with reading structured inventory from durable export sinks (Git, database, object store).](assets/illustrations/read-model-vs-live-api-dark.webp){ .kollect-illus .kollect-illus--wide width="800" }
+![Split diagram contrasting unbounded live Kubernetes API access (chaotic loops) with reading structured inventory from durable export sinks (Git, database, object store).](../assets/illustrations/read-model-vs-live-api-dark.webp){ .kollect-illus .kollect-illus--wide width="800" }
 
 Kollect resolves this by maintaining a **read model** of the cluster: **select** resources by GVK →
 **extract** the attributes that matter via CEL/JSONPath → **aggregate** in memory across targets (and,
 optionally, clusters) → **debounce** → **export** to role-based pluggable sinks. The per-inventory
 in-memory snapshot is **canonical**; every sink — relational store, object/Git snapshot, or event
-stream — is a **projection** of it ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)), so no single
+stream — is a **projection** of it ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)), so no single
 backend is privileged. Inventory is **configuration, not code**, owned per-team in its own namespace.
 Rendering and publishing docs/CMS stays **outside** the operator
-([ADR-0702](adr/0702-doc-sync-templating.md)).
+([ADR-0702](../adr/0702-doc-sync-templating.md)).
 
-> Full first-principles argument (options weighed, users, assumptions): [REQUIREMENTS.md](REQUIREMENTS.md).
+> Full first-principles argument (options weighed, users, assumptions): [REQUIREMENTS.md](../REQUIREMENTS.md).
 
 ## CRD model
 
@@ -70,25 +70,25 @@ flowchart TD
 
 | Kind | Scope | Reconciled | Purpose |
 | --- | --- | --- | --- |
-| `KollectProfile` | Namespace | No | Extraction schema ([ADR-0204](adr/0204-namespaced-profiles.md)) |
-| `KollectSnapshotSink` | **Namespace** | Probe only | Snapshot export; `ConnectionVerified` ([ADR-0414](adr/0414-sink-family-crds.md)) |
+| `KollectProfile` | Namespace | No | Extraction schema ([ADR-0204](../adr/0204-namespaced-profiles.md)) |
+| `KollectSnapshotSink` | **Namespace** | Probe only | Snapshot export; `ConnectionVerified` ([ADR-0414](../adr/0414-sink-family-crds.md)) |
 | `KollectDatabaseSink` | **Namespace** | Probe only | Relational SoR export |
 | `KollectEventSink` | **Namespace** | Probe only | Event emitter export; platform-shared backends published in `kollect-system` |
-| `KollectScope` | Namespace | No | Tenancy boundary ([ADR-0203](adr/0203-namespaced-multi-tenancy.md)) |
+| `KollectScope` | Namespace | No | Tenancy boundary ([ADR-0203](../adr/0203-namespaced-multi-tenancy.md)) |
 | `KollectTarget` | Namespace | Yes | Team-scoped collection (default) |
-| `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0201](adr/0201-crd-model.md)) |
+| `KollectClusterTarget` | Cluster | Yes | Platform cross-namespace collection ([ADR-0201](../adr/0201-crd-model.md)) |
 | `KollectInventory` | Namespace | Yes | Aggregate namespaced targets; export to sinks |
-| `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0201](adr/0201-crd-model.md)) |
-| ~~`KollectSink`~~ | — | — | **Removed** — family CRDs ([ADR-0414](adr/0414-sink-family-crds.md)) |
-| ~~`KollectClusterProfile` / `KollectCluster*Sink`~~ | — | — | **Removed** — cluster kinds reference namespaced config by `name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)) |
+| `KollectConnectionTest` | Namespace | Yes | Audited sink/profile connectivity probes ([ADR-0201](../adr/0201-crd-model.md)) |
+| ~~`KollectSink`~~ | — | — | **Removed** — family CRDs ([ADR-0414](../adr/0414-sink-family-crds.md)) |
+| ~~`KollectClusterProfile` / `KollectCluster*Sink`~~ | — | — | **Removed** — cluster kinds reference namespaced config by `name` + `namespace` ([ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)) |
 | `KollectClusterInventory` | Cluster | Yes | Platform rollup — pairs with `KollectClusterTarget` |
-| `KollectClusterScope` | Cluster | No | Platform policy boundary ([ADR-0207](adr/0207-target-collection-filtering.md)) |
+| `KollectClusterScope` | Cluster | No | Platform policy boundary ([ADR-0207](../adr/0207-target-collection-filtering.md)) |
 | ~~`KollectHub`~~ | — | **Rejected / stub** | **Removed** from tree — was never product surface |
-| ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](adr/0702-doc-sync-templating.md) |
+| ~~`KollectPublication`~~ | — | **Rejected** | [ADR-0702](../adr/0702-doc-sync-templating.md) |
 
-See [adr/0201-crd-model.md](adr/0201-crd-model.md). Per-kind field reference:
-[CR-REFERENCE.md](CR-REFERENCE.md). Reserved kinds are design placeholders — see
-[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md#reserved-crds-what-they-mean).
+See [adr/0201-crd-model.md](../adr/0201-crd-model.md). Per-kind field reference:
+[crds/index.md](../crds/index.md). Reserved kinds are design placeholders — see
+[PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md#reserved-crds-what-they-mean).
 
 ## Default deployment
 
@@ -123,15 +123,15 @@ sequenceDiagram
 
 Key properties:
 
-- **Event-driven** informers ([ADR-0301](adr/0301-event-driven-informers.md)) — **one informer per GVK**.
-- **Watch opt-in/out** ([ADR-0205](adr/0205-watch-labels.md)) — platform `watchMode: All`; teams
+- **Event-driven** informers ([ADR-0301](../adr/0301-event-driven-informers.md)) — **one informer per GVK**.
+- **Watch opt-in/out** ([ADR-0205](../adr/0205-watch-labels.md)) — platform `watchMode: All`; teams
   exclude with `kollect.dev/watch: disabled`.
-- **Export debouncing** — store updates immediately; sink export coalesced ([ADR-0201](adr/0201-crd-model.md)).
-- **Status holds summaries only** — full payload in sinks ([ADR-0103](adr/0103-etcd-limit.md)).
+- **Export debouncing** — store updates immediately; sink export coalesced ([ADR-0201](../adr/0201-crd-model.md)).
+- **Status holds summaries only** — full payload in sinks ([ADR-0103](../adr/0103-etcd-limit.md)).
 - **HTTP inventory** — optional, off by default; debug/small installs only.
 
 **Diagrams:** collection, debouncing, scope gates, and connection-test lifecycle —
-[DATA-FLOWS.md](DATA-FLOWS.md).
+[concepts/export-pipeline.md](../concepts/export-pipeline.md).
 
 ## Where inventory lives
 
@@ -145,7 +145,7 @@ Key properties:
 
 ## Sinks (by role)
 
-Classified by role, not vendor ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)). The
+Classified by role, not vendor ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)). The
 in-memory snapshot per Inventory is canonical; sinks are projections.
 
 - **Snapshot stores** — **Git** (audit), **S3/GCS Parquet** (queryable via DuckDB, no DB server), **HTTP** (debug). Deletes free.
@@ -159,15 +159,15 @@ in-memory snapshot per Inventory is canonical; sinks are projections.
     **Single-cluster** installs export directly to Postgres, Git, or event sinks — no central merge
     tier. **Fleet** topologies deploy one operator per cluster; each writes debounced inventory
     snapshots to a **shared sink** keyed by `spec.cluster` on family sink CRDs
-    ([ADR-0501](adr/0501-multi-cluster-fleet.md)). Walkthrough:
-    [Multi-cluster fleet example](examples/multi-cluster-fleet.md).
+    ([ADR-0501](../adr/0501-multi-cluster-fleet.md)). Walkthrough:
+    [Multi-cluster fleet example](../examples/multi-cluster-fleet.md).
 
-Phases in docs are **build order**, not release milestones — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md).
+Phases in docs are **build order**, not release milestones — see [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md).
 
 ## Connection test
 
-- **`KollectConnectionTest` CR** — primary for CI/audit ([ADR-0201](adr/0201-crd-model.md))
-- Sink `connectionTest` + annotation — supplementary quick checks ([ADR-0403](adr/0403-connection-test.md))
+- **`KollectConnectionTest` CR** — primary for CI/audit ([ADR-0201](../adr/0201-crd-model.md))
+- Sink `connectionTest` + annotation — supplementary quick checks ([ADR-0403](../adr/0403-connection-test.md))
 
 ## Package boundaries
 
@@ -187,12 +187,12 @@ cmd  →  wires everything
 CI enforces this graph with [go-arch-lint](https://github.com/fe3dback/go-arch-lint) via
 `task arch-lint` (also part of `task lint`). Rules and any baseline `todo(arch-NN)` exceptions are
 declared in [`.go-arch-lint.yml`](https://github.com/platformrelay/kollect/blob/main/.go-arch-lint.yml). Maintainer setup:
-[tooling-setup.md](development/tooling-setup.md).
+[tooling-setup.md](../development/tooling-setup.md).
 
 Regenerate the visual overview with `task arch-lint:graph` (DI view, vendors included). The SVG is
-checked in at [`architecture-graph.svg`](architecture-graph.svg):
+checked in at [`architecture-graph.svg`](../architecture-graph.svg):
 
-![Kollect internal package dependency graph — DI view with key third-party vendors (controller-runtime, client-go, AWS SDK, NATS/Kafka, Postgres, etc.)](architecture-graph.svg)
+![Kollect internal package dependency graph — DI view with key third-party vendors (controller-runtime, client-go, AWS SDK, NATS/Kafka, Postgres, etc.)](../architecture-graph.svg)
 
 The graph shows **component dependencies** (`--type di`): arrows point from a component to what it
 imports. Green vendor nodes come from the `vendors` / `canUse` blocks in `.go-arch-lint.yml` when
@@ -201,6 +201,6 @@ rendered with `--include-vendors`. For the reverse (execution-flow) view, use
 
 ## See also
 
-- [REQUIREMENTS.md](REQUIREMENTS.md)
-- [ROADMAP.md](ROADMAP.md)
-- [PERFORMANCE.md](PERFORMANCE.md)
+- [REQUIREMENTS.md](../REQUIREMENTS.md)
+- [ROADMAP.md](../ROADMAP.md)
+- [operator-manual/performance.md](../operator-manual/performance.md)

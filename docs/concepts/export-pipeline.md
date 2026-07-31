@@ -1,13 +1,37 @@
-# Kollect data flows
+# Export pipeline and debouncing
+
+Each inventory owns a canonical snapshot. After a collection change, Kollect coalesces rapid
+updates and exports the same ordered rows to every referenced sink independently.
+
+## Debounce and interval precedence
+
+The effective minimum interval is resolved in this order:
+
+1. the interval on the inventory's sink reference;
+2. the sink's default interval;
+3. `KollectInventory.spec.exportMinInterval`;
+4. the minimum enforced by `KollectScope`.
+
+The most specific configured value wins, but a scope floor can only make export less frequent.
+Failures are recorded per sink in `status.sinkExports[]`; one unavailable destination does not
+erase successful exports to the others.
+
+See [ADR-0413](../adr/0413-export-interval-scheduling.md),
+[ADR-0405](../adr/0405-export-data-contract.md), and
+[conditions and status](../reference/conditions.md).
+
+---
+
+<!-- Consolidated from the former docs/DATA-FLOWS.md page. -->
 
 Visual walkthroughs of how data moves through the operator. For CRD roles see
-[ARCHITECTURE.md](ARCHITECTURE.md); for locked decisions see
-[PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md).
+[ARCHITECTURE.md](architecture.md); for locked decisions see
+[PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md).
 
 !!! note "Sink roles on export paths"
     Export fans out to whatever `sinkRefs` name — each sink has a **role** (snapshot store, relational
     SoR, or event emitter), not a fixed Postgres+Kafka pair
-    ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)). Diagrams below may show Postgres and
+    ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)). Diagrams below may show Postgres and
     Kafka as examples; hub and inventory export use the same role-based contract for all seven shipped
     types.
 
@@ -19,7 +43,7 @@ Visual walkthroughs of how data moves through the operator. For CRD roles see
 every watch event would trigger a Postgres upsert or Git commit.
 
 **Design:** The in-memory collect store updates **immediately** on every target reconcile. Only the
-**sink export** step is debounced **per sink ref** on `KollectInventory` ([ADR-0413](adr/0413-export-interval-scheduling.md)).
+**sink export** step is debounced **per sink ref** on `KollectInventory` ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 One payload is marshalled per reconcile; each ref exports when its effective interval elapses or the
 checksum/generation bypass rules fire for that sink.
 
@@ -74,7 +98,7 @@ sequenceDiagram
 
 ### Configuration
 
-Effective interval per sink ref ([ADR-0413](adr/0413-export-interval-scheduling.md)):
+Effective interval per sink ref ([ADR-0413](../adr/0413-export-interval-scheduling.md)):
 
 ```text
 effectiveInterval(ref) =
@@ -116,7 +140,7 @@ effectiveInterval(ref) =
 !!! tip "Dual-cadence fan-out"
     Portal Postgres at **30s** plus Git audit at **1h** is the canonical multi-role pattern — see
     `config/samples/kollect_v1alpha1_kollectinventory.yaml`
-    and [deployment-inventory example](examples/deployment-inventory.md#step-4-kollectinventory).
+    and [deployment-inventory example](../getting-started/first-inventory.md).
     Event sinks (Kafka/NATS) usually want `exportMinInterval: 0s` — emit on material change only,
     never re-publish an identical payload.
 
@@ -129,7 +153,7 @@ When some sinks export and others are debounced, aggregate `Synced=False` with r
 
 How a watched object becomes an inventory row.
 
-![Left-to-right operator pipeline from Kubernetes API through shared per-GVK informers and an in-memory collect store, KollectInventory debounce, to fan-out sink projections for Git, GitLab, S3, GCS, Postgres, MongoDB, and Kafka.](assets/illustrations/how-it-works-informer-sink-dark.webp){ .kollect-illus .kollect-illus--wide }
+![Left-to-right operator pipeline from Kubernetes API through shared per-GVK informers and an in-memory collect store, KollectInventory debounce, to fan-out sink projections for Git, GitLab, S3, GCS, Postgres, MongoDB, and Kafka.](../assets/illustrations/how-it-works-informer-sink-dark.webp){ .kollect-illus .kollect-illus--wide }
 
 ```mermaid
 flowchart LR
@@ -157,7 +181,7 @@ flowchart LR
 
 **Key properties:**
 
-- **One informer per GVK** across all targets ([ADR-0301](adr/0301-event-driven-informers.md)).
+- **One informer per GVK** across all targets ([ADR-0301](../adr/0301-event-driven-informers.md)).
 - Targets only differ by **namespace/label selectors** and **profileRef**.
 - Extraction runs on the **cached unstructured object** — no per-target API list calls.
 
@@ -165,9 +189,9 @@ flowchart LR
 
 Before a watched object reaches the collect store, it passes through stacked policy layers — Helm
 watch boundary, Scope denials, Target include/exclude intent, `resourceRules`, CEL `matchPolicy`, and
-watch labels ([ADR-0207](adr/0207-target-collection-filtering.md)).
+watch labels ([ADR-0207](../adr/0207-target-collection-filtering.md)).
 
-![Stacked filter layers showing how Kubernetes resources pass through operator watch scope, Scope denials, Target include and exclude rules, resource rules, CEL match policy, and watch labels before becoming inventory rows.](assets/illustrations/collection-filter-layers-dark.webp){ .kollect-illus .kollect-illus--portrait width="360" }
+![Stacked filter layers showing how Kubernetes resources pass through operator watch scope, Scope denials, Target include and exclude rules, resource rules, CEL match policy, and watch labels before becoming inventory rows.](../assets/illustrations/collection-filter-layers-dark.webp){ .kollect-illus .kollect-illus--portrait width="360" }
 
 ---
 
@@ -197,7 +221,7 @@ flowchart TD
 | `$.spec.template.spec.containers[0].image` | `"app:1.0"` (string) |
 | `$.spec.template.spec.containers[*].image` | `["app:1.0", "sidecar:2.0"]` (list) |
 
-See [ADR-0302](adr/0302-cel-jsonpath-extraction.md) for syntax rules.
+See [ADR-0302](../adr/0302-cel-jsonpath-extraction.md) for syntax rules.
 
 ---
 
@@ -222,7 +246,7 @@ flowchart TD
   Sinks -->|yes| Export[Continue export path]
 ```
 
-Example: [ADR-0203](adr/0203-namespaced-multi-tenancy.md#enforcement-example-gvk-denied).
+Example: [ADR-0203](../adr/0203-namespaced-multi-tenancy.md#enforcement-example-gvk-denied).
 
 ---
 
@@ -253,7 +277,7 @@ Default TTL: **300s**. Patch `spec.sinkRef` to force a fresh probe.
 Each cluster runs the **same single-mode operator**. `KollectInventory` export includes a
 **`cluster`** dimension via `spec.cluster` on database sinks or `{cluster}` in Git
 `pathTemplate` so shared backends merge rows without an in-tree aggregation tier
-([ADR-0501](adr/0501-multi-cluster-fleet.md)).
+([ADR-0501](../adr/0501-multi-cluster-fleet.md)).
 
 ```mermaid
 flowchart LR
@@ -283,14 +307,14 @@ or headers for downstream consumers.
 
 **Export path:** identical per-sink debouncing as single-cluster mode ([§1](#1-export-debouncing)).
 Multi-cluster rows carry **`cluster`** in each item; CR `status` stores summaries only
-([ADR-0103](adr/0103-etcd-limit.md)).
+([ADR-0103](../adr/0103-etcd-limit.md)).
 
-Walkthrough: [Multi-cluster fleet](examples/multi-cluster-fleet.md).
+Walkthrough: [Multi-cluster fleet](../examples/multi-cluster-fleet.md).
 
 ---
 
 ## See also
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — CRD model and deployment defaults
-- [PERFORMANCE.md](PERFORMANCE.md) — metrics and tuning
-- [examples/deployment-inventory.md](examples/deployment-inventory.md) — end-to-end walkthrough
+- [ARCHITECTURE.md](architecture.md) — CRD model and deployment defaults
+- [PERFORMANCE.md](../operator-manual/performance.md) — metrics and tuning
+- [examples/deployment-inventory.md](../getting-started/first-inventory.md) — end-to-end walkthrough

@@ -62,14 +62,13 @@ quick start, CR reference, ADRs, and examples. This README is the front door; th
   central hub tier to operate ([ADR-0501](https://platformrelay.github.io/Kollect/adr/0501-multi-cluster-fleet/)).
 - **Scale-aware architecture** — shared informers, export sharding, and tunable
   reconcile/dispatch concurrency; the performance guide separates measured evidence from targets
-  ([performance](https://platformrelay.github.io/Kollect/PERFORMANCE/)).
+  ([performance](https://platformrelay.github.io/Kollect/operator-manual/performance/)).
 
 ## See it end-to-end
 
-A real pipeline is a handful of Kubernetes resources. This is the
-[Deployment-inventory walkthrough](https://platformrelay.github.io/Kollect/examples/deployment-inventory/) —
-collect container images from Deployments and export them to Postgres (for portals) and Git (for
-audit) at the same time:
+A real pipeline is a handful of Kubernetes resources. The
+[first-inventory walkthrough](https://platformrelay.github.io/Kollect/getting-started/first-inventory/)
+collects container images from Deployments and exports them to Git for an inspectable audit trail:
 
 ```mermaid
 flowchart LR
@@ -108,8 +107,8 @@ applies the sample `Profile → Sink → Target → Inventory` pipeline. Watch t
 `Ready` condition, then read your sink — the [live demo repo](https://github.com/konih/kollect-inventory-demo)
 shows what the Git export looks like.
 
-**Full walkthrough** — prerequisites, Helm install, maturity notes:
-**[Quick start →](https://platformrelay.github.io/Kollect/QUICKSTART/)**
+**Full walkthrough** — local evaluation and Helm install:
+**[Install Kollect →](https://platformrelay.github.io/Kollect/getting-started/install/)**
 
 ## How it works
 
@@ -149,7 +148,7 @@ Full payload lives in sinks; CR `.status` holds summaries only ([etcd limits](ht
 ## Performance
 
 Kollect is designed for **large single clusters** and **multi-cluster fleets**. The
-**[performance guide](https://platformrelay.github.io/Kollect/PERFORMANCE/)** distinguishes
+**[performance guide](https://platformrelay.github.io/Kollect/operator-manual/performance/)** distinguishes
 reproducible results from design targets and documents tuning for reconcile concurrency, export
 debounce, and sharding. Fleet fan-in uses shared sinks rather than a hub merge tier.
 
@@ -157,14 +156,14 @@ debounce, and sharding. Fleet fan-in uses shared sinks rather than a hub merge t
 
 | Topic | Link |
 | --- | --- |
-| Problem statement, CRD model, reconciliation | [Architecture](https://platformrelay.github.io/Kollect/ARCHITECTURE/) |
+| Problem statement, CRD model, reconciliation | [Architecture](https://platformrelay.github.io/Kollect/concepts/architecture/) |
 | Locked platform decisions | [Platform decisions](https://platformrelay.github.io/Kollect/PLATFORM-DECISIONS/) |
-| CR fields, RBAC, failure modes | [CR reference](https://platformrelay.github.io/Kollect/CR-REFERENCE/) |
+| CR fields, RBAC, failure modes | [CR reference](https://platformrelay.github.io/Kollect/crds/) |
 | Multi-cluster fleet | [ADR-0501](https://platformrelay.github.io/Kollect/adr/0501-multi-cluster-fleet/) |
 | Sink taxonomy (state vs stream) | [ADR-0401](https://platformrelay.github.io/Kollect/adr/0401-sink-taxonomy-state-vs-stream/) |
 | Shipped, next, and later work | [Roadmap](https://platformrelay.github.io/Kollect/ROADMAP/) |
 | Examples index | [Examples](https://platformrelay.github.io/Kollect/examples/) |
-| Example: Deployment → Git export | [Walkthrough](https://platformrelay.github.io/Kollect/examples/deployment-inventory/) |
+| Example: Deployment → Git export | [Walkthrough](https://platformrelay.github.io/Kollect/getting-started/first-inventory/) |
 | Live demo inventory (Git sink) | [kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo) |
 
 Developers: run `task lint`, `task test`, and `task verify` before opening a PR —

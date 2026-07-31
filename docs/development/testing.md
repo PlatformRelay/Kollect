@@ -127,7 +127,7 @@ For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a 
 | `KOLECT_LOAD_TEST=1 task load-test` | L5 bounded load (≤2000 objects, opt-in) |
 | `task perf-report` | Benchmark + unit pass summary (local only, gitignored output) |
 
-Full local setup: [DEVELOPMENT.md](../DEVELOPMENT.md).
+Full local setup: [development/setup.md](../development/setup.md).
 
 ## Definition of done
 
@@ -139,5 +139,5 @@ PR workflow: [CONTRIBUTING.md § Pull request process](https://github.com/platfo
 - [ADR-0706: Testing and merge-gate architecture](../adr/0706-testing-merge-gate-architecture.md)
 - [Engineering guidelines](https://github.com/platformrelay/kollect/blob/main/docs/development/guidelines.md) §4 (testing rules)
 - [REQUIREMENTS.md](../REQUIREMENTS.md) — NFR-TEST-* priorities
-- [PERFORMANCE.md](../PERFORMANCE.md) — scale bounds and perf-report workflow
+- [operator-manual/performance.md](../operator-manual/performance.md) — scale bounds and perf-report workflow
 - [tooling-setup.md](tooling-setup.md) — arch-lint, depguard, SonarCloud maintainer steps

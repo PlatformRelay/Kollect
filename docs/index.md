@@ -36,8 +36,8 @@ Record the hero demo locally: [DEMO-GIF-GUIDE.md](DEMO-GIF-GUIDE.md).
 
 *Git-simple to start · platform-grade to grow* — `kollect.dev/v1alpha1` · event-driven · CRD-native · fleet-ready
 
-[Quick start :octicons-arrow-right-24:](QUICKSTART.md){ .md-button .md-button--primary }
-[CR reference :octicons-arrow-right-24:](CR-REFERENCE.md){ .md-button }
+[Quick start :octicons-arrow-right-24:](getting-started/install.md){ .md-button .md-button--primary }
+[CR reference :octicons-arrow-right-24:](crds/index.md){ .md-button }
 
 </div>
 
@@ -106,7 +106,7 @@ Each cluster runs `mode: single` and exports to **shared sinks** with a cluster 
 The in-memory snapshot per inventory is **canonical**; every sink is a **projection** of it — no
 single backend is privileged. Sink roles (snapshot store, relational store, event emitter) are
 documented in [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md); reconciliation detail in
-[Architecture](ARCHITECTURE.md) and [Data flows](DATA-FLOWS.md).
+[Architecture](concepts/architecture.md) and [Data flows](concepts/export-pipeline.md).
 
 ### Supported & planned sinks
 
@@ -187,12 +187,12 @@ flowchart LR
 | `KollectEventSink` | type + brokers | **Event emitter** (Kafka) |
 | `KollectScope` | allowed GVKs / namespaces / sinks | **Guardrails** for the team namespace |
 
-Full fields: [CR reference](CR-REFERENCE.md) · model rationale: [ADR-0201](adr/0201-crd-model.md).
+Full fields: [CR reference](crds/index.md) · model rationale: [ADR-0201](adr/0201-crd-model.md).
 
 ## Performance
 
 Kollect is designed for **large single clusters** and **multi-cluster fleets**. The
-[performance guide](PERFORMANCE.md) distinguishes reproducible results from design targets and
+[performance guide](operator-manual/performance.md) distinguishes reproducible results from design targets and
 catalogues tuning knobs. Fleet fan-in uses shared sinks rather than a hub merge tier
 ([ADR-0603](adr/0603-performance-scalability.md)).
 
@@ -200,17 +200,17 @@ catalogues tuning knobs. Fleet fan-in uses shared sinks rather than a hub merge 
 
 | Section | Start here |
 | --- | --- |
-| **Getting started** | [Quick start](QUICKSTART.md) · [Development setup](DEVELOPMENT.md) · [Examples](examples/README.md) |
-| **Core concepts** | [CRD model](adr/0201-crd-model.md) · [CR reference](CR-REFERENCE.md) · [Multi-cluster fleet](adr/0501-multi-cluster-fleet.md) |
-| **Operator manual** | [Install & ops](OPERATOR-MANUAL.md) · [Upgrading](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md) |
-| **Performance & ops** | [Performance tuning](PERFORMANCE.md) · [Scaling & fleet](operator-manual/scaling-and-fleet.md) · [Best practices](BEST-PRACTICES.md) · [Troubleshooting](TROUBLESHOOTING.md) |
-| **Background** | [Prerequisites & basics](UNDERSTAND-THE-BASICS.md) · [Architecture](ARCHITECTURE.md) ([package graph](architecture-graph.svg)) · [Data flows](DATA-FLOWS.md) |
-| **Reference** | [Custom resources](CR-REFERENCE.md) · [FAQ](FAQ.md) · [ADRs](adr/README.md) · [RFCs](rfc/README.md) |
+| **Getting started** | [Quick start](getting-started/install.md) · [Development setup](development/setup.md) · [Examples](examples/README.md) |
+| **Core concepts** | [CRD model](adr/0201-crd-model.md) · [CR reference](crds/index.md) · [Multi-cluster fleet](adr/0501-multi-cluster-fleet.md) |
+| **Operator manual** | [Install & ops](operator-manual/index.md) · [Upgrading](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md) |
+| **Performance & ops** | [Performance tuning](operator-manual/performance.md) · [Scaling & fleet](operator-manual/performance.md) · [Best practices](operator-manual/production-checklist.md) · [Troubleshooting](operator-manual/troubleshooting.md) |
+| **Background** | [Prerequisites & basics](concepts/resource-model.md) · [Architecture](concepts/architecture.md) ([package graph](architecture-graph.svg)) · [Data flows](concepts/export-pipeline.md) |
+| **Reference** | [Custom resources](crds/index.md) · [FAQ](operator-manual/troubleshooting.md) · [ADRs](adr/README.md) · [RFCs](rfc/README.md) |
 | **Contributing** | [Roadmap](ROADMAP.md) · [Planned features](roadmap/planned-features.md) · [ADR/RFC process](development/adr-rfc-process.md) · [Release process](RELEASE.md) |
 
 ## Try an example
 
-- [Deployment inventory → Git / Postgres / Kafka](examples/deployment-inventory.md) — the end-to-end walkthrough
+- [Deployment inventory → Git / Postgres / Kafka](getting-started/first-inventory.md) — the end-to-end walkthrough
 - [Postgres state store (relational SoR)](examples/postgres-state-store.md)
 - [NATS event sink](examples/nats-event-sink.md)
 - [Helm release inventory (Argo primary; Flux secondary)](examples/helm-release-inventory.md)

@@ -5,8 +5,8 @@ Kubernetes cluster (typically [kind](https://kind.sigs.k8s.io/)).
 
 !!! tip "Assumptions"
     This guide assumes Go, Docker, kind, kubectl, and [Task](https://taskfile.dev/) are installed.
-    New to CRDs or the docs site? Start with [Understand the basics](UNDERSTAND-THE-BASICS.md) and
-    [QUICKSTART.md](QUICKSTART.md).
+    New to CRDs or the docs site? Start with [Understand the basics](../concepts/resource-model.md) and
+    [getting-started/install.md](../getting-started/install.md).
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ Optional: `task tools:git-cliff` installs a pinned [git-cliff](https://git-cliff
 | `task changelog:verify` | Fail if changelog drift (same as preflight CI) |
 | `task release-dry-run` | Build `dist/` install YAML + chart (no push) |
 
-Full runbook: [RELEASE.md](RELEASE.md). Retroactive version anchors (`v0.0.1`–`v0.0.4`, RC series) are
+Full runbook: [RELEASE.md](../RELEASE.md). Retroactive version anchors (`v0.0.1`–`v0.0.4`, RC series) are
 documented in the `CHANGELOG.md` header and `hack/release/cliff.toml`.
 
 **Local dry-run** (`task release-dry-run`) runs `hack/release-assets.sh` with
@@ -167,10 +167,10 @@ Helm values: `charts/kollect/ci/e2e-tenant-values.yaml`. Kubernetes version is p
 Multi-cluster is **N independent single-mode operators** — one Helm release per cluster — exporting
 to a **shared sink** (Postgres, Git, Kafka, NATS) with `spec.cluster` row partitioning. There is
 **no** hub/spoke runtime tier, ingest API, or queue transport between clusters
-([ADR-0501](adr/0501-multi-cluster-fleet.md)).
+([ADR-0501](../adr/0501-multi-cluster-fleet.md)).
 
-Walkthrough: [Multi-cluster fleet example](examples/multi-cluster-fleet.md) ·
-[Deployment topology matrix](deployment/topology-matrix.md).
+Walkthrough: [Multi-cluster fleet example](../examples/multi-cluster-fleet.md) ·
+[Deployment topology matrix](../deployment/topology-matrix.md).
 
 ## Code generation workflow
 
@@ -211,8 +211,8 @@ miss your types.
 ## Tests
 
 Test pyramid (L0–L5), coverage floors, and CI gates:
-[Testing strategy](development/testing.md) · [ADR-0706](adr/0706-testing-merge-gate-architecture.md) ·
-[coding-standards.md](development/coding-standards.md#testing).
+[Testing strategy](testing.md) · [ADR-0706](../adr/0706-testing-merge-gate-architecture.md) ·
+[coding-standards.md](coding-standards.md#testing).
 
 | Task | Purpose |
 | --- | --- |
@@ -226,7 +226,7 @@ for controller-runtime envtest. First run may take a minute. Controller tests li
 `internal/controller/` (`suite_test.go` sets up envtest).
 
 E2E scripts, nightly workflows, multi-tenant fixtures, and tenantMode RBAC asserts are documented in
-[testing.md](development/testing.md) and `hack/kind/README.md`.
+[testing.md](testing.md) and `hack/kind/README.md`.
 
 ### Benchmarks (micro, safe default)
 
@@ -239,7 +239,7 @@ go test -short -bench=. -benchmem ./internal/collect/...
 ```
 
 Uses `-short` so long sub-benchmarks are skipped on laptops. Suitable for CI and quick regression
-checks. See [PERFORMANCE.md](PERFORMANCE.md) and [ADR-0603](adr/0603-performance-scalability.md).
+checks. See [operator-manual/performance.md](../operator-manual/performance.md) and [ADR-0603](../adr/0603-performance-scalability.md).
 
 ### Load tests (opt-in, bounded)
 
@@ -265,7 +265,7 @@ writes a markdown summary useful when comparing regressions on a laptop. Output 
 task perf-report
 ```
 
-See [PERFORMANCE.md](PERFORMANCE.md) for operator tuning and the metrics catalog.
+See [operator-manual/performance.md](../operator-manual/performance.md) for operator tuning and the metrics catalog.
 
 ## UI development
 
@@ -279,14 +279,14 @@ task ui-mock-prism   # optional real HTTP mock on :4010
 
 Live Read API: `VITE_MOCK_API=false VITE_READ_API_URL=http://127.0.0.1:8082 npm run dev` (from `ui/`).
 
-Full guide: [examples/ui-local-development.md](examples/ui-local-development.md) ·
-[ADR-0412](adr/0412-mock-read-api-for-ui-development.md) · [`ui/README.md`](https://github.com/platformrelay/kollect/blob/main/ui/README.md).
+Full guide: [examples/ui-local-development.md](../examples/ui-local-development.md) ·
+[ADR-0412](../adr/0412-mock-read-api-for-ui-development.md) · [`ui/README.md`](https://github.com/platformrelay/kollect/blob/main/ui/README.md).
 
 ## Lint and format
 
 Go conventions, lint policy, and CI gates:
-[coding-standards.md](development/coding-standards.md) ·
-[tooling-setup.md](development/tooling-setup.md).
+[coding-standards.md](coding-standards.md) ·
+[tooling-setup.md](tooling-setup.md).
 
 ```sh
 task lint          # golangci-lint v2 + go-arch-lint
@@ -352,7 +352,7 @@ make deploy IMG=ghcr.io/platformrelay/kollect:dev
 ### Sample CRs vs controller maturity
 
 Controllers reconcile namespaced and cluster-scoped inventory CRs today — see
-[QUICKSTART.md](QUICKSTART.md#current-maturity) for phase-level status. Applying samples validates
+[getting-started/install.md](../ROADMAP.md) for phase-level status. Applying samples validates
 CRD schema, webhook rules, and end-to-end export when sinks are configured.
 
 ## Documentation site (MkDocs)
@@ -374,20 +374,20 @@ mkdocs build --strict
 ```
 
 Configuration: `mkdocs.yml` at the repository root. GitHub Pages workflow:
-`.github/workflows/docs.yaml`. See [ADR-0701](adr/0701-mkdocs-github-pages.md).
+`.github/workflows/docs.yaml`. See [ADR-0701](../adr/0701-mkdocs-github-pages.md).
 
 | Doc | Audience |
 | --- | --- |
-| [QUICKSTART.md](QUICKSTART.md) | First install on kind, sample CRs |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | CRD model, reconciliation, phasing |
-| [REQUIREMENTS.md](REQUIREMENTS.md) | Product requirements and NFRs |
-| [examples/deployment-inventory.md](examples/deployment-inventory.md) | Annotated YAML walkthroughs |
-| [adr/README.md](adr/README.md) | Architecture decision records |
-| [PERFORMANCE.md](PERFORMANCE.md) | Scale targets, metrics, pprof, bounded load tests |
+| [getting-started/install.md](../getting-started/install.md) | First install on kind, sample CRs |
+| [concepts/architecture.md](../concepts/architecture.md) | CRD model, reconciliation, phasing |
+| [REQUIREMENTS.md](../REQUIREMENTS.md) | Product requirements and NFRs |
+| [getting-started/first-inventory.md](../getting-started/first-inventory.md) | Annotated YAML walkthroughs |
+| [adr/README.md](../adr/README.md) | Architecture decision records |
+| [operator-manual/performance.md](../operator-manual/performance.md) | Scale targets, metrics, pprof, bounded load tests |
 
 ## Further reading
 
-- [QUICKSTART.md](QUICKSTART.md) — operator install and first CRs
-- [ARCHITECTURE.md](ARCHITECTURE.md) — CRD model and reconciliation flow
+- [getting-started/install.md](../getting-started/install.md) — operator install and first CRs
+- [concepts/architecture.md](../concepts/architecture.md) — CRD model and reconciliation flow
 - [CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md) — commits, PR checks
-- [ADRs](adr/README.md) — architecture decision records
+- [ADRs](../adr/README.md) — architecture decision records

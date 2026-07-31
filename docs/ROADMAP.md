@@ -29,8 +29,8 @@ The current release includes:
 - Pipeline CLI for kubeconfig-based collection without installing the operator
   ([guide](guides/pipeline-cli.md), [ADR-0801](adr/0801-pipeline-cli-mode.md)).
 
-The [CR reference](CR-REFERENCE.md) describes the supported API. The
-[operator manual](OPERATOR-MANUAL.md) covers installation, operation, and failure modes.
+The [CR reference](crds/index.md) describes the supported API. The
+[operator manual](operator-manual/index.md) covers installation, operation, and failure modes.
 
 ## Next
 
@@ -48,7 +48,7 @@ Items are not assigned to a release until their implementation, tests, and docum
 ## Supported & planned sinks
 
 “Core” and “Beta” describe maturity, not whether code exists. All Core and Beta rows below ship in
-v0.10.0.
+v0.11.0.
 
 | Family CRD | `spec.type` | Maturity |
 | --- | --- | --- |
@@ -61,7 +61,7 @@ v0.10.0.
 | S3 / GCS layout | Parquet | **Planned** |
 
 The source of truth for accepted values is the
-[CR reference](CR-REFERENCE.md#kinds). Planned backends are not accepted by admission
+[CR reference](crds/index.md#kinds). Planned backends are not accepted by admission
 until a real implementation and test coverage land.
 
 ## Read API + UI console (frozen)
@@ -88,7 +88,7 @@ See [Planned features](roadmap/planned-features.md) for scope and graduation rul
 
 ## Performance and scalability
 
-Performance targets and test methods live in the [performance guide](PERFORMANCE.md). Treat scale
+Performance targets and test methods live in the [performance guide](operator-manual/performance.md). Treat scale
 figures as design targets unless the page links a reproducible run for the exact release; current
 lab validation is still in progress.
 
@@ -119,7 +119,7 @@ Historical release detail belongs in the
 
 ## Further reading
 
-- [Architecture](ARCHITECTURE.md)
+- [Architecture](concepts/architecture.md)
 - [Platform decisions](PLATFORM-DECISIONS.md)
 - [Planned features](roadmap/planned-features.md)
 - [Release process](RELEASE.md)

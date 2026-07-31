@@ -1,15 +1,35 @@
-# Best practices
+# Production checklist
+
+Before onboarding a shared workload:
+
+- Pin the Kollect chart and image version, and review release notes before upgrades.
+- Restrict watched namespaces and allowed GVKs with least-privilege RBAC and `KollectScope`.
+- Keep sink credentials in Secrets; prefer workload identity or short-lived tokens.
+- Configure TLS trust explicitly and keep connection tests enabled during rollout.
+- Select a sink for the consumer: Git for history, a database for queries, or an event sink for reactions.
+- Partition inventories so payloads and reconcile work remain bounded.
+- Set CPU and memory requests, disruption protection, and leader election for the environment.
+- Alert on `Degraded`, export failures, workqueue backlog, and stale successful export timestamps.
+- Test restore and credential rotation for every durable sink.
+- Verify the NetworkPolicy allows only the API server, DNS, and intended sink endpoints.
+
+See [security architecture](../security/security-architecture.md),
+[performance](performance.md), and [metrics](metrics.md).
+
+---
+
+<!-- Consolidated from the former docs/BEST-PRACTICES.md page. -->
 
 Platform-oriented guidance for designing **Kollect** scope, sinks, and multi-cluster topology.
-For install defaults, see [Operator manual](OPERATOR-MANUAL.md).
+For install defaults, see [Operator manual](index.md).
 
 !!! tip "Assumptions"
-    Read [Understand the basics](UNDERSTAND-THE-BASICS.md) and [Platform decisions](PLATFORM-DECISIONS.md)
+    Read [Understand the basics](../concepts/resource-model.md) and [Platform decisions](../PLATFORM-DECISIONS.md)
     before changing production values. Sink role taxonomy:
-    [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md).
+    [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md).
 
 !!! warning "Pre-beta API"
-    `v1alpha1` fields may change until the first release candidate. Check [ROADMAP](ROADMAP.md)
+    `v1alpha1` fields may change until the first release candidate. Check [ROADMAP](../ROADMAP.md)
     before fleet rollout.
 
 ## Scope design
@@ -17,7 +37,7 @@ For install defaults, see [Operator manual](OPERATOR-MANUAL.md).
 ### Per-team install (recommended default)
 
 Install one operator per tenant boundary with namespaced RBAC and a restricted informer cache
-([ADR-0203](adr/0203-namespaced-multi-tenancy.md), ADR-0703 (archived)):
+([ADR-0203](../adr/0203-namespaced-multi-tenancy.md), ADR-0703 (archived)):
 
 ```yaml
 tenantMode: true
@@ -49,11 +69,11 @@ Cluster-wide rollup uses `KollectClusterInventory` with `spec.sinkNamespace` ins
 ### Watch labels and `KollectScope`
 
 - Exclude platform namespaces with Target `excludedNamespaces` or Scope `deniedNamespaces` — no
-  Namespace patch RBAC ([ADR-0207](adr/0207-target-collection-filtering.md)).
+  Namespace patch RBAC ([ADR-0207](../adr/0207-target-collection-filtering.md)).
 - Trivy HIGH-only collection: `resourceRules` with label match OR CEL `matchPolicy` — see
-  [examples/kollecttarget_trivy-high.yaml](examples/kollecttarget_trivy-high.yaml).
+  [examples/kollecttarget_trivy-high.yaml](../examples/kollecttarget_trivy-high.yaml).
 - Run platform targets with `watchMode: All`; let teams opt **out** noisy namespaces via
-  `kollect.dev/namespace-watch: disabled` ([ANNOTATIONS-LABELS.md](ANNOTATIONS-LABELS.md)).
+  `kollect.dev/namespace-watch: disabled` ([ANNOTATIONS-LABELS.md](../ANNOTATIONS-LABELS.md)).
 - Use `watchMode: OptIn` only in shared clusters where most tenants should be ignored by default.
 - Enforce policy with `KollectScope` — violations set `Degraded=True` and block export (hard
   degrade, not silent skip).
@@ -84,31 +104,31 @@ canonical artifact; every sink is a projection of it.
 
 !!! info "Not a sink type"
     Prometheus metrics come from the operator `/metrics` endpoint only — not a family sink type
-    (there is no `prometheus` sink kind; see [ADR-0601](adr/0601-prometheus-metrics-stub.md)).
+    (there is no `prometheus` sink kind; see [ADR-0601](../adr/0601-prometheus-metrics-stub.md)).
 
 ### Postgres and event emitters
 
 - Postgres must **delete rows** (or tombstone) for resources no longer in the snapshot — upsert-only
-  drifts stale ([ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
+  drifts stale ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)).
 - Set `spec.cluster` on sinks in multi-cluster installs so the backend primary key merges rows
   across clusters.
 - Tune per-sink `exportMinInterval` on structured `*SinkRefs[]` entries before adding more backends —
   portal Postgres at **30s** + Git audit at **1h** is the default sample
-  ([ADR-0413](adr/0413-export-interval-scheduling.md)). See [Performance tuning](PERFORMANCE.md).
+  ([ADR-0413](../adr/0413-export-interval-scheduling.md)). See [Performance tuning](performance.md).
 
 ### Connection testing
 
 Keep `spec.connectionTest: false` in Git-managed manifests. Probe on demand with the
 `kollect.dev/test-connection` annotation or a `KollectConnectionTest` CR
-([Connection test example](examples/connection-test.md)).
+([Connection test example](../examples/connection-test.md)).
 
 ## Multi-cluster fleet (shared sink)
 
 **Default multi-cluster path:** each cluster runs the same single-mode operator and exports to a
 **shared sink** (Postgres, Git, Kafka, NATS) with `spec.cluster` set (or `{cluster}` in
 `pathTemplate`). The backend primary key merges rows across clusters — **no aggregation tier**
-inside the operator ([ADR-0501](adr/0501-multi-cluster-fleet.md),
-[ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)).
+inside the operator ([ADR-0501](../adr/0501-multi-cluster-fleet.md),
+[ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)).
 
 ```mermaid
 flowchart LR
@@ -123,7 +143,7 @@ flowchart LR
   S2 -->|export + cluster id| PG
 ```
 
-Walkthrough: [Multi-cluster fleet](examples/multi-cluster-fleet.md).
+Walkthrough: [Multi-cluster fleet](../examples/multi-cluster-fleet.md).
 
 ## Operational checklist
 
@@ -137,7 +157,7 @@ Walkthrough: [Multi-cluster fleet](examples/multi-cluster-fleet.md).
 
 ## Related
 
-- [ADR-0401: Sink taxonomy](adr/0401-sink-taxonomy-state-vs-stream.md)
-- [ADR-0501: Multi-cluster sync](adr/0501-multi-cluster-fleet.md)
-- [Operator manual](OPERATOR-MANUAL.md) · [Troubleshooting](TROUBLESHOOTING.md) · [FAQ](FAQ.md)
-- [Examples](examples/README.md)
+- [ADR-0401: Sink taxonomy](../adr/0401-sink-taxonomy-state-vs-stream.md)
+- [ADR-0501: Multi-cluster sync](../adr/0501-multi-cluster-fleet.md)
+- [Operator manual](index.md) · [Troubleshooting](troubleshooting.md) · [FAQ](troubleshooting.md)
+- [Examples](../examples/README.md)

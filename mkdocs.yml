@@ -42,60 +42,42 @@ extra_css:
 nav:
   - Overview:
       - Home: index.md
-      - FAQ: FAQ.md
-      - Glossary: GLOSSARY.md
-  - Getting Started:
-      - Quick start: QUICKSTART.md
-      - Development setup: DEVELOPMENT.md
-  - Core Concepts:
-      - "0201 — CRD model — prefixed kinds, static vs reconciled": adr/0201-crd-model.md
-      - "0302 — CEL and JSONPath attribute extraction": adr/0302-cel-jsonpath-extraction.md
-      - "0402 — Postgres and Kafka sink backends": adr/0402-sink-backends-database-kafka.md
-      - "0501 — Multi-cluster fleet (shared sink fan-in)": adr/0501-multi-cluster-fleet.md
-      - "0203 — Namespaced multi-tenancy and operator watch scope": adr/0203-namespaced-multi-tenancy.md
-      - "0204 — Namespaced KollectProfile": adr/0204-namespaced-profiles.md
-      - "0205 — Watch opt-in / opt-out labels": adr/0205-watch-labels.md
-      - "0208 — Cluster static refs via namespace": adr/0208-cluster-static-refs-via-namespace.md
-  - Understand the Basics:
-      - Understand the basics: UNDERSTAND-THE-BASICS.md
-      - Architecture: ARCHITECTURE.md
-      - Data flows: DATA-FLOWS.md
-      - Platform decisions: PLATFORM-DECISIONS.md
-      - Requirements & assumptions: REQUIREMENTS.md
-  - Operator Manual:
-      - Operator manual: OPERATOR-MANUAL.md
-      - Operator metrics: operator-manual/metrics.md
-      - Common errors: operator-manual/common-errors.md
-      - Scaling and fleet: operator-manual/scaling-and-fleet.md
-      - Load test runbook: operator-manual/load-test-runbook.md
-      - "Read-only UI (frozen preview)": operator-manual/ui.md
-      - Upgrading: operator-manual/upgrading.md
+  - Getting started:
+      - Install Kollect: getting-started/install.md
+      - Your first inventory: getting-started/first-inventory.md
+  - Examples:
+      - All examples: examples/README.md
+      - Helm / Argo release inventory: examples/helm-release-inventory.md
+      - Cluster-scoped rollup: examples/cluster-rollup.md
+      - Multi-tenant watch scope: examples/multi-tenant-watch-namespaces.md
+      - Team-owned operator: examples/team-operator.md
+      - Postgres state store: examples/postgres-state-store.md
+      - Kafka event sink: examples/kafka-event-sink.md
+      - NATS event sink: examples/nats-event-sink.md
+      - Test sink connectivity: examples/connection-test.md
+      - Multi-cluster fleet: examples/multi-cluster-fleet.md
+      - Collect from CI: guides/pipeline-cli.md
+  - Concepts:
+      - The resource model: concepts/resource-model.md
+      - How collection works: concepts/collection.md
+      - Export pipeline and debouncing: concepts/export-pipeline.md
+      - "Sink roles: state, snapshots, and streams": concepts/sinks.md
+      - Multi-tenancy and scopes: concepts/multi-tenancy.md
+      - Multi-cluster fleet: concepts/multi-cluster.md
+      - Architecture: concepts/architecture.md
+  - Operate:
+      - Operator manual: operator-manual/index.md
       - Helm values: operator-manual/helm-values.md
+      - Upgrading: operator-manual/upgrading.md
+      - Metrics: operator-manual/metrics.md
+      - Performance and scaling: operator-manual/performance.md
+      - Troubleshooting: operator-manual/troubleshooting.md
+      - Production checklist: operator-manual/production-checklist.md
       - Deployment topology matrix: deployment/topology-matrix.md
-      - Team-owned operator (minimal RBAC): deployment/team-operator.md
-  - User Guide:
-      - Guides:
-          - "Pipeline CLI (CI/CD collection)": guides/pipeline-cli.md
-      - Examples:
-          - Overview: examples/README.md
-          - Deployment inventory: examples/deployment-inventory.md
-          - Helm / Argo release inventory: examples/helm-release-inventory.md
-          - Multi-cluster fleet: examples/multi-cluster-fleet.md
-          - Postgres state store: examples/postgres-state-store.md
-          - NATS event sink: examples/nats-event-sink.md
-          - Kafka event sink: examples/kafka-event-sink.md
-          - Cluster-scoped rollup: examples/cluster-rollup.md
-          - Multi-tenant watch scope: examples/multi-tenant-watch-namespaces.md
-          - Connection test: examples/connection-test.md
-          - Cert-manager webhooks: examples/cert-manager-webhook.md
-          - Kind local lab: examples/kind-local-lab.md
-      - "0403 — Connection test — sink probes + KollectConnectionTest CR": adr/0403-connection-test.md
-      - Performance tuning: PERFORMANCE.md
-      - Best practices: BEST-PRACTICES.md
-      - Troubleshooting: TROUBLESHOOTING.md
+      - Read-only UI (frozen preview): operator-manual/ui.md
   - Reference:
       - Custom resources:
-          - Overview: CR-REFERENCE.md
+          - Overview: crds/index.md
           - KollectProfile: crds/kollectprofile.md
           - KollectSnapshotSink: crds/kollectsnapshotsink.md
           - KollectDatabaseSink: crds/kollectdatabasesink.md
@@ -107,85 +89,38 @@ nav:
           - KollectConnectionTest: crds/kollectconnectiontest.md
           - KollectClusterTarget: crds/kollectclustertarget.md
           - KollectClusterInventory: crds/kollectclusterinventory.md
+      - Conditions and status: reference/conditions.md
       - Annotations and labels: ANNOTATIONS-LABELS.md
       - Command reference: COMMAND-REFERENCE.md
-      - Architecture decision records:
-          - Overview: adr/README.md
-          - 01 Foundations:
-              - "0101 — Kubebuilder v4 + controller-runtime": adr/0101-kubebuilder-v4.md
-              - "0102 — Prior art and OSS reference patterns": adr/0102-prior-art.md
-              - "0103 — Data storage and the etcd size limit": adr/0103-etcd-limit.md
-              - "0104 — Security model — secrets, TLS, RBAC, redaction": adr/0104-security-model.md
-              - "0105 — Webhook serving and certificate management": adr/0105-webhook-serving-cert-management.md
-          - 02 API & tenancy:
-              - "0201 — CRD model — prefixed kinds, static vs reconciled": adr/0201-crd-model.md
-              - "0202 — Static config vs reconciled CRDs": adr/0202-static-vs-reconciled.md
-              - "0203 — Namespaced multi-tenancy and operator watch scope": adr/0203-namespaced-multi-tenancy.md
-              - "0204 — Namespaced KollectProfile": adr/0204-namespaced-profiles.md
-              - "0205 — Watch opt-in / opt-out labels": adr/0205-watch-labels.md
-              - "0206 — API versioning and conversion strategy": adr/0206-api-versioning-conversion.md
-              - "0207 — Target collection filtering": adr/0207-target-collection-filtering.md
-              - "0208 — Cluster static refs via namespace": adr/0208-cluster-static-refs-via-namespace.md
-          - 03 Collection & extraction:
-              - "0301 — Event-driven dynamic informers (one per GVK)": adr/0301-event-driven-informers.md
-              - "0302 — CEL and JSONPath attribute extraction": adr/0302-cel-jsonpath-extraction.md
-              - "0303 — Helm / Argo release inventory sample + redaction": adr/0303-helm-release-inventory.md
-              - "0304 — Custom-resource metrics and richer aggregation": adr/0304-custom-resource-aggregation-rfc.md
-              - "0305 — Aggregation, row identity, and dedupe semantics": adr/0305-aggregation-dedupe.md
-          - 04 Export & sinks:
-              - "0401 — Sink taxonomy — state stores vs event emitters": adr/0401-sink-taxonomy-state-vs-stream.md
-              - "0402 — Postgres and Kafka sink backends": adr/0402-sink-backends-database-kafka.md
-              - "0403 — Connection test — sink probes + KollectConnectionTest CR": adr/0403-connection-test.md
-              - "0404 — Inventory HTTP API authentication": adr/0404-inventory-api-auth.md
-              - "0405 — Export data contract and schema versioning": adr/0405-export-data-contract.md
-              - "0406 — Sink registry and the Backend interface": adr/0406-sink-registry.md
-              - "0407 — Git / object-store export layout and workflow": adr/0407-git-object-store-layout.md
-              - "0408 — Read API and UI architecture (pluggable backing store)": adr/0408-read-api-ui-architecture.md
-              - "0409 — Kollect UI deployment — separate static SPA image": adr/0409-kollect-ui-deployment.md
-              - "0410 — UI engineering and quality gates": adr/0410-ui-engineering-and-quality-gates.md
-              - "0411 — Read API extensions for UI": adr/0411-read-api-extensions-for-ui.md
-              - "0412 — Mock Read API for UI development": adr/0412-mock-read-api-for-ui-development.md
-              - "0413 — Per-sink export interval scheduling": adr/0413-export-interval-scheduling.md
-              - "0414 — Sink family CRDs (clean break, pre-GA)": adr/0414-sink-family-crds.md
-              - "0415 — Git sink commit ergonomics": adr/0415-git-sink-commit-ergonomics.md
-              - "0416 — Sink configuration layering": adr/0416-sink-config-layering.md
-              - "0417 — MongoDB database sink": adr/0417-mongodb-database-sink.md
-              - "0418 — Fleet console read plane (event-fed, cluster dimension)": adr/0418-fleet-console-read-plane.md
-              - "0419 — Git export serialization and layout": adr/0419-git-export-serialization-layout.md
-          - 05 Multi-cluster fleet:
-              - "0501 — Multi-cluster fleet (shared sink fan-in)": adr/0501-multi-cluster-fleet.md
-          - 06 Observability & ops:
-              - "0601 — Operator metrics (no Prometheus export sink)": adr/0601-prometheus-metrics-stub.md
-              - "0602 — Error taxonomy and reconcile behavior": adr/0602-error-taxonomy.md
-              - "0603 — Performance and scalability targets": adr/0603-performance-scalability.md
-              - "0604 — Target- and inventory-scoped Prometheus metrics": adr/0604-target-scoped-prometheus-metrics.md
-              - "0605 — OpenTelemetry tracing": adr/0605-opentelemetry-tracing.md
-          - 07 Project engineering:
-              - "0701 — MkDocs Material documentation site": adr/0701-mkdocs-github-pages.md
-              - "0702 — Doc-sync / Confluence publication": adr/0702-doc-sync-templating.md
-              - "0704 — Helm chart and CRD lifecycle": adr/0704-helm-chart-crd-lifecycle.md
-              - "0705 — Release engineering and supply chain": adr/0705-release-supply-chain.md
-              - "0706 — Testing and merge-gate architecture": adr/0706-testing-merge-gate-architecture.md
-      - Request for Comments:
-          - Overview: rfc/README.md
-          - "Prometheus attribute metrics (scalar export)": rfc/prometheus-attribute-metrics.md
-  - Security:
-      - Security architecture: security/security-architecture.md
-      - Assurance case: ASSURANCE-CASE.md
-      - Security review: SECURITY-REVIEW.md
-      - SCA remediation policy: security/sca-remediation-policy.md
-      - Resolved-address policy: security/resolved-address-policy.md
-  - Contributing:
-      - Governance: development/governance.md
-      - Engineering guidelines: development/guidelines.md
-      - Roadmap: ROADMAP.md
-      - Planned features: roadmap/planned-features.md
-      - ADR and RFC process: development/adr-rfc-process.md
-      - Coding standards: development/coding-standards.md
-      - Testing strategy: development/testing.md
-      - Tooling setup: development/tooling-setup.md
-      - Local container images: development/local-container-image.md
-      - Release process: RELEASE.md
+      - Glossary: GLOSSARY.md
+  - Design & internals:
+      - Specifications:
+          - Requirements: REQUIREMENTS.md
+          - Platform decisions: PLATFORM-DECISIONS.md
+          - Roadmap: ROADMAP.md
+          - Planned features: roadmap/planned-features.md
+      - Security & assurance:
+          - Security architecture: security/security-architecture.md
+          - Assurance case: ASSURANCE-CASE.md
+          - Security review: SECURITY-REVIEW.md
+          - SCA remediation policy: security/sca-remediation-policy.md
+          - Resolved-address policy: security/resolved-address-policy.md
+      - Architecture decisions: adr/README.md
+      - Requests for comments: rfc/README.md
+      - Contributing:
+          - Contributor setup: development/setup.md
+          - Governance: development/governance.md
+          - Engineering guidelines: development/guidelines.md
+          - Coding standards: development/coding-standards.md
+          - Testing strategy: development/testing.md
+          - Tooling setup: development/tooling-setup.md
+          - Local container images: development/local-container-image.md
+          - Git sink attribution: development/git-sink-attribution.md
+          - ADR and RFC process: development/adr-rfc-process.md
+          - UI local development: examples/ui-local-development.md
+      - Release engineering:
+          - Release process: RELEASE.md
+          - Load test runbook: operator-manual/load-test-runbook.md
 
 markdown_extensions:
   - admonition
@@ -212,9 +147,25 @@ markdown_extensions:
 plugins:
   - search
   - redirects:
-      # Old page -> new page entries land here as the docs restructure moves files
-      # (see agent-context/DOCS-REDESIGN-PLAN.md, lane D2).
-      redirect_maps: {}
+      redirect_maps:
+        QUICKSTART.md: getting-started/install.md
+        UNDERSTAND-THE-BASICS.md: concepts/resource-model.md
+        FAQ.md: operator-manual/troubleshooting.md
+        ARCHITECTURE.md: concepts/architecture.md
+        DATA-FLOWS.md: concepts/export-pipeline.md
+        BEST-PRACTICES.md: operator-manual/production-checklist.md
+        TROUBLESHOOTING.md: operator-manual/troubleshooting.md
+        PERFORMANCE.md: operator-manual/performance.md
+        CR-REFERENCE.md: crds/index.md
+        OPERATOR-MANUAL.md: operator-manual/index.md
+        DEVELOPMENT.md: development/setup.md
+        operator-manual/common-errors.md: operator-manual/troubleshooting.md
+        operator-manual/scaling-and-fleet.md: operator-manual/performance.md
+        deployment/team-operator.md: examples/team-operator.md
+        examples/kind-local-lab.md: getting-started/install.md
+        examples/deployment-inventory.md: getting-started/first-inventory.md
+        examples/cert-manager-webhook.md: operator-manual/index.md
+        examples/kollect-inventory-demo.md: examples/README.md
   - social:
       cards_layout_options:
         background_color: "#0F172A"
@@ -230,17 +181,11 @@ exclude_docs: |
   _snippets/
   node_modules/
 
-# Pages intentionally reachable by URL but not (yet) in the nav tree.
-# Lane D2 folds each into the restructured nav and drops it from here.
+# Deep reference pages remain reachable by URL and are linked from their section indexes.
 not_in_nav: |
   /DEMO-GIF-GUIDE.md
-  /adr/0306-full-resource-export-pruning.md
-  /adr/0420-bigquery-database-sink.md
-  /adr/0801-pipeline-cli-mode.md
-  /development/git-sink-attribution.md
-  /examples/kollect-inventory-demo.md
-  /examples/ui-local-development.md
-  /rfc/sink-family-crds.md
+  /adr/*.md
+  /rfc/*.md
 
 validation:
   omitted_files: warn

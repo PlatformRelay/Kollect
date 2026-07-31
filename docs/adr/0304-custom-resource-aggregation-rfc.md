@@ -33,7 +33,7 @@ full inventory payloads in etcd ([ADR-0103](0103-etcd-limit.md)) or exploding la
   `kollect_custom_resource_labeled_series{profile,gvk,series,<attribute labels>}`; auto-sum of all
   numeric attributes remains the fallback when `spec.metrics` is empty.
 - **Cardinality rules:** bounded label sets; no unbounded `name`/`namespace` labels unless explicitly
-  opted in per metric; document max series per profile in [PERFORMANCE.md](../PERFORMANCE.md).
+  opted in per metric; document max series per profile in [operator-manual/performance.md](../operator-manual/performance.md).
 - **Serve on operator `/metrics`** alongside existing `kollect_*` counters — no `KollectSink.type:
   prometheus` ([ADR-0601](0601-prometheus-metrics-stub.md)).
 - **`metricsScope`:** ship on profile ([ADR-0604](0604-target-scoped-prometheus-metrics.md)) —
@@ -89,4 +89,4 @@ full inventory payloads in etcd ([ADR-0103](0103-etcd-limit.md)) or exploding la
 - [ADR-0601: Operator metrics stub](0601-prometheus-metrics-stub.md)
 - [ADR-0102: Prior art — kube-state-metrics](0102-prior-art.md)
 - [ADR-0501: Multi-cluster sync](0501-multi-cluster-fleet.md)
-- [PERFORMANCE.md](../PERFORMANCE.md) — operator metrics catalog
+- [operator-manual/performance.md](../operator-manual/performance.md) — operator metrics catalog

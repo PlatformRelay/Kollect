@@ -4,7 +4,7 @@ Key **Kollect** chart values for platform operators. This page summarizes the mo
 knobs; the authoritative full list lives in the chart tree.
 
 !!! tip "Assumptions"
-    This guide assumes Helm 3 and a chart install path ([Install](../OPERATOR-MANUAL.md#install)).
+    This guide assumes Helm 3 and a chart install path ([Install](../operator-manual/index.md#install)).
     For CRD vs operator upgrade ordering, see [Upgrading Kollect](upgrading.md).
 
 !!! warning "Pre-beta API"
@@ -86,9 +86,9 @@ featureGates:
 
 Namespaced `KollectProfile`, family sinks, `KollectTarget`, and `KollectInventory` live in the team
 namespace. Grant workload `get`/`list`/`watch` via a separate RoleBinding — see
-[Team-owned operator](../deployment/team-operator.md).
+[Team-owned operator](../examples/team-operator.md).
 
-Walkthroughs: [Team-owned operator](../deployment/team-operator.md) ·
+Walkthroughs: [Team-owned operator](../examples/team-operator.md) ·
 [Multi-tenant watch scope](../examples/multi-tenant-watch-namespaces.md).
 
 ## Multi-cluster fleet
@@ -136,10 +136,10 @@ with the **`kollect.dev/test-connection: "true"`** annotation when needed. CI an
 
 Webhook serving certificates: cert-manager default or self-signed bootstrap —
 [ADR-0105](../adr/0105-webhook-serving-cert-management.md) ·
-[Cert-manager webhooks example](../examples/cert-manager-webhook.md).
+[Cert-manager webhooks example](index.md#webhook-tls).
 
 ## See also
 
-- [Operator manual](../OPERATOR-MANUAL.md) · [Upgrading Kollect](upgrading.md) · [Metrics](metrics.md)
+- [Operator manual](../operator-manual/index.md) · [Upgrading Kollect](upgrading.md) · [Metrics](metrics.md)
 - [ADR-0704: Helm chart and CRD lifecycle](../adr/0704-helm-chart-crd-lifecycle.md)
-- [High availability](../OPERATOR-MANUAL.md#high-availability) — `replicaCount` and leader election
+- [High availability](../operator-manual/index.md#high-availability) — `replicaCount` and leader election

@@ -500,7 +500,7 @@ Document in CHANGELOG and upgrade guide: add `serialization.format: json` to pin
   document in CR reference.
 - `perResource` exports are **O(n) files** per cycle — large inventories mean slower Git pushes;
   gate with `exportMinInterval` ([ADR-0413](0413-export-interval-scheduling.md)) and document limits
-  in [PERFORMANCE.md](../PERFORMANCE.md).
+  in [operator-manual/performance.md](../operator-manual/performance.md).
 - Default format change surprises adopters who relied on `.json` — migration note required.
 - `manifest` content without Resource export mode is a foot-gun — webhook must block it.
 

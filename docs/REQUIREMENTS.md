@@ -5,8 +5,8 @@
 > this document disagree, reconcile or flag the drift.
 
 **Status:** living · **Audience:** architects, contributors, and reviewers evaluating or extending Kollect ·
-**Not a tutorial** — start with [Understand the basics](UNDERSTAND-THE-BASICS.md) and
-[Architecture](ARCHITECTURE.md); locked design choices live in [Platform decisions](PLATFORM-DECISIONS.md).
+**Not a tutorial** — start with [Understand the basics](concepts/resource-model.md) and
+[Architecture](concepts/architecture.md); locked design choices live in [Platform decisions](PLATFORM-DECISIONS.md).
 
 **Build order, not a release train** — see [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md).
 
@@ -212,6 +212,6 @@ Enforcement: [guidelines § 4](development/guidelines.md#4-testing),
 - [coding-standards.md](development/coding-standards.md) — Go lint, testing, and CI gates
 - [CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md) — contribution process
 - [PLATFORM-DECISIONS.md](PLATFORM-DECISIONS.md) — coordinator brief (locked decisions)
-- [ARCHITECTURE.md](ARCHITECTURE.md) — system overview
+- [concepts/architecture.md](concepts/architecture.md) — system overview
 - [adr/README.md](adr/README.md) — decision records, grouped by theme
-- [ROADMAP.md](ROADMAP.md) · [PERFORMANCE.md](PERFORMANCE.md)
+- [ROADMAP.md](ROADMAP.md) · [operator-manual/performance.md](operator-manual/performance.md)

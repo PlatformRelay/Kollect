@@ -1,11 +1,11 @@
 # Upgrading Kollect
 
 Production upgrade path for **Kollect** when moving between chart or image versions. For first-time
-install, see [Install](../OPERATOR-MANUAL.md#install) in the operator manual.
+install, see [Install](../operator-manual/index.md#install) in the operator manual.
 
 !!! tip "Assumptions"
     This guide assumes Helm 3, kubectl, and an existing **Kollect** release. New to CRD lifecycle or
-    the two-artifact install model? Read [Understand the basics](../UNDERSTAND-THE-BASICS.md) and
+    the two-artifact install model? Read [Understand the basics](../concepts/resource-model.md) and
     [ADR-0704: Helm chart and CRD lifecycle](../adr/0704-helm-chart-crd-lifecycle.md) first.
 
 !!! warning "Pre-beta API"
@@ -148,7 +148,7 @@ multi-cluster fleet, repeat per cluster and confirm rows land in the shared sink
 
 ## See also
 
-- [Operator manual](../OPERATOR-MANUAL.md) · [Helm values](helm-values.md)
+- [Operator manual](../operator-manual/index.md) · [Helm values](helm-values.md)
 - [Release process](../RELEASE.md) — artifacts and tagging
 - [ADR-0704: Helm chart and CRD lifecycle](../adr/0704-helm-chart-crd-lifecycle.md)
-- [Cert-manager webhooks example](../examples/cert-manager-webhook.md)
+- [Cert-manager webhooks example](index.md#webhook-tls)

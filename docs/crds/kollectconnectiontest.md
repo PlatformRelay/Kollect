@@ -35,7 +35,7 @@ flowchart LR
 | Profile | `spec.profileRef` reserved for future composite probes |
 | Owner | `spec.ownerSink: true` (default) sets ownerReference on sink |
 
-Lifecycle: [DATA-FLOWS.md §5](../DATA-FLOWS.md#5-kollectconnectiontest-lifecycle).
+Lifecycle: [concepts/export-pipeline.md §5](../concepts/export-pipeline.md#5-kollectconnectiontest-lifecycle).
 
 ## Spec fields
 
@@ -140,5 +140,5 @@ After success or failure, the CR is deleted automatically after `ttlSecondsAfter
 ## See also
 
 - [KollectSnapshotSink](kollectsnapshotsink.md) · [KollectDatabaseSink](kollectdatabasesink.md) · [KollectEventSink](kollecteventsink.md)
-- [DATA-FLOWS.md](../DATA-FLOWS.md#5-kollectconnectiontest-lifecycle)
-- [QUICKSTART.md](../QUICKSTART.md) — sink annotation quick test
+- [concepts/export-pipeline.md](../concepts/export-pipeline.md#5-kollectconnectiontest-lifecycle)
+- [getting-started/install.md](../getting-started/install.md) — sink annotation quick test

@@ -159,9 +159,9 @@ the corresponding code merges.
 
 ### Documentation status
 
-- [x] **CR reference guide** — scaffold at [CR-REFERENCE.md](CR-REFERENCE.md) + the per-kind pages under `docs/crds/`;
-  per-kind failure-mode detail is tracked in [CR-REFERENCE.md](CR-REFERENCE.md).
-- [x] **Architecture data flows** — [DATA-FLOWS.md](DATA-FLOWS.md) (debounce + collection + scope + connection test).
+- [x] **CR reference guide** — scaffold at [crds/index.md](crds/index.md) + the per-kind pages under `docs/crds/`;
+  per-kind failure-mode detail is tracked in [crds/index.md](crds/index.md).
+- [x] **Architecture data flows** — [concepts/export-pipeline.md](concepts/export-pipeline.md) (debounce + collection + scope + connection test).
 - [x] **JSONPath `[*]` wildcard** — all array elements; deployment sample updated ([ADR-0302](adr/0302-cel-jsonpath-extraction.md)).
 
 ### Completed follow-ups
@@ -307,7 +307,7 @@ the merge. See [Multi-cluster fleet example](examples/multi-cluster-fleet.md).
 
 ## See also
 
-- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [concepts/architecture.md](concepts/architecture.md)
 - [REQUIREMENTS.md](REQUIREMENTS.md)
 - [ROADMAP.md](ROADMAP.md)
 - [adr/README.md](adr/README.md)

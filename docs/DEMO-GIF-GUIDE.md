@@ -172,7 +172,7 @@ Regenerate locally — **do not commit multi-MB binaries** unless under budget.
 
 **docs/index.md** hero block — same GIF + alt text describing the diff moment.
 
-**docs/QUICKSTART.md** — link to this guide in the Demo section; use MP4 for long-form:
+**docs/getting-started/install.md** — link to this guide in the Demo section; use MP4 for long-form:
 
 ```html
 <video autoplay loop muted playsinline width="100%">
@@ -297,6 +297,6 @@ All Variant A rows **plus**:
 
 ## Related
 
-- [QUICKSTART.md](QUICKSTART.md) · [examples/deployment-inventory.md](examples/deployment-inventory.md)
+- [getting-started/install.md](getting-started/install.md) · [getting-started/first-inventory.md](getting-started/first-inventory.md)
 - Golden samples: `config/samples/demo/`
 - Harness scripts: `hack/demo/hero/`

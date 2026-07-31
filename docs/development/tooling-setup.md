@@ -23,7 +23,7 @@ configure once.
 | `task sonar` / `task sonar:local` | Local SonarCloud upload (maintainer; needs `SONARCLOUD_TOKEN`) |
 
 Architecture rules live in [`.go-arch-lint.yml`](https://github.com/platformrelay/kollect/blob/main/.go-arch-lint.yml).
-See [ARCHITECTURE.md](../ARCHITECTURE.md#package-boundaries) for the intended dependency direction.
+See [concepts/architecture.md](../concepts/architecture.md#package-boundaries) for the intended dependency direction.
 
 ### go-arch-lint baseline workflow
 
@@ -36,7 +36,7 @@ See [ARCHITECTURE.md](../ARCHITECTURE.md#package-boundaries) for the intended de
 Generate a dependency graph (optional):
 
 ```sh
-task arch-lint:graph          # DI view + vendors (default, linked from ARCHITECTURE.md)
+task arch-lint:graph          # DI view + vendors (default, linked from concepts/architecture.md)
 task arch-lint:graph:flow     # reverse-DI / execution-flow view
 ```
 
@@ -46,7 +46,7 @@ Flags are fixed in `Taskfile.yml`: `--type di|flow`, `--include-vendors`. Vendor
 `GO_ARCH_LINT_VERSION` in `Taskfile.yml` (invoked via `go run …@version`, not linked
 into the operator module — go-arch-lint's module graph conflicts with `go mod tidy`).
 
-See [ARCHITECTURE.md § Package boundaries](../ARCHITECTURE.md#package-boundaries) for the rendered
+See [concepts/architecture.md § Package boundaries](../concepts/architecture.md#package-boundaries) for the rendered
 graph.
 
 ### golangci-lint dependency policy
@@ -193,4 +193,4 @@ npx --yes --package renovate renovate-config-validator \
 
 - [Testing strategy](testing.md) — coverage floors, CI matrix, Sonar as trend dashboard
 - [CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md) — PR lint checklist
-- [DEVELOPMENT.md](../DEVELOPMENT.md) — local dev commands
+- [development/setup.md](../development/setup.md) — local dev commands

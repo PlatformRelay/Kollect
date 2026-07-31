@@ -8,7 +8,7 @@
 
 This walkthrough inventories **chart version**, **app version**, and sync metadata from Argo CD
 `Application` objects. It follows the same four-CRD pipeline as
-[Deployment inventory](deployment-inventory.md).
+[Deployment inventory](../getting-started/first-inventory.md).
 
 **Primary demo GVK (ADR-0201):** `argoproj.io/v1alpha1` / `Application`. Contract test:
 `internal/collect/argo_application_contract_test.go`. Design rationale:
@@ -121,4 +121,4 @@ kubectl apply -k config/samples/
 
 ## Related
 
-- [ADR-0303](../adr/0303-helm-release-inventory.md) · [Deployment inventory](deployment-inventory.md)
+- [ADR-0303](../adr/0303-helm-release-inventory.md) · [Deployment inventory](../getting-started/first-inventory.md)

@@ -119,5 +119,5 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 
 ---
 
-See [ARCHITECTURE.md](../ARCHITECTURE.md), [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md),
+See [concepts/architecture.md](../concepts/architecture.md), [PLATFORM-DECISIONS.md](../PLATFORM-DECISIONS.md),
 [development/adr-rfc-process.md](../development/adr-rfc-process.md).

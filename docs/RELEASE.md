@@ -2,7 +2,7 @@
 
 Step-by-step guide for maintainers publishing a **Kollect** release.
 
-Related: [CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md) (commits), [DEVELOPMENT.md](DEVELOPMENT.md) (local tasks),
+Related: [CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md) (commits), [development/setup.md](development/setup.md) (local tasks),
 [ROADMAP.md](ROADMAP.md) (feature status).
 
 ## Overview

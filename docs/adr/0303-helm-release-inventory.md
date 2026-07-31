@@ -9,7 +9,7 @@ from Flux `HelmRelease` to Argo `Application`.
 
 Product requirements call for tested sample CRs including **Helm release metadata**
 ([REQUIREMENTS.md](../REQUIREMENTS.md)). The first walkthrough uses `apps/v1 Deployment`
-([deployment-inventory example](../examples/deployment-inventory.md)).
+([deployment-inventory example](../getting-started/first-inventory.md)).
 
 Helm stores release state in opaque `helm.sh/v1` Secrets (`data.release` is base64+gzip JSON).
 Those objects—and GitOps `HelmRelease` `spec.values`—can contain passwords, tokens, and

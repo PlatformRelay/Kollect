@@ -56,8 +56,8 @@ VITE_MOCK_API=false VITE_READ_API_URL=http://127.0.0.1:8082 npm run dev
 Requires RBAC with list/get on `kollectinventories` and `kollecttargets` — see
 [ADR-0404 — Inventory HTTP API authentication](../adr/0404-inventory-api-auth.md).
 
-Populate the cluster first — [Kind local lab](../examples/kind-local-lab.md) or
-[Quick start](../QUICKSTART.md).
+Populate the cluster first — [Kind local lab](../getting-started/install.md) or
+[Quick start](../getting-started/install.md).
 
 ## OpenAPI contract
 

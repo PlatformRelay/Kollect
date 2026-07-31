@@ -49,7 +49,7 @@ operator**.
 1. **Controller options:** Expose `MaxConcurrentReconciles` per reconciler via operator flags.
 2. **Workqueue:** Default exponential failure rate limiting; in-flight gauge `kollect_workqueue_depth`.
 3. **Metrics:** Reconcile/export histograms, informer size, dispatch pool, resync rate — catalog in
-   [PERFORMANCE.md](../PERFORMANCE.md).
+   [operator-manual/performance.md](../operator-manual/performance.md).
 4. **Export debounce:** Per `KollectInventory.spec.exportMinInterval` (default **30s**).
 5. **Informers:** Namespace-scoped when targets agree; paginated initial `List` where allowed.
 6. **Dispatch pool:** Tunable `--collect-dispatch-workers` / queue; enqueue wait, then block
@@ -72,4 +72,4 @@ operator**.
 - [ADR-0301](0301-event-driven-informers.md) — event-driven collection
 - [ADR-0602](0602-error-taxonomy.md) — error classes and requeue behavior
 - [ADR-0501](0501-multi-cluster-fleet.md) — multi-cluster fleet model
-- [PERFORMANCE.md](../PERFORMANCE.md) — tuning guide and metrics catalog
+- [operator-manual/performance.md](../operator-manual/performance.md) — tuning guide and metrics catalog

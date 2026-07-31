@@ -1,15 +1,15 @@
 # Command reference
 
 Quick lookup for **kubectl** shortcuts, **Task** targets, and **Helm** commands used with Kollect.
-For narrative walkthroughs, see [Quick start](QUICKSTART.md) and [Development setup](DEVELOPMENT.md).
+For narrative walkthroughs, see [Quick start](getting-started/install.md) and [Development setup](development/setup.md).
 
 !!! tip "Assumptions"
     Commands assume a working cluster and kubectl context. Local kind bootstrap:
-    `task kind-dev-up` ([DEVELOPMENT.md](DEVELOPMENT.md)).
+    `task kind-dev-up` ([development/setup.md](development/setup.md)).
 
 ## kubectl — custom resources
 
-Kollect CRDs register short names for faster typing ([CR-REFERENCE.md](CR-REFERENCE.md)).
+Kollect CRDs register short names for faster typing ([crds/index.md](crds/index.md)).
 
 | Kind | Short name | Example |
 | --- | --- | --- |
@@ -161,7 +161,7 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace \
   --set mode=single
 ```
 
-Or use a values file — see [Operator manual — Per-team install](OPERATOR-MANUAL.md#per-team-install-recommended-default).
+Or use a values file — see [Operator manual — Per-team install](operator-manual/index.md#per-team-install-recommended-default).
 
 ### Key values
 
@@ -188,6 +188,6 @@ helm uninstall kollect -n kollect-system
 
 ## Related
 
-- [CR reference](CR-REFERENCE.md) · [Operator manual](OPERATOR-MANUAL.md)
-- [Troubleshooting](TROUBLESHOOTING.md) · [Annotations and labels](ANNOTATIONS-LABELS.md)
+- [CR reference](crds/index.md) · [Operator manual](operator-manual/index.md)
+- [Troubleshooting](operator-manual/troubleshooting.md) · [Annotations and labels](ANNOTATIONS-LABELS.md)
 - [ADR-0704: Helm chart lifecycle](adr/0704-helm-chart-crd-lifecycle.md)

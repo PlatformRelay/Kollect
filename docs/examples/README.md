@@ -1,47 +1,29 @@
 # Examples
 
-!!! tip "Prerequisites"
-    These walkthroughs assume a running Kollect operator and `kubectl` access. Start with
-    [QUICKSTART.md](../QUICKSTART.md) or [Kind local lab](kind-local-lab.md) if you have not
-    installed the controller yet.
+Each example starts from a running operator, gives you manifests to apply, and ends with an
+observable result. Begin with the Git path; add other sinks only when their delivery model is what
+your consumer needs.
 
-Walkthroughs backed by `config/samples/`. Apply defaults:
+## Collect
 
-```sh
-kubectl apply -k config/samples/
-```
+1. [Your first inventory](../getting-started/first-inventory.md) — Deployment images to a Git diff.
+2. [Helm and Argo release inventory](helm-release-inventory.md) — extract release metadata.
+3. [Cluster-scoped rollup](cluster-rollup.md) — aggregate across selected namespaces.
+4. [Multi-tenant watch scope](multi-tenant-watch-namespaces.md) — opt teams and namespaces in.
+5. [Team-owned operator](team-operator.md) — install with minimal, namespaced RBAC.
 
-| Example | Topic |
-| --- | --- |
-| [Deployment inventory](deployment-inventory.md) | Profile → Target → Inventory → Postgres **30s** + Git **1h** dual-cadence ([ADR-0413](../adr/0413-export-interval-scheduling.md)) |
-| [Helm / Argo release inventory](helm-release-inventory.md) | Argo CD `Application` (Flux secondary) |
-| [Multi-cluster fleet](multi-cluster-fleet.md) | N operators → shared Postgres/Git ([ADR-0501](../adr/0501-multi-cluster-fleet.md)) |
-| [Postgres state store](postgres-state-store.md) | Relational SoR + delete reconciliation |
-| [NATS event sink](nats-event-sink.md) | JetStream events |
-| [Kafka event sink](kafka-event-sink.md) | Kafka topic export |
-| [Cluster-scoped rollup](cluster-rollup.md) | Cluster CRDs + dedupe |
-| [Multi-tenant watch scope](multi-tenant-watch-namespaces.md) | Scope + watchNamespaces |
-| [Team-owned operator](../deployment/team-operator.md) | `values-minimal-rbac.yaml` + `config/samples/team-operator/` |
-| [Connection test](connection-test.md) | `KollectConnectionTest` workflow |
-| [Cert-manager webhooks](cert-manager-webhook.md) | Webhook TLS install |
-| [Kind local lab](kind-local-lab.md) | kind quickstart |
-| [Wide-scope kind demo](https://github.com/platformrelay/kollect/blob/main/hack/demo/kind-wide-scope/README.md) | Sales-pitch showcase — Trivy, certs, Git export, UI reveal |
-| [Wide-scope demo ROADMAP](https://github.com/platformrelay/kollect/blob/main/hack/demo/kind-wide-scope/ROADMAP.md) | Personas, churn presets, early-adopter checklist |
-| [UI local development](ui-local-development.md) | Mock vs live Read API for kollect-ui |
+## Export
 
-!!! note "Samples not in default kustomization"
-    NATS, Kafka, and some cluster-scoped samples are documented but not included in
-    `kubectl apply -k config/samples/`. Apply those files individually when following their guides.
+6. [Postgres state store](postgres-state-store.md) — query current inventory relationally.
+7. [Kafka event sink](kafka-event-sink.md) — publish changes for stream consumers.
+8. [NATS event sink](nats-event-sink.md) — emit changes through JetStream.
+9. [Connection tests](connection-test.md) — probe a sink without exporting inventory.
 
-!!! info "S3/GCS Parquet — not sampled yet"
-    JSON object export is shipped for `type: s3` and `type: gcs`. DuckDB-queryable **Parquet** snapshot
-    mode is planned per [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md) — there is no
-    kustomized sample under `config/samples/` yet. Use the JSON sinks in
-    [postgres-state-store.md](postgres-state-store.md) or deployment-inventory for end-to-end export
-    until a Parquet walkthrough lands.
+## Fleet and automation
 
-!!! tip "Per-sink export intervals"
-    Dual-cadence Postgres + Git is wired in
-    `config/samples/kollect_v1alpha1_kollectinventory.yaml`
-    and explained in [deployment-inventory.md](deployment-inventory.md#step-4-kollectinventory)
-    ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
+10. [Multi-cluster fleet](multi-cluster-fleet.md) — partition several cluster writers in a shared sink.
+11. [Pipeline CLI](../guides/pipeline-cli.md) — collect from CI/CD without running the operator.
+
+The [custom-resource reference](../crds/index.md) documents every supported field. For a failed
+example, use the page's troubleshooting section and the canonical
+[troubleshooting guide](../operator-manual/troubleshooting.md).

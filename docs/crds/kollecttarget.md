@@ -41,7 +41,7 @@ flowchart LR
 | Inventory | All targets in namespace aggregate into `KollectInventory` |
 | Sink | Target status reflects namespace sink reachability for export path |
 
-Collection diagram: [DATA-FLOWS.md §2](../DATA-FLOWS.md#2-collection-pipeline).
+Collection diagram: [concepts/export-pipeline.md §2](../concepts/export-pipeline.md#2-collection-pipeline).
 
 ## Spec fields
 
@@ -169,5 +169,5 @@ for each workload namespace they scrape.
 - [KollectProfile](kollectprofile.md)
 - [KollectInventory](kollectinventory.md)
 - [KollectScope](kollectscope.md)
-- [DATA-FLOWS.md](../DATA-FLOWS.md)
-- [examples/deployment-inventory.md](../examples/deployment-inventory.md)
+- [concepts/export-pipeline.md](../concepts/export-pipeline.md)
+- [getting-started/first-inventory.md](../getting-started/first-inventory.md)

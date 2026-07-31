@@ -79,7 +79,7 @@ RBAC.
 `snapshotSinkRefs` / `databaseSinkRefs` / `eventSinkRefs` to CRs in the **same namespace**. Secrets
 for sink credentials must live in the install namespace — the operator cannot read Secrets elsewhere.
 
-Full install steps: [Team-owned operator (minimal RBAC)](team-operator.md).
+Full install steps: [Team-owned operator (minimal RBAC)](../examples/team-operator.md).
 
 ## Path C — Hybrid (platform + team operators)
 
@@ -202,7 +202,7 @@ the same Postgres table or Git branch.
 ## See also
 
 - [ADR-0203: Namespaced multi-tenancy](../adr/0203-namespaced-multi-tenancy.md)
-- [Team-owned operator (minimal RBAC)](team-operator.md)
+- [Team-owned operator (minimal RBAC)](../examples/team-operator.md)
 - [ADR-0305: Aggregation and dedupe](../adr/0305-aggregation-dedupe.md)
 - [ADR-0414: Sink family CRDs](../adr/0414-sink-family-crds.md)
 - [Multi-tenant watch scope example](../examples/multi-tenant-watch-namespaces.md)

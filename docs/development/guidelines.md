@@ -78,7 +78,7 @@ Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
   scope for one target without blocking the whole queue.
 - **Rate limits and circuit breakers** — per-sink `gobreaker`; transient sink/API errors requeue with
   jitter; terminal config errors stop requeue ([ADR-0602](../adr/0602-error-taxonomy.md)).
-- **Profiling** — pprof on `:6060` behind feature gate (default off); document in [PERFORMANCE.md](../PERFORMANCE.md).
+- **Profiling** — pprof on `:6060` behind feature gate (default off); document in [operator-manual/performance.md](../operator-manual/performance.md).
 - **Benchmarks** — `task bench` (`-short`, `-benchmem`); `BenchmarkExtract` for CEL/JSONPath hot path.
 
 ## 6. Definition of done (per change)
