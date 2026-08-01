@@ -26,9 +26,8 @@ operator how-to; this ADR is the rationale.
 - **Multi-arch** `linux/amd64,linux/arm64` via buildx; pushed to **GHCR**:
   - Operator: `ghcr.io/<owner>/kollect`
   - Pipeline CLI: `ghcr.io/<owner>/kollect-pipeline`
-  - UI SPA: `ghcr.io/<owner>/kollect-ui` ([ADR-0409](0409-kollect-ui-deployment.md))
 - **Non-root** runtime for the operator (Debian slim with the Git/OpenSSH tools required by the Git
-  backend); UI uses an nginx alpine static server.
+  backend).
 
 ### Supply-chain attestations (binding)
 
@@ -40,7 +39,7 @@ operator how-to; this ADR is the rationale.
    bundles for OpenSSF Scorecard).
 4. **Attestations** — **`actions/attest`** publishes SLSA provenance and SPDX SBOM attestations to GHCR
    and the repository attestations API; release-level provenance is exported as `release-provenance.intoto.jsonl`.
-5. **Vulnerability gate** — **Trivy** scans all three release images and **fails the release** on fixable
+5. **Vulnerability gate** — **Trivy** scans the operator and pipeline release images and **fails the release** on fixable
    `CRITICAL`/`HIGH` (`ignore-unfixed: true`).
 
 ### Action hardening
@@ -52,7 +51,7 @@ operator how-to; this ADR is the rationale.
 
 Each GitHub Release publishes: `install-crds.yaml` and `install.yaml` (kubectl install paths —
 [ADR-0704](0704-helm-chart-crd-lifecycle.md)), the Helm chart `.tgz` **also pushed as OCI** to GHCR,
-`sbom.spdx.json`, `sbom-pipeline.spdx.json`, `sbom-ui.spdx.json`, `checksums.txt`, per-asset
+`sbom.spdx.json`, `sbom-pipeline.spdx.json`, `checksums.txt`, per-asset
 `*.sigstore.json` bundles, and `release-provenance.intoto.jsonl`.
 
 ## Consequences

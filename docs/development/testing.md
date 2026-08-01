@@ -17,7 +17,6 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 | **L2 — Golden / contract** | OpenAPI fragments, sample YAML, extractor goldens | Yes | `task test` |
 | **L3 — Integration** | Real Postgres, Kafka, Git, S3, GCS, Redis, NATS (testcontainers) | Yes | `task test-integration` |
 | **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | **PR smoke (required)** + nightly / extended | `task test:e2e` |
-| **UI — Playwright** | React SPA smoke (MSW dev server); not backend Kind L4 | No (optional locally) | `task ui-e2e` · `task ui-e2e:docker` |
 | **L5 — Load / perf** | Bounded synthetic scale (≤2000 objects), micro-benchmarks | Opt-in | `task load-test` · `task perf-report` |
 
 **Direction:** Most tests live at L0–L2. Every new sink backend must reach **L3** before merge
@@ -57,7 +56,7 @@ issue templates). Other root Markdown files still trigger both workflows.
 The path-scoped **Docs** workflow runs the complete `task docs:verify` gate, then (on
 `main` push) deploys to
 [platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/). Any change under
-`api/`, `internal/`, `charts/`, `cmd/`, `config/`, `hack/`, `ui/`, `test/`, `go.mod`, or
+`api/`, `internal/`, `charts/`, `cmd/`, `config/`, `hack/`, `test/`, `go.mod`, or
 `.github/workflows/` — or a mixed docs+code PR — runs the full gate below. Release tags no longer
 trigger docs deploys; the site tracks `main` only. Docs-only PRs still need a maintainer
 **ruleset bypass** (or admin merge) because required checks `test` / `kind-smoke` do not run when
@@ -122,8 +121,6 @@ For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a 
 | `task coverage:race` | Same as coverage with race detector (local + nightly advisory) |
 | `task test-integration` | L3 sink/transport integration (Docker) |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
-| `task ui-ci` | UI PR gate — Vitest, lint, build, mock drift (no Playwright) |
-| `task ui-e2e` · `task ui-e2e:docker` | UI Playwright smoke — optional; distinct from backend L4 |
 | `task bench` | Micro-benchmarks on hot paths |
 | `KOLECT_LOAD_TEST=1 task load-test` | L5 bounded load (≤2000 objects, opt-in) |
 | `task perf-report` | Benchmark + unit pass summary (local only, gitignored output) |

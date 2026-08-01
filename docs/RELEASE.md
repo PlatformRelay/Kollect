@@ -225,15 +225,13 @@ and the protected `release` environment.
 | Output | Location |
 | --- | --- |
 | Container image (operator) | `ghcr.io/platformrelay/kollect:<version>` (and `:v<version>`), `linux/amd64` + `arm64` |
-| Container image (kollect-ui) | `ghcr.io/platformrelay/kollect-ui:<version>` (and `:v<version>`), `linux/amd64` + `arm64` |
 | Container image (pipeline CLI) | `ghcr.io/platformrelay/kollect-pipeline:<version>` (and `:v<version>`), `linux/amd64` + `arm64` |
-| OCI SBOM + SLSA provenance | GHCR attestations on all three images |
+| OCI SBOM + SLSA provenance | GHCR attestations on operator and pipeline images |
 | GitHub Release | git-cliff section + install footer; assets below |
 | `install-crds.yaml` | CRD bundle |
 | `install.yaml` | Full operator install (image pinned to tag) |
 | `kollect-<version>.tgz` | Helm chart tarball |
 | `sbom.spdx.json` | SPDX SBOM for operator image (Syft) |
-| `sbom-ui.spdx.json` | SPDX SBOM for kollect-ui image (Syft) |
 | `sbom-pipeline.spdx.json` | SPDX SBOM for kollect-pipeline image (Syft) |
 | `checksums.txt` | SHA256 of release files |
 | `<asset>.sigstore.json` | Sigstore bundle for each release asset (cosign keyless) |
@@ -252,18 +250,12 @@ TAG=v0.2.0-rc.1   # or your release tag
 REPO=platformrelay/kollect
 
 OP_DIGEST="$(crane digest ghcr.io/${REPO}/kollect:${TAG#v})"
-UI_DIGEST="$(crane digest ghcr.io/${REPO}/kollect-ui:${TAG#v})"
 PIPELINE_DIGEST="$(crane digest ghcr.io/${REPO}/kollect-pipeline:${TAG#v})"
 
 cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
   "ghcr.io/${REPO}/kollect@${OP_DIGEST}"
-
-cosign verify \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
-  "ghcr.io/${REPO}/kollect-ui@${UI_DIGEST}"
 
 cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
@@ -276,8 +268,6 @@ repository [Attestations](https://github.com/platformrelay/kollect/attestations)
 
 ```sh
 gh attestation verify "ghcr.io/${REPO}/kollect@${OP_DIGEST}" \
-  --owner platformrelay --repo kollect
-gh attestation verify "ghcr.io/${REPO}/kollect-ui@${UI_DIGEST}" \
   --owner platformrelay --repo kollect
 gh attestation verify "ghcr.io/${REPO}/kollect-pipeline@${PIPELINE_DIGEST}" \
   --owner platformrelay --repo kollect

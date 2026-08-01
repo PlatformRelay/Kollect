@@ -267,21 +267,6 @@ task perf-report
 
 See [operator-manual/performance.md](../operator-manual/performance.md) for operator tuning and the metrics catalog.
 
-## UI development
-
-The kollect-ui SPA lives in `ui/`. Default local workflow uses MSW mocks — no cluster required:
-
-```sh
-task ui-dev          # VITE_MOCK_API=true
-task ui-ci           # typecheck, test, lint, build
-task ui-mock-prism   # optional real HTTP mock on :4010
-```
-
-Live Read API: `VITE_MOCK_API=false VITE_READ_API_URL=http://127.0.0.1:8082 npm run dev` (from `ui/`).
-
-Full guide: [examples/ui-local-development.md](../examples/ui-local-development.md) ·
-[ADR-0412](../adr/0412-mock-read-api-for-ui-development.md) · [`ui/README.md`](https://github.com/platformrelay/kollect/blob/main/ui/README.md).
-
 ## Lint and format
 
 Go conventions, lint policy, and CI gates:

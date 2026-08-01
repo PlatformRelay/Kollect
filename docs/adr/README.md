@@ -72,11 +72,6 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 | [0405](0405-export-data-contract.md) | Export data contract and schema versioning | Current |
 | [0406](0406-sink-registry.md) | Sink registry and the `Backend` interface | Current |
 | [0407](0407-git-object-store-layout.md) | Git / object-store export layout and workflow | Current |
-| [0408](0408-read-api-ui-architecture.md) | Read API and UI architecture (pluggable backing store) | Current |
-| [0409](0409-kollect-ui-deployment.md) | Kollect UI deployment — separate static SPA image | Current |
-| [0410](0410-ui-engineering-and-quality-gates.md) | UI engineering and quality gates | Current |
-| [0411](0411-read-api-extensions-for-ui.md) | Read API extensions for UI | Current |
-| [0412](0412-mock-read-api-for-ui-development.md) | Mock Read API for UI development | Current |
 | [0413](0413-export-interval-scheduling.md) | Per-sink export interval scheduling | Current |
 | [0414](0414-sink-family-crds.md) | Sink family CRDs (`KollectSnapshotSink`, etc.) | Current |
 | [0415](0415-git-sink-commit-ergonomics.md) | Git sink commit ergonomics | Current |

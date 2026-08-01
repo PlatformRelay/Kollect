@@ -64,7 +64,7 @@ Configuration sketch (not implemented): `--tracing-enabled`, `OTEL_EXPORTER_OTLP
 Document in maintainer backlog before any implementation:
 
 1. Platform team requires OTLP and provides managed collector.
-2. Portal UI needs `trace_id` on failed exports ([ADR-0408](0408-read-api-ui-architecture.md)).
+2. Portal UI needs `trace_id` on failed exports ([ADR-0418](0418-fleet-console-read-plane.md)).
 3. Split read API / operator binaries need cross-service latency visibility.
 
 ## See also

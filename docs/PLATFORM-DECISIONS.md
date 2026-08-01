@@ -36,7 +36,7 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 - **Default install:** per-team Helm — `tenantMode: true`, `watchNamespaces: [team-ns]`.
 - **MVP:** collect → aggregate → export to **Postgres or Kafka** for portals/scale; **Git** is the
   recommended sink for **small single-cluster** installs without a database or Kafka broker.
-- **HTTP inventory:** optional debug (`featureGates.inventoryHttp.enabled: false`); **not** MVP; portal read uses sink export or Read API ([ADR-0408](adr/0408-read-api-ui-architecture.md)).
+- **HTTP inventory:** optional debug (`featureGates.inventoryHttp.enabled: false`); **not** MVP; portal-style read uses sink export or the optional HTTP Read API ([ADR-0418](adr/0418-fleet-console-read-plane.md)).
 - **`KollectConnectionTest` CR** — implement ([ADR-0403](adr/0403-connection-test.md)).
 - **Shared informer per GVK** — one cache per GVK, Targets filter in reconcile.
 - **Watch labels** — support `All` and `OptIn`; platform central + per-resource `kollect.dev/watch: disabled`.

@@ -220,5 +220,4 @@ catalogues tuning knobs. Fleet fan-in uses shared sinks rather than a hub merge 
 
 - [Platform decisions](PLATFORM-DECISIONS.md) — the locked design summary
 - [Sink taxonomy: state vs stream](adr/0401-sink-taxonomy-state-vs-stream.md) — why no backend is privileged
-- [Read-only UI console (frozen preview)](operator-manual/ui.md) — maintenance-only and disabled by default
 - [Roadmap](ROADMAP.md) — shipped, next, and later work

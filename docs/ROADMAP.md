@@ -65,14 +65,11 @@ The source of truth for accepted values is the
 [CR reference](crds/index.md#kinds). Planned backends are not accepted by admission
 until a real implementation and test coverage land.
 
-## Read API + UI console (frozen)
+## Read API (design-only)
 
-The bundled preview UI and its wider read-plane program are **frozen**. They are not part of the
-recommended adoption path and should not be treated as a stable product surface. The operator,
-export contract, and sink integrations remain the focus.
-
-Current installations should leave `ui.enabled: false`, which is the chart default. See the
-[UI operator note](operator-manual/ui.md) for the present preview status.
+The optional HTTP Read API and the fleet read-plane design ([ADR-0418](adr/0418-fleet-console-read-plane.md))
+are **not** part of the recommended adoption path. There is no shipped browser console; operators
+should use sink exports (Git, databases, object storage) as the product surface.
 
 ## Later
 

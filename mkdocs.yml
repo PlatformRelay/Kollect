@@ -79,7 +79,6 @@ nav:
       - Troubleshooting: operator-manual/troubleshooting.md
       - Production checklist: operator-manual/production-checklist.md
       - Deployment topology matrix: deployment/topology-matrix.md
-      - Read-only UI (frozen preview): operator-manual/ui.md
   - Reference:
       - Custom resources:
           - Overview: crds/index.md
@@ -122,7 +121,6 @@ nav:
           - Local container images: development/local-container-image.md
           - Git sink attribution: development/git-sink-attribution.md
           - ADR and RFC process: development/adr-rfc-process.md
-          - UI local development: examples/ui-local-development.md
       - Release engineering:
           - Release process: RELEASE.md
           - Load test runbook: operator-manual/load-test-runbook.md

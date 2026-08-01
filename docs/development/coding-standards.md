@@ -19,9 +19,6 @@ Source files should include SPDX and copyright headers:
 // Copyright (c) 2026 Konrad Heimel
 ```
 
-TypeScript/CSS under `ui/src/` use the same license line with `//` or `/* */` comment style.
-CI enforces UI headers via `task verify:headers` (also run as part of `task ui-ci`).
-
 **Exception:** Kubebuilder-generated `api/*/zz_generated.deepcopy.go` files are produced by
 `controller-gen` and may omit copyright headers. Do not hand-edit them; regenerate with
 `make generate` and `task verify`. If upstream tooling adds header support later, adopt it in

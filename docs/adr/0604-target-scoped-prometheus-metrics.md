@@ -248,7 +248,7 @@ below have passing tests.
 ## Open questions
 
 - **Read API parity:** expose the same snapshot counts via Read API health fields for UI without
-  duplicating Prometheus ([ADR-0408](0408-read-api-ui-architecture.md)).
+  duplicating Prometheus ([ADR-0418](0418-fleet-console-read-plane.md)).
 - **Estimated series gauge:** ship as Tier A metric or internal pprof-only debug?
 - **Hub domain series:** `kollect_hub_custom_resource_series` shape and merge semantics when hub-only
   alerting is requested — depends on scrape-at-spoke remaining primary.
