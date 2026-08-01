@@ -182,17 +182,3 @@ affinity: {}
 # -- Extra arguments passed to the manager container.
 extraArgs: []
 
-# -- Optional kollect-ui subchart (static React SPA — default off).
-ui:
-  # -- Enable the kollect-ui subchart.
-  enabled: false
-  # -- Read API base URL injected into the UI bundle.
-  readApiUrl: "http://kollect:8082"
-  ingress:
-    # -- Expose kollect-ui via Ingress.
-    enabled: false
-  image:
-    # -- kollect-ui container image repository.
-    repository: ghcr.io/platformrelay/kollect-ui
-    # -- kollect-ui image tag (defaults to chart appVersion when empty).
-    tag: ""

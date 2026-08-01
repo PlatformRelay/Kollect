@@ -69,7 +69,7 @@ Environment:
   DEMO_PERSONA         full | security | platform | local (default: full)
   DEMO_AUTO_YES=1      Non-interactive — skip Gum confirms
   DEMO_SKIP_CONTRAST=1 Skip step-0 apiserver pain contrast
-  DEMO_OPEN_BROWSER=1  Open kollect-ui URL on --reveal (xdg-open)
+  DEMO_OPEN_BROWSER=1  Open Read API URL on --reveal (xdg-open)
   GITHUB_TOKEN         Git push credentials (not required for local persona)
   CHURN_PRESET         Override churn preset when using --churn
 
@@ -159,7 +159,7 @@ if demo_persona_git_enabled; then
     demo_confirm "Proceed without git-push-credentials?" || exit 1
   fi
 else
-  demo_info "**Local persona** — skipping Git credentials; reveal uses Read API + kollect-ui only."
+  demo_info "**Local persona** — skipping Git credentials; reveal uses Read API only."
 fi
 
 overlay_rel="$(demo_overlay_path)"
@@ -170,7 +170,7 @@ demo_link "hack/demo/kind-wide-scope/${overlay_rel}/" "Active kustomize overlay 
 demo_link "hack/demo/kind-wide-scope/samples/" "Annotated Kollect CR samples"
 
 demo_step 2 "Kollect answer — operator + UI on kind"
-demo_info "Event-driven informers per GVK → debounced export → Git snapshot + Read API + kollect-ui."
+demo_info "Event-driven informers per GVK → debounced export → Git snapshot + Read API."
 
 _kind_bootstrap() {
   if [[ "${FRESH_CLUSTER}" -eq 1 ]]; then

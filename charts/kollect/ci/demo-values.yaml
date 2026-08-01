@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Konrad Heimel
 #
-# Demo Helm values: dev-values + kollect-ui subchart for venue reveal.
+# Demo Helm values: dev-values for venue reveal.
 featureGates:
   inventoryHttp:
     enabled: true
@@ -31,6 +31,3 @@ metrics:
   serviceMonitor:
     enabled: false
 
-ui:
-  enabled: true
-  readApiUrl: "http://kollect-controller-manager:8082"

@@ -138,5 +138,4 @@ task scrub
 - [README.md](./README.md) — venue pitch + runbook
 - [samples/](./samples/) — annotated Kollect CRs
 - [Kind local lab](../../docs/examples/kind-local-lab.md)
-- [UI local development](../../docs/examples/ui-local-development.md)
 - [Examples index](../../docs/examples/README.md)

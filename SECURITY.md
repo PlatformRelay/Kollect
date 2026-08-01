@@ -43,7 +43,7 @@ responsibility.
 
 Release builds ([`.github/workflows/release.yaml`](.github/workflows/release.yaml)) produce:
 
-- **OCI images** — `ghcr.io/platformrelay/kollect`, `kollect-pipeline`, and `kollect-ui`, each signed
+- **OCI images** — `ghcr.io/platformrelay/kollect` and `kollect-pipeline`, each signed
   and published with SBOM and SLSA provenance attestations
 - **cosign** keyless signatures (verify with release notes instructions)
 - **SPDX SBOM** — operator, pipeline, and UI SBOMs attached to GitHub Releases

@@ -103,11 +103,6 @@
       "groupName": "docs npm dependencies"
     },
     {
-      "matchManagers": ["npm"],
-      "matchFileNames": ["ui/**"],
-      "groupName": "ui npm dependencies"
-    },
-    {
       "matchManagers": ["pip-compile"],
       "matchFileNames": ["docs/**"],
       "groupName": "docs Python dependencies"
