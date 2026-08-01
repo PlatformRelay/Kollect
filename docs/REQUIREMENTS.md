@@ -97,7 +97,7 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | FR-READ-1 | Primary scalable read = sink export (SQL/object store/stream), **not** the live API | [ADR-0103](adr/0103-etcd-limit.md) |
 | FR-READ-2 | Optional read-only HTTP inventory API, **feature-gated off by default**, for debug/small installs | [ADR-0103](adr/0103-etcd-limit.md) |
 | FR-READ-3 | When HTTP is enabled, authenticate via Kubernetes TokenReview + SubjectAccessReview | [ADR-0404](adr/0404-inventory-api-auth.md) |
-| FR-READ-4 | Fleet read plane (**frozen — design only**): a standalone read-only console may materialize a **fleet-wide** read model from the shared event stream and serve the Read API extended with a `cluster` dimension — never a hub, never kube-apiserver writes, no bus/DB creds in the browser. The UI program is frozen and the Read API freeze is deferred; see [ROADMAP § Read API + UI console (frozen)](ROADMAP.md#read-api-ui-console-frozen) | [ADR-0418](adr/0418-fleet-console-read-plane.md), [ADR-0501](adr/0501-multi-cluster-fleet.md) |
+| FR-READ-4 | Fleet read plane (**design only**): a standalone read service may materialize a **fleet-wide** read model from the shared event stream and serve the Read API extended with a `cluster` dimension — never a hub, never kube-apiserver writes, no bus/DB creds in browser clients. Not a shipped product surface; see [ROADMAP § Read API (design-only)](ROADMAP.md#read-api-design-only) | [ADR-0418](adr/0418-fleet-console-read-plane.md), [ADR-0501](adr/0501-multi-cluster-fleet.md) |
 
 ### 3.5 Multi-cluster (FR-MC)
 

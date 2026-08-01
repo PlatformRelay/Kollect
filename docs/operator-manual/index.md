@@ -25,7 +25,6 @@ workloads. If you are evaluating locally, start with [Quick start](../getting-st
 | Sink and webhook secrets | [Secrets](#secrets) (below) |
 | Informer scope and tenancy | [Watch scope](#watch-scope) (below) |
 | Replicas and leader election | [High availability](#high-availability) (below) |
-| Read-only UI (early adopter preview) | [Read-only UI](ui.md) · [ADR-0409](../adr/0409-kollect-ui-deployment.md) · [UI local dev (mock)](../examples/ui-local-development.md) |
 
 ## Install
 

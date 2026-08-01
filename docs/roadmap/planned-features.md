@@ -70,17 +70,11 @@ multi-team configurations without weakening `KollectScope` boundaries.
 
 ### Read API contract
 
-**Status: Frozen**
+**Status: Design-only**
 
-The optional read plane is not the current adoption path. Its contract is not stable and no browser
-client should receive Kubernetes, database, or event-bus credentials.
-
-### Inventory UI
-
-**Status: Frozen**
-
-The preview UI is maintenance-only and disabled by default. Do not build new integrations against
-it.
+The optional HTTP Read API is not the current adoption path. Its contract is not stable; there is
+no shipped browser client, and no client should receive Kubernetes, database, or event-bus credentials.
+See [ADR-0418](../adr/0418-fleet-console-read-plane.md) for the fleet read-plane design.
 
 ## Observability & performance
 

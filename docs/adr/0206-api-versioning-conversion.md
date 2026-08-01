@@ -54,9 +54,9 @@ CRD API versions. Consumers (portals, SQL, Kafka subscribers, Read API) branch o
 | --- | --- | --- |
 | CRD schemas (`v1alpha1`) | Break freely until **v0.10 presentation gate** | `v1beta1` + conversion webhook |
 | Wire envelopes (Sink JSON + Read API) | Bare `[]Item` / `NamespaceSummary` — **no envelope yet** | Versioned envelope per ADR-0405 milestone |
-| Read API routes | `/v1alpha1/…` path prefix ([ADR-0408](0408-read-api-ui-architecture.md)) | Stable OpenAPI; response body carries `schemaVersion` |
+| Read API routes | `/v1alpha1/…` path prefix (OpenAPI `openapi/v1alpha1/inventory.yaml`) | Stable OpenAPI; response body carries `schemaVersion` |
 
-Read API work ([ADR-0408](0408-read-api-ui-architecture.md)) must return the same envelope contract
+Read API work (OpenAPI `openapi/v1alpha1/inventory.yaml`) must return the same envelope contract
 as sink exports — never a divergent shape. HTTP path version (`/v1alpha1/`) and envelope
 `schemaVersion` are orthogonal: path version tracks API route stability; envelope version tracks
 payload semantics.

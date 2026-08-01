@@ -80,7 +80,7 @@ source `generation`, `itemCount`, `exportedAt`, and `cluster`. These drive debou
 | Kafka `EventEnvelope` | Yes — `internal/sink/kafka/backend.go` | **Shipped** |
 | Inventory / cluster inventory sink export | No — bare `[]Item` JSON array (`MarshalNamespaceJSON`) | **Pre-beta gap** |
 | Git / Postgres / S3 / GCS object payloads | No — canonical array only | **Pre-beta gap** |
-| Read API HTTP responses | No — `NamespaceSummary` without envelope | **Pre-beta gap** — **v0.5** gate per [ADR-0411](0411-read-api-extensions-for-ui.md) |
+| Read API HTTP responses | No — `NamespaceSummary` without envelope | **Pre-beta gap** — align with OpenAPI `openapi/v1alpha1/inventory.yaml` |
 
 Contract value: `kollect.dev/v1alpha1` ([ADR-0206](0206-api-versioning-conversion.md)).
 
@@ -96,5 +96,5 @@ Contract value: `kollect.dev/v1alpha1` ([ADR-0206](0206-api-versioning-conversio
   **sink-side** concern — the Parquet sink promotes a hot-attribute allowlist to typed columns while
   keeping a JSON `attributes` column ([ADR-0401](0401-sink-taxonomy-state-vs-stream.md)).
 - **PARTIAL :** OpenAPI extensions (pagination, filters, envelope, `exportStatus`) tracked in
-  [ADR-0411](0411-read-api-extensions-for-ui.md); publish JSON Schema for `Item` alongside OpenAPI when
+  the Read API OpenAPI contract; publish JSON Schema for `Item` alongside OpenAPI when
   envelope milestone closes.

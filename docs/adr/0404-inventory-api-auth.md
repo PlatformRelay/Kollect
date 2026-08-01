@@ -51,7 +51,7 @@ oauth2-proxy remains a **well-documented optional sidecar**, not the primary aut
      service-to-service callers should still use K8s bearer tokens directly (bypass sidecar or use
      internal Service without oauth2-proxy).
    - Document in `charts/kollect/README.md` — not implemented until HTTP API ships; values reserved.
-   - **Kollect UI MVP ([ADR-0408](0408-read-api-ui-architecture.md), [ADR-0409](0409-kollect-ui-deployment.md)):**
+   - **Optional Read API browser clients (design-only, [ADR-0418](0418-fleet-console-read-plane.md)):**
      the SPA ships **without a login shell** — assume cluster-network or port-forward; oauth2-proxy at
      ingress is **post-MVP** (v0.3+) auth offload, not a blocker for UI development.
 
