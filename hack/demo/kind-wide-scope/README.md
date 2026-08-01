@@ -19,7 +19,7 @@ live cluster → **UI reveal** + Git audit trail, exporting to
 | **Live** | Operators, scope, eight resource types | `demo.sh` spinners |
 | **Steady** | One inventory, many projections | UI catalog + `itemCount` |
 | **Change** | Cluster drift → inventory drift | `--churn` (fast default) |
-| **Reveal** | What stakeholders open | `--reveal` → kollect-ui + Git SHA |
+| **Reveal** | What stakeholders open | `--reveal` → Read API + Git SHA |
 
 ```sh
 bash hack/demo/kind-wide-scope/demo.sh --check
@@ -68,7 +68,6 @@ flowchart LR
   end
   subgraph sinks [Projections]
     GIT[Git snapshot]
-    UI[kollect-ui]
     HTTP[Read API :8082]
   end
   INV --> GIT
@@ -82,7 +81,7 @@ Guided driver with **[Charm Gum](https://github.com/charmbracelet/gum)** bubble 
 
 | Step | What happens |
 | --- | --- |
-| 1 | kind + operator + **kollect-ui** (`demo-values.yaml`) |
+| 1 | kind + operator (`demo-values.yaml`) |
 | 2 | [`install-platform.sh`](install-platform.sh) — Trivy, cert-manager, external-secrets |
 | 3 | Git credentials (skipped for `local` persona) |
 | 4 | Kustomize overlay apply — Scope → Profiles → Targets → Sink → Inventory → fleet |
@@ -96,7 +95,6 @@ ExternalSecret — see [`base/kollect/`](base/kollect/) and [`samples/`](samples
 
 ### 4. Outcomes
 
-- **kollect-ui** — catalog, GVK filters, export/freshness (second screen for venue)
 - **Git history** — `chore(inventory): export default/team-inventory` JSON diffs
 - **Security** — Trivy CVE counts per workload image
 - **TLS** — cert-manager expiry rollup
@@ -142,7 +140,7 @@ Run `bash hack/demo/kind-wide-scope/demo.sh --check` — see [`ROADMAP.md`](ROAD
 hack/demo/kind-wide-scope/
 ├── ROADMAP.md
 ├── demo.sh / bootstrap.sh
-├── lib/              config.sh, check.sh, reveal.sh, ui.sh
+├── lib/              config.sh, check.sh, reveal.sh, ui.sh (Charm Gum helpers)
 ├── churn/            steps.yaml, run.sh, manifests/
 ├── overlays/
 │   ├── full/         default 8-GVK showcase
@@ -186,12 +184,10 @@ bash hack/demo/kind-wide-scope/demo.sh --reveal
 
 ```sh
 kubectl port-forward -n kollect-system svc/kollect-controller-manager 8082:8082 &
-kubectl port-forward -n kollect-system svc/kollect-ui 8080:8080 &
 curl -sf http://127.0.0.1:8082/inventory | jq '{itemCount, kinds: [.items[].gvk.kind] | unique}'
 gh api repos/konih/kollect-inventory-demo/commits --jq '.[0] | {sha: .sha[0:7], message: .commit.message}'
 ```
 
-Dev fallback (UI not in cluster): [`docs/examples/ui-local-development.md`](../../docs/examples/ui-local-development.md).
 
 ---
 
@@ -213,5 +209,4 @@ Dev fallback (UI not in cluster): [`docs/examples/ui-local-development.md`](../.
 - [ROADMAP.md](ROADMAP.md) — checklist, personas, deferred items
 - [Kind local lab](../../docs/examples/kind-local-lab.md)
 - [Git inventory demo](../../docs/examples/kollect-inventory-demo.md)
-- [UI local development](../../docs/examples/ui-local-development.md)
 - [Examples index](../../docs/examples/README.md)

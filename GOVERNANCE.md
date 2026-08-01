@@ -10,7 +10,6 @@ maintainer is unavailable.
 This governance model applies to:
 
 - The **kollect** operator, Helm chart, CRDs, and documentation in this repository
-- The **kollect-ui** static SPA (`ui/`) and its container image
 - Release artifacts published to GHCR and GitHub Releases
 - Public documentation at [platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/)
 

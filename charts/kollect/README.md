@@ -90,12 +90,6 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | sinkDefaults.connectionTest | bool | `false` | Default spec.connectionTest for sample sinks (CI/dev overlays often set true). |
 | tenantMode | bool | `false` | When true, render namespaced Role/RoleBinding instead of ClusterRole/ClusterRoleBinding. |
 | tolerations | list | `[]` |  |
-| ui | object | `{"enabled":false,"image":{"repository":"ghcr.io/platformrelay/kollect-ui","tag":""},"ingress":{"enabled":false},"readApiUrl":"http://kollect:8082"}` | Optional kollect-ui subchart (static React SPA — default off). |
-| ui.enabled | bool | `false` | Enable the kollect-ui subchart. |
-| ui.image.repository | string | `"ghcr.io/platformrelay/kollect-ui"` | kollect-ui container image repository. |
-| ui.image.tag | string | `""` | kollect-ui image tag (defaults to chart appVersion when empty). |
-| ui.ingress.enabled | bool | `false` | Expose kollect-ui via Ingress. |
-| ui.readApiUrl | string | `"http://kollect:8082"` | Read API base URL injected into the UI bundle. |
 | watchNamespaces | list | `[]` | Restrict the manager informer cache to these namespaces (empty = all namespaces). Use for per-team operator installs. |
 | webhooks.certManager.create | bool | `true` | Create cert-manager Certificate/Issuer for webhook serving cert. |
 | webhooks.certManager.secretName | string | `"webhook-server-cert"` | Secret name for webhook TLS material. |

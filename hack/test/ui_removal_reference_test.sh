@@ -61,6 +61,7 @@ done < <(
        -o -name 'Chart.lock' \) \
     ! -name 'CHANGELOG.md' \
     ! -path './hack/demo/*/lib/ui.sh' \
+    ! -path './hack/test/ui_removal_reference_test.sh' \
     -print0
 )
 

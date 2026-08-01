@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Konrad Heimel
 #
-# Port-forward Read API + kollect-ui and print reveal URLs for the venue finale.
+# Port-forward Read API and print reveal URLs for the venue finale.
 
 DEMO_REVEAL_PF_PIDS=()
 
@@ -19,9 +19,7 @@ demo_reveal_start() {
   local kubectl="${KUBECTL:-kubectl}"
   local ns="${KOLLECT_NAMESPACE:-kollect-system}"
   local read_port="${DEMO_READ_PORT:-8082}"
-  local ui_port="${DEMO_UI_PORT:-8080}"
   local read_host="127.0.0.1"
-  local ui_host="127.0.0.1"
 
   # shellcheck source=ui.sh
   source "${script_dir}/ui.sh"
@@ -38,17 +36,6 @@ demo_reveal_start() {
     "${kubectl}" port-forward -n "${ns}" "svc/kollect-controller-manager" "${read_port}:8082" &
   DEMO_REVEAL_PF_PIDS+=($!)
   sleep 2
-
-  local ui_svc=""
-  if "${kubectl}" get svc -n "${ns}" -l app.kubernetes.io/name=kollect-ui \
-    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null | grep -q .; then
-    ui_svc="$("${kubectl}" get svc -n "${ns}" -l app.kubernetes.io/name=kollect-ui \
-      -o jsonpath='{.items[0].metadata.name}')"
-    demo_spin "Port-forward kollect-ui :${ui_port}..." \
-      "${kubectl}" port-forward -n "${ns}" "svc/${ui_svc}" "${ui_port}:8080" &
-    DEMO_REVEAL_PF_PIDS+=($!)
-    sleep 2
-  fi
 
   local item_count="?"
   if command -v python3 >/dev/null 2>&1; then
@@ -68,13 +55,9 @@ except (urllib.error.URLError, json.JSONDecodeError, OSError, ValueError):
   demo_step 9 "Reveal"
   demo_outcome "Catalog itemCount: ${item_count}"
 
-  if [[ -n "${ui_svc}" ]]; then
-    demo_info "**kollect-ui:** http://${ui_host}:${ui_port}/ — filter by GVK (e.g. VulnerabilityReport) for CVE rows."
-    if [[ "${DEMO_OPEN_BROWSER:-}" == "1" ]] && command -v xdg-open >/dev/null 2>&1; then
-      xdg-open "http://${ui_host}:${ui_port}/" >/dev/null 2>&1 || true
-    fi
-  else
-    demo_info "**Read API:** http://${read_host}:${read_port}/inventory — UI subchart not detected; use \`cd ui && npm run dev\` fallback."
+  demo_info "**Read API:** http://${read_host}:${read_port}/inventory"
+  if [[ "${DEMO_OPEN_BROWSER:-}" == "1" ]] && command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "http://${read_host}:${read_port}/inventory" >/dev/null 2>&1 || true
   fi
 
   demo_info "**Read API curl:** \`curl -sf http://${read_host}:${read_port}/inventory | jq '{itemCount, kinds: [.items[].gvk.kind] | unique}'\`"

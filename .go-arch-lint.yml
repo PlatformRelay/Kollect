@@ -4,7 +4,6 @@ exclude:
   - cmd/**
   - hack/**
   - test/**
-  - ui/**
   - charts/**
   - config/**
   - bin/**

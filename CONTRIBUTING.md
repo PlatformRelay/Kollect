@@ -132,7 +132,7 @@ Only `feat`, `fix`, `perf`, `refactor`, and breaking commits appear in the user-
 5. `git tag vX.Y.Z && git push origin vX.Y.Z` — CI publishes image and GitHub Release.
 
 Tagged releases (`v*.*.*`) trigger [`.github/workflows/release.yaml`](.github/workflows/release.yaml):
-multi-arch images to `ghcr.io/platformrelay/kollect` and `ghcr.io/platformrelay/kollect-ui`, Trivy scan, cosign
+multi-arch images to `ghcr.io/platformrelay/kollect` and `ghcr.io/platformrelay/kollect-pipeline`, Trivy scan, cosign
 signing, SPDX SBOMs, Helm chart (OCI), and GitHub Release assets (`install.yaml`, `install-crds.yaml`,
 chart tarball, checksums).
 
@@ -228,7 +228,6 @@ All pull requests need **green CI** and **maintainer approval** before merge to 
 | Codegen drift | `task verify` (`preflight`) |
 | Changelog drift | `task changelog:verify` (`preflight`) |
 | Secret scan | gitleaks (`CI`) |
-| UI (when `ui/` changed) | `task ui-ci` |
 
 ### Review expectations
 
