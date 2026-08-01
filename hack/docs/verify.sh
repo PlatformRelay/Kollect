@@ -11,6 +11,7 @@ task lint:markdown
 # shell tests. This composition point makes them impossible for Docs CI to omit.
 bash hack/test/docs_launch_truth_test.sh
 bash hack/test/security_architecture_docs_test.sh
+bash hack/test/ui_removal_reference_test.sh
 
 # These contracts cover the complete nav and redirect map, orphan pages, current
 # CRD/family-sink language, referenced samples and images, and the visual system.
