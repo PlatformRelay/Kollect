@@ -3,7 +3,7 @@
 Kollect is a Kubernetes inventory exporter: select resources by GVK, extract attributes with CEL
 or JSONPath, aggregate a canonical snapshot, and send it to one or more sinks.
 
-**Last verified:** 2026-07-31 against **v0.12.0**. For exact shipped changes, use the
+**Last verified:** 2026-08-02 against **v0.13.0**. For exact shipped changes, use the
 [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md). For proposals that
 have not entered a release, see [Planned features](roadmap/planned-features.md).
 
@@ -11,7 +11,7 @@ have not entered a release, see [Planned features](roadmap/planned-features.md).
     Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor releases
     before 1.0. Release notes and migration guidance call them out.
 
-## Shipped in v0.12.0
+## Shipped in v0.13.0
 
 The current release includes:
 
@@ -49,7 +49,7 @@ Items are not assigned to a release until their implementation, tests, and docum
 ## Supported & planned sinks
 
 “Core” and “Beta” describe maturity, not whether code exists. All Core and Beta rows below ship in
-v0.12.0.
+v0.13.0.
 
 | Family CRD | `spec.type` | Maturity |
 | --- | --- | --- |
