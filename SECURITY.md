@@ -46,7 +46,7 @@ Release builds ([`.github/workflows/release.yaml`](.github/workflows/release.yam
 - **OCI images** — `ghcr.io/platformrelay/kollect` and `kollect-pipeline`, each signed
   and published with SBOM and SLSA provenance attestations
 - **cosign** keyless signatures (verify with release notes instructions)
-- **SPDX SBOM** — operator, pipeline, and UI SBOMs attached to GitHub Releases
+- **SPDX SBOM** — operator and pipeline SBOMs attached to GitHub Releases
 - **Checksums** — `sha256sum` manifest for install YAML and chart tarball
 
 Prefer tagged release artifacts over `:latest` in production. Report supply-chain concerns
