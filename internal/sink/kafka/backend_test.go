@@ -100,3 +100,32 @@ func TestNewBackend_invalidSpec(t *testing.T) {
 		t.Fatal("expected error without kafka spec")
 	}
 }
+
+// TestNewBackend_requiresAllAcks guards against silent message loss (REL-07):
+// the struct-literal *kafka.Writer bypasses NewWriter's 0 -> RequireAll
+// coercion, so RequiredAcks must be set explicitly or writes ack as
+// RequireNone and events are lost on post-accept broker/leader failure.
+func TestNewBackend_requiresAllAcks(t *testing.T) {
+	t.Parallel()
+
+	b, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type:    "kafka",
+		Cluster: "local",
+		Kafka: &kollectdevv1alpha1.KafkaSpec{
+			Brokers: []string{"kafka:9092"},
+			Topic:   "inventory",
+		},
+	}, nil)
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+
+	writer, ok := b.writer.(*kafka.Writer)
+	if !ok {
+		t.Fatalf("writer is %T, want *kafka.Writer", b.writer)
+	}
+	if writer.RequiredAcks != kafka.RequireAll {
+		t.Fatalf("RequiredAcks = %v, want %v (RequireNone loses messages silently)",
+			writer.RequiredAcks, kafka.RequireAll)
+	}
+}
