@@ -177,7 +177,7 @@ Image bump runs **first** so Trivy rescans show up early. Full step table: [`ROA
 
 ```sh
 bash hack/demo/kind-wide-scope/demo.sh --reveal
-# UI: http://127.0.0.1:8080/  Read API: http://127.0.0.1:8082/inventory
+# Read API: http://127.0.0.1:8082/inventory
 ```
 
 ### Manual
@@ -187,7 +187,6 @@ kubectl port-forward -n kollect-system svc/kollect-controller-manager 8082:8082 
 curl -sf http://127.0.0.1:8082/inventory | jq '{itemCount, kinds: [.items[].gvk.kind] | unique}'
 gh api repos/konih/kollect-inventory-demo/commits --jq '.[0] | {sha: .sha[0:7], message: .commit.message}'
 ```
-
 
 ---
 
