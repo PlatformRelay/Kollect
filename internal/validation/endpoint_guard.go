@@ -38,7 +38,8 @@ func SetAllowPrivateSinks(allow bool) {
 // accidental hardcoded configuration. They block sink endpoints from
 // resolving to loopback, link-local, carrier-grade-NAT, benchmark-testing,
 // or well-known cloud-metadata targets (e.g. the AWS/GCP instance-metadata
-// service at 169.254.169.254), which are classic SSRF pivot points.
+// service at 169.254.169.254 and the AWS IPv6 IMDS endpoint fd00:ec2::254),
+// which are classic SSRF pivot points.
 //
 // Do NOT "fix" this finding by externalizing these values into a
 // configurable/overridable list (env var, ConfigMap, CRD field, etc.). Doing
@@ -51,12 +52,13 @@ func SetAllowPrivateSinks(allow bool) {
 // both this comment and the known-critical entries below staying verbatim.
 var (
 	denyCIDRs = []netip.Prefix{
-		netip.MustParsePrefix("127.0.0.0/8"),    // loopback
-		netip.MustParsePrefix("169.254.0.0/16"), // link-local + cloud metadata
-		netip.MustParsePrefix("100.64.0.0/10"),  // carrier-grade NAT
-		netip.MustParsePrefix("198.18.0.0/15"),  // benchmark testing
-		netip.MustParsePrefix("::1/128"),        // IPv6 loopback
-		netip.MustParsePrefix("fe80::/10"),      // IPv6 link-local
+		netip.MustParsePrefix("127.0.0.0/8"),       // loopback
+		netip.MustParsePrefix("169.254.0.0/16"),    // link-local + cloud metadata
+		netip.MustParsePrefix("100.64.0.0/10"),     // carrier-grade NAT
+		netip.MustParsePrefix("198.18.0.0/15"),     // benchmark testing
+		netip.MustParsePrefix("::1/128"),           // IPv6 loopback
+		netip.MustParsePrefix("fe80::/10"),         // IPv6 link-local
+		netip.MustParsePrefix("fd00:ec2::254/128"), // IPv6 cloud metadata (AWS IMDS)
 	}
 
 	denyHostnames = map[string]struct{}{
@@ -224,7 +226,9 @@ func isDeniedIP(addr netip.Addr) bool {
 	// RFC1918 / IPv6-ULA are denied unless the NET-01 production opt-in is on
 	// (--allow-private-sinks). Every other deny-list entry stays enforced
 	// regardless, including the link-local/metadata range above and the
-	// denyCIDRs below (169.254.0.0/16 covers 169.254.169.254).
+	// denyCIDRs below (169.254.0.0/16 covers 169.254.169.254, and
+	// fd00:ec2::254/128 carves the AWS IPv6 IMDS literal back out of the
+	// otherwise-permitted IPv6-ULA range).
 	if addr.IsPrivate() && !allowPrivateSinks.Load() {
 		return true
 	}
