@@ -236,7 +236,7 @@ func validateAddress(address netip.Addr, allowPrivate bool) error {
 	address = address.Unmap()
 	if !address.IsValid() || address.IsUnspecified() || address.IsLoopback() ||
 		address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() || address.IsMulticast() ||
-		address == ipv6MetadataAddr {
+		address.WithZone("") == ipv6MetadataAddr {
 		return fmt.Errorf("IP %s is not globally routable", address)
 	}
 	if address.IsPrivate() && !allowPrivate {
