@@ -11,6 +11,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **release:** Stop chart clobbering the controller image tag on GHCR (DR-FIND-07) ([#164](https://github.com/platformrelay/kollect/pull/164))[2ab126a](https://github.com/platformrelay/kollect/commit/2ab126ac410d6e584937009a3162fbd8ababf81a)
+
+- **sink/git:** Fall back to writable temp dir when cache root is read-only (DR-FIND-06) ([#163](https://github.com/platformrelay/kollect/pull/163))[9d0bd61](https://github.com/platformrelay/kollect/commit/9d0bd61e1e6f7d314892b8fcd495d6ef87546e46)
+
+## [0.13.0](https://github.com/platformrelay/kollect/compare/v0.12.0..v0.13.0) - 2026-08-02
+
+### Bug Fixes
+
 - **test:** Fall back to grep when ripgrep missing [3aba028](https://github.com/platformrelay/kollect/commit/3aba028175cb8395fd43a25ee9113418d61ada75)
 
 - **test:** Capture rg exit code outside if-negation [7baf0e2](https://github.com/platformrelay/kollect/commit/7baf0e2024e0a6a5c2fc9f9e30ef972f148784b6)
