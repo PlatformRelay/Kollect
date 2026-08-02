@@ -211,15 +211,17 @@ func TestApplyCLIEnvAndPrependGitArgs(t *testing.T) {
 	if len(cmd.Env) == 0 {
 		t.Fatal("expected command env to be populated")
 	}
+	const wantKey = "KOLLECT_TEST_FLAG=1"
 	found := false
 	for _, e := range cmd.Env {
-		if e == "KOLLECT_TEST_FLAG=1" {
+		if e == wantKey {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("env = %v, missing injected var", cmd.Env)
+		// Never print cmd.Env: it embeds os.Environ() (secrets). Name the key.
+		t.Fatalf("injected var %q not found in cmd.Env", wantKey)
 	}
 
 	args := cli.prependGitArgs("push", "origin", "main")
@@ -232,6 +234,73 @@ func TestApplyCLIEnv_nilCmdIsNoop(t *testing.T) {
 	t.Parallel()
 
 	applyCLIEnv(nil, &cliEnv{extraEnv: []string{"X=1"}}) // must not panic
+}
+
+// lastValue returns the value of the final key=... entry in env, mirroring the
+// last-wins semantics the OS applies to a process environment.
+func lastValue(env []string, key string) (string, bool) {
+	prefix := key + "="
+	val, ok := "", false
+	for _, e := range env {
+		if strings.HasPrefix(e, prefix) {
+			val, ok = strings.TrimPrefix(e, prefix), true
+		}
+	}
+
+	return val, ok
+}
+
+// TestApplyCLIEnv_pinsDeterministicLocale guards REL-01: git must always run
+// under a C locale so its English-substring error classifiers stay reliable
+// regardless of the operator's ambient LANG/LC_ALL. The product (not the test)
+// must set this, so the ambient locale is deliberately overridden to a
+// non-C value here to prove the override actually wins.
+func TestApplyCLIEnv_pinsDeterministicLocale(t *testing.T) {
+	// Not t.Parallel(): t.Setenv mutates process env.
+	t.Setenv("LANG", "de_DE.UTF-8")
+	t.Setenv("LC_ALL", "de_DE.UTF-8")
+
+	cases := []struct {
+		name string
+		cli  *cliEnv
+	}{
+		{name: "nil cli", cli: nil},
+		{name: "no extraEnv", cli: &cliEnv{}},
+		{name: "with extraEnv", cli: &cliEnv{extraEnv: []string{"GIT_SSL_NO_VERIFY=true"}}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := exec.Command("git", "status") //nolint:gosec // G204: test command wiring only
+			applyCLIEnv(cmd, tc.cli)
+
+			// Later entries override earlier os.Environ() values, so the
+			// effective (last-wins) locale must be C. Never log cmd.Env here:
+			// it embeds os.Environ() and any auth extraEnv (secrets).
+			if v, ok := lastValue(cmd.Env, "LC_ALL"); !ok || v != "C" {
+				t.Fatalf("effective LC_ALL = %q (ok=%v), want \"C\"", v, ok)
+			}
+			if v, ok := lastValue(cmd.Env, "LANG"); !ok || v != "C" {
+				t.Fatalf("effective LANG = %q (ok=%v), want \"C\"", v, ok)
+			}
+
+			// extraEnv (auth/SSL) must still be applied alongside the locale.
+			if tc.cli != nil {
+				for _, want := range tc.cli.extraEnv {
+					found := false
+					for _, e := range cmd.Env {
+						if e == want {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Fatalf("extraEnv entry missing from built env")
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestPrependGitArgs_nilReceiverReturnsArgsUnchanged(t *testing.T) {
