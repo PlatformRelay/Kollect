@@ -245,9 +245,10 @@ helm install kollect ./kollect-${VERSION}.tgz -n kollect-system --create-namespa
 
 The chart keeps its default `ghcr.io/platformrelay/kollect` **repository** — step 3 makes nodes
 resolve that host from the lab registry, so no `image.repository` override is needed. You **must**,
-however, set `image.tag=${VERSION}`: the chart's default tag is `latest`, but step 2 pushes only
-`:${VERSION}` to the lab registry (the mirror rewrites the host, not the tag), so a default-tag
-install would try to pull a `:latest` image that was never pushed and fail with `ImagePullBackOff`.
+however, set `image.tag=${VERSION}`: the chart's default tag resolves to the v-prefixed release
+image (`:v${VERSION}`), but step 2 below rebuilds and pushes only the bare `:${VERSION}` to the lab
+registry (the mirror rewrites the host, not the tag), so a default-tag install would try to pull a
+`:v${VERSION}` image that this lab flow never pushed and fail with `ImagePullBackOff`.
 
 ### 2. Rebuild the manager image into a dual-bound lab registry
 

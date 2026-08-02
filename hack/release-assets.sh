@@ -20,9 +20,13 @@ if [[ ! -x "${KUSTOMIZE}" ]]; then
   make -C "${ROOT}" kustomize >/dev/null
 fi
 
+# DR-FIND-07: pin install.yaml to the v-prefixed controller image tag. The bare
+# "<version>" tag is no longer published for the controller image (the Helm chart
+# occupies ghcr.io/<owner>/kollect:<version> on GHCR), so the raw-manifest install
+# path must reference ":v<version>".
 (
   cd "${WORK}/config/manager"
-  "${KUSTOMIZE}" edit set image "controller=${IMAGE}:${VERSION}"
+  "${KUSTOMIZE}" edit set image "controller=${IMAGE}:v${VERSION}"
 )
 
 "${KUSTOMIZE}" build "${WORK}/config/default" >"${DIST}/install.yaml"

@@ -171,7 +171,7 @@ Or use a values file — see [Operator manual — Per-team install](operator-man
 | `tenantMode` | `false` | Namespaced RBAC for team installs |
 | `watchNamespaces` | `[]` | Restrict informer cache |
 | `featureGates.inventoryHttp.enabled` | `false` | Debug HTTP API |
-| `image.tag` | chart default | Pin in production |
+| `image.tag` | `""` → `v<appVersion>` | Empty resolves to the published controller image tag |
 
 Full list: [`charts/kollect/values.yaml`](https://github.com/platformrelay/kollect/blob/main/charts/kollect/values.yaml). Validation:
 `task helm-test`.

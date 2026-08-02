@@ -1,7 +1,7 @@
 ## Container image (operator)
 
 ```
-${IMAGE_REPO}:${VERSION}
+${IMAGE_REPO}:${TAG}
 ```
 
 Multi-arch (`linux/amd64`, `linux/arm64`), Debian bookworm-slim nonroot base (includes `git` and `openssh-client` for `spec.git.engine: cli`).
@@ -51,7 +51,7 @@ helm upgrade --install kollect ${CHART_OCI}/kollect \
   --namespace kollect-system \
   --create-namespace \
   --set image.repository=${IMAGE_REPO} \
-  --set image.tag=${VERSION}
+  --set image.tag=${TAG}
 ```
 
 ## Install (Helm — GitHub Release tarball)
@@ -61,7 +61,7 @@ helm upgrade --install kollect kollect-${VERSION}.tgz \
   --namespace kollect-system \
   --create-namespace \
   --set image.repository=${IMAGE_REPO} \
-  --set image.tag=${VERSION}
+  --set image.tag=${TAG}
 ```
 
 Verify checksums with `sha256sum -c checksums.txt`. Each release asset includes a

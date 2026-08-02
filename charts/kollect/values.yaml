@@ -11,8 +11,8 @@ createNamespace: false
 image:
   # -- Controller container image repository.
   repository: ghcr.io/platformrelay/kollect
-  # -- Controller image tag (defaults to chart appVersion when empty).
-  tag: latest
+  # -- Controller image tag. Defaults to `v<appVersion>` (the published controller image tag) when empty.
+  tag: ""
   # -- Controller image pull policy.
   pullPolicy: IfNotPresent
 

@@ -161,7 +161,13 @@ jobs:
           OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
           IMAGE="${{ env.REGISTRY }}/${OWNER}/${{ env.IMAGE_NAME }}"
           echo "repository=${IMAGE}" >> "${GITHUB_OUTPUT}"
-          echo "tags=${IMAGE}:${{ steps.version.outputs.version }},${IMAGE}:${{ steps.version.outputs.tag }}" >> "${GITHUB_OUTPUT}"
+          # DR-FIND-07: push the controller image ONLY at the v-prefixed tag.
+          # The bare "<version>" tag (e.g. :0.13.0) is intentionally omitted here
+          # because the Helm chart is later `helm push`ed to the same OCI repo path
+          # and occupies ghcr.io/<owner>/kollect:<version>. Publishing the image at
+          # the bare tag too would let the chart clobber it, so default/bare-tag
+          # pulls would get a chart artifact (CreateContainerConfigError).
+          echo "tags=${IMAGE}:${{ steps.version.outputs.tag }}" >> "${GITHUB_OUTPUT}"
 
       - name: Build and push controller image
         id: build
@@ -179,7 +185,9 @@ jobs:
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ steps.image.outputs.repository }}:${{ steps.version.outputs.version }}
+          # DR-FIND-07: scan by digest — the bare "<version>" tag is no longer
+          # published for the controller image (see the `image` step above).
+          image-ref: ${{ steps.image.outputs.repository }}@${{ steps.build.outputs.digest }}
           format: table
           exit-code: 1
           ignore-unfixed: true
@@ -300,6 +308,7 @@ jobs:
           echo "oci=oci://${{ env.REGISTRY }}/${OWNER}" >> "${GITHUB_OUTPUT}"
 
       - name: Publish and sign Helm chart (OCI)
+        id: chart-publish
         run: |
           set -euo pipefail
           CHART_PKG="dist/kollect-${{ steps.version.outputs.version }}.tgz"
@@ -310,10 +319,44 @@ jobs:
             echo "failed to extract chart digest from helm push output" >&2
             exit 1
           fi
+          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
           OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
           CHART_REF="${{ env.REGISTRY }}/${OWNER}/kollect@${DIGEST}"
           echo "Signing ${CHART_REF}"
           cosign sign --yes "${CHART_REF}"
+
+      - name: Guard against image/chart GHCR tag collision (DR-FIND-07)
+        env:
+          IMAGE_REPO: ${{ steps.image.outputs.repository }}
+          IMAGE_TAGS: ${{ steps.image.outputs.tags }}
+          VERSION: ${{ steps.version.outputs.version }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          CHART_DIGEST: ${{ steps.chart-publish.outputs.digest }}
+        run: |
+          set -euo pipefail
+          # DR-FIND-07 regression guard. The chart is helm-pushed to the SAME OCI
+          # repo path as the controller image and occupies the bare "<version>" tag
+          # (ghcr.io/<owner>/kollect:<version>). If the controller image were ever
+          # published at that bare tag again, the chart would clobber the runnable
+          # image and default/bare-tag pulls would fail with CreateContainerConfigError.
+          #
+          # (1) Primary guard: the controller image tag list must NOT contain the
+          #     bare "<repo>:<version>" tag path the chart owns. This is the real
+          #     collision condition (a shared tag path between two artifacts) and
+          #     uses only values already produced by the workflow — no crane/oras.
+          BARE_TAG="${IMAGE_REPO}:${VERSION}"
+          if printf '%s' "${IMAGE_TAGS}" | tr ',' '\n' | grep -Fxq "${BARE_TAG}"; then
+            echo "DR-FIND-07: controller image is tagged ${BARE_TAG}, which the Helm chart occupies on GHCR — the chart would clobber the runnable image. Publish the image at the v-prefixed tag only." >&2
+            exit 1
+          fi
+          # (2) Sanity compare: the image manifest digest and the chart OCI manifest
+          #     digest must differ. These are always distinct artifact types, so this
+          #     is a belt-and-suspenders check, NOT the primary collision detector.
+          if [[ "${IMAGE_DIGEST}" == "${CHART_DIGEST}" ]]; then
+            echo "DR-FIND-07: controller image digest equals chart digest (${IMAGE_DIGEST}) — the same artifact was published for both." >&2
+            exit 1
+          fi
+          echo "DR-FIND-07 guard passed: image tags='${IMAGE_TAGS}' do not include the chart's bare tag '${BARE_TAG}'; image/chart digests differ."
 
       - name: Generate changelog
         id: cliff
