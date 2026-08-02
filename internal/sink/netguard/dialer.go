@@ -20,6 +20,13 @@ import (
 // false; the integration build tag may flip it for loopback testcontainers only.
 var DefaultDialer = NewDialer(nil, nil)
 
+// ipv6MetadataAddr is the AWS IPv6 instance-metadata (IMDS) endpoint. It is an
+// IPv6-ULA address, so it would otherwise be permitted under the
+// --allow-private-sinks opt-in; it is denied unconditionally, mirroring the
+// IPv4 link-local deny of 169.254.169.254. Carved narrowly to this single
+// literal so legitimate IPv6-ULA sinks the opt-in exists for stay reachable.
+var ipv6MetadataAddr = netip.MustParseAddr("fd00:ec2::254")
+
 // Resolver is the DNS surface used by Dialer. It is intentionally injectable so
 // rebinding and mixed-answer behavior can be verified without live DNS.
 type Resolver interface {
@@ -56,8 +63,9 @@ type Dialer struct {
 	// allowPrivateSinks is the NET-01 production opt-in (DR-FIND-05 Option A):
 	// when true it permits RFC1918 / IPv6-ULA sink targets (e.g. in-cluster
 	// ClusterIP services) while STILL denying loopback, link-local (which
-	// includes the cloud-metadata IP 169.254.169.254), unspecified, multicast,
-	// carrier-grade-NAT, and benchmark ranges. It is strictly narrower than
+	// includes the cloud-metadata IP 169.254.169.254), the AWS IPv6 IMDS
+	// literal fd00:ec2::254, unspecified, multicast, carrier-grade-NAT, and
+	// benchmark ranges. It is strictly narrower than
 	// allowPrivate. Default false (deny); set process-wide from the manager
 	// --allow-private-sinks flag via SetAllowPrivateSinks.
 	allowPrivateSinks bool
@@ -220,13 +228,15 @@ func isMetadataHostnameNormalized(normalized string) bool {
 
 // validateAddress rejects non-globally-routable sink targets. When allowPrivate
 // is true (the NET-01 opt-in) RFC1918 / IPv6-ULA addresses are permitted, but
-// every other denial — loopback, link-local (incl. cloud metadata), unspecified,
-// multicast, carrier-grade-NAT, and benchmark — still applies. allowPrivate
-// false is the deny-by-default path (fail closed).
+// every other denial — loopback, link-local (incl. IPv4 cloud metadata), the
+// AWS IPv6 IMDS literal fd00:ec2::254, unspecified, multicast,
+// carrier-grade-NAT, and benchmark — still applies. allowPrivate false is the
+// deny-by-default path (fail closed).
 func validateAddress(address netip.Addr, allowPrivate bool) error {
 	address = address.Unmap()
 	if !address.IsValid() || address.IsUnspecified() || address.IsLoopback() ||
-		address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() || address.IsMulticast() {
+		address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() || address.IsMulticast() ||
+		address == ipv6MetadataAddr {
 		return fmt.Errorf("IP %s is not globally routable", address)
 	}
 	if address.IsPrivate() && !allowPrivate {

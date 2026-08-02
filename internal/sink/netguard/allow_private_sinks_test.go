@@ -33,6 +33,10 @@ func TestValidateAddress_allowPrivateSinksMatrix(t *testing.T) {
 		{"ula on allowed", "fd00::1", true, true},
 		// On: hard denials remain (the discriminators that matter).
 		{"metadata IP stays denied on", "169.254.169.254", true, false},
+		// SEC-IMDS6: the AWS IPv6 IMDS literal is IPv6-ULA (IsPrivate) but must
+		// stay denied under the opt-in, while generic ULA (fd00::1 above) stays
+		// allowed — proving the carve-out is the single literal, not fd00::/8.
+		{"ipv6 metadata stays denied on", "fd00:ec2::254", true, false},
 		{"link-local stays denied on", "169.254.10.10", true, false},
 		{"ipv6 link-local stays denied on", "fe80::1", true, false},
 		{"loopback stays denied on", "127.0.0.1", true, false},
