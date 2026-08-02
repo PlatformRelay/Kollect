@@ -211,17 +211,17 @@ func TestApplyCLIEnvAndPrependGitArgs(t *testing.T) {
 	if len(cmd.Env) == 0 {
 		t.Fatal("expected command env to be populated")
 	}
-	const wantKey = "KOLLECT_TEST_FLAG=1"
+	const wantEnvVar = "KOLLECT_TEST_FLAG=1"
 	found := false
 	for _, e := range cmd.Env {
-		if e == wantKey {
+		if e == wantEnvVar {
 			found = true
 			break
 		}
 	}
 	if !found {
-		// Never print cmd.Env: it embeds os.Environ() (secrets). Name the key.
-		t.Fatalf("injected var %q not found in cmd.Env", wantKey)
+		// Never print cmd.Env: it embeds os.Environ() (secrets). Name the var.
+		t.Fatalf("injected var %q not found in cmd.Env", wantEnvVar)
 	}
 
 	args := cli.prependGitArgs("push", "origin", "main")
