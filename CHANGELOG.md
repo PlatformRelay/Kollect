@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **netguard:** Strip IPv6 zone before IMDS deny check so fd00:ec2::254%zone can't bypass allow-private-sinks (SEC-IMDS6 F1) ([#168](https://github.com/platformrelay/kollect/pull/168))[7374c97](https://github.com/platformrelay/kollect/commit/7374c9722554393ba00419de282da2d83fb8c5ff)
+
+- **netguard:** Deny IPv6 cloud-metadata (fd00:ec2::254) even under allow-private-sinks (SEC-IMDS6) [beac131](https://github.com/platformrelay/kollect/commit/beac131f13a8ef045485e795432243e4a05ba203)
+
 - **arch-lint:** Exclude .claude and ui from architecture scan (ARCH-A1) ([#167](https://github.com/platformrelay/kollect/pull/167))[ee7e8a8](https://github.com/platformrelay/kollect/commit/ee7e8a8417ec35782c2517014ec6c409add650b7)
 
 - **sink/kafka:** Require all acks to prevent silent message loss (REL-07) ([#166](https://github.com/platformrelay/kollect/pull/166))[c78ab77](https://github.com/platformrelay/kollect/commit/c78ab77b6560afeb1ac59d929f3548738dc8cf83)
