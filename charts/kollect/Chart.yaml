@@ -2,8 +2,8 @@ apiVersion: v2
 name: kollect
 description: Kubernetes inventory export operator (kollect.dev)
 type: application
-version: 0.13.0
-appVersion: "0.13.0"
+version: 0.14.0
+appVersion: "0.14.0"
 kubeVersion: ">=1.28.0-0"
 home: https://github.com/platformrelay/kollect
 icon: https://raw.githubusercontent.com/platformrelay/kollect/main/docs/assets/logo.svg
