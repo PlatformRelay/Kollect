@@ -40,7 +40,7 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | fullnameOverride | string | `""` | Override the full resource name prefix (defaults to release name + chart name). |
 | image.pullPolicy | string | `"IfNotPresent"` | Controller image pull policy. |
 | image.repository | string | `"ghcr.io/platformrelay/kollect"` | Controller container image repository. |
-| image.tag | string | `"latest"` | Controller image tag (defaults to chart appVersion when empty). |
+| image.tag | string | `""` | Controller image tag. Defaults to `v<appVersion>` (the published controller image tag) when empty. |
 | imagePullSecrets | list | `[]` | Image pull secrets for private registries. |
 | largeCluster.controller.collectDispatchQueueSize | int | `2048` |  |
 | largeCluster.controller.collectDispatchWorkers | int | `8` |  |

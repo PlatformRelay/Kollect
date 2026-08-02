@@ -27,7 +27,7 @@ knobs; the authoritative full list lives in the chart tree.
 | Key | Description | Default |
 | --- | --- | --- |
 | `image.repository` | Controller image | `ghcr.io/platformrelay/kollect` |
-| `image.tag` | Image tag | `latest` (**pin in production**) |
+| `image.tag` | Image tag | `""` → resolves to `v<appVersion>`, the published controller image |
 | `replicaCount` | Manager pod replicas | `1` |
 | `leaderElection.enabled` | Controller-runtime leader election | `true` |
 | `mode` | Operator deployment mode — **single-cluster only**; fleets run N single-mode operators ([ADR-0501](../adr/0501-multi-cluster-fleet.md)) | `single` |

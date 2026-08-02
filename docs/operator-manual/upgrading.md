@@ -83,7 +83,9 @@ helm upgrade kollect oci://ghcr.io/platformrelay/kollect \
 kubectl apply -f install.yaml
 ```
 
-Pin `image.tag` (or use the release-pinned `install.yaml`) in production — do not rely on `latest`.
+Pin `image.tag` to a specific release (or use the release-pinned `install.yaml`) in production. The
+chart default resolves to `v<appVersion>` — the image shipped with that chart version — rather than a
+floating `latest` tag.
 
 ### 4. Wait for rollout
 

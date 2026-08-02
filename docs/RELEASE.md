@@ -224,7 +224,7 @@ and the protected `release` environment.
 
 | Output | Location |
 | --- | --- |
-| Container image (operator) | `ghcr.io/platformrelay/kollect:<version>` (and `:v<version>`), `linux/amd64` + `arm64` |
+| Container image (operator) | `ghcr.io/platformrelay/kollect:v<version>` only, `linux/amd64` + `arm64` (the bare `:<version>` tag on this repo path hosts the Helm chart — DR-FIND-07) |
 | Container image (pipeline CLI) | `ghcr.io/platformrelay/kollect-pipeline:<version>` (and `:v<version>`), `linux/amd64` + `arm64` |
 | OCI SBOM + SLSA provenance | GHCR attestations on operator and pipeline images |
 | GitHub Release | git-cliff section + install footer; assets below |
@@ -249,7 +249,9 @@ and [`.github/release-notes-install.md`](https://github.com/platformrelay/kollec
 TAG=v0.2.0-rc.1   # or your release tag
 REPO=platformrelay/kollect
 
-OP_DIGEST="$(crane digest ghcr.io/${REPO}/kollect:${TAG#v})"
+# DR-FIND-07: the operator image is published at the v-prefixed tag only; the
+# bare "${TAG#v}" tag on this repo path is the Helm chart, so digest by ${TAG}.
+OP_DIGEST="$(crane digest ghcr.io/${REPO}/kollect:${TAG})"
 PIPELINE_DIGEST="$(crane digest ghcr.io/${REPO}/kollect-pipeline:${TAG#v})"
 
 cosign verify \

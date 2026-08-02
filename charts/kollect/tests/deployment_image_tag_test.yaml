@@ -1,0 +1,28 @@
+suite: controller image tag resolution (DR-FIND-07)
+templates:
+  - deployment.yaml
+tests:
+  - it: defaults the controller image to the v-prefixed appVersion tag when image.tag is unset
+    asserts:
+      # The chart owns the bare "<version>" OCI tag on GHCR; the runnable image
+      # lives only at ":v<version>". A default install must resolve to that tag.
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: ^ghcr\.io/platformrelay/kollect:v[0-9]+\.[0-9]+\.[0-9]+$
+  - it: honors an explicit image.tag override
+    set:
+      image:
+        tag: 1.2.3
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/platformrelay/kollect:1.2.3
+  - it: honors an explicit image.repository and tag override together
+    set:
+      image:
+        repository: registry.example.com/team/kollect
+        tag: v9.9.9
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.example.com/team/kollect:v9.9.9
