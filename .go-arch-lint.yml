@@ -11,6 +11,8 @@ exclude:
   - references
   - kollect-repos
   - agent-context
+  - .claude
+  - ui
 allow:
   depOnAnyVendor: true
 
