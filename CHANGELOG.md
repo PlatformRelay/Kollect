@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **test:** Fall back to grep when ripgrep missing ([#161](https://github.com/platformrelay/kollect/pull/161))[66a900d](https://github.com/platformrelay/kollect/commit/66a900da41f909c0c484fcfe1afe5044d421c98e)
+
+- **test:** Capture rg exit code outside if-negation [f2fcafa](https://github.com/platformrelay/kollect/commit/f2fcafa98aa653b9c62ab1dbada999fa66f7e9ce)
+
 - **docs:** Tighten freshness contracts ([#159](https://github.com/platformrelay/kollect/pull/159))[38aa5e9](https://github.com/platformrelay/kollect/commit/38aa5e98bc7651ad149186b14a805879dc1b384e)
 
 - **docs:** Validate Chrome executable ([#158](https://github.com/platformrelay/kollect/pull/158))[f71f4c2](https://github.com/platformrelay/kollect/commit/f71f4c222ef787bb70312acdbd411ec81fea475a)
