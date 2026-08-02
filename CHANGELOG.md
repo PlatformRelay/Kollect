@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **test:** Rename wantKey→wantEnvVar to clear gitleaks generic-api-key false-positive on main ([#170](https://github.com/platformrelay/kollect/pull/170))[2155e27](https://github.com/platformrelay/kollect/commit/2155e278bb426098280851126ca027109edd3a17)
+
 - **sink/git:** Pin LC_ALL=C so git stderr classification is locale-independent (REL-01) ([#169](https://github.com/platformrelay/kollect/pull/169))[8564bb0](https://github.com/platformrelay/kollect/commit/8564bb0f53a8cbcccf66fb0fa8d263633953cb71)
 
 - **netguard:** Strip IPv6 zone before IMDS deny check so fd00:ec2::254%zone can't bypass allow-private-sinks (SEC-IMDS6 F1) ([#168](https://github.com/platformrelay/kollect/pull/168))[7374c97](https://github.com/platformrelay/kollect/commit/7374c9722554393ba00419de282da2d83fb8c5ff)
