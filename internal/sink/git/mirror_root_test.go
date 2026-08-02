@@ -103,10 +103,12 @@ func TestMirrorRootDir_hostileSymlinkNotAdopted(t *testing.T) {
 }
 
 func TestDefaultMirrorRoot_containerWithoutHomeFallsBackToTempDir(t *testing.T) {
-	// The shipped container runs as a fixed non-root UID with neither HOME
-	// nor XDG_CACHE_HOME set, so os.UserCacheDir() always errors there.
-	// Lock in that this falls back to the historical, still-guarded path
-	// rather than silently producing something else.
+	// When neither HOME nor XDG_CACHE_HOME is set, os.UserCacheDir() errors,
+	// so there is no cache candidate at all. Lock in that defaultMirrorRoot()
+	// then yields the historical, still-guarded temp path rather than silently
+	// producing something else. (In the shipped container HOME *is* set, but
+	// its cache path is on the read-only rootfs -- that runtime fallback lives
+	// in mirrorRootDir(); see TestMirrorRootDir_readOnlyCacheFallsBackToTempDir.)
 	t.Setenv("HOME", "")
 	t.Setenv("XDG_CACHE_HOME", "")
 

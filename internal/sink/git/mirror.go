@@ -32,29 +32,60 @@ const (
 // symlink or a fake "warm" mirror for kollect to read from or write into.
 var errMirrorRootInsecure = errors.New("mirror root directory is not safe to reuse")
 
-// defaultMirrorRoot prefers a per-user cache dir when the environment
-// defines one. The shipped container image runs as a fixed non-root UID
-// with neither HOME nor XDG_CACHE_HOME set, so os.UserCacheDir() always
-// errors there and this intentionally falls back to the historical
-// TempDir()-based path -- that's fine: ensureSecureMirrorRoot's
-// ownership/permission checks are the actual control, not which parent
-// directory gets chosen, and the container's /tmp is a per-pod emptyDir
-// with no co-tenant to plant a hostile entry.
-func defaultMirrorRoot() string {
+// defaultCacheMirrorRoot returns the per-user cache candidate, or "" when the
+// environment defines no usable cache dir (os.UserCacheDir() errors when
+// neither HOME nor XDG_CACHE_HOME is set).
+func defaultCacheMirrorRoot() string {
 	if cacheDir, err := os.UserCacheDir(); err == nil && cacheDir != "" {
 		return filepath.Join(cacheDir, "kollect", "git-mirrors")
 	}
 
+	return ""
+}
+
+// defaultTempMirrorRoot returns the historical TempDir()-based candidate. It
+// honors TMPDIR via os.TempDir() rather than hardcoding /tmp, and in the
+// shipped container it resolves to the per-pod writable emptyDir mounted at
+// /tmp.
+func defaultTempMirrorRoot() string {
 	return filepath.Join(os.TempDir(), "kollect-git-mirrors")
 }
 
-func mirrorRootDir() (string, error) {
-	dir := strings.TrimSpace(os.Getenv(envMirrorDir))
-	if dir == "" {
-		dir = defaultMirrorRoot()
+// defaultMirrorRoot is the computed-default identity used by regression tests:
+// the per-user cache path when available, else the temp-based path. The live
+// resolver mirrorRootDir() layers a runtime fallback on top of this (see
+// there); this bare form must stay so those tests can assert which candidate
+// the environment resolves to.
+func defaultMirrorRoot() string {
+	if cacheRoot := defaultCacheMirrorRoot(); cacheRoot != "" {
+		return cacheRoot
 	}
 
-	return ensureSecureMirrorRoot(dir)
+	return defaultTempMirrorRoot()
+}
+
+func mirrorRootDir() (string, error) {
+	if dir := strings.TrimSpace(os.Getenv(envMirrorDir)); dir != "" {
+		// Explicit operator config: honor it exactly. Operator intent must
+		// never be silently redirected, so no fallback here -- error out if
+		// the chosen path can't be secured.
+		return ensureSecureMirrorRoot(dir)
+	}
+
+	// Computed default: prefer the per-user cache dir, but the shipped
+	// container puts $HOME/.cache on the read-only rootfs, so securing the
+	// cache candidate fails there (mkdir on a read-only parent). Fall back to
+	// the temp-based path, which the chart mounts as a writable per-pod
+	// emptyDir at /tmp. A security rejection (errMirrorRootInsecure) on the
+	// cache path also falls through -- that's fine, ensureSecureMirrorRoot
+	// re-validates ownership/permissions on the temp path independently.
+	if cacheRoot := defaultCacheMirrorRoot(); cacheRoot != "" {
+		if dir, err := ensureSecureMirrorRoot(cacheRoot); err == nil {
+			return dir, nil
+		}
+	}
+
+	return ensureSecureMirrorRoot(defaultTempMirrorRoot())
 }
 
 // ensureSecureMirrorRoot creates dir (mode mirrorRootPerm) if it doesn't
