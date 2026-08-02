@@ -67,9 +67,14 @@ done < <(
 
 pattern='kollect-ui|UI_IMAGE_|sbom-ui|ui-playwright-msw|ui-ci\.yaml|charts/kollect-ui|operator-manual/ui\.md|ui-local-development|0408-read-api-ui|0409-kollect-ui|0410-ui-engineering|0411-read-api-extensions|0412-mock-read-api|task ui-|build-ui|ghcr\.io/.*/kollect-ui'
 
-hits="$(
-  rg -n --no-heading -e "${pattern}" "${scan_files[@]}" 2>/dev/null || true
-)"
+hits=""
+if ! hits="$(rg -n --no-heading -e "${pattern}" "${scan_files[@]}" 2>/dev/null)"; then
+  rc=$?
+  # rg exit codes: 0=matches, 1=no matches, 2+=error.
+  if [[ ${rc} -ne 1 ]]; then
+    fail "ripgrep failed while scanning for residual UI references (rc=${rc})"
+  fi
+fi
 
 # Drop allowlisted false positives (webhook "ui", Charm Gum helper mentions).
 filtered="$(
