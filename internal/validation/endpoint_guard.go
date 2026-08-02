@@ -232,8 +232,12 @@ func isDeniedIP(addr netip.Addr) bool {
 	if addr.IsPrivate() && !allowPrivateSinks.Load() {
 		return true
 	}
+	// Prefix.Contains returns false for a zoned IPv6 addr, so strip the zone
+	// first — a zoned literal (e.g. fd00:ec2::254%eth0) is the same forbidden
+	// target and must still match the deny-list.
+	unzoned := addr.WithZone("")
 	for _, prefix := range denyCIDRs {
-		if prefix.Contains(addr) {
+		if prefix.Contains(unzoned) {
 			return true
 		}
 	}
