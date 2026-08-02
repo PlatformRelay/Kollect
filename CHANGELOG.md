@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **arch-lint:** Exclude .claude and ui from architecture scan (ARCH-A1) ([#167](https://github.com/platformrelay/kollect/pull/167))[ee7e8a8](https://github.com/platformrelay/kollect/commit/ee7e8a8417ec35782c2517014ec6c409add650b7)
+
 - **sink/kafka:** Require all acks to prevent silent message loss (REL-07) ([#166](https://github.com/platformrelay/kollect/pull/166))[c78ab77](https://github.com/platformrelay/kollect/commit/c78ab77b6560afeb1ac59d929f3548738dc8cf83)
 
 - **release:** Stop chart clobbering the controller image tag on GHCR (DR-FIND-07) ([#164](https://github.com/platformrelay/kollect/pull/164))[2ab126a](https://github.com/platformrelay/kollect/commit/2ab126ac410d6e584937009a3162fbd8ababf81a)
