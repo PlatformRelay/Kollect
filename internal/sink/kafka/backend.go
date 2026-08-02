@@ -57,10 +57,16 @@ func NewBackend(
 	}
 
 	writer := &kafka.Writer{
-		Addr:      kafka.TCP(cfg.Brokers...),
-		Topic:     cfg.Topic,
-		Balancer:  &kafka.LeastBytes{},
-		Transport: transport,
+		Addr:     kafka.TCP(cfg.Brokers...),
+		Topic:    cfg.Topic,
+		Balancer: &kafka.LeastBytes{},
+		// Wait for all in-sync replicas before WriteMessages returns.
+		// This struct-literal construction bypasses NewWriter's 0 ->
+		// RequireAll coercion, so RequiredAcks must be set explicitly;
+		// otherwise it defaults to RequireNone and events are silently
+		// lost on post-accept broker/leader failure (REL-07).
+		RequiredAcks: kafka.RequireAll,
+		Transport:    transport,
 	}
 
 	return &Backend{cfg: cfg, writer: writer}, nil
