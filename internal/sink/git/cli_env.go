@@ -98,14 +98,26 @@ func cfgNeedsCLISSH(cfg Config, authType AuthType) bool {
 	return u.Scheme == schemeSSH || authType == AuthTypeSSH
 }
 
+// deterministicLocaleEnv forces git to emit English, C-locale stderr so the
+// English substring classifiers (isCLIEmptyRemote, isNonFastForwardError,
+// isTransientTransportError, isAuthFailure) stay reliable regardless of the
+// operator's ambient LANG/LC_ALL (REL-01). Appended after os.Environ() so it
+// overrides any inherited locale values.
+var deterministicLocaleEnv = []string{"LC_ALL=C", "LANG=C"}
+
 func applyCLIEnv(cmd *exec.Cmd, cli *cliEnv) {
 	if cmd == nil {
 		return
 	}
 
+	// Always pin a deterministic locale so git stderr is English, then layer
+	// any auth/SSL extraEnv on top. Both are appended after os.Environ() so
+	// later entries win over inherited values.
+	env := append(os.Environ(), deterministicLocaleEnv...)
 	if cli != nil && len(cli.extraEnv) > 0 {
-		cmd.Env = append(os.Environ(), cli.extraEnv...)
+		env = append(env, cli.extraEnv...)
 	}
+	cmd.Env = env
 }
 
 func (c *cliEnv) prependGitArgs(args ...string) []string {
