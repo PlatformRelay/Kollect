@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink/git:** Pin LC_ALL=C so git stderr classification is locale-independent (REL-01) ([#169](https://github.com/platformrelay/kollect/pull/169))[8564bb0](https://github.com/platformrelay/kollect/commit/8564bb0f53a8cbcccf66fb0fa8d263633953cb71)
+
 - **netguard:** Strip IPv6 zone before IMDS deny check so fd00:ec2::254%zone can't bypass allow-private-sinks (SEC-IMDS6 F1) ([#168](https://github.com/platformrelay/kollect/pull/168))[7374c97](https://github.com/platformrelay/kollect/commit/7374c9722554393ba00419de282da2d83fb8c5ff)
 
 - **netguard:** Deny IPv6 cloud-metadata (fd00:ec2::254) even under allow-private-sinks (SEC-IMDS6) [beac131](https://github.com/platformrelay/kollect/commit/beac131f13a8ef045485e795432243e4a05ba203)
