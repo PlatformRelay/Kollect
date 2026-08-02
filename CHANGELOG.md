@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink/kafka:** Require all acks to prevent silent message loss (REL-07) ([#166](https://github.com/platformrelay/kollect/pull/166))[c78ab77](https://github.com/platformrelay/kollect/commit/c78ab77b6560afeb1ac59d929f3548738dc8cf83)
+
 - **release:** Stop chart clobbering the controller image tag on GHCR (DR-FIND-07) ([#164](https://github.com/platformrelay/kollect/pull/164))[2ab126a](https://github.com/platformrelay/kollect/commit/2ab126ac410d6e584937009a3162fbd8ababf81a)
 
 - **sink/git:** Fall back to writable temp dir when cache root is read-only (DR-FIND-06) ([#163](https://github.com/platformrelay/kollect/pull/163))[9d0bd61](https://github.com/platformrelay/kollect/commit/9d0bd61e1e6f7d314892b8fcd495d6ef87546e46)
