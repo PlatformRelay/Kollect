@@ -78,11 +78,42 @@ unchanged.
 The default **Git/GitLab sink serializes to YAML** via the human-readable layout projection
 ([ADR-0419](0419-git-export-serialization-layout.md)), which **intentionally emits bare `Item` rows and
 carries NO `ExportEnvelope` metadata** — no `schemaVersion`, `checksum`, `itemCount`, `generation`, or
-`partIndex`/`partTotal`. Consequently, **payload-level completeness detection does not apply to default
-Git/GitLab (YAML) sinks** (nor to any per-resource / split layout). Extending the marker into the YAML
-layout — e.g. a per-set manifest/index sidecar that records the part set and generation — is a
-deliberate **follow-up**, not part of this contract. The behavior is regression-guarded by
-`TestResolveSnapshotExport_GitDefaultYAMLDropsCompletenessMarker`.
+`partIndex`/`partTotal` inside the data files. Payload-level (per-row) completeness detection therefore
+does not apply to YAML sinks. Instead, a multipart YAML set carries its completeness marker in a
+**per-set manifest sidecar** (REL-02-FUP), giving YAML consumers the same torn-set / stale-set guarantee
+JSON consumers already have.
+
+**Per-set manifest sidecar (YAML layout, REL-02-FUP).** A prune-bearing layout export
+(`layout.mode: perResource`/`split`) that shards into **more than one part** writes exactly one manifest
+sidecar for the whole set:
+
+- **Path** — deterministic and per-*set*: `inventory/{namespace}/{name}.manifest.json`. It carries **no**
+  `{generation}` or part placeholders, so a re-export at a new generation **replaces** the manifest in
+  place (replaced-not-orphaned) rather than accumulating stale siblings. The `.manifest.json` extension
+  is distinct from the `.yaml`/`.ndjson` data files, so an existing consumer globbing
+  `inventory/{ns}/*.yaml` **skips it** (graceful-ignore).
+- **Shape** — a `layout.SetManifest`, always serialised as **JSON** (a machine-readable control file,
+  independent of `serialization.format`). It self-identifies via `kind: KollectExportSetManifest` and
+  `schemaVersion` (== `ExportSchemaVersion`, additive-only per rule 2), and declares `generation`,
+  `partTotal`, the per-part identifiers `parts: [1..partTotal]`, and `paths` — the **union** of every
+  part's projected data-file paths.
+- **Distinct from the split `Index`** — `layout.Index` is the per-*projection* split-mode sidecar (one
+  projection's rows, for CI gating); `SetManifest` spans **every part** of one multipart set. When a
+  split-mode export is also multipart the two coexist at different paths and self-identify by `kind`.
+- **Scope** — the sidecar targets prune-bearing tree layouts, where parts occupy **distinct** paths and a
+  torn set is possible. It is **not** emitted for single-part exports (byte-compatible with today, no
+  sidecar) nor for `document` mode (all parts overwrite one path — a degenerate set; `document` is
+  `prune: off`). Its prune interaction is specified in [ADR-0419](0419-git-export-serialization-layout.md).
+
+**Consumer validation (YAML sidecar contract).** A consumer confirms a YAML set is complete by reading
+the manifest and checking that **every path in `paths` exists on disk** (a missing path = a torn set, a
+part failed to persist) and that `generation` matches the generation it expects (from the CR status or
+commit metadata — the same expected-generation signal the JSON contract uses; a mismatch = a stale set
+left by a torn export that never rewrote the manifest). `layout.VerifySet` implements this rule (and, for
+generation-scoped path templates, additionally surfaces prior-generation orphan data files); its
+`present` argument may be a raw directory listing — the `.manifest.json` sidecar is an expected member of
+the set, never counted as a stale extra. A single-part export writes **no** sidecar and is complete on
+its own, byte-identical to the pre-marker shape (additive evolution, rule 2).
 
 **Consumer validation (JSON envelope contract).** A consumer reassembling a set from JSON envelopes
 MUST verify it holds every index `1..partTotal`, that the count equals `partTotal`, and that

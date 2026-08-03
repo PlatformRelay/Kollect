@@ -252,6 +252,44 @@ sub-second durations are valid (cap: 24h), but wake-ups floor at 1s, so anything
 like `0s`. See [DATA-FLOWS §1](../concepts/export-pipeline.md#debounce-and-interval-precedence) and
 [ADR-0413](../adr/0413-export-interval-scheduling.md).
 
+### How do I confirm a multipart YAML export set is complete (not torn or stale)?
+
+A Git/GitLab snapshot that exceeds `maxExportBytes` is sharded into several parts written one after
+another. The human-readable YAML data files carry no envelope metadata, so completeness is confirmed
+from the **per-set manifest sidecar** at `inventory/<namespace>/<name>.manifest.json`
+([ADR-0405](../adr/0405-export-data-contract.md)). A single-part export writes **no** sidecar and is
+complete on its own.
+
+Read the sidecar and apply two checks:
+
+```bash
+# 1) Fetch the manifest for the export set.
+cat inventory/default/partitioned-inventory.manifest.json
+# {
+#   "kind": "KollectExportSetManifest",
+#   "generation": 7,
+#   "partTotal": 3,
+#   "parts": [1, 2, 3],
+#   "paths": ["default/team-a/Deployment/api.yaml", "…/web.yaml", "…/worker.yaml"]
+# }
+
+# 2) COMPLETE-check: every path in "paths" must exist on disk. Any missing path = a torn set
+#    (a part failed to persist). This prints the paths that are MISSING (empty output = complete):
+jq -r '.paths[]' inventory/default/partitioned-inventory.manifest.json \
+  | while read -r p; do [ -f "$p" ] || echo "MISSING: $p"; done
+```
+
+- **Torn set** — a path in `paths` is missing on disk: an earlier part failed before the set finished.
+  The manifest is only written on the successful final part, so **no manifest at all** beside part files
+  is itself a torn set (the run never completed).
+- **Stale set** — the manifest's `generation` does not match the generation you expect (from the
+  inventory's `status` / the commit metadata). A torn re-export can leave a prior-generation manifest in
+  place; compare `generation` before trusting the set.
+
+`generation` is uniform across a healthy set, `partTotal` is the expected part count, and `parts` lists
+the per-part identifiers a complete set must hold. The controller performs this same validation via
+`layout.VerifySet`.
+
 ## Pre-beta expectations
 
 ### Is Kollect safe for production today?

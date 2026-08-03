@@ -101,6 +101,32 @@ spec:
 The same layout and serializers are shared by GitLab export. Commit policy, author identity, and
 message templates remain the concerns of [ADR-0415](0415-git-sink-commit-ergonomics.md).
 
+### Per-set manifest sidecar (multipart torn-set detection)
+
+The YAML/tree projection emits bare `Item` rows with no envelope metadata, so a size-sharded
+(multipart) export could otherwise leave a **torn** set (a mid-write failure) or a **stale** set
+(generation-`N-1` files beside generation-`N`) that a YAML consumer cannot distinguish from a complete
+one. To close that gap a prune-bearing layout (`perResource`/`split`) that shards into **more than one
+part** writes one **per-set manifest sidecar** at a deterministic, generation-stable path —
+`inventory/{namespace}/{name}.manifest.json` — declaring `generation`, `partTotal`, the per-part
+identifiers, and the **union** of every part's projected data-file paths. The manifest shape, schema
+versioning, and the consumer validation rule are specified in
+[ADR-0405](0405-export-data-contract.md) (`layout.SetManifest` / `layout.VerifySet`); a `document`-mode
+or single-part export writes no sidecar.
+
+**Prune interaction (the reason this needs the multipart union-prune).** The sidecar lives inside the
+managed directory, so it must be a member of the single union-prune keep-set or the final part's prune
+would orphan it. The manifest is written on the **final part** — the same part that runs the one
+union-prune — and its path is appended to `PruneKeepPaths` alongside every data path. As a result:
+
+- **Every part's data files AND the sidecar survive** the single union-prune (they are all in the
+  keep-set); nothing an earlier part wrote is lost.
+- On a **new-generation re-export** the manifest path is unchanged (no `{generation}` placeholder), so
+  the fresh manifest **replaces** the old one in place — replaced-not-orphaned.
+- In `document` mode (`prune: off`) there is a single overwritten path and no distinct part files to
+  reconcile, so no sidecar is emitted; this depends on and builds directly on the multipart union-prune
+  established for tree modes.
+
 ## Consequences
 
 - Zero-field Git configuration produces human-readable diffs.
@@ -113,6 +139,9 @@ message templates remain the concerns of [ADR-0415](0415-git-sink-commit-ergonom
   (last-part-wins data loss). `ExportFilesOptions.SuppressPrune` authoritatively forces prune off on
   non-final parts and overrides an explicit `git.prune: true`, so per-part pruning can never
   re-enable; the final part carries `PruneKeepPaths` = the union keep-set.
+- A multipart `perResource`/`split` set carries a per-set `*.manifest.json` sidecar so YAML consumers
+  can detect a torn or stale set from the output alone — the sidecar rides the final part's union-prune
+  keep-set, so it survives partial writes and is replaced-not-orphaned on regeneration.
 
 ## Related
 
