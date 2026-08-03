@@ -3,7 +3,7 @@
 Kollect is a Kubernetes inventory exporter: select resources by GVK, extract attributes with CEL
 or JSONPath, aggregate a canonical snapshot, and send it to one or more sinks.
 
-**Last verified:** 2026-08-02 against **v0.13.0**. For exact shipped changes, use the
+**Last verified:** 2026-08-03 against **v0.14.0**. For exact shipped changes, use the
 [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md). For proposals that
 have not entered a release, see [Planned features](roadmap/planned-features.md).
 
@@ -11,13 +11,17 @@ have not entered a release, see [Planned features](roadmap/planned-features.md).
     Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor releases
     before 1.0. Release notes and migration guidance call them out.
 
-## Shipped in v0.13.0
+## Shipped in v0.14.0
 
 The current release includes:
 
 - Optional `--allow-private-sinks` opt-in (default off, cluster-admin only) so in-cluster
   (RFC1918/ULA) sink backends can be targeted without disabling SSRF protections
   ([security policy](security/resolved-address-policy.md)).
+- Git snapshot export that falls back to a writable temp directory when the process cache root is
+  read-only (Talos / `readOnlyRootFilesystem` installs).
+- Controller image tags published under the `v`-prefixed layout so Helm OCI chart tags no longer
+  collide with the manager image on GHCR.
 
 - Event-driven collection with shared dynamic informers.
 - Namespaced and cluster-wide inventory pipelines with `KollectScope` policy boundaries.
@@ -33,14 +37,30 @@ The current release includes:
 The [CR reference](crds/index.md) describes the supported API. The
 [operator manual](operator-manual/index.md) covers installation, operation, and failure modes.
 
+## Independent lab validation (v0.14.0)
+
+A multi-node Talos lab (1 control plane + 2 workers) exercised published **v0.14.0** and returned
+**ready with conditions** — not a full catalogue pass:
+
+| Proven on that pin | Explicitly **not** claimed |
+| --- | --- |
+| HA: two replicas on distinct workers; leader failover observed | Wave-4 / Tier-S load (500–2k) |
+| ClusterIP Postgres / MinIO / NATS with `allowPrivateSinks: true` | 100k rows/cluster design proof |
+| Inventory export to Postgres; GitHub + GitLab snapshot export | Full Ubuntu D-suite / every sink backend |
+| Certificate scrape non-zero (partial count vs live cluster) | NetPol/Cilium deny-path, worker drain, Argo scrape |
+
+See [testing](development/testing.md#multi-node-lab-evidence) and
+[resolved-address policy](security/resolved-address-policy.md). Broader schedules and redacted
+protocol publication remain follow-up work.
+
 ## Next
 
 Near-term work is deliberately narrow:
 
 1. **Launch documentation** — keep public claims and the published security architecture aligned
    with releases, improve navigation and diagrams, and establish freshness checks.
-2. **Independent validation** — incorporate reproducible lab results when the evidence is merged;
-   do not publish provisional numbers.
+2. **Independent validation** — deepen multi-node lab coverage (load, failure injection, NetPol)
+   and publish only reproducible, bounded claims.
 3. **Pre-1.0 stabilization** — prioritize compatibility, operator ergonomics, upgrade guidance,
    and production evidence over adding broad new product surfaces.
 
@@ -49,7 +69,7 @@ Items are not assigned to a release until their implementation, tests, and docum
 ## Supported & planned sinks
 
 “Core” and “Beta” describe maturity, not whether code exists. All Core and Beta rows below ship in
-v0.13.0.
+v0.14.0.
 
 | Family CRD | `spec.type` | Maturity |
 | --- | --- | --- |
@@ -87,8 +107,9 @@ See [Planned features](roadmap/planned-features.md) for scope and graduation rul
 ## Performance and scalability
 
 Performance targets and test methods live in the [performance guide](operator-manual/performance.md). Treat scale
-figures as design targets unless the page links a reproducible run for the exact release; current
-lab validation is still in progress.
+figures as design targets unless the page links a reproducible run for the exact release. Multi-node
+lab evidence for **v0.14.0** covers HA and selected sinks under the conditions above — **not**
+Wave-4 load or the 100k design proof.
 
 The architecture scales through shared informers, debounced exports, bounded concurrency, export
 sharding, and fleet fan-in through shared sinks rather than a central control-plane hub.
