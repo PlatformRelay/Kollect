@@ -16,6 +16,10 @@ const (
 	ErrorClassTerminal  = "terminal"
 	ErrorClassForbidden = "forbidden"
 
+	// SAR access-cache outcomes (REL-05). Bounded enum.
+	AccessCacheResultHit  = "hit"
+	AccessCacheResultMiss = "miss"
+
 	// Static-ref resolution results for cluster kinds (ADR-0208). Bounded enum.
 	StaticRefResultOK        = "ok"
 	StaticRefResultNotFound  = "not_found"
@@ -217,6 +221,17 @@ var (
 		[]string{"kind", "ref_type", "result"},
 	)
 
+	// AccessCacheTotal counts SelfSubjectAccessReview cache outcomes (REL-05).
+	// result is a bounded enum (hit/miss); a miss triggers a fresh SAR.
+	AccessCacheTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_access_cache_total",
+			Help: "SelfSubjectAccessReview access-cache outcomes (REL-05): hit serves a cached " +
+				"decision, miss issues a fresh SubjectAccessReview.",
+		},
+		[]string{"result"},
+	)
+
 	// LabeledSeriesCardinalityCappedTotal counts label tuples dropped by the
 	// EC-P2-09 cardinality guard (DefaultMaxLabeledSeriesPerKey). profile/gvk/series
 	// are config-bounded (from KollectProfile specs), not user data, so this stays low-cardinality.
@@ -258,5 +273,6 @@ func Register() {
 		InformerClusterWideScope,
 		StaticRefResolutionTotal,
 		LabeledSeriesCardinalityCappedTotal,
+		AccessCacheTotal,
 	)
 }

@@ -218,4 +218,12 @@ var Catalog = []CatalogEntry{
 		PromQLHint: "sum(rate(kollect_static_ref_resolution_total[5m])) by (ref_type, result)",
 		AgentHint:  "result=forbidden → trim/extend cross-namespace RBAC; not_found → fix ref namespace/name.",
 	},
+	{
+		Name:       "kollect_access_cache_total",
+		Type:       "counter",
+		Labels:     []string{"result"},
+		Help:       "SelfSubjectAccessReview access-cache outcomes (REL-05): hit serves a cached decision, miss issues a fresh SAR.",
+		PromQLHint: "sum(rate(kollect_access_cache_total[5m])) by (result)",
+		AgentHint:  "Low hit ratio → key cardinality (GVR×ns×verb) churns past the LRU cap; expect more SAR load.",
+	},
 }
