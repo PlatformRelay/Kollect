@@ -42,7 +42,7 @@ The backend must honor the locked database-family contracts:
 
 ### 1. `type: bigquery` on the database family — no new kind
 
-`KollectDatabaseSink` / `KollectClusterDatabaseSink` gain a real `bigquery` backend behind the
+`KollectDatabaseSink` gains a real `bigquery` backend behind the
 existing `spec.type` enum. The placeholder `BigQuerySpec` (`api/v1alpha1/sink_common_types.go`)
 becomes a full config block:
 
