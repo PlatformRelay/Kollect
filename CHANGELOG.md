@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink/postgres:** Redact ConnectError on export path (SEC-01-FUP3/FUP4) ([#184](https://github.com/platformrelay/kollect/pull/184))[dce8b98](https://github.com/platformrelay/kollect/commit/dce8b98bb44c6cd590a4370b8e24a3ac7cf8a2b0)
+
 - **sink/postgres:** Harden DSN/host redaction (SEC-01-FUP1/FUP2) ([#182](https://github.com/platformrelay/kollect/pull/182))[f151ddd](https://github.com/platformrelay/kollect/commit/f151ddddfc558c7ccafb8f88dbe90efcf6709f72)
 
 - **collect,controller:** Stop dispatch workers on engine ctx cancel + thread reconcile ctx into preview (REL-03/REL-04) ([#178](https://github.com/platformrelay/kollect/pull/178))[a3f8008](https://github.com/platformrelay/kollect/commit/a3f8008c91441d2fe24a0d7010005c088c568cdd)
