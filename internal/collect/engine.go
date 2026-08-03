@@ -142,9 +142,9 @@ func NewEngine(
 
 	// stopCtx is created at construction (not in Start) so dispatch workers have a
 	// guaranteed lifecycle signal even when dispatch() starts them before Start()
-	// runs. Start() wires the manager context into stopFn so ctx cancellation and
-	// an explicit Stop() both terminate the worker pool (REL-04).
-	stopCtx, stopFn := context.WithCancel(context.Background())
+	// runs. Start() wires the manager context into stopFn so ctx cancellation
+	// terminates the worker pool (REL-04).
+	stopCtx, stopFn := context.WithCancel(context.Background()) //nolint:gosec // G118: stopFn (cancel) is invoked by Start's ctx-cancel watcher goroutine (REL-04)
 
 	return &Engine{
 		stopCtx:               stopCtx,
@@ -440,15 +440,6 @@ func (e *Engine) Start(ctx context.Context) error {
 	}()
 
 	return nil
-}
-
-// Stop signals every dispatch worker to exit and blocks until in-flight jobs finish.
-// Safe to call more than once (context cancellation is idempotent).
-func (e *Engine) Stop() {
-	if e.stopFn != nil {
-		e.stopFn()
-	}
-	e.workersWG.Wait()
 }
 
 func (e *Engine) startDispatchWorkers() {
