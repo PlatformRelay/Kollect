@@ -43,14 +43,14 @@ func newGuardedPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 // but a future pgx bump could reintroduce a non-PCE leaking path, so we now fail
 // closed with the static message unconditionally rather than reflect any pgx
 // text.
-func redactedParseError(err error) error {
-	var parseErr *pgconn.ParseConfigError
-	if errors.As(err, &parseErr) {
-		return errors.New("parse postgres DSN: invalid connection string")
-	}
-
-	// Unreachable today; fail closed rather than fold any free-form pgx text
-	// (which may echo the DSN or host) back into the returned string.
+func redactedParseError(_ error) error {
+	// Fail closed for EVERY parse fault: never fold any free-form pgx text (which
+	// may echo the DSN or host) back into the returned string. Post-FUP1 the
+	// *pgconn.ParseConfigError type check discriminated nothing — both it and the
+	// fallthrough returned this identical static message — so it is collapsed to a
+	// single unconditional return (SEC-01-FUP4). The typed error remains available
+	// programmatically to callers via the original err; only the returned string
+	// is redacted.
 	return errors.New("parse postgres DSN: invalid connection string")
 }
 
