@@ -104,6 +104,80 @@ func TestBackend_ExportFiles_empty(t *testing.T) {
 	}
 }
 
+// newBranchMRBackend builds a GitLab backend in merge_request mode pointed at endpoint.
+func newBranchMRBackend(t *testing.T, endpoint string) *Backend {
+	t.Helper()
+
+	b, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type:     TypeName,
+		Endpoint: endpoint,
+		GitLab: &kollectdevv1alpha1.GitLabSpec{
+			MergeRequest: &kollectdevv1alpha1.MergeRequestSpec{
+				Mode:         "merge_request",
+				TargetBranch: "main",
+				BranchPrefix: "kollect",
+			},
+		},
+	}, nil, git.Auth{Token: "tok"})
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	return b
+}
+
+// TestBackend_Export_BranchMRModeBuildsFeatureBranch drives Export in merge_request mode with a
+// commit context supplied via the context, exercising the branch-spec wiring (feature branch derived
+// from the injected namespace/name) before the clone fails against a non-git server.
+func TestBackend_Export_BranchMRModeBuildsFeatureBranch(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not a git server", http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+
+	b := newBranchMRBackend(t, srv.URL+"/platform/inventory.git")
+	ctx := git.WithCommitContext(context.Background(), git.CommitContext{Namespace: "team-a", Name: "rollup"})
+
+	err := b.Export(ctx, []byte(`{"items":[]}`), "inventory/team-a/rollup.json")
+	if err == nil {
+		t.Fatal("expected clone failure to surface from Export in merge_request mode")
+	}
+}
+
+// TestBackend_ExportFiles_BranchMRModeWithPruneOpts drives ExportFiles in merge_request mode with a
+// prune keep-set and an injected commit context, exercising the branch-spec + prune-options wiring
+// (cfg.Prune / cfg.PruneKeepPaths) before the clone fails against a non-git server.
+func TestBackend_ExportFiles_BranchMRModeWithPruneOpts(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not a git server", http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+
+	b := newBranchMRBackend(t, srv.URL+"/platform/inventory.git")
+	ctx := git.WithCommitContext(context.Background(), git.CommitContext{Namespace: "team-a", Name: "rollup"})
+
+	files := []git.FileEntry{{Path: "inventory/team-a/api.yaml", Data: []byte("kind: Deployment\n")}}
+	opts := git.ExportFilesOptions{Prune: true, PruneKeepPaths: []string{"inventory/team-a/api.yaml"}}
+	err := b.ExportFiles(ctx, files, opts)
+	if err == nil {
+		t.Fatal("expected clone failure to surface from ExportFiles in merge_request mode")
+	}
+}
+
+// TestNewBackend_InvalidSpecErrors covers the ConfigFromSpec error branch: a non-gitlab spec type is
+// rejected before a backend is constructed.
+func TestNewBackend_InvalidSpecErrors(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "git"}, nil, git.Auth{})
+	if err == nil {
+		t.Fatal("NewBackend() error = nil, want error for non-gitlab spec type")
+	}
+}
+
 func TestRESTClient_setGitLabAuth(t *testing.T) {
 	t.Parallel()
 
