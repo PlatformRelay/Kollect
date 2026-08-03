@@ -6,6 +6,8 @@ package git
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -54,6 +56,67 @@ func TestSSHAuthMethod_knownHosts(t *testing.T) {
 	_, err = sshAuthMethod("git", key, SSHConfig{KnownHosts: known})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestSSHAuthMethod_knownHostsWriteFailure drives the writeTempKnownHosts create-error branch (and its
+// propagation out of sshAuthMethod): an unwritable TMPDIR makes os.CreateTemp fail, so the temp
+// known_hosts file cannot be written and sshAuthMethod surfaces the wrapped error. Not parallel:
+// t.Setenv mutates process env.
+func TestSSHAuthMethod_knownHostsWriteFailure(t *testing.T) {
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "does-not-exist"))
+
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sshPub, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	known := []byte(knownhosts.Line([]string{"git.example"}, sshPub) + "\n")
+
+	_, err = sshAuthMethod("git", testEd25519PrivateKeyPEM(t), SSHConfig{KnownHosts: known})
+	if err == nil {
+		t.Fatal("sshAuthMethod() error = nil, want wrapped known_hosts create failure")
+	}
+	if !strings.Contains(err.Error(), "create known_hosts temp file") {
+		t.Fatalf("error = %v, want create known_hosts temp file wrapper", err)
+	}
+}
+
+// TestSSHAuthMethod_malformedKnownHosts covers the knownhosts.New parse-error branch: content that is
+// written successfully but is not a valid known_hosts line makes knownhosts.New fail.
+func TestSSHAuthMethod_malformedKnownHosts(t *testing.T) {
+	t.Parallel()
+
+	_, err := sshAuthMethod("git", testEd25519PrivateKeyPEM(t), SSHConfig{KnownHosts: []byte("this is not a valid known_hosts line\n")})
+	if err == nil {
+		t.Fatal("sshAuthMethod() error = nil, want parse known_hosts error")
+	}
+	if !strings.Contains(err.Error(), "parse known_hosts") {
+		t.Fatalf("error = %v, want parse known_hosts wrapper", err)
+	}
+}
+
+// TestWriteTempKnownHosts_Success asserts the happy path writes the content verbatim to a temp file
+// the caller can read back, and that the returned path is cleanable.
+func TestWriteTempKnownHosts_Success(t *testing.T) {
+	t.Parallel()
+
+	content := []byte("git.example ssh-ed25519 AAAA...\n")
+	path, err := writeTempKnownHosts(content)
+	if err != nil {
+		t.Fatalf("writeTempKnownHosts() error = %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	got, err := os.ReadFile(path) //nolint:gosec // G304: test reads the temp file it just wrote
+	if err != nil {
+		t.Fatalf("read temp known_hosts: %v", err)
+	}
+	if string(got) != string(content) {
+		t.Fatalf("known_hosts content = %q, want %q", got, content)
 	}
 }
 
