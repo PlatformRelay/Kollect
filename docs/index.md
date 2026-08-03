@@ -19,14 +19,14 @@ hide:
 
 </p>
 
-**Kubernetes knows what's running. Kollect makes it a record.** Declare what matters in a few CRs
-and get a durable, always-current inventory wherever your platform needs it — a Git history you
-can `diff`, a database your portal can query, an event stream your automation can react to. Start
-with one Git repo; grow to multi-tenant fan-out across teams without rebuilding anything.
+**Declare your inventory. Kollect keeps it current.** Select the resources and attributes that
+matter once, then deliver the same canonical inventory to Git, object storage, databases, and
+event streams. Start with one sink; grow to multi-tenant fan-out across teams without rebuilding
+your collection model.
 
 Record the hero demo locally: [DEMO-GIF-GUIDE.md](DEMO-GIF-GUIDE.md).
 
-*Git-simple to start · platform-grade to grow* — `kollect.dev/v1alpha1` · event-driven · CRD-native · fleet-ready
+*Simple to start · platform-grade to grow* — `kollect.dev/v1alpha1` · event-driven · CRD-native · fleet-ready
 
 [Quick start :octicons-arrow-right-24:](getting-started/install.md){ .md-button .md-button--primary }
 [CR reference :octicons-arrow-right-24:](crds/index.md){ .md-button }

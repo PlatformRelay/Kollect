@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-labelledby="title description">
+  <title id="title">Kollect</title>
+  <desc id="description">Collect once. Use everywhere.</desc>
+  <defs>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0v48" fill="none" stroke="#173e8f" stroke-width="1" opacity=".24"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="640" fill="#071426"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <circle cx="1130" cy="96" r="210" fill="#173e8f" opacity=".18"/>
+  <circle cx="1160" cy="530" r="150" fill="#0e7490" opacity=".12"/>
+  <g data-concept="collector-aperture" transform="translate(82 118) scale(6.3)">
+    <path fill="#eaf0fa" fill-rule="evenodd" d="M9 8h14v17L42 8h14L35 31l23 25H43L23 36v20H9zm8 16 21 8-21 8z"/>
+    <path fill="#2563eb" d="M19 27h3.5v3.5h-3.5zm5.75 3.25h3.5v3.5h-3.5zM19 34h3.5v3.5h-3.5z"/>
+    <circle cx="39" cy="32" r="4" fill="#5eead4"/>
+  </g>
+  <text x="548" y="275" fill="#eaf0fa" font-family="Inter,Arial,sans-serif" font-size="104" font-weight="700" letter-spacing="-4">Kollect</text>
+  <text x="554" y="342" fill="#9ec5ff" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="500">Collect once. Use everywhere.</text>
+  <path d="M554 375h360" stroke="#2563eb" stroke-width="6"/>
+  <text x="554" y="430" fill="#a7b5ca" font-family="Inter,Arial,sans-serif" font-size="22">Git · Object storage · Databases · Event streams</text>
+</svg>
