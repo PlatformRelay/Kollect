@@ -69,6 +69,10 @@ type ExportEnvelopeRequest struct {
 	ObjectPath    string
 	Envelope      []byte
 	SinkSpec      kollectdevv1alpha1.KollectSinkSpec
+	// PrunePlan accumulates the projected file paths of every part in a multipart git-layout export
+	// so prune can run exactly once, against the union, on the final part. Nil for single-part and
+	// non-git sinks (no-op).
+	PrunePlan *PrunePlan
 }
 
 // RunExportItems loads the sink, applies capability gating, wraps the envelope, and exports.
@@ -198,7 +202,7 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 	generation := export.GenerationFromEnvelope(envelope)
 	defaultObjectPath := objectstore.ObjectPath(req.SinkSpec, invNS, invName, generation)
 
-	plan, err := resolveSnapshotExport(backend, req.SinkSpec, envelope, invNS, invName, generation, defaultObjectPath)
+	plan, err := resolveSnapshotExport(backend, req.SinkSpec, envelope, invNS, invName, generation, defaultObjectPath, req.PrunePlan)
 	if err != nil {
 		err = kollecterrors.Terminal(fmt.Errorf("resolve layout for %q: %w", req.SinkName, err))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()

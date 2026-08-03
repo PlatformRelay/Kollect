@@ -82,7 +82,9 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 }
 
 // ExportFiles writes a projected layout tree in a single commit and pushes to GitLab (ADR-0419).
-func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, prune bool) error {
+// opts carries prune intent: PruneKeepPaths overrides the keep-set (multipart union) and
+// SuppressPrune forces prune off (non-final multipart part) so prune runs exactly once.
+func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, opts git.ExportFilesOptions) error {
 	if len(files) == 0 {
 		return fmt.Errorf("gitlab export: no files to write")
 	}
@@ -104,7 +106,8 @@ func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, prune 
 	}
 
 	cfg := b.cfg.GitConfig()
-	cfg.Prune = cfg.Prune || prune
+	cfg.Prune = (cfg.Prune || opts.Prune) && !opts.SuppressPrune
+	cfg.PruneKeepPaths = opts.PruneKeepPaths
 
 	if err := git.ExportFilesWithBranch(ctx, cfg, b.auth, files, branchSpec, commitCtx); err != nil {
 		return err

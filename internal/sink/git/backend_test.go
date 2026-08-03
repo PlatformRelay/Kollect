@@ -99,7 +99,7 @@ func TestBackend_ExportFiles_PruneRemovesStaleEntries(t *testing.T) {
 	if exportErr := backend.ExportFiles(t.Context(), []FileEntry{{
 		Path: "inventory/keep.json",
 		Data: []byte(`{"fresh":true}`),
-	}}, true); exportErr != nil {
+	}}, ExportFilesOptions{Prune: true}); exportErr != nil {
 		t.Fatalf("ExportFiles() error = %v", exportErr)
 	}
 
