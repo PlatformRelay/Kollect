@@ -22,3 +22,43 @@ spec:
       exportMinInterval: 1h
       maxExportBytes: 524288       # per-binding override: split Git exports at 512 KiB
   suspend: false
+#
+# Multipart YAML output (perResource layout + torn-set manifest sidecar, REL-02-FUP).
+# When the Git snapshot above shards into more than one part, the human-readable YAML
+# projection carries no envelope metadata, so the export set is accompanied by ONE per-set
+# manifest sidecar that lets a consumer confirm the set is complete (not torn or stale).
+# For a 3-part export of generation 7, the committed tree looks like:
+#
+#   inventory/
+#     default/
+#       partitioned-inventory.manifest.json   <- per-set sidecar (JSON, machine-readable)
+#   default/                                   <- perResource data tree ({cluster}/...)
+#     team-a/
+#       Deployment/
+#         api.yaml                             <- part 1 data file
+#         web.yaml                             <- part 2 data file
+#         worker.yaml                          <- part 3 data file
+#
+# The sidecar is written once, on the final part, and rides the single union-prune keep-set
+# so every part's files AND the manifest survive. Its .manifest.json extension is distinct
+# from the .yaml data files, so a consumer globbing inventory/<ns>/*.yaml skips it. Example
+# content (kind + schemaVersion self-identify it; paths is the union of all parts' files):
+#
+#   {
+#     "kind": "KollectExportSetManifest",
+#     "schemaVersion": "kollect.dev/v1alpha1",
+#     "namespace": "default",
+#     "name": "partitioned-inventory",
+#     "generation": 7,
+#     "partTotal": 3,
+#     "parts": [1, 2, 3],
+#     "paths": [
+#       "default/team-a/Deployment/api.yaml",
+#       "default/team-a/Deployment/web.yaml",
+#       "default/team-a/Deployment/worker.yaml"
+#     ]
+#   }
+#
+# A consumer confirms completeness by checking every path in "paths" exists on disk and that
+# "generation" matches the generation it expects (see docs/operator-manual/troubleshooting.md).
+# A single-part export writes NO sidecar and is byte-identical to a non-partitioned export.
