@@ -164,6 +164,42 @@ func TestDecodeHelmReleaseSecret_malformedPayloads(t *testing.T) {
 	}
 }
 
+// decodeWithoutPanic runs DecodeHelmReleaseSecret and fails the test with a clear
+// message if it panics, so a latent panic surfaces as an assertion rather than a
+// crashed goroutine.
+func decodeWithoutPanic(t *testing.T, obj *unstructured.Unstructured) (release map[string]any, err error) {
+	t.Helper()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("DecodeHelmReleaseSecret() panicked on crafted data.release: %v", r)
+		}
+	}()
+
+	return DecodeHelmReleaseSecret(obj)
+}
+
+// TestDecodeHelmReleaseSecret_rawBytesRelease is the HELMDECODE-01 latent-panic lock.
+// The API server always encodes Secret data values as base64 STRINGS, but a
+// programmatically-crafted unstructured object can carry a raw []byte at
+// data.release. Historically secretReleaseData read data via unstructured.NestedMap,
+// whose deep copy (runtime.DeepCopyJSONValue) PANICS on []byte before the type
+// switch could inspect it. Such crafted input must now be rejected with a wrapped
+// error, never a panic.
+func TestDecodeHelmReleaseSecret_rawBytesRelease(t *testing.T) {
+	t.Parallel()
+
+	obj := helmSecretWithRelease([]byte("raw-bytes-not-a-base64-string"))
+
+	got, err := decodeWithoutPanic(t, obj)
+	if err == nil {
+		t.Fatalf("DecodeHelmReleaseSecret() = %v, want wrapped unsupported-type error", got)
+	}
+	if !strings.Contains(err.Error(), "unsupported type") {
+		t.Fatalf("error = %q, want it to contain %q", err.Error(), "unsupported type")
+	}
+}
+
 func TestExtractHelmReleaseField_branches(t *testing.T) {
 	t.Parallel()
 
