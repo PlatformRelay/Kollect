@@ -28,6 +28,9 @@ spec:
         app.kubernetes.io/name: postgres
         app.kubernetes.io/part-of: kollect-dev
     spec:
+      # This throwaway Postgres talks to no Kubernetes API, so it needs no
+      # projected service-account token (kubernetes:S6865).
+      automountServiceAccountToken: false
       containers:
         - name: postgres
           image: postgres:16-alpine
@@ -52,6 +55,9 @@ spec:
               memory: 128Mi
             limits:
               memory: 256Mi
+              # Bound writable-layer/emptyDir usage so a runaway container cannot
+              # exhaust node disk (kubernetes:S6870); mirrors the shipped chart.
+              ephemeral-storage: 1Gi
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data

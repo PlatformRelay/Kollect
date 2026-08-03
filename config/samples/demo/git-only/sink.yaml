@@ -8,6 +8,11 @@ metadata:
     app.kubernetes.io/part-of: kollect-hero-demo
 spec:
   type: git
+  # kubernetes:S5332 (clear-text protocol) is acceptable here: this is a
+  # local-only demo Forgejo that serves plain HTTP on :3000 (see
+  # hack/demo/hero/manifests/forgejo.yaml ROOT_URL) reachable only over the
+  # in-cluster network. Nothing sensitive leaves the cluster; switching to
+  # https would break the demo since the demo Forgejo has no TLS listener.
   endpoint: http://forgejo.forgejo.svc.cluster.local:3000/kollect/inventory-demo.git
   cluster: kollect-hero
   connectionTest: true
