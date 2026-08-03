@@ -60,7 +60,7 @@ func NewBackend(
 	if err := b.ensureTable(connectCtx); err != nil {
 		pool.Close()
 
-		return nil, err
+		return nil, redactedConnectError(err)
 	}
 
 	return b, nil

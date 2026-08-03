@@ -6,8 +6,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,27 +31,46 @@ func newGuardedPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 // its Error() text and its ConnString field carry the DSN, and on the URL
 // host:port-split path it echoes the raw, unredacted host *after* the
 // backtick-quoted DSN (e.g. an IPv6 zone-id with a port, or a typo'd extra
-// colon). We therefore return a STATIC message for that type and never fold any
-// of its free-form text back in — the typed error's ConnString/Unwrap remain
-// available programmatically but never hit the returned string.
+// colon). We therefore return a STATIC message and never fold any of its
+// free-form text back in — the typed error's ConnString/Unwrap remain available
+// programmatically but never hit the returned string.
 //
-// The backtick-strip fallback covers any hypothetical non-ParseConfigError
-// (pgxpool wraps all of its own pool-param faults in ParseConfigError, so this
-// is currently unreachable defense-in-depth): keep the reason after the DSN
-// echo, and fall back to the static message rather than risk failing open.
+// The earlier backtick-strip fallback (SEC-01-FUP1) was a latent fail-open: it
+// echoed the reason after the DSN for any non-*pgconn.ParseConfigError. That
+// branch is unreachable in pinned pgx v5.10.0 — pgxpool.ParseConfig routes
+// every fault through *pgconn.ParseConfigError (pgx.ParseConfig for
+// connection-string faults, pgconn.NewParseConfigError for pool-param faults) —
+// but a future pgx bump could reintroduce a non-PCE leaking path, so we now fail
+// closed with the static message unconditionally rather than reflect any pgx
+// text.
 func redactedParseError(err error) error {
 	var parseErr *pgconn.ParseConfigError
 	if errors.As(err, &parseErr) {
 		return errors.New("parse postgres DSN: invalid connection string")
 	}
 
-	msg := err.Error()
-	// A well-formed DSN (URL or keyword form) never contains a backtick, so
-	// LastIndex reliably lands on the DSN echo's closing delimiter.
-	if i := strings.LastIndex(msg, "`"); i >= 0 {
-		if reason := strings.TrimPrefix(msg[i+1:], ": "); reason != "" {
-			return fmt.Errorf("parse postgres DSN: %s", reason)
-		}
-	}
+	// Unreachable today; fail closed rather than fold any free-form pgx text
+	// (which may echo the DSN or host) back into the returned string.
 	return errors.New("parse postgres DSN: invalid connection string")
+}
+
+// redactedConnectError produces a host/credential-free error for a POST-parse
+// dial failure (SEC-01-FUP2). Unlike a parse fault, a dial fault surfaces
+// lazily — pgxpool.NewWithConfig connects on first Acquire — so it reaches the
+// caller via pool.Ping / pool.Exec, not via newGuardedPool's return.
+//
+// pgx wraps such faults in *pgconn.ConnectError, whose Error() text embeds the
+// tenant user and database, and — through the wrapped perDialConnectError and
+// the netguard resolver's own message — the target host. We return a STATIC
+// message for that type so none of that free-form text can reach a log or error
+// string, while still returning a non-nil error so callers see the connection
+// failed. Non-connect errors (context deadlines, server-side PgError, etc.) do
+// not carry the host and pass through unchanged.
+func redactedConnectError(err error) error {
+	var connErr *pgconn.ConnectError
+	if errors.As(err, &connErr) {
+		return errors.New("connect postgres: connection failed")
+	}
+
+	return err
 }
