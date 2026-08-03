@@ -21,6 +21,13 @@ func TestGitSSHKnownHostsFromSecretData(t *testing.T) {
 	if got := GitSSHKnownHostsFromSecretData(data); string(got) != "host key" {
 		t.Fatalf("got %q", got)
 	}
+
+	// A present-but-empty known_hosts key must be treated as absent (nil), not as
+	// a zero-length host list that would silently disable host-key verification.
+	empty := map[string][]byte{"known_hosts": {}}
+	if got := GitSSHKnownHostsFromSecretData(empty); got != nil {
+		t.Fatalf("empty known_hosts must yield nil, got %q", got)
+	}
 }
 
 func TestGitAuthFromSecretData(t *testing.T) {
