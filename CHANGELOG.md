@@ -26,6 +26,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **branding:** Adopt collector aperture identity [dfb7cc9](https://github.com/platformrelay/kollect/commit/dfb7cc9f4ab0b366f8b9015b7fc51ce91ac6da2f)
 
+
+### Refactoring
+
+- **collect:** Remove dead Engine.Stop() (HYG-01-FUP) ([#180](https://github.com/platformrelay/kollect/pull/180))[b9ee537](https://github.com/platformrelay/kollect/commit/b9ee5373e18ce92bf27962ff6ae381622deb5410)
+
 ## [0.14.0](https://github.com/platformrelay/kollect/compare/v0.13.0..v0.14.0) - 2026-08-02
 
 ### Bug Fixes
