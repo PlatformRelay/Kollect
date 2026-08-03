@@ -69,7 +69,7 @@ DO UPDATE SET payload = EXCLUDED.payload, exported_at = EXCLUDED.exported_at,
   cluster = EXCLUDED.cluster, resource_namespace = EXCLUDED.resource_namespace
 `, qualifiedTable), row.values...)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrUpsertFailed, err)
+			return fmt.Errorf("%w: %w", ErrUpsertFailed, redactedConnectError(err))
 		}
 	}
 
@@ -96,7 +96,7 @@ CREATE TEMP TABLE kollect_export_staging (
   exported_at TIMESTAMPTZ NOT NULL
 ) ON COMMIT DROP`)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrBulkUpsertCreateStagingFailed, err)
+		return fmt.Errorf("%w: %w", ErrBulkUpsertCreateStagingFailed, redactedConnectError(err))
 	}
 
 	upsertRows, err := buildUpsertRows(invNS, invName, cluster, items, exportedAt)
@@ -118,7 +118,7 @@ CREATE TEMP TABLE kollect_export_staging (
 		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrBulkUpsertCopyFailed, err)
+		return fmt.Errorf("%w: %w", ErrBulkUpsertCopyFailed, redactedConnectError(err))
 	}
 
 	_, err = tx.Exec(ctx, fmt.Sprintf(`
@@ -135,7 +135,7 @@ DO UPDATE SET payload = EXCLUDED.payload, exported_at = EXCLUDED.exported_at,
   cluster = EXCLUDED.cluster, resource_namespace = EXCLUDED.resource_namespace
 `, qualifiedTable))
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrBulkUpsertMergeFailed, err)
+		return fmt.Errorf("%w: %w", ErrBulkUpsertMergeFailed, redactedConnectError(err))
 	}
 
 	return nil
