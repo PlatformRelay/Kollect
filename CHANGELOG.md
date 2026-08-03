@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **sink/git:** Fail instead of silently dropping snapshot superseded on non-fast-forward push (REL-08) ([#191](https://github.com/platformrelay/kollect/pull/191))[0a2867b](https://github.com/platformrelay/kollect/commit/0a2867b5525feea3c8b8a4f307556c8460612826)
+
 ## [0.15.0](https://github.com/platformrelay/kollect/compare/v0.14.0..v0.15.0) - 2026-08-03
 
 ### Bug Fixes
