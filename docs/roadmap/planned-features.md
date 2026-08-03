@@ -3,7 +3,7 @@
 Forward-looking work that has not shipped. This page is intentionally shorter than the engineering
 backlog: it describes user-visible directions, not every implementation task.
 
-**Last verified:** 2026-08-02 against **v0.13.0**. BigQuery and NATS already ship; completed work
+**Last verified:** 2026-08-03 against **v0.14.0**. BigQuery and NATS already ship; completed work
 belongs in the [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md).
 
 ## Status legend
@@ -25,7 +25,10 @@ belongs in the [changelog](https://github.com/platformrelay/kollect/blob/main/CH
   RBAC, redaction, transport, runtime, and release-control changes.
 - Replace inaccurate raster architecture diagrams with maintainable Mermaid sources.
 - Improve information architecture, newcomer paths, visual contrast, and document freshness checks.
-- Incorporate lab results only after the method and evidence are reproducible.
+- Incorporate lab results only after the method and evidence are reproducible. Public claims for
+  **v0.14.0** multi-node evidence are bounded (**ready with conditions**): HA failover and selected
+  sinks — not Wave-4 load, 100k, or a full scenario catalogue
+  ([testing](../development/testing.md#multi-node-lab-evidence)).
 
 ### Pre-1.0 stabilization
 

@@ -205,6 +205,13 @@ Summary for operators:
 | Webhooks | Served on every ready replica | Apiserver targets webhook `Service`; not gated by leader election |
 | Memory at scale | `resourcesProfile` default | Use `resourcesProfile: large` for 100k-row design target ([ADR-0603](../adr/0603-performance-scalability.md)) |
 
+!!! note "Multi-node lab evidence (v0.14.0)"
+    On a Talos lab with 1 control plane and 2 workers, published **v0.14.0** ran with
+    `replicaCount: 2` on distinct workers and completed a leader failover without unexpected
+    restarts in that schedule. That is **ready-with-conditions** evidence for HA wiring on that
+    pin — not a load, NetPol, or drain proof. See
+    [testing · multi-node lab evidence](../development/testing.md#multi-node-lab-evidence).
+
 !!! info "Single-cluster mode only"
     The operator runs `mode: single`. Multi-cluster fleets run **one single-mode operator per
     cluster** exporting to a shared sink, partitioned by `spec.cluster` — there is no hub/spoke

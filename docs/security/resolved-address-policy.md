@@ -35,6 +35,13 @@ exports at RFC1918 / VPC peers reachable from the manager pod. Enable only in en
 that trade-off (typically private clusters with trusted CR authors). Shipped per **NET-01**
 (DR-FIND-05 Option A, operator decision 2026-07-31).
 
+**Lab evidence (v0.14.0):** on a Talos multi-node lab (1 control plane + 2 workers), a published
+`v0.14.0` install with `allowPrivateSinks: true` successfully connection-tested ClusterIP Postgres,
+MinIO, and NATS, and exported inventory rows to Postgres. That run does **not** claim Wave-4 load,
+100k scale, or a full sink catalogue — only that the production opt-in works for those in-cluster
+backends on that pin. Keep the flag **off** on shared platform installs unless operators accept the
+residual SSRF trade-off.
+
 With `allowPrivateSinks` unset (the default), production images keep deny-by-default with **no**
 runtime hatch.
 

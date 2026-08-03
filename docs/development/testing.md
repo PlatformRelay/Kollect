@@ -111,6 +111,30 @@ remote git SHA assert in git-export scenarios. Without it, jobs verify inventory
 For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a dedicated test repo
 (or `file://` bare remote) when exercising push assertions; unit and envtest tiers do not require it.
 
+## Multi-node lab evidence
+
+Kind L4 proves single-node wiring. Separately, published **v0.14.0** was exercised on a Talos lab
+with **1 control plane + 2 workers**. That schedule was **ready with conditions**:
+
+**Observed**
+
+- Two manager replicas scheduled on distinct workers; leader failover completed without unexpected
+  restarts in that run
+- Inventory collection and export to in-cluster Postgres
+- ClusterIP Postgres / MinIO / NATS connection tests with Helm `allowPrivateSinks: true`
+  ([resolved-address policy](../security/resolved-address-policy.md))
+- Private GitHub and GitLab snapshot export (connection + push)
+- Certificate scrape returned a non-zero count (partial versus live cluster certificates)
+
+**Not claimed from that run**
+
+- Wave-4 / Tier-S load (500–2k synthetic rows) or full pprof under churn
+- 100k rows/cluster design proof ([load-test runbook](../operator-manual/load-test-runbook.md))
+- Full Ubuntu D-suite / every sink backend / NetPol deny-path / worker drain / Argo scrape
+
+Treat multi-node lab results as **bounded evidence for a named pin**, not a substitute for Kind CI
+or the 100k cloud gate.
+
 ## Local development commands
 
 | Task | Purpose |
