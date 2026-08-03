@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect:** Prevent latent panic on non-string helm release data (HELMDECODE-01) ([#199](https://github.com/platformrelay/kollect/pull/199))[06e6325](https://github.com/platformrelay/kollect/commit/06e6325c7b34184713e90847c29720859e715fbe)
+
 - **sink/git:** Fail instead of silently dropping snapshot superseded on non-fast-forward push (REL-08) ([#191](https://github.com/platformrelay/kollect/pull/191))[0a2867b](https://github.com/platformrelay/kollect/commit/0a2867b5525feea3c8b8a4f307556c8460612826)
 
 ## [0.15.0](https://github.com/platformrelay/kollect/compare/v0.14.0..v0.15.0) - 2026-08-03
