@@ -60,13 +60,24 @@ func DecodeHelmReleaseSecret(obj *unstructured.Unstructured) (map[string]any, er
 }
 
 func secretReleaseData(obj map[string]any) ([]byte, error) {
-	data, found, err := unstructured.NestedMap(obj, "data")
+	// Read data WITHOUT a deep copy. unstructured.NestedMap runs the value through
+	// runtime.DeepCopyJSONValue, which PANICS on any []byte value (it accepts only
+	// string/int64/float64/bool/nil/maps/slices). A crafted unstructured object can
+	// carry a []byte at data.release; the no-copy accessor lets such a value reach
+	// the type switch below and be rejected with a wrapped error instead of
+	// panicking. Do NOT switch this back to NestedMap.
+	dataField, found, err := unstructured.NestedFieldNoCopy(obj, "data")
 	if err != nil {
 		return nil, fmt.Errorf("read secret data: %w", err)
 	}
 
-	if !found || data == nil {
+	if !found || dataField == nil {
 		return nil, fmt.Errorf("secret has no data")
+	}
+
+	data, ok := dataField.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("read secret data: unexpected type %T", dataField)
 	}
 
 	raw, ok := data["release"]
@@ -82,10 +93,11 @@ func secretReleaseData(obj map[string]any) ([]byte, error) {
 		}
 
 		return decoded, nil
-	case []byte:
-		return v, nil
 	default:
-		return nil, fmt.Errorf("secret data.release has unsupported type %T", raw)
+		// The API server always encodes Secret data values as base64 STRINGS, so
+		// any other concrete type (e.g. a crafted []byte) is unexpected. Reject it
+		// with a wrapped error rather than passing it through or panicking above.
+		return nil, fmt.Errorf("secret data.release has unsupported type %T", v)
 	}
 }
 
