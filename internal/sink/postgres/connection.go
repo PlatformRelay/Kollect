@@ -28,7 +28,7 @@ func TestConnection(
 	defer pool.Close()
 
 	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("postgres ping: %w", err)
+		return fmt.Errorf("postgres ping: %w", redactedConnectError(err))
 	}
 
 	return nil
