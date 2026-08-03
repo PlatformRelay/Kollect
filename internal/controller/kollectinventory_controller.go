@@ -184,7 +184,7 @@ func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		metrics.NamespaceFingerprintCacheTotal.WithLabelValues("KollectInventory", cacheResultLabel(itemsComputed)).Inc()
 
 		if totalInventorySinkRefs(&inv) > 0 {
-			if outcome, allDebounced := r.previewAllSinksDebounced(&inv, req.String(), fingerprint); allDebounced {
+			if outcome, allDebounced := r.previewAllSinksDebounced(ctx, &inv, req.String(), fingerprint); allDebounced {
 				metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Add(float64(outcome.DebouncedCount))
 
 				return r.updateStatus(ctx, &inv, itemCount, outcome)
@@ -420,6 +420,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 }
 
 func (r *KollectInventoryReconciler) previewAllSinksDebounced(
+	ctx context.Context,
 	inv *kollectdevv1alpha1.KollectInventory,
 	invKey, checksum string,
 ) (perSinkExportOutcome, bool) {
@@ -430,7 +431,7 @@ func (r *KollectInventoryReconciler) previewAllSinksDebounced(
 
 	now := time.Now()
 	defaultInterval := r.exportDebounce(inv)
-	scopeFloor := r.scopeFloor(context.Background(), inv.Namespace)
+	scopeFloor := r.scopeFloor(ctx, inv.Namespace)
 
 	var outcome perSinkExportOutcome
 	outcome.RequeueAfter = defaultInterval
@@ -441,7 +442,7 @@ func (r *KollectInventoryReconciler) previewAllSinksDebounced(
 		exportKey := sinkExportKey(binding)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
 		interval := defaultInterval
-		if resolved, err := loadResolvedSink(context.Background(), r.Client, inv.Namespace, binding); err == nil {
+		if resolved, err := loadResolvedSink(ctx, r.Client, inv.Namespace, binding); err == nil {
 			var sinkInterval *metav1.Duration
 			if resolved.ExportMinInterval != nil {
 				sinkInterval = resolved.ExportMinInterval.ExportMinInterval

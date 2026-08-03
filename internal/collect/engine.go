@@ -121,6 +121,9 @@ type Engine struct {
 	metricsLastRefresh    map[string]time.Time
 	metricsMu             sync.Mutex
 	dispatchOnce          sync.Once
+	stopCtx               context.Context
+	stopFn                context.CancelFunc
+	workersWG             sync.WaitGroup
 }
 
 // NewEngine constructs a collection engine.
@@ -137,7 +140,15 @@ func NewEngine(
 
 	cfg = normalizeEngineConfig(cfg)
 
+	// stopCtx is created at construction (not in Start) so dispatch workers have a
+	// guaranteed lifecycle signal even when dispatch() starts them before Start()
+	// runs. Start() wires the manager context into stopFn so ctx cancellation and
+	// an explicit Stop() both terminate the worker pool (REL-04).
+	stopCtx, stopFn := context.WithCancel(context.Background())
+
 	return &Engine{
+		stopCtx:               stopCtx,
+		stopFn:                stopFn,
 		dynamic:               dynamicClient,
 		kube:                  kubeClient,
 		access:                NewAccessChecker(kubeClient),
@@ -414,11 +425,30 @@ func (e *Engine) clearExtractFailure(targetKeyStr, resourceUID string) {
 }
 
 // Start stores the manager context used for informer factories and starts dispatch workers.
+//
+// Start is non-blocking (it is a manager Runnable): it wires the manager context into the
+// engine's stop function via a goroutine so that cancelling ctx cancels stopCtx, which in
+// turn drains and terminates every dispatch worker (REL-04). The wiring goroutine itself
+// exits as soon as ctx is done, so it does not leak.
 func (e *Engine) Start(ctx context.Context) error {
 	e.runCtx = ctx
 	e.startDispatchWorkers()
 
+	go func() {
+		<-ctx.Done()
+		e.stopFn()
+	}()
+
 	return nil
+}
+
+// Stop signals every dispatch worker to exit and blocks until in-flight jobs finish.
+// Safe to call more than once (context cancellation is idempotent).
+func (e *Engine) Stop() {
+	if e.stopFn != nil {
+		e.stopFn()
+	}
+	e.workersWG.Wait()
 }
 
 func (e *Engine) startDispatchWorkers() {
@@ -427,15 +457,37 @@ func (e *Engine) startDispatchWorkers() {
 		if workers <= 0 {
 			workers = defaultDispatchWorkers
 		}
+		e.workersWG.Add(workers)
 		for i := 0; i < workers; i++ {
 			go e.dispatchWorker()
 		}
 	})
 }
 
+// dispatchWorker drains the dispatch queue until the engine's stop context is
+// cancelled (REL-04). It never closes dispatchCh — a producer may be mid-send —
+// so shutdown is signalled purely by stopCtx. The stop check is prioritised
+// before the receive so a cancelled engine stops promptly under continuous load;
+// a job already handed to processDispatch runs to completion (processDispatch is
+// not preemptible) before the worker re-checks and returns.
 func (e *Engine) dispatchWorker() {
-	for job := range e.dispatchCh {
-		e.processDispatch(job.ctx, job.gvr, job.obj, job.deleted)
+	defer e.workersWG.Done()
+	for {
+		select {
+		case <-e.stopCtx.Done():
+			return
+		default:
+		}
+
+		select {
+		case <-e.stopCtx.Done():
+			return
+		case job, ok := <-e.dispatchCh:
+			if !ok {
+				return
+			}
+			e.processDispatch(job.ctx, job.gvr, job.obj, job.deleted)
+		}
 	}
 }
 
