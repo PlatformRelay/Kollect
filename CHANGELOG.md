@@ -24,7 +24,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
-- **branding:** Adopt collector aperture identity [dde6606](https://github.com/platformrelay/kollect/commit/dde6606485a57d2169727080db3894a7dc9f8095)
+- **branding:** Adopt collector aperture identity [dfb7cc9](https://github.com/platformrelay/kollect/commit/dfb7cc9f4ab0b366f8b9015b7fc51ce91ac6da2f)
 
 ## [0.14.0](https://github.com/platformrelay/kollect/compare/v0.13.0..v0.14.0) - 2026-08-02
 
