@@ -21,6 +21,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **sink/git:** Push when local ahead of origin/<pushBranch> so warm-mirror can't report Synced=true with an unpushed commit (REL-06) ([#173](https://github.com/platformrelay/kollect/pull/173))[81d0500](https://github.com/platformrelay/kollect/commit/81d050074f192629ca9f729ce7fc3143dd72f078)
 
+
+### Features
+
+- **branding:** Adopt collector aperture identity [dde6606](https://github.com/platformrelay/kollect/commit/dde6606485a57d2169727080db3894a7dc9f8095)
+
 ## [0.14.0](https://github.com/platformrelay/kollect/compare/v0.13.0..v0.14.0) - 2026-08-02
 
 ### Bug Fixes
