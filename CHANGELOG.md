@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **sink/git:** Push when local ahead of origin/<pushBranch> so warm-mirror can't report Synced=true with an unpushed commit (REL-06) ([#173](https://github.com/platformrelay/kollect/pull/173))[81d0500](https://github.com/platformrelay/kollect/commit/81d050074f192629ca9f729ce7fc3143dd72f078)
+
 ## [0.14.0](https://github.com/platformrelay/kollect/compare/v0.13.0..v0.14.0) - 2026-08-02
 
 ### Bug Fixes
