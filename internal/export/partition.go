@@ -26,58 +26,83 @@ type EnvelopePartition struct {
 }
 
 // PartitionEnvelopes splits items into bounded envelope parts.
+//
+// A single-part result stays byte-identical to the legacy markerless form
+// (backward compatible; absence of partTotal denotes a complete standalone
+// document). A genuinely multipart result (REL-02) bakes partIndex/partTotal
+// into every part's envelope bytes so a consumer can detect a torn or stale set
+// from the payload alone. Size accounting reserves the marker width up front so
+// each persisted part still respects maxBytes.
 func PartitionEnvelopes(items []collect.Item, meta Metadata, maxBytes int64) ([]EnvelopePartition, error) {
 	sorted, err := stableItems(items)
 	if err != nil {
 		return nil, err
 	}
 
+	groups, err := partitionItemGroups(sorted, meta, maxBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	total := len(groups)
+	parts := make([]EnvelopePartition, 0, total)
+	for i, group := range groups {
+		partMeta := meta
+		// Emit the completeness marker only for genuinely multipart sets; a lone
+		// part stays markerless so existing single-document consumers are
+		// unaffected.
+		if total > 1 {
+			partMeta.PartIndex = i + 1
+			partMeta.PartTotal = total
+		}
+
+		payload, marshalErr := MarshalEnvelope(group, partMeta)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		parts = append(parts, EnvelopePartition{
+			Index:     i + 1,
+			Total:     total,
+			ItemCount: len(group),
+			Checksum:  EnvelopeMetaFromPayload(payload).Checksum,
+			Envelope:  payload,
+		})
+	}
+
+	return parts, nil
+}
+
+// partitionItemGroups splits sorted items into the groups that will each become
+// one bounded envelope part. The single-vs-multipart decision is measured on the
+// markerless envelope so a standalone part stays byte-identical to the legacy
+// form; once multipart, per-candidate sizing reserves the completeness-marker
+// width (an upper bound on the real partIndex/partTotal digits) so the marked
+// part that is actually persisted still fits within maxBytes.
+func partitionItemGroups(sorted []collect.Item, meta Metadata, maxBytes int64) ([][]collect.Item, error) {
 	full, err := MarshalEnvelope(sorted, meta)
 	if err != nil {
 		return nil, err
 	}
 	if maxBytes <= 0 || int64(len(full)) <= maxBytes {
-		return finalizePartitions([]EnvelopePartition{{
-			ItemCount: len(sorted),
-			Checksum:  EnvelopeMetaFromPayload(full).Checksum,
-			Envelope:  full,
-		}}), nil
+		return [][]collect.Item{sorted}, nil
 	}
-
 	if len(sorted) == 0 {
-		empty, err := MarshalEnvelope([]collect.Item{}, meta)
-		if err != nil {
-			return nil, err
-		}
-
-		return finalizePartitions([]EnvelopePartition{{
-			ItemCount: 0,
-			Checksum:  EnvelopeMetaFromPayload(empty).Checksum,
-			Envelope:  empty,
-		}}), nil
+		return [][]collect.Item{{}}, nil
 	}
 
-	parts := make([]EnvelopePartition, 0, 4)
+	// Reserve marker width: the real partTotal never exceeds len(sorted) (worst
+	// case one item per part) and partIndex never exceeds partTotal, so sizing
+	// with both fields set to len(sorted) guarantees measured >= persisted.
+	measureMeta := meta
+	measureMeta.PartIndex = len(sorted)
+	measureMeta.PartTotal = len(sorted)
+
+	var groups [][]collect.Item
 	current := make([]collect.Item, 0, len(sorted))
 
-	flushCurrent := func() error {
-		payload, marshalErr := MarshalEnvelope(current, meta)
-		if marshalErr != nil {
-			return marshalErr
-		}
-		parts = append(parts, EnvelopePartition{
-			ItemCount: len(current),
-			Checksum:  EnvelopeMetaFromPayload(payload).Checksum,
-			Envelope:  payload,
-		})
-		current = current[:0]
-
-		return nil
-	}
-
 	for i := range sorted {
-		candidate := append(current, sorted[i])
-		payload, marshalErr := MarshalEnvelope(candidate, meta)
+		candidate := append(current, sorted[i]) //nolint:gocritic // intentional grow-or-reset below
+		payload, marshalErr := MarshalEnvelope(candidate, measureMeta)
 		if marshalErr != nil {
 			return nil, marshalErr
 		}
@@ -89,27 +114,26 @@ func PartitionEnvelopes(items []collect.Item, meta Metadata, maxBytes int64) ([]
 		if len(current) == 0 {
 			return nil, fmt.Errorf("single item export envelope exceeds maxExportBytes (%d)", maxBytes)
 		}
-		if err := flushCurrent(); err != nil {
-			return nil, err
-		}
 
-		current = append(current, sorted[i])
-		singlePayload, marshalErr := MarshalEnvelope(current, meta)
+		// Clone before flushing: groups are marshalled after this loop, so they
+		// must not alias a backing array that later appends could mutate.
+		groups = append(groups, slices.Clone(current))
+		current = []collect.Item{sorted[i]}
+
+		single, marshalErr := MarshalEnvelope(current, measureMeta)
 		if marshalErr != nil {
 			return nil, marshalErr
 		}
-		if int64(len(singlePayload)) > maxBytes {
+		if int64(len(single)) > maxBytes {
 			return nil, fmt.Errorf("single item export envelope exceeds maxExportBytes (%d)", maxBytes)
 		}
 	}
 
 	if len(current) > 0 {
-		if err := flushCurrent(); err != nil {
-			return nil, err
-		}
+		groups = append(groups, slices.Clone(current))
 	}
 
-	return finalizePartitions(parts), nil
+	return groups, nil
 }
 
 // PartitionsChecksum returns a stable digest over part checksums.
@@ -139,16 +163,6 @@ func PartitionObjectPath(baseObjectPath string, index, total int) string {
 	ext := file[dot:]
 
 	return path.Join(dir, fmt.Sprintf("%s.part-%04d-of-%04d%s", name, index, total, ext))
-}
-
-func finalizePartitions(parts []EnvelopePartition) []EnvelopePartition {
-	total := len(parts)
-	for i := range parts {
-		parts[i].Index = i + 1
-		parts[i].Total = total
-	}
-
-	return parts
 }
 
 func stableItems(items []collect.Item) ([]collect.Item, error) {

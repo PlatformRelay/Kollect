@@ -12,10 +12,16 @@ import (
 )
 
 // Metadata is export envelope metadata carried alongside item rows (ADR-0405).
+//
+// PartIndex/PartTotal carry the multipart completeness marker (REL-02); they are
+// zero for standalone single-part exports and set by PartitionEnvelopes for each
+// shard of a torn-able multipart set.
 type Metadata struct {
 	Generation int64
 	Cluster    string
 	ExportedAt time.Time
+	PartIndex  int
+	PartTotal  int
 }
 
 // Envelope is the versioned inventory export document (alias for contract tests).
@@ -27,6 +33,8 @@ func MarshalEnvelope(items []collect.Item, meta Metadata) ([]byte, error) {
 		Generation: meta.Generation,
 		Cluster:    meta.Cluster,
 		ExportedAt: meta.ExportedAt,
+		PartIndex:  meta.PartIndex,
+		PartTotal:  meta.PartTotal,
 	})
 }
 

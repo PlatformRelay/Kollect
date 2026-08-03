@@ -19,17 +19,36 @@ import (
 const ExportSchemaVersion = "kollect.dev/v1alpha1"
 
 // ExportMetadata is envelope metadata carried alongside item rows (ADR-0405).
+//
+// PartIndex/PartTotal are the multipart completeness marker (REL-02): when a
+// single logical snapshot is sharded across several bounded envelopes, each part
+// carries its 1-based index and the total part count so a consumer can validate
+// that it holds a complete, non-torn set. They are zero (and omitted from the
+// wire form) for standalone single-part exports.
 type ExportMetadata struct {
 	Generation int64
 	Cluster    string
 	ExportedAt time.Time
+	PartIndex  int
+	PartTotal  int
 }
 
 // ExportEnvelope is the versioned inventory export document written to state sinks.
+//
+// Completeness contract (REL-02): a multipart export sets partIndex (1-based)
+// and partTotal on every part, and all parts of one set share the same
+// generation. A consumer reassembling a set MUST verify it has every index
+// 1..partTotal, that the count equals partTotal, and that generation is uniform
+// across parts; a missing index or a mixed generation means the set is torn or
+// stale and must not be treated as complete. The ABSENCE of partTotal (the
+// legacy/omitempty form) denotes a standalone single-part document that is
+// complete on its own.
 type ExportEnvelope struct {
 	SchemaVersion string `json:"schemaVersion"`
 	Checksum      string `json:"checksum"`
 	Generation    int64  `json:"generation,omitempty"`
+	PartIndex     int    `json:"partIndex,omitempty"`
+	PartTotal     int    `json:"partTotal,omitempty"`
 	ItemCount     int    `json:"itemCount"`
 	ExportedAt    string `json:"exportedAt"`
 	Cluster       string `json:"cluster,omitempty"`
@@ -90,6 +109,8 @@ func MarshalExportEnvelope(items []Item, meta ExportMetadata) ([]byte, error) {
 		SchemaVersion: ExportSchemaVersion,
 		Checksum:      exportContentHash(itemsJSON),
 		Generation:    meta.Generation,
+		PartIndex:     meta.PartIndex,
+		PartTotal:     meta.PartTotal,
 		ItemCount:     len(items),
 		ExportedAt:    exportedAt.UTC().Format(time.RFC3339Nano),
 		Cluster:       meta.Cluster,

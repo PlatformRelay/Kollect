@@ -57,6 +57,42 @@ Carried **alongside** the payload (status + sink columns/headers), not inside ea
 source `generation`, `itemCount`, `exportedAt`, and `cluster`. These drive debounce/coalesce
 ([ADR-0305](0305-aggregation-dedupe.md)) and staleness detection without bloating rows.
 
+### Multipart completeness marker (REL-02)
+
+When a snapshot exceeds `maxExportBytes` it is sharded across several bounded envelopes
+(`export.PartitionEnvelopes`). Sharded writes are **not atomic**: parts are persisted one by one, so a
+mid-write failure — or a stale generation-`N-1` shard left beside fresh generation-`N` shards — can
+leave a **torn** set that would otherwise masquerade as complete. To make torn sets detectable, each
+part of a multipart **JSON `ExportEnvelope`** carries a completeness marker:
+
+- `partIndex` — 1-based position of this part.
+- `partTotal` — total number of parts in the set.
+- `generation` — already present; identical across all parts of one set.
+
+**Scope of the guarantee (important).** These markers live in the JSON `ExportEnvelope` header. They
+are present, and payload-level torn-set detection applies, only where the envelope itself is the
+persisted payload: the state-sink JSON contract — non-git object stores (S3/GCS/Azure/HTTP) and the
+Git/GitLab **document + `serialization.format: json`** case, which writes the canonical envelope
+unchanged.
+
+The default **Git/GitLab sink serializes to YAML** via the human-readable layout projection
+([ADR-0419](0419-git-export-serialization-layout.md)), which **intentionally emits bare `Item` rows and
+carries NO `ExportEnvelope` metadata** — no `schemaVersion`, `checksum`, `itemCount`, `generation`, or
+`partIndex`/`partTotal`. Consequently, **payload-level completeness detection does not apply to default
+Git/GitLab (YAML) sinks** (nor to any per-resource / split layout). Extending the marker into the YAML
+layout — e.g. a per-set manifest/index sidecar that records the part set and generation — is a
+deliberate **follow-up**, not part of this contract. The behavior is regression-guarded by
+`TestResolveSnapshotExport_GitDefaultYAMLDropsCompletenessMarker`.
+
+**Consumer validation (JSON envelope contract).** A consumer reassembling a set from JSON envelopes
+MUST verify it holds every index `1..partTotal`, that the count equals `partTotal`, and that
+`generation` is **uniform** across the parts; a missing index or a mixed generation means the set is
+torn or stale and MUST NOT be treated as complete. The **absence** of `partTotal` (the legacy/
+`omitempty` form) denotes a standalone single-part document that is complete on its own — single-part
+exports stay byte-identical to the pre-marker shape, so existing consumers are unaffected (additive
+evolution, rule 2). The marker is a *detection* contract only; manifest-last write ordering /
+staged-commit / GC of orphaned parts is deliberately out of scope here and tracked separately.
+
 ### Stability rules (binding)
 
 1. **Deterministic ordering** — stable key order on serialize so Git diffs and golden tests are
