@@ -111,3 +111,29 @@ func TestFamilySinkValidators_updateDelete(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 }
+
+// TestKollectSnapshotSinkValidator_ValidateUpdate_nonDeletionRevalidates drives the
+// non-deletion branch of the snapshot validator's ValidateUpdate (the deletion branch
+// is covered elsewhere): a live update to a valid spec is admitted, and an update that
+// drops the required git block is rejected (COV-90-S05).
+func TestKollectSnapshotSinkValidator_ValidateUpdate_nonDeletionRevalidates(t *testing.T) {
+	t.Parallel()
+
+	v := &kollectSnapshotSinkValidator{client: fake.NewClientBuilder().Build()}
+	valid := &kollectdevv1alpha1.KollectSnapshotSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "git", Namespace: "default"},
+		Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type: kollectdevv1alpha1.SnapshotSinkTypeGit,
+			Git:  &kollectdevv1alpha1.GitSpec{},
+		},
+	}
+	if _, err := v.ValidateUpdate(context.Background(), valid, valid); err != nil {
+		t.Fatalf("valid non-deletion update: %v", err)
+	}
+
+	invalid := valid.DeepCopy()
+	invalid.Spec.Git = nil
+	if _, err := v.ValidateUpdate(context.Background(), valid, invalid); err == nil {
+		t.Fatal("expected non-deletion update dropping git block to be rejected")
+	}
+}

@@ -5,7 +5,9 @@ package webhookv1alpha1
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,5 +69,64 @@ func TestKollectInventoryValidator_ValidateUpdateDeletion(t *testing.T) {
 
 	if _, err := v.ValidateDelete(context.Background(), inv); err != nil {
 		t.Fatalf("delete: %v", err)
+	}
+}
+
+// TestKollectInventoryValidator_ValidateUpdate_nonDeletionRevalidates asserts a live
+// (non-deletion) UPDATE re-runs full spec validation: an update that introduces a
+// cross-namespace sinkRef is rejected, while an update to a valid spec is admitted
+// (COV-90-S05, drives the non-deletion branch of ValidateUpdate).
+func TestKollectInventoryValidator_ValidateUpdate_nonDeletionRevalidates(t *testing.T) {
+	t.Parallel()
+
+	v := testInventoryValidator(t)
+	old := &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "inv", Namespace: "team-a"},
+		Spec:       kollectdevv1alpha1.KollectInventorySpec{},
+	}
+
+	bad := old.DeepCopy()
+	bad.Spec.DatabaseSinkRefs = kollectdevv1alpha1.NewSinkRefList("other-ns/sink")
+	if _, err := v.ValidateUpdate(context.Background(), old, bad); err == nil {
+		t.Fatal("expected non-deletion update to reject cross-namespace sinkRef")
+	}
+
+	good := old.DeepCopy()
+	good.Spec.DatabaseSinkRefs = kollectdevv1alpha1.NewSinkRefList("sink")
+	if _, err := v.ValidateUpdate(context.Background(), old, good); err != nil {
+		t.Fatalf("valid non-deletion update: %v", err)
+	}
+}
+
+// TestKollectInventoryValidator_scopeFloorEnforced drives the enforced-scope branch of
+// the inventory validator's validate: with an enforced KollectScope floor in the
+// namespace, an inventory whose exportMinInterval is below the floor is rejected
+// (COV-90-S05).
+func TestKollectInventoryValidator_scopeFloorEnforced(t *testing.T) {
+	t.Parallel()
+
+	teamScope := &kollectdevv1alpha1.KollectScope{
+		ObjectMeta: metav1.ObjectMeta{Name: "team-scope", Namespace: "team-a"},
+		Spec: kollectdevv1alpha1.KollectScopeSpec{
+			ScopeCeilingSpec: kollectdevv1alpha1.ScopeCeilingSpec{
+				MinExportInterval: &metav1.Duration{Duration: time.Hour},
+			},
+		},
+	}
+	v := &kollectInventoryValidator{client: newScopedFakeClient(t, teamScope)}
+
+	inv := &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "too-fast", Namespace: "team-a"},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			ExportMinInterval: &metav1.Duration{Duration: time.Second},
+		},
+	}
+
+	_, err := v.ValidateCreate(context.Background(), inv)
+	if err == nil {
+		t.Fatal("expected scope-floor violation for sub-floor exportMinInterval")
+	}
+	if !strings.Contains(err.Error(), "too-fast") {
+		t.Fatalf("error should name the offending inventory, got: %v", err)
 	}
 }

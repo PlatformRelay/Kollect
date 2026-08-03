@@ -183,6 +183,90 @@ func TestValidateDatabaseSinkSpec_bigQueryForbidsPostgres(t *testing.T) {
 	}
 }
 
+// TestValidateBigQuerySpec_missingRequiredFields asserts each required BigQuery field
+// (project, dataset, table) is individually validated and the error NAMES the missing
+// field path (COV-90-S05); this drives the per-field required branches of
+// validateBigQuerySpec that the whole-block tests do not isolate.
+func TestValidateBigQuerySpec_missingRequiredFields(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		spec      kollectdevv1alpha1.BigQuerySpec
+		wantField string
+	}{
+		{
+			name:      "missing project",
+			spec:      kollectdevv1alpha1.BigQuerySpec{Dataset: "ds", Table: "t"},
+			wantField: "spec.bigquery.project",
+		},
+		{
+			name:      "missing dataset",
+			spec:      kollectdevv1alpha1.BigQuerySpec{Project: "p", Table: "t"},
+			wantField: "spec.bigquery.dataset",
+		},
+		{
+			name:      "missing table",
+			spec:      kollectdevv1alpha1.BigQuerySpec{Project: "p", Dataset: "ds"},
+			wantField: "spec.bigquery.table",
+		},
+		{
+			name: "whitespace-only project is treated as missing",
+			spec: kollectdevv1alpha1.BigQuerySpec{Project: "   ", Dataset: "ds", Table: "t"},
+			// TrimSpace collapses to empty, so the project field is still flagged.
+			wantField: "spec.bigquery.project",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			errs := validateBigQuerySpec(&tc.spec)
+			if len(errs) == 0 {
+				t.Fatalf("expected required-field error for %s", tc.wantField)
+			}
+			if !strings.Contains(errs.ToAggregate().Error(), tc.wantField) {
+				t.Fatalf("error must name field %q, got: %s", tc.wantField, errs.ToAggregate().Error())
+			}
+		})
+	}
+}
+
+// TestValidateBigQuerySpec_secretRefRequiresName asserts a secretRef with a blank name
+// is rejected and the error names the secretRef.name field (COV-90-S05).
+func TestValidateBigQuerySpec_secretRefRequiresName(t *testing.T) {
+	t.Parallel()
+
+	errs := validateBigQuerySpec(&kollectdevv1alpha1.BigQuerySpec{
+		Project:   "p",
+		Dataset:   "ds",
+		Table:     "t",
+		SecretRef: &kollectdevv1alpha1.SecretReference{Name: ""},
+	})
+	if len(errs) == 0 {
+		t.Fatal("expected error for secretRef with empty name")
+	}
+	if !strings.Contains(errs.ToAggregate().Error(), "spec.bigquery.secretRef.name") {
+		t.Fatalf("error must name secretRef.name field, got: %s", errs.ToAggregate().Error())
+	}
+}
+
+// TestValidateBigQuerySpec_validWithSecretRef guards the accept path: a fully populated
+// spec with a named secretRef produces no errors.
+func TestValidateBigQuerySpec_validWithSecretRef(t *testing.T) {
+	t.Parallel()
+
+	errs := validateBigQuerySpec(&kollectdevv1alpha1.BigQuerySpec{
+		Project:   "fleet-analytics",
+		Dataset:   "inventory",
+		Table:     "items",
+		SecretRef: &kollectdevv1alpha1.SecretReference{Name: "bq-key"},
+	})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors for valid bigquery spec: %v", errs)
+	}
+}
+
 func TestValidateDatabaseSinkSpec_mongoRequiresBlock(t *testing.T) {
 	t.Parallel()
 
