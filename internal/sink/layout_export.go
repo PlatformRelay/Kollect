@@ -5,6 +5,8 @@ package sink
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -77,6 +79,15 @@ type FileExporter interface {
 type snapshotExport struct {
 	objectPath string
 	run        func(ctx context.Context) error
+}
+
+// partSuffixRE matches the deterministic multipart object-path suffix (export.PartitionObjectPath).
+var partSuffixRE = regexp.MustCompile(`\.part-\d+-of-\d+$`)
+
+// baseInventoryName strips the .part-NNNN-of-NNNN suffix a multipart object path adds to the
+// inventory name, recovering the per-set base identity for the manifest sidecar path.
+func baseInventoryName(name string) string {
+	return partSuffixRE.ReplaceAllString(name, "")
 }
 
 func isGitLayoutFamily(sinkType string) bool {
@@ -175,6 +186,11 @@ func resolveSnapshotExport(
 
 	opts := gitExportOpts(resolved.Prune, meta.PartIndex, meta.PartTotal, projectedPaths, prunePlan)
 
+	gitFiles, err = appendSetManifest(resolved, gitFiles, &opts, meta.PartIndex, meta.PartTotal, prunePlan)
+	if err != nil {
+		return snapshotExport{}, err
+	}
+
 	return snapshotExport{
 		objectPath: resolved.DocumentPath(),
 		run:        func(ctx context.Context) error { return fileExporter.ExportFiles(ctx, gitFiles, opts) },
@@ -218,6 +234,61 @@ func gitExportOpts(
 	opts.SuppressPrune = true
 
 	return opts
+}
+
+// appendSetManifest emits the per-export-set manifest sidecar (REL-02-FUP) on the FINAL part of a
+// prune-bearing multipart YAML/layout export, giving YAML consumers the torn-set / stale-set marker
+// the JSON ExportEnvelope already carries (ADR-0405/0419).
+//
+// It fires only for prune-bearing tree layouts (perResource/split) that are genuinely multipart --
+// the case where parts occupy DISTINCT paths and a torn set is possible. It is deliberately NOT
+// emitted for:
+//   - single-part exports (partTotal <= 1): byte-compatible with today, no sidecar;
+//   - document mode (Prune == false): all parts overwrite ONE path, a degenerate set with no distinct
+//     part files to reconcile (partitioning math is out of scope; decide-and-log, ADR-0419);
+//   - non-final parts / a nil accumulator: the manifest lists the accumulated UNION of every part's
+//     paths, which is only complete on the final part.
+//
+// The manifest lists the union of projected DATA paths (from the shared accumulator) and its own path
+// is appended to the prune keep set so the single union-prune preserves it -- survives a partial write
+// and is replaced-not-orphaned on a new-generation re-export (its path is generation-stable).
+func appendSetManifest(
+	resolved layout.ResolvedLayout,
+	gitFiles []git.FileEntry,
+	opts *git.ExportFilesOptions,
+	partIndex, partTotal int,
+	plan *PrunePlan,
+) ([]git.FileEntry, error) {
+	if !resolved.Prune || partTotal <= 1 || partIndex < partTotal || plan == nil {
+		return gitFiles, nil
+	}
+
+	// The per-part object path suffixes the inventory name with .part-NNNN-of-NNNN; the sidecar is
+	// per-SET, so strip it back to the base inventory identity for a path stable across every part.
+	setResolved := resolved
+	setResolved.InventoryName = baseInventoryName(resolved.InventoryName)
+
+	union := plan.Union()
+	manifestPath := setResolved.SetManifestPath()
+
+	// Fail loudly rather than silently overwrite a data file, mirroring the split-index collision
+	// guard: a custom template must never render the manifest onto a projected resource path.
+	for _, p := range union {
+		if p == manifestPath {
+			return nil, fmt.Errorf("layout collision: set-manifest path %q collides with a projected resource file", manifestPath)
+		}
+	}
+
+	manifest := layout.BuildSetManifest(setResolved, partTotal, union)
+	data, err := layout.MarshalSetManifest(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	gitFiles = append(gitFiles, git.FileEntry{Path: manifestPath, Data: data})
+	opts.PruneKeepPaths = append(opts.PruneKeepPaths, manifestPath)
+
+	return gitFiles, nil
 }
 
 func inferResourceLayoutHints(items []collect.Item) (bool, string) {
