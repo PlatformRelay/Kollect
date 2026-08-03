@@ -30,6 +30,10 @@ type Config struct {
 	Author         CommitAuthor
 	CloneDepth     int
 	Prune          bool
+	// PruneKeepPaths overrides the prune keep-set. When non-empty, prune keeps exactly these paths
+	// (the union of all parts in a multipart export) instead of only the files written this call. Nil
+	// preserves the legacy behaviour: keep = written paths.
+	PruneKeepPaths []string
 	AuthType       AuthType
 	Engine         GitEngine
 	ForceBasicAuth bool

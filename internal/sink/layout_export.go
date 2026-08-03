@@ -5,7 +5,9 @@ package sink
 
 import (
 	"context"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -15,10 +17,59 @@ import (
 	"github.com/platformrelay/kollect/internal/sink/layout"
 )
 
+// PrunePlan accumulates the projected file paths of every part in a multipart git-layout export.
+// A single plan is shared across all parts of one export so that, for a prune-bearing layout, prune
+// runs EXACTLY ONCE -- against the union of every part's paths, on the final part -- instead of
+// per-part (which would let part N's prune delete part N-1's files: last-part-wins data loss).
+type PrunePlan struct {
+	mu    sync.Mutex
+	paths map[string]struct{}
+}
+
+// NewPrunePlan returns an empty accumulator. Create one per multipart export set.
+func NewPrunePlan() *PrunePlan {
+	return &PrunePlan{paths: make(map[string]struct{})}
+}
+
+// Add records this part's projected file paths into the union.
+func (p *PrunePlan) Add(paths []string) {
+	if p == nil {
+		return
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.paths == nil {
+		p.paths = make(map[string]struct{}, len(paths))
+	}
+	for _, path := range paths {
+		p.paths[path] = struct{}{}
+	}
+}
+
+// Union returns the sorted union of every path added so far.
+func (p *PrunePlan) Union() []string {
+	if p == nil {
+		return nil
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	out := make([]string, 0, len(p.paths))
+	for path := range p.paths {
+		out = append(out, path)
+	}
+	sort.Strings(out)
+
+	return out
+}
+
 // FileExporter is implemented by git/gitlab backends that can write a projected layout tree in a
 // single commit (ADR-0419). Backends that do not implement it fall back to single-document export.
 type FileExporter interface {
-	ExportFiles(ctx context.Context, files []git.FileEntry, prune bool) error
+	ExportFiles(ctx context.Context, files []git.FileEntry, opts git.ExportFilesOptions) error
 }
 
 // snapshotExport bundles the export closure with the representative object path used for commit
@@ -46,6 +97,7 @@ func resolveSnapshotExport(
 	invNS, invName string,
 	generation int64,
 	defaultObjectPath string,
+	prunePlan *PrunePlan,
 ) (snapshotExport, error) {
 	if !isGitLayoutFamily(spec.Type) {
 		return snapshotExport{
@@ -82,7 +134,8 @@ func resolveSnapshotExport(
 		}, nil
 	}
 
-	if meta := export.EnvelopeMetaFromPayload(envelope); !meta.ExportedAt.IsZero() {
+	meta := export.EnvelopeMetaFromPayload(envelope)
+	if !meta.ExportedAt.IsZero() {
 		resolved.ExportedAt = meta.ExportedAt.UTC().Format(time.RFC3339)
 	}
 
@@ -114,16 +167,57 @@ func resolveSnapshotExport(
 	}
 
 	gitFiles := make([]git.FileEntry, 0, len(files))
+	projectedPaths := make([]string, 0, len(files))
 	for _, f := range files {
 		gitFiles = append(gitFiles, git.FileEntry{Path: f.Path, Data: f.Data})
+		projectedPaths = append(projectedPaths, f.Path)
 	}
 
-	prune := resolved.Prune
+	opts := gitExportOpts(resolved.Prune, meta.PartIndex, meta.PartTotal, projectedPaths, prunePlan)
 
 	return snapshotExport{
 		objectPath: resolved.DocumentPath(),
-		run:        func(ctx context.Context) error { return fileExporter.ExportFiles(ctx, gitFiles, prune) },
+		run:        func(ctx context.Context) error { return fileExporter.ExportFiles(ctx, gitFiles, opts) },
 	}, nil
+}
+
+// gitExportOpts decides prune intent for one part of a (possibly multipart) layout export.
+//
+// The invariant: for a prune-bearing layout, prune must run EXACTLY ONCE, against the UNION of every
+// part's projected paths, on the final part -- never per-part (which would let part N's prune delete
+// part N-1's files: last-part-wins silent data loss). Single-part exports (partTotal <= 1) are
+// unchanged. FAIL-SAFE: a multipart set with no accumulator suppresses prune entirely rather than
+// risk a per-part prune.
+func gitExportOpts(
+	prune bool,
+	partIndex, partTotal int,
+	projectedPaths []string,
+	plan *PrunePlan,
+) git.ExportFilesOptions {
+	opts := git.ExportFilesOptions{Prune: prune}
+	if !prune || partTotal <= 1 {
+		return opts
+	}
+
+	if plan == nil {
+		// No shared accumulator: never prune per-part.
+		opts.SuppressPrune = true
+
+		return opts
+	}
+
+	plan.Add(projectedPaths)
+	if partIndex >= partTotal {
+		// Final part: prune once, keeping the union of every part's paths.
+		opts.PruneKeepPaths = plan.Union()
+
+		return opts
+	}
+
+	// Non-final part: suppress prune so it runs only on the final part.
+	opts.SuppressPrune = true
+
+	return opts
 }
 
 func inferResourceLayoutHints(items []collect.Item) (bool, string) {

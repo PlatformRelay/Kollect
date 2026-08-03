@@ -82,7 +82,7 @@ func TestBackend_ExportFiles_surfacesCloneFailure(t *testing.T) {
 	b := newTestBackend(t, srv.URL+"/platform/inventory.git", git.Auth{Token: "tok"})
 
 	files := []git.FileEntry{{Path: "inventory/team-a/rollup.json", Data: []byte(`{"items":[]}`)}}
-	err := b.ExportFiles(context.Background(), files, false)
+	err := b.ExportFiles(context.Background(), files, git.ExportFilesOptions{})
 	if err == nil {
 		t.Fatal("expected clone failure to surface from ExportFiles")
 	}
@@ -95,7 +95,7 @@ func TestBackend_ExportFiles_empty(t *testing.T) {
 
 	b := newTestBackend(t, "https://gitlab.example.com/platform/inventory.git", git.Auth{Token: "tok"})
 
-	err := b.ExportFiles(context.Background(), nil, false)
+	err := b.ExportFiles(context.Background(), nil, git.ExportFilesOptions{})
 	if err == nil {
 		t.Fatal("expected error for empty file set")
 	}

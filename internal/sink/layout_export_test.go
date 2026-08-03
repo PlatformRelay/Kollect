@@ -21,9 +21,10 @@ type fakeBackend struct {
 	exportPath    string
 	exportCalled  bool
 
-	files       []git.FileEntry
-	prune       bool
-	filesCalled bool
+	files          []git.FileEntry
+	prune          bool
+	pruneKeepPaths []string
+	filesCalled    bool
 }
 
 func (f *fakeBackend) Type() string                   { return "fake" }
@@ -41,10 +42,11 @@ type fakeTreeBackend struct {
 	fakeBackend
 }
 
-func (f *fakeTreeBackend) ExportFiles(_ context.Context, files []git.FileEntry, prune bool) error {
+func (f *fakeTreeBackend) ExportFiles(_ context.Context, files []git.FileEntry, opts git.ExportFilesOptions) error {
 	f.filesCalled = true
 	f.files = files
-	f.prune = prune
+	f.prune = opts.Prune && !opts.SuppressPrune
+	f.pruneKeepPaths = opts.PruneKeepPaths
 
 	return nil
 }
@@ -104,7 +106,7 @@ func TestResolveSnapshotExport_NonGitUsesDefaultPath(t *testing.T) {
 	be := &fakeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeS3}
 
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json")
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +130,7 @@ func TestResolveSnapshotExport_GitJSONDocumentKeepsEnvelope(t *testing.T) {
 	}
 	env := testEnvelope(t)
 
-	plan, err := resolveSnapshotExport(be, spec, env, "team-a", "api", 1, "inventory/team-a/api.json")
+	plan, err := resolveSnapshotExport(be, spec, env, "team-a", "api", 1, "inventory/team-a/api.json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +153,7 @@ func TestResolveSnapshotExport_GitDefaultYAMLDocumentTree(t *testing.T) {
 	be := &fakeTreeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit}
 
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json")
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +207,7 @@ func TestResolveSnapshotExport_GitDefaultYAMLDropsCompletenessMarker(t *testing.
 	be := &fakeTreeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit} // default format = YAML
 
-	plan, err := resolveSnapshotExport(be, spec, marked, "team-a", "api", 7, "inventory/team-a/api.json")
+	plan, err := resolveSnapshotExport(be, spec, marked, "team-a", "api", 7, "inventory/team-a/api.json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +241,7 @@ func TestResolveSnapshotExport_GitPerResourceTree(t *testing.T) {
 		Layout:  &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource},
 	}
 
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json")
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +266,7 @@ func TestResolveSnapshotExport_GitAutoInfersResourceModeFromEnvelope(t *testing.
 	be := &fakeTreeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit}
 
-	plan, err := resolveSnapshotExport(be, spec, testResourceEnvelope(t, "payload"), "team-a", "api", 1, "inventory/team-a/api.json")
+	plan, err := resolveSnapshotExport(be, spec, testResourceEnvelope(t, "payload"), "team-a", "api", 1, "inventory/team-a/api.json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +300,7 @@ func TestResolveSnapshotExport_GitYAMLDocumentFallbackWithoutFileExporter(t *tes
 	be := &fakeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit}
 
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json")
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

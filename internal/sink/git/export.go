@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	billy "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/go-git/go-git/v5"
@@ -65,6 +66,21 @@ type FileEntry struct {
 	Path string
 	// Data is the file content.
 	Data []byte
+}
+
+// ExportFilesOptions carries prune intent for a layout-tree export (ADR-0419).
+//
+// Prune requests directory-scoped removal of stale files so deleted resources drop out of the repo.
+// PruneKeepPaths overrides the keep-set: when non-empty, prune keeps exactly these paths (the union
+// of every part in a multipart export) instead of only the files written by this call -- so a
+// per-part write never deletes a sibling part's files. A nil/empty keep-set preserves the legacy
+// behaviour (keep = the paths written by this call). SuppressPrune forces prune off regardless of
+// the sink-level prune flag; it is set on non-final parts of a multipart set so prune runs exactly
+// once, on the final part, against the union.
+type ExportFilesOptions struct {
+	Prune          bool
+	PruneKeepPaths []string
+	SuppressPrune  bool
 }
 
 // ExportFilesWithBranch writes a set of files in a single commit and pushes to the remote (ADR-0419).
@@ -196,10 +212,8 @@ func exportRemote(
 		writtenPaths = append(writtenPaths, f.Path)
 	}
 
-	if cfg.Prune {
-		if pruneErr := removeBillyOrphans(wt.Filesystem, writtenPaths); pruneErr != nil {
-			return pruneErr
-		}
+	if pruneErr := pruneBillyOrphans(wt.Filesystem, cfg, writtenPaths); pruneErr != nil {
+		return pruneErr
 	}
 
 	if stageErr := stageChanges(wt, writtenPaths, cfg.Prune); stageErr != nil {
@@ -228,6 +242,25 @@ func exportRemote(
 	}
 
 	return pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, commit, wt)
+}
+
+// pruneKeepSet resolves the prune keep-set: the multipart union when supplied, else the paths
+// written by this call (legacy behaviour that keeps prune scoped to a single-part export).
+func pruneKeepSet(cfg Config, writtenPaths []string) []string {
+	if len(cfg.PruneKeepPaths) > 0 {
+		return cfg.PruneKeepPaths
+	}
+
+	return writtenPaths
+}
+
+// pruneBillyOrphans removes directory-scoped stale files (go-git engine) when prune is enabled.
+func pruneBillyOrphans(fs billy.Filesystem, cfg Config, writtenPaths []string) error {
+	if !cfg.Prune {
+		return nil
+	}
+
+	return removeBillyOrphans(fs, pruneKeepSet(cfg, writtenPaths))
 }
 
 func guardedGoGitAuth(

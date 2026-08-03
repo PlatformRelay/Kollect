@@ -291,6 +291,13 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		}
 
 		exportErr := error(nil)
+		// A multipart snapshot export must prune exactly once, against the union of all parts'
+		// projected paths, on the final part -- never per-part (which would let part N's prune
+		// delete part N-1's files). One accumulator, shared across this sink's parts.
+		var prunePlan *sink.PrunePlan
+		if len(parts) > 1 {
+			prunePlan = sink.NewPrunePlan()
+		}
 		for _, part := range parts {
 			partPath := export.PartitionObjectPath(objectPath, part.Index, part.Total)
 			exportErr = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
@@ -303,6 +310,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 				ObjectPath:    partPath,
 				Envelope:      part.Envelope,
 				SinkSpec:      resolved.Spec,
+				PrunePlan:     prunePlan,
 			})
 			if exportErr != nil {
 				break
