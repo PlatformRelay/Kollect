@@ -4,6 +4,7 @@
 package git
 
 import (
+	"errors"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -126,6 +127,108 @@ func TestPushCommitted_NonReconcilingPolicySurfacesNonFastForward(t *testing.T) 
 	if !strings.Contains(err.Error(), "git push") {
 		t.Fatalf("pushCommitted() error = %v, want git push wrapper", err)
 	}
+}
+
+// TestPushCommitted_SupersededSnapshotFailsInsteadOfSilentDrop reproduces REL-08: the local
+// worktree holds a divergent snapshot commit and the remote advanced independently, so the push is
+// rejected non-fast-forward. Under PushPolicyCommit, syncRemoteBeforePush then force-fetches the
+// remote tip onto the local branch, ORPHANING the snapshot commit; the retry push no-ops
+// (already-up-to-date). Reporting success here is a silent drop: the caller records the export
+// fingerprint, shouldSkip suppresses the next reconcile, and the snapshot is never delivered.
+// pushCommitted must instead surface a non-nil supersession error so the fingerprint is NOT
+// recorded and the next reconcile re-exports on top of the new remote tip.
+func TestPushCommitted_SupersededSnapshotFailsInsteadOfSilentDrop(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not in PATH")
+	}
+
+	remote := createBareRemoteWithMainCommit(t)
+	repo, wt, _ := goGitCloneMain(t, remote)
+
+	snapshot := localCommit(t, wt, wt.Filesystem.Root(), "inventory/latest.json", `{"items":[{"uid":"u1"}]}`)
+	advanceRemoteMain(t, remote, "remote-only.txt", "concurrent writer\n")
+	remoteTip := bareRef(t, remote, "main")
+	if remoteTip == "" || remoteTip == snapshot.String() {
+		t.Fatalf("test setup: remote must have diverged, remoteTip=%q snapshot=%q", remoteTip, snapshot)
+	}
+
+	err := pushCommitted(
+		t.Context(), repo, Config{PushPolicy: PushPolicyCommit}, nil,
+		"file://"+remote, "main", false, snapshot, wt,
+	)
+	t.Logf("superseded pushCommitted error = %v", err)
+
+	// The snapshot commit was orphaned by the force-fetch sync and never reached the remote:
+	// success here would be a false delivery report (the silent-drop bug).
+	if err == nil {
+		t.Fatal("pushCommitted() error = nil, want supersession error -- snapshot was silently dropped")
+	}
+	if !errors.Is(err, errSnapshotSuperseded) {
+		t.Fatalf("pushCommitted() error = %v, want errSnapshotSuperseded", err)
+	}
+
+	// The sync must not have force-pushed the orphaned snapshot either: the remote stays at the
+	// concurrent writer's tip so the next reconcile can re-export on top of it.
+	if got := bareRef(t, remote, "main"); got != remoteTip {
+		t.Fatalf("remote main = %q, want untouched remote tip %q", got, remoteTip)
+	}
+}
+
+// TestVerifySnapshotDelivered pins the REL-08 delivery-verification helper: delivered when the
+// pushed branch equals or contains the snapshot commit; superseded (typed error) when the snapshot
+// is orphaned; FAIL-SAFE errors -- never a false "delivered" -- when the branch ref or the commits
+// cannot be resolved (mirrors the REL-06 ls-remote fail-safe).
+func TestVerifySnapshotDelivered(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not in PATH")
+	}
+
+	remote := createBareRemoteWithMainCommit(t)
+	repo, wt, base := goGitCloneMain(t, remote)
+	tip := localCommit(t, wt, wt.Filesystem.Root(), "inventory/latest.json", `{"items":[{"uid":"u1"}]}`)
+
+	t.Run("delivered when branch equals snapshot", func(t *testing.T) {
+		if err := verifySnapshotDelivered(repo, "main", tip); err != nil {
+			t.Fatalf("verifySnapshotDelivered() error = %v, want nil for branch == snapshot", err)
+		}
+	})
+
+	t.Run("delivered when branch contains snapshot", func(t *testing.T) {
+		if err := verifySnapshotDelivered(repo, "main", base); err != nil {
+			t.Fatalf("verifySnapshotDelivered() error = %v, want nil for ancestor snapshot", err)
+		}
+	})
+
+	t.Run("fail-safe on unknown snapshot commit", func(t *testing.T) {
+		unknown := plumbing.NewHash("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+		err := verifySnapshotDelivered(repo, "main", unknown)
+		if err == nil {
+			t.Fatal("verifySnapshotDelivered() error = nil, want fail-safe load error for a snapshot missing from the repo")
+		}
+		if errors.Is(err, errSnapshotSuperseded) {
+			t.Fatalf("verifySnapshotDelivered() error = %v, want fail-safe load error, not a supersession verdict", err)
+		}
+	})
+
+	t.Run("fail-safe on missing branch ref", func(t *testing.T) {
+		if err := verifySnapshotDelivered(repo, "does-not-exist", tip); err == nil {
+			t.Fatal("verifySnapshotDelivered() error = nil, want fail-safe resolve error for missing branch")
+		}
+	})
+
+	// Last: mutate the branch ref to simulate the force-fetch supersession (branch reset to the
+	// remote tip, snapshot orphaned) and require the typed supersession verdict.
+	t.Run("superseded when branch no longer contains snapshot", func(t *testing.T) {
+		if err := repo.Storer.SetReference(plumbing.NewHashReference(
+			plumbing.NewBranchReferenceName("main"), base,
+		)); err != nil {
+			t.Fatalf("SetReference() error = %v", err)
+		}
+		err := verifySnapshotDelivered(repo, "main", tip)
+		if !errors.Is(err, errSnapshotSuperseded) {
+			t.Fatalf("verifySnapshotDelivered() error = %v, want errSnapshotSuperseded", err)
+		}
+	})
 }
 
 // TestPushCommitted_PushErrorIsWrapped covers the terminal push-error branch: a push to a

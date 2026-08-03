@@ -350,6 +350,50 @@ func pushRefSpec(branch string, emptyRemote bool, policy PushPolicy) string {
 	return refSpecStr
 }
 
+// errSnapshotSuperseded means the Commit-policy non-fast-forward recovery force-fetched a diverged
+// remote tip over the local branch, orphaning the just-committed snapshot: the retry push then
+// no-oped and the snapshot never reached the remote (REL-08). Surfacing this instead of nil keeps
+// the export fingerprint unrecorded, so the next reconcile re-exports on top of the new remote tip
+// rather than silently skipping a snapshot that was never delivered.
+var errSnapshotSuperseded = errors.New("snapshot commit superseded by remote tip during non-fast-forward sync; not delivered")
+
+// verifySnapshotDelivered reports whether the pushed branch actually contains the snapshot commit.
+// After a successful (or already-up-to-date) push, the remote's branch equals the local branch ref,
+// so local ancestry is authoritative: delivered means the branch tip is, or descends from, the
+// snapshot. Any resolution or ancestry-walk failure is a FAIL-SAFE error -- mirroring the REL-06
+// ls-remote fail-safe, delivery is never reported on an unverifiable state.
+func verifySnapshotDelivered(repo *git.Repository, branch string, snapshot plumbing.Hash) error {
+	ref, err := repo.Reference(plumbing.NewBranchReferenceName(branch), true)
+	if err != nil {
+		return fmt.Errorf("verify snapshot delivery: resolve branch %s: %w", branch, err)
+	}
+
+	if ref.Hash() == snapshot {
+		return nil
+	}
+
+	snapCommit, err := repo.CommitObject(snapshot)
+	if err != nil {
+		return fmt.Errorf("verify snapshot delivery: load snapshot commit: %w", err)
+	}
+
+	tipCommit, err := repo.CommitObject(ref.Hash())
+	if err != nil {
+		return fmt.Errorf("verify snapshot delivery: load branch tip: %w", err)
+	}
+
+	delivered, err := snapCommit.IsAncestor(tipCommit)
+	if err != nil {
+		return fmt.Errorf("verify snapshot delivery: ancestry walk: %w", err)
+	}
+
+	if !delivered {
+		return errSnapshotSuperseded
+	}
+
+	return nil
+}
+
 func pushCommitted(
 	ctx context.Context,
 	repo *git.Repository,
@@ -360,6 +404,10 @@ func pushCommitted(
 	commit plumbing.Hash,
 	wt *git.Worktree,
 ) error {
+	// The snapshot commit this call must deliver. The non-fast-forward recovery below may reassign
+	// commit to a force-fetched remote tip, so delivery is verified against this captured hash.
+	snapshot := commit
+
 	if refErr := repo.Storer.SetReference(plumbing.NewHashReference(
 		plumbing.NewBranchReferenceName(branch), commit,
 	)); refErr != nil {
@@ -415,7 +463,12 @@ func pushCommitted(
 		return fmt.Errorf("git push: %w", err)
 	}
 
-	return nil
+	// REL-08: a nil push result only means the remote equals the local branch ref -- not that the
+	// snapshot survived. The Commit-policy non-fast-forward recovery can supersede the snapshot with
+	// a force-fetched remote tip, turning the retry push into an already-up-to-date no-op. Verify
+	// delivery positively; this runs OUTSIDE the transport-retry loop so a supersession verdict is
+	// never masked by a re-run that trivially reports up-to-date.
+	return verifySnapshotDelivered(repo, branch, snapshot)
 }
 
 func isFileRemote(cloneURL string) bool {
