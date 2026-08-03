@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink/git,controller:** Prune multipart git exports once against the union [0928aa0](https://github.com/platformrelay/kollect/commit/0928aa0c78702d8381731dae29c7cc2561825a32)
+
 - **sink/postgres:** Redact ConnectError on export path (SEC-01-FUP3/FUP4) ([#184](https://github.com/platformrelay/kollect/pull/184))[dce8b98](https://github.com/platformrelay/kollect/commit/dce8b98bb44c6cd590a4370b8e24a3ac7cf8a2b0)
 
 - **sink/postgres:** Harden DSN/host redaction (SEC-01-FUP1/FUP2) ([#182](https://github.com/platformrelay/kollect/pull/182))[f151ddd](https://github.com/platformrelay/kollect/commit/f151ddddfc558c7ccafb8f88dbe90efcf6709f72)
