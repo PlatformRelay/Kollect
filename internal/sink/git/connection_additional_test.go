@@ -61,7 +61,11 @@ func TestTestConnection_TLSHandshakeErrorMentionsCustomCA(t *testing.T) {
 func TestTestConnection_HTTPSchemeUsesLsRemote(t *testing.T) {
 	t.Parallel()
 
-	lsRemoteRefCache = newRefCache(defaultRefCacheTTL)
+	// Do NOT reassign the package-global lsRemoteRefCache here: that is a
+	// write to shared state and races with every other t.Parallel() test that
+	// reads the global via TestConnection/lsRemote (get/set are mutex-guarded,
+	// the pointer reassignment is not). This endpoint is unique to this test,
+	// so its cache key is private and no stale entry can interfere.
 	// Reserved TEST-NET-1 address / closed port -> ls-remote fails fast.
 	cfg := Config{Endpoint: "http://192.0.2.1:1/repo.git"}
 
@@ -133,7 +137,11 @@ func TestTLSHandshake_failsOnUntrustedCert(t *testing.T) {
 func TestLSRemote_CachesResult(t *testing.T) {
 	t.Parallel()
 
-	lsRemoteRefCache = newRefCache(defaultRefCacheTTL)
+	// Do NOT reassign the package-global lsRemoteRefCache here (data race with
+	// other t.Parallel() tests, see TestTestConnection_HTTPSchemeUsesLsRemote).
+	// This https + Auth{} endpoint is driven only by this test, so its cache
+	// key is effectively private: the first call misses and populates it, the
+	// second is served from cache -- the caching contract holds without a reset.
 	cfg := Config{Endpoint: "https://127.0.0.1:1/repo.git"}
 
 	first := lsRemote(t.Context(), cfg, Auth{})
