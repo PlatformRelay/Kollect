@@ -241,6 +241,10 @@ kollect_wait_kube_system_ready() {
 
 kollect_wait_controllers_started() {
   local timeout="${1:-$KOLLECT_CONTROLLERS_WAIT}"
+  # One shared budget for BOTH the rollout wait and the log-poll fallback, so the
+  # combined worst-case wall time is bounded by ${timeout} (not 2×): capture the
+  # deadline up front, then hand the log poll only whatever time the rollout left.
+  local deadline=$((SECONDS + ${timeout%s}))
   local deploy
   deploy="$(kollect_manager_deployment)"
   if [[ -n "$deploy" ]]; then
@@ -252,8 +256,12 @@ kollect_wait_controllers_started() {
       return 1
     fi
   fi
-  _kind_log "Waiting for manager controllers to start (timeout ${timeout})..."
-  local deadline=$((SECONDS + ${timeout%s}))
+  # Remaining budget for the log poll; clamp to a small floor so a rollout that
+  # consumed (almost) all the budget still gets at least one scrape attempt.
+  local remaining=$((deadline - SECONDS))
+  (( remaining < 5 )) && remaining=5
+  _kind_log "Waiting for manager controllers to start (timeout ${remaining}s)..."
+  deadline=$((SECONDS + remaining))
   while (( SECONDS < deadline )); do
     if kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=400 2>/dev/null \
       | grep -Eq 'Starting Controller.*(kollecttarget|kollectinventory)'; then

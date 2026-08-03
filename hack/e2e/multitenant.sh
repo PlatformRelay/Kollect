@@ -142,10 +142,14 @@ assert_http_namespace_filter() {
   body_a=$(curl -sf "http://127.0.0.1:${port}/inventory?namespace=${TENANT_A}") || return 1
   body_b=$(curl -sf "http://127.0.0.1:${port}/inventory?namespace=${TENANT_B}") || return 1
 
-  echo "${body_a}" | grep -q '"itemCount":1' || return 1
-  echo "${body_b}" | grep -q '"itemCount":1' || return 1
-  echo "${body_a}" | grep -q "${TENANT_A}" || return 1
-  echo "${body_b}" | grep -q "${TENANT_B}" || return 1
+  echo "${body_a}" | grep -q '"itemCount":1' \
+    || { echo "tenant-a: expected itemCount:1 in HTTP inventory body, got: ${body_a}" >&2; return 1; }
+  echo "${body_b}" | grep -q '"itemCount":1' \
+    || { echo "tenant-b: expected itemCount:1 in HTTP inventory body, got: ${body_b}" >&2; return 1; }
+  echo "${body_a}" | grep -q "${TENANT_A}" \
+    || { echo "tenant-a: expected namespace ${TENANT_A} in HTTP inventory body, got: ${body_a}" >&2; return 1; }
+  echo "${body_b}" | grep -q "${TENANT_B}" \
+    || { echo "tenant-b: expected namespace ${TENANT_B} in HTTP inventory body, got: ${body_b}" >&2; return 1; }
 
   if echo "${body_a}" | grep -q "${TENANT_B}/tenant-app"; then
     echo "tenant-a HTTP inventory leaked tenant-b workload" >&2
