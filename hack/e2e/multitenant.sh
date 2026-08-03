@@ -14,6 +14,22 @@ readonly FIXTURES="${REPO_ROOT}/test/e2e/fixtures/multitenant"
 
 log() { echo "[multitenant] $*"; }
 
+# Bounded retry for assertions racing inventory collection: attempts, delay seconds, then command.
+# The final attempt runs last so its stderr explains the failure.
+retry_assert() {
+  local attempts="$1" delay="$2"
+  shift 2
+  local i
+  for ((i = 1; i < attempts; i++)); do
+    if "$@" 2>/dev/null; then
+      return 0
+    fi
+    log "assertion $1 not satisfied yet (attempt ${i}/${attempts}); retrying in ${delay}s"
+    sleep "${delay}"
+  done
+  "$@"
+}
+
 apply_tenant() {
   local ns="$1"
   local image="$2"
@@ -64,6 +80,19 @@ apply_tenant_inventory() {
   sed "s/\${TENANT_NS}/${ns}/g" "${FIXTURES}/tenant-inventory.yaml.template" | kubectl apply -f -
 }
 
+# Poll the port-forward until the inventory HTTP endpoint answers (replaces a blind sleep).
+wait_port_forward_ready() {
+  local port="$1"
+  for _ in $(seq 1 30); do
+    if curl -sf "http://127.0.0.1:${port}/inventory" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "port-forward to inventory HTTP on port ${port} never became ready" >&2
+  return 1
+}
+
 inventory_http_item_count() {
   local ns="$1" port="$2"
   local body
@@ -108,13 +137,15 @@ assert_inventory_isolated() {
 
 assert_http_namespace_filter() {
   local port="$1" body_a body_b
-  body_a=$(curl -sf "http://127.0.0.1:${port}/inventory?namespace=${TENANT_A}")
-  body_b=$(curl -sf "http://127.0.0.1:${port}/inventory?namespace=${TENANT_B}")
+  # Explicit returns keep this function correct when invoked in an if/retry
+  # context, where `set -e` is suspended and bare failing greps would be ignored.
+  body_a=$(curl -sf "http://127.0.0.1:${port}/inventory?namespace=${TENANT_A}") || return 1
+  body_b=$(curl -sf "http://127.0.0.1:${port}/inventory?namespace=${TENANT_B}") || return 1
 
-  echo "${body_a}" | grep -q '"itemCount":1'
-  echo "${body_b}" | grep -q '"itemCount":1'
-  echo "${body_a}" | grep -q "${TENANT_A}"
-  echo "${body_b}" | grep -q "${TENANT_B}"
+  echo "${body_a}" | grep -q '"itemCount":1' || return 1
+  echo "${body_b}" | grep -q '"itemCount":1' || return 1
+  echo "${body_a}" | grep -q "${TENANT_A}" || return 1
+  echo "${body_b}" | grep -q "${TENANT_B}" || return 1
 
   if echo "${body_a}" | grep -q "${TENANT_B}/tenant-app"; then
     echo "tenant-a HTTP inventory leaked tenant-b workload" >&2
@@ -143,14 +174,16 @@ main() {
   local http_port=18082
   kubectl port-forward -n kollect-system svc/kollect-controller-manager "${http_port}:8082" &
   pf_pid=$!
-  sleep 3
   trap '[[ -n "${pf_pid}" ]] && kill "${pf_pid}" 2>/dev/null || true' EXIT
+  wait_port_forward_ready "${http_port}"
 
   wait_inventory_http_collected "${TENANT_A}" "${http_port}"
   wait_inventory_http_collected "${TENANT_B}" "${http_port}"
 
-  assert_inventory_isolated "${http_port}"
-  assert_http_namespace_filter "${http_port}"
+  # Exact-count asserts race the inventory rollup settling to exactly one item
+  # per tenant; poll bounded instead of a single-shot check.
+  retry_assert 6 5 assert_inventory_isolated "${http_port}"
+  retry_assert 6 5 assert_http_namespace_filter "${http_port}"
 
   # Governance sample only; apply after collection asserts (enforcement is follow-up).
   kubectl apply -f "${FIXTURES}/tenant-scope.yaml"

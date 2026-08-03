@@ -67,6 +67,8 @@ readonly KOLLECT_HELM_CHART="${KOLLECT_HELM_CHART:-${REPO_ROOT}/charts/kollect}"
 readonly KIND_CLUSTER_WAIT="${KIND_CLUSTER_WAIT:-300s}"
 readonly KOLLECT_HELM_TIMEOUT="${KOLLECT_HELM_TIMEOUT:-300s}"
 readonly KOLLECT_MANAGER_WAIT="${KOLLECT_MANAGER_WAIT:-300s}"
+# Controllers-started backstop: one manager restart (crash backoff) can exceed 180s on shared runners.
+readonly KOLLECT_CONTROLLERS_WAIT="${KOLLECT_CONTROLLERS_WAIT:-360s}"
 
 # Dev ingress NodePorts (must match hack/kind/dev/cluster.yaml extraPortMappings).
 readonly KIND_HOST_HTTP_PORT="${KIND_HOST_HTTP_PORT:-30080}"
@@ -173,16 +175,25 @@ kollect_load_image() {
   kind load docker-image "$KOLLECT_IMAGE" --name "$cluster"
 }
 
+kollect_manager_deployment() {
+  kubectl get deployment -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+}
+
 kollect_diagnose_install_failure() {
   _kind_log "Install diagnostics (namespace ${KOLLECT_NAMESPACE})..."
   kubectl get pods,deployments,events -n "$KOLLECT_NAMESPACE" --sort-by=.metadata.creationTimestamp 2>/dev/null || true
   local deploy
-  deploy="$(kubectl get deployment -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect \
-    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  deploy="$(kollect_manager_deployment)"
   if [[ -n "$deploy" ]]; then
     kubectl describe deployment "$deploy" -n "$KOLLECT_NAMESPACE" 2>/dev/null || true
   fi
-  kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=80 2>/dev/null || true
+  kubectl describe pods -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect 2>/dev/null || true
+  _kind_log "Manager logs (current container)..."
+  kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --tail=120 2>/dev/null || true
+  _kind_log "Manager logs (previous container, if restarted)..."
+  kubectl logs -n "$KOLLECT_NAMESPACE" -l app.kubernetes.io/name=kollect --previous --tail=120 2>/dev/null \
+    || _kind_log "No previous container logs (manager did not restart)."
 }
 
 kollect_helm_install() {
@@ -229,7 +240,18 @@ kollect_wait_kube_system_ready() {
 }
 
 kollect_wait_controllers_started() {
-  local timeout="${1:-180s}"
+  local timeout="${1:-$KOLLECT_CONTROLLERS_WAIT}"
+  local deploy
+  deploy="$(kollect_manager_deployment)"
+  if [[ -n "$deploy" ]]; then
+    # Concrete condition first: a completed rollout absorbs pod restarts / rescheduling
+    # (crash backoff after a transient webhook-cert or probe race) before we scrape logs.
+    _kind_log "Waiting for deployment ${deploy} rollout (timeout ${timeout})..."
+    if ! kubectl rollout status "deploy/${deploy}" -n "$KOLLECT_NAMESPACE" --timeout="$timeout"; then
+      kollect_diagnose_install_failure
+      return 1
+    fi
+  fi
   _kind_log "Waiting for manager controllers to start (timeout ${timeout})..."
   local deadline=$((SECONDS + ${timeout%s}))
   while (( SECONDS < deadline )); do
