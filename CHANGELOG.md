@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect,controller:** Stop dispatch workers on engine ctx cancel + thread reconcile ctx into preview (REL-03/REL-04) ([#178](https://github.com/platformrelay/kollect/pull/178))[a3f8008](https://github.com/platformrelay/kollect/commit/a3f8008c91441d2fe24a0d7010005c088c568cdd)
+
 - **export:** Add partIndex/partTotal completeness marker so torn multipart exports are detectable (REL-02) ([#176](https://github.com/platformrelay/kollect/pull/176))[d28c746](https://github.com/platformrelay/kollect/commit/d28c746378043e5a8a742a72bdb93ba633ff625f)
 
 - **collect:** Bound the SAR access cache with LRU eviction + hit/miss metrics (REL-05) ([#175](https://github.com/platformrelay/kollect/pull/175))[8743cd9](https://github.com/platformrelay/kollect/commit/8743cd9ff31421807d3bec907ea09f01c54e0923)
