@@ -221,7 +221,7 @@ func TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced(t *tes
 		rec.sinkCoalesce.record(invKey, sinkExportKey(binding), inv.Generation, checksum, now)
 	}
 
-	outcome, allDebounced := rec.previewAllSinksDebounced(inv, invKey, checksum)
+	outcome, allDebounced := rec.previewAllSinksDebounced(context.Background(), inv, invKey, checksum)
 	if !allDebounced {
 		t.Fatal("previewAllSinksDebounced = false, want true when every sink is debounced")
 	}
@@ -247,7 +247,7 @@ func TestKollectInventoryReconciler_previewAllSinksDebounced_oneSinkDue(t *testi
 	// Only the first sink has a fresh export recorded; the second is due.
 	rec.sinkCoalesce.record(invKey, sinkExportKey(bindings[0]), inv.Generation, checksum, time.Now())
 
-	if _, allDebounced := rec.previewAllSinksDebounced(inv, invKey, checksum); allDebounced {
+	if _, allDebounced := rec.previewAllSinksDebounced(context.Background(), inv, invKey, checksum); allDebounced {
 		t.Fatal("previewAllSinksDebounced = true, want false when a sink is due for export")
 	}
 }
@@ -260,7 +260,7 @@ func TestKollectInventoryReconciler_previewAllSinksDebounced_zeroBindings(t *tes
 		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default", Generation: 1},
 	}
 
-	if _, allDebounced := rec.previewAllSinksDebounced(inv, "default/team-inventory", "fingerprint-a"); allDebounced {
+	if _, allDebounced := rec.previewAllSinksDebounced(context.Background(), inv, "default/team-inventory", "fingerprint-a"); allDebounced {
 		t.Fatal("previewAllSinksDebounced = true, want false with zero bindings")
 	}
 }
