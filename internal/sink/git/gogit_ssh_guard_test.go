@@ -65,8 +65,16 @@ func TestPinGoGitSSHResolution_UnparseableURL(t *testing.T) {
 }
 
 // TestPinGoGitSSHResolution_ResolveFailureReturnsError covers the netguard resolve-failure branch: a
-// forbidden hostname (localhost) is rejected by the guard, so the guarded URL is empty and the error
-// surfaces rather than being swallowed.
+// forbidden hostname is rejected by the guard, so the guarded URL is empty and the error surfaces
+// rather than being swallowed.
+//
+// The target is a cloud-metadata hostname (metadata.google.internal), NOT localhost. This test file
+// has no build tag, so it runs in both the default and the integration builds. Under -tags=integration
+// netguard sets DefaultDialer.allowPrivate=true (integration_policy.go) to permit loopback/testcontainer
+// backends, which intentionally ALLOWS the localhost hostname family — so a localhost target would pass
+// the guard there and the assertion would flip. A metadata hostname stays forbidden under BOTH builds
+// (the metadata carve-out in the hostname gate survives allowPrivate), giving a build-independent
+// forbidden host to exercise the resolve-failure branch.
 func TestPinGoGitSSHResolution_ResolveFailureReturnsError(t *testing.T) {
 	t.Parallel()
 
@@ -75,7 +83,7 @@ func TestPinGoGitSSHResolution_ResolveFailureReturnsError(t *testing.T) {
 		t.Fatalf("sshAuthMethod() error = %v", err)
 	}
 
-	got, err := pinGoGitSSHResolution(t.Context(), "ssh://git@localhost/repo.git", auth)
+	got, err := pinGoGitSSHResolution(t.Context(), "ssh://git@metadata.google.internal/repo.git", auth)
 	if err == nil {
 		t.Fatal("pinGoGitSSHResolution() error = nil, want forbidden-host resolve error")
 	}
