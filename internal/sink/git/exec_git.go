@@ -260,6 +260,54 @@ func gitStatusPorcelain(ctx context.Context, workdir string, cli *cliEnv) (strin
 	return string(out), nil
 }
 
+// remoteHasLocalHead reports whether origin already holds the local HEAD commit on pushBranch.
+// It compares `git rev-parse HEAD` against the remote-side value of refs/heads/<pushBranch> from
+// `git ls-remote`, so it reflects what the remote actually has -- not a possibly-unfetched local
+// remote-tracking ref. A branch absent on the remote (empty ls-remote output) is "not synced",
+// so a first push of a new branch still happens. This underpins REL-06: it lets the export push a
+// clean-tree-but-stranded snapshot instead of silently reporting success.
+func remoteHasLocalHead(ctx context.Context, workdir, pushBranch string, cli *cliEnv) (bool, error) {
+	if err := ValidateGitRef(pushBranch); err != nil {
+		return false, fmt.Errorf("git export: invalid branch: %w", err)
+	}
+
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return false, fmt.Errorf("git export: %w", err)
+	}
+
+	headCmd := gitInWorkdir(ctx, workdir, cli, "rev-parse", "HEAD")
+	headOut, err := headCmd.CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("git rev-parse HEAD: %s: %w", cli.redact(strings.TrimSpace(string(headOut))), err)
+	}
+	localHead := strings.TrimSpace(string(headOut))
+
+	ref := "refs/heads/" + pushBranch
+	lsCmd := gitInWorkdir(ctx, workdir, cli, "ls-remote", "origin", ref)
+	lsOut, err := lsCmd.CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("git ls-remote origin %s: %s: %w", ref, cli.redact(strings.TrimSpace(string(lsOut))), err)
+	}
+
+	return remoteSHAFromLsRemote(string(lsOut)) == localHead && localHead != "", nil
+}
+
+// remoteSHAFromLsRemote extracts the commit SHA from the first line of `git ls-remote` output
+// (tab-delimited "<sha>\t<ref>"). It returns "" when the remote has no such ref.
+func remoteSHAFromLsRemote(out string) string {
+	line := strings.TrimSpace(out)
+	if line == "" {
+		return ""
+	}
+
+	if idx := strings.IndexAny(line, " \t"); idx >= 0 {
+		return line[:idx]
+	}
+
+	return line
+}
+
 func runGitOutput(cmd *exec.Cmd, label string, cli *cliEnv) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {

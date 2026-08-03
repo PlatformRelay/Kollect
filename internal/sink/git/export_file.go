@@ -75,17 +75,42 @@ func exportViaCLI(
 		return err
 	}
 
+	return syncCLIWorkdir(ctx, workdir, cloneURL, pushBranch, cfg, commitCtx, cli)
+}
+
+// syncCLIWorkdir commits any staged changes and pushes so the remote ends up holding the local
+// HEAD. Delivery is not gated on working-tree cleanliness alone: when the tree is clean but the
+// local branch is ahead of origin/<pushBranch> -- a snapshot committed by an earlier run whose
+// push never reached the remote (REL-06) -- the stranded commit is still pushed. Success without a
+// push is reported only once the remote actually holds the local HEAD.
+func syncCLIWorkdir(
+	ctx context.Context,
+	workdir, cloneURL, pushBranch string,
+	cfg Config,
+	commitCtx CommitContext,
+	cli *cliEnv,
+) error {
 	clean, statusErr := gitStatusClean(ctx, workdir, cli)
 	if statusErr != nil {
 		return statusErr
 	}
-	if clean {
-		return nil
-	}
 
-	commitText := renderCommit(cfg, commitCtx)
-	if err = gitCommit(ctx, workdir, cfg.Author.Name, cfg.Author.Email, commitText, cli); err != nil {
-		return err
+	if clean {
+		// Nothing new to commit, but an earlier run may have left a committed-but-unpushed
+		// snapshot stranded in a warm mirror. Only skip the push once the remote confirms it
+		// already holds our HEAD; otherwise fall through and deliver the stranded commit.
+		synced, syncErr := remoteHasLocalHead(ctx, workdir, pushBranch, cli)
+		if syncErr != nil {
+			return syncErr
+		}
+		if synced {
+			return nil
+		}
+	} else {
+		commitText := renderCommit(cfg, commitCtx)
+		if err := gitCommit(ctx, workdir, cfg.Author.Name, cfg.Author.Email, commitText, cli); err != nil {
+			return err
+		}
 	}
 
 	forcePush := cfg.PushPolicy == PushPolicyForcePush
