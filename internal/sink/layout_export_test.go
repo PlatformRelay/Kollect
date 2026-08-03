@@ -172,6 +172,64 @@ func TestResolveSnapshotExport_GitDefaultYAMLDocumentTree(t *testing.T) {
 	}
 }
 
+// TestResolveSnapshotExport_GitDefaultYAMLDropsCompletenessMarker pins the REL-02
+// scope boundary: the human-readable YAML layout projection (ADR-0419) serializes
+// BARE items and carries no ExportEnvelope metadata, so the multipart completeness
+// marker (partIndex/partTotal + generation) — and every other envelope header — is
+// absent from a default Git/GitLab (YAML) sink's payload. Payload-level torn-set
+// detection therefore does NOT apply to YAML sinks; extending it there (a per-set
+// manifest/index sidecar) is a tracked follow-up. If this ever changes, update
+// ADR-0405's scope wording alongside it.
+func TestResolveSnapshotExport_GitDefaultYAMLDropsCompletenessMarker(t *testing.T) {
+	t.Parallel()
+
+	items := []collect.Item{
+		{Namespace: "team-a", Name: "api", Version: "v1", Kind: "Deployment", UID: "u1"},
+		{Namespace: "team-a", Name: "web", Version: "v1", Kind: "Deployment", UID: "u2"},
+	}
+	// A marked multipart part: partIndex=1 of 3, generation 7.
+	marked, err := export.MarshalEnvelope(items, export.Metadata{
+		Generation: 7,
+		PartIndex:  1,
+		PartTotal:  3,
+		ExportedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Sanity: the JSON envelope handed in really does carry the marker.
+	if m := export.EnvelopeMetaFromPayload(marked); m.PartIndex != 1 || m.PartTotal != 3 || m.Generation != 7 {
+		t.Fatalf("input envelope lost its marker before projection: %+v", m)
+	}
+
+	be := &fakeTreeBackend{}
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit} // default format = YAML
+
+	plan, err := resolveSnapshotExport(be, spec, marked, "team-a", "api", 7, "inventory/team-a/api.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if !be.filesCalled || len(be.files) != 1 {
+		t.Fatalf("git yaml document must project one file via ExportFiles, filesCalled=%v files=%d", be.filesCalled, len(be.files))
+	}
+
+	// The YAML projection is bare items — none of the envelope headers survive.
+	yaml := string(be.files[0].Data)
+	for _, field := range []string{"partIndex", "partTotal", "generation", "schemaVersion", "checksum", "itemCount"} {
+		if strings.Contains(yaml, field) {
+			t.Fatalf("YAML layout projection must NOT carry envelope field %q (torn-set detection does not apply to YAML sinks), got:\n%s",
+				field, yaml)
+		}
+	}
+	// It is still the real inventory content, just marker-less.
+	if !strings.Contains(yaml, "name: api") || !strings.Contains(yaml, "name: web") {
+		t.Fatalf("expected bare item YAML, got:\n%s", yaml)
+	}
+}
+
 func TestResolveSnapshotExport_GitPerResourceTree(t *testing.T) {
 	t.Parallel()
 	be := &fakeTreeBackend{}

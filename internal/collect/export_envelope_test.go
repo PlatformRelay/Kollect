@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -196,6 +197,58 @@ func TestItemsFromExportPayloadEdgeCases(t *testing.T) {
 	_, err := ItemsFromExportPayload([]byte(`{"schemaVersion":"kollect.dev/v99","items":[]}`))
 	if err == nil {
 		t.Fatal("expected unsupported schemaVersion error")
+	}
+}
+
+// TestMarshalExportEnvelope_partMarkersRoundTrip proves the REL-02 completeness
+// marker (partIndex/partTotal + generation) survives marshal→unmarshal, that a
+// single-part (partTotal=1) envelope stays valid and item-decodable, and that a
+// markerless export omits the fields entirely for backward compatibility.
+func TestMarshalExportEnvelope_partMarkersRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	items := []Item{{Namespace: "ns", Name: "a", UID: "u1", Version: "v1", Kind: "Pod"}}
+
+	payload, err := MarshalExportEnvelope(items, ExportMetadata{Generation: 7, PartIndex: 2, PartTotal: 3})
+	if err != nil {
+		t.Fatalf("MarshalExportEnvelope: %v", err)
+	}
+
+	var env ExportEnvelope
+	if unmarshalErr := json.Unmarshal(payload, &env); unmarshalErr != nil {
+		t.Fatalf("Unmarshal: %v", unmarshalErr)
+	}
+	if env.PartIndex != 2 || env.PartTotal != 3 || env.Generation != 7 {
+		t.Fatalf("markers = index %d total %d gen %d, want 2/3/7", env.PartIndex, env.PartTotal, env.Generation)
+	}
+
+	// Backward compatibility: items are still decodable from a marked envelope.
+	got, err := ItemsFromExportPayload(payload)
+	if err != nil || len(got) != 1 || got[0].UID != "u1" {
+		t.Fatalf("ItemsFromExportPayload = %#v err=%v", got, err)
+	}
+
+	// Single-part (partTotal=1) stays valid.
+	single, err := MarshalExportEnvelope(items, ExportMetadata{Generation: 1, PartIndex: 1, PartTotal: 1})
+	if err != nil {
+		t.Fatalf("MarshalExportEnvelope single: %v", err)
+	}
+	var singleEnv ExportEnvelope
+	if unmarshalErr := json.Unmarshal(single, &singleEnv); unmarshalErr != nil {
+		t.Fatalf("Unmarshal single: %v", unmarshalErr)
+	}
+	if singleEnv.PartIndex != 1 || singleEnv.PartTotal != 1 {
+		t.Fatalf("single markers = index %d total %d, want 1/1", singleEnv.PartIndex, singleEnv.PartTotal)
+	}
+
+	// A markerless export omits partIndex/partTotal entirely (omitempty), so
+	// existing consumers see the byte-identical legacy shape.
+	markerless, err := MarshalExportEnvelope(items, ExportMetadata{})
+	if err != nil {
+		t.Fatalf("MarshalExportEnvelope markerless: %v", err)
+	}
+	if s := string(markerless); strings.Contains(s, "partIndex") || strings.Contains(s, "partTotal") {
+		t.Fatalf("markerless envelope must omit part fields, got %s", s)
 	}
 }
 

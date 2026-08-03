@@ -164,7 +164,24 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 			return err
 		}
 
-		envelope, err = export.MarshalEnvelope(exportItems, export.Metadata{ExportedAt: time.Now().UTC()})
+		// Preserve the original envelope's header when re-marshalling the
+		// capability-redacted item set: generation, cluster, and the REL-02
+		// completeness marker (partIndex/partTotal) must survive redaction, or a
+		// redacting sink would emit an unattributed part and break torn-set
+		// detection (and, via generation, the object-path derivation below).
+		orig := export.EnvelopeMetaFromPayload(envelope)
+		preserved := export.Metadata{
+			Generation: orig.Generation,
+			Cluster:    orig.Cluster,
+			ExportedAt: orig.ExportedAt,
+			PartIndex:  orig.PartIndex,
+			PartTotal:  orig.PartTotal,
+		}
+		if preserved.ExportedAt.IsZero() {
+			preserved.ExportedAt = time.Now().UTC()
+		}
+
+		envelope, err = export.MarshalEnvelope(exportItems, preserved)
 		if err != nil {
 			err = kollecterrors.Terminal(err)
 			metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
