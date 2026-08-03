@@ -111,7 +111,11 @@ class DocsVisualContractTest(unittest.TestCase):
             self.assertNotIn("<rect", svg, f"{name} must keep a transparent canvas")
             self.assertIn('data-concept="collector-aperture"', svg)
             self.assertIn(
-                "M19 27h3.5v3.5h-3.5zm5.75 3.25h3.5v3.5h-3.5zM19 34h3.5v3.5h-3.5z",
+                "M9 8h14v18L43 8h15L36 32l22 24H43L23 38v18H9zm8 16 21 8-21 8z",
+                svg,
+            )
+            self.assertIn(
+                "M19 26.25h3.5v3.5H19zm5.75 4h3.5v3.5h-3.5zM19 34.25h3.5v3.5H19z",
                 svg,
             )
         self.assertIn("logo: assets/branding/kollect-symbol-light.svg", config)

@@ -11,8 +11,8 @@
   <circle cx="1130" cy="96" r="210" fill="#173e8f" opacity=".18"/>
   <circle cx="1160" cy="530" r="150" fill="#0e7490" opacity=".12"/>
   <g data-concept="collector-aperture" transform="translate(82 118) scale(6.3)">
-    <path fill="#eaf0fa" fill-rule="evenodd" d="M9 8h14v17L42 8h14L35 31l23 25H43L23 36v20H9zm8 16 21 8-21 8z"/>
-    <path fill="#2563eb" d="M19 27h3.5v3.5h-3.5zm5.75 3.25h3.5v3.5h-3.5zM19 34h3.5v3.5h-3.5z"/>
+    <path fill="#eaf0fa" fill-rule="evenodd" d="M9 8h14v18L43 8h15L36 32l22 24H43L23 38v18H9zm8 16 21 8-21 8z"/>
+    <path fill="#2563eb" d="M19 26.25h3.5v3.5H19zm5.75 4h3.5v3.5h-3.5zM19 34.25h3.5v3.5H19z"/>
     <circle cx="39" cy="32" r="4" fill="#5eead4"/>
   </g>
   <text x="548" y="275" fill="#eaf0fa" font-family="Inter,Arial,sans-serif" font-size="104" font-weight="700" letter-spacing="-4">Kollect</text>
