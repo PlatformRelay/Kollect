@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect:** Bound the SAR access cache with LRU eviction + hit/miss metrics (REL-05) ([#175](https://github.com/platformrelay/kollect/pull/175))[8743cd9](https://github.com/platformrelay/kollect/commit/8743cd9ff31421807d3bec907ea09f01c54e0923)
+
 - **sink/postgres:** Redact DSN from pgx ParseConfig error so credentials can't leak (SEC-01) ([#174](https://github.com/platformrelay/kollect/pull/174))[5320132](https://github.com/platformrelay/kollect/commit/53201329a5ab9bc62269ff8a7eb30a191fb5c366)
 
 - **sink/git:** Push when local ahead of origin/<pushBranch> so warm-mirror can't report Synced=true with an unpushed commit (REL-06) ([#173](https://github.com/platformrelay/kollect/pull/173))[81d0500](https://github.com/platformrelay/kollect/commit/81d050074f192629ca9f729ce7fc3143dd72f078)
