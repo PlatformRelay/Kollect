@@ -108,6 +108,11 @@ message templates remain the concerns of [ADR-0415](0415-git-sink-commit-ergonom
 - Per-resource trees improve review granularity but increase file count and Git work; export cadence
   and inventory size must be tuned accordingly.
 - Pruning is part of tree-mode correctness so deleted resources disappear from the latest snapshot.
+- Multipart (size-sharded) exports prune EXACTLY ONCE, against the union of every part's projected
+  paths, on the final part — never per-part, which would let part N's prune delete part N-1's files
+  (last-part-wins data loss). `ExportFilesOptions.SuppressPrune` authoritatively forces prune off on
+  non-final parts and overrides an explicit `git.prune: true`, so per-part pruning can never
+  re-enable; the final part carries `PruneKeepPaths` = the union keep-set.
 
 ## Related
 

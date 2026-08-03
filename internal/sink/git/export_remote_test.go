@@ -48,6 +48,63 @@ func TestExportRemote_PushesFiles(t *testing.T) {
 	}
 }
 
+// TestExportRemote_MultipartUnionPrunePreservesPartsDropsStale exercises the go-git-native prune
+// path (pruneBillyOrphans / pruneKeepSet union branch / stageChanges go-git delete branch). The
+// high-level entry point routes file:// through the CLI engine, so the go-git union-prune is driven
+// here directly against a local bare repo. It mirrors the multipart controller flow: a non-final
+// part writes with prune suppressed (Prune=false), then the final part prunes EXACTLY ONCE against
+// the union of every part's paths. A prior part's file must survive (no data loss) while a resource
+// dropped since the previous generation is pruned (union correctness).
+func TestExportRemote_MultipartUnionPrunePreservesPartsDropsStale(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not in PATH")
+	}
+
+	remote := createBareRemoteWithMainCommit(t)
+	const dir = "default/team-a/deployment"
+
+	runPart := func(prune bool, keep []string, files ...FileEntry) {
+		t.Helper()
+		cfg := Config{Endpoint: "file://" + remote, Prune: prune, PruneKeepPaths: keep}.withDefaults()
+		req, validated, err := validateExportFiles(cfg, files, nil)
+		if err != nil {
+			t.Fatalf("validateExportFiles: %v", err)
+		}
+		commitCtx := CommitContextFromObjectPath(req.objectPath, cfg.Cluster)
+		if exportErr := exportRemote(t.Context(), cfg, Auth{}, req, validated, commitCtx); exportErr != nil {
+			t.Fatalf("exportRemote() error = %v", exportErr)
+		}
+	}
+
+	api := FileEntry{Path: dir + "/api.yaml", Data: []byte("kind: Deployment\nmetadata:\n  name: api\n")}
+	web := FileEntry{Path: dir + "/web.yaml", Data: []byte("kind: Deployment\nmetadata:\n  name: web\n")}
+	db := FileEntry{Path: dir + "/db.yaml", Data: []byte("kind: Deployment\nmetadata:\n  name: db\n")}
+
+	// Gen1: both resources present (single write, legacy keep-set = written paths).
+	runPart(true, nil, api, web)
+
+	// Gen2 multipart. Non-final part 1 writes api with prune SUPPRESSED (Prune=false) so it cannot
+	// delete siblings; final part 2 writes db and prunes ONCE against the union {api, db}.
+	runPart(false, nil, api)
+	runPart(true, []string{api.Path, db.Path}, db)
+
+	verify := t.TempDir()
+	if out, cloneErr := exec.Command("git", "clone", "--branch", "main", "--single-branch", remote, verify).CombinedOutput(); cloneErr != nil { //nolint:gosec // G204: test fixture
+		t.Fatalf("git clone verify: %s: %v", out, cloneErr)
+	}
+
+	// Prior part's file survives (no data loss) and the new resource is written.
+	for _, rel := range []string{dir + "/api.yaml", dir + "/db.yaml"} {
+		if _, err := os.Stat(filepath.Join(verify, rel)); err != nil {
+			t.Fatalf("expected %s to survive the union prune: %v", rel, err)
+		}
+	}
+	// The resource dropped since the previous generation is pruned exactly once, on the final part.
+	if _, err := os.Stat(filepath.Join(verify, dir, "web.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("expected %s/web.yaml to be pruned, stat err=%v", dir, err)
+	}
+}
+
 func TestExportRemote_NoChangesIsNoop(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not in PATH")
