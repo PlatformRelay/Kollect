@@ -192,6 +192,30 @@ func TestRegistry_NewBackend_databaseFactoriesDial(t *testing.T) {
 	}
 }
 
+func TestRegistry_NewBackend_gitFactoryConfigError(t *testing.T) {
+	t.Parallel()
+
+	reg := NewRegistry()
+
+	// An ambiguous TLS spec (inline CABundle AND a CASecretRef) fails the git/gitlab
+	// backend's ConfigFromSpec, exercising the factory's error-return branch rather
+	// than yielding a usable Backend.
+	ambiguousTLS := &kollectdevv1alpha1.TLSSpec{
+		CABundle:    []byte("not-pem"),
+		CASecretRef: &kollectdevv1alpha1.SecretReference{Name: "ca"},
+	}
+
+	for _, sinkType := range []string{"git", "gitlab"} {
+		if _, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+			Type:     sinkType,
+			Endpoint: "https://example.com/inventory.git",
+			TLS:      ambiguousTLS,
+		}, BuildContext{}); err == nil {
+			t.Fatalf("NewBackend(%s) expected config error for ambiguous TLS", sinkType)
+		}
+	}
+}
+
 func TestRegistry_NewBackend_unknownTypeIsTerminal(t *testing.T) {
 	t.Parallel()
 

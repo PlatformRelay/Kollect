@@ -455,6 +455,31 @@ func TestClassifyExportFailure_nonTerminalBecomesTransient(t *testing.T) {
 	}
 }
 
+// RED (retryable-vs-terminal routing): an export error that is ALREADY classified
+// transient — e.g. a transient network failure surfaced by the backend — must stay
+// retryable through classifyExportFailure and never be promoted to terminal. This
+// locks the non-terminal branch for a pre-classified input (distinct from the plain
+// case above, which enters the same branch from an unclassified error).
+func TestClassifyExportFailure_transientNetworkStaysRetryable(t *testing.T) {
+	t.Parallel()
+
+	transient := kollecterrors.Transient(errors.New("dial tcp: connection reset by peer"))
+	got := classifyExportFailure("git-sink", transient)
+
+	if !errors.Is(got, kollecterrors.ErrTransient) {
+		t.Fatalf("transient network failure must remain retryable, class = %s", kollecterrors.ClassOf(got))
+	}
+	if errors.Is(got, kollecterrors.ErrTerminal) {
+		t.Fatal("a retryable network failure must not be promoted to terminal")
+	}
+	if !kollecterrors.IsTransient(got) {
+		t.Fatalf("IsTransient(got) = false, want true: %v", got)
+	}
+	if !strings.Contains(got.Error(), "git-sink") {
+		t.Fatalf("error should name the sink: %v", got)
+	}
+}
+
 func TestObjectStoreSnapshotCapabilities(t *testing.T) {
 	t.Parallel()
 

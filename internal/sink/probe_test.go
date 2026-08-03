@@ -92,6 +92,29 @@ func TestRunConnectionTest_configErrors(t *testing.T) {
 	}
 }
 
+func TestRunConnectionTest_gitReachabilityError(t *testing.T) {
+	t.Parallel()
+
+	// Valid config (ConfigFromSpec succeeds), but the endpoint resolves to a
+	// loopback address that the netguard dialer denies unconditionally. This drives
+	// the config-succeeds -> TestConnection-fails branch deterministically and
+	// offline (no real network dial leaves the process). git and gitlab share the
+	// same TLS-handshake reachability path.
+	for _, sinkType := range []string{"git", "gitlab"} {
+		t.Run(sinkType, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := RunConnectionTest(t.Context(), kollectdevv1alpha1.KollectSinkSpec{
+				Type:     sinkType,
+				Endpoint: "https://127.0.0.1/inventory.git",
+			}, BuildContext{})
+			if err == nil {
+				t.Fatal("expected a reachability error for a netguard-denied loopback endpoint")
+			}
+		})
+	}
+}
+
 func TestRunConnectionTest_gitInvalidTLS(t *testing.T) {
 	t.Parallel()
 

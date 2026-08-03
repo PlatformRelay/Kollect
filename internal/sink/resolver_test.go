@@ -5,11 +5,14 @@ package sink
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
@@ -181,5 +184,38 @@ func TestResolveSinkAnyFamily(t *testing.T) {
 	}
 	if resolved.Family != kollectdevv1alpha1.SinkFamilyEvent {
 		t.Fatalf("family = %q", resolved.Family)
+	}
+}
+
+// When Family is unset, resolveSinkAnyFamily probes each family in turn. A
+// non-NotFound error from the API server (unlike a NotFound, which advances to
+// the next family) must abort the probe and propagate immediately, or a transient
+// control-plane blip would be misreported as "sink not found".
+func TestResolveSinkAnyFamily_nonNotFoundPropagates(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	sentinel := errors.New("apiserver unavailable")
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(
+				_ context.Context, _ client.WithWatch, _ client.ObjectKey, _ client.Object, _ ...client.GetOption,
+			) error {
+				return sentinel
+			},
+		}).
+		Build()
+
+	_, err := ResolveSink(context.Background(), cl, ResolveOptions{
+		Namespace: "team-a",
+		Name:      "any",
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("non-NotFound error must propagate, not be swallowed as not-found: got %v", err)
 	}
 }
