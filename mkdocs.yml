@@ -1,5 +1,5 @@
 site_name: Kollect
-site_description: Your cluster, in Git, diffable.
+site_description: Turn Kubernetes state into durable inventory.
 site_url: https://platformrelay.github.io/Kollect/
 repo_url: https://github.com/platformrelay/kollect
 repo_name: platformrelay/kollect

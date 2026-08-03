@@ -21,23 +21,23 @@
 <a href="https://github.com/orgs/platformrelay/packages?repo_name=kollect"><img src="https://img.shields.io/badge/ghcr.io-platformrelay%2Fkollect-2496ED?logo=docker&logoColor=white" alt="Container"></a>
 </p>
 
-<p align="center"><em>Git-simple to start · platform-grade to grow</em></p>
+<p align="center"><em>Simple to start · platform-grade to grow</em></p>
 
 # Kollect
 
-**Kubernetes knows what's running *right now*. Kollect turns that into a durable record your
-whole platform can use** — a Git history you can `diff`, a database your portal can query, an
-event stream your automation can react to. Declare what matters in a few CRs (select by GVK,
-extract with CEL), and every sink receives the same rows, in parallel.
+**Turn Kubernetes state into durable inventory.** Declare what matters once. Kollect keeps it
+current and delivers it to Git, object storage, databases, and event streams. Select resources by
+GVK, extract the attributes you need with CEL or JSONPath, and every sink receives the same
+canonical rows in parallel.
 
 <!-- Hero GIF (generate locally): docs/assets/demo/hero-git-only.gif — see docs/DEMO-GIF-GUIDE.md -->
 
-**Start with one Git repo. Grow to a whole platform.** On day one, a single pipeline gives you a
-Git-committed inventory — `git log` is your audit trail, `git diff` is your drift report, no
-scripts, no apiserver hammering. As adoption grows, nothing gets rebuilt: the same rows fan out to
-Postgres, Kafka, and object storage, and `KollectScope` keeps it multi-tenant — every team owns
-its inventory as **configuration, not code**, in its own namespace. Consumers read **export
-data**, never unbounded list/watch against the live cluster.
+**Start with one sink. Grow to a whole platform.** A single pipeline can write an inspectable Git
+history, a queryable database record, an object-store snapshot, or an event stream—without scripts
+or API-server hammering. As adoption grows, nothing gets rebuilt: the same rows fan out to more
+sinks, and `KollectScope` keeps it multi-tenant. Every team owns its inventory as **configuration,
+not code**, in its own namespace; consumers read **export data**, never unbounded list/watch against
+the live cluster.
 
 **Read the docs:** **[platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/)** — architecture,
 quick start, CR reference, ADRs, and examples. This README is the front door; the site is the map.
