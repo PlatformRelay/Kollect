@@ -101,11 +101,74 @@ func TestCollectInitNamePattern_writesIncludedNamespaces(t *testing.T) {
 	t.Parallel()
 
 	outDir := t.TempDir()
+	var stderr bytes.Buffer
 	script := NewScriptedPrompter([]PromptAnswer{
 		{Confirm: boolPtrInit(true)},
 		{Select: "Deployment (apps/v1)"},
 		{Select: InitScopeNamePattern},
 		{Input: "team-*"},
+		{Confirm: boolPtrInit(false)}, // keep snapshot; decline durable selector
+		{Select: InitFilterNone},
+		{MultiSelect: []string{"name"}},
+		{Input: "deps"},
+		{Confirm: boolPtrInit(true)},
+	})
+	_, err := RunInit(InitOptions{
+		Kubeconfig: writeInitTestKubeconfig(t),
+		OutputDir:  outDir,
+		Prompter:   script,
+		Discoverer: &FakeInitDiscoverer{
+			Resources:  []InitResourceInfo{deploymentResource()},
+			Namespaces: []string{"default", "team-a", "team-b"},
+		},
+		Stderr:     &stderr,
+		IsTerminal: func() bool { return true },
+	})
+	if err != nil {
+		t.Fatalf("RunInit: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(outDir, "target.yaml")) //nolint:gosec
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	if !strings.Contains(text, "includedNamespaces:") {
+		t.Fatalf("pattern scope must emit includedNamespaces, got:\n%s", text)
+	}
+	if !strings.Contains(text, "team-a") || !strings.Contains(text, "team-b") {
+		t.Fatalf("expected matched namespaces in YAML:\n%s", text)
+	}
+	// Truthfulness: Target API has no glob field — the pattern must not be written as if it
+	// retains glob semantics (REQ-PIPE-07 / B7).
+	if strings.Contains(text, "team-*") {
+		t.Fatalf("generated YAML must not retain the discovery pattern as a glob:\n%s", text)
+	}
+	if strings.Contains(text, "namespaceSelector:") {
+		t.Fatalf("declined durable path must not emit namespaceSelector:\n%s", text)
+	}
+	out := stderr.String()
+	if !strings.Contains(out, "not auto-included") && !strings.Contains(out, "snapshot") {
+		t.Fatalf("wizard must warn the match is a non-durable snapshot, stderr:\n%s", out)
+	}
+	if !strings.Contains(out, "namespaceSelector") {
+		t.Fatalf("wizard must recommend namespaceSelector for durable membership, stderr:\n%s", out)
+	}
+}
+
+// TestCollectInitNamePattern_switchesToDurableSelector covers the B7 recommend/generate path:
+// when the operator wants durable dynamic membership, the wizard switches to namespaceSelector
+// instead of leaving a snapshot includedNamespaces list that looks like a glob.
+func TestCollectInitNamePattern_switchesToDurableSelector(t *testing.T) {
+	t.Parallel()
+
+	outDir := t.TempDir()
+	script := NewScriptedPrompter([]PromptAnswer{
+		{Confirm: boolPtrInit(true)},
+		{Select: "Deployment (apps/v1)"},
+		{Select: InitScopeNamePattern},
+		{Input: "team-*"},
+		{Confirm: boolPtrInit(true)}, // accept durable namespaceSelector
+		{Input: "team=platform"},
 		{Select: InitFilterNone},
 		{MultiSelect: []string{"name"}},
 		{Input: "deps"},
@@ -129,11 +192,14 @@ func TestCollectInitNamePattern_writesIncludedNamespaces(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(raw)
-	if !strings.Contains(text, "includedNamespaces:") {
-		t.Fatalf("pattern scope must emit includedNamespaces, got:\n%s", text)
+	if !strings.Contains(text, "namespaceSelector:") || !strings.Contains(text, "team: platform") {
+		t.Fatalf("durable path must emit namespaceSelector matchLabels, got:\n%s", text)
 	}
-	if !strings.Contains(text, "team-a") || !strings.Contains(text, "team-b") {
-		t.Fatalf("expected matched namespaces in YAML:\n%s", text)
+	if strings.Contains(text, "includedNamespaces:") {
+		t.Fatalf("durable path must not keep snapshot includedNamespaces:\n%s", text)
+	}
+	if strings.Contains(text, "team-*") {
+		t.Fatalf("generated YAML must not retain the discovery pattern as a glob:\n%s", text)
 	}
 }
 
