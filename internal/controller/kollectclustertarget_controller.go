@@ -290,11 +290,11 @@ func (r *KollectClusterTargetReconciler) setReady(
 	updateClusterTargetFilterStatus(
 		ct, ct.Status.MatchedNamespaces, ct.Status.EffectiveNamespaces, ct.Status.ActiveResourceRules,
 	)
-	setSyncedCondition(&ct.Status.Conditions, ct.Generation, true, "Collecting", msg)
+	setSyncedCondition(&ct.Status.Conditions, ct.Generation, true, reasonCollecting, msg)
 
 	return setClusterTargetCondition(
 		ctx, r.Client, ct, ct.Generation, &ct.Status.Conditions,
-		conditionReady, metav1.ConditionTrue, "Collecting", msg,
+		conditionReady, metav1.ConditionTrue, reasonCollecting, msg,
 	)
 }
 
