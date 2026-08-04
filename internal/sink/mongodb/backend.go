@@ -26,6 +26,36 @@ type Backend struct {
 	cfg    Config
 	client *mongo.Client
 	coll   *mongo.Collection
+	admin  collectionAdmin
+}
+
+// collectionAdmin abstracts list/create/index for unit tests (AUD26-TEST-02b).
+type collectionAdmin interface {
+	ListCollectionNames(ctx context.Context, filter interface{}) ([]string, error)
+	CreateCollection(ctx context.Context, name string) error
+	EnsureUniqueIndex(ctx context.Context, keys bson.D) error
+}
+
+type mongoCollectionAdmin struct {
+	db   *mongo.Database
+	coll *mongo.Collection
+}
+
+func (a mongoCollectionAdmin) ListCollectionNames(ctx context.Context, filter interface{}) ([]string, error) {
+	return a.db.ListCollectionNames(ctx, filter)
+}
+
+func (a mongoCollectionAdmin) CreateCollection(ctx context.Context, name string) error {
+	return a.db.CreateCollection(ctx, name)
+}
+
+func (a mongoCollectionAdmin) EnsureUniqueIndex(ctx context.Context, keys bson.D) error {
+	index := mongo.IndexModel{
+		Keys:    keys,
+		Options: options.Index().SetUnique(true),
+	}
+	_, err := a.coll.Indexes().CreateOne(ctx, index)
+	return err
 }
 
 type deleteManyCollection interface {
@@ -61,10 +91,13 @@ func NewBackend(
 		return nil, fmt.Errorf("mongodb ping: %w", err)
 	}
 
+	db := client.Database(cfg.Database)
+	coll := db.Collection(cfg.Collection)
 	b := &Backend{
 		cfg:    cfg,
 		client: client,
-		coll:   client.Database(cfg.Database).Collection(cfg.Collection),
+		coll:   coll,
+		admin:  mongoCollectionAdmin{db: db, coll: coll},
 	}
 
 	if cfg.ProvisioningMode == kollectdevv1alpha1.ProvisioningModeExisting {
@@ -124,7 +157,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 }
 
 func (b *Backend) verifyCollection(ctx context.Context) error {
-	names, err := b.client.Database(b.cfg.Database).ListCollectionNames(ctx, bson.M{"name": b.cfg.Collection})
+	names, err := b.admin.ListCollectionNames(ctx, bson.M{"name": b.cfg.Collection})
 	if err != nil {
 		return fmt.Errorf("mongodb verify collection: %w", err)
 	}
@@ -140,7 +173,7 @@ func (b *Backend) verifyCollection(ctx context.Context) error {
 }
 
 func (b *Backend) ensureCollection(ctx context.Context) error {
-	names, err := b.client.Database(b.cfg.Database).ListCollectionNames(ctx, bson.M{"name": b.cfg.Collection})
+	names, err := b.admin.ListCollectionNames(ctx, bson.M{"name": b.cfg.Collection})
 	if err != nil {
 		return fmt.Errorf("mongodb list collections: %w", err)
 	}
@@ -154,21 +187,18 @@ func (b *Backend) ensureCollection(ctx context.Context) error {
 	}
 
 	if !found {
-		if err := b.client.Database(b.cfg.Database).CreateCollection(ctx, b.cfg.Collection); err != nil {
+		if err := b.admin.CreateCollection(ctx, b.cfg.Collection); err != nil {
 			return fmt.Errorf("mongodb create collection: %w", err)
 		}
 	}
 
-	index := mongo.IndexModel{
-		Keys: bson.D{
-			{Key: "inventory_namespace", Value: 1},
-			{Key: "inventory_name", Value: 1},
-			{Key: "target_name", Value: 1},
-			{Key: "source_uid", Value: 1},
-		},
-		Options: options.Index().SetUnique(true),
+	keys := bson.D{
+		{Key: "inventory_namespace", Value: 1},
+		{Key: "inventory_name", Value: 1},
+		{Key: "target_name", Value: 1},
+		{Key: "source_uid", Value: 1},
 	}
-	if _, err := b.coll.Indexes().CreateOne(ctx, index); err != nil {
+	if err := b.admin.EnsureUniqueIndex(ctx, keys); err != nil {
 		return fmt.Errorf("mongodb ensure index: %w", err)
 	}
 
