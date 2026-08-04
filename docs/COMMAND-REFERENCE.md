@@ -29,7 +29,8 @@ Kollect CRDs register short names for faster typing ([crds/index.md](crds/index.
 
 ```sh
 kubectl get kprof,ksnap,kdb,kevt,ktgt,kinv,kscope -n <namespace>
-kubectl apply -k config/samples/
+kubectl apply -k config/samples/            # profiles / targets
+kubectl apply -k config/samples/advanced/  # sinks + inventories (opt-in)
 kubectl explain kollectinventory.spec
 ```
 

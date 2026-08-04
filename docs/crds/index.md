@@ -123,7 +123,8 @@ optional sink defaults, and scope floors — [ADR-0413](../adr/0413-export-inter
 ## Quick apply
 
 ```sh
-kubectl apply -k config/samples/
+kubectl apply -k config/samples/            # profiles / targets / scopes
+kubectl apply -k config/samples/advanced/  # sinks + inventories (Secrets required)
 kubectl get kprof,ksnap,kdb,kevt,ktgt,kinv,kscope,kconntest -A
 ```
 
