@@ -64,3 +64,25 @@ jobs:
           scenario-script: hack/kind/e2e/pipeline-cli-smoke.sh
           run-mode: repo_root
           wait-timeout: 300s
+
+  # DEMO-03 — canonical Git-only hero demo path (Forgejo in kind).
+  # Separate from required Tier-0 kind-smoke (branch protection lists kind-smoke only).
+  # Uses a noop setup so kind-e2e-setup installs kind/helm without creating kollect-e2e;
+  # smoke.sh owns kollect-hero (up → assert → down).
+  hero-demo-smoke:
+    name: hero-demo-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Hero smoke contract (no kind)
+        run: bash hack/test/demo_03_hero_smoke_test.sh
+
+      - uses: ./.github/actions/kind-e2e-setup
+        with:
+          setup-script: hack/demo/hero/ci-noop-setup.sh
+          scenario-script: hack/demo/hero/smoke.sh
+          wait-timeout: 300s
