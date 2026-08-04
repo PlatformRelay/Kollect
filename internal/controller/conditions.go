@@ -39,6 +39,9 @@ const (
 	// reasonExtractionFailed marks a hard-failed (Degraded) target: one or more resources
 	// failed CEL/JSONPath attribute extraction (GUIDELINES.md §1 ErrTerminal — EC-P1-05).
 	reasonExtractionFailed = "ExtractionFailed"
+
+	// reasonCollecting is the Ready/Synced reason while a target is successfully collecting.
+	reasonCollecting = "Collecting"
 )
 
 func setTargetCondition(

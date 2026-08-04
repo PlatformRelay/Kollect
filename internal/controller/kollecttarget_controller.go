@@ -268,14 +268,14 @@ func (r *KollectTargetReconciler) setReady(
 	setSinkReachableCondition(&target.Status.Conditions, target.Generation, true, sinkReason, sinkMsg)
 	recordNormal(r.Recorder, target, sinkReason, sinkMsg)
 
-	syncedReason, syncedMsg := "Collecting", msg
+	syncedReason, syncedMsg := reasonCollecting, msg
 	if scopeReason != "" {
 		syncedReason, syncedMsg = scopeReason, scopeMsg
 	}
 	setSyncedCondition(&target.Status.Conditions, target.Generation, true, syncedReason, syncedMsg)
 	if err := setTargetCondition(
 		ctx, r.Client, target, target.Generation, &target.Status.Conditions,
-		conditionReady, metav1.ConditionTrue, "Collecting",
+		conditionReady, metav1.ConditionTrue, reasonCollecting,
 		msg,
 	); err != nil {
 		return ctrl.Result{}, err

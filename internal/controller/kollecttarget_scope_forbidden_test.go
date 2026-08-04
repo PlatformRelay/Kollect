@@ -92,13 +92,13 @@ func TestApplyTargetReadyState_NoIssues_SyncedReasonCollecting(t *testing.T) {
 	}
 
 	ready := apimeta.FindStatusCondition(target.Status.Conditions, conditionReady)
-	if ready == nil || ready.Status != metav1.ConditionTrue {
-		t.Fatalf("Ready condition = %#v, want True", ready)
+	if ready == nil || ready.Status != metav1.ConditionTrue || ready.Reason != reasonCollecting {
+		t.Fatalf("Ready condition = %#v, want True/%s", ready, reasonCollecting)
 	}
 
 	synced := apimeta.FindStatusCondition(target.Status.Conditions, conditionSynced)
-	if synced == nil || synced.Reason != "Collecting" {
-		t.Fatalf("Synced condition = %#v, want reason %q", synced, "Collecting")
+	if synced == nil || synced.Reason != reasonCollecting {
+		t.Fatalf("Synced condition = %#v, want reason %q", synced, reasonCollecting)
 	}
 }
 
