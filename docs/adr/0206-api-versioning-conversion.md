@@ -7,10 +7,12 @@
 
 ## Context
 
-Kollect ships a growing CRD surface (`KollectProfile`, `KollectTarget`, `KollectInventory`, `KollectSink`,
-`KollectScope`, cluster-scoped variants, `KollectConnectionTest` — [ADR-0201](0201-crd-model.md),
-[ADR-0203](0203-namespaced-multi-tenancy.md)). All are `v1alpha1` today with a single served/stored
-version and **no conversion webhook**. We have a stated break-freely posture for pre-beta
+Kollect ships a growing CRD surface (`KollectProfile`, `KollectTarget`, `KollectInventory`, family sinks
+`KollectSnapshotSink` / `KollectDatabaseSink` / `KollectEventSink`, `KollectScope`, cluster-scoped
+variants, `KollectConnectionTest` — [ADR-0201](0201-crd-model.md),
+[ADR-0203](0203-namespaced-multi-tenancy.md), [ADR-0414](0414-sink-family-crds.md)). The unified
+`KollectSink` kind was removed. All are `v1alpha1` today with a single served/stored version and
+**no conversion webhook**. We have a stated break-freely posture for pre-beta
 ([ADR-0201](0201-crd-model.md)) but no recorded plan for how and when the API
 stabilizes, how breaking changes are signaled, and how conversion will work. This ADR makes the policy
 explicit and marks the open decisions.
