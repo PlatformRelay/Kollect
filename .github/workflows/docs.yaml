@@ -57,9 +57,10 @@ on:
 permissions:
   contents: read
 
+# Scope by PR number / ref so a PR docs build cannot cancel an in-flight main Pages deploy.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: pages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
