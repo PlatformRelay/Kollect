@@ -8,7 +8,10 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -279,6 +282,316 @@ WHERE inventory_namespace = $1 AND inventory_name = $2 AND cluster = $3
 	if count != rowCount {
 		t.Fatalf("row count = %d, want %d", count, rowCount)
 	}
+}
+
+// TestExportPostgres_idempotentDoubleExport asserts a second Export of the same
+// snapshot upserts in place (no duplicate rows) and that a reduced snapshot
+// reconciles stale rows via the delete plan (COV-90-S10 / Track B).
+func TestExportPostgres_idempotentDoubleExport(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx, connStr := startIntegrationPostgres(t)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type:    "postgres",
+		Cluster: "idempotent-cluster",
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+			Table:       "inventory_items",
+			Schema:      "public",
+		},
+	}
+
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(backend.Close)
+
+	items := []collect.Item{
+		{
+			TargetNamespace: "apps",
+			TargetName:      "web",
+			Namespace:       "apps",
+			Name:            "demo",
+			Version:         "v1",
+			Kind:            "Deployment",
+			UID:             "uid-idem-1",
+			Attributes:      map[string]any{"replicas": 2},
+		},
+		{
+			TargetNamespace: "apps",
+			TargetName:      "web",
+			Namespace:       "apps",
+			Name:            "worker",
+			Version:         "v1",
+			Kind:            "Deployment",
+			UID:             "uid-idem-2",
+			Attributes:      map[string]any{"replicas": 1},
+		},
+	}
+	payload, err := json.Marshal(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const objectPath = "inventory/apps/idempotent.json"
+	if err := backend.Export(ctx, payload, objectPath); err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if err := backend.Export(ctx, payload, objectPath); err != nil {
+		t.Fatalf("Export re-run: %v", err)
+	}
+
+	pool, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+
+	var count int
+	if err := pool.QueryRow(ctx, `
+SELECT COUNT(*) FROM public.inventory_items
+WHERE inventory_namespace = $1 AND inventory_name = $2 AND cluster = $3
+`, "apps", "idempotent", "idempotent-cluster").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("row count after identical re-export = %d, want 2 (no dupes)", count)
+	}
+
+	reduced := []collect.Item{items[0]}
+	reducedPayload, err := json.Marshal(reduced)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Export(ctx, reducedPayload, objectPath); err != nil {
+		t.Fatalf("Export reduced: %v", err)
+	}
+
+	if err := pool.QueryRow(ctx, `
+SELECT COUNT(*) FROM public.inventory_items
+WHERE inventory_namespace = $1 AND inventory_name = $2 AND cluster = $3
+`, "apps", "idempotent", "idempotent-cluster").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("row count after stale reconcile = %d, want 1", count)
+	}
+}
+
+// TestExportPostgres_midBatchConstraintViolationRollsBack asserts that a
+// mid-batch constraint violation aborts the whole export transaction — prior
+// rows in the same snapshot are not committed — and the error wraps
+// ErrUpsertFailed (COV-90-S10 / Track B partial-failure).
+func TestExportPostgres_midBatchConstraintViolationRollsBack(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx, connStr := startIntegrationPostgres(t)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type:    "postgres",
+		Cluster: "partial-cluster",
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+			Table:       "inventory_items",
+			Schema:      "public",
+		},
+	}
+
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(backend.Close)
+
+	seed := []collect.Item{{
+		TargetNamespace: "apps",
+		TargetName:      "web",
+		Namespace:       "apps",
+		Name:            "seed",
+		Version:         "v1",
+		Kind:            "Deployment",
+		UID:             "uid-seed",
+		Attributes:      map[string]any{"replicas": 1},
+	}}
+	seedPayload, err := json.Marshal(seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Export(ctx, seedPayload, "inventory/apps/partial.json"); err != nil {
+		t.Fatalf("seed Export: %v", err)
+	}
+
+	pool, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+
+	_, err = pool.Exec(ctx, `
+ALTER TABLE public.inventory_items
+ADD CONSTRAINT reject_poison_uid CHECK (source_uid <> 'uid-poison')
+`)
+	if err != nil {
+		t.Fatalf("add check constraint: %v", err)
+	}
+
+	batch := []collect.Item{
+		{
+			TargetNamespace: "apps",
+			TargetName:      "web",
+			Namespace:       "apps",
+			Name:            "ok",
+			Version:         "v1",
+			Kind:            "Deployment",
+			UID:             "uid-ok",
+			Attributes:      map[string]any{"replicas": 5},
+		},
+		{
+			TargetNamespace: "apps",
+			TargetName:      "web",
+			Namespace:       "apps",
+			Name:            "poison",
+			Version:         "v1",
+			Kind:            "Deployment",
+			UID:             "uid-poison",
+			Attributes:      map[string]any{"replicas": 9},
+		},
+	}
+	batchPayload, err := json.Marshal(batch)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = backend.Export(ctx, batchPayload, "inventory/apps/partial.json")
+	if err == nil {
+		t.Fatal("expected mid-batch constraint violation")
+	}
+	if !errors.Is(err, ErrUpsertFailed) {
+		t.Fatalf("Export() error = %v, want wrapped ErrUpsertFailed", err)
+	}
+
+	var count int
+	if err := pool.QueryRow(ctx, `
+SELECT COUNT(*) FROM public.inventory_items
+WHERE inventory_namespace = $1 AND inventory_name = $2 AND cluster = $3
+`, "apps", "partial", "partial-cluster").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("row count after rolled-back export = %d, want 1 (seed only)", count)
+	}
+
+	var seedUID string
+	if err := pool.QueryRow(ctx, `
+SELECT source_uid FROM public.inventory_items
+WHERE inventory_namespace = $1 AND inventory_name = $2 AND cluster = $3
+`, "apps", "partial", "partial-cluster").Scan(&seedUID); err != nil {
+		t.Fatal(err)
+	}
+	if seedUID != "uid-seed" {
+		t.Fatalf("remaining source_uid = %q, want uid-seed (atomic rollback)", seedUID)
+	}
+}
+
+// TestNewBackend_authFailureFailFast asserts wrong credentials fail quickly
+// without hanging on connectTimeout (COV-90-S10 / Track B auth-fail).
+func TestNewBackend_authFailureFailFast(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx, connStr := startIntegrationPostgres(t)
+
+	badDSN, err := rewritePostgresPassword(connStr, "definitely-wrong-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type:    "postgres",
+		Cluster: "auth-fail-cluster",
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+			Table:       "inventory_items",
+			Schema:      "public",
+		},
+	}
+
+	start := time.Now()
+	_, err = NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(badDSN)})
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected auth failure for wrong password")
+	}
+	if elapsed > 10*time.Second {
+		t.Fatalf("auth failure took %s, want fail-fast well under connectTimeout (%s)", elapsed, connectTimeout)
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "postgres") {
+		t.Fatalf("auth error = %v, want postgres-classified failure", err)
+	}
+
+	// TestConnection must also reject bad credentials without hanging.
+	start = time.Now()
+	err = TestConnection(ctx, spec, map[string][]byte{"dsn": []byte(badDSN)})
+	elapsed = time.Since(start)
+	if err == nil {
+		t.Fatal("expected TestConnection auth failure")
+	}
+	if elapsed > 10*time.Second {
+		t.Fatalf("TestConnection auth failure took %s, want fail-fast", elapsed)
+	}
+}
+
+func startIntegrationPostgres(t *testing.T) (context.Context, string) {
+	t.Helper()
+
+	ctx := context.Background()
+	container, err := postgres.Run(ctx,
+		"postgres:16-alpine",
+		postgres.WithDatabase("inventory"),
+		postgres.WithUsername("kollect"),
+		postgres.WithPassword("kollect"),
+	)
+	if err != nil {
+		if integrationtest.IsDockerUnavailable(err) {
+			t.Skipf("docker not available: %v", err)
+		}
+
+		t.Fatalf("start postgres: %v", err)
+	}
+
+	t.Cleanup(func() { _ = container.Terminate(ctx) })
+
+	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := waitForPostgres(ctx, connStr); err != nil {
+		t.Fatal(err)
+	}
+
+	return ctx, connStr
+}
+
+func rewritePostgresPassword(dsn, password string) (string, error) {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return "", err
+	}
+	if u.User == nil {
+		return "", fmt.Errorf("dsn missing userinfo: %q", dsn)
+	}
+	user := u.User.Username()
+	u.User = url.UserPassword(user, password)
+
+	return u.String(), nil
 }
 
 func waitForPostgres(ctx context.Context, connStr string) error {
