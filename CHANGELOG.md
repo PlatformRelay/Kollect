@@ -11,7 +11,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **demo:** Harden DEMO-01 meta-test and gofmt samples helper [b0d630f](https://github.com/platformrelay/kollect/commit/b0d630ff0fc6443821838fe6f4b15c9cf0dbcb5a)
+- **demo:** Harden DEMO-01 meta-test and gofmt samples helper [834c590](https://github.com/platformrelay/kollect/commit/834c5903b0829c10765261fb82cb6f948aad7a52)
 
 - **pipeline:** Clear govet err shadow in init trial tests [4e402c7](https://github.com/platformrelay/kollect/commit/4e402c7d24480c6e3b063ff816cc754174e42936)
 
@@ -20,7 +20,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
-- **demo:** Make default path credential-free via hero demo [b5d3da4](https://github.com/platformrelay/kollect/commit/b5d3da419462da03127cb67830d9a8b246e6021b)
+- **demo:** Make default path credential-free via hero demo [73acfc9](https://github.com/platformrelay/kollect/commit/73acfc9181f694956e58572cfabd2447474becce)
 
 - **demo:** Add demo-up/down task aliases [a555a7c](https://github.com/platformrelay/kollect/commit/a555a7ceacaef88806f6b9c70ca41ba14bcdc595)
 
