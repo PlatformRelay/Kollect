@@ -16,6 +16,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **pipeline:** Init completion trial screen + YAML validation (PIPE-INIT-04) [09b2629](https://github.com/platformrelay/kollect/commit/09b26297bf68510b1b086412f9ddde66e5e7acb6)
+
 - **pipeline:** Truthful init namespace-pattern snapshot (PIPE-INIT-03) [892d2eb](https://github.com/platformrelay/kollect/commit/892d2eb895c5ead3ff0aecf0726156bac6516abf)
 
 - **pipeline:** Consented init attribute sampling + sensitive-kind guard (PIPE-INIT-02) [82e5f16](https://github.com/platformrelay/kollect/commit/82e5f16700dd65008cecd22bc247d16854bb3a48)
