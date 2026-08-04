@@ -1,0 +1,32 @@
+# Hero demo (kollect-hero): same as local dev, plus NET-01 opt-in so in-cluster
+# Forgejo ClusterIP sinks are allowed (demo only — never for public clusters).
+featureGates:
+  inventoryHttp:
+    enabled: true
+    authMode: disabled
+
+webhooks:
+  enabled: false
+
+leaderElection:
+  enabled: false
+
+pprof:
+  enabled: true
+  bindAddress: ":6060"
+
+watchNamespaces: []
+tenantMode: false
+
+transport:
+  type: inprocess
+
+sinkDefaults:
+  connectionTest: true
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+allowPrivateSinks: true
