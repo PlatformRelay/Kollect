@@ -38,7 +38,8 @@ could read to understand Kollect's posture. This ADR records the decision; the m
 - Sinks and cluster connections trust a configurable CA (`caPEM`) resolved from a secret/configmap.
 - `insecureSkipVerify` exists only where unavoidable (HTTP-ish backends), is **off by default**, and is
   an explicit compatibility opt-in. It weakens server identity and is independent of private-address
-  reachability.
+  reachability. When set, reconcilers surface status condition `TLSInsecure`
+  (`ConditionTLSInsecure`) so operators can see the opt-in without reading the spec.
 - Git HTTPS/SSH retains server-name or host-key verification while using the resolved-address guard.
 
 ### RBAC (least privilege)
