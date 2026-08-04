@@ -7,6 +7,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -20,6 +21,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
+	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/integrationtest"
 )
 
@@ -534,6 +536,129 @@ func TestExportMongoDB_replaceOneIdempotent(t *testing.T) {
 	}
 	if remaining != 1 {
 		t.Fatalf("kept source_uid count = %d, want 1", remaining)
+	}
+}
+
+// TestExportMongoDB_midBatchReplaceOneFailure asserts that a mid-export ReplaceOne
+// failure (document validator rejecting a poisoned UID) returns a wrapped
+// classified terminal ErrUpsertFailed. Unlike postgres S10 (single transaction
+// rollback), MongoDB Export commits each ReplaceOne independently — prior
+// successful items in the same batch remain written (COV-90-S11b / Track B).
+func TestExportMongoDB_midBatchReplaceOneFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx := context.Background()
+	container, uri, err := startMongoContainer(ctx)
+	if err != nil {
+		if isDockerUnavailable(err) {
+			t.Skipf("docker not available: %v", err)
+		}
+
+		t.Fatalf("start mongodb: %v", err)
+	}
+
+	t.Cleanup(func() { _ = container.Terminate(ctx) })
+
+	const (
+		database   = "inventory"
+		collection = "partial-items"
+		cluster    = "partial-cluster"
+		objectPath = "inventory/apps/partial.json"
+	)
+
+	spec := defaultMongoSpec(database, collection, cluster)
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)})
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	t.Cleanup(backend.Close)
+
+	// Reject poisoned source_uid at write time (mirrors postgres CHECK constraint).
+	err = backend.client.Database(database).RunCommand(ctx, bson.D{
+		{Key: "collMod", Value: collection},
+		{Key: "validator", Value: bson.M{"source_uid": bson.M{"$ne": "uid-poison"}}},
+		{Key: "validationLevel", Value: "strict"},
+		{Key: "validationAction", Value: "error"},
+	}).Err()
+	if err != nil {
+		t.Fatalf("collMod validator: %v", err)
+	}
+
+	batch := []collect.Item{
+		{
+			TargetName: "deployments",
+			Namespace:  "apps",
+			Name:       "ok",
+			UID:        "uid-ok",
+			Attributes: map[string]any{"replicas": 5},
+		},
+		{
+			TargetName: "deployments",
+			Namespace:  "apps",
+			Name:       "poison",
+			UID:        "uid-poison",
+			Attributes: map[string]any{"replicas": 9},
+		},
+	}
+	batchPayload, err := marshalExport(batch, cluster, 1)
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+
+	err = backend.Export(ctx, batchPayload, objectPath)
+	if err == nil {
+		t.Fatal("expected mid-batch ReplaceOne validator failure")
+	}
+	if !errors.Is(err, ErrUpsertFailed) {
+		t.Fatalf("Export() error = %v, want wrapped ErrUpsertFailed", err)
+	}
+	if !kollecterrors.IsTerminal(err) {
+		t.Fatalf("Export() error = %v, want terminal classification (validator / write rejection)", err)
+	}
+
+	coll := backend.client.Database(database).Collection(collection)
+	scopeFilter := bson.M{
+		"inventory_namespace": "apps",
+		"inventory_name":      "partial",
+		"cluster":             cluster,
+	}
+
+	// Documented partial-write behavior: the successful ReplaceOne before the
+	// failure is durable; the poisoned doc is not written; stale delete never runs.
+	okCount, err := countDocuments(ctx, coll, bson.M{
+		"inventory_namespace": "apps",
+		"inventory_name":      "partial",
+		"cluster":             cluster,
+		"source_uid":          "uid-ok",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if okCount != 1 {
+		t.Fatalf("uid-ok count = %d, want 1 (prior successful ReplaceOne persists)", okCount)
+	}
+
+	poisonCount, err := countDocuments(ctx, coll, bson.M{
+		"inventory_namespace": "apps",
+		"inventory_name":      "partial",
+		"cluster":             cluster,
+		"source_uid":          "uid-poison",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if poisonCount != 0 {
+		t.Fatalf("uid-poison count = %d, want 0", poisonCount)
+	}
+
+	total, err := countDocuments(ctx, coll, scopeFilter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 {
+		t.Fatalf("scope document count = %d, want 1 (partial write, no stale delete)", total)
 	}
 }
 
