@@ -121,6 +121,8 @@ jobs:
         run: bash hack/test/demo_task_aliases_test.sh
       - name: Verify default samples are credential-free (DEMO-01)
         run: bash hack/test/demo_01_default_samples_test.sh
+      - name: Verify demo sample Kustomizations render (DOC-04)
+        run: bash hack/test/demo_04_samples_kustomize_test.sh
       - name: Install Helm
         env:
           HELM_VERSION: v3.17.3
