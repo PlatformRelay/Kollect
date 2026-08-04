@@ -116,8 +116,10 @@ EOF
 }
 
 _hero_source_state() {
-  # shellcheck disable=SC1090
-  [[ -f "$HERO_STATE_FILE" ]] && source "$HERO_STATE_FILE"
+  # State file repeats HERO_* keys that lib.sh declares readonly — only load token.
+  [[ -f "$HERO_STATE_FILE" ]] || return 0
+  FORGEJO_TOKEN="$(grep -E "^FORGEJO_TOKEN=" "$HERO_STATE_FILE" | head -1 | cut -d= -f2-)"
+  export FORGEJO_TOKEN
 }
 
 _hero_start_port_forward() {
