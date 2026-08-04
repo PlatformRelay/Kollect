@@ -1,6 +1,7 @@
 # ADR-0202: Static config vs reconciled CRDs
 
 > Config kinds (`Profile`, `Scope`) are static with no controller; work kinds are reconciled.
+> Family sinks get a minimal connection-probe reconciler only ([ADR-0414](0414-sink-family-crds.md)).
 
 **Theme:** 02 · API & tenancy · **Status:** Current
 
@@ -13,8 +14,12 @@ Operators differ on whether configuration CRDs get their own reconciler:
 - **external-secrets `SecretStore`** is reconciled (validates provider, writes status conditions).
 - **Flux source-controller `GitRepository`** is fully reconciled with rich status (artifact revision).
 
-Kollect has configuration objects (`KollectProfile`, `KollectSink`) that change infrequently and
+Kollect has configuration objects (`KollectProfile`, family sinks) that change infrequently and
 work objects (`KollectTarget`, `KollectInventory`) that drive continuous collection and export.
+
+The former unified `KollectSink` CRD is **not** a public kind — it was removed in favour of typed
+family sinks ([ADR-0414](0414-sink-family-crds.md)). The Go-only `KollectSinkSpec` adapter is an
+internal registry/probe helper, not a Kubernetes resource.
 
 At **large fleet scale**, shared GVK definitions may be duplicated per namespace or published via future
 `KollectClusterProfile`; per-target overrides may be needed later without forking profiles.
@@ -24,7 +29,7 @@ At **large fleet scale**, shared GVK definitions may be duplicated per namespace
 | Category | Kinds | Controller | Status | Validation |
 | --- | --- | --- | --- | --- |
 | Static config | `KollectProfile`, `KollectScope` (namespaced) | None | None | CEL `x-kubernetes-validations`, **validating webhook** ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
-| Static + probe | `KollectSink` | **Minimal** — connection test only ([ADR-0403](0403-connection-test.md)) | `ConnectionVerified`, `TLSInsecure`, `Degraded` | Webhook + probe reconciler |
+| Static + probe | Family sinks: `KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink` | **Minimal** — connection test only ([ADR-0403](0403-connection-test.md)) | `ConnectionVerified`, `TLSInsecure`, `Degraded` | Webhook + probe reconciler |
 | Reconciled | `KollectTarget`, `KollectInventory` | Yes | Full conditions + `observedGeneration` | Same + runtime SAR checks |
 
 Rationale (Flux-aligned):
@@ -33,8 +38,9 @@ Rationale (Flux-aligned):
 - Profile edits still trigger dependent reconciles via secondary watches on referencing objects.
 - `spec.suspend` on **reconciled** kinds only; static objects are always "active" when referenced.
 
-**Reject** full reconciliation of `KollectProfile` like ESO `SecretStore`. **`KollectSink`** is the
-exception: a narrow reconciler for connectivity only ([ADR-0403](0403-connection-test.md)).
+**Reject** full reconciliation of `KollectProfile` like ESO `SecretStore`. **Family sinks** are the
+narrow exception: a lightweight reconciler for connectivity only ([ADR-0403](0403-connection-test.md),
+[ADR-0414](0414-sink-family-crds.md)).
 
 ### Shared GVK, optional per-target overrides
 
@@ -55,13 +61,14 @@ Prefer **one shared informer per GVK** across Targets ([ADR-0301](0301-event-dri
 
 ### Connection test (first-class)
 
-See **[ADR-0403](0403-connection-test.md)** — **no `KollectConnectionTest` CR**.
+See **[ADR-0403](0403-connection-test.md)** — probes attach to **family sink** CRDs (and optional
+`KollectConnectionTest`); there is no unified `KollectSink` probe kind.
 
 | Mechanism | Behavior |
 | --- | --- |
-| **`spec.connectionTest: true`** on `KollectSink` | Probe on create/update |
-| **Annotation `kollect.dev/test-connection: "true"`** | One-shot re-test on the sink |
-| **`ConnectionVerified` on `KollectSink`** | `kubectl wait --for=condition=ConnectionVerified=...` |
+| **`spec.connectionTest: true`** on a family sink | Probe on create/update |
+| **Annotation `kollect.dev/test-connection: "true"`** | One-shot re-test on the family sink |
+| **`ConnectionVerified` on the family sink** | `kubectl wait --for=condition=ConnectionVerified=...` |
 | **Pipeline conditions (follow-up)** | `SinkReachable` (or export conditions) on `KollectInventory` / `KollectTarget` |
 
 Connection tests run from the operator with the same TLS trust as export ([ADR-0201](0201-crd-model.md)
@@ -82,10 +89,10 @@ sequenceDiagram
   participant User
   participant API as API server
   participant Op as kollect
-  User->>API: apply KollectSink (connectionTest or test-connection annotation)
-  API->>Op: KollectSink reconciler
+  User->>API: apply family sink (connectionTest or test-connection annotation)
+  API->>Op: family sink reconciler
   Op->>Op: probe sink with CA trust
-  Op->>API: patch Sink ConnectionVerified
+  Op->>API: patch sink ConnectionVerified
   User->>API: kubectl wait ConnectionVerified
 ```
 
@@ -95,15 +102,17 @@ sequenceDiagram
 
 - Fewer moving parts, fewer leader-election reconciler loops.
 - Clear mental model: config CRDs are like Flux Providers; workload CRDs are like GitRepositories.
-- Connection test gives human-user-0 fast feedback via minimal Sink reconciler ([ADR-0403](0403-connection-test.md)).
+- Connection test gives human-user-0 fast feedback via minimal family-sink reconciler
+  ([ADR-0403](0403-connection-test.md)).
 
 ### Negative
 
 - Invalid sink credentials may still first appear at export unless user runs connection test.
-- `kubectl wait --for=condition=Ready` does not apply to Profile/Sink.
+- `kubectl wait --for=condition=Ready` does not apply to Profile or family sinks.
 - `maxConcurrentWatches` tuning is cluster-dependent — wrong default causes silent memory pressure.
 
 ## Open questions
 
-- **RESOLVED :** No `KollectConnectionTest` CR — spec + annotation on Sink ([ADR-0403](0403-connection-test.md)).
+- **RESOLVED :** Connection probes live on family sinks + optional `KollectConnectionTest`
+  ([ADR-0403](0403-connection-test.md)); unified `KollectSink` removed ([ADR-0414](0414-sink-family-crds.md)).
 - **OPEN:** Per-target profile override API shape — inline map vs `KollectProfilePatch` kind?

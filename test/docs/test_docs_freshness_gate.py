@@ -21,6 +21,7 @@ class DocsFreshnessGateTest(unittest.TestCase):
         self.assertIn("tracked-markdown.sh", taskfile)
         self.assertIn("--no-globs", taskfile)
         self.assertIn("docs_launch_truth_test.sh", verifier)
+        self.assertIn("docs_adr_kollectsink_retcon_test.sh", verifier)
         self.assertIn("security_architecture_docs_test.sh", verifier)
         self.assertIn("test/docs", verifier)
         self.assertIn("./test/samples", verifier)

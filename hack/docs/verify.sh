@@ -10,6 +10,7 @@ task lint:markdown
 # Product truth and architecture contracts intentionally remain small, focused
 # shell tests. This composition point makes them impossible for Docs CI to omit.
 bash hack/test/docs_launch_truth_test.sh
+bash hack/test/docs_adr_kollectsink_retcon_test.sh
 bash hack/test/security_architecture_docs_test.sh
 bash hack/test/ui_removal_reference_test.sh
 
