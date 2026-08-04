@@ -101,9 +101,18 @@ the maintainer to install the [Codecov GitHub App](https://github.com/apps/codec
 | `docs.yaml` | Docs paths | Markdown lint, strict MkDocs build, GitHub Pages deploy (`main` only) |
 | `e2e-smoke.yaml` | L4 Tier 0 | **Mandatory** kind smoke on PR + `main` (job `kind-smoke`) |
 | `e2e-extended.yaml` | L4 Tier 1 | Optional git-export, multitenant, tenant-mode, webhook profile |
-| `e2e-nightly.yaml` | L4 Tier 2 | Full Kind matrix + bench/perf (deduped L3) |
+| `e2e-nightly.yaml` | L4 Tier 2 | Full Kind matrix + bench/perf (deduped L3) + advisory race |
 | `test-e2e.yaml` | L4 Tier 3 | Manual full matrix (`workflow_dispatch`) |
 | `release.yaml` | Supply chain | Image signing, SBOM, chart publish |
+
+### Nightly advisory race detector (HY-07 / TEST-02)
+
+`e2e-nightly.yaml` runs a **`race`** job (`continue-on-error: true`) that executes
+`task coverage:race` with `CI=true`, `CGO_ENABLED=1`, and `COVERAGE_MIN=0` (racing is the
+signal — the merge-gate floor stays on the non-race `test` job). On a `WARNING: DATA RACE`
+finding the step summary prints an excerpt; **file a GitHub issue labeled `race`/`flake`**
+and do not ignore it. Timeouts/compile failures are summarized distinctly from race reports.
+Timeout is generous (`timeout-minutes: 45`) because `-race` is typically 2–10× slower.
 
 Set repository variable **`GIT_EXPORT_TEST_REPO`** (Settings → Actions → Variables) to enable full
 remote git SHA assert in git-export scenarios. Without it, jobs verify inventory HTTP hash only.

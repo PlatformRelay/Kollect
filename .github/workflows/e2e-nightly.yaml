@@ -96,8 +96,9 @@ jobs:
 
   # Advisory race detector for unit + envtest (TEST-02 / HY-07).
   # continue-on-error: does not block nightly green; file issues from the summary excerpt.
-  race-detector:
-    name: race-detector (advisory)
+  # COVERAGE_MIN=0: racing is the signal — do not fail the advisory job on the coverage floor.
+  race:
+    name: race (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     continue-on-error: true
@@ -116,6 +117,10 @@ jobs:
 
       - name: Unit + envtest under -race
         id: race
+        env:
+          CI: "true"
+          CGO_ENABLED: "1"
+          COVERAGE_MIN: "0"
         run: |
           set +e
           task coverage:race 2>&1 | tee race.log
@@ -129,7 +134,7 @@ jobs:
               grep -A 40 'WARNING: DATA RACE' race.log | head -80
               echo '```'
               echo ""
-              echo "File an issue with label \`race\` referencing this run."
+              echo "File an issue labeled \`race\`/\`flake\` referencing this run (do not ignore)."
             } >> "${GITHUB_STEP_SUMMARY}"
             exit 1
           fi
