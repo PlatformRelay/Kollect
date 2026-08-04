@@ -11,7 +11,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **e2e:** Nudge Target reconcile after inventory sink-ref patch [6515bf5](https://github.com/platformrelay/kollect/commit/6515bf592c447a8ccdf1462248eeb266966fc286)
+- **e2e:** Nudge Target reconcile after inventory sink-ref patch [53075ba](https://github.com/platformrelay/kollect/commit/53075ba7e0696d2f993d90941bf09f794e9fa14e)
 
 - **demo:** Harden DEMO-01 meta-test and gofmt samples helper [834c590](https://github.com/platformrelay/kollect/commit/834c5903b0829c10765261fb82cb6f948aad7a52)
 
