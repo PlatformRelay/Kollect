@@ -172,4 +172,13 @@ grep -Eq 'SECONDS \+ (4[8-9][0-9]|[5-9][0-9]{2}|[1-9][0-9]{3,})' "${BOOTSTRAP}" 
   fail "bootstrap _wait_forgejo deadline must be ≥480s after Available"
 pass "Forgejo headless INSTALL_LOCK + CLI admin locked"
 
+# InventorySinkRef is object-shaped (name required) — string form fails admission.
+INV_SAMPLE="${ROOT}/config/samples/demo/git-only/inventory.yaml"
+[[ -f "${INV_SAMPLE}" ]] || fail "missing ${INV_SAMPLE}"
+grep -Eq 'snapshotSinkRefs:[[:space:]]*$' "${INV_SAMPLE}" ||
+  fail "git-only inventory must declare snapshotSinkRefs"
+grep -Eq '^[[:space:]]*-[[:space:]]*name:[[:space:]]*hero-git-sink[[:space:]]*$' "${INV_SAMPLE}" ||
+  fail "git-only inventory snapshotSinkRefs must use object form (- name: hero-git-sink)"
+pass "demo inventory uses InventorySinkRef object form"
+
 printf 'demo-03 hero smoke: ok\n'

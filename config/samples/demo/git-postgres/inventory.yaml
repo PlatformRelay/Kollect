@@ -5,4 +5,4 @@ metadata:
   namespace: default
 spec:
   databaseSinkRefs:
-    - hero-postgres-sink
+    - name: hero-postgres-sink
