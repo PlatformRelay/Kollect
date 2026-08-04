@@ -418,6 +418,190 @@ func TestConnectionMongoDB(t *testing.T) {
 	}
 }
 
+// TestExportMongoDB_replaceOneIdempotent locks ReplaceOne(upsert=true) semantics:
+// a repeated identical Export must not create duplicate identity documents, and a
+// reduced snapshot must delete stale docs (ADR-0417 / COV-90-S11).
+func TestExportMongoDB_replaceOneIdempotent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx := context.Background()
+	container, uri, err := startMongoContainer(ctx)
+	if err != nil {
+		if isDockerUnavailable(err) {
+			t.Skipf("docker not available: %v", err)
+		}
+
+		t.Fatalf("start mongodb: %v", err)
+	}
+
+	t.Cleanup(func() { _ = container.Terminate(ctx) })
+
+	const (
+		database   = "inventory"
+		collection = "replaceone-idempotent"
+		cluster    = "test-cluster"
+		objectPath = "inventory/apps/idempotent.json"
+	)
+
+	spec := defaultMongoSpec(database, collection, cluster)
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)})
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	t.Cleanup(backend.Close)
+
+	items := []collect.Item{
+		{
+			TargetName: "deployments",
+			Namespace:  "apps",
+			Name:       "api",
+			UID:        "uid-idem-1",
+			Attributes: map[string]any{"replicas": 2},
+		},
+		{
+			TargetName: "deployments",
+			Namespace:  "apps",
+			Name:       "worker",
+			UID:        "uid-idem-2",
+			Attributes: map[string]any{"replicas": 1},
+		},
+	}
+
+	payload, err := marshalExport(items, cluster, 1)
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+
+	if err := backend.Export(ctx, payload, objectPath); err != nil {
+		t.Fatalf("Export first: %v", err)
+	}
+
+	coll := backend.client.Database(database).Collection(collection)
+	scopeFilter := bson.M{
+		"inventory_namespace": "apps",
+		"inventory_name":      "idempotent",
+		"cluster":             cluster,
+	}
+
+	count, err := countDocuments(ctx, coll, scopeFilter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("document count after first export = %d, want 2", count)
+	}
+
+	// Identical re-export: ReplaceOne upsert must keep row count stable (no duplicates).
+	if err := backend.Export(ctx, payload, objectPath); err != nil {
+		t.Fatalf("Export identical retry: %v", err)
+	}
+
+	count, err = countDocuments(ctx, coll, scopeFilter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("document count after identical re-export = %d, want 2 (ReplaceOne idempotent)", count)
+	}
+
+	// Reduced snapshot deletes the stale identity document.
+	reducedPayload, err := marshalExport(items[:1], cluster, 2)
+	if err != nil {
+		t.Fatalf("marshal reduced envelope: %v", err)
+	}
+	if err := backend.Export(ctx, reducedPayload, objectPath); err != nil {
+		t.Fatalf("Export reduced: %v", err)
+	}
+
+	count, err = countDocuments(ctx, coll, scopeFilter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("document count after stale delete = %d, want 1", count)
+	}
+
+	remaining, err := countDocuments(ctx, coll, bson.M{
+		"inventory_namespace": "apps",
+		"inventory_name":      "idempotent",
+		"cluster":             cluster,
+		"source_uid":          "uid-idem-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if remaining != 1 {
+		t.Fatalf("kept source_uid count = %d, want 1", remaining)
+	}
+}
+
+// TestNewBackend_authFailure ensures wrong MongoDB credentials fail fast with an
+// auth error (no retry-storm) — COV-90-S11 EDGE.
+func TestNewBackend_authFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx := context.Background()
+	container, goodURI, err := startMongoContainerWithAuth(ctx, "kollect", "correct-password")
+	if err != nil {
+		if isDockerUnavailable(err) {
+			t.Skipf("docker not available: %v", err)
+		}
+
+		t.Fatalf("start mongodb with auth: %v", err)
+	}
+
+	t.Cleanup(func() { _ = container.Terminate(ctx) })
+
+	spec := defaultMongoSpec("inventory", "auth-fail-items", "test-cluster")
+
+	// Sanity: correct credentials must succeed so auth is actually enforced.
+	okBackend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(goodURI)})
+	if err != nil {
+		t.Fatalf("NewBackend with correct credentials: %v", err)
+	}
+	okBackend.Close()
+
+	badURI := strings.Replace(goodURI, "correct-password", "wrong-password", 1)
+	if badURI == goodURI {
+		t.Fatal("failed to derive badURI from goodURI")
+	}
+
+	start := time.Now()
+	_, err = NewBackend(ctx, spec, map[string][]byte{"uri": []byte(badURI)})
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected NewBackend auth failure with wrong credentials")
+	}
+
+	msg := strings.ToLower(err.Error())
+	if !strings.Contains(msg, "auth") &&
+		!strings.Contains(msg, "authenticat") &&
+		!strings.Contains(msg, "credential") &&
+		!strings.Contains(msg, "unauthorized") {
+		t.Fatalf("error = %q, want auth-related failure", err)
+	}
+
+	// Single connect+ping path must fail fast — no retry-storm against bad credentials.
+	if elapsed > connectTimeout+5*time.Second {
+		t.Fatalf("auth failure took %s, want within connectTimeout+%s (no retry-storm)", elapsed, 5*time.Second)
+	}
+
+	// Probe path must likewise reject bad credentials promptly.
+	start = time.Now()
+	probeErr := TestConnection(ctx, spec, map[string][]byte{"uri": []byte(badURI)})
+	probeElapsed := time.Since(start)
+	if probeErr == nil {
+		t.Fatal("expected TestConnection auth failure with wrong credentials")
+	}
+	if probeElapsed > probeTimeout+5*time.Second {
+		t.Fatalf("TestConnection auth failure took %s, want within probeTimeout+%s", probeElapsed, 5*time.Second)
+	}
+}
+
 func defaultMongoSpec(database, collection, cluster string) kollectdevv1alpha1.KollectSinkSpec {
 	return kollectdevv1alpha1.KollectSinkSpec{
 		Type:    TypeName,
@@ -476,9 +660,31 @@ func documentAttribute(
 }
 
 func startMongoContainer(ctx context.Context) (testcontainers.Container, string, error) {
+	return startMongoContainerWithOptions(ctx, nil, "")
+}
+
+func startMongoContainerWithAuth(
+	ctx context.Context,
+	username, password string,
+) (testcontainers.Container, string, error) {
+	env := map[string]string{
+		"MONGO_INITDB_ROOT_USERNAME": username,
+		"MONGO_INITDB_ROOT_PASSWORD": password,
+	}
+	userInfo := fmt.Sprintf("%s:%s@", username, password)
+
+	return startMongoContainerWithOptions(ctx, env, userInfo)
+}
+
+func startMongoContainerWithOptions(
+	ctx context.Context,
+	env map[string]string,
+	userInfo string,
+) (testcontainers.Container, string, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "mongo:7",
 		ExposedPorts: []string{"27017/tcp"},
+		Env:          env,
 		WaitingFor:   wait.ForLog("Waiting for connections").WithStartupTimeout(60 * time.Second),
 	}
 
@@ -500,7 +706,10 @@ func startMongoContainer(ctx context.Context) (testcontainers.Container, string,
 		return nil, "", err
 	}
 
-	uri := fmt.Sprintf("mongodb://%s:%s", host, port.Port())
+	uri := fmt.Sprintf("mongodb://%s%s:%s", userInfo, host, port.Port())
+	if userInfo != "" {
+		uri += "/?authSource=admin"
+	}
 
 	return container, uri, nil
 }
