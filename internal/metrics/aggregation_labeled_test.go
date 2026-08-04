@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 )
 
 func TestCustomResourceLabeledSeries(t *testing.T) {
@@ -45,6 +46,51 @@ func TestCustomResourceLabeledSeries(t *testing.T) {
 		map[string]string{"namespace": "apps", "name": "web"},
 	); ok {
 		t.Fatal("expected reset to clear series")
+	}
+}
+
+func TestCustomResourceLabeledCollectorCollect(t *testing.T) {
+	const (
+		profile = "cov90s19/labeled-collect"
+		gvk     = "apps/v1/Deployment"
+		series  = "replicas"
+	)
+	labels := map[string]string{"namespace": "apps", "name": "web"}
+
+	ResetCustomResourceLabeledSeries(profile, gvk)
+	t.Cleanup(func() { ResetCustomResourceLabeledSeries(profile, gvk) })
+
+	RecordCustomResourceLabeledSeries(profile, gvk, series, labels, 7)
+
+	ch := make(chan prometheus.Metric, 16)
+	customResourceLabeledCollector{}.Collect(ch)
+	close(ch)
+
+	var found bool
+	for m := range ch {
+		pb := &dto.Metric{}
+		if err := m.Write(pb); err != nil {
+			t.Fatalf("metric.Write: %v", err)
+		}
+		if pb.Gauge == nil || pb.Gauge.GetValue() != 7 {
+			continue
+		}
+		got := make(map[string]string, len(pb.Label))
+		for _, lp := range pb.Label {
+			got[lp.GetName()] = lp.GetValue()
+		}
+		if got["profile"] == profile &&
+			got["gvk"] == gvk &&
+			got["series"] == series &&
+			got["namespace"] == "apps" &&
+			got["name"] == "web" {
+			found = true
+
+			break
+		}
+	}
+	if !found {
+		t.Fatal("Collect did not emit the recorded labeled series gauge")
 	}
 }
 
