@@ -34,13 +34,66 @@ grep -Eq 'inventory|Unregister|itemCount|artifact|cleanup' "${ASSERT}" ||
   fail "assert must verify collected/exported artifact teardown after delete"
 
 # Fail-closed (COV-90-S14 F1): empty/non-numeric itemCount is curl/PF failure —
-# never treat `-z "${count}"` as teardown success. InventorySummary always emits
-# itemCount (incl. 0); success requires a numeric count that is 0 or dropped.
-if grep -Eq -- '-z "\$\{count\}"' "${ASSERT}"; then
-  fail "artifact teardown must not treat empty itemCount (-z count) as success"
+# never treat empty as teardown success. InventorySummary always emits itemCount
+# (incl. 0); success requires a non-comment compound: numeric count AND (0 or drop).
+assert_artifact_teardown_fail_closed() {
+  local file="$1"
+  local code
+
+  # Ban empty-as-success patterns (not only literal -z "${count}").
+  if grep -Eq -- '-z[[:space:]]*"\$\{count\}"' "${file}"; then
+    return 1
+  fi
+  if grep -Eq -- '-z[[:space:]]+count([^[:alnum:]_]|$)' "${file}"; then
+    return 1
+  fi
+  # [[ ! "${count}" ]] / [[ ! "${count}" || … ]] empty tests.
+  if grep -Eq '\[\[([^]]*![[:space:]]*"\$\{count\}"[^]]*)\]\]' "${file}"; then
+    return 1
+  fi
+  # Empty OR'd into a success path: [[ ! "${count}" ]] || … / [[ -z … ]] || …
+  if grep -Eq '(![[:space:]]*"\$\{count\}"|-z[[:space:]]*"\$\{count\}").*\]\][[:space:]]*\|\|' "${file}"; then
+    return 1
+  fi
+
+  # Full-line comments must not paper-satisfy the numeric/drop compound.
+  code="$(grep -Ev '^[[:space:]]*(#|$)' "${file}" || true)"
+
+  # Require compound on a code line: numeric check AND (count == 0 || drop).
+  echo "${code}" | grep -Eq \
+    '\[\[[[:space:]]*"\$\{count\}"[[:space:]]*=~[[:space:]]*\^\[0-9\]\+\$[[:space:]]*\]\][[:space:]]*&&[[:space:]]*\(\(.*count[[:space:]]*==[[:space:]]*0[[:space:]]*\|\|' ||
+    return 1
+
+  return 0
+}
+
+# Paper-gate: empty-success [[ ! "${count}" ]] || … must FAIL the fail-closed check.
+PAPER_FAILCLOSED="$(mktemp)"
+trap 'rm -f "${PAPER_FAILCLOSED}" "${PAPER_TMP:-}"' EXIT
+printf '%s\n' \
+  'count="$(inventory_http_item_count "${http_port}")"' \
+  'if [[ ! "${count}" ]] || (( count == 0 || count < before )); then' \
+  '  return 0' \
+  'fi' \
+  >"${PAPER_FAILCLOSED}"
+if assert_artifact_teardown_fail_closed "${PAPER_FAILCLOSED}"; then
+  fail "paper-gate: empty-success [[ ! count ]] fixture must fail fail-closed check"
 fi
-grep -Eq '\[\[ "\$\{count\}" =~ \^\[0-9\]\+\$ \]\]' "${ASSERT}" ||
-  fail "artifact teardown must require numeric itemCount (fail closed on curl/PF failure)"
+pass "paper-gate rejects empty-success [[ ! count ]] teardown"
+
+# Paper-gate: comment-only numeric regex must FAIL (live code could still treat empty as success).
+printf '%s\n' \
+  '# [[ "${count}" =~ ^[0-9]+$ ]] && (( count == 0 || count < before ))' \
+  'count="$(inventory_http_item_count "${http_port}")"' \
+  'if [[ -n "${count}" ]]; then return 0; fi' \
+  >"${PAPER_FAILCLOSED}"
+if assert_artifact_teardown_fail_closed "${PAPER_FAILCLOSED}"; then
+  fail "paper-gate: comment-only numeric regex must fail fail-closed check"
+fi
+pass "paper-gate rejects comment-only numeric itemCount regex"
+
+assert_artifact_teardown_fail_closed "${ASSERT}" ||
+  fail "artifact teardown must require non-comment numeric itemCount AND (0 or drop); ban empty-as-success"
 pass "artifact teardown fail-closed on empty/non-numeric itemCount"
 
 # EDGE: sink rejects teardown once → retry/recovery completes.
@@ -67,7 +120,7 @@ assert_nudge_call_sites() {
 
 # Paper-gate: comment-only text that used to satisfy the loose grep must FAIL.
 PAPER_TMP="$(mktemp)"
-trap 'rm -f "${PAPER_TMP}"' EXIT
+trap 'rm -f "${PAPER_FAILCLOSED}" "${PAPER_TMP}"' EXIT
 printf '%s\n' \
   '# force Reconcile via annotate kollecttarget' \
   '# nudge_target_reconcile' \
