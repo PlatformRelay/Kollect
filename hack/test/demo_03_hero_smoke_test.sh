@@ -152,18 +152,24 @@ if [[ -f "${NOOP_SETUP}" ]]; then
   pass "ci-noop-setup.sh present"
 fi
 
-# --- DEMO-03-FUP2: Forgejo Available must mean the API is ready (not just /) ---
-# CI flake: Deployment Available on path:/ while /api/v1/version still 502 → bootstrap
-# exits "Forgejo API not ready" exactly at the old 180s post-Available window.
+# --- DEMO-03-FUP2: wait for install UI (/), not /api/v1/version, before install ---
+# Fresh Forgejo returns 404 on /api/v1/version until _install_forgejo; the old wait
+# on version made every cold hero-demo-smoke exit "Forgejo API not ready".
 FORGEJO_MANIFEST="${ROOT}/hack/demo/hero/manifests/forgejo.yaml"
 BOOTSTRAP="${ROOT}/hack/demo/hero/bootstrap-forgejo.sh"
 [[ -f "${FORGEJO_MANIFEST}" ]] || fail "missing ${FORGEJO_MANIFEST}"
 [[ -f "${BOOTSTRAP}" ]] || fail "missing ${BOOTSTRAP}"
-grep -Eq 'path:[[:space:]]*/api/v1/version' "${FORGEJO_MANIFEST}" ||
-  fail "forgejo readiness/startup probe must hit /api/v1/version (not bare /)"
-# Belt-and-suspenders: post-Available API wait must exceed the observed ~3min flake window.
+# Readiness stays on / (install page). Must NOT require version in the probe.
+grep -Eq 'path:[[:space:]]*/[[:space:]]*$' "${FORGEJO_MANIFEST}" ||
+  fail "forgejo readinessProbe must hit / (install UI); version is 404 pre-install"
+# _wait_forgejo must curl / (not version) before install — ignore comments.
+if awk '/^_wait_forgejo\(\)/,/^}/' "${BOOTSTRAP}" | grep -v '^[[:space:]]*#' | grep -Eq 'api/v1/version'; then
+  fail "_wait_forgejo must not curl /api/v1/version before install (404 pre-install)"
+fi
+awk '/^_wait_forgejo\(\)/,/^}/' "${BOOTSTRAP}" | grep -v '^[[:space:]]*#' | grep -Eq 'curl.*\$\{_internal_url\}/' ||
+  fail "_wait_forgejo must curl Forgejo / (install UI) before install"
 grep -Eq 'SECONDS \+ (4[8-9][0-9]|[5-9][0-9]{2}|[1-9][0-9]{3,})' "${BOOTSTRAP}" ||
-  fail "bootstrap _wait_forgejo deadline must be ≥480s after Available (was 180s flake)"
-pass "Forgejo probe + bootstrap wait lock API readiness"
+  fail "bootstrap _wait_forgejo deadline must be ≥480s after Available"
+pass "Forgejo wait locks install-UI readiness (not pre-install version API)"
 
 printf 'demo-03 hero smoke: ok\n'
