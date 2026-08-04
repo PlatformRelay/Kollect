@@ -18,7 +18,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
-- **demo:** Add demo-up/down task aliases [9fa927a](https://github.com/platformrelay/kollect/commit/9fa927a319d4aa35eb478430957ffbcfdddda573)
+- **demo:** Add demo-up/down task aliases [2071540](https://github.com/platformrelay/kollect/commit/2071540e8a32e54bbd6f10e462af9e7faa63fbc8)
 
 - **pipeline:** Init completion trial screen + YAML validation (PIPE-INIT-04) [310d48f](https://github.com/platformrelay/kollect/commit/310d48f7ada7d497b6380dcc7243ce1ccb19fcdd)
 
