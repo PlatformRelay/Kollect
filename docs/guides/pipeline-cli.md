@@ -255,13 +255,30 @@ The wizard:
    carries the existing sensitive-data opt-in annotation
    (`kollect.dev/allow-secret-extraction: "true"`). Declining the guard keeps safe metadata only.
 7. Shows a review summary, then writes deterministic `profile.yaml` + `target.yaml`.
+8. Validates the written YAML through the same config loader `collect` uses, then prints a
+   **trial the result** screen with copy-paste commands.
 
 Existing files are never overwritten without an explicit confirmation and a visible summary of the
 old vs new content. Cancel (or decline confirmation) exits without writing. Non-interactive
 terminals get a clear error pointing at [`config/samples/pipeline/`](https://github.com/platformrelay/kollect/tree/main/config/samples/pipeline)
 instead of hanging on prompts. Set `NO_COLOR` for a plain/monochrome prompt style.
 
-After `init`, trial the result with `collect` (see below).
+### Trial the result (after `init`)
+
+On success, `init` prints the exact commands for your `--output-dir` (example assumes
+`./collect-config`):
+
+```sh
+# Stdout preview — inventory records on stdout, logs on stderr; no files written
+kollect-pipeline collect --config ./collect-config --output -
+
+# Local directory trial — write inventory files under ./inventory
+kollect-pipeline collect --config ./collect-config --output ./inventory
+```
+
+`init` also prints a copyable `kubectl apply -f ./collect-config` marked as **future guidance
+only** (separate action). Applying requires installed CRDs and appropriate authorization;
+`init` never applies manifests and never installs the operator.
 
 ### Stream to stdout (`--output -`)
 
