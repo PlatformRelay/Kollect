@@ -16,6 +16,17 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  finalizer-cleanup-meta:
+    name: finalizer-cleanup-meta
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify finalizer-cleanup assert + workflow wiring
+        run: bash hack/test/finalizer_cleanup_e2e_test.sh
+
   gate:
     name: gate
     runs-on: ubuntu-latest
@@ -87,6 +98,10 @@ jobs:
             setup_script: hack/kind/e2e/setup.sh
           - scenario: multitenant
             script: hack/e2e/multitenant.sh
+            run_mode: repo_root
+            setup_script: hack/kind/e2e/setup.sh
+          - scenario: finalizer-cleanup
+            script: hack/e2e/finalizer-cleanup-assert.sh
             run_mode: repo_root
             setup_script: hack/kind/e2e/setup.sh
     steps:
