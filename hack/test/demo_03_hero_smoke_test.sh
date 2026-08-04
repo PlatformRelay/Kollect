@@ -152,24 +152,24 @@ if [[ -f "${NOOP_SETUP}" ]]; then
   pass "ci-noop-setup.sh present"
 fi
 
-# --- DEMO-03-FUP2: wait for install UI (/), not /api/v1/version, before install ---
-# Fresh Forgejo returns 404 on /api/v1/version until _install_forgejo; the old wait
-# on version made every cold hero-demo-smoke exit "Forgejo API not ready".
+# --- DEMO-03-FUP3: headless Forgejo (INSTALL_LOCK) — /api/v1/install is gone in v11 ---
 FORGEJO_MANIFEST="${ROOT}/hack/demo/hero/manifests/forgejo.yaml"
 BOOTSTRAP="${ROOT}/hack/demo/hero/bootstrap-forgejo.sh"
 [[ -f "${FORGEJO_MANIFEST}" ]] || fail "missing ${FORGEJO_MANIFEST}"
 [[ -f "${BOOTSTRAP}" ]] || fail "missing ${BOOTSTRAP}"
-# Readiness stays on / (install page). Must NOT require version in the probe.
-grep -Eq 'path:[[:space:]]*/[[:space:]]*$' "${FORGEJO_MANIFEST}" ||
-  fail "forgejo readinessProbe must hit / (install UI); version is 404 pre-install"
-# _wait_forgejo must curl / (not version) before install — ignore comments.
-if awk '/^_wait_forgejo\(\)/,/^}/' "${BOOTSTRAP}" | grep -v '^[[:space:]]*#' | grep -Eq 'api/v1/version'; then
-  fail "_wait_forgejo must not curl /api/v1/version before install (404 pre-install)"
+grep -Eq 'FORGEJO__security__INSTALL_LOCK' "${FORGEJO_MANIFEST}" ||
+  fail "forgejo manifest must set INSTALL_LOCK (skip web wizard; /api/v1/install removed)"
+grep -Eq 'path:[[:space:]]*/api/v1/version' "${FORGEJO_MANIFEST}" ||
+  fail "with INSTALL_LOCK, readiness/startup must probe /api/v1/version"
+if grep -v '^[[:space:]]*#' "${BOOTSTRAP}" | grep -Eq 'api/v1/install'; then
+  fail "bootstrap must not POST /api/v1/install (404 on Forgejo 11)"
 fi
-awk '/^_wait_forgejo\(\)/,/^}/' "${BOOTSTRAP}" | grep -v '^[[:space:]]*#' | grep -Eq 'curl.*\$\{_internal_url\}/' ||
-  fail "_wait_forgejo must curl Forgejo / (install UI) before install"
+grep -Eq 'forgejo admin user create|_ensure_admin' "${BOOTSTRAP}" ||
+  fail "bootstrap must create admin via forgejo CLI (or _ensure_admin)"
+awk '/^_wait_forgejo\(\)/,/^}/' "${BOOTSTRAP}" | grep -v '^[[:space:]]*#' | grep -Eq 'api/v1/version' ||
+  fail "_wait_forgejo must curl /api/v1/version once INSTALL_LOCK serves the API"
 grep -Eq 'SECONDS \+ (4[8-9][0-9]|[5-9][0-9]{2}|[1-9][0-9]{3,})' "${BOOTSTRAP}" ||
   fail "bootstrap _wait_forgejo deadline must be ≥480s after Available"
-pass "Forgejo wait locks install-UI readiness (not pre-install version API)"
+pass "Forgejo headless INSTALL_LOCK + CLI admin locked"
 
 printf 'demo-03 hero smoke: ok\n'
