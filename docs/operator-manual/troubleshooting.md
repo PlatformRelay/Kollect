@@ -287,8 +287,10 @@ jq -r '.paths[]' inventory/default/partitioned-inventory.manifest.json \
   place; compare `generation` before trusting the set.
 
 `generation` is uniform across a healthy set, `partTotal` is the expected part count, and `parts` lists
-the per-part identifiers a complete set must hold. The controller performs this same validation via
-`layout.VerifySet`.
+the per-part identifiers a complete set must hold. Writer/verifier split: the **controller only writes**
+the manifest (it does not read it back), so torn-set detection is the **consumer's** responsibility —
+run the checks above before trusting a set. `layout.VerifySet` is a helper you can vendor into a Go
+consumer to apply exactly this rule; the operator equivalent is the `jq` snippet above.
 
 ## Pre-beta expectations
 
