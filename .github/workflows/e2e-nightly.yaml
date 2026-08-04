@@ -20,6 +20,18 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Contract lock for COV-90-S14 wiring (no Kind).
+  finalizer-cleanup-meta:
+    name: finalizer-cleanup-meta
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify finalizer-cleanup assert + workflow wiring
+        run: bash hack/test/finalizer_cleanup_e2e_test.sh
+
   # Each scenario gets its own Kind cluster (setup → scenario → teardown) so failures
   # are isolated and parallelized. fail-fast: false keeps other scenarios running.
   e2e-scenario:
@@ -41,6 +53,9 @@ jobs:
             run_mode: repo_root
           - scenario: multitenant
             script: hack/e2e/multitenant.sh
+            run_mode: repo_root
+          - scenario: finalizer-cleanup
+            script: hack/e2e/finalizer-cleanup-assert.sh
             run_mode: repo_root
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
