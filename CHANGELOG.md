@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **demo:** Use object-form InventorySinkRef in hero samples ([#257](https://github.com/platformrelay/kollect/pull/257))[72b2451](https://github.com/platformrelay/kollect/commit/72b2451a2404a75593794b878254679a48ba48b5)
+
 - **demo:** Run forgejo admin via su-exec git ([#256](https://github.com/platformrelay/kollect/pull/256))[eb2374a](https://github.com/platformrelay/kollect/commit/eb2374a777ab3f442cfa4a0147858fcda8df80d0)
 
 - **demo:** Headless Forgejo 11 bootstrap (INSTALL_LOCK) ([#255](https://github.com/platformrelay/kollect/pull/255))[97d175f](https://github.com/platformrelay/kollect/commit/97d175f6162d07820e25ac6dcee41cea9b7a22e5)
