@@ -123,10 +123,12 @@ kubectl get kinv -n default team-inventory -w
 kubectl describe kinv team-inventory -n default
 ```
 
-Git-backed walkthrough (swap postgres sink for git sample):
+Git-backed walkthrough (swap postgres sink for git sample). Default overlay is
+profiles/targets only; sinks and inventories live under `advanced/` (DEMO-01):
 
 ```sh
 kubectl apply -k config/samples/
+kubectl apply -k config/samples/advanced/
 kubectl get kinv,ktgt,ksnap,kdb -A
 ```
 

@@ -60,7 +60,10 @@ class DocsJourneyTest(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         install = (ROOT / "docs/getting-started/install.md").read_text(encoding="utf-8")
         first = (ROOT / "docs/getting-started/first-inventory.md").read_text(encoding="utf-8")
-        self.assertIn("/getting-started/install/", readme)
+        # DEMO-01: README hero path is demo-up → first-inventory (not install-only).
+        self.assertIn("/getting-started/first-inventory/", readme)
+        self.assertIn("task demo-up", readme)
+        self.assertIn("kubectl apply -k config/samples/advanced/", readme)
         self.assertIn("first-inventory.md", install)
         self.assertIn("type: git", first)
         self.assertIn("git clone", first)
@@ -107,6 +110,21 @@ class DocsJourneyTest(unittest.TestCase):
                 self.assertIn(heading, text, f"{page}: missing {heading}")
             for sample in re.findall(r"config/samples/[\w./-]+\.ya?ml", text):
                 self.assertTrue((ROOT / sample).is_file(), f"{page}: missing {sample}")
+
+    def test_demo01_dual_sink_docs_apply_advanced_overlay(self) -> None:
+        """DEMO-01 residuals: inventory/sink walkthroughs must apply advanced/, not default only."""
+        pages = (
+            "docs/crds/kollectinventory.md",
+            "docs/examples/helm-release-inventory.md",
+            "docs/crds/index.md",
+        )
+        for rel in pages:
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            self.assertIn(
+                "kubectl apply -k config/samples/advanced/",
+                text,
+                f"{rel}: dual-sink / inventory samples live under advanced/ (DEMO-01)",
+            )
 
     def test_every_page_is_navigated_or_declared(self) -> None:
         config = (ROOT / "mkdocs.yml").read_text(encoding="utf-8")

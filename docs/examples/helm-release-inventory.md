@@ -90,8 +90,12 @@ spec:
 
 ## Apply
 
+Profiles and targets are in the default overlay; the Postgres sink and inventory
+live under `advanced/` (DEMO-01):
+
 ```sh
 kubectl apply -k config/samples/
+kubectl apply -k config/samples/advanced/
 ```
 
 ## Flux HelmRelease (secondary)
