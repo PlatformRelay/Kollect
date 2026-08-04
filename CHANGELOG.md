@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Features
+
+- **pipeline:** Add kollect-pipeline init wizard (PIPE-INIT-01) [3f960d0](https://github.com/platformrelay/kollect/commit/3f960d057f169d677497b9b57391f22adf8270cb)
+
 ## [0.16.0](https://github.com/platformrelay/kollect/compare/v0.15.0..v0.16.0) - 2026-08-04
 
 ### Bug Fixes
