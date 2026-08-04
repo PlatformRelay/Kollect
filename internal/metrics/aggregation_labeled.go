@@ -79,7 +79,12 @@ func (customResourceLabeledCollector) Collect(ch chan<- prometheus.Metric) {
 	defer labeledSeriesMu.Unlock()
 
 	for _, entry := range labeledSeries {
-		ch <- prometheus.MustNewConstMetric(entry.desc(), prometheus.GaugeValue, entry.value, entry.values...)
+		// Desc label order is profile, gvk, series, then attribute names — ConstMetric
+		// values must follow the same order (attribute values alone panic on scrape).
+		labelValues := make([]string, 0, 3+len(entry.values))
+		labelValues = append(labelValues, entry.id.profile, entry.id.gvk, entry.id.series)
+		labelValues = append(labelValues, entry.values...)
+		ch <- prometheus.MustNewConstMetric(entry.desc(), prometheus.GaugeValue, entry.value, labelValues...)
 	}
 }
 
