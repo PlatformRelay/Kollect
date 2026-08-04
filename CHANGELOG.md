@@ -11,12 +11,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **pipeline:** Refuse empty init namespace scope before write [3166eb7](https://github.com/platformrelay/kollect/commit/3166eb7932506c38b30e6a3d8c0e4e9495ea9970)
+- **pipeline:** Refuse empty init namespace scope before write [6da8f39](https://github.com/platformrelay/kollect/commit/6da8f3932d46b78c240c18197ebaed064916725c)
 
 
 ### Features
 
-- **pipeline:** Add kollect-pipeline init wizard (PIPE-INIT-01) [3f960d0](https://github.com/platformrelay/kollect/commit/3f960d057f169d677497b9b57391f22adf8270cb)
+- **pipeline:** Add kollect-pipeline init wizard (PIPE-INIT-01) [2c610c9](https://github.com/platformrelay/kollect/commit/2c610c906ff4dd46d37304056cde0e529e1b7c5f)
 
 ## [0.16.0](https://github.com/platformrelay/kollect/compare/v0.15.0..v0.16.0) - 2026-08-04
 
