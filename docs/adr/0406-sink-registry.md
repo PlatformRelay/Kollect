@@ -13,6 +13,10 @@ and adding a backend must not touch controller code. This decision was implement
 `internal/sink/registry.go` but never recorded — earlier ADRs even cited a non-existent "ADR-0005"
 for it. This ADR fills that gap.
 
+Public configuration uses **family sink** CRDs ([ADR-0414](0414-sink-family-crds.md)); the registry
+consumes the Go-only `KollectSinkSpec` adapter those CRDs normalize into — there is no public
+`KollectSink` Kubernetes kind (unified CRD removed).
+
 Pattern precedent: external-secrets' provider registry ([ADR-0102](0102-prior-art.md)).
 
 ## Decision
@@ -34,7 +38,9 @@ Connectivity probing is a parallel concern ([ADR-0403](0403-connection-test.md))
 
 ### Factory + registry
 
-- `Factory func(spec KollectSinkSpec, ctx BuildContext) (Backend, error)`.
+- `Factory func(spec KollectSinkSpec, ctx BuildContext) (Backend, error)` — `KollectSinkSpec` is the
+  **Go-only** adapter produced from family sink specs ([ADR-0414](0414-sink-family-crds.md)); it is
+  not a CRD.
 - `Registry` maps `spec.type` → `Factory`; built-ins registered in `NewRegistry()`
   (`git`, `gitlab`, `s3`, `gcs`, `postgres`, `kafka`).
 - `NewBackend(spec, ctx)` resolves the factory or returns `unknown sink type %q`.
@@ -46,12 +52,13 @@ Connectivity probing is a parallel concern ([ADR-0403](0403-connection-test.md))
 
 1. **No vendor SDK above `internal/sink/<backend>/`** — controllers and the registry import only the
    `Backend` interface.
-2. **`spec.type` is a webhook-validated enum** ([ADR-0201](0201-crd-model.md), [ADR-0602](0602-error-taxonomy.md));
-   the registry is the single source of which types exist.
+2. **`spec.type` is a webhook-validated enum** per family ([ADR-0201](0201-crd-model.md),
+   [ADR-0414](0414-sink-family-crds.md), [ADR-0602](0602-error-taxonomy.md)); the registry is the
+   single source of which types exist.
 3. **A backend ships only when integration/e2e-testable** (testcontainers or kind sidecar —
    [ADR-0402](0402-sink-backends-database-kafka.md)); do not register a type without a backend
    (the GitLab/`nats`/Parquet enum lesson).
-4. **Idempotent export** — `Export` is safe to retry; at-least-once semantics ([ADR-0502](0402-sink-backends-database-kafka.md)).
+4. **Idempotent export** — `Export` is safe to retry; at-least-once semantics ([ADR-0402](0402-sink-backends-database-kafka.md)).
 
 ## Consequences
 

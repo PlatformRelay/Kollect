@@ -32,8 +32,10 @@ The same split fits Kollect extraction schemas.
    Helm summary) that tenants copy or reference via documented GitOps pattern until cluster profile
    kind ships.
 
-5. **`KollectSink` is namespaced** in the same tenancy batch ([ADR-0201](0201-crd-model.md)).
-   Reserve **`KollectClusterSink`** for platform-shared backends.
+5. **Family sinks are namespaced** in the same tenancy batch ([ADR-0201](0201-crd-model.md),
+   [ADR-0414](0414-sink-family-crds.md)). There is no public unified `KollectSink` kind and no
+   cluster-scoped sink kinds — platform-shared backends stay as namespaced family sinks referenced
+   by name + namespace ([ADR-0208](0208-cluster-static-refs-via-namespace.md)).
 
 ## Consequences
 
@@ -54,4 +56,5 @@ The same split fits Kollect extraction schemas.
 
 - **OPEN:** Implement namespaced profile in one breaking release vs dual-write transition period?
 - **OPEN:** Short name `kprof` remains; reserve `kcprof` for `KollectClusterProfile`?
-- **RESOLVED ([ADR-0201](0201-crd-model.md)):** namespaced `KollectSink`; `KollectClusterSink` reserved.
+- **RESOLVED ([ADR-0201](0201-crd-model.md), [ADR-0414](0414-sink-family-crds.md)):** namespaced
+  family sinks; unified `KollectSink` removed; no cluster-scoped sink kinds.
