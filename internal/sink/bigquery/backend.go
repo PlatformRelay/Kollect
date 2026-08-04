@@ -26,6 +26,25 @@ type Backend struct {
 	cfg      Config
 	client   *bigquery.Client
 	executor queryExecutor
+	table    tableHandle
+}
+
+// tableHandle abstracts Dataset/Table Metadata+Create for unit tests (AUD26-TEST-02a).
+type tableHandle interface {
+	Metadata(ctx context.Context) (*bigquery.TableMetadata, error)
+	Create(ctx context.Context, metadata *bigquery.TableMetadata) error
+}
+
+type bqTableHandle struct {
+	table *bigquery.Table
+}
+
+func (h bqTableHandle) Metadata(ctx context.Context) (*bigquery.TableMetadata, error) {
+	return h.table.Metadata(ctx)
+}
+
+func (h bqTableHandle) Create(ctx context.Context, metadata *bigquery.TableMetadata) error {
+	return h.table.Create(ctx, metadata)
 }
 
 type mergeRow struct {
@@ -78,6 +97,7 @@ func NewBackend(
 		cfg:      cfg,
 		client:   client,
 		executor: clientQueryExecutor{client: client},
+		table:    bqTableHandle{table: client.Dataset(cfg.Dataset).Table(cfg.Table)},
 	}
 
 	// ensureTable runs once when the backend is constructed; pooled backends reuse the same
@@ -144,7 +164,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 }
 
 func (b *Backend) verifyTable(ctx context.Context) error {
-	_, err := b.client.Dataset(b.cfg.Dataset).Table(b.cfg.Table).Metadata(ctx)
+	_, err := b.table.Metadata(ctx)
 	if err != nil {
 		return classifyError(fmt.Errorf(
 			"bigquery verify table: %s.%s does not exist (provisioning.mode=existing): %w",
@@ -158,7 +178,6 @@ func (b *Backend) verifyTable(ctx context.Context) error {
 }
 
 func (b *Backend) ensureTable(ctx context.Context) error {
-	table := b.client.Dataset(b.cfg.Dataset).Table(b.cfg.Table)
 	metadata := &bigquery.TableMetadata{
 		Schema: bigquery.Schema{
 			{Name: "inventory_namespace", Type: bigquery.StringFieldType, Required: true},
@@ -179,7 +198,7 @@ func (b *Backend) ensureTable(ctx context.Context) error {
 		},
 	}
 
-	err := table.Create(ctx, metadata)
+	err := b.table.Create(ctx, metadata)
 	if err != nil && !isDuplicateCreate(err) {
 		return classifyError(fmt.Errorf("bigquery ensure table: %w", err))
 	}
