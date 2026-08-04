@@ -179,9 +179,9 @@ func TestResolveSnapshotExport_GitDefaultYAMLDocumentTree(t *testing.T) {
 // BARE items and carries no ExportEnvelope metadata, so the multipart completeness
 // marker (partIndex/partTotal + generation) — and every other envelope header — is
 // absent from a default Git/GitLab (YAML) sink's payload. Payload-level torn-set
-// detection therefore does NOT apply to YAML sinks; extending it there (a per-set
-// manifest/index sidecar) is a tracked follow-up. If this ever changes, update
-// ADR-0405's scope wording alongside it.
+// detection therefore does NOT apply to YAML sinks; tree-mode multipart sets instead
+// carry a per-set *.manifest.json sidecar (shipped). If the payload ever gains
+// envelope headers, update ADR-0405's scope wording alongside it.
 func TestResolveSnapshotExport_GitDefaultYAMLDropsCompletenessMarker(t *testing.T) {
 	t.Parallel()
 
