@@ -149,7 +149,7 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 		}
 
 		if _, err := b.coll.ReplaceOne(ctx, upsertFilter(scope, item), doc, options.Replace().SetUpsert(true)); err != nil {
-			return fmt.Errorf("mongodb upsert: %w", err)
+			return classifyError(fmt.Errorf("%w: %w", ErrUpsertFailed, err))
 		}
 	}
 
