@@ -17,9 +17,9 @@ func TestFormatInitTrialScreen_emitsExactCollectCommandsAndMarkedKubectl(t *test
 	outDir := "/tmp/collect-config-example"
 	got := FormatInitTrialScreen(outDir)
 
-	wantStdout := "kollect-pipeline collect --config /tmp/collect-config-example --output -"
-	wantLocal := "kollect-pipeline collect --config /tmp/collect-config-example --output ./inventory"
-	wantApply := "kubectl apply -f /tmp/collect-config-example"
+	wantStdout := `kollect-pipeline collect --config "/tmp/collect-config-example" --output -`
+	wantLocal := `kollect-pipeline collect --config "/tmp/collect-config-example" --output ./inventory`
+	wantApply := `kubectl apply -f "/tmp/collect-config-example"`
 
 	if !strings.Contains(got, wantStdout) {
 		t.Fatalf("trial screen missing exact stdout-preview command %q\ngot:\n%s", wantStdout, got)
@@ -96,15 +96,15 @@ func TestValidateInitConfig_acceptsGeneratedProfileAndTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderYAML: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(outDir, initProfileFileName), profileYAML, 0o600); err != nil {
-		t.Fatal(err)
+	if writeErr := os.WriteFile(filepath.Join(outDir, initProfileFileName), profileYAML, 0o600); writeErr != nil {
+		t.Fatal(writeErr)
 	}
-	if err := os.WriteFile(filepath.Join(outDir, initTargetFileName), targetYAML, 0o600); err != nil {
-		t.Fatal(err)
+	if writeErr := os.WriteFile(filepath.Join(outDir, initTargetFileName), targetYAML, 0o600); writeErr != nil {
+		t.Fatal(writeErr)
 	}
 
-	if err := ValidateInitConfig(outDir); err != nil {
-		t.Fatalf("ValidateInitConfig on generated YAML: %v", err)
+	if validateErr := ValidateInitConfig(outDir); validateErr != nil {
+		t.Fatalf("ValidateInitConfig on generated YAML: %v", validateErr)
 	}
 }
 
@@ -128,11 +128,11 @@ func TestValidateInitConfig_invalidFieldFailsWithActionableError(t *testing.T) {
 	if broken == string(targetYAML) {
 		t.Fatal("test setup: failed to corrupt profileRef in target YAML")
 	}
-	if err := os.WriteFile(filepath.Join(outDir, initProfileFileName), profileYAML, 0o600); err != nil {
-		t.Fatal(err)
+	if writeErr := os.WriteFile(filepath.Join(outDir, initProfileFileName), profileYAML, 0o600); writeErr != nil {
+		t.Fatal(writeErr)
 	}
-	if err := os.WriteFile(filepath.Join(outDir, initTargetFileName), []byte(broken), 0o600); err != nil {
-		t.Fatal(err)
+	if writeErr := os.WriteFile(filepath.Join(outDir, initTargetFileName), []byte(broken), 0o600); writeErr != nil {
+		t.Fatal(writeErr)
 	}
 
 	err = ValidateInitConfig(outDir)
