@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **demo:** Harden DEMO-01 meta-test and gofmt samples helper [b0d630f](https://github.com/platformrelay/kollect/commit/b0d630ff0fc6443821838fe6f4b15c9cf0dbcb5a)
+
 - **pipeline:** Clear govet err shadow in init trial tests [4e402c7](https://github.com/platformrelay/kollect/commit/4e402c7d24480c6e3b063ff816cc754174e42936)
 
 - **pipeline:** Refuse empty init namespace scope before write [aa42687](https://github.com/platformrelay/kollect/commit/aa42687e28114a7af5333632c22df9f9473df99f)
