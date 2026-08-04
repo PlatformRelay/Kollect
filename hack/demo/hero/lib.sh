@@ -22,12 +22,80 @@ readonly HERO_GIT_SECRET="${HERO_GIT_SECRET:-hero-git-credentials}"
 
 _hero_log() { echo "[hero] $*"; }
 
+# Thin aliases so hero scripts share kind helpers without leaking _kind_* names.
+_hero_require() { _kind_require "$@"; }
+_hero_detect_provider() { _kind_detect_provider "$@"; }
+
 _hero_require_tools() {
   _kind_require_tools
   _kind_require docker "https://docs.docker.com/get-docker/"
   _kind_require git "https://git-scm.com/"
   _kind_require curl "https://curl.se/"
   _kind_require task "https://taskfile.dev/"
+}
+
+# True when kind + a container runtime are usable for a live hero smoke.
+_hero_kind_available() {
+  command -v kind >/dev/null 2>&1 || return 1
+  command -v docker >/dev/null 2>&1 || command -v nerdctl >/dev/null 2>&1 || command -v podman >/dev/null 2>&1 || return 1
+  if command -v docker >/dev/null 2>&1; then
+    docker info >/dev/null 2>&1 || return 1
+  fi
+  return 0
+}
+
+_hero_dump_failure_diagnostics() {
+  local reason="${1:-hero assert failed}"
+  _hero_log "FAILURE: ${reason}"
+  kubectl get kollectinventory,kollectsnapshotsink -n default -o wide 2>/dev/null || true
+  kubectl describe kollectinventory/demo-inventory -n default 2>/dev/null || true
+  kubectl describe kollectsnapshotsink/hero-git-sink -n default 2>/dev/null || true
+  kubectl logs -n kollect-system -l app.kubernetes.io/name=kollect --tail=80 2>/dev/null || true
+}
+
+_hero_assert_inventory_ready() {
+  local name="${1:-demo-inventory}"
+  local timeout="${2:-30s}"
+  _hero_log "Asserting KollectInventory/${name} Ready..."
+  if ! kubectl wait --for=condition=Ready "kollectinventory/${name}" -n default --timeout="${timeout}"; then
+    _hero_dump_failure_diagnostics "KollectInventory/${name} condition=Ready not True within ${timeout}"
+    return 1
+  fi
+}
+
+_hero_assert_git_connection_verified() {
+  local name="${1:-hero-git-sink}"
+  local timeout="${2:-30s}"
+  _hero_log "Asserting KollectSnapshotSink/${name} ConnectionVerified..."
+  if ! kubectl wait --for=condition=ConnectionVerified "kollectsnapshotsink/${name}" \
+    -n default --timeout="${timeout}"; then
+    _hero_dump_failure_diagnostics "KollectSnapshotSink/${name} condition=ConnectionVerified not True within ${timeout}"
+    return 1
+  fi
+}
+
+# Non-empty Git export: ≥1 committed inventory file (yaml/yml/json) outside .git.
+_hero_export_has_inventory_files() {
+  local dir="${1:-${HERO_INVENTORY_CLONE_DIR}}"
+  [[ -d "${dir}" ]] || return 1
+  find "${dir}" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+    ! -path '*/.git/*' | grep -q .
+}
+
+_hero_assert_git_export_nonempty() {
+  _hero_source_state
+  _hero_start_port_forward
+  if [[ ! -d "${HERO_INVENTORY_CLONE_DIR}/.git" ]]; then
+    _hero_clone_inventory_repo || true
+  else
+    git -C "${HERO_INVENTORY_CLONE_DIR}" pull -q 2>/dev/null || true
+  fi
+  if ! _hero_export_has_inventory_files "${HERO_INVENTORY_CLONE_DIR}"; then
+    _hero_dump_failure_diagnostics "Git export empty — no inventory yaml/yml/json under ${HERO_INVENTORY_CLONE_DIR}"
+    echo "No exported inventory files in ${HERO_INVENTORY_CLONE_DIR}" >&2
+    return 1
+  fi
+  _hero_log "Git export non-empty under ${HERO_INVENTORY_CLONE_DIR}."
 }
 
 _hero_write_state() {
@@ -102,8 +170,7 @@ _hero_wait_git_export() {
   while (( SECONDS < deadline )); do
     if git -C "$HERO_INVENTORY_CLONE_DIR" pull -q 2>/dev/null; then
       if git -C "$HERO_INVENTORY_CLONE_DIR" rev-parse HEAD >/dev/null 2>&1 \
-        && find "$HERO_INVENTORY_CLONE_DIR" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
-          ! -path '*/.git/*' | grep -q .; then
+        && _hero_export_has_inventory_files "$HERO_INVENTORY_CLONE_DIR"; then
         _hero_log "First export detected in ${HERO_INVENTORY_CLONE_DIR}."
         return 0
       fi
@@ -112,8 +179,6 @@ _hero_wait_git_export() {
     fi
     sleep 5
   done
-  _hero_log "Timed out waiting for Git export."
-  kubectl get kinv,ksnap -A 2>/dev/null || true
-  kubectl logs -n kollect-system -l app.kubernetes.io/name=kollect --tail=60 2>/dev/null || true
+  _hero_dump_failure_diagnostics "Timed out waiting for Git export in ${HERO_FORGEJO_REPO}"
   return 1
 }
