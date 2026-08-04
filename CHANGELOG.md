@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **pipeline:** Clear govet err shadow in init trial tests [c8cf895](https://github.com/platformrelay/kollect/commit/c8cf895fe10f6da0dcdd149fc40f7349159c349c)
+
 - **pipeline:** Refuse empty init namespace scope before write [aa42687](https://github.com/platformrelay/kollect/commit/aa42687e28114a7af5333632c22df9f9473df99f)
 
 
