@@ -98,15 +98,17 @@ func (f *FakeInitDiscoverer) ListNamespaces(context.Context) ([]string, error) {
 
 // InitOptions configures a wizard run.
 type InitOptions struct {
-	Kubeconfig string
-	Context    string
-	OutputDir  string
-	Prompter   Prompter
-	Discoverer InitDiscoverer
-	Stdout     io.Writer
-	Stderr     io.Writer
-	IsTerminal func() bool
-	Color      bool
+	Kubeconfig     string
+	Context        string
+	OutputDir      string
+	Prompter       Prompter
+	Discoverer     InitDiscoverer
+	Sampler        InitSampler // optional; when nil, sampling is skipped
+	SensitiveKinds []InitSensitiveKind
+	Stdout         io.Writer
+	Stderr         io.Writer
+	IsTerminal     func() bool
+	Color          bool
 }
 
 // InitResult holds paths written by a successful run.
@@ -315,12 +317,21 @@ func collectInitFilter(opts InitOptions, intent *initDraft) error {
 
 func collectInitAttributesAndName(opts InitOptions, intent *initDraft) error {
 	attrOpts := safeInitAttributeOptions(intent.Resource.Namespaced)
+	if err := maybeSampleInitAttributes(opts, intent, &attrOpts); err != nil {
+		return err
+	}
 	attrDefaults := make([]string, 0, len(attrOpts))
 	for _, a := range attrOpts {
 		attrDefaults = append(attrDefaults, a.Name)
 	}
+	// Prefer safe metadata as the MultiSelect defaults even when sampling added more.
+	safeDefaults := safeInitAttributeOptions(intent.Resource.Namespaced)
+	defaultNames := make([]string, 0, len(safeDefaults))
+	for _, a := range safeDefaults {
+		defaultNames = append(defaultNames, a.Name)
+	}
 	pickedAttrs, multiErr := opts.Prompter.MultiSelect(
-		"Attributes to extract (safe metadata defaults)", attrDefaults, attrDefaults)
+		"Attributes to extract (safe metadata defaults)", attrDefaults, defaultNames)
 	if multiErr != nil {
 		return mapInitPromptErr(multiErr)
 	}
@@ -333,6 +344,97 @@ func collectInitAttributesAndName(opts InitOptions, intent *initDraft) error {
 		return mapInitPromptErr(inputErr)
 	}
 	intent.Name = name
+	return nil
+}
+
+// maybeSampleInitAttributes optionally reads one representative object after consent.
+// API/namespace discovery never authorizes this read (ADR-0802 §6 / REQ-PIPE-06).
+func maybeSampleInitAttributes(opts InitOptions, intent *initDraft, attrOpts *[]initAttributeOpt) error {
+	if opts.Sampler == nil {
+		return nil
+	}
+	want, err := opts.Prompter.Confirm(initSampleConsentPrompt, false)
+	if err != nil {
+		return mapInitPromptErr(err)
+	}
+	if !want {
+		return nil
+	}
+
+	sensitive := isSensitiveInitKind(intent.Resource, opts.SensitiveKinds)
+	if sensitive {
+		printInitPlain(opts,
+			"\nSensitive kind selected (%s).\n"+
+				"- Raw secret paths stay blocked unless the sensitive-data opt-in is written.\n"+
+				"- Key-based scrubbing is defense in depth, not data classification.\n"+
+				"- Stdout and local files may be captured by terminal history, CI logs, or redirection.\n"+
+				"- Generated YAML will visibly carry %s when you proceed.\n\n",
+			intent.Resource.Label(), AllowSecretExtractionAnnotation)
+		ok, guardErr := opts.Prompter.Confirm(initSensitiveGuardPrompt, false)
+		if guardErr != nil {
+			return mapInitPromptErr(guardErr)
+		}
+		if !ok {
+			printInitPlain(opts, "Sensitive sampling declined; keeping safe metadata suggestions only.\n")
+			return nil
+		}
+	}
+
+	candidates, listErr := opts.Sampler.ListSampleCandidates(
+		context.Background(), intent.Resource, samplingNamespaces(intent), initSampleLimit)
+	if listErr != nil {
+		return fmt.Errorf("list sample candidates: %w", listErr)
+	}
+	if len(candidates) == 0 {
+		printInitPlain(opts, "No sample objects found with current RBAC/scope; keeping safe metadata suggestions.\n")
+		return nil
+	}
+
+	labels := make([]string, 0, len(candidates))
+	byLabel := make(map[string]InitSampleRef, len(candidates))
+	for _, c := range candidates {
+		l := c.Label()
+		labels = append(labels, l)
+		byLabel[l] = c
+	}
+	chosenLabel, selErr := opts.Prompter.Select("Select a representative object to sample", labels)
+	if selErr != nil {
+		return mapInitPromptErr(selErr)
+	}
+	ref, ok := byLabel[chosenLabel]
+	if !ok {
+		return fmt.Errorf("unknown sample selection %q", chosenLabel)
+	}
+
+	printInitPlain(opts, "Sample identity: %s\n", ref.Identity())
+	readOK, confirmErr := opts.Prompter.Confirm(
+		fmt.Sprintf("%s %s to suggest attributes?", initSampleIdentityPromptPref, ref.Identity()),
+		false,
+	)
+	if confirmErr != nil {
+		return mapInitPromptErr(confirmErr)
+	}
+	if !readOK {
+		printInitPlain(opts, "Object read declined; keeping safe metadata suggestions only.\n")
+		return nil
+	}
+
+	obj, getErr := opts.Sampler.GetSampleObject(context.Background(), ref)
+	if getErr != nil {
+		return fmt.Errorf("read sample object: %w", getErr)
+	}
+	if sensitive {
+		intent.SensitiveOptIn = true
+	}
+	extra, preview := suggestAttributesFromSample(obj, sensitive)
+	if len(preview) > 0 {
+		printInitPlain(opts, "Sampled field suggestions:\n")
+		for _, line := range preview {
+			printInitPlain(opts, "  - %s\n", line)
+		}
+	}
+	*attrOpts = mergeInitAttributeOpts(*attrOpts, extra)
+	intent.SampledRef = &ref
 	return nil
 }
 
@@ -482,6 +584,8 @@ type initDraft struct {
 	LabelSelector      string
 	Names              []string
 	Attributes         []initAttributeOpt
+	SensitiveOptIn     bool
+	SampledRef         *InitSampleRef
 }
 
 // validateScopeBeforeWrite refuses Target YAML that would omit includedNamespaces
@@ -531,6 +635,12 @@ func (d initDraft) ReviewSummary() string {
 		attrs = append(attrs, a.Name)
 	}
 	fmt.Fprintf(&b, "Attributes: %s\n", strings.Join(attrs, ", "))
+	if d.SampledRef != nil {
+		fmt.Fprintf(&b, "Sampled:    %s\n", d.SampledRef.Identity())
+	}
+	if d.SensitiveOptIn {
+		fmt.Fprintf(&b, "Opt-in:     %s=true\n", AllowSecretExtractionAnnotation)
+	}
 	if d.ScopeWarning != "" {
 		fmt.Fprintf(&b, "Warning:    %s\n", d.ScopeWarning)
 	}
@@ -554,6 +664,11 @@ func (d initDraft) RenderYAML() (profileYAML, targetYAML []byte, err error) {
 				Kind:    d.Resource.Kind,
 			},
 		},
+	}
+	if d.SensitiveOptIn {
+		profile.Annotations = map[string]string{
+			AllowSecretExtractionAnnotation: "true",
+		}
 	}
 	for _, a := range d.Attributes {
 		profile.Spec.Attributes = append(profile.Spec.Attributes, kollectdevv1alpha1.AttributeSpec{

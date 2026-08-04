@@ -31,11 +31,16 @@ func newInitCmd() (*cobra.Command, *int) {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Interactively generate KollectProfile + KollectTarget YAML from cluster discovery",
-		Long: `Walk through kubecontext confirmation, API discovery, namespace scope, and
-resource filters, then write deterministic KollectProfile and KollectTarget YAML.
+		Long: `Walk through kubecontext confirmation, API discovery, namespace scope,
+resource filters, and consented attribute sampling, then write deterministic
+KollectProfile and KollectTarget YAML.
 
 Requires an interactive terminal. For non-interactive setups, copy a starter from
-config/samples/pipeline/ instead.`,
+config/samples/pipeline/ instead.
+
+Attribute sampling reads one representative object only after you consent and
+see its GVK/namespace/name. Secret and other sensitive kinds require a distinct
+confirmation; sampled secret values are never printed.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			code, err := runInit(cmd, flags)
 			*exitCode = code
@@ -65,6 +70,10 @@ func runInit(cmd *cobra.Command, flags *initFlags) (int, error) {
 	if err != nil {
 		return ExitFatalError, err
 	}
+	sampler, err := pipeline.NewKubeInitSampler(kubeconfig, flags.context)
+	if err != nil {
+		return ExitFatalError, err
+	}
 
 	_, err = pipeline.RunInit(pipeline.InitOptions{
 		Kubeconfig: kubeconfig,
@@ -72,6 +81,7 @@ func runInit(cmd *cobra.Command, flags *initFlags) (int, error) {
 		OutputDir:  flags.outputDir,
 		Prompter:   pipeline.NewSurveyPrompter(color),
 		Discoverer: disc,
+		Sampler:    sampler,
 		Stdout:     cmd.OutOrStdout(),
 		Stderr:     cmd.ErrOrStderr(),
 		IsTerminal: initIsTerminal,
