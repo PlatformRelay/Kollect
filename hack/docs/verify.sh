@@ -11,6 +11,7 @@ task lint:markdown
 # shell tests. This composition point makes them impossible for Docs CI to omit.
 bash hack/test/docs_launch_truth_test.sh
 bash hack/test/docs_adr_kollectsink_retcon_test.sh
+bash hack/test/docs_coverage_floor_drift_test.sh
 bash hack/test/security_architecture_docs_test.sh
 bash hack/test/ui_removal_reference_test.sh
 bash hack/test/hyg_ui_gitignore_test.sh
