@@ -23,19 +23,20 @@ pass() {
 [[ -f "${WORKFLOW}" ]] || fail "missing ${WORKFLOW}"
 [[ -f "${LIB}" ]] || fail "missing ${LIB}"
 
-# --- assert.sh: Ready + ConnectionVerified + non-empty Git export ---
+# --- assert.sh: real helper call sites (not comments / log strings) ---
 [[ -f "${ASSERT}" ]] || fail "missing ${ASSERT} (hero assert entrypoint)"
 [[ -x "${ASSERT}" ]] || fail "${ASSERT} must be executable"
-grep -Eq 'condition=Ready|Ready' "${ASSERT}" ||
-  fail "assert.sh must check inventory Ready"
-grep -Eq 'ConnectionVerified' "${ASSERT}" ||
-  fail "assert.sh must check ConnectionVerified"
-grep -Eq '\.yaml|\.yml|\.json|inventory' "${ASSERT}" ||
-  fail "assert.sh must check non-empty Git export (inventory files)"
+# Anchor at line start so header comments / _hero_log text cannot satisfy these.
+grep -Eq '^[[:space:]]*_hero_assert_inventory_ready([[:space:]]|$)' "${ASSERT}" ||
+  fail "assert.sh must call _hero_assert_inventory_ready"
+grep -Eq '^[[:space:]]*_hero_assert_git_connection_verified([[:space:]]|$)' "${ASSERT}" ||
+  fail "assert.sh must call _hero_assert_git_connection_verified"
+grep -Eq '^[[:space:]]*_hero_assert_git_export_nonempty([[:space:]]|$)' "${ASSERT}" ||
+  fail "assert.sh must call _hero_assert_git_export_nonempty"
 # Failure diagnostics must name the condition / surface logs (AC edge).
 grep -Eq 'kubectl (logs|describe|get)' "${ASSERT}" "${LIB}" ||
   fail "assert path must surface kubectl logs/describe/get on failure"
-pass "assert.sh exists and covers Ready / ConnectionVerified / export"
+pass "assert.sh calls Ready / ConnectionVerified / export helpers"
 
 # --- smoke.sh: up → assert → down, skip when kind unavailable ---
 [[ -f "${SMOKE}" ]] || fail "missing ${SMOKE} (hero smoke orchestrator)"
