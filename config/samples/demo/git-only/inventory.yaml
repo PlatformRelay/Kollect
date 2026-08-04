@@ -8,6 +8,6 @@ metadata:
     app.kubernetes.io/part-of: kollect-hero-demo
 spec:
   snapshotSinkRefs:
-    - hero-git-sink
+    - name: hero-git-sink
   exportMinInterval: 15s
   suspend: false
