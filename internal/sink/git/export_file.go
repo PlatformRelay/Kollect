@@ -229,13 +229,13 @@ func ensureBareHEAD(ctx context.Context, cloneURL, branch string, cli *cliEnv) e
 	return nil
 }
 
-// pinnedGitPATH is used only to resolve the absolute path of the git binary invoked by this
-// file's exec sinks. It deliberately never trusts the ambient, possibly attacker-influenced
-// process PATH: exec.CommandContext(ctx, "git", ...) would otherwise resolve a bare "git" name
-// via os.Getenv("PATH") at Cmd-creation time, so a writable directory placed earlier on PATH
-// (e.g. an attacker-controlled environment, or simply an overly permissive PATH) could plant a
-// trojan "git" that runs in place of the real system binary. Walking this fixed, minimal list of
-// trusted system directories instead closes that hole.
+// pinnedGitPATH is used to resolve the absolute path of the git binary invoked by package exec
+// sinks (export_file, exec_git, connection). It deliberately never trusts the ambient, possibly
+// attacker-influenced process PATH: exec.CommandContext(ctx, "git", ...) would otherwise resolve
+// a bare "git" name via os.Getenv("PATH") at Cmd-creation time, so a writable directory placed
+// earlier on PATH (e.g. an attacker-controlled environment, or simply an overly permissive PATH)
+// could plant a trojan "git" that runs in place of the real system binary. Walking this fixed,
+// minimal list of trusted system directories instead closes that hole.
 const pinnedGitPATH = "/usr/bin:/bin:/usr/local/bin"
 
 // resolveGitExecutable returns the absolute path of the git binary, resolved against

@@ -12,30 +12,51 @@ import (
 )
 
 func gitInWorkdir(ctx context.Context, workdir string, cli *cliEnv, args ...string) *exec.Cmd {
+	gitPath, resolveErr := resolveGitExecutable()
+
 	argv := make([]string, 0, 4+len(args))
-	argv = append(argv, "git")
+	if resolveErr != nil {
+		// Preserve prior error taxonomy: bare "git" missing yields *exec.Error at Run.
+		// Still avoid ambient PATH lookup by stashing the resolve error on Cmd.Err.
+		argv = append(argv, "git")
+	} else {
+		argv = append(argv, gitPath)
+	}
 	if cli != nil {
 		argv = append(argv, cli.prependGitArgs("-C", workdir)...)
 	} else {
 		argv = append(argv, "-C", workdir)
 	}
 	argv = append(argv, args...)
-	//nolint:gosec // G204: workdir validated by validateGitWorkdir before call
+	//nolint:gosec // G204: workdir validated by validateGitWorkdir before call; gitPath pinned via resolveGitExecutable
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	if resolveErr != nil {
+		cmd.Err = resolveErr
+	}
 	applyCLIEnv(cmd, cli)
 
 	return cmd
 }
 
 func gitCloneCmd(ctx context.Context, cli *cliEnv, args ...string) *exec.Cmd {
+	gitPath, resolveErr := resolveGitExecutable()
+
 	cloneArgs := args
 	if cli != nil {
 		cloneArgs = cli.prependGitArgs(args...)
 	}
 
-	argv := append([]string{"git", "clone"}, cloneArgs...)
-	//nolint:gosec // G204: cloneURL, workdir, and branch validated before call
+	var argv []string
+	if resolveErr != nil {
+		argv = append([]string{"git", "clone"}, cloneArgs...)
+	} else {
+		argv = append([]string{gitPath, "clone"}, cloneArgs...)
+	}
+	//nolint:gosec // G204: cloneURL, workdir, and branch validated before call; gitPath pinned via resolveGitExecutable
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	if resolveErr != nil {
+		cmd.Err = resolveErr
+	}
 	applyCLIEnv(cmd, cli)
 
 	return cmd
