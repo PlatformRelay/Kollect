@@ -227,8 +227,7 @@ EOF
 
   # Cleanup must fail while the DB secret is missing — finalizer stays, object stuck deleting.
   local stuck=0
-  local i
-  for i in $(seq 1 12); do
+  for _ in $(seq 1 12); do
     if kubectl get kollectinventory "${RETRY_INV}" -n default >/dev/null 2>&1 \
       && object_has_finalizer kollectinventory "${RETRY_INV}" "kollect.dev/inventory-cleanup"; then
       local ts
