@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# DOC-LAUNCH-S02: Current ADRs must not present the unified KollectSink CRD as the
-# live probe/export kind. Retired name may appear only with removed/family-sink framing
-# (or as the Go-only KollectSinkSpec adapter). Historical rejection ADRs are out of scope.
+# DOC-LAUNCH-S02 / DOC-05: ADRs must not present the unified KollectSink CRD as the
+# live probe/export kind (or as live CRD surface). Retired name may appear only with
+# removed/family-sink framing (or as the Go-only KollectSinkSpec adapter).
+# Historical rejection ADRs are out of scope.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -29,6 +30,7 @@ peers=(
   docs/adr/0102-prior-art.md
   docs/adr/0202-static-vs-reconciled.md
   docs/adr/0204-namespaced-profiles.md
+  docs/adr/0206-api-versioning-conversion.md
   docs/adr/0402-sink-backends-database-kafka.md
   docs/adr/0406-sink-registry.md
   docs/adr/0413-export-interval-scheduling.md
