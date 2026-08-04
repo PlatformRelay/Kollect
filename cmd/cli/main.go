@@ -19,11 +19,35 @@ func newRootCmd() *cobra.Command {
 	}
 }
 
-func main() {
+// buildRoot wires every subcommand onto a fresh root. The returned *int is the
+// exit code written by the subcommand that actually ran (collect or init).
+func buildRoot() (*cobra.Command, *int) {
 	root := newRootCmd()
+	exitCode := new(int)
 
-	collectCmd, exitCode := newCollectCmd()
+	collectCmd, collectExit := newCollectCmd()
 	root.AddCommand(collectCmd)
+
+	initCmd, initExit := newInitCmd()
+	root.AddCommand(initCmd)
+
+	// After Execute, prefer the exit code from whichever command ran. Both
+	// subcommands write their own *int; we expose a shared pointer that main
+	// reads, updated via PersistentPostRun on each leaf.
+	root.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
+		switch cmd.Name() {
+		case "collect":
+			*exitCode = *collectExit
+		case "init":
+			*exitCode = *initExit
+		}
+	}
+
+	return root, exitCode
+}
+
+func main() {
+	root, exitCode := buildRoot()
 
 	if err := root.Execute(); err != nil {
 		os.Exit(ExitFatalError)

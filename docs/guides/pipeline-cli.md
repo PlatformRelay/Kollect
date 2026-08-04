@@ -220,6 +220,34 @@ kollect-pipeline collect \
 `--dry-run` prints what would be written without touching the filesystem or git. Drop it to write
 files under `./inventory`.
 
+### Interactive `init` wizard
+
+If you do not have Profile/Target YAML yet, `kollect-pipeline init` walks you through discovery and
+writes a starter config directory:
+
+```sh
+kollect-pipeline init \
+  --kubeconfig ~/.kube/config \
+  --output-dir ./collect-config
+```
+
+The wizard:
+
+1. Confirms the kubecontext (shows context name + API server; no cluster mutation).
+2. Discovers listable kinds/CRDs using **your** kubeconfig RBAC and lets you pick one.
+3. Chooses namespace scope (all / explicit list / label `namespaceSelector` / discovery-time name
+   pattern snapshot) for namespaced kinds.
+4. Optionally adds a resource label selector or explicit name list.
+5. Offers safe metadata attribute defaults (`name`, `namespace`, …).
+6. Shows a review summary, then writes deterministic `profile.yaml` + `target.yaml`.
+
+Existing files are never overwritten without an explicit confirmation and a visible summary of the
+old vs new content. Cancel (or decline confirmation) exits without writing. Non-interactive
+terminals get a clear error pointing at [`config/samples/pipeline/`](https://github.com/platformrelay/kollect/tree/main/config/samples/pipeline)
+instead of hanging on prompts. Set `NO_COLOR` for a plain/monochrome prompt style.
+
+After `init`, trial the result with `collect` (see below).
+
 ### Stream to stdout (`--output -`)
 
 Use `--output -` to stream the collected inventory to **stdout** instead of writing files — handy for
@@ -254,12 +282,13 @@ with `--dry-run`.
 
 | Flag | Meaning |
 | --- | --- |
-| `--config <dir>` | **Required.** Directory of profile/target/sink YAML. |
+| `--config <dir>` | **Required** for `collect`. Directory of profile/target/sink YAML. |
 | `--kubeconfig <path>` | Kubeconfig to use. Default: `$KUBECONFIG`, then `~/.kube/config`. |
 | `--output <dir>` | Write inventory files here (synthesizes a local sink). Mutually exclusive with a sink manifest. |
 | `--output -` | Stream export records to **stdout** (data only; logs go to stderr). Mutually exclusive with a sink manifest, `--output <dir>`, and `--dry-run`. |
 | `--format <enc>` | Stdout encoding when `--output -` is used: `ndjson` (default) \| `yaml` \| `json`. Error if given without `--output -`. |
-| `--context <name\|glob>` | Kubecontext(s) to collect from; repeatable and comma-separated; globs allowed. Default: current context. |
+| `--context <name\|glob>` | For `collect`: kubecontext(s) to collect from; repeatable and comma-separated; globs allowed. Default: current context. For `init`: single kubecontext to discover against. |
+| `--output-dir <dir>` | For `init`: directory that receives `profile.yaml` + `target.yaml` (default `./collect-config`). |
 | `--namespace <ns>` | Restrict collection to a single namespace (overrides target selectors). |
 | `--dry-run` | Collect and log what would be written; write nothing. |
 | `--log-level <lvl>` | `debug` \| `info` \| `warn` \| `error` (default `info`). |
