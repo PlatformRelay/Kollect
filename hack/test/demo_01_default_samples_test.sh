@@ -37,11 +37,29 @@ if grep -Eq 'kollect_v1alpha1_kollectinventory\.yaml' "${DEFAULT_KUSTOMIZATION}"
   fail "default kustomization must not include dual-sink kollectinventory.yaml (Postgres ref)"
 fi
 
-# No file:// endpoints in default-listed resources (admission-forbidden).
-while IFS= read -r line; do
-  [[ "${line}" =~ ^-[[:space:]]*(.+) ]] || continue
-  resource="${BASH_REMATCH[1]}"
-  resource="${resource%%[[:space:]]*}"
+# Enumerate default resources with Python (portable; avoids awk character-class traps).
+mapfile -t DEFAULT_RESOURCES < <(python3 - <<'PY' "${DEFAULT_KUSTOMIZATION}"
+import sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text().splitlines()
+grab = False
+for line in text:
+    if line.startswith("resources:"):
+        grab = True
+        continue
+    if not grab:
+        continue
+    if line and not line[0].isspace() and not line.startswith("#") and not line.startswith("-"):
+        break
+    stripped = line.strip()
+    if stripped.startswith("-"):
+        print(stripped.lstrip("-").strip())
+PY
+)
+
+[[ ${#DEFAULT_RESOURCES[@]} -gt 0 ]] || fail "default kustomization resources list is empty"
+
+for resource in "${DEFAULT_RESOURCES[@]}"; do
   path="${ROOT}/config/samples/${resource}"
   [[ -f "${path}" ]] || fail "default resource missing: ${resource}"
   if grep -Eq 'endpoint:[[:space:]]*file://' "${path}"; then
@@ -50,7 +68,7 @@ while IFS= read -r line; do
   if grep -Eq '^kind:[[:space:]]*Kollect(Snapshot|Database|Event)Sink' "${path}"; then
     fail "default overlay must not apply sinks (use task demo-up / advanced/); found ${resource}"
   fi
-done < <(awk '/^resources:/{g=1;next} g && /^[^[:space:]#- ]/{exit} g && /^-/{print}' "${DEFAULT_KUSTOMIZATION}")
+done
 
 [[ -f "${ADVANCED_KUSTOMIZATION}" ]] || fail "missing advanced overlay"
 for sample in "${SECRET_REQUIRING[@]}"; do

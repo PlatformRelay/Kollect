@@ -158,7 +158,6 @@ func TestSampleSinksValidate(t *testing.T) {
 	}
 }
 
-
 func samplePath(t *testing.T, name string) string {
 	t.Helper()
 	root := filepath.Join("..", "..", "config", "samples")
