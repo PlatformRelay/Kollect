@@ -24,14 +24,14 @@ func secretResource() InitResourceInfo {
 // recordingSampler fails the test if GetSampleObject is called when forbidden,
 // and records every Get for consent assertions.
 type recordingSampler struct {
-	t           *testing.T
-	candidates  []InitSampleRef
-	object      map[string]any
-	allowGet    atomic.Bool
-	gets        atomic.Int32
-	listCalls   atomic.Int32
-	listErr     error
-	getErr      error
+	t          *testing.T
+	candidates []InitSampleRef
+	object     map[string]any
+	allowGet   atomic.Bool
+	gets       atomic.Int32
+	listCalls  atomic.Int32
+	listErr    error
+	getErr     error
 }
 
 func (s *recordingSampler) ListSampleCandidates(
