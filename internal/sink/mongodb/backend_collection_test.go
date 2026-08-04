@@ -13,14 +13,14 @@ import (
 )
 
 type fakeCollectionAdmin struct {
-	names      []string
-	listErr    error
-	createErr  error
-	indexErr   error
-	listCalls  int
+	names       []string
+	listErr     error
+	createErr   error
+	indexErr    error
+	listCalls   int
 	createCalls int
-	indexCalls int
-	lastKeys   bson.D
+	indexCalls  int
+	lastKeys    bson.D
 }
 
 func (f *fakeCollectionAdmin) ListCollectionNames(context.Context, interface{}) ([]string, error) {
