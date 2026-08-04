@@ -113,7 +113,10 @@ func tlsHandshakeWithDialer(
 }
 
 func lsRemote(ctx context.Context, cfg Config, auth Auth) error {
-	if _, err := exec.LookPath("git"); err != nil {
+	// Soft-skip when git is absent from the pinned PATH (not ambient LookPath): connection
+	// tests still pass in environments without git, matching the prior "no git → no probe"
+	// taxonomy while closing the trojan-PATH hole (SEC-04h-RES).
+	if _, err := resolveGitExecutable(); err != nil {
 		return nil
 	}
 
@@ -151,9 +154,14 @@ func lsRemoteUncached(ctx context.Context, cfg Config, auth Auth) error {
 		endpoint = creds
 	}
 
+	gitPath, err := resolveGitExecutable()
+	if err != nil {
+		return err
+	}
+
 	lsArgs := cli.prependGitArgs("ls-remote", "--heads", endpoint)
-	argv := append([]string{"git"}, lsArgs...)
-	//nolint:gosec // G204: argv from validated git CLI args only; endpoint checked at admission
+	argv := append([]string{gitPath}, lsArgs...)
+	//nolint:gosec // G204: argv from validated git CLI args only; endpoint checked at admission; gitPath pinned via resolveGitExecutable
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	applyCLIEnv(cmd, cli)
 
