@@ -5,7 +5,9 @@ package sink
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
@@ -50,6 +52,14 @@ func (c *closableStubBackend) Close() error {
 
 	return c.closeErr
 }
+
+// voidCloserBackend exercises closeBackend's Close()-without-error interface branch.
+type voidCloserBackend struct {
+	stubBackend
+	closed bool
+}
+
+func (v *voidCloserBackend) Close() { v.closed = true }
 
 func TestExportErrorReason(t *testing.T) {
 	t.Parallel()
@@ -396,6 +406,299 @@ func TestRunExportEnvelope_guards(t *testing.T) {
 	})
 	if err == nil || kollecterrors.ClassOf(err) != kollecterrors.ClassTerminal {
 		t.Fatalf("empty type: want terminal error, got %v", err)
+	}
+}
+
+func mustStubEnvelopeRegistry(t *testing.T, stub Backend) *Registry {
+	t.Helper()
+	reg := NewRegistry()
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return stub, nil
+	})
+	reg.Register(kollectdevv1alpha1.SinkTypePostgres, func(
+		_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext,
+	) (Backend, error) {
+		return stub, nil
+	})
+	t.Cleanup(func() {
+		EvictBackendPool("team-a", "env-sink")
+		EvictBackendPool("team-a", "pg-env")
+		EvictBackendPool("team-a", "layout-fail")
+		EvictBackendPool("team-a", "spill-skip")
+		EvictBackendPool("team-a", "void-close")
+		EvictBackendPool("team-a", "bad-envelope")
+	})
+
+	return reg
+}
+
+func TestRunExportItems_marshalFailureIsTerminal(t *testing.T) {
+	t.Parallel()
+
+	// NaN cannot be encoded as JSON — MarshalEnvelope must fail closed as terminal
+	// before any sink resolve/acquire work begins.
+	err := RunExportItems(ExportItemsRequest{
+		Ctx:      t.Context(),
+		Registry: NewRegistry(),
+		Items: []collect.Item{{
+			Name:       "demo",
+			Attributes: map[string]any{"n": math.NaN()},
+		}},
+	})
+	if err == nil || kollecterrors.ClassOf(err) != kollecterrors.ClassTerminal {
+		t.Fatalf("RunExportItems() = %v, want terminal marshal error", err)
+	}
+}
+
+func TestRunExportEnvelope_acquireBackendFailure(t *testing.T) {
+	t.Parallel()
+
+	envelope, err := export.MarshalEnvelope(
+		[]collect.Item{{Name: "demo"}},
+		export.Metadata{Generation: 1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           t.Context(),
+		Registry:      NewRegistry(),
+		SinkNamespace: "team-a",
+		SinkName:      "unknown-type",
+		ObjectPath:    "team-a/inv.json",
+		Envelope:      envelope,
+		SinkSpec:      kollectdevv1alpha1.KollectSinkSpec{Type: "no-such-backend"},
+	})
+	if err == nil {
+		t.Fatal("expected acquire-backend failure for unknown type")
+	}
+	if !strings.Contains(err.Error(), "acquire backend") {
+		t.Fatalf("error = %q, want acquire backend mention", err)
+	}
+}
+
+func TestRunExportEnvelope_invalidEnvelopeItems(t *testing.T) {
+	t.Parallel()
+
+	stub := &stubBackend{caps: cap.SnapshotStore()}
+	reg := mustStubEnvelopeRegistry(t, stub)
+
+	err := RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           t.Context(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "bad-envelope",
+		ObjectPath:    "team-a/inv.json",
+		Envelope:      []byte(`{"schemaVersion":"kollect.dev/v1alpha1","items":"not-an-array"}`),
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{
+			Type:     kollectdevv1alpha1.SnapshotSinkTypeGit,
+			Endpoint: "https://example.com/repo.git",
+		},
+	})
+	if err == nil || kollecterrors.ClassOf(err) != kollecterrors.ClassTerminal {
+		t.Fatalf("RunExportEnvelope() = %v, want terminal items decode error", err)
+	}
+	if stub.lastBody != nil {
+		t.Fatal("invalid envelope must not reach Export")
+	}
+}
+
+func TestRunExportEnvelope_relationalRemashalsNullItemsPreservingMeta(t *testing.T) {
+	t.Parallel()
+
+	// null items → ItemsJSONFromEnvelope yields "null"; SupportsDelete normalizes to
+	// "[]" (length change), remashing while preserving generation/cluster/parts and
+	// filling a zero ExportedAt so relational delete-reconcile still attributes the part.
+	stub := &stubBackend{caps: cap.RelationalStore()}
+	reg := mustStubEnvelopeRegistry(t, stub)
+
+	envelope := []byte(`{
+		"schemaVersion":"kollect.dev/v1alpha1",
+		"generation":7,
+		"cluster":"prod-west",
+		"partIndex":1,
+		"partTotal":2,
+		"itemCount":0,
+		"checksum":"deadbeef",
+		"items":null
+	}`)
+
+	err := RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           t.Context(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "pg-env",
+		ObjectPath:    "team-a/inv.json",
+		Envelope:      envelope,
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{
+			Type: kollectdevv1alpha1.SinkTypePostgres,
+			Postgres: &kollectdevv1alpha1.PostgresSpec{
+				Table: "items",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunExportEnvelope() = %v", err)
+	}
+	if len(stub.lastBody) == 0 {
+		t.Fatal("relational remashal must still Export the empty snapshot")
+	}
+
+	var got collect.ExportEnvelope
+	if err := json.Unmarshal(stub.lastBody, &got); err != nil {
+		t.Fatalf("exported payload: %v", err)
+	}
+	if got.Generation != 7 || got.Cluster != "prod-west" || got.PartIndex != 1 || got.PartTotal != 2 {
+		t.Fatalf("preserved meta = gen=%d cluster=%q part=%d/%d, want 7/prod-west/1/2",
+			got.Generation, got.Cluster, got.PartIndex, got.PartTotal)
+	}
+	if got.ExportedAt == "" {
+		t.Fatal("zero ExportedAt must be filled on remashal")
+	}
+	if got.ItemCount != 0 || len(got.Items) != 0 {
+		t.Fatalf("want empty items after remashal, got count=%d len=%d", got.ItemCount, len(got.Items))
+	}
+}
+
+func TestRunExportEnvelope_skipsOversizedNonObjectStore(t *testing.T) {
+	t.Parallel()
+
+	stub := &stubBackend{caps: cap.SnapshotStore()}
+	reg := mustStubEnvelopeRegistry(t, stub)
+
+	blob := strings.Repeat("x", int(export.SpillMandatoryBytes)+64)
+	envelope, err := export.MarshalEnvelope(
+		[]collect.Item{{Name: "demo", Attributes: map[string]any{"blob": blob}}},
+		export.Metadata{Generation: 1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if int64(len(envelope)) <= export.SpillMandatoryBytes {
+		t.Fatalf("fixture envelope size %d must exceed spill threshold %d",
+			len(envelope), export.SpillMandatoryBytes)
+	}
+
+	err = RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           t.Context(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "spill-skip",
+		ObjectPath:    "team-a/inv.json",
+		Envelope:      envelope,
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{
+			Type:     kollectdevv1alpha1.SnapshotSinkTypeGit,
+			Endpoint: "https://example.com/repo.git",
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunExportEnvelope() = %v, want silent spill skip", err)
+	}
+	if stub.lastBody != nil {
+		t.Fatal("non-object-store sink must not Export above spill threshold")
+	}
+}
+
+func TestRunExportEnvelope_resolveLayoutFailure(t *testing.T) {
+	t.Parallel()
+
+	stub := &stubBackend{caps: cap.SnapshotStore()}
+	reg := mustStubEnvelopeRegistry(t, stub)
+
+	envelope, err := export.MarshalEnvelope(
+		[]collect.Item{{
+			Namespace:  "team-a",
+			Name:       "api",
+			Kind:       "Deployment",
+			Attributes: map[string]any{"image": "nginx"},
+		}},
+		export.Metadata{Generation: 1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           t.Context(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "layout-fail",
+		ObjectPath:    "team-a/inv.json",
+		Envelope:      envelope,
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{
+			Type:     kollectdevv1alpha1.SnapshotSinkTypeGit,
+			Endpoint: "https://example.com/repo.git",
+			Layout: &kollectdevv1alpha1.LayoutSpec{
+				Mode:    kollectdevv1alpha1.LayoutModePerResource,
+				Content: kollectdevv1alpha1.LayoutContentManifest,
+			},
+		},
+	})
+	if err == nil || kollecterrors.ClassOf(err) != kollecterrors.ClassTerminal {
+		t.Fatalf("RunExportEnvelope() = %v, want terminal layout resolve error", err)
+	}
+	if !strings.Contains(err.Error(), "resolve layout") {
+		t.Fatalf("error = %q, want resolve layout mention", err)
+	}
+	if stub.lastBody != nil {
+		t.Fatal("layout failure must not reach Export")
+	}
+}
+
+func TestRunExportEnvelope_voidCloserReleasedWhenPoolDisabled(t *testing.T) {
+	DisableBackendPoolForTest()
+	t.Cleanup(func() {
+		EnableBackendPoolForTest()
+		ResetBackendPoolForTest()
+	})
+
+	stub := &voidCloserBackend{stubBackend: stubBackend{caps: cap.SnapshotStore()}}
+	reg := NewRegistry()
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return stub, nil
+	})
+
+	envelope, err := export.MarshalEnvelope(
+		[]collect.Item{{Name: "demo"}},
+		export.Metadata{Generation: 1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           t.Context(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "void-close",
+		ObjectPath:    "team-a/inv.json",
+		Envelope:      envelope,
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{
+			Type:     kollectdevv1alpha1.SnapshotSinkTypeGit,
+			Endpoint: "https://example.com/repo.git",
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunExportEnvelope() = %v", err)
+	}
+	if !stub.closed {
+		t.Fatal("pool-disabled release must invoke void Close()")
+	}
+	if len(stub.lastBody) == 0 {
+		t.Fatal("expected successful Export before Close")
+	}
+}
+
+func TestCloseBackend_voidCloser(t *testing.T) {
+	t.Parallel()
+
+	stub := &voidCloserBackend{stubBackend: stubBackend{caps: cap.SnapshotStore()}}
+	if err := closeBackend(stub); err != nil {
+		t.Fatalf("closeBackend() = %v", err)
+	}
+	if !stub.closed {
+		t.Fatal("void Close() must be invoked")
 	}
 }
 
