@@ -22,6 +22,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
+	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/integrationtest"
 )
 
@@ -252,6 +253,128 @@ func TestBigQueryConnectionProbe(t *testing.T) {
 	}, nil)
 	if err != nil {
 		t.Fatalf("TestConnection: %v", err)
+	}
+}
+
+// TestClientQueryExecutor_malformedSQLIsTerminal exercises the real
+// clientQueryExecutor.Execute path against the emulator with malformed SQL and
+// asserts classifyError marks the failure terminal (COV-90-S12 / Track B).
+func TestClientQueryExecutor_malformedSQLIsTerminal(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx := context.Background()
+	container, emulatorHost, err := startBigQueryEmulator(ctx)
+	if err != nil {
+		if integrationtest.IsDockerUnavailable(err) {
+			t.Skipf("docker not available: %v", err)
+		}
+		t.Fatalf("start bigquery emulator: %v", err)
+	}
+	t.Cleanup(func() { _ = container.Terminate(ctx) })
+	t.Setenv("BIGQUERY_EMULATOR_HOST", emulatorHost)
+
+	client, err := newEmulatorClient(ctx, "test-project", emulatorHost)
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+	if err := waitForBigQueryEmulator(ctx, client); err != nil {
+		t.Fatalf("wait for emulator: %v", err)
+	}
+
+	exec := clientQueryExecutor{client: client}
+	err = exec.Execute(ctx, "SELECT * FROM ((((", nil, "")
+	if err == nil {
+		t.Fatal("expected malformed SQL Execute error")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "syntax") &&
+		!strings.Contains(strings.ToLower(err.Error()), "parse") {
+		t.Fatalf("error = %q, want syntax/parse failure", err)
+	}
+
+	classified := classifyError(fmt.Errorf("bigquery execute: %w", err))
+	if !kollecterrors.IsTerminal(classified) {
+		t.Fatalf("class = %s, want terminal (malformed Execute)", kollecterrors.ClassOf(classified))
+	}
+}
+
+// TestExport_ExecuteErrorWhenTableDropped drops the inventory table after
+// NewBackend and asserts Export's Execute path fails with a wrapped classified
+// error (COV-90-S12 / Track B).
+func TestExport_ExecuteErrorWhenTableDropped(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx := context.Background()
+	container, emulatorHost, err := startBigQueryEmulator(ctx)
+	if err != nil {
+		if integrationtest.IsDockerUnavailable(err) {
+			t.Skipf("docker not available: %v", err)
+		}
+		t.Fatalf("start bigquery emulator: %v", err)
+	}
+	t.Cleanup(func() { _ = container.Terminate(ctx) })
+	t.Setenv("BIGQUERY_EMULATOR_HOST", emulatorHost)
+
+	client, err := newEmulatorClient(ctx, "test-project", emulatorHost)
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+	if err := waitForBigQueryEmulator(ctx, client); err != nil {
+		t.Fatalf("wait for emulator: %v", err)
+	}
+	if err := createDatasetWithRetry(ctx, client, "inventory", &bigquery.DatasetMetadata{}); err != nil {
+		t.Fatalf("create dataset: %v", err)
+	}
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type:    TypeName,
+		Cluster: "execute-err-cluster",
+		BigQuery: &kollectdevv1alpha1.BigQuerySpec{
+			Project: "test-project",
+			Dataset: "inventory",
+			Table:   "dropped_items",
+		},
+	}
+
+	backend, err := NewBackend(ctx, spec, nil)
+	if err != nil {
+		t.Fatalf("new backend: %v", err)
+	}
+	t.Cleanup(backend.Close)
+
+	if err := client.Dataset("inventory").Table("dropped_items").Delete(ctx); err != nil {
+		t.Fatalf("drop table: %v", err)
+	}
+
+	items := []collect.Item{{
+		TargetNamespace: "apps",
+		TargetName:      "web",
+		Namespace:       "apps",
+		Name:            "demo",
+		Version:         "v1",
+		Kind:            "Deployment",
+		UID:             "uid-drop",
+	}}
+	payload, err := json.Marshal(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = backend.Export(ctx, payload, "inventory/apps/demo.json")
+	if err == nil {
+		t.Fatal("expected Export to fail after table drop")
+	}
+	msg := strings.ToLower(err.Error())
+	if !strings.Contains(msg, "bigquery") {
+		t.Fatalf("error = %q, want bigquery-prefixed failure", err)
+	}
+	if !kollecterrors.IsTerminal(err) {
+		t.Fatalf("class = %s, want terminal (missing-table Execute)", kollecterrors.ClassOf(err))
 	}
 }
 
