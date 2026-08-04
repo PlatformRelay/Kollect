@@ -255,6 +255,11 @@ func collectInitExplicitNamespaces(opts InitOptions, intent *initDraft) error {
 	if pickErr != nil {
 		return mapInitPromptErr(pickErr)
 	}
+	if len(picked) == 0 {
+		return fmt.Errorf(
+			"explicit namespace scope requires at least one namespace; " +
+				"an empty selection would silently collect all namespaces")
+	}
 	intent.IncludedNamespaces = append([]string(nil), picked...)
 	return nil
 }
@@ -271,6 +276,11 @@ func collectInitNamePattern(opts InitOptions, intent *initDraft) error {
 	}
 	matched := matchInitPattern(nsList, raw)
 	printInitPlain(opts, "Matched namespaces (snapshot): %s\n", strings.Join(matched, ", "))
+	if len(matched) == 0 {
+		return fmt.Errorf(
+			"pattern %q matched no namespaces; refusing to write Target YAML that would "+
+				"omit includedNamespaces and silently collect all namespaces", raw)
+	}
 	intent.IncludedNamespaces = matched
 	intent.ScopeWarning = "name pattern expanded to a snapshot includedNamespaces list (not a durable glob)"
 	return nil
@@ -339,6 +349,9 @@ func confirmInitReview(opts InitOptions, intent *initDraft) error {
 }
 
 func writeInitIntent(opts InitOptions, intent *initDraft) (InitResult, error) {
+	if err := intent.validateScopeBeforeWrite(); err != nil {
+		return InitResult{}, err
+	}
 	profileYAML, targetYAML, err := intent.RenderYAML()
 	if err != nil {
 		return InitResult{}, err
@@ -469,6 +482,25 @@ type initDraft struct {
 	LabelSelector      string
 	Names              []string
 	Attributes         []initAttributeOpt
+}
+
+// validateScopeBeforeWrite refuses Target YAML that would omit includedNamespaces
+// after the operator chose an explicit list or discovery-time pattern (empty omit
+// means "all namespaces" in collect — a silent scope widen).
+func (d initDraft) validateScopeBeforeWrite() error {
+	switch d.ScopeMode {
+	case InitScopeExplicit, InitScopeNamePattern:
+		if len(d.IncludedNamespaces) == 0 {
+			return fmt.Errorf(
+				"scope %q produced an empty includedNamespaces list; "+
+					"refusing write that would silently collect all namespaces", d.ScopeMode)
+		}
+	case InitScopeLabelSelector:
+		if strings.TrimSpace(d.NamespaceSelector) == "" {
+			return fmt.Errorf("namespaceSelector scope requires a non-empty selector")
+		}
+	}
+	return nil
 }
 
 func (d initDraft) ReviewSummary() string {
