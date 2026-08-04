@@ -98,7 +98,11 @@ func TestExtract_emptyRangeResultIsNil(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Extract() error = %v, want empty range to yield nil", err)
 	}
-	if val, present := got["items"]; present && val != nil {
+	val, present := got["items"]
+	if !present {
+		t.Fatal("items key absent, want present with nil value for empty range")
+	}
+	if val != nil {
 		t.Fatalf("items = %v, want nil for empty range", val)
 	}
 }

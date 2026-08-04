@@ -211,8 +211,9 @@ func TestExtractHelmReleaseField_branches(t *testing.T) {
 	t.Run("empty field errors", func(t *testing.T) {
 		t.Parallel()
 
-		if _, extractErr := extractHelmReleaseField(obj, "helm:release."); extractErr == nil {
-			t.Fatal("expected error for empty helm release field")
+		_, extractErr := extractHelmReleaseField(obj, "helm:release.")
+		if extractErr == nil || !strings.Contains(extractErr.Error(), "empty helm release field") {
+			t.Fatalf("error = %v, want empty helm release field error", extractErr)
 		}
 	})
 
@@ -230,8 +231,8 @@ func TestExtractHelmReleaseField_branches(t *testing.T) {
 		t.Parallel()
 
 		_, extractErr := extractHelmReleaseField(obj, "helm:release.name.sub")
-		if extractErr == nil {
-			t.Fatal("expected error when traversing through a scalar field")
+		if extractErr == nil || !strings.Contains(extractErr.Error(), "accessor error") {
+			t.Fatalf("error = %v, want accessor error when traversing through a scalar field", extractErr)
 		}
 	})
 
