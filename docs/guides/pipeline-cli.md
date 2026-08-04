@@ -270,13 +270,13 @@ On success, `init` prints the exact commands for your `--output-dir` (example as
 
 ```sh
 # Stdout preview — inventory records on stdout, logs on stderr; no files written
-kollect-pipeline collect --config ./collect-config --output -
+kollect-pipeline collect --config "./collect-config" --output -
 
 # Local directory trial — write inventory files under ./inventory
-kollect-pipeline collect --config ./collect-config --output ./inventory
+kollect-pipeline collect --config "./collect-config" --output ./inventory
 ```
 
-`init` also prints a copyable `kubectl apply -f ./collect-config` marked as **future guidance
+`init` also prints a copyable `kubectl apply -f "./collect-config"` marked as **future guidance
 only** (separate action). Applying requires installed CRDs and appropriate authorization;
 `init` never applies manifests and never installs the operator.
 

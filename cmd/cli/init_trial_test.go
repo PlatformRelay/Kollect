@@ -83,16 +83,16 @@ func TestInitWizard_generatedYAMLPassesLoaderAndStdoutTrial(t *testing.T) {
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
 
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("collect --output - with generated config: %v\nstderr:%s", err, errBuf.String())
+	if execErr := cmd.Execute(); execErr != nil {
+		t.Fatalf("collect --output - with generated config: %v\nstderr:%s", execErr, errBuf.String())
 	}
 	if *code != ExitSuccess {
 		t.Fatalf("exit = %d, want ExitSuccess", *code)
 	}
 
 	var got pipeline.StdoutRecord
-	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout.String())), &got); err != nil {
-		t.Fatalf("stdout trial record not NDJSON (%q): %v", stdout.String(), err)
+	if unmarshalErr := json.Unmarshal([]byte(strings.TrimSpace(stdout.String())), &got); unmarshalErr != nil {
+		t.Fatalf("stdout trial record not NDJSON (%q): %v", stdout.String(), unmarshalErr)
 	}
 	if got.TargetName != "deployment-images" {
 		t.Errorf("stdout trial target = %q, want deployment-images", got.TargetName)

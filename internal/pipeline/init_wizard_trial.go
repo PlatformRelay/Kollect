@@ -14,22 +14,25 @@ import (
 const InitTrialLocalOutputDir = "./inventory"
 
 // FormatInitTrialStdoutCmd returns the exact stdout-preview collect command for dir.
+// configDir is shell-quoted so paths with spaces stay copy-pasteable.
 func FormatInitTrialStdoutCmd(configDir string) string {
-	return fmt.Sprintf("kollect-pipeline collect --config %s --output -", configDir)
+	return fmt.Sprintf("kollect-pipeline collect --config %q --output -", configDir)
 }
 
 // FormatInitTrialLocalCmd returns the exact local-directory trial collect command for dir.
+// configDir is shell-quoted so paths with spaces stay copy-pasteable.
 func FormatInitTrialLocalCmd(configDir string) string {
 	return fmt.Sprintf(
-		"kollect-pipeline collect --config %s --output %s",
+		"kollect-pipeline collect --config %q --output %s",
 		configDir, InitTrialLocalOutputDir,
 	)
 }
 
 // FormatInitTrialKubectlApplyCmd returns a copyable kubectl apply for dir.
 // Init never runs this — it is future operator guidance only.
+// configDir is shell-quoted so paths with spaces stay copy-pasteable.
 func FormatInitTrialKubectlApplyCmd(configDir string) string {
-	return fmt.Sprintf("kubectl apply -f %s", configDir)
+	return fmt.Sprintf("kubectl apply -f %q", configDir)
 }
 
 // FormatInitTrialScreen builds the completion-screen text: exact trial commands plus a
