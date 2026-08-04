@@ -11,7 +11,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **security:** Pin PATH for git exec in exec_git and connection [7d7d439](https://github.com/platformrelay/kollect/commit/7d7d4393acbb8054db8ec07a2f9105f8b2d4557f)
+- **security:** Pin PATH for git exec in exec_git and connection [12534f5](https://github.com/platformrelay/kollect/commit/12534f586b966177b7f595f5309a88cd5354a743)
 
 - **demo:** Compose git-postgres from git-only Kustomization base (DOC-04) [42231f7](https://github.com/platformrelay/kollect/commit/42231f76dac24e2522572358b55643db526e062d)
 
