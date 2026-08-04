@@ -2,7 +2,8 @@
 # Run unit/envtest with an internal/ coverage profile and enforce a minimum floor.
 # Excludes e2e and integration-tagged tests (default go test build tags).
 #
-# Race detector (local-only — CI/release paths keep CGO_ENABLED=0 and omit -race):
+# Race detector (local pre-PR + nightly advisory CI via e2e-nightly race job;
+# PR/release ci.yaml keeps CGO_ENABLED=0 and omits -race):
 #   COVERAGE_RACE=1 CGO_ENABLED=1 bash hack/coverage.sh
 #   task coverage:race
 set -euo pipefail
