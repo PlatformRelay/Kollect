@@ -43,13 +43,13 @@ docker info >/dev/null && kind version && kubectl version --client && task --ver
 
 ### 2. Environment setup (~10–15 min first run)
 
-From the repo root:
+From the repo root (canonical names; `demo-hero-up` / `demo-hero-down` are equivalent):
 
 ```sh
-task demo-hero-up
+task demo-up
 ```
 
-This runs `hack/demo/hero/up.sh` and:
+This runs `hack/demo/hero/up.sh` via `demo-hero-up` and:
 
 1. Creates kind cluster **`kollect-hero`** (`hack/demo/hero/cluster.yaml`)
 2. Builds and Helm-installs kollect (`charts/kollect/ci/dev-values.yaml`)
@@ -71,7 +71,7 @@ This runs `hack/demo/hero/up.sh` and:
 Tear down when finished:
 
 ```sh
-task demo-hero-down
+task demo-down
 ```
 
 ### 3. Golden sample (Git-only)
@@ -118,7 +118,7 @@ Checked-in tape: `hack/demo/hero/demo-git-only.tape`
 | # | Scene | Command | Screen time |
 | --- | --- | --- | --- |
 | 1 | Title | `# kollect — your cluster, in Git, diffable` | 2s |
-| 2 | Bootstrap | `task demo-hero-up` | 8s |
+| 2 | Bootstrap | `task demo-up` | 8s |
 | 3 | Config = CRs | `bat hack/demo/hero/kollect-demo.yaml` | 8s |
 | 4 | Ready | `kubectl get kinv -A` | 5s |
 | 5 | First export | `git pull` + `ls` + `bat` exported YAML | 10s |
