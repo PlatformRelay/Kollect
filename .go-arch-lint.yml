@@ -12,6 +12,8 @@ exclude:
   - kollect-repos
   - agent-context
   - .claude
+  - .claude/worktrees
+  - .worktrees
   - ui
 allow:
   depOnAnyVendor: true
