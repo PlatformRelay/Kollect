@@ -73,3 +73,6 @@ race*.log
 
 # --- Node (docs markdownlint) ---
 /docs/node_modules/
+
+# --- Leftover local SPA after UI-REMOVE-01 (dist + node_modules); do not track ---
+/ui/
