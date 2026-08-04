@@ -1,6 +1,6 @@
 # ADR-0413: Per-sink export interval scheduling
 
-> Inventory owns per-ref export cadence; KollectSink may publish a default; KollectScope sets a
+> Inventory owns per-ref export cadence; a family sink may publish a default; KollectScope sets a
 > tenancy floor. Debounce state is per (inventory, sink).
 
 **Theme:** 04 · Export & sinks · **Status:** Current
@@ -52,10 +52,12 @@ effectiveInterval(ref) =
   floor at **1s** (`nextDue`); since material changes bypass the interval, values below `1s` are
   equivalent to `0s` in practice.
 
-### 3. Optional `KollectSink.spec.exportMinInterval`
+### 3. Optional family sink `spec.exportMinInterval`
 
-Shared platform sinks may publish a default when the inventory ref omits an override. Sink remains
-static config — interval is read at export time, not reconciled on the Sink CR.
+Shared platform **family sinks** ([ADR-0414](0414-sink-family-crds.md)) may publish a default when
+the inventory ref omits an override. The sink remains static config — interval is read at export
+time, not reconciled on the sink CR. The unified `KollectSink` kind was removed; interval defaults
+live on the family sink specs instead.
 
 ### 4. `KollectScope.spec.minExportInterval` floor
 

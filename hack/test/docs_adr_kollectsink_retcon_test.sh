@@ -26,22 +26,26 @@ fi
 
 # Peers that historically spoke of KollectSink as the shipped public CRD.
 peers=(
+  docs/adr/0102-prior-art.md
   docs/adr/0202-static-vs-reconciled.md
   docs/adr/0204-namespaced-profiles.md
   docs/adr/0402-sink-backends-database-kafka.md
   docs/adr/0406-sink-registry.md
+  docs/adr/0413-export-interval-scheduling.md
+  docs/adr/0601-prometheus-metrics-stub.md
+  docs/adr/0602-error-taxonomy.md
 )
 
 for peer in "${peers[@]}"; do
   [[ -f "${peer}" ]] || fail "missing ${peer}"
 
-  # Bare Kubernetes-kind framing without removal / family / Go-adapter context.
-  # Allow: KollectSinkSpec (Go adapter), "unified KollectSink" + removed/family, ADR-0414 cites.
+  # Any KollectSink token is a fail unless the *same hit line* carries removal /
+  # family-sink / Go-adapter framing (not a soft nearby-paragraph escape).
+  # Allow on-line: KollectSinkSpec, unified `KollectSink` + removed/family, ADR-0414 cites.
   set +e
   hits="$(
-    grep -nE '`KollectSink`|KollectSink\.spec|KollectSink is namespaced|pluggable \*\*`KollectSink`\*\*' \
-      "${peer}" 2>/dev/null |
-      grep -Ev 'KollectSinkSpec|unified `KollectSink`|removed|family sink|ADR-0414|not a public kind|Go-only|historical|was removed|no longer' ||
+    grep -nE 'KollectSink' "${peer}" 2>/dev/null |
+      grep -Ev 'KollectSinkSpec|unified `KollectSink`|removed|family sink|ADR-0414|not a public kind|Go-only|was removed|no longer' ||
       true
   )"
   set -e

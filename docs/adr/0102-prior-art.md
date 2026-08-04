@@ -25,7 +25,7 @@ Primary OSS references we **actually use** for design and CI patterns:
 
 | Pattern | Finding | Kollect stance |
 | --- | --- | --- |
-| Provider plugin registry | `SecretStoreProvider` discriminated union + Go provider packages | **Adopt** — `KollectSink` `type` + internal registry/factory ([ADR-0402](0402-sink-backends-database-kafka.md)) |
+| Provider plugin registry | `SecretStoreProvider` discriminated union + Go provider packages | **Adopt** — family sink `type` + internal registry/factory ([ADR-0402](0402-sink-backends-database-kafka.md), [ADR-0414](0414-sink-family-crds.md)); unified `KollectSink` removed |
 | Cluster vs namespaced stores | `ClusterSecretStore` + namespace `conditions` | **Adopt (Phase 1)** — `KollectScope` + optional `watchNamespaces` / `tenantMode` ([ADR-0203](0203-namespaced-multi-tenancy.md)) |
 | Helm/CI | `helm-docs`, `helm-unittest`, `values.schema.json`, `helm template` → manifests | **Adopt** — Helm chart **day 1** ([REQUIREMENTS.md](../REQUIREMENTS.md)) |
 | Status content | Sync metadata only, never secret bytes | **Adopt** — aligns with ADR-0103 |
@@ -35,7 +35,7 @@ Primary OSS references we **actually use** for design and CI patterns:
 
 | Pattern | Finding | Kollect stance |
 | --- | --- | --- |
-| Static Provider/Alert | No status subresource, no Provider reconciler | **Adopt** — `KollectProfile`, `KollectSink` static |
+| Static Provider/Alert | No status subresource, no Provider reconciler | **Adopt** — `KollectProfile`, family sinks static ([ADR-0414](0414-sink-family-crds.md)); unified `KollectSink` removed |
 | `spec.suspend` | On all reconciled sources | **Adopt** — all reconciled Kollect kinds |
 | CEL `XValidation` | Provider-type constraints, source-controller cross-field rules | **Adopt** — CRD OpenAPI + **validating webhooks early** |
 | Receiver | Inbound webhook → enqueue work | **Defer** — reserve `KollectReceiver` |

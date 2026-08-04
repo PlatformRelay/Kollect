@@ -1,6 +1,6 @@
 # ADR-0601: Operator metrics — no Prometheus export sink
 
-> Operator metrics live on `/metrics`; `prometheus` is **not** a `KollectSink.type`.
+> Operator metrics live on `/metrics`; `prometheus` is **not** a family sink type.
 
 **Theme:** 06 · Observability & ops · **Status:** Current
 
@@ -8,15 +8,16 @@
 
 Phase 4 may add kube-state-metrics-style custom resource metrics. Phase 1 ships **operator**
 metrics per [ADR-0602](0602-error-taxonomy.md). Inventory export uses Git, object storage, Postgres,
-and Kafka sinks ([ADR-0402](0402-sink-backends-database-kafka.md)) — **not** a `KollectSink` of type
-`prometheus`.
+and Kafka **family sinks** ([ADR-0402](0402-sink-backends-database-kafka.md),
+[ADR-0414](0414-sink-family-crds.md)) — **not** a sink of type `prometheus`. The unified
+`KollectSink` kind was removed; sink `type` enums live only on the family CRDs.
 
 ## Decision
 
 1. **Operator metrics (Phase 1):** expose cardinality-safe gauges and histograms on the controller
    `/metrics` endpoint — including `kollect_collect_items_total`, `kollect_collected_objects`,
    `kollect_export_duration_seconds`, and reconcile counters.
-2. **No Prometheus export sink:** `prometheus` is **not** a valid `KollectSink.spec.type`. Do not
+2. **No Prometheus export sink:** `prometheus` is **not** a valid family sink `spec.type`. Do not
    register a prometheus sink in the export registry; avoids confusion with scrape endpoints.
 3. **KSM-style domain metrics and target/inventory scope:** Phase 4 spike landed on operator
    `/metrics` ([ADR-0304](0304-custom-resource-aggregation-rfc.md)); richer target/inventory labels
