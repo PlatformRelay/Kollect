@@ -238,8 +238,16 @@ The wizard:
 3. Chooses namespace scope (all / explicit list / label `namespaceSelector` / discovery-time name
    pattern snapshot) for namespaced kinds.
 4. Optionally adds a resource label selector or explicit name list.
-5. Offers safe metadata attribute defaults (`name`, `namespace`, …).
-6. Shows a review summary, then writes deterministic `profile.yaml` + `target.yaml`.
+5. Offers safe metadata attribute defaults (`name`, `namespace`, …). Optionally samples **one**
+   representative object for extra field suggestions — only after you consent, and only after the
+   wizard shows the object's GVK, namespace, and name. API/namespace discovery never authorizes that
+   read by itself.
+6. For `Secret` (and other configured sensitive kinds): a **distinct** confirmation is required
+   before sampling. Sampled secret **values are never printed** as suggestions or previews (data
+   key paths may be offered without values). When you proceed, generated `profile.yaml` visibly
+   carries the existing sensitive-data opt-in annotation
+   (`kollect.dev/allow-secret-extraction: "true"`). Declining the guard keeps safe metadata only.
+7. Shows a review summary, then writes deterministic `profile.yaml` + `target.yaml`.
 
 Existing files are never overwritten without an explicit confirmation and a visible summary of the
 old vs new content. Cancel (or decline confirmation) exits without writing. Non-interactive
