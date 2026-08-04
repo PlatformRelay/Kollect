@@ -30,7 +30,7 @@ Statement coverage on `./internal/...` is enforced by `hack/coverage.sh` via `ta
 | Setting | Value |
 | --- | --- |
 | **Target (pre-v0.10)** | Next ratchet toward 90% only after measured CI coverage sustains ≥90.5% (COV-90-00) |
-| **Current CI floor** | **85%** (`COVERAGE_MIN` in `Taskfile.yml` and `.github/workflows/ci.yaml`) |
+| **Current CI floor** | **87%** (`COVERAGE_MIN` in `Taskfile.yml` and `.github/workflows/ci.yaml`) |
 | **Codecov project target** | See `codecov.yml` (advisory relative to CI floor) |
 
 Regressions below the enforced floor fail CI. Raise the floor only after coverage has grown
@@ -141,7 +141,7 @@ or the 100k cloud gate.
 | --- | --- |
 | `task docs:verify` | Tracked Markdown, truth/freshness contracts, samples, strict site build, and browser layout when Chrome is available |
 | `task test` | Unit + envtest (no floor check; no race detector) |
-| `task coverage` | Unit + envtest + 85% floor (CI; CGO off, no `-race`) |
+| `task coverage` | Unit + envtest + 87% floor (CI; CGO off, no `-race`) |
 | `task coverage:race` | Same as coverage with race detector (local + nightly advisory) |
 | `task test-integration` | L3 sink/transport integration (Docker) |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
