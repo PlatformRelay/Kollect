@@ -236,7 +236,14 @@ The wizard:
 1. Confirms the kubecontext (shows context name + API server; no cluster mutation).
 2. Discovers listable kinds/CRDs using **your** kubeconfig RBAC and lets you pick one.
 3. Chooses namespace scope (all / explicit list / label `namespaceSelector` / discovery-time name
-   pattern snapshot) for namespaced kinds.
+   pattern) for namespaced kinds.
+   - A **discovery-time name pattern** (for example `team-*`) is expanded to the namespaces that
+     match **right now** and written as a concrete `includedNamespaces` list. That list is a
+     **snapshot**, not a durable glob: newly created namespaces that would match the pattern are
+     **not** auto-included later.
+   - When you need durable dynamic membership, choose (or accept the wizard's recommendation to
+     generate) a label `namespaceSelector` instead — the Target API supports explicit names and
+     label selectors, not globs.
 4. Optionally adds a resource label selector or explicit name list.
 5. Offers safe metadata attribute defaults (`name`, `namespace`, …). Optionally samples **one**
    representative object for extra field suggestions — only after you consent, and only after the

@@ -32,6 +32,22 @@ const (
 	InitSamplesPointer      = "config/samples/pipeline"
 	initProfileFileName     = "profile.yaml"
 	initTargetFileName      = "target.yaml"
+
+	// InitPatternSnapshotAdvice is printed after a discovery-time name pattern expands.
+	// The Target API has no glob field — the match is a snapshot, not durable membership.
+	InitPatternSnapshotAdvice = "Note: this match is a discovery-time snapshot. " +
+		"Newly created namespaces matching the pattern are not auto-included. " +
+		"Prefer a label namespaceSelector for durable dynamic membership."
+
+	// InitPatternDurableConfirm offers switching from the snapshot list to namespaceSelector.
+	InitPatternDurableConfirm = "Use a durable label namespaceSelector instead? " +
+		"(recommended when new matching namespaces should join automatically)"
+
+	// InitPatternSnapshotWarning appears on the review screen when the operator keeps the snapshot.
+	InitPatternSnapshotWarning = "name pattern expanded to a snapshot includedNamespaces list; " +
+		"newly created matching namespaces are not auto-included (not a durable glob)"
+
+	initNamespaceSelectorPrompt = "Namespace label selector (e.g. team=platform)"
 )
 
 // ErrNonInteractive is returned when stdin is not a TTY.
@@ -232,15 +248,22 @@ func collectInitScope(opts InitOptions, intent *initDraft) error {
 	case InitScopeExplicit:
 		return collectInitExplicitNamespaces(opts, intent)
 	case InitScopeLabelSelector:
-		raw, inputErr := opts.Prompter.Input(
-			"Namespace label selector (e.g. team=platform)", "", requireInitNonEmpty)
-		if inputErr != nil {
-			return mapInitPromptErr(inputErr)
-		}
-		intent.NamespaceSelector = raw
+		return collectInitNamespaceSelector(opts, intent)
 	case InitScopeNamePattern:
 		return collectInitNamePattern(opts, intent)
 	}
+	return nil
+}
+
+func collectInitNamespaceSelector(opts InitOptions, intent *initDraft) error {
+	raw, inputErr := opts.Prompter.Input(initNamespaceSelectorPrompt, "", requireInitNonEmpty)
+	if inputErr != nil {
+		return mapInitPromptErr(inputErr)
+	}
+	intent.ScopeMode = InitScopeLabelSelector
+	intent.IncludedNamespaces = nil
+	intent.NamespaceSelector = raw
+	intent.ScopeWarning = ""
 	return nil
 }
 
@@ -283,8 +306,16 @@ func collectInitNamePattern(opts InitOptions, intent *initDraft) error {
 			"pattern %q matched no namespaces; refusing to write Target YAML that would "+
 				"omit includedNamespaces and silently collect all namespaces", raw)
 	}
+	printInitPlain(opts, "%s\n", InitPatternSnapshotAdvice)
+	wantDurable, confirmErr := opts.Prompter.Confirm(InitPatternDurableConfirm, false)
+	if confirmErr != nil {
+		return mapInitPromptErr(confirmErr)
+	}
+	if wantDurable {
+		return collectInitNamespaceSelector(opts, intent)
+	}
 	intent.IncludedNamespaces = matched
-	intent.ScopeWarning = "name pattern expanded to a snapshot includedNamespaces list (not a durable glob)"
+	intent.ScopeWarning = InitPatternSnapshotWarning
 	return nil
 }
 
