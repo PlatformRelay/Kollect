@@ -3,13 +3,6 @@ kind: KollectInventory
 metadata:
   name: demo-inventory
   namespace: default
-  labels:
-    app.kubernetes.io/name: kollect
-    app.kubernetes.io/part-of: kollect-hero-demo
 spec:
-  snapshotSinkRefs:
-    - hero-git-sink
   databaseSinkRefs:
     - hero-postgres-sink
-  exportMinInterval: 15s
-  suspend: false

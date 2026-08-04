@@ -225,12 +225,12 @@ Additionally:
 
 ### 3. Golden sample (Git + Postgres)
 
-Inherits Git-only resources from `config/samples/demo/git-only/` plus:
+Imports `config/samples/demo/git-only/` as a sibling Kustomization base, then adds:
 
 | Path | Kind | Role |
 | --- | --- | --- |
 | `config/samples/demo/git-postgres/databasesink.yaml` | `KollectDatabaseSink` | Postgres `inventory_items` table (`mode: ensure`) |
-| `config/samples/demo/git-postgres/inventory.yaml` | `KollectInventory` | Parallel `snapshotSinkRefs` + `databaseSinkRefs` |
+| `config/samples/demo/git-postgres/inventory.yaml` | patch on `KollectInventory` | Adds `databaseSinkRefs` (keeps Git `snapshotSinkRefs`) |
 
 ### 4. Pre-flight
 

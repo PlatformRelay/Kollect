@@ -1,8 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+# Import the Git-only overlay as a sibling Kustomization directory (allowed),
+# then add Postgres sink + patch inventory with databaseSinkRefs. Individual
+# sibling *files* (../git-only/*.yaml) are rejected by load restrictions.
 resources:
-  - ../git-only/profile.yaml
-  - ../git-only/target.yaml
-  - ../git-only/sink.yaml
+  - ../git-only
   - databasesink.yaml
-  - inventory.yaml
+patches:
+  - path: inventory.yaml
+    target:
+      group: kollect.dev
+      version: v1alpha1
+      kind: KollectInventory
+      name: demo-inventory
