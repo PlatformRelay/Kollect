@@ -68,7 +68,7 @@ spec:
 ## Step 2 — KollectDatabaseSink
 
 Namespaced ([ADR-0201](../adr/0201-crd-model.md)). Default inventory uses Postgres:
-`config/samples/kollect_v1alpha1_kollectdatabasesink.yaml`. See [Postgres state store](postgres-state-store.md).
+`config/samples/advanced/kollect_v1alpha1_kollectdatabasesink.yaml`. See [Postgres state store](postgres-state-store.md).
 
 ## Step 3 — KollectTarget
 
@@ -86,7 +86,7 @@ spec:
 
 ## Step 4 — KollectInventory
 
-`config/samples/kollect_v1alpha1_kollectinventory.yaml` — `databaseSinkRefs: [postgres-inventory-demo]`.
+`config/samples/advanced/kollect_v1alpha1_kollectinventory.yaml` — `databaseSinkRefs: [postgres-inventory-demo]`.
 
 ## Apply
 

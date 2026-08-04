@@ -10,7 +10,10 @@ schema-validated source for the family references and their independent cadences
 Create the referenced sinks first, then apply the validated inventory:
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollectinventory.yaml
+# Dual-cadence inventory lives on the advanced (opt-in) path — create Secrets first.
+kubectl apply -k config/samples/advanced/
+# or apply the inventory alone after sinks exist:
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectinventory.yaml
 ```
 
 Its `snapshotSinkRefs` and `databaseSinkRefs` export the same canonical rows independently.
@@ -29,7 +32,7 @@ does not roll back a successful sibling export.
 ## Cleanup
 
 ```sh
-kubectl delete -f config/samples/kollect_v1alpha1_kollectinventory.yaml
+kubectl delete -f config/samples/advanced/kollect_v1alpha1_kollectinventory.yaml
 ```
 
 ## Further reading

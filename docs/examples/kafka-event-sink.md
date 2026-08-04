@@ -7,7 +7,7 @@ A running operator, reachable Kafka brokers, and any required SASL/TLS Secret.
 ## Apply
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollecteventsink_kafka.yaml
 ```
 
 ## Verify
@@ -24,7 +24,7 @@ Check broker DNS/TLS, topic permissions, and Secret resolution.
 ## Cleanup
 
 ```sh
-kubectl delete -f config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml
+kubectl delete -f config/samples/advanced/kollect_v1alpha1_kollecteventsink_kafka.yaml
 ```
 
 ## Further reading
@@ -32,10 +32,10 @@ kubectl delete -f config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml
 [Event sink reference](../crds/kollecteventsink.md) · [Troubleshooting](../operator-manual/troubleshooting.md)
 
 !!! note "Apply separately"
-    `config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml` is **not** in the default kustomization.
+    `config/samples/advanced/kollect_v1alpha1_kollecteventsink_kafka.yaml` is **not** in the default kustomization.
     Apply it explicitly after a Kafka broker is reachable from the operator namespace.
 
-`config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml` — not in default kustomization.
+`config/samples/advanced/kollect_v1alpha1_kollecteventsink_kafka.yaml` — not in default kustomization.
 
 !!! tip "Event + state pairing"
     Pair Kafka with Postgres via `databaseSinkRefs` and `eventSinkRefs` when portals need queryable

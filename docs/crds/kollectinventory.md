@@ -87,7 +87,7 @@ Debouncing state machine: [concepts/export-pipeline.md §1](../concepts/export-p
 ## Example
 
 A dual-cadence inventory: export to Postgres every 30s for portals, and to a Git audit repo
-hourly ([`config/samples/kollect_v1alpha1_kollectinventory.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectinventory.yaml)):
+hourly ([`config/samples/advanced/kollect_v1alpha1_kollectinventory.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectinventory.yaml)):
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -105,9 +105,9 @@ spec:
   suspend: false
 ```
 
-See [`config/samples/kollect_v1alpha1_kollectinventory_sharded.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectinventory_sharded.yaml)
+See [`config/samples/advanced/kollect_v1alpha1_kollectinventory_sharded.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectinventory_sharded.yaml)
 for a large-profile sharded variant, and
-[`config/samples/kollect_v1alpha1_kollectinventory_export-partitioning.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectinventory_export-partitioning.yaml)
+[`config/samples/advanced/kollect_v1alpha1_kollectinventory_export-partitioning.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectinventory_export-partitioning.yaml)
 for a per-sink-binding `maxExportBytes` override (1 MiB inventory-wide ceiling, 512 KiB Git parts).
 
 ## Sample usage
@@ -115,9 +115,9 @@ for a per-sink-binding `maxExportBytes` override (1 MiB inventory-wide ceiling, 
 ```sh
 # Prerequisites: profile, target, sink in default namespace
 kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile.yaml
-kubectl apply -f config/samples/kollect_v1alpha1_kollectdatabasesink.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectdatabasesink.yaml
 kubectl apply -f config/samples/kollect_v1alpha1_kollecttarget.yaml
-kubectl apply -f config/samples/kollect_v1alpha1_kollectinventory.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectinventory.yaml
 
 kubectl get kinv -n default team-inventory -w
 kubectl describe kinv team-inventory -n default

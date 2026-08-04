@@ -374,11 +374,10 @@ tasks:
       - task: helm-unittest
 
   dev-up:
-    desc: Bootstrap local dev — build, kind cluster, sample CRs
+    desc: Bootstrap local evaluator path — build + credential-free hero demo (Forgejo Git)
     cmds:
       - task: build
-      - task: kind-dev-up
-      - kubectl apply -k config/samples/
+      - task: demo-up
 
   kind-dev-up:
     desc: Create kollect-dev kind cluster (operator + optional dev addons)

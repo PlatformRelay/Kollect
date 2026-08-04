@@ -65,7 +65,7 @@ external instance. Never commit real credentials to Git.
 
 ## Step 2 — KollectDatabaseSink
 
-Sample: `config/samples/kollect_v1alpha1_kollectdatabasesink.yaml`
+Sample: `config/samples/advanced/kollect_v1alpha1_kollectdatabasesink.yaml`
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -107,7 +107,7 @@ spec:
 ```
 
 ```sh
-kubectl apply -k config/samples/
+kubectl apply -k config/samples/advanced/
 kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/postgres-inventory-demo \
   -n default --timeout=60s
 ```

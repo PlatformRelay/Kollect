@@ -10,7 +10,7 @@ Secret referenced by the validated sample.
 Review the project, dataset, table, region, and cadence, then apply:
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml
 ```
 
 ## Verify
@@ -27,7 +27,7 @@ Check ADC or Secret resolution, dataset location, IAM permissions, and API enabl
 ## Cleanup
 
 ```sh
-kubectl delete -f config/samples/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml
+kubectl delete -f config/samples/advanced/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml
 ```
 
 ## Further reading

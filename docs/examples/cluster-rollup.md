@@ -8,7 +8,7 @@ A running operator with cluster-scope RBAC and existing namespaced profiles and 
 
 ```sh
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclustertarget.yaml
-kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterinventory.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectclusterinventory.yaml
 ```
 
 ## Verify
@@ -25,7 +25,7 @@ Check structured name/namespace references, cluster RBAC, selectors, and status 
 ## Cleanup
 
 ```sh
-kubectl delete -f config/samples/kollect_v1alpha1_kollectclusterinventory.yaml
+kubectl delete -f config/samples/advanced/kollect_v1alpha1_kollectclusterinventory.yaml
 kubectl delete -f config/samples/kollect_v1alpha1_kollectclustertarget.yaml
 ```
 

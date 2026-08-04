@@ -138,4 +138,4 @@ Golden fixture: `test/schema/golden/nats-event-envelope.json`.
    ```
 
 Kafka alternative: [Kafka event sink](kafka-event-sink.md) ·
-`config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml`.
+`config/samples/advanced/kollect_v1alpha1_kollecteventsink_kafka.yaml`.

@@ -93,22 +93,26 @@ flowchart LR
 
 ## Quick start (MVP)
 
-Spin up the full pipeline on a local kind cluster in one command (needs Docker, kind, kubectl, and
-[Task](https://taskfile.dev/)):
+Spin up a credential-free Git export on a local kind cluster in one command (needs Docker, kind,
+kubectl, and [Task](https://taskfile.dev/)):
 
 ```sh
 git clone https://github.com/platformrelay/kollect.git && cd kollect
-task dev-up                       # build, create kind cluster, install operator + sample CRs
-kubectl get kinv,ktgt,ksnap,kdb -A    # watch the pipeline come up
+task demo-up                      # preferred: kind + Forgejo + Ready Git inventory
+# or: task dev-up                 # same hero path after build
+kubectl get kinv,ktgt,ksnap -A    # watch Ready + ConnectionVerified
 ```
 
-`task dev-up` builds the manager, boots a `kollect-dev` kind cluster, installs the operator, and
-applies the sample `Profile → Sink → Target → Inventory` pipeline. Watch the `KollectInventory`
-`Ready` condition, then read your sink — the [live demo repo](https://github.com/konih/kollect-inventory-demo)
-shows what the Git export looks like.
+`task demo-up` (and `task dev-up`, which builds then runs the same hero harness) boots kind, installs
+Kollect, starts in-cluster Forgejo, and applies the golden Git-only sample — **no cloud/DB Secrets**.
+Watch `KollectInventory` `Ready` and sink `ConnectionVerified`, then follow the printed next steps
+(clone dir / Forgejo UI). Details: [DEMO-GIF-GUIDE](docs/DEMO-GIF-GUIDE.md).
 
-**Full walkthrough** — local evaluation and Helm install:
-**[Install Kollect →](https://platformrelay.github.io/Kollect/getting-started/install/)**
+Postgres / S3 / Kafka / multi-sink samples are an explicit opt-in:
+
+```sh
+kubectl apply -k config/samples/advanced/
+```
 
 ## How it works
 

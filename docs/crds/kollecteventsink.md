@@ -24,7 +24,7 @@ A `KollectEventSink` configures **stream/event** export backends — Kafka and N
 ## Example
 
 A Kafka event sink that emits one message per aggregated export
-([`config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollecteventsink_kafka.yaml)):
+([`config/samples/advanced/kollect_v1alpha1_kollecteventsink_kafka.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollecteventsink_kafka.yaml)):
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1

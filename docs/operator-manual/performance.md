@@ -156,7 +156,7 @@ stores.
 
 Monolithic namespace inventories hit `PayloadTooLarge` above ~2,500 rows. Spread workloads across
 **many namespaces**, each with its own `KollectInventory` — see
-[`config/samples/kollect_v1alpha1_kollectinventory_sharded.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectinventory_sharded.yaml).
+[`config/samples/advanced/kollect_v1alpha1_kollectinventory_sharded.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectinventory_sharded.yaml).
 
 The operator sets `status.conditions[ExportShardWarning]` and increments
 `kollect_export_shard_warn_total` when a namespace aggregate reaches **~1,800 rows**.

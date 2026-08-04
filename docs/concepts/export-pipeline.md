@@ -65,7 +65,7 @@ union-prune keep-set, so every part's files and the manifest survive; a new-gene
 replaces it in place (its path has no generation placeholder). Its `.manifest.json` extension is
 distinct from the `.yaml` data files, so an existing consumer globbing `inventory/<ns>/*.yaml` skips it.
 A single-part export writes **no** sidecar and stays byte-identical to a non-partitioned export. The
-`config/samples/kollect_v1alpha1_kollectinventory_export-partitioning.yaml` sample shows the full
+`config/samples/advanced/kollect_v1alpha1_kollectinventory_export-partitioning.yaml` sample shows the full
 manifest, and the operator manual explains how to confirm a set is complete from it.
 
 ## Connection lifecycle

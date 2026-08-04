@@ -29,7 +29,7 @@ snapshot sinks via `KollectInventory.spec.snapshotSinkRefs`.
 ## Example
 
 A Git snapshot store with per-cluster path partitioning
-([`config/samples/kollect_v1alpha1_kollectsnapshotsink.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectsnapshotsink.yaml)):
+([`config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink.yaml)):
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -55,7 +55,7 @@ spec:
 ```
 
 S3 object-store variant:
-[`config/samples/kollect_v1alpha1_kollectsnapshotsink_s3.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectsnapshotsink_s3.yaml).
+[`config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_s3.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_s3.yaml).
 
 `azureblob` and `http` remain reserved API constants but are **not accepted by admission** and have
 no shipped backend. Parquet is not a separate sink type: select `s3` or `gcs` and set
@@ -101,9 +101,9 @@ prod-west/team-a/deployment/web.yaml
 ```
 
 See samples
-[`..._git_layout.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectsnapshotsink_git_layout.yaml)
+[`..._git_layout.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_git_layout.yaml)
 (explicit override) and
-[`..._git_resource_tree.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectsnapshotsink_git_resource_tree.yaml)
+[`..._git_resource_tree.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_git_resource_tree.yaml)
 (Resource-mode tree). Cross-refs: [ADR-0407](../adr/0407-git-object-store-layout.md),
 [ADR-0415](../adr/0415-git-sink-commit-ergonomics.md), [ADR-0416](../adr/0416-sink-config-layering.md).
 

@@ -7,7 +7,7 @@ A running operator, MongoDB, and the `inventory-mongodb-uri` Secret described in
 ## Apply
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml
 ```
 
 ## Verify
@@ -24,7 +24,7 @@ Check the URI Secret, database permissions, TLS trust, and `provisioning.mode`.
 ## Cleanup
 
 ```sh
-kubectl delete -f config/samples/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml
+kubectl delete -f config/samples/advanced/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml
 ```
 
 ## Further reading
