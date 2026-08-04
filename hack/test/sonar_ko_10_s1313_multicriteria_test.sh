@@ -42,23 +42,28 @@ master_value="${master_line#sonar.issue.ignore.multicriteria=}"
 IFS=',' read -r -a IDS <<<"${master_value}"
 ((${#IDS[@]} >= 2)) || fail "expected at least two multicriteria IDs, got: ${master_value}"
 
-# --- every listed ID must resolve to a go:S1313 ruleKey + a resourceKey line ---
+# --- every listed ID must resolve to ruleKey + resourceKey; S1313 entries validated ---
+# Other multicriteria IDs (e.g. docker:S8431) may share the master key — skip them here.
 netguard_covered=0
 endpointguard_covered=0
+s1313_count=0
 for id in "${IDS[@]}"; do
   id="${id//[[:space:]]/}"
   rule_line="$(grep -E "^sonar\.issue\.ignore\.multicriteria\.${id}\.ruleKey=" "${PROPS}" || true)"
   res_line="$(grep -E "^sonar\.issue\.ignore\.multicriteria\.${id}\.resourceKey=" "${PROPS}" || true)"
   [[ -n "${rule_line}" ]] || fail "multicriteria id '${id}' has no ruleKey line"
   [[ -n "${res_line}" ]] || fail "multicriteria id '${id}' has no resourceKey line"
-  [[ "${rule_line#*=}" == "go:S1313" ]] || fail "multicriteria id '${id}' ruleKey is not go:S1313 (got: ${rule_line#*=})"
+  rule_value="${rule_line#*=}"
+  [[ "${rule_value}" == "go:S1313" ]] || continue
+  s1313_count=$((s1313_count + 1))
   res_value="${res_line#*=}"
   case "${res_value}" in
     *internal/sink/netguard/*) netguard_covered=1 ;;
     *internal/validation/endpoint_guard.go) endpointguard_covered=1 ;;
   esac
 done
-pass "every multicriteria entry is a go:S1313 ignore with a resourceKey"
+((s1313_count >= 2)) || fail "expected at least two go:S1313 multicriteria entries, found ${s1313_count}"
+pass "go:S1313 multicriteria entries present (${s1313_count}) with resourceKeys"
 
 ((netguard_covered == 1)) || fail "no S1313 multicriteria entry covers internal/sink/netguard/**"
 ((endpointguard_covered == 1)) || fail "no S1313 multicriteria entry covers internal/validation/endpoint_guard.go"
