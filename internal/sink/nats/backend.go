@@ -39,6 +39,10 @@ type Backend struct {
 	// with a fake JetStream instead of a real connection. NewBackend defaults
 	// it to b.jetStream, preserving connection caching and reconnect behavior.
 	jsProvider func(ctx context.Context) (jetstream.JetStream, error)
+
+	// connectFn is the dial seam for jetStream unit tests (AUD26-TEST-02c).
+	// Nil means the package connect helper.
+	connectFn func(cfg Config, tlsCfg TLSConfig) (*natsgo.Conn, error)
 }
 
 func NewBackend(
@@ -112,7 +116,11 @@ func (b *Backend) jetStream(ctx context.Context) (jetstream.JetStream, error) {
 		b.nc = nil
 		b.js = nil
 	}
-	nc, err := connect(b.cfg, b.tls)
+	dial := b.connectFn
+	if dial == nil {
+		dial = connect
+	}
+	nc, err := dial(b.cfg, b.tls)
 	if err != nil {
 		return nil, err
 	}
