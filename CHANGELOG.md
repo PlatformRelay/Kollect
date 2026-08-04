@@ -11,14 +11,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **pipeline:** Clear govet err shadow in init trial tests [c8cf895](https://github.com/platformrelay/kollect/commit/c8cf895fe10f6da0dcdd149fc40f7349159c349c)
+- **pipeline:** Clear govet err shadow in init trial tests [4e402c7](https://github.com/platformrelay/kollect/commit/4e402c7d24480c6e3b063ff816cc754174e42936)
 
 - **pipeline:** Refuse empty init namespace scope before write [aa42687](https://github.com/platformrelay/kollect/commit/aa42687e28114a7af5333632c22df9f9473df99f)
 
 
 ### Features
 
-- **pipeline:** Init completion trial screen + YAML validation (PIPE-INIT-04) [09b2629](https://github.com/platformrelay/kollect/commit/09b26297bf68510b1b086412f9ddde66e5e7acb6)
+- **pipeline:** Init completion trial screen + YAML validation (PIPE-INIT-04) [310d48f](https://github.com/platformrelay/kollect/commit/310d48f7ada7d497b6380dcc7243ce1ccb19fcdd)
 
 - **pipeline:** Truthful init namespace-pattern snapshot (PIPE-INIT-03) [892d2eb](https://github.com/platformrelay/kollect/commit/892d2eb895c5ead3ff0aecf0726156bac6516abf)
 
