@@ -129,6 +129,8 @@ jobs:
           # some sonar_ko_* meta-tests (chart-rendering ones) need it.
           command -v yq >/dev/null 2>&1 || sudo snap install yq
           yq --version
+      - name: Verify nightly advisory race job contract (HY-07)
+        run: bash hack/test/hyg_07_nightly_race_test.sh
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob
