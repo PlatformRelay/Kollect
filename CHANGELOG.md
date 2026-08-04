@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **demo:** Compose git-postgres from git-only Kustomization base (DOC-04) [68b57d4](https://github.com/platformrelay/kollect/commit/68b57d498d9156df963ef7f05e1b38e130be2fd3)
+
 - **e2e:** Nudge Target reconcile after inventory sink-ref patch [047bf5d](https://github.com/platformrelay/kollect/commit/047bf5dd37fb6c3941ec608958f698957c18ceb0)
 
 - **demo:** Harden DEMO-01 meta-test and gofmt samples helper [834c590](https://github.com/platformrelay/kollect/commit/834c5903b0829c10765261fb82cb6f948aad7a52)
