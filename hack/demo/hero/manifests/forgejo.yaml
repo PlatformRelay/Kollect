@@ -1,4 +1,5 @@
 # In-cluster Forgejo for offline hero demos — no external GitHub tokens.
+# Headless: INSTALL_LOCK skips the web wizard (/api/v1/install is gone in Forgejo 11).
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -33,6 +34,13 @@ spec:
               value: "1000"
             - name: USER_GID
               value: "1000"
+            - name: FORGEJO__security__INSTALL_LOCK
+              value: "true"
+            # Demo-only; not a production secret. Required when INSTALL_LOCK=true.
+            - name: FORGEJO__security__SECRET_KEY
+              value: "kollect-hero-demo-secret-key-not-for-prod"
+            - name: FORGEJO__security__INTERNAL_TOKEN
+              value: "kollect-hero-demo-internal-token-not-for-prod"
             - name: FORGEJO__database__DB_TYPE
               value: sqlite3
             - name: FORGEJO__database__PATH
@@ -45,14 +53,22 @@ spec:
               value: "3000"
             - name: FORGEJO__server__LFS_START_SERVER
               value: "false"
-          # Probe / (install page) — /api/v1/version is 404 until first-time
-          # install completes, so probing the API would never become Ready.
+            - name: FORGEJO__server__DISABLE_SSH
+              value: "true"
+            - name: FORGEJO__service__DISABLE_REGISTRATION
+              value: "true"
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/v1/version
               port: http
-            initialDelaySeconds: 15
+            initialDelaySeconds: 5
             periodSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /api/v1/version
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
           resources:
             requests:
               cpu: 100m

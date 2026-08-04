@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Bootstrap Forgejo: web install, inventory repo, API token for git push.
+# Bootstrap Forgejo: wait for headless instance, admin user, inventory repo, push token.
+# Forgejo 11 removed /api/v1/install — manifests set INSTALL_LOCK + sqlite via env.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,60 +15,39 @@ _internal_url="http://forgejo.${HERO_FORGEJO_NS}.svc.cluster.local:3000"
 
 _wait_forgejo() {
   _hero_log "Waiting for Forgejo Deployment..."
-  kubectl wait --for=condition=Available deployment/forgejo -n "$HERO_FORGEJO_NS" --timeout=300s
-  # Fresh Forgejo: / serves the install UI; /api/v1/version is 404 until _install_forgejo.
-  # Waiting on version here made CI exit "Forgejo API not ready" every cold boot.
+  # With INSTALL_LOCK, /api/v1/version is available as soon as the server is up.
+  kubectl wait --for=condition=Available deployment/forgejo -n "$HERO_FORGEJO_NS" --timeout=600s
   local deadline=$((SECONDS + 480))
   while (( SECONDS < deadline )); do
     if kubectl exec -n "$HERO_FORGEJO_NS" deploy/forgejo -- \
-      curl -fsS "${_internal_url}/" >/dev/null 2>&1; then
+      curl -fsS "${_internal_url}/api/v1/version" >/dev/null 2>&1; then
       return 0
     fi
     sleep 3
   done
-  echo "Forgejo HTTP (/) not ready after Available + 480s wait" >&2
+  echo "Forgejo API (/api/v1/version) not ready after Available + 480s wait" >&2
   kubectl -n "$HERO_FORGEJO_NS" get pods,deploy -o wide 2>/dev/null || true
   kubectl -n "$HERO_FORGEJO_NS" logs deploy/forgejo --tail=80 2>/dev/null || true
   return 1
 }
 
-_install_forgejo() {
+_ensure_admin() {
   if kubectl exec -n "$HERO_FORGEJO_NS" deploy/forgejo -- \
-    curl -fsS "${_internal_url}/api/v1/settings/api" >/dev/null 2>&1; then
-    _hero_log "Forgejo already installed."
+    curl -fsS -u "${HERO_FORGEJO_USER}:${HERO_FORGEJO_PASS}" \
+    "${_internal_url}/api/v1/user" >/dev/null 2>&1; then
+    _hero_log "Admin user ${HERO_FORGEJO_USER} already exists."
     return 0
   fi
 
-  _hero_log "Running Forgejo first-time install..."
-  kubectl exec -n "$HERO_FORGEJO_NS" deploy/forgejo -- curl -fsS -X POST \
-    "${_internal_url}/api/v1/install" \
-    -H 'Content-Type: application/json' \
-    -d "$(cat <<EOF
-{
-  "db_type": "sqlite3",
-  "db_host": "localhost:3306",
-  "db_user": "",
-  "db_passwd": "",
-  "db_name": "gitea",
-  "ssl_mode": "disable",
-  "db_path": "/data/gitea.db",
-  "app_name": "Forgejo",
-  "repo_root_path": "/data/git/repositories",
-  "lfs_root_path": "/data/git/lfs",
-  "run_user": "git",
-  "domain": "forgejo.forgejo.svc.cluster.local",
-  "ssh_domain": "forgejo.forgejo.svc.cluster.local",
-  "port": 3000,
-  "http_port": 3000,
-  "root_url": "${_internal_url}/",
-  "log_level": "Info",
-  "admin_name": "${HERO_FORGEJO_USER}",
-  "admin_passwd": "${HERO_FORGEJO_PASS}",
-  "admin_confirm_passwd": "${HERO_FORGEJO_PASS}",
-  "admin_email": "demo@kollect.dev"
-}
-EOF
-)"
+  _hero_log "Creating Forgejo admin user ${HERO_FORGEJO_USER}..."
+  # forgejo admin speaks to the sqlite DB; config is generated from env by the entrypoint.
+  kubectl exec -n "$HERO_FORGEJO_NS" deploy/forgejo -- \
+    forgejo admin user create \
+      --admin \
+      --username "${HERO_FORGEJO_USER}" \
+      --password "${HERO_FORGEJO_PASS}" \
+      --email "demo@kollect.dev" \
+      --must-change-password=false
 }
 
 _create_repo() {
@@ -113,7 +93,7 @@ _create_token() {
 }
 
 _wait_forgejo
-_install_forgejo
+_ensure_admin
 _create_repo
 _create_token
 
