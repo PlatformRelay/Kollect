@@ -45,11 +45,18 @@ spec:
               value: "3000"
             - name: FORGEJO__server__LFS_START_SERVER
               value: "false"
+          # Probe the API, not bare / — Available on / alone raced bootstrap
+          # (web UI up while /api/v1/version still 502 → "Forgejo API not ready").
+          startupProbe:
+            httpGet:
+              path: /api/v1/version
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/v1/version
               port: http
-            initialDelaySeconds: 15
             periodSeconds: 5
           resources:
             requests:
