@@ -5,6 +5,7 @@
 # Asserts:
 #   (a) concurrency.group is scoped with an event/ref expression (not bare `pages`)
 #   (b) cancel-in-progress is conditional on pull_request (not unconditional true)
+# Pure bash/grep — no yq (Docs CI does not install yq).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -19,36 +20,37 @@ pass() {
   echo "ok - $*"
 }
 
-if ! command -v yq >/dev/null 2>&1; then
-  echo "yq not found; install yq (mikefarah/yq v4) to run this test" >&2
-  exit 1
-fi
-
 [[ -f "${WORKFLOW}" ]] || fail "workflow file not found: ${WORKFLOW}"
 
-GROUP="$(yq eval '.concurrency.group' "${WORKFLOW}")"
-[[ "${GROUP}" != "null" ]] || fail "docs.yaml has no concurrency.group"
+# Extract the concurrency block (from 'concurrency:' through next top-level key).
+block="$(awk '
+  /^concurrency:/ {inblock=1; next}
+  inblock && /^[^[:space:]#]/ {exit}
+  inblock {print}
+' "${WORKFLOW}")"
+[[ -n "${block}" ]] || fail "docs.yaml has no concurrency block"
 
-if [[ "${GROUP}" == "pages" ]]; then
-  fail "concurrency.group must not be bare 'pages' (PR builds cancel main Pages deploys); got: ${GROUP}"
-fi
-# Must include a per-ref / per-PR discriminator (PR number or github.ref).
-if [[ "${GROUP}" != *'github.event.pull_request.number'* && "${GROUP}" != *'github.ref'* ]]; then
-  fail "concurrency.group must scope by PR number or github.ref; got: ${GROUP}"
-fi
-pass "concurrency.group is ref-scoped (not bare pages): ${GROUP}"
+group_line="$(printf '%s\n' "${block}" | grep -E '^[[:space:]]*group:' | head -1 || true)"
+[[ -n "${group_line}" ]] || fail "docs.yaml has no concurrency.group"
 
-CANCEL="$(yq eval '.concurrency.cancel-in-progress' "${WORKFLOW}")"
-[[ "${CANCEL}" != "null" ]] || fail "docs.yaml has no concurrency.cancel-in-progress"
+# Bare group: pages — reject exact token after group:
+if printf '%s\n' "${group_line}" | grep -Eq 'group:[[:space:]]*pages[[:space:]]*$'; then
+  fail "concurrency.group must not be bare 'pages' (PR builds cancel main Pages deploys); got: ${group_line}"
+fi
+if ! printf '%s\n' "${group_line}" | grep -Eq 'github\.(event\.pull_request\.number|ref)'; then
+  fail "concurrency.group must scope by PR number or github.ref; got: ${group_line}"
+fi
+pass "concurrency.group is ref-scoped (not bare pages): ${group_line}"
 
-# Unconditional true lets PR workflows cancel main deploys in a shared group;
-# after scoping, cancel must still be PR-only so main force-pushes stay safe.
-if [[ "${CANCEL}" == "true" ]]; then
-  fail "cancel-in-progress must be conditional (PR only), not unconditional true; got: ${CANCEL}"
+cancel_line="$(printf '%s\n' "${block}" | grep -E '^[[:space:]]*cancel-in-progress:' | head -1 || true)"
+[[ -n "${cancel_line}" ]] || fail "docs.yaml has no concurrency.cancel-in-progress"
+
+if printf '%s\n' "${cancel_line}" | grep -Eq 'cancel-in-progress:[[:space:]]*true[[:space:]]*$'; then
+  fail "cancel-in-progress must be conditional (PR only), not unconditional true; got: ${cancel_line}"
 fi
-if [[ "${CANCEL}" != *'pull_request'* ]]; then
-  fail "cancel-in-progress must gate on pull_request event; got: ${CANCEL}"
+if ! printf '%s\n' "${cancel_line}" | grep -Fq 'pull_request'; then
+  fail "cancel-in-progress must gate on pull_request event; got: ${cancel_line}"
 fi
-pass "cancel-in-progress is PR-conditional: ${CANCEL}"
+pass "cancel-in-progress is PR-conditional: ${cancel_line}"
 
 echo "All docs.yaml pages-concurrency tests passed."

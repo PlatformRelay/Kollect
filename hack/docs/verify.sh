@@ -15,6 +15,7 @@ bash hack/test/docs_coverage_floor_drift_test.sh
 bash hack/test/security_architecture_docs_test.sh
 bash hack/test/ui_removal_reference_test.sh
 bash hack/test/hyg_ui_gitignore_test.sh
+bash hack/test/docs_pages_concurrency_test.sh
 
 # These contracts cover the complete nav and redirect map, orphan pages, current
 # CRD/family-sink language, referenced samples and images, and the visual system.
