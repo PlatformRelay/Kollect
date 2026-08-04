@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # DOC-02: documented current coverage floor must match executable COVERAGE_MIN
-# (Taskfile.yml + .github/workflows/ci.yaml) and Codecov project target.
+# (Taskfile.yml + .github/workflows/ci.yaml + hack/coverage.sh fallback) and
+# Codecov project target.
 #
 # Includes a fixture self-check: an injected mismatch must fail closed before
 # the real-repo assertion runs.
@@ -25,24 +26,28 @@ collect_floors() {
   local root="$1"
   local taskfile="${root}/Taskfile.yml"
   local ci="${root}/.github/workflows/ci.yaml"
+  local coverage_sh="${root}/hack/coverage.sh"
   local codecov="${root}/codecov.yml"
   local testing="${root}/docs/development/testing.md"
   local standards="${root}/docs/development/coding-standards.md"
   local adr="${root}/docs/adr/0706-testing-merge-gate-architecture.md"
   local f
 
-  for f in "${taskfile}" "${ci}" "${codecov}" "${testing}" "${standards}" "${adr}"; do
+  for f in "${taskfile}" "${ci}" "${coverage_sh}" "${codecov}" "${testing}" "${standards}" "${adr}"; do
     if [[ ! -f "${f}" ]]; then
       printf 'missing required source: %s\n' "${f}" >&2
       return 1
     fi
   done
 
-  # Executable: every COVERAGE_MIN assignment in Taskfile + merge-gate ci.yaml.
+  # Executable: every COVERAGE_MIN assignment in Taskfile + merge-gate ci.yaml
+  # + the bare-script fallback in hack/coverage.sh.
   # (sonarcloud.yaml keeps a separate advisory floor and is intentionally excluded.)
   {
     sed -n 's/^[[:space:]]*COVERAGE_MIN:[[:space:]]*"\([0-9][0-9]*\)".*/\1/p' "${taskfile}"
     sed -n 's/^[[:space:]]*COVERAGE_MIN:[[:space:]]*"\([0-9][0-9]*\)".*/\1/p' "${ci}"
+    # Bare-script fallback: MIN="${COVERAGE_MIN:-NN}"
+    sed -n 's/.*\${COVERAGE_MIN:-\([0-9][0-9]*\)}.*/\1/p' "${coverage_sh}"
     # Codecov project target (enforced threshold companion to the CI floor).
     sed -n 's/^[[:space:]]*target:[[:space:]]*\([0-9][0-9]*\)%.*/\1/p' "${codecov}"
     # Living docs: current-floor claims only (not historical ADR ratchet rows).
@@ -82,8 +87,10 @@ write_fixture_tree() {
   local exec_min="$2"
   local doc_min="$3"
   local codecov_min="$4"
+  local coverage_sh_min="${5:-$exec_min}"
 
-  mkdir -p "${dest}/.github/workflows" "${dest}/docs/development" "${dest}/docs/adr"
+  mkdir -p "${dest}/.github/workflows" "${dest}/hack" \
+    "${dest}/docs/development" "${dest}/docs/adr"
 
   cat >"${dest}/Taskfile.yml" <<EOF
 env:
@@ -97,6 +104,11 @@ jobs:
   test:
     env:
       COVERAGE_MIN: "${exec_min}"
+EOF
+
+  cat >"${dest}/hack/coverage.sh" <<EOF
+#!/usr/bin/env bash
+MIN="\${COVERAGE_MIN:-${coverage_sh_min}}"
 EOF
 
   cat >"${dest}/codecov.yml" <<EOF
@@ -138,6 +150,15 @@ grep -q 'coverage floor drift' "${TMP}/codecov.err" ||
   fail "codecov drift must report; got: $(cat "${TMP}/codecov.err")"
 pass "injected codecov target drift fails closed"
 
+# hack/coverage.sh fallback drift must also fail (DOC-02-F2).
+write_fixture_tree "${TMP}/coverage-sh-drift" "87" "87" "87" "85"
+if assert_floors_agree "${TMP}/coverage-sh-drift" "fixture-coverage-sh" >/dev/null 2>"${TMP}/coverage-sh.err"; then
+  fail "injected coverage.sh fallback drift must fail"
+fi
+grep -q 'coverage floor drift' "${TMP}/coverage-sh.err" ||
+  fail "coverage.sh drift must report; got: $(cat "${TMP}/coverage-sh.err")"
+pass "injected coverage.sh fallback drift fails closed"
+
 # Matching fixtures must pass (proves the checker accepts parity).
 write_fixture_tree "${TMP}/match" "87" "87" "87"
 match_floor="$(assert_floors_agree "${TMP}/match" "fixture-match")"
@@ -148,7 +169,7 @@ pass "matching fixture agrees at 87"
 repo_floor="$(assert_floors_agree "${ROOT}" "repo")" ||
   fail "repo sources disagree — see stderr above"
 [[ "${repo_floor}" == "87" ]] ||
-  fail "repo coverage floor is ${repo_floor}, expected 87 (update docs + Taskfile + ci.yaml + codecov together)"
-pass "Taskfile.yml, ci.yaml, codecov.yml, and current-floor docs agree at ${repo_floor}"
+  fail "repo coverage floor is ${repo_floor}, expected 87 (update docs + Taskfile + ci.yaml + codecov + coverage.sh together)"
+pass "Taskfile.yml, ci.yaml, coverage.sh, codecov.yml, and current-floor docs agree at ${repo_floor}"
 
 printf 'docs coverage floor drift: ok (floor=%s)\n' "${repo_floor}"
