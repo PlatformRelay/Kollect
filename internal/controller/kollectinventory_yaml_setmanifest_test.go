@@ -89,6 +89,12 @@ func (b *treeBackend) manifestFile(t *testing.T) (git.FileEntry, treeCall) {
 func newYAMLGitSetup(t *testing.T, itemCount int, limit int64) (*KollectInventoryReconciler, *treeBackend, types.NamespacedName) {
 	t.Helper()
 
+	return newYAMLGitSetupMode(t, itemCount, limit, kollectdevv1alpha1.LayoutModePerResource)
+}
+
+func newYAMLGitSetupMode(t *testing.T, itemCount int, limit int64, mode string) (*KollectInventoryReconciler, *treeBackend, types.NamespacedName) {
+	t.Helper()
+
 	store := collect.NewStore()
 	for i := range itemCount {
 		store.Upsert(collect.Item{
@@ -119,7 +125,7 @@ func newYAMLGitSetup(t *testing.T, itemCount int, limit int64) (*KollectInventor
 			Type: kollectdevv1alpha1.SnapshotSinkTypeGit,
 			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
 				Endpoint: "https://example.com/inventory.git",
-				Layout:   &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource},
+				Layout:   &kollectdevv1alpha1.LayoutSpec{Mode: mode},
 			},
 		},
 	}
@@ -262,5 +268,83 @@ func TestKollectInventoryReconciler_singlePartYAMLNoManifest(t *testing.T) {
 		if strings.HasSuffix(f.Path, ".manifest.json") {
 			t.Fatalf("single-part export must emit NO manifest sidecar, found %q", f.Path)
 		}
+	}
+}
+
+// TestKollectInventoryReconciler_splitMultipartTwoControlFilesSurvivePrune covers the split-mode-unique
+// interaction: split places TWO control files under inventory/{ns}/ -- the per-projection split Index
+// AND the per-set manifest sidecar -- a prune/keep-set case perResource never exercises. Both control
+// files must land under inventory/{ns}/ and both must survive the single union-prune (be in the final
+// part's keep-set), or a consumer's index and completeness marker would be silently pruned.
+func TestKollectInventoryReconciler_splitMultipartTwoControlFilesSurvivePrune(t *testing.T) {
+	t.Parallel()
+
+	// A tight ceiling forces one item per part => three parts, split layout (index auto-enabled).
+	rec, backend, invKey := newYAMLGitSetupMode(t, 3, 900, kollectdevv1alpha1.LayoutModeSplit)
+
+	if _, err := rec.Reconcile(context.Background(), reconcile.Request{NamespacedName: invKey}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectInventory
+	if err := rec.Get(context.Background(), invKey, &got); err != nil {
+		t.Fatalf("Get inventory: %v", err)
+	}
+	synced := apimeta.FindStatusCondition(got.Status.Conditions, conditionSinkSynced)
+	if synced == nil || synced.Status != metav1.ConditionTrue {
+		t.Fatalf("Synced = %+v, want True (all parts succeeded)", synced)
+	}
+	if len(backend.calls) != 3 {
+		t.Fatalf("ExportFiles calls = %d, want 3 (one per part)", len(backend.calls))
+	}
+
+	const ctrlDir = "inventory/default/"
+
+	// The per-set manifest sidecar: exactly one, at the deterministic set path under inventory/{ns}/.
+	manifestFile, finalCall := backend.manifestFile(t)
+	if manifestFile.Path != ctrlDir+"team-inventory.manifest.json" {
+		t.Fatalf("manifest path = %q, want %steam-inventory.manifest.json", manifestFile.Path, ctrlDir)
+	}
+
+	// The split Index control file(s): under inventory/{ns}/, .yaml, and NOT the manifest. Split emits
+	// one per part, so at least one must appear across the exported files.
+	splitIndexPaths := map[string]struct{}{}
+	for _, call := range backend.calls {
+		for _, f := range call.files {
+			if strings.HasPrefix(f.Path, ctrlDir) && strings.HasSuffix(f.Path, ".yaml") {
+				splitIndexPaths[f.Path] = struct{}{}
+			}
+		}
+	}
+	if len(splitIndexPaths) == 0 {
+		t.Fatal("split mode must emit a layout.Index control file under inventory/{ns}/, found none")
+	}
+
+	// Prune-survival: the final part prunes once against the union; BOTH control-file kinds must be in
+	// the keep-set. Data files live under {cluster}/{sourceNs}/{kind}/ and are asserted kept too.
+	if !finalCall.prune {
+		t.Fatal("the manifest must ride the final, pruning part (single union-prune)")
+	}
+	keep := map[string]struct{}{}
+	for _, p := range finalCall.pruneKeepPaths {
+		keep[p] = struct{}{}
+	}
+	if _, ok := keep[manifestFile.Path]; !ok {
+		t.Fatalf("manifest %q missing from union keep-set %v (prune would orphan it)", manifestFile.Path, finalCall.pruneKeepPaths)
+	}
+	for idx := range splitIndexPaths {
+		if _, ok := keep[idx]; !ok {
+			t.Fatalf("split index %q missing from union keep-set %v (prune would orphan it)", idx, finalCall.pruneKeepPaths)
+		}
+	}
+	// Sanity: the union also keeps every data path (three items => three data files).
+	dataKept := 0
+	for p := range keep {
+		if !strings.HasPrefix(p, ctrlDir) {
+			dataKept++
+		}
+	}
+	if dataKept != 3 {
+		t.Fatalf("union keep-set data paths = %d, want 3 (one per part)", dataKept)
 	}
 }
