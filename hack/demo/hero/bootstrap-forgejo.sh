@@ -14,8 +14,10 @@ _internal_url="http://forgejo.${HERO_FORGEJO_NS}.svc.cluster.local:3000"
 
 _wait_forgejo() {
   _hero_log "Waiting for Forgejo Deployment..."
-  kubectl wait --for=condition=Available deployment/forgejo -n "$HERO_FORGEJO_NS" --timeout=300s
-  local deadline=$((SECONDS + 180))
+  # Available now requires /api/v1/version (see manifests/forgejo.yaml probes).
+  kubectl wait --for=condition=Available deployment/forgejo -n "$HERO_FORGEJO_NS" --timeout=600s
+  # Belt-and-suspenders: cold kind nodes still need headroom after Available.
+  local deadline=$((SECONDS + 480))
   while (( SECONDS < deadline )); do
     if kubectl exec -n "$HERO_FORGEJO_NS" deploy/forgejo -- \
       curl -fsS "${_internal_url}/api/v1/version" >/dev/null 2>&1; then
@@ -23,7 +25,9 @@ _wait_forgejo() {
     fi
     sleep 3
   done
-  echo "Forgejo API not ready" >&2
+  echo "Forgejo API not ready after Available + 480s API wait" >&2
+  kubectl -n "$HERO_FORGEJO_NS" get pods,deploy -o wide 2>/dev/null || true
+  kubectl -n "$HERO_FORGEJO_NS" logs deploy/forgejo --tail=80 2>/dev/null || true
   return 1
 }
 

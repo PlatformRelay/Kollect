@@ -152,4 +152,18 @@ if [[ -f "${NOOP_SETUP}" ]]; then
   pass "ci-noop-setup.sh present"
 fi
 
+# --- DEMO-03-FUP2: Forgejo Available must mean the API is ready (not just /) ---
+# CI flake: Deployment Available on path:/ while /api/v1/version still 502 → bootstrap
+# exits "Forgejo API not ready" exactly at the old 180s post-Available window.
+FORGEJO_MANIFEST="${ROOT}/hack/demo/hero/manifests/forgejo.yaml"
+BOOTSTRAP="${ROOT}/hack/demo/hero/bootstrap-forgejo.sh"
+[[ -f "${FORGEJO_MANIFEST}" ]] || fail "missing ${FORGEJO_MANIFEST}"
+[[ -f "${BOOTSTRAP}" ]] || fail "missing ${BOOTSTRAP}"
+grep -Eq 'path:[[:space:]]*/api/v1/version' "${FORGEJO_MANIFEST}" ||
+  fail "forgejo readiness/startup probe must hit /api/v1/version (not bare /)"
+# Belt-and-suspenders: post-Available API wait must exceed the observed ~3min flake window.
+grep -Eq 'SECONDS \+ (4[8-9][0-9]|[5-9][0-9]{2}|[1-9][0-9]{3,})' "${BOOTSTRAP}" ||
+  fail "bootstrap _wait_forgejo deadline must be ≥480s after Available (was 180s flake)"
+pass "Forgejo probe + bootstrap wait lock API readiness"
+
 printf 'demo-03 hero smoke: ok\n'
