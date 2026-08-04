@@ -509,7 +509,12 @@ func writeInitIntent(opts InitOptions, intent *initDraft) (InitResult, error) {
 		return InitResult{}, fmt.Errorf("write target: %w", err)
 	}
 
+	if err := ValidateInitConfig(opts.OutputDir); err != nil {
+		return InitResult{}, err
+	}
+
 	printInitPlain(opts, "Wrote %s\nWrote %s\n", profilePath, targetPath)
+	printInitPlain(opts, "%s", FormatInitTrialScreen(opts.OutputDir))
 	return InitResult{ProfilePath: profilePath, TargetPath: targetPath}, nil
 }
 
