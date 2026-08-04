@@ -18,6 +18,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **demo:** Make default path credential-free via hero demo [b5d3da4](https://github.com/platformrelay/kollect/commit/b5d3da419462da03127cb67830d9a8b246e6021b)
+
 - **demo:** Add demo-up/down task aliases [a555a7c](https://github.com/platformrelay/kollect/commit/a555a7ceacaef88806f6b9c70ca41ba14bcdc595)
 
 - **pipeline:** Init completion trial screen + YAML validation (PIPE-INIT-04) [310d48f](https://github.com/platformrelay/kollect/commit/310d48f7ada7d497b6380dcc7243ce1ccb19fcdd)
