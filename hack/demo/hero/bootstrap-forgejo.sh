@@ -40,9 +40,9 @@ _ensure_admin() {
   fi
 
   _hero_log "Creating Forgejo admin user ${HERO_FORGEJO_USER}..."
-  # forgejo admin speaks to the sqlite DB; config is generated from env by the entrypoint.
+  # Container entrypoint runs as root; forgejo refuses root — use su-exec git.
   kubectl exec -n "$HERO_FORGEJO_NS" deploy/forgejo -- \
-    forgejo admin user create \
+    su-exec git forgejo admin user create \
       --admin \
       --username "${HERO_FORGEJO_USER}" \
       --password "${HERO_FORGEJO_PASS}" \

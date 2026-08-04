@@ -164,8 +164,8 @@ grep -Eq 'path:[[:space:]]*/api/v1/version' "${FORGEJO_MANIFEST}" ||
 if grep -v '^[[:space:]]*#' "${BOOTSTRAP}" | grep -Eq 'api/v1/install'; then
   fail "bootstrap must not POST /api/v1/install (404 on Forgejo 11)"
 fi
-grep -Eq 'forgejo admin user create|_ensure_admin' "${BOOTSTRAP}" ||
-  fail "bootstrap must create admin via forgejo CLI (or _ensure_admin)"
+grep -Eq 'su-exec git forgejo admin user create|_ensure_admin' "${BOOTSTRAP}" ||
+  fail "bootstrap must create admin via su-exec git forgejo CLI (refuses root)"
 awk '/^_wait_forgejo\(\)/,/^}/' "${BOOTSTRAP}" | grep -v '^[[:space:]]*#' | grep -Eq 'api/v1/version' ||
   fail "_wait_forgejo must curl /api/v1/version once INSTALL_LOCK serves the API"
 grep -Eq 'SECONDS \+ (4[8-9][0-9]|[5-9][0-9]{2}|[1-9][0-9]{3,})' "${BOOTSTRAP}" ||
