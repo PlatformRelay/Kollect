@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **demo:** Headless Forgejo 11 bootstrap (INSTALL_LOCK) ([#255](https://github.com/platformrelay/kollect/pull/255))[97d175f](https://github.com/platformrelay/kollect/commit/97d175f6162d07820e25ac6dcee41cea9b7a22e5)
+
 - **demo:** Wait for Forgejo install UI, not version API ([#254](https://github.com/platformrelay/kollect/pull/254))[d03290d](https://github.com/platformrelay/kollect/commit/d03290d760e6d23d2d18235d857d4d114effc8dc)
 
 - **demo:** Wait for Forgejo API before hero bootstrap ([#253](https://github.com/platformrelay/kollect/pull/253))[bcd21b7](https://github.com/platformrelay/kollect/commit/bcd21b77f405a5ca224e6bf3da09bc459a31fd41)
