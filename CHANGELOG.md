@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **demo:** Wait for Forgejo API before hero bootstrap ([#253](https://github.com/platformrelay/kollect/pull/253))[bcd21b7](https://github.com/platformrelay/kollect/commit/bcd21b77f405a5ca224e6bf3da09bc459a31fd41)
+
 - **metrics:** Align labeled Collect label values with Desc [20fc539](https://github.com/platformrelay/kollect/commit/20fc539663aef0e734484656173f1b788953cf14)
 
 - **security:** Pin PATH for git exec in exec_git and connection [5eead85](https://github.com/platformrelay/kollect/commit/5eead85b71c4f3c693601e0f74952b2b9f362dd3)
