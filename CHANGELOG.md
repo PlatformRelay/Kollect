@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **e2e:** Nudge Target reconcile after inventory sink-ref patch [6515bf5](https://github.com/platformrelay/kollect/commit/6515bf592c447a8ccdf1462248eeb266966fc286)
+
 - **demo:** Harden DEMO-01 meta-test and gofmt samples helper [834c590](https://github.com/platformrelay/kollect/commit/834c5903b0829c10765261fb82cb6f948aad7a52)
 
 - **pipeline:** Clear govet err shadow in init trial tests [4e402c7](https://github.com/platformrelay/kollect/commit/4e402c7d24480c6e3b063ff816cc754174e42936)
