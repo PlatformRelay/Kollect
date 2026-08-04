@@ -59,16 +59,16 @@ ships. They cannot be used as placeholders in manifests.
 
 ## Sink probe — `spec.connectionTest`
 
-`config/samples/kollect_v1alpha1_kollectdatabasesink.yaml` sets `connectionTest: true`.
+`config/samples/advanced/kollect_v1alpha1_kollectdatabasesink.yaml` sets `connectionTest: true`.
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollectdatabasesink.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectdatabasesink.yaml
 kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/postgres-inventory-demo \
   -n default --timeout=60s
 kubectl describe kdb postgres-inventory-demo -n default
 ```
 
-Git snapshot sink sample (`config/samples/kollect_v1alpha1_kollectsnapshotsink.yaml`):
+Git snapshot sink sample (`config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink.yaml`):
 
 ```sh
 kubectl wait --for=condition=ConnectionVerified kollectsnapshotsink/git-inventory-demo \
@@ -98,7 +98,7 @@ After a successful annotation-only probe, the reconciler clears the annotation (
 
 ## KollectConnectionTest CR
 
-`config/samples/kollect_v1alpha1_kollectconnectiontest.yaml` — `spec.sinkRef` names exactly one
+`config/samples/advanced/kollect_v1alpha1_kollectconnectiontest.yaml` — `spec.sinkRef` names exactly one
 family sink:
 
 ```yaml
@@ -111,7 +111,7 @@ spec:
 Snapshot or event probes use `snapshotSinkRef` or `eventSinkRef` instead.
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollectconnectiontest.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectconnectiontest.yaml
 kubectl wait --for=condition=ConnectionVerified kollectconnectiontest/postgres-sink-probe \
   -n default --timeout=120s
 kubectl get kconntest postgres-sink-probe -n default -o wide

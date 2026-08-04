@@ -82,6 +82,14 @@ task dev-up
 # operator only (skip ingress/TLS/Grafana): KOLLECT_DEV_MINIMAL=1 task dev-up
 ```
 
+`task dev-up` builds then runs **`task demo-up`** (in-cluster Forgejo hero) so the default
+evaluator path reaches `ConnectionVerified` without Secrets. Profile/target examples remain under
+`config/samples/`; multi-sink / database samples:
+
+```sh
+kubectl apply -k config/samples/advanced/
+```
+
 Use `task --list-all` to see all targets.
 
 ### Build only
@@ -105,7 +113,10 @@ task kind-dev-up          # cluster + operator (+ addons unless KOLLECT_DEV_MINI
 KOLLECT_DEV_MINIMAL=1 task kind-dev-up   # operator only (skip addons)
 task kind-dev-load        # rebuild image after code changes
 task kind-dev-status      # cluster + pod status
-kubectl apply -k config/samples/
+kubectl apply -k config/samples/          # profiles/targets examples (no secret sinks)
+task demo-up                              # credential-free Ready Git path
+# optional multi-sink / Postgres / S3 / Kafka:
+# kubectl apply -k config/samples/advanced/
 task kind-dev-down
 ```
 

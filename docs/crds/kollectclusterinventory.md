@@ -80,7 +80,7 @@ once in `kollect-system` and reference them from cluster inventories (ADR-0208,
 ## Example
 
 A platform rollup that aggregates one cluster target and exports to a Postgres sink in
-`kollect-system` ([`config/samples/kollect_v1alpha1_kollectclusterinventory.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectclusterinventory.yaml)):
+`kollect-system` ([`config/samples/advanced/kollect_v1alpha1_kollectclusterinventory.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectclusterinventory.yaml)):
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -109,9 +109,9 @@ spec:
 ```sh
 # Prerequisites: namespaced profile, cluster target, sink in kollect-system
 kubectl apply -f config/samples/kollect_v1alpha1_kollectprofile_platform-argo-summary.yaml
-kubectl apply -f config/samples/kollect_v1alpha1_kollectdatabasesink.yaml -n kollect-system
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectdatabasesink.yaml -n kollect-system
 kubectl apply -f config/samples/kollect_v1alpha1_kollectclustertarget.yaml
-kubectl apply -f config/samples/kollect_v1alpha1_kollectclusterinventory.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectclusterinventory.yaml
 
 kubectl get kcinv platform-rollup -o yaml
 ```

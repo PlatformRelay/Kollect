@@ -51,7 +51,7 @@ Lifecycle: [concepts/export-pipeline.md §5](../concepts/export-pipeline.md#conn
 ## Example
 
 A one-shot probe against a `KollectDatabaseSink`
-([`config/samples/kollect_v1alpha1_kollectconnectiontest.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectconnectiontest.yaml)):
+([`config/samples/advanced/kollect_v1alpha1_kollectconnectiontest.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectconnectiontest.yaml)):
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -69,8 +69,8 @@ spec:
 ## Sample usage
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollectdatabasesink.yaml
-kubectl apply -f config/samples/kollect_v1alpha1_kollectconnectiontest.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectdatabasesink.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectconnectiontest.yaml
 
 kubectl wait --for=condition=ConnectionVerified kollectconnectiontest/postgres-sink-probe \
   -n default --timeout=120s
@@ -81,7 +81,7 @@ Re-run after fixing credentials:
 
 ```sh
 kubectl delete kconntest postgres-sink-probe -n default
-kubectl apply -f config/samples/kollect_v1alpha1_kollectconnectiontest.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectconnectiontest.yaml
 ```
 
 Or patch `spec.sinkRef` (same value) to bump generation and trigger re-probe:

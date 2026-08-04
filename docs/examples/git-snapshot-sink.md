@@ -10,7 +10,7 @@ A running operator, a writable Git repository, and a credentials Secret. Start w
 Use the validated minimal sample, then set its endpoint and Secret reference for your repository:
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollectsnapshotsink_git_minimal.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_git_minimal.yaml
 ```
 
 ## Verify
@@ -27,7 +27,7 @@ Describe the sink and check repository permissions, TLS trust, branch, and Secre
 ## Cleanup
 
 ```sh
-kubectl delete -f config/samples/kollect_v1alpha1_kollectsnapshotsink_git_minimal.yaml
+kubectl delete -f config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_git_minimal.yaml
 ```
 
 ## Further reading

@@ -77,7 +77,8 @@ Run from repository root with [Task](https://taskfile.dev/). Full list: `task --
 
 | Task | Purpose |
 | --- | --- |
-| `task dev-up` | Bootstrap: build, kind cluster, Helm install, samples |
+| `task dev-up` | Bootstrap: build, kind cluster, Helm install, credential-free samples |
+| `task demo-up` | Venue demo: kind + Forgejo + Git-only golden sample |
 | `task kind-dev-up` | Create `kollect-dev` cluster and deploy operator |
 | `task kind-dev-down` | Delete `kollect-dev` cluster |
 | `task kind-dev-status` | Show cluster and operator health |

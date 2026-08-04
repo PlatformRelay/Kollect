@@ -22,6 +22,6 @@ Or study / apply individually in order:
 | 9 | [09-kollectinventory.yaml](09-kollectinventory.yaml) | Debounced Git export wiring |
 
 For **dual-cadence** Postgres + Git (`exportMinInterval` per ref), see
-`config/samples/kollect_v1alpha1_kollectinventory.yaml`
+`config/samples/advanced/kollect_v1alpha1_kollectinventory.yaml`
 and [deployment-inventory.md](../../../docs/examples/deployment-inventory.md#step-4-kollectinventory)
 ([ADR-0413](../../../docs/adr/0413-export-interval-scheduling.md)).

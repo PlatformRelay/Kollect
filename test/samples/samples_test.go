@@ -78,8 +78,7 @@ func TestSampleClusterTargetValidates(t *testing.T) {
 func TestSampleClusterInventoryValidates(t *testing.T) {
 	t.Parallel()
 
-	root := filepath.Join("..", "..", "config", "samples")
-	path := filepath.Join(root, "kollect_v1alpha1_kollectclusterinventory.yaml")
+	path := samplePath(t, "kollect_v1alpha1_kollectclusterinventory.yaml")
 
 	var inv kollectdevv1alpha1.KollectClusterInventory
 	decodeSample(t, path, &inv)
@@ -92,8 +91,7 @@ func TestSampleClusterInventoryValidates(t *testing.T) {
 func TestSampleInventoryExportPartitioningValidates(t *testing.T) {
 	t.Parallel()
 
-	root := filepath.Join("..", "..", "config", "samples")
-	path := filepath.Join(root, "kollect_v1alpha1_kollectinventory_export-partitioning.yaml")
+	path := samplePath(t, "kollect_v1alpha1_kollectinventory_export-partitioning.yaml")
 
 	var inv kollectdevv1alpha1.KollectInventory
 	decodeSample(t, path, &inv)
@@ -124,28 +122,26 @@ func TestSampleInventoryExportPartitioningValidates(t *testing.T) {
 func TestSampleSinksValidate(t *testing.T) {
 	t.Parallel()
 
-	root := filepath.Join("..", "..", "config", "samples")
-
 	snapshots := []string{
 		"kollect_v1alpha1_kollectsnapshotsink.yaml",
 		"kollect_v1alpha1_kollectsnapshotsink_s3.yaml",
 	}
 	for _, name := range snapshots {
 		var sink kollectdevv1alpha1.KollectSnapshotSink
-		decodeSample(t, filepath.Join(root, name), &sink)
+		decodeSample(t, samplePath(t, name), &sink)
 		if errs := validation.ValidateSnapshotSinkSpec(&sink.Spec); len(errs) > 0 {
 			t.Fatalf("%s: validation failed: %v", name, errs)
 		}
 	}
 
 	var db kollectdevv1alpha1.KollectDatabaseSink
-	decodeSample(t, filepath.Join(root, "kollect_v1alpha1_kollectdatabasesink.yaml"), &db)
+	decodeSample(t, samplePath(t, "kollect_v1alpha1_kollectdatabasesink.yaml"), &db)
 	if errs := validation.ValidateDatabaseSinkSpec(&db.Spec); len(errs) > 0 {
 		t.Fatalf("database sink sample validation failed: %v", errs)
 	}
 
 	var bq kollectdevv1alpha1.KollectDatabaseSink
-	decodeSample(t, filepath.Join(root, "kollect_v1alpha1_kollectdatabasesink_bigquery.yaml"), &bq)
+	decodeSample(t, samplePath(t, "kollect_v1alpha1_kollectdatabasesink_bigquery.yaml"), &bq)
 	if errs := validation.ValidateDatabaseSinkSpec(&bq.Spec); len(errs) > 0 {
 		t.Fatalf("bigquery sink sample validation failed: %v", errs)
 	}
@@ -155,11 +151,28 @@ func TestSampleSinksValidate(t *testing.T) {
 		"kollect_v1alpha1_kollecteventsink_nats.yaml",
 	} {
 		var ev kollectdevv1alpha1.KollectEventSink
-		decodeSample(t, filepath.Join(root, name), &ev)
+		decodeSample(t, samplePath(t, name), &ev)
 		if errs := validation.ValidateEventSinkSpec(&ev.Spec); len(errs) > 0 {
 			t.Fatalf("%s: validation failed: %v", name, errs)
 		}
 	}
+}
+
+
+func samplePath(t *testing.T, name string) string {
+	t.Helper()
+	root := filepath.Join("..", "..", "config", "samples")
+	candidates := []string{
+		filepath.Join(root, name),
+		filepath.Join(root, "advanced", name),
+	}
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	t.Fatalf("sample not found under config/samples or config/samples/advanced: %s", name)
+	return ""
 }
 
 func decodeSample(t *testing.T, path string, into any) {
@@ -178,7 +191,6 @@ func decodeSample(t *testing.T, path string, into any) {
 func TestSampleKindsDecode(t *testing.T) {
 	t.Parallel()
 
-	root := filepath.Join("..", "..", "config", "samples")
 	patterns := []string{
 
 		"kollect_v1alpha1_kollecttarget.yaml",
@@ -194,7 +206,7 @@ func TestSampleKindsDecode(t *testing.T) {
 
 	for _, name := range patterns {
 		//nolint:gosec // G304: path is under repo config/samples only
-		data, err := os.ReadFile(filepath.Join(root, name))
+		data, err := os.ReadFile(samplePath(t, name))
 		if err != nil {
 			t.Fatalf("read %s: %v", name, err)
 		}

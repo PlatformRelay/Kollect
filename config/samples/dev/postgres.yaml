@@ -1,13 +1,13 @@
 # Disposable Postgres for the local quickstart ONLY — never use in production.
 #
-# Backs the default sample KollectDatabaseSink (postgres-inventory-demo). The Service DNS
-# matches the DSN documented in docs/QUICKSTART.md and in the sample sink comment:
+# Backs the advanced-path KollectDatabaseSink (postgres-inventory-demo). The Service DNS
+# matches the DSN documented in the sample sink comment:
 #   postgres://kollect:example@postgres.kollect-system.svc:5432/inventory?sslmode=disable
 #
 # Storage is emptyDir — data is thrown away with the pod by design. Not part of
-# `kubectl apply -k config/samples/` (it is backing infrastructure, not a sample CR);
-# apply it explicitly:
+# default `kubectl apply -k config/samples/` (DEMO-01); apply with advanced samples:
 #   kubectl apply -f config/samples/dev/postgres.yaml
+#   kubectl apply -k config/samples/advanced/
 apiVersion: apps/v1
 kind: Deployment
 metadata:

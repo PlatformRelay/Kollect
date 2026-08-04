@@ -37,7 +37,7 @@ upsert + stale delete in a single `MERGE` statement
 ## Example
 
 A Postgres sink that upserts into an existing table and never issues DDL
-([`config/samples/kollect_v1alpha1_kollectdatabasesink.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectdatabasesink.yaml)):
+([`config/samples/advanced/kollect_v1alpha1_kollectdatabasesink.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectdatabasesink.yaml)):
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -62,10 +62,10 @@ spec:
 ```
 
 MongoDB variant:
-[`config/samples/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml).
+[`config/samples/advanced/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectdatabasesink_mongodb.yaml).
 
 BigQuery variant:
-[`config/samples/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml).
+[`config/samples/advanced/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml).
 
 ## Status
 

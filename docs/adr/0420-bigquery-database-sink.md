@@ -259,7 +259,7 @@ The implementation satisfies the [ADR-0706](0706-testing-merge-gate-architecture
   validates `MERGE … UNNEST(@rows)` directly.
 - **Schema/manifests:** golden OpenAPI spec fragment for the database sink CRD under
   `test/schema/golden/` (extending the cases in `test/schema/extract.go`), a
-  `config/samples/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml` sample, and a refreshed
+  `config/samples/advanced/kollect_v1alpha1_kollectdatabasesink_bigquery.yaml` sample, and a refreshed
   `docs/crds/kollectdatabasesink.md` page.
 - **Live GCP e2e** (real project, WIF, real quotas) is **maintainer-only and never runs in CI** —
   there is no hermetic, free, secret-less way to exercise real IAM from a public repo.

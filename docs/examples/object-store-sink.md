@@ -9,7 +9,7 @@ in the generated [snapshot sink schema](../crds/kollectsnapshotsink.md).
 ## Apply
 
 ```sh
-kubectl apply -f config/samples/kollect_v1alpha1_kollectsnapshotsink_s3.yaml
+kubectl apply -f config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_s3.yaml
 ```
 
 Set the sample endpoint, bucket, and Secret reference before using a non-local service. For GCS,
@@ -29,7 +29,7 @@ Check bucket permissions, region, endpoint DNS/TLS, and the resolved credential 
 ## Cleanup
 
 ```sh
-kubectl delete -f config/samples/kollect_v1alpha1_kollectsnapshotsink_s3.yaml
+kubectl delete -f config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_s3.yaml
 ```
 
 ## Further reading
