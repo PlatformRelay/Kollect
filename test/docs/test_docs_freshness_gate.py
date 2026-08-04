@@ -23,6 +23,8 @@ class DocsFreshnessGateTest(unittest.TestCase):
         self.assertIn("docs_launch_truth_test.sh", verifier)
         self.assertIn("docs_adr_kollectsink_retcon_test.sh", verifier)
         self.assertIn("security_architecture_docs_test.sh", verifier)
+        self.assertIn("ui_removal_reference_test.sh", verifier)
+        self.assertIn("hyg_ui_gitignore_test.sh", verifier)
         self.assertIn("test/docs", verifier)
         self.assertIn("./test/samples", verifier)
         self.assertIn("mkdocs build --strict", verifier)
@@ -35,6 +37,13 @@ class DocsFreshnessGateTest(unittest.TestCase):
         self.assertNotIn("mkdocs build --strict", workflow)
         self.assertNotIn("bash hack/test/security_architecture_docs_test.sh", workflow)
         self.assertIn("DOCS_REQUIRE_CHROME: \"1\"", workflow)
+        # Meta-tests composed by docs:verify must also be path-filter inputs so
+        # edits re-trigger Docs CI (mirror ui_removal_reference_test.sh).
+        self.assertEqual(
+            workflow.count('- "hack/test/hyg_ui_gitignore_test.sh"'),
+            2,
+            "docs.yaml must path-filter hyg_ui_gitignore_test.sh on push and pull_request",
+        )
 
     def test_tracked_markdown_selector_ignores_other_markdown(self) -> None:
         selector = ROOT / "hack/docs/tracked-markdown.sh"
