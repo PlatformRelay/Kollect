@@ -136,6 +136,66 @@ func TestRunner_forbiddenGVKIsSkipped(t *testing.T) {
 	}
 }
 
+// COV-90-S13 EDGE: SAR-denied list for one tenant records skipped:forbidden while a
+// sibling tenant in another namespace still collects successfully.
+func TestRunner_forbiddenTenantDoesNotBlockSibling(t *testing.T) {
+	t.Parallel()
+
+	okSecret := unstructuredSecret("tenant-ok", "release-ok", map[string]string{"chart": "ok-1.0"})
+	dyn := newFakeDynClient(okSecret)
+	dyn.PrependReactor("list", "secrets", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		listAction, ok := action.(clienttesting.ListAction)
+		if !ok {
+			return false, nil, nil
+		}
+		if listAction.GetNamespace() == "tenant-denied" {
+			return true, nil, apierrors.NewForbidden(
+				schema.GroupResource{Resource: "secrets"}, "", fmt.Errorf("SAR denied"),
+			)
+		}
+		return false, nil, nil
+	})
+	kube := kubefake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "tenant-ok"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "tenant-denied"}},
+	)
+
+	r, err := NewRunnerWithMapper(dyn, kube, staticSecretMapper(), nil)
+	if err != nil {
+		t.Fatalf("NewRunnerWithMapper() error = %v", err)
+	}
+
+	profile := testProfile(kollectdevv1alpha1.AttributeSpec{Name: "chart", Path: "$.metadata.annotations.chart"})
+	denied := testTarget("tenant-denied", "t-denied", "test-profile")
+	denied.Spec.IncludedNamespaces = []string{"tenant-denied"}
+	allowed := testTarget("tenant-ok", "t-ok", "test-profile")
+	allowed.Spec.IncludedNamespaces = []string{"tenant-ok"}
+
+	result, err := r.Run(context.Background(),
+		[]kollectdevv1alpha1.KollectProfile{profile},
+		[]kollectdevv1alpha1.KollectTarget{denied, allowed},
+	)
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if len(result.SkippedTargets) != 1 || result.SkippedTargets[0].Reason != "forbidden" {
+		t.Fatalf("expected skipped:forbidden for denied tenant, got %v", result.SkippedTargets)
+	}
+	if result.SkippedTargets[0].Name != "tenant-denied/t-denied" {
+		t.Fatalf("skip name = %q, want tenant-denied/t-denied", result.SkippedTargets[0].Name)
+	}
+	if result.ItemCount != 1 {
+		t.Fatalf("ItemCount = %d, want 1 (allowed tenant must still collect)", result.ItemCount)
+	}
+	items := r.Store().SnapshotTarget("tenant-ok", "t-ok")
+	if len(items) != 1 {
+		t.Fatalf("allowed tenant store items = %d, want 1", len(items))
+	}
+	if len(r.Store().SnapshotTarget("tenant-denied", "t-denied")) != 0 {
+		t.Fatal("denied tenant must not store items after skipped:forbidden")
+	}
+}
+
 func TestRunner_gvkNotFoundInCluster(t *testing.T) {
 	t.Parallel()
 
