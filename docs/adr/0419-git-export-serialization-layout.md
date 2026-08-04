@@ -127,6 +127,17 @@ union-prune — and its path is appended to `PruneKeepPaths` alongside every dat
   reconcile, so no sidecar is emitted; this depends on and builds directly on the multipart union-prune
   established for tree modes.
 
+**Shared-repo-path constraint (one inventory per managed path).** The sidecar path
+`inventory/{namespace}/{name}.manifest.json` places it inside the pruned managed directory. Each export
+prunes against **only its own** part union, so if two sibling inventories in the same namespace export to
+the **same repo path**, inventory B's prune would delete inventory A's manifest (a false-torn signal and
+marker flapping — the data files under `{cluster}/{sourceNamespace}/{kind}/` are keyed distinctly and are
+not lost, but the completeness marker is). A shared repo path across sibling inventories is therefore
+**unsupported** for the manifest: give each inventory its own repo path (distinct `endpoint`/subpath), or
+rely on the distinct `{name}` component keeping manifests from colliding while accepting that a
+co-located sibling's prune may still remove them. This mirrors the existing per-inventory ownership
+assumption of the managed directory ([ADR-0407](0407-git-object-store-layout.md)).
+
 ## Consequences
 
 - Zero-field Git configuration produces human-readable diffs.

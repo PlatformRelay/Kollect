@@ -105,15 +105,19 @@ sidecar for the whole set:
   sidecar) nor for `document` mode (all parts overwrite one path — a degenerate set; `document` is
   `prune: off`). Its prune interaction is specified in [ADR-0419](0419-git-export-serialization-layout.md).
 
-**Consumer validation (YAML sidecar contract).** A consumer confirms a YAML set is complete by reading
-the manifest and checking that **every path in `paths` exists on disk** (a missing path = a torn set, a
-part failed to persist) and that `generation` matches the generation it expects (from the CR status or
-commit metadata — the same expected-generation signal the JSON contract uses; a mismatch = a stale set
-left by a torn export that never rewrote the manifest). `layout.VerifySet` implements this rule (and, for
-generation-scoped path templates, additionally surfaces prior-generation orphan data files); its
-`present` argument may be a raw directory listing — the `.manifest.json` sidecar is an expected member of
-the set, never counted as a stale extra. A single-part export writes **no** sidecar and is complete on
-its own, byte-identical to the pre-marker shape (additive evolution, rule 2).
+**Consumer validation (YAML sidecar contract).** Writer/verifier split: the controller **writes** the
+manifest (it never reads it back), and **completeness detection is the consumer's responsibility** — the
+marker is a *detection* contract, not a controller-side guarantee. A consumer confirms a YAML set is
+complete by reading the manifest and checking that **every path in `paths` exists on disk** (a missing
+path = a torn set, a part failed to persist) and that `generation` matches the generation it expects
+(from the CR status or commit metadata — the same expected-generation signal the JSON contract uses; a
+mismatch = a stale set left by a torn export that never rewrote the manifest). `layout.VerifySet` is a
+**consumer-side helper** (it has no production callers inside the operator) that a Go consumer can vendor
+to apply exactly this rule — and, for generation-scoped path templates, it additionally surfaces
+prior-generation orphan data files; its `present` argument may be a raw directory listing — the
+`.manifest.json` sidecar is an expected member of the set, never counted as a stale extra. A single-part
+export writes **no** sidecar and is complete on its own, byte-identical to the pre-marker shape (additive
+evolution, rule 2).
 
 **Consumer validation (JSON envelope contract).** A consumer reassembling a set from JSON envelopes
 MUST verify it holds every index `1..partTotal`, that the count equals `partTotal`, and that
