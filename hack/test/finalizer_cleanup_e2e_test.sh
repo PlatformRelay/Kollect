@@ -42,6 +42,10 @@ grep -Eq 'Degraded|condition=Degraded' "${ASSERT}" ||
   fail "assert must check Degraded=True on Target"
 grep -Eq 'Warning|Event|events\.k8s\.io|kubectl get events' "${ASSERT}" ||
   fail "assert must check Warning Event for Degraded Target"
+# KollectTarget does not watch Inventory — after sink-ref patch/restore the script
+# must nudge the Target (annotate/patch) so Degraded/Ready waits observe updates.
+grep -Eq 'annotate[[:space:]].*kollecttarget|nudge.*[Tt]arget|force.*[Rr]econcile' "${ASSERT}" ||
+  fail "assert must annotate/nudge KollectTarget after inventory sink-ref patch (no Inventory watch)"
 pass "assert script covers RED delete + EDGE retry + EDGE Degraded/Warning"
 
 # --- e2e-nightly.yaml matrix includes finalizer-cleanup scenario ---
