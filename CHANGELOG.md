@@ -16,6 +16,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **pipeline:** Consented init attribute sampling + sensitive-kind guard (PIPE-INIT-02) [c4f7881](https://github.com/platformrelay/kollect/commit/c4f78819e2972e885a1a4d15329a367e6db88cbd)
+
 - **pipeline:** Add kollect-pipeline init wizard (PIPE-INIT-01) [794498b](https://github.com/platformrelay/kollect/commit/794498b3d8215e81e6173a605e8f5632ad065588)
 
 ## [0.16.0](https://github.com/platformrelay/kollect/compare/v0.15.0..v0.16.0) - 2026-08-04
