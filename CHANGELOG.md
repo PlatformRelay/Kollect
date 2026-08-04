@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **metrics:** Align labeled Collect label values with Desc [3ef013a](https://github.com/platformrelay/kollect/commit/3ef013ab1bc9f814753af62b94e206ca77c170d3)
+
 - **security:** Pin PATH for git exec in exec_git and connection [5eead85](https://github.com/platformrelay/kollect/commit/5eead85b71c4f3c693601e0f74952b2b9f362dd3)
 
 - **demo:** Compose git-postgres from git-only Kustomization base (DOC-04) [42231f7](https://github.com/platformrelay/kollect/commit/42231f76dac24e2522572358b55643db526e062d)
