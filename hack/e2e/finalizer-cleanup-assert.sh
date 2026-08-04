@@ -38,18 +38,13 @@ _fail_diag() {
   kubectl logs -n "${KOLLECT_NAMESPACE}" -l app.kubernetes.io/name=kollect --tail=80 2>/dev/null || true
 }
 
-retry_assert() {
-  local attempts="$1" delay="$2"
-  shift 2
-  local i
-  for ((i = 1; i < attempts; i++)); do
-    if "$@" 2>/dev/null; then
-      return 0
-    fi
-    _log "assertion not satisfied yet (attempt ${i}/${attempts}); retrying in ${delay}s"
-    sleep "${delay}"
-  done
-  "$@"
+# KollectTarget does not watch Inventory; bump an annotation so reconcile
+# re-reads namespace sink reachability after inventory sink-ref changes.
+nudge_target_reconcile() {
+  local name="${1:-${TARGET_NAME}}"
+  local ns="${2:-default}"
+  kubectl annotate "kollecttarget/${name}" -n "${ns}" \
+    "kollect.dev/e2e-reconcile-nudge=$(date +%s%N)" --overwrite
 }
 
 wait_gone() {
@@ -141,6 +136,8 @@ scenario_degraded_warning() {
 
   kubectl patch kollectinventory "${INVENTORY_NAME}" -n default --type=json \
     -p="[{\"op\":\"replace\",\"path\":\"/spec/snapshotSinkRefs\",\"value\":[{\"name\":\"${DEGRADE_SINK}\"}]}]"
+  # Target does not watch Inventory — force reconcile so sink reachability updates.
+  nudge_target_reconcile
 
   local end
   end=$((SECONDS + ${WAIT_TIMEOUT%s}))
@@ -190,6 +187,7 @@ scenario_degraded_warning() {
   # Restore sink ref so subsequent RED paths can collect again.
   kubectl patch kollectinventory "${INVENTORY_NAME}" -n default --type=json \
     -p="[{\"op\":\"replace\",\"path\":\"/spec/snapshotSinkRefs\",\"value\":[{\"name\":\"${prev}\"}]}]"
+  nudge_target_reconcile
   assert_target_ready
   _log "EDGE Degraded/Warning OK; Target Ready again"
 }
