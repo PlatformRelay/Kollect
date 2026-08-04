@@ -40,6 +40,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **demo:** Add hero-git-only GIF and fix state source ([#259](https://github.com/platformrelay/kollect/pull/259))[499ab9c](https://github.com/platformrelay/kollect/commit/499ab9c814696a911b9d96cc71a3bcea1df2e011)
+
 - **demo:** Make default path credential-free via hero demo [73acfc9](https://github.com/platformrelay/kollect/commit/73acfc9181f694956e58572cfabd2447474becce)
 
 - **demo:** Add demo-up/down task aliases [a555a7c](https://github.com/platformrelay/kollect/commit/a555a7ceacaef88806f6b9c70ca41ba14bcdc595)
