@@ -139,18 +139,18 @@ func samplePreviewItems() []collect.Item {
 		"spec":       map[string]any{"replicas": 3},
 	}
 
-	return []collect.Item{
-		{
-			TargetNamespace: "team-a", TargetName: "api", Namespace: "team-a", Name: "api",
-			Group: "apps", Version: "v1", Kind: "Deployment", UID: "uid-api",
+	// Four synthetic rows so renderLayoutPreview exercises the SamplePaths cap (max 3).
+	names := []string{"api", "web", "cache", "worker"}
+	items := make([]collect.Item, 0, len(names))
+	for _, name := range names {
+		items = append(items, collect.Item{
+			TargetNamespace: "team-a", TargetName: name, Namespace: "team-a", Name: name,
+			Group: "apps", Version: "v1", Kind: "Deployment", UID: "uid-" + name,
 			Attributes: map[string]any{layout.DefaultManifestKey: manifest, "image": "nginx:1.27"},
-		},
-		{
-			TargetNamespace: "team-a", TargetName: "web", Namespace: "team-a", Name: "web",
-			Group: "apps", Version: "v1", Kind: "Deployment", UID: "uid-web",
-			Attributes: map[string]any{layout.DefaultManifestKey: manifest, "image": "nginx:1.27"},
-		},
+		})
 	}
+
+	return items
 }
 
 func defaultCluster(cluster string) string {
