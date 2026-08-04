@@ -181,4 +181,14 @@ grep -Eq '^[[:space:]]*-[[:space:]]*name:[[:space:]]*hero-git-sink[[:space:]]*$'
   fail "git-only inventory snapshotSinkRefs must use object form (- name: hero-git-sink)"
 pass "demo inventory uses InventorySinkRef object form"
 
+# Hero install must enable allowPrivateSinks for in-cluster Forgejo ClusterIP.
+HERO_VALUES="${ROOT}/charts/kollect/ci/hero-values.yaml"
+LIB="${ROOT}/hack/demo/hero/lib.sh"
+[[ -f "${HERO_VALUES}" ]] || fail "missing ${HERO_VALUES}"
+grep -Eq '^allowPrivateSinks:[[:space:]]*true[[:space:]]*$' "${HERO_VALUES}" ||
+  fail "hero-values.yaml must set allowPrivateSinks: true (Forgejo ClusterIP)"
+grep -Eq 'hero-values\.yaml' "${LIB}" ||
+  fail "lib.sh HERO_DEV_VALUES must point at hero-values.yaml"
+pass "hero values enable allowPrivateSinks"
+
 printf 'demo-03 hero smoke: ok\n'

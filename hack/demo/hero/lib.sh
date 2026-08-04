@@ -9,7 +9,7 @@ source "${REPO_ROOT}/hack/kind/common.sh"
 
 readonly HERO_CLUSTER="${HERO_CLUSTER:-kollect-hero}"
 readonly HERO_CLUSTER_CONFIG="${HERO_CLUSTER_CONFIG:-${HERO_DIR}/cluster.yaml}"
-readonly HERO_DEV_VALUES="${HERO_DEV_VALUES:-${REPO_ROOT}/charts/kollect/ci/dev-values.yaml}"
+readonly HERO_DEV_VALUES="${HERO_DEV_VALUES:-${REPO_ROOT}/charts/kollect/ci/hero-values.yaml}"
 readonly HERO_STATE_FILE="${HERO_STATE_FILE:-/tmp/kollect-hero-state.env}"
 readonly HERO_PF_PID_FILE="${HERO_PF_PID_FILE:-/tmp/kollect-hero-forgejo-pf.pid}"
 readonly HERO_FORGEJO_NS="${HERO_FORGEJO_NS:-forgejo}"
