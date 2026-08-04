@@ -117,6 +117,8 @@ jobs:
         run: |
           bash hack/test/verify-sha256_test.sh
           bash hack/test/install-checksum-negative_test.sh
+      - name: Verify demo-up/demo-down task aliases
+        run: bash hack/test/demo_task_aliases_test.sh
       - name: Install Helm
         env:
           HELM_VERSION: v3.17.3
