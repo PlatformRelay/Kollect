@@ -158,31 +158,31 @@ scenario_degraded_warning() {
   fi
   _log "Target Degraded=True (missing sink)"
 
-  # Warning Event from the target controller (SinkNotFound / similar).
+  # Warning Event from the target controller for the missing sink (SinkNotFound).
   end=$((SECONDS + 60))
   local saw_warning=0
   while (( SECONDS < end )); do
     if kubectl get events -n default --field-selector "involvedObject.kind=KollectTarget,involvedObject.name=${TARGET_NAME}" \
       -o custom-columns=TYPE:.type,REASON:.reason --no-headers 2>/dev/null \
-      | grep -Eq '^Warning'; then
+      | grep -Eq '^Warning[[:space:]]+SinkNotFound([[:space:]]|$)'; then
       saw_warning=1
       break
     fi
     # Fallback: broader search (events.k8s.io naming varies by cluster age).
     if kubectl get events -n default -o json 2>/dev/null \
       | grep -E '"involvedObject".*"name":[[:space:]]*"'"${TARGET_NAME}"'"' -A20 \
-      | grep -Eq '"type":[[:space:]]*"Warning"'; then
+      | grep -Eq '"reason":[[:space:]]*"SinkNotFound"'; then
       saw_warning=1
       break
     fi
     sleep 2
   done
   if [[ "${saw_warning}" -ne 1 ]]; then
-    _fail_diag "expected Warning Event on Degraded KollectTarget/${TARGET_NAME}"
+    _fail_diag "expected Warning SinkNotFound Event on Degraded KollectTarget/${TARGET_NAME}"
     kubectl get events -n default --sort-by=.lastTimestamp | tail -30 >&2 || true
     return 1
   fi
-  _log "Warning Event present for Degraded Target"
+  _log "Warning SinkNotFound Event present for Degraded Target"
 
   # Restore sink ref so subsequent RED paths can collect again.
   kubectl patch kollectinventory "${INVENTORY_NAME}" -n default --type=json \
@@ -273,6 +273,11 @@ scenario_target_delete() {
 
   local before
   before="$(inventory_http_item_count "${http_port}")"
+  if ! [[ "${before}" =~ ^[0-9]+$ ]]; then
+    _fail_diag "pre-delete inventory HTTP itemCount missing/non-numeric (port-forward/curl failure?)"
+    kill "${pf_pid}" 2>/dev/null || true
+    return 1
+  fi
   _log "pre-delete itemCount=${before}"
 
   kubectl delete kollecttarget "${TARGET_NAME}" -n default --wait=false
@@ -280,12 +285,14 @@ scenario_target_delete() {
   _log "Target deleted (finalizer removed)"
 
   # UnregisterTarget tears down the in-memory collection artifact.
+  # Fail closed: empty/non-numeric itemCount is curl/PF failure, not teardown success.
+  # InventorySummary always emits itemCount (including 0); succeed only on numeric 0 or drop.
   local end count
   end=$((SECONDS + ${WAIT_TIMEOUT%s}))
   while (( SECONDS < end )); do
     count="$(inventory_http_item_count "${http_port}")"
-    if [[ -z "${count}" || "${count}" -lt "${before}" || "${count}" -eq 0 ]]; then
-      _log "artifact torn down (itemCount ${before} → ${count:-0})"
+    if [[ "${count}" =~ ^[0-9]+$ ]] && (( count == 0 || count < before )); then
+      _log "artifact torn down (itemCount ${before} → ${count})"
       kill "${pf_pid}" 2>/dev/null || true
       pf_pid=""
       trap - RETURN

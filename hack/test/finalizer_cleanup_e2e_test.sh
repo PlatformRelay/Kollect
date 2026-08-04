@@ -33,6 +33,16 @@ grep -Eq 'finalizer|DeletionTimestamp|delete' "${ASSERT}" ||
 grep -Eq 'inventory|Unregister|itemCount|artifact|cleanup' "${ASSERT}" ||
   fail "assert must verify collected/exported artifact teardown after delete"
 
+# Fail-closed (COV-90-S14 F1): empty/non-numeric itemCount is curl/PF failure —
+# never treat `-z "${count}"` as teardown success. InventorySummary always emits
+# itemCount (incl. 0); success requires a numeric count that is 0 or dropped.
+if grep -Eq -- '-z "\$\{count\}"' "${ASSERT}"; then
+  fail "artifact teardown must not treat empty itemCount (-z count) as success"
+fi
+grep -Eq '\[\[ "\$\{count\}" =~ \^\[0-9\]\+\$ \]\]' "${ASSERT}" ||
+  fail "artifact teardown must require numeric itemCount (fail closed on curl/PF failure)"
+pass "artifact teardown fail-closed on empty/non-numeric itemCount"
+
 # EDGE: sink rejects teardown once → retry/recovery completes.
 grep -Eq 'retry|requeue|reject|missing.*(secret|sink)|databaseSink|partial' "${ASSERT}" ||
   fail "assert must cover sink-reject-once / retry-complete EDGE"
