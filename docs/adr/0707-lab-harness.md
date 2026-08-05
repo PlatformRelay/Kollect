@@ -11,8 +11,9 @@
 
 Maintainer multi-node evidence today is **hand-run**: protocols under gitignored
 `agent-context/lab-protocols/`, artefacts under `artifacts/lab/<RUN_ID>/`. Repeated
-`quick+sinks` runs (latest `dr-20260805-cd33ee` on **v0.16.0**) prove HA, ClusterIP sinks with
-`allowPrivateSinks`, GitHub/GitLab export, and idle pprof — with most of the DR catalogue
+`quick+sinks` runs (latest `dr-20260805-cd33ee` on **v0.16.0**) provide **bounded evidence**
+(**READY WITH CONDITIONS**) for HA failover, ClusterIP sinks with `allowPrivateSinks`,
+GitHub/GitLab export, and idle pprof under that named pin — with most of the DR catalogue
 **SKIPPED by operator judgment**, not by a coded stop rule. Behaviour is summarised in the
 [lab evidence bundle](../operator-manual/lab-evidence-bundle.md) example.
 
@@ -92,7 +93,7 @@ completeness). Scores 1–5 (higher better). Winner = highest weighted sum.
 | Merge without live cluster (5) | 5 | 4 | 5 | 5 | 5 | 5 | 5 | 1 |
 | Operability / agent fit (3) | 5 | 3 | 5 | 3 | 4 | 4 | 5 | 2 |
 | Long-term typed rigor (2) | 2 | 5 | 3 | 3 | 4 | 3 | 4 | 3 |
-| **Weighted sum** | **91** | **62** | **95** | **55** | **93** | **66** | **100** | **36** |
+| **Weighted sum** | **109** | **77** | **112** | **70** | **111** | **80** | **118** | **45** |
 
 **Winners:** A1 shell-first; B2 cluster-agnostic; C3 schedule registry; D2 lab as L4.5. Numbers for
 “typed rigor” and “agent fit” are the most subjective.
