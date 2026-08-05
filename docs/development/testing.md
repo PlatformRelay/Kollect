@@ -122,18 +122,20 @@ For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a 
 
 ## Multi-node lab evidence
 
-Kind L4 proves single-node wiring. Separately, published **v0.14.0** was exercised on a Talos lab
-with **1 control plane + 2 workers**. That schedule was **ready with conditions**:
+Kind L4 proves single-node wiring. Separately, published **v0.16.0** was exercised on a Talos lab
+with **1 control plane + 2 workers** (`quick+sinks`, **ready with conditions**). Publishable
+shape, redaction, and an example matrix live in the
+[lab evidence bundle contract](../operator-manual/lab-evidence-bundle.md).
 
-**Observed**
+**Observed (bounded)**
 
-- Two manager replicas scheduled on distinct workers; leader failover completed without unexpected
-  restarts in that run
+- Two manager replicas on distinct workers; leader failover without unexpected restarts
 - Inventory collection and export to in-cluster Postgres
-- ClusterIP Postgres / MinIO / NATS connection tests with Helm `allowPrivateSinks: true`
+- ClusterIP Postgres / MinIO / NATS with Helm `allowPrivateSinks: true`
   ([resolved-address policy](../security/resolved-address-policy.md))
 - Private GitHub and GitLab snapshot export (connection + push)
-- Certificate scrape returned a non-zero count (partial versus live cluster certificates)
+- Certificate scrape non-zero (partial versus live cluster certificates)
+- Idle pprof captured; Wave-4 / Tier-S load **not** run
 
 **Not claimed from that run**
 
@@ -142,7 +144,8 @@ with **1 control plane + 2 workers**. That schedule was **ready with conditions*
 - Full Ubuntu D-suite / every sink backend / NetPol deny-path / worker drain / Argo scrape
 
 Treat multi-node lab results as **bounded evidence for a named pin**, not a substitute for Kind CI
-or the 100k cloud gate.
+or the 100k cloud gate. Raw protocols stay local-only — see the
+[evidence bundle contract](../operator-manual/lab-evidence-bundle.md).
 
 ## Local development commands
 

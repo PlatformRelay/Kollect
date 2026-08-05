@@ -224,6 +224,7 @@ use `kollect_export_duration_seconds` and sink error metrics for early warning.
 
 ## Related
 
+- [Lab evidence bundle and redaction](lab-evidence-bundle.md)
 - [Performance tuning](performance.md)
 - [Load test runbook](load-test-runbook.md)
 - [Multi-cluster fleet example](../examples/multi-cluster-fleet.md)
