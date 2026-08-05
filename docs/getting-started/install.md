@@ -71,6 +71,8 @@ Additional distribution wiring is landing under [ADR-0708](../adr/0708-operator-
   operator catalogs when `OPERATORHUB_PAT` is configured. After upstream merge, install via
   OperatorHub or the OpenShift console using package **`kollect`**, channel **`stable`**. Until then,
   use Helm or the manifests on the [release page](../RELEASE.md).
+  The OLM bundle runs with `--validating-webhooks-enabled=false` (no webhook Service/cert in the
+  bundle). Prefer Helm OCI for the full admission path; CRD schema validation still applies under OLM.
 
 Hub badge URLs are intentionally omitted here until listings exist — premature badges 404.
 
