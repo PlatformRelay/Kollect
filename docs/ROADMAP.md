@@ -3,7 +3,7 @@
 Kollect is a Kubernetes inventory exporter: select resources by GVK, extract attributes with CEL
 or JSONPath, aggregate a canonical snapshot, and send it to one or more sinks.
 
-**Last verified:** 2026-08-04 against **v0.16.0**. For exact shipped changes, use the
+**Last verified:** 2026-08-05 against **v0.17.0**. For exact shipped changes, use the
 [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md). For proposals that
 have not entered a release, see [Planned features](roadmap/planned-features.md).
 
