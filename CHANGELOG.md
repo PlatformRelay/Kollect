@@ -44,6 +44,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **lab:** Add assert helpers for DOC-02 verdicts ([#267](https://github.com/platformrelay/kollect/pull/267))[6ecd9e5](https://github.com/platformrelay/kollect/commit/6ecd9e548362254ab773f9519250f71c47f1742b)
+
 - **lab:** Add DOC-02 evidence collector layout (LAB-H05) ([#266](https://github.com/platformrelay/kollect/pull/266))[b7c3c57](https://github.com/platformrelay/kollect/commit/b7c3c573c413d1f00cf33cd30f647c3c0fb63ba1)
 
 - **lab:** Add cluster-agnostic preflight with offline fixtures [1fe0e04](https://github.com/platformrelay/kollect/commit/1fe0e04cfae9506e44242fa4e08fad59d88a6346)
