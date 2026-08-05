@@ -44,6 +44,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **lab:** Add cluster-agnostic preflight with offline fixtures [1fe0e04](https://github.com/platformrelay/kollect/commit/1fe0e04cfae9506e44242fa4e08fad59d88a6346)
+
 - **demo:** Add hero-git-only GIF and fix state source ([#259](https://github.com/platformrelay/kollect/pull/259))[499ab9c](https://github.com/platformrelay/kollect/commit/499ab9c814696a911b9d96cc71a3bcea1df2e011)
 
 - **demo:** Make default path credential-free via hero demo [73acfc9](https://github.com/platformrelay/kollect/commit/73acfc9181f694956e58572cfabd2447474becce)
