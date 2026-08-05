@@ -12,12 +12,18 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 )
 
+// askOneFunc is the injectable survey.AskOne surface used by SurveyPrompter.
+type askOneFunc func(p survey.Prompt, response interface{}, opts ...survey.AskOpt) error
+
 // SurveyPrompter is a survey/v2-backed Prompter for interactive terminals.
 type SurveyPrompter struct {
 	In     terminal.FileReader
 	Out    terminal.FileWriter
 	ErrOut io.Writer
 	Color  bool
+
+	// askOne defaults to survey.AskOne when nil (see resolveAskOne).
+	askOne askOneFunc
 }
 
 // NewSurveyPrompter builds a Prompter bound to the process stdio.
@@ -28,6 +34,13 @@ func NewSurveyPrompter(color bool) *SurveyPrompter {
 		ErrOut: os.Stderr,
 		Color:  color,
 	}
+}
+
+func (s *SurveyPrompter) resolveAskOne() askOneFunc {
+	if s.askOne != nil {
+		return s.askOne
+	}
+	return survey.AskOne
 }
 
 func (s *SurveyPrompter) askOpts() []survey.AskOpt {
@@ -69,7 +82,7 @@ func (s *SurveyPrompter) Input(message, defaultValue string, validate ValidateFu
 			return validate(str)
 		}))
 	}
-	err := survey.AskOne(q, &answer, opts...)
+	err := s.resolveAskOne()(q, &answer, opts...)
 	return answer, mapSurveyErr(err)
 }
 
@@ -77,7 +90,7 @@ func (s *SurveyPrompter) Input(message, defaultValue string, validate ValidateFu
 func (s *SurveyPrompter) Select(message string, options []string) (string, error) {
 	var answer string
 	q := &survey.Select{Message: message, Options: options, PageSize: 15}
-	err := survey.AskOne(q, &answer, s.askOpts()...)
+	err := s.resolveAskOne()(q, &answer, s.askOpts()...)
 	return answer, mapSurveyErr(err)
 }
 
@@ -85,7 +98,7 @@ func (s *SurveyPrompter) Select(message string, options []string) (string, error
 func (s *SurveyPrompter) MultiSelect(message string, options []string, defaults []string) ([]string, error) {
 	var answer []string
 	q := &survey.MultiSelect{Message: message, Options: options, Default: defaults, PageSize: 15}
-	err := survey.AskOne(q, &answer, s.askOpts()...)
+	err := s.resolveAskOne()(q, &answer, s.askOpts()...)
 	return answer, mapSurveyErr(err)
 }
 
@@ -93,6 +106,6 @@ func (s *SurveyPrompter) MultiSelect(message string, options []string, defaults 
 func (s *SurveyPrompter) Confirm(message string, defaultValue bool) (bool, error) {
 	var answer bool
 	q := &survey.Confirm{Message: message, Default: defaultValue}
-	err := survey.AskOne(q, &answer, s.askOpts()...)
+	err := s.resolveAskOne()(q, &answer, s.askOpts()...)
 	return answer, mapSurveyErr(err)
 }
