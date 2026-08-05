@@ -50,6 +50,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **lab:** LAB-H10 quick Kind pprof workflow [8c79cf6](https://github.com/platformrelay/kollect/commit/8c79cf6e905654db438aeb72eafa4fe24eeb0335)
+
 - **lab:** Add resumable schedule runner (LAB-H02) [e18975a](https://github.com/platformrelay/kollect/commit/e18975a8402dde8a2af383f1d38db0a19f0cb6d5)
 
 - **lab:** Add minimal labeled workload helper (LAB-H03) [040afbd](https://github.com/platformrelay/kollect/commit/040afbdb1cba11ede63cc14cb398c11e0dccf5fa)

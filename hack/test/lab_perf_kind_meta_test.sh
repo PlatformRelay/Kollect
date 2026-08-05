@@ -121,12 +121,76 @@ if ! run_perf --dry-run --allow-non-kind --run-id "${RUN_ID}-nonkind" --seed 1 \
 fi
 pass "--allow-non-kind bypasses kind context gate in dry-run"
 
+# --- port-forward target: kollect-system + kollect-controller-manager (not kollect-dev-manager) ---
+grep -q 'kollect-system' "${PERF_KIND}" ||
+  fail "perf-kind.sh must reference namespace kollect-system"
+grep -q 'kollect-controller-manager' "${PERF_KIND}" ||
+  fail "perf-kind.sh must reference kollect-controller-manager"
+grep -q 'kollect-dev-manager' "${PERF_KIND}" &&
+  fail "perf-kind.sh must not reference broken kollect-dev-manager target"
+grep -q '16060:6060' "${PERF_KIND}" ||
+  fail "perf-kind.sh must use local:remote port-forward form 16060:6060"
+pass "port-forward targets kollect-system/kollect-controller-manager"
+
+# --- live vs dry-run honesty: dry-run uses .stub; live path must not silently stub ---
+stub_count="$(find "${RUN_DIR}/profiles" -name '*.pb.gz.stub' 2>/dev/null | wc -l | tr -d ' ')"
+((stub_count > 0)) || fail "dry-run must write .pb.gz.stub placeholders"
+grep -q 'lab_pprof_capture_live' "${PPROF_LIB}" ||
+  fail "pprof-capture.sh must implement live capture path"
+grep -q 'lab_pprof_capture_placeholder' "${PPROF_LIB}" ||
+  fail "pprof-capture.sh must keep fixture placeholder path for --dry-run"
+
+# Live path without reachable endpoint: BLOCKED, no .stub artifacts.
+cat >"${TMP}/kubectl-live" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+  *current-context*) echo "kind-kollect-dev" ;;
+  *port-forward*) echo "0" > /dev/null; exit 0 & ;;
+  *) echo "lab perf-kind meta: unexpected kubectl: $*" >&2; exit 99 ;;
+esac
+EOF
+cat >"${TMP}/curl" <<'EOF'
+#!/usr/bin/env bash
+echo "lab perf-kind meta: curl simulated unreachable pprof" >&2
+exit 7
+EOF
+chmod +x "${TMP}/kubectl-live" "${TMP}/curl"
+LIVE_OUT_ROOT="${TMP}/live-honesty"
+rc=0
+live_out="$(env -u KUBECONFIG PATH="${TMP}:${PATH}" \
+  bash "${PERF_KIND}" --run-id live-blocked-test --seed 1 \
+  --artifacts-root "${LIVE_OUT_ROOT}" --fixture=context-kind 2>&1)" || rc=$?
+[[ "${rc}" -ne 0 ]] || fail "live run with unreachable pprof should exit non-zero: ${live_out}"
+printf '%s\n' "${live_out}" | grep -Eqi 'BLOCKED|unreachable|pprof endpoint|capture failed' ||
+  fail "live failure must report BLOCKED/unreachable reason: ${live_out}"
+LIVE_DIR="${LIVE_OUT_ROOT}/live-blocked-test"
+if [[ -d "${LIVE_DIR}/profiles" ]]; then
+  live_stub="$(find "${LIVE_DIR}/profiles" -name '*.pb.gz.stub' 2>/dev/null | wc -l | tr -d ' ')"
+  [[ "${live_stub}" -eq 0 ]] ||
+    fail "live run must not write .pb.gz.stub placeholders when endpoint unreachable"
+fi
+pass "live path refuses silent stub capture (BLOCKED on unreachable pprof)"
+
+# --- --duration wired into index / CPU note ---
+DUR_OUT="${TMP}/duration-test"
+run_perf --dry-run --run-id dur-test --seed 7 --duration 45s \
+  --artifacts-root "${DUR_OUT}" >/dev/null 2>&1 || fail "--duration dry-run failed"
+grep -Eqi '45s|phase dwell|duration' "${DUR_OUT}/dur-test/profiles/index.md" ||
+  fail "profiles index must reflect --duration in metrics window or phase note"
+pass "--duration reflected in profiles index"
+
+# --- --objects noted as live-only in dry-run output ---
+grep -Eqi 'objects.*100|object budget|objects=' "${RUN_DIR}/summary/performance-findings.md" \
+  "${RUN_DIR}/summary.md" 2>/dev/null ||
+  fail "dry-run should note --objects in summary/findings"
+pass "--objects documented in dry-run summary"
+
 # --- port-forward lifecycle helpers (library, offline) ---
 # shellcheck source=../lab/lib/pprof-capture.sh
 source "${PPROF_LIB}"
 PF_DIR="${TMP}/pf-test"
 mkdir -p "${PF_DIR}/profiles"
-lab_pprof_portforward_start "${PF_DIR}" 16060 "svc/kollect-dev:6060" --fixture
+lab_pprof_portforward_start "${PF_DIR}" kollect-system 16060 6060 deploy/kollect-controller-manager --fixture
 [[ -f "${PF_DIR}/profiles/.port-forward.pid" ]] ||
   fail "portforward start must write pid file"
 lab_pprof_portforward_stop "${PF_DIR}"
