@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **rbac:** Grant core Events for EventRecorder [fd12a01](https://github.com/platformrelay/kollect/commit/fd12a011b1ff93c1244117773eff3f3814a7a197)
+
 - **demo:** Enable allowPrivateSinks for hero Forgejo ([#258](https://github.com/platformrelay/kollect/pull/258))[25ab9df](https://github.com/platformrelay/kollect/commit/25ab9dfa19ec8b9ea8730bf18bac5d0ab98dc993)
 
 - **demo:** Use object-form InventorySinkRef in hero samples ([#257](https://github.com/platformrelay/kollect/pull/257))[72b2451](https://github.com/platformrelay/kollect/commit/72b2451a2404a75593794b878254679a48ba48b5)
