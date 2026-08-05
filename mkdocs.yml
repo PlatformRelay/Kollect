@@ -76,6 +76,7 @@ nav:
       - Upgrading: operator-manual/upgrading.md
       - Metrics: operator-manual/metrics.md
       - Performance and scaling: operator-manual/performance.md
+      - Lab evidence bundle: operator-manual/lab-evidence-bundle.md
       - Troubleshooting: operator-manual/troubleshooting.md
       - Production checklist: operator-manual/production-checklist.md
       - Deployment topology matrix: deployment/topology-matrix.md
