@@ -39,7 +39,7 @@ EOF
 chmod +x "${TMP}/kubectl" "${TMP}/helm"
 export PATH="${TMP}:${PATH}"
 
-# shellcheck disable=SC1091
+# shellcheck source=../lab/lib/serial-backend.sh
 source "${SERIAL_LIB}"
 
 # ---------------------------------------------------------------------------
