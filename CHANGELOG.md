@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **lab:** LAB-H10 port-forward changelog and live capture honesty [9b1272d](https://github.com/platformrelay/kollect/commit/9b1272d3fe22954d9876e69313f9260759b610ee)
+
 - **lab:** Correct scenario-stub ROOT path (LAB-H02) [671b4d1](https://github.com/platformrelay/kollect/commit/671b4d1bb6e13c2858c8731653c79c21af1ec970)
 
 - **lab:** BLOCKED stubs without dry-run; sync CHANGELOG (LAB-H02) [8a9b8b5](https://github.com/platformrelay/kollect/commit/8a9b8b540f7bb54dfc26d637ece8bd144b57c039)
