@@ -48,10 +48,11 @@ Schedules live under `hack/lab/schedules/`. Scenario stubs under `hack/lab/scena
 backends must tear down before the next (`hack/lab/lib/serial-backend.sh`). Skip / limit / blocked
 rows always carry a machine-emitted reason — never an empty green cell.
 
+**Stub honesty:** without `--dry-run`, scenario scripts emit `BLOCKED` (“live scenario not
+implemented”) — they never paper-green as `PASS`. `--keep-lab` / default cleanup are **hints only**
+until live scenario bodies exist; dry-run does not create or delete cluster resources.
+
 ## Workload (LAB-H03)
 
 Minimal labeled batch/churn helper: `bash hack/lab/workload.sh --run-id <id> --dry-run --out-dir <dir>`
 (always labels `kollect.dev/lab-run=<RUN_ID>`; not required in default `quick`/`quick+sinks`).
-**Stub honesty:** without `--dry-run`, scenario scripts emit `BLOCKED` (“live scenario not
-implemented”) — they never paper-green as `PASS`. `--keep-lab` / default cleanup are **hints only**
-until live scenario bodies exist; dry-run does not create or delete cluster resources.
