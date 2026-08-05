@@ -76,6 +76,18 @@ grep -Eqi 'full-lab-day.*(refuse|BLOCKED|not implemented)|soak.*(refuse|BLOCKED|
 grep -Eqi 'never.*(coerce|count|summariz|collapse).*PASS|not.*(converted|counted).*PASS|none.*(non-pass|non pass).*PASS' "${PAGE}" ||
   fail "page must state LIMIT_REACHED/BLOCKED/SKIPPED are never coerced to PASS"
 
+# --keep-lab / default cleanup are hints only until live scenario bodies land.
+grep -Eqi 'hint|hints only|manual(ly)?|operator must (clean|delete|tear)' "${PAGE}" ||
+  fail "page must document cleanup/--keep-lab as hint or manual operator duty"
+if grep -Eqi 'Default cleanup \| Tear down labeled|default cleans up|Default tear-down unless' "${PAGE}"; then
+  fail "page must not claim automatic teardown of lab namespaces/resources"
+fi
+# Capacity S/M/L guidance must not oversell automated tier gating in v1.
+grep -Eqi 'documented guidance|may no-op|no-op in v1|capacity gating may no-op' "${PAGE}" ||
+  fail "tier=auto section must state S/M/L guidance and that --tier may no-op in v1"
+
+pass "cleanup hint honesty + tier no-op language present"
+
 grep -qF -- "Local lab runbook: operator-manual/local-lab-runbook.md" "${NAV}" ||
   fail "local-lab-runbook page is missing from MkDocs navigation"
 
