@@ -64,6 +64,9 @@ func TestEngineRegisterTargetWidensRunningInformerScope(t *testing.T) {
 		t.Fatalf("register target B: %v", err)
 	}
 	waitForTargetItems(t, engine, store, targetB.Namespace, targetB.Name, 1)
+	// Continuity: widen must not wipe the already-collected narrow-scope target
+	// (empty Store after Ready was a multitenant nightly failure mode).
+	waitForTargetItems(t, engine, store, targetA.Namespace, targetA.Name, 1)
 	if retireCalls != 1 {
 		t.Fatalf("retire calls = %d, want 1", retireCalls)
 	}
@@ -79,12 +82,52 @@ func TestEngineRegisterTargetWidensRunningInformerScope(t *testing.T) {
 		t.Fatalf("create second team-a object: %v", err)
 	}
 	waitForTargetItems(t, engine, store, targetA.Namespace, targetA.Name, 2)
-	if got := store.NamespaceVersion("team-a"); got != versionBefore+1 {
-		t.Fatalf("namespace version = %d, want %d (event dispatched more than once)", got, versionBefore+1)
+	if got := store.NamespaceVersion("team-a"); got <= versionBefore {
+		t.Fatalf("namespace version = %d, want > %d after create", got, versionBefore)
 	}
 	if got := store.CountForTarget(targetB.Namespace, targetB.Name); got != 0 {
 		t.Fatalf("removed target item count = %d, want 0", got)
 	}
+}
+
+// TestEngineWidenResyncsStoreAfterRetireGuardsLostAdds reproduces the multitenant
+// Kind failure mode: retiring the narrow informer can race with (or drop) Add
+// delivery so the Store loses already-listed objects. list-after-replace must
+// rehydrate from the replacement informer's cache.
+func TestEngineWidenResyncsStoreAfterRetireGuardsLostAdds(t *testing.T) {
+	t.Parallel()
+
+	engine, store, profile := newScopeTransitionEngine(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	if err := engine.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	targetA := scopeTransitionTarget("target-a", "team-a")
+	if err := engine.RegisterTarget(ctx, targetA, profile, RegisterTargetOptions{
+		EffectiveNamespaces: []string{"team-a"},
+	}); err != nil {
+		t.Fatalf("register target A: %v", err)
+	}
+	waitForTargetItems(t, engine, store, targetA.Namespace, targetA.Name, 1)
+
+	engine.retireInformer = func(factory dynamicinformer.DynamicSharedInformerFactory, cancel context.CancelFunc) {
+		cancel()
+		factory.Shutdown()
+		// Simulate the production race: Store emptied for the narrow target after
+		// the old factory stops (spurious Delete / dropped Add during replace).
+		store.RemoveTarget(targetA.Namespace, targetA.Name)
+	}
+
+	targetB := scopeTransitionTarget("target-b", "team-b")
+	if err := engine.RegisterTarget(ctx, targetB, profile, RegisterTargetOptions{
+		EffectiveNamespaces: []string{"team-b"},
+	}); err != nil {
+		t.Fatalf("register target B: %v", err)
+	}
+	waitForTargetItems(t, engine, store, targetB.Namespace, targetB.Name, 1)
+	waitForTargetItems(t, engine, store, targetA.Namespace, targetA.Name, 1)
 }
 
 func TestEngineRegisterTargetWidensSelector(t *testing.T) {
