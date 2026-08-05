@@ -236,6 +236,63 @@ jq -e '
 pass "skip/blocked/limit reasons are non-empty"
 
 # ---------------------------------------------------------------------------
+# Paper-green guard: without dry-run, stubs must NOT count as pass (BLOCKED)
+# ---------------------------------------------------------------------------
+# shellcheck disable=SC1091
+source "${ROOT}/hack/lab/lib/assert.sh"
+
+stub="${ROOT}/hack/lab/scenarios/DR-0.1.sh"
+[[ -f "${stub}" ]] || fail "missing stub ${stub}"
+
+unset KOLLECT_LAB_DRY_RUN || true
+live_out="$(env -u KOLLECT_LAB_DRY_RUN bash "${stub}")" ||
+  fail "non-dry-run stub should exit 0 with BLOCKED JSON"
+live_verdict="$(printf '%s' "${live_out}" | jq -r '.verdict')"
+[[ "${live_verdict}" == "BLOCKED" ]] ||
+  fail "non-dry-run stub must emit BLOCKED, got ${live_verdict}: ${live_out}"
+live_reason="$(printf '%s' "${live_out}" | jq -r '.reason')"
+[[ -n "${live_reason}" ]] || fail "BLOCKED stub must emit a non-empty reason"
+if lab_assert_counts_as_pass "${live_verdict}"; then
+  fail "non-dry-run stub verdict must not count as pass: ${live_verdict}"
+fi
+
+while IFS= read -r s; do
+  [[ -n "${s}" ]] || continue
+  so="$(env -u KOLLECT_LAB_DRY_RUN bash "${ROOT}/hack/lab/scenarios/${s}.sh")" ||
+    fail "stub ${s} failed without dry-run"
+  sv="$(printf '%s' "${so}" | jq -r '.verdict')"
+  [[ "${sv}" == "BLOCKED" ]] || fail "stub ${s} without dry-run must be BLOCKED, got ${sv}"
+  if lab_assert_counts_as_pass "${sv}"; then
+    fail "stub ${s} without dry-run counted as pass"
+  fi
+done < <(jq -r '.scenarios[].id' "${ROOT}/hack/lab/schedules/quick+sinks.json")
+
+dry_out="$(KOLLECT_LAB_DRY_RUN=1 bash "${stub}")" || fail "dry-run stub failed"
+dry_verdict="$(printf '%s' "${dry_out}" | jq -r '.verdict')"
+lab_assert_counts_as_pass "${dry_verdict}" ||
+  fail "dry-run stub should count as pass, got ${dry_verdict}: ${dry_out}"
+
+RUN_ID4="meta-live-blocked"
+rc=0
+out="$(
+  env -u KUBECONFIG PATH="${PATH}" \
+    bash "${RUNNER}" \
+      --schedule quick \
+      --run-id "${RUN_ID4}" \
+      --artifacts-root "${ART}" \
+      --skip-preflight \
+      2>&1
+)" || rc=$?
+[[ "${rc}" -ne 0 ]] || fail "non-dry-run runner must not exit 0 when stubs BLOCKED: ${out}"
+jq -e --slurpfile sched "${ROOT}/hack/lab/schedules/quick.json" '
+  ($sched[0].scenarios | map(.id)) as $ids
+  | all(.scenarios[] | select(.id as $i | $ids | index($i) != null);
+      .verdict == "BLOCKED" and (.reason | length) > 0)
+' "${ART}/${RUN_ID4}/results.json" >/dev/null ||
+  fail "non-dry-run quick runnables must all be BLOCKED with reason: $(cat "${ART}/${RUN_ID4}/results.json")"
+pass "non-dry-run stubs emit BLOCKED and do not count as pass"
+
+# ---------------------------------------------------------------------------
 # Flags surface in --help / README
 # ---------------------------------------------------------------------------
 help_out="$(bash "${RUNNER}" --help 2>&1 || true)"
@@ -250,3 +307,37 @@ pass "runner flags documented"
 pass "no live kubectl/helm invocations"
 
 echo "All lab runner resume meta tests passed."
+
+# ---------------------------------------------------------------------------
+# Paper-gate: without --dry-run, stubs must BLOCKED (never false-green PASS)
+# ---------------------------------------------------------------------------
+RUN_ID_LIVE="meta-nodry-1"
+rc=0
+out="$(
+  env -u KUBECONFIG PATH="${PATH}" \
+    KOLLECT_LAB_PREFLIGHT_FIXTURE=clean \
+    bash "${RUNNER}" \
+      --schedule quick \
+      --run-id "${RUN_ID_LIVE}" \
+      --artifacts-root "${ART}" \
+      --skip-preflight \
+      2>&1
+)" || rc=$?
+# Runner may exit non-zero if it counts BLOCKED as failures; tolerate either.
+RESULTS_LIVE="${ART}/${RUN_ID_LIVE}/results.json"
+[[ -f "${RESULTS_LIVE}" ]] || fail "missing results for non-dry-run: ${out}"
+# Every *executed* stub scenario must be BLOCKED (schedule-excluded SKIPPED ok)
+jq -e '
+  all(.scenarios[];
+    (.verdict == "SKIPPED")
+    or (.verdict == "BLOCKED" and ((.reason | length) > 0))
+  )
+  and any(.scenarios[]; .verdict == "BLOCKED")
+  and (all(.scenarios[]; .verdict != "PASS" and .verdict != "PASS_WITH_LIMITATION"))
+' "${RESULTS_LIVE}" >/dev/null ||
+  fail "non-dry-run stubs must BLOCKED never PASS: $(cat "${RESULTS_LIVE}")"
+# Direct stub invocation without dry-run
+stub_out="$(KOLLECT_LAB_DRY_RUN=0 bash "${ROOT}/hack/lab/scenarios/DR-0.1.sh")"
+jq -e '.verdict == "BLOCKED" and (.reason | length) > 0' <<<"${stub_out}" >/dev/null ||
+  fail "DR-0.1 stub without dry-run must BLOCKED: ${stub_out}"
+pass "non-dry-run stubs must BLOCKED (paper-gate)"
