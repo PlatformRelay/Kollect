@@ -10,9 +10,44 @@ set -euo pipefail
 readonly TENANT_A="kollect-tenant-a"
 readonly TENANT_B="kollect-tenant-b"
 readonly TIMEOUT="${WAIT_TIMEOUT:-180s}"
-readonly FIXTURES="${REPO_ROOT}/test/e2e/fixtures/multitenant"
+readonly TARGET_NAME="tenant-deployments"
+# Manager log budget for failure dumps — short tails hide post-Ready collect silence.
+readonly DIAG_LOG_TAIL="${DIAG_LOG_TAIL:-200}"
+
+# Set in main once REPO_ROOT is known (CI exports REPO_ROOT; local falls back).
+FIXTURES=""
 
 log() { echo "[multitenant] $*"; }
+
+# Enriched dump for the next red nightly: Target status/collected signal, tenant
+# Deployments, filtered + unfiltered inventory HTTP, useful manager log tail.
+_fail_diag() {
+  local ns="${1:-}"
+  local port="${2:-}"
+  local reason="${3:-assert failed}"
+  log "FAILURE: ${reason}"
+  if [[ -n "${ns}" ]]; then
+    log "--- KollectTarget/${TARGET_NAME} -n ${ns} ---"
+    kubectl get "kollecttarget/${TARGET_NAME}" -n "${ns}" -o wide 2>/dev/null || true
+    kubectl describe "kollecttarget/${TARGET_NAME}" -n "${ns}" 2>/dev/null || true
+    log "--- KollectInventory -n ${ns} ---"
+    kubectl get kollectinventory -n "${ns}" -o wide 2>/dev/null || true
+    kubectl describe kollectinventory -n "${ns}" 2>/dev/null || true
+    log "--- Deployments -n ${ns} ---"
+    kubectl get deployments -n "${ns}" -o wide 2>/dev/null || true
+    kubectl get deployment tenant-app -n "${ns}" -o yaml 2>/dev/null || true
+  fi
+  if [[ -n "${port}" ]]; then
+    log "--- inventory HTTP ?namespace=${ns:-} ---"
+    curl -sf "http://127.0.0.1:${port}/inventory?namespace=${ns}" 2>/dev/null | head -c 4000 || true
+    echo >&2
+    log "--- inventory HTTP unfiltered /inventory ---"
+    curl -sf "http://127.0.0.1:${port}/inventory" 2>/dev/null | head -c 4000 || true
+    echo >&2
+  fi
+  log "--- manager logs (tail=${DIAG_LOG_TAIL}) ---"
+  kubectl logs -n kollect-system -l app.kubernetes.io/name=kollect --tail="${DIAG_LOG_TAIL}" 2>/dev/null || true
+}
 
 # Bounded retry for assertions racing inventory collection: attempts, delay seconds, then command.
 # The final attempt runs last so its stderr explains the failure.
@@ -67,12 +102,48 @@ EOF
 
 wait_target_ready() {
   local ns="$1"
-  if ! kubectl wait --for=condition=Ready kollecttarget/tenant-deployments \
+  if ! kubectl wait --for=condition=Ready "kollecttarget/${TARGET_NAME}" \
     -n "${ns}" --timeout="${TIMEOUT}"; then
-    kubectl describe kollecttarget tenant-deployments -n "${ns}" >&2 || true
-    kubectl logs -n kollect-system -l app.kubernetes.io/name=kollect --tail=80 >&2 || true
+    _fail_diag "${ns}" "" "KollectTarget/${TARGET_NAME} in ${ns} not Ready"
     return 1
   fi
+}
+
+# Ready alone allows "collecting 0 resource(s)". Poll the Ready message until
+# collecting >= 1 so we do not race HTTP itemCount against an empty Store.
+# Bounded by TIMEOUT — still fails loudly (with dumps) if collection never starts.
+# Nudge reconcile each loop: Target status lags Store until the next reconcile.
+target_collected_count() {
+  local ns="$1"
+  local msg
+  msg="$(kubectl get "kollecttarget/${TARGET_NAME}" -n "${ns}" \
+    -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}' 2>/dev/null || true)"
+  # Message shape: profileRef "…" resolved; collecting N resource(s)
+  echo "${msg}" | grep -oE 'collecting[[:space:]]+[0-9]+' | awk '{print $2}'
+}
+
+nudge_target_reconcile() {
+  local ns="$1"
+  kubectl annotate "kollecttarget/${TARGET_NAME}" -n "${ns}" \
+    "kollect.dev/e2e-reconcile-nudge=$(date +%s%N)" --overwrite >/dev/null 2>&1 || true
+}
+
+wait_target_collected() {
+  local ns="$1"
+  local end count
+  end=$((SECONDS + ${TIMEOUT%s}))
+  while (( SECONDS < end )); do
+    count="$(target_collected_count "${ns}")"
+    if [[ -n "${count}" && "${count}" -ge 1 ]]; then
+      log "target ${ns}/${TARGET_NAME} collecting=${count}"
+      return 0
+    fi
+    nudge_target_reconcile "${ns}"
+    sleep 2
+  done
+  _fail_diag "${ns}" "" \
+    "KollectTarget/${TARGET_NAME} in ${ns} never reported collecting >= 1 (Ready alone is insufficient)"
+  return 1
 }
 
 apply_tenant_inventory() {
@@ -110,8 +181,8 @@ wait_inventory_http_collected() {
     fi
     sleep 5
   done
-  echo "inventory HTTP for ${ns} did not report itemCount >= 1" >&2
-  kubectl logs -n kollect-system -l app.kubernetes.io/name=kollect --tail=80 >&2 || true
+  _fail_diag "${ns}" "${port}" \
+    "inventory HTTP for ${ns} did not report itemCount >= 1"
   return 1
 }
 
@@ -122,15 +193,16 @@ assert_inventory_isolated() {
 
   log "tenant-a itemCount=${count_a:-0} tenant-b itemCount=${count_b:-0}"
   if [[ -z "${count_a}" || "${count_a}" -lt 1 ]]; then
-    echo "expected tenant-a inventory to collect at least one item" >&2
+    _fail_diag "${TENANT_A}" "${port}" "expected tenant-a inventory to collect at least one item"
     return 1
   fi
   if [[ -z "${count_b}" || "${count_b}" -lt 1 ]]; then
-    echo "expected tenant-b inventory to collect at least one item" >&2
+    _fail_diag "${TENANT_B}" "${port}" "expected tenant-b inventory to collect at least one item"
     return 1
   fi
   if [[ "${count_a}" != "1" || "${count_b}" != "1" ]]; then
-    echo "expected exactly one item per tenant inventory (got a=${count_a} b=${count_b})" >&2
+    _fail_diag "${TENANT_A}" "${port}" \
+      "expected exactly one item per tenant inventory (got a=${count_a} b=${count_b})"
     return 1
   fi
 }
@@ -163,6 +235,7 @@ assert_http_namespace_filter() {
 
 main() {
   REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+  FIXTURES="${REPO_ROOT}/test/e2e/fixtures/multitenant"
   local image="${TENANT_APP_IMAGE:-nginx:1.27-alpine}"
 
   apply_tenant "${TENANT_A}" "${image}"
@@ -170,6 +243,9 @@ main() {
 
   wait_target_ready "${TENANT_A}"
   wait_target_ready "${TENANT_B}"
+  # Harden against Ready-with-zero flake: ensure Store has items before HTTP asserts.
+  wait_target_collected "${TENANT_A}"
+  wait_target_collected "${TENANT_B}"
 
   apply_tenant_inventory "${TENANT_A}"
   apply_tenant_inventory "${TENANT_B}"
