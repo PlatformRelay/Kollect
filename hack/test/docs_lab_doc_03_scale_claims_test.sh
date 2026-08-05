@@ -7,6 +7,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUNBOOK="${ROOT}/docs/operator-manual/load-test-runbook.md"
 PERF="${ROOT}/docs/operator-manual/performance.md"
+REQUIREMENTS="${ROOT}/docs/REQUIREMENTS.md"
+ADR0603="${ROOT}/docs/adr/0603-performance-scalability.md"
 LOCAL_LAB="${ROOT}/docs/operator-manual/local-lab-runbook.md"
 EVIDENCE="${ROOT}/docs/operator-manual/lab-evidence-bundle.md"
 WORKFLOW="${ROOT}/.github/workflows/e2e-nightly.yaml"
@@ -23,6 +25,8 @@ pass() {
 
 [[ -f "${RUNBOOK}" ]] || fail "${RUNBOOK} is missing"
 [[ -f "${PERF}" ]] || fail "${PERF} is missing"
+[[ -f "${REQUIREMENTS}" ]] || fail "${REQUIREMENTS} is missing"
+[[ -f "${ADR0603}" ]] || fail "${ADR0603} is missing"
 [[ -f "${WORKFLOW}" ]] || fail "${WORKFLOW} is missing"
 [[ -f "${LOCAL_LAB}" ]] || fail "${LOCAL_LAB} is missing"
 [[ -f "${EVIDENCE}" ]] || fail "${EVIDENCE} is missing"
@@ -63,6 +67,23 @@ if [[ "${ten_k_disabled}" -eq 1 ]]; then
   fi
   if ! grep -E '^\|[[:space:]]*Nightly' "${RUNBOOK}" | grep -Eqi 'disabled|opt-in|unverified|unavailable|planned'; then
     fail "load-test-runbook Nightly row must be labeled disabled/opt-in/unverified/planned"
+  fi
+
+  # REQUIREMENTS.md NFR-PERF-1 and ADR-0603 must not reintroduce validated/Active 10k CI claims.
+  if grep -Eqi '10,?000\+[[:space:]]*validated|validated in CI tiers|10,?000.*validated.*CI|CI tiers.*validated' "${REQUIREMENTS}"; then
+    fail "REQUIREMENTS.md must not claim 10,000+ validated in CI tiers while 10k nightly jobs are disabled"
+  fi
+  if grep -E '^\|[[:space:]]*NFR-PERF-1' "${REQUIREMENTS}" | grep -Eqi 'validated'; then
+    fail "REQUIREMENTS.md NFR-PERF-1 must not use validated wording for 10k CI while jobs are opt-in"
+  fi
+  if ! grep -E '^\|[[:space:]]*NFR-PERF-1' "${REQUIREMENTS}" | grep -Eqi 'disabled|opt-in|unverified|unexecuted|AR-02|bounded'; then
+    fail "REQUIREMENTS.md NFR-PERF-1 must state bounded CI / disabled 10k / unexecuted 100k (AR-02)"
+  fi
+  if grep -Eqi '10,?000\+[[:space:]]*\(validated\)|10k baseline validated|validated in CI tiers' "${ADR0603}"; then
+    fail "ADR-0603 must not reintroduce 10k validated-in-CI claims while nightly 10k jobs are disabled"
+  fi
+  if grep -E '^\|[[:space:]]*\*\*Nightly' "${ADR0603}" | grep -Eqi 'Active|validated' | grep -Eiv 'disabled|opt-in|unverified|unexecuted'; then
+    fail "ADR-0603 Nightly load row must not claim Active/validated while jobs are opt-in"
   fi
   pass "docs do not claim Active/validated for disabled 10k nightly"
 else

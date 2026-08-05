@@ -122,7 +122,7 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 
 | ID | Target |
 | --- | --- |
-| NFR-PERF-1 | **Design target:** **100,000** collected rows/cluster (sharded exports); **10,000+** validated in CI tiers; store **≤512 MiB @ 10k**, operator RSS **2–4 GiB @ 100k** |
+| NFR-PERF-1 | **Design target:** **100,000** collected rows/cluster (sharded exports; **unexecuted AR-02**). Default CI proves ≤500 synthetic; opt-in ≤2k synthetic ≠ in-cluster soak; Nightly **10k** CI **disabled / unverified** (`ubuntu-latest-8-cores` opt-in). Store **≤512 MiB @ 10k**, operator RSS **2–4 GiB @ 100k** — see [load-test runbook](operator-manual/load-test-runbook.md) / [performance](operator-manual/performance.md) |
 | NFR-PERF-2 | Giant cluster: 1000+ nodes — namespace-scoped informers + paginated list mandatory |
 | NFR-PERF-3 | Fleet: **100–500+** clusters via **shared sink** ([ADR-0501](adr/0501-multi-cluster-fleet.md)); no hub merge tier |
 | NFR-PERF-4 | One shared informer per GVK; memory scales with objects × GVKs, not with target count |
