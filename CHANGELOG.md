@@ -11,9 +11,9 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **collect:** Resync Store after informer widen [178ad56](https://github.com/platformrelay/kollect/commit/178ad56b60a45560d8fada0d79ab50137fd901f9)
+- **collect:** Resync Store after informer widen [a825201](https://github.com/platformrelay/kollect/commit/a825201cae6a5407fe68f84d5aaf65c7d5770b64)
 
-- **rbac:** Grant core Events for EventRecorder [fd12a01](https://github.com/platformrelay/kollect/commit/fd12a011b1ff93c1244117773eff3f3814a7a197)
+- **rbac:** Grant core Events for EventRecorder [34d1380](https://github.com/platformrelay/kollect/commit/34d1380ccd51ac880c345c5d708f36857f128b33)
 
 - **demo:** Enable allowPrivateSinks for hero Forgejo ([#258](https://github.com/platformrelay/kollect/pull/258))[25ab9df](https://github.com/platformrelay/kollect/commit/25ab9dfa19ec8b9ea8730bf18bac5d0ab98dc993)
 
