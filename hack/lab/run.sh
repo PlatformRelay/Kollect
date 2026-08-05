@@ -379,7 +379,8 @@ lab_runner_main() {
         reason="machine: missing skip/limit/block reason from scenario"
       fi
       lab_runner_upsert_result "${results}" "${sid}" "${verdict}" "${reason}"
-      if [[ "${verdict}" == "FAIL" ]]; then
+      # FAIL and BLOCKED fail the run (stubs without --dry-run emit BLOCKED).
+      if [[ "${verdict}" == "FAIL" || "${verdict}" == "BLOCKED" ]]; then
         fail_count=$((fail_count + 1))
       fi
     fi
