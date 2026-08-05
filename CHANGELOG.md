@@ -9,6 +9,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ## [Unreleased]
 
+## [0.17.0](https://github.com/platformrelay/kollect/compare/v0.16.0..v0.17.0) - 2026-08-05
+
 ### Bug Fixes
 
 - **test:** COV-90-S22 lint and rebase onto main [aa91e54](https://github.com/platformrelay/kollect/commit/aa91e54e7e3f7b00512cfe6b2035303a1c83438d)
