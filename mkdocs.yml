@@ -77,6 +77,7 @@ nav:
       - Metrics: operator-manual/metrics.md
       - Performance and scaling: operator-manual/performance.md
       - Lab evidence bundle: operator-manual/lab-evidence-bundle.md
+      - Local lab runbook: operator-manual/local-lab-runbook.md
       - Troubleshooting: operator-manual/troubleshooting.md
       - Production checklist: operator-manual/production-checklist.md
       - Deployment topology matrix: deployment/topology-matrix.md

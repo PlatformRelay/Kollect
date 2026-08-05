@@ -210,5 +210,7 @@ flowchart TB
 
 - [ADR-0706: Testing and merge-gate architecture](0706-testing-merge-gate-architecture.md) — L4 Kind /
   L5 load ownership; this ADR sits beside them as maintainer **L4.5**.
+- [Local lab runbook](../operator-manual/local-lab-runbook.md) — LAB-DOC-01 adaptive schedules,
+  `tier=auto`, isolation, and real `hack/lab/` flags.
 - [Lab evidence bundle](../operator-manual/lab-evidence-bundle.md) — LAB-DOC-02 publishable schema and
   redaction contract the harness must satisfy.

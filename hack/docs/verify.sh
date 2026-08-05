@@ -17,6 +17,7 @@ bash hack/test/ui_removal_reference_test.sh
 bash hack/test/hyg_ui_gitignore_test.sh
 bash hack/test/docs_pages_concurrency_test.sh
 bash hack/test/docs_lab_evidence_contract_test.sh
+bash hack/test/docs_lab_doc_01_runbook_test.sh
 bash hack/test/lab_adr_0707_indexed_test.sh
 bash hack/test/lab_harness_meta_suite.sh
 bash hack/test/demo_04_samples_kustomize_test.sh

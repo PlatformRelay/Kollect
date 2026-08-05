@@ -132,6 +132,7 @@ dispatch queue saturation (no dedicated log line — metric only).
 
 ## Related
 
+- [Local lab runbook](local-lab-runbook.md) — existing-cluster / laptop L4.5 path (not this 100k gate)
 - [Lab evidence bundle and redaction](lab-evidence-bundle.md)
 - [Scaling and fleet](performance.md)
 - [operator-manual/performance.md](../operator-manual/performance.md)
