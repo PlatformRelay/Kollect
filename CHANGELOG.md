@@ -11,7 +11,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **test:** COV-90-S22 lint and rebase onto main [2b08d4a](https://github.com/platformrelay/kollect/commit/2b08d4a275d1126895f3aefeef8e41e5f0abe5e4)
+- **test:** COV-90-S22 lint and rebase onto main [aa91e54](https://github.com/platformrelay/kollect/commit/aa91e54e7e3f7b00512cfe6b2035303a1c83438d)
 
 - **lab:** LAB-H10 port-forward changelog and live capture honesty [dac95ca](https://github.com/platformrelay/kollect/commit/dac95cade8acfd4b4189872e0762ca51f26ba923)
 
