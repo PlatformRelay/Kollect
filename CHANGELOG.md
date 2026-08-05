@@ -11,7 +11,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **collect:** Resync Store after informer widen [a825201](https://github.com/platformrelay/kollect/commit/a825201cae6a5407fe68f84d5aaf65c7d5770b64)
+- **collect:** Resync Store after informer widen [9986755](https://github.com/platformrelay/kollect/commit/9986755f2d2856d08e94a232799261fa9dea005d)
 
 - **rbac:** Grant core Events for EventRecorder [34d1380](https://github.com/platformrelay/kollect/commit/34d1380ccd51ac880c345c5d708f36857f128b33)
 
