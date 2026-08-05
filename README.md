@@ -40,6 +40,10 @@ the live cluster.
 **Read the docs:** **[platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/)** — architecture,
 quick start, CR reference, ADRs, and examples. This README is the front door; the site is the map.
 
+Install paths: **Helm OCI on GHCR** is primary (`oci://ghcr.io/platformrelay/kollect`). **Artifact Hub**
+and **OperatorHub** discoverability are wired at release ([ADR-0708](https://platformrelay.github.io/Kollect/adr/0708-operator-distribution-hubs/));
+use those hubs once listings are live — badge URLs stay out of this README until then.
+
 > **Pre-1.0.** Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor
 > releases before 1.0; release notes and migration guidance call them out. See the
 > [roadmap](https://platformrelay.github.io/Kollect/ROADMAP/) for current maturity.
