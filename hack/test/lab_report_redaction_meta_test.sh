@@ -72,7 +72,9 @@ mkdir -p "$(dirname "${DIRTY_RUN}")"
 cp -R "${SAMPLE}" "${DIRTY_RUN}"
 
 # Seed several DOC-02 "never publish" shapes (synthetic fakes only).
-cat >"${DIRTY_RUN}/timings/seeded-leaks.txt" <<'EOF'
+pem_begin="$(printf -- '-----BEGIN %s-----' 'RSA PRIVATE KEY')"
+pem_end="$(printf -- '-----END %s-----' 'RSA PRIVATE KEY')"
+cat >"${DIRTY_RUN}/timings/seeded-leaks.txt" <<EOF
 # synthetic leak seeds for LAB-H06 redaction negative tests
 clusters:
 - cluster:
@@ -81,9 +83,9 @@ users:
 - name: fake
 password=FAKESECRET_lab_h06_seed
 token=ghp_FAKESECRET_lab_h06_seed_token
------BEGIN RSA PRIVATE KEY-----
+${pem_begin}
 MIIEogIBAAKCAQEAfakekeymaterialforlabh06only
------END RSA PRIVATE KEY-----
+${pem_end}
 path=/Users/fakeuser/.kube/config
 EOF
 

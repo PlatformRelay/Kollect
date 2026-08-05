@@ -19,7 +19,7 @@ pass() {
 
 [[ -f "${ASSERT_LIB}" ]] || fail "missing ${ASSERT_LIB}"
 
-# shellcheck disable=SC1091 # path resolved via ROOT; library is sourceable offline
+# shellcheck source=../lab/lib/assert.sh
 source "${ASSERT_LIB}"
 
 # ---------------------------------------------------------------------------
