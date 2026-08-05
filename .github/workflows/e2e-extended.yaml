@@ -27,6 +27,17 @@ jobs:
       - name: Verify finalizer-cleanup assert + workflow wiring
         run: bash hack/test/finalizer_cleanup_e2e_test.sh
 
+  multitenant-meta:
+    name: multitenant-meta
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify multitenant assert diagnostics + collecting wait
+        run: bash hack/test/e2e_mt_repro_harden_test.sh
+
   gate:
     name: gate
     runs-on: ubuntu-latest
