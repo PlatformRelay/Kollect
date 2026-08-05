@@ -12,6 +12,21 @@ import (
 	"github.com/platformrelay/kollect/internal/collect"
 )
 
+func TestToMergeRows_marshalError(t *testing.T) {
+	t.Parallel()
+
+	ch := make(chan int)
+	_, err := toMergeRows([]collect.Item{{
+		TargetName: "deployments",
+		UID:        "uid-1",
+		Namespace:  "team-a",
+		Attributes: map[string]any{"bad": ch},
+	}}, "team-a", "apps", "prod-a")
+	if err == nil || !strings.Contains(err.Error(), "marshal item") {
+		t.Fatalf("toMergeRows() error = %v, want marshal error", err)
+	}
+}
+
 func TestToMergeRows_UsesNamespaceFallbackAndTrimsWhitespace(t *testing.T) {
 	t.Parallel()
 

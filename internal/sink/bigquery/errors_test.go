@@ -13,6 +13,24 @@ import (
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 )
 
+func TestIsTerminal_googleAPICodeOutsideTerminalSet(t *testing.T) {
+	t.Parallel()
+
+	err := &googleapi.Error{Code: 402}
+	if isTerminal(err) {
+		t.Fatal("isTerminal(402) = true, want false")
+	}
+}
+
+func TestIsTerminal_internalErrorReasonIsTransient(t *testing.T) {
+	t.Parallel()
+
+	err := &bigquery.Error{Reason: "internalError", Message: "boom"}
+	if isTerminal(err) {
+		t.Fatal("isTerminal(internalError) = true, want false")
+	}
+}
+
 func TestClassifyError_terminalAndTransient(t *testing.T) {
 	t.Parallel()
 
