@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/nats-io/nats.go/jetstream"
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/sink/cap"
 )
@@ -97,5 +98,26 @@ func TestNewBackend_validSpec(t *testing.T) {
 
 	if err := backend.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
+	}
+}
+
+func TestBackend_Export_usesJetStreamProvider(t *testing.T) {
+	t.Parallel()
+
+	fjs := &fakeJetStream{}
+	b, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: "nats",
+		Nats: &kollectdevv1alpha1.NatsSpec{URL: "nats://broker:4222", Subject: "inventory.events", Stream: "events"},
+	}, nil, nil)
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	b.jsProvider = func(context.Context) (jetstream.JetStream, error) { return fjs, nil }
+
+	if err := b.Export(context.Background(), []byte(`{"x":1}`), "inventory/apps/demo.json"); err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if fjs.lastSubject != "inventory.events" {
+		t.Fatalf("subject = %q", fjs.lastSubject)
 	}
 }

@@ -25,7 +25,7 @@ const connectTimeout = 30 * time.Second
 type Backend struct {
 	cfg    Config
 	client *mongo.Client
-	coll   *mongo.Collection
+	coll   exportCollection
 	admin  collectionAdmin
 }
 
@@ -59,6 +59,11 @@ func (a mongoCollectionAdmin) EnsureUniqueIndex(ctx context.Context, keys bson.D
 }
 
 type deleteManyCollection interface {
+	DeleteMany(context.Context, interface{}, ...*options.DeleteOptions) (*mongo.DeleteResult, error)
+}
+
+type exportCollection interface {
+	ReplaceOne(context.Context, interface{}, interface{}, ...*options.ReplaceOptions) (*mongo.UpdateResult, error)
 	DeleteMany(context.Context, interface{}, ...*options.DeleteOptions) (*mongo.DeleteResult, error)
 }
 

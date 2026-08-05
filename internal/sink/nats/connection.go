@@ -7,10 +7,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nats-io/nats.go/jetstream"
+	natsgo "github.com/nats-io/nats.go"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
+
+var connectionDial = connect
+
+var connectionIsConnected = func(nc *natsgo.Conn) bool {
+	return nc != nil && nc.IsConnected()
+}
 
 func TestConnection(
 	ctx context.Context,
@@ -26,15 +32,19 @@ func TestConnection(
 	if err != nil {
 		return err
 	}
-	nc, err := connect(cfg, tlsCfg)
+	nc, err := connectionDial(cfg, tlsCfg)
 	if err != nil {
 		return err
 	}
-	defer nc.Close()
-	if !nc.IsConnected() {
+	defer func() {
+		if nc != nil {
+			nc.Close()
+		}
+	}()
+	if !connectionIsConnected(nc) {
 		return fmt.Errorf("nats connect: not connected")
 	}
-	js, err := jetstream.New(nc)
+	js, err := jetStreamFromConn(nc)
 	if err != nil {
 		return fmt.Errorf("nats jetstream: %w", err)
 	}
