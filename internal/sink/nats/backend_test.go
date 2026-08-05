@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nats-io/nats.go/jetstream"
+
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/sink/cap"
 )
