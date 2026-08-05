@@ -18,6 +18,7 @@ bash hack/test/hyg_ui_gitignore_test.sh
 bash hack/test/docs_pages_concurrency_test.sh
 bash hack/test/docs_lab_evidence_contract_test.sh
 bash hack/test/lab_adr_0707_indexed_test.sh
+bash hack/test/lab_harness_meta_suite.sh
 bash hack/test/demo_04_samples_kustomize_test.sh
 
 # These contracts cover the complete nav and redirect map, orphan pages, current
