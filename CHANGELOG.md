@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **lab:** Correct scenario-stub ROOT path (LAB-H02) [f37d3d8](https://github.com/platformrelay/kollect/commit/f37d3d830aee1d1f593194145ee13dae9e5a37e4)
+
+- **lab:** BLOCKED stubs without dry-run; sync CHANGELOG (LAB-H02) [8b28151](https://github.com/platformrelay/kollect/commit/8b28151b3b6301c8d0d299055e651bff0ea79966)
+
 - **lab:** Tie churn targets to baseline names (LAB-H03) [260dae0](https://github.com/platformrelay/kollect/commit/260dae051e0c38459119f2aa9764f2d485ffc475)
 
 - **collect:** Resync Store after informer widen [9986755](https://github.com/platformrelay/kollect/commit/9986755f2d2856d08e94a232799261fa9dea005d)
@@ -46,9 +50,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **lab:** Add resumable schedule runner (LAB-H02) [38c47cc](https://github.com/platformrelay/kollect/commit/38c47cc42bbc20bfd13c73fee88c24ac34f82e05)
+
 - **lab:** Add minimal labeled workload helper (LAB-H03) [040afbd](https://github.com/platformrelay/kollect/commit/040afbdb1cba11ede63cc14cb398c11e0dccf5fa)
 
-- **lab:** Add report generator and redaction gate (LAB-H06) ([#268](https://github.com/platformrelay/kollect/pull/268))[7f396a3](https://github.com/platformrelay/kollect/commit/7f396a304b62ed66c46d8e1b09cff5bf224aecde)
+- **lab:** Add report generator and redaction gate (LAB-H06) [7f396a3](https://github.com/platformrelay/kollect/commit/7f396a304b62ed66c46d8e1b09cff5bf224aecde)
 
 - **lab:** Add assert helpers for DOC-02 verdicts ([#267](https://github.com/platformrelay/kollect/pull/267))[6ecd9e5](https://github.com/platformrelay/kollect/commit/6ecd9e548362254ab773f9519250f71c47f1742b)
 
