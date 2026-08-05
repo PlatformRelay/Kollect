@@ -30,11 +30,6 @@ current and delivers it to Git, object storage, databases, and event streams. Se
 GVK, extract the attributes you need with CEL or JSONPath, and every sink receives the same
 canonical rows in parallel.
 
-![Kollect demo: Deployment image change appears as a Git diff](docs/assets/demo/hero-git-only.gif)
-*Your cluster, in Git, diffable — a Deployment image bump becomes an auditable commit.*
-
-<!-- See docs/DEMO-GIF-GUIDE.md to regenerate. -->
-
 **Start with one sink. Grow to a whole platform.** A single pipeline can write an inspectable Git
 history, a queryable database record, an object-store snapshot, or an event stream—without scripts
 or API-server hammering. As adoption grows, nothing gets rebuilt: the same rows fan out to more
