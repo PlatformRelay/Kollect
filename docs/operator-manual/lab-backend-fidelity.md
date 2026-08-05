@@ -42,7 +42,7 @@ ClusterIP paths.
 | `git` | Bare git / in-cluster Forgejo / temp GitHub remote | Pin Forgejo image in `hack/demo/hero/manifests/forgejo.yaml` when using the hero path | Push/commit export; ConnectionTest probe | GitHub Enterprise SSO, org webhooks, SaaS rate-limit classes | `task demo-up` / Forgejo bootstrap; lab `DR-2b.2` (bare-git, deferred), `DR-2b.11` (github, in `quick+sinks`) |
 | `gitlab` | GitLab-compatible API against temp remote or self-hosted | Pin lab GitLab/Forgejo-compatible endpoint in protocol notes | Project file export via GitLab API | GitLab.com SaaS IAM, group inheritance, managed runners | Lab `DR-2b.12` (in `quick+sinks`); `task test-integration` GitLab cases |
 | `s3` | MinIO (S3 API) ClusterIP or testcontainers | Pin MinIO image used by kind/lab protocol | PutObject-style export; path layout | AWS IAM roles, KMS, bucket policies, CloudFront | Lab `DR-2b.4` / serial token `minio` (in `quick+sinks`); `task test-integration` |
-| `gcs` | fake-gcs / S3-compatible XML path / BQ+GCS lab pair | Pin emulator or fake-gcs image from integration Task | Object write via supported client path | **Google IAM, ADC in GCP, bucket IAM conditions, Soft Delete** — MinIO/S3-compatible success is never GCS IAM proof | Lab `DR-2b.10` (`bq-gcs`) deferred from `quick+sinks`; `task test-integration` |
+| `gcs` | MinIO via S3-compatible XML API (`internal/sink/gcs` integration uses `minio/minio`) / BQ+GCS lab pair | Pin `minio/minio` major used by `-tags=integration` (same stand-in as S3 lab) | Object write through the GCS client's S3-compatible path | **Google IAM, ADC in GCP, bucket IAM conditions, Soft Delete** — MinIO/S3-compatible success is never GCS IAM/API proof | Lab `DR-2b.10` (`bq-gcs`) deferred from `quick+sinks`; `task test-integration` |
 | `postgres` | Official Postgres testcontainers / ClusterIP Postgres | Pin Postgres major used in integration Taskfile | Upsert + delete-reconcile; ConnectionTest | Cloud SQL IAM DB auth, proxy, regional HA failover semantics | Lab `DR-2b.3` (in `quick+sinks`); `task test-integration` |
 | `mongodb` | MongoDB testcontainers / ClusterIP | Pin Mongo image from integration suite | Document upsert export | Atlas IAM, VPC peering, managed backup restore | Lab `DR-2b.7` deferred from `quick+sinks`; `task test-integration` |
 | `kafka` | Redpanda (Kafka API) testcontainers / ClusterIP | Pin Redpanda image from ADR-0402 / integration Task | Produce inventory events | Managed Kafka ACLs, schema registry SaaS, multi-AZ rebalance SLOs — Redpanda ≠ managed Kafka control plane | Lab `DR-2b.8` deferred from `quick+sinks`; `task test-integration` |
@@ -67,11 +67,12 @@ is from `hack/lab/schedules/quick+sinks.json` (implemented scenarios vs schedule
 | `mongodb` | `DR-2b.7` | `mongodb` | Deferred | Gap until scheduled |
 | `redpanda` | `DR-2b.8` | `kafka` | Deferred | **`PASS_WITH_LIMITATION`** — Redpanda ≠ managed Kafka |
 | `fan-out` | `DR-2b.9` | multi-sink | Deferred | Gap until scheduled |
-| `bq-gcs` | `DR-2b.10` | `bigquery` + `gcs` | Deferred | **`PASS_WITH_LIMITATION`** — emulator / fake-gcs ≠ GCP IAM/billing |
+| `bq-gcs` | `DR-2b.10` | `bigquery` + `gcs` | Deferred | **`PASS_WITH_LIMITATION`** — BQ emulator / MinIO-as-GCS ≠ GCP IAM/billing |
 
 ## Recording emulator results
 
-When a report row depends on MinIO, Forgejo, Redpanda, fake-gcs, or the BigQuery emulator:
+When a report row depends on MinIO (including as the GCS S3-compatible stand-in), Forgejo,
+Redpanda, or the BigQuery emulator:
 
 1. Verdict: **`PASS_WITH_LIMITATION`** (not bare `PASS`).
 2. Notes: name the substitute and paste the matching **Excluded** cell from the matrix.
