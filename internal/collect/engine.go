@@ -619,10 +619,25 @@ func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResou
 			retire = retireDynamicInformer
 		}
 		retire(oldFactory, oldCancel)
+		// Rehydrate after retire: a narrow→wide replace can drop Store rows when
+		// old Delete delivery races the replacement's initial Adds (multitenant
+		// Kind: one tenant Ready with collecting 0 until a later Update).
+		e.resyncInformerStore(runCtx, gvr, informer)
 	}
 	e.updateInformerMetrics(gvr, informer)
 
 	return nil
+}
+
+// resyncInformerStore dispatches every object currently in the informer cache.
+// Idempotent with Upsert; used after informer replace to close the retire race.
+func (e *Engine) resyncInformerStore(ctx context.Context, gvr schema.GroupVersionResource, informer cache.SharedIndexInformer) {
+	if informer == nil {
+		return
+	}
+	for _, obj := range informer.GetStore().List() {
+		e.dispatch(ctx, gvr, obj, false)
+	}
 }
 
 func retireDynamicInformer(factory dynamicinformer.DynamicSharedInformerFactory, cancel context.CancelFunc) {
