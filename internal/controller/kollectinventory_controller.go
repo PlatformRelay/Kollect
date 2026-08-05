@@ -103,7 +103,7 @@ func (r *KollectInventoryReconciler) exportDebounce(inv *kollectdevv1alpha1.Koll
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectsnapshotsinks;kollectdatabasesinks;kollecteventsinks,verbs=get;list;watch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectscopes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile aggregates collected items in the namespace and exports to configured sinks.
 func (r *KollectInventoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

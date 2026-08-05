@@ -21,7 +21,7 @@ rules:
   - apiGroups: [authorization.k8s.io]
     resources: [selfsubjectaccessreviews, subjectaccessreviews]
     verbs: [create]
-  - apiGroups: [events.k8s.io]
+  - apiGroups: [""]
     resources: [events]
     verbs: [create, patch]
   - apiGroups: [kollect.dev]
