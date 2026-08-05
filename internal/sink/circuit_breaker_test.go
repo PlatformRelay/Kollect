@@ -73,3 +73,58 @@ func TestRunExportItems_circuitBreakerTripsAfterRepeatedFailures(t *testing.T) {
 		t.Fatalf("open breaker error class = %v, want transient", kollecterrors.ClassOf(err))
 	}
 }
+
+func TestResetBreakersForTest_clearsOpenBreaker(t *testing.T) {
+	t.Parallel()
+
+	const (
+		sinkNamespace = "cb-reset-ns"
+		sinkName      = "cb-reset-sink"
+	)
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
+		ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: sinkNamespace},
+		Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type:             "stub",
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/repo.git"},
+		},
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj).Build()
+
+	reg := NewRegistry()
+	stub := &stubBackend{
+		caps:      cap.SnapshotStore(),
+		exportErr: errors.New("network down"),
+	}
+	reg.Register("stub", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return stub, nil
+	})
+
+	req := ExportItemsRequest{
+		Ctx:           t.Context(),
+		Client:        cl,
+		Registry:      reg,
+		SinkNamespace: sinkNamespace,
+		SinkName:      sinkName,
+		ObjectPath:    sinkNamespace + "/inv.json",
+		Items:         []collect.Item{{Name: "demo"}},
+	}
+
+	for range circuitBreakerTripAt {
+		_ = RunExportItems(req)
+	}
+	if err := RunExportItems(req); err == nil {
+		t.Fatal("expected open breaker before reset")
+	}
+
+	ResetBreakersForTest()
+	stub.exportErr = nil
+	if err := RunExportItems(req); err != nil {
+		t.Fatalf("RunExportItems after ResetBreakersForTest: %v", err)
+	}
+}
