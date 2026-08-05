@@ -1,21 +1,23 @@
 # Performance and scalability
 
-Kollect is designed for **large single clusters** (1000s of nodes, **10k+ watched resources
-baseline**) and **multi-cluster fleets** — **N independent single-mode operators** exporting to a
-**shared sink** partitioned by `spec.cluster`. There is **no hub/spoke runtime tier**
-([ADR-0501](../adr/0501-multi-cluster-fleet.md)). This guide summarizes tuning knobs from
-[ADR-0603](../adr/0603-performance-scalability.md).
+Kollect is designed for **large single clusters** (1000s of nodes, **10k+ watched resources** as a
+**design** baseline — not a published CI proof) and **multi-cluster fleets** — **N independent
+single-mode operators** exporting to a **shared sink** partitioned by `spec.cluster`. There is
+**no hub/spoke runtime tier** ([ADR-0501](../adr/0501-multi-cluster-fleet.md)). This guide
+summarizes tuning knobs from [ADR-0603](../adr/0603-performance-scalability.md). Scale **claims**
+must match [load-test-runbook.md](load-test-runbook.md) evidence status.
 
 ## Scale tiers
 
-| Tier | Collected rows | Clusters | How to validate |
-| --- | --- | --- | --- |
-| Dev / CI default | ≤500 synthetic | 1 | `task test` |
-| Opt-in load | ≤2,000 synthetic | 1 | `KOLECT_LOAD_TEST=1 task load-test` |
-| Nightly load | **10,000** synthetic | 1 | `task load-test:10k` on 8-core runners |
-| Baseline production | **10,000+** (validated) | 1 | Metrics + pprof; manual load |
-| Design target | **100,000** | 1 | Manual / `perf-report`; needs export sharding + Postgres bulk upsert (claim gate v0.5+) |
-| Fleet | 10k–100k × **N** | **many** | One `ServiceMonitor` per cluster release; correlate by `spec.cluster` |
+| Tier | Workload shape | Clusters | Execution layer | Evidence status |
+| --- | --- | --- | --- | --- |
+| Dev / CI default | ≤500 synthetic | 1 | envtest (`task test`) | ✅ Active — every PR |
+| Opt-in load | ≤2,000 synthetic | 1 | `KOLECT_LOAD_TEST=1 task load-test` | ✅ Opt-in — synthetic extraction; ≠ in-cluster 10k soak |
+| Nightly 10k | **10,000** synthetic | 1 | `task load-test:10k` on `ubuntu-latest-8-cores` | ⬜ **Disabled / unverified** — jobs opt-in only (`run_scale_jobs`); no green SHA while runners unavailable |
+| Baseline production | **10,000+** in-cluster | 1 | Metrics + pprof; manual load | ⬜ **Unverified** — no published SHA / date / hardware evidence yet |
+| Laptop / L4.5 lab | Bounded schedule | 1 (single-host) | Existing cluster (Kind / K3s / Talos) | Named pin only — [local lab](local-lab-runbook.md) / [evidence bundle](lab-evidence-bundle.md); **does not** satisfy 100k / two-cluster gate |
+| Design target | **100,000** | 1–2 cloud | Manual cloud soak ([load-test runbook](load-test-runbook.md)) | ⬜ **Planned / unexecuted (AR-02)** — needs export sharding + Postgres bulk upsert |
+| Fleet | 10k–100k × **N** | **many** | One `ServiceMonitor` per cluster release | Architecture guidance — correlate by `spec.cluster` |
 
 The **100,000-row design target** requires **mandatory export sharding** — one `KollectInventory`
 per workload namespace (or smaller groups) so each export stays **below ~2,000 rows** (~1.5 MiB) —
@@ -144,8 +146,10 @@ stores.
 
 !!! warning "Honest scale claim"
     **100k/cluster is a design target**, not a blanket product guarantee. Proof requires a **manual
-    cloud load test** ([load test runbook](load-test-runbook.md)) — not GitHub Actions runners.
-    Until that gate passes, treat 100k as **architecture guidance** with mandatory export sharding.
+    cloud load test** ([load test runbook](load-test-runbook.md)) — not GitHub Actions runners and
+    not laptop / L4.5 lab evidence. Until that **AR-02** gate passes, treat 100k as **architecture
+    guidance** with mandatory export sharding. Nightly 10k CI is **disabled / unverified** while
+    `ubuntu-latest-8-cores` jobs stay opt-in.
 
 ## Collected rows vs export shards
 
