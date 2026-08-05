@@ -52,3 +52,6 @@ rows always carry a machine-emitted reason — never an empty green cell.
 
 Minimal labeled batch/churn helper: `bash hack/lab/workload.sh --run-id <id> --dry-run --out-dir <dir>`
 (always labels `kollect.dev/lab-run=<RUN_ID>`; not required in default `quick`/`quick+sinks`).
+**Stub honesty:** without `--dry-run`, scenario scripts emit `BLOCKED` (“live scenario not
+implemented”) — they never paper-green as `PASS`. `--keep-lab` / default cleanup are **hints only**
+until live scenario bodies exist; dry-run does not create or delete cluster resources.
