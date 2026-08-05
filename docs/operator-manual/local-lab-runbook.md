@@ -41,23 +41,27 @@ bodies may still emit `BLOCKED` until implemented — stubs never paper-green as
 
 ## Isolation contract
 
-All mutation and cleanup for a run are confined to that run’s identity. Unrelated namespaces must
-survive.
+All mutation for a run is confined to that run’s identity. Unrelated namespaces must survive.
+Until live scenario bodies land, `--keep-lab` and the runner’s default “cleanup” messages are
+**hints only** (`hack/lab/run.sh` prints intent; it does **not** automatically delete lab
+namespaces/resources). The operator must clean labeled resources deliberately after a run.
 
 | Mechanism | Value |
 | --- | --- |
 | Lab label | `kollect.dev/lab-run=<RUN_ID>` on lab resources |
 | Namespaces | `kollect-lab-<RUN_ID>-*` (and other `kollect-lab-*` residue checked by preflight) |
 | Helm release (when used) | `kollect-lab` in the lab install namespace |
-| Default cleanup | Tear down labeled lab resources after the schedule (omit with `--keep-lab`) |
+| Cleanup | **Manual** — delete `kollect-lab-*` / `kollect.dev/lab-run=<RUN_ID>` resources when finished; `--keep-lab` only suppresses the runner’s cleanup *hint* |
 
 Preflight exit **2** means isolation residue without `--force` — clear `kollect-lab-*` /
 `kollect.dev/lab-run` resources, or pass `--force` deliberately.
 
 ## Capacity tiers (`tier=auto`)
 
-`--tier auto|S|M|L` is accepted by `hack/lab/run.sh`. Use **measured** host headroom (available RAM
-after Docker/Kubernetes), not a marketing model name:
+`--tier auto|S|M|L` is accepted by `hack/lab/run.sh`. The S/M/L steps, plateau checks, and stop
+thresholds below are **documented guidance** for the operator — the flag may **no-op in v1**
+(capacity gating is not fully enforced by the runner yet). Use **measured** host headroom
+(available RAM after Docker/Kubernetes), not a marketing model name:
 
 ```sh
 free -h
@@ -73,10 +77,11 @@ kubectl top nodes   # if metrics-server is present
 | **M** | `12–24 GiB` | 500 → 2k → 5k → 10k | 20k | Git; Postgres in a **separate** serial step |
 | **L** | `>24 GiB` | 500 → 2k → 5k → 10k → 20k | 50k | Git; Postgres separately |
 
-The maximum is a **ceiling**, not a target. With `tier=auto`, start at the tier matching available
-RAM and grow only after a **15-minute stable plateau** (steady reconcile/export, no growing
-backpressure). For the largest successful step, prefer a short churn window then a longer soak only
-when the schedule supports it — `soak` itself is not implemented yet (see Schedules).
+The maximum is a **ceiling**, not a target. When following the `tier=auto` guidance, start at the
+tier matching available RAM and grow only after a **15-minute stable plateau** (steady
+reconcile/export, no growing backpressure). For the largest successful step, prefer a short churn
+window then a longer soak only when the schedule supports it — `soak` itself is not implemented yet
+(see Schedules).
 
 ### Stop thresholds → `LIMIT_REACHED`
 
@@ -103,8 +108,8 @@ guidance for a warm multi-node lab; laptop Kind runs vary.
 
 | Schedule | Status | Approx duration | Prerequisites | Serial backends | Cleanup | Artifacts |
 | --- | --- | --- | ---: | --- | --- | --- |
-| `quick` | **Implemented** registry | ~30–90 min | Existing cluster; preflight OK; product pin / chart | None (no Wave-2b sinks) | Default tear-down unless `--keep-lab` | `artifacts/lab/<RUN_ID>/` (+ report draft) |
-| `quick+sinks` | **Implemented** registry | ~2–4 h | Same as `quick` plus ability to stand ClusterIP / temp remotes for sinks | Wave-2b backends **serial** — tear down before next (`hack/lab/lib/serial-backend.sh`) | Same | Same |
+| `quick` | **Implemented** registry | ~30–90 min | Existing cluster; preflight OK; product pin / chart | None (no Wave-2b sinks) | Hint only until live scenarios; operator cleans labeled resources manually | `artifacts/lab/<RUN_ID>/` (+ report draft) |
+| `quick+sinks` | **Implemented** registry | ~2–4 h | Same as `quick` plus ability to stand ClusterIP / temp remotes for sinks | Wave-2b backends **serial** — tear down before next (`hack/lab/lib/serial-backend.sh`) | Same (manual; `--keep-lab` is a hint) | Same |
 | `full-lab-day` | **Declared; refuses** | — | — | — | — | Exit **2** `BLOCKED` until capacity gates + scenario scripts land |
 | `soak` | **Declared; refuses** | — | — | — | — | Exit **2** `BLOCKED` until overnight Tier M/L schedule lands |
 
@@ -143,8 +148,8 @@ value.
 | `--run-id ID` | Lab run id → `artifacts/lab/<RUN_ID>/` (default: generated `lab-<utc>-…`) |
 | `--resume` | Skip scenarios already `PASS` / `PASS_WITH_LIMITATION` in `results.json` |
 | `--seed N` | Deterministic seed forwarded to scenario scripts (default `0`) |
-| `--keep-lab` | Retain lab namespaces/resources (default cleans up) |
-| `--tier auto\|S\|M\|L` | Capacity tier hint (`auto` uses the S/M/L guide above; v1 may no-op some gating) |
+| `--keep-lab` | Hint only — suppress default cleanup *message*; does not auto-delete resources until live scenarios land (operator cleans manually) |
+| `--tier auto\|S\|M\|L` | Capacity tier hint; S/M/L table above is documented guidance (`auto` may **no-op in v1**) |
 | `--dry-run` | Offline stubs only — no live `kubectl`/`helm` mutations |
 | `--artifacts-root DIR` | Results root (default `<repo>/artifacts/lab`) |
 | `--skip-preflight` | Advanced / nested tests only |
