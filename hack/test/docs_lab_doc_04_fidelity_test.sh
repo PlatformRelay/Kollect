@@ -26,8 +26,38 @@ pass() {
 [[ -f "${PAGE}" ]] || fail "${PAGE} is missing"
 [[ -f "${REGISTRY}" ]] || fail "${REGISTRY} is missing"
 
-# Registry types from NewRegistry (must appear exactly once in the primary matrix table).
-types=(local git gitlab s3 gcs postgres mongodb kafka nats bigquery)
+# Registry types from NewRegistry — parse Register(...) calls in registry.go
+# (string literals and TypeName constants resolved via package TypeName decls).
+mapfile -t types < <(python3 - <<PY
+import re
+from pathlib import Path
+root = Path("${ROOT}")
+reg = (root / "internal/sink/registry.go").read_text()
+# Collect Register("literal"...) and Register(pkg.TypeName...
+literals = re.findall(r'\.Register\("([a-z0-9]+)"', reg)
+pkgs = re.findall(r'\.Register\(([a-zA-Z0-9_]+)\.TypeName', reg)
+types = set(literals)
+for pkg in pkgs:
+  # map import alias/package dir → TypeName const
+  # Prefer package directory matching the identifier (git, bigquery, mongodb, local).
+  candidates = list((root / "internal/sink" / pkg.lower()).glob("*.go")) if (root / "internal/sink" / pkg.lower()).is_dir() else []
+  # Also try exact package name as dir
+  pkg_dir = root / "internal/sink" / pkg
+  if pkg_dir.is_dir():
+    candidates = list(pkg_dir.glob("*.go"))
+  found = None
+  for f in candidates:
+    m = re.search(r'TypeName\s*=\s*"([a-z0-9]+)"', f.read_text())
+    if m:
+      found = m.group(1)
+      break
+  if not found:
+    raise SystemExit(f"could not resolve {pkg}.TypeName")
+  types.add(found)
+print("\n".join(sorted(types)))
+PY
+)
+[[ "${#types[@]}" -ge 10 ]] || fail "failed to parse NewRegistry types from registry.go (got ${#types[@]})"
 PRIMARY="$(awk '/^## Primary fidelity matrix$/{p=1;next} /^## /{if(p){exit}} p' "${PAGE}")"
 [[ -n "${PRIMARY}" ]] || fail "missing ## Primary fidelity matrix section"
 
@@ -35,7 +65,16 @@ for t in "${types[@]}"; do
   count="$(printf '%s\n' "${PRIMARY}" | grep -E "^\\|[[:space:]]*\`${t}\`[[:space:]]*\\|" | wc -l | tr -d ' ')"
   [[ "${count}" -eq 1 ]] || fail "registry type ${t} must appear exactly once in primary matrix (found ${count})"
 done
-pass "each NewRegistry sink type appears exactly once in primary matrix"
+pass "each NewRegistry sink type appears exactly once in primary matrix (${#types[@]} from registry.go)"
+
+# GCS offline proof is MinIO S3-compatible — never claim fake-gcs
+gcs_row="$(printf '%s\n' "${PRIMARY}" | grep -E '^\|[[:space:]]*`gcs`[[:space:]]*\|' || true)"
+[[ -n "${gcs_row}" ]] || fail "missing gcs primary matrix row"
+printf '%s\n' "${gcs_row}" | grep -Eqi 'MinIO|minio' || fail "gcs row must name MinIO as the offline substitute"
+if printf '%s\n' "${gcs_row}" | grep -Eqi 'fake-gcs'; then
+  fail "gcs row must not cite fake-gcs (repo uses MinIO S3-compatible path)"
+fi
+pass "gcs row names MinIO (not fake-gcs)"
 
 # Fidelity / limitation contract
 grep -qF 'PASS_WITH_LIMITATION' "${PAGE}" || fail "page must require PASS_WITH_LIMITATION for emulator/lab substitutes"
