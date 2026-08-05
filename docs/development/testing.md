@@ -123,8 +123,10 @@ For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a 
 ## Multi-node lab evidence
 
 Kind L4 proves single-node wiring. Separately, published **v0.16.0** was exercised on a Talos lab
-with **1 control plane + 2 workers** (`quick+sinks`, **ready with conditions**). Publishable
-shape, redaction, and an example matrix live in the
+with **1 control plane + 2 workers** (`quick+sinks`, **ready with conditions**). Maintainer
+multi-node / existing-cluster evidence sits as **L4.5** beside Kind L4 and load L5 —
+[ADR-0707: Lab harness architecture](../adr/0707-lab-harness.md). Publishable shape, redaction,
+and an example matrix live in the
 [lab evidence bundle contract](../operator-manual/lab-evidence-bundle.md).
 
 **Observed (bounded)**
@@ -176,6 +178,7 @@ PR workflow: [CONTRIBUTING.md § Pull request process](https://github.com/platfo
 ## Further reading
 
 - [ADR-0706: Testing and merge-gate architecture](../adr/0706-testing-merge-gate-architecture.md)
+- [ADR-0707: Lab harness architecture](../adr/0707-lab-harness.md) (L4.5 maintainer evidence)
 - [Engineering guidelines](https://github.com/platformrelay/kollect/blob/main/docs/development/guidelines.md) §4 (testing rules)
 - [REQUIREMENTS.md](../REQUIREMENTS.md) — NFR-TEST-* priorities
 - [operator-manual/performance.md](../operator-manual/performance.md) — scale bounds and perf-report workflow
