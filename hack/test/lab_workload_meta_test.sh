@@ -94,6 +94,59 @@ kinds="${kind_arr[*]}"
 ((${#kind_arr[@]} >= 2)) || fail "expected mixed shapes (>=2 kinds), got: ${kinds}"
 pass "batch renders mixed shapes (${kinds})"
 
+# Collect metadata.name values for a given kind under a tree (simple YAML scan).
+collect_names_for_kind() {
+  local dir="$1"
+  local want_kind="$2"
+  local f kind name
+  for f in "${dir}"/*.yaml "${dir}"/*.yml; do
+    [[ -f "${f}" ]] || continue
+    kind=""
+    name=""
+    while IFS= read -r line; do
+      if [[ "${line}" =~ ^kind:[[:space:]]*(.+)$ ]]; then
+        kind="${BASH_REMATCH[1]//$'\r'/}"
+        kind="${kind#"${kind%%[![:space:]]*}"}"
+        kind="${kind%"${kind##*[![:space:]]}"}"
+      fi
+      if [[ "${line}" =~ ^[[:space:]]+name:[[:space:]]*(.+)$ ]] && [[ -z "${name}" ]]; then
+        # First metadata.name after kind (object name).
+        name="${BASH_REMATCH[1]//$'\r'/}"
+        name="${name#\"}"
+        name="${name%\"}"
+        name="${name#\'}"
+        name="${name%\'}"
+        name="${name#"${name%%[![:space:]]*}"}"
+        name="${name%"${name##*[![:space:]]}"}"
+      fi
+    done <"${f}"
+    if [[ "${kind}" == "${want_kind}" && -n "${name}" ]]; then
+      printf '%s\n' "${name}"
+    fi
+  done
+}
+
+# Service selector app: must reference a Deployment app label actually emitted.
+mapfile -t dep_names < <(collect_names_for_kind "${OUT_A}" Deployment | sort -u)
+((${#dep_names[@]} > 0)) || fail "batch must emit at least one Deployment for Service pairing"
+dep_set=" $(printf '%s ' "${dep_names[@]}") "
+svc_files=()
+while IFS= read -r -d '' f; do
+  if grep -q '^kind: Service$' "${f}"; then
+    svc_files+=("${f}")
+  fi
+done < <(find "${OUT_A}" -type f \( -name '*.yaml' -o -name '*.yml' \) -print0)
+
+for f in "${svc_files[@]+"${svc_files[@]}"}"; do
+  sel="$(awk '/^spec:/{s=1} s && /selector:/{sel=1} sel && /app:/{print $2; exit}' "${f}")"
+  sel="${sel#\"}"
+  sel="${sel%\"}"
+  [[ -n "${sel}" ]] || fail "Service missing selector.app: ${f}"
+  [[ "${dep_set}" == *" ${sel} "* ]] ||
+    fail "Service selector app=${sel} not in baseline Deployments (${dep_names[*]}): ${f}"
+done
+pass "Service selectors match emitted Deployment app labels"
+
 # --- deterministic seed: same seed → identical tree ---
 mkdir -p "${OUT_B}"
 run_wl --run-id "${RUN_ID}" --seed 42 --mode batch --count 6 \
@@ -154,7 +207,9 @@ for f in "${churn_manifests[@]}"; do
 done
 
 # Operation hints: create / update / delete (plan file preferred; stdout fallback).
-plan_blob="$(cat "${OUT_CHURN}"/* 2>/dev/null || true)"$'\n'"${churn_out}"
+PLAN_FILE="${OUT_CHURN}/churn-plan.txt"
+[[ -f "${PLAN_FILE}" ]] || fail "churn mode must write ${PLAN_FILE}"
+plan_blob="$(cat "${PLAN_FILE}")"$'\n'"${churn_out}"
 printf '%s\n' "${plan_blob}" | grep -Eqi 'create' ||
   fail "churn mode should mention create ops"
 printf '%s\n' "${plan_blob}" | grep -Eqi 'update' ||
@@ -162,6 +217,56 @@ printf '%s\n' "${plan_blob}" | grep -Eqi 'update' ||
 printf '%s\n' "${plan_blob}" | grep -Eqi 'delete' ||
   fail "churn mode should mention delete ops"
 pass "light churn mode emits create/update/delete plan"
+
+# P1/P2: update/delete targets must be real baseline object names (no phantom hashes).
+BASELINE="${OUT_CHURN}/baseline"
+[[ -d "${BASELINE}" ]] || fail "churn mode must render baseline under ${BASELINE}"
+
+baseline_names=()
+while IFS= read -r -d '' f; do
+  case "${f}" in
+    *.yaml|*.yml) ;;
+    *) continue ;;
+  esac
+  # Skip Namespace-only files for target intersection (ops target namespaced objects).
+  if grep -q '^kind: Namespace$' "${f}"; then
+    continue
+  fi
+  n="$(awk '/^metadata:/{m=1} m && /^[[:space:]]+name:/{print $2; exit}' "${f}")"
+  n="${n#\"}"
+  n="${n%\"}"
+  [[ -n "${n}" ]] && baseline_names+=("${n}")
+done < <(find "${BASELINE}" -type f \( -name '*.yaml' -o -name '*.yml' \) -print0)
+
+((${#baseline_names[@]} > 0)) || fail "baseline must contain named workload objects"
+baseline_set=" $(printf '%s ' "${baseline_names[@]}") "
+
+phantom=0
+while IFS= read -r line; do
+  [[ "${line}" =~ ^(update|delete)[[:space:]]+([^/]+)/([^/]+)/([^[:space:]]+) ]] || continue
+  op="${BASH_REMATCH[1]}"
+  obj_name="${BASH_REMATCH[4]}"
+  if [[ "${baseline_set}" != *" ${obj_name} "* ]]; then
+    printf 'lab workload meta: phantom %s target %s not in baseline (%s)\n' \
+      "${op}" "${obj_name}" "${baseline_names[*]}" >&2
+    phantom=1
+  fi
+done <"${PLAN_FILE}"
+[[ "${phantom}" -eq 0 ]] || fail "churn update/delete targets must ⊆ baseline rendered names"
+pass "churn update/delete targets ⊆ baseline names"
+
+# Create ops may introduce new names (not required in baseline).
+create_count="$(grep -cE '^create[[:space:]]' "${PLAN_FILE}" || true)"
+((create_count >= 1)) || fail "churn plan needs at least one create line"
+pass "churn plan has create ops (new names ok)"
+
+# --- DNS1123 / invalid --run-id ---
+rc=0
+out="$(run_wl --run-id 'bad id with spaces' --seed 1 --dry-run --out-dir "${TMP}/bad-id" 2>&1)" || rc=$?
+[[ "${rc}" -ne 0 ]] || fail "run-id with spaces must be rejected: ${out}"
+printf '%s\n' "${out}" | grep -Eqi 'run-id|DNS|invalid|space' ||
+  fail "invalid run-id error should mention validation: ${out}"
+pass "rejects non-DNS1123 --run-id (spaces)"
 
 # --- --fixture alias stays offline ---
 FIX="${TMP}/fixture"
