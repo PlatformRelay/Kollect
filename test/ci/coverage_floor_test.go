@@ -15,8 +15,8 @@ import (
 	"testing"
 )
 
-// expectedFloor is the enforced COVERAGE_MIN for Track A (COV-90-S08 step 1).
-const expectedFloor = "87"
+// expectedFloor is the enforced COVERAGE_MIN for Track A (COV-90-S08 ratchet (87→90)).
+const expectedFloor = "90"
 
 func moduleRoot(t *testing.T) string {
 	t.Helper()

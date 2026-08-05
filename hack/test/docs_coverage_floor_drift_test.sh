@@ -168,8 +168,8 @@ pass "matching fixture agrees at 87"
 # --- GREEN: real repository sources ---
 repo_floor="$(assert_floors_agree "${ROOT}" "repo")" ||
   fail "repo sources disagree — see stderr above"
-[[ "${repo_floor}" == "87" ]] ||
-  fail "repo coverage floor is ${repo_floor}, expected 87 (update docs + Taskfile + ci.yaml + codecov + coverage.sh together)"
+[[ "${repo_floor}" == "90" ]] ||
+  fail "repo coverage floor is ${repo_floor}, expected 90 (update docs + Taskfile + ci.yaml + codecov + coverage.sh together)"
 pass "Taskfile.yml, ci.yaml, coverage.sh, codecov.yml, and current-floor docs agree at ${repo_floor}"
 
 printf 'docs coverage floor drift: ok (floor=%s)\n' "${repo_floor}"
