@@ -3,15 +3,17 @@
 # SPDX-License-Identifier: MIT
 #
 # Phases: idle → converge(N objects) → churn → recover
-# pprof is disabled in product by default; lab enables via Helm values on a **dev** release
-# (for example kollect-dev). Access via localhost port-forward only — never create a public
-# Service for pprof.
+# pprof is disabled in product by default; lab enables via Helm values (pprof.enabled: true).
+# Access via localhost port-forward only — never create a public Service for pprof.
+#
+# Live path: kubectl -n kollect-system port-forward deploy/kollect-controller-manager 16060:6060
+# then curl/go tool pprof against http://127.0.0.1:16060/debug/pprof/...
 #
 # Exit codes:
 #   0  OK (dry-run fixture or live run completed)
 #   1  usage / invalid args
 #   2  kube context refused (non-kind / ambiguous without --allow-non-kind)
-#   3  preflight / evidence / capture failure
+#   3  preflight / evidence / capture failure (live pprof BLOCKED when unreachable)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,11 +26,17 @@ source "${SCRIPT_DIR}/lib/pprof-capture.sh"
 
 : "${LAB_PERF_KIND_LOG_PREFIX:=[perf-kind]}"
 
+# Kind/dev defaults (override with --namespace).
+readonly LAB_PERF_KIND_DEFAULT_NAMESPACE="${KOLLECT_NAMESPACE:-kollect-system}"
+readonly LAB_PERF_KIND_PF_LOCAL_PORT=16060
+readonly LAB_PERF_KIND_PF_REMOTE_PORT=6060
+readonly LAB_PERF_KIND_PF_RESOURCE="deploy/kollect-controller-manager"
+
 lab_perf_kind_log() { printf '%s %s\n' "${LAB_PERF_KIND_LOG_PREFIX}" "$*"; }
 lab_perf_kind_err() { printf '%s FAIL: %s\n' "${LAB_PERF_KIND_LOG_PREFIX}" "$*" >&2; }
 
 lab_perf_kind_usage() {
-  cat <<'EOF'
+  cat <<EOF
 Usage: hack/lab/perf-kind.sh --run-id <RUN_ID> [options]
 
 Kind-oriented quick pprof workflow (LAB-H10 / PERF-LAB-01). Runs phased capture:
@@ -37,17 +45,20 @@ Kind-oriented quick pprof workflow (LAB-H10 / PERF-LAB-01). Runs phased capture:
 Never creates or destroys a cluster. Refuses ambiguous or non-Kind kube contexts unless
 --allow-non-kind is set.
 
-pprof is off in product Helm by default; lab runs enable it only on a **dev** release name
-(for example kollect-dev) via Helm values — access via **localhost port-forward only**;
-never create a public Service for pprof.
+pprof is off in product Helm by default; enable \`pprof.enabled: true\` on the release.
+Live capture uses localhost port-forward only (never a public Service):
+
+  kubectl -n kollect-system port-forward deploy/kollect-controller-manager 16060:6060
 
 Options:
   --run-id <id>           Required. Stable lab run id → kollect.dev/lab-run=<RUN_ID>.
   --dry-run               Offline fixture: DOC-02 evidence + profiles/ index (no kubectl).
-  --objects <n>           Object budget: 100 | 500 | 2000 (default: 500).
+  --objects <n>           Object budget for live converge/churn: 100 | 500 | 2000 (default: 500).
+                          Ignored in --dry-run except as metadata in summaries.
   --duration <dur>        Phase dwell hint (default: 60s); CPU profile capped at 30s.
-  --seed <n>              Deterministic seed (default: 1).
+  --seed <n>              Deterministic seed for fixture metadata (default: 1).
   --artifacts-root <dir>  Evidence root (default: artifacts/lab under repo).
+  --namespace <ns>        Manager namespace for port-forward (default: kollect-system).
   --keep-lab              Hint: retain lab namespaces/resources (default: cleanup labeled workload).
   --allow-non-kind        Skip Kind context gate (maintainer override; still no cluster create/destroy).
   --fixture=<mode>        Offline context fixtures: context-non-kind | context-ambiguous | context-kind
@@ -57,8 +68,9 @@ Options:
 
 Env:
   KOLLECT_LAB_PERF_KIND_CONTEXT_FIXTURE  Same as --fixture=context-* for meta-tests.
+  KOLLECT_NAMESPACE                      Default --namespace (kollect-system).
 
-Maintainer live Kind path is opt-in; CI verifies the offline --dry-run quick path only.
+CI verifies the offline --dry-run quick path only. Live Kind capture is maintainer opt-in.
 EOF
 }
 
@@ -68,6 +80,7 @@ OBJECTS=500
 DURATION="60s"
 SEED=1
 ARTIFACTS_ROOT="${ROOT}/artifacts/lab"
+NAMESPACE="${LAB_PERF_KIND_DEFAULT_NAMESPACE}"
 KEEP_LAB=0
 ALLOW_NON_KIND=0
 CONTEXT_FIXTURE="${KOLLECT_LAB_PERF_KIND_CONTEXT_FIXTURE:-}"
@@ -76,6 +89,7 @@ EXERCISE_CLEANUP=0
 
 PERF_KIND_RUN_DIR=""
 PERF_KIND_INTERRUPTED=0
+PERF_KIND_CAPTURE_STATUS="stub"
 
 lab_perf_kind_valid_run_id() {
   local id="${1:-}"
@@ -194,8 +208,9 @@ lab_perf_kind_run_phase() {
   local seed="$3"
   local fixture="$4"
 
-  lab_perf_kind_log "phase: ${phase}"
-  lab_pprof_capture_phase_set "${run_dir}" "${phase}" "${seed}" "${fixture}" ||
+  lab_perf_kind_log "phase: ${phase} (dwell ${DURATION}; objects=${OBJECTS} metadata)"
+  lab_pprof_capture_phase_set "${run_dir}" "${phase}" "${seed}" "${fixture}" \
+    "${LAB_PERF_KIND_PF_LOCAL_PORT}" "${DURATION}" "${OBJECTS}" ||
     return 3
 
   if [[ -n "${SIMULATE_INTERRUPT}" && "${SIMULATE_INTERRUPT}" == "${phase}" ]]; then
@@ -209,20 +224,22 @@ lab_perf_kind_run_phase() {
 lab_perf_kind_write_summary() {
   local run_dir="$1"
   cat >"${run_dir}/summary.md" <<EOF
-# perf-kind summary (stub)
+# perf-kind summary
 
-Run \`${RUN_ID}\` — LAB-H10 / PERF-LAB-01 quick path.
+Run \`${RUN_ID}\` — LAB-H10 / PERF-LAB-01 quick path (capture: ${PERF_KIND_CAPTURE_STATUS}).
 
 | Field | Value |
 | --- | --- |
-| objects | ${OBJECTS} |
+| objects | ${OBJECTS} (live converge/churn; metadata-only in --dry-run) |
 | seed | ${SEED} |
-| duration hint | ${DURATION} |
+| duration / phase dwell | ${DURATION} |
+| cpu sample cap | $(lab_pprof_cpu_seconds_from_duration "${DURATION}")s |
 | phases | idle → converge → churn → recover |
 | profiles index | profiles/index.md |
 | findings | summary/performance-findings.md |
+| port-forward | kubectl -n ${NAMESPACE} port-forward ${LAB_PERF_KIND_PF_RESOURCE} ${LAB_PERF_KIND_PF_LOCAL_PORT}:${LAB_PERF_KIND_PF_REMOTE_PORT} |
 
-pprof: enabled on dev release via Helm values only; **localhost port-forward** — no public Service.
+pprof: **localhost port-forward only** — never expose via public Service.
 EOF
 }
 
@@ -251,6 +268,10 @@ lab_perf_kind_main() {
         ;;
       --artifacts-root)
         ARTIFACTS_ROOT="$2"
+        shift 2
+        ;;
+      --namespace)
+        NAMESPACE="$2"
         shift 2
         ;;
       --keep-lab)
@@ -307,45 +328,71 @@ lab_perf_kind_main() {
   run_dir="$(lab_evidence_run_dir "${ARTIFACTS_ROOT}" "${RUN_ID}")"
   PERF_KIND_RUN_DIR="${run_dir}"
   fixture=1
+  PERF_KIND_CAPTURE_STATUS="stub"
   if [[ "${DRY_RUN}" -eq 0 ]]; then
     fixture=0
+    PERF_KIND_CAPTURE_STATUS="live"
   fi
 
   trap 'lab_perf_kind_on_interrupt' INT TERM
 
   if [[ "${DRY_RUN}" -eq 1 ]]; then
     lab_perf_kind_log "dry-run / fixture mode (no kubectl mutations); writing evidence under ${run_dir}"
+  else
+    lab_perf_kind_log "live capture mode: port-forward + curl/go tool pprof (objects=${OBJECTS} for converge/churn workload — workload apply follow-up)"
   fi
 
   lab_evidence_ensure_layout "${run_dir}" "${RUN_ID}"
   lab_pprof_ensure_profiles_dir "${run_dir}"
   lab_pprof_write_index_header "$(lab_pprof_index_path "${run_dir}")"
 
-  # Port-forward to dev release pprof (localhost only — never public Service).
   if [[ "${DRY_RUN}" -eq 1 ]]; then
-    lab_pprof_portforward_start "${run_dir}" 16060 "svc/kollect-dev-manager:6060" --fixture
+    lab_pprof_portforward_start "${run_dir}" "${NAMESPACE}" \
+      "${LAB_PERF_KIND_PF_LOCAL_PORT}" "${LAB_PERF_KIND_PF_REMOTE_PORT}" \
+      "${LAB_PERF_KIND_PF_RESOURCE}" --fixture
   else
-    lab_pprof_portforward_start "${run_dir}" 16060 "svc/kollect-dev-manager:6060" || {
-      lab_perf_kind_err "port-forward failed; is kollect-dev installed with pprof.enabled?"
+    lab_pprof_portforward_start "${run_dir}" "${NAMESPACE}" \
+      "${LAB_PERF_KIND_PF_LOCAL_PORT}" "${LAB_PERF_KIND_PF_REMOTE_PORT}" \
+      "${LAB_PERF_KIND_PF_RESOURCE}" || {
+      lab_perf_kind_err "port-forward failed; is kollect installed with pprof.enabled in ${NAMESPACE}?"
+      lab_pprof_write_findings_blocked "${run_dir}" "${RUN_ID}" "port-forward to ${LAB_PERF_KIND_PF_RESOURCE} failed"
       exit 3
     }
+    if ! lab_pprof_wait_ready "${LAB_PERF_KIND_PF_LOCAL_PORT}"; then
+      lab_perf_kind_err "pprof endpoint unreachable at http://127.0.0.1:${LAB_PERF_KIND_PF_LOCAL_PORT}/debug/pprof/"
+      lab_pprof_write_findings_blocked "${run_dir}" "${RUN_ID}" \
+        "pprof endpoint unreachable after port-forward (enable pprof.enabled and check manager pod)"
+      lab_pprof_portforward_stop "${run_dir}" || true
+      exit 3
+    fi
   fi
 
   local phase_rc=0
   for phase in idle converge churn recover; do
     lab_perf_kind_run_phase "${phase}" "${run_dir}" "${SEED}" "${fixture}" || {
       phase_rc=$?
+      if [[ "${fixture}" -eq 0 && "${phase_rc}" -eq 3 ]]; then
+        lab_perf_kind_err "live pprof capture failed in phase ${phase}; partial tree preserved"
+        lab_pprof_write_findings_blocked "${run_dir}" "${RUN_ID}" \
+          "live capture failed in phase ${phase} (curl/go tool pprof)"
+        lab_pprof_portforward_stop "${run_dir}" || true
+        trap - INT TERM
+        exit 3
+      fi
       break
     }
   done
 
-  # Differential summaries: base↔churn↔recovered (idle=base, recover=recovered).
-  lab_pprof_write_differential "${run_dir}" idle converge heap "${SEED}" || true
-  lab_pprof_write_differential "${run_dir}" converge churn cpu "${SEED}" || true
-  lab_pprof_write_differential "${run_dir}" churn recover heap "${SEED}" || true
-  lab_pprof_write_differential "${run_dir}" idle recover goroutine "${SEED}" || true
+  lab_pprof_write_differential "${run_dir}" idle converge heap "${SEED}" "${fixture}" || true
+  lab_pprof_write_differential "${run_dir}" converge churn cpu "${SEED}" "${fixture}" || true
+  lab_pprof_write_differential "${run_dir}" churn recover heap "${SEED}" "${fixture}" || true
+  lab_pprof_write_differential "${run_dir}" idle recover goroutine "${SEED}" "${fixture}" || true
 
-  lab_pprof_write_findings_stub "${run_dir}" "${RUN_ID}" "${OBJECTS}"
+  if [[ "${PERF_KIND_CAPTURE_STATUS}" == "stub" ]]; then
+    lab_pprof_write_findings_stub "${run_dir}" "${RUN_ID}" "${OBJECTS}" "${DURATION}" "stub"
+  else
+    lab_pprof_write_findings_stub "${run_dir}" "${RUN_ID}" "${OBJECTS}" "${DURATION}" "live"
+  fi
   lab_perf_kind_write_summary "${run_dir}"
 
   lab_evidence_validate_layout "${run_dir}" || exit 3
