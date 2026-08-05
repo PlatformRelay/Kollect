@@ -1,0 +1,6 @@
+{
+  "name": "soak",
+  "implemented": false,
+  "refuse_reason": "BLOCKED: soak not implemented — overnight Tier M/L schedule not landed (ADR-0707)",
+  "scenarios": []
+}
