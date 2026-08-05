@@ -227,6 +227,11 @@ tasks:
     cmds:
       - bash hack/perf-report.sh
 
+  perf-kind:quick:
+    desc: LAB-H10 quick Kind pprof path (offline --dry-run; live Kind maintainer opt-in)
+    cmds:
+      - bash hack/lab/perf-kind.sh --dry-run --run-id perf-quick --objects 100 --seed 42
+
   test-integration:
     desc: Run integration-tagged tests (testcontainers; requires Docker)
     env:
