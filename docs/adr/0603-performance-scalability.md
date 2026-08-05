@@ -20,13 +20,13 @@ operator**.
 
 ## Scale targets
 
-| Tier | Scope | Collected rows | Clusters | Test tier |
+| Tier | Scope | Collected rows | Clusters | Test tier / evidence |
 | --- | --- | --- | --- | --- |
-| **CI / dev** | Synthetic envtest | ≤500 | 1 | `task test` |
-| **Opt-in load** | Synthetic | ≤2,000 | 1 | `KOLECT_LOAD_TEST=1 task load-test` |
-| **Nightly load** | Synthetic | **10,000** | 1 | `task load-test:10k` on `ubuntu-latest-8-cores` |
-| **Baseline production** | Single cluster | **10,000+** (validated) | 1 | Metrics + pprof |
-| **Design target** | Single cluster | **100,000** | 1 | Manual / perf-report; claim gate **v0.5+** |
+| **CI / dev** | Synthetic envtest | ≤500 | 1 | `task test` — Active |
+| **Opt-in load** | Synthetic | ≤2,000 | 1 | `KOLECT_LOAD_TEST=1 task load-test` — synthetic ≠ in-cluster soak |
+| **Nightly load** | Synthetic | **10,000** | 1 | `task load-test:10k` on `ubuntu-latest-8-cores` — **disabled / opt-in** until runners exist ([load-test runbook](../operator-manual/load-test-runbook.md)) |
+| **Baseline production** | Single cluster | **10,000+** | 1 | Metrics + pprof — **unverified** until a named SHA / hardware evidence is published |
+| **Design target** | Single cluster | **100,000** | 1–2 cloud | Manual cloud soak — **unexecuted (AR-02)** |
 | **Fleet** | Shared Postgres/Git sink | 10k–100k × N operators | **many** | One ServiceMonitor per cluster release |
 
 **Memory bounds (per operator):**
@@ -57,15 +57,15 @@ operator**.
    processes inline, to keep worker concurrency the only path that does extract/access-check work.
 7. **Resync / metrics sampling:** `--informer-resync-period`; `--collect-metrics-sample-interval`.
 8. **Profiling:** Optional `--enable-pprof` on `:6060`; disabled in production Helm values.
-9. **Tests:** `load`-tagged tests to **10k** (nightly); 100k manual design proof only.
-10. **100k claim gate:** Export sharding enforced + Postgres bulk upsert + **10k nightly green**.
+9. **Tests:** `load`-tagged tests to **10k** (nightly when 8-core runners exist); 100k manual design proof only.
+10. **100k claim gate:** Export sharding enforced + Postgres bulk upsert + **10k nightly green** (once re-enabled).
 
 ## Consequences
 
 - Operators scale reconcile and dispatch throughput without rebuilding images.
 - 100k/cluster requires **many inventories** — monolithic namespace rollups fail export caps.
 - Fleet Postgres growth is **ops/DBA** (partition by cluster or month at >10M rows).
-- 10k baseline validated in CI tiers; 100k is design target until v0.5+ sign-off.
+- 10k nightly CI is **disabled / unverified** while `ubuntu-latest-8-cores` jobs stay opt-in; 100k remains a design target until AR-02 cloud sign-off.
 
 ## References
 
