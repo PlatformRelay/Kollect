@@ -11,8 +11,12 @@ carry redacted summaries that satisfy this contract. Kind CI and the
 ## Evidence bundle schema
 
 A complete run records a **manifest**, a **scenario matrix**, a **limitations** section, and
-(optionally) footprint / pprof indexes. Automating that layout is future harness work
-(LAB-H); until then, human-authored protocols follow the same fields.
+(optionally) footprint / pprof indexes. The maintainer harness under
+[`hack/lab/`](https://github.com/platformrelay/kollect/tree/main/hack/lab) (see
+[ADR-0707](../adr/0707-lab-harness.md), **Current**) writes a DOC-02-compatible tree via
+`collect-evidence.sh` / `report.sh`. Human-authored protocols under local-only `lab-protocols/`
+must still satisfy the same fields. Operator walkthrough:
+[Local lab runbook](local-lab-runbook.md).
 
 ### Manifest fields
 
@@ -134,6 +138,8 @@ design proof.
 
 ## Related
 
+- [Local lab runbook](local-lab-runbook.md) — adaptive laptop / existing-cluster schedules
+- [ADR-0707: Lab harness](../adr/0707-lab-harness.md)
 - [Testing strategy — multi-node lab evidence](../development/testing.md#multi-node-lab-evidence)
 - [Performance and scalability](performance.md)
 - [Load test runbook](load-test-runbook.md)

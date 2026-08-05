@@ -2,6 +2,7 @@
 
 Maintainer **L4.5** evidence runner for an **existing** kubeconfig (driving-range Talos,
 Ubuntu laptop, or Kind as one consumer). Architecture: [ADR-0707](../../docs/adr/0707-lab-harness.md).
+Operator walkthrough: [Local lab runbook](../../docs/operator-manual/local-lab-runbook.md).
 
 Non-Kind kubeconfig is first-class. Scripts **never** create or destroy a cluster.
 
