@@ -39,7 +39,7 @@ type KollectClusterTargetReconciler struct {
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectclustertargets/finalizers,verbs=update
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectprofiles,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
-// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile registers synthetic per-namespace targets in the collection engine.
 func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

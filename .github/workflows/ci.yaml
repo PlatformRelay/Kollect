@@ -135,6 +135,8 @@ jobs:
           yq --version
       - name: Verify nightly advisory race job contract (HY-07)
         run: bash hack/test/hyg_07_nightly_race_test.sh
+      - name: Verify manager RBAC grants core Events (not events.k8s.io)
+        run: bash hack/test/core_events_rbac_test.sh
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob

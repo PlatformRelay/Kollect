@@ -19,7 +19,7 @@ tests:
           value: NAMESPACE
       - hasDocuments:
           count: 1
-  - it: tenant Role includes SAR and events for minimal RBAC profile
+  - it: tenant Role includes SAR and core events for minimal RBAC profile
     template: role.yaml
     set:
       tenantMode: true
@@ -32,7 +32,28 @@ tests:
             apiGroups: [authorization.k8s.io]
             resources: [selfsubjectaccessreviews]
             verbs: [create]
+      # controller-runtime EventRecorder writes core/v1 Events (apiGroup ""),
+      # not events.k8s.io — see nightly finalizer-cleanup Forbidden diagnosis.
       - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [events]
+            verbs: [create, patch]
+  - it: ClusterRole grants core events create/patch when tenantMode is false
+    template: clusterrole.yaml
+    set:
+      tenantMode: false
+      rbac:
+        create: true
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [events]
+            verbs: [create, patch]
+      - notContains:
           path: rules
           content:
             apiGroups: [events.k8s.io]

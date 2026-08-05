@@ -133,7 +133,7 @@ Helm `tenantMode: true` renders a namespaced `Role` with these rules:
 | API group | Resources | Verbs | Purpose |
 | --- | --- | --- | --- |
 | `authorization.k8s.io` | `selfsubjectaccessreviews` | `create` | SAR pre-check before dynamic informers |
-| `events.k8s.io` | `events` | `create`, `patch` | Status / warning events |
+| `""` (core) | `events` | `create`, `patch` | Status / warning events (EventRecorder) |
 | `""` | `secrets` | `get`, `list`, `watch` | Sink credentials in **install namespace only** |
 | `kollect.dev` | namespaced kinds (profiles, sinks, targets, inventories, scopes, connection tests) | full reconcile set | CR reconciliation |
 | `kollect.dev` | `*/status`, `*/finalizers` | as generated | Status and finalizers |
