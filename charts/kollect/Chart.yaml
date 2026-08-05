@@ -17,3 +17,70 @@ maintainers:
   - name: kollect contributors
 annotations:
   artifacthub.io/license: MIT
+  artifacthub.io/operator: 'true'
+  artifacthub.io/category: monitoring-logging
+  artifacthub.io/operatorCapabilities: Full Lifecycle
+  artifacthub.io/crds: |
+    - kind: KollectProfile
+      version: v1alpha1
+      name: kollectprofiles.kollect.dev
+      displayName: Kollect Profile
+      description: Declares extraction schema and attributes for a target GVK
+    - kind: KollectTarget
+      version: v1alpha1
+      name: kollecttargets.kollect.dev
+      displayName: Kollect Target
+      description: Selects Kubernetes resources and binds a profile for collection
+    - kind: KollectInventory
+      version: v1alpha1
+      name: kollectinventories.kollect.dev
+      displayName: Kollect Inventory
+      description: Aggregates collected rows and schedules export to sinks
+    - kind: KollectSnapshotSink
+      version: v1alpha1
+      name: kollectsnapshotsinks.kollect.dev
+      displayName: Kollect Snapshot Sink
+      description: State-store sink for Git, object storage, and similar backends
+    - kind: KollectEventSink
+      version: v1alpha1
+      name: kollecteventsinks.kollect.dev
+      displayName: Kollect Event Sink
+      description: Event-stream sink for Kafka, NATS, and similar backends
+    - kind: KollectDatabaseSink
+      version: v1alpha1
+      name: kollectdatabasesinks.kollect.dev
+      displayName: Kollect Database Sink
+      description: Database sink for Postgres, MongoDB, BigQuery, and similar backends
+    - kind: KollectConnectionTest
+      version: v1alpha1
+      name: kollectconnectiontests.kollect.dev
+      displayName: Kollect Connection Test
+      description: Probes sink connectivity and records probe status
+    - kind: KollectScope
+      version: v1alpha1
+      name: kollectscopes.kollect.dev
+      displayName: Kollect Scope
+      description: Namespaced governance boundary for targets, inventories, and sinks
+    - kind: KollectClusterTarget
+      version: v1alpha1
+      name: kollectclustertargets.kollect.dev
+      displayName: Kollect Cluster Target
+      description: Cluster-scoped target for fleet inventory collection
+    - kind: KollectClusterInventory
+      version: v1alpha1
+      name: kollectclusterinventories.kollect.dev
+      displayName: Kollect Cluster Inventory
+      description: Cluster-scoped inventory rollup for platform operators
+    - kind: KollectClusterScope
+      version: v1alpha1
+      name: kollectclusterscopes.kollect.dev
+      displayName: Kollect Cluster Scope
+      description: Cluster-scoped governance boundary for fleet mode
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://platformrelay.github.io/Kollect/
+    - name: Source
+      url: https://github.com/platformrelay/kollect
+  artifacthub.io/images: |
+    - name: kollect
+      image: ghcr.io/platformrelay/kollect:v0.17.0
