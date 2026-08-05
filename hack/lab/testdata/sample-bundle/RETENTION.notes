@@ -1,0 +1,11 @@
+# Bounded retention / size notes
+
+Raw evidence under artifacts/lab/<RUN_ID>/ is local-only (gitignored) and must stay bounded:
+
+- Prefer summaries, counts, digests, and pprof tops over full payload dumps.
+- Drop or rotate oversized logs; do not accumulate unbounded wave dumps across runs.
+- Retention: keep the latest N named runs locally; archive offline if needed — never commit.
+- Size: if a single run tree grows beyond operator comfort (for example multi-hundred MiB),
+  trim wave logs and keep checksummed indexes under this layout instead.
+
+Synthetic sample-bundle is intentionally tiny for offline meta-tests.
