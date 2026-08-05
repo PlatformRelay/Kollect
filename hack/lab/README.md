@@ -22,3 +22,8 @@ bash hack/lab/preflight.sh --fixture=clean  # offline meta-test mode
 
 Offline fixtures: `--fixture=clean|residue` or `KOLLECT_LAB_PREFLIGHT_FIXTURE`. Meta-tests live under
 `hack/test/lab_*_meta_test.sh` and must not call live `kubectl`/`helm`.
+
+## Workload (LAB-H03)
+
+Minimal labeled batch/churn helper: `bash hack/lab/workload.sh --run-id <id> --dry-run --out-dir <dir>`
+(always labels `kollect.dev/lab-run=<RUN_ID>`; not required in default `quick`/`quick+sinks`).

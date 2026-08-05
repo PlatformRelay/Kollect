@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **lab:** Tie churn targets to baseline names (LAB-H03) [29d6d4b](https://github.com/platformrelay/kollect/commit/29d6d4b5da3108188bcc4d2d71e88f90c49043f8)
+
 - **collect:** Resync Store after informer widen [9986755](https://github.com/platformrelay/kollect/commit/9986755f2d2856d08e94a232799261fa9dea005d)
 
 - **rbac:** Grant core Events for EventRecorder [34d1380](https://github.com/platformrelay/kollect/commit/34d1380ccd51ac880c345c5d708f36857f128b33)
@@ -44,7 +46,9 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
-- **lab:** Add report generator and redaction gate (LAB-H06) ([#268](https://github.com/platformrelay/kollect/pull/268))[7f396a3](https://github.com/platformrelay/kollect/commit/7f396a304b62ed66c46d8e1b09cff5bf224aecde)
+- **lab:** Add minimal labeled workload helper (LAB-H03) [0489003](https://github.com/platformrelay/kollect/commit/0489003fc63206bd2e42ae69a3b372bc0d35dcfa)
+
+- **lab:** Add report generator and redaction gate (LAB-H06) [7f396a3](https://github.com/platformrelay/kollect/commit/7f396a304b62ed66c46d8e1b09cff5bf224aecde)
 
 - **lab:** Add assert helpers for DOC-02 verdicts ([#267](https://github.com/platformrelay/kollect/pull/267))[6ecd9e5](https://github.com/platformrelay/kollect/commit/6ecd9e548362254ab773f9519250f71c47f1742b)
 
