@@ -116,7 +116,7 @@ func TestBackend_Close_disconnectsClient(t *testing.T) {
 	b := &Backend{client: client}
 	b.Close()
 	if err := client.Disconnect(context.Background()); err == nil {
-		// second disconnect on already disconnected client is fine; ensure not panicking
+		t.Fatal("expected already-disconnected error after Close")
 	}
 }
 
