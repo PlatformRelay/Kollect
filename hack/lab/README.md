@@ -57,3 +57,31 @@ until live scenario bodies exist; dry-run does not create or delete cluster reso
 
 Minimal labeled batch/churn helper: `bash hack/lab/workload.sh --run-id <id> --dry-run --out-dir <dir>`
 (always labels `kollect.dev/lab-run=<RUN_ID>`; not required in default `quick`/`quick+sinks`).
+
+## Perf Kind pprof (LAB-H10 / PERF-LAB-01)
+
+Kind-oriented quick pprof path. CI verifies the offline `--dry-run` machine-encoded quick path;
+live Kind e2e is maintainer opt-in.
+
+```sh
+task perf-kind:quick
+bash hack/lab/perf-kind.sh --dry-run --run-id perf-demo --objects 500 --seed 42
+bash hack/lab/perf-kind.sh --run-id perf-live --objects 500   # requires kind-* context
+```
+
+| Flag | Meaning |
+| --- | --- |
+| `--dry-run` | Offline fixture: DOC-02 evidence + `profiles/index.md` (no kubectl) |
+| `--objects` | `100` \| `500` \| `2000` synthetic object budget |
+| `--seed` | Deterministic profile stub metadata |
+| `--allow-non-kind` | Skip Kind context gate (never creates/destroys cluster) |
+| `--keep-lab` | Hint: retain `kollect.dev/lab-run=<RUN_ID>` labeled workload |
+
+Phases: **idle → converge(N) → churn → recover**. pprof is off in product Helm by default; lab
+enables it only on a **dev** release (for example `kollect-dev`) via Helm values. Access via
+**localhost port-forward only** — never expose pprof through a public Service.
+
+On interrupt: tear down port-forward; delete only resources labeled `kollect.dev/lab-run=<RUN_ID>`;
+keep partial `profiles/` artifacts.
+
+Meta-tests: `hack/test/lab_perf_kind_meta_test.sh` (offline only).
