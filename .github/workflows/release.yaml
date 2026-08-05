@@ -420,3 +420,37 @@ jobs:
             dist/checksums.txt
             dist/release-provenance.intoto.jsonl
             dist/*.sigstore.json
+
+  operatorhub-pr:
+    name: OperatorHub PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: release
+    if: ${{ !cancelled() && needs.release.result == 'success' && github.event_name == 'push' }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Generate OLM bundle and create OperatorHub PRs
+        continue-on-error: true
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+          IMAGE_DIGEST: ${{ needs.release.outputs.digest }}
+          GH_TOKEN: ${{ secrets.OPERATORHUB_PAT }}
+          FORK_OWNER: platformrelay
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "OPERATORHUB_PAT not configured; skipping OperatorHub submission."
+            exit 0
+          fi
+          chmod +x hack/operatorhub-pr.sh
+          hack/operatorhub-pr.sh
