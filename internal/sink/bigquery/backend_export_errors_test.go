@@ -5,6 +5,7 @@ package bigquery
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/platformrelay/kollect/internal/collect"
@@ -50,6 +51,29 @@ func TestExport_DeleteStaleErrorIsWrapped(t *testing.T) {
 	err := b.Export(t.Context(), payload, "inventory/team-a/apps.json")
 	if err == nil || !errors.Is(err, ErrDeleteStaleFailed) {
 		t.Fatalf("Export() error = %v, want wrapped ErrDeleteStaleFailed", err)
+	}
+}
+
+func TestExport_EmulatorDeleteAllErrorStopsInsert(t *testing.T) {
+	t.Parallel()
+
+	exec := &fakeQueryExecutor{errs: []error{errors.New("delete all failed")}}
+	b := &Backend{
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items", Cluster: "cluster-a", UseEmulator: true},
+		executor: exec,
+	}
+
+	payload := mustEnvelope(t, []collect.Item{{
+		TargetName: "deployments",
+		UID:        "uid-1",
+		Namespace:  "team-a",
+	}})
+	err := b.Export(t.Context(), payload, "inventory/team-a/apps.json")
+	if err == nil || !strings.Contains(err.Error(), "bigquery delete") {
+		t.Fatalf("Export() error = %v, want wrapped delete error", err)
+	}
+	if len(exec.calls) != 1 {
+		t.Fatalf("calls = %d, want 1 (delete only)", len(exec.calls))
 	}
 }
 

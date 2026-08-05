@@ -45,6 +45,59 @@ func (f *fakeQueryExecutor) Execute(
 	return nil
 }
 
+func TestRunDeleteAll_WrapsExecutorErrors(t *testing.T) {
+	t.Parallel()
+
+	exec := &fakeQueryExecutor{errs: []error{errors.New("delete failed")}}
+	b := &Backend{
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items"},
+		executor: exec,
+	}
+
+	err := b.runDeleteAll(t.Context(), "team-a", "apps", "cluster-a")
+	if err == nil || !strings.Contains(err.Error(), "bigquery delete") {
+		t.Fatalf("runDeleteAll() error = %v, want wrapped delete error", err)
+	}
+}
+
+func TestRunDeleteStale_WrapsExecutorErrors(t *testing.T) {
+	t.Parallel()
+
+	exec := &fakeQueryExecutor{errs: []error{errors.New("delete stale failed")}}
+	b := &Backend{
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items"},
+		executor: exec,
+	}
+
+	err := b.runDeleteStale(t.Context(), "team-a", "apps", "cluster-a", []mergeRow{{
+		InventoryNamespace: "team-a",
+		InventoryName:      "apps",
+		Cluster:            "cluster-a",
+		TargetName:         "deployments",
+		SourceUID:          "uid-1",
+		ResourceNamespace:  "team-a",
+		PayloadJSON:        `{}`,
+	}})
+	if err == nil || !errors.Is(err, ErrDeleteStaleFailed) {
+		t.Fatalf("runDeleteStale() error = %v, want ErrDeleteStaleFailed", err)
+	}
+}
+
+func TestExport_EmptySnapshotDeleteAllError(t *testing.T) {
+	t.Parallel()
+
+	exec := &fakeQueryExecutor{errs: []error{errors.New("delete all failed")}}
+	b := &Backend{
+		cfg:      Config{Project: "proj", Dataset: "inventory", Table: "items", Cluster: "cluster-a"},
+		executor: exec,
+	}
+
+	err := b.Export(t.Context(), mustEnvelope(t, nil), "inventory/team-a/apps.json")
+	if err == nil || !strings.Contains(err.Error(), "bigquery delete") {
+		t.Fatalf("Export() error = %v, want wrapped delete error", err)
+	}
+}
+
 func TestRunDeleteAll_DelegatesToExecutor(t *testing.T) {
 	t.Parallel()
 

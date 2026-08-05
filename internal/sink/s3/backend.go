@@ -49,6 +49,13 @@ func NewBackend(spec kollectdevv1alpha1.KollectSinkSpec, creds map[string][]byte
 	return &Backend{cfg: cfg, client: client}, nil
 }
 
+// NewBackendWithClient wires an existing S3 API client. Sibling object-store
+// wrappers (gcs) and unit tests use this to inject httptest clients without
+// dialing through netguard-backed newClient.
+func NewBackendWithClient(cfg Config, client *awss3.Client) *Backend {
+	return &Backend{cfg: cfg, client: client}
+}
+
 func (b *Backend) Type() string {
 	return "s3"
 }

@@ -8,6 +8,15 @@ import "testing"
 // inventoryFromObjectPath behavior is now centrally tested in
 // internal/pathvalidate (TestInventoryFromObjectPath).
 
+func TestQualifiedTable_escapesBackticks(t *testing.T) {
+	t.Parallel()
+
+	got := qualifiedTable("proj`x", "data`set", "tab`le")
+	if got != "`projx.dataset.table`" {
+		t.Fatalf("qualifiedTable = %q", got)
+	}
+}
+
 func TestQualifiedTable(t *testing.T) {
 	t.Parallel()
 

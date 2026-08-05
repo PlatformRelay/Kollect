@@ -5,6 +5,29 @@ package cap
 
 import "testing"
 
+func TestCapabilityConstructors(t *testing.T) {
+	t.Parallel()
+
+	if got := ObjectStoreSnapshot(); got != (Capabilities{ObjectStore: true}) {
+		t.Fatalf("ObjectStoreSnapshot() = %#v", got)
+	}
+	if got := StreamEmitter(); got != (Capabilities{Stream: true}) {
+		t.Fatalf("StreamEmitter() = %#v", got)
+	}
+	if got := SnapshotStore(); got != (Capabilities{}) {
+		t.Fatalf("SnapshotStore() = %#v", got)
+	}
+}
+
+func TestExportPayload_objectStoreSkipsEmpty(t *testing.T) {
+	t.Parallel()
+
+	export, skip := ExportPayload(ObjectStoreSnapshot(), []byte("[]"))
+	if !skip || export != nil {
+		t.Fatalf("ExportPayload() = (%q, %v), want skip empty object-store snapshot", export, skip)
+	}
+}
+
 func TestExportPayload(t *testing.T) {
 	t.Parallel()
 
