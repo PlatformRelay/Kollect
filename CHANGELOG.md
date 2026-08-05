@@ -11,7 +11,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
-- **lab:** LAB-H10 port-forward changelog and live capture honesty [9b1272d](https://github.com/platformrelay/kollect/commit/9b1272d3fe22954d9876e69313f9260759b610ee)
+- **lab:** LAB-H10 port-forward changelog and live capture honesty [dac95ca](https://github.com/platformrelay/kollect/commit/dac95cade8acfd4b4189872e0762ca51f26ba923)
 
 - **lab:** Correct scenario-stub ROOT path (LAB-H02) [671b4d1](https://github.com/platformrelay/kollect/commit/671b4d1bb6e13c2858c8731653c79c21af1ec970)
 
@@ -52,7 +52,7 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
-- **lab:** LAB-H10 quick Kind pprof workflow [8c79cf6](https://github.com/platformrelay/kollect/commit/8c79cf6e905654db438aeb72eafa4fe24eeb0335)
+- **lab:** LAB-H10 quick Kind pprof workflow [e0d2caf](https://github.com/platformrelay/kollect/commit/e0d2caf24a6f46ea0da5e476532f73ed5e5f1a7a)
 
 - **lab:** Add resumable schedule runner (LAB-H02) [e18975a](https://github.com/platformrelay/kollect/commit/e18975a8402dde8a2af383f1d38db0a19f0cb6d5)
 
