@@ -19,6 +19,10 @@ import (
 	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
+var jetStreamFromConn = func(nc *natsgo.Conn) (jetstream.JetStream, error) {
+	return jetstream.New(nc)
+}
+
 // EventEnvelope is the JSON message published to NATS JetStream subjects.
 type EventEnvelope struct {
 	SchemaVersion string          `json:"schemaVersion"`
@@ -43,6 +47,9 @@ type Backend struct {
 	// connectFn is the dial seam for jetStream unit tests (AUD26-TEST-02c).
 	// Nil means the package connect helper.
 	connectFn func(cfg Config, tlsCfg TLSConfig) (*natsgo.Conn, error)
+
+	// connectionClosed overrides cached-connection liveness for unit tests (nil → *Conn.IsClosed).
+	connectionClosed func() bool
 }
 
 func NewBackend(
@@ -99,13 +106,20 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 	return nil
 }
 
+func (b *Backend) cachedConnDead() bool {
+	if b.connectionClosed != nil {
+		return b.connectionClosed()
+	}
+	return b.nc == nil || b.nc.IsClosed()
+}
+
 func (b *Backend) jetStream(ctx context.Context) (jetstream.JetStream, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.js != nil && !b.cachedConnDead() {
+		return b.js, nil
+	}
 	if b.js != nil {
-		if b.nc != nil && !b.nc.IsClosed() {
-			return b.js, nil
-		}
 		// The cached connection is closed (e.g. the server went away and the
 		// client exhausted its reconnect attempts). Drop it so a fresh
 		// connection is established below instead of failing every Export
@@ -124,13 +138,17 @@ func (b *Backend) jetStream(ctx context.Context) (jetstream.JetStream, error) {
 	if err != nil {
 		return nil, err
 	}
-	js, err := jetstream.New(nc)
+	js, err := jetStreamFromConn(nc)
 	if err != nil {
-		nc.Close()
+		if nc != nil {
+			nc.Close()
+		}
 		return nil, fmt.Errorf("nats jetstream: %w", err)
 	}
 	if err := ensureStream(ctx, js, b.cfg); err != nil {
-		nc.Close()
+		if nc != nil {
+			nc.Close()
+		}
 		return nil, err
 	}
 	b.nc = nc

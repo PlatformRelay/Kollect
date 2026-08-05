@@ -68,3 +68,10 @@ func TestClassifyError_nil(t *testing.T) {
 		t.Fatalf("classifyError(nil) = %v, want nil", got)
 	}
 }
+
+func TestIsTerminalWrite_nil(t *testing.T) {
+	t.Parallel()
+	if isTerminalWrite(nil) {
+		t.Fatal("nil error must not be terminal write")
+	}
+}
