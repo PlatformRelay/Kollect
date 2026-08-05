@@ -232,3 +232,26 @@ endef
 define gomodver
 $(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' $(1) 2>/dev/null)
 endef
+
+.PHONY: generate-olm-bundle
+generate-olm-bundle: ## Generate OLM bundle for OperatorHub submission
+	@VERSION=$${VERSION:-$(shell git describe --tags --abbrev=0 2>/dev/null | sed "s/^v//")} && \
+	if [ -z "$$VERSION" ]; then \
+		echo "ERROR: VERSION is required (e.g. make generate-olm-bundle VERSION=0.17.0 IMAGE_DIGEST=sha256:...)" >&2; exit 1; \
+	fi && \
+	if [ -z "$${IMAGE_DIGEST:-}" ]; then \
+		echo "ERROR: IMAGE_DIGEST is required for OLM bundle generation." >&2; exit 1; \
+	fi && \
+	DATE=$$(date -u +%Y-%m-%dT00:00:00Z) && \
+	BUNDLE_DIR=dist/olm-bundle/$$VERSION && \
+	echo "Generating OLM bundle for version $$VERSION (digest: $$IMAGE_DIGEST)..." && \
+	mkdir -p "$$BUNDLE_DIR/manifests" "$$BUNDLE_DIR/metadata" && \
+	ICON_B64=$$(base64 < docs/assets/logo.svg | tr -d '\n') && \
+	sed "s/__VERSION__/$$VERSION/g; s/__DATE__/$$DATE/g; s/__ICON_BASE64__/$$ICON_B64/g; s|__IMAGE_DIGEST__|$$IMAGE_DIGEST|g" \
+		config/olm/template/manifests/kollect.clusterserviceversion.yaml \
+		> "$$BUNDLE_DIR/manifests/kollect.clusterserviceversion.yaml" && \
+	cp config/olm/template/metadata/annotations.yaml "$$BUNDLE_DIR/metadata/" && \
+	for crd in config/crd/bases/kollect.dev_*.yaml; do \
+		cp "$$crd" "$$BUNDLE_DIR/manifests/"; \
+	done && \
+	echo "OLM bundle generated at $$BUNDLE_DIR"
