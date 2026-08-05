@@ -1,0 +1,6 @@
+{
+  "name": "full-lab-day",
+  "implemented": false,
+  "refuse_reason": "BLOCKED: full-lab-day not implemented — capacity gates and remaining scenario scripts not landed (ADR-0707)",
+  "scenarios": []
+}
