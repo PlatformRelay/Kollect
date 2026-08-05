@@ -44,6 +44,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **lab:** Add report generator and redaction gate (LAB-H06) ([#268](https://github.com/platformrelay/kollect/pull/268))[7f396a3](https://github.com/platformrelay/kollect/commit/7f396a304b62ed66c46d8e1b09cff5bf224aecde)
+
 - **lab:** Add assert helpers for DOC-02 verdicts ([#267](https://github.com/platformrelay/kollect/pull/267))[6ecd9e5](https://github.com/platformrelay/kollect/commit/6ecd9e548362254ab773f9519250f71c47f1742b)
 
 - **lab:** Add DOC-02 evidence collector layout (LAB-H05) ([#266](https://github.com/platformrelay/kollect/pull/266))[b7c3c57](https://github.com/platformrelay/kollect/commit/b7c3c573c413d1f00cf33cd30f647c3c0fb63ba1)
