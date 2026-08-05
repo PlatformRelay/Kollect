@@ -5,7 +5,7 @@
 > **outside** Kind L4 merge gates and L5/100k load claims — without overbuilding a full A–G
 > catalogue harness before the proven `quick` / `quick+sinks` path is machine-encoded.
 
-**Theme:** 07 · Project & meta · **Status:** Exploring
+**Theme:** 07 · Project & meta · **Status:** Current
 
 ## Context
 
@@ -189,7 +189,7 @@ flowchart TB
 ### Follow-ups
 
 - Story slices LAB-H01..H06 → LAB-DOC-01; H09 thin goldens with H06; H07/H08 later; H10 ↔ PERF-LAB-01.
-- When H01 merges, flip this ADR **Exploring → Current**.
+- H01 preflight landed (`hack/lab/preflight.sh`); ADR status **Current**. Further H02–H06 follow-ups remain.
 - Maintainer-LGTM if harness ever gains CRD API or default-on network egress beyond lab namespaces
   (not expected).
 

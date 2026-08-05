@@ -106,7 +106,7 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 | [0704](0704-helm-chart-crd-lifecycle.md) | Helm chart and CRD lifecycle | Current |
 | [0705](0705-release-supply-chain.md) | Release engineering and supply chain | Current |
 | [0706](0706-testing-merge-gate-architecture.md) | Testing and merge-gate architecture | Current |
-| [0707](0707-lab-harness.md) | Lab harness (multi-node / existing-cluster evidence) | Exploring |
+| [0707](0707-lab-harness.md) | Lab harness (multi-node / existing-cluster evidence) | Current |
 
 ## 08 · Pipeline & CLI
 
