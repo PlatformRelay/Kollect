@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "${ROOT}"
 SCRIPT="${ROOT}/hack/operatorhub-pr.sh"
 WORKFLOW="${ROOT}/.github/workflows/release.yaml"
 

@@ -151,6 +151,19 @@ jobs:
             bash "${script}"
             echo "::endgroup::"
           done
+      - name: Hub distribution meta-tests
+        run: |
+          shopt -s nullglob
+          scripts=(hack/test/dist_*_test.sh)
+          if [ "${#scripts[@]}" -eq 0 ]; then
+            echo "no hack/test/dist_*_test.sh scripts yet"
+            exit 1
+          fi
+          for script in "${scripts[@]}"; do
+            echo "::group::${script}"
+            bash "${script}"
+            echo "::endgroup::"
+          done
       - name: Lint
         run: task lint
 
