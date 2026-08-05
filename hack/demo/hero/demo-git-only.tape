@@ -1,4 +1,5 @@
-# Hero demo — Git-only (≤60s README teaser). Run: task demo-hero-record-git-only
+# Hero demo — Git-only (≤60s). Recording output is not embedded in README;
+# regenerate via task demo-hero-record-git-only (see docs/DEMO-GIF-GUIDE.md).
 Output docs/assets/demo/hero-git-only.gif
 Output docs/assets/demo/hero-git-only.mp4
 
