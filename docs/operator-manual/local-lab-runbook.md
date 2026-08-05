@@ -6,7 +6,8 @@ Talos driving-range, or similar). Zero cloud cost: the harness **discovers** the
 
 This page documents real flags from [`hack/lab/`](https://github.com/platformrelay/kollect/tree/main/hack/lab)
 ([ADR-0707](../adr/0707-lab-harness.md)). Publishable evidence shape and redaction live in the
-[lab evidence bundle](lab-evidence-bundle.md). The [load test runbook](load-test-runbook.md) remains
+[lab evidence bundle](lab-evidence-bundle.md). Per-sink local substitutes and emulator limits:
+[lab backend fidelity](lab-backend-fidelity.md). The [load test runbook](load-test-runbook.md) remains
 the separate **100k / two-cluster cloud** claim gate — do not word laptop or Talos results as that
 gate.
 

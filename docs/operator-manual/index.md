@@ -27,6 +27,7 @@ workloads. If you are evaluating locally, start with [Quick start](../getting-st
 | Replicas and leader election | [High availability](#high-availability) (below) |
 | Lab evidence publish contract | [Lab evidence bundle](lab-evidence-bundle.md) |
 | Adaptive local / existing-cluster lab | [Local lab runbook](local-lab-runbook.md) |
+| Local backend / emulator fidelity | [Lab backend fidelity](lab-backend-fidelity.md) |
 
 ## Install
 

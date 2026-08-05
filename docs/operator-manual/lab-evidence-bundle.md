@@ -5,7 +5,8 @@ evidence for a **named product pin**. This page defines the **publishable** evid
 manifest schema, scenario result rows, required limitations, and redaction rules.
 
 Raw lab protocols and artifact trees stay **local-only** (gitignored). Public docs may only
-carry redacted summaries that satisfy this contract. Kind CI and the
+carry redacted summaries that satisfy this contract. Local substitute vs managed-cloud limits:
+[lab backend fidelity](lab-backend-fidelity.md). Kind CI and the
 [load test runbook](load-test-runbook.md) remain separate validation paths.
 
 ## Evidence bundle schema
