@@ -67,13 +67,15 @@ step_soft_fail() {
 
 ORAS_STEP="Set up oras"
 PUSH_STEP="Push Artifact Hub metadata"
+REPORT_STEP="Report Artifact Hub metadata push outcome"
 PUBLISH_STEP="Publish GitHub Release"
 
 oras_idx="$(step_index "${ORAS_STEP}")"
 push_idx="$(step_index "${PUSH_STEP}")"
+report_idx="$(step_index "${REPORT_STEP}")"
 publish_idx="$(step_index "${PUBLISH_STEP}")"
 
-for pair in "${ORAS_STEP}:${oras_idx}" "${PUSH_STEP}:${push_idx}" "${PUBLISH_STEP}:${publish_idx}"; do
+for pair in "${ORAS_STEP}:${oras_idx}" "${PUSH_STEP}:${push_idx}" "${REPORT_STEP}:${report_idx}" "${PUBLISH_STEP}:${publish_idx}"; do
   name="${pair%:*}"
   idx="${pair##*:}"
   [[ -n "${idx}" && "${idx}" != "null" ]] ||
@@ -88,8 +90,13 @@ done
   fail "'${ORAS_STEP}' (index ${oras_idx}) must run AFTER '${PUBLISH_STEP}' (index ${publish_idx})"
 [[ "${publish_idx}" -lt "${push_idx}" ]] ||
   fail "'${PUSH_STEP}' (index ${push_idx}) must run AFTER '${PUBLISH_STEP}' (index ${publish_idx})"
+[[ "${publish_idx}" -lt "${report_idx}" ]] ||
+  fail "'${REPORT_STEP}' (index ${report_idx}) must run AFTER '${PUBLISH_STEP}' (index ${publish_idx})"
 
-for name in "${ORAS_STEP}" "${PUSH_STEP}"; do
+# Every step placed after the signed publish must be soft-fail, the reporting
+# step included -- a hard-failing reporter would reintroduce exactly the failure
+# mode this ordering exists to prevent.
+for name in "${ORAS_STEP}" "${PUSH_STEP}" "${REPORT_STEP}"; do
   [[ "$(step_soft_fail "${name}")" == "true" ]] ||
     fail "'${name}' must declare continue-on-error: true so an Artifact Hub failure cannot fail the release job"
 done

@@ -67,9 +67,16 @@ OPERATORHUB_REF="$(yq eval "${JOB}.steps[0].with.ref" "${WORKFLOW}")"
 [[ "${OPERATORHUB_REF}" == *'needs.eligibility.outputs.sha'* ]] ||
   fail "operatorhub-pr must check out needs.eligibility.outputs.sha, not the mutable tag (got: ${OPERATORHUB_REF})"
 
-OPERATORHUB_STEP_COE="$(yq eval "${JOB}.steps[] | select(.name == \"Generate OLM bundle and create OperatorHub PRs\") | .[\"continue-on-error\"]" "${WORKFLOW}")"
-[[ "${OPERATORHUB_STEP_COE}" == "true" ]] ||
-  fail "the OperatorHub submission step must declare continue-on-error: true"
+for step_name in \
+  "Generate OLM bundle and create OperatorHub PRs" \
+  "Report OperatorHub submission outcome"; do
+  step_kind="$(yq eval "${JOB}.steps[] | select(.name == \"${step_name}\") | type" "${WORKFLOW}")"
+  [[ "${step_kind}" == "!!map" ]] ||
+    fail "operatorhub-pr job has no step named '${step_name}' (assertion would pass vacuously)"
+  step_coe="$(yq eval "${JOB}.steps[] | select(.name == \"${step_name}\") | .[\"continue-on-error\"]" "${WORKFLOW}")"
+  [[ "${step_coe}" == "true" ]] ||
+    fail "'${step_name}' must declare continue-on-error: true — OperatorHub submission is discoverability only and must never fail the pipeline"
+done
 
 # Soft-fail must not be silent: continue-on-error pins .conclusion to "success",
 # so the reporting step has to read .outcome.
