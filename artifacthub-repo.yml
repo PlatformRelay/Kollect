@@ -1,3 +1,12 @@
+# Artifact Hub repository metadata (ADR-0708), pushed to
+# ghcr.io/<owner>/kollect:artifacthub.io by the release workflow.
+#
+# 2026-08-07 — PENDING OPERATOR ACTION: repositoryID below is still the
+# placeholder. Register the chart repository at https://artifacthub.io and paste
+# the real repository ID from the Artifact Hub control panel here; Verified
+# Publisher status only activates once the pushed ID matches the registered one.
+# hack/test/dist_artifacthub_release_test.sh accepts ANY well-formed UUID, so
+# filling in the real value does not turn CI red.
 repositoryID: 00000000-0000-4000-8000-000000000000
 owners:
   - name: kollect contributors

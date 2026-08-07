@@ -18,8 +18,18 @@ pass() {
 [[ -f "${WORKFLOW}" ]] || fail "${WORKFLOW} is missing"
 [[ -f "${REPO_YML}" ]] || fail "${REPO_YML} is missing"
 
-grep -Fq '00000000-0000-4000-8000-000000000000' "${REPO_YML}" ||
-  fail "artifacthub-repo.yml must use placeholder repositoryID"
+# repositoryID must be a well-formed UUID. Both the pre-registration placeholder
+# (00000000-0000-4000-8000-000000000000) and the real ID pasted from the Artifact
+# Hub control panel after registration are valid — this gate must never block its
+# own remediation. The "registration still pending" fact is documented, with a
+# date, in artifacthub-repo.yml itself and in ADR-0708.
+REPOSITORY_ID="$(grep -E '^repositoryID:[[:space:]]*' "${REPO_YML}" | head -1 |
+  sed -E 's/^repositoryID:[[:space:]]*//; s/[[:space:]]*$//; s/^["'"'"']//; s/["'"'"']$//')"
+[[ -n "${REPOSITORY_ID}" ]] || fail "artifacthub-repo.yml has no repositoryID"
+[[ "${REPOSITORY_ID}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] ||
+  fail "artifacthub-repo.yml repositoryID '${REPOSITORY_ID}' is not a well-formed UUID"
+
+pass "artifacthub-repo.yml repositoryID is a well-formed UUID"
 
 grep -Fq 'setup-oras' "${WORKFLOW}" ||
   fail "release workflow must set up oras"
