@@ -10,12 +10,15 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/platformrelay/kollect/internal/version"
 )
 
 func newRootCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "kollect-pipeline",
-		Short: "Collect Kubernetes inventory from CI/CD pipelines without installing the operator",
+		Use:     "kollect-pipeline",
+		Short:   "Collect Kubernetes inventory from CI/CD pipelines without installing the operator",
+		Version: version.String(),
 	}
 }
 

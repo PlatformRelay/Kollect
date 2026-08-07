@@ -30,6 +30,9 @@ func TestBindStartupFlags_Defaults(t *testing.T) {
 		t.Fatalf("unexpected default booleans: secure=%t http2=%t invHTTP=%t",
 			cfg.secureMetrics, cfg.enableHTTP2, cfg.inventoryHTTPEnabled)
 	}
+	if cfg.printVersion {
+		t.Fatal("printVersion must default to false")
+	}
 	if cfg.inventoryAuthMode != inventory.AuthModeKubernetes {
 		t.Fatalf("inventoryAuthMode = %q, want %q", cfg.inventoryAuthMode, inventory.AuthModeKubernetes)
 	}
@@ -63,6 +66,7 @@ func TestBindStartupFlags_ParsesCustomValues(t *testing.T) {
 	bindStartupFlags(fs, &cfg)
 
 	args := []string{
+		"--version=true",
 		"--metrics-bind-address=:8443",
 		"--health-probe-bind-address=:18081",
 		"--leader-elect=true",
@@ -97,6 +101,9 @@ func TestBindStartupFlags_ParsesCustomValues(t *testing.T) {
 
 	if !cfg.allowPrivateSinks {
 		t.Fatal("--allow-private-sinks=true did not set allowPrivateSinks")
+	}
+	if !cfg.printVersion {
+		t.Fatal("--version=true did not set printVersion")
 	}
 
 	if cfg.metricsAddr != ":8443" || cfg.probeAddr != ":18081" {

@@ -2,6 +2,12 @@
 FROM golang:1.26.5@sha256:63f132d58c1f589f0dcda584933a9bb44bfda1150f1506377f5a902f34d86033 AS builder
 ARG TARGETOS
 ARG TARGETARCH
+# VERSION-01: build-stamped version (internal/version), passed via --build-arg at release time.
+# Defaults keep local `docker build` (no build-args) working, matching internal/version's own
+# go-build defaults.
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG DATE=unknown
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -19,7 +25,11 @@ COPY . .
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags="-w -s" -a -o manager ./cmd
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags="-w -s \
+    -X github.com/platformrelay/kollect/internal/version.Version=${VERSION} \
+    -X github.com/platformrelay/kollect/internal/version.Commit=${COMMIT} \
+    -X github.com/platformrelay/kollect/internal/version.Date=${DATE}" \
+    -a -o manager ./cmd
 
 # Runtime image: Debian slim with git + openssh-client for spec.git.engine=cli and git ls-remote probes.
 # go-git export (default engine) does not require the git binary; the CLI path and connection probes do.
