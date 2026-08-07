@@ -203,6 +203,19 @@ var (
 		[]string{"group", "version", "resource"},
 	)
 
+	// CollectNamespaceMismatchTotal counts objects dropped because their namespace is
+	// outside a target's effective namespace set. This rejection is otherwise silent:
+	// a target resolved against a stale namespace snapshot collects nothing and looks
+	// healthy (COLLECT-NS-BACKFILL). Labels are the GVR — bounded by profile specs.
+	CollectNamespaceMismatchTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_collect_namespace_mismatch_total",
+			Help: "Collected objects rejected because their namespace is outside a target's " +
+				"effective namespace set.",
+		},
+		[]string{"group", "version", "resource"},
+	)
+
 	InformerClusterWideScope = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kollect_informer_cluster_wide_scope",
@@ -270,6 +283,7 @@ func Register() {
 		CollectDispatchQueueDepth,
 		CollectDispatchBackpressureTotal,
 		InformerResyncDispatchesTotal,
+		CollectNamespaceMismatchTotal,
 		InformerClusterWideScope,
 		StaticRefResolutionTotal,
 		LabeledSeriesCardinalityCappedTotal,

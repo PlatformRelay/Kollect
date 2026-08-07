@@ -99,6 +99,7 @@ All custom metrics use the `kollect_` prefix. Controller-runtime also exposes st
 | `kollect_collect_dispatch_queue_depth` | gauge | — | Approximate dispatch queue depth |
 | `kollect_collect_dispatch_backpressure_total` | counter | — | Informer dispatch sends that blocked waiting for queue capacity |
 | `kollect_informer_resync_dispatches_total` | counter | `group`, `version`, `resource` | Resync-driven Update dispatches |
+| `kollect_collect_namespace_mismatch_total` | counter | `group`, `version`, `resource` | Objects rejected because their namespace is outside a target's effective namespace set |
 | `kollect_informer_cluster_wide_scope` | gauge | `group`, `version`, `resource` | 1 when watching all namespaces for a GVR |
 
 ## Useful PromQL
