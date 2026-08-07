@@ -220,6 +220,24 @@ kollect-pipeline collect \
 `--dry-run` prints what would be written without touching the filesystem or git. Drop it to write
 files under `./inventory`.
 
+### Lint a config directory (`validate`)
+
+```sh
+kollect-pipeline validate --config config/samples/pipeline/deployment-images
+```
+
+`collect` and `init` only structurally decode `--config` YAML — they never run the checks the
+operator's admission webhook applies to `KollectProfile`/`KollectTarget`/`KollectSnapshotSink`, so a
+config that would be **rejected in-cluster** could previously only be caught by an actual cluster
+run. `validate` runs those same `internal/validation` checks against the loaded objects, with no
+kubeconfig or cluster required — put it in CI ahead of `collect` to catch a broken config directory
+before spending a cluster call on it.
+
+It does **not** replace an in-cluster check for everything: `KollectScope`-bound namespace/GVK
+enforcement and other cross-object checks the webhook performs against the live API server still
+need a real Target reconcile to catch. Warnings (valid-but-discouraged fields) print to stderr and
+do not fail the run; invalid objects print to stderr and exit `2`.
+
 ### Interactive `init` wizard
 
 If you do not have Profile/Target YAML yet, `kollect-pipeline init` walks you through discovery and

@@ -20,7 +20,7 @@ func newRootCmd() *cobra.Command {
 }
 
 // buildRoot wires every subcommand onto a fresh root. The returned *int is the
-// exit code written by the subcommand that actually ran (collect or init).
+// exit code written by the subcommand that actually ran (collect, init, or validate).
 func buildRoot() (*cobra.Command, *int) {
 	root := newRootCmd()
 	exitCode := new(int)
@@ -31,8 +31,11 @@ func buildRoot() (*cobra.Command, *int) {
 	initCmd, initExit := newInitCmd()
 	root.AddCommand(initCmd)
 
-	// After Execute, prefer the exit code from whichever command ran. Both
-	// subcommands write their own *int; we expose a shared pointer that main
+	validateCmd, validateExit := newValidateCmd()
+	root.AddCommand(validateCmd)
+
+	// After Execute, prefer the exit code from whichever command ran. Every
+	// subcommand writes its own *int; we expose a shared pointer that main
 	// reads, updated via PersistentPostRun on each leaf.
 	root.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
 		switch cmd.Name() {
@@ -40,6 +43,8 @@ func buildRoot() (*cobra.Command, *int) {
 			*exitCode = *collectExit
 		case "init":
 			*exitCode = *initExit
+		case "validate":
+			*exitCode = *validateExit
 		}
 	}
 
