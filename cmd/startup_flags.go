@@ -13,6 +13,7 @@ import (
 )
 
 type startupConfig struct {
+	printVersion                  bool
 	metricsAddr                   string
 	metricsCertPath               string
 	metricsCertName               string
@@ -52,6 +53,7 @@ type startupConfig struct {
 }
 
 func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
+	fs.BoolVar(&cfg.printVersion, "version", false, "Print version information and exit (VERSION-01).")
 	fs.StringVar(&cfg.metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	fs.StringVar(&cfg.probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")

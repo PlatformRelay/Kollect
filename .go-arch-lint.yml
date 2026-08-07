@@ -80,6 +80,7 @@ components:
       - internal/pathvalidate/**
       - internal/operator/**
       - internal/integrationtest/**
+      - internal/version/**
 
 commonComponents:
   - api

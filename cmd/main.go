@@ -6,6 +6,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -33,6 +34,7 @@ import (
 	"github.com/platformrelay/kollect/internal/sink"
 	"github.com/platformrelay/kollect/internal/sink/netguard"
 	"github.com/platformrelay/kollect/internal/validation"
+	"github.com/platformrelay/kollect/internal/version"
 	webhookv1alpha1 "github.com/platformrelay/kollect/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -58,6 +60,11 @@ func main() {
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if cfg.printVersion {
+		_, _ = fmt.Println(version.String())
+		os.Exit(0)
+	}
 
 	validation.SetMaxExportBytesGlobal(cfg.maxExportBytes)
 

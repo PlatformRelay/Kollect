@@ -4,6 +4,12 @@
 FROM golang:1.26.5@sha256:63f132d58c1f589f0dcda584933a9bb44bfda1150f1506377f5a902f34d86033 AS builder
 ARG TARGETOS
 ARG TARGETARCH
+# VERSION-01: build-stamped version (internal/version), passed via --build-arg at release time.
+# Defaults keep local `docker build` (no build-args) working, matching internal/version's own
+# go-build defaults.
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG DATE=unknown
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -17,7 +23,11 @@ RUN go mod download
 COPY . .
 
 # Build. GOARCH has no default so the binary matches the host/buildx platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags="-w -s" -a -o kollect-pipeline ./cmd/cli
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags="-w -s \
+    -X github.com/platformrelay/kollect/internal/version.Version=${VERSION} \
+    -X github.com/platformrelay/kollect/internal/version.Commit=${COMMIT} \
+    -X github.com/platformrelay/kollect/internal/version.Date=${DATE}" \
+    -a -o kollect-pipeline ./cmd/cli
 
 # Runtime image: distroless static nonroot. Unlike the operator image, the pipeline CLI does not
 # ship the git/openssh binaries: the git snapshot sink defaults to the pure-Go go-git engine
