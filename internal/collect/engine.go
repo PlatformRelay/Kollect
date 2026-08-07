@@ -7,10 +7,14 @@ package collect
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -78,6 +82,43 @@ type targetState struct {
 	profile             kollectdevv1alpha1.KollectProfile
 	effectiveNamespaces map[string]struct{}
 	compiledRules       []CompiledResourceRule
+	// fingerprint summarises everything that decides which objects this target
+	// collects and how they are extracted. RegisterTarget backfills the store from
+	// the informer cache only when it changes (see targetStateFingerprint).
+	fingerprint string
+}
+
+// targetStateFingerprint hashes the collection-relevant state of a target: its
+// effective namespace set, its resource rules, and the target/profile generations
+// (which cover every other spec change). Identical state across two registrations
+// means the target cannot have missed anything the running informer delivered, so
+// no store backfill is needed.
+func targetStateFingerprint(
+	target *kollectdevv1alpha1.KollectTarget,
+	profile *kollectdevv1alpha1.KollectProfile,
+	effective []string,
+) string {
+	h := sha256.New()
+	for _, ns := range sortedUniqueStrings(effective) {
+		_, _ = h.Write([]byte(ns))
+		_, _ = h.Write([]byte{0})
+	}
+
+	_, _ = fmt.Fprintf(h, "|targetGen=%d|profileGen=%d|", target.Generation, profile.Generation)
+
+	rules, err := json.Marshal(target.Spec.ResourceRules)
+	if err != nil {
+		rules = []byte(err.Error())
+	}
+	_, _ = h.Write(rules)
+
+	spec, err := json.Marshal(profile.Spec)
+	if err != nil {
+		spec = []byte(err.Error())
+	}
+	_, _ = h.Write(spec)
+
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // Engine registers dynamic informers per profile GVK and writes extracted attributes to Store.
@@ -121,9 +162,13 @@ type Engine struct {
 	metricsLastRefresh    map[string]time.Time
 	metricsMu             sync.Mutex
 	dispatchOnce          sync.Once
-	stopCtx               context.Context
-	stopFn                context.CancelFunc
-	workersWG             sync.WaitGroup
+	// backfillDispatches counts store backfills triggered against an already-running
+	// informer. Steady-state re-registration must never move it (see the fingerprint
+	// gate in RegisterTarget).
+	backfillDispatches atomic.Int64
+	stopCtx            context.Context
+	stopFn             context.CancelFunc
+	workersWG          sync.WaitGroup
 }
 
 // NewEngine constructs a collection engine.
@@ -260,8 +305,11 @@ func (e *Engine) RegisterTarget(
 		effective = EffectiveNamespaces(matched, opts.ScopeCeiling, target.Spec.CollectionFilterSpec, e.defaults)
 	}
 
+	fingerprint := targetStateFingerprint(target, profile, effective)
+
 	e.mu.Lock()
-	if old, ok := e.targets[key]; ok {
+	old, registered := e.targets[key]
+	if registered {
 		oldGVR := gvrFromProfile(old.profile.Spec.TargetGVK)
 		e.unindexTargetLocked(key, oldGVR)
 	}
@@ -271,11 +319,19 @@ func (e *Engine) RegisterTarget(
 		profile:             *profile.DeepCopy(),
 		effectiveNamespaces: EffectiveNamespaceSet(effective),
 		compiledRules:       compiled,
+		fingerprint:         fingerprint,
 	}
 	e.indexTargetLocked(key, gvr)
 	e.mu.Unlock()
 
-	return e.startInformer(e.informerContext(), gvr)
+	// A target that is new, or whose collection state changed, may have missed
+	// objects the running informer already delivered — it must be backfilled from
+	// the informer cache. A re-registration with identical state cannot have, and
+	// must stay free: reconcilers re-register on every pass and a backfill is
+	// O(objects for the GVR) x O(targets for the GVR) through the dispatch queue.
+	needsBackfill := !registered || old.fingerprint != fingerprint
+
+	return e.startInformer(e.informerContext(), gvr, needsBackfill)
 }
 
 // UnregisterTarget stops tracking a target and removes its items from the store.
@@ -307,6 +363,11 @@ func (e *Engine) ItemCount(namespace, name string) int {
 }
 
 // BindClusterTargetNamespaces records workload namespaces for a cluster-scoped target name.
+//
+// It writes a bare targetState, so any collection-state fingerprint for that key is
+// cleared and the next RegisterTarget backfills the store once. That is the safe
+// direction (re-dispatch rather than silent under-collection), but it means this must
+// not be called per-reconcile alongside RegisterTarget.
 func (e *Engine) BindClusterTargetNamespaces(targetName string, namespaces []string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -548,7 +609,10 @@ func (e *Engine) refreshNamespaceCache(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResource) error {
+// startInformer ensures an informer for gvr runs at a scope covering every registered
+// target. backfill re-dispatches the running informer's cache when the caller's target
+// state changed; it is ignored on the replace path, which rehydrates the store anyway.
+func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResource, backfill bool) error {
 	// Registration can race across reconcilers. Serialize informer lifecycle transitions so
 	// exactly one replacement is built for a GVR and the previous factory is cancelled only
 	// after its replacement has completed the initial List and cache sync.
@@ -559,8 +623,22 @@ func (e *Engine) startInformer(ctx context.Context, gvr schema.GroupVersionResou
 	e.mu.RLock()
 	currentScope := e.informerScopes[gvr]
 	informerStarted := e.started[gvr]
+	runningFactory := e.factories[gvr]
 	e.mu.RUnlock()
 	if informerStarted && (currentScope == metav1.NamespaceAll || currentScope == desiredScope) {
+		// The informer already covers the desired scope, so it replays nothing: a target
+		// registered (or corrected) now never sees the objects already sitting in its
+		// cache until one of them mutates or the resync period (12h by default) elapses.
+		// Re-dispatch the cache so the new state takes effect immediately.
+		//
+		// This holds informerMu across the dispatch exactly as the replace path below
+		// does; the fingerprint gate in RegisterTarget is what keeps it off the
+		// steady-state re-registration path.
+		if backfill && runningFactory != nil {
+			e.backfillDispatches.Add(1)
+			e.resyncInformerStore(e.informerContext(), gvr, runningFactory.ForResource(gvr).Informer())
+		}
+
 		return nil
 	}
 
