@@ -177,6 +177,21 @@ appVersion: "0.3.0"
 
 Align `version` and `appVersion` with the git tag (`v0.3.0` → `0.3.0`).
 
+**Also bump the `artifacthub.io/images` annotation in the same file** — it is a hardcoded tag,
+not derived from `appVersion`:
+
+```yaml
+annotations:
+  artifacthub.io/images: |
+    - name: kollect
+      image: ghcr.io/platformrelay/kollect:v0.3.0
+```
+
+An explicit `artifacthub.io/images` list **overrides** Artifact Hub's automatic image extraction,
+so a stale tag makes the listing advertise (and security-scan) the previous release's image.
+`hack/test/dist_artifacthub_chart_test.sh` fails the build if the tag does not equal
+`v<appVersion>`, so CI catches a missed bump — but fix it here, not in CI.
+
 ### 4. Regenerate CHANGELOG.md
 
 ```sh
