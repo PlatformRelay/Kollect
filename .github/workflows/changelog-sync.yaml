@@ -22,8 +22,28 @@ name: changelog-sync
 #   CHANGELOG_SYNC_GITHUB_APP_ID
 #   CHANGELOG_SYNC_GITHUB_APP_PRIVATE_KEY
 # (App private key PEM — Client ID/Secret alone cannot mint installation tokens.)
-# Until both secrets are set and the push succeeds, this job soft-fails with a
-# warning (it is NOT a required check, so it never blocks a merge).
+# Until both secrets are set and the push succeeds, the push step soft-fails with
+# a warning (this workflow is NOT a required check, so it never blocks a merge).
+#
+# RELEASE GUARD (hack/check-changelog-release-guard.sh): docs/RELEASE.md lands the
+# hand-written `## [X.Y.Z]` header on main BEFORE the vX.Y.Z tag is pushed. This
+# workflow fires on that push, so git-cliff sees no tag and re-renders the section
+# as `## [Unreleased]` — which is how bot commit fbb5196a3 demoted `## [0.17.0]`
+# and turned Docs CI red on every open PR. Every regeneration is therefore diffed
+# against the committed CHANGELOG.md before anything is pushed:
+#   • nothing lost                → commit & push (normal self-healing)
+#   • top section demoted and its
+#     tag not visible yet         → release in flight: ::warning, no push, job
+#                                   stays green. The file is left as committed and
+#                                   the next push to main after the tag lands
+#                                   regenerates it correctly. (A tag push alone
+#                                   does not re-trigger this workflow.)
+#   • any other released section
+#     disappears                  → ::error and the job FAILS. Nothing is pushed.
+#                                   Still not a required check, so it blocks no
+#                                   merge — but it is red and loud on main.
+# The guard only ever inspects `## [X.Y.Z]` version tokens, so ordinary
+# [Unreleased] drift-healing (the reason this workflow exists) is untouched.
 
 on:
   push:
@@ -67,12 +87,26 @@ jobs:
         run: task changelog:write
         env:
           CI: "true"
-      - name: Commit & push if drifted
+      - name: Guard against dropping a released section
+        id: guard
         run: |
           if git diff --quiet -- CHANGELOG.md; then
             echo "::notice title=changelog-sync::CHANGELOG.md already in sync — nothing to do."
+            echo "verdict=in-sync" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
+          committed="${RUNNER_TEMP}/changelog-committed.md"
+          git show HEAD:CHANGELOG.md > "${committed}"
+          rc=0
+          bash hack/check-changelog-release-guard.sh "${committed}" CHANGELOG.md || rc=$?
+          case "${rc}" in
+            0) echo "verdict=push" >> "${GITHUB_OUTPUT}" ;;
+            2) echo "verdict=hold" >> "${GITHUB_OUTPUT}" ;;
+            *) exit 1 ;; # released section lost (or usage error) — fail loudly, push nothing
+          esac
+      - name: Commit & push if drifted
+        if: steps.guard.outputs.verdict == 'push'
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
