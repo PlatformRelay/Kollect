@@ -179,6 +179,14 @@ var Catalog = []CatalogEntry{
 		AgentHint:  "Spike every resync period → expected; tune --informer-resync-period if costly.",
 	},
 	{
+		Name:       "kollect_collect_namespace_mismatch_total",
+		Type:       "counter",
+		Labels:     []string{"group", "version", "resource"},
+		Help:       "Objects rejected because their namespace is outside a target's effective namespace set.",
+		PromQLHint: "sum(rate(kollect_collect_namespace_mismatch_total[5m])) by (group, version, resource)",
+		AgentHint:  "Sustained non-zero with collecting 0 → target resolved a wrong/stale namespace set, not an empty cluster.",
+	},
+	{
 		Name:       "kollect_informer_cluster_wide_scope",
 		Type:       "gauge",
 		Labels:     []string{"group", "version", "resource"},

@@ -292,8 +292,17 @@ func (e *Engine) RegisterTarget(
 		return fmt.Errorf("compile resourceRules: %w", err)
 	}
 
+	// namespaceSource records who decided the namespace set. "opts" means the
+	// reconciler resolved it from its own namespace snapshot; "recomputed" means the
+	// engine derived it from its (just refreshed) cache. The two can disagree, and
+	// when they do every object outside the chosen set is dropped, so the source
+	// belongs in the log next to the set itself.
+	namespaceSource := "opts"
+
 	effective := opts.EffectiveNamespaces
 	if len(effective) == 0 {
+		namespaceSource = "recomputed"
+
 		e.nsMu.RLock()
 		matched := MatchIntentNamespaces(
 			target.Spec.CollectionFilterSpec,
@@ -330,6 +339,14 @@ func (e *Engine) RegisterTarget(
 	// must stay free: reconcilers re-register on every pass and a backfill is
 	// O(objects for the GVR) x O(targets for the GVR) through the dispatch queue.
 	needsBackfill := !registered || old.fingerprint != fingerprint
+
+	log.FromContext(ctx).V(1).Info("registered collection target",
+		"target", key,
+		"gvr", gvr.String(),
+		"effectiveNamespaces", effective,
+		"namespaceSource", namespaceSource,
+		"backfill", needsBackfill,
+	)
 
 	return e.startInformer(e.informerContext(), gvr, needsBackfill)
 }
@@ -821,6 +838,17 @@ func (e *Engine) processDispatch(
 	}
 	e.mu.RUnlock()
 
+	// Namespace mismatches are tallied per dispatched object and reported once, so
+	// the label lookup stays off the per-target inner loop.
+	namespaceMismatches := 0
+	defer func() {
+		if namespaceMismatches > 0 {
+			metrics.CollectNamespaceMismatchTotal.
+				WithLabelValues(gvr.Group, gvr.Version, gvr.Resource).
+				Add(float64(namespaceMismatches))
+		}
+	}()
+
 	for _, st := range states {
 		target := st.target
 		targetKeyStr := targetKey(target.Namespace, target.Name)
@@ -834,7 +862,11 @@ func (e *Engine) processDispatch(
 			continue
 		}
 
-		if !e.matchesTarget(ctx, st, gvr, u) {
+		if match := e.matchesTarget(ctx, st, gvr, u); match != targetMatchAccepted {
+			if match == targetMatchNamespaceMismatch {
+				namespaceMismatches++
+			}
+
 			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
 			e.clearExtractFailure(targetKeyStr, string(u.GetUID()))
 			continue
@@ -959,12 +991,24 @@ func isInformerResync(oldObj, newObj interface{}) bool {
 	return oldU.GetResourceVersion() == newU.GetResourceVersion()
 }
 
+// targetMatch classifies why an object was accepted or dropped for a target.
+// Namespace mismatches are called out separately because they are the one rejection
+// that can be caused by stale operator state rather than by user intent, and they
+// used to be entirely invisible (COLLECT-NS-BACKFILL).
+type targetMatch int
+
+const (
+	targetMatchAccepted targetMatch = iota
+	targetMatchNamespaceMismatch
+	targetMatchFiltered
+)
+
 func (e *Engine) matchesTarget(
 	ctx context.Context,
 	st targetState,
 	gvr schema.GroupVersionResource,
 	u *unstructured.Unstructured,
-) bool {
+) targetMatch {
 	target := st.target
 	resourceNS := u.GetNamespace()
 	if resourceNS == "" {
@@ -972,7 +1016,7 @@ func (e *Engine) matchesTarget(
 	}
 
 	if !e.namespaceMatches(&target, st.effectiveNamespaces, resourceNS) {
-		return false
+		return targetMatchNamespaceMismatch
 	}
 
 	e.nsMu.RLock()
@@ -980,16 +1024,16 @@ func (e *Engine) matchesTarget(
 	e.nsMu.RUnlock()
 
 	if !ResourceMatchesRules(u, gvr, &target, &st.profile, st.compiledRules, namespaceMetaMapToFilter(nsMetaCopy)) {
-		return false
+		return targetMatchFiltered
 	}
 
 	if !ShouldCollect(labels.Set(u.GetLabels()), e.namespaceMetaFor(resourceNS), &target) {
-		return false
+		return targetMatchFiltered
 	}
 
 	_ = ctx
 
-	return true
+	return targetMatchAccepted
 }
 
 func (e *Engine) namespaceMetaFor(name string) namespaceMeta {

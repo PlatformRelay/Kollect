@@ -61,20 +61,20 @@ func TestEngineMatchesTarget(t *testing.T) {
 			"labels": map[string]any{kollectdevv1alpha1.LabelWatch: kollectdevv1alpha1.WatchValueEnabled},
 		},
 	}}
-	if !e.matchesTarget(context.Background(), st, gvr, obj) {
-		t.Fatal("expected match")
+	if got := e.matchesTarget(context.Background(), st, gvr, obj); got != targetMatchAccepted {
+		t.Fatalf("match = %v, want accepted", got)
 	}
 
 	wrongNS := obj.DeepCopy()
 	wrongNS.SetNamespace("team-b")
-	if e.matchesTarget(context.Background(), st, gvr, wrongNS) {
-		t.Fatal("expected namespace miss")
+	if got := e.matchesTarget(context.Background(), st, gvr, wrongNS); got != targetMatchNamespaceMismatch {
+		t.Fatalf("match = %v, want namespace mismatch", got)
 	}
 
 	optOut := obj.DeepCopy()
 	optOut.SetLabels(map[string]string{kollectdevv1alpha1.LabelWatch: kollectdevv1alpha1.WatchValueDisabled})
-	if e.matchesTarget(context.Background(), st, gvr, optOut) {
-		t.Fatal("expected watch opt-out miss")
+	if got := e.matchesTarget(context.Background(), st, gvr, optOut); got != targetMatchFiltered {
+		t.Fatalf("match = %v, want filtered", got)
 	}
 
 	nameFiltered := targetState{
@@ -87,8 +87,8 @@ func TestEngineMatchesTarget(t *testing.T) {
 		effectiveNamespaces: map[string]struct{}{"team-a": {}},
 		compiledRules:       rules,
 	}
-	if e.matchesTarget(context.Background(), nameFiltered, gvr, obj) {
-		t.Fatal("expected legacy name filter miss")
+	if got := e.matchesTarget(context.Background(), nameFiltered, gvr, obj); got != targetMatchFiltered {
+		t.Fatalf("match = %v, want filtered", got)
 	}
 }
 

@@ -93,6 +93,7 @@ scalability** signals — use it with the [bottleneck checklist](#early-bottlene
 | `kollect_collect_dispatch_queue_depth` | Gauge | — | `max_over_time(kollect_collect_dispatch_queue_depth[5m])` | Sustained high → raise dispatch workers/queue |
 | `kollect_collect_dispatch_backpressure_total` | Counter | — | `increase(kollect_collect_dispatch_backpressure_total[15m])` | Queue overflow — dispatch pool undersized |
 | `kollect_informer_resync_dispatches_total` | Counter | `group`, `version`, `resource` | `sum(increase(kollect_informer_resync_dispatches_total[1h])) by (group, version, resource)` | Resync-driven dispatch volume |
+| `kollect_collect_namespace_mismatch_total` | Counter | `group`, `version`, `resource` | `sum(rate(kollect_collect_namespace_mismatch_total[5m])) by (group, version, resource)` | Objects dropped outside a target's effective namespaces |
 | `kollect_informer_cluster_wide_scope` | Gauge | `group`, `version`, `resource` | `max by (group, version, resource) (kollect_informer_cluster_wide_scope)` | 1 = cluster-wide watch (RSS risk at scale) |
 
 Additional runtime signals: Go `memstats` via pprof (`--enable-pprof`), API server `429` in operator logs.

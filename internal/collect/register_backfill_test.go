@@ -6,6 +6,10 @@ package collect
 import (
 	"context"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus/testutil"
+
+	"github.com/platformrelay/kollect/internal/metrics"
 )
 
 // TestEngineRegisterTargetBackfillsStoreWhenInformerAlreadyRunning reproduces the
@@ -126,5 +130,51 @@ func TestEngineRegisterTargetSkipsBackfillWhenStateUnchanged(t *testing.T) {
 
 	if got := engine.backfillDispatches.Load(); got != 2 {
 		t.Fatalf("backfills after a changed namespace set = %d, want 2", got)
+	}
+}
+
+// TestEngineDispatchCountsNamespaceMismatches covers the observability half:
+// rejecting an object because its namespace is outside the target's effective set
+// used to be entirely silent — no log, no metric — which is why a target stuck on
+// "collecting 0" was indistinguishable from an empty cluster.
+func TestEngineDispatchCountsNamespaceMismatches(t *testing.T) {
+	t.Parallel()
+
+	engine, store, profile := newScopeTransitionEngine(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	if err := engine.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	gvr := profileGVR()
+	counter, err := metrics.CollectNamespaceMismatchTotal.GetMetricWithLabelValues(
+		gvr.Group, gvr.Version, gvr.Resource,
+	)
+	if err != nil {
+		t.Fatalf("GetMetricWithLabelValues: %v", err)
+	}
+	before := testutil.ToFloat64(counter)
+
+	// A wide target puts the informer cluster-wide so both seeded Deployments are
+	// dispatched; the narrow target then rejects the team-b one on namespace.
+	wide := scopeTransitionTarget("wide-target", "team-a")
+	if err := engine.RegisterTarget(ctx, wide, profile, RegisterTargetOptions{
+		EffectiveNamespaces: []string{"team-a", "team-b"},
+	}); err != nil {
+		t.Fatalf("register wide target: %v", err)
+	}
+	waitForTargetItems(t, engine, store, wide.Namespace, wide.Name, 2)
+
+	narrow := scopeTransitionTarget("narrow-target", "team-a")
+	if err := engine.RegisterTarget(ctx, narrow, profile, RegisterTargetOptions{
+		EffectiveNamespaces: []string{"team-a"},
+	}); err != nil {
+		t.Fatalf("register narrow target: %v", err)
+	}
+	waitForTargetItems(t, engine, store, narrow.Namespace, narrow.Name, 1)
+
+	if after := testutil.ToFloat64(counter); after <= before {
+		t.Fatalf("namespace mismatch counter = %v, want > %v", after, before)
 	}
 }
