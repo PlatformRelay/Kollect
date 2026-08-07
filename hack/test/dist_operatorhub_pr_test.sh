@@ -41,6 +41,47 @@ grep -Fq 'continue-on-error: true' "${WORKFLOW}" ||
 grep -Fq 'hack/operatorhub-pr.sh' "${WORKFLOW}" ||
   fail "release workflow must invoke hack/operatorhub-pr.sh"
 
+command -v yq >/dev/null 2>&1 ||
+  fail "yq (mikefarah/yq v4) is required to inspect the operatorhub-pr job"
+
+JOB='.jobs["operatorhub-pr"]'
+
+job_kind="$(yq eval "${JOB} | type" "${WORKFLOW}")"
+[[ "${job_kind}" == "!!map" ]] ||
+  fail "release workflow has no operatorhub-pr job (assertions below would pass vacuously)"
+
+# The job carries secrets.OPERATORHUB_PAT — a cross-repo write credential for two
+# third-party repositories. It must be gated by the same protected environment as
+# the release job, or the token is reachable without the eligibility gate.
+OPERATORHUB_ENV="$(yq eval "${JOB}.environment" "${WORKFLOW}")"
+[[ "${OPERATORHUB_ENV}" != "null" && -n "${OPERATORHUB_ENV}" ]] ||
+  fail "operatorhub-pr job must declare an 'environment:' — it holds secrets.OPERATORHUB_PAT"
+
+# The release job deliberately checks out the immutable SHA proven by eligibility,
+# "never the mutable tag ref alone". operatorhub-pr must do the same.
+OPERATORHUB_NEEDS="$(yq eval "${JOB}.needs | join(\",\")" "${WORKFLOW}")"
+[[ ",${OPERATORHUB_NEEDS}," == *",eligibility,"* ]] ||
+  fail "operatorhub-pr must need the eligibility job to consume its proven SHA (needs: ${OPERATORHUB_NEEDS})"
+
+OPERATORHUB_REF="$(yq eval "${JOB}.steps[0].with.ref" "${WORKFLOW}")"
+[[ "${OPERATORHUB_REF}" == *'needs.eligibility.outputs.sha'* ]] ||
+  fail "operatorhub-pr must check out needs.eligibility.outputs.sha, not the mutable tag (got: ${OPERATORHUB_REF})"
+
+OPERATORHUB_STEP_COE="$(yq eval "${JOB}.steps[] | select(.name == \"Generate OLM bundle and create OperatorHub PRs\") | .[\"continue-on-error\"]" "${WORKFLOW}")"
+[[ "${OPERATORHUB_STEP_COE}" == "true" ]] ||
+  fail "the OperatorHub submission step must declare continue-on-error: true"
+
+# Soft-fail must not be silent: continue-on-error pins .conclusion to "success",
+# so the reporting step has to read .outcome.
+grep -Fq 'steps.operatorhub.outcome' "${WORKFLOW}" ||
+  fail "release workflow must read steps.operatorhub.outcome (conclusion is always 'success' under continue-on-error)"
+grep -Fq '::warning title=OperatorHub submission did not complete' "${WORKFLOW}" ||
+  fail "a failed OperatorHub submission must emit a ::warning:: annotation"
+grep -Fq 'OperatorHub PRs were NOT created' "${WORKFLOW}" ||
+  fail "a failed OperatorHub submission must write a GITHUB_STEP_SUMMARY line"
+
+pass "operatorhub-pr job is environment-gated, SHA-pinned and visibly soft-fail"
+
 DRY_RUN=1 VERSION=9.9.9-test IMAGE_DIGEST="sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" \
   bash "${SCRIPT}" >/tmp/kollect-operatorhub-dry-run.out 2>&1 ||
   fail "DRY_RUN operatorhub-pr.sh failed"
