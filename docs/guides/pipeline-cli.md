@@ -49,6 +49,24 @@ task build:cli            # produces ./bin/kollect-pipeline
 go build -o bin/kollect-pipeline ./cmd/cli
 ```
 
+## Shell completion
+
+`kollect-pipeline` ships cobra's built-in `completion` command:
+
+```sh
+source <(kollect-pipeline completion bash)   # or zsh / fish / powershell
+```
+
+See `kollect-pipeline completion --help` for how to install it permanently for your shell.
+Beyond subcommand and flag names, completion is dynamic for the flags most likely to be
+mistyped:
+
+- `--context <TAB>` (`collect` and `init`) reads contexts out of the same kubeconfig the run
+  itself would use, so a typo is caught by the shell instead of surfacing as the `--context
+  "..." not found in kubeconfig (typo?)` fatal error. `collect`'s comma-separated form
+  (`--context prod-a,prod-<TAB>`) completes just the segment after the last comma.
+- `--format <TAB>` and `--log-level <TAB>` (`collect`) offer their fixed value sets.
+
 ## Configuration directory
 
 `--config <dir>` points at a directory of YAML manifests. `kollect-pipeline` loads every `*.yaml` /

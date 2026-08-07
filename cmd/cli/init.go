@@ -55,6 +55,8 @@ confirmation; sampled secret values are never printed.`,
 	cmd.Flags().StringVar(&flags.outputDir, "output-dir", "./collect-config",
 		"directory to write profile.yaml and target.yaml")
 
+	registerContextCompletion(cmd)
+
 	return cmd, exitCode
 }
 
