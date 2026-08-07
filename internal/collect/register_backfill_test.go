@@ -50,12 +50,18 @@ func TestEngineRegisterTargetBackfillsStoreWhenInformerAlreadyRunning(t *testing
 	waitForTargetItems(t, engine, store, targetA.Namespace, targetA.Name, 2)
 
 	// target-b lands with a stale namespace set (the namespace it actually owns is
-	// missing from the engine snapshot the controller resolved against).
+	// missing from the engine snapshot the controller resolved against). team-c holds
+	// nothing, so target-b must still be at 0 — otherwise the assertion below could be
+	// satisfied by the new-target backfill alone and would not exercise the
+	// fingerprint-change branch at all.
 	targetB := scopeTransitionTarget("target-b", "team-b")
 	if err := engine.RegisterTarget(ctx, targetB, profile, RegisterTargetOptions{
-		EffectiveNamespaces: []string{"team-a"},
+		EffectiveNamespaces: []string{"team-c"},
 	}); err != nil {
 		t.Fatalf("register target B with stale namespaces: %v", err)
+	}
+	if got := engine.ItemCount(targetB.Namespace, targetB.Name); got != 0 {
+		t.Fatalf("target B item count under the stale namespace set = %d, want 0", got)
 	}
 
 	// The next reconcile corrects the namespace set. No informer event is fired
@@ -67,6 +73,11 @@ func TestEngineRegisterTargetBackfillsStoreWhenInformerAlreadyRunning(t *testing
 	}
 
 	waitForTargetItems(t, engine, store, targetB.Namespace, targetB.Name, 1)
+
+	items := store.SnapshotTarget(targetB.Namespace, targetB.Name)
+	if len(items) != 1 || items[0].Namespace != "team-b" {
+		t.Fatalf("target B collected %+v, want a single team-b object", items)
+	}
 }
 
 // TestEngineRegisterTargetSkipsBackfillWhenStateUnchanged pins the cost half of the
