@@ -511,6 +511,17 @@ func (e *Engine) informerContext() context.Context {
 	return context.Background()
 }
 
+// RefreshNamespaces reloads the engine's namespace metadata cache from the API server.
+//
+// Callers that read NamespaceMetaSnapshot before RegisterTarget must call this first:
+// RegisterTarget is the only other writer of that cache, so a read taken before it runs
+// is one registration behind and can omit a namespace created since the last register.
+// An effective namespace set computed from such a snapshot silently rejects every object
+// in the missing namespace (see namespaceMatches).
+func (e *Engine) RefreshNamespaces(ctx context.Context) error {
+	return e.refreshNamespaceCache(ctx)
+}
+
 func (e *Engine) refreshNamespaceCache(ctx context.Context) error {
 	if e.kube == nil {
 		return nil
