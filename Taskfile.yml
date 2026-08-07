@@ -37,6 +37,19 @@ vars:
   PIPELINE_DOCKER_IMAGE: kollect-pipeline:dev
   CLUSTER_NAME:
     sh: echo "${CLUSTER_NAME:-kollect-smoke}"
+  # VERSION-01: build-stamped version for both binaries via -X (internal/version).
+  VERSION_PKG: github.com/platformrelay/kollect/internal/version
+  GIT_VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo dev
+  GIT_COMMIT:
+    sh: git rev-parse --short HEAD 2>/dev/null || echo unknown
+  BUILD_DATE:
+    sh: date -u +%Y-%m-%dT%H:%M:%SZ
+  LDFLAGS: >-
+    -w -s
+    -X {{.VERSION_PKG}}.Version={{.GIT_VERSION}}
+    -X {{.VERSION_PKG}}.Commit={{.GIT_COMMIT}}
+    -X {{.VERSION_PKG}}.Date={{.BUILD_DATE}}
 
 includes:
   test:
@@ -59,7 +72,7 @@ tasks:
     desc: Build the manager binary
     deps: [install]
     cmds:
-      - go build -ldflags="-w -s" -o {{.MANAGER_BINARY}} ./cmd
+      - go build -ldflags="{{.LDFLAGS}}" -o {{.MANAGER_BINARY}} ./cmd
     sources:
       - "**/*.go"
       - go.mod
@@ -71,12 +84,13 @@ tasks:
     desc: Build the kollect-pipeline CLI binary (ADR-0801)
     deps: [install]
     cmds:
-      - go build -ldflags="-w -s" -o {{.PIPELINE_BINARY}} ./cmd/cli
+      - go build -ldflags="{{.LDFLAGS}}" -o {{.PIPELINE_BINARY}} ./cmd/cli
     sources:
       - "cmd/cli/**/*.go"
       - "internal/pipeline/**/*.go"
       - "internal/collect/**/*.go"
       - "internal/sink/**/*.go"
+      - "internal/version/**/*.go"
       - go.mod
       - go.sum
     generates:
