@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubefake "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -136,5 +138,41 @@ func TestResolveTargetFilterStatus_refreshesNamespaceSnapshotBeforeResolving(t *
 
 	if !slices.Contains(effective, "team-fresh") {
 		t.Fatalf("effective namespaces = %v, want to contain %q", effective, "team-fresh")
+	}
+}
+
+// TestResolveTargetFilterStatus_toleratesNamespaceRefreshFailure keeps the refresh
+// advisory: a failed namespace LIST must fall back to the last known snapshot rather
+// than fail the reconcile.
+func TestResolveTargetFilterStatus_toleratesNamespaceRefreshFailure(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	kubeClient := kubefake.NewSimpleClientset()
+	kubeClient.PrependReactor("list", "namespaces",
+		func(k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, errors.New("namespace list unavailable")
+		})
+
+	engine, err := collect.NewEngine(nil, kubeClient, collect.NewStore(), collect.EngineConfig{})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	target := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "t1", Namespace: "tenant"},
+	}
+
+	matched, effective, _, _ := resolveTargetFilterStatus(context.Background(), cl, engine, target)
+	if len(matched) != 0 || len(effective) != 0 {
+		t.Fatalf("matched = %v, effective = %v, want both empty", matched, effective)
 	}
 }
