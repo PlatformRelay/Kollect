@@ -445,6 +445,9 @@ jobs:
 
       - name: Report Artifact Hub metadata push outcome
         if: ${{ always() }}
+        # Soft-fail too: no step placed after the signed publish may abort the
+        # release job, reporting steps included.
+        continue-on-error: true
         # Soft-fail must not mean invisible. `continue-on-error` forces
         # steps.<id>.conclusion to "success", so the real result is only readable
         # from steps.<id>.outcome — surface it as an annotation plus a job-summary
@@ -512,6 +515,8 @@ jobs:
 
       - name: Report OperatorHub submission outcome
         if: ${{ always() }}
+        # Reporting must not be able to fail the job it reports on.
+        continue-on-error: true
         # `continue-on-error` pins steps.<id>.conclusion to "success"; only
         # steps.<id>.outcome carries the truth. Surface a failed submission as an
         # annotation and a job-summary line instead of a silently green job.
