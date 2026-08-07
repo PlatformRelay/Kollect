@@ -64,11 +64,19 @@ Contract:
    `config/crd/bases`; package **`kollect`**, channel **`stable`**; digest-pin CSV
    deployment/`relatedImages` to `ghcr.io/<owner>/kollect@sha256:…` (image digest from release,
    not chart digest).
-4. **RBAC in CSV** from real `config/rbac/role.yaml` (+ leader-election as needed).
+4. **RBAC in CSV** from real `config/rbac/role.yaml` (+ leader-election as needed), gated
+   against drift by `hack/test/dist_olm_bundle_test.sh`.
 5. **`hack/operatorhub-pr.sh`** + release job gated on `secrets.OPERATORHUB_PAT`, soft-fail
    (`continue-on-error`); OpenShift annotation default **`v4.19`**; fork owner default
-   **`platformrelay`**.
-6. **Skipped:** Krew, Docker Hub chart mirror, in-repo FBC/`opm`, CLOMonitor.
+   **`platformrelay`**. The job runs in the protected **`release`** environment — the PAT is a
+   cross-repo write credential and must not be reachable without the eligibility gate — and
+   checks out the eligibility-proven SHA, never the mutable tag ref.
+6. **Soft-fail must not be silent, and hub steps run last.** Every hub step sits *after*
+   `Publish GitHub Release` so no hub failure can strand a tag with signed GHCR artifacts and
+   no release, and each reports through `steps.<id>.outcome` (`continue-on-error` pins
+   `.conclusion` to `success`) with a `::warning::` annotation and a `$GITHUB_STEP_SUMMARY`
+   line.
+7. **Skipped:** Krew, Docker Hub chart mirror, in-repo FBC/`opm`, CLOMonitor.
 
 ## Consequences
 
