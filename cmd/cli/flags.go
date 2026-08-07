@@ -45,4 +45,8 @@ func bindCollectFlags(cmd *cobra.Command, f *collectFlags) {
 		"kubecontext name(s) and/or glob pattern(s) to collect from; repeatable and comma-separated")
 	cmd.Flags().StringVar(&f.namespace, "namespace", "",
 		"restrict collection to a single namespace (overrides target selectors)")
+
+	registerFormatCompletion(cmd)
+	registerLogLevelCompletion(cmd)
+	registerContextCompletion(cmd)
 }
