@@ -470,14 +470,23 @@ jobs:
     name: OperatorHub PR
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: release
+    needs: [eligibility, release]
     if: ${{ !cancelled() && needs.release.result == 'success' && github.event_name == 'push' }}
+    # secrets.OPERATORHUB_PAT is a cross-repo write credential for two third-party
+    # repositories. Like the `release` job above, gate it behind the protected
+    # environment so the token cannot be reached by a tagged workflow copy that
+    # strips the eligibility job. NOTE: OPERATORHUB_PAT must be stored as a
+    # `release` ENVIRONMENT secret — a repo-level secret is not visible here and
+    # the step below self-skips on an empty token.
+    environment: release
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release.outputs.tag }}
+          # Bind to the immutable SHA proven by eligibility, never the mutable tag
+          # ref — the tag can be repointed between the release job and this one.
+          ref: ${{ needs.eligibility.outputs.sha }}
           persist-credentials: false
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -485,6 +494,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Generate OLM bundle and create OperatorHub PRs
+        id: operatorhub
         continue-on-error: true
         env:
           VERSION: ${{ needs.release.outputs.version }}
@@ -499,3 +509,23 @@ jobs:
           fi
           chmod +x hack/operatorhub-pr.sh
           hack/operatorhub-pr.sh
+
+      - name: Report OperatorHub submission outcome
+        if: ${{ always() }}
+        # `continue-on-error` pins steps.<id>.conclusion to "success"; only
+        # steps.<id>.outcome carries the truth. Surface a failed submission as an
+        # annotation and a job-summary line instead of a silently green job.
+        env:
+          OPERATORHUB_OUTCOME: ${{ steps.operatorhub.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "${OPERATORHUB_OUTCOME}" == "success" ]]; then
+            echo "- OperatorHub submission step completed." >>"${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+          echo "::warning title=OperatorHub submission did not complete::hack/operatorhub-pr.sh outcome=${OPERATORHUB_OUTCOME}. The release itself is unaffected; re-run the submission manually."
+          {
+            echo "- :warning: **OperatorHub PRs were NOT created**"
+            echo "  (\`hack/operatorhub-pr.sh\` outcome: \`${OPERATORHUB_OUTCOME}\`)."
+            echo "  Discoverability only — the release, its assets and signatures are unaffected."
+          } >>"${GITHUB_STEP_SUMMARY}"
