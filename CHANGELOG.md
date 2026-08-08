@@ -11,7 +11,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect:** Backfill store when registering against a running informer [0a64977](https://github.com/platformrelay/kollect/commit/0a649771a548d9776609859af253cbd415671e6c)
+
+- **collect:** Refresh namespace cache before resolving target filters [41cd6b0](https://github.com/platformrelay/kollect/commit/41cd6b0054e232addaa3af2a96593d07562aeb8f)
+
 - **ci:** Guard changelog-sync against demoting a released section ([#285](https://github.com/platformrelay/kollect/pull/285))[a5fdd3d](https://github.com/platformrelay/kollect/commit/a5fdd3dc8d276a103494a0e365d26e4fc1df36f4)
+
+
+### Features
+
+- **collect:** Surface namespace-scope misses in logs and metrics [2725fbc](https://github.com/platformrelay/kollect/commit/2725fbc76b9edf80d742c9a5f7fd0b1531314c65)
 
 ## [0.17.0](https://github.com/platformrelay/kollect/compare/v0.16.0..v0.17.0) - 2026-08-05
 
