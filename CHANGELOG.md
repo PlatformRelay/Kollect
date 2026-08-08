@@ -11,6 +11,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **release:** Soft-fail the hub reporting steps too [e5288ac](https://github.com/platformrelay/kollect/commit/e5288ac62d65fb00880560eafd51daf1b49b7c5d)
+
+- **dist:** Accept any well-formed Artifact Hub repositoryID [a2b0fc1](https://github.com/platformrelay/kollect/commit/a2b0fc174b7d185f55a56317bc4a6fdf5d9a37e1)
+
+- **release:** Gate operatorhub-pr on the release environment and proven SHA [ca72738](https://github.com/platformrelay/kollect/commit/ca72738df5451c04d397954a3ec623fc839ac76f)
+
+- **release:** Soft-fail Artifact Hub push after the GitHub Release [5bb92bc](https://github.com/platformrelay/kollect/commit/5bb92bcd1337ccae23c5769204797d3f76d3aeff)
+
+- **ci:** Pass release-workflow secrets via env instead of run-block expansion [3418db5](https://github.com/platformrelay/kollect/commit/3418db5b3c5f88f048667aaf68b6511436d65bbd)
+
 - **collect:** Backfill store when registering against a running informer [0a64977](https://github.com/platformrelay/kollect/commit/0a649771a548d9776609859af253cbd415671e6c)
 
 - **collect:** Refresh namespace cache before resolving target filters [41cd6b0](https://github.com/platformrelay/kollect/commit/41cd6b0054e232addaa3af2a96593d07562aeb8f)
@@ -19,6 +29,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **release:** Automate OperatorHub bundle PRs [7f6e8d8](https://github.com/platformrelay/kollect/commit/7f6e8d82b2b378b07c332ef90aa3c273b9f27e6a)
+
+- **olm:** Add OperatorHub bundle generation [9dfacad](https://github.com/platformrelay/kollect/commit/9dfacad341c773805c07d8d887542b644b462870)
+
+- **release:** Push Artifact Hub repo metadata [373f93d](https://github.com/platformrelay/kollect/commit/373f93d60774253ab5d5e73c7ba9641116dd06d4)
+
+- **chart:** Enrich Artifact Hub operator metadata [3e3adbe](https://github.com/platformrelay/kollect/commit/3e3adbefe0c819ef36a9ba770c88ce6e6cd5100f)
 
 - **collect:** Surface namespace-scope misses in logs and metrics [2725fbc](https://github.com/platformrelay/kollect/commit/2725fbc76b9edf80d742c9a5f7fd0b1531314c65)
 
