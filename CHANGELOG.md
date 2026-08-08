@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **ci:** Guard changelog-sync against demoting a released section ([#285](https://github.com/platformrelay/kollect/pull/285))[a5fdd3d](https://github.com/platformrelay/kollect/commit/a5fdd3dc8d276a103494a0e365d26e4fc1df36f4)
+
 ## [0.17.0](https://github.com/platformrelay/kollect/compare/v0.16.0..v0.17.0) - 2026-08-05
 
 ### Bug Fixes
