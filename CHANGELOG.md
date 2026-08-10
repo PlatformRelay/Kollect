@@ -30,6 +30,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **cli:** Complete --context/--format/--log-level flags ([#288](https://github.com/platformrelay/kollect/pull/288))[8958d66](https://github.com/platformrelay/kollect/commit/8958d66974a89c3509e8644988e7a915905cb5d1)
+
 - **release:** Automate OperatorHub bundle PRs [7f6e8d8](https://github.com/platformrelay/kollect/commit/7f6e8d82b2b378b07c332ef90aa3c273b9f27e6a)
 
 - **olm:** Add OperatorHub bundle generation [9dfacad](https://github.com/platformrelay/kollect/commit/9dfacad341c773805c07d8d887542b644b462870)
