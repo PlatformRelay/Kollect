@@ -30,6 +30,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **cli:** Add validate subcommand (PIPE-VALIDATE-01) ([#289](https://github.com/platformrelay/kollect/pull/289))[b4399fb](https://github.com/platformrelay/kollect/commit/b4399fbd71061f95299c1c05cbb97ffe56be3eef)
+
 - Build-stamped version for both binaries (VERSION-01) ([#290](https://github.com/platformrelay/kollect/pull/290))[1e906f5](https://github.com/platformrelay/kollect/commit/1e906f5b7ee6551ee15d2328656d491076a6d092)
 
 - **cli:** Complete --context/--format/--log-level flags ([#288](https://github.com/platformrelay/kollect/pull/288))[8958d66](https://github.com/platformrelay/kollect/commit/8958d66974a89c3509e8644988e7a915905cb5d1)
