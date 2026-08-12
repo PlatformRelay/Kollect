@@ -4,6 +4,9 @@
 #   The Docs workflow runs lint-markdown + MkDocs build/deploy for its path-scoped inputs.
 # - Any change under api/, internal/, charts/, cmd/, config/, hack/, test/, go.mod, or
 #   .github/workflows/ always runs full CI. Mixed PRs (docs + code) run everything.
+# - protect-main requires `test` and `kind-smoke` from this workflow. A docs-only PR
+#   therefore stays BLOCKED (those jobs never report). Touch a watched path, or merge
+#   will wait forever.
 name: CI
 
 on:
