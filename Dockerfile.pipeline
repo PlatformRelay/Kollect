@@ -1,7 +1,7 @@
 # Build the kollect-pipeline CLI binary (ADR-0801 pipeline mode).
 # Same source tree, builder image, and hardening posture as the operator Dockerfile;
 # only the entrypoint (./cmd/cli vs ./cmd) and runtime base differ.
-FROM golang:1.26.5@sha256:63f132d58c1f589f0dcda584933a9bb44bfda1150f1506377f5a902f34d86033 AS builder
+FROM golang:1.26.5@sha256:5822931cf78fe98a97edcf73a0c54c29fa2386b99c8136468e274ae9fab8cfba AS builder
 ARG TARGETOS
 ARG TARGETARCH
 # VERSION-01: build-stamped version (internal/version), passed via --build-arg at release time.
@@ -35,7 +35,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags
 # git remotes (which shell out to git) are therefore unsupported in this minimal image; go-git over
 # HTTPS, the local filesystem sink, and the object-store sinks (s3/gcs) all work. ca-certificates
 # and tzdata ship in the distroless base, so TLS to sink endpoints works out of the box.
-FROM gcr.io/distroless/static:nonroot@sha256:963fa6c544fe5ce420f1f54fb88b6fb01479f054c8056d0f74cc2c6000df5240
+FROM gcr.io/distroless/static:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6
 WORKDIR /
 COPY --from=builder /workspace/kollect-pipeline /kollect-pipeline
 USER 65532:65532
