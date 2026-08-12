@@ -53,6 +53,8 @@ spec:
             requests:
               cpu: 50m
               memory: 128Mi
+              # Scheduler-visible disk request matching the limit (kubernetes:S6897).
+              ephemeral-storage: 1Gi
             limits:
               memory: 256Mi
               # Bound writable-layer/emptyDir usage so a runaway container cannot
