@@ -8,6 +8,8 @@ import (
 	"flag"
 	"time"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/platformrelay/kollect/internal/inventory"
 	"github.com/platformrelay/kollect/internal/validation"
 )
@@ -146,4 +148,34 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 		"Minimum interval between domain snapshot metric refreshes per target (PERF-08).")
 	fs.DurationVar(&cfg.collectDispatchEnqueueWait, "collect-dispatch-enqueue-wait", 25*time.Millisecond,
 		"Brief wait before synchronous dispatch fallback when the queue is full.")
+}
+
+// applyLeaderElection copies the leader-election settings from cfg onto opts (PERF-FIX-02).
+//
+// This exists as a named function purely so the wiring is TESTABLE. Review caught that the three
+// assignments previously sat inline in main()'s ctrl.Options literal, where deleting them left
+// every test green: the flags would still parse, still be documented, still appear in the chart —
+// and reach nothing. Flags that reach nothing is exactly the silent failure PERF-FIX-02 exists to
+// prevent, so it gets a test that goes red when the wiring is removed.
+//
+// Pointers, because ctrl.Options declares these as *time.Duration so that "unset" is
+// distinguishable from "zero". They point at cfg's fields, which is safe: cfg outlives the
+// manager construction it is passed to.
+func applyLeaderElection(opts *ctrl.Options, cfg *startupConfig) {
+	opts.LeaderElection = cfg.enableLeaderElection
+	opts.LeaseDuration = &cfg.leaderElectionLeaseDuration
+	opts.RenewDeadline = &cfg.leaderElectionRenewDeadline
+	opts.RetryPeriod = &cfg.leaderElectionRetryPeriod
+
+	// Step down voluntarily when the manager stops, instead of making the successor wait out the
+	// full lease. Safe here because main() performs no work after mgr.Start returns — it logs and
+	// exits — which is the precondition the controller-runtime scaffold names for this option.
+	//
+	// This is the counterweight to the patient lease above. Raising LeaseDuration 15s -> 60s would
+	// otherwise quadruple how long a NEW leader waits after an ordinary restart (rolling upgrade,
+	// image bump, OOM), turning a resilience fix into a 60s reconciliation gap on every deploy of
+	// the shipped single replica. Releasing on cancel makes a clean shutdown hand over
+	// immediately, so the long lease costs nothing except after an UNCLEAN exit — which is the
+	// only case where waiting is the correct behaviour anyway.
+	opts.LeaderElectionReleaseOnCancel = true
 }

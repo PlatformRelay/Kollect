@@ -14,6 +14,21 @@ reverse-engineer the RBAC and apply it by hand.
 Gated on `metrics.enabled` AND `metrics.secure`: with an insecure or absent endpoint there is
 nothing to authorize, and an unconditional ClusterRole would be permission granted for no reason.
 */}}
+{{/*
+Gated on `rbac.create` and skipped in `tenantMode`, like every other RBAC template here
+(clusterrole.yaml, clusterrolebinding.yaml, role.yaml). Both matter:
+
+  - `rbac.create: false` means the installer manages RBAC out of band; rendering a ClusterRole
+    anyway is exactly what that switch exists to prevent.
+  - `tenantMode` is a TEAM-NAMESPACE install (see values-minimal-rbac.yaml) whose whole point is
+    namespaced Role/RoleBinding *instead of* cluster-scoped objects. Emitting a ClusterRole there
+    makes `helm install` fail Forbidden for a user who by definition is not cluster-admin.
+
+There is no namespaced equivalent to fall back to: `nonResourceURLs` cannot be expressed in a
+Role, because /metrics is not namespaced. In tenantMode the grant has to come from a platform
+admin applying it cluster-side — documented in values-minimal-rbac.yaml rather than faked here.
+*/}}
+{{- if and .Values.rbac.create (not .Values.tenantMode) }}
 {{- if and .Values.metrics.enabled .Values.metrics.secure .Values.metrics.readerRole.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -54,4 +69,5 @@ subjects:
   {{- with .Values.metrics.readerRole.extraSubjects }}
   {{- toYaml . | nindent 2 }}
   {{- end }}
+{{- end }}
 {{- end }}

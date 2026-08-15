@@ -30,6 +30,9 @@ knobs; the authoritative full list lives in the chart tree.
 | `image.tag` | Image tag | `""` → resolves to `v<appVersion>`, the published controller image |
 | `replicaCount` | Manager pod replicas | `1` |
 | `leaderElection.enabled` | Controller-runtime leader election | `true` |
+| `leaderElection.leaseDuration` | How long a non-leader waits before acquiring leadership | `""` → binary default `60s` |
+| `leaderElection.renewDeadline` | API-server outage the leader rides out before exiting | `""` → binary default `40s` |
+| `leaderElection.retryPeriod` | Interval between renewal attempts | `""` → binary default `5s` |
 | `mode` | Operator deployment mode — **single-cluster only**; fleets run N single-mode operators ([ADR-0501](../adr/0501-multi-cluster-fleet.md)) | `single` |
 | `tenantMode` | Namespaced Role RBAC for per-team installs | `false` |
 | `watchNamespaces` | Restrict informer cache to these namespaces | `[]` (all) |
@@ -129,6 +132,8 @@ with the **`kollect.dev/test-connection: "true"`** annotation when needed. CI an
 | --- | --- | --- |
 | `resources` | CPU/memory requests and limits | See `values.yaml` |
 | `metrics.enabled` | Prometheus metrics listener | `true` |
+| `metrics.readerRole.create` | ClusterRole+binding authorizing `GET /metrics` (needed because `metrics.secure` authorizes every request) | `true` |
+| `metrics.readerRole.extraSubjects` | Extra RBAC subjects to bind, e.g. your Prometheus ServiceAccount | `[]` |
 | `metrics.serviceMonitor.enabled` | Prometheus Operator `ServiceMonitor` | `false` |
 | `metrics.prometheusRule.enabled` | Default `PrometheusRule` alerts | `false` |
 | `controller.maxConcurrentReconciles.*` | Per-controller concurrency | See `values.yaml` |

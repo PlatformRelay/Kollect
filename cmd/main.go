@@ -162,34 +162,20 @@ func main() {
 		setupLog.Info("Restricting manager cache to namespaces", "watchNamespaces", watchNamespaces)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgrOpts := ctrl.Options{
 		Scheme:                 scheme,
 		Cache:                  cacheOpts,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: cfg.probeAddr,
-		LeaderElection:         cfg.enableLeaderElection,
 		LeaderElectionID:       "3274ac8a.kollect.dev",
-		// PERF-FIX-02. Without these three, controller-runtime's defaults apply (15s lease / 10s
-		// renew / 2s retry) and roughly ten seconds of API-server unreachability kills the
-		// process. That is not hypothetical: a 10k-object load test on a real cluster produced 18
-		// restarts, each "leader election lost" -> exit 1, each interrupting in-flight exports.
-		// See cmd/startup_flags.go for why the defaults are deliberately patient.
-		LeaseDuration: &cfg.leaderElectionLeaseDuration,
-		RenewDeadline: &cfg.leaderElectionRenewDeadline,
-		RetryPeriod:   &cfg.leaderElectionRetryPeriod,
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
-	})
+	}
+	// PERF-FIX-02. Leader election — including the lease/renew/retry timings and the
+	// release-on-cancel behaviour — is applied by a named function rather than inline here, so the
+	// wiring is covered by a test that goes red if it is removed. See cmd/startup_flags.go.
+	applyLeaderElection(&mgrOpts, &cfg)
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		setupLog.Error(err, "Failed to start manager")
 		os.Exit(1)
