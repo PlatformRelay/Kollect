@@ -11,7 +11,34 @@ Inventory payloads export to configured sinks — there is **no** `KollectSink` 
 | TLS | On (`metrics.secure: true`) | Kubernetes API **TokenReview** + **SubjectAccessReview** on `/metrics` |
 | Service | `<release>-kollect-controller-manager` | Port name `metrics` (8443) |
 
-Scrape with a Prometheus service account that can `GET /metrics` (see `config/rbac/metrics_reader_role.yaml`).
+Scrape with a service account that is authorized to `GET /metrics`. With `metrics.secure: true`
+every request is authorized against RBAC, so an unauthorized scraper receives **403**, not empty
+metrics.
+
+**Helm.** The chart renders that authorization for you — a `<release>-kollect-metrics-reader`
+ClusterRole plus a binding for the operator's own ServiceAccount — whenever `metrics.enabled` and
+`metrics.secure` are true. Bind your Prometheus service account by adding it to
+`metrics.readerRole.extraSubjects`:
+
+```yaml
+metrics:
+  readerRole:
+    extraSubjects:
+      - kind: ServiceAccount
+        name: prometheus-k8s
+        namespace: monitoring
+```
+
+Set `metrics.readerRole.create: false` if your cluster manages RBAC out of band.
+
+!!! note "tenantMode and `rbac.create: false`"
+    The reader role is cluster-scoped and is therefore **not** rendered for per-team installs
+    (`tenantMode: true`) or when `rbac.create: false`. There is no namespaced equivalent —
+    `nonResourceURLs` cannot be expressed in a `Role`, because `/metrics` is not a namespaced
+    resource. In those installs a cluster administrator must apply the grant separately.
+
+**Kustomize.** `config/rbac/` ships `metrics_reader_role.yaml` and its binding; both are wired into
+`config/rbac/kustomization.yaml`.
 
 ## Prometheus Operator (Helm)
 

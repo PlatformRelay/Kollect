@@ -105,3 +105,24 @@ tests:
       - equal:
           path: subjects[1].namespace
           value: monitoring
+
+  # Regression guard for the review finding: this template ignored rbac.create and tenantMode,
+  # so a team-namespace install (values-minimal-rbac.yaml) rendered a ClusterRole and failed
+  # `helm install` Forbidden for a user who is by definition not cluster-admin.
+  - it: renders nothing when the installer manages RBAC out of band
+    set:
+      rbac:
+        create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # tenantMode is namespaced Role/RoleBinding INSTEAD of cluster-scoped objects. There is no
+  # namespaced fallback to offer: nonResourceURLs cannot be expressed in a Role because /metrics
+  # is not a namespaced resource.
+  - it: renders nothing in tenantMode
+    set:
+      tenantMode: true
+    asserts:
+      - hasDocuments:
+          count: 0

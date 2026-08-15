@@ -71,6 +71,12 @@ leaderElection:
   # there is no standby to fail over to and an aggressive renew deadline only turns a brief
   # API-server blip into downtime. Set these to tighten failover if you run multiple replicas.
   #
+  # The cost of a long lease is paid by the SUCCESSOR, not the leader: after an unclean exit the
+  # next leader waits out the full leaseDuration before reconciling. The manager sets
+  # LeaderElectionReleaseOnCancel, so an ordinary restart (rolling upgrade, image bump) hands over
+  # immediately and pays nothing; only a hard kill costs the full wait — which is exactly when
+  # waiting is correct, because the old leader may still be running.
+  #
   # Invariant enforced by client-go at startup: retryPeriod < renewDeadline < leaseDuration.
   # -- How long non-leaders wait before trying to acquire leadership (e.g. `60s`).
   leaseDuration: ""

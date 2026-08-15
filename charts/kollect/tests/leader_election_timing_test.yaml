@@ -4,14 +4,29 @@ templates:
 tests:
   # PERF-FIX-02. Empty values must emit NO flags, so the binary's own (patient) defaults apply and
   # the chart does not silently pin a timing the operator never chose.
+  # NOTE ON WHY THIS IS NOT A `notContains` CHECK. The obvious assertion —
+  # `notContains: --leader-elect-lease-duration=` — is TAUTOLOGICAL and was caught by review:
+  # helm-unittest's contains/notContains compare whole elements, and a real rendered arg is
+  # `--leader-elect-lease-duration=60s`, which never equals the bare prefix. Mutation-proven: with
+  # `leaseDuration: "60s"` set in values.yaml the suite still passed while the chart WAS emitting
+  # the flag. Asserting the exact arg list is the version that can actually fail.
   - it: emits no timing flags when unset
     asserts:
-      - notContains:
+      - equal:
           path: spec.template.spec.containers[0].args
-          content: --leader-elect-lease-duration=
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --leader-elect
+          value:
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address=:8443
+            - --metrics-secure=true
+            - --max-concurrent-reconciles-target=5
+            - --max-concurrent-reconciles-inventory=3
+            - --collect-dispatch-workers=4
+            - --collect-dispatch-queue-size=512
+            - --informer-resync-period=12h
+            - --collect-metrics-sample-interval=30s
+            - --validating-webhooks-enabled=true
+            - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
 
   - it: passes all three timings through when set
     set:

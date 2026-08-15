@@ -1,0 +1,22 @@
+# Binds the metrics-reader ClusterRole to the controller's ServiceAccount.
+#
+# Without this, `metrics_reader_role.yaml` shipped a ClusterRole bound to NOBODY: the kustomize
+# path had the permission defined and granted to no one, so `/metrics` returned 403 exactly as if
+# the role did not exist. The Helm chart grew an equivalent binding in
+# `charts/kollect/templates/clusterrole-metrics-reader.yaml`; this keeps the two install paths from
+# diverging.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: metrics-reader-rolebinding
+  labels:
+    app.kubernetes.io/name: kollect
+    app.kubernetes.io/managed-by: kustomize
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: controller-manager
+    namespace: system

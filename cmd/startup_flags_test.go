@@ -10,6 +10,8 @@ import (
 
 	"github.com/platformrelay/kollect/internal/inventory"
 	"github.com/platformrelay/kollect/internal/validation"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func TestBindStartupFlags_Defaults(t *testing.T) {
@@ -202,4 +204,48 @@ func TestLeaderElectionTimingFlags(t *testing.T) {
 			t.Errorf("retry period = %s, want 7s", cfg.leaderElectionRetryPeriod)
 		}
 	})
+}
+
+// TestApplyLeaderElection covers the wiring itself, not just flag parsing (PERF-FIX-02, review F2).
+//
+// Review caught that the three ctrl.Options assignments previously sat inline in main() where
+// deleting them left every test green: flags parsed, docs existed, the chart rendered them, and
+// nothing reached the manager. This test goes red if applyLeaderElection stops assigning any of
+// them.
+func TestApplyLeaderElection(t *testing.T) {
+	var cfg startupConfig
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	bindStartupFlags(fs, &cfg)
+	args := []string{
+		"--leader-elect=true",
+		"--leader-elect-lease-duration=77s",
+		"--leader-elect-renew-deadline=55s",
+		"--leader-elect-retry-period=11s",
+	}
+	if err := fs.Parse(args); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+
+	var opts ctrl.Options
+	applyLeaderElection(&opts, &cfg)
+
+	if !opts.LeaderElection {
+		t.Error("LeaderElection was not set on ctrl.Options")
+	}
+	if opts.LeaseDuration == nil || *opts.LeaseDuration != 77*time.Second {
+		t.Errorf("LeaseDuration = %v, want 77s", opts.LeaseDuration)
+	}
+	if opts.RenewDeadline == nil || *opts.RenewDeadline != 55*time.Second {
+		t.Errorf("RenewDeadline = %v, want 55s", opts.RenewDeadline)
+	}
+	if opts.RetryPeriod == nil || *opts.RetryPeriod != 11*time.Second {
+		t.Errorf("RetryPeriod = %v, want 11s", opts.RetryPeriod)
+	}
+
+	// The counterweight to a patient lease: without releasing on cancel, every ordinary restart
+	// makes the successor wait out the full LeaseDuration before reconciling anything.
+	if !opts.LeaderElectionReleaseOnCancel {
+		t.Error("LeaderElectionReleaseOnCancel is false; a clean shutdown would make the next " +
+			"leader wait out the whole lease")
+	}
 }
