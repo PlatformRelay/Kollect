@@ -66,6 +66,18 @@ sinkDefaults:
 leaderElection:
   # -- Enable controller-runtime leader election.
   enabled: true
+  # Timings. Empty means "use the binary's own defaults" (60s/40s/5s), which are deliberately more
+  # patient than controller-runtime's 15s/10s/2s: the shipped topology is a single replica, so
+  # there is no standby to fail over to and an aggressive renew deadline only turns a brief
+  # API-server blip into downtime. Set these to tighten failover if you run multiple replicas.
+  #
+  # Invariant enforced by client-go at startup: retryPeriod < renewDeadline < leaseDuration.
+  # -- How long non-leaders wait before trying to acquire leadership (e.g. `60s`).
+  leaseDuration: ""
+  # -- How long the leader retries renewing before exiting; this is the API outage it can ride out.
+  renewDeadline: ""
+  # -- Interval between leadership renewal attempts.
+  retryPeriod: ""
 
 featureGates:
   inventoryHttp:
@@ -126,6 +138,14 @@ metrics:
   bindAddress: ":8443"
   # -- Serve metrics over HTTPS with bearer token auth.
   secure: true
+  readerRole:
+    # -- Create the ClusterRole/Binding that authorizes reading `/metrics`. With `secure: true` the
+    # endpoint authorizes every request against RBAC, so without this nothing — including the
+    # operator's own ServiceAccount — can scrape it, and `/metrics` answers 403 to everything.
+    create: true
+    # -- Additional subjects to bind, e.g. the ServiceAccount your Prometheus runs as.
+    # Each entry is a standard RBAC subject: `{kind, name, namespace}`.
+    extraSubjects: []
   # -- Prometheus Operator ServiceMonitor integration (requires monitoring.coreos.com CRDs).
   serviceMonitor:
     # -- Create a ServiceMonitor resource.

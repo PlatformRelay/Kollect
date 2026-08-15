@@ -22,6 +22,9 @@ type startupConfig struct {
 	webhookCertName               string
 	webhookCertKey                string
 	enableLeaderElection          bool
+	leaderElectionLeaseDuration   time.Duration
+	leaderElectionRenewDeadline   time.Duration
+	leaderElectionRetryPeriod     time.Duration
 	probeAddr                     string
 	secureMetrics                 bool
 	enableHTTP2                   bool
@@ -60,6 +63,27 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 	fs.BoolVar(&cfg.enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	// Leader-election timings (PERF-FIX-02). These were previously left at controller-runtime's
+	// defaults — 15s lease / 10s renew / 2s retry — which means ~10 seconds of API-server
+	// unreachability terminates the process with "leader election lost". Under a 10k-object load
+	// on a real cluster that produced 18 restarts, each one interrupting in-flight exports and
+	// leaving the inventory looking short.
+	//
+	// The defaults below are deliberately MORE PATIENT than controller-runtime's, because the
+	// shipped topology is a single replica: there is no standby waiting to take over, so a fast
+	// exit buys no failover speed and only converts a transient blip into downtime. Operators
+	// running multiple replicas and wanting quicker failover can tighten all three.
+	//
+	// Invariant, enforced by client-go at startup: retryPeriod < renewDeadline < leaseDuration.
+	fs.DurationVar(&cfg.leaderElectionLeaseDuration, "leader-elect-lease-duration", 60*time.Second,
+		"Duration non-leaders wait before attempting to acquire leadership. Must be greater than "+
+			"--leader-elect-renew-deadline.")
+	fs.DurationVar(&cfg.leaderElectionRenewDeadline, "leader-elect-renew-deadline", 40*time.Second,
+		"How long the leader retries refreshing leadership before giving up and exiting. This is "+
+			"the API-server outage the operator can ride out; raise it for flaky control planes.")
+	fs.DurationVar(&cfg.leaderElectionRetryPeriod, "leader-elect-retry-period", 5*time.Second,
+		"Interval between leadership acquisition/renewal attempts. Must be less than "+
+			"--leader-elect-renew-deadline.")
 	fs.BoolVar(&cfg.secureMetrics, "metrics-secure", true,
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	fs.BoolVar(&cfg.validatingWebhooksEnabled, "validating-webhooks-enabled", true,

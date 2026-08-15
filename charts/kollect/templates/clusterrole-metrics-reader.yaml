@@ -1,0 +1,57 @@
+{{/*
+Authorization for the metrics endpoint the chart already turns on.
+
+Why this file exists: `metrics.secure` defaults to true, so `/metrics` is served over HTTPS with
+bearer-token authn and every request is authorized against RBAC. Until this template, the chart
+rendered nothing that granted that permission to anyone — not even the operator's own
+ServiceAccount — so a default install produced an endpoint that answered **403 to everything**.
+`metrics.serviceMonitor.enabled` made it worse by implying a scrape path that could not work.
+
+The role itself has always existed at `config/rbac/metrics_reader_role.yaml`, but that is the
+kustomize path; a Helm user never receives it. Anyone trying to measure kollect had to
+reverse-engineer the RBAC and apply it by hand.
+
+Gated on `metrics.enabled` AND `metrics.secure`: with an insecure or absent endpoint there is
+nothing to authorize, and an unconditional ClusterRole would be permission granted for no reason.
+*/}}
+{{- if and .Values.metrics.enabled .Values.metrics.secure .Values.metrics.readerRole.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kollect.fullname" . }}-metrics-reader
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+rules:
+  {{/*
+    A non-resource URL rule, deliberately with no apiGroups/resources: /metrics is not a Kubernetes
+    object, and adding a resource rule here would widen a role whose entire job is one endpoint.
+  */}}
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kollect.fullname" . }}-metrics-reader
+  labels:
+    {{- include "kollect.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kollect.fullname" . }}-metrics-reader
+subjects:
+  {{/*
+    The operator's own ServiceAccount first, so a default install can scrape itself and `export_p99`
+    is measurable out of the box. Extra subjects cover the common real deployment — a Prometheus
+    running under its own ServiceAccount in another namespace — which would otherwise still need
+    hand-written RBAC and leave this template solving only half the problem.
+  */}}
+  - kind: ServiceAccount
+    name: {{ include "kollect.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+  {{- with .Values.metrics.readerRole.extraSubjects }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}
