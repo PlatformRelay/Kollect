@@ -52,11 +52,16 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | largeCluster.resources.requests.cpu | string | `"500m"` |  |
 | largeCluster.resources.requests.memory | string | `"2Gi"` |  |
 | leaderElection.enabled | bool | `true` | Enable controller-runtime leader election. |
+| leaderElection.leaseDuration | string | `""` | How long non-leaders wait before trying to acquire leadership (e.g. `60s`). |
+| leaderElection.renewDeadline | string | `""` | How long the leader retries renewing before exiting; this is the API outage it can ride out. |
+| leaderElection.retryPeriod | string | `""` | Interval between leadership renewal attempts. |
 | metrics.bindAddress | string | `":8443"` | Metrics bind address. |
 | metrics.enabled | bool | `true` | Expose Prometheus metrics endpoint. |
 | metrics.prometheusRule.additionalRules | list | `[]` | Extra PrometheusRule entries appended to the kollect.rules group. |
 | metrics.prometheusRule.enabled | bool | `false` | Create a PrometheusRule with starter kollect alerts. |
 | metrics.prometheusRule.labels | object | `{}` | Labels merged onto PrometheusRule (must match Prometheus ruleSelector). |
+| metrics.readerRole.create | bool | `true` | Create the ClusterRole/Binding that authorizes reading `/metrics`. With `secure: true` the endpoint authorizes every request against RBAC, so without this nothing — including the operator's own ServiceAccount — can scrape it, and `/metrics` answers 403 to everything. |
+| metrics.readerRole.extraSubjects | list | `[]` | Additional subjects to bind, e.g. the ServiceAccount your Prometheus runs as. Each entry is a standard RBAC subject: `{kind, name, namespace}`. |
 | metrics.secure | bool | `true` | Serve metrics over HTTPS with bearer token auth. |
 | metrics.serviceMonitor | object | `{"enabled":false,"interval":"30s","labels":{},"scrapeTimeout":"10s"}` | Prometheus Operator ServiceMonitor integration (requires monitoring.coreos.com CRDs). |
 | metrics.serviceMonitor.enabled | bool | `false` | Create a ServiceMonitor resource. |

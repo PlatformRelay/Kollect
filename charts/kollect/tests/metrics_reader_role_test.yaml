@@ -1,0 +1,107 @@
+suite: metrics reader role
+templates:
+  - clusterrole-metrics-reader.yaml
+tests:
+  # The defect this suite exists for: `metrics.secure` is true by DEFAULT, and until this template
+  # existed the chart rendered nothing that could authorize a scrape of it. `/metrics` returned 403
+  # to every identity including the operator's own ServiceAccount, which is why export_p99 was
+  # unmeasurable and the L-10k gate stayed open for a day.
+  - it: renders by default, because metrics.secure defaults to true
+    asserts:
+      - hasDocuments:
+          count: 2
+      # Asserted per index rather than with containsDocument: that matcher is evaluated against
+      # EVERY rendered document, so requiring both kinds at once can never pass for a two-document
+      # template.
+      - isKind:
+          of: ClusterRole
+        documentIndex: 0
+      - isKind:
+          of: ClusterRoleBinding
+        documentIndex: 1
+
+  - it: grants exactly get on the /metrics non-resource URL
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ClusterRole
+      - equal:
+          path: rules[0].nonResourceURLs
+          value:
+            - /metrics
+      - equal:
+          path: rules[0].verbs
+          value:
+            - get
+      # A resource rule here would be scope creep on a role whose entire job is one endpoint.
+      - isNull:
+          path: rules[0].apiGroups
+      - lengthEqual:
+          path: rules
+          count: 1
+
+  - it: binds the operator ServiceAccount so the shipped install can scrape itself
+    documentIndex: 1
+    release:
+      namespace: kollect-system
+    asserts:
+      - isKind:
+          of: ClusterRoleBinding
+      - equal:
+          path: roleRef.name
+          value: RELEASE-NAME-kollect-metrics-reader
+      - equal:
+          path: roleRef.kind
+          value: ClusterRole
+      - equal:
+          path: subjects[0].kind
+          value: ServiceAccount
+      - equal:
+          path: subjects[0].namespace
+          value: kollect-system
+
+  # Nothing to authorize when the endpoint is not authenticated: an unconditional ClusterRole would
+  # be permission granted for no reason.
+  - it: renders nothing when metrics are insecure
+    set:
+      metrics:
+        secure: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders nothing when metrics are disabled entirely
+    set:
+      metrics:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: can be opted out of for clusters that manage RBAC externally
+    set:
+      metrics:
+        readerRole:
+          create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # A Prometheus running under its own ServiceAccount is the common real deployment; without this
+  # the chart would authorize only itself and every scraper would still need hand-written RBAC.
+  - it: binds additional subjects so an external scraper can be authorized
+    set:
+      metrics:
+        readerRole:
+          extraSubjects:
+            - kind: ServiceAccount
+              name: prometheus-k8s
+              namespace: monitoring
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: subjects[1].name
+          value: prometheus-k8s
+      - equal:
+          path: subjects[1].namespace
+          value: monitoring

@@ -1,0 +1,46 @@
+suite: leader election timings
+templates:
+  - deployment.yaml
+tests:
+  # PERF-FIX-02. Empty values must emit NO flags, so the binary's own (patient) defaults apply and
+  # the chart does not silently pin a timing the operator never chose.
+  - it: emits no timing flags when unset
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect-lease-duration=
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect
+
+  - it: passes all three timings through when set
+    set:
+      leaderElection:
+        enabled: true
+        leaseDuration: 90s
+        renewDeadline: 60s
+        retryPeriod: 8s
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect-lease-duration=90s
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect-renew-deadline=60s
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect-retry-period=8s
+
+  # A timing flag without --leader-elect would be dead configuration that reads as if it applies.
+  - it: emits no timing flags when leader election is disabled
+    set:
+      leaderElection:
+        enabled: false
+        leaseDuration: 90s
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect-lease-duration=90s
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect

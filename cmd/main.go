@@ -170,6 +170,14 @@ func main() {
 		HealthProbeBindAddress: cfg.probeAddr,
 		LeaderElection:         cfg.enableLeaderElection,
 		LeaderElectionID:       "3274ac8a.kollect.dev",
+		// PERF-FIX-02. Without these three, controller-runtime's defaults apply (15s lease / 10s
+		// renew / 2s retry) and roughly ten seconds of API-server unreachability kills the
+		// process. That is not hypothetical: a 10k-object load test on a real cluster produced 18
+		// restarts, each "leader election lost" -> exit 1, each interrupting in-flight exports.
+		// See cmd/startup_flags.go for why the defaults are deliberately patient.
+		LeaseDuration: &cfg.leaderElectionLeaseDuration,
+		RenewDeadline: &cfg.leaderElectionRenewDeadline,
+		RetryPeriod:   &cfg.leaderElectionRetryPeriod,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

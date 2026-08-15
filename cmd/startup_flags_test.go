@@ -124,3 +124,82 @@ func TestBindStartupFlags_ParsesCustomValues(t *testing.T) {
 		t.Fatalf("dispatch tuning mismatch: workers=%d queue=%d", cfg.collectDispatchWorkers, cfg.collectDispatchQueueSize)
 	}
 }
+
+// TestLeaderElectionTimingFlags covers PERF-FIX-02.
+//
+// The defect: cmd/main.go set only LeaderElection and LeaderElectionID, so controller-runtime's
+// defaults applied — 15s lease, 10s renew deadline, 2s retry. Roughly ten seconds of API
+// unreachability therefore terminated the process. Observed live under a 10k-object load: 18
+// restarts, each "leader election lost" -> exit 1, every one of them interrupting in-flight
+// exports.
+//
+// A single-replica operator gains nothing from an aggressive renew deadline: there is no peer
+// waiting to take over, so exiting fast just converts a blip into downtime.
+func TestLeaderElectionTimingFlags(t *testing.T) {
+	t.Run("defaults are more patient than controller-runtime's", func(t *testing.T) {
+		var cfg startupConfig
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		bindStartupFlags(fs, &cfg)
+		if err := fs.Parse(nil); err != nil {
+			t.Fatalf("Parse: %v", err)
+		}
+
+		// controller-runtime defaults are 15s/10s/2s. Anything at or below those reintroduces the
+		// crash-loop this story exists to fix, so the assertion is a strict inequality.
+		if cfg.leaderElectionLeaseDuration <= 15*time.Second {
+			t.Errorf("lease duration default = %s, want > 15s (controller-runtime default)",
+				cfg.leaderElectionLeaseDuration)
+		}
+		if cfg.leaderElectionRenewDeadline <= 10*time.Second {
+			t.Errorf("renew deadline default = %s, want > 10s (controller-runtime default)",
+				cfg.leaderElectionRenewDeadline)
+		}
+		if cfg.leaderElectionRetryPeriod <= 0 {
+			t.Errorf("retry period default = %s, want > 0", cfg.leaderElectionRetryPeriod)
+		}
+	})
+
+	t.Run("renew deadline stays below lease duration", func(t *testing.T) {
+		var cfg startupConfig
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		bindStartupFlags(fs, &cfg)
+		if err := fs.Parse(nil); err != nil {
+			t.Fatalf("Parse: %v", err)
+		}
+
+		// client-go refuses to start with RenewDeadline >= LeaseDuration. Shipping defaults that
+		// violate that would turn a resilience fix into a boot failure.
+		if cfg.leaderElectionRenewDeadline >= cfg.leaderElectionLeaseDuration {
+			t.Fatalf("renew deadline %s must be < lease duration %s",
+				cfg.leaderElectionRenewDeadline, cfg.leaderElectionLeaseDuration)
+		}
+		if cfg.leaderElectionRetryPeriod >= cfg.leaderElectionRenewDeadline {
+			t.Fatalf("retry period %s must be < renew deadline %s",
+				cfg.leaderElectionRetryPeriod, cfg.leaderElectionRenewDeadline)
+		}
+	})
+
+	t.Run("all three are overridable", func(t *testing.T) {
+		var cfg startupConfig
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		bindStartupFlags(fs, &cfg)
+		args := []string{
+			"--leader-elect-lease-duration=137s",
+			"--leader-elect-renew-deadline=91s",
+			"--leader-elect-retry-period=7s",
+		}
+		if err := fs.Parse(args); err != nil {
+			t.Fatalf("Parse: %v", err)
+		}
+
+		if cfg.leaderElectionLeaseDuration != 137*time.Second {
+			t.Errorf("lease duration = %s, want 137s", cfg.leaderElectionLeaseDuration)
+		}
+		if cfg.leaderElectionRenewDeadline != 91*time.Second {
+			t.Errorf("renew deadline = %s, want 91s", cfg.leaderElectionRenewDeadline)
+		}
+		if cfg.leaderElectionRetryPeriod != 7*time.Second {
+			t.Errorf("retry period = %s, want 7s", cfg.leaderElectionRetryPeriod)
+		}
+	})
+}
