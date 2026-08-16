@@ -114,23 +114,67 @@ out="$(run_perf --run-id "${RUN_ID}" --seed 1 \
 [[ "${rc}" -ne 0 ]] || fail "ambiguous context must be refused: ${out}"
 pass "refuses ambiguous kube context"
 
-# --- allow-non-kind bypasses check (still dry-run offline) ---
+# --- LAB-DEKIND: the kumulus Talos lab is allowlisted WITHOUT --allow-non-kind ---
+# A --dry-run with an explicit fixture still runs the full context gate (only a
+# fixture-less --dry-run skips it), so this exercises the allowlist itself.
+rc=0
+out="$(run_perf --dry-run --run-id "${RUN_ID}-kumulus" --seed 1 \
+  --artifacts-root "${OUT_ROOT}" --fixture=context-kumulus 2>&1)" || rc=$?
+[[ "${rc}" -eq 0 ]] ||
+  fail "kumulus-lab context must be accepted without --allow-non-kind (rc=${rc}): ${out}"
+printf '%s\n' "${out}" | grep -Eqi 'context ok|substrate=talos' ||
+  fail "kumulus acceptance should log the substrate: ${out}"
+pass "kumulus-lab accepted without --allow-non-kind (allowlist, not bypass)"
+
+# --- LAB-DEKIND regression guard: production-lookalike context is still REFUSED ---
+rc=0
+out="$(run_perf --dry-run --run-id "${RUN_ID}-prod" --seed 1 \
+  --artifacts-root "${OUT_ROOT}" --fixture=context-prod-lookalike 2>&1)" || rc=$?
+[[ "${rc}" -eq 2 ]] ||
+  fail "production-lookalike context MUST be refused with exit 2, got ${rc}: ${out}"
+printf '%s\n' "${out}" | grep -Eqi 'allowlist|refus' ||
+  fail "production refusal must mention the allowlist: ${out}"
+pass "production-lookalike context refused with exit 2 (safety gate held)"
+
+# Near-miss on the lab name must not slip through a prefix match.
+rc=0
+out="$(run_perf --dry-run --run-id "${RUN_ID}-lookalike" --seed 1 \
+  --artifacts-root "${OUT_ROOT}" --fixture=context-kumulus-lookalike 2>&1)" || rc=$?
+[[ "${rc}" -eq 2 ]] ||
+  fail "kumulus-lab-prod MUST be refused with exit 2, got ${rc}: ${out}"
+pass "kumulus-lab-prod refused (allowlist is exact, not a prefix)"
+
+# --- allow-non-kind remains a maintainer override for an off-allowlist context ---
 if ! run_perf --dry-run --allow-non-kind --run-id "${RUN_ID}-nonkind" --seed 1 \
-  --artifacts-root "${OUT_ROOT}" >/dev/null 2>&1; then
-  fail "--allow-non-kind + --dry-run should succeed offline"
+  --artifacts-root "${OUT_ROOT}" --fixture=context-prod-lookalike >/dev/null 2>&1; then
+  fail "--allow-non-kind + --dry-run should still override the gate for a maintainer"
 fi
-pass "--allow-non-kind bypasses kind context gate in dry-run"
+pass "--allow-non-kind remains an explicit maintainer override"
 
 # --- port-forward target: kollect-system + kollect-controller-manager (not kollect-dev-manager) ---
 grep -q 'kollect-system' "${PERF_KIND}" ||
   fail "perf-kind.sh must reference namespace kollect-system"
-grep -q 'kollect-controller-manager' "${PERF_KIND}" ||
-  fail "perf-kind.sh must reference kollect-controller-manager"
 grep -q 'kollect-dev-manager' "${PERF_KIND}" &&
   fail "perf-kind.sh must not reference broken kollect-dev-manager target"
 grep -q '16060:6060' "${PERF_KIND}" ||
   fail "perf-kind.sh must use local:remote port-forward form 16060:6060"
+grep -Eq 'deploy/.*kollect-system|port-forward' "${RUN_DIR}/summary.md" ||
+  fail "summary.md must document the port-forward command"
+grep -q 'deploy/kollect-controller-manager' "${RUN_DIR}/summary.md" ||
+  fail "default port-forward target must stay deploy/kollect-controller-manager"
 pass "port-forward targets kollect-system/kollect-controller-manager"
+
+# --- LAB-DEKIND: the manager Deployment is release-scoped, not hardcoded ---
+# The kumulus lab runs Helm release kollect-op1 in namespace kollect-op1, so its manager is
+# deploy/kollect-op1-controller-manager — a hardcoded name makes the live path unrunnable.
+REL_OUT="${TMP}/release-test"
+run_perf --dry-run --run-id rel-test --seed 1 --release kollect-op1 --namespace kollect-op1 \
+  --artifacts-root "${REL_OUT}" >/dev/null 2>&1 || fail "--release dry-run failed"
+grep -q 'deploy/kollect-op1-controller-manager' "${REL_OUT}/rel-test/summary.md" ||
+  fail "--release must retarget the port-forward Deployment (kollect-op1)"
+grep -q 'kollect-op1' "${REL_OUT}/rel-test/summary.md" ||
+  fail "--namespace must be reflected in the summary port-forward command"
+pass "--release/--namespace retarget the port-forward for a non-default install"
 
 # --- live vs dry-run honesty: dry-run uses .stub; live path must not silently stub ---
 stub_count="$(find "${RUN_DIR}/profiles" -name '*.pb.gz.stub' 2>/dev/null | wc -l | tr -d ' ')"

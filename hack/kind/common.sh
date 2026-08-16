@@ -5,6 +5,11 @@ set -euo pipefail
 KIND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${KIND_DIR}/../.." && pwd)"
 
+# Substrate allowlist + image-delivery policy (LAB-DEKIND). Sourced here so the install path
+# has ONE auditable place deciding "which cluster" and "how images get there".
+# shellcheck source=../lab/lib/substrate.sh
+source "${KIND_DIR}/../lab/lib/substrate.sh"
+
 # Pin kind CLI version (matches .github/workflows/e2e-nightly.yaml).
 readonly KIND_VERSION="${KIND_VERSION:-0.32.0}"
 
@@ -117,6 +122,24 @@ kind_use_context() {
   kubectl config use-context "kind-${name}" >/dev/null
 }
 
+# Decoupling seam (LAB-DEKIND): "create/select a kind cluster" vs "assert against whatever
+# cluster we are pointed at". Scenario scripts call this instead of kind_use_context so they
+# can run on an existing lab cluster with KOLLECT_E2E_EXISTING_CLUSTER=1. Default (CI) path
+# is unchanged: switch to kind-<cluster>. Returns 2 when the current context is off-allowlist.
+kollect_e2e_select_context() {
+  local cluster="$1"
+  if [[ "${KOLLECT_E2E_EXISTING_CLUSTER:-0}" != "1" ]]; then
+    kind_use_context "$cluster"
+    return 0
+  fi
+  local ctx
+  ctx="$(kubectl config current-context 2>/dev/null || true)"
+  if ! lab_substrate_assert_context "${ctx}"; then
+    return 2
+  fi
+  return 0
+}
+
 kind_create_cluster() {
   local name="$1" config="$2"
   if kind_cluster_exists "$name"; then
@@ -200,13 +223,29 @@ kollect_helm_install() {
   local values_file="$1"
   shift || true
 
-  _kind_log "Installing kollect via Helm (values: ${values_file}, timeout ${KOLLECT_HELM_TIMEOUT})..."
+  # Split repo/tag on the LAST colon only when it follows the last slash, so a registry with
+  # a port (localhost:5000/kollect:v1) is not mangled. The chart renders repository:tag, so a
+  # digest-pinned reference is refused here rather than silently reinterpreted.
+  local image_repo image_tag
+  if [[ "$KOLLECT_IMAGE" == *"@"* ]]; then
+    _kind_log "KOLLECT_IMAGE '${KOLLECT_IMAGE}' is digest-pinned; the chart renders repository:tag — use a pinned v<semver> tag."
+    return 1
+  fi
+  if [[ "${KOLLECT_IMAGE##*/}" == *:* ]]; then
+    image_repo="${KOLLECT_IMAGE%:*}"
+    image_tag="${KOLLECT_IMAGE##*:}"
+  else
+    image_repo="$KOLLECT_IMAGE"
+    image_tag="latest"
+  fi
+
+  _kind_log "Installing kollect via Helm (values: ${values_file}, image ${image_repo}:${image_tag}, timeout ${KOLLECT_HELM_TIMEOUT})..."
   if ! helm upgrade --install "$KOLLECT_RELEASE" "$KOLLECT_HELM_CHART" \
     --namespace "$KOLLECT_NAMESPACE" \
     --create-namespace \
     -f "$values_file" \
-    --set "image.repository=${KOLLECT_IMAGE%%:*}" \
-    --set "image.tag=${KOLLECT_IMAGE##*:}" \
+    --set "image.repository=${image_repo}" \
+    --set "image.tag=${image_tag}" \
     --set image.pullPolicy=IfNotPresent \
     "$@" \
     --wait --timeout "$KOLLECT_HELM_TIMEOUT"; then
@@ -283,12 +322,48 @@ kollect_wait_manager_ready() {
     --timeout="$timeout"
 }
 
+# Resolve the substrate of the cluster the CURRENT context points at (default-deny).
+# Prints the substrate kind; returns 2 when the context is not on the lab allowlist.
+kollect_current_substrate() {
+  local ctx
+  ctx="$(kubectl config current-context 2>/dev/null || true)"
+  local kind_out
+  if ! kind_out="$(lab_substrate_resolve "${ctx}")"; then
+    lab_substrate_err "refusing kube context '${ctx}': not on the lab substrate allowlist [$(lab_substrate_allowlist_summary)]"
+    lab_substrate_err "default-deny — installs only run on a Kind cluster or an allowlisted lab cluster"
+    return 2
+  fi
+  printf '%s' "${kind_out}"
+}
+
+# Deliver the operator image to the target cluster.
+#   Kind   → build locally and side-load (`kind load docker-image`), as CI has always done.
+#   other  → there is NO side-load equivalent (Talos runs containerd on bare metal, no
+#            docker socket to import into), so the image MUST already exist in a registry at
+#            an immutable reference. Anything else is refused loudly here rather than
+#            silently running whatever the nodes cached — a stale image invalidates the run.
+kollect_deliver_image() {
+  local cluster="$1" substrate="$2"
+  if [[ "$(lab_substrate_image_delivery "$substrate")" == "sideload" ]]; then
+    kollect_build_image
+    kollect_load_image "$cluster"
+    return 0
+  fi
+  if ! lab_substrate_require_registry_image "$KOLLECT_IMAGE" "$substrate"; then
+    _kind_log "Substrate '${substrate}' cannot side-load images; set KOLLECT_IMAGE to a pushed, pinned reference."
+    return 1
+  fi
+  _kind_log "Substrate ${substrate}: using pinned registry image ${KOLLECT_IMAGE} (no side-load, no rebuild)."
+  return 0
+}
+
 kollect_install_base() {
   local cluster="$1" values_file="$2"
   shift 2 || true
 
-  kollect_build_image
-  kollect_load_image "$cluster"
+  local substrate
+  substrate="$(kollect_current_substrate)" || return 1
+  kollect_deliver_image "$cluster" "$substrate" || return 1
   kollect_wait_kube_system_ready
   kollect_helm_install "$values_file" "$@"
   kollect_wait_crds_established
