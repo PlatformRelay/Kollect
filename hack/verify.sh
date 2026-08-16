@@ -9,7 +9,7 @@ scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 
 copy_generated() {
-  for path in config/crd/bases config/rbac/role.yaml; do
+  for path in config/crd/bases config/rbac/role.yaml charts/kollect/crds; do
     if [[ -e "$path" ]]; then
       mkdir -p "$scratch/$(dirname "$path")"
       cp -a "$path" "$scratch/$path"
@@ -49,6 +49,20 @@ for f in api/*/zz_generated.deepcopy.go; do
     exit 1
   fi
 done
+
+# The publishable Helm chart carries its own copy of the CRDs. Nothing regenerates it on the
+# merge path -- hack/helm-sync-crds.sh is called only by hack/release-assets.sh, so drift used to
+# surface at release time, long after it was introduced. A chart whose CRDs lack fields the
+# operator writes fails quietly: the API server prunes the unknown status fields and the operator
+# looks like it is not reporting them. Gate it here, where the other generated artifacts are gated.
+bash hack/helm-sync-crds.sh >/dev/null
+
+if [[ -d "$scratch/charts/kollect/crds" ]] || [[ -d charts/kollect/crds ]]; then
+  if ! diff -ru "$scratch/charts/kollect/crds" charts/kollect/crds; then
+    echo "verify: drift in charts/kollect/crds — run 'bash hack/helm-sync-crds.sh'" >&2
+    exit 1
+  fi
+fi
 
 echo "verify: schema contract tests..."
 go test ./test/schema/ -count=1

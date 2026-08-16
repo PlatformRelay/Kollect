@@ -431,6 +431,15 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              extractionFailures:
+                description: |-
+                  extractionFailures is the count of resources currently failing CEL/JSONPath
+                  attribute extraction for this target.
+                type: integer
+              lastExtractionError:
+                description: lastExtractionError is the most recently observed extraction
+                  failure message.
+                type: string
               matchedNamespaces:
                 description: matchedNamespaces lists workload namespaces matched by
                   Target intent (before Scope ceiling).

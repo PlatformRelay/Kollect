@@ -75,6 +75,14 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              allowedStaticRefNamespaces:
+                description: |-
+                  allowedStaticRefNamespaces restricts namespaces cluster kinds may reference for
+                  profiles and family sinks (ADR-0208). Empty means any namespace is permitted.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               databaseSinkRefs:
                 description: databaseSinkRefs lists permitted KollectDatabaseSink
                   names for this scope.
