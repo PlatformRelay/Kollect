@@ -40,5 +40,10 @@ ignores:
   - vendor/**
   - references/**
   - agent-context/**
+  # Captured evidence from destroyed lab substrates. These files are a record of what
+  # was measured, not prose we maintain -- the only edit they may carry is the LAN-address
+  # redaction documented in lab-evidence/README.md. Linting them would invite reformatting
+  # that silently drifts an archive away from what was actually captured.
+  - lab-evidence/**
   - .mkdocs-venv/**
   - docs/node_modules/**
