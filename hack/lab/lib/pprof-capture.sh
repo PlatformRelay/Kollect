@@ -439,6 +439,9 @@ lab_pprof_write_findings_blocked() {
   local run_dir="$1"
   local run_id="$2"
   local reason="$3"
+  # Remediation command for the target that was ACTUALLY used. Callers that know their
+  # release/namespace pass it; the default only fits a default-release install.
+  local pf_command="${4:-kubectl -n kollect-system port-forward deploy/kollect-controller-manager 16060:6060}"
 
   mkdir -p "${run_dir}/summary"
   cat >"${run_dir}/summary/performance-findings.md" <<EOF
@@ -450,6 +453,6 @@ Run \`${run_id}\` — PERF-LAB-01 live capture **BLOCKED**.
 | --- | --- | --- | --- | --- |
 | PERF-000 | (all) | pprof endpoint | BLOCKED | ${reason} |
 
-Partial \`profiles/\` tree preserved when present. Enable \`pprof.enabled: true\` on the Helm release and ensure \`kubectl -n kollect-system port-forward deploy/kollect-controller-manager 16060:6060\` reaches the manager.
+Partial \`profiles/\` tree preserved when present. Enable \`pprof.enabled: true\` on the Helm release and ensure \`${pf_command}\` reaches the manager.
 EOF
 }

@@ -215,6 +215,85 @@ if [[ -d "${LIVE_DIR}/profiles" ]]; then
 fi
 pass "live path refuses silent stub capture (BLOCKED on unreachable pprof)"
 
+# --- port-forward FAILURE path: documented exit 3 + BLOCKED findings actually written ---
+# Distinct from "endpoint unreachable": here the port-forward never starts (no kubectl on
+# PATH). This branch shipped broken — it referenced a variable the CLI no longer defines, so
+# `set -u` aborted with exit 1 and the BLOCKED findings file was never written. shellcheck
+# structurally cannot catch that (an all-caps unset name is assumed environment-supplied),
+# so it needs a behavioural test.
+PF_FAIL_ROOT="${TMP}/pf-start-failure"
+rc=0
+pf_out="$(cd "${TMP}" && env -u KUBECONFIG PATH=/usr/bin:/bin bash "${PERF_KIND}" \
+  --run-id pf-start-failure --seed 1 --artifacts-root "${PF_FAIL_ROOT}" \
+  --fixture=context-kind 2>&1)" || rc=$?
+[[ "${rc}" -eq 3 ]] ||
+  fail "port-forward start failure must exit 3 (documented), got ${rc}: ${pf_out}"
+printf '%s\n' "${pf_out}" | grep -Eqi 'unbound variable|command not found' &&
+  fail "port-forward failure path must not abort on a shell error: ${pf_out}"
+PF_FINDINGS="${PF_FAIL_ROOT}/pf-start-failure/summary/performance-findings.md"
+[[ -f "${PF_FINDINGS}" ]] ||
+  fail "port-forward failure must still write the BLOCKED findings register"
+grep -q 'BLOCKED' "${PF_FINDINGS}" ||
+  fail "findings register must record BLOCKED for a failed port-forward"
+grep -Eqi 'port-forward' "${PF_FINDINGS}" ||
+  fail "findings register must record the port-forward reason"
+pass "port-forward start failure exits 3 and writes the BLOCKED findings register"
+
+# --- BLOCKED remediation text must name the release/namespace that was actually targeted ---
+PF_REL_ROOT="${TMP}/pf-release-hint"
+rc=0
+pf_out="$(cd "${TMP}" && env -u KUBECONFIG PATH=/usr/bin:/bin bash "${PERF_KIND}" \
+  --run-id pf-release-hint --seed 1 --artifacts-root "${PF_REL_ROOT}" \
+  --release kollect-op1 --namespace kollect-op1 --fixture=context-kind 2>&1)" || rc=$?
+[[ "${rc}" -eq 3 ]] || fail "release-scoped port-forward failure must exit 3, got ${rc}"
+REL_FINDINGS="${PF_REL_ROOT}/pf-release-hint/summary/performance-findings.md"
+grep -q 'kollect-op1-controller-manager' "${REL_FINDINGS}" ||
+  fail "BLOCKED remediation must name the targeted deployment, not a hardcoded default"
+grep -q 'kollect-system' "${REL_FINDINGS}" &&
+  fail "BLOCKED remediation must not tell the operator to look in the wrong namespace"
+pass "BLOCKED remediation reflects --release/--namespace"
+
+# --- cluster-wide cleanup is NOT unlocked by --allow-non-kind ---
+# The override exists to profile an unusual substrate. Cleanup runs
+# `kubectl delete all,cm,secret,sa,role,rolebinding -A -l kollect.dev/lab-run=<id>`, which is
+# a cluster-wide write: it must stay gated on the ALLOWLIST, not on the override flag.
+CLEAN_BIN="${TMP}/cleanup-bin"
+mkdir -p "${CLEAN_BIN}"
+cat >"${CLEAN_BIN}/kubectl" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${DELETE_LOG}"
+EOF
+chmod +x "${CLEAN_BIN}/kubectl"
+
+cleanup_probe() {
+  local allowlisted="$1" log="$2"
+  : >"${log}"
+  env -u KUBECONFIG PATH="${CLEAN_BIN}:${PATH}" DELETE_LOG="${log}" bash -c '
+    set -uo pipefail
+    source "$1"
+    CONTEXT_ALLOWLISTED="$2"
+    lab_perf_kind_cleanup "$3" cleanup-probe 0
+  ' _ "${PERF_KIND}" "${allowlisted}" "${TMP}/cleanup-run" 2>&1
+}
+
+DENY_LOG="${TMP}/delete-denied.log"
+out="$(cleanup_probe 0 "${DENY_LOG}")"
+grep -q 'delete' "${DENY_LOG}" &&
+  fail "cleanup must NOT issue a cluster-wide delete on a non-allowlisted context: $(cat "${DENY_LOG}")"
+printf '%s\n' "${out}" | grep -Eqi 'skip|refus|not.*allowlist' ||
+  fail "skipped cleanup must say so (and name the label to clean by hand): ${out}"
+printf '%s\n' "${out}" | grep -Eq 'kollect.dev/lab-run' ||
+  fail "skipped cleanup must tell the operator which label to remove manually: ${out}"
+pass "--allow-non-kind does not authorize cluster-wide cleanup deletes"
+
+ALLOW_LOG="${TMP}/delete-allowed.log"
+cleanup_probe 1 "${ALLOW_LOG}" >/dev/null
+grep -q 'delete' "${ALLOW_LOG}" ||
+  fail "cleanup must still run on an allowlisted context: $(cat "${ALLOW_LOG}")"
+grep -q 'kollect.dev/lab-run=cleanup-probe' "${ALLOW_LOG}" ||
+  fail "cleanup must stay scoped to the lab-run label"
+pass "cleanup still runs, label-scoped, on an allowlisted context"
+
 # --- --duration wired into index / CPU note ---
 DUR_OUT="${TMP}/duration-test"
 run_perf --dry-run --run-id dur-test --seed 7 --duration 45s \
