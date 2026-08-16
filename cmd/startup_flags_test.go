@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/platformrelay/kollect/internal/controller"
 	"github.com/platformrelay/kollect/internal/inventory"
 	"github.com/platformrelay/kollect/internal/validation"
 
@@ -50,6 +51,9 @@ func TestBindStartupFlags_Defaults(t *testing.T) {
 			cfg.collectDispatchWorkers,
 			cfg.collectDispatchQueueSize,
 		)
+	}
+	if cfg.targetCountResync != controller.DefaultTargetCountResync {
+		t.Fatalf("targetCountResync = %s, want %s", cfg.targetCountResync, controller.DefaultTargetCountResync)
 	}
 	if cfg.informerResyncPeriod != 12*time.Hour || cfg.collectMetricsSampleInterval != 30*time.Second {
 		t.Fatalf(

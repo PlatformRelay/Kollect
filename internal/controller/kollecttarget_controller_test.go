@@ -96,7 +96,10 @@ var _ = Describe("KollectTarget Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(BeZero())
+			// PERF-FIX-05: a collecting target now requeues itself on the count resync
+			// interval. Before that it returned an empty Result, which is exactly why
+			// status.collectedCount could never refresh on its own.
+			Expect(result.RequeueAfter).To(Equal(DefaultTargetCountResync))
 
 			updated := &kollectdevv1alpha1.KollectTarget{}
 			Expect(k8sClient.Get(reconcileCtx, typeNamespacedName, updated)).To(Succeed())
@@ -274,6 +277,123 @@ var _ = Describe("KollectTarget Controller", func() {
 			ready := apimeta.FindStatusCondition(updated.Status.Conditions, conditionReady)
 			Expect(ready).NotTo(BeNil())
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
+		})
+
+		// PERF-FIX-05 / F-05: the reported resource count used to be a snapshot of the
+		// last spec reconcile. Objects entering or leaving the matched set never
+		// refreshed it, so status silently misreported scale (observed on the Talos lab:
+		// "collecting 1000 resource(s)" while 1200 were being collected). The count is
+		// now a numeric status field, re-derived on every reconcile, with the target
+		// requeued on a periodic resync so a live cluster converges without a spec edit.
+		It("tracks objects entering and leaving the matched set in status.collectedCount", func() {
+			reconcileCtx := context.Background()
+			profileName := "count-profile-" + testNameSuffix()
+			targetName := "count-target-" + testNameSuffix()
+
+			profile := &kollectdevv1alpha1.KollectProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: testNS},
+				Spec: kollectdevv1alpha1.KollectProfileSpec{
+					TargetGVK: kollectdevv1alpha1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+					Attributes: []kollectdevv1alpha1.AttributeSpec{
+						{Name: "name", Path: "{.metadata.name}"},
+					},
+				},
+			}
+			Expect(k8sClient.Create(reconcileCtx, profile)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(reconcileCtx, profile) }()
+
+			createConfigMaps := func(names ...string) {
+				for _, name := range names {
+					cm := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNS},
+						Data:       map[string]string{"k": name},
+					}
+					Expect(k8sClient.Create(reconcileCtx, cm)).To(Succeed())
+				}
+			}
+			deleteConfigMaps := func(names ...string) {
+				for _, name := range names {
+					Expect(k8sClient.Delete(reconcileCtx, &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNS},
+					})).To(Succeed())
+				}
+			}
+
+			const initial = 2
+			createConfigMaps("count-a", "count-b")
+
+			target := &kollectdevv1alpha1.KollectTarget{
+				ObjectMeta: metav1.ObjectMeta{Name: targetName, Namespace: testNS},
+				Spec: kollectdevv1alpha1.KollectTargetSpec{
+					ProfileRef: profileName,
+					CollectionFilterSpec: kollectdevv1alpha1.CollectionFilterSpec{
+						IncludedNamespaces: []string{testNS},
+					},
+				},
+			}
+			Expect(k8sClient.Create(reconcileCtx, target)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(reconcileCtx, target) }()
+
+			targetKey := types.NamespacedName{Name: targetName, Namespace: testNS}
+			reconciler := &KollectTargetReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+				Engine: engine,
+			}
+
+			// reconcileWhenEngineSees waits for the engine to observe want items, then
+			// runs the reconcile the periodic resync would have run, and returns the
+			// persisted status.
+			reconcileWhenEngineSees := func(want int) *kollectdevv1alpha1.KollectTarget {
+				GinkgoHelper()
+				Eventually(func() int {
+					return engine.ItemCount(testNS, targetName)
+				}, 30*time.Second, 200*time.Millisecond).Should(Equal(want))
+
+				result, err := reconciler.Reconcile(reconcileCtx, reconcile.Request{NamespacedName: targetKey})
+				Expect(err).NotTo(HaveOccurred())
+				// The count can only stay live if the target is requeued: nothing else
+				// re-enqueues a target when a watched object enters or leaves its set.
+				Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+
+				updated := &kollectdevv1alpha1.KollectTarget{}
+				Expect(k8sClient.Get(reconcileCtx, targetKey, updated)).To(Succeed())
+
+				return updated
+			}
+
+			// Registration reconcile: informers start here, so the count is only
+			// meaningful from the following pass onwards.
+			_, err := reconciler.Reconcile(reconcileCtx, reconcile.Request{NamespacedName: targetKey})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("reporting the initial matched set")
+			updated := reconcileWhenEngineSees(initial)
+			Expect(updated.Status.CollectedCount).NotTo(BeNil())
+			Expect(*updated.Status.CollectedCount).To(Equal(int64(initial)))
+			Expect(updated.Status.CollectedCountUpdatedAt).NotTo(BeNil())
+			firstStamp := *updated.Status.CollectedCountUpdatedAt
+
+			By("growing the count when more objects enter the selector")
+			createConfigMaps("count-c", "count-d", "count-e")
+			updated = reconcileWhenEngineSees(initial + 3)
+			Expect(updated.Status.CollectedCount).NotTo(BeNil())
+			Expect(*updated.Status.CollectedCount).To(Equal(int64(initial + 3)))
+			Expect(updated.Status.CollectedCountUpdatedAt).NotTo(BeNil())
+			Expect(updated.Status.CollectedCountUpdatedAt.Before(&firstStamp)).To(BeFalse())
+
+			By("shrinking the count when objects leave the selector")
+			deleteConfigMaps("count-c", "count-d", "count-e")
+			updated = reconcileWhenEngineSees(initial)
+			Expect(updated.Status.CollectedCount).NotTo(BeNil())
+			Expect(*updated.Status.CollectedCount).To(Equal(int64(initial)))
+
+			deleteConfigMaps("count-a", "count-b")
+
+			By("reporting a genuine zero rather than an absent count")
+			updated = reconcileWhenEngineSees(0)
+			Expect(updated.Status.CollectedCount).NotTo(BeNil())
+			Expect(*updated.Status.CollectedCount).To(BeZero())
 		})
 	})
 })

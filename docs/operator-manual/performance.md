@@ -47,6 +47,26 @@ exponential failure rate limiter (5ms base, 1000s cap). Set a positive duration 
 `kollect_workqueue_depth` approximates queue pressure as **in-flight reconciles** per controller
 (not the internal client-go queue length).
 
+## Reported collection scale
+
+**`KollectTarget.status.collectedCount`** is the machine-readable number of resources a Target is
+collecting, surfaced as the `COLLECTED` column of `kubectl get kollecttargets`. The `Ready`
+condition message restates it as prose for backward compatibility only.
+
+Objects entering or leaving a Target's matched set do **not** enqueue that Target, so the number is
+refreshed by a periodic self-requeue: **`--target-count-resync`** (default **`60s`**, Helm
+`controller.targetCountResync`). The write is skipped when the number did not move, so a steady
+cluster costs one cached read per Target per interval.
+
+**`status.collectedCountUpdatedAt`** records when the number last *changed* — **not** when it was
+last checked. A steady Target keeps an old timestamp while still being re-derived every resync, so
+an old timestamp on its own does not mean the count is stale.
+
+Judge liveness from the timestamp and the conditions together: a `Ready` Target with an old
+timestamp has a count that genuinely has not moved, while a `Degraded` Target keeps its last known
+count and the timestamp shows how old that measurement is. Lower the interval for a more responsive
+count; raise it to cut reconcile volume on very large fleets.
+
 ## Export debouncing
 
 **`KollectInventory.spec.exportMinInterval`** (default **`30s`**) coalesces export to external sinks

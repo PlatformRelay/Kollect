@@ -78,12 +78,39 @@ type KollectTargetStatus struct {
 	// +optional
 	LastExtractionError string `json:"lastExtractionError,omitempty"`
 
+	// collectedCount is the number of resources this target was collecting when the
+	// controller last refreshed the count. It is the machine-readable source of truth
+	// for collection scale; the Ready condition message restates it as prose for
+	// backward compatibility only.
+	//
+	// A null value means the controller has never computed a count for this target
+	// (it has not yet reached Ready). Zero means it computed a count and it was zero.
+	// A target that is Degraded, or whose reconciles are failing, keeps its last known
+	// count rather than silently reporting a fresh-looking number — see
+	// collectedCountUpdatedAt for when that measurement was taken.
+	// +optional
+	CollectedCount *int64 `json:"collectedCount,omitempty"`
+
+	// collectedCountUpdatedAt is when collectedCount last *changed* — not when it was
+	// last checked. A steady target whose count has not moved keeps an old timestamp
+	// while still being re-derived every resync, so an old timestamp on its own does
+	// not mean the number is stale.
+	//
+	// Read it together with the conditions: a Ready target with an old timestamp has a
+	// count that genuinely has not moved, while a Degraded target keeps its last known
+	// count and the timestamp shows how long ago that measurement was taken.
+	// +optional
+	CollectedCountUpdatedAt *metav1.Time `json:"collectedCountUpdatedAt,omitempty"`
+
 	CollectionFilterStatus `json:",inline"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=ktgt
+// +kubebuilder:printcolumn:name="Collected",type=integer,JSONPath=`.status.collectedCount`
+// +kubebuilder:printcolumn:name="Updated",type=date,JSONPath=`.status.collectedCountUpdatedAt`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // KollectTarget is the Schema for the kollecttargets API
 type KollectTarget struct {
