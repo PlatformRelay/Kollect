@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **devcontainer:** Move the Go pin with go.mod so the image still builds ([#296](https://github.com/platformrelay/kollect/pull/296))[71bf197](https://github.com/platformrelay/kollect/commit/71bf1977bfb94f8a3616156ce08b15f3be1f749b)
+
+- **deps:** Raise Go to 1.26.6 to clear 7 called stdlib advisories [96d0f55](https://github.com/platformrelay/kollect/commit/96d0f55f0a59b1164181797d2ab166f0e59ab71f)
+
 - **docs:** MD046 — admonition continuation read as an indented code block ([#294](https://github.com/platformrelay/kollect/pull/294))[4ccba73](https://github.com/platformrelay/kollect/commit/4ccba7305dcf3e505b399b5ae3395b1930b8ec46)
 
 - **chart,manager:** Address independent review of the metrics-reader and leader-election lane [610e57f](https://github.com/platformrelay/kollect/commit/610e57f06775b43e2a203261b7a4804f98644904)
