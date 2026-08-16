@@ -188,6 +188,16 @@ func (r *KollectClusterTargetReconciler) syncEngineTargets(
 	effective []string,
 	ceiling collect.ScopeCeiling,
 ) error {
+	// The engine's namespace metadata cache backs resource-rule evaluation and the
+	// namespace-level watch opt-in/opt-out in ShouldCollect, and this controller resolves
+	// its own namespaces from the cached client rather than that snapshot. RegisterTarget
+	// only refreshes it when it has to recompute the namespace set, which it never does
+	// here — every synthetic target is registered with an explicit namespace. So refresh
+	// once per reconcile, ahead of the loop, instead of once per registered namespace.
+	if err := r.Engine.RefreshNamespaces(ctx); err != nil {
+		return fmt.Errorf("refresh namespace cache before cluster target registration: %w", err)
+	}
+
 	want := make(map[string]struct{}, len(effective))
 	for _, ns := range effective {
 		want[ns] = struct{}{}
