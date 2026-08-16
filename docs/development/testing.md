@@ -170,6 +170,29 @@ only the real-browser layout check when Chrome/Chromium is unavailable. To repro
 requirement exactly, run `DOCS_REQUIRE_CHROME=1 task docs:verify`; set `CHROME_BIN` when the browser
 is not on `PATH`.
 
+## Writing chart tests (helm-unittest gotchas)
+
+Two matcher behaviours produce assertions that **pass unconditionally**. Both were found by a
+review that mutated the implementation and watched the suite stay green.
+
+- **`contains` / `notContains` compare WHOLE list elements, not substrings.** So
+  `notContains: --my-flag=` can never match a rendered `--my-flag=60s`, and the test passes
+  whether or not the flag is emitted. When asserting that something is *absent* from a rendered
+  arg list, assert the **exact list** instead:
+
+  ```yaml
+  - equal:
+      path: spec.template.spec.containers[0].args
+      value: [--leader-elect, --health-probe-bind-address=:8081, ...]
+  ```
+
+- **`containsDocument` is evaluated against EVERY rendered document.** A multi-document template
+  (e.g. a ClusterRole plus its ClusterRoleBinding) can therefore never satisfy two different
+  `containsDocument` assertions at once. Assert per `documentIndex` with `isKind` instead.
+
+**Before trusting a new chart assertion, mutate the template and confirm the test goes red.** A
+chart test that cannot fail is worse than no test — it reports coverage that does not exist.
+
 ## Definition of done
 
 Per-change checklist: [guidelines § 6](guidelines.md#6-definition-of-done-per-change).
