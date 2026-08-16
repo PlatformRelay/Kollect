@@ -31,19 +31,20 @@ metrics:
 
 Set `metrics.readerRole.create: false` if your cluster manages RBAC out of band.
 
-!!! note "tenantMode and `rbac.create: false`"
-    The reader role is cluster-scoped and is therefore **not** rendered for per-team installs
-    (`tenantMode: true`) or when `rbac.create: false`. There is no namespaced equivalent —
-    `nonResourceURLs` cannot be expressed in a `Role`, because `/metrics` is not a namespaced
-    resource. In those installs a cluster administrator must apply the grant separately.
+### tenantMode and `rbac.create: false`
 
-    Note that the grant alone is **not sufficient** in `tenantMode`: the namespaced Role
-    (`charts/kollect/templates/role.yaml`) grants only `selfsubjectaccessreviews`, not
-    `tokenreviews`/`subjectaccessreviews` **create**, so the secure endpoint's delegated
-    TokenReview/SubjectAccessReview cannot succeed regardless of who holds the reader role. A
-    per-team install that needs scrapeable metrics currently has to run with
-    `metrics.secure: false` behind another control, or have those two cluster-scoped permissions
-    granted as well. This gap pre-dates the reader role.
+The reader role is cluster-scoped and is therefore **not** rendered for per-team installs
+(`tenantMode: true`) or when `rbac.create: false`. There is no namespaced equivalent —
+`nonResourceURLs` cannot be expressed in a `Role`, because `/metrics` is not a namespaced
+resource. In those installs a cluster administrator must apply the grant separately.
+
+The grant alone is **not sufficient** in `tenantMode`. The namespaced Role
+(`charts/kollect/templates/role.yaml`) grants only `selfsubjectaccessreviews`, not
+`tokenreviews`/`subjectaccessreviews` **create**, so the secure endpoint's delegated
+TokenReview/SubjectAccessReview cannot succeed regardless of who holds the reader role. A per-team
+install that needs scrapeable metrics currently has to run with `metrics.secure: false` behind
+another control, or have those two cluster-scoped permissions granted as well. This gap pre-dates
+the reader role.
 
 **Kustomize.** `config/rbac/` ships `metrics_reader_role.yaml` and its binding; both are wired into
 `config/rbac/kustomization.yaml`.
