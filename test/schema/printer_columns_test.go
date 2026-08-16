@@ -38,24 +38,7 @@ func TestKollectTargetPrinterColumns(t *testing.T) {
 		t.Run(source, func(t *testing.T) {
 			t.Parallel()
 
-			//nolint:gosec // G304: path is a committed manifest in this repository.
-			raw, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("read crd: %v", err)
-			}
-
-			var crd apiextensionsv1.CustomResourceDefinition
-			if unmarshalErr := yaml.Unmarshal(raw, &crd); unmarshalErr != nil {
-				t.Fatalf("parse crd: %v", unmarshalErr)
-			}
-
-			got := map[string]string{}
-			for i := range crd.Spec.Versions {
-				for _, col := range crd.Spec.Versions[i].AdditionalPrinterColumns {
-					got[col.Name] = col.JSONPath
-				}
-			}
-
+			got := printerColumns(t, path)
 			for name, jsonPath := range want {
 				if got[name] != jsonPath {
 					t.Fatalf("printer column %q = %q, want %q (columns: %v)", name, got[name], jsonPath, got)
@@ -63,4 +46,30 @@ func TestKollectTargetPrinterColumns(t *testing.T) {
 			}
 		})
 	}
+}
+
+// printerColumns returns every additionalPrinterColumn declared by a CRD manifest, keyed
+// by column name.
+func printerColumns(t *testing.T, path string) map[string]string {
+	t.Helper()
+
+	//nolint:gosec // G304: path is a committed manifest in this repository.
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read crd: %v", err)
+	}
+
+	var crd apiextensionsv1.CustomResourceDefinition
+	if unmarshalErr := yaml.Unmarshal(raw, &crd); unmarshalErr != nil {
+		t.Fatalf("parse crd: %v", unmarshalErr)
+	}
+
+	cols := map[string]string{}
+	for i := range crd.Spec.Versions {
+		for _, col := range crd.Spec.Versions[i].AdditionalPrinterColumns {
+			cols[col.Name] = col.JSONPath
+		}
+	}
+
+	return cols
 }
