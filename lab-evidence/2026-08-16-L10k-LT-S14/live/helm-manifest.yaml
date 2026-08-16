@@ -1,0 +1,274 @@
+---
+# Source: kollect/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kollect-op1-controller-manager
+  namespace: kollect-op1
+  labels:
+    helm.sh/chart: kollect-0.17.0
+    app.kubernetes.io/name: kollect
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.17.0"
+    app.kubernetes.io/managed-by: Helm
+
+---
+# Source: kollect/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kollect-op1-manager
+  labels:
+    helm.sh/chart: kollect-0.17.0
+    app.kubernetes.io/name: kollect
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.17.0"
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups: [""]
+    resources: [configmaps, namespaces, secrets]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [create, delete, get, list, patch, update, watch]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [create, delete, get, list, patch, update, watch]
+  - apiGroups: [authentication.k8s.io]
+    resources: [tokenreviews]
+    verbs: [create]
+  - apiGroups: [authorization.k8s.io]
+    resources: [selfsubjectaccessreviews, subjectaccessreviews]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
+  - apiGroups: [kollect.dev]
+    resources:
+      - kollectclusterinventories
+      - kollectclustertargets
+      - kollectconnectiontests
+      - kollectdatabasesinks
+      - kollecteventsinks
+      - kollectinventories
+      - kollectsnapshotsinks
+      - kollecttargets
+    verbs: [create, delete, get, list, patch, update, watch]
+  - apiGroups: [kollect.dev]
+    resources:
+      - kollectclusterinventories/finalizers
+      - kollectclustertargets/finalizers
+      - kollectinventories/finalizers
+      - kollecttargets/finalizers
+    verbs: [update]
+  - apiGroups: [kollect.dev]
+    resources:
+      - kollectclusterinventories/status
+      - kollectclustertargets/status
+      - kollectconnectiontests/status
+      - kollectdatabasesinks/status
+      - kollecteventsinks/status
+      - kollectinventories/status
+      - kollectsnapshotsinks/status
+      - kollecttargets/status
+    verbs: [get, patch, update]
+  - apiGroups: [kollect.dev]
+    resources: [kollectprofiles, kollectscopes]
+    verbs: [get, list, watch]
+  - apiGroups: [cert-manager.io]
+    resources: [certificates]
+    verbs: [get, list, watch]
+
+---
+# Source: kollect/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kollect-op1-manager
+  labels:
+    helm.sh/chart: kollect-0.17.0
+    app.kubernetes.io/name: kollect
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.17.0"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kollect-op1-manager
+subjects:
+  - kind: ServiceAccount
+    name: kollect-op1-controller-manager
+    namespace: kollect-op1
+
+---
+# Source: kollect/templates/role-leader-election.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kollect-op1-leader-election
+  namespace: kollect-op1
+  labels:
+    helm.sh/chart: kollect-0.17.0
+    app.kubernetes.io/name: kollect
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.17.0"
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
+
+---
+# Source: kollect/templates/rolebinding-leader-election.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kollect-op1-leader-election
+  namespace: kollect-op1
+  labels:
+    helm.sh/chart: kollect-0.17.0
+    app.kubernetes.io/name: kollect
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.17.0"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kollect-op1-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: kollect-op1-controller-manager
+    namespace: kollect-op1
+
+---
+# Source: kollect/templates/manager-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kollect-op1-controller-manager
+  namespace: kollect-op1
+  labels:
+    helm.sh/chart: kollect-0.17.0
+    app.kubernetes.io/name: kollect
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.17.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    app.kubernetes.io/name: kollect
+    control-plane: controller-manager
+  ports:
+    - name: health
+      port: 8081
+      targetPort: health
+    - name: metrics
+      port: 8443
+      targetPort: metrics
+
+---
+# Source: kollect/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kollect-op1-controller-manager
+  namespace: kollect-op1
+  labels:
+    helm.sh/chart: kollect-0.17.0
+    app.kubernetes.io/name: kollect
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.17.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kollect
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: kollect
+        control-plane: controller-manager
+    spec:
+      serviceAccountName: kollect-op1-controller-manager
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: manager
+          image: ghcr.io/platformrelay/kollect:v0.17.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /manager
+          args:
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address=:8443
+            - --metrics-secure=true
+            - --max-concurrent-reconciles-target=10
+            - --max-concurrent-reconciles-inventory=10
+            - --collect-dispatch-workers=8
+            - --collect-dispatch-queue-size=2048
+            - --informer-resync-period=12h
+            - --collect-metrics-sample-interval=30s
+            - --validating-webhooks-enabled=false
+            - --allow-private-sinks
+            - --watch-namespaces=kol-op1-ns-001,kol-op1-ns-002,kol-op1-ns-003,kol-op1-ns-004,kol-op1-ns-005,kol-op1-ns-006,kol-op1-ns-007,kol-op1-ns-008,kol-op1-ns-009,kol-op1-ns-010
+          ports:
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+            - name: metrics
+              containerPort: 8443
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          resources:
+            limits:
+              cpu: "2"
+              ephemeral-storage: 4Gi
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
+

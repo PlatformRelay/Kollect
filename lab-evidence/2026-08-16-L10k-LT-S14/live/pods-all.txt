@@ -1,0 +1,38 @@
+NAMESPACE                     NAME                                                READY   STATUS      RESTARTS         AGE     IP               NODE           NOMINATED NODE   READINESS GATES
+argocd                        argocd-application-controller-0                     1/1     Running     0                14h     10.244.2.168     worker-2       <none>           <none>
+argocd                        argocd-applicationset-controller-797f988648-77brv   1/1     Running     0                10h     10.244.2.140     worker-2       <none>           <none>
+argocd                        argocd-applicationset-controller-797f988648-fzbpd   0/1     Completed   0                2d10h   <none>           controlplane   <none>           <none>
+argocd                        argocd-applicationset-controller-797f988648-qnrvh   0/1     Completed   0                16h     <none>           controlplane   <none>           <none>
+argocd                        argocd-applicationset-controller-797f988648-w4wj9   0/1     Completed   0                17h     <none>           controlplane   <none>           <none>
+argocd                        argocd-redis-665785fdb9-5j9p4                       0/1     Completed   0                16h     <none>           controlplane   <none>           <none>
+argocd                        argocd-redis-665785fdb9-89bcp                       0/1     Completed   0                2d10h   <none>           controlplane   <none>           <none>
+argocd                        argocd-redis-665785fdb9-wl7b8                       1/1     Running     0                10h     10.244.2.233     worker-2       <none>           <none>
+argocd                        argocd-redis-665785fdb9-wvgmc                       0/1     Completed   0                17h     <none>           controlplane   <none>           <none>
+argocd                        argocd-repo-server-59ff946658-5gqpv                 0/1     Completed   0                16h     <none>           controlplane   <none>           <none>
+argocd                        argocd-repo-server-59ff946658-87r59                 0/1     Completed   0                2d10h   <none>           controlplane   <none>           <none>
+argocd                        argocd-repo-server-59ff946658-9fx8k                 1/1     Running     0                10h     10.244.2.234     worker-2       <none>           <none>
+argocd                        argocd-repo-server-59ff946658-mpstc                 0/1     Completed   0                17h     <none>           controlplane   <none>           <none>
+argocd                        argocd-server-7b99d95cb4-478gq                      0/1     Completed   0                17h     <none>           controlplane   <none>           <none>
+argocd                        argocd-server-7b99d95cb4-b8qk9                      0/1     Completed   0                16h     <none>           controlplane   <none>           <none>
+argocd                        argocd-server-7b99d95cb4-fkhxw                      0/1     Completed   0                2d10h   <none>           controlplane   <none>           <none>
+argocd                        argocd-server-7b99d95cb4-kxq7b                      1/1     Running     0                10h     10.244.2.243     worker-2       <none>           <none>
+kollect-loadtest              shared-postgres-0                                   1/1     Running     1 (9h ago)       14h     10.244.1.48      worker-1       <none>           <none>
+kollect-op1                   kollect-op1-controller-manager-6467f5584f-7sm98     1/1     Running     18 (9h ago)      17h     10.244.1.16      worker-1       <none>           <none>
+kube-system                   cilium-envoy-dcmbl                                  1/1     Running     1 (9h ago)       2d9h    192.0.2.86   worker-1       <none>           <none>
+kube-system                   cilium-envoy-mqhtd                                  1/1     Running     4 (9h ago)       2d13h   192.0.2.85   controlplane   <none>           <none>
+kube-system                   cilium-envoy-ng8nv                                  1/1     Running     0                37h     192.0.2.87   worker-2       <none>           <none>
+kube-system                   cilium-h7vmv                                        1/1     Running     4 (9h ago)       2d13h   192.0.2.85   controlplane   <none>           <none>
+kube-system                   cilium-operator-5cb94d5646-fprmk                    1/1     Running     74 (9h ago)      2d13h   192.0.2.86   worker-1       <none>           <none>
+kube-system                   cilium-operator-5cb94d5646-vq7v5                    1/1     Running     4 (9h ago)       2d13h   192.0.2.85   controlplane   <none>           <none>
+kube-system                   cilium-w2kw5                                        1/1     Running     82 (7h40m ago)   37h     192.0.2.87   worker-2       <none>           <none>
+kube-system                   cilium-zl2th                                        1/1     Running     60 (9h ago)      2d9h    192.0.2.86   worker-1       <none>           <none>
+kube-system                   coredns-578d4f8ffc-29fjx                            1/1     Running     4 (9h ago)       2d13h   10.244.0.195     controlplane   <none>           <none>
+kube-system                   coredns-578d4f8ffc-gwtvq                            1/1     Running     4 (9h ago)       2d13h   10.244.0.138     controlplane   <none>           <none>
+kube-system                   kube-apiserver-controlplane                         1/1     Running     0                7h35m   192.0.2.85   controlplane   <none>           <none>
+kube-system                   kube-controller-manager-controlplane                1/1     Running     2 (7h35m ago)    7h35m   192.0.2.85   controlplane   <none>           <none>
+kube-system                   kube-scheduler-controlplane                         1/1     Running     2 (7h35m ago)    7h35m   192.0.2.85   controlplane   <none>           <none>
+kumulus-loadtest-instrument   etcd-wal-proxy                                      0/1     Error       0                13h     192.0.2.85   controlplane   <none>           <none>
+kumulus-loadtest-instrument   prometheus-7f54cf6cbf-qbtj2                         1/1     Running     1 (9h ago)       17h     10.244.1.112     worker-1       <none>           <none>
+local-path-storage            local-path-provisioner-6989b96d58-7cjps             0/1     Completed   0                17h     <none>           controlplane   <none>           <none>
+local-path-storage            local-path-provisioner-6989b96d58-7zp8d             1/1     Running     0                16h     10.244.2.80      worker-2       <none>           <none>
+local-path-storage            local-path-provisioner-7f86ccbdb-jljvp              0/1     Completed   0                2d13h   <none>           controlplane   <none>           <none>

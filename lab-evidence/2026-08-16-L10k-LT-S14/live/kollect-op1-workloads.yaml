@@ -1,0 +1,666 @@
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "2"
+      meta.helm.sh/release-name: kollect-op1
+      meta.helm.sh/release-namespace: kollect-op1
+    creationTimestamp: "2026-08-15T12:12:50Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: kollect
+      app.kubernetes.io/version: 0.17.0
+      control-plane: controller-manager
+      helm.sh/chart: kollect-0.17.0
+    name: kollect-op1-controller-manager
+    namespace: kollect-op1
+    resourceVersion: "370672"
+    uid: 3ddb7e16-a503-451b-9a86-d76d021e232f
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: kollect
+        control-plane: controller-manager
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/default-container: manager
+        creationTimestamp: null
+        labels:
+          app.kubernetes.io/name: kollect
+          control-plane: controller-manager
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+        containers:
+        - args:
+          - --leader-elect
+          - --health-probe-bind-address=:8081
+          - --metrics-bind-address=:8443
+          - --metrics-secure=true
+          - --max-concurrent-reconciles-target=10
+          - --max-concurrent-reconciles-inventory=10
+          - --collect-dispatch-workers=8
+          - --collect-dispatch-queue-size=2048
+          - --informer-resync-period=12h
+          - --collect-metrics-sample-interval=30s
+          - --validating-webhooks-enabled=false
+          - --allow-private-sinks
+          - --watch-namespaces=kol-op1-ns-001,kol-op1-ns-002,kol-op1-ns-003,kol-op1-ns-004,kol-op1-ns-005,kol-op1-ns-006,kol-op1-ns-007,kol-op1-ns-008,kol-op1-ns-009,kol-op1-ns-010
+          command:
+          - /manager
+          image: ghcr.io/platformrelay/kollect:v0.17.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: manager
+          ports:
+          - containerPort: 8081
+            name: health
+            protocol: TCP
+          - containerPort: 8443
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: "2"
+              ephemeral-storage: 4Gi
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp
+        dnsPolicy: ClusterFirst
+        imagePullSecrets:
+        - name: ghcr-pull
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: kollect-op1-controller-manager
+        serviceAccountName: kollect-op1-controller-manager
+        terminationGracePeriodSeconds: 10
+        volumes:
+        - emptyDir: {}
+          name: tmp
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-08-15T12:12:50Z"
+      lastUpdateTime: "2026-08-15T12:14:10Z"
+      message: ReplicaSet "kollect-op1-controller-manager-6467f5584f" has successfully
+        progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2026-08-15T22:24:01Z"
+      lastUpdateTime: "2026-08-15T22:24:01Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    observedGeneration: 2
+    readyReplicas: 1
+    replicas: 1
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "2"
+      deployment.kubernetes.io/revision: "2"
+      meta.helm.sh/release-name: kollect-op1
+      meta.helm.sh/release-namespace: kollect-op1
+    creationTimestamp: "2026-08-15T12:13:52Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/name: kollect
+      control-plane: controller-manager
+      pod-template-hash: 6467f5584f
+    name: kollect-op1-controller-manager-6467f5584f
+    namespace: kollect-op1
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: kollect-op1-controller-manager
+      uid: 3ddb7e16-a503-451b-9a86-d76d021e232f
+    resourceVersion: "370671"
+    uid: 4a7b5ac0-6545-492b-9bc1-95ab158d97b3
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: kollect
+        control-plane: controller-manager
+        pod-template-hash: 6467f5584f
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/default-container: manager
+        creationTimestamp: null
+        labels:
+          app.kubernetes.io/name: kollect
+          control-plane: controller-manager
+          pod-template-hash: 6467f5584f
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+        containers:
+        - args:
+          - --leader-elect
+          - --health-probe-bind-address=:8081
+          - --metrics-bind-address=:8443
+          - --metrics-secure=true
+          - --max-concurrent-reconciles-target=10
+          - --max-concurrent-reconciles-inventory=10
+          - --collect-dispatch-workers=8
+          - --collect-dispatch-queue-size=2048
+          - --informer-resync-period=12h
+          - --collect-metrics-sample-interval=30s
+          - --validating-webhooks-enabled=false
+          - --allow-private-sinks
+          - --watch-namespaces=kol-op1-ns-001,kol-op1-ns-002,kol-op1-ns-003,kol-op1-ns-004,kol-op1-ns-005,kol-op1-ns-006,kol-op1-ns-007,kol-op1-ns-008,kol-op1-ns-009,kol-op1-ns-010
+          command:
+          - /manager
+          image: ghcr.io/platformrelay/kollect:v0.17.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: manager
+          ports:
+          - containerPort: 8081
+            name: health
+            protocol: TCP
+          - containerPort: 8443
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: "2"
+              ephemeral-storage: 4Gi
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp
+        dnsPolicy: ClusterFirst
+        imagePullSecrets:
+        - name: ghcr-pull
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: kollect-op1-controller-manager
+        serviceAccountName: kollect-op1-controller-manager
+        terminationGracePeriodSeconds: 10
+        volumes:
+        - emptyDir: {}
+          name: tmp
+  status:
+    availableReplicas: 1
+    fullyLabeledReplicas: 1
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "2"
+      deployment.kubernetes.io/revision: "1"
+      meta.helm.sh/release-name: kollect-op1
+      meta.helm.sh/release-namespace: kollect-op1
+    creationTimestamp: "2026-08-15T12:12:50Z"
+    generation: 2
+    labels:
+      app.kubernetes.io/name: kollect
+      control-plane: controller-manager
+      pod-template-hash: 7964c57f95
+    name: kollect-op1-controller-manager-7964c57f95
+    namespace: kollect-op1
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: kollect-op1-controller-manager
+      uid: 3ddb7e16-a503-451b-9a86-d76d021e232f
+    resourceVersion: "308271"
+    uid: bee21956-a5e7-4fba-a152-b78ebe858cc1
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: kollect
+        control-plane: controller-manager
+        pod-template-hash: 7964c57f95
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/default-container: manager
+        creationTimestamp: null
+        labels:
+          app.kubernetes.io/name: kollect
+          control-plane: controller-manager
+          pod-template-hash: 7964c57f95
+      spec:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+        containers:
+        - args:
+          - --leader-elect
+          - --health-probe-bind-address=:8081
+          - --metrics-bind-address=:8443
+          - --metrics-secure=true
+          - --max-concurrent-reconciles-target=10
+          - --max-concurrent-reconciles-inventory=10
+          - --collect-dispatch-workers=8
+          - --collect-dispatch-queue-size=2048
+          - --informer-resync-period=12h
+          - --collect-metrics-sample-interval=30s
+          - --validating-webhooks-enabled=false
+          - --allow-private-sinks
+          - --watch-namespaces=kol-op1-ns-001,kol-op1-ns-002,kol-op1-ns-003,kol-op1-ns-004,kol-op1-ns-005,kol-op1-ns-006,kol-op1-ns-007,kol-op1-ns-008,kol-op1-ns-009,kol-op1-ns-010
+          command:
+          - /manager
+          image: ghcr.io/platformrelay/kollect:v0.17.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: manager
+          ports:
+          - containerPort: 8081
+            name: health
+            protocol: TCP
+          - containerPort: 8443
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: "2"
+              ephemeral-storage: 4Gi
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: kollect-op1-controller-manager
+        serviceAccountName: kollect-op1-controller-manager
+        terminationGracePeriodSeconds: 10
+        volumes:
+        - emptyDir: {}
+          name: tmp
+  status:
+    observedGeneration: 2
+    replicas: 0
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/default-container: manager
+    creationTimestamp: "2026-08-15T12:29:11Z"
+    generateName: kollect-op1-controller-manager-6467f5584f-
+    labels:
+      app.kubernetes.io/name: kollect
+      control-plane: controller-manager
+      pod-template-hash: 6467f5584f
+    name: kollect-op1-controller-manager-6467f5584f-7sm98
+    namespace: kollect-op1
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: kollect-op1-controller-manager-6467f5584f
+      uid: 4a7b5ac0-6545-492b-9bc1-95ab158d97b3
+    resourceVersion: "370668"
+    uid: 42f96da2-8f6e-4c5b-b458-45371b760c0b
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
+    containers:
+    - args:
+      - --leader-elect
+      - --health-probe-bind-address=:8081
+      - --metrics-bind-address=:8443
+      - --metrics-secure=true
+      - --max-concurrent-reconciles-target=10
+      - --max-concurrent-reconciles-inventory=10
+      - --collect-dispatch-workers=8
+      - --collect-dispatch-queue-size=2048
+      - --informer-resync-period=12h
+      - --collect-metrics-sample-interval=30s
+      - --validating-webhooks-enabled=false
+      - --allow-private-sinks
+      - --watch-namespaces=kol-op1-ns-001,kol-op1-ns-002,kol-op1-ns-003,kol-op1-ns-004,kol-op1-ns-005,kol-op1-ns-006,kol-op1-ns-007,kol-op1-ns-008,kol-op1-ns-009,kol-op1-ns-010
+      command:
+      - /manager
+      image: ghcr.io/platformrelay/kollect:v0.17.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: manager
+      ports:
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      - containerPort: 8443
+        name: metrics
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: "2"
+          ephemeral-storage: 4Gi
+          memory: 4Gi
+        requests:
+          cpu: 500m
+          ephemeral-storage: 4Gi
+          memory: 2Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-vzl8p
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    imagePullSecrets:
+    - name: ghcr-pull
+    nodeName: worker-1
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: kollect-op1-controller-manager
+    serviceAccountName: kollect-op1-controller-manager
+    terminationGracePeriodSeconds: 10
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - emptyDir: {}
+      name: tmp
+    - name: kube-api-access-vzl8p
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-08-15T22:23:49Z"
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-08-15T15:38:39Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-08-15T22:24:01Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-08-15T22:24:01Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-08-15T15:38:39Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://d637cb5c1b1333fc6b013f60f5a6e515959267c56e1f1c86cefbd8827c3918ea
+      image: ghcr.io/platformrelay/kollect:v0.17.0
+      imageID: ghcr.io/platformrelay/kollect@sha256:44d956c48f5675d7c17ef4f681982d4edb9487aa17b1a9dbfaab604480a8e940
+      lastState:
+        terminated:
+          containerID: containerd://99faf953f6bd1093fccd1134990e10a4bb16aa2261d48085072b3efe5616a2cc
+          exitCode: 1
+          finishedAt: "2026-08-15T20:29:39Z"
+          reason: Error
+          startedAt: "2026-08-15T20:28:00Z"
+      name: manager
+      ready: true
+      restartCount: 18
+      started: true
+      state:
+        running:
+          startedAt: "2026-08-15T22:23:49Z"
+      volumeMounts:
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-vzl8p
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 192.0.2.86
+    hostIPs:
+    - ip: 192.0.2.86
+    phase: Running
+    podIP: 10.244.1.16
+    podIPs:
+    - ip: 10.244.1.16
+    qosClass: Burstable
+    startTime: "2026-08-15T15:38:39Z"
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kollect-op1
+      meta.helm.sh/release-namespace: kollect-op1
+    creationTimestamp: "2026-08-15T12:12:50Z"
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: kollect
+      app.kubernetes.io/version: 0.17.0
+      control-plane: controller-manager
+      helm.sh/chart: kollect-0.17.0
+    name: kollect-op1-controller-manager
+    namespace: kollect-op1
+    resourceVersion: "308019"
+    uid: 66e75bab-0669-4198-ba78-feb35b12b406
+  spec:
+    clusterIP: 10.99.132.126
+    clusterIPs:
+    - 10.99.132.126
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: health
+      port: 8081
+      protocol: TCP
+      targetPort: health
+    - name: metrics
+      port: 8443
+      protocol: TCP
+      targetPort: metrics
+    selector:
+      app.kubernetes.io/name: kollect
+      control-plane: controller-manager
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+kind: List
+metadata:
+  resourceVersion: ""

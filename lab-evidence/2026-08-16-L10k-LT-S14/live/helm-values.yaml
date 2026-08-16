@@ -1,0 +1,28 @@
+USER-SUPPLIED VALUES:
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: DoesNotExist
+allowPrivateSinks: true
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+replicaCount: 1
+resourcesProfile: large
+watchNamespaces:
+- kol-op1-ns-001
+- kol-op1-ns-002
+- kol-op1-ns-003
+- kol-op1-ns-004
+- kol-op1-ns-005
+- kol-op1-ns-006
+- kol-op1-ns-007
+- kol-op1-ns-008
+- kol-op1-ns-009
+- kol-op1-ns-010
+webhooks:
+  enabled: false
