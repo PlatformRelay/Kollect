@@ -26,7 +26,9 @@ Gated on `rbac.create` and skipped in `tenantMode`, like every other RBAC templa
 
 There is no namespaced equivalent to fall back to: `nonResourceURLs` cannot be expressed in a
 Role, because /metrics is not namespaced. In tenantMode the grant has to come from a platform
-admin applying it cluster-side — documented in values-minimal-rbac.yaml rather than faked here.
+admin applying it cluster-side — see docs/operator-manual/metrics.md, which also notes that
+tenantMode's namespaced Role lacks the tokenreviews/subjectaccessreviews create needed for the
+secure endpoint's delegated authz to work at all.
 */}}
 {{- if and .Values.rbac.create (not .Values.tenantMode) }}
 {{- if and .Values.metrics.enabled .Values.metrics.secure .Values.metrics.readerRole.create }}

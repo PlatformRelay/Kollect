@@ -186,8 +186,19 @@ metrics:
 ```
 
 The `ServiceMonitor` targets Service `<release>-kollect-controller-manager` port **`metrics`**
-(HTTPS with bearer token when `metrics.secure: true`). Bind a **metrics-reader** `ClusterRole`
-to your Prometheus service account so SAR succeeds on `/metrics`.
+(HTTPS with bearer token when `metrics.secure: true`). Prometheus scrapes with **its own**
+ServiceAccount, so add that account to `metrics.readerRole.extraSubjects` — the chart renders the
+metrics-reader `ClusterRole` and binds the operator's own ServiceAccount, but it cannot know
+yours, and without this the scrape gets **403**:
+
+```yaml
+metrics:
+  readerRole:
+    extraSubjects:
+      - kind: ServiceAccount
+        name: prometheus-k8s
+        namespace: monitoring
+```
 
 Starter alerts (group `kollect.rules`): reconcile errors, inventory export errors, sink export
 failures, connection test failures, high export latency, workqueue backlog

@@ -2,6 +2,15 @@
 metrics:
   enabled: true
   secure: true
+  # With secure: true every /metrics request is authorized against RBAC, and Prometheus scrapes
+  # with its OWN ServiceAccount — not the operator's. Without binding it here the ServiceMonitor
+  # is configured perfectly and every scrape returns 403. kube-prometheus-stack's default is
+  # `prometheus-k8s` in the namespace it was installed into.
+  readerRole:
+    extraSubjects:
+      - kind: ServiceAccount
+        name: prometheus-k8s
+        namespace: monitoring
   serviceMonitor:
     enabled: true
     interval: 30s
