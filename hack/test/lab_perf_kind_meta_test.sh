@@ -294,6 +294,24 @@ grep -q 'kollect.dev/lab-run=cleanup-probe' "${ALLOW_LOG}" ||
   fail "cleanup must stay scoped to the lab-run label"
 pass "cleanup still runs, label-scoped, on an allowlisted context"
 
+# The allowlist gate must not silently disarm Ctrl-C cleanup on a legitimate live lab run.
+# (--simulate-interrupt is dry-run only, so it does not cover this path.)
+INT_LOG="${TMP}/delete-interrupt.log"
+: >"${INT_LOG}"
+env -u KUBECONFIG PATH="${CLEAN_BIN}:${PATH}" DELETE_LOG="${INT_LOG}" bash -c '
+  set -uo pipefail
+  source "$1"
+  CONTEXT_ALLOWLISTED=1
+  DRY_RUN=0
+  KEEP_LAB=0
+  RUN_ID=interrupt-probe
+  PERF_KIND_RUN_DIR="$2"
+  lab_perf_kind_on_interrupt
+' _ "${PERF_KIND}" "${TMP}/cleanup-run" >/dev/null 2>&1
+grep -q 'kollect.dev/lab-run=interrupt-probe' "${INT_LOG}" ||
+  fail "interrupting a live allowlisted run must still clean up: $(cat "${INT_LOG}")"
+pass "live interrupt still cleans up on an allowlisted context"
+
 # --- --duration wired into index / CPU note ---
 DUR_OUT="${TMP}/duration-test"
 run_perf --dry-run --run-id dur-test --seed 7 --duration 45s \
