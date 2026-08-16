@@ -55,8 +55,13 @@ condition message restates it as prose for backward compatibility only.
 
 Objects entering or leaving a Target's matched set do **not** enqueue that Target, so the number is
 refreshed by a periodic self-requeue: **`--target-count-resync`** (default **`60s`**, Helm
-`controller.targetCountResync`). The write is skipped when the number did not move, so a steady
-cluster costs one cached read per Target per interval.
+`controller.targetCountResync`).
+
+**Budget the resync — it is not free.** Each pass costs **one live, cluster-wide, unpaginated
+namespace `LIST`** — **two** when a `KollectScope` is enforced on the Target's namespace, because
+the scope check resolves the filter status as well. At the default interval, **N** Targets therefore
+cost **N** namespace `LIST`s per minute. The rest is cheap: the engine skips the informer backfill
+when the Target's state is unchanged, and the status write is skipped when the number did not move.
 
 **`status.collectedCountUpdatedAt`** records when the number last *changed* — **not** when it was
 last checked. A steady Target keeps an old timestamp while still being re-derived every resync, so

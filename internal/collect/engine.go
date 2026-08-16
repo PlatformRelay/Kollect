@@ -223,7 +223,12 @@ func NewEngine(
 
 // RegisterTargetOptions carries resolved namespace and rule state for collection filtering.
 type RegisterTargetOptions struct {
-	ScopeCeiling        ScopeCeiling
+	ScopeCeiling ScopeCeiling
+	// EffectiveNamespaces is the namespace set the caller already resolved. Supplying it
+	// carries a contract: the caller is responsible for the freshness of the engine's
+	// namespace metadata cache (call RefreshNamespaces first), because RegisterTarget
+	// then skips the cluster-wide namespace LIST. Leave it empty to have the engine
+	// refresh and recompute the set itself.
 	EffectiveNamespaces []string
 }
 
@@ -281,10 +286,6 @@ func (e *Engine) RegisterTarget(
 		return nil
 	}
 
-	if err := e.refreshNamespaceCache(ctx); err != nil {
-		log.FromContext(ctx).Error(err, "refresh namespace cache")
-	}
-
 	gvr := gvrFromProfile(profile.Spec.TargetGVK)
 
 	compiled, err := CompileResourceRules(target.Spec.ResourceRules, e.extractor.celEnv)
@@ -302,6 +303,16 @@ func (e *Engine) RegisterTarget(
 	effective := opts.EffectiveNamespaces
 	if len(effective) == 0 {
 		namespaceSource = "recomputed"
+
+		// Only the recompute branch reads the namespace cache here, so only it has to
+		// pay for a live cluster-wide namespace LIST. Callers that supply
+		// EffectiveNamespaces have already resolved the set from a snapshot they
+		// refreshed themselves (RefreshNamespaces), and reconcilers re-register on every
+		// pass — refreshing unconditionally made every resync a LIST for every target
+		// (PERF-FIX-05 review finding F2).
+		if err := e.refreshNamespaceCache(ctx); err != nil {
+			log.FromContext(ctx).Error(err, "refresh namespace cache")
+		}
 
 		e.nsMu.RLock()
 		matched := MatchIntentNamespaces(

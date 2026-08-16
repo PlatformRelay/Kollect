@@ -11,13 +11,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// DefaultTargetCountResync bounds how stale KollectTarget.status.collectedCount may
-// get. Nothing re-enqueues a target when a watched object enters or leaves its matched
-// set, so without a periodic requeue the count is frozen at the last spec change
-// (PERF-FIX-05 / F-05). A re-registration with unchanged state is free by design
-// (collect.Engine.RegisterTarget skips the backfill on an identical fingerprint), and
-// the status write is skipped unless the number actually moved, so the steady-state
-// cost of the resync is one cached read per target per interval.
+// DefaultTargetCountResync bounds how stale KollectTarget.status.collectedCount may get.
+// Nothing re-enqueues a target when a watched object enters or leaves its matched set, so
+// without a periodic requeue the count is frozen at the last spec change (PERF-FIX-05 /
+// F-05).
+//
+// The resync is not free. Each pass costs one live, cluster-wide, unpaginated namespace
+// LIST — two when a KollectScope is enforced on the target's namespace, because the scope
+// check resolves the filter status as well. The engine work itself is cheap
+// (RegisterTarget skips the backfill on an unchanged fingerprint and no longer refreshes
+// the namespace cache when the caller supplies EffectiveNamespaces), and the status write
+// is skipped unless the number actually moved. Budget accordingly: at the default
+// interval, N targets cost N namespace LISTs per minute. Raise the interval on large
+// fleets; lower it for a more responsive count.
 const DefaultTargetCountResync = 60 * time.Second
 
 // RuntimeOptions configures controller parallelism and workqueue rate limiting.
