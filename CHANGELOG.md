@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** MD046 — admonition continuation read as an indented code block ([#294](https://github.com/platformrelay/kollect/pull/294))[4ccba73](https://github.com/platformrelay/kollect/commit/4ccba7305dcf3e505b399b5ae3395b1930b8ec46)
+
+- **chart,manager:** Address independent review of the metrics-reader and leader-election lane [610e57f](https://github.com/platformrelay/kollect/commit/610e57f06775b43e2a203261b7a4804f98644904)
+
 - **samples:** Request ephemeral-storage on throwaway Postgres ([#293](https://github.com/platformrelay/kollect/pull/293))[784fa34](https://github.com/platformrelay/kollect/commit/784fa34b91050ebf5f26f822229e93afc3dbdd6d)
 
 - **release:** Soft-fail the hub reporting steps too [e5288ac](https://github.com/platformrelay/kollect/commit/e5288ac62d65fb00880560eafd51daf1b49b7c5d)
@@ -31,6 +35,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **chart,manager:** Authorize the metrics endpoint and make leader election survivable [9276abf](https://github.com/platformrelay/kollect/commit/9276abf61c8f45a309a3f5b2be5a375d9bf66e1b)
 
 - **cli:** Add validate subcommand (PIPE-VALIDATE-01) ([#289](https://github.com/platformrelay/kollect/pull/289))[b4399fb](https://github.com/platformrelay/kollect/commit/b4399fbd71061f95299c1c05cbb97ffe56be3eef)
 
