@@ -12,8 +12,8 @@ must match [load-test-runbook.md](load-test-runbook.md) evidence status.
 | Tier | Workload shape | Clusters | Execution layer | Evidence status |
 | --- | --- | --- | --- | --- |
 | Dev / CI default | ≤500 synthetic | 1 | envtest (`task test`) | ✅ Active — every PR |
-| Opt-in load | ≤2,000 synthetic | 1 | `KOLECT_LOAD_TEST=1 task load-test` | ✅ Opt-in — synthetic extraction; ≠ in-cluster 10k soak |
-| Nightly 10k | **10,000** synthetic | 1 | `task load-test:10k` on `ubuntu-latest-8-cores` | ⬜ **Disabled / unverified** — jobs opt-in only (`run_scale_jobs`); no green SHA while runners unavailable |
+| Extractor budget | 128 varied objects, in-process | 0 (no cluster) | `task extract-budget` | ✅ Active — micro-benchmark budget; **not a scale tier**, ≠ in-cluster 10k soak |
+| Nightly 10k | **10,000** synthetic | 1 | `scale-envtest-10k` on `ubuntu-latest-8-cores` | ⬜ **Disabled / unverified** — job opt-in only (`run_scale_jobs`); no green SHA while runners unavailable |
 | Baseline production | **10,000+** in-cluster | 1 | Metrics + pprof; manual load | ⬜ **Unverified** — no published SHA / date / hardware evidence yet |
 | Laptop / L4.5 lab | Bounded schedule | 1 (single-host) | Existing cluster (Kind / K3s / Talos) | Named pin only — [local lab](local-lab-runbook.md) / [evidence bundle](lab-evidence-bundle.md); **does not** satisfy 100k / two-cluster gate |
 | Design target | **100,000** | 1–2 cloud | Manual cloud soak ([load-test runbook](load-test-runbook.md)) | ⬜ **Planned / unexecuted (AR-02)** — needs export sharding + Postgres bulk upsert |
@@ -106,16 +106,24 @@ and example PromQL for alerting.
 separate from Prometheus metrics (`:8080` / `:8443`). Helm sets `pprof.enabled: false` by default;
 enable in dev overlays only.
 
-## Benchmarks and load tests
+## Benchmarks and the extractor budget
 
 ```bash
 task bench                    # writes artifacts/bench/*.txt
-KOLECT_LOAD_TEST=1 task load-test
+task extract-budget           # fails on a >25% hot-path regression
 ```
 
-For local perf summaries (`task perf-report`), see [contributor setup](../development/setup.md).
+`task extract-budget` runs `TestExtractHotPathBudget`, which drives the same workload as
+`BenchmarkExtract` over 128 varied objects and asserts ns/op, B/op and allocs/op against a
+recorded baseline +25%. **What it exercises:** `collect.Extractor.Extract`, single-threaded,
+in-process. **What it does not:** API server, cluster, informers, sinks, controller, concurrency,
+export. It is not cluster-scale evidence — see the tier table above.
 
-Default `go test ./...` excludes `load`-tagged tests.
+The B/op and allocs/op ceilings are hardware-independent and carry the regression signal; the
+ns/op ceiling is deliberately coarse so it cannot false-red on a shared CI runner. Tighten it per
+machine with `KOLECT_EXTRACT_MAX_NS_PER_OP` (also `_BYTES_` / `_ALLOCS_`).
+
+For local perf summaries (`task perf-report`), see [contributor setup](../development/setup.md).
 
 ## Early bottleneck checklist
 
@@ -124,7 +132,7 @@ Default `go test ./...` excludes `load`-tagged tests.
 | High `kollect_informer_objects`, high RSS | Cluster-wide informer for multi-namespace targets | Namespace-scope targets; split profiles |
 | High `kollect_workqueue_depth` on `inventory` | Export or aggregation on hot path | Raise inventory workers; increase `spec.exportMinInterval` |
 | High export bytes rate, low object churn | Missing payload dedupe | Verify debounce + content-hash skip |
-| Bench regression in `BenchmarkExtract` | CEL/JSONPath hot path | Profile extractor; check attribute count |
+| `TestExtractHotPathBudget` red / `BenchmarkExtract` regression | CEL/JSONPath hot path | Profile extractor; check attribute count and CEL complexity |
 | High RSS on large clusters | Full in-memory collect store | Namespace-scoped targets; raise export interval ([ADR-0603](../adr/0603-performance-scalability.md)) |
 
 ## Fleet operations

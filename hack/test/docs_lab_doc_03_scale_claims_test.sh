@@ -32,8 +32,16 @@ pass() {
 [[ -f "${EVIDENCE}" ]] || fail "${EVIDENCE} is missing"
 
 # --- Workflow truth: 10k jobs disabled unless workflow_dispatch + run_scale_jobs ---
-grep -qF -- 'load-test-10k:' "${WORKFLOW}" || fail "workflow missing load-test-10k job"
 grep -qF -- 'scale-envtest-10k:' "${WORKFLOW}" || fail "workflow missing scale-envtest-10k job"
+
+# PERF-FIX-04: the extractor micro-benchmark must never be named as a scale tier
+# again. It has no API server, cluster, sinks or concurrency; a "load-test-10k"
+# job name on an 8-core runner read as cluster-scale evidence nobody measured.
+if grep -qE '^[[:space:]]*load-test-10k:' "${WORKFLOW}"; then
+  fail "workflow must not reintroduce a load-test-10k job (PERF-FIX-04: micro-benchmark != scale tier)"
+fi
+grep -qE '^[[:space:]]*extract-budget:' "${WORKFLOW}" ||
+  fail "workflow missing extract-budget job (extractor hot-path budget)"
 grep -qF -- 'ubuntu-latest-8-cores' "${WORKFLOW}" ||
   fail "workflow must name ubuntu-latest-8-cores runner"
 
@@ -106,9 +114,9 @@ grep -Eqi 'Evidence|unverified|disabled|planned|opt-in' "${PERF}" ||
   fail "performance.md scale tiers must state evidence status (or planned/unverified/disabled)"
 pass "scale tier tables expose shape, layer, and evidence status"
 
-# Bounded task load-test ≠ in-cluster 10k proof.
+# In-process extractor budget != in-cluster 10k proof.
 if ! grep -Eqi 'not (equivalent|equal|a substitute)|≠|does not (prove|satisfy|equal)|synthetic extraction' "${RUNBOOK}" "${PERF}"; then
-  fail "docs must distinguish bounded task load-test / synthetic extraction from in-cluster 10k proof"
+  fail "docs must distinguish in-process synthetic extraction from in-cluster 10k proof"
 fi
 
 # 100k remains unexecuted / AR-02 gate.

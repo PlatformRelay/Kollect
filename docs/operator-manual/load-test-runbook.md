@@ -13,12 +13,14 @@ plainly planned / unverified / disabled). Re-enable Active wording for Nightly 1
 | Tier | Workload shape | Execution layer | Last evidence / status |
 | --- | --- | --- | --- |
 | CI default | ≤500 synthetic objects | envtest (`task test`) | ✅ Active — every PR / local `task test` |
-| CI extended | ≤2,000 synthetic objects | envtest opt-in (`KOLECT_LOAD_TEST=1 task load-test`) | ✅ Opt-in — **synthetic extraction**; ≠ in-cluster 10k collection/export/soak proof |
-| Nightly 10k | 10,000 synthetic objects | `task load-test:10k` / scale envtest on `ubuntu-latest-8-cores` | ⬜ **Disabled / opt-in / unverified** — `load-test-10k` and `scale-envtest-10k` in `.github/workflows/e2e-nightly.yaml` run only on `workflow_dispatch` with `run_scale_jobs=true` because 8-core runners are unavailable; **no current green SHA** |
+| Extractor budget | 128 varied objects, in-process, single-threaded | `task extract-budget` — **no** API server, cluster, informers, sinks, controller or concurrency | ✅ Active — every PR / nightly `extract-budget` job. **Not a scale tier**: it is a micro-benchmark budget (ns/op, B/op, allocs/op vs baseline +25%), **not** collection/export/soak proof |
+| Nightly 10k | 10,000 synthetic objects | scale envtest (`TestEngine_ScaleEnvtestOptIn`) on `ubuntu-latest-8-cores` | ⬜ **Disabled / opt-in / unverified** — `scale-envtest-10k` in `.github/workflows/e2e-nightly.yaml` runs only on `workflow_dispatch` with `run_scale_jobs=true` because 8-core runners are unavailable; **no current green SHA** |
 | Laptop / L4.5 lab | Bounded schedule (e.g. `quick+sinks`) | Single-host existing cluster (Kind / K3s / Talos) | Named pin only — see [local lab runbook](local-lab-runbook.md) and [lab evidence bundle](lab-evidence-bundle.md); **does not** satisfy the 100k / two-cluster gate |
 | **Design proof** | **100,000** collected rows | **2× public cloud clusters** (GKE target) | ⬜ **Planned / unexecuted (AR-02)** — no SHA / date / hardware yet |
 
-**Bounded `task load-test` (≤2k) is not in-cluster 10k proof.** Nightly 10k CI is **not** Active
+**`task extract-budget` synthetic extraction is not in-cluster 10k proof.** It has no API server,
+cluster, sinks or concurrency — a green run says the extractor hot path did not regress, nothing
+about scale. Nightly 10k CI is **not** Active
 while 8-core jobs stay disabled. **100k = manual cloud gate only** — laptop / lab READY WITH
 CONDITIONS evidence does not close AR-02.
 
@@ -27,8 +29,8 @@ CONDITIONS evidence does not close AR-02.
 | Claim | Required artifact | Current state |
 | --- | --- | --- |
 | CI ≤500 | PR / `task test` logs | Active |
-| Opt-in ≤2k | Local / CI with `KOLECT_LOAD_TEST=1` | Opt-in synthetic |
-| Nightly 10k | Green `load-test-10k` / `scale-envtest-10k` run (SHA + date + runner) | **Unverified** — jobs disabled |
+| Extractor budget | `task extract-budget` (default gate + nightly `extract-budget` job) | Active — micro-benchmark only, not a scale claim |
+| Nightly 10k | Green `scale-envtest-10k` run (SHA + date + runner) | **Unverified** — job disabled |
 | Laptop L4.5 | Redacted [lab evidence bundle](lab-evidence-bundle.md) for a named pin | Bounded single-host only |
 | 100k / two-cluster | Completed soak per this runbook (metrics + SHA + hardware) | **Unexecuted** |
 
@@ -147,7 +149,8 @@ dispatch queue saturation (no dedicated log line — metric only).
 - **No** 100k job in `.github/workflows/` on `ubuntu-latest`
 - **No** GKE execution in CI — maintainer runs manually when ready
 - **No** treating laptop / Talos L4.5 evidence as the 100k / two-cluster claim
-- **No** equating bounded `task load-test` synthetic extraction with Nightly 10k or in-cluster soak
+- **No** equating `task extract-budget` synthetic extraction with Nightly 10k or in-cluster soak
+- **No** CI job name that implies cluster scale from an in-process micro-benchmark (PERF-FIX-04)
 
 ## Related
 

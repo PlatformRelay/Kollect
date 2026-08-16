@@ -65,7 +65,9 @@ Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
 - **Mocks** — mockery on small interfaces only.
 - **Metrics** — assert Prometheus counters/histograms in controller tests where behavior changes.
 - **Scale tests bounded** — default `task test` caps synthetic objects (500); load tests require
-  `KOLECT_LOAD_TEST=1` and `-tags=load` (max 2000). Never run 10k-object suites in default CI.
+  the opt-in envtest scale test (`TestEngine_ScaleEnvtestOptIn`, `KOLECT_SCALE_TEST_MAX`). Never
+  run 10k-object suites in default CI. `task extract-budget` is an in-process extractor
+  micro-benchmark budget — it is **not** cluster-scale evidence and must never be named as such.
 
 ## 5. Performance and scalability
 
@@ -79,7 +81,9 @@ Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
 - **Rate limits and circuit breakers** — per-sink `gobreaker`; transient sink/API errors requeue with
   jitter; terminal config errors stop requeue ([ADR-0602](../adr/0602-error-taxonomy.md)).
 - **Profiling** — pprof on `:6060` behind feature gate (default off); document in [operator-manual/performance.md](../operator-manual/performance.md).
-- **Benchmarks** — `task bench` (`-short`, `-benchmem`); `BenchmarkExtract` for CEL/JSONPath hot path.
+- **Benchmarks** — `task bench` (`-short`, `-benchmem`); `BenchmarkExtract` for the CEL/JSONPath hot
+  path. `TestExtractHotPathBudget` drives the same workload and **fails** on a >25% regression;
+  re-record the baseline consts in `internal/collect/extractor_budget_test.go` with evidence.
 
 ## 6. Definition of done (per change)
 

@@ -23,8 +23,8 @@ operator**.
 | Tier | Scope | Collected rows | Clusters | Test tier / evidence |
 | --- | --- | --- | --- | --- |
 | **CI / dev** | Synthetic envtest | ≤500 | 1 | `task test` — Active |
-| **Opt-in load** | Synthetic | ≤2,000 | 1 | `KOLECT_LOAD_TEST=1 task load-test` — synthetic ≠ in-cluster soak |
-| **Nightly load** | Synthetic | **10,000** | 1 | `task load-test:10k` on `ubuntu-latest-8-cores` — **disabled / opt-in** until runners exist ([load-test runbook](../operator-manual/load-test-runbook.md)) |
+| **Extractor budget** | In-process, no cluster | n/a (micro-benchmark) | 1 | `task extract-budget` — hot-path ns/op + B/op budget; **not** a scale tier, ≠ in-cluster soak |
+| **Nightly load** | Synthetic envtest | **10,000** | 1 | `scale-envtest-10k` on `ubuntu-latest-8-cores` — **disabled / opt-in** until runners exist ([load-test runbook](../operator-manual/load-test-runbook.md)) |
 | **Baseline production** | Single cluster | **10,000+** | 1 | Metrics + pprof — **unverified** until a named SHA / hardware evidence is published |
 | **Design target** | Single cluster | **100,000** | 1–2 cloud | Manual cloud soak — **unexecuted (AR-02)** |
 | **Fleet** | Shared Postgres/Git sink | 10k–100k × N operators | **many** | One ServiceMonitor per cluster release |

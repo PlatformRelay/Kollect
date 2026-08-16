@@ -252,17 +252,29 @@ go test -short -bench=. -benchmem ./internal/collect/...
 Uses `-short` so long sub-benchmarks are skipped on laptops. Suitable for CI and quick regression
 checks. See [operator-manual/performance.md](../operator-manual/performance.md) and [ADR-0603](../adr/0603-performance-scalability.md).
 
-### Load tests (opt-in, bounded)
-
-**Not** part of default `task test`. Requires explicit opt-in and caps at **2000** synthetic objects:
+### Extractor hot-path budget (`task extract-budget`)
 
 ```sh
-KOLECT_LOAD_TEST=1 task load-test
+task extract-budget
 # equivalent:
-KOLECT_LOAD_TEST=1 go test -tags=load -count=1 -timeout=15m ./test/load/...
+go test -run TestExtractHotPathBudget -count=1 -v ./internal/collect/...
 ```
 
-Never run 10k-object load tests locally unless you have dedicated hardware and understand API-server
+`TestExtractHotPathBudget` drives the same workload as `BenchmarkExtract` — 128 varied
+Deployment-shaped objects through `collect.Extractor.Extract` — and **fails** when ns/op, B/op or
+allocs/op exceed the recorded baseline by more than 25%. It also runs as part of `task test`.
+
+**What it exercises:** the extractor hot path, single-threaded, in-process.
+**What it does not:** API server, cluster, informers, sinks, controller, concurrency, export. It is
+a micro-benchmark budget, **not** cluster-scale evidence — the scale tiers live in the
+[load test runbook](../operator-manual/load-test-runbook.md).
+
+B/op and allocs/op are hardware-independent and carry the regression signal; the ns/op ceiling is
+deliberately coarse so it cannot false-red on a shared CI runner. Tighten per machine with
+`KOLECT_EXTRACT_MAX_NS_PER_OP` (also `_BYTES_` / `_ALLOCS_`).
+
+Cluster scale is the opt-in envtest test `TestEngine_ScaleEnvtestOptIn` (`KOLECT_SCALE_TEST_MAX`).
+Never run 10k-object suites locally unless you have dedicated hardware and understand API-server
 load. Default envtest suites cap synthetic objects at **500**.
 
 ### Performance report (`task perf-report`)
