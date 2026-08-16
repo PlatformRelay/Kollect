@@ -246,10 +246,15 @@ tasks:
     cmds:
       - bash hack/perf-report.sh
 
-  perf-kind:quick:
-    desc: LAB-H10 quick Kind pprof path (offline --dry-run; live Kind maintainer opt-in)
+  perf-lab:quick:
+    desc: LAB-H10 quick pprof path (offline --dry-run; live capture on any allowlisted substrate)
     cmds:
       - bash hack/lab/perf-kind.sh --dry-run --run-id perf-quick --objects 100 --seed 42
+
+  perf-kind:quick:
+    desc: Deprecated alias for perf-lab:quick (the path is no longer Kind-only)
+    cmds:
+      - task: perf-lab:quick
 
   test-integration:
     desc: Run integration-tagged tests (testcontainers; requires Docker)
@@ -472,3 +477,13 @@ tasks:
     desc: Delete kollect-e2e kind cluster
     cmds:
       - bash hack/kind/e2e/teardown.sh
+
+  lab:webhook-smoke:
+    desc: >-
+      U-08 webhook rejection assertions against the EXISTING allowlisted cluster
+      (read-only: server dry-run only, never creates a cluster).
+      Override the target with KOLLECT_RELEASE / KOLLECT_NAMESPACE.
+    env:
+      KOLLECT_E2E_EXISTING_CLUSTER: "1"
+    cmds:
+      - bash hack/e2e/webhook-smoke.sh

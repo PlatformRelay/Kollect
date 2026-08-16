@@ -82,6 +82,42 @@ task kind-e2e-down
 task test:e2e
 ```
 
+## Running the assertions on a non-Kind cluster (LAB-DEKIND)
+
+Creating a cluster and asserting against one are separate steps. `common.sh` resolves the
+substrate of the **current** kube context through the lab allowlist
+([`hack/lab/substrates.conf`](../lab/substrates.conf)) and refuses anything unlisted, so an
+install can never land on an ambient production context. Substrate also decides image
+delivery: Kind builds and side-loads, everything else **must** use a pinned registry
+reference (`KOLLECT_IMAGE=ghcr.io/platformrelay/kollect:v<semver>`) because there is no
+`kind load` equivalent — a local-only or `:latest`/`:dev` tag is rejected before install.
+
+The webhook scenario (`hack/e2e/webhook-smoke.sh`) can assert against an existing cluster
+without creating anything, using server-side dry runs only:
+
+```sh
+KOLLECT_E2E_EXISTING_CLUSTER=1 KOLLECT_RELEASE=kollect-op1 KOLLECT_NAMESPACE=kollect-op1 \
+  task lab:webhook-smoke
+```
+
+CI is unaffected: with no extra environment set, the Kind path behaves exactly as before.
+
+`kollect_e2e_select_context` in `common.sh` is the seam: it switches to `kind-<cluster>` by
+default and, in existing-cluster mode, validates the current context against the allowlist
+instead. Other scenario scripts can adopt it one line at a time.
+
+### Still Kind-only (deliberate)
+
+| Assumption | Where | Why it was left |
+| --- | --- | --- |
+| Switches to the `kind-kollect-e2e` context, then creates/deletes CRs, namespaces and sinks | `hack/kind/e2e/smoke.sh`, `bootstrap-samples.sh`, `pipeline-cli-smoke.sh`, `hack/e2e/{cert-manager,tenant-mode,multitenant,finalizer-cleanup-assert,git-export-assert}.sh` | These are *mutating* scenarios. Read-only server dry runs cannot express them, so pointing them at a lab cluster that is holding evidence is unsafe by construction. They can adopt `kollect_e2e_select_context` when a disposable lab cluster exists. |
+| Single-node `cluster.yaml`, `kindest/node` version resolution, dev NodePorts 30080/30443 | `hack/kind/e2e/cluster.yaml`, `hack/kind/dev/`, `common.sh` | Only used while *creating* a kind cluster; unreachable on an existing-cluster run. |
+| cert-manager `Certificate` gate for the webhook serving cert | `hack/e2e/webhook-smoke.sh` | Fixed for existing clusters — the wait is skipped when cert-manager does not manage the release's cert, and the webhook itself is asserted instead. |
+| `kind load docker-image` | `common.sh` | Fixed — substrate decides delivery; non-Kind requires a pinned registry reference. |
+
+No storage-class, hostPath or LoadBalancer assumptions exist in the e2e path (the e2e chart
+values request none), so nothing there blocks a bare-metal lab.
+
 ## Prerequisites (dev)
 
 | Tool | Required for |
