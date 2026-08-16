@@ -82,8 +82,10 @@ Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
   jitter; terminal config errors stop requeue ([ADR-0602](../adr/0602-error-taxonomy.md)).
 - **Profiling** — pprof on `:6060` behind feature gate (default off); document in [operator-manual/performance.md](../operator-manual/performance.md).
 - **Benchmarks** — `task bench` (`-short`, `-benchmem`); `BenchmarkExtract` for the CEL/JSONPath hot
-  path. `TestExtractHotPathBudget` drives the same workload and **fails** on a >25% regression;
-  re-record the baseline consts in `internal/collect/extractor_budget_test.go` with evidence.
+  path. `TestExtractHotPathBudget` drives the same workload and **fails on a >25% `B/op` or
+  `allocs/op` regression**; its `ns/op` ceiling is only a catastrophic-regression net, not a >25%
+  wall-clock gate. Re-record the baseline consts in
+  `internal/collect/extractor_budget_test.go` with evidence.
 
 ## 6. Definition of done (per change)
 
