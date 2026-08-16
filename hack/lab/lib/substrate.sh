@@ -80,7 +80,24 @@ _lab_substrate_add() {
 
 # Parse the checked-in allowlist plus KOLLECT_LAB_ALLOWED_CONTEXTS. Any unsafe or malformed
 # entry fails the whole load — a partially-parsed allowlist is not a safety boundary.
+#
+# The parser runs with pathname expansion DISABLED. Every individual expansion below is
+# already quoted or read-split, but this makes the property structural: no future edit inside
+# the parser can turn an allowlist pattern into a list of filenames from the caller's CWD.
 lab_substrate_load() {
+  local rc=0 restore=0
+  if [[ "$-" != *f* ]]; then
+    set -f
+    restore=1
+  fi
+  _lab_substrate_load_impl || rc=$?
+  if [[ "${restore}" -eq 1 ]]; then
+    set +f
+  fi
+  return "${rc}"
+}
+
+_lab_substrate_load_impl() {
   LAB_SUBSTRATE_PATTERNS=()
   LAB_SUBSTRATE_KINDS=()
   LAB_SUBSTRATE_CLUSTERS=()
@@ -111,8 +128,15 @@ lab_substrate_load() {
 
   local extra="${KOLLECT_LAB_ALLOWED_CONTEXTS:-}"
   if [[ -n "${extra}" ]]; then
+    # `for item in ${extra}` would be subject to PATHNAME EXPANSION, not just word
+    # splitting: from a directory containing a file named after a production context, the
+    # shell would rewrite `*` into that filename BEFORE the validator ever saw it and the
+    # allowlist would fail OPEN. Split with `read -a`, which never globs, and iterate the
+    # array quoted. Never reintroduce an unquoted expansion here.
+    local -a items=()
+    IFS=', ' read -r -a items <<<"${extra}"
     local item
-    for item in ${extra//,/ }; do
+    for item in "${items[@]}"; do
       [[ -n "${item}" ]] || continue
       IFS='=' read -r pat kind cluster rest <<<"${item}"
       if [[ -n "${rest:-}" ]]; then
@@ -129,7 +153,12 @@ lab_substrate_load() {
 
 lab_substrate_allowlist_summary() {
   if [[ "${LAB_SUBSTRATE_LOADED}" -ne 1 ]]; then
-    lab_substrate_load >/dev/null 2>&1 || true
+    # Never present a partially-parsed list as if it were the allowlist: a load that failed
+    # closed admits NOTHING, and saying so is the honest answer inside a refusal message.
+    if ! lab_substrate_load >/dev/null 2>&1; then
+      printf '<allowlist failed to load — nothing is permitted>'
+      return 0
+    fi
   fi
   local i out=""
   for ((i = 0; i < ${#LAB_SUBSTRATE_PATTERNS[@]}; i++)); do
@@ -229,7 +258,11 @@ lab_substrate_image_delivery() {
 # as evidence.
 lab_substrate_require_registry_image() {
   local image="${1:-}" substrate="${2:-generic}"
-  local hint="set KOLLECT_IMAGE=ghcr.io/platformrelay/kollect:v<semver> (or @sha256:<digest>) and push it before running"
+  # Only recommend a form the install path can actually use. The chart renders
+  # `repository:tag` (charts/kollect/templates/_helpers.tpl "kollect.image"), so a digest
+  # reference is NOT installable — do not suggest one here and then reject it in
+  # kollect_helm_install two calls later.
+  local hint="set KOLLECT_IMAGE=ghcr.io/platformrelay/kollect:v<semver> and push it before running"
 
   if [[ -z "${image}" ]]; then
     lab_substrate_err "no image configured for a ${substrate} substrate; ${hint}"
@@ -254,10 +287,9 @@ lab_substrate_require_registry_image() {
   fi
 
   if [[ -n "${digest}" ]]; then
-    if [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-      return 0
-    fi
-    lab_substrate_err "image '${image}' has a malformed digest; ${hint}"
+    # A digest is the strongest pin, but the kollect chart cannot render one, so accepting it
+    # here would only defer the failure to helm. Refuse it where the operator can act on it.
+    lab_substrate_err "image '${image}' is digest-pinned: the kollect chart renders repository:tag and cannot install a digest; ${hint}"
     return 1
   fi
 

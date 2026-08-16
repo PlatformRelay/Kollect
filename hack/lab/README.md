@@ -30,6 +30,10 @@ a registry at an immutable reference (`ghcr.io/platformrelay/kollect:v<semver>`)
 or mutable tag (`:dev`, `:latest`, untagged) is rejected before anything is installed rather
 than silently reusing whatever the nodes already cached.
 
+Digest references (`@sha256:…`) are also rejected — not because they are weak pins, but
+because the chart renders `repository:tag` (`charts/kollect/templates/_helpers.tpl`,
+`kollect.image`) and cannot install one. The policy refuses what the install path refuses.
+
 ## Preflight (LAB-H01)
 
 ```sh
