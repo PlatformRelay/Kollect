@@ -261,17 +261,23 @@ go test -run TestExtractHotPathBudget -count=1 -v ./internal/collect/...
 ```
 
 `TestExtractHotPathBudget` drives the same workload as `BenchmarkExtract` — 128 varied
-Deployment-shaped objects through `collect.Extractor.Extract` — and **fails** when ns/op, B/op or
-allocs/op exceed the recorded baseline by more than 25%. It also runs as part of `task test`.
+Deployment-shaped objects through `collect.Extractor.Extract` — and checks ns/op, B/op and
+allocs/op against a recorded baseline. It also runs as part of `task test`.
+
+**Enforced at baseline +25%:** `B/op` and `allocs/op`. Hardware-independent for a fixed Go
+toolchain (verified across arm64/amd64, `-cover`, `-race`, and the go1.26.5 -> 1.26.6 bump), so an
+allocation regression fails on any runner.
+
+**Not enforced:** a >25% wall-clock gate. The `ns/op` ceiling is a coarse catastrophic-regression
+net only — any ceiling loose enough to be safe on a shared CI runner is far too loose to catch
+25%, and a CPU-only regression at unchanged allocations will pass it. For a real latency floor,
+measure your own hardware and pin `KOLECT_EXTRACT_MAX_NS_PER_OP` to that x 1.25 (also `_BYTES_` /
+`_ALLOCS_`).
 
 **What it exercises:** the extractor hot path, single-threaded, in-process.
 **What it does not:** API server, cluster, informers, sinks, controller, concurrency, export. It is
 a micro-benchmark budget, **not** cluster-scale evidence — the scale tiers live in the
 [load test runbook](../operator-manual/load-test-runbook.md).
-
-B/op and allocs/op are hardware-independent and carry the regression signal; the ns/op ceiling is
-deliberately coarse so it cannot false-red on a shared CI runner. Tighten per machine with
-`KOLECT_EXTRACT_MAX_NS_PER_OP` (also `_BYTES_` / `_ALLOCS_`).
 
 Cluster scale is the opt-in envtest test `TestEngine_ScaleEnvtestOptIn` (`KOLECT_SCALE_TEST_MAX`).
 Never run 10k-object suites locally unless you have dedicated hardware and understand API-server

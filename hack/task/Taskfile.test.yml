@@ -66,7 +66,10 @@ tasks:
       - defer: bash hack/kind/e2e/teardown.sh
 
   bench:
-    desc: Run Go micro-benchmarks (-short, -benchmem); safe for dev/CI
+    desc: >-
+      Run Go micro-benchmarks (-short, -benchmem); safe for dev/CI. Filters
+      tests out with -run='^$' so a red TestExtractHotPathBudget cannot fail
+      this task — use task extract-budget for the budget assertions.
     env:
       CGO_ENABLED: "1"
     cmds:
@@ -74,26 +77,29 @@ tasks:
       - |
         stamp="$(date -u +%Y%m%dT%H%M%SZ)"
         out="artifacts/bench/${stamp}.txt"
-        go test -short -bench=. -benchmem ./internal/collect/... 2>&1 | tee "$out"
+        go test -short -bench=. -benchmem -run='^$' ./internal/collect/... 2>&1 | tee "$out"
         cp "$out" artifacts/bench/latest.txt
         echo "wrote $out"
 
   extract-budget:
     desc: >-
-      Assert the extractor hot-path budget (ns/op, B/op, allocs/op vs a recorded
-      baseline +25%). EXERCISES: collect.Extractor.Extract over 128 varied
-      objects, single-threaded, in-process. Does NOT exercise an API server,
-      cluster, informers, sinks, controller, concurrency or export — it is a
-      micro-benchmark budget, not cluster-scale evidence. Also runs in task
-      test:run. Override ceilings with KOLECT_EXTRACT_MAX_{NS,BYTES,ALLOCS}_PER_OP.
+      Assert the extractor hot-path budget. ENFORCED as a >25% regression gate:
+      B/op and allocs/op vs the recorded baseline (hardware-independent for a
+      fixed toolchain). NOT enforced: a >25% wall-clock gate — the ns/op ceiling
+      is only a coarse catastrophic-regression net, and a CPU-only slowdown at
+      unchanged allocations can pass it. EXERCISES: collect.Extractor.Extract
+      over 128 varied objects, single-threaded, in-process. Does NOT exercise an
+      API server, cluster, informers, sinks, controller, concurrency or export —
+      it is a micro-benchmark budget, not cluster-scale evidence. Also runs in
+      task test:run. Override ceilings with
+      KOLECT_EXTRACT_MAX_{NS,BYTES,ALLOCS}_PER_OP.
     env:
-      CGO_ENABLED: "1"
-      # This task runs the budget test ALONE and uninstrumented, so it can pin a
-      # far tighter latency gate than the in-code default (which has to survive
-      # the parallel, coverage-instrumented PR gate). 8x the S-LOCAL baseline of
-      # 25551 ns/op: enough headroom for an unpinned GitHub runner, ~6x tighter
-      # than the default. On calibrated hardware, set this to your own measured
-      # ns/op x 1.25 for the real >25% regression gate.
+      # This task runs the budget test ALONE, so it can pin a tighter ns/op
+      # ceiling than the in-code default (which must survive the parallel PR
+      # gate). 8x the S-LOCAL baseline of 25551 ns/op: enough headroom for an
+      # unpinned GitHub runner, ~6x tighter than the default — but still a
+      # catastrophic-regression net, NOT a 25% gate. On calibrated hardware set
+      # this to your own measured ns/op x 1.25 for a real latency floor.
       KOLECT_EXTRACT_MAX_NS_PER_OP: "204408"
     cmds:
       - go test -run TestExtractHotPathBudget -count=1 -v -timeout=10m ./internal/collect/...

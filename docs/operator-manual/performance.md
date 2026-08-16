@@ -110,18 +110,25 @@ enable in dev overlays only.
 
 ```bash
 task bench                    # writes artifacts/bench/*.txt
-task extract-budget           # fails on a >25% hot-path regression
+task extract-budget           # fails a >25% B/op or allocs/op regression
 ```
 
 `task extract-budget` runs `TestExtractHotPathBudget`, which drives the same workload as
-`BenchmarkExtract` over 128 varied objects and asserts ns/op, B/op and allocs/op against a
-recorded baseline +25%. **What it exercises:** `collect.Extractor.Extract`, single-threaded,
-in-process. **What it does not:** API server, cluster, informers, sinks, controller, concurrency,
-export. It is not cluster-scale evidence — see the tier table above.
+`BenchmarkExtract` over 128 varied objects and checks ns/op, B/op and allocs/op against a recorded
+baseline. **What it exercises:** `collect.Extractor.Extract`, single-threaded, in-process. **What
+it does not:** API server, cluster, informers, sinks, controller, concurrency, export. It is not
+cluster-scale evidence — see the tier table above.
 
-The B/op and allocs/op ceilings are hardware-independent and carry the regression signal; the
-ns/op ceiling is deliberately coarse so it cannot false-red on a shared CI runner. Tighten it per
-machine with `KOLECT_EXTRACT_MAX_NS_PER_OP` (also `_BYTES_` / `_ALLOCS_`).
+### What the budget does and does not enforce
+
+**Enforced at baseline +25%:** `B/op` and `allocs/op`. These are hardware-independent for a fixed
+Go toolchain, so an allocation regression fails on any runner.
+
+**Not enforced:** a >25% wall-clock gate. The `ns/op` ceiling is a coarse catastrophic-regression
+net only — a ceiling loose enough to be safe on a shared CI runner is far too loose to catch 25%,
+and a CPU-only regression at unchanged allocations will pass it. For a real latency floor, measure
+your own hardware and pin `KOLECT_EXTRACT_MAX_NS_PER_OP` to that value x 1.25 (also `_BYTES_` /
+`_ALLOCS_`).
 
 For local perf summaries (`task perf-report`), see [contributor setup](../development/setup.md).
 

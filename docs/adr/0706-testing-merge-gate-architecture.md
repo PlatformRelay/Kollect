@@ -80,10 +80,14 @@ matrix remains nightly + manual dispatch.
 ### Scale and load bounds
 
 - Default **`task test` / `task coverage`**: synthetic object caps **≤500** ([ADR-0603](0603-performance-scalability.md)).
-- **`task extract-budget`**: extractor hot-path budget — fails when ns/op, B/op or allocs/op
-  regress **>25%** against a recorded baseline. In-process only: no API server, cluster, sinks,
-  controller or concurrency, so it is **not** cluster-scale evidence (that is the opt-in
-  `scale-envtest-10k` job). Cheap enough to run in the default gate.
+- **`task extract-budget`**: extractor hot-path budget. It **enforces >25%** on `B/op` and
+  `allocs/op` only — those are hardware-independent for a fixed toolchain, so an allocation
+  regression fails on any runner. It does **not** enforce a >25% wall-clock gate: the `ns/op`
+  ceiling is a coarse catastrophic-regression net, because a ceiling loose enough to be safe on a
+  shared CI runner is far too loose to catch 25%. A CPU-only regression at unchanged allocations
+  can pass it; pin `KOLECT_EXTRACT_MAX_NS_PER_OP` per machine for a real latency floor. In-process
+  only: no API server, cluster, sinks, controller or concurrency, so it is **not** cluster-scale
+  evidence (that is the opt-in `scale-envtest-10k` job). Cheap enough to run in the default gate.
 - **`task bench`**: micro-benchmarks on hot paths (CEL/JSONPath extract); safe in dev/CI excerpt via
   `task perf-report`.
 

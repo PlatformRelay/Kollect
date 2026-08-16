@@ -22,32 +22,42 @@ import (
 // lives in the opt-in envtest scale test (TestEngine_ScaleEnvtestOptIn) and in
 // docs/operator-manual/load-test-runbook.md.
 //
-// CALIBRATION (why the two dimensions have different strictness):
+// WHAT IS ACTUALLY ENFORCED — read this before quoting a number from it:
 //
-//   - Bytes/op and allocs/op are hardware-INDEPENDENT for a fixed Go toolchain
-//     and word size — an M-series laptop and ubuntu-latest agree. These carry
-//     the regression-detection weight and are set at the recorded baseline
-//     +25%. The 25% headroom is also what absorbs a Go patch-release bump.
+//   - B/op and allocs/op ARE a >25% regression gate. They are
+//     hardware-INDEPENDENT for a fixed Go toolchain and word size: measured
+//     identical on darwin/arm64 and amd64 (32217 vs 32212 B/op), unchanged
+//     under -cover, and only marginally higher under -race (32980 B/op / 459
+//     allocs). They also held unchanged across the go1.26.5 -> go1.26.6 bump.
+//     A regression in either fails anywhere this test runs.
 //
-//   - Ns/op is hardware-DEPENDENT. A ceiling calibrated on the M-series
-//     baseline would false-red on slower CI runners, and the default unit gate
-//     runs packages in parallel, which adds scheduling noise. So the default
-//     ns/op ceiling is a deliberately coarse net for catastrophic regressions
-//     only. Tighten it per-machine with KOLECT_EXTRACT_MAX_NS_PER_OP once you
-//     have a baseline for that hardware (recommended: measured × 1.25).
+//   - ns/op is NOT a >25% gate. It is a deliberately coarse
+//     catastrophic-regression net and nothing more. Wall-clock is not portable
+//     across CI hardware, so any ceiling loose enough to be safe on a shared
+//     runner is far too loose to catch 25%. Concretely: an injected CPU-only
+//     regression that made Extract 3.5x slower (39144 -> 11078 ops/s) at
+//     UNCHANGED B/op and allocs/op passed both the task-pinned ceiling and the
+//     in-code default. If you need the real latency gate, measure your own
+//     hardware and set KOLECT_EXTRACT_MAX_NS_PER_OP to that × 1.25.
+//
+// This asymmetry is deliberate and is on the record: PERF-FIX-04's acceptance
+// criterion ("throughput regresses >25% => FAILS") is met for the ALLOCATION
+// dimensions only. It was not silently dropped — a flaky wall-clock gate on
+// shared CI runners was judged worse than no wall-clock gate.
 //
 // RECORDED BASELINE — regenerate with `task bench` after changing the workload
 // (worst of `-count=5`), then update the const block below in the same commit:
 //
-//	S-LOCAL, darwin/arm64 Apple M5 Max, go1.26.5, extractPoolSize=128:
+//	S-LOCAL, darwin/arm64 Apple M5 Max, go1.26.6, extractPoolSize=128:
 //	  25551 ns/op · 32218 B/op · 452 allocs/op  (~39 000 ops/s)
 //
 // For reference, the pre-variation single-object baseline recorded in
 // agent-context/PERFTEST-RESULTS-2026-08-16.md was 27679 ns/op · 32219 B/op ·
 // 452 allocs/op — varying the object pool did not move the allocation profile.
 //
-// All three ceilings are env-overridable so a calibrated runner can assert the
-// real >25% regression floor without the unit gate false-redding.
+// All three ceilings are env-overridable via
+// KOLECT_EXTRACT_MAX_{NS,BYTES,ALLOCS}_PER_OP, so a calibrated machine can pin
+// a real latency floor without the shared unit gate false-redding.
 // ---------------------------------------------------------------------------
 
 const (
@@ -56,23 +66,25 @@ const (
 	baselineBytesPerOp  = 32218
 	baselineAllocsPerOp = 452
 
-	// Regression headroom: the acceptance criterion is "fails if throughput
-	// regresses by more than 25%".
+	// Regression headroom. This is a genuine >25% gate for B/op and allocs/op.
+	// It is ALSO applied to ns/op, but there it is only the starting point for
+	// nsPerOpHardwareSlack below — the shipped ns/op ceiling is not a 25% gate.
 	budgetHeadroomNumerator   = 125
 	budgetHeadroomDenominator = 100
 
 	// Hardware slack applied to the ns/op ceiling ONLY (see CALIBRATION above).
 	// This default has to survive the WORST case: the required PR gate runs
-	// `go test $(go list ./...) -coverprofile`, so this test executes with
-	// coverage instrumentation (measured +9% locally) while ~40 sibling
-	// packages — several of them spinning envtest kube-apiserver/etcd — compete
-	// for a 4-core runner. Two concurrent commands alone cost 2.8x on an
-	// 18-core laptop. 50x is deliberately absurd: it catches only an
+	// `go test $(go list ./...) -coverprofile` while ~40 sibling packages —
+	// several of them spinning envtest kube-apiserver/etcd — compete for a
+	// 4-core runner. Coverage instrumentation itself is in the noise here
+	// (measured at or slightly below the uninstrumented number), so contention,
+	// not -cover, is what this absorbs: two concurrent commands alone cost 2.8x
+	// on an 18-core laptop. 50x is deliberately absurd. It catches only an
 	// order-of-magnitude regression, and a ceiling that false-reds on every PR
 	// is worse than one that never fires.
 	//
-	// `task extract-budget` runs this test ALONE and pins a much tighter
-	// KOLECT_EXTRACT_MAX_NS_PER_OP, which is where the real latency gate lives.
+	// `task extract-budget` runs this test ALONE and pins a tighter
+	// KOLECT_EXTRACT_MAX_NS_PER_OP — still a coarse net, not a 25% gate.
 	nsPerOpHardwareSlack = 50
 )
 
@@ -129,7 +141,7 @@ func TestExtractHotPathBudget(t *testing.T) {
 		res.N, nsPerOp, 1e9/float64(nsPerOp), bytesPerOp, allocsPerOp,
 		maxNsPerOp, maxBytesPerOp, maxAllocsPerOp)
 
-	// Memory ceiling — hardware-independent, this is the real regression gate.
+	// Memory ceiling — hardware-independent, so this IS the >25% regression gate.
 	if bytesPerOp > maxBytesPerOp {
 		t.Errorf("memory ceiling exceeded: %d B/op > %d B/op (baseline %d B/op +25%%); "+
 			"re-profile the extractor or re-record the baseline with evidence",
@@ -141,11 +153,13 @@ func TestExtractHotPathBudget(t *testing.T) {
 			allocsPerOp, maxAllocsPerOp, baselineAllocsPerOp)
 	}
 
-	// Throughput floor, expressed as a latency ceiling. Coarse by default; set
-	// KOLECT_EXTRACT_MAX_NS_PER_OP on calibrated hardware for the real +25% gate.
+	// Latency ceiling — a catastrophic-regression net, NOT a >25% gate. Set
+	// KOLECT_EXTRACT_MAX_NS_PER_OP on calibrated hardware for a real floor.
 	if nsPerOp > maxNsPerOp {
-		t.Errorf("throughput floor breached: %d ns/op > %d ns/op ceiling "+
-			"(%.0f ops/s < %.0f ops/s); S-LOCAL baseline is %d ns/op",
+		t.Errorf("latency ceiling exceeded: %d ns/op > %d ns/op "+
+			"(%.0f ops/s < %.0f ops/s); S-LOCAL baseline is %d ns/op. This is a "+
+			"catastrophic-regression net, so breaching it means something is very "+
+			"wrong (or the runner is heavily loaded) — not merely a 25%% regression",
 			nsPerOp, maxNsPerOp, 1e9/float64(nsPerOp), 1e9/float64(maxNsPerOp),
 			baselineNsPerOp)
 	}

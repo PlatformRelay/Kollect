@@ -36,7 +36,9 @@ GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 BENCH_FILE="${BENCH_DIR}/latest.txt"
 (
-  go test -short -bench=. -benchmem ./internal/collect/... 2>&1 | tee "$BENCH_FILE"
+  # -run='^$' keeps this a pure benchmark pass: the unit tests (including
+  # TestExtractHotPathBudget) are measured separately below.
+  go test -short -bench=. -benchmem -run='^$' ./internal/collect/... 2>&1 | tee "$BENCH_FILE"
 ) || true
 
 UNIT_RC=0

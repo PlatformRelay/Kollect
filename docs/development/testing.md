@@ -21,8 +21,9 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 
 **Direction:** Most tests live at L0–L2. Every new sink backend must reach **L3** before merge
 ([NFR-EXT-3](../REQUIREMENTS.md)). L4 catches wiring regressions that unit tests miss. L5 is an
-in-process budget, not a scale tier: it asserts the extractor hot path has not regressed >25% and
-says nothing about cluster scale. Cluster scale is the opt-in `scale-envtest-10k` job.
+in-process budget, not a scale tier: it fails a >25% regression in the extractor's `B/op` or
+`allocs/op` (its `ns/op` ceiling is only a catastrophic-regression net), and says nothing about
+cluster scale. Cluster scale is the opt-in `scale-envtest-10k` job.
 
 ## Coverage target
 
@@ -161,7 +162,7 @@ or the 100k cloud gate. Raw protocols stay local-only — see the
 | `task test-integration` | L3 sink/transport integration (Docker) |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
 | `task bench` | Micro-benchmarks on hot paths |
-| `task extract-budget` | L5 extractor hot-path budget (in-process; not cluster scale) |
+| `task extract-budget` | L5 extractor hot-path budget — >25% gate on B/op + allocs/op only (in-process; not cluster scale) |
 | `task perf-report` | Benchmark + unit pass summary (local only, gitignored output) |
 
 Full local setup: [development/setup.md](../development/setup.md).
