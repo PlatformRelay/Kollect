@@ -1,0 +1,1 @@
+kollect-op1-controller-manager-6467f5584f-7sm98 restarts= 18 lastState= {"terminated": {"containerID": "containerd://99faf953f6bd1093fccd1134990e10a4bb16aa2261d48085072b3efe5616a2cc", "exitCode": 1, "finishedAt": "2026-08-15T20:29:39Z", "reason": "Error", "startedAt": "2026-08-15T20:28:00Z"}}

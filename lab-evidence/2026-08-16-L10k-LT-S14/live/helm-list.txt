@@ -1,0 +1,2 @@
+NAME       	NAMESPACE  	REVISION	UPDATED                              	STATUS  	CHART         	APP VERSION
+kollect-op1	kollect-op1	1       	2026-08-15 14:12:48.640394 +0200 CEST	deployed	kollect-0.17.0	0.17.0     

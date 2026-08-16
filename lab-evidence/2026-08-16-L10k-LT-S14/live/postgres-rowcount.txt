@@ -1,0 +1,20 @@
+compdef:153: _comps: assignment to invalid subscript range
+                          Table "public.inventory_items"
+       Column        |           Type           | Collation | Nullable | Default  
+---------------------+--------------------------+-----------+----------+----------
+ inventory_namespace | text                     |           | not null | 
+ inventory_name      | text                     |           | not null | 
+ target_name         | text                     |           | not null | 
+ source_uid          | text                     |           | not null | 
+ cluster             | text                     |           | not null | ''::text
+ resource_namespace  | text                     |           | not null | ''::text
+ payload             | jsonb                    |           | not null | 
+ exported_at         | timestamp with time zone |           | not null | 
+Indexes:
+    "inventory_items_pkey" PRIMARY KEY, btree (inventory_namespace, inventory_name, target_name, source_uid)
+
+ total_rows 
+------------
+      10000
+(1 row)
+

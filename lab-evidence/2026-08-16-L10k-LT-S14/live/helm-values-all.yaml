@@ -1,0 +1,117 @@
+COMPUTED VALUES:
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: DoesNotExist
+allowPrivateSinks: true
+controller:
+  collectDispatchQueueSize: 512
+  collectDispatchWorkers: 4
+  collectMetricsSampleInterval: 30s
+  informerResyncPeriod: 12h
+  maxConcurrentReconciles:
+    inventory: 3
+    target: 5
+  reconcileRateLimit: ""
+createNamespace: false
+defaultExcludedNamespaces: []
+defaultIncludedNamespaces: []
+extraArgs: []
+featureGates:
+  inventoryHttp:
+    authMode: kubernetes
+    enabled: false
+    port: 8082
+fullnameOverride: ""
+image:
+  pullPolicy: IfNotPresent
+  repository: ghcr.io/platformrelay/kollect
+  tag: ""
+imagePullSecrets: []
+largeCluster:
+  controller:
+    collectDispatchQueueSize: 2048
+    collectDispatchWorkers: 8
+    maxConcurrentReconciles:
+      inventory: 10
+      target: 10
+  resources:
+    limits:
+      cpu: "2"
+      ephemeral-storage: 4Gi
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 2Gi
+leaderElection:
+  enabled: true
+metrics:
+  bindAddress: :8443
+  enabled: true
+  prometheusRule:
+    additionalRules: []
+    enabled: false
+    labels: {}
+  secure: true
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+    scrapeTimeout: 10s
+mode: single
+nameOverride: ""
+nodeSelector: {}
+oauth2Proxy:
+  enabled: false
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+pprof:
+  bindAddress: :6060
+  enabled: false
+rbac:
+  create: true
+replicaCount: 1
+resources:
+  limits:
+    cpu: 500m
+    ephemeral-storage: 1Gi
+    memory: 256Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+resourcesProfile: large
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+serviceAccount:
+  annotations: {}
+  create: true
+  name: ""
+sinkDefaults:
+  connectionTest: false
+tenantMode: false
+tolerations: []
+watchNamespaces:
+- kol-op1-ns-001
+- kol-op1-ns-002
+- kol-op1-ns-003
+- kol-op1-ns-004
+- kol-op1-ns-005
+- kol-op1-ns-006
+- kol-op1-ns-007
+- kol-op1-ns-008
+- kol-op1-ns-009
+- kol-op1-ns-010
+webhooks:
+  certManager:
+    create: true
+    secretName: webhook-server-cert
+  enabled: false

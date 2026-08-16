@@ -1,0 +1,5 @@
+compdef:153: _comps: assignment to invalid subscript range
+NAME           STATUS   ROLES           AGE     VERSION   INTERNAL-IP      EXTERNAL-IP   OS-IMAGE         KERNEL-VERSION   CONTAINER-RUNTIME
+controlplane   Ready    control-plane   2d13h   v1.32.0   192.0.2.85   <none>        Talos (v1.9.5)   6.12.18-talos    containerd://2.0.3
+worker-1       Ready    <none>          2d9h    v1.32.0   192.0.2.86   <none>        Talos (v1.9.5)   6.12.18-talos    containerd://2.0.3
+worker-2       Ready    <none>          37h     v1.32.0   192.0.2.87   <none>        Talos (v1.9.5)   6.12.18-talos    containerd://2.0.3

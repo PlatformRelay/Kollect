@@ -1,0 +1,85 @@
+Name:             kollect-op1-controller-manager-6467f5584f-7sm98
+Namespace:        kollect-op1
+Priority:         0
+Service Account:  kollect-op1-controller-manager
+Node:             worker-1/192.0.2.86
+Start Time:       Sat, 15 Aug 2026 17:38:39 +0200
+Labels:           app.kubernetes.io/name=kollect
+                  control-plane=controller-manager
+                  pod-template-hash=6467f5584f
+Annotations:      kubectl.kubernetes.io/default-container: manager
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.244.1.16
+IPs:
+  IP:           10.244.1.16
+Controlled By:  ReplicaSet/kollect-op1-controller-manager-6467f5584f
+Containers:
+  manager:
+    Container ID:  containerd://d637cb5c1b1333fc6b013f60f5a6e515959267c56e1f1c86cefbd8827c3918ea
+    Image:         ghcr.io/platformrelay/kollect:v0.17.0
+    Image ID:      ghcr.io/platformrelay/kollect@sha256:44d956c48f5675d7c17ef4f681982d4edb9487aa17b1a9dbfaab604480a8e940
+    Ports:         8081/TCP (health), 8443/TCP (metrics)
+    Host Ports:    0/TCP (health), 0/TCP (metrics)
+    Command:
+      /manager
+    Args:
+      --leader-elect
+      --health-probe-bind-address=:8081
+      --metrics-bind-address=:8443
+      --metrics-secure=true
+      --max-concurrent-reconciles-target=10
+      --max-concurrent-reconciles-inventory=10
+      --collect-dispatch-workers=8
+      --collect-dispatch-queue-size=2048
+      --informer-resync-period=12h
+      --collect-metrics-sample-interval=30s
+      --validating-webhooks-enabled=false
+      --allow-private-sinks
+      --watch-namespaces=kol-op1-ns-001,kol-op1-ns-002,kol-op1-ns-003,kol-op1-ns-004,kol-op1-ns-005,kol-op1-ns-006,kol-op1-ns-007,kol-op1-ns-008,kol-op1-ns-009,kol-op1-ns-010
+    State:          Running
+      Started:      Sun, 16 Aug 2026 00:23:49 +0200
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Sat, 15 Aug 2026 22:28:00 +0200
+      Finished:     Sat, 15 Aug 2026 22:29:39 +0200
+    Ready:          True
+    Restart Count:  18
+    Limits:
+      cpu:                2
+      ephemeral-storage:  4Gi
+      memory:             4Gi
+    Requests:
+      cpu:                500m
+      ephemeral-storage:  4Gi
+      memory:             2Gi
+    Liveness:             http-get http://:health/healthz delay=15s timeout=1s period=20s #success=1 #failure=3
+    Readiness:            http-get http://:health/readyz delay=5s timeout=1s period=10s #success=1 #failure=3
+    Environment:          <none>
+    Mounts:
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-vzl8p (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  tmp:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  kube-api-access-vzl8p:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>

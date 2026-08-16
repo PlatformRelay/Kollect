@@ -1,0 +1,446 @@
+apiVersion: v1
+items:
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-001"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-001"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T12:15:11Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 2
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-001
+    resourceVersion: "318974"
+    uid: 009518e0-0c06-4a01-a2b7-4375cef16a1d
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-001
+    profileRef: loadtest-configmaps
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T15:39:07Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 2
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T15:39:07Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T15:39:07Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 2
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-002"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-002"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T12:18:04Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 2
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-002
+    resourceVersion: "318975"
+    uid: aa8335c2-f2cd-4b63-aee8-afb5a4b4bf1b
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-002
+    profileRef: loadtest-configmaps
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T15:39:07Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 2
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T15:39:07Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T15:39:07Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 2
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-003"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-003"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T12:20:50Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 3
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-003
+    resourceVersion: "369871"
+    uid: 5c92c746-e658-4677-98bd-0293d8990825
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-003
+    profileRef: loadtest-configmaps
+    suspend: false
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T15:39:07Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 3
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T15:39:07Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 3
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T15:39:07Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 3
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 3
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-004"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-004"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T16:10:57Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 2
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-004
+    resourceVersion: "369873"
+    uid: 0ab53e26-49de-4ed7-b99c-6a1228a4b120
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-004
+    profileRef: loadtest-configmaps
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 2
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 2
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-005"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-005"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T16:13:12Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 2
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-005
+    resourceVersion: "369875"
+    uid: d03025fa-93f2-4292-bf3b-2c7aceb61c17
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-005
+    profileRef: loadtest-configmaps
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 2
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 2
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-006"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-006"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T16:13:46Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 2
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-006
+    resourceVersion: "369870"
+    uid: f0a1e289-4e33-4e95-946c-3ca286313ce2
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-006
+    profileRef: loadtest-configmaps
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 2
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 2
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-007"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-007"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T16:14:21Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 2
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-007
+    resourceVersion: "369872"
+    uid: f6204dd2-9eae-4b8e-bb9f-8489263cb4ee
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-007
+    profileRef: loadtest-configmaps
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 2
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 2
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-008"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-008"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T16:14:56Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 2
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-008
+    resourceVersion: "369874"
+    uid: 1176a432-8c32-4cbf-9e27-1f7e1657603f
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-008
+    profileRef: loadtest-configmaps
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 2
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 2
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-009"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-009"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T16:15:31Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 2
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-009
+    resourceVersion: "369869"
+    uid: b2612533-4e69-4364-b4cd-4202eca3ba05
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-009
+    profileRef: loadtest-configmaps
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 2
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 2
+- apiVersion: kollect.dev/v1alpha1
+  kind: KollectTarget
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"kollect.dev/v1alpha1","kind":"KollectTarget","metadata":{"annotations":{},"name":"loadtest-configmaps","namespace":"kol-op1-ns-010"},"spec":{"labelSelector":{"matchLabels":{"kollect.dev/loadtest":"l10k"}},"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kol-op1-ns-010"}},"profileRef":"loadtest-configmaps","suspend":false}}
+    creationTimestamp: "2026-08-15T16:16:06Z"
+    finalizers:
+    - kollect.dev/target-cleanup
+    generation: 2
+    name: loadtest-configmaps
+    namespace: kol-op1-ns-010
+    resourceVersion: "369876"
+    uid: ebf4bea3-81b2-4006-8a57-9a797ae062e4
+  spec:
+    labelSelector:
+      matchLabels:
+        kollect.dev/loadtest: l10k
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kol-op1-ns-010
+    profileRef: loadtest-configmaps
+    watchMode: All
+  status:
+    conditions:
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: 1 sink(s) resolved
+      observedGeneration: 2
+      reason: SinksReachable
+      status: "True"
+      type: SinkReachable
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Synced
+    - lastTransitionTime: "2026-08-15T20:28:19Z"
+      message: profileRef "loadtest-configmaps" resolved; collecting 1000 resource(s)
+      observedGeneration: 2
+      reason: Collecting
+      status: "True"
+      type: Ready
+    observedGeneration: 2
+kind: List
+metadata:
+  resourceVersion: ""
