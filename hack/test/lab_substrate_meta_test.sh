@@ -32,16 +32,34 @@ EOF
 chmod +x "${TMP}/kubectl"
 export PATH="${TMP}:${PATH}"
 
+# DECOY CWD. The allowlist parser must never let the shell expand a pattern against the
+# filesystem: `for item in ${extra//,/ }` performs PATHNAME expansion, so from a directory
+# holding files named after refused contexts, `KOLLECT_LAB_ALLOWED_CONTEXTS='*'` would be
+# rewritten into those names before validation ever ran — the allowlist fails OPEN.
+# Every `sub` call therefore runs from a directory seeded with exactly the names that must
+# stay refused, so a reintroduced glob turns this suite RED instead of green. (An *empty*
+# CWD would hide the bug: an unmatched `*` stays literal and is correctly rejected.)
+DECOY="${TMP}/decoy"
+mkdir -p "${DECOY}"
+: >"${DECOY}/${PROD_CTX}"
+: >"${DECOY}/kumulus-lab-prod"
+: >"${DECOY}/gke-prod-example"
+: >"${DECOY}/alpha"
+: >"${DECOY}/bravo"
+: >"${DECOY}/ninechars"
+mkdir -p "${DECOY}/art"
+
 # Run one expression against a freshly sourced library (env overrides passed as VAR=VAL).
 sub() {
   local expr="$1"
   shift
   env -u KUBECONFIG "$@" bash -c '
     set -uo pipefail
-    source "$1"
-    shift
+    cd "$1" || exit 1
+    source "$2"
+    shift 2
     eval "$*"
-  ' _ "${LIB}" "${expr}"
+  ' _ "${DECOY}" "${LIB}" "${expr}"
 }
 
 # --- checked-in allowlist admits the two known lab substrates ---
@@ -103,8 +121,68 @@ pass "unsafe wildcard/short env patterns never admit a production context"
 rc=0
 out="$(sub 'lab_substrate_load' KOLLECT_LAB_ALLOWED_CONTEXTS='*' 2>&1)" || rc=$?
 [[ "${rc}" -ne 0 ]] || fail "wildcard-only env pattern must fail the load closed: ${out}"
-printf '%s\n' "${out}" | grep -Eqi 'pattern' || fail "load failure must name the bad pattern: ${out}"
-pass "wildcard-only env pattern fails the load closed"
+# Assert the REASON, not just the exit code: a load that failed for an unrelated cause would
+# otherwise look like a working safety gate.
+printf '%s\n' "${out}" | grep -Eqi "refusing unsafe context pattern '\*'" ||
+  fail "load failure must name the rejected pattern '*': ${out}"
+pass "wildcard-only env pattern fails the load closed, naming the pattern"
+
+# --- the allowlist parser must not perform PATHNAME EXPANSION on its input ---
+# Runs from a CWD seeded with files named after contexts that must stay refused.
+for glob in '*' '?????????' '[a-z]*' '*prod*' '*-prod'; do
+  rc=0
+  out="$(sub 'lab_substrate_load && lab_substrate_allowlist_summary' \
+    KOLLECT_LAB_ALLOWED_CONTEXTS="${glob}" 2>&1)" || rc=$?
+  [[ "${rc}" -ne 0 ]] ||
+    fail "glob '${glob}' must fail the load closed, not expand against the filesystem: ${out}"
+  for decoy in "${PROD_CTX}" kumulus-lab-prod gke-prod-example alpha bravo; do
+    printf '%s\n' "${out}" | grep -Fq "${decoy}(" &&
+      fail "glob '${glob}' expanded to filesystem entry '${decoy}' — allowlist failed OPEN: ${out}"
+  done
+done
+pass "env patterns are never pathname-expanded against the working directory"
+
+# The check above passes if EITHER layer holds (the `set -f` wrapper, or quoted expansions in
+# the parser). Exercise the inner parser DIRECTLY, with globbing left on, so removing one
+# layer cannot silently leave the other untested.
+for glob in '*' '?????????' '[a-z]*'; do
+  rc=0
+  out="$(sub "set +f; _lab_substrate_load_impl && lab_substrate_allowlist_summary" \
+    KOLLECT_LAB_ALLOWED_CONTEXTS="${glob}" 2>&1)" || rc=$?
+  [[ "${rc}" -ne 0 ]] ||
+    fail "parser itself must not glob '${glob}' even with pathname expansion enabled: ${out}"
+  for decoy in "${PROD_CTX}" kumulus-lab-prod gke-prod-example alpha bravo; do
+    printf '%s\n' "${out}" | grep -Fq "${decoy}(" &&
+      fail "parser expanded '${glob}' to '${decoy}' with globbing on — the quoted-expansion fix is missing: ${out}"
+  done
+done
+pass "the parser is glob-safe on its own, not only behind the noglob wrapper"
+
+# Structural backstop: the loop must iterate a read-split array, never a bare expansion.
+grep -Eq 'for item in "\$\{items\[@\]\}"' "${LIB}" ||
+  fail "the KOLLECT_LAB_ALLOWED_CONTEXTS loop must iterate a quoted array"
+# Code only — the explanatory comment above the loop quotes the dangerous form on purpose.
+grep -Eq '^[^#]*for [a-z]+ in \$\{extra' "${LIB}" &&
+  fail "unquoted expansion of KOLLECT_LAB_ALLOWED_CONTEXTS reintroduced (pathname expansion)"
+pass "no unquoted expansion of the allowlist input remains"
+
+for glob in '*' '?????????' '[a-z]*'; do
+  for decoy in "${PROD_CTX}" kumulus-lab-prod gke-prod-example; do
+    rc=0
+    out="$(sub "lab_substrate_resolve ${decoy}" KOLLECT_LAB_ALLOWED_CONTEXTS="${glob}" 2>&1)" || rc=$?
+    [[ "${rc}" -ne 0 ]] ||
+      fail "glob '${glob}' admitted '${decoy}' via pathname expansion — allowlist failed OPEN"
+  done
+done
+pass "no filesystem-derived context is ever admitted"
+
+# Same for the file-override parser (its fields are read, never re-expanded): '[a-z]*' would
+# expand to the decoy filenames if the parser globbed, and fails validation if it does not.
+printf '%s\n' '[a-z]* generic' >"${DECOY}/glob.conf"
+rc=0
+out="$(sub "lab_substrate_resolve ${PROD_CTX}" KOLLECT_LAB_SUBSTRATES_FILE="${DECOY}/glob.conf" 2>&1)" || rc=$?
+[[ "${rc}" -ne 0 ]] || fail "file-sourced entries must not expand into other filenames: ${out}"
+pass "file-sourced patterns are not pathname-expanded either"
 
 # --- file override is validated too (it is itself a bypass vector) ---
 printf '%s\n' '* generic' >"${TMP}/wide.conf"
@@ -140,9 +218,23 @@ out="$(sub 'lab_substrate_require_registry_image ghcr.io/platformrelay/kollect:v
   fail "pinned registry tag must be accepted: ${out}"
 pass "pinned registry tag accepted for a non-Kind substrate"
 
-out="$(sub 'lab_substrate_require_registry_image ghcr.io/platformrelay/kollect@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef talos' 2>&1)" ||
-  fail "digest-pinned image must be accepted: ${out}"
-pass "digest-pinned image accepted for a non-Kind substrate"
+# Digest references are refused, not recommended: the chart renders `repository:tag`
+# (charts/kollect/templates/_helpers.tpl "kollect.image"), so kollect_helm_install cannot
+# install one. Accepting a digest here while the install path rejects it two calls later
+# would hand the operator advice that cannot work.
+DIGEST='ghcr.io/platformrelay/kollect@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+rc=0
+out="$(sub "lab_substrate_require_registry_image ${DIGEST} talos" 2>&1)" || rc=$?
+[[ "${rc}" -ne 0 ]] || fail "digest-pinned image must be refused (the chart cannot render it): ${out}"
+printf '%s\n' "${out}" | grep -Eqi 'digest' ||
+  fail "digest refusal must say why: ${out}"
+pass "digest-pinned image refused, matching what the chart can actually install"
+
+# No hint text may recommend a form the install path rejects.
+out="$(sub 'lab_substrate_require_registry_image kollect:dev talos' 2>&1 || true)"
+printf '%s\n' "${out}" | grep -Fq '@sha256' &&
+  fail "guidance must not recommend a digest the chart cannot render: ${out}"
+pass "refusal guidance recommends only an installable form"
 
 for bad_image in \
   'kollect-controller-manager:dev' \
