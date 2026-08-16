@@ -224,6 +224,7 @@ func main() {
 		MaxConcurrentClusterTarget:    cfg.maxConcurrentClusterTarget,
 		MaxConcurrentClusterInventory: cfg.maxConcurrentClusterInventory,
 		ReconcileRateLimitBase:        cfg.reconcileRateLimit,
+		TargetCountResync:             cfg.targetCountResync,
 	}
 
 	if err := (&controller.KollectTargetReconciler{

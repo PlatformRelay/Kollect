@@ -247,6 +247,23 @@ func (r *KollectTargetReconciler) setDegraded(
 	)
 }
 
+// syncCollectedCount records the freshly derived resource count on status and returns
+// the stored value. The timestamp marks when the number last *changed*, so an operator
+// can tell a live count from one frozen by a degraded or failing target — which is the
+// whole point of PERF-FIX-05: the old prose-only count had no way to signal staleness.
+func syncCollectedCount(target *kollectdevv1alpha1.KollectTarget, collected int) int64 {
+	next := int64(collected)
+	if target.Status.CollectedCount != nil && *target.Status.CollectedCount == next {
+		return next
+	}
+
+	now := metav1.Now()
+	target.Status.CollectedCount = &next
+	target.Status.CollectedCountUpdatedAt = &now
+
+	return next
+}
+
 func (r *KollectTargetReconciler) setReady(
 	ctx context.Context,
 	target *kollectdevv1alpha1.KollectTarget,
@@ -260,8 +277,17 @@ func (r *KollectTargetReconciler) setReady(
 		target, target.Status.MatchedNamespaces, target.Status.EffectiveNamespaces, target.Status.ActiveResourceRules,
 	)
 
+	// status.collectedCount is the machine-readable source of truth and backs the
+	// COLLECTED printer column; the prose message is kept for backward compatibility
+	// and is derived from the stored number rather than restating it independently.
+	//
+	// That derivation is load-bearing, not cosmetic: setTargetCondition skips the API
+	// write when the Ready condition is byte-identical, so a count that did not reach
+	// the condition message would never reach the API server either. Deriving the
+	// message from the field makes "the number moved" and "the condition moved" the
+	// same event, which is what keeps the persisted count live (PERF-FIX-05 / F-05).
 	msg := fmt.Sprintf("profileRef %q resolved; collecting %d resource(s)",
-		target.Spec.ProfileRef, collected)
+		target.Spec.ProfileRef, syncCollectedCount(target, collected))
 	if sinkMsg == "" {
 		sinkMsg = "namespace inventory sinks reachable"
 	}
@@ -281,7 +307,9 @@ func (r *KollectTargetReconciler) setReady(
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	// Objects entering or leaving the matched set do not enqueue their target, so a
+	// collecting target requeues itself to keep status.collectedCount live (F-05).
+	return ctrl.Result{RequeueAfter: r.Options.targetCountResync()}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

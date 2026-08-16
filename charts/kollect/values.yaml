@@ -118,6 +118,10 @@ controller:
   informerResyncPeriod: 12h
   collectMetricsSampleInterval: 30s
   reconcileRateLimit: ""
+  # -- How often a Ready KollectTarget is requeued to refresh `status.collectedCount`
+  # (empty = manager default 60s). Nothing else re-enqueues a Target when objects enter
+  # or leave its matched set, so this bounds how stale the reported count can be.
+  targetCountResync: ""
 
 resourcesProfile: default
 

@@ -10,6 +10,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/platformrelay/kollect/internal/controller"
 	"github.com/platformrelay/kollect/internal/inventory"
 	"github.com/platformrelay/kollect/internal/validation"
 )
@@ -40,6 +41,7 @@ type startupConfig struct {
 	maxConcurrentClusterTarget    int
 	maxConcurrentClusterInventory int
 	reconcileRateLimit            time.Duration
+	targetCountResync             time.Duration
 	enablePprof                   bool
 	pprofAddr                     string
 	watchNamespacesRaw            string
@@ -126,6 +128,8 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 		"Max concurrent KollectClusterInventory reconciles.")
 	fs.DurationVar(&cfg.reconcileRateLimit, "reconcile-rate-limit", 0,
 		"Base delay for per-item exponential reconcile failure rate limiting (0 = controller-runtime default 5ms).")
+	fs.DurationVar(&cfg.targetCountResync, "target-count-resync", controller.DefaultTargetCountResync,
+		"How often a Ready KollectTarget is requeued to refresh status.collectedCount (0 = default 60s).")
 	fs.BoolVar(&cfg.enablePprof, "enable-pprof", false,
 		"Expose Go pprof on --pprof-bind-address (separate from metrics).")
 	fs.StringVar(&cfg.pprofAddr, "pprof-bind-address", ":6060",

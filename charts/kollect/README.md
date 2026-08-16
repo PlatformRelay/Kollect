@@ -30,6 +30,7 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | controller.maxConcurrentReconciles.inventory | int | `3` | Max concurrent reconciles for KollectInventory. |
 | controller.maxConcurrentReconciles.target | int | `5` | Max concurrent reconciles for KollectTarget. |
 | controller.reconcileRateLimit | string | `""` |  |
+| controller.targetCountResync | string | `""` | How often a Ready KollectTarget is requeued to refresh `status.collectedCount` (empty = manager default 60s). Nothing else re-enqueues a Target when objects enter or leave its matched set, so this bounds how stale the reported count can be. |
 | createNamespace | bool | `false` | Create the release namespace if it does not exist. |
 | defaultExcludedNamespaces | list | `[]` | Default namespace denylist for Target collection intent (CRD fields on KollectTarget override). |
 | defaultIncludedNamespaces | list | `[]` | Default namespace allowlist for Target collection intent (CRD fields on KollectTarget override). |

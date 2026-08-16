@@ -58,6 +58,9 @@ spec:
             {{- if .Values.controller.reconcileRateLimit }}
             - --reconcile-rate-limit={{ .Values.controller.reconcileRateLimit }}
             {{- end }}
+            {{- if .Values.controller.targetCountResync }}
+            - --target-count-resync={{ .Values.controller.targetCountResync }}
+            {{- end }}
             {{- if .Values.pprof.enabled }}
             - --enable-pprof
             - --pprof-bind-address={{ .Values.pprof.bindAddress }}
