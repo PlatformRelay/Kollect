@@ -3,7 +3,7 @@
 Forward-looking work that has not shipped. This page is intentionally shorter than the engineering
 backlog: it describes user-visible directions, not every implementation task.
 
-**Last verified:** 2026-08-05 against **v0.17.0**. BigQuery and NATS already ship; completed work
+**Last verified:** 2026-08-16 against **v0.18.0**. BigQuery and NATS already ship; completed work
 belongs in the [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md).
 
 ## Status legend
