@@ -11,6 +11,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **e2e:** Keep operator input out of the piped webhook manifest [6ee6f3e](https://github.com/platformrelay/kollect/commit/6ee6f3eb585ed91db8363a46212f1e253fa0e79f)
+
+- **lab:** Restore the exit-3 BLOCKED path and keep cleanup off unknown clusters [d98ffd9](https://github.com/platformrelay/kollect/commit/d98ffd9bc564899990bd8fb0c8c65f4c9f5f3562)
+
+- **lab:** Close a fail-open in the substrate allowlist (pathname expansion) [8f5f155](https://github.com/platformrelay/kollect/commit/8f5f155f26eb9e532380b4da64cebb5ed24c6cab)
+
+- **chart:** Mirror CRDs instead of merging them, so deletions propagate ([#299](https://github.com/platformrelay/kollect/pull/299))[39d4cff](https://github.com/platformrelay/kollect/commit/39d4cff83694a7593a7408680c7f466d1a0a5501)
+
+- **chart,ci:** Ship CRDs that match the API, and gate the drift [cd7a7b1](https://github.com/platformrelay/kollect/commit/cd7a7b1d4d8aec1ca430625c64db0765f2968c85)
+
 - **devcontainer:** Move the Go pin with go.mod so the image still builds ([#296](https://github.com/platformrelay/kollect/pull/296))[71bf197](https://github.com/platformrelay/kollect/commit/71bf1977bfb94f8a3616156ce08b15f3be1f749b)
 
 - **deps:** Raise Go to 1.26.6 to clear 7 called stdlib advisories [96d0f55](https://github.com/platformrelay/kollect/commit/96d0f55f0a59b1164181797d2ab166f0e59ab71f)
@@ -39,6 +49,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **lab:** Allowlist lab substrates so Kind-only scenarios run on Talos [3e2fcd8](https://github.com/platformrelay/kollect/commit/3e2fcd8079f543101316f624aa757a0c5b3d61e1)
 
 - **chart,manager:** Authorize the metrics endpoint and make leader election survivable [9276abf](https://github.com/platformrelay/kollect/commit/9276abf61c8f45a309a3f5b2be5a375d9bf66e1b)
 
