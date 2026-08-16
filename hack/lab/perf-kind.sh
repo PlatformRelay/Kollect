@@ -110,6 +110,9 @@ EXERCISE_CLEANUP=0
 PERF_KIND_RUN_DIR=""
 PERF_KIND_INTERRUPTED=0
 PERF_KIND_CAPTURE_STATUS="stub"
+# 1 only when the substrate allowlist admitted the context. --allow-non-kind never sets it:
+# it gates the cluster-wide cleanup delete (see lab_perf_kind_cleanup).
+CONTEXT_ALLOWLISTED=0
 
 lab_perf_kind_valid_run_id() {
   local id="${1:-}"
@@ -194,16 +197,28 @@ lab_perf_kind_check_context() {
   [[ -n "${fixture}" ]] && assert_args+=(--offline)
 
   if lab_substrate_assert_context "${assert_args[@]}"; then
+    CONTEXT_ALLOWLISTED=1
     return 0
   fi
 
   if [[ "${allow_non_kind}" -eq 1 ]]; then
+    # Deliberately does NOT set CONTEXT_ALLOWLISTED: the override authorizes profiling an
+    # unusual substrate, not the cluster-wide delete in lab_perf_kind_cleanup.
     lab_perf_kind_log "WARN: off-allowlist context '${ctx}' forced via --allow-non-kind (maintainer override)"
+    lab_perf_kind_log "WARN: automatic cleanup stays disabled on an off-allowlist context"
     return 0
   fi
 
   lab_perf_kind_err "refusing kube context '${ctx}': add it to the lab substrate allowlist, or pass --allow-non-kind to override deliberately"
   return 2
+}
+
+# The port-forward the operator should reproduce by hand. Built from the ACTUAL target so a
+# BLOCKED findings register never sends them to kollect-system when they ran --release/--namespace.
+lab_perf_kind_pf_command() {
+  printf 'kubectl -n %s port-forward %s %s:%s' \
+    "${NAMESPACE}" "${PF_RESOURCE}" \
+    "${LAB_PERF_KIND_PF_LOCAL_PORT}" "${LAB_PERF_KIND_PF_REMOTE_PORT}"
 }
 
 lab_perf_kind_cleanup() {
@@ -215,6 +230,15 @@ lab_perf_kind_cleanup() {
 
   if [[ "${dry_run}" -eq 1 ]]; then
     lab_perf_kind_log "dry-run cleanup: would delete resources labeled kollect.dev/lab-run=${run_id}"
+    return 0
+  fi
+
+  # Cleanup is a CLUSTER-WIDE write (`-A`). It is gated on the substrate ALLOWLIST, never on
+  # --allow-non-kind: an override that exists to profile an unusual substrate must not also
+  # authorize deleting objects across every namespace of a cluster we do not recognise.
+  if [[ "${CONTEXT_ALLOWLISTED}" -ne 1 ]]; then
+    lab_perf_kind_log "skipping cleanup: context is not on the substrate allowlist; refusing a cluster-wide delete"
+    lab_perf_kind_log "remove resources labeled kollect.dev/lab-run=${run_id} by hand if this run created any"
     return 0
   fi
 
@@ -401,13 +425,16 @@ lab_perf_kind_main() {
       "${LAB_PERF_KIND_PF_LOCAL_PORT}" "${LAB_PERF_KIND_PF_REMOTE_PORT}" \
       "${PF_RESOURCE}" || {
       lab_perf_kind_err "port-forward failed; is kollect installed with pprof.enabled in ${NAMESPACE}?"
-      lab_pprof_write_findings_blocked "${run_dir}" "${RUN_ID}" "port-forward to ${LAB_PERF_KIND_PF_RESOURCE} failed"
+      lab_pprof_write_findings_blocked "${run_dir}" "${RUN_ID}" \
+        "port-forward to ${PF_RESOURCE} in ${NAMESPACE} failed" \
+        "$(lab_perf_kind_pf_command)"
       exit 3
     }
     if ! lab_pprof_wait_ready "${LAB_PERF_KIND_PF_LOCAL_PORT}"; then
       lab_perf_kind_err "pprof endpoint unreachable at http://127.0.0.1:${LAB_PERF_KIND_PF_LOCAL_PORT}/debug/pprof/"
       lab_pprof_write_findings_blocked "${run_dir}" "${RUN_ID}" \
-        "pprof endpoint unreachable after port-forward (enable pprof.enabled and check manager pod)"
+        "pprof endpoint unreachable after port-forward (enable pprof.enabled and check manager pod)" \
+        "$(lab_perf_kind_pf_command)"
       lab_pprof_portforward_stop "${run_dir}" || true
       exit 3
     fi
@@ -420,7 +447,8 @@ lab_perf_kind_main() {
       if [[ "${fixture}" -eq 0 && "${phase_rc}" -eq 3 ]]; then
         lab_perf_kind_err "live pprof capture failed in phase ${phase}; partial tree preserved"
         lab_pprof_write_findings_blocked "${run_dir}" "${RUN_ID}" \
-          "live capture failed in phase ${phase} (curl/go tool pprof)"
+          "live capture failed in phase ${phase} (curl/go tool pprof)" \
+          "$(lab_perf_kind_pf_command)"
         lab_pprof_portforward_stop "${run_dir}" || true
         trap - INT TERM
         exit 3
