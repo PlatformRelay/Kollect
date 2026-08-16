@@ -37,6 +37,14 @@ _kind_require kubectl
 
 _log() { echo "[webhook-smoke] $*"; }
 
+# KOLLECT_E2E_TEST_NAMESPACE reaches a manifest that is piped to the API server. Validate it
+# as a DNS-1123 label so it can never carry YAML — the manifest itself stays a quoted
+# heredoc and the namespace is supplied via `kubectl -n`, so nothing is interpolated into it.
+if [[ ! "${TEST_NAMESPACE}" =~ ^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$ ]]; then
+  echo "invalid KOLLECT_E2E_TEST_NAMESPACE '${TEST_NAMESPACE}' (want a DNS-1123 label)" >&2
+  exit 1
+fi
+
 # Mutating applies are the Kind-only half of this scenario. Against an existing lab cluster
 # the same admission decision is observable with a server-side dry run, so the accept
 # assertion is downgraded to --dry-run=server there (explicit --dry-run=none on Kind keeps
@@ -95,12 +103,11 @@ fi
 
 _log "Expect validating webhook to reject git snapshot sink without git block..."
 set +e
-reject_out="$(kubectl apply --dry-run=server -f - 2>&1 <<EOF
+reject_out="$(kubectl apply -n "${TEST_NAMESPACE}" --dry-run=server -f - 2>&1 <<'EOF'
 apiVersion: kollect.dev/v1alpha1
 kind: KollectSnapshotSink
 metadata:
   name: webhook-reject-test
-  namespace: ${TEST_NAMESPACE}
 spec:
   type: git
   endpoint: https://example.com/repo.git
