@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **controller:** Persist collectedCount independently of the Ready message [d2e91b7](https://github.com/platformrelay/kollect/commit/d2e91b737f64d604207737b0777a06066a2577a8)
+
 - **e2e:** Keep operator input out of the piped webhook manifest [6ee6f3e](https://github.com/platformrelay/kollect/commit/6ee6f3eb585ed91db8363a46212f1e253fa0e79f)
 
 - **lab:** Restore the exit-3 BLOCKED path and keep cleanup off unknown clusters [d98ffd9](https://github.com/platformrelay/kollect/commit/d98ffd9bc564899990bd8fb0c8c65f4c9f5f3562)
@@ -50,6 +52,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **controller,api:** Report a live collected resource count on KollectTarget [a9e5500](https://github.com/platformrelay/kollect/commit/a9e550026daadd405e831f39e5c2a25f97edcb01)
+
 - **lab:** Allowlist lab substrates so Kind-only scenarios run on Talos [3e2fcd8](https://github.com/platformrelay/kollect/commit/3e2fcd8079f543101316f624aa757a0c5b3d61e1)
 
 - **chart,manager:** Authorize the metrics endpoint and make leader election survivable [9276abf](https://github.com/platformrelay/kollect/commit/9276abf61c8f45a309a3f5b2be5a375d9bf66e1b)
@@ -69,6 +73,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **chart:** Enrich Artifact Hub operator metadata [3e3adbe](https://github.com/platformrelay/kollect/commit/3e3adbefe0c819ef36a9ba770c88ce6e6cd5100f)
 
 - **collect:** Surface namespace-scope misses in logs and metrics [2725fbc](https://github.com/platformrelay/kollect/commit/2725fbc76b9edf80d742c9a5f7fd0b1531314c65)
+
+
+### Performance
+
+- **collect:** Stop re-listing namespaces on every target registration [58ce071](https://github.com/platformrelay/kollect/commit/58ce071fab238d2297869882f860beb268b74859)
+
+
+### Refactoring
+
+- **test:** Extract CRD printer-column parsing into a helper ([#300](https://github.com/platformrelay/kollect/pull/300))[7da909a](https://github.com/platformrelay/kollect/commit/7da909a99ca4ab4aa91d87d585787befb0bdf906)
 
 ## [0.17.0](https://github.com/platformrelay/kollect/compare/v0.16.0..v0.17.0) - 2026-08-05
 
