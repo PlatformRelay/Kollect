@@ -149,7 +149,29 @@ grep -q 'kollect-op1' "${CALLS_OK}" ||
 grep -q 'forbidden' "${CALLS_OK}" && fail "existing-cluster mode must not shell out to kind/helm/docker"
 pass "existing-cluster mode is read-only (server dry-run) and release-parameterised"
 
-# --- 5. the runbook documents the existing-cluster invocation ---
+# --- 5. the test namespace never reaches the manifest as raw text ---
+# KOLLECT_E2E_TEST_NAMESPACE is operator-supplied and the manifest is piped to the API
+# server; a value carrying YAML must be refused, not templated in.
+CALLS_INJ="${TMP}/calls-inj"
+for bad_ns in 'default
+spec:
+  type: git' 'default"; kubectl delete ns default #' 'Default' '-leading-dash'; do
+  rc=0
+  out="$(run_smoke "${CALLS_INJ}" KOLLECT_E2E_EXISTING_CLUSTER=1 FAKE_CTX=kumulus-lab \
+    FAKE_CLUSTER=kumulus FAKE_VWC=1 KOLLECT_E2E_TEST_NAMESPACE="${bad_ns}")" || rc=$?
+  [[ "${rc}" -eq 1 ]] ||
+    fail "invalid KOLLECT_E2E_TEST_NAMESPACE must be refused with exit 1, got ${rc}: ${out}"
+  grep -q 'apply' "${CALLS_INJ}" &&
+    fail "invalid namespace must be refused before any apply: $(cat "${CALLS_INJ}")"
+done
+pass "invalid KOLLECT_E2E_TEST_NAMESPACE is refused before the manifest is built"
+
+# The manifest itself must stay a NON-interpolating heredoc.
+grep -q "<<'EOF'" "${SCRIPT}" ||
+  fail "the piped manifest must use a quoted heredoc (no shell interpolation into YAML)"
+pass "piped manifest uses a non-interpolating heredoc"
+
+# --- 6. the runbook documents the existing-cluster invocation ---
 grep -rq 'KOLLECT_E2E_EXISTING_CLUSTER' "${ROOT}/hack/kind/README.md" "${ROOT}/hack/lab/README.md" ||
   fail "existing-cluster mode must be documented in hack/kind/README.md or hack/lab/README.md"
 pass "existing-cluster mode documented"
