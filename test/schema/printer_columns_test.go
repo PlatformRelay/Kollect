@@ -19,9 +19,13 @@ func TestKollectTargetPrinterColumns(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
+	// Age is load-bearing, not decoration: declaring any additionalPrinterColumns
+	// suppresses the apiserver's default AGE column, so dropping this entry in a
+	// regeneration would silently remove AGE from `kubectl get kollecttargets`.
 	want := map[string]string{
 		"Collected": ".status.collectedCount",
 		"Updated":   ".status.collectedCountUpdatedAt",
+		"Age":       ".metadata.creationTimestamp",
 	}
 
 	paths := map[string]string{
