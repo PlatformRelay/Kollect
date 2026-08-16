@@ -224,15 +224,15 @@ tasks:
     cmds:
       - task: test:bench
 
-  load-test:
-    desc: Opt-in bounded load tests (requires KOLECT_LOAD_TEST=1, max 10000)
+  extract-budget:
+    desc: >-
+      Extractor hot-path budget — fails if ns/op, B/op or allocs/op regress >25%
+      vs the recorded baseline. EXERCISES: Extract over 128 varied objects,
+      single-threaded, in-process. NOT exercised: API server, cluster, informers,
+      sinks, controller, concurrency, export. Not cluster-scale evidence — see
+      docs/operator-manual/load-test-runbook.md for the scale tiers.
     cmds:
-      - task: test:load-test
-
-  load-test:10k:
-    desc: Opt-in 10k load tier (KOLECT_LOAD_TEST_MAX=10000)
-    cmds:
-      - task: test:load-test:10k
+      - task: test:extract-budget
 
   perf-report:
     desc: Local perf snapshot via hack/perf-report.sh (CI writes artifacts/perf-snapshot.md)

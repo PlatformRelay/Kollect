@@ -187,28 +187,29 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
-  load-test-10k:
-    name: load-test-10k
-    # Skipped by default: ubuntu-latest-8-cores runners unavailable (jobs never leave queue).
-    # Re-enable via workflow_dispatch with run_scale_jobs=true once org runners are provisioned.
-    if: github.event_name == 'workflow_dispatch' && inputs.run_scale_jobs == true
-    runs-on: ubuntu-latest-8-cores
-    timeout-minutes: 45
+  # PERF-FIX-04: this used to be `load-test-10k` on ubuntu-latest-8-cores, which read
+  # as cluster-scale evidence. It never was: it is a single-threaded, in-process
+  # extractor micro-benchmark with no API server, cluster, sinks or export path.
+  # Renamed, moved to a plain runner, and made to actually run every nightly.
+  # In-cluster scale evidence is the `scale-envtest-10k` job below.
+  extract-budget:
+    name: extract-budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # No envtest cache on purpose: this job never starts an API server.
       - uses: ./.github/actions/go-cache
-        with:
-          envtest: true
 
       - uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
         with:
           version: 3.51.1
 
-      - name: Opt-in 10k load tier
-        run: task load-test:10k
+      - name: Extractor hot-path budget (micro-benchmark, not a scale tier)
+        run: task extract-budget
         env:
           CI: "true"
 

@@ -17,11 +17,12 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 | **L2 — Golden / contract** | OpenAPI fragments, sample YAML, extractor goldens | Yes | `task test` |
 | **L3 — Integration** | Real Postgres, Kafka, Git, S3, GCS, Redis, NATS (testcontainers) | Yes | `task test-integration` |
 | **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | **PR smoke (required)** + nightly / extended | `task test:e2e` |
-| **L5 — Load / perf** | Bounded synthetic scale (≤2000 objects), micro-benchmarks | Opt-in | `task load-test` · `task perf-report` |
+| **L5 — Perf budget / benchmarks** | In-process extractor hot path (no cluster, sinks or concurrency) | Default + nightly | `task extract-budget` · `task bench` · `task perf-report` |
 
 **Direction:** Most tests live at L0–L2. Every new sink backend must reach **L3** before merge
-([NFR-EXT-3](../REQUIREMENTS.md)). L4 catches wiring regressions that unit tests miss. L5 stays
-opt-in so default CI stays fast.
+([NFR-EXT-3](../REQUIREMENTS.md)). L4 catches wiring regressions that unit tests miss. L5 is an
+in-process budget, not a scale tier: it asserts the extractor hot path has not regressed >25% and
+says nothing about cluster scale. Cluster scale is the opt-in `scale-envtest-10k` job.
 
 ## Coverage target
 
@@ -124,7 +125,7 @@ For **local** runs the variable is optional: export `GIT_EXPORT_TEST_REPO` to a 
 
 Kind L4 proves single-node wiring. Separately, published **v0.16.0** was exercised on a Talos lab
 with **1 control plane + 2 workers** (`quick+sinks`, **ready with conditions**). Maintainer
-multi-node / existing-cluster evidence sits as **L4.5** beside Kind L4 and load L5 —
+multi-node / existing-cluster evidence sits as **L4.5** beside Kind L4 and perf-budget L5 —
 [ADR-0707: Lab harness architecture](../adr/0707-lab-harness.md). Publishable shape, redaction,
 and an example matrix live in the
 [lab evidence bundle contract](../operator-manual/lab-evidence-bundle.md).
@@ -160,7 +161,7 @@ or the 100k cloud gate. Raw protocols stay local-only — see the
 | `task test-integration` | L3 sink/transport integration (Docker) |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
 | `task bench` | Micro-benchmarks on hot paths |
-| `KOLECT_LOAD_TEST=1 task load-test` | L5 bounded load (≤2000 objects, opt-in) |
+| `task extract-budget` | L5 extractor hot-path budget (in-process; not cluster scale) |
 | `task perf-report` | Benchmark + unit pass summary (local only, gitignored output) |
 
 Full local setup: [development/setup.md](../development/setup.md).

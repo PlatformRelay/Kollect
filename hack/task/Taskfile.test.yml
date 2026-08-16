@@ -78,23 +78,22 @@ tasks:
         cp "$out" artifacts/bench/latest.txt
         echo "wrote $out"
 
-  load-test:
-    desc: Opt-in bounded load tests (KOLECT_LOAD_TEST=1, max 10000 objects); not in default test
+  extract-budget:
+    desc: >-
+      Assert the extractor hot-path budget (ns/op, B/op, allocs/op vs a recorded
+      baseline +25%). EXERCISES: collect.Extractor.Extract over 128 varied
+      objects, single-threaded, in-process. Does NOT exercise an API server,
+      cluster, informers, sinks, controller, concurrency or export — it is a
+      micro-benchmark budget, not cluster-scale evidence. Also runs in task
+      test:run. Override ceilings with KOLECT_EXTRACT_MAX_{NS,BYTES,ALLOCS}_PER_OP.
     env:
       CGO_ENABLED: "1"
+      # This task runs the budget test ALONE and uninstrumented, so it can pin a
+      # far tighter latency gate than the in-code default (which has to survive
+      # the parallel, coverage-instrumented PR gate). 8x the S-LOCAL baseline of
+      # 25551 ns/op: enough headroom for an unpinned GitHub runner, ~6x tighter
+      # than the default. On calibrated hardware, set this to your own measured
+      # ns/op x 1.25 for the real >25% regression gate.
+      KOLECT_EXTRACT_MAX_NS_PER_OP: "204408"
     cmds:
-      - |
-        if [ "${KOLECT_LOAD_TEST:-}" != "1" ]; then
-          echo "Refusing load test: set KOLECT_LOAD_TEST=1 to opt in (max 10000 synthetic objects)." >&2
-          exit 1
-        fi
-      - go test -tags=load -count=1 -timeout=30m ./test/load/...
-
-  load-test:10k:
-    desc: Opt-in 10k load tier (nightly ubuntu-latest-8-cores)
-    env:
-      CGO_ENABLED: "1"
-      KOLECT_LOAD_TEST: "1"
-      KOLECT_LOAD_TEST_MAX: "10000"
-    cmds:
-      - go test -tags=load -count=1 -timeout=30m ./test/load/...
+      - go test -run TestExtractHotPathBudget -count=1 -v -timeout=10m ./internal/collect/...

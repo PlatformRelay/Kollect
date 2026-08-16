@@ -97,10 +97,10 @@ fi
 METRICS_LIST="$(grep -E '^\s+Name:\s+"kollect_' "${ROOT}/internal/metrics/metrics.go" 2>/dev/null \
   | sed 's/.*"\(kollect_[^"]*\)".*/\1/' | sort -u | tr '\n' ', ' | sed 's/, $//')"
 
+# PERF-FIX-04: there is no "load" tier here. This snapshot is in-process
+# micro-benchmark + unit-test evidence only; cluster scale tiers live in
+# docs/operator-manual/load-test-runbook.md.
 SCALE_TIER="dev"
-if [[ "${KOLECT_LOAD_TEST:-}" == "1" ]]; then
-  SCALE_TIER="load"
-fi
 if [[ "${CI:-}" == "true" ]]; then
   SCALE_TIER="ci"
 fi

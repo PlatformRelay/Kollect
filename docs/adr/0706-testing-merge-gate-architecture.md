@@ -25,7 +25,7 @@ gates (e.g. Q16 RBAC audit, Q15 supply-chain attestations) without debate.
 | **L2 — Golden / contract** | OpenAPI fragments, sample YAML decode, extractor goldens | checked-in `test/` + `config/samples/` | `task test`; samples per [ADR-0301](0301-event-driven-informers.md) |
 | **L3 — Integration** | Real Postgres, Kafka, Git, S3, GCS, Redis, NATS via **testcontainers** | `-tags=integration` | `task test-integration` |
 | **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | `hack/kind/e2e/`, `hack/e2e/` | `task test:e2e`; nightly workflow |
-| **L5 — Load / perf (opt-in)** | Bounded synthetic scale (≤2000 objects) | `-tags=load`, `KOLECT_LOAD_TEST=1` | `task load-test`; `task bench`; `task perf-report` |
+| **L5 — Perf budget / benchmarks** | In-process extractor hot path (no API server, cluster, sinks or concurrency) | Default gate + nightly | `task extract-budget`; `task bench`; `task perf-report` |
 
 **Direction:** most tests live at L0–L2; every new sink backend must reach **L3** before merge
 ([NFR-EXT-3](../REQUIREMENTS.md)); L4 catches wiring regressions webhooks/RBAC/informers miss
@@ -80,7 +80,10 @@ matrix remains nightly + manual dispatch.
 ### Scale and load bounds
 
 - Default **`task test` / `task coverage`**: synthetic object caps **≤500** ([ADR-0603](0603-performance-scalability.md)).
-- **`task load-test`**: requires `KOLECT_LOAD_TEST=1`; hard cap **2000** objects — never in default CI.
+- **`task extract-budget`**: extractor hot-path budget — fails when ns/op, B/op or allocs/op
+  regress **>25%** against a recorded baseline. In-process only: no API server, cluster, sinks,
+  controller or concurrency, so it is **not** cluster-scale evidence (that is the opt-in
+  `scale-envtest-10k` job). Cheap enough to run in the default gate.
 - **`task bench`**: micro-benchmarks on hot paths (CEL/JSONPath extract); safe in dev/CI excerpt via
   `task perf-report`.
 

@@ -30,7 +30,7 @@ Merge-gate architecture ([ADR-0706](0706-testing-merge-gate-architecture.md)) al
 | Tier | Role |
 | --- | --- |
 | **L4 Kind e2e** | Wiring smoke — `hack/kind/e2e/`, `hack/e2e/`; Tier 0 blocks merge |
-| **L5 load** | Opt-in `task load-test` (≤2000), `task perf-report`; not merge-blocking |
+| **L5 perf** | `task extract-budget` (in-process extractor budget), `task perf-report`; not merge-blocking |
 | **100k cloud** | Separate runbook / `hack/loadtest/` — unexecuted claim gate |
 
 The lab harness must **not** become a Kind wrapper, a second CI pyramid, or a public claim that
@@ -72,7 +72,7 @@ The lab harness must **not** become a Kind wrapper, a second CI pyramid, or a pu
 | **C2 DR-\* only** | Matches proven protocols | Ubuntu A–G catalogue orphans |
 | **C3 Registry: schedule → primary IDs + aliases** | DR-\* primary for multi-node; LAB-\* aliases for Ubuntu mapping | Small registry file to maintain |
 
-### (d) Relationship to Kind L4 / loadtest L5
+### (d) Relationship to Kind L4 / perf-budget L5
 
 | Option | Pros | Cons |
 | --- | --- | --- |
@@ -138,7 +138,7 @@ flowchart TB
   subgraph ci ["CI / merge (ADR-0706)"]
     l0l3["L0–L3 unit / envtest / integration"]
     l4["L4 Kind e2e<br/>hack/kind + hack/e2e"]
-    l5["L5 load / perf-report<br/>opt-in"]
+    l5["L5 extract-budget / perf-report<br/>in-process, not scale"]
   end
 
   subgraph lab ["L4.5 Lab harness (this ADR)"]
@@ -209,7 +209,7 @@ flowchart TB
 ## Cross-links
 
 - [ADR-0706: Testing and merge-gate architecture](0706-testing-merge-gate-architecture.md) — L4 Kind /
-  L5 load ownership; this ADR sits beside them as maintainer **L4.5**.
+  L5 perf-budget ownership; this ADR sits beside them as maintainer **L4.5**.
 - [Local lab runbook](../operator-manual/local-lab-runbook.md) — LAB-DOC-01 adaptive schedules,
   `tier=auto`, isolation, and real `hack/lab/` flags.
 - [Lab evidence bundle](../operator-manual/lab-evidence-bundle.md) — LAB-DOC-02 publishable schema and
