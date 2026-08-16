@@ -142,6 +142,11 @@ jobs:
         run: bash hack/test/core_events_rbac_test.sh
       - name: Verify changelog-sync release guard (fbb5196a3 regression lock)
         run: bash hack/test/changelog_sync_release_guard_test.sh
+      # LAB-DEKIND: this suite is the enforcement mechanism for the lab substrate allowlist
+      # (default-deny on kube contexts) and the non-Kind image-delivery policy. Unwired, the
+      # regression guard against pointing lab tooling at a production cluster never runs.
+      - name: Lab harness offline meta-tests (substrate allowlist, image delivery, pprof)
+        run: bash hack/test/lab_harness_meta_suite.sh
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob
