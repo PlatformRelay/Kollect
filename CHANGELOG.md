@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **samples:** Request ephemeral-storage on throwaway Postgres ([#293](https://github.com/platformrelay/kollect/pull/293))[784fa34](https://github.com/platformrelay/kollect/commit/784fa34b91050ebf5f26f822229e93afc3dbdd6d)
+
 - **release:** Soft-fail the hub reporting steps too [e5288ac](https://github.com/platformrelay/kollect/commit/e5288ac62d65fb00880560eafd51daf1b49b7c5d)
 
 - **dist:** Accept any well-formed Artifact Hub repositoryID [a2b0fc1](https://github.com/platformrelay/kollect/commit/a2b0fc174b7d185f55a56317bc4a6fdf5d9a37e1)
@@ -29,6 +31,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **cli:** Add validate subcommand (PIPE-VALIDATE-01) ([#289](https://github.com/platformrelay/kollect/pull/289))[b4399fb](https://github.com/platformrelay/kollect/commit/b4399fbd71061f95299c1c05cbb97ffe56be3eef)
 
 - Build-stamped version for both binaries (VERSION-01) ([#290](https://github.com/platformrelay/kollect/pull/290))[1e906f5](https://github.com/platformrelay/kollect/commit/1e906f5b7ee6551ee15d2328656d491076a6d092)
 
