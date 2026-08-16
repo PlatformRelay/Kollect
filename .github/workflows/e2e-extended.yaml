@@ -38,6 +38,19 @@ jobs:
       - name: Verify multitenant assert diagnostics + collecting wait
         run: bash hack/test/e2e_mt_repro_harden_test.sh
 
+  webhook-existing-cluster-meta:
+    name: webhook-existing-cluster-meta
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # LAB-DEKIND / U-08: proves the Kind path is byte-for-byte unchanged AND that the
+      # existing-cluster mode refuses a non-allowlisted context without touching it.
+      - name: Verify webhook smoke runs against an existing cluster read-only
+        run: bash hack/test/e2e_webhook_existing_cluster_test.sh
+
   gate:
     name: gate
     runs-on: ubuntu-latest
