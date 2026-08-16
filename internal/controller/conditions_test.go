@@ -47,11 +47,15 @@ func TestSetTargetCondition_skipsUnchanged(t *testing.T) {
 
 	bgCtx := context.Background()
 	msg := "profileRef \"apps\" resolved; collecting 3 resource(s)"
-	if err := setTargetCondition(
+	written, err := setTargetCondition(
 		bgCtx, cl, target, 2, &target.Status.Conditions,
 		conditionReady, metav1.ConditionTrue, "Collecting", msg,
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatalf("setTargetCondition: %v", err)
+	}
+	if written {
+		t.Fatal("setTargetCondition reported a write for an unchanged condition")
 	}
 
 	ready := apimeta.FindStatusCondition(target.Status.Conditions, conditionReady)

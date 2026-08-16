@@ -44,6 +44,13 @@ const (
 	reasonCollecting = "Collecting"
 )
 
+// setTargetCondition writes conditionType into conditions and persists the whole status
+// subresource, skipping the API call when nothing about the condition moved.
+//
+// It reports whether it issued that call. Status carries fields no condition describes
+// (KollectTarget.status.collectedCount), and a caller that changed one of those is
+// responsible for persisting it when this skipped the write — otherwise the value stays
+// in memory and the API server keeps serving the previous one (PERF-FIX-05 / F-05).
 func setTargetCondition(
 	ctx context.Context,
 	c client.Client,
@@ -53,14 +60,14 @@ func setTargetCondition(
 	conditionType string,
 	status metav1.ConditionStatus,
 	reason, message string,
-) error {
+) (written bool, err error) {
 	existing := apimeta.FindStatusCondition(*conditions, conditionType)
 	if existing != nil &&
 		existing.Status == status &&
 		existing.Reason == reason &&
 		existing.Message == message &&
 		existing.ObservedGeneration == generation {
-		return nil
+		return false, nil
 	}
 
 	next := metav1.Condition{
@@ -80,5 +87,5 @@ func setTargetCondition(
 
 	apimeta.SetStatusCondition(conditions, next)
 
-	return c.Status().Update(ctx, target)
+	return true, c.Status().Update(ctx, target)
 }
