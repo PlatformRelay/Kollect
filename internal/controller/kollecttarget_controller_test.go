@@ -279,6 +279,63 @@ var _ = Describe("KollectTarget Controller", func() {
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
 		})
 
+		// Review finding F2 follow-up. RegisterTarget only refreshes the engine's namespace
+		// metadata cache on the recompute branch, and this reconciler always supplies
+		// EffectiveNamespaces — so the resolve at the top of Reconcile is the only thing
+		// keeping that cache fresh on this path.
+		//
+		// The discriminating assertion is on the resolved namespace set, not on the cache
+		// itself: if the resolve stops refreshing, it computes against an empty snapshot
+		// and a target in a freshly created namespace resolves an EMPTY effective set.
+		// (Asserting only that the cache ends up populated proves nothing — the engine's
+		// recompute branch refreshes it as a fallback precisely when the set comes in
+		// empty, so that assertion passes either way. Verified by mutation.)
+		It("resolves the target's own namespace against a freshly refreshed cache", func() {
+			reconcileCtx := context.Background()
+			profileName := "nsrefresh-profile-" + testNameSuffix()
+			targetName := "nsrefresh-target-" + testNameSuffix()
+
+			Expect(engine.NamespaceMetaSnapshot()).NotTo(HaveKey(testNS),
+				"precondition: the engine must not already know this freshly created namespace")
+
+			profile := &kollectdevv1alpha1.KollectProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: testNS},
+				Spec: kollectdevv1alpha1.KollectProfileSpec{
+					TargetGVK: kollectdevv1alpha1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+				},
+			}
+			Expect(k8sClient.Create(reconcileCtx, profile)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(reconcileCtx, profile) }()
+
+			target := &kollectdevv1alpha1.KollectTarget{
+				ObjectMeta: metav1.ObjectMeta{Name: targetName, Namespace: testNS},
+				Spec: kollectdevv1alpha1.KollectTargetSpec{
+					ProfileRef: profileName,
+					CollectionFilterSpec: kollectdevv1alpha1.CollectionFilterSpec{
+						IncludedNamespaces: []string{testNS},
+					},
+				},
+			}
+			Expect(k8sClient.Create(reconcileCtx, target)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(reconcileCtx, target) }()
+
+			reconciler := &KollectTargetReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+				Engine: engine,
+			}
+			targetKey := types.NamespacedName{Name: targetName, Namespace: testNS}
+			_, err := reconciler.Reconcile(reconcileCtx, reconcile.Request{NamespacedName: targetKey})
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &kollectdevv1alpha1.KollectTarget{}
+			Expect(k8sClient.Get(reconcileCtx, targetKey, updated)).To(Succeed())
+			Expect(updated.Status.EffectiveNamespaces).To(ContainElement(testNS),
+				"the resolve must see the target's own namespace, which only a refreshed cache contains")
+
+			Expect(engine.NamespaceMetaSnapshot()).To(HaveKey(testNS))
+		})
+
 		// PERF-FIX-05 / F-05: the reported resource count used to be a snapshot of the
 		// last spec reconcile. Objects entering or leaving the matched set never
 		// refreshed it, so status silently misreported scale (observed on the Talos lab:
