@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
@@ -156,6 +158,62 @@ func TestSetReadyPersistsMeasuredZeroWhenConditionIsUnchanged(t *testing.T) {
 	}
 	if *stored.Status.CollectedCount != 0 {
 		t.Fatalf("persisted collectedCount = %d, want 0", *stored.Status.CollectedCount)
+	}
+}
+
+// The forced write is the only thing carrying the count to the API server on this path,
+// so its failure must surface as a reconcile error and get retried. Swallowing it would
+// drop the number silently and leave status disagreeing with the cluster until it next
+// happened to move — the same class of defect this lane exists to remove.
+func TestSetReadyReturnsErrorWhenTheForcedCountWriteFails(t *testing.T) {
+	t.Parallel()
+
+	old := metav1.NewTime(time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC))
+	seed := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "team-a", Generation: 2},
+		Spec:       kollectdevv1alpha1.KollectTargetSpec{ProfileRef: "apps"},
+		Status: kollectdevv1alpha1.KollectTargetStatus{
+			ObservedGeneration: 2,
+			Conditions: []metav1.Condition{{
+				Type:               conditionReady,
+				Status:             metav1.ConditionTrue,
+				Reason:             reasonCollecting,
+				Message:            readyMessageFor(0),
+				ObservedGeneration: 2,
+				LastTransitionTime: old,
+			}},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	wantErr := errors.New("status update rejected")
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(seed).
+		WithStatusSubresource(seed).
+		WithInterceptorFuncs(interceptor.Funcs{
+			SubResourceUpdate: func(
+				context.Context, client.Client, string, client.Object, ...client.SubResourceUpdateOption,
+			) error {
+				return wantErr
+			},
+		}).
+		Build()
+
+	live := &kollectdevv1alpha1.KollectTarget{}
+	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(seed), live); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// The Ready condition is byte-identical, so setTargetCondition skips its write and
+	// the forced count write is the only call that can fail here.
+	r := &KollectTargetReconciler{Client: cl}
+	if _, err := r.setReady(context.Background(), live, 0, "", "", "", ""); !errors.Is(err, wantErr) {
+		t.Fatalf("setReady error = %v, want %v", err, wantErr)
 	}
 }
 

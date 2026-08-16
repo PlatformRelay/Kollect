@@ -57,8 +57,9 @@ operator**.
    processes inline, to keep worker concurrency the only path that does extract/access-check work.
 7. **Resync / metrics sampling:** `--informer-resync-period`; `--collect-metrics-sample-interval`;
    `--target-count-resync` (default **60s**) requeues each Ready `KollectTarget` to refresh
-   `status.collectedCount` — costs one cluster-wide namespace `LIST` per Target per interval, so it
-   is the knob to raise on large fleets.
+   `status.collectedCount` — costs one cluster-wide namespace `LIST` per Target per interval, **two**
+   when a `KollectScope` is enforced on that Target's namespace, so it is the knob to raise on large
+   fleets.
 8. **Profiling:** Optional `--enable-pprof` on `:6060`; disabled in production Helm values.
 9. **Tests:** `load`-tagged tests to **10k** (nightly when 8-core runners exist); 100k manual design proof only.
 10. **100k claim gate:** Export sharding enforced + Postgres bulk upsert + **10k nightly green** (once re-enabled).

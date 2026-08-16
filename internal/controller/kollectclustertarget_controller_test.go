@@ -155,6 +155,97 @@ var _ = Describe("KollectClusterTarget Controller", func() {
 		Expect(engine.NamespacesForClusterTarget(targetName)).To(ConsistOf(nsMatched))
 	})
 
+	// Review finding F-E. syncEngineTargets refreshes the engine's namespace metadata
+	// cache before registering, and that call is a compensating control this lane's own
+	// change created: RegisterTarget no longer refreshes when the caller supplies
+	// EffectiveNamespaces, and this controller always does. Nothing else on the
+	// cluster-target path populates that cache — it resolves its own namespaces from the
+	// cached client, which does not even carry annotations.
+	//
+	// The cache is what ShouldCollect reads to honour `kollect.dev/namespace-watch:
+	// disabled`. Drop the refresh and the annotation becomes invisible: the namespace is
+	// still registered and its objects are collected anyway. That is over-collection with
+	// no error anywhere — an operator's explicit opt-out silently ignored — so assert the
+	// observable outcome rather than the cache contents.
+	It("honours a namespace watch opt-out for a cluster target", func() {
+		ensureNamespace(ctx, kubeClient, nsMatched, map[string]string{tenantLabel: tenantValue})
+
+		// Same tenant label, so this namespace IS in the target's scope and DOES get a
+		// synthetic target registered. Only the annotation should keep its objects out —
+		// and annotations reach the engine exclusively through the namespace cache.
+		optedOut := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        nsOther,
+				Labels:      map[string]string{tenantLabel: tenantValue},
+				Annotations: map[string]string{kollectdevv1alpha1.AnnotationNamespaceWatch: kollectdevv1alpha1.WatchValueDisabled},
+			},
+		}
+		_, err := kubeClient.CoreV1().Namespaces().Create(ctx, optedOut, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		for ns, name := range map[string]string{nsMatched: "cm-collected", nsOther: "cm-opted-out"} {
+			_, err = kubeClient.CoreV1().ConfigMaps(ns).Create(ctx, &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+				Data:       map[string]string{"name": name},
+			}, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		ensureNamespace(ctx, kubeClient, sink.DefaultSecretNamespace, nil)
+
+		profile := &kollectdevv1alpha1.KollectProfile{
+			ObjectMeta: metav1.ObjectMeta{Name: profileName, Namespace: sink.DefaultSecretNamespace},
+			Spec: kollectdevv1alpha1.KollectProfileSpec{
+				TargetGVK: kollectdevv1alpha1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+				Attributes: []kollectdevv1alpha1.AttributeSpec{
+					{Name: "name", Path: "{.metadata.name}"},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, profile)).To(Succeed())
+
+		target := &kollectdevv1alpha1.KollectClusterTarget{
+			ObjectMeta: metav1.ObjectMeta{Name: targetName},
+			Spec: kollectdevv1alpha1.KollectClusterTargetSpec{
+				ProfileRef: kollectdevv1alpha1.NamespacedObjectReference{
+					Name:      profileName,
+					Namespace: sink.DefaultSecretNamespace,
+				},
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{tenantLabel: tenantValue},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, target)).To(Succeed())
+
+		reconciler := &KollectClusterTargetReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
+			Engine: engine,
+		}
+		_, err = reconciler.Reconcile(ctx, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: targetName},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Both namespaces are registered. Without this, a zero count below could mean
+		// "never in scope" rather than "opt-out honoured", and the test would pass for
+		// the wrong reason.
+		Expect(engine.NamespacesForClusterTarget(targetName)).To(ConsistOf(nsMatched, nsOther))
+
+		// Positive control: the pipeline demonstrably works and has drained the informer's
+		// initial Adds, so the opted-out namespace has had its chance to be collected.
+		Eventually(func() int {
+			return engine.ItemCount(nsMatched, targetName)
+		}, 30*time.Second, 200*time.Millisecond).Should(Equal(1))
+
+		Consistently(func() int {
+			return engine.ItemCount(nsOther, targetName)
+		}, 2*time.Second, 200*time.Millisecond).Should(BeZero(),
+			"the namespace watch opt-out must be honoured; a non-zero count means the "+
+				"engine's namespace cache was never refreshed and the annotation was invisible")
+	})
+
 	It("re-enqueues targets when the referenced profile changes", func() {
 		ensureNamespace(ctx, kubeClient, sink.DefaultSecretNamespace, nil)
 
