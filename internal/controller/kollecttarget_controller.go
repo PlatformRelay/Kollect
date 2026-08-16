@@ -126,6 +126,13 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, nil
 		}
 
+		// ORDERING INVARIANT: this resolve must stay ahead of RegisterTarget below, and
+		// must not be skipped when the filter status looks unchanged. It is the only
+		// thing on this path that refreshes the engine's namespace metadata cache, and
+		// passing EffectiveNamespaces makes the caller responsible for that freshness
+		// (see collect.RegisterTargetOptions). The cache backs resource-rule evaluation
+		// and the namespace watch opt-in/opt-out in ShouldCollect, so letting it go stale
+		// silently drops objects rather than failing.
 		matched, effective, activeRules, ceiling := resolveTargetFilterStatus(ctx, r.Client, r.Engine, &target)
 		updateTargetFilterStatus(&target, matched, effective, activeRules)
 
