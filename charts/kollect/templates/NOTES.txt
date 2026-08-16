@@ -24,3 +24,15 @@ oauth2-proxy sidecar is not implemented yet (values.oauth2Proxy.enabled is reser
 {{- end }}
 
 Apply sample CRs from the kollect repo config/samples/ after the controller is Ready.
+{{ if and .Values.metrics.enabled .Values.metrics.secure .Values.metrics.serviceMonitor.enabled (not .Values.metrics.readerRole.extraSubjects) }}
+WARNING: a ServiceMonitor is enabled and /metrics requires authorization, but no scraper identity
+is bound. Prometheus scrapes with its own ServiceAccount, not this operator's, so every scrape
+will return 403 with no other symptom. Bind it:
+
+  metrics:
+    readerRole:
+      extraSubjects:
+        - kind: ServiceAccount
+          name: prometheus-k8s        # your Prometheus ServiceAccount
+          namespace: monitoring
+{{ end }}
