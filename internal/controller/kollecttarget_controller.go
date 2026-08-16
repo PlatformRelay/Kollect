@@ -241,27 +241,29 @@ func (r *KollectTargetReconciler) setDegraded(
 	apimeta.RemoveStatusCondition(&target.Status.Conditions, conditionReady)
 	apimeta.RemoveStatusCondition(&target.Status.Conditions, conditionSynced)
 	setSinkReachableCondition(&target.Status.Conditions, target.Generation, false, reason, message)
-	return setTargetCondition(
+	_, err := setTargetCondition(
 		ctx, r.Client, target, target.Generation, &target.Status.Conditions,
 		conditionDegraded, metav1.ConditionTrue, reason, message,
 	)
+
+	return err
 }
 
-// syncCollectedCount records the freshly derived resource count on status and returns
-// the stored value. The timestamp marks when the number last *changed*, so an operator
-// can tell a live count from one frozen by a degraded or failing target — which is the
-// whole point of PERF-FIX-05: the old prose-only count had no way to signal staleness.
-func syncCollectedCount(target *kollectdevv1alpha1.KollectTarget, collected int) int64 {
+// syncCollectedCount records the freshly derived resource count on status, returning the
+// stored value and whether it moved. The timestamp marks when the number last *changed*,
+// so an operator can tell a live count from one frozen by a degraded or failing target —
+// the whole point of PERF-FIX-05: the old prose-only count could not signal staleness.
+func syncCollectedCount(target *kollectdevv1alpha1.KollectTarget, collected int) (int64, bool) {
 	next := int64(collected)
 	if target.Status.CollectedCount != nil && *target.Status.CollectedCount == next {
-		return next
+		return next, false
 	}
 
 	now := metav1.Now()
 	target.Status.CollectedCount = &next
 	target.Status.CollectedCountUpdatedAt = &now
 
-	return next
+	return next, true
 }
 
 func (r *KollectTargetReconciler) setReady(
@@ -278,16 +280,18 @@ func (r *KollectTargetReconciler) setReady(
 	)
 
 	// status.collectedCount is the machine-readable source of truth and backs the
-	// COLLECTED printer column; the prose message is kept for backward compatibility
-	// and is derived from the stored number rather than restating it independently.
+	// COLLECTED printer column; the prose message is kept for backward compatibility and
+	// restates the stored number so the two can never disagree.
 	//
-	// That derivation is load-bearing, not cosmetic: setTargetCondition skips the API
-	// write when the Ready condition is byte-identical, so a count that did not reach
-	// the condition message would never reach the API server either. Deriving the
-	// message from the field makes "the number moved" and "the condition moved" the
-	// same event, which is what keeps the persisted count live (PERF-FIX-05 / F-05).
+	// Persisting the count must NOT depend on that message changing. An operator
+	// upgrading from a binary that already wrote "collecting 0 resource(s)" has a target
+	// whose Ready condition is byte-identical to the one this reconcile would write, so
+	// setTargetCondition skips the API call — and a measured zero would stay absent
+	// forever, indistinguishable from "never computed". countChanged below is what makes
+	// the write independent of the condition text (PERF-FIX-05 / F-05).
+	count, countChanged := syncCollectedCount(target, collected)
 	msg := fmt.Sprintf("profileRef %q resolved; collecting %d resource(s)",
-		target.Spec.ProfileRef, syncCollectedCount(target, collected))
+		target.Spec.ProfileRef, count)
 	if sinkMsg == "" {
 		sinkMsg = "namespace inventory sinks reachable"
 	}
@@ -299,12 +303,21 @@ func (r *KollectTargetReconciler) setReady(
 		syncedReason, syncedMsg = scopeReason, scopeMsg
 	}
 	setSyncedCondition(&target.Status.Conditions, target.Generation, true, syncedReason, syncedMsg)
-	if err := setTargetCondition(
+	written, err := setTargetCondition(
 		ctx, r.Client, target, target.Generation, &target.Status.Conditions,
 		conditionReady, metav1.ConditionTrue, reasonCollecting,
 		msg,
-	); err != nil {
+	)
+	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// The condition write already carried the new number; only pay for a second call
+	// when it was skipped and the count still has to reach the API server.
+	if countChanged && !written {
+		if updateErr := r.Status().Update(ctx, target); updateErr != nil {
+			return ctrl.Result{}, updateErr
+		}
 	}
 
 	// Objects entering or leaving the matched set do not enqueue their target, so a

@@ -96,6 +96,69 @@ func TestSetReadyPersistsGrowingCollectedCount(t *testing.T) {
 	}
 }
 
+// Upgrade path (independent review, finding F1). A target Ready and genuinely collecting
+// zero, upgraded from a binary that already wrote "collecting 0 resource(s)" into the
+// Ready message, has a condition byte-identical to the one this reconcile would write —
+// so setTargetCondition skips the API call. If persisting the count rode on that call,
+// the measured zero would stay absent forever and `kubectl get` would show COLLECTED
+// <none>, which the shipped CRD documentation defines as "never computed". No number of
+// resyncs would fix it, because the count never moves.
+func TestSetReadyPersistsMeasuredZeroWhenConditionIsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	old := metav1.NewTime(time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC))
+	seed := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "team-a", Generation: 2},
+		Spec:       kollectdevv1alpha1.KollectTargetSpec{ProfileRef: "apps"},
+		Status: kollectdevv1alpha1.KollectTargetStatus{
+			ObservedGeneration: 2,
+			// collectedCount/collectedCountUpdatedAt absent: written by the old binary.
+			Conditions: []metav1.Condition{{
+				Type:               conditionReady,
+				Status:             metav1.ConditionTrue,
+				Reason:             reasonCollecting,
+				Message:            readyMessageFor(0),
+				ObservedGeneration: 2,
+				LastTransitionTime: old,
+			}},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(seed).
+		WithStatusSubresource(seed).
+		Build()
+
+	live := &kollectdevv1alpha1.KollectTarget{}
+	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(seed), live); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	r := &KollectTargetReconciler{Client: cl}
+	for range 10 { // ten resyncs; the count genuinely never moves
+		if _, err := r.setReady(context.Background(), live, 0, "", "", "", ""); err != nil {
+			t.Fatalf("setReady: %v", err)
+		}
+	}
+
+	var stored kollectdevv1alpha1.KollectTarget
+	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(seed), &stored); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if stored.Status.CollectedCount == nil {
+		t.Fatal("after 10 resyncs collectedCount is still absent — " +
+			"a condition-gated write swallowed the measured zero")
+	}
+	if *stored.Status.CollectedCount != 0 {
+		t.Fatalf("persisted collectedCount = %d, want 0", *stored.Status.CollectedCount)
+	}
+}
+
 // Objects leaving the selector must shrink the number, including all the way to zero —
 // which is why collectedCount is a pointer: an absent field would be indistinguishable
 // from "never measured".
@@ -137,8 +200,12 @@ func TestSyncCollectedCountKeepsTimestampWhenUnchanged(t *testing.T) {
 		},
 	}
 
-	if got := syncCollectedCount(target, 1000); got != 1000 {
+	got, changed := syncCollectedCount(target, 1000)
+	if got != 1000 {
 		t.Fatalf("syncCollectedCount = %d, want 1000", got)
+	}
+	if changed {
+		t.Fatal("syncCollectedCount reported a change for an unchanged count")
 	}
 	if !target.Status.CollectedCountUpdatedAt.Equal(&stale) {
 		t.Fatalf("timestamp = %v, want unchanged %v", target.Status.CollectedCountUpdatedAt, stale)
@@ -154,8 +221,12 @@ func TestSyncCollectedCountFirstObservationSetsTimestamp(t *testing.T) {
 		t.Fatal("fresh target must not carry a count")
 	}
 
-	if got := syncCollectedCount(target, 3); got != 3 {
+	got, changed := syncCollectedCount(target, 3)
+	if got != 3 {
 		t.Fatalf("syncCollectedCount = %d, want 3", got)
+	}
+	if !changed {
+		t.Fatal("the first observation must report a change so the caller persists it")
 	}
 	if target.Status.CollectedCount == nil || *target.Status.CollectedCount != 3 {
 		t.Fatalf("collectedCount = %v, want 3", target.Status.CollectedCount)
