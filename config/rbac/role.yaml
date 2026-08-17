@@ -96,6 +96,7 @@ rules:
 - apiGroups:
   - kollect.dev
   resources:
+  - kollectclusterscopes
   - kollectprofiles
   - kollectscopes
   verbs:

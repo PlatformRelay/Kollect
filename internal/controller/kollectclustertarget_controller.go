@@ -38,6 +38,7 @@ type KollectClusterTargetReconciler struct {
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectclustertargets/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectclustertargets/finalizers,verbs=update
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectprofiles,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kollect.dev,resources=kollectclusterscopes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 

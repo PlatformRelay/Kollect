@@ -140,6 +140,8 @@ jobs:
         run: bash hack/test/hyg_07_nightly_race_test.sh
       - name: Verify manager RBAC grants core Events (not events.k8s.io)
         run: bash hack/test/core_events_rbac_test.sh
+      - name: Verify manager RBAC can read KollectClusterScope
+        run: bash hack/test/cluster_scope_rbac_test.sh
       - name: Verify changelog-sync release guard (fbb5196a3 regression lock)
         run: bash hack/test/changelog_sync_release_guard_test.sh
       # LAB-DEKIND: this suite is the enforcement mechanism for the lab substrate allowlist
