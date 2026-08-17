@@ -87,6 +87,15 @@ Pin `image.tag` to a specific release (or use the release-pinned `install.yaml`)
 chart default resolves to `v<appVersion>` — the image shipped with that chart version — rather than a
 floating `latest` tag.
 
+!!! warning "Upgrade chart and image together"
+    RBAC is Helm-managed, so a pinned `image.tag` newer than the installed chart runs against the
+    older ClusterRole. Releases after **v0.18.0** add `kollectclusterscopes` `get`/`list`/`watch` to
+    the manager ClusterRole and make the controller *watch* that type. A manager that cannot watch a
+    type it registered fails its cache sync and exits, so pairing the new image with the old
+    ClusterRole crash-loops the operator instead of degrading one controller. Bump the chart in the
+    same change as the image — or, on the raw-manifest path, re-apply `install.yaml` from the same
+    release.
+
 ### 4. Wait for rollout
 
 ```sh
