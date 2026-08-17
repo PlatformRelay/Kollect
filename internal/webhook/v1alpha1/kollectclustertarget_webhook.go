@@ -86,7 +86,12 @@ func (v *kollectClusterTargetValidator) validateClusterScope(
 	profile, err := resolveClusterTargetProfileForWebhook(ctx, v.client, target.Spec.ProfileRef)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil
+			intentNS := scope.NormalizeNamespaceList(target.Spec.IncludedNamespaces)
+			if nsErr := scope.ValidateClusterScopeNamespaces(binding.Scope, intentNS); nsErr != nil {
+				return nsErr
+			}
+
+			return scope.ValidateClusterScopeStaticRefNamespace(binding.Scope, target.Spec.ProfileRef.Namespace)
 		}
 
 		return err

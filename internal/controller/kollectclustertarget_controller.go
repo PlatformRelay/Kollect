@@ -103,7 +103,7 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 			return ctrl.Result{}, err
 		}
 
-		clusterBinding, scopeDegraded, scopeErr := r.loadClusterScopeBinding(ctx, &ct)
+		clusterBinding, scopeDegraded, scopeErr := r.loadClusterScopeBinding(ctx, &ct, profile)
 		if scopeErr != nil {
 			retErr = scopeErr
 			return ctrl.Result{}, scopeErr

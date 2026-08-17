@@ -70,19 +70,35 @@ func (r *KollectClusterTargetReconciler) resolveProfileOrDegrade(
 func (r *KollectClusterTargetReconciler) loadClusterScopeBinding(
 	ctx context.Context,
 	ct *kollectdevv1alpha1.KollectClusterTarget,
+	profile *kollectdevv1alpha1.KollectProfile,
 ) (scope.ClusterBinding, bool, error) {
 	clusterBinding, loadErr := scope.LoadCluster(ctx, r.Client)
 	if loadErr != nil {
 		return scope.ClusterBinding{}, false, loadErr
 	}
 
-	if clusterBinding.Enforced {
-		if scopeErr := scope.ValidateClusterScopeStaticRefNamespace(clusterBinding.Scope, ct.Spec.ProfileRef.Namespace); scopeErr != nil {
+	if !clusterBinding.Enforced {
+		return clusterBinding, false, nil
+	}
+
+	if scopeErr := scope.ValidateClusterScopeStaticRefNamespace(clusterBinding.Scope, ct.Spec.ProfileRef.Namespace); scopeErr != nil {
+		r.unregisterAll(ct)
+		recordWarning(r.Recorder, ct, scopeReasonNSDenied, scopeErr.Error())
+		if degErr := r.setDegraded(ctx, ct, scopeReasonNSDenied, scopeErr.Error()); degErr != nil {
+			return clusterBinding, false, degErr
+		}
+
+		return clusterBinding, true, nil
+	}
+
+	for _, gvk := range scope.CollectRuleGVKs(ct.Spec.CollectionFilterSpec, profile.Spec.TargetGVK) {
+		if scopeErr := scope.ValidateClusterScopeGVKs(clusterBinding.Scope, gvk); scopeErr != nil {
 			r.unregisterAll(ct)
-			recordWarning(r.Recorder, ct, scopeReasonNSDenied, scopeErr.Error())
-			if degErr := r.setDegraded(ctx, ct, scopeReasonNSDenied, scopeErr.Error()); degErr != nil {
+			recordWarning(r.Recorder, ct, scopeReasonGVKDenied, scopeErr.Error())
+			if degErr := r.setDegraded(ctx, ct, scopeReasonGVKDenied, scopeErr.Error()); degErr != nil {
 				return clusterBinding, false, degErr
 			}
+
 			return clusterBinding, true, nil
 		}
 	}

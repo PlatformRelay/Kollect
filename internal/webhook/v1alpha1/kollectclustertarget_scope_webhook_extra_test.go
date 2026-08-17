@@ -78,4 +78,19 @@ func TestKollectClusterTargetValidator_validateClusterScope(t *testing.T) {
 	if err := v.validateClusterScope(context.Background(), badNS); err == nil {
 		t.Fatal("expected denied namespace violation")
 	}
+
+	missingProfile := target.DeepCopy()
+	missingProfile.Spec.ProfileRef.Name = "does-not-exist"
+	missingProfile.Spec.CollectionFilterSpec = kollectdevv1alpha1.CollectionFilterSpec{
+		IncludedNamespaces: []string{"kube-system"},
+	}
+	if err := v.validateClusterScope(context.Background(), missingProfile); err == nil {
+		t.Fatal("expected denied namespace violation when the profile is missing")
+	}
+
+	missingOK := target.DeepCopy()
+	missingOK.Spec.ProfileRef.Name = "does-not-exist"
+	if err := v.validateClusterScope(context.Background(), missingOK); err != nil {
+		t.Fatalf("missing in-scope profile should still admit: %v", err)
+	}
 }
