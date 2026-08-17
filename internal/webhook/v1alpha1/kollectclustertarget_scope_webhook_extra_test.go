@@ -94,3 +94,60 @@ func TestKollectClusterTargetValidator_validateClusterScope(t *testing.T) {
 		t.Fatalf("missing in-scope profile should still admit: %v", err)
 	}
 }
+
+func TestKollectClusterTargetValidator_missingProfileSpecDerivedChecks(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	clusterScope := &kollectdevv1alpha1.KollectClusterScope{
+		ObjectMeta: metav1.ObjectMeta{Name: "platform"},
+		Spec: kollectdevv1alpha1.KollectClusterScopeSpec{
+			ScopeCeilingSpec: kollectdevv1alpha1.ScopeCeilingSpec{
+				AllowedGVKs: []kollectdevv1alpha1.GroupVersionKind{
+					{Group: "apps", Version: "v1", Kind: "Deployment"},
+				},
+			},
+			AllowedStaticRefNamespaces: []string{"kollect-system"},
+		},
+	}
+
+	// No KollectProfile object: profileRef points at one that does not exist yet.
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(clusterScope).Build()
+	v := &kollectClusterTargetValidator{client: cl}
+
+	base := &kollectdevv1alpha1.KollectClusterTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "ct"},
+		Spec: kollectdevv1alpha1.KollectClusterTargetSpec{
+			ProfileRef: kollectdevv1alpha1.NamespacedObjectReference{Name: "not-created-yet", Namespace: "kollect-system"},
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"team": "platform"},
+			},
+		},
+	}
+	if err := v.validateClusterScope(context.Background(), base); err != nil {
+		t.Fatalf("in-scope target must stay admissible before its profile exists: %v", err)
+	}
+
+	// resourceRules GVKs come from the spec, not the profile — CollectRuleGVKs
+	// ignores the profile GVK entirely once resourceRules is set, so a missing
+	// profile is no reason to skip them.
+	deniedRuleGVK := base.DeepCopy()
+	deniedRuleGVK.Spec.ResourceRules = []kollectdevv1alpha1.ResourceRule{
+		{GVK: kollectdevv1alpha1.GroupVersionKind{Version: "v1", Kind: "Secret"}},
+	}
+	if err := v.validateClusterScope(context.Background(), deniedRuleGVK); err == nil {
+		t.Fatal("expected resourceRules GVK violation when the profile is missing")
+	}
+
+	// allowedStaticRefNamespaces is spec-derived too; #304 added the check but no
+	// fixture exercised it, because allowedStaticRefNamespaces was unset there.
+	deniedRefNS := base.DeepCopy()
+	deniedRefNS.Spec.ProfileRef.Namespace = "tenant-b"
+	if err := v.validateClusterScope(context.Background(), deniedRefNS); err == nil {
+		t.Fatal("expected profileRef namespace violation when the profile is missing")
+	}
+}

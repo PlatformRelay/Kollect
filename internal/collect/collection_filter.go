@@ -25,7 +25,9 @@ type NamespaceDefaults struct {
 	Excluded []string
 }
 
-// ScopeCeiling is the resolved tenancy guardrail for namespace and GVK checks.
+// ScopeCeiling is the resolved tenancy guardrail for namespace checks at collect
+// time. GVKs are not filtered here: they are enforced at admission and, as
+// backstop, at reconcile (ScopeGVKDenied).
 type ScopeCeiling struct {
 	AllowedNamespaces []string
 	DeniedNamespaces  []string
