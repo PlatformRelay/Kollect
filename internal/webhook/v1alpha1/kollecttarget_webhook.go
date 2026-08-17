@@ -78,17 +78,23 @@ func (v *kollectTargetValidator) validateScope(ctx context.Context, target *koll
 
 	var profile kollectdevv1alpha1.KollectProfile
 	profileKey := client.ObjectKey{Namespace: target.Namespace, Name: target.Spec.ProfileRef}
-	if err := v.client.Get(ctx, profileKey, &profile); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-
+	profileResolved := true
+	switch err := v.client.Get(ctx, profileKey, &profile); {
+	case err == nil:
+	case apierrors.IsNotFound(err):
+		// A Target may be applied before its KollectProfile. Only the profile
+		// targetGVK is unknowable here — it is re-checked at reconcile, which
+		// degrades with ScopeGVKDenied. Everything spec-derived stays enforced.
+		profileResolved = false
+	default:
 		return fmt.Errorf("load KollectProfile: %w", err)
 	}
 
-	gvks := scope.CollectRuleGVKs(target.Spec.CollectionFilterSpec, profile.Spec.TargetGVK)
-	if err := scope.ValidateResourceRuleGVKs(binding.Scope, gvks); err != nil {
-		return err
+	if profileResolved || len(target.Spec.ResourceRules) > 0 {
+		gvks := scope.CollectRuleGVKs(target.Spec.CollectionFilterSpec, profile.Spec.TargetGVK)
+		if err := scope.ValidateResourceRuleGVKs(binding.Scope, gvks); err != nil {
+			return err
+		}
 	}
 
 	intentNS := scope.NormalizeNamespaceList(target.Spec.IncludedNamespaces)
