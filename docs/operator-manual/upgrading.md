@@ -111,6 +111,38 @@ bumping versions. Common upgrade touchpoints:
 !!! info "Export debouncing"
     Debounce interval is per **`KollectInventory.spec.exportMinInterval`** (CRD default **30s**).
 
+### Cluster-scope GVK enforcement (after v0.18.0)
+
+Releases after **v0.18.0** enforce [`KollectClusterScope`](../crds/kollectclusterscope.md)
+`allowedGVKs` during reconcile, not only at admission — the backstop
+[ADR-0207](../adr/0207-target-collection-filtering.md) always specified.
+
+!!! warning "Existing cluster targets can stop collecting"
+    A [`KollectClusterTarget`](../crds/kollectclustertarget.md) whose profile `targetGVK` or
+    `resourceRules` GVK sits outside a non-empty `allowedGVKs` now unregisters its informers and goes
+    `Degraded=True` / `reason=ScopeGVKDenied` on the first reconcile after upgrade. Targets admitted
+    **before** the ceiling was created or tightened are the affected set — admission only ran when
+    they were last written.
+
+Audit before upgrading, on each cluster that has a `KollectClusterScope`:
+
+```sh
+kubectl get kollectclusterscopes.kollect.dev -o yaml | grep -A4 allowedGVKs
+kubectl get kollectclustertargets.kollect.dev \
+  -o custom-columns='NAME:.metadata.name,PROFILE:.spec.profileRef.name,PROFILE_NS:.spec.profileRef.namespace'
+```
+
+Cross-check each target's profile `targetGVK` (plus any `spec.resourceRules[].gvk`) against
+`allowedGVKs`. Remediate by widening `allowedGVKs`, repointing `profileRef`, or retiring the target.
+After upgrading, the affected targets are listed by:
+
+```sh
+kubectl get kollectclustertargets.kollect.dev -o custom-columns=\
+'NAME:.metadata.name,DEGRADED:.status.conditions[?(@.type=="Degraded")].status,REASON:.status.conditions[?(@.type=="Degraded")].reason'
+```
+
+Widening the ceiling clears the condition on the next reconcile; nothing needs to be recreated.
+
 ## GitOps and CI/CD
 
 For Argo CD, Flux, or similar:
