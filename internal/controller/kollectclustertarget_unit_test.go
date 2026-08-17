@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -73,5 +74,66 @@ func TestKollectClusterTargetReconciler_suspend(t *testing.T) {
 	cond := apimeta.FindStatusCondition(got.Status.Conditions, conditionDegraded)
 	if cond == nil || cond.Reason != "Suspended" {
 		t.Fatalf("Degraded = %+v", cond)
+	}
+}
+
+func TestKollectClusterTargetReconciler_deniedGVKDegrades(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	clusterScope := &kollectdevv1alpha1.KollectClusterScope{
+		ObjectMeta: metav1.ObjectMeta{Name: "platform"},
+		Spec: kollectdevv1alpha1.KollectClusterScopeSpec{
+			ScopeCeilingSpec: kollectdevv1alpha1.ScopeCeilingSpec{
+				AllowedGVKs: []kollectdevv1alpha1.GroupVersionKind{
+					{Group: "apps", Version: "v1", Kind: "Deployment"},
+				},
+			},
+		},
+	}
+	profile := &kollectdevv1alpha1.KollectProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "secrets", Namespace: "kollect-system"},
+		Spec: kollectdevv1alpha1.KollectProfileSpec{
+			TargetGVK: kollectdevv1alpha1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+		},
+	}
+	ct := &kollectdevv1alpha1.KollectClusterTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-secrets", Generation: 1},
+		Spec: kollectdevv1alpha1.KollectClusterTargetSpec{
+			ProfileRef: kollectdevv1alpha1.NamespacedObjectReference{Name: "secrets", Namespace: "kollect-system"},
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"team": "platform"},
+			},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(ct).
+		WithObjects(clusterScope, profile, ct).
+		Build()
+
+	r := &KollectClusterTargetReconciler{Client: c, Scheme: scheme}
+	if _, err := r.Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: ct.Name},
+	}); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectClusterTarget
+	if err := c.Get(context.Background(), types.NamespacedName{Name: ct.Name}, &got); err != nil {
+		t.Fatal(err)
+	}
+
+	cond := apimeta.FindStatusCondition(got.Status.Conditions, conditionDegraded)
+	if cond == nil || cond.Reason != scopeReasonGVKDenied {
+		t.Fatalf("Degraded = %+v, want reason %s", cond, scopeReasonGVKDenied)
 	}
 }
