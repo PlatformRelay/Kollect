@@ -83,24 +83,27 @@ func (v *kollectClusterTargetValidator) validateClusterScope(
 		return nil
 	}
 
+	var profileGVK kollectdevv1alpha1.GroupVersionKind
+	profileResolved := true
 	profile, err := resolveClusterTargetProfileForWebhook(ctx, v.client, target.Spec.ProfileRef)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			intentNS := scope.NormalizeNamespaceList(target.Spec.IncludedNamespaces)
-			if nsErr := scope.ValidateClusterScopeNamespaces(binding.Scope, intentNS); nsErr != nil {
-				return nsErr
-			}
-
-			return scope.ValidateClusterScopeStaticRefNamespace(binding.Scope, target.Spec.ProfileRef.Namespace)
-		}
-
+	switch {
+	case err == nil:
+		profileGVK = profile.Spec.TargetGVK
+	case apierrors.IsNotFound(err):
+		// A ClusterTarget may be applied before its KollectProfile. Only the
+		// profile targetGVK is unknowable here; reconcile re-checks it and
+		// degrades with ScopeGVKDenied. Everything below is spec-derived and
+		// stays enforced so the checks cannot silently diverge per branch.
+		profileResolved = false
+	default:
 		return err
 	}
 
-	gvks := scope.CollectRuleGVKs(target.Spec.CollectionFilterSpec, profile.Spec.TargetGVK)
-	for _, gvk := range gvks {
-		if err := scope.ValidateClusterScopeGVKs(binding.Scope, gvk); err != nil {
-			return err
+	if profileResolved || len(target.Spec.ResourceRules) > 0 {
+		for _, gvk := range scope.CollectRuleGVKs(target.Spec.CollectionFilterSpec, profileGVK) {
+			if err := scope.ValidateClusterScopeGVKs(binding.Scope, gvk); err != nil {
+				return err
+			}
 		}
 	}
 
