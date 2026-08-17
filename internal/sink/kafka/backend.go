@@ -6,6 +6,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -143,11 +144,15 @@ func dialTransport(cfg Config) (*kafka.Transport, error) {
 	if cfg.Username != "" {
 		mechanism, err := scram.Mechanism(scram.SHA256, cfg.Username, cfg.Password)
 		if err != nil {
-			return nil, fmt.Errorf("kafka SASL: %w", err)
+			return nil, redactedSASLError()
 		}
 
 		transport.SASL = mechanism
 	}
 
 	return transport, nil
+}
+
+func redactedSASLError() error {
+	return errors.New("kafka SASL: authentication configuration failed")
 }
