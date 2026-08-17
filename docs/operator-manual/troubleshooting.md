@@ -49,8 +49,8 @@ or namespace** in a `*SinkRefs` entry is wrong — fix the reference, not just c
 | `SinkNotFound` | Inventory, Target | Typo or wrong namespace in `*SinkRefs` | Match exact sink name in **same namespace** |
 | `SinkUnreachable` | Inventory, Target | `ConnectionVerified=False` on sink | Fix Secret, DSN, network; re-probe sink |
 | `ScopeSinkDenied` | Inventory | Sink not in `KollectScope` allow-list | Add sink to scope allow-list refs |
-| `ScopeGVKDenied` | Target | GVK blocked by scope | Update `KollectScope.spec.allowedGVKs` |
-| `ScopeNamespaceDenied` | Target | Workload namespace blocked | Add to `allowedNamespaces` |
+| `ScopeGVKDenied` | Target, ClusterTarget | GVK blocked by scope | Update `allowedGVKs` on `KollectScope` (Target) or `KollectClusterScope` (ClusterTarget) |
+| `ScopeNamespaceDenied` | Target, ClusterTarget | Workload namespace blocked; on ClusterTarget, `profileRef.namespace` outside `allowedStaticRefNamespaces` | Add to `allowedNamespaces`, or permit the profile namespace |
 | `ProfileNotFound` | Target | Missing `KollectProfile` | Apply profile in same namespace as target |
 | `PayloadTooLarge` | Inventory | Exceeds `maxExportBytes` | Split targets or trim attributes |
 | `ExportTerminal` | Inventory | Non-retryable sink error | Fix sink config; check operator logs |
@@ -59,6 +59,7 @@ or namespace** in a `*SinkRefs` entry is wrong — fix the reference, not just c
 
 Full per-kind tables: [KollectInventory](../crds/kollectinventory.md#status-conditions),
 [KollectTarget](../crds/kollecttarget.md#status-conditions),
+[KollectClusterTarget](../crds/kollectclustertarget.md#status-conditions),
 [KollectSnapshotSink](../crds/kollectsnapshotsink.md#status).
 
 ## Symptom → cause quick reference

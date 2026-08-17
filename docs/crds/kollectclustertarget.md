@@ -105,7 +105,13 @@ kubectl describe kctgt platform-argo-applications
 | --- | --- | --- |
 | `Suspended` | `spec.suspend: true` | Set `suspend: false` |
 | `ProfileNotFound` | No `KollectProfile` in `profileRef.namespace` | Create the `KollectProfile` in the referenced namespace |
+| `ScopeGVKDenied` | Profile `targetGVK` or a `resourceRules` GVK is outside [`KollectClusterScope`](kollectclusterscope.md) `allowedGVKs` | Add the GVK to `allowedGVKs`, or point `profileRef` at a permitted profile |
+| `ScopeNamespaceDenied` | `profileRef.namespace` is outside `allowedStaticRefNamespaces` ([ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)) | Move the profile into a permitted namespace, or extend the allowlist |
 | `InformerRegistrationFailed` | Dynamic client / GVK error | Verify CRD installed; check operator logs |
+
+Scope violations unregister the target's informers before degrading, so collection stops. Admission
+rejects these cases up front; reconcile repeats the check as backstop for objects admitted before the
+ceiling existed or before `profileRef` resolved ([ADR-0207](../adr/0207-target-collection-filtering.md)).
 
 ## RBAC
 
@@ -124,7 +130,10 @@ Cluster-scoped resources require elevated RBAC — restrict to platform SRE role
 | Admission denied | Missing `profileRef.name` | Set the profile name |
 | Admission denied | Missing `profileRef.namespace` | Set the profile namespace — required on cluster kinds (ADR-0208) |
 | Admission denied | Missing `namespaceSelector` | Add explicit label selector |
+| Admission denied | `includedNamespaces` outside the `KollectClusterScope` ceiling, or a denied namespace — checked even when `profileRef` does not resolve yet | Align `includedNamespaces` with the ceiling, or widen `allowedNamespaces` |
+| Admission denied | `profileRef.namespace` outside `allowedStaticRefNamespaces` | Move the profile, or extend the allowlist |
 | No collection | Empty `namespaceSelector` match or RBAC denied | Label namespaces; extend operator ClusterRole for target GVK |
+| `ScopeGVKDenied` after upgrade | Ceiling was tightened after the target was admitted; reconcile now enforces `allowedGVKs` | Widen `allowedGVKs` or retire the target — see [Upgrading](../operator-manual/upgrading.md#cluster-scope-gvk-enforcement-after-v0180) |
 | `ProfileNotFound` | No `KollectProfile` in `profileRef.namespace` | Create the profile in the referenced namespace |
 | `Degraded` / `Forbidden` | SAR denies list in scoped NS | Grant operator read on target GVK in workload namespaces |
 
