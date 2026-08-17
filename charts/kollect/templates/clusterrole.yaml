@@ -54,7 +54,7 @@ rules:
       - kollecttargets/status
     verbs: [get, patch, update]
   - apiGroups: [kollect.dev]
-    resources: [kollectprofiles, kollectscopes]
+    resources: [kollectclusterscopes, kollectprofiles, kollectscopes]
     verbs: [get, list, watch]
   - apiGroups: [cert-manager.io]
     resources: [certificates]
