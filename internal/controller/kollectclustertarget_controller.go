@@ -354,6 +354,10 @@ func (r *KollectClusterTargetReconciler) SetupWithManager(mgr ctrl.Manager) erro
 			&kollectdevv1alpha1.KollectProfile{},
 			handler.EnqueueRequestsFromMapFunc(r.mapProfileToClusterTargets),
 		).
+		Watches(
+			&kollectdevv1alpha1.KollectClusterScope{},
+			handler.EnqueueRequestsFromMapFunc(r.mapClusterScopeToClusterTargets),
+		).
 		Named("kollectclustertarget").
 		Complete(r)
 }
@@ -362,6 +366,33 @@ func (r *KollectClusterTargetReconciler) mapNamespaceToClusterTargets(
 	ctx context.Context,
 	_ client.Object,
 ) []reconcile.Request {
+	var list kollectdevv1alpha1.KollectClusterTargetList
+	if err := r.List(ctx, &list); err != nil {
+		return nil
+	}
+
+	reqs := make([]reconcile.Request, 0, len(list.Items))
+	for i := range list.Items {
+		reqs = append(reqs, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: list.Items[i].Name},
+		})
+	}
+
+	return reqs
+}
+
+// mapClusterScopeToClusterTargets re-reconciles every KollectClusterTarget on any
+// KollectClusterScope write. It does not filter to the enforced scope on purpose:
+// scope.LoadCluster resolves the ceiling as the lowest-named object of all of them,
+// so creating or renaming any KollectClusterScope can change which one is enforced.
+func (r *KollectClusterTargetReconciler) mapClusterScopeToClusterTargets(
+	ctx context.Context,
+	obj client.Object,
+) []reconcile.Request {
+	if _, ok := obj.(*kollectdevv1alpha1.KollectClusterScope); !ok {
+		return nil
+	}
+
 	var list kollectdevv1alpha1.KollectClusterTargetList
 	if err := r.List(ctx, &list); err != nil {
 		return nil

@@ -55,3 +55,41 @@ func TestKollectClusterTargetReconciler_mapFunctions(t *testing.T) {
 		t.Fatalf("non-profile object should return nil, got %#v", got)
 	}
 }
+
+func TestKollectClusterTargetReconciler_mapClusterScopeToClusterTargets(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	first := &kollectdevv1alpha1.KollectClusterTarget{ObjectMeta: metav1.ObjectMeta{Name: "ct-a"}}
+	second := &kollectdevv1alpha1.KollectClusterTarget{ObjectMeta: metav1.ObjectMeta{Name: "ct-b"}}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(first, second).Build()
+	r := &KollectClusterTargetReconciler{Client: cl}
+
+	// Any KollectClusterScope write can change the enforced ceiling — LoadCluster
+	// picks the lowest-named object of all of them — so every target re-reconciles
+	// regardless of which scope object was written.
+	scopeObj := &kollectdevv1alpha1.KollectClusterScope{ObjectMeta: metav1.ObjectMeta{Name: "zz-not-enforced"}}
+	reqs := r.mapClusterScopeToClusterTargets(context.Background(), scopeObj)
+	if len(reqs) != 2 {
+		t.Fatalf("cluster scope map reqs = %#v, want one per cluster target", reqs)
+	}
+
+	names := map[string]bool{}
+	for _, req := range reqs {
+		if req.Namespace != "" {
+			t.Fatalf("cluster-scoped request must not carry a namespace: %#v", req)
+		}
+		names[req.Name] = true
+	}
+	if !names["ct-a"] || !names["ct-b"] {
+		t.Fatalf("cluster scope map reqs = %#v, want ct-a and ct-b", reqs)
+	}
+
+	if got := r.mapClusterScopeToClusterTargets(context.Background(), first); got != nil {
+		t.Fatalf("non-scope object should return nil, got %#v", got)
+	}
+}
