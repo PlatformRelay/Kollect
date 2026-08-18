@@ -123,11 +123,22 @@ trap 'rm -rf "${STUB_DIR}"' EXIT
 cat >"${STUB_DIR}/curl" <<'STUB'
 #!/bin/sh
 # Fake curl: last argument is the URL. Behaviour driven by STUB_* env vars.
+#
+# Every invocation is appended to $STUB_CALL_LOG so a test can assert that a
+# rejection happened WITHOUT touching the network.
+#
+# The default bodies are written with an explicit if/else rather than
+# "${VAR-{"token":"x"}}". Under dash (this is /bin/sh) parameter-expansion
+# defaults terminate at the FIRST unescaped '}', so the brace-nested form
+# silently emitted '{}}' for STUB_TOKEN_BODY='{}' -- invalid JSON, which sent
+# the empty-token assertion down the jq-parse branch instead of the branch it
+# claimed to cover.
 for a in "$@"; do url="$a"; done
+[ -n "${STUB_CALL_LOG:-}" ] && echo "${url}" >>"${STUB_CALL_LOG}"
 case "${url}" in
 *"/token?"*)
   [ "${STUB_TOKEN_FAIL:-0}" = "1" ] && exit 22
-  printf '%s' "${STUB_TOKEN_BODY-{\"token\":\"stub-token\"}}"
+  if [ -n "${STUB_TOKEN_BODY+x}" ]; then printf '%s' "${STUB_TOKEN_BODY}"; else printf '%s' '{"token":"stub-token"}'; fi
   exit 0
   ;;
 *"/manifests/"*)
@@ -150,8 +161,10 @@ HELM_MANIFEST='{"schemaVersion":2,"config":{"mediaType":"application/vnd.cncf.he
 # to ASSERT_RC is discarded and every "must be rejected" assertion reads an empty
 # status and silently passes.
 run_assert() {
+  : >"${STUB_DIR}/calls"
   set +e
-  PATH="${STUB_DIR}:${PATH}" olm_assert_runnable_image "$1" "$2" >"${STUB_DIR}/out" 2>&1
+  PATH="${STUB_DIR}:${PATH}" STUB_CALL_LOG="${STUB_DIR}/calls" \
+    olm_assert_runnable_image "$1" "$2" >"${STUB_DIR}/out" 2>&1
   ASSERT_RC=$?
   set -e
   ASSERT_OUT="$(cat "${STUB_DIR}/out")"
@@ -177,6 +190,8 @@ pass "olm_assert_runnable_image rejects a Helm chart and names it"
 run_assert ghcr.io/platformrelay/kollect "latest"
 out="${ASSERT_OUT}"
 [[ "${ASSERT_RC}" -ne 0 ]] || fail "a malformed digest must be rejected before any fetch"
+[[ ! -s "${STUB_DIR}/calls" ]] ||
+  fail "a malformed digest must be rejected BEFORE any registry call, but curl ran: $(cat "${STUB_DIR}/calls")"
 pass "olm_assert_runnable_image rejects a malformed digest without touching the network"
 
 STUB_MANIFEST_BODY="${REAL_INDEX}" run_assert quay.io/platformrelay/kollect "${VALID_DIGEST}"
@@ -185,14 +200,21 @@ out="${ASSERT_OUT}"
 [[ "${out}" == *"ghcr.io"* ]] || fail "the non-ghcr.io rejection should say which registry it understands"
 pass "olm_assert_runnable_image rejects a registry it cannot verify"
 
+# The two token branches are distinguished by MESSAGE. Asserting only rc != 0 made
+# them interchangeable, so a stub bug quietly pointed the "empty token" case at the
+# jq-parse branch and the real branch kept zero coverage.
 STUB_TOKEN_FAIL=1 STUB_MANIFEST_BODY="${REAL_INDEX}" run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
 out="${ASSERT_OUT}"
 [[ "${ASSERT_RC}" -ne 0 ]] || fail "a failed token request must abort the submission"
+[[ "${out}" == *"could not obtain a GHCR pull token"* ]] ||
+  fail "a failed token request must be reported as such, got: ${out}"
 pass "olm_assert_runnable_image fails closed when the token request fails"
 
 STUB_TOKEN_BODY='{}' STUB_MANIFEST_BODY="${REAL_INDEX}" run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
 out="${ASSERT_OUT}"
 [[ "${ASSERT_RC}" -ne 0 ]] || fail "an empty token must abort the submission"
+[[ "${out}" == *"empty pull token"* ]] ||
+  fail "an empty token must hit the empty-token branch (not jq-parse or fetch-failure), got: ${out}"
 pass "olm_assert_runnable_image fails closed on an empty token"
 
 STUB_MANIFEST_FAIL=1 run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
@@ -261,12 +283,22 @@ grep -Fq 'olm_digest_format_ok' "${ROOT}/Makefile" ||
 # `crane digest ...` sailed through it. Extract the recipe, drop `echo` lines (the
 # failure message legitimately names `docker buildx imagetools` as the fix), then look
 # for a registry client.
-OLM_RECIPE="$(sed -n '/^generate-olm-bundle:/,/^[^	]/p' "${ROOT}/Makefile" | grep -v '^[[:space:]]*@*echo ')"
-[[ -n "${OLM_RECIPE}" ]] ||
+OLM_RECIPE_RAW="$(sed -n '/^generate-olm-bundle:/,/^[^	]/p' "${ROOT}/Makefile")"
+[[ -n "${OLM_RECIPE_RAW}" ]] ||
   fail "could not extract the generate-olm-bundle recipe from the Makefile"
-printf '%s\n' "${OLM_RECIPE}" | grep -Fq 'IMAGE_DIGEST' ||
+printf '%s\n' "${OLM_RECIPE_RAW}" | grep -Fq 'IMAGE_DIGEST' ||
   fail "extracted the wrong block: the generate-olm-bundle recipe must reference IMAGE_DIGEST"
-if printf '%s\n' "${OLM_RECIPE}" | grep -Eq '(^|[^[:alnum:]_-])(curl|wget|oras|crane|skopeo|regctl)([^[:alnum:]_-]|$)|docker[[:space:]]+(manifest|buildx)'; then
+
+# Strip DOUBLE-QUOTED STRINGS rather than dropping whole `echo` lines. The failure
+# message legitimately names `crane` inside a quoted string, which is why filtering is
+# needed at all -- but dropping the line lost everything after it, and this recipe is
+# one long `echo ... && \` chain, so
+#   @echo "resolving digest" && curl -sfL https://ghcr.io/v2/ && \
+# evaded the guard entirely. Removing only the quoted spans keeps the executable part
+# of every line under inspection.
+OLM_RECIPE="$(printf '%s\n' "${OLM_RECIPE_RAW}" | sed 's/"[^"]*"//g')"
+if printf '%s\n' "${OLM_RECIPE}" |
+  grep -Eq '(^|[^[:alnum:]_./-])(curl|wget|oras|crane|skopeo|regctl|podman|nerdctl|cosign)([^[:alnum:]_-]|$)|(docker|helm)[[:space:]]+(pull|push|manifest|buildx)'; then
   fail "generate-olm-bundle must not perform a registry round-trip (keeps the bundle test hermetic)"
 fi
 pass "Makefile generate-olm-bundle has an offline IMAGE_DIGEST format guard and no registry client"

@@ -40,7 +40,7 @@ olm_digest_format_ok() {
 # image config mediaType and differ only in their LAYER types, so they are accepted
 # here. The release workflow pushes exactly such artifacts into this same GHCR repo.
 # They are not reachable by the mistake this guard exists to catch: cosign publishes
-# them under sha256-<digest>.sig style tags, never under a bare semver tag someone
+# them under sha256-<hex> tags, never under a bare semver tag someone
 # might paste. Widening the check to inspect layer types would buy nothing for that
 # failure mode; the digest formats simply do not collide.
 olm_manifest_is_runnable() {
