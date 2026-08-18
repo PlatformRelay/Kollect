@@ -5,6 +5,10 @@
 # kollectclusterscopes the manager cache cannot sync that type, so reconcile
 # errors and admission rejects every cluster-kind write. The grant was missing
 # from the generated role and the chart until this lock landed.
+#
+# Third surface: the OLM CSV template carries its own copy of these rules.
+# It is not re-asserted here — hack/test/dist_olm_bundle_test.sh already fails
+# on any drift between config/rbac/role.yaml and the CSV clusterPermissions.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
