@@ -11,6 +11,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **olm:** Sync CSV clusterPermissions with the kollectclusterscopes grant ([#306](https://github.com/platformrelay/kollect/pull/306))[aa12fde](https://github.com/platformrelay/kollect/commit/aa12fde1a0a7092e72244bdb41f969507541a565)
+
+- **controller:** Re-reconcile cluster targets on KollectClusterScope writes [f52ed87](https://github.com/platformrelay/kollect/commit/f52ed87f423126d275594727892409a02a8c8558)
+
+- **controller:** Grant the manager RBAC to read KollectClusterScope [6606a65](https://github.com/platformrelay/kollect/commit/6606a65697e91f1f6581e86698abb13bb0da4032)
+
 - **webhook:** Enforce cluster-scope when the profile is missing ([#304](https://github.com/platformrelay/kollect/pull/304))[bd3ed9e](https://github.com/platformrelay/kollect/commit/bd3ed9ef826405ae8bacf58a4f655764c8099812)
 
 - **sink:** Redact kafka SASL construction errors ([#303](https://github.com/platformrelay/kollect/pull/303))[f98ddbe](https://github.com/platformrelay/kollect/commit/f98ddbe7c6b2f9d3caf57d19e4a23660dee7e096)
