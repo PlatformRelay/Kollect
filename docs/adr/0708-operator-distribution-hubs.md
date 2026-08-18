@@ -3,7 +3,7 @@
 > How Kollect becomes discoverable on Artifact Hub and OperatorHub without replacing Helm OCI
 > as the primary install path, and without in-repo FBC/`opm` catalog machinery.
 
-**Theme:** 07 · Project & meta · **Status:** Exploring (Proposed — maintainer LGTM required)
+**Theme:** 07 · Project & meta · **Status:** Current (accepted 2026-08-08 — see the 2026-08-18 notes below)
 
 <!-- AgDR: architect role · 2026-08-06 · trigger: hub distribution parity plan (Attune pattern) -->
 
@@ -76,7 +76,8 @@ Contract:
    no release, and each reports through `steps.<id>.outcome` (`continue-on-error` pins
    `.conclusion` to `success`) with a `::warning::` annotation and a `$GITHUB_STEP_SUMMARY`
    line.
-7. **Skipped:** Krew, Docker Hub chart mirror, in-repo FBC/`opm`, CLOMonitor.
+7. **Skipped:** Krew, Docker Hub chart mirror, in-repo FBC/`opm` (posture re-confirmed
+   2026-08-18 against the upstream recommendation — see *Alternatives considered*), CLOMonitor.
 
 ## Consequences
 
@@ -86,8 +87,43 @@ Contract:
   scopes, connection tests, cluster variants) — large owned list; keep generate step mechanical.
 - Docs must not ship live Artifact Hub / OperatorHub badge URLs that 404 before listing.
 - Soft-fail hub jobs preserve tag-release success when PAT/forks are absent.
+- **Shipped 2026-08-18.** The contract above is live, which is what moves this ADR to *Current*:
+  [#309](https://github.com/platformrelay/kollect/pull/309) merged (`e71faaffd`); Artifact Hub
+  repository `kollect` registered with the real `repositoryID` and **Verified Publisher active**;
+  both community-operators submissions open and green. The operator accepted option A on
+  2026-08-08, so the placeholder-`repositoryID` and pre-registration caveats above are history,
+  not open work.
 
 ## Alternatives considered
 
 See table. FBC rejected as disproportionate for solo maintenance. Artifact-Hub-only rejected
 because OpenShift catalog adopters are in scope for this track.
+
+### FBC posture — re-confirmed 2026-08-18
+
+The upstream community-operators hosted pipeline on our open submissions
+([community-operators#9070](https://github.com/k8s-operatorhub/community-operators/pull/9070),
+[community-operators-prod#10889](https://github.com/redhat-openshift-ecosystem/community-operators-prod/pull/10889))
+emits `check_using_fbc` as a **Warning**: *"File Based Catalog (FBC) is a new way to manage
+operator metadata. This operator does not use FBC and it is recommended for new operators to
+start directly with FBC."* Both submissions are green — the check recommends, it does not block.
+
+We read the recommendation and kept **registry+v1 hand-templated bundles**; option C stays
+rejected on its recorded grounds, not on new ones. In-repo FBC/`opm` is the only option that
+loses on *operability / lean tooling* (2 against A's 4 and B's 5) and lands at the same weighted
+total as doing nothing (35). The cost that decided it is ongoing, not one-off: an `opm`-rendered
+catalog is a second generated artifact to keep, pin, and re-render every release, on top of the
+CSV that `hack/test/dist_olm_bundle_test.sh` already gates for drift — disproportionate for a
+solo-maintained project whose release engineering is deliberately lean
+([ADR-0705](0705-release-supply-chain.md)).
+
+This is a posture, not a permanent refusal. **Revisit when any of these becomes true:**
+
+- upstream deprecates registry+v1 — `check_using_fbc` turns from a Warning into an error, or
+  either catalog stops accepting non-FBC submissions;
+- the bundle outgrows hand-templating — multiple channels, `skips`/`replaces` upgrade graphs, or
+  per-OCP-version catalog pinning, none of which the single `stable` channel needs today;
+- maintenance stops being solo, so the operability weighting that decided the table no longer
+  dominates.
+
+Adopting FBC reverses a recorded decision: it needs a superseding ADR, not an edit here.

@@ -62,7 +62,7 @@ for a constrained development environment. The chart does not generate certifica
 ## Discoverability on package hubs
 
 Helm OCI on GHCR remains the primary install path ([ADR-0705](../adr/0705-release-supply-chain.md)).
-Additional distribution wiring is landing under [ADR-0708](../adr/0708-operator-distribution-hubs.md):
+Additional distribution wiring ships under [ADR-0708](../adr/0708-operator-distribution-hubs.md):
 
 - **Artifact Hub** — the chart repository is registered and listed as
   [`kollect`](https://artifacthub.io/packages/search?repo=kollect); it indexes the same OCI chart
