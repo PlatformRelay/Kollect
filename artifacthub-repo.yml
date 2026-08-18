@@ -23,6 +23,22 @@ owners:
 # `version` is a REGULAR EXPRESSION matched against the tag; `name` is an exact match
 # on the package name. Ignored packages are applied the next time the repository is
 # processed, not immediately.
+#
+# DIST-AH-02: charts 0.9.0-0.13.0 also have to go. They shipped `image.tag: latest`
+# in values.yaml (fixed in 0.14.0, which defaults the tag to v<appVersion>) and predate
+# the artifacthub.io/images annotation, so Artifact Hub derives the image straight from
+# chart values and tries to scan ghcr.io/platformrelay/kollect:latest. That tag has never
+# been published -- the controller image only ever lands on v-prefixed tags -- so every
+# scan of those four versions fails with "image not found" and mails the maintainers.
+#
+# Delisting is the honest fix, not a cosmetic one: those charts cannot install. `latest`
+# does not resolve, so the manager pod would sit in ImagePullBackOff for anyone who tried.
+# Publishing a `latest` tag to satisfy the scanner would instead re-create the DR-FIND-07
+# collision the release workflow explicitly guards against, so it is not an option.
+#
+# Published bare chart tags covered: 0.9.0, 0.10.0, 0.11.0, 0.13.0 (broken charts) and
+# 0.12.0 (the one release that pushed the IMAGE to the chart's bare tag). 0.14.0 and
+# later are correct and stay listed.
 ignore:
   - name: kollect
-    version: '^(v[0-9].*|0\.12\.0)$'
+    version: '^(v[0-9].*|0\.(9|10|11|12|13)\.0)$'

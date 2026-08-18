@@ -114,4 +114,35 @@ grep -Fq 'Artifact Hub repository metadata was NOT published' "${WORKFLOW}" ||
 
 pass "failed Artifact Hub push is reported via ::warning:: and job summary"
 
+# DIST-AH-02: the `ignore` regex is the only thing standing between Artifact Hub and a
+# recurring "image not found" scan-failure mail. Assert it BEHAVIOURALLY -- match the
+# pattern against real tags -- because a grep for the literal string would keep passing
+# after someone widened it to '^.*$' and silently delisted the whole chart.
+IGNORE_RE="$(yq eval '.ignore[] | select(.name == "kollect") | .version' "${REPO_YML}")"
+[[ -n "${IGNORE_RE}" && "${IGNORE_RE}" != "null" ]] ||
+  fail "artifacthub-repo.yml must carry an ignore entry for the kollect package"
+
+matches_ignore() { printf '%s\n' "$1" | grep -Eq "${IGNORE_RE}"; }
+
+# Must be ignored. v-prefixed tags are the controller IMAGE, not charts. Bare 0.9.0-0.13.0
+# are charts that hardcode `image.tag: latest`, a tag that was never published, so Artifact
+# Hub's scanner fails on every one of them (0.12.0 additionally IS an image, not a chart).
+for ignored in \
+  v0.9.0 v0.13.0 v0.18.0 v1.0.0 \
+  0.9.0 0.10.0 0.11.0 0.12.0 0.13.0; do
+  matches_ignore "${ignored}" ||
+    fail "ignore regex '${IGNORE_RE}' must cover ${ignored}"
+done
+pass "ignore regex covers the v-prefixed image tags and the broken 0.9.0-0.13.0 charts"
+
+# Must NOT be ignored: every chart from 0.14.0 on defaults image.tag to v<appVersion>
+# and is genuinely installable. Delisting these would hide the live releases.
+for listed in \
+  0.14.0 0.15.0 0.16.0 0.17.0 0.18.0 0.19.0 1.0.0 0.1.0 0.130.0; do
+  if matches_ignore "${listed}"; then
+    fail "ignore regex '${IGNORE_RE}' must NOT cover ${listed} -- that chart is installable and belongs on Artifact Hub"
+  fi
+done
+pass "ignore regex leaves 0.14.0+ charts listed"
+
 echo "All dist Artifact Hub release tests passed."
