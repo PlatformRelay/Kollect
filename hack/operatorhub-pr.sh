@@ -26,6 +26,20 @@ set -Eeuo pipefail
 : "${VERSION:?VERSION is required (e.g., 0.17.0)}"
 : "${IMAGE_DIGEST:?IMAGE_DIGEST is required (e.g., sha256:abc...)}"
 
+# DIST-OH-04: ghcr.io/platformrelay/kollect holds BOTH the Helm chart (bare "<version>"
+# tag) and the controller image (v-prefixed tag) -- see DR-FIND-07. A digest taken from
+# the wrong tag is still a syntactically valid digest, so it sails through every string
+# check and only fails on-cluster, ~30 min into the upstream pipeline. Guard in two
+# stages: format here (offline, always), runnable-image after the DRY_RUN exit (network).
+IMAGE_REPO="${IMAGE_REPO:-ghcr.io/platformrelay/kollect}"
+# shellcheck source=hack/lib/olm-image-digest.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/olm-image-digest.sh"
+
+if ! olm_digest_format_ok "${IMAGE_DIGEST}"; then
+  echo "ERROR: IMAGE_DIGEST must be a canonical sha256:<64 lowercase hex> digest (got '${IMAGE_DIGEST}')." >&2
+  exit 1
+fi
+
 FORK_OWNER="${FORK_OWNER:-platformrelay}"
 GIT_USER_NAME="${GIT_USER_NAME:-github-actions[bot]}"
 GIT_USER_EMAIL="${GIT_USER_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"
@@ -78,6 +92,14 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
 fi
 
 : "${GH_TOKEN:?GH_TOKEN is required unless DRY_RUN=1}"
+
+# DIST-OH-04: the last gate before anything is pushed to a third-party repository --
+# prove the pinned digest is a runnable container image and not the Helm chart that
+# shares this OCI repository. Deliberately placed AFTER the DRY_RUN exit so the offline
+# meta-tests, which pass a synthetic digest, never reach for a registry. Fails closed:
+# an unreachable registry aborts the submission rather than shipping an unverified pin.
+olm_assert_runnable_image "${IMAGE_REPO}" "${IMAGE_DIGEST}"
+echo "Image digest verified runnable: ${IMAGE_REPO}@${IMAGE_DIGEST}"
 
 submit_bundle() {
   local upstream_repo="$1"
