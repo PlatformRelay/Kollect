@@ -1,13 +1,15 @@
 # Artifact Hub repository metadata (ADR-0708), pushed to
 # ghcr.io/<owner>/kollect:artifacthub.io by the release workflow.
 #
-# 2026-08-07 — PENDING OPERATOR ACTION: repositoryID below is still the
-# placeholder. Register the chart repository at https://artifacthub.io and paste
-# the real repository ID from the Artifact Hub control panel here; Verified
-# Publisher status only activates once the pushed ID matches the registered one.
-# hack/test/dist_artifacthub_release_test.sh accepts ANY well-formed UUID, so
-# filling in the real value does not turn CI red.
-repositoryID: 00000000-0000-4000-8000-000000000000
+# 2026-08-18 — repository registered on Artifact Hub as `kollect`
+# (https://artifacthub.io/packages/search?repo=kollect). repositoryID below is the
+# real ID from the Artifact Hub control panel.
+#
+# Verified Publisher activates once BOTH hold: the pushed repositoryID matches the
+# registered one, AND the owner email below matches the email on the Artifact Hub
+# account that owns the repository (account `konih`). Artifact Hub does not send a
+# verification mail — it compares the two addresses directly.
+repositoryID: cb3be9a6-8e3b-4419-9de5-1184fe349c29
 owners:
-  - name: kollect contributors
-    email: maintainers@platformrelay.github.io
+  - name: Konrad Heimel
+    email: konrad.heimel@gmail.com

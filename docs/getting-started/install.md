@@ -64,9 +64,10 @@ for a constrained development environment. The chart does not generate certifica
 Helm OCI on GHCR remains the primary install path ([ADR-0705](../adr/0705-release-supply-chain.md)).
 Additional distribution wiring is landing under [ADR-0708](../adr/0708-operator-distribution-hubs.md):
 
-- **Artifact Hub** — once the chart repository is registered and Verified Publisher metadata is
-  live, the same OCI chart (`oci://ghcr.io/platformrelay/kollect`) will appear in Artifact Hub
-  search. Until listing is confirmed, install from GHCR as above.
+- **Artifact Hub** — the chart repository is registered and listed as
+  [`kollect`](https://artifacthub.io/packages/search?repo=kollect); it indexes the same OCI chart
+  (`oci://ghcr.io/platformrelay/kollect`), so Artifact Hub is a discovery surface, not a separate
+  install path — `helm install` from GHCR exactly as above.
 - **OperatorHub / OpenShift** — OLM bundles are generated at release and submitted to the community
   operator catalogs when `OPERATORHUB_PAT` is configured. After upstream merge, install via
   OperatorHub or the OpenShift console using package **`kollect`**, channel **`stable`**. Until then,
