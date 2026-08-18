@@ -229,6 +229,7 @@ spec:
             - apiGroups:
                 - kollect.dev
               resources:
+                - kollectclusterscopes
                 - kollectprofiles
                 - kollectscopes
               verbs:
