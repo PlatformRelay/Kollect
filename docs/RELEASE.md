@@ -265,7 +265,7 @@ Check the job log after a release; if it skipped, submit by hand:
 
 ```sh
 TAG=v0.18.0
-REPO=platformrelay/kollect
+REPO=platformrelay   # the OWNER; the image name is appended below
 
 # DR-FIND-07 — READ THIS BEFORE RESOLVING THE DIGEST.
 # ghcr.io/platformrelay/kollect holds TWO artifact kinds:
@@ -274,14 +274,21 @@ REPO=platformrelay/kollect
 # Both give you a valid sha256 digest, so a mistake here passes every string check and
 # only surfaces ~30 minutes into the upstream pipeline as a DeployableByOLM timeout
 # (CreateContainerError "image not known"). Always digest the V-PREFIXED tag.
-IMAGE_DIGEST="$(crane digest "ghcr.io/${REPO}:${TAG}")"
+IMAGE_DIGEST="$(crane digest "ghcr.io/${REPO}/kollect:${TAG}")"
+# No crane? docker buildx imagetools inspect "ghcr.io/${REPO}/kollect:${TAG}" \
+#             --format '{{.Manifest.Digest}}'
 
 VERSION="${TAG#v}" IMAGE_DIGEST="${IMAGE_DIGEST}" GH_TOKEN=<pat> hack/operatorhub-pr.sh
 ```
 
 `hack/operatorhub-pr.sh` refuses to submit a digest that is not a runnable container image
 (`hack/lib/olm-image-digest.sh`), so the chart digest is rejected before anything reaches a
-third-party repository. Use `DRY_RUN=1` to generate and validate the bundle without pushing.
+third-party repository.
+
+`DRY_RUN=1` generates and validates the bundle without pushing, but it exits **before** the
+runnable-image check — that check needs a registry, and keeping it off the dry-run path is what
+lets the offline meta-tests run with a synthetic digest. A clean dry run therefore says nothing
+about whether `IMAGE_DIGEST` points at a real image; only a live submission verifies that.
 
 To correct an already-open submission, push a new commit to the `kollect-v<version>` branch on
 the `platformrelay` fork of each upstream repo — that re-triggers the hosted pipelines.
@@ -292,7 +299,7 @@ the `platformrelay` fork of each upstream repo — that re-triggers the hosted p
 
 ```sh
 TAG=v0.2.0-rc.1   # or your release tag
-REPO=platformrelay/kollect
+REPO=platformrelay   # the OWNER; the image name is appended below
 
 # DR-FIND-07: the operator image is published at the v-prefixed tag only; the
 # bare "${TAG#v}" tag on this repo path is the Helm chart, so digest by ${TAG}.

@@ -26,15 +26,23 @@ olm_digest_format_ok() {
 #
 # True when the manifest describes something a kubelet can actually start.
 #
-# This is an ALLOWLIST, not a Helm denylist. Rejecting only
-# application/vnd.cncf.helm.config.v1+json would wave through every other
-# non-runnable artifact that shares an OCI repository -- SBOMs, in-toto
-# provenance, cosign signatures, WASM modules -- each of which fails the same
-# way and just as late.
+# This is an ALLOWLIST over the manifest's CONFIG mediaType, not a Helm denylist.
+# Rejecting only application/vnd.cncf.helm.config.v1+json would wave through every
+# other artifact that declares its own config type -- Helm charts today, WASM modules
+# or a future packaging format tomorrow -- each failing the same way and just as late.
 #
 # Accepted:
 #   * an image index / manifest list carrying at least one entry, or
 #   * a single manifest whose CONFIG is a container image config.
+#
+# KNOWN LIMITATION -- this is a config-mediaType check, NOT an artifact-kind check.
+# Cosign signatures and cosign-attached in-toto attestations reuse the ordinary OCI
+# image config mediaType and differ only in their LAYER types, so they are accepted
+# here. The release workflow pushes exactly such artifacts into this same GHCR repo.
+# They are not reachable by the mistake this guard exists to catch: cosign publishes
+# them under sha256-<digest>.sig style tags, never under a bare semver tag someone
+# might paste. Widening the check to inspect layer types would buy nothing for that
+# failure mode; the digest formats simply do not collide.
 olm_manifest_is_runnable() {
   local json media_type config_type entries
   json="$(cat)"
@@ -152,7 +160,8 @@ ERROR: ${image_repo}@${digest} is not a runnable container image -- it is ${desc
   and the controller image (v-prefixed tag, e.g. v0.18.0). Resolve IMAGE_DIGEST from
   the V-PREFIXED tag:
 
-    docker buildx imagetools inspect ghcr.io/platformrelay/kollect:v<version> --format '{{.Manifest.Digest}}'
+    crane digest ghcr.io/platformrelay/kollect:v<version>
+    # or: docker buildx imagetools inspect ghcr.io/platformrelay/kollect:v<version> --format '{{.Manifest.Digest}}'
 
   or take it straight from the release workflow's build step output.
 ERR

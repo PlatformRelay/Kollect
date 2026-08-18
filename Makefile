@@ -256,7 +256,7 @@ generate-olm-bundle: ## Generate OLM bundle for OperatorHub submission
 	if ! printf '%s' "$${IMAGE_DIGEST}" | grep -Eq '^sha256:[0-9a-f]{64}$$'; then \
 		echo "ERROR: IMAGE_DIGEST must be a canonical sha256:<64 lowercase hex> digest (got '$${IMAGE_DIGEST}')." >&2; \
 		echo "       Resolve it from the V-PREFIXED image tag -- the bare '<version>' tag on GHCR is the Helm chart (DR-FIND-07):" >&2; \
-		echo "         docker buildx imagetools inspect ghcr.io/platformrelay/kollect:v<version> --format '{{.Manifest.Digest}}'" >&2; \
+		echo "         crane digest ghcr.io/platformrelay/kollect:v<version>" >&2; \
 		exit 1; \
 	fi && \
 	DATE=$$(date -u +%Y-%m-%dT00:00:00Z) && \
