@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **sink:** Redact kafka SASL construction errors ([#303](https://github.com/platformrelay/kollect/pull/303))[f98ddbe](https://github.com/platformrelay/kollect/commit/f98ddbe7c6b2f9d3caf57d19e4a23660dee7e096)
+
 ## [0.18.0](https://github.com/platformrelay/kollect/compare/v0.17.0..v0.18.0) - 2026-08-16
 
 ### Bug Fixes
