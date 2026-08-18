@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **artifacthub:** Delist the charts that pin a nonexistent :latest image [5f460d5](https://github.com/platformrelay/kollect/commit/5f460d5ef458c8276b60513771cfd158d3439ce3)
+
+- **olm:** Reject a bundle digest that is not a runnable image [b39af74](https://github.com/platformrelay/kollect/commit/b39af748bf1759540c6f83193b635fe38cd789f3)
+
 - **olm:** Give every owned CRD an alm-examples entry ([#311](https://github.com/platformrelay/kollect/pull/311))[8a6eb3b](https://github.com/platformrelay/kollect/commit/8a6eb3bcccfb5451c8e5e123016f35afa7e4575e)
 
 - **dist:** Stop Artifact Hub indexing image tags as charts [f105676](https://github.com/platformrelay/kollect/commit/f1056768c9c7357cc84295379cae108b6f746103)
