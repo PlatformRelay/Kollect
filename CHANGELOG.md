@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **dist:** Stop Artifact Hub indexing image tags as charts [f105676](https://github.com/platformrelay/kollect/commit/f1056768c9c7357cc84295379cae108b6f746103)
+
+- **olm:** Correct installModes and make OperatorHub submission portable [6f1f1b9](https://github.com/platformrelay/kollect/commit/6f1f1b93d41b6eefbddeb41cf39a746b50fe3732)
+
 - **webhook:** Validate spec-derived GVKs when the profile is missing ([#308](https://github.com/platformrelay/kollect/pull/308))[3cac404](https://github.com/platformrelay/kollect/commit/3cac404349c359d4bb07221df34b26012cdfe7b5)
 
 - **webhook:** Keep KollectScope checks when the profile is missing ([#307](https://github.com/platformrelay/kollect/pull/307))[d233432](https://github.com/platformrelay/kollect/commit/d2334327067857c65c9ae53aa6fd0aab162a7cd9)
@@ -24,6 +28,13 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **webhook:** Enforce cluster-scope when the profile is missing ([#304](https://github.com/platformrelay/kollect/pull/304))[bd3ed9e](https://github.com/platformrelay/kollect/commit/bd3ed9ef826405ae8bacf58a4f655764c8099812)
 
 - **sink:** Redact kafka SASL construction errors ([#303](https://github.com/platformrelay/kollect/pull/303))[f98ddbe](https://github.com/platformrelay/kollect/commit/f98ddbe7c6b2f9d3caf57d19e4a23660dee7e096)
+
+
+### Features
+
+- **docs:** Add Artifact Hub and OperatorHub.io badges ([#309](https://github.com/platformrelay/kollect/pull/309))[e71faaf](https://github.com/platformrelay/kollect/commit/e71faaffd7dc826d4d19fb69bc4953c6c2f32d58)
+
+- **dist:** Activate the Artifact Hub listing [7de7443](https://github.com/platformrelay/kollect/commit/7de74433f56a29da95d58ad5bb44ff7e7b144807)
 
 ## [0.18.0](https://github.com/platformrelay/kollect/compare/v0.17.0..v0.18.0) - 2026-08-16
 
