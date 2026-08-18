@@ -2,14 +2,27 @@
 # ghcr.io/<owner>/kollect:artifacthub.io by the release workflow.
 #
 # 2026-08-18 — repository registered on Artifact Hub as `kollect`
-# (https://artifacthub.io/packages/search?repo=kollect). repositoryID below is the
-# real ID from the Artifact Hub control panel.
+# (https://artifacthub.io/packages/search?repo=kollect); Verified Publisher active.
 #
-# Verified Publisher activates once BOTH hold: the pushed repositoryID matches the
-# registered one, AND the owner email below matches the email on the Artifact Hub
-# account that owns the repository (account `konih`). Artifact Hub does not send a
-# verification mail — it compares the two addresses directly.
+# Verified Publisher requires BOTH: the pushed repositoryID matches the registered
+# one, AND the owner email matches the email on the Artifact Hub account that owns
+# the repository (account `konih`). Artifact Hub compares the two addresses directly
+# — it does not send a verification mail.
 repositoryID: cb3be9a6-8e3b-4419-9de5-1184fe349c29
 owners:
   - name: Konrad Heimel
     email: konrad.heimel@gmail.com
+
+# DR-FIND-07: this ONE OCI repository holds two different artifact kinds — the Helm
+# chart at bare semver tags (0.18.0) and the multi-arch controller image at
+# v-prefixed tags (v0.18.0). Artifact Hub treats every semver-ish tag as a chart, so
+# without this it tries to load the image tags as charts and the tracker reports
+# "layer not found" for each one. Bare 0.12.0 is included because that single release
+# published the IMAGE to the chart's bare tag; every other bare tag is a real chart.
+#
+# `version` is a REGULAR EXPRESSION matched against the tag; `name` is an exact match
+# on the package name. Ignored packages are applied the next time the repository is
+# processed, not immediately.
+ignore:
+  - name: kollect
+    version: '^(v[0-9].*|0\.12\.0)$'
