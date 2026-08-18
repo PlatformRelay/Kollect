@@ -136,6 +136,14 @@ jobs:
           # some sonar_ko_* meta-tests (chart-rendering ones) need it.
           command -v yq >/dev/null 2>&1 || sudo snap install yq
           yq --version
+      # DIST-OH-02: dist_olm_bundle_test.sh hard-requires operator-sdk for the OperatorHub
+      # validator gate (operatorhubv2 / capabilities / categories). Installing it here is what
+      # makes that gate actually run in CI instead of skipping -- a skipped gate would read as
+      # coverage that does not exist. The gate resolves ./bin/operator-sdk first, so install there.
+      - name: Install operator-sdk (OLM bundle validators)
+        env:
+          OPERATOR_SDK_VERSION: v1.42.3
+        run: bash hack/install-operator-sdk.sh ./bin
       - name: Verify nightly advisory race job contract (HY-07)
         run: bash hack/test/hyg_07_nightly_race_test.sh
       - name: Verify manager RBAC grants core Events (not events.k8s.io)

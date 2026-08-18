@@ -59,6 +59,12 @@ grep -Fq 'DRY_RUN' "${SCRIPT}" ||
 grep -Fq 'operators/kollect' "${SCRIPT}" ||
   fail "operatorhub-pr.sh operator dir must be operators/kollect"
 
+# DIST-OH-02: the structural file-presence checks in operatorhub-pr.sh cannot see a
+# non-standard category, a missing alm-examples entry or a malformed minKubeVersion. The
+# submission path must run the modern validator set before pushing to a third-party repo.
+printf '%s\n' "${CODE}" | grep -Fq 'make validate-olm-bundle' ||
+  fail "operatorhub-pr.sh must run 'make validate-olm-bundle' before submitting the bundle upstream"
+
 grep -Fq 'operatorhub-pr:' "${WORKFLOW}" ||
   fail "release workflow must define operatorhub-pr job"
 grep -Fq 'OPERATORHUB_PAT' "${WORKFLOW}" ||
@@ -67,6 +73,8 @@ grep -Fq 'continue-on-error: true' "${WORKFLOW}" ||
   fail "release workflow operatorhub step must soft-fail"
 grep -Fq 'hack/operatorhub-pr.sh' "${WORKFLOW}" ||
   fail "release workflow must invoke hack/operatorhub-pr.sh"
+grep -Fq 'hack/install-operator-sdk.sh' "${WORKFLOW}" ||
+  fail "release workflow must install operator-sdk — operatorhub-pr.sh hard-fails without it"
 
 command -v yq >/dev/null 2>&1 ||
   fail "yq (mikefarah/yq v4) is required to inspect the operatorhub-pr job"
