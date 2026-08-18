@@ -102,7 +102,12 @@ fi
 # verifying a different repo than the one actually shipped would greenlight an
 # artifact nobody pulls. Keep the override honest.
 TEMPLATE_CSV="${CHECKOUT_DIR}/config/olm/template/manifests/kollect.clusterserviceversion.yaml"
-if [[ -f "${TEMPLATE_CSV}" ]] && ! grep -Fq "image: ${IMAGE_REPO}@__IMAGE_DIGEST__" "${TEMPLATE_CSV}"; then
+if [[ ! -f "${TEMPLATE_CSV}" ]]; then
+  echo "ERROR: cannot find the CSV template at ${TEMPLATE_CSV};" >&2
+  echo "       run this script from the repository root so IMAGE_REPO can be cross-checked." >&2
+  exit 1
+fi
+if ! grep -Fq "image: ${IMAGE_REPO}@__IMAGE_DIGEST__" "${TEMPLATE_CSV}"; then
   echo "ERROR: IMAGE_REPO='${IMAGE_REPO}' is not the repository the CSV template pins;" >&2
   echo "       the runnable-image check would verify a different artifact than the bundle ships." >&2
   exit 1
