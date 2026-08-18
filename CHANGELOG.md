@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **webhook:** Keep KollectScope checks when the profile is missing ([#307](https://github.com/platformrelay/kollect/pull/307))[d233432](https://github.com/platformrelay/kollect/commit/d2334327067857c65c9ae53aa6fd0aab162a7cd9)
+
 - **olm:** Sync CSV clusterPermissions with the kollectclusterscopes grant ([#306](https://github.com/platformrelay/kollect/pull/306))[aa12fde](https://github.com/platformrelay/kollect/commit/aa12fde1a0a7092e72244bdb41f969507541a565)
 
 - **controller:** Re-reconcile cluster targets on KollectClusterScope writes [f52ed87](https://github.com/platformrelay/kollect/commit/f52ed87f423126d275594727892409a02a8c8558)
