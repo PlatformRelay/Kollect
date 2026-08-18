@@ -134,18 +134,87 @@ CIEOF
   fi
 
   local pr_title="operator ${pr_tag} [CI] kollect (${VERSION})"
+  # Quoted heredoc: no expansion, so markdown backticks are literal and cannot become
+  # command substitution. ${VERSION} is substituted afterwards via the placeholder.
   local pr_body
-  pr_body="### New Submission
+  pr_body="$(cat <<'PRBODY'
+### New Submission
 
-**Operator:** kollect
-**Version:** ${VERSION}
-
-Update Kollect operator to version ${VERSION}.
-
-See [release notes](https://github.com/platformrelay/kollect/releases/tag/v${VERSION}) for changes.
+**Operator:** kollect · **Version:** __VERSION__ · **Channel:** stable · **Capability level:** Full Lifecycle
 
 ---
-*This PR was automatically created by the Kollect release workflow.*"
+
+## What Kollect does
+
+Kollect turns live Kubernetes state into **durable, queryable inventory**. Operators declare once
+what matters -- via `KollectProfile` (which fields to extract) and `KollectTarget` (which resources
+to watch) -- and Kollect keeps that inventory current, exporting the same canonical snapshot to Git,
+relational databases, object storage, and event streams in parallel.
+
+The motivating problem: everything that wants to know "what is running in this cluster" ends up
+querying the apiserver. That couples every consumer to cluster RBAC, risks watch storms, and pushes
+teams toward storing derived state in etcd, where it does not belong. Kollect inverts this --
+consumers query a **sink**, never the apiserver.
+
+## Features
+
+* **Decoupled read model** -- consumers query a sink, not the apiserver: no RBAC blast radius, no
+  watch-storm risk, no etcd size pressure.
+* **Event-driven collection** -- one shared informer per GVK keeps inventory current as the cluster
+  changes. No polling loops.
+* **Schema-flexible extraction** -- declare the attributes you want with CEL expressions or
+  JSONPath. No bespoke collector per resource kind.
+* **Pluggable sinks** -- snapshot, database, and event sink families fan the same snapshot out to
+  Git, Postgres, object stores, or event streams. No privileged backend tier.
+* **Multi-tenant by design** -- `KollectScope` gates which teams, namespaces, and sinks each tenant
+  may use, so inventory collection can be delegated safely.
+* **Fleet-ready** -- N single-mode operators feed one shared sink, partitioned by `spec.cluster`.
+  There is no central hub tier to operate.
+* **Scale-aware** -- shared informers, export sharding, and tunable reconcile/dispatch concurrency.
+
+## Security
+
+**Runtime hardening.** The manager runs `runAsNonRoot` with a `RuntimeDefault` seccomp profile, a
+read-only root filesystem, `allowPrivilegeEscalation: false`, and **all** Linux capabilities dropped.
+
+**Least privilege and data handling.**
+
+* Reads only the resources its RBAC allows, with **SubjectAccessReview** checks configurable per
+  target -- collection cannot be used to escalate beyond what the requester may already read.
+* Writes to external sinks using credentials sourced from **`Secret` references only**; credentials
+  never appear in CR specs or logs.
+* Stores **aggregated summaries** in CR `status`, not full resource payloads.
+* Documented guidance to restrict egress with `NetworkPolicy` and require verified TLS to sinks.
+
+**Supply chain.** Every release publishes multi-arch images with **cosign keyless signatures**,
+**SPDX SBOMs**, and **SLSA provenance attestations**, plus `sha256sum` manifests for install YAML
+and the chart tarball. The CSV deployment and `relatedImages` in this bundle are **digest-pinned**,
+not tag-pinned.
+
+**Assurance.** The project runs OpenSSF Scorecard, `govulncheck`, golangci-lint SAST, and dependency
+and license (SCA) policy checks, publishes VEX statements for vulnerability exceptions, and accepts
+private vulnerability reports. See `SECURITY.md` and the published security architecture for trust
+boundaries, tenancy, redaction, and shared-responsibility detail.
+
+## Notes for reviewers
+
+* **Install mode:** `AllNamespaces` only. The controller watches cluster-wide and does not consume
+  `olm.targetNamespaces`, so advertising a namespace-scoped mode would silently collect from the
+  whole cluster. It is deliberately not offered.
+* **Webhooks:** this bundle runs with validating webhooks disabled -- no webhook `Service` or
+  certificate ships in it. CRD schema validation still applies. The Helm chart path offers the full
+  admission stack for users who want it.
+* **Prerequisites:** Kubernetes 1.28+.
+
+Source: https://github.com/platformrelay/kollect ·
+Docs: https://platformrelay.github.io/Kollect/ ·
+Release notes: https://github.com/platformrelay/kollect/releases/tag/v__VERSION__
+
+---
+*Submitted by the Kollect release workflow (`hack/operatorhub-pr.sh`).*
+PRBODY
+)"
+  pr_body="${pr_body//__VERSION__/${VERSION}}"
 
   # Look the PR up by branch name and match the owner case-INSENSITIVELY. GitHub stores
   # the canonical org casing ("PlatformRelay"), so the old `--head "${FORK_OWNER}:${BRANCH}"`
