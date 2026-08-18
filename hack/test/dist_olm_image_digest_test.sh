@@ -295,10 +295,17 @@ printf '%s\n' "${OLM_RECIPE_RAW}" | grep -Fq 'IMAGE_DIGEST' ||
 # one long `echo ... && \` chain, so
 #   @echo "resolving digest" && curl -sfL https://ghcr.io/v2/ && \
 # evaded the guard entirely. Removing only the quoted spans keeps the executable part
-# of every line under inspection.
+# of most lines under inspection.
+#
+# This trades one blind spot for a smaller one: a command hidden inside `sh -c "..."`
+# now lives in a stripped span and is missed, where raw-text matching would have caught
+# it. That is the right trade here -- an `@echo` in a recipe that is one long
+# `echo ... && \` chain is a shape this Makefile actually uses, whereas `sh -c` is not --
+# but it is a trade, not full coverage. The leading character class deliberately does NOT
+# exclude `/` or `.`, so path-qualified calls (`./bin/crane`, `/usr/bin/curl`) still match.
 OLM_RECIPE="$(printf '%s\n' "${OLM_RECIPE_RAW}" | sed 's/"[^"]*"//g')"
 if printf '%s\n' "${OLM_RECIPE}" |
-  grep -Eq '(^|[^[:alnum:]_./-])(curl|wget|oras|crane|skopeo|regctl|podman|nerdctl|cosign)([^[:alnum:]_-]|$)|(docker|helm)[[:space:]]+(pull|push|manifest|buildx)'; then
+  grep -Eq '(^|[^[:alnum:]_-])(curl|wget|oras|crane|skopeo|regctl|podman|nerdctl|cosign)([^[:alnum:]_-]|$)|(docker|helm)[[:space:]]+(pull|push|manifest|buildx)'; then
   fail "generate-olm-bundle must not perform a registry round-trip (keeps the bundle test hermetic)"
 fi
 pass "Makefile generate-olm-bundle has an offline IMAGE_DIGEST format guard and no registry client"
