@@ -25,6 +25,33 @@ grep -Fq 'redhat-openshift-ecosystem/community-operators-prod' "${SCRIPT}" ||
   fail "operatorhub-pr.sh must submit to community-operators-prod"
 grep -Fq 'v4.19' "${SCRIPT}" ||
   fail "operatorhub-pr.sh must annotate OpenShift v4.19 for prod catalog"
+
+# The three checks below inspect EXECUTABLE lines only — the comments in operatorhub-pr.sh
+# legitimately name the very anti-patterns being banned, and a naive grep matches its own docs.
+CODE="$(grep -v '^[[:space:]]*#' "${SCRIPT}")"
+
+# GNU-only `sed -i <script>` works on the CI runner and fails on BSD/macOS sed, where -i
+# consumes the next argument as a backup suffix. This script is documented as manually
+# re-runnable, so in-place edits must stay portable (awk, or an explicit -i.bak suffix).
+if printf '%s\n' "${CODE}" | grep -Fq "sed -i '"; then
+  fail "operatorhub-pr.sh must not use GNU-only 'sed -i <script>' (breaks on BSD/macOS sed)"
+fi
+
+# The EXISTING-PR LOOKUP must match the head owner case-insensitively. GitHub stores the
+# canonical org casing ("PlatformRelay"), so a `gh pr list --head "<owner>:<branch>"` filter
+# built from a lower-cased FORK_OWNER matches nothing and the script then tries to open a
+# duplicate PR and dies. (`gh pr create --head <owner>:<branch>` is fine — creation resolves
+# the owner case-insensitively; only the list filter is a literal string match.)
+printf '%s\n' "${CODE}" | grep -Fq 'headRepositoryOwner' ||
+  fail "operatorhub-pr.sh must resolve an existing PR via headRepositoryOwner (case-insensitive), not a literal \${FORK_OWNER}:\${BRANCH} list filter"
+printf '%s\n' "${CODE}" | grep -Fq 'ascii_downcase' ||
+  fail "operatorhub-pr.sh must compare the PR head owner case-insensitively (ascii_downcase)"
+
+# `gh pr edit` resolves assignees/labels/reviewers over GraphQL and requires `read:org`,
+# forcing a broader PAT than this cross-repo submission needs. PATCH via `gh api` instead.
+if printf '%s\n' "${CODE}" | grep -Fq 'gh pr edit'; then
+  fail "operatorhub-pr.sh must not use 'gh pr edit' (requires read:org); PATCH the PR via gh api"
+fi
 grep -Fq 'FORK_OWNER="${FORK_OWNER:-platformrelay}"' "${SCRIPT}" ||
   fail "operatorhub-pr.sh default FORK_OWNER must be platformrelay"
 grep -Fq 'DRY_RUN' "${SCRIPT}" ||

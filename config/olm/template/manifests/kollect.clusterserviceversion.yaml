@@ -121,11 +121,15 @@ spec:
     - base64data: __ICON_BASE64__
       mediatype: image/svg+xml
 
+  # Kollect's controller watches cluster-wide: it never reads olm.targetNamespaces
+  # and sets no WATCH_NAMESPACE, so a namespace-scoped install would silently
+  # collect from the whole cluster. Advertise AllNamespaces only until that
+  # plumbing exists (ADR-0708 follow-up D9).
   installModes:
     - type: OwnNamespace
-      supported: true
+      supported: false
     - type: SingleNamespace
-      supported: true
+      supported: false
     - type: MultiNamespace
       supported: false
     - type: AllNamespaces

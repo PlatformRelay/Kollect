@@ -8,7 +8,11 @@
 # Required env vars:
 #   VERSION       - Release version without 'v' prefix (e.g., 0.17.0)
 #   IMAGE_DIGEST  - Controller image digest (e.g., sha256:abc...)
-#   GH_TOKEN      - PAT with public_repo scope for fork push and upstream PRs
+#   GH_TOKEN      - classic PAT for fork push and upstream PRs. Scopes: `public_repo`
+#                   (clone/push the public forks, open + edit upstream PRs) AND
+#                   `workflow` — the submission branch is cut from upstream/main, which
+#                   carries .github/workflows/*, and GitHub rejects a PAT push that
+#                   introduces workflow files without it once the fork drifts behind.
 #
 # Optional env vars:
 #   FORK_OWNER      - GitHub org owning the forks (default: platformrelay)
@@ -96,14 +100,27 @@ submit_bundle() {
   cp "${CHECKOUT_DIR}/${BUNDLE_DIR}/metadata/"* "${OPERATOR_DIR}/${VERSION}/metadata/"
 
   if [[ -n "${openshift_versions}" ]]; then
-    sed -i '/^annotations:/a\  com.redhat.openshift.versions: "'"${openshift_versions}"'"' \
-      "${OPERATOR_DIR}/${VERSION}/metadata/annotations.yaml"
+    # Portable insert-after. GNU and BSD/macOS sed disagree on BOTH `-i` (BSD reads the
+    # next argument as the backup suffix) and the one-line `a\text` form, so the previous
+    # `sed -i` worked on the CI runner and died locally with "invalid command code".
+    # awk behaves identically on both, which matters because docs/RELEASE.md and the
+    # workflow's own failure warning both tell operators to re-run this script by hand.
+    local annotations_file="${OPERATOR_DIR}/${VERSION}/metadata/annotations.yaml"
+    local tmp_annotations
+    tmp_annotations="$(mktemp)"
+    awk -v line="  com.redhat.openshift.versions: \"${openshift_versions}\"" \
+      '{ print } /^annotations:/ { print line }' \
+      "${annotations_file}" >"${tmp_annotations}"
+    mv "${tmp_annotations}" "${annotations_file}"
   fi
 
+  # `reviewers` takes GitHub USERNAMES, not orgs. The PR author (the OPERATORHUB_PAT
+  # owner) must appear here on the UPSTREAM default branch for the pipeline to set
+  # `authorized-changes` and self-merge later version bumps; an org never resolves.
   cat > "${OPERATOR_DIR}/ci.yaml" <<'CIEOF'
 updateGraph: semver-mode
 reviewers:
-  - platformrelay
+  - konih
 CIEOF
 
   git add "${OPERATOR_DIR}/"
@@ -130,20 +147,31 @@ See [release notes](https://github.com/platformrelay/kollect/releases/tag/v${VER
 ---
 *This PR was automatically created by the Kollect release workflow.*"
 
+  # Look the PR up by branch name and match the owner case-INSENSITIVELY. GitHub stores
+  # the canonical org casing ("PlatformRelay"), so the old `--head "${FORK_OWNER}:${BRANCH}"`
+  # filter silently returned nothing whenever FORK_OWNER differed in case, and the script
+  # then tried to create a duplicate PR and died with "a pull request already exists".
+  local fork_owner_lc
+  fork_owner_lc="$(printf '%s' "${FORK_OWNER}" | tr '[:upper:]' '[:lower:]')"
   local existing_pr
   existing_pr=$(GH_TOKEN="${GH_TOKEN}" gh pr list \
     --repo "${upstream_repo}" \
-    --head "${FORK_OWNER}:${BRANCH}" \
+    --head "${BRANCH}" \
     --state open \
-    --json number \
-    --jq '.[0].number // empty' 2>/dev/null || true)
+    --json number,headRepositoryOwner \
+    --jq "[.[] | select((.headRepositoryOwner.login // \"\" | ascii_downcase) == \"${fork_owner_lc}\")] | .[0].number // empty" 2>/dev/null || true)
 
   if [[ -n "${existing_pr}" ]]; then
     echo "Updating existing PR #${existing_pr}"
-    GH_TOKEN="${GH_TOKEN}" gh pr edit "${existing_pr}" \
-      --repo "${upstream_repo}" \
-      --title "${pr_title}" \
-      --body "${pr_body}"
+    # Use the REST endpoint, NOT `gh pr edit`. The latter resolves assignees/labels/
+    # reviewers via GraphQL and so demands `read:org` ("The 'login' field requires one of
+    # the following scopes: ['read:org']"), which would force a broader PAT than this
+    # script needs. PATCH .../pulls/{n} updates title+body with `public_repo` alone.
+    GH_TOKEN="${GH_TOKEN}" gh api \
+      --method PATCH \
+      "repos/${upstream_repo}/pulls/${existing_pr}" \
+      -f title="${pr_title}" \
+      -f body="${pr_body}" >/dev/null
     echo "PR updated: https://github.com/${upstream_repo}/pull/${existing_pr}"
   else
     echo "Creating new PR..."

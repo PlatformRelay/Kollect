@@ -1,2 +1,8 @@
 ---
+# NOTE: this file is NOT what gets submitted. hack/operatorhub-pr.sh writes its own
+# copy of ci.yaml into the community-operators PR. Keep the two in sync.
+# `reviewers` takes GitHub usernames (an org does not resolve) — the PR author must
+# appear in the upstream copy for `authorized-changes` / self-merge to apply.
 updateGraph: semver-mode
+reviewers:
+  - konih
