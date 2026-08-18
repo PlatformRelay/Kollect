@@ -111,6 +111,106 @@ assert_not_runnable "registry error document" \
 
 assert_not_runnable "empty input" ''
 
+# --------------------------------------------- olm_assert_runnable_image (offline)
+
+# olm_assert_runnable_image is the function that actually runs on the release path,
+# so its fail-closed branches need a regression lock rather than a manual probe.
+# Stub `curl` on PATH (same trick as hack/test/lab_runner_resume_meta_test.sh) and
+# drive every branch offline: a registry outage must abort a submission, never wave
+# an unverified digest through to a third-party repository.
+STUB_DIR="$(mktemp -d)"
+trap 'rm -rf "${STUB_DIR}"' EXIT
+cat >"${STUB_DIR}/curl" <<'STUB'
+#!/bin/sh
+# Fake curl: last argument is the URL. Behaviour driven by STUB_* env vars.
+for a in "$@"; do url="$a"; done
+case "${url}" in
+*"/token?"*)
+  [ "${STUB_TOKEN_FAIL:-0}" = "1" ] && exit 22
+  printf '%s' "${STUB_TOKEN_BODY-{\"token\":\"stub-token\"}}"
+  exit 0
+  ;;
+*"/manifests/"*)
+  [ "${STUB_MANIFEST_FAIL:-0}" = "1" ] && exit 22
+  printf '%s' "${STUB_MANIFEST_BODY-}"
+  exit 0
+  ;;
+esac
+exit 0
+STUB
+chmod +x "${STUB_DIR}/curl"
+
+VALID_DIGEST="sha256:9f116431941d1816bfdb22f574f3394c30cf41a348082e1028b2a16b5e0ccc5c"
+REAL_INDEX='{"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[{"mediaType":"application/vnd.oci.image.manifest.v1+json","platform":{"architecture":"amd64","os":"linux"}}]}'
+HELM_MANIFEST='{"schemaVersion":2,"config":{"mediaType":"application/vnd.cncf.helm.config.v1+json"},"layers":[]}'
+
+# Runs olm_assert_runnable_image with the stub on PATH, leaving the exit status in
+# ASSERT_RC and the combined output in ASSERT_OUT. Deliberately NOT called inside a
+# command substitution -- that runs the function in a subshell, where the assignment
+# to ASSERT_RC is discarded and every "must be rejected" assertion reads an empty
+# status and silently passes.
+run_assert() {
+  set +e
+  PATH="${STUB_DIR}:${PATH}" olm_assert_runnable_image "$1" "$2" >"${STUB_DIR}/out" 2>&1
+  ASSERT_RC=$?
+  set -e
+  ASSERT_OUT="$(cat "${STUB_DIR}/out")"
+}
+
+# Happy path: a real multi-arch index is accepted.
+STUB_MANIFEST_BODY="${REAL_INDEX}" run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
+out="${ASSERT_OUT}"
+[[ "${ASSERT_RC}" -eq 0 ]] ||
+  fail "olm_assert_runnable_image rejected a valid image index: ${out}"
+pass "olm_assert_runnable_image accepts a multi-arch image index"
+
+# The v0.18.0 regression, offline: a Helm chart must be refused AND named.
+STUB_MANIFEST_BODY="${HELM_MANIFEST}" run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
+out="${ASSERT_OUT}"
+[[ "${ASSERT_RC}" -ne 0 ]] ||
+  fail "olm_assert_runnable_image ACCEPTED a Helm chart manifest"
+[[ "${out}" == *"HELM CHART"* ]] ||
+  fail "the Helm-chart rejection must name the artifact, got: ${out}"
+pass "olm_assert_runnable_image rejects a Helm chart and names it"
+
+# Fail-closed branches. Each must abort rather than assume the digest is fine.
+run_assert ghcr.io/platformrelay/kollect "latest"
+out="${ASSERT_OUT}"
+[[ "${ASSERT_RC}" -ne 0 ]] || fail "a malformed digest must be rejected before any fetch"
+pass "olm_assert_runnable_image rejects a malformed digest without touching the network"
+
+STUB_MANIFEST_BODY="${REAL_INDEX}" run_assert quay.io/platformrelay/kollect "${VALID_DIGEST}"
+out="${ASSERT_OUT}"
+[[ "${ASSERT_RC}" -ne 0 ]] || fail "a non-ghcr.io registry must be rejected, not silently trusted"
+[[ "${out}" == *"ghcr.io"* ]] || fail "the non-ghcr.io rejection should say which registry it understands"
+pass "olm_assert_runnable_image rejects a registry it cannot verify"
+
+STUB_TOKEN_FAIL=1 STUB_MANIFEST_BODY="${REAL_INDEX}" run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
+out="${ASSERT_OUT}"
+[[ "${ASSERT_RC}" -ne 0 ]] || fail "a failed token request must abort the submission"
+pass "olm_assert_runnable_image fails closed when the token request fails"
+
+STUB_TOKEN_BODY='{}' STUB_MANIFEST_BODY="${REAL_INDEX}" run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
+out="${ASSERT_OUT}"
+[[ "${ASSERT_RC}" -ne 0 ]] || fail "an empty token must abort the submission"
+pass "olm_assert_runnable_image fails closed on an empty token"
+
+STUB_MANIFEST_FAIL=1 run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
+out="${ASSERT_OUT}"
+[[ "${ASSERT_RC}" -ne 0 ]] || fail "a failed manifest fetch must abort the submission"
+pass "olm_assert_runnable_image fails closed when the manifest cannot be fetched"
+
+STUB_MANIFEST_BODY='<html>502 Bad Gateway</html>' run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
+out="${ASSERT_OUT}"
+[[ "${ASSERT_RC}" -ne 0 ]] || fail "a non-JSON body must abort the submission"
+pass "olm_assert_runnable_image fails closed on a non-JSON response"
+
+STUB_MANIFEST_BODY='{"errors":[{"code":"MANIFEST_UNKNOWN"}]}' run_assert ghcr.io/platformrelay/kollect "${VALID_DIGEST}"
+out="${ASSERT_OUT}"
+[[ "${ASSERT_RC}" -ne 0 ]] || fail "a registry error document must abort the submission"
+[[ "${out}" == *"MANIFEST_UNKNOWN"* ]] || fail "a registry error should surface its code, got: ${out}"
+pass "olm_assert_runnable_image fails closed on a registry error document"
+
 # ------------------------------------------------------------ failure messages
 
 # The rejection message must NAME the artifact. Regression lock: the first cut used
@@ -152,12 +252,24 @@ grep -Fq 'olm_digest_format_ok' "${ROOT}/Makefile" ||
   fail "Makefile generate-olm-bundle must reject a malformed IMAGE_DIGEST"
 
 # The Makefile guard must stay OFFLINE: hack/test/dist_olm_bundle_test.sh runs
-# generate-olm-bundle with a synthetic digest and must not need a registry.
-if grep -nE '^[^#]*(curl|oras|crane|skopeo|docker (manifest|buildx imagetools))' "${ROOT}/Makefile" |
-  grep -Fq 'generate-olm-bundle'; then
+# generate-olm-bundle with a synthetic digest that exists in no registry, so a
+# round-trip there turns a hermetic test into a network-flaky one.
+#
+# Scope this to the RECIPE BODY. An earlier cut piped the whole Makefile through two
+# greps and required a single line to hold both a registry tool and the target name --
+# which no recipe line ever does, so the assertion was dead and an injected
+# `crane digest ...` sailed through it. Extract the recipe, drop `echo` lines (the
+# failure message legitimately names `docker buildx imagetools` as the fix), then look
+# for a registry client.
+OLM_RECIPE="$(sed -n '/^generate-olm-bundle:/,/^[^	]/p' "${ROOT}/Makefile" | grep -v '^[[:space:]]*@*echo ')"
+[[ -n "${OLM_RECIPE}" ]] ||
+  fail "could not extract the generate-olm-bundle recipe from the Makefile"
+printf '%s\n' "${OLM_RECIPE}" | grep -Fq 'IMAGE_DIGEST' ||
+  fail "extracted the wrong block: the generate-olm-bundle recipe must reference IMAGE_DIGEST"
+if printf '%s\n' "${OLM_RECIPE}" | grep -Eq '(^|[^[:alnum:]_-])(curl|wget|oras|crane|skopeo|regctl)([^[:alnum:]_-]|$)|docker[[:space:]]+(manifest|buildx)'; then
   fail "generate-olm-bundle must not perform a registry round-trip (keeps the bundle test hermetic)"
 fi
-pass "Makefile generate-olm-bundle has an offline IMAGE_DIGEST format guard"
+pass "Makefile generate-olm-bundle has an offline IMAGE_DIGEST format guard and no registry client"
 
 # A malformed digest must actually fail the target.
 if make generate-olm-bundle VERSION=9.9.9-badtest IMAGE_DIGEST=latest >/dev/null 2>&1; then

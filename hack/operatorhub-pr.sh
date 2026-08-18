@@ -98,6 +98,16 @@ fi
 # shares this OCI repository. Deliberately placed AFTER the DRY_RUN exit so the offline
 # meta-tests, which pass a synthetic digest, never reach for a registry. Fails closed:
 # an unreachable registry aborts the submission rather than shipping an unverified pin.
+# The CSV template hardcodes the image repository in all three digest fields, so
+# verifying a different repo than the one actually shipped would greenlight an
+# artifact nobody pulls. Keep the override honest.
+TEMPLATE_CSV="${CHECKOUT_DIR}/config/olm/template/manifests/kollect.clusterserviceversion.yaml"
+if [[ -f "${TEMPLATE_CSV}" ]] && ! grep -Fq "image: ${IMAGE_REPO}@__IMAGE_DIGEST__" "${TEMPLATE_CSV}"; then
+  echo "ERROR: IMAGE_REPO='${IMAGE_REPO}' is not the repository the CSV template pins;" >&2
+  echo "       the runnable-image check would verify a different artifact than the bundle ships." >&2
+  exit 1
+fi
+
 olm_assert_runnable_image "${IMAGE_REPO}" "${IMAGE_DIGEST}"
 echo "Image digest verified runnable: ${IMAGE_REPO}@${IMAGE_DIGEST}"
 
