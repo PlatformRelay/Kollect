@@ -25,11 +25,18 @@ for file in "${INSTALL}" "${README}"; do
     fail "${file} must mention OperatorHub discoverability"
 done
 
+# ADR-0708 forbids shipping hub URLs that 404 before that hub lists us. Artifact Hub
+# registration completed 2026-08-18 (repo `kollect`, oci://ghcr.io/platformrelay/kollect),
+# so AH badge/listing URLs are now legitimate and are asserted below. OperatorHub has NOT
+# listed yet — its listing URLs stay banned until the community-operators PR merges.
 for file in "${INSTALL}" "${README}"; do
-  if grep -E 'artifacthub\.io/badge|operatorhub\.io/operator/kollect|artifacthub\.io/packages/helm' "${file}"; then
-    fail "${file} must not ship live hub badge/listing URLs before registration"
+  if grep -E 'operatorhub\.io/operator/kollect' "${file}"; then
+    fail "${file} must not ship live OperatorHub listing URLs before that listing exists"
   fi
 done
+
+grep -Fq 'artifacthub.io/badge/repository/kollect' "${README}" ||
+  fail "${README} must carry the Artifact Hub badge now that the repository is registered"
 
 pass "install docs describe hub paths without premature listing URLs"
 
