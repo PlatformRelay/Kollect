@@ -256,6 +256,36 @@ and the protected `release` environment.
 Release notes are assembled by [`hack/assemble-release-notes.sh`](https://github.com/platformrelay/kollect/blob/main/hack/assemble-release-notes.sh)
 and [`.github/release-notes-install.md`](https://github.com/platformrelay/kollect/blob/main/.github/release-notes-install.md).
 
+## Submit to OperatorHub (manual fallback)
+
+The `operatorhub-pr` job in the release workflow opens the two upstream PRs automatically, but
+it **skips silently** when `OPERATORHUB_PAT` is not configured — it logs
+`OPERATORHUB_PAT not configured; skipping OperatorHub submission.` and the job still goes green.
+Check the job log after a release; if it skipped, submit by hand:
+
+```sh
+TAG=v0.18.0
+REPO=platformrelay/kollect
+
+# DR-FIND-07 — READ THIS BEFORE RESOLVING THE DIGEST.
+# ghcr.io/platformrelay/kollect holds TWO artifact kinds:
+#   ghcr.io/platformrelay/kollect:0.18.0   -> the HELM CHART
+#   ghcr.io/platformrelay/kollect:v0.18.0  -> the CONTROLLER IMAGE   <- you want this one
+# Both give you a valid sha256 digest, so a mistake here passes every string check and
+# only surfaces ~30 minutes into the upstream pipeline as a DeployableByOLM timeout
+# (CreateContainerError "image not known"). Always digest the V-PREFIXED tag.
+IMAGE_DIGEST="$(crane digest "ghcr.io/${REPO}:${TAG}")"
+
+VERSION="${TAG#v}" IMAGE_DIGEST="${IMAGE_DIGEST}" GH_TOKEN=<pat> hack/operatorhub-pr.sh
+```
+
+`hack/operatorhub-pr.sh` refuses to submit a digest that is not a runnable container image
+(`hack/lib/olm-image-digest.sh`), so the chart digest is rejected before anything reaches a
+third-party repository. Use `DRY_RUN=1` to generate and validate the bundle without pushing.
+
+To correct an already-open submission, push a new commit to the `kollect-v<version>` branch on
+the `platformrelay` fork of each upstream repo — that re-triggers the hosted pipelines.
+
 ## Verify after release
 
 ### Container images (GHCR)
