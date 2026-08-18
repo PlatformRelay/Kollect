@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **webhook:** Validate spec-derived GVKs when the profile is missing ([#308](https://github.com/platformrelay/kollect/pull/308))[3cac404](https://github.com/platformrelay/kollect/commit/3cac404349c359d4bb07221df34b26012cdfe7b5)
+
 - **webhook:** Keep KollectScope checks when the profile is missing ([#307](https://github.com/platformrelay/kollect/pull/307))[d233432](https://github.com/platformrelay/kollect/commit/d2334327067857c65c9ae53aa6fd0aab162a7cd9)
 
 - **olm:** Sync CSV clusterPermissions with the kollectclusterscopes grant ([#306](https://github.com/platformrelay/kollect/pull/306))[aa12fde](https://github.com/platformrelay/kollect/commit/aa12fde1a0a7092e72244bdb41f969507541a565)
