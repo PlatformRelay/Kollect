@@ -34,6 +34,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **olm:** Validate the bundle locally with the modern validator set ([#312](https://github.com/platformrelay/kollect/pull/312))[3a21a0f](https://github.com/platformrelay/kollect/commit/3a21a0f08a4433c10d44ad9e3a59bc8fbd1b4284)
+
 - **docs:** Add Artifact Hub and OperatorHub.io badges ([#309](https://github.com/platformrelay/kollect/pull/309))[e71faaf](https://github.com/platformrelay/kollect/commit/e71faaffd7dc826d4d19fb69bc4953c6c2f32d58)
 
 - **dist:** Activate the Artifact Hub listing [7de7443](https://github.com/platformrelay/kollect/commit/7de74433f56a29da95d58ad5bb44ff7e7b144807)
