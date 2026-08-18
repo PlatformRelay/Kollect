@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **olm:** Give every owned CRD an alm-examples entry ([#311](https://github.com/platformrelay/kollect/pull/311))[8a6eb3b](https://github.com/platformrelay/kollect/commit/8a6eb3bcccfb5451c8e5e123016f35afa7e4575e)
+
 - **dist:** Stop Artifact Hub indexing image tags as charts [f105676](https://github.com/platformrelay/kollect/commit/f1056768c9c7357cc84295379cae108b6f746103)
 
 - **olm:** Correct installModes and make OperatorHub submission portable [6f1f1b9](https://github.com/platformrelay/kollect/commit/6f1f1b93d41b6eefbddeb41cf39a746b50fe3732)
