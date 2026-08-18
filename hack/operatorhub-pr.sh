@@ -60,7 +60,17 @@ while IFS= read -r crd_file; do
   fi
 done < <(find config/crd/bases -name 'kollect.dev_*.yaml' | sort)
 
-echo "Bundle verified: ${BUNDLE_DIR}"
+echo "Bundle structure verified: ${BUNDLE_DIR}"
+
+# DIST-OH-02: run the modern OperatorHub validator set BEFORE anything is pushed to a
+# third-party repo. The checks above are structural only (files present); they cannot see a
+# non-standard category, a missing alm-examples entry or a malformed minKubeVersion — all of
+# which the upstream hosted pipeline reports only after a PR exists. This target hard-fails
+# (with an install hint) when operator-sdk is missing rather than skipping, because a skipped
+# validation here is indistinguishable from a clean one.
+make validate-olm-bundle VERSION="${VERSION}" BUNDLE_DIR="${BUNDLE_DIR}"
+
+echo "Bundle validated: ${BUNDLE_DIR}"
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
   echo "DRY_RUN=1: would submit ${BUNDLE_DIR} to k8s-operatorhub/community-operators and redhat-openshift-ecosystem/community-operators-prod as ${BRANCH}"

@@ -164,10 +164,12 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
+OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.8.1
 CONTROLLER_TOOLS_VERSION ?= v0.20.1
+OPERATOR_SDK_VERSION ?= v1.42.3
 
 #ENVTEST_VERSION is the version of controller-runtime release branch to fetch the envtest setup script (i.e. release-0.20)
 ENVTEST_VERSION ?= $(shell v='$(call gomodver,sigs.k8s.io/controller-runtime)'; \
@@ -213,6 +215,15 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 		mv -f $(LOCALBIN)/golangci-lint-custom $(GOLANGCI_LINT); \
 	} || true
 
+# operator-sdk is NOT installed via go-install-tool: the module pulls in
+# github.com/proglottis/gpgme, so `go install .../cmd/operator-sdk@version` needs cgo and
+# pkg-config unless built with CGO_ENABLED=0 -tags containers_image_openpgp. The published
+# release binary is checksum-verified by hack/install-operator-sdk.sh and installs in seconds.
+.PHONY: operator-sdk
+operator-sdk: $(OPERATOR_SDK) ## Download operator-sdk locally if necessary (checksum-verified release binary).
+$(OPERATOR_SDK): $(LOCALBIN)
+	OPERATOR_SDK_VERSION=$(OPERATOR_SDK_VERSION) bash hack/install-operator-sdk.sh "$(LOCALBIN)"
+
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
 # $2 - package url which can be installed
@@ -255,3 +266,45 @@ generate-olm-bundle: ## Generate OLM bundle for OperatorHub submission
 		cp "$$crd" "$$BUNDLE_DIR/manifests/"; \
 	done && \
 	echo "OLM bundle generated at $$BUNDLE_DIR"
+
+# DIST-OH-02: validate a generated bundle locally with the modern OperatorHub validator set.
+#
+# The upstream community-operators pipeline deprecated the "operatorhub" validator in favour of
+# OperatorHubV2Validator, StandardCapabilitiesValidator and StandardCategoriesValidator. The
+# operator-sdk CLI exposes those Go identities under the *label* names used below --
+# `--select-optional name=operatorhub/v2` is a fatal label-parse error ("a valid label must ...
+# consist of alphanumeric characters, '-', '_' or '.'"), so the CLI names deliberately differ from
+# the wording of the deprecation warning. `operator-sdk bundle validate --list-optional` is the
+# source of truth: operatorhubv2 / capabilities / categories.
+#
+# Each validator gets its OWN `bundle validate` invocation ON PURPOSE. Repeating
+# --select-optional within a single invocation does NOT union the selectors: the LAST flag wins
+# and every earlier validator is silently dropped. Collapsing these three lines into one command
+# would still exit 0 on a green bundle while only ever running the last validator -- coverage that
+# does not exist. hack/test/dist_olm_bundle_test.sh pins the one-selector-per-invocation shape.
+#
+# No cluster and no registry are contacted: the input is an on-disk bundle directory, not an image.
+.PHONY: validate-olm-bundle
+validate-olm-bundle: ## Validate a generated OLM bundle (operatorhubv2 + capabilities + categories)
+	@VERSION=$${VERSION:-$(shell git describe --tags --abbrev=0 2>/dev/null | sed "s/^v//")} && \
+	if [ -z "$$VERSION" ]; then \
+		echo "ERROR: VERSION is required (e.g. make validate-olm-bundle VERSION=0.17.0)" >&2; exit 1; \
+	fi && \
+	BUNDLE_DIR=$${BUNDLE_DIR:-dist/olm-bundle/$$VERSION} && \
+	if [ ! -d "$$BUNDLE_DIR" ]; then \
+		echo "ERROR: $$BUNDLE_DIR does not exist. Run: make generate-olm-bundle VERSION=$$VERSION IMAGE_DIGEST=sha256:..." >&2; exit 1; \
+	fi && \
+	SDK="$(OPERATOR_SDK)" && \
+	if [ ! -x "$$SDK" ]; then SDK="$$(command -v operator-sdk || true)"; fi && \
+	if [ -z "$$SDK" ]; then \
+		echo "ERROR: operator-sdk not found." >&2; \
+		echo "  Install the pinned $(OPERATOR_SDK_VERSION) release into ./bin with: make operator-sdk" >&2; \
+		echo "  (equivalently: OPERATOR_SDK_VERSION=$(OPERATOR_SDK_VERSION) bash hack/install-operator-sdk.sh ./bin)" >&2; \
+		echo "  Upstream install docs: https://sdk.operatorframework.io/docs/installation/" >&2; \
+		exit 1; \
+	fi && \
+	echo "Validating OLM bundle $$BUNDLE_DIR with $$SDK ..." && \
+	"$$SDK" bundle validate "$$BUNDLE_DIR" --select-optional name=operatorhubv2 && \
+	"$$SDK" bundle validate "$$BUNDLE_DIR" --select-optional name=capabilities && \
+	"$$SDK" bundle validate "$$BUNDLE_DIR" --select-optional name=categories && \
+	echo "OLM bundle $$BUNDLE_DIR passed operatorhubv2 + capabilities + categories"

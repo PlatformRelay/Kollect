@@ -496,6 +496,19 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # DIST-OH-02: hack/operatorhub-pr.sh validates the bundle with the modern OperatorHub
+      # validator set before pushing anything to a third-party repo, and hard-fails without
+      # operator-sdk. Install it here so that validation actually runs.
+      - name: Install operator-sdk (OLM bundle validators)
+        # Soft-fail like the submission step it serves: OperatorHub submission is
+        # discoverability only and must never fail the release pipeline. If the download
+        # fails, operatorhub-pr.sh still refuses to submit an unvalidated bundle and the
+        # outcome is reported as a warning — it fails closed, never silently open.
+        continue-on-error: true
+        env:
+          OPERATOR_SDK_VERSION: v1.42.3
+        run: bash hack/install-operator-sdk.sh ./bin
+
       - name: Generate OLM bundle and create OperatorHub PRs
         id: operatorhub
         continue-on-error: true

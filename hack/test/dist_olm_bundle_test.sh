@@ -2,6 +2,7 @@
 # DIST-OLM-01: generate-olm-bundle must emit a registry+v1 bundle with all owned CRDs.
 # DIST-OH-01: every owned CRD must carry an alm-examples entry.
 # GATE-OWNED-01: spec.customresourcedefinitions.owned must cover config/crd/bases.
+# DIST-OH-02: the generated bundle must pass the modern OperatorHub validator set locally.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -180,5 +181,50 @@ grep -Fq 'operators.operatorframework.io.bundle.channels.v1: stable' "${meta}" |
   fail "bundle channel must be stable"
 
 pass "generate-olm-bundle produced complete bundle for ${VERSION}"
+
+# --- DIST-OH-02: modern OperatorHub validator set ------------------------------------------
+#
+# Until now bundle defects were only discovered after pushing to the community-operators repo
+# and reading someone else's pipeline output -- which is how the missing alm-examples were
+# found. These checks pull that feedback local, and into CI.
+
+# Shape gate for the Makefile recipe. `--select-optional` is a plain string flag, not a
+# repeatable slice: passing it several times in ONE `bundle validate` invocation does not union
+# the selectors, the LAST one wins and every earlier validator is silently dropped. A collapsed
+# recipe would still exit 0 on a healthy bundle while only ever running one validator.
+# Executable lines only -- the recipe's own comments name the anti-pattern they ban.
+RECIPE="$(awk '$0 ~ /^validate-olm-bundle:/ {f=1; next} f && $0 !~ /^\t/ {exit} f' "${ROOT}/Makefile" |
+  grep -v '^[[:space:]]*#' || true)"
+[[ -n "${RECIPE}" ]] ||
+  fail "could not extract the validate-olm-bundle recipe from Makefile -- the shape gate would pass vacuously"
+
+# grep -F needs -e here: a pattern starting with -- is otherwise parsed as an option and the
+# check silently never fires.
+INVOCATIONS="$(printf '%s\n' "${RECIPE}" | grep -o -F -e 'bundle validate' | wc -l | tr -d ' ')"
+SELECTORS="$(printf '%s\n' "${RECIPE}" | grep -o -F -e '--select-optional' | wc -l | tr -d ' ')"
+
+[[ "${SELECTORS}" -ge 3 ]] ||
+  fail "validate-olm-bundle must select at least 3 optional validators, found ${SELECTORS}"
+[[ "${INVOCATIONS}" == "${SELECTORS}" ]] ||
+  fail "validate-olm-bundle runs ${INVOCATIONS} 'bundle validate' invocation(s) for ${SELECTORS} --select-optional flag(s): give each validator its own invocation, or all but the last are silently dropped"
+
+for validator in operatorhubv2 capabilities categories; do
+  printf '%s\n' "${RECIPE}" | grep -Fq "name=${validator}" ||
+    fail "validate-olm-bundle must select the ${validator} validator (operator-sdk's CLI name for the modern OperatorHub validator set)"
+done
+
+pass "validate-olm-bundle runs one validator per bundle validate invocation (${INVOCATIONS})"
+
+# The validator run itself. operator-sdk is a hard requirement, exactly like yq and jq above:
+# a gate that skips when the tool is missing reads as coverage that does not exist.
+SDK="${ROOT}/bin/operator-sdk"
+[[ -x "${SDK}" ]] || SDK="$(command -v operator-sdk || true)"
+[[ -n "${SDK}" ]] || fail "operator-sdk is required for the OperatorHub validator gate. Install the pinned release with 'make operator-sdk' (equivalently: bash hack/install-operator-sdk.sh ./bin); upstream docs: https://sdk.operatorframework.io/docs/installation/"
+
+# Validates the on-disk bundle directory, so no cluster and no registry are contacted.
+make validate-olm-bundle VERSION="${VERSION}" ||
+  fail "generated bundle failed operator-sdk bundle validate (operatorhubv2 / capabilities / categories)"
+
+pass "generated bundle passes operatorhubv2 + capabilities + categories"
 
 echo "All dist OLM bundle tests passed."
