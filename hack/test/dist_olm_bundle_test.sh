@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # DIST-OLM-01: generate-olm-bundle must emit a registry+v1 bundle with all owned CRDs.
 # DIST-OH-01: every owned CRD must carry an alm-examples entry.
+# GATE-OWNED-01: spec.customresourcedefinitions.owned must cover config/crd/bases.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -104,6 +105,42 @@ check_alm_examples() {
 
 check_alm_examples "${TEMPLATE}" "CSV template"
 check_alm_examples "${csv}" "generated CSV"
+
+# owned[] coverage gate (GATE-OWNED-01). The loop above proves each config/crd/bases file is
+# COPIED into the bundle; nothing proved it is DECLARED in spec.customresourcedefinitions.owned.
+# A new CRD base that never reaches owned[] therefore shipped silently: OLM would install the
+# CRD but the console would not list the API, and alm-examples coverage would still pass because
+# it compares against owned[] -- the very list that is missing the kind.
+check_owned_covers_crd_bases() {
+  local manifest="$1" label="$2"
+  local base_kinds owned_kinds
+
+  # Per-file yq: passing several files in one call interleaves "---" document separators
+  # into the output, which would never match the owned[] list.
+  base_kinds="$(while IFS= read -r crd_file; do
+    yq '.spec.names.kind' "${crd_file}"
+  done < <(find config/crd/bases -name 'kollect.dev_*.yaml' | sort) | LC_ALL=C sort -u)"
+  owned_kinds="$(yq '.spec.customresourcedefinitions.owned[].kind' "${manifest}" | LC_ALL=C sort -u)"
+
+  # Both extractions must be non-empty, otherwise a mistyped yq path or an empty
+  # config/crd/bases would make the comparison below pass vacuously.
+  [[ -n "${base_kinds}" ]] ||
+    fail "${label}: extracted no kinds from config/crd/bases -- the owned[] coverage gate would pass vacuously"
+  [[ -n "${owned_kinds}" ]] ||
+    fail "${label}: extracted no kinds from spec.customresourcedefinitions.owned -- the owned[] coverage gate would pass vacuously"
+
+  if [[ "${base_kinds}" != "${owned_kinds}" ]]; then
+    printf 'dist olm bundle: %s spec.customresourcedefinitions.owned does not match config/crd/bases ("<" crd bases, ">" owned):\n' \
+      "${label}" >&2
+    diff <(printf '%s\n' "${base_kinds}") <(printf '%s\n' "${owned_kinds}") >&2 || true
+    fail "${label}: declare every config/crd/bases kind under spec.customresourcedefinitions.owned in config/olm/template/manifests/kollect.clusterserviceversion.yaml (and give it an alm-examples entry)"
+  fi
+
+  pass "${label}: spec.customresourcedefinitions.owned covers all $(printf '%s\n' "${base_kinds}" | wc -l | tr -d ' ') CRD bases"
+}
+
+check_owned_covers_crd_bases "${TEMPLATE}" "CSV template"
+check_owned_covers_crd_bases "${csv}" "generated CSV"
 
 # RBAC drift gate: the CSV clusterPermissions are a hand copy of the
 # controller-gen-generated config/rbac/role.yaml. Without this gate the next
