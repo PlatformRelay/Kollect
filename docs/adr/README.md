@@ -108,6 +108,7 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 | [0706](0706-testing-merge-gate-architecture.md) | Testing and merge-gate architecture | Current |
 | [0707](0707-lab-harness.md) | Lab harness (multi-node / existing-cluster evidence) | Current |
 | [0708](0708-operator-distribution-hubs.md) | Operator distribution via Artifact Hub and OperatorHub | Current |
+| [0709](0709-chart-image-oci-path-separation.md) | Separate the Helm chart and controller image into distinct GHCR paths | Proposed |
 
 ## 08 · Pipeline & CLI
 
