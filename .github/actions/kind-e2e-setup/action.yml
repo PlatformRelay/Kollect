@@ -54,7 +54,7 @@ runs:
     - name: Install kind and helm
       shell: bash
       env:
-        HELM_VERSION: v3.17.3
+        HELM_VERSION: v3.21.4
       run: |
         set -euo pipefail
         mkdir -p ~/.cache/kind
