@@ -3,7 +3,7 @@
 > Why the chart moves to `ghcr.io/platformrelay/charts/kollect` while the controller image stays
 > at `ghcr.io/platformrelay/kollect`, and why no Artifact Hub setting can substitute for the move.
 
-**Theme:** 07 · Project & meta · **Status:** Proposed (2026-08-19)
+**Theme:** 07 · Project & meta · **Status:** Accepted (2026-08-19 — decided, not yet implemented)
 
 <!-- AgDR: architect role · 2026-08-19 · trigger: recurring Artifact Hub tracking-error mail -->
 
