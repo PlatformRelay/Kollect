@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **deps:** Satisfy the cel-go v0.31 Program interface and tidy go.sum ([#322](https://github.com/platformrelay/kollect/pull/322))[e60f126](https://github.com/platformrelay/kollect/commit/e60f126259d57725a377d65666efb94b7c10fb9a)
+
 - **artifacthub:** Delist the charts that pin a nonexistent :latest image [5f460d5](https://github.com/platformrelay/kollect/commit/5f460d5ef458c8276b60513771cfd158d3439ce3)
 
 - **olm:** Reject a bundle digest that is not a runnable image [b39af74](https://github.com/platformrelay/kollect/commit/b39af748bf1759540c6f83193b635fe38cd789f3)
