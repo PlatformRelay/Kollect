@@ -233,6 +233,16 @@ func (s stubCELProgram) ContextEval(context.Context, any) (ref.Val, *cel.EvalDet
 	return s.val, nil, s.err
 }
 
+// ConcurrentEval joined the cel.Program interface in cel-go v0.31.0. evalMatchPolicy
+// never calls it, but the stub has to satisfy the interface -- and returning the same
+// result as Eval keeps it honest if a caller ever does reach for it.
+func (s stubCELProgram) ConcurrentEval(context.Context, any) <-chan cel.EvalResult {
+	ch := make(chan cel.EvalResult, 1)
+	ch <- cel.EvalResult{Val: s.val, Err: s.err}
+	close(ch)
+	return ch
+}
+
 func TestEvalMatchPolicy_resultShapes(t *testing.T) {
 	t.Parallel()
 
