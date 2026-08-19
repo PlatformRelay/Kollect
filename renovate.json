@@ -110,6 +110,11 @@
     {
       "matchManagers": ["custom.regex"],
       "groupName": "pinned build tools"
+    },
+    {
+      "description": "Keep every Helm pin on one version. The azure/setup-helm input in release.yaml is seen by the github-actions manager while the annotated HELM_VERSION pins are seen by the custom manager, so without this they land in different groups and drift apart -- which is exactly how release.yaml reached v3.21.4 while CI stayed on v3.17.3. Both resolve to depName helm/helm.",
+      "matchDepNames": ["helm/helm"],
+      "groupName": "helm"
     }
   ]
 }
