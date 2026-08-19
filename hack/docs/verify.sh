@@ -50,4 +50,5 @@ fi
 
 printf 'docs verify: all available checks passed\n'
 bash hack/test/dist_adr_0708_indexed_test.sh
+bash hack/test/dist_adr_0709_indexed_test.sh
 bash hack/test/dist_install_docs_test.sh
