@@ -5,6 +5,7 @@
     ":disableDependencyDashboard"
   ],
   "labels": ["dependencies"],
+  "postUpdateOptions": ["gomodTidy"],
   "semanticCommits": "disabled",
   "commitMessagePrefix": ":arrow_up:",
   "commitMessageAction": "chore(deps): update",
