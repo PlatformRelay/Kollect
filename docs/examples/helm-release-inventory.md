@@ -87,7 +87,8 @@ spec:
 
 ## Step 4 — KollectInventory
 
-`config/samples/advanced/kollect_v1alpha1_kollectinventory.yaml` — `databaseSinkRefs: [postgres-inventory-demo]`.
+`config/samples/advanced/kollect_v1alpha1_kollectinventory.yaml` — the inventory names the sink as an
+object, `databaseSinkRefs: [{name: postgres-inventory-demo}]`; the CRD rejects the bare-string form.
 
 ## Apply
 
