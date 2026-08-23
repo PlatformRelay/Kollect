@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **test:** Wait for the NATS server-ready log before connecting ([#329](https://github.com/platformrelay/kollect/pull/329))[4c2ce3d](https://github.com/platformrelay/kollect/commit/4c2ce3d1d841e4660655b666dc40cc0e230f7cd3)
+
 - **samples:** Make the advanced and team-operator overlays apply again [4d69f94](https://github.com/platformrelay/kollect/commit/4d69f94d846071d03df1457959e297c4891c9e64)
 
 - **dev:** Select envtest assets by host OS/arch ([#326](https://github.com/platformrelay/kollect/pull/326))[59f6bb4](https://github.com/platformrelay/kollect/commit/59f6bb4ce2ec2b8fa10b94db2430a73cb1abd982)
