@@ -33,35 +33,40 @@ import (
 // resolve to a committed CRD schema.
 const kollectAPIGroup = "kollect.dev"
 
-// Discovery floors. A gate that silently stops finding YAML reports a vacuous
+// Corpus counts. A gate that silently stops finding YAML reports a vacuous
 // green, which is how this defect class reached its third recurrence.
 //
-// These are "70 -> ~0" tripwires, not exact counts: pinning the exact number
-// would red the build on every legitimate doc edit. They do NOT detect a single
-// page losing its examples.
+// Two of the three are exact equalities that fail in both directions; the third
+// is a lower bound, and says so. See each constant for why.
 const (
-	// minDiscoveredYAMLBlocks counts every YAML block found under docs/ --
-	// fenced blocks in Markdown plus standalone .yaml/.yml files. 70 exist today.
+	// minDiscoveredYAMLBlocks is a LOWER BOUND on every YAML block found under
+	// docs/ -- fenced blocks in Markdown plus standalone .yaml/.yml files. 70 exist
+	// today. It stays a bound rather than an equality because it also counts blocks
+	// that legitimately opt out, so it moves for reasons that are not defects.
+	// It is a "70 -> ~0" tripwire only: it does not detect a single page losing its
+	// examples, and it cannot detect a block the extractor never discovered at all,
+	// because an undiscovered block is not counted either.
 	minDiscoveredYAMLBlocks = 65
-	// minValidatedKollectDocs counts complete kollect.dev objects that actually
-	// went through both checks, PINNED to the exact corpus (30 today) for the same
-	// reason as minValidatedFragments below: headroom is an exploit, not slack.
-	// Slack here would let a complete object be redirected to `superseded` or
-	// `proposed` on an ADR/RFC page without the count moving. Raise this when a
-	// complete kollect.dev example is added; a legitimate REMOVAL must lower it in
-	// the same commit, so the change is stated rather than absorbed.
-	minValidatedKollectDocs = 30
-	// minValidatedFragments counts kollect.dev fragments that actually went
-	// through both checks, and is PINNED to the exact corpus (10 today) rather
-	// than set below it. Headroom here is not slack, it is an exploit: with a
-	// floor of 8, reverting two fragments to the bare-string sink-ref form this
-	// lane fixed and relabelling both `kollect-doc: ignore` was still green.
-	// Nothing verifies an `ignore` reason is honest, so the count is the only
-	// thing standing between a plausible one-liner and re-admitting the defect.
-	// Raise this when a kollect fragment is legitimately added; a legitimate
-	// REMOVAL must lower it in the same commit, which is the point -- the change
-	// has to be stated, not absorbed.
-	minValidatedFragments = 10
+
+	// validatedKollectDocs counts complete kollect.dev objects that actually went
+	// through both checks. It is an EQUALITY against the exact corpus, not a bound
+	// below it, and it fails in BOTH directions.
+	//
+	// Fewer than this means an example was deleted or redirected away with
+	// `superseded`/`proposed` on an ADR/RFC page -- the anti-vacuity case. More
+	// means an example was added; that must move this constant too, so a reviewer
+	// sees the corpus change stated in the diff rather than absorbed by slack.
+	validatedKollectDocs = 30
+
+	// validatedFragments counts kollect.dev fragments that actually went through
+	// both checks. Also an EQUALITY, failing in both directions, and for a sharper
+	// reason: headroom here is not slack, it is the exploit. With this set to 8
+	// against a corpus of 10, two fragments could be reverted to the bare-string
+	// sink-ref form this lane exists to eliminate and relabelled
+	// `kollect-doc: ignore` while the gate stayed green. Nothing verifies that an
+	// `ignore` reason is honest, so this count is the only thing between a
+	// plausible one-liner and re-admitting the defect.
+	validatedFragments = 10
 )
 
 // nonKollectDocGroups is a CLOSED allowlist of foreign API groups that
@@ -114,6 +119,19 @@ var nonKollectDocGroups = map[string]struct{}{
 //   - Prose. A `sinkRefs` in a table row, a mermaid edge label, or a shell comment
 //     is invisible here. hack/test/docs_removed_api_fields_test.sh covers that.
 //   - Non-YAML fenced blocks (```json, ```sh, ```bash) -- not parsed at all.
+//   - MARKUP VARIANTS THE FENCE SCANNER DOES NOT RECOGNISE. Discovery reads the
+//     first token of a fence info string, so it admits "yaml", "yml",
+//     'yaml title="x"', "yaml{.annotate}" and "{.yaml .annotate}", on backtick or
+//     tilde fences of any length. Anything else that mkdocs still renders as YAML
+//     is invisible -- and invisible here means SILENT: an undiscovered block is
+//     not validated, not counted, and cannot move minDiscoveredYAMLBlocks, so no
+//     floor detects it. Known gaps: YAML embedded via a pymdownx.snippets
+//     include, YAML inside an HTML block, a superfences custom fence whose name
+//     is not "yaml", and content-tab or admonition syntax that changes how the
+//     opener is written. This is the exact class that let a bare-string
+//     databaseSinkRefs fragment sit on a live page under a "{.yaml .annotate}"
+//     fence with every gate green, so widen infoStringLanguage rather than
+//     assuming the list above is closed.
 //   - Blocks a human declared out of scope with `kollect-doc: ignore <reason>`
 //     (Helm values, CI workflows, Prometheus config). The reason is mandatory and
 //     reader-visible, but nothing verifies that the reason is honest.
@@ -169,18 +187,20 @@ func (c *discoveryCounts) assertFloors(t *testing.T) {
 			" the extractor is missing examples and the green is vacuous", c.blocks, minDiscoveredYAMLBlocks)
 	}
 
-	if c.fullDocs < minValidatedKollectDocs {
-		t.Errorf("only %d complete kollect.dev documents validated, expected exactly %d --"+
-			" a complete example was deleted, or redirected away with `superseded`/`proposed`."+
-			" If the removal is legitimate, lower minValidatedKollectDocs in the same commit",
-			c.fullDocs, minValidatedKollectDocs)
+	if c.fullDocs != validatedKollectDocs {
+		t.Errorf("%d complete kollect.dev documents validated, expected exactly %d."+
+			" Fewer means a complete example was deleted, or redirected away with"+
+			" `superseded`/`proposed`; more means one was added. Either way, move"+
+			" validatedKollectDocs in the same commit so the change is stated",
+			c.fullDocs, validatedKollectDocs)
 	}
 
-	if c.fragments < minValidatedFragments {
-		t.Errorf("only %d kollect.dev fragments validated, expected exactly %d --"+
-			" a fragment was deleted, or redirected away with `ignore`/`superseded`/`proposed`."+
-			" If the removal is legitimate, lower minValidatedFragments in the same commit",
-			c.fragments, minValidatedFragments)
+	if c.fragments != validatedFragments {
+		t.Errorf("%d kollect.dev fragments validated, expected exactly %d."+
+			" Fewer means a fragment was deleted, or redirected away with"+
+			" `ignore`/`superseded`/`proposed`; more means one was added. Either way,"+
+			" move validatedFragments in the same commit so the change is stated",
+			c.fragments, validatedFragments)
 	}
 }
 
@@ -535,8 +555,67 @@ var skippedDocsDirs = map[string]struct{}{
 	"site":         {},
 }
 
-// fencePattern matches an opening ```yaml fence, capturing its indentation.
-var fencePattern = regexp.MustCompile("^(\\s*)```ya?ml\\s*$")
+// fenceOpenPattern matches ANY fenced code block opener -- backtick or tilde,
+// three or more -- capturing indentation, the fence marker, and the info string.
+//
+// It deliberately does not anchor on the bare "```yaml" spelling. mkdocs.yml enables
+// pymdownx.superfences (:139) and attr_list (:134), so "{.yaml .annotate}" and
+// 'yaml title="inv.yaml"' are idiomatic on this site and render as YAML. An
+// anchored pattern skipped them silently -- not validated, not counted, no
+// warning -- and markdownlint has MD040 disabled and no rule on info strings, so
+// nothing else caught them either. That made the gate teach its own bypass: a
+// fragment failing with "undirected YAML fragment" went quiet the moment its
+// author added a fence attribute.
+var fenceOpenPattern = regexp.MustCompile("^(\\s*)(`{3,}|~{3,})(.*)$")
+
+// infoStringLanguage extracts the language token from a fence info string.
+//
+// Handles the three forms this site can render: a bare language ("yaml"), a
+// language carrying Material attributes ('yaml title="inv.yaml"', "yaml{.annotate}"),
+// and a pure attribute list ("{.yaml .annotate}", "{ .yaml #id }").
+func infoStringLanguage(info string) string {
+	info = strings.TrimSpace(info)
+	if info == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(info, "{") {
+		for _, field := range strings.Fields(strings.Trim(info, "{}")) {
+			if strings.HasPrefix(field, ".") {
+				return strings.ToLower(strings.TrimPrefix(field, "."))
+			}
+		}
+
+		return ""
+	}
+
+	language := strings.Fields(info)[0]
+	if cut := strings.IndexAny(language, "{,;"); cut >= 0 {
+		language = language[:cut]
+	}
+
+	return strings.ToLower(language)
+}
+
+// isClosingFence reports whether a line closes a fence opened with marker.
+// CommonMark requires the same character, at least as many of them, and nothing
+// else on the line. The closer has to widen with the opener: admitting a tilde
+// fence while still terminating only on backticks would let one "~~~yaml" opener
+// swallow the rest of the page into a single block.
+func isClosingFence(line, marker string) bool {
+	trimmed := strings.TrimSpace(line)
+	if len(trimmed) < len(marker) {
+		return false
+	}
+
+	for i := 0; i < len(trimmed); i++ {
+		if trimmed[i] != marker[0] {
+			return false
+		}
+	}
+
+	return true
+}
 
 // collectDocsYAMLBlocks gathers every YAML example under docs/: fenced blocks in
 // Markdown pages and whole .yaml/.yml files.
@@ -611,25 +690,37 @@ func extractFencedYAML(rel, content string) []yamlBlock {
 	var blocks []yamlBlock
 
 	for i := 0; i < len(lines); i++ {
-		match := fencePattern.FindStringSubmatch(lines[i])
+		match := fenceOpenPattern.FindStringSubmatch(lines[i])
 		if match == nil {
 			continue
 		}
 
-		indent := match[1]
+		indent, marker, info := match[1], match[2], match[3]
+
+		// A backtick fence info string may not itself contain a backtick, so a run
+		// of inline code is not a fence opener.
+		if strings.HasPrefix(marker, "`") && strings.Contains(info, "`") {
+			continue
+		}
 
 		var body []string
 
 		j := i + 1
 		for ; j < len(lines); j++ {
-			if strings.TrimSpace(lines[j]) == "```" {
+			if isClosingFence(lines[j], marker) {
 				break
 			}
 
 			body = append(body, strings.TrimPrefix(lines[j], indent))
 		}
 
-		blocks = append(blocks, yamlBlock{path: rel, line: i + 2, body: strings.Join(body, "\n")})
+		if language := infoStringLanguage(info); language == "yaml" || language == "yml" {
+			blocks = append(blocks, yamlBlock{path: rel, line: i + 2, body: strings.Join(body, "\n")})
+		}
+
+		// Skip past the whole fence, YAML or not. A fence body is never rescanned for
+		// further openers, so a YAML fence quoted inside a Markdown example cannot be
+		// mistaken for a real block.
 		i = j
 	}
 
