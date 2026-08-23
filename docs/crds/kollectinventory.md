@@ -98,7 +98,7 @@ metadata:
 spec:
   exportMinInterval: 30s          # default cadence for refs without an override
   databaseSinkRefs:
-    - postgres-inventory-demo
+    - name: postgres-inventory-demo
   snapshotSinkRefs:
     - name: git-inventory-demo     # per-ref override: audit trail at a slower cadence
       exportMinInterval: 1h

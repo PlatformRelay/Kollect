@@ -110,9 +110,10 @@ Golden fixture: `test/schema/golden/nats-event-envelope.json`.
 3. Apply the `KollectEventSink` sample, then reference it from a `KollectInventory`:
 
    ```yaml
+   # kollect-doc: fragment KollectInventory
    spec:
      eventSinkRefs:
-       - nats-inventory-demo
+       - name: nats-inventory-demo
    ```
 
 4. Consume with the NATS CLI (replace stream/subject names to match your spec):

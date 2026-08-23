@@ -104,9 +104,10 @@ Delivery is **at-least-once**. Consumers should key deduplication on
 3. Apply the `KollectEventSink` sample, then reference it from a `KollectInventory`:
 
    ```yaml
+   # kollect-doc: fragment KollectInventory
    spec:
      eventSinkRefs:
-       - kafka-inventory-demo
+       - name: kafka-inventory-demo
    ```
 
 4. Consume with `kcat` (or your preferred client):

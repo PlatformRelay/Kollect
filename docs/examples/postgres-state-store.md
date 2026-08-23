@@ -101,9 +101,10 @@ spec:
 Reference the sink from `KollectInventory` in the **same namespace**:
 
 ```yaml
+# kollect-doc: fragment KollectInventory
 spec:
   databaseSinkRefs:
-    - postgres-inventory-demo
+    - name: postgres-inventory-demo
 ```
 
 ```sh
