@@ -65,20 +65,76 @@ grep -Fq 'operators/kollect' "${SCRIPT}" ||
 printf '%s\n' "${CODE}" | grep -Fq 'make validate-olm-bundle' ||
   fail "operatorhub-pr.sh must run 'make validate-olm-bundle' before submitting the bundle upstream"
 
-grep -Fq 'operatorhub-pr:' "${WORKFLOW}" ||
-  fail "release workflow must define operatorhub-pr job"
-grep -Fq 'OPERATORHUB_PAT' "${WORKFLOW}" ||
-  fail "release workflow must reference OPERATORHUB_PAT"
-grep -Fq 'continue-on-error: true' "${WORKFLOW}" ||
-  fail "release workflow operatorhub step must soft-fail"
-grep -Fq 'hack/operatorhub-pr.sh' "${WORKFLOW}" ||
-  fail "release workflow must invoke hack/operatorhub-pr.sh"
-# Same discipline as ${CODE} above, applied to the workflow: release.yaml documents the
-# operator-sdk prerequisite in a comment directly above the step that installs it, so a raw
-# grep would keep passing if the `run:` line were ever commented out or deleted.
-WORKFLOW_CODE="$(grep -v '^[[:space:]]*#' "${WORKFLOW}")"
-printf '%s\n' "${WORKFLOW_CODE}" | grep -Fq 'hack/install-operator-sdk.sh' ||
-  fail "release workflow must install operator-sdk — operatorhub-pr.sh hard-fails without it"
+# GATE-COMMENT-01: same discipline as ${CODE} above, applied to the workflow. release.yaml
+# documents this job's own contract in comments that repeat the very literals asserted here, so
+# a raw grep over the raw file matches its own documentation. Measured against release.yaml:
+#
+#   - OPERATORHUB_PAT        — comments at :478 and :481. Removing every executable line that
+#                              carries it left the raw grep GREEN. Vacuous before this change.
+#   - hack/operatorhub-pr.sh — comment at :499. Same: GREEN with the real invocation gone.
+#                              Vacuous before this change.
+#   - operatorhub-pr:, continue-on-error: true, hack/install-operator-sdk.sh — no comment
+#     carries these today, so the raw greps already redded on removal. Stripped anyway: "no
+#     comment happens to carry it today" is not a property anyone maintains.
+#
+# (An earlier revision of this comment justified leaving the first four raw, on the claim that a
+# raw install-operator-sdk grep "would keep passing if the `run:` line were ever commented out or
+# deleted". The deletion half was false — and it was the other literals that were vacuous. The
+# self-test below now measures this instead of asserting it in prose.)
+workflow_code() { grep -v '^[[:space:]]*#' "$1"; }
+
+check_workflow_code_refs() {
+  local workflow="$1" code
+  code="$(workflow_code "${workflow}")"
+  printf '%s\n' "${code}" | grep -Fq 'operatorhub-pr:' ||
+    fail "release workflow must define operatorhub-pr job"
+  printf '%s\n' "${code}" | grep -Fq 'OPERATORHUB_PAT' ||
+    fail "release workflow must reference OPERATORHUB_PAT"
+  printf '%s\n' "${code}" | grep -Fq 'continue-on-error: true' ||
+    fail "release workflow operatorhub step must soft-fail"
+  printf '%s\n' "${code}" | grep -Fq 'hack/operatorhub-pr.sh' ||
+    fail "release workflow must invoke hack/operatorhub-pr.sh"
+  printf '%s\n' "${code}" | grep -Fq 'hack/install-operator-sdk.sh' ||
+    fail "release workflow must install operator-sdk — operatorhub-pr.sh hard-fails without it"
+}
+
+check_workflow_code_refs "${WORKFLOW}"
+
+# Self-test: prove the comment-stripping is load-bearing rather than decorative. For each
+# literal, build a copy of release.yaml with every EXECUTABLE line carrying it removed and the
+# comments left untouched, then assert the check above reds. The `cmp` guard is the other half:
+# if no executable line carries the literal, the assertion above is asserting nothing and this
+# self-test says so instead of quietly passing.
+WORKFLOW_MUTANTS="$(mktemp -d)"
+trap 'rm -rf "${WORKFLOW_MUTANTS}"' EXIT
+
+strip_executable_occurrences() {
+  local workflow="$1" literal="$2"
+  awk -v lit="${literal}" '
+    /^[[:space:]]*#/ { print; next }
+    index($0, lit) == 0 { print }
+  ' "${workflow}"
+}
+
+for literal in \
+  'operatorhub-pr:' \
+  'OPERATORHUB_PAT' \
+  'continue-on-error: true' \
+  'hack/operatorhub-pr.sh' \
+  'hack/install-operator-sdk.sh'; do
+  mutant="${WORKFLOW_MUTANTS}/stripped.yaml"
+  strip_executable_occurrences "${WORKFLOW}" "${literal}" >"${mutant}"
+  [[ -s "${mutant}" ]] ||
+    fail "self-test: stripping '${literal}' produced an empty file — the awk mutation step failed"
+  if cmp -s "${mutant}" "${WORKFLOW}"; then
+    fail "self-test: no executable line of ${WORKFLOW} carries '${literal}' — the assertion for it is satisfied by comments alone and asserts nothing"
+  fi
+  # Subshell: fail's `exit 1` must not take the parent down — rejection is the expectation.
+  if (check_workflow_code_refs "${mutant}") >/dev/null 2>&1; then
+    fail "self-test: the workflow reference checks still pass with every executable '${literal}' line removed — the surviving comments satisfy them, so the check is vacuous"
+  fi
+  pass "self-test: workflow reference check reds when '${literal}' survives only in comments"
+done
 
 command -v yq >/dev/null 2>&1 ||
   fail "yq (mikefarah/yq v4) is required to inspect the operatorhub-pr job"
