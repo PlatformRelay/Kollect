@@ -73,7 +73,11 @@ grep -Fq 'continue-on-error: true' "${WORKFLOW}" ||
   fail "release workflow operatorhub step must soft-fail"
 grep -Fq 'hack/operatorhub-pr.sh' "${WORKFLOW}" ||
   fail "release workflow must invoke hack/operatorhub-pr.sh"
-grep -Fq 'hack/install-operator-sdk.sh' "${WORKFLOW}" ||
+# Same discipline as ${CODE} above, applied to the workflow: release.yaml documents the
+# operator-sdk prerequisite in a comment directly above the step that installs it, so a raw
+# grep would keep passing if the `run:` line were ever commented out or deleted.
+WORKFLOW_CODE="$(grep -v '^[[:space:]]*#' "${WORKFLOW}")"
+printf '%s\n' "${WORKFLOW_CODE}" | grep -Fq 'hack/install-operator-sdk.sh' ||
   fail "release workflow must install operator-sdk — operatorhub-pr.sh hard-fails without it"
 
 command -v yq >/dev/null 2>&1 ||
