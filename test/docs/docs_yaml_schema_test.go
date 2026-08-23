@@ -500,6 +500,15 @@ func (b yamlBlock) notShippedAllowed() bool {
 	return strings.HasPrefix(slashed, "docs/adr/") || strings.HasPrefix(slashed, "docs/rfc/")
 }
 
+// skippedDocsDirs are build artefacts that live under docs/ but are not docs.
+// They are gitignored; a `task lint:markdown` run installs docs/node_modules,
+// whose vendored YAML would otherwise flood the gate. Dot-directories are skipped
+// on the same grounds.
+var skippedDocsDirs = map[string]struct{}{
+	"node_modules": {},
+	"site":         {},
+}
+
 // fencePattern matches an opening ```yaml fence, capturing its indentation.
 var fencePattern = regexp.MustCompile("^(\\s*)```ya?ml\\s*$")
 
@@ -516,6 +525,10 @@ func collectDocsYAMLBlocks(t *testing.T, root string) []yamlBlock {
 		}
 
 		if entry.IsDir() {
+			if _, skipped := skippedDocsDirs[entry.Name()]; skipped || strings.HasPrefix(entry.Name(), ".") {
+				return filepath.SkipDir
+			}
+
 			return nil
 		}
 
