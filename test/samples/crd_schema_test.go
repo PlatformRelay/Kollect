@@ -33,9 +33,15 @@ import (
 const kollectAPIGroup = "kollect.dev"
 
 // minValidatedSampleDocs guards against a walk that silently stops finding
-// samples (a vacuous green). 57 kollect.dev documents exist today; the floor sits
-// just under that so deleting a single sample directory turns the suite red.
-// Raise it when the sample corpus grows.
+// samples — a truncated or broken walk reporting a vacuous green. 57 kollect.dev
+// documents exist today and the floor sits just under that.
+//
+// What the floor does NOT give you is detection of any single directory going
+// missing: six of the eleven sample directories hold exactly two documents, so
+// deleting one of those still clears 55. Setting the floor to the exact count
+// would instead red the build on every legitimate sample removal — friction, not
+// safety. This is a tripwire for 57 → ~0, nothing finer. Raise it when the
+// corpus grows.
 const minValidatedSampleDocs = 55
 
 // nonKollectSampleGroups is a CLOSED allowlist of foreign API groups that
@@ -68,6 +74,17 @@ var nonKollectSampleGroups = map[string]struct{}{
 // schema; and a document in any group outside nonKollectSampleGroups fails too.
 // A typo in the group, the version, the kind, or a missing apiVersion is a
 // FAILURE, never a skip — that is what makes the gate non-vacuous.
+//
+// What this gate does NOT cover:
+//
+//   - source files, not rendered overlays — a kustomize patch injecting an
+//     invalid field would not be caught here;
+//   - allowlisted foreign-group documents, which are skipped entirely because the
+//     allowlist keys on group alone, so a malformed Secret or ConfigMap under
+//     config/samples/ is never validated;
+//   - this project's validating webhooks (internal/webhook/v1alpha1) — a sample
+//     can satisfy the CRD schema and still be rejected on apply, as
+//     config/samples/team-operator/snapshot-sink.yaml did.
 func TestSamplesValidateAgainstCRDSchemas(t *testing.T) {
 	t.Parallel()
 
