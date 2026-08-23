@@ -8,6 +8,13 @@
 # `.jobs.lint.steps`, so a step in another job is not a match, and each anchor must resolve to
 # exactly one step, so a duplicate fails loudly instead of silently resolving to the first.
 # The self-test at the bottom re-runs that perturbation on a mutated copy every CI run.
+#
+# GATE-COMMENT-01: the step anchors used to `contains()` the RAW `run:` body, which cannot tell
+# code from a comment. `run: "# bash hack/install-operator-sdk.sh ./bin"` satisfied the install
+# anchor while the lint job installed nothing, and commenting out `bash "${script}"` inside the
+# glob step's body ran no meta-tests at all -- both left this gate green while producing exactly
+# the end state it exists to prevent. Every anchor now matches against a COMMENT-STRIPPED view of
+# the body, and the glob step must be shown to actually invoke each script it expands to.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CI_WORKFLOW="${ROOT}/.github/workflows/ci.yaml"
@@ -18,9 +25,20 @@ pass() { echo "ok - $*"; }
 command -v yq >/dev/null 2>&1 ||
   fail "yq (mikefarah/yq v4) is required to inspect the lint job's step list"
 
-SDK_MATCH='(.value.run // "") | contains("hack/install-operator-sdk.sh")'
-GLOB_MATCH='(.value.run // "") | contains("hack/test/dist_*_test.sh")'
-LINT_MATCH='(.value.run // "") | test("^task lint\s*$")'
+# GATE-COMMENT-01: the executable half of a step's `run:` body -- every line whose first
+# non-blank character is `#` is dropped before matching, so a commented-out command is not a
+# command. Used by every anchor below; `.value` is a `to_entries` entry.
+RUN_CODE='((.value.run // "") | split("\n") | map(select(test("^[[:space:]]*#") | not)) | join("\n"))'
+
+SDK_MATCH="${RUN_CODE} | contains(\"hack/install-operator-sdk.sh\")"
+GLOB_MATCH="${RUN_CODE} | contains(\"hack/test/dist_*_test.sh\")"
+LINT_MATCH="${RUN_CODE} | test(\"^task lint[[:space:]]*\$\")"
+
+# The same comment-stripped view, for one step selected by index.
+lint_step_run_code() {
+  local workflow="$1" idx="$2"
+  yq eval "(.jobs.lint.steps[${idx}].run // \"\") | split(\"\n\") | map(select(test(\"^[[:space:]]*#\") | not)) | join(\"\n\")" "${workflow}"
+}
 
 # 0-based index of the ONE step in .jobs.lint.steps satisfying a yq predicate. Zero matches
 # and duplicates are both hard failures -- see the header.
@@ -31,14 +49,14 @@ lint_step_index() {
   count="$(yq eval "${query} | length" "${workflow}")"
   case "${count}" in
   1) yq eval "${query} | .[0]" "${workflow}" ;;
-  0) fail "the lint job has no ${label} step -- a matching step in another job does not count, the dist_* glob runs in lint" ;;
+  0) fail "the lint job has no ${label} step -- a matching step in another job does not count, and a commented-out command is not a command; the dist_* glob runs in lint" ;;
   *) fail "the lint job has ${count} ${label} steps -- keep exactly one so the ordering assertions cannot lock onto the first match" ;;
   esac
 }
 
 check_wiring() {
   local workflow="$1"
-  local job_kind steps_kind sdk_idx glob_idx lint_idx glob_name
+  local job_kind steps_kind sdk_idx glob_idx lint_idx glob_name glob_run
 
   [[ -f "${workflow}" ]] || fail "expected ${workflow}"
 
@@ -58,9 +76,18 @@ check_wiring() {
   [[ "${glob_name}" == *"Hub distribution meta-tests"* ]] ||
     fail "the lint job's dist_* glob step must be named 'Hub distribution meta-tests', got '${glob_name}'"
 
+  # GATE-COMMENT-01: matching the glob PATTERN is not the same as running the scripts it
+  # expands to. The step's body mentions `hack/test/dist_*_test.sh` twice (the array assignment
+  # and the empty-glob diagnostic), so commenting out the one line that actually executes a
+  # script left this step anchored, ordered, correctly named -- and inert.
+  glob_run="$(lint_step_run_code "${workflow}" "${glob_idx}")"
+  # shellcheck disable=SC2016  # the single quotes are the point: this is a literal, not an expansion
+  [[ "${glob_run}" == *'bash "${script}"'* ]] ||
+    fail "the lint job's dist_* glob step must execute each matched script -- its run: body has no 'bash \"\${script}\"' invocation, so the step would expand the glob and run nothing"
+
   [[ "${glob_idx}" -lt "${lint_idx}" ]] ||
     fail "the dist_* glob (lint step ${glob_idx}) must come before the task lint step (lint step ${lint_idx})"
-  pass "ci.yaml lint job globs dist_*_test.sh before task lint"
+  pass "ci.yaml lint job globs dist_*_test.sh before task lint and runs each matched script"
 
   # DIST-OH-02: dist_olm_bundle_test.sh hard-fails without operator-sdk, so the SAME job must
   # install it BEFORE the dist_* glob step. Ordering is the whole point: an install step placed
@@ -127,6 +154,23 @@ yq eval '
 mutant_rejected "${MUTANTS}/after-glob.yaml" \
   'the operator-sdk install sits after the dist_* glob' \
   'must come before the dist_* glob'
+
+# GATE-COMMENT-01: the two comment-blindness shapes. Both passed before this change -- the first
+# leaves the lint job with no operator-sdk, the second runs no dist_* meta-test at all.
+yq eval '
+  (.jobs.lint.steps[] | select((.run // "") | contains("hack/install-operator-sdk.sh")) | .run) |= "# " + .
+' "${CI_WORKFLOW}" >"${MUTANTS}/sdk-commented-out.yaml"
+mutant_rejected "${MUTANTS}/sdk-commented-out.yaml" \
+  'the operator-sdk install body is commented out' \
+  'the lint job has no hack/install-operator-sdk.sh install step'
+
+yq eval '
+  (.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh")) | .run) |=
+    sub("(?m)^[[:space:]]*bash \"", "# bash \"")
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-invocation-commented-out.yaml"
+mutant_rejected "${MUTANTS}/glob-invocation-commented-out.yaml" \
+  'the dist_* glob step no longer invokes the scripts it expands' \
+  'must execute each matched script'
 
 # The self-test's own guard rails: these four are the degenerate "rejections" that the old
 # any-nonzero-exit check accepted as proof. mutant_rejected must now refuse every one of them.
