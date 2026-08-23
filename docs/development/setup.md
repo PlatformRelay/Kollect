@@ -236,6 +236,11 @@ Test pyramid (L0–L5), coverage floors, and CI gates:
 for controller-runtime envtest. First run may take a minute. Controller tests live under
 `internal/controller/` (`suite_test.go` sets up envtest).
 
+The envtest suites fall back to `bin/k8s/<version>-<os>-<arch>` when `KUBEBUILDER_ASSETS` is unset,
+so a bare `go test ./internal/...` works too. They select the directory matching the **host**
+OS/arch (`internal/envtestassets`), which matters when `bin/` holds downloads for more than one
+platform — picking the wrong one fails every suite in `BeforeSuite` with `exec format error`.
+
 E2E scripts, nightly workflows, multi-tenant fixtures, and tenantMode RBAC asserts are documented in
 [testing.md](testing.md) and `hack/kind/README.md`.
 

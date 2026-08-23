@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -23,6 +24,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	"github.com/platformrelay/kollect/internal/envtestassets"
 	"github.com/platformrelay/kollect/internal/sink"
 )
 
@@ -324,34 +326,14 @@ func countFiles(t *testing.T, root string) int {
 }
 
 // pipelineEnvtestAssetsDir resolves the envtest binary assets directory the same way the collect
-// scale test does: KUBEBUILDER_ASSETS first (set by the Makefile `test` target), then a local
-// bin/k8s/<version> directory. Returns "" when neither is present so the caller can skip.
+// scale test does: KUBEBUILDER_ASSETS first (set by the Makefile `test` target), then the local
+// bin/k8s/<version>-<os>-<arch> directory built for this host. Returns "" when neither is present
+// so the caller can skip.
 func pipelineEnvtestAssetsDir() string {
-	if assets := os.Getenv("KUBEBUILDER_ASSETS"); assets != "" {
-		if abs, err := filepath.Abs(assets); err == nil {
-			return abs
-		}
-
-		return assets
-	}
-
-	for _, basePath := range []string{
+	basePaths := []string{
 		filepath.Join("bin", "k8s"),
 		filepath.Join("..", "..", "bin", "k8s"),
-	} {
-		entries, err := os.ReadDir(basePath)
-		if err != nil {
-			continue
-		}
-
-		for _, entry := range entries {
-			if entry.IsDir() {
-				if abs, err := filepath.Abs(filepath.Join(basePath, entry.Name())); err == nil {
-					return abs
-				}
-			}
-		}
 	}
 
-	return ""
+	return envtestassets.Resolve(basePaths, runtime.GOOS, runtime.GOARCH)
 }

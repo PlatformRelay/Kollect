@@ -35,7 +35,7 @@ func startWebhookManager(t *testing.T, tenantMode bool) {
 			Paths: []string{filepath.Join("..", "..", "..", "config", "webhook", "manifests.yaml")},
 		},
 	}
-	if dir := firstEnvtestBinaryDir(); dir != "" {
+	if dir := hostEnvtestBinaryDir(); dir != "" {
 		env.BinaryAssetsDirectory = dir
 	}
 

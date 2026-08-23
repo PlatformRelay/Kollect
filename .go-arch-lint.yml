@@ -75,6 +75,7 @@ components:
   shared:
     in:
       - internal/digest/**
+      - internal/envtestassets/**
       - internal/errors/**
       - internal/metrics/**
       - internal/pathvalidate/**

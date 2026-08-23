@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/envtestassets"
 )
 
 // scaleTestMaxObjects is the ADR-0603 default synthetic object cap for task test.
@@ -285,41 +287,16 @@ func stopScaleEnvtest(t *testing.T, testEnv *envtest.Environment) {
 	}
 }
 
+// resolveEnvtestAssetsDir returns KUBEBUILDER_ASSETS when the harness exported it (`task test`,
+// hack/coverage.sh), and otherwise the local setup-envtest download built for this host. Selecting
+// by host OS/arch matters because a checkout can hold assets for several platforms at once.
 func resolveEnvtestAssetsDir() string {
-	if assets := os.Getenv("KUBEBUILDER_ASSETS"); assets != "" {
-		if abs, err := filepath.Abs(assets); err == nil {
-			return abs
-		}
-
-		return assets
-	}
-
-	return scaleEnvtestBinaryDir()
-}
-
-func scaleEnvtestBinaryDir() string {
-	for _, basePath := range []string{
+	basePaths := []string{
 		filepath.Join("bin", "k8s"),
 		filepath.Join("..", "..", "bin", "k8s"),
-	} {
-		entries, err := os.ReadDir(basePath)
-		if err != nil {
-			continue
-		}
-
-		for _, entry := range entries {
-			if entry.IsDir() {
-				abs, err := filepath.Abs(filepath.Join(basePath, entry.Name()))
-				if err != nil {
-					continue
-				}
-
-				return abs
-			}
-		}
 	}
 
-	return ""
+	return envtestassets.Resolve(basePaths, goruntime.GOOS, goruntime.GOARCH)
 }
 
 func seedScaleNamespace(ctx context.Context, cfg *rest.Config) error {
