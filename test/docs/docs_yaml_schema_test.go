@@ -47,9 +47,16 @@ const (
 	// went through both checks. 29 exist today.
 	minValidatedKollectDocs = 26
 	// minValidatedFragments counts kollect.dev fragments that actually went
-	// through both checks. 10 exist today. Without this floor, redirecting every
-	// fragment to a `kollect-doc: ignore` directive would still pass.
-	minValidatedFragments = 8
+	// through both checks, and is PINNED to the exact corpus (10 today) rather
+	// than set below it. Headroom here is not slack, it is an exploit: with a
+	// floor of 8, reverting two fragments to the bare-string sink-ref form this
+	// lane fixed and relabelling both `kollect-doc: ignore` was still green.
+	// Nothing verifies an `ignore` reason is honest, so the count is the only
+	// thing standing between a plausible one-liner and re-admitting the defect.
+	// Raise this when a kollect fragment is legitimately added; a legitimate
+	// REMOVAL must lower it in the same commit, which is the point -- the change
+	// has to be stated, not absorbed.
+	minValidatedFragments = 10
 )
 
 // nonKollectDocGroups is a CLOSED allowlist of foreign API groups that
@@ -93,12 +100,14 @@ var nonKollectDocGroups = map[string]struct{}{
 // through both checks with Required errors filtered out, which is exactly what
 // "this snippet is abbreviated" means.
 //
-// Directives are per-block and never per-file: there is no way to silence a page.
+// Directives are per-DOCUMENT and never per-file: a marker on the first document
+// of a multi-document fence does not reach the others, and there is no way to
+// silence a page.
 //
 // # What this gate does NOT cover
 //
 //   - Prose. A `sinkRefs` in a table row, a mermaid edge label, or a shell comment
-//     is invisible here. hack/test/docs_scope_sinkrefs_field_test.sh covers that.
+//     is invisible here. hack/test/docs_removed_api_fields_test.sh covers that.
 //   - Non-YAML fenced blocks (```json, ```sh, ```bash) -- not parsed at all.
 //   - Blocks a human declared out of scope with `kollect-doc: ignore <reason>`
 //     (Helm values, CI workflows, Prometheus config). The reason is mandatory and
@@ -161,8 +170,10 @@ func (c *discoveryCounts) assertFloors(t *testing.T) {
 	}
 
 	if c.fragments < minValidatedFragments {
-		t.Errorf("only %d kollect.dev fragments validated, expected at least %d --"+
-			" fragments must not all be redirected away with `ignore`", c.fragments, minValidatedFragments)
+		t.Errorf("only %d kollect.dev fragments validated, expected exactly %d --"+
+			" a fragment was deleted, or redirected away with `ignore`/`superseded`/`proposed`."+
+			" If the removal is legitimate, lower minValidatedFragments in the same commit",
+			c.fragments, minValidatedFragments)
 	}
 }
 
@@ -176,15 +187,15 @@ func validateDocsBlock(
 ) {
 	t.Helper()
 
-	directive, err := parseDirective(block)
-	if err != nil {
-		t.Errorf("%s: %v", block.name(), err)
-
-		return
-	}
-
 	for i, doc := range splitYAMLDocuments(t, block.name(), block.body) {
 		docName := fmt.Sprintf("%s#%d", block.name(), i)
+
+		directive, err := parseDirective(block, doc)
+		if err != nil {
+			t.Errorf("%s: %v", docName, err)
+
+			continue
+		}
 
 		gvk, class, classErr := classifyDocument(doc)
 
@@ -377,12 +388,14 @@ type blockDirective struct {
 var directivePattern = regexp.MustCompile(`^#\s*kollect-doc:\s*(\S+)\s*(.*)$`)
 
 // parseDirective reads the `# kollect-doc:` line, which must be the first
-// non-blank line of the block. Placing it anywhere else means it is not seen --
-// there is deliberately no way to declare a contract for a whole file.
-func parseDirective(block yamlBlock) (blockDirective, error) {
+// non-blank line of THIS DOCUMENT -- not of the fence it shares with others.
+// A multi-document fence therefore needs one directive per exempted document,
+// so a single marker can never silence its fence-mates, and there is no way to
+// declare a contract for a whole file.
+func parseDirective(block yamlBlock, doc []byte) (blockDirective, error) {
 	first := ""
 
-	for _, line := range strings.Split(block.body, "\n") {
+	for _, line := range strings.Split(string(doc), "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
