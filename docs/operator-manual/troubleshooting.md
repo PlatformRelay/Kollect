@@ -171,6 +171,7 @@ never delete CRDs in production.
 ### What is the recommended per-team install?
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 tenantMode: true
 watchNamespaces:
   - team-a

@@ -22,6 +22,7 @@ freshness trade-off, but breaks down for multi-role fan-out (Postgres portal at 
 [ADR-0414](0414-sink-family-crds.md), which kept this entry shape:
 
 ```yaml
+# kollect-doc: superseded the single sinkRefs list became snapshotSinkRefs / databaseSinkRefs / eventSinkRefs in ADR-0414
 # kollect-doc: superseded the single sinkRefs list became snapshotSinkRefs /
 # databaseSinkRefs / eventSinkRefs in ADR-0414; the CRDs accept only the object form.
 spec:

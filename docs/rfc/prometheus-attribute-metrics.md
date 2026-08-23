@@ -55,6 +55,7 @@ Extend `KollectProfile` / `KollectClusterProfile` (exact field name TBD — `att
 `metrics[]` with a `kind` discriminator):
 
 ```yaml
+# kollect-doc: proposed exploration only — metricsScope and attributeMetrics are not CRD fields
 apiVersion: kollect.dev/v1alpha1
 kind: KollectProfile
 metadata:

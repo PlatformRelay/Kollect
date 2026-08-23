@@ -102,6 +102,7 @@ After a successful annotation-only probe, the reconciler clears the annotation (
 family sink:
 
 ```yaml
+# kollect-doc: fragment KollectConnectionTest
 spec:
   sinkRef:
     databaseSinkRef: postgres-inventory-demo

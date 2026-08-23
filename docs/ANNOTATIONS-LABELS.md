@@ -52,6 +52,7 @@ kubectl label namespace team-a kollect.dev/watch=enabled --overwrite
 **Opt-out one Deployment** in an otherwise watched namespace:
 
 ```yaml
+# kollect-doc: ignore workload metadata, not a kollect CR
 metadata:
   labels:
     kollect.dev/watch: disabled

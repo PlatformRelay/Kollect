@@ -34,6 +34,7 @@ Add `mongodb` to `KollectDatabaseSink.spec.type` (and the cluster variant) with 
 block:
 
 ```yaml
+# kollect-doc: fragment KollectDatabaseSink
 spec:
   type: mongodb
   provisioning: { mode: ensure }   # or existing

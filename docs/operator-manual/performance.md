@@ -213,6 +213,7 @@ For large clusters, use the chart **`resourcesProfile: large`** preset (≥2 GiB
 limit). Tune dispatch and reconcile flags per [PERFORMANCE.md](performance.md).
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 resourcesProfile: large
 collect:
   dispatchWorkers: 8

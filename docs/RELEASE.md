@@ -171,6 +171,7 @@ task changelog
 Edit [`charts/kollect/Chart.yaml`](https://github.com/platformrelay/kollect/blob/main/charts/kollect/Chart.yaml):
 
 ```yaml
+# kollect-doc: ignore Helm Chart.yaml, not a kollect CR
 version: 0.3.0
 appVersion: "0.3.0"
 ```
@@ -181,6 +182,7 @@ Align `version` and `appVersion` with the git tag (`v0.3.0` → `0.3.0`).
 not derived from `appVersion`:
 
 ```yaml
+# kollect-doc: ignore Helm Chart.yaml annotations, not a kollect CR
 annotations:
   artifacthub.io/images: |
     - name: kollect

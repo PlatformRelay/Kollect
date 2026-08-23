@@ -110,6 +110,7 @@ The Profile validating webhook rejects attribute paths that read **`Secret.data`
 Profile carries an explicit opt-in annotation:
 
 ```yaml
+# kollect-doc: ignore workload metadata, not a kollect CR
 metadata:
   annotations:
     kollect.dev/allow-secret-extraction: "true"

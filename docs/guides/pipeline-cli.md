@@ -379,6 +379,7 @@ Store a base64-encoded kubeconfig as a masked CI/CD variable `KUBECONFIG_B64` (b
 newline-mangling), and commit your config directory as `collect-config/`.
 
 ```yaml
+# kollect-doc: ignore GitLab CI config, not a kollect CR
 # .gitlab-ci.yml
 stages: [collect]
 
@@ -408,6 +409,7 @@ collect-inventory:
 Store the base64 kubeconfig as the `KUBECONFIG_B64` secret.
 
 ```yaml
+# kollect-doc: ignore GitHub Actions workflow, not a kollect CR
 # .github/workflows/collect-inventory.yml
 name: Collect inventory
 on:

@@ -80,6 +80,7 @@ For tenant isolation, enable namespaced RBAC and restrict the informer cache
 ([ADR-0203](../adr/0203-namespaced-multi-tenancy.md), [ADR-0201](../adr/0201-crd-model.md)):
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 tenantMode: true
 watchNamespaces:
   - team-a
