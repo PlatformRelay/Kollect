@@ -118,34 +118,60 @@ var nonKollectDocGroups = map[string]struct{}{
 //
 //   - Prose. A `sinkRefs` in a table row, a mermaid edge label, or a shell comment
 //     is invisible here. hack/test/docs_removed_api_fields_test.sh covers that.
-//   - Non-YAML fenced blocks (```json, ```sh, ```bash) -- not parsed at all.
-//   - MARKUP VARIANTS THE FENCE SCANNER DOES NOT RECOGNISE. Discovery reads the
-//     first token of a fence info string, so it admits "yaml", "yml",
-//     'yaml title="x"', "yaml{.annotate}" and "{.yaml .annotate}", on backtick or
-//     tilde fences of any length. Anything else that mkdocs still renders as YAML
-//     is invisible -- and invisible here means SILENT: an undiscovered block is
-//     not validated, not counted, and cannot move minDiscoveredYAMLBlocks, so no
-//     floor detects it. Known gaps: YAML embedded via a pymdownx.snippets
-//     include, YAML inside an HTML block, a superfences custom fence whose name
-//     is not "yaml", and content-tab or admonition syntax that changes how the
-//     opener is written. This is the exact class that let a bare-string
-//     databaseSinkRefs fragment sit on a live page under a "{.yaml .annotate}"
-//     fence with every gate green, so widen infoStringLanguage rather than
-//     assuming the list above is closed.
+//
+//   - Non-YAML fenced blocks (```json, ```sh, ```bash) -- their
+//     bodies are never parsed. They are still walked to their closer, because a
+//     fence the scanner declines to collect but fails to step over leaves it
+//     mid-body and loses every later block on the page.
+//
+//   - MARKUP VARIANTS THE FENCE SCANNER DOES NOT RECOGNISE. This is the gate's
+//     most dangerous gap, because it fails SILENTLY: an undiscovered block is not
+//     validated, not counted, and cannot move minDiscoveredYAMLBlocks, so no floor
+//     detects it and no message is printed. It is also the gap this repo has
+//     reopened three times.
+//
+//     What IS discovered is pinned case by case in fence_scanner_test.go -- read
+//     that table, not this paragraph, for the authoritative list. In summary:
+//     backtick or tilde fences of any length >= 3, with the language taken from
+//     the first token of the info string; attribute lists resolve to their FIRST
+//     class, so "{.yaml .annotate}" is YAML and "{.annotate .yaml}" deliberately
+//     is not, matching what superfences highlights. Fences indented in list items,
+//     content tabs and admonitions are discovered, as are blockquoted fences.
+//     Because md_in_html is enabled (mkdocs.yml:135), a fence inside a
+//     <div markdown="1"> is discovered too.
+//
+//     Known remaining gaps: YAML pulled in by a pymdownx.snippets include (the
+//     text is not in the page at all), a superfences custom_fences block whose
+//     name is not "yaml", and YAML inside raw HTML that does NOT carry
+//     markdown="1".
+//
+//     Two live escapes have come from this class already: a bare-string
+//     databaseSinkRefs fragment behind a "{.yaml .annotate}" fence, and a complete
+//     object behind a title attribute containing backticks. If you are fixing a
+//     third, the code to change is extractFencedYAML and fenceOpenPattern below --
+//     infoStringLanguage only classifies an info string once the walker has
+//     already found the fence, so a variant the walker never matches will never
+//     reach it. Add the case to fence_scanner_test.go first and watch it fail.
+//
 //   - Blocks a human declared out of scope with `kollect-doc: ignore <reason>`
 //     (Helm values, CI workflows, Prometheus config). The reason is mandatory and
 //     reader-visible, but nothing verifies that the reason is honest.
+//
 //   - Examples under docs/adr/ and docs/rfc/ marked `kollect-doc: superseded
 //     <reason>` or `kollect-doc: proposed <reason>`. An ADR records a decision as
 //     taken and an RFC records one never taken; retconning either would destroy the
 //     record. The directive text renders in the page, so the reader is told.
+//
 //   - Allowlisted foreign-group documents (Secret, Role, ...), skipped entirely --
 //     the allowlist keys on group alone, so a malformed Secret in docs/ is never
 //     validated.
+//
 //   - This project's validating webhooks: an example can satisfy the CRD schema
 //     and still be rejected on apply.
+//
 //   - Fragment paths are trusted. `fragment KollectProfile.spec` on a snippet that
 //     is really a KollectTarget spec validates against the wrong schema.
+//
 //   - Semantics. An example whose effective policy is wider or narrower than the
 //     surrounding prose claims is schema-valid and passes. A KollectScope that
 //     populates one family allowlist and leaves the other two empty reads as
@@ -566,7 +592,31 @@ var skippedDocsDirs = map[string]struct{}{
 // nothing else caught them either. That made the gate teach its own bypass: a
 // fragment failing with "undirected YAML fragment" went quiet the moment its
 // author added a fence attribute.
-var fenceOpenPattern = regexp.MustCompile("^(\\s*)(`{3,}|~{3,})(.*)$")
+var fenceOpenPattern = regexp.MustCompile("^([ \\t]*(?:>[ \\t]?)*)(`{3,}|~{3,})(.*)$")
+
+// blockquotePrefixPattern matches the indentation and blockquote markers a line
+// carries before its content.
+var blockquotePrefixPattern = regexp.MustCompile(`^[ \t]*(?:>[ \t]?)*`)
+
+// stripFencePrefix removes a fence line's leading indentation and blockquote
+// markers, so a quoted fence yields the same body as an unquoted one.
+//
+// When the prefix carries no blockquote marker this is plain TrimPrefix, which
+// keeps the long-standing behaviour for indented fences byte-identical. Only a
+// quoted fence takes the fallback, which is needed because a blank line inside a
+// blockquote is written ">" with no trailing space and so does not carry the
+// opener's full prefix.
+func stripFencePrefix(line, prefix string) string {
+	if !strings.Contains(prefix, ">") {
+		return strings.TrimPrefix(line, prefix)
+	}
+
+	if strings.HasPrefix(line, prefix) {
+		return line[len(prefix):]
+	}
+
+	return line[len(blockquotePrefixPattern.FindString(line)):]
+}
 
 // infoStringLanguage extracts the language token from a fence info string.
 //
@@ -603,6 +653,9 @@ func infoStringLanguage(info string) string {
 // fence while still terminating only on backticks would let one "~~~yaml" opener
 // swallow the rest of the page into a single block.
 func isClosingFence(line, marker string) bool {
+	// A closer inside a blockquote carries the same "> " markers as its opener.
+	line = line[len(blockquotePrefixPattern.FindString(line)):]
+
 	trimmed := strings.TrimSpace(line)
 	if len(trimmed) < len(marker) {
 		return false
@@ -695,14 +748,16 @@ func extractFencedYAML(rel, content string) []yamlBlock {
 			continue
 		}
 
-		indent, marker, info := match[1], match[2], match[3]
+		prefix, marker, info := match[1], match[2], match[3]
 
-		// A backtick fence info string may not itself contain a backtick, so a run
-		// of inline code is not a fence opener.
-		if strings.HasPrefix(marker, "`") && strings.Contains(info, "`") {
-			continue
-		}
-
+		// There is deliberately no "a backtick fence info string may not contain a
+		// backtick" guard here. CommonMark has that rule; pymdownx.superfences, which
+		// is what actually renders this site, does not -- it lexes
+		// ```yaml title="`inv.yaml`" as YAML like any other block. Enforcing the
+		// stricter rule skipped a renderable block, and skipping it by `continue`
+		// left the walker mid-body so every later block on the page was lost too.
+		// Whatever the reason for not collecting a fence, ALWAYS advance past its
+		// closer.
 		var body []string
 
 		j := i + 1
@@ -711,7 +766,7 @@ func extractFencedYAML(rel, content string) []yamlBlock {
 				break
 			}
 
-			body = append(body, strings.TrimPrefix(lines[j], indent))
+			body = append(body, stripFencePrefix(lines[j], prefix))
 		}
 
 		if language := infoStringLanguage(info); language == "yaml" || language == "yml" {
