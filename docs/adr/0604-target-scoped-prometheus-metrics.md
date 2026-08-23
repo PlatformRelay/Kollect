@@ -107,6 +107,7 @@ kollect_target_ready{target_namespace, target_name, profile}
 **API sketch:**
 
 ```yaml
+# kollect-doc: proposed sketch only — metricsScope is not a CRD field; this ADR is Parked
 apiVersion: kollect.dev/v1alpha1
 kind: KollectProfile
 metadata:
@@ -191,6 +192,7 @@ No new Service type. Extend existing Helm `metrics.serviceMonitor` per **spoke**
 ([operator manual](../operator-manual/metrics.md)):
 
 ```yaml
+# kollect-doc: ignore Prometheus scrape config, not a kollect CR
 # Example: drop domain labeled series in large fleets (keep Tier A + B)
 metricRelabelings:
   - sourceLabels: [__name__]

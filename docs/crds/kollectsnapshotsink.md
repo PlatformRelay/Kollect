@@ -85,6 +85,7 @@ Set `layout.mode: document` explicitly to keep a single inventory file.
 Minimal per-resource tree (one field beyond `type`/`endpoint`):
 
 ```yaml
+# kollect-doc: fragment KollectSnapshotSink
 spec:
   type: git
   endpoint: https://git.example.com/platform/inventory.git

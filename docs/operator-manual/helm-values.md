@@ -48,6 +48,7 @@ default **30s** → scope floor.
 Enable Prometheus Operator scraping and alerts:
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 metrics:
   serviceMonitor:
     enabled: true
@@ -77,6 +78,7 @@ helm upgrade --install kollect-team ./charts/kollect \
 Key values:
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 tenantMode: true
 watchNamespaces:
   - team-a

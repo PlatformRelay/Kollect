@@ -73,6 +73,7 @@ multi-operator dedupe runbook.
 Helm values:
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 watchNamespaces: []          # empty = all namespaces
 tenantMode: false            # true → Role instead of ClusterRole for the manager SA
 ```
@@ -140,6 +141,7 @@ spec:
 **Outcome:** Target reconciler does not register the informer watch. Status:
 
 ```yaml
+# kollect-doc: fragment KollectTarget
 status:
   conditions:
     - type: Degraded

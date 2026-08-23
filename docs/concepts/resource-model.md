@@ -99,6 +99,7 @@ kind. Kollect supports:
 Example attribute row:
 
 ```yaml
+# kollect-doc: fragment KollectProfile.spec
 attributes:
   - name: image
     path: "{.spec.template.spec.containers[0].image}"

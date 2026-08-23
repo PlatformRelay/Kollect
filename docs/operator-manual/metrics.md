@@ -21,6 +21,7 @@ ClusterRole plus a binding for the operator's own ServiceAccount — whenever `m
 `metrics.readerRole.extraSubjects`:
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 metrics:
   readerRole:
     extraSubjects:
@@ -54,6 +55,7 @@ the reader role.
 When [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator) CRDs are installed (e.g. [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)):
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 metrics:
   serviceMonitor:
     enabled: true

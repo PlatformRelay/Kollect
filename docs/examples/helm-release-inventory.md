@@ -75,6 +75,7 @@ Namespaced ([ADR-0201](../adr/0201-crd-model.md)). Default inventory uses Postgr
 `config/samples/kollect_v1alpha1_kollecttarget_argo-applications.yaml`
 
 ```yaml
+# kollect-doc: fragment KollectTarget
 spec:
   profileRef: argo-application-summary
   namespaceSelector:

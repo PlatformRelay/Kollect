@@ -13,6 +13,7 @@ in shared clusters where most tenants should be ignored by default.
 Flux uses a similar pattern on Kustomizations:
 
 ```yaml
+# kollect-doc: ignore workload metadata, not a kollect CR
 metadata:
   annotations:
     kustomize.toolkit.fluxcd.io/reconcile: disabled
@@ -88,6 +89,7 @@ metadata:
 **Opt-out one Deployment in an otherwise watched namespace**:
 
 ```yaml
+# kollect-doc: ignore workload metadata, not a kollect CR
 metadata:
   labels:
     kollect.dev/watch: disabled

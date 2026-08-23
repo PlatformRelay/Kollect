@@ -183,6 +183,7 @@ review that mutated the implementation and watched the suite stay green.
   arg list, assert the **exact list** instead:
 
   ```yaml
+  # kollect-doc: ignore helm-unittest assertions, not a kollect CR
   - equal:
       path: spec.template.spec.containers[0].args
       value: [--leader-elect, --health-probe-bind-address=:8081, ...]

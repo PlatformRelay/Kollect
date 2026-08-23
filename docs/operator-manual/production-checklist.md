@@ -40,6 +40,7 @@ Install one operator per tenant boundary with namespaced RBAC and a restricted i
 ([ADR-0203](../adr/0203-namespaced-multi-tenancy.md), ADR-0703 (archived)):
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 tenantMode: true
 watchNamespaces:
   - team-a

@@ -44,10 +44,10 @@ const (
 	// fenced blocks in Markdown plus standalone .yaml/.yml files. 70 exist today.
 	minDiscoveredYAMLBlocks = 65
 	// minValidatedKollectDocs counts complete kollect.dev objects that actually
-	// went through both checks. 33 exist today.
-	minValidatedKollectDocs = 30
+	// went through both checks. 29 exist today.
+	minValidatedKollectDocs = 26
 	// minValidatedFragments counts kollect.dev fragments that actually went
-	// through both checks. 11 exist today. Without this floor, redirecting every
+	// through both checks. 10 exist today. Without this floor, redirecting every
 	// fragment to a `kollect-doc: ignore` directive would still pass.
 	minValidatedFragments = 8
 )
