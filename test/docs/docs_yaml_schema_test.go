@@ -114,6 +114,12 @@ var nonKollectDocGroups = map[string]struct{}{
 //     and still be rejected on apply.
 //   - Fragment paths are trusted. `fragment KollectProfile.spec` on a snippet that
 //     is really a KollectTarget spec validates against the wrong schema.
+//   - Semantics. An example whose effective policy is wider or narrower than the
+//     surrounding prose claims is schema-valid and passes. A KollectScope that
+//     populates one family allowlist and leaves the other two empty reads as
+//     "export is capped" but leaves two families unrestricted; no gate here, and
+//     none in hack/test/docs_removed_api_fields_test.sh, compares an example
+//     against what its page says it does.
 func TestDocsYAMLValidatesAgainstCRDSchemas(t *testing.T) {
 	t.Parallel()
 

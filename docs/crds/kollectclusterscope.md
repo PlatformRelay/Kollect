@@ -23,7 +23,8 @@ Static config only — no status subresource ([ADR-0202](../adr/0202-static-vs-r
 ## Example
 
 A cluster-wide ceiling that caps platform collection to `Deployment`/`Service`, blocks
-`kube-system`, and allows export only to a named namespaced family sink:
+`kube-system`, and caps export on **all three** sink families. All three lists are populated on
+purpose: leaving one out would leave that family unrestricted, not denied.
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1
@@ -40,8 +41,12 @@ spec:
       kind: Service
   deniedNamespaces:
     - kube-system           # platform blacklist — targets cannot override
+  snapshotSinkRefs:
+    - platform-audit-git
   databaseSinkRefs:
     - platform-warehouse
+  eventSinkRefs:
+    - platform-events
 ```
 
 The namespaced [`KollectScope`](kollectscope.md) sample
