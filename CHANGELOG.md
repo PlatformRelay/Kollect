@@ -11,6 +11,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Assert the release workflow installs operator-sdk on code, not comments ([#325](https://github.com/platformrelay/kollect/pull/325))[62622b4](https://github.com/platformrelay/kollect/commit/62622b4a4191d32d2e7b1bd86f2213dee35111a3)
+
+- **ci:** Point the owned[] drift message in both directions [e66feab](https://github.com/platformrelay/kollect/commit/e66feab2c6f48351bb2aee0bac4f46e03ce8dd45)
+
+- **ci:** Anchor the dist_* wiring gate to the lint job's steps [fbf6a9a](https://github.com/platformrelay/kollect/commit/fbf6a9ab14da9dc56c6bf27ea7953ae313dd8678)
+
 - **deps:** Satisfy the cel-go v0.31 Program interface and tidy go.sum ([#322](https://github.com/platformrelay/kollect/pull/322))[e60f126](https://github.com/platformrelay/kollect/commit/e60f126259d57725a377d65666efb94b7c10fb9a)
 
 - **artifacthub:** Delist the charts that pin a nonexistent :latest image [5f460d5](https://github.com/platformrelay/kollect/commit/5f460d5ef458c8276b60513771cfd158d3439ce3)
