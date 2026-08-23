@@ -12,6 +12,6 @@ spec:
       kind: Deployment
   allowedNamespaces:
     - team-a
-  sinkRefs:
+  snapshotSinkRefs:
     - team-a-snapshot
   minExportInterval: 1m
