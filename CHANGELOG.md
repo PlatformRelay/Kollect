@@ -11,6 +11,18 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **test:** Stop the fence walker desyncing, and discover quoted fences ([#330](https://github.com/platformrelay/kollect/pull/330))[10b5ab8](https://github.com/platformrelay/kollect/commit/10b5ab8697e3aa28b93af9de2e6285e175f9a41f)
+
+- **docs:** Correct the last prose instance of the bare-string sink ref [34b2f8f](https://github.com/platformrelay/kollect/commit/34b2f8fe0fbdd809295bb1a81db088e1fd9f8f87)
+
+- **docs:** Stop the scope examples from depicting a ceiling they do not impose [79a7ddc](https://github.com/platformrelay/kollect/commit/79a7ddc06f5d52452bc95e83919889cf9c75e553)
+
+- **test:** Skip gitignored build artefacts under docs/ [6fa8b91](https://github.com/platformrelay/kollect/commit/6fa8b91ad72bb0b181f71c0f957d2a48e0947724)
+
+- **docs:** Correct the examples the CRD schemas reject [bbc441d](https://github.com/platformrelay/kollect/commit/bbc441d19aa41955bd3e5e585fbc1a7c41b36985)
+
+- **docs:** Document the per-family sink allowlists, not the removed sinkRefs [6ddabcf](https://github.com/platformrelay/kollect/commit/6ddabcfbb193477aa357a6f514470fdc859131b3)
+
 - **test:** Wait for the NATS server-ready log before connecting ([#329](https://github.com/platformrelay/kollect/pull/329))[4c2ce3d](https://github.com/platformrelay/kollect/commit/4c2ce3d1d841e4660655b666dc40cc0e230f7cd3)
 
 - **samples:** Make the advanced and team-operator overlays apply again [4d69f94](https://github.com/platformrelay/kollect/commit/4d69f94d846071d03df1457959e297c4891c9e64)
