@@ -15,7 +15,7 @@ spec:
       kind: VulnerabilityReport
   allowedNamespaces: [sec-ops, team-a, team-b]
   deniedNamespaces: [kube-system, kube-public]
-  sinkRefs: [sec-ops-git]
+  snapshotSinkRefs: [sec-ops-git]
 ---
 apiVersion: kollect.dev/v1alpha1
 kind: KollectProfile

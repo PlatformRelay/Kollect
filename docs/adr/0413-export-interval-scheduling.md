@@ -9,20 +9,24 @@
 
 `KollectInventory` and `KollectClusterInventory` previously exposed a single
 `spec.exportMinInterval` (default **30s**). Every reconcile marshalled one snapshot and exported to
-**all** `sinkRefs` on the same debounce tick. That matches FR-EXP-2 when all sinks share the same
+**all** `sinkRefs` on the same debounce tick (that single list was later split per family by
+[ADR-0414](0414-sink-family-crds.md)). That matches FR-EXP-2 when all sinks share the same
 freshness trade-off, but breaks down for multi-role fan-out (Postgres portal at 30s + Git audit at
 1h + Kafka on material change only) — see [KOLLECTSINK-INTERVAL-PROPOSAL.md] (local).
 
 ## Decision
 
-### 1. Structured `spec.sinkRefs[]`
+### 1. Structured `spec.sinkRefs[]` (superseded by [ADR-0414](0414-sink-family-crds.md))
 
-`sinkRefs` accepts **plain strings** (backward compatible) or objects:
+`sinkRefs` accepts **plain strings** (backward compatible) or objects — superseded per-family by
+[ADR-0414](0414-sink-family-crds.md), which kept this entry shape:
 
 ```yaml
+# kollect-doc: superseded the single sinkRefs list became snapshotSinkRefs /
+# databaseSinkRefs / eventSinkRefs in ADR-0414; the CRDs accept only the object form.
 spec:
   exportMinInterval: 30s
-  sinkRefs:
+  sinkRefs:   # superseded by ADR-0414 — now snapshotSinkRefs / databaseSinkRefs / eventSinkRefs
     - team-postgres
     - name: audit-git
       exportMinInterval: 1h

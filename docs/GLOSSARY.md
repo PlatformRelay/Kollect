@@ -10,7 +10,7 @@ architecture context see [Understand the basics](concepts/resource-model.md) and
 | --- | --- |
 | **Profile** | A `KollectProfile` — static schema defining **what** to extract: target GVK plus JSONPath/CEL attribute rules. Not reconciled; admission-validated. See [ADR-0204](adr/0204-namespaced-profiles.md). |
 | **Target** | A `KollectTarget` — **what to watch**: namespace selectors, label selectors, `profileRef`, and informer registration. The target controller reconciles collection state. |
-| **Inventory** | A `KollectInventory` — **aggregate + export**: binds targets, holds the in-memory snapshot, debounces export, and writes to `sinkRefs`. |
+| **Inventory** | A `KollectInventory` — **aggregate + export**: binds targets, holds the in-memory snapshot, debounces export, and writes to the sinks named in its `snapshotSinkRefs` / `databaseSinkRefs` / `eventSinkRefs`. |
 | **Sink** | A family sink CR — **`KollectSnapshotSink`** (Git, GitLab, S3, GCS), **`KollectDatabaseSink`** (Postgres, MongoDB), or **`KollectEventSink`** (Kafka) — **where to send** inventory in the tenant namespace. |
 | **Scope** | A `KollectScope` — optional **policy gate** limiting allowed GVKs, namespaces, and sinks for multitenant installs. Enforced at admission, not reconciled. |
 | **Connection test** | A `KollectConnectionTest` — probes family sink reachability and sets `ConnectionVerified` ([ADR-0403](adr/0403-connection-test.md)). |

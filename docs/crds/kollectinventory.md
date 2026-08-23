@@ -170,7 +170,7 @@ Aggregate `status.lastExportTime` is the **max** of per-sink times (backward com
 | --- | --- | --- |
 | `ScopeSinkDenied` | Sink not in scope | Add to matching family list on `KollectScope` |
 | `ScopeLookupFailed` | Cannot read scope | RBAC / API error |
-| `SinkNotFound` | Bad `sinkRefs` entry | Correct sink name |
+| `SinkNotFound` | Bad `snapshotSinkRefs` / `databaseSinkRefs` / `eventSinkRefs` entry | Correct sink name |
 | `SinkUnreachable` | `ConnectionVerified=False` | Fix sink credentials / network |
 | `PayloadTooLarge` | Exceeds `maxExportBytes` | Split targets, raise the inventory-wide or per-ref `maxExportBytes` within the global cap, or trim attributes |
 | `ExportTerminal` | Non-retryable sink error | Fix sink config; check operator logs |
