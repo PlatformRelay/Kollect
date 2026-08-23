@@ -371,6 +371,202 @@ else
   fail "missing ${WORKFLOW}"
 fi
 
+# ---------------------------------------------------------------------------
+# 7. the workflow STEP BODY maps guard exit codes to the right job outcome
+#
+# Section 6 proves the guard step exists, runs before the push, and that the
+# push is gated on its output -- but it says nothing about WHICH verdict each
+# exit code produces. Flipping `2) verdict=hold` to `2) verdict=push` inside the
+# step's inline script would push the exact fbb5196a3 demotion to main while
+# every check above still reported green. So execute the real step body,
+# extracted from the workflow YAML, against fixture repositories and assert the
+# job-level outcome: does it push, and does it fail?
+# ---------------------------------------------------------------------------
+
+if [[ -f "${WORKFLOW}" ]] && command -v python3 >/dev/null 2>&1; then
+  STEP_BODY="${TMPROOT}/guard-step.sh"
+
+  # Extract the guard step's `run:` body and the literal verdict the push step
+  # gates on. The push condition is required to be a plain equality against one
+  # single-quoted literal so the comparison below is an evaluation, not a guess.
+  if PUSH_VERDICT="$(python3 - "${WORKFLOW}" "${STEP_BODY}" <<'PY'
+import re
+import sys
+
+import yaml
+
+wf = yaml.safe_load(open(sys.argv[1]))
+steps = wf["jobs"]["sync"]["steps"]
+
+guard = next(
+    (s for s in steps if "check-changelog-release-guard.sh" in (s.get("run") or "")),
+    None,
+)
+push = next(
+    (s for s in steps if "git push origin HEAD:main" in (s.get("run") or "")), None
+)
+if guard is None or push is None:
+    print("guard or push step not found", file=sys.stderr)
+    sys.exit(1)
+
+cond = str(push.get("if") or "")
+m = re.fullmatch(
+    r"\s*steps\.(?P<id>[A-Za-z0-9_-]+)\.outputs\.verdict\s*==\s*'(?P<lit>[^']+)'\s*",
+    cond,
+)
+if not m:
+    print(
+        "push step 'if:' must be exactly steps.<id>.outputs.verdict == '<literal>', "
+        f"got {cond!r}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+if m.group("id") != guard.get("id"):
+    print(
+        f"push step gates on steps.{m.group('id')} but the guard step id is "
+        f"{guard.get('id')!r}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+open(sys.argv[2], "w").write(guard["run"])
+print(m.group("lit"))
+PY
+  )"; then
+    pass "push step gates on a single verdict literal (${PUSH_VERDICT}) emitted by the guard step"
+
+    # make_sync_sandbox NAME COMMITTED REGENERATED [TAG...]
+    # A repo whose HEAD commit is UNTAGGED (tags sit on the base commit, as on a
+    # real main after a release) and whose CHANGELOG.md is dirty in the worktree,
+    # exactly as `task changelog:write` leaves it before the guard step runs.
+    make_sync_sandbox() {
+      local name="$1" committed="$2" regenerated="$3"
+      shift 3
+      local dir="${TMPROOT}/sync-${name}" tag
+      mkdir -p "${dir}/hack"
+      cp "${GUARD}" "${dir}/hack/check-changelog-release-guard.sh"
+      git -C "${dir}" init -q
+      git -C "${dir}" -c user.name=t -c user.email=t@e commit -q --allow-empty -m base
+      for tag in "$@"; do
+        git -C "${dir}" tag "${tag}"
+      done
+      printf '%s' "${committed}" >"${dir}/CHANGELOG.md"
+      git -C "${dir}" add CHANGELOG.md hack/check-changelog-release-guard.sh
+      git -C "${dir}" -c user.name=t -c user.email=t@e commit -q -m "release prep"
+      printf '%s' "${regenerated}" >"${dir}/CHANGELOG.md"
+      printf '%s\n' "${dir}"
+    }
+
+    # run_sync_step DIR -- STEP_RC / STEP_VERDICT / STEP_OUT.
+    # changelog-sync.yaml sets no `shell:` and no `defaults.run`, so GitHub runs
+    # this body as `bash -e {0}`. `--noprofile --norc` keeps a developer's
+    # dotfiles out of the result; `-o pipefail` is deliberately STRICTER than
+    # production -- the body contains no pipelines today, so it cannot mask or
+    # invent a verdict, it only catches a future edit that adds one.
+    STEP_RC=0
+    STEP_VERDICT=""
+    STEP_OUT=""
+    run_sync_step() {
+      local dir="$1" rc=0
+      : >"${dir}/github-output"
+      STEP_OUT="$(
+        cd "${dir}" &&
+          RUNNER_TEMP="${dir}" GITHUB_OUTPUT="${dir}/github-output" \
+            bash --noprofile --norc -eo pipefail "${STEP_BODY}" 2>&1
+      )" || rc=$?
+      STEP_RC="${rc}"
+      STEP_VERDICT="$(sed -n 's/^verdict=//p' "${dir}/github-output" | tail -1)"
+    }
+
+    # -- 7a. release in flight: the demotion must NOT reach the push step ------
+    dir="$(make_sync_sandbox in-flight "${RELEASED_TOP}" "${DEMOTED_TOP}" v0.16.0 v0.15.0)"
+    run_sync_step "${dir}"
+    if [[ "${STEP_VERDICT}" != "${PUSH_VERDICT}" ]]; then
+      pass "release-in-flight demotion emits verdict '${STEP_VERDICT}' != '${PUSH_VERDICT}' -- push step is skipped"
+    else
+      fail "release-in-flight demotion emitted the push verdict '${STEP_VERDICT}' -- the fbb5196a3 demotion WOULD be pushed to main"
+    fi
+    if [[ "${STEP_RC}" -eq 0 ]]; then
+      pass "release-in-flight demotion keeps the job green (no alarm fatigue on every release)"
+    else
+      fail "release-in-flight demotion must not fail the job, got rc ${STEP_RC} -- output: ${STEP_OUT}"
+    fi
+    if [[ "${STEP_OUT}" == *"::warning"* && "${STEP_OUT}" == *"v0.17.0"* ]]; then
+      pass "release-in-flight demotion surfaces a ::warning naming v0.17.0"
+    else
+      fail "release-in-flight demotion must surface a ::warning naming v0.17.0 -- output: ${STEP_OUT}"
+    fi
+
+    # -- 7b. genuine regression: the job must FAIL, nothing pushed ------------
+    dir="$(make_sync_sandbox regression "${RELEASED_TOP}" "${DEMOTED_TOP}" v0.17.0 v0.16.0 v0.15.0)"
+    run_sync_step "${dir}"
+    if [[ "${STEP_RC}" -ne 0 ]]; then
+      pass "demotion of a section whose tag IS visible fails the job (rc ${STEP_RC})"
+    else
+      fail "demotion of a section whose tag IS visible must fail the job, got rc 0 -- output: ${STEP_OUT}"
+    fi
+    if [[ "${STEP_VERDICT}" != "${PUSH_VERDICT}" ]]; then
+      pass "failing regression never emits the push verdict"
+    else
+      fail "failing regression emitted the push verdict '${STEP_VERDICT}'"
+    fi
+
+    # A dropped middle section must fail even while a release is in flight.
+    dir="$(make_sync_sandbox regression-middle "${RELEASED_TOP}" "$(
+      changelog_header
+      section 0.17.0
+      section 0.15.0
+    )" v0.16.0 v0.15.0)"
+    run_sync_step "${dir}"
+    if [[ "${STEP_RC}" -ne 0 && "${STEP_VERDICT}" != "${PUSH_VERDICT}" ]]; then
+      pass "a dropped middle section fails the job and never pushes"
+    else
+      fail "a dropped middle section must fail the job and never push, got rc ${STEP_RC} verdict '${STEP_VERDICT}'"
+    fi
+
+    # -- 7c. legitimate [Unreleased] append on an untagged tree still pushes ---
+    dir="$(make_sync_sandbox legit-append "$(
+      changelog_header
+      section 0.17.0
+      section 0.16.0
+    )" "$(
+      changelog_header
+      section Unreleased "- **api:** A freshly merged fix [abc1234]"
+      section 0.17.0
+      section 0.16.0
+    )" v0.17.0 v0.16.0)"
+    run_sync_step "${dir}"
+    if [[ "${STEP_VERDICT}" == "${PUSH_VERDICT}" && "${STEP_RC}" -eq 0 ]]; then
+      pass "a legitimate [Unreleased] append on an untagged tree still pushes (self-healing preserved)"
+    else
+      fail "self-healing broke: legitimate [Unreleased] append gave rc ${STEP_RC} verdict '${STEP_VERDICT}' -- output: ${STEP_OUT}"
+    fi
+
+    # Re-rendering the [Unreleased] body (the drift this workflow exists to heal)
+    # must also still push.
+    dir="$(make_sync_sandbox legit-rerender "${UNRELEASED_TOP}" "${UNRELEASED_TOP_EDITED}" v0.17.0 v0.16.0)"
+    run_sync_step "${dir}"
+    if [[ "${STEP_VERDICT}" == "${PUSH_VERDICT}" && "${STEP_RC}" -eq 0 ]]; then
+      pass "an [Unreleased] body re-render still pushes (drift-healing preserved)"
+    else
+      fail "drift-healing broke: [Unreleased] re-render gave rc ${STEP_RC} verdict '${STEP_VERDICT}' -- output: ${STEP_OUT}"
+    fi
+
+    # -- 7d. nothing to do must not push -------------------------------------
+    dir="$(make_sync_sandbox in-sync "${RELEASED_TOP}" "${RELEASED_TOP}" v0.17.0 v0.16.0 v0.15.0)"
+    run_sync_step "${dir}"
+    if [[ "${STEP_RC}" -eq 0 && "${STEP_VERDICT}" != "${PUSH_VERDICT}" ]]; then
+      pass "an already-in-sync CHANGELOG.md is green and does not push"
+    else
+      fail "in-sync run must be green without pushing, got rc ${STEP_RC} verdict '${STEP_VERDICT}'"
+    fi
+  else
+    fail "could not extract the guard step body / push verdict literal from ${WORKFLOW}"
+  fi
+else
+  fail "missing ${WORKFLOW} or python3 -- cannot verify the guard step verdict mapping"
+fi
+
 if [[ "${failures}" -ne 0 ]]; then
   printf '\nchangelog_sync_release_guard: %d check(s) failed\n' "${failures}" >&2
   exit 1
