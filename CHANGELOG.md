@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **samples:** Make the advanced and team-operator overlays apply again [4d69f94](https://github.com/platformrelay/kollect/commit/4d69f94d846071d03df1457959e297c4891c9e64)
+
 - **dev:** Select envtest assets by host OS/arch ([#326](https://github.com/platformrelay/kollect/pull/326))[59f6bb4](https://github.com/platformrelay/kollect/commit/59f6bb4ce2ec2b8fa10b94db2430a73cb1abd982)
 
 - **ci:** Assert the release workflow installs operator-sdk on code, not comments ([#325](https://github.com/platformrelay/kollect/pull/325))[62622b4](https://github.com/platformrelay/kollect/commit/62622b4a4191d32d2e7b1bd86f2213dee35111a3)
