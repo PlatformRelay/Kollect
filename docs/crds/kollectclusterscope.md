@@ -15,7 +15,7 @@ Cluster-scoped tenancy **ceiling** for platform operators ([ADR-0207](../adr/020
 
 The three allowlists are independent, one per sink family ([ADR-0414](../adr/0414-sink-family-crds.md)).
 **An empty allowlist is not a deny — it is "no restriction" for that family**
-(`internal/scope/scope.go`), so a ceiling that means to constrain database export must populate
+(`ValidateClusterInventoryClusterScopeSinkRefs` in `internal/scope/collection.go`), so a ceiling that means to constrain database export must populate
 `databaseSinkRefs` explicitly.
 
 Static config only — no status subresource ([ADR-0202](../adr/0202-static-vs-reconciled.md)).
