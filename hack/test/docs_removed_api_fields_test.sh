@@ -45,15 +45,29 @@ framing='ADR-0414|superseded|kollect-doc: superseded|kollect-doc: proposed|no lo
 
 [[ -d docs ]] || fail "docs/ is missing"
 
-# Non-vacuity: the corpus must actually be searched. docs/ holds ~130 pages.
-page_count="$(find docs -type f \( -name '*.md' -o -name '*.yaml' -o -name '*.yml' \) | wc -l | tr -d ' ')"
+# Build artefacts live under docs/ but are not docs. hack/docs/verify.sh runs
+# `task lint:markdown` (which does `npm ci --prefix docs`) BEFORE this gate, so
+# docs/node_modules is present by the time this runs: 167 vendored YAML/Markdown
+# files that would both satisfy the non-vacuity floor on their own and red the
+# build if a dependency happened to vendor one of the tokens. Prune them from the
+# corpus, exactly as test/docs/docs_yaml_schema_test.go does.
+prune_args=(-name node_modules -prune -o -name 'site' -prune -o -name '.*' -prune -o)
+
+# Non-vacuity: the corpus must actually be searched. docs/ holds ~130 real pages.
+page_count="$(
+  find docs "${prune_args[@]}" -type f \( -name '*.md' -o -name '*.yaml' -o -name '*.yml' \) -print |
+    wc -l | tr -d ' '
+)"
 if ((page_count < 100)); then
-  fail "only ${page_count} doc files found under docs/ -- the search collapsed, so a pass proves nothing"
+  fail "only ${page_count} authored doc files found under docs/ (build artefacts excluded) -- the search collapsed, so a pass proves nothing"
 fi
 
 for token in "${removed_fields[@]}"; do
   set +e
-  hits="$(grep -rnE "(^|[^A-Za-z])${token}" docs 2>/dev/null)"
+  hits="$(
+    find docs "${prune_args[@]}" -type f \( -name '*.md' -o -name '*.yaml' -o -name '*.yml' \) -print0 |
+      xargs -0 grep -nE "(^|[^A-Za-z])${token}" /dev/null 2>/dev/null
+  )"
   set -e
 
   [[ -n "${hits}" ]] || continue
