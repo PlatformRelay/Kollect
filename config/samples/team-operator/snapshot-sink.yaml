@@ -7,8 +7,11 @@ metadata:
     app.kubernetes.io/name: kollect
     app.kubernetes.io/managed-by: kustomize
 spec:
+  type: git
+  endpoint: https://github.com/example/kollect-team-a-inventory.git
+  # pathTemplate must carry {namespace} and {name} (internal/validation);
+  # {extension} follows serialization.format, which defaults to yaml for git.
+  pathTemplate: inventory/{namespace}/{name}{extension}
   connectionTest: false
   git:
-    endpoint: https://github.com/example/kollect-team-a-inventory.git
     branch: main
-    pathTemplate: inventory/snapshot.json

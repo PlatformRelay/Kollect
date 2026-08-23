@@ -2,6 +2,8 @@
 # Default overlay for profile/target examples. Credential-free end-to-end
 # `ConnectionVerified` path is `task demo-up` (in-cluster Forgejo hero).
 # Secret-requiring sinks live under advanced/ (DEMO-01).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
 resources:
 - kollect_v1alpha1_kollectprofile.yaml
 - kollect_v1alpha1_kollectprofile_service-endpoints.yaml
