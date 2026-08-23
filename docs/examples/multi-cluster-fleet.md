@@ -14,6 +14,7 @@ Run **one operator per cluster**, all exporting to the **same backend** with a d
 Each cluster installs the operator with the same DSN and a unique cluster label:
 
 ```yaml
+# kollect-doc: ignore Helm values, not a kollect CR
 # cluster-a — values fragment
 mode: single
 # …
@@ -28,11 +29,14 @@ metadata:
   name: fleet-postgres
   namespace: platform
 spec:
+  type: postgres
   cluster: cluster-a   # unique per installation
   postgres:
-    host: postgres.example.svc
-    database: inventory
-    # secretRef for credentials
+    databaseRef:                    # Secret holding the DSN; never inline credentials
+      name: inventory-postgres-dsn
+      namespace: kollect-system
+    schema: public
+    table: inventory_items
 ```
 
 Repeat on cluster B with `spec.cluster: cluster-b`. Rows merge in one table; primary key includes
@@ -43,11 +47,14 @@ cluster ([ADR-0501](../adr/0501-multi-cluster-fleet.md)).
 Use `pathTemplate` on a snapshot sink:
 
 ```yaml
+# kollect-doc: fragment KollectSnapshotSink
 spec:
+  type: git
+  endpoint: https://github.com/org/inventory.git
   cluster: cluster-a
+  pathTemplate: clusters/{cluster}/inventory.json
   git:
-    repoURL: https://github.com/org/inventory.git
-    pathTemplate: clusters/{cluster}/inventory.json
+    branch: main
 ```
 
 Each cluster commits under its own path; CI can aggregate `clusters/*` if a single commit is required.
