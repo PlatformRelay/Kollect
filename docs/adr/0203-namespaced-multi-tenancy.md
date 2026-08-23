@@ -82,8 +82,9 @@ Manager flag: `--watch-namespaces=team-a,team-b` (comma-separated).
 ### `KollectScope` (namespaced, static)
 
 - **Scope:** namespaced ([ADR-0201](0201-crd-model.md)); one object per tenant namespace.
-- **Validation:** validating webhook rejects invalid GVK entries, duplicate `sinkRefs`, and blank
-  allowlist entries at admission ([ADR-0202](0202-static-vs-reconciled.md)).
+- **Validation:** validating webhook rejects invalid GVK entries, duplicate `sinkRefs` (superseded — see [ADR-0414](0414-sink-family-crds.md)), and blank
+  allowlist entries at admission ([ADR-0202](0202-static-vs-reconciled.md)). The single allowlist
+  named here became one allowlist per sink family.
 - **Enforcement (Phase 1):** **both** validating webhook **and** reconciler-time checks — **hard
   degrade** (no collection / no export) when a `KollectTarget` or `KollectInventory` violates scope.
   Set **`Degraded=True`** with reason `ScopeGVKDenied`, `ScopeNamespaceDenied`, or `ScopeSinkDenied`;
@@ -110,6 +111,8 @@ federation, not implicit whole-cluster capture:
 `profileRef` resolves to a Profile targeting Flux `HelmRelease`:
 
 ```yaml
+# kollect-doc: superseded sinkRefs was split per family by ADR-0414 — the shipped
+# field is databaseSinkRefs; this block is the decision as taken in ADR-0203.
 # team-a/kollectscope.yaml — allowlist
 apiVersion: kollect.dev/v1alpha1
 kind: KollectScope
@@ -122,7 +125,7 @@ spec:
       version: v1
       kind: Deployment
   allowedNamespaces: [team-a]
-  sinkRefs: [team-a-postgres]
+  sinkRefs: [team-a-postgres]   # superseded by ADR-0414 — now databaseSinkRefs
 ---
 # team-a/kollecttarget.yaml — violates allowedGVKs
 apiVersion: kollect.dev/v1alpha1
@@ -145,8 +148,10 @@ status:
       message: 'profile GVK "helm.toolkit.fluxcd.io/v2/HelmRelease" not in scope allowedGVKs'
 ```
 
-**Inventory sink denied** — same pattern when `spec.sinkRefs` lists a sink not in
-`KollectScope.spec.sinkRefs` (`ScopeSinkDenied`). Envtest: `internal/controller/kollecttarget_scope_test.go`.
+**Inventory sink denied** — same pattern when `spec.sinkRefs` (superseded by [ADR-0414](0414-sink-family-crds.md)) lists a sink the scope
+does not allow (`ScopeSinkDenied`). The shipped fields are the per-family `snapshotSinkRefs` /
+`databaseSinkRefs` / `eventSinkRefs`.
+Envtest: `internal/controller/kollecttarget_scope_test.go`.
 
 ## Consequences
 

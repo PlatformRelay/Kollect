@@ -27,7 +27,8 @@ backward compatibility. Breaking changes are batched deliberately before a futur
 ### Non-negotiables
 
 !!! warning "Same-namespace references"
-    `profileRef`, `sinkRefs`, and `KollectConnectionTest.spec.sinkRef` resolve objects in the
+    `profileRef`, the per-family sink refs (`snapshotSinkRefs` / `databaseSinkRefs` /
+    `eventSinkRefs`), and `KollectConnectionTest.spec.sinkRef` resolve objects in the
     **same namespace** as the referring CR. Cluster reconciled kinds reference namespaced config by
     explicit `name` + `namespace` (sink refs default to `sinkNamespace`) ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)).
 
@@ -85,7 +86,7 @@ Sink/transport reframe — [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md)
 
 | Topic | Decision |
 | --- | --- |
-| `exportMinInterval` unset | **CRD default 30s** (`kubebuilder:default`); per-sink overrides on structured `sinkRefs[]` |
+| `exportMinInterval` unset | **CRD default 30s** (`kubebuilder:default`); per-sink overrides on the structured `<family>SinkRefs[]` entries |
 | `exportMinInterval` bypass | Immediate export on **payload checksum change** or **`metadata.generation`** bump |
 | ConnectionTest re-run | **Re-probe on any spec change** (generation ≠ observedGeneration); TTL restarts after new run |
 | `KollectScope` enforcement | **Hard degrade** — `Degraded` + no collect/export; see [ADR-0203](adr/0203-namespaced-multi-tenancy.md) example |
@@ -169,7 +170,7 @@ the corresponding code merges.
 - [x] **Argo `Application` contract test** — `internal/collect/argo_application_contract_test.go`
 - [x] **Argo samples** — profile + target under `config/samples/`
 - [x] **`KollectConnectionTest` TTL** — API + reconciler GC (`ttlSecondsAfterFinished`, default 300s)
-- [x] **`exportMinInterval`** on `KollectInventory` — wired; per-sink `sinkRefs[]` + `status.sinkExports[]` ([ADR-0413](adr/0413-export-interval-scheduling.md)); manager `--export-debounce` flag removed
+- [x] **`exportMinInterval`** on `KollectInventory` — wired; per-sink `<family>SinkRefs[]` + `status.sinkExports[]` ([ADR-0413](adr/0413-export-interval-scheduling.md)); manager `--export-debounce` flag removed
 
 ---
 

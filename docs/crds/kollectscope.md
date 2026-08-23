@@ -27,13 +27,13 @@ flowchart TD
   Inv[KollectInventory]
 
   Scope -.->|allowedGVKs + NS| Target
-  Scope -.->|sinkRefs allow-list| Inv
+  Scope -.->|per-family sink allow-lists| Inv
 ```
 
 | Relationship | Rule |
 | --- | --- |
 | Target enforcement | Profile GVK ∈ `allowedGVKs`; workload NS ∈ `allowedNamespaces` |
-| Inventory enforcement | Every `sinkRefs` entry ⊆ `scope.sinkRefs` |
+| Inventory enforcement | Every inventory `<family>SinkRefs` entry ⊆ the scope's `<family>SinkRefs` |
 | No scope | When absent, collection and export proceed without policy gate |
 
 Enforcement diagram: [concepts/export-pipeline.md §4](../concepts/multi-tenancy.md).
@@ -45,8 +45,15 @@ Enforcement diagram: [concepts/export-pipeline.md §4](../concepts/multi-tenancy
 | `spec.allowedGVKs[]` | list | No | Permitted target resource kinds (`group`, `version`, `kind`) |
 | `spec.allowedNamespaces[]` | list | No | Permitted workload namespaces (empty = any allowed by targets) |
 | `spec.deniedNamespaces[]` | list | No | Platform namespace blacklist — not overridable by Targets |
-| `spec.sinkRefs[]` | list | No | Permitted family sink names for export (snapshot, database, event) |
+| `spec.snapshotSinkRefs[]` | list | No | Permitted `KollectSnapshotSink` names for export |
+| `spec.databaseSinkRefs[]` | list | No | Permitted `KollectDatabaseSink` names for export |
+| `spec.eventSinkRefs[]` | list | No | Permitted `KollectEventSink` names for export |
 | `spec.minExportInterval` | duration | No | Tenancy floor — inventory/sink intervals below this are rejected |
+
+The sink allowlists are **independent, one per sink family** ([ADR-0414](../adr/0414-sink-family-crds.md));
+there is no combined list. **An empty allowlist is not a deny — it is "no restriction" for that
+family** (`internal/scope/scope.go`), so a scope that means to constrain database export must
+populate `databaseSinkRefs` explicitly.
 
 ## Example
 
@@ -93,7 +100,7 @@ kubectl describe ktgt -n team-a <target-name>
 Allow-list sinks for inventory:
 
 ```sh
-# Inventory sinkRefs must be subset of scope.sinkRefs
+# Inventory databaseSinkRefs must be a subset of scope.databaseSinkRefs (same per family)
 kubectl get kinv -n team-a -o jsonpath='{.items[*].status.conditions[?(@.type=="Degraded")]}'
 ```
 
@@ -130,7 +137,7 @@ Grant scope write sparingly — it controls what teams can collect and where dat
 | --- | --- | --- |
 | Target not collecting | `ScopeGVKDenied` | Add profile GVK to `allowedGVKs` |
 | Target not collecting | `ScopeNamespaceDenied` | Add workload namespace to `allowedNamespaces` |
-| Inventory not exporting | `ScopeSinkDenied` | Add sink name to `scope.sinkRefs` |
+| Inventory not exporting | `ScopeSinkDenied` | Add sink name to the scope's `<family>SinkRefs` |
 | Unexpected open policy | No scope in namespace | Create `KollectScope` if enforcement required |
 | `ScopeLookupFailed` | Operator cannot read scope | Fix RBAC on `kollectscopes` for operator SA |
 | Empty `allowedGVKs` | All GVKs denied when enforced | Populate allow-list explicitly |
