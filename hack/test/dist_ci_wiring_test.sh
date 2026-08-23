@@ -80,12 +80,28 @@ check_wiring "${CI_WORKFLOW}"
 MUTANTS="$(mktemp -d)"
 trap 'rm -rf "${MUTANTS}"' EXIT
 
+# GATE-COMMENT-01: this used to accept ANY nonzero exit as proof of rejection, which made the
+# self-test itself tautological -- an empty file, a syntactically broken file and a nonexistent
+# path each exited nonzero and each printed `ok - self-test: gate rejects ...`. A mutant now has
+# to be a real, different, non-empty workflow, AND the rejection has to carry the message of the
+# assertion the mutation was built to trip. `${expect}` is the load-bearing half: `cmp` only
+# rules out no-op mutations, it says nothing about WHICH check fired.
 mutant_rejected() {
-  local mutant="$1" label="$2"
-  # Subshell: fail's `exit 1` must not take the parent down -- rejection is the expectation.
-  if (check_wiring "${mutant}") >/dev/null 2>&1; then
-    fail "self-test: the gate still passed on a workflow where ${label} -- it is vacuous"
+  local mutant="$1" label="$2" expect="$3"
+  local output status=0
+
+  [[ -s "${mutant}" ]] ||
+    fail "self-test: the mutant for '${label}' is missing or empty -- the yq mutation step failed, so nothing was actually tested"
+  if cmp -s "${mutant}" "${CI_WORKFLOW}"; then
+    fail "self-test: the mutant for '${label}' is byte-identical to ${CI_WORKFLOW} -- the yq mutation was a no-op, so nothing was actually tested"
   fi
+
+  # Subshell: fail's `exit 1` must not take the parent down -- rejection is the expectation.
+  output="$( (check_wiring "${mutant}") 2>&1 )" || status=$?
+  [[ "${status}" -ne 0 ]] ||
+    fail "self-test: the gate still passed on a workflow where ${label} -- it is vacuous"
+  [[ "${output}" == *"${expect}"* ]] ||
+    fail "self-test: the gate rejected '${label}' but not for the intended reason -- expected the failure to mention '${expect}', got: ${output}"
   pass "self-test: gate rejects a workflow where ${label}"
 }
 
@@ -93,17 +109,41 @@ yq eval '
   .jobs.gitleaks.steps += [.jobs.lint.steps[] | select((.run // "") | contains("hack/install-operator-sdk.sh"))] |
   .jobs.lint.steps = [.jobs.lint.steps[] | select(((.run // "") | contains("hack/install-operator-sdk.sh")) | not)]
 ' "${CI_WORKFLOW}" >"${MUTANTS}/moved-to-gitleaks.yaml"
-mutant_rejected "${MUTANTS}/moved-to-gitleaks.yaml" 'the operator-sdk install moved out of lint into gitleaks'
+mutant_rejected "${MUTANTS}/moved-to-gitleaks.yaml" \
+  'the operator-sdk install moved out of lint into gitleaks' \
+  'the lint job has no hack/install-operator-sdk.sh install step'
 
 yq eval '
   .jobs.lint.steps += [.jobs.lint.steps[] | select((.run // "") | contains("hack/install-operator-sdk.sh"))]
 ' "${CI_WORKFLOW}" >"${MUTANTS}/duplicated.yaml"
-mutant_rejected "${MUTANTS}/duplicated.yaml" 'the operator-sdk install appears twice in lint'
+mutant_rejected "${MUTANTS}/duplicated.yaml" \
+  'the operator-sdk install appears twice in lint' \
+  'hack/install-operator-sdk.sh install steps'
 
 yq eval '
   .jobs.lint.steps = [.jobs.lint.steps[] | select(((.run // "") | contains("hack/install-operator-sdk.sh")) | not)] |
   .jobs.lint.steps += [{"name": "Install operator-sdk (OLM bundle validators)", "run": "bash hack/install-operator-sdk.sh ./bin"}]
 ' "${CI_WORKFLOW}" >"${MUTANTS}/after-glob.yaml"
-mutant_rejected "${MUTANTS}/after-glob.yaml" 'the operator-sdk install sits after the dist_* glob'
+mutant_rejected "${MUTANTS}/after-glob.yaml" \
+  'the operator-sdk install sits after the dist_* glob' \
+  'must come before the dist_* glob'
+
+# The self-test's own guard rails: these four are the degenerate "rejections" that the old
+# any-nonzero-exit check accepted as proof. mutant_rejected must now refuse every one of them.
+self_test_guard_holds() {
+  local mutant="$1" label="$2"
+  if (mutant_rejected "${mutant}" "${label}" 'unreachable-expected-message') >/dev/null 2>&1; then
+    fail "self-test: mutant_rejected accepted ${label} as a genuine rejection -- it is tautological again"
+  fi
+  pass "self-test: mutant_rejected refuses to count ${label} as a rejection"
+}
+
+: >"${MUTANTS}/empty.yaml"
+self_test_guard_holds "${MUTANTS}/empty.yaml" 'an empty file'
+printf 'jobs: [[[\n' >"${MUTANTS}/broken.yaml"
+self_test_guard_holds "${MUTANTS}/broken.yaml" 'an unparseable file'
+self_test_guard_holds "${MUTANTS}/does-not-exist.yaml" 'a nonexistent path'
+cp "${CI_WORKFLOW}" "${MUTANTS}/unmutated.yaml"
+self_test_guard_holds "${MUTANTS}/unmutated.yaml" 'an unmutated copy of the real workflow'
 
 echo "All dist CI wiring tests passed."
