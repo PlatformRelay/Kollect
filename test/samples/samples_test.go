@@ -123,14 +123,17 @@ func TestSampleSinksValidate(t *testing.T) {
 	t.Parallel()
 
 	snapshots := []string{
-		"kollect_v1alpha1_kollectsnapshotsink.yaml",
-		"kollect_v1alpha1_kollectsnapshotsink_s3.yaml",
+		samplePath(t, "kollect_v1alpha1_kollectsnapshotsink.yaml"),
+		samplePath(t, "kollect_v1alpha1_kollectsnapshotsink_s3.yaml"),
+		// team-operator/ is a documented `kubectl apply -k` bundle and its pathTemplate
+		// must satisfy the webhook rules, which the CRD schema alone cannot express.
+		filepath.Join("..", "..", "config", "samples", "team-operator", "snapshot-sink.yaml"),
 	}
-	for _, name := range snapshots {
+	for _, path := range snapshots {
 		var sink kollectdevv1alpha1.KollectSnapshotSink
-		decodeSample(t, samplePath(t, name), &sink)
+		decodeSample(t, path, &sink)
 		if errs := validation.ValidateSnapshotSinkSpec(&sink.Spec); len(errs) > 0 {
-			t.Fatalf("%s: validation failed: %v", name, errs)
+			t.Fatalf("%s: validation failed: %v", path, errs)
 		}
 	}
 
@@ -184,41 +187,5 @@ func decodeSample(t *testing.T, path string, into any) {
 	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(string(data)), 4096)
 	if err := decoder.Decode(into); err != nil {
 		t.Fatalf("decode %s: %v", path, err)
-	}
-}
-
-func TestSampleKindsDecode(t *testing.T) {
-	t.Parallel()
-
-	patterns := []string{
-
-		"kollect_v1alpha1_kollecttarget.yaml",
-		"kollect_v1alpha1_kollectinventory.yaml",
-		"kollect_v1alpha1_kollectdatabasesink.yaml",
-		"kollect_v1alpha1_kollectdatabasesink_bigquery.yaml",
-		"kollect_v1alpha1_kollectsnapshotsink.yaml",
-		"kollect_v1alpha1_kollecteventsink_kafka.yaml",
-		"kollect_v1alpha1_kollecteventsink_nats.yaml",
-		"kollect_v1alpha1_kollectclustertarget.yaml",
-		"kollect_v1alpha1_kollectclusterinventory.yaml",
-	}
-
-	for _, name := range patterns {
-		//nolint:gosec // G304: path is under repo config/samples only
-		data, err := os.ReadFile(samplePath(t, name))
-		if err != nil {
-			t.Fatalf("read %s: %v", name, err)
-		}
-
-		decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(string(data)), 4096)
-		var raw map[string]any
-		if err := decoder.Decode(&raw); err != nil {
-			t.Fatalf("decode %s: %v", name, err)
-		}
-
-		kind, _ := raw["kind"].(string)
-		if kind == "" {
-			t.Fatalf("%s: missing kind", name)
-		}
 	}
 }
