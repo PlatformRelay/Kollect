@@ -134,7 +134,10 @@ check_owned_covers_crd_bases() {
     printf 'dist olm bundle: %s spec.customresourcedefinitions.owned does not match config/crd/bases ("<" crd bases, ">" owned):\n' \
       "${label}" >&2
     diff <(printf '%s\n' "${base_kinds}") <(printf '%s\n' "${owned_kinds}") >&2 || true
-    fail "${label}: declare every config/crd/bases kind under spec.customresourcedefinitions.owned in config/olm/template/manifests/kollect.clusterserviceversion.yaml (and give it an alm-examples entry)"
+    # The diff is symmetric, so the remedy has to be too: a "<" line is a CRD base kind
+    # missing from owned[], a ">" line is an owned[] entry whose CRD base is gone. Naming
+    # only the first direction sends the reader to add a kind that already exists.
+    fail "${label}: reconcile spec.customresourcedefinitions.owned in config/olm/template/manifests/kollect.clusterserviceversion.yaml with config/crd/bases -- for each \"<\" kind add an owned[] entry (and an alm-examples entry); for each \">\" kind drop the stale owned[] entry (and its alm-examples entry)"
   fi
 
   pass "${label}: spec.customresourcedefinitions.owned covers all $(printf '%s\n' "${base_kinds}" | wc -l | tr -d ' ') CRD bases"
