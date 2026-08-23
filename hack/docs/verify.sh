@@ -13,6 +13,7 @@ bash hack/test/docs_launch_truth_test.sh
 bash hack/test/docs_adr_kollectsink_retcon_test.sh
 bash hack/test/docs_coverage_floor_drift_test.sh
 bash hack/test/security_architecture_docs_test.sh
+bash hack/test/docs_removed_api_fields_test.sh
 bash hack/test/ui_removal_reference_test.sh
 bash hack/test/hyg_ui_gitignore_test.sh
 bash hack/test/docs_pages_concurrency_test.sh
@@ -31,6 +32,10 @@ python3 -m unittest discover -s test/docs -p 'test_*.py'
 
 # Validate every committed sample against the shipped API and renderer logic.
 go test ./test/samples
+
+# Validate every YAML example published on the site against the same strict decode
+# plus committed-CRD-schema checks the samples get.
+go test ./test/docs
 
 # Strict mode turns links, snippets, redirects, omitted pages, and render warnings
 # into a required failure rather than publishing a partially broken site.
