@@ -15,6 +15,8 @@
 # glob step's body ran no meta-tests at all -- both left this gate green while producing exactly
 # the end state it exists to prevent. Every anchor now matches against a COMMENT-STRIPPED view of
 # the body, and the glob step must be shown to actually invoke each script it expands to.
+# The ordering assertions are also backed by "these steps can still fail the build" assertions --
+# ordering is decoration if the job or the step is skipped or soft-failed.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CI_WORKFLOW="${ROOT}/.github/workflows/ci.yaml"
@@ -57,6 +59,7 @@ lint_step_index() {
 check_wiring() {
   local workflow="$1"
   local job_kind steps_kind sdk_idx glob_idx lint_idx glob_name glob_run
+  local job_if job_coe glob_if glob_coe
 
   [[ -f "${workflow}" ]] || fail "expected ${workflow}"
 
@@ -68,6 +71,17 @@ check_wiring() {
   steps_kind="$(yq eval '.jobs.lint.steps | type' "${workflow}")"
   [[ "${steps_kind}" == "!!seq" ]] ||
     fail "${workflow} lint job declares no steps -- the wiring assertions would pass vacuously"
+
+  # GATE-COMMENT-01: step ORDER only matters if the job can fail the build. A conditional or
+  # soft-failed lint job satisfies every ordering assertion below while running no meta-test
+  # that anyone has to fix. yq's `//` is not usable here -- its alternative operator treats a
+  # literal `false` as absent, which is precisely the value being guarded against.
+  job_if="$(yq eval '.jobs.lint.if' "${workflow}")"
+  [[ "${job_if}" == "null" ]] ||
+    fail "the lint job must run unconditionally, got 'if: ${job_if}' -- a skipped lint job never runs the dist_* meta-tests, and the ordering assertions become decoration"
+  job_coe="$(yq eval '.jobs.lint["continue-on-error"]' "${workflow}")"
+  [[ "${job_coe}" == "null" || "${job_coe}" == "false" ]] ||
+    fail "the lint job must not declare 'continue-on-error: ${job_coe}' -- a soft-failed lint job turns every dist_* meta-test into an advisory notice"
 
   glob_idx="$(lint_step_index "${workflow}" "${GLOB_MATCH}" 'hack/test/dist_*_test.sh glob')" || exit 1
   lint_idx="$(lint_step_index "${workflow}" "${LINT_MATCH}" 'task lint')" || exit 1
@@ -85,9 +99,18 @@ check_wiring() {
   [[ "${glob_run}" == *'bash "${script}"'* ]] ||
     fail "the lint job's dist_* glob step must execute each matched script -- its run: body has no 'bash \"\${script}\"' invocation, so the step would expand the glob and run nothing"
 
+  # A conditional or soft-failed glob step is the same defect one level down: the meta-tests are
+  # wired in, ordered correctly, and still cannot fail the build.
+  glob_if="$(yq eval ".jobs.lint.steps[${glob_idx}].if" "${workflow}")"
+  [[ "${glob_if}" == "null" ]] ||
+    fail "the dist_* glob step must run unconditionally, got 'if: ${glob_if}' -- a skipped step runs no meta-tests"
+  glob_coe="$(yq eval ".jobs.lint.steps[${glob_idx}][\"continue-on-error\"]" "${workflow}")"
+  [[ "${glob_coe}" == "null" || "${glob_coe}" == "false" ]] ||
+    fail "the dist_* glob step must not declare 'continue-on-error: ${glob_coe}' -- a soft-failed glob step reports meta-test failures as green"
+
   [[ "${glob_idx}" -lt "${lint_idx}" ]] ||
     fail "the dist_* glob (lint step ${glob_idx}) must come before the task lint step (lint step ${lint_idx})"
-  pass "ci.yaml lint job globs dist_*_test.sh before task lint and runs each matched script"
+  pass "ci.yaml lint job globs dist_*_test.sh before task lint, runs each matched script, and can fail the build"
 
   # DIST-OH-02: dist_olm_bundle_test.sh hard-fails without operator-sdk, so the SAME job must
   # install it BEFORE the dist_* glob step. Ordering is the whole point: an install step placed
@@ -171,6 +194,35 @@ yq eval '
 mutant_rejected "${MUTANTS}/glob-invocation-commented-out.yaml" \
   'the dist_* glob step no longer invokes the scripts it expands' \
   'must execute each matched script'
+
+# GATE-COMMENT-01: the four "wired in but cannot fail the build" shapes. All four passed before
+# this change -- every ordering assertion above was satisfied by a job or step that never ran, or
+# whose failure was reported as success.
+yq eval '
+  with(.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh"));
+       .["continue-on-error"] = true)
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-soft-fail.yaml"
+mutant_rejected "${MUTANTS}/glob-soft-fail.yaml" \
+  'the dist_* glob step is soft-failed with continue-on-error' \
+  'the dist_* glob step must not declare'
+
+yq eval '
+  with(.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh"));
+       .if = "false")
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-disabled.yaml"
+mutant_rejected "${MUTANTS}/glob-disabled.yaml" \
+  'the dist_* glob step is disabled with if: false' \
+  'the dist_* glob step must run unconditionally'
+
+yq eval '.jobs.lint.if = "false"' "${CI_WORKFLOW}" >"${MUTANTS}/lint-job-disabled.yaml"
+mutant_rejected "${MUTANTS}/lint-job-disabled.yaml" \
+  'the whole lint job is disabled with if: false' \
+  'the lint job must run unconditionally'
+
+yq eval '.jobs.lint["continue-on-error"] = true' "${CI_WORKFLOW}" >"${MUTANTS}/lint-job-soft-fail.yaml"
+mutant_rejected "${MUTANTS}/lint-job-soft-fail.yaml" \
+  'the whole lint job is soft-failed with continue-on-error' \
+  'the lint job must not declare'
 
 # The self-test's own guard rails: these four are the degenerate "rejections" that the old
 # any-nonzero-exit check accepted as proof. mutant_rejected must now refuse every one of them.
