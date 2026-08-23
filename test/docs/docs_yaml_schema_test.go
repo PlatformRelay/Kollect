@@ -44,8 +44,13 @@ const (
 	// fenced blocks in Markdown plus standalone .yaml/.yml files. 70 exist today.
 	minDiscoveredYAMLBlocks = 65
 	// minValidatedKollectDocs counts complete kollect.dev objects that actually
-	// went through both checks. 29 exist today.
-	minValidatedKollectDocs = 26
+	// went through both checks, PINNED to the exact corpus (30 today) for the same
+	// reason as minValidatedFragments below: headroom is an exploit, not slack.
+	// Slack here would let a complete object be redirected to `superseded` or
+	// `proposed` on an ADR/RFC page without the count moving. Raise this when a
+	// complete kollect.dev example is added; a legitimate REMOVAL must lower it in
+	// the same commit, so the change is stated rather than absorbed.
+	minValidatedKollectDocs = 30
 	// minValidatedFragments counts kollect.dev fragments that actually went
 	// through both checks, and is PINNED to the exact corpus (10 today) rather
 	// than set below it. Headroom here is not slack, it is an exploit: with a
@@ -165,7 +170,9 @@ func (c *discoveryCounts) assertFloors(t *testing.T) {
 	}
 
 	if c.fullDocs < minValidatedKollectDocs {
-		t.Errorf("only %d complete kollect.dev documents validated, expected at least %d",
+		t.Errorf("only %d complete kollect.dev documents validated, expected exactly %d --"+
+			" a complete example was deleted, or redirected away with `superseded`/`proposed`."+
+			" If the removal is legitimate, lower minValidatedKollectDocs in the same commit",
 			c.fullDocs, minValidatedKollectDocs)
 	}
 
