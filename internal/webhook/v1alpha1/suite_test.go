@@ -5,8 +5,8 @@ package webhookv1alpha1
 
 import (
 	"context"
-	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/envtestassets"
 )
 
 func TestWebhookEnvtest(t *testing.T) {
@@ -55,7 +56,7 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	if dir := firstEnvtestBinaryDir(); dir != "" {
+	if dir := hostEnvtestBinaryDir(); dir != "" {
 		webhookEnv.BinaryAssetsDirectory = dir
 	}
 
@@ -90,16 +91,11 @@ var _ = AfterSuite(func() {
 	}, time.Minute, time.Second).Should(Succeed())
 })
 
-func firstEnvtestBinaryDir() string {
-	basePath := filepath.Join("..", "..", "..", "bin", "k8s")
-	entries, err := os.ReadDir(basePath)
-	if err != nil {
-		return ""
-	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			return filepath.Join(basePath, entry.Name())
-		}
-	}
-	return ""
+// hostEnvtestBinaryDir resolves the envtest assets for this suite: KUBEBUILDER_ASSETS when the
+// harness exported it, and otherwise the local setup-envtest download built for this host. Note the
+// three-level base path — this package sits one directory deeper than the other envtest suites.
+func hostEnvtestBinaryDir() string {
+	basePaths := []string{filepath.Join("..", "..", "..", "bin", "k8s")}
+
+	return envtestassets.Resolve(basePaths, runtime.GOOS, runtime.GOARCH)
 }

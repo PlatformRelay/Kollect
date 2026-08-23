@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/envtestassets"
 	"github.com/platformrelay/kollect/internal/sink"
 	// +kubebuilder:scaffold:imports
 )
@@ -66,9 +68,10 @@ var _ = BeforeSuite(func() {
 		ErrorIfCRDPathMissing: true,
 	}
 
-	// Retrieve the first found binary directory to allow running tests from IDEs
-	if getFirstFoundEnvTestBinaryDir() != "" {
-		testEnv.BinaryAssetsDirectory = getFirstFoundEnvTestBinaryDir()
+	// Resolve the binaries built for this host so the suite also runs from an IDE, and on a
+	// developer machine whose OS/arch differs from CI's.
+	if dir := envtestassets.Resolve(envtestAssetBasePaths(), runtime.GOOS, runtime.GOARCH); dir != "" {
+		testEnv.BinaryAssetsDirectory = dir
 	}
 
 	// cfg is defined in this file globally.
@@ -96,25 +99,10 @@ var _ = AfterSuite(func() {
 	}, time.Minute, time.Second).Should(Succeed())
 })
 
-// getFirstFoundEnvTestBinaryDir locates the first binary in the specified path.
-// ENVTEST-based tests depend on specific binaries, usually located in paths set by
-// controller-runtime. When running tests directly (e.g., via an IDE) without using
-// Makefile targets, the 'BinaryAssetsDirectory' must be explicitly configured.
-//
-// This function streamlines the process by finding the required binaries, similar to
-// setting the 'KUBEBUILDER_ASSETS' environment variable. To ensure the binaries are
-// properly set up, run 'make setup-envtest' beforehand.
-func getFirstFoundEnvTestBinaryDir() string {
-	basePath := filepath.Join("..", "..", "bin", "k8s")
-	entries, err := os.ReadDir(basePath)
-	if err != nil {
-		logf.Log.Error(err, "Failed to read directory", "path", basePath)
-		return ""
-	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			return filepath.Join(basePath, entry.Name())
-		}
-	}
-	return ""
+// envtestAssetBasePaths lists the directories that may hold setup-envtest downloads, relative to
+// this package. ENVTEST-based tests depend on those binaries, and when the tests run directly
+// (e.g. from an IDE) rather than through a Makefile target that exports KUBEBUILDER_ASSETS, the
+// 'BinaryAssetsDirectory' must be configured explicitly. Run 'make setup-envtest' beforehand.
+func envtestAssetBasePaths() []string {
+	return []string{filepath.Join("..", "..", "bin", "k8s")}
 }
