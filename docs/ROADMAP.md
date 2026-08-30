@@ -15,14 +15,6 @@ have not entered a release, see [Planned features](roadmap/planned-features.md).
 
 The current release includes:
 
-- Optional `--allow-private-sinks` opt-in (default off, cluster-admin only) so in-cluster
-  (RFC1918/ULA) sink backends can be targeted without disabling SSRF protections
-  ([security policy](security/resolved-address-policy.md)).
-- Git snapshot export that falls back to a writable temp directory when the process cache root is
-  read-only (Talos / `readOnlyRootFilesystem` installs).
-- Controller image tags published under the `v`-prefixed layout so Helm OCI chart tags no longer
-  collide with the manager image on GHCR.
-
 - Event-driven collection with shared dynamic informers.
 - Namespaced and cluster-wide inventory pipelines with `KollectScope` policy boundaries.
 - CEL and JSONPath extraction, aggregation, deduplication, redaction, and full-resource export.
