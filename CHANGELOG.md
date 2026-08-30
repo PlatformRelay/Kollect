@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
-## [Unreleased]
+## [0.19.0](https://github.com/platformrelay/kollect/compare/v0.18.0..v0.19.0) - 2026-08-26
 
 ### Bug Fixes
 
