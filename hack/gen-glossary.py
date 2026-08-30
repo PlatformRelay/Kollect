@@ -64,13 +64,13 @@ def render_crd_section(entries: list[dict]) -> str:
         "## Custom resources (from CRD schema)",
         "",
         "Auto-generated from `config/crd/bases/` OpenAPI descriptions. Regenerate with",
-        "`python3 hack/gen-glossary.py`. Field-level detail: [CR reference](CR-REFERENCE.md).",
+        "`python3 hack/gen-glossary.py`. Field-level detail: [CR reference](crds/index.md).",
         "",
     ]
     for entry in entries:
         kind = entry["kind"]
         slug = kind.lower()
-        link = f"crds/{slug}.md" if slug in crd_pages else "CR-REFERENCE.md#kinds"
+        link = f"crds/{slug}.md" if slug in crd_pages else "crds/index.md#kinds"
         lines.append(f"### `{entry['kind']}` ({entry['scope'].lower()})")
         lines.append("")
         if entry["description"]:
