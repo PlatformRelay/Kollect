@@ -232,6 +232,14 @@ check_ui_removal() {
   fi
 
   # Drop allowlisted false positives (webhook "ui", Charm Gum helper mentions).
+  # The lib/ui.sh rule below is dead for its stated purpose and deliberately left
+  # untested: scannable() already drops `hack/demo/*/lib/ui.sh` from the scan set --
+  # bash `case` globs match `/`, so it covers every path the awk regex can -- and
+  # `hack/demo/kind-wide-scope/lib/ui.sh` is the only such tracked file. The one thing
+  # still reachable is a hit line in some OTHER file that merely names that path, and
+  # asserting THAT is exempt would pin down a false negative (a doc line reading
+  # "... hack/demo/x/lib/ui.sh ... kollect-ui" would be allowed through by test).
+  # Leaving it as belt-and-braces for the scan-set exclusion is the cheaper mistake.
   local filtered
   filtered="$(
     printf '%s\n' "${hits}" | awk '
