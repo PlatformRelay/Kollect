@@ -19,6 +19,14 @@
 # gate is the check). The forbidden-path checks below deliberately still probe the
 # WORKING TREE: a re-created `ui/` must red whether or not anyone staged it.
 #
+# The unstated half of that change: main's twelve pruned directories are gone, so the
+# scan now WIDENS BY ITSELF. `agent-context/`, `references/` and `.claude/` are
+# untracked but NOT gitignored today; the day any of them is committed it enters the
+# scan set like every other tracked file. That is the contract, not an accident --
+# tracked means scanned -- and the fix for a resulting failure is to clean the file (or
+# gitignore the directory if it was never meant to be committed). Re-adding a directory
+# denylist is the one thing not to do: that denylist IS the defect described above.
+#
 # A scan that silently covers nothing is worse than the bug above, so a missing git,
 # a non-repository root, an empty scan set and a scan set that lost its `mkdocs.yml`
 # anchor are all hard failures. The self-test at the bottom builds throwaway fixture
