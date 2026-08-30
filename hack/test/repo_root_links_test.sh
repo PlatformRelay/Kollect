@@ -17,6 +17,12 @@
 # for now: those trees carry pre-existing broken links and generated content, and widening the
 # scan before they are fixed would land this gate permanently red.
 #
+# Known boundary: only inline `[text](target)` links are resolved. Raw HTML (`<a href>`,
+# `<img src>`) and reference-style `[label]: target` definitions are NOT parsed, so README.md's
+# HTML badge header contributes nothing to the scan. Every one of those is external today, so
+# there is no live gap -- but do not read a GREEN here as "every link in README.md was checked".
+# Widening to those two forms is a deliberate follow-up, not an accident.
+#
 # Code fences are NOT stripped: a relative link inside a fenced example is still checked. That is
 # the conservative direction -- a documentation sample pointing at a missing file fails loudly
 # instead of the gate quietly excusing whole regions of a file.
