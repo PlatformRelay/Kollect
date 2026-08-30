@@ -203,7 +203,7 @@ Looking for a small, review-friendly change? Try one of these:
 
 | Area | Ideas |
 | --- | --- |
-| **Docs** | Fix typos, clarify [QUICKSTART](docs/QUICKSTART.md), improve admonitions on procedural pages |
+| **Docs** | Fix typos, clarify [Install Kollect](docs/getting-started/install.md), improve admonitions on procedural pages |
 | **ADRs** | Typo or link fixes in `docs/adr/` |
 | **Golden tests** | Add or extend extractor golden fixtures under `test/` |
 | **Markdown lint** | Run `task lint:markdown` and fix warnings |
@@ -274,7 +274,7 @@ Manual, examples):
 | `info` | Maturity, scope, links to ADR decisions |
 
 **Placement:** one `tip` or `note` at the top of Getting Started / Operator Manual pages (link to
-[Understand the basics](docs/UNDERSTAND-THE-BASICS.md)); `warning` before mutating shell blocks when
+[Understand the basics](docs/concepts/resource-model.md)); `warning` before mutating shell blocks when
 security-sensitive; `note` after complex YAML pointing to CR field reference. Pre-beta features get
 `warning` with a [ROADMAP](docs/ROADMAP.md) link. Aim for 2–4 admonitions per page unless
 troubleshooting tables need more.
@@ -297,7 +297,7 @@ troubleshooting tables need more.
 
 - New feature → update [ROADMAP](docs/ROADMAP.md) status and [planned features](docs/roadmap/planned-features.md) when backlog-facing
 - Architectural decision → ADR or RFC per [ADR/RFC process](docs/development/adr-rfc-process.md) (`docs/adr/README.md`, `mkdocs.yml` nav)
-- New CR field → `docs/crds/*.md` and [CR-REFERENCE](docs/CR-REFERENCE.md)
+- New CR field → `docs/crds/*.md` and [CR reference](docs/crds/index.md)
 - New label/annotation → [ANNOTATIONS-LABELS](docs/ANNOTATIONS-LABELS.md) and relevant CR page
 - Add or move pages in `mkdocs.yml` nav
 - At least one admonition on new procedural pages
