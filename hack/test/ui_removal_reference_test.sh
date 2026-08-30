@@ -461,6 +461,35 @@ self_test_guard_holds() {
 }
 self_test_guard_holds "${plain_dir}" 'a root that fails for an unrelated reason'
 
+# The status comparisons in gate_accepts and gate_rejects looked redundant with the
+# message assertions beside them -- deleting either left every assertion above green,
+# because no fixture separated the two. They are not redundant, and the separating
+# case is not exotic: the gate copies MATCHING LINES from the scanned files to stderr
+# before it fails, so the scanned content chooses part of the captured output. A
+# tracked file can therefore print the success line on a failing run. Prove each half.
+smuggle_repo="$(new_fixture_repo smuggle)"
+[[ -n "${smuggle_repo}" && -d "${smuggle_repo}" ]] ||
+  fail "self-test: the ok-smuggling fixture repository was not created"
+printf 'image ghcr.io/platformrelay/kollect-ui:v1 -- ui removal reference: ok\n' \
+  >"${smuggle_repo}/smuggle.md"
+git -C "${smuggle_repo}" add smuggle.md ||
+  fail "self-test: could not stage the ok-smuggling mutant"
+if (gate_accepts "${smuggle_repo}" 'a repository that forges the ok line') >/dev/null 2>&1; then
+  fail "self-test: gate_accepts accepted a FAILING run whose scan output merely echoed the ok line; its exit-status assertion is decorative"
+fi
+pass "self-test: gate_accepts refuses a failing run that only echoes the ok line"
+
+# The mirror image: a run that PASSES cannot be counted as a rejection just because the
+# expected message turns up in its output. `ui removal reference: ok` is the shortest
+# way to say that -- a clean repository always prints it.
+passing_repo="$(new_fixture_repo passing)"
+[[ -n "${passing_repo}" && -d "${passing_repo}" ]] ||
+  fail "self-test: the passing fixture repository was not created"
+if (gate_rejects "${passing_repo}" 'a clean repository' 'ui removal reference: ok') >/dev/null 2>&1; then
+  fail "self-test: gate_rejects counted a PASSING run as a rejection because the expected message appeared in its ok output; its exit-status assertion is decorative"
+fi
+pass "self-test: gate_rejects refuses a passing run whose output contains the expected message"
+
 # The upward walk `git rev-parse` performs by default is the trap here: this directory
 # IS inside a work tree, just not at its root, and without the equality check the gate
 # would happily scan the parent fixture's files and call that a pass.
