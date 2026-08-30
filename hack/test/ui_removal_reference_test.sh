@@ -599,4 +599,27 @@ grep -Eq -e "${pattern}" "${webhook_repo}/webhook-notes.md" ||
   fail "self-test: the webhook fixture line is not a scan hit, so accepting it proves nothing about the allowlist"
 gate_accepts "${webhook_repo}" 'a hit line mentioning a webhook and no product-image literal'
 
+# The Charm Gum demo helper -- the exemption this file's own header advertises, and
+# until now the only advertised one with nothing holding it. It is defended twice over
+# (the scannable() case arm keeps the root-level helper out of the scan set; the awk
+# rule exempts it, and any nested copy, from the hits), so no assertion can tell the
+# two apart: delete either and the exemption still stands. Deleting BOTH reds this
+# line, which is the guarantee the webhook fixture gives as well.
+demo_repo="$(new_fixture_repo demo-helper)"
+[[ -n "${demo_repo}" && -d "${demo_repo}" ]] ||
+  fail "self-test: the demo-helper fixture repository was not created"
+mkdir -p "${demo_repo}/hack/demo/kind-wide-scope/lib"
+printf '#!/usr/bin/env bash\n# Gum helper; mentions kollect-ui only in prose.\n' \
+  >"${demo_repo}/hack/demo/kind-wide-scope/lib/ui.sh"
+git -C "${demo_repo}" add hack/demo/kind-wide-scope/lib/ui.sh ||
+  fail "self-test: could not stage the demo-helper fixture"
+# Not vacuous: the helper must be TRACKED (an untracked file never reaches the scan set
+# for reasons that have nothing to do with the allowlist) and must really carry a
+# forbidden literal (otherwise the pattern would never have matched it anyway).
+git -C "${demo_repo}" ls-files --error-unmatch hack/demo/kind-wide-scope/lib/ui.sh >/dev/null 2>&1 ||
+  fail "self-test: the demo helper is not tracked in the fixture, so accepting it proves nothing about the allowlist"
+grep -Eq -e "${pattern}" "${demo_repo}/hack/demo/kind-wide-scope/lib/ui.sh" ||
+  fail "self-test: the demo helper carries none of the forbidden literals, so accepting it proves nothing"
+gate_accepts "${demo_repo}" 'a tracked Charm Gum demo helper mentioning a forbidden literal'
+
 printf 'ui removal reference: self-test ok\n'
