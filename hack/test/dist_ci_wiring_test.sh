@@ -17,6 +17,13 @@
 # the body, and the glob step must be shown to actually invoke each script it expands to.
 # The ordering assertions are also backed by "these steps can still fail the build" assertions --
 # ordering is decoration if the job or the step is skipped or soft-failed.
+#
+# GATE-SCOPE-01: the two remaining anchors were SUBSTRING tests over the step body, which cannot
+# tell the real thing from a neutered lookalike. Narrowing the array assignment to
+# `scripts=(hack/test/dist_olm_bundle_test.sh)` shrank the dist_* suite to one script and stayed
+# green -- the empty-glob diagnostic still mentions the pattern. `bash "${script}" || true` and
+# `bash "${script}" &` both stayed green too, while the pass message below asserts the step "can
+# fail the build". Both anchors are now LINE-EXACT against a trimmed, comment-stripped view.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CI_WORKFLOW="${ROOT}/.github/workflows/ci.yaml"
@@ -32,8 +39,20 @@ command -v yq >/dev/null 2>&1 ||
 # command. Used by every anchor below; `.value` is a `to_entries` entry.
 RUN_CODE='((.value.run // "") | split("\n") | map(select(test("^[[:space:]]*#") | not)) | join("\n"))'
 
+# GATE-SCOPE-01: the same view as one trimmed line per element -- the basis for LINE-EXACT
+# anchors, which a `contains()` substring test over the joined body cannot express.
+RUN_CODE_LINES="${RUN_CODE}"' | split("\n") | map(sub("^[[:space:]]*"; "") | sub("[[:space:]]*$"; ""))'
+
 SDK_MATCH="${RUN_CODE} | contains(\"hack/install-operator-sdk.sh\")"
-GLOB_MATCH="${RUN_CODE} | contains(\"hack/test/dist_*_test.sh\")"
+# GATE-SCOPE-01: anchored on the ARRAY ASSIGNMENT, exactly, not on "the body mentions the glob
+# pattern somewhere" -- the empty-glob diagnostic echo mentions it too, so a narrowed
+# `scripts=(hack/test/dist_olm_bundle_test.sh)` used to satisfy the old substring anchor while the
+# dist_* suite silently shrank to a single script.
+#
+# `test()` rather than `==`: yq's string equality GLOB-matches, so a literal containing `*` is a
+# wildcard there and `scripts=(hack/test/dist_olm_bundle_test.sh)` compares EQUAL to the pattern.
+# Hence the escaped regex, anchored at both ends.
+GLOB_MATCH="${RUN_CODE_LINES}"' | any_c(test("^scripts=\\(hack/test/dist_\\*_test\\.sh\\)$"))'
 LINT_MATCH="${RUN_CODE} | test(\"^task lint[[:space:]]*\$\")"
 
 # The same comment-stripped view, for one step selected by index.
@@ -51,7 +70,7 @@ lint_step_index() {
   count="$(yq eval "${query} | length" "${workflow}")"
   case "${count}" in
   1) yq eval "${query} | .[0]" "${workflow}" ;;
-  0) fail "the lint job has no ${label} step -- a matching step in another job does not count, and a commented-out command is not a command; the dist_* glob runs in lint" ;;
+  0) fail "the lint job has no ${label} step -- a matching step in another job does not count, a commented-out command is not a command, and a narrowed or otherwise altered line is not a match; the dist_* glob runs in lint" ;;
   *) fail "the lint job has ${count} ${label} steps -- keep exactly one so the ordering assertions cannot lock onto the first match" ;;
   esac
 }
@@ -83,7 +102,7 @@ check_wiring() {
   [[ "${job_coe}" == "null" || "${job_coe}" == "false" ]] ||
     fail "the lint job must not declare 'continue-on-error: ${job_coe}' -- a soft-failed lint job turns every dist_* meta-test into an advisory notice"
 
-  glob_idx="$(lint_step_index "${workflow}" "${GLOB_MATCH}" 'hack/test/dist_*_test.sh glob')" || exit 1
+  glob_idx="$(lint_step_index "${workflow}" "${GLOB_MATCH}" 'dist_* glob (a line-exact scripts=(hack/test/dist_*_test.sh) assignment)')" || exit 1
   lint_idx="$(lint_step_index "${workflow}" "${LINT_MATCH}" 'task lint')" || exit 1
 
   glob_name="$(yq eval ".jobs.lint.steps[${glob_idx}].name" "${workflow}")"
@@ -94,10 +113,15 @@ check_wiring() {
   # expands to. The step's body mentions `hack/test/dist_*_test.sh` twice (the array assignment
   # and the empty-glob diagnostic), so commenting out the one line that actually executes a
   # script left this step anchored, ordered, correctly named -- and inert.
+  #
+  # GATE-SCOPE-01: and matching the invocation as a SUBSTRING is not the same as running it
+  # unguarded. `bash "${script}" || true` and `bash "${script}" &` both contain the literal while
+  # neither can fail the step -- which is precisely what the pass message below claims. The match
+  # is therefore line-exact on a trimmed, comment-stripped line.
   glob_run="$(lint_step_run_code "${workflow}" "${glob_idx}")"
   # shellcheck disable=SC2016  # the single quotes are the point: this is a literal, not an expansion
-  [[ "${glob_run}" == *'bash "${script}"'* ]] ||
-    fail "the lint job's dist_* glob step must execute each matched script -- its run: body has no 'bash \"\${script}\"' invocation, so the step would expand the glob and run nothing"
+  printf '%s\n' "${glob_run}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -Fxq 'bash "${script}"' ||
+    fail "the lint job's dist_* glob step must execute each matched script on a bare 'bash \"\${script}\"' line -- its run: body has no such line, so the invocation is missing, commented out, or neutered (a trailing '|| true', '&' or redirect, or an 'echo' prefix), and a failing meta-test cannot fail the build"
 
   # A conditional or soft-failed glob step is the same defect one level down: the meta-tests are
   # wired in, ordered correctly, and still cannot fail the build.
@@ -110,7 +134,7 @@ check_wiring() {
 
   [[ "${glob_idx}" -lt "${lint_idx}" ]] ||
     fail "the dist_* glob (lint step ${glob_idx}) must come before the task lint step (lint step ${lint_idx})"
-  pass "ci.yaml lint job globs dist_*_test.sh before task lint, runs each matched script, and can fail the build"
+  pass "ci.yaml lint job globs the full dist_*_test.sh set before task lint, runs each matched script unguarded, and can fail the build"
 
   # DIST-OH-02: dist_olm_bundle_test.sh hard-fails without operator-sdk, so the SAME job must
   # install it BEFORE the dist_* glob step. Ordering is the whole point: an install step placed
@@ -193,6 +217,34 @@ yq eval '
 ' "${CI_WORKFLOW}" >"${MUTANTS}/glob-invocation-commented-out.yaml"
 mutant_rejected "${MUTANTS}/glob-invocation-commented-out.yaml" \
   'the dist_* glob step no longer invokes the scripts it expands' \
+  'must execute each matched script'
+
+# GATE-SCOPE-01: the three shapes a substring anchor cannot see. All three passed before this
+# change. The first shrinks the dist_* suite to a single script while the empty-glob diagnostic
+# still carries the pattern the old anchor matched; the other two leave the invocation textually
+# present but unable to fail the step -- against a pass message that claims it can.
+yq eval '
+  (.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh")) | .run) |=
+    sub("scripts=\\(hack/test/dist_\\*_test\\.sh\\)", "scripts=(hack/test/dist_olm_bundle_test.sh)")
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-narrowed.yaml"
+mutant_rejected "${MUTANTS}/glob-narrowed.yaml" \
+  'the dist_* glob is narrowed to a single script' \
+  'the lint job has no dist_* glob (a line-exact scripts=(hack/test/dist_*_test.sh) assignment) step'
+
+yq eval '
+  (.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh")) | .run) |=
+    sub("(?m)^([[:space:]]*bash \"\\$\\{script\\}\")$", "${1} || true")
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-invocation-or-true.yaml"
+mutant_rejected "${MUTANTS}/glob-invocation-or-true.yaml" \
+  'the dist_* glob step swallows every meta-test failure with || true' \
+  'must execute each matched script'
+
+yq eval '
+  (.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh")) | .run) |=
+    sub("(?m)^([[:space:]]*bash \"\\$\\{script\\}\")$", "${1} &")
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-invocation-backgrounded.yaml"
+mutant_rejected "${MUTANTS}/glob-invocation-backgrounded.yaml" \
+  'the dist_* glob step backgrounds each meta-test so its exit status is never seen' \
   'must execute each matched script'
 
 # GATE-COMMENT-01: the four "wired in but cannot fail the build" shapes. All four passed before
