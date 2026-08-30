@@ -15,6 +15,11 @@ bash hack/test/docs_coverage_floor_drift_test.sh
 bash hack/test/security_architecture_docs_test.sh
 bash hack/test/docs_removed_api_fields_test.sh
 bash hack/test/glossary_drift_test.sh
+# DOC-MAP-01: the Documentation map in docs/index.md names pages, and a name can rot while
+# every link still resolves -- which is exactly how it came to route readers into raw ADRs
+# and offer a "FAQ" for a dissolved page. `mkdocs build --strict` cannot see that class of
+# defect, so the label-to-page contract needs its own gate.
+bash hack/test/docs_map_contract_test.sh
 bash hack/test/ui_removal_reference_test.sh
 bash hack/test/hyg_ui_gitignore_test.sh
 bash hack/test/docs_pages_concurrency_test.sh
