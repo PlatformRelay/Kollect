@@ -28,7 +28,7 @@ condition conventions (`Ready`, `Synced`, `Degraded`) with sink-specific types o
 | Condition | Typical objects | Meaning |
 | --- | --- | --- |
 | `Ready` | `KollectTarget`, `KollectInventory`, `KollectClusterInventory` | Pipeline healthy enough to collect or export |
-| `Synced` | Inventory / cluster inventory | Last export cycle outcome (aggregate across sinks) |
+| `Synced` | Inventory / cluster inventory / target | Last export **or collection** cycle outcome (aggregate across sinks) |
 | `PartiallySynced` | Inventory (`Ready` or `Synced` **reason**) | Some sinks exported; others debounced or failed |
 | `Degraded` | Target, inventory, sink family CRs | Terminal misconfig or export gate — **spec change required** |
 | `ExportShardWarning` | `KollectInventory` | Namespace aggregate ≥ ~1,800 rows — split before cap |
