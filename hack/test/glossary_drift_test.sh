@@ -157,7 +157,9 @@ cleanup() {
     echo "FAIL: a scratch generator run modified the real ${GLOSSARY}" >&2
     status=1
   fi
-  [[ -n "${scratch}" ]] && rm -rf "${scratch}"
+  if [[ -n "${scratch}" ]]; then
+    rm -rf "${scratch}"
+  fi
   exit "${status}"
 }
 trap cleanup EXIT
