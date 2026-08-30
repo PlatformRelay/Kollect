@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **test:** Match blockquoted fences indented past the first space [ed4f633](https://github.com/platformrelay/kollect/commit/ed4f633fb8af71908933c5f07bf4aae73eb49ece)
+
 - **docs:** Emit the live CR reference target from gen-glossary [2eef5a4](https://github.com/platformrelay/kollect/commit/2eef5a453e862280a8ad9711eb6da89f1afa24ec)
 
 - **docs:** Retarget three deleted doc links in CONTRIBUTING [41f8fd6](https://github.com/platformrelay/kollect/commit/41f8fd63ffcc223bca23de0269adb5f839a9f38b)
