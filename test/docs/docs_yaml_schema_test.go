@@ -592,11 +592,26 @@ var skippedDocsDirs = map[string]struct{}{
 // nothing else caught them either. That made the gate teach its own bypass: a
 // fragment failing with "undirected YAML fragment" went quiet the moment its
 // author added a fence attribute.
-var fenceOpenPattern = regexp.MustCompile("^([ \\t]*(?:>[ \\t]?)*)(`{3,}|~{3,})(.*)$")
+//
+// The blockquote group takes ANY run of spaces or tabs after each ">", not one.
+// A single space matched "> ```yaml" and nothing else: ">  ```yaml" and the
+// natural blockquoted-list-item shape ">    ```yaml" both failed the anchored
+// match outright and went undiscovered -- silently, which is this gate's worst
+// failure mode. Both render as language-yaml on the pinned toolchain.
+// blockquotePrefixPattern below has to allow exactly the same runs: an opener this
+// pattern admits but that one cannot strip never closes.
+var fenceOpenPattern = regexp.MustCompile("^([ \\t]*(?:>[ \\t]*)*)(`{3,}|~{3,})(.*)$")
 
 // blockquotePrefixPattern matches the indentation and blockquote markers a line
 // carries before its content.
-var blockquotePrefixPattern = regexp.MustCompile(`^[ \t]*(?:>[ \t]?)*`)
+//
+// It MUST stay in step with fenceOpenPattern's first group. It backs both the
+// closer (isClosingFence) and stripFencePrefix's fallback, so an opener the wide
+// pattern admits and this one cannot strip is a fence that opens and never closes:
+// it runs to EOF and takes every later block on the page with it. That is worse
+// than the silent miss it replaced, and ">  > ```yaml" produced exactly it while
+// this pattern still allowed one space per ">".
+var blockquotePrefixPattern = regexp.MustCompile(`^[ \t]*(?:>[ \t]*)*`)
 
 // stripFencePrefix removes a fence line's leading indentation and blockquote
 // markers, so a quoted fence yields the same body as an unquoted one.
