@@ -206,6 +206,18 @@ func TestExtractFencedYAMLDiscovery(t *testing.T) {
 			markdown: "> " + bt + "yaml\n> a: 1\n>   b: 2\n> " + bt,
 			want:     []string{"a: 1\n  b: 2"},
 		},
+		{
+			name: "blockquoted fence whose body contains a bare > blank line",
+			why: "MUTATION GAP: every body line of the case above carries the full \"> \"" +
+				" prefix, so plain TrimPrefix reproduces it and stripFencePrefix's" +
+				" blockquote branch survived the whole table. A blank line inside a" +
+				" blockquote is written \">\" with no trailing space -- it does NOT carry" +
+				" the opener's prefix. Without the branch, \">\" leaks into the body, where" +
+				" YAML reads it as a folded-scalar indicator and the block stops parsing as" +
+				" what the page shows.",
+			markdown: "> " + bt + "yaml\n> a: 1\n>\n> b: 2\n> " + bt,
+			want:     []string{"a: 1\n\nb: 2"},
+		},
 
 		// ---- multiple blocks and desync ----
 		{
