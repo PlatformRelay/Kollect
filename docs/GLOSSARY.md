@@ -53,6 +53,11 @@ architecture context see [Understand the basics](concepts/resource-model.md) and
 Auto-generated from `config/crd/bases/` OpenAPI descriptions. Regenerate with
 `python3 hack/gen-glossary.py`. Field-level detail: [CR reference](crds/index.md).
 
+Everything between the `AUTO-CRD` markers is rewritten on every run, so edits made
+here are lost. A row that must say something the CRD schema does not say belongs in
+the `CURATED_DESCRIPTIONS` map in `hack/gen-glossary.py`; prose that is not about a
+single field belongs outside the markers.
+
 ### `KollectClusterInventory` (cluster)
 
 KollectClusterInventory rolls up cluster targets for platform operators.
@@ -68,6 +73,8 @@ KollectClusterInventory rolls up cluster targets for platform operators.
 | `profileRef` | profileRef optionally overrides the rollup extraction schema with a namespaced |
 | `sinkNamespace` | sinkNamespace is the default namespace for family sink refs that omit a namespace. |
 
+Other spec fields: `snapshotSinkRefs`, `suspend`, `targetRefs`, `targetSelector`.
+
 Full reference: [KollectClusterInventory](crds/kollectclusterinventory.md).
 
 ### `KollectClusterScope` (cluster)
@@ -78,6 +85,7 @@ KollectClusterScope is a cluster governance boundary for cluster targets and inv
 | --- | --- |
 | `allowedGVKs` | allowedGVKs restricts which target resource kinds may be collected in this scope. |
 | `allowedNamespaces` | allowedNamespaces restricts which workload namespaces may be collected. |
+| `allowedStaticRefNamespaces` | allowedStaticRefNamespaces restricts namespaces cluster kinds may reference for |
 | `databaseSinkRefs` | databaseSinkRefs lists permitted KollectDatabaseSink names for this scope. |
 | `deniedNamespaces` | deniedNamespaces is a platform blacklist; Target intent cannot override (D8). |
 | `eventSinkRefs` | eventSinkRefs lists permitted KollectEventSink names for this scope. |
@@ -130,6 +138,8 @@ KollectDatabaseSink is the Schema for relational export sinks.
 | `mongodb` | mongodb configures MongoDB document upsert export (ADR-0417). |
 | `options` | options carries non-secret, backend-specific pass-through settings (ADR-0416 §4, Option 2). |
 
+Other spec fields: `pathTemplate`, `postgres`, `provisioning`, `secretRef`, `serialization`, `tls`, `type`.
+
 Full reference: [KollectDatabaseSink](crds/kollectdatabasesink.md).
 
 ### `KollectEventSink` (namespaced)
@@ -146,6 +156,8 @@ KollectEventSink is the Schema for event export sinks.
 | `layout` | layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419). |
 | `nats` | nats configures NATS JetStream inventory change events. |
 | `options` | options carries non-secret, backend-specific pass-through settings (ADR-0416 §4, Option 2). |
+
+Other spec fields: `pathTemplate`, `provisioning`, `secretRef`, `serialization`, `tls`, `type`.
 
 Full reference: [KollectEventSink](crds/kollecteventsink.md).
 
@@ -209,6 +221,8 @@ KollectSnapshotSink is the Schema for snapshot export sinks.
 | `http` | Reserved snapshot type that is rejected by admission; do not confuse it with the optional Inventory HTTP read API. |
 | `layout` | layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419). |
 
+Other spec fields: `objectStore`, `options`, `pathTemplate`, `provisioning`, `secretRef`, `serialization`, `tls`, `type`.
+
 Full reference: [KollectSnapshotSink](crds/kollectsnapshotsink.md).
 
 ### `KollectTarget` (namespaced)
@@ -225,6 +239,8 @@ KollectTarget is the Schema for the kollecttargets API
 | `namespaceSelector` | namespaceSelector restricts collection to namespaces matching the selector. |
 | `profileRef` | profileRef is the name of a KollectProfile in the same namespace as this Target. |
 | `resourceRules` | resourceRules declares GVK-scoped collection rules. When empty, collection falls back to |
+
+Other spec fields: `suspend`, `watchMode`.
 
 Full reference: [KollectTarget](crds/kollecttarget.md).
 
