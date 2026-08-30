@@ -47,11 +47,11 @@ FIELD_TABLE_LIMIT = 8
 #      drift. Regeneration is idempotent, the curated text stays adjacent to
 #      the row it qualifies, and hack/test/glossary_drift_test.sh proves both.
 # The root cause — a Go doc comment in api/ that reads as if `type: http` were
-# supported — is outside this file. When that text is corrected, delete the
-# override and check_overrides() below will confirm nothing is left dangling.
-#
-# Every key must match a real CRD spec field that carries a description; a
-# stale key is a hard error, so this map cannot rot unnoticed.
+# supported — is outside this file. check_overrides() below fails the run in
+# both rot directions, so the map cannot drift away from the schema unnoticed:
+# a key naming a field that no longer exists (or lost its description) is
+# stale, and a key whose text the CRD has caught up with is redundant and must
+# be deleted rather than left to look load-bearing.
 CURATED_DESCRIPTIONS: dict[tuple[str, str], str] = {
     # Admission rejects `type: http`. The CRD description reads as if webhook
     # export were available, and the field is routinely confused with
@@ -80,36 +80,56 @@ def load_crds() -> list[dict]:
         root_desc = schema.get("description", "")
         spec_props = schema.get("properties", {}).get("spec", {}).get("properties", {})
         fields: list[tuple[str, str]] = []
+        raw_descriptions: dict[str, str] = {}
+        # A spec field with no description still gets named. Skipping it
+        # outright would make a newly added, undocumented field invisible to
+        # both this page and the drift gate over it.
+        undocumented: list[str] = []
         for name, prop in sorted(spec_props.items()):
             desc = prop.get("description")
-            if desc:
-                curated = CURATED_DESCRIPTIONS.get((kind, name))
-                fields.append((name, curated or first_line(desc)))
+            if not desc:
+                undocumented.append(name)
+                continue
+            raw_descriptions[name] = first_line(desc)
+            curated = CURATED_DESCRIPTIONS.get((kind, name))
+            fields.append((name, curated or raw_descriptions[name]))
         entries.append(
             {
                 "kind": kind,
                 "scope": scope,
                 "description": first_line(root_desc) if root_desc else "",
                 "fields": fields[:FIELD_TABLE_LIMIT],
-                "other_fields": [name for name, _ in fields[FIELD_TABLE_LIMIT:]],
+                "other_fields": sorted(
+                    [name for name, _ in fields[FIELD_TABLE_LIMIT:]] + undocumented
+                ),
+                "raw_descriptions": raw_descriptions,
             }
         )
     return sorted(entries, key=lambda e: e["kind"])
 
 
 def check_overrides(entries: list[dict]) -> None:
-    """Fail loudly when a curated override no longer matches a real CRD field."""
-    known = {
-        (entry["kind"], name)
+    """Fail the run when a curated override has gone stale or become redundant."""
+    schema_text = {
+        (entry["kind"], name): text
         for entry in entries
-        for name in [n for n, _ in entry["fields"]] + entry["other_fields"]
+        for name, text in entry["raw_descriptions"].items()
     }
-    stale = sorted(key for key in CURATED_DESCRIPTIONS if key not in known)
+    stale = sorted(key for key in CURATED_DESCRIPTIONS if key not in schema_text)
     if stale:
         listed = ", ".join(f"{kind}.{field}" for kind, field in stale)
         sys.exit(
             "CURATED_DESCRIPTIONS names spec fields that no longer exist or "
             f"lost their description: {listed}"
+        )
+    redundant = sorted(
+        key for key, text in CURATED_DESCRIPTIONS.items() if schema_text[key] == text
+    )
+    if redundant:
+        listed = ", ".join(f"{kind}.{field}" for kind, field in redundant)
+        sys.exit(
+            "CURATED_DESCRIPTIONS repeats what the CRD schema already says; "
+            f"delete these overrides: {listed}"
         )
 
 

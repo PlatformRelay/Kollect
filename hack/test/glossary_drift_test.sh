@@ -98,8 +98,8 @@ check_block_links() {
   return "${missing}"
 }
 
-# Add a spec field with description $2 named $1 to KollectSnapshotSink in the
-# scratch CRD dir $3.
+# Add a spec field named $1 to KollectSnapshotSink in the scratch CRD dir $3.
+# An empty $2 adds the field with no description at all.
 inject_crd_field() {
   local field="$1" desc="$2" crd_dir="$3"
   FIXTURE_FIELD="${field}" FIXTURE_DESC="${desc}" FIXTURE_CRD_DIR="${crd_dir}" \
@@ -114,7 +114,30 @@ desc = os.environ["FIXTURE_DESC"]
 path = pathlib.Path(os.environ["FIXTURE_CRD_DIR"]) / "kollect.dev_kollectsnapshotsinks.yaml"
 doc = yaml.safe_load(path.read_text(encoding="utf-8"))
 props = doc["spec"]["versions"][0]["schema"]["openAPIV3Schema"]["properties"]["spec"]["properties"]
-props[field] = {"type": "string", "description": desc}
+props[field] = {"type": "string"}
+if desc:
+    props[field]["description"] = desc
+path.write_text(yaml.safe_dump(doc, sort_keys=True), encoding="utf-8")
+PY
+}
+
+# Replace the description of KollectSnapshotSink spec field $1 in the scratch
+# CRD dir $3 with $2.
+set_crd_description() {
+  local field="$1" desc="$2" crd_dir="$3"
+  FIXTURE_FIELD="${field}" FIXTURE_DESC="${desc}" FIXTURE_CRD_DIR="${crd_dir}" \
+    python3 - <<'PY'
+import os
+import pathlib
+
+import yaml
+
+field = os.environ["FIXTURE_FIELD"]
+desc = os.environ["FIXTURE_DESC"]
+path = pathlib.Path(os.environ["FIXTURE_CRD_DIR"]) / "kollect.dev_kollectsnapshotsinks.yaml"
+doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+props = doc["spec"]["versions"][0]["schema"]["openAPIV3Schema"]["properties"]["spec"]["properties"]
+props[field]["description"] = desc
 path.write_text(yaml.safe_dump(doc, sort_keys=True), encoding="utf-8")
 PY
 }
@@ -123,14 +146,42 @@ PY
 [[ -f "${GLOSSARY}" ]] || fail "expected ${GLOSSARY} to exist"
 
 real_hash_before="$(hash_real_glossary)"
+scratch=""
+
+# The "no fixture escaped" check has to run on every exit path. As a terminal
+# statement it was unreachable the moment any earlier check called fail(),
+# which is exactly the run in which an escaped fixture is most likely.
+cleanup() {
+  local status=$?
+  if [[ "$(hash_real_glossary)" != "${real_hash_before}" ]]; then
+    echo "FAIL: a scratch generator run modified the real ${GLOSSARY}" >&2
+    status=1
+  fi
+  [[ -n "${scratch}" ]] && rm -rf "${scratch}"
+  exit "${status}"
+}
+trap cleanup EXIT
 
 # --- markers -------------------------------------------------------------
-grep -qF "${BEGIN_MARKER}" "${GLOSSARY}" || fail "missing ${BEGIN_MARKER} in ${GLOSSARY}"
-grep -qF "${END_MARKER}" "${GLOSSARY}" || fail "missing ${END_MARKER} in ${GLOSSARY}"
-pass "AUTO-CRD markers present"
+# Counted on exact whole lines, and required to be unique. `grep -qF` accepted
+# a marker with a trailing space that extract_block's `$0 ==` then skipped,
+# yielding an empty block and a misleading "block is stale" failure. A
+# duplicated pair was worse: patch_glossary splits on the FIRST BEGIN/END, so a
+# second block would survive every regeneration untouched, while extract_block
+# concatenated both on both sides of the diff and matched.
+count_exact_lines() {
+  grep -cxF "$1" "${GLOSSARY}" || true
+}
+
+begin_count="$(count_exact_lines "${BEGIN_MARKER}")"
+end_count="$(count_exact_lines "${END_MARKER}")"
+[[ "${begin_count}" == "1" ]] ||
+  fail "expected exactly one line reading '${BEGIN_MARKER}' in ${GLOSSARY}, found ${begin_count}"
+[[ "${end_count}" == "1" ]] ||
+  fail "expected exactly one line reading '${END_MARKER}' in ${GLOSSARY}, found ${end_count}"
+pass "exactly one AUTO-CRD marker pair, each on its own exact line"
 
 scratch="$(mktemp -d)"
-trap 'rm -rf "${scratch}"' EXIT
 
 # --- 1. committed block matches a fresh generation -----------------------
 baseline="${scratch}/baseline"
@@ -167,14 +218,19 @@ fi
 pass "every link the generator emits resolves to a real docs page"
 
 # --- 5. fixture: a CRD that gains a spec field reds, naming the field ----
-# Two positions: a name sorting into the leading rows, and one sorting past
-# them. KollectSnapshotSink has more spec fields than the table lists, so the
-# trailing case only reds if the generator names the fields it omits.
-for fixture_field in aaaFixtureField zzzFixtureField; do
+# Three positions: a name sorting into the leading rows, one sorting past
+# them, and one carrying no description. KollectSnapshotSink has more spec
+# fields than the table lists, so the latter two only red if the generator
+# names the fields it leaves out of the table.
+# The third case has no description at all: the curated lookup and the
+# omitted-field list both used to sit behind `if desc:`, so an undocumented new
+# field was invisible to the page and to this gate alike.
+for fixture_field in aaaFixtureField zzzFixtureField undocumentedFixtureField; do
   fixture="${scratch}/${fixture_field}"
   make_scratch_root "${fixture}"
-  inject_crd_field "${fixture_field}" "${fixture_field} is a fixture-only field." \
-    "${fixture}/config/crd/bases"
+  fixture_desc="${fixture_field} is a fixture-only field."
+  [[ "${fixture_field}" == undocumentedFixtureField ]] && fixture_desc=""
+  inject_crd_field "${fixture_field}" "${fixture_desc}" "${fixture}/config/crd/bases"
   python3 "${fixture}/hack/gen-glossary.py" >/dev/null
 
   if diff -u \
@@ -196,7 +252,9 @@ sed -i.bak 's|crds/index\.md|CR-REFERENCE.md|g' "${deadlink}/hack/gen-glossary.p
 rm -f "${deadlink}/hack/gen-glossary.py.bak"
 grep -qF 'CR-REFERENCE.md' "${deadlink}/hack/gen-glossary.py" ||
   fail "fixture: could not patch the scratch generator to emit a dead link target"
-rm -f "${deadlink}"/docs/crds/*.md
+# The per-kind pages stay in place on purpose: the redirected link is the only
+# dead target, so the patch above is what reds this fixture. Deleting
+# docs/crds/*.md as well would have red it with the sed doing nothing.
 python3 "${deadlink}/hack/gen-glossary.py" >/dev/null
 
 if check_block_links "${deadlink}/docs/GLOSSARY.md" "${deadlink}/docs" 2>/dev/null; then
@@ -229,7 +287,28 @@ $(cat "${scratch}/stale.out")"
   fail "fixture: the generator rewrote the glossary despite a stale curated override"
 pass "fixture: a curated override for a vanished field reds before writing"
 
-# --- 8. no fixture touched the real glossary -----------------------------
+# --- 8. fixture: an override the schema has caught up with reds ----------
+# The other half of override rot. Once the CRD description says what the
+# curated text says, the override is dead weight that reads as load-bearing,
+# and nothing about the rendered output would ever reveal it.
+redundant="${scratch}/redundantoverride"
+make_scratch_root "${redundant}"
+set_crd_description http \
+  "Reserved snapshot type that is rejected by admission; do not confuse it with the optional Inventory HTTP read API." \
+  "${redundant}/config/crd/bases"
+
+redundant_hash_before="$(hash_file "${redundant}/docs/GLOSSARY.md")"
+if python3 "${redundant}/hack/gen-glossary.py" >"${scratch}/redundant.out" 2>&1; then
+  fail "fixture: an override repeating the CRD's own description did not fail the generator"
+fi
+grep -qF 'KollectSnapshotSink.http' "${scratch}/redundant.out" ||
+  fail "fixture: the redundant-override failure does not name the offending key:
+$(cat "${scratch}/redundant.out")"
+[[ "$(hash_file "${redundant}/docs/GLOSSARY.md")" == "${redundant_hash_before}" ]] ||
+  fail "fixture: the generator rewrote the glossary despite a redundant curated override"
+pass "fixture: a curated override the schema caught up with reds before writing"
+
+# --- 9. no fixture touched the real glossary -----------------------------
 [[ "$(hash_real_glossary)" == "${real_hash_before}" ]] ||
   fail "a scratch generator run modified the real ${GLOSSARY}"
 pass "the real docs/GLOSSARY.md was not modified by this gate"
