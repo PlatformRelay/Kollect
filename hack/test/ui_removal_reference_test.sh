@@ -541,4 +541,44 @@ gate_rejects_without_git() {
 }
 gate_rejects_without_git "${fixture}"
 
+# Two checks older than this self-test and never exercised by it: the mkdocs nav check
+# and the webhook line of the allowlist awk. Both survived mutation because nothing
+# reached them -- on the real tree the content scan finds no hits at all, so the awk
+# filters see an empty stream and the nav regex sees a clean mkdocs.yml.
+
+# The nav check runs AFTER the content scan, so the obvious fixture (a nav entry for
+# `operator-manual/ui.md`) reds one line earlier and proves nothing about the nav check.
+# A bare ADR number is the discriminating shape: the nav regex matches on `0408-`
+# alone, while the content pattern needs `0408-read-api-ui`.
+nav_repo="$(new_fixture_repo nav)"
+[[ -n "${nav_repo}" && -d "${nav_repo}" ]] ||
+  fail "self-test: the mkdocs-nav fixture repository was not created"
+printf 'site_name: fixture\nnav:\n  - Legacy: adr/0408-kept-out-of-the-content-pattern.md\n' \
+  >"${nav_repo}/mkdocs.yml"
+git -C "${nav_repo}" add mkdocs.yml ||
+  fail "self-test: could not stage the mkdocs-nav mutant"
+# Not vacuous: if the content pattern matched this line too, the rejection below would
+# come from the scan and the nav check would still be untested.
+! grep -Eq -e "${pattern}" "${nav_repo}/mkdocs.yml" ||
+  fail "self-test: the nav fixture also matches the content pattern, so the rejection would not come from the nav check"
+gate_rejects "${nav_repo}" 'mkdocs.yml navigates to a removed UI ADR' \
+  'still navigates to removed UI pages'
+
+# The webhook allowlist, stated as behaviour rather than left implicit: a hit line that
+# mentions a webhook and none of the three product-image literals is dropped. That is a
+# deliberate false negative -- `task ui-` next to `webhook` passes -- and pinning it
+# here is the point: the exemption is now visible and any widening of it reds.
+webhook_repo="$(new_fixture_repo webhook)"
+[[ -n "${webhook_repo}" && -d "${webhook_repo}" ]] ||
+  fail "self-test: the webhook-allowlist fixture repository was not created"
+printf 'The webhook certificate job used to be driven by task ui-build.\n' \
+  >"${webhook_repo}/webhook-notes.md"
+git -C "${webhook_repo}" add webhook-notes.md ||
+  fail "self-test: could not stage the webhook-allowlist fixture"
+# Not vacuous: the line has to be a real scan hit, otherwise accepting it says nothing
+# about the awk rule -- it would just be a file the pattern never matched.
+grep -Eq -e "${pattern}" "${webhook_repo}/webhook-notes.md" ||
+  fail "self-test: the webhook fixture line is not a scan hit, so accepting it proves nothing about the allowlist"
+gate_accepts "${webhook_repo}" 'a hit line mentioning a webhook and no product-image literal'
+
 printf 'ui removal reference: self-test ok\n'
