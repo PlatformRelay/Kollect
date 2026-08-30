@@ -314,20 +314,41 @@ import yaml
 wf = yaml.safe_load(open(sys.argv[1]))
 steps = wf["jobs"]["sync"]["steps"]
 
+def indices_of(needle):
+    return [i for i, s in enumerate(steps) if needle in (s.get("run") or "")]
+
 def index_of(needle):
-    for i, s in enumerate(steps):
-        if needle in (s.get("run") or ""):
-            return i
-    return -1
+    found = indices_of(needle)
+    return found[0] if found else -1
 
 guard = index_of("check-changelog-release-guard.sh")
-push = index_of("git push origin HEAD:main")
+# Gating the FIRST push step proves nothing if a second one exists: an extra,
+# ungated `git push origin HEAD:main` step would push the fbb5196a3 demotion
+# straight to main under `permissions: contents: write`. Count them all.
+pushes = indices_of("git push origin HEAD:main")
+push = pushes[0] if pushes else -1
 
 errs = []
 if guard < 0:
     errs.append("no step in job 'sync' runs check-changelog-release-guard.sh")
 if push < 0:
     errs.append("no step in job 'sync' runs 'git push origin HEAD:main'")
+if len(pushes) > 1:
+    errs.append(
+        f"exactly one step may run 'git push origin HEAD:main'; found {len(pushes)} "
+        f"at step indices {pushes} -- every push step beyond the first is UNGATED "
+        "by the guard verdict and would push a demoted CHANGELOG.md to main"
+    )
+# `continue-on-error: true` on the guard step swallows its fatal exit, so no
+# verdict is emitted and the ::error is silenced. The push step is still skipped
+# (bounded harm), but the guard stops being loud -- which is its whole job.
+if guard >= 0:
+    coe = steps[guard].get("continue-on-error")
+    if coe is not None and coe is not False:
+        errs.append(
+            f"guard step must not declare continue-on-error (found {coe!r}) -- it "
+            "silences the guard's ::error and leaves a lost release section unreported"
+        )
 if guard >= 0 and push >= 0:
     if guard >= push:
         errs.append(
@@ -402,12 +423,20 @@ guard = next(
     (s for s in steps if "check-changelog-release-guard.sh" in (s.get("run") or "")),
     None,
 )
-push = next(
-    (s for s in steps if "git push origin HEAD:main" in (s.get("run") or "")), None
-)
-if guard is None or push is None:
+pushes = [s for s in steps if "git push origin HEAD:main" in (s.get("run") or "")]
+if guard is None or not pushes:
     print("guard or push step not found", file=sys.stderr)
     sys.exit(1)
+# Evaluating the FIRST push step's `if:` says nothing about a second one. An
+# appended, ungated push step slips past this whole section unless we count.
+if len(pushes) > 1:
+    print(
+        f"exactly one step may run 'git push origin HEAD:main'; found {len(pushes)} "
+        "-- every push step beyond the first is UNGATED by the guard verdict",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+push = pushes[0]
 
 cond = str(push.get("if") or "")
 m = re.fullmatch(
