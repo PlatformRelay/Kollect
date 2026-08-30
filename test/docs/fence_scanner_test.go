@@ -237,11 +237,10 @@ func TestExtractFencedYAMLDiscovery(t *testing.T) {
 		},
 		{
 			name: "blockquoted list item fence with a bare > blank line in its body",
-			why: "INTERACTION: the opener pattern allows many spaces per \">\" while" +
-				" blockquotePrefixPattern -- which backs stripFencePrefix's fallback and" +
-				" isClosingFence -- still allows one. A bare \">\" body line takes exactly" +
-				" that fallback, so this pins that the two patterns still agree on the" +
-				" only line where they could disagree.",
+			why: "INTERACTION: a bare \">\" body line does not carry the opener's full" +
+				" \">    \" prefix, so it is the one line that takes stripFencePrefix's" +
+				" fallback to blockquotePrefixPattern. This pins that the fallback pattern" +
+				" and the opener pattern agree on a wide marker run.",
 			markdown: ">    " + bt + "yaml\n>    a: 1\n>\n>    b: 2\n>    " + bt,
 			want:     []string{"a: 1\n\nb: 2"},
 		},
@@ -251,6 +250,27 @@ func TestExtractFencedYAMLDiscovery(t *testing.T) {
 				" nesting depth; pin the claim rather than assume it",
 			markdown: "> > " + bt + "yaml\n> > a: 1\n> > " + bt,
 			want:     []string{"a: 1"},
+		},
+		{
+			name: "DESYNC REGRESSION: nested blockquote with a wide gap after the outer marker",
+			why: "the opener pattern takes ANY run of spaces per \">\" while" +
+				" blockquotePrefixPattern -- which backs the CLOSER -- once took one." +
+				" \">  > " + bt + "\" therefore opened a fence its own closer could not close:" +
+				" it ran to EOF and swallowed every later block on the page, the exact" +
+				" failure extractFencedYAML's comment warns about, and a silent miss turned" +
+				" into a desync. The two patterns have to stay in step; the trailing block" +
+				" is what proves they do.",
+			markdown: ">  > " + bt + "yaml\n>  > a: 1\n>  > " + bt +
+				"\n\ntext\n\n" + bt + "yaml\nlater: block\n" + bt,
+			want: []string{"a: 1", "later: block"},
+		},
+		{
+			name: "nested blockquote with a bare marker blank line in its body",
+			why: "the same fallback as the single-quote case, at depth: \">  >\" carries" +
+				" no trailing space, so stripFencePrefix falls back to the shared prefix" +
+				" pattern -- which must consume the whole nested marker run, not part of it",
+			markdown: ">  > " + bt + "yaml\n>  > a: 1\n>  >\n>  > b: 2\n>  > " + bt,
+			want:     []string{"a: 1\n\nb: 2"},
 		},
 
 		// ---- raw HTML ----
@@ -408,6 +428,7 @@ func TestIsClosingFence(t *testing.T) {
 		{">```", "```", true},
 		{">    ```", "```", true},
 		{"> > ```", "```", true},
+		{">  > ```", "```", true},
 		{"  > ```  ", "```", true},
 		{"> ~~~", "~~~", true},
 		{"> ~~~", "```", false},
