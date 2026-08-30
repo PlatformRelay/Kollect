@@ -819,7 +819,9 @@ mutant_rejected() {
     fail "self-test: could not build the '${kind}' mutant -- nothing was tested"
     return
   }
-  if cmp -s "${mutant}" "${MUTANT_BASELINE}"; then
+  # `cmp` against an unset baseline errors out and would silently wave the
+  # no-op check through, so the emptiness is tested first, not by cmp.
+  if [[ -n "${MUTANT_BASELINE}" ]] && cmp -s "${mutant}" "${MUTANT_BASELINE}"; then
     fail "self-test: the '${kind}' mutant is identical to the baseline -- the mutation was a no-op, so nothing was tested"
     return
   fi
