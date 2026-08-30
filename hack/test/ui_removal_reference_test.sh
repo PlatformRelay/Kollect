@@ -403,6 +403,23 @@ git -C "${anchor_only_repo}" add mkdocs.yml ||
 gate_rejects "${anchor_only_repo}" 'the scan set is nothing but the mkdocs.yml anchor' \
   'is just the mkdocs.yml anchor'
 
+# F4 again, the other half: every guard above inspects the LISTING, so none of them
+# notices a listing that was never produced -- only the rc check on `ls-files` does.
+# A corrupt index is the mutation that reaches it, and it has to be that one:
+# `rev-parse --show-toplevel` does not read the index, so the toplevel-equality guard
+# is still satisfied and `ls-files` is the first command to fail (rc=128). Most other
+# ways to break a repository trip an earlier guard and prove nothing about this branch.
+corrupt_index_repo="$(new_fixture_repo corrupt-index)"
+# Re-checked before the redirect below, not merely for symmetry with the clean
+# fixture: new_fixture_repo's `fail` can only exit its command substitution, and an
+# empty root would turn `>"${root}/.git/index"` into a write at /.git/index -- the
+# exact class of accident this gate's own data-loss finding was about.
+[[ -n "${corrupt_index_repo}" && -d "${corrupt_index_repo}/.git" ]] ||
+  fail "self-test: the corrupt-index fixture repository was not created"
+printf 'garbage' >"${corrupt_index_repo}/.git/index"
+gate_rejects "${corrupt_index_repo}" 'the tracked-file listing could not be produced' \
+  'git ls-files failed'
+
 plain_dir="${FIXTURES}/not-a-repo"
 mkdir -p "${plain_dir}"
 gate_rejects "${plain_dir}" 'the scan root is not a git repository' \
