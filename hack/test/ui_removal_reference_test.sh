@@ -232,6 +232,17 @@ check_ui_removal() {
   fi
 
   # Drop allowlisted false positives (webhook "ui", Charm Gum helper mentions).
+  # The lib/ui.sh rule below is LIVE, and it is not merely a second copy of the
+  # scannable() exclusion: `case` patterns are ANCHORED, the awk regex is not. So
+  # `hack/demo/*/lib/ui.sh` in scannable() covers only helpers at the repo root --
+  # today just hack/demo/kind-wide-scope/lib/ui.sh -- while this rule additionally
+  # exempts any NESTED `*/hack/demo/*/lib/ui.sh`. A tracked
+  # `vendor/hack/demo/x/lib/ui.sh` carrying `kollect-ui` therefore enters the scan set
+  # and is exempted here; that is the residual reach of the allowlist, and it is wider
+  # than the header sentence above suggests. The two together are pinned by the
+  # demo-helper fixture in the self-test, which tracks a helper at each reach: removing
+  # this awk rule reds on the nested one, removing BOTH guards reds on either, and
+  # removing only the case arm stays green because this rule still covers the root one.
   local filtered
   filtered="$(
     printf '%s\n' "${hits}" | awk '
@@ -588,5 +599,37 @@ git -C "${webhook_repo}" add webhook-notes.md ||
 grep -Eq -e "${pattern}" "${webhook_repo}/webhook-notes.md" ||
   fail "self-test: the webhook fixture line is not a scan hit, so accepting it proves nothing about the allowlist"
 gate_accepts "${webhook_repo}" 'a hit line mentioning a webhook and no product-image literal'
+
+# The Charm Gum demo helper -- the exemption this file's own header advertises, and
+# until now the only advertised one with nothing holding it. It is defended twice, and
+# the two defences do NOT cover the same paths, so the fixture carries one helper of
+# each reach:
+#   * hack/demo/kind-wide-scope/lib/ui.sh -- the ROOT-LEVEL helper the repo really
+#     ships. scannable()'s anchored case arm keeps it out of the scan set, and the awk
+#     rule would exempt it too, so removing either guard alone still leaves it exempt.
+#   * vendor/hack/demo/x/lib/ui.sh -- a NESTED copy. The anchored case arm does not
+#     match it, so it enters the scan set and only the unanchored awk regex exempts it.
+# Together they pin both halves of the comment at the awk block: removing the awk rule
+# reds on the nested helper, and removing BOTH guards reds on either.
+demo_repo="$(new_fixture_repo demo-helper)"
+[[ -n "${demo_repo}" && -d "${demo_repo}" ]] ||
+  fail "self-test: the demo-helper fixture repository was not created"
+mkdir -p "${demo_repo}/hack/demo/kind-wide-scope/lib" "${demo_repo}/vendor/hack/demo/x/lib"
+printf '#!/usr/bin/env bash\n# Gum helper; mentions kollect-ui only in prose.\n' \
+  >"${demo_repo}/hack/demo/kind-wide-scope/lib/ui.sh"
+printf '#!/usr/bin/env bash\n# Vendored Gum helper; mentions kollect-ui only in prose.\n' \
+  >"${demo_repo}/vendor/hack/demo/x/lib/ui.sh"
+git -C "${demo_repo}" add hack/demo/kind-wide-scope/lib/ui.sh vendor/hack/demo/x/lib/ui.sh ||
+  fail "self-test: could not stage the demo-helper fixture"
+# Not vacuous: each helper must be TRACKED (an untracked file never reaches the scan set
+# for reasons that have nothing to do with the allowlist) and must really carry a
+# forbidden literal (otherwise the pattern would never have matched it anyway).
+for demo_helper in hack/demo/kind-wide-scope/lib/ui.sh vendor/hack/demo/x/lib/ui.sh; do
+  git -C "${demo_repo}" ls-files --error-unmatch "${demo_helper}" >/dev/null 2>&1 ||
+    fail "self-test: ${demo_helper} is not tracked in the fixture, so accepting it proves nothing about the allowlist"
+  grep -Eq -e "${pattern}" "${demo_repo}/${demo_helper}" ||
+    fail "self-test: ${demo_helper} carries none of the forbidden literals, so accepting it proves nothing"
+done
+gate_accepts "${demo_repo}" 'tracked Charm Gum demo helpers, root-level and nested, mentioning a forbidden literal'
 
 printf 'ui removal reference: self-test ok\n'
