@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **docs:** Emit the live CR reference target from gen-glossary [2eef5a4](https://github.com/platformrelay/kollect/commit/2eef5a453e862280a8ad9711eb6da89f1afa24ec)
+
+- **docs:** Retarget three deleted doc links in CONTRIBUTING [41f8fd6](https://github.com/platformrelay/kollect/commit/41f8fd63ffcc223bca23de0269adb5f839a9f38b)
+
+
+### Refactoring
+
+- **docs:** Run dist contracts before the success line [832bce5](https://github.com/platformrelay/kollect/commit/832bce5c16d25692b2ee36e0242daced50093f95)
+
 ## [0.19.0](https://github.com/platformrelay/kollect/compare/v0.18.0..v0.19.0) - 2026-08-26
 
 ### Bug Fixes
