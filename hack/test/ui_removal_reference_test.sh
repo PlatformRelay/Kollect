@@ -370,6 +370,28 @@ gate_rejects "${fixture}" 'an untracked ui/ directory is re-created' \
 rm -rf "${fixture}/ui"
 gate_accepts "${fixture}" 'the fixture after the ui/ directory is removed again'
 
+# A file can be tracked and still absent from the working tree -- a sparse checkout is
+# the realistic case, an interrupted `rm` the mundane one. Handing such a path to
+# rg/grep aborts the WHOLE scan with rc=2, so the gate would fail for a reason that has
+# nothing to do with UI residue and everything to do with the checkout. Removing the
+# `[[ -f ]]` skip reds this line.
+deleted_repo="$(new_fixture_repo deleted)"
+[[ -n "${deleted_repo}" && -d "${deleted_repo}" ]] ||
+  fail "self-test: the tracked-but-deleted fixture repository was not created"
+# A third scannable file first: the scan-set floor is 2 and one of the fixture's two is
+# about to leave the working tree, so without this the anchor-only guard would fire and
+# the assertion would prove something else entirely.
+printf '# still on disk\n' >"${deleted_repo}/present.md"
+git -C "${deleted_repo}" add present.md ||
+  fail "self-test: could not stage the tracked-but-deleted fixture"
+rm -f "${deleted_repo}/README.md"
+# Both halves, or the fixture proves nothing: still in the index, no longer on disk.
+git -C "${deleted_repo}" ls-files --error-unmatch README.md >/dev/null 2>&1 ||
+  fail "self-test: README.md is not tracked in the deleted fixture, so it never reaches the scan set"
+[[ ! -e "${deleted_repo}/README.md" ]] ||
+  fail "self-test: README.md is still on disk in the deleted fixture, so it does not exercise the skip"
+gate_accepts "${deleted_repo}" 'a tracked file is missing from the working tree'
+
 # Direction 4: an unusable scan set must fail loudly instead of passing vacuously.
 empty_repo="${FIXTURES}/empty"
 mkdir -p "${empty_repo}"
