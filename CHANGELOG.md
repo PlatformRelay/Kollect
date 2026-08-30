@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Carry curated glossary rows through regeneration [1c53f33](https://github.com/platformrelay/kollect/commit/1c53f33b3de74d00536d712957a88f2dd80b3856)
+
 - **test:** Stop the ui-removal gate inheriting a hostile git environment ([#338](https://github.com/platformrelay/kollect/pull/338))[02925c3](https://github.com/platformrelay/kollect/commit/02925c317b695a1b8a21d1533d2e3fec71c83599)
 
 - **test:** Derive the ui-removal scan set from tracked files [eaa84c9](https://github.com/platformrelay/kollect/commit/eaa84c915d12346c0005cd9a2f91c5f260c2a6af)
@@ -23,6 +25,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Refactoring
+
+- **test:** Make the glossary gate trap's exit path explicit ([#341](https://github.com/platformrelay/kollect/pull/341))[1ab0843](https://github.com/platformrelay/kollect/commit/1ab08433f4b92be63433caadaf1e335e51be3577)
 
 - **docs:** Run dist contracts before the success line [832bce5](https://github.com/platformrelay/kollect/commit/832bce5c16d25692b2ee36e0242daced50093f95)
 
