@@ -812,6 +812,30 @@ if [[ -n "${MUTANT_BASELINE}" ]]; then
   fi
 fi
 
+# mutation_took_effect KIND MUTANT -- fail() unless the mutant really differs
+# from the normalised honest workflow.
+#
+# Every case below is only as good as this check. A mutation is a string edit
+# against the workflow as it is spelled TODAY: respell the push and
+# `push-spelled-plain` replaces nothing, leaving a file identical to the
+# original that the gate then dutifully accepts -- an `ok -` line asserting a
+# claim it never tested. Acceptance cases are exactly as easy to fake as
+# rejection cases, so both go through here.
+mutation_took_effect() {
+  local kind="$1" mutant="$2"
+  if [[ -z "${MUTANT_BASELINE}" ]]; then
+    fail "self-test: no normalised baseline -- cannot tell whether the '${kind}' mutation changed anything"
+    return 1
+  fi
+  # `cmp` against an unset baseline errors out, which reads as "differs" and
+  # would wave the no-op check through; hence the emptiness test above.
+  if cmp -s "${mutant}" "${MUTANT_BASELINE}"; then
+    fail "self-test: the '${kind}' mutant is identical to the baseline -- the mutation was a no-op, so nothing was tested"
+    return 1
+  fi
+  return 0
+}
+
 # mutant_rejected KIND LABEL EXPECTED_SUBSTRING
 mutant_rejected() {
   local kind="$1" label="$2" expect="$3" mutant output status=0
@@ -819,12 +843,7 @@ mutant_rejected() {
     fail "self-test: could not build the '${kind}' mutant -- nothing was tested"
     return
   }
-  # `cmp` against an unset baseline errors out and would silently wave the
-  # no-op check through, so the emptiness is tested first, not by cmp.
-  if [[ -n "${MUTANT_BASELINE}" ]] && cmp -s "${mutant}" "${MUTANT_BASELINE}"; then
-    fail "self-test: the '${kind}' mutant is identical to the baseline -- the mutation was a no-op, so nothing was tested"
-    return
-  fi
+  mutation_took_effect "${kind}" "${mutant}" || return
   output="$(static_wiring_check "${mutant}" 2>&1)" || status=$?
   if [[ "${status}" -eq 0 ]]; then
     fail "self-test: the gate still passed on a workflow where ${label} -- that assertion is vacuous"
@@ -842,6 +861,7 @@ mutant_accepted() {
     fail "self-test: could not build the '${kind}' variant -- nothing was tested"
     return
   }
+  mutation_took_effect "${kind}" "${mutant}" || return
   output="$(static_wiring_check "${mutant}" 2>&1)" || status=$?
   if [[ "${status}" -eq 0 ]]; then
     pass "self-test: gate accepts a workflow where ${label}"
@@ -858,7 +878,7 @@ mutant_rejected guard-if-expr-false \
   'statically falsy'
 mutant_rejected guard-commented-out \
   'the guard invocation is commented out' \
-  'no step in job'
+  'runs check-changelog-release-guard.sh'
 mutant_rejected extra-push-plain \
   "an extra ungated step pushes with 'git push origin main'" \
   'exactly one step may push to main'
