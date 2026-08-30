@@ -171,6 +171,28 @@ jobs:
         run: bash hack/test/repo_root_links_test.sh
       - name: Verify the repo-root link gate stays wired into a job that runs
         run: bash hack/test/repo_root_links_wiring_test.sh
+      # Mirrors the "Ensure yq is available" step above, for the same reason: the lint job
+      # otherwise installs only Go tooling and shellcheck. hack/gen-glossary.py parses the CRD
+      # YAML with PyYAML, and the gate below runs it, so a missing module would red the job for
+      # a reason that has nothing to do with the glossary.
+      - name: Ensure PyYAML is available
+        run: |
+          if ! python3 -c "import yaml" 2>/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y python3-yaml
+          fi
+          python3 -c "import yaml; print('PyYAML', yaml.__version__)"
+      # GLOSSARY-MARKER-01, same defect class as LAB-DEKIND above. This gate regenerates
+      # docs/GLOSSARY.md and diffs it, so it is the only thing standing between a contributor
+      # running the documented regeneration command and the curated rows inside the AUTO-CRD
+      # markers being silently overwritten. Composing it into hack/docs/verify.sh alone left it
+      # unreachable for its own motivating change class: the Docs workflow path filter lists
+      # sibling hack/test scripts individually, so a commit touching only hack/gen-glossary.py
+      # -- which is exactly what 2eef5a453 was -- triggered no run at all, and neither did an
+      # edit to the gate itself. Run it here, unconditionally, next to the sonar_ko_* glob that
+      # already carries the other hack/gen-glossary.py check.
+      - name: Glossary generator drift meta-tests (AUTO-CRD block, curated rows, emitted links)
+        run: bash hack/test/glossary_drift_test.sh
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob
