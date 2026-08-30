@@ -674,10 +674,12 @@ func infoStringLanguage(info string) string {
 func isClosingFence(line, marker string) bool {
 	// A closer inside a blockquote carries the same "> " markers as its opener.
 	//
-	// KNOWN DIVERGENCE, deliberately left in place, and confirmed against the
-	// pinned renderer rather than assumed. The strip is unconditional -- this
-	// function does not know whether the opener was quoted -- so a body line
-	// "> ```" terminates an UNQUOTED fence here, where superfences carries on.
+	// KNOWN DIVERGENCE, deliberately left in place. Confirmed against the pinned
+	// renderer by the DOCS-FENCE-01 review rather than assumed -- there is no
+	// harness in this repo to reproduce it from, so the attribution is the trail.
+	// The strip is unconditional -- this function does not know whether the opener
+	// was quoted -- so a body line "> ```" terminates an UNQUOTED fence here,
+	// where superfences carries on.
 	// It is broader than that one shape: a more deeply quoted "> > ```" likewise
 	// terminates a singly quoted fence early. Byte-identity with the pre-blockquote
 	// behaviour therefore holds only EMPIRICALLY -- but the empirical base is the
