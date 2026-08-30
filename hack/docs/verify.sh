@@ -25,6 +25,7 @@ bash hack/test/docs_lab_doc_05_scenario_matrix_test.sh
 bash hack/test/lab_adr_0707_indexed_test.sh
 bash hack/test/lab_harness_meta_suite.sh
 bash hack/test/demo_04_samples_kustomize_test.sh
+bash hack/test/repo_root_links_test.sh
 
 # These contracts cover the complete nav and redirect map, orphan pages, current
 # CRD/family-sink language, referenced samples and images, and the visual system.
