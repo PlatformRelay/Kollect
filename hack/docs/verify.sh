@@ -14,6 +14,7 @@ bash hack/test/docs_adr_kollectsink_retcon_test.sh
 bash hack/test/docs_coverage_floor_drift_test.sh
 bash hack/test/security_architecture_docs_test.sh
 bash hack/test/docs_removed_api_fields_test.sh
+bash hack/test/glossary_drift_test.sh
 bash hack/test/ui_removal_reference_test.sh
 bash hack/test/hyg_ui_gitignore_test.sh
 bash hack/test/docs_pages_concurrency_test.sh
