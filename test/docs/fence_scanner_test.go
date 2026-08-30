@@ -218,6 +218,33 @@ func TestExtractFencedYAMLDiscovery(t *testing.T) {
 			markdown: "> " + bt + "yaml\n> a: 1\n>\n> b: 2\n> " + bt,
 			want:     []string{"a: 1\n\nb: 2"},
 		},
+		{
+			name: "blockquoted fence indented two spaces after the marker",
+			why: "the opener pattern used to consume at most ONE space per \">\", so a" +
+				" second space made the anchored match fail outright and the block went" +
+				" undiscovered -- the silent-hole shape. The pinned toolchain renders it" +
+				" as language-yaml like any other.",
+			markdown: ">  " + bt + "yaml\n>  a: 1\n>  " + bt,
+			want:     []string{"a: 1"},
+		},
+		{
+			name: "blockquoted list item indents its fence four spaces",
+			why: "> 1. Step: puts its fence at \">    \" -- the natural shape, and the one" +
+				" the one-space rule was furthest from matching. The list indent belongs to" +
+				" the prefix, so it is stripped with it and relative indent survives.",
+			markdown: "> 1. Step:\n>\n>    " + bt + "yaml\n>    a: 1\n>      b: 2\n>    " + bt,
+			want:     []string{"a: 1\n  b: 2"},
+		},
+		{
+			name: "blockquoted list item fence with a bare > blank line in its body",
+			why: "INTERACTION: the opener pattern allows many spaces per \">\" while" +
+				" blockquotePrefixPattern -- which backs stripFencePrefix's fallback and" +
+				" isClosingFence -- still allows one. A bare \">\" body line takes exactly" +
+				" that fallback, so this pins that the two patterns still agree on the" +
+				" only line where they could disagree.",
+			markdown: ">    " + bt + "yaml\n>    a: 1\n>\n>    b: 2\n>    " + bt,
+			want:     []string{"a: 1\n\nb: 2"},
+		},
 
 		// ---- multiple blocks and desync ----
 		{

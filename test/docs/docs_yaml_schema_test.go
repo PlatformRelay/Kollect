@@ -592,7 +592,13 @@ var skippedDocsDirs = map[string]struct{}{
 // nothing else caught them either. That made the gate teach its own bypass: a
 // fragment failing with "undirected YAML fragment" went quiet the moment its
 // author added a fence attribute.
-var fenceOpenPattern = regexp.MustCompile("^([ \\t]*(?:>[ \\t]?)*)(`{3,}|~{3,})(.*)$")
+//
+// The blockquote group takes ANY run of spaces or tabs after each ">", not one.
+// A single space matched "> ```yaml" and nothing else: ">  ```yaml" and the
+// natural blockquoted-list-item shape ">    ```yaml" both failed the anchored
+// match outright and went undiscovered -- silently, which is this gate's worst
+// failure mode. Both render as language-yaml on the pinned toolchain.
+var fenceOpenPattern = regexp.MustCompile("^([ \\t]*(?:>[ \\t]*)*)(`{3,}|~{3,})(.*)$")
 
 // blockquotePrefixPattern matches the indentation and blockquote markers a line
 // carries before its content.
