@@ -193,6 +193,17 @@ jobs:
       # already carries the other hack/gen-glossary.py check.
       - name: Glossary generator drift meta-tests (AUTO-CRD block, curated rows, emitted links)
         run: bash hack/test/glossary_drift_test.sh
+      # DOC-MAP-01: same shape as LAB-DEKIND and CI-CONTRIBFILTER-01 above. This gate asserts the
+      # label-to-page contract of the Documentation map in docs/index.md -- that no label names a
+      # deleted page, no two labels claim one page, and every label matches its destination's nav
+      # label or H1. `mkdocs build --strict` structurally cannot catch this: the stale links all
+      # RESOLVED, they just misinformed, and a link checker only sees resolution.
+      # The gate would otherwise be reachable only via hack/docs/verify.sh in the path-filtered
+      # Docs workflow, so a PR weakening or deleting the gate SCRIPT would trigger nothing that
+      # notices. hack/** is not in this workflow's paths-ignore, so running it here closes that
+      # half; docs.yaml's docs/** filter covers a change to the map itself.
+      - name: Verify the docs map labels the pages it points at (DOC-MAP-01)
+        run: bash hack/test/docs_map_contract_test.sh
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob
