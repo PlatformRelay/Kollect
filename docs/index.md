@@ -200,17 +200,18 @@ catalogues tuning knobs. Fleet fan-in uses shared sinks rather than a hub merge 
 
 | Section | Start here |
 | --- | --- |
-| **Getting started** | [Quick start](getting-started/install.md) · [Development setup](development/setup.md) · [Examples](examples/README.md) |
-| **Core concepts** | [CRD model](adr/0201-crd-model.md) · [CR reference](crds/index.md) · [Multi-cluster fleet](adr/0501-multi-cluster-fleet.md) |
-| **Operator manual** | [Install & ops](operator-manual/index.md) · [Upgrading](operator-manual/upgrading.md) · [Helm values](operator-manual/helm-values.md) |
-| **Performance & ops** | [Performance tuning](operator-manual/performance.md) · [Scaling & fleet](operator-manual/performance.md) · [Best practices](operator-manual/production-checklist.md) · [Troubleshooting](operator-manual/troubleshooting.md) |
-| **Background** | [Prerequisites & basics](concepts/resource-model.md) · [Architecture](concepts/architecture.md) ([package graph](architecture-graph.svg)) · [Data flows](concepts/export-pipeline.md) |
-| **Reference** | [Custom resources](crds/index.md) · [FAQ](operator-manual/troubleshooting.md) · [ADRs](adr/README.md) · [RFCs](rfc/README.md) |
-| **Contributing** | [Roadmap](ROADMAP.md) · [Planned features](roadmap/planned-features.md) · [ADR/RFC process](development/adr-rfc-process.md) · [Release process](RELEASE.md) |
+| **Getting started** | [Install Kollect](getting-started/install.md) · [Your first inventory](getting-started/first-inventory.md) · [All examples](examples/README.md) |
+| **Concepts** | [The resource model](concepts/resource-model.md) · [How collection works](concepts/collection.md) · [Export pipeline and debouncing](concepts/export-pipeline.md) · [Sink roles](concepts/sinks.md) |
+| **Scale & tenancy** | [Multi-tenancy and scopes](concepts/multi-tenancy.md) · [Multi-cluster fleet](concepts/multi-cluster.md) · [Architecture](concepts/architecture.md) ([package graph](architecture-graph.svg)) |
+| **Operate** | [Operator manual](operator-manual/index.md) · [Helm values](operator-manual/helm-values.md) · [Upgrading](operator-manual/upgrading.md) · [Metrics](operator-manual/metrics.md) |
+| **Run in production** | [Performance and scaling](operator-manual/performance.md) · [Production checklist](operator-manual/production-checklist.md) · [Troubleshooting](operator-manual/troubleshooting.md) |
+| **Reference** | [Custom resources](crds/index.md) · [Conditions and status](reference/conditions.md) · [Annotations and labels](ANNOTATIONS-LABELS.md) · [Glossary](GLOSSARY.md) |
+| **Design & internals** | [Architecture decisions](adr/README.md) · [Requests for comments](rfc/README.md) · [Requirements](REQUIREMENTS.md) |
+| **Contributing** | [Contributor setup](development/setup.md) · [Roadmap](ROADMAP.md) · [Planned features](roadmap/planned-features.md) · [ADR and RFC process](development/adr-rfc-process.md) · [Release process](RELEASE.md) |
 
 ## Try an example
 
-- [Deployment inventory → Git / Postgres / Kafka](getting-started/first-inventory.md) — the end-to-end walkthrough
+- [Your first inventory: Deployments → Git](getting-started/first-inventory.md) — the end-to-end walkthrough; the payoff is an ordinary Git diff
 - [Postgres state store (relational SoR)](examples/postgres-state-store.md)
 - [NATS event sink](examples/nats-event-sink.md)
 - [Helm release inventory (Argo primary; Flux secondary)](examples/helm-release-inventory.md)
