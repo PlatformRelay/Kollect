@@ -245,6 +245,13 @@ func TestExtractFencedYAMLDiscovery(t *testing.T) {
 			want:     []string{"a: 1\n\nb: 2"},
 		},
 		{
+			name: "nested blockquote",
+			why: "the gate comment claims blockquoted fences are discovered at any" +
+				" nesting depth; pin the claim rather than assume it",
+			markdown: "> > " + bt + "yaml\n> > a: 1\n> > " + bt,
+			want:     []string{"a: 1"},
+		},
+		{
 			name: "DESYNC REGRESSION: nested blockquote with a wide gap after the outer marker",
 			why: "the opener pattern takes ANY run of spaces per \">\" while" +
 				" blockquotePrefixPattern -- which backs the CLOSER -- once took one." +
@@ -264,6 +271,18 @@ func TestExtractFencedYAMLDiscovery(t *testing.T) {
 				" pattern -- which must consume the whole nested marker run, not part of it",
 			markdown: ">  > " + bt + "yaml\n>  > a: 1\n>  >\n>  > b: 2\n>  > " + bt,
 			want:     []string{"a: 1\n\nb: 2"},
+		},
+
+		// ---- raw HTML ----
+		{
+			name: "fence inside raw HTML with no markdown attribute",
+			why: "the gate comment used to declare this a known gap. It is not one:" +
+				" superfences is a PREPROCESSOR, so it lexes the fence before the HTML" +
+				" block matters and the page renders language-yaml with or without" +
+				" markdown=\"1\". This scanner is line-based and agrees. Pinned because a" +
+				" deleted disclaimer is worth less than a tested fact.",
+			markdown: "<div>\n\n" + bt + "yaml\na: 1\n" + bt + "\n\n</div>",
+			want:     []string{"a: 1"},
 		},
 
 		// ---- multiple blocks and desync ----
