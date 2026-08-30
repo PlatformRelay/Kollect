@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **test:** Stop the ui-removal gate inheriting a hostile git environment ([#338](https://github.com/platformrelay/kollect/pull/338))[02925c3](https://github.com/platformrelay/kollect/commit/02925c317b695a1b8a21d1533d2e3fec71c83599)
+
+- **test:** Derive the ui-removal scan set from tracked files [eaa84c9](https://github.com/platformrelay/kollect/commit/eaa84c915d12346c0005cd9a2f91c5f260c2a6af)
+
 - **test:** Match blockquoted fences indented past the first space [ed4f633](https://github.com/platformrelay/kollect/commit/ed4f633fb8af71908933c5f07bf4aae73eb49ece)
 
 - **docs:** Emit the live CR reference target from gen-glossary [2eef5a4](https://github.com/platformrelay/kollect/commit/2eef5a453e862280a8ad9711eb6da89f1afa24ec)
