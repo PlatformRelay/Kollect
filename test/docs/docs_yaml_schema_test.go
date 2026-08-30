@@ -136,14 +136,17 @@ var nonKollectDocGroups = map[string]struct{}{
 //     the first token of the info string; attribute lists resolve to their FIRST
 //     class, so "{.yaml .annotate}" is YAML and "{.annotate .yaml}" deliberately
 //     is not, matching what superfences highlights. Fences indented in list items,
-//     content tabs and admonitions are discovered, as are blockquoted fences.
-//     Because md_in_html is enabled (mkdocs.yml:135), a fence inside a
-//     <div markdown="1"> is discovered too.
+//     content tabs and admonitions are discovered, as are blockquoted fences --
+//     at any indentation after the marker and at any nesting depth, so the
+//     blockquoted-list-item shape ">    ```yaml" counts. Because md_in_html is
+//     enabled (mkdocs.yml:135), a fence inside a <div markdown="1"> is discovered
+//     too -- and so is one inside raw HTML that carries no markdown attribute at
+//     all, because superfences is a PREPROCESSOR: it lexes the fence before the
+//     HTML block ever matters, and this scanner is line-based for the same reason.
 //
 //     Known remaining gaps: YAML pulled in by a pymdownx.snippets include (the
-//     text is not in the page at all), a superfences custom_fences block whose
-//     name is not "yaml", and YAML inside raw HTML that does NOT carry
-//     markdown="1".
+//     text is not in the page at all), and a superfences custom_fences block whose
+//     name is not "yaml".
 //
 //     Two live escapes have come from this class already: a bare-string
 //     databaseSinkRefs fragment behind a "{.yaml .annotate}" fence, and a complete
@@ -608,10 +611,11 @@ var blockquotePrefixPattern = regexp.MustCompile(`^[ \t]*(?:>[ \t]?)*`)
 // markers, so a quoted fence yields the same body as an unquoted one.
 //
 // When the prefix carries no blockquote marker this is plain TrimPrefix, which
-// keeps the long-standing behaviour for indented fences byte-identical. Only a
-// quoted fence takes the fallback, which is needed because a blank line inside a
-// blockquote is written ">" with no trailing space and so does not carry the
-// opener's full prefix.
+// keeps the long-standing behaviour for indented fences byte-identical -- in THIS
+// function. The claim does not extend to the closer path; see isClosingFence.
+// Only a quoted fence takes the fallback, which is needed because a blank line
+// inside a blockquote is written ">" with no trailing space and so does not carry
+// the opener's full prefix.
 func stripFencePrefix(line, prefix string) string {
 	if !strings.Contains(prefix, ">") {
 		return strings.TrimPrefix(line, prefix)
@@ -660,6 +664,15 @@ func infoStringLanguage(info string) string {
 // swallow the rest of the page into a single block.
 func isClosingFence(line, marker string) bool {
 	// A closer inside a blockquote carries the same "> " markers as its opener.
+	//
+	// KNOWN DIVERGENCE, deliberately left in place. The strip is unconditional --
+	// this function does not know whether the opener was quoted -- so a body line
+	// "> ```" terminates an UNQUOTED fence here, where superfences carries on.
+	// Byte-identity with the pre-blockquote behaviour therefore holds only
+	// EMPIRICALLY: the sole corpus match is under docs/node_modules, which the walk
+	// excludes. Conditioning the strip on the opener's prefix would swap a verified
+	// empirical claim for an unverified one about the renderer, so TestIsClosingFence
+	// pins the divergence as a fact instead of hiding it.
 	line = line[len(blockquotePrefixPattern.FindString(line)):]
 
 	trimmed := strings.TrimSpace(line)

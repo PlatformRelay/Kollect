@@ -245,6 +245,25 @@ func TestExtractFencedYAMLDiscovery(t *testing.T) {
 			markdown: ">    " + bt + "yaml\n>    a: 1\n>\n>    b: 2\n>    " + bt,
 			want:     []string{"a: 1\n\nb: 2"},
 		},
+		{
+			name: "nested blockquote",
+			why: "the gate comment claims blockquoted fences are discovered at any" +
+				" nesting depth; pin the claim rather than assume it",
+			markdown: "> > " + bt + "yaml\n> > a: 1\n> > " + bt,
+			want:     []string{"a: 1"},
+		},
+
+		// ---- raw HTML ----
+		{
+			name: "fence inside raw HTML with no markdown attribute",
+			why: "the gate comment used to declare this a known gap. It is not one:" +
+				" superfences is a PREPROCESSOR, so it lexes the fence before the HTML" +
+				" block matters and the page renders language-yaml with or without" +
+				" markdown=\"1\". This scanner is line-based and agrees. Pinned because a" +
+				" deleted disclaimer is worth less than a tested fact.",
+			markdown: "<div>\n\n" + bt + "yaml\na: 1\n" + bt + "\n\n</div>",
+			want:     []string{"a: 1"},
+		},
 
 		// ---- multiple blocks and desync ----
 		{
