@@ -317,6 +317,20 @@ mkdir -p "${plain_dir}"
 gate_rejects "${plain_dir}" 'the scan root is not a git repository' \
   'is not a git repository'
 
+# gate_rejects' own guard rail. `${expect}` is what stops every assertion above from
+# degenerating into "something exited nonzero", which a broken fixture also does, so
+# prove on every run that a rejection carrying the WRONG message is still refused.
+# Deleting the ${expect} comparison in gate_rejects must red this.
+self_test_guard_holds() {
+  local root="$1" label="$2"
+
+  if (gate_rejects "${root}" "${label}" 'unreachable-expected-message') >/dev/null 2>&1; then
+    fail "self-test: gate_rejects counted ${label} as proof of the intended check; it is tautological"
+  fi
+  pass "self-test: gate_rejects refuses a rejection carrying the wrong message"
+}
+self_test_guard_holds "${plain_dir}" 'a root that fails for an unrelated reason'
+
 # The upward walk `git rev-parse` performs by default is the trap here: this directory
 # IS inside a work tree, just not at its root, and without the equality check the gate
 # would happily scan the parent fixture's files and call that a pass.
