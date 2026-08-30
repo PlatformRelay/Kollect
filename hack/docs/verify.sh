@@ -26,6 +26,9 @@ bash hack/test/lab_adr_0707_indexed_test.sh
 bash hack/test/lab_harness_meta_suite.sh
 bash hack/test/demo_04_samples_kustomize_test.sh
 bash hack/test/repo_root_links_test.sh
+bash hack/test/dist_adr_0708_indexed_test.sh
+bash hack/test/dist_adr_0709_indexed_test.sh
+bash hack/test/dist_install_docs_test.sh
 
 # These contracts cover the complete nav and redirect map, orphan pages, current
 # CRD/family-sink language, referenced samples and images, and the visual system.
@@ -55,6 +58,3 @@ else
 fi
 
 printf 'docs verify: all available checks passed\n'
-bash hack/test/dist_adr_0708_indexed_test.sh
-bash hack/test/dist_adr_0709_indexed_test.sh
-bash hack/test/dist_install_docs_test.sh
