@@ -587,7 +587,7 @@ gate_rejects "${nav_repo}" 'mkdocs.yml navigates to a removed UI ADR' \
 webhook_repo="$(new_fixture_repo webhook)"
 [[ -n "${webhook_repo}" && -d "${webhook_repo}" ]] ||
   fail "self-test: the webhook-allowlist fixture repository was not created"
-printf 'The webhook certificate job used to be driven by `task ui-build`.\n' \
+printf 'The webhook certificate job used to be driven by task ui-build.\n' \
   >"${webhook_repo}/webhook-notes.md"
 git -C "${webhook_repo}" add webhook-notes.md ||
   fail "self-test: could not stage the webhook-allowlist fixture"
