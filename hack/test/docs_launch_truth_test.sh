@@ -48,6 +48,28 @@ grep -Eq \
   "^\\*\\*Last verified:\\*\\* [0-9]{4}-[0-9]{2}-[0-9]{2} against \\*\\*v${released_version}\\*\\*\\." \
   docs/roadmap/planned-features.md ||
   fail "planned-features Last verified line does not identify released v${released_version}"
+
+# The `Last verified` line is not the page's only version claim. A stale
+# `## Shipped in vX.Y.Z` heading contradicts it on the same page and used to pass
+# green, so a release bump could fix one claim and leave the other rotting. Both
+# now derive from the same ${released_version}.
+#
+# Matched at any heading depth and without assuming a `v` prefix, so demoting the
+# heading to `###` or dropping the `v` cannot smuggle a stale version past it.
+# Every match must be the exact released h2; checking all of them, not the first,
+# is the point -- a correct heading above a stale one must not shield it.
+stale_shipped="$(
+  grep -E '^#{2,} Shipped in ' docs/ROADMAP.md |
+    grep -vxF "## Shipped in v${released_version}" || true
+)"
+if [[ -n "${stale_shipped}" ]]; then
+  printf 'docs launch truth: offending roadmap heading(s):\n%s\n' "${stale_shipped}" >&2
+  fail "roadmap 'Shipped in' heading does not read '## Shipped in v${released_version}'"
+fi
+# The other direction: no heading at all is the vacuous green, where deleting the
+# claim rather than updating it would otherwise silence the check.
+grep -qxF "## Shipped in v${released_version}" docs/ROADMAP.md ||
+  fail "roadmap has no '## Shipped in v${released_version}' heading"
 if ! grep -qF -- "releases/tag/v${released_version}" overrides/main.html ||
   ! grep -qF -- "<strong>v${released_version}</strong>" overrides/main.html; then
   fail "announcement bar does not target released v${released_version}"
