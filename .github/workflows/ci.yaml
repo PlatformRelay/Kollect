@@ -159,6 +159,18 @@ jobs:
       # Run it here, unconditionally, where the guard actually protects something.
       - name: Lab harness offline meta-tests (substrate allowlist, image delivery, pprof)
         run: bash hack/test/lab_harness_meta_suite.sh
+      # CI-CONTRIBFILTER-01: same shape as LAB-DEKIND above. This gate resolves relative links in
+      # the repo-ROOT Markdown (README.md, CONTRIBUTING.md), which `mkdocs build --strict` cannot
+      # see -- it reads only `docs_dir: docs`. It was reachable only via hack/docs/verify.sh in the
+      # path-filtered Docs workflow, whose filter listed neither CONTRIBUTING.md nor this gate
+      # script, so a PR weakening or deleting the gate triggered nothing that would notice.
+      # hack/** is not in this workflow's paths-ignore, so running it here closes that half.
+      # The CONTRIBUTING.md half cannot be closed here -- CONTRIBUTING.md is in paths-ignore
+      # above -- and is closed by the docs.yaml filter entry instead.
+      - name: Verify repo-root Markdown links resolve (CI-CONTRIBFILTER-01)
+        run: bash hack/test/repo_root_links_test.sh
+      - name: Verify the repo-root link gate stays wired into a job that runs
+        run: bash hack/test/repo_root_links_wiring_test.sh
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob
