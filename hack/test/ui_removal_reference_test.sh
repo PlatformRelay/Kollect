@@ -13,8 +13,10 @@
 # matrix. The scan set is now derived from TRACKED files (`git ls-files`), which is
 # the same set CI sees. `--others --exclude-standard` is deliberately NOT added: an
 # unstaged file is not yet part of the repository, and widening the set back to the
-# working tree is how a local-only failure mode returns. CI reds it the moment it is
-# committed. The forbidden-path checks below deliberately still probe the
+# working tree is how a local-only failure mode returns. Once it is committed it is
+# in the scanned set like everything else (the Docs workflow is path-filtered and is
+# not a required check, so "CI catches it" is a weaker promise than it sounds -- this
+# gate is the check). The forbidden-path checks below deliberately still probe the
 # WORKING TREE: a re-created `ui/` must red whether or not anyone staged it.
 #
 # A scan that silently covers nothing is worse than the bug above, so a missing git,
@@ -22,6 +24,19 @@
 # anchor are all hard failures. The self-test at the bottom builds throwaway fixture
 # repos and re-proves every one of those directions on each run.
 set -euo pipefail
+
+# F1 (data loss): every git invocation below -- the scan's own `ls-files` and the
+# self-test's throwaway `git init`/`git add` fixtures -- inherits the ambient git
+# environment. `GIT_INDEX_FILE` is exported in every pre-commit, commit-msg and
+# prepare-commit-msg hook and by `git commit --interactive`, so a maintainer running
+# `task docs:verify` from a hook context would have the fixtures stage themselves
+# into the REAL repository's index, against objects in a temp store this script then
+# deletes -- an unrecoverable staging area, and the gate would still exit 0.
+# `GIT_DIR`/`GIT_WORK_TREE` are the read-side twin (see check_ui_removal).
+# GIT_OBJECT_DIRECTORY is not optional here: without it a sanitised index can still
+# be written against foreign object storage.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR \
+  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 readonly repo_root
@@ -34,6 +49,16 @@ fail() {
 pass() {
   printf 'ok - %s\n' "$*"
 }
+
+# The tripwire for the `unset` above. It is unreachable while that line is present --
+# that is the point: if the unset is ever dropped, a run inherited from a git hook
+# dies here, loudly, BEFORE any git command, instead of staging fixture blobs into the
+# real repository's index and exiting 0. Verified by ablation, not assumed.
+for poisoning_var in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR \
+  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES; do
+  [[ -z "${!poisoning_var-}" ]] ||
+    fail "${poisoning_var} is set (${!poisoning_var}); every git command below -- including the self-test's throwaway repositories -- would run against a foreign index or object store and destroy it. Sanitise the git environment before running this gate."
+done
 
 # --- Paths that must not exist -------------------------------------------------
 forbidden_paths=(
@@ -105,6 +130,15 @@ check_ui_removal() {
   done
 
   # --- Product wiring strings (tracked files; CHANGELOG + lib/ui.sh excluded) ---
+  # F2: repeated here, not just at the top of the script, because this is the unit
+  # the self-test exercises -- and because the failure mode is silent. With `GIT_DIR`
+  # exported, `ls-files` reads a FOREIGN index while `rev-parse --show-toplevel`
+  # answers with the cwd, so the toplevel-equality guard below would certify a scan
+  # of somebody else's repository as a pass (measured on this repo: 601 files -> 2,
+  # exit 0, with a tracked kollect-ui reference left unseen).
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR \
+    GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+
   command -v git >/dev/null 2>&1 ||
     fail "git is required to derive the content-scan set from tracked files; refusing to scan nothing"
 
@@ -112,14 +146,29 @@ check_ui_removal() {
   toplevel="$(git -C "${root}" rev-parse --show-toplevel 2>/dev/null)" ||
     fail "${root} is not a git repository, so no tracked-file set can be derived; refusing to scan nothing"
   toplevel="$(cd "${toplevel}" && pwd -P)"
-  # Equality, not `--is-inside-work-tree`: that walks UPWARD, so a non-repository
-  # directory nested inside a checkout would silently scan the parent's files and
-  # report a pass that proves nothing about the directory actually under test.
+  # Equality, not `--is-inside-work-tree`: that walks UPWARD, so a plain directory
+  # nested inside a checkout resolves to the PARENT's toplevel. `ls-files` is
+  # prefix-scoped, so the scan would come back empty rather than showing the parent's
+  # files -- either way the set no longer describes the directory under test. Failing
+  # on the mismatch names the real problem instead of leaving it to the empty-set
+  # guard to report something misleading.
   [[ "${toplevel}" == "${root}" ]] ||
     fail "${root} is not the root of its git repository (toplevel is ${toplevel}); refusing to scan a set derived from somewhere else"
 
+  # F4: `git ls-files` piped straight into the loop hides its exit status -- a
+  # truncated or aborted listing is indistinguishable from a short repository, and
+  # the files it never emitted are never scanned. Capture it first so rc is testable.
+  local listing ls_rc=0
+  listing="$(mktemp)" ||
+    fail "could not create a temporary file for the tracked-file listing"
+  git -C "${root}" ls-files -z >"${listing}" || ls_rc=$?
+  if ((ls_rc != 0)); then
+    rm -f "${listing}"
+    fail "git ls-files failed in ${root} (rc=${ls_rc}); refusing to scan a partial file set"
+  fi
+
   local scan_files=() f
-  # Process substitution, never a pipe: a pipeline runs the loop in a subshell and
+  # Redirection from a file, never a pipe: a pipeline runs the loop in a subshell and
   # leaves scan_files empty -- the silent zero-file scan this gate exists to prevent.
   while IFS= read -r -d '' f; do
     scannable "${f}" || continue
@@ -127,7 +176,8 @@ check_ui_removal() {
     # aborting the whole scan (rc=2) over a file nobody can read.
     [[ -f "${root}/${f}" ]] || continue
     scan_files+=("${f}")
-  done < <(git -C "${root}" ls-files -z)
+  done <"${listing}"
+  rm -f "${listing}"
 
   ((${#scan_files[@]} > 0)) ||
     fail "the content scan derived an empty file set from tracked files; a gate that scans nothing passes vacuously"
@@ -144,6 +194,13 @@ check_ui_removal() {
   done
   [[ "${anchored}" -eq 1 ]] ||
     fail "the content scan set does not contain mkdocs.yml; the tracked-file derivation is broken and the scan would pass on a set that is not this repository"
+
+  # A listing truncated to its first entry satisfies both guards above on its own, so
+  # require the anchor AND something else. The floor is deliberately 2 rather than a
+  # repo-sized number because the self-test fixtures are minimal repositories; the rc
+  # check on `ls-files` above is the real defence against a truncated listing.
+  ((${#scan_files[@]} >= 2)) ||
+    fail "the content scan set is just the mkdocs.yml anchor (${#scan_files[@]} file); a listing truncated to one entry must not read as a scanned repository"
 
   # Exit codes (rg and GNU/BSD grep -E): 0=matches, 1=no matches, 2+=error.
   # Prefer ripgrep; fall back to grep so Docs CI (no rg preinstall) still scans.
@@ -262,13 +319,31 @@ printf 'UI_IMAGE_TAG and kollect-ui notes\n' >"${fixture}/.cursor/skills/skill.m
 # Two guards against a vacuous pass: the files must really be gitignored (an untracked
 # file git does NOT ignore would prove a weaker property), and they must really carry
 # text the scan looks for (otherwise the old find-based scan would have passed too).
+require_ignored_noise() {
+  local root="$1" rel="$2"
+
+  git -C "${root}" check-ignore -q "${rel}" ||
+    fail "self-test: ${rel} is not gitignored in the fixture, so it proves nothing about ignored noise"
+  grep -Eq -e "${pattern}" "${root}/${rel}" ||
+    fail "self-test: ${rel} carries none of the forbidden literals, so accepting it proves nothing"
+}
+
 for ignored_fixture in ignored/kollect-lab/notes.md .cursor/skills/skill.md; do
-  git -C "${fixture}" check-ignore -q "${ignored_fixture}" ||
-    fail "self-test: ${ignored_fixture} is not gitignored in the fixture, so it proves nothing about ignored noise"
-  grep -Eq -e "${pattern}" "${fixture}/${ignored_fixture}" ||
-    fail "self-test: ${ignored_fixture} carries none of the forbidden literals, so accepting it proves nothing"
+  require_ignored_noise "${fixture}" "${ignored_fixture}"
 done
 gate_accepts "${fixture}" 'untracked, gitignored files carrying the forbidden literals'
+
+# A fixture guard nobody has watched reject anything is decoration, and this one sits
+# between a green line and a vacuous one. Prove BOTH halves fire.
+printf 'nothing interesting here\n' >"${fixture}/ignored/plain.md"
+if (require_ignored_noise "${fixture}" README.md) >/dev/null 2>&1; then
+  fail "self-test: require_ignored_noise accepted README.md, which is tracked and not ignored; the fixture guard is decorative"
+fi
+if (require_ignored_noise "${fixture}" ignored/plain.md) >/dev/null 2>&1; then
+  fail "self-test: require_ignored_noise accepted an ignored file carrying none of the forbidden literals; the fixture guard is decorative"
+fi
+rm -f "${fixture}/ignored/plain.md"
+pass "self-test: the ignored-noise fixture guard rejects both a non-ignored file and a literal-free one"
 
 # Direction 2: a TRACKED file reintroducing product-UI wiring must still red, and the
 # failure must name the file.
@@ -298,19 +373,35 @@ gate_accepts "${fixture}" 'the fixture after the ui/ directory is removed again'
 # Direction 4: an unusable scan set must fail loudly instead of passing vacuously.
 empty_repo="${FIXTURES}/empty"
 mkdir -p "${empty_repo}"
-git init -q "${empty_repo}" >/dev/null 2>&1
+git init -q "${empty_repo}" >/dev/null 2>&1 ||
+  fail "self-test: could not git init the empty-scan-set fixture"
 printf 'not a scannable type\n' >"${empty_repo}/notes.txt"
-git -C "${empty_repo}" add notes.txt
+git -C "${empty_repo}" add notes.txt ||
+  fail "self-test: could not stage the empty-scan-set fixture"
 gate_rejects "${empty_repo}" 'the tracked-file set contains nothing scannable' \
   'derived an empty file set from tracked files'
 
 anchorless_repo="${FIXTURES}/anchorless"
 mkdir -p "${anchorless_repo}"
-git init -q "${anchorless_repo}" >/dev/null 2>&1
+git init -q "${anchorless_repo}" >/dev/null 2>&1 ||
+  fail "self-test: could not git init the anchorless fixture"
 printf '# no mkdocs here\n' >"${anchorless_repo}/README.md"
-git -C "${anchorless_repo}" add README.md
+git -C "${anchorless_repo}" add README.md ||
+  fail "self-test: could not stage the anchorless fixture"
 gate_rejects "${anchorless_repo}" 'the scan set is non-empty but has lost its mkdocs.yml anchor' \
   'does not contain mkdocs.yml'
+
+# F4: a listing truncated to the anchor alone satisfies both the non-empty and the
+# anchor guard, so the floor has to reject it on its own.
+anchor_only_repo="${FIXTURES}/anchor-only"
+mkdir -p "${anchor_only_repo}"
+git init -q "${anchor_only_repo}" >/dev/null 2>&1 ||
+  fail "self-test: could not git init the anchor-only fixture"
+printf 'site_name: fixture\n' >"${anchor_only_repo}/mkdocs.yml"
+git -C "${anchor_only_repo}" add mkdocs.yml ||
+  fail "self-test: could not stage the anchor-only fixture"
+gate_rejects "${anchor_only_repo}" 'the scan set is nothing but the mkdocs.yml anchor' \
+  'is just the mkdocs.yml anchor'
 
 plain_dir="${FIXTURES}/not-a-repo"
 mkdir -p "${plain_dir}"
@@ -338,6 +429,35 @@ nested_dir="${fixture}/not-the-root"
 mkdir -p "${nested_dir}"
 gate_rejects "${nested_dir}" 'the scan root is a subdirectory of a repository, not its root' \
   'is not the root of its git repository'
+
+# F2/F3: the read-side twin of the data-loss hazard, and the reason the `unset` is
+# repeated inside check_ui_removal. With `GIT_DIR` or `GIT_INDEX_FILE` exported,
+# `ls-files` reads a FOREIGN index while `rev-parse --show-toplevel` still answers
+# with the cwd -- so the toplevel-equality guard does not merely miss this case, it
+# affirmatively certifies it. Remove either `unset` and these two assertions red.
+poisoned_repo="$(new_fixture_repo poisoned)"
+[[ -n "${poisoned_repo}" && -d "${poisoned_repo}" ]] ||
+  fail "self-test: the poisoned-environment fixture repository was not created"
+printf 'image: ghcr.io/platformrelay/kollect-ui:v1\n' >"${poisoned_repo}/bad.md"
+git -C "${poisoned_repo}" add bad.md ||
+  fail "self-test: could not stage the poisoned-environment mutant"
+# Unpoisoned this fixture must already red, otherwise the two assertions below would
+# be satisfied by a repository that has nothing to find.
+gate_rejects "${poisoned_repo}" 'the poisoned-environment fixture tracks UI wiring' \
+  'residual product UI references remain'
+
+gate_rejects_under_git_env() {
+  local root="$1" var="$2" value="$3" output status=0
+
+  output="$( (export "${var}=${value}" && check_ui_removal "${root}") 2>&1 )" || status=$?
+  [[ ${status} -ne 0 ]] ||
+    fail "self-test: the gate passed on a repository that tracks UI wiring while ${var} pointed at a different repository; it scanned a foreign index and reported that as a clean scan"
+  [[ "${output}" == *'residual product UI references remain'* ]] ||
+    fail "self-test: the gate failed under a hostile ${var} but not for the intended reason; expected the residual-reference failure, got: ${output}"
+  pass "self-test: gate ignores a hostile ${var} and scans the repository actually under test"
+}
+gate_rejects_under_git_env "${poisoned_repo}" GIT_DIR "${fixture}/.git"
+gate_rejects_under_git_env "${poisoned_repo}" GIT_INDEX_FILE "${fixture}/.git/index"
 
 gate_rejects_without_git() {
   local root="$1" output status=0
