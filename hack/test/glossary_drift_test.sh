@@ -43,8 +43,12 @@ pass() {
   echo "ok - $*"
 }
 
+hash_file() {
+  shasum -a 256 "$1" | awk '{print $1}'
+}
+
 hash_real_glossary() {
-  shasum -a 256 "${GLOSSARY}" | awk '{print $1}'
+  hash_file "${GLOSSARY}"
 }
 
 # Build an isolated ROOT the generator can safely write into.
@@ -200,7 +204,32 @@ if check_block_links "${deadlink}/docs/GLOSSARY.md" "${deadlink}/docs" 2>/dev/nu
 fi
 pass "fixture: a generator emitting a dead link target reds"
 
-# --- 7. no fixture touched the real glossary -----------------------------
+# --- 7. fixture: a curated override for a vanished field reds ------------
+# The override map is only safe because a key that stops matching a real CRD
+# field is a hard error. Without that, deleting a field from the CRD would make
+# its curated text disappear as quietly as the prose this gate exists to save.
+# The generator must also refuse *before* writing, so a stale map cannot leave
+# a half-updated glossary behind.
+stale="${scratch}/staleoverride"
+make_scratch_root "${stale}"
+sed -i.bak 's|"KollectSnapshotSink", "http"|"KollectSnapshotSink", "kollectNoSuchField"|' \
+  "${stale}/hack/gen-glossary.py"
+rm -f "${stale}/hack/gen-glossary.py.bak"
+grep -qF 'kollectNoSuchField' "${stale}/hack/gen-glossary.py" ||
+  fail "fixture: could not patch the scratch generator to hold a stale override key"
+
+stale_hash_before="$(hash_file "${stale}/docs/GLOSSARY.md")"
+if python3 "${stale}/hack/gen-glossary.py" >"${scratch}/stale.out" 2>&1; then
+  fail "fixture: a curated override naming a nonexistent spec field did not fail the generator"
+fi
+grep -qF 'KollectSnapshotSink.kollectNoSuchField' "${scratch}/stale.out" ||
+  fail "fixture: the stale-override failure does not name the offending key:
+$(cat "${scratch}/stale.out")"
+[[ "$(hash_file "${stale}/docs/GLOSSARY.md")" == "${stale_hash_before}" ]] ||
+  fail "fixture: the generator rewrote the glossary despite a stale curated override"
+pass "fixture: a curated override for a vanished field reds before writing"
+
+# --- 8. no fixture touched the real glossary -----------------------------
 [[ "$(hash_real_glossary)" == "${real_hash_before}" ]] ||
   fail "a scratch generator run modified the real ${GLOSSARY}"
 pass "the real docs/GLOSSARY.md was not modified by this gate"
