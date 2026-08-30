@@ -9,6 +9,12 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "README.md"
+      # CI-CONTRIBFILTER-01: ci.yaml lists CONTRIBUTING.md in BOTH paths-ignore blocks, so this
+      # workflow is the only one a CONTRIBUTING-only change can trigger -- and
+      # hack/test/repo_root_links_test.sh, which resolves that file's relative links, is composed
+      # into hack/docs/verify.sh below. Without this entry the gate could never fire on the file
+      # it exists to protect. Locked by hack/test/repo_root_links_wiring_test.sh.
+      - "CONTRIBUTING.md"
       - "SECURITY.md"
       - "osv-scanner.toml"
       - "CHANGELOG.md"
@@ -36,6 +42,12 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "README.md"
+      # CI-CONTRIBFILTER-01: ci.yaml lists CONTRIBUTING.md in BOTH paths-ignore blocks, so this
+      # workflow is the only one a CONTRIBUTING-only change can trigger -- and
+      # hack/test/repo_root_links_test.sh, which resolves that file's relative links, is composed
+      # into hack/docs/verify.sh below. Without this entry the gate could never fire on the file
+      # it exists to protect. Locked by hack/test/repo_root_links_wiring_test.sh.
+      - "CONTRIBUTING.md"
       - "SECURITY.md"
       - "osv-scanner.toml"
       - "CHANGELOG.md"
