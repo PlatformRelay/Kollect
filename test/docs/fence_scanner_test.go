@@ -394,6 +394,27 @@ func TestIsClosingFence(t *testing.T) {
 		{"```x", "```", false},
 		{"", "```", false},
 		{"a```", "```", false},
+
+		// Blockquote markers. isClosingFence strips them from every line before
+		// matching; until now that strip was pinned only transitively, through a
+		// single discovery case, so nothing here failed if it disappeared.
+		//
+		// The first entry is also a KNOWN DIVERGENCE from the renderer, pinned
+		// deliberately: the strip is unconditional, so this line closes an UNQUOTED
+		// fence too, where superfences carries on. See the comment on isClosingFence.
+		// If the strip is ever made conditional on the opener's prefix, this is the
+		// expectation that has to move.
+		{"> ```", "```", true},
+		{">```", "```", true},
+		{">    ```", "```", true},
+		{"> > ```", "```", true},
+		{"  > ```  ", "```", true},
+		{"> ~~~", "~~~", true},
+		{"> ~~~", "```", false},
+		{"> ```yaml", "```", false},
+		{"> ``", "```", false},
+		{">", "```", false},
+		{"> a```", "```", false},
 	}
 
 	for _, tc := range cases {
