@@ -232,14 +232,16 @@ check_ui_removal() {
   fi
 
   # Drop allowlisted false positives (webhook "ui", Charm Gum helper mentions).
-  # The lib/ui.sh rule below is dead for its stated purpose and deliberately left
-  # untested: scannable() already drops `hack/demo/*/lib/ui.sh` from the scan set --
-  # bash `case` globs match `/`, so it covers every path the awk regex can -- and
-  # `hack/demo/kind-wide-scope/lib/ui.sh` is the only such tracked file. The one thing
-  # still reachable is a hit line in some OTHER file that merely names that path, and
-  # asserting THAT is exempt would pin down a false negative (a doc line reading
-  # "... hack/demo/x/lib/ui.sh ... kollect-ui" would be allowed through by test).
-  # Leaving it as belt-and-braces for the scan-set exclusion is the cheaper mistake.
+  # The lib/ui.sh rule below is LIVE, and it is not merely a second copy of the
+  # scannable() exclusion: `case` patterns are ANCHORED, the awk regex is not. So
+  # `hack/demo/*/lib/ui.sh` in scannable() covers only helpers at the repo root --
+  # today just hack/demo/kind-wide-scope/lib/ui.sh -- while this rule additionally
+  # exempts any NESTED `*/hack/demo/*/lib/ui.sh`. A tracked
+  # `vendor/hack/demo/x/lib/ui.sh` carrying `kollect-ui` therefore enters the scan set
+  # and is exempted here; that is the residual reach of the allowlist, and it is wider
+  # than the header sentence above suggests. The two together are pinned by the
+  # demo-helper fixture in the self-test: removing EITHER still leaves the exemption
+  # standing, so no assertion can separate them, but removing BOTH reds it.
   local filtered
   filtered="$(
     printf '%s\n' "${hits}" | awk '
