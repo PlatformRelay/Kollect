@@ -674,14 +674,18 @@ func infoStringLanguage(info string) string {
 func isClosingFence(line, marker string) bool {
 	// A closer inside a blockquote carries the same "> " markers as its opener.
 	//
-	// KNOWN DIVERGENCE, deliberately left in place. The strip is unconditional --
-	// this function does not know whether the opener was quoted -- so a body line
+	// KNOWN DIVERGENCE, deliberately left in place, and confirmed against the
+	// pinned renderer rather than assumed. The strip is unconditional -- this
+	// function does not know whether the opener was quoted -- so a body line
 	// "> ```" terminates an UNQUOTED fence here, where superfences carries on.
-	// Byte-identity with the pre-blockquote behaviour therefore holds only
-	// EMPIRICALLY: the sole corpus match is under docs/node_modules, which the walk
-	// excludes. Conditioning the strip on the opener's prefix would swap a verified
-	// empirical claim for an unverified one about the renderer, so TestIsClosingFence
-	// pins the divergence as a fact instead of hiding it.
+	// It is broader than that one shape: a more deeply quoted "> > ```" likewise
+	// terminates a singly quoted fence early. Byte-identity with the pre-blockquote
+	// behaviour therefore holds only EMPIRICALLY -- but the empirical base is the
+	// whole corpus, not a lucky exclusion: zero tracked docs/**/*.md page contains
+	// any such line. It stays as-is because no corpus instance exists and reworking
+	// the closer path to take the opener's prefix is out of scope for the lane that
+	// found this; TestIsClosingFence pins the divergence as a fact instead of hiding
+	// it, so a future change to the closer path has to argue with an expectation.
 	line = line[len(blockquotePrefixPattern.FindString(line)):]
 
 	trimmed := strings.TrimSpace(line)
