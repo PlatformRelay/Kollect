@@ -48,6 +48,18 @@ grep -Eq \
   "^\\*\\*Last verified:\\*\\* [0-9]{4}-[0-9]{2}-[0-9]{2} against \\*\\*v${released_version}\\*\\*\\." \
   docs/roadmap/planned-features.md ||
   fail "planned-features Last verified line does not identify released v${released_version}"
+
+# The `Last verified` line is not the page's only version claim. A stale
+# `## Shipped in vX.Y.Z` heading contradicts it on the same page and used to pass
+# green, so a release bump could fix one claim and leave the other rotting. Both
+# now derive from the same ${released_version}, and both directions fail: a
+# heading naming the wrong version, and no heading at all.
+if grep -E '^## Shipped in v' docs/ROADMAP.md |
+  grep -vxF "## Shipped in v${released_version}"; then
+  fail "roadmap 'Shipped in' heading names a version other than released v${released_version}"
+fi
+grep -qxF "## Shipped in v${released_version}" docs/ROADMAP.md ||
+  fail "roadmap has no '## Shipped in v${released_version}' heading"
 if ! grep -qF -- "releases/tag/v${released_version}" overrides/main.html ||
   ! grep -qF -- "<strong>v${released_version}</strong>" overrides/main.html; then
   fail "announcement bar does not target released v${released_version}"
