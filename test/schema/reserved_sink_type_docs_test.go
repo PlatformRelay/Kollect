@@ -14,6 +14,9 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
+
+	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/validation"
 )
 
 // API-HTTPDOC-01.
@@ -143,6 +146,20 @@ func httpFieldDoc(t *testing.T, root string) string {
 		}
 
 		for _, field := range structType.Fields.List {
+			// An untagged field is legal Go. Dereferencing blind would panic the
+			// test instead of failing it, and a panic names no field.
+			if field.Tag == nil {
+				names := make([]string, 0, len(field.Names))
+				for _, name := range field.Names {
+					names = append(names, name.Name)
+				}
+
+				t.Fatalf(
+					"%s: KollectSnapshotSinkSpec field %q has no struct tag; every spec field needs a json tag",
+					path, strings.Join(names, ","),
+				)
+			}
+
 			if !strings.Contains(field.Tag.Value, `json:"`+reservedHTTPField+`,`) {
 				continue
 			}
@@ -214,13 +231,30 @@ func TestReservedHTTPSinkTypeIsDocumentedAsRejected(t *testing.T) {
 
 	root := repoRoot(t)
 
+	// Premise guard. Everything below asserts that the schema and the docs SAY
+	// admission rejects `type: http`. If admission ever started accepting it,
+	// those assertions would go on passing while pinning a sentence that had
+	// become false -- the exact failure mode this lane exists to close, only
+	// pointing the other way. internal/validation/family_sink_test.go proves the
+	// rejection where the code lives; nothing there ties it to the published
+	// wording, so the doc contract has to re-establish its own premise.
+	//
+	// Call the validator rather than grepping its source: re-admission written
+	// as a bare "http" literal, or without a trailing comma, is invisible to a
+	// text match and completely visible here.
 	t.Run("admission rejects the reserved type", func(t *testing.T) {
 		t.Parallel()
 
-		validation := readRepoFile(t, root, "internal", "validation", "family_sink.go")
-		if strings.Contains(validation, "SnapshotSinkTypeHTTP,") {
-			t.Fatal("internal/validation/family_sink.go admits the reserved `http` type; " +
-				"this test documents a rejection that no longer happens")
+		errs := validation.ValidateSnapshotSinkSpec(&kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type: kollectdevv1alpha1.SnapshotSinkTypeHTTP,
+			HTTP: &kollectdevv1alpha1.HTTPSinkSpec{Method: "POST"},
+		})
+		if len(errs) == 0 {
+			t.Fatalf(
+				"ValidateSnapshotSinkSpec admitted type %q; this test documents a rejection that no longer happens, "+
+					"so the schema and docs assertions below now pin a false sentence",
+				kollectdevv1alpha1.SnapshotSinkTypeHTTP,
+			)
 		}
 	})
 

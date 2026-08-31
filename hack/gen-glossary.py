@@ -57,12 +57,27 @@ FIELD_TABLE_LIMIT = 8
 # carry the wording, because an override that patches a fixable comment hides
 # the defect in the published schema instead of closing it.
 #
-# check_overrides() below fails the run in both rot directions, so the map
-# cannot drift away from the schema unnoticed: a key naming a field that no
-# longer exists (or lost its description) is stale, and a key whose text the
-# CRD has caught up with is redundant and must be deleted rather than left to
-# look load-bearing. Both guards are exercised with synthetic overrides in
-# hack/test/glossary_drift_test.sh, so they stay tested while the map is empty.
+# An override can rot in THREE directions. check_overrides() below catches two
+# of them and fails the run before writing:
+#   1. STALE key — it names a field that no longer exists, or whose description
+#      was removed. Caught: the key is absent from the schema.
+#   2. REDUNDANT text — the CRD description has caught up and now says exactly
+#      what the override says, so the override is dead weight that still reads
+#      as load-bearing. Caught: exact string equality against first_line().
+#   3. REWORDED schema — the CRD description is corrected or rephrased so that
+#      it no longer says what the override contradicts, without becoming
+#      identical to it. NOT CAUGHT, and it cannot be: the guard compares
+#      strings, and only a human can judge whether the new wording still needs
+#      qualifying. The run exits 0 and quietly renders the stale override.
+# Direction 3 is not hypothetical. Lane API-HTTPDOC-01 rewrote the `http` doc
+# comment in api/ from "configures webhook snapshot export" to a sentence that
+# states the field is reserved and rejected by admission. Neither guard fired —
+# the key still resolved and the texts still differed — so the override had to
+# be deleted deliberately, in the same commit, rather than on a gate's prompt.
+# If you reword a description an override qualifies, re-read the override.
+# Directions 1 and 2 are exercised with synthetic overrides in
+# hack/test/glossary_drift_test.sh, so both guards stay tested while the map is
+# empty.
 CURATED_DESCRIPTIONS: dict[tuple[str, str], str] = {}
 
 
