@@ -46,21 +46,24 @@ FIELD_TABLE_LIMIT = 8
 #   C. (chosen) teach the generator to carry curated overrides, then gate on
 #      drift. Regeneration is idempotent, the curated text stays adjacent to
 #      the row it qualifies, and hack/test/glossary_drift_test.sh proves both.
-# The root cause — a Go doc comment in api/ that reads as if `type: http` were
-# supported — is outside this file. check_overrides() below fails the run in
-# both rot directions, so the map cannot drift away from the schema unnoticed:
-# a key naming a field that no longer exists (or lost its description) is
-# stale, and a key whose text the CRD has caught up with is redundant and must
-# be deleted rather than left to look load-bearing.
-CURATED_DESCRIPTIONS: dict[tuple[str, str], str] = {
-    # Admission rejects `type: http`. The CRD description reads as if webhook
-    # export were available, and the field is routinely confused with
-    # KollectInventory's optional HTTP read API.
-    ("KollectSnapshotSink", "http"): (
-        "Reserved snapshot type that is rejected by admission; do not confuse "
-        "it with the optional Inventory HTTP read API."
-    ),
-}
+#
+# The map is EMPTY on purpose, and that is the healthy state. Its only entry
+# corrected the KollectSnapshotSink `http` row, whose CRD description asserted
+# that webhook export was available when admission in fact rejects
+# `type: http`. That root cause lived in a Go doc comment in
+# api/v1alpha1/kollectsnapshotsink_types.go, so the override was treating a
+# symptom: lane API-HTTPDOC-01 corrected the comment and deleted the entry.
+# Fix the schema first; add an entry here only when the CRD genuinely cannot
+# carry the wording, because an override that patches a fixable comment hides
+# the defect in the published schema instead of closing it.
+#
+# check_overrides() below fails the run in both rot directions, so the map
+# cannot drift away from the schema unnoticed: a key naming a field that no
+# longer exists (or lost its description) is stale, and a key whose text the
+# CRD has caught up with is redundant and must be deleted rather than left to
+# look load-bearing. Both guards are exercised with synthetic overrides in
+# hack/test/glossary_drift_test.sh, so they stay tested while the map is empty.
+CURATED_DESCRIPTIONS: dict[tuple[str, str], str] = {}
 
 
 def first_line(text: str) -> str:
