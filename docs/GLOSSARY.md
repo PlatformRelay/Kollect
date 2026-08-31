@@ -54,9 +54,10 @@ Auto-generated from `config/crd/bases/` OpenAPI descriptions. Regenerate with
 `python3 hack/gen-glossary.py`. Field-level detail: [CR reference](crds/index.md).
 
 Everything between the `AUTO-CRD` markers is rewritten on every run, so edits made
-here are lost. A row that must say something the CRD schema does not say belongs in
-the `CURATED_DESCRIPTIONS` map in `hack/gen-glossary.py`; prose that is not about a
-single field belongs outside the markers.
+here are lost. A row that says the wrong thing is usually a wrong Go doc comment
+in `api/`: fix it there and regenerate. Only a row the CRD schema genuinely cannot
+carry belongs in the `CURATED_DESCRIPTIONS` map in `hack/gen-glossary.py`; prose
+that is not about a single field belongs outside the markers.
 
 ### `KollectClusterInventory` (cluster)
 
