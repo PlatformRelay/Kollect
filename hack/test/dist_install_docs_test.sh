@@ -70,6 +70,14 @@ grep -Fq 'artifacthub.io/badge/repository/kollect' "${README}" ||
 grep -Fq "${OLM_DOCS_DESTINATION}" "${README}" ||
   fail "${README} must point its OLM/OperatorHub badge at a live destination (${OLM_DOCS_DESTINATION}); the operatorhub.io listing does not exist yet, so the badge cannot link to it"
 
+# The fragment above is a heading slug on the install page, and nothing else checks it: the badge is
+# raw HTML, which hack/test/repo_root_links_test.sh skips by design; `mkdocs build --strict` never
+# reads README.md; and markdownlint's MD051 (link-fragments) is disabled repo-wide. Rename the
+# heading and the badge would still resolve -- to the top of the page instead of the section it
+# promises. Tie the two together so the rename fails here instead of rotting silently.
+grep -Fq '## Discoverability on package hubs' "${INSTALL}" ||
+  fail "${INSTALL} must keep the '## Discoverability on package hubs' heading that the README OLM badge targets (${OLM_DOCS_DESTINATION}); renaming it breaks the badge fragment"
+
 for file in "${INSTALL}" "${README}"; do
   ! grep -Fq "${OPERATORHUB_PACKAGE_URL}" "${file}" ||
     fail "${file} links to the OperatorHub.io package page, which answers HTTP 200 and then renders \"can't find package kollect\" -- k8s-operatorhub/community-operators#9070 is still waiting on a maintainer to approve its action_required workflow runs. Restore this link only once the listing is actually live."
