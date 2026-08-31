@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Stop linking an OperatorHub.io listing that does not exist [1576fb3](https://github.com/platformrelay/kollect/commit/1576fb34bae0dc048e56b003d998ac9d7b926da1)
+
 - **dev:** Make the Renovate mise.toml matchString actually match ([#348](https://github.com/platformrelay/kollect/pull/348))[785f999](https://github.com/platformrelay/kollect/commit/785f9998938062e088bafd19ed88f6692fb24a71)
 
 - **docs:** Carry curated glossary rows through regeneration [1c53f33](https://github.com/platformrelay/kollect/commit/1c53f33b3de74d00536d712957a88f2dd80b3856)
