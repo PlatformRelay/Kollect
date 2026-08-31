@@ -82,10 +82,16 @@ grep -Eq "<a href=\"[^\"]*${OLM_DOCS_DESTINATION}\"><img " "${README}" ||
 # reads README.md; and markdownlint's MD051 (link-fragments) is disabled repo-wide. Rename the
 # heading and the badge would still resolve -- to the top of the page instead of the section it
 # promises. Tie the two together so the rename fails here instead of rotting silently.
-# Case-INSENSITIVE: the mkdocs slug lowercases the heading, so a case-only edit keeps the badge
-# fragment working and must not red. Any real rename still reds.
-grep -Fiq '## Discoverability on package hubs' "${INSTALL}" ||
-  fail "${INSTALL} must keep the '## Discoverability on package hubs' heading that the README OLM badge targets (${OLM_DOCS_DESTINATION}); renaming it breaks the badge fragment"
+# ANCHORED to the whole heading line, because the slug is computed from the whole heading line. An
+# unanchored substring match let a SUFFIX through -- `## Discoverability on package hubs (OLM)` and
+# `... and registries` both contain the string, both passed, and both change the slug, killing the
+# badge fragment while this gate stayed green. `^#+ ` keeps the level free (## or ###: the slug does
+# not depend on it) and `[[:space:]]*$` forbids anything trailing. Case-INSENSITIVE because
+# python-markdown's slugifier lowercases, so ALLCAPS or Title Case yield the same slug and must not
+# red. Net: this assertion pins the heading to the exact text whose slug the badge fragment depends
+# on -- green iff the slug is preserved, red on every edit that moves it.
+grep -Eiq '^#+ Discoverability on package hubs[[:space:]]*$' "${INSTALL}" ||
+  fail "${INSTALL} must keep a heading that reads exactly 'Discoverability on package hubs', with nothing appended -- the README OLM badge targets its slug (${OLM_DOCS_DESTINATION}), and any renaming or suffix changes that slug and silently drops the reader at the top of the page"
 
 for file in "${INSTALL}" "${README}"; do
   # Case-INSENSITIVE, and that is load-bearing rather than cosmetic: host names are
