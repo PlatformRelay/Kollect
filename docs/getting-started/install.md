@@ -69,13 +69,19 @@ Additional distribution wiring ships under [ADR-0708](../adr/0708-operator-distr
   (`oci://ghcr.io/platformrelay/kollect`), so Artifact Hub is a discovery surface, not a separate
   install path — `helm install` from GHCR exactly as above.
 - **OperatorHub / OpenShift** — OLM bundles are generated at release and submitted to the community
-  operator catalogs when `OPERATORHUB_PAT` is configured. After upstream merge, install via
-  OperatorHub or the OpenShift console using package **`kollect`**, channel **`stable`**. Until then,
-  use Helm or the manifests on the [release page](../RELEASE.md).
+  operator catalogs when `OPERATORHUB_PAT` is configured. The **OpenShift community catalog**
+  submission is merged, so on OpenShift the operator installs from the console's OperatorHub tab
+  using package **`kollect`**, channel **`stable`**.
+  The **OperatorHub.io** listing is *not* live yet: our upstream submission is open and green on our
+  side, but its workflow runs sit at `action_required`, waiting for an upstream maintainer to
+  approve them. Until that merges there is no OperatorHub.io package page to link to — use Helm, the
+  OpenShift catalog, or the manifests on the [release page](../RELEASE.md).
   The OLM bundle runs with `--validating-webhooks-enabled=false` (no webhook Service/cert in the
   bundle). Prefer Helm OCI for the full admission path; CRD schema validation still applies under OLM.
 
-Hub badge URLs are intentionally omitted here until listings exist — premature badges 404.
+Hub URLs on this page and in the README point only at listings that actually resolve. A hub URL that
+answers HTTP 200 and then renders "package not found" is a dead link, not a graceful landing page
+([ADR-0708](../adr/0708-operator-distribution-hubs.md)).
 
 ## Next step
 
