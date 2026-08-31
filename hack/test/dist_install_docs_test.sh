@@ -67,19 +67,32 @@ OLM_DOCS_DESTINATION='getting-started/install/#discoverability-on-package-hubs'
 grep -Fq 'artifacthub.io/badge/repository/kollect' "${README}" ||
   fail "${README} must carry the Artifact Hub badge (repository is registered)"
 
-grep -Fq "${OLM_DOCS_DESTINATION}" "${README}" ||
-  fail "${README} must point its OLM/OperatorHub badge at a live destination (${OLM_DOCS_DESTINATION}); the operatorhub.io listing does not exist yet, so the badge cannot link to it"
+# Anchored on the badge ANCHOR MARKUP, not on the bare string. An earlier revision only required
+# the destination to appear somewhere in README.md, so deleting the badge outright and pasting the
+# URL as prose passed a check whose message claimed to be about the badge -- an assertion claiming
+# more than it checked. Every badge in that header block is a one-line `<a href="..."><img ...>`, so
+# matching that shape checks the thing the message names. Case-SENSITIVE on purpose: GitHub Pages
+# paths and HTML fragment ids are both case-sensitive, so a case variant here is a genuinely broken
+# destination and must red.
+grep -Eq "<a href=\"[^\"]*${OLM_DOCS_DESTINATION}\"><img " "${README}" ||
+  fail "${README} must carry the OLM/OperatorHub BADGE (an <a href=...><img ...> in the badge header) pointing at a live destination (${OLM_DOCS_DESTINATION}); the operatorhub.io listing does not exist yet, so the badge cannot link to it"
 
 # The fragment above is a heading slug on the install page, and nothing else checks it: the badge is
 # raw HTML, which hack/test/repo_root_links_test.sh skips by design; `mkdocs build --strict` never
 # reads README.md; and markdownlint's MD051 (link-fragments) is disabled repo-wide. Rename the
 # heading and the badge would still resolve -- to the top of the page instead of the section it
 # promises. Tie the two together so the rename fails here instead of rotting silently.
-grep -Fq '## Discoverability on package hubs' "${INSTALL}" ||
+# Case-INSENSITIVE: the mkdocs slug lowercases the heading, so a case-only edit keeps the badge
+# fragment working and must not red. Any real rename still reds.
+grep -Fiq '## Discoverability on package hubs' "${INSTALL}" ||
   fail "${INSTALL} must keep the '## Discoverability on package hubs' heading that the README OLM badge targets (${OLM_DOCS_DESTINATION}); renaming it breaks the badge fragment"
 
 for file in "${INSTALL}" "${README}"; do
-  ! grep -Fq "${OPERATORHUB_PACKAGE_URL}" "${file}" ||
+  # Case-INSENSITIVE, and that is load-bearing rather than cosmetic: host names are
+  # case-insensitive, so `https://OperatorHub.io/operator/kollect` is the SAME dead page. A
+  # case-sensitive absence check is a one-keystroke bypass of the whole gate -- proven by a review
+  # mutation that re-added the dead link with a capital O/H and passed GREEN.
+  ! grep -Fiq "${OPERATORHUB_PACKAGE_URL}" "${file}" ||
     fail "${file} links to the OperatorHub.io package page, which answers HTTP 200 and then renders \"can't find package kollect\" -- k8s-operatorhub/community-operators#9070 is still waiting on a maintainer to approve its action_required workflow runs. Restore this link only once the listing is actually live."
 done
 
