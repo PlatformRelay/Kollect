@@ -155,6 +155,10 @@ func httpFieldDoc(t *testing.T, root string) string {
 
 			for _, comment := range field.Doc.List {
 				text := strings.TrimSpace(strings.TrimPrefix(comment.Text, "//"))
+				// Skip markers, do not stop at them. controller-gen drops the
+				// marker line but keeps prose written after it (verified against
+				// controller-gen v0.20.1), so breaking here would report a stale
+				// description for a comment that regenerates perfectly well.
 				if strings.HasPrefix(text, "+") {
 					continue
 				}
