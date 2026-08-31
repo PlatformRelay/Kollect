@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **api:** Stop the CRD schema claiming `type: http` is a supported sink [5b3751a](https://github.com/platformrelay/kollect/commit/5b3751a87ae53d84d33f747a669bff9f38526516)
+
 - **docs:** Stop linking an OperatorHub.io listing that does not exist [1576fb3](https://github.com/platformrelay/kollect/commit/1576fb34bae0dc048e56b003d998ac9d7b926da1)
 
 - **dev:** Make the Renovate mise.toml matchString actually match ([#348](https://github.com/platformrelay/kollect/pull/348))[785f999](https://github.com/platformrelay/kollect/commit/785f9998938062e088bafd19ed88f6692fb24a71)
