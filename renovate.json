@@ -20,6 +20,9 @@
   "pip_requirements": {
     "enabled": false
   },
+  "mise": {
+    "enabled": false
+  },
   "customManagers": [
     {
       "customType": "regex",
@@ -68,10 +71,14 @@
     },
     {
       "customType": "regex",
-      "description": "go-task action input versions",
-      "managerFilePatterns": ["/^\\.github/(actions|workflows)/.+\\.ya?ml$/"],
+      "description": "go-task versions in the CI actions AND the mise.toml pin that mirrors them. Both resolve to depName go-task/task and both are custom.regex, so the 'pinned build tools' rule below lands them in ONE pull request instead of letting mise.toml go stale behind a workflow bump -- the same reasoning as the helm/helm rule. hack/test/dev_mise_pin_drift_test.sh is the fail-closed backstop if this ever stops matching.",
+      "managerFilePatterns": [
+        "/^\\.github/(actions|workflows)/.+\\.ya?ml$/",
+        "/^mise\\.toml$/"
+      ],
       "matchStrings": [
-        "uses: go-task/setup-task@[^#\\n]+(?:#[^\\n]+)?\\n\\s+with:\\n\\s+version: (?<currentValue>[0-9.]+)"
+        "uses: go-task/setup-task@[^#\\n]+(?:#[^\\n]+)?\\n\\s+with:\\n\\s+version: (?<currentValue>[0-9.]+)",
+        "^task = \"(?<currentValue>[0-9.]+)\"$"
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "go-task/task"

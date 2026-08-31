@@ -49,8 +49,12 @@ Nothing else moves: the Makefile still pins and installs `kustomize`, `controlle
 fetches `shellcheck`, `helm`, `helm-docs`, `git-cliff` and friends. Keeping those out of
 `mise.toml` keeps them at one source of truth each.
 
-**CI remains the source of truth for every version.** If `mise.toml` and a workflow ever
-disagree, the workflow is right and `mise.toml` is the bug — fix `mise.toml`.
+**CI remains the source of truth for every version**, and that is enforced rather than merely
+asked for: `hack/test/dev_mise_pin_drift_test.sh` compares `mise.toml`'s `task` / `node` /
+`python` values against every `setup-task` / `setup-node` / `setup-python` pin under `.github/`
+and reds the `lint` job on any disagreement. It also locks the Go arrangement — a `go` entry
+added under `[tools]` would override `go.mod`, so the gate rejects one. If `mise.toml` and a
+workflow ever disagree, the workflow is right and `mise.toml` is the bug.
 
 ### Releases (maintainers)
 
