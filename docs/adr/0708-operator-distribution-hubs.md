@@ -3,7 +3,7 @@
 > How Kollect becomes discoverable on Artifact Hub and OperatorHub without replacing Helm OCI
 > as the primary install path, and without in-repo FBC/`opm` catalog machinery.
 
-**Theme:** 07 · Project & meta · **Status:** Current (accepted 2026-08-08 — see the 2026-08-18 notes below)
+**Theme:** 07 · Project & meta · **Status:** Current (accepted 2026-08-08 — see the 2026-08-18 and 2026-08-31 notes below)
 
 <!-- AgDR: architect role · 2026-08-06 · trigger: hub distribution parity plan (Attune pattern) -->
 
@@ -85,7 +85,10 @@ Contract:
   Publisher and upstream PRs wait on operator registration.
 - CSV must list owned CRDs Kollect actually ships (Profile, Target, Inventory, sink families,
   scopes, connection tests, cluster variants) — large owned list; keep generate step mechanical.
-- Docs must not ship live Artifact Hub / OperatorHub badge URLs that 404 before listing.
+- Docs must not ship hub badge or prose URLs that do not resolve to a **live listing**. *Amended
+  2026-08-31:* this originally read "…that 404 before listing", and that wording is what let a dead
+  OperatorHub.io link ship — see *Badge URLs — corrected 2026-08-31* below. An HTTP 200 that
+  client-renders "can't find package …" is a dead link; the status code is not the test.
 - Soft-fail hub jobs preserve tag-release success when PAT/forks are absent.
 - **Shipped 2026-08-18.** The contract above is live, which is what moves this ADR to *Current*:
   [#309](https://github.com/platformrelay/kollect/pull/309) merged (`e71faaffd`); Artifact Hub
@@ -93,6 +96,44 @@ Contract:
   both community-operators submissions open and green. The operator accepted option A on
   2026-08-08, so the placeholder-`repositoryID` and pre-registration caveats above are history,
   not open work.
+
+### Badge URLs — corrected 2026-08-31
+
+When [#309](https://github.com/platformrelay/kollect/pull/309) shipped on 2026-08-18 it carried an
+OperatorHub.io **package deep link** in the README badge header and in the README prose, ahead of the
+listing. That was an explicit operator override of the *Docs must not ship…* consequence above, and
+it rested on a premise that has since been checked and found false:
+
+> operatorhub.io soft-404s — it serves HTTP 200 with the generic landing page for unknown operators,
+> so a premature badge degrades gracefully rather than showing a broken link.
+
+It does not. The package URL answers **HTTP 200** and then **client-renders "can't find package
+kollect"** — a broken-looking dead end, which is the precise user-visible outcome this ADR set out to
+prevent. The rule's original phrasing ("that 404 before listing") measured the wrong thing: a
+client-rendered not-found page never returns 404, so the dead link satisfied the rule as written.
+Both the rule and the override are corrected here; the rule now turns on whether the URL resolves to
+a live listing, not on its status code.
+
+**Why the listing still does not exist — upstream, and not actionable here.** The submission
+[community-operators#9070](https://github.com/k8s-operatorhub/community-operators/pull/9070)
+("operator [N] [CI] kollect (0.18.0)", head `821cf2da`) has been open since 2026-08-18. Its
+*Operator test* and *DCO test* workflow runs sit at `conclusion=action_required` — GitHub's
+first-time-contributor "Approve and run" gate, which only a **k8s-operatorhub maintainer** can
+clear. Everything on our side is green (`operator-ci`, `operator-automerge-enabled`, DCO), the
+`authorized-changes` / `new-operator` / `allow-operator-recreate` labels are applied, and the PR
+timeline shows no bot request, no review and no maintainer activity since 2026-08-19. Nothing is
+being asked of us, and resubmitting does not clear an `action_required` run. The OpenShift sibling
+[community-operators-prod#10889](https://github.com/redhat-openshift-ecosystem/community-operators-prod/pull/10889)
+(0.18.0) is **merged**, so the OLM bundle is genuinely live in that catalog.
+
+**What changed in the docs.** The badge and the prose keep naming OperatorHub/OLM — the OLM install
+path is real — but point at the install page's *Discoverability on package hubs* section instead of
+at the non-existent package page, and the badge is relabelled to the thing that is live (the OLM
+bundle, package `kollect`, channel `stable`). `hack/test/dist_install_docs_test.sh` now asserts both
+sides: the live destination must be present in `README.md`, and the `operatorhub.io` package URL must
+be **absent** from `README.md` and `docs/getting-started/install.md`. When #9070 merges, re-point the
+badge at the listing and flip that absence assertion back to a presence assertion. Artifact Hub is
+untouched — that listing is live and its badge is asserted present, as before.
 
 ## Alternatives considered
 

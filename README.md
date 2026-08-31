@@ -20,7 +20,7 @@
 <a href="https://pkg.go.dev/github.com/platformrelay/kollect"><img src="https://pkg.go.dev/badge/github.com/platformrelay/kollect.svg" alt="Go Reference"></a>
 <a href="https://github.com/orgs/platformrelay/packages?repo_name=kollect"><img src="https://img.shields.io/badge/ghcr.io-platformrelay%2Fkollect-2496ED?logo=docker&logoColor=white" alt="Container"></a>
 <a href="https://artifacthub.io/packages/search?repo=kollect"><img src="https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kollect" alt="Artifact Hub"></a>
-<a href="https://operatorhub.io/operator/kollect"><img src="https://img.shields.io/badge/OperatorHub.io-kollect-1D8FE1?logo=redhat&logoColor=white" alt="OperatorHub.io"></a>
+<a href="https://platformrelay.github.io/Kollect/getting-started/install/#discoverability-on-package-hubs"><img src="https://img.shields.io/badge/OLM%20bundle-kollect%20%C2%B7%20stable-1D8FE1?logo=redhat&logoColor=white" alt="OLM bundle (OperatorHub / OpenShift community catalog)"></a>
 </p>
 
 <p align="center"><em>Simple to start · platform-grade to grow</em></p>
@@ -45,9 +45,11 @@ quick start, CR reference, ADRs, and examples. This README is the front door; th
 Install paths: **Helm OCI on GHCR** is primary (`oci://ghcr.io/platformrelay/kollect`). The chart is
 listed on **[Artifact Hub](https://artifacthub.io/packages/search?repo=kollect)**, and the OLM bundle
 is submitted to the community operator catalogs at release
-([ADR-0708](https://platformrelay.github.io/Kollect/adr/0708-operator-distribution-hubs/)). The
-**[OperatorHub.io](https://operatorhub.io/operator/kollect)** listing goes live when the
-community-operators submission merges upstream.
+([ADR-0708](https://platformrelay.github.io/Kollect/adr/0708-operator-distribution-hubs/)) — it is
+live in the **OpenShift community catalog** (package `kollect`, channel `stable`). The
+**OperatorHub.io** listing is still waiting on upstream review, so the OLM badge above points at the
+[hub and OLM install notes](docs/getting-started/install.md#discoverability-on-package-hubs) rather
+than at a package page that does not exist yet.
 
 > **Pre-1.0.** Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor
 > releases before 1.0; release notes and migration guidance call them out. See the
