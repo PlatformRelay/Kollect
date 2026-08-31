@@ -19,9 +19,38 @@ Kubernetes cluster (typically [kind](https://kind.sigs.k8s.io/)).
 | [Task](https://taskfile.dev/installation/) | Runs project tasks (`Taskfile.yml`) |
 | [Kubebuilder](https://book.kubebuilder.io/quick-start.html#installation) | v4.x CLI (scaffolded with **4.14** — see `PROJECT`) |
 | [pre-commit](https://pre-commit.com/#install) | Optional but recommended (`pre-commit install`) |
+| [mise](https://mise.jdx.dev/) | Optional — pins Go, Task, Node and Python locally to the CI versions (`mise.toml`) |
 
 Optional: `task tools:git-cliff` installs a pinned [git-cliff](https://git-cliff.org/) binary into
 `bin/` (also used by `task changelog*`).
+
+### Toolchain versions with mise (optional)
+
+A committed [mise](https://mise.jdx.dev/) config lives at the repository root (`mise.toml`). It
+covers only the tools CI installs directly, so a local run and a CI run use the same versions:
+
+```sh
+mise trust && mise install
+```
+
+| Pinned by `mise.toml` | What it mirrors |
+| --- | --- |
+| Go | `go.mod` — read straight from it, so the two cannot drift |
+| Task | `go-task/setup-task` `version: 3.51.1` in `.github/workflows/` |
+| Node | `node-version: "22"` in the Docs and Preflight workflows (markdownlint) |
+| Python | `python-version: "3.12"` in the Docs workflow (MkDocs build) |
+
+`mise trust` is required — mise ignores an untrusted config. `mise.toml` sets no environment
+variables, so it is safe alongside a `direnv` `.envrc`; add `use mise` there if you want it
+activated automatically.
+
+Nothing else moves: the Makefile still pins and installs `kustomize`, `controller-gen`,
+`setup-envtest`, `operator-sdk` and `golangci-lint` into `bin/`, and `hack/install-*.sh` still
+fetches `shellcheck`, `helm`, `helm-docs`, `git-cliff` and friends. Keeping those out of
+`mise.toml` keeps them at one source of truth each.
+
+**CI remains the source of truth for every version.** If `mise.toml` and a workflow ever
+disagree, the workflow is right and `mise.toml` is the bug — fix `mise.toml`.
 
 ### Releases (maintainers)
 
