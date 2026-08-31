@@ -78,7 +78,7 @@
       ],
       "matchStrings": [
         "uses: go-task/setup-task@[^#\\n]+(?:#[^\\n]+)?\\n\\s+with:\\n\\s+version: (?<currentValue>[0-9.]+)",
-        "^task = \"(?<currentValue>[0-9.]+)\"$"
+        "\ntask = \"(?<currentValue>[0-9.]+)\"\n"
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "go-task/task"
