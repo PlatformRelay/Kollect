@@ -1,7 +1,7 @@
 # Build the kollect-pipeline CLI binary (ADR-0801 pipeline mode).
 # Same source tree, builder image, and hardening posture as the operator Dockerfile;
 # only the entrypoint (./cmd/cli vs ./cmd) and runtime base differ.
-FROM golang:1.27.0@sha256:65b6f280bf050ec5af12716857e8ea8439d694dbba8f31ceeb7630670071f2bb AS builder
+FROM golang:1.27.0@sha256:4013ae0f9e7994f8535c58c811f8f863fbed38b72e0d51e6592156f758d66146 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 # VERSION-01: build-stamped version (internal/version), passed via --build-arg at release time.
