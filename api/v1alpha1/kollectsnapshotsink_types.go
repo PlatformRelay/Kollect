@@ -26,7 +26,8 @@ type KollectSnapshotSinkSpec struct {
 	// +optional
 	ObjectStore *ObjectStoreSpec `json:"objectStore,omitempty"`
 
-	// http configures webhook snapshot export when type is http.
+	// http is a reserved snapshot type that is rejected by admission; it is not the optional Inventory HTTP read API.
+	// No webhook export backend ships, so the block exists only to reserve the name.
 	// +optional
 	HTTP *HTTPSinkSpec `json:"http,omitempty"`
 }
