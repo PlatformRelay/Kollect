@@ -9,6 +9,6 @@
     "markdownlint-cli2": "0.23.2"
   },
   "overrides": {
-    "js-yaml": "5.3.0"
+    "js-yaml": "5.4.1"
   }
 }
