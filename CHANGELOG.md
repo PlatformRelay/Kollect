@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **dev:** Make the Renovate mise.toml matchString actually match ([#348](https://github.com/platformrelay/kollect/pull/348))[785f999](https://github.com/platformrelay/kollect/commit/785f9998938062e088bafd19ed88f6692fb24a71)
+
 - **docs:** Carry curated glossary rows through regeneration [1c53f33](https://github.com/platformrelay/kollect/commit/1c53f33b3de74d00536d712957a88f2dd80b3856)
 
 - **test:** Stop the ui-removal gate inheriting a hostile git environment ([#338](https://github.com/platformrelay/kollect/pull/338))[02925c3](https://github.com/platformrelay/kollect/commit/02925c317b695a1b8a21d1533d2e3fec71c83599)
