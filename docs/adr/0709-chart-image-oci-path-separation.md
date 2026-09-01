@@ -112,19 +112,39 @@ supported and are the common layout (`ghcr.io/nginxinc/charts/nginx-ingress`).
 
 ## Consequences
 
-**Migration sequence** — each step is separately reversible, and the chart is published to the new
-path *before* anything is repointed:
+**Migration sequence — SUPERSEDED 2026-09-01 by the [migration runbook](#migration-runbook)
+below. Do not execute the list in this subsection.** It is kept because two of its steps were
+wrong in a way worth recording rather than quietly deleting.
 
-1. Release workflow pushes the chart to `oci://ghcr.io/platformrelay/charts`, and `cosign sign`
-   targets the new reference. The `artifacthub-repo.yml` `oras push` moves to
-   `charts/kollect:artifacthub.io` — it sits in a **different job step** from the `helm push` and
-   is easy to miss. Without it, Verified Publisher breaks.
-2. Repoint the Artifact Hub repository URL. `Manager.Update` keys on repository *name* and writes
-   a validated URL, so `repository_id`, stars and Verified Publisher status survive an in-place
-   edit. This is a control-panel action only the maintainer can perform.
-3. Update the install coordinate across docs, README, and the install-docs test.
-4. Leave the old bare tags in place. Once Artifact Hub no longer tracks
-   `ghcr.io/platformrelay/kollect` as a Helm repository, they are inert.
+<details>
+<summary>The 2026-08-19 sequence, and why it does not survive</summary>
+
+> 1. Release workflow pushes the chart to `oci://ghcr.io/platformrelay/charts`, and `cosign sign`
+>    targets the new reference. The `artifacthub-repo.yml` `oras push` moves to
+>    `charts/kollect:artifacthub.io` — it sits in a **different job step** from the `helm push` and
+>    is easy to miss. Without it, Verified Publisher breaks.
+> 2. Repoint the Artifact Hub repository URL. `Manager.Update` keys on repository *name* and writes
+>    a validated URL, so `repository_id`, stars and Verified Publisher status survive an in-place
+>    edit. This is a control-panel action only the maintainer can perform.
+> 3. Update the install coordinate across docs, README, and the install-docs test.
+> 4. Leave the old bare tags in place. Once Artifact Hub no longer tracks
+>    `ghcr.io/platformrelay/kollect` as a Helm repository, they are inert.
+
+Two defects, both introduced by writing the sequence before Decision 1 was settled:
+
+- **Its step 2 repoints the URL before anything populates the new path.** GHCR creates packages
+  private by default, so the path would be empty *and* private at the moment Artifact Hub is asked
+  to track it — which costs the listing or the Verified Publisher badge. The runbook below inverts
+  this, and that inversion is the single most load-bearing thing in this ADR.
+- **Its step 1 populates the new path by cutting a release**, which is precisely the coupling
+  Decision 1 rejects: it makes the fix wait for an unscheduled `0.20.0` while the tracking mail
+  keeps arriving once per release.
+
+Its preamble also claimed "each step is separately reversible". That is false of the URL repoint,
+for the reason given under the runbook: a URL edit is not a symmetric undo once the listing or the
+badge is gone. Steps 3 and 4 survive intact and are folded into the runbook.
+
+</details>
 
 **Open decisions** were deliberately left unsettled in the 2026-08-19 revision. Both are settled
 in the amendment below and are no longer open.
@@ -161,27 +181,43 @@ they hardcode `image.tag: latest`, a tag that was never pushed, so they cannot i
 
 Three findings carried it:
 
-- Repointing at a path holding only the newest chart **delists** `0.14.0`–`0.18.0` and kills live
-  `artifacthub.io/packages/helm/kollect/kollect/<version>` deep links. That is the exact defect
-  class [ADR-0708](0708-operator-distribution-hubs.md) was amended on 2026-08-31 to forbid.
+- Repointing at a path holding only the newest chart **delists** `0.14.0`–`0.18.0`, so live
+  `artifacthub.io/packages/helm/kollect/kollect/<version>` deep links stop resolving. This
+  repository ships no versioned deep link of its own, so it is not literally the rule
+  [ADR-0708](0708-operator-distribution-hubs.md) was amended on 2026-08-31 to enforce — that rule
+  governs the URLs our docs publish. It is the same principle one step out: 0708 forbids shipping a
+  URL that does not resolve, and this would break URLs *other people* already hold, which we cannot
+  edit. Weaker footing than a direct rule violation; still the strongest of the three findings,
+  because it is the only irreversible one.
 - A clean start couples this fix to an unscheduled `0.20.0`, so the mail keeps arriving until then
   — and the whole point of the P0 is that each intervening release makes it worse.
 - With history copied, rollback is "point the URL back"; without it, rollback would have to cross a
   coordinate boundary mid-incident.
 
 **The signing objection that kept this decision open dissolved on inspection.** Every documented
-`cosign verify` in this repository matches the signer with
+verification command in this repository matches the signer with
 `--certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+'` and **none** pins a
-workflow path (`docs/RELEASE.md:311,316,343`; `docs/security/security-architecture.md:293`;
-`.github/release-notes-install.md:13,33`). So even the fallback — re-signing the copied charts —
-would satisfy every published command verbatim. Copying is still preferred, because it preserves
-each chart's original release-time Fulcio identity instead of manufacturing a 2026-09-dated one for
-an artifact released months earlier.
+workflow path: `cosign verify` at `docs/RELEASE.md:311,316`,
+`docs/security/security-architecture.md:293` and `.github/release-notes-install.md:13,33`, and
+`cosign verify-blob` at `docs/RELEASE.md:343`. The identity pattern is a repository prefix, so any
+signature produced under `github.com/platformrelay/kollect/…` satisfies it.
 
-That is also why the matrix does not flip under the worst signing outcome. If copied signatures do
-not verify, only the first column moves — signature fidelity 4 → 1, total **53 → 47** — and it
-still wins. The other two columns are unaffected: both sign natively at release time, and
-re-signing a single chart at a new path is negligible work.
+That makes the fallback viable — but **only from a workflow**. A keyless re-sign has to run in
+GitHub Actions with `id-token: write`, because that is what mints a Fulcio certificate whose SAN is
+a `github.com/platformrelay/kollect/…` workflow URI. A maintainer re-signing interactively from a
+laptop would get their own OIDC identity instead, which does **not** match the published pattern.
+So the fallback is "add a one-shot backfill workflow", not "run cosign locally" — a real cost, and
+the reason the fidelity score is 4 rather than 5.
+
+Copying is preferred regardless, because it preserves each chart's original release-time Fulcio
+identity instead of manufacturing a 2026-09-dated one for an artifact released months earlier.
+
+The matrix does not flip under the worst signing outcome either. If copied signatures do not
+verify, the first column loses six points — signature fidelity 4 → 1 at weight 2, total
+**53 → 47** — and still wins by four. Column 2 copies as well, so it is exposed to the same
+failure and would fall too; the comparison only gets more lopsided. Column 3 is genuinely
+unaffected, since a clean start signs natively at release time. The conclusion is robust in every
+combination: 47 beats 43, and it beats the 35 that column 2 would drop to.
 
 ### Decision 2 — the `ignore` list: DELETE it at the new path
 
@@ -244,6 +280,14 @@ costs the listing or the Verified Publisher badge, and a URL edit is not a symme
 Steps 4–8 need a token carrying `write:packages` plus `cosign`/`crane`/`oras` on `PATH`; the
 repository's own automation token has neither, so they cannot be run from CI or from a harness
 session. Step 8 is a control-panel action with no API equivalent.
+
+**Do not cut a release between steps 2 and 8.** Once step 2 has landed, the release workflow
+publishes the chart *only* to the new path — while Artifact Hub is still tracking the old one. That
+release would be invisible on the hub, and its `v`-prefixed image tag would add one more permanent
+entry to the very error list this ADR exists to end. If a release becomes unavoidable mid-migration,
+finish steps 4–8 first; they do not depend on it. This window is the reason step 3 (the docs
+repoint) is also held until the path is live — a doc telling adopters to install from an empty path
+is the same defect as a hub pointed at one.
 
 **Never delete and re-create the Artifact Hub repository.** `Manager.Update` keys on repository
 *name*, so an in-place URL edit preserves `repository_id`, stars, and Verified Publisher; a
