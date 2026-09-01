@@ -1029,8 +1029,13 @@ ah_read() {
   if (( ${#AH_FIXTURES[@]} )); then
     local idx=$(( n - 1 ))
     (( idx < ${#AH_FIXTURES[@]} )) || idx=$(( ${#AH_FIXTURES[@]} - 1 ))
+    # A missing fixture must be an error, not an empty read. `cat` failing followed by an
+    # unconditional `return 0` turned a mistyped path into a silent empty document, which
+    # then parsed as "no such repository" -- a wrong answer wearing a real one's clothes.
+    [[ -f "${AH_FIXTURES[idx]}" ]] ||
+      die "fixture ${AH_FIXTURES[idx]} does not exist (MIGRATE_AH_FIXTURES entry ${n})"
     cat "${AH_FIXTURES[idx]}"
-    return 0
+    return
   fi
   curl -fsSL -H 'Accept: application/json' "${AH_SEARCH_URL}"
 }
@@ -1049,8 +1054,10 @@ ah_sample() {
   # script exiting 5 with a jq stack trace, a code outside its documented 0/1/2 and a
   # result the operator cannot interpret. Being liberal here costs one line.
   jq -r --arg id "${AH_REPOSITORY_ID}" '
-    ((map(select(.repository_id == $id)) | .[0])
-      // (map(select(.name == "kollect")) | .[0])) as $r
+    (map(select(.repository_id == $id)) | .[0]) as $byid
+    | (map(select(.name == "kollect")) | .[0]) as $byname
+    | ($byid // $byname) as $r
+    | (if $byid != null then "id" else "name" end) as $selector
     | if $r == null then "MISSING" else
         (($r.last_tracking_errors // "")
           | if type == "array" then . else split("\n") end
@@ -1059,6 +1066,7 @@ ah_sample() {
             ($r.url // ""),
             ($r.verified_publisher // false | tostring),
             ($e | length | tostring),
+            $selector,
             ($e | join(" ~ "))
           ] | @tsv
       end' <<<"${raw}"
@@ -1088,10 +1096,18 @@ verify_ac1() {
   local -a run_ts=() run_url=() run_vp=() run_nerr=() run_errs=()
 
   record_run() {
-    local sample="$1" ts url vp nerr errs
+    local sample="$1" ts url vp nerr sel errs
     [[ "${sample}" != "MISSING" ]] ||
       die "Artifact Hub returned no repository with repository_id ${AH_REPOSITORY_ID} (nor one named 'kollect')"
-    IFS=$'\t' read -r ts url vp nerr errs <<<"${sample}"
+    IFS=$'\t' read -r ts url vp nerr sel errs <<<"${sample}"
+    # Say which selector matched. The exact-name fallback firing means the repository_id
+    # changed, which in practice means the repository was deleted and re-created rather
+    # than edited in place -- the thing the handoff warns against. That normally also
+    # clears verified_publisher, so the verdict would be FAIL anyway, but the operator
+    # should be told WHY rather than left to infer it.
+    if [[ "${sel}" == "name" ]]; then
+      warn "matched the Artifact Hub repository by NAME, not by repository_id ${AH_REPOSITORY_ID}. The id has changed, which is what a delete-and-re-create looks like; an in-place URL edit preserves it."
+    fi
     # Same timestamp as the newest run already recorded => same tracking run => not a new
     # sample. Silently dropping it here is what makes "two runs" mean two runs.
     if (( ${#run_ts[@]} )) && [[ "${ts}" == "${run_ts[-1]}" ]]; then
@@ -1120,8 +1136,16 @@ verify_ac1() {
     printf '%s' "${n}"
   }
 
+  # Assigned before use, not passed as an argument. ah_sample's die runs inside a command
+  # substitution, and `set -e` does not apply to one used as an ARGUMENT any more than to
+  # one used in a condition -- so a failed read printed "could not read <url>", a sentence
+  # that means "stopped" everywhere else in this file, and the loop carried on to report a
+  # run with an empty timestamp. Same class as the signature-tag read; this is the other
+  # instance of it.
+  local sample
   AH_FIXTURE_IDX=1
-  record_run "$(ah_sample "${AH_FIXTURE_IDX}")"
+  sample="$(ah_sample "${AH_FIXTURE_IDX}")"
+  record_run "${sample}"
 
   # ADR-0709 wants TWO tracking runs taken after the repoint, so that is the target. When
   # no baseline was given there is nothing to measure "after" against; keep going until two
@@ -1140,12 +1164,19 @@ verify_ac1() {
     if (( SECONDS - start >= POLL_TIMEOUT )); then
       break
     fi
-    if (( POLL_INTERVAL > 0 )); then
-      info "  waiting ${POLL_INTERVAL}s for the next tracking run..."
-      sleep "${POLL_INTERVAL}"
+    # Never sleep past the deadline the operator set: a 60s floor with --timeout 5 should
+    # spend 5 seconds, not 60. Bounding the nap by the time remaining also makes the floor
+    # observable in a test without one costing a real minute of wall clock.
+    local remaining=$(( POLL_TIMEOUT - (SECONDS - start) ))
+    local nap="${POLL_INTERVAL}"
+    (( nap <= remaining )) || nap="${remaining}"
+    if (( nap > 0 )); then
+      info "  waiting ${nap}s for the next tracking run..."
+      sleep "${nap}"
     fi
     AH_FIXTURE_IDX=$(( AH_FIXTURE_IDX + 1 ))
-    record_run "$(ah_sample "${AH_FIXTURE_IDX}")"
+    sample="$(ah_sample "${AH_FIXTURE_IDX}")"
+    record_run "${sample}"
   done
 
   local i latest_ts="${run_ts[-1]}"
