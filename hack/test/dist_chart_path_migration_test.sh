@@ -65,9 +65,11 @@ pass "migration script exists and uses the repo-standard bash preamble"
 # network, this gate would start failing in CI for the right reason -- so assert it
 # directly rather than discovering it as a mysterious CI red.
 #
-# Run with a deliberately hostile environment: no registry token in scope, and PATH
-# reduced so that a stray cosign/crane/oras/curl invocation would fail loudly rather
-# than silently succeed on the runner.
+# Run with no registry token in scope. (An earlier revision of this comment also claimed
+# PATH was reduced so a stray cosign/crane/oras/curl call would fail loudly. It was not --
+# the code only unset the token variables. Section 8 below does put a controlled PATH in
+# front of the script, with recording stubs, which is a stronger version of that idea; this
+# section is credential-free only, and now says so.)
 help_out=""
 if ! help_out="$(env -u GHCR_TOKEN -u GITHUB_TOKEN -u CR_PAT bash "${SCRIPT}" --help 2>&1)"; then
   fail "'--help' must exit 0 without credentials; got:"$'\n'"${help_out}"
@@ -81,7 +83,9 @@ grep -Fq -- '--verify-ac1' <<<"${help_out}" ||
 
 # The default mode is the single most consequential decision in the script: an operator
 # who types `bash hack/migrate-chart-path.sh` with no flags must get a rehearsal, not a
-# live migration. Assert the *documented* default, and (below, via --plan) the behaviour.
+# live migration. This asserts the DOCUMENTED default only -- `--plan` says nothing about
+# APPLY. The behaviour (a bare invocation executes zero mutating commands) is asserted in
+# section 8, which is where the `APPLY=0` -> `APPLY=1` mutation is actually caught.
 grep -Eiq 'default[^\n]*dry.run|dry.run[^\n]*default' <<<"${help_out}" ||
   fail "'--help' must state which mode is the default; an operator cannot be expected to guess whether a bare invocation writes to GHCR"
 
@@ -142,14 +146,41 @@ for banned in 0.9.0 0.10.0 0.11.0 0.12.0 0.13.0; do
     fail "--plan must name ${banned} explicitly as excluded, with its reason -- an exclusion that is implicit in a loop bound is one refactor away from disappearing"
 done
 
+# ADR-0709: same exclusion, TWO different reasons, and the operator-facing text has to say
+# so. 0.9.0/0.10.0/0.11.0/0.13.0 ARE charts that hardcode `image.tag: latest`. 0.12.0 is
+# not a chart at all -- that release pushed the controller IMAGE to the chart's bare tag
+# (artifacthub-repo.yml records it in the same words), and its GHCR package version is the
+# protected 1087932920. A blanket "hardcodes image.tag: latest" across all five is a
+# falsifiable claim about 0.12.0: a maintainer who checks its values.yaml, finds no such
+# line and concludes the note is stale is exactly the reader the exclusion exists to stop.
+reason_for() { grep -E "^plan: excluded ${1//./\\.} " <<<"${plan_out}" | sed -E "s/^plan: excluded [0-9.]+[[:space:]]+//"; }
+r_0_9="$(reason_for 0.9.0)"
+r_0_12="$(reason_for 0.12.0)"
+[[ -n "${r_0_9}" && -n "${r_0_12}" ]] ||
+  fail "could not extract exclusion reasons from --plan; the comparison below would pass vacuously"
+[[ "${r_0_9}" != "${r_0_12}" ]] ||
+  fail "--plan gives 0.12.0 the same exclusion reason as 0.9.0 ('${r_0_12}'). It is not the same reason: 0.12.0 is not a chart at all, it is the controller IMAGE published to the chart's bare tag. ADR-0709: same exclusion, two different reasons."
+grep -Eiq 'image' <<<"${r_0_12}" ||
+  fail "0.12.0's exclusion reason must say it is the controller IMAGE at the chart's bare tag, not a broken chart; got: '${r_0_12}'"
+if grep -Fiq 'image.tag=latest' <<<"${r_0_12}"; then
+  fail "0.12.0's exclusion reason repeats the 'image.tag=latest' claim, which is false for 0.12.0: it is not a chart, so it has no values.yaml in the registry at all"
+fi
+grep -Fiq 'latest' <<<"${r_0_9}" ||
+  fail "0.9.0's exclusion reason must state the image.tag=latest cause; got: '${r_0_9}'"
+
 # 0.14.0 is not just "the first copy": it is the V1 gate, the one chart whose copied
 # signature is verified before five more are copied on the strength of that result. If the
 # plan stops distinguishing it, the gate has been flattened into a plain bulk copy.
 grep -Eq '^plan: copy 0\.14\.0.*(V1|v1)' <<<"${plan_out}" ||
   fail "--plan must mark 0.14.0 as the V1 gate chart, distinct from the bulk copies"
 
-# Direction of travel. Catches a transposed source/destination -- which, with --apply,
-# would push the new path's content back over the controller image repository.
+# Direction of travel AS RENDERED IN THE PLAN. This inspects `--plan` text; it does not
+# reach the `cosign copy` call, so on its own it would NOT catch a transposed
+# source/destination in the copy itself -- an earlier version of this comment claimed it
+# did. The transposition mutation (which with --apply would push the chart path back over
+# the OLM-pinned controller image repository) is caught behaviourally in section 8, by
+# asserting the argv of the recorded `cosign copy`. Both are worth having: this one keeps
+# the operator-facing rehearsal honest, that one keeps the write honest.
 NEW_PATH='ghcr.io/platformrelay/charts/kollect'
 OLD_PATH='ghcr.io/platformrelay/kollect'
 for line in "${copy_lines[@]}"; do
@@ -353,7 +384,8 @@ grep -Fq 'verified_publisher' "${SCRIPT}" ||
 # offline; without it the only available assertion would be a grep, which cannot tell the
 # difference between a script that enforces the rule and one that mentions it.
 fixture_dir="$(mktemp -d)"
-trap 'rm -rf "${fixture_dir}"' EXIT
+stub_root="$(mktemp -d)"
+trap 'rm -rf "${fixture_dir}" "${stub_root}"' EXIT
 write_fixture() {
   # $1 = path, $2 = last_tracking_ts, $3 = last_tracking_errors (JSON string body), $4 = url, $5 = verified_publisher
   cat >"$1" <<JSON
@@ -428,5 +460,495 @@ if grep -Eq '^(RESULT: )?PASS' <<<"${out_stale}"; then
 fi
 
 pass "--verify-ac1 enforces two genuinely distinct tracking runs and cannot report PASS from a single sample"
+
+# (g) AC1 is "BOTH reads empty". Read 1 is checked too, but only when it also postdates the
+#     baseline -- read 1 is very often the last PRE-repoint run, which is supposed to carry
+#     errors, and failing on that would make the tool red exactly when used as documented.
+write_fixture "${fixture_dir}/dirty_a.json" 1788190801 '"error preparing package: pre-repoint (package: kollect version: v0.9.0)"' "${NEW_URL}" true
+# Baseline older than BOTH reads: read 1's errors are now post-repoint evidence -> FAIL.
+out_both="$(verify_ac1 "${fixture_dir}/dirty_a.json:${fixture_dir}/clean_b.json" --since 1788190000 || true)"
+grep -Fq 'FAIL' <<<"${out_both}" ||
+  fail "--verify-ac1 must FAIL when read 1 ALSO postdates the baseline and reported errors -- AC1 requires both post-repoint runs clean; got:"$'\n'"${out_both}"
+# Baseline between the two reads: read 1 is pre-repoint, so its errors are not evidence.
+out_pre="$(verify_ac1 "${fixture_dir}/dirty_a.json:${fixture_dir}/clean_b.json" --since 1788190801 || true)"
+grep -Eq '^(RESULT: )?PASS' <<<"${out_pre}" ||
+  fail "--verify-ac1 must still PASS when read 1 PREDATES the baseline and only read 2 is post-repoint -- that is the normal 'repoint then immediately check' sequence; got:"$'\n'"${out_pre}"
+
+pass "--verify-ac1 checks both reads for AC1, and only counts a read that postdates the baseline"
+
+# ---------------------------------------------------------------------------
+# 8. Behavioural: the --apply path, driven through recording stubs.
+# ---------------------------------------------------------------------------
+# Sections 1-7 are static or exercise only the credential-free modes. That leaves the most
+# consequential code in the file -- everything gated on APPLY -- asserted by nothing, and a
+# mutation review proved it: flipping the APPLY default, making run_mutating execute
+# unconditionally, transposing the arguments of `cosign copy`, and removing the V1 gate's
+# guard, the anti-clobber refusal, the identity check and `cosign verify` outright ALL
+# survived a green run of this file.
+#
+# None of that needs a registry. It needs cosign/crane/oras/curl to be observable, which is
+# what this section does: a controlled PATH in front of the script, holding stubs that
+# record their argv and answer from a scripted registry state. Every assertion below is
+# about what the script CALLED and in what order -- the same evidence a live run would
+# produce, minus the live registry.
+stub_bin="${stub_root}/bin"
+mkdir -p "${stub_bin}"
+
+# crane: `digest` answers from a two-column state file. Absent tags produce GHCR's real
+# MANIFEST_UNKNOWN wording, and STUB_CRANE_FLAKE produces a transient error instead --
+# the distinction the script must not collapse.
+cat >"${stub_bin}/crane" <<'STUB'
+#!/usr/bin/env bash
+printf 'crane %s\n' "$*" >>"${STUB_LOG}"
+if [ "${1:-}" = "digest" ]; then
+  if [ -n "${STUB_CRANE_FLAKE:-}" ] && [ "$2" = "${STUB_CRANE_FLAKE}" ]; then
+    printf 'Error: fetching manifest %s: GET https://ghcr.io/v2/token: TOOMANYREQUESTS: retry later\n' "$2" >&2
+    exit 1
+  fi
+  d="$(awk -v r="$2" '$1==r{print $2; exit}' "${STUB_DIGESTS}" 2>/dev/null)"
+  if [ -n "${d}" ]; then printf '%s\n' "${d}"; exit 0; fi
+  printf 'Error: fetching manifest %s: GET https://ghcr.io/v2/: MANIFEST_UNKNOWN: manifest unknown\n' "$2" >&2
+  exit 1
+fi
+exit 0
+STUB
+
+# cosign: `copy` lands the subject and its .sig at the destination (so a resume sees the
+# state a real partial run would leave); `verify` answers with a certificate Subject built
+# from the tag it was asked about, so each version gets its own correct identity unless the
+# scenario deliberately supplies a wrong template.
+cat >"${stub_bin}/cosign" <<'STUB'
+#!/usr/bin/env bash
+printf 'cosign %s\n' "$*" >>"${STUB_LOG}"
+case "${1:-}" in
+  copy)
+    src="$3"; dst="$4"
+    if [ "${STUB_COPY_CREATES:-1}" = "1" ]; then
+      d="$(awk -v r="${src}" '$1==r{print $2; exit}' "${STUB_DIGESTS}")"
+      printf '%s %s\n' "${dst}" "${d}" >>"${STUB_DIGESTS}"
+      printf '%s:sha256-%s.sig sha256:5165000000000000000000000000000000000000000000000000000000000000\n' \
+        "${dst%:*}" "${d#sha256:}" >>"${STUB_DIGESTS}"
+    fi
+    ;;
+  verify)
+    if [ "${STUB_VERIFY_FAIL:-0}" = "1" ]; then
+      printf 'Error: no matching signatures\n' >&2
+      exit 1
+    fi
+    ref=""
+    for a in "$@"; do case "$a" in *@sha256:*) ref="$a" ;; esac; done
+    tag="${ref%@*}"; tag="${tag##*:}"
+    subj="${STUB_SUBJECT_TEMPLATE}"
+    printf '[{"optional":{"Subject":"%s"}}]\n' "${subj//__TAG__/${tag}}"
+    ;;
+esac
+exit 0
+STUB
+
+cat >"${stub_bin}/oras" <<'STUB'
+#!/usr/bin/env bash
+printf 'oras %s\n' "$*" >>"${STUB_LOG}"
+exit 0
+STUB
+
+# curl: records argv to the same log and, separately, whatever arrives on stdin. The split
+# is the point -- it is what lets the credential-exposure assertion below distinguish
+# "the token was passed safely" from "the token was passed at all".
+cat >"${stub_bin}/curl" <<'STUB'
+#!/usr/bin/env bash
+printf 'curl %s\n' "$*" >>"${STUB_LOG}"
+case " $* " in *" -K "*) cat >>"${STUB_CURL_STDIN}" ;; esac
+for a in "$@"; do
+  case "$a" in
+    https://api.github.com/*)
+      printf '{"visibility":"%s"}\n%s\n' "${STUB_PKG_VISIBILITY:-public}" "${STUB_PKG_HTTP:-200}"
+      exit 0
+      ;;
+    https://ghcr.io/token*)
+      printf '{"token":"%s"}\n' "${STUB_GHCR_JWT}"
+      exit 0
+      ;;
+  esac
+done
+exit 0
+STUB
+chmod +x "${stub_bin}/crane" "${stub_bin}/cosign" "${stub_bin}/oras" "${stub_bin}/curl"
+
+b64url() { base64 | tr -d '\n' | tr '+/' '-_' | tr -d '='; }
+PUSH_JWT="hdr.$(printf '%s' '{"access":[{"type":"repository","name":"platformrelay/charts/kollect","actions":["pull","push"]}]}' | b64url).sig"
+PULL_JWT="hdr.$(printf '%s' '{"access":[{"type":"repository","name":"platformrelay/charts/kollect","actions":["pull"]}]}' | b64url).sig"
+GOOD_SUBJECT_TEMPLATE='https://github.com/platformrelay/kollect/.github/workflows/release.yaml@refs/tags/v__TAG__'
+LAPTOP_SUBJECT_TEMPLATE='https://github.com/platformrelay/kollect/laptop@refs/heads/main'
+# Shaped like a real GitHub PAT so the script's token-format check accepts it, and
+# distinctive enough that finding it in a log is unambiguous.
+TEST_TOKEN='ghp_stubtoken0000000000000000000000000000'
+
+SRC='ghcr.io/platformrelay/kollect'
+DST='ghcr.io/platformrelay/charts/kollect'
+# Deterministic, well-formed 64-hex digests keyed by a label. (A `%064d` of the version
+# digits looked simpler and was wrong: printf reads a leading zero as octal, so 0.18.0 and
+# 0.19.0 produced "invalid octal number" and an empty digest.)
+dig() { printf 'sha256:%s' "$(printf 'kollect-%s' "$1" | sha256sum | cut -d' ' -f1)"; }
+
+# Scenario state. Each scene is an isolated recording directory.
+new_scene() {
+  local d="${stub_root}/scene-$1"
+  rm -rf "${d}"
+  mkdir -p "${d}"
+  : >"${d}/log"
+  : >"${d}/digests"
+  : >"${d}/curl_stdin"
+  printf '%s' "${d}"
+}
+seed() { printf '%s %s\n' "$2" "$3" >>"$1/digests"; }
+# Every chart this migration copies, present at the source.
+seed_all_sources() {
+  local d="$1" v
+  for v in 0.14.0 0.15.0 0.16.0 0.17.0 0.18.0 0.19.0; do
+    seed "${d}" "${SRC}:${v}" "$(dig "${v//./}")"
+  done
+}
+
+STUB_VERIFY_FAIL=0
+STUB_COPY_CREATES=1
+STUB_SUBJECT_TEMPLATE="${GOOD_SUBJECT_TEMPLATE}"
+STUB_GHCR_JWT="${PUSH_JWT}"
+STUB_PKG_VISIBILITY=public
+STUB_PKG_HTTP=200
+STUB_CRANE_FLAKE=""
+
+# Runs the script under the stub PATH. Returns the script's exit code in `rc`, output in
+# `out`, so both can be asserted on -- a check that only looks at output would accept a
+# script that printed the right refusal and then carried on anyway.
+rc=0
+out=""
+run_migrate() {
+  local d="$1"
+  shift
+  set +e
+  out="$(env "PATH=${stub_bin}:${PATH}" \
+    "STUB_LOG=${d}/log" "STUB_DIGESTS=${d}/digests" "STUB_CURL_STDIN=${d}/curl_stdin" \
+    "STUB_VERIFY_FAIL=${STUB_VERIFY_FAIL}" "STUB_COPY_CREATES=${STUB_COPY_CREATES}" \
+    "STUB_SUBJECT_TEMPLATE=${STUB_SUBJECT_TEMPLATE}" "STUB_GHCR_JWT=${STUB_GHCR_JWT}" \
+    "STUB_PKG_VISIBILITY=${STUB_PKG_VISIBILITY}" "STUB_PKG_HTTP=${STUB_PKG_HTTP}" \
+    "STUB_CRANE_FLAKE=${STUB_CRANE_FLAKE}" \
+    "GHCR_TOKEN=${TEST_TOKEN}" "GHCR_USER=stubuser" \
+    bash "$@" 2>&1)"
+  rc=$?
+  set -e
+}
+logged() { grep -Eq "$2" "$1/log"; }
+
+# --- 8a. A bare invocation must not write. ---------------------------------
+# Kills three mutations at once: APPLY defaulting to 1; run_mutating executing regardless
+# of APPLY; registry_login executing regardless of APPLY. All three turn the documented
+# rehearsal into a live migration while --help goes on saying "dry run is the default".
+scene="$(new_scene dryrun)"
+seed_all_sources "${scene}"
+run_migrate "${scene}" "${SCRIPT}"
+(( rc == 0 )) || fail "a bare (dry-run) invocation must exit 0 under stubs; rc=${rc}"$'\n'"${out}"
+
+# Non-vacuity first: prove the harness actually drove the script. Without this, a scenario
+# where the script died in Phase 0 would satisfy every "no mutating command" assertion.
+logged "${scene}" '^crane digest ghcr\.io/platformrelay/kollect:0\.14\.0$' ||
+  fail "the stub harness did not run: no 'crane digest' for the V1 chart was recorded. Every assertion in 8a would pass vacuously."$'\n'"${out}"
+
+while read -r verb pattern; do
+  [[ -n "${verb}" ]] || continue
+  if logged "${scene}" "${pattern}"; then
+    fail "a bare invocation (no --apply) executed a MUTATING command (${verb}). Dry run is the documented default and must write nothing:"$'\n'"$(grep -E "${pattern}" "${scene}/log")"
+  fi
+done <<'MUTATORS'
+cosign-copy ^cosign copy
+oras-push ^oras push
+cosign-login ^cosign login
+crane-login ^crane auth login
+oras-login ^oras login
+MUTATORS
+
+pass "8a: a bare invocation executes zero mutating registry commands (APPLY defaults to rehearsal)"
+
+# --- 8b. --apply copies, in the right direction, and completes. ------------
+scene="$(new_scene apply)"
+seed_all_sources "${scene}"
+run_migrate "${scene}" "${SCRIPT}" --apply
+(( rc == 0 )) ||
+  fail "--apply must succeed under stubs with every source tag present; rc=${rc}"$'\n'"${out}"$'\n'"recorded copies:"$'\n'"$(grep -E '^cosign copy' "${scene}/log" || echo '(none)')"
+
+# Verification is not optional on the write path. Asserted per chart on the recorded argv,
+# so "cosign verify was deleted" fails HERE, naming the chart, rather than surfacing later
+# as some unrelated symptom of an unset variable.
+for v in 0.14.0 0.15.0 0.16.0 0.17.0 0.18.0 0.19.0; do
+  logged "${scene}" "^cosign verify .*${DST//./\\.}:${v//./\\.}@sha256:" ||
+    fail "--apply copied ${v} without running 'cosign verify' against ${DST}:${v}. Recorded verifies:"$'\n'"$(grep -E '^cosign verify' "${scene}/log" || echo '(none)')"
+done
+# ...and with the published flag shape, on the real call rather than in the source text.
+logged "${scene}" '^cosign verify --certificate-oidc-issuer https://token\.actions\.githubusercontent\.com --certificate-identity-regexp \^https://github\.com/platformrelay/kollect/\.\+ ' ||
+  fail "the recorded 'cosign verify' does not carry the published issuer/identity flags. Recorded:"$'\n'"$(grep -E '^cosign verify' "${scene}/log" | head -1)"
+
+# THE transposition assertion. `cosign copy DST SRC` would push the chart-only path back
+# over ghcr.io/platformrelay/kollect -- the repository whose digests are pinned immutably
+# in already-merged OLM bundles. Asserted on exact argv, not on plan text.
+logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.14\.0 ${DST//./\\.}:0\.14\.0$" ||
+  fail "the V1 copy must be 'cosign copy --force ${SRC}:0.14.0 ${DST}:0.14.0' -- source first, destination second. Recorded copies:"$'\n'"$(grep -E '^cosign copy' "${scene}/log" || echo '(none)')"
+if grep -E '^cosign copy' "${scene}/log" | grep -Eq " ${DST//./\\.}:[0-9.]+ ${SRC//./\\.}:"; then
+  fail "a 'cosign copy' has the destination and source TRANSPOSED -- that pushes the chart path back over the OLM-pinned controller image repository:"$'\n'"$(grep -E '^cosign copy' "${scene}/log")"
+fi
+
+# Every version copied, none of the excluded ones, and the metadata push reached.
+for v in 0.14.0 0.15.0 0.16.0 0.17.0 0.18.0 0.19.0; do
+  logged "${scene}" "^cosign copy --force ${SRC//./\\.}:${v//./\\.} " ||
+    fail "--apply did not copy ${v}"
+done
+for v in 0.9.0 0.10.0 0.11.0 0.12.0 0.13.0; do
+  if logged "${scene}" "^cosign copy [^\n]*[:@]${v//./\\.}( |$)"; then
+    fail "--apply copied excluded version ${v}"
+  fi
+done
+logged "${scene}" "^oras push ${DST//./\\.}:artifacthub\.io" ||
+  fail "--apply must push the Artifact Hub metadata to ${DST}:artifacthub.io"
+# Non-vacuity for 8a: prove these commands DO get executed when --apply is given, so 8a's
+# absence assertions are testing the gate rather than a command that is never reachable.
+for pattern in '^cosign login' '^crane auth login' '^oras login'; do
+  logged "${scene}" "${pattern}" ||
+    fail "--apply must execute '${pattern#^}'; if it never runs, 8a's 'no login in dry run' assertion is vacuous"
+done
+grep -Fq 'V1 gate PASSED' <<<"${out}" ||
+  fail "--apply with everything healthy must report the V1 gate as passed"
+
+pass "8b: --apply copies source->destination for all six charts and pushes the metadata"
+
+# --- 8c. The V1 gate cannot be laundered by re-running. --------------------
+# The regression test for the review finding. `cosign copy` runs BEFORE verification, so a
+# run that copied and then failed to verify leaves chart + signature sitting at the
+# destination. If the resume path treats those bytes as proof, run 2 prints "V1 gate
+# PASSED ... certificate identity is the original release-time one" having computed
+# neither, and proceeds to the bulk copy. Re-running is the documented remediation for
+# Phase 3, so this is the path an operator actually takes.
+scene="$(new_scene launder)"
+seed_all_sources "${scene}"
+# Exactly the state a failed run 1 leaves behind: subject AND signature at the destination.
+seed "${scene}" "${DST}:0.14.0" "$(dig 0140)"
+seed "${scene}" "${DST}:sha256-$(dig 0140 | sed 's/^sha256://').sig" "$(dig 5165)"
+STUB_VERIFY_FAIL=1
+run_migrate "${scene}" "${SCRIPT}" --apply
+STUB_VERIFY_FAIL=0
+(( rc != 0 )) ||
+  fail "a resume against an already-populated destination whose signature does NOT verify must fail; rc=${rc}"$'\n'"${out}"
+if grep -Fq 'V1 gate PASSED' <<<"${out}"; then
+  fail "the V1 gate reported PASSED on a resume without evaluating the signature -- the gate can be laundered by re-running:"$'\n'"${out}"
+fi
+logged "${scene}" '^cosign verify' ||
+  fail "the resume path must still run 'cosign verify' -- bytes present at the destination are not evidence that they verify"
+if logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.15\.0 "; then
+  fail "the bulk copy ran after a V1 gate that never verified anything"
+fi
+
+# And the honest half of the same path: when it DOES verify, a resume is still a skip.
+scene="$(new_scene resume_ok)"
+seed_all_sources "${scene}"
+seed "${scene}" "${DST}:0.14.0" "$(dig 0140)"
+seed "${scene}" "${DST}:sha256-$(dig 0140 | sed 's/^sha256://').sig" "$(dig 5165)"
+run_migrate "${scene}" "${SCRIPT}" --apply
+(( rc == 0 )) || fail "a resume whose destination verifies must succeed; rc=${rc}"$'\n'"${out}"
+if logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.14\.0 "; then
+  fail "a chart already present at the destination with a matching digest must not be re-copied -- the script must be idempotent"
+fi
+grep -Fq 'V1 gate PASSED' <<<"${out}" ||
+  fail "a verifying resume must still pass the V1 gate"
+
+pass "8c: the V1 gate re-verifies on resume and cannot be laundered by re-running"
+
+# --- 8d. The V1 gate's own guard. ------------------------------------------
+# A source tag missing for 0.14.0 is a skip, not a verification. Without the guard the flag
+# is set anyway and five more charts are copied on the strength of a gate that never ran.
+scene="$(new_scene v1_missing)"
+seed "${scene}" "${SRC}:0.15.0" "$(dig 0150)"
+seed "${scene}" "${SRC}:0.16.0" "$(dig 0160)"
+run_migrate "${scene}" "${SCRIPT}" --apply
+(( rc != 0 )) ||
+  fail "the V1 gate must refuse to pass when its chart was skipped; rc=${rc}"$'\n'"${out}"
+if logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.15\.0 "; then
+  fail "the bulk copy ran even though the V1 gate chart was never verified"
+fi
+
+pass "8d: a skipped V1 chart stops the run before the bulk copy"
+
+# --- 8e. Never overwrite a divergent destination. --------------------------
+scene="$(new_scene clobber)"
+seed_all_sources "${scene}"
+seed "${scene}" "${DST}:0.14.0" "$(dig 9999)"
+run_migrate "${scene}" "${SCRIPT}" --apply
+(( rc != 0 )) ||
+  fail "a destination holding a DIFFERENT digest must stop the run, not be overwritten; rc=${rc}"$'\n'"${out}"
+if logged "${scene}" '^cosign copy'; then
+  fail "the script issued a copy over a destination whose digest differs from the source -- it must refuse and stop:"$'\n'"$(grep -E '^cosign copy' "${scene}/log")"
+fi
+
+pass "8e: a divergent destination is refused, never clobbered"
+
+# --- 8f. Verification 2 and 3 are load-bearing. ----------------------------
+scene="$(new_scene verify_fail)"
+seed_all_sources "${scene}"
+STUB_VERIFY_FAIL=1
+run_migrate "${scene}" "${SCRIPT}" --apply
+STUB_VERIFY_FAIL=0
+(( rc != 0 )) || fail "a failing 'cosign verify' must stop the run; rc=${rc}"$'\n'"${out}"
+grep -Fq 'cosign verify FAILED' <<<"${out}" ||
+  fail "a failing cosign verify must say so; got:"$'\n'"${out}"
+if logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.15\.0 "; then
+  fail "the bulk copy ran after cosign verify failed on the V1 chart"
+fi
+
+# A signature that verifies but was minted from a laptop presents the maintainer's own OIDC
+# identity. It satisfies a naive check and fails the command users are told to run.
+scene="$(new_scene wrong_identity)"
+seed_all_sources "${scene}"
+STUB_SUBJECT_TEMPLATE="${LAPTOP_SUBJECT_TEMPLATE}"
+run_migrate "${scene}" "${SCRIPT}" --apply
+STUB_SUBJECT_TEMPLATE="${GOOD_SUBJECT_TEMPLATE}"
+(( rc != 0 )) ||
+  fail "a signature whose certificate identity is NOT the original release-time workflow must stop the run; rc=${rc}"$'\n'"${out}"
+grep -Fq 'release.yaml@refs/tags/v0.14.0' <<<"${out}" ||
+  fail "the identity failure must name the identity it expected; got:"$'\n'"${out}"
+if logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.15\.0 "; then
+  fail "the bulk copy ran after the V1 chart's certificate identity check failed"
+fi
+
+pass "8f: cosign verify and the certificate-identity check both stop the run"
+
+# --- 8g. The exclusion holds at runtime, not just in CI. -------------------
+# CI's count assertion (section 2) only sees the committed file. A maintainer resuming a
+# partial run by hand-editing BULK_VERSIONS never goes through CI at all, so the invariant
+# has to hold in the process that does the writing. Proven by running exactly that edit.
+# The variant lives in a mimic of the repo layout (hack/<script> next to a repo root
+# holding artifacthub-repo.yml), because the script derives REPO_ROOT from its own path and
+# Phase 0 refuses to start without that file. Building it under a bare temp dir made the
+# run die in Phase 0, which would have made this assertion pass for the wrong reason.
+mkdir -p "${stub_root}/repo/hack"
+cp "${ROOT}/artifacthub-repo.yml" "${stub_root}/repo/artifacthub-repo.yml"
+widened="${stub_root}/repo/hack/migrate-chart-path.sh"
+sed -E 's/^BULK_VERSIONS=\(.*\)$/BULK_VERSIONS=(0.13.0 0.15.0)/' "${SCRIPT}" >"${widened}"
+grep -Fq 'BULK_VERSIONS=(0.13.0 0.15.0)' "${widened}" ||
+  fail "could not build the widened-version-list variant; this assertion would pass vacuously"
+scene="$(new_scene excluded)"
+seed_all_sources "${scene}"
+seed "${scene}" "${SRC}:0.13.0" "$(dig 0130)"
+run_migrate "${scene}" "${widened}" --apply
+(( rc != 0 )) ||
+  fail "a hand-edited version list containing 0.13.0 must be refused at runtime; rc=${rc}"$'\n'"${out}"
+if logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.13\.0 "; then
+  fail "0.13.0 was COPIED after being added to the version list by hand. The never-republish list must be enforced in the running process, not only by a CI count assertion:"$'\n'"$(grep -E '^cosign copy' "${scene}/log")"
+fi
+# Non-vacuity: the run must have got far enough to try, i.e. past the V1 gate.
+grep -Fq 'V1 gate PASSED' <<<"${out}" ||
+  fail "the widened variant did not reach the bulk copy, so the runtime exclusion was never exercised:"$'\n'"${out}"
+
+pass "8g: the never-republish list is enforced at runtime, defeating a hand-edited version list"
+
+# --- 8h. A transient registry error is not "the tag is absent". ------------
+# `crane digest ... || true` turned a rate limit into a skip, and a skip into exit 0: a
+# chart silently missing from the new path, found only after the URL repoint.
+scene="$(new_scene flake)"
+seed_all_sources "${scene}"
+STUB_CRANE_FLAKE="${SRC}:0.16.0"
+run_migrate "${scene}" "${SCRIPT}" --apply
+STUB_CRANE_FLAKE=""
+(( rc != 0 )) ||
+  fail "a transient (non-404) crane failure must stop the run, not be swallowed as 'no such tag'; rc=${rc}"$'\n'"${out}"
+grep -Fiq 'TOOMANYREQUESTS' <<<"${out}" ||
+  fail "the underlying registry error must be shown to the operator; got:"$'\n'"${out}"
+
+# A genuinely absent source tag is still a skip -- but the run must not exit 0 having
+# quietly dropped a version that will then be missing from Artifact Hub.
+scene="$(new_scene absent)"
+for v in 0.14.0 0.15.0 0.16.0 0.17.0 0.18.0; do
+  seed "${scene}" "${SRC}:${v}" "$(dig "${v//./}")"
+done
+run_migrate "${scene}" "${SCRIPT}" --apply
+(( rc != 0 )) ||
+  fail "a run that skipped a chart must NOT exit 0 -- that version will be absent from the hub after the repoint; rc=${rc}"$'\n'"${out}"
+grep -Fq '0.19.0' <<<"${out}" ||
+  fail "the incomplete-run report must name the versions that were not copied; got:"$'\n'"${out}"
+# It must still be a completed pass over the other charts, not an abort on the first gap.
+logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.18\.0 " ||
+  fail "a missing tag must not abort the remaining copies; 0.18.0 was never attempted"
+
+pass "8h: transient errors stop the run; a genuinely absent tag skips but never exits 0"
+
+# --- 8i. The credential never reaches argv. --------------------------------
+# Anything on a command line is readable from /proc/<pid>/cmdline for the duration of the
+# call. The script reasons about exactly this for the registry logins (--password-stdin);
+# the curl calls have to hold the same line, and one of them runs in dry run too.
+scene="$(new_scene creds)"
+seed_all_sources "${scene}"
+run_migrate "${scene}" "${SCRIPT}"
+(( rc == 0 )) || fail "dry run must succeed for the credential-exposure scenario; rc=${rc}"$'\n'"${out}"
+# Non-vacuity: curl must actually have been called with a config on stdin, or "the token is
+# not in argv" would be true simply because nothing authenticated at all.
+[[ -s "${scene}/curl_stdin" ]] ||
+  fail "no curl invocation supplied a credential on stdin; the argv assertion below would pass vacuously"
+grep -Fq "${TEST_TOKEN}" "${scene}/curl_stdin" ||
+  fail "the token did not reach curl on stdin, so the preflight is not authenticating"
+if grep -Fq "${TEST_TOKEN}" "${scene}/log"; then
+  fail "the registry token appears in a command's ARGV, readable from /proc/<pid>/cmdline:"$'\n'"$(grep -Fn "${TEST_TOKEN}" "${scene}/log")"
+fi
+if grep -Fq "${TEST_TOKEN}" <<<"${out}"; then
+  fail "the registry token was printed to stdout/stderr:"$'\n'"${out}"
+fi
+
+pass "8i: the token reaches curl on stdin and never appears in argv or output"
+
+# --- 8j. Phase 0 and Phase 3 refusals. -------------------------------------
+# A pull-only token is indistinguishable from a write-capable one until the first push
+# fails -- by which point the V1 gate has already "passed".
+scene="$(new_scene pullonly)"
+seed_all_sources "${scene}"
+STUB_GHCR_JWT="${PULL_JWT}"
+run_migrate "${scene}" "${SCRIPT}" --apply
+STUB_GHCR_JWT="${PUSH_JWT}"
+(( rc != 0 )) || fail "a token granting only 'pull' must be refused in Phase 0; rc=${rc}"$'\n'"${out}"
+grep -Fq 'write:packages' <<<"${out}" ||
+  fail "the pull-only refusal must name the scope that is missing; got:"$'\n'"${out}"
+if logged "${scene}" '^cosign copy'; then
+  fail "a copy was attempted with a pull-only token"
+fi
+
+# GHCR creates packages private. A private package is invisible to Artifact Hub, which
+# reads anonymously, while every command in the migration reports success.
+scene="$(new_scene private)"
+seed_all_sources "${scene}"
+STUB_PKG_VISIBILITY=private
+run_migrate "${scene}" "${SCRIPT}" --apply
+STUB_PKG_VISIBILITY=public
+(( rc != 0 )) || fail "a private destination package must stop the run before the metadata push; rc=${rc}"$'\n'"${out}"
+if logged "${scene}" '^oras push'; then
+  fail "the metadata push ran against a PRIVATE package -- it succeeds locally and Artifact Hub sees nothing"
+fi
+grep -Fiq 'settings' <<<"${out}" ||
+  fail "the private-package refusal must give the click-path to publish it; got:"$'\n'"${out}"
+
+pass "8j: a pull-only token and a private destination package are both refused before they can do harm"
+
+# --- 8k. Usage errors are not verdicts. ------------------------------------
+# `shift` past the end of the argument list trips `set -e` and exits 1 with no output --
+# and 1 is the documented FAIL code, so a typo'd baseline was indistinguishable from
+# "Artifact Hub still reports errors".
+for bad_args in "--since" "--interval" "--timeout" "--since notanumber" "--this-flag-does-not-exist"; do
+  # shellcheck disable=SC2086
+  set +e
+  usage_out="$(env -u GHCR_TOKEN -u GITHUB_TOKEN -u CR_PAT bash "${SCRIPT}" ${bad_args} 2>&1)"
+  usage_rc=$?
+  set -e
+  (( usage_rc != 0 )) || fail "'${bad_args}' must be rejected; it exited 0"
+  (( usage_rc != 1 )) ||
+    fail "'${bad_args}' exited 1, which is the documented FAIL verdict -- a usage error must not be confusable with a migration result"
+  (( usage_rc != 2 )) ||
+    fail "'${bad_args}' exited 2, which is the documented INCONCLUSIVE verdict"
+  [[ -n "${usage_out}" ]] ||
+    fail "'${bad_args}' produced no output at all; the operator has nothing to act on"
+done
+
+pass "8k: bad arguments exit with a usage code and a message, never a migration verdict"
 
 echo "All dist chart path migration tests passed."

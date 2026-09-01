@@ -71,20 +71,44 @@ BULK_VERSIONS=(0.15.0 0.16.0 0.17.0 0.18.0 0.19.0)
 
 # HARD-CODED EXCLUSION -- DO NOT WIDEN THE RANGE.
 #
-# Charts 0.9.0 through 0.13.0 shipped `image.tag: latest` in values.yaml. That tag has
-# never been pushed to GHCR: the controller image only ever lands on v-prefixed tags. So
-# those five charts CANNOT INSTALL -- the manager pod sits in ImagePullBackOff for anyone
-# who tries -- and they were taken out of the registry on purpose. Publishing a `latest`
-# tag to satisfy them would re-create the exact DR-FIND-07 collision the release workflow
-# guards against, so that is not a fix either.
+# ADR-0709: same exclusion, TWO DIFFERENT REASONS. Do not collapse them into one sentence.
 #
-# Republishing them to the new path would resurrect five uninstallable listings AND restore
-# the recurring Artifact Hub scan-failure mail that ADR-0709 exists to end. If you are
-# reading this because the version list looks arbitrary and you were about to tidy it into
-# a range: this is the tidy version. The gap is the point.
+#   0.9.0, 0.10.0, 0.11.0, 0.13.0 -- these four ARE charts, and they shipped
+#     `image.tag: latest` in values.yaml. That tag has never been pushed to GHCR: the
+#     controller image only ever lands on v-prefixed tags. So they CANNOT INSTALL -- the
+#     manager pod sits in ImagePullBackOff for anyone who tries. Publishing a `latest` tag
+#     to satisfy them would re-create the exact DR-FIND-07 collision the release workflow
+#     guards against, so that is not a fix either.
 #
-# (0.12.0 is doubly special: that one release pushed the IMAGE to the chart's bare tag.)
+#   0.12.0 -- NOT a chart at all. That one release pushed the controller IMAGE to the
+#     chart's bare tag (this is DR-FIND-07's original instance, and artifacthub-repo.yml
+#     records it in the same words). Copying it would put an image into a repository whose
+#     entire purpose is to contain only charts. Its GHCR package version is the protected
+#     1087932920 named below.
+#
+# The distinction is operator-facing and load-bearing: a maintainer who reads a blanket
+# "hardcodes image.tag: latest", opens 0.12.0's values.yaml, finds no such line and
+# concludes the note is stale is precisely the reader this exclusion exists to stop.
+#
+# Republishing any of the five would resurrect uninstallable listings AND restore the
+# recurring Artifact Hub scan-failure mail that ADR-0709 exists to end. If you are reading
+# this because the version list looks arbitrary and you were about to tidy it into a range:
+# this is the tidy version. The gap is the point. The list is also enforced at RUNTIME by
+# assert_not_excluded(), so hand-editing BULK_VERSIONS to resume a partial run cannot
+# reach a copy either.
 EXCLUDED_VERSIONS=(0.9.0 0.10.0 0.11.0 0.12.0 0.13.0)
+
+# Per-version, because the two reasons above are not interchangeable.
+exclusion_reason() {
+  case "$1" in
+    0.12.0)
+      printf '%s' "NEVER republished: this release pushed the controller IMAGE to the chart's bare tag, so 0.12.0 is not a chart at all -- the original DR-FIND-07 instance. Its GHCR package version is the protected one."
+      ;;
+    *)
+      printf '%s' "NEVER republished: hardcodes image.tag=latest, a tag never pushed, so the chart cannot install; taken out of the registry on purpose"
+      ;;
+  esac
+}
 
 # OUT OF SCOPE, NAMED SO IT STAYS OUT OF SCOPE. GHCR package version 1087932920 carries the
 # v0.12.0 CONTROLLER IMAGE and its cosign signature. It sits in the same GHCR package as
@@ -147,6 +171,35 @@ die() {
   exit 1
 }
 
+# Usage errors exit 64 (sysexits.h EX_USAGE), NOT 1. Exit 1 is the documented FAIL verdict
+# of --verify-ac1, and a mistyped `--since` that exited 1 would be indistinguishable from
+# "Artifact Hub still reports tracking errors" -- a wrong answer to the question the
+# operator is actually asking, delivered with the same exit code as a right one.
+usage_error() {
+  printf 'migrate-chart-path: %s\n\n' "$*" >&2
+  usage >&2
+  exit 64
+}
+
+# Read the value of an option that takes one, refusing to run off the end of the argument
+# list. `shift` on an empty stack returns non-zero, which under `set -e` aborted the script
+# with exit 1 and no output at all -- again indistinguishable from a genuine FAIL.
+require_value() {
+  local flag="$1" value="${2-}"
+  [[ -n "${value}" ]] || usage_error "${flag} requires a value"
+  case "${value}" in
+    --*) usage_error "${flag} requires a value, but was followed by the flag '${value}'" ;;
+  esac
+  printf '%s' "${value}"
+}
+
+require_uint() {
+  local flag="$1" value
+  value="$(require_value "${flag}" "${2-}")"
+  [[ "${value}" =~ ^[0-9]+$ ]] || usage_error "${flag} expects a non-negative integer, got '${value}'"
+  printf '%s' "${value}"
+}
+
 hdr() {
   printf '\n=== %s ===\n' "$*"
 }
@@ -200,7 +253,10 @@ ENVIRONMENT
   GHCR_USER          Username sent with the token (default: $GITHUB_ACTOR or $USER).
 
 EXIT CODES
-  0 success (or PASS)   1 failure (or FAIL)   2 INCONCLUSIVE (--verify-ac1 only)
+  0   success (or PASS)
+  1   failure (or FAIL), including "some charts could not be copied"
+  2   INCONCLUSIVE (--verify-ac1 only)
+  64  usage error -- a bad or missing flag value, never a verdict about the migration
 USAGE
 }
 
@@ -216,13 +272,13 @@ while (( $# )); do
     --dry-run) APPLY=0 ;;
     --apply) APPLY=1 ;;
     --skip-scope-probe) SKIP_SCOPE_PROBE=1 ;;
-    --since) shift; SINCE_TS="${1:-}" ;;
-    --interval) shift; POLL_INTERVAL="${1:-}" ;;
-    --timeout) shift; POLL_TIMEOUT="${1:-}" ;;
+    --since) SINCE_TS="$(require_uint --since "${2-}")"; shift ;;
+    --interval) POLL_INTERVAL="$(require_uint --interval "${2-}")"; shift ;;
+    --timeout) POLL_TIMEOUT="$(require_uint --timeout "${2-}")"; shift ;;
     # An unrecognised flag is an error, never a no-op. `--dryrun` is a plausible typo for
     # `--dry-run`, and silently ignoring it would leave the operator's intent and the
     # script's behaviour disagreeing at the exact moment that matters.
-    *) printf 'migrate-chart-path: unrecognised argument: %s\n\n' "$1" >&2; usage >&2; exit 1 ;;
+    *) usage_error "unrecognised argument: $1" ;;
   esac
   shift
 done
@@ -242,7 +298,7 @@ print_plan() {
   done
   info ""
   for v in "${EXCLUDED_VERSIONS[@]}"; do
-    info "plan: excluded ${v}  NEVER republished: hardcodes image.tag=latest, a tag never pushed, so the chart cannot install; taken out of the registry on purpose"
+    info "plan: excluded ${v}  $(exclusion_reason "${v}")"
   done
   info ""
   info "plan: out of scope -- GHCR package version ${PROTECTED_PACKAGE_VERSION_ID} (v0.12.0 controller image + its cosign signature) is not read or written by this script"
@@ -290,6 +346,37 @@ registry_user() {
   printf '%s' "${GHCR_USER:-${GITHUB_ACTOR:-${USER:-ghcr}}}"
 }
 
+# --------------------------------------------------------------------------------------
+# Credential handling
+# --------------------------------------------------------------------------------------
+# The token NEVER appears in any process's argv. Anything on a command line is world-
+# readable from /proc/<pid>/cmdline for the lifetime of the call, and this script runs on a
+# maintainer's own machine where that is a real audience. Registry logins use
+# --password-stdin; curl reads its credential from a config file on stdin via `-K -`.
+#
+# The token is also format-checked before it is ever interpolated. Every GitHub token form
+# (ghp_/gho_/ghs_/github_pat_ classic and fine-grained) is [A-Za-z0-9_], so a value carrying
+# a quote, a backslash, whitespace or a newline is not a token -- it is a copy-paste
+# accident or an injection into curl's config parser, and either way it should stop here
+# rather than be escaped into working.
+assert_token_shape() {
+  local token="$1"
+  [[ "${token}" =~ ^[A-Za-z0-9_.-]+$ ]] ||
+    die "the registry token contains characters no GitHub token contains (expected only A-Za-z0-9_.- ).
+  This is almost always a copy-paste accident: a trailing newline, a wrapping quote, or a
+  whole 'export GHCR_TOKEN=...' line captured into the variable. Re-export just the token."
+}
+
+# Emit a curl config file on stdout. Values are written unquoted, which curl reads to
+# end-of-line and which assert_token_shape has already proven contains no whitespace.
+curl_basic_auth_config() {
+  printf 'user = %s:%s\n' "$1" "$2"
+}
+
+curl_bearer_config() {
+  printf 'header = "Authorization: Bearer %s"\n' "$1"
+}
+
 # Decode a base64url segment (JWT payload). Written out rather than shelled to a helper
 # because the only thing on PATH that does this reliably is jq, and jq cannot base64url.
 b64url_decode() {
@@ -316,7 +403,10 @@ probe_write_scope() {
   user="$(registry_user)"
   scope="repository:${OWNER}/${DST_PACKAGE_NAME}:pull,push"
 
-  resp="$(curl -fsSL -u "${user}:${token}" "https://${REGISTRY}/token?service=${REGISTRY}&scope=${scope}" 2>/dev/null)" ||
+  # `-K -`: the credential is read from stdin as a curl config file, so it never reaches
+  # this process's argv. This probe runs in dry run too, which is exactly why it matters.
+  resp="$(curl_basic_auth_config "${user}" "${token}" |
+    curl -fsSL -K - "https://${REGISTRY}/token?service=${REGISTRY}&scope=${scope}" 2>/dev/null)" ||
     die "could not reach ${REGISTRY}'s token endpoint with the supplied credential.
   The token is either invalid, expired, or not accepted for ${OWNER}.
   Re-issue a classic PAT with write:packages at https://github.com/settings/tokens
@@ -377,6 +467,7 @@ phase0_preconditions() {
   It must carry write:packages. read:packages alone is NOT enough: it grants pull only,
   and every copy in this migration is a push. Create one at
     https://github.com/settings/tokens  ->  'Generate new token (classic)'  ->  write:packages"
+  assert_token_shape "$(registry_token)"
 
   if (( SKIP_SCOPE_PROBE )); then
     warn "skipping the GHCR write-scope probe on request; a read-only token will now fail late, mid-copy, instead of here"
@@ -408,82 +499,84 @@ sig_tag_for() {
   printf 'sha256-%s.sig' "${digest#sha256:}"
 }
 
-# Read-only. Prints the digest, or nothing if the reference does not resolve.
+# Read-only. Exit status carries the meaning, because "the tag is not there" and "GHCR did
+# not answer" are completely different facts and must not be collapsed:
+#
+#   0 -- resolved; the digest is on stdout
+#   1 -- definitively absent (the registry said so: MANIFEST_UNKNOWN / NAME_UNKNOWN / 404)
+#   2 -- indeterminate; the raw error is on stderr
+#
+# The earlier version was `crane digest "$1" 2>/dev/null || true`, which turned a rate-limit
+# or a network blip on any one of a dozen back-to-back GHCR calls into "no such tag" ->
+# warn -> skip -> exit 0. That is a chart silently missing from the new path, discovered
+# only after the Artifact Hub URL repoint, which is the one step in this migration that is
+# awkward to walk back.
 digest_of() {
-  crane digest "$1" 2>/dev/null || true
+  local ref="$1" out rc
+  out="$(crane digest "${ref}" 2>&1)" && rc=0 || rc=$?
+  if (( rc == 0 )); then
+    printf '%s\n' "${out}"
+    return 0
+  fi
+  case "${out}" in
+    *MANIFEST_UNKNOWN* | *NAME_UNKNOWN* | *MANIFEST_BLOB_UNKNOWN* | *"manifest unknown"* | *"name unknown"* | *"404 Not Found"* | *"status code 404"*)
+      return 1
+      ;;
+  esac
+  printf 'crane digest %s failed, and not with a "no such tag" error:\n%s\n' "${ref}" "${out}" >&2
+  return 2
 }
 
-# Copy one chart and verify it landed as the SAME artifact, signed by the SAME identity.
-# Returns 0 on success. Callers decide what a failure means.
-copy_and_verify_chart() {
-  local version="$1"
-  local src="${SRC_REPO}:${version}"
-  local dst="${DST_REPO}:${version}"
-  local src_digest dst_digest sig_tag
+# Wrapper that turns exit status 2 into a stop. Callers that legitimately tolerate an
+# absent tag check for the empty string; nobody has to remember to handle the third case.
+digest_or_absent() {
+  local ref="$1" out rc
+  out="$(digest_of "${ref}")" && rc=0 || rc=$?
+  case "${rc}" in
+    0) printf '%s\n' "${out}" ;;
+    1) : ;;
+    *)
+      die "could not determine whether ${ref} exists (see the crane error above).
+  This is NOT the same as 'the tag is not there', and it must not be treated as one: a
+  transient registry failure silently swallowed here becomes a chart missing from the new
+  path, found only after the Artifact Hub repoint. Re-run once the registry answers."
+      ;;
+  esac
+}
 
-  info ""
-  info "  ${version}: ${src} -> ${dst}"
-
-  src_digest="$(digest_of "${src}")"
-  if [[ -z "${src_digest}" ]]; then
-    # Not fatal, and not silent. A tag absent at the SOURCE cannot be fixed by re-running,
-    # so stopping the whole migration for it would strand the remaining charts; but a
-    # silently skipped version is how history quietly goes missing on the hub.
-    warn "${version}: no such tag at ${src} -- skipped (nothing to copy). If this version is supposed to exist, stop and find out why before repointing Artifact Hub."
-    SKIPPED_VERSIONS+=("${version}")
-    return 0
-  fi
-  info "    source digest: ${src_digest}"
-  sig_tag="$(sig_tag_for "${src_digest}")"
-
-  dst_digest="$(digest_of "${dst}")"
-  if [[ -n "${dst_digest}" ]]; then
-    if [[ "${dst_digest}" != "${src_digest}" ]]; then
-      # Never overwrite a destination that holds something else. Whatever is there was put
-      # there by something this script does not know about, and clobbering it is exactly
-      # the class of action this script does not take.
-      die "${dst} already exists with digest ${dst_digest}, which differs from the source digest ${src_digest}.
-  Refusing to overwrite an artifact this script did not put there. Investigate by hand:
-    crane manifest ${dst}
-  and re-run once the destination is either absent or identical."
+# RUNTIME enforcement of the never-republish list. EXCLUDED_VERSIONS being printed is not
+# enforcement: the only thing that previously stopped 0.13.0 reaching a copy was a CI count
+# assertion, and a maintainer hand-editing the version list to resume a partial run does
+# not go through CI. This makes the invariant hold in the process that does the writing,
+# for exactly the reason phase2_copy_remaining's V1_GATE_PASSED guard exists.
+assert_not_excluded() {
+  local version="$1" x
+  for x in "${EXCLUDED_VERSIONS[@]}"; do
+    if [[ "${version}" == "${x}" ]]; then
+      die "refusing to copy ${version}: it is on the never-republish list.
+  ${version}: $(exclusion_reason "${version}")
+  This guard fires regardless of how ${version} got into the version list -- including a
+  hand edit made while resuming a partial run. If you believe the exclusion is wrong, that
+  is an ADR-0709 decision, not a version-list edit."
     fi
-    if [[ -n "$(digest_of "${DST_REPO}:${sig_tag}")" ]]; then
-      # Idempotent resume: chart and signature both already present and identical. The
-      # maintainer will hit something, fix it, and run again; that must be a skip.
-      info "    already present at destination with a matching digest and signature -- skipping"
-      VERIFIED_VERSIONS+=("${version}")
-      return 0
-    fi
-    info "    chart present but its signature is not; re-running the copy to carry it"
-  fi
+  done
+}
 
-  # `cosign copy` moves the subject together with its signatures and attestations and does
-  # not re-push content, so digests are preserved. --force is safe here and only here:
-  # the branch above has already established that the destination is either absent or
-  # byte-identical by digest, so the flag can never clobber divergent content -- it only
-  # stops cosign prompting when it is re-copying something already partly present.
-  run_mutating cosign copy --force "${src}" "${dst}"
-
-  if ! (( APPLY )); then
-    info "    (dry run) skipping post-copy verification: the destination has not been written"
-    return 0
-  fi
-
-  # Verification 1 of 3: identical digest. A re-push -- rebuilding or re-uploading the
-  # layers rather than copying them -- would produce a different digest, which would break
-  # every reference that pins one and silently invalidate the existing signature.
-  dst_digest="$(digest_of "${dst}")"
-  [[ -n "${dst_digest}" ]] || die "${version}: destination ${dst} does not resolve after the copy"
-  [[ "${dst_digest}" == "${src_digest}" ]] ||
-    die "${version}: DIGEST CHANGED across the copy.
-  source:      ${src_digest}
-  destination: ${dst_digest}
-  That is a re-push, not a copy. The existing signature cannot cover the new digest.
-  Stop here; see the fallback printed by the V1 gate."
-  info "    digest preserved: ${dst_digest}"
+# Verifications 2 and 3, factored out because they must run on EVERY path that concludes a
+# version is good -- including the "it was already at the destination" resume path.
+#
+# Both are read-only, so there is no cost to running them again on a resume, and there is a
+# very large cost to not running them: `cosign copy` happens BEFORE verification, so a run
+# that copied and then failed to verify leaves the destination holding exactly the chart +
+# signature that the resume path would otherwise read as proof of a passed gate. The gate
+# would then print "cosign verify passes ... certificate identity is the original
+# release-time one" having computed neither. A gate that can be laundered by re-running is
+# not a gate, and re-running is the documented remediation for Phase 3.
+verify_signature_at_destination() {
+  local version="$1" dst="$2" dst_digest="$3"
+  local verify_out identity expected_suffix
 
   # Verification 2 of 3: the published verify command, verbatim, against the NEW path.
-  local verify_out
   if ! verify_out="$(cosign verify \
     --certificate-oidc-issuer "${OIDC_ISSUER}" \
     --certificate-identity-regexp "${IDENTITY_REGEXP}" \
@@ -502,7 +595,6 @@ copy_and_verify_chart() {
   # published verify command accepts. The certificate subject must be the ORIGINAL
   # release-time workflow identity, e.g. for the V1 gate chart:
   #   https://github.com/platformrelay/kollect/.github/workflows/release.yaml@refs/tags/v0.14.0
-  local identity expected_suffix
   identity="$(jq -r '.[0].optional.Subject // empty' <<<"${verify_out}")"
   expected_suffix="/.github/workflows/release.yaml@refs/tags/v${version}"
   [[ -n "${identity}" ]] ||
@@ -520,6 +612,97 @@ copy_and_verify_chart() {
       ;;
   esac
   info "    certificate identity: ${identity}"
+  # Appended at the ONLY place the identity check is evaluated, so membership is proof that
+  # it ran in this process. Phase 1 keys its gate on this array rather than on
+  # VERIFIED_VERSIONS, which any future skip/resume branch could append to for a weaker
+  # reason -- which is precisely how the laundering hole got in the first time.
+  IDENTITY_VERIFIED_VERSIONS+=("${version}")
+}
+
+# Copy one chart and verify it landed as the SAME artifact, signed by the SAME identity.
+# Returns 0 on success. Callers decide what a failure means.
+copy_and_verify_chart() {
+  local version="$1"
+  local src="${SRC_REPO}:${version}"
+  local dst="${DST_REPO}:${version}"
+  local src_digest dst_digest sig_tag
+
+  # First thing, before anything reads or writes a registry.
+  assert_not_excluded "${version}"
+
+  info ""
+  info "  ${version}: ${src} -> ${dst}"
+
+  src_digest="$(digest_or_absent "${src}")"
+  if [[ -z "${src_digest}" ]]; then
+    # Not fatal, and not silent. A tag absent at the SOURCE cannot be fixed by re-running,
+    # so stopping the whole migration for it would strand the remaining charts; but a
+    # silently skipped version is how history quietly goes missing on the hub.
+    warn "${version}: no such tag at ${src} -- skipped (nothing to copy). If this version is supposed to exist, stop and find out why before repointing Artifact Hub."
+    SKIPPED_VERSIONS+=("${version}")
+    return 0
+  fi
+  info "    source digest: ${src_digest}"
+  sig_tag="$(sig_tag_for "${src_digest}")"
+
+  dst_digest="$(digest_or_absent "${dst}")"
+  if [[ -n "${dst_digest}" ]]; then
+    if [[ "${dst_digest}" != "${src_digest}" ]]; then
+      # Never overwrite a destination that holds something else. Whatever is there was put
+      # there by something this script does not know about, and clobbering it is exactly
+      # the class of action this script does not take.
+      die "${dst} already exists with digest ${dst_digest}, which differs from the source digest ${src_digest}.
+  Refusing to overwrite an artifact this script did not put there. Investigate by hand:
+    crane manifest ${dst}
+  and re-run once the destination is either absent or identical."
+    fi
+    if [[ -n "$(digest_or_absent "${DST_REPO}:${sig_tag}")" ]]; then
+      # Idempotent resume: chart and signature both already present and identical, so the
+      # copy is a no-op. The VERIFICATION is not: it is re-run in full here, because the
+      # only thing this branch has established is that bytes are present, and a previous
+      # run that copied and then failed verification leaves exactly these bytes. See
+      # verify_signature_at_destination's comment.
+      info "    already present at destination with a matching digest -- copy skipped, verifying"
+      verify_signature_at_destination "${version}" "${dst}" "${dst_digest}"
+      info "    ${version}: verified (no copy needed)"
+      VERIFIED_VERSIONS+=("${version}")
+      return 0
+    fi
+    info "    chart present but its signature is not; re-running the copy to carry it"
+  fi
+
+  # `cosign copy` moves the subject together with its signatures and attestations and does
+  # not re-push content, so digests are preserved.
+  #
+  # On --force: the branch above establishes that the destination SUBJECT tag is either
+  # absent or byte-identical by digest, so the flag cannot clobber a divergent chart. It is
+  # weaker than that for the tags cosign also writes -- `sha256-<hex>.sig` and any `.att` --
+  # which are not digest-compared above, so --force could in principle overwrite a
+  # divergent signature tag. That residual is accepted rather than ignored: those tags are
+  # derived from the same source subject, and whatever lands is re-verified immediately
+  # below by cosign verify plus the identity check, which is a stronger statement about
+  # them than a digest comparison would have been.
+  run_mutating cosign copy --force "${src}" "${dst}"
+
+  if ! (( APPLY )); then
+    info "    (dry run) skipping post-copy verification: the destination has not been written"
+    return 0
+  fi
+
+  # Verification 1 of 3: identical digest. A re-push -- rebuilding or re-uploading the
+  # layers rather than copying them -- would produce a different digest, which would break
+  # every reference that pins one and silently invalidate the existing signature.
+  dst_digest="$(digest_or_absent "${dst}")"
+  [[ -n "${dst_digest}" ]] || die "${version}: destination ${dst} does not resolve after the copy"
+  [[ "${dst_digest}" == "${src_digest}" ]] ||
+    die "${version}: DIGEST CHANGED across the copy.
+  source:      ${src_digest}
+  destination: ${dst_digest}
+  That is a re-push, not a copy. The existing signature cannot cover the new digest.
+  Stop here; see the fallback printed by the V1 gate."
+  info "    digest preserved: ${dst_digest}"
+
+  verify_signature_at_destination "${version}" "${dst}" "${dst_digest}"
   info "    ${version}: verified"
   VERIFIED_VERSIONS+=("${version}")
 }
@@ -557,21 +740,27 @@ phase1_v1_gate() {
   trap - EXIT
 
   if (( APPLY )); then
-    # copy_and_verify_chart treats a tag missing at the SOURCE as a skip, which is right
-    # for the bulk copy and very wrong here: a skipped V1 chart means nothing was copied
-    # and therefore nothing was verified, and setting the flag on that basis would
-    # authorise the bulk copy on the strength of a gate that never ran. Demand that the
-    # gate chart is actually in the verified list.
+    # copy_and_verify_chart has several paths that end in "this version is fine", and two of
+    # them do so WITHOUT evaluating the signature: a tag missing at the source is a skip
+    # (right for the bulk copy, very wrong here), and the resume path used to treat bytes
+    # already sitting at the destination as proof. Neither means the gate ran.
+    #
+    # So the gate keys on IDENTITY_VERIFIED_VERSIONS, which is appended only inside
+    # verify_signature_at_destination. Membership is therefore proof that the certificate
+    # identity was evaluated in THIS process -- the property the printed "V1 gate PASSED"
+    # line claims, and the one the bulk copy is authorised by.
     local seen=0 v
-    for v in "${VERIFIED_VERSIONS[@]:-}"; do
+    for v in "${IDENTITY_VERIFIED_VERSIONS[@]:-}"; do
       if [[ "${v}" == "${V1_GATE_VERSION}" ]]; then
         seen=1
       fi
     done
     (( seen )) ||
-      die "the V1 gate chart ${V1_GATE_VERSION} was not verified (it was skipped, most likely because ${SRC_REPO}:${V1_GATE_VERSION} does not resolve).
+      die "the V1 gate chart ${V1_GATE_VERSION} was NOT verified in this run: the certificate
+  identity check never executed. Most likely ${SRC_REPO}:${V1_GATE_VERSION} does not resolve
+  and the chart was skipped.
   Nothing has been proven about signature portability, so the bulk copy must not run.
-  Find out why the source tag is missing before going any further."
+  Find out why before going any further."
     V1_GATE_PASSED=1
     info ""
     info "  V1 gate PASSED: digest preserved, cosign verify passes against the new path,"
@@ -603,10 +792,12 @@ phase2_copy_remaining() {
     die "refusing to run the bulk copy: the V1 gate (Phase 1) has not passed in this run.
   The bulk copy is authorised by the V1 gate's result and by nothing else."
 
-  info "  excluded and never republished: ${EXCLUDED_VERSIONS[*]}"
-  info "  (image.tag: latest -- a tag never pushed; these charts cannot install)"
-
   local v
+  info "  excluded and never republished:"
+  for v in "${EXCLUDED_VERSIONS[@]}"; do
+    info "    ${v}  $(exclusion_reason "${v}")"
+  done
+
   for v in "${BULK_VERSIONS[@]}"; do
     copy_and_verify_chart "${v}"
   done
@@ -642,11 +833,13 @@ phase3_visibility() {
   # wrong guess 404s in a way indistinguishable from "package does not exist".
   local endpoint
   for endpoint in "orgs/${OWNER}" "users/${OWNER}"; do
-    resp="$(curl -sS -w '\n%{http_code}' \
-      -H "Authorization: Bearer ${token}" \
-      -H "Accept: application/vnd.github+json" \
-      -H "X-GitHub-Api-Version: 2022-11-28" \
-      "https://api.github.com/${endpoint}/packages/container/${DST_PACKAGE_NAME_ENC}" 2>/dev/null || true)"
+    # `-K -` again: the Authorization header is supplied through curl's config file on
+    # stdin, so the token stays out of argv here as well.
+    resp="$(curl_bearer_config "${token}" |
+      curl -sS -w '\n%{http_code}' -K - \
+        -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        "https://api.github.com/${endpoint}/packages/container/${DST_PACKAGE_NAME_ENC}" 2>/dev/null || true)"
     http="$(tail -n1 <<<"${resp}")"
     [[ "${http}" == "200" ]] && break
   done
@@ -713,6 +906,21 @@ phase4_metadata() {
   hdr "Phase 4 -- Artifact Hub repository metadata"
   local media_config="application/vnd.cncf.artifacthub.config.v1+yaml"
   local media_layer="application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml"
+
+  # The one content fact worth checking before the push, stated rather than assumed. On
+  # `main` today artifacthub-repo.yml still carries an `ignore` regex written for the OLD
+  # path. ADR-0709 says that is harmless in the new repository -- it would go on suppressing
+  # 0.9.0-0.13.0, which is now suppression ON PURPOSE rather than leftover cleanup -- but
+  # "harmless" is a judgement the operator should make with the fact in front of them, not
+  # one this script should make silently on their behalf. Every other ordering hazard in
+  # this file is enforced; this one cannot be, because the file belongs to another lane and
+  # both states are legitimate. So it is surfaced, loudly, and never blocks.
+  if grep -Eq '^ignore:' "${REPO_ROOT}/artifacthub-repo.yml"; then
+    info "  note: artifacthub-repo.yml carries an 'ignore' list. In the new chart-only path it"
+    info "        keeps 0.9.0-0.13.0 delisted, which ADR-0709 calls deliberate rather than"
+    info "        leftover. Nothing to do -- but if the docs lane has since restated it, push"
+    info "        the version you mean to publish."
+  fi
 
   info "  pushing artifacthub-repo.yml to ${DST_REPO}:artifacthub.io"
   # Same shape as the release workflow's push, so the two cannot drift into producing
@@ -801,13 +1009,20 @@ ah_read() {
 ah_sample() {
   local raw
   raw="$(ah_read "$1")" || die "could not read ${AH_SEARCH_URL}"
-  # last_tracking_errors is a single newline-delimited STRING (not an array), so it is
-  # flattened onto one line here: the caller reads this with `read`, and an embedded
+  # last_tracking_errors is, today, a single newline-delimited STRING (not an array), so it
+  # is flattened onto one line here: the caller reads this with `read`, and an embedded
   # newline would silently truncate every field after it.
+  #
+  # Both shapes are accepted. An array would be a perfectly reasonable future shape for
+  # that field, and `split` on an array raises a jq type error -- which would leave this
+  # script exiting 5 with a jq stack trace, a code outside its documented 0/1/2 and a
+  # result the operator cannot interpret. Being liberal here costs one line.
   jq -r '
     (map(select(.name == "kollect")) | .[0]) as $r
     | if $r == null then "MISSING" else
-        (($r.last_tracking_errors // "") | split("\n") | map(select(length > 0))) as $e
+        (($r.last_tracking_errors // "")
+          | if type == "array" then . else split("\n") end
+          | map(select((. | tostring | length) > 0))) as $e
         | [ ($r.last_tracking_ts // 0 | tostring),
             ($r.url // ""),
             ($r.verified_publisher // false | tostring),
@@ -825,12 +1040,12 @@ verify_ac1() {
     warn "reading fixtures instead of ${AH_SEARCH_URL} (MIGRATE_AH_FIXTURES is set)"
   fi
 
-  local s1 ts1 s2 ts2 url2 vp2 nerr2 errs2
+  local s1 ts1 nerr1 s2 ts2 url2 vp2 nerr2 errs2
   AH_FIXTURE_IDX=1
   s1="$(ah_sample "${AH_FIXTURE_IDX}")"
   [[ "${s1}" != "MISSING" ]] || die "Artifact Hub returned no repository named 'kollect'"
-  IFS=$'\t' read -r ts1 _ _ _ _ <<<"${s1}"
-  info "  read 1: last_tracking_ts=${ts1}  ($(date -u -d "@${ts1}" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo 'unparseable'))"
+  IFS=$'\t' read -r ts1 _ _ nerr1 _ <<<"${s1}"
+  info "  read 1: last_tracking_ts=${ts1}  ($(date -u -d "@${ts1}" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo 'unparseable'))  errors=${nerr1}"
 
   # Wait for a genuinely different tracking run.
   local advanced=0 attempt=1 start=${SECONDS}
@@ -910,6 +1125,24 @@ verify_ac1() {
     reasons+=("the tracking run reported ${nerr2} error(s); the migration has not cleared them")
   fi
 
+  # AC1 is "both reads empty", and this is the second half of it. It is conditional on
+  # purpose, and the condition is the whole point: read 1 is very often the LAST PRE-REPOINT
+  # tracking run -- the operator repoints, then immediately runs this -- and that run is
+  # supposed to carry errors. Failing on it would make the tool red exactly when it is used
+  # as documented. So read 1 counts as evidence only when it is itself newer than the
+  # baseline, i.e. when it too postdates the repoint; otherwise it is reported and set aside
+  # with the reason stated, rather than silently discarded (which is what it was before).
+  if (( ts1 > SINCE_TS )); then
+    if (( nerr1 > 0 )); then
+      verdict="FAIL"
+      reasons+=("read 1 (ts=${ts1}) also postdates the baseline and reported ${nerr1} error(s); AC1 requires BOTH post-repoint runs to be clean")
+    else
+      info "  read 1 (ts=${ts1}) also postdates the baseline and was clean -- two clean post-repoint runs"
+    fi
+  else
+    info "  read 1 (ts=${ts1}) predates the baseline (${SINCE_TS}), so its ${nerr1} error(s) are pre-repoint and not evidence either way"
+  fi
+
   info ""
   info "RESULT: ${verdict}"
   if [[ "${verdict}" == "FAIL" ]]; then
@@ -930,6 +1163,7 @@ verify_ac1() {
 # --------------------------------------------------------------------------------------
 SKIPPED_VERSIONS=()
 VERIFIED_VERSIONS=()
+IDENTITY_VERIFIED_VERSIONS=()
 
 print_summary() {
   hdr "Summary"
@@ -952,6 +1186,17 @@ run_migration() {
   if ! (( APPLY )); then
     hdr "This was a dry run"
     info "  Nothing was written. Re-run with --apply to perform the migration."
+  fi
+  # An incomplete migration must NOT exit 0. A skipped chart is a chart that will be absent
+  # from Artifact Hub after the repoint, and the repoint is the awkward step to walk back;
+  # a green exit here is how that gets noticed too late. The handoff is printed first on
+  # purpose -- the operator still needs to read it -- but the status tells the truth.
+  if (( ${#SKIPPED_VERSIONS[@]} )); then
+    hdr "INCOMPLETE"
+    printf 'migrate-chart-path: %d chart(s) were not copied: %s\n' \
+      "${#SKIPPED_VERSIONS[@]}" "${SKIPPED_VERSIONS[*]}" >&2
+    printf 'Do NOT repoint the Artifact Hub URL until you know why, or those versions are gone from the hub.\n' >&2
+    exit 1
   fi
 }
 
