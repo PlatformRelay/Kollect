@@ -241,7 +241,7 @@ and the protected `release` environment.
 
 | Output | Location |
 | --- | --- |
-| Container image (operator) | `ghcr.io/platformrelay/kollect:v<version>` only, `linux/amd64` + `arm64` (the bare `:<version>` tag on this repo path hosts the Helm chart — DR-FIND-07) |
+| Container image (operator) | `ghcr.io/platformrelay/kollect:v<version>` only, `linux/amd64` + `arm64` (bare `:<version>` tags on this repo path are **historical Helm charts** pushed before ADR-0709 — DR-FIND-07; they are inert but permanent) |
 | Container image (pipeline CLI) | `ghcr.io/platformrelay/kollect-pipeline:<version>` (and `:v<version>`), `linux/amd64` + `arm64` |
 | OCI SBOM + SLSA provenance | GHCR attestations on operator and pipeline images |
 | GitHub Release | git-cliff section + install footer; assets below |
@@ -253,7 +253,7 @@ and the protected `release` environment.
 | `checksums.txt` | SHA256 of release files |
 | `<asset>.sigstore.json` | Sigstore bundle for each release asset (cosign keyless) |
 | `release-provenance.intoto.jsonl` | Combined SLSA provenance attestation for release assets |
-| Helm chart (OCI) | `oci://ghcr.io/platformrelay/kollect` |
+| Helm chart (OCI) | `oci://ghcr.io/platformrelay/charts/kollect` (ADR-0709 — the chart path is separate from the image path; one Artifact Hub repository entry indexes one chart) |
 
 Release notes are assembled by [`hack/assemble-release-notes.sh`](https://github.com/platformrelay/kollect/blob/main/hack/assemble-release-notes.sh)
 and [`.github/release-notes-install.md`](https://github.com/platformrelay/kollect/blob/main/.github/release-notes-install.md).
@@ -273,6 +273,8 @@ REPO=platformrelay   # the OWNER; the image name is appended below
 # ghcr.io/platformrelay/kollect holds TWO artifact kinds:
 #   ghcr.io/platformrelay/kollect:0.18.0   -> the HELM CHART
 #   ghcr.io/platformrelay/kollect:v0.18.0  -> the CONTROLLER IMAGE   <- you want this one
+# New charts publish to ghcr.io/platformrelay/charts/kollect (ADR-0709), but the bare tags
+# already on this path stay forever, so this hazard is permanent for released versions.
 # Both give you a valid sha256 digest, so a mistake here passes every string check and
 # only surfaces ~30 minutes into the upstream pipeline as a DeployableByOLM timeout
 # (CreateContainerError "image not known"). Always digest the V-PREFIXED tag.
@@ -304,7 +306,8 @@ TAG=v0.2.0-rc.1   # or your release tag
 REPO=platformrelay   # the OWNER; the image name is appended below
 
 # DR-FIND-07: the operator image is published at the v-prefixed tag only; the
-# bare "${TAG#v}" tag on this repo path is the Helm chart, so digest by ${TAG}.
+# bare "${TAG#v}" tag on this repo path is a (historical) Helm chart, so digest by ${TAG}.
+# Charts themselves now live at ghcr.io/platformrelay/charts/kollect (ADR-0709).
 OP_DIGEST="$(crane digest ghcr.io/${REPO}/kollect:${TAG})"
 PIPELINE_DIGEST="$(crane digest ghcr.io/${REPO}/kollect-pipeline:${TAG#v})"
 

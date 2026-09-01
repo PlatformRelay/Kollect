@@ -71,11 +71,24 @@ helm upgrade kollect ./charts/kollect -n kollect-system -f values.yaml
 
 ```sh
 # pin the target release version, e.g. --version 0.5.0
-helm upgrade kollect oci://ghcr.io/platformrelay/kollect \
+helm upgrade kollect oci://ghcr.io/platformrelay/charts/kollect \
   --version <chart-version> \
   -n kollect-system \
   -f values.yaml
 ```
+
+!!! warning "Upgrading an install made from the old chart coordinate"
+    Charts released before ADR-0709 came from `ghcr.io/platformrelay/kollect` (no `charts/`
+    segment), the path that also serves the controller image; Artifact Hub indexes one chart per
+    repository, so the chart moved to `charts/kollect` while the image stayed put
+    ([ADR-0709](../adr/0709-chart-image-oci-path-separation.md)). Upgrading across the move is an
+    ordinary `helm upgrade` — same release name, same chart name, no resource churn — because the
+    chart history was copied and both paths serve byte-identical manifests at identical digests, so
+    **existing installs keep working**. What the old path will not receive is *new versions*:
+    repoint every pinned or automated reference (GitOps `HelmRelease`/`Application` sources,
+    Renovate/Dependabot rules, CI `helm pull`) or those installs quietly stop tracking releases.
+    `image.repository` stays `ghcr.io/platformrelay/kollect` — the image did not move, and changing
+    it would break the pull.
 
 **Raw manifests:**
 
@@ -159,8 +172,11 @@ For Argo CD, Flux, or similar:
 1. Commit or sync **`install-crds.yaml`** in a separate wave or Job **before** the Helm release.
 2. Keep CRD manifests out of the same Helm hook that upgrades the Deployment unless you accept
    Helm's CRD non-upgrade semantics.
-3. Pin chart `version` and image digest in values; use OCI `oci://ghcr.io/platformrelay/kollect` with an
-   immutable tag.
+3. Pin chart `version` and image digest in values; use OCI
+   `oci://ghcr.io/platformrelay/charts/kollect` with an immutable tag. If a `HelmRelease` or
+   `Application` still points at the old `ghcr.io/platformrelay/kollect` chart path (no `charts/`
+   segment), repoint it — that path no longer receives new chart versions
+   ([ADR-0709](../adr/0709-chart-image-oci-path-separation.md)).
 
 !!! note "Open question"
     A guarded `upgradeCRDs` Helm value remains **undecided** ([ADR-0704](../adr/0704-helm-chart-crd-lifecycle.md)).

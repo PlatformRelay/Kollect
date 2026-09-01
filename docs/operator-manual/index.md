@@ -47,8 +47,14 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace
 Published releases push the chart to GHCR ([ADR-0705](../adr/0705-release-supply-chain.md)):
 
 ```sh
-helm install kollect oci://ghcr.io/platformrelay/kollect -n kollect-system --create-namespace
+helm install kollect oci://ghcr.io/platformrelay/charts/kollect -n kollect-system --create-namespace
 ```
+
+The chart lives under `charts/` and the controller image under `ghcr.io/platformrelay/kollect`:
+one Artifact Hub repository entry indexes one chart, and the old shared path also served the image
+([ADR-0709](../adr/0709-chart-image-oci-path-separation.md)). Installs made from the old coordinate
+keep working — the history was copied, so both paths serve identical digests — but new versions are
+published only under `charts/`, so repoint anything pinned or automated against the old path.
 
 Omitting `--version` installs the latest published chart. In production, pin a specific version
 (e.g. `--version 0.5.0` — see the [releases page](https://github.com/platformrelay/kollect/releases)).
@@ -246,8 +252,8 @@ export VERSION=0.10.0                             # target release, matches the 
 
 ### 1. Chart from the GitHub Release asset
 
-Install the chart from the release `.tgz` instead of the OCI `oci://ghcr.io/platformrelay/kollect`
-pull:
+Install the chart from the release `.tgz` instead of the OCI
+`oci://ghcr.io/platformrelay/charts/kollect` pull:
 
 ```sh
 curl -sSLO https://github.com/platformrelay/kollect/releases/download/v${VERSION}/kollect-${VERSION}.tgz
