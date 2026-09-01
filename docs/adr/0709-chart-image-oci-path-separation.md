@@ -310,15 +310,29 @@ It sits after step 9 rather than between 6 and 9 only because nothing forces it 
 old bare tags stay live and installable, so a stale coordinate keeps working right up until it is
 replaced.
 
-**Do not hand-run steps 4–8.** They are implemented by `hack/migrate-chart-path.sh`, which ships
-with this story. Run `--plan` first; it is **dry-run by default** and `--apply` is required before it
-writes anything. Using it rather than pasting the commands below is not a convenience — the script
-enforces the ordering this section calls load-bearing, refuses to republish `0.9.0`–`0.13.0` at
-runtime rather than trusting the operator to remember, refuses to overwrite a destination tag whose
-digest differs, keeps the registry token out of the process table, and stops the whole run if the V1
-gate does not pass. It also implements AC1 below as `--verify-ac1`, so the acceptance check is a
-command rather than a procedure. If that script is not in your checkout, the raw commands are above
-and below — but you lose every one of those guards.
+**Do not hand-run steps 4, 5 and 7.** Those three are implemented by
+`hack/migrate-chart-path.sh`, which ships with this story. Start with `--plan`, a credential-free
+local mode that prints what would be copied; the migration itself is **dry-run by default** and
+`--apply` is required before anything is written.
+
+Using it rather than pasting commands is not a convenience. The script enforces the ordering this
+section calls load-bearing, refuses **at runtime** to republish `0.9.0`–`0.13.0` rather than trusting
+the operator to remember, refuses to overwrite a destination tag whose digest differs, keeps the
+registry token out of the process table, and stops the whole run if the V1 gate does not pass.
+
+**Steps 6 and 9 remain yours.** The script deliberately checks package visibility and stops rather
+than flipping it, because GitHub's Packages API has no endpoint that sets container visibility — a
+tool claiming to flip it would be a tool that silently did nothing. It prints the click-path instead.
+
+It also offers `--verify-ac1`, which mechanises **part** of AC1 below: it polls the endpoint, refuses
+to call an unadvanced timestamp a result, and checks that `url` flipped and `verified_publisher`
+survived. It does **not** cover every clause — the non-empty baseline and the "no tracking mail in
+the same window" witness stay manual, so read AC1 itself rather than treating a `PASS` as the whole
+criterion.
+
+If the script is not in your checkout, the V1 commands are in the block above and the rest are in
+`.github/workflows/release.yaml`, which already performs the same pushes on every release — but you
+lose every guard listed here.
 
 **What actually gates each step.** Steps 4, 5 and 7 need `write:packages` plus
 `cosign`/`crane`/`oras`. A *harness session* has neither, which is why they are marked maintainer —
