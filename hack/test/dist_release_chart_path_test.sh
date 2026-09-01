@@ -167,14 +167,34 @@ mkdir -p "${STUB_BIN}"
 cat >"${STUB_BIN}/helm" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${STUB_LOG}/helm.args"
-printf '%s' "${3:-}" >"${STUB_LOG}/helm.target"
+
+# Scan argv for the target and the package rather than reading $3 and $2 positionally.
+# A benign `helm push --debug "${CHART_PKG}" "${CHART_OCI}"` would otherwise shift both
+# and produce a false red whose message blamed the wrong thing -- fails closed, but
+# misdirects, and a misdirecting gate costs more than the mutation it catches.
+target=""
+pkg=""
+for arg in "$@"; do
+  case "${arg}" in
+  oci://*) target="${arg}" ;;
+  *.tgz) pkg="${arg}" ;;
+  esac
+done
+
+# Recorded ONLY for `push`, and APPENDED. Writing on every invocation with `>` would let a
+# later `helm registry login` (or a second push) silently decide what the assertion reads;
+# appending makes an unexpected extra push a visible failure instead.
+if [[ "${1:-}" == "push" ]]; then
+  printf '%s\n' "${target}" >>"${STUB_LOG}/helm.target"
+fi
+
 if [[ -n "${STUB_HELM_FORCE_REF:-}" ]]; then
   printf 'Pushed: %s\n' "${STUB_HELM_FORCE_REF}" >&2
 else
   # <name>-<version>.tgz, the name `helm package` gives a chart. Simple semver only,
   # which is all the simulation uses.
-  pkg="$(basename "${2:-}" .tgz)"
-  printf 'Pushed: %s/%s:%s\n' "${3#oci://}" "${pkg%-*}" "${pkg##*-}" >&2
+  base="$(basename "${pkg}" .tgz)"
+  printf 'Pushed: %s/%s:%s\n' "${target#oci://}" "${base%-*}" "${base##*-}" >&2
 fi
 printf 'Digest: %s\n' "${STUB_HELM_DIGEST}" >&2
 STUB
@@ -276,8 +296,16 @@ resolve_step_env() {
 
 # Run one step's `run:` body under `env -i`, so nothing leaks in from this test's own
 # environment and an unset value is an empty value, not an accidental pass.
+#
+# $4/$5 redirect the STEP BODY's stdout/stderr, and nothing else. Callers must NOT wrap
+# the call in their own redirection: run_step's diagnostics come from fail(), which writes
+# to stderr and then exits, so a caller-side `2>&1 >file` captures them into a file the
+# EXIT trap deletes -- leaving a bare rc=1 after a green `ok -` line, which reads as a
+# broken gate rather than as the violation it is. A gate whose whole product is naming
+# what broke cannot afford to swallow its own diagnostics.
 run_step() {
   local sel="$1" step="$2" allow_owner="$3"
+  local out="${4:-/dev/stdout}" err="${5:-/dev/stderr}"
   local body script
   body="$(step_run "${sel}")"
   [[ -n "${body}" ]] || fail "'${step}' has an empty run: body"
@@ -294,7 +322,7 @@ run_step() {
   script="${TMP}/step.sh"
   printf '%s\n' "${body}" >"${script}"
   resolve_step_env "${sel}" "${step}" "${allow_owner}"
-  env -i "${SIM_ENV[@]}" bash "${script}"
+  env -i "${SIM_ENV[@]}" bash "${script}" >"${out}" 2>"${err}"
 }
 
 output_value() {
@@ -306,7 +334,7 @@ output_value() {
 # 4. The `chart` step is the single source of truth.
 # ---------------------------------------------------------------------------
 : >"${TMP}/github_output"
-run_step "${CHART_STEP_SEL}" "the chart-coordinate step" "yes" >/dev/null ||
+run_step "${CHART_STEP_SEL}" "the chart-coordinate step" "yes" /dev/null ||
   fail "the chart-coordinate step's run: body failed to execute"
 
 SIM_CHART_OCI="$(output_value oci)"
@@ -351,7 +379,7 @@ PROD_OWNER="PlatformRelay"
   SIM_REGISTRY="${WF_REGISTRY}"
   SIM_OWNER="${PROD_OWNER}"
   SIM_CHART_NAME="${WF_CHART_NAME}"
-  run_step "${CHART_STEP_SEL}" "the chart-coordinate step" "yes" >/dev/null
+  run_step "${CHART_STEP_SEL}" "the chart-coordinate step" "yes" /dev/null
 ) || fail "the chart-coordinate step failed to execute with production inputs"
 
 prod_oci="$(output_value oci)"
@@ -373,21 +401,24 @@ pass "with production inputs the chart coordinate is ${prod_repo}"
 STUB_HELM_FORCE_REF=""
 publish_status=0
 run_step "${PUBLISH_STEP_SEL}" "Publish and sign Helm chart (OCI)" "no" \
-  >"${TMP}/publish.out" 2>&1 || publish_status=$?
+  "${TMP}/publish.out" "${TMP}/publish.err" || publish_status=$?
 
 # EXACT, not a substring match. `helm push` appends the chart name to whatever target it
 # is given, so passing the full chart repository instead of its parent silently publishes
 # to <repo>/<chart>/<chart>. A substring test is satisfied by both, since the parent path
 # is a prefix of the child -- which is exactly how that mutation passed an earlier
 # revision of this gate green.
-helm_target="$(cat "${TMP}/helm.target" 2>/dev/null || true)"
+mapfile -t helm_targets <"${TMP}/helm.target"
+[[ "${#helm_targets[@]}" -eq 1 ]] ||
+  fail "expected exactly one 'helm push' from the publish step, saw ${#helm_targets[@]} (targets: ${helm_targets[*]-none}) -- with more than one, the target assertion below cannot say which push it is judging"
+helm_target="${helm_targets[0]}"
 [[ "${helm_target}" == "${SIM_CHART_OCI}" ]] ||
   fail "'helm push' must be given exactly the chart step's 'oci' output ('${SIM_CHART_OCI}') as its target, got '${helm_target}' -- helm APPENDS the chart name, so this publishes to '${helm_target#oci://}/${SIM_CHART_NAME}'"
 
 # Only now: the step must have succeeded. Checked after the target assertion so a
 # wrong-target mutation reports the wrong target rather than the downstream symptom.
 [[ "${publish_status}" -eq 0 ]] ||
-  fail "the publish step failed against a faithful stub helm push to '${SIM_CHART_OCI}': $(tr '\n' ' ' <"${TMP}/publish.out")"
+  fail "the publish step failed against a faithful stub helm push to '${SIM_CHART_OCI}': $(tr '\n' ' ' <"${TMP}/publish.out") | stderr: $(tr '\n' ' ' <"${TMP}/publish.err")"
 
 # cosign signs a DIGEST reference; the repository half of it is what DIST-AH-03 is about.
 # Asserted against the synthetic coordinate, so a re-derived or hardcoded ref reds here.
@@ -407,7 +438,7 @@ pass "helm push and cosign sign both consume the chart step's outputs, and the s
 : >"${TMP}/github_output"
 : >"${TMP}/cosign.args"
 STUB_HELM_FORCE_REF="${SIM_REGISTRY}/${SIM_OWNER_LC}/${SIM_CHART_NAME}:${SIM_VERSION}"
-if run_step "${PUBLISH_STEP_SEL}" "Publish and sign Helm chart (OCI)" "no" >/dev/null 2>&1; then
+if run_step "${PUBLISH_STEP_SEL}" "Publish and sign Helm chart (OCI)" "no" /dev/null /dev/null; then
   fail "the publish step accepted a 'helm push' that wrote to '${STUB_HELM_FORCE_REF}' instead of '${SIM_CHART_REPO}'. It must parse the pushed reference out of the helm push output and fail when it is not under the expected chart repository"
 fi
 [[ ! -s "${TMP}/cosign.args" ]] ||
@@ -422,7 +453,7 @@ pass "the publish step fails closed when helm pushes outside the derived chart r
 # ---------------------------------------------------------------------------
 : >"${TMP}/github_output"
 : >"${TMP}/oras.args"
-run_step "${METADATA_STEP_SEL}" "Push Artifact Hub metadata" "no" >/dev/null ||
+run_step "${METADATA_STEP_SEL}" "Push Artifact Hub metadata" "no" /dev/null ||
   fail "the Artifact Hub metadata step failed to execute against stub oras"
 
 grep -Eq "^push .*${SIM_CHART_REPO}:artifacthub.io" "${TMP}/oras.args" ||
