@@ -1,10 +1,22 @@
 # Artifact Hub repository metadata (ADR-0708, ADR-0709), pushed to
 # ghcr.io/<owner>/charts/kollect:artifacthub.io by the release workflow.
 #
+# That coordinate is produced by the release workflow's chart-path wiring, which ships
+# separately (lane/dist-ah-03-release-path). Until that lands, `main`'s workflow still
+# pushes this file to the pre-ADR-0709 path — the line above describes the target layout,
+# not what an unmodified `main` does today.
+#
+# MIND THE TENSE IN THIS FILE. Its bytes are `oras push`ed to the registry at the release
+# step, which runs BEFORE the maintainer repoints the registered Artifact Hub URL in the
+# control panel (a human action, late in the ADR-0709 runbook). Anything written here as
+# an accomplished fact about Artifact Hub's own state is therefore published while it is
+# still false. Describe the mechanism instead: what an action does whenever it happens.
+#
 # 2026-08-18 — repository registered on Artifact Hub as `kollect`
 # (https://artifacthub.io/packages/search?repo=kollect); Verified Publisher active.
-# The registered URL was repointed in place to the charts/ path (ADR-0709), which keeps
-# the repository ID, stars and Verified Publisher status.
+# ADR-0709 repoints that registration at the charts/ path. Editing a registered URL in
+# place keeps the repository ID, stars and Verified Publisher status — `Manager.Update`
+# keys on repository NAME, not URL — so the listing survives the move.
 #
 # Verified Publisher requires BOTH: the pushed repositoryID matches the registered
 # one, AND the owner email matches the email on the Artifact Hub account that owns
@@ -27,11 +39,13 @@ owners:
 #
 # 2. The DR-FIND-07 image/chart collision lives at the OTHER path, permanently.
 #    ghcr.io/platformrelay/kollect serves the controller image at v-prefixed tags
-#    (v0.18.0) and, for everything released before ADR-0709, the Helm chart at bare
-#    semver tags (0.18.0). The image does NOT move — its digest is pinned immutably in
-#    OLM bundles already merged into the community catalogs — and the old bare chart
-#    tags are not deletable-by-policy either, so that path stays mixed forever. It is
-#    simply no longer tracked by Artifact Hub, which makes the mixture inert.
+#    (v0.18.0) and, for releases before ADR-0709, the Helm chart at bare semver tags
+#    (0.18.0). The image does NOT move — its digest is pinned immutably in OLM bundles
+#    already merged into the community catalogs. The surviving bare chart tags (0.14.0
+#    and later) stay published: they are installable charts that someone may have pinned,
+#    so deleting them would break real installs. That path therefore stays mixed. Once the
+#    Artifact Hub registration points at charts/, it is no longer tracked there, which is
+#    what makes the mixture inert rather than a source of tracking errors.
 #
 # 3. `ignore` FILTERS INDEXING, NEVER LOADING. THIS IS WHY THERE IS NO IGNORE LIST.
 #    ############################################################################
@@ -50,7 +64,10 @@ owners:
 #
 # The previous ignore list (v-prefixed image tags plus the broken 0.9.0–0.13.0 charts)
 # was deleted with the move and must not come back: no v* tags are pushed to this path,
-# and charts 0.9.0–0.13.0 are deleted from the registry and must never be republished —
+# and charts 0.9.0–0.13.0 were deleted from the registry and must never be republished —
 # they hardcode `image.tag: latest`, a tag that was never pushed, so they cannot install
-# (the manager would sit in ImagePullBackOff). A regex matching nothing is not a safety
-# net; it reads like one, which is how it got tuned instead of understood.
+# (the manager would sit in ImagePullBackOff). That deletion is not in tension with the
+# tags kept at the old path under 2: those four could not install at all, these can.
+# Only 0.14.0–0.19.0 exist as installable charts and carry over to charts/kollect;
+# 0.9.0–0.13.0 exist on neither path. A regex matching nothing is not a safety net; it
+# reads like one, which is how it got tuned instead of understood.
