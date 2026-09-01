@@ -126,6 +126,14 @@ jobs:
         run: bash hack/test/demo_01_default_samples_test.sh
       - name: Verify demo sample Kustomizations render (DOC-04)
         run: bash hack/test/demo_04_samples_kustomize_test.sh
+      # CI-HELMDL-01: hack/install-helm.sh is what the kind-e2e-setup composite action runs to
+      # get helm, and a single transient `curl: (7)` to get.helm.sh reddened the REQUIRED
+      # kind-smoke check on PR #351. This gate locks in the retry/protocol-pinning hardening
+      # without letting it erode the SHA256 verification. It runs BEFORE the Install Helm step
+      # below, so a broken installer is reported as a gate failure rather than as a mystery
+      # download error. Not matched by the dist_* or sonar_ko_* globs, hence the explicit run.
+      - name: Verify install-helm download hardening (CI-HELMDL-01)
+        run: bash hack/test/ci_install_helm_hardening_test.sh
       - name: Install Helm
         env:
           HELM_VERSION: v3.21.4
