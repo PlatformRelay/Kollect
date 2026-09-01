@@ -82,6 +82,18 @@ logical_lines() {
   ' "${SCRIPT}"
 }
 
+# `grep -q` MUST NOT be used at the end of a pipeline in this file. Under `set -o pipefail` it
+# exits on its first match and closes the pipe, the upstream stage takes SIGPIPE, and the
+# PIPELINE status goes non-zero -- so `! producer | grep -q BAD` reports "not found" precisely
+# when BAD *is* found. Two negative assertions below were written that way and were silently
+# inverted; the wiring assertion at the bottom was written that way and red on a correct
+# workflow. `grep -c` reads its input to the end, so counting is race-free in both directions.
+count_matches() {
+  local pattern_type="$1" pattern="$2" hits
+  hits="$(grep "${pattern_type}" -c -- "${pattern}" || true)"
+  printf '%s\n' "${hits:-0}"
+}
+
 mapfile -t CURL_LINES < <(logical_lines | grep -E '(^|[^[:alnum:]_./-])curl([[:space:]]|$)' || true)
 (( ${#CURL_LINES[@]} > 0 )) ||
   fail "${SCRIPT} contains no curl invocation -- either the downloads were replaced by something this gate does not inspect, or the logical-line extraction above is broken; in both cases the per-invocation assertions would pass vacuously"
@@ -90,7 +102,7 @@ pass "found ${#CURL_LINES[@]} curl invocation(s) to inspect"
 # Catches the mutation "swap curl for wget to sidestep the gate": every behavioural assertion
 # below rides on a stub `curl` on PATH, so a different fetcher would silently reach the real
 # network and turn this whole suite into a no-op.
-! logical_lines | grep -Eq '(^|[^[:alnum:]_./-])(wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$)' ||
+[[ "$(logical_lines | count_matches -E '(^|[^[:alnum:]_./-])(wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$)')" == "0" ]] ||
   fail "${SCRIPT} fetches with something other than curl -- the behavioural half of this gate stubs curl on PATH and would not observe it, so keep the fetcher as curl (or extend this gate first)"
 
 for line in "${CURL_LINES[@]}"; do
@@ -122,6 +134,30 @@ for line in "${CURL_LINES[@]}"; do
   (( connect_n >= 1 )) ||
     fail "curl invocation sets '--connect-timeout ${connect_n}' (0 means 'no timeout'): ${line}"
 
+  # Mutation caught: dropping --tlsv1.2. Low impact on its own -- --proto '=https' still holds
+  # the scheme -- but locking the flag set is this gate's stated job, and a TLS floor is part of
+  # that set in the kind loop this is deliberately symmetric with. Asserted so "consistent with
+  # the kind download" stays a checked claim rather than a comment.
+  grep -Eq -- '(^|[[:space:]])--tlsv1\.[23]([[:space:]]|$)' <<<"${line}" ||
+    fail "curl invocation lost its --tlsv1.2 TLS floor: ${line}"
+
+  # Mutation caught: dropping --max-time, or setting it so tight it becomes a flake source.
+  # --connect-timeout bounds only the CONNECT; a body that stalls after the first byte hangs
+  # until the job timeout with no diagnostic, which on a required check is the same lost hour
+  # this whole change exists to prevent. The >= 30 floor guards the other direction: a timeout
+  # flag is itself a way to introduce flake, and 18MB inside 30s is already a 600 KB/s demand.
+  maxtime_n="$(grep -Eo -- '--max-time[[:space:]]+[0-9]+' <<<"${line}" | head -1 | grep -Eo '[0-9]+' || true)"
+  [[ -n "${maxtime_n}" ]] ||
+    fail "curl invocation is missing '--max-time <n>', so a stalled transfer has no bound: ${line}"
+  (( maxtime_n >= 30 )) ||
+    fail "curl invocation sets '--max-time ${maxtime_n}', which is tight enough to abort a healthy download of an 18MB tarball and become a new flake source: ${line}"
+
+  # curl resets the --max-time counter on every one of its OWN retries, so --max-time alone
+  # bounds an attempt, not the invocation. --retry-max-time is what closes that: without it,
+  # '--retry 5 --max-time 120' is a 12-minute worst case per fetch, times three outer attempts.
+  grep -Eq -- '(^|[[:space:]])--retry-max-time[[:space:]]+[0-9]+' <<<"${line}" ||
+    fail "curl invocation is missing '--retry-max-time <n>' -- curl resets --max-time on each of its own retries, so without it the invocation is bounded only by (--retry + 1) x --max-time: ${line}"
+
   # Mutation caught: "fixing" a TLS problem by turning verification off. -k/--insecure would
   # make --proto '=https' worthless.
   ! grep -Eq -- '(^|[[:space:]])(-k|--insecure|--proto-default[[:space:]]+http)([[:space:]]|$)' <<<"${line}" ||
@@ -133,11 +169,11 @@ for line in "${CURL_LINES[@]}"; do
   grep -Eq -- '(^|[[:space:]])(-[a-zA-Z]*f[a-zA-Z]*|--fail)([[:space:]]|$)' <<<"${line}" ||
     fail "curl invocation lost -f/--fail, so an HTTP error page would be treated as a successful download: ${line}"
 done
-pass "every curl invocation pins https, retries, bounds the connect, fails on HTTP errors, and keeps TLS verification"
+pass "every curl invocation pins https and a TLS floor, retries, bounds the connect AND the transfer, fails on HTTP errors, and keeps TLS verification"
 
 # Mutation caught: pointing any URL at plaintext http://. Checked over the whole file, not just
 # the curl lines, because the URLs are assembled into BASE_URL well above the fetches.
-! logical_lines | grep -Fq 'http://' ||
+[[ "$(logical_lines | count_matches -F 'http://')" == "0" ]] ||
   fail "${SCRIPT} references a plaintext http:// URL -- every fetch in this script must be https"
 pass "no plaintext http:// URL anywhere in the installer"
 
@@ -455,8 +491,26 @@ assert_stub_was_used "empty checksum body"
 pass "an empty checksum response aborts before the tarball is ever requested"
 
 # --- Case H: well-formed-looking but non-digest checksum body -----------------------------------
-# A 200 that carries an interception page rather than a digest. The `-z` guard alone does not
-# catch this; the result would be a "checksum mismatch" that misdescribes what went wrong.
+# A 200 that carries an interception page rather than a digest. The `-z` guard does not catch
+# this: the body is non-empty, so it sails through into EXPECTED_SHA256.
+#
+# REVIEW FIX (F1). The first version of this case asserted only "exits non-zero" and "installs
+# nothing", and an independent reviewer killed it by DELETING the 64-hex shape guard from the
+# installer: without the guard the HTML falls through to the digest comparison, which of course
+# does not match, so the script still exits non-zero and installs nothing and this case still
+# went green -- passing for entirely the wrong reason while its own comment claimed to cover the
+# guard. That is the worst failure mode a gate has, and it mattered here because the shape guard
+# is one of the three things this change advertises as making the script STRONGER; an advertised
+# hardening with no test behind it is precisely what a future simplification pass deletes with
+# every gate still green.
+#
+# The two assertions that actually discriminate:
+#   * tarball requests == 0. WITH the guard, the script aborts before the tarball is ever
+#     requested. WITHOUT it, the tarball must be downloaded in full before the comparison can
+#     fail -- so this count, and only this count, separates the two worlds.
+#   * the diagnostic names the SHAPE failure. Falling through to the comparison reports
+#     "checksum mismatch", which sends the reader hunting for a corrupt tarball that is fine,
+#     when the real fault is that no checksum was ever received.
 new_case checksum-garbage
 printf '<html><body>Authentication required</body></html>\n' >"${STUB_DIR}/checksum_body"
 run_installer
@@ -465,6 +519,52 @@ assert_stub_was_used "non-digest checksum body"
   fail "non-digest checksum body: installer exited 0 while holding an HTML page as its expected digest"
 [[ ! -e "${BIN_DIR}/helm" ]] ||
   fail "non-digest checksum body: nothing may be installed"
-pass "a non-digest checksum response aborts the install"
+[[ "$(requests tarball)" == "0" ]] ||
+  fail "non-digest checksum body: the tarball was requested $(requests tarball) time(s) -- the 64-hex shape guard is gone, so an interception page reached the digest comparison instead of being rejected as 'not a checksum'; the install still fails, but 18MB later and under a diagnostic that blames the tarball"
+grep -Fq 'not a bare sha256 digest' <<<"$(case_err)" ||
+  fail "non-digest checksum body: the error must say the checksum body is not a digest, not 'checksum mismatch' -- a mismatch diagnostic points the reader at the tarball when the fault is that no checksum was received. Got: $(case_err)"
+pass "a non-digest checksum response is rejected as a bad checksum, before the tarball is requested"
+
+# ---------------------------------------------------------------------------------------------
+# REVIEW FIX (F2): this gate must assert its own registration. House precedent is
+# hack/test/dev_mise_pin_drift_test.sh -- "an unwired gate is not a gate".
+#
+# It carries more weight here than for the scripts around it. The lint job runs most of its
+# meta-tests through two globs, `hack/test/dist_*_test.sh` and `hack/test/sonar_ko_*_test.sh`,
+# and neither pattern matches `ci_install_helm_hardening_test.sh`. So this gate is held in CI by
+# exactly one explicit two-line step, and deleting that step -- the obvious move for anyone
+# trying to make a red go away -- removes it from CI while leaving the script in the tree,
+# fully green when run by hand, protecting nothing.
+CI_WORKFLOW="${ROOT}/.github/workflows/ci.yaml"
+[[ -f "${CI_WORKFLOW}" ]] || fail "${CI_WORKFLOW} is missing"
+
+# LINE-EXACT against a comment-stripped, `run:`-unwrapped, trimmed view -- not a substring
+# search for the filename. Both refinements are borrowed from failures the house gates already
+# paid for, and both were re-proven here: a plain `grep -Fq` for the invocation was written
+# first and mutation-tested, and it passed on `run: "# bash hack/test/..."`.
+#
+#   * GATE-COMMENT-01 (hack/test/dist_ci_wiring_test.sh): a commented-out command is not a
+#     command. Dropping YAML lines that START with `#` is not enough -- the shell comment lives
+#     INSIDE the scalar, so `run: "# bash ..."` survives that filter untouched.
+#   * GATE-SCOPE-01 (same file): a substring match cannot tell the real invocation from a
+#     neutered lookalike. `bash <script> || true` and `bash <script> &` both contain the literal
+#     while neither can fail the step.
+#
+# Stripping an optional `run:` prefix makes one assertion cover both spellings a step can use:
+# the inline `run: bash <script>` this workflow uses today, and a `run: |` block scalar.
+#
+# KNOWN RESIDUAL, recorded rather than papered over: a step-level `continue-on-error: true` or
+# `if: false` on this step would leave the invocation line-exact and still stop it failing the
+# build. Seeing that needs a structural yq read, and yq is not guaranteed on the runner at this
+# point in the lint job -- it is installed by a later step, so hard-requiring it here would red
+# the job for a reason unrelated to helm. The job-level half of that hole is already closed:
+# hack/test/dist_ci_wiring_test.sh asserts the lint job itself is neither conditional nor
+# soft-failed. If this gate ever moves after the "Ensure yq is available" step, tighten this
+# into a yq step-graph assertion in the shape dist_ci_wiring_test.sh uses.
+[[ "$(grep -vE '^[[:space:]]*#' "${CI_WORKFLOW}" |
+  sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^run:[[:space:]]*//' |
+  count_matches -Fx 'bash hack/test/ci_install_helm_hardening_test.sh')" != "0" ]] ||
+  fail "hack/test/ci_install_helm_hardening_test.sh is not invoked from .github/workflows/ci.yaml on a bare, uncommented 'bash <script>' line -- an unwired gate is not a gate, and the dist_*/sonar_ko_* globs in the lint job do NOT match this filename, so one explicit step is the only thing keeping it in CI. The step is missing, commented out, or neutered (a trailing '|| true', '&' or redirect)."
+pass "the gate is wired into .github/workflows/ci.yaml by an explicit, uncommented, unguarded step"
 
 echo "All CI-HELMDL-01 install-helm hardening tests passed."

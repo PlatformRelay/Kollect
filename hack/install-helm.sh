@@ -15,9 +15,17 @@ INSTALL_DIR="${1:-/usr/local/bin}"
 # shape below are copied from it deliberately: the defect was an ASYMMETRY between two
 # downloads in one step, so the fix is to make them the same, not to invent a third style.
 #
-# Deviation from that model, on purpose: the kind loop falls THROUGH when all three attempts
-# fail, so the real failure surfaces later as a confusing `chmod` error on a file that was
-# never written. fetch_with_retry returns non-zero and says which URL died.
+# Two deliberate deviations from that model. (1) The kind loop falls THROUGH when all three
+# attempts fail. `set -euo pipefail` still fails the job -- the next command is `chmod +x` on a
+# file that was never written -- so it is not a false green, but the operator is handed a chmod
+# error instead of "could not reach the origin", and the loop has already burned a pointless
+# 10s sleep after its last attempt. fetch_with_retry returns non-zero naming the URL, and skips
+# the sleep on the final attempt. (2) `--max-time`/`--retry-max-time` bound the TRANSFER, which
+# nothing in the kind loop does: `--connect-timeout` only bounds the connect, so a body that
+# stalls after the first byte hangs until the job's own timeout kills it with no diagnostic.
+# 120s is a 150 KB/s floor on an 18 MB tarball -- unreachable on a working link, so it cannot
+# introduce the flake class it exists to remove -- and it caps one curl invocation at ~4 min,
+# hence the whole helper at ~12 min, instead of at infinity.
 #
 # WHY AN OUTER LOOP AT ALL, given `--retry 5` is on the command line: curl's --retry covers
 # "transient" responses -- 408, 429, 5xx, timeouts -- but NOT a failed connect, unless
@@ -47,7 +55,8 @@ fetch_with_retry() {
   local attempt
   for ((attempt = 1; attempt <= CURL_ATTEMPTS; attempt++)); do
     if curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
-      -fsSL --retry 5 --retry-delay 5 --connect-timeout 30 \
+      -fsSL --retry 5 --retry-delay 5 --retry-max-time 120 \
+      --connect-timeout 30 --max-time 120 \
       -o "${dest}" "${url}"; then
       return 0
     fi
@@ -111,5 +120,6 @@ if [[ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]]; then
 fi
 
 tar -xzf "${TMP_DIR}/${TARBALL}" -C "${TMP_DIR}"
+mkdir -p "${INSTALL_DIR}"
 install -m 0755 "${TMP_DIR}/${OS}-${ARCH}/helm" "${INSTALL_DIR}/helm"
 "${INSTALL_DIR}/helm" version --short
