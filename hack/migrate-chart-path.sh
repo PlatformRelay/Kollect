@@ -123,6 +123,17 @@ PROTECTED_PACKAGE_VERSION_ID="1087932920"
 # last_tracking_errors for the `kollect` repository.
 AH_SEARCH_URL="https://artifacthub.io/api/v1/repositories/search?name=kollect&kind=0&limit=5"
 
+# ADR-0709 identifies the Artifact Hub repository by repository_id, and so does this script.
+# The endpoint is a SEARCH: taking element 0 would silently substitute any future sibling
+# whose name merely contains "kollect", and even an exact name match is only as stable as
+# the name. repository_id is the row's identity -- the same value that must survive the URL
+# repoint, and the same one recorded in artifacthub-repo.yml. Exact name is kept as a
+# fallback so the mode still reports something useful if the id is ever reissued.
+AH_REPOSITORY_ID="cb3be9a6-8e3b-4419-9de5-1184fe349c29"
+
+# Floor for --interval on LIVE reads. Artifact Hub tracks roughly every 30 minutes.
+AH_MIN_INTERVAL=60
+
 # --------------------------------------------------------------------------------------
 # Mode / options
 # --------------------------------------------------------------------------------------
@@ -355,10 +366,17 @@ registry_user() {
 # --password-stdin; curl reads its credential from a config file on stdin via `-K -`.
 #
 # The token is also format-checked before it is ever interpolated. Every GitHub token form
-# (ghp_/gho_/ghs_/github_pat_ classic and fine-grained) is [A-Za-z0-9_], so a value carrying
-# a quote, a backslash, whitespace or a newline is not a token -- it is a copy-paste
-# accident or an injection into curl's config parser, and either way it should stop here
-# rather than be escaped into working.
+# (ghp_/gho_/ghs_/github_pat_ classic and fine-grained) draws from [A-Za-z0-9_]; the check
+# below additionally tolerates '.' and '-' so that a non-GitHub registry credential is not
+# rejected out of hand. What it does NOT tolerate is a quote, a backslash, whitespace or a
+# newline -- none of which appear in any token, and any of which turns the value into an
+# injection into curl's config parser rather than a credential.
+#
+# That is not hypothetical. curl config files take one directive per line, so a token
+# containing a newline followed by `output = /path` makes curl write the response body to
+# an attacker-named path. It is operator-self-inflicted (the value comes from their own
+# environment), which is why the answer is to stop rather than to escape it into working:
+# a value that is not a token should never become a working credential.
 assert_token_shape() {
   local token="$1"
   [[ "${token}" =~ ^[A-Za-z0-9_.-]+$ ]] ||
@@ -625,7 +643,7 @@ copy_and_verify_chart() {
   local version="$1"
   local src="${SRC_REPO}:${version}"
   local dst="${DST_REPO}:${version}"
-  local src_digest dst_digest sig_tag
+  local src_digest dst_digest sig_tag sig_digest
 
   # First thing, before anything reads or writes a registry.
   assert_not_excluded "${version}"
@@ -656,7 +674,12 @@ copy_and_verify_chart() {
     crane manifest ${dst}
   and re-run once the destination is either absent or identical."
     fi
-    if [[ -n "$(digest_or_absent "${DST_REPO}:${sig_tag}")" ]]; then
+    # Assigned first, then tested. `[[ -n "$(...)" ]]` puts the command substitution inside
+    # a condition, where `set -e` does not apply -- so digest_or_absent's die exited its
+    # subshell, the empty result read as "no signature at the destination", and the script
+    # carried on past a message that reads as fatal everywhere else in this file.
+    sig_digest="$(digest_or_absent "${DST_REPO}:${sig_tag}")"
+    if [[ -n "${sig_digest}" ]]; then
       # Idempotent resume: chart and signature both already present and identical, so the
       # copy is a no-op. The VERIFICATION is not: it is re-run in full here, because the
       # only thing this branch has established is that bytes are present, and a previous
@@ -985,8 +1008,18 @@ HANDOFF
 # load-as-chart candidate that should error -- and the endpoint reported SIX errors. The
 # field is whatever that one tracking run happened to hit. So a single empty read proves
 # nothing, and reading the same tracking run twice is the easiest way to manufacture a
-# green result by accident. Two reads whose last_tracking_ts has genuinely ADVANCED are the
-# minimum; an unadvanced timestamp is INCONCLUSIVE and never PASS.
+# green result by accident.
+#
+# ADR-0709 states the criterion precisely: TWO reads, BOTH taken after the repoint, BOTH
+# empty. Every weaker reading of that has a way to be wrong:
+#   * two reads of the same tracking run  -> one sample, not two            -> INCONCLUSIVE
+#   * one post-repoint run, clean          -> whatever that run happened to hit
+#                                                                           -> INCONCLUSIVE
+#   * a pre-repoint run carrying errors    -> expected; not evidence against the repoint
+# A pre-repoint read is therefore not a FAIL, but it is not a credit towards the two
+# either: this mode keeps polling until it has seen two genuinely post-baseline runs, and
+# reports INCONCLUSIVE rather than PASS until it has. On the one criterion this whole
+# migration is measured by, under-claiming is the only acceptable direction to be wrong.
 #
 # Takes the read number (1-based) rather than keeping an internal cursor: every caller
 # reaches this through a command substitution, which is a subshell, so a cursor incremented
@@ -1002,10 +1035,8 @@ ah_read() {
   curl -fsSL -H 'Accept: application/json' "${AH_SEARCH_URL}"
 }
 
-# Print `<ts>|<url>|<verified_publisher>|<error-count>` for the kollect repository, plus the
-# raw error list on fd 3 if the caller wants it. Selecting by exact name rather than taking
-# element 0 blindly: the endpoint is a SEARCH, and a future sibling repository whose name
-# merely contains "kollect" would otherwise be silently substituted for the real one.
+# Prints `<ts>\t<url>\t<verified_publisher>\t<error-count>\t<errors>` for the kollect
+# repository, selected by repository_id with an exact name match as fallback.
 ah_sample() {
   local raw
   raw="$(ah_read "$1")" || die "could not read ${AH_SEARCH_URL}"
@@ -1017,8 +1048,9 @@ ah_sample() {
   # that field, and `split` on an array raises a jq type error -- which would leave this
   # script exiting 5 with a jq stack trace, a code outside its documented 0/1/2 and a
   # result the operator cannot interpret. Being liberal here costs one line.
-  jq -r '
-    (map(select(.name == "kollect")) | .[0]) as $r
+  jq -r --arg id "${AH_REPOSITORY_ID}" '
+    ((map(select(.repository_id == $id)) | .[0])
+      // (map(select(.name == "kollect")) | .[0])) as $r
     | if $r == null then "MISSING" else
         (($r.last_tracking_errors // "")
           | if type == "array" then . else split("\n") end
@@ -1040,108 +1072,151 @@ verify_ac1() {
     warn "reading fixtures instead of ${AH_SEARCH_URL} (MIGRATE_AH_FIXTURES is set)"
   fi
 
-  local s1 ts1 nerr1 s2 ts2 url2 vp2 nerr2 errs2
-  AH_FIXTURE_IDX=1
-  s1="$(ah_sample "${AH_FIXTURE_IDX}")"
-  [[ "${s1}" != "MISSING" ]] || die "Artifact Hub returned no repository named 'kollect'"
-  IFS=$'\t' read -r ts1 _ _ nerr1 _ <<<"${s1}"
-  info "  read 1: last_tracking_ts=${ts1}  ($(date -u -d "@${ts1}" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo 'unparseable'))  errors=${nerr1}"
+  # A zero interval against a live third-party API is an unbounded hot loop for as long as
+  # --timeout allows. It is only ever wanted with fixtures, where reads are local file
+  # copies, so clamp it everywhere else rather than letting a copy-pasted flag hammer
+  # artifacthub.io. Artifact Hub tracks on the order of every 30 minutes; polling faster
+  # than the floor below cannot observe anything the previous poll did not.
+  if (( POLL_INTERVAL < AH_MIN_INTERVAL )) && [[ -z "${MIGRATE_AH_FIXTURES}" ]]; then
+    warn "--interval ${POLL_INTERVAL} raised to ${AH_MIN_INTERVAL}s: artifacthub.io is a public third-party API and tracking runs are ~30 minutes apart, so a tighter poll only adds load"
+    POLL_INTERVAL="${AH_MIN_INTERVAL}"
+  fi
 
-  # Wait for a genuinely different tracking run.
-  local advanced=0 attempt=1 start=${SECONDS}
+  # Distinct tracking runs observed, oldest first. Distinct means "different
+  # last_tracking_ts": the endpoint reports whatever the last run produced, so polling
+  # faster than the tracker returns the SAME run, and a repeated sample is one sample.
+  local -a run_ts=() run_url=() run_vp=() run_nerr=() run_errs=()
+
+  record_run() {
+    local sample="$1" ts url vp nerr errs
+    [[ "${sample}" != "MISSING" ]] ||
+      die "Artifact Hub returned no repository with repository_id ${AH_REPOSITORY_ID} (nor one named 'kollect')"
+    IFS=$'\t' read -r ts url vp nerr errs <<<"${sample}"
+    # Same timestamp as the newest run already recorded => same tracking run => not a new
+    # sample. Silently dropping it here is what makes "two runs" mean two runs.
+    if (( ${#run_ts[@]} )) && [[ "${ts}" == "${run_ts[-1]}" ]]; then
+      return 0
+    fi
+    run_ts+=("${ts}")
+    run_url+=("${url}")
+    run_vp+=("${vp}")
+    run_nerr+=("${nerr}")
+    run_errs+=("${errs}")
+  }
+
+  # How many recorded runs postdate the baseline. Only these are evidence about the
+  # repoint; anything at or before the baseline was produced before it could have taken
+  # effect. `>` and not `>=`: the operator pastes back the timestamp this mode printed, so
+  # the baseline IS a run they already saw, and it must not count as one of the two.
+  post_baseline_count() {
+    local n=0 t
+    [[ -n "${SINCE_TS}" ]] || { printf '0'; return 0; }
+    for t in "${run_ts[@]:-}"; do
+      [[ -n "${t}" ]] || continue
+      if (( t > SINCE_TS )); then
+        n=$(( n + 1 ))
+      fi
+    done
+    printf '%s' "${n}"
+  }
+
+  AH_FIXTURE_IDX=1
+  record_run "$(ah_sample "${AH_FIXTURE_IDX}")"
+
+  # ADR-0709 wants TWO tracking runs taken after the repoint, so that is the target. When
+  # no baseline was given there is nothing to measure "after" against; keep going until two
+  # distinct runs have been seen, purely so the operator is handed a useful baseline.
+  local start=${SECONDS}
   while :; do
-    if (( POLL_INTERVAL > 0 )); then
-      info "  waiting ${POLL_INTERVAL}s for the next tracking run..."
-      sleep "${POLL_INTERVAL}"
+    if [[ -n "${SINCE_TS}" ]]; then
+      (( $(post_baseline_count) < 2 )) || break
+    else
+      (( ${#run_ts[@]} < 2 )) || break
     fi
-    AH_FIXTURE_IDX=$(( AH_FIXTURE_IDX + 1 ))
-    s2="$(ah_sample "${AH_FIXTURE_IDX}")"
-    [[ "${s2}" != "MISSING" ]] || die "Artifact Hub returned no repository named 'kollect'"
-    IFS=$'\t' read -r ts2 url2 vp2 nerr2 errs2 <<<"${s2}"
-    if (( ts2 > ts1 )); then
-      advanced=1
-      break
-    fi
-    attempt=$(( attempt + 1 ))
-    # With fixtures, the run is bounded by the fixture list rather than by the clock.
-    if (( ${#AH_FIXTURES[@]} )) && (( attempt > ${#AH_FIXTURES[@]} )); then
+    # With fixtures the run is bounded by the fixture list rather than by the clock.
+    if (( ${#AH_FIXTURES[@]} )) && (( AH_FIXTURE_IDX >= ${#AH_FIXTURES[@]} )); then
       break
     fi
     if (( SECONDS - start >= POLL_TIMEOUT )); then
       break
     fi
+    if (( POLL_INTERVAL > 0 )); then
+      info "  waiting ${POLL_INTERVAL}s for the next tracking run..."
+      sleep "${POLL_INTERVAL}"
+    fi
+    AH_FIXTURE_IDX=$(( AH_FIXTURE_IDX + 1 ))
+    record_run "$(ah_sample "${AH_FIXTURE_IDX}")"
   done
 
-  info "  read 2: last_tracking_ts=${ts2}  ($(date -u -d "@${ts2}" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo 'unparseable'))"
-  info "  url:                ${url2}"
-  info "  verified_publisher: ${vp2}"
-  info "  tracking errors:    ${nerr2}"
-  if [[ -n "${errs2}" ]]; then
-    printf '%s\n' "${errs2}" | tr '~' '\n' | sed 's/^ *//; s/^/    | /'
-  fi
+  local i latest_ts="${run_ts[-1]}"
+  for i in "${!run_ts[@]}"; do
+    local marker="pre-baseline"
+    if [[ -n "${SINCE_TS}" ]] && (( run_ts[i] > SINCE_TS )); then
+      marker="POST-repoint"
+    elif [[ -z "${SINCE_TS}" ]]; then
+      marker="no baseline given"
+    elif (( run_ts[i] == SINCE_TS )); then
+      marker="IS the baseline run"
+    fi
+    info "  run $(( i + 1 )): last_tracking_ts=${run_ts[i]}  ($(date -u -d "@${run_ts[i]}" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo 'unparseable'))  errors=${run_nerr[i]}  [${marker}]"
+    info "           url=${run_url[i]}  verified_publisher=${run_vp[i]}"
+    if [[ -n "${run_errs[i]}" ]]; then
+      printf '%s\n' "${run_errs[i]}" | tr '~' '\n' | sed 's/^ *//; s/^/    | /'
+    fi
+  done
   info ""
-  info "  baseline for a later run: --since ${ts2}"
+  info "  baseline for a later run: --since ${latest_ts}"
 
-  if (( ! advanced )); then
+  if (( ${#run_ts[@]} < 2 )); then
     info ""
     info "RESULT: INCONCLUSIVE"
-    info "  last_tracking_ts did not advance between the two reads (${ts1} -> ${ts2}), so both"
-    info "  reads sampled the SAME tracking run. last_tracking_errors is a sample, not a"
-    info "  census, and one run is not evidence. Wait for the next run and try again"
-    info "  (--timeout ${POLL_TIMEOUT} was not long enough)."
+    info "  last_tracking_ts never advanced, so every read sampled the SAME tracking run."
+    info "  last_tracking_errors is a sample, not a census, and one run is not evidence."
+    info "  Wait for the next run and try again (--timeout ${POLL_TIMEOUT} was not long enough)."
     exit 2
   fi
 
   if [[ -z "${SINCE_TS}" ]]; then
     info ""
     info "RESULT: INCONCLUSIVE"
-    info "  No --since baseline was given, so nothing ties the observed tracking run to the"
-    info "  URL repoint: an empty error list from a run that predates the repoint says"
-    info "  nothing about the repoint. Re-run with --since ${ts2} once you have repointed,"
-    info "  or with the timestamp captured before the repoint if you have one."
+    info "  No --since baseline was given, so nothing ties these runs to the URL repoint: an"
+    info "  empty error list from a run that predates the repoint says nothing about it."
+    info "  Re-run with --since ${latest_ts} once you have repointed, or with the timestamp"
+    info "  captured before the repoint if you have one."
     exit 2
   fi
 
-  if (( ts2 <= SINCE_TS )); then
+  local npost
+  npost="$(post_baseline_count)"
+  if (( npost < 2 )); then
     info ""
     info "RESULT: INCONCLUSIVE"
-    info "  The observed tracking run (${ts2}) is not newer than the baseline (${SINCE_TS}),"
-    info "  so it cannot reflect the repoint. Wait for the next run."
+    info "  Observed ${npost} tracking run(s) newer than the baseline (${SINCE_TS}); ADR-0709"
+    info "  requires TWO reads BOTH taken after the repoint, both empty. One clean"
+    info "  post-repoint run is not enough -- last_tracking_errors is whatever that single"
+    info "  run happened to hit. Keep polling: re-run with the same --since and a longer"
+    info "  --timeout, and this mode will wait for the second one."
     exit 2
   fi
 
+  # Every post-repoint run has to hold up, not just the newest: AC1 is "both reads empty",
+  # and a repoint that is only intermittently correct is not a repoint that is correct.
   local verdict="PASS" reasons=()
-  # The two things the control-panel edit can silently destroy.
-  if [[ "${url2}" != "oci://${DST_REPO}" ]]; then
-    verdict="FAIL"
-    reasons+=("Artifact Hub still tracks ${url2}, not oci://${DST_REPO} -- the URL repoint has not taken effect")
-  fi
-  if [[ "${vp2}" != "true" ]]; then
-    verdict="FAIL"
-    reasons+=("verified_publisher is ${vp2}, not true -- the repository was probably re-created instead of edited in place, or artifacthub-repo.yml never reached ${DST_REPO}:artifacthub.io")
-  fi
-  if (( nerr2 > 0 )); then
-    verdict="FAIL"
-    reasons+=("the tracking run reported ${nerr2} error(s); the migration has not cleared them")
-  fi
-
-  # AC1 is "both reads empty", and this is the second half of it. It is conditional on
-  # purpose, and the condition is the whole point: read 1 is very often the LAST PRE-REPOINT
-  # tracking run -- the operator repoints, then immediately runs this -- and that run is
-  # supposed to carry errors. Failing on it would make the tool red exactly when it is used
-  # as documented. So read 1 counts as evidence only when it is itself newer than the
-  # baseline, i.e. when it too postdates the repoint; otherwise it is reported and set aside
-  # with the reason stated, rather than silently discarded (which is what it was before).
-  if (( ts1 > SINCE_TS )); then
-    if (( nerr1 > 0 )); then
+  for i in "${!run_ts[@]}"; do
+    (( run_ts[i] > SINCE_TS )) || continue
+    if [[ "${run_url[i]}" != "oci://${DST_REPO}" ]]; then
       verdict="FAIL"
-      reasons+=("read 1 (ts=${ts1}) also postdates the baseline and reported ${nerr1} error(s); AC1 requires BOTH post-repoint runs to be clean")
-    else
-      info "  read 1 (ts=${ts1}) also postdates the baseline and was clean -- two clean post-repoint runs"
+      reasons+=("run at ts=${run_ts[i]} still tracks ${run_url[i]}, not oci://${DST_REPO} -- the URL repoint has not taken effect")
     fi
-  else
-    info "  read 1 (ts=${ts1}) predates the baseline (${SINCE_TS}), so its ${nerr1} error(s) are pre-repoint and not evidence either way"
-  fi
+    if [[ "${run_vp[i]}" != "true" ]]; then
+      verdict="FAIL"
+      reasons+=("run at ts=${run_ts[i]} reports verified_publisher=${run_vp[i]}, not true -- the repository was probably re-created instead of edited in place, or artifacthub-repo.yml never reached ${DST_REPO}:artifacthub.io")
+    fi
+    if (( run_nerr[i] > 0 )); then
+      verdict="FAIL"
+      reasons+=("run at ts=${run_ts[i]} reported ${run_nerr[i]} tracking error(s); the migration has not cleared them")
+    fi
+  done
 
   info ""
   info "RESULT: ${verdict}"
@@ -1152,10 +1227,10 @@ verify_ac1() {
     done
     exit 1
   fi
-  info "  Two distinct tracking runs observed (${ts1} -> ${ts2}, baseline ${SINCE_TS});"
-  info "  the newer one is clean, tracks the new coordinate, and is still Verified Publisher."
-  info "  Re-run this once or twice more over the next few hours: one clean run is good"
-  info "  evidence, several are proof."
+  info "  ${npost} tracking runs newer than the baseline (${SINCE_TS}), all of them clean,"
+  info "  all tracking the new coordinate, all still Verified Publisher."
+  info "  Re-run this once or twice more over the next few hours: two clean runs meet AC1,"
+  info "  several are proof."
 }
 
 # --------------------------------------------------------------------------------------

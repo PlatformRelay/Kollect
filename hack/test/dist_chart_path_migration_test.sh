@@ -372,7 +372,7 @@ grep -Fq -- '--verify-ac1' "${SCRIPT}" ||
 grep -Fq -- '--since' "${SCRIPT}" ||
   fail "--verify-ac1 must take a --since <unix-ts> baseline argument (the baseline lives in gitignored agent-context/, so it cannot be read from the repo)"
 grep -Fq 'INCONCLUSIVE' "${SCRIPT}" ||
-  fail "--verify-ac1 must be able to report INCONCLUSIVE; a mode that can only say PASS or FAIL cannot express 'the tracking run did not advance'"
+  fail "--verify-ac1 must be able to report INCONCLUSIVE; a mode that can only say PASS or FAIL can express neither 'the tracking run did not advance' nor 'only one run postdates the repoint'"
 grep -Fq 'last_tracking_ts' "${SCRIPT}" ||
   fail "--verify-ac1 must read last_tracking_ts"
 grep -Fq 'last_tracking_errors' "${SCRIPT}" ||
@@ -396,6 +396,7 @@ JSON
 NEW_URL="oci://${NEW_PATH}"
 write_fixture "${fixture_dir}/clean_a.json" 1788190801 'null' "${NEW_URL}" true
 write_fixture "${fixture_dir}/clean_b.json" 1788194401 'null' "${NEW_URL}" true
+write_fixture "${fixture_dir}/clean_c.json" 1788198001 'null' "${NEW_URL}" true
 write_fixture "${fixture_dir}/errors_b.json" 1788194401 '"error preparing package: error loading chart (oci://ghcr.io/platformrelay/charts/kollect:v0.19.0): layer not found"' "${NEW_URL}" true
 write_fixture "${fixture_dir}/oldurl_b.json" 1788194401 'null' "oci://${OLD_PATH}" true
 write_fixture "${fixture_dir}/unverified_b.json" 1788194401 'null' "${NEW_URL}" false
@@ -413,7 +414,7 @@ verify_ac1() {
 #     the classic way a safety assertion becomes vacuous.
 out_pass="$(verify_ac1 "${fixture_dir}/clean_a.json:${fixture_dir}/clean_b.json" --since 1788190800 || true)"
 grep -Eq '^(RESULT: )?PASS' <<<"${out_pass}" ||
-  fail "--verify-ac1 must report PASS for two reads with an ADVANCED timestamp, no tracking errors, the new URL and verified_publisher true; got:"$'\n'"${out_pass}"
+  fail "--verify-ac1 must report PASS for TWO reads that both postdate the baseline, both clean, both on the new URL with verified_publisher true; got:"$'\n'"${out_pass}"
 
 # (b) The rule itself: same timestamp in both reads means the same tracking run was
 #     sampled twice. That is not two samples, and it must never be PASS.
@@ -461,20 +462,41 @@ fi
 
 pass "--verify-ac1 enforces two genuinely distinct tracking runs and cannot report PASS from a single sample"
 
-# (g) AC1 is "BOTH reads empty". Read 1 is checked too, but only when it also postdates the
-#     baseline -- read 1 is very often the last PRE-repoint run, which is supposed to carry
-#     errors, and failing on that would make the tool red exactly when used as documented.
+# (g) ADR-0709 states AC1 as TWO reads, BOTH taken after the repoint, BOTH empty. All three
+#     of those words are load-bearing and each has its own way of being got wrong.
 write_fixture "${fixture_dir}/dirty_a.json" 1788190801 '"error preparing package: pre-repoint (package: kollect version: v0.9.0)"' "${NEW_URL}" true
-# Baseline older than BOTH reads: read 1's errors are now post-repoint evidence -> FAIL.
+
+# BOTH EMPTY: a baseline older than both reads makes read 1 post-repoint evidence, so its
+# errors are a FAIL rather than something to be quietly discarded.
 out_both="$(verify_ac1 "${fixture_dir}/dirty_a.json:${fixture_dir}/clean_b.json" --since 1788190000 || true)"
 grep -Fq 'FAIL' <<<"${out_both}" ||
   fail "--verify-ac1 must FAIL when read 1 ALSO postdates the baseline and reported errors -- AC1 requires both post-repoint runs clean; got:"$'\n'"${out_both}"
-# Baseline between the two reads: read 1 is pre-repoint, so its errors are not evidence.
-out_pre="$(verify_ac1 "${fixture_dir}/dirty_a.json:${fixture_dir}/clean_b.json" --since 1788190801 || true)"
-grep -Eq '^(RESULT: )?PASS' <<<"${out_pre}" ||
-  fail "--verify-ac1 must still PASS when read 1 PREDATES the baseline and only read 2 is post-repoint -- that is the normal 'repoint then immediately check' sequence; got:"$'\n'"${out_pre}"
 
-pass "--verify-ac1 checks both reads for AC1, and only counts a read that postdates the baseline"
+# BOTH AFTER THE REPOINT. This is the case the first implementation got wrong, and it is
+# the COMMON case: the operator pastes back the timestamp this mode printed, so read 1 is
+# the baseline run itself -- pre-repoint, and expected to carry errors. Not failing on it
+# was right; calling the result PASS was not. One clean post-repoint run is exactly the
+# "single empty read proves nothing" situation this mode exists to refuse. The verdict is
+# INCONCLUSIVE, and the loop keeps polling for the second post-repoint run.
+out_pre="$(verify_ac1 "${fixture_dir}/dirty_a.json:${fixture_dir}/clean_b.json" --since 1788190801 || true)"
+if grep -Eq '^(RESULT: )?PASS' <<<"${out_pre}"; then
+  fail "--verify-ac1 reported PASS from ONE post-repoint run (read 1 was the baseline run itself). ADR-0709 requires two reads both taken after the repoint; got:"$'\n'"${out_pre}"
+fi
+grep -Fq 'INCONCLUSIVE' <<<"${out_pre}" ||
+  fail "--verify-ac1 must report INCONCLUSIVE when only one observed run postdates the baseline; got:"$'\n'"${out_pre}"
+# A pre-repoint read carrying errors must not be counted AGAINST the repoint either -- that
+# would red the tool when it is used exactly as the handoff instructs.
+grep -Fq 'FAIL' <<<"${out_pre}" &&
+  fail "--verify-ac1 must not FAIL on a read that predates the baseline: those errors are expected pre-repoint output, not evidence about the repoint; got:"$'\n'"${out_pre}"
+
+# ...and the polling actually gets there. Same dirty pre-repoint read 1, then TWO clean
+# post-repoint runs -> PASS. Without this, every assertion above is satisfied by a mode
+# that can no longer reach PASS at all, which is the way a strictness fix becomes a bug.
+out_two_post="$(verify_ac1 "${fixture_dir}/dirty_a.json:${fixture_dir}/clean_b.json:${fixture_dir}/clean_c.json" --since 1788190801 || true)"
+grep -Eq '^(RESULT: )?PASS' <<<"${out_two_post}" ||
+  fail "--verify-ac1 must reach PASS once TWO runs postdating the baseline have both been observed clean; got:"$'\n'"${out_two_post}"
+
+pass "--verify-ac1 requires two runs both taken after the repoint and both empty, per ADR-0709"
 
 # ---------------------------------------------------------------------------
 # 8. Behavioural: the --apply path, driven through recording stubs.
@@ -500,6 +522,7 @@ mkdir -p "${stub_bin}"
 cat >"${stub_bin}/crane" <<'STUB'
 #!/usr/bin/env bash
 printf 'crane %s\n' "$*" >>"${STUB_LOG}"
+if [ "${1:-}" = "auth" ] && [ "${2:-}" = "login" ]; then cat >>"${STUB_LOGIN_STDIN}"; exit 0; fi
 if [ "${1:-}" = "digest" ]; then
   if [ -n "${STUB_CRANE_FLAKE:-}" ] && [ "$2" = "${STUB_CRANE_FLAKE}" ]; then
     printf 'Error: fetching manifest %s: GET https://ghcr.io/v2/token: TOOMANYREQUESTS: retry later\n' "$2" >&2
@@ -530,6 +553,9 @@ case "${1:-}" in
         "${dst%:*}" "${d#sha256:}" >>"${STUB_DIGESTS}"
     fi
     ;;
+  login)
+    cat >>"${STUB_LOGIN_STDIN}"
+    ;;
   verify)
     if [ "${STUB_VERIFY_FAIL:-0}" = "1" ]; then
       printf 'Error: no matching signatures\n' >&2
@@ -548,6 +574,7 @@ STUB
 cat >"${stub_bin}/oras" <<'STUB'
 #!/usr/bin/env bash
 printf 'oras %s\n' "$*" >>"${STUB_LOG}"
+if [ "${1:-}" = "login" ]; then cat >>"${STUB_LOGIN_STDIN}"; fi
 exit 0
 STUB
 
@@ -579,9 +606,12 @@ PUSH_JWT="hdr.$(printf '%s' '{"access":[{"type":"repository","name":"platformrel
 PULL_JWT="hdr.$(printf '%s' '{"access":[{"type":"repository","name":"platformrelay/charts/kollect","actions":["pull"]}]}' | b64url).sig"
 GOOD_SUBJECT_TEMPLATE='https://github.com/platformrelay/kollect/.github/workflows/release.yaml@refs/tags/v__TAG__'
 LAPTOP_SUBJECT_TEMPLATE='https://github.com/platformrelay/kollect/laptop@refs/heads/main'
-# Shaped like a real GitHub PAT so the script's token-format check accepts it, and
-# distinctive enough that finding it in a log is unambiguous.
-TEST_TOKEN='ghp_stubtoken0000000000000000000000000000'
+# Accepted by the script's token-format check and distinctive enough that finding it in a
+# log is unambiguous -- but deliberately NOT shaped like a real PAT. gitleaks runs with
+# useDefault = true and its `github-pat` rule is ghp_[0-9a-zA-Z]{36}; the underscores here
+# break that run, the same trick hack/test/lab_report_redaction_meta_test.sh uses. A test
+# fixture must not be the thing that reds the secret scanner.
+TEST_TOKEN='ghp_FAKESECRET_dist_ah_03_stub_token'
 
 SRC='ghcr.io/platformrelay/kollect'
 DST='ghcr.io/platformrelay/charts/kollect'
@@ -598,6 +628,7 @@ new_scene() {
   : >"${d}/log"
   : >"${d}/digests"
   : >"${d}/curl_stdin"
+  : >"${d}/login_stdin"
   printf '%s' "${d}"
 }
 seed() { printf '%s %s\n' "$2" "$3" >>"$1/digests"; }
@@ -616,6 +647,7 @@ STUB_GHCR_JWT="${PUSH_JWT}"
 STUB_PKG_VISIBILITY=public
 STUB_PKG_HTTP=200
 STUB_CRANE_FLAKE=""
+TOKEN_OVERRIDE=""
 
 # Runs the script under the stub PATH. Returns the script's exit code in `rc`, output in
 # `out`, so both can be asserted on -- a check that only looks at output would accept a
@@ -628,11 +660,12 @@ run_migrate() {
   set +e
   out="$(env "PATH=${stub_bin}:${PATH}" \
     "STUB_LOG=${d}/log" "STUB_DIGESTS=${d}/digests" "STUB_CURL_STDIN=${d}/curl_stdin" \
+    "STUB_LOGIN_STDIN=${d}/login_stdin" \
     "STUB_VERIFY_FAIL=${STUB_VERIFY_FAIL}" "STUB_COPY_CREATES=${STUB_COPY_CREATES}" \
     "STUB_SUBJECT_TEMPLATE=${STUB_SUBJECT_TEMPLATE}" "STUB_GHCR_JWT=${STUB_GHCR_JWT}" \
     "STUB_PKG_VISIBILITY=${STUB_PKG_VISIBILITY}" "STUB_PKG_HTTP=${STUB_PKG_HTTP}" \
     "STUB_CRANE_FLAKE=${STUB_CRANE_FLAKE}" \
-    "GHCR_TOKEN=${TEST_TOKEN}" "GHCR_USER=stubuser" \
+    "GHCR_TOKEN=${TOKEN_OVERRIDE:-${TEST_TOKEN}}" "GHCR_USER=stubuser" \
     bash "$@" 2>&1)"
   rc=$?
   set -e
@@ -716,7 +749,21 @@ done
 grep -Fq 'V1 gate PASSED' <<<"${out}" ||
   fail "--apply with everything healthy must report the V1 gate as passed"
 
-pass "8b: --apply copies source->destination for all six charts and pushes the metadata"
+# The credential path under --apply. 8i covers dry run, where the logins never execute --
+# so without this, swapping `--password-stdin` for `--password "$token"` was invisible to
+# the whole gate. Positive and negative, so neither half can pass for the wrong reason.
+[[ -s "${scene}/login_stdin" ]] ||
+  fail "no registry login supplied its credential on stdin under --apply; the argv assertion below would pass vacuously"
+grep -Fq "${TEST_TOKEN}" "${scene}/login_stdin" ||
+  fail "the token did not reach the registry logins on stdin, so --apply is not authenticating"
+if grep -Fq "${TEST_TOKEN}" "${scene}/log"; then
+  fail "under --apply the registry token appears in a command's ARGV, readable from /proc/<pid>/cmdline. Logins must use --password-stdin:"$'\n'"$(grep -Fn "${TEST_TOKEN}" "${scene}/log")"
+fi
+if grep -Fq "${TEST_TOKEN}" <<<"${out}"; then
+  fail "under --apply the registry token was printed to stdout/stderr"
+fi
+
+pass "8b: --apply copies source->destination for all six charts, pushes the metadata, and keeps the token out of argv"
 
 # --- 8c. The V1 gate cannot be laundered by re-running. --------------------
 # The regression test for the review finding. `cosign copy` runs BEFORE verification, so a
@@ -849,6 +896,14 @@ pass "8g: the never-republish list is enforced at runtime, defeating a hand-edit
 # --- 8h. A transient registry error is not "the tag is absent". ------------
 # `crane digest ... || true` turned a rate limit into a skip, and a skip into exit 0: a
 # chart silently missing from the new path, found only after the URL repoint.
+# The assertions here are about WHERE the run stops, not merely that it stops. An earlier
+# version checked only `rc != 0` and that the word TOOMANYREQUESTS appeared, and both of
+# those are ALSO true of the broken behaviour: the non-zero exit comes from the end-of-run
+# SKIPPED_VERSIONS check, and the error text comes from digest_of's stderr, which is a
+# different code path from the `die` being tested. Deleting the tri-state `die` therefore
+# left the gate fully green while the run went on to copy 0.17.0-0.19.0 and push metadata
+# to a live registry. The discriminating facts are the two below: with the fix, the run
+# stops at 0.16.0, so 0.17.0 is never attempted and Phase 4 is never reached.
 scene="$(new_scene flake)"
 seed_all_sources "${scene}"
 STUB_CRANE_FLAKE="${SRC}:0.16.0"
@@ -858,6 +913,26 @@ STUB_CRANE_FLAKE=""
   fail "a transient (non-404) crane failure must stop the run, not be swallowed as 'no such tag'; rc=${rc}"$'\n'"${out}"
 grep -Fiq 'TOOMANYREQUESTS' <<<"${out}" ||
   fail "the underlying registry error must be shown to the operator; got:"$'\n'"${out}"
+
+# Non-vacuity: the run must have got as far as 0.16.0, or "0.17.0 was not attempted" is
+# true for an unrelated reason.
+logged "${scene}" "^crane digest ${SRC//./\\.}:0\.16\.0$" ||
+  fail "the flake scenario never reached 0.16.0, so the assertions below prove nothing"$'\n'"${out}"
+
+# THE discriminating assertion. A transient error misread as "no such tag" is a warn-and-
+# skip, and the loop carries on to the next chart.
+if logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.17\.0 "; then
+  fail "0.17.0 was COPIED after a TRANSIENT registry failure on 0.16.0. The failure was misread as 'no such tag' and skipped; the run must stop at the point the registry stopped answering, because everything after it is being decided on an unknown registry state:"$'\n'"$(grep -E '^cosign copy' "${scene}/log")"
+fi
+# ...and it must certainly not have reached the live metadata push.
+if logged "${scene}" '^oras push'; then
+  fail "the Artifact Hub metadata push ran after a transient registry failure was swallowed as a skip"
+fi
+# The operator must not be told a tag is missing when the registry simply did not answer:
+# that is the sentence that would send them to look for a chart that is actually there.
+if grep -Eq "no such tag at ${SRC//./\\.}:0\.16\.0" <<<"${out}"; then
+  fail "a transient registry failure was reported to the operator as 'no such tag' -- it is not the same fact, and acting on it means concluding a published chart does not exist:"$'\n'"${out}"
+fi
 
 # A genuinely absent source tag is still a skip -- but the run must not exit 0 having
 # quietly dropped a version that will then be missing from Artifact Hub.
@@ -874,7 +949,26 @@ grep -Fq '0.19.0' <<<"${out}" ||
 logged "${scene}" "^cosign copy --force ${SRC//./\\.}:0\.18\.0 " ||
   fail "a missing tag must not abort the remaining copies; 0.18.0 was never attempted"
 
-pass "8h: transient errors stop the run; a genuinely absent tag skips but never exits 0"
+# The same tri-state contract has to hold at the SIGNATURE-tag read, and that one is easy
+# to get wrong in a way the exit code hides: written as `[[ -n "$(digest_or_absent ...)" ]]`
+# the command substitution sits inside a condition, where `set -e` does not apply -- so the
+# die printed "could not determine whether ... exists" and the script carried straight on,
+# re-copied, and exited 0 reporting "V1 gate PASSED". The outcome was benign (an extra
+# idempotent copy, then full verification) but the message reads as fatal everywhere else
+# in the file, so an operator seeing it would reasonably believe the run had stopped.
+scene="$(new_scene sigflake)"
+seed_all_sources "${scene}"
+seed "${scene}" "${DST}:0.14.0" "$(dig 0140)"
+STUB_CRANE_FLAKE="${DST}:sha256-$(dig 0140 | sed 's/^sha256://').sig"
+run_migrate "${scene}" "${SCRIPT}" --apply
+STUB_CRANE_FLAKE=""
+(( rc != 0 )) ||
+  fail "a transient failure while reading the SIGNATURE tag must stop the run like any other indeterminate read; instead the script printed a fatal-sounding message and carried on to rc=0:"$'\n'"${out}"
+if grep -Fq 'V1 gate PASSED' <<<"${out}"; then
+  fail "the run reported 'V1 gate PASSED' after a registry read whose result it could not determine"
+fi
+
+pass "8h: transient errors stop the run at the subject AND signature reads; a genuinely absent tag skips but never exits 0"
 
 # --- 8i. The credential never reaches argv. --------------------------------
 # Anything on a command line is readable from /proc/<pid>/cmdline for the duration of the
@@ -928,16 +1022,57 @@ fi
 grep -Fiq 'settings' <<<"${out}" ||
   fail "the private-package refusal must give the click-path to publish it; got:"$'\n'"${out}"
 
-pass "8j: a pull-only token and a private destination package are both refused before they can do harm"
+# A 404 under --apply means Phases 1-2 reported copies that did not create the package.
+# Continuing from there would push metadata to a coordinate that holds no chart.
+scene="$(new_scene pkg404)"
+seed_all_sources "${scene}"
+STUB_PKG_HTTP=404
+run_migrate "${scene}" "${SCRIPT}" --apply
+STUB_PKG_HTTP=200
+(( rc != 0 )) ||
+  fail "a 404 from the packages API under --apply must stop the run -- the copies claimed to have created the package; rc=${rc}"$'\n'"${out}"
+if logged "${scene}" '^oras push'; then
+  fail "the metadata push ran even though the destination package does not exist"
+fi
+
+# assert_token_shape. It is a security guard added in this lane, and it was shipping with
+# no coverage at all. curl config files take one directive per line, so a token carrying a
+# newline followed by `output = /path` makes curl write the response body wherever the
+# value says -- demonstrated with real curl during review. The value comes from the
+# operator's own environment, so this is self-inflicted rather than an external attack, but
+# a guard that exists to make an escaping question disappear has to be shown to hold.
+scene="$(new_scene badtoken)"
+seed_all_sources "${scene}"
+TOKEN_OVERRIDE=$'ghp_FAKESECRET_ok\noutput = /tmp/kollect-migrate-should-not-exist'
+run_migrate "${scene}" "${SCRIPT}"
+TOKEN_OVERRIDE=""
+(( rc != 0 )) ||
+  fail "a token containing a newline must be refused in Phase 0; rc=${rc}"$'\n'"${out}"
+grep -Fiq 'token' <<<"${out}" ||
+  fail "the refusal must tell the operator it is about the token; got:"$'\n'"${out}"
+# The point of refusing early: no curl config is ever emitted, so the injected directive
+# never reaches a parser. Asserted on the capture, not inferred from the exit code.
+[[ ! -s "${scene}/curl_stdin" ]] ||
+  fail "a malformed token reached curl's config parser on stdin -- the shape check must run BEFORE anything interpolates it:"$'\n'"$(cat "${scene}/curl_stdin")"
+if logged "${scene}" '^curl '; then
+  fail "curl was invoked at all with a malformed token; Phase 0 must stop first"
+fi
+[[ ! -e /tmp/kollect-migrate-should-not-exist ]] ||
+  fail "the injected 'output =' directive was honoured: /tmp/kollect-migrate-should-not-exist was created"
+
+pass "8j: pull-only tokens, private and missing packages, and malformed tokens are all refused before they can do harm"
 
 # --- 8k. Usage errors are not verdicts. ------------------------------------
 # `shift` past the end of the argument list trips `set -e` and exits 1 with no output --
 # and 1 is the documented FAIL code, so a typo'd baseline was indistinguishable from
 # "Artifact Hub still reports errors".
+# Word-split via an explicit array rather than an unquoted expansion. (The previous
+# version carried a `# shellcheck disable=SC2086` that attached to the following `set +e`
+# and was therefore inert -- a disable comment that silenced nothing.)
 for bad_args in "--since" "--interval" "--timeout" "--since notanumber" "--this-flag-does-not-exist"; do
-  # shellcheck disable=SC2086
+  read -r -a bad_argv <<<"${bad_args}"
   set +e
-  usage_out="$(env -u GHCR_TOKEN -u GITHUB_TOKEN -u CR_PAT bash "${SCRIPT}" ${bad_args} 2>&1)"
+  usage_out="$(env -u GHCR_TOKEN -u GITHUB_TOKEN -u CR_PAT bash "${SCRIPT}" "${bad_argv[@]}" 2>&1)"
   usage_rc=$?
   set -e
   (( usage_rc != 0 )) || fail "'${bad_args}' must be rejected; it exited 0"
