@@ -114,35 +114,55 @@ grep -Fq 'Artifact Hub repository metadata was NOT published' "${WORKFLOW}" ||
 
 pass "failed Artifact Hub push is reported via ::warning:: and job summary"
 
-# DIST-AH-02: the `ignore` regex is the only thing standing between Artifact Hub and a
-# recurring "image not found" scan-failure mail. Assert it BEHAVIOURALLY -- match the
-# pattern against real tags -- because a grep for the literal string would keep passing
-# after someone widened it to '^.*$' and silently delisted the whole chart.
-IGNORE_RE="$(yq eval '.ignore[] | select(.name == "kollect") | .version' "${REPO_YML}")"
-[[ -n "${IGNORE_RE}" && "${IGNORE_RE}" != "null" ]] ||
-  fail "artifacthub-repo.yml must carry an ignore entry for the kollect package"
+# DIST-AH-03 / ADR-0709: the `ignore` list is DELETED, and its absence is now the contract.
+#
+# It used to suppress the v-prefixed image tags and the broken 0.9.0-0.13.0 charts that shared the
+# old single-repository path. At ghcr.io/platformrelay/charts/kollect the regex would match nothing:
+# no `v*` tags are pushed there, and 0.9.0-0.13.0 are deleted from the registry and must never be
+# republished (they hardcode `image.tag: latest`, a tag that was never pushed, so they cannot
+# install). A regex that matches nothing is not a safety net, it is a decoy -- it reads as if it
+# were suppressing something, which is precisely how it was tuned twice for a job it cannot do.
+#
+# Asserted as ABSENCE OF THE KEY rather than as "the regex is empty", because the failure mode is
+# someone re-adding an entry to silence a future `error preparing package` mail. That cannot work:
+# Artifact Hub loads every semver-ish tag BEFORE applying the ignore list, so ignore filters
+# indexing and never loading (ADR-0709, "Why no Artifact Hub setting fixes this").
+has_ignore="$(yq eval 'has("ignore")' "${REPO_YML}")"
+[[ "${has_ignore}" == "false" ]] ||
+  fail "artifacthub-repo.yml must NOT carry an \`ignore\` key (ADR-0709): at ghcr.io/platformrelay/charts/kollect it would match nothing, and it cannot suppress \`error preparing package\` mail because Artifact Hub applies ignore to INDEXING, after every tag has already been loaded"
 
-matches_ignore() { printf '%s\n' "$1" | grep -Eq "${IGNORE_RE}"; }
+pass "artifacthub-repo.yml carries no ignore list (ADR-0709: it would match nothing and cannot silence load errors)"
 
-# Must be ignored. v-prefixed tags are the controller IMAGE, not charts. Bare 0.9.0-0.13.0
-# are charts that hardcode `image.tag: latest`, a tag that was never published, so Artifact
-# Hub's scanner fails on every one of them (0.12.0 additionally IS an image, not a chart).
-for ignored in \
-  v0.9.0 v0.13.0 v0.18.0 v1.0.0 \
-  0.9.0 0.10.0 0.11.0 0.12.0 0.13.0; do
-  matches_ignore "${ignored}" ||
-    fail "ignore regex '${IGNORE_RE}' must cover ${ignored}"
-done
-pass "ignore regex covers the v-prefixed image tags and the broken 0.9.0-0.13.0 charts"
+# Verified Publisher requires BOTH repositoryID (asserted as a UUID above) and an owner whose email
+# matches the Artifact Hub account. Deleting `ignore` must not take `owners` with it -- both live in
+# the same small file and the same edit, and losing owners silently drops the Verified badge with no
+# other signal. Asserted through yq on the parsed document, so a commented-out owners block reds.
+OWNER_NAME="$(yq eval '.owners[0].name // ""' "${REPO_YML}")"
+OWNER_EMAIL="$(yq eval '.owners[0].email // ""' "${REPO_YML}")"
+[[ -n "${OWNER_NAME}" ]] ||
+  fail "artifacthub-repo.yml must keep an owners[0].name -- Verified Publisher needs the owners block"
+[[ "${OWNER_EMAIL}" == *@*.* ]] ||
+  fail "artifacthub-repo.yml owners[0].email ('${OWNER_EMAIL}') must be an email address matching the Artifact Hub account that owns the repository -- Artifact Hub compares the two directly and silently drops Verified Publisher when they differ"
 
-# Must NOT be ignored: every chart from 0.14.0 on defaults image.tag to v<appVersion>
-# and is genuinely installable. Delisting these would hide the live releases.
-for listed in \
-  0.14.0 0.15.0 0.16.0 0.17.0 0.18.0 0.19.0 1.0.0 0.1.0 0.130.0; do
-  if matches_ignore "${listed}"; then
-    fail "ignore regex '${IGNORE_RE}' must NOT cover ${listed} -- that chart is installable and belongs on Artifact Hub"
-  fi
-done
-pass "ignore regex leaves 0.14.0+ charts listed"
+pass "artifacthub-repo.yml keeps the owners block Verified Publisher requires"
+
+# The three facts a reader needs before touching this file again. They are asserted, not merely
+# written, because deleting `ignore` removes the only place those facts were recorded, and the
+# expensive mistake here is a re-learned one: two earlier sessions tuned the regex against errors it
+# structurally cannot suppress. Each pattern is anchored to a COMMENT line (`^#`), so moving a fact
+# into a YAML value or dropping it into a commit message does not satisfy the gate.
+#
+# Deliberately phrase-level, not word-level: rewording the file is fine, but a rewrite that loses
+# "indexing, never loading" has lost the only sentence that stops the next tuning attempt.
+grep -Eiq '^#.*charts only' "${REPO_YML}" ||
+  fail "artifacthub-repo.yml must state in a comment that this repository path holds CHARTS ONLY -- that separation is the whole point of ADR-0709"
+grep -Eiq '^#.*DR-FIND-07' "${REPO_YML}" ||
+  fail "artifacthub-repo.yml must name DR-FIND-07 in a comment: the image/chart tag collision still exists, permanently, at the OTHER path"
+grep -Eq '^#.*ghcr\.io/platformrelay/kollect([^/]|$)' "${REPO_YML}" ||
+  fail "artifacthub-repo.yml must name the other path (ghcr.io/platformrelay/kollect) in a comment, so the next reader knows which coordinate the DR-FIND-07 collision lives at and that the controller image never moved"
+grep -Eiq '^#.*indexing,? never loading' "${REPO_YML}" ||
+  fail "artifacthub-repo.yml must record, in a comment, that \`ignore\` filters INDEXING and never LOADING -- without that sentence the next \`error preparing package\` mail gets answered with another ignore regex, which cannot work"
+
+pass "artifacthub-repo.yml records why ignore is gone and why re-adding one cannot work"
 
 echo "All dist Artifact Hub release tests passed."
