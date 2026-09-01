@@ -3,9 +3,10 @@
 > Why the chart moves to `ghcr.io/platformrelay/charts/kollect` while the controller image stays
 > at `ghcr.io/platformrelay/kollect`, and why no Artifact Hub setting can substitute for the move.
 
-**Theme:** 07 · Project & meta · **Status:** Accepted (2026-08-19 — decided, not yet implemented)
+**Theme:** 07 · Project & meta · **Status:** Accepted (2026-08-19 — decided; amended 2026-09-01 — open decisions settled, execution authorised)
 
 <!-- AgDR: architect role · 2026-08-19 · trigger: recurring Artifact Hub tracking-error mail -->
+<!-- AgDR: architect role · 2026-09-01 · amendment: both open decisions settled after a fresh tracking mail added v0.19.0 to the error set -->
 
 ## Context
 
@@ -48,9 +49,26 @@ an entry point to start indexing content."* The documented URL format is
 `oci://registry/namespace/chart-name`. There is no allowlist, no per-tag type hint, no media-type
 filter — by design, not as a missing feature.
 
-**3. Renaming the chart is ruled out.** `charts/kollect/templates/_helpers.tpl` derives names from
-`.Chart.Name`, which feeds `app.kubernetes.io/name` and therefore the Deployment selector.
-Selectors are immutable, so a rename breaks `helm upgrade` for every existing install.
+**3. Renaming the chart is ruled out.** Both sides of the coordinate force the last path segment
+to stay `kollect`: `helm push` appends the chart name to the target it is given, and Artifact Hub
+requires `oci://registry/namespace/chart-name`. A rename would therefore have to change the chart
+name itself, and the chart name is what adopters type in `helm install`/`helm upgrade`.
+
+> **Correction (2026-09-01).** The original text justified this with a second, stronger claim: that
+> `_helpers.tpl` derives `app.kubernetes.io/name` from `.Chart.Name`, so a rename would mutate the
+> immutable Deployment selector. **That is not true of this chart.**
+> `charts/kollect/templates/_helpers.tpl:31-34` hardcodes the selector as literals:
+>
+> ```gotemplate
+> {{- define "kollect.selectorLabels" -}}
+> app.kubernetes.io/name: kollect
+> control-plane: controller-manager
+> {{- end }}
+> ```
+>
+> No selector is at risk, and a rename would *not* break `helm upgrade`. The verdict stands on the
+> naming constraint above, which is sufficient on its own. Recorded rather than silently edited
+> because the false claim is the kind that gets cited later as evidence for an unrelated decision.
 
 ## Options considered
 
@@ -108,14 +126,162 @@ path *before* anything is repointed:
 4. Leave the old bare tags in place. Once Artifact Hub no longer tracks
    `ghcr.io/platformrelay/kollect` as a Helm repository, they are inert.
 
-**Open decisions, deliberately not settled here:**
+**Open decisions** were deliberately left unsettled in the 2026-08-19 revision. Both are settled
+in the amendment below and are no longer open.
 
-- **Version history.** Starting the new path at `0.19.0` loses the `0.14.0`–`0.18.0` listing on
-  Artifact Hub. Copying history across preserves it, but charts are signed against the old
-  reference — whether copied signatures still verify must be tested before choosing, not assumed.
-- **The `ignore` list.** The current regex would keep suppressing `0.9.0`–`0.13.0` in the new
-  repository. If history is not copied it becomes dead weight; if it is, it is now suppressing
-  those versions *on purpose* rather than as leftover cleanup. Either way, restate the intent.
+## Amendment 2026-09-01 — both open decisions settled, execution authorised
+
+**Trigger.** A fresh tracking mail listed `v0.9.0`–`v0.13.0` and, for the first time, **`v0.19.0`**
+— the release cut 2026-08-31. That is the fact that changed the priority (DIST-AH-03 → P0): the
+error set is not stable noise, it grows by **one permanent entry per release**. Impact remains
+maintainer-facing only — `available_versions` has stayed correct at `0.14.0`–`0.19.0` throughout,
+and no adopter sees a defect.
+
+Re-verified the same day: the `artifacthub.io` metadata blob published at
+`ghcr.io/platformrelay/kollect` is current (pushed 2026-08-31, byte-identical to this repository's
+`artifacthub-repo.yml`) and the errors arrive regardless. That is a third independent confirmation
+of mechanism 1 above, from live data rather than source reading. **The regex is still not the
+lever.**
+
+### Decision 1 — version history: COPY `0.14.0`–`0.19.0` across, by digest
+
+Copy each published chart to `ghcr.io/platformrelay/charts/kollect` **by digest**, preferring
+`cosign copy` (which carries the `sha256-<hex>.sig` signature tag with the artifact) and falling
+back to a pair of `crane copy` calls if it does not. **`0.9.0`–`0.13.0` are never republished** —
+they hardcode `image.tag: latest`, a tag that was never pushed, so they cannot install.
+
+| criterion (weight) | **copy `0.14.0`–`0.19.0`** | copy `0.19.0` only | clean start at `0.20.0` |
+| --- | --- | --- | --- |
+| preserves published deep links (3) | 5 → 15 | 1 → 3 | 1 → 3 |
+| fix lands without waiting on a release (3) | 5 → 15 | 5 → 15 | 2 → 6 |
+| rollback stays inside one coordinate (2) | 5 → 10 | 5 → 10 | 5 → 10 |
+| signature fidelity (2) | 4 → 8 | 5 → 10 | 5 → 10 |
+| execution cost (1) | 5 → 5 | 5 → 5 | 4 → 4 |
+| **total (max 55)** | **53** | 43 | 33 |
+
+Three findings carried it:
+
+- Repointing at a path holding only the newest chart **delists** `0.14.0`–`0.18.0` and kills live
+  `artifacthub.io/packages/helm/kollect/kollect/<version>` deep links. That is the exact defect
+  class [ADR-0708](0708-operator-distribution-hubs.md) was amended on 2026-08-31 to forbid.
+- A clean start couples this fix to an unscheduled `0.20.0`, so the mail keeps arriving until then
+  — and the whole point of the P0 is that each intervening release makes it worse.
+- With history copied, rollback is "point the URL back"; without it, rollback would have to cross a
+  coordinate boundary mid-incident.
+
+**The signing objection that kept this decision open dissolved on inspection.** Every documented
+`cosign verify` in this repository matches the signer with
+`--certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+'` and **none** pins a
+workflow path (`docs/RELEASE.md:311,316,343`; `docs/security/security-architecture.md:293`;
+`.github/release-notes-install.md:13,33`). So even the fallback — re-signing the copied charts —
+would satisfy every published command verbatim. Copying is still preferred, because it preserves
+each chart's original release-time Fulcio identity instead of manufacturing a 2026-09-dated one for
+an artifact released months earlier.
+
+That is also why the matrix does not flip under the worst signing outcome. If copied signatures do
+not verify, only the first column moves — signature fidelity 4 → 1, total **53 → 47** — and it
+still wins. The other two columns are unaffected: both sign natively at release time, and
+re-signing a single chart at a new path is negligible work.
+
+### Decision 2 — the `ignore` list: DELETE it at the new path
+
+Remove the `ignore` key from `artifacthub-repo.yml`. **Keep `repositoryID` and `owners`** —
+Verified Publisher requires both the matching repository ID and an owner email matching the
+Artifact Hub account.
+
+The regex would match nothing at the new path: there are no `v*` tags there, and `0.9.0`–`0.13.0`
+are deleted and forbidden from republication. Carrying it forward would leave a rule whose only
+effect is to mislead the next reader into thinking it is what suppresses the tracking mail.
+
+Replace it with comments stating three things: the repository holds charts only; the DR-FIND-07
+collision lives at the *other* path and is permanent there; and `ignore` filters **indexing**, never
+**loading** — so adding a regex here to silence a future tracking error cannot work.
+
+### V1 — the one empirical unknown, and it gates execution
+
+Signature portability across the path boundary is reasoned from cosign/OCI semantics, not yet
+observed. Run this **before** the bulk copy. A failure changes the tool, not the decision.
+
+```sh
+cosign copy -f ghcr.io/platformrelay/kollect:0.14.0 \
+              ghcr.io/platformrelay/charts/kollect:0.14.0
+
+# 1. the digest must be identical -- a re-push, not a copy, would change it
+crane digest ghcr.io/platformrelay/kollect:0.14.0
+crane digest ghcr.io/platformrelay/charts/kollect:0.14.0
+
+# 2. the published verify command must pass VERBATIM against the new path
+cosign verify \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
+  ghcr.io/platformrelay/charts/kollect:0.14.0
+```
+
+Assert all three: identical digests, `cosign verify` exits 0, and the certificate SAN it prints is
+the **original** `…/release.yaml@refs/tags/v0.14.0` rather than a freshly minted one. `cosign
+verify` checks `critical.image.docker-manifest-digest`, not
+`critical.identity.docker-reference`, which is why this is expected to pass — but expected is not
+observed.
+
+### Migration runbook
+
+**Execution order is load-bearing.** The new path must be populated, public, and carrying metadata
+*before* the Artifact Hub URL is repointed. Repointing at an empty, private, or metadata-less path
+costs the listing or the Verified Publisher badge, and a URL edit is not a symmetric undo.
+
+| # | step | who |
+| --- | --- | --- |
+| 1 | This amendment | harness |
+| 2 | Release workflow derives the chart push, `cosign sign`, and the metadata `oras push` from **one** value; chart target becomes `charts/kollect` | harness |
+| 3 | Install coordinate updated across docs; `ignore` deleted; both gates tightened | harness |
+| 4 | **V1** above | maintainer |
+| 5 | `cosign copy` `0.14.0`–`0.19.0` to the new path | maintainer |
+| 6 | **Set the new GHCR package public** — GHCR creates packages private by default | maintainer |
+| 7 | `oras push …/charts/kollect:artifacthub.io` with the updated metadata | maintainer |
+| 8 | Edit the Artifact Hub repository URL **in place** | maintainer |
+| 9 | Verify per AC1 below | either |
+
+Steps 4–8 need a token carrying `write:packages` plus `cosign`/`crane`/`oras` on `PATH`; the
+repository's own automation token has neither, so they cannot be run from CI or from a harness
+session. Step 8 is a control-panel action with no API equivalent.
+
+**Never delete and re-create the Artifact Hub repository.** `Manager.Update` keys on repository
+*name*, so an in-place URL edit preserves `repository_id`, stars, and Verified Publisher; a
+delete/re-create loses all three.
+
+### Verifying it worked (AC1)
+
+`last_tracking_errors` is a **sample, not a census** — the reported set has changed between runs
+with no corresponding registry change, which cost two earlier sessions a wrong conclusion. So
+require all of: a recorded pre-repoint baseline; **two** reads with `last_tracking_ts` genuinely
+advanced between them (an unchanged timestamp means the same run was sampled twice — the commonest
+way to fake this result); both empty; **and** no tracking mail in the same window, as an
+independent second witness.
+
+### Explicitly rejected
+
+**Dual-pushing the chart to both paths during a transition.** It re-creates the DR-FIND-07
+collision in the image repository and re-arms the mail, defeating the entire ADR.
+
+**Relaxing the DR-FIND-07 guard, or deleting the `docs/RELEASE.md` warnings, on the grounds that
+"the chart moved."** Bare `0.14.0`–`0.19.0` stay in the image repository permanently, so
+`crane digest ghcr.io/platformrelay/kollect:0.18.0` still returns a *chart* digest that passes
+every string check. The trap is historical, not hypothetical — it has already shipped one defect —
+and the manual-fallback runbook is exactly where someone will hit it.
+
+### Blast radius
+
+Nothing breaks for an adopter on day one: after the copy both paths serve byte-identical manifests
+at identical digests. The sharpest risk is silent — anything *watching* the old coordinate (a
+Renovate or Dependabot rule, an ArgoCD `Application`, a pinned CI job) keeps resolving and
+installing, and simply never sees `0.20.0`. That is an announcement problem, not a code one.
+
+**The OLM bundle is unaffected: zero bundle changes, no resubmission.** It references only the
+controller image, by digest — verified across
+`config/olm/template/manifests/kollect.clusterserviceversion.yaml` (lines 275, 524 and 628 are the
+image; line 314 is prose carrying no URL).
+
+## Retained and not addressed
 
 **Retained:** the DR-FIND-07 collision guard in the release workflow stays. Separate paths make a
 collision unreachable, but the guard costs nothing and fails closed.
