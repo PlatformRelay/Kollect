@@ -32,6 +32,13 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: kollect
   PIPELINE_IMAGE_NAME: kollect-pipeline
+  # ADR-0709: the Helm chart is a DIFFERENT GHCR repository from the controller image
+  # (ghcr.io/<owner>/charts/kollect vs ghcr.io/<owner>/kollect), so it gets its own name
+  # constant. The two happen to share the string "kollect" -- which is exactly why they
+  # were confused before -- but they are not the same thing and must not share a variable.
+  # The last path segment cannot change: helm push appends it, Artifact Hub requires
+  # ".../chart-name", and .Chart.Name feeds the immutable Deployment selector.
+  CHART_NAME: kollect
 
 jobs:
   # Read-only gate. Verifier scripts are loaded from the default branch so a
@@ -306,26 +313,58 @@ jobs:
       - name: Export release provenance bundle
         run: cp "${{ steps.attest-release.outputs.bundle-path }}" dist/release-provenance.intoto.jsonl
 
-      - id: chart
+      # SINGLE SOURCE OF TRUTH for the chart's OCI coordinate (ADR-0709). Every consumer --
+      # `helm push`, `cosign sign`, the Artifact Hub metadata tag and the release notes --
+      # reads these outputs. The coordinate used to be derived independently in three
+      # places, so editing one left the others silently pointing at the old path; the
+      # Artifact Hub step is soft-fail, so its copy could strand without reddening a release.
+      - name: Derive chart OCI coordinate
+        id: chart
+        # github.repository_owner is untrusted context: it arrives through env: and is read
+        # as a shell variable rather than interpolated into the script (githubactions:S7636).
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
-          OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
-          echo "oci=oci://${{ env.REGISTRY }}/${OWNER}" >> "${GITHUB_OUTPUT}"
+          set -euo pipefail
+          # GHCR namespaces are lowercase; a GitHub owner need not be.
+          OWNER="$(echo "${REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          # The chart lives under a charts/ segment, NOT next to the controller image at
+          # ${REGISTRY}/${OWNER}/${IMAGE_NAME}. The image does not move: its digest is
+          # pinned immutably in already-merged OLM bundles.
+          CHART_BASE="${REGISTRY}/${OWNER}/charts"
+          # `helm push` APPENDS the chart name, so its target is the PARENT path.
+          echo "oci=oci://${CHART_BASE}" >>"${GITHUB_OUTPUT}"
+          # The full chart repository, for `cosign sign` and the artifacthub.io metadata
+          # tag. Derived from the same base as `oci`, so the two cannot disagree.
+          echo "repository=${CHART_BASE}/${CHART_NAME}" >>"${GITHUB_OUTPUT}"
 
       - name: Publish and sign Helm chart (OCI)
         id: chart-publish
+        env:
+          CHART_OCI: ${{ steps.chart.outputs.oci }}
+          CHART_REPOSITORY: ${{ steps.chart.outputs.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          CHART_PKG="dist/kollect-${{ steps.version.outputs.version }}.tgz"
-          PUSH_OUT="$(helm push "${CHART_PKG}" "${{ steps.chart.outputs.oci }}" 2>&1)"
-          echo "$PUSH_OUT"
-          DIGEST="$(echo "$PUSH_OUT" | awk '/Digest:/{print $2; exit}')"
+          CHART_PKG="dist/${CHART_NAME}-${VERSION}.tgz"
+          PUSH_OUT="$(helm push "${CHART_PKG}" "${CHART_OCI}" 2>&1)"
+          echo "${PUSH_OUT}"
+          DIGEST="$(echo "${PUSH_OUT}" | awk '/Digest:/{print $2; exit}')"
           if [[ -z "${DIGEST}" ]]; then
             echo "failed to extract chart digest from helm push output" >&2
             exit 1
           fi
-          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
-          OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
-          CHART_REF="${{ env.REGISTRY }}/${OWNER}/kollect@${DIGEST}"
+          # Post-push assertion (ADR-0709). `helm push` reports the reference it actually
+          # wrote; require it to be under the repository this workflow derived. Nothing
+          # else notices a chart that lands elsewhere: cosign would happily sign whatever
+          # digest came back, and the release would go green at the wrong coordinate.
+          PUSHED_REF="$(echo "${PUSH_OUT}" | awk '/Pushed:/{print $2; exit}')"
+          if [[ "${PUSHED_REF}" != "${CHART_REPOSITORY}:"* ]]; then
+            echo "chart was pushed to '${PUSHED_REF}', which is not under the expected chart repository '${CHART_REPOSITORY}'" >&2
+            exit 1
+          fi
+          echo "digest=${DIGEST}" >>"${GITHUB_OUTPUT}"
+          CHART_REF="${CHART_REPOSITORY}@${DIGEST}"
           echo "Signing ${CHART_REF}"
           cosign sign --yes "${CHART_REF}"
 
@@ -338,19 +377,25 @@ jobs:
           CHART_DIGEST: ${{ steps.chart-publish.outputs.digest }}
         run: |
           set -euo pipefail
-          # DR-FIND-07 regression guard. The chart is helm-pushed to the SAME OCI
-          # repo path as the controller image and occupies the bare "<version>" tag
-          # (ghcr.io/<owner>/kollect:<version>). If the controller image were ever
-          # published at that bare tag again, the chart would clobber the runnable
-          # image and default/bare-tag pulls would fail with CreateContainerConfigError.
+          # DR-FIND-07 regression guard. RETAINED after ADR-0709 on purpose: the chart
+          # now goes to ghcr.io/<owner>/charts/<chart>, so a live collision is
+          # unreachable, but the guard costs nothing and fails closed.
+          #
+          # It is also not purely historical. The bare "<version>" tags 0.14.0-0.19.0
+          # that the chart published on the IMAGE repo path before the move stay in
+          # ghcr.io/<owner>/kollect permanently (ADR-0709 leaves them in place). Tagging
+          # the controller image at a bare "<version>" would therefore still collide with
+          # a chart manifest that is really there, and a default/bare-tag pull would fail
+          # with CreateContainerConfigError exactly as before.
           #
           # (1) Primary guard: the controller image tag list must NOT contain the
-          #     bare "<repo>:<version>" tag path the chart owns. This is the real
-          #     collision condition (a shared tag path between two artifacts) and
-          #     uses only values already produced by the workflow — no crane/oras.
+          #     bare "<repo>:<version>" tag path charts occupy on this repository.
+          #     This is the real collision condition (a shared tag path between two
+          #     artifact kinds) and uses only values already produced by the workflow
+          #     — no crane/oras.
           BARE_TAG="${IMAGE_REPO}:${VERSION}"
           if printf '%s' "${IMAGE_TAGS}" | tr ',' '\n' | grep -Fxq "${BARE_TAG}"; then
-            echo "DR-FIND-07: controller image is tagged ${BARE_TAG}, which the Helm chart occupies on GHCR — the chart would clobber the runnable image. Publish the image at the v-prefixed tag only." >&2
+            echo "DR-FIND-07: controller image is tagged ${BARE_TAG}, the bare-tag path Helm charts occupy on the image repository — the image and a chart manifest would clobber each other. Publish the image at the v-prefixed tag only." >&2
             exit 1
           fi
           # (2) Sanity compare: the image manifest digest and the chart OCI manifest
@@ -360,7 +405,7 @@ jobs:
             echo "DR-FIND-07: controller image digest equals chart digest (${IMAGE_DIGEST}) — the same artifact was published for both." >&2
             exit 1
           fi
-          echo "DR-FIND-07 guard passed: image tags='${IMAGE_TAGS}' do not include the chart's bare tag '${BARE_TAG}'; image/chart digests differ."
+          echo "DR-FIND-07 guard passed: image tags='${IMAGE_TAGS}' do not include the bare chart tag path '${BARE_TAG}'; image/chart digests differ."
 
       - name: Generate changelog
         id: cliff
@@ -429,17 +474,21 @@ jobs:
         # injection path (githubactions:S7636).
         env:
           REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          # ADR-0709 step 1: the metadata tag belongs on the CHART repository Artifact Hub
+          # tracks, not on the controller image repository. It used to be built from
+          # env.IMAGE_NAME — the image variable — which happens to share the string
+          # "kollect" with the chart, so the mistake was invisible. Read the coordinate
+          # from the `chart` step instead of re-deriving it: this step is soft-fail, so a
+          # stranded target loses Verified Publisher without reddening the release.
+          CHART_REPOSITORY: ${{ steps.chart.outputs.repository }}
           REGISTRY_USER: ${{ github.actor }}
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          OWNER="$(echo "${REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           echo "${REGISTRY_PASSWORD}" | oras login "${REGISTRY}" \
             --username "${REGISTRY_USER}" --password-stdin
           oras push \
-            "${REGISTRY}/${OWNER}/${IMAGE_NAME}:artifacthub.io" \
+            "${CHART_REPOSITORY}:artifacthub.io" \
             --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
             artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
 
