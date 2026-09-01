@@ -165,20 +165,28 @@ SIM_DIGEST="sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc
 SIM_CHART_OCI=""
 SIM_CHART_REPO=""
 
-# Resolve one `${{ ... }}` expression from a step's env: map to a simulation value.
+# Resolve one `${{ ... }}` expression from a step's env: map to a simulation value,
+# into the global RESOLVED. Deliberately NOT a value-returning function called through
+# `$( )`: fail()'s `exit 1` inside a command substitution only kills the subshell, so a
+# rejected expression would print its diagnostic and the simulation would carry on with
+# an empty value -- which is exactly how an early revision of this gate reported the
+# wrong failure for the IMAGE_NAME mutation.
+#
 # Unknown expressions are a hard failure, not a default: a new env entry must be
 # considered here deliberately, or the simulation would silently run with an empty
 # value and still "pass".
+RESOLVED=""
 resolve_expr() {
   local raw="$1" step="$2" allow_owner="$3"
+  RESOLVED=""
   case "${raw}" in
-  '${{ steps.chart.outputs.oci }}') printf '%s' "${SIM_CHART_OCI}" ;;
-  '${{ steps.chart.outputs.repository }}') printf '%s' "${SIM_CHART_REPO}" ;;
-  '${{ steps.version.outputs.version }}') printf '%s' "${SIM_VERSION}" ;;
-  '${{ env.REGISTRY }}') printf '%s' "${SIM_REGISTRY}" ;;
-  '${{ env.CHART_NAME }}') printf '%s' "${SIM_CHART_NAME}" ;;
-  '${{ github.actor }}') printf '%s' "${SIM_ACTOR}" ;;
-  '${{ secrets.GITHUB_TOKEN }}') printf '%s' "${SIM_TOKEN}" ;;
+  '${{ steps.chart.outputs.oci }}') RESOLVED="${SIM_CHART_OCI}" ;;
+  '${{ steps.chart.outputs.repository }}') RESOLVED="${SIM_CHART_REPO}" ;;
+  '${{ steps.version.outputs.version }}') RESOLVED="${SIM_VERSION}" ;;
+  '${{ env.REGISTRY }}') RESOLVED="${SIM_REGISTRY}" ;;
+  '${{ env.CHART_NAME }}') RESOLVED="${SIM_CHART_NAME}" ;;
+  '${{ github.actor }}') RESOLVED="${SIM_ACTOR}" ;;
+  '${{ secrets.GITHUB_TOKEN }}') RESOLVED="${SIM_TOKEN}" ;;
   '${{ github.repository_owner }}')
     # THE central assertion of this gate. github.repository_owner is the raw material
     # of the chart coordinate: any step that takes it is deriving the coordinate for
@@ -186,7 +194,7 @@ resolve_expr() {
     # `chart` step may have it.
     [[ "${allow_owner}" == "yes" ]] ||
       fail "'${step}' takes github.repository_owner -- that is a SECOND, independent derivation of the chart coordinate. Only the 'chart' step may derive it; every other consumer must read steps.chart.outputs.*"
-    printf '%s' "${SIM_OWNER}"
+    RESOLVED="${SIM_OWNER}"
     ;;
   '${{ env.IMAGE_NAME }}')
     fail "'${step}' references env.IMAGE_NAME -- that is the CONTROLLER IMAGE name (${WF_IMAGE_NAME}), not the chart. Building a chart coordinate from it is the DIST-AH-03 defect: the chart lands next to the image at ${WF_REGISTRY}/<owner>/${WF_IMAGE_NAME} instead of under charts/"
@@ -214,9 +222,12 @@ resolve_step_env() {
     "STUB_HELM_PUSHED_REF=${STUB_HELM_PUSHED_REF:-}"
     "STUB_HELM_DIGEST=${SIM_DIGEST}"
   )
+  # `< <(...)` rather than a pipe: the loop must run in THIS shell so a rejected
+  # expression's `exit 1` takes the whole gate down instead of one subshell.
   while IFS=$'\t' read -r k v; do
     [[ -n "${k}" ]] || continue
-    SIM_ENV+=("${k}=$(resolve_expr "${v}" "${step}" "${allow_owner}")")
+    resolve_expr "${v}" "${step}" "${allow_owner}"
+    SIM_ENV+=("${k}=${RESOLVED}")
   done < <(step_env_pairs "${sel}")
 }
 
