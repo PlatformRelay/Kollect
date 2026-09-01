@@ -86,8 +86,9 @@ Additional distribution wiring ships under [ADR-0708](../adr/0708-operator-distr
   (`oci://ghcr.io/platformrelay/charts/kollect`), so Artifact Hub is a discovery surface, not a
   separate install path — `helm install` from GHCR exactly as above. The registration points at the
   `charts/` path because Artifact Hub indexes one chart per repository entry
-  ([ADR-0709](../adr/0709-chart-image-oci-path-separation.md)); the same repository ID, stars and
-  Verified Publisher status carried over, so the listing URL is unchanged.
+  ([ADR-0709](../adr/0709-chart-image-oci-path-separation.md)); repointing the registered URL in
+  place keeps the repository ID, stars and Verified Publisher status, so the listing URL is
+  unchanged.
 - **OperatorHub / OpenShift** — OLM bundles are generated at release and submitted to the community
   operator catalogs when `OPERATORHUB_PAT` is configured. The **OpenShift community catalog**
   submission is merged, so on OpenShift the operator installs from the console's OperatorHub tab
