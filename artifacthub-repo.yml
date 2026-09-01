@@ -1,44 +1,56 @@
-# Artifact Hub repository metadata (ADR-0708), pushed to
-# ghcr.io/<owner>/kollect:artifacthub.io by the release workflow.
+# Artifact Hub repository metadata (ADR-0708, ADR-0709), pushed to
+# ghcr.io/<owner>/charts/kollect:artifacthub.io by the release workflow.
 #
 # 2026-08-18 — repository registered on Artifact Hub as `kollect`
 # (https://artifacthub.io/packages/search?repo=kollect); Verified Publisher active.
+# The registered URL was repointed in place to the charts/ path (ADR-0709), which keeps
+# the repository ID, stars and Verified Publisher status.
 #
 # Verified Publisher requires BOTH: the pushed repositoryID matches the registered
 # one, AND the owner email matches the email on the Artifact Hub account that owns
 # the repository (account `konih`). Artifact Hub compares the two addresses directly
-# — it does not send a verification mail.
+# — it does not send a verification mail. Keep both keys below.
 repositoryID: cb3be9a6-8e3b-4419-9de5-1184fe349c29
 owners:
   - name: Konrad Heimel
     email: konrad.heimel@gmail.com
 
-# DR-FIND-07: this ONE OCI repository holds two different artifact kinds — the Helm
-# chart at bare semver tags (0.18.0) and the multi-arch controller image at
-# v-prefixed tags (v0.18.0). Artifact Hub treats every semver-ish tag as a chart, so
-# without this it tries to load the image tags as charts and the tracker reports
-# "layer not found" for each one. Bare 0.12.0 is included because that single release
-# published the IMAGE to the chart's bare tag; every other bare tag is a real chart.
+# ---------------------------------------------------------------------------------
+# THREE THINGS TO KNOW BEFORE EDITING THIS FILE
+# ---------------------------------------------------------------------------------
 #
-# `version` is a REGULAR EXPRESSION matched against the tag; `name` is an exact match
-# on the package name. Ignored packages are applied the next time the repository is
-# processed, not immediately.
+# 1. ghcr.io/platformrelay/charts/kollect holds CHARTS ONLY.
+#    That is the entire point of ADR-0709. Artifact Hub's documented contract is one
+#    chart per repository entry (`oci://registry/namespace/chart-name`), and nothing
+#    in it can be told to skip non-chart artifacts. So the path is kept clean instead:
+#    never push an image, a bundle, or anything else here.
 #
-# DIST-AH-02: charts 0.9.0-0.13.0 also have to go. They shipped `image.tag: latest`
-# in values.yaml (fixed in 0.14.0, which defaults the tag to v<appVersion>) and predate
-# the artifacthub.io/images annotation, so Artifact Hub derives the image straight from
-# chart values and tries to scan ghcr.io/platformrelay/kollect:latest. That tag has never
-# been published -- the controller image only ever lands on v-prefixed tags -- so every
-# scan of those four versions fails with "image not found" and mails the maintainers.
+# 2. The DR-FIND-07 image/chart collision lives at the OTHER path, permanently.
+#    ghcr.io/platformrelay/kollect serves the controller image at v-prefixed tags
+#    (v0.18.0) and, for everything released before ADR-0709, the Helm chart at bare
+#    semver tags (0.18.0). The image does NOT move — its digest is pinned immutably in
+#    OLM bundles already merged into the community catalogs — and the old bare chart
+#    tags are not deletable-by-policy either, so that path stays mixed forever. It is
+#    simply no longer tracked by Artifact Hub, which makes the mixture inert.
 #
-# Delisting is the honest fix, not a cosmetic one: those charts cannot install. `latest`
-# does not resolve, so the manager pod would sit in ImagePullBackOff for anyone who tried.
-# Publishing a `latest` tag to satisfy the scanner would instead re-create the DR-FIND-07
-# collision the release workflow explicitly guards against, so it is not an option.
+# 3. `ignore` FILTERS INDEXING, NEVER LOADING. THIS IS WHY THERE IS NO IGNORE LIST.
+#    ############################################################################
+#    #  Do NOT add an `ignore:` entry here to silence an Artifact Hub           #
+#    #  "error preparing package: error loading chart ... layer not found"      #
+#    #  tracking mail. It cannot work, and it has already been tried twice.     #
+#    ############################################################################
+#    Artifact Hub's helm tracker lists every semver-ish tag and DOWNLOADS each one
+#    (`preparePackage()`) before the repository's ignore list is applied — ignore
+#    covers "packages that should not be *indexed*", strictly after the load. That
+#    exactly explains the observation that burned two sessions: bare 0.9.0–0.13.0 were
+#    correctly absent from `available_versions` while their load errors kept arriving.
+#    The regex is not the lever. If load errors appear, the fix is what is being loaded
+#    (i.e. what is pushed to this path), never a filter. See ADR-0709, "Why no Artifact
+#    Hub setting fixes this".
 #
-# Published bare chart tags covered: 0.9.0, 0.10.0, 0.11.0, 0.13.0 (broken charts) and
-# 0.12.0 (the one release that pushed the IMAGE to the chart's bare tag). 0.14.0 and
-# later are correct and stay listed.
-ignore:
-  - name: kollect
-    version: '^(v[0-9].*|0\.(9|10|11|12|13)\.0)$'
+# The previous ignore list (v-prefixed image tags plus the broken 0.9.0–0.13.0 charts)
+# was deleted with the move and must not come back: no v* tags are pushed to this path,
+# and charts 0.9.0–0.13.0 are deleted from the registry and must never be republished —
+# they hardcode `image.tag: latest`, a tag that was never pushed, so they cannot install
+# (the manager would sit in ImagePullBackOff). A regex matching nothing is not a safety
+# net; it reads like one, which is how it got tuned instead of understood.
