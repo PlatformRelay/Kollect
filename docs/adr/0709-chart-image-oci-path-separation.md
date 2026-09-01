@@ -294,14 +294,14 @@ costs the listing or the Verified Publisher badge, and a URL edit is not a symme
 | 3 | `artifacthub-repo.yml`: `ignore` deleted, `repositoryID` and `owners` kept; both hub gates tightened | harness |
 | 4 | **V1** above | maintainer |
 | 5 | `cosign copy` `0.14.0`–`0.19.0` to the new path | maintainer |
-| 6 | **Set the new GHCR package public** — GHCR creates packages private by default | maintainer |
+| 6 | **Set the new GHCR package public**, and check its repository link — GHCR creates packages private by default | maintainer |
 | 7 | `oras push …/charts/kollect:artifacthub.io` with the updated metadata | maintainer |
 | 8 | **Record the pre-repoint AC1 baseline** — see below; it is unobtainable after step 9 | either |
 | 9 | Edit the Artifact Hub repository URL **in place** | maintainer |
 | 10 | **Install coordinate updated across docs and README**, and the install-docs gate with it | harness |
 | 11 | Verify per AC1 below | either |
 
-**Why the docs repoint is step 10 and not step 3.** It is a repoint like any other: a `helm install`
+**Why the docs repoint is one of the last steps and not one of the first.** It is a repoint like any other: a `helm install`
 line is a URL we ship, and `docs/**` publishes on push to `main` (`.github/workflows/docs.yaml`), so
 merging it early puts an install command for an empty, private path in front of adopters. That is
 the same defect as pointing the hub at one, and ADR-0708 forbids it directly. The work can be
@@ -314,9 +314,18 @@ replaced.
 `cosign`/`crane`/`oras`. A *harness session* has neither, which is why they are marked maintainer —
 but **CI does**: the release job already declares `packages: write` and `id-token: write`
 (`.github/workflows/release.yaml:103-108`), installs `cosign` and `oras`, and does exactly these
-operations on every release. So those three steps can equally be done by a one-shot workflow, and
-the V1-failure fallback described above — a backfill re-sign — *must* be, since only Actions can
-mint a Fulcio identity matching the published `--certificate-identity-regexp`.
+operations on every release. (It does not install `crane`; a one-shot workflow running V1 would add
+it.) So those three steps can equally be done by a one-shot workflow, and the V1-failure fallback
+described above — a backfill re-sign — *must* be, since only Actions can mint a Fulcio identity
+matching the published `--certificate-identity-regexp`.
+
+**Prefer the one-shot workflow for 4, 5 and 7, and not only for convenience.** A package first
+created by a maintainer's personal token is not automatically linked to `platformrelay/kollect`, and
+an unlinked package can refuse the release workflow's `GITHUB_TOKEN` — which would surface as a 403
+on the next `helm push`, *after* step 2 has already repointed it there. Creating the package from
+Actions makes the linkage automatic and closes that failure mode. If steps 4 and 5 are run by hand
+anyway, step 6 is where to check it: the package settings page carries both the visibility control
+and the repository link.
 
 Only two steps are genuinely maintainer-only: **step 6** (GHCR package visibility) and **step 9**
 (the Artifact Hub control panel, which has no API equivalent). Step 8 needs no registry credential
@@ -335,14 +344,29 @@ delete/re-create loses all three.
 ### Verifying it worked (AC1)
 
 `last_tracking_errors` is a **sample, not a census** — the reported set has changed between runs
-with no corresponding registry change, which cost two earlier sessions a wrong conclusion. So
-require all of: a pre-repoint baseline recorded at **step 8**, from the *public, unauthenticated*
-endpoint `https://artifacthub.io/api/v1/repositories/search?name=kollect&kind=0` — which carries
-`last_tracking_ts` and `last_tracking_errors`, so this whole criterion is scriptable with no API
-key; **two** reads with `last_tracking_ts` genuinely
-advanced between them (an unchanged timestamp means the same run was sampled twice — the commonest
-way to fake this result); both empty; **and** no tracking mail in the same window, as an
-independent second witness.
+with no corresponding registry change, which cost two earlier sessions a wrong conclusion. Every
+clause below exists to stop a fluke reading a success.
+
+The data comes from the *public, unauthenticated* endpoint
+`https://artifacthub.io/api/v1/repositories/search?name=kollect&kind=0`, which carries
+`last_tracking_ts` and `last_tracking_errors`, so the whole criterion is scriptable with no API key.
+**Select the repository by `repository_id` (`cb3be9a6-8e3b-4419-9de5-1184fe349c29`, the same value as
+in `artifacthub-repo.yml`), not by taking the first element.** `name=` is a *substring* filter, not
+an exact one — `?name=kolle` also returns `kollektor` — so indexing `[0]` is a latent
+wrong-repository bug even though the query happens to return exactly one row today.
+
+Require all of:
+
+- **A pre-repoint baseline**, recorded at step 8, that is **non-empty**. This is the clause the
+  baseline exists for: if the error list happened to be empty *before* the repoint, "empty after"
+  proves nothing at all.
+- **Two reads, both taken after the repoint**, with `last_tracking_ts` genuinely **advanced** between
+  them and past the baseline's. An unchanged timestamp means the same tracking run was sampled twice
+  — the commonest way to fake this result.
+- **Both reads empty.**
+- **`url` now reads `oci://ghcr.io/platformrelay/charts/kollect` and `verified_publisher` is still
+  `true`** — the two things the repoint can silently destroy, and both are in the same response.
+- **No tracking mail in the same window**, as an independent second witness.
 
 ### Explicitly rejected
 
