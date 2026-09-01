@@ -88,10 +88,29 @@ logical_lines() {
 # when BAD *is* found. Two negative assertions below were written that way and were silently
 # inverted; the wiring assertion at the bottom was written that way and red on a correct
 # workflow. `grep -c` reads its input to the end, so counting is race-free in both directions.
+#
+# The `|| true` this used to carry swallowed grep's exit >= 2 as well as its exit 1, so a
+# malformed pattern or an unreadable input reported ZERO matches -- and zero is exactly what
+# both negative assertions below are looking for. That is a vacuous pass in the one direction
+# this file's header promises cannot happen. grep distinguishes the two: 1 means "no match",
+# >= 2 means "I could not answer". Only the former is a count.
 count_matches() {
-  local pattern_type="$1" pattern="$2" hits
-  hits="$(grep "${pattern_type}" -c -- "${pattern}" || true)"
+  local pattern_type="$1" pattern="$2" hits status=0
+  hits="$(grep "${pattern_type}" -c -- "${pattern}")" || status=$?
+  if ((status > 1)); then
+    printf 'grep-error-%s\n' "${status}"
+    return 0
+  fi
   printf '%s\n' "${hits:-0}"
+}
+
+# Every count_matches caller runs through this. The numeric check is what converts a
+# 'grep-error-N' sentinel into a red -- a bare string comparison would silently satisfy
+# whichever direction it happened to land on ("grep-error-2" is both != "0" and not == "0").
+require_count() {
+  local value="$1" what="$2"
+  [[ "${value}" =~ ^[0-9]+$ ]] ||
+    fail "${what}: could not count matches (grep reported '${value}') -- treating an unanswerable grep as zero is how a negative assertion passes vacuously"
 }
 
 mapfile -t CURL_LINES < <(logical_lines | grep -E '(^|[^[:alnum:]_./-])curl([[:space:]]|$)' || true)
@@ -102,7 +121,9 @@ pass "found ${#CURL_LINES[@]} curl invocation(s) to inspect"
 # Catches the mutation "swap curl for wget to sidestep the gate": every behavioural assertion
 # below rides on a stub `curl` on PATH, so a different fetcher would silently reach the real
 # network and turn this whole suite into a no-op.
-[[ "$(logical_lines | count_matches -E '(^|[^[:alnum:]_./-])(wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$)')" == "0" ]] ||
+other_fetcher_hits="$(logical_lines | count_matches -E '(^|[^[:alnum:]_./-])(wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$)')"
+require_count "${other_fetcher_hits}" "non-curl fetcher scan"
+[[ "${other_fetcher_hits}" == "0" ]] ||
   fail "${SCRIPT} fetches with something other than curl -- the behavioural half of this gate stubs curl on PATH and would not observe it, so keep the fetcher as curl (or extend this gate first)"
 
 for line in "${CURL_LINES[@]}"; do
@@ -155,8 +176,19 @@ for line in "${CURL_LINES[@]}"; do
   # curl resets the --max-time counter on every one of its OWN retries, so --max-time alone
   # bounds an attempt, not the invocation. --retry-max-time is what closes that: without it,
   # '--retry 5 --max-time 120' is a 12-minute worst case per fetch, times three outer attempts.
-  grep -Eq -- '(^|[[:space:]])--retry-max-time[[:space:]]+[0-9]+' <<<"${line}" ||
+  # A VALUE floor, not a presence check. Both degenerate settings are textually present and
+  # behaviourally wrong, in opposite directions, and both survived a presence-only assertion:
+  #   --retry-max-time 0  means "do not timeout retries" (curl's own words), i.e. UNBOUNDED --
+  #     it removes the very bound this flag was added to provide;
+  #   --retry-max-time 1  expires the retry window before --retry-delay 5 can schedule even one
+  #     retry, neutering curl's retry layer -- the half that covers a flaky origin that ANSWERS
+  #     with 5xx/429, which the outer loop does not address at all.
+  # 30 is the smallest window that admits a few 5s-spaced retries, so it rejects both.
+  retrymax_n="$(grep -Eo -- '--retry-max-time[[:space:]]+[0-9]+' <<<"${line}" | head -1 | grep -Eo '[0-9]+' || true)"
+  [[ -n "${retrymax_n}" ]] ||
     fail "curl invocation is missing '--retry-max-time <n>' -- curl resets --max-time on each of its own retries, so without it the invocation is bounded only by (--retry + 1) x --max-time: ${line}"
+  ((retrymax_n >= 30)) ||
+    fail "curl invocation sets '--retry-max-time ${retrymax_n}': 0 means 'do not timeout retries' (unbounded, defeating the flag's purpose) and anything under --retry-delay expires the window before a single retry can be scheduled, neutering curl's retry layer: ${line}"
 
   # Mutation caught: "fixing" a TLS problem by turning verification off. -k/--insecure would
   # make --proto '=https' worthless.
@@ -173,14 +205,21 @@ pass "every curl invocation pins https and a TLS floor, retries, bounds the conn
 
 # Mutation caught: pointing any URL at plaintext http://. Checked over the whole file, not just
 # the curl lines, because the URLs are assembled into BASE_URL well above the fetches.
-[[ "$(logical_lines | count_matches -F 'http://')" == "0" ]] ||
+plaintext_hits="$(logical_lines | count_matches -F 'http://')"
+require_count "${plaintext_hits}" "plaintext http:// scan"
+[[ "${plaintext_hits}" == "0" ]] ||
   fail "${SCRIPT} references a plaintext http:// URL -- every fetch in this script must be https"
 pass "no plaintext http:// URL anywhere in the installer"
 
 # The checksum comparison must still exist AND must still stand between the download and the
 # install. Ordering is the half a presence-grep cannot express: a script that compares digests
 # after `install` has a verification step that verifies nothing.
-mismatch_line="$(grep -n 'checksum mismatch' "${SCRIPT}" | head -1 | cut -d: -f1 || true)"
+# Anchored on the `echo` that RAISES the diagnostic, not on any line containing the phrase.
+# The prose above the fetch helper discusses "a digest that does not match", and an earlier
+# version of this anchor locked onto a COMMENT at line 106 and reported it as the location of
+# the comparison -- harmless for the ordering result, but the pass line then misdirects anyone
+# reading it. `^[[:space:]]*echo` cannot match a comment.
+mismatch_line="$(grep -nE '^[[:space:]]*echo "checksum mismatch' "${SCRIPT}" | head -1 | cut -d: -f1 || true)"
 install_line="$(grep -nE '^[[:space:]]*install[[:space:]]+-m' "${SCRIPT}" | head -1 | cut -d: -f1 || true)"
 [[ -n "${mismatch_line}" ]] ||
   fail "${SCRIPT} no longer reports a 'checksum mismatch' -- the SHA256 comparison is the only reason this script exists"
@@ -525,6 +564,30 @@ grep -Fq 'not a bare sha256 digest' <<<"$(case_err)" ||
   fail "non-digest checksum body: the error must say the checksum body is not a digest, not 'checksum mismatch' -- a mismatch diagnostic points the reader at the tarball when the fault is that no checksum was received. Got: $(case_err)"
 pass "a non-digest checksum response is rejected as a bad checksum, before the tarball is requested"
 
+# --- Case I: the install prefix does not exist yet ----------------------------------------------
+# REVIEW FIX (round 2, finding 1). `mkdir -p "${INSTALL_DIR}"` was added to match the house
+# pattern in hack/install-operator-sdk.sh and shipped with NO discriminating coverage: deleting
+# it left the whole gate green, because new_case pre-creates BIN_DIR, so no case ever handed the
+# installer a prefix that did not exist. The only evidence offered was a manual "verified live"
+# run -- which is the exact standard this suite filed F1 against one commit earlier. Covering it
+# rather than deleting it, because the prefix argument is a real entry point (this gate is its
+# only caller today, but that is an argument for testing it, not for leaving it half-built), and
+# a nested-prefix install demonstrably works.
+#
+# BIN_DIR is deliberately NOT created here. Without the mkdir, `install -m 0755` fails with
+# "No such file or directory" and the case reds on the exit status.
+new_case install-prefix-missing
+BIN_DIR="${CASE_DIR}/prefix/does/not/exist/bin"
+[[ ! -d "${BIN_DIR}" ]] ||
+  fail "install-prefix-missing: BIN_DIR was pre-created, so this case cannot discriminate -- it would pass with or without the mkdir in the installer"
+run_installer
+assert_stub_was_used "missing install prefix"
+[[ "$(case_status)" == "0" ]] ||
+  fail "missing install prefix: the installer must create the prefix it was handed (mkdir -p \"\${INSTALL_DIR}\", as hack/install-operator-sdk.sh does) instead of failing on it; exited $(case_status): $(case_err)"
+[[ -x "${BIN_DIR}/helm" ]] ||
+  fail "missing install prefix: installer exited 0 but ${BIN_DIR}/helm is absent or not executable"
+pass "the installer creates a nested install prefix that does not exist yet"
+
 # ---------------------------------------------------------------------------------------------
 # REVIEW FIX (F2): this gate must assert its own registration. House precedent is
 # hack/test/dev_mise_pin_drift_test.sh -- "an unwired gate is not a gate".
@@ -553,18 +616,43 @@ CI_WORKFLOW="${ROOT}/.github/workflows/ci.yaml"
 # Stripping an optional `run:` prefix makes one assertion cover both spellings a step can use:
 # the inline `run: bash <script>` this workflow uses today, and a `run: |` block scalar.
 #
+# SCOPED TO `.jobs.lint`, not to the whole file. GATE-HARDEN-01 in dist_ci_wiring_test.sh is the
+# house record of why: that gate compared file-global line numbers, so moving a step out of
+# `lint` into an earlier job kept it green while the job that actually needed the binary had
+# none. The same class applies here and survives both this gate and dist_ci_wiring_test.sh --
+# relocate this step into a path-filtered or conditional job and a file-wide grep still finds
+# the string, while the gate no longer runs on the changes it exists to catch.
+#
+# Textual block extraction rather than yq: yq is installed by a LATER step in this same job, so
+# hard-requiring it here would red the lint job for a reason unrelated to helm. Job keys sit at
+# two-space indent, so the block runs from `  lint:` to the next two-space non-comment key.
+lint_job_lines() {
+  awk '
+    /^  lint:[[:space:]]*$/ { inlint = 1; next }
+    inlint && /^  [^[:space:]#]/ { inlint = 0 }
+    inlint { print }
+  ' "${CI_WORKFLOW}"
+}
+
+# Without this the extraction could silently yield nothing -- a renamed or re-indented job -- and
+# every assertion below would be searching an empty stream.
+lint_block_size="$(lint_job_lines | wc -l)"
+((lint_block_size > 10)) ||
+  fail "could not extract the lint job from ${CI_WORKFLOW} (got ${lint_block_size} lines) -- the job was renamed or re-indented, and the wiring assertion below would search an empty stream"
+
 # KNOWN RESIDUAL, recorded rather than papered over: a step-level `continue-on-error: true` or
-# `if: false` on this step would leave the invocation line-exact and still stop it failing the
-# build. Seeing that needs a structural yq read, and yq is not guaranteed on the runner at this
-# point in the lint job -- it is installed by a later step, so hard-requiring it here would red
-# the job for a reason unrelated to helm. The job-level half of that hole is already closed:
-# hack/test/dist_ci_wiring_test.sh asserts the lint job itself is neither conditional nor
-# soft-failed. If this gate ever moves after the "Ensure yq is available" step, tighten this
-# into a yq step-graph assertion in the shape dist_ci_wiring_test.sh uses.
-[[ "$(grep -vE '^[[:space:]]*#' "${CI_WORKFLOW}" |
+# `if: false` on THIS step would leave the invocation line-exact and still stop it failing the
+# build. Seeing that needs a structural yq read, unavailable here for the reason above. The
+# job-level half of that hole is already closed: hack/test/dist_ci_wiring_test.sh asserts the
+# lint job itself is neither conditional nor soft-failed. If this gate ever moves after the
+# "Ensure yq is available" step, tighten this into a yq step-graph assertion in the shape
+# dist_ci_wiring_test.sh uses, which would close the step-level half too.
+wiring_hits="$(lint_job_lines | grep -vE '^[[:space:]]*#' |
   sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^run:[[:space:]]*//' |
-  count_matches -Fx 'bash hack/test/ci_install_helm_hardening_test.sh')" != "0" ]] ||
-  fail "hack/test/ci_install_helm_hardening_test.sh is not invoked from .github/workflows/ci.yaml on a bare, uncommented 'bash <script>' line -- an unwired gate is not a gate, and the dist_*/sonar_ko_* globs in the lint job do NOT match this filename, so one explicit step is the only thing keeping it in CI. The step is missing, commented out, or neutered (a trailing '|| true', '&' or redirect)."
-pass "the gate is wired into .github/workflows/ci.yaml by an explicit, uncommented, unguarded step"
+  count_matches -Fx 'bash hack/test/ci_install_helm_hardening_test.sh')"
+require_count "${wiring_hits}" "lint-job wiring scan"
+[[ "${wiring_hits}" != "0" ]] ||
+  fail "hack/test/ci_install_helm_hardening_test.sh is not invoked from .github/workflows/ci.yaml on a bare, uncommented 'bash <script>' line -- an unwired gate is not a gate, and the dist_*/sonar_ko_* globs in the lint job do NOT match this filename, so one explicit step in THE LINT JOB is the only thing keeping it in CI. The step is missing, moved to another job, commented out, or neutered (a trailing '|| true', '&' or redirect)."
+pass "the gate is wired into the lint job of .github/workflows/ci.yaml by an explicit, uncommented, unguarded step"
 
 echo "All CI-HELMDL-01 install-helm hardening tests passed."
