@@ -640,13 +640,37 @@ lint_block_size="$(lint_job_lines | wc -l)"
 ((lint_block_size > 10)) ||
   fail "could not extract the lint job from ${CI_WORKFLOW} (got ${lint_block_size} lines) -- the job was renamed or re-indented, and the wiring assertion below would search an empty stream"
 
-# KNOWN RESIDUAL, recorded rather than papered over: a step-level `continue-on-error: true` or
-# `if: false` on THIS step would leave the invocation line-exact and still stop it failing the
-# build. Seeing that needs a structural yq read, unavailable here for the reason above. The
-# job-level half of that hole is already closed: hack/test/dist_ci_wiring_test.sh asserts the
-# lint job itself is neither conditional nor soft-failed. If this gate ever moves after the
-# "Ensure yq is available" step, tighten this into a yq step-graph assertion in the shape
-# dist_ci_wiring_test.sh uses, which would close the step-level half too.
+# KNOWN RESIDUAL, recorded rather than papered over. A line-exact grep proves the invocation is
+# PRESENT and unneutered; it cannot prove the step RUNS. Every evasion below leaves the line
+# matched here and still stops the gate failing the build. Each needs a structural yq read,
+# unavailable at this point in the job for the reason above.
+#
+# At step level, on THIS step:
+#   * `continue-on-error: true` -- failures reported as success;
+#   * `if: false` -- never runs;
+#   * a `shell:` override, e.g. `shell: bash -c "echo skipped {0}"` -- GitHub substitutes the
+#     run body into the template, so the invocation stays byte-identical here and is echoed
+#     rather than executed. Same bucket as the two above, and easy to miss precisely because
+#     the `run:` line looks untouched.
+#
+# At job level:
+#   * `strategy.matrix: []` on `lint` -- an empty matrix materialises no jobs at all, so every
+#     step in it, this one included, silently never runs.
+#
+# What IS closed elsewhere, stated exactly rather than as "the job-level half":
+# hack/test/dist_ci_wiring_test.sh asserts `.jobs.lint.if` is null and
+# `.jobs.lint["continue-on-error"]` is unset-or-false. That is the whole of its job-level
+# coverage -- it contains no reference to `strategy` or `matrix`, and an independent review
+# confirmed it passes against a `lint` job carrying `strategy.matrix: []`. So the empty-matrix
+# evasion above is seen by NEITHER gate today; it is filed as its own item against that file,
+# which this lane does not own.
+#
+# `working-directory:` is deliberately NOT on this list: it would red in CI on a missing path,
+# so surviving it is correct behaviour, not a gap.
+#
+# If this gate ever moves after the "Ensure yq is available" step, tighten this into a yq
+# step-graph assertion in the shape dist_ci_wiring_test.sh uses, which would close the
+# step-level entries above.
 wiring_hits="$(lint_job_lines | grep -vE '^[[:space:]]*#' |
   sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^run:[[:space:]]*//' |
   count_matches -Fx 'bash hack/test/ci_install_helm_hardening_test.sh')"
