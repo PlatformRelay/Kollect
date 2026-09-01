@@ -119,33 +119,63 @@ pass "install docs describe hub paths without premature listing URLs"
 # the image references it must leave alone -- which is exactly the blind-sed defect this pair of
 # assertions is built to catch, from both directions.
 CHART_OCI='oci://ghcr.io/platformrelay/charts/kollect'
+CHART_OCI_RE='oci://ghcr\.io/platformrelay/charts/kollect'
 CHART_OCI_OLD='oci://ghcr.io/platformrelay/kollect'
 CONTROLLER_IMAGE_REPO='ghcr.io/platformrelay/kollect'
+# The controller image path as its own repository: `platformrelay/kollect` followed by a delimiter,
+# never by another path segment. The trailing class excludes `/` (so `platformrelay/charts/kollect`
+# cannot match), `-` and alphanumerics (so `kollect-pipeline` cannot), and allows `:`, `@`, a
+# backtick, whitespace or end-of-line -- every way these docs actually terminate the reference.
+CONTROLLER_IMAGE_RE='ghcr\.io/platformrelay/kollect([^/[:alnum:]-]|$)'
 
 # Every doc that hands a reader an OCI chart reference. Scoped deliberately: docs/adr/*.md quote the
 # OLD coordinate as history and as a verbatim Artifact Hub error message, and CHANGELOG.md records
 # it as shipped fact -- rewriting either would falsify the record, so neither is scanned.
-COORDINATE_DOCS=(
-  "${README}"
+#
+# Split by what each file OWES the reader, because a single presence check cannot be honest about
+# both kinds. INSTALL_COMMAND_DOCS put a runnable `helm install`/`helm upgrade` line in front of the
+# reader; MENTION_DOCS name the coordinate as a fact (README's install-paths sentence, RELEASE.md's
+# published-outputs table) and have no command to run.
+INSTALL_COMMAND_DOCS=(
   "${INSTALL}"
   "${ROOT}/docs/COMMAND-REFERENCE.md"
   "${ROOT}/docs/operator-manual/index.md"
   "${ROOT}/docs/operator-manual/upgrading.md"
   "${ROOT}/docs/operator-manual/load-test-runbook.md"
+)
+MENTION_DOCS=(
+  "${README}"
   "${ROOT}/docs/RELEASE.md"
 )
+COORDINATE_DOCS=("${INSTALL_COMMAND_DOCS[@]}" "${MENTION_DOCS[@]}")
 
-for file in "${COORDINATE_DOCS[@]}"; do
+# PRESENCE, before the absence check, so "the old coordinate is gone" cannot be satisfied by
+# deleting the coordinate outright.
+#
+# Anchored to the COMMAND, not to the bare string, and that anchoring is the whole point. Three of
+# these files name the new coordinate twice -- once in a `helm install`/`helm upgrade` snippet and
+# once in prose explaining the move -- so a bare `grep -F` for the coordinate stayed green after the
+# runnable command was deleted, leaving only the prose. Proven by mutation on install.md,
+# operator-manual/index.md and upgrading.md. `helm (install|upgrade)` and the coordinate must sit on
+# ONE line, which every snippet in these files does (continuations break after the coordinate).
+for file in "${INSTALL_COMMAND_DOCS[@]}"; do
   [[ -f "${file}" ]] ||
     fail "${file} is missing (the chart-coordinate assertions below would pass vacuously)"
+  grep -Eq "helm (install|upgrade)[^[:space:]]*.*${CHART_OCI_RE}" "${file}" ||
+    fail "${file} must hand the reader a runnable \`helm install\`/\`helm upgrade\` line against ${CHART_OCI} (ADR-0709) -- a prose mention of the coordinate is not an install path, and this file is listed because it carries a command today"
+done
 
-  # PRESENCE, first, so the absence check under it cannot pass vacuously: deleting the install
-  # snippet outright is not a way to satisfy "the old coordinate is gone". Each of these files is
-  # listed because it genuinely hands the reader an OCI chart reference today; if a rewrite means a
-  # file no longer should, drop it from COORDINATE_DOCS deliberately rather than emptying it.
+# The mention-only docs owe the string, not a command: README's install-paths sentence and
+# RELEASE.md's "what CI publishes" table row. Kept as a separate list so the assertion above can
+# stay strict rather than being weakened to accommodate two files that legitimately have no snippet.
+for file in "${MENTION_DOCS[@]}"; do
+  [[ -f "${file}" ]] ||
+    fail "${file} is missing (the chart-coordinate assertions below would pass vacuously)"
   grep -Fq "${CHART_OCI}" "${file}" ||
-    fail "${file} must publish the chart at ${CHART_OCI} (ADR-0709); every doc in COORDINATE_DOCS hands the reader an OCI chart reference and must use the current one"
+    fail "${file} must name the chart coordinate ${CHART_OCI} (ADR-0709)"
+done
 
+for file in "${COORDINATE_DOCS[@]}"; do
   # ABSENCE. Case-INSENSITIVE because registry hosts are case-insensitive, so
   # `OCI://GHCR.IO/platformrelay/kollect` is the same stale coordinate; a case-sensitive check here
   # would be a one-keystroke bypass. Note the new coordinate does NOT contain the old one as a
@@ -165,14 +195,44 @@ for file in "${COORDINATE_DOCS[@]}"; do
   # The other direction, and the reason this gate is a pair rather than a single grep: a blind
   # `sed s#platformrelay/kollect#platformrelay/charts/kollect#` over these files would satisfy both
   # assertions above while silently repointing the controller image at a path that holds no images.
-  # v-prefixed tags and `image.repository` are image-only, so either under `charts/` is that defect.
-  ! grep -Eiq "ghcr\.io/platformrelay/charts/kollect:v[0-9]|image\.repository[[:space:]]*[=:][[:space:]]*[\"'\`]?ghcr\.io/platformrelay/charts" "${file}" ||
+  # A v-prefixed tag and an `image.repository` value are image-only, so either under `charts/` is
+  # that defect on sight.
+  #
+  # The `image.repository` half is a LOOSE proximity match, not a `key = value` match, because the
+  # docs state it in prose as often as in a snippet -- upgrading.md reads
+  # "`image.repository` stays `ghcr.io/platformrelay/kollect`". The earlier version required `=` or
+  # `:` immediately after the key and therefore missed exactly that sentence: a sed over
+  # upgrading.md alone passed green while corrupting the image coordinate. 40 characters is enough
+  # slack for the prose forms in use and short enough that an unrelated mention of the chart path
+  # later on the same line does not collide.
+  ! grep -Eiq "ghcr\.io/platformrelay/charts/kollect:v[0-9]|image\.repository.{0,40}ghcr\.io/platformrelay/charts/kollect" "${file}" ||
     fail "${file} points the CONTROLLER IMAGE at ghcr.io/platformrelay/charts/kollect; ADR-0709 moves only the chart -- the image stays at ${CONTROLLER_IMAGE_REPO} with v-prefixed tags because its digest is pinned immutably in already-merged OLM bundles"
 done
 
-# Keeps the anti-blind-sed assertion above non-vacuous: RELEASE.md is the one doc that states the
-# controller image coordinate outright, so if the image path were ever moved wholesale this gate
-# would red here instead of quietly agreeing with the rewrite.
+# The general backstop, and the one that does not depend on guessing which shapes a blind sed
+# produces: every doc that names the controller image today must STILL name it as its own
+# repository. A `sed s#platformrelay/kollect#platformrelay/charts/kollect#g` rewrites every
+# occurrence in the file, so this reds on the mutation even where no v-tag and no
+# `image.repository` happens to sit near the corrupted string -- the case that let a sed over
+# operator-manual/index.md alone pass green.
+#
+# load-test-runbook.md is deliberately absent: it references the chart only, so it has no image
+# coordinate to protect and requiring one would be a lie about its content.
+IMAGE_PATH_DOCS=(
+  "${README}"
+  "${INSTALL}"
+  "${ROOT}/docs/COMMAND-REFERENCE.md"
+  "${ROOT}/docs/operator-manual/index.md"
+  "${ROOT}/docs/operator-manual/upgrading.md"
+  "${ROOT}/docs/RELEASE.md"
+)
+for file in "${IMAGE_PATH_DOCS[@]}"; do
+  grep -Eq "${CONTROLLER_IMAGE_RE}" "${file}" ||
+    fail "${file} no longer names the controller image repository ${CONTROLLER_IMAGE_REPO} as its own path -- ADR-0709 moves only the chart, so a rewrite that took the image with it (typically a blind sed over platformrelay/kollect) has corrupted this file"
+done
+
+# Narrower, and kept because it pins the TAG CONVENTION rather than the path: RELEASE.md is where
+# the v-prefix is stated as a published fact, and DR-FIND-07 is entirely about that prefix.
 grep -Fq "${CONTROLLER_IMAGE_REPO}:v" "${ROOT}/docs/RELEASE.md" ||
   fail "${ROOT}/docs/RELEASE.md must keep naming the controller image as ${CONTROLLER_IMAGE_REPO}:v<version> -- the image does not move under ADR-0709"
 
