@@ -26,8 +26,9 @@ for file in "${INSTALL}" "${README}"; do
 done
 
 # ADR-0708 forbids shipping a hub URL that does not resolve to a live listing. Artifact Hub
-# registration completed 2026-08-18 (repo `kollect`, oci://ghcr.io/platformrelay/kollect,
-# Verified Publisher active), so its badge is unambiguously legitimate and is asserted PRESENT.
+# registration completed 2026-08-18 (repo `kollect`; chart coordinate moved to
+# oci://ghcr.io/platformrelay/charts/kollect by ADR-0709), Verified Publisher active, so its
+# badge is unambiguously legitimate and is asserted PRESENT.
 #
 # DIST-OH-05: the OperatorHub.io package deep link is NOT legitimate, and the rationale that
 # shipped it has been falsified. It went out ahead of the listing on the premise that
@@ -103,5 +104,78 @@ for file in "${INSTALL}" "${README}"; do
 done
 
 pass "install docs describe hub paths without premature listing URLs"
+
+# DIST-AH-03 / ADR-0709: the Helm CHART lives at oci://ghcr.io/platformrelay/charts/kollect.
+# The controller IMAGE does NOT move -- it stays at ghcr.io/platformrelay/kollect with v-prefixed
+# tags, because its digest is pinned immutably in OLM bundles already merged into the community
+# catalogs. Until this gate existed the install coordinate was named only in a comment and never
+# asserted, so every doc could drift to a coordinate that does not resolve and nothing would red.
+#
+# The whole difficulty is that both artifacts share the string `ghcr.io/platformrelay/kollect`, and
+# the docs below carry MANY legitimate controller-image references to it (image.repository defaults,
+# the DR-FIND-07 tag table in RELEASE.md, the lab-registry mirror notes). So every assertion here
+# anchors on the `oci://` scheme, which only ever prefixes a CHART reference: `helm install`,
+# `helm upgrade`, `helm pull`, `helm show`. An unanchored grep for the bare repo path would red on
+# the image references it must leave alone -- which is exactly the blind-sed defect this pair of
+# assertions is built to catch, from both directions.
+CHART_OCI='oci://ghcr.io/platformrelay/charts/kollect'
+CHART_OCI_OLD='oci://ghcr.io/platformrelay/kollect'
+CONTROLLER_IMAGE_REPO='ghcr.io/platformrelay/kollect'
+
+# Every doc that hands a reader an OCI chart reference. Scoped deliberately: docs/adr/*.md quote the
+# OLD coordinate as history and as a verbatim Artifact Hub error message, and CHANGELOG.md records
+# it as shipped fact -- rewriting either would falsify the record, so neither is scanned.
+COORDINATE_DOCS=(
+  "${README}"
+  "${INSTALL}"
+  "${ROOT}/docs/COMMAND-REFERENCE.md"
+  "${ROOT}/docs/operator-manual/index.md"
+  "${ROOT}/docs/operator-manual/upgrading.md"
+  "${ROOT}/docs/operator-manual/load-test-runbook.md"
+  "${ROOT}/docs/RELEASE.md"
+)
+
+for file in "${COORDINATE_DOCS[@]}"; do
+  [[ -f "${file}" ]] ||
+    fail "${file} is missing (the chart-coordinate assertions below would pass vacuously)"
+
+  # PRESENCE, first, so the absence check under it cannot pass vacuously: deleting the install
+  # snippet outright is not a way to satisfy "the old coordinate is gone". Each of these files is
+  # listed because it genuinely hands the reader an OCI chart reference today; if a rewrite means a
+  # file no longer should, drop it from COORDINATE_DOCS deliberately rather than emptying it.
+  grep -Fq "${CHART_OCI}" "${file}" ||
+    fail "${file} must publish the chart at ${CHART_OCI} (ADR-0709); every doc in COORDINATE_DOCS hands the reader an OCI chart reference and must use the current one"
+
+  # ABSENCE. Case-INSENSITIVE because registry hosts are case-insensitive, so
+  # `OCI://GHCR.IO/platformrelay/kollect` is the same stale coordinate; a case-sensitive check here
+  # would be a one-keystroke bypass. Note the new coordinate does NOT contain the old one as a
+  # substring (`charts/` sits between owner and chart name), so this is exact: it reds only on a
+  # genuinely stale chart reference. It also catches the pre-ADR-0709 typo
+  # `oci://ghcr.io/platformrelay/kollect/charts/kollect`, a path that has never existed.
+  #
+  # Consequence for prose, and it is deliberate: these docs explain the migration WITHOUT
+  # reproducing the old coordinate under an `oci://` scheme -- they write it as
+  # "ghcr.io/platformrelay/kollect (no `charts/` segment)", which is the same path the controller
+  # image is named by anyway. A copy-pasteable `oci://` line is an instruction whatever sentence
+  # surrounds it, and a reader skimming for the command does not read the caveat. The history
+  # belongs in ADR-0709 and CHANGELOG.md, which this gate does not scan.
+  ! grep -Fiq "${CHART_OCI_OLD}" "${file}" ||
+    fail "${file} still installs the chart from ${CHART_OCI_OLD}; ADR-0709 moved it to ${CHART_OCI} because Artifact Hub indexes one chart per repository and the old path also serves the controller image"
+
+  # The other direction, and the reason this gate is a pair rather than a single grep: a blind
+  # `sed s#platformrelay/kollect#platformrelay/charts/kollect#` over these files would satisfy both
+  # assertions above while silently repointing the controller image at a path that holds no images.
+  # v-prefixed tags and `image.repository` are image-only, so either under `charts/` is that defect.
+  ! grep -Eiq "ghcr\.io/platformrelay/charts/kollect:v[0-9]|image\.repository[[:space:]]*[=:][[:space:]]*[\"'\`]?ghcr\.io/platformrelay/charts" "${file}" ||
+    fail "${file} points the CONTROLLER IMAGE at ghcr.io/platformrelay/charts/kollect; ADR-0709 moves only the chart -- the image stays at ${CONTROLLER_IMAGE_REPO} with v-prefixed tags because its digest is pinned immutably in already-merged OLM bundles"
+done
+
+# Keeps the anti-blind-sed assertion above non-vacuous: RELEASE.md is the one doc that states the
+# controller image coordinate outright, so if the image path were ever moved wholesale this gate
+# would red here instead of quietly agreeing with the rewrite.
+grep -Fq "${CONTROLLER_IMAGE_REPO}:v" "${ROOT}/docs/RELEASE.md" ||
+  fail "${ROOT}/docs/RELEASE.md must keep naming the controller image as ${CONTROLLER_IMAGE_REPO}:v<version> -- the image does not move under ADR-0709"
+
+pass "docs install the chart from ${CHART_OCI} and leave the controller image at ${CONTROLLER_IMAGE_REPO}"
 
 echo "All dist install doc tests passed."
