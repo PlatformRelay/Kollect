@@ -401,11 +401,43 @@ write_fixture "${fixture_dir}/errors_b.json" 1788194401 '"error preparing packag
 write_fixture "${fixture_dir}/oldurl_b.json" 1788194401 'null' "oci://${OLD_PATH}" true
 write_fixture "${fixture_dir}/unverified_b.json" 1788194401 'null' "${NEW_URL}" false
 
+# A repository-search response with a SIBLING row FIRST and the real one second. This is
+# the shape that tells the three candidate selectors apart; a single-row fixture cannot,
+# because there `repository_id`, exact-name and `.[0]` all return the same object.
+#
+# The sibling is named `kollect-staging` on purpose: it CONTAINS "kollect" as a substring,
+# which is exactly the confusion ADR-0709 warns about when it names `.[0]` as the latent
+# wrong-repository bug. Exact-name equality cannot match it; `.[0]` picks it every time.
+# It also carries a different repository_id, a stale timestamp, errors, the OLD url and
+# verified_publisher=false -- so a run that reads it produces a visibly wrong verdict
+# rather than a subtly wrong one.
+write_sibling_fixture() {
+  # $1 path, $2 real row's last_tracking_ts, $3 real row's errors (JSON), $4 url, $5 vp
+  cat >"$1" <<JSON
+[{"repository_id":"11111111-2222-3333-4444-555555555555","name":"kollect-staging","url":"oci://ghcr.io/platformrelay/kollect","kind":0,"verified_publisher":false,"last_tracking_ts":1700000000,"last_tracking_errors":"error preparing package: sibling repository, not ours"},
+ {"repository_id":"cb3be9a6-8e3b-4419-9de5-1184fe349c29","name":"kollect","url":"$4","kind":0,"verified_publisher":$5,"last_tracking_ts":$2,"last_tracking_errors":$3}]
+JSON
+}
+
+# Same two rows, but the real one's repository_id has changed -- what a delete-and-
+# re-create looks like. The exact-name fallback must still find it, and must still not be
+# fooled by the substring sibling sitting in front of it.
+write_sibling_fixture_no_id() {
+  cat >"$1" <<JSON
+[{"repository_id":"11111111-2222-3333-4444-555555555555","name":"kollect-staging","url":"oci://ghcr.io/platformrelay/kollect","kind":0,"verified_publisher":false,"last_tracking_ts":1700000000,"last_tracking_errors":"error preparing package: sibling repository, not ours"},
+ {"repository_id":"99999999-8888-7777-6666-555555555555","name":"kollect","url":"$4","kind":0,"verified_publisher":$5,"last_tracking_ts":$2,"last_tracking_errors":$3}]
+JSON
+}
+
 verify_ac1() {
   # $1 = colon-separated fixture list; remaining args passed through.
   local fixtures="$1"
   shift
-  MIGRATE_AH_FIXTURES="${fixtures}" bash "${SCRIPT}" --verify-ac1 --interval 0 --timeout 1 "$@" 2>&1
+  # --timeout is generous on purpose. Fixture reads never sleep and the loop is bounded by
+  # the fixture count, so a large timeout cannot slow this down -- but a tight one CAN end
+  # the loop early on a slow runner, turning a three-fixture PASS case into a flaky
+  # INCONCLUSIVE. Wall clock must not decide the verdict in a fixture-driven test.
+  MIGRATE_AH_FIXTURES="${fixtures}" bash "${SCRIPT}" --verify-ac1 --interval 0 --timeout 600 "$@" 2>&1
 }
 
 # (a) The control: two reads whose timestamp genuinely advanced, no errors, new URL,
@@ -497,6 +529,44 @@ grep -Eq '^(RESULT: )?PASS' <<<"${out_two_post}" ||
   fail "--verify-ac1 must reach PASS once TWO runs postdating the baseline have both been observed clean; got:"$'\n'"${out_two_post}"
 
 pass "--verify-ac1 requires two runs both taken after the repoint and both empty, per ADR-0709"
+
+# (h) WHICH repository the mode reads. ADR-0709 names `.[0]` as the latent wrong-repository
+#     bug -- the search endpoint returns a list, and the first element is whatever the
+#     search ranked first. Every fixture above is a single row carrying both the right id
+#     and the right name, so `repository_id`, exact-name and `.[0]` are indistinguishable
+#     to them: the selector had no discriminating coverage at all. These two rows do have
+#     it, and the sibling is the substring case the ADR actually warns about.
+write_sibling_fixture "${fixture_dir}/sib_a.json" 1788190801 'null' "${NEW_URL}" true
+write_sibling_fixture "${fixture_dir}/sib_b.json" 1788194401 'null' "${NEW_URL}" true
+out_sibling="$(verify_ac1 "${fixture_dir}/sib_a.json:${fixture_dir}/sib_b.json" --since 1788190800 || true)"
+grep -Eq '^(RESULT: )?PASS' <<<"${out_sibling}" ||
+  fail "--verify-ac1 must select the kollect repository by repository_id even when a sibling row (kollect-staging) is returned FIRST by the search. Selecting .[0] reads the wrong repository -- the failure mode ADR-0709 names explicitly; got:"$'\n'"${out_sibling}"
+# The sibling's own values must not appear anywhere in the verdict: it is stale, dirty, on
+# the old url and not a verified publisher, so if any of it leaked in, the result is being
+# computed from the wrong row.
+if grep -Fq 'kollect-staging' <<<"${out_sibling}"; then
+  fail "the sibling repository's data reached the output; the selector is reading the wrong row:"$'\n'"${out_sibling}"
+fi
+if grep -Fq '1700000000' <<<"${out_sibling}"; then
+  fail "the sibling repository's last_tracking_ts (1700000000) reached the output; .[0] is being read instead of the row with repository_id cb3be9a6-...:"$'\n'"${out_sibling}"
+fi
+
+# The exact-name fallback: still finds the right row when the id has changed, still is not
+# fooled by the substring sibling in front of it, and says out loud that the id missed --
+# an id that changed is what a delete-and-re-create looks like, which the handoff warns
+# against and which normally also clears verified_publisher.
+write_sibling_fixture_no_id "${fixture_dir}/noid_a.json" 1788190801 'null' "${NEW_URL}" true
+write_sibling_fixture_no_id "${fixture_dir}/noid_b.json" 1788194401 'null' "${NEW_URL}" true
+out_noid="$(verify_ac1 "${fixture_dir}/noid_a.json:${fixture_dir}/noid_b.json" --since 1788190800 || true)"
+grep -Eq '^(RESULT: )?PASS' <<<"${out_noid}" ||
+  fail "the exact-name fallback must still find the kollect row when repository_id has changed; got:"$'\n'"${out_noid}"
+if grep -Fq '1700000000' <<<"${out_noid}"; then
+  fail "the exact-name fallback matched the substring sibling kollect-staging; equality, not substring, is the point:"$'\n'"${out_noid}"
+fi
+grep -Fiq 'repository_id' <<<"${out_noid}" ||
+  fail "when the fallback fires the operator must be told the repository_id no longer matches -- that is what a delete-and-re-create looks like; got:"$'\n'"${out_noid}"
+
+pass "--verify-ac1 selects by repository_id, falls back to exact name, and is not fooled by a sibling row ranked first"
 
 # ---------------------------------------------------------------------------
 # 8. Behavioural: the --apply path, driven through recording stubs.
@@ -595,6 +665,22 @@ for a in "$@"; do
       printf '{"token":"%s"}\n' "${STUB_GHCR_JWT}"
       exit 0
       ;;
+    https://artifacthub.io/*)
+      # Counted, so a test can measure how hard the poll loop hits a third-party API.
+      printf 'x\n' >>"${STUB_AH_COUNT:-/dev/null}"
+      code="${STUB_AH_HTTP:-200}"
+      # STUB_AH_OK_FIRST=N: answer the first N requests normally and fail after that, so a
+      # scenario can put the failure on a read OTHER than the first.
+      if [ -n "${STUB_AH_OK_FIRST:-}" ] && [ -f "${STUB_AH_COUNT:-/dev/null}" ]; then
+        if [ "$(wc -l <"${STUB_AH_COUNT}")" -le "${STUB_AH_OK_FIRST}" ]; then code=200; fi
+      fi
+      if [ "${code}" != "200" ]; then
+        printf 'curl: (22) The requested URL returned error: %s\n' "${code}" >&2
+        exit 22
+      fi
+      cat "${STUB_AH_JSON}"
+      exit 0
+      ;;
   esac
 done
 exit 0
@@ -648,6 +734,7 @@ STUB_PKG_VISIBILITY=public
 STUB_PKG_HTTP=200
 STUB_CRANE_FLAKE=""
 TOKEN_OVERRIDE=""
+STUB_AH_OK_FIRST=""
 
 # Runs the script under the stub PATH. Returns the script's exit code in `rc`, output in
 # `out`, so both can be asserted on -- a check that only looks at output would accept a
@@ -1041,13 +1128,18 @@ fi
 # value says -- demonstrated with real curl during review. The value comes from the
 # operator's own environment, so this is self-inflicted rather than an external attack, but
 # a guard that exists to make an escaping question disappear has to be shown to hold.
-scene="$(new_scene badtoken)"
+# Case 1 isolates the NEWLINE. Every other character in this payload is [A-Za-z0-9_], so
+# the only thing the guard can be rejecting is the line break -- a mutant that admits a
+# newline while still rejecting '/', '=' or spaces cannot survive it. And a newline alone
+# is enough: `insecure` is a bare curl directive needing no argument, so "the payload has
+# no punctuation" is not a defence.
+scene="$(new_scene badtoken_newline)"
 seed_all_sources "${scene}"
-TOKEN_OVERRIDE=$'ghp_FAKESECRET_ok\noutput = /tmp/kollect-migrate-should-not-exist'
+TOKEN_OVERRIDE=$'ghp_FAKESECRET_ok\ninsecure'
 run_migrate "${scene}" "${SCRIPT}"
 TOKEN_OVERRIDE=""
 (( rc != 0 )) ||
-  fail "a token containing a newline must be refused in Phase 0; rc=${rc}"$'\n'"${out}"
+  fail "a token whose ONLY offending character is a newline must be refused in Phase 0; rc=${rc}"$'\n'"${out}"
 grep -Fiq 'token' <<<"${out}" ||
   fail "the refusal must tell the operator it is about the token; got:"$'\n'"${out}"
 # The point of refusing early: no curl config is ever emitted, so the injected directive
@@ -1057,8 +1149,23 @@ grep -Fiq 'token' <<<"${out}" ||
 if logged "${scene}" '^curl '; then
   fail "curl was invoked at all with a malformed token; Phase 0 must stop first"
 fi
-[[ ! -e /tmp/kollect-migrate-should-not-exist ]] ||
-  fail "the injected 'output =' directive was honoured: /tmp/kollect-migrate-should-not-exist was created"
+
+# Case 2 is the full write-primitive payload, kept because it names the concrete harm. The
+# target lives under the per-run stub_root, not at a fixed /tmp path: a fixed path can be
+# pre-seeded by anything on the machine, and this assertion would then red with a message
+# falsely claiming the injection had been honoured -- a test that lies about what it saw.
+PWNED="${stub_root}/proof-injection"
+[[ ! -e "${PWNED}" ]] ||
+  fail "${PWNED} already exists before the run; this assertion could not distinguish an injection from a leftover"
+scene="$(new_scene badtoken_output)"
+seed_all_sources "${scene}"
+TOKEN_OVERRIDE=$'ghp_FAKESECRET_ok\noutput = '"${PWNED}"
+run_migrate "${scene}" "${SCRIPT}"
+TOKEN_OVERRIDE=""
+(( rc != 0 )) ||
+  fail "a token carrying an 'output =' curl directive must be refused in Phase 0; rc=${rc}"$'\n'"${out}"
+[[ ! -e "${PWNED}" ]] ||
+  fail "the injected 'output =' directive was honoured: ${PWNED} was created by curl writing a response body to an attacker-named path"
 
 pass "8j: pull-only tokens, private and missing packages, and malformed tokens are all refused before they can do harm"
 
@@ -1085,5 +1192,109 @@ for bad_args in "--since" "--interval" "--timeout" "--since notanumber" "--this-
 done
 
 pass "8k: bad arguments exit with a usage code and a message, never a migration verdict"
+
+# --- 8l. --verify-ac1 against a live (stubbed) endpoint. -------------------
+# Everything in section 7 runs through MIGRATE_AH_FIXTURES, which short-circuits the HTTP
+# path entirely -- so the poll loop's live behaviour, including the --interval floor, had
+# no coverage at all. These two scenarios reach the curl branch: the fixture variable must
+# stay UNSET for that.
+ah_json="${stub_root}/ah.json"
+write_fixture "${ah_json}" 1788190801 'null' "${NEW_URL}" true
+ah_count="${stub_root}/ah.count"
+
+elapsed=0
+run_ac1_live() {
+  : >"${ah_count}"
+  local t0=${SECONDS}
+  set +e
+  out="$(env "PATH=${stub_bin}:${PATH}" \
+    "STUB_LOG=${stub_root}/ac1.log" "STUB_CURL_STDIN=${stub_root}/ac1.stdin" \
+    "STUB_AH_JSON=${ah_json}" "STUB_AH_COUNT=${ah_count}" "STUB_AH_HTTP=${1}" \
+    "STUB_AH_OK_FIRST=${STUB_AH_OK_FIRST:-}" \
+    bash "${SCRIPT}" --verify-ac1 "${@:2}" 2>&1)"
+  rc=$?
+  set -e
+  elapsed=$(( SECONDS - t0 ))
+}
+
+# --interval 0 against a public third-party API is an unbounded hot loop for as long as
+# --timeout allows -- measured at ~724 requests in 10s, which over the default 3600s
+# timeout is roughly a quarter of a million requests to artifacthub.io. The floor is what
+# stops that, and the nap is bounded by the remaining timeout so the floor does not
+# overshoot a short deadline either.
+run_ac1_live 200 --interval 0 --timeout 2
+requests="$(wc -l <"${ah_count}")"
+(( requests >= 2 )) ||
+  fail "the live poll loop issued ${requests} request(s) in a 2s window; it must poll at least twice, or the assertion below is measuring a loop that never ran"
+(( requests <= 5 )) ||
+  fail "the live poll loop issued ${requests} requests in 2 seconds. --interval must be clamped to a floor: artifacthub.io is a public third-party API and its tracking runs are ~30 minutes apart, so a tighter poll adds load and observes nothing"
+grep -Fiq 'raised to' <<<"${out}" ||
+  fail "the operator must be told their --interval was raised, and why; got:"$'\n'"${out}"
+# The floor must not overshoot the deadline the operator set. A 60s floor under
+# --timeout 2 has to spend 2 seconds, not 60: the nap is bounded by the time remaining.
+# Measured in wall clock, because that is the thing an operator actually experiences and
+# the only signal that separates "slept the floor" from "slept what was left".
+(( elapsed <= 15 )) ||
+  fail "--verify-ac1 --timeout 2 took ${elapsed}s. The --interval floor is being slept in full instead of being bounded by the time remaining, so a short --timeout is ignored"
+(( requests >= 2 )) ||
+  fail "only ${requests} request(s) in the timeout window; the loop must actually poll again, or the elapsed-time assertion above is measuring a loop that exited immediately"
+
+# A failing HTTP read must stop. ah_sample's die runs inside a command substitution, and
+# `set -e` does not apply to one used as an ARGUMENT -- so the script printed "could not
+# read <url>", a sentence that means "stopped" everywhere else in this file, and then kept
+# polling and reported a run with an empty timestamp and an empty baseline.
+run_ac1_live 503 --interval 0 --timeout 2
+(( rc != 0 )) ||
+  fail "a failing read of the Artifact Hub endpoint must stop the mode; rc=${rc}"$'\n'"${out}"
+# WHERE it stops is the discriminating fact. ah_sample's die runs inside a command
+# substitution, and `set -e` does not apply to one used as an ARGUMENT -- so a call site
+# written as `record_run "$(ah_sample ...)"` swallows the failure and the loop polls again.
+# A run that stopped correctly reads the endpoint ONCE and never announces a next attempt;
+# checking only the exit code cannot tell the two apart, because a later call site that
+# DOES propagate will end the run anyway, several requests later.
+read_failures="$(grep -c 'could not read https://artifacthub.io' <<<"${out}" || true)"
+(( read_failures >= 1 )) ||
+  fail "the failed read was never reported to the operator at all; got:"$'\n'"${out}"
+(( read_failures == 1 )) ||
+  fail "the Artifact Hub read failed ${read_failures} times: the mode carried on past the first failure instead of stopping at it. 'could not read ...' means stopped everywhere else in this file"
+if grep -Fq 'waiting' <<<"${out}"; then
+  fail "the mode announced another poll after a failed read; it must stop at the read it could not complete:"$'\n'"${out}"
+fi
+if grep -Eq 'RESULT:' <<<"${out}"; then
+  fail "the mode reported a verdict after a read it could not complete:"$'\n'"${out}"
+fi
+if grep -Eq 'last_tracking_ts=[[:space:]]*$|last_tracking_ts=[[:space:]]+\(' <<<"${out}"; then
+  fail "the mode carried on past a failed read and reported a tracking run with an empty timestamp:"$'\n'"${out}"
+fi
+if grep -Eq -- '--since[[:space:]]*$' <<<"${out}"; then
+  fail "the mode printed an empty '--since' baseline after a failed read; an operator would paste that back:"$'\n'"${out}"
+fi
+
+# The SAME contract on a read that is not the first. Every call site that reaches
+# ah_sample has to propagate, and a scenario that only ever fails read 1 cannot see the
+# others: whichever later call site still propagates ends the run anyway, so the exit code
+# looks right while the mode has quietly polled on past a failure it reported as fatal.
+# Here read 1 succeeds and the poll read fails.
+STUB_AH_OK_FIRST=1
+run_ac1_live 503 --interval 0 --timeout 2
+STUB_AH_OK_FIRST=""
+(( rc != 0 )) ||
+  fail "a failing read inside the poll loop must stop the mode; rc=${rc}"$'\n'"${out}"
+grep -Fq 'could not read https://artifacthub.io' <<<"${out}" ||
+  fail "the failed poll read was never reported; got:"$'\n'"${out}"
+if grep -Eq 'RESULT:' <<<"${out}"; then
+  fail "the mode reported a verdict after a poll read it could not complete. 'could not read ...' means stopped everywhere else in this file, and a verdict computed from a run it never actually observed is worse than no verdict:"$'\n'"${out}"
+fi
+if grep -Eq 'last_tracking_ts=[[:space:]]*$|last_tracking_ts=[[:space:]]+\(' <<<"${out}"; then
+  fail "the mode recorded a tracking run with an empty timestamp from a failed poll read:"$'\n'"${out}"
+fi
+
+# A fixture path that does not exist must be an error, not an empty document parsed as
+# "no such repository" -- a wrong answer wearing a real one's clothes.
+out_missing="$(MIGRATE_AH_FIXTURES="${stub_root}/does-not-exist.json" bash "${SCRIPT}" --verify-ac1 --interval 0 --timeout 1 2>&1 || true)"
+grep -Fiq 'does not exist' <<<"${out_missing}" ||
+  fail "a missing MIGRATE_AH_FIXTURES entry must be reported as missing, not read as an empty response; got:"$'\n'"${out_missing}"
+
+pass "8l: the live poll loop is rate-floored, stops on a failed read, and rejects a missing fixture"
 
 echo "All dist chart path migration tests passed."
