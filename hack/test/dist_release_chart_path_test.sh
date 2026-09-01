@@ -117,6 +117,28 @@ WF_IMAGE_NAME="$(yq eval '.env.IMAGE_NAME // ""' "${WORKFLOW}")"
 
 pass "workflow declares env.REGISTRY, env.CHART_NAME and env.IMAGE_NAME as separate constants"
 
+# env.CHART_NAME is not a free-form label: it is the chart's real name in two places that
+# both fail hard and late if it drifts.
+#   * The publish step builds CHART_PKG as dist/${CHART_NAME}-${VERSION}.tgz, and
+#     `helm package` names that tarball from Chart.yaml's `name`. A divergence points the
+#     push at a file that was never produced -- discovered mid-release, after the images
+#     are pushed and signed.
+#   * `helm push` appends the chart's own name to the target, so the last segment of the
+#     chart repository is Chart.yaml's `name` whatever this variable says. Artifact Hub
+#     also requires the URL to end in the chart name.
+# The chart is located by SEARCHING charts/ rather than by looking under
+# charts/${CHART_NAME}: deriving the path from the value under test would make this
+# assertion circular and it would pass on any consistent-but-wrong pair.
+mapfile -t CHART_YAMLS < <(find "${ROOT}/charts" -mindepth 2 -maxdepth 2 -name Chart.yaml | sort)
+[[ "${#CHART_YAMLS[@]}" -eq 1 ]] ||
+  fail "expected exactly one chart under charts/, found ${#CHART_YAMLS[@]} -- with more than one, env.CHART_NAME cannot be anchored unambiguously and this gate must be taught which chart the release publishes"
+DECLARED_CHART_NAME="$(yq eval '.name // ""' "${CHART_YAMLS[0]}")"
+[[ -n "${DECLARED_CHART_NAME}" ]] || fail "${CHART_YAMLS[0]} declares no name"
+[[ "${WF_CHART_NAME}" == "${DECLARED_CHART_NAME}" ]] ||
+  fail "env.CHART_NAME is '${WF_CHART_NAME}' but ${CHART_YAMLS[0]} declares name '${DECLARED_CHART_NAME}'. The publish step builds dist/${WF_CHART_NAME}-<version>.tgz, which 'helm package' never produced, and 'helm push' would append '${DECLARED_CHART_NAME}' to the target regardless"
+
+pass "env.CHART_NAME matches the name declared in ${CHART_YAMLS[0]#"${ROOT}"/}"
+
 # ---------------------------------------------------------------------------
 # 3. Simulation harness.
 # ---------------------------------------------------------------------------
@@ -126,13 +148,34 @@ trap 'rm -rf "${TMP}"' EXIT
 STUB_BIN="${TMP}/bin"
 mkdir -p "${STUB_BIN}"
 
-# helm push writes "Pushed: <ref>" and "Digest: <sha256:...>" to STDERR. Writing to
-# stderr here is deliberate: the publish step captures `2>&1`, and a stub that wrote to
-# stdout would keep passing after someone dropped that redirection.
+# `helm push <chart.tgz> <oci://target>` APPENDS the chart name (read from the package)
+# to the target, and reports the reference it actually wrote as "Pushed: <ref>", with the
+# manifest digest as "Digest: <sha256:...>". Both go to STDERR, and this stub keeps them
+# there deliberately: the publish step captures `2>&1`, so a stub that wrote to stdout
+# would keep passing after someone dropped that redirection.
+#
+# The Pushed line is DERIVED FROM ARGV, not from a fixed string the test chooses. That is
+# load-bearing. With a fixed string, changing the workflow's push target from
+# ${CHART_OCI} to oci://${CHART_REPOSITORY} -- which publishes the chart to
+# .../charts/<chart>/<chart> -- left this gate green, because the stub kept reporting the
+# correct reference and the assertion below was a substring match. Deriving it also means
+# the workflow's OWN post-push assertion is exercised end to end on the happy path: the
+# publish step only succeeds if helm's append actually lands under the derived repository.
+#
+# STUB_HELM_FORCE_REF overrides the derivation, so the negative case further down can
+# simulate helm writing somewhere else entirely.
 cat >"${STUB_BIN}/helm" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${STUB_LOG}/helm.args"
-printf 'Pushed: %s\n' "${STUB_HELM_PUSHED_REF}" >&2
+printf '%s' "${3:-}" >"${STUB_LOG}/helm.target"
+if [[ -n "${STUB_HELM_FORCE_REF:-}" ]]; then
+  printf 'Pushed: %s\n' "${STUB_HELM_FORCE_REF}" >&2
+else
+  # <name>-<version>.tgz, the name `helm package` gives a chart. Simple semver only,
+  # which is all the simulation uses.
+  pkg="$(basename "${2:-}" .tgz)"
+  printf 'Pushed: %s/%s:%s\n' "${3#oci://}" "${pkg%-*}" "${pkg##*-}" >&2
+fi
 printf 'Digest: %s\n' "${STUB_HELM_DIGEST}" >&2
 STUB
 
@@ -219,7 +262,7 @@ resolve_step_env() {
     "CHART_NAME=${SIM_CHART_NAME}"
     "GITHUB_OUTPUT=${TMP}/github_output"
     "STUB_LOG=${TMP}"
-    "STUB_HELM_PUSHED_REF=${STUB_HELM_PUSHED_REF:-}"
+    "STUB_HELM_FORCE_REF=${STUB_HELM_FORCE_REF:-}"
     "STUB_HELM_DIGEST=${SIM_DIGEST}"
   )
   # `< <(...)` rather than a pipe: the loop must run in THIS shell so a rejected
@@ -325,13 +368,26 @@ pass "with production inputs the chart coordinate is ${prod_repo}"
 # ---------------------------------------------------------------------------
 : >"${TMP}/github_output"
 : >"${TMP}/helm.args"
+: >"${TMP}/helm.target"
 : >"${TMP}/cosign.args"
-STUB_HELM_PUSHED_REF="${SIM_CHART_REPO}:${SIM_VERSION}"
-run_step "${PUBLISH_STEP_SEL}" "Publish and sign Helm chart (OCI)" "no" >/dev/null ||
-  fail "the publish step failed against a stub helm that reported a correct push to '${STUB_HELM_PUSHED_REF}'"
+STUB_HELM_FORCE_REF=""
+publish_status=0
+run_step "${PUBLISH_STEP_SEL}" "Publish and sign Helm chart (OCI)" "no" \
+  >"${TMP}/publish.out" 2>&1 || publish_status=$?
 
-grep -Fq -- "${SIM_CHART_OCI}" "${TMP}/helm.args" ||
-  fail "'helm push' was not given the chart step's 'oci' output ('${SIM_CHART_OCI}'); it received: $(tr '\n' ' ' <"${TMP}/helm.args")"
+# EXACT, not a substring match. `helm push` appends the chart name to whatever target it
+# is given, so passing the full chart repository instead of its parent silently publishes
+# to <repo>/<chart>/<chart>. A substring test is satisfied by both, since the parent path
+# is a prefix of the child -- which is exactly how that mutation passed an earlier
+# revision of this gate green.
+helm_target="$(cat "${TMP}/helm.target" 2>/dev/null || true)"
+[[ "${helm_target}" == "${SIM_CHART_OCI}" ]] ||
+  fail "'helm push' must be given exactly the chart step's 'oci' output ('${SIM_CHART_OCI}') as its target, got '${helm_target}' -- helm APPENDS the chart name, so this publishes to '${helm_target#oci://}/${SIM_CHART_NAME}'"
+
+# Only now: the step must have succeeded. Checked after the target assertion so a
+# wrong-target mutation reports the wrong target rather than the downstream symptom.
+[[ "${publish_status}" -eq 0 ]] ||
+  fail "the publish step failed against a faithful stub helm push to '${SIM_CHART_OCI}': $(tr '\n' ' ' <"${TMP}/publish.out")"
 
 # cosign signs a DIGEST reference; the repository half of it is what DIST-AH-03 is about.
 # Asserted against the synthetic coordinate, so a re-derived or hardcoded ref reds here.
@@ -342,7 +398,7 @@ chart_digest_out="$(output_value digest)"
 [[ "${chart_digest_out}" == "${SIM_DIGEST}" ]] ||
   fail "the publish step must still export the chart digest (the DR-FIND-07 guard reads steps.chart-publish.outputs.digest), got '${chart_digest_out}'"
 
-pass "helm push and cosign sign both consume the chart step's outputs"
+pass "helm push and cosign sign both consume the chart step's outputs, and the step's own post-push assertion accepts a faithful push"
 
 # The post-push assertion. This is the guard against a FUTURE silent desync: if anything
 # ever causes helm to write somewhere other than the derived repository, the step must
@@ -350,9 +406,9 @@ pass "helm push and cosign sign both consume the chart step's outputs"
 # pre-ADR-0709 coordinate -- the exact regression being defended against.
 : >"${TMP}/github_output"
 : >"${TMP}/cosign.args"
-STUB_HELM_PUSHED_REF="${SIM_REGISTRY}/${SIM_OWNER_LC}/${SIM_CHART_NAME}:${SIM_VERSION}"
+STUB_HELM_FORCE_REF="${SIM_REGISTRY}/${SIM_OWNER_LC}/${SIM_CHART_NAME}:${SIM_VERSION}"
 if run_step "${PUBLISH_STEP_SEL}" "Publish and sign Helm chart (OCI)" "no" >/dev/null 2>&1; then
-  fail "the publish step accepted a 'helm push' that wrote to '${STUB_HELM_PUSHED_REF}' instead of '${SIM_CHART_REPO}'. It must parse the pushed reference out of the helm push output and fail when it is not under the expected chart repository"
+  fail "the publish step accepted a 'helm push' that wrote to '${STUB_HELM_FORCE_REF}' instead of '${SIM_CHART_REPO}'. It must parse the pushed reference out of the helm push output and fail when it is not under the expected chart repository"
 fi
 [[ ! -s "${TMP}/cosign.args" ]] ||
   fail "the publish step signed something after detecting a wrong push target -- the assertion must abort BEFORE 'cosign sign'"
