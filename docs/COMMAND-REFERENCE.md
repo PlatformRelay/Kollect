@@ -140,7 +140,8 @@ mkdocs build --strict # CI-equivalent build
 
     ```sh
     # omit --version for latest; pin e.g. --version 0.5.0 in production
-    helm install kollect oci://ghcr.io/platformrelay/kollect \
+    # chart path is charts/kollect; ghcr.io/platformrelay/kollect is the controller IMAGE
+    helm install kollect oci://ghcr.io/platformrelay/charts/kollect \
       -n kollect-system --create-namespace
     ```
 

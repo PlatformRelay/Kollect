@@ -42,7 +42,10 @@ the live cluster.
 **Read the docs:** **[platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/)** — architecture,
 quick start, CR reference, ADRs, and examples. This README is the front door; the site is the map.
 
-Install paths: **Helm OCI on GHCR** is primary (`oci://ghcr.io/platformrelay/kollect`). The chart is
+Install paths: **Helm OCI on GHCR** is primary (`oci://ghcr.io/platformrelay/charts/kollect` — the
+chart moved off `ghcr.io/platformrelay/kollect`, which serves the controller image, see
+[ADR-0709](https://platformrelay.github.io/Kollect/adr/0709-chart-image-oci-path-separation/) and the
+[install guide](docs/getting-started/install.md#helm-on-an-existing-cluster)). The chart is
 listed on **[Artifact Hub](https://artifacthub.io/packages/search?repo=kollect)**, and the OLM bundle
 is submitted to the community operator catalogs at release
 ([ADR-0708](https://platformrelay.github.io/Kollect/adr/0708-operator-distribution-hubs/)) — it is
