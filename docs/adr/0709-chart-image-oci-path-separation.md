@@ -113,12 +113,15 @@ supported and are the common layout (`ghcr.io/nginxinc/charts/nginx-ingress`).
 ## Consequences
 
 **Migration sequence — SUPERSEDED 2026-09-01 by the [migration runbook](#migration-runbook)
-below. Do not execute the list in this subsection.** It is kept because two of its steps were
-wrong in a way worth recording rather than quietly deleting.
+below. Do not execute the list in this subsection.** Its ordering instinct was right; two of its
+details were wrong, and they are worth recording rather than quietly deleting.
 
-<details>
+<details markdown="1">
 <summary>The 2026-08-19 sequence, and why it does not survive</summary>
 
+> **Migration sequence** — each step is separately reversible, and the chart is published to the new
+> path *before* anything is repointed:
+>
 > 1. Release workflow pushes the chart to `oci://ghcr.io/platformrelay/charts`, and `cosign sign`
 >    targets the new reference. The `artifacthub-repo.yml` `oras push` moves to
 >    `charts/kollect:artifacthub.io` — it sits in a **different job step** from the `helm push` and
@@ -130,19 +133,26 @@ wrong in a way worth recording rather than quietly deleting.
 > 4. Leave the old bare tags in place. Once Artifact Hub no longer tracks
 >    `ghcr.io/platformrelay/kollect` as a Helm repository, they are inert.
 
-Two defects, both introduced by writing the sequence before Decision 1 was settled:
+It did get the principle right — its preamble says the chart is published to the new path before
+anything is repointed, and the runbook keeps exactly that. Two things are wrong underneath it, both
+consequences of writing the sequence before Decision 1 was settled:
 
-- **Its step 2 repoints the URL before anything populates the new path.** GHCR creates packages
-  private by default, so the path would be empty *and* private at the moment Artifact Hub is asked
-  to track it — which costs the listing or the Verified Publisher badge. The runbook below inverts
-  this, and that inversion is the single most load-bearing thing in this ADR.
+- **Nothing in it makes the new GHCR package public.** GHCR creates packages private by default, so
+  following this list literally hands Artifact Hub a populated but *private* path — which reads as
+  empty and costs the listing or the Verified Publisher badge. This is the failure most likely to
+  be met in practice, and the whole sequence is silent about it. The runbook adds it as its own
+  step for that reason.
 - **Its step 1 populates the new path by cutting a release**, which is precisely the coupling
   Decision 1 rejects: it makes the fix wait for an unscheduled `0.20.0` while the tracking mail
-  keeps arriving once per release.
+  keeps arriving once per release. The runbook populates by copy instead, which is what lets the
+  fix land on its own schedule.
 
-Its preamble also claimed "each step is separately reversible". That is false of the URL repoint,
-for the reason given under the runbook: a URL edit is not a symmetric undo once the listing or the
-badge is gone. Steps 3 and 4 survive intact and are folded into the runbook.
+Its preamble also claimed "each step is separately reversible". That is false of the URL repoint:
+once the listing or the badge is gone, editing the URL back does not restore them.
+
+Step 3 is carried into the runbook, moved later for the reason given there. Step 4 is not a step at
+all — it is a standing fact, and it now lives where facts belong, under
+[Explicitly rejected](#explicitly-rejected) and [Blast radius](#blast-radius).
 
 </details>
 
@@ -165,19 +175,23 @@ lever.**
 
 ### Decision 1 — version history: COPY `0.14.0`–`0.19.0` across, by digest
 
-Copy each published chart to `ghcr.io/platformrelay/charts/kollect` **by digest**, preferring
+Copy each published chart to `ghcr.io/platformrelay/charts/kollect` **preserving its digest**
+(address it by tag if the tool prefers; the digest is what must survive), preferring
 `cosign copy` (which carries the `sha256-<hex>.sig` signature tag with the artifact) and falling
-back to a pair of `crane copy` calls if it does not. **`0.9.0`–`0.13.0` are never republished** —
-they hardcode `image.tag: latest`, a tag that was never pushed, so they cannot install.
+back to a pair of `crane copy` calls if it does not. **`0.9.0`–`0.13.0` are never republished.** Four of them
+(`0.9.0`, `0.10.0`, `0.11.0`, `0.13.0`) hardcode `image.tag: latest`, a tag that was never pushed,
+so they cannot install. The fifth, `0.12.0`, is a different fault: it is the one release that pushed
+the controller *image* to the chart's bare tag, so that coordinate never held a chart at all. Same
+exclusion, two different reasons — and neither is fixable by republishing.
 
 | criterion (weight) | **copy `0.14.0`–`0.19.0`** | copy `0.19.0` only | clean start at `0.20.0` |
 | --- | --- | --- | --- |
 | preserves published deep links (3) | 5 → 15 | 1 → 3 | 1 → 3 |
 | fix lands without waiting on a release (3) | 5 → 15 | 5 → 15 | 2 → 6 |
 | rollback stays inside one coordinate (2) | 5 → 10 | 5 → 10 | 5 → 10 |
-| signature fidelity (2) | 4 → 8 | 5 → 10 | 5 → 10 |
+| signature fidelity (2) | 4 → 8 | 4 → 8 | 5 → 10 |
 | execution cost (1) | 5 → 5 | 5 → 5 | 4 → 4 |
-| **total (max 55)** | **53** | 43 | 33 |
+| **total (max 55)** | **53** | 41 | 33 |
 
 Three findings carried it:
 
@@ -212,12 +226,15 @@ the reason the fidelity score is 4 rather than 5.
 Copying is preferred regardless, because it preserves each chart's original release-time Fulcio
 identity instead of manufacturing a 2026-09-dated one for an artifact released months earlier.
 
-The matrix does not flip under the worst signing outcome either. If copied signatures do not
-verify, the first column loses six points — signature fidelity 4 → 1 at weight 2, total
-**53 → 47** — and still wins by four. Column 2 copies as well, so it is exposed to the same
-failure and would fall too; the comparison only gets more lopsided. Column 3 is genuinely
-unaffected, since a clean start signs natively at release time. The conclusion is robust in every
-combination: 47 beats 43, and it beats the 35 that column 2 would drop to.
+Columns 1 and 2 score the same on signature fidelity, and deliberately so: both copy, so both carry
+the same fallback cost — a one-shot backfill workflow — differing only in how many charts it loops
+over. Scoring column 2 higher would have been the same error the matrix exists to prevent.
+
+The matrix does not flip under the worst signing outcome either. If copied signatures do not verify,
+column 1 loses six points — fidelity 4 → 1 at weight 2, total **53 → 47**. Column 2 is exposed to
+exactly the same failure and falls by the same six, to **35**. Only column 3 is genuinely unaffected,
+since a clean start signs natively at release time. So the ordering holds in every combination:
+47 > 35 > 33, and 53 > 41 > 33 otherwise.
 
 ### Decision 2 — the `ignore` list: DELETE it at the new path
 
@@ -242,7 +259,7 @@ observed. Run this **before** the bulk copy. A failure changes the tool, not the
 cosign copy -f ghcr.io/platformrelay/kollect:0.14.0 \
               ghcr.io/platformrelay/charts/kollect:0.14.0
 
-# 1. the digest must be identical -- a re-push, not a copy, would change it
+# 1. the digest must be identical -- this is what "copy" has to mean here
 crane digest ghcr.io/platformrelay/kollect:0.14.0
 crane digest ghcr.io/platformrelay/charts/kollect:0.14.0
 
@@ -254,10 +271,15 @@ cosign verify \
 ```
 
 Assert all three: identical digests, `cosign verify` exits 0, and the certificate SAN it prints is
-the **original** `…/release.yaml@refs/tags/v0.14.0` rather than a freshly minted one. `cosign
-verify` checks `critical.image.docker-manifest-digest`, not
-`critical.identity.docker-reference`, which is why this is expected to pass — but expected is not
-observed.
+the **original** `…/release.yaml@refs/tags/v0.14.0` rather than a freshly minted one. `cosign verify`
+checks `critical.image.docker-manifest-digest`, not `critical.identity.docker-reference`, which is
+why this is expected to pass — but expected is not observed.
+
+Note which assertion carries which weight. The digest check alone does **not** prove a copy happened:
+`helm push` of the same `.tgz` is deterministic, so a re-push would land on the same digest too. It
+is the *certificate identity* that discriminates — an original release-time SAN can only have come
+across with the artifact. And the copy is by tag at the command line only; what must be preserved,
+and what assertion 1 actually checks, is the digest underneath it.
 
 ### Migration runbook
 
@@ -269,13 +291,20 @@ costs the listing or the Verified Publisher badge, and a URL edit is not a symme
 | --- | --- | --- |
 | 1 | This amendment | harness |
 | 2 | Release workflow derives the chart push, `cosign sign`, and the metadata `oras push` from **one** value; chart target becomes `charts/kollect` | harness |
-| 3 | Install coordinate updated across docs; `ignore` deleted; both gates tightened | harness |
-| 4 | **V1** above | maintainer |
+| 3 | `artifacthub-repo.yml`: `ignore` deleted, `repositoryID` and `owners` kept; both hub gates tightened | harness |
+| 4 | **V1** below | maintainer |
 | 5 | `cosign copy` `0.14.0`–`0.19.0` to the new path | maintainer |
 | 6 | **Set the new GHCR package public** — GHCR creates packages private by default | maintainer |
 | 7 | `oras push …/charts/kollect:artifacthub.io` with the updated metadata | maintainer |
 | 8 | Edit the Artifact Hub repository URL **in place** | maintainer |
-| 9 | Verify per AC1 below | either |
+| 9 | **Install coordinate updated across docs and README**, and the install-docs gate with it | harness |
+| 10 | Verify per AC1 below | either |
+
+**Why the docs repoint is step 9 and not step 3.** It is a repoint like any other: a `helm install`
+line is a URL we ship, and `docs/**` publishes on push to `main` (`.github/workflows/docs.yaml`), so
+merging it early puts an install command for an empty, private path in front of adopters. That is
+the same defect as pointing the hub at one, and ADR-0708 forbids it directly. The work can be
+*written* and reviewed at any time — it just must not *land* until step 6 has made the path real.
 
 Steps 4–8 need a token carrying `write:packages` plus `cosign`/`crane`/`oras` on `PATH`; the
 repository's own automation token has neither, so they cannot be run from CI or from a harness
@@ -285,9 +314,7 @@ session. Step 8 is a control-panel action with no API equivalent.
 publishes the chart *only* to the new path — while Artifact Hub is still tracking the old one. That
 release would be invisible on the hub, and its `v`-prefixed image tag would add one more permanent
 entry to the very error list this ADR exists to end. If a release becomes unavoidable mid-migration,
-finish steps 4–8 first; they do not depend on it. This window is the reason step 3 (the docs
-repoint) is also held until the path is live — a doc telling adopters to install from an empty path
-is the same defect as a hub pointed at one.
+finish steps 4–8 first; none of them depends on cutting one.
 
 **Never delete and re-create the Artifact Hub repository.** `Manager.Update` keys on repository
 *name*, so an in-place URL edit preserves `repository_id`, stars, and Verified Publisher; a
