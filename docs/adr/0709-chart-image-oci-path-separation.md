@@ -310,6 +310,16 @@ It sits after step 9 rather than between 6 and 9 only because nothing forces it 
 old bare tags stay live and installable, so a stale coordinate keeps working right up until it is
 replaced.
 
+**Do not hand-run steps 4–8.** They are implemented by `hack/migrate-chart-path.sh`, which ships
+with this story. Run `--plan` first; it is **dry-run by default** and `--apply` is required before it
+writes anything. Using it rather than pasting the commands below is not a convenience — the script
+enforces the ordering this section calls load-bearing, refuses to republish `0.9.0`–`0.13.0` at
+runtime rather than trusting the operator to remember, refuses to overwrite a destination tag whose
+digest differs, keeps the registry token out of the process table, and stops the whole run if the V1
+gate does not pass. It also implements AC1 below as `--verify-ac1`, so the acceptance check is a
+command rather than a procedure. If that script is not in your checkout, the raw commands are above
+and below — but you lose every one of those guards.
+
 **What actually gates each step.** Steps 4, 5 and 7 need `write:packages` plus
 `cosign`/`crane`/`oras`. A *harness session* has neither, which is why they are marked maintainer —
 but **CI does**: the release job already declares `packages: write` and `id-token: write`
