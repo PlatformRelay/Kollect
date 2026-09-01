@@ -31,6 +31,19 @@ REPOSITORY_ID="$(grep -E '^repositoryID:[[:space:]]*' "${REPO_YML}" | head -1 |
 
 pass "artifacthub-repo.yml repositoryID is a well-formed UUID"
 
+# The five checks below are deliberately TEXT-LEVEL whole-file greps, and that is safe here in a
+# way it is not for the ordering assertion further down. They are PRESENCE checks: they answer "does
+# this workflow still mention X at all", and a comment mentioning X can only make such a check pass
+# for the wrong reason -- never fail for the wrong reason. The cost of that is bounded (a workflow
+# that lost `oras push` but kept a comment about it would slip through) and the structural
+# assertions below close it: `Push Artifact Hub metadata` is resolved by step name, its index is
+# compared, and its `run:` is required to actually invoke `oras push`. So text-level here buys
+# readable failure messages against a real risk of the whole wiring being deleted, while nothing
+# depends on a line number.
+#
+# The distinction that matters: a whole-file grep may back an assertion whose meaning is "this
+# string exists", never one whose meaning is "this string is in a particular PLACE". Anything
+# positional must be resolved through the parsed step graph -- see the ordering block below.
 grep -Fq 'setup-oras' "${WORKFLOW}" ||
   fail "release workflow must set up oras"
 
@@ -46,14 +59,6 @@ grep -Fq 'artifacthub-repo.yml' "${WORKFLOW}" ||
 grep -Fq 'Guard against image/chart GHCR tag collision (DR-FIND-07)' "${WORKFLOW}" ||
   fail "release workflow must retain DR-FIND-07 guard"
 
-# oras push must come after the DR-FIND-07 guard step.
-oras_line="$(grep -n 'oras push' "${WORKFLOW}" | head -1 | cut -d: -f1)"
-guard_line="$(grep -n 'Guard against image/chart GHCR tag collision (DR-FIND-07)' "${WORKFLOW}" | head -1 | cut -d: -f1)"
-[[ -n "${oras_line}" && -n "${guard_line}" ]] || fail "could not locate oras push or DR-FIND-07 guard"
-(( oras_line > guard_line )) || fail "oras push must run after DR-FIND-07 guard"
-
-pass "release workflow wires oras push after DR-FIND-07 guard"
-
 command -v yq >/dev/null 2>&1 ||
   fail "yq (mikefarah/yq v4) is required to inspect the release job step graph"
 
@@ -65,22 +70,57 @@ step_soft_fail() {
   yq eval ".jobs.release.steps[] | select(.name == \"$1\") | .[\"continue-on-error\"]" "${WORKFLOW}"
 }
 
+# True when the named step's `run:` script actually invokes the given command at the start of a
+# script line. Scoped to one step and anchored, so neither a step name nor a comment elsewhere in
+# the workflow -- nor a `#` comment inside this step's own script -- can stand in for the command.
+step_runs() {
+  yq eval ".jobs.release.steps[] | select(.name == \"$1\") | (.run // \"\") | test(\"(^|\n)[[:space:]]*$2\")" "${WORKFLOW}"
+}
+
 ORAS_STEP="Set up oras"
 PUSH_STEP="Push Artifact Hub metadata"
 REPORT_STEP="Report Artifact Hub metadata push outcome"
 PUBLISH_STEP="Publish GitHub Release"
+GUARD_STEP="Guard against image/chart GHCR tag collision (DR-FIND-07)"
 
 oras_idx="$(step_index "${ORAS_STEP}")"
 push_idx="$(step_index "${PUSH_STEP}")"
 report_idx="$(step_index "${REPORT_STEP}")"
 publish_idx="$(step_index "${PUBLISH_STEP}")"
+guard_idx="$(step_index "${GUARD_STEP}")"
 
-for pair in "${ORAS_STEP}:${oras_idx}" "${PUSH_STEP}:${push_idx}" "${REPORT_STEP}:${report_idx}" "${PUBLISH_STEP}:${publish_idx}"; do
+for pair in "${ORAS_STEP}:${oras_idx}" "${PUSH_STEP}:${push_idx}" "${REPORT_STEP}:${report_idx}" "${PUBLISH_STEP}:${publish_idx}" "${GUARD_STEP}:${guard_idx}"; do
   name="${pair%:*}"
   idx="${pair##*:}"
   [[ -n "${idx}" && "${idx}" != "null" ]] ||
     fail "release job has no step named '${name}' (step-graph assertions below would pass vacuously)"
 done
+
+# The Artifact Hub metadata push must run AFTER the DR-FIND-07 collision guard: the guard is what
+# proves the chart and the image did not land on the same coordinate, and publishing repository
+# metadata for a repository in that state advertises a broken artifact.
+#
+# Resolved through the parsed step graph -- step INDEX by step NAME, and then the resolved step's
+# own `run:` script -- deliberately.
+#
+# The previous implementation was `grep -n 'oras push' "${WORKFLOW}" | head -1` compared against the
+# guard's grepped line number. That reds on any earlier line anywhere in the file that contains the
+# words, and it did: a lane added an explanatory comment mentioning `oras push` to the chart
+# publishing step, nowhere near the command, and this gate failed claiming the metadata push ran
+# before the guard -- a failure message naming a problem that did not exist, which costs more than
+# a miss. A line number is not a step order; it only correlates with one until someone writes a
+# sentence. Do not reintroduce a positional whole-file grep here.
+#
+# The `run:` match is anchored at the start of a script line (`(^|\n)[[:space:]]*`), so a `#`
+# comment inside that step's own script -- comments inside a block scalar are script text, not YAML
+# comments, and yq therefore hands them to `test()` -- cannot satisfy it either.
+[[ "${guard_idx}" -lt "${push_idx}" ]] ||
+  fail "'${PUSH_STEP}' (index ${push_idx}) must run AFTER '${GUARD_STEP}' (index ${guard_idx}) -- Artifact Hub metadata must not be published for a repository whose image/chart collision guard has not passed"
+
+[[ "$(step_runs "${PUSH_STEP}" 'oras push')" == "true" ]] ||
+  fail "'${PUSH_STEP}' must actually invoke \`oras push\` in its run script -- otherwise the ordering assertion above is about a step that no longer pushes anything, and the whole-file presence grep for 'oras push' near the top could be satisfied by a comment alone"
+
+pass "release workflow wires oras push after DR-FIND-07 guard"
 
 # ADR-0708: "soft-fail hub jobs preserve tag-release success". Artifact Hub
 # repository metadata is discoverability only, so it must never be able to abort
