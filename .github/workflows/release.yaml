@@ -173,11 +173,14 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${OWNER}/${{ env.IMAGE_NAME }}"
           echo "repository=${IMAGE}" >> "${GITHUB_OUTPUT}"
           # DR-FIND-07: push the controller image ONLY at the v-prefixed tag.
-          # The bare "<version>" tag (e.g. :0.13.0) is intentionally omitted here
-          # because the Helm chart is later `helm push`ed to the same OCI repo path
-          # and occupies ghcr.io/<owner>/kollect:<version>. Publishing the image at
-          # the bare tag too would let the chart clobber it, so default/bare-tag
-          # pulls would get a chart artifact (CreateContainerConfigError).
+          # The bare "<version>" tag (e.g. :0.13.0) is intentionally omitted here.
+          # Charts published before ADR-0709 occupy ghcr.io/<owner>/kollect:<version>
+          # on this very repository, and ADR-0709 leaves those tags in place, so
+          # publishing the image at a bare tag could still collide with a chart
+          # manifest and make default/bare-tag pulls fail with
+          # CreateContainerConfigError. New charts go to <owner>/charts/<chart>
+          # instead (see the "Derive chart OCI coordinate" step), which is what makes
+          # a *new* collision unreachable -- not this omission on its own.
           echo "tags=${IMAGE}:${{ steps.version.outputs.tag }}" >> "${GITHUB_OUTPUT}"
 
       - name: Build and push controller image
