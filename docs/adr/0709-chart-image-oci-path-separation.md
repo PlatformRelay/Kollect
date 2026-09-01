@@ -292,29 +292,41 @@ costs the listing or the Verified Publisher badge, and a URL edit is not a symme
 | 1 | This amendment | harness |
 | 2 | Release workflow derives the chart push, `cosign sign`, and the metadata `oras push` from **one** value; chart target becomes `charts/kollect` | harness |
 | 3 | `artifacthub-repo.yml`: `ignore` deleted, `repositoryID` and `owners` kept; both hub gates tightened | harness |
-| 4 | **V1** below | maintainer |
+| 4 | **V1** above | maintainer |
 | 5 | `cosign copy` `0.14.0`–`0.19.0` to the new path | maintainer |
 | 6 | **Set the new GHCR package public** — GHCR creates packages private by default | maintainer |
 | 7 | `oras push …/charts/kollect:artifacthub.io` with the updated metadata | maintainer |
-| 8 | Edit the Artifact Hub repository URL **in place** | maintainer |
-| 9 | **Install coordinate updated across docs and README**, and the install-docs gate with it | harness |
-| 10 | Verify per AC1 below | either |
+| 8 | **Record the pre-repoint AC1 baseline** — see below; it is unobtainable after step 9 | either |
+| 9 | Edit the Artifact Hub repository URL **in place** | maintainer |
+| 10 | **Install coordinate updated across docs and README**, and the install-docs gate with it | harness |
+| 11 | Verify per AC1 below | either |
 
-**Why the docs repoint is step 9 and not step 3.** It is a repoint like any other: a `helm install`
+**Why the docs repoint is step 10 and not step 3.** It is a repoint like any other: a `helm install`
 line is a URL we ship, and `docs/**` publishes on push to `main` (`.github/workflows/docs.yaml`), so
 merging it early puts an install command for an empty, private path in front of adopters. That is
 the same defect as pointing the hub at one, and ADR-0708 forbids it directly. The work can be
 *written* and reviewed at any time — it just must not *land* until step 6 has made the path real.
+It sits after step 9 rather than between 6 and 9 only because nothing forces it earlier: the
+old bare tags stay live and installable, so a stale coordinate keeps working right up until it is
+replaced.
 
-Steps 4–8 need a token carrying `write:packages` plus `cosign`/`crane`/`oras` on `PATH`; the
-repository's own automation token has neither, so they cannot be run from CI or from a harness
-session. Step 8 is a control-panel action with no API equivalent.
+**What actually gates each step.** Steps 4, 5 and 7 need `write:packages` plus
+`cosign`/`crane`/`oras`. A *harness session* has neither, which is why they are marked maintainer —
+but **CI does**: the release job already declares `packages: write` and `id-token: write`
+(`.github/workflows/release.yaml:103-108`), installs `cosign` and `oras`, and does exactly these
+operations on every release. So those three steps can equally be done by a one-shot workflow, and
+the V1-failure fallback described above — a backfill re-sign — *must* be, since only Actions can
+mint a Fulcio identity matching the published `--certificate-identity-regexp`.
 
-**Do not cut a release between steps 2 and 8.** Once step 2 has landed, the release workflow
+Only two steps are genuinely maintainer-only: **step 6** (GHCR package visibility) and **step 9**
+(the Artifact Hub control panel, which has no API equivalent). Step 8 needs no registry credential
+at all — the endpoint it reads is public.
+
+**Do not cut a release between steps 2 and 9.** Once step 2 has landed, the release workflow
 publishes the chart *only* to the new path — while Artifact Hub is still tracking the old one. That
 release would be invisible on the hub, and its `v`-prefixed image tag would add one more permanent
 entry to the very error list this ADR exists to end. If a release becomes unavoidable mid-migration,
-finish steps 4–8 first; none of them depends on cutting one.
+finish steps 4–9 first; none of them depends on cutting one.
 
 **Never delete and re-create the Artifact Hub repository.** `Manager.Update` keys on repository
 *name*, so an in-place URL edit preserves `repository_id`, stars, and Verified Publisher; a
@@ -324,7 +336,10 @@ delete/re-create loses all three.
 
 `last_tracking_errors` is a **sample, not a census** — the reported set has changed between runs
 with no corresponding registry change, which cost two earlier sessions a wrong conclusion. So
-require all of: a recorded pre-repoint baseline; **two** reads with `last_tracking_ts` genuinely
+require all of: a pre-repoint baseline recorded at **step 8**, from the *public, unauthenticated*
+endpoint `https://artifacthub.io/api/v1/repositories/search?name=kollect&kind=0` — which carries
+`last_tracking_ts` and `last_tracking_errors`, so this whole criterion is scriptable with no API
+key; **two** reads with `last_tracking_ts` genuinely
 advanced between them (an unchanged timestamp means the same run was sampled twice — the commonest
 way to fake this result); both empty; **and** no tracking mail in the same window, as an
 independent second witness.
