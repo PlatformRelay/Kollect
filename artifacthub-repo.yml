@@ -1,10 +1,9 @@
 # Artifact Hub repository metadata (ADR-0708, ADR-0709), pushed to
 # ghcr.io/<owner>/charts/kollect:artifacthub.io by the release workflow.
 #
-# That coordinate is produced by the release workflow's chart-path wiring, which ships
-# separately (lane/dist-ah-03-release-path). Until that lands, `main`'s workflow still
-# pushes this file to the pre-ADR-0709 path — the line above describes the target layout,
-# not what an unmodified `main` does today.
+# That coordinate is correct once the release workflow publishes the chart under charts/
+# — ADR-0709 runbook step 2, which is a separate change from this file and precedes it.
+# Like every comment here, the line above describes the migration's target layout.
 #
 # MIND THE TENSE IN THIS FILE. Its bytes are `oras push`ed to the registry at the release
 # step, which runs BEFORE the maintainer repoints the registered Artifact Hub URL in the
