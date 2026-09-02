@@ -64,6 +64,12 @@
 #      survived.
 #   3. `bash -n` the mutated body where one is executed, so a mangled replacement surfaces as a
 #      syntax error rather than as a silent behaviour change.
+#
+# Expect a few `level=WARN msg="unclosed interpolation string, skipping interpolation"` lines
+# from yq on stderr during the self-test. They come from the mutants that deliberately carry a
+# literal `${...}` (the fail-open guard, the always-false classifier). "skipping interpolation"
+# is the outcome those mutants want -- the literal survives -- and the read-back guards below
+# prove it rather than assuming it. They are not failures.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -395,9 +401,18 @@ check_worker() {
 # twice: once as the `paths-ignore` list still kept on `push`, and once as the `case` pattern in
 # `docs_only_path`. ci.yaml's own comment claims they mirror each other. Nothing tested that
 # claim. This does: the two must be equal as SETS, modulo GitHub's `/**` versus the shell's
-# `/*`. Any widening of the docs set is then a mismatch, whatever it names -- including the
-# widenings above and a bare `*.yml` -- because the assertion is over the whole set, not over
-# the members a probe remembered.
+# `/*`.
+#
+# What this locks, stated exactly -- an earlier version of this comment overclaimed:
+#   * a pattern added to the `case` arms alone is a mismatch, whatever it names. That is the
+#     round-3 finding and the three widenings above.
+#   * a pattern added to BOTH the `case` arms and `paths-ignore` passes, BY DESIGN. That is a
+#     visible, reviewable change to the declaration, which is the point of having one.
+#   * a `return 0` reached WITHOUT going through a `case` arm -- a guard clause, a nested case,
+#     a helper, a loop -- is invisible here, because this reads text. That gap is the whole
+#     reason check_docs_set_behaves_like_paths_ignore() below exists and is the load-bearing
+#     assertion; this one is the cheap second opinion that also covers patterns naming paths
+#     which are not in the tree yet.
 #
 # Every arm of the `case` that can `return 0` is collected, not just the first: an extra arm is
 # how a one-token widening would otherwise slip past a parser that reads only the first pattern.
@@ -445,12 +460,49 @@ paths_ignore_as_case_patterns() {
     LC_ALL=C sort -u
 }
 
+# GitHub's path filters and the shell's `case` are different matchers, and only two entry shapes
+# mean the same thing to both: a literal path, and a `PREFIX/**` where PREFIX has no wildcard.
+# Everything else diverges, in both directions:
+#   * `foo/*` -- GitHub matches DIRECT CHILDREN only (its `*` stops at `/`); the shell's `case`
+#     `foo/*` swallows the whole subtree. The docs set would then be strictly BROADER than the
+#     declaration this lock claims it mirrors, while comparing equal as text.
+#   * `**/*.md` -- diverges the other way.
+#   * `!docs/private/**` -- GitHub supports negation; `case` has none, so it becomes a literal
+#     pattern beginning with `!` and the exclusion silently disappears.
+#   * `?` matches `/` in `case` but not in GitHub.
+# The seven shipped entries are all literals or `/**`-suffixed, so the translation below is
+# correct as shipped -- but "correct by luck" is not an invariant, so anything else fails here.
+assert_paths_ignore_shapes() {
+  local workflow="$1" entry stripped
+  while IFS= read -r entry || [[ -n "${entry}" ]]; do
+    [[ -n "${entry}" ]] || continue
+    case "${entry}" in
+    "!"*)
+      fail "${workflow}'s push paths-ignore lists the negated entry '${entry}' -- GitHub supports negation, a shell 'case' pattern does not, so it would become a literal pattern starting with '!' and the exclusion would silently vanish from docs_only_path()"
+      ;;
+    */\*\*)
+      stripped="${entry%/\*\*}"
+      case "${stripped}" in
+      *[\*\?\[\]]*)
+        fail "${workflow}'s push paths-ignore entry '${entry}' has a wildcard before its trailing '/**' -- only a literal PREFIX/** translates faithfully into a shell 'case' pattern"
+        ;;
+      esac
+      ;;
+    *[\*\?\[\]]*)
+      fail "${workflow}'s push paths-ignore lists '${entry}', which is neither a literal path nor a PREFIX/** -- GitHub's '*' stops at '/' and a shell 'case' '*' does not, so translating it would make the documentation set a different (usually broader) set than the one declared here. Add such an entry only after teaching paths_ignore_as_case_patterns() and the reference matcher what it means."
+      ;;
+    esac
+  done < <(yq eval '.on.push.paths-ignore[] // ""' "${workflow}")
+}
+
 check_docs_set_mirrors_paths_ignore() {
   local workflow="$1"
   local declared mirrored only_case only_ignore
 
   [[ "$(yq eval '.on.push.paths-ignore | type' "${workflow}")" == "!!seq" ]] ||
     fail "${workflow} has no push paths-ignore list -- it is the enumeration of the documentation set that the classifier is checked against, so without it this lock is vacuous"
+
+  assert_paths_ignore_shapes "${workflow}"
 
   declared="$(docs_set_patterns "${workflow}")" || exit 1
   mirrored="$(paths_ignore_as_case_patterns "${workflow}")"
@@ -464,6 +516,171 @@ check_docs_set_mirrors_paths_ignore() {
     fail "the documentation set in ${workflow} does not mirror its own push paths-ignore list, which its comment claims it does. Only in docs_only_path(): [${only_case:-none}] -- every one of those is a path the classifier calls documentation while GitHub still runs full CI for it on push, so a PR touching only those reports the required contexts green WITHOUT running. Only in paths-ignore: [${only_ignore:-none}]. The documentation set is the enumerable half of this classifier; keep the two declarations equal."
   fi
   pass "${workflow}: docs_only_path() and the push paths-ignore list are the same set ($(printf '%s' "${declared}" | tr '\n' ' '))"
+}
+
+# ---------------------------------------------------------------------------
+# (2c) THE BEHAVIOURAL LOCK -- what actually bounds the documentation set.
+#
+# The text lock above reads the `case` arms. Reading them bounds only the paths that reach a
+# `return 0` THROUGH an arm, and `return 0` is reachable four other ways, each of which passed
+# the whole gate at exit 0 while shipping a live fail-open (verified by executing the mutated
+# body over a scratch repo: a PR touching Taskfile.yml, .golangci.yml, codecov.yml and
+# charts/kollect/values.yml classified as documentation, so `test` and `kind-smoke` reported
+# green with no Go suite and no kind cluster):
+#
+#   (A) a guard clause before the case;
+#   (B) the same guard INSIDE the `*)` catch-all -- where a maintainer would naturally put it,
+#       and invisible to any parser that records only a bare `return` line;
+#   (C) a one-line nested `case` inside `*)`;
+#   (D) a helper function called from the arm.
+#
+# A better parser is not the answer: coupling the contract to the classifier's SHAPE is only
+# defensible if every path that can satisfy the contract lies inside that shape, and nothing
+# enforces that. So this stops reading the classifier and runs it. For every path in
+# `git ls-files`, the real `docs_only_path` -- with every helper the body defines -- must agree
+# with a reference matcher built from the `push` paths-ignore list. Shape-free, shfmt-proof, and
+# it does not care how a verdict was reached, only what it is.
+#
+# The functions are captured with an EXIT trap around `declare -f` rather than by parsing: the
+# body is run to completion once (over a scratch repo with a documentation-only diff, so it
+# takes the full path through the loop) and whatever functions it defined are dumped, helpers
+# included. Nothing here knows what the classifier looks like.
+check_docs_set_behaves_like_paths_ignore() {
+  local workflow="$1"
+  local idx body tmpdir funcs driver corpus verdicts repo
+  local -a literals=() prefixes=()
+  local entry
+
+  [[ "$(yq eval '.on.push.paths-ignore | type' "${workflow}")" == "!!seq" ]] ||
+    fail "${workflow} has no push paths-ignore list -- there would be no reference to compare the classifier's behaviour against"
+  assert_paths_ignore_shapes "${workflow}"
+
+  while IFS= read -r entry || [[ -n "${entry}" ]]; do
+    [[ -n "${entry}" ]] || continue
+    case "${entry}" in
+    */\*\*) prefixes+=("${entry%/\*\*}/") ;;
+    *) literals+=("${entry}") ;;
+    esac
+  done < <(yq eval '.on.push.paths-ignore[] // ""' "${workflow}")
+  [[ "${#literals[@]}" -gt 0 || "${#prefixes[@]}" -gt 0 ]] ||
+    fail "${workflow}'s push paths-ignore list is empty -- the reference matcher would call every path code and this check would pass for the wrong reason"
+
+  idx="$(job_step_index "${workflow}" changes '.value.id == "filter"' 'id: filter classification')" || exit 1
+  body="$(yq eval ".jobs.changes.steps[${idx}].run" "${workflow}")"
+  tmpdir="$(mktemp -d)"
+  printf '%s\n' "${body}" >"${tmpdir}/filter.sh"
+  bash -n "${tmpdir}/filter.sh" ||
+    fail "the classification step of 'changes' in ${workflow} is not valid bash"
+
+  # A scratch repo with a documentation-only diff, so the body runs all the way to its final
+  # verdict and every function it defines has been defined by the time the trap fires.
+  repo="${tmpdir}/probe-repo"
+  mkdir -p "${repo}/docs"
+  (
+    cd "${repo}"
+    git init -q -b main .
+    git config user.email ci-docsgate@example.invalid
+    git config user.name ci-docsgate
+    printf 'seed\n' >docs/index.md
+    git add -A
+    git commit -qm seed
+    printf 'change\n' >>docs/index.md
+    git add -A
+    git commit -qm docs
+  ) >/dev/null 2>&1
+
+  funcs="${tmpdir}/funcs.sh"
+  (
+    cd "${repo}"
+    FUNCS_OUT="${funcs}" \
+      EVENT_NAME=pull_request \
+      BASE_SHA="$(git rev-parse HEAD~1)" \
+      HEAD_SHA="$(git rev-parse HEAD)" \
+      GITHUB_OUTPUT=/dev/null \
+      bash -c 'trap "declare -f >\"${FUNCS_OUT}\"" EXIT; . "$1"' _ "${tmpdir}/filter.sh"
+  ) >/dev/null 2>&1 || true
+
+  [[ -s "${funcs}" ]] ||
+    fail "could not capture the functions defined by the classification step of ${workflow} -- the body did not run to an exit, so the behavioural comparison below would have nothing to call"
+
+  driver="${tmpdir}/driver.sh"
+  cat >"${driver}" <<'DRIVER'
+set -uo pipefail
+# shellcheck source=/dev/null
+. "$1"
+if ! declare -F docs_only_path >/dev/null; then
+  echo "MISSING_DOCS_ONLY_PATH" >&2
+  exit 2
+fi
+# Called from a condition, exactly as the classifier calls it, so errexit is suppressed inside
+# the function the same way it is in production.
+while IFS= read -r probe_path || [ -n "${probe_path}" ]; do
+  [ -n "${probe_path}" ] || continue
+  if docs_only_path "${probe_path}"; then
+    printf 'docs\t%s\n' "${probe_path}"
+  else
+    printf 'code\t%s\n' "${probe_path}"
+  fi
+done
+DRIVER
+
+  corpus="${tmpdir}/corpus.txt"
+  git -C "${ROOT}" ls-files >"${corpus}" 2>/dev/null ||
+    fail "could not list the repository's tracked files -- the behavioural comparison needs a corpus"
+  [[ -s "${corpus}" ]] ||
+    fail "git ls-files returned nothing -- the behavioural comparison would pass vacuously over an empty corpus"
+
+  verdicts="${tmpdir}/verdicts.txt"
+  if ! bash "${driver}" "${funcs}" <"${corpus}" >"${verdicts}" 2>"${tmpdir}/driver.err"; then
+    local err
+    err="$(cat "${tmpdir}/driver.err")"
+    rm -rf "${tmpdir}"
+    fail "could not evaluate docs_only_path() from ${workflow} over the repository's files: ${err:-driver exited non-zero}"
+  fi
+  local n_corpus n_verdicts
+  n_corpus="$(wc -l <"${corpus}")"
+  n_verdicts="$(wc -l <"${verdicts}")"
+  [[ "${n_corpus}" -eq "${n_verdicts}" ]] ||
+    fail "docs_only_path() produced ${n_verdicts} verdicts for ${n_corpus} tracked files in ${workflow} -- it aborted part way, so the comparison below covers only part of the tree"
+
+  local verdict path ref open_n=0 cost_n=0 open_eg="" cost_eg=""
+  while IFS="$(printf '\t')" read -r verdict path; do
+    [[ -n "${path}" ]] || continue
+    ref=code
+    for entry in ${literals[@]+"${literals[@]}"}; do
+      if [[ "${path}" == "${entry}" ]]; then
+        ref=docs
+        break
+      fi
+    done
+    if [[ "${ref}" == code ]]; then
+      for entry in ${prefixes[@]+"${prefixes[@]}"}; do
+        if [[ "${path}" == "${entry}"* ]]; then
+          ref=docs
+          break
+        fi
+      done
+    fi
+    if [[ "${verdict}" == docs && "${ref}" == code ]]; then
+      open_n=$((open_n + 1))
+      [[ "${open_n}" -gt 6 ]] || open_eg="${open_eg} ${path}"
+    elif [[ "${verdict}" == code && "${ref}" == docs ]]; then
+      cost_n=$((cost_n + 1))
+      [[ "${cost_n}" -gt 6 ]] || cost_eg="${cost_eg} ${path}"
+    fi
+  done <"${verdicts}"
+
+  if [[ "${open_n}" -gt 0 ]]; then
+    rm -rf "${tmpdir}"
+    fail "docs_only_path() in ${workflow} classifies ${open_n} tracked file(s) as documentation that its own push paths-ignore list does NOT cover, e.g.:${open_eg}. A PR touching only those reports the required contexts 'test' and 'kind-smoke' green without running the Go suite or creating a kind cluster. This is behavioural: it holds however the verdict is reached -- a guard clause, a nested case, a helper -- so a widening hidden outside the case arms is caught here even when the text lock sees nothing."
+  fi
+  if [[ "${cost_n}" -gt 0 ]]; then
+    rm -rf "${tmpdir}"
+    fail "docs_only_path() in ${workflow} classifies ${cost_n} tracked file(s) as code that its own push paths-ignore list treats as documentation, e.g.:${cost_eg}. Safe, but the two declarations no longer agree, and a lock that only holds in one direction rots."
+  fi
+
+  rm -rf "${tmpdir}"
+  pass "${workflow}: docs_only_path() agrees with the push paths-ignore list on all ${n_corpus} tracked files (0 mismatches)"
 }
 
 # ---------------------------------------------------------------------------
@@ -756,6 +973,9 @@ assert_job_can_fail_build "${CODEQL_WORKFLOW}" analyze \
 pass "preflight and Analyze (Go) run unconditionally on every PR"
 
 # The bound on the documentation set comes first; the probes below are belt-and-braces.
+# Behaviour before text: the behavioural check is the one that cannot be evaded by restructuring.
+check_docs_set_behaves_like_paths_ignore "${CI_WORKFLOW}"
+check_docs_set_behaves_like_paths_ignore "${SMOKE_WORKFLOW}"
 check_docs_set_mirrors_paths_ignore "${CI_WORKFLOW}"
 check_docs_set_mirrors_paths_ignore "${SMOKE_WORKFLOW}"
 
@@ -959,6 +1179,116 @@ mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/roots-truncated.yaml" \
   'ci.yaml drops api/ from its declared full-CI roots' \
   'full-CI root(s)' \
   check_changes_filter "${CI_WORKFLOW}" "${MUTANTS}/roots-truncated.yaml"
+
+# --- the four evasions that defeated the TEXT lock ---
+# Each reaches `return 0` without going through a `;;`-terminated case arm, so the text lock
+# above sees an unchanged pattern set and passes. Each was verified live: applied to BOTH
+# workflows (so check_filters_agree stays green) the whole gate exited 0 with "All CI docs-gate
+# (CI-DOCSGATE-01) tests passed", while the mutated classifier answered code=false for a PR
+# touching Taskfile.yml, .golangci.yml, codecov.yml and charts/kollect/values.yml -- and
+# charts/ is a DECLARED full-CI root whose probe file is a .txt, so the root probes miss it too.
+# They are killed by behaviour, not by text.
+#
+# METHOD-MUTHARNESS-02 applies with full force here: every one of these replacements contains a
+# `$`, which yq's Expand template would silently eat, leaving a mutant that is not the mutation
+# it documents. They are written `$$` and each mutant is read back below to prove the dollar
+# survived -- exactly the rule the note at the top of this file states.
+assert_mutant_contains() {
+  local mutant="$1" literal="$2" label="$3"
+  local body
+  body="$(yq eval '.jobs.changes.steps[] | select(.id == "filter") | .run' "${mutant}")"
+  [[ "${body}" == *"${literal}"* ]] ||
+    fail "self-test: the mutant for '${label}' does not contain the literal '${literal}' -- yq's replacement template ate the dollar (METHOD-MUTHARNESS-02), so the mutation under test is not the one documented"
+}
+
+# (A) a guard clause before the case.
+# shellcheck disable=SC2016
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("docs_only_path\(\) \{", "docs_only_path() {\n  [[ \"$$1\" == *.yml ]] && return 0")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/evasion-guard-clause.yaml"
+# shellcheck disable=SC2016  # the single quotes are the point: this is the literal the mutant must contain
+assert_mutant_contains "${MUTANTS}/evasion-guard-clause.yaml" '[[ "$1" == *.yml ]] && return 0' 'a guard clause before the case'
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/evasion-guard-clause.yaml" \
+  'docs_only_path returns 0 from a guard clause placed before the case' \
+  'tracked file(s) as documentation that its own push paths-ignore list does NOT cover' \
+  check_docs_set_behaves_like_paths_ignore "${MUTANTS}/evasion-guard-clause.yaml"
+
+# (B) the same guard INSIDE the `*)` catch-all -- where a maintainer would naturally put it, and
+# invisible to a parser that records only a line matching /^return[[:space:]]/.
+# shellcheck disable=SC2016
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("  \*\)\n    return 1", "  *)\n    [[ \"$$1\" == *.yml ]] && return 0\n    return 1")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/evasion-catchall-guard.yaml"
+# shellcheck disable=SC2016  # the single quotes are the point: this is the literal the mutant must contain
+assert_mutant_contains "${MUTANTS}/evasion-catchall-guard.yaml" '[[ "$1" == *.yml ]] && return 0' 'a guard inside the catch-all arm'
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/evasion-catchall-guard.yaml" \
+  'docs_only_path returns 0 from a guard inside the *) catch-all arm' \
+  'tracked file(s) as documentation that its own push paths-ignore list does NOT cover' \
+  check_docs_set_behaves_like_paths_ignore "${MUTANTS}/evasion-catchall-guard.yaml"
+
+# (C) a one-line nested case inside the catch-all.
+# shellcheck disable=SC2016
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("  \*\)\n    return 1", "  *)\n    case \"$$1\" in *.yml) return 0 ;; esac\n    return 1")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/evasion-nested-case.yaml"
+# shellcheck disable=SC2016  # the single quotes are the point: this is the literal the mutant must contain
+assert_mutant_contains "${MUTANTS}/evasion-nested-case.yaml" 'case "$1" in *.yml) return 0 ;; esac' 'a nested case inside the catch-all arm'
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/evasion-nested-case.yaml" \
+  'docs_only_path returns 0 from a nested case inside the catch-all arm' \
+  'tracked file(s) as documentation that its own push paths-ignore list does NOT cover' \
+  check_docs_set_behaves_like_paths_ignore "${MUTANTS}/evasion-nested-case.yaml"
+
+# (D) a helper function -- the case arms are untouched and the widening lives in another
+# function entirely, which no amount of arm-parsing can see.
+# shellcheck disable=SC2016
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("docs_only_path\(\) \{", "generated_config() { [[ \"$$1\" == *.yml ]]; }\n\ndocs_only_path() {\n  generated_config \"$$1\" && return 0")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/evasion-helper.yaml"
+# shellcheck disable=SC2016  # the single quotes are the point: this is the literal the mutant must contain
+assert_mutant_contains "${MUTANTS}/evasion-helper.yaml" 'generated_config "$1" && return 0' 'a helper function called from docs_only_path'
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/evasion-helper.yaml" \
+  'docs_only_path returns 0 via a helper function the case arms never mention' \
+  'tracked file(s) as documentation that its own push paths-ignore list does NOT cover' \
+  check_docs_set_behaves_like_paths_ignore "${MUTANTS}/evasion-helper.yaml"
+
+# The behavioural lock's own vacuity guards: without a corpus, or with a classifier that never
+# defines docs_only_path, the comparison must fail loudly rather than compare nothing.
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("docs_only_path\(\) \{", "docs_only_path_renamed() {")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/behaviour-no-function.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/behaviour-no-function.yaml" \
+  'the classifier no longer defines docs_only_path at all' \
+  'could not evaluate docs_only_path()' \
+  check_docs_set_behaves_like_paths_ignore "${MUTANTS}/behaviour-no-function.yaml"
+
+yq eval 'del(.on.push.paths-ignore)' "${CI_WORKFLOW}" >"${MUTANTS}/behaviour-no-reference.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/behaviour-no-reference.yaml" \
+  'the push paths-ignore list the behavioural reference is built from is deleted' \
+  'there would be no reference to compare' \
+  check_docs_set_behaves_like_paths_ignore "${MUTANTS}/behaviour-no-reference.yaml"
+
+# --- the paths-ignore entry shapes GitHub and `case` do not agree on ---
+# The lock's `/**` -> `/*` rewrite is faithful only for a literal path or a literal PREFIX/**.
+# Every other shape is accepted verbatim into a shell `case` whose semantics differ, so the
+# equality it asserts would be meaningful only by luck. Each of these must fail loudly.
+yq eval '.on.push.paths-ignore += ["charts/*"]' "${CI_WORKFLOW}" >"${MUTANTS}/shape-direct-children.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/shape-direct-children.yaml" \
+  'push paths-ignore gains charts/*, which GitHub limits to direct children and case does not' \
+  'neither a literal path nor a PREFIX/**' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/shape-direct-children.yaml"
+
+yq eval '.on.push.paths-ignore += ["**/*.md"]' "${CI_WORKFLOW}" >"${MUTANTS}/shape-globstar-prefix.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/shape-globstar-prefix.yaml" \
+  'push paths-ignore gains **/*.md' \
+  'neither a literal path nor a PREFIX/**' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/shape-globstar-prefix.yaml"
+
+yq eval '.on.push.paths-ignore += ["docs/?.md"]' "${CI_WORKFLOW}" >"${MUTANTS}/shape-question-mark.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/shape-question-mark.yaml" \
+  'push paths-ignore gains docs/?.md, whose ? matches / in case but not in GitHub' \
+  'neither a literal path nor a PREFIX/**' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/shape-question-mark.yaml"
+
+yq eval '.on.push.paths-ignore += ["!docs/private/**"]' "${CI_WORKFLOW}" >"${MUTANTS}/shape-negation.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/shape-negation.yaml" \
+  'push paths-ignore gains a negated entry, which a case pattern cannot express' \
+  'the exclusion would silently vanish' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/shape-negation.yaml"
 
 # --- the denylist lock: the three widenings that defeated the sampling gate ---
 # All three were built and run against the real classifier before this lock existed, and all
