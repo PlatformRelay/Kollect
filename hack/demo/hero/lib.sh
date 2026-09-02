@@ -75,11 +75,23 @@ _hero_assert_git_connection_verified() {
 }
 
 # Non-empty Git export: ≥1 committed inventory file (yaml/yml/json) outside .git.
+#
+# GATE-SIGPIPE-01: counts with `grep -c`, never `grep -q`. `find … | grep -q .` under
+# `set -o pipefail` inverts once find has more than one pipe buffer (64 KiB on Linux) of
+# paths to write: grep exits at the first match, find takes SIGPIPE and exits 141, and
+# pipefail makes the pipeline report 141 — so a real, LARGE export is reported as empty
+# and _hero_assert_git_export_nonempty fails the demo for a reason that does not exist.
+# A small clone behaves correctly, which is why only a large fixture can catch this
+# (see hack/test/hyg_sigpipe_pipefail_test.sh). `grep -c` reads to EOF, so no SIGPIPE.
 _hero_export_has_inventory_files() {
-  local dir="${1:-${HERO_INVENTORY_CLONE_DIR}}"
+  local dir="${1:-${HERO_INVENTORY_CLONE_DIR}}" count
   [[ -d "${dir}" ]] || return 1
-  find "${dir}" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
-    ! -path '*/.git/*' | grep -q .
+  count="$(
+    find "${dir}" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+      ! -path '*/.git/*' | grep -c . || true
+  )"
+  [[ "${count}" =~ ^[0-9]+$ ]] || return 1
+  [[ "${count}" -gt 0 ]]
 }
 
 _hero_assert_git_export_nonempty() {
