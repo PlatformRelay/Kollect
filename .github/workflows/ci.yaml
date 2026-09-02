@@ -19,6 +19,14 @@
 # always reaches a conclusion, and it fails unless `test-suite` actually succeeded whenever the
 # PR touches anything outside the documentation path set. `paths-ignore` stays on `push`, where
 # no required context is at stake. Locked by hack/test/ci_docs_gate_test.sh.
+#
+# The docs-only path is NOT free, and that is a deliberate trade. Where this workflow previously
+# was not dispatched at all, a documentation-only PR now runs `changes`, `gitleaks` and `lint` --
+# `lint` because two existing gates (dist_ci_wiring_test.sh, repo_root_links_wiring_test.sh)
+# require it to be unconditional, and because it is where ci_docs_gate_test.sh runs, so leaving
+# it ungated is the only thing that exercises the docs-only direction at all. What such a PR no
+# longer pays for is the Go suite, the kind clusters, testcontainers, the fuzz matrix and the
+# image builds -- and it no longer needs a ruleset bypass to merge.
 name: CI
 
 on:
@@ -112,6 +120,9 @@ jobs:
           # both reporters report green for a change that deleted a Go file from the tree.
           # With `--no-renames` the same diff reports both paths, and the loop below sees the
           # source. Locked by hack/test/ci_docs_gate_test.sh (rename-into-docs case + mutant).
+          # `core.quotepath` is left at its default, so a path containing non-ASCII, a newline or
+          # a tab comes back C-quoted and matches no documentation pattern below -- that change
+          # gets full CI. Wasteful, but it is the safe direction, so it is left alone.
           if ! changed="$(git diff --name-only --no-renames "${BASE_SHA}" "${HEAD_SHA}" 2>/dev/null)"; then
             emit true
             exit 0

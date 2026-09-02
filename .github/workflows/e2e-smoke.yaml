@@ -100,6 +100,9 @@ jobs:
           # both reporters report green for a change that deleted a Go file from the tree.
           # With `--no-renames` the same diff reports both paths, and the loop below sees the
           # source. Locked by hack/test/ci_docs_gate_test.sh (rename-into-docs case + mutant).
+          # `core.quotepath` is left at its default, so a path containing non-ASCII, a newline or
+          # a tab comes back C-quoted and matches no documentation pattern below -- that change
+          # gets full CI. Wasteful, but it is the safe direction, so it is left alone.
           if ! changed="$(git diff --name-only --no-renames "${BASE_SHA}" "${HEAD_SHA}" 2>/dev/null)"; then
             emit true
             exit 0
