@@ -138,7 +138,10 @@ pass "job '${JOB_ID}' name='${NAME:-$JOB_ID}' is not the required check"
 # ~21 KB of find output, a third of a pipe buffer — but small output usually wins the race,
 # which is exactly why a one-file fixture passed with either implementation and so tested
 # nothing at all. `wc -l` reads to EOF, so the producer never sees SIGPIPE.
-# See hack/test/hyg_sigpipe_pipefail_test.sh.
+#
+# The same shape exists elsewhere in the tree (`kubectl logs --tail=400 | grep -Eq …` in
+# hack/kind/common.sh is the sharpest). Sweeping for it repo-wide is backlog story
+# GATE-SIGPIPE-02; this file only locks the hero demo's own predicate.
 readonly FIXTURE_FILES=4000
 # Not a safety threshold — see above. It is a floor that keeps the fixture in the range
 # where the race is reliably lost, so this self-check cannot quietly stop testing anything.
