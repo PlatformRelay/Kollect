@@ -20,6 +20,9 @@ bash hack/test/glossary_drift_test.sh
 # and offer a "FAQ" for a dissolved page. `mkdocs build --strict` cannot see that class of
 # defect, so the label-to-page contract needs its own gate.
 bash hack/test/docs_map_contract_test.sh
+# DOCS-MAPGATE-02 R2-04: and the gate above only counts while something runs it. This locks its
+# ci.yaml lint step -- and its own line here -- against silent deletion.
+bash hack/test/docs_map_wiring_test.sh
 bash hack/test/ui_removal_reference_test.sh
 bash hack/test/hyg_ui_gitignore_test.sh
 bash hack/test/docs_pages_concurrency_test.sh
