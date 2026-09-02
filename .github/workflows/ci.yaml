@@ -126,6 +126,14 @@ jobs:
         run: bash hack/test/demo_01_default_samples_test.sh
       - name: Verify demo sample Kustomizations render (DOC-04)
         run: bash hack/test/demo_04_samples_kustomize_test.sh
+      # CI-HELMDL-01: hack/install-helm.sh is what the kind-e2e-setup composite action runs to
+      # get helm, and a single transient `curl: (7)` to get.helm.sh reddened the REQUIRED
+      # kind-smoke check on PR #351. This gate locks in the retry/protocol-pinning hardening
+      # without letting it erode the SHA256 verification. It runs BEFORE the Install Helm step
+      # below, so a broken installer is reported as a gate failure rather than as a mystery
+      # download error. Not matched by the dist_* or sonar_ko_* globs, hence the explicit run.
+      - name: Verify install-helm download hardening (CI-HELMDL-01)
+        run: bash hack/test/ci_install_helm_hardening_test.sh
       - name: Install Helm
         env:
           HELM_VERSION: v3.21.4
@@ -204,6 +212,15 @@ jobs:
       # half; docs.yaml's docs/** filter covers a change to the map itself.
       - name: Verify the docs map labels the pages it points at (DOC-MAP-01)
         run: bash hack/test/docs_map_contract_test.sh
+      # DEV-MISE-01: mise.toml restates the task/node/python versions this job installs, and a
+      # restated literal with no mechanism behind it is how release.yaml reached helm v3.21.4
+      # while CI stayed on v3.17.3 (see renovate.json's own comment). Renovate's go-task manager
+      # scans only .github/(actions|workflows)/, and nothing at all manages the node-version /
+      # python-version inputs, so this comparison is the only thing that would notice. Run it
+      # here, unconditionally: mise.toml and hack/** are both outside this workflow's
+      # paths-ignore, so every change class that can break the contract triggers this job.
+      - name: Verify mise.toml has not drifted from the CI pins (DEV-MISE-01)
+        run: bash hack/test/dev_mise_pin_drift_test.sh
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob

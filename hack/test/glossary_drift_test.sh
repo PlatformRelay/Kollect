@@ -11,10 +11,18 @@
 # CR-REFERENCE.md link fix (PR #336):
 #
 #   1. committed AUTO-CRD block == freshly generated block (drift)
-#   2. curated overrides survive regeneration (no silent prose loss)
+#   2. fixture: a curated override survives regeneration (no silent prose loss)
 #   3. every link the generator emits resolves to a real docs/ page
 #   4. fixture: a CRD that gains a spec field reds, naming that field
 #   5. fixture: a generator emitting a dead link target reds, naming it
+#   6. fixture: both override rot guards (stale key, redundant text) red
+#
+# Every override check below injects a SYNTHETIC entry into the scratch copy of
+# the generator. CURATED_DESCRIPTIONS is empty on the real one: its single entry
+# corrected the `http` row, and API-HTTPDOC-01 fixed that CRD description at its
+# source (a Go doc comment in api/) instead of papering over it. Checks phrased
+# against the live map would have quietly stopped testing anything the moment it
+# emptied — precisely when an unexercised mechanism is most likely to rot.
 #
 # Every generator run happens in a scratch ROOT built with `cp`. The generator
 # derives its write target from `Path(__file__).resolve().parents[1]`, and
@@ -30,9 +38,17 @@ readonly GLOSSARY="${ROOT}/docs/GLOSSARY.md"
 readonly BEGIN_MARKER='<!-- BEGIN AUTO-CRD -->'
 readonly END_MARKER='<!-- END AUTO-CRD -->'
 
-# The curated disambiguation that regeneration used to destroy. It contradicts
-# the CRD's own description on purpose: admission rejects `type: http`.
-readonly CURATED_HTTP_ROW='Reserved snapshot type that is rejected by admission'
+# A stand-in for the hand-written prose regeneration used to destroy, injected
+# into scratch generators only. Deliberately text that appears in no CRD and no
+# committed page, so seeing it in generator output proves carry-through rather
+# than an accidental match against the schema.
+readonly FIXTURE_OVERRIDE_KIND='KollectSnapshotSink'
+readonly FIXTURE_OVERRIDE_FIELD='http'
+readonly FIXTURE_OVERRIDE_TEXT='Fixture-only curated prose that no CRD description contains.'
+
+# The exact declaration inject_override rewrites. Asserted before every use, so
+# renaming or repopulating the map fails loudly instead of silently skipping.
+readonly OVERRIDE_ANCHOR='CURATED_DESCRIPTIONS: dict[tuple[str, str], str] = {}'
 
 fail() {
   echo "FAIL: $*" >&2
@@ -121,24 +137,48 @@ path.write_text(yaml.safe_dump(doc, sort_keys=True), encoding="utf-8")
 PY
 }
 
-# Replace the description of KollectSnapshotSink spec field $1 in the scratch
-# CRD dir $3 with $2.
-set_crd_description() {
-  local field="$1" desc="$2" crd_dir="$3"
-  FIXTURE_FIELD="${field}" FIXTURE_DESC="${desc}" FIXTURE_CRD_DIR="${crd_dir}" \
+# Populate the scratch generator's empty CURATED_DESCRIPTIONS map with the one
+# entry ("$1"."$2" -> "$3"), so the override mechanism and its rot guards stay
+# under test while the real map holds nothing.
+inject_override() {
+  local kind="$1" field="$2" text="$3" generator="$4"
+  grep -qF "${OVERRIDE_ANCHOR}" "${generator}" ||
+    fail "fixture: ${generator} no longer declares an empty CURATED_DESCRIPTIONS map to populate"
+  OVERRIDE_KIND="${kind}" OVERRIDE_FIELD="${field}" OVERRIDE_TEXT="${text}" \
+    OVERRIDE_ANCHOR_TEXT="${OVERRIDE_ANCHOR}" OVERRIDE_GENERATOR="${generator}" \
     python3 - <<'PY'
+import os
+import pathlib
+
+path = pathlib.Path(os.environ["OVERRIDE_GENERATOR"])
+anchor = os.environ["OVERRIDE_ANCHOR_TEXT"]
+key = (os.environ["OVERRIDE_KIND"], os.environ["OVERRIDE_FIELD"])
+entry = f"CURATED_DESCRIPTIONS: dict[tuple[str, str], str] = {{{key!r}: {os.environ['OVERRIDE_TEXT']!r}}}"
+source = path.read_text(encoding="utf-8")
+if source.count(anchor) != 1:
+    raise SystemExit(f"expected exactly one {anchor!r} in {path}")
+path.write_text(source.replace(anchor, entry), encoding="utf-8")
+PY
+  if grep -qF "${OVERRIDE_ANCHOR}" "${generator}" || ! grep -qF "${text}" "${generator}"; then
+    fail "fixture: could not inject a curated override for ${kind}.${field} into ${generator}"
+  fi
+}
+
+# Print the first line of KollectSnapshotSink spec field $1's description, the
+# way hack/gen-glossary.py's first_line() reads it.
+crd_description_first_line() {
+  local field="$1" crd_dir="$2"
+  FIXTURE_FIELD="${field}" FIXTURE_CRD_DIR="${crd_dir}" python3 - <<'PY'
 import os
 import pathlib
 
 import yaml
 
 field = os.environ["FIXTURE_FIELD"]
-desc = os.environ["FIXTURE_DESC"]
 path = pathlib.Path(os.environ["FIXTURE_CRD_DIR"]) / "kollect.dev_kollectsnapshotsinks.yaml"
 doc = yaml.safe_load(path.read_text(encoding="utf-8"))
 props = doc["spec"]["versions"][0]["schema"]["openAPIV3Schema"]["properties"]["spec"]["properties"]
-props[field]["description"] = desc
-path.write_text(yaml.safe_dump(doc, sort_keys=True), encoding="utf-8")
+print(props[field]["description"].strip().splitlines()[0].strip())
 PY
 }
 
@@ -206,12 +246,27 @@ if ! diff -q "${GLOSSARY}" "${baseline}/docs/GLOSSARY.md" >/dev/null; then
 fi
 pass "regeneration is idempotent (whole file, two consecutive runs)"
 
-# --- 3. curated prose survives regeneration ------------------------------
-grep -qF "${CURATED_HTTP_ROW}" "${GLOSSARY}" ||
-  fail "the curated \`http\` disambiguation is gone from ${GLOSSARY}"
-grep -qF "${CURATED_HTTP_ROW}" "${baseline}/docs/GLOSSARY.md" ||
-  fail "hack/gen-glossary.py destroyed the curated \`http\` disambiguation on regeneration"
-pass "curated \`http\` disambiguation survives regeneration"
+# --- 3. fixture: curated prose survives regeneration ---------------------
+# The original defect: hand-written prose inside the markers vanished on the
+# first documented regeneration. A fixture override proves the carry-through
+# still works even though the real map is empty, and proves it across TWO runs
+# — a one-run check passes for a generator that emits curated text once and
+# then overwrites it with the schema's own.
+carry="${scratch}/carriedoverride"
+make_scratch_root "${carry}"
+inject_override "${FIXTURE_OVERRIDE_KIND}" "${FIXTURE_OVERRIDE_FIELD}" "${FIXTURE_OVERRIDE_TEXT}" \
+  "${carry}/hack/gen-glossary.py"
+
+python3 "${carry}/hack/gen-glossary.py" >/dev/null
+grep -qF "${FIXTURE_OVERRIDE_TEXT}" "${carry}/docs/GLOSSARY.md" ||
+  fail "hack/gen-glossary.py dropped a curated override instead of rendering it"
+python3 "${carry}/hack/gen-glossary.py" >/dev/null
+grep -qF "${FIXTURE_OVERRIDE_TEXT}" "${carry}/docs/GLOSSARY.md" ||
+  fail "hack/gen-glossary.py destroyed a curated override on the second regeneration"
+if grep -qF "${FIXTURE_OVERRIDE_TEXT}" "${GLOSSARY}"; then
+  fail "fixture text leaked into the real ${GLOSSARY}"
+fi
+pass "fixture: a curated override survives two consecutive regenerations"
 
 # --- 4. every emitted link target exists ---------------------------------
 if ! check_block_links "${baseline}/docs/GLOSSARY.md" "${baseline}/docs"; then
@@ -272,11 +327,8 @@ pass "fixture: a generator emitting a dead link target reds"
 # a half-updated glossary behind.
 stale="${scratch}/staleoverride"
 make_scratch_root "${stale}"
-sed -i.bak 's|"KollectSnapshotSink", "http"|"KollectSnapshotSink", "kollectNoSuchField"|' \
+inject_override "${FIXTURE_OVERRIDE_KIND}" kollectNoSuchField "${FIXTURE_OVERRIDE_TEXT}" \
   "${stale}/hack/gen-glossary.py"
-rm -f "${stale}/hack/gen-glossary.py.bak"
-grep -qF 'kollectNoSuchField' "${stale}/hack/gen-glossary.py" ||
-  fail "fixture: could not patch the scratch generator to hold a stale override key"
 
 stale_hash_before="$(hash_file "${stale}/docs/GLOSSARY.md")"
 if python3 "${stale}/hack/gen-glossary.py" >"${scratch}/stale.out" 2>&1; then
@@ -295,9 +347,15 @@ pass "fixture: a curated override for a vanished field reds before writing"
 # and nothing about the rendered output would ever reveal it.
 redundant="${scratch}/redundantoverride"
 make_scratch_root "${redundant}"
-set_crd_description http \
-  "Reserved snapshot type that is rejected by admission; do not confuse it with the optional Inventory HTTP read API." \
-  "${redundant}/config/crd/bases"
+# Read the wording out of the committed CRD rather than hardcoding it: the
+# guard compares against first_line() of the live description, so a hardcoded
+# copy would stop reproducing redundancy the next time that comment is reworded
+# and would red for the wrong reason.
+redundant_text="$(crd_description_first_line "${FIXTURE_OVERRIDE_FIELD}" "${redundant}/config/crd/bases")"
+[[ -n "${redundant_text}" ]] ||
+  fail "fixture: KollectSnapshotSink.${FIXTURE_OVERRIDE_FIELD} has no description to duplicate"
+inject_override "${FIXTURE_OVERRIDE_KIND}" "${FIXTURE_OVERRIDE_FIELD}" "${redundant_text}" \
+  "${redundant}/hack/gen-glossary.py"
 
 redundant_hash_before="$(hash_file "${redundant}/docs/GLOSSARY.md")"
 if python3 "${redundant}/hack/gen-glossary.py" >"${scratch}/redundant.out" 2>&1; then

@@ -1,0 +1,63 @@
+# Local development toolchain for kollect -- https://mise.jdx.dev
+#
+# CI is the source of truth for every version. This file exists only so that a
+# contributor's local toolchain matches the one the gates actually run against: a
+# mise.toml that DISAGREES with CI is worse than no mise.toml at all, so every entry
+# below names the CI pin it mirrors and nothing is pinned here that is not pinned there.
+#
+# That agreement is ENFORCED, not merely documented: hack/test/dev_mise_pin_drift_test.sh
+# compares the values below against every setup-task / setup-node / setup-python pin under
+# .github/ and reds the `lint` job on any disagreement. renovate.json additionally moves the
+# task pin here in the same PR as the workflow bump, and leaves Renovate's own mise manager
+# off so this file can never run ahead of CI.
+#
+#   mise trust && mise install
+#
+# `mise trust` is load-bearing -- mise ignores an untrusted config entirely, including
+# the [settings] block below. Optional: `mise activate` in your shell, or `use mise` in
+# .envrc if you already use direnv. This file sets no environment variables, so it
+# cannot conflict with an existing .envrc.
+#
+# Deliberately NOT listed here:
+#   * kustomize, controller-gen, setup-envtest, operator-sdk, golangci-lint -- pinned in
+#     the Makefile and installed into bin/ (`make kustomize`, `task lint`, ...).
+#   * git-cliff (v2.13.1) and helm-docs (v1.14.2) -- pinned in Taskfile.yml vars
+#     (GIT_CLIFF_VERSION, HELM_DOCS_VERSION), which pass the version to the matching
+#     hack/install-*.sh downloader as its first argument (`task tools:git-cliff`,
+#     `task tools:helm-docs`).
+#   * helm (v3.21.4) -- Taskfile.yml HELM_VERSION, mirrored by hack/install-helm.sh's
+#     own default.
+#   * shellcheck, gitleaks, polaris, kubeaudit -- default versions live inside their own
+#     hack/install-*.sh and are overridden by an env var where CI needs to.
+#   * kind -- pinned in hack/kind/common.sh (KIND_VERSION), which installs it on demand.
+#   * kubectl, docker -- environment prerequisites; see docs/development/setup.md.
+# Each of those already has exactly one source of truth. Repeating it here would create
+# a second one, and the two WILL drift.
+
+[settings]
+# Go is intentionally absent from [tools]: this setting makes mise read the Go version
+# straight out of `go.mod` (currently `go 1.26.6`), which is precisely what CI does.
+# .github/actions/go-cache/action.yml runs actions/setup-go with
+# `go-version-file: go.mod`, and every Go job in .github/workflows/ci.yaml -- including
+# the required `test` and `kind-smoke` checks -- goes through that composite action;
+# release.yaml and docs.yaml use `go-version-file: go.mod` directly.
+#
+# Restating the number here would go stale the next time go.mod is bumped. If a future
+# mise ever ignores this setting, Go simply becomes unmanaged by mise -- it can never
+# become mis-pinned.
+idiomatic_version_file_enable_tools = ["go"]
+
+[tools]
+# Task runs the whole gate matrix (Taskfile.yml). Matches `go-task/setup-task` with
+# `version: 3.51.1` -- unanimous across all 17 occurrences in .github/workflows/
+# (ci, docs, preflight, changelog-sync, sonarcloud, e2e-nightly).
+task = "3.51.1"
+
+# Node runs markdownlint-cli2 for `task lint:markdown` (pinned in docs/package.json).
+# Matches `node-version: "22"` in .github/workflows/docs.yaml and
+# .github/workflows/preflight.yaml.
+node = "22"
+
+# Python builds the MkDocs site for `task docs:verify`. Matches
+# `python-version: "3.12"` in .github/workflows/docs.yaml.
+python = "3.12"
