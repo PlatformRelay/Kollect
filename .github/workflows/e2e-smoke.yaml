@@ -1,6 +1,14 @@
 # Tier 0 — mandatory Kind smoke on every non-docs PR and push to main.
 # Required check name for branch protection: kind-smoke
 # See docs/development/coding-standards.md and docs/development/testing.md.
+#
+# CI-DOCSGATE-01: `pull_request` is deliberately unfiltered. `kind-smoke` is a required context
+# in the protect-main ruleset, and a workflow skipped by `paths-ignore` never reports its
+# contexts at all — not even as skipped — so every docs-only PR sat at BLOCKED until someone
+# bypassed the ruleset. The `changes` job below makes the docs-only decision instead, the real
+# cluster work lives in `kind-smoke-run`, and the `kind-smoke` job is a report that reaches a
+# conclusion on every PR without burning a kind cluster on a docs change. `paths-ignore` stays
+# on `push`, where no required context is at stake. Locked by hack/test/ci_docs_gate_test.sh.
 name: E2E smoke
 
 on:
@@ -15,14 +23,6 @@ on:
       - "LICENSE"
       - ".github/ISSUE_TEMPLATE/**"
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "mkdocs.yml"
-      - "README.md"
-      - "CHANGELOG.md"
-      - "CONTRIBUTING.md"
-      - "LICENSE"
-      - ".github/ISSUE_TEMPLATE/**"
 
 permissions:
   contents: read
@@ -33,8 +33,82 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  kind-smoke:
-    name: kind-smoke
+  # CI-DOCSGATE-01: the per-PR verdict `kind-smoke-run` hangs off. `code=true` means the change
+  # touches something other than documentation. Fail-safe in one direction only: anything this
+  # job cannot classify (a non-PR event, a missing or unreachable SHA, an empty diff) yields
+  # `true`, so the worst case is a wasted kind run rather than a required context reported green
+  # without having run. This step body is byte-identical to the one in
+  # .github/workflows/ci.yaml, and hack/test/ci_docs_gate_test.sh compares them: two copies that
+  # drift are two different answers to "is this docs-only?", and `test` and `kind-smoke` would
+  # then disagree about the same PR.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # The documentation path set. Mirrors the `paths-ignore` list kept on `push` above.
+          docs_only_path() {
+            case "$1" in
+            docs/* | mkdocs.yml | README.md | CHANGELOG.md | CONTRIBUTING.md | LICENSE | .github/ISSUE_TEMPLATE/*)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+            esac
+          }
+
+          emit() {
+            echo "code=$1" >>"${GITHUB_OUTPUT}"
+            echo "changed-code=$1"
+          }
+
+          if [ "${EVENT_NAME}" != "pull_request" ]; then
+            emit true
+            exit 0
+          fi
+          if [ -z "${BASE_SHA}" ] || [ -z "${HEAD_SHA}" ]; then
+            emit true
+            exit 0
+          fi
+          if ! changed="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" 2>/dev/null)"; then
+            emit true
+            exit 0
+          fi
+          if [ -z "${changed}" ]; then
+            emit true
+            exit 0
+          fi
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            if ! docs_only_path "${file}"; then
+              emit true
+              exit 0
+            fi
+          done <<<"${changed}"
+          emit false
+
+  # CI-DOCSGATE-01: the REAL Tier-0 smoke. Deliberately NOT named `kind-smoke` — the required
+  # context of that name is produced by the reporting job at the bottom of this file, which
+  # reports on every PR. A job that legitimately skips must never carry a required context name.
+  kind-smoke-run:
+    name: kind-smoke-run
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -52,6 +126,8 @@ jobs:
   # the operator smoke. run-mode repo_root sets REPO_ROOT so the scenario can `task build:cli`.
   pipeline-cli-smoke:
     name: pipeline-cli-smoke
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -71,6 +147,8 @@ jobs:
   # smoke.sh owns kollect-hero (up → assert → down).
   hero-demo-smoke:
     name: hero-demo-smoke
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -86,3 +164,44 @@ jobs:
           setup-script: hack/demo/hero/ci-noop-setup.sh
           scenario-script: hack/demo/hero/smoke.sh
           wait-timeout: 300s
+
+  # CI-DOCSGATE-01: the required context `kind-smoke` (protect-main lists it by exact string).
+  #
+  # A REPORT and nothing else, so the context reaches a conclusion on EVERY pull request —
+  # including a documentation-only one, where `kind-smoke-run` is skipped and no kind cluster is
+  # created. `if: always()` is what makes that work: without it a skipped worker would skip this
+  # job too and the context would vanish from the PR, which is the defect this lane removed.
+  #
+  # It cannot stand in for the real smoke. Whenever the change touches anything outside the
+  # documentation path set it fails unless `kind-smoke-run` actually SUCCEEDED — a skipped,
+  # failed or cancelled worker reds the context. The comparison is `!= "false"`, not
+  # `== "true"`, so an empty or corrupted verdict from `changes` also demands a real success.
+  # hack/test/ci_docs_gate_test.sh executes this exact body against that truth table.
+  kind-smoke:
+    name: kind-smoke
+    needs: [changes, kind-smoke-run]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report the required kind-smoke context
+        shell: bash
+        env:
+          CODE: ${{ needs.changes.outputs.code }}
+          RESULT: ${{ needs.kind-smoke-run.result }}
+        run: |
+          set -euo pipefail
+          if [ "${CODE}" != "false" ]; then
+            if [ "${RESULT}" != "success" ]; then
+              echo "::error::the kind-smoke-run job must succeed on a change that touches non-documentation paths (changes.code='${CODE}', kind-smoke-run='${RESULT}')"
+              exit 1
+            fi
+            echo "code change: kind-smoke-run succeeded"
+            exit 0
+          fi
+          case "${RESULT}" in
+          failure | cancelled)
+            echo "::error::documentation-only change, but kind-smoke-run reported '${RESULT}'"
+            exit 1
+            ;;
+          esac
+          echo "documentation-only change: kind-smoke-run '${RESULT}', required context reported without creating a kind cluster"
