@@ -113,7 +113,38 @@ logical_lines() {
       if (line ~ /^[[:space:]]*#/) { next }
       print line
     }
-  ' "${INSPECTED[@]}"
+  ' "${@:-${INSPECTED[@]}}"
+}
+
+# REVIEW FIX (round 4, P1). The non-curl fetcher scan below inlined its own sentinel space and
+# had no self-test, so the same defect the sibling gate carried applied here: the pattern could
+# be pinned while the pipeline that applies it silently stopped working. Both now go through one
+# function, and fetcher_selftest() feeds a real fixture file through it -- which also covers
+# logical_lines(), including its trailing-comment strip.
+OTHER_FETCHER_RE='[^[:alnum:]_]((wget|aria2c)([^[:alnum:]_./-]|$)|python3?[[:space:]]+-m[[:space:]]+urllib)'
+
+other_fetcher_lines() {
+  logical_lines "$@" | sed 's/^/ /'
+}
+
+fetcher_selftest() {
+  local want="$1"
+  shift
+  local line hits fixture
+  fixture="$(mktemp)"
+  for line in "$@"; do
+    printf '%s\n' "${line}" >"${fixture}"
+    hits="$(other_fetcher_lines "${fixture}" | count_matches -E "${OTHER_FETCHER_RE}")"
+    require_count "${hits}" "non-curl fetcher self-test"
+    if [[ "${want}" == "match" ]]; then
+      [[ "${hits}" != "0" ]] ||
+        fail "non-curl fetcher self-test: this spelling is NOT matched by other_fetcher_lines | OTHER_FETCHER_RE, so an installer could swap curl for it and this gate -- whose behavioural half stubs curl on PATH -- would never observe the fetch: ${line}"
+    else
+      [[ "${hits}" == "0" ]] ||
+        fail "non-curl fetcher self-test: this line invokes no fetcher but matches, so the pattern has widened into a false-positive class: ${line}"
+    fi
+  done
+  rm -f "${fixture}"
 }
 
 # Lines on which curl is INVOKED, not merely mentioned. fetch_to's own failure diagnostic
@@ -177,15 +208,33 @@ require_count "${fetch_to_calls}" "install-helm fetch_to call scan"
 # network and turn this whole suite into a no-op.
 # The leading class used to exclude `/`, so a PATH-QUALIFIED /usr/bin/wget slipped past; a
 # round-2 rewrite fixed that and, by narrowing the leading class to whitespace and four
-# operators, lost `bash -c 'wget ...'` instead. Both are covered by the same pattern shape
-# FETCHER_RE settled on in hack/test/ci_fetch_lib_hardening_test.sh, and for the same two
-# reasons: `/` is itself a non-word character, so a permissive `[^[:alnum:]_]` reaches a path
-# prefix with no extra group; and the input is prefixed with a sentinel space rather than the
-# pattern carrying an `(^|...)` alternative, because GNU grep and ugrep disagree about that
-# construct -- under ugrep it matches nothing at all, which fails GREEN on a developer's machine
-# while CI is fine.
-other_fetcher_hits="$(logical_lines | sed 's/^/ /' |
-  count_matches -E '[^[:alnum:]_]((wget|aria2c)([^[:alnum:]_./-]|$)|python3?[[:space:]]+-m[[:space:]]+urllib)')"
+# operators, lost `bash -c 'wget ...'` instead. OTHER_FETCHER_RE above is the same shape
+# FETCHER_RE settled on in hack/test/ci_fetch_lib_hardening_test.sh, for the same two reasons:
+# `/` is itself a non-word character, so a permissive `[^[:alnum:]_]` reaches a path prefix with
+# no extra group; and the input carries a sentinel space rather than the pattern carrying an
+# `(^|[^...])` alternative, which POSIX leaves undefined.
+#
+# The column-0 entry in the self-test is what keeps the sentinel honest: drop it and this suite
+# reds, instead of the scan below quietly ceasing to see a bare `wget` at the start of a line.
+fetcher_selftest match \
+  'wget -O a b' \
+  '/usr/bin/wget -O a b' \
+  './wget -O a b' \
+  '"/usr/bin/wget" -O a b' \
+  "bash -c 'wget -O \"\$1\" \"\$2\"' _ a b" \
+  'aria2c -o out url' \
+  '/usr/bin/aria2c -o out url' \
+  'python3 -m urllib.request x' \
+  'python -m urllib.request x'
+
+fetcher_selftest no-match \
+  'echo wgets' \
+  'wget-utils --version' \
+  'foo_wget x' \
+  'curl -fsSL x'
+pass "the non-curl fetcher pattern matches 9 bypass spellings (column 0 included) and none of the 4 lookalikes"
+
+other_fetcher_hits="$(other_fetcher_lines | count_matches -E "${OTHER_FETCHER_RE}")"
 require_count "${other_fetcher_hits}" "non-curl fetcher scan"
 [[ "${other_fetcher_hits}" == "0" ]] ||
   fail "${SCRIPT} fetches with something other than curl -- the behavioural half of this gate stubs curl on PATH and would not observe it, so keep the fetcher as curl (or extend this gate first)"

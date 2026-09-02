@@ -145,26 +145,38 @@ curl_command_lines() {
 # then rejects `curl-config`, `curl.se` and `curl_x` while accepting the space, `)`, `"`, `'`,
 # `;` and `|` that really do terminate a command word.
 #
-# WHY A SENTINEL SPACE INSTEAD OF `(^|...)` -- and this one cost real time. GNU grep 3.12 and
-# ugrep 7.8 disagree about `(^|CLASS)`: under ugrep the anchor alternative swallows the whole
-# group and `(^|[^[:alnum:]_./-])curl` matches NOTHING, not even a line that begins with `curl`.
-# CI runs GNU grep and a developer's machine may not, so a pattern written that way means two
-# different things in two places -- and locally it fails GREEN. fetcher_lines() prepends one
-# space to every logical line instead, so every command-position occurrence has a real preceding
-# character and no `^` alternative is needed. The optional path-prefix group of v2 had the same
-# split-brain problem (GNU matched 10/10 of the corpus below, ugrep 7/10); this pattern has no
-# optional group and both engines agree on all of it.
+# WHY A SENTINEL SPACE INSTEAD OF `(^|...)`. POSIX leaves `^` UNDEFINED anywhere but the start
+# of an ERE, so `(^|CLASS)` is relying on an extension, and implementations really do differ:
+# alternating `^` with a NEGATED bracket expression is the case that breaks -- an engine that
+# lets the anchor swallow the group makes `(^|[^[:alnum:]_./-])curl` match nothing at all, not
+# even a line beginning with `curl`. Alternating `^` with an ordinary class does NOT diverge:
+# `(^|[[:space:]])curl` behaves identically everywhere tested, which is why curl_command_lines()
+# below can keep its `(^|[[:space:]])` and is not covered by this warning.
+#
+# Scope of the risk, stated exactly rather than dramatised: every gate here runs under `bash`
+# with GNU grep, so this has never mis-fired in CI or on this machine. The construct is dropped
+# because it is undefined behaviour that a future runner could resolve differently, and because
+# removing it costs nothing -- fetcher_lines() prepends one space to every logical line, so every
+# command-position occurrence has a real preceding character and no `^` alternative is needed.
+#
+# The sentinel form also happens to be far better at the actual job, which is the real argument
+# for it. Measured against the 14-spelling corpus below: v1 matched 6/14 under GNU grep 3.12 and
+# v2 matched 7/14 -- v2 traded five spellings for two -- while v3 matches 14/14.
 #
 # WHAT IT MATCHES, verified by fetcher_selftest() rather than asserted here: a bare `curl`, a
 # path-qualified one (`/usr/bin/curl`, `./curl`, `"${HOME}"/bin/curl`, `$(dirname "$0")/curl`),
 # a quoted one (`"/usr/bin/curl"`), a backslash-escaped one (`\curl`), one inside a command
 # substitution or backticks, one inside `bash -c '...'`, and `python -m urllib`.
 #
-# KNOWN PERMISSIVE, stated rather than discovered later: because a URL path and a command path
-# are textually identical, a string containing a URL that ENDS in /curl -- say
-# `echo "get it from https://example.com/bin/curl"` -- matches. Nothing in the tree does that,
-# and the failure direction is a red that a human resolves, not a silent pass. It is the price of
-# catching `/usr/bin/curl`, and it is not worth trading back.
+# KNOWN PERMISSIVE, both cases stated rather than discovered later. Neither is a silent pass:
+# both fail RED, which a human resolves in a minute, and both are the price of catching
+# `/usr/bin/curl` -- not worth trading back.
+#   * A URL path and a command path are textually identical, so a string holding a URL that ENDS
+#     in /curl -- `echo "get it from https://example.com/bin/curl"` -- matches.
+#   * logical_lines() strips a trailing comment only when NOTHING on the line is quoted (it must
+#     be conservative; see the comment there). So a QUOTED line with a trailing comment that
+#     names a path ending in a fetcher -- `echo "polaris installed"  # see hack/tools/curl` --
+#     survives the strip and matches.
 #
 # NOT used for the flag assertions on hack/lib/fetch.sh. That is a SCOPING guarantee, not a
 # property of this pattern: fetch_to's own diagnostics contain the words "(curl exit ${status})"
@@ -181,23 +193,40 @@ fetcher_lines() {
 # real mutant some reviewer or some round actually wrote; running them on every gate invocation
 # is what makes "I re-ran the prior mutants" a property of the file rather than a claim in a
 # commit message.
+#
+# REVIEW FIX (round 4, P1). The first version of this harness applied FETCHER_RE to
+# `printf ' %s\n' "${line}"` -- it RE-IMPLEMENTED the sentinel instead of calling the production
+# path. So it pinned the pattern and left the pipeline that applies it completely unprotected:
+# delete the `| sed 's/^/ /'` from fetcher_lines() and every assertion below still passed, while
+# a bare `curl -fsSL ...` at COLUMN 0 in an installer -- the literal PR #351 defect -- shipped
+# green. That is the round-2 failure mode (change the matching machinery, prior mutants silently
+# survive) reproduced one layer up, inside the mechanism added to prevent it. The corpus now goes
+# through a real file and a real fetcher_lines() call, which covers logical_lines() too, and the
+# column-0 entry below is what makes the sentinel itself load-bearing in this suite.
 fetcher_selftest() {
   local want="$1"
   shift
-  local line hits
+  local line hits fixture
+  fixture="$(mktemp)"
   for line in "$@"; do
-    hits="$(printf ' %s\n' "${line}" | count_matches -E "${FETCHER_RE}")"
+    printf '%s\n' "${line}" >"${fixture}"
+    hits="$(fetcher_lines "${fixture}" | count_matches -E "${FETCHER_RE}")"
     require_count "${hits}" "FETCHER_RE self-test"
     if [[ "${want}" == "match" ]]; then
       [[ "${hits}" != "0" ]] ||
-        fail "FETCHER_RE self-test: this spelling of a direct fetcher is NOT matched, so an installer could use it to bypass hack/lib/fetch.sh with this gate green: ${line}"
+        fail "FETCHER_RE self-test: this spelling of a direct fetcher is NOT matched by fetcher_lines | FETCHER_RE, so an installer could use it to bypass hack/lib/fetch.sh with this gate green: ${line}"
     else
       [[ "${hits}" == "0" ]] ||
         fail "FETCHER_RE self-test: this line invokes no fetcher but matches, so the pattern has widened into a false-positive class: ${line}"
     fi
   done
+  rm -f "${fixture}"
 }
 
+# The first entry sits at COLUMN 0 of the fixture, which is what makes the sentinel in
+# fetcher_lines() load-bearing here: without it this line has no preceding character and
+# FETCHER_RE cannot match, so removing the sentinel reds this suite instead of silently
+# unprotecting every installer scan.
 fetcher_selftest match \
   'curl -fsSL x' \
   '/usr/bin/curl -fsSL x' \
@@ -212,7 +241,11 @@ fetcher_selftest match \
   "bash -c 'curl -fsSL \"\$1\" -o \"\$2\"' _ a b" \
   "bash -c 'wget -O \"\$1\" \"\$2\"' _ a b" \
   '/usr/bin/wget -O a b' \
-  'python3 -m urllib.request x'
+  'python3 -m urllib.request x' \
+  'python -m urllib.request x' \
+  'aria2c -o out "${DOWNLOAD_URL}"' \
+  'env curl -fsSL x' \
+  'eval "curl -fsSL x"'
 
 fetcher_selftest no-match \
   'echo curly' \
@@ -221,7 +254,7 @@ fetcher_selftest no-match \
   'mycurl x' \
   'see https://curl.se/ docs' \
   'fetch_to "${U}" "${D}" "helm tarball"'
-pass "the direct-fetcher pattern matches all 14 known bypass spellings and none of the 6 lookalikes"
+pass "fetcher_lines | FETCHER_RE matches all 18 known bypass spellings (column 0 included) and none of the 6 lookalikes"
 
 [[ -f "${LIB}" ]] ||
   fail "${LIB} is missing -- the whole point of CI-FETCHLIB-01 is that the hardened flag list lives in exactly ONE place"
