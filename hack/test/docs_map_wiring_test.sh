@@ -42,6 +42,11 @@
 # so `# bash ...`, `bash ... || true`, `bash ... &` and a narrowed lookalike are all rejected
 # rather than counted as wiring. Both sides have a mutant proving it.
 #
+# The known cost of line-based matching, named rather than left to be discovered: a matching line
+# inside a heredoc, or in the dead branch of an `if false`, counts as wiring. Deciding otherwise
+# would mean interpreting the shell rather than reading it. This is inherent to the approach and
+# is shared with the sibling dist_ci_wiring_test.sh; it is a boundary, not a regression.
+#
 # KNOWN GAP, deliberate and recorded. This file is composed into `hack/docs/verify.sh` rather
 # than given its own `ci.yaml` step, because the lane that added it was forbidden from touching
 # `.github/workflows/**` while the restructure above was in flight. Two consequences:
@@ -154,30 +159,73 @@ job_records() {
   ' "${workflow}"
 }
 
-# Every entry of every `paths-ignore:` list under the workflow`s `on:` block. Which trigger owns
-# an entry does not matter: any list naming `hack` at all is the failure.
+# Records for every `paths-ignore:` list under the workflow's `on:` block. Which trigger owns an
+# entry does not matter: any list naming `hack` at all is the failure.
+#
+#   ON                              -- the trigger block was located
+#   ONINLINE  <the value>           -- `on:` carries an inline value this reader cannot walk
+#   KEY       <n>                   -- the n-th `paths-ignore:` key
+#   ENTRY     <n> <glob>            -- one entry belonging to key n
+#
+# THE KEY/ENTRY SPLIT IS THE POINT. Emitting only entries made an unparseable list
+# indistinguishable from no list at all, and the caller treats "no entries" as "nothing is
+# ignored" -- which is correct for an absent list and catastrophically wrong for one this reader
+# failed on. A FLOW-STYLE list (`paths-ignore: ["docs/**", "hack/**"]`) did exactly that: the gate
+# announced that hack/** was not ignored while it WAS. Flow style is idiomatic in this very file,
+# which already writes `branches: [main]`. Both styles are parsed here, and the caller requires
+# every KEY to have produced at least one ENTRY.
+#
+# The `on` key is matched by STRIPPING quotes rather than by listing spellings: `on:`, `"on":`,
+# `'on':` and the YAML 1.1 `true:` are the same key, and enumerating three of the four was a
+# sample, not an invariant.
 paths_ignore_entries() {
   local workflow="$1"
-  awk '
+  awk -v SEP="${SEP}" '
     function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
     function indent_of(s,   n) { n = match(s, /[^ ]/); return (n == 0) ? -1 : n - 1 }
+    function unquote(s) {
+      s = trim(s)
+      if (s ~ /^".*"$/ || s ~ /^'"'"'.*'"'"'$/) { s = substr(s, 2, length(s) - 2) }
+      return s
+    }
+    # Split a YAML flow sequence -- `["a", "b"]` -- into entries. Path globs contain no commas,
+    # so a plain split is exact for every value this key can hold.
+    function flow_entries(v, n,   i, parts, cnt, e) {
+      sub(/^\[/, "", v); sub(/\]$/, "", v)
+      cnt = split(v, parts, ",")
+      for (i = 1; i <= cnt; i++) {
+        e = unquote(parts[i])
+        if (e != "") { print "ENTRY" SEP n SEP e SEP }
+      }
+    }
     {
       raw = $0; sub(/\r$/, "", raw)
       ind = indent_of(raw); body = trim(raw)
     }
-    !inon && ind == 0 && (body == "on:" || body == "\"on\":" || body == "true:") { inon = 1; next }
+    !inon && ind == 0 && body ~ /:/ {
+      k = body; sub(/:.*$/, "", k)
+      if (unquote(k) == "on" || unquote(k) == "true") {
+        inon = 1
+        onval = trim(substr(body, index(body, ":") + 1))
+        print "ON" SEP SEP SEP
+        if (onval != "") { print "ONINLINE" SEP onval SEP SEP }
+        next
+      }
+    }
     !inon { next }
     ind == 0 && body !~ /^#/ && body != "" { inon = 0; next }
     body ~ /^#/ { next }
     body == "" { next }
     inpi && ind <= piind { inpi = 0 }
-    !inpi && body == "paths-ignore:" { inpi = 1; piind = ind; next }
-    inpi && body ~ /^- / {
-      v = trim(substr(body, 3))
-      gsub(/^"|"$/, "", v)
-      gsub(/^'"'"'|'"'"'$/, "", v)
-      print v
+    !inpi && body ~ /^paths-ignore[ \t]*:/ {
+      nkeys++
+      print "KEY" SEP nkeys SEP SEP
+      piind = ind
+      v = trim(substr(body, index(body, ":") + 1))
+      if (v == "") { inpi = 1 } else { flow_entries(v, nkeys) }
+      next
     }
+    inpi && body ~ /^- / { print "ENTRY" SEP nkeys SEP unquote(substr(body, 3)) SEP }
   ' "${workflow}"
 }
 
@@ -191,7 +239,7 @@ check_ci_wiring() {
   local job_found=0 steps_found=0 step_count=0
   local job_if="" job_coe="" gate_step="" gate_hits=0
   local -a step_if_keys=() step_coe_keys=()
-  local entry i
+  local i
 
   [[ -f "${workflow}" ]] || fail "expected ${workflow}"
 
@@ -256,14 +304,35 @@ check_ci_wiring() {
   # failure -- that tree is what makes the step above reachable for a change to the gate script.
   # No paths-ignore list at all is FINE and must stay fine: dropping one means CI runs on more,
   # not less, and the restructure in flight does exactly that to `pull_request`.
-  while IFS= read -r entry; do
-    [[ -z "${entry}" ]] && continue
-    case "${entry}" in
-    hack | hack/*)
-      fail "a paths-ignore list in ${workflow##*/} names '${entry}' -- a PR that weakens or deletes ${GATE_SCRIPT} would then trigger no CI, and the lint step above would never run on the change it guards"
+  #
+  # But "no list" and "a list this reader failed on" must never look the same, which is the
+  # vacuity floor every other reader in these gates already had and this one did not.
+  local on_found=0 key_count=0 on_inline=""
+  local -a key_entry_counts=()
+  while IFS="${SEP}" read -r kind f2 f3 f4; do
+    case "${kind}" in
+    ON) on_found=1 ;;
+    ONINLINE) on_inline="${f2}" ;;
+    KEY) key_entry_counts[f2]=0 ;;
+    ENTRY)
+      key_entry_counts[f2]=$((key_entry_counts[f2] + 1))
+      case "${f3}" in
+      hack | hack/*)
+        fail "a paths-ignore list in ${workflow##*/} names '${f3}' -- a PR that weakens or deletes ${GATE_SCRIPT} would then trigger no CI, and the lint step above would never run on the change it guards"
+        ;;
+      esac
       ;;
     esac
   done < <(paths_ignore_entries "${workflow}")
+
+  [[ "${on_found}" -eq 1 ]] ||
+    fail "could not locate the trigger block in ${workflow##*/} -- expected a top-level 'on:' (or '\"on\":' / 'true:') key. Without it no paths-ignore list is read at all and this check would report 'nothing is ignored' whatever the file says"
+  [[ -z "${on_inline}" ]] ||
+    fail "${workflow##*/} writes its trigger block inline as 'on: ${on_inline}' -- this reader walks it by indentation and cannot see inside, so it would report 'nothing is ignored' without having looked"
+  for key_count in "${!key_entry_counts[@]}"; do
+    [[ "${key_entry_counts[${key_count}]}" -ge 1 ]] ||
+      fail "parsed 0 entries from a paths-ignore list in ${workflow##*/} -- an empty or unreadable list is being read as 'nothing is ignored', which is exactly how a list containing hack/** would pass unnoticed. Delete the key rather than leaving it empty, or write the list in block or flow style this reader can parse"
+  done
   pass "ci.yaml keeps hack/** out of every paths-ignore list, so a change to the gate itself reaches lint"
 }
 
@@ -421,12 +490,10 @@ mutant_rejected check_ci_wiring "${MUTANTS}/lint-job-stepless.yaml" "${CI_WORKFL
   'the lint job declares no steps at all' \
   'would pass vacuously'
 
-# --- ci.yaml: the trigger that makes the lint step reachable at all ---
-awk '{ print; if ($0 == "    paths-ignore:") { print "      - \"hack/test/**\"" } }' \
-  "${CI_WORKFLOW}" >"${MUTANTS}/hack-path-ignored.yaml"
-mutant_rejected check_ci_wiring "${MUTANTS}/hack-path-ignored.yaml" "${CI_WORKFLOW}" \
-  'ci.yaml starts ignoring hack/test/**' \
-  'would then trigger no CI'
+# NOTE: every trigger/paths-ignore mutant lives further down, built from the STANDALONE fixture
+# rather than from the live ci.yaml. Deriving them from the live file coupled them to a
+# `paths-ignore:` key the restructure in flight may well delete, and the gate would then have
+# reddened on its own scaffolding -- the same coupling already removed for the `changes` job.
 
 # --- hack/docs/verify.sh: the composition point, and this file's self-lock ---
 awk -v l="bash ${GATE_SCRIPT}" '{ if ($0 == l) { print "# " l } else { print } }' \
@@ -591,6 +658,82 @@ mutant_rejected check_ci_wiring "${MUTANTS}/ci-block-scalar-unwired.yaml" \
   "${MUTANTS}/ci-block-scalar.yaml" \
   'the block-scalar wiring is replaced by an echo' \
   "has no step invoking ${GATE_SCRIPT}"
+
+# --- the trigger that makes the lint step reachable at all ---
+# All built from the standalone fixture, so none of them depends on the live ci.yaml keeping a
+# `paths-ignore:` key the restructure may delete.
+fixture_accepted() {
+  local fixture="$1" label="$2"
+  if ! (check_ci_wiring "${fixture}") >/dev/null 2>&1; then
+    fail "self-test: the gate reds on a ci.yaml where ${label} -- a false red here gets the lock deleted: $( (check_ci_wiring "${fixture}") 2>&1 )"
+  fi
+  pass "self-test: gate accepts a ci.yaml where ${label}"
+}
+
+awk '{ print; if ($0 == "    paths-ignore:") { print "      - \"hack/test/**\"" } }' \
+  "${MUTANTS}/ci-restructured.yaml" >"${MUTANTS}/pi-hack-ignored.yaml"
+mutant_rejected check_ci_wiring "${MUTANTS}/pi-hack-ignored.yaml" "${MUTANTS}/ci-restructured.yaml" \
+  'ci.yaml starts ignoring hack/test/**' \
+  'would then trigger no CI'
+
+# FLOW STYLE. This is the shape that made the reader lie: it parsed no entries, the caller read
+# "no entries" as "nothing is ignored", and the gate announced that hack/** was NOT ignored while
+# it was. Flow style is idiomatic in this very file -- `branches: [main]` two lines above it.
+awk '
+  $0 == "    paths-ignore:" { print "    paths-ignore: [\"docs/**\", \"hack/**\"]"; skip = 1; next }
+  skip && /^      - / { next }
+  { skip = 0; print }
+' "${MUTANTS}/ci-restructured.yaml" >"${MUTANTS}/pi-flow-hack.yaml"
+[[ "$(grep -cFx '    paths-ignore: ["docs/**", "hack/**"]' "${MUTANTS}/pi-flow-hack.yaml")" -eq 1 ]] ||
+  fail "self-test: the flow-style paths-ignore fixture was not built -- the check below proves nothing"
+mutant_rejected check_ci_wiring "${MUTANTS}/pi-flow-hack.yaml" "${MUTANTS}/ci-restructured.yaml" \
+  'paths-ignore is written in flow style and names hack/**' \
+  'would then trigger no CI'
+
+# ...and the green half, which is what stops "handle flow style" degenerating into "fail on any
+# flow style": a flow list that does NOT name hack must still pass.
+awk '
+  $0 == "    paths-ignore:" { print "    paths-ignore: [\"docs/**\", \"CHANGELOG.md\"]"; skip = 1; next }
+  skip && /^      - / { next }
+  { skip = 0; print }
+' "${MUTANTS}/ci-restructured.yaml" >"${MUTANTS}/pi-flow-clean.yaml"
+fixture_accepted "${MUTANTS}/pi-flow-clean.yaml" \
+  'paths-ignore is written in flow style and names nothing under hack'
+
+# A key with nothing under it is indistinguishable from a list this reader failed on, so it is a
+# hard failure rather than a quiet "nothing is ignored".
+awk '
+  $0 == "    paths-ignore:" { print; skip = 1; next }
+  skip && /^      - / { next }
+  { skip = 0; print }
+' "${MUTANTS}/ci-restructured.yaml" >"${MUTANTS}/pi-empty.yaml"
+mutant_rejected check_ci_wiring "${MUTANTS}/pi-empty.yaml" "${MUTANTS}/ci-restructured.yaml" \
+  'a paths-ignore key is left with no entries under it' \
+  'parsed 0 entries from a paths-ignore list'
+
+# The `on` key: four spellings, one meaning. Enumerating three of them was a sample, not an
+# invariant, and `'on':` silently read as "no trigger block, therefore nothing is ignored".
+awk '{ if ($0 == "on:") { print "'"'"'on'"'"':" } else { print } }' \
+  "${MUTANTS}/pi-flow-hack.yaml" >"${MUTANTS}/pi-quoted-on-hack.yaml"
+mutant_rejected check_ci_wiring "${MUTANTS}/pi-quoted-on-hack.yaml" "${MUTANTS}/pi-flow-hack.yaml" \
+  "the trigger block is written as 'on': and its paths-ignore names hack/**" \
+  'would then trigger no CI'
+
+awk '{ if ($0 == "on:") { print "\"on\":" } else { print } }' \
+  "${MUTANTS}/ci-restructured.yaml" >"${MUTANTS}/pi-dq-on.yaml"
+fixture_accepted "${MUTANTS}/pi-dq-on.yaml" 'the trigger block is written as "on":'
+
+awk '{ if ($0 == "on:") { print "triggers:" } else { print } }' \
+  "${MUTANTS}/ci-restructured.yaml" >"${MUTANTS}/pi-no-on.yaml"
+mutant_rejected check_ci_wiring "${MUTANTS}/pi-no-on.yaml" "${MUTANTS}/ci-restructured.yaml" \
+  'the workflow has no recognisable trigger block' \
+  'could not locate the trigger block'
+
+awk '{ if ($0 == "on:") { print "on: {push: {branches: [main]}}" } else { print } }' \
+  "${MUTANTS}/ci-restructured.yaml" >"${MUTANTS}/pi-inline-on.yaml"
+mutant_rejected check_ci_wiring "${MUTANTS}/pi-inline-on.yaml" "${MUTANTS}/ci-restructured.yaml" \
+  'the whole trigger block is written inline, where this reader cannot walk it' \
+  'writes its trigger block inline'
 
 # --- guard rails ---
 # The degenerate "rejections" that an any-nonzero-exit check would have accepted as proof.
