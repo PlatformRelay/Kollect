@@ -27,7 +27,9 @@
 # assertions below read the workflow YAML with yq, and -- for the two pieces of shell that
 # carry the actual decisions -- EXECUTE the exact `run:` bodies the workflows will run, with
 # the exact `env:` bindings the workflows declare, against a truth table and a scratch git
-# repository.
+# repository. "Exact" is enforced, not assumed: assert_step_env_exactly() pins each step's env
+# key set to the one its harness exports, and requires the workflow- and job-level `env:` maps
+# to be absent, so there is no declared binding the harness fails to model.
 #
 # Follows the local conventions of hack/test/dist_ci_wiring_test.sh:
 #   * every anchor is scoped to one named job, and must resolve to exactly one match;
@@ -122,6 +124,36 @@ assert_job_can_fail_build() {
   job_coe="$(yq eval ".jobs[\"${job}\"][\"continue-on-error\"]" "${workflow}")"
   [[ "${job_coe}" == "null" || "${job_coe}" == "false" ]] ||
     fail "job '${job}' in ${workflow} must not declare 'continue-on-error: ${job_coe}' -- ${why}"
+}
+
+# The `env:` map is the third finite declaration in this workflow pair, after the required
+# context strings and the documentation path set -- and, until 2026-09-02, the one this file
+# sampled rather than bounded. Every harness below hardcodes the bindings it exports
+# (EVENT_NAME/BASE_SHA/HEAD_SHA for the classifier, CODE/RESULT for the reporters), so a key the
+# workflow declares and the harness does not know about is simply absent when the body runs
+# here, and present when it runs in the job. Two live fail-opens were built that way:
+#
+#   * `EXTRA_DOCS_GLOB: "*.yml"` on the filter step plus one guard line -- the gate passed while
+#     the real job classified Taskfile.yml/.golangci.yml/codecov.yml as documentation;
+#   * `MAINT_MODE: "on"` on the `test` reporter step plus `[ "${MAINT_MODE:-}" = on ] && exit 0`
+#     -- the gate passed while the required context `test` reported GREEN for CODE=true
+#     RESULT=failure, past all 154 truth-table combinations.
+#
+# So the map is bounded, not sampled: the step's env keys must be EXACTLY the set the harness
+# exports, and neither the workflow nor the job may add more through their own `env:`. With that
+# held, exporting those keys and nothing else is the same thing as running the body "with the
+# exact env: bindings the workflow declares", which is what the header of this file claims.
+assert_step_env_exactly() {
+  local workflow="$1" job="$2" idx="$3" expected="$4" label="$5"
+  local actual
+
+  actual="$(yq eval "((.jobs[\"${job}\"].steps[${idx}].env // {}) | keys | sort | join(\",\"))" "${workflow}")"
+  [[ "${actual}" == "${expected}" ]] ||
+    fail "the ${label} step of job '${job}' in ${workflow} declares env keys [${actual:-none}], expected exactly [${expected}] -- this harness exports precisely those and nothing else, so any other declared binding is present when the job runs and ABSENT when the body is tested here. That is how a fail-open hides: the body reads a variable no assertion knows about."
+  [[ "$(yq eval '.env' "${workflow}")" == "null" ]] ||
+    fail "${workflow} declares a workflow-level 'env:' map -- every step inherits it, so a binding could reach the ${label} step of '${job}' without appearing in its own env: and without this harness exporting it"
+  [[ "$(yq eval ".jobs[\"${job}\"].env" "${workflow}")" == "null" ]] ||
+    fail "job '${job}' in ${workflow} declares a job-level 'env:' map -- its steps inherit it, so a binding could reach the ${label} step without appearing in its own env: and without this harness exporting it"
 }
 
 assert_step_can_fail_build() {
@@ -307,6 +339,10 @@ check_reporter() {
   [[ "${step_env_result}" == "\${{ needs.${worker}.result }}" ]] ||
     fail "the report step of '${reporter}' in ${workflow} must bind RESULT to '\${{ needs.${worker}.result }}', got '${step_env_result}' -- otherwise it reports on some other job's outcome"
 
+  # The truth table below exports CODE and RESULT. Anything else the step declares would be
+  # live in the job and missing here -- see assert_step_env_exactly.
+  assert_step_env_exactly "${workflow}" "${reporter}" 0 "CODE,RESULT" "report"
+
   body="$(yq eval ".jobs[\"${reporter}\"].steps[0].run" "${workflow}")"
   [[ -n "${body}" && "${body}" != "null" ]] ||
     fail "the report step of '${reporter}' in ${workflow} has an empty run: body -- an empty script exits 0 for every input, which is exactly the unconditional green this gate exists to prevent"
@@ -411,8 +447,14 @@ check_worker() {
 #   * a `return 0` reached WITHOUT going through a `case` arm -- a guard clause, a nested case,
 #     a helper, a loop -- is invisible here, because this reads text. That gap is the whole
 #     reason check_docs_set_behaves_like_paths_ignore() below exists and is the load-bearing
-#     assertion; this one is the cheap second opinion that also covers patterns naming paths
-#     which are not in the tree yet.
+#     assertion; this one is the cheap second opinion.
+#
+# And one gap that neither closes, stated plainly rather than glossed: a widening written
+# OUTSIDE the case arms that names a class no tracked file exemplifies -- say a guard clause
+# matching `*.rst` or `internal/generated/*` -- is invisible to both. The behavioural lock has
+# no corpus entry to catch it with; this text lock does not read guard clauses. It is latent,
+# not live: the PR that adds the first such file is the PR that both arms and exploits it. The
+# text lock covers not-yet-existing paths only for widenings written INTO an arm.
 #
 # Every arm of the `case` that can `return 0` is collected, not just the first: an extra arm is
 # how a one-token widening would otherwise slip past a parser that reads only the first pattern.
@@ -545,6 +587,24 @@ check_docs_set_mirrors_paths_ignore() {
 # body is run to completion once (over a scratch repo with a documentation-only diff, so it
 # takes the full path through the loop) and whatever functions it defined are dumped, helpers
 # included. Nothing here knows what the classifier looks like.
+#
+# RESIDUAL ASSUMPTIONS -- what this check does NOT bound, so the next reader starts here rather
+# than rediscovering them:
+#
+#  (a) The corpus is `git ls-files`: the tree as it is today. A path class that no tracked file
+#      exemplifies is not covered, and if the widening is written outside the case arms the
+#      text lock does not cover it either (see its comment). Latent, not live -- the PR adding
+#      the first such file is the one that arms and exploits it.
+#  (b) The reference matcher implements GitHub's semantics for the only two entry shapes
+#      assert_paths_ignore_shapes() permits. If GitHub's matcher changes, the reference is
+#      wrong in the same direction the classifier is. The shape validator narrows the exposure
+#      to two well-understood forms; it does not remove it.
+#  (c) IRREDUCIBLE, recorded so it is not mistaken for an oversight: a classifier that detects
+#      the harness rather than reading a declared input -- keying on `$GITHUB_JOB`, say, which
+#      differs between the `changes` job and the `lint` job this gate runs in -- diverges here
+#      from the job with no `env:` change at all, so assert_step_env_exactly() cannot see it.
+#      That is different in kind from a declared binding the harness fails to model (which IS
+#      bounded, above): closing it would require running the real job, which no gate can do.
 check_docs_set_behaves_like_paths_ignore() {
   local workflow="$1"
   local idx body tmpdir funcs driver corpus verdicts repo
@@ -566,6 +626,7 @@ check_docs_set_behaves_like_paths_ignore() {
     fail "${workflow}'s push paths-ignore list is empty -- the reference matcher would call every path code and this check would pass for the wrong reason"
 
   idx="$(job_step_index "${workflow}" changes '.value.id == "filter"' 'id: filter classification')" || exit 1
+  assert_step_env_exactly "${workflow}" changes "${idx}" "BASE_SHA,EVENT_NAME,HEAD_SHA" "classification"
   body="$(yq eval ".jobs.changes.steps[${idx}].run" "${workflow}")"
   tmpdir="$(mktemp -d)"
   printf '%s\n' "${body}" >"${tmpdir}/filter.sh"
@@ -707,6 +768,8 @@ check_changes_filter() {
 
   idx="$(job_step_index "${workflow}" changes '.value.id == "filter"' 'id: filter classification')" || exit 1
   assert_step_can_fail_build "${workflow}" changes "${idx}" "classification"
+  # run_filter below exports EVENT_NAME/BASE_SHA/HEAD_SHA and nothing else.
+  assert_step_env_exactly "${workflow}" changes "${idx}" "BASE_SHA,EVENT_NAME,HEAD_SHA" "classification"
 
   body="$(yq eval ".jobs.changes.steps[${idx}].run" "${workflow}")"
   [[ -n "${body}" && "${body}" != "null" ]] ||
@@ -1113,6 +1176,39 @@ mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/test-reporter-failopen.yaml" \
   "the 'test' reporter treats an unknown verdict as documentation-only instead of failing safe" \
   'the no-op path can satisfy the required context' \
   check_reporter "${MUTANTS}/test-reporter-failopen.yaml" test test-suite "test"
+
+# --- the env map: a declared input the harness must not be allowed to miss ---
+# Both of these were built as live fail-opens and both passed the round-5 gate at exit 0.
+# The reporter one is the more serious: it makes the required context `test` report GREEN for
+# CODE=true RESULT=failure, i.e. past every one of the 154 truth-table combinations, because the
+# body's first line reads a variable the truth table never sets.
+yq eval '(.jobs.test.steps[0].env.MAINT_MODE) = "on"' "${CI_WORKFLOW}" \
+  >"${MUTANTS}/reporter-undeclared-env.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/reporter-undeclared-env.yaml" \
+  "the 'test' reporter step declares an env binding the truth table never sets" \
+  'expected exactly [CODE,RESULT]' \
+  check_reporter "${MUTANTS}/reporter-undeclared-env.yaml" test test-suite "test"
+
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .env.EXTRA_DOCS_GLOB) = "*.yml"' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/filter-undeclared-env.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/filter-undeclared-env.yaml" \
+  'the classification step declares an env binding no harness here exports' \
+  'expected exactly [BASE_SHA,EVENT_NAME,HEAD_SHA]' \
+  check_changes_filter "${MUTANTS}/filter-undeclared-env.yaml"
+
+# The same injection through the two maps every step inherits, so neither half of the
+# "no other declared binding" assertion is left untested.
+yq eval '.env.MAINT_MODE = "on"' "${CI_WORKFLOW}" >"${MUTANTS}/workflow-level-env.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/workflow-level-env.yaml" \
+  'ci.yaml gains a workflow-level env map that every step inherits' \
+  "declares a workflow-level 'env:' map" \
+  check_reporter "${MUTANTS}/workflow-level-env.yaml" test test-suite "test"
+
+yq eval '.jobs.test.env.MAINT_MODE = "on"' "${CI_WORKFLOW}" >"${MUTANTS}/job-level-env.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/job-level-env.yaml" \
+  "the 'test' job gains a job-level env map its report step inherits" \
+  "declares a job-level 'env:' map" \
+  check_reporter "${MUTANTS}/job-level-env.yaml" test test-suite "test"
 
 # The reporter stops depending on the worker: needs.<worker>.result is then always empty.
 yq eval '.jobs.test.needs = ["changes"]' "${CI_WORKFLOW}" >"${MUTANTS}/test-reporter-no-needs.yaml"
