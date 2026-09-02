@@ -68,12 +68,18 @@
 # but still a row to this parser -- stricter than the renderer, so a loud false positive rather
 # than a silent pass. That is the safe side to be wrong on.
 #
-# Two residual boundaries, named here rather than left to be discovered. An autolink
-# (`<https://example.com>`) in a cell renders as a link but is neither checked nor reported: its
-# target is external, so none of the four rules could bind it -- it is the one link form the
-# "anything link-shaped is REPORTED" clause does not cover. And a `[label]: target` definition
-# outside the table is skipped by the sweep, because it renders nothing on its own; it is checked
-# where it is USED, inside a row.
+# Residual boundaries, named here rather than left to be discovered. None is reachable by a map
+# entry written the way every current entry is written, and none hides a resolvable page:
+#   * an autolink (`<https://example.com>`) in a cell renders as a link but is neither checked nor
+#     reported. Its target is external, so none of the four rules could bind it -- it is the one
+#     link form the "anything link-shaped is REPORTED" clause does not cover;
+#   * a `[label]: target` definition outside the table is skipped by the sweep: it renders nothing
+#     on its own and is checked where it is USED, inside a row;
+#   * a link appended to the `## Documentation map` HEADING itself is consumed with the heading
+#     and never reaches the section buffer;
+#   * a footnote-shaped definition (`[^1]: ...`) inside the section is skipped as a definition.
+#     It renders under markdown-it and probably not under python-markdown, so what it produces is
+#     renderer-dependent.
 #
 # Every parse step is guarded against a vacuous pass: an empty map, an entry row with no links, an
 # empty nav index and an empty redirect map are hard failures, because a gate that parses nothing
@@ -167,9 +173,16 @@ extract_map() {
     function isdelim(s) { return (s ~ /-/ && s ~ /^[|[:space:]:-]+$/) }
     # Anything that renders as, or contains, a link. `<a`/`<img` are here because MD033 is
     # disabled repo-wide, so raw HTML links are invisible to markdownlint too.
+    #
+    # A CLOSING bracket counts as much as an opening one. `[![alt](img.svg)](page.md)` -- the
+    # badge/thumbnail idiom, six of which sit at the top of this very file -- is matched by the
+    # leftmost-longest scan as a link to the IMAGE, leaving `](page.md)` behind. Without `]` here
+    # that residue looks like plain text, and the page destination is neither checked nor
+    # reported: measured at exit 0 with "all 31 destinations exist" while the page was a
+    # duplicate of one the map already listed, which is the rule-2 defect this gate exists for.
     function islinkshaped(s,   lo) {
       lo = tolower(s)
-      return (index(s, "[") > 0 || lo ~ "<a[ \t>/]" || lo ~ "<img[ \t>/]")
+      return (index(s, "[") > 0 || index(s, "]") > 0 || lo ~ "<a[ \t>/]" || lo ~ "<img[ \t>/]")
     }
     # A link reference definition renders nothing on its own; it is checked where it is USED.
     function isdef(s) { return (s ~ /^\[[^]]+\][ \t]*:[ \t]*[^ \t]/) }
@@ -523,6 +536,9 @@ mutant_rejected() {
 
   [[ -s "${mutant}" ]] ||
     fail "self-test: the mutant for '${label}' is missing or empty -- nothing was actually tested"
+  # Redundant against the status check below -- a no-op mutation cannot be rejected, so that
+  # check would catch it too -- and kept because "the mutation was a no-op" names the fault far
+  # better than "it is vacuous". Ablating it survives the self-test by design, not by oversight.
   if cmp -s "${mutant}" "${DOCS_DIR}/index.md"; then
     fail "self-test: the mutant for '${label}' is byte-identical to docs/index.md -- the mutation was a no-op, so nothing was actually tested"
   fi
@@ -544,6 +560,8 @@ mkdocs_mutant_rejected() {
 
   [[ -s "${mutant}" ]] ||
     fail "self-test: the mkdocs.yml mutant for '${label}' is missing or empty -- nothing was actually tested"
+  # Redundant against the status check below, for the same reason as its sibling above, and kept
+  # for the same reason. Ablating it survives the self-test by design.
   if cmp -s "${mutant}" "${MKDOCS}"; then
     fail "self-test: the mkdocs.yml mutant for '${label}' is byte-identical to mkdocs.yml -- the mutation was a no-op, so nothing was actually tested"
   fi
@@ -665,6 +683,17 @@ sed 's#\[Troubleshooting\](operator-manual/troubleshooting.md)#<a href="operator
   "${DOCS_DIR}/index.md" >"${MUTANTS}/raw-html-anchor.md"
 mutant_rejected "${MUTANTS}/raw-html-anchor.md" \
   'a map entry is written as a raw HTML anchor' 'cannot read as a link'
+
+# The badge/thumbnail idiom, `[![alt](img.svg)](page.md)`, six of which already sit at the top of
+# docs/index.md. The leftmost-longest scan reads it as a link to the IMAGE and leaves `](page.md)`
+# behind, so the PAGE destination is invisible: this file rendered 31 links including a DUPLICATE
+# operator-manual/troubleshooting.md -- the rule-2 defect this gate exists to catch -- and the
+# gate printed "all 31 Documentation map destinations exist" at exit 0. Nothing else sees it: the
+# destination resolves so mkdocs --strict is silent, and markdownlint-cli2 reports 0 issues.
+sed 's#\[Metrics\](operator-manual/metrics.md) |#[Metrics](operator-manual/metrics.md) · [![FAQ](assets/logo.svg)](operator-manual/troubleshooting.md) |#' \
+  "${DOCS_DIR}/index.md" >"${MUTANTS}/image-wrapped-link.md"
+mutant_rejected "${MUTANTS}/image-wrapped-link.md" \
+  'a map entry wraps an image in a link, hiding the page destination' 'cannot read as a link'
 
 # A second table in the section: this gate reads the first, so the rest must not go unnoticed.
 # Its rows are deliberately LINK-FREE, so the orphan sweep below cannot claim this mutant and the
@@ -823,5 +852,49 @@ self_test_guard_holds() {
 self_test_guard_holds "${MUTANTS}/empty.md" 'an empty file'
 self_test_guard_holds "${MUTANTS}/does-not-exist.md" 'a nonexistent path'
 self_test_guard_holds "${MUTANTS}/unmutated.md" 'an unmutated copy of the real map'
+# The case only the REASON guard can catch: a mutant that is non-empty, differs from the real
+# index, and IS rejected -- just for a different reason than the one asked for. Without it the
+# `-s` and `cmp -s` guards claim every case above and the reason guard survives ablation, which
+# is exactly how a rule could start rejecting for the wrong reason unnoticed.
+self_test_guard_holds "${MUTANTS}/dead-link.md" \
+  'a genuine rejection that does not mention the expected reason'
+
+# The same three guards on the mkdocs.yml half, which had none at all.
+mkdocs_guard_holds() {
+  local mutant="$1" label="$2"
+  if (mkdocs_mutant_rejected "${mutant}" "${label}" 'unreachable-expected-message') >/dev/null 2>&1; then
+    fail "self-test: mkdocs_mutant_rejected accepted ${label} as a genuine rejection -- it is tautological"
+  fi
+  pass "self-test: mkdocs_mutant_rejected refuses to count ${label} as a rejection"
+}
+
+cp "${MKDOCS}" "${MUTANTS}/mkdocs-unmutated.yaml"
+mkdocs_guard_holds "${MUTANTS}/mkdocs-unmutated.yaml" 'an unmutated copy of mkdocs.yml'
+# Differs from mkdocs.yml but changes nothing the gate reads, so check_map still PASSES: the only
+# guard that can refuse this one is the nonzero-status check.
+{
+  printf '# a comment that changes nothing this gate parses\n'
+  cat "${MKDOCS}"
+} >"${MUTANTS}/mkdocs-comment-only.yaml"
+mkdocs_guard_holds "${MUTANTS}/mkdocs-comment-only.yaml" 'a mkdocs.yml edit the gate does not react to'
+# Rejected, but not for the reason asked for: only the reason guard can refuse this one.
+mkdocs_guard_holds "${MUTANTS}/redirects-gutted.yaml" \
+  'a genuine rejection that does not mention the expected reason'
+
+# The nonzero-STATUS guards, isolated. Every case above is claimed by a guard that runs earlier,
+# so asking for an unreachable message leaves the status check untested in both helpers. These
+# two probes hand each helper a run that PASSES and whose output DOES contain the expected text,
+# which nothing but the status check can refuse.
+if (mutant_rejected "${MUTANTS}/label-recased.md" \
+  'a map the gate accepts' 'Documentation map destinations exist') >/dev/null 2>&1; then
+  fail "self-test: mutant_rejected counted a PASSING run as a rejection -- its nonzero-status guard is inert, so a mutant the gate does not notice would be recorded as a kill"
+fi
+pass "self-test: mutant_rejected refuses to count a passing run as a rejection"
+
+if (mkdocs_mutant_rejected "${MUTANTS}/mkdocs-comment-only.yaml" \
+  'a mkdocs.yml the gate accepts' 'Documentation map destinations exist') >/dev/null 2>&1; then
+  fail "self-test: mkdocs_mutant_rejected counted a PASSING run as a rejection -- its nonzero-status guard is inert, so an inert floor would be recorded as a kill"
+fi
+pass "self-test: mkdocs_mutant_rejected refuses to count a passing run as a rejection"
 
 echo "All docs map contract tests passed."
