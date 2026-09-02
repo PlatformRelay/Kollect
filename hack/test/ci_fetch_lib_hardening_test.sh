@@ -103,8 +103,36 @@ logical_lines() {
 # means: start of the logical line, or after a shell operator / control keyword / command
 # substitution.
 curl_command_lines() {
-  logical_lines "$1" | grep -E '(^|[;&|]|\$\(|(^|[[:space:]])(if|then|else|do|!))[[:space:]]*curl[[:space:]]' || true
+  logical_lines "$1" | grep -E '(^|[;&|]|\$\(|(^|[[:space:]])(if|then|else|do|!))[[:space:]]*([^[:space:];&|()]*/)?curl[[:space:]]' || true
 }
+
+# The direct-fetcher pattern, defined ONCE because Part 2 (installers) and Part 3 (the composite
+# action) must agree on what "a fetch that bypasses the helper" looks like.
+#
+# REVIEW FIX (round 2, P2). The first version led with `(^|[^[:alnum:]_./-])`, which excludes `/`
+# and `-` from the character allowed before the command name -- so a PATH-QUALIFIED fetcher was
+# invisible to it. An independent reviewer mutated hack/install-polaris.sh's tarball fetch to
+#
+#     /usr/bin/curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${TARBALL}"
+#
+# and this gate went GREEN: the positive assertions still passed, because the CHECKSUM fetch in
+# the same script still called fetch_to. That is the PR #351 defect shape exactly -- one hardened
+# fetch and one bare one beside it, in one file -- surviving the assertion whose stated contract
+# is "no direct fetcher invocation at all".
+#
+# The three parts of the replacement, each earning its place:
+#   * `(^|[[:space:]]|[;&|(])` -- command position, now including `(` so `$(command -v curl)` and
+#     a subshell `(curl ...)` are both reached.
+#   * `([^[:space:];&|()]*/)?` -- an OPTIONAL path prefix. This is the fix: /usr/bin/curl,
+#     ./curl, "${HOME}"/bin/curl and $(dirname "$0")/curl all match; a bare `curl` still matches
+#     through the empty alternative.
+#   * `([[:space:]]|$|\))` -- trailing, with `)` so the command-substitution spelling
+#     `"$(command -v curl)" -fsSL ...` is caught rather than passing on its closing paren.
+#
+# It is deliberately NOT used for the flag assertions on hack/lib/fetch.sh -- see
+# curl_command_lines(), which must stay narrow because fetch_to's own diagnostic contains the
+# words "(curl exit ${status})" and this pattern matches that text.
+FETCHER_RE='(^|[[:space:]]|[;&|(])([^[:space:];&|()]*/)?(curl|wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$|\))'
 
 [[ -f "${LIB}" ]] ||
   fail "${LIB} is missing -- the whole point of CI-FETCHLIB-01 is that the hardened flag list lives in exactly ONE place"
@@ -404,6 +432,15 @@ run_fetch "${BASE}/reset" "${CASE_DIR}/artifact" "reset artifact"
   fail "transient transport failure: expected 2 requests, got $(hits reset)"
 (($(sleeps) >= 1)) ||
   fail "transient transport failure: fetch_to retried without backing off -- a loop with no sleep hammers an origin that is already failing"
+# REVIEW FIX (round 2, P3). The line above counts sleep INVOCATIONS. The stub logs its argument
+# whatever that argument is, so `KOLLECT_FETCH_RETRY_DELAY=0` -- `sleep 0`, a backoff that does
+# not back off -- survived the entire suite while this case's own failure text claimed to forbid
+# it. The delay is the property; the call is only its carrier.
+first_delay="$(head -1 "${CASE_DIR}/sleeps")"
+[[ "${first_delay}" =~ ^[0-9]+$ ]] ||
+  fail "transient transport failure: the sleep stub recorded '${first_delay}' rather than a number of seconds -- the backoff assertion below cannot be evaluated, so it must not be allowed to pass"
+((first_delay >= 1)) ||
+  fail "transient transport failure: fetch_to backed off for ${first_delay}s. \`sleep 0\` is a call, not a backoff: it hammers an origin that is already refusing, which is the behaviour the retry loop exists to avoid"
 pass "a dropped connection (the exit-7/exit-52 class curl's --retry ignores) is recovered by the outer loop, with a backoff"
 
 # --- Case D: permanent connect refusal fails accurately, and is bounded ------------------------
@@ -424,6 +461,24 @@ grep -Eq 'curl exit [0-9]+' <<<"$(case_err)" ||
   fail "permanent connect refusal: the diagnosis must carry curl's exit code, so 'unreachable host' (7) is distinguishable from 'TLS failed' (35/60) or 'truncated' (18) without re-running the job. Got: $(case_err)"
 [[ "$(sleeps)" == "2" ]] ||
   fail "permanent connect refusal: expected 2 backoffs across 3 bounded attempts, got $(sleeps). More means an unbounded loop; 3 means the loop slept after its FINAL attempt -- the pointless 10s the kind loop burns before failing anyway"
+
+# REVIEW FIX (round 2, P3). The two assertions above are satisfied by the PER-ATTEMPT retry
+# messages, which also name the host and carry curl's exit code. So deleting fetch_to's closing
+# summary -- the "N attempts to <host> all failed (last curl exit N)" line, the single thing this
+# lane advertises as the answer to CI-KINDLOOP-01's `chmod: No such file or directory` -- left
+# every case green. What distinguishes a summary from a retry notice is that it is the LAST thing
+# said and it does not promise another attempt: an operator scrolling to the end of a failed job
+# must land on "this is over, and here is why", not on "retrying in 10s..." from an attempt that
+# never came.
+last_err_line="$(grep -vE '^[[:space:]]*$' <<<"$(case_err)" | tail -1)"
+[[ -n "${last_err_line}" ]] ||
+  fail "permanent connect refusal: fetch_to failed silently -- nothing at all on stderr"
+grep -Fq "127.0.0.1:${DEAD_PORT}" <<<"${last_err_line}" ||
+  fail "permanent connect refusal: the LAST line of the diagnosis does not name the host. Got: ${last_err_line}"
+grep -Eq 'curl exit [0-9]+' <<<"${last_err_line}" ||
+  fail "permanent connect refusal: the LAST line of the diagnosis does not carry curl's exit code, so the closing summary has been dropped and the final word on a doomed download is a per-attempt notice. Got: ${last_err_line}"
+! grep -Eq 'retry|retrying' <<<"${last_err_line}" ||
+  fail "permanent connect refusal: the diagnosis ENDS on a retry notice, so the operator's last line reads as though another attempt were coming when the loop had already given up. Got: ${last_err_line}"
 pass "an unreachable origin fails after bounded attempts, naming the host and curl's exit code, with no sleep after the last attempt"
 
 # --- Case E: an HTTP error page is never mistaken for content ----------------------------------
@@ -551,8 +606,7 @@ for installer in "${INSTALLERS[@]}"; do
 
   # THE repo-wide assertion. A direct fetcher in an installer is, by construction, a fetch that
   # does not carry the helper's flags -- that is the defect PR #351 died of, seven times over.
-  fetcher_hits="$(logical_lines "${installer}" |
-    count_matches -E '(^|[^[:alnum:]_./-])(curl|wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$)')"
+  fetcher_hits="$(logical_lines "${installer}" | count_matches -E "${FETCHER_RE}")"
   require_count "${fetcher_hits}" "${rel} direct-fetcher scan"
   [[ "${fetcher_hits}" == "0" ]] ||
     fail "${rel} invokes a fetcher directly (${fetcher_hits} occurrence(s)) instead of going through fetch_to from hack/lib/fetch.sh. That is exactly the bare-curl defect that reddened the REQUIRED kind-smoke check on PR #351: no retry, no connect bound, no protocol pin. Source hack/lib/fetch.sh and call fetch_to"
@@ -631,8 +685,7 @@ action_lines() { logical_lines "${ACTION}"; }
 # helper instead of hand-rolling a fourth copy of the hardening is the assertion; it is also the
 # only form that keeps the action and the installers from drifting apart the way get.helm.sh and
 # kind did inside this very step.
-action_fetcher_hits="$(action_lines |
-  count_matches -E '(^|[^[:alnum:]_./-])(curl|wget|aria2c)([[:space:]]|$)')"
+action_fetcher_hits="$(action_lines | count_matches -E "${FETCHER_RE}")"
 require_count "${action_fetcher_hits}" "kind-e2e-setup direct-fetcher scan"
 [[ "${action_fetcher_hits}" == "0" ]] ||
   fail "${ACTION} still invokes a fetcher directly. This is the loop everyone copies -- CI-HELMDL-01 explicitly declined to imitate it because after three failed attempts it falls THROUGH to 'chmod +x' on a file that was never written, so an unreachable kind.sigs.k8s.io surfaces as 'No such file or directory'. Route it through fetch_to from hack/lib/fetch.sh like the installers do"

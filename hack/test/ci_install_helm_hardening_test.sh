@@ -122,7 +122,7 @@ logical_lines() {
 # on a line that never runs curl. Command position: start of the logical line, or after a shell
 # operator, a control keyword, or a command substitution.
 curl_command_lines() {
-  logical_lines | grep -E '(^|[;&|]|\$\(|(^|[[:space:]])(if|then|else|do|!))[[:space:]]*curl[[:space:]]' || true
+  logical_lines | grep -E '(^|[;&|]|\$\(|(^|[[:space:]])(if|then|else|do|!))[[:space:]]*([^[:space:];&|()]*/)?curl[[:space:]]' || true
 }
 
 # `grep -q` MUST NOT be used at the end of a pipeline in this file. Under `set -o pipefail` it
@@ -175,7 +175,10 @@ require_count "${fetch_to_calls}" "install-helm fetch_to call scan"
 # Catches the mutation "swap curl for wget to sidestep the gate": every behavioural assertion
 # below rides on a stub `curl` on PATH, so a different fetcher would silently reach the real
 # network and turn this whole suite into a no-op.
-other_fetcher_hits="$(logical_lines | count_matches -E '(^|[^[:alnum:]_./-])(wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$)')"
+# The leading class excludes `/` and `-`, so it used to miss a PATH-QUALIFIED fetcher; the
+# optional `([^[:space:];&|()]*/)?` prefix is what reaches /usr/bin/wget and ./wget. Same fix,
+# same reason, as FETCHER_RE in hack/test/ci_fetch_lib_hardening_test.sh.
+other_fetcher_hits="$(logical_lines | count_matches -E '(^|[[:space:]]|[;&|(])([^[:space:];&|()]*/)?(wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$|\))')"
 require_count "${other_fetcher_hits}" "non-curl fetcher scan"
 [[ "${other_fetcher_hits}" == "0" ]] ||
   fail "${SCRIPT} fetches with something other than curl -- the behavioural half of this gate stubs curl on PATH and would not observe it, so keep the fetcher as curl (or extend this gate first)"
