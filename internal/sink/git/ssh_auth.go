@@ -35,6 +35,23 @@ var defaultSSHKeyExchangeAlgorithms = []string{
 	"diffie-hellman-group14-sha1",
 }
 
+// effectiveSSHConfig returns the SSH settings actually used for a transfer.
+//
+// spec.tls.insecureSkipVerify is TLS-named but transport-scoped: it disables verification of the
+// remote's identity for whichever transport the sink's endpoint selects. A sink has exactly one
+// endpoint, and buildAuthMethod picks the transport from that endpoint's scheme, so the flag never
+// applies to HTTPS and SSH at the same time. For an ssh:// endpoint it therefore turns off host-key
+// verification (ADR-0104, ADR-0407). This is the single place that widening happens; the go-git
+// export path and newCLIEnv (git-CLI export and the connection test) both call it.
+func (c Config) effectiveSSHConfig() SSHConfig {
+	sshCfg := c.SSH
+	if c.TLS.InsecureSkipVerify {
+		sshCfg.InsecureSkipVerify = true
+	}
+
+	return sshCfg
+}
+
 type publicKeysAuth struct {
 	gitssh.PublicKeys
 }

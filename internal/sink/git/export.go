@@ -162,10 +162,7 @@ func exportRemote(
 		authType = cfg.AuthType
 	}
 
-	sshCfg := cfg.SSH
-	if cfg.TLS.InsecureSkipVerify {
-		sshCfg.InsecureSkipVerify = true
-	}
+	sshCfg := cfg.effectiveSSHConfig()
 
 	authMethod, guardedReq, err := guardedGoGitAuth(ctx, req, auth, authType, sshCfg, cfg.ForceBasicAuth)
 	if err != nil {

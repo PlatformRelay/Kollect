@@ -45,10 +45,7 @@ func newCLIEnv(cfg Config, auth Auth, authType AuthType) (*cliEnv, error) {
 		}
 	}
 
-	sshCfg := cfg.SSH
-	if cfg.TLS.InsecureSkipVerify {
-		sshCfg.InsecureSkipVerify = true
-	}
+	sshCfg := cfg.effectiveSSHConfig()
 
 	if authType == AuthTypeSSH || cfgNeedsCLISSH(cfg, authType) {
 		sshCmd, cleanup, err := buildGitSSHCommand(auth, sshCfg)
