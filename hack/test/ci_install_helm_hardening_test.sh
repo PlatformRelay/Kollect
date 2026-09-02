@@ -175,10 +175,17 @@ require_count "${fetch_to_calls}" "install-helm fetch_to call scan"
 # Catches the mutation "swap curl for wget to sidestep the gate": every behavioural assertion
 # below rides on a stub `curl` on PATH, so a different fetcher would silently reach the real
 # network and turn this whole suite into a no-op.
-# The leading class excludes `/` and `-`, so it used to miss a PATH-QUALIFIED fetcher; the
-# optional `([^[:space:];&|()]*/)?` prefix is what reaches /usr/bin/wget and ./wget. Same fix,
-# same reason, as FETCHER_RE in hack/test/ci_fetch_lib_hardening_test.sh.
-other_fetcher_hits="$(logical_lines | count_matches -E '(^|[[:space:]]|[;&|(])([^[:space:];&|()]*/)?(wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$|\))')"
+# The leading class used to exclude `/`, so a PATH-QUALIFIED /usr/bin/wget slipped past; a
+# round-2 rewrite fixed that and, by narrowing the leading class to whitespace and four
+# operators, lost `bash -c 'wget ...'` instead. Both are covered by the same pattern shape
+# FETCHER_RE settled on in hack/test/ci_fetch_lib_hardening_test.sh, and for the same two
+# reasons: `/` is itself a non-word character, so a permissive `[^[:alnum:]_]` reaches a path
+# prefix with no extra group; and the input is prefixed with a sentinel space rather than the
+# pattern carrying an `(^|...)` alternative, because GNU grep and ugrep disagree about that
+# construct -- under ugrep it matches nothing at all, which fails GREEN on a developer's machine
+# while CI is fine.
+other_fetcher_hits="$(logical_lines | sed 's/^/ /' |
+  count_matches -E '[^[:alnum:]_]((wget|aria2c)([^[:alnum:]_./-]|$)|python3?[[:space:]]+-m[[:space:]]+urllib)')"
 require_count "${other_fetcher_hits}" "non-curl fetcher scan"
 [[ "${other_fetcher_hits}" == "0" ]] ||
   fail "${SCRIPT} fetches with something other than curl -- the behavioural half of this gate stubs curl on PATH and would not observe it, so keep the fetcher as curl (or extend this gate first)"
