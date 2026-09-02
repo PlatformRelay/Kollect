@@ -208,14 +208,16 @@ Non-trivial API, tenancy, sink, or multi-cluster changes require an ADR before m
 **`preflight`**, **`test`**, **`kind-smoke`** (E2E Tier 0), and **`Analyze (Go)`** (CodeQL), no
 force-push / non-fast-forward. **Approving-review count is 0** while the project is solo-maintained
 (`konih`); a second human / fake second identity is not required. Admin remains a
-`pull_request`-mode bypass actor for edge cases. Use **Rebase and merge** on PRs
+`pull_request`-mode bypass actor for edge cases, but a **documentation-only PR no longer needs
+it** — all four contexts report a conclusion on every PR (CI-DOCSGATE-01; see
+[testing.md](testing.md#what-ci-runs-on-every-pr)). Use **Rebase and merge** on PRs
 ([CONTRIBUTING.md § Changelog and releases](https://github.com/platformrelay/kollect/blob/main/CONTRIBUTING.md#changelog-and-releases)).
 Restore a non-zero review requirement when a second maintainer joins.
 
 | Gate | Workflow / task | Blocks merge? |
 | --- | --- | --- |
 | **Preflight** | `.github/workflows/preflight.yaml` | Yes |
-| **E2E smoke** | `.github/workflows/e2e-smoke.yaml` → job `kind-smoke` | Yes |
+| **E2E smoke** | `.github/workflows/e2e-smoke.yaml` → job `kind-smoke` (reports on `kind-smoke-run`) | Yes |
 | `go mod tidy` drift | preflight job | Yes |
 | `go mod verify` | preflight job | Yes |
 | Codegen drift | `task verify` | Yes |
@@ -223,7 +225,7 @@ Restore a non-zero review requirement when a second maintainer joins.
 | **CI** | `.github/workflows/ci.yaml` | Yes |
 | Lint + arch fitness | `task lint` (ci.yaml `lint` job) | Yes |
 | Format (gofmt + goimports) | `task format:check` (ci.yaml `lint` job) | Yes |
-| Coverage floor | `task coverage` (ci.yaml `test` job; no `-race`) | Yes |
+| Coverage floor | `task coverage` (ci.yaml `test-suite` job; no `-race`) | Yes |
 | Integration (L3) | `task test-integration` | Yes |
 | Secret scan | gitleaks | Yes |
 | Helm / image smoke | `task helm-test`, `task docker:build` | Yes |

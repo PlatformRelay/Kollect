@@ -52,17 +52,36 @@ coverage profile.
 
 **Path filters:** **Preflight** and **CodeQL** run on every PR. Preflight always runs
 `task lint:markdown`, so Markdown in code, docs-only, and mixed PRs is checked consistently.
-GitHub skips **CI** and **E2E smoke** when a PR or push to `main` changes *only* documentation
-paths (`docs/**`, `mkdocs.yml`, `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `LICENSE`, and
-issue templates). Other root Markdown files still trigger both workflows.
+**CI** and **E2E smoke** also *start* on every PR, but their expensive jobs skip when the PR
+changes *only* documentation paths (`docs/**`, `mkdocs.yml`, `README.md`, `CHANGELOG.md`,
+`CONTRIBUTING.md`, `LICENSE`, and issue templates). Other root Markdown files still run
+everything.
 The path-scoped **Docs** workflow runs the complete `task docs:verify` gate, then (on
 `main` push) deploys to
 [platformrelay.github.io/Kollect](https://platformrelay.github.io/Kollect/). Any change under
 `api/`, `internal/`, `charts/`, `cmd/`, `config/`, `hack/`, `test/`, `go.mod`, or
 `.github/workflows/` — or a mixed docs+code PR — runs the full gate below. Release tags no longer
-trigger docs deploys; the site tracks `main` only. Docs-only PRs still need a maintainer
-**ruleset bypass** (or admin merge) because required checks `test` / `kind-smoke` do not run when
-those workflows are path-skipped.
+trigger docs deploys; the site tracks `main` only.
+
+**Docs-only PRs merge without a bypass (CI-DOCSGATE-01).** They used to need a maintainer
+**ruleset bypass** or `gh pr merge --admin`: `paths-ignore` on `pull_request` meant CI and E2E
+smoke were never *dispatched*, and a workflow GitHub never dispatches does not report its
+contexts as skipped — it does not report them at all, so the required checks `test` and
+`kind-smoke` stayed permanently absent and the PR sat at `BLOCKED`. Both workflows now trigger
+on every PR and make the decision themselves:
+
+- a `changes` job classifies the PR (documentation-only, or not) from its diff, failing safe to
+  "not documentation-only" for anything it cannot classify;
+- the real work lives in `test-suite` (CI) and `kind-smoke-run` (E2E smoke), gated on that
+  verdict;
+- the jobs that carry the *required context names* — `test` and `kind-smoke` — run
+  `if: always()` and only report. They fail unless the real job actually succeeded whenever the
+  PR touches anything outside the documentation path set, so the no-op path cannot stand in for
+  a real run.
+
+`paths-ignore` remains on the `push` trigger of both workflows, where no required context is at
+stake. `hack/test/ci_docs_gate_test.sh` locks all of this in — including that CodeQL and
+Preflight stay unfiltered on `pull_request`, since they own the other two required contexts.
 
 Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
 
@@ -76,8 +95,9 @@ Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
 - Native Go fuzz (CEL/JSONPath extractors, content hash)
 - RBAC audit (`hack/audit-rbac.sh`)
 
-**E2E smoke (L4 Tier 0):** `.github/workflows/e2e-smoke.yaml` job **`kind-smoke`** on every
-non-docs PR and push to `main` (same `paths-ignore` as CI). Required for branch protection — see
+**E2E smoke (L4 Tier 0):** `.github/workflows/e2e-smoke.yaml` job **`kind-smoke-run`** on every
+non-docs PR and push to `main` (same documentation path set as CI). The required branch-protection
+context **`kind-smoke`** is the reporting job that wraps it — see
 [coding-standards.md](coding-standards.md).
 
 **Non-blocking on PR:** `e2e-extended.yaml` (Tier 1 matrix + webhook profile; label `e2e/full` or
@@ -91,7 +111,7 @@ SonarCloud mirrors coverage trends and surfaces duplication / technical-debt rat
 complementing point-in-time `dupl` and Codecov. Configured in `sonar-project.properties`; optional
 until the maintainer adds `SONAR_TOKEN`. Does not replace `task lint` or arch-lint.
 
-**Codecov** uploads run in the **`test`** job (OIDC auth, non-blocking). PR patch comments require
+**Codecov** uploads run in the **`test-suite`** job (OIDC auth, non-blocking). PR patch comments require
 the maintainer to install the [Codecov GitHub App](https://github.com/apps/codecov) once — see
 [tooling-setup.md § Codecov](tooling-setup.md#codecov-maintainer-setup).
 
@@ -101,7 +121,7 @@ the maintainer to install the [Codecov GitHub App](https://github.com/apps/codec
 | --- | --- | --- |
 | `preflight.yaml` | All PRs | Markdown lint, codegen and changelog drift, module consistency |
 | `docs.yaml` | Docs paths | Markdown lint, strict MkDocs build, GitHub Pages deploy (`main` only) |
-| `e2e-smoke.yaml` | L4 Tier 0 | **Mandatory** kind smoke on PR + `main` (job `kind-smoke`) |
+| `e2e-smoke.yaml` | L4 Tier 0 | **Mandatory** kind smoke on PR + `main` (job `kind-smoke-run`, reported as `kind-smoke`) |
 | `e2e-extended.yaml` | L4 Tier 1 | Optional git-export, multitenant, tenant-mode, webhook profile |
 | `e2e-nightly.yaml` | L4 Tier 2 | Full Kind matrix + bench/perf (deduped L3) + advisory race |
 | `test-e2e.yaml` | L4 Tier 3 | Manual full matrix (`workflow_dispatch`) |
