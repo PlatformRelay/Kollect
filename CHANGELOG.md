@@ -11,6 +11,22 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Check the page an image-wrapped map link points at [e5ef26e](https://github.com/platformrelay/kollect/commit/e5ef26eb6770009152b5b5ad30c08cf75a07abd9)
+
+- **ci:** Stop an unreadable paths-ignore list reading as "nothing ignored" [ddbbc28](https://github.com/platformrelay/kollect/commit/ddbbc283301acfd22c640a47448bdc655e4b092b)
+
+- **docs:** Report links the map section renders outside its table [440f318](https://github.com/platformrelay/kollect/commit/440f318c216c956e0b4243b9108d4952e4d18d55)
+
+- **docs:** Make an unreadable root file a failure, not "no links" [4470793](https://github.com/platformrelay/kollect/commit/44707934c9f04bce720dddc77c3429120319ef0b)
+
+- **ci:** Drop yq from the docs map wiring lock [a9d05bc](https://github.com/platformrelay/kollect/commit/a9d05bc0782f0cbf4cf0db46db698afec0205b9a)
+
+- **docs:** Check every link the map section renders [ff96a44](https://github.com/platformrelay/kollect/commit/ff96a44cb210a2d03ea6a7eaeb65871b1aab3b09)
+
+- **docs:** See reference-style links in the repo-root link gate [55f145d](https://github.com/platformrelay/kollect/commit/55f145dee56c0bc3b0787182abbe2daf95f6598e)
+
+- **docs:** Stop the map gate skipping rows it cannot parse [d95d0cb](https://github.com/platformrelay/kollect/commit/d95d0cba9a4b395563379260cefaaf62f20393d3)
+
 - **deps:** Bump golang.org/x/crypto to v0.56.0 for GO-2026-6354/GO-2026-6355 ([#359](https://github.com/platformrelay/kollect/pull/359))[ae85d24](https://github.com/platformrelay/kollect/commit/ae85d240bc7767fbe696e503201d9e87425374c0)
 
 - **ci:** Count renames and deletions when classifying a PR (CI-DOCSGATE-01) [016620e](https://github.com/platformrelay/kollect/commit/016620e5e8913acf4e51c96ed5f7c01c9524f9a2)
