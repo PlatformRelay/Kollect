@@ -422,7 +422,19 @@ run_step() {
 
 output_value() {
   # Last write wins, matching how Actions collects GITHUB_OUTPUT.
-  grep -E "^$1=" "${TMP}/github_output" 2>/dev/null | tail -1 | cut -d= -f2-
+  #
+  # A MISSING output must come back as the empty string, not as a failure. grep exits 1
+  # when it matches nothing, `set -o pipefail` promotes that to the pipeline's status, and
+  # `x="$(output_value repository)"` then fails under `set -e` -- killing the gate with
+  # rc=1 and NOTHING on stderr. That made the two assertions whose whole job is to name a
+  # missing output ("the chart step must emit a 'repository' output", "the publish step
+  # must still export the chart digest") unreachable: the mutation they exist for aborted
+  # the gate one line before they ran. A gate that dies mutely reads as broken rather than
+  # as red, so the empty-match case is absorbed here and left for the caller to diagnose.
+  #
+  # Absorbed around grep ALONE, not around the whole pipeline: a genuine failure of tail
+  # or cut still fails, and this stays a `grep || true` rather than a blanket `|| true`.
+  { grep -E "^$1=" "${TMP}/github_output" 2>/dev/null || true; } | tail -1 | cut -d= -f2-
 }
 
 # ---------------------------------------------------------------------------
