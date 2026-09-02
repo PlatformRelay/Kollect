@@ -86,7 +86,9 @@ _hero_assert_git_connection_verified() {
 # writing when grep exits, which large output makes near-certain but small output does not
 # make impossible (reproduced here at ~21 KB, well under one 64 KiB pipe buffer). Do not
 # read "it's only a few files" as safe. A small clone usually behaves correctly, which is
-# why only a large fixture reliably catches it — see hack/test/hyg_sigpipe_pipefail_test.sh.
+# why only a large fixture reliably catches it: the smoke test seeds 4000 files precisely
+# so this predicate is exercised past the point where the race is reliably lost. A repo-wide
+# gate for this shape is backlog story GATE-SIGPIPE-02.
 #
 # `wc -l` reads to EOF, so find never sees SIGPIPE. It is preferred over `grep -c` because
 # it exits 0 on a zero count and so needs no `|| true` — and `|| true` would also swallow a
