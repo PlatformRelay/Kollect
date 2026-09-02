@@ -606,6 +606,50 @@ done
 pass "the unverified-by-design exemption list (${UNVERIFIED_BY_DESIGN[*]}) still matches reality"
 
 # ================================================================================================
+# PART 3 -- CI-KINDLOOP-01: the composite action's kind download.
+# ================================================================================================
+
+ACTION="${ROOT}/.github/actions/kind-e2e-setup/action.yml"
+[[ -f "${ACTION}" ]] || fail "${ACTION} is missing"
+
+action_lines() { logical_lines "${ACTION}"; }
+
+# The original defect, stated as a shape: a `for attempt in ...` loop whose body ends without
+# raising a failure, so control reaches the next command with no downloaded file. Requiring the
+# helper instead of hand-rolling a fourth copy of the hardening is the assertion; it is also the
+# only form that keeps the action and the installers from drifting apart the way get.helm.sh and
+# kind did inside this very step.
+action_fetcher_hits="$(action_lines |
+  count_matches -E '(^|[^[:alnum:]_./-])(curl|wget|aria2c)([[:space:]]|$)')"
+require_count "${action_fetcher_hits}" "kind-e2e-setup direct-fetcher scan"
+[[ "${action_fetcher_hits}" == "0" ]] ||
+  fail "${ACTION} still invokes a fetcher directly. This is the loop everyone copies -- CI-HELMDL-01 explicitly declined to imitate it because after three failed attempts it falls THROUGH to 'chmod +x' on a file that was never written, so an unreachable kind.sigs.k8s.io surfaces as 'No such file or directory'. Route it through fetch_to from hack/lib/fetch.sh like the installers do"
+
+action_source_hits="$(action_lines | count_matches -F 'hack/lib/fetch.sh')"
+require_count "${action_source_hits}" "kind-e2e-setup helper-source scan"
+[[ "${action_source_hits}" != "0" ]] ||
+  fail "${ACTION} does not source hack/lib/fetch.sh -- the kind download must use the same hardened fetch as the installers, or the asymmetry inside this one step (hardened helm, hand-rolled kind) simply reverses"
+
+action_call_hits="$(action_lines | count_matches -E '(^|[^[:alnum:]_])fetch_to[[:space:]]')"
+require_count "${action_call_hits}" "kind-e2e-setup fetch_to scan"
+[[ "${action_call_hits}" != "0" ]] ||
+  fail "${ACTION} sources hack/lib/fetch.sh but never calls fetch_to"
+
+# The trailing `sleep 10` after the final attempt, and the `for attempt in 1 2 3` loop that
+# produced it, must both be gone -- not merely bypassed. A leftover loop is what a later editor
+# re-attaches a body to.
+stale_loop_hits="$(action_lines | count_matches -E 'for[[:space:]]+attempt[[:space:]]+in')"
+require_count "${stale_loop_hits}" "kind-e2e-setup stale-loop scan"
+[[ "${stale_loop_hits}" == "0" ]] ||
+  fail "${ACTION} still carries a hand-rolled 'for attempt in ...' download loop. Retry policy now lives in hack/lib/fetch.sh; a second copy here is how the two drift"
+
+stale_sleep_hits="$(action_lines | count_matches -E '(^|[^[:alnum:]_])sleep[[:space:]]+[0-9]')"
+require_count "${stale_sleep_hits}" "kind-e2e-setup stale-sleep scan"
+[[ "${stale_sleep_hits}" == "0" ]] ||
+  fail "${ACTION} still sleeps in the download path. The old loop slept 10s after its FINAL attempt -- pure dead time on a job that was going to fail anyway -- and fetch_to already backs off between attempts and not after the last one"
+pass "the kind download goes through the shared helper, with no hand-rolled loop and no dead sleep left behind"
+
+# ================================================================================================
 # Self-wiring. "An unwired gate is not a gate" (house precedent: hack/test/dev_mise_pin_drift_test.sh).
 # ================================================================================================
 #
