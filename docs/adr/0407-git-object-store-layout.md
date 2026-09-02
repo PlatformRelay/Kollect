@@ -3,9 +3,9 @@
 > Where exported inventory lands in a repo or bucket, and how the Git/GitLab sinks commit, branch,
 > and open merge requests.
 
-**Theme:** 04 · Export & sinks · **Status:** Current (see the 2026-09-02 note below)
+**Theme:** 04 · Export & sinks · **Status:** Current (see the 2026-09-03 note below)
 
-<!-- AgDR: implementer role · 2026-09-02 · amendment: SEC-SSHHOSTKEY-01 — "no insecureSkipVerify for Git" was never true of the code -->
+<!-- AgDR: implementer role · 2026-09-03 · amendment: SEC-SSHHOSTKEY-01 — "no insecureSkipVerify for Git" was never true of the code -->
 
 ## Context
 
@@ -42,11 +42,11 @@ inventory/<inventory-namespace>/<inventory-name>.json
 - **Empty-remote bootstrap**: a fresh/empty repo is `git init`'d and the branch created, so the first
   export works against a bare repository.
 - **Custom CA**: trusted via resolved `caPEM` from `BuildContext` ([ADR-0104](0104-security-model.md));
-  no `insecureSkipVerify` for Git. *Amended 2026-09-02:* that second clause was wrong — the Git sink
+  no `insecureSkipVerify` for Git. *Amended 2026-09-03:* that second clause was wrong — the Git sink
   does honour `spec.tls.insecureSkipVerify`, and for an `ssh://` remote it disables host-key
-  verification as well. See *`insecureSkipVerify` does apply to Git — corrected 2026-09-02* below.
+  verification as well. See *`insecureSkipVerify` does apply to Git — corrected 2026-09-03* below.
 
-### `insecureSkipVerify` does apply to Git — corrected 2026-09-02
+### `insecureSkipVerify` does apply to Git — corrected 2026-09-03
 
 `no insecureSkipVerify for Git` recorded an intent, not the implementation. The Git sink reads
 `spec.tls.insecureSkipVerify` through `git.TLSConfigFromSpec` and acts on it in three places:
@@ -54,18 +54,19 @@ inventory/<inventory-namespace>/<inventory-name>.json
 | Path | Effect when the flag is set |
 | --- | --- |
 | `internal/sink/git/export.go` → `effectiveSSHConfig` → `sshAuthMethod` | go-git installs `ssh.InsecureIgnoreHostKey` for an `ssh://` remote |
-| `internal/sink/git/cli_env.go` → `effectiveSSHConfig` → `buildGitSSHCommand` | git-CLI engine gets `GIT_SSH_COMMAND=... -o StrictHostKeyChecking=no`, plus `GIT_SSL_NO_VERIFY=true` for HTTP(S) |
-| `internal/sink/git/connection.go` (`lsRemoteUncached`) | reaches the same `newCLIEnv`, so the connection test skips verification too; it additionally sets `GIT_SSL_NO_VERIFY=true` on the command |
+| `internal/sink/git/cli_env.go` → `effectiveSSHConfig` → `buildGitSSHCommand` | git-CLI engine gets `GIT_SSH_COMMAND=... -o StrictHostKeyChecking=no` (emitted at two points: keyless and keyed). `GIT_SSL_NO_VERIFY=true` is also added unconditionally — it is what disables HTTP(S) certificate checking and is simply inert for `ssh://` |
+| `internal/sink/git/connection.go` (`lsRemoteUncached`) | reaches the same `newCLIEnv` at `:143`, so the connection test skips host-key verification too. Its own `GIT_SSL_NO_VERIFY=true` re-append is redundant — `applyCLIEnv` set it one line earlier |
 
 `internal/sink/git/mirror.go`, `sync_remote.go` and the fetch/push options in `export.go` also pass
 it to go-git as `InsecureSkipTLS`, which is TLS-only.
 
 The correct rule is therefore: **Git prefers a trusted CA and `known_hosts`; `insecureSkipVerify` is
-an explicit, default-off, status-surfaced development escape hatch that disables verification for
-whichever transport the endpoint selects.** The endpoint is a single URL and its scheme picks the
+an explicit, default-off development escape hatch that disables verification for whichever transport
+the endpoint selects.** The `TLSInsecure` status condition surfaces it only when a connection test
+runs and succeeds, so it is not a reliable indicator on its own. The endpoint is a single URL and its scheme picks the
 transport, so the flag never covers HTTPS and SSH at once. Guard rails, their conditions, and why
 the escape hatch is one flag rather than a separate SSH field are recorded in
-[ADR-0104](0104-security-model.md#insecureskipverify-is-transport-scoped--corrected-2026-09-02);
+[ADR-0104](0104-security-model.md#insecureskipverify-is-transport-scoped--corrected-2026-09-03);
 `internal/sink/git/insecure_hostkey_contract_test.go` pins the behaviour.
 
 ### GitLab merge-request mode

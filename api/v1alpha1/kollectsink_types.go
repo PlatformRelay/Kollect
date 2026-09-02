@@ -323,8 +323,11 @@ type TLSSpec struct {
 	// sink's endpoint selects (not recommended). For an https:// endpoint that means the server
 	// certificate is not verified; for an ssh:// git endpoint it also means the SSH host key is not
 	// verified, so the sink will connect to any host answering the address. A sink has one endpoint
-	// and therefore one transport, so this never applies to both at once. Off by default; when set,
-	// reconcilers surface the TLSInsecure status condition. See ADR-0104 and ADR-0407.
+	// and therefore one transport, so this never applies to both at once. Off by default. When set,
+	// the TLSInsecure status condition is surfaced by a connection test that runs and succeeds
+	// (connectionTest defaults to true); it is absent when connectionTest is false or while the
+	// probe is failing, so its absence is not evidence this field is unset. See ADR-0104 and
+	// ADR-0407.
 	// +optional
 	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 

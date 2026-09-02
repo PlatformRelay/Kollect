@@ -47,7 +47,15 @@ runtime hatch.
 
 Git transports follow the same rule. The pure-Go HTTP transport uses the guarded dialer, Git CLI
 HTTP operations pin libcurl with `http.curloptResolve`, and SSH operations pin the checked numeric
-address while retaining the original hostname for host-key verification.
+address while retaining the original hostname for host-key verification (go-git wraps the host-key
+callback; the Git CLI uses `-o Hostname=<checked ip> -o HostKeyAlias=<hostname>`).
+
+The address guard and host-key verification are separate controls. Retaining the hostname only
+matters while there is a host-key check to feed it to: `spec.tls.insecureSkipVerify` is
+transport-scoped and, for an `ssh://` remote, disables host-key verification entirely. The address
+pinning above is unaffected by that flag, but the identity check it preserves is gone. See
+[Transport security](security-architecture.md#transport-security) and
+[ADR-0104](../adr/0104-security-model.md).
 
 Pure-Go HTTP disables inherited proxy use. Git CLI processes can inherit proxy variables from the
 manager environment, so proxy-based weakening is unsupported but not centrally prevented. Do not

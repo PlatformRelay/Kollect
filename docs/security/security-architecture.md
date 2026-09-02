@@ -212,9 +212,16 @@ weaken server authentication. They are not implied by `allowPrivateSinks`.
 remote's identity for whichever transport the sink's endpoint selects. For an `ssh://` Git remote
 that means **SSH host-key verification is disabled too**, not only certificate checking. A sink has
 one endpoint and therefore one transport, so the flag never applies to both at once. It is off by
-default, sets the `TLSInsecure` status condition when enabled, and on the go-git path the secure
-alternative fails closed: without the flag and without a `known_hosts` key in the sink's secret, the
-export errors instead of falling back to trust-on-first-use. See
+default. On the **go-git** path the secure alternative fails closed: without the flag and without a
+`known_hosts` key in the sink's secret, the export errors instead of falling back to
+trust-on-first-use. The **git-CLI** engine has no equivalent guard — with the flag unset and no
+`known_hosts` supplied it omits `UserKnownHostsFile` and leaves host-key policy to the ambient ssh
+configuration, so supply `known_hosts` when using that engine over SSH.
+
+Do not rely on the status condition to tell you the flag is set. `TLSInsecure` is written only by a
+connection test that **runs and succeeds** — `spec.connectionTest` defaults to true, but with it
+disabled, or while a probe is failing, the condition is absent (and a previously-set one goes stale)
+even though verification is off. Check `spec.tls.insecureSkipVerify` itself. See
 [ADR-0104](../adr/0104-security-model.md) and [ADR-0407](../adr/0407-git-object-store-layout.md).
 
 Git SSH retains the original hostname for host-key verification while dialing the checked numeric
