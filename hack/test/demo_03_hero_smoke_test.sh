@@ -174,6 +174,48 @@ FIXTURE_BYTES="$(find "${TMP}/full-clone" -type f -name '*.yaml' | wc -c)"
 [[ "$(hero_inventory_count "${TMP}/full-clone")" -eq "${FIXTURE_FILES}" ]] ||
   fail "fixture self-check: full clone should have inventory files"
 
+# A FAILING find must be loud, never a count. `|| fail` above is what enforces that, and
+# nothing exercised it: with `|| true` in its place a directory find cannot fully read
+# comes back as a plain number, which the EMPTY-CLONE assertion above would then agree
+# with. Fixture: a directory find can only partly read, holding a file it CAN see.
+# The fixtures above exercise hero_inventory_count, which lives in THIS file. Drive the
+# real thing too: lib.sh's _hero_export_has_inventory_files is what runs against a cloned
+# inventory repo, and it is the one a regression would actually break. Sourced in a
+# subshell because lib.sh declares readonly globals.
+lib_predicate_says() { # dir -> "present" | "absent"
+  (
+    set -euo pipefail
+    # shellcheck source=../demo/hero/lib.sh disable=SC1091
+    source "${LIB}" >/dev/null 2>&1
+    if _hero_export_has_inventory_files "$1"; then printf 'present\n'; else printf 'absent\n'; fi
+  )
+}
+
+BROKEN="${TMP}/broken-clone"
+mkdir -p "${BROKEN}/blocked"
+printf 'apiVersion: v1\n' >"${BROKEN}/visible.yaml"
+chmod 000 "${BROKEN}/blocked" 2>/dev/null || true
+if find "${BROKEN}" -type f >/dev/null 2>&1; then
+  # Root, or a filesystem ignoring the mode: the error path is unreachable, so skip loudly
+  # rather than report an assertion that did not run.
+  printf '# skipped the producer-failure assertions: find can still read a 0000 directory as this user\n'
+else
+  broken_msg=""
+  if broken_out="$(hero_inventory_count "${BROKEN}" 2>/dev/null)"; then
+    broken_msg="count predicate returned '${broken_out}' for a directory find could NOT fully read — a producer error must be loud, never a count (an absence assertion would silently agree with it)"
+  elif [[ "$(lib_predicate_says "${BROKEN}" 2>/dev/null)" == "present" ]]; then
+    broken_msg="_hero_export_has_inventory_files reported 'present' for a directory find could NOT fully read — a failed producer must never be reported as success (lib.sh's '|| return 1' is what enforces this)"
+  fi
+  chmod 755 "${BROKEN}/blocked" 2>/dev/null || true
+  [[ -z "${broken_msg}" ]] || fail "${broken_msg}"
+fi
+chmod 755 "${BROKEN}/blocked" 2>/dev/null || true
+
+[[ "$(lib_predicate_says "${TMP}/full-clone")" == "present" ]] ||
+  fail "_hero_export_has_inventory_files reported the ${FIXTURE_FILES}-file export as EMPTY — SIGPIPE inversion under pipefail"
+[[ "$(lib_predicate_says "${TMP}/empty-clone")" == "absent" ]] ||
+  fail "_hero_export_has_inventory_files reported an empty export as non-empty — the predicate is vacuous"
+
 # assert.sh / lib must use the same find predicate shape.
 grep -Eq "find .*\\\.yaml|find \"\\\$\{?HERO_INVENTORY|_hero_export_has_inventory_files" "${ASSERT}" "${LIB}" ||
   fail "assert/lib must use find-based non-empty export check (same as preflight)"
@@ -189,7 +231,7 @@ grep -Eq 'wc[[:space:]]+-l|grep[[:space:]]+(-[a-zA-Z-]+[[:space:]]+)*-[a-zA-Z]*c
 if grep -Eq 'grep[[:space:]]+(-[a-zA-Z-]+[[:space:]]+)*-[a-zA-Z]*q|[[:space:]]head([[:space:]]|$)' <<<"${EXPORT_FN}"; then
   fail "_hero_export_has_inventory_files must not use a short-circuiting consumer ('grep -q' / 'head') — it closes the pipe early and inverts the result under pipefail"
 fi
-pass "empty-export predicate shape locked (seeded-empty would fail; counts instead of short-circuiting)"
+pass "empty-export predicate locked: counts to EOF, loud on producer failure, and lib.sh's own predicate agrees on a large fixture"
 
 # Optional: ci-noop-setup referenced by workflow should exist when used.
 if [[ -f "${NOOP_SETUP}" ]]; then
