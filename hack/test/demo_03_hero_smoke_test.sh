@@ -132,24 +132,31 @@ pass "job '${JOB_ID}' name='${NAME:-$JOB_ID}' is not the required check"
 #
 # GATE-SIGPIPE-01: this fixture is deliberately LARGE and the predicate deliberately COUNTS.
 # The old shape was `find … | grep -q .` against a one-file fixture. Under `set -o pipefail`
-# that only behaves correctly while the producer finishes writing before grep exits on its
-# first match; past one pipe buffer (64 KiB on Linux) find takes SIGPIPE, exits 141, and
-# pipefail hands the pipeline's caller a non-zero status for a directory that IS non-empty.
-# A one-file fixture passes with either implementation and so tested nothing. `grep -c`
-# reads to EOF, so the producer never sees SIGPIPE. See hack/test/hyg_sigpipe_pipefail_test.sh.
+# grep exits at its FIRST match and closes the pipe; if find is still writing it takes
+# SIGPIPE and exits 141, and pipefail hands the caller a non-zero status for a directory
+# that IS non-empty. That is a RACE, not a size threshold — it has been reproduced at
+# ~21 KB of find output, a third of a pipe buffer — but small output usually wins the race,
+# which is exactly why a one-file fixture passed with either implementation and so tested
+# nothing at all. `wc -l` reads to EOF, so the producer never sees SIGPIPE.
+# See hack/test/hyg_sigpipe_pipefail_test.sh.
 readonly FIXTURE_FILES=4000
-readonly PIPE_BUFFER_BYTES=65536 # Linux default; the fixture must beat it to be meaningful
+# Not a safety threshold — see above. It is a floor that keeps the fixture in the range
+# where the race is reliably lost, so this self-check cannot quietly stop testing anything.
+readonly PIPE_BUFFER_BYTES=65536
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 
 # Number of inventory files (yaml/yml/json, outside .git) under $1. Counts to EOF.
+# `wc -l` rather than `grep -c .`: wc exits 0 on a zero count, so no `|| true` is needed,
+# and `|| true` would turn a failed find into the string "0" — i.e. into "no files", which
+# would make the empty-clone absence assertion below pass for the wrong reason. A broken
+# find must be loud here, not silently agree with the assertion.
 hero_inventory_count() {
   local n
   n="$(
     find "$1" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
-      ! -path '*/.git/*' | grep -c . || true
-  )"
-  [[ "${n}" =~ ^[0-9]+$ ]] || fail "inventory count predicate produced non-numeric '${n}'"
+      ! -path '*/.git/*' | wc -l
+  )" || fail "inventory count predicate failed for '$1' (find or wc errored — NOT 'no files')"
   printf '%s\n' "${n}"
 }
 
@@ -171,14 +178,16 @@ FIXTURE_BYTES="$(find "${TMP}/full-clone" -type f -name '*.yaml' | wc -c)"
 grep -Eq "find .*\\\.yaml|find \"\\\$\{?HERO_INVENTORY|_hero_export_has_inventory_files" "${ASSERT}" "${LIB}" ||
   fail "assert/lib must use find-based non-empty export check (same as preflight)"
 
-# ...and must count rather than short-circuit, for the reason above: this predicate runs
-# against a real cloned inventory repo, which is exactly the large-producer case.
+# ...and its consumer must READ TO EOF rather than short-circuit, for the reason above:
+# this predicate runs against a real cloned inventory repo, i.e. the large-producer case.
+# The lock names the PROPERTY (any EOF-reading counter), not one spelling of it — locking
+# the literal `grep -c` would reject `wc -l`, which is the better form of the same fix.
 EXPORT_FN="$(awk '/^_hero_export_has_inventory_files\(\)/,/^}/' "${LIB}")"
 [[ -n "${EXPORT_FN}" ]] || fail "could not locate _hero_export_has_inventory_files in ${LIB}"
-grep -Eq 'grep[[:space:]]+-c' <<<"${EXPORT_FN}" ||
-  fail "_hero_export_has_inventory_files must count with 'grep -c' (reads to EOF; no SIGPIPE)"
-if grep -Eq 'grep[[:space:]]+(-[a-zA-Z-]+[[:space:]]+)*-[a-zA-Z]*q' <<<"${EXPORT_FN}"; then
-  fail "_hero_export_has_inventory_files must not use 'grep -q' — it inverts under pipefail once the export exceeds one pipe buffer"
+grep -Eq 'wc[[:space:]]+-l|grep[[:space:]]+(-[a-zA-Z-]+[[:space:]]+)*-[a-zA-Z]*c' <<<"${EXPORT_FN}" ||
+  fail "_hero_export_has_inventory_files must count with a consumer that reads to EOF (wc -l, or grep -c) — a short-circuiting consumer inverts under pipefail"
+if grep -Eq 'grep[[:space:]]+(-[a-zA-Z-]+[[:space:]]+)*-[a-zA-Z]*q|[[:space:]]head([[:space:]]|$)' <<<"${EXPORT_FN}"; then
+  fail "_hero_export_has_inventory_files must not use a short-circuiting consumer ('grep -q' / 'head') — it closes the pipe early and inverts the result under pipefail"
 fi
 pass "empty-export predicate shape locked (seeded-empty would fail; counts instead of short-circuiting)"
 
