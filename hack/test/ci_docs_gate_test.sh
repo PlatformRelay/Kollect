@@ -379,6 +379,94 @@ check_worker() {
 }
 
 # ---------------------------------------------------------------------------
+# (2b) THE DENYLIST LOCK -- the load-bearing assertion in this file.
+#
+# Everything above and below probes the classifier with SAMPLE paths, and a sample can only
+# ever falsify a docs set that swallows something the sample happens to name. The code set is
+# "everything that is not documentation": unbounded and unenumerable, so no list of probes can
+# bound it. Two rounds of fixes both widened the sample (nine declared roots, then 21 rows) and
+# both left the same hole one ring further out -- verified live: adding
+# `go.sum | .github/actions/* | Dockerfile* | Taskfile.yml` to the docs set made a Renovate
+# `go.sum` bump, a change to the composite action `kind-smoke-run` literally `uses:`, and a
+# Dockerfile-only change all classify as documentation, while `internal/x.go` still classified
+# as code -- so the mutant looked well behaved and this gate printed "All tests passed".
+#
+# The docs set, by contrast, IS finite and enumerable, and the workflow already declares it
+# twice: once as the `paths-ignore` list still kept on `push`, and once as the `case` pattern in
+# `docs_only_path`. ci.yaml's own comment claims they mirror each other. Nothing tested that
+# claim. This does: the two must be equal as SETS, modulo GitHub's `/**` versus the shell's
+# `/*`. Any widening of the docs set is then a mismatch, whatever it names -- including the
+# widenings above and a bare `*.yml` -- because the assertion is over the whole set, not over
+# the members a probe remembered.
+#
+# Every arm of the `case` that can `return 0` is collected, not just the first: an extra arm is
+# how a one-token widening would otherwise slip past a parser that reads only the first pattern.
+docs_set_patterns() {
+  local workflow="$1" idx body
+  idx="$(job_step_index "${workflow}" changes '.value.id == "filter"' 'id: filter classification')" || return 1
+  body="$(yq eval ".jobs.changes.steps[${idx}].run" "${workflow}")"
+  printf '%s\n' "${body}" | awk '
+    /^[[:space:]]*docs_only_path\(\)/ { infn = 1 }
+    infn && /^[[:space:]]*case[[:space:]]/ { incase = 1; next }
+    incase && /^[[:space:]]*esac[[:space:]]*$/ { incase = 0; infn = 0; next }
+    incase {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line == "") next
+      if (!inarm) {
+        pat = pat line
+        if (line ~ /\)$/) { inarm = 1; sub(/\)$/, "", pat); ret = "" }
+        next
+      }
+      if (line ~ /^return[[:space:]]/) { ret = line }
+      if (line == ";;") {
+        if (ret == "return 0") {
+          n = split(pat, a, "|")
+          for (i = 1; i <= n; i++) {
+            p = a[i]
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", p)
+            if (p != "") print p
+          }
+        }
+        pat = ""; inarm = 0; ret = ""
+      }
+    }
+  ' | LC_ALL=C sort -u
+}
+
+# The same set as the workflow declares it to GitHub, translated into shell `case` syntax.
+# `docs/**` and `docs/*` denote the same thing to their respective matchers -- GitHub's `*`
+# stops at `/`, the shell's `case` does not -- so this is the only rewriting done.
+paths_ignore_as_case_patterns() {
+  local workflow="$1"
+  yq eval '.on.push.paths-ignore[] // ""' "${workflow}" |
+    sed 's|/\*\*$|/*|; /^$/d' |
+    LC_ALL=C sort -u
+}
+
+check_docs_set_mirrors_paths_ignore() {
+  local workflow="$1"
+  local declared mirrored only_case only_ignore
+
+  [[ "$(yq eval '.on.push.paths-ignore | type' "${workflow}")" == "!!seq" ]] ||
+    fail "${workflow} has no push paths-ignore list -- it is the enumeration of the documentation set that the classifier is checked against, so without it this lock is vacuous"
+
+  declared="$(docs_set_patterns "${workflow}")" || exit 1
+  mirrored="$(paths_ignore_as_case_patterns "${workflow}")"
+
+  [[ -n "${declared}" ]] ||
+    fail "could not read any documentation pattern out of docs_only_path() in ${workflow} -- the function was renamed or restructured past docs_set_patterns(), so the lock below would pass vacuously"
+
+  if [[ "${declared}" != "${mirrored}" ]]; then
+    only_case="$(LC_ALL=C comm -23 <(printf '%s\n' "${declared}") <(printf '%s\n' "${mirrored}") | tr '\n' ' ')"
+    only_ignore="$(LC_ALL=C comm -13 <(printf '%s\n' "${declared}") <(printf '%s\n' "${mirrored}") | tr '\n' ' ')"
+    fail "the documentation set in ${workflow} does not mirror its own push paths-ignore list, which its comment claims it does. Only in docs_only_path(): [${only_case:-none}] -- every one of those is a path the classifier calls documentation while GitHub still runs full CI for it on push, so a PR touching only those reports the required contexts green WITHOUT running. Only in paths-ignore: [${only_ignore:-none}]. The documentation set is the enumerable half of this classifier; keep the two declarations equal."
+  fi
+  pass "${workflow}: docs_only_path() and the push paths-ignore list are the same set ($(printf '%s' "${declared}" | tr '\n' ' '))"
+}
+
+# ---------------------------------------------------------------------------
 # (3) The changes filter itself. Everything above rests on this one shell body being right,
 # so it is executed -- not read -- over a scratch git repository whose diffs are constructed
 # to be exactly the change classes that matter.
@@ -522,6 +610,10 @@ check_changes_filter() {
   [[ "${#roots[@]}" -ge 9 ]] ||
     fail "${decl}'s header declares only ${#roots[@]} full-CI root(s) (${roots[*]:-none}) where at least 9 are expected -- either the 'Any change under ..., or ... runs full CI' sentence was reworded past declared_full_ci_roots(), or roots were dropped from it. That sentence is machine-read: this gate probes one file under each root, so a shorter list is a smaller gate."
   for root in "${roots[@]}"; do
+    # A count cannot tell a real root from an invented one: renaming `test/` to `tests/` in the
+    # declaration keeps the floor at 9 while that root's probe tests a tree that does not exist.
+    [[ -e "${ROOT}/${root}" ]] ||
+      fail "${decl} declares the full-CI root '${root}', which does not exist in the repository -- a typo or a rename leaves this gate probing a path nothing lives at, which tests nothing while still counting toward the floor"
     probe="$(root_probe_path "${root}")"
     cases+=("true|${probe}|a file under the declared full-CI root \`${root}\`")
   done
@@ -662,6 +754,10 @@ assert_job_can_fail_build "${PREFLIGHT_WORKFLOW}" preflight \
 assert_job_can_fail_build "${CODEQL_WORKFLOW}" analyze \
   "the required context 'Analyze (Go)' must report a conclusion on every PR, including a documentation-only one"
 pass "preflight and Analyze (Go) run unconditionally on every PR"
+
+# The bound on the documentation set comes first; the probes below are belt-and-braces.
+check_docs_set_mirrors_paths_ignore "${CI_WORKFLOW}"
+check_docs_set_mirrors_paths_ignore "${SMOKE_WORKFLOW}"
 
 check_changes_filter "${CI_WORKFLOW}"
 check_changes_filter "${SMOKE_WORKFLOW}"
@@ -863,6 +959,95 @@ mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/roots-truncated.yaml" \
   'ci.yaml drops api/ from its declared full-CI roots' \
   'full-CI root(s)' \
   check_changes_filter "${CI_WORKFLOW}" "${MUTANTS}/roots-truncated.yaml"
+
+# --- the denylist lock: the three widenings that defeated the sampling gate ---
+# All three were built and run against the real classifier before this lock existed, and all
+# three left the gate printing "All CI docs-gate (CI-DOCSGATE-01) tests passed." at exit 0 while
+# shipping a live fail-open. They are permanent cases now. The expected message is the set
+# mismatch, because that is the assertion that bounds the docs set as a whole rather than
+# checking whether a probe happened to name the swallowed path.
+#
+# METHOD-MUTHARNESS-02: `docs/\* \|` is escaped because a bare `|` is regex alternation, and
+# none of these replacements contains a `$` for yq's Expand template to eat.
+
+# (1) A Renovate dependency bump, the composite action kind-smoke-run `uses:`, and the
+# Dockerfile all become "documentation" -- while internal/x.go still classifies as code, so the
+# mutant looks well behaved and every root probe still passes.
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("docs/\\* \\|", "docs/* | go.sum | .github/actions/* | Dockerfile* | Taskfile.yml |")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/docs-set-swallows-four.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/docs-set-swallows-four.yaml" \
+  'the docs set swallows go.sum, .github/actions/**, Dockerfile* and Taskfile.yml' \
+  'does not mirror its own push paths-ignore list' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/docs-set-swallows-four.yaml"
+
+# (2) One token: `*.yml` swallows .golangci.yml, .go-arch-lint.yml, Taskfile.yml, codecov.yml.
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("docs/\\* \\|", "docs/* | *.yml |")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/docs-set-swallows-yml.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/docs-set-swallows-yml.yaml" \
+  'the docs set swallows every *.yml with a single token' \
+  'does not mirror its own push paths-ignore list' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/docs-set-swallows-yml.yaml"
+
+# (3) Two steps: rename the root in the declaration so the root-probe apparatus stops covering
+# the tree, then swallow it. Step one alone is caught by the existence check in
+# check_changes_filter; the pair is caught here, whatever the declaration says.
+sed 's|, test/, |, tests/, |' "${CI_WORKFLOW}" >"${MUTANTS}/root-renamed.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/root-renamed.yaml" \
+  'ci.yaml renames the declared root test/ to tests/, which does not exist' \
+  'does not exist in the repository' \
+  check_changes_filter "${CI_WORKFLOW}" "${MUTANTS}/root-renamed.yaml"
+
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("docs/\\* \\|", "docs/* | test/* |")' \
+  "${MUTANTS}/root-renamed.yaml" >"${MUTANTS}/root-renamed-then-swallowed.yaml"
+mutant_rejected "${MUTANTS}/root-renamed.yaml" "${MUTANTS}/root-renamed-then-swallowed.yaml" \
+  'the declared root is renamed and the real tree then swallowed by the docs set' \
+  'does not mirror its own push paths-ignore list' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/root-renamed-then-swallowed.yaml"
+
+# Round 2's repro, re-killed by the lock rather than by a probe: the assertion holds whether or
+# not any sample names api/.
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("docs/\\* \\|", "docs/* | api/* |")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/docs-set-swallows-api.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/docs-set-swallows-api.yaml" \
+  'the docs set swallows api/** (the round-2 finding)' \
+  'does not mirror its own push paths-ignore list' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/docs-set-swallows-api.yaml"
+
+# The evasion the pattern parser has to survive: widen through a SECOND case arm rather than by
+# extending the first pattern. docs_set_patterns() collects every arm that can return 0, so this
+# is a set mismatch too; a parser reading only the first pattern would call it clean.
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("    return 0\n    ;;", "    return 0\n    ;;\n  *.yml)\n    return 0\n    ;;")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/docs-set-second-arm.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/docs-set-second-arm.yaml" \
+  'the docs set is widened through a second case arm instead of the first pattern' \
+  'does not mirror its own push paths-ignore list' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/docs-set-second-arm.yaml"
+
+# Drift the other way: the classifier narrower than the declaration. Safe (a LICENSE-only PR
+# just runs full CI) but it falsifies the same mirror claim, and one-way locks rot.
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub(" \\| LICENSE \\|", " |")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/docs-set-narrowed.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/docs-set-narrowed.yaml" \
+  'the docs set drops LICENSE while paths-ignore keeps it' \
+  'does not mirror its own push paths-ignore list' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/docs-set-narrowed.yaml"
+
+# And the lock's own vacuity guard: a renamed or restructured docs_only_path() must fail loudly
+# rather than yield an empty set that trivially compares unequal for the wrong reason.
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("docs_only_path\\(\\) \\{", "docs_only_path_renamed() {")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/docs-set-unparseable.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/docs-set-unparseable.yaml" \
+  'docs_only_path() is renamed past the pattern reader' \
+  'so the lock below would pass vacuously' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/docs-set-unparseable.yaml"
+
+# The other half of the comparison: deleting the push paths-ignore list would leave nothing to
+# mirror, and an empty-vs-empty comparison would pass.
+yq eval 'del(.on.push.paths-ignore)' "${CI_WORKFLOW}" >"${MUTANTS}/paths-ignore-deleted.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/paths-ignore-deleted.yaml" \
+  'ci.yaml deletes the push paths-ignore list the docs set is checked against' \
+  'without it this lock is vacuous' \
+  check_docs_set_mirrors_paths_ignore "${MUTANTS}/paths-ignore-deleted.yaml"
 
 # The classifier always answers "documentation-only".
 # shellcheck disable=SC2016
