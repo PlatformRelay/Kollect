@@ -37,23 +37,36 @@
 #   3. Parser self-test, then a static sweep that refuses NEW instances anywhere in the
 #      tree's shell.
 #
-# LIMITS — what this gate does NOT see, stated so a green run is read correctly.
-#   THE RULE: anything the sweep cannot READ is REPORTED, never assumed clean. A gate that
-#   silently downgrades "I could not tell" to "nothing here" is committing this lane's own
-#   defect in its own implementation, so both ways of failing to read a line have a report
-#   class and both are printed even on a red run:
-#     * "unparseable" — the quote/substitution stack did not close, so the line was not
-#       scanned at all.
-#     * "unresolved"  — the line WAS parsed and DOES feed a short-circuiting consumer, but
-#       no upstream stage resolved to a command name (a `"${CMD}"` producer, a construct
-#       this resolver does not model), so whether it is an instance is UNKNOWN.
-#   Genuinely out of scope, by choice rather than by blindness:
+# THE INVARIANT (METHOD-SAMPLE-VS-INVARIANT-01)
+#   A stage feeding a short-circuiting consumer is either PROVEN not to be an unbounded
+#   producer, or it is REPORTED. There is no third outcome. "Clean" has to be earned; not
+#   knowing is not evidence of innocence.
+#   This is stated first because three earlier revisions of this file got it backwards:
+#   each one grew the set of things it could positively resolve and filed everything else
+#   as clean, so the same defect reappeared one token further out every time. The verdict
+#   for a stage is decided by the LAST command in it — the one actually feeding the pipe —
+#   and an earlier command resolving is not evidence about the producer.
+#
+# LIMITS — stated so a green run is read correctly. Two report classes, both printed even
+# on a red run, because a red run is exactly when a suppressed "I could not read this"
+# does the most damage:
+#   * "unparseable" — the quote/substitution stack did not close, so the line was not
+#     scanned at all.
+#   * "unresolved"  — the line feeds a short-circuiting consumer but the producing command
+#     could not be identified: a `"${CMD}"` producer, or a pipeline inside a string handed
+#     to `eval` / `sh -c` / `xargs`. Whether it is an instance is UNKNOWN.
+#
+# What is genuinely INVISIBLE here — not reported, because there is no text to read:
+#   * A pipeline whose text never appears in the source at all: `eval "${CMD}"`, a command
+#     built by concatenation, or one read from a file at runtime. `eval` with a LITERAL
+#     string is reported; `eval` of a variable is not, and cannot be.
+#   * A pipeline inside a heredoc that is piped to a shell rather than written to a file.
+#
+# Out of scope by CHOICE rather than by blindness:
 #   * Producers whose output size is visible in the source (`echo "$VAR"`, `printf`, `sed`,
 #     `awk`, `grep` over an in-repo file); see the note above ALLOWED.
 #   * Heredoc bodies are scanned as if they were code. False positives from that fail LOUD,
 #     which is the safe direction.
-#   * It is a text sweep: a pipeline assembled at runtime (`eval`, `$CMD`) cannot be read,
-#     and lands in "unresolved" rather than being passed over.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -173,30 +186,39 @@ else
 fi
 chmod 755 "${BROKEN}/blocked" 2>/dev/null || true
 
-# ---------------------------------------------------------------------------
-# 3. Static sweep — no NEW instances of the shape.
-# ---------------------------------------------------------------------------
-# Scope, and why it is drawn here:
-#   consumer  = a stage that stops reading early: `grep` with a `q` flag, or `head`.
-#   producer  = a command whose output size is NOT visible in the source line because it
-#               walks a filesystem, a repo, a cluster or a network. `echo`/`printf`/`sed`/
-#               `awk`/`grep` over an in-repo file are excluded: their output is bounded by
-#               something a reviewer can see, and including them costs ~40 false positives
-#               for no signal. They are not SAFE, they are out of this gate's scope.
-# Logical lines are reassembled first (`\`, `|`, `&&`, `||` continuations), because every
-# instance this gate was written for spans two physical lines.
-# Every way of telling grep to stop reading early. `-q` is the common one, but `--quiet`,
-# `--silent`, `-m1` and `--max-count=1` short-circuit identically, and a gate whose claim is
-# exhaustiveness cannot be evaded by spelling the same flag differently.
-readonly SHORT_CIRCUIT_FLAG='(^|[[:space:]])(--quiet([[:space:]]|$)|--silent([[:space:]]|$)|--max-count[=[:space:]]*[0-9]|-m[[:space:]]*[0-9]|-[a-zA-Z]*q[a-zA-Z]*([[:space:]]|$))'
 # Looser form, used only to decide whether an UNPARSEABLE line is worth reporting.
 readonly MENTIONS_SHORT_CIRCUIT='(grep.*(--quiet|--silent|--max-count|-m[[:space:]]*[0-9]|-[a-zA-Z]*q)|[[:space:]]head([[:space:]]|$))'
 
+# A pipe inside a quoted string that is about to be executed. Requires a short-circuiting
+# consumer immediately after the `|`, so an ordinary quoted alternation (`grep -Eq 'a|b'`)
+# is not mistaken for one.
+readonly QUOTED_PIPELINE='(^|[^|])\|[[:space:]]*(grep[^|]*(-[a-zA-Z]*q|--quiet|--silent|--max-count|-m[[:space:]]*[0-9])|head([[:space:]]|$))'
+# ...and only when the line hands a string to something that RUNS it. Without this the
+# rule fires on every comment and message that merely quotes the shape.
+readonly STRING_EXECUTOR='(^|[[:space:]])(eval|xargs|(sh|bash|dash|zsh)[[:space:]]+(-[a-z]+[[:space:]]+)*-c)([[:space:]]|$)'
+
 is_short_circuit_consumer() { # trimmed pipeline stage -> 0 when it stops reading early
-  local seg="$1"
+  local seg="$1" rest tok
   [[ "${seg}" =~ ^head([[:space:]]|$) ]] && return 0
   [[ "${seg}" =~ ^grep([[:space:]]|$) ]] || return 1
-  [[ "${seg}" =~ ${SHORT_CIRCUIT_FLAG} ]]
+  # Walk ONLY grep's option run, token by token. A single regex over the whole stage got
+  # this wrong in both directions: it missed clusters carrying a flag ARGUMENT (`-qm1`,
+  # `-iqm1`, `-Fqm2`) because it demanded a delimiter after the `q`, and it would read a
+  # `-q` sitting inside the SEARCH PATTERN as if it were a flag.
+  rest="${seg#grep}"
+  while :; do
+    rest="${rest#"${rest%%[![:space:]]*}"}"
+    [[ -n "${rest}" ]] || return 1
+    tok="${rest%%[[:space:]]*}"
+    [[ "${tok}" == -?* ]] || return 1 # first non-option token is the pattern: stop
+    case "${tok}" in
+      --) return 1 ;; # end of options; what follows is the pattern
+      --quiet | --silent | --max-count | --max-count=*) return 0 ;;
+      --*) ;;                                     # some other long option
+      -*q* | -*m | -*m[0-9]*) return 0 ;;         # short cluster carrying -q or -m<N>
+    esac
+    rest="${rest#"${tok}"}"
+  done
 }
 readonly UNBOUNDED_PRODUCER='^(find|git|ls|curl|wget|kubectl|kind|helm|docker|podman|gh|glab|oras|cosign|crane|rg|tar|kustomize)([[:space:]]|$)'
 
@@ -317,7 +339,7 @@ mark_pipes() {
         # A `#` starting a word begins a comment: copy the rest verbatim and stop parsing.
         # Without this, an apostrophe in prose ("do not do this") opens a single-quote
         # context that never closes, and the rest of the line silently stops being scanned.
-        if (c == "#" && (i == 1 || prv ~ /[ \t;&(]/)) { out = out substr(line, i); break }
+        if (c == "#" && (i == 1 || prv ~ /[ \t;&(]/)) { out = out "\003" substr(line, i); break }
         if (c == "'"'"'") { top++; stack[top] = "sq"; out = out c; continue }
         if (c == "\"")    { top++; stack[top] = "dq"; out = out c; continue }
         if (c == ")" && top > 1) { top--; out = out c; continue }
@@ -402,6 +424,12 @@ strip_leading_noise() {
       seg="${seg#"${BASH_REMATCH[0]}"}"
       continue
     fi
+    # Test opener: `[[ "$(cmd | head -1)" ]]`. The producer is resolvable once the
+    # opener is out of the way, so stripping it earns a real verdict instead of a report.
+    if [[ "${seg}" =~ ^\[\[?[[:space:]] ]]; then
+      seg="${seg#"${BASH_REMATCH[0]}"}"
+      continue
+    fi
     # Grouping / negation / separators / substitution openers, and a YAML list dash.
     if [[ "${seg}" =~ ^([!{}();:\&]|\$\(|\"\$\(|\`|\|\||-[[:space:]])+ ]]; then
       seg="${seg#"${BASH_REMATCH[0]}"}"
@@ -450,18 +478,18 @@ readonly RESOLVED_HEAD='^[A-Za-z_./][A-Za-z0-9_./+-]*([[:space:]]|$)'
 # resolves. Walking right-to-left (rather than only looking at the last) means a separator
 # inside a construct this resolver cannot model degrades to a wider guess instead of a miss.
 # Prints the resolved head, or nothing when the segment cannot be resolved at all.
-resolve_head() {
-  local seg="$1" k head
+resolve_producer_head() {
+  local seg="$1" head
   local -a parts=()
   IFS=$'\002' read -r -a parts <<<"${seg}"
-  for ((k = ${#parts[@]} - 1; k >= 0; k--)); do
-    head="$(strip_leading_noise "${parts[k]}")"
-    [[ "${head}" =~ ${RESOLVED_HEAD} ]] && {
-      printf '%s\n' "${head}"
-      return 0
-    }
-  done
-  return 1
+  # ONLY the last part. Earlier rounds walked right-to-left and accepted the first part
+  # that resolved, which let an unrelated command clear the verdict: `echo start;
+  # "${KUBECTL}" get po | grep -q x` resolved to `echo`, was filed "not a producer", and
+  # the real producer was never looked at. A wider guess may inform a diagnostic; it must
+  # never be evidence about the producer.
+  head="$(strip_leading_noise "${parts[${#parts[@]} - 1]}")"
+  [[ "${head}" =~ ${RESOLVED_HEAD} ]] || return 1
+  printf '%s\n' "${head}"
 }
 
 # path -> prints "<verdict>\t<line>\t<logical line>" per finding.
@@ -472,7 +500,7 @@ resolve_head() {
 #                           but the producing command could not be identified, so whether
 #                           it is an instance is UNKNOWN -- reported, never assumed clean
 scan_file() {
-  local path="$1" state lineno text norm i j seg head rec resolved
+  local path="$1" state lineno text norm code i j seg head rec unknown reported
   # join + mark once per FILE, not once per line: one awk per line turns a ~190-file sweep
   # into ~24k processes and takes minutes.
   while IFS= read -r rec; do
@@ -482,6 +510,7 @@ scan_file() {
     lineno="${rec%%$'\t'*}"
     text="${norm//$'\001'/|}"
     text="${text//$'\002'/}"
+    text="${text//$'\003'/}"
     if [[ "${state}" == "unbalanced" ]]; then
       # Only worth reporting when the line could actually hide an instance; an unclosed
       # quote in a prose message cannot.
@@ -490,29 +519,48 @@ scan_file() {
       fi
       continue
     fi
-    [[ "${norm}" == *$'\001'* ]] || continue
-    local -a segs=()
-    IFS=$'\001' read -r -a segs <<<"${norm}"
-    for ((i = 1; i < ${#segs[@]}; i++)); do
-      seg="${segs[i]#"${segs[i]%%[![:space:]]*}"}"
-      is_short_circuit_consumer "${seg}" || continue
-      resolved=0
-      for ((j = 0; j < i; j++)); do
-        if head="$(resolve_head "${segs[j]}")"; then
-          resolved=1
-          if [[ "${head}" =~ ${UNBOUNDED_PRODUCER} ]]; then
-            printf 'hit\t%s\t%s\n' "${lineno}" "${text}"
-            continue 3 # one report per logical line, then on to the next line
+    reported=0
+    if [[ "${norm}" == *$'\001'* ]]; then
+      local -a segs=()
+      IFS=$'\001' read -r -a segs <<<"${norm}"
+      for ((i = 1; i < ${#segs[@]}; i++)); do
+        seg="${segs[i]#"${segs[i]%%[![:space:]]*}"}"
+        is_short_circuit_consumer "${seg}" || continue
+        # THE INVARIANT: every upstream stage is either proven not to be an unbounded
+        # producer, or this line is reported. There is no third outcome -- "clean" has to
+        # be earned for EVERY stage, and `unknown` is not evidence of innocence.
+        unknown=0
+        for ((j = 0; j < i; j++)); do
+          if head="$(resolve_producer_head "${segs[j]}")"; then
+            if [[ "${head}" =~ ${UNBOUNDED_PRODUCER} ]]; then
+              printf 'hit\t%s\t%s\n' "${lineno}" "${text}"
+              reported=1
+              break
+            fi
+          else
+            unknown=1
           fi
+        done
+        if [[ "${reported}" -eq 1 ]]; then
+          break
+        fi
+        if [[ "${unknown}" -eq 1 ]]; then
+          printf 'unresolved\t%s\t%s\n' "${lineno}" "${text}"
+          reported=1
+          break
         fi
       done
-      # Parsed, feeds a short-circuiting consumer, and NOT ONE upstream stage could be
-      # resolved to a command: say so instead of returning "clean" for a line never read.
-      if [[ "${resolved}" -eq 0 ]]; then
+    fi
+    # A pipeline hiding inside a quoted string that is about to be RUN
+    # (`eval '… | grep -q x'`, `xargs … sh -c '…'`) is real code this sweep cannot read.
+    # Checked whatever the line's own pipes did, because the executed string is a second,
+    # independent program -- `echo . | xargs -I{} sh -c '… | grep -q x'` has both.
+    if [[ "${reported}" -eq 0 ]]; then
+      code="${norm%%$'\003'*}"
+      if [[ "${code}" =~ ${STRING_EXECUTOR} && "${code}" =~ ${QUOTED_PIPELINE} ]]; then
         printf 'unresolved\t%s\t%s\n' "${lineno}" "${text}"
-        continue 2
       fi
-    done
+    fi
   done < <(join_logical_lines "${path}" | mark_pipes)
 }
 
@@ -552,10 +600,22 @@ prep_cluster && \
 git ls-files | grep --quiet vendor # GATE-SIGPIPE-01-SELFTEST case:consumer-long-quiet
 git ls-files | grep -m1 vendor # GATE-SIGPIPE-01-SELFTEST case:consumer-max-count-short
 git ls-files | grep --max-count=1 vendor # GATE-SIGPIPE-01-SELFTEST case:consumer-max-count-long
+git ls-files | grep -qm1 vendor # GATE-SIGPIPE-01-SELFTEST case:consumer-qm1-cluster
+git ls-files | grep -iqm1 vendor # GATE-SIGPIPE-01-SELFTEST case:consumer-iqm1-cluster
+git ls-files | grep -qA1 vendor # GATE-SIGPIPE-01-SELFTEST case:consumer-qA1-cluster
+# --- unresolved: the producer cannot be identified, so the gate must SAY SO ---
+"${KUBECTL:-kubectl}" get po -A | grep -q Running # GATE-SIGPIPE-01-SELFTEST case:unres-var-producer
+echo start; "${KUBECTL:-kubectl}" get po -A | grep -q Running # GATE-SIGPIPE-01-SELFTEST case:unres-echo-then-var
+log_it checking && "${KUBECTL:-kubectl}" get ns | grep -q kollect # GATE-SIGPIPE-01-SELFTEST case:unres-and-then-var
+log_it checking && \
+  "${KUBECTL:-kubectl}" get po -A | grep -q Running # GATE-SIGPIPE-01-SELFTEST case:unres-and-continuation-var
+git fetch --all; "${KUBECTL:-kubectl}" get po -A | grep -q Running # GATE-SIGPIPE-01-SELFTEST case:unres-git-then-var
+eval 'find . | grep -q x' # GATE-SIGPIPE-01-SELFTEST case:unres-eval-string
+echo . | xargs -I{} sh -c 'find {} | grep -q x' # GATE-SIGPIPE-01-SELFTEST case:unres-xargs-sh-c
 # --- negatives: must NOT be reported ---
 echo "${body:-}" | grep -q leak # GATE-SIGPIPE-01-SELFTEST case:neg-echo-producer-out-of-scope
 awk '/a/,/b/' /etc/hostname | grep -Eq x # GATE-SIGPIPE-01-SELFTEST case:neg-awk-bounded-producer
-grep -Eq 'find|git|kubectl' /etc/hostname # GATE-SIGPIPE-01-SELFTEST case:neg-quoted-pipe-is-not-a-pipeline
+git ls-files | grep -c 'x| grep -q y' # GATE-SIGPIPE-01-SELFTEST case:neg-quoted-pipe-is-not-a-pipeline
 find . -type f | grep -c . # GATE-SIGPIPE-01-SELFTEST case:neg-grep-c-reads-to-eof
 find . -type f | wc -l # GATE-SIGPIPE-01-SELFTEST case:neg-wc-l-reads-to-eof
 dockerize logs | grep -q ready # GATE-SIGPIPE-01-SELFTEST case:neg-producer-matches-whole-token-only
@@ -576,6 +636,18 @@ readonly PARSER_POSITIVE=(
   sep-test-then-find sep-and-continuation
   # Round 3: spelling the short-circuit flag differently is not an escape.
   consumer-long-quiet consumer-max-count-short consumer-max-count-long
+  # Round 4: a q-cluster carrying a flag ARGUMENT has no delimiter after the q.
+  consumer-qm1-cluster consumer-iqm1-cluster consumer-qA1-cluster
+)
+
+# The invariant's third outcome. These are NOT instances and NOT clean: the producer is a
+# variable or lives inside a string that gets executed, so the sweep cannot tell -- and
+# must say so. Asserting this bucket is what stops "unknown" from silently becoming
+# "clean" again, which is how the same defect survived three rounds.
+readonly PARSER_UNRESOLVED=(
+  unres-var-producer unres-echo-then-var unres-and-then-var
+  unres-and-continuation-var unres-git-then-var
+  unres-eval-string unres-xargs-sh-c
 )
 readonly PARSER_NEGATIVE=(
   neg-echo-producer-out-of-scope neg-awk-bounded-producer
@@ -585,21 +657,41 @@ readonly PARSER_NEGATIVE=(
 )
 
 flagged_tags=""
+unresolved_tags=""
 while IFS=$'\t' read -r verdict _ text; do
-  [[ "${verdict}" == "hit" ]] || continue
-  [[ "${text}" =~ case:([A-Za-z0-9-]+) ]] &&
-    flagged_tags="${flagged_tags} ${BASH_REMATCH[1]}"
+  [[ "${text}" =~ case:([A-Za-z0-9-]+) ]] || continue
+  case "${verdict}" in
+    hit) flagged_tags="${flagged_tags} ${BASH_REMATCH[1]}" ;;
+    unresolved) unresolved_tags="${unresolved_tags} ${BASH_REMATCH[1]}" ;;
+  esac
 done < <(scan_file "${PARSER_CASES}")
 
+# Collect EVERY failing case before failing. Reporting only the first hides how wide a
+# regression is, and makes a mutation look like it was killed by a case it never reached.
+selftest_failures=()
 for tag in "${PARSER_POSITIVE[@]}"; do
   [[ "${flagged_tags}" == *" ${tag}"* ]] ||
-    fail "parser self-test: '${tag}' is a real instance of the defect and the sweep did NOT report it — the sweep is blind to that shape"
+    selftest_failures+=("'${tag}' is a real instance of the defect and the sweep did NOT report it as a hit — the sweep is blind to that shape")
 done
+for tag in "${PARSER_UNRESOLVED[@]}"; do
+  [[ "${unresolved_tags}" == *" ${tag}"* ]] ||
+    selftest_failures+=("'${tag}' has a producer the sweep cannot identify, so it must be REPORTED as unresolved — treating unknown as clean is the defect this gate exists to forbid")
+done
+# A negative must be neither: not a hit, and not reported unknown either. Requiring both is
+# what keeps these non-vacuous — a rule whose removal only moves a case from clean to
+# unresolved would otherwise slip through.
 for tag in "${PARSER_NEGATIVE[@]}"; do
   [[ "${flagged_tags}" != *" ${tag}"* ]] ||
-    fail "parser self-test: '${tag}' is not an instance and the sweep reported it — the sweep has degenerated into flagging every pipeline"
+    selftest_failures+=("'${tag}' is not an instance and the sweep reported it as a hit — the sweep has degenerated into flagging every pipeline")
+  [[ "${unresolved_tags}" != *" ${tag}"* ]] ||
+    selftest_failures+=("'${tag}' is provably not an instance and the sweep could not decide it — a resolvable case must be earned, not reported")
 done
-pass "parser self-test: ${#PARSER_POSITIVE[@]} escape shapes reported, ${#PARSER_NEGATIVE[@]} non-instances left alone"
+if [[ "${#selftest_failures[@]}" -gt 0 ]]; then
+  printf 'gate-sigpipe-01: parser self-test failed on %s case(s):\n' "${#selftest_failures[@]}" >&2
+  printf '  parser self-test: %s\n' "${selftest_failures[@]}" >&2
+  exit 1
+fi
+pass "parser self-test: ${#PARSER_POSITIVE[@]} escape shapes reported, ${#PARSER_UNRESOLVED[@]} unknowables reported as unknown, ${#PARSER_NEGATIVE[@]} non-instances left alone"
 
 # ---------------------------------------------------------------------------
 # 3b. The sweep itself.
@@ -620,14 +712,8 @@ for f in "${SCAN_FILES[@]}"; do
   rel="${f#"${ROOT}/"}"
   while IFS=$'\t' read -r verdict lineno text; do
     [[ -n "${lineno:-}" ]] || continue
-    if [[ "${verdict}" == "unparseable" ]]; then
-      unparseable+=("${rel}:${lineno}: ${text}")
-      continue
-    fi
-    if [[ "${verdict}" == "unresolved" ]]; then
-      unresolved+=("${rel}:${lineno}: ${text}")
-      continue
-    fi
+    # The allow-list is checked FIRST and for every verdict: an entry means "this line is
+    # known and accounted for", which is as true of an unreadable line as of a hit.
     matched=""
     for entry in "${ALLOWED[@]}"; do
       apath="${entry%%::*}"
@@ -639,9 +725,13 @@ for f in "${SCAN_FILES[@]}"; do
     done
     if [[ -n "${matched}" ]]; then
       allow_hit+=("${matched}")
-    else
-      violations+=("${rel}:${lineno}: ${text}")
+      continue
     fi
+    case "${verdict}" in
+      unparseable) unparseable+=("${rel}:${lineno}: ${text}") ;;
+      unresolved) unresolved+=("${rel}:${lineno}: ${text}") ;;
+      *) violations+=("${rel}:${lineno}: ${text}") ;;
+    esac
   done < <(scan_file "${f}")
 done
 
