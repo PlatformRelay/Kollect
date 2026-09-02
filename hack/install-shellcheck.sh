@@ -9,6 +9,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/verify-sha256.sh
 source "${ROOT}/hack/lib/verify-sha256.sh"
+# shellcheck source=lib/fetch.sh
+source "${ROOT}/hack/lib/fetch.sh"
 
 VERSION="${SHELLCHECK_VERSION:-0.11.0}"
 INSTALL_DIR="${1:-/usr/local/bin}"
@@ -69,7 +71,7 @@ fi
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
-curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${TARBALL}"
+fetch_to "${DOWNLOAD_URL}" "${TMP_DIR}/${TARBALL}" "shellcheck v${VERSION} tarball"
 verify_sha256 "${TMP_DIR}/${TARBALL}" "${EXPECTED_SHA256}"
 
 tar -xJf "${TMP_DIR}/${TARBALL}" -C "${TMP_DIR}"

@@ -38,6 +38,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT="${ROOT}/hack/install-helm.sh"
 
+# CI-FETCHLIB-01. The hardened flag list this file was written to lock down no longer lives in
+# hack/install-helm.sh: it was factored into hack/lib/fetch.sh and adopted by all eight
+# installers and by the kind download in .github/actions/kind-e2e-setup -- which is the repo-wide
+# fix the header of the ORIGINAL local helper explicitly asked for. So every assertion below that
+# reads "the flags on the curl invocation" must read the installer AND the helper it sources:
+# treating only hack/install-helm.sh as the subject would leave the flag assertions with no curl
+# invocation to inspect, and this gate would red on a correct tree.
+LIB="${ROOT}/hack/lib/fetch.sh"
+
 fail() {
   printf 'ci install-helm hardening: %s\n' "$*" >&2
   exit 1
@@ -49,6 +58,27 @@ pass() {
 
 [[ -f "${SCRIPT}" ]] || fail "${SCRIPT} is missing"
 [[ -s "${SCRIPT}" ]] || fail "${SCRIPT} is empty -- every assertion below would pass vacuously"
+[[ -f "${LIB}" ]] ||
+  fail "${LIB} is missing -- hack/install-helm.sh sources it for every fetch, so the flag assertions below would have nothing to inspect"
+
+# ---------------------------------------------------------------------------------------------
+# CI-FETCHLIB-01 sibling gate, run FIRST.
+#
+# hack/test/ci_fetch_lib_hardening_test.sh proves the shared helper's behaviour against a real
+# local HTTPS origin, and asserts that every hack/install-*.sh routes through it. This file is
+# invoked from an explicit step in the lint job of .github/workflows/ci.yaml; the sibling is not,
+# because the lane that added it does not own .github/workflows/**, and the dist_*/sonar_ko_*
+# globs in that job do not match its filename. Invoking it here is what keeps it in CI rather
+# than in the tree-but-never-run state that makes a gate decorative.
+#
+# It runs BEFORE this file's own assertions on purpose: install-helm.sh's hardening is now a
+# property of the helper, so "the helper is broken" is the more fundamental diagnosis and is the
+# one an operator should read first. The lane handover records the one-line ci.yaml step that
+# would give the sibling its own name in the job log; until that lands, this is the wiring.
+# ---------------------------------------------------------------------------------------------
+echo "--- CI-FETCHLIB-01 shared fetch helper gate ---"
+bash "${ROOT}/hack/test/ci_fetch_lib_hardening_test.sh"
+echo "--- back to CI-HELMDL-01 install-helm assertions ---"
 
 # ---------------------------------------------------------------------------------------------
 # Static assertions over the source text.
@@ -67,6 +97,10 @@ pass "installer keeps 'set -euo pipefail'"
 # 'curl' finds nothing and the gate would red on a CORRECT script. And a comment that merely
 # quotes the flags must not be able to satisfy an assertion about code -- the house precedent
 # for that mutation class is GATE-COMMENT-01 in hack/test/dist_ci_wiring_test.sh.
+# INSPECTED is the installer plus the helper it sources: since CI-FETCHLIB-01 the curl
+# invocation lives in the latter, and the flag assertions below must follow it there.
+INSPECTED=("${SCRIPT}" "${LIB}")
+
 logical_lines() {
   awk '
     {
@@ -79,7 +113,16 @@ logical_lines() {
       if (line ~ /^[[:space:]]*#/) { next }
       print line
     }
-  ' "${SCRIPT}"
+  ' "${INSPECTED[@]}"
+}
+
+# Lines on which curl is INVOKED, not merely mentioned. fetch_to's own failure diagnostic
+# contains the words "curl exit ${status}"; a permissive `[^[:alnum:]]curl[[:space:]]` match
+# reads that echo as a curl invocation and then reds the helper for "missing --proto '=https'"
+# on a line that never runs curl. Command position: start of the logical line, or after a shell
+# operator, a control keyword, or a command substitution.
+curl_command_lines() {
+  logical_lines | grep -E '(^|[;&|]|\$\(|(^|[[:space:]])(if|then|else|do|!))[[:space:]]*curl[[:space:]]' || true
 }
 
 # `grep -q` MUST NOT be used at the end of a pipeline in this file. Under `set -o pipefail` it
@@ -113,10 +156,21 @@ require_count() {
     fail "${what}: could not count matches (grep reported '${value}') -- treating an unanswerable grep as zero is how a negative assertion passes vacuously"
 }
 
-mapfile -t CURL_LINES < <(logical_lines | grep -E '(^|[^[:alnum:]_./-])curl([[:space:]]|$)' || true)
+mapfile -t CURL_LINES < <(curl_command_lines)
 (( ${#CURL_LINES[@]} > 0 )) ||
-  fail "${SCRIPT} contains no curl invocation -- either the downloads were replaced by something this gate does not inspect, or the logical-line extraction above is broken; in both cases the per-invocation assertions would pass vacuously"
+  fail "${SCRIPT} and ${LIB} between them contain no curl invocation -- either the downloads were replaced by something this gate does not inspect, or the logical-line extraction above is broken; in both cases the per-invocation assertions would pass vacuously"
 pass "found ${#CURL_LINES[@]} curl invocation(s) to inspect"
+
+# The link between the two files in INSPECTED, and the assertion that makes reading the helper
+# legitimate. Without it, deleting the `source` line from hack/install-helm.sh and going back to
+# a bare `curl -fsSL` would leave every flag assertion below GREEN -- they would still be reading
+# hack/lib/fetch.sh, which would no longer have anything to do with the installer under test.
+grep -Eq '^source "\$\{ROOT\}/hack/lib/fetch.sh"$' "${SCRIPT}" ||
+  fail "${SCRIPT} must source hack/lib/fetch.sh -- the hardened flag list lives there since CI-FETCHLIB-01 and the flag assertions in this gate read that file. An installer that stops sourcing it would leave them inspecting a helper it does not use"
+fetch_to_calls="$(logical_lines | count_matches -E '(^|[^[:alnum:]_])fetch_to[[:space:]]')"
+require_count "${fetch_to_calls}" "install-helm fetch_to call scan"
+((fetch_to_calls >= 2)) ||
+  fail "${SCRIPT} makes ${fetch_to_calls} fetch_to call(s); both the CHECKSUM and the TARBALL must go through it. Hardening one and not the other is exactly the get.helm.sh asymmetry that reddened PR #351"
 
 # Catches the mutation "swap curl for wget to sidestep the gate": every behavioural assertion
 # below rides on a stub `curl` on PATH, so a different fetcher would silently reach the real

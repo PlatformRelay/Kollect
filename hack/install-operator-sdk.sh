@@ -13,6 +13,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/verify-sha256.sh
 source "${ROOT}/hack/lib/verify-sha256.sh"
+# shellcheck source=lib/fetch.sh
+source "${ROOT}/hack/lib/fetch.sh"
 
 VERSION="${OPERATOR_SDK_VERSION:-v1.42.3}"
 INSTALL_DIR="${1:-${ROOT}/bin}"
@@ -33,20 +35,27 @@ BASE_URL="https://github.com/operator-framework/operator-sdk/releases/download/$
 CHECKSUMS_URL="${BASE_URL}/checksums.txt"
 DOWNLOAD_URL="${BASE_URL}/${BINARY}"
 
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${TMP_DIR}"' EXIT
+
+# The checksum body lands in a FILE rather than a command substitution, and the tarball is not
+# fetched until a digest is in hand. `EXPECTED_SHA256="$(curl ... | awk ...)"` propagated a dead
+# network under `set -e` only because it was a BARE assignment: prefix it with local/export, as a
+# refactor into a function naturally would, and the exit status becomes the builtin's (always 0),
+# leaving the `[[ -z ]]` guard below as the only thing standing between a failed fetch and an
+# empty expected digest.
 if [[ -n "${KOLLECT_FORCE_SHA256:-}" ]]; then
   EXPECTED_SHA256="${KOLLECT_FORCE_SHA256}"
 else
-  EXPECTED_SHA256="$(curl -fsSL "${CHECKSUMS_URL}" | awk -v file="${BINARY}" '$2 == file {print $1}')"
+  fetch_to "${CHECKSUMS_URL}" "${TMP_DIR}/checksums.txt" "operator-sdk ${VERSION} checksums"
+  EXPECTED_SHA256="$(awk -v file="${BINARY}" '$2 == file {print $1}' "${TMP_DIR}/checksums.txt")"
 fi
 if [[ -z "${EXPECTED_SHA256}" ]]; then
   echo "failed to resolve checksum for ${BINARY} from ${CHECKSUMS_URL}" >&2
   exit 1
 fi
 
-TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "${TMP_DIR}"' EXIT
-
-curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${BINARY}"
+fetch_to "${DOWNLOAD_URL}" "${TMP_DIR}/${BINARY}" "operator-sdk ${VERSION} binary"
 verify_sha256 "${TMP_DIR}/${BINARY}" "${EXPECTED_SHA256}"
 
 # The release asset is a bare binary (no tarball), so install it directly.
