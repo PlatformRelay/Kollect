@@ -71,7 +71,9 @@ contexts as skipped — it does not report them at all, so the required checks `
 on every PR and make the decision themselves:
 
 - a `changes` job classifies the PR (documentation-only, or not) from its diff, failing safe to
-  "not documentation-only" for anything it cannot classify;
+  "not documentation-only" for anything it cannot classify. It diffs with `--no-renames`, because
+  `git diff --name-only` otherwise prints only the *destination* of a detected rename — without it
+  a `git mv internal/x.go docs/x.go` would read as documentation-only while deleting a Go file;
 - the real work lives in `test-suite` (CI) and `kind-smoke-run` (E2E smoke), gated on that
   verdict;
 - the jobs that carry the *required context names* — `test` and `kind-smoke` — run
