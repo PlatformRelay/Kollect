@@ -39,7 +39,9 @@ with `make deploy` instead of Helm and did not cover export or cert-manager coll
 
 ### Merge gates (PR / push to `main`)
 
-Binding jobs in `.github/workflows/ci.yaml`:
+Binding jobs in `.github/workflows/ci.yaml`. The heavy ones are gated on a `changes` job that
+classifies the PR as documentation-only or not; the required context `test` is reported
+separately so it reaches a conclusion on every PR (CI-DOCSGATE-01, below):
 
 | Gate | Command | Blocks merge |
 | --- | --- | --- |
@@ -67,15 +69,28 @@ Binding jobs in `.github/workflows/ci.yaml`:
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
-| `e2e-smoke.yaml` | PR + push `main` (non-docs) | **Mandatory** kind smoke — inventory HTTP + family sink sample |
+| `e2e-smoke.yaml` | every PR; push `main` (non-docs) | **Mandatory** kind smoke — inventory HTTP + family sink sample |
 | `e2e-extended.yaml` | PR path / label `e2e/full` / dispatch | Tier 1 git-export, multitenant, tenant-mode, webhook profile |
 | `e2e-nightly.yaml` | cron + `workflow_dispatch` | Full Kind matrix + bench/perf (L3 deduped) |
 | `test-e2e.yaml` | `workflow_dispatch` | Manual full nightly matrix |
 | `release.yaml` | tag | Supply chain gates ([ADR-0705](0705-release-supply-chain.md)) |
 | `codeql.yaml` | push/PR `main`, weekly | CodeQL SAST for Go; SARIF → Code Scanning |
 
-E2e **Tier 0 (`kind-smoke`)** blocks merge on every non-docs PR and `main` push; **NFR-TEST-3** full
-matrix remains nightly + manual dispatch.
+E2e **Tier 0** blocks merge on every PR. Since **CI-DOCSGATE-01** the work and the required
+context are two jobs: **`kind-smoke-run`** creates the cluster and runs the scenario on any PR
+touching a non-documentation path, while the required context **`kind-smoke`** is a reporting job
+that runs `if: always()` and therefore reaches a conclusion on *every* PR — including a
+documentation-only one, where it reports success without a cluster. It cannot substitute for the
+real job: it fails unless `kind-smoke-run` succeeded whenever the PR is not documentation-only.
+`.github/workflows/ci.yaml` splits `test-suite` / `test` the same way, for the same reason.
+
+Before that split both workflows carried a blanket `paths-ignore` on `pull_request`, and a
+workflow GitHub does not dispatch never reports its contexts *at all* — not even as skipped — so
+every documentation-only PR sat at `BLOCKED` and merged only through a ruleset bypass. A bypass
+required on every docs PR is the merge path, not an exception. The invariant is now locked
+structurally by `hack/test/ci_docs_gate_test.sh`, which also pins the documentation set to the
+`paths-ignore` list still kept on the `push` trigger. **NFR-TEST-3** full matrix remains nightly +
+manual dispatch.
 
 ### Scale and load bounds
 
@@ -132,9 +147,10 @@ From [engineering guidelines](https://github.com/platformrelay/kollect/blob/main
 
 - **OPEN:** Promote **`task perf-report`** from optional to blocking at **v0.4** once baseline is stable in
   CI perf-snapshot artifacts?
-- **RESOLVED :** Mandatory **Tier 0 `kind-smoke`** on all non-docs PRs via
-  `.github/workflows/e2e-smoke.yaml`; webhook profile moved to optional **`e2e-extended.yaml`**
-  ([ADR-0105](0105-webhook-serving-cert-management.md)).
+- **RESOLVED :** Mandatory **Tier 0** kind smoke on all non-docs PRs via
+  `.github/workflows/e2e-smoke.yaml` (job `kind-smoke-run`; the required context `kind-smoke`
+  reports on every PR — see **Merge gates** above); webhook profile moved to optional
+  **`e2e-extended.yaml`** ([ADR-0105](0105-webhook-serving-cert-management.md)).
 - **RESOLVED :** Per-PR **path-filtered e2e** for webhook/cert changes — superseded by
   Tier 0 smoke + Tier 1 extended webhook job (formerly `e2e-webhook-path.yaml`).
 - **RESOLVED :** **`COVERAGE_MIN=70`** — ratchet at **`v0.3.0-rc`** tag or when
