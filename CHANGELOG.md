@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **hack:** Restore the fetcher spellings the last rewrite silently dropped [5edaf2a](https://github.com/platformrelay/kollect/commit/5edaf2ac79b2196d9caa26d018e82112a394d777)
+
+- **ci:** Make the kind download fail at the download, not at chmod [8e9f73d](https://github.com/platformrelay/kollect/commit/8e9f73d18aaf4101844309e8d6395567b2d2b002)
+
 - **demo:** Count hero inventory files instead of short-circuiting under pipefail [13eae3a](https://github.com/platformrelay/kollect/commit/13eae3a2be2970ed4f23d3fe83ad157f739dbd5d)
 
 - **dist:** Let a missing step output reach its own assertion ([#355](https://github.com/platformrelay/kollect/pull/355))[05c7e82](https://github.com/platformrelay/kollect/commit/05c7e82a8e000c876e6c04dd600227a9c3a035dd)
@@ -46,7 +50,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **docs:** Retarget three deleted doc links in CONTRIBUTING [41f8fd6](https://github.com/platformrelay/kollect/commit/41f8fd63ffcc223bca23de0269adb5f839a9f38b)
 
 
+### Features
+
+- **hack:** Add a shared hardened fetch helper for installer downloads [1c942c0](https://github.com/platformrelay/kollect/commit/1c942c0d23139210c8f5d272d21e0c84fbf169ce)
+
+
 ### Refactoring
+
+- **hack:** Route every installer download through the shared fetch helper [fca970f](https://github.com/platformrelay/kollect/commit/fca970f99ae071ccbccce8bc0854d6226efe989d)
 
 - **demo:** Count inventory files with wc -l, and lock the property not the spelling [2a005f6](https://github.com/platformrelay/kollect/commit/2a005f64e6755d2e28ffe6a7dcc5507fffc1f9ba)
 
