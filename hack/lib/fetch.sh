@@ -8,6 +8,15 @@
 # printed a diagnosis naming the host and curl's exit code. Never writes to stdout, so a caller
 # may safely read the fetched file into a variable afterwards.
 #
+# OWNERSHIP OF <destination-path>: fetch_to takes it. On ANY failure the path is deleted, so it
+# must never point at a file the caller wants preserved. This is strictly MORE destructive than
+# a plain `curl -f -o`, which leaves a pre-existing file untouched when the connect itself fails
+# -- and the difference is deliberate: a stale artifact left at the destination is indistinguish-
+# able, to the sha256sum or tar that runs next, from a freshly downloaded one. Every caller today
+# writes into a fresh `mktemp -d` (and the kind download into a cache path reached only on a
+# cache MISS), so none is exposed; that is a property of the callers, not a promise of this
+# helper, which is why it is written down here.
+#
 # shellcheck shell=bash
 #
 # ------------------------------------------------------------------------------------------------
