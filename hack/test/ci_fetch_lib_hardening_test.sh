@@ -449,10 +449,18 @@ run_fetch "${BASE}/truncate" "${CASE_DIR}/artifact" "truncated artifact"
 pass "a truncated transfer fails and the partial file is discarded"
 
 # --- Case G: a redirect may not downgrade to plaintext -----------------------------------------
-# Mutation caught: dropping --proto-redir '=https'. The trap is the plaintext listener: WITHOUT
-# the flag curl follows the 302 and fetches the body over http, so the assertion that the plain
-# server saw zero requests is the one that discriminates. Asserting only "exit non-zero" would
-# not -- a downgraded fetch SUCCEEDS.
+# Mutation caught: dropping the scheme pins so a 302 to http:// is followed. The trap is the
+# plaintext listener: without a pin curl follows the redirect and fetches the body over http, so
+# the assertion that the plain server saw ZERO requests is the one that discriminates. Asserting
+# only "exit non-zero" would not -- a downgraded fetch SUCCEEDS.
+#
+# WHAT THIS CASE DOES NOT PROVE, established by mutation rather than assumed: it does not
+# isolate --proto-redir. curl applies --proto to the redirect chain too, so deleting
+# --proto-redir alone leaves this case green; only deleting BOTH pins turns the plaintext
+# listener's counter non-zero. --proto-redir is therefore defence in depth -- it is what keeps
+# the redirect pinned if --proto is ever widened -- and the assertion that it is PRESENT lives
+# in Part 2 with the rest of the flag list, which is the honest place for a flag whose value
+# cannot be observed here.
 #
 # This matters most for the checksum fetch: a digest retrieved over plaintext verifies nothing,
 # because anyone who can rewrite the tarball can rewrite the digest to match it.
@@ -461,7 +469,7 @@ run_fetch "${BASE}/redir-http" "${CASE_DIR}/artifact" "redirected artifact"
 [[ "$(case_status)" != "0" ]] ||
   fail "https->http redirect: fetch_to exited 0, so it FOLLOWED a redirect down to plaintext. A checksum fetched over http verifies nothing at all"
 [[ "$(plain_hits)" == "0" ]] ||
-  fail "https->http redirect: the plaintext listener received $(plain_hits) request(s) -- --proto-redir '=https' is missing or ineffective, and the body was fetched over http"
+  fail "https->http redirect: the plaintext listener received $(plain_hits) request(s) -- neither --proto '=https' nor --proto-redir '=https' is holding, and the body was fetched over http"
 [[ ! -e "${CASE_DIR}/artifact" ]] ||
   fail "https->http redirect: a body was written despite the downgrade being refused"
 pass "a redirect to plaintext http is refused and the plaintext origin is never contacted"
@@ -583,8 +591,12 @@ for installer in "${INSTALLERS[@]}"; do
     [[ "${base}" == "${known}" ]] && skip=1
   done
   ((skip == 1)) && continue
+  # Counts the COMPARISON, not the variable that feeds it. The first version of this scan
+  # matched `EXPECTED_SHA256` too, and a mutant that deleted `verify_sha256 ...` while leaving
+  # `EXPECTED_SHA256=` assigned somewhere in the file passed it -- an installer with a digest
+  # variable and no digest check, which is the exact shape this assertion exists to forbid.
   verify_hits="$(logical_lines "${installer}" |
-    count_matches -E '(verify_sha256|sha256sum|EXPECTED_SHA256)')"
+    count_matches -E '(^|[^[:alnum:]_])(verify_sha256|sha256sum)([[:space:]]|$)')"
   require_count "${verify_hits}" "hack/${base} checksum scan"
   [[ "${verify_hits}" != "0" ]] ||
     fail "hack/${base} no longer verifies a SHA256. Routing a download through a hardened helper must never be traded against verifying what came back: the helper protects the transport, the digest protects the CONTENT, and neither substitutes for the other"
@@ -598,7 +610,7 @@ for known in "${UNVERIFIED_BY_DESIGN[@]}"; do
   [[ -f "${ROOT}/hack/${known}" ]] ||
     fail "hack/${known} is listed as unverified-by-design but does not exist -- the exemption list is stale and now silently exempts nothing"
   verify_hits="$(logical_lines "${ROOT}/hack/${known}" |
-    count_matches -E '(verify_sha256|sha256sum|EXPECTED_SHA256)')"
+    count_matches -E '(^|[^[:alnum:]_])(verify_sha256|sha256sum)([[:space:]]|$)')"
   require_count "${verify_hits}" "hack/${known} exemption scan"
   [[ "${verify_hits}" == "0" ]] ||
     fail "hack/${known} now verifies a checksum but is still listed in UNVERIFIED_BY_DESIGN in this gate -- drop it from the list so the exemption stops advertising a gap that has been closed"
