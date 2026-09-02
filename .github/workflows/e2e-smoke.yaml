@@ -42,14 +42,22 @@ jobs:
   # drift are two different answers to "is this docs-only?", and `test` and `kind-smoke` would
   # then disagree about the same PR.
   changes:
-    name: changes
+    name: changes (e2e-smoke)
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
+      # `fetch-depth: 0` is required, not defensive: BASE_SHA is the base branch tip at event
+      # time and can be an arbitrary ancestor, and a shallow clone has neither it nor a
+      # merge base, so `git diff` would fail. That fails CLOSED (code=true), which is safe but
+      # would silently run full CI on every PR and destroy the point of this job. `filter:
+      # blob:none` keeps that full commit history while skipping the file contents -- a
+      # `--name-only --no-renames` diff compares tree entries by object id and never reads a
+      # blob -- so this costs a blobless clone, not a full one.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: false
       - id: filter
         shell: bash
@@ -85,7 +93,14 @@ jobs:
             emit true
             exit 0
           fi
-          if ! changed="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" 2>/dev/null)"; then
+          # `--no-renames` is load-bearing, not tidiness. Rename detection is ON by default
+          # (diff.renames since git 2.9) and `git diff --name-only` then prints ONLY the
+          # DESTINATION of a detected rename. Without it, `git mv internal/x.go docs/x.go`
+          # reports the single path `docs/x.go`, this job answers "documentation-only", and
+          # both reporters report green for a change that deleted a Go file from the tree.
+          # With `--no-renames` the same diff reports both paths, and the loop below sees the
+          # source. Locked by hack/test/ci_docs_gate_test.sh (rename-into-docs case + mutant).
+          if ! changed="$(git diff --name-only --no-renames "${BASE_SHA}" "${HEAD_SHA}" 2>/dev/null)"; then
             emit true
             exit 0
           fi

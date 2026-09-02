@@ -117,21 +117,61 @@ assert_step_can_fail_build() {
 # ---------------------------------------------------------------------------
 check_pr_trigger_unfiltered() {
   local workflow="$1" context="$2"
-  local kind filt
+  local filt required found entry types
 
   [[ -f "${workflow}" ]] || fail "expected ${workflow}"
 
-  kind="$(yq eval '.on.pull_request | has("paths")' "${workflow}")"
   # A workflow with no `pull_request` trigger at all cannot report on a PR either.
   [[ "$(yq eval '.on | has("pull_request")' "${workflow}")" == "true" ]] ||
     fail "${workflow} has no pull_request trigger, so the required context '${context}' can never report on a PR"
-  [[ "${kind}" == "false" ]] ||
+
+  # --- path filters: the original defect ---
+  [[ "$(yq eval '.on.pull_request | has("paths")' "${workflow}")" == "false" ]] ||
     fail "${workflow} filters its pull_request trigger with 'paths:' -- a workflow the filter excludes never reports the required context '${context}' at all (not even as skipped), so the PR stays BLOCKED forever"
   filt="$(yq eval '.on.pull_request | has("paths-ignore")' "${workflow}")"
   [[ "${filt}" == "false" ]] ||
     fail "${workflow} filters its pull_request trigger with 'paths-ignore:' -- a workflow the filter excludes never reports the required context '${context}' at all (not even as skipped), so a docs-only PR stays BLOCKED forever and needs an admin bypass"
 
-  pass "${workflow} dispatches on every pull request, so '${context}' can report"
+  # --- activity types: the SAME starvation by another key ---
+  # GitHub's default set for `pull_request` is opened/synchronize/reopened. Narrowing `types:`
+  # (to `labeled`, say) means an ordinary PR never dispatches the workflow, and the required
+  # context is just as absent as it was under `paths-ignore` -- a defect no path assertion sees.
+  if [[ "$(yq eval '.on.pull_request | has("types")' "${workflow}")" == "true" ]]; then
+    types="$(yq eval '.on.pull_request.types | join(",")' "${workflow}")"
+    for required in opened synchronize reopened; do
+      found=0
+      while IFS= read -r entry; do
+        [[ "${entry}" == "${required}" ]] && found=1
+      done < <(yq eval '.on.pull_request.types[] // ""' "${workflow}")
+      [[ "${found}" -eq 1 ]] ||
+        fail "${workflow} narrows its pull_request 'types:' to [${types}], which omits '${required}' -- an ordinary PR then never dispatches this workflow and the required context '${context}' never reports at all, exactly as under a paths-ignore filter"
+    done
+  fi
+
+  # --- target branches: the same starvation again ---
+  # protect-main gates PRs INTO main. A `branches:` allowlist that does not cover main, or a
+  # `branches-ignore:` that excludes it, starves the context on precisely the PRs that matter.
+  if [[ "$(yq eval '.on.pull_request | has("branches")' "${workflow}")" == "true" ]]; then
+    found=0
+    while IFS= read -r entry; do
+      case "${entry}" in
+      main | "**" | "*") found=1 ;;
+      esac
+    done < <(yq eval '.on.pull_request.branches[] // ""' "${workflow}")
+    [[ "${found}" -eq 1 ]] ||
+      fail "${workflow} restricts its pull_request 'branches:' to [$(yq eval '.on.pull_request.branches | join(",")' "${workflow}")], which does not cover main -- a PR into main then never dispatches this workflow and the required context '${context}' never reports at all"
+  fi
+  if [[ "$(yq eval '.on.pull_request | has("branches-ignore")' "${workflow}")" == "true" ]]; then
+    while IFS= read -r entry; do
+      case "${entry}" in
+      main | "**" | "*")
+        fail "${workflow} lists '${entry}' in its pull_request 'branches-ignore:' -- a PR into main then never dispatches this workflow and the required context '${context}' never reports at all"
+        ;;
+      esac
+    done < <(yq eval '.on.pull_request["branches-ignore"][] // ""' "${workflow}")
+  fi
+
+  pass "${workflow} dispatches on every pull request into main (no paths / types / branches filter excludes one), so '${context}' can report"
 }
 
 # The job that produces the context must exist, be named byte-identically to the ruleset's
@@ -311,7 +351,8 @@ check_changes_filter() {
     fail "the classification step of 'changes' in ${workflow} is not valid bash -- 'bash -n' rejected it"
 
   repo="${tmpdir}/repo"
-  mkdir -p "${repo}/docs" "${repo}/internal" "${repo}/.github/ISSUE_TEMPLATE" "${repo}/hack/test" "${repo}/.github/workflows"
+  mkdir -p "${repo}/docs" "${repo}/internal" "${repo}/.github/ISSUE_TEMPLATE" "${repo}/hack/test" \
+    "${repo}/.github/workflows" "${repo}/charts/kollect"
   (
     cd "${repo}"
     git init -q -b main .
@@ -328,6 +369,17 @@ check_changes_filter() {
     printf 'seed\n' >hack/test/some_test.sh
     printf 'seed\n' >.github/workflows/ci.yaml
     printf 'seed\n' >go.mod
+    # Dedicated victims for the deletion and rename cases below, so no case depends on a file
+    # an earlier case removed or moved. Rename cases need content long enough that git's
+    # similarity index scores the move as R100 with rename detection ON -- the whole point is
+    # to build the diff shape that a `--name-only` WITHOUT `--no-renames` would collapse to a
+    # single destination path.
+    printf 'package controller\n// %s\n' "$(printf 'x%.0s' {1..200})" >internal/deleted.go
+    printf 'package controller\n// %s\n' "$(printf 'y%.0s' {1..200})" >internal/deleted_with_docs.go
+    printf 'package controller\n// %s\n' "$(printf 'z%.0s' {1..200})" >internal/moved.go
+    printf 'replicas: 1 # %s\n' "$(printf 'w%.0s' {1..200})" >charts/kollect/values.yaml
+    printf 'a documentation page # %s\n' "$(printf 'v%.0s' {1..200})" >docs/moved_out.md
+    printf 'another page # %s\n' "$(printf 'u%.0s' {1..200})" >docs/rename_me.md
     git add -A
     git commit -qm seed
   )
@@ -355,17 +407,38 @@ check_changes_filter() {
     grep '^code=' "${outfile}" | tail -1 | cut -d= -f2
   }
 
-  # A commit touching exactly the listed paths, returned as "<base> <head>".
+  # One commit performing exactly the listed operations. A bare path is an append (an add or a
+  # modify); `rm:<path>` is a real `git rm`; `mv:<src>:<dst>` is a real `git mv`.
+  #
+  # The last two exist because a diff is not only made of paths that still exist. Every case
+  # here used to be an append, and that blind spot is exactly why the rename fail-open survived
+  # review: `git diff --name-only` prints ONLY the destination of a DETECTED rename, so
+  # `git mv internal/x.go docs/x.go` looked like a documentation-only change. A verdict is a
+  # claim about the whole diff, so the fixtures have to be able to express the whole diff.
   commit_touching() {
-    local f
+    local op src dst
     (
       cd "${repo}"
-      for f in "$@"; do
-        mkdir -p "$(dirname "${f}")"
-        printf 'change\n' >>"${f}"
+      for op in "$@"; do
+        case "${op}" in
+        rm:*)
+          git rm -q -- "${op#rm:}"
+          ;;
+        mv:*)
+          src="${op#mv:}"
+          dst="${src#*:}"
+          src="${src%%:*}"
+          mkdir -p "$(dirname "${dst}")"
+          git mv -- "${src}" "${dst}"
+          ;;
+        *)
+          mkdir -p "$(dirname "${op}")"
+          printf 'change\n' >>"${op}"
+          ;;
+        esac
       done
       git add -A
-      git commit -qm "touch $*" >/dev/null
+      git commit -qm "ops $*" >/dev/null
     )
   }
 
@@ -386,12 +459,19 @@ check_changes_filter() {
     "true|docs/index.md internal/thing.go|a MIXED docs+code change"
     "true|README.md.go|a path that merely starts with a documentation file's name"
     "true|documentation/notes.md|a path that merely starts with the docs/ prefix's letters"
+    # --- diffs that are not appends. Every one of these was uncovered until 2026-09-02. ---
+    "true|rm:internal/deleted.go|a DELETION of a Go source file"
+    "true|rm:internal/deleted_with_docs.go docs/index.md|a DELETION of a Go source file alongside a documentation edit"
+    "true|mv:internal/moved.go:docs/moved.go|a RENAME of a Go source file INTO the documentation path set"
+    "true|mv:charts/kollect/values.yaml:docs/values.yaml|a RENAME of a chart file INTO the documentation path set"
+    "true|mv:docs/moved_out.md:internal/moved_out.md|a RENAME of a documentation file OUT of the documentation path set"
+    "false|mv:docs/rename_me.md:docs/renamed.md|a RENAME within the documentation path set"
   )
   local row expect paths label
   for row in "${cases[@]}"; do
     IFS='|' read -r expect paths label <<<"${row}"
     base="$( (cd "${repo}" && git rev-parse HEAD) )"
-    # shellcheck disable=SC2086  # deliberate word split: the case lists several paths
+    # shellcheck disable=SC2086  # deliberate word split: a case may list several operations
     commit_touching ${paths}
     head="$( (cd "${repo}" && git rev-parse HEAD) )"
     verdict="$(run_filter pull_request "${base}" "${head}")"
@@ -446,6 +526,22 @@ check_filters_agree() {
   pass "the changes classifier is byte-identical in both workflows"
 }
 
+# Two jobs with the same `name:` publish two same-named check runs on the same SHA, from the
+# same app. Nothing requires `changes` today, so this is ambiguity rather than breakage -- but
+# "two contexts with one name" is the shape that makes a required-context list unreadable, and
+# this lane exists because a required context went missing unnoticed. Keep them distinguishable.
+check_classifier_names_distinct() {
+  local a="$1" b="$2"
+  local na nb
+  na="$(yq eval '.jobs.changes.name' "${a}")"
+  nb="$(yq eval '.jobs.changes.name' "${b}")"
+  [[ "${na}" != "null" && "${nb}" != "null" ]] ||
+    fail "both 'changes' jobs must declare an explicit name (got '${na}' and '${nb}') -- otherwise each falls back to the job id and the two check runs collide"
+  [[ "${na}" != "${nb}" ]] ||
+    fail "the 'changes' jobs in ${a} and ${b} are both named '${na}' -- two same-named check runs on one SHA are ambiguous to read and to require; name them per workflow"
+  pass "the two classifier jobs publish distinguishable check runs ('${na}' / '${nb}')"
+}
+
 # ---------------------------------------------------------------------------
 # (4) This gate must itself run in CI, in a job that runs on every PR and can fail the build.
 # An unwired gate is not a gate; and the lint job is the one job here that is deliberately not
@@ -487,6 +583,7 @@ pass "preflight and Analyze (Go) run unconditionally on every PR"
 check_changes_filter "${CI_WORKFLOW}"
 check_changes_filter "${SMOKE_WORKFLOW}"
 check_filters_agree "${CI_WORKFLOW}" "${SMOKE_WORKFLOW}"
+check_classifier_names_distinct "${CI_WORKFLOW}" "${SMOKE_WORKFLOW}"
 
 # shellcheck disable=SC2016  # the yq predicate is a literal, not a shell expansion
 check_worker "${CI_WORKFLOW}" test-suite "${RUN_CODE} | test(\"(^|\\n)[[:space:]]*task coverage[[:space:]]*(\\n|\$)\")" 'task coverage'
@@ -557,6 +654,26 @@ mutant_rejected "${PREFLIGHT_WORKFLOW}" "${MUTANTS}/preflight-paths.yaml" \
   'preflight.yaml starts path-filtering pull_request with an allowlist' \
   "filters its pull_request trigger with 'paths:'" \
   check_pr_trigger_unfiltered "${MUTANTS}/preflight-paths.yaml" "preflight"
+
+# The same starvation reached through `types:` and `branches:` rather than a path filter.
+# Both of these survived the first version of this gate untouched.
+yq eval '.on.pull_request.types = ["labeled"]' "${CI_WORKFLOW}" >"${MUTANTS}/ci-types-narrowed.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/ci-types-narrowed.yaml" \
+  'ci.yaml narrows pull_request types to [labeled], so an ordinary PR dispatches nothing' \
+  "narrows its pull_request 'types:'" \
+  check_pr_trigger_unfiltered "${MUTANTS}/ci-types-narrowed.yaml" "test"
+
+yq eval '.on.pull_request.branches = ["release/**"]' "${SMOKE_WORKFLOW}" >"${MUTANTS}/smoke-branches-narrowed.yaml"
+mutant_rejected "${SMOKE_WORKFLOW}" "${MUTANTS}/smoke-branches-narrowed.yaml" \
+  'e2e-smoke.yaml restricts pull_request branches to release/**, so a PR into main dispatches nothing' \
+  "restricts its pull_request 'branches:'" \
+  check_pr_trigger_unfiltered "${MUTANTS}/smoke-branches-narrowed.yaml" "kind-smoke"
+
+yq eval '.on.pull_request["branches-ignore"] = ["main"]' "${CI_WORKFLOW}" >"${MUTANTS}/ci-branches-ignored.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/ci-branches-ignored.yaml" \
+  'ci.yaml adds main to pull_request branches-ignore' \
+  "in its pull_request 'branches-ignore:'" \
+  check_pr_trigger_unfiltered "${MUTANTS}/ci-branches-ignored.yaml" "test"
 
 # --- direction (2): the no-op path standing in for the real job ---
 # The reporter stops looking at the worker's result: a skipped worker then reports green.
@@ -639,6 +756,27 @@ mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/filter-failopen.yaml" \
   'it must fail safe' \
   check_changes_filter "${MUTANTS}/filter-failopen.yaml"
 
+# P0 (2026-09-02): rename detection is ON by default, and `git diff --name-only` then prints
+# ONLY the destination of a detected rename. Dropping `--no-renames` makes
+# `git mv internal/moved.go docs/moved.go` look like a documentation-only change, and both
+# required contexts report green for a PR that deleted a Go file. Every fixture used to be an
+# append, so nothing in this gate could see it. This mutant is that missing test.
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("--name-only --no-renames", "--name-only")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/filter-renames-detected.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/filter-renames-detected.yaml" \
+  'the changes filter lets git collapse a rename to its destination path' \
+  'would satisfy the required contexts through the no-op path' \
+  check_changes_filter "${MUTANTS}/filter-renames-detected.yaml"
+
+# The same blind spot from the other side: a diff that cannot see deletions calls
+# "delete internal/x.go, edit docs/index.md" documentation-only.
+yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("--name-only --no-renames", "--name-only --no-renames --diff-filter=d")' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/filter-blind-to-deletions.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/filter-blind-to-deletions.yaml" \
+  'the changes filter cannot see deletions' \
+  'would satisfy the required contexts through the no-op path' \
+  check_changes_filter "${MUTANTS}/filter-blind-to-deletions.yaml"
+
 # The two copies drift apart.
 yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= . + "\n# drift\n"' \
   "${SMOKE_WORKFLOW}" >"${MUTANTS}/filter-drift.yaml"
@@ -692,6 +830,13 @@ mutant_rejected "${CODEQL_WORKFLOW}" "${MUTANTS}/analyze-disabled.yaml" \
   'must run unconditionally' \
   assert_job_can_fail_build "${MUTANTS}/analyze-disabled.yaml" analyze \
   "the required context 'Analyze (Go)' must report a conclusion on every PR, including a documentation-only one"
+
+# --- the classifier check-run names ---
+yq eval '.jobs.changes.name = "changes (ci)"' "${SMOKE_WORKFLOW}" >"${MUTANTS}/classifier-name-collision.yaml"
+mutant_rejected "${SMOKE_WORKFLOW}" "${MUTANTS}/classifier-name-collision.yaml" \
+  'both classifier jobs publish a check run with the same name' \
+  'two same-named check runs on one SHA' \
+  check_classifier_names_distinct "${CI_WORKFLOW}" "${MUTANTS}/classifier-name-collision.yaml"
 
 # --- the wiring ---
 yq eval '.jobs.lint.steps = [.jobs.lint.steps[] | select(((.run // "") | contains("'"${GATE_SCRIPT}"'")) | not)]' \
