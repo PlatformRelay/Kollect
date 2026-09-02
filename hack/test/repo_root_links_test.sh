@@ -77,9 +77,25 @@ pass() { echo "ok - $*"; }
 # caller, which runs in the gate's own shell, is what dies on it.
 readonly EXTRACT_FAILED=$'\x1fextract-failed\x1f'
 
+# Which exit statuses a link producer may return. 0 is "matched", 1 is grep's "no match" and is
+# the normal case for a file with no links; everything else is an I/O error -- EISDIR, EIO, a file
+# that vanished mid-scan -- and must not be read as "this file has no links".
+#
+# A function rather than an inline `[[ $? -eq 1 ]]` so the self-test can exercise it directly.
+# The `-r` precheck below masks the only failure this environment can construct on demand, so
+# without a direct case, reverting either guard to `|| true` passed every test in this file --
+# leaving the very class the guards exist for untested.
+producer_ok() {
+  [[ "$1" -eq 0 || "$1" -eq 1 ]]
+}
+
 extract_targets() {
   local file="$1"
 
+  # REDUNDANT against the producer_ok guards below -- GNU grep exits 2 on an unreadable file, so
+  # the sentinel would be emitted anyway -- and kept for the sharper diagnosis and because the
+  # exit code a grep gives for an unreadable path is not the same everywhere (GNU grep 2, ugrep 1
+  # for a directory). Ablating it survives the self-test; that is expected, not an oversight.
   if [[ ! -r "${file}" ]]; then
     printf '%s\n' "${EXTRACT_FAILED}"
     return 0
@@ -87,10 +103,10 @@ extract_targets() {
 
   {
     grep -oE '\]\([^)]*\)' "${file}" | sed -e 's/^](//' -e 's/)$//' ||
-      [[ $? -eq 1 ]] || printf '%s\n' "${EXTRACT_FAILED}"
+      producer_ok $? || printf '%s\n' "${EXTRACT_FAILED}"
     grep -oE '^ {0,3}\[[^]]+\]:[[:space:]]*[^[:space:]]+' "${file}" |
       sed -E 's/^ *\[[^]]+\]:[[:space:]]*//' ||
-      [[ $? -eq 1 ]] || printf '%s\n' "${EXTRACT_FAILED}"
+      producer_ok $? || printf '%s\n' "${EXTRACT_FAILED}"
   } |
     sed -e 's/[[:space:]]*"[^"]*"[[:space:]]*$//' \
       -e "s/[[:space:]]*'[^']*'[[:space:]]*\$//" \
@@ -266,6 +282,23 @@ else
 fi
 chmod 644 "${UNREADABLE}/CONTRIBUTING.md"
 
+# The I/O-error class the `-r` precheck above CANNOT cover: a path that is readable but that grep
+# still fails on (EISDIR, EIO, a file truncated away mid-scan). Asserted directly on the status
+# classifier, because no portable fixture produces that status on demand -- the exit code a
+# directory yields is grep-implementation-specific (GNU grep 2, ugrep 1), so a fixture built on it
+# would prove one thing on a developer's machine and another in CI.
+producer_ok 0 ||
+  fail "self-test: a link producer that matched (exit 0) is being treated as an I/O error"
+producer_ok 1 ||
+  fail "self-test: grep's 'no match' (exit 1) is being treated as an I/O error -- every file without links would red"
+if producer_ok 2; then
+  fail "self-test: a producer exit status of 2 (an I/O error such as EISDIR) is being accepted as 'no match' -- a readable file that cannot actually be read would be reported as link-clean, which is the silent drop this gate exists to remove"
+fi
+if producer_ok 141; then
+  fail "self-test: a producer killed by SIGPIPE (141) is being accepted as 'no match' -- a truncated scan would be reported as link-clean"
+fi
+pass "self-test: only 0 and 1 are accepted from a link producer; 2 and 141 are I/O errors"
+
 # The vacuity guard itself: a tree missing README.md must be a hard failure, not a quiet pass
 # over whatever files happen to remain.
 MISSING="${FIXTURE}/missing-readme"
@@ -279,5 +312,21 @@ missing_output="$( (check_root_links "${MISSING}") 2>&1 )" || missing_status=$?
 [[ "${missing_output}" == *"README.md is not in the tracked root Markdown scan set"* ]] ||
   fail "self-test: the tree with no README.md was rejected for the wrong reason; got: ${missing_output}"
 pass "self-test: gate rejects a scan set that is missing a required root document"
+
+# And the floor beneath that one: a scan set with nothing in it at all. A pathspec typo or a
+# `git ls-files` that yields nothing would otherwise make this whole gate report success without
+# opening a single file.
+EMPTY_SET="${FIXTURE}/no-root-markdown"
+mkdir -p "${EMPTY_SET}/docs/crds"
+: >"${EMPTY_SET}/docs/crds/index.md"
+git -c init.defaultBranch=main init -q "${EMPTY_SET}"
+stage_fixture "${EMPTY_SET}"
+empty_status=0
+empty_output="$( (check_root_links "${EMPTY_SET}") 2>&1 )" || empty_status=$?
+[[ "${empty_status}" -ne 0 ]] ||
+  fail "self-test: the gate reported success on a tree with no tracked root Markdown at all -- it would pass without checking anything"
+[[ "${empty_output}" == *"the scan set is empty"* ]] ||
+  fail "self-test: the empty-scan-set tree was rejected for the wrong reason; got: ${empty_output}"
+pass "self-test: gate rejects a tree with no tracked root Markdown at all"
 
 echo "All repo-root Markdown link tests passed."
