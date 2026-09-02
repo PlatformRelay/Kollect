@@ -308,10 +308,42 @@ resolve_step_env() {
 # THEN aims stderr at stdout's new destination. The reverse, `2>&1 >file`, aims stderr at
 # stdout's OLD destination -- the terminal -- and leaves the diagnostics visible. The
 # order is the whole bug, so it is spelled the capturing way here on purpose.)
+#
+# An OMITTED $4/$5 means "this gate's own stdout/stderr", and that is implemented by
+# DUPLICATING the descriptor, never by re-opening a /dev/stdout path -- see
+# open_step_fds below for why.
+
+# Point fd 3 at a step body's stdout and fd 4 at its stderr. An empty path means "this
+# gate's own descriptor", and it is reached with `>&1` / `>&2`, a dup.
+#
+# `exec 3>"/dev/stdout"` would look equivalent and is not. /dev/stdout is a symlink to
+# /proc/self/fd/1, so opening it with `>` OPENS THE UNDERLYING FILE AFRESH, with O_TRUNC
+# and its own file offset. When this gate's own output is a regular file --
+# `bash hack/test/dist_release_chart_path_test.sh &> gate.log`, which is how a human
+# debugs it -- every run_step call then truncated gate.log back to zero and wrote at
+# offset 0 while the gate's real stdout carried on writing at its much larger offset,
+# leaving a NUL-padded file with most of the `ok -` lines gone. `file` called the result
+# `data` and plain `grep` refused to search it as binary, so the one artefact a human
+# reads to find out what this gate said was the artefact the gate destroyed. A dup shares
+# the offset and truncates nothing.
+#
+# CI pipes this gate's output rather than redirecting it to a file, so the defect never
+# reached CI -- it was only ever aimed at the person debugging locally, which is exactly
+# when a gate's diagnostics are the whole point.
+open_step_fds() {
+  local out="$1" err="$2"
+  if [[ -n "${out}" ]]; then exec 3>"${out}"; else exec 3>&1; fi
+  if [[ -n "${err}" ]]; then exec 4>"${err}"; else exec 4>&2; fi
+}
+
+close_step_fds() {
+  exec 3>&- 4>&-
+}
+
 run_step() {
   local sel="$1" step="$2" allow_owner="$3"
-  local out="${4:-/dev/stdout}" err="${5:-/dev/stderr}"
-  local body script
+  local out="${4:-}" err="${5:-}"
+  local body script rc=0
   body="$(step_run "${sel}")"
   [[ -n "${body}" ]] || fail "'${step}' has an empty run: body"
 
@@ -327,13 +359,88 @@ run_step() {
   script="${TMP}/step.sh"
   printf '%s\n' "${body}" >"${script}"
   resolve_step_env "${sel}" "${step}" "${allow_owner}"
-  env -i "${SIM_ENV[@]}" bash "${script}" >"${out}" 2>"${err}"
+  # Opened AFTER resolve_step_env: a rejected env expression exits from inside it, and
+  # opening an output path before that would truncate the caller's file on the way out.
+  open_step_fds "${out}" "${err}"
+  env -i "${SIM_ENV[@]}" bash "${script}" >&3 2>&4 || rc=$?
+  close_step_fds
+  return "${rc}"
 }
 
 output_value() {
   # Last write wins, matching how Actions collects GITHUB_OUTPUT.
   grep -E "^$1=" "${TMP}/github_output" 2>/dev/null | tail -1 | cut -d= -f2-
 }
+
+# ---------------------------------------------------------------------------
+# 3a. Self-test of the harness's own redirection.
+#
+# Every assertion below reports through fail() and pass(), so this gate's product IS the
+# text it writes to stdout/stderr. A run_step that truncates those descriptors destroys
+# that product without failing anything: the gate still exits 0 and still prints every
+# `ok -` line, they simply stop surviving in the file the human is reading. Nothing else
+# in this file can notice that, so it is asserted here, against the real open_step_fds,
+# by logging to a regular file exactly the way a human does.
+# ---------------------------------------------------------------------------
+# The two descriptors are exercised against SEPARATE files, with the other one left
+# alone, so a regression on one side cannot be reported as the other's. With both aimed
+# at one log (`&>`), re-opening either would blank it and the diagnostic would have to
+# guess which.
+#
+# $1 log, $2 the human name of the side, $3 the fd run_step gives that side.
+assert_redirect_intact() {
+  local log="$1" side="$2" fdnum="$3"
+  local sentinels nuls dup
+  dup=$((fdnum - 2)) # fd 3 mirrors this gate's fd 1, fd 4 its fd 2
+  # Counted rather than `grep -q`-ed (GATE-SIGPIPE-01), read straight from the file
+  # rather than through a pipe, and with -a because the failing case makes it look binary.
+  sentinels="$(grep -ac 'redirect-selftest sentinel' "${log}" || true)"
+  nuls="$(tr -dc '\000' <"${log}" | wc -c)"
+
+  # One assertion, two witnesses, both numbers in the message: re-opening the descriptor
+  # LOSES the lines written before it and leaves NUL padding where the two file offsets
+  # diverged. Reporting only "lines are missing" would leave the reader guessing why the
+  # log is also unsearchable.
+  [[ "${sentinels}" -eq 20 && "${nuls}" -eq 0 ]] ||
+    fail "run_step's default ${side} redirection did not leave this gate's own ${side} intact: ${sentinels} of the 20 lines written before it survived, and the log carries ${nuls} NUL bytes. An omitted \$4/\$5 must be reached with a dup ('exec ${fdnum}>&${dup}'), never by re-opening a /dev/${side} path -- that path is /proc/self/fd/${dup}, so '>' re-opens the underlying file with O_TRUNC and a fresh offset. Logged to a regular file ('bash ${BASH_SOURCE[0]##*/} &> gate.log') every simulated step then chops the log back to nothing, 'file' calls the result 'data', and plain grep refuses to search it as binary"
+  grep -aFqx "redirect-selftest via-fd${fdnum}" "${log}" ||
+    fail "a step body's ${side} did not reach this gate's ${side} at all -- run_step's default redirection must forward it, or a simulated step's output vanishes instead of being reported"
+  grep -aFqx 'redirect-selftest tail' "${log}" ||
+    fail "this gate's own ${side} was unusable after close_step_fds -- closing the step descriptors must leave fd 1 and fd 2 as they were"
+}
+
+# This gate's real stdout/stderr are parked on fd 8/9 for the duration and restored
+# before anything is asserted. open_step_fds and close_step_fds use `exec`, which acts on
+# the whole shell, so a regression in them could otherwise take this gate's OWN
+# stdout/stderr with it -- and then the assertion that noticed would exit 1 with its
+# diagnostic sent nowhere. A self-test of the diagnostic channel cannot report through the
+# channel it is testing.
+exec 8>&1 9>&2
+
+# stdout side: fd 1 is a regular file for the duration, fd 2 is left as it is.
+{
+  printf 'redirect-selftest sentinel %s\n' {01..20}
+  open_step_fds "" ""
+  printf 'redirect-selftest via-fd3\n' >&3
+  close_step_fds
+  printf 'redirect-selftest tail\n'
+} >"${TMP}/redirect-selftest-out.log"
+
+# stderr side: fd 2 is a regular file for the duration, fd 1 is left as it is.
+{
+  printf 'redirect-selftest sentinel %s\n' {01..20} >&2
+  open_step_fds "" ""
+  printf 'redirect-selftest via-fd4\n' >&4
+  close_step_fds
+  printf 'redirect-selftest tail\n' >&2
+} 2>"${TMP}/redirect-selftest-err.log"
+
+exec 1>&8 2>&9 8>&- 9>&-
+
+assert_redirect_intact "${TMP}/redirect-selftest-out.log" "stdout" 3
+assert_redirect_intact "${TMP}/redirect-selftest-err.log" "stderr" 4
+
+pass "run_step duplicates this gate's own descriptors rather than re-opening (and truncating) them"
 
 # ---------------------------------------------------------------------------
 # 4. The `chart` step is the single source of truth.
