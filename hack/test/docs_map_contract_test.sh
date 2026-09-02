@@ -25,26 +25,42 @@
 # Deviations are ENCODED BELOW as explicit, commented exemptions rather than by loosening the
 # matching -- a looser rule 4 would have re-admitted every defect above.
 #
-# DOCS-MAPGATE-02: the four rules above only bind the rows the PARSER CAN SEE, and the first
-# version of this gate silently dropped every row it could not read. It recognised a table row by
-# the literal prefix `| `, so writing one row as `|**Reference**|` -- or merely indenting it by a
-# single space -- dropped that row's links and let the gate's own headline defect, the `FAQ`
-# label, through at exit 0. python-markdown renders all three spellings as the SAME table row and
-# `markdownlint-cli2` flags none of them, so nothing else in the repo would have noticed. The
-# same blind spot swallowed reference-style links (`[FAQ][fq]` plus a `[fq]: ...` definition),
-# which the inline-only `[text](target)` pattern could not see at all.
+# DOCS-MAPGATE-02: the four rules above only bind what the PARSER CAN SEE, and the first version
+# of this gate silently dropped everything else. It recognised a table row by the literal prefix
+# `| ` and read links only from the second cell onwards, so SIX different spellings of a map entry
+# -- every one of which the renderer turns into a live link, and none of which `markdownlint-cli2`
+# reports -- slipped a planted `FAQ` label or a dead destination past it at exit 0:
 #
-# The fix is not a bigger floor -- a floor structurally cannot tell "20 rows parsed" from "30 rows
-# present, 10 silently skipped". Instead the parser now:
-#   * recognises a row by its first non-blank character being a pipe, so indentation and a missing
-#     space after the pipe are irrelevant, exactly as they are to Markdown;
-#   * locates the header and delimiter rows POSITIONALLY rather than by their text, so renaming
-#     the `Section` column or writing `|---|---|` cannot reclassify them;
-#   * resolves reference-style links against the file's `[label]: target` definitions; and
-#   * REPORTS what it cannot read instead of skipping it -- an entry row that yields no link, a
-#     reference with no definition, and any leftover bracketed construct are all hard failures.
+#   |**Reference**| ...            (no space after the leading pipe)
+#    | **Reference** | ...         (one space of indentation)
+#   **Reference** | ... |          (no leading pipe at all -- GFM makes it optional)
+#   | [Section](gone.md) | ...     (a link in the FIRST cell, which was cut before parsing)
+#   [FAQ][fq]  + [fq]: page.md     (reference-style link)
+#   <a href="page.md">FAQ</a>      (raw HTML; MD033 is disabled repo-wide)
+#
+# The fix is NOT a bigger floor -- a floor structurally cannot tell "20 rows parsed" from "30 rows
+# present, 10 silently skipped". The invariant this parser now holds instead is:
+#
+#     every link the renderer produces from the map section is checked, and anything
+#     link-shaped this parser cannot resolve is REPORTED rather than skipped.
+#
+# Concretely:
+#   * the table is the run of consecutive non-blank lines in the section whose SECOND line is a
+#     delimiter row -- which is how the renderer itself delimits a table. Leading pipes,
+#     indentation and spacing are therefore all irrelevant, exactly as they are to Markdown;
+#   * the header and delimiter rows are located POSITIONALLY inside that block rather than by
+#     their text, so renaming the `Section` column or writing `|---|---|` cannot reclassify them;
+#   * links are read from the WHOLE row, first cell included. The first cell is an editorial
+#     grouping by convention, not by exemption -- a link there is still a link on the page;
+#   * reference-style links are resolved against the file's `[label]: target` definitions; and
+#   * what cannot be read is REPORTED: an entry row that yields no link, a reference with no
+#     definition, any leftover bracketed construct, and any `<a`/`<img` tag are hard failures.
 #     A parser that silently drops input it cannot parse is the very defect this gate exists to
 #     catch in the map; it must not commit it itself.
+#
+# Direction of error is deliberate. A tab-indented row is an indented code block to the renderer
+# but still a row to this parser -- stricter than the renderer, so a loud false positive rather
+# than a silent pass. That is the safe side to be wrong on.
 #
 # Every parse step is guarded against a vacuous pass: an empty map, an entry row with no links, an
 # empty nav index and an empty redirect map are hard failures, because a gate that parses nothing
@@ -112,28 +128,32 @@ is_exempt() {
 # non-whitespace delimiter is deliberate: with IFS=$'\t' bash's `read` collapses runs of tabs and
 # would silently merge an empty field into its neighbour.
 #
-#   ROW   <n> <the row as written>   <empty>   -- one per table line, in file order
+#   SECLINES <count>                 <empty>   -- non-blank lines in the map SECTION
+#   BLOCKS   <count>                 <empty>   -- tables found in that section
+#   ROW   <n> <the row as written>   <empty>   -- one per line of the table, in file order
 #   LINK  <n> <label>                <target>  -- one per resolved link in row <n>
 #   UNDEF <n> <label>                <ref>     -- a reference-style link with no definition
-#   STRAY <n> <what is left of row>  <empty>   -- a bracketed construct that is not a link
+#   STRAY <n> <what is left of row>  <empty>   -- something link-shaped that is not a link
 #
-# The first cell of each row is the SECTION name (editorial grouping, not a link) and is dropped
-# before links are read, so grouping stays a free choice while destinations do not.
+# The table is the run of consecutive non-blank lines whose SECOND line is a delimiter row -- how
+# the renderer delimits a table, so leading pipes and indentation are irrelevant here as they are
+# there. Links are read from the WHOLE row: the first cell is an editorial grouping by convention,
+# and cutting it before parsing is what let a dead destination hide in it at exit 0.
 #
 # UNDEF and STRAY exist so that anything unreadable is REPORTED rather than skipped: silently
 # dropping a row is what let `|**Reference**|` and `[FAQ][fq]` past the first version of this gate.
 extract_map() {
   local index="$1"
   awk '
+    function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
+    function isdelim(s) { return (s ~ /-/ && s ~ /^[|[:space:]:-]+$/) }
     function emit(kind, rowno, a, b) { print kind sep rowno sep a sep b }
     BEGIN { sep = sprintf("%c", 31) }
-    {
-      line = $0
-      sub(/^[ \t]+/, "", line)
-      sub(/[ \t]+$/, "", line)
-    }
+    { line = trim($0) }
     # Link reference definitions may sit anywhere in a Markdown file, not just in the map
-    # section, so they are collected from every line before the section state machine runs.
+    # section, so they are collected from every line. Deliberately no `next`: a definition line
+    # sitting INSIDE the table must still be buffered as a row, or removing it from the buffer
+    # would silently splice two blocks together.
     line ~ /^\[[^]]+\][ \t]*:[ \t]*[^ \t]/ {
       cb = index(line, "]")
       lbl = tolower(substr(line, 2, cb - 2))
@@ -141,24 +161,40 @@ extract_map() {
       sub(/^[ \t]*:[ \t]*/, "", val)
       sub(/[ \t].*$/, "", val)
       defs[lbl] = val
-      next
     }
     /^## Documentation map/ { inmap = 1; next }
     inmap && /^## / { inmap = 0 }
-    # A table row is any line whose first non-blank character is a pipe. Matching `^\| ` instead
-    # is what made `|**Reference**|` and a one-space indent invisible.
-    inmap && line ~ /^\|/ {
-      n++
-      rowtext[n] = line
-    }
+    inmap { sec[++sn] = line }
     END {
-      for (r = 1; r <= n; r++) {
-        emit("ROW", r, rowtext[r], "")
-        rest = rowtext[r]
-        sub(/^\|[^|]*\|/, "", rest)
+      nonblank = 0
+      for (i = 1; i <= sn; i++) { if (sec[i] != "") { nonblank++ } }
+      emit("SECLINES", nonblank, "", "")
+
+      # Find the table blocks: a run of consecutive non-blank lines whose second line is a
+      # delimiter. Prose paragraphs elsewhere in the section are separate runs and are ignored.
+      nblocks = 0
+      i = 1
+      while (i <= sn) {
+        if (sec[i] == "") { i++; continue }
+        j = i
+        while (j <= sn && sec[j] != "") { j++ }
+        if (j - i >= 2 && isdelim(sec[i + 1])) {
+          nblocks++
+          if (nblocks == 1) { bs = i; be = j - 1 }
+        }
+        i = j
+      }
+      emit("BLOCKS", nblocks, "", "")
+      if (nblocks < 1) { exit }
+
+      r = 0
+      for (k = bs; k <= be; k++) {
+        r++
+        emit("ROW", r, sec[k], "")
+        rest = sec[k]
         # Inline `[label](target)` and reference-style `[label][ref]` / `[label][]`, in one
-        # leftmost-longest scan. Each match is cut out of the row so that whatever brackets
-        # remain afterwards can be reported rather than ignored.
+        # leftmost-longest scan over the WHOLE row. Each match is cut out so that whatever is
+        # left afterwards can be reported rather than ignored.
         while (match(rest, /\[[^]]*\](\([^)]*\)|\[[^]]*\])/)) {
           link = substr(rest, RSTART, RLENGTH)
           rest = substr(rest, 1, RSTART - 1) substr(rest, RSTART + RLENGTH)
@@ -173,19 +209,16 @@ extract_map() {
             if (ref in defs) { emit("LINK", r, label, defs[ref]) } else { emit("UNDEF", r, label, ref) }
           }
         }
-        if (index(rest, "[") > 0) { emit("STRAY", r, rest, "") }
+        # Residue that is still link-shaped: a shortcut reference or any other bracket form, and
+        # raw HTML anchors/images -- which render as links while MD033 is disabled repo-wide, so
+        # markdownlint says nothing about them either.
+        lower = tolower(rest)
+        if (index(rest, "[") > 0 || lower ~ "<a[ \t>/]" || lower ~ "<img[ \t>/]") {
+          emit("STRAY", r, rest, "")
+        }
       }
     }
   ' "${index}"
-}
-
-# True for a Markdown table's delimiter line: pipes, dashes, colons and spaces only, with at
-# least one dash. `| --- | --- |` and `|---|---|` are the same line to Markdown.
-is_delimiter_row() {
-  local row="$1"
-  local delimiter_re='^[|[:space:]:-]+$'
-  [[ "${row}" == *-* ]] || return 1
-  [[ "${row}" =~ ${delimiter_re} ]]
 }
 
 # Every nav label pointing at ${1}. A page may legitimately appear once; more than one entry is
@@ -252,13 +285,15 @@ check_map() {
   local -a row_texts=() labels=() dests=() dest_paths=() link_rows=()
   local label dest basename_no_ext nav_label h1 matched
   local i j seen_dup=0 links=0 row_count=0 row_has_link
-  local kind num field3 field4 rel
+  local kind num field3 field4 rel sec_lines=0 block_count=0
 
   [[ -f "${index}" ]] || fail "expected an index file at ${index}"
   rel="${index#"${ROOT}"/}"
 
   while IFS=$'\x1f' read -r kind num field3 field4; do
     case "${kind}" in
+    SECLINES) sec_lines="${num}" ;;
+    BLOCKS) block_count="${num}" ;;
     ROW)
       row_texts+=("${field3}")
       row_count=$((row_count + 1))
@@ -276,23 +311,27 @@ check_map() {
       fail "${rel}'s Documentation map row ${num} uses the reference-style link '[${field3}][${field4}]', but the file defines no '[${field4}]: <target>' -- Markdown renders that as literal text rather than a link, and this gate cannot check where it claims to point"
       ;;
     STRAY)
-      fail "${rel}'s Documentation map row ${num} carries a bracketed construct this gate cannot read as a link: '${field3}' -- write map entries as inline [label](destination) links, or as reference-style links with a matching '[ref]: <target>' definition. Reporting it is deliberate: a row the parser cannot read would otherwise be skipped in silence, which is the defect this gate exists to catch"
+      fail "${rel}'s Documentation map row ${num} carries something link-shaped this gate cannot read as a link: '${field3}' -- write map entries as inline [label](destination) links, or as reference-style links with a matching '[ref]: <target>' definition. A raw <a>/<img> tag renders as a link but is invisible to this contract, and markdownlint says nothing (MD033 is disabled repo-wide). Reporting it is deliberate: what the parser cannot read would otherwise be skipped in silence, which is the defect this gate exists to catch"
       ;;
     esac
   done < <(extract_map "${index}")
 
   # Vacuity guard: a renamed heading or a reshaped table must fail loudly, not silently pass.
+  [[ "${sec_lines}" -gt 0 ]] ||
+    fail "${rel} has no parseable '## Documentation map' table -- the rules below would pass vacuously"
+  [[ "${block_count}" -ge 1 ]] ||
+    fail "${rel}'s Documentation map has no delimiter row beneath its header -- expected a '| --- | --- |' line as the table's second line; without one the renderer produces no table at all, and this gate has no rows to check"
+  [[ "${block_count}" -eq 1 ]] ||
+    fail "${rel}'s '## Documentation map' section contains ${block_count} tables -- this gate reads the first, so the rest would go unchecked; keep the map in one table"
   [[ "${row_count}" -gt 0 ]] ||
     fail "${rel} has no parseable '## Documentation map' table -- the rules below would pass vacuously"
 
   # A pipe table is a header row, a delimiter row, then the entries. Both are identified
-  # POSITIONALLY: keying off their text (`| Section`, `| ---`) meant renaming the column or
-  # writing `|---|---|` quietly reclassified a structural row as an entry, or an entry as
-  # structure.
+  # POSITIONALLY inside the block located above: keying off their text (`| Section`, `| ---`)
+  # meant renaming the column or writing `|---|---|` quietly reclassified a structural row as an
+  # entry, or an entry as structure.
   [[ "${row_count}" -ge 3 ]] ||
     fail "${rel}'s Documentation map has only ${row_count} table line(s) -- a Markdown table needs a header row, a delimiter row and at least one entry"
-  is_delimiter_row "${row_texts[1]}" ||
-    fail "${rel}'s Documentation map has no delimiter row beneath its header -- expected '| --- | --- |' as the second table line, got: ${row_texts[1]}"
   for i in "${!link_rows[@]}"; do
     [[ "${link_rows[$i]}" -ge 3 ]] ||
       fail "${rel}'s Documentation map carries a link ('${labels[$i]}') in its header or delimiter row -- the table does not start where this gate thinks it does, so every row number below is wrong"
@@ -488,6 +527,15 @@ sed 's#\[Metrics\](operator-manual/metrics.md)#[Metrics](operator-manual/metrics
 mutant_rejected "${MUTANTS}/two-labels-one-asset.md" \
   'two labels point at one asset, which no other rule covers' 'two labels at'
 
+# The R2-06 strengthening: deep links are compared on the PAGE, not on the link as written, so a
+# second label aimed at an anchor of a page the map already lists is still two names for one page.
+# Aimed at the ASSET again, for the same reason as the mutant above: on a .md destination rule 4
+# would claim this mutant for the label, leaving the anchor-splitting untested.
+sed 's|(\[package graph\](architecture-graph.svg))|([package graph](architecture-graph.svg)) · [Diagram](architecture-graph.svg#top)|' \
+  "${DOCS_DIR}/index.md" >"${MUTANTS}/two-labels-two-anchors.md"
+mutant_rejected "${MUTANTS}/two-labels-two-anchors.md" \
+  'a second label deep-links to an anchor of a page the map already lists' 'two labels at'
+
 # The dissolved-FAQ defect: a label naming a page mkdocs.yml records as deleted.
 sed 's#\[Troubleshooting\](operator-manual/troubleshooting.md)#[FAQ](operator-manual/troubleshooting.md)#' \
   "${DOCS_DIR}/index.md" >"${MUTANTS}/deleted-page-label.md"
@@ -543,6 +591,39 @@ sed 's#^| \*\*Design & internals\*\* | .*$#| **Design \& internals** | see the s
   "${DOCS_DIR}/index.md" >"${MUTANTS}/linkless-row.md"
 mutant_rejected "${MUTANTS}/linkless-row.md" \
   'an entry row yields no link at all' 'yields no [label](destination) link'
+
+# GFM makes the leading pipe optional, so this renders as the same row with the same links.
+sed 's#^| \*\*Run in production\*\* | \[Performance and scaling\](operator-manual/performance.md) · \[Production checklist\](operator-manual/production-checklist.md) · \[Troubleshooting\](operator-manual/troubleshooting.md) |$#**Run in production** | [Performance and scaling](operator-manual/performance.md) · [Production checklist](operator-manual/production-checklist.md) · [FAQ](operator-manual/troubleshooting.md) |#' \
+  "${DOCS_DIR}/index.md" >"${MUTANTS}/row-without-leading-pipe.md"
+mutant_rejected "${MUTANTS}/row-without-leading-pipe.md" \
+  'a row is written with no leading pipe at all' 'removed in the docs restructure'
+
+# The strongest of the escapes and the one with NO compensating control: markdownlint reports
+# nothing here. The first cell is an editorial grouping by CONVENTION, and cutting it before
+# parsing turned that convention into an exemption a dead destination could hide behind.
+sed 's#^| \*\*Run in production\*\* | \[Performance and scaling\]#| [Run in production](operator-manual/gone-forever.md) | [Performance and scaling]#' \
+  "${DOCS_DIR}/index.md" >"${MUTANTS}/link-in-section-cell.md"
+mutant_rejected "${MUTANTS}/link-in-section-cell.md" \
+  'the section cell of a row carries a link to a page that does not exist' 'does not exist'
+
+# Raw HTML renders as a link, and MD033 is disabled repo-wide so markdownlint is silent.
+sed 's#\[Troubleshooting\](operator-manual/troubleshooting.md)#<a href="operator-manual/does-not-exist.md">FAQ</a>#' \
+  "${DOCS_DIR}/index.md" >"${MUTANTS}/raw-html-anchor.md"
+mutant_rejected "${MUTANTS}/raw-html-anchor.md" \
+  'a map entry is written as a raw HTML anchor' 'cannot read as a link'
+
+# A second table in the section: this gate reads the first, so the rest must not go unnoticed.
+awk '
+  { print }
+  /^\| \*\*Contributing\*\* \|/ {
+    print ""
+    print "| Section | Start here |"
+    print "| --- | --- |"
+    print "| **Extra** | [Glossary](GLOSSARY.md) |"
+  }
+' "${DOCS_DIR}/index.md" >"${MUTANTS}/two-tables.md"
+mutant_rejected "${MUTANTS}/two-tables.md" \
+  'the map section carries a second table the gate would not read' 'contains 2 tables'
 
 # --- the vacuity floors themselves ---
 
