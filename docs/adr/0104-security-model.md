@@ -3,7 +3,9 @@
 > The consolidated threat model and security posture: how credentials, TLS trust, least-privilege RBAC,
 > and payload redaction are handled across Kollect.
 
-**Theme:** 01 · Foundations · **Status:** Current
+**Theme:** 01 · Foundations · **Status:** Current (see the 2026-09-02 note below)
+
+<!-- AgDR: implementer role · 2026-09-02 · amendment: SEC-SSHHOSTKEY-01 — the TLS-named insecureSkipVerify also disables SSH host-key verification -->
 
 ## Context
 
@@ -41,6 +43,48 @@ could read to understand Kollect's posture. This ADR records the decision; the m
   reachability. When set, reconcilers surface status condition `TLSInsecure`
   (`ConditionTLSInsecure`) so operators can see the opt-in without reading the spec.
 - Git HTTPS/SSH retains server-name or host-key verification while using the resolved-address guard.
+  *Amended 2026-09-02:* this is true **only while `spec.tls.insecureSkipVerify` is unset**, which is
+  the default. The flag is transport-scoped, not TLS-scoped — see
+  *`insecureSkipVerify` is transport-scoped — corrected 2026-09-02* below.
+
+### `insecureSkipVerify` is transport-scoped — corrected 2026-09-02
+
+The bullet above read as an unconditional claim, and it is not one. `spec.tls.insecureSkipVerify`
+is named for TLS but disables verification of the remote's identity for **whichever transport the
+sink's endpoint selects**. For an `https://` git remote it skips server-certificate verification;
+for an `ssh://` git remote it installs `ssh.InsecureIgnoreHostKey` on the go-git path
+(`internal/sink/git/ssh_auth.go`) and `StrictHostKeyChecking=no` on the git-CLI path
+(`internal/sink/git/cli_env.go`, which the connection test also goes through). This behaviour is
+pre-existing, not a regression; what was missing was any sentence saying so.
+
+**Why the escape hatch is one flag and not two.** A sink has exactly one `spec.endpoint`, and the
+transport is chosen from that endpoint's scheme (`buildAuthMethod` in `internal/sink/git/auth.go`
+switches on it and rejects a mismatched `spec.git.auth.type`). HTTPS and SSH are therefore mutually
+exclusive per sink, and "skip verification of the remote's identity for this sink's transport" is a
+single coherent contract. Splitting it into a second CRD field would add a public API surface with
+defaulting and migration cost to express a choice the operator cannot make independently.
+
+**Guard rails, with their conditions stated:**
+
+- **Off by default** and settable only by whoever can write the sink spec.
+- **Surfaced in status**: the `TLSInsecure` condition is set whenever `spec.tls.insecureSkipVerify`
+  is true, for every sink family. Its current message names TLS only.
+- **Fails closed on the go-git path**: without the flag and without a `known_hosts` key in the
+  referenced secret, `sshAuthMethod` returns an error rather than falling back to the system
+  `known_hosts` or to trust-on-first-use.
+- **The git-CLI path has no equivalent fail-closed guard.** With the flag unset and no `known_hosts`
+  supplied it simply omits `UserKnownHostsFile` and leaves host-key policy to the ambient ssh
+  configuration. It never sets `StrictHostKeyChecking=no` unless the flag is set, but the outcome on
+  an unknown host is then ssh's default, not a Kollect decision. Supply `known_hosts` when using the
+  CLI engine over SSH.
+- The resolved-address guard (`pinGoGitSSHResolution`, NetGuard) is unaffected by the flag: it
+  still dials the checked numeric address, and still passes the original hostname for verification.
+  When the flag is set there is simply nothing left to verify the hostname against.
+- `internal/sink/git/insecure_hostkey_contract_test.go` pins all of the above so the code and this
+  ADR cannot drift apart again.
+
+Treat it as a temporary development exception: prefer supplying `known_hosts` (or a trusted CA for
+HTTPS), and record the reason and expiry for any sink that sets it.
 
 ### RBAC (least privilege)
 

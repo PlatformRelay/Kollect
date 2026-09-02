@@ -208,8 +208,18 @@ is on by default and custom CA material is supported.
 Some backends have explicit `insecureSkipVerify` compatibility fields; these are off by default and
 weaken server authentication. They are not implied by `allowPrivateSinks`.
 
+`spec.tls.insecureSkipVerify` is TLS-named but transport-scoped: it disables verification of the
+remote's identity for whichever transport the sink's endpoint selects. For an `ssh://` Git remote
+that means **SSH host-key verification is disabled too**, not only certificate checking. A sink has
+one endpoint and therefore one transport, so the flag never applies to both at once. It is off by
+default, sets the `TLSInsecure` status condition when enabled, and on the go-git path the secure
+alternative fails closed: without the flag and without a `known_hosts` key in the sink's secret, the
+export errors instead of falling back to trust-on-first-use. See
+[ADR-0104](../adr/0104-security-model.md) and [ADR-0407](../adr/0407-git-object-store-layout.md).
+
 Git SSH retains the original hostname for host-key verification while dialing the checked numeric
-address. Validating webhooks are enabled by default and the chart's built-in certificate path
+address — the address guard is independent of `insecureSkipVerify`, but with the flag set there is
+no host-key check left for it to feed. Validating webhooks are enabled by default and the chart's built-in certificate path
 requires cert-manager. Operators who disable chart-managed certificate resources must provision
 compatible serving certificates and CA injection themselves. Kubernetes API identity and encryption
 are delegated to the cluster.
