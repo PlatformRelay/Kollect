@@ -299,6 +299,29 @@ if producer_ok 141; then
 fi
 pass "self-test: only 0 and 1 are accepted from a link producer; 2 and 141 are I/O errors"
 
+# ...and that the decision above is actually WIRED into both producers, which asserting it alone
+# does not show: the `-r` precheck intercepts the only failure a fixture can build from a real
+# file, so reverting either `|| producer_ok $?` to `|| true` passed every case in this file. A
+# `grep` shim on PATH that exits 2 removes any dependence on a real grep's EISDIR behaviour --
+# which is the thing that differs between implementations, not the decision being tested.
+SHIM="${FIXTURE}/shim"
+mkdir -p "${SHIM}"
+printf '#!/usr/bin/env bash\nexit 2\n' >"${SHIM}/grep"
+chmod +x "${SHIM}/grep"
+# Command substitution is a subshell, so the PATH override cannot leak into the rest of the run.
+shim_output="$(
+  PATH="${SHIM}:${PATH}"
+  extract_targets "${HONEST}/README.md"
+)"
+# Counted, not merely matched: BOTH producers fail under the shim, so a single-sentinel check
+# would still pass with the guard removed from one of them. One sentinel per producer is what
+# distinguishes "both wired" from "one wired". `grep -c`, never `grep -q` on a pipe
+# (GATE-SIGPIPE-01).
+shim_sentinels="$(printf '%s\n' "${shim_output}" | grep -Fc "${EXTRACT_FAILED}" || true)"
+[[ "${shim_sentinels}" -eq 2 ]] ||
+  fail "self-test: a link producer that failed with an I/O error (exit 2) produced ${shim_sentinels} sentinel(s), expected one from each of the 2 producers -- a producer whose status check was dropped contributes none, and its failure would be read as 'this file has no links'; got: '${shim_output}'"
+pass "self-test: an I/O failure from EITHER link producer reaches the caller as a sentinel"
+
 # The vacuity guard itself: a tree missing README.md must be a hard failure, not a quiet pass
 # over whatever files happen to remain.
 MISSING="${FIXTURE}/missing-readme"
