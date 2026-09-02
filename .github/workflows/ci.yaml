@@ -1,12 +1,24 @@
 # CI path filter matrix (see docs/development/testing.md):
-# - Changes limited to docs/**, mkdocs.yml, README.md, CHANGELOG.md, CONTRIBUTING.md, LICENSE,
-#   or issue templates skip this workflow; other root Markdown files still run full CI.
-#   The Docs workflow runs lint-markdown + MkDocs build/deploy for its path-scoped inputs.
 # - Any change under api/, internal/, charts/, cmd/, config/, hack/, test/, go.mod, or
-#   .github/workflows/ always runs full CI. Mixed PRs (docs + code) run everything.
-# - protect-main requires `test` and `kind-smoke` from this workflow. A docs-only PR
-#   therefore stays BLOCKED (those jobs never report). Touch a watched path, or merge
-#   will wait forever.
+#   .github/workflows/ runs full CI. Mixed PRs (docs + code) run everything.
+# - A documentation-only change (docs/**, mkdocs.yml, README.md, CHANGELOG.md,
+#   CONTRIBUTING.md, LICENSE, issue templates) skips the expensive jobs; other root Markdown
+#   files still run full CI. The Docs workflow runs lint-markdown + MkDocs build/deploy for
+#   its path-scoped inputs.
+#
+# CI-DOCSGATE-01: on `pull_request` that decision is made by the `changes` job below, NOT by a
+# `paths-ignore` filter. protect-main requires the context `test` from this workflow, and a
+# workflow skipped by `paths-ignore` does not report its contexts as skipped -- it does not
+# report them at all. Every docs-only PR therefore sat at mergeStateStatus BLOCKED with a
+# SUCCESS rollup and an empty failure list, and only `gh pr merge --admin` or the web UI's
+# bypass prompt got through (PR #350, 2026-09-01; PR #321, 2026-08-23). A bypass required on
+# every docs PR is the merge path, not an exception, and it trains the reflex that one day
+# waves through a genuinely red required check.
+#
+# The `test` job at the bottom is now a REPORT: it runs `if: always()` so the required context
+# always reaches a conclusion, and it fails unless `test-suite` actually succeeded whenever the
+# PR touches anything outside the documentation path set. `paths-ignore` stays on `push`, where
+# no required context is at stake. Locked by hack/test/ci_docs_gate_test.sh.
 name: CI
 
 on:
@@ -21,19 +33,80 @@ on:
       - "LICENSE"
       - ".github/ISSUE_TEMPLATE/**"
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "mkdocs.yml"
-      - "README.md"
-      - "CHANGELOG.md"
-      - "CONTRIBUTING.md"
-      - "LICENSE"
-      - ".github/ISSUE_TEMPLATE/**"
 
 permissions:
   contents: read
 
 jobs:
+  # CI-DOCSGATE-01: the per-PR verdict every expensive job below hangs off. `code=true` means
+  # the change touches something other than documentation. Fail-safe in one direction only:
+  # anything this job cannot classify (a non-PR event, a missing or unreachable SHA, an empty
+  # diff) yields `true`, so the worst case is a wasted CI run rather than a required context
+  # reported green without having run. Keep the `filter` step body byte-identical with the one
+  # in .github/workflows/e2e-smoke.yaml -- hack/test/ci_docs_gate_test.sh compares them, because
+  # two copies that drift are two different answers to "is this docs-only?" and `test` and
+  # `kind-smoke` would then disagree about the same PR.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # The documentation path set. Mirrors the `paths-ignore` list kept on `push` above.
+          docs_only_path() {
+            case "$1" in
+            docs/* | mkdocs.yml | README.md | CHANGELOG.md | CONTRIBUTING.md | LICENSE | .github/ISSUE_TEMPLATE/*)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+            esac
+          }
+
+          emit() {
+            echo "code=$1" >>"${GITHUB_OUTPUT}"
+            echo "changed-code=$1"
+          }
+
+          if [ "${EVENT_NAME}" != "pull_request" ]; then
+            emit true
+            exit 0
+          fi
+          if [ -z "${BASE_SHA}" ] || [ -z "${HEAD_SHA}" ]; then
+            emit true
+            exit 0
+          fi
+          if ! changed="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" 2>/dev/null)"; then
+            emit true
+            exit 0
+          fi
+          if [ -z "${changed}" ]; then
+            emit true
+            exit 0
+          fi
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            if ! docs_only_path "${file}"; then
+              emit true
+              exit 0
+            fi
+          done <<<"${changed}"
+          emit false
+
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
@@ -52,6 +125,8 @@ jobs:
 
   verify:
     name: verify
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -68,6 +143,8 @@ jobs:
 
   audit-rbac:
     name: audit-rbac
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,6 +158,8 @@ jobs:
 
   vulncheck:
     name: vulncheck
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -221,6 +300,15 @@ jobs:
       # paths-ignore, so every change class that can break the contract triggers this job.
       - name: Verify mise.toml has not drifted from the CI pins (DEV-MISE-01)
         run: bash hack/test/dev_mise_pin_drift_test.sh
+      # CI-DOCSGATE-01: asserts that all four required contexts (preflight, test, kind-smoke,
+      # Analyze (Go)) report a conclusion on EVERY PR, and that the no-op reporting path cannot
+      # stand in for the real job when code changed. It runs here because `lint` is the one job
+      # in this workflow that is deliberately NOT gated on the changes verdict, so this gate
+      # also runs on the docs-only PRs whose direction it protects -- which no PR touching
+      # .github/** can ever exercise. Not matched by the dist_* or sonar_ko_* globs, hence the
+      # explicit step; it needs the yq installed above.
+      - name: Verify every required context reports on a docs-only PR (CI-DOCSGATE-01)
+        run: bash hack/test/ci_docs_gate_test.sh
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob
@@ -249,8 +337,14 @@ jobs:
       - name: Lint
         run: task lint
 
-  test:
-    name: test
+  # CI-DOCSGATE-01: the REAL suite. It is deliberately NOT named `test` -- the required context
+  # of that name is produced by the `test` job at the end of this file, which reports on every
+  # PR. A job that legitimately skips must never carry a required context name; that is exactly
+  # the starvation this lane removed.
+  test-suite:
+    name: test-suite
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -296,6 +390,8 @@ jobs:
 
   build:
     name: build
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -310,6 +406,8 @@ jobs:
 
   test-integration:
     name: test-integration
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -331,6 +429,8 @@ jobs:
 
   helm:
     name: helm
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -350,6 +450,8 @@ jobs:
 
   perf-report:
     name: perf-report
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     timeout-minutes: 15
@@ -393,6 +495,8 @@ jobs:
 
   fuzz:
     name: fuzz
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -442,7 +546,9 @@ jobs:
   sonarcloud:
     name: sonarcloud
     runs-on: ubuntu-latest
-    needs: [test]
+    # The `coverage` artifact comes from test-suite, so this follows the real job, not the
+    # `test` report. A docs-only PR skips test-suite and therefore skips this too.
+    needs: [test-suite]
     continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -470,6 +576,8 @@ jobs:
 
   docker-build:
     name: docker-build
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -499,3 +607,45 @@ jobs:
             echo "::error::kollect-pipeline image must run as 65532:65532, got '${user}'" >&2
             exit 1
           fi
+
+  # CI-DOCSGATE-01: the required context `test` (protect-main lists it by exact string).
+  #
+  # This job is a REPORT and nothing else -- it exists so that the context reaches a conclusion
+  # on EVERY pull request, including a documentation-only one where `test-suite` is skipped.
+  # `if: always()` is what makes that work: without it a skipped `test-suite` would skip this
+  # job too, and the context would vanish from the PR exactly as it did when the whole workflow
+  # was excluded by `paths-ignore`.
+  #
+  # It cannot stand in for the real suite. Whenever the change touches anything outside the
+  # documentation path set it fails unless `test-suite` actually SUCCEEDED -- a skipped,
+  # failed or cancelled worker reds the context. The comparison is `!= "false"`, not
+  # `== "true"`, so an empty or corrupted verdict from the `changes` job also demands a real
+  # success. hack/test/ci_docs_gate_test.sh executes this exact body against that truth table.
+  test:
+    name: test
+    needs: [changes, test-suite]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report the required test context
+        shell: bash
+        env:
+          CODE: ${{ needs.changes.outputs.code }}
+          RESULT: ${{ needs.test-suite.result }}
+        run: |
+          set -euo pipefail
+          if [ "${CODE}" != "false" ]; then
+            if [ "${RESULT}" != "success" ]; then
+              echo "::error::the test-suite job must succeed on a change that touches non-documentation paths (changes.code='${CODE}', test-suite='${RESULT}')"
+              exit 1
+            fi
+            echo "code change: test-suite succeeded"
+            exit 0
+          fi
+          case "${RESULT}" in
+          failure | cancelled)
+            echo "::error::documentation-only change, but test-suite reported '${RESULT}'"
+            exit 1
+            ;;
+          esac
+          echo "documentation-only change: test-suite '${RESULT}', required context reported without running the Go suite"
