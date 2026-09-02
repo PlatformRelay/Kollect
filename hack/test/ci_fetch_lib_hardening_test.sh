@@ -91,6 +91,18 @@ logical_lines() {
         line = line " " nxt
       }
       if (line ~ /^[[:space:]]*#/) { next }
+      # REVIEW FIX (round 3, P3). Dropping only WHOLE-line comments left a trailing comment as
+      # live text, so `foo=bar  # see hack/tools/curl for details` counted as a fetcher
+      # invocation once the fetcher pattern learned to accept a path-qualified name. The strip
+      # is deliberately conservative -- it fires only when NOTHING on the line is quoted -- so
+      # it can never remove code: a `#` inside a string (curl -H "X: #1") keeps its line intact,
+      # and `${VERSION#v}` / `${#arr[@]}` are untouched anyway because the pattern requires
+      # whitespace before the `#`. A false NEGATIVE here would hide a real fetcher, which is the
+      # one direction this file must not risk.
+      q = sprintf("%c", 39)
+      if (index(line, "\"") == 0 && index(line, q) == 0) {
+        sub(/[[:space:]]+#.*$/, "", line)
+      }
       print line
     }
   ' "$1"
@@ -109,30 +121,107 @@ curl_command_lines() {
 # The direct-fetcher pattern, defined ONCE because Part 2 (installers) and Part 3 (the composite
 # action) must agree on what "a fetch that bypasses the helper" looks like.
 #
-# REVIEW FIX (round 2, P2). The first version led with `(^|[^[:alnum:]_./-])`, which excludes `/`
-# and `-` from the character allowed before the command name -- so a PATH-QUALIFIED fetcher was
-# invisible to it. An independent reviewer mutated hack/install-polaris.sh's tarball fetch to
+# ------------------------------------------------------------------------------------------------
+# HOW THIS PATTERN GOT HERE. Three versions, and the middle one is the cautionary tale.
 #
-#     /usr/bin/curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${TARBALL}"
-#
-# and this gate went GREEN: the positive assertions still passed, because the CHECKSUM fetch in
-# the same script still called fetch_to. That is the PR #351 defect shape exactly -- one hardened
-# fetch and one bare one beside it, in one file -- surviving the assertion whose stated contract
+# v1 led with `(^|[^[:alnum:]_./-])`. That class excludes `/`, so a PATH-QUALIFIED fetcher was
+# invisible: `/usr/bin/curl -fsSL ...` beside a surviving fetch_to left this gate GREEN, because
+# the positive assertions were still satisfied by the other call site. One hardened fetch and one
+# bare one in the same file -- the PR #351 shape exactly -- passing the assertion whose contract
 # is "no direct fetcher invocation at all".
 #
-# The three parts of the replacement, each earning its place:
-#   * `(^|[[:space:]]|[;&|(])` -- command position, now including `(` so `$(command -v curl)` and
-#     a subshell `(curl ...)` are both reached.
-#   * `([^[:space:];&|()]*/)?` -- an OPTIONAL path prefix. This is the fix: /usr/bin/curl,
-#     ./curl, "${HOME}"/bin/curl and $(dirname "$0")/curl all match; a bare `curl` still matches
-#     through the empty alternative.
-#   * `([[:space:]]|$|\))` -- trailing, with `)` so the command-substitution spelling
-#     `"$(command -v curl)" -fsSL ...` is caught rather than passing on its closing paren.
+# v2 fixed that by narrowing the leading class to `(^|[[:space:]]|[;&|(])` and bolting on an
+# optional `([^[:space:];&|()]*/)?` path prefix. It closed the path-qualified hole and SILENTLY
+# OPENED FIVE OTHERS: backtick, `'`, `"`, `=` and `\` stopped being opening characters, so
+# `\curl ...`, ``BODY=`curl ...` ``, `bash -c 'curl ...'` and `bash -c 'wget ...'` -- all of which
+# v1 killed -- began to survive. A mutation count is evidence about the mutants you wrote; it is
+# not evidence that nothing regressed. Changing a matcher means re-running the PRIOR round's
+# mutants against the new matcher, which is what fetcher_selftest() below now does automatically,
+# on every run, in both directions.
 #
-# It is deliberately NOT used for the flag assertions on hack/lib/fetch.sh -- see
-# curl_command_lines(), which must stay narrow because fetch_to's own diagnostic contains the
-# words "(curl exit ${status})" and this pattern matches that text.
-FETCHER_RE='(^|[[:space:]]|[;&|(])([^[:space:];&|()]*/)?(curl|wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$|\))'
+# v3 (this one) needs no path prefix at all, which is why it is both wider and simpler: `/` is
+# ITSELF a non-word character, so restoring the permissive leading class `[^[:alnum:]_]` matches
+# `/usr/bin/curl` on the `/` immediately before the name. The trailing class `[^[:alnum:]_./-]`
+# then rejects `curl-config`, `curl.se` and `curl_x` while accepting the space, `)`, `"`, `'`,
+# `;` and `|` that really do terminate a command word.
+#
+# WHY A SENTINEL SPACE INSTEAD OF `(^|...)` -- and this one cost real time. GNU grep 3.12 and
+# ugrep 7.8 disagree about `(^|CLASS)`: under ugrep the anchor alternative swallows the whole
+# group and `(^|[^[:alnum:]_./-])curl` matches NOTHING, not even a line that begins with `curl`.
+# CI runs GNU grep and a developer's machine may not, so a pattern written that way means two
+# different things in two places -- and locally it fails GREEN. fetcher_lines() prepends one
+# space to every logical line instead, so every command-position occurrence has a real preceding
+# character and no `^` alternative is needed. The optional path-prefix group of v2 had the same
+# split-brain problem (GNU matched 10/10 of the corpus below, ugrep 7/10); this pattern has no
+# optional group and both engines agree on all of it.
+#
+# WHAT IT MATCHES, verified by fetcher_selftest() rather than asserted here: a bare `curl`, a
+# path-qualified one (`/usr/bin/curl`, `./curl`, `"${HOME}"/bin/curl`, `$(dirname "$0")/curl`),
+# a quoted one (`"/usr/bin/curl"`), a backslash-escaped one (`\curl`), one inside a command
+# substitution or backticks, one inside `bash -c '...'`, and `python -m urllib`.
+#
+# KNOWN PERMISSIVE, stated rather than discovered later: because a URL path and a command path
+# are textually identical, a string containing a URL that ENDS in /curl -- say
+# `echo "get it from https://example.com/bin/curl"` -- matches. Nothing in the tree does that,
+# and the failure direction is a red that a human resolves, not a silent pass. It is the price of
+# catching `/usr/bin/curl`, and it is not worth trading back.
+#
+# NOT used for the flag assertions on hack/lib/fetch.sh. That is a SCOPING guarantee, not a
+# property of this pattern: fetch_to's own diagnostics contain the words "(curl exit ${status})"
+# and "(last curl exit ${status})", both of which this pattern matches. See curl_command_lines().
+FETCHER_RE='[^[:alnum:]_]((curl|wget|aria2c)([^[:alnum:]_./-]|$)|python3?[[:space:]]+-m[[:space:]]+urllib)'
+
+# Every FETCHER_RE scan goes through this, so the sentinel space can never be forgotten at one
+# call site and remembered at another.
+fetcher_lines() {
+  logical_lines "$1" | sed 's/^/ /'
+}
+
+# The regression harness the v1 -> v2 narrowing needed and did not have. Each spelling below is a
+# real mutant some reviewer or some round actually wrote; running them on every gate invocation
+# is what makes "I re-ran the prior mutants" a property of the file rather than a claim in a
+# commit message.
+fetcher_selftest() {
+  local want="$1"
+  shift
+  local line hits
+  for line in "$@"; do
+    hits="$(printf ' %s\n' "${line}" | count_matches -E "${FETCHER_RE}")"
+    require_count "${hits}" "FETCHER_RE self-test"
+    if [[ "${want}" == "match" ]]; then
+      [[ "${hits}" != "0" ]] ||
+        fail "FETCHER_RE self-test: this spelling of a direct fetcher is NOT matched, so an installer could use it to bypass hack/lib/fetch.sh with this gate green: ${line}"
+    else
+      [[ "${hits}" == "0" ]] ||
+        fail "FETCHER_RE self-test: this line invokes no fetcher but matches, so the pattern has widened into a false-positive class: ${line}"
+    fi
+  done
+}
+
+fetcher_selftest match \
+  'curl -fsSL x' \
+  '/usr/bin/curl -fsSL x' \
+  './curl x' \
+  '"/usr/bin/curl" -fsSL x' \
+  '"${HOME}"/bin/curl x' \
+  '$(dirname "$0")/curl -fsSL x' \
+  '\curl -fsSL x' \
+  'BODY=`curl -fsSL x`' \
+  'X=$(curl x)' \
+  '"$(command -v curl)" -fsSL x' \
+  "bash -c 'curl -fsSL \"\$1\" -o \"\$2\"' _ a b" \
+  "bash -c 'wget -O \"\$1\" \"\$2\"' _ a b" \
+  '/usr/bin/wget -O a b' \
+  'python3 -m urllib.request x'
+
+fetcher_selftest no-match \
+  'echo curly' \
+  'curl-config --version' \
+  'foo_curl x' \
+  'mycurl x' \
+  'see https://curl.se/ docs' \
+  'fetch_to "${U}" "${D}" "helm tarball"'
+pass "the direct-fetcher pattern matches all 14 known bypass spellings and none of the 6 lookalikes"
 
 [[ -f "${LIB}" ]] ||
   fail "${LIB} is missing -- the whole point of CI-FETCHLIB-01 is that the hardened flag list lives in exactly ONE place"
@@ -470,7 +559,11 @@ grep -Eq 'curl exit [0-9]+' <<<"$(case_err)" ||
 # said and it does not promise another attempt: an operator scrolling to the end of a failed job
 # must land on "this is over, and here is why", not on "retrying in 10s..." from an attempt that
 # never came.
-last_err_line="$(grep -vE '^[[:space:]]*$' <<<"$(case_err)" | tail -1)"
+# awk, not `grep -v ... | tail -1`: under `set -euo pipefail` grep exits 1 when stderr is
+# EMPTY, pipefail propagates it, and a bare assignment then aborts the gate with no diagnostic --
+# so the "nothing at all on stderr" guard below was unreachable in exactly the case it exists
+# for. It failed red, so never a false green; it just lost its message. awk exits 0 either way.
+last_err_line="$(awk 'NF { line = $0 } END { print line }' <<<"$(case_err)")"
 [[ -n "${last_err_line}" ]] ||
   fail "permanent connect refusal: fetch_to failed silently -- nothing at all on stderr"
 grep -Fq "127.0.0.1:${DEAD_PORT}" <<<"${last_err_line}" ||
@@ -606,7 +699,7 @@ for installer in "${INSTALLERS[@]}"; do
 
   # THE repo-wide assertion. A direct fetcher in an installer is, by construction, a fetch that
   # does not carry the helper's flags -- that is the defect PR #351 died of, seven times over.
-  fetcher_hits="$(logical_lines "${installer}" | count_matches -E "${FETCHER_RE}")"
+  fetcher_hits="$(fetcher_lines "${installer}" | count_matches -E "${FETCHER_RE}")"
   require_count "${fetcher_hits}" "${rel} direct-fetcher scan"
   [[ "${fetcher_hits}" == "0" ]] ||
     fail "${rel} invokes a fetcher directly (${fetcher_hits} occurrence(s)) instead of going through fetch_to from hack/lib/fetch.sh. That is exactly the bare-curl defect that reddened the REQUIRED kind-smoke check on PR #351: no retry, no connect bound, no protocol pin. Source hack/lib/fetch.sh and call fetch_to"
@@ -685,7 +778,7 @@ action_lines() { logical_lines "${ACTION}"; }
 # helper instead of hand-rolling a fourth copy of the hardening is the assertion; it is also the
 # only form that keeps the action and the installers from drifting apart the way get.helm.sh and
 # kind did inside this very step.
-action_fetcher_hits="$(action_lines | count_matches -E "${FETCHER_RE}")"
+action_fetcher_hits="$(fetcher_lines "${ACTION}" | count_matches -E "${FETCHER_RE}")"
 require_count "${action_fetcher_hits}" "kind-e2e-setup direct-fetcher scan"
 [[ "${action_fetcher_hits}" == "0" ]] ||
   fail "${ACTION} still invokes a fetcher directly. This is the loop everyone copies -- CI-HELMDL-01 explicitly declined to imitate it because after three failed attempts it falls THROUGH to 'chmod +x' on a file that was never written, so an unreachable kind.sigs.k8s.io surfaces as 'No such file or directory'. Route it through fetch_to from hack/lib/fetch.sh like the installers do"
