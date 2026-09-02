@@ -137,7 +137,9 @@ properties:
         type: object
     type: object
   http:
-    description: http configures webhook snapshot export when type is http.
+    description: |-
+      http is a reserved snapshot type that is rejected by admission; it is not the optional Inventory HTTP read API.
+      No webhook export backend ships, so the block exists only to reserve the name.
     properties:
       method:
         description: method is the HTTP verb for export requests (default POST).

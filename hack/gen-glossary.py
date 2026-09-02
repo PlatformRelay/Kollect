@@ -46,21 +46,39 @@ FIELD_TABLE_LIMIT = 8
 #   C. (chosen) teach the generator to carry curated overrides, then gate on
 #      drift. Regeneration is idempotent, the curated text stays adjacent to
 #      the row it qualifies, and hack/test/glossary_drift_test.sh proves both.
-# The root cause — a Go doc comment in api/ that reads as if `type: http` were
-# supported — is outside this file. check_overrides() below fails the run in
-# both rot directions, so the map cannot drift away from the schema unnoticed:
-# a key naming a field that no longer exists (or lost its description) is
-# stale, and a key whose text the CRD has caught up with is redundant and must
-# be deleted rather than left to look load-bearing.
-CURATED_DESCRIPTIONS: dict[tuple[str, str], str] = {
-    # Admission rejects `type: http`. The CRD description reads as if webhook
-    # export were available, and the field is routinely confused with
-    # KollectInventory's optional HTTP read API.
-    ("KollectSnapshotSink", "http"): (
-        "Reserved snapshot type that is rejected by admission; do not confuse "
-        "it with the optional Inventory HTTP read API."
-    ),
-}
+#
+# The map is EMPTY on purpose, and that is the healthy state. Its only entry
+# corrected the KollectSnapshotSink `http` row, whose CRD description asserted
+# that webhook export was available when admission in fact rejects
+# `type: http`. That root cause lived in a Go doc comment in
+# api/v1alpha1/kollectsnapshotsink_types.go, so the override was treating a
+# symptom: lane API-HTTPDOC-01 corrected the comment and deleted the entry.
+# Fix the schema first; add an entry here only when the CRD genuinely cannot
+# carry the wording, because an override that patches a fixable comment hides
+# the defect in the published schema instead of closing it.
+#
+# An override can rot in THREE directions. check_overrides() below catches two
+# of them and fails the run before writing:
+#   1. STALE key — it names a field that no longer exists, or whose description
+#      was removed. Caught: the key is absent from the schema.
+#   2. REDUNDANT text — the CRD description has caught up and now says exactly
+#      what the override says, so the override is dead weight that still reads
+#      as load-bearing. Caught: exact string equality against first_line().
+#   3. REWORDED schema — the CRD description is corrected or rephrased so that
+#      it no longer says what the override contradicts, without becoming
+#      identical to it. NOT CAUGHT, and it cannot be: the guard compares
+#      strings, and only a human can judge whether the new wording still needs
+#      qualifying. The run exits 0 and quietly renders the stale override.
+# Direction 3 is not hypothetical. Lane API-HTTPDOC-01 rewrote the `http` doc
+# comment in api/ from "configures webhook snapshot export" to a sentence that
+# states the field is reserved and rejected by admission. Neither guard fired —
+# the key still resolved and the texts still differed — so the override had to
+# be deleted deliberately, in the same commit, rather than on a gate's prompt.
+# If you reword a description an override qualifies, re-read the override.
+# Directions 1 and 2 are exercised with synthetic overrides in
+# hack/test/glossary_drift_test.sh, so both guards stay tested while the map is
+# empty.
+CURATED_DESCRIPTIONS: dict[tuple[str, str], str] = {}
 
 
 def first_line(text: str) -> str:
@@ -144,9 +162,10 @@ def render_crd_section(entries: list[dict]) -> str:
         "`python3 hack/gen-glossary.py`. Field-level detail: [CR reference](crds/index.md).",
         "",
         "Everything between the `AUTO-CRD` markers is rewritten on every run, so edits made",
-        "here are lost. A row that must say something the CRD schema does not say belongs in",
-        "the `CURATED_DESCRIPTIONS` map in `hack/gen-glossary.py`; prose that is not about a",
-        "single field belongs outside the markers.",
+        "here are lost. A row that says the wrong thing is usually a wrong Go doc comment",
+        "in `api/`: fix it there and regenerate. Only a row the CRD schema genuinely cannot",
+        "carry belongs in the `CURATED_DESCRIPTIONS` map in `hack/gen-glossary.py`; prose",
+        "that is not about a single field belongs outside the markers.",
         "",
     ]
     for entry in entries:

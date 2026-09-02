@@ -11,6 +11,20 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **dist:** Make --verify-ac1 meet AC1, and gate the guards this lane added [8563522](https://github.com/platformrelay/kollect/commit/856352205893ffe73e0d3a940370ff8dbf8f6bb9)
+
+- **dist:** Close the V1 gate laundering path, keep the PAT out of argv, gate the --apply path [b042597](https://github.com/platformrelay/kollect/commit/b042597a82a3fc3f4d997d9ed61999a168edbb46)
+
+- **test:** Stop the chart-path gate swallowing its own diagnostics ([#351](https://github.com/platformrelay/kollect/pull/351))[ef066c2](https://github.com/platformrelay/kollect/commit/ef066c224e45bf2191d88df765870605dd301d5e)
+
+- **test:** Make a rejected env expression abort the chart-path gate [4fbc806](https://github.com/platformrelay/kollect/commit/4fbc8063fb2413efdb01f4ebbcd83d583b7bde8b)
+
+- **api:** Stop the CRD schema claiming `type: http` is a supported sink [5b3751a](https://github.com/platformrelay/kollect/commit/5b3751a87ae53d84d33f747a669bff9f38526516)
+
+- **docs:** Stop linking an OperatorHub.io listing that does not exist [1576fb3](https://github.com/platformrelay/kollect/commit/1576fb34bae0dc048e56b003d998ac9d7b926da1)
+
+- **dev:** Make the Renovate mise.toml matchString actually match ([#348](https://github.com/platformrelay/kollect/pull/348))[785f999](https://github.com/platformrelay/kollect/commit/785f9998938062e088bafd19ed88f6692fb24a71)
+
 - **docs:** Carry curated glossary rows through regeneration [1c53f33](https://github.com/platformrelay/kollect/commit/1c53f33b3de74d00536d712957a88f2dd80b3856)
 
 - **test:** Stop the ui-removal gate inheriting a hostile git environment ([#338](https://github.com/platformrelay/kollect/pull/338))[02925c3](https://github.com/platformrelay/kollect/commit/02925c317b695a1b8a21d1533d2e3fec71c83599)

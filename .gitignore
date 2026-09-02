@@ -22,6 +22,11 @@ AGENTS.local.md
 .env.*
 .envrc
 .envrc.*
+# mise's personal-override files. mise.toml itself is committed and mirrors the CI pins
+# (see hack/test/dev_mise_pin_drift_test.sh); these two are the per-developer overlay, and
+# the natural place someone would put an [env] block next to the .envrc above.
+mise.local.toml
+.mise.local.toml
 *.env
 *.pem
 *.key
@@ -67,6 +72,13 @@ race*.log
 /.task/
 /site/
 .venv-docs/
+
+# --- Python bytecode ---
+# hack/docs/verify.sh runs `python3 -m unittest discover -s test/docs`, which writes
+# test/docs/__pycache__/ as a side effect. Untracked, it is easy to sweep into a commit
+# with `git add -A` -- which is how five .pyc blobs reached lane/api-httpdoc-01.
+__pycache__/
+*.py[cod]
 
 # --- Local kind dev TLS (mkcert); never commit ---
 /hack/kind/dev/certs/

@@ -54,9 +54,10 @@ Auto-generated from `config/crd/bases/` OpenAPI descriptions. Regenerate with
 `python3 hack/gen-glossary.py`. Field-level detail: [CR reference](crds/index.md).
 
 Everything between the `AUTO-CRD` markers is rewritten on every run, so edits made
-here are lost. A row that must say something the CRD schema does not say belongs in
-the `CURATED_DESCRIPTIONS` map in `hack/gen-glossary.py`; prose that is not about a
-single field belongs outside the markers.
+here are lost. A row that says the wrong thing is usually a wrong Go doc comment
+in `api/`: fix it there and regenerate. Only a row the CRD schema genuinely cannot
+carry belongs in the `CURATED_DESCRIPTIONS` map in `hack/gen-glossary.py`; prose
+that is not about a single field belongs outside the markers.
 
 ### `KollectClusterInventory` (cluster)
 
@@ -218,7 +219,7 @@ KollectSnapshotSink is the Schema for snapshot export sinks.
 | `exportMinInterval` | exportMinInterval is the default minimum time between identical exports when an inventory |
 | `git` | git configures git sink settings when type is git. |
 | `gitlab` | gitlab configures GitLab-specific settings when type is gitlab. |
-| `http` | Reserved snapshot type that is rejected by admission; do not confuse it with the optional Inventory HTTP read API. |
+| `http` | http is a reserved snapshot type that is rejected by admission; it is not the optional Inventory HTTP read API. |
 | `layout` | layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419). |
 
 Other spec fields: `objectStore`, `options`, `pathTemplate`, `provisioning`, `secretRef`, `serialization`, `tls`, `type`.

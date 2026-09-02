@@ -25,18 +25,82 @@ for file in "${INSTALL}" "${README}"; do
     fail "${file} must mention OperatorHub discoverability"
 done
 
-# ADR-0708 originally forbade ANY hub URL that 404s before that hub lists us. Artifact Hub
+# ADR-0708 forbids shipping a hub URL that does not resolve to a live listing. Artifact Hub
 # registration completed 2026-08-18 (repo `kollect`, oci://ghcr.io/platformrelay/kollect,
-# Verified Publisher active), so its badge is unambiguously legitimate.
+# Verified Publisher active), so its badge is unambiguously legitimate and is asserted PRESENT.
 #
-# The OperatorHub.io badge ships ahead of the listing by explicit operator decision: the
-# community-operators submission is open and green, and operatorhub.io soft-404s (it serves
-# HTTP 200 with the generic landing page for unknown operators) rather than showing a broken
-# link. Both badges are asserted PRESENT so neither can silently regress.
+# DIST-OH-05: the OperatorHub.io package deep link is NOT legitimate, and the rationale that
+# shipped it has been falsified. It went out ahead of the listing on the premise that
+# operatorhub.io "soft-404s" -- serving HTTP 200 with a generic landing page for unknown
+# operators. It does not. The package URL answers HTTP 200 and then CLIENT-RENDERS
+# "can't find package kollect": a broken-looking dead end, which is exactly the user-visible
+# outcome ADR-0708 set out to prevent. HTTP status is not evidence that a listing exists.
+#
+# Why the listing does not exist, recorded here so the next person does not re-litigate it: the
+# upstream submission k8s-operatorhub/community-operators#9070 ("operator [N] [CI] kollect
+# (0.18.0)", head 821cf2da) has been OPEN since 2026-08-18 with its "Operator test" and "DCO
+# test" workflow runs at conclusion=action_required. That is GitHub's first-time-contributor
+# "Approve and run" gate; only a k8s-operatorhub MAINTAINER can clear it. Everything on our side
+# is green (operator-ci, operator-automerge-enabled, DCO), the authorized-changes / new-operator
+# / allow-operator-recreate labels are applied, and the PR timeline carries no bot request, no
+# review and no maintainer activity since 2026-08-19. Nothing is being asked of us, and
+# resubmitting does not clear an action_required run.
+#
+# The OpenShift sibling redhat-openshift-ecosystem/community-operators-prod#10889 (0.18.0) IS
+# merged, so the OLM bundle is genuinely live in that community catalog. That is why the badge
+# is RE-POINTED rather than deleted: the OLM install path is real; only the operatorhub.io
+# listing is not.
+#
+# So this is a two-sided contract, not a deletion check:
+#   * README must keep an OLM/OperatorHub badge pointed at a destination that is live today --
+#     the install page's hub section on the published docs site;
+#   * neither README nor the install page may carry the operatorhub.io package deep link until
+#     #9070 merges.
+# When it merges: re-point the badge at the listing and turn the absence assertion below back
+# into a presence assertion.
+#
+# Scope note: only these two files are scanned. They are the ones this gate owns and the ones a
+# user actually follows; CHANGELOG.md and ADR-0708 may name the URL as history or as evidence.
+OPERATORHUB_PACKAGE_URL='operatorhub.io/operator/kollect'
+OLM_DOCS_DESTINATION='getting-started/install/#discoverability-on-package-hubs'
+
 grep -Fq 'artifacthub.io/badge/repository/kollect' "${README}" ||
   fail "${README} must carry the Artifact Hub badge (repository is registered)"
-grep -Fq 'operatorhub.io/operator/kollect' "${README}" ||
-  fail "${README} must carry the OperatorHub.io badge"
+
+# Anchored on the badge ANCHOR MARKUP, not on the bare string. An earlier revision only required
+# the destination to appear somewhere in README.md, so deleting the badge outright and pasting the
+# URL as prose passed a check whose message claimed to be about the badge -- an assertion claiming
+# more than it checked. Every badge in that header block is a one-line `<a href="..."><img ...>`, so
+# matching that shape checks the thing the message names. Case-SENSITIVE on purpose: GitHub Pages
+# paths and HTML fragment ids are both case-sensitive, so a case variant here is a genuinely broken
+# destination and must red.
+grep -Eq "<a href=\"[^\"]*${OLM_DOCS_DESTINATION}\"><img " "${README}" ||
+  fail "${README} must carry the OLM/OperatorHub BADGE (an <a href=...><img ...> in the badge header) pointing at a live destination (${OLM_DOCS_DESTINATION}); the operatorhub.io listing does not exist yet, so the badge cannot link to it"
+
+# The fragment above is a heading slug on the install page, and nothing else checks it: the badge is
+# raw HTML, which hack/test/repo_root_links_test.sh skips by design; `mkdocs build --strict` never
+# reads README.md; and markdownlint's MD051 (link-fragments) is disabled repo-wide. Rename the
+# heading and the badge would still resolve -- to the top of the page instead of the section it
+# promises. Tie the two together so the rename fails here instead of rotting silently.
+# ANCHORED to the whole heading line, because the slug is computed from the whole heading line. An
+# unanchored substring match let a SUFFIX through -- `## Discoverability on package hubs (OLM)` and
+# `... and registries` both contain the string, both passed, and both change the slug, killing the
+# badge fragment while this gate stayed green. `^#+ ` keeps the level free (## or ###: the slug does
+# not depend on it) and `[[:space:]]*$` forbids anything trailing. Case-INSENSITIVE because
+# python-markdown's slugifier lowercases, so ALLCAPS or Title Case yield the same slug and must not
+# red. Net: this assertion pins the heading to the exact text whose slug the badge fragment depends
+# on -- green iff the slug is preserved, red on every edit that moves it.
+grep -Eiq '^#+ Discoverability on package hubs[[:space:]]*$' "${INSTALL}" ||
+  fail "${INSTALL} must keep a heading that reads exactly 'Discoverability on package hubs', with nothing appended -- the README OLM badge targets its slug (${OLM_DOCS_DESTINATION}), and any renaming or suffix changes that slug and silently drops the reader at the top of the page"
+
+for file in "${INSTALL}" "${README}"; do
+  # Case-INSENSITIVE, and that is load-bearing rather than cosmetic: host names are
+  # case-insensitive, so `https://OperatorHub.io/operator/kollect` is the SAME dead page. A
+  # case-sensitive absence check is a one-keystroke bypass of the whole gate -- proven by a review
+  # mutation that re-added the dead link with a capital O/H and passed GREEN.
+  ! grep -Fiq "${OPERATORHUB_PACKAGE_URL}" "${file}" ||
+    fail "${file} links to the OperatorHub.io package page, which answers HTTP 200 and then renders \"can't find package kollect\" -- k8s-operatorhub/community-operators#9070 is still waiting on a maintainer to approve its action_required workflow runs. Restore this link only once the listing is actually live."
+done
 
 pass "install docs describe hub paths without premature listing URLs"
 
