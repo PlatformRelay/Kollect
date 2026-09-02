@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Count renames and deletions when classifying a PR (CI-DOCSGATE-01) [016620e](https://github.com/platformrelay/kollect/commit/016620e5e8913acf4e51c96ed5f7c01c9524f9a2)
+
 - **hack:** Restore the fetcher spellings the last rewrite silently dropped [5edaf2a](https://github.com/platformrelay/kollect/commit/5edaf2ac79b2196d9caa26d018e82112a394d777)
 
 - **ci:** Make the kind download fail at the download, not at chmod [8e9f73d](https://github.com/platformrelay/kollect/commit/8e9f73d18aaf4101844309e8d6395567b2d2b002)
