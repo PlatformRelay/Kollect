@@ -62,25 +62,6 @@ pass() {
   fail "${LIB} is missing -- hack/install-helm.sh sources it for every fetch, so the flag assertions below would have nothing to inspect"
 
 # ---------------------------------------------------------------------------------------------
-# CI-FETCHLIB-01 sibling gate, run FIRST.
-#
-# hack/test/ci_fetch_lib_hardening_test.sh proves the shared helper's behaviour against a real
-# local HTTPS origin, and asserts that every hack/install-*.sh routes through it. This file is
-# invoked from an explicit step in the lint job of .github/workflows/ci.yaml; the sibling is not,
-# because the lane that added it does not own .github/workflows/**, and the dist_*/sonar_ko_*
-# globs in that job do not match its filename. Invoking it here is what keeps it in CI rather
-# than in the tree-but-never-run state that makes a gate decorative.
-#
-# It runs BEFORE this file's own assertions on purpose: install-helm.sh's hardening is now a
-# property of the helper, so "the helper is broken" is the more fundamental diagnosis and is the
-# one an operator should read first. The lane handover records the one-line ci.yaml step that
-# would give the sibling its own name in the job log; until that lands, this is the wiring.
-# ---------------------------------------------------------------------------------------------
-echo "--- CI-FETCHLIB-01 shared fetch helper gate ---"
-bash "${ROOT}/hack/test/ci_fetch_lib_hardening_test.sh"
-echo "--- back to CI-HELMDL-01 install-helm assertions ---"
-
-# ---------------------------------------------------------------------------------------------
 # Static assertions over the source text.
 # ---------------------------------------------------------------------------------------------
 

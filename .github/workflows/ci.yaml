@@ -238,6 +238,16 @@ jobs:
         run: bash hack/test/demo_01_default_samples_test.sh
       - name: Verify demo sample Kustomizations render (DOC-04)
         run: bash hack/test/demo_04_samples_kustomize_test.sh
+      # CI-FETCHLIB-01: the shared fetch helper (hack/lib/fetch.sh) that every hack/install-*.sh
+      # and the kind-e2e-setup action now download through. It gets its OWN step rather than being
+      # invoked from the CI-HELMDL-01 gate below, which is how it first reached CI: that route was
+      # circular (delete the nested call and this gate silently stops running) and it filed every
+      # fetch-lib failure under a step named "install-helm hardening". Not matched by the dist_* or
+      # sonar_ko_* globs, hence the explicit run. It goes BEFORE the install-helm gate because
+      # install-helm's hardening is now a property of the helper, so "the helper is broken" is the
+      # more fundamental diagnosis and the one an operator should read first.
+      - name: Verify shared fetch helper hardening (CI-FETCHLIB-01)
+        run: bash hack/test/ci_fetch_lib_hardening_test.sh
       # CI-HELMDL-01: hack/install-helm.sh is what the kind-e2e-setup composite action runs to
       # get helm, and a single transient `curl: (7)` to get.helm.sh reddened the REQUIRED
       # kind-smoke check on PR #351. This gate locks in the retry/protocol-pinning hardening
