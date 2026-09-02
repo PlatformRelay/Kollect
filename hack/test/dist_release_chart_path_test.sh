@@ -168,23 +168,32 @@ cat >"${STUB_BIN}/helm" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${STUB_LOG}/helm.args"
 
-# Scan argv for the target and the package rather than reading $3 and $2 positionally.
-# A benign `helm push --debug "${CHART_PKG}" "${CHART_OCI}"` would otherwise shift both
-# and produce a false red whose message blamed the wrong thing -- fails closed, but
-# misdirects, and a misdirecting gate costs more than the mutation it catches.
+# Scan argv for the SUBCOMMAND, the target and the package rather than reading $1, $3 and
+# $2 positionally. A benign `helm push --debug "${CHART_PKG}" "${CHART_OCI}"` would
+# otherwise shift the operands and produce a false red whose message blamed the wrong
+# thing -- fails closed, but misdirects, and a misdirecting gate costs more than the
+# mutation it catches.
+#
+# The subcommand is scanned for the same reason and by the same means: helm accepts its
+# global flags BEFORE the subcommand too, so `helm --debug push ...` is valid CLI. Keying
+# the recording on "$1" made that form record NOTHING, and the gate then reported "saw 0
+# pushes" -- a true count with no hint that the stub, not the workflow, was what failed to
+# see the push.
+subcommand=""
 target=""
 pkg=""
 for arg in "$@"; do
   case "${arg}" in
   oci://*) target="${arg}" ;;
   *.tgz) pkg="${arg}" ;;
+  push) subcommand="push" ;;
   esac
 done
 
 # Recorded ONLY for `push`, and APPENDED. Writing on every invocation with `>` would let a
 # later `helm registry login` (or a second push) silently decide what the assertion reads;
 # appending makes an unexpected extra push a visible failure instead.
-if [[ "${1:-}" == "push" ]]; then
+if [[ "${subcommand}" == "push" ]]; then
   printf '%s\n' "${target}" >>"${STUB_LOG}/helm.target"
 fi
 
@@ -223,6 +232,50 @@ SIM_VERSION="9.9.9"
 SIM_ACTOR="sim-actor"
 SIM_TOKEN="sim-token"
 SIM_DIGEST="sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+# Self-test the helm stub before anything depends on it. This stub is the gate's ONLY
+# witness of what the publish step pushed, so a call it fails to recognise as a push is a
+# call this gate cannot judge -- and it does not fail loudly, it fails as a count of zero
+# with a confidently wrong cause. helm accepts its global flags on either side of the
+# subcommand, so all three orderings below are valid CLI, and a stub keyed on "$1" saw
+# only the first two.
+STUB_SELFTEST_DIR="${TMP}/stub-selftest"
+SIM_PUSH_TARGET="oci://${SIM_REGISTRY}/${SIM_OWNER_LC}/charts"
+stub_helm_target_for() {
+  rm -rf "${STUB_SELFTEST_DIR}"
+  mkdir -p "${STUB_SELFTEST_DIR}"
+  : >"${STUB_SELFTEST_DIR}/helm.target"
+  env -i "PATH=/usr/local/bin:/usr/bin:/bin" \
+    "STUB_LOG=${STUB_SELFTEST_DIR}" \
+    "STUB_HELM_DIGEST=${SIM_DIGEST}" \
+    "${STUB_BIN}/helm" "$@" >/dev/null 2>&1
+}
+
+while IFS='|' read -r -a stub_argv; do
+  [[ "${#stub_argv[@]}" -gt 0 ]] || continue
+  stub_helm_target_for "${stub_argv[@]}"
+  stub_recorded="$(cat "${STUB_SELFTEST_DIR}/helm.target")"
+  [[ "${stub_recorded}" == "${SIM_PUSH_TARGET}" ]] ||
+    fail "stub helm did not record 'helm ${stub_argv[*]}' as a push of '${SIM_PUSH_TARGET}' (it recorded '${stub_recorded}'). helm takes its global flags BEFORE or AFTER the subcommand, so every ordering here is valid CLI; a push this stub cannot see makes the assertions below report that the publish step performed no push at all, blaming the workflow for the stub's blind spot. Scan argv for the subcommand, the way the target and the package are already scanned for, rather than reading \$1"
+done <<EOF
+push|dist/${SIM_CHART_NAME}-${SIM_VERSION}.tgz|${SIM_PUSH_TARGET}
+push|--debug|dist/${SIM_CHART_NAME}-${SIM_VERSION}.tgz|${SIM_PUSH_TARGET}
+--debug|push|dist/${SIM_CHART_NAME}-${SIM_VERSION}.tgz|${SIM_PUSH_TARGET}
+EOF
+
+# The converse. Recognising too much is the same defect pointed the other way: a
+# `helm registry login` counted as a push would fill helm.target and the count assertion
+# would then judge a line no push ever wrote.
+#
+# Counted in LINES, not compared as a string: a non-push has no oci:// argument, so a stub
+# that recorded it would append an EMPTY line, and an emptiness test would read that as
+# "nothing recorded" -- the assertion would pass on exactly the mutation it exists for.
+stub_helm_target_for registry login "${SIM_REGISTRY}"
+stub_recorded_lines="$(wc -l <"${STUB_SELFTEST_DIR}/helm.target")"
+[[ "${stub_recorded_lines}" -eq 0 ]] ||
+  fail "stub helm recorded ${stub_recorded_lines} push target(s) for 'helm registry login ${SIM_REGISTRY}' (recorded: '$(tr '\n' '|' <"${STUB_SELFTEST_DIR}/helm.target")') -- only a push may append to helm.target, or an unrelated helm call decides what the push-target assertion below is judging"
+
+pass "stub helm recognises a push whichever side of the subcommand helm's global flags land on, and only a push"
 
 # Set by resolve_step_env from the chart step's real outputs.
 SIM_CHART_OCI=""
@@ -521,8 +574,21 @@ run_step "${PUBLISH_STEP_SEL}" "Publish and sign Helm chart (OCI)" "no" \
 # is a prefix of the child -- which is exactly how that mutation passed an earlier
 # revision of this gate green.
 mapfile -t helm_targets <"${TMP}/helm.target"
-[[ "${#helm_targets[@]}" -eq 1 ]] ||
-  fail "expected exactly one 'helm push' from the publish step, saw ${#helm_targets[@]} (targets: ${helm_targets[*]-none}) -- with more than one, the target assertion below cannot say which push it is judging"
+# Split by count. One message covering both directions had to pick a rationale, picked
+# "with more than one ...", and then printed it under "saw 0" -- the branch a reader
+# actually lands in, contradicting the number immediately to its left. The zero case has
+# a different cause and a different first thing to look at, so it says so, and it prints
+# what the stub DID receive, because the likeliest cause is that helm was invoked in a
+# form the stub did not recognise as a push.
+case "${#helm_targets[@]}" in
+1) ;;
+0)
+  fail "the publish step performed no 'helm push' at all -- stub helm recorded none, so nothing below is judging a real push target. Either the step stopped pushing the chart, or it invoked helm in a form the stub does not recognise as a push. Stub helm was called with: $(tr '\n' '|' <"${TMP}/helm.args")"
+  ;;
+*)
+  fail "the publish step performed ${#helm_targets[@]} 'helm push' invocations (targets: ${helm_targets[*]}) -- with more than one, the target assertion below cannot say which push it is judging. Keep exactly one"
+  ;;
+esac
 helm_target="${helm_targets[0]}"
 [[ "${helm_target}" == "${SIM_CHART_OCI}" ]] ||
   fail "'helm push' must be given exactly the chart step's 'oci' output ('${SIM_CHART_OCI}') as its target, got '${helm_target}' -- helm APPENDS the chart name, so this publishes to '${helm_target#oci://}/${SIM_CHART_NAME}'"
