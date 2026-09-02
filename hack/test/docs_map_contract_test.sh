@@ -58,9 +58,22 @@
 #     A parser that silently drops input it cannot parse is the very defect this gate exists to
 #     catch in the map; it must not commit it itself.
 #
+# A blank line ends a Markdown table, so the section is swept a second time for anything
+# link-shaped OUTSIDE the table: an entry row separated from the table by a blank line, or prose
+# carrying a link, is reported rather than silently unread. That hole cost 5 of 30 links, a
+# planted FAQ label and a duplicate destination, at exit 0, with `mkdocs build --strict` and
+# `markdownlint-cli2` both silent on it.
+#
 # Direction of error is deliberate. A tab-indented row is an indented code block to the renderer
 # but still a row to this parser -- stricter than the renderer, so a loud false positive rather
 # than a silent pass. That is the safe side to be wrong on.
+#
+# Two residual boundaries, named here rather than left to be discovered. An autolink
+# (`<https://example.com>`) in a cell renders as a link but is neither checked nor reported: its
+# target is external, so none of the four rules could bind it -- it is the one link form the
+# "anything link-shaped is REPORTED" clause does not cover. And a `[label]: target` definition
+# outside the table is skipped by the sweep, because it renders nothing on its own; it is checked
+# where it is USED, inside a row.
 #
 # Every parse step is guarded against a vacuous pass: an empty map, an entry row with no links, an
 # empty nav index and an empty redirect map are hard failures, because a gate that parses nothing
@@ -80,6 +93,11 @@ readonly DOCS_DIR MKDOCS
 # mutated copy to prove the two vacuity floors driven from mkdocs.yml (the redirect-map floor and
 # the nav floor) actually fire. Nothing outside the self-test reassigns it.
 MKDOCS_FILE="${MKDOCS}"
+
+# Unit Separator, the field delimiter of the parser records below. Not a tab: with IFS=$'\t'
+# bash's `read` collapses runs of tabs and would silently merge an empty field into its
+# neighbour. No 0x1f byte appears anywhere under docs/ or in mkdocs.yml.
+readonly SEP=$'\x1f'
 
 fail() {
   echo "FAIL: $*" >&2
@@ -147,6 +165,14 @@ extract_map() {
   awk '
     function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
     function isdelim(s) { return (s ~ /-/ && s ~ /^[|[:space:]:-]+$/) }
+    # Anything that renders as, or contains, a link. `<a`/`<img` are here because MD033 is
+    # disabled repo-wide, so raw HTML links are invisible to markdownlint too.
+    function islinkshaped(s,   lo) {
+      lo = tolower(s)
+      return (index(s, "[") > 0 || lo ~ "<a[ \t>/]" || lo ~ "<img[ \t>/]")
+    }
+    # A link reference definition renders nothing on its own; it is checked where it is USED.
+    function isdef(s) { return (s ~ /^\[[^]]+\][ \t]*:[ \t]*[^ \t]/) }
     function emit(kind, rowno, a, b) { print kind sep rowno sep a sep b }
     BEGIN { sep = sprintf("%c", 31) }
     { line = trim($0) }
@@ -154,7 +180,7 @@ extract_map() {
     # section, so they are collected from every line. Deliberately no `next`: a definition line
     # sitting INSIDE the table must still be buffered as a row, or removing it from the buffer
     # would silently splice two blocks together.
-    line ~ /^\[[^]]+\][ \t]*:[ \t]*[^ \t]/ {
+    isdef(line) {
       cb = index(line, "]")
       lbl = tolower(substr(line, 2, cb - 2))
       val = substr(line, cb + 1)
@@ -171,7 +197,8 @@ extract_map() {
       emit("SECLINES", nonblank, "", "")
 
       # Find the table blocks: a run of consecutive non-blank lines whose second line is a
-      # delimiter. Prose paragraphs elsewhere in the section are separate runs and are ignored.
+      # delimiter. Prose paragraphs elsewhere in the section are separate runs; link-shaped ones
+      # are reported as ORPHAN below rather than ignored.
       nblocks = 0
       i = 1
       while (i <= sn) {
@@ -212,10 +239,19 @@ extract_map() {
         # Residue that is still link-shaped: a shortcut reference or any other bracket form, and
         # raw HTML anchors/images -- which render as links while MD033 is disabled repo-wide, so
         # markdownlint says nothing about them either.
-        lower = tolower(rest)
-        if (index(rest, "[") > 0 || lower ~ "<a[ \t>/]" || lower ~ "<img[ \t>/]") {
-          emit("STRAY", r, rest, "")
-        }
+        if (islinkshaped(rest)) { emit("STRAY", r, rest, "") }
+      }
+
+      # Anything link-shaped in the SECTION but outside the table just read. A blank line ends a
+      # Markdown table, so an entry row separated by one falls into a second paragraph that is
+      # neither a block nor -- until this loop existed -- reported: 30 links rendered, 25
+      # checked, exit 0, with a planted FAQ label and a duplicate destination among the 5 lost.
+      # Prose carrying a link has the same effect. Reference definitions are skipped: they
+      # render nothing on their own and are checked where they are used.
+      for (k = 1; k <= sn; k++) {
+        if (k >= bs && k <= be) { continue }
+        if (sec[k] == "" || isdef(sec[k])) { continue }
+        if (islinkshaped(sec[k])) { emit("ORPHAN", k, sec[k], "") }
       }
     }
   ' "${index}"
@@ -282,7 +318,7 @@ deleted_pages() {
 
 check_map() {
   local index="$1"
-  local -a row_texts=() labels=() dests=() dest_paths=() link_rows=()
+  local -a row_texts=() labels=() dests=() dest_paths=() link_rows=() unreadable=()
   local label dest basename_no_ext nav_label h1 matched
   local i j seen_dup=0 links=0 row_count=0 row_has_link
   local kind num field3 field4 rel sec_lines=0 block_count=0
@@ -290,7 +326,7 @@ check_map() {
   [[ -f "${index}" ]] || fail "expected an index file at ${index}"
   rel="${index#"${ROOT}"/}"
 
-  while IFS=$'\x1f' read -r kind num field3 field4; do
+  while IFS="${SEP}" read -r kind num field3 field4; do
     case "${kind}" in
     SECLINES) sec_lines="${num}" ;;
     BLOCKS) block_count="${num}" ;;
@@ -307,11 +343,10 @@ check_map() {
       link_rows+=("${num}")
       links=$((links + 1))
       ;;
-    UNDEF)
-      fail "${rel}'s Documentation map row ${num} uses the reference-style link '[${field3}][${field4}]', but the file defines no '[${field4}]: <target>' -- Markdown renders that as literal text rather than a link, and this gate cannot check where it claims to point"
-      ;;
-    STRAY)
-      fail "${rel}'s Documentation map row ${num} carries something link-shaped this gate cannot read as a link: '${field3}' -- write map entries as inline [label](destination) links, or as reference-style links with a matching '[ref]: <target>' definition. A raw <a>/<img> tag renders as a link but is invisible to this contract, and markdownlint says nothing (MD033 is disabled repo-wide). Reporting it is deliberate: what the parser cannot read would otherwise be skipped in silence, which is the defect this gate exists to catch"
+    UNDEF | STRAY | ORPHAN)
+      # Deferred, not failed on the spot: a structural problem (no table, two tables) explains
+      # these and names the fix better, so the guards below get first refusal.
+      unreadable+=("${kind}${SEP}${num}${SEP}${field3}${SEP}${field4}")
       ;;
     esac
   done < <(extract_map "${index}")
@@ -323,8 +358,27 @@ check_map() {
     fail "${rel}'s Documentation map has no delimiter row beneath its header -- expected a '| --- | --- |' line as the table's second line; without one the renderer produces no table at all, and this gate has no rows to check"
   [[ "${block_count}" -eq 1 ]] ||
     fail "${rel}'s '## Documentation map' section contains ${block_count} tables -- this gate reads the first, so the rest would go unchecked; keep the map in one table"
-  [[ "${row_count}" -gt 0 ]] ||
-    fail "${rel} has no parseable '## Documentation map' table -- the rules below would pass vacuously"
+
+  # Everything the parser could not read, reported rather than skipped.
+  for i in "${!unreadable[@]}"; do
+    kind="${unreadable[$i]%%"${SEP}"*}"
+    num="${unreadable[$i]#*"${SEP}"}"
+    field3="${num#*"${SEP}"}"
+    num="${num%%"${SEP}"*}"
+    field4="${field3#*"${SEP}"}"
+    field3="${field3%%"${SEP}"*}"
+    case "${kind}" in
+    UNDEF)
+      fail "${rel}'s Documentation map row ${num} uses the reference-style link '[${field3}][${field4}]', but the file defines no '[${field4}]: <target>' -- Markdown renders that as literal text rather than a link, and this gate cannot check where it claims to point"
+      ;;
+    ORPHAN)
+      fail "${rel}'s '## Documentation map' section carries a link OUTSIDE the table this gate reads, on section line ${num}: '${field3}' -- a blank line ends a Markdown table, so any entry row after one is a separate paragraph that none of the rules below can see, and a link in prose here is unchecked for the same reason. Keep every map entry in one unbroken table"
+      ;;
+    STRAY)
+      fail "${rel}'s Documentation map row ${num} carries something link-shaped this gate cannot read as a link: '${field3}' -- write map entries as inline [label](destination) links, or as reference-style links with a matching '[ref]: <target>' definition. A raw <a>/<img> tag renders as a link but is invisible to this contract, and markdownlint says nothing (MD033 is disabled repo-wide). Reporting it is deliberate: what the parser cannot read would otherwise be skipped in silence, which is the defect this gate exists to catch"
+      ;;
+    esac
+  done
 
   # A pipe table is a header row, a delimiter row, then the entries. Both are identified
   # POSITIONALLY inside the block located above: keying off their text (`| Section`, `| ---`)
@@ -613,17 +667,50 @@ mutant_rejected "${MUTANTS}/raw-html-anchor.md" \
   'a map entry is written as a raw HTML anchor' 'cannot read as a link'
 
 # A second table in the section: this gate reads the first, so the rest must not go unnoticed.
+# Its rows are deliberately LINK-FREE, so the orphan sweep below cannot claim this mutant and the
+# one-table assertion is the only thing that can reject it.
 awk '
   { print }
   /^\| \*\*Contributing\*\* \|/ {
     print ""
-    print "| Section | Start here |"
+    print "| Section | Notes |"
     print "| --- | --- |"
-    print "| **Extra** | [Glossary](GLOSSARY.md) |"
+    print "| **Extra** | nothing to see here |"
   }
 ' "${DOCS_DIR}/index.md" >"${MUTANTS}/two-tables.md"
 mutant_rejected "${MUTANTS}/two-tables.md" \
   'the map section carries a second table the gate would not read' 'contains 2 tables'
+
+# A blank line ends a Markdown table. The rows after one still render as rows -- markdown-it
+# produces all 30 links, every one resolves so `mkdocs build --strict` is silent, and
+# markdownlint-cli2 reports 0 issues under this repo's own config -- but they are a second
+# paragraph, not part of the table this gate reads.
+#
+# The split is placed before the LAST row on purpose, so that the table this gate does read still
+# holds 25 links and clears the 20-link floor. Splitting earlier is caught by that floor, which
+# would leave the sweep below untested -- the floor would be doing the work and an ablation of the
+# sweep would still look dead. Here nothing but the sweep can see it: the orphaned row carries
+# both a planted FAQ label (rule 3) and a second link to a page the map already lists (rule 2),
+# and with the sweep ablated this file passes at exit 0 with both defects in it.
+awk '
+  /^\| \*\*Contributing\*\* \|/ { print "" }
+  { print }
+' "${DOCS_DIR}/index.md" |
+  sed 's#\[Release process\](RELEASE.md)#[FAQ](operator-manual/troubleshooting.md)#' \
+    >"${MUTANTS}/blank-line-in-table.md"
+mutant_rejected "${MUTANTS}/blank-line-in-table.md" \
+  'a blank line splits the table and orphans the rows after it' 'carries a link OUTSIDE the table'
+
+# The same hole reached from the other side: prose in the section carrying a link nothing checks.
+awk '
+  { print }
+  /^\| \*\*Contributing\*\* \|/ {
+    print ""
+    print "See also the [Glossary](GLOSSARY.md) for terminology."
+  }
+' "${DOCS_DIR}/index.md" >"${MUTANTS}/orphan-prose-link.md"
+mutant_rejected "${MUTANTS}/orphan-prose-link.md" \
+  'prose inside the map section carries an unchecked link' 'carries a link OUTSIDE the table'
 
 # --- the vacuity floors themselves ---
 
@@ -686,6 +773,34 @@ mkdocs_mutant_rejected "${MUTANTS}/nav-gutted.yaml" \
   'rule 4 would silently degrade to an H1-only check'
 
 # --- guard rails ---
+
+# Green direction: normalize() is what lets the map differ from the nav in case and punctuation
+# without differing in NAME. Nothing above needs it -- verified: reducing normalize() to the
+# identity function survived every mutant in this file until this case existed -- so the rule that
+# the map need not copy the nav byte for byte is asserted here rather than assumed.
+sed 's#\[Production checklist\](operator-manual/production-checklist.md)#[PRODUCTION-CHECKLIST](operator-manual/production-checklist.md)#' \
+  "${DOCS_DIR}/index.md" >"${MUTANTS}/label-recased.md"
+if cmp -s "${MUTANTS}/label-recased.md" "${DOCS_DIR}/index.md"; then
+  fail "self-test: the recased-label case is byte-identical to docs/index.md -- it proves nothing"
+fi
+if ! (check_map "${MUTANTS}/label-recased.md") >/dev/null 2>&1; then
+  fail "self-test: the gate rejects a map label differing from its nav label only in case and punctuation -- normalize() is inert, and the map would have to copy the nav byte for byte: $( (check_map "${MUTANTS}/label-recased.md") 2>&1 )"
+fi
+pass "self-test: gate accepts a label differing from its nav label only in case and punctuation"
+
+# Green direction: rule 4 accepts the nav label OR the H1, and today every label in the real map
+# matches a nav label -- so the H1 half was dead code that no mutant touched. concepts/
+# architecture.md is nav "Architecture" but H1 "Kollect architecture", which makes it the one
+# destination where the two differ and the fallback can be exercised.
+sed 's#\[Architecture\](concepts/architecture.md)#[Kollect architecture](concepts/architecture.md)#' \
+  "${DOCS_DIR}/index.md" >"${MUTANTS}/label-matches-h1-only.md"
+if cmp -s "${MUTANTS}/label-matches-h1-only.md" "${DOCS_DIR}/index.md"; then
+  fail "self-test: the H1-fallback case is byte-identical to docs/index.md -- it proves nothing"
+fi
+if ! (check_map "${MUTANTS}/label-matches-h1-only.md") >/dev/null 2>&1; then
+  fail "self-test: the gate rejects a label that matches its destination's H1 but not its nav label -- rule 4's documented H1 fallback is inert: $( (check_map "${MUTANTS}/label-matches-h1-only.md") 2>&1 )"
+fi
+pass "self-test: gate accepts a label matching its destination's H1 rather than its nav label"
 
 # Guard rail: the rules must not fire on the real map, or every "rejection" above is noise.
 cp "${DOCS_DIR}/index.md" "${MUTANTS}/unmutated.md"
