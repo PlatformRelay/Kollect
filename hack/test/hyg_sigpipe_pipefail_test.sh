@@ -37,13 +37,23 @@
 #   3. Parser self-test, then a static sweep that refuses NEW instances anywhere in the
 #      tree's shell.
 #
-# LIMITS — what this gate does NOT see, stated so a green run is read correctly:
+# LIMITS — what this gate does NOT see, stated so a green run is read correctly.
+#   THE RULE: anything the sweep cannot READ is REPORTED, never assumed clean. A gate that
+#   silently downgrades "I could not tell" to "nothing here" is committing this lane's own
+#   defect in its own implementation, so both ways of failing to read a line have a report
+#   class and both are printed even on a red run:
+#     * "unparseable" — the quote/substitution stack did not close, so the line was not
+#       scanned at all.
+#     * "unresolved"  — the line WAS parsed and DOES feed a short-circuiting consumer, but
+#       no upstream stage resolved to a command name (a `"${CMD}"` producer, a construct
+#       this resolver does not model), so whether it is an instance is UNKNOWN.
+#   Genuinely out of scope, by choice rather than by blindness:
 #   * Producers whose output size is visible in the source (`echo "$VAR"`, `printf`, `sed`,
-#     `awk`, `grep` over an in-repo file) are out of scope; see the note above ALLOWED.
-#   * Heredoc bodies are scanned as if they were code, and a logical line whose quotes do
-#     not close cannot be parsed at all. The latter is REPORTED (see "unparseable" below)
-#     rather than dropped; the gate never claims to have scanned a line it could not read.
-#   * It is a text sweep: it cannot see a pipeline assembled at runtime (`eval`, `$CMD`).
+#     `awk`, `grep` over an in-repo file); see the note above ALLOWED.
+#   * Heredoc bodies are scanned as if they were code. False positives from that fail LOUD,
+#     which is the safe direction.
+#   * It is a text sweep: a pipeline assembled at runtime (`eval`, `$CMD`) cannot be read,
+#     and lands in "unresolved" rather than being passed over.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -141,6 +151,28 @@ got="$(probe_lib_predicate "${TMP}/does-not-exist")"
   fail "_hero_export_has_inventory_files reported 'present' for a missing directory"
 pass "_hero_export_has_inventory_files: missing directory reported absent"
 
+# A FAILING producer must not be reported as success. This is the other half of choosing
+# `wc -l` over `grep -c . || true`: `|| true` discards find's status, so an unreadable
+# directory comes back as the string "0" -- indistinguishable from an honest zero, and in
+# an ABSENCE assertion that is a silent pass. The fixture is a directory find can only
+# partly read, holding a file it CAN see: the mutant answers "present" from the readable
+# part, the fixed code answers "cannot tell".
+BROKEN="${TMP}/broken-clone"
+mkdir -p "${BROKEN}/blocked"
+printf 'apiVersion: v1\n' >"${BROKEN}/visible.yaml"
+chmod 000 "${BROKEN}/blocked" 2>/dev/null || true
+if find "${BROKEN}" -type f >/dev/null 2>&1; then
+  # Running as root (or on a filesystem ignoring the mode): find can still read it, so the
+  # error path is unreachable here. Say so rather than passing an untested assertion.
+  note "skipped the producer-failure assertion: find can still read a 0000 directory as this user"
+else
+  got="$(probe_lib_predicate "${BROKEN}" 2>/dev/null)"
+  [[ "${got}" != "present" ]] ||
+    fail "_hero_export_has_inventory_files reported 'present' for a directory find could NOT fully read — a failed producer must never be reported as success (the '|| return 1' in lib.sh is what enforces this)"
+  pass "_hero_export_has_inventory_files: failed producer reported as not-present, never success"
+fi
+chmod 755 "${BROKEN}/blocked" 2>/dev/null || true
+
 # ---------------------------------------------------------------------------
 # 3. Static sweep — no NEW instances of the shape.
 # ---------------------------------------------------------------------------
@@ -153,9 +185,19 @@ pass "_hero_export_has_inventory_files: missing directory reported absent"
 #               for no signal. They are not SAFE, they are out of this gate's scope.
 # Logical lines are reassembled first (`\`, `|`, `&&`, `||` continuations), because every
 # instance this gate was written for spans two physical lines.
-readonly SHORT_CIRCUIT_CONSUMER='^(grep([[:space:]]+-[a-zA-Z-]+)*[[:space:]]+-[a-zA-Z]*q|head([[:space:]]|$))'
+# Every way of telling grep to stop reading early. `-q` is the common one, but `--quiet`,
+# `--silent`, `-m1` and `--max-count=1` short-circuit identically, and a gate whose claim is
+# exhaustiveness cannot be evaded by spelling the same flag differently.
+readonly SHORT_CIRCUIT_FLAG='(^|[[:space:]])(--quiet([[:space:]]|$)|--silent([[:space:]]|$)|--max-count[=[:space:]]*[0-9]|-m[[:space:]]*[0-9]|-[a-zA-Z]*q[a-zA-Z]*([[:space:]]|$))'
 # Looser form, used only to decide whether an UNPARSEABLE line is worth reporting.
-readonly MENTIONS_SHORT_CIRCUIT='(grep([[:space:]]+-[a-zA-Z-]+)*[[:space:]]+-[a-zA-Z]*q|[[:space:]]head([[:space:]]|$))'
+readonly MENTIONS_SHORT_CIRCUIT='(grep.*(--quiet|--silent|--max-count|-m[[:space:]]*[0-9]|-[a-zA-Z]*q)|[[:space:]]head([[:space:]]|$))'
+
+is_short_circuit_consumer() { # trimmed pipeline stage -> 0 when it stops reading early
+  local seg="$1"
+  [[ "${seg}" =~ ^head([[:space:]]|$) ]] && return 0
+  [[ "${seg}" =~ ^grep([[:space:]]|$) ]] || return 1
+  [[ "${seg}" =~ ${SHORT_CIRCUIT_FLAG} ]]
+}
 readonly UNBOUNDED_PRODUCER='^(find|git|ls|curl|wget|kubectl|kind|helm|docker|podman|gh|glab|oras|cosign|crane|rg|tar|kustomize)([[:space:]]|$)'
 
 # ALLOW-LIST — pre-existing instances, one reason per entry. Matched as
@@ -226,6 +268,13 @@ ALLOWED=(
   # `gh api ... | head -1` behind `|| true`: SIGPIPE silently substitutes the fallback for
   # the real commit message. Cosmetic. Owner: hack/demo/kind-wide-scope/**.
   "hack/demo/kind-wide-scope/lib/reveal.sh::gh api"
+  # `kustomize version | head -1 | tr -d v`. Found only once the head resolver learned
+  # to look past a `case` label -- before that it was declared in scope (kustomize is a
+  # listed producer, head a listed consumer) yet structurally could not fire, so it was
+  # invisible AND unallow-listed, which made this list's "every instance" claim untrue
+  # on the tree as shipped. Benign: `kustomize version` prints one line, so head cannot
+  # outrun it. Owner: hack/demo/kind-wide-scope/** (not hack/demo/hero/**).
+  "hack/demo/kind-wide-scope/lib/check.sh::kustomize version"
   # `git status --porcelain | grep -q 'testdata/fuzz/'` in CI. A large dirty tree makes the
   # new-fuzz-corpus check miss. Owner: .github/workflows/** (a different lane this session).
   ".github/workflows/ci.yaml::git status --porcelain"
@@ -272,10 +321,12 @@ mark_pipes() {
         if (c == "'"'"'") { top++; stack[top] = "sq"; out = out c; continue }
         if (c == "\"")    { top++; stack[top] = "dq"; out = out c; continue }
         if (c == ")" && top > 1) { top--; out = out c; continue }
-        if (c == "|") {
-          if (nxt == "|") { out = out "||"; i++; continue }   # OR, not a pipe
-          out = out "\001"; continue
-        }
+        # \002 marks a COMMAND SEPARATOR (; && ||). The command feeding a pipe is the last
+        # one before it, not the first one on the line, so the head resolver splits here.
+        if (c == ";") { out = out "\002;"; continue }
+        if (c == "&" && nxt == "&") { out = out "\002&&"; i++; continue }
+        if (c == "|" && nxt == "|") { out = out "\002||"; i++; continue }
+        if (c == "|") { out = out "\001"; continue }
         out = out c
       }
       printf "%s\t%s\n", (top == 1 ? "ok" : "unbalanced"), out
@@ -290,8 +341,10 @@ join_logical_lines() {
       line = $0
       sub(/^[ \t]+/, "", line)
       sub(/[ \t]+$/, "", line)
+      cont = (line ~ /\\$/)
+      if (cont) sub(/\\$/, "", line)   # continuation marker, not content
       if (buf == "") { start = NR; buf = line } else { buf = buf " " line }
-      if (buf ~ /(\\|\||&&)$/) next
+      if (cont || buf ~ /(\||&&)$/) next
       printf "%d\t%s\n", start, buf
       buf = ""
     }
@@ -309,10 +362,16 @@ join_logical_lines() {
 # never fire on it. Anything added here must match to a token boundary.
 #
 # Shell keywords and `set`-style builtins that can precede a command.
-readonly NOISE_TOKENS=' if elif else fi then do done while until case esac local export readonly declare typeset time command builtin eval exec source . run: '
+readonly NOISE_TOKENS=' if elif else fi then do done for while until case esac in select local export readonly declare typeset time command builtin eval exec source . run: '
 # Wrappers that run another command: the real producer is what FOLLOWS them.
 # `timeout` additionally swallows its duration argument.
 readonly WRAPPER_TOKENS=' sudo env nice ionice stdbuf nohup timeout '
+
+# Subject word of `case WORD in` / `for x in`. Kept in a variable, not written inline
+# in `[[ =~ ]]`: bash applies quote removal to an UNQUOTED pattern, so the `"` in this
+# regex is consumed as shell quoting and the alternation silently mis-parses -- which is
+# exactly how the `case` one-liner kept escaping after the rule for it was added.
+readonly SUBJECT_WORD_RE='^("[^"]*"|'"'"'[^'"'"']*'"'"'|\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*|[A-Za-z_][A-Za-z0-9_]*)[[:space:]]+in[[:space:]]'
 
 strip_leading_noise() {
   local seg="$1" prev="" tok
@@ -328,6 +387,18 @@ strip_leading_noise() {
       continue
     fi
     if [[ "${seg}" =~ ^function[[:space:]]+[A-Za-z_][A-Za-z0-9_-]*[[:space:]]*\{ ]]; then
+      seg="${seg#"${BASH_REMATCH[0]}"}"
+      continue
+    fi
+    # The subject word of `case WORD in` / `for x in` is an argument, not a command; it
+    # would otherwise block resolution of the body that follows on the same line.
+    if [[ "${seg}" =~ ${SUBJECT_WORD_RE} ]]; then
+      seg="${seg#"${BASH_REMATCH[0]}"}"
+      continue
+    fi
+    # `case` pattern label: `kustomize)` / `*)` / `a|b)`. Without this the label reads as
+    # the command head and hides the real one (hack/demo/kind-wide-scope/lib/check.sh:32).
+    if [[ "${seg}" =~ ^[A-Za-z0-9_*?.@+-]+\)[[:space:]] ]]; then
       seg="${seg#"${BASH_REMATCH[0]}"}"
       continue
     fi
@@ -364,12 +435,44 @@ strip_leading_noise() {
   printf '%s\n' "${seg}"
 }
 
+# A head is RESOLVED only when stripping leaves a bare command word. Anything else -- a
+# quoted or variable command, a `[[ … ]]` test, an empty remainder, a token shape this
+# resolver does not model -- is UNRESOLVED, and must be reported rather than quietly
+# treated as "not a producer". That silent-fail-open direction is the defect this whole
+# gate is about; it is not allowed to live inside the gate.
+readonly RESOLVED_HEAD='^[A-Za-z_./][A-Za-z0-9_./+-]*([[:space:]]|$)'
+
+# Resolve the command whose stdout feeds the pipe. That is the LAST command in the segment,
+# not the first token on the line: `f() { local d="$1"; find . | grep -q x; }` and
+# `cd "${ROOT}" && git ls-files | grep -q vendor` both put an unrelated word first, and the
+# `&&` case is manufactured by this gate's own line-joining. So split on the command
+# separators marked by mark_pipes and walk them right-to-left, taking the first one that
+# resolves. Walking right-to-left (rather than only looking at the last) means a separator
+# inside a construct this resolver cannot model degrades to a wider guess instead of a miss.
+# Prints the resolved head, or nothing when the segment cannot be resolved at all.
+resolve_head() {
+  local seg="$1" k head
+  local -a parts=()
+  IFS=$'\002' read -r -a parts <<<"${seg}"
+  for ((k = ${#parts[@]} - 1; k >= 0; k--)); do
+    head="$(strip_leading_noise "${parts[k]}")"
+    [[ "${head}" =~ ${RESOLVED_HEAD} ]] && {
+      printf '%s\n' "${head}"
+      return 0
+    }
+  done
+  return 1
+}
+
 # path -> prints "<verdict>\t<line>\t<logical line>" per finding.
 #   verdict "hit"         : an unbounded producer feeds a short-circuiting consumer
 #   verdict "unparseable" : the quote/substitution stack did not close, so this line was
 #                           NOT scanned and could be hiding an instance
+#   verdict "unresolved"  : the line WAS parsed and does feed a short-circuiting consumer,
+#                           but the producing command could not be identified, so whether
+#                           it is an instance is UNKNOWN -- reported, never assumed clean
 scan_file() {
-  local path="$1" state lineno text norm i j seg first rec
+  local path="$1" state lineno text norm i j seg head rec resolved
   # join + mark once per FILE, not once per line: one awk per line turns a ~190-file sweep
   # into ~24k processes and takes minutes.
   while IFS= read -r rec; do
@@ -378,6 +481,7 @@ scan_file() {
     norm="${rec#*$'\t'}"
     lineno="${rec%%$'\t'*}"
     text="${norm//$'\001'/|}"
+    text="${text//$'\002'/}"
     if [[ "${state}" == "unbalanced" ]]; then
       # Only worth reporting when the line could actually hide an instance; an unclosed
       # quote in a prose message cannot.
@@ -391,14 +495,23 @@ scan_file() {
     IFS=$'\001' read -r -a segs <<<"${norm}"
     for ((i = 1; i < ${#segs[@]}; i++)); do
       seg="${segs[i]#"${segs[i]%%[![:space:]]*}"}"
-      [[ "${seg}" =~ ${SHORT_CIRCUIT_CONSUMER} ]] || continue
+      is_short_circuit_consumer "${seg}" || continue
+      resolved=0
       for ((j = 0; j < i; j++)); do
-        first="$(strip_leading_noise "${segs[j]#"${segs[j]%%[![:space:]]*}"}")"
-        if [[ "${first}" =~ ${UNBOUNDED_PRODUCER} ]]; then
-          printf 'hit\t%s\t%s\n' "${lineno}" "${text}"
-          continue 3 # one report per logical line, then on to the next line
+        if head="$(resolve_head "${segs[j]}")"; then
+          resolved=1
+          if [[ "${head}" =~ ${UNBOUNDED_PRODUCER} ]]; then
+            printf 'hit\t%s\t%s\n' "${lineno}" "${text}"
+            continue 3 # one report per logical line, then on to the next line
+          fi
         fi
       done
+      # Parsed, feeds a short-circuiting consumer, and NOT ONE upstream stage could be
+      # resolved to a command: say so instead of returning "clean" for a line never read.
+      if [[ "${resolved}" -eq 0 ]]; then
+        printf 'unresolved\t%s\t%s\n' "${lineno}" "${text}"
+        continue 2
+      fi
     done
   done < <(join_logical_lines "${path}" | mark_pipes)
 }
@@ -429,6 +542,16 @@ if timeout 30 kubectl logs -f deploy/x | grep -q 'ready'; then :; fi # GATE-SIGP
 sample="$(find . -type f | head -1)" # GATE-SIGPIPE-01-SELFTEST case:assignment-substitution
 if ! find /tmp -type f \
   -name '*.log' | grep -q .; then :; fi # GATE-SIGPIPE-01-SELFTEST case:two-physical-lines
+f_local() { local d="$1"; find "$d" | grep -q x; } # GATE-SIGPIPE-01-SELFTEST case:sep-local-then-find
+cd /tmp && git ls-files | grep -q vendor # GATE-SIGPIPE-01-SELFTEST case:sep-cd-and-git
+case "${1:-}" in list) kubectl get ns | grep -q kollect ;; esac # GATE-SIGPIPE-01-SELFTEST case:sep-case-one-liner
+for ns in a b; do kubectl get po -n "$ns" | grep -q Running; done # GATE-SIGPIPE-01-SELFTEST case:sep-for-one-liner
+f_test() { [[ -d x ]] || return 1; find . | grep -q x; } # GATE-SIGPIPE-01-SELFTEST case:sep-test-then-find
+prep_cluster && \
+  kubectl get pods | grep -q Running # GATE-SIGPIPE-01-SELFTEST case:sep-and-continuation
+git ls-files | grep --quiet vendor # GATE-SIGPIPE-01-SELFTEST case:consumer-long-quiet
+git ls-files | grep -m1 vendor # GATE-SIGPIPE-01-SELFTEST case:consumer-max-count-short
+git ls-files | grep --max-count=1 vendor # GATE-SIGPIPE-01-SELFTEST case:consumer-max-count-long
 # --- negatives: must NOT be reported ---
 echo "${body:-}" | grep -q leak # GATE-SIGPIPE-01-SELFTEST case:neg-echo-producer-out-of-scope
 awk '/a/,/b/' /etc/hostname | grep -Eq x # GATE-SIGPIPE-01-SELFTEST case:neg-awk-bounded-producer
@@ -437,7 +560,7 @@ find . -type f | grep -c . # GATE-SIGPIPE-01-SELFTEST case:neg-grep-c-reads-to-e
 find . -type f | wc -l # GATE-SIGPIPE-01-SELFTEST case:neg-wc-l-reads-to-eof
 dockerize logs | grep -q ready # GATE-SIGPIPE-01-SELFTEST case:neg-producer-matches-whole-token-only
 timeouts_report | grep -q ready # GATE-SIGPIPE-01-SELFTEST case:neg-wrapper-matches-whole-token-only
-# find . -type f | grep -q . # GATE-SIGPIPE-01-SELFTEST case:neg-commented-out
+# cd /tmp && find . -type f | grep -q . # GATE-SIGPIPE-01-SELFTEST case:neg-commented-out
 SELFTEST
 
 bash -n "${PARSER_CASES}" ||
@@ -447,6 +570,12 @@ readonly PARSER_POSITIVE=(
   fn-oneline-kubectl fn-oneline-find fn-oneline-kind fn-keyword-form
   docker-not-eaten-by-do timeout-not-eaten-by-time
   assignment-substitution two-physical-lines
+  # Round 3: the producing command is not the first token on the line. Every one of these
+  # was reported clean by a resolver that only looked at the head of the segment.
+  sep-local-then-find sep-cd-and-git sep-case-one-liner sep-for-one-liner
+  sep-test-then-find sep-and-continuation
+  # Round 3: spelling the short-circuit flag differently is not an escape.
+  consumer-long-quiet consumer-max-count-short consumer-max-count-long
 )
 readonly PARSER_NEGATIVE=(
   neg-echo-producer-out-of-scope neg-awk-bounded-producer
@@ -486,12 +615,17 @@ mapfile -t SCAN_FILES < <(
 allow_hit=()
 violations=()
 unparseable=()
+unresolved=()
 for f in "${SCAN_FILES[@]}"; do
   rel="${f#"${ROOT}/"}"
   while IFS=$'\t' read -r verdict lineno text; do
     [[ -n "${lineno:-}" ]] || continue
     if [[ "${verdict}" == "unparseable" ]]; then
       unparseable+=("${rel}:${lineno}: ${text}")
+      continue
+    fi
+    if [[ "${verdict}" == "unresolved" ]]; then
+      unresolved+=("${rel}:${lineno}: ${text}")
       continue
     fi
     matched=""
@@ -520,6 +654,25 @@ for entry in "${ALLOWED[@]}"; do
     note "stale allow-list entry (nothing matches it any more — remove it): ${entry}"
 done
 
+# Lines the parser could not close a quote on were NOT scanned. Say so — a silent drop is
+# the same failure mode this gate exists to forbid. These are notes, not failures: they are
+# usually a multi-line prose string, and treating them as violations would make the gate
+# unmaintainable. Anything listed here needs a human to read the line.
+if [[ "${#unparseable[@]}" -gt 0 ]]; then
+  note "${#unparseable[@]} logical line(s) could not be parsed (unclosed quote) AND mention a short-circuiting consumer, so they were NOT scanned — read them by hand:"
+  printf '#   %.160s\n' "${unparseable[@]}"
+fi
+
+
+# Same contract, other axis: these lines WERE parsed and DO feed a short-circuiting
+# consumer, but no upstream stage resolved to a command name, so the gate does not know
+# whether they are instances. Reported for exactly the reason above.
+if [[ "${#unresolved[@]}" -gt 0 ]]; then
+  note "${#unresolved[@]} pipeline(s) feed a short-circuiting consumer but their producing command could not be resolved — UNKNOWN, not clean; read them by hand:"
+  printf '#   %.160s\n' "${unresolved[@]}"
+fi
+
+
 if [[ "${#violations[@]}" -gt 0 ]]; then
   printf 'gate-sigpipe-01: short-circuiting consumer fed by an unbounded producer under pipefail:\n' >&2
   printf '  %s\n' "${violations[@]}" >&2
@@ -530,15 +683,6 @@ if [[ "${#violations[@]}" -gt 0 ]]; then
   printf 'If an instance is genuinely bounded, add it to ALLOWED in %s with a reason.\n' "${BASH_SOURCE[0]}" >&2
   exit 1
 fi
-# Lines the parser could not close a quote on were NOT scanned. Say so — a silent drop is
-# the same failure mode this gate exists to forbid. These are notes, not failures: they are
-# usually a multi-line prose string, and treating them as violations would make the gate
-# unmaintainable. Anything listed here needs a human to read the line.
-if [[ "${#unparseable[@]}" -gt 0 ]]; then
-  note "${#unparseable[@]} logical line(s) could not be parsed (unclosed quote) AND mention a short-circuiting consumer, so they were NOT scanned — read them by hand:"
-  printf '#   %.160s\n' "${unparseable[@]}"
-fi
-
-pass "no new '<unbounded producer> | grep -q / head' pipelines (${#SCAN_FILES[@]} files scanned, ${#ALLOWED[@]} pre-existing instances allow-listed, ${#unparseable[@]} unparseable)"
+pass "no new '<unbounded producer> | grep -q / head' pipelines (${#SCAN_FILES[@]} files scanned, ${#ALLOWED[@]} pre-existing instances allow-listed, ${#unparseable[@]} unparseable, ${#unresolved[@]} unresolved)"
 
 printf 'gate-sigpipe-01: ok\n'
