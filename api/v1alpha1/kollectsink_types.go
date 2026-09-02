@@ -319,7 +319,12 @@ type KafkaSpec struct {
 
 // TLSSpec configures custom CA trust for sink endpoints.
 type TLSSpec struct {
-	// insecureSkipVerify disables server certificate verification (not recommended).
+	// insecureSkipVerify disables verification of the remote's identity for whichever transport the
+	// sink's endpoint selects (not recommended). For an https:// endpoint that means the server
+	// certificate is not verified; for an ssh:// git endpoint it also means the SSH host key is not
+	// verified, so the sink will connect to any host answering the address. A sink has one endpoint
+	// and therefore one transport, so this never applies to both at once. Off by default; when set,
+	// reconcilers surface the TLSInsecure status condition. See ADR-0104 and ADR-0407.
 	// +optional
 	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 
