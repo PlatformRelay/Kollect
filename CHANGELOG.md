@@ -11,6 +11,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **dist:** Let a missing step output reach its own assertion ([#355](https://github.com/platformrelay/kollect/pull/355))[05c7e82](https://github.com/platformrelay/kollect/commit/05c7e82a8e000c876e6c04dd600227a9c3a035dd)
+
+- **dist:** See a push whichever side of it helm's flags land on [81cad37](https://github.com/platformrelay/kollect/commit/81cad37fd9f93032e827abeeedfce8adb16f4a56)
+
+- **dist:** Stop this gate from truncating its own log [a516367](https://github.com/platformrelay/kollect/commit/a51636738544a84848b563aa51e5f0564a5b7b05)
+
 - **dist:** Make --verify-ac1 meet AC1, and gate the guards this lane added [8563522](https://github.com/platformrelay/kollect/commit/856352205893ffe73e0d3a940370ff8dbf8f6bb9)
 
 - **dist:** Close the V1 gate laundering path, keep the PAT out of argv, gate the --apply path [b042597](https://github.com/platformrelay/kollect/commit/b042597a82a3fc3f4d997d9ed61999a168edbb46)
