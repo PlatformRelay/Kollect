@@ -38,9 +38,32 @@
 #     the MESSAGE of the assertion the mutation was built to trip -- a non-zero exit alone is
 #     not evidence (an empty or unparseable file exits non-zero too).
 #
-# METHOD-MUTHARNESS-01: the mutants below are produced with yq, structurally. No `perl -0pi -e`
-# with a double-quoted replacement -- perl interpolates `$1`, `${script}`, `${#arr[@]}` out of
-# the mutant, which reds the gate for the wrong reason and yields a false KILL.
+# METHOD-MUTHARNESS-01 / -02 -- READ THIS BEFORE ADDING A MUTANT.
+#
+# The hazard is not one tool. It is the whole class of REPLACEMENT TEMPLATES: a substitution's
+# replacement half is itself interpolated, so any `$1`, `${name}`, `${#arr[@]}` you write into
+# it is expanded away before it reaches the mutant. What you then execute is a DIFFERENT, more
+# broken mutant than the one you documented -- and because a more broken mutant still reds, you
+# get a kill that looks like coverage for a property nothing tested. Two instances, both
+# verified in this repo:
+#
+#   * perl (-01, 2026-09-01): `perl -0pi -e "s/X/${foo}/"` -- a double-quoted replacement is
+#     interpolated by the SHELL and then by perl.
+#   * yq (-02, 2026-09-02): `sub("X", "${CODE}")` -- yq's replacement is a Go regexp Expand
+#     template, so `${CODE}` is read as a named-capture reference and expands to the EMPTY
+#     STRING (`sub("world","${FOO}bar")` yields `bar`; `sub("world","$1x")` yields ``).
+#     This bit the fail-open mutant below: it produced `if [ "" == "true" ]` -- a reporter whose
+#     code branch is dead -- rather than the intended `if [ "${CODE}" == "true" ]`.
+#
+# The rules that follow from it:
+#   1. In a yq replacement, escape a literal dollar as `$$` (`$$FOO` -> `$FOO`), or avoid the
+#      template entirely by ASSIGNING the whole scalar (`.run = "..."`), which is not expanded.
+#   2. Never trust a non-zero exit as proof. Verify by the MESSAGE of the assertion the mutation
+#      was built to trip -- that is what `mutant_rejected`'s ${expect} argument is for -- and,
+#      for any mutant containing a dollar sign, READ THE MUTANT back and confirm the dollar
+#      survived.
+#   3. `bash -n` the mutated body where one is executed, so a mangled replacement surfaces as a
+#      syntax error rather than as a silent behaviour change.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -104,6 +127,41 @@ assert_step_can_fail_build() {
   step_coe="$(yq eval ".jobs[\"${job}\"].steps[${idx}][\"continue-on-error\"]" "${workflow}")"
   [[ "${step_coe}" == "null" || "${step_coe}" == "false" ]] ||
     fail "the ${label} step of job '${job}' must not declare 'continue-on-error: ${step_coe}' -- a soft-failed step reports its failure as success"
+}
+
+# The trees that must run full CI, read from ci.yaml's OWN declaration rather than restated
+# here. The first version of this gate hand-maintained a second copy of the list and covered
+# four of the nine roots; widening `docs_only_path` with `api/*` -- the CRD schema, the highest
+# value Go tree in the repo -- left the gate green while the classifier called an `api/` change
+# documentation-only. A hand-maintained second copy is how that gap appeared, so there is now
+# one copy and this reads it.
+#
+# The sentence in ci.yaml's header comment ("Any change under ..., or ... runs full CI") is
+# therefore a machine-read declaration, not prose. Rewording it past this parser fails loudly
+# via the floor check in check_changes_filter rather than silently shrinking coverage.
+declared_full_ci_roots() {
+  local workflow="$1" joined list
+  joined="$(awk '/^#/ { sub(/^#[ ]?/, ""); printf "%s ", $0; next } { exit }' "${workflow}")"
+  list="$(printf '%s' "${joined}" | sed -n 's/.*Any change under \(.*\) runs full CI.*/\1/p')"
+  printf '%s' "${list}" |
+    tr ',' '\n' |
+    sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^or[[:space:]]*//; s/`//g; /^$/d'
+}
+
+# The path a root is probed with, and the `case` pattern that would swallow it. A root naming a
+# directory ends in `/`; a root naming a single file (go.mod) does not.
+root_probe_path() {
+  case "$1" in
+  */) printf '%sci-docsgate-probe.txt\n' "$1" ;;
+  *) printf '%s\n' "$1" ;;
+  esac
+}
+
+root_case_pattern() {
+  case "$1" in
+  */) printf '%s*\n' "$1" ;;
+  *) printf '%s\n' "$1" ;;
+  esac
 }
 
 # ---------------------------------------------------------------------------
@@ -327,6 +385,10 @@ check_worker() {
 # ---------------------------------------------------------------------------
 check_changes_filter() {
   local workflow="$1"
+  # The full-CI root declaration lives in ci.yaml's header and governs BOTH classifiers (their
+  # bodies are byte-identical), so it is read from ci.yaml even when this runs against
+  # e2e-smoke.yaml. Overridable only so the self-test can mutate the declaration itself.
+  local decl="${2:-${CI_WORKFLOW}}"
   local idx body tmpdir repo out code
 
   [[ "$(yq eval '.jobs.changes | type' "${workflow}")" == "!!map" ]] ||
@@ -443,7 +505,28 @@ check_changes_filter() {
   }
 
   local base head verdict
-  local -a cases=(
+  local -a cases=()
+  local root probe
+
+  # One append row per declared full-CI root, FIRST in the table so that when a mutant widens
+  # the documentation set with one root, the failure names THAT root rather than an unrelated
+  # later row. The floor below is a floor, not a restated list: it exists so a reworded or
+  # truncated declaration in ci.yaml fails here instead of quietly shrinking this gate.
+  local -a roots=()
+  # `|| [[ -n ... ]]`: sed preserves the absence of a trailing newline, so a plain `read` loop
+  # silently DROPS the last root -- which is `.github/workflows/`, the tree this lane edits.
+  while IFS= read -r root || [[ -n "${root}" ]]; do
+    [[ -n "${root}" ]] || continue
+    roots+=("${root}")
+  done < <(declared_full_ci_roots "${decl}")
+  [[ "${#roots[@]}" -ge 9 ]] ||
+    fail "${decl}'s header declares only ${#roots[@]} full-CI root(s) (${roots[*]:-none}) where at least 9 are expected -- either the 'Any change under ..., or ... runs full CI' sentence was reworded past declared_full_ci_roots(), or roots were dropped from it. That sentence is machine-read: this gate probes one file under each root, so a shorter list is a smaller gate."
+  for root in "${roots[@]}"; do
+    probe="$(root_probe_path "${root}")"
+    cases+=("true|${probe}|a file under the declared full-CI root \`${root}\`")
+  done
+
+  cases+=(
     "false|docs/index.md|a docs/ page"
     "false|README.md|README.md"
     "false|LICENSE|LICENSE"
@@ -689,10 +772,27 @@ mutant_rejected "${SMOKE_WORKFLOW}" "${MUTANTS}/smoke-reporter-always-green.yaml
   'the no-op path can satisfy the required context' \
   check_reporter "${MUTANTS}/smoke-reporter-always-green.yaml" kind-smoke kind-smoke-run "kind-smoke"
 
-# The fail-safe default inverted: an unclassifiable PR would be treated as docs-only.
+# The fail-safe default inverted: an unclassifiable PR would be treated as documentation-only.
+# METHOD-MUTHARNESS-02: the `$$` is load-bearing. Written as `${CODE}` this replacement expands
+# to the empty string and the mutant becomes `if [ "" == "true" ]` -- a reporter with a dead code
+# branch, which is a strictly MORE broken thing than the fail-open this row claims to test. It
+# still reds, so the mistake is invisible in the output. `$${CODE}` emits a literal `${CODE}`;
+# the guard immediately below re-reads the mutant and proves it.
 # shellcheck disable=SC2016  # a yq program, not a shell expansion
-yq eval '(.jobs.test.steps[0].run) |= sub("\\$\\{CODE\\}\" != \"false\"", "${CODE}\" == \"true\"")' \
+yq eval '(.jobs.test.steps[0].run) |= sub("\\$\\{CODE\\}\" != \"false\"", "$${CODE}\" == \"true\"")' \
   "${CI_WORKFLOW}" >"${MUTANTS}/test-reporter-failopen.yaml"
+# The mutant must be the fail-open, not a mangled lookalike: the dollar has to have survived,
+# and the pre-mutation form must be gone.
+# GATE-SIGPIPE-01: matched with bash's own `==` against a variable, not `printf | grep -q`.
+# A negated `! producer | grep -q` inverts under pipefail when the producer is still writing.
+mutant_is_failopen="$(yq eval '.jobs.test.steps[0].run' "${MUTANTS}/test-reporter-failopen.yaml")"
+# shellcheck disable=SC2016  # the single quotes are the point: this is the literal text the
+# mutant must contain, not something to expand
+[[ "${mutant_is_failopen}" == *'[ "${CODE}" == "true" ]'* ]] ||
+  fail "self-test: the fail-open mutant does not contain the literal '[ \"\${CODE}\" == \"true\" ]' -- yq's replacement template ate the dollar (METHOD-MUTHARNESS-02), so the mutation under test is a dead code branch, not the fail-open it claims to be"
+# shellcheck disable=SC2016
+[[ "${mutant_is_failopen}" != *'[ "${CODE}" != "false" ]'* ]] ||
+  fail "self-test: the fail-open mutant still contains the real guard '[ \"\${CODE}\" != \"false\" ]' -- the sub() matched nothing, so nothing was mutated"
 mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/test-reporter-failopen.yaml" \
   "the 'test' reporter treats an unknown verdict as documentation-only instead of failing safe" \
   'the no-op path can satisfy the required context' \
@@ -731,13 +831,38 @@ mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/test-reporter-wrong-binding.yaml" \
   check_reporter "${MUTANTS}/test-reporter-wrong-binding.yaml" test test-suite "test"
 
 # --- the classifier ---
-# The docs path set widens to swallow a code tree: a Go change would then be called docs-only.
-yq eval '(.jobs.changes.steps[] | select(.id == "filter") | .run) |= sub("docs/\\* \\|", "docs/* | internal/* |")' \
-  "${CI_WORKFLOW}" >"${MUTANTS}/filter-swallows-internal.yaml"
-mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/filter-swallows-internal.yaml" \
-  'the changes filter classifies internal/** as documentation' \
-  'would satisfy the required contexts through the no-op path' \
-  check_changes_filter "${MUTANTS}/filter-swallows-internal.yaml"
+# The documentation set widens to swallow a full-CI tree: a change there would then be called
+# documentation-only, and both required contexts would report green without running. One mutant
+# per DECLARED root, not per root someone remembered -- the previous version of this file tested
+# `internal/` alone and stayed green while `api/`, `cmd/`, `config/`, `test/` (and Dockerfile)
+# could each be swallowed unnoticed. Each kill is anchored on the root's own probe row, so a
+# mutant that reds for some unrelated reason is not counted.
+#
+# METHOD-MUTHARNESS-02: the `docs/\* \|` pattern is escaped because a bare `|` is regex
+# alternation, and the replacements below deliberately contain no `$` -- yq's replacement is an
+# Expand template and would eat one.
+for docsgate_root in $(declared_full_ci_roots "${CI_WORKFLOW}"); do
+  docsgate_pattern="$(root_case_pattern "${docsgate_root}")"
+  docsgate_mutant="${MUTANTS}/filter-swallows-$(printf '%s' "${docsgate_root}" | tr -c 'a-zA-Z0-9' '-').yaml"
+  yq eval "(.jobs.changes.steps[] | select(.id == \"filter\") | .run) |= sub(\"docs/\\\\* \\\\|\", \"docs/* | ${docsgate_pattern} |\")" \
+    "${CI_WORKFLOW}" >"${docsgate_mutant}"
+  mutant_rejected "${CI_WORKFLOW}" "${docsgate_mutant}" \
+    "the changes filter classifies the declared full-CI root ${docsgate_root} as documentation" \
+    "a file under the declared full-CI root \`${docsgate_root}\`" \
+    check_changes_filter "${docsgate_mutant}"
+done
+
+# And the declaration itself: dropping a root from ci.yaml's header sentence must fail here
+# rather than silently removing that root's probe row and its mutant above.
+# The declaration is a COMMENT, so this one mutation is textual rather than structural (yq
+# rewrites comments but cannot address them); `yq eval '.'` inside mutant_rejected still proves
+# the mutant parses and differs. The classifier under test stays the real one -- only the
+# declaration is truncated -- so what is being tested is precisely the floor check.
+sed 's|^# - Any change under api/, |# - Any change under |' "${CI_WORKFLOW}" >"${MUTANTS}/roots-truncated.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/roots-truncated.yaml" \
+  'ci.yaml drops api/ from its declared full-CI roots' \
+  'full-CI root(s)' \
+  check_changes_filter "${CI_WORKFLOW}" "${MUTANTS}/roots-truncated.yaml"
 
 # The classifier always answers "documentation-only".
 # shellcheck disable=SC2016
