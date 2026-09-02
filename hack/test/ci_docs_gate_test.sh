@@ -27,9 +27,11 @@
 # assertions below read the workflow YAML with yq, and -- for the two pieces of shell that
 # carry the actual decisions -- EXECUTE the exact `run:` bodies the workflows will run, with
 # the exact `env:` bindings the workflows declare, against a truth table and a scratch git
-# repository. "Exact" is enforced, not assumed: assert_step_env_exactly() pins each step's env
-# key set to the one its harness exports, and requires the workflow- and job-level `env:` maps
-# to be absent, so there is no declared binding the harness fails to model.
+# repository. "Exact" is enforced for the three `env:` MAPS -- assert_step_env_exactly() pins
+# each step's env key set to the one its harness exports and requires the workflow- and
+# job-level `env:` maps to be absent. That bounds those three maps. It does NOT bound the class
+# of declared bindings in general: a value can still reach the body by other declared routes,
+# and the ones known are listed under RESIDUAL ASSUMPTIONS below.
 #
 # Follows the local conventions of hack/test/dist_ci_wiring_test.sh:
 #   * every anchor is scoped to one named job, and must resolve to exactly one match;
@@ -139,13 +141,34 @@ assert_job_can_fail_build() {
 #     -- the gate passed while the required context `test` reported GREEN for CODE=true
 #     RESULT=failure, past all 154 truth-table combinations.
 #
-# So the map is bounded, not sampled: the step's env keys must be EXACTLY the set the harness
-# exports, and neither the workflow nor the job may add more through their own `env:`. With that
-# held, exporting those keys and nothing else is the same thing as running the body "with the
-# exact env: bindings the workflow declares", which is what the header of this file claims.
+# So those maps are bounded, not sampled: the step's env keys must be EXACTLY the set the
+# harness exports, and neither the workflow nor the job may add more through their own `env:`.
+# Three narrow companions below block the routes that would otherwise sidestep that -- a job
+# `container:` (whose `env` is neither of those maps), an extra step (which could write
+# `$GITHUB_ENV` for a later step in the same job), and a non-`bash` `shell:`.
+#
+# What this does NOT establish, and an earlier version of this comment wrongly claimed it did:
+# that the harness models every declared binding. It models these maps, under these companion
+# assertions, for these two workflows. Other routes exist; the known ones are in RESIDUAL
+# ASSUMPTIONS below, and a new one belongs there rather than in a widened claim here.
 assert_step_env_exactly() {
-  local workflow="$1" job="$2" idx="$3" expected="$4" label="$5"
+  local workflow="$1" job="$2" idx="$3" expected="$4" label="$5" steps="$6"
   local actual
+
+  # A `container:` block carries its own `env`, which is neither the workflow map nor the job
+  # map, so the key-set assertion below cannot see it. Verified live: a container on the `test`
+  # reporter plus one guard line makes the required context unconditionally green.
+  [[ "$(yq eval ".jobs[\"${job}\"].container" "${workflow}")" == "null" ]] ||
+    fail "job '${job}' in ${workflow} declares a 'container:' -- its own env: reaches every step without appearing in any map this harness models, so a binding could be live in the job and absent here"
+  # An extra step can write \$GITHUB_ENV for a later step in the same job -- a declared binding
+  # that appears in no env: map at all. check_reporter already pins the reporters to one step;
+  # this pins every job whose body is executed here, the classifier included.
+  [[ "$(yq eval ".jobs[\"${job}\"].steps | length" "${workflow}")" == "${steps}" ]] ||
+    fail "job '${job}' in ${workflow} has $(yq eval ".jobs[\"${job}\"].steps | length" "${workflow}") steps, expected exactly ${steps} -- an extra step can export a binding into the environment of the ${label} step by writing \$GITHUB_ENV, which no env: map declares and this harness would not export"
+  # The harness runs the body under bash. `shell: bash -n {0}` would make GitHub syntax-check it
+  # and exit 0 forever, so the required context would be permanently green.
+  [[ "$(yq eval ".jobs[\"${job}\"].steps[${idx}].shell" "${workflow}")" == "bash" ]] ||
+    fail "the ${label} step of job '${job}' in ${workflow} declares 'shell: $(yq eval ".jobs[\"${job}\"].steps[${idx}].shell" "${workflow}")', expected 'bash' -- this harness executes the body with bash, and any other shell (or a directive like 'bash -n {0}', which only syntax-checks) means the job runs something different from what is tested here"
 
   actual="$(yq eval "((.jobs[\"${job}\"].steps[${idx}].env // {}) | keys | sort | join(\",\"))" "${workflow}")"
   [[ "${actual}" == "${expected}" ]] ||
@@ -341,7 +364,7 @@ check_reporter() {
 
   # The truth table below exports CODE and RESULT. Anything else the step declares would be
   # live in the job and missing here -- see assert_step_env_exactly.
-  assert_step_env_exactly "${workflow}" "${reporter}" 0 "CODE,RESULT" "report"
+  assert_step_env_exactly "${workflow}" "${reporter}" 0 "CODE,RESULT" "report" 1
 
   body="$(yq eval ".jobs[\"${reporter}\"].steps[0].run" "${workflow}")"
   [[ -n "${body}" && "${body}" != "null" ]] ||
@@ -603,8 +626,27 @@ check_docs_set_mirrors_paths_ignore() {
 #      the harness rather than reading a declared input -- keying on `$GITHUB_JOB`, say, which
 #      differs between the `changes` job and the `lint` job this gate runs in -- diverges here
 #      from the job with no `env:` change at all, so assert_step_env_exactly() cannot see it.
-#      That is different in kind from a declared binding the harness fails to model (which IS
-#      bounded, above): closing it would require running the real job, which no gate can do.
+#      Closing it would require running the real job, which no gate can do.
+#  (d) DECLARED BINDINGS ARE BOUNDED BY MAP, NOT BY CLASS. assert_step_env_exactly() bounds the
+#      three `env:` maps (step, job, workflow) and blocks three specific side routes, each of
+#      which was verified to produce a live fail-open at gate exit 0, and none of which is
+#      present in the shipped files:
+#        * `jobs.<id>.container.env` -- a container on the `test` reporter plus one guard line
+#          makes the required context unconditionally green; the injection is at job level and
+#          appears in neither `.env` nor `.jobs[job].env`. Blocked by requiring `container` null.
+#        * a prior step writing `$GITHUB_ENV` -- an extra step in BOTH classifiers (so the
+#          byte-identity check still passes) exporting a glob, plus a one-line guard, made a
+#          `Taskfile.yml`-only PR classify docs-only. Blocked by pinning the step count.
+#        * the step's `shell:` -- `shell: bash -n {0}` makes GitHub syntax-check the body and
+#          exit 0 forever. Blocked by requiring `shell: bash`.
+#      Those three are closed for these two workflows. The CLASS is not: GitHub has other ways
+#      to put a value in front of a `run:` body, and a newly found one belongs in this list
+#      rather than in a widened claim next to assert_step_env_exactly().
+#  (e) The classifier step's env VALUES are unasserted -- only its key set is -- unlike the
+#      reporters, whose CODE/RESULT expressions are pinned byte-exact. No fail-open was
+#      constructible through them (every substitution collapses to a non-`pull_request` event,
+#      an empty SHA, a failed diff or an empty diff, all of which emit `true`), but the
+#      asymmetry is coverage that is not there, so it is recorded rather than assumed away.
 check_docs_set_behaves_like_paths_ignore() {
   local workflow="$1"
   local idx body tmpdir funcs driver corpus verdicts repo
@@ -626,7 +668,7 @@ check_docs_set_behaves_like_paths_ignore() {
     fail "${workflow}'s push paths-ignore list is empty -- the reference matcher would call every path code and this check would pass for the wrong reason"
 
   idx="$(job_step_index "${workflow}" changes '.value.id == "filter"' 'id: filter classification')" || exit 1
-  assert_step_env_exactly "${workflow}" changes "${idx}" "BASE_SHA,EVENT_NAME,HEAD_SHA" "classification"
+  assert_step_env_exactly "${workflow}" changes "${idx}" "BASE_SHA,EVENT_NAME,HEAD_SHA" "classification" 2
   body="$(yq eval ".jobs.changes.steps[${idx}].run" "${workflow}")"
   tmpdir="$(mktemp -d)"
   printf '%s\n' "${body}" >"${tmpdir}/filter.sh"
@@ -769,7 +811,7 @@ check_changes_filter() {
   idx="$(job_step_index "${workflow}" changes '.value.id == "filter"' 'id: filter classification')" || exit 1
   assert_step_can_fail_build "${workflow}" changes "${idx}" "classification"
   # run_filter below exports EVENT_NAME/BASE_SHA/HEAD_SHA and nothing else.
-  assert_step_env_exactly "${workflow}" changes "${idx}" "BASE_SHA,EVENT_NAME,HEAD_SHA" "classification"
+  assert_step_env_exactly "${workflow}" changes "${idx}" "BASE_SHA,EVENT_NAME,HEAD_SHA" "classification" 2
 
   body="$(yq eval ".jobs.changes.steps[${idx}].run" "${workflow}")"
   [[ -n "${body}" && "${body}" != "null" ]] ||
@@ -1195,6 +1237,31 @@ mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/filter-undeclared-env.yaml" \
   'the classification step declares an env binding no harness here exports' \
   'expected exactly [BASE_SHA,EVENT_NAME,HEAD_SHA]' \
   check_changes_filter "${MUTANTS}/filter-undeclared-env.yaml"
+
+# The three side routes that reach a `run:` body without appearing in any env: map. Each was
+# built as a live fail-open and each passed the round-6 gate at exit 0; none is present in the
+# shipped files. See RESIDUAL ASSUMPTIONS (d) for what these do and do not settle.
+yq eval '.jobs.test.container = {"image": "alpine:3.22", "env": {"MAINT_MODE": "on"}}' "${CI_WORKFLOW}" \
+  >"${MUTANTS}/reporter-container-env.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/reporter-container-env.yaml" \
+  "the 'test' reporter job gains a container: whose own env reaches the report step" \
+  "declares a 'container:'" \
+  check_reporter "${MUTANTS}/reporter-container-env.yaml" test test-suite "test"
+
+# shellcheck disable=SC2016  # a yq program and a literal $GITHUB_ENV, not shell expansions
+yq eval '.jobs.changes.steps += [{"name": "inject", "shell": "bash", "run": "echo EXTRA_DOCS_GLOB=*.yml >>\"${GITHUB_ENV}\""}]' \
+  "${CI_WORKFLOW}" >"${MUTANTS}/classifier-extra-step.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/classifier-extra-step.yaml" \
+  'the classifier job gains a step that writes a binding into GITHUB_ENV' \
+  'expected exactly 2 -- an extra step can export a binding' \
+  check_changes_filter "${MUTANTS}/classifier-extra-step.yaml"
+
+yq eval '.jobs.test.steps[0].shell = "bash -n {0}"' "${CI_WORKFLOW}" \
+  >"${MUTANTS}/reporter-syntax-check-shell.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/reporter-syntax-check-shell.yaml" \
+  "the 'test' reporter step is run under 'bash -n {0}', which only syntax-checks it" \
+  "expected 'bash'" \
+  check_reporter "${MUTANTS}/reporter-syntax-check-shell.yaml" test test-suite "test"
 
 # The same injection through the two maps every step inherits, so neither half of the
 # "no other declared binding" assertion is left untested.
