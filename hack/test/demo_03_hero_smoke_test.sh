@@ -129,22 +129,58 @@ pass "job '${JOB_ID}' name='${NAME:-$JOB_ID}' is not the required check"
 
 # Empty-export failure helper: assert path must fail loudly when clone has no inventory files.
 # Unit-check the file-presence predicate via a temp fixture (no cluster).
+#
+# GATE-SIGPIPE-01: this fixture is deliberately LARGE and the predicate deliberately COUNTS.
+# The old shape was `find … | grep -q .` against a one-file fixture. Under `set -o pipefail`
+# that only behaves correctly while the producer finishes writing before grep exits on its
+# first match; past one pipe buffer (64 KiB on Linux) find takes SIGPIPE, exits 141, and
+# pipefail hands the pipeline's caller a non-zero status for a directory that IS non-empty.
+# A one-file fixture passes with either implementation and so tested nothing. `grep -c`
+# reads to EOF, so the producer never sees SIGPIPE. See hack/test/hyg_sigpipe_pipefail_test.sh.
+readonly FIXTURE_FILES=4000
+readonly PIPE_BUFFER_BYTES=65536 # Linux default; the fixture must beat it to be meaningful
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
+
+# Number of inventory files (yaml/yml/json, outside .git) under $1. Counts to EOF.
+hero_inventory_count() {
+  local n
+  n="$(
+    find "$1" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+      ! -path '*/.git/*' | grep -c . || true
+  )"
+  [[ "${n}" =~ ^[0-9]+$ ]] || fail "inventory count predicate produced non-numeric '${n}'"
+  printf '%s\n' "${n}"
+}
+
 mkdir -p "${TMP}/empty-clone"
-if find "${TMP}/empty-clone" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
-  ! -path '*/.git/*' | grep -q .; then
+[[ "$(hero_inventory_count "${TMP}/empty-clone")" -eq 0 ]] ||
   fail "fixture self-check: empty clone unexpectedly had inventory files"
-fi
+
 mkdir -p "${TMP}/full-clone"
-printf 'apiVersion: v1\nkind: ConfigMap\n' >"${TMP}/full-clone/inventory.yaml"
-find "${TMP}/full-clone" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
-  ! -path '*/.git/*' | grep -q . ||
+for i in $(seq 1 "${FIXTURE_FILES}"); do
+  printf 'apiVersion: v1\nkind: ConfigMap\n' >"${TMP}/full-clone/inventory${i}.yaml"
+done
+FIXTURE_BYTES="$(find "${TMP}/full-clone" -type f -name '*.yaml' | wc -c)"
+[[ "${FIXTURE_BYTES}" -gt "${PIPE_BUFFER_BYTES}" ]] ||
+  fail "fixture self-check: full clone yields only ${FIXTURE_BYTES} bytes of find output — at or below one pipe buffer, so it can no longer exercise the SIGPIPE inversion (raise FIXTURE_FILES)"
+[[ "$(hero_inventory_count "${TMP}/full-clone")" -eq "${FIXTURE_FILES}" ]] ||
   fail "fixture self-check: full clone should have inventory files"
+
 # assert.sh / lib must use the same find predicate shape.
 grep -Eq "find .*\\\.yaml|find \"\\\$\{?HERO_INVENTORY|_hero_export_has_inventory_files" "${ASSERT}" "${LIB}" ||
   fail "assert/lib must use find-based non-empty export check (same as preflight)"
-pass "empty-export predicate shape locked (seeded-empty would fail)"
+
+# ...and must count rather than short-circuit, for the reason above: this predicate runs
+# against a real cloned inventory repo, which is exactly the large-producer case.
+EXPORT_FN="$(awk '/^_hero_export_has_inventory_files\(\)/,/^}/' "${LIB}")"
+[[ -n "${EXPORT_FN}" ]] || fail "could not locate _hero_export_has_inventory_files in ${LIB}"
+grep -Eq 'grep[[:space:]]+-c' <<<"${EXPORT_FN}" ||
+  fail "_hero_export_has_inventory_files must count with 'grep -c' (reads to EOF; no SIGPIPE)"
+if grep -Eq 'grep[[:space:]]+(-[a-zA-Z-]+[[:space:]]+)*-[a-zA-Z]*q' <<<"${EXPORT_FN}"; then
+  fail "_hero_export_has_inventory_files must not use 'grep -q' — it inverts under pipefail once the export exceeds one pipe buffer"
+fi
+pass "empty-export predicate shape locked (seeded-empty would fail; counts instead of short-circuiting)"
 
 # Optional: ci-noop-setup referenced by workflow should exist when used.
 if [[ -f "${NOOP_SETUP}" ]]; then
