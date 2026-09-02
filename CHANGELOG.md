@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **demo:** Count hero inventory files instead of short-circuiting under pipefail [13eae3a](https://github.com/platformrelay/kollect/commit/13eae3a2be2970ed4f23d3fe83ad157f739dbd5d)
+
 - **dist:** Let a missing step output reach its own assertion ([#355](https://github.com/platformrelay/kollect/pull/355))[05c7e82](https://github.com/platformrelay/kollect/commit/05c7e82a8e000c876e6c04dd600227a9c3a035dd)
 
 - **dist:** See a push whichever side of it helm's flags land on [81cad37](https://github.com/platformrelay/kollect/commit/81cad37fd9f93032e827abeeedfce8adb16f4a56)
@@ -45,6 +47,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Refactoring
+
+- **demo:** Count inventory files with wc -l, and lock the property not the spelling [2a005f6](https://github.com/platformrelay/kollect/commit/2a005f64e6755d2e28ffe6a7dcc5507fffc1f9ba)
 
 - **test:** Make the glossary gate trap's exit path explicit ([#341](https://github.com/platformrelay/kollect/pull/341))[1ab0843](https://github.com/platformrelay/kollect/commit/1ab08433f4b92be63433caadaf1e335e51be3577)
 
