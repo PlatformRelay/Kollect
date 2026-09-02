@@ -17,11 +17,17 @@
 # for now: those trees carry pre-existing broken links and generated content, and widening the
 # scan before they are fixed would land this gate permanently red.
 #
-# Known boundary: only inline `[text](target)` links are resolved. Raw HTML (`<a href>`,
-# `<img src>`) and reference-style `[label]: target` definitions are NOT parsed, so README.md's
-# HTML badge header contributes nothing to the scan. Every one of those is external today, so
-# there is no live gap -- but do not read a GREEN here as "every link in README.md was checked".
-# Widening to those two forms is a deliberate follow-up, not an accident.
+# DOCS-EXTLINK-03 F-6 (found independently as DOCS-MAPGATE-02 R2-02 in the sibling docs-map
+# gate): reference-style links used to be invisible here. `[Quickstart][qs]` with a
+# `[qs]: docs/DELETED.md` definition matches no `[text](target)` pattern, so a hard 404 written
+# that way passed at exit 0 -- the same blind spot, in two gates, from the same inline-only
+# regex. Link reference DEFINITIONS are now scanned too: the definition is where the target
+# lives, so checking definitions covers every use of the label.
+#
+# Known boundary: raw HTML (`<a href>`, `<img src>`) is still NOT parsed, so README.md's HTML
+# badge header contributes nothing to the scan. Every one of those is external today, so there
+# is no live gap -- but do not read a GREEN here as "every link in README.md was checked".
+# Widening to HTML attributes is a deliberate follow-up, not an accident.
 #
 # Code fences are NOT stripped: a relative link inside a fenced example is still checked. That is
 # the conservative direction -- a documentation sample pointing at a missing file fails loudly
@@ -48,15 +54,23 @@ fail() {
 
 pass() { echo "ok - $*"; }
 
-# Emit one link target per line for a Markdown file: inline `[text](target)` destinations with
-# any angle brackets and quoted title stripped. External, mail and pure-anchor links are dropped
-# by the caller, which is also where fragments are split off.
+# Emit one link target per line for a Markdown file: inline `[text](target)` destinations AND the
+# targets of link reference definitions (`[label]: target "Title"`, up to three leading spaces,
+# which is all Markdown allows), with any angle brackets and quoted title stripped. External,
+# mail and pure-anchor links are dropped by the caller, which is also where fragments are split
+# off.
+#
+# Each producer is `|| true`-guarded: `grep` exits 1 on no match, and under `pipefail` + `set -e`
+# an unguarded first producer would abort the whole function before the second ever ran --
+# silently dropping every reference definition in any file that happens to have no inline link.
 extract_targets() {
   local file="$1"
-  grep -oE '\]\([^)]*\)' "${file}" |
-    sed -e 's/^](//' \
-      -e 's/)$//' \
-      -e 's/[[:space:]]*"[^"]*"[[:space:]]*$//' \
+  {
+    grep -oE '\]\([^)]*\)' "${file}" | sed -e 's/^](//' -e 's/)$//' || true
+    grep -oE '^ {0,3}\[[^]]+\]:[[:space:]]*[^[:space:]]+' "${file}" |
+      sed -E 's/^ *\[[^]]+\]:[[:space:]]*//' || true
+  } |
+    sed -e 's/[[:space:]]*"[^"]*"[[:space:]]*$//' \
       -e "s/[[:space:]]*'[^']*'[[:space:]]*\$//" \
       -e 's/^[[:space:]]*//' \
       -e 's/[[:space:]]*$//' \
@@ -157,7 +171,7 @@ HONEST="${FIXTURE}/honest"
 init_fixture "${HONEST}"
 printf '# R\n\nSee [contributing](CONTRIBUTING.md) and [crds](docs/crds/index.md#kinds).\n' \
   >"${HONEST}/README.md"
-printf '# C\n\nSee [gov](GOVERNANCE.md "Governance"), [ext](https://example.com/missing.md) and [top](#c).\n' \
+printf '# C\n\nSee [gov](GOVERNANCE.md "Governance"), [ext](https://example.com/missing.md) and [top](#c).\nAlso [crds][cr] and [home][hp].\n\n[cr]: docs/crds/index.md "CRDs"\n[hp]: https://example.com/\n' \
   >"${HONEST}/CONTRIBUTING.md"
 stage_fixture "${HONEST}"
 honest_status=0
@@ -184,6 +198,22 @@ broken_output="$( (check_root_links "${BROKEN_TREE}") 2>&1 )" || broken_status=$
 [[ "${broken_output}" == *"docs/DEFINITELY-DELETED.md"* ]] ||
   fail "self-test: the gate rejected the broken tree without naming the dead target; got: ${broken_output}"
 pass "self-test: gate rejects a dead relative link and names both the file and the target"
+
+# DOCS-EXTLINK-03 F-6: the same 404 written in reference style. This exact tree passed at exit 0
+# before link reference definitions were scanned, which is the whole reason this case is here.
+REF_TREE="${FIXTURE}/broken-reference-style"
+init_fixture "${REF_TREE}"
+cp "${HONEST}/README.md" "${REF_TREE}/README.md"
+printf '# C\n\nSee [quickstart][qs] for setup.\n\n[qs]: docs/REFERENCE-STYLE-DELETED.md\n' \
+  >"${REF_TREE}/CONTRIBUTING.md"
+stage_fixture "${REF_TREE}"
+ref_status=0
+ref_output="$( (check_root_links "${REF_TREE}") 2>&1 )" || ref_status=$?
+[[ "${ref_status}" -ne 0 ]] ||
+  fail "self-test: the gate passed on a tree whose reference-style link resolves to docs/REFERENCE-STYLE-DELETED.md -- reference definitions are invisible to it again"
+[[ "${ref_output}" == *"docs/REFERENCE-STYLE-DELETED.md"* ]] ||
+  fail "self-test: the reference-style tree was rejected without naming the dead target; got: ${ref_output}"
+pass "self-test: gate rejects a dead target reached through a link reference definition"
 
 # The vacuity guard itself: a tree missing README.md must be a hard failure, not a quiet pass
 # over whatever files happen to remain.
