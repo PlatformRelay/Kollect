@@ -60,15 +60,37 @@ pass() { echo "ok - $*"; }
 # mail and pure-anchor links are dropped by the caller, which is also where fragments are split
 # off.
 #
-# Each producer is `|| true`-guarded: `grep` exits 1 on no match, and under `pipefail` + `set -e`
-# an unguarded first producer would abort the whole function before the second ever ran --
-# silently dropping every reference definition in any file that happens to have no inline link.
+# Each producer needs a guard: `grep` exits 1 on no match, and under `pipefail` + `set -e` an
+# unguarded first producer would abort the whole function before the second ever ran -- silently
+# dropping every reference definition in any file that happens to have no inline link.
+#
+# The guard is `[[ $? -eq 1 ]]`, NOT `|| true`. `|| true` cannot tell grep's exit 1 ("no match",
+# expected and fine) from exit 2 ("unreadable file", "is a directory"), so an I/O error would
+# become a confident empty target list and the file would be reported link-clean -- the same
+# silent-drop shape this gate exists to remove.
+#
+# Anything other than "no match" is reported by EMITTING A SENTINEL rather than by calling `fail`.
+# The caller reads this function through a process substitution, and a `fail` there exits only the
+# substitution's subshell: the message is printed and the gate then reports the file as clean
+# anyway, exit 0. Verified, not assumed -- that was the behaviour of the first version of this
+# guard against a mode-000 GOVERNANCE.md. The sentinel travels back through the pipe and the
+# caller, which runs in the gate's own shell, is what dies on it.
+readonly EXTRACT_FAILED=$'\x1fextract-failed\x1f'
+
 extract_targets() {
   local file="$1"
+
+  if [[ ! -r "${file}" ]]; then
+    printf '%s\n' "${EXTRACT_FAILED}"
+    return 0
+  fi
+
   {
-    grep -oE '\]\([^)]*\)' "${file}" | sed -e 's/^](//' -e 's/)$//' || true
+    grep -oE '\]\([^)]*\)' "${file}" | sed -e 's/^](//' -e 's/)$//' ||
+      [[ $? -eq 1 ]] || printf '%s\n' "${EXTRACT_FAILED}"
     grep -oE '^ {0,3}\[[^]]+\]:[[:space:]]*[^[:space:]]+' "${file}" |
-      sed -E 's/^ *\[[^]]+\]:[[:space:]]*//' || true
+      sed -E 's/^ *\[[^]]+\]:[[:space:]]*//' ||
+      [[ $? -eq 1 ]] || printf '%s\n' "${EXTRACT_FAILED}"
   } |
     sed -e 's/[[:space:]]*"[^"]*"[[:space:]]*$//' \
       -e "s/[[:space:]]*'[^']*'[[:space:]]*\$//" \
@@ -119,6 +141,11 @@ check_root_links() {
   for file in "${files[@]}"; do
     dir="$(dirname "${root}/${file}")"
     while IFS= read -r raw; do
+      # This loop body runs in the gate's own shell, so `fail` here really does stop the gate --
+      # which is the whole reason extract_targets reports through a sentinel instead of dying.
+      if [[ "${raw}" == "${EXTRACT_FAILED}" ]]; then
+        fail "could not read the links out of ${file} (unreadable, or grep failed with an I/O error) -- refusing to report an unreadable file as link-clean"
+      fi
       target="${raw}"
       case "${target}" in
       http://* | https://* | mailto:* | tel:* | '#'* | '') continue ;;
@@ -214,6 +241,30 @@ ref_output="$( (check_root_links "${REF_TREE}") 2>&1 )" || ref_status=$?
 [[ "${ref_output}" == *"docs/REFERENCE-STYLE-DELETED.md"* ]] ||
   fail "self-test: the reference-style tree was rejected without naming the dead target; got: ${ref_output}"
 pass "self-test: gate rejects a dead target reached through a link reference definition"
+
+# An unreadable file must be a hard failure, not a file with "no links". The first version of
+# this guard printed its complaint from inside a process substitution and the gate then reported
+# the tree as clean at exit 0, so this case asserts the exit status, not just the message.
+UNREADABLE="${FIXTURE}/unreadable"
+init_fixture "${UNREADABLE}"
+cp "${HONEST}/README.md" "${UNREADABLE}/README.md"
+cp "${HONEST}/CONTRIBUTING.md" "${UNREADABLE}/CONTRIBUTING.md"
+stage_fixture "${UNREADABLE}"
+chmod 000 "${UNREADABLE}/CONTRIBUTING.md"
+if [[ -r "${UNREADABLE}/CONTRIBUTING.md" ]]; then
+  # Running as root, or on a filesystem that ignores the mode bits. Announced rather than
+  # silently skipped: CI runs unprivileged, where this case does execute.
+  pass "self-test: SKIPPED the unreadable-file case -- this user can read a mode-000 file"
+else
+  unreadable_status=0
+  unreadable_output="$( (check_root_links "${UNREADABLE}") 2>&1 )" || unreadable_status=$?
+  [[ "${unreadable_status}" -ne 0 ]] ||
+    fail "self-test: the gate reported a tree containing an unreadable Markdown file as link-clean -- an I/O error is being read as 'this file has no links'; got: ${unreadable_output}"
+  [[ "${unreadable_output}" == *"refusing to report an unreadable file as link-clean"* ]] ||
+    fail "self-test: the unreadable-file tree was rejected for the wrong reason; got: ${unreadable_output}"
+  pass "self-test: gate rejects a tree containing an unreadable Markdown file"
+fi
+chmod 644 "${UNREADABLE}/CONTRIBUTING.md"
 
 # The vacuity guard itself: a tree missing README.md must be a hard failure, not a quiet pass
 # over whatever files happen to remain.
