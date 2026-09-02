@@ -78,7 +78,12 @@ defaulting and migration cost to express a choice the operator cannot make indep
   while a probe is failing (`setConnectionFailed` sets `ConnectionVerified`/`Degraded` and never
   touches `TLSInsecure`, so a previously-set condition also goes stale rather than being cleared).
   Those are exactly the two states an operator disabling verification is most likely to be in — do
-  not treat the condition's absence as evidence the flag is unset. Its message names TLS only.
+  not treat the condition's absence as evidence the flag is unset. One exception, in the safe
+  direction: with `spec.connectionTest: false` **plus** the `kollect.dev/test-connection: "true"`
+  annotation the probe still runs once (`:96`), so the condition is written once and the annotation
+  is then cleared (`:123-126`); nothing re-runs afterwards, so that `True` persists even if the flag
+  is later removed. So the absence of the condition proves nothing, and its presence can be stale in
+  either direction. Its message names TLS only.
 - **Fails closed on the go-git path**: without the flag and without a `known_hosts` key in the
   referenced secret, `sshAuthMethod` returns an error rather than falling back to the system
   `known_hosts` or to trust-on-first-use.
