@@ -30,11 +30,15 @@ asset="helm-docs_${VER}_${os}_${arch}.tar.gz"
 url="https://github.com/norwoodj/helm-docs/releases/download/${VERSION}/${asset}"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/fetch.sh
+source "${root}/hack/lib/fetch.sh"
+
 mkdir -p "$(dirname "${root}/${OUT}")"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
-curl -fsSL "${url}" -o "${tmpdir}/helm-docs.tgz"
+# NOTE: this installer verifies no digest -- see the matching note in hack/install-git-cliff.sh.
+fetch_to "${url}" "${tmpdir}/helm-docs.tgz" "helm-docs ${VERSION} tarball"
 tar -xzf "${tmpdir}/helm-docs.tgz" -C "${tmpdir}"
 install -m 0755 "${tmpdir}/helm-docs" "${root}/${OUT}"
 echo "installed ${OUT} (${VERSION} ${os}/${arch})"

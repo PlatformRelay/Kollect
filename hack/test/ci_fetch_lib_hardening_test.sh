@@ -478,4 +478,171 @@ run_fetch "http://127.0.0.1:${HTTP_PORT}/ok" "${CASE_DIR}/artifact" "plaintext a
   fail "plaintext URL: the plaintext listener received $(plain_hits) request(s) -- the scheme pin is not holding"
 pass "an http:// URL is refused before a request is issued"
 
-echo "All CI-FETCHLIB-01 fetch-helper behavioural tests passed."
+# ================================================================================================
+# PART 2 -- static, repo-wide: every installer routes its fetches through the helper.
+# ================================================================================================
+
+# The helper's own flag list, read as logical lines. Part 1 proves the BEHAVIOUR; these
+# assertions pin the specific flags so that a future rewrite which happens to still pass the
+# behavioural cases (e.g. because the fixture is fast and local) cannot quietly drop a bound
+# that only matters against a real, slow, hostile network.
+mapfile -t LIB_CURL_LINES < <(curl_command_lines "${LIB}")
+((${#LIB_CURL_LINES[@]} > 0)) ||
+  fail "${LIB} contains no curl invocation -- either the fetch was replaced by something this gate does not inspect, or the logical-line extraction is broken; either way the per-flag assertions below would pass vacuously"
+
+for line in "${LIB_CURL_LINES[@]}"; do
+  grep -Eq -- "--proto[[:space:]]+'?=https'?" <<<"${line}" ||
+    fail "the shared fetch helper's curl invocation is missing --proto '=https': ${line}"
+  grep -Eq -- "--proto-redir[[:space:]]+'?=https'?" <<<"${line}" ||
+    fail "the shared fetch helper's curl invocation is missing --proto-redir '=https': ${line}"
+  grep -Eq -- '(^|[[:space:]])--tlsv1\.[23]([[:space:]]|$)' <<<"${line}" ||
+    fail "the shared fetch helper's curl invocation lost its TLS floor (--tlsv1.2): ${line}"
+  grep -Eq -- '(^|[[:space:]])(-[a-zA-Z]*f[a-zA-Z]*|--fail)([[:space:]]|$)' <<<"${line}" ||
+    fail "the shared fetch helper's curl invocation lost -f/--fail, so an HTTP error page would be treated as a successful download: ${line}"
+  ! grep -Eq -- '(^|[[:space:]])(-k|--insecure|--proto-default[[:space:]]+http)([[:space:]]|$)' <<<"${line}" ||
+    fail "the shared fetch helper disables TLS verification or defaults to plaintext, which makes --proto '=https' worthless: ${line}"
+
+  # VALUE floors, not presence checks: `--retry 0`, `--connect-timeout 0` and
+  # `--retry-max-time 0` are all textually present and behaviourally absent or unbounded.
+  for flag in retry connect-timeout max-time retry-max-time; do
+    value="$(grep -Eo -- "--${flag}[[:space:]]+[0-9]+" <<<"${line}" | head -1 | grep -Eo '[0-9]+' || true)"
+    [[ -n "${value}" ]] ||
+      fail "the shared fetch helper's curl invocation is missing '--${flag} <n>': ${line}"
+    case "${flag}" in
+      retry | connect-timeout)
+        ((value >= 1)) ||
+          fail "the shared fetch helper sets '--${flag} ${value}', which disables it (0 means 'no retries' / 'no timeout'): ${line}"
+        ;;
+      max-time | retry-max-time)
+        # curl RESETS --max-time on each of its own retries, so --max-time alone bounds an
+        # attempt, not the invocation; --retry-max-time is what closes that. The >= 30 floor
+        # guards the opposite direction -- a timeout set too tight is itself a flake source, and
+        # `--retry-max-time 1` expires the window before --retry-delay can schedule one retry,
+        # neutering the very layer Case B proves.
+        ((value >= 30)) ||
+          fail "the shared fetch helper sets '--${flag} ${value}': under 30s this is either unbounded (0) or tight enough to abort a healthy multi-megabyte download and become a new flake source: ${line}"
+        ;;
+    esac
+  done
+done
+pass "the shared helper's curl invocation pins https end to end, keeps a TLS floor, retries, and bounds both the connect and the transfer"
+
+# Enumerated from the FILESYSTEM, never from a hardcoded list: installer number nine is covered
+# the day it lands, which is the entire reason this gate exists rather than seven copies of the
+# helm gate.
+mapfile -t INSTALLERS < <(find "${ROOT}/hack" -maxdepth 1 -name 'install-*.sh' -type f | sort)
+((${#INSTALLERS[@]} >= 8)) ||
+  fail "expected at least 8 hack/install-*.sh scripts, found ${#INSTALLERS[@]} -- the glob is broken or the installers moved, and every per-installer assertion below would pass vacuously"
+pass "found ${#INSTALLERS[@]} installer script(s) to inspect"
+
+for installer in "${INSTALLERS[@]}"; do
+  rel="hack/$(basename "${installer}")"
+
+  grep -Eq '^set -euo pipefail[[:space:]]*$' "${installer}" ||
+    fail "${rel} must keep 'set -euo pipefail' -- without it a failed fetch falls through to tar/install instead of aborting"
+
+  # THE repo-wide assertion. A direct fetcher in an installer is, by construction, a fetch that
+  # does not carry the helper's flags -- that is the defect PR #351 died of, seven times over.
+  fetcher_hits="$(logical_lines "${installer}" |
+    count_matches -E '(^|[^[:alnum:]_./-])(curl|wget|aria2c|python3?[[:space:]]+-m[[:space:]]+urllib)([[:space:]]|$)')"
+  require_count "${fetcher_hits}" "${rel} direct-fetcher scan"
+  [[ "${fetcher_hits}" == "0" ]] ||
+    fail "${rel} invokes a fetcher directly (${fetcher_hits} occurrence(s)) instead of going through fetch_to from hack/lib/fetch.sh. That is exactly the bare-curl defect that reddened the REQUIRED kind-smoke check on PR #351: no retry, no connect bound, no protocol pin. Source hack/lib/fetch.sh and call fetch_to"
+
+  # A script with no fetch at all would pass the assertion above vacuously, so the positive half
+  # is required too: if it is named install-*, it downloads something, and that download goes
+  # through the helper.
+  source_hits="$(logical_lines "${installer}" | count_matches -F 'hack/lib/fetch.sh')"
+  require_count "${source_hits}" "${rel} helper-source scan"
+  [[ "${source_hits}" != "0" ]] ||
+    fail "${rel} does not source hack/lib/fetch.sh -- either it fetches by some means this gate cannot see, or the hardened flag list has been forked back into a second copy"
+
+  call_hits="$(logical_lines "${installer}" | count_matches -E '(^|[^[:alnum:]_])fetch_to[[:space:]]')"
+  require_count "${call_hits}" "${rel} fetch_to call scan"
+  [[ "${call_hits}" != "0" ]] ||
+    fail "${rel} sources hack/lib/fetch.sh but never calls fetch_to -- a sourced-but-unused helper is decoration"
+
+  plaintext_hits="$(logical_lines "${installer}" | count_matches -F 'http://')"
+  require_count "${plaintext_hits}" "${rel} plaintext scan"
+  [[ "${plaintext_hits}" == "0" ]] ||
+    fail "${rel} references a plaintext http:// URL; every fetch in an installer must be https"
+done
+pass "every hack/install-*.sh sources the shared helper, fetches only through fetch_to, and names no plaintext URL"
+
+# The other direction: nothing may weaken the digest verification while routing through the
+# helper. Each installer either compares a sha256 itself or delegates to verify_sha256.
+# hack/install-git-cliff.sh and hack/install-helm-docs.sh are the two that verify NOTHING today;
+# they are listed here explicitly so the gap is recorded in code rather than lost in a report,
+# and so adding verification to them is a one-line deletion from this list rather than a
+# rediscovery.
+UNVERIFIED_BY_DESIGN=("install-git-cliff.sh" "install-helm-docs.sh")
+for installer in "${INSTALLERS[@]}"; do
+  base="$(basename "${installer}")"
+  skip=0
+  for known in "${UNVERIFIED_BY_DESIGN[@]}"; do
+    [[ "${base}" == "${known}" ]] && skip=1
+  done
+  ((skip == 1)) && continue
+  verify_hits="$(logical_lines "${installer}" |
+    count_matches -E '(verify_sha256|sha256sum|EXPECTED_SHA256)')"
+  require_count "${verify_hits}" "hack/${base} checksum scan"
+  [[ "${verify_hits}" != "0" ]] ||
+    fail "hack/${base} no longer verifies a SHA256. Routing a download through a hardened helper must never be traded against verifying what came back: the helper protects the transport, the digest protects the CONTENT, and neither substitutes for the other"
+done
+pass "every installer that verified a SHA256 before still does"
+
+# Guards the list above from rotting into a licence to stop verifying: if someone ADDS
+# verification to git-cliff or helm-docs, the entry must be removed, or the next reader will
+# believe those two are still unverified.
+for known in "${UNVERIFIED_BY_DESIGN[@]}"; do
+  [[ -f "${ROOT}/hack/${known}" ]] ||
+    fail "hack/${known} is listed as unverified-by-design but does not exist -- the exemption list is stale and now silently exempts nothing"
+  verify_hits="$(logical_lines "${ROOT}/hack/${known}" |
+    count_matches -E '(verify_sha256|sha256sum|EXPECTED_SHA256)')"
+  require_count "${verify_hits}" "hack/${known} exemption scan"
+  [[ "${verify_hits}" == "0" ]] ||
+    fail "hack/${known} now verifies a checksum but is still listed in UNVERIFIED_BY_DESIGN in this gate -- drop it from the list so the exemption stops advertising a gap that has been closed"
+done
+pass "the unverified-by-design exemption list (${UNVERIFIED_BY_DESIGN[*]}) still matches reality"
+
+# ================================================================================================
+# Self-wiring. "An unwired gate is not a gate" (house precedent: hack/test/dev_mise_pin_drift_test.sh).
+# ================================================================================================
+#
+# This gate is reached in CI TODAY through hack/test/ci_install_helm_hardening_test.sh, which
+# .github/workflows/ci.yaml already runs as an explicit step in the lint job. That indirection
+# is deliberate and is recorded here rather than hidden: the lane that wrote this file does not
+# own .github/workflows/**, and shipping a gate that reds until an unrelated lane lands a
+# workflow line would be worse than shipping one that runs. The preferred wiring -- its own
+# named step, so a failure here is attributed to fetch-lib rather than to helm -- is a one-line
+# addition and is recorded in this lane's handover.
+#
+# Either route satisfies the assertion; ZERO routes does not. The `-Fx` match on a trimmed,
+# comment-stripped, `run:`-unwrapped view is what stops a commented-out or neutered invocation
+# ("# bash ...", "bash ... || true", "bash ... &") from counting as wiring: GATE-COMMENT-01 and
+# GATE-SCOPE-01, both from hack/test/dist_ci_wiring_test.sh, are the house records of a
+# substring grep passing on exactly those.
+# Two accepted spellings, and only two. `.github/workflows/ci.yaml` runs its gates from the
+# repository root, so the relative form is the one a workflow step uses; a sibling gate must
+# work from any working directory, so it uses its own resolved ROOT. Both are line-exact after
+# trimming, so neither admits a trailing `|| true`, a `&`, or a redirect.
+SELF_FORMS=(
+  "bash hack/test/ci_fetch_lib_hardening_test.sh"
+  'bash "${ROOT}/hack/test/ci_fetch_lib_hardening_test.sh"'
+)
+wiring_total=0
+for candidate in "${ROOT}/.github/workflows/ci.yaml" "${ROOT}/hack/test/ci_install_helm_hardening_test.sh"; do
+  [[ -f "${candidate}" ]] || continue
+  for form in "${SELF_FORMS[@]}"; do
+    n="$(grep -vE '^[[:space:]]*#' "${candidate}" |
+      sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^run:[[:space:]]*//; s/^"(.*)"$/\1/' |
+      count_matches -Fx "${form}")"
+    require_count "${n}" "self-wiring scan of ${candidate}"
+    wiring_total=$((wiring_total + n))
+  done
+done
+((wiring_total > 0)) ||
+  fail "this gate is not invoked from .github/workflows/ci.yaml nor from hack/test/ci_install_helm_hardening_test.sh on a bare, uncommented 'bash <this script>' line. An unwired gate protects nothing: the dist_* and sonar_ko_* globs in the lint job do NOT match this filename, so one explicit invocation is the only thing keeping it in CI"
+pass "the gate is invoked from a CI-reachable path (${wiring_total} bare invocation(s) found)"
+
+echo "All CI-FETCHLIB-01 / CI-KINDLOOP-01 fetch hardening tests passed."

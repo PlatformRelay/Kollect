@@ -30,11 +30,17 @@ asset="git-cliff-${VER}-${platform}.tar.gz"
 url="https://github.com/orhun/git-cliff/releases/download/${VERSION}/${asset}"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/fetch.sh
+source "${root}/hack/lib/fetch.sh"
+
 mkdir -p "$(dirname "${root}/${OUT}")"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
-curl -fsSL "${url}" -o "${tmpdir}/git-cliff.tgz"
+# NOTE: this installer verifies no digest -- upstream publishes checksums, but wiring them up is
+# a separate change from routing the transport through the shared helper, and hack/test/
+# ci_fetch_lib_hardening_test.sh records the gap explicitly so it cannot be forgotten.
+fetch_to "${url}" "${tmpdir}/git-cliff.tgz" "git-cliff ${VERSION} tarball"
 tar -xzf "${tmpdir}/git-cliff.tgz" -C "${tmpdir}"
 install -m 0755 "${tmpdir}/git-cliff-${VER}/git-cliff" "${root}/${OUT}"
 echo "installed ${OUT} (${VERSION} ${platform})"
