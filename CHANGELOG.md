@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **deps:** Bump golang.org/x/crypto to v0.56.0 for GO-2026-6354/GO-2026-6355 ([#359](https://github.com/platformrelay/kollect/pull/359))[ae85d24](https://github.com/platformrelay/kollect/commit/ae85d240bc7767fbe696e503201d9e87425374c0)
+
 - **ci:** Count renames and deletions when classifying a PR (CI-DOCSGATE-01) [016620e](https://github.com/platformrelay/kollect/commit/016620e5e8913acf4e51c96ed5f7c01c9524f9a2)
 
 - **hack:** Restore the fetcher spellings the last rewrite silently dropped [5edaf2a](https://github.com/platformrelay/kollect/commit/5edaf2ac79b2196d9caa26d018e82112a394d777)
