@@ -299,10 +299,15 @@ resolve_step_env() {
 #
 # $4/$5 redirect the STEP BODY's stdout/stderr, and nothing else. Callers must NOT wrap
 # the call in their own redirection: run_step's diagnostics come from fail(), which writes
-# to stderr and then exits, so a caller-side `2>&1 >file` captures them into a file the
+# to stderr and then exits, so a caller-side `>file 2>&1` captures them into a file the
 # EXIT trap deletes -- leaving a bare rc=1 after a green `ok -` line, which reads as a
 # broken gate rather than as the violation it is. A gate whose whole product is naming
 # what broke cannot afford to swallow its own diagnostics.
+#
+# (`>file 2>&1`, in that order, is the capturing one: it points stdout at the file and
+# THEN aims stderr at stdout's new destination. The reverse, `2>&1 >file`, aims stderr at
+# stdout's OLD destination -- the terminal -- and leaves the diagnostics visible. The
+# order is the whole bug, so it is spelled the capturing way here on purpose.)
 run_step() {
   local sel="$1" step="$2" allow_owner="$3"
   local out="${4:-/dev/stdout}" err="${5:-/dev/stderr}"
