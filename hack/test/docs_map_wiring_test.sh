@@ -26,26 +26,33 @@
 # CI does not install yq)." The sibling repo_root_links_wiring_test.sh may use yq precisely
 # because it is NOT in this chain; it has its own ci.yaml lint step instead.
 #
-# WHY THE WORKFLOW MATCHING IS DELIBERATELY NARROW. `.github/workflows/ci.yaml` is under active
-# restructuring (a `changes` classifier job, a `test` -> `test-suite` rename with a report-only
-# `test` job on `if: always()`, `needs:` gating, and `paths-ignore` dropped from `pull_request`
-# entirely; `lint` is deliberately left ungated). A wiring lock that asserted line numbers, job
-# ordering, neighbouring steps or the overall job set would red the moment that lands, and a
+# WHY THE WORKFLOW MATCHING IS DELIBERATELY NARROW. `.github/workflows/ci.yaml` was restructured
+# alongside this lane and that restructure has LANDED on main (CI-DOCSGATE-01, PR #358): a
+# `changes` classifier job, a `test` -> `test-suite` rename with a report-only `test` job on
+# `if: always()`, `needs:` gating, and `paths-ignore` dropped from `pull_request` entirely, with
+# `lint` deliberately left ungated. A wiring lock that asserted line numbers, job ordering,
+# neighbouring steps or the overall job set would have reddened the moment that landed, and a
 # wiring lock that reds for an unrelated reason gets deleted. So this file asserts exactly one
 # thing about ci.yaml's shape: that SOMEWHERE in the `lint` job there is a bare, uncommented,
 # unguarded `bash hack/test/docs_map_contract_test.sh` step that can fail the build. Adding jobs,
 # renaming other jobs, gating other jobs on a classifier and removing a `paths-ignore` list are
-# all invisible to it -- and the self-test asserts that, in the green direction.
+# all invisible to it -- and the self-test asserts that, in the green direction, against a fixture
+# carrying exactly that shape.
 #
 # Matching follows the GATE-COMMENT-01 / GATE-SCOPE-01 lessons from dist_ci_wiring_test.sh: it is
 # LINE-EXACT against a COMMENT-STRIPPED view of the `run:` body -- in ci.yaml AND in verify.sh --
 # so `# bash ...`, `bash ... || true`, `bash ... &` and a narrowed lookalike are all rejected
 # rather than counted as wiring. Both sides have a mutant proving it.
 #
-# The known cost of line-based matching, named rather than left to be discovered: a matching line
-# inside a heredoc, or in the dead branch of an `if false`, counts as wiring. Deciding otherwise
-# would mean interpreting the shell rather than reading it. This is inherent to the approach and
-# is shared with the sibling dist_ci_wiring_test.sh; it is a boundary, not a regression.
+# The known costs of line-based matching and of an indentation-driven YAML reader, named rather
+# than left to be discovered:
+#   * a matching line inside a heredoc, or in the dead branch of an `if false`, counts as wiring.
+#     Deciding otherwise would mean interpreting the shell rather than reading it. Inherent to the
+#     approach and shared with the sibling dist_ci_wiring_test.sh.
+#   * `paths-ignore: *alias` and `paths-ignore: >` each yield one bogus entry, which satisfies the
+#     non-empty floor below. Neither is reachable in a workflow that actually runs: GitHub Actions
+#     rejects YAML anchors, and `paths-ignore` must be a sequence.
+# These are boundaries, not regressions.
 #
 # KNOWN GAP, deliberate and recorded. This file is composed into `hack/docs/verify.sh` rather
 # than given its own `ci.yaml` step, because the lane that added it was forbidden from touching
@@ -533,14 +540,14 @@ pass "self-test: gate rejects an empty ${GATE_SCRIPT}"
 # The shape of the lane landing alongside this one: a `changes` classifier job, `test` renamed to
 # `test-suite`, a report-only `test` job on `if: always()`, `needs:`/`if:` gating on siblings, a
 # soft-failed sibling job, and `paths-ignore` dropped from `pull_request` entirely -- with `lint`
-# left ungated, exactly as that lane leaves it. If this lock reddened on any of that it would be
+# left ungated, exactly as main leaves it. If this lock reddened on any of that it would be
 # deleted rather than fixed, so the pass below is an assertion, not a note.
 #
 # This fixture is written OUT IN FULL rather than derived from the real ci.yaml on purpose. A
-# mutation that adds a `changes` job to the live file would start producing a DUPLICATE the day
-# the restructure merges, and this gate would red on its own scaffolding -- the precise failure it
-# exists to avoid. A standalone fixture is stable across that landing. The top-level run above is
-# what checks the real file.
+# mutation that ADDS a `changes` job to the live file produces a DUPLICATE now that the
+# restructure has landed, and this gate would red on its own scaffolding -- the precise failure it
+# exists to avoid. A standalone fixture is stable either side of that landing. The top-level run
+# above is what checks the real file, whichever shape it currently has.
 cat >"${MUTANTS}/ci-restructured.yaml" <<'RESTRUCTURED'
 name: CI
 on:
