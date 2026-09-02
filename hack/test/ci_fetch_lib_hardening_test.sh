@@ -844,15 +844,16 @@ pass "the kind download goes through the shared helper, with no hand-rolled loop
 # Self-wiring. "An unwired gate is not a gate" (house precedent: hack/test/dev_mise_pin_drift_test.sh).
 # ================================================================================================
 #
-# This gate is reached in CI TODAY through hack/test/ci_install_helm_hardening_test.sh, which
-# .github/workflows/ci.yaml already runs as an explicit step in the lint job. That indirection
-# is deliberate and is recorded here rather than hidden: the lane that wrote this file does not
-# own .github/workflows/**, and shipping a gate that reds until an unrelated lane lands a
-# workflow line would be worse than shipping one that runs. The preferred wiring -- its own
-# named step, so a failure here is attributed to fetch-lib rather than to helm -- is a one-line
-# addition and is recorded in this lane's handover.
+# This gate is reached in CI through its own named step in the lint job of
+# .github/workflows/ci.yaml ("Verify shared fetch helper hardening (CI-FETCHLIB-01)"), so a
+# failure here is attributed to fetch-lib rather than to helm. It first reached CI by delegation
+# from hack/test/ci_install_helm_hardening_test.sh, because the lane that wrote this file did not
+# own .github/workflows/**; that crutch was circular -- deleting the nested call silently
+# unwired this gate -- and GATE-CIWIRING-02 replaced it with the workflow step and removed it.
 #
-# Either route satisfies the assertion; ZERO routes does not. The `-Fx` match on a trimmed,
+# The assertion below still accepts EITHER route, deliberately: it is a check that the gate is
+# reachable, not a check of which file reaches it, and pinning it to one spelling would red this
+# gate for a legitimate rewiring. ZERO routes is the failure. The `-Fx` match on a trimmed,
 # comment-stripped, `run:`-unwrapped view is what stops a commented-out or neutered invocation
 # ("# bash ...", "bash ... || true", "bash ... &") from counting as wiring: GATE-COMMENT-01 and
 # GATE-SCOPE-01, both from hack/test/dist_ci_wiring_test.sh, are the house records of a
