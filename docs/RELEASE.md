@@ -313,12 +313,12 @@ PIPELINE_DIGEST="$(crane digest ghcr.io/${REPO}/kollect-pipeline:${TAG#v})"
 
 cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
+  --certificate-identity-regexp '^https://github\.com/[Pp]latform[Rr]elay/[Kk]ollect/.+' \
   "ghcr.io/${REPO}/kollect@${OP_DIGEST}"
 
 cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
+  --certificate-identity-regexp '^https://github\.com/[Pp]latform[Rr]elay/[Kk]ollect/.+' \
   "ghcr.io/${REPO}/kollect-pipeline@${PIPELINE_DIGEST}"
 ```
 
@@ -346,7 +346,7 @@ cd /tmp/kollect-verify
 cosign verify-blob \
   --bundle "kollect-${VERSION}.tgz.sigstore.json" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
+  --certificate-identity-regexp '^https://github\.com/[Pp]latform[Rr]elay/[Kk]ollect/.+' \
   "kollect-${VERSION}.tgz"
 ```
 

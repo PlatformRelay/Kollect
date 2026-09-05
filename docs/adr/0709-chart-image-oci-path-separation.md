@@ -216,6 +216,22 @@ workflow path: `cosign verify` at `docs/RELEASE.md:311,316`,
 `cosign verify-blob` at `docs/RELEASE.md:343`. The identity pattern is a repository prefix, so any
 signature produced under `github.com/platformrelay/kollect/…` satisfies it.
 
+> **Amendment, 2026-09-05 (SEC-VERIFYCASE-01).** The paragraph above is left as written because it
+> records the analysis this decision was made on, but its central factual claim was **wrong**, and
+> executing the runbook is what proved it. The published identity regexp was lowercase
+> (`platformrelay/kollect`) while GitHub's OIDC SAN preserves the repository's canonical casing
+> (`PlatformRelay/Kollect`), and `--certificate-identity-regexp` is a **case-sensitive** Go RE2
+> pattern. So "every documented verification command matches the signer" was false: none of them
+> did, for any release, for anyone — the V1 gate below reported FAILED for this reason and not
+> because the copy was bad, confirmed by running the same command against the **untouched original
+> path**. What kept it hidden is that `.github/release-notes-install.md` builds the command from
+> `${GITHUB_REPOSITORY}`, which GitHub expands with canonical casing; verifying from the *release
+> page* worked, verifying from the *docs* never did. The published value is now
+> `^https://github\.com/[Pp]latform[Rr]elay/[Kk]ollect/.+` — case-tolerant on both path segments and
+> with the host dots escaped — proven against a real published signature, with wrong-org, wrong-repo
+> and wrong-issuer negative controls. The reasoning that follows is unaffected: the pattern is still
+> a repository prefix and still pins no workflow path.
+
 That makes the fallback viable — but **only from a workflow**. A keyless re-sign has to run in
 GitHub Actions with `id-token: write`, because that is what mints a Fulcio certificate whose SAN is
 a `github.com/platformrelay/kollect/…` workflow URI. A maintainer re-signing interactively from a
@@ -266,7 +282,7 @@ crane digest ghcr.io/platformrelay/charts/kollect:0.14.0
 # 2. the published verify command must pass VERBATIM against the new path
 cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
+  --certificate-identity-regexp '^https://github\.com/[Pp]latform[Rr]elay/[Kk]ollect/.+' \
   ghcr.io/platformrelay/charts/kollect:0.14.0
 ```
 

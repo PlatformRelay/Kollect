@@ -309,7 +309,7 @@ helm template kollect ./charts/kollect > /tmp/kollect-rendered.yaml
 # Release identity (replace the example tag/digest)
 cosign verify \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/platformrelay/kollect/.+' \
+  --certificate-identity-regexp '^https://github\.com/[Pp]latform[Rr]elay/[Kk]ollect/.+' \
   ghcr.io/platformrelay/kollect@sha256:REPLACE_ME
 ```
 
