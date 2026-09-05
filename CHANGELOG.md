@@ -11,6 +11,46 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Check the page an image-wrapped map link points at [e5ef26e](https://github.com/platformrelay/kollect/commit/e5ef26eb6770009152b5b5ad30c08cf75a07abd9)
+
+- **ci:** Stop an unreadable paths-ignore list reading as "nothing ignored" [ddbbc28](https://github.com/platformrelay/kollect/commit/ddbbc283301acfd22c640a47448bdc655e4b092b)
+
+- **docs:** Report links the map section renders outside its table [440f318](https://github.com/platformrelay/kollect/commit/440f318c216c956e0b4243b9108d4952e4d18d55)
+
+- **docs:** Make an unreadable root file a failure, not "no links" [4470793](https://github.com/platformrelay/kollect/commit/44707934c9f04bce720dddc77c3429120319ef0b)
+
+- **ci:** Drop yq from the docs map wiring lock [a9d05bc](https://github.com/platformrelay/kollect/commit/a9d05bc0782f0cbf4cf0db46db698afec0205b9a)
+
+- **docs:** Check every link the map section renders [ff96a44](https://github.com/platformrelay/kollect/commit/ff96a44cb210a2d03ea6a7eaeb65871b1aab3b09)
+
+- **docs:** See reference-style links in the repo-root link gate [55f145d](https://github.com/platformrelay/kollect/commit/55f145dee56c0bc3b0787182abbe2daf95f6598e)
+
+- **docs:** Stop the map gate skipping rows it cannot parse [d95d0cb](https://github.com/platformrelay/kollect/commit/d95d0cba9a4b395563379260cefaaf62f20393d3)
+
+- **deps:** Bump golang.org/x/crypto to v0.56.0 for GO-2026-6354/GO-2026-6355 ([#359](https://github.com/platformrelay/kollect/pull/359))[ae85d24](https://github.com/platformrelay/kollect/commit/ae85d240bc7767fbe696e503201d9e87425374c0)
+
+- **ci:** Count renames and deletions when classifying a PR (CI-DOCSGATE-01) [016620e](https://github.com/platformrelay/kollect/commit/016620e5e8913acf4e51c96ed5f7c01c9524f9a2)
+
+- **hack:** Restore the fetcher spellings the last rewrite silently dropped [5edaf2a](https://github.com/platformrelay/kollect/commit/5edaf2ac79b2196d9caa26d018e82112a394d777)
+
+- **ci:** Make the kind download fail at the download, not at chmod [8e9f73d](https://github.com/platformrelay/kollect/commit/8e9f73d18aaf4101844309e8d6395567b2d2b002)
+
+- **demo:** Count hero inventory files instead of short-circuiting under pipefail [13eae3a](https://github.com/platformrelay/kollect/commit/13eae3a2be2970ed4f23d3fe83ad157f739dbd5d)
+
+- **dist:** Let a missing step output reach its own assertion ([#355](https://github.com/platformrelay/kollect/pull/355))[05c7e82](https://github.com/platformrelay/kollect/commit/05c7e82a8e000c876e6c04dd600227a9c3a035dd)
+
+- **dist:** See a push whichever side of it helm's flags land on [81cad37](https://github.com/platformrelay/kollect/commit/81cad37fd9f93032e827abeeedfce8adb16f4a56)
+
+- **dist:** Stop this gate from truncating its own log [a516367](https://github.com/platformrelay/kollect/commit/a51636738544a84848b563aa51e5f0564a5b7b05)
+
+- **dist:** Make --verify-ac1 meet AC1, and gate the guards this lane added [8563522](https://github.com/platformrelay/kollect/commit/856352205893ffe73e0d3a940370ff8dbf8f6bb9)
+
+- **dist:** Close the V1 gate laundering path, keep the PAT out of argv, gate the --apply path [b042597](https://github.com/platformrelay/kollect/commit/b042597a82a3fc3f4d997d9ed61999a168edbb46)
+
+- **test:** Stop the chart-path gate swallowing its own diagnostics ([#351](https://github.com/platformrelay/kollect/pull/351))[ef066c2](https://github.com/platformrelay/kollect/commit/ef066c224e45bf2191d88df765870605dd301d5e)
+
+- **test:** Make a rejected env expression abort the chart-path gate [4fbc806](https://github.com/platformrelay/kollect/commit/4fbc8063fb2413efdb01f4ebbcd83d583b7bde8b)
+
 - **api:** Stop the CRD schema claiming `type: http` is a supported sink [5b3751a](https://github.com/platformrelay/kollect/commit/5b3751a87ae53d84d33f747a669bff9f38526516)
 
 - **docs:** Stop linking an OperatorHub.io listing that does not exist [1576fb3](https://github.com/platformrelay/kollect/commit/1576fb34bae0dc048e56b003d998ac9d7b926da1)
@@ -30,7 +70,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **docs:** Retarget three deleted doc links in CONTRIBUTING [41f8fd6](https://github.com/platformrelay/kollect/commit/41f8fd63ffcc223bca23de0269adb5f839a9f38b)
 
 
+### Features
+
+- **hack:** Add a shared hardened fetch helper for installer downloads [1c942c0](https://github.com/platformrelay/kollect/commit/1c942c0d23139210c8f5d272d21e0c84fbf169ce)
+
+
 ### Refactoring
+
+- **hack:** Route every installer download through the shared fetch helper [fca970f](https://github.com/platformrelay/kollect/commit/fca970f99ae071ccbccce8bc0854d6226efe989d)
+
+- **demo:** Count inventory files with wc -l, and lock the property not the spelling [2a005f6](https://github.com/platformrelay/kollect/commit/2a005f64e6755d2e28ffe6a7dcc5507fffc1f9ba)
 
 - **test:** Make the glossary gate trap's exit path explicit ([#341](https://github.com/platformrelay/kollect/pull/341))[1ab0843](https://github.com/platformrelay/kollect/commit/1ab08433f4b92be63433caadaf1e335e51be3577)
 

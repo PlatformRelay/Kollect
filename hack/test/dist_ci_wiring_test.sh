@@ -24,6 +24,40 @@
 # green -- the empty-glob diagnostic still mentions the pattern. `bash "${script}" || true` and
 # `bash "${script}" &` both stayed green too, while the pass message below asserts the step "can
 # fail the build". Both anchors are now LINE-EXACT against a trimmed, comment-stripped view.
+#
+# ------------------------------------------------------------------------------------------------
+# GATE-CIWIRING-02. THE INVARIANT THIS FILE ENFORCES:
+#
+#   A gate wired into the `lint` job must actually EXECUTE, and its failure must FAIL THE JOB.
+#   Any declaration that prevents execution, or that swallows the result, must be REPORTED --
+#   whether or not this gate anticipated that particular spelling.
+#
+# Every check above enumerates a spelling: `if: false`, `continue-on-error: true`, `|| true`, `&`,
+# a leading `#`. That is the wrong side to enumerate. The set of gates wired into `lint` grows
+# every week; the set of GitHub Actions declarations that decide whether a job or a step runs, and
+# in what interpreter, is fixed by the workflow schema and is therefore the FINITE side.
+#
+# So the three checks added below constrain that finite side instead, as CLOSED ALLOWLISTS of
+# declarations rather than as a blocklist of evasions: the workflow's top-level key set, the lint
+# job's key set, and each lint step's key set (plus, where a key is allowed at all, its exact
+# permitted value). An unrecognised declaration is reported, not assumed inert -- so a spelling
+# nobody here thought of reds the gate and gets read by a human, which is the point.
+#
+# All ten of the following passed this gate at exit 0 before those checks existed, each leaving
+# every anchor, name and ordering assertion above perfectly satisfied:
+#   job level  -- `strategy.matrix: []` and `strategy.matrix.include: []` (the job never
+#                 materialises at all), `container: {image: alpine:3.20}` (a different
+#                 interpreter), `timeout-minutes: 0`, `env: {BASH_ENV: ...}`, `defaults.run.shell`
+#   workflow   -- a top-level `defaults.run.shell: bash -c "echo skipped {0}"`, a top-level `env`
+#   step level -- `shell: bash -c "echo skipped {0}"` (leaves the invocation line BYTE-EXACT and
+#                 never executes it), `continue-on-error: true`, `if: false`
+#
+# Scope, stated so no one reads more into it than it does: these checks cover declarations INSIDE
+# .github/workflows/ci.yaml at those three levels. They say nothing about whether the workflow is
+# dispatched at all -- that is hack/test/ci_docs_gate_test.sh, which asserts ci.yaml triggers on
+# every pull request into main -- and nothing about the contents of a composite action a step
+# `uses:`.
+# ------------------------------------------------------------------------------------------------
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CI_WORKFLOW="${ROOT}/.github/workflows/ci.yaml"
@@ -55,6 +89,66 @@ SDK_MATCH="${RUN_CODE} | contains(\"hack/install-operator-sdk.sh\")"
 GLOB_MATCH="${RUN_CODE_LINES}"' | any_c(test("^scripts=\\(hack/test/dist_\\*_test\\.sh\\)$"))'
 LINT_MATCH="${RUN_CODE} | test(\"^task lint[[:space:]]*\$\")"
 
+# GATE-CIWIRING-02: the three closed allowlists. Each is the set of declarations a human has
+# looked at and judged unable to prevent a lint step from executing or to swallow its failure.
+# Growing one is a deliberate act with that reasoning attached, which is exactly the review a new
+# `strategy:` or `container:` on this job deserves and did not previously get.
+#
+# Deliberately ABSENT from JOB_KEY_ALLOWLIST, and each one load-bearing: `if` and
+# `continue-on-error` (already checked above, by name, for their better messages), `strategy`
+# (an empty matrix means zero job instances), `container` and `defaults` (a different
+# interpreter), `env` (BASH_ENV is sourced by every non-interactive bash), `needs` (a job whose
+# dependency skips, skips), `timeout-minutes` (0 kills it immediately).
+WORKFLOW_KEY_ALLOWLIST=(name on permissions jobs)
+JOB_KEY_ALLOWLIST=(name runs-on steps)
+STEP_KEY_ALLOWLIST=(name run uses with env shell)
+
+# Where a key IS allowed but its value can still neutralise the step, the value is pinned too.
+# `shell` is the case: GitHub interpolates the step body into the shell string at `{0}`, so
+# `shell: bash -c "echo skipped {0}"` runs the gate's own text through `echo`. Only the plain
+# `bash` spelling (`bash --noprofile --norc -eo pipefail {0}`) is accepted -- it is strictly
+# stronger than the runner default, and it is the only value with no room for a template.
+STEP_SHELL_ALLOWLIST=(bash)
+
+# The env bindings the lint job's steps declare today, pinned exactly rather than filtered by a
+# blocklist of dangerous names. All three are installer version pins consumed by a `hack/install-*.sh`
+# argument or by the script itself; none reaches the shell that runs a gate. A new binding here is
+# reported so someone confirms the same before adding it.
+STEP_ENV_KEY_ALLOWLIST=(SHELLCHECK_VERSION HELM_VERSION OPERATOR_SDK_VERSION)
+
+# `return 1` on no match; the caller turns that into the diagnostic, because only the caller knows
+# which level was being checked.
+in_allowlist() {
+  local needle="$1" item
+  shift
+  for item in "$@"; do
+    if [[ "${item}" == "${needle}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# The key set of one yq path, one key per line, as a bash array named by the caller.
+# A yq failure or a non-map at that path is REPORTED, never silently treated as "no keys" --
+# an empty key list satisfies every allowlist check vacuously.
+read_keys_into() {
+  local -n _out="$1" # nameref: bash 4.3+, and CI/mise both ship 5.x
+  local workflow="$2" path="$3" label="$4"
+  local kind raw
+
+  kind="$(yq eval "${path} | type" "${workflow}")" ||
+    fail "yq could not read ${label} from ${workflow} -- an unreadable declaration is not an absent one"
+  [[ "${kind}" == "!!map" ]] ||
+    fail "${label} in ${workflow} is ${kind}, not a map -- this reader cannot enumerate its declarations, and a key set it cannot see is a key set it cannot check"
+
+  raw="$(yq eval "${path} | keys | .[]" "${workflow}")" ||
+    fail "yq could not enumerate the keys of ${label} in ${workflow} -- an unreadable declaration is not an absent one"
+  _out=()
+  [[ -n "${raw}" ]] || return 0
+  mapfile -t _out <<<"${raw}"
+}
+
 # The same comment-stripped view, for one step selected by index.
 lint_step_run_code() {
   local workflow="$1" idx="$2"
@@ -79,6 +173,8 @@ check_wiring() {
   local workflow="$1"
   local job_kind steps_kind sdk_idx glob_idx lint_idx glob_name glob_run
   local job_if job_coe glob_if glob_coe
+  local key idx step_count step_label step_shell step_env_kind
+  local -a wf_keys job_keys step_keys step_env_keys
 
   [[ -f "${workflow}" ]] || fail "expected ${workflow}"
 
@@ -101,6 +197,24 @@ check_wiring() {
   job_coe="$(yq eval '.jobs.lint["continue-on-error"]' "${workflow}")"
   [[ "${job_coe}" == "null" || "${job_coe}" == "false" ]] ||
     fail "the lint job must not declare 'continue-on-error: ${job_coe}' -- a soft-failed lint job turns every dist_* meta-test into an advisory notice"
+
+  # GATE-CIWIRING-02: the two checks above name the two spellings this gate happened to think of.
+  # These two enumerate the other side -- every declaration the schema allows here -- and report
+  # anything not on the allowlist. `strategy.matrix: []` is the motivating case: it makes the job
+  # produce ZERO instances, so nothing in it ever runs, and it left every assertion in this file
+  # green because none of them looked at `strategy`.
+  read_keys_into wf_keys "${workflow}" '.' 'the workflow root'
+  for key in "${wf_keys[@]}"; do
+    in_allowlist "${key}" "${WORKFLOW_KEY_ALLOWLIST[@]}" ||
+      fail "${workflow} declares a top-level '${key}' key, which is not one of (${WORKFLOW_KEY_ALLOWLIST[*]}) -- a top-level 'defaults' rewrites the shell every lint step runs under and a top-level 'env' is inherited by all of them, so an unrecognised top-level key cannot be assumed inert. If it is legitimate, add it to WORKFLOW_KEY_ALLOWLIST once you can show it neither prevents a lint step from executing nor swallows its failure"
+  done
+
+  read_keys_into job_keys "${workflow}" '.jobs.lint' 'the lint job'
+  for key in "${job_keys[@]}"; do
+    in_allowlist "${key}" "${JOB_KEY_ALLOWLIST[@]}" ||
+      fail "the lint job declares '${key}', which is not one of (${JOB_KEY_ALLOWLIST[*]}) -- 'strategy' (an empty matrix yields zero job instances), 'container' and 'defaults' (a different interpreter), 'env' (BASH_ENV is sourced by every non-interactive bash), 'needs' (a job whose dependency skips, skips) and 'timeout-minutes: 0' each stop the lint job from running the gates wired into it, while leaving every anchor, name and ordering assertion in this file satisfied. If '${key}' is legitimate, add it to JOB_KEY_ALLOWLIST once you can show it neither prevents a lint step from executing nor swallows its failure"
+  done
+  pass "the workflow root and the lint job declare nothing beyond (${WORKFLOW_KEY_ALLOWLIST[*]}) and (${JOB_KEY_ALLOWLIST[*]}) -- no strategy, container, defaults, env, needs or timeout that could stop the job materialising"
 
   glob_idx="$(lint_step_index "${workflow}" "${GLOB_MATCH}" 'dist_* glob (a line-exact scripts=(hack/test/dist_*_test.sh) assignment)')" || exit 1
   lint_idx="$(lint_step_index "${workflow}" "${LINT_MATCH}" 'task lint')" || exit 1
@@ -144,6 +258,45 @@ check_wiring() {
   [[ "${sdk_idx}" -lt "${glob_idx}" ]] ||
     fail "the operator-sdk install (lint step ${sdk_idx}) must come before the dist_* glob (lint step ${glob_idx})"
   pass "ci.yaml lint job installs operator-sdk before the dist_* glob"
+
+  # GATE-CIWIRING-02, one level down. The `if`/`continue-on-error` checks above are scoped to the
+  # dist_* glob step, because that is the step this file was written about. But `lint` is where
+  # roughly two dozen other gates are wired in, and neutralising the operator-sdk INSTALL step is
+  # just as effective at defeating the dist_* suite as neutralising the glob step. So every step
+  # in the job is held to a closed key allowlist, and the two keys whose value can still neuter a
+  # step that is otherwise present (`shell`, `env`) are pinned to exact permitted values.
+  step_count="$(yq eval '.jobs.lint.steps | length' "${workflow}")"
+  for ((idx = 0; idx < step_count; idx++)); do
+    step_label="$(yq eval ".jobs.lint.steps[${idx}] | (.name // .uses // \"(unnamed)\")" "${workflow}")"
+
+    read_keys_into step_keys "${workflow}" ".jobs.lint.steps[${idx}]" "lint step ${idx} ('${step_label}')"
+    for key in "${step_keys[@]}"; do
+      in_allowlist "${key}" "${STEP_KEY_ALLOWLIST[@]}" ||
+        fail "lint step ${idx} ('${step_label}') declares '${key}', which is not one of (${STEP_KEY_ALLOWLIST[*]}) -- 'if' skips the step, 'continue-on-error' reports its failure as success, 'timeout-minutes: 0' kills it, 'working-directory' runs it somewhere else, and an unrecognised key cannot be assumed inert. If '${key}' is legitimate, add it to STEP_KEY_ALLOWLIST once you can show it neither prevents the step from executing nor swallows its failure"
+    done
+
+    step_shell="$(yq eval ".jobs.lint.steps[${idx}].shell" "${workflow}")"
+    if [[ "${step_shell}" != "null" ]]; then
+      in_allowlist "${step_shell}" "${STEP_SHELL_ALLOWLIST[@]}" ||
+        fail "lint step ${idx} ('${step_label}') declares 'shell: ${step_shell}', and the only accepted spelling is one of (${STEP_SHELL_ALLOWLIST[*]}) -- GitHub interpolates the step body into the shell string at '{0}', so a shell like 'bash -c \"echo skipped {0}\"' leaves the run: body byte-exact, satisfies every anchor in this file, and never executes it"
+    fi
+
+    step_env_kind="$(yq eval ".jobs.lint.steps[${idx}].env | type" "${workflow}")"
+    case "${step_env_kind}" in
+    "!!null") ;;
+    "!!map")
+      read_keys_into step_env_keys "${workflow}" ".jobs.lint.steps[${idx}].env" "the env map of lint step ${idx} ('${step_label}')"
+      for key in "${step_env_keys[@]}"; do
+        in_allowlist "${key}" "${STEP_ENV_KEY_ALLOWLIST[@]}" ||
+          fail "lint step ${idx} ('${step_label}') declares the env binding '${key}', which is not one of (${STEP_ENV_KEY_ALLOWLIST[*]}) -- a step env map is read by the shell that runs the gate, and names like BASH_ENV, ENV, SHELLOPTS or PATH change what that shell does before the gate's first line. If '${key}' is legitimate, add it to STEP_ENV_KEY_ALLOWLIST once you can show it cannot reach the interpreter"
+      done
+      ;;
+    *)
+      fail "lint step ${idx} ('${step_label}') declares an env: that is ${step_env_kind}, not a map -- this reader cannot enumerate its bindings, and bindings it cannot see are bindings it cannot check"
+      ;;
+    esac
+  done
+  pass "all ${step_count} lint steps declare nothing beyond (${STEP_KEY_ALLOWLIST[*]}), any shell is exactly (${STEP_SHELL_ALLOWLIST[*]}), and every env binding is one of (${STEP_ENV_KEY_ALLOWLIST[*]})"
 }
 
 check_wiring "${CI_WORKFLOW}"
@@ -275,6 +428,150 @@ yq eval '.jobs.lint["continue-on-error"] = true' "${CI_WORKFLOW}" >"${MUTANTS}/l
 mutant_rejected "${MUTANTS}/lint-job-soft-fail.yaml" \
   'the whole lint job is soft-failed with continue-on-error' \
   'the lint job must not declare'
+
+# GATE-CIWIRING-02: the fourteen shapes an enumeration of spellings cannot see. Every one of them
+# passed this gate at exit 0 before the allowlist checks existed. They are grouped by the level
+# the declaration sits at, because that is the level whose allowlist has to catch it -- and note
+# that not one of them touches a `run:` body, an anchor, a step name or an ordering.
+#
+# All mutations here are structural yq ASSIGNMENTS (`=`), never `sub()`. METHOD-MUTHARNESS-02:
+# `sub()`'s replacement argument is a Go regexp expansion template, so a `${...}` in it silently
+# expands to a capture group (or to nothing), and the mutant then is not the mutation its name
+# claims. `=` has no template semantics.
+
+# -- job level. `strategy.matrix: []` is the reviewer's finding: zero job instances, so nothing in
+#    `lint` runs at all, and the two spellings below are the same defect twice.
+yq eval '.jobs.lint.strategy.matrix = []' "${CI_WORKFLOW}" >"${MUTANTS}/lint-job-empty-matrix.yaml"
+mutant_rejected "${MUTANTS}/lint-job-empty-matrix.yaml" \
+  'the lint job carries strategy.matrix: [], so it produces zero job instances and never runs' \
+  "the lint job declares 'strategy'"
+
+yq eval '.jobs.lint.strategy.matrix.include = []' "${CI_WORKFLOW}" >"${MUTANTS}/lint-job-empty-matrix-include.yaml"
+mutant_rejected "${MUTANTS}/lint-job-empty-matrix-include.yaml" \
+  'the lint job carries strategy.matrix.include: [], the same never-runs shape under another spelling' \
+  "the lint job declares 'strategy'"
+
+yq eval '.jobs.lint.container = {"image": "alpine:3.20"}' "${CI_WORKFLOW}" >"${MUTANTS}/lint-job-container.yaml"
+mutant_rejected "${MUTANTS}/lint-job-container.yaml" \
+  'the lint job runs in a container whose interpreter and toolchain are not the runner ones' \
+  "the lint job declares 'container'"
+
+yq eval '.jobs.lint["timeout-minutes"] = 0' "${CI_WORKFLOW}" >"${MUTANTS}/lint-job-timeout-zero.yaml"
+mutant_rejected "${MUTANTS}/lint-job-timeout-zero.yaml" \
+  'the lint job is given timeout-minutes: 0' \
+  "the lint job declares 'timeout-minutes'"
+
+yq eval '.jobs.lint.env = {"BASH_ENV": "/dev/null"}' "${CI_WORKFLOW}" >"${MUTANTS}/lint-job-env.yaml"
+mutant_rejected "${MUTANTS}/lint-job-env.yaml" \
+  'the lint job gains a job-level env map that every gate step inherits' \
+  "the lint job declares 'env'"
+
+yq eval '.jobs.lint.defaults.run.shell = "bash -c \"echo skipped {0}\""' "${CI_WORKFLOW}" >"${MUTANTS}/lint-job-defaults-shell.yaml"
+mutant_rejected "${MUTANTS}/lint-job-defaults-shell.yaml" \
+  'the lint job sets defaults.run.shell so every step body is echoed instead of run' \
+  "the lint job declares 'defaults'"
+
+yq eval '.jobs.lint.needs = ["verify"]' "${CI_WORKFLOW}" >"${MUTANTS}/lint-job-needs.yaml"
+mutant_rejected "${MUTANTS}/lint-job-needs.yaml" \
+  'the lint job needs a job that is itself gated, so it skips whenever that one does' \
+  "the lint job declares 'needs'"
+
+# -- workflow level. Both reach every step of every job, lint included.
+yq eval '.defaults.run.shell = "bash -c \"echo skipped {0}\""' "${CI_WORKFLOW}" >"${MUTANTS}/workflow-defaults-shell.yaml"
+mutant_rejected "${MUTANTS}/workflow-defaults-shell.yaml" \
+  'the workflow sets a top-level defaults.run.shell that echoes every step body' \
+  "declares a top-level 'defaults' key"
+
+yq eval '.env = {"BASH_ENV": "/dev/null"}' "${CI_WORKFLOW}" >"${MUTANTS}/workflow-env.yaml"
+mutant_rejected "${MUTANTS}/workflow-env.yaml" \
+  'the workflow gains a top-level env map every step inherits' \
+  "declares a top-level 'env' key"
+
+# -- step level. The shell override is the sharpest of the set: the `run:` body stays BYTE-EXACT,
+#    so every line-exact anchor above still matches, and the body is handed to `echo`.
+yq eval '
+  with(.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh"));
+       .shell = "bash -c \"echo skipped {0}\"")
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-step-shell-echo.yaml"
+mutant_rejected "${MUTANTS}/glob-step-shell-echo.yaml" \
+  'the dist_* glob step is run under a shell that echoes its byte-exact body instead of executing it' \
+  'never executes it'
+
+# The two step-level neuterings aimed at the operator-sdk INSTALL step rather than the glob step.
+# The `if`/`continue-on-error` checks earlier in this file are scoped to the glob step alone, so
+# before the step allowlist these two disabled the entire OperatorHub validator gate in silence.
+yq eval '
+  with(.jobs.lint.steps[] | select((.run // "") | contains("hack/install-operator-sdk.sh"));
+       .["continue-on-error"] = true)
+' "${CI_WORKFLOW}" >"${MUTANTS}/sdk-step-soft-fail.yaml"
+mutant_rejected "${MUTANTS}/sdk-step-soft-fail.yaml" \
+  'the operator-sdk install step is soft-failed, so the dist_* suite runs without operator-sdk' \
+  "declares 'continue-on-error'"
+
+yq eval '
+  with(.jobs.lint.steps[] | select((.run // "") | contains("hack/install-operator-sdk.sh"));
+       .if = "false")
+' "${CI_WORKFLOW}" >"${MUTANTS}/sdk-step-disabled.yaml"
+mutant_rejected "${MUTANTS}/sdk-step-disabled.yaml" \
+  'the operator-sdk install step is disabled with if: false' \
+  "declares 'if'"
+
+yq eval '
+  with(.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh"));
+       .env = {"BASH_ENV": "/dev/null"})
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-step-env-binding.yaml"
+mutant_rejected "${MUTANTS}/glob-step-env-binding.yaml" \
+  'the dist_* glob step gains an env binding that reaches the shell before the gate does' \
+  "declares the env binding 'BASH_ENV'"
+
+yq eval '
+  with(.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh"));
+       .["working-directory"] = "/tmp")
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-step-working-directory.yaml"
+mutant_rejected "${MUTANTS}/glob-step-working-directory.yaml" \
+  'the dist_* glob step is run from a directory where the glob expands to nothing' \
+  "declares 'working-directory'"
+
+# Rule: an input the reader cannot resolve is REPORTED, never skipped. A step, or a step's env,
+# that is not a map has a key set this reader cannot enumerate -- and an unenumerable key set
+# would satisfy every allowlist loop above vacuously.
+yq eval '
+  with(.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh"));
+       .env = "BASH_ENV=/dev/null")
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-step-env-scalar.yaml"
+mutant_rejected "${MUTANTS}/glob-step-env-scalar.yaml" \
+  "the dist_* glob step's env: is a scalar this reader cannot enumerate" \
+  'not a map'
+
+yq eval '.jobs.lint.steps[0] = "checkout"' "${CI_WORKFLOW}" >"${MUTANTS}/lint-step-scalar.yaml"
+mutant_rejected "${MUTANTS}/lint-step-scalar.yaml" \
+  'a lint step is a bare scalar whose declarations cannot be enumerated' \
+  'not a map'
+
+# Positive control. An allowlist that rejects everything is as useless as one that rejects
+# nothing, and the `shell` check in particular is a VALUE assertion, not a "no shell key" one:
+# `shell: bash` is stricter than the runner default (it adds -o pipefail) and must stay legal.
+mutant_accepted() {
+  local mutant="$1" label="$2"
+  local output status=0
+
+  [[ -s "${mutant}" ]] ||
+    fail "self-test: the mutant for '${label}' is missing or empty -- the yq mutation step failed, so nothing was actually tested"
+  if cmp -s "${mutant}" "${CI_WORKFLOW}"; then
+    fail "self-test: the mutant for '${label}' is byte-identical to ${CI_WORKFLOW} -- the yq mutation was a no-op, so nothing was actually tested"
+  fi
+  output="$( (check_wiring "${mutant}") 2>&1 )" || status=$?
+  [[ "${status}" -eq 0 ]] ||
+    fail "self-test: the gate rejected a workflow where ${label}, which is a legitimate declaration -- the allowlists are over-broad, got: ${output}"
+  pass "self-test: gate accepts a workflow where ${label}"
+}
+
+yq eval '
+  with(.jobs.lint.steps[] | select((.run // "") | contains("hack/test/dist_*_test.sh"));
+       .shell = "bash")
+' "${CI_WORKFLOW}" >"${MUTANTS}/glob-step-shell-bash.yaml"
+mutant_accepted "${MUTANTS}/glob-step-shell-bash.yaml" \
+  'the dist_* glob step spells out the stricter shell: bash'
 
 # The self-test's own guard rails: these four are the degenerate "rejections" that the old
 # any-nonzero-exit check accepted as proof. mutant_rejected must now refuse every one of them.

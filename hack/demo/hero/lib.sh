@@ -75,11 +75,33 @@ _hero_assert_git_connection_verified() {
 }
 
 # Non-empty Git export: ≥1 committed inventory file (yaml/yml/json) outside .git.
+#
+# GATE-SIGPIPE-01: counts to EOF, never short-circuits. `find … | grep -q .` under
+# `set -o pipefail` inverts: grep exits at its FIRST match and closes the pipe, find takes
+# SIGPIPE and exits 141, and pipefail makes the pipeline report 141 — so a real, non-empty
+# export is reported as empty and _hero_assert_git_export_nonempty fails the demo for a
+# reason that does not exist.
+#
+# This is a RACE between find and grep, not a size threshold: it needs find to still be
+# writing when grep exits, which large output makes near-certain but small output does not
+# make impossible (reproduced here at ~21 KB, well under one 64 KiB pipe buffer). Do not
+# read "it's only a few files" as safe. A small clone usually behaves correctly, which is
+# why only a large fixture reliably catches it: the smoke test seeds 4000 files precisely
+# so this predicate is exercised past the point where the race is reliably lost. A repo-wide
+# gate for this shape is backlog story GATE-SIGPIPE-02.
+#
+# `wc -l` reads to EOF, so find never sees SIGPIPE. It is preferred over `grep -c` because
+# it exits 0 on a zero count and so needs no `|| true` — and `|| true` would also swallow a
+# genuine find failure (unreadable directory) and report it as the string "0", i.e. as
+# "export is empty", which is this same defect class in the silent direction.
 _hero_export_has_inventory_files() {
-  local dir="${1:-${HERO_INVENTORY_CLONE_DIR}}"
+  local dir="${1:-${HERO_INVENTORY_CLONE_DIR}}" count
   [[ -d "${dir}" ]] || return 1
-  find "${dir}" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
-    ! -path '*/.git/*' | grep -q .
+  count="$(
+    find "${dir}" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+      ! -path '*/.git/*' | wc -l
+  )" || return 1 # find or wc failed: report "cannot tell", never "empty"
+  [[ "${count}" -gt 0 ]]
 }
 
 _hero_assert_git_export_nonempty() {

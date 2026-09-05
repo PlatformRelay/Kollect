@@ -146,7 +146,7 @@ Enforcement patterns: [guidelines § 1–2](development/guidelines.md#2-robustne
 | ID | Requirement |
 | --- | --- |
 | NFR-SEC-1 | Credentials only via `secretRef`; never in spec/status/logs |
-| NFR-SEC-2 | Default verify TLS; `insecureSkipVerify` opt-in and surfaced in status |
+| NFR-SEC-2 | Default verify TLS; `insecureSkipVerify` opt-in and surfaced in status. **Drift (2026-09-03): the "surfaced in status" half is only partly met** — the `TLSInsecure` condition is written only by a connection test that runs and succeeds, so it is absent with `spec.connectionTest: false` or while a probe is failing, and a condition set once can persist stale. Requirement stands as written; see [ADR-0104 § insecureSkipVerify is transport-scoped](adr/0104-security-model.md#insecureskipverify-is-transport-scoped--corrected-2026-09-03) |
 | NFR-SEC-3 | Tenancy enforced by `KollectScope` (hard degrade) + SAR; least-privilege RBAC |
 | NFR-SEC-4 | Sensitive-key redaction before export; no secret material in inventory |
 | NFR-SEC-5 | Distroless nonroot image; minimal attack surface |

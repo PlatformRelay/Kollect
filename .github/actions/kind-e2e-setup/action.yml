@@ -51,24 +51,41 @@ runs:
         path: ~/.cache/kind/kind-0.32.0
         key: kind-0.32.0-linux-amd64
 
+    # CI-KINDLOOP-01. The three-attempt loop that used to live here is the reason this step is
+    # worth a comment. It looked hardened -- protocol pinning, curl-level retries, a connect
+    # timeout -- so it was the pattern in this repo that got copied. Two things were wrong with
+    # it, and the second is why CI-HELMDL-01 deliberately declined to imitate it:
+    #
+    #   * it FELL THROUGH when all three attempts failed. `set -euo pipefail` still failed the
+    #     job, at the next command, so it was never a false green -- but the next command was
+    #     `chmod +x` on a file that had never been written, so an unreachable kind.sigs.k8s.io
+    #     was reported to the operator as "No such file or directory". That is the difference
+    #     between a two-minute triage and a twenty-minute one on a required check;
+    #   * it slept 10 seconds after its FINAL attempt, pure dead time on a job already doomed.
+    #
+    # Both are fixed by deleting the loop rather than repairing it: retry policy now lives in
+    # hack/lib/fetch.sh, the same helper every hack/install-*.sh uses, so the kind download and
+    # the helm download in this one step can no longer drift apart the way they had (the helm
+    # side was bare `curl -fsSL`, which is what reddened kind-smoke on PR #351). fetch_to fails
+    # AT the download, names the host and curl's exit code, and does not sleep after its last
+    # attempt.
+    #
+    # Sourcing a repo script from a composite action is safe here and not a new dependency: this
+    # step already runs `bash hack/install-helm.sh`, so it already requires the checkout to be
+    # present with the repository root as the working directory. The helper is sourced through
+    # ${GITHUB_WORKSPACE} rather than a bare relative path so it does not silently depend on that
+    # working directory staying what it is.
     - name: Install kind and helm
       shell: bash
       env:
         HELM_VERSION: v3.21.4
       run: |
         set -euo pipefail
+        source "${GITHUB_WORKSPACE}/hack/lib/fetch.sh"
         mkdir -p ~/.cache/kind
         if [[ "${{ steps.kind-cache.outputs.cache-hit }}" != "true" ]]; then
-          for attempt in 1 2 3; do
-            if curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
-              -fsSL --retry 5 --retry-delay 5 --connect-timeout 30 \
-              -o ~/.cache/kind/kind-0.32.0 \
-              "https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64"; then
-              break
-            fi
-            echo "kind download attempt ${attempt} failed; retrying..." >&2
-            sleep 10
-          done
+          fetch_to "https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64" \
+            ~/.cache/kind/kind-0.32.0 "kind v0.32.0 binary"
           chmod +x ~/.cache/kind/kind-0.32.0
         fi
         sudo install -m 0755 ~/.cache/kind/kind-0.32.0 /usr/local/bin/kind
