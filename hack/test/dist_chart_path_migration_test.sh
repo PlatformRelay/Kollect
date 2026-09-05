@@ -299,7 +299,7 @@ pass "phases are called in order (0 -> 1 -> 2 -> 3 -> 4 -> handoff) and the bulk
 # would certify chart signatures as good and the hub's readers would still see them fail.
 # The expected value is cross-checked against docs/RELEASE.md so the two cannot drift
 # apart silently in either direction.
-IDENTITY_REGEXP='^https://github.com/platformrelay/kollect/.+'
+IDENTITY_REGEXP='^https://github\.com/[Pp]latform[Rr]elay/[Kk]ollect/.+'
 OIDC_ISSUER='https://token.actions.githubusercontent.com'
 
 grep -Fq -- "--certificate-identity-regexp '${IDENTITY_REGEXP}'" "${SCRIPT}" ||
@@ -758,6 +758,12 @@ run_migrate() {
   set -e
 }
 logged() { grep -Eq "$2" "$1/log"; }
+# Fixed-string twin. Use this whenever the needle is a VALUE the gate already pins
+# (an identity regexp, an issuer URL): the value is full of ERE metacharacters, so a
+# hand-escaped copy of it is a second source of truth that drifts silently. SEC-VERIFYCASE-01
+# is exactly that failure -- a hardcoded copy here went on asserting the lowercase identity
+# that cosign could never match, and agreed with itself while the real command was broken.
+logged_f() { grep -Fq "$2" "$1/log"; }
 
 # --- 8a. A bare invocation must not write. ---------------------------------
 # Kills three mutations at once: APPLY defaulting to 1; run_mutating executing regardless
@@ -803,7 +809,7 @@ for v in 0.14.0 0.15.0 0.16.0 0.17.0 0.18.0 0.19.0; do
     fail "--apply copied ${v} without running 'cosign verify' against ${DST}:${v}. Recorded verifies:"$'\n'"$(grep -E '^cosign verify' "${scene}/log" || echo '(none)')"
 done
 # ...and with the published flag shape, on the real call rather than in the source text.
-logged "${scene}" '^cosign verify --certificate-oidc-issuer https://token\.actions\.githubusercontent\.com --certificate-identity-regexp \^https://github\.com/platformrelay/kollect/\.\+ ' ||
+logged_f "${scene}" "cosign verify --certificate-oidc-issuer ${OIDC_ISSUER} --certificate-identity-regexp ${IDENTITY_REGEXP} " ||
   fail "the recorded 'cosign verify' does not carry the published issuer/identity flags. Recorded:"$'\n'"$(grep -E '^cosign verify' "${scene}/log" | head -1)"
 
 # THE transposition assertion. `cosign copy DST SRC` would push the chart-only path back

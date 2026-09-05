@@ -59,7 +59,7 @@ DST_PACKAGE_NAME_ENC="charts%2Fkollect"
 # Used VERBATIM. A looser regexp here would certify signatures that a user following the
 # published command would reject, which is the opposite of what this gate is for.
 OIDC_ISSUER="https://token.actions.githubusercontent.com"
-IDENTITY_REGEXP='^https://github.com/platformrelay/kollect/.+'
+IDENTITY_REGEXP='^https://github\.com/[Pp]latform[Rr]elay/[Kk]ollect/.+'
 
 # The V1 gate chart. One chart is copied and fully verified before any other is touched,
 # so that a signature-portability failure costs one copy rather than six.
