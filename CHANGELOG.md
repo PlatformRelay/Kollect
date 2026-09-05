@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **security:** Make the published cosign verify command actually verify ([#363](https://github.com/platformrelay/kollect/pull/363))[bdaee42](https://github.com/platformrelay/kollect/commit/bdaee42dcd4559cb9e41567f733bb67c6098b7e4)
+
 - **docs:** Check the page an image-wrapped map link points at [e5ef26e](https://github.com/platformrelay/kollect/commit/e5ef26eb6770009152b5b5ad30c08cf75a07abd9)
 
 - **ci:** Stop an unreadable paths-ignore list reading as "nothing ignored" [ddbbc28](https://github.com/platformrelay/kollect/commit/ddbbc283301acfd22c640a47448bdc655e4b092b)
