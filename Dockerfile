@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.27.1@sha256:f44f6e88636cfb311f9ebace870ded69d943f227bb3cb27d32ffd84ea18c43ea AS builder
+FROM golang:1.27.1@sha256:3680233e3204827fbdc66088528ae6d4b3d034f51d03a99d454f6de034888244 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 # VERSION-01: build-stamped version (internal/version), passed via --build-arg at release time.
@@ -33,7 +33,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags
 
 # Runtime image: Debian slim with git + openssh-client for spec.git.engine=cli and git ls-remote probes.
 # go-git export (default engine) does not require the git binary; the CLI path and connection probes do.
-FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
+FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
 
 RUN apt-get update && \
     apt-get upgrade -y && \
