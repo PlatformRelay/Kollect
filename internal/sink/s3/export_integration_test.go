@@ -27,7 +27,7 @@ func TestExportMinIO(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	container, err := minio.Run(ctx, "minio/minio:latest")
+	container, err := minio.Run(ctx, "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
 			t.Skipf("docker not available: %v", err)
