@@ -79,9 +79,19 @@ func TestKollectTargetReconciler_mapScopeToTargets(t *testing.T) {
 	if len(reqs) != 2 {
 		t.Fatalf("reqs = %#v, want the two team-a targets only", reqs)
 	}
+	names := map[string]struct{}{}
 	for _, req := range reqs {
 		if req.Namespace != "team-a" {
 			t.Fatalf("request %#v outside the scope namespace", req)
+		}
+		names[req.Name] = struct{}{}
+	}
+	if len(names) != 2 {
+		t.Fatalf("want both team-a targets exactly once, got %#v", reqs)
+	}
+	for _, want := range []string{"deploys", "pods"} {
+		if _, ok := names[want]; !ok {
+			t.Fatalf("target %q not enqueued, got %#v", want, reqs)
 		}
 	}
 
