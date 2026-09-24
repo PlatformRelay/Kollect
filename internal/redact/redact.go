@@ -21,10 +21,12 @@ import (
 const Placeholder = "***"
 
 // urlUserinfoRE matches "scheme://userinfo@" for any scheme. The userinfo run
-// excludes '/' and whitespace so the host after '@' survives, and excludes
-// quote/bracket characters so a stray '@' in surrounding prose cannot drag
-// unrelated text into the match.
-var urlUserinfoRE = regexp.MustCompile(`(?i)\b([a-z][a-z0-9+.\-]*://)[^/\s@'"()\[\]<>]+@`)
+// excludes '/' and whitespace (so the host after '@' survives and no match
+// crosses lines or words) and quotes (so wrapped URLs stop at their quotes);
+// everything else — parens, brackets, colons in passwords — must stay in the
+// run or a password using those characters escapes redaction (same character
+// class as the proven git redactor).
+var urlUserinfoRE = regexp.MustCompile(`(?i)\b([a-z][a-z0-9+.\-]*://)[^/\s'"]+@`)
 
 // Text masks credential-bearing URL userinfo in msg and replaces every
 // non-empty secret value verbatim. Text without credentials is returned

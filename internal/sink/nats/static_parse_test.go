@@ -66,7 +66,14 @@ func TestConfigFromSpec_malformedURLIsStatic(t *testing.T) {
 func TestConfigFromSpec_cleanURLsAccepted(t *testing.T) {
 	t.Parallel()
 
-	for _, url := range []string{"nats://broker:4222", "tls://broker:4222", "nats://b1:4222,tls://b2:4222", "my-nats:4222"} {
+	for _, url := range []string{
+		"nats://broker:4222",
+		"tls://broker:4222",
+		"nats://b1:4222,tls://b2:4222",
+		"my-nats:4222",
+		"1.2.3.4:4222",
+		"127.0.0.1:4222,nats://[::1]:4222",
+	} {
 		if _, err := ConfigFromSpec(natsSpec(url), nil); err != nil {
 			t.Fatalf("ConfigFromSpec(%q) unexpected error: %v", url, err)
 		}
