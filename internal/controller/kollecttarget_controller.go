@@ -120,24 +120,8 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if ok, reason, msg := checker.enforceTarget(ctx, &target, &profile); !ok {
 			err := r.degradeScopeDenied(ctx, &target, reason, msg)
 			retErr = err
-			if err != nil {
-				return ctrl.Result{}, err
-			}
 
-			if reason == scopeReasonLookupFailed {
-				// Unregistering is the fail-closed half of the deny; this error
-				// is the recovery half. A failed scope LIST is typically
-				// transient, and a degraded target has no self-requeue — without
-				// retrying, one API blip would leave collection halted until an
-				// unrelated event happens to arrive.
-				retryErr := fmt.Errorf("KollectScope lookup failed for %s/%s: %s",
-					target.Namespace, target.Name, msg)
-				retErr = retryErr
-
-				return ctrl.Result{}, retryErr
-			}
-
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 
 		// ORDERING INVARIANT: this resolve must stay ahead of RegisterTarget below, and
@@ -179,6 +163,13 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 // would enforce the tightened scope in status only while objects from
 // now-forbidden namespaces kept reaching sinks (K-05). The cluster
 // enforcement path unregisters the same way before degrading.
+//
+// A policy deny returns nil (events will re-reconcile when the spec or scope
+// changes); a failed scope LIST returns an error instead. Unregistering is
+// the fail-closed half of that deny, the error is the recovery half: the LIST
+// failure is typically transient, a degraded target has no self-requeue, and
+// without retrying one API blip would halt collection until an unrelated
+// event happens to arrive.
 func (r *KollectTargetReconciler) degradeScopeDenied(
 	ctx context.Context,
 	target *kollectdevv1alpha1.KollectTarget,
@@ -188,7 +179,15 @@ func (r *KollectTargetReconciler) degradeScopeDenied(
 		r.Engine.UnregisterTarget(target.Namespace, target.Name)
 	}
 
-	return r.setDegraded(ctx, target, reason, message)
+	if err := r.setDegraded(ctx, target, reason, message); err != nil {
+		return err
+	}
+
+	if reason == scopeReasonLookupFailed {
+		return fmt.Errorf("KollectScope lookup failed for %s/%s: %s", target.Namespace, target.Name, message)
+	}
+
+	return nil
 }
 
 func (r *KollectTargetReconciler) reconcileTargetReady(
