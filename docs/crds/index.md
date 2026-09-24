@@ -68,18 +68,27 @@ before export.
 reconciled kinds reference the namespaced static config by `name` + `namespace`
 ([ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)).
 
-### Snapshot export layout and spill
+### Snapshot export layout and inline cap
 
 `KollectSnapshotSink.spec.pathTemplate` selects the Git/object-store object path (default
 `inventory/{namespace}/{name}.json`; placeholders `{cluster}`, `{namespace}`, `{name}`,
 `{generation}`, `{extension}`) — see [ADR-0407](../adr/0407-git-object-store-layout.md).
 
 Payloads **≥ 1 MiB** warn; **> 1 MiB** require an `s3` or `gcs` snapshot sink in
-`spec.snapshotSinkRefs` (Git receives smaller exports only). Hard cap ~**1.5 MiB** `maxExportBytes`
-blocks export entirely. The ceiling is configurable per sink binding: each inventory family ref
-accepts a `maxExportBytes` override that replaces the inventory-wide value (or, on cluster
-inventories, the global cap) for that sink only — see
-[KollectInventory](kollectinventory.md#spec-fields).
+`spec.snapshotSinkRefs` (Git receives smaller exports only). There is **no automatic spill write
+path**: an oversize payload for a non-object-store sink fails loudly with `Degraded`/`SpillRequired`
+instead of being silently dropped. The hard cap ~**1.5 MiB** `maxExportBytes` blocks export
+entirely. The ceiling is configurable per sink binding: each inventory family ref accepts a
+`maxExportBytes` override that replaces the inventory-wide value (or, on cluster inventories, the
+global cap) for that sink only — see [KollectInventory](kollectinventory.md#spec-fields).
+Multipart partitioning applies to snapshot-family bindings only; database and event sinks always
+receive one complete payload. Because the inline cap applies per part, a Git binding that must carry
+more than 1 MiB in total should set its per-binding `maxExportBytes` at or below 1 MiB so every part
+stays under the cap; otherwise the oversize part fails with `SpillRequired`.
+
+For database and event sinks the per-binding `maxExportBytes` is a **soft** bound: because those
+sinks cannot be split, the complete set is still exported and a Warning Event
+(`ExportCeilingExceeded`) records that the configured ceiling was exceeded.
 
 Per-sink export cadence is configured on inventory/cluster-inventory family refs (string or object),
 optional sink defaults, and scope floors — [ADR-0413](../adr/0413-export-interval-scheduling.md).

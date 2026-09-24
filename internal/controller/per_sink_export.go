@@ -15,6 +15,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
+	"github.com/platformrelay/kollect/internal/sink"
 	"github.com/platformrelay/kollect/internal/validation"
 )
 
@@ -189,6 +190,18 @@ func aggregateExportErrs(errs []error) error {
 
 func isTotalExportFailure(outcome perSinkExportOutcome) bool {
 	return outcome.ExportErr != nil && outcome.ExportedCount == 0 && outcome.DebouncedCount == 0
+}
+
+// sinkExportFailureReason maps a per-sink export error to its status reason. A
+// payload that needs an object-store spill but has none is reported as
+// SpillRequired (the actionable operator signal) rather than the generic
+// ExportFailed; every other failure keeps the existing reason (K-01).
+func sinkExportFailureReason(err error) string {
+	if errors.Is(err, sink.ErrSpillRequired) {
+		return spillReasonSpillRequired
+	}
+
+	return reasonExportFailed
 }
 
 func mergeRequeueAfter(current, next time.Duration) time.Duration {

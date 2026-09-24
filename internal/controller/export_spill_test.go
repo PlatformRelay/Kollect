@@ -5,11 +5,13 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -209,6 +211,46 @@ func TestRecordSpillGateMetrics_payloadTooLarge(t *testing.T) {
 	t.Parallel()
 
 	recordSpillGateMetrics(spillGateResult{degraded: true, reason: spillReasonPayloadTooLarge})
+}
+
+// TestWarnSoftCeilingExceeded locks the M1 review fix: a database/event binding
+// whose complete payload exceeds its per-binding ceiling still exports, but the
+// ignored bound is made loud with an ExportCeilingExceeded Warning event.
+func TestWarnSoftCeilingExceeded(t *testing.T) {
+	t.Parallel()
+
+	limit := int64(100)
+	inv := &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "inv", Namespace: "team-a"},
+	}
+	parts := []export.EnvelopePartition{{Envelope: make([]byte, 200)}}
+
+	rec := record.NewFakeRecorder(4)
+	warnSoftCeilingExceeded(rec, inv, kollectdevv1alpha1.InventorySinkBinding{
+		Name: "pg", Family: kollectdevv1alpha1.SinkFamilyDatabase,
+		Ref: kollectdevv1alpha1.InventorySinkRef{Name: "pg", MaxExportBytes: &limit},
+	}, parts)
+
+	select {
+	case ev := <-rec.Events:
+		if !strings.Contains(ev, reasonExportCeilingExceeded) {
+			t.Fatalf("event = %q, want %q", ev, reasonExportCeilingExceeded)
+		}
+	default:
+		t.Fatal("expected ExportCeilingExceeded Warning event for an over-ceiling database payload")
+	}
+
+	// A snapshot binding must not warn: multipart honours its ceiling.
+	warnSoftCeilingExceeded(rec, inv, kollectdevv1alpha1.InventorySinkBinding{
+		Name: "git", Family: kollectdevv1alpha1.SinkFamilySnapshot,
+		Ref: kollectdevv1alpha1.InventorySinkRef{Name: "git", MaxExportBytes: &limit},
+	}, parts)
+
+	select {
+	case ev := <-rec.Events:
+		t.Fatalf("unexpected event for snapshot family: %q", ev)
+	default:
+	}
 }
 
 func TestRecordSpillGateMetrics_spillRequired(t *testing.T) {

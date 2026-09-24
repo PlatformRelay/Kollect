@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -208,7 +209,10 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 			"KollectClusterInventory", kollecterrors.ClassOf(outcome.ExportErr),
 		).Inc()
 		reason := reasonProgressing
-		if kollecterrors.IsTerminal(outcome.ExportErr) {
+		switch {
+		case errors.Is(outcome.ExportErr, sink.ErrSpillRequired):
+			reason = spillReasonSpillRequired
+		case kollecterrors.IsTerminal(outcome.ExportErr):
 			reason = kollectdevv1alpha1.ReasonExportTerminal
 		}
 		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, outcome.ExportErr)
@@ -283,6 +287,12 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		// rollup is size-bounded here — the previous RunExportItems path applied no
 		// ceiling and re-marshalled per binding.
 		ceiling := validation.ResolveBindingMaxExportBytes(ref.MaxExportBytes, validation.MaxExportBytesGlobal())
+		// Multipart is a snapshot-family feature only; database/event sinks
+		// reconcile the whole set per export, so partitioning them tears the set
+		// (K-02). See the namespaced path for the full rationale.
+		if binding.Family != kollectdevv1alpha1.SinkFamilySnapshot {
+			ceiling = 0
+		}
 		parts, partitionErr := export.PartitionEnvelopes(items, meta, ceiling)
 		if partitionErr != nil {
 			log.Error(partitionErr, "cluster export partition failed", "sink", exportKey)
@@ -290,6 +300,8 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, partitionErr.Error())
 			continue
 		}
+
+		warnSoftCeilingExceeded(r.Recorder, inv, binding, parts)
 
 		exportErr := error(nil)
 		// A multipart snapshot export must prune exactly once, against the union of all parts'
@@ -320,7 +332,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		if exportErr != nil {
 			log.Error(exportErr, "cluster export failed", "sink", exportKey)
 			outcome.addSinkFailure(exportKey, exportErr)
-			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, exportErr.Error())
+			setSinkExportSynced(status, inv.Generation, false, sinkExportFailureReason(exportErr), exportErr.Error())
 			continue
 		}
 

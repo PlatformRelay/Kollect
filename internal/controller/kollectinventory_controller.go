@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -246,7 +247,10 @@ func (r *KollectInventoryReconciler) applyInventoryExportOutcome(
 	if isTotalExportFailure(outcome) {
 		metrics.ReconcileErrorsTotal.WithLabelValues("KollectInventory", kollecterrors.ClassOf(outcome.ExportErr)).Inc()
 		reason := reasonProgressing
-		if kollecterrors.IsTerminal(outcome.ExportErr) {
+		switch {
+		case errors.Is(outcome.ExportErr, sink.ErrSpillRequired):
+			reason = spillReasonSpillRequired
+		case kollecterrors.IsTerminal(outcome.ExportErr):
 			reason = kollectdevv1alpha1.ReasonExportTerminal
 		}
 		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, outcome.ExportErr)
@@ -324,6 +328,15 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		// ceiling wholesale when set (AR-01 / EC-P0-01, Option B). A ceiling too
 		// small to hold a single item fails only this binding, not the reconcile.
 		ceiling := validation.ResolveBindingMaxExportBytes(ref.MaxExportBytes, inventoryCeiling)
+		// Multipart is a snapshot-family feature: only git/s3/gcs read
+		// partIndex/partTotal and run a union prune. Database and event sinks
+		// reconcile the whole set per export (diff-delete / independent stream),
+		// so partitioning them lets part N erase or shadow part N-1 (K-02). They
+		// get one complete part; the inline-cap gate in RunExportEnvelope bounds
+		// them instead.
+		if binding.Family != kollectdevv1alpha1.SinkFamilySnapshot {
+			ceiling = 0
+		}
 		parts, partitionErr := export.PartitionEnvelopes(items, meta, ceiling)
 		if partitionErr != nil {
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, partitionErr.Error())
@@ -349,6 +362,8 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
 			continue
 		}
+
+		warnSoftCeilingExceeded(r.Recorder, inv, binding, parts)
 
 		jobs = append(jobs, sinkJob{
 			binding: binding, ref: ref, resolved: resolved, interval: interval,
@@ -406,7 +421,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			if exportErr != nil {
 				log.Error(exportErr, "export failed", "sink", exportKey)
 				outcome.addSinkFailure(exportKey, exportErr)
-				setSinkExportSynced(job.status, inv.Generation, false, reasonExportFailed, exportErr.Error())
+				setSinkExportSynced(job.status, inv.Generation, false, sinkExportFailureReason(exportErr), exportErr.Error())
 
 				return
 			}

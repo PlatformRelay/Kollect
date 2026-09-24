@@ -126,7 +126,7 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | NFR-PERF-2 | Giant cluster: 1000+ nodes — namespace-scoped informers + paginated list mandatory |
 | NFR-PERF-3 | Fleet: **100–500+** clusters via **shared sink** ([ADR-0501](adr/0501-multi-cluster-fleet.md)); no hub merge tier |
 | NFR-PERF-4 | One shared informer per GVK; memory scales with objects × GVKs, not with target count |
-| NFR-PERF-5 | Export load bounded by debounce; spill oversized payloads to object store; **≤~2k rows/inventory** at default `maxExportBytes` |
+| NFR-PERF-5 | Export load bounded by debounce; payloads above the **inline cap** degrade with `SpillRequired` unless an object-store sink is bound (no automatic spill write path); **≤~2k rows/inventory** at default `maxExportBytes` |
 | NFR-PERF-6 | Tunable `MaxConcurrentReconciles`, dispatch pool, resync period; observable queue depth |
 
 ### 4.2 Reliability & correctness (NFR-REL)
@@ -197,8 +197,11 @@ Enforcement: [guidelines § 4](development/guidelines.md#4-testing),
 
 ## 6. Resolved requirement questions (2026-06-05)
 
-- **Payload spill:** object-store spill is **mandatory above 1 MiB** (warn at 1 MiB; hard cap
-  ~1.5 MiB `maxExportBytes`) ([ADR-0103](adr/0103-etcd-limit.md)).
+- **Payload inline cap:** there is **no automatic spill write path**. A payload above the
+  **1 MiB inline cap** is not written to a non-object-store sink: the export fails loudly with
+  `Degraded`/`SpillRequired` instead of being silently dropped (warn at 1 MiB; hard cap
+  ~1.5 MiB `maxExportBytes`) ([ADR-0103](adr/0103-etcd-limit.md)). Binding an `s3`/`gcs`
+  snapshot sink satisfies the cap. Real object-store spill is a **planned future feature**.
 - **Delivery semantics:** **at-least-once + idempotent** (effectively-once for state); exactly-once is a
   non-goal.
 - **Parquet schema:** **hybrid** — typed identity columns + JSON `attributes` + a promoted hot-attribute
