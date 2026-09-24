@@ -118,6 +118,16 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		checker := scopeCheck{client: r.Client, recorder: r.Recorder, engine: r.Engine}
 		if ok, reason, msg := checker.enforceTarget(ctx, &target, &profile); !ok {
+			// A previously registered target keeps dispatching from the
+			// effective namespace set frozen at registration, so degrading
+			// without unregistering would let a tightened KollectScope be
+			// enforced only in status while objects from now-forbidden
+			// namespaces keep reaching sinks (K-05). The cluster enforcement
+			// path unregisters the same way before degrading.
+			if r.Engine != nil {
+				r.Engine.UnregisterTarget(target.Namespace, target.Name)
+			}
+
 			if degErr := r.setDegraded(ctx, &target, reason, msg); degErr != nil {
 				retErr = degErr
 				return ctrl.Result{}, degErr
@@ -351,8 +361,46 @@ func (r *KollectTargetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&kollectdevv1alpha1.KollectProfile{},
 			handler.EnqueueRequestsFromMapFunc(r.mapProfileToTargets),
 		).
+		Watches(
+			&kollectdevv1alpha1.KollectScope{},
+			handler.EnqueueRequestsFromMapFunc(r.mapScopeToTargets),
+		).
 		Named("kollecttarget").
 		Complete(r)
+}
+
+// mapScopeToTargets re-reconciles every KollectTarget in the scope's namespace
+// on any KollectScope write (create, update, or delete). It does not filter to
+// the enforced scope on purpose: scope.Load resolves the ceiling as the
+// lowest-named object of all of them, so creating or renaming any KollectScope
+// can change which one is enforced. Without this watch, scope changes are only
+// picked up by the Ready requeue — and a scope-degraded target has no requeue,
+// so a later relaxation would never be seen (K-08).
+func (r *KollectTargetReconciler) mapScopeToTargets(
+	ctx context.Context,
+	obj client.Object,
+) []reconcile.Request {
+	scopeObj, ok := obj.(*kollectdevv1alpha1.KollectScope)
+	if !ok {
+		return nil
+	}
+
+	var list kollectdevv1alpha1.KollectTargetList
+	if err := r.List(ctx, &list, client.InNamespace(scopeObj.Namespace)); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list targets for scope watch mapping",
+			"scope", scopeObj.Name, "namespace", scopeObj.Namespace)
+
+		return nil
+	}
+
+	reqs := make([]reconcile.Request, 0, len(list.Items))
+	for i := range list.Items {
+		reqs = append(reqs, reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(&list.Items[i]),
+		})
+	}
+
+	return reqs
 }
 
 func (r *KollectTargetReconciler) mapProfileToTargets(

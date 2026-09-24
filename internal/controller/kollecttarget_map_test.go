@@ -46,3 +46,46 @@ func TestKollectTargetReconciler_mapProfileToTargets(t *testing.T) {
 		t.Fatalf("non-profile object should return nil, got %#v", got)
 	}
 }
+
+// K-08: a KollectScope write must enqueue every KollectTarget in the scope's
+// namespace (all of them — which scope wins is decided by scope.Load's
+// lowest-name rule, so creation or renaming of any scope can change the
+// answer), and nothing in other namespaces.
+func TestKollectTargetReconciler_mapScopeToTargets(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	scopeObj := &kollectdevv1alpha1.KollectScope{
+		ObjectMeta: metav1.ObjectMeta{Name: "team-a-ceiling", Namespace: "team-a"},
+	}
+	inNS := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "deploys", Namespace: "team-a"},
+	}
+	alsoInNS := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "pods", Namespace: "team-a"},
+	}
+	otherNS := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "deploys", Namespace: "team-b"},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(scopeObj, inNS, alsoInNS, otherNS).Build()
+	r := &KollectTargetReconciler{Client: cl}
+
+	reqs := r.mapScopeToTargets(context.Background(), scopeObj)
+	if len(reqs) != 2 {
+		t.Fatalf("reqs = %#v, want the two team-a targets only", reqs)
+	}
+	for _, req := range reqs {
+		if req.Namespace != "team-a" {
+			t.Fatalf("request %#v outside the scope namespace", req)
+		}
+	}
+
+	if got := r.mapScopeToTargets(context.Background(), inNS); got != nil {
+		t.Fatalf("non-scope object should return nil, got %#v", got)
+	}
+}
