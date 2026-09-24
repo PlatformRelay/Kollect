@@ -26,6 +26,7 @@ import (
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/metrics"
+	"github.com/platformrelay/kollect/internal/redact"
 	"github.com/platformrelay/kollect/internal/scope"
 	"github.com/platformrelay/kollect/internal/sink"
 	"github.com/platformrelay/kollect/internal/validation"
@@ -608,6 +609,8 @@ func (r *KollectInventoryReconciler) setInventoryDegraded(
 	itemCount int,
 	reason, message string,
 ) (ctrl.Result, error) {
+	message = redact.Text(message)
+
 	apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionReady)
 	inv.Status.ItemCount = itemCount
 	inv.Status.ObservedGeneration = inv.Generation
