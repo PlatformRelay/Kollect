@@ -13,6 +13,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/metrics"
+	"github.com/platformrelay/kollect/internal/redact"
 	"github.com/platformrelay/kollect/internal/sink"
 	"github.com/platformrelay/kollect/internal/sink/preview"
 )
@@ -111,7 +112,7 @@ func (f familySinkConnection) setConnectionVerified(
 		Type:               kollectdevv1alpha1.ConditionConnectionVerified,
 		Status:             metav1.ConditionTrue,
 		Reason:             "ConnectionOK",
-		Message:            message,
+		Message:            redact.Text(message),
 		ObservedGeneration: obj.GetGeneration(),
 		LastTransitionTime: metav1.Now(),
 	})
@@ -139,6 +140,8 @@ func (f familySinkConnection) setConnectionFailed(
 	conditions *[]metav1.Condition,
 	reason, message string,
 ) error {
+	message = redact.Text(message)
+
 	apimeta.SetStatusCondition(conditions, metav1.Condition{
 		Type:               kollectdevv1alpha1.ConditionConnectionVerified,
 		Status:             metav1.ConditionFalse,

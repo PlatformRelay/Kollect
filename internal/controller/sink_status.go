@@ -14,6 +14,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
+	"github.com/platformrelay/kollect/internal/redact"
 	"github.com/platformrelay/kollect/internal/sink"
 )
 
@@ -163,7 +164,7 @@ func setSinkReachableCondition(conditions *[]metav1.Condition, generation int64,
 		Type:               conditionSinkReachable,
 		Status:             status,
 		Reason:             reason,
-		Message:            message,
+		Message:            redact.Text(message),
 		ObservedGeneration: generation,
 		LastTransitionTime: metav1.Now(),
 	})
@@ -179,7 +180,7 @@ func setSyncedCondition(conditions *[]metav1.Condition, generation int64, ok boo
 		Type:               conditionSynced,
 		Status:             status,
 		Reason:             reason,
-		Message:            message,
+		Message:            redact.Text(message),
 		ObservedGeneration: generation,
 		LastTransitionTime: metav1.Now(),
 	})

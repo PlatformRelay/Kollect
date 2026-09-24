@@ -18,6 +18,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/metrics"
+	"github.com/platformrelay/kollect/internal/redact"
 	"github.com/platformrelay/kollect/internal/sink"
 )
 
@@ -179,6 +180,8 @@ func (r *KollectConnectionTestReconciler) setProbeSucceeded(
 	test.Status.ObservedGeneration = test.Generation
 	test.Status.Completed = true
 	test.Status.CompletedAt = &now
+	message = redact.Text(message)
+
 	apimeta.SetStatusCondition(&test.Status.Conditions, metav1.Condition{
 		Type:               kollectdevv1alpha1.ConditionConnectionVerified,
 		Status:             metav1.ConditionTrue,
@@ -216,6 +219,8 @@ func (r *KollectConnectionTestReconciler) setProbeFailed(
 	test.Status.ObservedGeneration = test.Generation
 	test.Status.Completed = true
 	test.Status.CompletedAt = &now
+	message = redact.Text(message)
+
 	apimeta.SetStatusCondition(&test.Status.Conditions, metav1.Condition{
 		Type:               kollectdevv1alpha1.ConditionConnectionVerified,
 		Status:             metav1.ConditionFalse,
