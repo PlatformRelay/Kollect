@@ -5,6 +5,8 @@ package controller
 
 import (
 	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,7 +22,9 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -195,6 +199,88 @@ func TestScopeDenyStopsLaterItems(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 	if got := store.CountForTarget(testNS, "configs"); got != 0 {
 		t.Fatalf("store items after deny + late object = %d, want 0", got)
+	}
+}
+
+// TestScopeLookupFailureHaltsAndRequeues is the adversarial-review lock for the
+// retry half of the deny: a transient KollectScope LIST failure must fail
+// closed (unregister — collection must not continue under a policy it could not
+// read) AND surface an error so controller-runtime requeues, because a degraded
+// target has no self-requeue of its own.
+func TestScopeLookupFailureHaltsAndRequeues(t *testing.T) {
+	t.Parallel()
+
+	const testNS = "tenant-scope-blip"
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	target := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "configs", Namespace: testNS},
+		Spec:       kollectdevv1alpha1.KollectTargetSpec{ProfileRef: "p"},
+	}
+	profile := &kollectdevv1alpha1.KollectProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: testNS},
+		Spec: kollectdevv1alpha1.KollectProfileSpec{
+			TargetGVK: kollectdevv1alpha1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+		},
+	}
+
+	var failScopes atomic.Bool
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(target, profile).
+		WithStatusSubresource(&kollectdevv1alpha1.KollectTarget{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			List: func(
+				cctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption,
+			) error {
+				if _, ok := list.(*kollectdevv1alpha1.KollectScopeList); ok && failScopes.Load() {
+					return errors.New("scopes list refused")
+				}
+
+				return c.List(cctx, list, opts...)
+			},
+		}).
+		Build()
+
+	store := collect.NewStore()
+	engine, _ := newScopeDenyEngine(t, testNS, store)
+
+	r := &KollectTargetReconciler{
+		Client:   cl,
+		Scheme:   scheme,
+		Engine:   engine,
+		Recorder: record.NewFakeRecorder(10),
+	}
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "configs", Namespace: testNS}}
+	rctx := context.Background()
+
+	if _, err := r.Reconcile(rctx, req); err != nil {
+		t.Fatalf("first reconcile: %v", err)
+	}
+	if !waitForCount(store, testNS, "configs", 1, 5*time.Second) {
+		t.Fatalf("phase 1: want 1 collected item, got %d", store.CountForTarget(testNS, "configs"))
+	}
+
+	failScopes.Store(true)
+	_, err := r.Reconcile(rctx, req)
+	if err == nil {
+		t.Fatal("scope lookup failure must return an error so controller-runtime retries (K-05 review finding)")
+	}
+
+	if got := engine.ItemCount(testNS, "configs"); got != 0 {
+		t.Fatalf("engine ItemCount after lookup failure = %d, want 0 (must fail closed)", got)
+	}
+	var updated kollectdevv1alpha1.KollectTarget
+	if err := cl.Get(rctx, req.NamespacedName, &updated); err != nil {
+		t.Fatal(err)
+	}
+	deg := apimeta.FindStatusCondition(updated.Status.Conditions, conditionDegraded)
+	if deg == nil || deg.Reason != scopeReasonLookupFailed {
+		t.Fatalf("expected Degraded/%s, got %+v", scopeReasonLookupFailed, deg)
 	}
 }
 

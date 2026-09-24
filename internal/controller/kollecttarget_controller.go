@@ -120,8 +120,21 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if ok, reason, msg := checker.enforceTarget(ctx, &target, &profile); !ok {
 			err := r.degradeScopeDenied(ctx, &target, reason, msg)
 			retErr = err
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 
-			return ctrl.Result{}, err
+			if reason == scopeReasonLookupFailed {
+				// Unregistering is the fail-closed half of the deny; this error
+				// is the recovery half. A failed scope LIST is typically
+				// transient, and a degraded target has no self-requeue — without
+				// retrying, one API blip would leave collection halted until an
+				// unrelated event happens to arrive.
+				return ctrl.Result{}, fmt.Errorf("KollectScope lookup failed for %s/%s: %s",
+					target.Namespace, target.Name, msg)
+			}
+
+			return ctrl.Result{}, nil
 		}
 
 		// ORDERING INVARIANT: this resolve must stay ahead of RegisterTarget below, and
