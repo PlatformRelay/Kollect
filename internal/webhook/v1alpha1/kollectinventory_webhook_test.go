@@ -130,3 +130,62 @@ func TestKollectInventoryValidator_scopeFloorEnforced(t *testing.T) {
 		t.Fatalf("error should name the offending inventory, got: %v", err)
 	}
 }
+
+// TestKollectInventoryValidator_scopeSinkRefAllowlist is the B3 batch test lock
+// "webhook sink-ref" for K-09: with an enforced KollectScope family allowlist the
+// namespaced inventory must be rejected at admission — not admitted-and-degraded
+// by the reconciler — when a ref is off the allowlist, and admitted when it is on
+// it (parity with the cluster-scoped inventory webhook).
+func TestKollectInventoryValidator_scopeSinkRefAllowlist(t *testing.T) {
+	t.Parallel()
+
+	teamScope := &kollectdevv1alpha1.KollectScope{
+		ObjectMeta: metav1.ObjectMeta{Name: "team-scope", Namespace: "team-a"},
+		Spec: kollectdevv1alpha1.KollectScopeSpec{
+			SnapshotSinkRefs: []string{"allowed-git"},
+			DatabaseSinkRefs: []string{"allowed-pg"},
+		},
+	}
+	v := &kollectInventoryValidator{client: newScopedFakeClient(t, teamScope)}
+
+	_, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "off-list", Namespace: "team-a"},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("rogue-git"),
+		},
+	})
+	if err == nil {
+		t.Fatal("expected admission denial for snapshot sink ref outside the scope allowlist (K-09)")
+	}
+	if !strings.Contains(err.Error(), "rogue-git") {
+		t.Fatalf("error should name the offending sink ref, got: %v", err)
+	}
+
+	if _, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "db-off-list", Namespace: "team-a"},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("rogue-pg"),
+		},
+	}); err == nil {
+		t.Fatal("expected admission denial for database sink ref outside the scope allowlist (K-09)")
+	}
+
+	if _, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "on-list", Namespace: "team-a"},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("allowed-git"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("allowed-pg"),
+		},
+	}); err != nil {
+		t.Fatalf("allowlisted sink refs must be admitted: %v", err)
+	}
+
+	if _, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "other-ns", Namespace: "team-b"},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("anything"),
+		},
+	}); err != nil {
+		t.Fatalf("non-enforced namespace must keep today's admission: %v", err)
+	}
+}

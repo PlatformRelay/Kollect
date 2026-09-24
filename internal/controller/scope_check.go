@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	scopeReasonLookupFailed = "ScopeLookupFailed"
 	scopeReasonMissingScope = "ScopeMissing"
 	scopeReasonGVKDenied    = "ScopeGVKDenied"
 	scopeReasonNSDenied     = "ScopeNamespaceDenied"
@@ -34,7 +35,7 @@ func (s scopeCheck) enforceTarget(
 ) (bool, string, string) {
 	binding, err := scope.Load(ctx, s.client, target.Namespace)
 	if err != nil {
-		return false, "ScopeLookupFailed", err.Error()
+		return false, scopeReasonLookupFailed, err.Error()
 	}
 
 	if !binding.Enforced {
@@ -77,7 +78,7 @@ func (s scopeCheck) enforceInventory(
 ) (bool, string, string) {
 	binding, err := scope.Load(ctx, s.client, inv.Namespace)
 	if err != nil {
-		return false, "ScopeLookupFailed", err.Error()
+		return false, scopeReasonLookupFailed, err.Error()
 	}
 
 	if !binding.Enforced {

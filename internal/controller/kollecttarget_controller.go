@@ -118,12 +118,10 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		checker := scopeCheck{client: r.Client, recorder: r.Recorder, engine: r.Engine}
 		if ok, reason, msg := checker.enforceTarget(ctx, &target, &profile); !ok {
-			if degErr := r.setDegraded(ctx, &target, reason, msg); degErr != nil {
-				retErr = degErr
-				return ctrl.Result{}, degErr
-			}
+			err := r.degradeScopeDenied(ctx, &target, reason, msg)
+			retErr = err
 
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 
 		// ORDERING INVARIANT: this resolve must stay ahead of RegisterTarget below, and
@@ -157,6 +155,39 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		return result, err
 	})
+}
+
+// degradeScopeDenied handles a KollectScope deny for a namespaced target.
+// A previously registered target keeps dispatching from the effective
+// namespace set frozen at registration, so degrading without unregistering
+// would enforce the tightened scope in status only while objects from
+// now-forbidden namespaces kept reaching sinks (K-05). The cluster
+// enforcement path unregisters the same way before degrading.
+//
+// A policy deny returns nil (events will re-reconcile when the spec or scope
+// changes); a failed scope LIST returns an error instead. Unregistering is
+// the fail-closed half of that deny, the error is the recovery half: the LIST
+// failure is typically transient, a degraded target has no self-requeue, and
+// without retrying one API blip would halt collection until an unrelated
+// event happens to arrive.
+func (r *KollectTargetReconciler) degradeScopeDenied(
+	ctx context.Context,
+	target *kollectdevv1alpha1.KollectTarget,
+	reason, message string,
+) error {
+	if r.Engine != nil {
+		r.Engine.UnregisterTarget(target.Namespace, target.Name)
+	}
+
+	if err := r.setDegraded(ctx, target, reason, message); err != nil {
+		return err
+	}
+
+	if reason == scopeReasonLookupFailed {
+		return fmt.Errorf("KollectScope lookup failed for %s/%s: %s", target.Namespace, target.Name, message)
+	}
+
+	return nil
 }
 
 func (r *KollectTargetReconciler) reconcileTargetReady(
@@ -351,8 +382,46 @@ func (r *KollectTargetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&kollectdevv1alpha1.KollectProfile{},
 			handler.EnqueueRequestsFromMapFunc(r.mapProfileToTargets),
 		).
+		Watches(
+			&kollectdevv1alpha1.KollectScope{},
+			handler.EnqueueRequestsFromMapFunc(r.mapScopeToTargets),
+		).
 		Named("kollecttarget").
 		Complete(r)
+}
+
+// mapScopeToTargets re-reconciles every KollectTarget in the scope's namespace
+// on any KollectScope write (create, update, or delete). It does not filter to
+// the enforced scope on purpose: scope.Load resolves the ceiling as the
+// lowest-named object of all of them, so creating or renaming any KollectScope
+// can change which one is enforced. Without this watch, scope changes are only
+// picked up by the Ready requeue — and a scope-degraded target has no requeue,
+// so a later relaxation would never be seen (K-08).
+func (r *KollectTargetReconciler) mapScopeToTargets(
+	ctx context.Context,
+	obj client.Object,
+) []reconcile.Request {
+	scopeObj, ok := obj.(*kollectdevv1alpha1.KollectScope)
+	if !ok {
+		return nil
+	}
+
+	var list kollectdevv1alpha1.KollectTargetList
+	if err := r.List(ctx, &list, client.InNamespace(scopeObj.Namespace)); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list targets for scope watch mapping",
+			"scope", scopeObj.Name, "namespace", scopeObj.Namespace)
+
+		return nil
+	}
+
+	reqs := make([]reconcile.Request, 0, len(list.Items))
+	for i := range list.Items {
+		reqs = append(reqs, reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(&list.Items[i]),
+		})
+	}
+
+	return reqs
 }
 
 func (r *KollectTargetReconciler) mapProfileToTargets(

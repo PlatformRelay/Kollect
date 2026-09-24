@@ -81,7 +81,13 @@ type targetState struct {
 	target              kollectdevv1alpha1.KollectTarget
 	profile             kollectdevv1alpha1.KollectProfile
 	effectiveNamespaces map[string]struct{}
-	compiledRules       []CompiledResourceRule
+	// scopeEnforced records that a KollectScope ceiling restricting namespaces
+	// was supplied at registration. An empty effectiveNamespaces set under a
+	// ceiling means the ceiling excluded every matched namespace, and dispatch
+	// must fail closed instead of falling back to unrestricted selector
+	// matching (K-06); without a ceiling the selector fallback is intended.
+	scopeEnforced bool
+	compiledRules []CompiledResourceRule
 	// fingerprint summarises everything that decides which objects this target
 	// collects and how they are extracted. RegisterTarget backfills the store from
 	// the informer cache only when it changes (see targetStateFingerprint).
@@ -338,6 +344,7 @@ func (e *Engine) RegisterTarget(
 		target:              *target.DeepCopy(),
 		profile:             *profile.DeepCopy(),
 		effectiveNamespaces: EffectiveNamespaceSet(effective),
+		scopeEnforced:       CeilingRestrictsNamespaces(opts.ScopeCeiling),
 		compiledRules:       compiled,
 		fingerprint:         fingerprint,
 	}
@@ -1026,7 +1033,7 @@ func (e *Engine) matchesTarget(
 		resourceNS = corev1.NamespaceDefault
 	}
 
-	if !e.namespaceMatches(&target, st.effectiveNamespaces, resourceNS) {
+	if !e.namespaceMatches(&target, st.effectiveNamespaces, st.scopeEnforced, resourceNS) {
 		return targetMatchNamespaceMismatch
 	}
 
@@ -1062,11 +1069,22 @@ func (e *Engine) namespaceMetaFor(name string) namespaceMeta {
 func (e *Engine) namespaceMatches(
 	target *kollectdevv1alpha1.KollectTarget,
 	effective map[string]struct{},
+	scopeEnforced bool,
 	resourceNamespace string,
 ) bool {
 	if len(effective) > 0 {
 		_, ok := effective[resourceNamespace]
 		return ok
+	}
+
+	// Empty effective set under a supplied ceiling: the ceiling excluded
+	// everything the filter matched, so nothing may fall through to any
+	// selector-shaped fallback — not even a user-authored metadata.name pin,
+	// which would otherwise smuggle one ceiling-denied namespace past the
+	// empty set (K-06). This does not affect cluster-synthetic targets: they
+	// register with a non-empty explicit namespace set and return above.
+	if scopeEnforced {
+		return false
 	}
 
 	// Cluster-scoped targets register one synthetic KollectTarget per workload namespace

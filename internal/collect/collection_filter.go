@@ -411,6 +411,15 @@ func ComputeFilterStatus(
 	return matched, effective, activeRules
 }
 
+// CeilingRestrictsNamespaces reports whether a scope ceiling actually bounds
+// the collectible namespace set. A ceiling with both lists empty (no scope, or
+// a scope whose allow/deny lists are empty) restricts nothing, and selector
+// semantics stay intended; anything else must fail closed when the effective
+// set computed under it is empty (K-06).
+func CeilingRestrictsNamespaces(ceiling ScopeCeiling) bool {
+	return len(ceiling.AllowedNamespaces) > 0 || len(ceiling.DeniedNamespaces) > 0
+}
+
 func EffectiveNamespaceSet(namespaces []string) map[string]struct{} {
 	if len(namespaces) == 0 {
 		return nil
