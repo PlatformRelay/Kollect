@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -70,5 +71,50 @@ func TestFamilySinkConnection_StatusConflictOnFailedTest_Requeues(t *testing.T) 
 	}
 	if !apierrors.IsConflict(err) {
 		t.Fatalf("reconcile() error = %v, want a conflict error to propagate unchanged", err)
+	}
+}
+
+// TestFamilySinkConnection_surfacesTLSInsecureWithoutProbe pins K-14: the
+// TLSInsecure condition is surfaced whenever insecureSkipVerify is set, even when
+// the connection probe is disabled, so its absence can never be read as "field
+// unset".
+func TestFamilySinkConnection_surfacesTLSInsecureWithoutProbe(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	noTest := false
+	obj := &kollectdevv1alpha1.KollectDatabaseSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "insecure-sink", Namespace: "default"},
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: "postgres",
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+				ConnectionTest: &noTest,
+				TLS:            &kollectdevv1alpha1.TLSSpec{InsecureSkipVerify: true},
+			},
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(obj).
+		WithStatusSubresource(obj).
+		Build()
+
+	conn := familySinkConnection{client: cl}
+
+	if err := conn.reconcile(
+		context.Background(), obj, obj.Spec.ToKollectSinkSpec(),
+		&obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview,
+	); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+
+	condition := apimeta.FindStatusCondition(obj.Status.Conditions, kollectdevv1alpha1.ConditionTLSInsecure)
+	if condition == nil || condition.Status != metav1.ConditionTrue {
+		t.Fatalf("TLSInsecure condition = %#v, want True when insecureSkipVerify is set", condition)
 	}
 }

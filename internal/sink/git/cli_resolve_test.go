@@ -34,6 +34,27 @@ func TestCLIResolutionPinsAuthorizedHTTPAddress(t *testing.T) {
 	}
 }
 
+// TestCLIResolutionDisablesRedirects is the K-15 test lock: the address pin is
+// host-keyed, so the CLI must refuse to follow a redirect to an unpinned host.
+func TestCLIResolutionDisablesRedirects(t *testing.T) {
+	old := netguard.DefaultDialer
+	netguard.DefaultDialer = netguard.NewDialer(staticResolver{netip.MustParseAddr("93.184.216.34")}, nil)
+	t.Cleanup(func() { netguard.DefaultDialer = old })
+
+	cli := &cliEnv{}
+	if err := cli.guardResolution(t.Context(), "https://git.example/repo.git"); err != nil {
+		t.Fatalf("guardResolution: %v", err)
+	}
+	joined := strings.Join(cli.extraEnv, "\n")
+	if !strings.Contains(joined, "http.followRedirects") || !strings.Contains(joined, "=false") {
+		t.Fatalf("git redirects were not disabled: %s", joined)
+	}
+	// One config entry for the resolve pin, one for followRedirects.
+	if !strings.Contains(joined, "GIT_CONFIG_COUNT=2") {
+		t.Fatalf("expected GIT_CONFIG_COUNT=2 (resolve + followRedirects): %s", joined)
+	}
+}
+
 func TestCLIResolutionRejectsMixedAnswers(t *testing.T) {
 	old := netguard.DefaultDialer
 	netguard.DefaultDialer = netguard.NewDialer(staticResolver{

@@ -39,6 +39,7 @@ type messageWriter interface {
 // Backend publishes inventory change events to Kafka.
 type Backend struct {
 	cfg    Config
+	tls    TLSConfig
 	writer messageWriter
 }
 
@@ -46,13 +47,19 @@ type Backend struct {
 func NewBackend(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	secretData map[string][]byte,
+	caPEM []byte,
 ) (*Backend, error) {
 	cfg, err := ConfigFromSpec(spec, secretData)
 	if err != nil {
 		return nil, err
 	}
 
-	transport, err := dialTransport(cfg)
+	tlsCfg, err := TLSConfigFromSpec(spec.TLS, caPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	transport, err := dialTransport(cfg, tlsCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +77,7 @@ func NewBackend(
 		Transport:    transport,
 	}
 
-	return &Backend{cfg: cfg, writer: writer}, nil
+	return &Backend{cfg: cfg, tls: tlsCfg, writer: writer}, nil
 }
 
 // Type returns the sink type identifier.
@@ -138,8 +145,12 @@ func namespaceFromObjectPath(objectPath string) string {
 	return ""
 }
 
-func dialTransport(cfg Config) (*kafka.Transport, error) {
+func dialTransport(cfg Config, tlsCfg TLSConfig) (*kafka.Transport, error) {
 	transport := &kafka.Transport{Dial: netguard.DefaultDialer.DialContext}
+
+	if clientTLS := tlsCfg.ClientConfig(); clientTLS != nil {
+		transport.TLS = clientTLS
+	}
 
 	if cfg.Username != "" {
 		mechanism, err := scram.Mechanism(scram.SHA256, cfg.Username, cfg.Password)

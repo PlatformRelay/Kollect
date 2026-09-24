@@ -17,7 +17,7 @@ func TestDialTransport_SASLPrepErrorOmitsPassword(t *testing.T) {
 		Topic:    "inventory",
 		Username: "alice",
 		Password: secret,
-	})
+	}, TLSConfig{})
 	if err == nil {
 		t.Fatal("expected SASL construction error for a prohibited password rune")
 	}

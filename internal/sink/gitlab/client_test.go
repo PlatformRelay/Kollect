@@ -113,6 +113,53 @@ func TestRESTClient_EnsureOpenMergeRequest_existing(t *testing.T) {
 	}
 }
 
+// TestRESTClient_stripsAuthHeaderOnCrossHostRedirect is the K-15 test lock for
+// the GitLab client: Go strips only Authorization/Cookie on a cross-host
+// redirect, so the custom PRIVATE-TOKEN header must be removed explicitly or the
+// token is replayed to an endpoint-chosen host.
+func TestRESTClient_stripsAuthHeaderOnCrossHostRedirect(t *testing.T) {
+	t.Parallel()
+
+	originHeaders := make(chan string, 1)
+	targetHeaders := make(chan string, 1)
+
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		targetHeaders <- r.Header.Get("PRIVATE-TOKEN")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"iid":7,"source_branch":"feature","target_branch":"main"}]`))
+	}))
+	t.Cleanup(target.Close)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		originHeaders <- r.Header.Get("PRIVATE-TOKEN")
+		http.Redirect(w, r, target.URL+r.URL.Path, http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	client, err := NewRESTClient(origin.URL, "test-token", "", origin.Client())
+	if err != nil {
+		t.Fatalf("NewRESTClient: %v", err)
+	}
+
+	err = client.EnsureOpenMergeRequest(
+		context.Background(),
+		ProjectRef{Path: "group/project"},
+		"feature",
+		"main",
+		"title",
+	)
+	if err != nil {
+		t.Fatalf("EnsureOpenMergeRequest: %v", err)
+	}
+
+	if got := <-originHeaders; got != "test-token" {
+		t.Fatalf("initial request PRIVATE-TOKEN = %q, want test-token", got)
+	}
+	if got := <-targetHeaders; got != "" {
+		t.Fatalf("PRIVATE-TOKEN replayed to redirect target: %q", got)
+	}
+}
+
 func TestRESTClient_EnsureOpenMergeRequest_missingToken(t *testing.T) {
 	t.Parallel()
 

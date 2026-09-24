@@ -59,7 +59,7 @@ func TestExportKafka(t *testing.T) {
 		},
 	}
 
-	backend, err := NewBackend(spec, nil)
+	backend, err := NewBackend(spec, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

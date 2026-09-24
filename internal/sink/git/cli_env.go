@@ -26,6 +26,10 @@ type cliEnv struct {
 	extraEnv      []string
 	configEnvArgs []string
 	cleanupFns    []func()
+	// authInHeader records that credentials are supplied via http.extraHeader
+	// rather than embedded in the remote URL. Callers must then never call
+	// embedInURL, so the token stays out of argv and the mirror .git/config (K-16).
+	authInHeader bool
 	// secrets holds credential values that must be scrubbed from git CLI
 	// output before it is wrapped into errors (EC-P1-02).
 	secrets []string
@@ -38,11 +42,16 @@ func newCLIEnv(cfg Config, auth Auth, authType AuthType) (*cliEnv, error) {
 		cli.extraEnv = append(cli.extraEnv, "GIT_SSL_NO_VERIFY=true")
 	}
 
-	if cfg.ForceBasicAuth {
-		if header := basicAuthHeader(auth); header != "" {
-			cli.extraEnv = append(cli.extraEnv, envAuthHeader+"="+header)
-			cli.configEnvArgs = append(cli.configEnvArgs, "--config-env", "http.extraHeader="+envAuthHeader)
-		}
+	// K-16: for HTTP(S) remotes the CLI engine supplies credentials through
+	// http.extraHeader by default, not by embedding them in the clone URL. This
+	// keeps the token out of /proc/<pid>/cmdline and out of the persistent warm
+	// mirror's .git/config. An explicit ForceBasicAuth keeps the same header path;
+	// this merely makes it the default whenever credentials exist and the endpoint
+	// is HTTP(S).
+	if header := basicAuthHeader(auth); header != "" && (cfg.ForceBasicAuth || endpointUsesHTTP(cfg.Endpoint)) {
+		cli.authInHeader = true
+		cli.extraEnv = append(cli.extraEnv, envAuthHeader+"="+header)
+		cli.configEnvArgs = append(cli.configEnvArgs, "--config-env", "http.extraHeader="+envAuthHeader)
 	}
 
 	sshCfg := cfg.effectiveSSHConfig()
@@ -93,6 +102,18 @@ func cfgNeedsCLISSH(cfg Config, authType AuthType) bool {
 	}
 
 	return u.Scheme == schemeSSH || authType == AuthTypeSSH
+}
+
+// endpointUsesHTTP reports whether the endpoint scheme is http or https. It is
+// used to decide whether the CLI engine can carry credentials in the
+// http.extraHeader rather than the remote URL (K-16).
+func endpointUsesHTTP(endpoint string) bool {
+	u, err := url.Parse(strings.TrimSpace(endpoint))
+	if err != nil {
+		return false
+	}
+
+	return u.Scheme == schemeHTTP || u.Scheme == schemeHTTPS
 }
 
 // deterministicLocaleEnv forces git to emit English, C-locale stderr so the

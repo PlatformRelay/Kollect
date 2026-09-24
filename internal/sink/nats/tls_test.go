@@ -15,10 +15,12 @@ import (
 	"time"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/validation"
 )
 
 func TestTLSConfigFromSpec_insecureSkip(t *testing.T) {
-	t.Parallel()
+	validation.SetAllowInsecureSinks(true)
+	t.Cleanup(func() { validation.SetAllowInsecureSinks(false) })
 
 	cfg, err := TLSConfigFromSpec(&kollectdevv1alpha1.TLSSpec{InsecureSkipVerify: true}, nil)
 	if err != nil {
@@ -35,6 +37,16 @@ func TestTLSConfigFromSpec_insecureSkip(t *testing.T) {
 	}
 	if tlsCfg == nil || !tlsCfg.InsecureSkipVerify {
 		t.Error("client config should inherit insecure skip verify")
+	}
+}
+
+// TestTLSConfigFromSpec_insecureDeniedByDefault pins the K-14 gate.
+func TestTLSConfigFromSpec_insecureDeniedByDefault(t *testing.T) {
+	validation.SetAllowInsecureSinks(false)
+	t.Cleanup(func() { validation.SetAllowInsecureSinks(false) })
+
+	if _, err := TLSConfigFromSpec(&kollectdevv1alpha1.TLSSpec{InsecureSkipVerify: true}, nil); err == nil {
+		t.Fatal("expected insecureSkipVerify to be refused without --allow-insecure-sinks")
 	}
 }
 

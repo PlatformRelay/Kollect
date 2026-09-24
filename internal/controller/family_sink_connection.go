@@ -32,7 +32,10 @@ func (f familySinkConnection) reconcile(
 	previewChanged := renderFamilyPreview(obj, spec, previewTarget)
 
 	if !shouldTestFamilyConnection(common, obj) {
-		if previewChanged {
+		// Surface the insecure condition even when no probe runs, so its presence
+		// (or absence) never depends on probe success (K-14).
+		insecureChanged := setFamilyTLSInsecureCondition(conditions, spec, obj.GetGeneration())
+		if previewChanged || insecureChanged {
 			if err := f.client.Status().Update(ctx, obj); err != nil {
 				return err
 			}
@@ -44,14 +47,14 @@ func (f familySinkConnection) reconcile(
 	namespace := obj.GetNamespace()
 	buildCtx, err := sink.BuildContextFromSpec(ctx, f.client, spec, namespace)
 	if err != nil {
-		return f.setConnectionFailed(ctx, obj, conditions, "SecretResolveFailed", err.Error())
+		return f.setConnectionFailed(ctx, obj, spec, conditions, "SecretResolveFailed", err.Error())
 	}
 
 	okMessage, testErr := sink.RunConnectionTest(ctx, spec, buildCtx)
 	if testErr != nil {
 		metrics.SinkConnectionTestTotal.WithLabelValues(spec.Type, metrics.ResultFailure).Inc()
 
-		return f.setConnectionFailed(ctx, obj, conditions, "ConnectionTestFailed", testErr.Error())
+		return f.setConnectionFailed(ctx, obj, spec, conditions, "ConnectionTestFailed", testErr.Error())
 	}
 
 	metrics.SinkConnectionTestTotal.WithLabelValues(spec.Type, metrics.ResultSuccess).Inc()
@@ -136,9 +139,11 @@ func (f familySinkConnection) setConnectionVerified(
 func (f familySinkConnection) setConnectionFailed(
 	ctx context.Context,
 	obj client.Object,
+	spec kollectdevv1alpha1.KollectSinkSpec,
 	conditions *[]metav1.Condition,
 	reason, message string,
 ) error {
+	setFamilyTLSInsecureCondition(conditions, spec, obj.GetGeneration())
 	apimeta.SetStatusCondition(conditions, metav1.Condition{
 		Type:               kollectdevv1alpha1.ConditionConnectionVerified,
 		Status:             metav1.ConditionFalse,
@@ -169,12 +174,19 @@ func shouldClearFamilyTestConnectionAnnotation(common *kollectdevv1alpha1.SinkCo
 	return ok
 }
 
-func setFamilyTLSInsecureCondition(conditions *[]metav1.Condition, spec kollectdevv1alpha1.KollectSinkSpec, generation int64) {
+// setFamilyTLSInsecureCondition reconciles the TLSInsecure condition with the
+// spec, returning whether it changed the condition slice. It is called on every
+// family-sink reconcile path (probe skipped, probe failed, probe succeeded) so
+// the condition is surfaced whenever insecureSkipVerify is set, regardless of
+// probe outcome (K-14).
+func setFamilyTLSInsecureCondition(conditions *[]metav1.Condition, spec kollectdevv1alpha1.KollectSinkSpec, generation int64) bool {
+	before := apimeta.FindStatusCondition(*conditions, kollectdevv1alpha1.ConditionTLSInsecure)
+
 	insecure := spec.TLS != nil && spec.TLS.InsecureSkipVerify
 	if !insecure {
 		apimeta.RemoveStatusCondition(conditions, kollectdevv1alpha1.ConditionTLSInsecure)
 
-		return
+		return before != nil
 	}
 
 	apimeta.SetStatusCondition(conditions, metav1.Condition{
@@ -185,4 +197,6 @@ func setFamilyTLSInsecureCondition(conditions *[]metav1.Condition, spec kollectd
 		ObservedGeneration: generation,
 		LastTransitionTime: metav1.Now(),
 	})
+
+	return before == nil || before.Status != metav1.ConditionTrue
 }

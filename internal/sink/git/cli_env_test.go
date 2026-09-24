@@ -4,6 +4,7 @@
 package git
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -373,5 +374,63 @@ func TestBuildGitSSHCommand_WithKeyAndKnownHostsCleansUpFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Clean(knownHostsPath)); !os.IsNotExist(err) {
 		t.Fatalf("known_hosts file should be removed, stat err=%v", err)
+	}
+}
+
+// TestNewCLIEnv_defaultsToHeaderForCLIHTTP is the K-16 test lock: for an HTTP(S)
+// endpoint with credentials, the CLI env supplies them via http.extraHeader even
+// without an explicit ForceBasicAuth, and the clone URL stays uncredentialed.
+func TestNewCLIEnv_defaultsToHeaderForCLIHTTP(t *testing.T) {
+	t.Parallel()
+
+	cfg := Config{Endpoint: "https://example.com/r.git", Engine: GitEngineCLI}
+	auth := Auth{Token: "secret-token"}
+
+	cli, err := newCLIEnv(cfg, auth, AuthTypeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cli.cleanup()
+
+	if !cli.authInHeader {
+		t.Fatal("expected authInHeader=true by default for CLI HTTP(S) with credentials")
+	}
+
+	found := false
+	for _, e := range cli.extraEnv {
+		if strings.HasPrefix(e, envAuthHeader+"=") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("extraEnv = %v, want an auth header entry", cli.extraEnv)
+	}
+
+	if got := cloneURLForAuth(cfg.Endpoint, auth, cli); strings.Contains(got, "secret-token") {
+		t.Fatalf("credential embedded in clone URL despite header auth: %s", got)
+	}
+}
+
+func TestCloneURLForAuth_embedsWhenNoHeaderAuth(t *testing.T) {
+	t.Parallel()
+
+	cli := &cliEnv{}
+	got := cloneURLForAuth("https://example.com/r.git", Auth{Token: "tok"}, cli)
+	if !strings.Contains(got, "tok@example.com") {
+		t.Fatalf("expected embedded credential on the legacy path, got %s", got)
+	}
+}
+
+// TestGitCloneCmd_configEnvBeforeSubcommand guards the ordering that makes the
+// default extraHeader path work: git rejects `clone --config-env`.
+func TestGitCloneCmd_configEnvBeforeSubcommand(t *testing.T) {
+	t.Parallel()
+
+	cli := &cliEnv{configEnvArgs: []string{"--config-env", "http.extraHeader=KOLLECT_GIT_AUTH_HEADER"}}
+	cmd := gitCloneCmd(context.Background(), cli, "--", "https://example.com/r.git", "/tmp/work")
+
+	args := cmd.Args
+	if len(args) < 4 || args[1] != "--config-env" || args[3] != "clone" {
+		t.Fatalf("git clone args = %v, want --config-env before the clone subcommand", args)
 	}
 }
