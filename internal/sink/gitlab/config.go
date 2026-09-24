@@ -4,6 +4,7 @@
 package gitlab
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +13,11 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/sink/git"
 )
+
+// ErrInvalidEndpoint is the STATIC message for every endpoint URL parse fault
+// (K-23): a *url.ParseError echoes the raw endpoint, which may carry userinfo
+// credentials, so no parse site %w-wraps it.
+var ErrInvalidEndpoint = errors.New("invalid endpoint URL")
 
 // Config holds resolved GitLab sink settings (HTTPS git remote).
 type Config struct {
@@ -39,7 +45,7 @@ func ConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec, caPEM []byte) (Conf
 
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return Config{}, fmt.Errorf("parse endpoint: %w", err)
+		return Config{}, fmt.Errorf("gitlab sink: %w", ErrInvalidEndpoint)
 	}
 
 	if !isHTTPSEndpointScheme(u.Scheme) {

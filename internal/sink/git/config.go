@@ -4,12 +4,19 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
+
+// ErrInvalidEndpoint is the STATIC message for every endpoint URL parse fault
+// (K-23). A *url.ParseError echoes the raw input, which may carry userinfo
+// credentials; that text must never propagate into a condition message or
+// Event, so no parse site %w-wraps it.
+var ErrInvalidEndpoint = errors.New("invalid endpoint URL")
 
 type CommitAuthor struct {
 	Name  string
@@ -54,7 +61,7 @@ func ConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec, caPEM []byte) (Conf
 	}
 
 	if _, err := url.Parse(endpoint); err != nil {
-		return Config{}, fmt.Errorf("parse endpoint: %w", err)
+		return Config{}, fmt.Errorf("git sink: %w", ErrInvalidEndpoint)
 	}
 
 	tlsCfg, err := TLSConfigFromSpec(spec.TLS, caPEM)
@@ -198,7 +205,7 @@ func parseEndpoint(endpoint string) (cloneURL, branch, scheme string, err error)
 
 	u, err := url.Parse(cloneURL)
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", fmt.Errorf("git sink: %w", ErrInvalidEndpoint)
 	}
 
 	return cloneURL, branch, u.Scheme, nil

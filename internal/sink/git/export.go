@@ -481,7 +481,7 @@ func parseRemote(endpoint string) (cloneURL, branch string, err error) {
 	branch = defaultBranch
 	u, err := url.Parse(strings.TrimSpace(endpoint))
 	if err != nil {
-		return "", "", fmt.Errorf("parse endpoint: %w", err)
+		return "", "", fmt.Errorf("git remote: %w", ErrInvalidEndpoint)
 	}
 
 	if frag := strings.TrimPrefix(u.Fragment, "branch="); frag != u.Fragment && frag != "" {

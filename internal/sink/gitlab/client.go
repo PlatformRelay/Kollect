@@ -104,7 +104,7 @@ func keepsCredentials(origin, target *url.URL) bool {
 func APIBaseURL(endpoint string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(endpoint))
 	if err != nil {
-		return "", fmt.Errorf("parse endpoint: %w", err)
+		return "", fmt.Errorf("gitlab API: %w", ErrInvalidEndpoint)
 	}
 	if !isHTTPSEndpointScheme(u.Scheme) {
 		return "", fmt.Errorf("gitlab API requires http(s) endpoint, got %q", u.Scheme)
