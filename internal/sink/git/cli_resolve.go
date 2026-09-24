@@ -56,7 +56,17 @@ func (c *cliEnv) guardHTTPResolution(ctx context.Context, u *url.URL) error {
 			"GIT_CONFIG_VALUE_"+idx+"=+"+host+":"+port+":"+address.String(),
 		)
 	}
-	c.extraEnv = append(c.extraEnv, "GIT_CONFIG_COUNT="+strconv.Itoa(len(addresses)))
+
+	// Contain redirects (K-15): the curloptResolve pin is keyed to the endpoint
+	// host, but git follows a redirect with a fresh resolution for the new host,
+	// outside netguard. Refusing to follow redirects keeps every HTTP(S) CLI
+	// operation on the pinned, policy-checked address.
+	redirectIdx := strconv.Itoa(len(addresses))
+	c.extraEnv = append(c.extraEnv,
+		"GIT_CONFIG_KEY_"+redirectIdx+"=http.followRedirects",
+		"GIT_CONFIG_VALUE_"+redirectIdx+"=false",
+	)
+	c.extraEnv = append(c.extraEnv, "GIT_CONFIG_COUNT="+strconv.Itoa(len(addresses)+1))
 
 	return nil
 }

@@ -16,7 +16,7 @@ func TestTestConnection_missingTopic(t *testing.T) {
 	err := TestConnection(context.Background(), kollectdevv1alpha1.KollectSinkSpec{
 		Type:  "kafka",
 		Kafka: &kollectdevv1alpha1.KafkaSpec{Brokers: []string{"127.0.0.1:1"}},
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error when topic is missing")
 	}
@@ -34,7 +34,7 @@ func TestTestConnection_withSASLCredentials(t *testing.T) {
 	}, map[string][]byte{
 		"username": []byte("user"),
 		"password": []byte("pass"),
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("expected dial error for unreachable broker")
 	}
@@ -46,7 +46,7 @@ func TestTestConnection_missingBrokers(t *testing.T) {
 	err := TestConnection(context.Background(), kollectdevv1alpha1.KollectSinkSpec{
 		Type:  "kafka",
 		Kafka: &kollectdevv1alpha1.KafkaSpec{Topic: "inventory"},
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error when brokers are missing")
 	}
@@ -61,7 +61,7 @@ func TestTestConnection_unreachableBroker(t *testing.T) {
 			Brokers: []string{"127.0.0.1:1"},
 			Topic:   "inventory",
 		},
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected dial error for unreachable broker")
 	}

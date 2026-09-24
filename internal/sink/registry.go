@@ -157,7 +157,7 @@ func newMongoBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) 
 }
 
 func newKafkaBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
-	return kafkasink.NewBackend(spec, ctx.SecretData)
+	return kafkasink.NewBackend(spec, ctx.SecretData, ctx.CAPEM)
 }
 
 func newNatsBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {

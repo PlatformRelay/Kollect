@@ -86,6 +86,15 @@ func main() {
 	// allowlisted here. Cluster-admin only via Helm allowSecretRefNamespaces.
 	validation.SetAllowedSecretRefNamespaces(operator.ParseWatchNamespaces(cfg.allowSecretRefNamespacesRaw))
 
+	// K-14: a second process-wide opt-in, for sinks that request disabled TLS
+	// certificate / SSH host-key verification. Deny by default; when enabled it is
+	// loud, and the family-sink controller surfaces the TLSInsecure condition.
+	validation.SetAllowInsecureSinks(cfg.allowInsecureSinks)
+	if cfg.allowInsecureSinks {
+		setupLog.Info("WARNING: --allow-insecure-sinks is enabled; sinks may disable TLS certificate " +
+			"and SSH host-key verification")
+	}
+
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled

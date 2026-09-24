@@ -173,6 +173,7 @@ func validateCommonSinkFields(fields *kollectdevv1alpha1.SinkCommonFields) field
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec").Child("pathTemplate"), fields.PathTemplate, err.Error()))
 	}
 	allErrs = append(allErrs, ValidateOptionalDurationInterval(fields.ExportMinInterval, field.NewPath("spec").Child("exportMinInterval"))...)
+	allErrs = append(allErrs, ValidateInsecureSkipVerify(fields.TLS, field.NewPath("spec").Child("tls"))...)
 	allErrs = append(allErrs, ValidateSinkCommonConfig(fields)...)
 	allErrs = append(allErrs, ValidateOptionsMap(fields.Options, field.NewPath("spec").Child("options"))...)
 	return allErrs

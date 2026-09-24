@@ -40,7 +40,7 @@ func TestNamespaceFromObjectPath(t *testing.T) {
 func TestDialTransport_withoutSASL(t *testing.T) {
 	t.Parallel()
 
-	transport, err := dialTransport(Config{})
+	transport, err := dialTransport(Config{}, TLSConfig{})
 	if err != nil {
 		t.Fatalf("dialTransport: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestDialTransport_withoutSASL(t *testing.T) {
 func TestDialTransport_withSASL(t *testing.T) {
 	t.Parallel()
 
-	transport, err := dialTransport(Config{Username: "user", Password: "pass"})
+	transport, err := dialTransport(Config{Username: "user", Password: "pass"}, TLSConfig{})
 	if err != nil {
 		t.Fatalf("dialTransport: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestBackend_Export_rejectsEmptyPayload(t *testing.T) {
 func TestNewBackend_invalidSpec(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "kafka"}, nil)
+	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "kafka"}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error without kafka spec")
 	}
@@ -115,7 +115,7 @@ func TestNewBackend_requiresAllAcks(t *testing.T) {
 			Brokers: []string{"kafka:9092"},
 			Topic:   "inventory",
 		},
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("NewBackend: %v", err)
 	}

@@ -80,6 +80,23 @@ func (a Auth) embedInURL(endpoint string) string {
 	return u.String()
 }
 
+// cloneURLForAuth returns the URL to hand to the git CLI: the plain URL when the
+// CLI env already carries credentials in http.extraHeader, otherwise the URL
+// with embedded userinfo (the legacy path). Keeping the decision in one place
+// prevents a token leaking into argv on one call site while being scrubbed on
+// another (K-16).
+func cloneURLForAuth(cloneURL string, auth Auth, cli *cliEnv) string {
+	if cli != nil && cli.authInHeader {
+		return cloneURL
+	}
+
+	if creds := auth.embedInURL(cloneURL); creds != "" {
+		return creds
+	}
+
+	return cloneURL
+}
+
 func basicAuthHTTPS(auth Auth) (transport.AuthMethod, error) {
 	if auth.Username == "" && auth.Token == "" && auth.Password == "" {
 		return nil, nil

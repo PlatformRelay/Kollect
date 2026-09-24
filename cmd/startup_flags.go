@@ -53,6 +53,7 @@ type startupConfig struct {
 	tenantMode                    bool
 	allowPrivateSinks             bool
 	allowSecretRefNamespacesRaw   string
+	allowInsecureSinks            bool
 	collectDispatchWorkers        int
 	collectDispatchQueueSize      int
 	informerResyncPeriod          time.Duration
@@ -105,6 +106,10 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 		"Comma-separated namespaces that family sinks may reference cross-namespace via a "+
 			"secretRef/caSecretRef/databaseRef (K-04). Empty (default) rejects every cross-namespace "+
 			"Secret reference. Cluster-admin only via Helm allowSecretRefNamespaces; never a CRD field.")
+	fs.BoolVar(&cfg.allowInsecureSinks, "allow-insecure-sinks", false,
+		"Permit sinks to set spec.tls.insecureSkipVerify (disable TLS certificate / SSH host-key "+
+			"verification) (K-14). Default false (deny): admission rejects the field and sink "+
+			"construction refuses it. Process-wide, cluster-admin only; not tenant-settable.")
 	fs.StringVar(&cfg.webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	fs.StringVar(&cfg.webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	fs.StringVar(&cfg.webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
