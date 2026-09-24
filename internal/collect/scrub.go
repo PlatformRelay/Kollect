@@ -20,7 +20,16 @@ var defaultScrubKeys = []string{
 	"auth",
 	"clientsecret",
 	"connectionstring",
+	"authorization",
+	"proxyauthorization",
+	"bearertoken",
 }
+
+// highRiskStems are matched by prefix as well as exact/suffix: the bearer
+// material is the value, so key spellings such as "authorizationHeader" or
+// "bearer_token" (K-24) must redact too. Costs the occasional innocuous
+// "authorizer"-style attribute; redaction is the safe side of that trade.
+var highRiskStems = []string{"authorization", "bearer"}
 
 func redactedValue() map[string]any {
 	return map[string]any{
@@ -121,6 +130,12 @@ func (s *Scrubber) isSensitiveKey(key string) bool {
 
 	for deny := range s.keys {
 		if len(deny) > 2 && strings.HasSuffix(normalized, deny) {
+			return true
+		}
+	}
+
+	for _, stem := range highRiskStems {
+		if strings.HasPrefix(normalized, stem) {
 			return true
 		}
 	}

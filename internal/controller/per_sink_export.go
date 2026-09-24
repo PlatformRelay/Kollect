@@ -15,6 +15,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
+	"github.com/platformrelay/kollect/internal/redact"
 	"github.com/platformrelay/kollect/internal/validation"
 )
 
@@ -217,7 +218,7 @@ func setSinkExportSynced(
 		Type:               conditionSinkSynced,
 		Status:             condStatus,
 		Reason:             reason,
-		Message:            message,
+		Message:            redact.Text(message),
 		ObservedGeneration: generation,
 		LastTransitionTime: metav1.Now(),
 	})

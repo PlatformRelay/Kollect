@@ -79,6 +79,7 @@ components:
       - internal/errors/**
       - internal/metrics/**
       - internal/pathvalidate/**
+      - internal/redact/**
       - internal/operator/**
       - internal/integrationtest/**
       - internal/version/**

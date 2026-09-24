@@ -33,6 +33,7 @@ import (
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/metrics"
+	"github.com/platformrelay/kollect/internal/redact"
 	"github.com/platformrelay/kollect/internal/scope"
 	"github.com/platformrelay/kollect/internal/sink"
 	"github.com/platformrelay/kollect/internal/validation"
@@ -653,6 +654,8 @@ func (r *KollectClusterInventoryReconciler) setDegraded(
 	inv *kollectdevv1alpha1.KollectClusterInventory,
 	reason, message string,
 ) (ctrl.Result, error) {
+	message = redact.Text(message)
+
 	apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionReady)
 	inv.Status.ObservedGeneration = inv.Generation
 	setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, message)
