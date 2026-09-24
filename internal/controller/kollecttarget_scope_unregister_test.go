@@ -71,10 +71,10 @@ func TestScopeDenyUnregistersTarget(t *testing.T) {
 		Recorder: record.NewFakeRecorder(10),
 	}
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "configs", Namespace: testNS}}
-	ctx := context.Background()
+	rctx := context.Background()
 
 	// Phase 1: no scope — register and collect.
-	if _, err := r.Reconcile(ctx, req); err != nil {
+	if _, err := r.Reconcile(rctx, req); err != nil {
 		t.Fatalf("first reconcile: %v", err)
 	}
 	if !waitForCount(store, testNS, "configs", 1, 5*time.Second) {
@@ -94,15 +94,15 @@ func TestScopeDenyUnregistersTarget(t *testing.T) {
 			},
 		},
 	}
-	if err := cl.Create(ctx, denyScope); err != nil {
+	if err := cl.Create(rctx, denyScope); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Reconcile(ctx, req); err != nil {
+	if _, err := r.Reconcile(rctx, req); err != nil {
 		t.Fatalf("deny reconcile: %v", err)
 	}
 
 	var updated kollectdevv1alpha1.KollectTarget
-	if err := cl.Get(ctx, req.NamespacedName, &updated); err != nil {
+	if err := cl.Get(rctx, req.NamespacedName, &updated); err != nil {
 		t.Fatal(err)
 	}
 	deg := apimeta.FindStatusCondition(updated.Status.Conditions, conditionDegraded)
@@ -158,9 +158,9 @@ func TestScopeDenyStopsLaterItems(t *testing.T) {
 		Recorder: record.NewFakeRecorder(10),
 	}
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "configs", Namespace: testNS}}
-	ctx := context.Background()
+	rctx := context.Background()
 
-	if _, err := r.Reconcile(ctx, req); err != nil {
+	if _, err := r.Reconcile(rctx, req); err != nil {
 		t.Fatalf("first reconcile: %v", err)
 	}
 	if !waitForCount(store, testNS, "configs", 1, 5*time.Second) {
@@ -178,10 +178,10 @@ func TestScopeDenyStopsLaterItems(t *testing.T) {
 			},
 		},
 	}
-	if err := cl.Create(ctx, denyScope); err != nil {
+	if err := cl.Create(rctx, denyScope); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Reconcile(ctx, req); err != nil {
+	if _, err := r.Reconcile(rctx, req); err != nil {
 		t.Fatalf("deny reconcile: %v", err)
 	}
 
@@ -189,7 +189,7 @@ func TestScopeDenyStopsLaterItems(t *testing.T) {
 	// be stored: the target must no longer be registered at all.
 	late := scopeDenyConfigMap(testNS, "late-cm", "uid-late")
 	if _, err := dyn.Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).
-		Namespace(testNS).Create(ctx, late, metav1.CreateOptions{}); err != nil {
+		Namespace(testNS).Create(rctx, late, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("seed late object: %v", err)
 	}
 	time.Sleep(300 * time.Millisecond)
