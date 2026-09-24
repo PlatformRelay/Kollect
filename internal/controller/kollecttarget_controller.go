@@ -130,8 +130,11 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				// transient, and a degraded target has no self-requeue — without
 				// retrying, one API blip would leave collection halted until an
 				// unrelated event happens to arrive.
-				return ctrl.Result{}, fmt.Errorf("KollectScope lookup failed for %s/%s: %s",
+				retryErr := fmt.Errorf("KollectScope lookup failed for %s/%s: %s",
 					target.Namespace, target.Name, msg)
+				retErr = retryErr
+
+				return ctrl.Result{}, retryErr
 			}
 
 			return ctrl.Result{}, nil
