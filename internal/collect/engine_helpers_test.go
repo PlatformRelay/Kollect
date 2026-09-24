@@ -56,8 +56,11 @@ func TestEngineNamespaceMatches(t *testing.T) {
 		t.Fatal("enforced ceiling with empty effective set must deny even unknown namespaces (K-06)")
 	}
 
-	// The metadata.name pin (cluster-synthetic registrations) stays valid under
-	// enforcement, and only for its own namespace.
+	// The metadata.name pin does NOT survive enforcement with an empty
+	// effective set: cluster-synthetic targets never reach this branch (they
+	// register a non-empty explicit set), so the only targets that could are
+	// user-authored ones, and honouring their pin would smuggle one
+	// ceiling-denied namespace past the empty set (K-06 review finding).
 	pinned := &kollectdevv1alpha1.KollectTarget{
 		Spec: kollectdevv1alpha1.KollectTargetSpec{
 			NamespaceSelector: &metav1.LabelSelector{
@@ -65,8 +68,8 @@ func TestEngineNamespaceMatches(t *testing.T) {
 			},
 		},
 	}
-	if !e.namespaceMatches(pinned, nil, true, "team-a") {
-		t.Fatal("expected metadata.name pin match under enforcement")
+	if e.namespaceMatches(pinned, nil, true, "team-a") {
+		t.Fatal("a user-authored metadata.name pin must not survive enforcement with an empty effective set (K-06)")
 	}
 	if e.namespaceMatches(pinned, nil, true, "team-b") {
 		t.Fatal("expected metadata.name pin miss under enforcement")

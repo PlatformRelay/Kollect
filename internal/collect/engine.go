@@ -1078,17 +1078,12 @@ func (e *Engine) namespaceMatches(
 	}
 
 	// Empty effective set under a supplied ceiling: the ceiling excluded
-	// everything the filter matched, so nothing may fall through to the
-	// unrestricted selector path (K-06). Only the cluster-synthetic
-	// metadata.name pin — a namespace the ceiling itself admitted at
-	// registration — may still match.
+	// everything the filter matched, so nothing may fall through to any
+	// selector-shaped fallback — not even a user-authored metadata.name pin,
+	// which would otherwise smuggle one ceiling-denied namespace past the
+	// empty set (K-06). This does not affect cluster-synthetic targets: they
+	// register with a non-empty explicit namespace set and return above.
 	if scopeEnforced {
-		if target.Spec.NamespaceSelector != nil {
-			if name, ok := target.Spec.NamespaceSelector.MatchLabels[corev1.LabelMetadataName]; ok {
-				return resourceNamespace == name
-			}
-		}
-
 		return false
 	}
 

@@ -143,6 +143,7 @@ func TestKollectInventoryValidator_scopeSinkRefAllowlist(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "team-scope", Namespace: "team-a"},
 		Spec: kollectdevv1alpha1.KollectScopeSpec{
 			SnapshotSinkRefs: []string{"allowed-git"},
+			DatabaseSinkRefs: []string{"allowed-pg"},
 		},
 	}
 	v := &kollectInventoryValidator{client: newScopedFakeClient(t, teamScope)}
@@ -161,12 +162,22 @@ func TestKollectInventoryValidator_scopeSinkRefAllowlist(t *testing.T) {
 	}
 
 	if _, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "db-off-list", Namespace: "team-a"},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("rogue-pg"),
+		},
+	}); err == nil {
+		t.Fatal("expected admission denial for database sink ref outside the scope allowlist (K-09)")
+	}
+
+	if _, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Name: "on-list", Namespace: "team-a"},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
 			SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("allowed-git"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("allowed-pg"),
 		},
 	}); err != nil {
-		t.Fatalf("allowlisted sink ref must be admitted: %v", err)
+		t.Fatalf("allowlisted sink refs must be admitted: %v", err)
 	}
 
 	if _, err := v.ValidateCreate(context.Background(), &kollectdevv1alpha1.KollectInventory{
