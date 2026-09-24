@@ -124,7 +124,7 @@ func testKafkaConnection(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	buildCtx BuildContext,
 ) (string, error) {
-	if err := kafkasink.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
+	if err := kafkasink.TestConnection(ctx, spec, buildCtx.SecretData, buildCtx.CAPEM); err != nil {
 		return "", err
 	}
 

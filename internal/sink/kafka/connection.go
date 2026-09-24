@@ -18,13 +18,19 @@ func TestConnection(
 	ctx context.Context,
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	secretData map[string][]byte,
+	caPEM []byte,
 ) error {
 	cfg, err := ConfigFromSpec(spec, secretData)
 	if err != nil {
 		return err
 	}
 
-	transport, err := dialTransport(cfg)
+	tlsCfg, err := TLSConfigFromSpec(spec.TLS, caPEM)
+	if err != nil {
+		return err
+	}
+
+	transport, err := dialTransport(cfg, tlsCfg)
 	if err != nil {
 		return err
 	}
@@ -33,6 +39,9 @@ func TestConnection(
 		Timeout:   kafka.DefaultDialer.Timeout,
 		DualStack: kafka.DefaultDialer.DualStack,
 		DialFunc:  netguard.DefaultDialer.DialContext,
+	}
+	if clientTLS := tlsCfg.ClientConfig(); clientTLS != nil {
+		dialer.TLS = clientTLS
 	}
 	if transport != nil && transport.SASL != nil {
 		dialer.SASLMechanism = transport.SASL

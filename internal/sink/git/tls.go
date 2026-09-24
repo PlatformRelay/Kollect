@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/validation"
 )
 
 // TLSConfig holds resolved TLS settings for git/HTTPS sinks.
@@ -40,6 +41,12 @@ func TLSConfigFromSpec(tlsSpec *kollectdevv1alpha1.TLSSpec, caPEM []byte) (TLSCo
 
 	if tlsSpec == nil {
 		return cfg, nil
+	}
+
+	if tlsSpec.InsecureSkipVerify && !validation.AllowInsecureSinks() {
+		return cfg, fmt.Errorf(
+			"tls.insecureSkipVerify is not permitted: start the manager with --allow-insecure-sinks to opt in (K-14)",
+		)
 	}
 
 	cfg.InsecureSkipVerify = tlsSpec.InsecureSkipVerify

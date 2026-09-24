@@ -149,10 +149,7 @@ func lsRemoteUncached(ctx context.Context, cfg Config, auth Auth) error {
 		return guardErr
 	}
 
-	endpoint := cfg.Endpoint
-	if creds := auth.embedInURL(endpoint); creds != "" && !cfg.ForceBasicAuth {
-		endpoint = creds
-	}
+	endpoint := cloneURLForAuth(cfg.Endpoint, auth, cli)
 
 	gitPath, err := resolveGitExecutable()
 	if err != nil {

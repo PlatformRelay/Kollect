@@ -353,7 +353,14 @@ func mergeSourceRowsSQL(rows []mergeRow) string {
 	return "(" + strings.Join(selects, " UNION ALL ") + ")"
 }
 
+// sqlStringLiteral renders v as a single-quoted GoogleSQL string literal.
+//
+// GoogleSQL treats the backslash as an escape introducer, so a backslash must be
+// doubled before single quotes are doubled; otherwise a value ending in `\`
+// escapes the closing quote and the remainder of the value is parsed as SQL
+// (K-22). Order matters: escape backslashes first, then quotes.
 func sqlStringLiteral(v string) string {
+	v = strings.ReplaceAll(v, `\`, `\\`)
 	return "'" + strings.ReplaceAll(v, "'", "''") + "'"
 }
 

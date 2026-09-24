@@ -54,8 +54,37 @@ func NewRESTClient(endpoint, token, basicUser string, httpClient *http.Client) (
 		BaseURL:    strings.TrimSuffix(base, "/"),
 		Token:      strings.TrimSpace(token),
 		BasicUser:  strings.TrimSpace(basicUser),
-		HTTPClient: httpClient,
+		HTTPClient: withCrossHostAuthStripping(httpClient),
 	}, nil
+}
+
+// withCrossHostAuthStripping returns a copy of client whose redirect handler
+// removes credential headers when a redirect crosses to a different host.
+//
+// Go's http.Client strips only Authorization and Cookie on a cross-host
+// redirect, so the custom PRIVATE-TOKEN header this client sets would otherwise
+// be replayed to a redirect target chosen by the endpoint (K-15). The token must
+// only ever be sent to the configured host. Same-host redirects keep the header
+// (Go already re-adds the auth headers it manages).
+func withCrossHostAuthStripping(client *http.Client) *http.Client {
+	wrapped := *client
+	previous := wrapped.CheckRedirect
+	wrapped.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return fmt.Errorf("gitlab: stopped after 10 redirects")
+		}
+		if origin := via[0].URL.Host; req.URL.Host != origin {
+			req.Header.Del("PRIVATE-TOKEN")
+			req.Header.Del("Authorization")
+		}
+		if previous != nil {
+			return previous(req, via)
+		}
+
+		return nil
+	}
+
+	return &wrapped
 }
 
 // APIBaseURL derives https://host/api/v4 from an HTTPS git remote endpoint.

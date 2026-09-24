@@ -96,6 +96,10 @@ Kollect normally uses two layers for sink endpoint policy:
    an approved numeric address. The decision is repeated for new connections, redirects, and backend
    reconnects, reducing DNS-rebinding and time-of-check/time-of-use exposure.
 
+For the Git CLI engine, whose address pin is keyed to the endpoint host, redirects are refused
+outright (`http.followRedirects=false`) so a redirect can never move the transfer to an unpinned
+host; the GitLab REST client likewise strips its custom auth header on a cross-host redirect.
+
 The guarded transports are used by Git/GitLab, S3 and its GCS-compatible path, Postgres, MongoDB,
 BigQuery, Kafka, and NATS.
 
