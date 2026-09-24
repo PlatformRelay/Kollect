@@ -6,6 +6,7 @@ package sink
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -24,6 +25,15 @@ import (
 	"github.com/platformrelay/kollect/internal/sink/objectstore"
 	"github.com/platformrelay/kollect/internal/validation"
 )
+
+// ErrSpillRequired is returned when a non-object-store backend is asked to
+// deliver an envelope above the inline cap (SpillMandatoryBytes). There is no
+// spill write path, so this is terminal: the export cannot succeed until the
+// payload shrinks, an object-store sink is bound, or real spill ships. It is
+// raised instead of silently returning success so the controller can surface
+// Degraded/SpillRequired rather than recording a green export that wrote
+// nothing (K-01).
+var ErrSpillRequired = errors.New("export payload requires object-store spill")
 
 // Capabilities describes sink backend projection behavior (ADR-0401, ADR-0406).
 type Capabilities = cap.Capabilities
@@ -195,7 +205,15 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 	}
 
 	if !shouldExportForSpill(backend.Capabilities(), int64(len(envelope))) {
-		return nil
+		// Above the inline cap with no object-store spill path: fail loudly. The
+		// previous `return nil` recorded Exported/Ready while writing nothing and
+		// suppressed re-export for the interval — silent data loss with green
+		// telemetry (K-01).
+		err = kollecterrors.Terminal(fmt.Errorf("%w: %q is %d bytes (inline cap %d)",
+			ErrSpillRequired, req.SinkName, len(envelope), export.SpillMandatoryBytes))
+		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
+
+		return err
 	}
 
 	invNS, invName := objectstore.InventoryFromObjectPath(req.ObjectPath)
@@ -269,6 +287,12 @@ func shouldExportForSpill(c cap.Capabilities, payloadSize int64) bool {
 func ExportErrorReason(err error) string {
 	if err == nil {
 		return "unknown"
+	}
+
+	// Spill-required is terminal but deserves its own label: operators are told
+	// to alert on kollect_sink_errors_total{reason="spill_required"} (K-01).
+	if errors.Is(err, ErrSpillRequired) {
+		return "spill_required"
 	}
 
 	switch kollecterrors.ClassOf(err) {

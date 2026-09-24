@@ -10,6 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -74,6 +76,12 @@ const (
 
 	conditionExportShardWarn = "ExportShardWarning"
 	reasonExportShardWarn    = "ApproachingExportCap"
+
+	// reasonExportCeilingExceeded warns that a database/event binding received a
+	// complete payload larger than its per-binding maxExportBytes. Those families
+	// cannot be split without tearing the set (K-02), so the ceiling is a soft
+	// bound there and the full set is still exported.
+	reasonExportCeilingExceeded = "ExportCeilingExceeded"
 )
 
 func noteExportShardWarning(conditions *[]metav1.Condition, generation int64, itemCount int) bool {
@@ -106,6 +114,35 @@ func recordSpillGateMetrics(gate spillGateResult) {
 	case spillReasonSpillRequired:
 		metrics.SinkErrorsTotal.WithLabelValues("spill_required").Inc()
 	}
+}
+
+// warnSoftCeilingExceeded records a Warning Event when a non-snapshot binding's
+// complete payload exceeds its per-binding maxExportBytes. Database/event
+// families are never split (K-02), so their ceiling cannot be enforced by
+// partitioning; the export still proceeds and the operator is told the bound was
+// soft rather than silently ignored.
+func warnSoftCeilingExceeded(
+	recorder record.EventRecorder,
+	obj runtime.Object,
+	binding kollectdevv1alpha1.InventorySinkBinding,
+	parts []export.EnvelopePartition,
+) {
+	if binding.Family == kollectdevv1alpha1.SinkFamilySnapshot {
+		return
+	}
+	if binding.Ref.MaxExportBytes == nil || len(parts) != 1 {
+		return
+	}
+
+	size := int64(len(parts[0].Envelope))
+	if size <= *binding.Ref.MaxExportBytes {
+		return
+	}
+
+	recordWarning(recorder, obj, reasonExportCeilingExceeded, fmt.Sprintf(
+		"sink %q: complete %d-byte payload exceeds its %d-byte maxExportBytes; "+
+			"database/event sinks are not split, so the full set was exported",
+		binding.Name, size, *binding.Ref.MaxExportBytes))
 }
 
 func hasObjectStoreSink(

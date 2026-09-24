@@ -136,7 +136,9 @@ staged-commit / GC of orphaned parts is deliberately out of scope here and track
    breaking and gated by the API versioning policy ([ADR-0206](0206-api-versioning-conversion.md)).
 3. **No secrets, ever** — redaction happens before export ([ADR-0303](0303-helm-release-inventory.md),
    [ADR-0104](0104-security-model.md)).
-4. **Bounded size** — spill over `maxExportBytes` to object store; never to etcd ([ADR-0103](0103-etcd-limit.md)).
+4. **Bounded size** — payloads over the inline cap (`maxExportBytes` / 1 MiB) are not written to
+   non-object-store sinks: the export fails loudly with `SpillRequired`; never to etcd. No automatic
+   spill write path ships ([ADR-0103](0103-etcd-limit.md)).
 
 ## Consequences
 

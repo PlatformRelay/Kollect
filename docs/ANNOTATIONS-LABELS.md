@@ -99,21 +99,23 @@ headers are **not** used in the default architecture.
     Prefer indirect references (e.g. cert-manager status) when possible
     ([KollectProfile](crds/kollectprofile.md)).
 
-## Export payload spill
+## Export payload inline cap
 
 Not an annotation — operator policy for marshalled inventory size
-([ADR-0103](adr/0103-etcd-limit.md), [KollectInventory `maxExportBytes`](crds/kollectinventory.md#spec-fields)):
+([ADR-0103](adr/0103-etcd-limit.md), [KollectInventory `maxExportBytes`](crds/kollectinventory.md#spec-fields)).
+There is **no automatic spill write path**: a payload above the inline cap that targets a
+non-object-store sink is not written anywhere else — it fails loudly instead.
 
 | Signal | When | Meaning |
 | --- | --- | --- |
-| Log `export payload exceeds spill warn threshold` | Payload ≥ **1 MiB** | Approaching mandatory object-store spill |
+| Log `export payload exceeds spill warn threshold` | Payload ≥ **1 MiB** | Approaching the 1 MiB inline cap |
 | `kollect_export_spill_warn_total` | Payload ≥ **1 MiB** | Counter — tune targets or add S3/GCS before hard block |
-| Inventory `Degraded` `SpillRequired` | Payload > **1 MiB**, no `s3`/`gcs` in `snapshotSinkRefs` | Add object-store sink or reduce payload |
+| Inventory `Degraded` `SpillRequired` | Payload > **1 MiB**, no `s3`/`gcs` in `snapshotSinkRefs` | Add object-store sink or reduce payload; the export is not buffered elsewhere |
 | Inventory `Degraded` `PayloadTooLarge` | Payload > **`maxExportBytes`** (~1.5 MiB default) | Split targets, trim attributes, or raise cap within global limit |
-| `kollect_sink_errors_total{reason="spill_required"}` | Spill gate blocked export | Same remediation as `SpillRequired` |
+| `kollect_sink_errors_total{reason="spill_required"}` | Inline-cap gate blocked export | Same remediation as `SpillRequired` |
 
-Family sink `spec.pathTemplate` (snapshot/object-store backends) controls where spill payloads land
-in Git/S3/GCS (not related to watch labels above).
+Family sink `spec.pathTemplate` (snapshot/object-store backends) controls where snapshot payloads
+land in Git/S3/GCS (not related to watch labels above).
 
 ## Tenant and example labels
 

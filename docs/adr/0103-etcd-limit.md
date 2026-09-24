@@ -51,8 +51,12 @@ at scale. Developer portals also need a **read path** without scraping Git — a
    - **Auth (optional):** **oauth2-proxy** Helm sidecar/subchart for OIDC browser access —
      `oauth2Proxy.enabled: false` by default; documented, not required for service-to-service.
    - **TODO:** Async push to clients — **SSE** or **watch** endpoint when inventory changes, not only GET snapshot.
-7. **Optional PVC buffer:** when in-memory aggregate exceeds **`maxExportBytes`**, spill full payload
-   to a mounted volume for export and HTTP serve — still not written to etcd status.
+7. **Inline cap — no spill write path (current):** the in-memory aggregate is bounded by
+   **`maxExportBytes`**. There is **no PVC buffer and no automatic spill write path**: a payload
+   above the 1 MiB inline cap that targets a non-object-store sink fails loudly with
+   `Degraded`/`SpillRequired` rather than being silently dropped. Binding an `s3`/`gcs` snapshot
+   sink satisfies the cap. A PVC/object-store spill buffer remains **planned future work** (it was
+   framed as an optional Phase-1 buffer). The payload is still never written to etcd status.
 8. **`maxExportBytes` / aggregate bounds:** **global manager default** (~**1.5 MiB**, etcd safety
    margin) plus optional **`KollectInventory.spec.maxExportBytes`** override. Validating webhook
    **rejects** per-inventory override **greater than** the global cap. In-memory hot path and
@@ -63,15 +67,16 @@ flowchart LR
   Inv[KollectInventory reconcile]
   Mem[In-memory aggregate]
   Status[status: counts + conditions]
-  PVC[(optional PVC)]
   HTTP[HTTP /v1alpha1/inventory]
   Sink[Git / S3 / ...]
   Inv --> Mem
   Mem --> Status
-  Mem -->|over maxExportBytes| PVC
   Mem --> HTTP
   Mem --> Sink
 ```
+
+> Over the inline cap with no object-store sink, the export fails with `SpillRequired`; nothing is
+> buffered or written elsewhere (no spill path ships today).
 
 ## Consequences
 
@@ -85,7 +90,8 @@ flowchart LR
 ### Negative
 
 - HTTP surface adds auth, TLS, and network policy obligations.
-- PVC spill path adds storage class and backup considerations.
+- No spill write path ships: oversize non-object-store payloads degrade with `SpillRequired` instead
+  of being buffered; a PVC/object-store spill buffer is future work.
 - Consumers must still use sink or HTTP for full payload — `kubectl get kinv -o yaml` is not enough.
 
 ## Open questions
