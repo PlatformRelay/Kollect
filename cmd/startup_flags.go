@@ -51,6 +51,7 @@ type startupConfig struct {
 	validatingWebhooksEnabled     bool
 	tenantMode                    bool
 	allowPrivateSinks             bool
+	allowInsecureSinks            bool
 	collectDispatchWorkers        int
 	collectDispatchQueueSize      int
 	informerResyncPeriod          time.Duration
@@ -99,6 +100,10 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 		"Permit sink endpoints that resolve to RFC1918 / IPv6-ULA (in-cluster ClusterIP) addresses "+
 			"(NET-01). Default false (deny). Cluster-admin only via Helm allowPrivateSinks; loopback, "+
 			"link-local, cloud-metadata, and file:// stay denied even when enabled.")
+	fs.BoolVar(&cfg.allowInsecureSinks, "allow-insecure-sinks", false,
+		"Permit sinks to set spec.tls.insecureSkipVerify (disable TLS certificate / SSH host-key "+
+			"verification) (K-14). Default false (deny): admission rejects the field and sink "+
+			"construction refuses it. Process-wide, cluster-admin only; not tenant-settable.")
 	fs.StringVar(&cfg.webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	fs.StringVar(&cfg.webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	fs.StringVar(&cfg.webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")

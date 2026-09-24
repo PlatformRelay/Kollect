@@ -41,17 +41,23 @@ func gitInWorkdir(ctx context.Context, workdir string, cli *cliEnv, args ...stri
 func gitCloneCmd(ctx context.Context, cli *cliEnv, args ...string) *exec.Cmd {
 	gitPath, resolveErr := resolveGitExecutable()
 
-	cloneArgs := args
-	if cli != nil {
-		cloneArgs = cli.prependGitArgs(args...)
+	bin := "git"
+	if resolveErr == nil {
+		bin = gitPath
 	}
 
-	var argv []string
-	if resolveErr != nil {
-		argv = append([]string{"git", "clone"}, cloneArgs...)
-	} else {
-		argv = append([]string{gitPath, "clone"}, cloneArgs...)
+	// Global options (--config-env for the auth header) MUST precede the
+	// subcommand: `git clone --config-env ...` is rejected by git as an unknown
+	// clone option. This ordering is what makes the default extraHeader path work
+	// for clone (K-16).
+	argv := make([]string, 0, 2+len(args))
+	argv = append(argv, bin)
+	if cli != nil {
+		argv = append(argv, cli.configEnvArgs...)
 	}
+	argv = append(argv, "clone")
+	argv = append(argv, args...)
+
 	//nolint:gosec // G204: cloneURL, workdir, and branch validated before call; gitPath pinned via resolveGitExecutable
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	if resolveErr != nil {

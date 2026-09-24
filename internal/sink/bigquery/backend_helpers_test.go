@@ -85,6 +85,53 @@ func TestMergeSourceRowsSQL_EscapesSingleQuotes(t *testing.T) {
 	}
 }
 
+// TestSQLStringLiteral_EscapesBackslashes is the K-22 regression: GoogleSQL
+// treats `\` as an escape introducer, so a value ending in a backslash must be
+// rendered with a doubled backslash or it escapes the closing quote and the
+// remainder is parsed as SQL.
+func TestSQLStringLiteral_EscapesBackslashes(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "trailing backslash", in: `x\`, want: `'x\\'`},
+		{name: "backslash and quote", in: `a\b'c`, want: `'a\\b''c'`},
+		{name: "empty", in: ``, want: `''`},
+		{name: "plain", in: `prod-a`, want: `'prod-a'`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := sqlStringLiteral(tc.in); got != tc.want {
+				t.Fatalf("sqlStringLiteral(%q) = %s, want %s", tc.in, got, tc.want)
+			}
+		})
+	}
+
+	// The injection vector: a cluster ending in `\` must not close the literal.
+	sql := mergeSourceRowsSQL([]mergeRow{{
+		InventoryNamespace: "team-a",
+		InventoryName:      "apps",
+		Cluster:            `x\`,
+		TargetName:         "deployments",
+		SourceUID:          "uid-1",
+		ResourceNamespace:  "workloads",
+		PayloadJSON:        `{"name":"api"}`,
+	}})
+
+	if !strings.Contains(sql, `'x\\'`) {
+		t.Fatalf("sql missing backslash-escaped cluster literal: %s", sql)
+	}
+	if strings.Contains(sql, `'x\'`) {
+		t.Fatalf("sql contains unescaped trailing backslash (literal breakout): %s", sql)
+	}
+}
+
 func TestUsingEmulator_RespectsTrimmedEnvVar(t *testing.T) {
 	t.Parallel()
 

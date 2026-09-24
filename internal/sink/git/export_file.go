@@ -43,10 +43,7 @@ func exportViaCLI(
 		defer func() { _ = os.RemoveAll(workdir) }()
 	}
 
-	cloneURLForCLI := cloneURL
-	if creds := auth.embedInURL(cloneURL); creds != "" && !cfg.ForceBasicAuth {
-		cloneURLForCLI = creds
-	}
+	cloneURLForCLI := cloneURLForAuth(cloneURL, auth, cli)
 
 	if err = prepareCLIWorkdir(ctx, workdir, cloneURLForCLI, cloneBranch, pushBranch, cfg, cli); err != nil {
 		return err

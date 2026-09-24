@@ -42,6 +42,9 @@ func TestBindStartupFlags_Defaults(t *testing.T) {
 	if cfg.allowPrivateSinks {
 		t.Fatal("allowPrivateSinks must default to false (NET-01 deny by default)")
 	}
+	if cfg.allowInsecureSinks {
+		t.Fatal("allowInsecureSinks must default to false (K-14 deny by default)")
+	}
 	if cfg.maxExportBytes != validation.MaxExportBytesGlobal() {
 		t.Fatalf("maxExportBytes = %d, want %d", cfg.maxExportBytes, validation.MaxExportBytesGlobal())
 	}
@@ -100,6 +103,7 @@ func TestBindStartupFlags_ParsesCustomValues(t *testing.T) {
 		"--collect-metrics-sample-interval=10s",
 		"--collect-dispatch-enqueue-wait=100ms",
 		"--allow-private-sinks=true",
+		"--allow-insecure-sinks=true",
 	}
 	if err := fs.Parse(args); err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -107,6 +111,9 @@ func TestBindStartupFlags_ParsesCustomValues(t *testing.T) {
 
 	if !cfg.allowPrivateSinks {
 		t.Fatal("--allow-private-sinks=true did not set allowPrivateSinks")
+	}
+	if !cfg.allowInsecureSinks {
+		t.Fatal("--allow-insecure-sinks=true did not set allowInsecureSinks")
 	}
 	if !cfg.printVersion {
 		t.Fatal("--version=true did not set printVersion")
