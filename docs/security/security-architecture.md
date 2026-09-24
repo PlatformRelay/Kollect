@@ -85,6 +85,14 @@ does not replace it. The Helm chart also offers:
     A principal who may write Sink or Inventory CRs can cause the manager to connect or export using
     the manager's network position and referenced credentials. Restrict CR write RBAC and Secret
     access even when `KollectScope` is enabled.
+    Admission rejects a sink `secretRef` / `caSecretRef` / `databaseRef` that names another namespace
+    (K-04), so a sink author cannot make the manager read a Secret from a namespace they do not own.
+    This is an admission control: it runs on create/update when webhooks are enabled, so disabling
+    the webhooks removes it, and a sink admitted before the control (or via a non-webhook path) is
+    not re-checked. The operator may opt in to specific target namespaces with the process-wide
+    `allowSecretRefNamespaces` allowlist (`--allow-secret-ref-namespaces`), a cluster-admin install
+    setting that is never a CRD field. Enabling it lets **any** sink author read Secrets in the
+    listed namespaces, so list only namespaces whose Secrets every sink author is trusted to read.
 
 ## Network egress and NetGuard
 

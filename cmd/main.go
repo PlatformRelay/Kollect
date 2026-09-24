@@ -66,6 +66,14 @@ func main() {
 		os.Exit(0)
 	}
 
+	// K-12: --inventory-auth-mode is a free string on the command line; fail fast
+	// on an unrecognised value instead of silently running the inventory HTTP
+	// server in authentication-only mode.
+	if err := validateInventoryAuthMode(cfg.inventoryAuthMode); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 	validation.SetMaxExportBytesGlobal(cfg.maxExportBytes)
 
 	// NET-01: one manager flag drives both admission and dial-time private-sink
@@ -73,6 +81,10 @@ func main() {
 	// protection; cluster-admins opt in via Helm allowPrivateSinks.
 	validation.SetAllowPrivateSinks(cfg.allowPrivateSinks)
 	netguard.SetAllowPrivateSinks(cfg.allowPrivateSinks)
+
+	// K-04: cross-namespace Secret references are denied unless their namespace is
+	// allowlisted here. Cluster-admin only via Helm allowSecretRefNamespaces.
+	validation.SetAllowedSecretRefNamespaces(operator.ParseWatchNamespaces(cfg.allowSecretRefNamespacesRaw))
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -331,7 +343,7 @@ func main() {
 			Auth: &inventory.AuthConfig{
 				Mode:                cfg.inventoryAuthMode,
 				Client:              kubeClient,
-				RequireInventoryGet: cfg.inventoryAuthMode == inventory.AuthModeKubernetes,
+				RequireInventoryGet: cfg.inventoryAuthMode != inventory.AuthModeDisabled,
 				CacheTTL:            cfg.inventoryAuthCacheTTL,
 			},
 		}

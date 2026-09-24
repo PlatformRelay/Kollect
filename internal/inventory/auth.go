@@ -41,14 +41,12 @@ type AuthConfig struct {
 	cache               *authCache
 }
 
-// AuthDisabled reports whether auth middleware should be bypassed.
+// AuthDisabled reports whether auth middleware should be bypassed. Only the
+// documented "disabled" mode bypasses auth: --inventory-auth-mode is validated at
+// startup against the closed set {kubernetes, disabled} (K-12), so no alias such
+// as "none" can silently widen the surface.
 func (a AuthConfig) AuthDisabled() bool {
-	switch a.Mode {
-	case AuthModeDisabled, "none":
-		return true
-	default:
-		return false
-	}
+	return a.Mode == AuthModeDisabled
 }
 
 // InitCache allocates the in-memory TokenReview/SAR cache when CacheTTL is set.
