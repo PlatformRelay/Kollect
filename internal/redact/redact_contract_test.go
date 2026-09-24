@@ -50,6 +50,11 @@ func TestText_contract(t *testing.T) {
 			want: `git ls-remote ssh://***@git.example.com/org/repo.git`,
 		},
 		{
+			name: "special-character password masked",
+			in:   `open nats://user:pa(ss)w0rd[].x@host:4222: auth error`,
+			want: `open nats://***@host:4222: auth error`,
+		},
+		{
 			name: "multiple occurrences across lines",
 			in: "line1 https://a:1@h1/x\n" +
 				"line2 nats://b:2@h2\n" +
