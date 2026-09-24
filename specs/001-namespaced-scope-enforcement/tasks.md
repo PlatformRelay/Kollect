@@ -33,7 +33,7 @@
 - [x] T011 `go build ./...`, `go vet`, and `go test` green for `internal/collect`, `internal/controller` (envtest incl.), `internal/webhook/...`, `internal/scope`, `internal/validation` (KUBEBUILDER_ASSETS via `make echo-kubebuilder-assets`)
 - [x] T012 `make lint` / `task arch-lint` clean; gofmt
 - [x] T013 Adversarial self-review of the diff; fix findings
-- [ ] T014 Push branch, open PR (ready), report
+- [x] T014 Push branch, open PR (ready), report
 
 ## Dependencies
 
