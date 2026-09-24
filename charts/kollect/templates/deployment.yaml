@@ -80,6 +80,9 @@ spec:
             {{- if .Values.allowPrivateSinks }}
             - --allow-private-sinks
             {{- end }}
+            {{- if .Values.allowSecretRefNamespaces }}
+            - --allow-secret-ref-namespaces={{ join "," .Values.allowSecretRefNamespaces }}
+            {{- end }}
             {{- if .Values.watchNamespaces }}
             - --watch-namespaces={{ join "," .Values.watchNamespaces }}
             {{- end }}
