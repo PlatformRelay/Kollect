@@ -20,7 +20,7 @@ import (
 func (c *cliEnv) guardResolution(ctx context.Context, endpoint string) error {
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return fmt.Errorf("parse git endpoint for guarded resolution: %w", err)
+		return fmt.Errorf("git guarded resolution: %w", ErrInvalidEndpoint)
 	}
 	switch u.Scheme {
 	case schemeSSH:

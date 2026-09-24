@@ -8,6 +8,7 @@ import (
 
 	natsgo "github.com/nats-io/nats.go"
 
+	"github.com/platformrelay/kollect/internal/redact"
 	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
@@ -25,7 +26,11 @@ func connect(cfg Config, tlsCfg TLSConfig) (*natsgo.Conn, error) {
 	}
 	nc, err := natsgo.Connect(cfg.URL, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("nats connect: %w", err)
+		// K-23/K-25: nats.go error text can echo the server URL; mask
+		// userinfo and the resolved credential values before the error
+		// reaches a condition message or Event.
+		return nil, redact.Error(fmt.Errorf("nats connect: %w", err), cfg.Token, cfg.Password)
 	}
+
 	return nc, nil
 }
