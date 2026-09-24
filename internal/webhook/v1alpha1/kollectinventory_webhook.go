@@ -68,6 +68,15 @@ func (v *kollectInventoryValidator) validate(ctx context.Context, inv *kollectde
 		if len(errs) > 0 {
 			return validation.InventoryInvalid(inv.Name, errs)
 		}
+
+		// Family sink-ref allowlist parity (K-09): the reconcile path
+		// (scopeCheck.enforceInventory) and the cluster-scoped webhook both
+		// enforce this; without it an off-allowlist inventory is admitted and
+		// only degraded after the fact.
+		if err := scope.ValidateInventoryFamilySinkRefs(
+			binding.Scope, kollectdevv1alpha1.CollectInventorySinkBindings(&inv.Spec)); err != nil {
+			return validation.InventoryInvalid(inv.Name, validation.ScopeViolationErrors(err))
+		}
 	}
 
 	return nil
