@@ -165,3 +165,71 @@ func TestScrubber_ScrubAttributes(t *testing.T) {
 		t.Fatalf("ScrubAttributes() = %#v, want %#v", got, want)
 	}
 }
+
+func TestScrubber_bearerCarriers(t *testing.T) {
+	t.Parallel()
+
+	scrubber := NewScrubber(nil)
+
+	tests := []struct {
+		name string
+		in   map[string]any
+		want map[string]any
+	}{
+		{
+			name: "authorization bearer header",
+			in:   map[string]any{"authorization": "Bearer eyJhbGciOi", "name": "svc"},
+			want: map[string]any{"authorization": redactedValue(), "name": "svc"},
+		},
+		{
+			name: "X-Authorization suffix",
+			in:   map[string]any{"X-Authorization": "Bearer abc"},
+			want: map[string]any{"X-Authorization": redactedValue()},
+		},
+		{
+			name: "proxy-authorization",
+			in:   map[string]any{"proxy-authorization": "Basic dXNlcjpwdw=="},
+			want: map[string]any{"proxy-authorization": redactedValue()},
+		},
+		{
+			name: "authorizationHeader prefix stem",
+			in:   map[string]any{"authorizationHeader": "Bearer abc"},
+			want: map[string]any{"authorizationHeader": redactedValue()},
+		},
+		{
+			name: "bearerToken camel and bearer_token snake",
+			in: map[string]any{
+				"bearerToken":  "abc",
+				"bearer_token": "abc",
+			},
+			want: map[string]any{
+				"bearerToken":  redactedValue(),
+				"bearer_token": redactedValue(),
+			},
+		},
+		{
+			name: "benign keys survive",
+			in: map[string]any{
+				"authorizer": "rbac",
+				"authority":  "cluster.local",
+				"replicas":   float64(2),
+			},
+			want: map[string]any{
+				"authorizer": "rbac",
+				"authority":  "cluster.local",
+				"replicas":   float64(2),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := scrubber.Scrub(tt.in)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("Scrub() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
