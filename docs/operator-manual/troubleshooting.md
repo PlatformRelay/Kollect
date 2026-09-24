@@ -173,7 +173,7 @@ Each row: what you see → likely cause → how to confirm → fix → escalate 
 | Symptom | Likely causes | Identify | Handle | Escalate |
 | --- | --- | --- | --- | --- |
 | Inventory `Degraded`, `PayloadTooLarge` | Monolithic export &gt; ~1.5 MiB (`maxExportBytes`) | Condition message with byte counts; `kollect_sink_errors_total{reason="payload_too_large"}` | **Shard**: multiple `KollectInventory` per namespace (&lt;~2k rows each) | Architecture review for 10k+ row namespaces |
-| Inventory `Degraded`, `SpillRequired` | Large payload needs object-store spill, none configured | Reason `SpillRequired`; `spill_required` metric | Add `KollectSnapshotSink` type `s3` or `gcs` to inventory refs | — |
+| Inventory `Degraded`, `SpillRequired` | Payload exceeds the 1 MiB inline cap and no object-store sink is configured (no spill write path — the export is not buffered anywhere) | Reason `SpillRequired`; `spill_required` metric | Add `KollectSnapshotSink` type `s3` or `gcs` to inventory refs | — |
 | `ExportShardWarning=True` | ≥ ~1,800 rows in one namespace aggregate | Condition + `increase(kollect_export_shard_warn_total[1h])` | Split inventories **before** hard cap | See [Performance and scalability](performance.md) |
 | `kollect_export_spill_warn_total` increasing | Payload ≥ 1 MiB warn threshold | Metric + log `export payload exceeds spill warn threshold` | Shard or tune `spec.maxExportBytes` (within global cap) | — |
 
@@ -235,7 +235,7 @@ Family CRDs: **`KollectSnapshotSink`** (git/gitlab/s3/gcs), **`KollectDatabaseSi
 | --- | --- | --- | --- | --- |
 | `Ready=True`, `PartiallySynced`; Postgres OK, Git failed | Independent per-sink export | `status.sinkExports[]` — mixed `Exported` / `ExportFailed` | Fix failing sink only; successful sinks stay current | — |
 | `Synced=False`, `PartiallySynced`; some failed | One backend terminal while others OK | Failed count in condition message | Terminal sink needs spec/cred fix; others self-heal | — |
-| Aggregate `Synced=False`, all per-sink failed | Shared payload gate (spill) before export | Inventory-level `Degraded` + spill reasons | Fix size/sharding first | — |
+| Aggregate `Synced=False`, all per-sink failed | Shared payload inline-cap gate before export | Inventory-level `Degraded` + `SpillRequired`/`PayloadTooLarge` reasons | Fix size/sharding first | — |
 
 ### Multi-cluster fleet
 
@@ -290,7 +290,7 @@ Structured controller logs (`logr`). Grep operator pod logs (namespace typically
 | Key / message fragment | Indicates |
 | --- | --- |
 | `error_class` | `transient` / `terminal` / `forbidden` on wrapped errors |
-| `reason` | Spill gate, export failure, scope denial (stable enum) |
+| `reason` | Inline-cap gate, export failure, scope denial (stable enum) |
 | `inventory`, `target` | Which CR pipeline |
 | `sink` | Backend key during export |
 | `access check failed` | SAR API error → target `AccessCheckFailed` |
