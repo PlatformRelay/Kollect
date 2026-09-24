@@ -40,7 +40,7 @@ CONDITIONS evidence does not close AR-02.
 2. Shared sink endpoints reachable from both clusters:
    - Postgres (primary query path)
    - Git snapshot @ **1h** cadence
-   - S3 or GCS object store (optional spill path)
+   - S3 or GCS object store (required for payloads above the 1 MiB inline cap)
    - Optional NATS/Kafka event sink
 3. Clone kollect @ release SHA; set `KOLLECT_SRC` to repo root.
 4. Helm install with **`resourcesProfile: large`** on each cluster.

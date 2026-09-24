@@ -79,6 +79,10 @@ func TestExportErrorReason(t *testing.T) {
 	if ExportErrorReason(kollecterrors.Transient(errors.New("retry"))) != "transient" {
 		t.Fatal("transient error label")
 	}
+
+	if ExportErrorReason(kollecterrors.Terminal(ErrSpillRequired)) != "spill_required" {
+		t.Fatal("spill-required error label")
+	}
 }
 
 func TestRunExportItems_nilRegistry(t *testing.T) {
@@ -420,11 +424,17 @@ func mustStubEnvelopeRegistry(t *testing.T, stub Backend) *Registry {
 	) (Backend, error) {
 		return stub, nil
 	})
+	reg.Register(kollectdevv1alpha1.SnapshotSinkTypeS3, func(
+		_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext,
+	) (Backend, error) {
+		return stub, nil
+	})
 	t.Cleanup(func() {
 		EvictBackendPool("team-a", "env-sink")
 		EvictBackendPool("team-a", "pg-env")
 		EvictBackendPool("team-a", "layout-fail")
 		EvictBackendPool("team-a", "spill-skip")
+		EvictBackendPool("team-a", "spill-store")
 		EvictBackendPool("team-a", "void-close")
 		EvictBackendPool("team-a", "bad-envelope")
 	})
@@ -561,7 +571,7 @@ func TestRunExportEnvelope_relationalRemashalsNullItemsPreservingMeta(t *testing
 	}
 }
 
-func TestRunExportEnvelope_skipsOversizedNonObjectStore(t *testing.T) {
+func TestRunExportEnvelope_oversizedNonObjectStoreFailsLoudly(t *testing.T) {
 	t.Parallel()
 
 	stub := &stubBackend{caps: cap.SnapshotStore()}
@@ -592,11 +602,52 @@ func TestRunExportEnvelope_skipsOversizedNonObjectStore(t *testing.T) {
 			Endpoint: "https://example.com/repo.git",
 		},
 	})
-	if err != nil {
-		t.Fatalf("RunExportEnvelope() = %v, want silent spill skip", err)
+	if err == nil {
+		t.Fatal("RunExportEnvelope() = nil, want loud ErrSpillRequired (K-01: no silent drop)")
+	}
+	if !errors.Is(err, ErrSpillRequired) {
+		t.Fatalf("error = %v, want errors.Is ErrSpillRequired", err)
+	}
+	if kollecterrors.ClassOf(err) != kollecterrors.ClassTerminal {
+		t.Fatalf("error class = %q, want terminal", kollecterrors.ClassOf(err))
 	}
 	if stub.lastBody != nil {
 		t.Fatal("non-object-store sink must not Export above spill threshold")
+	}
+}
+
+func TestRunExportEnvelope_oversizedObjectStoreExports(t *testing.T) {
+	t.Parallel()
+
+	stub := &stubBackend{caps: cap.ObjectStoreSnapshot()}
+	reg := mustStubEnvelopeRegistry(t, stub)
+
+	blob := strings.Repeat("x", int(export.SpillMandatoryBytes)+64)
+	envelope, err := export.MarshalEnvelope(
+		[]collect.Item{{Name: "demo", Attributes: map[string]any{"blob": blob}}},
+		export.Metadata{Generation: 1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           t.Context(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "spill-store",
+		ObjectPath:    "team-a/inv.json",
+		Envelope:      envelope,
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{
+			Type:     kollectdevv1alpha1.SnapshotSinkTypeS3,
+			Endpoint: "https://s3.example.com/bucket",
+		},
+	})
+	if err != nil {
+		t.Fatalf("object-store export above spill threshold must succeed, got %v", err)
+	}
+	if stub.lastBody == nil {
+		t.Fatal("object-store sink must Export above spill threshold")
 	}
 }
 
