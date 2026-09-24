@@ -42,6 +42,10 @@ func TestBindStartupFlags_Defaults(t *testing.T) {
 	if cfg.allowPrivateSinks {
 		t.Fatal("allowPrivateSinks must default to false (NET-01 deny by default)")
 	}
+	if cfg.allowSecretRefNamespacesRaw != "" {
+		t.Fatalf("allowSecretRefNamespacesRaw default = %q, want empty (K-04 deny by default)",
+			cfg.allowSecretRefNamespacesRaw)
+	}
 	if cfg.maxExportBytes != validation.MaxExportBytesGlobal() {
 		t.Fatalf("maxExportBytes = %d, want %d", cfg.maxExportBytes, validation.MaxExportBytesGlobal())
 	}
@@ -128,6 +132,51 @@ func TestBindStartupFlags_ParsesCustomValues(t *testing.T) {
 	}
 	if cfg.collectDispatchWorkers != 11 || cfg.collectDispatchQueueSize != 99 {
 		t.Fatalf("dispatch tuning mismatch: workers=%d queue=%d", cfg.collectDispatchWorkers, cfg.collectDispatchQueueSize)
+	}
+}
+
+// TestValidateInventoryAuthMode covers K-12. The mode is a free string on the
+// command line; before this guard an unrecognised value left the inventory HTTP
+// server authenticating tokens but performing no authorization, so every valid
+// bearer token could read the whole inventory. Startup must fail closed on any
+// value outside the closed set {kubernetes, disabled}.
+func TestValidateInventoryAuthMode(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []string{inventory.AuthModeKubernetes, inventory.AuthModeDisabled} {
+		if err := validateInventoryAuthMode(mode); err != nil {
+			t.Errorf("validateInventoryAuthMode(%q) = %v, want nil", mode, err)
+		}
+	}
+
+	for _, mode := range []string{"", "Kubernetes", "k8s", "none", "kubernetes ", "disabled\n"} {
+		if err := validateInventoryAuthMode(mode); err == nil {
+			t.Errorf("validateInventoryAuthMode(%q) = nil, want error", mode)
+		}
+	}
+}
+
+// TestBindStartupFlags_SecretRefNamespaces covers the K-04 operator allowlist
+// flag round-trip and its deny-by-default empty value.
+func TestBindStartupFlags_SecretRefNamespaces(t *testing.T) {
+	t.Parallel()
+
+	fs := flag.NewFlagSet("secretref", flag.ContinueOnError)
+	cfg := startupConfig{}
+	bindStartupFlags(fs, &cfg)
+
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if cfg.allowSecretRefNamespacesRaw != "" {
+		t.Fatalf("allowSecretRefNamespacesRaw default = %q, want empty (deny by default)", cfg.allowSecretRefNamespacesRaw)
+	}
+
+	if err := fs.Parse([]string{"--allow-secret-ref-namespaces=shared-creds,team-a"}); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if cfg.allowSecretRefNamespacesRaw != "shared-creds,team-a" {
+		t.Fatalf("allowSecretRefNamespacesRaw = %q, want %q", cfg.allowSecretRefNamespacesRaw, "shared-creds,team-a")
 	}
 }
 

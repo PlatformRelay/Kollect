@@ -356,12 +356,21 @@ func TestAuthMiddlewareSARError(t *testing.T) {
 	}
 }
 
-func TestAuthDisabledModeNone(t *testing.T) {
+// TestAuthDisabledOnlyForDisabledMode covers K-12: only the documented "disabled"
+// mode bypasses auth. An unrecognised alias such as "none" must NOT disable auth
+// (fail closed); --inventory-auth-mode is validated at startup against
+// {kubernetes, disabled}, so no alias can silently widen the surface.
+func TestAuthDisabledOnlyForDisabledMode(t *testing.T) {
 	t.Parallel()
 
-	cfg := AuthConfig{Mode: "none"}
-	if !cfg.AuthDisabled() {
-		t.Fatal("mode none should disable auth")
+	if !(AuthConfig{Mode: AuthModeDisabled}).AuthDisabled() {
+		t.Fatal("mode disabled should disable auth")
+	}
+	if (AuthConfig{Mode: "none"}).AuthDisabled() {
+		t.Fatal("mode none must not disable auth (K-12: fail closed)")
+	}
+	if (AuthConfig{Mode: AuthModeKubernetes}).AuthDisabled() {
+		t.Fatal("mode kubernetes must not disable auth")
 	}
 }
 

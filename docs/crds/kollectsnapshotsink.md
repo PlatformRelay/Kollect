@@ -51,8 +51,13 @@ spec:
       type: token
   # secretRef:                  # required for private repos
   #   name: git-push-credentials
-  #   namespace: kollect-system
 ```
+
+> **Secret references are namespace-scoped (K-04).** A `secretRef` (and `caSecretRef`, `git.auth.secretRef`,
+> per-backend `databaseRef`/`secretRef`) must name a Secret in the sink's **own** namespace. Admission
+> rejects a reference to any other namespace unless that namespace is in the operator's process-wide
+> `allowSecretRefNamespaces` allowlist (`--allow-secret-ref-namespaces`); the allowlist is a
+> cluster-admin install setting, never a CRD field. An empty `namespace` means the sink's own namespace.
 
 S3 object-store variant:
 [`config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_s3.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_s3.yaml).
