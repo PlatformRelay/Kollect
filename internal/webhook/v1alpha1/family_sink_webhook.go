@@ -56,14 +56,15 @@ func (v *kollectSnapshotSinkValidator) ValidateUpdate(ctx context.Context, _ *ko
 	return v.validate(ctx, obj)
 }
 func (v *kollectSnapshotSinkValidator) validate(ctx context.Context, obj *kollectdevv1alpha1.KollectSnapshotSink) (admission.Warnings, error) {
+	normalized := obj.Spec.ToKollectSinkSpec()
 	errs := validation.ValidateSnapshotSinkSpec(&obj.Spec)
+	errs = append(errs, validation.ValidateSecretRefNamespaces(&normalized, obj.Namespace)...)
 	if len(errs) > 0 {
 		return nil, validation.SnapshotSinkInvalid(obj.Name, errs)
 	}
 	if err := validateNamespacedSinkScopeFloor(ctx, v.client, obj.Namespace, &obj.Spec.SinkCommonFields, validation.SnapshotSinkInvalid, obj.Name); err != nil {
 		return nil, err
 	}
-	normalized := obj.Spec.ToKollectSinkSpec()
 	warns := validation.ValidateGitSinkWarnings(&kollectdevv1alpha1.KollectSinkSpec{Type: obj.Spec.Type, Git: obj.Spec.Git})
 	warns = append(warns, validation.ValidateSinkConfigWarnings(&normalized)...)
 	return warns, nil
@@ -95,14 +96,15 @@ func (v *kollectDatabaseSinkValidator) ValidateUpdate(ctx context.Context, _ *ko
 	return v.validate(ctx, obj)
 }
 func (v *kollectDatabaseSinkValidator) validate(ctx context.Context, obj *kollectdevv1alpha1.KollectDatabaseSink) (admission.Warnings, error) {
+	normalized := obj.Spec.ToKollectSinkSpec()
 	errs := validation.ValidateDatabaseSinkSpec(&obj.Spec)
+	errs = append(errs, validation.ValidateSecretRefNamespaces(&normalized, obj.Namespace)...)
 	if len(errs) > 0 {
 		return nil, validation.DatabaseSinkInvalid(obj.Name, errs)
 	}
 	if err := validateNamespacedSinkScopeFloor(ctx, v.client, obj.Namespace, &obj.Spec.SinkCommonFields, validation.DatabaseSinkInvalid, obj.Name); err != nil {
 		return nil, err
 	}
-	normalized := obj.Spec.ToKollectSinkSpec()
 	return validation.ValidateSinkConfigWarnings(&normalized), nil
 }
 
@@ -132,14 +134,15 @@ func (v *kollectEventSinkValidator) ValidateUpdate(ctx context.Context, _ *kolle
 	return v.validate(ctx, obj)
 }
 func (v *kollectEventSinkValidator) validate(ctx context.Context, obj *kollectdevv1alpha1.KollectEventSink) (admission.Warnings, error) {
+	normalized := obj.Spec.ToKollectSinkSpec()
 	errs := validation.ValidateEventSinkSpec(&obj.Spec)
+	errs = append(errs, validation.ValidateSecretRefNamespaces(&normalized, obj.Namespace)...)
 	if len(errs) > 0 {
 		return nil, validation.EventSinkInvalid(obj.Name, errs)
 	}
 	if err := validateNamespacedSinkScopeFloor(ctx, v.client, obj.Namespace, &obj.Spec.SinkCommonFields, validation.EventSinkInvalid, obj.Name); err != nil {
 		return nil, err
 	}
-	normalized := obj.Spec.ToKollectSinkSpec()
 	return validation.ValidateSinkConfigWarnings(&normalized), nil
 }
 

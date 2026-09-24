@@ -6,6 +6,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,6 +52,7 @@ type startupConfig struct {
 	validatingWebhooksEnabled     bool
 	tenantMode                    bool
 	allowPrivateSinks             bool
+	allowSecretRefNamespacesRaw   string
 	collectDispatchWorkers        int
 	collectDispatchQueueSize      int
 	informerResyncPeriod          time.Duration
@@ -99,6 +101,10 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 		"Permit sink endpoints that resolve to RFC1918 / IPv6-ULA (in-cluster ClusterIP) addresses "+
 			"(NET-01). Default false (deny). Cluster-admin only via Helm allowPrivateSinks; loopback, "+
 			"link-local, cloud-metadata, and file:// stay denied even when enabled.")
+	fs.StringVar(&cfg.allowSecretRefNamespacesRaw, "allow-secret-ref-namespaces", "",
+		"Comma-separated namespaces that family sinks may reference cross-namespace via a "+
+			"secretRef/caSecretRef/databaseRef (K-04). Empty (default) rejects every cross-namespace "+
+			"Secret reference. Cluster-admin only via Helm allowSecretRefNamespaces; never a CRD field.")
 	fs.StringVar(&cfg.webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	fs.StringVar(&cfg.webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	fs.StringVar(&cfg.webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
@@ -152,6 +158,27 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 		"Minimum interval between domain snapshot metric refreshes per target (PERF-08).")
 	fs.DurationVar(&cfg.collectDispatchEnqueueWait, "collect-dispatch-enqueue-wait", 25*time.Millisecond,
 		"Brief wait before synchronous dispatch fallback when the queue is full.")
+}
+
+// inventoryAuthModes is the closed set accepted by --inventory-auth-mode (K-12).
+var inventoryAuthModes = []string{inventory.AuthModeKubernetes, inventory.AuthModeDisabled}
+
+// validateInventoryAuthMode fails fast on an unrecognised --inventory-auth-mode
+// value (K-12). The flag is a free string on the command line, but only
+// kubernetes (TokenReview + SubjectAccessReview) and disabled (dev/CI only) are
+// meaningful: any other value previously left the inventory HTTP server
+// authenticating tokens without performing any authorization, so every valid
+// bearer token in the cluster could read the whole inventory. Rejecting unknown
+// values here turns a silent authz bypass into a startup error.
+func validateInventoryAuthMode(mode string) error {
+	for _, valid := range inventoryAuthModes {
+		if mode == valid {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("invalid --inventory-auth-mode %q: must be one of %q or %q",
+		mode, inventory.AuthModeKubernetes, inventory.AuthModeDisabled)
 }
 
 // applyLeaderElection copies the leader-election settings from cfg onto opts (PERF-FIX-02).

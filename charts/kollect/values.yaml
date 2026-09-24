@@ -55,6 +55,16 @@ tenantMode: false
 # clusters with trusted sink-CR authors. This is NOT a per-tenant/CRD field.
 allowPrivateSinks: false
 
+# -- K-04 (cross-namespace secretRef opt-in, cluster-admin only). Namespaces that
+# a family sink (KollectSnapshotSink/KollectDatabaseSink/KollectEventSink) may
+# reference from another namespace via spec.secretRef, spec.tls.caSecretRef,
+# spec.git.auth.secretRef or a per-backend secretRef/databaseRef. Empty (default)
+# rejects every cross-namespace Secret reference at admission, closing the
+# confused-deputy path where a namespaced sink author makes the manager present
+# another namespace's Secret to an attacker endpoint. List only namespaces whose
+# Secrets any sink author is trusted to read. This is NOT a per-tenant/CRD field.
+allowSecretRefNamespaces: []
+
 # -- Operator deployment mode (single-cluster only).
 mode: single
 
