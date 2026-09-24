@@ -118,22 +118,10 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		checker := scopeCheck{client: r.Client, recorder: r.Recorder, engine: r.Engine}
 		if ok, reason, msg := checker.enforceTarget(ctx, &target, &profile); !ok {
-			// A previously registered target keeps dispatching from the
-			// effective namespace set frozen at registration, so degrading
-			// without unregistering would let a tightened KollectScope be
-			// enforced only in status while objects from now-forbidden
-			// namespaces keep reaching sinks (K-05). The cluster enforcement
-			// path unregisters the same way before degrading.
-			if r.Engine != nil {
-				r.Engine.UnregisterTarget(target.Namespace, target.Name)
-			}
+			err := r.degradeScopeDenied(ctx, &target, reason, msg)
+			retErr = err
 
-			if degErr := r.setDegraded(ctx, &target, reason, msg); degErr != nil {
-				retErr = degErr
-				return ctrl.Result{}, degErr
-			}
-
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 
 		// ORDERING INVARIANT: this resolve must stay ahead of RegisterTarget below, and
@@ -167,6 +155,24 @@ func (r *KollectTargetReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		return result, err
 	})
+}
+
+// degradeScopeDenied handles a KollectScope deny for a namespaced target.
+// A previously registered target keeps dispatching from the effective
+// namespace set frozen at registration, so degrading without unregistering
+// would enforce the tightened scope in status only while objects from
+// now-forbidden namespaces kept reaching sinks (K-05). The cluster
+// enforcement path unregisters the same way before degrading.
+func (r *KollectTargetReconciler) degradeScopeDenied(
+	ctx context.Context,
+	target *kollectdevv1alpha1.KollectTarget,
+	reason, message string,
+) error {
+	if r.Engine != nil {
+		r.Engine.UnregisterTarget(target.Namespace, target.Name)
+	}
+
+	return r.setDegraded(ctx, target, reason, message)
 }
 
 func (r *KollectTargetReconciler) reconcileTargetReady(
