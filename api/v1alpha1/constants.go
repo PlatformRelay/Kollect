@@ -19,6 +19,17 @@ const (
 
 	AnnotationTestConnection = "kollect.dev/test-connection"
 
+	// AnnotationForceCleanup is a one-field escape hatch: set to "true" on a
+	// KollectInventory / KollectClusterInventory whose sink cleanup failed
+	// terminally (e.g. a revoked git token at delete time) to drop the cleanup
+	// finalizer without contacting the backend, letting deletion complete (K-30).
+	// Honored only while the object carries a deletionTimestamp — it can never
+	// skip cleanup of a live object.
+	AnnotationForceCleanup = "kollect.dev/force-cleanup"
+
+	// ForceCleanupTrue is the only accepted value of AnnotationForceCleanup.
+	ForceCleanupTrue = "true"
+
 	// AnnotationPreview opts a sink into status.preview rendering of its export
 	// implications without side effects (ADR-0416 §8).
 	AnnotationPreview = "kollect.dev/preview"

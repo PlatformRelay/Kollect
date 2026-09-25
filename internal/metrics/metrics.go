@@ -255,6 +255,17 @@ var (
 		},
 		[]string{"profile", "gvk", "series"},
 	)
+
+	// CleanupTerminalTotal counts deletions where sink cleanup failed terminally
+	// and the cleanup finalizer was retained pending operator action (K-30).
+	// kind is a bounded enum (inventory/cluster-inventory).
+	CleanupTerminalTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_cleanup_terminal_total",
+			Help: "Inventory deletions where sink cleanup failed terminally and the cleanup finalizer was retained.",
+		},
+		[]string{"kind"},
+	)
 )
 
 // Register adds kollect custom metrics to the controller-runtime registry.
@@ -288,5 +299,6 @@ func Register() {
 		StaticRefResolutionTotal,
 		LabeledSeriesCardinalityCappedTotal,
 		AccessCacheTotal,
+		CleanupTerminalTotal,
 	)
 }

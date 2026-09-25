@@ -119,6 +119,7 @@ All custom metrics use the `kollect_` prefix. Controller-runtime also exposes st
 | `kollect_sink_errors_total` | counter | `reason` | Export failures (`transient`, `terminal`, `forbidden`, `payload_too_large`, `spill_required`, …) |
 | `kollect_export_spill_warn_total` | counter | — | Payloads at/above 1 MiB spill warn threshold |
 | `kollect_sink_connection_test_total` | counter | `type`, `result` | Git/TLS connection tests |
+| `kollect_cleanup_terminal_total` | counter | `kind` | Deletions where sink cleanup failed terminally and the cleanup finalizer was retained (`inventory`, `cluster-inventory`); alert on any increase — see [Troubleshooting](troubleshooting.md) |
 
 ### Profile-derived (Phase 4)
 

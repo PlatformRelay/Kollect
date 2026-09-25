@@ -26,6 +26,22 @@ const (
 	reasonProgressing     = "Progressing"
 	reasonCleanupTerminal = "CleanupTerminal"
 
+	// reasonCleanupSinkGone marks a deletion-time cleanup where a bound sink CR was
+	// already gone (namespace cascade ordering): cleanup completes, but objects the
+	// sink had exported may be retained in the backend because its spec/credentials
+	// no longer exist to address them (K-29).
+	reasonCleanupSinkGone = "CleanupSinkGone"
+
+	// reasonCleanupRetained marks a deletion-time cleanup where the backend cannot
+	// retract previously exported data (event streams; layout trees whose files can
+	// interleave with other inventories'). Deletion proceeds, retention is announced (K-28).
+	reasonCleanupRetained = "CleanupRetained"
+
+	// reasonCleanupForced marks deletion where the operator set the
+	// kollect.dev/force-cleanup annotation: the finalizer is dropped without
+	// backend cleanup (K-30 escape hatch).
+	reasonCleanupForced = "CleanupForced"
+
 	// ADR-0208 static-ref resolution reasons (forbidden classification on cross-namespace refs).
 	reasonProfileNotFound     = "ProfileNotFound"
 	reasonProfileForbidden    = "ProfileForbidden"

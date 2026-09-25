@@ -120,3 +120,67 @@ func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, opts g
 
 	return EnsureMergeRequest(ctx, b.cfg, b.cfg.MergeRequest, featureBranch, invNS, invName, token, strings.TrimSpace(b.auth.Username))
 }
+
+// DeleteExport removes the inventory's exported files in a deletion commit on the
+// configured branch (feature branch + MR in branchMR mode) (K-28, C-2a). With
+// branchMR it opens the merge request only when the deletion actually changed the
+// branch: opening an MR whose source branch never received a commit can never
+// succeed (GitLab rejects a missing source branch) and would wedge the cleanup
+// retry loop while the inventory is Terminating.
+func (b *Backend) DeleteExport(ctx context.Context, paths []string) ([]string, error) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+
+	commitCtx, ok := git.CommitContextFromContext(ctx)
+	if !ok {
+		commitCtx = git.CommitContextFromObjectPath(paths[0], b.cfg.GitConfig().Cluster)
+	}
+
+	invNS, invName := commitCtx.Namespace, commitCtx.Name
+
+	var branchSpec *git.BranchSpec
+	featureBranch := BranchNameForExport(b.cfg.MergeRequest.BranchPrefix, invNS, invName)
+	if b.cfg.MergeRequest.Mode == MergeRequestModeBranchMR {
+		branchSpec = &git.BranchSpec{
+			PushBranch:  featureBranch,
+			CloneBranch: b.cfg.MergeRequest.TargetBranch,
+		}
+	}
+
+	deleted, delErr := git.DeleteExportWithBranch(ctx, b.cfg.GitConfig(), b.auth, paths, branchSpec, commitCtx)
+	if delErr != nil {
+		return deleted, delErr
+	}
+
+	if b.cfg.MergeRequest.Mode != MergeRequestModeBranchMR {
+		return deleted, nil
+	}
+
+	branchHasWork := len(deleted) > 0
+	if !branchHasWork {
+		// Either nothing was ever exported (no branch: nothing to merge) or a
+		// branch is present that may hold a deletion commit an earlier attempt
+		// pushed but died before opening the MR for. The probe cannot tell a
+		// stranded deletion commit from a stale unmerged export commit — reopening
+		// is safe only because branchMR cleanup always announces retention
+		// (sink.RunCleanupExport mrMediated), so the operator, not the controller,
+		// decides what the opened MR finally merges. A failed lookup is an
+		// unknown, not an absence: return it so cleanup retries.
+		exists, probeErr := git.RemoteBranchExists(ctx, b.cfg.GitConfig(), b.auth, featureBranch)
+		if probeErr != nil {
+			return nil, probeErr
+		}
+		branchHasWork = exists
+	}
+	if !branchHasWork {
+		return nil, nil
+	}
+
+	token := strings.TrimSpace(b.auth.Token)
+	if token == "" {
+		token = strings.TrimSpace(b.auth.Password)
+	}
+
+	return deleted, EnsureMergeRequest(ctx, b.cfg, b.cfg.MergeRequest, featureBranch, invNS, invName, token, strings.TrimSpace(b.auth.Username))
+}

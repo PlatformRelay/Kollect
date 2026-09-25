@@ -204,6 +204,73 @@ func TestKollectClusterInventoryReconciler_terminalCleanupDoesNotRequeue(t *test
 	}
 }
 
+// K-29: a sink deleted before its cluster inventory must not wedge it in
+// Terminating — cleanup completes and the finalizer is removed.
+func TestKollectClusterInventoryReconciler_deleteWithMissingSinkRemovesFinalizer(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme corev1: %v", err)
+	}
+
+	now := metav1.Now()
+	inv := &kollectdevv1alpha1.KollectClusterInventory{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "platform-rollup",
+			Finalizers:        []string{clusterInventoryCleanupFinalizer},
+			DeletionTimestamp: &now,
+		},
+		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
+			SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("gone"),
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(inv).
+		WithStatusSubresource(inv).
+		Build()
+
+	recorder := record.NewFakeRecorder(10)
+	rec := &KollectClusterInventoryReconciler{
+		Client:   cl,
+		Scheme:   scheme,
+		Store:    collect.NewStore(),
+		Registry: sink.NewRegistry(),
+		Recorder: recorder,
+	}
+
+	result, err := rec.Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "platform-rollup"},
+	})
+	if err != nil {
+		t.Fatalf("Reconcile err = %v, want nil (missing sink is nothing to clean)", err)
+	}
+	if result != (ctrl.Result{}) {
+		t.Fatalf("Reconcile result = %+v, want empty result (no requeue)", result)
+	}
+
+	var got kollectdevv1alpha1.KollectClusterInventory
+	if getErr := cl.Get(context.Background(), types.NamespacedName{Name: "platform-rollup"}, &got); getErr == nil {
+		if containsFinalizer(got.Finalizers, clusterInventoryCleanupFinalizer) {
+			t.Fatalf("finalizer still present after missing-sink cleanup: %v", got.Finalizers)
+		}
+	}
+
+	select {
+	case ev := <-recorder.Events:
+		if !strings.Contains(ev, reasonCleanupSinkGone) {
+			t.Fatalf("event = %q, want reason %q", ev, reasonCleanupSinkGone)
+		}
+	default:
+		t.Fatalf("expected %s warning event", reasonCleanupSinkGone)
+	}
+}
+
 // EC-P1-03 counterpart: transient cleanup failures keep the error-driven retry.
 func TestKollectClusterInventoryReconciler_transientCleanupStillRetries(t *testing.T) {
 	t.Parallel()

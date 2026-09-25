@@ -64,6 +64,12 @@ metadata:
 | --- | --- | --- | --- | --- |
 | `kollect.dev/test-connection` | Annotation | Family sinks (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) | `"true"` | One-shot connectivity probe; sets `ConnectionVerified` on status |
 
+## Deletion escape hatch
+
+| Key | Type | On | Values | Effect |
+| --- | --- | --- | --- | --- |
+| `kollect.dev/force-cleanup` | Annotation | `KollectInventory`, `KollectClusterInventory` | `"true"` | While the object is deleting: drops the cleanup finalizer **without** contacting sinks, so `Terminating` unblocks after a terminal cleanup failure (`CleanupTerminal`). Exported objects are **not** retracted — remove them manually if required. Ignored on live objects. Records a `CleanupForced` Warning Event. |
+
 Equivalent to `spec.connectionTest: true` on the sink CR ([ADR-0403](adr/0403-connection-test.md)).
 The reconciler removes the annotation after a successful probe (kept when the probe fails).
 
