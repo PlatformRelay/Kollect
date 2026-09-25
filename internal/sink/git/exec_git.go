@@ -177,6 +177,21 @@ func gitAddAll(ctx context.Context, workdir string, cli *cliEnv) error {
 	return runGitOutput(cmd, "add -A", cli)
 }
 
+// gitAddPaths stages exactly the given paths (deletions included, via -A pathspec
+// semantics) so a cleanup commit never sweeps unrelated worktree dirt out of a
+// shared warm mirror into the deletion commit.
+func gitAddPaths(ctx context.Context, workdir string, paths []string, cli *cliEnv) error {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	args := append([]string{"add", "-A", "--"}, paths...)
+	cmd := gitInWorkdir(ctx, workdir, cli, args...)
+
+	return runGitOutput(cmd, "add -A -- <cleanup paths>", cli)
+}
+
 func gitCommit(ctx context.Context, workdir, authorName, authorEmail string, commit renderedCommit, cli *cliEnv) error {
 	if err := validateGitConfigValue(authorName); err != nil {
 		return fmt.Errorf("git export: invalid author name: %w", err)

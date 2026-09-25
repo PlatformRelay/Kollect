@@ -70,6 +70,7 @@ Full per-kind tables: [KollectInventory](../crds/kollectinventory.md#status-cond
 | `ProfileNotFound` | Target | Missing `KollectProfile` | Apply profile in same namespace as target |
 | `PayloadTooLarge` | Inventory | Exceeds `maxExportBytes` | Split targets or trim attributes |
 | `ExportTerminal` | Inventory | Non-retryable sink error | Fix sink config; check operator logs |
+| `CleanupTerminal` | Inventory / ClusterInventory (deleting) | Sink cleanup failed non-retryably while the object was deleting (e.g. revoked git token); the cleanup finalizer is retained so deletion waits for the operator | Fix the sink credential/config so cleanup can reach the backend, or set `kollect.dev/force-cleanup: "true"` to drop the finalizer and accept the exported objects stay behind; alert rule: `increase(kollect_cleanup_terminal_total[1h]) > 0` |
 | `Suspended` | Target, Inventory | `spec.suspend: true` | Set `suspend: false` |
 | `Progressing` | Inventory | Transient network or 429 | Usually self-heals; inspect metrics |
 
@@ -77,7 +78,15 @@ Full per-kind tables: [KollectInventory](../crds/kollectinventory.md#status-cond
 
 Warning events carry stable **reason** enums (not free-form types). Common reasons:
 `ScopeGVKDenied`, `PayloadTooLarge`, `ExportFailed`, `Progressing`, `ConnectionTestFailed`,
-`ReconcilePanic`.
+`ReconcilePanic`. Deletion-time reasons: `CleanupSinkGone` (a bound sink CR was already gone when
+the inventory finalized — deletion proceeds, but objects that sink had exported may remain in its
+backend), `CleanupRetained` (the backend cannot retract previously exported data — event streams —
+or a full retraction cannot be proven: git layout-tree files that can interleave with other
+inventories' trees, an export auto-upgraded to the per-resource tree, or a `pathTemplate` with
+`{generation}` leaving past-generation objects on an object store; deletion proceeds and the
+event names the retained identity), `CleanupForced` (`kollect.dev/force-cleanup` dropped the finalizer
+without backend contact), `CleanupTerminal` (see the `Degraded` reasons table above — this one does
+block deletion).
 
 ### Metrics
 
@@ -193,6 +202,8 @@ Family CRDs: **`KollectSnapshotSink`** (git/gitlab/s3/gcs), **`KollectDatabaseSi
 | `sink circuit breaker open` in logs | 5 consecutive transient failures per sink key | `transient` errors then silence ~30s | Fix backend; breaker self-closes after timeout | Backend SLA breach |
 | `SinkReachable=False`, `SinkNotFound` | Wrong sink name or cross-namespace ref in `*SinkRefs` | Inventory message; `kubectl get kollect*sink -n <inv-ns>` | Fix ref name; create sink in inventory namespace | — |
 | `SinkReachable=False`, `SinkUnreachable` | Backend down despite CR present; bad DSN or TLS failure | Sink `ConnectionVerified`; probe annotation | Fix network/credentials first | — |
+| Inventory / namespace stuck `Terminating` | Sink cleanup failed terminally during deletion; finalizer retained | Events reason `CleanupTerminal` on the inventory; `increase(kollect_cleanup_terminal_total[1h]) > 0`; Degraded reason `CleanupTerminal` | Fix the sink backend and let the next reconcile finish cleanup — or accept the exported objects and set `kollect.dev/force-cleanup: "true"` on the deleting object to drop the finalizer | — |
+| Deletion left files in git/bucket after inventory removal | Sink CR deleted before the inventory (`CleanupSinkGone` event), backend cannot retract or a full retraction cannot be proven (`CleanupRetained`: event streams, per-resource layout trees, `{generation}` templates, gitlab `merge_request` mode whose deletion MR was never merged), the sink `pathTemplate`/`format` changed after the last export (objects on the old path are no longer addressable from the inventory — known limit), or `force-cleanup` was used | Warning events on the deleting inventory name the retained identity | Retract manually in the backend (delete `inventory/<ns>/<name>.*` and `.part-*` siblings, plus any path the old sink config rendered); a healthy deletion of a `document`-mode snapshot/object-store sink removes these objects automatically | — |
 | `Synced=False` with nothing else obvious | A prior export attempt failed | Manager logs plus the `Degraded` condition on the inventory | Fix the reported sink error; the next cycle re-exports | — |
 
 ### Export — debounce (not a failure)

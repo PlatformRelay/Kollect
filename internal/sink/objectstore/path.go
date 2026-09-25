@@ -6,6 +6,7 @@ package objectstore
 
 import (
 	"fmt"
+	"path"
 	"regexp"
 	"strings"
 
@@ -186,4 +187,91 @@ func sanitizeHiveSegment(value string) string {
 	}
 
 	return hiveSegmentSanitizer.ReplaceAllString(value, "_")
+}
+
+// partSuffixPatternBody matches the deterministic multipart suffix export.PartitionObjectPath
+// inserts before a path's extension (K-28 cleanup must address part siblings, not just the base).
+const partSuffixPatternBody = `(\.part-\d{4}-of-\d{4})?`
+
+// KeyMatcher enumerates export keys an inventory may have written for one object path:
+// keys must start with Prefix and their remainder must fully match Rest.
+type KeyMatcher struct {
+	Prefix string
+	Rest   *regexp.Regexp
+}
+
+// Matches reports whether a repo/object key belongs to this matcher.
+func (m KeyMatcher) Matches(key string) bool {
+	if len(key) < len(m.Prefix) || key[:len(m.Prefix)] != m.Prefix {
+		return false
+	}
+
+	return m.Rest.MatchString(key[len(m.Prefix):])
+}
+
+// ListDir is the deepest directory a listing must visit to find this matcher's
+// keys (flat layouts and hive partitions are never nested deeper).
+func (m KeyMatcher) ListDir() string {
+	prefix := m.Prefix
+	if prefix == "" {
+		return "."
+	}
+	if strings.HasSuffix(prefix, "/") {
+		return strings.TrimSuffix(prefix, "/")
+	}
+	if i := strings.LastIndex(prefix, "/"); i >= 0 {
+		return prefix[:i]
+	}
+
+	return "."
+}
+
+// JoinDir appends a listed entry name to a ListDir result as a slash path.
+func JoinDir(dir, name string) string {
+	if dir == "." || dir == "" {
+		return name
+	}
+
+	return dir + "/" + name
+}
+
+// CleanupMatchers derives the matchers covering every object a single inventory export at
+// objectPath could have written: the exact path plus its deterministic .part-NNNN-of-NNNN
+// siblings. For parquet hive-layout paths the whole inventory-owned partition directory is
+// swept (all generations and part variants of this inventory's name segment).
+//
+// List prefixes may match sibling inventories whose names merely share the prefix (inventory
+// "app" vs "app-v2"), so callers MUST apply Rest before deleting (K-28 tombstone safety).
+//
+// Known limit inherited from the export itself: sanitizeHiveSegment folds characters, so two
+// distinct inventories ("app-v2" and "app_v2") share one hive partition — export already
+// co-mingles them there; cleanup of either sweeps the shared directory.
+func CleanupMatchers(objectPath string) []KeyMatcher {
+	objectPath = strings.TrimPrefix(strings.TrimSpace(objectPath), "./")
+	if objectPath == "" {
+		return nil
+	}
+
+	dir, file := path.Split(objectPath)
+
+	// Parquet hive layout: generation files inside the inventory-owned name= partition.
+	// dir already ends with "name=<value>/", so the prefix sweeps that directory only.
+	if strings.HasPrefix(file, "generation=") && strings.Contains(dir, "/name=") {
+		return []KeyMatcher{{
+			Prefix: dir,
+			Rest:   regexp.MustCompile(`^generation=\d+` + partSuffixPatternBody + `\.parquet$`),
+		}}
+	}
+
+	stem := file
+	ext := ""
+	if dot := strings.LastIndex(file, "."); dot > 0 {
+		stem = file[:dot]
+		ext = file[dot:]
+	}
+
+	return []KeyMatcher{{
+		Prefix: dir + stem,
+		Rest:   regexp.MustCompile(`^` + partSuffixPatternBody + regexp.QuoteMeta(ext) + `$`),
+	}}
 }
