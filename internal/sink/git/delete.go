@@ -243,16 +243,18 @@ func deleteViaCLI(
 			return nil, nil
 		}
 
-		// The stranded tip is only deliverable as a fast-forward: a remote push
-		// branch that has diverged from HEAD must not be overwritten.
-		if remotePushSHA != "" {
-			fastForward, ffErr := gitIsAncestorOfHead(ctx, workdir, remotePushSHA, cli)
-			if ffErr != nil {
-				return nil, fmt.Errorf("git cleanup: %w", ffErr)
-			}
-			if !fastForward {
-				return nil, nil
-			}
+		// Deliver only when the remote push branch exists and its tip is an
+		// ancestor of HEAD: a pure fast-forward. A remote tip that is absent,
+		// diverged, or unrelated to this inventory's work is a no-op.
+		if remotePushSHA == "" {
+			return nil, nil
+		}
+		fastForward, ffErr := gitIsAncestorOfHead(ctx, workdir, remotePushSHA, cli)
+		if ffErr != nil {
+			return nil, fmt.Errorf("git cleanup: %w", ffErr)
+		}
+		if !fastForward {
+			return nil, nil
 		}
 	}
 
@@ -431,7 +433,7 @@ func deleteRemote(
 			return nil, nil
 		}
 
-		synced, probeErr := pushBranchSynced(ctx, repo, cfg, authMethod, req.cloneBranch, req.pushBranch)
+		synced, pushTip, pushExists, probeErr := pushBranchSynced(ctx, repo, cfg, authMethod, req.cloneBranch, req.pushBranch)
 		if probeErr != nil {
 			return nil, fmt.Errorf("git cleanup: %w", probeErr)
 		}
@@ -443,19 +445,22 @@ func deleteRemote(
 			return nil, nil
 		}
 
-		// A deletion commit stranded by a crash between commit and push: the
-		// local push-branch tip already carries the deletion, so deliver that
-		// tip without authoring a new commit. openOrWarmMirror force-fetches
-		// the CLONE branch only — in branchMR mode the push branch ref is
-		// never reconciled, which is exactly why this state survives a crash
-		// and must be handled here (K-28). A push branch absent remotely that
-		// holds no work (HEAD equals the remote clone tip) was already
-		// excluded by the synced probe, so pushing here never creates a
-		// pointer-only feature branch. Same non-fast-forward recovery as a
-		// fresh deletion commit.
+		// Deliver a stranded deletion commit only when the remote push branch
+		// exists and its tip is an ancestor of HEAD: a pure fast-forward. A
+		// pre-existing local branch pointing at another inventory's tip (a
+		// crashed foreign export or a prior no-op delete that persisted the
+		// synthesized ref) is not this inventory's work and must never be
+		// pushed. The remote list runs once and yields the push tip.
+		if !pushExists {
+			return nil, nil
+		}
+
 		head, headErr := repo.Head()
 		if headErr != nil {
 			return nil, fmt.Errorf("head: %w", headErr)
+		}
+		if !remoteTipFastForwardable(repo, pushTip, head.Hash()) {
+			return nil, nil
 		}
 
 		if pushErr := pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, head.Hash(), wt); pushErr != nil {
@@ -489,17 +494,19 @@ func deleteRemote(
 // push-branch tip, mirroring the CLI engine's pushBranchWithoutWork probe for
 // the go-git engine: a push branch absent remotely counts as synced only when
 // HEAD equals the remote clone tip, so a pointer-only branch that never held
-// work is never pushed. The remote list runs once and covers both branches.
+// work is never pushed. The remote list runs once and covers both branches; it
+// also yields the remote push tip (when present) so the caller can require a
+// pure fast-forward before delivering a stranded tip.
 func pushBranchSynced(
 	ctx context.Context,
 	repo *git.Repository,
 	cfg Config,
 	authMethod transport.AuthMethod,
 	cloneBranch, pushBranch string,
-) (bool, error) {
+) (bool, plumbing.Hash, bool, error) {
 	remote, err := repo.Remote("origin")
 	if err != nil {
-		return false, fmt.Errorf("remote origin: %w", err)
+		return false, plumbing.ZeroHash, false, fmt.Errorf("remote origin: %w", err)
 	}
 
 	refs, listErr := remote.ListContext(ctx, &git.ListOptions{
@@ -508,7 +515,7 @@ func pushBranchSynced(
 		CABundle:        cfg.CABundle,
 	})
 	if listErr != nil {
-		return false, fmt.Errorf("git remote list: %w", listErr)
+		return false, plumbing.ZeroHash, false, fmt.Errorf("git remote list: %w", listErr)
 	}
 
 	tips := make(map[string]plumbing.Hash, len(refs))
@@ -520,16 +527,44 @@ func pushBranchSynced(
 
 	head, headErr := repo.Head()
 	if headErr != nil {
-		return false, fmt.Errorf("head: %w", headErr)
+		return false, plumbing.ZeroHash, false, fmt.Errorf("head: %w", headErr)
 	}
 
 	if pushTip, exists := tips[pushBranch]; exists {
-		return pushTip == head.Hash(), nil
+		return pushTip == head.Hash(), pushTip, true, nil
 	}
 
 	cloneTip, exists := tips[cloneBranch]
 
-	return exists && cloneTip == head.Hash(), nil
+	return exists && cloneTip == head.Hash(), plumbing.ZeroHash, false, nil
+}
+
+// remoteTipFastForwardable reports whether remoteTip is an ancestor of head,
+// i.e. head can be pushed to that branch as a fast-forward. A remote tip whose
+// commit is not present locally, or whose ancestry cannot be established, is
+// reported as false so the delivery is a no-op instead of forcing unrelated
+// remote state.
+func remoteTipFastForwardable(repo *git.Repository, remoteTip, head plumbing.Hash) bool {
+	if remoteTip == head {
+		return true
+	}
+
+	remoteCommit, err := repo.CommitObject(remoteTip)
+	if err != nil {
+		return false
+	}
+
+	headCommit, err := repo.CommitObject(head)
+	if err != nil {
+		return false
+	}
+
+	ancestor, err := remoteCommit.IsAncestor(headCommit)
+	if err != nil {
+		return false
+	}
+
+	return ancestor
 }
 
 func removeWorktreeCandidates(wt *git.Worktree, paths []string) ([]string, error) {
