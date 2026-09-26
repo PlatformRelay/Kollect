@@ -64,16 +64,11 @@ func DeleteExportWithBranch(
 	ctx, cancel := context.WithTimeout(ctx, exportTimeout)
 	defer cancel()
 
-	lockKey := cfg.Endpoint
-	if lockKey == "" {
-		lockKey = req.cloneURL
-	}
-
 	var deleted []string
 
 	if isFileRemote(req.cloneURL) || cfg.Engine == GitEngineCLI {
 		var deleteErr error
-		if err := withRepoExportLock(lockKey, req.pushBranch, func() error {
+		if err := withRepoExportLock(req.cloneURL, req.cloneBranch, func() error {
 			deleted, deleteErr = deleteViaCLI(ctx, cfg, auth, req, validated, commitCtx)
 
 			return deleteErr
@@ -85,7 +80,7 @@ func DeleteExportWithBranch(
 	}
 
 	var deleteErr error
-	if err := withRepoExportLock(lockKey, req.pushBranch, func() error {
+	if err := withRepoExportLock(req.cloneURL, req.cloneBranch, func() error {
 		deleted, deleteErr = deleteRemote(ctx, cfg, auth, req, validated, commitCtx)
 
 		return deleteErr
@@ -175,6 +170,15 @@ func deleteViaCLI(
 		defer func() { _ = os.RemoveAll(workdir) }()
 	}
 
+	// Capture the local push-branch tip before prepareCLIWorkdir runs
+	// `git checkout -B`, which resets a pre-existing branch to the mirror's
+	// current HEAD (possibly another inventory's tip). Only a tip that
+	// pre-existed is a stranded deletion commit this retry may deliver.
+	pushBranchHash, pushBranchExisted, err := gitRefHash(ctx, workdir, req.pushBranch, cli)
+	if err != nil {
+		return nil, fmt.Errorf("git cleanup: %w", err)
+	}
+
 	cloneURLForCLI := req.cloneURL
 	if creds := auth.embedInURL(req.cloneURL); creds != "" && !cfg.ForceBasicAuth {
 		cloneURLForCLI = creds
@@ -214,16 +218,41 @@ func deleteViaCLI(
 			return nil, err
 		}
 	} else {
-		// Nothing matched on disk. Sync only to deliver a deletion commit an
-		// earlier crashed attempt left unpushed; for a branch that never held
-		// work, syncCLIWorkdir would push a pointer-only feature branch that
-		// downstream merge-request logic could mistake for a real deletion.
-		nothing, probeErr := pushBranchWithoutWork(ctx, workdir, cli, req.cloneBranch, req.pushBranch)
+		if !pushBranchExisted {
+			// No local tip for this push branch ever existed: there is no
+			// stranded deletion commit to deliver, and the checkout above only
+			// synthesized a pointer at another inventory's HEAD. Never push it.
+			return nil, nil
+		}
+
+		headHash, headErr := gitHeadHash(ctx, workdir, cli)
+		if headErr != nil {
+			return nil, fmt.Errorf("git cleanup: %w", headErr)
+		}
+		if headHash != pushBranchHash {
+			// `git checkout -B` reset the pre-existing branch to an unrelated
+			// HEAD; the stranded tip is gone, so never push that HEAD.
+			return nil, nil
+		}
+
+		nothing, remotePushSHA, probeErr := pushBranchWithoutWork(ctx, workdir, cli, req.cloneBranch, req.pushBranch)
 		if probeErr != nil {
 			return nil, fmt.Errorf("git cleanup: %w", probeErr)
 		}
 		if nothing {
 			return nil, nil
+		}
+
+		// The stranded tip is only deliverable as a fast-forward: a remote push
+		// branch that has diverged from HEAD must not be overwritten.
+		if remotePushSHA != "" {
+			fastForward, ffErr := gitIsAncestorOfHead(ctx, workdir, remotePushSHA, cli)
+			if ffErr != nil {
+				return nil, fmt.Errorf("git cleanup: %w", ffErr)
+			}
+			if !fastForward {
+				return nil, nil
+			}
 		}
 	}
 
@@ -232,48 +261,50 @@ func deleteViaCLI(
 
 // pushBranchWithoutWork reports a provably empty deletion for the CLI engine:
 // a clean worktree whose HEAD equals the remote clone-branch tip while the push
-// branch either does not exist remotely or already sits exactly at HEAD.
+// branch either does not exist remotely or already sits exactly at HEAD. It
+// also returns the remote push-branch tip ("" when the branch is absent) so the
+// caller can gate a stranded-tip delivery on fast-forwardability.
 func pushBranchWithoutWork(
 	ctx context.Context,
 	workdir string,
 	cli *cliEnv,
 	cloneBranch, pushBranch string,
-) (bool, error) {
+) (bool, string, error) {
 	clean, err := gitStatusClean(ctx, workdir, cli)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	if !clean {
-		return false, nil
+		return false, "", nil
 	}
 
 	headOut, err := gitInWorkdir(ctx, workdir, cli, "rev-parse", "HEAD").CombinedOutput()
 	if err != nil {
-		return false, fmt.Errorf("git rev-parse HEAD: %s: %w", cli.redact(strings.TrimSpace(string(headOut))), err)
+		return false, "", fmt.Errorf("git rev-parse HEAD: %s: %w", cli.redact(strings.TrimSpace(string(headOut))), err)
 	}
 	head := strings.TrimSpace(string(headOut))
 	if head == "" {
-		return false, nil
+		return false, "", nil
 	}
 
 	pushRef := "refs/heads/" + pushBranch
 	pushOut, err := gitInWorkdir(ctx, workdir, cli, "ls-remote", "origin", pushRef).CombinedOutput()
 	if err != nil {
-		return false, fmt.Errorf("git ls-remote origin %s: %s: %w", pushRef, cli.redact(strings.TrimSpace(string(pushOut))), err)
+		return false, "", fmt.Errorf("git ls-remote origin %s: %s: %w", pushRef, cli.redact(strings.TrimSpace(string(pushOut))), err)
 	}
 
 	pushSHA := remoteSHAFromLsRemote(string(pushOut))
 	if pushSHA != "" {
-		return pushSHA == head, nil
+		return pushSHA == head, pushSHA, nil
 	}
 
 	cloneRef := "refs/heads/" + cloneBranch
 	cloneOut, err := gitInWorkdir(ctx, workdir, cli, "ls-remote", "origin", cloneRef).CombinedOutput()
 	if err != nil {
-		return false, fmt.Errorf("git ls-remote origin %s: %s: %w", cloneRef, cli.redact(strings.TrimSpace(string(cloneOut))), err)
+		return false, "", fmt.Errorf("git ls-remote origin %s: %s: %w", cloneRef, cli.redact(strings.TrimSpace(string(cloneOut))), err)
 	}
 
-	return remoteSHAFromLsRemote(string(cloneOut)) == head, nil
+	return remoteSHAFromLsRemote(string(cloneOut)) == head, "", nil
 }
 
 // removeDiskCandidates deletes every worktree file matching the candidates'
@@ -372,6 +403,17 @@ func deleteRemote(
 		}
 	}
 
+	// Capture the local push-branch tip before checkout: a branch that did not
+	// pre-exist only gets synthesized at the mirror's current HEAD (possibly
+	// another inventory's tip), which must never be delivered as this branch's
+	// deletion.
+	pushBranchExisted := false
+	if _, refErr := repo.Reference(plumbing.NewBranchReferenceName(req.pushBranch), true); refErr == nil {
+		pushBranchExisted = true
+	} else if !errors.Is(refErr, plumbing.ErrReferenceNotFound) {
+		return nil, fmt.Errorf("resolve push branch: %w", refErr)
+	}
+
 	if checkoutErr := checkoutMirrorBranch(wt, req.pushBranch); checkoutErr != nil {
 		return nil, fmt.Errorf("checkout branch: %w", checkoutErr)
 	}
@@ -382,6 +424,13 @@ func deleteRemote(
 	}
 
 	if len(removed) == 0 {
+		if !pushBranchExisted {
+			// No local tip for this push branch ever existed: there is no
+			// stranded deletion commit to deliver, and the checkout above only
+			// synthesized a pointer at another inventory's HEAD. Never push it.
+			return nil, nil
+		}
+
 		synced, probeErr := pushBranchSynced(ctx, repo, cfg, authMethod, req.cloneBranch, req.pushBranch)
 		if probeErr != nil {
 			return nil, fmt.Errorf("git cleanup: %w", probeErr)

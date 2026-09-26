@@ -400,6 +400,88 @@ func remoteSHAFromLsRemote(out string) string {
 	return line
 }
 
+// gitRefHash resolves the local branch ref to its commit hash and reports
+// whether it exists. A missing ref (or a workdir that is not yet a repository)
+// is ("", false, nil): callers use existence only, never an error, to decide
+// whether a tip pre-existed an operation.
+func gitRefHash(ctx context.Context, workdir, branch string, cli *cliEnv) (string, bool, error) {
+	if err := ValidateGitRef(branch); err != nil {
+		return "", false, fmt.Errorf("git export: invalid branch: %w", err)
+	}
+
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return "", false, fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "rev-parse", "--verify", "--quiet", "refs/heads/"+branch)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", false, nil
+	}
+
+	hash := strings.TrimSpace(string(out))
+	if hash == "" {
+		return "", false, nil
+	}
+
+	return hash, true, nil
+}
+
+// gitHeadHash returns the worktree HEAD commit hash.
+func gitHeadHash(ctx context.Context, workdir string, cli *cliEnv) (string, error) {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return "", fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "rev-parse", "HEAD")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse HEAD: %s: %w", cli.redact(strings.TrimSpace(string(out))), err)
+	}
+
+	return strings.TrimSpace(string(out)), nil
+}
+
+// gitIsAncestorOfHead reports whether ancestor is an ancestor of HEAD, i.e.
+// whether HEAD can be fast-forwarded from ancestor. Anything that is not a
+// plain commit hash, or an ancestry that cannot be established, is reported as
+// false so a delivery is never forced over unverifiable remote state.
+func gitIsAncestorOfHead(ctx context.Context, workdir, ancestor string, cli *cliEnv) (bool, error) {
+	if !isCommitHash(ancestor) {
+		return false, nil
+	}
+
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return false, fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "merge-base", "--is-ancestor", ancestor, "HEAD")
+	if cmd.Run() == nil {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func isCommitHash(hash string) bool {
+	if len(hash) != 40 {
+		return false
+	}
+
+	for _, c := range hash {
+		switch {
+		case c >= '0' && c <= '9', c >= 'a' && c <= 'f', c >= 'A' && c <= 'F':
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
 func runGitOutput(cmd *exec.Cmd, label string, cli *cliEnv) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {

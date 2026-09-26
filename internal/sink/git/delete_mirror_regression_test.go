@@ -269,6 +269,173 @@ func TestDeleteRemote_MRMode_PointerOnlyBranchIsNoOp(t *testing.T) {
 	}
 }
 
+// reviewF1 regression lock (go-git engine): inventory A has exported into the
+// shared branchMR mirror, leaving its feature branch checked out as the mirror
+// HEAD. Inventory B was never exported; deleting it matches nothing on disk,
+// and the checkout synthesizes B's feature branch at A's tip. That tip must
+// never be pushed as B's deletion: no B branch and no MR-worthy branch may
+// appear, and A and the target branch stay untouched.
+func TestDeleteRemote_MRMode_ForeignTipIsNoOp(t *testing.T) {
+	root := t.TempDir()
+	srv := startGitHTTPServer(t, root)
+	url := seedBareRepo(t, srv, "remote.git")
+	mirrorIsolate(t)
+
+	cfg := Config{Endpoint: url}.withDefaults()
+
+	exportSpec := &BranchSpec{PushBranch: "kollect/team-a/inv", CloneBranch: "main"}
+	if err := ExportFilesWithBranch(t.Context(), cfg, Auth{}, []FileEntry{
+		{Path: "inventory/team-a/inv.json", Data: []byte(`{"items":[{"a":1}]}`)},
+	}, exportSpec, CommitContextFromObjectPath("inventory/team-a/inv.json", "prod")); err != nil {
+		t.Fatalf("seed export: %v", err)
+	}
+
+	exportTip := remoteBranchSHA(t, url, exportSpec.PushBranch)
+	targetTip := remoteBranchSHA(t, url, "main")
+	if exportTip == "" || targetTip == "" {
+		t.Fatalf("seed export did not land: feature=%q target=%q", exportTip, targetTip)
+	}
+
+	deleteSpec := &BranchSpec{PushBranch: "kollect/team-b/never", CloneBranch: "main"}
+	req, paths, err := validateDeletePaths(cfg, []string{"inventory/team-b/never-exported.json"}, deleteSpec)
+	if err != nil {
+		t.Fatalf("validateDeletePaths: %v", err)
+	}
+	deleteCfg := cfg
+	deleteCfg.CommitMessage = deleteCommitMessage
+
+	deleted, delErr := deleteRemote(t.Context(), deleteCfg, Auth{}, req, paths,
+		CommitContextFromObjectPath("inventory/team-b/never-exported.json", "prod"))
+	if delErr != nil {
+		t.Fatalf("deleteRemote: %v", delErr)
+	}
+	if len(deleted) != 0 {
+		t.Fatalf("deleted = %v, want empty", deleted)
+	}
+
+	if sha := remoteBranchSHA(t, url, deleteSpec.PushBranch); sha != "" {
+		t.Fatalf("DEFECT: foreign tip pushed as the deleted inventory's branch, remote tip = %q", sha)
+	}
+	if got := remoteBranchSHA(t, url, exportSpec.PushBranch); got != exportTip {
+		t.Fatalf("other inventory's branch changed: tip=%q, want %q", got, exportTip)
+	}
+	if got := remoteBranchSHA(t, url, "main"); got != targetTip {
+		t.Fatalf("target branch changed: tip=%q, want %q", got, targetTip)
+	}
+}
+
+// reviewF1 regression lock (CLI engine): same topology as the go-git lock
+// above. `git checkout -B` synthesizes B's feature branch at the mirror HEAD
+// left behind by inventory A's export, which must never be pushed as B's
+// deletion.
+func TestDeleteExportWithBranch_CLIMRMode_ForeignTipIsNoOp(t *testing.T) {
+	root := t.TempDir()
+	srv := startGitHTTPServer(t, root)
+	url := seedBareRepo(t, srv, "remote.git")
+	mirrorIsolate(t)
+
+	cfg := Config{Endpoint: url, Engine: GitEngineCLI}.withDefaults()
+
+	exportSpec := &BranchSpec{PushBranch: "kollect/team-a/inv", CloneBranch: "main"}
+	if err := ExportFilesWithBranch(t.Context(), cfg, Auth{}, []FileEntry{
+		{Path: "inventory/team-a/inv.json", Data: []byte(`{"items":[{"a":1}]}`)},
+	}, exportSpec, CommitContextFromObjectPath("inventory/team-a/inv.json", "prod")); err != nil {
+		t.Fatalf("seed export: %v", err)
+	}
+
+	exportTip := remoteBranchSHA(t, url, exportSpec.PushBranch)
+	targetTip := remoteBranchSHA(t, url, "main")
+	if exportTip == "" || targetTip == "" {
+		t.Fatalf("seed export did not land: feature=%q target=%q", exportTip, targetTip)
+	}
+
+	deleteSpec := &BranchSpec{PushBranch: "kollect/team-b/never", CloneBranch: "main"}
+	deleted, delErr := DeleteExportWithBranch(t.Context(), cfg, Auth{}, []string{"inventory/team-b/never-exported.json"}, deleteSpec,
+		CommitContextFromObjectPath("inventory/team-b/never-exported.json", "prod"))
+	if delErr != nil {
+		t.Fatalf("DeleteExportWithBranch: %v", delErr)
+	}
+	if len(deleted) != 0 {
+		t.Fatalf("deleted = %v, want empty", deleted)
+	}
+
+	if sha := remoteBranchSHA(t, url, deleteSpec.PushBranch); sha != "" {
+		t.Fatalf("DEFECT: foreign tip pushed as the deleted inventory's branch, remote tip = %q", sha)
+	}
+	if got := remoteBranchSHA(t, url, exportSpec.PushBranch); got != exportTip {
+		t.Fatalf("other inventory's branch changed: tip=%q, want %q", got, exportTip)
+	}
+	if got := remoteBranchSHA(t, url, "main"); got != targetTip {
+		t.Fatalf("target branch changed: tip=%q, want %q", got, targetTip)
+	}
+}
+
+// reviewF1 delivery guard (CLI engine): the pre-existence and fast-forward
+// gates must not block a genuinely stranded deletion commit. A crash between
+// commit and push leaves the feature branch at the deletion commit locally;
+// the retry must deliver it, retract the file, and leave the target branch
+// untouched.
+func TestDeleteExportWithBranch_CLIMRMode_DeliversStrandedDeletionCommit(t *testing.T) {
+	root := t.TempDir()
+	srv := startGitHTTPServer(t, root)
+	url := seedBareRepo(t, srv, "remote.git")
+	mirrorIsolate(t)
+
+	cfg := Config{Endpoint: url, Engine: GitEngineCLI}.withDefaults()
+	branchSpec := &BranchSpec{PushBranch: "kollect/team-a/inv", CloneBranch: "main"}
+
+	if err := ExportFilesWithBranch(t.Context(), cfg, Auth{}, []FileEntry{
+		{Path: "inventory/team-a/inv.json", Data: []byte(`{"items":[{"a":1}]}`)},
+	}, branchSpec, CommitContextFromObjectPath("inventory/team-a/inv.json", "prod")); err != nil {
+		t.Fatalf("seed export: %v", err)
+	}
+	targetTip := remoteBranchSHA(t, url, "main")
+
+	cloneURL, _, err := parseRemote(url)
+	if err != nil {
+		t.Fatalf("parseRemote: %v", err)
+	}
+	mirror, err := mirrorDirFor(cloneURL, "main")
+	if err != nil {
+		t.Fatalf("mirrorDirFor: %v", err)
+	}
+	repo, err := git.PlainOpen(mirror)
+	if err != nil {
+		t.Fatalf("open mirror: %v", err)
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		t.Fatalf("mirror worktree: %v", err)
+	}
+	if err := wt.Checkout(&git.CheckoutOptions{Branch: plumbing.NewBranchReferenceName(branchSpec.PushBranch)}); err != nil {
+		t.Fatalf("checkout feature branch: %v", err)
+	}
+	if _, err := wt.Remove("inventory/team-a/inv.json"); err != nil {
+		t.Fatalf("stage stranded deletion: %v", err)
+	}
+	stranded, err := wt.Commit("chore(prod/team-a/team-a): remove inventory export (simulated crash)", &git.CommitOptions{
+		Author: &object.Signature{Name: cfg.Author.Name, Email: cfg.Author.Email},
+	})
+	if err != nil {
+		t.Fatalf("stranded commit: %v", err)
+	}
+
+	if _, delErr := DeleteExportWithBranch(t.Context(), cfg, Auth{}, []string{"inventory/team-a/inv.json"}, branchSpec,
+		CommitContextFromObjectPath("inventory/team-a/inv.json", "prod")); delErr != nil {
+		t.Fatalf("DeleteExportWithBranch retry: %v", delErr)
+	}
+
+	if got := remoteBranchSHA(t, url, branchSpec.PushBranch); got != stranded.String() {
+		t.Fatalf("DEFECT: stranded deletion commit not delivered: remote feature tip = %q, stranded = %q", got, stranded)
+	}
+	if remoteFileExists(t, url, branchSpec.PushBranch, "inventory/team-a/inv.json") {
+		t.Fatal("delivered stranded commit must retract the file")
+	}
+	if got := remoteBranchSHA(t, url, "main"); got != targetTip {
+		t.Fatalf("target branch must be untouched by the feature deletion: tip=%q, seed=%q", got, targetTip)
+	}
+}
+
 // go-git analogue of the C1 staged-sweep defect: a crashed export's staged
 // foreign file in the persistent mirror must never be committed by the go-git
 // deletion path (the hard reset before the commit makes this deterministic —

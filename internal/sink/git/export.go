@@ -120,7 +120,7 @@ func ExportFilesWithBranch(
 
 	if isFileRemote(req.cloneURL) || cfg.Engine == GitEngineCLI {
 		var exportErr error
-		if err := withRepoExportLock(lockKey, req.pushBranch, func() error {
+		if err := withRepoExportLock(req.cloneURL, req.cloneBranch, func() error {
 			exportErr = exportViaCLI(ctx, cfg, auth, req.cloneURL, req.cloneBranch, req.pushBranch, validated, commitCtx)
 			if exportErr == nil {
 				fingerprintTracker.record(fpKey, commitCtx.Checksum)
@@ -135,7 +135,7 @@ func ExportFilesWithBranch(
 	}
 
 	var exportErr error
-	if err := withRepoExportLock(lockKey, req.pushBranch, func() error {
+	if err := withRepoExportLock(req.cloneURL, req.cloneBranch, func() error {
 		exportErr = exportRemote(ctx, cfg, auth, req, validated, commitCtx)
 		if exportErr == nil {
 			fingerprintTracker.record(fpKey, commitCtx.Checksum)
