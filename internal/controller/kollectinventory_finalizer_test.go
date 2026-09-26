@@ -264,10 +264,10 @@ func TestKollectInventoryReconciler_terminalCleanupDoesNotRequeue(t *testing.T) 
 		NamespacedName: types.NamespacedName{Name: "team-inventory", Namespace: "default"},
 	})
 	if err != nil {
-		t.Fatalf("Reconcile err = %v, want nil (terminal cleanup must not requeue)", err)
+		t.Fatalf("Reconcile err = %v, want nil (terminal cleanup must not requeue with backoff)", err)
 	}
-	if result != (ctrl.Result{}) {
-		t.Fatalf("Reconcile result = %+v, want empty result (no requeue)", result)
+	if result.RequeueAfter != terminalCleanupRequeue {
+		t.Fatalf("Reconcile result = %+v, want RequeueAfter %s on the fixed cadence", result, terminalCleanupRequeue)
 	}
 
 	var got kollectdevv1alpha1.KollectInventory

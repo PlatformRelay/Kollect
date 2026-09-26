@@ -106,8 +106,11 @@ func TestKollectClusterInventoryReconciler_deleteExportsEmptyAndRemovesFinalizer
 	}
 }
 
-// EC-P1-03: a terminal cleanup failure must not requeue (nil error, empty
-// result) and must keep the finalizer in place for manual intervention.
+// EC-P1-03: a terminal cleanup failure must not requeue with backoff (nil
+// error), must keep the finalizer in place for manual intervention, and —
+// review W2 fix — must still re-check on a fixed cadence so a Secret-only
+// credential fix (no watch fires) clears the wedge without waiting out the
+// 12-hour informer resync.
 func TestKollectClusterInventoryReconciler_terminalCleanupDoesNotRequeue(t *testing.T) {
 	t.Parallel()
 
@@ -175,10 +178,10 @@ func TestKollectClusterInventoryReconciler_terminalCleanupDoesNotRequeue(t *test
 		NamespacedName: types.NamespacedName{Name: "platform-rollup"},
 	})
 	if err != nil {
-		t.Fatalf("Reconcile err = %v, want nil (terminal cleanup must not requeue)", err)
+		t.Fatalf("Reconcile err = %v, want nil (terminal cleanup must not requeue with backoff)", err)
 	}
-	if result != (ctrl.Result{}) {
-		t.Fatalf("Reconcile result = %+v, want empty result (no requeue)", result)
+	if result.RequeueAfter != terminalCleanupRequeue {
+		t.Fatalf("Reconcile result = %+v, want RequeueAfter %s on the fixed cadence", result, terminalCleanupRequeue)
 	}
 
 	var got kollectdevv1alpha1.KollectClusterInventory

@@ -191,7 +191,10 @@ func sanitizeHiveSegment(value string) string {
 
 // partSuffixPatternBody matches the deterministic multipart suffix export.PartitionObjectPath
 // inserts before a path's extension (K-28 cleanup must address part siblings, not just the base).
-const partSuffixPatternBody = `(\.part-\d{4}-of-\d{4})?`
+// %04d is a minimum width, not a cap: totals beyond 9999 parts render five or more digits, so the
+// matcher accepts any width of four or more — a narrower pattern would silently retain those
+// objects while cleanup reported a clean tombstone (K-28).
+const partSuffixPatternBody = `(\.part-\d{4,}-of-\d{4,})?`
 
 // KeyMatcher enumerates export keys an inventory may have written for one object path:
 // keys must start with Prefix and their remainder must fully match Rest.

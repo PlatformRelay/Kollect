@@ -193,6 +193,21 @@ func gitAddPaths(ctx context.Context, workdir string, paths []string, cli *cliEn
 }
 
 func gitCommit(ctx context.Context, workdir, authorName, authorEmail string, commit renderedCommit, cli *cliEnv) error {
+	return gitCommitScoped(ctx, workdir, authorName, authorEmail, commit, nil, cli)
+}
+
+// gitCommitScoped commits only the given paths (git commit -- <paths>): the
+// commit is built from HEAD plus the current worktree state of those paths, so
+// unrelated staged or unstaged state in a shared warm mirror can never ride
+// along under the commit's subject. A nil/empty paths list commits the index
+// (the export path's existing semantics).
+func gitCommitScoped(
+	ctx context.Context,
+	workdir, authorName, authorEmail string,
+	commit renderedCommit,
+	paths []string,
+	cli *cliEnv,
+) error {
 	if err := validateGitConfigValue(authorName); err != nil {
 		return fmt.Errorf("git export: invalid author name: %w", err)
 	}
@@ -222,6 +237,11 @@ func gitCommit(ctx context.Context, workdir, authorName, authorEmail string, com
 
 	for _, line := range commit.Trailers {
 		args = append(args, "-m", line)
+	}
+
+	if len(paths) > 0 {
+		args = append(args, "--")
+		args = append(args, paths...)
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, args...)
@@ -279,6 +299,42 @@ func gitPullRebase(ctx context.Context, workdir string, branch string, cli *cliE
 
 	cmd := gitInWorkdir(ctx, workdir, cli, "pull", "--rebase", "origin", branch)
 	return runGitOutput(cmd, "pull --rebase", cli)
+}
+
+// gitResetHard clears every staged and unstaged tracked change in the mirror
+// worktree (git reset --hard). Staged deletions a crashed cleanup left behind
+// are restored by the reset, so the retry re-deletes them; a deletion commit
+// already stranded at HEAD is kept (the reset never moves HEAD). No-op on an
+// unborn HEAD (nothing committed: the index cannot hold tracked dirt).
+func gitResetHard(ctx context.Context, workdir string, cli *cliEnv) error {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	head := gitInWorkdir(ctx, workdir, cli, "rev-parse", "--verify", "-q", "HEAD")
+	if _, headErr := head.CombinedOutput(); headErr != nil {
+		// Unborn HEAD: no commit exists, so reset has nothing to reset to and
+		// any staged state is protected from the commit by scoped commits.
+		return nil
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "reset", "--hard")
+	return runGitOutput(cmd, "reset --hard", cli)
+}
+
+// gitCleanFd removes untracked files and directories from the mirror worktree
+// (git clean -fd): leftover writes of a crashed export, which the mirror — a
+// cache, not user state — must not accumulate. Nested git repositories are
+// deliberately left alone (no -ff): nothing kollect writes creates them.
+func gitCleanFd(ctx context.Context, workdir string, cli *cliEnv) error {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "clean", "-fd")
+	return runGitOutput(cmd, "clean -fd", cli)
 }
 
 func gitStatusPorcelain(ctx context.Context, workdir string, cli *cliEnv) (string, error) {

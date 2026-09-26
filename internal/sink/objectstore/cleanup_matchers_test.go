@@ -70,6 +70,23 @@ func TestCleanupMatchers(t *testing.T) {
 			},
 		},
 		{
+			// F3 review fix: %04d is a minimum width — a ≥10000-part export
+			// writes five-digit totals, and a 4-digit-only matcher silently
+			// retained those objects while cleanup reported a clean tombstone.
+			name: "five-digit part totals and indexes match",
+			path: "inventory/team-a/apps.json",
+			match: []string{
+				"inventory/team-a/apps.part-0001-of-10000.json",
+				"inventory/team-a/apps.part-10000-of-10000.json",
+				"inventory/team-a/apps.part-12345-of-67890.json",
+			},
+			reject: []string{
+				// below the 4-digit minimum: not a partition shape (could be a
+				// hand-named sibling object) — same rule as the 4-digit era
+				"inventory/team-a/apps.part-1-of-3.json",
+			},
+		},
+		{
 			name:  "empty path yields no matchers",
 			path:  "  ",
 			match: nil,

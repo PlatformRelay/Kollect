@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,6 +19,14 @@ import (
 )
 
 const inventoryCleanupFinalizer = "kollect.dev/inventory-cleanup"
+
+// terminalCleanupRequeue keeps a terminal cleanup wedge re-checking on a fixed
+// cadence (K-30): the wedge stays alertable via kollect_cleanup_terminal_total
+// and the Warning Event, but the documented first remedy — fixing the sink
+// credential (a Secret edit, which fires no watch) — self-heals within minutes
+// instead of waiting out the 12-hour informer resync. Nil-error RequeueAfter
+// deliberately avoids the backoff escalation a returned error would trigger.
+const terminalCleanupRequeue = 5 * time.Minute
 
 func (r *KollectInventoryReconciler) ensureInventoryFinalizer(
 	ctx context.Context,
@@ -61,7 +70,13 @@ func (r *KollectInventoryReconciler) finalizeInventoryDeletion(
 			// Best-effort Degraded status: the object is deleting, update errors are ignored.
 			_, _ = r.setInventoryDegraded(ctx, inv, inv.Status.ItemCount, reasonCleanupTerminal, msg)
 
-			return ctrl.Result{}, nil
+			// Re-check on a fixed cadence so a fix of the sink configuration —
+			// in particular a Secret data edit, which fires no watch event —
+			// clears the wedge within minutes rather than at the informer
+			// resync. A nil error keeps controller-runtime off the backoff path;
+			// the terminal counter and Warning Event above stay the alertable
+			// signal.
+			return ctrl.Result{RequeueAfter: terminalCleanupRequeue}, nil
 		}
 
 		return ctrl.Result{RequeueAfter: r.exportDebounce(inv)}, err

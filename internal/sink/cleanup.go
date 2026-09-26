@@ -85,6 +85,10 @@ const (
 // prune; backends implementing ExportCleaner have their objects deleted (git
 // document mode, S3/GCS, local); everything else is reported retained so the
 // controller emits a Warning Event naming the path instead of the old silent no-op.
+//
+// The returned outcome is meaningful only when err == nil: on error the outcome
+// is a zero value (CleanupCleaned) that callers must ignore (cleanupSinkExports
+// does).
 func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 	if req.Registry == nil {
 		return CleanupCleaned, kollecterrors.Terminal(fmt.Errorf("sink registry is not configured"))

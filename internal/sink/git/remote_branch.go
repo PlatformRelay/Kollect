@@ -16,8 +16,13 @@ import (
 // RemoteBranchExists reports whether branch exists on the configured remote,
 // without a local worktree (remote list). Cleanup uses it to find a deletion
 // commit an earlier attempt pushed but never opened a merge request for; an
-// error must be retried, not treated as "absent".
+// error must be retried, not treated as "absent". The list runs under the
+// export timeout so a stalled endpoint cannot hold the workqueue slot
+// indefinitely (the reconcile context itself carries no deadline).
 func RemoteBranchExists(ctx context.Context, cfg Config, auth Auth, branch string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, exportTimeout)
+	defer cancel()
+
 	cfg = cfg.withDefaults()
 
 	cloneURL, _, err := parseRemote(cfg.Endpoint)

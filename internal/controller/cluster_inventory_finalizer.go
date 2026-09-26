@@ -58,7 +58,11 @@ func (r *KollectClusterInventoryReconciler) finalizeClusterInventoryDeletion(
 			// Best-effort Degraded status: the object is deleting, update errors are ignored.
 			_, _ = r.setDegraded(ctx, inv, reasonCleanupTerminal, msg)
 
-			return ctrl.Result{}, nil
+			// Re-check on a fixed cadence so a fix of the sink configuration —
+			// in particular a Secret data edit, which fires no watch event —
+			// clears the wedge within minutes rather than at the informer
+			// resync (see inventory_finalizer.go for the rationale).
+			return ctrl.Result{RequeueAfter: terminalCleanupRequeue}, nil
 		}
 
 		return ctrl.Result{RequeueAfter: r.exportDebounce(inv)}, err
