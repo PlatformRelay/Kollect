@@ -55,7 +55,7 @@ func seedGitLabTestRemote(t *testing.T) (string, func(...string)) {
 	}
 	inWork("add", ".")
 	inWork("commit", "-m", "seed")
-	initWork("init", "--bare", remote)
+	initWork("init", "--bare", "-b", "main", remote)
 	inWork("remote", "add", "origin", remote)
 	inWork("push", "-u", "origin", "main")
 
