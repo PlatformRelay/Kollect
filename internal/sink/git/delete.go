@@ -203,47 +203,73 @@ func deleteViaCLI(
 			return nil, err
 		}
 	} else {
-		if !pushBranchExisted {
-			// No local tip for this push branch ever existed: there is no
-			// stranded deletion commit to deliver, and the checkout above only
-			// synthesized a pointer at the clone tip. Never push it.
-			return nil, nil
+		deliver, deliverErr := cliStrandedDeliveryDue(ctx, workdir, req, cli, pushBranchHash, pushBranchExisted)
+		if deliverErr != nil {
+			return nil, deliverErr
 		}
-
-		headHash, headErr := gitHeadHash(ctx, workdir, cli)
-		if headErr != nil {
-			return nil, fmt.Errorf("git cleanup: %w", headErr)
-		}
-		if headHash != pushBranchHash {
-			// Defensive: the pre-existing tip no longer matches HEAD, so there
-			// is no stranded deletion commit to deliver. Never push.
-			return nil, nil
-		}
-
-		nothing, remotePushSHA, probeErr := pushBranchWithoutWork(ctx, workdir, cli, req.cloneBranch, req.pushBranch)
-		if probeErr != nil {
-			return nil, fmt.Errorf("git cleanup: %w", probeErr)
-		}
-		if nothing {
-			return nil, nil
-		}
-
-		// Deliver only when the remote push branch exists and its tip is an
-		// ancestor of HEAD: a pure fast-forward. A remote tip that is absent,
-		// diverged, or unrelated to this inventory's work is a no-op.
-		if remotePushSHA == "" {
-			return nil, nil
-		}
-		fastForward, ffErr := gitIsAncestorOfHead(ctx, workdir, remotePushSHA, cli)
-		if ffErr != nil {
-			return nil, fmt.Errorf("git cleanup: %w", ffErr)
-		}
-		if !fastForward {
+		if !deliver {
 			return nil, nil
 		}
 	}
 
 	return removed, syncCLIWorkdirScoped(ctx, workdir, req.cloneURL, req.pushBranch, cfg, commitCtx, cli, removed)
+}
+
+// cliStrandedDeliveryDue decides whether the CLI engine may deliver a deletion
+// commit stranded on a pre-existing push branch. It returns true only for a
+// genuine fast-forward delivery: the push-branch ref pre-existed the operation's
+// checkout, HEAD still equals that captured tip, and the remote push tip exists
+// and is an ancestor of HEAD. Every other state — no local tip, a diverged or
+// absent remote, or a branch poisoned by another inventory's crashed export — is
+// a no-op that must never push.
+func cliStrandedDeliveryDue(
+	ctx context.Context,
+	workdir string,
+	req exportRequest,
+	cli *cliEnv,
+	pushBranchHash string,
+	pushBranchExisted bool,
+) (bool, error) {
+	if !pushBranchExisted {
+		// No local tip for this push branch ever existed: there is no
+		// stranded deletion commit to deliver, and the checkout above only
+		// synthesized a pointer at the clone tip. Never push it.
+		return false, nil
+	}
+
+	headHash, headErr := gitHeadHash(ctx, workdir, cli)
+	if headErr != nil {
+		return false, fmt.Errorf("git cleanup: %w", headErr)
+	}
+	if headHash != pushBranchHash {
+		// Defensive: the pre-existing tip no longer matches HEAD, so there
+		// is no stranded deletion commit to deliver. Never push.
+		return false, nil
+	}
+
+	nothing, remotePushSHA, probeErr := pushBranchWithoutWork(ctx, workdir, cli, req.cloneBranch, req.pushBranch)
+	if probeErr != nil {
+		return false, fmt.Errorf("git cleanup: %w", probeErr)
+	}
+	if nothing {
+		return false, nil
+	}
+
+	// Deliver only when the remote push branch exists and its tip is an
+	// ancestor of HEAD: a pure fast-forward. A remote tip that is absent,
+	// diverged, or unrelated to this inventory's work is a no-op.
+	if remotePushSHA == "" {
+		return false, nil
+	}
+	fastForward, ffErr := gitIsAncestorOfHead(ctx, workdir, remotePushSHA, cli)
+	if ffErr != nil {
+		return false, fmt.Errorf("git cleanup: %w", ffErr)
+	}
+	if !fastForward {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // pushBranchWithoutWork reports a provably empty deletion for the CLI engine:
@@ -410,48 +436,7 @@ func deleteRemote(
 	}
 
 	if len(removed) == 0 {
-		if !pushBranchExisted {
-			// No local tip for this push branch ever existed: there is no
-			// stranded deletion commit to deliver, and the checkout above only
-			// synthesized a pointer at the clone tip. Never push it.
-			return nil, nil
-		}
-
-		synced, pushTip, pushExists, probeErr := pushBranchSynced(ctx, repo, cfg, authMethod, req.cloneBranch, req.pushBranch)
-		if probeErr != nil {
-			return nil, fmt.Errorf("git cleanup: %w", probeErr)
-		}
-		if synced {
-			// The remote push branch already holds our HEAD: nothing was ever
-			// exported (or a prior attempt fully delivered). Not a bare no-op
-			// claim: the worktree matches HEAD, and HEAD equals the remote
-			// push tip, so the remote genuinely lacks the candidate paths.
-			return nil, nil
-		}
-
-		// Deliver a stranded deletion commit only when the remote push branch
-		// exists and its tip is an ancestor of HEAD: a pure fast-forward. A
-		// pre-existing local branch pointing at another inventory's tip (a
-		// crashed foreign export or a prior no-op delete that persisted the
-		// synthesized ref) is not this inventory's work and must never be
-		// pushed. The remote list runs once and yields the push tip.
-		if !pushExists {
-			return nil, nil
-		}
-
-		head, headErr := repo.Head()
-		if headErr != nil {
-			return nil, fmt.Errorf("head: %w", headErr)
-		}
-		if !remoteTipFastForwardable(repo, pushTip, head.Hash()) {
-			return nil, nil
-		}
-
-		if pushErr := pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, head.Hash(), wt); pushErr != nil {
-			return nil, pushErr
-		}
-
-		return nil, nil
+		return nil, deliverRemoteStrandedDeletion(ctx, repo, cfg, authMethod, req, wt, emptyRemote, pushBranchExisted)
 	}
 
 	commitText := renderCommit(cfg, commitCtx)
@@ -472,6 +457,59 @@ func deleteRemote(
 	}
 
 	return removed, nil
+}
+
+// deliverRemoteStrandedDeletion handles the nothing-matched case for the go-git
+// engine: it either reports a no-op or pushes a deletion commit stranded on a
+// pre-existing push branch. It pushes only for a genuine fast-forward delivery;
+// every other state is a no-op that must never push.
+func deliverRemoteStrandedDeletion(
+	ctx context.Context,
+	repo *git.Repository,
+	cfg Config,
+	authMethod transport.AuthMethod,
+	req exportRequest,
+	wt *git.Worktree,
+	emptyRemote, pushBranchExisted bool,
+) error {
+	if !pushBranchExisted {
+		// No local tip for this push branch ever existed: there is no
+		// stranded deletion commit to deliver, and the checkout above only
+		// synthesized a pointer at the clone tip. Never push it.
+		return nil
+	}
+
+	synced, pushTip, pushExists, probeErr := pushBranchSynced(ctx, repo, cfg, authMethod, req.cloneBranch, req.pushBranch)
+	if probeErr != nil {
+		return fmt.Errorf("git cleanup: %w", probeErr)
+	}
+	if synced {
+		// The remote push branch already holds our HEAD: nothing was ever
+		// exported (or a prior attempt fully delivered). Not a bare no-op
+		// claim: the worktree matches HEAD, and HEAD equals the remote
+		// push tip, so the remote genuinely lacks the candidate paths.
+		return nil
+	}
+
+	// Deliver a stranded deletion commit only when the remote push branch
+	// exists and its tip is an ancestor of HEAD: a pure fast-forward. A
+	// pre-existing local branch pointing at another inventory's tip (a
+	// crashed foreign export or a prior no-op delete that persisted the
+	// synthesized ref) is not this inventory's work and must never be
+	// pushed. The remote list runs once and yields the push tip.
+	if !pushExists {
+		return nil
+	}
+
+	head, headErr := repo.Head()
+	if headErr != nil {
+		return fmt.Errorf("head: %w", headErr)
+	}
+	if !remoteTipFastForwardable(repo, pushTip, head.Hash()) {
+		return nil
+	}
+
+	return pushCommitted(ctx, repo, cfg, authMethod, req.cloneURL, req.pushBranch, emptyRemote, head.Hash(), wt)
 }
 
 // pushBranchSynced reports whether the remote already holds the local

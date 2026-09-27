@@ -18,13 +18,13 @@ import (
 // stages no index change, so the caller never attempts an empty deletion commit.
 func TestRemoveWorktreeCandidates_UntrackedDirtIsTolerated(t *testing.T) {
 	dir := t.TempDir()
-	repo, err := git.PlainInit(dir, false)
-	if err != nil {
-		t.Fatalf("PlainInit: %v", err)
+	repo, initErr := git.PlainInit(dir, false)
+	if initErr != nil {
+		t.Fatalf("PlainInit: %v", initErr)
 	}
-	wt, err := repo.Worktree()
-	if err != nil {
-		t.Fatalf("Worktree: %v", err)
+	wt, wtErr := repo.Worktree()
+	if wtErr != nil {
+		t.Fatalf("Worktree: %v", wtErr)
 	}
 
 	invDir := filepath.Join(dir, "inventory")
@@ -59,12 +59,12 @@ func TestRemoveWorktreeCandidates_UntrackedDirtIsTolerated(t *testing.T) {
 		t.Fatalf("WriteFile(untracked): %v", err)
 	}
 
-	removed, err := removeWorktreeCandidates(wt, []string{
+	removed, rmErr := removeWorktreeCandidates(wt, []string{
 		"inventory/team-b/inv.json",
 		"inventory/team-a/inv.json",
 	})
-	if err != nil {
-		t.Fatalf("DEFECT: untracked dirt errored the go-git deletion: %v", err)
+	if rmErr != nil {
+		t.Fatalf("DEFECT: untracked dirt errored the go-git deletion: %v", rmErr)
 	}
 
 	if len(removed) != 1 || removed[0] != "inventory/team-a/inv.json" {
@@ -76,9 +76,9 @@ func TestRemoveWorktreeCandidates_UntrackedDirtIsTolerated(t *testing.T) {
 		}
 	}
 
-	status, err := wt.Status()
-	if err != nil {
-		t.Fatalf("Status: %v", err)
+	status, stErr := wt.Status()
+	if stErr != nil {
+		t.Fatalf("Status: %v", stErr)
 	}
 	if st, ok := status["inventory/team-a/inv.json"]; !ok || st.Staging != git.Deleted {
 		t.Fatalf("tracked candidate must be staged as deleted, status = %v", status)
