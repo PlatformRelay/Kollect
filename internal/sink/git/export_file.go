@@ -167,19 +167,11 @@ func prepareCLIWorkdir(
 		if err := gitFetchShallow(ctx, workdir, cloneBranch, cfg.CloneDepth, cli); err != nil {
 			return err
 		}
-
-		return gitCheckoutNewBranch(ctx, workdir, pushBranch, cli)
-	}
-
-	if err := cloneOrInitCLI(ctx, workdir, cloneURL, cloneBranch, cfg.CloneDepth, cli); err != nil {
+	} else if err := cloneOrInitCLI(ctx, workdir, cloneURL, cloneBranch, cfg.CloneDepth, cli); err != nil {
 		return err
 	}
 
-	if pushBranch == cloneBranch {
-		return nil
-	}
-
-	return gitCheckoutNewBranch(ctx, workdir, pushBranch, cli)
+	return gitCheckoutPushBranch(ctx, workdir, cloneBranch, pushBranch, cli)
 }
 
 func gitPushOriginWithRecovery(

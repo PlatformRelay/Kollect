@@ -7,7 +7,7 @@ import "testing"
 
 func matchKeys(ms []KeyMatcher, key string) bool {
 	for _, m := range ms {
-		if len(key) >= len(m.Prefix) && key[:len(m.Prefix)] == m.Prefix && m.Rest.MatchString(key[len(m.Prefix):]) {
+		if m.Matches(key) {
 			return true
 		}
 	}

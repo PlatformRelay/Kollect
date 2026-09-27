@@ -219,11 +219,27 @@ func prepareMirrorWorkdir(_ context.Context, _ Config, _ Auth, cloneURL, cloneBr
 	return mirrorDirFor(cloneURL, cloneBranch)
 }
 
-func checkoutMirrorBranch(wt *git.Worktree, branch string) error {
-	ref := plumbing.NewBranchReferenceName(branch)
-	if err := wt.Checkout(&git.CheckoutOptions{Branch: ref, Create: true}); err == nil {
-		return nil
+// checkoutMirrorBranch checks out pushBranch in a warm mirror. A branch that
+// already exists is checked out as-is: resetting it to the mirror's current
+// HEAD would rebase this inventory's work onto another inventory's feature tip.
+// A branch that does not exist is created from the just-fetched clone-branch
+// tip, never from the arbitrary mirror HEAD, so a synthesized branch can never
+// carry another inventory's unmerged export.
+func checkoutMirrorBranch(repo *git.Repository, wt *git.Worktree, cloneBranch, pushBranch string) error {
+	ref := plumbing.NewBranchReferenceName(pushBranch)
+
+	if _, err := repo.Reference(ref, true); err == nil {
+		return wt.Checkout(&git.CheckoutOptions{Branch: ref})
+	} else if !errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return err
 	}
 
-	return wt.Checkout(&git.CheckoutOptions{Branch: ref})
+	opts := &git.CheckoutOptions{Branch: ref, Create: true}
+	if cloneRef, err := repo.Reference(plumbing.NewBranchReferenceName(cloneBranch), true); err == nil {
+		opts.Hash = cloneRef.Hash()
+	} else if !errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return err
+	}
+
+	return wt.Checkout(opts)
 }

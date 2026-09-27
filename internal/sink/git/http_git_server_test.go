@@ -157,3 +157,21 @@ func remoteLogSubjects(t *testing.T, url, branch string) string {
 
 	return strings.TrimSpace(string(out))
 }
+
+// remoteParentSHA returns the parent commit of a branch's remote tip via a
+// shallow clone, or "" when the tip has no parent.
+func remoteParentSHA(t *testing.T, url, branch string) string {
+	t.Helper()
+
+	dir := filepath.Join(t.TempDir(), "parent")
+	if out, err := exec.Command("git", "clone", "--branch", branch, "--single-branch", "--depth", "2", url, dir).CombinedOutput(); err != nil { //nolint:gosec // G204: test fixture clone
+		t.Fatalf("clone %s: %s: %v", branch, out, err)
+	}
+
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD^").CombinedOutput() //nolint:gosec // G204: test fixture inspects its own temp repo
+	if err != nil {
+		t.Fatalf("rev-parse HEAD^: %s: %v", out, err)
+	}
+
+	return strings.TrimSpace(string(out))
+}

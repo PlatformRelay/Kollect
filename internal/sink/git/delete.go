@@ -170,10 +170,10 @@ func deleteViaCLI(
 		defer func() { _ = os.RemoveAll(workdir) }()
 	}
 
-	// Capture the local push-branch tip before prepareCLIWorkdir runs
-	// `git checkout -B`, which resets a pre-existing branch to the mirror's
-	// current HEAD (possibly another inventory's tip). Only a tip that
-	// pre-existed is a stranded deletion commit this retry may deliver.
+	// Capture the local push-branch tip before prepareCLIWorkdir checks the
+	// branch out. A pre-existing branch is checked out without resetting, so
+	// this tip survives; only a tip that pre-existed is a stranded deletion
+	// commit this retry may deliver.
 	pushBranchHash, pushBranchExisted, err := gitRefHash(ctx, workdir, req.pushBranch, cli)
 	if err != nil {
 		return nil, fmt.Errorf("git cleanup: %w", err)
@@ -221,7 +221,7 @@ func deleteViaCLI(
 		if !pushBranchExisted {
 			// No local tip for this push branch ever existed: there is no
 			// stranded deletion commit to deliver, and the checkout above only
-			// synthesized a pointer at another inventory's HEAD. Never push it.
+			// synthesized a pointer at the clone tip. Never push it.
 			return nil, nil
 		}
 
@@ -230,8 +230,8 @@ func deleteViaCLI(
 			return nil, fmt.Errorf("git cleanup: %w", headErr)
 		}
 		if headHash != pushBranchHash {
-			// `git checkout -B` reset the pre-existing branch to an unrelated
-			// HEAD; the stranded tip is gone, so never push that HEAD.
+			// Defensive: the pre-existing tip no longer matches HEAD, so there
+			// is no stranded deletion commit to deliver. Never push.
 			return nil, nil
 		}
 
@@ -406,9 +406,8 @@ func deleteRemote(
 	}
 
 	// Capture the local push-branch tip before checkout: a branch that did not
-	// pre-exist only gets synthesized at the mirror's current HEAD (possibly
-	// another inventory's tip), which must never be delivered as this branch's
-	// deletion.
+	// pre-exist is synthesized at the just-fetched clone tip, so it is never
+	// delivered as this branch's deletion.
 	pushBranchExisted := false
 	if _, refErr := repo.Reference(plumbing.NewBranchReferenceName(req.pushBranch), true); refErr == nil {
 		pushBranchExisted = true
@@ -416,7 +415,7 @@ func deleteRemote(
 		return nil, fmt.Errorf("resolve push branch: %w", refErr)
 	}
 
-	if checkoutErr := checkoutMirrorBranch(wt, req.pushBranch); checkoutErr != nil {
+	if checkoutErr := checkoutMirrorBranch(repo, wt, req.cloneBranch, req.pushBranch); checkoutErr != nil {
 		return nil, fmt.Errorf("checkout branch: %w", checkoutErr)
 	}
 
@@ -429,7 +428,7 @@ func deleteRemote(
 		if !pushBranchExisted {
 			// No local tip for this push branch ever existed: there is no
 			// stranded deletion commit to deliver, and the checkout above only
-			// synthesized a pointer at another inventory's HEAD. Never push it.
+			// synthesized a pointer at the clone tip. Never push it.
 			return nil, nil
 		}
 

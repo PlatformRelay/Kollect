@@ -188,11 +188,7 @@ func exportRemote(
 		return fmt.Errorf("worktree: %w", err)
 	}
 
-	if req.pushBranch != req.cloneBranch {
-		if checkoutErr := checkoutMirrorBranch(wt, req.pushBranch); checkoutErr != nil {
-			return fmt.Errorf("checkout feature branch: %w", checkoutErr)
-		}
-	} else if checkoutErr := checkoutMirrorBranch(wt, req.pushBranch); checkoutErr != nil {
+	if checkoutErr := checkoutMirrorBranch(repo, wt, req.cloneBranch, req.pushBranch); checkoutErr != nil {
 		return fmt.Errorf("checkout branch: %w", checkoutErr)
 	}
 
