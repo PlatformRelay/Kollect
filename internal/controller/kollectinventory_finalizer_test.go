@@ -867,7 +867,10 @@ func TestKollectInventoryReconciler_generationTemplateAnnouncesRetention(t *test
 // --- K-30: terminal cleanup observability + escape hatch --------------------
 
 func TestKollectInventoryReconciler_terminalCleanupIncrementsMetric(t *testing.T) {
-	t.Parallel()
+	// Not parallel: the assertion reads the process-global
+	// kollect_cleanup_terminal_total counter as a delta, so no other test may
+	// increment the same {kind=inventory} label concurrently (e.g.
+	// TestKollectInventoryReconciler_terminalCleanupDoesNotRequeue).
 
 	scheme := runtime.NewScheme()
 	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
