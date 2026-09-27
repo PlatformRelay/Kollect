@@ -188,22 +188,6 @@ func deleteViaCLI(
 		return nil, err
 	}
 
-	// A shared warm mirror may hold dirt from a crashed operation: staged adds
-	// or staged deletions in the index, modified tracked files, or untracked
-	// leftover writes. The mirror is a cache, not user state — reset it to HEAD
-	// (staged/unstaged tracked changes) and clean it (untracked files) before
-	// touching it, so none of it can reach the deletion commit or wedge the
-	// push with nothing-to-commit errors (K-28). A crash of THIS deletion
-	// between staging and commit self-heals: the reset restores the files and
-	// the retry re-deletes them; a deletion commit stranded at HEAD survives
-	// the reset and is delivered below.
-	if err = gitResetHard(ctx, workdir, cli); err != nil {
-		return nil, err
-	}
-	if err = gitCleanFd(ctx, workdir, cli); err != nil {
-		return nil, err
-	}
-
 	removed, err := removeDiskCandidates(workdir, paths)
 	if err != nil {
 		return nil, fmt.Errorf("git cleanup: %w", err)

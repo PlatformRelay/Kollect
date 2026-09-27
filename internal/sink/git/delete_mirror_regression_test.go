@@ -815,3 +815,74 @@ func TestDeleteExportWithBranch_CLIMRMode_DeliversStrandedDeletionAfterForeignEx
 		t.Fatalf("target branch must be untouched: tip=%q, want %q", got, targetTip)
 	}
 }
+
+// reviewR3 lock (CLI engine): a shared warm mirror holding uncommitted tracked
+// dirt (a modified file that is absent from the target branch) must not block a
+// deletion of another inventory. The mirror is cleared before the branch switch
+// so the dirt can neither abort the checkout nor ride into the deletion commit.
+func TestDeleteExportWithBranch_CLISharedMirror_TrackedDirtDoesNotBlockDeletion(t *testing.T) {
+	root := t.TempDir()
+	srv := startGitHTTPServer(t, root)
+	url := seedBareRepo(t, srv, "remote.git")
+	mirrorIsolate(t)
+
+	cfg := Config{Endpoint: url, Engine: GitEngineCLI}.withDefaults()
+
+	// Inventory B exported directly to the target branch: B's file is on main.
+	if err := ExportFilesWithBranch(t.Context(), cfg, Auth{}, []FileEntry{
+		{Path: "inventory/team-b/inv.json", Data: []byte(`{"items":[{"b":1}]}`)},
+	}, nil, CommitContextFromObjectPath("inventory/team-b/inv.json", "prod")); err != nil {
+		t.Fatalf("seed B export: %v", err)
+	}
+	targetTip := remoteBranchSHA(t, url, "main")
+
+	// Inventory A exports to its feature branch, leaving the shared mirror HEAD
+	// on A with A's file tracked.
+	exportSpec := &BranchSpec{PushBranch: "kollect/team-a/inv", CloneBranch: "main"}
+	if err := ExportFilesWithBranch(t.Context(), cfg, Auth{}, []FileEntry{
+		{Path: "inventory/team-a/inv.json", Data: []byte(`{"items":[{"a":1}]}`)},
+	}, exportSpec, CommitContextFromObjectPath("inventory/team-a/inv.json", "prod")); err != nil {
+		t.Fatalf("seed A export: %v", err)
+	}
+	exportTip := remoteBranchSHA(t, url, exportSpec.PushBranch)
+
+	cloneURL, _, err := parseRemote(url)
+	if err != nil {
+		t.Fatalf("parseRemote: %v", err)
+	}
+	mirror, err := mirrorDirFor(cloneURL, "main")
+	if err != nil {
+		t.Fatalf("mirrorDirFor: %v", err)
+	}
+
+	// Crash dirt: A's tracked file is modified but never committed. It is absent
+	// from B's target branch, so a branch switch would abort on it.
+	dirtyPath := filepath.Join(mirror, "inventory", "team-a", "inv.json")
+	//nolint:gosec // G304: test fixture writes its own mirror
+	if err := os.WriteFile(dirtyPath, []byte(`{"items":[{"a":1},{"partial":true}]}`), 0o600); err != nil {
+		t.Fatalf("write dirty tracked file: %v", err)
+	}
+
+	deleteSpec := &BranchSpec{PushBranch: "kollect/team-b/inv", CloneBranch: "main"}
+	deleted, delErr := DeleteExportWithBranch(t.Context(), cfg, Auth{}, []string{"inventory/team-b/inv.json"}, deleteSpec,
+		CommitContextFromObjectPath("inventory/team-b/inv.json", "prod"))
+	if delErr != nil {
+		t.Fatalf("DEFECT: tracked dirt wedged the CLI deletion: %v", delErr)
+	}
+	if len(deleted) != 1 {
+		t.Fatalf("deleted = %v, want B's file", deleted)
+	}
+
+	if remoteFileExists(t, url, deleteSpec.PushBranch, "inventory/team-b/inv.json") {
+		t.Fatal("deletion branch must retract B's file")
+	}
+	if remoteFileExists(t, url, deleteSpec.PushBranch, "inventory/team-a/inv.json") {
+		t.Fatal("crashed dirt must not be committed to the deletion branch")
+	}
+	if got := remoteBranchSHA(t, url, exportSpec.PushBranch); got != exportTip {
+		t.Fatalf("A's branch changed: tip=%q, want %q", got, exportTip)
+	}
+	if got := remoteBranchSHA(t, url, "main"); got != targetTip {
+		t.Fatalf("target branch changed: tip=%q, want %q", got, targetTip)
+	}
+}

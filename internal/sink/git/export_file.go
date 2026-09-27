@@ -164,6 +164,17 @@ func prepareCLIWorkdir(
 	cli *cliEnv,
 ) error {
 	if mirrorWarm(workdir) {
+		// A shared warm mirror may hold dirt from a crashed operation: staged
+		// adds or deletions, modified tracked files, or untracked leftovers.
+		// Clear it before the fetch and branch switch so it can never block
+		// the checkout or ride into the next commit; a stranded commit on a
+		// pre-existing branch survives (the reset never moves HEAD).
+		if err := gitResetHard(ctx, workdir, cli); err != nil {
+			return err
+		}
+		if err := gitCleanFd(ctx, workdir, cli); err != nil {
+			return err
+		}
 		if err := gitFetchShallow(ctx, workdir, cloneBranch, cfg.CloneDepth, cli); err != nil {
 			return err
 		}
