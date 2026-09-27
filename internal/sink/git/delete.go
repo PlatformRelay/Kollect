@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/format/index"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 
@@ -580,6 +581,13 @@ func removeWorktreeCandidates(wt *git.Worktree, paths []string) ([]string, error
 				}
 
 				if _, rmErr := wt.Remove(full); rmErr != nil {
+					if errors.Is(rmErr, index.ErrEntryNotFound) {
+						// Untracked leftover dirt: the disk removal above is the whole
+						// effect, so it stages no index change and is not reported as
+						// a removal the caller may commit.
+						continue
+					}
+
 					return nil, fmt.Errorf("git remove %q: %w", full, rmErr)
 				}
 
