@@ -78,7 +78,7 @@ runs:
     - name: Install kind and helm
       shell: bash
       env:
-        HELM_VERSION: v3.21.4
+        HELM_VERSION: v3.22.0
       run: |
         set -euo pipefail
         source "${GITHUB_WORKSPACE}/hack/lib/fetch.sh"

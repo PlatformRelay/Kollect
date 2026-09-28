@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Install a pinned Helm 3 release with SHA256-verified tarball download.
 # Checksums from https://get.helm.sh/helm-${VERSION}-${OS}-${ARCH}.tar.gz.sha256
-# Usage: HELM_VERSION=v3.21.4 hack/install-helm.sh [install-dir]
+# Usage: HELM_VERSION=v3.22.0 hack/install-helm.sh [install-dir]
 set -euo pipefail
 
-VERSION="${HELM_VERSION:-v3.21.4}"
+VERSION="${HELM_VERSION:-v3.22.0}"
 INSTALL_DIR="${1:-/usr/local/bin}"
 
 # CI-HELMDL-01 / CI-FETCHLIB-01. Both fetches below used to be bare `curl -fsSL`. On 2026-09-01
