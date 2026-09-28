@@ -159,6 +159,7 @@ When family sink refs are configured, each entry mirrors export observation:
 | `name` | Sink key `family/name` (e.g. `database/warehouse`) |
 | `lastExportTime` | Last successful export to this sink |
 | `lastChecksum` | Payload fingerprint from last export |
+| `lastExportPaths` | Sink-relative paths the last successful export wrote (capped sample); the deletion-time cleanup reads them as retraction evidence — recorded paths the cleanup cannot address announce `CleanupRetained` instead of a false-clean tombstone |
 | `conditions[]` | Per-sink `Synced` — `reason=Debounced` when interval not elapsed |
 
 Aggregate `status.lastExportTime` is the **max** of per-sink times (backward compatible). Read API

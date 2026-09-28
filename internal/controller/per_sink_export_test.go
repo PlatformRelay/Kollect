@@ -5,6 +5,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -279,5 +280,89 @@ func TestAggregateExportErrs_singleKeepsClass(t *testing.T) {
 
 	if got := aggregateExportErrs(nil); got != nil {
 		t.Fatalf("empty aggregate = %v, want nil", got)
+	}
+}
+
+// recordExportPaths deduplicates, sorts, and caps the written paths; an empty
+// write keeps the previous recording because an export that wrote nothing did
+// not invalidate the paths recorded before it.
+func TestRecordExportPaths(t *testing.T) {
+	t.Parallel()
+
+	previous := []string{"inventory/team-a/inv.yaml"}
+
+	if got := recordExportPaths(nil, previous); len(got) != 1 || got[0] != previous[0] {
+		t.Fatalf("nil write = %v, want the previous recording kept", got)
+	}
+	if got := recordExportPaths([]string{}, previous); len(got) != 1 || got[0] != previous[0] {
+		t.Fatalf("empty write = %v, want the previous recording kept", got)
+	}
+
+	got := recordExportPaths([]string{"b.yaml", "a.yaml", "b.yaml", "c.yaml"}, previous)
+	want := []string{"a.yaml", "b.yaml", "c.yaml"}
+	if len(got) != len(want) {
+		t.Fatalf("recordExportPaths = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("recordExportPaths = %v, want sorted unique %v", got, want)
+		}
+	}
+
+	flood := make([]string, 0, maxRecordedExportPaths+5)
+	for i := 0; i < maxRecordedExportPaths+5; i++ {
+		flood = append(flood, fmt.Sprintf("p/%03d.yaml", i))
+	}
+	if got := recordExportPaths(flood, nil); len(got) != maxRecordedExportPaths {
+		t.Fatalf("capped len = %d, want %d", len(got), maxRecordedExportPaths)
+	}
+}
+
+// carryOverLastExportPaths keeps the previous entry's recorded paths on a
+// rebuilt status entry, so a debounced or failed reconcile never erases the
+// cleanup evidence.
+func TestCarryOverLastExportPaths(t *testing.T) {
+	t.Parallel()
+
+	recorded := []kollectdevv1alpha1.InventorySinkExportStatus{{
+		Name:            "snapshot/git",
+		LastExportPaths: []string{"inventory/team-a/inv.yaml"},
+	}}
+
+	rebuilt := &kollectdevv1alpha1.InventorySinkExportStatus{Name: "snapshot/git"}
+	carryOverLastExportPaths(rebuilt, recorded, "snapshot/git")
+	if len(rebuilt.LastExportPaths) != 1 {
+		t.Fatalf("rebuilt paths = %v, want the recorded paths carried over", rebuilt.LastExportPaths)
+	}
+
+	// A fresh success already wrote new paths: the carry-over must not win.
+	fresh := &kollectdevv1alpha1.InventorySinkExportStatus{
+		Name:            "snapshot/git",
+		LastExportPaths: []string{"inventory/team-a/inv-v2.yaml"},
+	}
+	carryOverLastExportPaths(fresh, recorded, "snapshot/git")
+	if len(fresh.LastExportPaths) != 1 || fresh.LastExportPaths[0] != "inventory/team-a/inv-v2.yaml" {
+		t.Fatalf("fresh paths = %v, want the new export's paths kept", fresh.LastExportPaths)
+	}
+
+	// No previous entry and no export key match: no-op, not a panic.
+	carryOverLastExportPaths(rebuilt, nil, "other")
+	carryOverLastExportPaths(nil, recorded, "snapshot/git")
+}
+
+// recordedExportPathsBySink indexes the recorded paths by export key, dropping
+// entries without recorded paths.
+func TestRecordedExportPathsBySink(t *testing.T) {
+	t.Parallel()
+
+	got := recordedExportPathsBySink([]kollectdevv1alpha1.InventorySinkExportStatus{
+		{Name: "snapshot/git", LastExportPaths: []string{"inventory/team-a/inv.yaml"}},
+		{Name: "database/pg"},
+	})
+	if len(got) != 1 {
+		t.Fatalf("indexed = %#v, want one entry", got)
+	}
+	if paths := got["snapshot/git"]; len(paths) != 1 || paths[0] != "inventory/team-a/inv.yaml" {
+		t.Fatalf("indexed paths = %v, want the recorded document path", paths)
 	}
 }

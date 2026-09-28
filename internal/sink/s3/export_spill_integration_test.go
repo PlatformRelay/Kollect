@@ -130,7 +130,7 @@ func TestRunExportEnvelope_SpillsOversizedPayloadToMinIO(t *testing.T) {
 
 	const objectPath = "inventory/team-a/apps.json"
 
-	err = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
+	_, err = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
 		Ctx:           ctx,
 		Registry:      sink.NewRegistry(),
 		SinkNamespace: "default",

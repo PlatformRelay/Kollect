@@ -386,7 +386,7 @@ func TestRunExportEnvelope_guards(t *testing.T) {
 	t.Parallel()
 
 	// nil registry → terminal error (line 125-127)
-	err := RunExportEnvelope(ExportEnvelopeRequest{
+	_, err := RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:      context.Background(),
 		Registry: nil,
 		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{Type: "postgres"},
@@ -399,7 +399,7 @@ func TestRunExportEnvelope_guards(t *testing.T) {
 	}
 
 	// empty sink type → terminal error (line 129-131)
-	err = RunExportEnvelope(ExportEnvelopeRequest{
+	_, err = RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:      context.Background(),
 		Registry: NewRegistry(),
 		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{},
@@ -461,7 +461,7 @@ func TestRunExportEnvelope_acquireBackendFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = RunExportEnvelope(ExportEnvelopeRequest{
+	_, err = RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Registry:      NewRegistry(),
 		SinkNamespace: "team-a",
@@ -484,7 +484,7 @@ func TestRunExportEnvelope_invalidEnvelopeItems(t *testing.T) {
 	stub := &stubBackend{caps: cap.SnapshotStore()}
 	reg := mustStubEnvelopeRegistry(t, stub)
 
-	err := RunExportEnvelope(ExportEnvelopeRequest{
+	_, err := RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Registry:      reg,
 		SinkNamespace: "team-a",
@@ -524,7 +524,7 @@ func TestRunExportEnvelope_relationalRemashalsNullItemsPreservingMeta(t *testing
 		"items":null
 	}`)
 
-	err := RunExportEnvelope(ExportEnvelopeRequest{
+	_, err := RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Registry:      reg,
 		SinkNamespace: "team-a",
@@ -580,7 +580,7 @@ func TestRunExportEnvelope_skipsOversizedNonObjectStore(t *testing.T) {
 			len(envelope), export.SpillMandatoryBytes)
 	}
 
-	err = RunExportEnvelope(ExportEnvelopeRequest{
+	_, err = RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Registry:      reg,
 		SinkNamespace: "team-a",
@@ -619,7 +619,7 @@ func TestRunExportEnvelope_resolveLayoutFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = RunExportEnvelope(ExportEnvelopeRequest{
+	_, err = RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Registry:      reg,
 		SinkNamespace: "team-a",
@@ -667,7 +667,7 @@ func TestRunExportEnvelope_voidCloserReleasedWhenPoolDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = RunExportEnvelope(ExportEnvelopeRequest{
+	_, err = RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Registry:      reg,
 		SinkNamespace: "team-a",

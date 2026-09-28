@@ -44,6 +44,7 @@ func cleanupSinkExports(
 	clusterScoped bool,
 	objectPath string,
 	generation int64,
+	lastExportedPaths map[string][]string,
 ) (SinkCleanupReport, error) {
 	report := SinkCleanupReport{}
 	if registry == nil || len(bindings) == 0 {
@@ -79,15 +80,16 @@ func cleanupSinkExports(
 		}
 
 		outcome, cerr := sink.RunCleanupExport(sink.CleanupExportRequest{
-			Ctx:           ctx,
-			Client:        c,
-			Registry:      registry,
-			SinkNamespace: sink.SinkNamespaceForResolved(resolved, sinkNamespace),
-			SinkName:      binding.Name,
-			SinkUID:       resolved.UID,
-			SinkSpec:      resolved.Spec,
-			ObjectPath:    objectPath,
-			Generation:    generation,
+			Ctx:               ctx,
+			Client:            c,
+			Registry:          registry,
+			SinkNamespace:     sink.SinkNamespaceForResolved(resolved, sinkNamespace),
+			SinkName:          binding.Name,
+			SinkUID:           resolved.UID,
+			SinkSpec:          resolved.Spec,
+			ObjectPath:        objectPath,
+			Generation:        generation,
+			LastExportedPaths: lastExportedPaths[sinkExportKey(binding)],
 		})
 		if cerr != nil {
 			errs = append(errs, cerr)
@@ -104,6 +106,22 @@ func cleanupSinkExports(
 	}
 
 	return report, errors.Join(errs...)
+}
+
+// recordedExportPathsBySink indexes the deleting inventory's recorded
+// lastExportPaths by sink export key ("<family>/<name>") so the cleanup path
+// can consult what the last successful export actually wrote (K-28 evidence).
+func recordedExportPathsBySink(
+	exports []kollectdevv1alpha1.InventorySinkExportStatus,
+) map[string][]string {
+	out := make(map[string][]string, len(exports))
+	for i := range exports {
+		if paths := exports[i].LastExportPaths; len(paths) > 0 {
+			out[exports[i].Name] = paths
+		}
+	}
+
+	return out
 }
 
 // recordCleanupAnnouncements turns a cleanup report's loud outcomes into Warning

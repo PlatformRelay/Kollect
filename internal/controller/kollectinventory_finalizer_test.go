@@ -516,9 +516,10 @@ func TestKollectInventoryReconciler_tombstoneCleanupDeletesExportedObjects(t *te
 	}
 
 	sinkObj, inv := deletingInventoryWithSnapshotSink("git-demo")
-	// Explicit document mode: the silent tombstone path (with layout.mode unset,
-	// an auto-upgraded per-resource tree cannot be ruled out and cleanup must
-	// announce retention — see implicitTreeUpgradeAnnouncesRetention).
+	// Explicit document mode with nothing recorded: a clean tombstone. (The
+	// auto-upgraded-tree counterpart that announces retention is
+	// implicitTreeUpgradeAnnouncesRetention — announced on the recorded
+	// per-resource paths, not on the unset layout.mode alone.)
 	sinkObj.Spec.Layout = &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModeDocument}
 
 	cl := fake.NewClientBuilder().
@@ -640,9 +641,11 @@ func TestKollectInventoryReconciler_retentionBackendAnnouncesAndCompletes(t *tes
 	}
 }
 
-// K-28: with layout.mode unset, a git export may have auto-upgraded to the
-// per-resource tree and cleanup cannot rule it out from the deleting side;
-// retraction must be announced even when every candidate path was deleted.
+// K-28: with layout.mode unset, an auto-upgraded per-resource tree writes files
+// no document-side candidate addresses. The recorded lastExportPaths in the
+// inventory status make that shape visible at deletion time, so retention is
+// announced exactly when the evidence shows tree-shaped files — not on every
+// default-sink deletion (the recorded document case below is silent).
 func TestKollectInventoryReconciler_implicitTreeUpgradeAnnouncesRetention(t *testing.T) {
 	t.Parallel()
 
@@ -655,6 +658,15 @@ func TestKollectInventoryReconciler_implicitTreeUpgradeAnnouncesRetention(t *tes
 	}
 
 	sinkObj, inv := deletingInventoryWithSnapshotSink("git-demo")
+	// The last successful export auto-upgraded to the per-resource tree: the
+	// status records the per-resource files the cleanup candidates cannot
+	// address.
+	inv.Status = kollectdevv1alpha1.KollectInventoryStatus{
+		SinkExports: []kollectdevv1alpha1.InventorySinkExportStatus{{
+			Name:            kollectdevv1alpha1.SinkFamilySnapshot + "/git-demo",
+			LastExportPaths: []string{"resources/apps/core-1.yaml", "resources/apps/core-2.yaml"},
+		}},
+	}
 
 	cl := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -699,7 +711,76 @@ func TestKollectInventoryReconciler_implicitTreeUpgradeAnnouncesRetention(t *tes
 			t.Fatalf("event = %q, want reason %q", ev, reasonCleanupRetained)
 		}
 	default:
-		t.Fatalf("expected %s warning event for an auto-upgraded tree export", reasonCleanupRetained)
+		t.Fatalf("expected %s warning event for a recorded auto-upgraded tree export", reasonCleanupRetained)
+	}
+}
+
+// K-28 follow-up false-positive regression: a default git sink (no explicit
+// layout.mode) whose status records the plain document the last export wrote,
+// with the deletion retracting every candidate, must NOT announce
+// CleanupRetained — the recorded document is addressed and nothing tree-shaped
+// was ever exported. The pre-fix decision announced retention on every such
+// deletion because the implicit-tree heuristic could not be ruled out.
+func TestKollectInventoryReconciler_defaultGitSinkRecordedDocumentIsClean(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme corev1: %v", err)
+	}
+
+	sinkObj, inv := deletingInventoryWithSnapshotSink("git-demo")
+	inv.Status = kollectdevv1alpha1.KollectInventoryStatus{
+		SinkExports: []kollectdevv1alpha1.InventorySinkExportStatus{{
+			Name:            kollectdevv1alpha1.SinkFamilySnapshot + "/git-demo",
+			LastExportPaths: []string{"inventory/default/team-inventory.yaml"},
+		}},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(sinkObj, inv).
+		WithStatusSubresource(sinkObj, inv).
+		Build()
+
+	cleaner := &tombstoneBackend{}
+	reg := sink.NewRegistry()
+	reg.Register(kollectdevv1alpha1.SnapshotSinkTypeGit, func(
+		_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext,
+	) (sink.Backend, error) {
+		return cleaner, nil
+	})
+
+	recorder := record.NewFakeRecorder(10)
+	rec := &KollectInventoryReconciler{
+		Client:   cl,
+		Scheme:   scheme,
+		Store:    collect.NewStore(),
+		Registry: reg,
+		Recorder: recorder,
+	}
+
+	if _, err := rec.Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "team-inventory", Namespace: "default"},
+	}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	select {
+	case ev := <-recorder.Events:
+		t.Fatalf("unexpected event on a fully retracted recorded document export: %q", ev)
+	default:
+	}
+
+	var got kollectdevv1alpha1.KollectInventory
+	if err := cl.Get(context.Background(),
+		types.NamespacedName{Name: "team-inventory", Namespace: "default"}, &got); err == nil {
+		if containsFinalizer(got.Finalizers, inventoryCleanupFinalizer) {
+			t.Fatalf("finalizer still present after tombstone cleanup: %v", got.Finalizers)
+		}
 	}
 }
 

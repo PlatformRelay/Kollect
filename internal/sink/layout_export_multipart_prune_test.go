@@ -112,7 +112,7 @@ func exportPart(
 		t.Fatalf("marshal envelope: %v", err)
 	}
 
-	return RunExportEnvelope(ExportEnvelopeRequest{
+	_, err = RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Registry:      NewRegistry(),
 		SinkNamespace: "default",
@@ -122,6 +122,8 @@ func exportPart(
 		SinkSpec:      spec,
 		PrunePlan:     plan,
 	})
+
+	return err
 }
 
 func withGitCLI(t *testing.T) {

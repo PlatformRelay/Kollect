@@ -82,9 +82,11 @@ Warning events carry stable **reason** enums (not free-form types). Common reaso
 the inventory finalized — deletion proceeds, but objects that sink had exported may remain in its
 backend), `CleanupRetained` (the backend cannot retract previously exported data — event streams —
 or a full retraction cannot be proven: git layout-tree files that can interleave with other
-inventories' trees, an export auto-upgraded to the per-resource tree, or a `pathTemplate` with
+inventories' trees, an export auto-upgraded to the per-resource tree (visible from the recorded
+`lastExportPaths` in the inventory's `sinkExports` status), or a `pathTemplate` with
 `{generation}` leaving past-generation objects on an object store; deletion proceeds and the
-event names the retained identity), `CleanupForced` (`kollect.dev/force-cleanup` dropped the finalizer
+event names the retained identity — a default git/gitlab sink whose recorded export was the plain
+document and whose candidates were all retracted stays silent), `CleanupForced` (`kollect.dev/force-cleanup` dropped the finalizer
 without backend contact), `CleanupTerminal` (see the `Degraded` reasons table above — this one does
 block deletion).
 
@@ -203,7 +205,7 @@ Family CRDs: **`KollectSnapshotSink`** (git/gitlab/s3/gcs), **`KollectDatabaseSi
 | `SinkReachable=False`, `SinkNotFound` | Wrong sink name or cross-namespace ref in `*SinkRefs` | Inventory message; `kubectl get kollect*sink -n <inv-ns>` | Fix ref name; create sink in inventory namespace | — |
 | `SinkReachable=False`, `SinkUnreachable` | Backend down despite CR present; bad DSN or TLS failure | Sink `ConnectionVerified`; probe annotation | Fix network/credentials first | — |
 | Inventory / namespace stuck `Terminating` | Sink cleanup failed terminally during deletion; finalizer retained | Events reason `CleanupTerminal` on the inventory; `increase(kollect_cleanup_terminal_total[1h]) > 0`; Degraded reason `CleanupTerminal` | Fix the sink backend and let the next reconcile finish cleanup — the terminal wedge re-checks every 5 minutes, so a Secret-only credential fix (no watch fires on Secret edits) clears within minutes; or accept the exported objects and set `kollect.dev/force-cleanup: "true"` on the deleting object to drop the finalizer | — |
-| Deletion left files in git/bucket after inventory removal | Sink CR deleted before the inventory (`CleanupSinkGone` event), backend cannot retract or a full retraction cannot be proven (`CleanupRetained`: event streams, per-resource layout trees, `{generation}` templates, gitlab `merge_request` mode whose deletion MR was never merged), the sink `pathTemplate`/`format` changed after the last export (objects on the old path are no longer addressable from the inventory — consciously accepted limit, follow-up tracked to persist the last-exported path in status), or `force-cleanup` was used | Warning events on the deleting inventory name the retained identity | Retract manually in the backend (delete `inventory/<ns>/<name>.*` and `.part-*` siblings, plus any path the old sink config rendered); a healthy deletion of a `document`-mode snapshot/object-store sink removes these objects automatically | — |
+| Deletion left files in git/bucket after inventory removal | Sink CR deleted before the inventory (`CleanupSinkGone` event), backend cannot retract or a full retraction cannot be proven (`CleanupRetained`: event streams, per-resource layout trees, `{generation}` templates, gitlab `merge_request` mode whose deletion MR was never merged), the sink `pathTemplate`/`format` changed after the last export (objects on the old path are no longer addressable from the inventory — announced via the recorded `lastExportPaths` in `sinkExports` status, which the cleanup consults as retraction evidence; exports recorded before that state existed fall back to the silent-clean limit), or `force-cleanup` was used | Warning events on the deleting inventory name the retained identity | Retract manually in the backend (delete `inventory/<ns>/<name>.*` and `.part-*` siblings, plus any path the old sink config rendered); a healthy deletion of a `document`-mode snapshot/object-store sink removes these objects automatically | — |
 | `Synced=False` with nothing else obvious | A prior export attempt failed | Manager logs plus the `Degraded` condition on the inventory | Fix the reported sink error; the next cycle re-exports | — |
 
 ### Export — debounce (not a failure)

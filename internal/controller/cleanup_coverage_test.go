@@ -40,6 +40,7 @@ func TestCleanupSinkExports_ResolutionErrorIsCollected(t *testing.T) {
 		false,
 		"inventory/team-a/inv.json",
 		1,
+		nil,
 	)
 	if err == nil {
 		t.Fatal("unknown sink family must surface as an error")

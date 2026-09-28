@@ -89,5 +89,6 @@ func (r *KollectClusterInventoryReconciler) cleanupClusterInventorySinks(
 		true,
 		fmt.Sprintf("inventory/cluster/%s.json", inv.Name),
 		inv.Generation,
+		recordedExportPathsBySink(inv.Status.SinkExports),
 	)
 }

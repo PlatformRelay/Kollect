@@ -98,6 +98,7 @@ func (r *KollectInventoryReconciler) cleanupInventoryDeletion(
 		false,
 		fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name),
 		inv.Generation,
+		recordedExportPathsBySink(inv.Status.SinkExports),
 	)
 }
 

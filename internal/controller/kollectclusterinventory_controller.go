@@ -257,6 +257,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		exportKey := sinkExportKey(binding)
 		resolved, err := loadClusterInventorySink(ctx, r.Client, sinkNS, binding)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
+		carryOverLastExportPaths(status, inv.Status.SinkExports, exportKey)
 		status.Namespace = sinkBindingNamespace(binding, sinkNS)
 		if err != nil {
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
@@ -299,9 +300,11 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		if len(parts) > 1 {
 			prunePlan = sink.NewPrunePlan()
 		}
+		var writtenPaths []string
 		for _, part := range parts {
 			partPath := export.PartitionObjectPath(objectPath, part.Index, part.Total)
-			exportErr = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
+			var partWritten []string
+			partWritten, exportErr = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
 				Ctx:           ctx,
 				Client:        r.Client,
 				Registry:      r.Registry,
@@ -316,6 +319,8 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 			if exportErr != nil {
 				break
 			}
+
+			writtenPaths = append(writtenPaths, partWritten...)
 		}
 		if exportErr != nil {
 			log.Error(exportErr, "cluster export failed", "sink", exportKey)
@@ -328,6 +333,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		exportTime := metav1.Now()
 		status.LastExportTime = &exportTime
 		status.LastChecksum = checksum
+		status.LastExportPaths = recordExportPaths(writtenPaths, status.LastExportPaths)
 		setSinkExportSynced(status, inv.Generation, true, "Exported", "export completed")
 		outcome.ExportedCount++
 		outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, validation.RequeueAfterForZeroInterval(interval))

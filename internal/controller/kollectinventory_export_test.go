@@ -147,6 +147,94 @@ func TestKollectInventoryReconciler_partitionsSnapshotExports(t *testing.T) {
 	}
 }
 
+// K-28 follow-up: a successful git sink export records the paths it actually
+// wrote in the inventory's sinkExports status, so the deletion-time cleanup can
+// tell what was exported instead of guessing from the sink spec.
+func TestKollectInventoryReconciler_recordsLastExportPaths(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	store.Upsert(collect.Item{
+		TargetNamespace: "default",
+		TargetName:      "nginx-deployments",
+		UID:             "uid-nginx",
+		Namespace:       "default",
+		Name:            "nginx",
+		Version:         "v1",
+		Kind:            "Deployment",
+		Attributes:      map[string]any{"image": "nginx:1.27-alpine"},
+	})
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme corev1: %v", err)
+	}
+
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "git-demo", Namespace: "default"},
+		Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type:             kollectdevv1alpha1.SnapshotSinkTypeGit,
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/inventory.git"},
+		},
+	}
+
+	inv := &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "team-inventory", Namespace: "default"},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("git-demo"),
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(sinkObj, inv).
+		WithStatusSubresource(sinkObj, inv).
+		Build()
+
+	recorder := &recordingBackend{}
+	reg := sink.NewRegistry()
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext) (sink.Backend, error) {
+		return recorder, nil
+	})
+
+	rec := &KollectInventoryReconciler{
+		Client:   cl,
+		Scheme:   scheme,
+		Store:    store,
+		Registry: reg,
+	}
+
+	if _, err := rec.Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "team-inventory", Namespace: "default"},
+	}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectInventory
+	if err := cl.Get(context.Background(),
+		types.NamespacedName{Name: "team-inventory", Namespace: "default"}, &got); err != nil {
+		t.Fatalf("Get inventory: %v", err)
+	}
+	if len(got.Status.SinkExports) != 1 {
+		t.Fatalf("SinkExports = %d, want 1", len(got.Status.SinkExports))
+	}
+
+	// A default git sink serializes to YAML: the single-part export writes the
+	// resolved document path, and that exact path is what the status records —
+	// the identity the cleanup candidates must address.
+	wantPaths := []string{"inventory/default/team-inventory.yaml"}
+	gotPaths := got.Status.SinkExports[0].LastExportPaths
+	if len(gotPaths) != len(wantPaths) || gotPaths[0] != wantPaths[0] {
+		t.Fatalf("LastExportPaths = %v, want %v", gotPaths, wantPaths)
+	}
+	if len(recorder.paths) != 1 || recorder.paths[0] != wantPaths[0] {
+		t.Fatalf("backend wrote %v, want the recorded path %v", recorder.paths, wantPaths)
+	}
+}
+
 func TestKollectInventoryReconciler_exportsDeploymentToSink(t *testing.T) {
 	t.Parallel()
 

@@ -308,6 +308,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		exportKey := sinkExportKey(binding)
 		resolved, resolvedErr := loadResolvedSink(ctx, r.Client, inv.Namespace, binding)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
+		carryOverLastExportPaths(status, inv.Status.SinkExports, exportKey)
 		if resolvedErr != nil {
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, resolvedErr.Error())
 			outcome.addSinkFailure(exportKey, resolvedErr)
@@ -380,9 +381,11 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			if len(job.parts) > 1 {
 				prunePlan = sink.NewPrunePlan()
 			}
+			var writtenPaths []string
 			for _, part := range job.parts {
 				partPath := export.PartitionObjectPath(objectPath, part.Index, part.Total)
-				exportErr = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
+				var partWritten []string
+				partWritten, exportErr = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
 					Ctx:           ctx,
 					Client:        r.Client,
 					Registry:      r.Registry,
@@ -397,6 +400,8 @@ func (r *KollectInventoryReconciler) exportToSinks(
 				if exportErr != nil {
 					break
 				}
+
+				writtenPaths = append(writtenPaths, partWritten...)
 			}
 
 			mu.Lock()
@@ -415,6 +420,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			exportTime := metav1.Now()
 			job.status.LastExportTime = &exportTime
 			job.status.LastChecksum = sinkChecksum
+			job.status.LastExportPaths = recordExportPaths(writtenPaths, job.status.LastExportPaths)
 			setSinkExportSynced(job.status, inv.Generation, true, "Exported", "export completed")
 			outcome.ExportedCount++
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter,
@@ -449,6 +455,7 @@ func (r *KollectInventoryReconciler) previewAllSinksDebounced(
 		ref := binding.Ref
 		exportKey := sinkExportKey(binding)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
+		carryOverLastExportPaths(status, inv.Status.SinkExports, exportKey)
 		interval := defaultInterval
 		if resolved, err := loadResolvedSink(ctx, r.Client, inv.Namespace, binding); err == nil {
 			var sinkInterval *metav1.Duration

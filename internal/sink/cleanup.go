@@ -62,6 +62,16 @@ type CleanupExportRequest struct {
 	SinkSpec      kollectdevv1alpha1.KollectSinkSpec
 	ObjectPath    string // canonical inventory/<ns>/<name>.json of the deleting inventory
 	Generation    int64
+
+	// LastExportedPaths carries the sink-relative paths the deleting
+	// inventory's status recorded for the last successful export to this sink
+	// (inventorySinkExports status). They are the retraction evidence: a
+	// recorded path the cleanup attempt cannot address — the sink's
+	// pathTemplate or serialization format changed after that export, or the
+	// export was tree-shaped — announces retention instead of a silent
+	// false-clean tombstone. Empty when nothing was ever exported (or recorded),
+	// which cannot itself prove retention.
+	LastExportedPaths []string
 }
 
 // CleanupExportOutcome classifies what happened to previously exported data.
@@ -120,8 +130,10 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 		}
 
 		// RunExportEnvelope already classifies the error and increments
-		// kollect_sink_errors_total; do not count the failure twice here.
-		if rerr := RunExportEnvelope(ExportEnvelopeRequest{
+		// kollect_sink_errors_total; do not count the failure twice here. The
+		// empty export rewrites the tombstone path; its written path is not
+		// recorded — the object is being deleted.
+		if _, rerr := RunExportEnvelope(ExportEnvelopeRequest{
 			Ctx:           req.Ctx,
 			Client:        req.Client,
 			Registry:      req.Registry,
@@ -154,16 +166,6 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 			Generation:         req.Generation,
 		}).IsDocument()
 
-	// With layout.mode unset, an export whose items all carry one
-	// embedded-object attribute auto-upgrades to the per-resource tree with no
-	// spec signal (layout_export.go inferResourceLayoutHints), and the tree is
-	// NOT inferable from the deleted set at cleanup time: a single-part
-	// auto-upgrade leaves no document, manifest or index to miss, and a document
-	// from a pre-upgrade generation is indistinguishable from a plain document
-	// export. Announce instead of claiming a tombstone we cannot prove; setting
-	// spec.layout.mode: document asserts document mode and silences this.
-	implicitTreePossible := isGitLayoutFamily(req.SinkSpec.Type) && !req.SinkSpec.Layout.ModeExplicit()
-
 	// A {generation} path template leaves one object per past generation: git
 	// document mode never prunes (layout.go Prune = mode != document) and object
 	// stores have no prune at all; cleanup only addresses the current path.
@@ -171,7 +173,8 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 	staleGenerations := strings.Contains(req.SinkSpec.PathTemplate, "{generation}") &&
 		!objectstore.IsParquetFormat(req.SinkSpec)
 
-	if _, derr := cleaner.DeleteExport(req.Ctx, paths); derr != nil {
+	deleted, derr := cleaner.DeleteExport(req.Ctx, paths)
+	if derr != nil {
 		// Backends classify their own transport/config errors (git engines call
 		// ClassifyExportError); anything unclassified stays transient so cleanup
 		// retries instead of wedging the deletion.
@@ -188,18 +191,54 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 		req.SinkSpec.GitLab != nil && req.SinkSpec.GitLab.MergeRequest != nil &&
 		req.SinkSpec.GitLab.MergeRequest.Mode == string(gitlab.MergeRequestModeBranchMR)
 
-	if treeMode || implicitTreePossible || staleGenerations || mrMediated {
-		// Sidecars were removed, but per-resource layout files (explicit tree
-		// mode, or an auto-upgrade that cannot be ruled out above) can interleave
-		// with other inventories' trees under shared templates, past-generation
-		// objects on template-addressed sinks were never enumerated, and a
-		// merge-request retraction awaits a human merge — never claim a retraction
-		// we cannot prove (K-28 must not repeat the false "cleanup success over
-		// retained data" in a new place).
+	// Retention is announced only on evidence (K-28 must not train operators to
+	// ignore the warning on the common fully-retracted deletion). Addressed
+	// paths are those the attempt enumerated (candidates) or actually removed
+	// (the deleted report: part siblings the matchers swept beyond the exact
+	// candidates). A recorded exported path outside that set — the sink's
+	// pathTemplate or serialization format changed after the last export, or
+	// the export wrote tree-shaped per-resource files no document-side candidate
+	// addresses — is real retention. With layout.mode unset an export whose
+	// items all carry one embedded-object attribute auto-upgrades to the
+	// per-resource tree with zero spec signal (layout_export.go
+	// inferResourceLayoutHints); the recorded paths are what make that case
+	// visible without announcing on every default-sink deletion.
+	//
+	// treeMode/staleGenerations/mrMediated stay structural: recorded paths only
+	// describe the LAST export, so past-generation objects, an explicit
+	// non-document layout (per-resource/split) whose files interleave with other
+	// inventories' trees under shared templates, and an unmerged deletion MR are
+	// announced regardless of what was recorded.
+	if treeMode || staleGenerations || mrMediated ||
+		recordedExportPathsUnaddressed(req.LastExportedPaths, paths, deleted) {
 		return CleanupRetained, nil
 	}
 
 	return CleanupCleaned, nil
+}
+
+// recordedExportPathsUnaddressed reports whether any recorded exported path
+// falls outside the paths the cleanup attempt enumerated (candidates) or
+// actually removed (the backend's deleted report). Such a path is real
+// retention evidence: the sink's pathTemplate or serialization format changed
+// after that export, or the export wrote tree-shaped files no document-side
+// candidate addresses.
+func recordedExportPathsUnaddressed(recorded, candidates, deleted []string) bool {
+	addressed := make(map[string]struct{}, len(candidates)+len(deleted))
+	for _, p := range candidates {
+		addressed[p] = struct{}{}
+	}
+	for _, p := range deleted {
+		addressed[p] = struct{}{}
+	}
+
+	for _, p := range recorded {
+		if _, ok := addressed[p]; !ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 // cleanupCandidatePaths mirrors how RunExportEnvelope derives the export path, so

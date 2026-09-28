@@ -136,7 +136,8 @@ Walkthrough: [examples/cluster-rollup.md](../examples/cluster-rollup.md).
 ### Per-sink status (`status.sinkExports[]`)
 
 Same shape as [KollectInventory](kollectinventory.md#per-sink-status-statussinkexports): per-ref
-`lastExportTime`, `lastChecksum`, and `Synced` conditions. Interval precedence matches namespaced
+`lastExportTime`, `lastChecksum`, `lastExportPaths` (the cleanup's retraction evidence), and
+`Synced` conditions. Interval precedence matches namespaced
 inventory ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 
 ### Common `Degraded` reasons
