@@ -6,10 +6,10 @@
     "lint:markdown": "markdownlint-cli2"
   },
   "devDependencies": {
-    "markdownlint-cli2": "0.23.2"
+    "markdownlint-cli2": "0.23.3"
   },
   "overrides": {
     "js-yaml": "5.4.2",
-    "smol-toml": "1.8.0"
+    "smol-toml": "1.9.0"
   }
 }
