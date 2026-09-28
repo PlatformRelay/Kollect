@@ -43,7 +43,7 @@ func TestRunExportEnvelope_SpillsOversizedPayloadToMinIO(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	container, err := minio.Run(ctx, "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
+	container, err := minio.Run(ctx, "ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z")
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
 			t.Skipf("docker not available: %v", err)
