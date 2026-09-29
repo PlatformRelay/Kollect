@@ -32,12 +32,25 @@ func TestKollectInventoryReconciler_setInventoryDegraded(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inv).WithStatusSubresource(inv).Build()
 	r := &KollectInventoryReconciler{Client: cl}
 
+	apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+		Type:               conditionReady,
+		Status:             metav1.ConditionTrue,
+		Reason:             "Exported",
+		Message:            "exported",
+		ObservedGeneration: inv.Generation,
+		LastTransitionTime: metav1.Now(),
+	})
+
 	result, err := r.setInventoryDegraded(context.Background(), inv, 5, "SpillRequired", "needs object store")
 	if err != nil {
 		t.Fatalf("setInventoryDegraded: %v", err)
 	}
 	if result.RequeueAfter == 0 {
 		t.Fatal("expected debounce requeue")
+	}
+
+	if ready := apimeta.FindStatusCondition(inv.Status.Conditions, conditionReady); ready != nil {
+		t.Fatalf("ready condition = %#v, want removed", ready)
 	}
 
 	cond := apimeta.FindStatusCondition(inv.Status.Conditions, conditionDegraded)
