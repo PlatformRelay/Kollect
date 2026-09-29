@@ -243,10 +243,12 @@ func EvictBackendPoolByUID(uid types.UID) {
 
 func evictPoolKey(key poolKey) {
 	globalBackendPool.mu.Lock()
-	defer globalBackendPool.mu.Unlock()
-
-	if entry, ok := globalBackendPool.entries[key]; ok {
-		closeBackendLogged(entry.backend, "explicit eviction")
+	entry, ok := globalBackendPool.entries[key]
+	if ok {
 		delete(globalBackendPool.entries, key)
+	}
+	globalBackendPool.mu.Unlock()
+	if ok {
+		closeBackendLogged(entry.backend, "explicit eviction")
 	}
 }
