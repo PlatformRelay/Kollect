@@ -562,6 +562,27 @@ func (r *KollectInventoryReconciler) updateStatus(
 				ObservedGeneration: inv.Generation,
 				LastTransitionTime: metav1.Now(),
 			})
+		case failed > 0 && outcome.ExportedCount == 0:
+			message := "export failed"
+			if outcome.ExportErr != nil {
+				message = outcome.ExportErr.Error()
+			}
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               conditionDegraded,
+				Status:             metav1.ConditionTrue,
+				Reason:             reasonExportFailed,
+				Message:            message,
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               conditionReady,
+				Status:             metav1.ConditionFalse,
+				Reason:             reasonExportFailed,
+				Message:            message,
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
 		}
 	}
 
@@ -587,6 +608,7 @@ func (r *KollectInventoryReconciler) setInventoryDegraded(
 	itemCount int,
 	reason, message string,
 ) (ctrl.Result, error) {
+	apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionReady)
 	inv.Status.ItemCount = itemCount
 	inv.Status.ObservedGeneration = inv.Generation
 	setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, message)
