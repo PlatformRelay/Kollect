@@ -118,8 +118,14 @@ func acquireBackend(
 	key := poolKeyForSink(sinkUID, sinkNamespace, sinkName)
 	now := timeNow()
 
+	// Closed after Unlock: Pool.Close must not run while globalBackendPool.mu is held.
+	var stale []Backend
+	defer func() {
+		closeBackendsLogged(stale, "ttl expired")
+	}()
+
 	globalBackendPool.mu.Lock()
-	pruneStaleEntriesLocked(now)
+	stale = pruneStaleEntriesLocked(now)
 	if entry, ok := globalBackendPool.entries[key]; ok && entry.specHash == specHash {
 		entry.lastUsed = now
 		backend := entry.backend
@@ -134,43 +140,76 @@ func acquireBackend(
 		return nil, func() {}, err
 	}
 
-	backend, err := reg.NewBackend(spec, buildCtx)
+	built, err := reg.NewBackend(spec, buildCtx)
 	if err != nil {
 		return nil, func() {}, err
 	}
 
-	globalBackendPool.mu.Lock()
-	if old, ok := globalBackendPool.entries[key]; ok && old.specHash != specHash {
-		closeBackendLogged(old.backend, "spec hash change")
+	backend, discard, reason := storePooledBackend(key, specHash, now, built)
+	if discard != nil {
+		closeBackendLogged(discard, reason)
 	}
-
-	globalBackendPool.entries[key] = &pooledEntry{
-		backend:  backend,
-		specHash: specHash,
-		lastUsed: now,
-	}
-	globalBackendPool.mu.Unlock()
 
 	return backend, func() {}, nil
 }
 
-// pruneStaleEntriesLocked evicts pooled backends that haven't been acquired
-// in backendPoolTTL. Callers must hold globalBackendPool.mu. Triggered
-// opportunistically on every acquireBackend call (AR-11) so the pool doesn't
-// grow unbounded for long-lived controller processes as sinks churn —
-// entries for deleted/renamed sinks stop being acquired and age out the next
-// time any other key is acquired.
-func pruneStaleEntriesLocked(now time.Time) {
+// storePooledBackend saves built under key, or keeps the pooled backend when
+// specHash already matches. It unlocks before returning so the caller can Close
+// discard without holding globalBackendPool.mu.
+func storePooledBackend(key poolKey, specHash string, now time.Time, built Backend) (Backend, Backend, string) {
+	globalBackendPool.mu.Lock()
+	defer globalBackendPool.mu.Unlock()
+
+	old, ok := globalBackendPool.entries[key]
+	if !ok {
+		globalBackendPool.entries[key] = &pooledEntry{
+			backend:  built,
+			specHash: specHash,
+			lastUsed: now,
+		}
+
+		return built, nil, ""
+	}
+
+	if old.specHash == specHash {
+		old.lastUsed = now
+
+		return old.backend, built, "duplicate pool backend"
+	}
+
+	globalBackendPool.entries[key] = &pooledEntry{
+		backend:  built,
+		specHash: specHash,
+		lastUsed: now,
+	}
+
+	return built, old.backend, "spec hash change"
+}
+
+func closeBackendsLogged(backends []Backend, reason string) {
+	for _, backend := range backends {
+		closeBackendLogged(backend, reason)
+	}
+}
+
+// pruneStaleEntriesLocked removes entries idle longer than backendPoolTTL and
+// returns their backends. Caller holds globalBackendPool.mu and must Close
+// those backends only after Unlock; Pool.Close under the mutex stalls every
+// other acquire. Called on every acquire so deleted sinks age out (AR-11).
+func pruneStaleEntriesLocked(now time.Time) []Backend {
+	stale := make([]Backend, 0, len(globalBackendPool.entries))
 	for k, entry := range globalBackendPool.entries {
 		if entry == nil {
 			delete(globalBackendPool.entries, k)
 			continue
 		}
 		if now.Sub(entry.lastUsed) > backendPoolTTL {
-			closeBackendLogged(entry.backend, "ttl expired")
+			stale = append(stale, entry.backend)
 			delete(globalBackendPool.entries, k)
 		}
 	}
+
+	return stale
 }
 
 func specFingerprint(spec kollectdevv1alpha1.KollectSinkSpec) (string, error) {

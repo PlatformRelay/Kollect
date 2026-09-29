@@ -5,6 +5,8 @@ package sink
 
 import (
 	"context"
+	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,6 +26,55 @@ func (c *countingBackend) Type() string               { return "counting" }
 func (c *countingBackend) Capabilities() Capabilities { return SnapshotStoreCapabilities() }
 func (c *countingBackend) Export(context.Context, []byte, string) error {
 	return nil
+}
+
+type closeCountBackend struct {
+	closes atomic.Int32
+}
+
+func (c *closeCountBackend) Type() string               { return "close-count" }
+func (c *closeCountBackend) Capabilities() Capabilities { return SnapshotStoreCapabilities() }
+func (c *closeCountBackend) Export(context.Context, []byte, string) error {
+	return nil
+}
+func (c *closeCountBackend) Close() error {
+	c.closes.Add(1)
+
+	return nil
+}
+
+type lockProbeBackend struct {
+	closeErr error
+	done     chan struct{}
+}
+
+func (b *lockProbeBackend) Type() string               { return "lock-probe" }
+func (b *lockProbeBackend) Capabilities() Capabilities { return SnapshotStoreCapabilities() }
+func (b *lockProbeBackend) Export(context.Context, []byte, string) error {
+	return nil
+}
+
+func (b *lockProbeBackend) Close() error {
+	done := make(chan struct{})
+	b.done = done
+
+	go func() {
+		globalBackendPool.mu.Lock()
+		globalBackendPool.mu.Unlock()
+		close(done)
+	}()
+
+	timer := time.NewTimer(500 * time.Millisecond)
+	defer timer.Stop()
+
+	select {
+	case <-done:
+		return nil
+	case <-timer.C:
+		b.closeErr = errors.New("close blocked on globalBackendPool.mu")
+
+		return b.closeErr
+	}
 }
 
 // AR-11: globalBackendPool is a process-lifetime map keyed by sink
@@ -225,5 +276,190 @@ func TestAcquireBackend_disabledPoolCreatesNewEachTime(t *testing.T) {
 
 	if b1 == b2 {
 		t.Fatal("disabled pool must not reuse backend instances")
+	}
+}
+
+func TestAcquireBackend_sameSpecRaceClosesDuplicate(t *testing.T) {
+	backendPoolDisabled.Store(false)
+	t.Cleanup(func() { ResetBackendPoolForTest() })
+
+	scheme := runtime.NewScheme()
+	_ = kollectdevv1alpha1.AddToScheme(scheme)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "race-dup"}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	reg := NewRegistry()
+
+	var entered sync.WaitGroup
+	entered.Add(2)
+
+	var builtMu sync.Mutex
+	var built []*closeCountBackend
+
+	reg.Register("race-dup", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		b := &closeCountBackend{}
+
+		builtMu.Lock()
+		built = append(built, b)
+		builtMu.Unlock()
+
+		entered.Done()
+		entered.Wait()
+
+		return b, nil
+	})
+
+	ctx := context.Background()
+	const (
+		ns   = "team-a"
+		name = "race-sink"
+	)
+
+	var wg sync.WaitGroup
+	backends := make([]Backend, 2)
+	errs := make([]error, 2)
+	wg.Add(2)
+
+	for i := 0; i < 2; i++ {
+		go func(i int) {
+			defer wg.Done()
+
+			b, release, err := acquireBackend(ctx, cl, reg, ns, name, "", spec)
+			if release != nil {
+				release()
+			}
+
+			backends[i] = b
+			errs[i] = err
+		}(i)
+	}
+
+	finished := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(finished)
+	}()
+
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for both acquires")
+	}
+
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("acquire %d: %v", i, err)
+		}
+	}
+
+	builtMu.Lock()
+	builtCopy := append([]*closeCountBackend(nil), built...)
+	builtMu.Unlock()
+
+	closedN := 0
+	for _, b := range builtCopy {
+		closedN += int(b.closes.Load())
+	}
+
+	same := backends[0] != nil && backends[0] == backends[1]
+	if len(builtCopy) != 2 || !same || closedN != 1 {
+		t.Fatalf("same-spec race: built=%d same=%t closes=%d", len(builtCopy), same, closedN)
+	}
+
+	kept, ok := backends[0].(*closeCountBackend)
+	if !ok || kept.closes.Load() != 0 {
+		t.Fatal("pooled backend should be the unclosed winner")
+	}
+
+	globalBackendPool.mu.Lock()
+	entry := globalBackendPool.entries[poolKeyForSink("", ns, name)]
+	var pooled Backend
+	if entry != nil {
+		pooled = entry.backend
+	}
+	globalBackendPool.mu.Unlock()
+
+	if pooled != backends[0] {
+		t.Fatal("pool entry backend should be the backend returned to both callers")
+	}
+}
+
+func TestAcquireBackend_specChangeClosesOutsideLock(t *testing.T) {
+	backendPoolDisabled.Store(false)
+	t.Cleanup(func() { ResetBackendPoolForTest() })
+
+	scheme := runtime.NewScheme()
+	_ = kollectdevv1alpha1.AddToScheme(scheme)
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	reg := NewRegistry()
+
+	first := &lockProbeBackend{}
+	second := &closeCountBackend{}
+
+	reg.Register("lock-a", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return first, nil
+	})
+	reg.Register("lock-b", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return second, nil
+	})
+
+	ctx := context.Background()
+	const (
+		ns   = "team-a"
+		name = "lock-sink"
+	)
+
+	specA := kollectdevv1alpha1.KollectSinkSpec{Type: "lock-a"}
+	specB := kollectdevv1alpha1.KollectSinkSpec{Type: "lock-b"}
+
+	got1, release1, err := acquireBackend(ctx, cl, reg, ns, name, "", specA)
+	if err != nil {
+		t.Fatalf("first acquire: %v", err)
+	}
+	release1()
+
+	if got1 != first {
+		t.Fatal("first acquire returned an unexpected backend")
+	}
+
+	got2, release2, err := acquireBackend(ctx, cl, reg, ns, name, "", specB)
+	if err != nil {
+		t.Fatalf("second acquire: %v", err)
+	}
+	release2()
+
+	if got2 != second {
+		t.Fatal("second acquire returned an unexpected backend")
+	}
+
+	if first.done == nil {
+		t.Fatal("spec change did not Close the replaced backend")
+	}
+
+	select {
+	case <-first.done:
+	case <-time.After(time.Second):
+		t.Fatal("close probe did not finish")
+	}
+
+	if first.closeErr != nil {
+		t.Fatalf("Close: %v", first.closeErr)
+	}
+
+	if second.closes.Load() != 0 {
+		t.Fatal("replacement backend should stay open")
+	}
+
+	globalBackendPool.mu.Lock()
+	entry := globalBackendPool.entries[poolKeyForSink("", ns, name)]
+	var pooled Backend
+	if entry != nil {
+		pooled = entry.backend
+	}
+	globalBackendPool.mu.Unlock()
+
+	if pooled != second {
+		t.Fatal("pool should hold the replacement backend")
 	}
 }
