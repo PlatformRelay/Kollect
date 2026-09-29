@@ -463,3 +463,50 @@ func TestAcquireBackend_specChangeClosesOutsideLock(t *testing.T) {
 		t.Fatal("pool should hold the replacement backend")
 	}
 }
+
+func TestEvictBackendPool_closesOutsideLock(t *testing.T) {
+	backendPoolDisabled.Store(false)
+	t.Cleanup(func() { ResetBackendPoolForTest() })
+
+	scheme := runtime.NewScheme()
+	_ = kollectdevv1alpha1.AddToScheme(scheme)
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	reg := NewRegistry()
+	probed := &lockProbeBackend{}
+	reg.Register("lock-evict", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return probed, nil
+	})
+
+	ctx := context.Background()
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "lock-evict"}
+	if _, release, err := acquireBackend(ctx, cl, reg, "team-a", "evict-sink", "", spec); err != nil {
+		t.Fatalf("acquire: %v", err)
+	} else {
+		release()
+	}
+
+	EvictBackendPool("team-a", "evict-sink")
+
+	if probed.done == nil {
+		t.Fatal("evict did not Close the pooled backend")
+	}
+
+	select {
+	case <-probed.done:
+	case <-time.After(time.Second):
+		t.Fatal("evict close probe did not finish")
+	}
+
+	if probed.closeErr != nil {
+		t.Fatalf("Close: %v", probed.closeErr)
+	}
+
+	globalBackendPool.mu.Lock()
+	_, stillThere := globalBackendPool.entries[poolKeyForSink("", "team-a", "evict-sink")]
+	globalBackendPool.mu.Unlock()
+
+	if stillThere {
+		t.Fatal("evict should drop the pool entry")
+	}
+}
