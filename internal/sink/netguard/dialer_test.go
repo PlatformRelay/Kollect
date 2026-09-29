@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/netip"
 	"testing"
+	"time"
 )
 
 type fakeResolver struct {
@@ -30,6 +31,28 @@ func TestHTTPClientGuardsEveryTransportDialAndDisablesProxyResolution(t *testing
 	}
 	if transport.Proxy != nil {
 		t.Fatal("HTTP proxy could resolve redirect targets outside the guarded dialer")
+	}
+}
+
+func TestHTTPClientZeroTimeoutBoundsResponseHeaders(t *testing.T) {
+	t.Parallel()
+
+	client := HTTPClient(0)
+	if client.Timeout != 0 {
+		t.Fatalf("Timeout = %s, want 0", client.Timeout)
+	}
+	transport := client.Transport.(*http.Transport)
+	if transport.ResponseHeaderTimeout != 2*time.Minute {
+		t.Fatalf("ResponseHeaderTimeout = %s, want %s", transport.ResponseHeaderTimeout, 2*time.Minute)
+	}
+
+	timed := HTTPClient(2 * time.Minute)
+	if timed.Timeout != 2*time.Minute {
+		t.Fatalf("Timeout = %s, want %s", timed.Timeout, 2*time.Minute)
+	}
+	timedTransport := timed.Transport.(*http.Transport)
+	if timedTransport.ResponseHeaderTimeout != 0 {
+		t.Fatalf("ResponseHeaderTimeout = %s, want 0", timedTransport.ResponseHeaderTimeout)
 	}
 }
 

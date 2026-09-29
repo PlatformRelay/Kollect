@@ -42,6 +42,13 @@ func HTTPClient(timeout time.Duration) *http.Client {
 	// checked-IP invariant. Private proxy support requires a separate explicit
 	// operator policy; silently inheriting HTTP_PROXY is not safe here.
 	transport.Proxy = nil
+	if timeout == 0 {
+		// ResponseHeaderTimeout starts after the request body is written, so a
+		// large upload can finish, and a peer that never sends headers cannot
+		// wait forever.
+		const responseHeaderTimeout = 2 * time.Minute
+		transport.ResponseHeaderTimeout = responseHeaderTimeout
+	}
 
 	return &http.Client{Transport: transport, Timeout: timeout}
 }
