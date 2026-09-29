@@ -60,6 +60,7 @@ func (b *lockProbeBackend) Close() error {
 
 	go func() {
 		globalBackendPool.mu.Lock()
+		_ = len(globalBackendPool.entries)
 		globalBackendPool.mu.Unlock()
 		close(done)
 	}()
