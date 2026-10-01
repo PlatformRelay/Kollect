@@ -258,6 +258,87 @@ func TestCLIBuildContext_loadsMongoDatabaseSecret(t *testing.T) {
 	}
 }
 
+func TestResolveDatabaseSecretData_branches(t *testing.T) {
+	t.Parallel()
+
+	postgres := kollectdevv1alpha1.KollectSinkSpec{
+		Type: "postgres",
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg", Namespace: "team-a"},
+			Table:       "items",
+		},
+	}
+	got, err := ResolveDatabaseSecretData(postgres, []corev1.Secret{{
+		ObjectMeta: metav1.ObjectMeta{Name: "pg", Namespace: "team-a"},
+		Data:       map[string][]byte{"dsn": []byte("postgres://localhost/inventory")},
+	}})
+	if err != nil {
+		t.Fatalf("postgres: %v", err)
+	}
+	if string(got["dsn"]) != "postgres://localhost/inventory" {
+		t.Fatalf("postgres dsn = %q", got["dsn"])
+	}
+
+	bigquery := kollectdevv1alpha1.KollectSinkSpec{
+		Type: "bigquery",
+		BigQuery: &kollectdevv1alpha1.BigQuerySpec{
+			Project:   "fleet",
+			Dataset:   "inventory",
+			Table:     "items",
+			SecretRef: &kollectdevv1alpha1.SecretReference{Name: "bq"},
+		},
+	}
+	got, err = ResolveDatabaseSecretData(bigquery, []corev1.Secret{{
+		ObjectMeta: metav1.ObjectMeta{Name: "bq"},
+		Data:       map[string][]byte{"credentials.json": []byte(`{"type":"service_account"}`)},
+	}})
+	if err != nil {
+		t.Fatalf("bigquery: %v", err)
+	}
+	if len(got["credentials.json"]) == 0 {
+		t.Fatal("bigquery credentials were empty")
+	}
+
+	skipped := []kollectdevv1alpha1.KollectSinkSpec{
+		{Type: "stdout"},
+		{Type: "postgres"},
+		{Type: "bigquery"},
+		{Type: "mongodb"},
+		{Type: "mongodb", MongoDB: &kollectdevv1alpha1.MongoSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{},
+			Database:    "inventory",
+			Collection:  "items",
+		}},
+	}
+	for _, spec := range skipped {
+		got, err = ResolveDatabaseSecretData(spec, nil)
+		if err != nil || len(got) != 0 {
+			t.Fatalf("spec type %q data=%v err=%v, want empty", spec.Type, got, err)
+		}
+	}
+
+	wrongNamespace := kollectdevv1alpha1.KollectSinkSpec{
+		Type: "mongodb",
+		MongoDB: &kollectdevv1alpha1.MongoSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "mongo", Namespace: "team-a"},
+			Database:    "inventory",
+			Collection:  "items",
+		},
+	}
+	_, err = ResolveDatabaseSecretData(wrongNamespace, []corev1.Secret{
+		{ObjectMeta: metav1.ObjectMeta{Name: "other"}, Data: map[string][]byte{"uri": []byte("nope")}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "mongo", Namespace: "other"}, Data: map[string][]byte{"uri": []byte("nope")}},
+	})
+	if err == nil {
+		t.Fatal("expected missing database secret")
+	}
+
+	_, err = cliBuildContext(context.Background(), wrongNamespace, map[string][]byte{"token": []byte("top")}, nil)
+	if err == nil {
+		t.Fatal("cliBuildContext should surface a missing database secret")
+	}
+}
+
 func TestResolveSinkSecretData_noSecretRefReturnsNil(t *testing.T) {
 	t.Parallel()
 
