@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Serialize git mirror users and base new branches on the clone tip [ad632da](https://github.com/platformrelay/kollect/commit/ad632dab51df669e07cc0c159f36fe32b578d2b7)
+
 - **security:** Mask the GitLab private_token query parameter [46c0a40](https://github.com/platformrelay/kollect/commit/46c0a4021d7e6b4af14a93983d37183b1d594586)
 
 - **security:** Static messages at the git auth and ssh-pinning parse sites [2233a59](https://github.com/platformrelay/kollect/commit/2233a5996ac28aa2a7813cc0e198ea2346c57bdf)
@@ -69,6 +71,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **sink:** Retract exports on inventory deletion via deletionPolicy ([#383](https://github.com/platformrelay/kollect/pull/383))[577e265](https://github.com/platformrelay/kollect/commit/577e26515ee22abb3e5e46a6afaee0f00a3148a8)
 
 - **chart:** Add allowInsecureSinks value for --allow-insecure-sinks [53626b2](https://github.com/platformrelay/kollect/commit/53626b283af791c70ea9e40e943094685922a991)
 
