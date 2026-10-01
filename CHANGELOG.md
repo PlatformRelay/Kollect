@@ -11,6 +11,28 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **security:** Mask the GitLab private_token query parameter [46c0a40](https://github.com/platformrelay/kollect/commit/46c0a4021d7e6b4af14a93983d37183b1d594586)
+
+- **security:** Static messages at the git auth and ssh-pinning parse sites [2233a59](https://github.com/platformrelay/kollect/commit/2233a5996ac28aa2a7813cc0e198ea2346c57bdf)
+
+- **security:** Widen redact.Text to query, header, DSN and quoted-URL credentials [135aeba](https://github.com/platformrelay/kollect/commit/135aeba2c142a6125aa48c3e8b2c9cdb4b5c469d)
+
+- **security:** Static messages at the remaining git/gitlab URL parse sites [5b6f686](https://github.com/platformrelay/kollect/commit/5b6f686669edb4bfc9f0262854add0a621b423e2)
+
+- **security:** Redact the ReconcilePanic Event message [365e313](https://github.com/platformrelay/kollect/commit/365e313fa5534ef80081584b89d6c9d99c7b7265)
+
+- **security:** Redact target Degraded messages from scope-deny paths [17c0e0c](https://github.com/platformrelay/kollect/commit/17c0e0c7191f9ddac68609d0309b7989141bcd6c)
+
+- **security:** Redact the all-sinks-failed Degraded/Ready message [a8ad552](https://github.com/platformrelay/kollect/commit/a8ad55268d0476b8a59486d98d6660e834082bac)
+
+- **security:** Widen userinfo run to the proven character class; pin bare IPv4 NATS servers [eac20ce](https://github.com/platformrelay/kollect/commit/eac20ceb38dd41477e50a0261d054f4f495d6963)
+
+- **security:** Scrub authorization/bearer carrier keys (K-24) [3e7d813](https://github.com/platformrelay/kollect/commit/3e7d8133498080e22c274cfdb2b44160ecb06db2)
+
+- **security:** [**breaking**] Static messages at URL parse sites; reject NATS URL userinfo (K-23, K-25) [7816b0f](https://github.com/platformrelay/kollect/commit/7816b0fe4128ef3fe6a8dfcc38adcd1d4877a9da)
+
+- **security:** Redact error text at every status/Event writer (K-23) [7e081fa](https://github.com/platformrelay/kollect/commit/7e081faf7025e57da2bd51ba5a8447663f1a228d)
+
 - **sink:** Strip GitLab credentials on an https to http redirect [d55fde3](https://github.com/platformrelay/kollect/commit/d55fde3bcfd2ab2fbeb350ba81305744ba7223a9)
 
 - **sink:** Escape BigQuery string literals with GoogleSQL backslash escapes [9ff2d1f](https://github.com/platformrelay/kollect/commit/9ff2d1ffc4596afe70c3163a2211ef09f8fb2a26)
