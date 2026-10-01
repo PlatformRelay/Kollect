@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **security:** Reject cross-namespace secretRef at admission and validate auth mode ([#377](https://github.com/platformrelay/kollect/pull/377))[23e8b86](https://github.com/platformrelay/kollect/commit/23e8b8680e29c09348f032f9250edc18bdaa17bd)
+
 ## [0.20.0](https://github.com/platformrelay/kollect/compare/v0.19.0..v0.20.0) - 2026-09-10
 
 ### Bug Fixes
