@@ -96,6 +96,11 @@ func TestText_contract(t *testing.T) {
 			in:   `GET https://api.example.com/v1?access_token=at1&page=2&token=t2&Password=p3&secret=s4&api_key=k5&sig=g6#frag failed`,
 			want: `GET https://api.example.com/v1?access_token=***&page=2&token=***&Password=***&secret=***&api_key=***&sig=***#frag failed`,
 		},
+		{ //nolint:gosec // G101: fake credential fixture for the redaction contract
+			name: "gitlab private_token query parameter masked",
+			in:   `GET https://gitlab.example.com/api/v4/projects?private_token=glpat-x1y2&per_page=20 failed`,
+			want: `GET https://gitlab.example.com/api/v4/projects?private_token=***&per_page=20 failed`,
+		},
 		{
 			name: "authorization bearer header masked",
 			in:   `request rejected: Authorization: Bearer eyJhbGciOi.payload.sig (401)`,
