@@ -3,7 +3,7 @@
 > The consolidated threat model and security posture: how credentials, TLS trust, least-privilege RBAC,
 > and payload redaction are handled across Kollect.
 
-**Theme:** 01 · Foundations · **Status:** Current (see the 2026-09-03 note below)
+**Theme:** 01 · Foundations · **Status:** Current (see the 2026-09-03 and 2026-10-01 notes below)
 
 <!-- AgDR: implementer role · 2026-09-03 · amendment: SEC-SSHHOSTKEY-01 — the TLS-named insecureSkipVerify also disables SSH host-key verification -->
 
@@ -44,10 +44,34 @@ could read to understand Kollect's posture. This ADR records the decision; the m
   (`ConditionTLSInsecure`) so operators can see the opt-in without reading the spec.
   *Amended 2026-09-03:* that surfacing is **conditional on a connection test running and
   succeeding** — see the guard-rail bullet in the corrected section below.
+  *Amended 2026-10-01 (K-14):* no longer conditional, and the field is no longer settable by any
+  sink author — see *`insecureSkipVerify` requires `--allow-insecure-sinks` — 2026-10-01* below.
 - Git HTTPS/SSH retains server-name or host-key verification while using the resolved-address guard.
   *Amended 2026-09-03:* this is true **only while `spec.tls.insecureSkipVerify` is unset**, which is
   the default. The flag is transport-scoped, not TLS-scoped — see
   *`insecureSkipVerify` is transport-scoped — corrected 2026-09-03* below.
+
+### `insecureSkipVerify` requires `--allow-insecure-sinks` — 2026-10-01
+
+K-14 closes the two gaps the 2026-09-03 correction recorded (any sink author could disable
+verification, and the `TLSInsecure` condition was unreliable). It supersedes the "Off by default and
+settable only by whoever can write the sink spec" and "Surfaced in status, but only by a connection
+test that runs and succeeds" guard rails below; the rest of that section stands.
+
+- **Process-wide opt-in.** `spec.tls.insecureSkipVerify` is denied unless the manager runs with
+  `--allow-insecure-sinks` (Helm `allowInsecureSinks`, default `false`). Like `allowPrivateSinks`
+  it is a cluster-admin decision, never a CRD field. When enabled the manager logs a startup warning.
+- **Enforced twice.** Admission rejects the field on create and on update of a family sink (delete is
+  never blocked, and an update that removes the field is accepted). Independently,
+  `sinktls.FromSpec`, the single TLS resolver for the Git, GitLab, Kafka and NATS sinks, returns
+  `validation.ErrInsecureSinksNotAllowed`, so the gate also holds for kinds without a webhook
+  and for sinks admitted before the upgrade. This is a breaking change for existing insecure sinks.
+- **Always surfaced.** `setFamilyTLSInsecureCondition` now runs on every family-sink reconcile path —
+  probe skipped, probe failed, probe succeeded — and removes the condition when the field is cleared,
+  so `TLSInsecure` is present exactly when the field is set.
+- **Kafka honours `spec.tls` (K-13)** for exports and the connection probe, but turns TLS on only when
+  a CA bundle or `insecureSkipVerify` is configured; TLS against the system trust store with no
+  bundle is a follow-up.
 
 ### `insecureSkipVerify` is transport-scoped — corrected 2026-09-03
 

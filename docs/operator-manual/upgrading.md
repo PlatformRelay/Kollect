@@ -165,6 +165,37 @@ kubectl get kollectclustertargets.kollect.dev -o custom-columns=\
 
 Widening the ceiling clears the condition on the next reconcile; nothing needs to be recreated.
 
+### Insecure TLS opt-in and Git redirects (after v0.20.0)
+
+Releases after **v0.20.0** make `spec.tls.insecureSkipVerify` a cluster-admin opt-in (K-14) and stop
+Git remotes from following HTTP redirects (K-15).
+
+!!! warning "Existing insecure sinks stop exporting"
+    Without the manager flag `--allow-insecure-sinks` (Helm value `allowInsecureSinks`, default
+    `false`), admission rejects any family sink that sets `spec.tls.insecureSkipVerify`, on create
+    and on update, and the Git, GitLab, Kafka and NATS sinks refuse it at construction with
+    `tls.insecureSkipVerify is not permitted`. Sinks that already set the field stop connecting and
+    exporting on the first reconcile after upgrade. Deleting a sink, or an update that removes the
+    field, is still accepted.
+
+Audit before upgrading:
+
+```sh
+for kind in kollectsnapshotsinks kollectdatabasesinks kollecteventsinks; do
+  kubectl get "${kind}.kollect.dev" -A \
+    -o jsonpath='{range .items[?(@.spec.tls.insecureSkipVerify==true)]}{.kind}/{.metadata.namespace}/{.metadata.name}{"\n"}{end}'
+done
+```
+
+Remediate by supplying the server CA (`spec.tls.caBundle` or `spec.tls.caSecretRef`) and removing
+the field, or, for development clusters only, set `allowInsecureSinks: true`. Once enabled, every
+family sink using the field carries `TLSInsecure=True`, whether or not its connection test runs.
+
+Git remotes that only work through an HTTP redirect (an `http://` URL upgraded to `https://`, a
+moved or renamed project) now fail; set `spec.endpoint` to the final URL. Kafka sinks now honour
+`spec.tls`: a sink with a CA bundle switches its broker connection to TLS, so make sure the broker
+listener it points at speaks TLS.
+
 ## GitOps and CI/CD
 
 For Argo CD, Flux, or similar:

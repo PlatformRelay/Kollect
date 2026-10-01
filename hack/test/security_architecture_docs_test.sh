@@ -52,6 +52,9 @@ required_terms=(
   "plain HTTP"
   "NetworkPolicy"
   "HTTP_PROXY"
+  "--allow-insecure-sinks"
+  "allowInsecureSinks"
+  "http.followRedirects=false"
 )
 
 for term in "${required_terms[@]}"; do
