@@ -11,7 +11,24 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect:** Drop the user-reachable pin exception under an enforced ceiling [abb9e2b](https://github.com/platformrelay/kollect/commit/abb9e2bd779b693d709d4c73f4dc24e860423bc8)
+
+- **controller:** Requeue after scope-lookup deny, not just unregister [5ba732b](https://github.com/platformrelay/kollect/commit/5ba732b4993e452b72f6a9e7fbb0e91c1e0feaba)
+
+- **webhook:** Reject inventory sink refs outside the scope allowlist at admission [0d38070](https://github.com/platformrelay/kollect/commit/0d38070430a156ec68104e2aaf0c2c68f1f8122e)
+
+- **controller:** Unregister scope-denied targets and watch KollectScope [05fb780](https://github.com/platformrelay/kollect/commit/05fb78072e80a5efdf0684c994cb0573d2585605)
+
+- **collect:** Fail closed on empty effective set under a scope ceiling [cbc8ff7](https://github.com/platformrelay/kollect/commit/cbc8ff7b3afe8335fc5797c33f89318e725e3676)
+
 - **security:** Reject cross-namespace secretRef at admission and validate auth mode ([#377](https://github.com/platformrelay/kollect/pull/377))[23e8b86](https://github.com/platformrelay/kollect/commit/23e8b8680e29c09348f032f9250edc18bdaa17bd)
+
+
+### Refactoring
+
+- **controller:** Fold lookup requeue into the scope-deny helper [3cb4638](https://github.com/platformrelay/kollect/commit/3cb463891a38eb6f32d1fcd115ccb2c066e76cbb)
+
+- **controller:** Extract scope-deny degrade helper; clear lint shadows [cab5676](https://github.com/platformrelay/kollect/commit/cab56769333d354264f381ebf3a9a7ed3ac82e49)
 
 ## [0.20.0](https://github.com/platformrelay/kollect/compare/v0.19.0..v0.20.0) - 2026-09-10
 
