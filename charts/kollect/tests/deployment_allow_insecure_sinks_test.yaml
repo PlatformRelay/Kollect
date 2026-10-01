@@ -1,0 +1,29 @@
+suite: deployment allow-insecure-sinks (K-14)
+templates:
+  - deployment.yaml
+# contains/notContains compare whole list elements, so every assertion names the
+# exact rendered argument; a substring would let a wrong rendering pass.
+tests:
+  - it: does not pass --allow-insecure-sinks by default (deny by default)
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --allow-insecure-sinks
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --allow-insecure-sinks=true
+  - it: passes --allow-insecure-sinks exactly once when allowInsecureSinks is enabled
+    set:
+      allowInsecureSinks: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --allow-insecure-sinks
+          count: 1
+  - it: omits --allow-insecure-sinks when allowInsecureSinks is explicitly false
+    set:
+      allowInsecureSinks: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --allow-insecure-sinks
