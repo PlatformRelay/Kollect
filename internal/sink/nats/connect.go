@@ -12,7 +12,15 @@ import (
 	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
+// natsDialer is natsgo.Connect's shape, a parameter so tests can make the
+// driver return credential-bearing error text.
+type natsDialer func(url string, options ...natsgo.Option) (*natsgo.Conn, error)
+
 func connect(cfg Config, tlsCfg TLSConfig) (*natsgo.Conn, error) {
+	return connectWith(natsgo.Connect, cfg, tlsCfg)
+}
+
+func connectWith(dial natsDialer, cfg Config, tlsCfg TLSConfig) (*natsgo.Conn, error) {
 	opts := []natsgo.Option{natsgo.SetCustomDialer(netguard.DefaultDialer)}
 	if tlsClient := tlsCfg.ClientConfig(); tlsClient != nil {
 		opts = append(opts, natsgo.Secure(tlsClient))
@@ -22,7 +30,7 @@ func connect(cfg Config, tlsCfg TLSConfig) (*natsgo.Conn, error) {
 	} else if cfg.Username != "" {
 		opts = append(opts, natsgo.UserInfo(cfg.Username, cfg.Password))
 	}
-	nc, err := natsgo.Connect(cfg.URL, opts...)
+	nc, err := dial(cfg.URL, opts...)
 	if err != nil {
 		// K-23/K-25: nats.go error text can echo the server URL; mask
 		// userinfo and the resolved credential values before the error
