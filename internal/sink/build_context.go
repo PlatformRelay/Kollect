@@ -108,6 +108,17 @@ func populateDatabaseSecretData(
 		}
 
 		out.DatabaseSecretData = bqCreds.Data
+	case "mongodb":
+		if spec.MongoDB == nil {
+			return nil
+		}
+
+		dbCreds, err := ResolveSecret(ctx, c, spec.MongoDB.DatabaseRef, defaultNamespace)
+		if err != nil {
+			return err
+		}
+
+		out.DatabaseSecretData = dbCreds.Data
 	}
 
 	return nil
