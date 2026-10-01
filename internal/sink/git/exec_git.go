@@ -143,6 +143,62 @@ func gitCheckoutNewBranch(ctx context.Context, workdir, branch string, cli *cliE
 	return runGitOutput(cmd, "checkout -B "+branch, cli)
 }
 
+// gitRefExists reports whether the given revision resolves in workdir. A
+// missing ref, or a workdir that is not yet a repository, is (false, nil).
+func gitRefExists(ctx context.Context, workdir, ref string, cli *cliEnv) (bool, error) {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return false, fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "rev-parse", "--verify", "--quiet", ref)
+
+	return cmd.Run() == nil, nil
+}
+
+// gitCheckoutPushBranch checks out pushBranch without resetting an existing
+// branch: `git checkout -B` would rebase this inventory's work onto the
+// mirror's current HEAD, which may be another inventory's feature tip. A branch
+// that does not exist locally is created from the just-fetched clone-branch tip
+// (origin/<cloneBranch>) so a synthesized branch can never carry another
+// inventory's unmerged export; an empty remote with no origin/<cloneBranch>
+// falls back to creating at the current HEAD.
+func gitCheckoutPushBranch(ctx context.Context, workdir, cloneBranch, pushBranch string, cli *cliEnv) error {
+	if err := ValidateGitRef(pushBranch); err != nil {
+		return fmt.Errorf("git export: invalid branch: %w", err)
+	}
+	if err := ValidateGitRef(cloneBranch); err != nil {
+		return fmt.Errorf("git export: invalid branch: %w", err)
+	}
+
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	if _, existed, err := gitRefHash(ctx, workdir, pushBranch, cli); err != nil {
+		return err
+	} else if existed {
+		cmd := gitInWorkdir(ctx, workdir, cli, "checkout", pushBranch)
+		return runGitOutput(cmd, "checkout "+pushBranch, cli)
+	}
+
+	base := ""
+	if exists, err := gitRefExists(ctx, workdir, "refs/remotes/origin/"+cloneBranch, cli); err != nil {
+		return err
+	} else if exists {
+		base = "origin/" + cloneBranch
+	}
+
+	args := []string{"checkout", "-B", pushBranch}
+	if base != "" {
+		args = append(args, base)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, args...)
+	return runGitOutput(cmd, "checkout -B "+pushBranch, cli)
+}
+
 func gitRemoteAddOrigin(ctx context.Context, workdir, cloneURL string, cli *cliEnv) error {
 	safeURL, err := canonicalCloneURL(cloneURL)
 	if err != nil {
@@ -272,6 +328,42 @@ func gitPullRebase(ctx context.Context, workdir string, branch string, cli *cliE
 	return runGitOutput(cmd, "pull --rebase", cli)
 }
 
+// gitResetHard clears every staged and unstaged tracked change in the mirror
+// worktree (git reset --hard). Staged deletions a crashed cleanup left behind
+// are restored by the reset, so the retry re-deletes them; a deletion commit
+// already stranded at HEAD is kept (the reset never moves HEAD). No-op on an
+// unborn HEAD (nothing committed: the index cannot hold tracked dirt).
+func gitResetHard(ctx context.Context, workdir string, cli *cliEnv) error {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	head := gitInWorkdir(ctx, workdir, cli, "rev-parse", "--verify", "-q", "HEAD")
+	if _, headErr := head.CombinedOutput(); headErr != nil {
+		// Unborn HEAD: no commit exists, so reset has nothing to reset to and
+		// any staged state is protected from the commit by scoped commits.
+		return nil
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "reset", "--hard")
+	return runGitOutput(cmd, "reset --hard", cli)
+}
+
+// gitCleanFd removes untracked files and directories from the mirror worktree
+// (git clean -fd): leftover writes of a crashed export, which the mirror — a
+// cache, not user state — must not accumulate. Nested git repositories are
+// deliberately left alone (no -ff): nothing kollect writes creates them.
+func gitCleanFd(ctx context.Context, workdir string, cli *cliEnv) error {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "clean", "-fd")
+	return runGitOutput(cmd, "clean -fd", cli)
+}
+
 func gitStatusPorcelain(ctx context.Context, workdir string, cli *cliEnv) (string, error) {
 	workdir, err := validateGitWorkdir(workdir)
 	if err != nil {
@@ -333,6 +425,34 @@ func remoteSHAFromLsRemote(out string) string {
 	}
 
 	return line
+}
+
+// gitRefHash resolves the local branch ref to its commit hash and reports
+// whether it exists. A missing ref (or a workdir that is not yet a repository)
+// is ("", false, nil): callers use existence only, never an error, to decide
+// whether a tip pre-existed an operation.
+func gitRefHash(ctx context.Context, workdir, branch string, cli *cliEnv) (string, bool, error) {
+	if err := ValidateGitRef(branch); err != nil {
+		return "", false, fmt.Errorf("git export: invalid branch: %w", err)
+	}
+
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return "", false, fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "rev-parse", "--verify", "--quiet", "refs/heads/"+branch)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", false, nil
+	}
+
+	hash := strings.TrimSpace(string(out))
+	if hash == "" {
+		return "", false, nil
+	}
+
+	return hash, true, nil
 }
 
 func runGitOutput(cmd *exec.Cmd, label string, cli *cliEnv) error {

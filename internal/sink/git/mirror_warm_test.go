@@ -100,10 +100,10 @@ func TestCheckoutMirrorBranch_NewAndExistingBranch(t *testing.T) {
 		t.Fatalf("Worktree() error = %v", err)
 	}
 
-	if err := checkoutMirrorBranch(wt, "feature"); err != nil {
+	if err := checkoutMirrorBranch(repo, wt, "main", "feature"); err != nil {
 		t.Fatalf("checkoutMirrorBranch(new) error = %v", err)
 	}
-	if err := checkoutMirrorBranch(wt, "feature"); err != nil {
+	if err := checkoutMirrorBranch(repo, wt, "main", "feature"); err != nil {
 		t.Fatalf("checkoutMirrorBranch(existing) error = %v", err)
 	}
 }
