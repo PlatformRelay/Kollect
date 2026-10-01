@@ -98,7 +98,7 @@ func createBareRemoteWithMainCommit(t *testing.T) string {
 	mustWriteFile(t, filepath.Join(work, "README.md"), []byte("seed\n"))
 	runGitC(t, work, "add", ".")
 	runGitC(t, work, "commit", "-m", "seed")
-	runGit(t, "init", "--bare", remote)
+	runGit(t, "init", "--bare", "-b", "main", remote)
 	runGitC(t, work, "remote", "add", "origin", remote)
 	runGitC(t, work, "push", "-u", "origin", "main")
 
