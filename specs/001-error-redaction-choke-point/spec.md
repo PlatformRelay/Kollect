@@ -6,13 +6,13 @@
 
 **Status**: Draft
 
-**Input**: Findings K-23, K-25, K-24 from the six-review unification register (`data/kollect-unify/report.md` section 4). Test lock: shared redaction contract + static parse messages.
+**Input**: Findings K-23, K-25 and K-24 from the six-review unification register. Test lock: shared redaction contract + static parse messages.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Redaction at the status/Event boundary (Priority: P1)
 
-As a cluster operator, a tenant-authored sink with a credential-bearing endpoint must never have that credential written into a `Kollect.dev` status condition message or a Kubernetes Event. Today free-form driver error text is written verbatim by five writers, and seven malformed-endpoint parse sites `%w`-wrap a `*url.ParseError` whose text contains the raw URL (including `user:token@`).
+As a cluster operator, a tenant-authored sink with a credential-bearing endpoint must never have that credential written into a `Kollect.dev` status condition message or a Kubernetes Event. Today free-form driver error text is written verbatim by every status/Event writer in `internal/controller` (listed under FR-002), and fifteen malformed-endpoint parse sites `%w`-wrap a `*url.ParseError` whose text contains the raw URL (including `user:token@`).
 
 **Why this priority**: credentials persisted in etcd are readable by anyone with status read access, and the leak is one malformed endpoint away.
 
@@ -22,7 +22,8 @@ As a cluster operator, a tenant-authored sink with a credential-bearing endpoint
 
 1. **Given** an export error whose text is `dial failed for https://user:s3cret@host/repo`, **When** the inventory controller writes the Degraded/Synced condition, **Then** the message contains no `s3cret` and no `user:` userinfo.
 2. **Given** the same error reaching a family sink connection test, **When** `ConnectionVerified=False` is written, **Then** the persisted message is redacted and still names the failing reason.
-3. **Given** a KollectConnectionTest whose probe fails with a credential-bearing message, **When** the probe status is written, **Then** the message is redacted.
+3. **Given** a KollectConnectionTest whose probe fails (or succeeds) with a credential-bearing message, **When** the probe status is written, **Then** the message is redacted.
+4. **Given** a reconcile that panics with a credential-bearing error value, **When** the panic is recovered, **Then** the `ReconcilePanic` Event message is redacted.
 
 ---
 
@@ -36,8 +37,8 @@ As a cluster operator, a malformed endpoint must produce a parse failure that id
 
 **Acceptance Scenarios**:
 
-1. **Given** an endpoint `nats://user:tok@bad host`, **When** the NATS connect path parses it, **Then** the error text is static and carries no userinfo.
-2. **Given** a NATS URL that parses cleanly but embeds userinfo, **When** the config is built, **Then** the config step rejects it with a static message (fail closed before connect).
+1. **Given** an endpoint `nats://user:tok@bad host`, **When** the NATS config step parses it, **Then** the error text is static and carries no userinfo.
+2. **Given** a NATS URL that parses cleanly but embeds userinfo, **When** the config is built, **Then** the config step rejects it with a static message (fail closed before connect). This is a breaking change: such sinks must move the credential into `secretRef`.
 
 ---
 
@@ -62,15 +63,15 @@ As a tenant, collected objects that carry bearer material under keys such as `au
 - Multi-line error text with several credential-bearing URLs in several schemes must be scrubbed at every occurrence.
 - A known secret value that also appears as a substring of ordinary text must be masked (documented over-redaction trade-off).
 - Unknown keys must never be treated as sensitive just for containing one of the two added stems.
-- Redaction is a single pass and must not recurse or loop on adversarial input.
+- Redaction is a fixed sequence of RE2 passes (linear time, no recursion) and is idempotent: `Text(Text(x)) == Text(x)`.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: The system MUST expose one shared redaction helper (`internal/redact`) used by every path that turns an error or free-form message into persisted status or Event text.
-- **FR-002**: All five writers named by K-23 (`sink_status.go`, `kollectinventory_controller.go`, `kollectclusterinventory_controller.go`, `family_sink_connection.go`, `kollectconnectiontest_controller.go`) MUST route their message text through the shared helper.
-- **FR-003**: All seven named `url.Parse` sites MUST return static, endpoint-free messages; none may `%w`-wrap the parse error text.
+- **FR-002**: Every status-condition and Event writer in `internal/controller` MUST route its message text through the shared helper: `events.go` (`recordWarning`, `recordNormal`, which also carry `reconcile_guard.go`'s `ReconcilePanic`), `sink_status.go` (`setSinkReachableCondition`, `setSyncedCondition`), `per_sink_export.go` (`setSinkExportSynced`), `family_sink_connection.go` (`setConnectionVerified`, `setConnectionFailed`), `kollectconnectiontest_controller.go` (`setProbeSucceeded`, `setProbeFailed`), `kollectinventory_controller.go` (`setInventoryDegraded`, the all-sinks-failed branch of `updateStatus`), `kollectclusterinventory_controller.go` (`setDegraded`), `conditions.go` (`setTargetCondition`) and `kollectclustertarget_controller.go` (`setClusterTargetCondition`). Writers whose message is built only from counts and names (for example the Ready/Exported messages) carry no error text and are out of scope.
+- **FR-003**: All fifteen error-returning `url.Parse` sites on the sink endpoint path MUST return static, endpoint-free messages; none may `%w`-wrap or return the parse error. Git: `ConfigFromSpec`, `parseEndpoint`, `parseRemote`, `guardResolution`, `validateCloneURL`, `parseFileGitBarePath`, `canonicalCloneURL`, `TestConnection`, `buildAuthMethod`, `buildAuthMethodWithForce`, `pinGoGitSSHResolution`. GitLab: `ConfigFromSpec`, `APIBaseURL`, `ResolveProjectRef`. NATS: the config-time server-list validation.
 - **FR-004**: The NATS config step MUST reject a URL carrying userinfo with a static message before any connect attempt.
 - **FR-005**: The scrubber MUST redact keys equal to or prefixed by `authorization` or `bearer` (case- and separator-insensitive) in addition to the existing deny list.
 - **FR-006**: Redaction MUST preserve the error's identity for classification: `errors.Is`/`errors.As`/`ClassOf`/`IsTerminal` results unchanged.
@@ -78,7 +79,7 @@ As a tenant, collected objects that carry bearer material under keys such as `au
 
 ### Key Entities
 
-- **Redaction contract**: a fixed set of patterns (URL userinfo for every scheme; known secret values) plus the placeholder, shared by git/postgres/nats/controller paths.
+- **Redaction contract**: a fixed set of patterns plus the placeholder, shared by the controller writers and the NATS connect path: URL userinfo for every scheme (also with spaces or escaped quotes inside a quoted URL), credential query-parameter values (including GitLab `private_token`), `Authorization` header credentials, key=value DSN password fields, and caller-supplied secret values. The package doc of `internal/redact` lists what is not covered.
 - **Static parse error**: a package-level sentinel per parse site, deliberately carrying no dynamic content.
 
 ## Constraints
@@ -89,5 +90,5 @@ As a tenant, collected objects that carry bearer material under keys such as `au
 
 ## Assumptions
 
-- The eight policy recommendations taken by the captain (C-1..C-8) do not gate this lane: no operator opt-in flag or webhook change is required here.
+- No operator opt-in flag or webhook change is required for this lane.
 - Status/Event text is the leak surface of record; log lines are out of scope for this batch.
