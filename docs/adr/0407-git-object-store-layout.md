@@ -62,8 +62,11 @@ it to go-git as `InsecureSkipTLS`, which is TLS-only.
 
 The correct rule is therefore: **Git prefers a trusted CA and `known_hosts`; `insecureSkipVerify` is
 an explicit, default-off development escape hatch that disables verification for whichever transport
-the endpoint selects.** The `TLSInsecure` status condition surfaces it only when a connection test
-runs and succeeds, so it is not a reliable indicator on its own. The endpoint is a single URL and its scheme picks the
+the endpoint selects.** Since 2026-10-01 (K-14) the flag also requires the manager to run with
+`--allow-insecure-sinks`, and the `TLSInsecure` status condition is set whenever it is in effect,
+whatever the connection test does (it was previously written only when a connection test ran and
+succeeded). Git remotes also no longer follow HTTP redirects (`http.followRedirects=false`), so
+`spec.endpoint` must be the final URL. The endpoint is a single URL and its scheme picks the
 transport, so the flag never covers HTTPS and SSH at once. Guard rails, their conditions, and why
 the escape hatch is one flag rather than a separate SSH field are recorded in
 [ADR-0104](0104-security-model.md#insecureskipverify-is-transport-scoped--corrected-2026-09-03);

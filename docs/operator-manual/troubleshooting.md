@@ -209,7 +209,8 @@ Family CRDs: **`KollectSnapshotSink`** (git/gitlab/s3/gcs), **`KollectDatabaseSi
 | --- | --- | --- | --- | --- |
 | Sink `ConnectionVerified=False`, `ConnectionTestFailed` | TLS verify fail, missing `secretRef`, wrong Secret key, wrong endpoint | `kubectl describe` sink; `kollect_sink_connection_test_total{result="failure"}` | Fix `secretRef`, CA bundle, URL; one-shot: annotation `kollect.dev/test-connection=true` | Corporate TLS inspection |
 | `KollectConnectionTest` stuck false | One-shot CR probe failed | `kubectl describe kollectconnectiontest` | Same as sink probe; check `spec.sinkRef` family field | — |
-| `TLSInsecure=True` on sink | Explicit insecure TLS (non-default) | Condition on sink | Prefer proper CA; document exception per security policy | Security review |
+| `TLSInsecure=True` on sink | Explicit insecure TLS (non-default; only possible with `--allow-insecure-sinks`) | Condition on sink | Prefer proper CA; document exception per security policy | Security review |
+| Sink rejected or export fails with `tls.insecureSkipVerify is not permitted` | Sink sets `spec.tls.insecureSkipVerify` but the manager runs without `--allow-insecure-sinks` (K-14, default since the upgrade) | Admission error, sink status / manager log | Supply the server CA (`spec.tls.caBundle` / `caSecretRef`) and remove the field; or, for development only, set Helm `allowInsecureSinks: true` | Security review |
 
 ### Reconcile and workqueue
 

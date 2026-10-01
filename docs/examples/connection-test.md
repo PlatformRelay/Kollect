@@ -131,7 +131,7 @@ On family sink CRDs:
 | **`ConnectionVerified`** `True` | Last probe succeeded |
 | **`ConnectionVerified`** `False` | Probe failed (`ConnectionTestFailed`, `SecretResolveFailed`, …) |
 | **`Degraded`** `True` | Set alongside failed probe |
-| **`TLSInsecure`** `True` | `insecureSkipVerify` enabled (dev warning) |
+| **`TLSInsecure`** `True` | `spec.tls.insecureSkipVerify` is set (requires the manager flag `--allow-insecure-sinks`; dev warning). Reconciled on every pass, whether the probe is disabled, failing or succeeding, and removed when the field is cleared |
 
 Operator metric: `kollect_sink_connection_test_total{type,result}`.
 
