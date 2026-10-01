@@ -65,6 +65,16 @@ allowPrivateSinks: false
 # Secrets any sink author is trusted to read. This is NOT a per-tenant/CRD field.
 allowSecretRefNamespaces: []
 
+# -- K-14 (insecure-transport opt-in, cluster-admin only). When true, sinks may set
+# spec.tls.insecureSkipVerify to disable TLS certificate / SSH host-key
+# verification. Default false (deny): admission rejects the field on create and
+# on update (an existing insecure sink cannot be updated while it keeps the
+# field), and sink construction refuses it, so an insecure sink stops exporting.
+# Delete is never blocked. When enabled the manager logs a warning at startup and
+# every family sink using the field carries the TLSInsecure=True condition. Use
+# only for development. This is NOT a per-tenant/CRD field.
+allowInsecureSinks: false
+
 # -- Operator deployment mode (single-cluster only).
 mode: single
 
