@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,8 +27,10 @@ func guardReconcile(
 		if recovered := recover(); recovered != nil {
 			log.Error(fmt.Errorf("panic: %v", recovered), "reconcile panic recovered",
 				"stack", string(debug.Stack()))
-			if recorder != nil && obj != nil {
-				recorder.Event(obj, corev1.EventTypeWarning, "ReconcilePanic",
+			// recordWarning is the redaction choke-point (K-23): a panic value is
+			// free-form text and may carry a credential-bearing URL.
+			if obj != nil {
+				recordWarning(recorder, obj, "ReconcilePanic",
 					fmt.Sprintf("panic recovered: %v", recovered))
 			}
 			result = ctrl.Result{Requeue: true}

@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -430,4 +431,33 @@ func TestClusterTargetSetDegraded_redactsMessage(t *testing.T) {
 	}
 
 	assertNoSecret(t, "Degraded condition", cond.Message)
+}
+
+// A recovered panic value is free-form text (often a wrapped error), so the
+// ReconcilePanic Event must go through the same choke-point as every other
+// Event this package emits.
+func TestGuardReconcile_redactsPanicEvent(t *testing.T) {
+	t.Parallel()
+
+	rec := record.NewFakeRecorder(4)
+	inv := &kollectdevv1alpha1.KollectInventory{ObjectMeta: metav1.ObjectMeta{Name: "i", Namespace: "ns"}}
+
+	// Requeue-on-panic is locked by reconcile_guard_test.go; this test is
+	// about the Event text only.
+	if _, err := guardReconcile(context.Background(), rec, inv, func() (ctrl.Result, error) {
+		panic(leakErr())
+	}); err != nil {
+		t.Fatalf("guardReconcile returned %v, want nil after recovery", err)
+	}
+
+	select {
+	case event := <-rec.Events:
+		if !strings.Contains(event, "ReconcilePanic") {
+			t.Fatalf("event lost its reason: %q", event)
+		}
+
+		assertNoSecret(t, "ReconcilePanic Event message", event)
+	default:
+		t.Fatal("no event recorded")
+	}
 }
