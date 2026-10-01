@@ -4,55 +4,16 @@
 package nats
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"fmt"
-
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
-	"github.com/platformrelay/kollect/internal/validation"
+	"github.com/platformrelay/kollect/internal/sink/sinktls"
 )
 
-type TLSConfig struct {
-	InsecureSkipVerify bool
-	RootCAs            *x509.CertPool
-}
+// TLSConfig holds resolved TLS settings for nats connections. The connection
+// stays plaintext unless TLS material is configured (ClientConfig returns nil).
+type TLSConfig = sinktls.Config
 
+// TLSConfigFromSpec resolves spec.tls via the shared sink TLS helper, which
+// enforces the K-14 --allow-insecure-sinks gate.
 func TLSConfigFromSpec(tlsSpec *kollectdevv1alpha1.TLSSpec, caPEM []byte) (TLSConfig, error) {
-	cfg := TLSConfig{}
-	if tlsSpec == nil {
-		return cfg, nil
-	}
-	if tlsSpec.InsecureSkipVerify && !validation.AllowInsecureSinks() {
-		return cfg, fmt.Errorf(
-			"tls.insecureSkipVerify is not permitted: start the manager with --allow-insecure-sinks to opt in (K-14)",
-		)
-	}
-	cfg.InsecureSkipVerify = tlsSpec.InsecureSkipVerify
-	pem := caPEM
-	if len(pem) == 0 {
-		pem = tlsSpec.CABundle
-	}
-	if len(pem) > 0 {
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(pem) {
-			return cfg, fmt.Errorf("tls: failed to parse CA bundle PEM")
-		}
-		cfg.RootCAs = pool
-	}
-	return cfg, nil
-}
-
-func (c TLSConfig) ClientConfig() (*tls.Config, error) {
-	if !c.Enabled() {
-		return nil, nil
-	}
-	return &tls.Config{
-		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: c.InsecureSkipVerify, //nolint:gosec
-		RootCAs:            c.RootCAs,
-	}, nil
-}
-
-func (c TLSConfig) Enabled() bool {
-	return c.InsecureSkipVerify || c.RootCAs != nil
+	return sinktls.FromSpec(tlsSpec, caPEM)
 }

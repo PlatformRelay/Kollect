@@ -91,7 +91,7 @@ func tlsHandshakeWithDialer(
 			return err
 		}
 
-		clientTLS := tlsCfg.ClientTLSConfig()
+		clientTLS := tlsCfg.HandshakeConfig()
 		clientTLS.ServerName = host
 		tlsConn := tls.Client(raw, clientTLS)
 

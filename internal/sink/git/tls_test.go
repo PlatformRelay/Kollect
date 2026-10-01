@@ -35,7 +35,7 @@ func TestTLSConfigFromSpec_insecureSkip(t *testing.T) {
 		t.Error("expected InsecureSkipVerify true")
 	}
 
-	if !cfg.ClientTLSConfig().InsecureSkipVerify {
+	if !cfg.HandshakeConfig().InsecureSkipVerify {
 		t.Error("client config should inherit insecure skip verify")
 	}
 }
