@@ -64,8 +64,8 @@ func NewRESTClient(endpoint, token, basicUser string, httpClient *http.Client) (
 // Go's http.Client strips only Authorization and Cookie on a cross-host
 // redirect, so the custom PRIVATE-TOKEN header this client sets would otherwise
 // be replayed to a redirect target chosen by the endpoint (K-15). The token must
-// only ever be sent to the configured host. Same-host redirects keep the header
-// (Go already re-adds the auth headers it manages).
+// only ever be sent to the configured host, and never downgraded from https to
+// plain http. Same-host, non-downgrading redirects keep the header.
 func withCrossHostAuthStripping(client *http.Client) *http.Client {
 	wrapped := *client
 	previous := wrapped.CheckRedirect
@@ -73,7 +73,7 @@ func withCrossHostAuthStripping(client *http.Client) *http.Client {
 		if len(via) >= 10 {
 			return fmt.Errorf("gitlab: stopped after 10 redirects")
 		}
-		if origin := via[0].URL.Host; req.URL.Host != origin {
+		if !keepsCredentials(via[0].URL, req.URL) {
 			req.Header.Del("PRIVATE-TOKEN")
 			req.Header.Del("Authorization")
 		}
@@ -85,6 +85,19 @@ func withCrossHostAuthStripping(client *http.Client) *http.Client {
 	}
 
 	return &wrapped
+}
+
+// keepsCredentials reports whether a redirect from origin to target may carry
+// the token: only to the same host, and never from https down to http, where it
+// would travel in cleartext.
+func keepsCredentials(origin, target *url.URL) bool {
+	if target.Host != origin.Host {
+		return false
+	}
+
+	downgrade := strings.EqualFold(origin.Scheme, "https") && !strings.EqualFold(target.Scheme, "https")
+
+	return !downgrade
 }
 
 // APIBaseURL derives https://host/api/v4 from an HTTPS git remote endpoint.

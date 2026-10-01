@@ -175,3 +175,50 @@ func TestRESTClient_EnsureOpenMergeRequest_missingToken(t *testing.T) {
 		t.Fatal("expected token error")
 	}
 }
+
+// TestCrossHostAuthStripping_redirectPolicy pins which redirects keep the token:
+// only a same-host redirect that does not downgrade https to http. A downgrade
+// on the same host would send the token in cleartext (K-15).
+func TestCrossHostAuthStripping_redirectPolicy(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		from, to  string
+		wantToken bool
+	}{
+		{name: "same host and scheme keeps token", from: "https://gitlab.example.com/a", to: "https://gitlab.example.com/b", wantToken: true},
+		{name: "https to http downgrade strips token", from: "https://gitlab.example.com/a", to: "http://gitlab.example.com/b", wantToken: false},
+		{name: "cross host strips token", from: "https://gitlab.example.com/a", to: "https://evil.example.net/b", wantToken: false},
+		{name: "http to https upgrade keeps token", from: "http://gitlab.example.com/a", to: "https://gitlab.example.com/b", wantToken: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := withCrossHostAuthStripping(&http.Client{})
+			via, err := http.NewRequest(http.MethodGet, tc.from, nil)
+			if err != nil {
+				t.Fatalf("NewRequest(from): %v", err)
+			}
+			req, err := http.NewRequest(http.MethodGet, tc.to, nil)
+			if err != nil {
+				t.Fatalf("NewRequest(to): %v", err)
+			}
+			req.Header.Set("PRIVATE-TOKEN", "test-token")
+			req.Header.Set("Authorization", "Basic dGVzdA==")
+
+			if err := client.CheckRedirect(req, []*http.Request{via}); err != nil {
+				t.Fatalf("CheckRedirect: %v", err)
+			}
+
+			gotToken := req.Header.Get("PRIVATE-TOKEN") != ""
+			gotAuth := req.Header.Get("Authorization") != ""
+			if gotToken != tc.wantToken || gotAuth != tc.wantToken {
+				t.Fatalf("PRIVATE-TOKEN kept=%v Authorization kept=%v, want both %v",
+					gotToken, gotAuth, tc.wantToken)
+			}
+		})
+	}
+}
