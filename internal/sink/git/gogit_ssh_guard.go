@@ -21,8 +21,11 @@ func pinGoGitSSHResolution(
 	auth transport.AuthMethod,
 ) (string, error) {
 	u, err := url.Parse(cloneURL)
-	if err != nil || u.Scheme != schemeSSH {
-		return cloneURL, err
+	if err != nil {
+		return "", fmt.Errorf("ssh clone URL: %w", ErrInvalidEndpoint)
+	}
+	if u.Scheme != schemeSSH {
+		return cloneURL, nil
 	}
 	port := u.Port()
 	if port == "" {

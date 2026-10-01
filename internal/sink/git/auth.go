@@ -32,7 +32,7 @@ type Auth struct {
 func buildAuthMethod(cloneURL string, auth Auth, authType AuthType, sshCfg SSHConfig) (transport.AuthMethod, error) {
 	u, err := url.Parse(cloneURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("git auth: %w", ErrInvalidEndpoint)
 	}
 
 	switch u.Scheme {
@@ -150,7 +150,7 @@ func buildAuthMethodWithForce(
 
 	u, err := url.Parse(cloneURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("git auth: %w", ErrInvalidEndpoint)
 	}
 
 	if u.Scheme != schemeHTTP && u.Scheme != schemeHTTPS {
