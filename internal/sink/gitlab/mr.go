@@ -41,7 +41,7 @@ type ProjectRef struct {
 func ResolveProjectRef(endpoint string) (ProjectRef, error) {
 	u, err := url.Parse(strings.TrimSpace(endpoint))
 	if err != nil {
-		return ProjectRef{}, fmt.Errorf("parse endpoint: %w", err)
+		return ProjectRef{}, fmt.Errorf("gitlab endpoint: %w", ErrInvalidEndpoint)
 	}
 	if !isHTTPSEndpointScheme(u.Scheme) {
 		return ProjectRef{}, fmt.Errorf("gitlab endpoint must use https or http, got %q", u.Scheme)

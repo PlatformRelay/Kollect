@@ -49,3 +49,18 @@ func TestAPIBaseURL_malformedEndpointIsStatic(t *testing.T) {
 	_, err := APIBaseURL(leakyBadEndpoint)
 	assertStatic(t, err)
 }
+
+func TestResolveProjectRef_malformedEndpointIsStatic(t *testing.T) {
+	t.Parallel()
+
+	// The spaced password defeats redact.Text's userinfo run, so only a
+	// static message keeps it out of the error.
+	for _, endpoint := range []string{leakyBadEndpoint, "https://user:s3 cr3t@gitlab.example.com/g/p.git"} {
+		_, err := ResolveProjectRef(endpoint)
+		assertStatic(t, err)
+
+		if strings.Contains(err.Error(), "cr3t") {
+			t.Fatalf("error echoed the password: %q", err.Error())
+		}
+	}
+}

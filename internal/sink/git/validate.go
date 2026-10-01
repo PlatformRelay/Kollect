@@ -126,7 +126,7 @@ func validateCloneURL(cloneURL string) error {
 
 	u, err := url.Parse(cloneURL)
 	if err != nil {
-		return fmt.Errorf("invalid clone URL: %w", err)
+		return fmt.Errorf("clone URL: %w", ErrInvalidEndpoint)
 	}
 
 	switch u.Scheme {
@@ -147,7 +147,7 @@ func validateCloneURL(cloneURL string) error {
 func parseFileGitBarePath(cloneURL string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(cloneURL))
 	if err != nil {
-		return "", fmt.Errorf("invalid clone URL: %w", err)
+		return "", fmt.Errorf("clone URL: %w", ErrInvalidEndpoint)
 	}
 
 	if u.Scheme != schemeFile {
@@ -235,7 +235,7 @@ func canonicalCloneURL(cloneURL string) (string, error) {
 
 	u, err := url.Parse(strings.TrimSpace(cloneURL))
 	if err != nil {
-		return "", fmt.Errorf("invalid clone URL: %w", err)
+		return "", fmt.Errorf("clone URL: %w", ErrInvalidEndpoint)
 	}
 
 	if u.Scheme != schemeFile {

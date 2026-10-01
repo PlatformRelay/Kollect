@@ -24,7 +24,7 @@ func TestConnection(ctx context.Context, cfg Config, auth Auth) error {
 
 	u, err := url.Parse(cfg.Endpoint)
 	if err != nil {
-		return ClassifyExportError(fmt.Errorf("invalid endpoint URL: %w", err))
+		return ClassifyExportError(ErrInvalidEndpoint)
 	}
 
 	if u.Scheme == schemeHTTP {
