@@ -73,9 +73,6 @@ func kindSiblingDirs(managed []string, list func(dir string) ([]string, error)) 
 		}
 
 		parent := path.Dir(dir)
-		if parent == "." || parent == "/" {
-			continue
-		}
 		if _, ok := visitedParents[parent]; ok {
 			continue
 		}
