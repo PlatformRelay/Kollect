@@ -234,6 +234,45 @@ func TestSetProbeFailed_redactsMessage(t *testing.T) {
 	}
 }
 
+// A successful probe's message can still quote driver text (for example a
+// server banner or the probed endpoint), so the success writer is locked too.
+func TestSetProbeSucceeded_redactsMessage(t *testing.T) {
+	t.Parallel()
+
+	scheme := controllerScheme(t)
+	test := &kollectdevv1alpha1.KollectConnectionTest{
+		ObjectMeta: metav1.ObjectMeta{Name: "probe", Namespace: "ns", Generation: 1},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(test).
+		WithStatusSubresource(test).
+		Build()
+
+	r := &KollectConnectionTestReconciler{Client: cl, Scheme: scheme}
+	if _, err := r.setProbeSucceeded(context.Background(), test, "connected to "+leakURL); err != nil {
+		t.Fatalf("setProbeSucceeded: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectConnectionTest
+	if err := cl.Get(context.Background(), types.NamespacedName{Namespace: "ns", Name: "probe"}, &got); err != nil {
+		t.Fatalf("Get probe: %v", err)
+	}
+
+	for _, condType := range []string{kollectdevv1alpha1.ConditionConnectionVerified, conditionReady} {
+		cond := apimeta.FindStatusCondition(got.Status.Conditions, condType)
+		if cond == nil {
+			t.Fatalf("%s condition missing", condType)
+		}
+
+		if cond.Status != metav1.ConditionTrue {
+			t.Fatalf("%s status = %s, want True", condType, cond.Status)
+		}
+
+		assertNoSecret(t, condType+" condition", cond.Message)
+	}
+}
+
 func TestSetInventoryDegraded_redactsMessage(t *testing.T) {
 	t.Parallel()
 
