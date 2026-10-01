@@ -178,12 +178,14 @@ var celEvalErrorClasses = []evalErrorClass{
 	{match: "modulus by zero", class: "modulus by zero"},
 	{match: "out of bounds", class: "index out of bounds"},
 	{match: "out of range", class: "index out of bounds"},
+	{match: "unsupported index type", class: "unsupported index type"},
 	{match: "regexp", class: "invalid regular expression"},
 	{match: "overflow", class: "numeric overflow"},
 }
 
 var jsonPathEvalErrorClasses = []evalErrorClass{
 	{match: "cannot be filtered", class: "filter applied to a non-list value"},
+	{match: "incompatible types for comparison", class: "incompatible types for comparison"},
 	{match: "out of bounds", class: "array index out of bounds"},
 	{match: "is not array or slice", class: "index applied to a non-list value"},
 }
