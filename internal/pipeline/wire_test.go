@@ -635,3 +635,68 @@ func TestWithCLIBackendClosesClient(t *testing.T) {
 		t.Fatal("sink backend was not closed")
 	}
 }
+
+func TestWithCLIBackend_buildErrorSkipsExport(t *testing.T) {
+	t.Parallel()
+
+	reg := sink.NewRegistry()
+	reg.Register("probe", func(kollectdevv1alpha1.KollectSinkSpec, sink.BuildContext) (sink.Backend, error) {
+		return nil, errors.New("no client")
+	})
+
+	called := false
+	exported, errs, err := withCLIBackend(
+		context.Background(),
+		"ctx-a",
+		reg,
+		kollectdevv1alpha1.KollectSinkSpec{Type: "probe"},
+		sink.BuildContext{},
+		func(sink.Backend) (int, []error) {
+			called = true
+
+			return 1, nil
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "no client") {
+		t.Fatalf("withCLIBackend error = %v", err)
+	}
+	if called || exported != 0 || errs != nil {
+		t.Fatalf("export ran after a build failure: called=%v exported=%d errs=%v", called, exported, errs)
+	}
+}
+
+type errCloseBackend struct{}
+
+func (errCloseBackend) Type() string { return "probe" }
+
+func (errCloseBackend) Capabilities() sink.Capabilities { return sink.Capabilities{} }
+
+func (errCloseBackend) Export(context.Context, []byte, string) error { return nil }
+
+func (errCloseBackend) Close() error { return errors.New("close failed") }
+
+func TestWithCLIBackend_closeErrorStillReturnsExport(t *testing.T) {
+	t.Parallel()
+
+	reg := sink.NewRegistry()
+	reg.Register("probe", func(kollectdevv1alpha1.KollectSinkSpec, sink.BuildContext) (sink.Backend, error) {
+		return errCloseBackend{}, nil
+	})
+
+	exported, errs, err := withCLIBackend(
+		context.Background(),
+		"ctx-a",
+		reg,
+		kollectdevv1alpha1.KollectSinkSpec{Type: "probe"},
+		sink.BuildContext{},
+		func(sink.Backend) (int, []error) {
+			return 2, []error{errors.New("export failed")}
+		},
+	)
+	if err != nil {
+		t.Fatalf("close error must not fail the export: %v", err)
+	}
+	if exported != 2 || len(errs) != 1 {
+		t.Fatalf("export = %d errs=%v", exported, errs)
+	}
+}
