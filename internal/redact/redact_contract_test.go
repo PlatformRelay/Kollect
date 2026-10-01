@@ -90,6 +90,57 @@ func TestText_contract(t *testing.T) {
 			in:   `user contact me@example.com for help`,
 			want: `user contact me@example.com for help`,
 		},
+		// F-6: credential carriers outside URL userinfo.
+		{ //nolint:gosec // G101: fake credential fixture for the redaction contract
+			name: "credential query parameters masked, others kept",
+			in:   `GET https://api.example.com/v1?access_token=at1&page=2&token=t2&Password=p3&secret=s4&api_key=k5&sig=g6#frag failed`,
+			want: `GET https://api.example.com/v1?access_token=***&page=2&token=***&Password=***&secret=***&api_key=***&sig=***#frag failed`,
+		},
+		{
+			name: "authorization bearer header masked",
+			in:   `request rejected: Authorization: Bearer eyJhbGciOi.payload.sig (401)`,
+			want: `request rejected: Authorization: Bearer *** (401)`,
+		},
+		{
+			name: "authorization basic header masked case-insensitively",
+			in:   `sent authorization: basic dXNlcjpwYXNz, got 403`,
+			want: `sent authorization: basic ***, got 403`,
+		},
+		{ //nolint:gosec // G101: fake credential fixture for the redaction contract
+			name: "key=value DSN password and pwd masked",
+			in:   `connect "host=db port=5432 user=app password=hunter2 sslmode=require"; Server=s;Pwd=hunter3;Database=d`,
+			want: `connect "host=db port=5432 user=app password=*** sslmode=require"; Server=s;Pwd=***;Database=d`,
+		},
+		{ //nolint:gosec // G101: fake credential fixture for the redaction contract
+			name: "quoted DSN password value masked whole",
+			in:   `dsn: password='two words' dbname=x`,
+			want: `dsn: password=*** dbname=x`,
+		},
+		{ //nolint:gosec // G101: fake credential fixture for the redaction contract
+			name: "go-quoted URL with a space in the password masked",
+			in:   `parse "https://user:pa ss@git.example.com/r.git": net/url: invalid userinfo`,
+			want: `parse "https://***@git.example.com/r.git": net/url: invalid userinfo`,
+		},
+		{ //nolint:gosec // G101: fake credential fixture for the redaction contract
+			name: "go-quoted URL with an escaped quote in the password masked",
+			in:   `parse "https://user:pa\"ss@git.example.com/r.git": net/url: invalid userinfo`,
+			want: `parse "https://***@git.example.com/r.git": net/url: invalid userinfo`,
+		},
+		{ //nolint:gosec // G101: fake credential fixture for the redaction contract
+			name: "single-quoted URL with a space in the password masked",
+			in:   `cannot reach 'nats://user:pa ss@nats:4222'`,
+			want: `cannot reach 'nats://***@nats:4222'`,
+		},
+		{
+			name: "prose about passwords and tokens untouched",
+			in:   `token expired; password policy requires rotation; Authorization header missing; see "https://example.com/docs" for help`,
+			want: `token expired; password policy requires rotation; Authorization header missing; see "https://example.com/docs" for help`,
+		},
+		{
+			name: "quoted URL followed by an address outside the quotes untouched",
+			in:   `endpoint "https://example.com/x" owner ops@example.com`,
+			want: `endpoint "https://example.com/x" owner ops@example.com`,
+		},
 	}
 
 	for _, tc := range tests {
@@ -149,5 +200,33 @@ func TestError_keepsAPIErrorClassification(t *testing.T) {
 	got := Error(nf)
 	if !apierrors.IsNotFound(got) {
 		t.Error("apierrors.IsNotFound lost through redaction")
+	}
+}
+
+// TestText_idempotent (F-11): redacting already-redacted text is a no-op, so a
+// message that crosses two choke-points (sink error, then controller writer)
+// renders the same as one that crossed one.
+func TestText_idempotent(t *testing.T) {
+	corpus := []string{
+		`dial failed for https://user:s3cret@github.com/org/repo`,
+		`open nats://user:pa(ss)w0rd[].x@host:4222: auth error`,
+		"line1 https://a:1@h1/x\nline2 nats://b:2@h2",
+		`GET https://api.example.com/v1?access_token=at1&page=2&token=t2&sig=g6`,
+		`request rejected: Authorization: Bearer eyJhbGciOi.payload.sig (401)`,
+		`sent authorization: basic dXNlcjpwYXNz, got 403`,
+		`connect "host=db user=app password=hunter2 sslmode=require"; Pwd=hunter3;`,
+		`dsn: password='two words' dbname=x`,
+		`parse "https://user:pa ss@git.example.com/r.git": net/url: invalid userinfo`,
+		`cannot reach 'nats://user:pa ss@nats:4222'`,
+		`token expired; password policy requires rotation`,
+		`user contact me@example.com for help`,
+		``,
+	}
+
+	for _, in := range corpus {
+		once := Text(in, "s3cret")
+		if twice := Text(once, "s3cret"); twice != once {
+			t.Fatalf("Text is not idempotent on %q:\nonce  %q\ntwice %q", in, once, twice)
+		}
 	}
 }
