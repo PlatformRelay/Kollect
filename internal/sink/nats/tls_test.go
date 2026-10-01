@@ -31,10 +31,7 @@ func TestTLSConfigFromSpec_insecureSkip(t *testing.T) {
 		t.Error("expected InsecureSkipVerify true")
 	}
 
-	tlsCfg, err := cfg.ClientConfig()
-	if err != nil {
-		t.Fatalf("ClientConfig: %v", err)
-	}
+	tlsCfg := cfg.ClientConfig()
 	if tlsCfg == nil || !tlsCfg.InsecureSkipVerify {
 		t.Error("client config should inherit insecure skip verify")
 	}
@@ -87,10 +84,7 @@ func TestTLSConfigFromSpec_cabundle(t *testing.T) {
 		t.Fatal("expected TLS enabled with CA bundle")
 	}
 
-	tlsCfg, err := cfg.ClientConfig()
-	if err != nil {
-		t.Fatalf("ClientConfig: %v", err)
-	}
+	tlsCfg := cfg.ClientConfig()
 	if tlsCfg == nil || tlsCfg.RootCAs == nil {
 		t.Fatal("expected RootCAs from CA bundle")
 	}

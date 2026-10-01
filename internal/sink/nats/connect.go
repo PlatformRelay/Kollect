@@ -13,9 +13,7 @@ import (
 
 func connect(cfg Config, tlsCfg TLSConfig) (*natsgo.Conn, error) {
 	opts := []natsgo.Option{natsgo.SetCustomDialer(netguard.DefaultDialer)}
-	if tlsClient, err := tlsCfg.ClientConfig(); err != nil {
-		return nil, err
-	} else if tlsClient != nil {
+	if tlsClient := tlsCfg.ClientConfig(); tlsClient != nil {
 		opts = append(opts, natsgo.Secure(tlsClient))
 	}
 	if cfg.Token != "" {

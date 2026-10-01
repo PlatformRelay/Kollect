@@ -4,6 +4,7 @@
 package validation
 
 import (
+	"errors"
 	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -34,6 +35,23 @@ func SetAllowInsecureSinks(allow bool) {
 // kinds without an admission webhook (for example the legacy KollectSink).
 func AllowInsecureSinks() bool {
 	return allowInsecureSinks.Load()
+}
+
+// ErrInsecureSinksNotAllowed is the single K-14 refusal returned when a sink
+// requests disabled verification without the process-wide opt-in.
+var ErrInsecureSinksNotAllowed = errors.New(
+	"tls.insecureSkipVerify is not permitted: start the manager with --allow-insecure-sinks to opt in (K-14)",
+)
+
+// CheckInsecureSkipVerify returns ErrInsecureSinksNotAllowed when tls disables
+// verification and the opt-in is off. tls may be nil. Sink TLS-config
+// constructors call it; admission uses ValidateInsecureSkipVerify.
+func CheckInsecureSkipVerify(tls *kollectdevv1alpha1.TLSSpec) error {
+	if tls == nil || !tls.InsecureSkipVerify || AllowInsecureSinks() {
+		return nil
+	}
+
+	return ErrInsecureSinksNotAllowed
 }
 
 // ValidateInsecureSkipVerify rejects a TLS spec that disables verification
