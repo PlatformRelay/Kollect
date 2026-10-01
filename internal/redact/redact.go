@@ -12,7 +12,7 @@
 //     single-quoted URL (how url.ParseError and most drivers quote one) the
 //     userinfo may also contain spaces and, Go-escaped, quotes;
 //   - the values of credential query parameters (access_token, token,
-//     password, secret, api_key, sig and close variants);
+//     password, secret, api_key, sig, GitLab private_token and close variants);
 //   - the credential after "Authorization: Bearer|Basic|Token|Digest";
 //   - key=value DSN password fields (password=, passwd=, pwd=), bare or quoted;
 //   - any caller-supplied secret value, verbatim.
@@ -56,7 +56,7 @@ var (
 // ;-separated) parameter. The value stops at the next separator, fragment,
 // whitespace or quote.
 var queryCredentialRE = regexp.MustCompile(
-	`(?i)([?&;](?:access_token|refresh_token|id_token|token|password|passwd|pwd|` +
+	`(?i)([?&;](?:access_token|refresh_token|id_token|private_token|token|password|passwd|pwd|` +
 		`secret|client_secret|api_key|apikey|sig|signature)=)[^&;#\s'"]+`)
 
 // authHeaderRE masks the credential of an Authorization header value while
