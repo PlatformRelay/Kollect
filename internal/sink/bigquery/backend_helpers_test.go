@@ -59,6 +59,9 @@ func TestToMergeRows_UsesNamespaceFallbackAndTrimsWhitespace(t *testing.T) {
 	}
 }
 
+// TestMergeSourceRowsSQL_EscapesSingleQuotes pins GoogleSQL quoting: inside a
+// quoted literal a single quote is escaped as \' ; a doubled quote is NOT an escape
+// (it is two adjacent literals, which GoogleSQL rejects without separation).
 func TestMergeSourceRowsSQL_EscapesSingleQuotes(t *testing.T) {
 	t.Parallel()
 
@@ -74,11 +77,14 @@ func TestMergeSourceRowsSQL_EscapesSingleQuotes(t *testing.T) {
 		},
 	})
 
-	if !strings.Contains(sql, "'prod''a'") {
+	if !strings.Contains(sql, `'prod\'a'`) {
 		t.Fatalf("sql missing escaped cluster literal: %s", sql)
 	}
-	if !strings.Contains(sql, "'deploy''ments'") {
+	if !strings.Contains(sql, `'deploy\'ments'`) {
 		t.Fatalf("sql missing escaped target literal: %s", sql)
+	}
+	if strings.Contains(sql, "''") {
+		t.Fatalf("sql uses '' quote doubling, which GoogleSQL does not accept as an escape: %s", sql)
 	}
 	if !strings.Contains(sql, "UNION ALL") && !strings.Contains(sql, "SELECT") {
 		t.Fatalf("sql does not contain select rows: %s", sql)
@@ -98,7 +104,10 @@ func TestSQLStringLiteral_EscapesBackslashes(t *testing.T) {
 		want string
 	}{
 		{name: "trailing backslash", in: `x\`, want: `'x\\'`},
-		{name: "backslash and quote", in: `a\b'c`, want: `'a\\b''c'`},
+		{name: "backslash and quote", in: `a\b'c`, want: `'a\\b\'c'`},
+		{name: "quote then backslash", in: `'\`, want: `'\'\\'`},
+		{name: "newline", in: "a\nb", want: `'a\nb'`},
+		{name: "carriage return", in: "a\r\nb", want: `'a\r\nb'`},
 		{name: "empty", in: ``, want: `''`},
 		{name: "plain", in: `prod-a`, want: `'prod-a'`},
 	}

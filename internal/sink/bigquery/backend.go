@@ -353,15 +353,28 @@ func mergeSourceRowsSQL(rows []mergeRow) string {
 	return "(" + strings.Join(selects, " UNION ALL ") + ")"
 }
 
-// sqlStringLiteral renders v as a single-quoted GoogleSQL string literal.
-//
-// GoogleSQL treats the backslash as an escape introducer, so a backslash must be
-// doubled before single quotes are doubled; otherwise a value ending in `\`
-// escapes the closing quote and the remainder of the value is parsed as SQL
-// (K-22). Order matters: escape backslashes first, then quotes.
+// sqlStringLiteralEscaper escapes a value for a single-quoted GoogleSQL string
+// literal. GoogleSQL quoted literals use backslash escapes: `\\` for a backslash
+// and `\'` for a single quote, while a doubled quote is not an escape (it reads as two
+// adjacent literals, which GoogleSQL rejects without separating whitespace).
+// Quoted literals also cannot contain a raw newline, so CR and LF are escaped.
+// strings.Replacer scans once, left to right, so a backslash introduced for one
+// escape is never re-escaped and the order of pairs does not matter (K-22).
+// Reference: GoogleSQL lexical structure, "String and bytes literals" and
+// "Escape sequences for string and bytes literals"
+// (https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical).
+var sqlStringLiteralEscaper = strings.NewReplacer(
+	`\`, `\\`,
+	`'`, `\'`,
+	"\n", `\n`,
+	"\r", `\r`,
+)
+
+// sqlStringLiteral renders v as a single-quoted GoogleSQL string literal, so a
+// value ending in `\` or containing quotes cannot close the literal early and
+// inject SQL (K-22).
 func sqlStringLiteral(v string) string {
-	v = strings.ReplaceAll(v, `\`, `\\`)
-	return "'" + strings.ReplaceAll(v, "'", "''") + "'"
+	return "'" + sqlStringLiteralEscaper.Replace(v) + "'"
 }
 
 func usingEmulator() bool {
