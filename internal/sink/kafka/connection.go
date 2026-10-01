@@ -35,19 +35,7 @@ func TestConnection(
 		return err
 	}
 
-	dialer := &kafka.Dialer{
-		Timeout:   kafka.DefaultDialer.Timeout,
-		DualStack: kafka.DefaultDialer.DualStack,
-		DialFunc:  netguard.DefaultDialer.DialContext,
-	}
-	if clientTLS := tlsCfg.ClientConfig(); clientTLS != nil {
-		dialer.TLS = clientTLS
-	}
-	if transport != nil && transport.SASL != nil {
-		dialer.SASLMechanism = transport.SASL
-	}
-
-	conn, err := dialer.DialContext(ctx, "tcp", cfg.Brokers[0])
+	conn, err := probeDialer(tlsCfg, transport).DialContext(ctx, "tcp", cfg.Brokers[0])
 	if err != nil {
 		return fmt.Errorf("kafka dial: %w", err)
 	}
@@ -58,4 +46,21 @@ func TestConnection(
 	}
 
 	return nil
+}
+
+// probeDialer builds the metadata-probe dialer with the same netguard dial path,
+// TLS settings (K-13) and SASL mechanism as the export transport, so a probe
+// verifies the connection exports actually use.
+func probeDialer(tlsCfg TLSConfig, transport *kafka.Transport) *kafka.Dialer {
+	dialer := &kafka.Dialer{
+		Timeout:   kafka.DefaultDialer.Timeout,
+		DualStack: kafka.DefaultDialer.DualStack,
+		DialFunc:  netguard.DefaultDialer.DialContext,
+		TLS:       tlsCfg.ClientConfig(),
+	}
+	if transport != nil && transport.SASL != nil {
+		dialer.SASLMechanism = transport.SASL
+	}
+
+	return dialer
 }

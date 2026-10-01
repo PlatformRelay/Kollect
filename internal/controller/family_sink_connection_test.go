@@ -118,3 +118,55 @@ func TestFamilySinkConnection_surfacesTLSInsecureWithoutProbe(t *testing.T) {
 		t.Fatalf("TLSInsecure condition = %#v, want True when insecureSkipVerify is set", condition)
 	}
 }
+
+// TestFamilySinkConnection_surfacesTLSInsecureWhenProbeFails pins K-14 on the
+// probe-failed path: a sink whose connection test fails must still carry
+// TLSInsecure=True, so a failing probe can never hide disabled verification.
+func TestFamilySinkConnection_surfacesTLSInsecureWhenProbeFails(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := kollectdevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	obj := &kollectdevv1alpha1.KollectDatabaseSink{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "insecure-failing-sink",
+			Namespace:   "default",
+			Annotations: map[string]string{kollectdevv1alpha1.AnnotationTestConnection: "true"},
+		},
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type: "postgres",
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+				SecretRef: &kollectdevv1alpha1.SecretReference{Name: "missing-secret"},
+				TLS:       &kollectdevv1alpha1.TLSSpec{InsecureSkipVerify: true},
+			},
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(obj).
+		WithStatusSubresource(obj).
+		Build()
+
+	conn := familySinkConnection{client: cl}
+
+	if err := conn.reconcile(
+		context.Background(), obj, obj.Spec.ToKollectSinkSpec(),
+		&obj.Spec.SinkCommonFields, &obj.Status.Conditions, &obj.Status.Preview,
+	); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+
+	verified := apimeta.FindStatusCondition(obj.Status.Conditions, kollectdevv1alpha1.ConditionConnectionVerified)
+	if verified == nil || verified.Status != metav1.ConditionFalse {
+		t.Fatalf("ConnectionVerified = %#v, want False (the probe must have failed)", verified)
+	}
+
+	insecure := apimeta.FindStatusCondition(obj.Status.Conditions, kollectdevv1alpha1.ConditionTLSInsecure)
+	if insecure == nil || insecure.Status != metav1.ConditionTrue {
+		t.Fatalf("TLSInsecure condition = %#v, want True on the probe-failed path", insecure)
+	}
+}
