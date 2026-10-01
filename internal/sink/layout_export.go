@@ -79,6 +79,11 @@ type FileExporter interface {
 type snapshotExport struct {
 	objectPath string
 	run        func(ctx context.Context) error
+
+	// writtenPaths are the sink-relative paths this export writes — the
+	// retraction evidence the controller records in the inventory status for
+	// the deletion-time cleanup path (K-28). Empty/nil when nothing is written.
+	writtenPaths []string
 }
 
 // partSuffixRE matches the deterministic multipart object-path suffix (export.PartitionObjectPath).
@@ -112,8 +117,9 @@ func resolveSnapshotExport(
 ) (snapshotExport, error) {
 	if !isGitLayoutFamily(spec.Type) {
 		return snapshotExport{
-			objectPath: defaultObjectPath,
-			run:        func(ctx context.Context) error { return backend.Export(ctx, envelope, defaultObjectPath) },
+			objectPath:   defaultObjectPath,
+			writtenPaths: []string{defaultObjectPath},
+			run:          func(ctx context.Context) error { return backend.Export(ctx, envelope, defaultObjectPath) },
 		}, nil
 	}
 
@@ -140,8 +146,9 @@ func resolveSnapshotExport(
 		docPath := resolved.DocumentPath()
 
 		return snapshotExport{
-			objectPath: docPath,
-			run:        func(ctx context.Context) error { return backend.Export(ctx, envelope, docPath) },
+			objectPath:   docPath,
+			writtenPaths: []string{docPath},
+			run:          func(ctx context.Context) error { return backend.Export(ctx, envelope, docPath) },
 		}, nil
 	}
 
@@ -164,16 +171,18 @@ func resolveSnapshotExport(
 			f := files[0]
 
 			return snapshotExport{
-				objectPath: f.Path,
-				run:        func(ctx context.Context) error { return backend.Export(ctx, f.Data, f.Path) },
+				objectPath:   f.Path,
+				writtenPaths: []string{f.Path},
+				run:          func(ctx context.Context) error { return backend.Export(ctx, f.Data, f.Path) },
 			}, nil
 		}
 
 		docPath := resolved.DocumentPath()
 
 		return snapshotExport{
-			objectPath: docPath,
-			run:        func(ctx context.Context) error { return backend.Export(ctx, envelope, docPath) },
+			objectPath:   docPath,
+			writtenPaths: []string{docPath},
+			run:          func(ctx context.Context) error { return backend.Export(ctx, envelope, docPath) },
 		}, nil
 	}
 
@@ -191,9 +200,15 @@ func resolveSnapshotExport(
 		return snapshotExport{}, err
 	}
 
+	writtenPaths := make([]string, 0, len(gitFiles))
+	for _, f := range gitFiles {
+		writtenPaths = append(writtenPaths, f.Path)
+	}
+
 	return snapshotExport{
-		objectPath: resolved.DocumentPath(),
-		run:        func(ctx context.Context) error { return fileExporter.ExportFiles(ctx, gitFiles, opts) },
+		objectPath:   resolved.DocumentPath(),
+		writtenPaths: writtenPaths,
+		run:          func(ctx context.Context) error { return fileExporter.ExportFiles(ctx, gitFiles, opts) },
 	}, nil
 }
 

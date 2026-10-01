@@ -80,6 +80,12 @@ kubectl wait --for=condition=ConnectionVerified kollectdatabasesink/<name> \
 
 See [Connection test example](examples/connection-test.md).
 
+## Deletion escape hatch
+
+| Key | Type | On | Values | Effect |
+| --- | --- | --- | --- | --- |
+| `kollect.dev/force-cleanup` | Annotation | `KollectInventory`, `KollectClusterInventory` | `"true"` | While the object is deleting: drops the cleanup finalizer **without** contacting sinks, so `Terminating` unblocks after a terminal cleanup failure (`CleanupTerminal`). Exported objects are **not** retracted — remove them manually if required. Ignored on live objects. Records a `CleanupForced` Warning Event. |
+
 ## Multi-cluster identity
 
 Fleet installs distinguish clusters via **`spec.cluster`** on inventory and export rows

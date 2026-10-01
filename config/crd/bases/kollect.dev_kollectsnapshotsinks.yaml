@@ -49,6 +49,18 @@ spec:
                 description: connectionTest enables connectivity checks on create/update
                   (default true).
                 type: boolean
+              deletionPolicy:
+                default: Retain
+                description: |-
+                  deletionPolicy decides what happens to the objects this sink exported for an
+                  inventory when that inventory is deleted (ADR-0421). Retain (default) leaves
+                  them in place; Delete retracts them (git/gitlab deletion commit, S3/GCS object
+                  deletion). Retain never contacts the backend, so it always releases the inventory's
+                  cleanup finalizer; a terminal Delete failure keeps the finalizer until it is resolved.
+                enum:
+                - Retain
+                - Delete
+                type: string
               endpoint:
                 description: endpoint is the backend-specific destination (URL, bucket,
                   and so on).

@@ -56,6 +56,11 @@ type KollectSinkSpec struct {
 	// +optional
 	PathTemplate string `json:"pathTemplate,omitempty"`
 
+	// deletionPolicy carries KollectSnapshotSink.spec.deletionPolicy: Retain (default)
+	// or Delete (ADR-0421). Other families leave it empty.
+	// +optional
+	DeletionPolicy string `json:"deletionPolicy,omitempty"`
+
 	// postgres configures a PostgreSQL database sink.
 	// +optional
 	Postgres *PostgresSpec `json:"postgres,omitempty"`

@@ -14,6 +14,16 @@ type KollectSnapshotSinkSpec struct {
 
 	SinkCommonFields `json:",inline"`
 
+	// deletionPolicy decides what happens to the objects this sink exported for an
+	// inventory when that inventory is deleted (ADR-0421). Retain (default) leaves
+	// them in place; Delete retracts them (git/gitlab deletion commit, S3/GCS object
+	// deletion). Retain never contacts the backend, so it always releases the inventory's
+	// cleanup finalizer; a terminal Delete failure keeps the finalizer until it is resolved.
+	// +kubebuilder:validation:Enum=Retain;Delete
+	// +kubebuilder:default=Retain
+	// +optional
+	DeletionPolicy string `json:"deletionPolicy,omitempty"`
+
 	// git configures git sink settings when type is git.
 	// +optional
 	Git *GitSpec `json:"git,omitempty"`

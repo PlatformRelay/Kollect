@@ -239,7 +239,37 @@ func gitAddAll(ctx context.Context, workdir string, cli *cliEnv) error {
 	return runGitOutput(cmd, "add -A", cli)
 }
 
+// gitAddPaths stages exactly the given paths (deletions included, via -A pathspec
+// semantics) so a cleanup commit never sweeps unrelated worktree dirt out of a
+// shared warm mirror into the deletion commit.
+func gitAddPaths(ctx context.Context, workdir string, paths []string, cli *cliEnv) error {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	args := append([]string{"add", "-A", "--"}, paths...)
+	cmd := gitInWorkdir(ctx, workdir, cli, args...)
+
+	return runGitOutput(cmd, "add -A -- <cleanup paths>", cli)
+}
+
 func gitCommit(ctx context.Context, workdir, authorName, authorEmail string, commit renderedCommit, cli *cliEnv) error {
+	return gitCommitScoped(ctx, workdir, authorName, authorEmail, commit, nil, cli)
+}
+
+// gitCommitScoped commits only the given paths (git commit -- <paths>): the
+// commit is built from HEAD plus the current worktree state of those paths, so
+// unrelated staged or unstaged state in a shared warm mirror can never ride
+// along under the commit's subject. A nil/empty paths list commits the index
+// (the export path's existing semantics).
+func gitCommitScoped(
+	ctx context.Context,
+	workdir, authorName, authorEmail string,
+	commit renderedCommit,
+	paths []string,
+	cli *cliEnv,
+) error {
 	if err := validateGitConfigValue(authorName); err != nil {
 		return fmt.Errorf("git export: invalid author name: %w", err)
 	}
@@ -269,6 +299,11 @@ func gitCommit(ctx context.Context, workdir, authorName, authorEmail string, com
 
 	for _, line := range commit.Trailers {
 		args = append(args, "-m", line)
+	}
+
+	if len(paths) > 0 {
+		args = append(args, "--")
+		args = append(args, paths...)
 	}
 
 	cmd := gitInWorkdir(ctx, workdir, cli, args...)
@@ -348,6 +383,40 @@ func gitResetHard(ctx context.Context, workdir string, cli *cliEnv) error {
 
 	cmd := gitInWorkdir(ctx, workdir, cli, "reset", "--hard")
 	return runGitOutput(cmd, "reset --hard", cli)
+}
+
+// gitResetHardTo moves the checked-out branch and worktree to commit (a commit
+// hash; never a user-supplied ref).
+func gitResetHardTo(ctx context.Context, workdir, commit string, cli *cliEnv) error {
+	if !isCommitHash(commit) {
+		return fmt.Errorf("git export: reset target %q is not a commit hash", commit)
+	}
+
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "reset", "--hard", commit)
+	return runGitOutput(cmd, "reset --hard "+commit, cli)
+}
+
+// gitRevParse resolves a fully qualified ref to its commit hash. A ref that
+// does not resolve is ("", false, nil).
+func gitRevParse(ctx context.Context, workdir, ref string, cli *cliEnv) (string, bool, error) {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return "", false, fmt.Errorf("git export: %w", err)
+	}
+
+	out, err := gitInWorkdir(ctx, workdir, cli, "rev-parse", "--verify", "--quiet", ref+"^{commit}").Output()
+	if err != nil {
+		return "", false, nil
+	}
+
+	hash := strings.TrimSpace(string(out))
+
+	return hash, hash != "", nil
 }
 
 // gitCleanFd removes untracked files and directories from the mirror worktree
@@ -453,6 +522,60 @@ func gitRefHash(ctx context.Context, workdir, branch string, cli *cliEnv) (strin
 	}
 
 	return hash, true, nil
+}
+
+// gitHeadHash returns the worktree HEAD commit hash.
+func gitHeadHash(ctx context.Context, workdir string, cli *cliEnv) (string, error) {
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return "", fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "rev-parse", "HEAD")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse HEAD: %s: %w", cli.redact(strings.TrimSpace(string(out))), err)
+	}
+
+	return strings.TrimSpace(string(out)), nil
+}
+
+// gitIsAncestorOfHead reports whether ancestor is an ancestor of HEAD, i.e.
+// whether HEAD can be fast-forwarded from ancestor. Anything that is not a
+// plain commit hash, or an ancestry that cannot be established, is reported as
+// false so a delivery is never forced over unverifiable remote state.
+func gitIsAncestorOfHead(ctx context.Context, workdir, ancestor string, cli *cliEnv) (bool, error) {
+	if !isCommitHash(ancestor) {
+		return false, nil
+	}
+
+	workdir, err := validateGitWorkdir(workdir)
+	if err != nil {
+		return false, fmt.Errorf("git export: %w", err)
+	}
+
+	cmd := gitInWorkdir(ctx, workdir, cli, "merge-base", "--is-ancestor", ancestor, "HEAD")
+	if cmd.Run() == nil {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func isCommitHash(hash string) bool {
+	if len(hash) != 40 {
+		return false
+	}
+
+	for _, c := range hash {
+		switch {
+		case c >= '0' && c <= '9', c >= 'a' && c <= 'f', c >= 'A' && c <= 'F':
+		default:
+			return false
+		}
+	}
+
+	return true
 }
 
 func runGitOutput(cmd *exec.Cmd, label string, cli *cliEnv) error {

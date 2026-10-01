@@ -159,6 +159,7 @@ When family sink refs are configured, each entry mirrors export observation:
 | `name` | Sink key `family/name` (e.g. `database/warehouse`) |
 | `lastExportTime` | Last successful export to this sink |
 | `lastChecksum` | Payload fingerprint from last export |
+| `lastExportPaths` | Sink-relative paths the last successful export wrote (capped sample); the deletion-time cleanup reads them as retraction evidence — recorded paths the cleanup cannot address announce `CleanupRetained` instead of a false-clean tombstone |
 | `conditions[]` | Per-sink `Synced` — `reason=Debounced` when interval not elapsed |
 
 Aggregate `status.lastExportTime` is the **max** of per-sink times (backward compatible). Read API
@@ -188,6 +189,19 @@ Aggregate `status.lastExportTime` is the **max** of per-sink times (backward com
 
 HTTP inventory read path (when enabled) requires caller SAR `get` on `kollectinventories` —
 [ADR-0404](../adr/0404-inventory-api-auth.md).
+
+## Deletion
+
+The cleanup finalizer `kollect.dev/inventory-cleanup` runs sink cleanup when the inventory is
+deleted, then releases. Snapshot sinks act on their `spec.deletionPolicy`
+([ADR-0421](../adr/0421-snapshot-sink-deletion-policy.md)): `Retain` (default) leaves the exported
+objects and records a `CleanupRetainedByPolicy` event; `Delete` retracts them, using the recorded
+`status.sinkExports[].lastExportPaths` as evidence and recording `CleanupRetained` when a full
+retraction cannot be proven. Database sinks prune the inventory's rows; event sinks cannot retract
+and announce `CleanupRetained`. A sink deleted first records `CleanupSinkGone`; a terminal backend
+failure keeps the finalizer (`CleanupTerminal`, re-checked every 5 minutes) until the sink is fixed
+or `kollect.dev/force-cleanup: "true"` is set. See
+[Troubleshooting](../operator-manual/troubleshooting.md).
 
 ## Common failure modes
 

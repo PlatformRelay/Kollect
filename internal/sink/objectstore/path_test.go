@@ -142,6 +142,48 @@ func TestParquetObjectPathAndIsParquetFormat(t *testing.T) {
 	}
 }
 
+func TestParquetObjectPath_DefaultsAndSanitizesSegments(t *testing.T) {
+	t.Parallel()
+
+	// An empty cluster folds to "default" and invalid hive characters are
+	// replaced so the path stays a valid partition segment.
+	got := ParquetObjectPath("  ", "team/a", "deploy ments", 1)
+	want := "inventory/cluster=default/ns=team_a/name=deploy_ments/generation=1.parquet"
+	if got != want {
+		t.Fatalf("parquet path = %q, want %q", got, want)
+	}
+}
+
+func TestKeyMatcher_ListDirAndJoinDir(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		prefix string
+		want   string
+	}{
+		{"", "."},
+		{"inventory/", "inventory"},
+		{"inventory/team-a/", "inventory/team-a"},
+		{"inventory/team-a/inv.json", "inventory/team-a"},
+		{"inv.json", "."},
+	}
+	for _, tc := range cases {
+		if got := (KeyMatcher{Prefix: tc.prefix}).ListDir(); got != tc.want {
+			t.Errorf("ListDir(%q) = %q, want %q", tc.prefix, got, tc.want)
+		}
+	}
+
+	if got := JoinDir(".", "inv.json"); got != "inv.json" {
+		t.Errorf("JoinDir(.) = %q, want inv.json", got)
+	}
+	if got := JoinDir("", "inv.json"); got != "inv.json" {
+		t.Errorf("JoinDir(\"\") = %q, want inv.json", got)
+	}
+	if got := JoinDir("inventory/team-a", "inv.json"); got != "inventory/team-a/inv.json" {
+		t.Errorf("JoinDir = %q, want inventory/team-a/inv.json", got)
+	}
+}
+
 func TestRenderPathTemplateDefaults(t *testing.T) {
 	t.Parallel()
 

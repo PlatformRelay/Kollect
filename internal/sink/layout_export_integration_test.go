@@ -66,7 +66,7 @@ func TestRunExportEnvelope_GitAutoInfersResourceMode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = RunExportEnvelope(ExportEnvelopeRequest{
+	_, err = RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Registry:      NewRegistry(),
 		SinkNamespace: "default",

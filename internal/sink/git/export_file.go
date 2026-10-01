@@ -87,6 +87,22 @@ func syncCLIWorkdir(
 	commitCtx CommitContext,
 	cli *cliEnv,
 ) error {
+	return syncCLIWorkdirScoped(ctx, workdir, cloneURL, pushBranch, cfg, commitCtx, cli, nil)
+}
+
+// syncCLIWorkdirScoped is syncCLIWorkdir with a scoped commit: when paths is
+// non-empty, the commit covers only those paths (git commit -- <paths>), so a
+// cleanup commit built here can never carry unrelated staged state out of a
+// shared warm mirror. Paths must already be removed from the worktree by the
+// caller.
+func syncCLIWorkdirScoped(
+	ctx context.Context,
+	workdir, cloneURL, pushBranch string,
+	cfg Config,
+	commitCtx CommitContext,
+	cli *cliEnv,
+	paths []string,
+) error {
 	clean, statusErr := gitStatusClean(ctx, workdir, cli)
 	if statusErr != nil {
 		return statusErr
@@ -105,7 +121,7 @@ func syncCLIWorkdir(
 		}
 	} else {
 		commitText := renderCommit(cfg, commitCtx)
-		if err := gitCommit(ctx, workdir, cfg.Author.Name, cfg.Author.Email, commitText, cli); err != nil {
+		if err := gitCommitScoped(ctx, workdir, cfg.Author.Name, cfg.Author.Email, commitText, paths, cli); err != nil {
 			return err
 		}
 	}

@@ -44,6 +44,7 @@ func ValidateSnapshotSinkSpec(spec *kollectdevv1alpha1.KollectSnapshotSinkSpec) 
 	allErrs = append(allErrs, validateCommonSinkFields(&spec.SinkCommonFields)...)
 	allErrs = append(allErrs, validateFormatCapability(spec.Type, spec.Serialization)...)
 	allErrs = append(allErrs, validateSnapshotSinkEndpointGuards(spec)...)
+	allErrs = append(allErrs, validateDeletionPolicy(spec.DeletionPolicy, field.NewPath("spec").Child("deletionPolicy"))...)
 	layoutPath := field.NewPath("spec").Child("layout")
 	switch spec.Type {
 	case kollectdevv1alpha1.SnapshotSinkTypeGit:
@@ -59,6 +60,21 @@ func ValidateSnapshotSinkSpec(spec *kollectdevv1alpha1.KollectSnapshotSinkSpec) 
 		allErrs = append(allErrs, forbidLayout(spec.Layout, layoutPath)...)
 	}
 	return allErrs
+}
+
+// validateDeletionPolicy mirrors the CRD enum for spec.deletionPolicy (ADR-0421).
+// Empty is accepted: the CRD defaults it to Retain, and EffectiveDeletionPolicy
+// reads unset as Retain.
+func validateDeletionPolicy(policy string, path *field.Path) field.ErrorList {
+	switch policy {
+	case "", kollectdevv1alpha1.DeletionPolicyRetain, kollectdevv1alpha1.DeletionPolicyDelete:
+		return nil
+	default:
+		return field.ErrorList{field.NotSupported(path, policy, []string{
+			kollectdevv1alpha1.DeletionPolicyRetain,
+			kollectdevv1alpha1.DeletionPolicyDelete,
+		})}
+	}
 }
 
 func forbidLayout(layout *kollectdevv1alpha1.LayoutSpec, path *field.Path) field.ErrorList {

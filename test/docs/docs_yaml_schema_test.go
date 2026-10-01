@@ -66,7 +66,7 @@ const (
 	// `kollect-doc: ignore` while the gate stayed green. Nothing verifies that an
 	// `ignore` reason is honest, so this count is the only thing between a
 	// plausible one-liner and re-admitting the defect.
-	validatedFragments = 10
+	validatedFragments = 11
 )
 
 // nonKollectDocGroups is a CLOSED allowlist of foreign API groups that

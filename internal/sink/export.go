@@ -121,7 +121,9 @@ func RunExportItems(req ExportItemsRequest) error {
 		return err
 	}
 
-	return RunExportEnvelope(ExportEnvelopeRequest{
+	// RunExportEnvelope's written paths are retraction evidence for callers that
+	// record export state; RunExportItems has no state to record.
+	_, err = RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           req.Ctx,
 		Client:        req.Client,
 		Registry:      req.Registry,
@@ -132,16 +134,24 @@ func RunExportItems(req ExportItemsRequest) error {
 		Envelope:      envelope,
 		SinkSpec:      resolved.Spec,
 	})
+
+	return err
 }
 
 // RunExportEnvelope exports a pre-built envelope without re-marshalling items.
-func RunExportEnvelope(req ExportEnvelopeRequest) error {
+// It returns the sink-relative paths the export wrote — the retraction evidence
+// the deletion-time cleanup path consults (K-28) — or nil when nothing was
+// written (capability skip, spill skip, or an empty projection). Callers that
+// record export state persist the paths; nil leaves the previously recorded
+// paths standing, which is correct: an export that wrote nothing did not
+// invalidate them.
+func RunExportEnvelope(req ExportEnvelopeRequest) ([]string, error) {
 	if req.Registry == nil {
-		return kollecterrors.Terminal(fmt.Errorf("sink registry is not configured"))
+		return nil, kollecterrors.Terminal(fmt.Errorf("sink registry is not configured"))
 	}
 
 	if req.SinkSpec.Type == "" {
-		return kollecterrors.Terminal(fmt.Errorf("sink spec is required for export to %q", req.SinkName))
+		return nil, kollecterrors.Terminal(fmt.Errorf("sink spec is required for export to %q", req.SinkName))
 	}
 
 	backend, release, err := acquireBackend(
@@ -151,7 +161,7 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 		err = kollecterrors.ClassifyAPI(fmt.Errorf("acquire backend for %q: %w", req.SinkName, err))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
-		return err
+		return nil, err
 	}
 	defer release()
 
@@ -161,12 +171,12 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 		err = kollecterrors.Terminal(err)
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
-		return err
+		return nil, err
 	}
 
 	exportItemsJSON, skip := ExportPayload(backend.Capabilities(), itemsJSON)
 	if skip {
-		return nil
+		return nil, nil
 	}
 
 	if len(exportItemsJSON) != len(itemsJSON) {
@@ -175,7 +185,7 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 			err = kollecterrors.Terminal(fmt.Errorf("decode export items: %w", unmarshalErr))
 			metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
-			return err
+			return nil, err
 		}
 
 		// Preserve the original envelope's header when re-marshalling the
@@ -200,7 +210,7 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 			err = kollecterrors.Terminal(err)
 			metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
-			return err
+			return nil, err
 		}
 	}
 
@@ -213,7 +223,7 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 			ErrSpillRequired, req.SinkName, len(envelope), export.SpillMandatoryBytes))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
-		return err
+		return nil, err
 	}
 
 	invNS, invName := objectstore.InventoryFromObjectPath(req.ObjectPath)
@@ -225,7 +235,7 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 		err = kollecterrors.Terminal(fmt.Errorf("resolve layout for %q: %w", req.SinkName, err))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
-		return err
+		return nil, err
 	}
 
 	commitCtx := git.CommitContextFromExport(
@@ -246,10 +256,10 @@ func RunExportEnvelope(req ExportEnvelopeRequest) error {
 		reason := ExportErrorReason(err)
 		metrics.SinkErrorsTotal.WithLabelValues(reason).Inc()
 
-		return classifyExportFailure(req.SinkName, err)
+		return nil, classifyExportFailure(req.SinkName, err)
 	}
 
-	return nil
+	return plan.writtenPaths, nil
 }
 
 func sinkNamespaceForExport(resolved *ResolvedSink, fallback string) string {

@@ -473,3 +473,36 @@ func TestValidateSnapshotSinkSpec_exportMinInterval(t *testing.T) {
 		t.Fatal("expected invalid exportMinInterval")
 	}
 }
+
+// ADR-0421: deletionPolicy accepts exactly Retain or Delete (or unset, which the
+// CRD defaults to Retain). The webhook mirrors the CRD enum so a request that
+// bypasses schema defaulting (or an old object read back) is still rejected.
+func TestValidateSnapshotSinkSpec_deletionPolicy(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		policy  string
+		wantErr bool
+	}{
+		{"", false},
+		{kollectdevv1alpha1.DeletionPolicyRetain, false},
+		{kollectdevv1alpha1.DeletionPolicyDelete, false},
+		{"delete", true},
+		{"Orphan", true},
+	} {
+		errs := ValidateSnapshotSinkSpec(&kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type:             kollectdevv1alpha1.SnapshotSinkTypeS3,
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "s3://bucket/prefix"},
+			DeletionPolicy:   tc.policy,
+		})
+		var policyErr bool
+		for _, e := range errs {
+			if e.Field == "spec.deletionPolicy" {
+				policyErr = true
+			}
+		}
+		if policyErr != tc.wantErr {
+			t.Errorf("deletionPolicy %q: errors = %v, want policy error %v", tc.policy, errs, tc.wantErr)
+		}
+	}
+}

@@ -25,6 +25,7 @@ snapshot sinks via `KollectInventory.spec.snapshotSinkRefs`.
 | `spec.layout` | **Git/GitLab only** — document shape and folder layout (`document`/`perResource`/`split`) ([ADR-0419](../adr/0419-git-export-serialization-layout.md)) |
 | `spec.exportMinInterval` | Default per-ref debounce when inventory ref omits override |
 | `spec.connectionTest` | Automatic probe on create/update (default `true`) |
+| `spec.deletionPolicy` | What inventory deletion does to this sink's exported objects: `Retain` (default) leaves them, `Delete` retracts them ([ADR-0421](../adr/0421-snapshot-sink-deletion-policy.md)) |
 
 ## Example
 
@@ -112,6 +113,32 @@ See samples
 [`..._git_resource_tree.yaml`](https://github.com/platformrelay/kollect/blob/main/config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_git_resource_tree.yaml)
 (Resource-mode tree). Cross-refs: [ADR-0407](../adr/0407-git-object-store-layout.md),
 [ADR-0415](../adr/0415-git-sink-commit-ergonomics.md), [ADR-0416](../adr/0416-sink-config-layering.md).
+
+## Inventory deletion (`spec.deletionPolicy`)
+
+When a `KollectInventory` or `KollectClusterInventory` bound to this sink is deleted,
+`spec.deletionPolicy` decides what happens to the objects the sink holds for it
+([ADR-0421](../adr/0421-snapshot-sink-deletion-policy.md)). Under `Retain` the cleanup finalizer
+always releases. Under `Delete` it releases once the retraction ran or was announced as retained;
+a terminal backend failure keeps it (`CleanupTerminal`, re-checked every 5 minutes) until the sink
+is fixed or `kollect.dev/force-cleanup: "true"` is set, and a transient failure retries:
+
+| Policy | Effect on deletion | Event |
+| --- | --- | --- |
+| `Retain` (default) | Exported objects are left in place; the backend is not contacted, so broken credentials cannot block deletion | `Normal` `CleanupRetainedByPolicy` |
+| `Delete` | Retracts the inventory's export: git/gitlab deletion commit (on the merge-request feature branch in `branchMR` mode), S3/GCS object deletion — the document, its `.part-NNNN-of-NNNN` siblings, layout sidecars, and for parquet the inventory's hive partitions including multipart ones | none when the retraction is provably complete; `Warning` `CleanupRetained` when it cannot be proven (layout trees, `{generation}` templates, an unmerged deletion MR, a changed `pathTemplate`/format, exports recorded before `lastExportPaths` existed) |
+
+```yaml
+# kollect-doc: fragment KollectSnapshotSink
+spec:
+  type: s3
+  endpoint: s3://inventory-bucket/kollect
+  deletionPolicy: Delete   # opt in: retract this inventory's objects on deletion
+```
+
+With `Delete`, a `KollectClusterInventory` `X` and a `KollectInventory` `X` in a namespace called
+`cluster` share the export identity `inventory/cluster/X`; deleting either skips the retraction while
+the other exists and records `CleanupSharedIdentity`.
 
 ## Status
 

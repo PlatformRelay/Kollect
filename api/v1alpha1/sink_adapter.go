@@ -24,6 +24,7 @@ func (s *KollectSnapshotSinkSpec) ToKollectSinkSpec() KollectSinkSpec {
 		Git:               s.Git,
 		GitLab:            s.GitLab,
 		ObjectStore:       s.ObjectStore,
+		DeletionPolicy:    s.DeletionPolicy,
 	}
 }
 

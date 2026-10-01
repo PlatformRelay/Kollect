@@ -215,14 +215,14 @@ KollectSnapshotSink is the Schema for snapshot export sinks.
 | --- | --- |
 | `cluster` | cluster labels exported inventory in multi-cluster installs. |
 | `connectionTest` | connectionTest enables connectivity checks on create/update (default true). |
+| `deletionPolicy` | deletionPolicy decides what happens to the objects this sink exported for an |
 | `endpoint` | endpoint is the backend-specific destination (URL, bucket, and so on). |
 | `exportMinInterval` | exportMinInterval is the default minimum time between identical exports when an inventory |
 | `git` | git configures git sink settings when type is git. |
 | `gitlab` | gitlab configures GitLab-specific settings when type is gitlab. |
 | `http` | http is a reserved snapshot type that is rejected by admission; it is not the optional Inventory HTTP read API. |
-| `layout` | layout configures document shape and folder layout for snapshot Git/GitLab sinks (ADR-0419). |
 
-Other spec fields: `objectStore`, `options`, `pathTemplate`, `provisioning`, `secretRef`, `serialization`, `tls`, `type`.
+Other spec fields: `layout`, `objectStore`, `options`, `pathTemplate`, `provisioning`, `secretRef`, `serialization`, `tls`, `type`.
 
 Full reference: [KollectSnapshotSink](crds/kollectsnapshotsink.md).
 

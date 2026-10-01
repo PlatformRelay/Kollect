@@ -364,6 +364,11 @@ func (in *InventorySinkExportStatus) DeepCopyInto(out *InventorySinkExportStatus
 		in, out := &in.LastExportTime, &out.LastExportTime
 		*out = (*in).DeepCopy()
 	}
+	if in.LastExportPaths != nil {
+		in, out := &in.LastExportPaths, &out.LastExportPaths
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))

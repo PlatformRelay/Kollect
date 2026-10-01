@@ -250,6 +250,8 @@ func main() {
 		MaxConcurrentClusterInventory: cfg.maxConcurrentClusterInventory,
 		ReconcileRateLimitBase:        cfg.reconcileRateLimit,
 		TargetCountResync:             cfg.targetCountResync,
+		WatchNamespaces:               watchNamespaces,
+		TenantMode:                    cfg.tenantMode,
 	}
 
 	if err := (&controller.KollectTargetReconciler{

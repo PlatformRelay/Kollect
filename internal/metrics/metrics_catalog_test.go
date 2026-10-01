@@ -38,6 +38,7 @@ var registeredMetricNames = []string{
 	"kollect_custom_resource_labeled_series_capped_total",
 	"kollect_static_ref_resolution_total",
 	"kollect_access_cache_total",
+	"kollect_cleanup_terminal_total",
 }
 
 func TestCatalogMatchesRegisteredMetrics(t *testing.T) {

@@ -136,7 +136,8 @@ Walkthrough: [examples/cluster-rollup.md](../examples/cluster-rollup.md).
 ### Per-sink status (`status.sinkExports[]`)
 
 Same shape as [KollectInventory](kollectinventory.md#per-sink-status-statussinkexports): per-ref
-`lastExportTime`, `lastChecksum`, and `Synced` conditions. Interval precedence matches namespaced
+`lastExportTime`, `lastChecksum`, `lastExportPaths` (the cleanup's retraction evidence), and
+`Synced` conditions. Interval precedence matches namespaced
 inventory ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 
 ### Common `Degraded` reasons
@@ -156,6 +157,15 @@ inventory ([ADR-0413](../adr/0413-export-interval-scheduling.md)).
 | Platform admins | `create`, `update`, `patch`, `delete` | `kollectclusterinventories` | Cluster-scoped |
 | Platform readers | `get`, `list`, `watch` | `kollectclusterinventories` | Audit platform config |
 | Operator | `get`, `list`, `watch` | `kollectclusterinventories`, `kollectclustertargets`, family sinks | Rollup + export |
+
+## Deletion
+
+The cleanup finalizer behaves as for [KollectInventory](kollectinventory.md#deletion): snapshot sinks
+in `sinkNamespace` act on their `spec.deletionPolicy` (`Retain` by default,
+[ADR-0421](../adr/0421-snapshot-sink-deletion-policy.md)). The export identity is
+`inventory/cluster/<name>`, which a `KollectInventory` of the same name in a namespace called
+`cluster` shares; while that inventory exists, a `Delete` retraction is skipped and announced with
+`CleanupSharedIdentity`.
 
 ## Common failure modes
 
