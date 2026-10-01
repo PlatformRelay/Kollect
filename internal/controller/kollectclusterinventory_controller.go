@@ -764,6 +764,35 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 				ObservedGeneration: inv.Generation,
 				LastTransitionTime: metav1.Now(),
 			})
+		case failed > 0 && outcome.ExportedCount == 0:
+			message := "export failed"
+			if outcome.ExportErr != nil {
+				message = outcome.ExportErr.Error()
+			}
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               conditionDegraded,
+				Status:             metav1.ConditionTrue,
+				Reason:             reasonExportFailed,
+				Message:            message,
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               conditionReady,
+				Status:             metav1.ConditionFalse,
+				Reason:             reasonExportFailed,
+				Message:            message,
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
+			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
+				Type:               kollectdevv1alpha1.ConditionExportSucceeded,
+				Status:             metav1.ConditionFalse,
+				Reason:             reasonExportFailed,
+				Message:            message,
+				ObservedGeneration: inv.Generation,
+				LastTransitionTime: metav1.Now(),
+			})
 		}
 	} else if outcome.ExportErr == nil {
 		apimeta.RemoveStatusCondition(&inv.Status.Conditions, conditionDegraded)
