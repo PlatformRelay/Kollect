@@ -370,8 +370,8 @@ with `--dry-run`.
 | `2` | Fatal — config invalid, cluster unreachable, or every target failed (nothing exported). |
 
 In a multi-context run the process exit code is the worst outcome across all contexts.
-Extraction failures are logged with target + object identity and a redacted reason (never the
-object payload or secret-bearing values).
+Extraction failures are logged with target + object identity and a redacted reason: the
+attribute name and an error class, never the object payload or any evaluated field value.
 
 ## GitLab CI integration
 

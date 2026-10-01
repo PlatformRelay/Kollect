@@ -13,7 +13,10 @@ flowchart LR
 
 The operator is level-based: a reconcile recomputes desired state from observed state, while a
 long resync is only a correctness backstop. Missing optional attributes are omitted; required
-extraction failures surface in target conditions and events.
+extraction failures surface in target conditions, events and `status.lastExtractionError`. Those
+messages name the attribute and an error class (`no such key`, `invalid timestamp`, `filter
+applied to a non-list value`, …), never the evaluated field values, because anyone who can read
+the target can read them. CEL compile and JSONPath parse errors keep their full detail.
 
 Filters are cumulative: the operator watch boundary, scope policy, target namespace and label
 selectors, resource rules, CEL match policy, and watch labels must all permit an object. Targets

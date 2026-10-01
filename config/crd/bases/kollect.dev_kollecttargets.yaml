@@ -473,8 +473,12 @@ spec:
                   attribute extraction for this target.
                 type: integer
               lastExtractionError:
-                description: lastExtractionError is the most recently observed extraction
-                  failure message.
+                description: |-
+                  lastExtractionError is the most recently observed extraction failure: the attribute
+                  name and an error class (for example `eval CEL: evaluation error: no such key`).
+                  Evaluation errors never include resource field values, since anyone who can read
+                  this target can read this field; CEL compile and JSONPath parse errors keep their
+                  expression-level detail.
                 type: string
               matchedNamespaces:
                 description: matchedNamespaces lists workload namespaces matched by
