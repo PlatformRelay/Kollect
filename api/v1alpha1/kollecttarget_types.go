@@ -74,7 +74,11 @@ type KollectTargetStatus struct {
 	// +optional
 	ExtractionFailures int `json:"extractionFailures,omitempty"`
 
-	// lastExtractionError is the most recently observed extraction failure message.
+	// lastExtractionError is the most recently observed extraction failure: the attribute
+	// name and an error class (for example `eval CEL: evaluation error: no such key`).
+	// Evaluation errors never include resource field values, since anyone who can read
+	// this target can read this field; CEL compile and JSONPath parse errors keep their
+	// expression-level detail.
 	// +optional
 	LastExtractionError string `json:"lastExtractionError,omitempty"`
 
