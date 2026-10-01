@@ -125,7 +125,8 @@ func decodeHelmReleasePayload(payload []byte) (map[string]any, error) {
 
 	var release map[string]any
 	if unmarshalErr := json.Unmarshal(decoded, &release); unmarshalErr != nil {
-		return nil, fmt.Errorf("json decode release: %w", unmarshalErr)
+		// Never wrap unmarshalErr: syntax errors quote bytes of the release payload.
+		return nil, fmt.Errorf("json decode release: malformed release payload")
 	}
 
 	return release, nil
@@ -191,7 +192,14 @@ func nestedFieldFromRelease(release map[string]any, path string) (any, bool, err
 	}
 
 	parts := strings.Split(path, ".")
-	return unstructured.NestedFieldCopy(release, parts...)
+	val, found, err := unstructured.NestedFieldCopy(release, parts...)
+	if err != nil {
+		// Never wrap err: the accessor error formats the traversed value (a release field,
+		// possibly a chart value) into its message, and extraction errors reach status.
+		return nil, false, fmt.Errorf("accessor error: field path %q traverses a non-object value", path)
+	}
+
+	return val, found, nil
 }
 
 // HelmReleasePathRequiresSecretOptIn reports whether a helm: path exposes Helm values/config.

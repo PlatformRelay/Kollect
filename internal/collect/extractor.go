@@ -99,7 +99,8 @@ func evalJSONPath(obj map[string]any, path string) (any, error) {
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("eval JSONPath: %w", err)
+		// Never wrap err: client-go formats the evaluated value into the message.
+		return nil, fmt.Errorf("eval JSONPath: %s", classifyJSONPathEvalError(err))
 	}
 
 	if len(results) == 0 || len(results[0]) == 0 {
@@ -138,7 +139,8 @@ func (e *Extractor) evalCEL(obj *unstructured.Unstructured, expr string) (any, e
 		"object": obj.Object,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("eval CEL: %w", err)
+		// Never wrap err: CEL formats runtime operands (keys, timestamps, regexes) into it.
+		return nil, fmt.Errorf("eval CEL: %s", classifyCELEvalError(err))
 	}
 
 	return celValueToGo(out), nil
@@ -150,6 +152,59 @@ func celValueToGo(val ref.Val) any {
 	}
 
 	return val.Value()
+}
+
+// Evaluation errors from CEL and client-go JSONPath interpolate the values they were evaluating
+// (`no such key: <key>`, `invalid RFC 3339 timestamp "<value>"`, `map[...] is not array…`), and
+// extraction errors reach KollectTarget status, conditions, events and logs. So an evaluation
+// error is reduced to a fixed, payload-free class here, at the one place every caller goes
+// through; the class names the kind of failure, never the operand. Compile and parse errors are
+// derived from the expression alone and keep their detail.
+//
+// Each rule matches a substring of the raw message and maps it to a constant; first match wins.
+type evalErrorClass struct {
+	match string
+	class string
+}
+
+var celEvalErrorClasses = []evalErrorClass{
+	{match: "no such key", class: "no such key"},
+	{match: "no such attribute", class: "no such attribute"},
+	{match: "no such overload", class: "no matching overload (type mismatch)"},
+	{match: "type conversion error", class: "type conversion error"},
+	{match: "timestamp", class: "invalid timestamp"},
+	{match: "duration", class: "invalid duration"},
+	{match: "division by zero", class: "division by zero"},
+	{match: "modulus by zero", class: "modulus by zero"},
+	{match: "out of bounds", class: "index out of bounds"},
+	{match: "out of range", class: "index out of bounds"},
+	{match: "regexp", class: "invalid regular expression"},
+	{match: "overflow", class: "numeric overflow"},
+}
+
+var jsonPathEvalErrorClasses = []evalErrorClass{
+	{match: "cannot be filtered", class: "filter applied to a non-list value"},
+	{match: "out of bounds", class: "array index out of bounds"},
+	{match: "is not array or slice", class: "index applied to a non-list value"},
+}
+
+func classifyCELEvalError(err error) string {
+	return "evaluation error: " + classifyEvalError(err, celEvalErrorClasses)
+}
+
+func classifyJSONPathEvalError(err error) string {
+	return "evaluation error: " + classifyEvalError(err, jsonPathEvalErrorClasses)
+}
+
+func classifyEvalError(err error, classes []evalErrorClass) string {
+	msg := err.Error()
+	for _, c := range classes {
+		if strings.Contains(msg, c.match) {
+			return c.class
+		}
+	}
+
+	return "unclassified (details withheld; they may contain resource data)"
 }
 
 func isJSONPathNotFound(err error) bool {
