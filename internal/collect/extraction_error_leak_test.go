@@ -49,6 +49,8 @@ var leakProbes = []struct {
 	{name: "cel regex from data", path: "cel:'x'.matches(object.data.pw + '(')", wantClass: "invalid regular expression"},
 	{name: "cel duration parse", path: "cel:duration(object.data.pw)", wantClass: "type conversion error"},
 	{name: "cel index from data", path: "cel:object.spec.items[size(object.data.pw)]", wantClass: "index out of bounds"},
+	{name: "cel non-int list index", path: "cel:object.spec.items['a']", wantClass: "unsupported index type"},
+	{name: "jsonpath filter comparison", path: "{.spec.items[?(@ > 1)]}", wantClass: "incompatible types for comparison"},
 }
 
 // Reproduces the LastExtractionError leak at its source: the error returned by Extract feeds
@@ -118,6 +120,39 @@ func TestExtractHelmAccessorErrorNeverEchoesReleaseValues(t *testing.T) {
 	}
 	if strings.Contains(extractErr.Error(), leakSecretValue) {
 		t.Fatalf("Extract() error %q echoes a Helm release value", extractErr.Error())
+	}
+}
+
+// A release payload that is not JSON makes encoding/json quote the offending payload byte
+// (`invalid character 'S' looking for beginning of value`); the error must not carry it.
+func TestExtractHelmJSONDecodeErrorNeverEchoesPayloadBytes(t *testing.T) {
+	t.Parallel()
+
+	obj := helmSecretWithRelease(encodeRawHelmPayload([]byte(leakSecretValue)))
+
+	ext, err := NewExtractor()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, extractErr := ext.Extract(obj, []kollectdevv1alpha1.AttributeSpec{
+		{Name: "leaky", Path: "helm:release.name"},
+	})
+	if extractErr == nil {
+		t.Fatal("Extract() error = nil, want a JSON decode error")
+	}
+
+	msg := extractErr.Error()
+	if !strings.Contains(msg, "json decode release") {
+		t.Fatalf("Extract() error %q, want the json decode release class", msg)
+	}
+	if strings.Contains(msg, "'S'") || strings.Contains(msg, leakSecretValue) {
+		t.Fatalf("Extract() error %q echoes bytes of the release payload", msg)
+	}
+	for e := errors.Unwrap(extractErr); e != nil; e = errors.Unwrap(e) {
+		if strings.Contains(e.Error(), "'S'") {
+			t.Fatalf("unwrapped error %q echoes bytes of the release payload", e.Error())
+		}
 	}
 }
 
