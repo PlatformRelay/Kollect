@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **export:** Stop silent oversize drops and torn relational snapshots ([#378](https://github.com/platformrelay/kollect/pull/378))[79b841c](https://github.com/platformrelay/kollect/commit/79b841cec86cb6c45f9c11ccbb3e99d695a8307b)
+
 - **collect:** Drop the user-reachable pin exception under an enforced ceiling [abb9e2b](https://github.com/platformrelay/kollect/commit/abb9e2bd779b693d709d4c73f4dc24e860423bc8)
 
 - **controller:** Requeue after scope-lookup deny, not just unregister [5ba732b](https://github.com/platformrelay/kollect/commit/5ba732b4993e452b72f6a9e7fbb0e91c1e0feaba)
