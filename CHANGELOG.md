@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Close evicted pool backends outside the lock [d551a0c](https://github.com/platformrelay/kollect/commit/d551a0c46db6710b6b529f5b9edb7a8870a373e4)
+
+- **sink:** Close replaced pool backends outside the lock [3496c9e](https://github.com/platformrelay/kollect/commit/3496c9e37846b1c6143a1d9e366745514ea6ebfd)
+
 - **controller:** Clear Ready when a namespaced export fails ([#387](https://github.com/platformrelay/kollect/pull/387))[71f050a](https://github.com/platformrelay/kollect/commit/71f050a229d30be4443e780f8a79f46380a8f596)
 
 - **sink:** Bound response headers when the HTTP client timeout is zero ([#389](https://github.com/platformrelay/kollect/pull/389))[e77302e](https://github.com/platformrelay/kollect/commit/e77302e1192a7d03a85d05e1905dc24cd9cf8955)
