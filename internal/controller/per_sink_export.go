@@ -6,6 +6,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -249,6 +250,70 @@ func upsertSinkExportStatus(
 
 	*exports = append(*exports, kollectdevv1alpha1.InventorySinkExportStatus{Name: name})
 	return &(*exports)[len(*exports)-1]
+}
+
+// carryOverLastExportPaths keeps the previous sinkExports entry's recorded
+// export paths on the rebuilt status entry. outcome.SinkExports is rebuilt
+// fresh every reconcile and overwrites the inventory status wholesale, so
+// without the carry-over a debounced or failed reconcile would erase the
+// recorded paths the deletion-time cleanup path needs as retraction evidence
+// (K-28). The entry's other fields keep their existing rebuild semantics; the
+// recorded paths are the one piece cleanup cannot recover another way.
+func carryOverLastExportPaths(
+	status *kollectdevv1alpha1.InventorySinkExportStatus,
+	previous []kollectdevv1alpha1.InventorySinkExportStatus,
+	exportKey string,
+) {
+	if status == nil {
+		return
+	}
+
+	for i := range previous {
+		if previous[i].Name != exportKey {
+			continue
+		}
+
+		if len(status.LastExportPaths) == 0 {
+			status.LastExportPaths = previous[i].LastExportPaths
+		}
+
+		return
+	}
+}
+
+// maxRecordedExportPaths bounds the per-sink lastExportPaths status list (the
+// CRD caps the field at the same size). A projection with more paths — in
+// practice a tree-shaped per-resource export — is sampled to the first entries
+// of the sorted set: its recorded paths land outside the document-side
+// candidate paths either way, so the retention evidence survives sampling.
+const maxRecordedExportPaths = 32
+
+// recordExportPaths turns one successful export's written paths into the
+// recorded status value: deduplicated and sorted for a deterministic sample,
+// capped at maxRecordedExportPaths. An empty or nil write (capability skip,
+// empty projection) keeps the previous recording — an export that wrote
+// nothing did not invalidate the paths recorded before it.
+func recordExportPaths(written, previous []string) []string {
+	if len(written) == 0 {
+		return previous
+	}
+
+	seen := make(map[string]struct{}, len(written))
+	out := make([]string, 0, len(written))
+	for _, p := range written {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	sort.Strings(out)
+
+	if len(out) > maxRecordedExportPaths {
+		out = out[:maxRecordedExportPaths]
+	}
+
+	return out
 }
 
 func aggregateInventorySync(

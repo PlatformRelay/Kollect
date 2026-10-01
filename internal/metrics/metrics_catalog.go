@@ -234,4 +234,12 @@ var Catalog = []CatalogEntry{
 		PromQLHint: "sum(rate(kollect_access_cache_total[5m])) by (result)",
 		AgentHint:  "Low hit ratio → key cardinality (GVR×ns×verb) churns past the LRU cap; expect more SAR load.",
 	},
+	{
+		Name:       "kollect_cleanup_terminal_total",
+		Type:       "counter",
+		Labels:     []string{"kind"},
+		Help:       "Terminal sink-cleanup attempts on deleting inventories; the finalizer is retained and the attempt re-checks every 5 minutes, so one wedged object increments it once per re-check (K-30).",
+		PromQLHint: "increase(kollect_cleanup_terminal_total[1h]) > 0",
+		AgentHint:  "Nonzero → a deleting object is wedged on a broken sink: fix sink creds or set the kollect.dev/force-cleanup annotation to drop the finalizer.",
+	},
 }

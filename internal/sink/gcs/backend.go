@@ -53,3 +53,8 @@ func (b *Backend) Capabilities() cap.Capabilities {
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
 	return b.inner.Export(ctx, payload, objectPath)
 }
+
+// DeleteExport removes the inventory's exported objects via the S3-compatible API (K-28, C-2a).
+func (b *Backend) DeleteExport(ctx context.Context, paths []string) ([]string, error) {
+	return b.inner.DeleteExport(ctx, paths)
+}

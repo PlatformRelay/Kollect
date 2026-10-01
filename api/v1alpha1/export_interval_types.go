@@ -119,6 +119,18 @@ type InventorySinkExportStatus struct {
 	// +optional
 	LastChecksum string `json:"lastChecksum,omitempty"`
 
+	// lastExportPaths are the sink-relative paths the last successful export to
+	// this sink actually wrote (document path, layout sidecars, projected
+	// per-resource files). The deletion-time cleanup path reads them as
+	// retraction evidence (K-28): recorded paths the cleanup attempt cannot
+	// address — the sink's pathTemplate or serialization format changed, or the
+	// export was tree-shaped — announce CleanupRetained instead of a silent
+	// false-clean tombstone. A projection larger than the cap is sampled to its
+	// first sorted entries.
+	// +optional
+	// +kubebuilder:validation:MaxItems=32
+	LastExportPaths []string `json:"lastExportPaths,omitempty"`
+
 	// conditions report per-sink Synced / debounce state.
 	// +listType=map
 	// +listMapKey=type

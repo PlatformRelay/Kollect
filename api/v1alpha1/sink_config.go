@@ -53,6 +53,17 @@ func EffectiveProvisioningMode(spec *KollectSinkSpec) string {
 	return ProvisioningModeEnsure
 }
 
+// EffectiveDeletionPolicy returns the deletion policy for a normalized sink spec
+// (ADR-0421). Anything other than an exact Delete is Retain: the destructive
+// policy is never inferred from an unset or unexpected value.
+func EffectiveDeletionPolicy(spec *KollectSinkSpec) string {
+	if spec != nil && spec.DeletionPolicy == DeletionPolicyDelete {
+		return DeletionPolicyDelete
+	}
+
+	return DeletionPolicyRetain
+}
+
 // EffectiveSerializationFormatFromCommon resolves format from common fields and optional object store block.
 func EffectiveSerializationFormatFromCommon(common *SinkCommonFields, objectStore *ObjectStoreSpec) string {
 	spec := &KollectSinkSpec{ObjectStore: objectStore}

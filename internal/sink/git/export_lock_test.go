@@ -53,8 +53,8 @@ func TestWithRepoExportLock_serializesConcurrentExports(t *testing.T) {
 // MR-08: every inventory of a branchMR sink shares one warm mirror keyed by
 // (clone URL, clone branch). Operations on DIFFERENT push branches must
 // therefore serialize on that mirror lock: while it is held, exports to two
-// other feature branches must both wait, and both must complete once it is
-// released.
+// other feature branches (and a deletion on a third) must all wait, and all
+// must complete once it is released.
 func TestMirrorLock_serializesDifferentPushBranchesOnOneMirror(t *testing.T) {
 	skipWithoutGit(t)
 
@@ -92,6 +92,7 @@ func TestMirrorLock_serializesDifferentPushBranchesOnOneMirror(t *testing.T) {
 				CommitContextFromObjectPath(path, "prod"))
 		}()
 	}
+	startMirrorLockedDeletion(t, cfg, ops)
 
 	select {
 	case <-time.After(300 * time.Millisecond):
@@ -128,4 +129,18 @@ func firstDone(ops map[string]chan error) <-chan struct{} {
 	}
 
 	return fired
+}
+
+// startMirrorLockedDeletion adds a deletion on a third feature branch to ops.
+func startMirrorLockedDeletion(t *testing.T, cfg Config, ops map[string]chan error) {
+	t.Helper()
+
+	done := make(chan error, 1)
+	ops["delete team-c"] = done
+	go func() {
+		_, err := DeleteExportWithBranch(t.Context(), cfg, Auth{}, []string{"inventory/team-c/inv.json"},
+			&BranchSpec{PushBranch: "kollect/team-c/inv", CloneBranch: "main"},
+			CommitContextFromObjectPath("inventory/team-c/inv.json", "prod"))
+		done <- err
+	}()
 }

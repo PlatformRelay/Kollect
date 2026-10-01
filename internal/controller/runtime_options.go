@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"slices"
 	"time"
 
 	"k8s.io/client-go/util/workqueue"
@@ -39,6 +40,13 @@ type RuntimeOptions struct {
 	// TargetCountResync is how often a Ready KollectTarget is requeued to refresh
 	// status.collectedCount. Zero or negative selects DefaultTargetCountResync.
 	TargetCountResync time.Duration
+	// WatchNamespaces is the --watch-namespaces set the manager cache is
+	// restricted to; empty means every namespace. Objects in other namespaces
+	// are never reconciled, so they can never have exported anything.
+	WatchNamespaces []string
+	// TenantMode is --tenant-mode: namespaced RBAC only, cluster-scoped kinds
+	// (KollectClusterInventory) are rejected at admission and never reconciled.
+	TenantMode bool
 }
 
 // DefaultRuntimeOptions returns production-oriented defaults (ADR-0603).
@@ -50,6 +58,16 @@ func DefaultRuntimeOptions() RuntimeOptions {
 		MaxConcurrentClusterInventory: 2,
 		TargetCountResync:             DefaultTargetCountResync,
 	}
+}
+
+// watchesNamespace reports whether the manager reconciles objects in ns: every
+// namespace when WatchNamespaces is empty, otherwise only the listed ones.
+func (o RuntimeOptions) watchesNamespace(ns string) bool {
+	if len(o.WatchNamespaces) == 0 {
+		return true
+	}
+
+	return slices.Contains(o.WatchNamespaces, ns)
 }
 
 // targetCountResync returns the configured count resync interval, falling back to the

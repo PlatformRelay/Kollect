@@ -8,10 +8,12 @@ import (
 	"fmt"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
+	"github.com/platformrelay/kollect/internal/metrics"
 	"github.com/platformrelay/kollect/internal/sink"
 )
 
@@ -32,20 +34,36 @@ func (r *KollectClusterInventoryReconciler) finalizeClusterInventoryDeletion(
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.cleanupClusterInventorySinks(ctx, inv); err != nil {
+	// K-30 escape hatch (see the namespaced finalizer for semantics).
+	if forceCleanupRequested(inv.Annotations) {
+		recordCleanupForced(r.Recorder, inv, clusterInventoryCleanupFinalizer)
+
+		return removeFinalizerAndUpdate(ctx, r.Client, inv, clusterInventoryCleanupFinalizer)
+	}
+
+	report, err := r.cleanupClusterInventorySinks(ctx, inv)
+	recordCleanupAnnouncements(r.Recorder, inv, report)
+
+	if err != nil {
 		logf.FromContext(ctx).Error(err, "cluster inventory sink cleanup failed", "inventory", inv.Name)
 
 		if kollecterrors.IsTerminal(err) {
 			// Returning a non-nil error would make controller-runtime requeue
 			// with backoff, defeating the no-requeue intent for terminal errors.
 			msg := fmt.Sprintf(
-				"sink cleanup failed terminally: %v — fix the sink configuration or remove the %q finalizer manually",
-				err, clusterInventoryCleanupFinalizer)
+				"sink cleanup failed terminally: %v — fix the sink configuration, set the %q annotation to \"true\", or remove the %q finalizer manually",
+				err, kollectdevv1alpha1.AnnotationForceCleanup, clusterInventoryCleanupFinalizer)
 			recordWarning(r.Recorder, inv, reasonCleanupTerminal, msg)
+			// K-30: the wedge needs a counter an operator can alert on.
+			metrics.CleanupTerminalTotal.WithLabelValues("cluster-inventory").Inc()
 			// Best-effort Degraded status: the object is deleting, update errors are ignored.
 			_, _ = r.setDegraded(ctx, inv, reasonCleanupTerminal, msg)
 
-			return ctrl.Result{}, nil
+			// Re-check on a fixed cadence so a fix of the sink configuration —
+			// in particular a Secret data edit, which fires no watch event —
+			// clears the wedge within minutes rather than at the informer
+			// resync (see inventory_finalizer.go for the rationale).
+			return ctrl.Result{RequeueAfter: terminalCleanupRequeue}, nil
 		}
 
 		return ctrl.Result{RequeueAfter: r.exportDebounce(inv)}, err
@@ -57,7 +75,7 @@ func (r *KollectClusterInventoryReconciler) finalizeClusterInventoryDeletion(
 func (r *KollectClusterInventoryReconciler) cleanupClusterInventorySinks(
 	ctx context.Context,
 	inv *kollectdevv1alpha1.KollectClusterInventory,
-) error {
+) (SinkCleanupReport, error) {
 	sinkNS := inv.Spec.SinkNamespace
 	if sinkNS == "" {
 		sinkNS = sink.DefaultSecretNamespace
@@ -70,7 +88,28 @@ func (r *KollectClusterInventoryReconciler) cleanupClusterInventorySinks(
 		sinkNS,
 		clusterInventorySinkBindings(inv),
 		true,
-		fmt.Sprintf("inventory/cluster/%s.json", inv.Name),
-		inv.Generation,
+		cleanupTarget{
+			objectPath:     fmt.Sprintf("inventory/%s/%s.json", clusterExportNamespace, inv.Name),
+			generation:     inv.Generation,
+			evidence:       exportEvidenceBySink(inv.Status.SinkExports),
+			sharedIdentity: r.namespacedCounterpartLookup(inv),
+		},
 	)
+}
+
+// namespacedCounterpartLookup returns the shared-identity check for a deleting
+// KollectClusterInventory: a KollectInventory of the same name in namespace
+// "cluster" collides with it, but only when the operator watches that
+// namespace — an inventory it never reconciled never exported anything.
+func (r *KollectClusterInventoryReconciler) namespacedCounterpartLookup(
+	inv *kollectdevv1alpha1.KollectClusterInventory,
+) func(context.Context) (bool, error) {
+	if !r.Options.watchesNamespace(clusterExportNamespace) {
+		return nil
+	}
+
+	return func(ctx context.Context) (bool, error) {
+		return exportIdentityShared(ctx, r.Client,
+			client.ObjectKey{Namespace: clusterExportNamespace, Name: inv.Name}, &kollectdevv1alpha1.KollectInventory{})
+	}
 }

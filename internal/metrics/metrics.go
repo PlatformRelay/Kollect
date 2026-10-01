@@ -255,6 +255,19 @@ var (
 		},
 		[]string{"profile", "gvk", "series"},
 	)
+
+	// CleanupTerminalTotal counts terminal sink-cleanup attempts on deleting
+	// inventories (K-30). The finalizer is retained and the attempt re-checks
+	// every 5 minutes, so a single wedged object increments it once per re-check:
+	// alert on any increase, not on the absolute value. kind is a bounded enum
+	// (inventory/cluster-inventory).
+	CleanupTerminalTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kollect_cleanup_terminal_total",
+			Help: "Terminal sink-cleanup attempts on deleting inventories; the finalizer is retained and the attempt re-checks every 5 minutes, so one wedged object increments it once per re-check.",
+		},
+		[]string{"kind"},
+	)
 )
 
 // Register adds kollect custom metrics to the controller-runtime registry.
@@ -288,5 +301,6 @@ func Register() {
 		StaticRefResolutionTotal,
 		LabeledSeriesCardinalityCappedTotal,
 		AccessCacheTotal,
+		CleanupTerminalTotal,
 	)
 }
