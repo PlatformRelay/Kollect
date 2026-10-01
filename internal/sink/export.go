@@ -274,6 +274,13 @@ func classifyExportFailure(sinkName string, err error) error {
 	return kollecterrors.Transient(fmt.Errorf("export to %q: %w", sinkName, err))
 }
 
+// CloseBackend releases a backend that holds a network or filesystem client.
+// The collect CLI builds a backend per context, outside the operator pool,
+// and has to close it before the next context opens another one.
+func CloseBackend(b Backend) error {
+	return closeBackend(b)
+}
+
 func closeBackend(b Backend) error {
 	switch c := b.(type) {
 	case io.Closer:
