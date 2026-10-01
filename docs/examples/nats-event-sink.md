@@ -63,10 +63,10 @@ spec:
 
 | Field | Purpose |
 | --- | --- |
-| `spec.nats.url` | NATS server (`nats://host:4222`); falls back to `spec.endpoint` |
+| `spec.nats.url` | NATS server (`nats://host:4222`); falls back to `spec.endpoint`. Must not carry credentials: `nats://user:pass@host` or `nats://token@host` fails config validation |
 | `spec.nats.subject` | JetStream publish subject (required) |
 | `spec.nats.stream` | Stream name (default `kollect_events`; dots sanitized to `_`) |
-| `spec.secretRef` | Optional `token` or `username`/`password` keys |
+| `spec.secretRef` | Optional `token` or `username`/`password` keys; the only place NATS credentials are accepted |
 | `spec.cluster` | Cluster label embedded in each event envelope |
 
 Event emitter role ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)). Pair with Postgres via

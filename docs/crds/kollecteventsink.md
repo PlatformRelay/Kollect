@@ -61,6 +61,11 @@ spec:
     stream: kollect_events
 ```
 
+NATS credentials go in the Secret named by `spec.secretRef` (`token`, or `username` and
+`password`). A `spec.nats.url` or `spec.endpoint` that embeds them (`nats://user:pass@host`,
+`nats://token@host`) is rejected at config validation, so the credential can never be echoed into
+a status condition or Event.
+
 NATS messages carry a versioned `EventEnvelope` (`schemaVersion`, `timestamp`, `cluster`,
 `namespace`, `payload`) with JetStream `Nats-Msg-Id` dedupe — see
 `test/schema/golden/nats-event-envelope.json`.
