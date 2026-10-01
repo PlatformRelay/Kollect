@@ -139,6 +139,13 @@ func TestBuildContextFromSpec(t *testing.T) {
 			wantDBVal: "mongodb://localhost/inventory",
 		},
 		{
+			name: "mongodb without spec skips database secret",
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type: "mongodb",
+			},
+			wantNoDB: true,
+		},
+		{
 			name: "bigquery without secretRef skips database secret",
 			spec: kollectdevv1alpha1.KollectSinkSpec{
 				Type: "bigquery",
@@ -406,6 +413,18 @@ func TestBuildContextFromSpec_errors(t *testing.T) {
 				},
 			},
 			wantSub: "missing-bq",
+		},
+		{
+			name: "missing mongodb database secret",
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type: "mongodb",
+				MongoDB: &kollectdevv1alpha1.MongoSpec{
+					DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "missing-mongo"},
+					Database:    "inventory",
+					Collection:  "items",
+				},
+			},
+			wantSub: "missing-mongo",
 		},
 		{
 			name: "missing kafka secret",
