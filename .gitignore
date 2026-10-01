@@ -88,3 +88,6 @@ __pycache__/
 
 # --- Leftover local SPA after UI-REMOVE-01 (dist + node_modules); do not track ---
 /ui/
+
+# --- Spec Kit scaffolding (specify init); specs/ stays tracked, the tool scaffolding does not ---
+/.specify/
