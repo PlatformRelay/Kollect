@@ -66,3 +66,55 @@ func TestGuardResolution_malformedEndpointIsStatic(t *testing.T) {
 	err := cli.guardResolution(context.Background(), leakyBadEndpoint)
 	assertStatic(t, err)
 }
+
+// leakySpacedEndpoint carries a password with a space: url.Parse rejects it,
+// and redact.Text cannot mask the run because the space ends its userinfo
+// match, so only a static message keeps "cr3t" out of the error.
+const leakySpacedEndpoint = "https://user:s3 cr3t@git.example.com/org/repo.git"
+
+func assertStaticNoSecret(t *testing.T, err error) {
+	t.Helper()
+
+	assertStatic(t, err)
+
+	for _, leak := range []string{"s3 cr3t", "cr3t", "user:"} {
+		if strings.Contains(err.Error(), leak) {
+			t.Fatalf("error echoed %q: %q", leak, err.Error())
+		}
+	}
+}
+
+func TestValidateCloneURL_malformedEndpointIsStatic(t *testing.T) {
+	t.Parallel()
+
+	for _, endpoint := range []string{leakyBadEndpoint, leakySpacedEndpoint} {
+		assertStaticNoSecret(t, validateCloneURL(endpoint))
+	}
+}
+
+func TestParseFileGitBarePath_malformedEndpointIsStatic(t *testing.T) {
+	t.Parallel()
+
+	for _, endpoint := range []string{leakyBadEndpoint, leakySpacedEndpoint} {
+		_, err := parseFileGitBarePath(endpoint)
+		assertStaticNoSecret(t, err)
+	}
+}
+
+func TestCanonicalCloneURL_malformedEndpointIsStatic(t *testing.T) {
+	t.Parallel()
+
+	for _, endpoint := range []string{leakyBadEndpoint, leakySpacedEndpoint} {
+		_, err := canonicalCloneURL(endpoint)
+		assertStaticNoSecret(t, err)
+	}
+}
+
+func TestTestConnection_malformedEndpointIsStatic(t *testing.T) {
+	t.Parallel()
+
+	for _, endpoint := range []string{leakyBadEndpoint, leakySpacedEndpoint} {
+		err := TestConnection(context.Background(), Config{Endpoint: endpoint}, Auth{})
+		assertStaticNoSecret(t, err)
+	}
+}
