@@ -234,6 +234,30 @@ func TestResolveSink_singleSinkUsesItsSpec(t *testing.T) {
 	}
 }
 
+func TestCLIBuildContext_loadsMongoDatabaseSecret(t *testing.T) {
+	t.Parallel()
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type: "mongodb",
+		MongoDB: &kollectdevv1alpha1.MongoSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "mongo"},
+			Database:    "inventory",
+			Collection:  "items",
+		},
+	}
+	secret := corev1.Secret{}
+	secret.Name = "mongo"
+	secret.Data = map[string][]byte{"uri": []byte("mongodb://localhost/inventory")}
+
+	got, err := cliBuildContext(context.Background(), spec, nil, []corev1.Secret{secret})
+	if err != nil {
+		t.Fatalf("cliBuildContext: %v", err)
+	}
+	if string(got.DatabaseSecretData["uri"]) != "mongodb://localhost/inventory" {
+		t.Fatalf("DatabaseSecretData[uri] = %q", got.DatabaseSecretData["uri"])
+	}
+}
+
 func TestResolveSinkSecretData_noSecretRefReturnsNil(t *testing.T) {
 	t.Parallel()
 
