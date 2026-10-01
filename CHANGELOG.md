@@ -11,6 +11,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Strip GitLab credentials on an https to http redirect [d55fde3](https://github.com/platformrelay/kollect/commit/d55fde3bcfd2ab2fbeb350ba81305744ba7223a9)
+
+- **sink:** Escape BigQuery string literals with GoogleSQL backslash escapes [9ff2d1f](https://github.com/platformrelay/kollect/commit/9ff2d1ffc4596afe70c3163a2211ef09f8fb2a26)
+
+- **cmd:** Log the insecure-sinks warning after SetLogger [3e7c03d](https://github.com/platformrelay/kollect/commit/3e7c03dd19d93cea9315b6fd4b9f8192dccbc0f5)
+
+- **sink:** [**breaking**] Harden transport and credential hygiene [7d71eb6](https://github.com/platformrelay/kollect/commit/7d71eb6c6c5075e1b1e13bd9720cb85b203fa137)
+
 - **collect:** Classify two more evaluation errors ([#391](https://github.com/platformrelay/kollect/pull/391))[ebef8a5](https://github.com/platformrelay/kollect/commit/ebef8a59e5ce51cd353db87e75f3dc377e466f55)
 
 - **collect:** Keep field values out of extraction errors [50fcb9f](https://github.com/platformrelay/kollect/commit/50fcb9f4e93bcc52a64276d0d86ca726b197f312)
@@ -38,7 +46,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **security:** Reject cross-namespace secretRef at admission and validate auth mode ([#377](https://github.com/platformrelay/kollect/pull/377))[23e8b86](https://github.com/platformrelay/kollect/commit/23e8b8680e29c09348f032f9250edc18bdaa17bd)
 
 
+### Features
+
+- **chart:** Add allowInsecureSinks value for --allow-insecure-sinks [53626b2](https://github.com/platformrelay/kollect/commit/53626b283af791c70ea9e40e943094685922a991)
+
+
 ### Refactoring
+
+- **sink:** Share sink TLS resolution across git, kafka and nats [9736f1f](https://github.com/platformrelay/kollect/commit/9736f1f6ac6409cf544b524483ceab53e0c9d43e)
 
 - **controller:** Fold lookup requeue into the scope-deny helper [3cb4638](https://github.com/platformrelay/kollect/commit/3cb463891a38eb6f32d1fcd115ccb2c066e76cbb)
 
