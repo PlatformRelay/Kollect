@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/redact"
 )
 
 const (
@@ -61,6 +62,10 @@ func setTargetCondition(
 	status metav1.ConditionStatus,
 	reason, message string,
 ) (written bool, err error) {
+	// Redact before the skip check so it compares like with like: the
+	// persisted message is always the redacted one (K-23).
+	message = redact.Text(message)
+
 	existing := apimeta.FindStatusCondition(*conditions, conditionType)
 	if existing != nil &&
 		existing.Status == status &&

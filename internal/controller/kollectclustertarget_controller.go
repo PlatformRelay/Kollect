@@ -22,6 +22,7 @@ import (
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
+	"github.com/platformrelay/kollect/internal/redact"
 )
 
 // KollectClusterTargetReconciler wires cluster-scoped targets to the collection engine per
@@ -323,7 +324,7 @@ func setClusterTargetCondition(
 		Type:               conditionType,
 		Status:             status,
 		Reason:             reason,
-		Message:            message,
+		Message:            redact.Text(message),
 		ObservedGeneration: generation,
 		LastTransitionTime: metav1.Now(),
 	})
