@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect:** Classify two more evaluation errors ([#391](https://github.com/platformrelay/kollect/pull/391))[ebef8a5](https://github.com/platformrelay/kollect/commit/ebef8a59e5ce51cd353db87e75f3dc377e466f55)
+
+- **collect:** Keep field values out of extraction errors [50fcb9f](https://github.com/platformrelay/kollect/commit/50fcb9f4e93bcc52a64276d0d86ca726b197f312)
+
 - **sink:** Close evicted pool backends outside the lock [d551a0c](https://github.com/platformrelay/kollect/commit/d551a0c46db6710b6b529f5b9edb7a8870a373e4)
 
 - **sink:** Close replaced pool backends outside the lock [3496c9e](https://github.com/platformrelay/kollect/commit/3496c9e37846b1c6143a1d9e366745514ea6ebfd)
