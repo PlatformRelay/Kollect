@@ -6,6 +6,7 @@ package git
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	billy "github.com/go-git/go-billy/v5"
@@ -233,5 +234,109 @@ func assertDiskExists(t *testing.T, workdir, rel string, want bool) {
 	}
 	if !want && !os.IsNotExist(err) {
 		t.Fatalf("Stat(%q) error = %v, want not-exist", rel, err)
+	}
+}
+
+func TestPathDepth_RootAndDotAreZero(t *testing.T) {
+	t.Parallel()
+
+	if pathDepth(".") != 0 || pathDepth("/") != 0 || pathDepth("prod/team-a/Deployment") != 3 {
+		t.Fatalf("pathDepth(.)=%d pathDepth(/)=%d pathDepth(kind)=%d", pathDepth("."), pathDepth("/"), pathDepth("prod/team-a/Deployment"))
+	}
+}
+
+func TestRemoveBillyOrphans_MissingKindParentIsNotAnError(t *testing.T) {
+	t.Parallel()
+
+	if err := removeBillyOrphans(memfs.New(), []string{"prod/team-a/Deployment/api.yaml"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRemoveDiskOrphans_MissingKindParentIsNotAnError(t *testing.T) {
+	t.Parallel()
+
+	if err := removeDiskOrphans(t.TempDir(), []string{"prod/team-a/Deployment/api.yaml"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRemoveDiskOrphans_FileWhereParentDirBelongs(t *testing.T) {
+	t.Parallel()
+
+	workdir := t.TempDir()
+	mustWriteDiskFile(t, workdir, "prod/team-a", "not-a-dir")
+
+	err := removeDiskOrphans(workdir, []string{"prod/team-a/Deployment/api.yaml"})
+	if err == nil || !strings.Contains(err.Error(), "prune read dir") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRemoveBillyOrphans_SecondKindSharesParent(t *testing.T) {
+	t.Parallel()
+
+	fs := memfs.New()
+	mustWriteBillyFile(t, fs, "prod/team-a/Deployment/api.yaml", "a")
+	mustWriteBillyFile(t, fs, "prod/team-a/Service/web.yaml", "b")
+	mustWriteBillyFile(t, fs, "prod/team-a/ConfigMap/old.yaml", "c")
+
+	err := removeBillyOrphans(fs, []string{
+		"prod/team-a/Deployment/api.yaml",
+		"prod/team-a/Service/web.yaml",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertBillyExists(t, fs, "prod/team-a/ConfigMap/old.yaml", false)
+	assertBillyExists(t, fs, "prod/team-a/Deployment/api.yaml", true)
+	assertBillyExists(t, fs, "prod/team-a/Service/web.yaml", true)
+}
+
+func TestRemoveDiskOrphans_RemoveDenied(t *testing.T) {
+	t.Parallel()
+
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory write permission")
+	}
+
+	workdir := t.TempDir()
+	mustWriteDiskFile(t, workdir, "prod/team-a/Deployment/api.yaml", "a")
+	dir := filepath.Join(workdir, "prod", "team-a", "Deployment")
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(dir, 0o750)
+	})
+
+	err := removeDiskOrphans(workdir, []string{"prod/team-a/Service/web.yaml"})
+	if err == nil || !strings.Contains(err.Error(), "prune remove") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRemoveDiskOrphans_UnreadableSiblingDir(t *testing.T) {
+	t.Parallel()
+
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+
+	workdir := t.TempDir()
+	mustWriteDiskFile(t, workdir, "prod/team-a/Deployment/api.yaml", "a")
+	mustWriteDiskFile(t, workdir, "prod/team-a/ConfigMap/old.yaml", "c")
+	dir := filepath.Join(workdir, "prod", "team-a", "ConfigMap")
+	if err := os.Chmod(dir, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(dir, 0o750)
+	})
+
+	err := removeDiskOrphans(workdir, []string{"prod/team-a/Deployment/api.yaml"})
+	if err == nil || !strings.Contains(err.Error(), "prune read dir") {
+		t.Fatalf("error = %v", err)
 	}
 }
