@@ -135,3 +135,46 @@ func TestTLSConfigFromSpec_insecureAllowedWithOptIn(t *testing.T) {
 		t.Fatal("expected ClientConfig to carry InsecureSkipVerify")
 	}
 }
+
+// TestProbeDialer_carriesTLS is the K-13 lock for the connection probe: the
+// metadata dial must use spec.tls too, or a TLS-only broker fails the probe (or
+// the probe reports success over plaintext) while exports use TLS.
+func TestProbeDialer_carriesTLS(t *testing.T) {
+	t.Parallel()
+
+	tlsCfg, err := TLSConfigFromSpec(&kollectdevv1alpha1.TLSSpec{CABundle: testCAPEM(t)}, nil)
+	if err != nil {
+		t.Fatalf("TLSConfigFromSpec: %v", err)
+	}
+
+	dialer := probeDialer(tlsCfg, nil)
+	if dialer.TLS == nil {
+		t.Fatal("probe dialer TLS is nil; spec.tls ignored by the connection test (K-13)")
+	}
+	if dialer.TLS.RootCAs == nil {
+		t.Fatal("probe dialer TLS has no RootCAs; CA bundle not applied")
+	}
+	if dialer.DialFunc == nil {
+		t.Fatal("probe dialer must dial through netguard")
+	}
+}
+
+func TestProbeDialer_plaintextByDefault(t *testing.T) {
+	t.Parallel()
+
+	if dialer := probeDialer(TLSConfig{}, nil); dialer.TLS != nil {
+		t.Fatalf("probe dialer TLS = %+v, want nil without TLS material", dialer.TLS)
+	}
+}
+
+func TestProbeDialer_carriesSASL(t *testing.T) {
+	t.Parallel()
+
+	transport, err := dialTransport(Config{Username: "user", Password: "pass"}, TLSConfig{})
+	if err != nil {
+		t.Fatalf("dialTransport: %v", err)
+	}
+	if dialer := probeDialer(TLSConfig{}, transport); dialer.SASLMechanism == nil {
+		t.Fatal("probe dialer dropped the SASL mechanism")
+	}
+}
