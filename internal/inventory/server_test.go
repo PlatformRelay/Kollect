@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -135,6 +136,37 @@ func TestServerHandleInventoryWriteErrorDoesNotAppendStatusBody(t *testing.T) {
 	}
 	if strings.Contains(string(rec.body), "encode failed") {
 		t.Fatalf("body = %q, http.Error appended a second body", rec.body)
+	}
+}
+
+func TestServerHandleInventoryEncodeErrorReturns500(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	store.Upsert(collect.Item{
+		TargetNamespace: "team-a",
+		TargetName:      "deploys",
+		Namespace:       "apps",
+		Name:            "web",
+		UID:             "uid-1",
+		Version:         "v1",
+		Kind:            "Deployment",
+		Attributes:      map[string]any{"ratio": math.NaN()},
+	})
+
+	srv := &Server{Enabled: true, Store: store}
+	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/inventory", nil)
+	rec := httptest.NewRecorder()
+	srv.handleInventory(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "encode failed") {
+		t.Fatalf("body = %q", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "schemaVersion") {
+		t.Fatalf("body = %q, encode failure wrote JSON before the 500", rec.Body.String())
 	}
 }
 
