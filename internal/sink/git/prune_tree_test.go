@@ -304,11 +304,11 @@ func TestRemoveDiskOrphans_RemoveDenied(t *testing.T) {
 	workdir := t.TempDir()
 	mustWriteDiskFile(t, workdir, "prod/team-a/Deployment/api.yaml", "a")
 	dir := filepath.Join(workdir, "prod", "team-a", "Deployment")
-	if err := os.Chmod(dir, 0o555); err != nil {
+	if err := os.Chmod(dir, 0o555); err != nil { //nolint:gosec // G302: 0555 is the write denial this test is proving.
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		_ = os.Chmod(dir, 0o750)
+		_ = os.Chmod(dir, 0o750) //nolint:gosec // G302: restore the temp dir so the test cleanup can delete it.
 	})
 
 	err := removeDiskOrphans(workdir, []string{"prod/team-a/Service/web.yaml"})
@@ -332,7 +332,7 @@ func TestRemoveDiskOrphans_UnreadableSiblingDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		_ = os.Chmod(dir, 0o750)
+		_ = os.Chmod(dir, 0o750) //nolint:gosec // G302: restore the temp dir so the test cleanup can delete it.
 	})
 
 	err := removeDiskOrphans(workdir, []string{"prod/team-a/Deployment/api.yaml"})
