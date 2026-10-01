@@ -298,3 +298,50 @@ func TestClusterSetDegraded_redactsMessage(t *testing.T) {
 		assertNoSecret(t, condType+" condition", cond.Message)
 	}
 }
+
+// updateStatus's all-sinks-failed branch writes Degraded and Ready directly from
+// outcome.ExportErr instead of going through setSyncedCondition, so it needs its
+// own redaction lock.
+func TestUpdateStatus_failedWithNoExport_redactsMessage(t *testing.T) {
+	t.Parallel()
+
+	scheme := controllerScheme(t)
+	inv := &kollectdevv1alpha1.KollectInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "inv", Namespace: "ns", Generation: 1},
+		Spec: kollectdevv1alpha1.KollectInventorySpec{
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("git"),
+		},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(inv).
+		WithStatusSubresource(inv).
+		Build()
+
+	r := &KollectInventoryReconciler{Client: cl, Scheme: scheme}
+	if _, err := r.updateStatus(context.Background(), inv, 0, perSinkExportOutcome{
+		FailedCount:    1,
+		DebouncedCount: 1,
+		ExportErr:      leakErr(),
+	}); err != nil {
+		t.Fatalf("updateStatus: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectInventory
+	if err := cl.Get(context.Background(), types.NamespacedName{Namespace: "ns", Name: "inv"}, &got); err != nil {
+		t.Fatalf("Get inventory: %v", err)
+	}
+
+	for _, condType := range []string{conditionDegraded, conditionReady} {
+		cond := apimeta.FindStatusCondition(got.Status.Conditions, condType)
+		if cond == nil {
+			t.Fatalf("%s condition missing", condType)
+		}
+
+		if cond.Reason != reasonExportFailed {
+			t.Fatalf("%s reason = %q, want %q", condType, cond.Reason, reasonExportFailed)
+		}
+
+		assertNoSecret(t, condType+" condition", cond.Message)
+	}
+}
