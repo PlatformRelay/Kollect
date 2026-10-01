@@ -283,8 +283,10 @@ type MongoSpec struct {
 
 // NatsSpec configures NATS JetStream inventory change events.
 type NatsSpec struct {
-	// url is the NATS server connection URL (nats://host:4222).
-	// When empty, spec.endpoint is used.
+	// url is the NATS server connection URL (nats://host:4222), or a
+	// comma-separated list of them. When empty, spec.endpoint is used.
+	// Credentials in the URL (nats://user:pass@host or nats://token@host) are
+	// rejected; put them in secretRef (token, or username/password) instead.
 	// +optional
 	URL string `json:"url,omitempty"`
 
