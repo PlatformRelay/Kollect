@@ -386,9 +386,10 @@ func (r *Runner) listAndExtract(
 	return count, failures, nil
 }
 
-// redactExtractionReason keeps the extractor's attribute-scoped message and strips anything
-// that looks like an embedded payload. Extractor errors are already attribute-scoped
-// (`attribute "x": …`); we still bound length so a pathological backend cannot flood logs.
+// redactExtractionReason keeps the extractor's attribute-scoped message. Extractor errors are
+// attribute-scoped (`attribute "x": …`) and carry only an error class for evaluation failures,
+// never resource field values (see classifyEvalError); we still bound length so a pathological
+// backend cannot flood logs.
 func redactExtractionReason(err error) string {
 	if err == nil {
 		return "extraction failed"
