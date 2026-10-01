@@ -35,6 +35,56 @@ func TestRemoveBillyOrphans_RemovesOnlyUnwrittenFiles(t *testing.T) {
 	assertBillyExists(t, fs, "inventory/team-b/old.json", false)
 }
 
+func TestRemoveBillyOrphans_DropsKindDirectoryThatLostItsLastFile(t *testing.T) {
+	t.Parallel()
+
+	fs := memfs.New()
+	mustWriteBillyFile(t, fs, "prod/team-a/Deployment/api.yaml", "a")
+	mustWriteBillyFile(t, fs, "prod/team-a/Service/web.yaml", "b")
+	mustWriteBillyFile(t, fs, "prod/team-b/Deployment/other.yaml", "c")
+
+	written := []string{"prod/team-a/Service/web.yaml"}
+	if err := removeBillyOrphans(fs, written); err != nil {
+		t.Fatalf("removeBillyOrphans() error = %v", err)
+	}
+
+	assertBillyExists(t, fs, "prod/team-a/Deployment/api.yaml", false)
+	assertBillyExists(t, fs, "prod/team-a/Service/web.yaml", true)
+	assertBillyExists(t, fs, "prod/team-b/Deployment/other.yaml", true)
+}
+
+func TestRemoveBillyOrphans_ShallowNeighborTreeSurvives(t *testing.T) {
+	t.Parallel()
+
+	fs := memfs.New()
+	mustWriteBillyFile(t, fs, "inventory/team-a/keep.json", "{}")
+	mustWriteBillyFile(t, fs, "inventory/team-b/other.json", "{}")
+
+	if err := removeBillyOrphans(fs, []string{"inventory/team-a/keep.json"}); err != nil {
+		t.Fatalf("removeBillyOrphans() error = %v", err)
+	}
+
+	assertBillyExists(t, fs, "inventory/team-a/keep.json", true)
+	assertBillyExists(t, fs, "inventory/team-b/other.json", true)
+}
+
+func TestRemoveDiskOrphans_DropsKindDirectoryThatLostItsLastFile(t *testing.T) {
+	t.Parallel()
+
+	workdir := t.TempDir()
+	mustWriteDiskFile(t, workdir, "prod/team-a/Deployment/api.yaml", "a")
+	mustWriteDiskFile(t, workdir, "prod/team-a/Service/web.yaml", "b")
+	mustWriteDiskFile(t, workdir, "prod/team-b/Deployment/other.yaml", "c")
+
+	if err := removeDiskOrphans(workdir, []string{"prod/team-a/Service/web.yaml"}); err != nil {
+		t.Fatalf("removeDiskOrphans() error = %v", err)
+	}
+
+	assertDiskExists(t, workdir, "prod/team-a/Deployment/api.yaml", false)
+	assertDiskExists(t, workdir, "prod/team-a/Service/web.yaml", true)
+	assertDiskExists(t, workdir, "prod/team-b/Deployment/other.yaml", true)
+}
+
 func TestRemoveBillyOrphans_MissingManagedDirIgnored(t *testing.T) {
 	t.Parallel()
 
