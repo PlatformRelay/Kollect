@@ -4,6 +4,7 @@
 package inventory
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -88,10 +89,19 @@ func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
 	metrics.InventoryItemsTotal.Set(float64(summary.ItemCount))
 	metrics.CollectItemsTotal.Set(float64(summary.ItemCount))
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(summary); err != nil {
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(summary); err != nil {
 		log.FromContext(r.Context()).Error(err, "inventory JSON encode failed")
 		http.Error(w, "encode failed", http.StatusInternalServerError)
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		// The status is already committed once Write starts. http.Error would
+		// append a second body and cannot replace that status.
+		log.FromContext(r.Context()).Error(err, "inventory JSON write failed")
 	}
 }
 

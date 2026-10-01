@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -76,6 +77,64 @@ func TestServerHandleInventoryFilters(t *testing.T) {
 	}
 	if summary.ItemCount != 1 || summary.Pagination == nil || summary.Pagination.Total != 2 {
 		t.Fatalf("summary = %#v", summary)
+	}
+}
+
+// errAfterHeaderWriter fails the body write after the status is committed, the
+// way a disconnected client does once Encode has started writing.
+type errAfterHeaderWriter struct {
+	header http.Header
+	code   int
+	body   []byte
+}
+
+func (w *errAfterHeaderWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+
+	return w.header
+}
+
+func (w *errAfterHeaderWriter) WriteHeader(code int) {
+	if w.code == 0 {
+		w.code = code
+	}
+}
+
+func (w *errAfterHeaderWriter) Write(p []byte) (int, error) {
+	if w.code == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	w.body = append(w.body, p...)
+
+	return 0, io.ErrClosedPipe
+}
+
+func TestServerHandleInventoryWriteErrorDoesNotAppendStatusBody(t *testing.T) {
+	t.Parallel()
+
+	store := collect.NewStore()
+	store.Upsert(collect.Item{
+		TargetNamespace: "team-a",
+		TargetName:      "deploys",
+		Namespace:       "apps",
+		Name:            "web",
+		UID:             "uid-1",
+		Version:         "v1",
+		Kind:            "Deployment",
+	})
+
+	srv := &Server{Enabled: true, Store: store}
+	req := httptest.NewRequest(http.MethodGet, "/v1alpha1/inventory", nil)
+	rec := &errAfterHeaderWriter{}
+	srv.handleInventory(rec, req)
+
+	if rec.code == http.StatusInternalServerError {
+		t.Fatalf("status = %d, encode failure after the header must not replace it with 500", rec.code)
+	}
+	if strings.Contains(string(rec.body), "encode failed") {
+		t.Fatalf("body = %q, http.Error appended a second body", rec.body)
 	}
 }
 
