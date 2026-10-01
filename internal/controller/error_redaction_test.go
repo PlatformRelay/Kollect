@@ -345,3 +345,89 @@ func TestUpdateStatus_failedWithNoExport_redactsMessage(t *testing.T) {
 		assertNoSecret(t, condType+" condition", cond.Message)
 	}
 }
+
+// The KollectTarget and KollectClusterTarget Degraded writers carry scope-deny
+// (KollectScope lookup failure) and informer-registration error text, so their
+// shared condition writers are choke-points too.
+func TestTargetSetDegraded_redactsMessage(t *testing.T) {
+	t.Parallel()
+
+	scheme := controllerScheme(t)
+	target := &kollectdevv1alpha1.KollectTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "ns", Generation: 1},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(target).
+		WithStatusSubresource(target).
+		Build()
+
+	r := &KollectTargetReconciler{Client: cl, Scheme: scheme}
+	if err := r.setDegraded(context.Background(), target, scopeReasonLookupFailed, leakErr().Error()); err != nil {
+		t.Fatalf("setDegraded: %v", err)
+	}
+
+	key := types.NamespacedName{Namespace: "ns", Name: "t"}
+
+	var got kollectdevv1alpha1.KollectTarget
+	if err := cl.Get(context.Background(), key, &got); err != nil {
+		t.Fatalf("Get target: %v", err)
+	}
+
+	for _, condType := range []string{conditionDegraded, conditionSinkReachable} {
+		cond := apimeta.FindStatusCondition(got.Status.Conditions, condType)
+		if cond == nil {
+			t.Fatalf("%s condition missing", condType)
+		}
+
+		assertNoSecret(t, condType+" condition", cond.Message)
+	}
+
+	// A repeated deny with the same raw text must be recognised as unchanged:
+	// the skip check compares against the redacted, persisted message, so no
+	// second status write may happen.
+	before := got.ResourceVersion
+	if err := r.setDegraded(context.Background(), &got, scopeReasonLookupFailed, leakErr().Error()); err != nil {
+		t.Fatalf("setDegraded (repeat): %v", err)
+	}
+
+	var again kollectdevv1alpha1.KollectTarget
+	if err := cl.Get(context.Background(), key, &again); err != nil {
+		t.Fatalf("Get target (repeat): %v", err)
+	}
+
+	if again.ResourceVersion != before {
+		t.Fatalf("repeat deny rewrote status: resourceVersion %s -> %s", before, again.ResourceVersion)
+	}
+}
+
+func TestClusterTargetSetDegraded_redactsMessage(t *testing.T) {
+	t.Parallel()
+
+	scheme := controllerScheme(t)
+	ct := &kollectdevv1alpha1.KollectClusterTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: "ct", Generation: 1},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(ct).
+		WithStatusSubresource(ct).
+		Build()
+
+	r := &KollectClusterTargetReconciler{Client: cl, Scheme: scheme}
+	if err := r.setDegraded(context.Background(), ct, "InformerRegistrationFailed", leakErr().Error()); err != nil {
+		t.Fatalf("setDegraded: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectClusterTarget
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "ct"}, &got); err != nil {
+		t.Fatalf("Get cluster target: %v", err)
+	}
+
+	cond := apimeta.FindStatusCondition(got.Status.Conditions, conditionDegraded)
+	if cond == nil {
+		t.Fatal("Degraded condition missing")
+	}
+
+	assertNoSecret(t, "Degraded condition", cond.Message)
+}
