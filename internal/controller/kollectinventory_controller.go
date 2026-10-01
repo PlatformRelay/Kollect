@@ -566,7 +566,7 @@ func (r *KollectInventoryReconciler) updateStatus(
 		case failed > 0 && outcome.ExportedCount == 0:
 			message := "export failed"
 			if outcome.ExportErr != nil {
-				message = outcome.ExportErr.Error()
+				message = redact.Text(outcome.ExportErr.Error())
 			}
 			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
 				Type:               conditionDegraded,
