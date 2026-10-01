@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **controller:** Clear Ready when a namespaced export fails ([#387](https://github.com/platformrelay/kollect/pull/387))[71f050a](https://github.com/platformrelay/kollect/commit/71f050a229d30be4443e780f8a79f46380a8f596)
+
 - **sink:** Bound response headers when the HTTP client timeout is zero ([#389](https://github.com/platformrelay/kollect/pull/389))[e77302e](https://github.com/platformrelay/kollect/commit/e77302e1192a7d03a85d05e1905dc24cd9cf8955)
 
 - **export:** Stop silent oversize drops and torn relational snapshots ([#378](https://github.com/platformrelay/kollect/pull/378))[79b841c](https://github.com/platformrelay/kollect/commit/79b841cec86cb6c45f9c11ccbb3e99d695a8307b)
