@@ -589,3 +589,49 @@ users:
 
 	return path
 }
+
+type closeCountBackend struct {
+	closed bool
+}
+
+func (b *closeCountBackend) Type() string { return "probe" }
+
+func (b *closeCountBackend) Capabilities() sink.Capabilities { return sink.Capabilities{} }
+
+func (b *closeCountBackend) Export(context.Context, []byte, string) error { return nil }
+
+func (b *closeCountBackend) Close() error {
+	b.closed = true
+
+	return nil
+}
+
+func TestWithCLIBackendClosesClient(t *testing.T) {
+	t.Parallel()
+
+	backend := &closeCountBackend{}
+	reg := sink.NewRegistry()
+	reg.Register("probe", func(kollectdevv1alpha1.KollectSinkSpec, sink.BuildContext) (sink.Backend, error) {
+		return backend, nil
+	})
+
+	exported, errs, err := withCLIBackend(
+		context.Background(),
+		"ctx-a",
+		reg,
+		kollectdevv1alpha1.KollectSinkSpec{Type: "probe"},
+		sink.BuildContext{},
+		func(sink.Backend) (int, []error) {
+			return 3, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("withCLIBackend: %v", err)
+	}
+	if exported != 3 || len(errs) != 0 {
+		t.Fatalf("export = %d errs=%v", exported, errs)
+	}
+	if !backend.closed {
+		t.Fatal("sink backend was not closed")
+	}
+}

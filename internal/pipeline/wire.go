@@ -360,12 +360,42 @@ func runOneContext(
 		return cr
 	}
 
-	backend, err := registry.NewBackend(sinkSpec, sink.BuildContext{Ctx: ctx, SecretData: secretData})
+	exported, exportErrs, err := withCLIBackend(
+		ctx, contextName, registry, sinkSpec,
+		sink.BuildContext{Ctx: ctx, SecretData: secretData},
+		func(backend sink.Backend) (int, []error) {
+			return ExportTargets(ctx, runner.Store(), loaded.Targets, backend, sinkSpec, contextName, dryRun)
+		},
+	)
 	if err != nil {
 		return ContextResult{Context: contextName, Fatal: fmt.Errorf("build sink backend: %w", err)}
 	}
 
-	exported, exportErrs := ExportTargets(ctx, runner.Store(), loaded.Targets, backend, sinkSpec, contextName, dryRun)
-
 	return buildContextResult(contextName, runResult, exported, exportErrs)
+}
+
+// withCLIBackend builds the sink client for one collect context and releases it
+// when export returns. The CLI process used to keep every context's client open
+// until exit.
+func withCLIBackend(
+	ctx context.Context,
+	contextName string,
+	registry *sink.Registry,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	build sink.BuildContext,
+	export func(sink.Backend) (int, []error),
+) (int, []error, error) {
+	backend, err := registry.NewBackend(spec, build)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer func() {
+		if closeErr := sink.CloseBackend(backend); closeErr != nil {
+			ctrllog.FromContext(ctx).Error(closeErr, "close sink backend", "context", contextName)
+		}
+	}()
+
+	exported, errs := export(backend)
+
+	return exported, errs, nil
 }
