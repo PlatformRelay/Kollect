@@ -118,3 +118,31 @@ func TestTestConnection_malformedEndpointIsStatic(t *testing.T) {
 		assertStaticNoSecret(t, err)
 	}
 }
+
+// The auth and ssh-pinning parse sites sit downstream of the validators, so a
+// malformed URL normally fails earlier; they are static anyway so no path can
+// echo the raw clone URL.
+func TestBuildAuthMethod_malformedEndpointIsStatic(t *testing.T) {
+	t.Parallel()
+
+	for _, endpoint := range []string{leakyBadEndpoint, leakySpacedEndpoint} {
+		_, err := buildAuthMethod(endpoint, Auth{}, AuthTypeToken, SSHConfig{})
+		assertStaticNoSecret(t, err)
+
+		_, err = buildAuthMethodWithForce(endpoint, Auth{}, AuthTypeToken, SSHConfig{}, true)
+		assertStaticNoSecret(t, err)
+	}
+}
+
+func TestPinGoGitSSHResolution_malformedEndpointIsStatic(t *testing.T) {
+	t.Parallel()
+
+	for _, endpoint := range []string{leakyBadEndpoint, leakySpacedEndpoint} {
+		got, err := pinGoGitSSHResolution(context.Background(), endpoint, nil)
+		assertStaticNoSecret(t, err)
+
+		if got != "" {
+			t.Fatalf("pinGoGitSSHResolution returned the raw clone URL %q on a parse failure", got)
+		}
+	}
+}
