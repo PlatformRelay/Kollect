@@ -138,7 +138,7 @@ func syncCLIWorkdirScoped(
 // orphans and uses git add -A so deletions are captured; otherwise it adds each path explicitly.
 func stageCLIChanges(ctx context.Context, workdir string, gitObjectPaths []string, cfg Config, cli *cliEnv) error {
 	if cfg.Prune {
-		if pruneErr := removeDiskOrphans(workdir, pruneKeepSet(cfg, gitObjectPaths)); pruneErr != nil {
+		if pruneErr := removeDiskOrphans(workdir, pruneKeepSet(cfg, gitObjectPaths), cfg.PathTemplate); pruneErr != nil {
 			return fmt.Errorf("git export: %w", pruneErr)
 		}
 
