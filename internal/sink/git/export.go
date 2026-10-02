@@ -77,10 +77,13 @@ type FileEntry struct {
 // behaviour (keep = the paths written by this call). SuppressPrune forces prune off regardless of
 // the sink-level prune flag; it is set on non-final parts of a multipart set so prune runs exactly
 // once, on the final part, against the union.
+// PathTemplate is the layout item path template. Prune uses it to find the {kind} directory.
+// Empty skips kind-sibling expansion.
 type ExportFilesOptions struct {
 	Prune          bool
 	PruneKeepPaths []string
 	SuppressPrune  bool
+	PathTemplate   string
 }
 
 // ExportFilesWithBranch writes a set of files in a single commit and pushes to the remote (ADR-0419).
@@ -253,7 +256,7 @@ func pruneBillyOrphans(fs billy.Filesystem, cfg Config, writtenPaths []string) e
 		return nil
 	}
 
-	return removeBillyOrphans(fs, pruneKeepSet(cfg, writtenPaths))
+	return removeBillyOrphans(fs, pruneKeepSet(cfg, writtenPaths), cfg.PathTemplate)
 }
 
 func guardedGoGitAuth(

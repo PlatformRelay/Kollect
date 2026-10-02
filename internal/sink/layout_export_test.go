@@ -24,6 +24,7 @@ type fakeBackend struct {
 	files          []git.FileEntry
 	prune          bool
 	pruneKeepPaths []string
+	pathTemplate   string
 	filesCalled    bool
 }
 
@@ -47,6 +48,7 @@ func (f *fakeTreeBackend) ExportFiles(_ context.Context, files []git.FileEntry, 
 	f.files = files
 	f.prune = opts.Prune && !opts.SuppressPrune
 	f.pruneKeepPaths = opts.PruneKeepPaths
+	f.pathTemplate = opts.PathTemplate
 
 	return nil
 }
@@ -312,5 +314,51 @@ func TestResolveSnapshotExport_GitYAMLDocumentFallbackWithoutFileExporter(t *tes
 	}
 	if plan.objectPath != "inventory/team-a/api.yaml" {
 		t.Errorf("objectPath = %q", plan.objectPath)
+	}
+}
+
+func TestResolveSnapshotExport_PruneCarriesItemPathTemplate(t *testing.T) {
+	t.Parallel()
+
+	const tmpl = "exports/{namespace}/{sourceNamespace}/{sourceName}{extension}"
+	be := &fakeTreeBackend{}
+	spec := kollectdevv1alpha1.KollectSinkSpec{
+		Type: kollectdevv1alpha1.SinkTypeGit,
+		Layout: &kollectdevv1alpha1.LayoutSpec{
+			Mode:         kollectdevv1alpha1.LayoutModePerResource,
+			PathTemplate: tmpl,
+		},
+	}
+
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if !be.filesCalled || be.pathTemplate != tmpl {
+		t.Fatalf("filesCalled=%v PathTemplate=%q", be.filesCalled, be.pathTemplate)
+	}
+}
+
+func TestGitExportOpts_CarriesItemPathTemplate(t *testing.T) {
+	t.Parallel()
+
+	const tmpl = "{cluster}/{sourceNamespace}/{kind}/{sourceName}{extension}"
+	single := gitExportOpts(true, 1, 1, []string{"prod/team-a/Deployment/api.yaml"}, nil, tmpl)
+	if !single.Prune || single.SuppressPrune || single.PathTemplate != tmpl {
+		t.Fatalf("single-part = %+v", single)
+	}
+
+	plan := NewPrunePlan()
+	early := gitExportOpts(true, 1, 2, []string{"prod/team-a/Deployment/api.yaml"}, plan, tmpl)
+	if !early.SuppressPrune || early.PathTemplate != tmpl {
+		t.Fatalf("non-final = %+v", early)
+	}
+
+	final := gitExportOpts(true, 2, 2, []string{"prod/team-a/Service/web.yaml"}, plan, tmpl)
+	if final.SuppressPrune || final.PathTemplate != tmpl || len(final.PruneKeepPaths) != 2 {
+		t.Fatalf("final = %+v", final)
 	}
 }
