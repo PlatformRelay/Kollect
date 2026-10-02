@@ -41,6 +41,10 @@ type Config struct {
 	// (the union of all parts in a multipart export) instead of only the files written this call. Nil
 	// preserves the legacy behaviour: keep = written paths.
 	PruneKeepPaths []string
+	// PathTemplate is the layout item path template. Prune expands sibling directories only at the
+	// segment that is exactly {kind}. Empty keeps same-directory stale-file removal and does not
+	// treat a neighboring prefix as owned.
+	PathTemplate   string
 	AuthType       AuthType
 	Engine         GitEngine
 	ForceBasicAuth bool

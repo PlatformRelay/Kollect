@@ -193,7 +193,7 @@ func resolveSnapshotExport(
 		projectedPaths = append(projectedPaths, f.Path)
 	}
 
-	opts := gitExportOpts(resolved.Prune, meta.PartIndex, meta.PartTotal, projectedPaths, prunePlan)
+	opts := gitExportOpts(resolved.Prune, meta.PartIndex, meta.PartTotal, projectedPaths, prunePlan, resolved.PathTemplate)
 
 	gitFiles, err = appendSetManifest(resolved, gitFiles, &opts, meta.PartIndex, meta.PartTotal, prunePlan)
 	if err != nil {
@@ -224,8 +224,9 @@ func gitExportOpts(
 	partIndex, partTotal int,
 	projectedPaths []string,
 	plan *PrunePlan,
+	pathTemplate string,
 ) git.ExportFilesOptions {
-	opts := git.ExportFilesOptions{Prune: prune}
+	opts := git.ExportFilesOptions{Prune: prune, PathTemplate: pathTemplate}
 	if !prune || partTotal <= 1 {
 		return opts
 	}

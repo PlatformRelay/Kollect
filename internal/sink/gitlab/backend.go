@@ -108,6 +108,7 @@ func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, opts g
 	cfg := b.cfg.GitConfig()
 	cfg.Prune = (cfg.Prune || opts.Prune) && !opts.SuppressPrune
 	cfg.PruneKeepPaths = opts.PruneKeepPaths
+	cfg.PathTemplate = opts.PathTemplate
 
 	if err := git.ExportFilesWithBranch(ctx, cfg, b.auth, files, branchSpec, commitCtx); err != nil {
 		return err
