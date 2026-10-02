@@ -122,6 +122,30 @@ func TestBuildContextFromSpec(t *testing.T) {
 			wantDBVal: `{"type":"service_account"}`,
 		},
 		{
+			name: "mongodb database secret",
+			secrets: []*corev1.Secret{{
+				ObjectMeta: metav1.ObjectMeta{Name: "mongo", Namespace: "kollect-system"},
+				Data:       map[string][]byte{"uri": []byte("mongodb://localhost/inventory")},
+			}},
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type: "mongodb",
+				MongoDB: &kollectdevv1alpha1.MongoSpec{
+					DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "mongo"},
+					Database:    "inventory",
+					Collection:  "items",
+				},
+			},
+			wantDBKey: "uri",
+			wantDBVal: "mongodb://localhost/inventory",
+		},
+		{
+			name: "mongodb without spec skips database secret",
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type: "mongodb",
+			},
+			wantNoDB: true,
+		},
+		{
 			name: "bigquery without secretRef skips database secret",
 			spec: kollectdevv1alpha1.KollectSinkSpec{
 				Type: "bigquery",
@@ -389,6 +413,18 @@ func TestBuildContextFromSpec_errors(t *testing.T) {
 				},
 			},
 			wantSub: "missing-bq",
+		},
+		{
+			name: "missing mongodb database secret",
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type: "mongodb",
+				MongoDB: &kollectdevv1alpha1.MongoSpec{
+					DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "missing-mongo"},
+					Database:    "inventory",
+					Collection:  "items",
+				},
+			},
+			wantSub: "missing-mongo",
 		},
 		{
 			name: "missing kafka secret",

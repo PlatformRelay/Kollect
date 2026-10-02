@@ -131,6 +131,73 @@ func resolveSecretValues(secret *corev1.Secret) (map[string][]byte, error) {
 	return merged, nil
 }
 
+// databaseSecretRef is the credential Secret for a database-family sink.
+// Postgres and MongoDB use databaseRef. BigQuery uses its own secretRef.
+// Other sink types have no separate database secret.
+func databaseSecretRef(spec kollectdevv1alpha1.KollectSinkSpec) *kollectdevv1alpha1.SecretReference {
+	switch spec.Type {
+	case "postgres":
+		if spec.Postgres == nil {
+			return nil
+		}
+
+		return spec.Postgres.DatabaseRef
+	case "bigquery":
+		if spec.BigQuery == nil {
+			return nil
+		}
+
+		return spec.BigQuery.SecretRef
+	case "mongodb":
+		if spec.MongoDB == nil {
+			return nil
+		}
+
+		return spec.MongoDB.DatabaseRef
+	default:
+		return nil
+	}
+}
+
+// ResolveDatabaseSecretData loads the database-family credential from the
+// config directory. kollect collect does not call BuildContextFromSpec, so
+// without this the MongoDB (and Postgres, BigQuery) client is built with an
+// empty database secret.
+func ResolveDatabaseSecretData(spec kollectdevv1alpha1.KollectSinkSpec, secrets []corev1.Secret) (map[string][]byte, error) {
+	ref := databaseSecretRef(spec)
+	if ref == nil || ref.Name == "" {
+		return nil, nil
+	}
+
+	for _, s := range secrets {
+		if s.Name != ref.Name {
+			continue
+		}
+		if ref.Namespace != "" && s.Namespace != ref.Namespace {
+			continue
+		}
+
+		return resolveSecretValues(&s)
+	}
+
+	return nil, fmt.Errorf(
+		"sink database secret %q not found in config directory (expected a v1.Secret YAML manifest)", ref.Name)
+}
+
+func cliBuildContext(
+	ctx context.Context,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	secretData map[string][]byte,
+	secrets []corev1.Secret,
+) (sink.BuildContext, error) {
+	dbData, err := ResolveDatabaseSecretData(spec, secrets)
+	if err != nil {
+		return sink.BuildContext{}, err
+	}
+
+	return sink.BuildContext{Ctx: ctx, SecretData: secretData, DatabaseSecretData: dbData}, nil
+}
+
 // ExportTargets serializes each target's collected items from store and writes them via
 // backend, rendering the export path from sinkSpec.PathTemplate. In dry-run mode it logs
 // what would be written instead of calling backend.Export. A per-target failure is
@@ -360,7 +427,12 @@ func runOneContext(
 		return cr
 	}
 
-	backend, err := registry.NewBackend(sinkSpec, sink.BuildContext{Ctx: ctx, SecretData: secretData})
+	buildCtx, err := cliBuildContext(ctx, sinkSpec, secretData, loaded.Secrets)
+	if err != nil {
+		return ContextResult{Context: contextName, Fatal: fmt.Errorf("resolve database secret: %w", err)}
+	}
+
+	backend, err := registry.NewBackend(sinkSpec, buildCtx)
 	if err != nil {
 		return ContextResult{Context: contextName, Fatal: fmt.Errorf("build sink backend: %w", err)}
 	}
