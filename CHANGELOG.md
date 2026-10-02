@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes are generated from [Conventional Commits](https://www.conventionalcommits.org/)
 on the default branch using [git-cliff](https://git-cliff.org/).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **inventory:** Keep a failed body write from appending a 500 [049adbe](https://github.com/platformrelay/kollect/commit/049adbe23b4f934c838eb33470f7a62c19c677ca)
+
 ## [0.21.0](https://github.com/platformrelay/kollect/compare/v0.20.0..v0.21.0) - 2026-10-01
 
 ### Bug Fixes
