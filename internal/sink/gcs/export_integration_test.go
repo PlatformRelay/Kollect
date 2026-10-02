@@ -14,7 +14,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/minio"
+	"github.com/testcontainers/testcontainers-go/wait"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 
@@ -27,7 +29,10 @@ func TestExportS3Compatible(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	container, err := minio.Run(ctx, "ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9")
+	// The default liveness probe can pass before bucket operations are ready.
+	container, err := minio.Run(ctx, "ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9",
+		testcontainers.WithWaitStrategy(wait.ForHTTP("/minio/health/ready").WithPort("9000")),
+	)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
 			t.Skipf("docker not available: %v", err)
