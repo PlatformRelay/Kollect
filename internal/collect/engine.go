@@ -912,6 +912,12 @@ func (e *Engine) processDispatch(
 			e.forbidden[targetKeyStr] = struct{}{}
 			e.mu.Unlock()
 			metrics.ReconcileErrorsTotal.WithLabelValues("KollectTarget", metrics.ErrorClassForbidden).Inc()
+			// A denied list is a durable decision. Leaving the previous row
+			// would keep exporting an object the tenant can no longer list.
+			// A transient SubjectAccessReview error above keeps the row.
+			e.store.Remove(target.Namespace, target.Name, string(u.GetUID()))
+			metrics.CollectItemsTotal.Set(float64(e.store.Len()))
+			e.refreshTargetSnapshotMetrics(st, target)
 
 			continue
 		}
