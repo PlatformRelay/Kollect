@@ -7,6 +7,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -257,4 +259,28 @@ func TestAPIBaseURL_customHostAndErrors(t *testing.T) {
 			t.Fatal("expected parse error for malformed endpoint")
 		}
 	})
+}
+
+func TestBackend_ExportFilesOwnedPrune(t *testing.T) {
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	if out, err := exec.Command("git", "init", "--bare", "-b", "main", remote).CombinedOutput(); err != nil { //nolint:gosec // G204: local fixture
+		t.Fatalf("init remote: %s: %v", out, err)
+	}
+	b := &Backend{cfg: Config{Endpoint: "file://" + remote}}
+	files := []git.FileEntry{{Path: "custom/deep/inventory/old.yaml", Data: []byte("old")}}
+	opts := git.ExportFilesOptions{Prune: true, PruneOwner: "inventory-a"}
+	if err := b.ExportFiles(t.Context(), files, opts); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("git", "--git-dir", remote, "ls-tree", "-r", "--name-only", "main").CombinedOutput() //nolint:gosec // G204: local fixture
+	if err != nil || !strings.Contains(string(out), ".kollect-prune/") {
+		t.Fatalf("ownership not committed: %s: %v", out, err)
+	}
+	if exportErr := b.ExportFiles(t.Context(), nil, opts); exportErr != nil {
+		t.Fatal(exportErr)
+	}
+	out, err = exec.Command("git", "--git-dir", remote, "ls-tree", "-r", "--name-only", "main").CombinedOutput() //nolint:gosec // G204: local fixture
+	if err != nil || strings.Contains(string(out), files[0].Path) {
+		t.Fatalf("empty inventory retained resource: %s: %v", out, err)
+	}
 }

@@ -176,7 +176,12 @@ func RunExportEnvelope(req ExportEnvelopeRequest) ([]string, error) {
 
 	exportItemsJSON, skip := ExportPayload(backend.Capabilities(), itemsJSON)
 	if skip {
-		return nil, nil
+		if !exportsEmptyGitTree(backend, req.SinkSpec) {
+			return nil, nil
+		}
+		// An explicitly selected tree layout must reconcile its last owned files.
+		// Document snapshots and other backends keep the existing empty policy.
+		exportItemsJSON = []byte("[]")
 	}
 
 	if len(exportItemsJSON) != len(itemsJSON) {

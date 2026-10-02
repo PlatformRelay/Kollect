@@ -127,18 +127,44 @@ union-prune — and its path is appended to `PruneKeepPaths` alongside every dat
   reconcile, so no sidecar is emitted; this depends on and builds directly on the multipart union-prune
   established for tree modes.
 
-**Shared-repo-path constraint (one inventory per managed path).** The sidecar path
-`inventory/{namespace}/{name}.manifest.json` places it inside the pruned managed directory. Each export
-prunes against **only its own** part union, so if two sibling inventories in the same namespace export to
-the **same repo path**, inventory B's prune would delete inventory A's manifest (a false-torn signal and
-marker flapping). With **disjoint** collection scopes the data files under
-`{cluster}/{sourceNamespace}/{kind}/` are keyed distinctly and typically survive while the completeness
-marker does not; with **overlapping** scopes sharing a repo path, sibling data files in the shared
-managed directory can also be pruned. A shared repo path across sibling inventories is therefore
-**unsupported** for the manifest: give each inventory its own repo path (distinct `endpoint`/subpath), or
-rely on the distinct `{name}` component keeping manifests from colliding while accepting that a
-co-located sibling's prune may still remove them. This mirrors the existing per-inventory ownership
-assumption of the managed directory ([ADR-0407](0407-git-object-store-layout.md)).
+### Exact file ownership for pruning (2026-10-02)
+
+Directory depth cannot identify a kind directory in an arbitrary layout template.
+Expanding pruning to its siblings can delete a different inventory's files, even
+when the original directory-scoped implementation kept those trees separate.
+
+Tree exports therefore persist versioned JSON ownership records at
+`.kollect-prune/<sha256(owner)>.json`. The owner encodes the cluster (empty means
+`default`), inventory namespace, and base inventory name. Generation and multipart
+suffixes do not change ownership. Git and GitLab pass the same identity through
+both engines. The previous record minus the final current union is the deletion
+set; record updates, exported files, and removals land in one Git commit.
+
+Missing metadata adopts only current paths and preserves unknown history. No
+heuristic migration sweeps directories. The old directory-scoped helpers remain
+for legacy callers without an owner; they never expand into sibling directories.
+Record parsing bounds aggregate bytes, owner count, and path count; it rejects
+noncanonical paths, Git internal paths, symlinks, and overlapping owner claims
+before either engine writes or removes files. A record is repository-controlled
+state, not a cryptographic proof against writers who can alter Git history.
+
+Distinct inventories may share a repository with disjoint projected paths. Two
+sinks exporting the same inventory identity to the same branch still share one
+record: use separate branches or repositories for independent copies. Identity
+changes preserve the old owner's files until explicitly cleaned up. A supported
+empty tree export commits an empty record and removes its prior owned paths;
+explicit tree mode is needed when no rows remain for content-based auto-detection.
+
+Non-final multipart parts cannot advance ownership. The final union includes its
+completeness manifest where applicable. The existing completeness marker remains
+multipart-only; the ownership record is cleanup state, not a second completeness
+signal. Interrupted exports can leave previously unrecorded partial files for
+manual cleanup. Payload coalescing includes owner, prune intent, and the full
+keep-set so an unchanged checksum cannot suppress a changed deletion operation.
+
+Limits: 16 MiB aggregate metadata per branch, 1,024 owners, 100,000 paths per owner,
+and 4,096 bytes per path or owner identifier. Invalid metadata is a terminal
+configuration error; filesystem failures propagate for retry.
 
 ## Consequences
 

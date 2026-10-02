@@ -16,6 +16,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/export"
+	"github.com/platformrelay/kollect/internal/sink/git"
 )
 
 // deploymentItem builds a per-resource manifest item that projects to
@@ -220,4 +221,43 @@ func TestRunExportEnvelope_MultipartGit_SpecPruneNeverRunsPerPart(t *testing.T) 
 	assertResourceFile(t, clone, "default/team-a/deployment/api.yaml") // part 1 -- must survive part 2's prune
 	assertResourceFile(t, clone, "default/team-a/deployment/web.yaml") // part 2 -- must survive part 3's prune
 	assertResourceFile(t, clone, "default/team-a/deployment/db.yaml")  // part 3 (final)
+}
+
+func TestRunExportEnvelope_OwnedPruneLastKindAndUnknownNeighbor(t *testing.T) {
+	withGitCLI(t)
+	work, remote := newBareRemote(t)
+	spec := gitLayoutSpec(remote, false)
+	spec.Layout = &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource}
+	raw, err := git.NewBackend(spec, nil, git.Auth{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const unknown = "custom/deep/team-b/historical.yaml"
+	if exportErr := raw.Export(t.Context(), []byte("historical"), unknown); exportErr != nil {
+		t.Fatal(exportErr)
+	}
+	service := deploymentItem("web")
+	service.Kind = "Service"
+	service.Attributes["payload"].(map[string]any)["kind"] = "Service"
+	if exportErr := exportPart(t, spec, []collect.Item{deploymentItem("api"), service}, 1, 1, 1, nil); exportErr != nil {
+		t.Fatal(exportErr)
+	}
+	if exportErr := exportPart(t, spec, []collect.Item{service}, 2, 1, 1, nil); exportErr != nil {
+		t.Fatal(exportErr)
+	}
+	clone := cloneMain(t, work, remote)
+	assertResourceAbsent(t, clone, "default/team-a/deployment/api.yaml")
+	data, err := os.ReadFile(filepath.Join(clone, "default/team-a/service/web.yaml")) //nolint:gosec // G304: local fixture
+	if err != nil || !strings.Contains(string(data), "kind: Service") {
+		t.Fatalf("service lost: %s: %v", data, err)
+	}
+	if exportErr := exportPart(t, spec, nil, 3, 1, 1, nil); exportErr != nil {
+		t.Fatal(exportErr)
+	}
+	empty := cloneMain(t, work, remote)
+	assertResourceAbsent(t, empty, "default/team-a/service/web.yaml")
+	data, err = os.ReadFile(filepath.Join(empty, unknown)) //nolint:gosec // G304: local fixture
+	if err != nil || string(data) != "historical" {
+		t.Fatalf("unknown file changed: %s: %v", data, err)
+	}
 }

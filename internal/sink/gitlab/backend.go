@@ -85,12 +85,12 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 // opts carries prune intent: PruneKeepPaths overrides the keep-set (multipart union) and
 // SuppressPrune forces prune off (non-final multipart part) so prune runs exactly once.
 func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, opts git.ExportFilesOptions) error {
-	if len(files) == 0 {
+	if len(files) == 0 && (opts.PruneOwner == "" || opts.SuppressPrune || (!opts.Prune && !b.cfg.GitConfig().Prune)) {
 		return fmt.Errorf("gitlab export: no files to write")
 	}
 
 	commitCtx, ok := git.CommitContextFromContext(ctx)
-	if !ok {
+	if !ok && len(files) > 0 {
 		commitCtx = git.CommitContextFromObjectPath(files[0].Path, b.cfg.GitConfig().Cluster)
 	}
 
@@ -108,7 +108,7 @@ func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, opts g
 	cfg := b.cfg.GitConfig()
 	cfg.Prune = (cfg.Prune || opts.Prune) && !opts.SuppressPrune
 	cfg.PruneKeepPaths = opts.PruneKeepPaths
-	cfg.PathTemplate = opts.PathTemplate
+	cfg.PruneOwner = opts.PruneOwner
 
 	if err := git.ExportFilesWithBranch(ctx, cfg, b.auth, files, branchSpec, commitCtx); err != nil {
 		return err

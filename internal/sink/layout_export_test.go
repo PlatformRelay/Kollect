@@ -24,7 +24,7 @@ type fakeBackend struct {
 	files          []git.FileEntry
 	prune          bool
 	pruneKeepPaths []string
-	pathTemplate   string
+	pruneOwner     string
 	filesCalled    bool
 }
 
@@ -48,7 +48,7 @@ func (f *fakeTreeBackend) ExportFiles(_ context.Context, files []git.FileEntry, 
 	f.files = files
 	f.prune = opts.Prune && !opts.SuppressPrune
 	f.pruneKeepPaths = opts.PruneKeepPaths
-	f.pathTemplate = opts.PathTemplate
+	f.pruneOwner = opts.PruneOwner
 
 	return nil
 }
@@ -317,48 +317,55 @@ func TestResolveSnapshotExport_GitYAMLDocumentFallbackWithoutFileExporter(t *tes
 	}
 }
 
-func TestResolveSnapshotExport_PruneCarriesItemPathTemplate(t *testing.T) {
+func TestResolveSnapshotExportOwnershipStableAcrossParts(t *testing.T) {
 	t.Parallel()
-
-	const tmpl = "exports/{namespace}/{sourceNamespace}/{sourceName}{extension}"
-	be := &fakeTreeBackend{}
-	spec := kollectdevv1alpha1.KollectSinkSpec{
-		Type: kollectdevv1alpha1.SinkTypeGit,
-		Layout: &kollectdevv1alpha1.LayoutSpec{
-			Mode:         kollectdevv1alpha1.LayoutModePerResource,
-			PathTemplate: tmpl,
-		},
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "git", Layout: &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource}}
+	owner := func(namespace, name, cluster string, generation int64) string {
+		t.Helper()
+		localSpec := spec
+		localSpec.Cluster = cluster
+		be := &fakeTreeBackend{}
+		plan, err := resolveSnapshotExport(be, localSpec, testEnvelope(t), namespace, name, generation, "inventory/team-a/api.json", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := plan.run(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if be.pruneOwner == "" {
+			t.Fatal("layout did not supply ownership")
+		}
+		return be.pruneOwner
 	}
-
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
-	if err != nil {
-		t.Fatal(err)
+	base := owner("team-a", "api", "", 1)
+	if got := owner("team-a", "api.part-0002-of-0002", "default", 2); got != base {
+		t.Fatalf("part identity %q != base %q", got, base)
 	}
-	if err := plan.run(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if !be.filesCalled || be.pathTemplate != tmpl {
-		t.Fatalf("filesCalled=%v PathTemplate=%q", be.filesCalled, be.pathTemplate)
+	if owner("team-b", "api", "", 1) == base || owner("team-a", "other", "", 1) == base || owner("team-a", "api", "other", 1) == base {
+		t.Fatal("distinct inventories share ownership")
 	}
 }
 
-func TestGitExportOpts_CarriesItemPathTemplate(t *testing.T) {
+func TestEmptyGitTreePolicyLeavesDocumentAndOtherSinksUnchanged(t *testing.T) {
 	t.Parallel()
-
-	const tmpl = "{cluster}/{sourceNamespace}/{kind}/{sourceName}{extension}"
-	single := gitExportOpts(true, 1, 1, []string{"prod/team-a/Deployment/api.yaml"}, nil, tmpl)
-	if !single.Prune || single.SuppressPrune || single.PathTemplate != tmpl {
-		t.Fatalf("single-part = %+v", single)
+	tree := &fakeTreeBackend{}
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "git"}
+	if exportsEmptyGitTree(tree, spec) {
+		t.Fatal("implicit document layout changed empty policy")
 	}
-
-	plan := NewPrunePlan()
-	early := gitExportOpts(true, 1, 2, []string{"prod/team-a/Deployment/api.yaml"}, plan, tmpl)
-	if !early.SuppressPrune || early.PathTemplate != tmpl {
-		t.Fatalf("non-final = %+v", early)
+	spec.Layout = &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModeDocument}
+	if exportsEmptyGitTree(tree, spec) {
+		t.Fatal("explicit document layout changed empty policy")
 	}
-
-	final := gitExportOpts(true, 2, 2, []string{"prod/team-a/Service/web.yaml"}, plan, tmpl)
-	if final.SuppressPrune || final.PathTemplate != tmpl || len(final.PruneKeepPaths) != 2 {
-		t.Fatalf("final = %+v", final)
+	spec.Layout.Mode = kollectdevv1alpha1.LayoutModePerResource
+	if !exportsEmptyGitTree(tree, spec) {
+		t.Fatal("explicit resource tree must reconcile empty ownership")
+	}
+	if exportsEmptyGitTree(&fakeBackend{}, spec) {
+		t.Fatal("backend without file export opted into tree deletion")
+	}
+	spec.Type = "s3"
+	if exportsEmptyGitTree(tree, spec) {
+		t.Fatal("non-git snapshot changed empty policy")
 	}
 }

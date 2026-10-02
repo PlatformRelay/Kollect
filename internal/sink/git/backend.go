@@ -72,7 +72,7 @@ func (b *Backend) ExportFiles(ctx context.Context, files []FileEntry, opts Expor
 	cfg := b.cfg
 	cfg.Prune = (cfg.Prune || opts.Prune) && !opts.SuppressPrune
 	cfg.PruneKeepPaths = opts.PruneKeepPaths
-	cfg.PathTemplate = opts.PathTemplate
+	cfg.PruneOwner = opts.PruneOwner
 
 	return ExportFilesWithBranch(ctx, cfg, b.auth, files, nil, commitCtx)
 }

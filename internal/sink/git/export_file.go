@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-git/go-billy/v5/osfs"
 )
 
 func exportViaCLI(
@@ -49,6 +51,16 @@ func exportViaCLI(
 		return err
 	}
 
+	fs := osfs.New(workdir)
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		paths = append(paths, f.Path)
+	}
+	owned, err := prepareOwnedPrune(fs, cfg, paths)
+	if err != nil {
+		return err
+	}
+
 	gitObjectPaths := make([]string, 0, len(files))
 	for _, f := range files {
 		target, gitObjectPath, pathErr := objectPathInWorkdir(workdir, f.Path)
@@ -68,6 +80,9 @@ func exportViaCLI(
 		gitObjectPaths = append(gitObjectPaths, gitObjectPath)
 	}
 
+	if err = owned.apply(fs); err != nil {
+		return err
+	}
 	if err = stageCLIChanges(ctx, workdir, gitObjectPaths, cfg, cli); err != nil {
 		return err
 	}
@@ -138,10 +153,11 @@ func syncCLIWorkdirScoped(
 // orphans and uses git add -A so deletions are captured; otherwise it adds each path explicitly.
 func stageCLIChanges(ctx context.Context, workdir string, gitObjectPaths []string, cfg Config, cli *cliEnv) error {
 	if cfg.Prune {
-		if pruneErr := removeDiskOrphans(workdir, pruneKeepSet(cfg, gitObjectPaths), cfg.PathTemplate); pruneErr != nil {
-			return fmt.Errorf("git export: %w", pruneErr)
+		if cfg.PruneOwner == "" {
+			if pruneErr := removeDiskOrphans(workdir, pruneKeepSet(cfg, gitObjectPaths)); pruneErr != nil {
+				return fmt.Errorf("git export: %w", pruneErr)
+			}
 		}
-
 		return gitAddAll(ctx, workdir, cli)
 	}
 

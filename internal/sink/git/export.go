@@ -70,20 +70,21 @@ type FileEntry struct {
 
 // ExportFilesOptions carries prune intent for a layout-tree export (ADR-0419).
 //
-// Prune requests directory-scoped removal of stale files so deleted resources drop out of the repo.
+// Prune requests removal of stale files. PruneOwner selects exact recorded ownership;
+// callers without an owner retain legacy directory-scoped removal.
 // PruneKeepPaths overrides the keep-set: when non-empty, prune keeps exactly these paths (the union
 // of every part in a multipart export) instead of only the files written by this call -- so a
 // per-part write never deletes a sibling part's files. A nil/empty keep-set preserves the legacy
 // behaviour (keep = the paths written by this call). SuppressPrune forces prune off regardless of
 // the sink-level prune flag; it is set on non-final parts of a multipart set so prune runs exactly
 // once, on the final part, against the union.
-// PathTemplate is the layout item path template. Prune uses it to find the {kind} directory.
 // Empty skips kind-sibling expansion.
 type ExportFilesOptions struct {
-	Prune          bool
+	Prune bool
+	// PruneOwner is stable across generations and multipart suffixes. It scopes exact file ownership.
+	PruneOwner     string
 	PruneKeepPaths []string
 	SuppressPrune  bool
-	PathTemplate   string
 }
 
 // ExportFilesWithBranch writes a set of files in a single commit and pushes to the remote (ADR-0419).
@@ -97,7 +98,7 @@ func ExportFilesWithBranch(
 	branch *BranchSpec,
 	commitCtx CommitContext,
 ) error {
-	if len(files) == 0 {
+	if len(files) == 0 && (cfg.PruneOwner == "" || !cfg.Prune) {
 		return fmt.Errorf("git export: no files to write")
 	}
 
@@ -116,7 +117,7 @@ func ExportFilesWithBranch(
 		lockKey = req.cloneURL
 	}
 
-	fpKey := exportFingerprintKey(lockKey, req.pushBranch, req.objectPath)
+	fpKey := ownedExportFingerprintKey(exportFingerprintKey(lockKey, req.pushBranch, req.objectPath), cfg, validated)
 	if fingerprintTracker.shouldSkip(fpKey, commitCtx.Checksum) {
 		return nil
 	}
@@ -195,21 +196,9 @@ func exportRemote(
 		return fmt.Errorf("checkout branch: %w", checkoutErr)
 	}
 
-	writtenPaths := make([]string, 0, len(files))
-	for _, f := range files {
-		if mkdirErr := wt.Filesystem.MkdirAll(filepath.Dir(f.Path), 0o750); mkdirErr != nil {
-			return fmt.Errorf("mkdir object parent: %w", mkdirErr)
-		}
-
-		if writeErr := util.WriteFile(wt.Filesystem, f.Path, f.Data, 0o600); writeErr != nil {
-			return fmt.Errorf("write object: %w", writeErr)
-		}
-
-		writtenPaths = append(writtenPaths, f.Path)
-	}
-
-	if pruneErr := pruneBillyOrphans(wt.Filesystem, cfg, writtenPaths); pruneErr != nil {
-		return pruneErr
+	writtenPaths, err := writeBillyExportFiles(wt.Filesystem, cfg, files)
+	if err != nil {
+		return err
 	}
 
 	if stageErr := stageChanges(wt, writtenPaths, cfg.Prune); stageErr != nil {
@@ -252,11 +241,11 @@ func pruneKeepSet(cfg Config, writtenPaths []string) []string {
 
 // pruneBillyOrphans removes directory-scoped stale files (go-git engine) when prune is enabled.
 func pruneBillyOrphans(fs billy.Filesystem, cfg Config, writtenPaths []string) error {
-	if !cfg.Prune {
+	if !cfg.Prune || cfg.PruneOwner != "" {
 		return nil
 	}
 
-	return removeBillyOrphans(fs, pruneKeepSet(cfg, writtenPaths), cfg.PathTemplate)
+	return removeBillyOrphans(fs, pruneKeepSet(cfg, writtenPaths))
 }
 
 func guardedGoGitAuth(
@@ -605,4 +594,37 @@ func ExportMemory(payload []byte, objectPath string) (plumbing.Hash, error) {
 	return wt.Commit("test", &git.CommitOptions{
 		Author: &object.Signature{Name: "test", Email: "test@test", When: time.Now()},
 	})
+}
+
+func writeBillyExportFiles(fs billy.Filesystem, cfg Config, files []FileEntry) ([]string, error) {
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		paths = append(paths, f.Path)
+	}
+	owned, err := prepareOwnedPrune(fs, cfg, paths)
+	if err != nil {
+		return nil, err
+	}
+
+	writtenPaths := make([]string, 0, len(files))
+	for _, f := range files {
+		if mkdirErr := fs.MkdirAll(filepath.Dir(f.Path), 0o750); mkdirErr != nil {
+			return nil, fmt.Errorf("mkdir object parent: %w", mkdirErr)
+		}
+
+		if writeErr := util.WriteFile(fs, f.Path, f.Data, 0o600); writeErr != nil {
+			return nil, fmt.Errorf("write object: %w", writeErr)
+		}
+
+		writtenPaths = append(writtenPaths, f.Path)
+	}
+
+	if pruneErr := owned.apply(fs); pruneErr != nil {
+		return nil, pruneErr
+	}
+	if pruneErr := pruneBillyOrphans(fs, cfg, writtenPaths); pruneErr != nil {
+		return nil, pruneErr
+	}
+
+	return writtenPaths, nil
 }
