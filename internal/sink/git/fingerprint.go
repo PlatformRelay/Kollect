@@ -4,6 +4,9 @@
 package git
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -50,4 +53,20 @@ func (t *exportFingerprintTracker) record(key, checksum string) {
 	}
 
 	t.last[key] = checksum
+}
+
+// Ownership and the complete keep-set affect deletions even if the payload
+// checksum is unchanged. Include them in coalescing, including prune suppression.
+func ownedExportFingerprintKey(key string, cfg Config, files []FileEntry) string {
+	if cfg.PruneOwner == "" {
+		return key
+	}
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		paths = append(paths, f.Path)
+	}
+	paths = append([]string(nil), pruneKeepSet(cfg, paths)...)
+	sort.Strings(paths)
+	digest := sha256.Sum256([]byte(fmt.Sprintf("%q/%t/%q", cfg.PruneOwner, cfg.Prune, paths)))
+	return fmt.Sprintf("%s\x00%x", key, digest)
 }

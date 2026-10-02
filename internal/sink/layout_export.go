@@ -5,6 +5,7 @@ package sink
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -193,7 +194,18 @@ func resolveSnapshotExport(
 		projectedPaths = append(projectedPaths, f.Path)
 	}
 
-	opts := gitExportOpts(resolved.Prune, meta.PartIndex, meta.PartTotal, projectedPaths, prunePlan, resolved.PathTemplate)
+	opts := gitExportOpts(resolved.Prune, meta.PartIndex, meta.PartTotal, projectedPaths, prunePlan)
+	// JSON separates identity components without delimiter collisions. Generation
+	// and multipart suffixes must not create a new owner for the same inventory.
+	cluster := resolved.Cluster
+	if cluster == "" {
+		cluster = "default"
+	}
+	owner, err := json.Marshal([3]string{cluster, resolved.InventoryNamespace, baseInventoryName(resolved.InventoryName)})
+	if err != nil {
+		return snapshotExport{}, fmt.Errorf("encode prune owner: %w", err)
+	}
+	opts.PruneOwner = string(owner)
 
 	gitFiles, err = appendSetManifest(resolved, gitFiles, &opts, meta.PartIndex, meta.PartTotal, prunePlan)
 	if err != nil {
@@ -224,9 +236,8 @@ func gitExportOpts(
 	partIndex, partTotal int,
 	projectedPaths []string,
 	plan *PrunePlan,
-	pathTemplate string,
 ) git.ExportFilesOptions {
-	opts := git.ExportFilesOptions{Prune: prune, PathTemplate: pathTemplate}
+	opts := git.ExportFilesOptions{Prune: prune}
 	if !prune || partTotal <= 1 {
 		return opts
 	}
@@ -352,4 +363,9 @@ func inferManifestKey(item collect.Item) string {
 	}
 
 	return found
+}
+
+func exportsEmptyGitTree(backend Backend, spec kollectdevv1alpha1.KollectSinkSpec) bool {
+	_, canTree := backend.(FileExporter)
+	return canTree && isGitLayoutFamily(spec.Type) && spec.Layout != nil && spec.Layout.ModeOrDefault() != kollectdevv1alpha1.LayoutModeDocument
 }

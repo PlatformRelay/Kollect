@@ -61,7 +61,7 @@ type exportRequest struct {
 // It returns the resolved request (with a representative objectPath for fingerprinting) and the
 // validated file set with normalized relative paths.
 func validateExportFiles(cfg Config, files []FileEntry, branch *BranchSpec) (exportRequest, []FileEntry, error) {
-	if len(files) == 0 {
+	if len(files) == 0 && (cfg.PruneOwner == "" || !cfg.Prune) {
 		return exportRequest{}, nil, fmt.Errorf("git export: no files to write")
 	}
 
@@ -78,6 +78,9 @@ func validateExportFiles(cfg Config, files []FileEntry, branch *BranchSpec) (exp
 		}
 		if validatedPath == "" {
 			validatedPath = defaultObjectKey
+		}
+		if err := validatePrunePath(validatedPath); err != nil {
+			return exportRequest{}, nil, err
 		}
 		if _, dup := seen[validatedPath]; dup {
 			return exportRequest{}, nil, fmt.Errorf("git export: duplicate path %q", validatedPath)
@@ -106,11 +109,15 @@ func validateExportFiles(cfg Config, files []FileEntry, branch *BranchSpec) (exp
 		return exportRequest{}, nil, fmt.Errorf("git export: invalid push branch: %w", err)
 	}
 
+	objectPath := pruneRecordPath(cfg.PruneOwner)
+	if len(validated) > 0 {
+		objectPath = validated[0].Path
+	}
 	return exportRequest{
 		cloneURL:    cloneURL,
 		cloneBranch: cloneBranch,
 		pushBranch:  pushBranch,
-		objectPath:  validated[0].Path,
+		objectPath:  objectPath,
 	}, validated, nil
 }
 
