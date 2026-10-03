@@ -158,6 +158,113 @@ func TestRunner_invalidNamespaceSelectorIsFatalPerTarget(t *testing.T) {
 	}
 }
 
+func TestRunner_invalidLabelSelectorIsFatalPerTarget(t *testing.T) {
+	t.Parallel()
+
+	secret := unstructuredSecret("default", "keep-me", nil)
+	secret.SetLabels(map[string]string{"app": "web"})
+	dyn := newFakeDynClient(secret)
+	lists := 0
+	dyn.PrependReactor("list", "secrets", func(clienttesting.Action) (bool, runtime.Object, error) {
+		lists++
+
+		return false, nil, nil
+	})
+
+	r, err := NewRunnerWithMapper(dyn, kubefake.NewSimpleClientset(), staticSecretMapper(), nil)
+	if err != nil {
+		t.Fatalf("NewRunnerWithMapper() error = %v", err)
+	}
+
+	bad := testTarget("default", "t1", "test-profile")
+	bad.Spec.IncludedNamespaces = []string{"default"}
+	bad.Spec.LabelSelector = &metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{{
+			Key: "app", Operator: "Equals", Values: []string{"web"},
+		}},
+	}
+	good := testTarget("default", "t2", "test-profile")
+	good.Spec.IncludedNamespaces = []string{"default"}
+
+	result, err := r.Run(context.Background(),
+		[]kollectdevv1alpha1.KollectProfile{testProfile()},
+		[]kollectdevv1alpha1.KollectTarget{bad, good})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if len(result.Errors) != 1 {
+		t.Fatalf("Errors = %v, want exactly one fatal per-target error", result.Errors)
+	}
+
+	msg := result.Errors[0].Error()
+	for _, want := range []string{"target default/t1", "parse labelSelector"} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("error = %q, want it to contain %q", msg, want)
+		}
+	}
+	if len(result.SkippedTargets) != 0 {
+		t.Fatalf("SkippedTargets = %v, want none", result.SkippedTargets)
+	}
+	if result.ItemCount != 1 {
+		t.Fatalf("ItemCount = %d, want 1 from the sibling target", result.ItemCount)
+	}
+	if got := r.Store().SnapshotTarget("default", "t1"); len(got) != 0 {
+		t.Fatalf("invalid target stored %+v, want nothing", got)
+	}
+	if got := r.Store().SnapshotTarget("default", "t2"); len(got) != 1 || got[0].Name != "keep-me" {
+		t.Fatalf("valid sibling stored %+v, want keep-me", got)
+	}
+	if lists != 1 {
+		t.Fatalf("secret lists = %d, want 1 (the valid target only)", lists)
+	}
+	if !result.Degraded() {
+		t.Fatal("run with fatal per-target errors must be degraded")
+	}
+}
+
+func TestRunner_labelSelectorIsSentOnList(t *testing.T) {
+	t.Parallel()
+
+	secret := unstructuredSecret("default", "web", nil)
+	secret.SetLabels(map[string]string{"app": "web"})
+	dyn := newFakeDynClient(secret)
+	var gotSelector string
+	dyn.PrependReactor("list", "secrets", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		list, ok := action.(clienttesting.ListAction)
+		if !ok {
+			t.Fatalf("list action type %T, want ListAction", action)
+		}
+		gotSelector = list.GetListRestrictions().Labels.String()
+
+		return false, nil, nil
+	})
+
+	r, err := NewRunnerWithMapper(dyn, kubefake.NewSimpleClientset(), staticSecretMapper(), nil)
+	if err != nil {
+		t.Fatalf("NewRunnerWithMapper() error = %v", err)
+	}
+
+	target := testTarget("default", "t1", "test-profile")
+	target.Spec.IncludedNamespaces = []string{"default"}
+	target.Spec.LabelSelector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "web"}}
+
+	result, err := r.Run(context.Background(),
+		[]kollectdevv1alpha1.KollectProfile{testProfile()},
+		[]kollectdevv1alpha1.KollectTarget{target})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("Errors = %v, want none for a valid selector", result.Errors)
+	}
+	if gotSelector != "app=web" {
+		t.Fatalf("list label selector = %q, want app=web", gotSelector)
+	}
+	if result.ItemCount != 1 {
+		t.Fatalf("ItemCount = %d, want 1", result.ItemCount)
+	}
+}
+
 func TestRunner_namespaceListErrorIsFatalPerTarget(t *testing.T) {
 	t.Parallel()
 
@@ -280,22 +387,32 @@ func TestSortExtractionFailures_fullKeyOrder(t *testing.T) {
 func TestLabelSelectorString(t *testing.T) {
 	t.Parallel()
 
-	if got := labelSelectorString(nil); got != "" {
-		t.Fatalf("labelSelectorString(nil) = %q, want empty", got)
+	if got, err := labelSelectorString(nil); err != nil || got != "" {
+		t.Fatalf("labelSelectorString(nil) = %q, %v; want empty, nil", got, err)
 	}
 
-	invalid := &metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "k", Operator: "Bogus"}},
+	empty := &metav1.LabelSelector{}
+	if got, err := labelSelectorString(empty); err != nil || got != "" {
+		t.Fatalf("labelSelectorString(empty) = %q, %v; want empty, nil", got, err)
 	}
-	if got := labelSelectorString(invalid); got != "" {
-		t.Fatalf("labelSelectorString(invalid) = %q, want empty fail-safe", got)
+
+	for _, invalid := range []*metav1.LabelSelector{
+		{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "k", Operator: "Bogus"}}},
+		{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "app", Operator: "Equals", Values: []string{"web"}}}},
+		{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "app", Operator: metav1.LabelSelectorOpIn}}},
+	} {
+		got, err := labelSelectorString(invalid)
+		if err == nil || got != "" || !strings.Contains(err.Error(), "parse labelSelector") {
+			t.Fatalf("labelSelectorString(%+v) = %q, %v; want empty string and parse labelSelector", invalid, got, err)
+		}
 	}
 
 	sel := &metav1.LabelSelector{MatchLabels: map[string]string{"zeta": "2", "alpha": "1", "mid": "3"}}
 	want := "alpha=1,mid=3,zeta=2"
 	for i := 0; i < 5; i++ {
-		if got := labelSelectorString(sel); got != want {
-			t.Fatalf("labelSelectorString() = %q, want deterministic sorted %q (iteration %d)", got, want, i)
+		got, err := labelSelectorString(sel)
+		if err != nil || got != want {
+			t.Fatalf("labelSelectorString() = %q, %v; want deterministic sorted %q (iteration %d)", got, err, want, i)
 		}
 	}
 }
