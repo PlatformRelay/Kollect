@@ -131,8 +131,9 @@ type RunResult struct {
 	// still counted in ItemCount, failing objects are omitted from the store.
 	ExtractionFailures []ExtractionFailure
 	// Errors holds fatal per-target errors: failures in a step that isn't a per-namespace
-	// List call (currently: namespace resolution). Forbidden/transient/gvk-not-found List
-	// failures are non-fatal and recorded in SkippedTargets instead.
+	// List call (namespace resolution, or a labelSelector that does not parse).
+	// Forbidden/transient/gvk-not-found List failures are non-fatal and recorded in
+	// SkippedTargets instead.
 	Errors []error
 }
 
@@ -211,7 +212,13 @@ func (r *Runner) runTarget(
 		return
 	}
 
-	labelSelector := labelSelectorString(target.Spec.LabelSelector)
+	labelSelector, err := labelSelectorString(target.Spec.LabelSelector)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("target %s: %w", targetKeyName(target), err))
+
+		return
+	}
+
 	nameFilter := namesSet(target.Spec.Names)
 
 	for _, ns := range namespaces {
@@ -421,17 +428,17 @@ func sortExtractionFailures(failures []ExtractionFailure) {
 	})
 }
 
-func labelSelectorString(sel *metav1.LabelSelector) string {
+func labelSelectorString(sel *metav1.LabelSelector) (string, error) {
 	if sel == nil {
-		return ""
+		return "", nil
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(sel)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("parse labelSelector: %w", err)
 	}
 
-	return selector.String()
+	return selector.String(), nil
 }
 
 func namesSet(names []string) map[string]struct{} {
