@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **controller:** Clear cluster Ready when every export fails ([#393](https://github.com/platformrelay/kollect/pull/393))[526876a](https://github.com/platformrelay/kollect/commit/526876aa7d954025b0985ca975a8a57a65a297ca)
+
+- **deps:** Bump golang.org/x/mod to v0.40.0 ([#398](https://github.com/platformrelay/kollect/pull/398))[bea3464](https://github.com/platformrelay/kollect/commit/bea34648ddfa50265f422f2c374ec8ea02748656)
+
 - **collect:** Fail a target when its labelSelector does not parse ([#402](https://github.com/platformrelay/kollect/pull/402))[e8954ec](https://github.com/platformrelay/kollect/commit/e8954ec289cde26b92c62f5281e94dd110806f43)
 
 - **pipeline:** Close the sink client after each collect context [f48f9cf](https://github.com/platformrelay/kollect/commit/f48f9cf2d08c9afb5d7ac5c21cf01fb8365014c7)
