@@ -18,10 +18,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
+	"github.com/platformrelay/kollect/internal/metrics"
 	"github.com/platformrelay/kollect/internal/redact"
 )
 
@@ -369,6 +371,9 @@ func (r *KollectClusterTargetReconciler) mapNamespaceToClusterTargets(
 ) []reconcile.Request {
 	var list kollectdevv1alpha1.KollectClusterTargetList
 	if err := r.List(ctx, &list); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list cluster targets for namespace watch mapping")
+		metrics.WatchMapListErrorsTotal.WithLabelValues("KollectClusterTarget", "namespace").Inc()
+
 		return nil
 	}
 
@@ -396,6 +401,9 @@ func (r *KollectClusterTargetReconciler) mapClusterScopeToClusterTargets(
 
 	var list kollectdevv1alpha1.KollectClusterTargetList
 	if err := r.List(ctx, &list); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list cluster targets for cluster scope watch mapping")
+		metrics.WatchMapListErrorsTotal.WithLabelValues("KollectClusterTarget", "clusterScope").Inc()
+
 		return nil
 	}
 
@@ -420,6 +428,9 @@ func (r *KollectClusterTargetReconciler) mapProfileToClusterTargets(
 
 	var list kollectdevv1alpha1.KollectClusterTargetList
 	if err := r.List(ctx, &list); err != nil {
+		logf.FromContext(ctx).Error(err, "failed to list cluster targets for profile watch mapping")
+		metrics.WatchMapListErrorsTotal.WithLabelValues("KollectClusterTarget", "profile").Inc()
+
 		return nil
 	}
 
