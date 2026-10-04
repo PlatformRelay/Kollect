@@ -45,9 +45,9 @@ func TestRunExportEnvelope_SpillsOversizedPayloadToMinIO(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	// The default liveness probe can pass before bucket operations are ready.
+	// Liveness and readiness can return 200 before initialization; cluster health requires write quorum.
 	container, err := minio.Run(ctx, "ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9",
-		testcontainers.WithWaitStrategy(wait.ForHTTP("/minio/health/ready").WithPort("9000")),
+		testcontainers.WithWaitStrategy(wait.ForHTTP("/minio/health/cluster").WithPort("9000")),
 	)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
