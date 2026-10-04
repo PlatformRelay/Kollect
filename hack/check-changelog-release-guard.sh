@@ -5,9 +5,9 @@
 # Usage: hack/check-changelog-release-guard.sh <committed.md> <regenerated.md>
 #        (run from inside the git repository whose tags decide the verdict)
 #
-# Background -- incident 2026-08-05. The release runbook (docs/RELEASE.md) lands
-# the hand-written `## [X.Y.Z]` header on main FIRST and pushes the vX.Y.Z tag
-# afterwards. changelog-sync fires on that push, so git-cliff regenerates from a
+# Background -- incident 2026-08-05. The release runbook (docs/RELEASE.md) then
+# landed a hand-written `## [X.Y.Z]` header on main FIRST and pushed the vX.Y.Z
+# tag afterwards; it no longer does, but a header can still land that way. changelog-sync fires on that push, so git-cliff regenerates from a
 # HEAD where the tag does not exist yet and renders those commits as
 # `## [Unreleased]`. Commit fbb5196a3 pushed exactly that one-line demotion of
 # `## [0.17.0]` back to main; docs launch-truth then resolved the released
