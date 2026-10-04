@@ -62,7 +62,7 @@ workflow ever disagree, the workflow is right and `mise.toml` is the bug.
 | --- | --- |
 | `task changelog` | Preview unreleased notes |
 | `task changelog:write` | Regenerate `CHANGELOG.md` |
-| `task changelog:verify` | Fail if changelog drift (same as preflight CI) |
+| `task changelog:verify` | Fail if changelog drift (local pre-tag check; not run by preflight) |
 | `task release-dry-run` | Build `dist/` install YAML + chart (no push) |
 
 Full runbook: [RELEASE.md](../RELEASE.md). Retroactive version anchors (`v0.0.1`–`v0.0.4`, RC series) are

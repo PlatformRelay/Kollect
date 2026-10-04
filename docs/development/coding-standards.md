@@ -221,7 +221,7 @@ Restore a non-zero review requirement when a second maintainer joins.
 | `go mod tidy` drift | preflight job | Yes |
 | `go mod verify` | preflight job | Yes |
 | Codegen drift | `task verify` | Yes |
-| Stale changelog | `task changelog:verify` | Yes |
+| Stale changelog | `task changelog:verify` — local pre-tag check; `changelog-sync` owns `CHANGELOG.md` after merge | No |
 | **CI** | `.github/workflows/ci.yaml` | Yes |
 | Lint + arch fitness | `task lint` (ci.yaml `lint` job) | Yes |
 | Format (gofmt + goimports) | `task format:check` (ci.yaml `lint` job) | Yes |

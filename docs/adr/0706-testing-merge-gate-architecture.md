@@ -62,8 +62,10 @@ separately so it reaches a conclusion on every PR (CI-DOCSGATE-01, below):
 `task scrub` ([ADR-0104](0104-security-model.md) scrub list) before commit;
 `CONTRIBUTING.md` documents the contributor loop.
 
-**Preflight workflow** (`.github/workflows/preflight.yaml`) runs `go mod tidy`/`go mod verify`,
-`task verify`, and `task changelog:verify` — fast drift checks without lint or tests.
+**Preflight workflow** (`.github/workflows/preflight.yaml`) runs `go mod tidy`/`go mod verify`
+and `task verify` — fast drift checks without lint or tests. (Corrected 2026-10-04: preflight
+does not run `task changelog:verify`; the `changelog-sync` workflow rewrites `CHANGELOG.md` after
+each merge, so the check is a local pre-tag step. See the note in `preflight.yaml`.)
 
 ### Scheduled / manual tiers (non-blocking on PR)
 
