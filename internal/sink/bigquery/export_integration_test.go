@@ -35,7 +35,7 @@ func TestExportBigQuery(t *testing.T) {
 	container, emulatorHost, err := startBigQueryEmulator(ctx)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 		t.Fatalf("start bigquery emulator: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestBigQueryExistingModeMissingTable(t *testing.T) {
 	container, emulatorHost, err := startBigQueryEmulator(ctx)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 		t.Fatalf("start bigquery emulator: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestBigQueryConnectionProbe(t *testing.T) {
 	container, emulatorHost, err := startBigQueryEmulator(ctx)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 		t.Fatalf("start bigquery emulator: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestClientQueryExecutor_malformedSQLIsTerminal(t *testing.T) {
 	container, emulatorHost, err := startBigQueryEmulator(ctx)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 		t.Fatalf("start bigquery emulator: %v", err)
 	}
@@ -312,7 +312,7 @@ func TestExport_ExecuteErrorWhenTableDropped(t *testing.T) {
 	container, emulatorHost, err := startBigQueryEmulator(ctx)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 		t.Fatalf("start bigquery emulator: %v", err)
 	}

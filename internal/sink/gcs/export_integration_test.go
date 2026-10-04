@@ -35,7 +35,7 @@ func TestExportS3Compatible(t *testing.T) {
 	)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start minio: %v", err)

@@ -34,7 +34,7 @@ func TestExportMongoDB(t *testing.T) {
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
 		if isDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start mongodb: %v", err)
@@ -179,7 +179,7 @@ func TestExportMongoDB_scopeIsolation(t *testing.T) {
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
 		if isDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start mongodb: %v", err)
@@ -254,7 +254,7 @@ func TestNewBackend_ensureCollectionIdempotent(t *testing.T) {
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
 		if isDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start mongodb: %v", err)
@@ -287,7 +287,7 @@ func TestExportMongoDB_existingProvisioningMode(t *testing.T) {
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
 		if isDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start mongodb: %v", err)
@@ -322,7 +322,7 @@ func TestExportMongoDB_existingProvisioningModeSuccess(t *testing.T) {
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
 		if isDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start mongodb: %v", err)
@@ -398,7 +398,7 @@ func TestConnectionMongoDB(t *testing.T) {
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
 		if isDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start mongodb: %v", err)
@@ -432,7 +432,7 @@ func TestExportMongoDB_replaceOneIdempotent(t *testing.T) {
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
 		if isDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start mongodb: %v", err)
@@ -553,7 +553,7 @@ func TestExportMongoDB_midBatchReplaceOneFailure(t *testing.T) {
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
 		if isDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start mongodb: %v", err)
@@ -673,7 +673,7 @@ func TestNewBackend_authFailure(t *testing.T) {
 	container, goodURI, err := startMongoContainerWithAuth(ctx, "kollect", "correct-password")
 	if err != nil {
 		if isDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start mongodb with auth: %v", err)

@@ -41,7 +41,7 @@ func TestExportGitLabDirectPush(t *testing.T) {
 	container, err := forgejo.Run(ctx, "codeberg.org/forgejo/forgejo:11")
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start forgejo: %v", err)
@@ -116,7 +116,7 @@ func TestExportGitLabInventoryObjectPath(t *testing.T) {
 	container, err := forgejo.Run(ctx, "codeberg.org/forgejo/forgejo:11")
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start forgejo: %v", err)
@@ -267,7 +267,7 @@ func TestExportGitLabMergeRequestMode(t *testing.T) {
 	container, err := forgejo.Run(ctx, "codeberg.org/forgejo/forgejo:11")
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start forgejo: %v", err)

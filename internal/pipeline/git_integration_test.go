@@ -186,7 +186,7 @@ func startForgejoGitPipeline(t *testing.T) (context.Context, string, string, str
 	container, err := forgejo.Run(ctx, "codeberg.org/forgejo/forgejo:11")
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 		t.Fatalf("start forgejo: %v", err)
 	}

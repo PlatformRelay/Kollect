@@ -38,7 +38,7 @@ func TestExportPostgres(t *testing.T) {
 	)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start postgres: %v", err)
@@ -207,7 +207,7 @@ func TestExportPostgresBulk(t *testing.T) {
 	)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start postgres: %v", err)
@@ -560,7 +560,7 @@ func startIntegrationPostgres(t *testing.T) (context.Context, string) {
 	)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start postgres: %v", err)
