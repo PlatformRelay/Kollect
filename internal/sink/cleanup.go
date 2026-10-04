@@ -345,9 +345,8 @@ func cleanupCandidatePaths(
 		paths = append(paths, resolved.IndexPath())
 	}
 
-	setResolved := resolved
-	setResolved.InventoryName = baseInventoryName(resolved.InventoryName)
-	paths = append(paths, setResolved.SetManifestPath())
+	// Cleanup receives the inventory identity, not a multipart object name.
+	paths = append(paths, resolved.SetManifestPath())
 
 	return dedupeStrings(paths)
 }

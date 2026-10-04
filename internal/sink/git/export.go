@@ -78,7 +78,6 @@ type FileEntry struct {
 // behaviour (keep = the paths written by this call). SuppressPrune forces prune off regardless of
 // the sink-level prune flag; it is set on non-final parts of a multipart set so prune runs exactly
 // once, on the final part, against the union.
-// Empty skips kind-sibling expansion.
 type ExportFilesOptions struct {
 	Prune bool
 	// PruneOwner is stable across generations and multipart suffixes. It scopes exact file ownership.
@@ -117,17 +116,17 @@ func ExportFilesWithBranch(
 		lockKey = req.cloneURL
 	}
 
-	fpKey := ownedExportFingerprintKey(exportFingerprintKey(lockKey, req.pushBranch, req.objectPath), cfg, validated)
-	if fingerprintTracker.shouldSkip(fpKey, commitCtx.Checksum) {
-		return nil
-	}
+	fpKey, fingerprint := ownedExportFingerprint(lockKey, req.pushBranch, req.objectPath, commitCtx.Checksum, cfg, validated)
 
 	if isFileRemote(req.cloneURL) || cfg.Engine == GitEngineCLI {
 		var exportErr error
 		if err := withRepoExportLock(req.cloneURL, req.cloneBranch, func() error {
+			if fingerprintTracker.shouldSkip(fpKey, fingerprint) {
+				return nil
+			}
 			exportErr = exportViaCLI(ctx, cfg, auth, req.cloneURL, req.cloneBranch, req.pushBranch, validated, commitCtx)
 			if exportErr == nil {
-				fingerprintTracker.record(fpKey, commitCtx.Checksum)
+				fingerprintTracker.record(fpKey, fingerprint)
 			}
 
 			return exportErr
@@ -140,9 +139,12 @@ func ExportFilesWithBranch(
 
 	var exportErr error
 	if err := withRepoExportLock(req.cloneURL, req.cloneBranch, func() error {
+		if fingerprintTracker.shouldSkip(fpKey, fingerprint) {
+			return nil
+		}
 		exportErr = exportRemote(ctx, cfg, auth, req, validated, commitCtx)
 		if exportErr == nil {
-			fingerprintTracker.record(fpKey, commitCtx.Checksum)
+			fingerprintTracker.record(fpKey, fingerprint)
 		}
 
 		return exportErr

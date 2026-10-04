@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -87,13 +86,13 @@ type snapshotExport struct {
 	writtenPaths []string
 }
 
-// partSuffixRE matches the deterministic multipart object-path suffix (export.PartitionObjectPath).
-var partSuffixRE = regexp.MustCompile(`\.part-\d+-of-\d+$`)
-
-// baseInventoryName strips the .part-NNNN-of-NNNN suffix a multipart object path adds to the
-// inventory name, recovering the per-set base identity for the manifest sidecar path.
-func baseInventoryName(name string) string {
-	return partSuffixRE.ReplaceAllString(name, "")
+// baseInventoryName removes only the suffix appended for this multipart envelope.
+// A single-part inventory may legitimately have a suffix-shaped name.
+func baseInventoryName(name string, partIndex, partTotal int) string {
+	if partTotal <= 1 || partIndex < 1 || partIndex > partTotal {
+		return name
+	}
+	return strings.TrimSuffix(name, fmt.Sprintf(".part-%04d-of-%04d", partIndex, partTotal))
 }
 
 func isGitLayoutFamily(sinkType string) bool {
@@ -201,7 +200,7 @@ func resolveSnapshotExport(
 	if cluster == "" {
 		cluster = "default"
 	}
-	owner, err := json.Marshal([3]string{cluster, resolved.InventoryNamespace, baseInventoryName(resolved.InventoryName)})
+	owner, err := json.Marshal([3]string{cluster, resolved.InventoryNamespace, baseInventoryName(resolved.InventoryName, meta.PartIndex, meta.PartTotal)})
 	if err != nil {
 		return snapshotExport{}, fmt.Errorf("encode prune owner: %w", err)
 	}
@@ -293,7 +292,7 @@ func appendSetManifest(
 	// The per-part object path suffixes the inventory name with .part-NNNN-of-NNNN; the sidecar is
 	// per-SET, so strip it back to the base inventory identity for a path stable across every part.
 	setResolved := resolved
-	setResolved.InventoryName = baseInventoryName(resolved.InventoryName)
+	setResolved.InventoryName = baseInventoryName(resolved.InventoryName, partIndex, partTotal)
 
 	union := plan.Union()
 	manifestPath := setResolved.SetManifestPath()

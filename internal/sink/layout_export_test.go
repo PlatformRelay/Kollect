@@ -5,6 +5,7 @@ package sink
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -320,29 +321,50 @@ func TestResolveSnapshotExport_GitYAMLDocumentFallbackWithoutFileExporter(t *tes
 func TestResolveSnapshotExportOwnershipStableAcrossParts(t *testing.T) {
 	t.Parallel()
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "git", Layout: &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource}}
-	owner := func(namespace, name, cluster string, generation int64) string {
+	owner := func(namespace, name, cluster string, generation int64, index, total int) string {
 		t.Helper()
 		localSpec := spec
 		localSpec.Cluster = cluster
 		be := &fakeTreeBackend{}
-		plan, err := resolveSnapshotExport(be, localSpec, testEnvelope(t), namespace, name, generation, "inventory/team-a/api.json", nil)
+		items, err := export.ItemsFromPayload(testEnvelope(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		envelope, err := export.MarshalEnvelope(items, export.Metadata{PartIndex: index, PartTotal: total})
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan, err := resolveSnapshotExport(be, localSpec, envelope, namespace, name, generation, "inventory/team-a/api.json", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if err := plan.run(t.Context()); err != nil {
 			t.Fatal(err)
 		}
-		if be.pruneOwner == "" {
-			t.Fatal("layout did not supply ownership")
-		}
 		return be.pruneOwner
 	}
-	base := owner("team-a", "api", "", 1)
-	if got := owner("team-a", "api.part-0002-of-0002", "default", 2); got != base {
-		t.Fatalf("part identity %q != base %q", got, base)
+	for _, name := range []string{"api", "api.part-0002-of-0002"} {
+		want, err := json.Marshal([3]string{"default", "team-a", name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, part := range []struct {
+			name         string
+			index, total int
+		}{
+			{name, 0, 0}, {name, 1, 1}, {name + ".part-0001-of-0002", 1, 2}, {name + ".part-0002-of-0002", 2, 2},
+		} {
+			if got := owner("team-a", part.name, "", 2, part.index, part.total); got != string(want) {
+				t.Errorf("name=%s part=%d/%d: owner=%q want=%q", part.name, part.index, part.total, got, want)
+			}
+		}
 	}
-	if owner("team-b", "api", "", 1) == base || owner("team-a", "other", "", 1) == base || owner("team-a", "api", "other", 1) == base {
+	base := owner("team-a", "api", "", 1, 0, 0)
+	if owner("team-b", "api", "", 1, 0, 0) == base || owner("team-a", "other", "", 1, 0, 0) == base || owner("team-a", "api", "other", 1, 0, 0) == base {
 		t.Fatal("distinct inventories share ownership")
+	}
+	if got := owner("team-a", "api.part-0002-of-0002", "", 1, 1, 2); got == base {
+		t.Fatal("mismatched multipart suffix stripped")
 	}
 }
 
@@ -367,5 +389,14 @@ func TestEmptyGitTreePolicyLeavesDocumentAndOtherSinksUnchanged(t *testing.T) {
 	spec.Type = "s3"
 	if exportsEmptyGitTree(tree, spec) {
 		t.Fatal("non-git snapshot changed empty policy")
+	}
+}
+
+func TestCleanupCandidatePathsPreservesSuffixShapedInventoryName(t *testing.T) {
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "git"}
+	for _, p := range cleanupCandidatePaths(spec, "team-a", "api.part-0002-of-0002", 1) {
+		if !strings.Contains(p, "api.part-0002-of-0002") {
+			t.Fatalf("cleanup addressed another inventory: %q", p)
+		}
 	}
 }

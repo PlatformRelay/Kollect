@@ -159,8 +159,12 @@ Non-final multipart parts cannot advance ownership. The final union includes its
 completeness manifest where applicable. The existing completeness marker remains
 multipart-only; the ownership record is cleanup state, not a second completeness
 signal. Interrupted exports can leave previously unrecorded partial files for
-manual cleanup. Payload coalescing includes owner, prune intent, and the full
-keep-set so an unchanged checksum cannot suppress a changed deletion operation.
+manual cleanup. Payload coalescing keeps only the latest operation per repository,
+branch, and owner. Its value includes the payload checksum, prune intent, written
+paths, and complete keep-set, so returning to an earlier snapshot still replays it.
+An operation without a checksum invalidates the previous cached value. Owner
+identity preserves suffix-shaped inventory names; only the exact suffix matching
+a multipart envelope’s index and total is removed.
 
 Limits: 16 MiB aggregate metadata per branch, 1,024 owners, 100,000 paths per owner,
 and 4,096 bytes per path or owner identifier. Invalid metadata is a terminal
