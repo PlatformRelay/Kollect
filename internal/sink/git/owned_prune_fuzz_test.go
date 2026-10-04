@@ -5,11 +5,13 @@ package git_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
 	"path"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +41,12 @@ import (
 //	3 back                   replay an earlier export operation (A->B->A, retries)
 //	4                        retry the final part of the latest multipart set, same accumulator
 func FuzzOwnedPrune(f *testing.F) {
+	// Owner C is adversarial only while A's part 1/2 renders C's exact object path; if the
+	// partition format changes, fail here rather than let the collision silently disappear.
+	if got := export.PartitionObjectPath(fuzzOwners[0].objectPath, 1, 2); got != fuzzOwners[2].objectPath {
+		f.Fatalf("A part 1/2 renders %q, no longer colliding with owner C %q", got, fuzzOwners[2].objectPath)
+	}
+
 	for _, seed := range ownedPruneSeeds() {
 		f.Add(seed)
 	}
@@ -414,6 +422,7 @@ func (h *ownedPruneHarness) check(c exportCall, desc, partial string, run func()
 	where := fmt.Sprintf("step %d, %s", h.step, desc)
 
 	before := h.repoFiles()
+	beforeDigests := h.repoDigests()
 	reject, wantDeletes := h.model.predict(c)
 	err := run()
 	after := h.repoFiles()
@@ -446,8 +455,16 @@ func (h *ownedPruneHarness) check(c exportCall, desc, partial string, run func()
 	case !reject && err != nil:
 		t.Fatalf("model predicts %s succeeds, got error: %v", where, err)
 	case reject:
+		if !strings.Contains(err.Error(), "belongs to another inventory") {
+			t.Fatalf("model predicts an ownership rejection of %s, got a different error: %v", where, err)
+		}
 		if len(deleted) > 0 || !sameSet(before, after) {
 			t.Fatalf("FORBIDDEN: rejected %s still changed the repo: before %v after %v", where, sortedKeys(before), sortedKeys(after))
+		}
+		for p, sum := range h.repoDigests() {
+			if beforeDigests[p] != sum {
+				t.Fatalf("FORBIDDEN (invariant 1): rejected %s rewrote %q", where, p)
+			}
 		}
 
 		return
@@ -463,6 +480,21 @@ func (h *ownedPruneHarness) check(c exportCall, desc, partial string, run func()
 		t.Fatalf("FORBIDDEN (invariant 6): after %s the repo diverges from the model:\n model %v\n repo  %v",
 			where, sortedKeys(h.model.present), sortedKeys(after))
 	}
+}
+
+// repoDigests maps every file repoFiles lists to the SHA-256 of its content, so a rejected export
+// that overwrites another owner's file is caught even when the set of names is unchanged.
+func (h *ownedPruneHarness) repoDigests() map[string][sha256.Size]byte {
+	out := map[string][sha256.Size]byte{}
+	for p := range h.repoFiles() {
+		data, err := util.ReadFile(h.fs, p)
+		if err != nil {
+			h.t.Fatalf("read %q: %v", p, err)
+		}
+		out[p] = sha256.Sum256(data)
+	}
+
+	return out
 }
 
 // repoFiles lists every regular file in the worktree except Kollect's own ownership records.
@@ -634,5 +666,37 @@ func ownedPruneSeeds() [][]byte {
 		prog(single(oL, rDeployAPI|rWeb), single(oL, rDB), single(oL, 0), multi(oL, []byte{rServiceAPI, rCluster}, 2), single(oA, rDeployAPI), single(oL, rDeployAPI)),
 		// Invariant 6: A -> B -> A, then replays and a retried final part.
 		prog(single(oA, rDeployAPI|rWeb), single(oB, rTeamBAPI|rPartShapeB), []byte{opReplay, 1}, []byte{opReplay, 1}, single(oA, rWeb), multi(oB, []byte{rTeamBAPI, rDB}, 2), []byte{opRetryFinal}, []byte{opReplay, 2}),
+	}
+}
+
+// TestOwnedPrune_rejectedExportLeavesOtherOwnersBytes pins what the fuzz seeds cannot see: their
+// colliding paths carry identical bytes for both owners, so a rejected export that wrote before
+// checking ownership would go unnoticed there. Here the bytes differ.
+func TestOwnedPrune_rejectedExportLeavesOtherOwnersBytes(t *testing.T) {
+	fs := memfs.New()
+	gb, err := git.NewBackend(ownedPruneSpec(), nil, git.Auth{}, nil)
+	if err != nil {
+		t.Fatalf("new backend: %v", err)
+	}
+	const shared = "inventory/team-a/shared.yaml"
+	exportAs := func(owner, content string) error {
+		return gb.ExportFilesToFilesystemForTest(fs, []git.FileEntry{{Path: shared, Data: []byte(content)}},
+			git.ExportFilesOptions{Prune: true, PruneOwner: owner, PruneKeepPaths: []string{shared}})
+	}
+
+	if firstErr := exportAs(`["c","team-a","apps"]`, "owned by A\n"); firstErr != nil {
+		t.Fatalf("owner A export: %v", firstErr)
+	}
+	err = exportAs(`["c","team-b","apps"]`, "written by B\n")
+	if err == nil || !strings.Contains(err.Error(), "belongs to another inventory") {
+		t.Fatalf("owner B export of A's path: err = %v, want an ownership rejection", err)
+	}
+
+	got, readErr := util.ReadFile(fs, shared)
+	if readErr != nil {
+		t.Fatalf("read %q: %v", shared, readErr)
+	}
+	if string(got) != "owned by A\n" {
+		t.Fatalf("FORBIDDEN (invariant 1): rejected export rewrote %q to %q", shared, got)
 	}
 }
