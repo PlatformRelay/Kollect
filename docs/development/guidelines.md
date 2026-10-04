@@ -61,7 +61,9 @@ Operator-specific error taxonomy drives reconcile behavior. For Go wrapping conv
 Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
 [testing.md](testing.md) and [coding-standards.md § Testing](coding-standards.md#testing).
 
-- **Tests alongside code** — unit, envtest, golden contracts, integration (testcontainers), kind e2e.
+- **Behavioural red before the fix** — a regression test must fail on the broken behaviour before
+  the fix lands; a compile error or a skipped test does not count. Tiers: unit, envtest, golden
+  contracts, integration (testcontainers), kind e2e. Workflow: [spec-workflow.md](spec-workflow.md).
 - **Mocks** — mockery on small interfaces only.
 - **Metrics** — assert Prometheus counters/histograms in controller tests where behavior changes.
 - **Scale tests bounded** — default `task test` caps synthetic objects (500); load tests require
