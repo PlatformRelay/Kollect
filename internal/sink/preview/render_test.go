@@ -107,6 +107,9 @@ func TestRender_existingProvisioningWarning(t *testing.T) {
 	if !containsWarning(out.Warnings, "provisioning.mode=existing") {
 		t.Fatalf("expected existing-mode warning, got %v", out.Warnings)
 	}
+	if out.Postgres != nil {
+		t.Fatalf("existing mode must not advertise postgres DDL, got %#v", out.Postgres)
+	}
 }
 
 func TestRender_s3ObjectPath(t *testing.T) {

@@ -70,7 +70,9 @@ func Render(spec kollectdevv1alpha1.KollectSinkSpec, sinkName string) *kollectde
 	case kollectdevv1alpha1.SnapshotSinkTypeS3, kollectdevv1alpha1.SnapshotSinkTypeGCS, kollectdevv1alpha1.SnapshotSinkTypeAzureBlob:
 		preview.ObjectPath = objectstore.ObjectPath(spec, "team-a", "api", 1)
 	case kollectdevv1alpha1.DatabaseSinkTypePostgres:
-		if spec.Postgres != nil {
+		// provisioning.mode=existing means Kollect will not create the table, so the preview
+		// must not advertise DDL that will never run (it would contradict the warning above).
+		if spec.Postgres != nil && mode != kollectdevv1alpha1.ProvisioningModeExisting {
 			preview.Postgres = &kollectdevv1alpha1.PostgresPreviewStatus{
 				ExpectedDDL: postgres.ExpectedCreateTableDDL(spec.Postgres.Schema, spec.Postgres.Table),
 			}

@@ -13,10 +13,11 @@ import (
 
 // Config holds resolved PostgreSQL sink settings.
 type Config struct {
-	DSN     string
-	Schema  string
-	Table   string
-	Cluster string
+	DSN              string
+	Schema           string
+	Table            string
+	Cluster          string
+	ProvisioningMode string
 }
 
 // ConfigFromSpec validates spec and secret data for a postgres sink.
@@ -53,10 +54,11 @@ func ConfigFromSpec(
 	}
 
 	return Config{
-		DSN:     dsn,
-		Schema:  schema,
-		Table:   table,
-		Cluster: strings.TrimSpace(spec.Cluster),
+		DSN:              dsn,
+		Schema:           schema,
+		Table:            table,
+		Cluster:          strings.TrimSpace(spec.Cluster),
+		ProvisioningMode: kollectdevv1alpha1.EffectiveProvisioningMode(&spec),
 	}, nil
 }
 
