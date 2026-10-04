@@ -48,6 +48,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 - **test:** Reuse the build cache in the no-Docker proof ([#407](https://github.com/platformrelay/kollect/pull/407))[27023f3](https://github.com/platformrelay/kollect/commit/27023f37bafd4aaf64e46bdfabbccd50f3571844)
 
+
+### Refactoring
+
+- **sink/git:** Share the ExportFiles option merge with its test twin [9fedfe1](https://github.com/platformrelay/kollect/commit/9fedfe12813077695c48e3e487628e3d6c1725b4)
+
 ## [0.21.0](https://github.com/platformrelay/kollect/compare/v0.20.0..v0.21.0) - 2026-10-01
 
 ### Bug Fixes
