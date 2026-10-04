@@ -225,7 +225,7 @@ All pull requests need **green CI** and **maintainer approval** before merge to 
 | --- | --- |
 | Lint and format | `task lint`, `task format:check` (`CI`) |
 | Tests and coverage floor | `task coverage` (`CI`) |
-| Integration (when sink/backend touched) | `task test-integration`; CI sets `KOLLECT_REQUIRE_DOCKER=true` so missing Docker fails instead of skipping — set it locally to match |
+| Integration (when sink/backend touched) | `task test-integration` (Docker; fails unless every integration test ran and passed, as in CI; a new integration-tagged package must be added to `INTEGRATION_PACKAGES` in Taskfile.yml). Without Docker, `task test-integration:explore` reports what it could not run |
 | Codegen drift | `task verify` (`preflight`) |
 | Changelog drift | Not a PR gate: the `changelog-sync` workflow regenerates `CHANGELOG.md` after each merge; run `task changelog:verify` locally before tagging |
 | Secret scan | gitleaks (`CI`) |

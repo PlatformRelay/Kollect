@@ -16,6 +16,8 @@ env:
 
 vars:
   BIN_DIR: bin
+  # Packages whose integration-tagged tests make up the L3 tier (task test-integration).
+  INTEGRATION_PACKAGES: ./internal/sink/... ./internal/pipeline/...
   # renovate: datasource=github-releases depName=orhun/git-cliff
   GIT_CLIFF_VERSION: v2.13.1
   GIT_CLIFF_BIN: "{{.BIN_DIR}}/git-cliff"
@@ -282,14 +284,24 @@ tasks:
       - task: perf-lab:quick
 
   test-integration:
-    desc: Run integration-tagged tests (testcontainers; requires Docker)
+    desc: Run integration-tagged tests and fail unless every one of them ran and passed (requires Docker)
     env:
       CGO_ENABLED: "1"
     cmds:
+      # The checker finds the integration-tagged tests in the source, runs go test -json with
+      # KOLLECT_REQUIRE_DOCKER=true, and fails on any skipped, missing or failed one, a broken
+      # result stream, or a non-zero go test exit (openspec/specs/integration-test-execution).
       # internal/pipeline carries the L3 pipeline->git-sink Forgejo test (ADR-0801 P-008). Its
-      # untagged L2 envtest test compiles here too but self-skips when envtest assets are absent
-      # (this job sets up testcontainers, not KUBEBUILDER_ASSETS) — see integration_test.go.
-      - go test -tags=integration -count=1 ./internal/sink/... ./internal/pipeline/...
+      # untagged L2 envtest tests compile here too and self-skip without envtest assets; being
+      # untagged, they are reported, not required.
+      - go run ./hack/tools/integrationevidence {{.INTEGRATION_PACKAGES}}
+
+  test-integration:explore:
+    desc: Local integration run that tolerates missing Docker; reports the run as incomplete instead of passing
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - go run ./hack/tools/integrationevidence -mode=explore {{.INTEGRATION_PACKAGES}}
 
   test-integration:no-docker:
     desc: Prove L3 tests skip without Docker and fail when KOLLECT_REQUIRE_DOCKER=true (needs Docker on the host)
