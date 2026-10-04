@@ -5,6 +5,7 @@ package git
 
 import (
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"testing"
 )
@@ -126,5 +127,63 @@ func TestExportOwnedPrune_FingerprintIncludesOwnerAndKeepSet(t *testing.T) {
 	}
 	if _, ok := remoteFile(t, remote, old.Path); ok {
 		t.Fatal("fingerprint skipped changed keep-set")
+	}
+}
+
+func TestExportOwnedPruneFingerprintReturnToPriorSet(t *testing.T) {
+	for _, firstChanges := range []bool{false, true} {
+		t.Run(fmt.Sprint(firstChanges), func(t *testing.T) {
+			remote := createBareRemoteWithMainCommit(t)
+			cfg := Config{Endpoint: "file://" + remote, Prune: true, PruneOwner: "a"}.withDefaults()
+			keep := FileEntry{Path: "deep/keep.yaml", Data: []byte("keep")}
+			old := FileEntry{Path: "deep/old.yaml", Data: []byte("old")}
+			initial := []FileEntry{keep, old}
+			if firstChanges {
+				initial = []FileEntry{old, keep}
+			}
+			for _, snapshot := range []struct {
+				files    []FileEntry
+				checksum string
+			}{{initial, "A"}, {[]FileEntry{keep}, "B"}, {initial, "A"}} {
+				if err := ExportFilesWithBranch(t.Context(), cfg, Auth{}, snapshot.files, nil, CommitContext{Checksum: snapshot.checksum}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, ok := remoteFile(t, remote, old.Path); !ok {
+				t.Fatal("A->B->A failed to restore removed file")
+			}
+		})
+	}
+}
+
+// A non-final part must replace the latest cached operation even if the final
+// part previously had the same checksum and keep-set.
+func TestExportOwnedPruneFingerprintMultipartReplay(t *testing.T) {
+	remote := createBareRemoteWithMainCommit(t)
+	cfg := Config{Endpoint: "file://" + remote, PruneOwner: "a"}.withDefaults()
+	keep := FileEntry{Path: "deep/keep.yaml", Data: []byte("keep")}
+	part := FileEntry{Path: keep.Path, Data: []byte("part")}
+	run := func(prune bool, checksum string, files ...FileEntry) {
+		t.Helper()
+		cfg.Prune = prune
+		if err := ExportFilesWithBranch(t.Context(), cfg, Auth{}, files, nil, CommitContext{Checksum: checksum}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run(false, "part", part)
+	run(true, "final", keep)
+	run(false, "part", part)
+	if got, _ := remoteFile(t, remote, keep.Path); string(got) != "part" {
+		t.Fatalf("replayed non-final part skipped: %q", got)
+	}
+	run(true, "final", keep)
+	if got, _ := remoteFile(t, remote, keep.Path); string(got) != "keep" {
+		t.Fatalf("replayed final part skipped: %q", got)
+	}
+	// A write without a trusted checksum must also invalidate an earlier hit.
+	run(true, "", FileEntry{Path: keep.Path, Data: []byte("changed")})
+	run(true, "final", keep)
+	if got, _ := remoteFile(t, remote, keep.Path); string(got) != "keep" {
+		t.Fatalf("unchecked operation left stale cached state: %q", got)
 	}
 }
