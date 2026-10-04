@@ -16,7 +16,7 @@ import (
 	"github.com/platformrelay/kollect/internal/metrics"
 )
 
-// TestClusterTargetMappers_listErrorIsSignalled is the D3 lock: all three
+// TestClusterTargetMappers_listErrorIsSignalled is the mapper list-error lock: all three
 // KollectClusterTargetReconciler watch mappers must log and count a failed List instead of
 // silently returning nil (which drops namespace/scope/profile events for every cluster target
 // with no signal). The namespaced twin increments WatchMapListErrorsTotal at

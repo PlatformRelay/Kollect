@@ -286,7 +286,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		}
 		// Partition before the debounce check (as the namespaced path does) so the
 		// snapshot debounce key can be the multipart digest: a global-cap change alters
-		// part boundaries without changing content, and must re-export (D2).
+		// part boundaries without changing content, and must re-export.
 		parts, partitionErr := export.PartitionEnvelopes(items, meta, ceiling)
 		if partitionErr != nil {
 			log.Error(partitionErr, "cluster export partition failed", "sink", exportKey)

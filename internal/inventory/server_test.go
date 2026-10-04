@@ -376,7 +376,7 @@ func (b *syncBuffer) String() string {
 	return b.buf.String()
 }
 
-// TestServerStart_nilAuthDoesNotPanic is the D6 lock: the struct nil-guards Auth as optional
+// TestServerStart_nilAuthDoesNotPanic is the nil-auth lock: the struct nil-guards Auth as optional
 // (server.go:46) but the listen log dereferenced it (server.go:76). A zero-value Server must
 // not panic; it must log authMode=disabled.
 func TestServerStart_nilAuthDoesNotPanic(t *testing.T) {

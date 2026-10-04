@@ -38,7 +38,7 @@ func TestConfigFromSpec(t *testing.T) {
 	}
 }
 
-// TestConfigFromSpec_carriesProvisioningMode is the D1 wiring lock: the effective mode must
+// TestConfigFromSpec_carriesProvisioningMode is the provisioning-mode wiring lock: the effective mode must
 // reach the backend config so NewBackend can branch to verify (not create) in existing mode.
 func TestConfigFromSpec_carriesProvisioningMode(t *testing.T) {
 	t.Parallel()

@@ -136,7 +136,7 @@ func TestRender_mongodbPreview(t *testing.T) {
 }
 
 // TestRender_mongodbExistingOmitsIndexPreview: ensureCollection creates the unique index, so
-// under provisioning.mode=existing the preview must not advertise it (D1 parity with postgres).
+// under provisioning.mode=existing the preview must not advertise it (parity with postgres).
 func TestRender_mongodbExistingOmitsIndexPreview(t *testing.T) {
 	out := Render(kollectdevv1alpha1.KollectSinkSpec{
 		Type:         kollectdevv1alpha1.DatabaseSinkTypeMongoDB,

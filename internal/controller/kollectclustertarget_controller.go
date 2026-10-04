@@ -137,7 +137,7 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 		// The filter-status fields are mutated in memory here and persist only through the
 		// condition write below. When that write is skipped (byte-identical Ready/Degraded
 		// condition) the fields would be dropped, so track whether they moved and force a
-		// write in that case (D5).
+		// write in that case.
 		filterChanged := clusterTargetFilterChanged(&ct, matched, effective, activeRules)
 		updateClusterTargetFilterStatus(&ct, matched, effective, activeRules)
 
@@ -327,7 +327,7 @@ func (r *KollectClusterTargetReconciler) setReady(
 }
 
 // persistFilterStatusIfSkipped issues the status write the shared condition writer skipped,
-// when the filter-status fields moved but the condition did not (D5). It mirrors the
+// when the filter-status fields moved but the condition did not. It mirrors the
 // namespaced KollectTarget `countChanged && !written` escape hatch (PERF-FIX-05 / F-05).
 func (r *KollectClusterTargetReconciler) persistFilterStatusIfSkipped(
 	ctx context.Context,
@@ -343,7 +343,7 @@ func (r *KollectClusterTargetReconciler) persistFilterStatusIfSkipped(
 
 // clusterTargetReadyMessage builds the Ready/Synced message for a healthy cluster target. It is
 // shared with the tests so the seeded condition and the recomputed one cannot drift apart and
-// silently defeat the D5 skip assertions.
+// silently defeat the skip assertions.
 func clusterTargetReadyMessage(
 	profileRef kollectdevv1alpha1.NamespacedObjectReference,
 	matched, count int,
@@ -368,7 +368,7 @@ func clusterTargetFilterChanged(
 
 // setClusterTargetCondition writes a True conditionType through the shared no-op-skipping
 // writer and reports whether it issued the status call. Unlike the old clone, it redacts
-// before comparing and leaves LastTransitionTime untouched when nothing moved (D5).
+// before comparing and leaves LastTransitionTime untouched when nothing moved.
 func setClusterTargetCondition(
 	ctx context.Context,
 	c client.Client,
