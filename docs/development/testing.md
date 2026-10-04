@@ -92,8 +92,13 @@ Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
   `.go-arch-lint.yml`)
 - **Dependency policy:** golangci-lint `depguard` + `gomodguard` (same `task lint` job)
 - **L0–L2:** `task coverage` with coverage floor
-- **L3:** `task test-integration` (Docker required; the job sets `KOLLECT_REQUIRE_DOCKER=true`, so a
-  container that cannot start fails the run instead of skipping it)
+- **L3:** `task test-integration`. It finds the integration-tagged tests in the source, runs them
+  with `KOLLECT_REQUIRE_DOCKER=true`, and fails unless every one of them ran and passed. A skipped
+  or missing test, a broken result stream or a non-zero `go test` exit fails the run. The log ends
+  with the expected, executed, passed, failed, skipped and missing counts. Untagged tests compiled
+  into the same packages (the `internal/pipeline` envtest tests) are reported but not required.
+  An integration-tagged test in a package outside `INTEGRATION_PACKAGES` (Taskfile.yml) fails the
+  run, because nothing would execute it: add new packages to that variable.
 - Helm packaging (`task helm-test`), image build (`task docker:build`)
 - Native Go fuzz (CEL/JSONPath extractors, content hash)
 - RBAC audit (`hack/audit-rbac.sh`)
@@ -182,7 +187,8 @@ or the 100k cloud gate. Raw protocols stay local-only — see the
 | `task test` | Unit + envtest (no floor check; no race detector) |
 | `task coverage` | Unit + envtest + 90% floor (CI; CGO off, no `-race`) |
 | `task coverage:race` | Same as coverage with race detector (local + nightly advisory) |
-| `task test-integration` | L3 sink/transport integration (Docker) |
+| `task test-integration` | L3 sink/transport integration (Docker); fails unless every integration test ran and passed |
+| `task test-integration:explore` | Same tests without requiring Docker; skips are listed and the run is reported as incomplete, not passed |
 | `task test-integration:no-docker` | Prove L3 tests skip without Docker and fail when `KOLLECT_REQUIRE_DOCKER=true` |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
 | `task bench` | Micro-benchmarks on hot paths |

@@ -108,7 +108,8 @@ Run from repository root with [Task](https://taskfile.dev/). Full list: `task --
 | Task | Purpose |
 | --- | --- |
 | `task scrub` | Scan staged diff for private strings |
-| `task test-integration` | Sink integration tests (Docker); skip without Docker unless `KOLLECT_REQUIRE_DOCKER=true`, which CI sets |
+| `task test-integration` | Sink integration tests (Docker); fails unless every integration-tagged test ran and passed (what CI runs) |
+| `task test-integration:explore` | Same tests on a machine without Docker; skips are listed and the run is reported as incomplete |
 | `task test-integration:no-docker` | Run one L3 test in a container without Docker: it must skip, and fail when `KOLLECT_REQUIRE_DOCKER=true` |
 | `task helm-test` | `helm lint` + helm-docs drift + chart unit tests |
 | `task helm-docs` | Regenerate `charts/kollect/README.md` |
