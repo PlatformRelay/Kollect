@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect:** Fail a target when its labelSelector does not parse ([#402](https://github.com/platformrelay/kollect/pull/402))[e8954ec](https://github.com/platformrelay/kollect/commit/e8954ec289cde26b92c62f5281e94dd110806f43)
+
 - **pipeline:** Close the sink client after each collect context [f48f9cf](https://github.com/platformrelay/kollect/commit/f48f9cf2d08c9afb5d7ac5c21cf01fb8365014c7)
 
 - **inventory:** Keep a failed body write from appending a 500 [049adbe](https://github.com/platformrelay/kollect/commit/049adbe23b4f934c838eb33470f7a62c19c677ca)
