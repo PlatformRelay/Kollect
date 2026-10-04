@@ -56,7 +56,7 @@ separately so it reaches a conclusion on every PR (CI-DOCSGATE-01, below):
 | Docker image build | `task docker:build` | Yes |
 | Perf snapshot | `task perf-report` | **No** (`continue-on-error: true`) |
 | RBAC audit (Q16) | `bash hack/audit-rbac.sh` (Polaris danger + kubeaudit error on `config/rbac/role.yaml`) | Yes |
-| Native Go fuzz | Matrix: `FuzzContentHash` (`internal/aggregate`); `FuzzExtractJSONPath`, `FuzzExtractCEL`, `FuzzValidateAttributePath` (`internal/collect`) — 30s each | Yes |
+| Native Go fuzz | Matrix: `FuzzContentHash` (`internal/aggregate`); `FuzzExtractJSONPath`, `FuzzExtractCEL`, `FuzzValidateAttributePath` (`internal/collect`); `FuzzOwnedPrune` (`internal/sink/git`) — 30s each | Yes |
 
 **Pre-commit / local:** `task verify`, `task lint`, `task coverage:race` (recommended),
 `task scrub` ([ADR-0104](0104-security-model.md) scrub list) before commit;
