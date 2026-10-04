@@ -25,9 +25,9 @@ name: changelog-sync
 # Until both secrets are set and the push succeeds, the push step soft-fails with
 # a warning (this workflow is NOT a required check, so it never blocks a merge).
 #
-# RELEASE GUARD (hack/check-changelog-release-guard.sh): docs/RELEASE.md lands the
-# hand-written `## [X.Y.Z]` header on main BEFORE the vX.Y.Z tag is pushed. This
-# workflow fires on that push, so git-cliff sees no tag and re-renders the section
+# RELEASE GUARD (hack/check-changelog-release-guard.sh): if a hand-written
+# `## [X.Y.Z]` header lands on main BEFORE the vX.Y.Z tag is pushed (the runbook
+# did this until 2026-10), this workflow fires on that push, so git-cliff sees no tag and re-renders the section
 # as `## [Unreleased]` — which is how bot commit fbb5196a3 demoted `## [0.17.0]`
 # and turned Docs CI red on every open PR. Every regeneration is therefore diffed
 # against the committed CHANGELOG.md before anything is pushed:

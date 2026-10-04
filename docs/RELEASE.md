@@ -210,14 +210,20 @@ each claim against what actually ships, not just the number:
 `Chart.yaml` version, so the Docs workflow fails the release-prep PR, not a later unrelated one,
 when a page is left behind. Run `task docs:verify` before opening the PR.
 
-### 5. Regenerate CHANGELOG.md
+### 5. Commit the release prep
 
 ```sh
-task changelog:write
-git add charts/kollect/Chart.yaml CHANGELOG.md docs/ROADMAP.md docs/roadmap/planned-features.md \
+git add charts/kollect/Chart.yaml docs/ROADMAP.md docs/roadmap/planned-features.md \
   overrides/main.html docs/operator-manual/upgrading.md
 git commit -m ":bookmark: chore(release): prepare v0.3.0"
 ```
+
+Do not add a `## [X.Y.Z]` heading to `CHANGELOG.md` by hand. Before the tag exists, git-cliff can
+only render `[Unreleased]`; after the tag is pushed, the `changelog-sync` workflow regenerates the
+file with the release section. Preview the notes with `task changelog` (step 1).
+
+Between merging this PR and pushing the tag, the deployed docs banner links to a release page that
+does not exist yet. Keep that window short, and revert the prep PR if the release is abandoned.
 
 ## Cut a release
 
