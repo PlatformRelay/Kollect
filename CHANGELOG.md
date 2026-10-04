@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect:** Drop the stored row when list access is denied ([#395](https://github.com/platformrelay/kollect/pull/395))[e1f36de](https://github.com/platformrelay/kollect/commit/e1f36deda78144bef6069307b3952aa600fe4929)
+
 - **sink:** Load the MongoDB databaseRef secret [76c0613](https://github.com/platformrelay/kollect/commit/76c0613828edf5d20fa7bf8ece31d68ba3c9be31)
 
 - **controller:** Clear cluster Ready when every export fails ([#393](https://github.com/platformrelay/kollect/pull/393))[526876a](https://github.com/platformrelay/kollect/commit/526876aa7d954025b0985ca975a8a57a65a297ca)
