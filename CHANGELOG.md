@@ -11,6 +11,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **postgres:** Accept only tables in the existing-mode probe [1480fca](https://github.com/platformrelay/kollect/commit/1480fca8afcbba312aa54fbbd1911143a0e0b643)
+
+- **sink:** Privilege-independent table probe and MongoDB preview [9fe4748](https://github.com/platformrelay/kollect/commit/9fe4748dc7da457fe9138f53ac91d6db22ded8b8)
+
+- **controller,inventory:** Skip-aware cluster target conditions, nil-safe auth [aee9453](https://github.com/platformrelay/kollect/commit/aee9453695b0bd5158acf8afefc1ee20fe2d72d2)
+
+- **controller:** Key cluster export debounce on the partition digest [bad4f37](https://github.com/platformrelay/kollect/commit/bad4f372d36a36e985c92cbd9e722d85c435a035)
+
+- **postgres:** Honour provisioning.mode=existing in backend and preview [d8f582a](https://github.com/platformrelay/kollect/commit/d8f582a02c3801e0ae24449936cc189217634252)
+
 - **pipeline:** Resolve git.auth.secretRef and tls.caSecretRef [1586d31](https://github.com/platformrelay/kollect/commit/1586d31b6470efb927dbaad3d966e22a2d9e4e60)
 
 - **docs:** Keep release-truth claims on GA releases [ba49406](https://github.com/platformrelay/kollect/commit/ba4940647e230581eed81dee9e260dbb310bf90d)
