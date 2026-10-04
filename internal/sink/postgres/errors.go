@@ -19,4 +19,9 @@ var (
 	ErrBulkUpsertCreateStagingFailed = errors.New("postgres bulk upsert: create staging")
 	ErrBulkUpsertCopyFailed          = errors.New("postgres bulk upsert: copy")
 	ErrBulkUpsertMergeFailed         = errors.New("postgres bulk upsert: merge")
+
+	// ErrTableNotFound marks a provisioning.mode=existing verification that found the
+	// destination table absent. Distinct from a failed verification query, which must not be
+	// reported as "table absent" (ADR-0416 §5).
+	ErrTableNotFound = errors.New("postgres table not found")
 )

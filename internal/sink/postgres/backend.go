@@ -5,6 +5,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -55,15 +56,32 @@ func NewBackend(
 	}
 
 	b := &Backend{cfg: cfg, pool: pool}
-	// ensureTable runs once when the backend is constructed; pooled backends reuse the same
-	// instance so DDL is not repeated on every export (PERF-02).
-	if err := b.ensureTable(connectCtx); err != nil {
+	// Provisioning runs once when the backend is constructed; pooled backends reuse the same
+	// instance so DDL is not repeated on every export (PERF-02). In provisioning.mode=existing
+	// Kollect must not create destination resources: it verifies the table instead of running
+	// DDL, so a least-privilege role without CREATE can still export (ADR-0416 §5).
+	if err := provisionTable(connectCtx, cfg.ProvisioningMode, b.verifyTable, b.ensureTable); err != nil {
 		pool.Close()
 
 		return nil, redactedConnectError(err)
 	}
 
 	return b, nil
+}
+
+// provisionTable runs the destination-resource provisioning step for the effective mode:
+// existing verifies the table, anything else ensures it. It is a free function so the branch
+// selection is unit-testable without a live database.
+func provisionTable(
+	ctx context.Context,
+	mode string,
+	verify, ensure func(context.Context) error,
+) error {
+	if mode == kollectdevv1alpha1.ProvisioningModeExisting {
+		return verify(ctx)
+	}
+
+	return ensure(ctx)
 }
 
 // Type returns the sink type identifier.
@@ -152,6 +170,35 @@ WHERE t.inventory_namespace = $1
 	}
 
 	return nil
+}
+
+// verifyTable confirms the destination table exists without creating it (provisioning.mode=existing).
+func (b *Backend) verifyTable(ctx context.Context) error {
+	var one int
+
+	err := b.pool.QueryRow(ctx, `
+SELECT 1 FROM information_schema.tables
+WHERE table_schema = $1 AND table_name = $2
+`, b.cfg.Schema, b.cfg.Table).Scan(&one)
+
+	return classifyTableProbe(b.cfg.Schema, b.cfg.Table, err)
+}
+
+// classifyTableProbe maps a table-existence probe result to an error: no row is the shaped
+// not-found error, while any other failure is wrapped and must not read as "table absent".
+func classifyTableProbe(schema, table string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf(
+			"postgres verify table: %s.%s does not exist (provisioning.mode=existing): %w",
+			schema, table, ErrTableNotFound,
+		)
+	}
+
+	return fmt.Errorf("postgres verify table: %w", redactedConnectError(err))
 }
 
 func (b *Backend) ensureTable(ctx context.Context) error {
