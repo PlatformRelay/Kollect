@@ -16,6 +16,7 @@ duplicate prose across them.
 | [Engineering guidelines](docs/development/guidelines.md) | Operator *how well* — error taxonomy, robustness, security model, perf, definition of done |
 | [Coding standards](docs/development/coding-standards.md) | Go *how* — lint, formatting, modules, race detector, CI gates |
 | [Testing strategy](docs/development/testing.md) | Test pyramid (L0–L5), coverage floors, integration/e2e tiers |
+| [Spec workflow](docs/development/spec-workflow.md) | How behavioural changes are specified, verified and closed (OpenSpec) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Process — commits, PR workflow, changelog, doc PR checklist |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community behavior standards (Contributor Covenant v2.1) |
 | [GOVERNANCE.md](GOVERNANCE.md) | Roles, decision making, continuity, security contact |
@@ -113,7 +114,7 @@ headings automatically.
 | `task changelog` | Preview the **Unreleased** section |
 | `task changelog:write` | Regenerate full `CHANGELOG.md` |
 | `task changelog:release` | Print notes for the latest tag |
-| `task changelog:verify` | Fail if `CHANGELOG.md` is stale (CI/preflight) |
+| `task changelog:verify` | Fail if `CHANGELOG.md` is stale (local pre-tag check; not a PR gate) |
 | `task helm-docs` | Regenerate `charts/kollect/README.md` from `values.yaml` |
 | `task helm-docs:verify` | Fail if chart README is stale (CI `helm` job via `task helm-test`) |
 | `task release-dry-run` | Build `dist/` assets without pushing |
@@ -226,7 +227,7 @@ All pull requests need **green CI** and **maintainer approval** before merge to 
 | Tests and coverage floor | `task coverage` (`CI`) |
 | Integration (when sink/backend touched) | `task test-integration`; CI sets `KOLLECT_REQUIRE_DOCKER=true` so missing Docker fails instead of skipping — set it locally to match |
 | Codegen drift | `task verify` (`preflight`) |
-| Changelog drift | `task changelog:verify` (`preflight`) |
+| Changelog drift | Not a PR gate: the `changelog-sync` workflow regenerates `CHANGELOG.md` after each merge; run `task changelog:verify` locally before tagging |
 | Secret scan | gitleaks (`CI`) |
 
 ### Review expectations

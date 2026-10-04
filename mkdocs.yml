@@ -121,6 +121,7 @@ nav:
           - Engineering guidelines: development/guidelines.md
           - Coding standards: development/coding-standards.md
           - Testing strategy: development/testing.md
+          - Spec workflow: development/spec-workflow.md
           - Tooling setup: development/tooling-setup.md
           - Local container images: development/local-container-image.md
           - Git sink attribution: development/git-sink-attribution.md
