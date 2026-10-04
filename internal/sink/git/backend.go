@@ -69,10 +69,16 @@ func (b *Backend) ExportFiles(ctx context.Context, files []FileEntry, opts Expor
 		commitCtx = CommitContextFromObjectPath(files[0].Path, b.cfg.Cluster)
 	}
 
+	return ExportFilesWithBranch(ctx, b.filesConfig(opts), b.auth, files, nil, commitCtx)
+}
+
+// filesConfig merges per-export options into the backend config. SuppressPrune wins over every
+// prune request: a non-final multipart part must never delete, because its keep-set is incomplete.
+func (b *Backend) filesConfig(opts ExportFilesOptions) Config {
 	cfg := b.cfg
 	cfg.Prune = (cfg.Prune || opts.Prune) && !opts.SuppressPrune
 	cfg.PruneKeepPaths = opts.PruneKeepPaths
 	cfg.PruneOwner = opts.PruneOwner
 
-	return ExportFilesWithBranch(ctx, cfg, b.auth, files, nil, commitCtx)
+	return cfg
 }
