@@ -336,6 +336,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 				SinkName:      binding.Name,
 				SinkUID:       resolved.UID,
 				ObjectPath:    partPath,
+				Inventory:     sink.InventoryIdentity{Kind: sink.InventoryKindCluster, Name: inv.Name},
 				Envelope:      part.Envelope,
 				SinkSpec:      resolved.Spec,
 				PrunePlan:     prunePlan,

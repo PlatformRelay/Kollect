@@ -37,6 +37,7 @@ type treeCall struct {
 	files          []git.FileEntry
 	prune          bool
 	pruneKeepPaths []string
+	pruneOwner     string
 }
 
 func (b *treeBackend) Type() string { return "tree" }
@@ -58,6 +59,7 @@ func (b *treeBackend) ExportFiles(_ context.Context, files []git.FileEntry, opts
 		files:          cp,
 		prune:          opts.Prune && !opts.SuppressPrune,
 		pruneKeepPaths: append([]string(nil), opts.PruneKeepPaths...),
+		pruneOwner:     opts.PruneOwner,
 	})
 
 	return nil

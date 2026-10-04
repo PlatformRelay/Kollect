@@ -64,8 +64,10 @@ type ExportItemsRequest struct {
 	SinkName      string
 	SinkFamily    string
 	ObjectPath    string
-	Items         []collect.Item
-	Meta          export.Metadata
+	// Inventory names the exporting inventory; see ExportEnvelopeRequest.Inventory.
+	Inventory InventoryIdentity
+	Items     []collect.Item
+	Meta      export.Metadata
 }
 
 // ExportEnvelopeRequest carries a pre-marshalled export envelope to a sink.
@@ -77,8 +79,12 @@ type ExportEnvelopeRequest struct {
 	SinkName      string
 	SinkUID       types.UID
 	ObjectPath    string
-	Envelope      []byte
-	SinkSpec      kollectdevv1alpha1.KollectSinkSpec
+	// Inventory names the exporting inventory (kind, namespace, name). It must agree with
+	// ObjectPath, and a Git or GitLab tree export (perResource, split) cannot run without it: it
+	// decides which ownership record the written files belong to (ADR-0422).
+	Inventory InventoryIdentity
+	Envelope  []byte
+	SinkSpec  kollectdevv1alpha1.KollectSinkSpec
 	// PrunePlan accumulates the projected file paths of every part in a multipart git-layout export
 	// so prune can run exactly once, against the union, on the final part. Nil for single-part and
 	// non-git sinks (no-op).
@@ -131,6 +137,7 @@ func RunExportItems(req ExportItemsRequest) error {
 		SinkName:      req.SinkName,
 		SinkUID:       resolved.UID,
 		ObjectPath:    req.ObjectPath,
+		Inventory:     req.Inventory,
 		Envelope:      envelope,
 		SinkSpec:      resolved.Spec,
 	})
@@ -152,6 +159,12 @@ func RunExportEnvelope(req ExportEnvelopeRequest) ([]string, error) {
 
 	if req.SinkSpec.Type == "" {
 		return nil, kollecterrors.Terminal(fmt.Errorf("sink spec is required for export to %q", req.SinkName))
+	}
+
+	if err := checkInventoryIdentity(req); err != nil {
+		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
+
+		return nil, err
 	}
 
 	backend, release, err := acquireBackend(
@@ -235,7 +248,7 @@ func RunExportEnvelope(req ExportEnvelopeRequest) ([]string, error) {
 	generation := export.GenerationFromEnvelope(envelope)
 	defaultObjectPath := objectstore.ObjectPath(req.SinkSpec, invNS, invName, generation)
 
-	plan, err := resolveSnapshotExport(backend, req.SinkSpec, envelope, invNS, invName, generation, defaultObjectPath, req.PrunePlan)
+	plan, err := resolveSnapshotExport(backend, req.SinkSpec, envelope, invNS, invName, generation, defaultObjectPath, req.Inventory, req.PrunePlan)
 	if err != nil {
 		err = kollecterrors.Terminal(fmt.Errorf("resolve layout for %q: %w", req.SinkName, err))
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
@@ -265,6 +278,23 @@ func RunExportEnvelope(req ExportEnvelopeRequest) ([]string, error) {
 	}
 
 	return plan.writtenPaths, nil
+}
+
+// checkInventoryIdentity refuses a request whose identity disagrees with its object path: the
+// namespace and base name parsed from the path must be the identity's, and a cluster inventory's
+// path namespace must be "cluster". The identity decides ownership and the path decides where files
+// go, so a disagreement would record files under the wrong owner.
+func checkInventoryIdentity(req ExportEnvelopeRequest) error {
+	if req.Inventory.IsZero() {
+		return nil
+	}
+	invNS, invName := objectstore.InventoryFromObjectPath(req.ObjectPath)
+	meta := export.EnvelopeMetaFromPayload(req.Envelope)
+	if err := req.Inventory.checkObjectPath(req.ObjectPath, invNS, invName, meta.PartIndex, meta.PartTotal); err != nil {
+		return kollecterrors.Terminal(fmt.Errorf("export to %q: %w", req.SinkName, err))
+	}
+
+	return nil
 }
 
 func sinkNamespaceForExport(resolved *ResolvedSink, fallback string) string {

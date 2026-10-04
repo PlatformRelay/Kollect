@@ -42,10 +42,14 @@ type Config struct {
 	// preserves the legacy behaviour: keep = written paths.
 	PruneKeepPaths []string
 	// PruneOwner selects a per-inventory ownership record. Empty retains legacy directory-scoped pruning.
-	PruneOwner     string
-	AuthType       AuthType
-	Engine         GitEngine
-	ForceBasicAuth bool
+	PruneOwner string
+	// PruneClaimPaths are paths this owner will write on a later call of the same export (the set
+	// manifest of a multipart set). They are checked against other owners' records now, but neither
+	// written nor recorded.
+	PruneClaimPaths []string
+	AuthType        AuthType
+	Engine          GitEngine
+	ForceBasicAuth  bool
 }
 
 func ConfigFromSpec(spec kollectdevv1alpha1.KollectSinkSpec, caPEM []byte) (Config, error) {

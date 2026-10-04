@@ -109,7 +109,7 @@ func TestResolveSnapshotExport_NonGitUsesDefaultPath(t *testing.T) {
 	be := &fakeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeS3}
 
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", teamAAPI, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestResolveSnapshotExport_GitJSONDocumentKeepsEnvelope(t *testing.T) {
 	}
 	env := testEnvelope(t)
 
-	plan, err := resolveSnapshotExport(be, spec, env, "team-a", "api", 1, "inventory/team-a/api.json", nil)
+	plan, err := resolveSnapshotExport(be, spec, env, "team-a", "api", 1, "inventory/team-a/api.json", teamAAPI, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestResolveSnapshotExport_GitDefaultYAMLDocumentTree(t *testing.T) {
 	be := &fakeTreeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit}
 
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", teamAAPI, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestResolveSnapshotExport_GitDefaultYAMLDropsCompletenessMarker(t *testing.
 	be := &fakeTreeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit} // default format = YAML
 
-	plan, err := resolveSnapshotExport(be, spec, marked, "team-a", "api", 7, "inventory/team-a/api.json", nil)
+	plan, err := resolveSnapshotExport(be, spec, marked, "team-a", "api", 7, "inventory/team-a/api.json", teamAAPI, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestResolveSnapshotExport_GitPerResourceTree(t *testing.T) {
 		Layout:  &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource},
 	}
 
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", teamAAPI, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestResolveSnapshotExport_GitAutoInfersResourceModeFromEnvelope(t *testing.
 	be := &fakeTreeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit}
 
-	plan, err := resolveSnapshotExport(be, spec, testResourceEnvelope(t, "payload"), "team-a", "api", 1, "inventory/team-a/api.json", nil)
+	plan, err := resolveSnapshotExport(be, spec, testResourceEnvelope(t, "payload"), "team-a", "api", 1, "inventory/team-a/api.json", teamAAPI, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestResolveSnapshotExport_GitYAMLDocumentFallbackWithoutFileExporter(t *tes
 	be := &fakeBackend{}
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.SinkTypeGit}
 
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", nil)
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "team-a", "api", 1, "inventory/team-a/api.json", teamAAPI, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,10 +318,15 @@ func TestResolveSnapshotExport_GitYAMLDocumentFallbackWithoutFileExporter(t *tes
 	}
 }
 
+var teamAAPI = InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "api"}
+
+// TestResolveSnapshotExportOwnershipStableAcrossParts: the owner comes from the identity, so
+// generations and multipart suffixes never create a new owner, while kind, namespace, name and sink
+// cluster each do.
 func TestResolveSnapshotExportOwnershipStableAcrossParts(t *testing.T) {
 	t.Parallel()
 	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "git", Layout: &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource}}
-	owner := func(namespace, name, cluster string, generation int64, index, total int) string {
+	owner := func(id InventoryIdentity, pathName, cluster string, generation int64, index, total int) string {
 		t.Helper()
 		localSpec := spec
 		localSpec.Cluster = cluster
@@ -334,7 +339,7 @@ func TestResolveSnapshotExportOwnershipStableAcrossParts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		plan, err := resolveSnapshotExport(be, localSpec, envelope, namespace, name, generation, "inventory/team-a/api.json", nil)
+		plan, err := resolveSnapshotExport(be, localSpec, envelope, "team-a", pathName, generation, "inventory/team-a/api.json", id, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -344,27 +349,33 @@ func TestResolveSnapshotExportOwnershipStableAcrossParts(t *testing.T) {
 		return be.pruneOwner
 	}
 	for _, name := range []string{"api", "api.part-0002-of-0002"} {
-		want, err := json.Marshal([3]string{"default", "team-a", name})
+		id := InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: name}
+		want, err := json.Marshal([5]string{"v2", InventoryKindNamespaced, "default", "team-a", name})
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, part := range []struct {
 			name         string
 			index, total int
+			generation   int64
 		}{
-			{name, 0, 0}, {name, 1, 1}, {name + ".part-0001-of-0002", 1, 2}, {name + ".part-0002-of-0002", 2, 2},
+			{name, 0, 0, 1}, {name, 1, 1, 2}, {name + ".part-0001-of-0002", 1, 2, 3}, {name + ".part-0002-of-0002", 2, 2, 4},
 		} {
-			if got := owner("team-a", part.name, "", 2, part.index, part.total); got != string(want) {
+			if got := owner(id, part.name, "", part.generation, part.index, part.total); got != string(want) {
 				t.Errorf("name=%s part=%d/%d: owner=%q want=%q", part.name, part.index, part.total, got, want)
 			}
 		}
 	}
-	base := owner("team-a", "api", "", 1, 0, 0)
-	if owner("team-b", "api", "", 1, 0, 0) == base || owner("team-a", "other", "", 1, 0, 0) == base || owner("team-a", "api", "other", 1, 0, 0) == base {
-		t.Fatal("distinct inventories share ownership")
-	}
-	if got := owner("team-a", "api.part-0002-of-0002", "", 1, 1, 2); got == base {
-		t.Fatal("mismatched multipart suffix stripped")
+	base := owner(teamAAPI, "api", "", 1, 0, 0)
+	for _, other := range []string{
+		owner(InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-b", Name: "api"}, "api", "", 1, 0, 0),
+		owner(InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "other"}, "api", "", 1, 0, 0),
+		owner(teamAAPI, "api", "other", 1, 0, 0),
+		owner(InventoryIdentity{Kind: InventoryKindCluster, Name: "api"}, "api", "", 1, 0, 0),
+	} {
+		if other == base {
+			t.Fatal("distinct inventories share ownership")
+		}
 	}
 }
 
@@ -398,20 +409,5 @@ func TestCleanupCandidatePathsPreservesSuffixShapedInventoryName(t *testing.T) {
 		if !strings.Contains(p, "api.part-0002-of-0002") {
 			t.Fatalf("cleanup addressed another inventory: %q", p)
 		}
-	}
-}
-
-func TestResolveSnapshotExportSharedControllerIdentitySuppressesPrune(t *testing.T) {
-	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "git", Git: &kollectdevv1alpha1.GitSpec{Prune: true}, Layout: &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource}}
-	be := &fakeTreeBackend{}
-	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "cluster", "platform", 1, "inventory/cluster/platform.json", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := plan.run(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if !be.filesCalled || be.prune {
-		t.Fatal("ambiguous controller identity must export without pruning")
 	}
 }
