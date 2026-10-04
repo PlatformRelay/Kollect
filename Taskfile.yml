@@ -155,6 +155,31 @@ tasks:
       - npm ci --prefix docs
       - bash hack/docs/tracked-markdown.sh | xargs -0 docs/node_modules/.bin/markdownlint-cli2 --config {{.MARKDOWNLINT_CONFIG}} --no-globs
 
+  spec:cli:
+    desc: Run the pinned OpenSpec CLI (task spec:cli -- <args>); see docs/development/spec-workflow.md
+    env:
+      DO_NOT_TRACK: "1"
+      OPENSPEC_TELEMETRY: "0"
+      OPENSPEC_NO_UPDATE_CHECK: "1"
+    cmds:
+      - npm ci --prefix hack/tooling/openspec --no-fund --no-audit --silent
+      - hack/tooling/openspec/node_modules/.bin/openspec {{.CLI_ARGS}}
+
+  spec:list:
+    desc: List OpenSpec changes in flight (task spec:list -- --specs for capabilities)
+    cmds:
+      - task: spec:cli
+        vars: { CLI_ARGS: "list {{.CLI_ARGS}}" }
+
+  spec:validate:
+    desc: Validate openspec/config.yaml, every OpenSpec change and capability spec (strict)
+    cmds:
+      - task: spec:cli
+        vars: { CLI_ARGS: "validate --all --strict --no-interactive" }
+      # OpenSpec ignores a config.yaml it cannot parse with only a warning, which silently drops
+      # the project rules. Ask OpenSpec itself, so the check uses the parser that matters.
+      - bash hack/tooling/openspec/check-config.sh
+
   docs:verify:
     desc: Run the complete documentation freshness and rendering gate
     cmds:

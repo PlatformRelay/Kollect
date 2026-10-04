@@ -1,0 +1,8 @@
+{
+  "name": "kollect-openspec",
+  "private": true,
+  "description": "Pinned OpenSpec CLI for task spec:* (see docs/development/spec-workflow.md)",
+  "devDependencies": {
+    "@fission-ai/openspec": "1.14.0"
+  }
+}
