@@ -1,0 +1,51 @@
+schema: spec-driven
+
+# Kollect workflow: docs/development/spec-workflow.md. That page is the contract;
+# the context and rules below repeat only what an author needs while writing a
+# change, so OpenSpec's `instructions` output carries it.
+
+context: |
+  Kollect is a Kubernetes inventory exporter operator (Go, controller-runtime).
+  Living requirements live in openspec/specs/<capability>/spec.md and name a
+  durable capability, never a PR or ticket. specs/001-* are historical bundles;
+  do not add new work there (see specs/README.md).
+  Durable architecture decisions belong in docs/adr/ and are linked, not copied.
+  A change is done only when it is merged with green required CI. Archiving a
+  change records history; it is not evidence that anything works.
+
+rules:
+  proposal:
+    - >-
+      State non-goals and the assumptions the change depends on. Back each
+      load-bearing assumption about a tool or API with a source or a probe.
+    - >-
+      Name the production entry point the behaviour is reached through
+      (CRD field, CLI flag, controller, sink), not only the helper being changed.
+  specs:
+    - >-
+      Give every requirement a stable ID in its title, for example
+      "Requirement: IEE-1 Missing tests fail the run".
+    - >-
+      Write forbidden outcomes as their own scenarios (THEN ... SHALL NOT ...).
+    - >-
+      For stateful, export or configuration behaviour, cover the transitions
+      that matter (A->B->A, revoke/regrant, success->failure->recovery,
+      empty/partial/retry), not only the steady state.
+  design:
+    - >-
+      Required for identity, persisted metadata, compatibility, migration,
+      deletion, tenancy or credential changes; optional otherwise.
+  tasks:
+    - >-
+      Put the failing behavioural test before the production edit. A compile
+      error or missing Docker is not a red; say what assertion failed.
+    - >-
+      End with a "Verification" section: a table mapping each requirement ID to
+      the named check, expected outcome and evidence, with status pass, fail,
+      blocked, not-run or N/A (with a reason). Planned checks stay not-run until
+      they have been executed.
+    - >-
+      Evidence names the revision, the command, what ran and what was skipped,
+      the tool versions and the known limitations. Link CI runs; do not paste logs.
+    - >-
+      Record the independent review (reviewer, revision, verdict) before merge.
