@@ -307,10 +307,7 @@ func (r *KollectClusterTargetReconciler) setReady(
 	filterChanged bool,
 ) error {
 	count := r.collectedCount(ct, matched)
-	msg := fmt.Sprintf(
-		"profileRef %q in namespace %q resolved; %d namespace(s) matched; collecting %d resource(s)",
-		ct.Spec.ProfileRef.Name, ct.Spec.ProfileRef.Namespace, len(matched), count,
-	)
+	msg := clusterTargetReadyMessage(ct.Spec.ProfileRef, len(matched), count)
 
 	apimeta.RemoveStatusCondition(&ct.Status.Conditions, conditionDegraded)
 	ct.Status.ObservedGeneration = ct.Generation
@@ -342,6 +339,19 @@ func (r *KollectClusterTargetReconciler) persistFilterStatusIfSkipped(
 	}
 
 	return r.Status().Update(ctx, ct)
+}
+
+// clusterTargetReadyMessage builds the Ready/Synced message for a healthy cluster target. It is
+// shared with the tests so the seeded condition and the recomputed one cannot drift apart and
+// silently defeat the D5 skip assertions.
+func clusterTargetReadyMessage(
+	profileRef kollectdevv1alpha1.NamespacedObjectReference,
+	matched, count int,
+) string {
+	return fmt.Sprintf(
+		"profileRef %q in namespace %q resolved; %d namespace(s) matched; collecting %d resource(s)",
+		profileRef.Name, profileRef.Namespace, matched, count,
+	)
 }
 
 // clusterTargetFilterChanged reports whether the freshly computed filter status differs from

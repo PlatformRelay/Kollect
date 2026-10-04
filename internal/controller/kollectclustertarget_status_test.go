@@ -5,7 +5,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,9 +59,8 @@ func clusterTargetStatusClient(t *testing.T, ct *kollectdevv1alpha1.KollectClust
 }
 
 func readyConditionMessage(profile, ns string, matched, count int) string {
-	return fmt.Sprintf(
-		"profileRef %q in namespace %q resolved; %d namespace(s) matched; collecting %d resource(s)",
-		profile, ns, matched, count,
+	return clusterTargetReadyMessage(
+		kollectdevv1alpha1.NamespacedObjectReference{Name: profile, Namespace: ns}, matched, count,
 	)
 }
 
@@ -176,9 +174,13 @@ func TestClusterTargetSetReady_persistsFilterStatusWhenConditionSkipped(t *testi
 	}
 
 	// Simulate the reconcile: the matched set changed (a→b) but its length and the collected
-	// count did not, so the Ready message is byte-identical and the shared writer skips.
+	// count did not, so the Ready message is byte-identical and the shared writer skips. The
+	// predicate is computed before the mutation, exactly as Reconcile does.
+	filterChanged := clusterTargetFilterChanged(live, []string{"b"}, []string{"b"}, 1)
+	if !filterChanged {
+		t.Fatal("fixture did not produce a filter change")
+	}
 	updateClusterTargetFilterStatus(live, []string{"b"}, []string{"b"}, 1)
-	filterChanged := true
 
 	r := &KollectClusterTargetReconciler{Client: cl}
 	if err := r.setReady(context.Background(), live, []string{"b"}, filterChanged); err != nil {
