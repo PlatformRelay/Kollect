@@ -81,7 +81,7 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 | [0419](0419-git-export-serialization-layout.md) | Git export serialization and layout (YAML default, zero-config) | Current |
 | [0420](0420-bigquery-database-sink.md) | BigQuery database sink | Current |
 | [0421](0421-snapshot-sink-deletion-policy.md) | Snapshot sink deletion policy (`Retain` default, opt-in `Delete`) | Current |
-| [0422](0422-inventory-export-identity.md) | Inventory identity for export ownership (kind-qualified prune owner) | Exploring |
+| [0422](0422-inventory-export-identity.md) | Inventory identity for export ownership (kind-qualified prune owner) | Current |
 
 ## 05 · Multi-cluster fleet
 

@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Defines which files a Git or GitLab tree export (`perResource` or `split` layout) may delete, which
-inventory identity owns them, and how ownership records written by earlier builds are treated, so
-that pruning removes an inventory's own stale files and never another inventory's or an unproven one.
+Defines which files a Git or GitLab tree export (`perResource` or `split` layout) may delete and
+which inventory identity owns them, so that pruning removes an inventory's own stale files and never
+another inventory's.
 
 ## ADDED Requirements
 
@@ -12,26 +12,32 @@ that pruning removes an inventory's own stale files and never another inventory'
 
 Both inventory reconcilers SHALL pass the inventory's kind, namespace (empty for
 `KollectClusterInventory`) and name with every snapshot export, and the sink SHALL derive the prune
-owner from that identity rather than from the object path. The owner of a `KollectClusterInventory`
-`X` and of a `KollectInventory` `X` in namespace `cluster` SHALL differ.
+owner of every inventory from that identity as `["v2", kind, cluster, namespace, name]`, never from
+the object path. The owner of a `KollectClusterInventory` `X` and of a `KollectInventory` `X` in
+namespace `cluster` SHALL differ.
 
 #### Scenario: Cluster inventory export
 
-- **WHEN** `KollectClusterInventory` `platform` exports to a git sink with a `perResource` layout
-- **THEN** the export request names kind `KollectClusterInventory`, an empty namespace and name `platform`
+- **WHEN** `KollectClusterInventory` `platform` exports to a git sink with a `perResource` layout and no `spec.cluster`
+- **THEN** the ownership engine receives owner `["v2","KollectClusterInventory","default","","platform"]` with prune requested
+
+#### Scenario: Namespaced inventory export
+
+- **WHEN** `KollectInventory` `default/team-inventory` exports to the same kind of sink
+- **THEN** the ownership engine receives owner `["v2","KollectInventory","default","default","team-inventory"]`
 
 #### Scenario: Same name, different kind
 
 - **WHEN** `KollectClusterInventory` `platform` and `KollectInventory` `cluster/platform` export to the same sink
-- **THEN** their prune owners and ownership record paths differ
-- **AND** neither owner SHALL equal the legacy owner `["default","cluster","platform"]`
+- **THEN** their owners and ownership record paths differ
+- **AND** generation and multipart suffixes SHALL NOT change either owner
 
 ### Requirement: IEI-2 A cluster inventory and a namespaced inventory in namespace cluster never delete each other's files
 
-An export by one of these two inventories SHALL NOT delete a file recorded for the other, on any
-snapshot, including an empty or shrinking one and the final part of a multipart set. When both project
-the same file path, the export that would claim a path the other owns SHALL be rejected without
-writing or deleting anything.
+An export by one of these two inventories SHALL NOT delete or rewrite a file recorded for the other,
+on any snapshot, including an empty or shrinking one and the final part of a multipart set. When both
+project the same file path, the export that would claim a path the other owns SHALL be rejected
+without writing or deleting anything.
 
 #### Scenario: Disjoint trees, then an empty snapshot
 
@@ -41,15 +47,15 @@ writing or deleting anything.
 
 #### Scenario: Shared projected path
 
-- **WHEN** both inventories project the same file (for example the split index `inventory/cluster/platform.yaml`) and one of them already owns it
-- **THEN** the other's export fails with an error naming the path, and SHALL NOT change any file or record
+- **WHEN** both inventories project the same file and one of them already owns it
+- **THEN** the other's export fails with a terminal error naming the path
+- **AND** it SHALL NOT change any file's bytes or any record
 
 ### Requirement: IEI-3 Cluster inventories prune their own stale files
 
-A complete tree export by a `KollectClusterInventory` whose request carries an identity SHALL delete
-exactly the paths its previous record lists and the current export no longer projects, and an empty
-snapshot SHALL remove all of them. The export SHALL NOT be a no-op because the namespace component is
-`cluster`.
+A complete tree export by a `KollectClusterInventory` SHALL delete exactly the paths its previous
+record lists and the current export no longer projects, and an empty snapshot SHALL remove all of them.
+The export SHALL NOT be a no-op because the namespace component is `cluster`.
 
 #### Scenario: A resource disappears
 
@@ -61,63 +67,70 @@ snapshot SHALL remove all of them. The export SHALL NOT be a no-op because the n
 - **WHEN** a cluster inventory with recorded files exports an empty snapshot to an explicit tree layout
 - **THEN** its recorded files are deleted and an empty record is committed
 
-### Requirement: IEI-4 Owners of other namespaced inventories are unchanged
+#### Scenario: Return to an earlier snapshot
 
-For a `KollectInventory` in any namespace other than `cluster`, the prune owner and its record path
-SHALL be byte-identical to the current owner `[cluster, namespace, name]`, and an existing record for it
-SHALL keep governing pruning with no migration step.
+- **WHEN** a cluster inventory exports snapshot A, then B, then A again
+- **THEN** after the second A exactly A's files are present for that inventory
 
-#### Scenario: Existing record after upgrade
+#### Scenario: Interrupted multipart set
 
-- **WHEN** a repository holds a record for `team-a/apps` written before the upgrade and `team-a/apps` exports a snapshot that dropped one resource
-- **THEN** that resource's file is deleted, using the existing record
-- **AND** the export SHALL NOT write a second record for `team-a/apps`
+- **WHEN** a cluster inventory sends part 1 of 2 and part 2 never arrives
+- **THEN** no file is deleted and its record is unchanged
 
-### Requirement: IEI-5 Migration never deletes a file whose ownership cannot be proven
+### Requirement: IEI-4 The identity is mandatory and must match the object path
 
-A record under the ambiguous legacy owner `[cluster, "cluster", name]` SHALL NOT be used to delete any
-file. The first complete export of either the cluster inventory or the namespaced inventory in
-namespace `cluster` with that name SHALL remove that record in the same commit and leave every file it
-listed in place. A repository with no record for an owner SHALL adopt only the paths the current export
-writes.
+A git layout export without an inventory identity SHALL fail with a terminal error. An identity whose
+namespace or name differs from those parsed from the object path (multipart suffix removed), a
+`KollectClusterInventory` whose path namespace is not `cluster`, or an identity with an unknown kind or
+a namespace that does not fit its kind SHALL fail with a terminal error before the backend is reached.
 
-#### Scenario: Ambiguous legacy record
+#### Scenario: No identity
 
-- **WHEN** a repository holds a legacy record `["default","cluster","platform"]` listing files `p1` and `p2`, and `KollectClusterInventory` `platform` completes an export that writes only `p1`
-- **THEN** the legacy record is removed, the new record lists `p1`, and `p2` remains in the repository
-- **AND** no later export of any inventory SHALL delete `p2`
+- **WHEN** a `perResource` git export request carries no identity
+- **THEN** it fails with a terminal error, and the backend SHALL NOT be called
 
-#### Scenario: Legacy claim does not block the same name
+#### Scenario: Identity on another inventory's path
 
-- **WHEN** the legacy record lists a path that `KollectInventory` `cluster/platform` now writes
-- **THEN** the export is not rejected for that path
+- **WHEN** a request names `KollectInventory` `team-b/apps` on object path `inventory/team-a/apps.json`
+- **THEN** it fails with a terminal error, and SHALL NOT change any file or record
 
-#### Scenario: Legacy claim still blocks other names
+### Requirement: IEI-5 No commit claims one path twice
 
-- **WHEN** the legacy record lists a path that `KollectInventory` `team-a/apps` now writes
-- **THEN** that export is rejected as claiming another inventory's path, and nothing is written or deleted
+Before writing, the engine SHALL refuse a commit whose ownership records would claim one path twice,
+with a terminal error naming the path and both owners.
 
-#### Scenario: Repository written by v0.21.0
+#### Scenario: Colliding records
 
-- **WHEN** a repository has no `.kollect-prune` directory and holds files from earlier exports
-- **THEN** the first export records only the paths it writes, and SHALL NOT delete any existing file
+- **WHEN** the records to be committed list the same path for two owners
+- **THEN** the export fails with a terminal error and SHALL NOT write anything
 
-### Requirement: IEI-6 Returning to an earlier snapshot replays it
+### Requirement: IEI-6 A multipart set whose manifest belongs to another inventory commits nothing
 
-For every owner, including the two of IEI-2, an export sequence A, then B, then A SHALL leave the
-repository with exactly the files of A for that owner, and the coalescing cache SHALL NOT skip the
-second A.
+Every non-final part of a prune-bearing multipart set SHALL claim-check the set-manifest path the
+final part will write. A set whose manifest path another inventory's record lists SHALL be rejected
+on part 1.
 
-#### Scenario: A to B to A for a cluster inventory
+#### Scenario: Foreign manifest
 
-- **WHEN** a cluster inventory exports snapshot A (`api`, `web`), then B (`api`), then A again
-- **THEN** after B the `web` file is gone, and after the second A it is present again
+- **WHEN** `KollectInventory` `cluster/platform` owns `inventory/cluster/platform.manifest.json` and `KollectClusterInventory` `platform` starts a two-part set
+- **THEN** part 1 fails with a terminal error naming the manifest path
+- **AND** no file of the set SHALL be committed
 
-### Requirement: IEI-7 Delete and recreate
+### Requirement: IEI-7 The ownership rejection names the owner
 
-An inventory recreated with the same kind, namespace and name (a new UID) SHALL continue its
-predecessor's record: its first complete export deletes only the predecessor's recorded paths it no
-longer projects. An inventory with a different kind or name SHALL NOT inherit a record.
+The "belongs to another inventory" error SHALL name the owning inventory (kind, namespace/name and
+sink cluster, decoded from its owner) and the path of its record file.
+
+#### Scenario: Rejection text
+
+- **WHEN** `KollectInventory` `cluster/platform` owns a path that `KollectClusterInventory` `platform` now writes
+- **THEN** the error contains `KollectInventory cluster/platform (cluster "default")` and `.kollect-prune/<sha256(owner)>.json`
+
+### Requirement: IEI-8 Delete and recreate continues the record
+
+The owner SHALL carry no UID. An inventory recreated with the same kind, namespace and name SHALL
+continue its predecessor's record, including after a `deletionPolicy: Retain` deletion. An inventory
+of another kind or name SHALL NOT inherit it.
 
 #### Scenario: Recreate with the same identity
 
@@ -126,41 +139,15 @@ longer projects. An inventory with a different kind or name SHALL NOT inherit a 
 
 #### Scenario: Recreate as the other kind
 
-- **WHEN** cluster inventory `platform` is deleted and `KollectInventory` `cluster/platform` is created
+- **WHEN** cluster inventory `platform` is deleted and `KollectInventory` `cluster/platform` exports
 - **THEN** the namespaced inventory SHALL NOT delete any file the cluster inventory's record lists
 
-### Requirement: IEI-8 Multipart sets prune once and migrate once
+### Requirement: IEI-9 The record format does not change
 
-For a multipart export with an identity, non-final parts SHALL NOT delete files, advance a record or
-remove a legacy record. The final part SHALL prune against the union of all parts, and is the only part
-that removes the ambiguous legacy record. An interrupted set SHALL leave all records unchanged.
-
-#### Scenario: Interrupted set over a legacy record
-
-- **WHEN** a cluster inventory sends part 1 of 2 in a repository holding the ambiguous legacy record, and part 2 never arrives
-- **THEN** no file is deleted, and the legacy record is still present
-
-#### Scenario: Complete set
-
-- **WHEN** a cluster inventory completes a two-part set whose union drops a previously recorded resource
-- **THEN** that file is deleted on the final part only, and files of both parts survive
-
-### Requirement: IEI-9 Requests without an identity keep the fail-safe
-
-An export request that carries no inventory identity SHALL keep today's owner derivation from the object
-path, and SHALL NOT prune when the namespace component is `cluster`.
-
-#### Scenario: Identity-less request on the shared path
-
-- **WHEN** a request without an identity exports `inventory/cluster/platform.json` with an empty snapshot
-- **THEN** no file is deleted
-
-### Requirement: IEI-10 The record format does not change
-
-Ownership records SHALL keep `version: 1` and the fields `version`, `owner` and `paths`, so a record with
-a new owner parses in the current reader.
+Ownership records SHALL keep `version: 1` and the fields `version`, `owner` and `paths`, at
+`.kollect-prune/<sha256(owner)>.json`.
 
 #### Scenario: Record for a cluster inventory
 
 - **WHEN** a cluster inventory writes its record
-- **THEN** the record decodes with the current strict reader and its path is the SHA-256 of its owner
+- **THEN** the record decodes with the strict reader and its path is the SHA-256 of its owner

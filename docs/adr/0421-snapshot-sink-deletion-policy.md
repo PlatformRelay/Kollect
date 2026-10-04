@@ -30,7 +30,10 @@ empty-export prune of the inventory's rows, and event sinks cannot retract what 
 
 - **`Retain` (default):** inventory deletion does not contact the backend. The exported objects
   stay, the finalizer is released, and a `Normal` event with reason `CleanupRetainedByPolicy` names
-  the sink. A broken credential cannot block a `Retain` deletion.
+  the sink. A broken credential cannot block a `Retain` deletion. `Retain` concerns only the
+  deletion event: an inventory recreated later with the same kind, namespace and name continues
+  its predecessor's ownership record and may prune the predecessor's stale files
+  ([ADR-0422](0422-inventory-export-identity.md)).
 - **`Delete`:** inventory deletion retracts the objects the inventory exported: the document, its
   `.part-NNNN-of-NNNN` siblings, layout sidecars, and for parquet the inventory's hive partition
   including the per-part partitions a multipart export writes. When a full retraction cannot be

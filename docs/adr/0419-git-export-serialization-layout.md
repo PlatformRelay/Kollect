@@ -134,9 +134,12 @@ Expanding pruning to its siblings can delete a different inventory's files, even
 when the original directory-scoped implementation kept those trees separate.
 
 Tree exports therefore persist versioned JSON ownership records at
-`.kollect-prune/<sha256(owner)>.json`. The owner encodes the cluster (empty means
-`default`), inventory namespace, and base inventory name. Generation and multipart
-suffixes do not change ownership. Git and GitLab pass the same identity through
+`.kollect-prune/<sha256(owner)>.json`. The owner is the kind-qualified JSON array
+`["v2", kind, cluster, namespace, name]` from the identity the export request carries
+([ADR-0422](0422-inventory-export-identity.md)): cluster empty means `default`, namespace is
+empty for a `KollectClusterInventory`, and name is the base inventory name. Generation and
+multipart suffixes do not change ownership. A git layout export without an identity, or with
+one that disagrees with its object path, is refused. Git and GitLab pass the same owner through
 both engines. The previous record minus the final current union is the deletion
 set; record updates, exported files, and removals land in one Git commit.
 
@@ -154,15 +157,17 @@ record: use separate branches or repositories for independent copies. Identity
 changes preserve the old owner's files until explicitly cleaned up. A supported
 empty tree export commits an empty record and removes its prior owned paths;
 explicit tree mode is needed when no rows remain for content-based auto-detection.
-The legacy namespace component `cluster` is ambiguous: both a cluster inventory
-and a namespaced inventory in namespace `cluster` can use it. Pruning is suppressed
-for that component, including empty snapshots; exports still write their projected
-files. Stale files need manual cleanup until kind/UID identity is carried through
-the export request. This prevents either inventory from deleting the other's
-files; it does not give colliding projected file paths independent storage.
+A cluster inventory and a namespaced inventory in namespace `cluster` with the same
+name render the same object path but have different owners, so each prunes its own
+stale files and neither deletes the other's. Colliding projected file paths still get
+no independent storage: whichever exports second is rejected, as for any two
+inventories. The rejection names the owning inventory and its record file. Before
+a commit, the engine also refuses ownership records that would claim one path twice.
 
 Non-final multipart parts cannot advance ownership. The final union includes its
-completeness manifest where applicable. The existing completeness marker remains
+completeness manifest where applicable; every non-final part claim-checks that
+manifest path, so a set whose manifest belongs to another inventory is rejected on
+part 1, before any part is committed. The existing completeness marker remains
 multipart-only; the ownership record is cleanup state, not a second completeness
 signal. Interrupted exports can leave previously unrecorded partial files for
 manual cleanup. Payload coalescing keeps only the latest operation per repository,
