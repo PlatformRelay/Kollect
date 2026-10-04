@@ -261,3 +261,25 @@ func TestRunExportEnvelope_OwnedPruneLastKindAndUnknownNeighbor(t *testing.T) {
 		t.Fatalf("unknown file changed: %s: %v", data, err)
 	}
 }
+
+// Both inventory kinds can render this legacy object path. Neither may remove
+// the other's disjoint resource files, including when an empty snapshot arrives.
+func TestRunExportEnvelope_SharedControllerIdentityPreservesBothTrees(t *testing.T) {
+	withGitCLI(t)
+	work, remote := newBareRemote(t)
+	spec := gitLayoutSpec(remote, true)
+	spec.Layout = &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource}
+	for _, items := range [][]collect.Item{{deploymentItem("cluster-resource")}, {deploymentItem("namespace-resource")}, nil} {
+		envelope, err := export.MarshalEnvelope(items, export.Metadata{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = RunExportEnvelope(ExportEnvelopeRequest{Ctx: t.Context(), Registry: NewRegistry(), SinkNamespace: "default", SinkName: "shared", ObjectPath: "inventory/cluster/platform.json", Envelope: envelope, SinkSpec: spec})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	clone := cloneMain(t, work, remote)
+	assertResourceFile(t, clone, "default/team-a/deployment/cluster-resource.yaml")
+	assertResourceFile(t, clone, "default/team-a/deployment/namespace-resource.yaml")
+}

@@ -154,6 +154,12 @@ record: use separate branches or repositories for independent copies. Identity
 changes preserve the old owner's files until explicitly cleaned up. A supported
 empty tree export commits an empty record and removes its prior owned paths;
 explicit tree mode is needed when no rows remain for content-based auto-detection.
+The legacy namespace component `cluster` is ambiguous: both a cluster inventory
+and a namespaced inventory in namespace `cluster` can use it. Pruning is suppressed
+for that component, including empty snapshots; exports still write their projected
+files. Stale files need manual cleanup until kind/UID identity is carried through
+the export request. This prevents either inventory from deleting the other's
+files; it does not give colliding projected file paths independent storage.
 
 Non-final multipart parts cannot advance ownership. The final union includes its
 completeness manifest where applicable. The existing completeness marker remains

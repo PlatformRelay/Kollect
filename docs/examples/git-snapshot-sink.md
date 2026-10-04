@@ -69,3 +69,8 @@ kubectl delete -f config/samples/advanced/kollect_v1alpha1_kollectsnapshotsink_g
 
 [Snapshot sink reference](../crds/kollectsnapshotsink.md) ·
 [Git layout ADR](../adr/0419-git-export-serialization-layout.md)
+
+Cluster inventories and namespaced inventories in namespace `cluster` share a
+legacy export identity. Their exports retain stale files rather than pruning an
+ambiguous owner; remove obsolete files manually. Other namespaces use recorded
+ownership pruning as described above.
