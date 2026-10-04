@@ -3,7 +3,7 @@
 Kollect is a Kubernetes inventory exporter: select resources by GVK, extract attributes with CEL
 or JSONPath, aggregate a canonical snapshot, and send it to one or more sinks.
 
-**Last verified:** 2026-09-21 against **v0.20.0**. For exact shipped changes, use the
+**Last verified:** 2026-10-04 against **v0.21.0**. For exact shipped changes, use the
 [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md). For proposals that
 have not entered a release, see [Planned features](roadmap/planned-features.md).
 
@@ -11,7 +11,7 @@ have not entered a release, see [Planned features](roadmap/planned-features.md).
     Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor releases
     before 1.0. Release notes and migration guidance call them out.
 
-## Shipped in v0.20.0
+## Shipped in v0.21.0
 
 The current release includes:
 
@@ -20,11 +20,23 @@ The current release includes:
 - CEL and JSONPath extraction, aggregation, deduplication, redaction, and full-resource export.
 - Parallel fan-out to snapshot, database, and event sink families.
 - Git, GitLab, S3, GCS, Postgres, MongoDB, BigQuery, Kafka, and NATS backends.
+- Multipart Git/GitLab export-set manifests that record generation, expected part count,
+  and data-file paths for completeness checks ([ADR-0419](adr/0419-git-export-serialization-layout.md)).
 - Per-sink retries, circuit breakers, export intervals, connection testing, and status summaries.
 - Helm packaging, signed release artifacts, SBOMs, provenance, and CI security gates.
 - Pipeline CLI for kubeconfig-based collection without installing the operator
   ([guide](guides/pipeline-cli.md), [ADR-0801](adr/0801-pipeline-cli-mode.md)), including streaming
   collected output to standard output for local inspection and debugging.
+- New in v0.21.0: opt-in snapshot retraction when an inventory is deleted
+  (`KollectSnapshotSink.spec.deletionPolicy: Delete`); the default remains `Retain`
+  ([ADR-0421](adr/0421-snapshot-sink-deletion-policy.md)).
+
+Upgrading to v0.21.0 has two breaking changes. Sinks using `tls.insecureSkipVerify: true` stop
+exporting: supply the server CA (`spec.tls.caBundle` or `spec.tls.caSecretRef`) and remove the
+field, or, for development clusters only, start the manager with `--allow-insecure-sinks`; see the
+[upgrade guide](operator-manual/upgrading.md). NATS credentials embedded in `spec.nats.url` or
+`spec.endpoint` are rejected and must move into the Secret named by `spec.secretRef`; see the
+[KollectEventSink reference](crds/kollecteventsink.md).
 
 The [CR reference](crds/index.md) describes the supported API. The
 [operator manual](operator-manual/index.md) covers installation, operation, and failure modes.
