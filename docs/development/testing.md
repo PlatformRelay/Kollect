@@ -92,7 +92,8 @@ Binding jobs in `.github/workflows/ci.yaml` (see ADR-0706 for the full matrix):
   `.go-arch-lint.yml`)
 - **Dependency policy:** golangci-lint `depguard` + `gomodguard` (same `task lint` job)
 - **L0–L2:** `task coverage` with coverage floor
-- **L3:** `task test-integration` (Docker required)
+- **L3:** `task test-integration` (Docker required; the job sets `KOLLECT_REQUIRE_DOCKER=true`, so a
+  container that cannot start fails the run instead of skipping it)
 - Helm packaging (`task helm-test`), image build (`task docker:build`)
 - Native Go fuzz (CEL/JSONPath extractors, content hash)
 - RBAC audit (`hack/audit-rbac.sh`)
@@ -182,6 +183,7 @@ or the 100k cloud gate. Raw protocols stay local-only — see the
 | `task coverage` | Unit + envtest + 90% floor (CI; CGO off, no `-race`) |
 | `task coverage:race` | Same as coverage with race detector (local + nightly advisory) |
 | `task test-integration` | L3 sink/transport integration (Docker) |
+| `task test-integration:no-docker` | Prove L3 tests skip without Docker and fail when `KOLLECT_REQUIRE_DOCKER=true` |
 | `task test:e2e` | L4 kind smoke (setup → smoke → teardown) |
 | `task bench` | Micro-benchmarks on hot paths |
 | `task extract-budget` | L5 extractor hot-path budget — >25% gate on B/op + allocs/op only (in-process; not cluster scale) |

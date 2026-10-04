@@ -266,6 +266,13 @@ tasks:
       # (this job sets up testcontainers, not KUBEBUILDER_ASSETS) — see integration_test.go.
       - go test -tags=integration -count=1 ./internal/sink/... ./internal/pipeline/...
 
+  test-integration:no-docker:
+    desc: Prove L3 tests skip without Docker and fail when KOLLECT_REQUIRE_DOCKER=true (needs Docker on the host)
+    cmds:
+      # testcontainers falls back to the host socket whatever DOCKER_HOST says, so this runs the
+      # check inside a golang container with no Docker socket mounted.
+      - bash hack/test/integration_no_docker_test.sh
+
   format:
     desc: Run go fmt on all packages
     cmds:
