@@ -194,11 +194,28 @@ so a stale tag makes the listing advertise (and security-scan) the previous rele
 `hack/test/dist_artifacthub_chart_test.sh` fails the build if the tag does not equal
 `v<appVersion>`, so CI catches a missed bump — but fix it here, not in CI.
 
-### 4. Regenerate CHANGELOG.md
+### 4. Update the release-truth pages
+
+In the same commit, move every page that names the current release to the new version, and check
+each claim against what actually ships, not just the number:
+
+| Page | What to update |
+| --- | --- |
+| [`docs/ROADMAP.md`](ROADMAP.md) | `**Last verified:**` date and version, the `## Shipped in vX.Y.Z` heading, items new in this release, and breaking upgrade steps with links |
+| [`docs/roadmap/planned-features.md`](roadmap/planned-features.md) | `**Last verified:**` line; remove anything that has now shipped |
+| `overrides/main.html` | Announcement bar link and version |
+| [`docs/operator-manual/upgrading.md`](operator-manual/upgrading.md) | Migration steps for every breaking change |
+
+`hack/test/docs_launch_truth_test.sh` (part of `task docs:verify`) checks these against the
+`Chart.yaml` version, so the Docs workflow fails the release-prep PR, not a later unrelated one,
+when a page is left behind. Run `task docs:verify` before opening the PR.
+
+### 5. Regenerate CHANGELOG.md
 
 ```sh
 task changelog:write
-git add charts/kollect/Chart.yaml CHANGELOG.md
+git add charts/kollect/Chart.yaml CHANGELOG.md docs/ROADMAP.md docs/roadmap/planned-features.md \
+  overrides/main.html docs/operator-manual/upgrading.md
 git commit -m ":bookmark: chore(release): prepare v0.3.0"
 ```
 
