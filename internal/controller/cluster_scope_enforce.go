@@ -60,7 +60,7 @@ func (r *KollectClusterTargetReconciler) resolveProfileOrDegrade(
 		reason = reasonProfileForbidden
 		recordWarning(r.Recorder, ct, reason, err.Error())
 	}
-	if degErr := r.setDegraded(ctx, ct, reason, err.Error()); degErr != nil {
+	if degErr := r.setDegraded(ctx, ct, reason, err.Error(), false); degErr != nil {
 		return nil, false, degErr
 	}
 
@@ -84,7 +84,7 @@ func (r *KollectClusterTargetReconciler) loadClusterScopeBinding(
 	if scopeErr := scope.ValidateClusterScopeStaticRefNamespace(clusterBinding.Scope, ct.Spec.ProfileRef.Namespace); scopeErr != nil {
 		r.unregisterAll(ct)
 		recordWarning(r.Recorder, ct, scopeReasonNSDenied, scopeErr.Error())
-		if degErr := r.setDegraded(ctx, ct, scopeReasonNSDenied, scopeErr.Error()); degErr != nil {
+		if degErr := r.setDegraded(ctx, ct, scopeReasonNSDenied, scopeErr.Error(), false); degErr != nil {
 			return clusterBinding, false, degErr
 		}
 
@@ -95,7 +95,7 @@ func (r *KollectClusterTargetReconciler) loadClusterScopeBinding(
 		if scopeErr := scope.ValidateClusterScopeGVKs(clusterBinding.Scope, gvk); scopeErr != nil {
 			r.unregisterAll(ct)
 			recordWarning(r.Recorder, ct, scopeReasonGVKDenied, scopeErr.Error())
-			if degErr := r.setDegraded(ctx, ct, scopeReasonGVKDenied, scopeErr.Error()); degErr != nil {
+			if degErr := r.setDegraded(ctx, ct, scopeReasonGVKDenied, scopeErr.Error(), false); degErr != nil {
 				return clusterBinding, false, degErr
 			}
 

@@ -85,12 +85,13 @@ func setTargetCondition(
 	generation int64,
 	conditions *[]metav1.Condition,
 	conditionType string,
-	status metav1.ConditionStatus,
 	reason, message string,
 ) (written bool, err error) {
 	// Redact before the skip check so it compares like with like: the
 	// persisted message is always the redacted one (K-23).
 	message = redact.Text(message)
+
+	const status = metav1.ConditionTrue
 
 	existing := apimeta.FindStatusCondition(*conditions, conditionType)
 	if existing != nil &&

@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,7 +25,6 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/metrics"
-	"github.com/platformrelay/kollect/internal/redact"
 )
 
 // KollectClusterTargetReconciler wires cluster-scoped targets to the collection engine per
@@ -84,7 +84,7 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 
 		if ct.Spec.Suspend {
 			r.unregisterAll(&ct)
-			if err := r.setDegraded(ctx, &ct, "Suspended", "spec.suspend is true"); err != nil {
+			if err := r.setDegraded(ctx, &ct, "Suspended", "spec.suspend is true", false); err != nil {
 				retErr = err
 				return ctrl.Result{}, err
 			}
@@ -134,11 +134,16 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 			ceiling,
 			defaults,
 		)
+		// The filter-status fields are mutated in memory here and persist only through the
+		// condition write below. When that write is skipped (byte-identical Ready/Degraded
+		// condition) the fields would be dropped, so track whether they moved and force a
+		// write in that case (D5).
+		filterChanged := clusterTargetFilterChanged(&ct, matched, effective, activeRules)
 		updateClusterTargetFilterStatus(&ct, matched, effective, activeRules)
 
 		if r.Engine != nil {
 			if err := r.syncEngineTargets(ctx, &ct, profile, effective, ceiling); err != nil {
-				if degErr := r.setDegraded(ctx, &ct, "InformerRegistrationFailed", err.Error()); degErr != nil {
+				if degErr := r.setDegraded(ctx, &ct, "InformerRegistrationFailed", err.Error(), filterChanged); degErr != nil {
 					retErr = degErr
 					return ctrl.Result{}, degErr
 				}
@@ -147,7 +152,7 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 			}
 		}
 
-		if err := r.setReady(ctx, &ct, effective); err != nil {
+		if err := r.setReady(ctx, &ct, effective, filterChanged); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -279,19 +284,27 @@ func (r *KollectClusterTargetReconciler) setDegraded(
 	ctx context.Context,
 	ct *kollectdevv1alpha1.KollectClusterTarget,
 	reason, message string,
+	filterChanged bool,
 ) error {
 	apimeta.RemoveStatusCondition(&ct.Status.Conditions, conditionReady)
 	apimeta.RemoveStatusCondition(&ct.Status.Conditions, conditionSynced)
-	return setClusterTargetCondition(
+
+	written, err := setClusterTargetCondition(
 		ctx, r.Client, ct, ct.Generation, &ct.Status.Conditions,
-		conditionDegraded, metav1.ConditionTrue, reason, message,
+		conditionDegraded, reason, message,
 	)
+	if err != nil {
+		return err
+	}
+
+	return r.persistFilterStatusIfSkipped(ctx, ct, filterChanged, written)
 }
 
 func (r *KollectClusterTargetReconciler) setReady(
 	ctx context.Context,
 	ct *kollectdevv1alpha1.KollectClusterTarget,
 	matched []string,
+	filterChanged bool,
 ) error {
 	count := r.collectedCount(ct, matched)
 	msg := fmt.Sprintf(
@@ -306,12 +319,47 @@ func (r *KollectClusterTargetReconciler) setReady(
 	)
 	setSyncedCondition(&ct.Status.Conditions, ct.Generation, true, reasonCollecting, msg)
 
-	return setClusterTargetCondition(
+	written, err := setClusterTargetCondition(
 		ctx, r.Client, ct, ct.Generation, &ct.Status.Conditions,
-		conditionReady, metav1.ConditionTrue, reasonCollecting, msg,
+		conditionReady, reasonCollecting, msg,
 	)
+	if err != nil {
+		return err
+	}
+
+	return r.persistFilterStatusIfSkipped(ctx, ct, filterChanged, written)
 }
 
+// persistFilterStatusIfSkipped issues the status write the shared condition writer skipped,
+// when the filter-status fields moved but the condition did not (D5). It mirrors the
+// namespaced KollectTarget `countChanged && !written` escape hatch (PERF-FIX-05 / F-05).
+func (r *KollectClusterTargetReconciler) persistFilterStatusIfSkipped(
+	ctx context.Context,
+	ct *kollectdevv1alpha1.KollectClusterTarget,
+	filterChanged, written bool,
+) error {
+	if !filterChanged || written {
+		return nil
+	}
+
+	return r.Status().Update(ctx, ct)
+}
+
+// clusterTargetFilterChanged reports whether the freshly computed filter status differs from
+// the values already on the object, so a caller can persist them independently of the condition.
+func clusterTargetFilterChanged(
+	ct *kollectdevv1alpha1.KollectClusterTarget,
+	matched, effective []string,
+	activeRules int,
+) bool {
+	return !slices.Equal(ct.Status.MatchedNamespaces, matched) ||
+		!slices.Equal(ct.Status.EffectiveNamespaces, effective) ||
+		ct.Status.ActiveResourceRules != activeRules
+}
+
+// setClusterTargetCondition writes a True conditionType through the shared no-op-skipping
+// writer and reports whether it issued the status call. Unlike the old clone, it redacts
+// before comparing and leaves LastTransitionTime untouched when nothing moved (D5).
 func setClusterTargetCondition(
 	ctx context.Context,
 	c client.Client,
@@ -319,19 +367,11 @@ func setClusterTargetCondition(
 	generation int64,
 	conditions *[]metav1.Condition,
 	conditionType string,
-	status metav1.ConditionStatus,
 	reason, message string,
-) error {
-	apimeta.SetStatusCondition(conditions, metav1.Condition{
-		Type:               conditionType,
-		Status:             status,
-		Reason:             reason,
-		Message:            redact.Text(message),
-		ObservedGeneration: generation,
-		LastTransitionTime: metav1.Now(),
-	})
-
-	return c.Status().Update(ctx, ct)
+) (bool, error) {
+	return setTargetCondition(
+		ctx, c, ct, generation, conditions, conditionType, reason, message,
+	)
 }
 
 // SetupWithManager sets up the controller with the Manager.

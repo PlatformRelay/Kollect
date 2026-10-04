@@ -43,7 +43,9 @@ func (s *Server) Start(ctx context.Context) error {
 	statusInventoriesHandler := http.Handler(http.HandlerFunc(s.handleStatusInventories))
 	statusTargetsHandler := http.Handler(http.HandlerFunc(s.handleStatusTargets))
 
+	authMode := AuthModeDisabled
 	if s.Auth != nil {
+		authMode = s.Auth.Mode
 		s.Auth.InitCache()
 		inventoryHandler = s.Auth.Middleware(inventoryHandler)
 		watchHandler = s.Auth.Middleware(watchHandler)
@@ -73,7 +75,7 @@ func (s *Server) Start(ctx context.Context) error {
 		_ = srv.Shutdown(shutdownCtx)
 	}()
 
-	log.FromContext(ctx).Info("inventory HTTP listening", "port", port, "authMode", s.Auth.Mode)
+	log.FromContext(ctx).Info("inventory HTTP listening", "port", port, "authMode", authMode)
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("inventory HTTP server: %w", err)
