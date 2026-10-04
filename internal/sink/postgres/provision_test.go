@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
-
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
 
@@ -68,10 +66,10 @@ func TestProvisionTable_emptyModeDefaultsToEnsure(t *testing.T) {
 	}
 }
 
-func TestClassifyTableProbe_noRowsIsNotFound(t *testing.T) {
+func TestClassifyTableProbe_absentIsNotFound(t *testing.T) {
 	t.Parallel()
 
-	err := classifyTableProbe("public", "inventory_items", pgx.ErrNoRows)
+	err := classifyTableProbe("public", "inventory_items", false, nil)
 	if !errors.Is(err, ErrTableNotFound) {
 		t.Fatalf("error = %v, want ErrTableNotFound", err)
 	}
@@ -83,7 +81,7 @@ func TestClassifyTableProbe_noRowsIsNotFound(t *testing.T) {
 func TestClassifyTableProbe_queryErrorIsNotNotFound(t *testing.T) {
 	t.Parallel()
 
-	err := classifyTableProbe("public", "inventory_items", errors.New("permission denied for schema public"))
+	err := classifyTableProbe("public", "inventory_items", false, errors.New("permission denied for schema public"))
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -95,10 +93,10 @@ func TestClassifyTableProbe_queryErrorIsNotNotFound(t *testing.T) {
 	}
 }
 
-func TestClassifyTableProbe_nilIsNil(t *testing.T) {
+func TestClassifyTableProbe_presentIsNil(t *testing.T) {
 	t.Parallel()
 
-	if err := classifyTableProbe("public", "inventory_items", nil); err != nil {
-		t.Fatalf("classifyTableProbe(nil) = %v, want nil", err)
+	if err := classifyTableProbe("public", "inventory_items", true, nil); err != nil {
+		t.Fatalf("classifyTableProbe(present) = %v, want nil", err)
 	}
 }

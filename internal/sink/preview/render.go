@@ -79,10 +79,16 @@ func Render(spec kollectdevv1alpha1.KollectSinkSpec, sinkName string) *kollectde
 		}
 	case kollectdevv1alpha1.DatabaseSinkTypeMongoDB:
 		if spec.MongoDB != nil {
-			preview.MongoDB = &kollectdevv1alpha1.MongoDBPreviewStatus{
-				ExpectedIndexKeys: []string{
-					"inventory_namespace", "inventory_name", "target_name", "source_uid",
-				},
+			// provisioning.mode=existing skips ensureCollection, which is what creates the
+			// unique identity index — so the preview must not advertise it (same rule as
+			// postgres DDL above). The upsert warning stays: documents still land in the
+			// pre-existing collection.
+			if mode != kollectdevv1alpha1.ProvisioningModeExisting {
+				preview.MongoDB = &kollectdevv1alpha1.MongoDBPreviewStatus{
+					ExpectedIndexKeys: []string{
+						"inventory_namespace", "inventory_name", "target_name", "source_uid",
+					},
+				}
 			}
 			warnings = append(warnings, fmt.Sprintf("mongodb: documents upserted into %s.%s",
 				spec.MongoDB.Database, spec.MongoDB.Collection))
