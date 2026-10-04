@@ -11,6 +11,18 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Retain files for ambiguous inventory identities ([#394](https://github.com/platformrelay/kollect/pull/394))[7cb3348](https://github.com/platformrelay/kollect/commit/7cb3348f3dea2bf8a7c36d0896d553752979b389)
+
+- **sink/git:** Preserve owner and latest export identity [cf02d9e](https://github.com/platformrelay/kollect/commit/cf02d9e96bb49f7985baf7ccd4720158fec669a0)
+
+- **sink/git:** Prune only recorded inventory files [584f97a](https://github.com/platformrelay/kollect/commit/584f97a98b906b240e6c866b7a46f3faefaae6a2)
+
+- **sink/git:** Prune kind siblings from the layout template [1cf5a67](https://github.com/platformrelay/kollect/commit/1cf5a67f3e06156e116883083ce287b214e97027)
+
+- **sink/git:** Allow the permission modes the prune tests set [5653c90](https://github.com/platformrelay/kollect/commit/5653c90e1aa641e299dfe45c7b1c8c2f2d5ef5d1)
+
+- **sink/git:** Prune a kind directory that lost its last file [859555f](https://github.com/platformrelay/kollect/commit/859555fe6e229301325d41199725b6ffad7bb4c8)
+
 - **collect:** Drop the stored row when list access is denied ([#395](https://github.com/platformrelay/kollect/pull/395))[e1f36de](https://github.com/platformrelay/kollect/commit/e1f36deda78144bef6069307b3952aa600fe4929)
 
 - **sink:** Load the MongoDB databaseRef secret [76c0613](https://github.com/platformrelay/kollect/commit/76c0613828edf5d20fa7bf8ece31d68ba3c9be31)
