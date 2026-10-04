@@ -175,12 +175,13 @@ func TestClusterTargetSetReady_persistsFilterStatusWhenConditionSkipped(t *testi
 		t.Fatalf("get: %v", err)
 	}
 
-	// Simulate the reconcile: the filter set changed but the Ready message (counts) did not.
-	updateClusterTargetFilterStatus(live, []string{"a", "b"}, []string{"a", "b"}, 2)
+	// Simulate the reconcile: the matched set changed (a→b) but its length and the collected
+	// count did not, so the Ready message is byte-identical and the shared writer skips.
+	updateClusterTargetFilterStatus(live, []string{"b"}, []string{"b"}, 1)
 	filterChanged := true
 
 	r := &KollectClusterTargetReconciler{Client: cl}
-	if err := r.setReady(context.Background(), live, []string{"a", "b"}, filterChanged); err != nil {
+	if err := r.setReady(context.Background(), live, []string{"b"}, filterChanged); err != nil {
 		t.Fatalf("setReady: %v", err)
 	}
 
@@ -192,9 +193,38 @@ func TestClusterTargetSetReady_persistsFilterStatusWhenConditionSkipped(t *testi
 	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(ct), &stored); err != nil {
 		t.Fatalf("get stored: %v", err)
 	}
-	if len(stored.Status.MatchedNamespaces) != 2 || stored.Status.ActiveResourceRules != 2 {
-		t.Fatalf("persisted filter status = %v / %d, want [a b] / 2",
-			stored.Status.MatchedNamespaces, stored.Status.ActiveResourceRules)
+	if len(stored.Status.MatchedNamespaces) != 1 || stored.Status.MatchedNamespaces[0] != "b" {
+		t.Fatalf("persisted matchedNamespaces = %v, want [b]", stored.Status.MatchedNamespaces)
+	}
+}
+
+// TestClusterTargetFilterChanged covers the predicate that decides whether the escape hatch
+// fires: a bug making it constant would either drop filter status (false) or defeat the churn
+// reduction (true), so it is asserted directly.
+func TestClusterTargetFilterChanged(t *testing.T) {
+	t.Parallel()
+
+	ct := &kollectdevv1alpha1.KollectClusterTarget{
+		Status: kollectdevv1alpha1.KollectClusterTargetStatus{
+			CollectionFilterStatus: kollectdevv1alpha1.CollectionFilterStatus{
+				MatchedNamespaces:   []string{"a"},
+				EffectiveNamespaces: []string{"a"},
+				ActiveResourceRules: 1,
+			},
+		},
+	}
+
+	if clusterTargetFilterChanged(ct, []string{"a"}, []string{"a"}, 1) {
+		t.Fatal("unchanged filter status reported as changed")
+	}
+	if !clusterTargetFilterChanged(ct, []string{"b"}, []string{"a"}, 1) {
+		t.Fatal("changed matched namespaces not detected")
+	}
+	if !clusterTargetFilterChanged(ct, []string{"a"}, []string{"b"}, 1) {
+		t.Fatal("changed effective namespaces not detected")
+	}
+	if !clusterTargetFilterChanged(ct, []string{"a"}, []string{"a"}, 2) {
+		t.Fatal("changed active resource rules not detected")
 	}
 }
 

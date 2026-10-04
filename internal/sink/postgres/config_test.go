@@ -38,6 +38,35 @@ func TestConfigFromSpec(t *testing.T) {
 	}
 }
 
+// TestConfigFromSpec_carriesProvisioningMode is the D1 wiring lock: the effective mode must
+// reach the backend config so NewBackend can branch to verify (not create) in existing mode.
+func TestConfigFromSpec_carriesProvisioningMode(t *testing.T) {
+	t.Parallel()
+
+	secret := map[string][]byte{"dsn": []byte("postgres://localhost/inventory")}
+	base := kollectdevv1alpha1.KollectSinkSpec{
+		Type:     "postgres",
+		Postgres: &kollectdevv1alpha1.PostgresSpec{DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"}, Table: "items"},
+	}
+
+	cfg, err := ConfigFromSpec(base, secret)
+	if err != nil {
+		t.Fatalf("ConfigFromSpec: %v", err)
+	}
+	if cfg.ProvisioningMode != kollectdevv1alpha1.ProvisioningModeEnsure {
+		t.Fatalf("default mode = %q, want ensure", cfg.ProvisioningMode)
+	}
+
+	base.Provisioning = &kollectdevv1alpha1.ProvisioningSpec{Mode: kollectdevv1alpha1.ProvisioningModeExisting}
+	cfg, err = ConfigFromSpec(base, secret)
+	if err != nil {
+		t.Fatalf("ConfigFromSpec existing: %v", err)
+	}
+	if cfg.ProvisioningMode != kollectdevv1alpha1.ProvisioningModeExisting {
+		t.Fatalf("mode = %q, want existing", cfg.ProvisioningMode)
+	}
+}
+
 func TestConfigFromSpec_wrongType(t *testing.T) {
 	t.Parallel()
 

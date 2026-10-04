@@ -314,9 +314,8 @@ func (r *KollectClusterTargetReconciler) setReady(
 
 	apimeta.RemoveStatusCondition(&ct.Status.Conditions, conditionDegraded)
 	ct.Status.ObservedGeneration = ct.Generation
-	updateClusterTargetFilterStatus(
-		ct, ct.Status.MatchedNamespaces, ct.Status.EffectiveNamespaces, ct.Status.ActiveResourceRules,
-	)
+	// The filter-status fields are set by the caller (Reconcile) before this point; assigning
+	// the object's own values back would be a no-op that hides the real write.
 	setSyncedCondition(&ct.Status.Conditions, ct.Generation, true, reasonCollecting, msg)
 
 	written, err := setClusterTargetCondition(

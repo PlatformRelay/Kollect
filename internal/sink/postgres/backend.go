@@ -5,7 +5,6 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -173,32 +172,36 @@ WHERE t.inventory_namespace = $1
 }
 
 // verifyTable confirms the destination table exists without creating it (provisioning.mode=existing).
+// It probes pg_catalog via to_regclass rather than information_schema: information_schema only
+// lists relations the current role has some privilege on, so a least-privilege role with no
+// grant on an existing table would be told the table does not exist. to_regclass is
+// privilege-independent, so absent and unprivileged are distinguishable.
 func (b *Backend) verifyTable(ctx context.Context) error {
-	var one int
+	qualified := pgxQuoteIdent(b.cfg.Schema) + "." + pgxQuoteIdent(b.cfg.Table)
 
-	err := b.pool.QueryRow(ctx, `
-SELECT 1 FROM information_schema.tables
-WHERE table_schema = $1 AND table_name = $2
-`, b.cfg.Schema, b.cfg.Table).Scan(&one)
+	var exists bool
 
-	return classifyTableProbe(b.cfg.Schema, b.cfg.Table, err)
+	err := b.pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL`, qualified).Scan(&exists)
+
+	return classifyTableProbe(b.cfg.Schema, b.cfg.Table, exists, err)
 }
 
-// classifyTableProbe maps a table-existence probe result to an error: no row is the shaped
-// not-found error, while any other failure is wrapped and must not read as "table absent".
-func classifyTableProbe(schema, table string, err error) error {
-	if err == nil {
-		return nil
+// classifyTableProbe maps a table-existence probe result to an error: a successful probe that
+// found nothing is the shaped not-found error, while a failed probe is wrapped and must not read
+// as "table absent".
+func classifyTableProbe(schema, table string, exists bool, err error) error {
+	if err != nil {
+		return fmt.Errorf("postgres verify table: %w", redactedConnectError(err))
 	}
 
-	if errors.Is(err, pgx.ErrNoRows) {
+	if !exists {
 		return fmt.Errorf(
 			"postgres verify table: %s.%s does not exist (provisioning.mode=existing): %w",
 			schema, table, ErrTableNotFound,
 		)
 	}
 
-	return fmt.Errorf("postgres verify table: %w", redactedConnectError(err))
+	return nil
 }
 
 func (b *Backend) ensureTable(ctx context.Context) error {

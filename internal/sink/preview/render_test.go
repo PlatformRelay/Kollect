@@ -135,6 +135,22 @@ func TestRender_mongodbPreview(t *testing.T) {
 	}
 }
 
+// TestRender_mongodbExistingOmitsIndexPreview: ensureCollection creates the unique index, so
+// under provisioning.mode=existing the preview must not advertise it (D1 parity with postgres).
+func TestRender_mongodbExistingOmitsIndexPreview(t *testing.T) {
+	out := Render(kollectdevv1alpha1.KollectSinkSpec{
+		Type:         kollectdevv1alpha1.DatabaseSinkTypeMongoDB,
+		Provisioning: &kollectdevv1alpha1.ProvisioningSpec{Mode: kollectdevv1alpha1.ProvisioningModeExisting},
+		MongoDB:      &kollectdevv1alpha1.MongoSpec{Database: "inventory", Collection: "items"},
+	}, "mongo")
+	if out.MongoDB != nil {
+		t.Fatalf("existing mode must not advertise the mongodb index, got %#v", out.MongoDB)
+	}
+	if !containsWarning(out.Warnings, "mongodb: documents upserted into inventory.items") {
+		t.Fatalf("expected the upsert warning to remain, got %v", out.Warnings)
+	}
+}
+
 func TestRender_kafkaPreview(t *testing.T) {
 	out := Render(kollectdevv1alpha1.KollectSinkSpec{
 		Type:  kollectdevv1alpha1.EventSinkTypeKafka,

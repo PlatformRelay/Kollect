@@ -381,7 +381,7 @@ func (b *syncBuffer) String() string {
 // not panic; it must log authMode=disabled.
 func TestServerStart_nilAuthDoesNotPanic(t *testing.T) {
 	var buf syncBuffer
-	logger := zap.New(zap.WriteTo(&buf), zap.UseDevMode(true))
+	logger := zap.New(zap.WriteTo(&buf), zap.UseDevMode(false))
 	ctx, cancel := context.WithCancel(logf.IntoContext(context.Background(), logger))
 	defer cancel()
 
@@ -409,8 +409,20 @@ func TestServerStart_nilAuthDoesNotPanic(t *testing.T) {
 		t.Fatal("Start did not return after cancel")
 	}
 
-	if !strings.Contains(buf.String(), "authMode") || !strings.Contains(buf.String(), "disabled") {
-		t.Fatalf("log = %q, want authMode=disabled", buf.String())
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Start returned %v, want nil after graceful shutdown", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Start did not return an error value")
+	}
+
+	// The JSON logger renders the key/value as `"authMode":"disabled"`; accept the dev-mode
+	// `authMode=disabled` token too, but require the value to be adjacent to the key.
+	log := buf.String()
+	if !strings.Contains(log, `"authMode":"disabled"`) && !strings.Contains(log, "authMode=disabled") {
+		t.Fatalf("log = %q, want authMode=disabled", log)
 	}
 }
 

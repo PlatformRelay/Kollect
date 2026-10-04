@@ -71,8 +71,11 @@ const (
 	reasonCollecting = "Collecting"
 )
 
-// setTargetCondition writes conditionType into conditions and persists the whole status
-// subresource, skipping the API call when nothing about the condition moved.
+// setTargetCondition writes conditionType as ConditionTrue into conditions and persists the
+// whole status subresource, skipping the API call when nothing about the condition moved.
+// It is True-only by design: every caller (both target controllers) reports a positive
+// condition, and the shared writer's job is the redact-then-skip parity, not a general
+// condition setter. Add a status parameter back only when a caller genuinely needs False.
 //
 // It reports whether it issued that call. Status carries fields no condition describes
 // (KollectTarget.status.collectedCount), and a caller that changed one of those is
