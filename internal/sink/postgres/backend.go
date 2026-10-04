@@ -5,6 +5,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -175,13 +176,21 @@ WHERE t.inventory_namespace = $1
 // It probes pg_catalog via to_regclass rather than information_schema: information_schema only
 // lists relations the current role has some privilege on, so a least-privilege role with no
 // grant on an existing table would be told the table does not exist. to_regclass is
-// privilege-independent, so absent and unprivileged are distinguishable.
+// privilege-independent, so absent and unprivileged are distinguishable. to_regclass resolves
+// any relation kind, so the probe also requires an ordinary or partitioned table: a view,
+// index or sequence carrying the table's name counts as absent.
 func (b *Backend) verifyTable(ctx context.Context) error {
 	qualified := pgxQuoteIdent(b.cfg.Schema) + "." + pgxQuoteIdent(b.cfg.Table)
 
 	var exists bool
 
-	err := b.pool.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL`, qualified).Scan(&exists)
+	err := b.pool.QueryRow(ctx,
+		`SELECT c.relkind IN ('r', 'p') FROM pg_catalog.pg_class c WHERE c.oid = to_regclass($1)`,
+		qualified,
+	).Scan(&exists)
+	if errors.Is(err, pgx.ErrNoRows) {
+		exists, err = false, nil
+	}
 
 	return classifyTableProbe(b.cfg.Schema, b.cfg.Table, exists, err)
 }
