@@ -33,7 +33,7 @@ func TestExportMongoDB(t *testing.T) {
 	ctx := context.Background()
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
-		if isDockerUnavailable(err) {
+		if integrationtest.IsDockerUnavailable(err) {
 			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
@@ -178,7 +178,7 @@ func TestExportMongoDB_scopeIsolation(t *testing.T) {
 	ctx := context.Background()
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
-		if isDockerUnavailable(err) {
+		if integrationtest.IsDockerUnavailable(err) {
 			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
@@ -253,7 +253,7 @@ func TestNewBackend_ensureCollectionIdempotent(t *testing.T) {
 	ctx := context.Background()
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
-		if isDockerUnavailable(err) {
+		if integrationtest.IsDockerUnavailable(err) {
 			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
@@ -286,7 +286,7 @@ func TestExportMongoDB_existingProvisioningMode(t *testing.T) {
 	ctx := context.Background()
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
-		if isDockerUnavailable(err) {
+		if integrationtest.IsDockerUnavailable(err) {
 			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
@@ -321,7 +321,7 @@ func TestExportMongoDB_existingProvisioningModeSuccess(t *testing.T) {
 	ctx := context.Background()
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
-		if isDockerUnavailable(err) {
+		if integrationtest.IsDockerUnavailable(err) {
 			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
@@ -397,7 +397,7 @@ func TestConnectionMongoDB(t *testing.T) {
 	ctx := context.Background()
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
-		if isDockerUnavailable(err) {
+		if integrationtest.IsDockerUnavailable(err) {
 			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
@@ -431,7 +431,7 @@ func TestExportMongoDB_replaceOneIdempotent(t *testing.T) {
 	ctx := context.Background()
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
-		if isDockerUnavailable(err) {
+		if integrationtest.IsDockerUnavailable(err) {
 			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
@@ -552,7 +552,7 @@ func TestExportMongoDB_midBatchReplaceOneFailure(t *testing.T) {
 	ctx := context.Background()
 	container, uri, err := startMongoContainer(ctx)
 	if err != nil {
-		if isDockerUnavailable(err) {
+		if integrationtest.IsDockerUnavailable(err) {
 			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
@@ -672,7 +672,7 @@ func TestNewBackend_authFailure(t *testing.T) {
 	ctx := context.Background()
 	container, goodURI, err := startMongoContainerWithAuth(ctx, "kollect", "correct-password")
 	if err != nil {
-		if isDockerUnavailable(err) {
+		if integrationtest.IsDockerUnavailable(err) {
 			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
@@ -837,19 +837,4 @@ func startMongoContainerWithOptions(
 	}
 
 	return container, uri, nil
-}
-
-func isDockerUnavailable(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	if integrationtest.IsDockerUnavailable(err) {
-		return true
-	}
-
-	msg := strings.ToLower(err.Error())
-
-	return strings.Contains(msg, "docker provider") ||
-		strings.Contains(msg, "rootless docker")
 }
