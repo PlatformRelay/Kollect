@@ -48,4 +48,14 @@ rules:
       Evidence names the revision, the command, what ran and what was skipped,
       the tool versions and the known limitations. Link CI runs; do not paste logs.
     - >-
+      A red or green counts only if the run shows the named test running
+      (go test -v prints "=== RUN <name>"); a named test that did not run is
+      neither. Judge defect controls by the test command's exit status and
+      include one no-op control that must survive. A pass on a race or flaky check is evidence only when
+      repeated (-count=N); record N.
+    - >-
       Record the independent review (reviewer, revision, verdict) before merge.
+    - >-
+      Archive the change as the last commit of its PR, after the review and
+      green CI, so the archived tasks.md does not keep not-run rows; the
+      reviewer re-checks the archive commit and the record names both revisions.
