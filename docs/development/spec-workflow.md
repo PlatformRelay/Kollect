@@ -29,8 +29,11 @@ correction goes straight to a PR. Open a change when observable behaviour change
 4. **Green.** Make the smallest coherent change and run the relevant gates.
 5. **Review.** An independent reviewer (not the author) checks the exact revision against the
    requirements and the verification table.
-6. **Land.** Merge only with green required CI (rebase merge). Then sync the living spec and
-   archive the change.
+6. **Land.** After the review and green CI, archive the change (`openspec archive`, which also
+   creates or updates the living spec) as the last commit of the PR, so the archived record does
+   not keep `not-run` rows. The reviewer re-checks that commit (the moved change and the living
+   spec), and the review record names both revisions. Then merge on green required CI (rebase
+   merge).
 
 These are separate states: implemented, tested, reviewed, merged, archived. Archiving is history,
 not proof. If a change is archived before its PR merges, the work stays open until the merge is
@@ -67,6 +70,15 @@ Status is one of `pass`, `fail`, `blocked`, `not-run` or `N/A` (with a reason). 
 revision, the command, what ran and what was skipped, the tool versions and the known limitations.
 Link CI runs instead of pasting logs. When a test found a failing input (a seed or a fuzz corpus
 entry), keep that input as a regression fixture.
+
+Evidence that ran nothing is not evidence:
+
+- A red or a green counts only if the run shows the named test running (`go test -v` prints
+  `=== RUN <name>`). A `-run` pattern that matches nothing exits zero with "no tests to run".
+- Judge defect controls (mutations) by the test command's exit status, not by grepping its output,
+  and include one no-op control that must survive.
+- A single pass of a race-detector or otherwise flaky check is not evidence; repeat it
+  (`-count=N`) and record N.
 
 ## Commands
 
