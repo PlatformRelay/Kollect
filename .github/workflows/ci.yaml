@@ -471,6 +471,9 @@ jobs:
           CI: "true"
           # Docker is promised on this runner: fail, never skip, when a container cannot start.
           KOLLECT_REQUIRE_DOCKER: "true"
+          # Ryuk only reaps containers a crashed test leaks, and this runner VM is discarded after
+          # the job. Waiting for it timed out Forgejo starts four times (PRs #394, #395, #405).
+          TESTCONTAINERS_RYUK_DISABLED: "true"
 
   helm:
     name: helm
