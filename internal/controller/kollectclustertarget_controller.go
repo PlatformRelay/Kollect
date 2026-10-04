@@ -367,8 +367,9 @@ func clusterTargetFilterChanged(
 }
 
 // setClusterTargetCondition writes a True conditionType through the shared no-op-skipping
-// writer and reports whether it issued the status call. Unlike the old clone, it redacts
-// before comparing and leaves LastTransitionTime untouched when nothing moved.
+// writer and reports whether it issued the status call. The only differences from the old
+// clone are that it redacts the message before comparing and skips the status write entirely
+// when nothing moved.
 func setClusterTargetCondition(
 	ctx context.Context,
 	c client.Client,

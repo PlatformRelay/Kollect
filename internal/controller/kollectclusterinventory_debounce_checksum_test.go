@@ -114,6 +114,96 @@ func TestClusterInventory_MultipartExport_DebounceUsesPartitionsChecksum(t *test
 	}
 }
 
+// TestClusterInventory_CeilingChangeWithinDebounceWindowReExports is the behavioural half of the
+// multipart-digest lock: within the debounce window, a change that only moves part boundaries
+// (same content, same generation) must re-export, which only holds when shouldSkip/record are
+// keyed on the multipart digest rather than the raw content checksum.
+func TestClusterInventory_CeilingChangeWithinDebounceWindowReExports(t *testing.T) {
+	t.Parallel()
+
+	const (
+		sinkNS = sink.DefaultSecretNamespace
+		target = "platform-deployments"
+	)
+
+	items := make([]collect.Item, 0, 3)
+	for i := range 3 {
+		items = append(items, collect.Item{
+			TargetNamespace: "tenant-a",
+			TargetName:      target,
+			UID:             fmt.Sprintf("uid-%d", i),
+			Namespace:       "tenant-a",
+			Name:            fmt.Sprintf("app-%d", i),
+			Version:         "v1",
+			Kind:            "Deployment",
+			Attributes:      map[string]any{"payload": strings.Repeat("x", 220)},
+		})
+	}
+
+	scheme := clusterRollupScheme(t)
+
+	sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "git-platform", Namespace: sinkNS},
+		Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+			Type:             kollectdevv1alpha1.SnapshotSinkTypeGit,
+			SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{Endpoint: "https://example.com/inventory.git"},
+		},
+	}
+
+	longInterval := metav1.Duration{Duration: 5 * time.Minute}
+	smallLimit := int64(900)
+	inv := &kollectdevv1alpha1.KollectClusterInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "platform-rollup"},
+		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
+			ExportMinInterval: &longInterval,
+			SnapshotSinkRefs:  kollectdevv1alpha1.InventorySinkRefList{{Name: "git-platform", MaxExportBytes: &smallLimit}},
+			SinkNamespace:     sinkNS,
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(sinkObj, inv).
+		WithStatusSubresource(sinkObj, inv).
+		Build()
+
+	recorder := &recordingBackend{}
+	reg := sink.NewRegistry()
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext) (sink.Backend, error) {
+		return recorder, nil
+	})
+
+	rec := &KollectClusterInventoryReconciler{
+		Client:   cl,
+		Scheme:   scheme,
+		Registry: reg,
+		Recorder: record.NewFakeRecorder(10),
+	}
+
+	const rawChecksum = "raw-content-checksum"
+	invKey := "cluster/platform-rollup"
+
+	first := rec.exportClusterToSinks(context.Background(), logr.Discard(), inv, invKey, sinkNS, items, rawChecksum)
+	if first.ExportedCount != 1 || first.DebouncedCount != 0 {
+		t.Fatalf("first export = %d exported / %d debounced, want 1/0", first.ExportedCount, first.DebouncedCount)
+	}
+
+	// Raise only the ceiling: identical items, raw checksum and generation, so the sole
+	// difference the debounce can see is the part layout (the global-cap-change case).
+	largeLimit := int64(1 << 20)
+	inv.Spec.SnapshotSinkRefs[0].MaxExportBytes = &largeLimit
+
+	second := rec.exportClusterToSinks(context.Background(), logr.Discard(), inv, invKey, sinkNS, items, rawChecksum)
+	if second.ExportedCount != 1 || second.DebouncedCount != 0 {
+		t.Fatalf("second export after ceiling change = %d exported / %d debounced, want 1/0 "+
+			"(debounce keyed on the raw checksum instead of the multipart digest)",
+			second.ExportedCount, second.DebouncedCount)
+	}
+	if got := first.ExportedCount + second.ExportedCount; got != 2 {
+		t.Fatalf("total ExportedCount = %d, want 2", got)
+	}
+}
+
 // TestClusterInventory_DebouncedExportIncrementsMetric is the debounced-metric lock: a debounced cluster
 // export must increment kollect_export_debounced_total for KollectClusterInventory, so cluster
 // debounce decisions are visible to dashboards/alerts exactly like the namespaced path.
