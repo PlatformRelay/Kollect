@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **pipeline:** Close the sink client after each collect context [f48f9cf](https://github.com/platformrelay/kollect/commit/f48f9cf2d08c9afb5d7ac5c21cf01fb8365014c7)
+
 - **inventory:** Keep a failed body write from appending a 500 [049adbe](https://github.com/platformrelay/kollect/commit/049adbe23b4f934c838eb33470f7a62c19c677ca)
 
 ## [0.21.0](https://github.com/platformrelay/kollect/compare/v0.20.0..v0.21.0) - 2026-10-01
