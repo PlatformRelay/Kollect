@@ -272,17 +272,6 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 
 		interval := validation.ResolveSinkExportInterval(ref, sinkExportMinInterval(resolved), defaultInterval, scopeFloor)
 
-		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, checksum, interval, now) {
-			outcome.DebouncedCount++
-			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
-				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
-					r.sinkCoalesce.nextDue(invKey, exportKey, interval, now).Round(time.Second),
-					interval))
-			nextDue := r.sinkCoalesce.nextDue(invKey, exportKey, interval, now)
-			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
-			continue
-		}
-
 		// Per-binding export ceiling: the ref override replaces the operator global
 		// cap wholesale when set (AR-01 / EC-P0-01, Option B). KollectClusterInventory
 		// has no spec-level maxExportBytes, so the global cap is the fallback. The
@@ -295,11 +284,33 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		if binding.Family != kollectdevv1alpha1.SinkFamilySnapshot {
 			ceiling = 0
 		}
+		// Partition before the debounce check (as the namespaced path does) so the
+		// snapshot debounce key can be the multipart digest: a global-cap change alters
+		// part boundaries without changing content, and must re-export (D2).
 		parts, partitionErr := export.PartitionEnvelopes(items, meta, ceiling)
 		if partitionErr != nil {
 			log.Error(partitionErr, "cluster export partition failed", "sink", exportKey)
 			outcome.addSinkFailure(exportKey, kollecterrors.Terminal(partitionErr))
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, partitionErr.Error())
+			continue
+		}
+
+		// Snapshot sinks debounce on the multipart digest so a ceiling change (which
+		// alters part boundaries) re-exports; non-snapshot sinks keep the raw content
+		// fingerprint. Generation bumps already invalidate the cache on a spec edit.
+		sinkChecksum := checksum
+		if binding.Family == kollectdevv1alpha1.SinkFamilySnapshot {
+			sinkChecksum = export.PartitionsChecksum(parts)
+		}
+		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, interval, now) {
+			outcome.DebouncedCount++
+			metrics.ExportDebouncedTotal.WithLabelValues("KollectClusterInventory").Inc()
+			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
+				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
+					r.sinkCoalesce.nextDue(invKey, exportKey, interval, now).Round(time.Second),
+					interval))
+			nextDue := r.sinkCoalesce.nextDue(invKey, exportKey, interval, now)
+			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
 			continue
 		}
 
@@ -342,10 +353,10 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 			continue
 		}
 
-		r.sinkCoalesce.record(invKey, exportKey, inv.Generation, checksum, now)
+		r.sinkCoalesce.record(invKey, exportKey, inv.Generation, sinkChecksum, now)
 		exportTime := metav1.Now()
 		status.LastExportTime = &exportTime
-		status.LastChecksum = checksum
+		status.LastChecksum = sinkChecksum
 		status.LastExportPaths = recordExportPaths(writtenPaths, status.LastExportPaths)
 		setSinkExportSynced(status, inv.Generation, true, "Exported", "export completed")
 		outcome.ExportedCount++
