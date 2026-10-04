@@ -224,7 +224,7 @@ All pull requests need **green CI** and **maintainer approval** before merge to 
 | --- | --- |
 | Lint and format | `task lint`, `task format:check` (`CI`) |
 | Tests and coverage floor | `task coverage` (`CI`) |
-| Integration (when sink/backend touched) | `task test-integration` |
+| Integration (when sink/backend touched) | `task test-integration`; CI sets `KOLLECT_REQUIRE_DOCKER=true` so missing Docker fails instead of skipping — set it locally to match |
 | Codegen drift | `task verify` (`preflight`) |
 | Changelog drift | `task changelog:verify` (`preflight`) |
 | Secret scan | gitleaks (`CI`) |
