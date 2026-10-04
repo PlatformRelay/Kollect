@@ -34,9 +34,14 @@ if modcache="$(go env GOMODCACHE 2>/dev/null)" && [[ -d "${modcache}" ]]; then
   mounts+=(-v "${modcache}:/go/pkg/mod:ro")
 fi
 
+# A named volume keeps the build cache between the two runs (and across invocations), so only the
+# first run compiles. The module cache comes read-only from the host; run `go mod download` there
+# first if the script reports that the test did not run on a fresh clone.
+cache_volume="kollect-no-docker-gocache"
+
 run_without_docker() {
-  docker run --rm "${mounts[@]}" -w /src \
-    -e GOFLAGS=-mod=mod -e GOTOOLCHAIN=local -e GOCACHE=/tmp/gocache \
+  docker run --rm "${mounts[@]}" -v "${cache_volume}:/gocache" -w /src \
+    -e GOTOOLCHAIN=local -e GOCACHE=/gocache \
     -e TESTCONTAINERS_RYUK_DISABLED=true -e "KOLLECT_REQUIRE_DOCKER=$1" \
     "${image}" go test -tags=integration -count=1 -v -run "^${test_name}\$" "${package}" 2>&1
 }
