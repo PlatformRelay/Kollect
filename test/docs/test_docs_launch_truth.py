@@ -27,7 +27,7 @@ TRUTH_FILES = (
 
 
 def released_version(changelog: str) -> str:
-    match = re.search(r"^## \[(\d[^]]*)\]", changelog, re.MULTILINE)
+    match = re.search(r"^## \[(\d[^]-]*)\]", changelog, re.MULTILINE)
     assert match, "fixture changelog has no released heading"
     return match.group(1)
 
@@ -39,16 +39,14 @@ def next_minor(version: str) -> str:
 
 class DocsLaunchTruthTest(unittest.TestCase):
     def setUp(self) -> None:
-        self._tmp = tempfile.TemporaryDirectory()
-        self.repo = Path(self._tmp.name)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.repo = Path(tmp.name)
         for rel in TRUTH_FILES:
             target = self.repo / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / rel, target)
         self.current = released_version((self.repo / "CHANGELOG.md").read_text(encoding="utf-8"))
-
-    def tearDown(self) -> None:
-        self._tmp.cleanup()
 
     def run_check(self) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -91,14 +89,63 @@ class DocsLaunchTruthTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def add_changelog_heading(self, version: str) -> None:
+        changelog = self.repo / "CHANGELOG.md"
+        text = changelog.read_text(encoding="utf-8")
+        released = f"## [{self.current}]"
+        text = text.replace(released, f"## [{version}] - 2026-10-05\n\n{released}", 1)
+        changelog.write_text(text, encoding="utf-8")
+
     def test_chart_behind_changelog_fails(self) -> None:
+        # Docs move down with the chart, so only the ordering guard can reject this state.
         major, minor, _ = self.current.split(".")
-        self.bump_chart(f"{major}.{int(minor) - 1}.0")
+        older = f"{major}.{int(minor) - 1}.0"
+        self.bump_chart(older)
+        self.bump_docs(self.current, older)
 
         result = self.run_check()
 
         self.assertNotEqual(result.returncode, 0, "a chart older than the released version passed")
+        self.assertIn("is older than released", result.stderr)
 
+    def test_rc_of_released_version_fails(self) -> None:
+        # sort -V ranks X-rc.1 above X, so an RC of an already-released version must be caught.
+        self.bump_chart(f"{self.current}-rc.1")
+
+        result = self.run_check()
+
+        self.assertNotEqual(result.returncode, 0, "an RC of the released version passed")
+        self.assertIn("is older than released", result.stderr)
+
+    def test_rc_soak_keeps_docs_on_last_ga(self) -> None:
+        # Public docs claim GA releases only: while the chart carries an RC, they stay put.
+        rc = f"{next_minor(self.current)}-rc.1"
+        self.bump_chart(rc)
+        self.add_changelog_heading(rc)
+
+        result = self.run_check()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_ga_prep_after_rc_heading_passes(self) -> None:
+        # sort -V ranks 0.22.0-rc.1 above 0.22.0; a GA prep after an RC soak must still pass.
+        candidate = next_minor(self.current)
+        self.add_changelog_heading(f"{candidate}-rc.1")
+        self.bump_chart(candidate)
+        self.bump_docs(self.current, candidate)
+
+        result = self.run_check()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_ga_prep_after_rc_with_stale_docs_fails(self) -> None:
+        candidate = next_minor(self.current)
+        self.add_changelog_heading(f"{candidate}-rc.1")
+        self.bump_chart(candidate)
+
+        result = self.run_check()
+
+        self.assertNotEqual(result.returncode, 0, "stale docs passed at GA prep after an RC")
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,7 +12,7 @@ fail() {
 chart_version="$(sed -n 's/^version: //p' charts/kollect/Chart.yaml | head -1)"
 app_version="$(sed -n 's/^appVersion: //p' charts/kollect/Chart.yaml | tr -d '"' | head -1)"
 released_version="$(
-  sed -n 's/^## \[\([0-9][^]]*\)\].*/\1/p' CHANGELOG.md | head -1
+  sed -n 's/^## \[\([0-9][^]-]*\)\].*/\1/p' CHANGELOG.md | head -1
 )"
 
 [[ "${chart_version}" == "${app_version}" ]] ||
@@ -24,9 +24,22 @@ released_version="$(
 # sync bot under [skip ci]. Keyed off the changelog, this check verified the prep PR against the
 # previous release and the stale claims surfaced later, in an unrelated docs PR (v0.16, v0.18,
 # v0.21). Keyed off the chart, the prep PR is where they fail.
-[[ "$(printf '%s\n%s\n' "${released_version}" "${chart_version}" | sort -V | tail -1)" == "${chart_version}" ]] ||
-  fail "chart version ${chart_version} is older than released v${released_version}"
-target_version="${chart_version}"
+#
+# The public site claims GA releases only. released_version above skips pre-release headings, and
+# while the chart carries one (an RC soak) the docs stay on the last GA. Ordering compares GA cores
+# because sort -V ranks 0.22.0-rc.1 above 0.22.0: a GA chart may equal the last release, an RC
+# chart must be for a strictly newer one.
+chart_core="${chart_version%%-*}"
+newest="$(printf '%s\n%s\n' "${released_version}" "${chart_core}" | sort -V | tail -1)"
+if [[ "${chart_version}" == *-* ]]; then
+  [[ "${newest}" == "${chart_core}" && "${chart_core}" != "${released_version}" ]] ||
+    fail "chart version ${chart_version} is older than released v${released_version}"
+  target_version="${released_version}"
+else
+  [[ "${newest}" == "${chart_core}" ]] ||
+    fail "chart version ${chart_version} is older than released v${released_version}"
+  target_version="${chart_version}"
+fi
 
 truth_files=(
   README.md
