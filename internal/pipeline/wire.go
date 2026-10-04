@@ -21,6 +21,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/git"
 )
 
 // LocalSinkType is the sink type string synthesized when --output is given instead of a
@@ -66,9 +67,11 @@ var ErrSecretEnvVarNotSet = errors.New("environment variable for secret placehol
 // rewritten.
 var envPlaceholderPattern = regexp.MustCompile(`^\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}$`)
 
-// ResolveSinkSecretData resolves sinkSpec.SecretRef against Secrets loaded from the config
-// directory (pipeline mode reads a local v1.Secret manifest instead of the cluster API).
-// Returns nil when SecretRef is unset (no credentials required, e.g. type: local).
+// ResolveSinkSecretData resolves the sink's credential Secret against Secrets loaded from the
+// config directory (pipeline mode reads a local v1.Secret manifest instead of the cluster API).
+// It follows the operator's order (sink.BuildContextFromSpec): spec.secretRef first, then, for a
+// git sink, spec.git.auth.secretRef replaces it. Every reference that is set must resolve.
+// Returns nil when no reference is set (no credentials required, e.g. type: local).
 //
 // The returned map merges the manifest's stringData over data (apiserver semantics —
 // client-side decoding never performs that merge), then substitutes any value that is
@@ -78,24 +81,92 @@ var envPlaceholderPattern = regexp.MustCompile(`^\$\{env:([A-Za-z_][A-Za-z0-9_]*
 // An unset or empty variable is a hard error naming the secret, key, and variable —
 // never a silently empty credential.
 func ResolveSinkSecretData(sinkSpec kollectdevv1alpha1.KollectSinkSpec, secrets []corev1.Secret) (map[string][]byte, error) {
-	if sinkSpec.SecretRef == nil {
-		return nil, nil
+	var data map[string][]byte
+
+	if sinkSpec.SecretRef != nil {
+		resolved, err := resolveConfigSecret(sinkSpec.SecretRef, secrets, "sink secretRef")
+		if err != nil {
+			return nil, err
+		}
+
+		data = resolved
 	}
 
+	if ref := gitAuthSecretRef(sinkSpec); ref != nil {
+		resolved, err := resolveConfigSecret(ref, secrets, "sink git.auth.secretRef")
+		if err != nil {
+			return nil, err
+		}
+
+		data = resolved
+	}
+
+	return data, nil
+}
+
+// gitAuthSecretRef is the git sink's own credential reference, which the operator prefers over
+// spec.secretRef (sink.BuildContextFromSpec).
+func gitAuthSecretRef(spec kollectdevv1alpha1.KollectSinkSpec) *kollectdevv1alpha1.SecretReference {
+	if spec.Type != git.TypeName || spec.Git == nil || spec.Git.Auth == nil {
+		return nil
+	}
+
+	return spec.Git.Auth.SecretRef
+}
+
+// resolveConfigSecret finds ref among the config-dir Secrets (by name, and by namespace when the
+// reference sets one) and returns its effective values. A missing Secret is an error naming the
+// field it was referenced from.
+func resolveConfigSecret(
+	ref *kollectdevv1alpha1.SecretReference,
+	secrets []corev1.Secret,
+	field string,
+) (map[string][]byte, error) {
 	for _, s := range secrets {
-		if s.Name != sinkSpec.SecretRef.Name {
+		if s.Name != ref.Name {
 			continue
 		}
 
-		if sinkSpec.SecretRef.Namespace != "" && s.Namespace != sinkSpec.SecretRef.Namespace {
+		if ref.Namespace != "" && s.Namespace != ref.Namespace {
 			continue
 		}
 
 		return resolveSecretValues(&s)
 	}
 
-	return nil, fmt.Errorf(
-		"sink secretRef %q not found in config directory (expected a v1.Secret YAML manifest)", sinkSpec.SecretRef.Name)
+	return nil, fmt.Errorf("%s %q not found in config directory (expected a v1.Secret YAML manifest)", field, ref.Name)
+}
+
+// caKeys are the Secret keys a CA bundle is read from, in the operator's order.
+var caKeys = []string{"tls.crt", "ca.crt", "ca.pem"}
+
+// resolveCAPEM returns the sink's CA bundle as the operator does: spec.tls.caBundle when set,
+// else the first CA key of the Secret named by spec.tls.caSecretRef.
+func resolveCAPEM(tlsSpec *kollectdevv1alpha1.TLSSpec, secrets []corev1.Secret) ([]byte, error) {
+	if tlsSpec == nil {
+		return nil, nil
+	}
+
+	if len(tlsSpec.CABundle) > 0 {
+		return tlsSpec.CABundle, nil
+	}
+
+	if tlsSpec.CASecretRef == nil {
+		return nil, nil
+	}
+
+	data, err := resolveConfigSecret(tlsSpec.CASecretRef, secrets, "sink tls.caSecretRef")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, key := range caKeys {
+		if v := data[key]; len(v) > 0 {
+			return v, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // resolveSecretValues builds the effective credential map for one config-dir Secret:
@@ -169,19 +240,7 @@ func ResolveDatabaseSecretData(spec kollectdevv1alpha1.KollectSinkSpec, secrets 
 		return nil, nil
 	}
 
-	for _, s := range secrets {
-		if s.Name != ref.Name {
-			continue
-		}
-		if ref.Namespace != "" && s.Namespace != ref.Namespace {
-			continue
-		}
-
-		return resolveSecretValues(&s)
-	}
-
-	return nil, fmt.Errorf(
-		"sink database secret %q not found in config directory (expected a v1.Secret YAML manifest)", ref.Name)
+	return resolveConfigSecret(ref, secrets, "sink database secret")
 }
 
 func cliBuildContext(
@@ -195,7 +254,12 @@ func cliBuildContext(
 		return sink.BuildContext{}, err
 	}
 
-	return sink.BuildContext{Ctx: ctx, SecretData: secretData, DatabaseSecretData: dbData}, nil
+	caPEM, err := resolveCAPEM(spec.TLS, secrets)
+	if err != nil {
+		return sink.BuildContext{}, err
+	}
+
+	return sink.BuildContext{Ctx: ctx, CAPEM: caPEM, SecretData: secretData, DatabaseSecretData: dbData}, nil
 }
 
 // ExportTargets serializes each target's collected items from store and writes them via
@@ -429,7 +493,7 @@ func runOneContext(
 
 	buildCtx, err := cliBuildContext(ctx, sinkSpec, secretData, loaded.Secrets)
 	if err != nil {
-		return ContextResult{Context: contextName, Fatal: fmt.Errorf("resolve database secret: %w", err)}
+		return ContextResult{Context: contextName, Fatal: fmt.Errorf("resolve sink credentials: %w", err)}
 	}
 
 	exported, exportErrs, err := withCLIBackend(

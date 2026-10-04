@@ -77,7 +77,7 @@ mistyped:
 | `KollectProfile` | **what** to extract from each resource | one or more |
 | `KollectTarget` | **where** to collect from (GVK selectors); its `profileRef` names a profile in the same directory | one or more |
 | `KollectSnapshotSink` | **where** to write, when kollect owns the write | **at most one** (or zero + `--output`) |
-| `v1/Secret` | credentials referenced by a sink's `secretRef`; values may be `${env:VAR}` placeholders resolved from the CI environment | optional |
+| `v1/Secret` | credentials and CA referenced by a sink's `secretRef`, `git.auth.secretRef` or `tls.caSecretRef`; values may be `${env:VAR}` placeholders resolved from the CI environment | optional |
 
 Unknown kinds are ignored with a warning. Every `KollectTarget.spec.profileRef` must match a
 `KollectProfile` name loaded from the same directory, or the run fails before contacting any cluster.
@@ -157,14 +157,16 @@ spec:
 
 For a private repo, add the referenced `v1/Secret` manifest (with a `token` key) to the config
 directory; `kollect-pipeline` resolves `secretRef` against Secrets in that directory, not the
-cluster.
+cluster. It resolves `spec.git.auth.secretRef` (which takes precedence over `secretRef`, as in the
+operator) and `spec.tls.caSecretRef` (keys `tls.crt`, `ca.crt` or `ca.pem`) the same way. A
+referenced Secret that is not in the directory stops the run with an error naming it.
 
 ### Sink credentials from the CI environment (`${env:VAR}`)
 
 Committing a real token in the Secret manifest is wrong for CI. Instead, keep the credential in
 your CI system's variable store and reference it with an env placeholder — a `stringData` (or
 decoded `data`) value that is **exactly** `${env:VAR_NAME}` is substituted from the process
-environment when the sink's `secretRef` is resolved:
+environment when one of the sink's Secret references is resolved:
 
 ```yaml
 apiVersion: v1
@@ -476,7 +478,7 @@ continuous, event-driven collection instead of scheduled runs.
 | `profileRef "…" not found in config directory` | A `KollectTarget.spec.profileRef` names a profile that isn't in `--config`. |
 | `N KollectSnapshotSink objects found … only one is supported` | Keep at most one sink manifest per config dir (or use `--output`). |
 | `--output and a KollectSnapshotSink … are ambiguous` | Use `--output` **or** a sink manifest, not both. |
-| `sink secretRef "…" not found` | Add the referenced `v1/Secret` manifest to the config dir. |
+| `sink secretRef "…" not found`, `sink git.auth.secretRef "…" not found`, `sink tls.caSecretRef "…" not found` | Add the referenced `v1/Secret` manifest to the config dir. |
 | `environment variable for secret placeholder not set` | A Secret value is `${env:VAR}` but `VAR` is unset/empty — define it in the CI job env (e.g. a GitLab masked variable). |
 | Exit code `1` | Some targets were skipped (RBAC forbidden / GVK absent), or some objects failed required attribute extraction. Run with `--log-level debug` to see which. |
 | Exit code `2` | Cluster unreachable or config invalid — check `--kubeconfig` and the manifests. |
