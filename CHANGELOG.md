@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Keep release-truth claims on GA releases [ba49406](https://github.com/platformrelay/kollect/commit/ba4940647e230581eed81dee9e260dbb310bf90d)
+
+- **docs:** Check release claims against the chart version [b3d9433](https://github.com/platformrelay/kollect/commit/b3d9433bee13d16a8001b13c92463729f7f49465)
+
 - **sink:** Retain files for ambiguous inventory identities ([#394](https://github.com/platformrelay/kollect/pull/394))[7cb3348](https://github.com/platformrelay/kollect/commit/7cb3348f3dea2bf8a7c36d0896d553752979b389)
 
 - **sink/git:** Preserve owner and latest export identity [cf02d9e](https://github.com/platformrelay/kollect/commit/cf02d9e96bb49f7985baf7ccd4720158fec669a0)
@@ -36,6 +40,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **pipeline:** Close the sink client after each collect context [f48f9cf](https://github.com/platformrelay/kollect/commit/f48f9cf2d08c9afb5d7ac5c21cf01fb8365014c7)
 
 - **inventory:** Keep a failed body write from appending a 500 [049adbe](https://github.com/platformrelay/kollect/commit/049adbe23b4f934c838eb33470f7a62c19c677ca)
+
+
+### Performance
+
+- **test:** Reuse the build cache in the no-Docker proof ([#407](https://github.com/platformrelay/kollect/pull/407))[27023f3](https://github.com/platformrelay/kollect/commit/27023f37bafd4aaf64e46bdfabbccd50f3571844)
 
 ## [0.21.0](https://github.com/platformrelay/kollect/compare/v0.20.0..v0.21.0) - 2026-10-01
 
