@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Load the MongoDB databaseRef secret [76c0613](https://github.com/platformrelay/kollect/commit/76c0613828edf5d20fa7bf8ece31d68ba3c9be31)
+
 - **controller:** Clear cluster Ready when every export fails ([#393](https://github.com/platformrelay/kollect/pull/393))[526876a](https://github.com/platformrelay/kollect/commit/526876aa7d954025b0985ca975a8a57a65a297ca)
 
 - **deps:** Bump golang.org/x/mod to v0.40.0 ([#398](https://github.com/platformrelay/kollect/pull/398))[bea3464](https://github.com/platformrelay/kollect/commit/bea34648ddfa50265f422f2c374ec8ea02748656)
