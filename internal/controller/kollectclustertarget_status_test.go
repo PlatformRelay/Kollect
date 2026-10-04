@@ -16,7 +16,7 @@ import (
 )
 
 // statusCountingClient counts Status().Update calls, so a no-op reconcile can be proven to
-// issue zero API writes (D5) rather than inferred from ResourceVersion churn.
+// issue zero API writes rather than inferred from ResourceVersion churn.
 type statusCountingClient struct {
 	client.Client
 	updates *int
@@ -133,7 +133,7 @@ func TestSetClusterTargetCondition_writesChangedCondition(t *testing.T) {
 	}
 }
 
-// TestClusterTargetSetReady_persistsFilterStatusWhenConditionSkipped is the D5 regression
+// TestClusterTargetSetReady_persistsFilterStatusWhenConditionSkipped is the filter-status regression
 // guard: the reconcile mutates matched/effective/activeResourceRules and relies on the
 // condition write to persist them. When the Ready condition is byte-identical (a namespace
 // swap with stable counts) the shared skip must not drop the filter status.

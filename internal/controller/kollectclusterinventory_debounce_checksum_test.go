@@ -23,7 +23,7 @@ import (
 	"github.com/platformrelay/kollect/internal/sink"
 )
 
-// TestClusterInventory_MultipartExport_DebounceUsesPartitionsChecksum is the D2 differential
+// TestClusterInventory_MultipartExport_DebounceUsesPartitionsChecksum is the multipart-digest differential
 // lock: the cluster path must debounce and record on the multipart digest for snapshot-family
 // bindings, exactly like the namespaced path (kollectinventory_controller.go:352-355). Before
 // the fix it recorded the raw content checksum, so a global --max-export-bytes change (which
@@ -107,14 +107,14 @@ func TestClusterInventory_MultipartExport_DebounceUsesPartitionsChecksum(t *test
 
 	got := outcome.SinkExports[0].LastChecksum
 	if got == rawChecksum {
-		t.Fatal("cluster debounce recorded the raw content checksum; D2 regression")
+		t.Fatal("cluster debounce recorded the raw content checksum; multipart-digest debounce regression")
 	}
 	if got != want {
 		t.Fatalf("LastChecksum = %q, want multipart digest %q", got, want)
 	}
 }
 
-// TestClusterInventory_DebouncedExportIncrementsMetric is the D4 lock: a debounced cluster
+// TestClusterInventory_DebouncedExportIncrementsMetric is the debounced-metric lock: a debounced cluster
 // export must increment kollect_export_debounced_total for KollectClusterInventory, so cluster
 // debounce decisions are visible to dashboards/alerts exactly like the namespaced path.
 func TestClusterInventory_DebouncedExportIncrementsMetric(t *testing.T) {
@@ -190,7 +190,7 @@ func TestClusterInventory_DebouncedExportIncrementsMetric(t *testing.T) {
 	}
 }
 
-// TestClusterInventory_NonSnapshotExport_KeepsRawChecksum pins the other half of D2: database
+// TestClusterInventory_NonSnapshotExport_KeepsRawChecksum pins the other half of the digest rule: database
 // and event bindings are not partitioned, so they must keep the raw content checksum.
 func TestClusterInventory_NonSnapshotExport_KeepsRawChecksum(t *testing.T) {
 	t.Parallel()
