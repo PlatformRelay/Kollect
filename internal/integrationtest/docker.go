@@ -1,5 +1,3 @@
-//go:build integration
-
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Konrad Heimel
 
@@ -19,5 +17,7 @@ func IsDockerUnavailable(err error) bool {
 	return strings.Contains(msg, "cannot connect to the docker daemon") ||
 		strings.Contains(msg, "docker.sock") ||
 		strings.Contains(msg, "executable file not found") ||
-		strings.Contains(msg, "permission denied")
+		strings.Contains(msg, "permission denied") ||
+		strings.Contains(msg, "docker provider") ||
+		strings.Contains(msg, "rootless docker")
 }
