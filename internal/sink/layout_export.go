@@ -206,6 +206,16 @@ func resolveSnapshotExport(
 	}
 	opts.PruneOwner = string(owner)
 
+	// Both inventory kinds use inventory/cluster/<name> for this legacy identity.
+	// Without a kind/UID in the request, retaining stale files is safer than
+	// letting either inventory prune the other's files.
+	if resolved.InventoryNamespace == "cluster" {
+		opts.SuppressPrune = true
+		if len(gitFiles) == 0 {
+			return snapshotExport{objectPath: resolved.DocumentPath(), run: func(context.Context) error { return nil }}, nil
+		}
+	}
+
 	gitFiles, err = appendSetManifest(resolved, gitFiles, &opts, meta.PartIndex, meta.PartTotal, prunePlan)
 	if err != nil {
 		return snapshotExport{}, err

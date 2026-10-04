@@ -400,3 +400,18 @@ func TestCleanupCandidatePathsPreservesSuffixShapedInventoryName(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveSnapshotExportSharedControllerIdentitySuppressesPrune(t *testing.T) {
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "git", Git: &kollectdevv1alpha1.GitSpec{Prune: true}, Layout: &kollectdevv1alpha1.LayoutSpec{Mode: kollectdevv1alpha1.LayoutModePerResource}}
+	be := &fakeTreeBackend{}
+	plan, err := resolveSnapshotExport(be, spec, testEnvelope(t), "cluster", "platform", 1, "inventory/cluster/platform.json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if !be.filesCalled || be.prune {
+		t.Fatal("ambiguous controller identity must export without pruning")
+	}
+}
