@@ -6,6 +6,7 @@ package git_test
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -27,19 +28,21 @@ import (
 )
 
 // FuzzOwnedPrune drives sequences of git-layout exports through the production entry point
-// (sink.RunExportEnvelope -> layout projection -> prune-owner / multipart / legacy-identity
-// decisions -> git ownership engine on an in-memory worktree) and checks every call against a
-// small reference model of owned-path pruning. The model never consults the implementation: it
-// knows which inventory owns which path from the operations it has seen, and predicts the repo
-// file set, the rejections and the deletions from that alone.
+// (sink.RunExportEnvelope -> identity/path check -> layout projection -> kind-qualified prune owner
+// / multipart / manifest pre-claim -> git ownership engine on an in-memory worktree) and checks
+// every call against a small reference model of owned-path pruning. The model never consults the
+// implementation: it knows which inventory owns which path from the operations it has seen, and
+// predicts the repo file set, the rejections, the deletions, the file contents and the committed
+// ownership records from that alone.
 //
-// Program bytes (each opcode byte is taken mod 5; missing bytes read as 0):
+// Program bytes (each opcode byte is taken mod 6; missing bytes read as 0):
 //
 //	0 owner mask             complete single-part export of the resources in mask
 //	1 owner n masks... cut   multipart export of 2+n%2 parts; cut%3==0 interrupts it
 //	2 idx                    a non-Kollect file appears at unknownPaths[idx]
 //	3 back                   replay an earlier export operation (A->B->A, retries)
 //	4                        retry the final part of the latest multipart set, same accumulator
+//	5 owner other mask       single-part export carrying owner's identity on other's object path
 func FuzzOwnedPrune(f *testing.F) {
 	// Owner C is adversarial only while A's part 1/2 renders C's exact object path; if the
 	// partition format changes, fail here rather than let the collision silently disappear.
@@ -67,22 +70,66 @@ func FuzzOwnedPrune(f *testing.F) {
 
 type fuzzOwner struct {
 	label      string
+	writer     string // written into every resource file this owner exports
+	id         sink.InventoryIdentity
 	objectPath string // single-part object path; multipart parts are partitioned from it
 	manifest   string // per-set sidecar path a complete multipart set writes
-	legacy     bool   // the shared inventory/cluster identity: must never prune
 }
 
-// Owner 2 is a single-part inventory whose literal name is suffix-shaped; owner 0's multipart part
-// 1 renders the very same object path, but the two are distinct inventories.
+// Owner C is a single-part inventory whose literal name is suffix-shaped; A's multipart part 1
+// renders the very same object path, but the two are distinct inventories. L (a cluster inventory)
+// and N (a namespaced inventory in namespace "cluster" with the same name) share an object path
+// and a set-manifest path; only their kind tells them apart.
 var fuzzOwners = []fuzzOwner{
-	{label: "A(team-a/apps)", objectPath: "inventory/team-a/apps.json", manifest: "inventory/team-a/apps.manifest.json"},
-	{label: "B(team-b/apps)", objectPath: "inventory/team-b/apps.json", manifest: "inventory/team-b/apps.manifest.json"},
 	{
-		label:      "C(team-a/apps.part-0001-of-0002)",
+		label: "A(team-a/apps)", writer: "owner-a",
+		id:         sink.InventoryIdentity{Kind: sink.InventoryKindNamespaced, Namespace: "team-a", Name: "apps"},
+		objectPath: "inventory/team-a/apps.json", manifest: "inventory/team-a/apps.manifest.json",
+	},
+	{
+		label: "B(team-b/apps)", writer: "owner-b",
+		id:         sink.InventoryIdentity{Kind: sink.InventoryKindNamespaced, Namespace: "team-b", Name: "apps"},
+		objectPath: "inventory/team-b/apps.json", manifest: "inventory/team-b/apps.manifest.json",
+	},
+	{
+		label: "C(team-a/apps.part-0001-of-0002)", writer: "owner-c",
+		id:         sink.InventoryIdentity{Kind: sink.InventoryKindNamespaced, Namespace: "team-a", Name: "apps.part-0001-of-0002"},
 		objectPath: "inventory/team-a/apps.part-0001-of-0002.json",
 		manifest:   "inventory/team-a/apps.part-0001-of-0002.manifest.json",
 	},
-	{label: "L(cluster/platform)", objectPath: "inventory/cluster/platform.json", manifest: "inventory/cluster/platform.manifest.json", legacy: true},
+	{
+		label: "L(KollectClusterInventory platform)", writer: "owner-l",
+		id:         sink.InventoryIdentity{Kind: sink.InventoryKindCluster, Name: "platform"},
+		objectPath: "inventory/cluster/platform.json", manifest: "inventory/cluster/platform.manifest.json",
+	},
+	{
+		label: "N(KollectInventory cluster/platform)", writer: "owner-n",
+		id:         sink.InventoryIdentity{Kind: sink.InventoryKindNamespaced, Namespace: "cluster", Name: "platform"},
+		objectPath: "inventory/cluster/platform.json", manifest: "inventory/cluster/platform.manifest.json",
+	},
+}
+
+// pruneOwnerOf is the owner string the ownership record of fuzz owner i must carry.
+func pruneOwnerOf(t *testing.T, i int) string {
+	t.Helper()
+	id := fuzzOwners[i].id
+	owner, err := git.InventoryPruneOwner(id.Kind, "default", id.Namespace, id.Name)
+	if err != nil {
+		t.Fatalf("owner of %s: %v", fuzzOwners[i].label, err)
+	}
+
+	return owner
+}
+
+// consistentPath is the model's own rule for which object paths an identity may export on:
+// inventory/<namespace>/<name>.json, where a cluster inventory's namespace component is "cluster".
+func consistentPath(id sink.InventoryIdentity, objectPath string) bool {
+	ns := id.Namespace
+	if id.Kind == sink.InventoryKindCluster {
+		ns = "cluster"
+	}
+
+	return objectPath == "inventory/"+ns+"/"+id.Name+".json"
 }
 
 type fuzzResource struct {
@@ -117,6 +164,7 @@ const (
 	opUnknown
 	opReplay
 	opRetryFinal
+	opMismatch
 	opCount
 
 	maxSteps = 10
@@ -126,28 +174,35 @@ const (
 
 // ownedModel is the oracle. present is the repo file set; recordedBy maps a path to the owner
 // whose last COMPLETE export claimed it. Paths written by a suppressed or interrupted call stay
-// unrecorded, exactly like files Kollect never wrote.
+// unrecorded, exactly like files Kollect never wrote. writer maps a resource path to the writer
+// label of whoever last wrote it ("" for a hand-written file).
 type ownedModel struct {
 	present    map[string]bool
 	recordedBy map[string]int
+	writer     map[string]string
 }
 
 type exportCall struct {
 	owner    int
 	writes   []string // files this call writes
-	keep     []string // the paths this call claims (multipart final: the whole set)
+	keep     []string // the paths this call records (multipart final: the whole set)
+	claims   []string // paths checked against other owners besides keep (a non-final part's manifest)
 	complete bool     // single-part or final part of a set
+
+	// foreignManifest: the set this part belongs to started while another owner's record listed
+	// its manifest path, so no part of it may be committed.
+	foreignManifest bool
 }
 
 // predict returns whether the call must be rejected and, if not, which paths it must delete.
 func (m *ownedModel) predict(c exportCall) (reject bool, deletes map[string]bool) {
-	for _, p := range c.keep {
+	for _, p := range append(append([]string(nil), c.keep...), c.claims...) {
 		if o, ok := m.recordedBy[p]; ok && o != c.owner {
 			return true, nil
 		}
 	}
 	deletes = map[string]bool{}
-	if !c.complete || fuzzOwners[c.owner].legacy {
+	if !c.complete {
 		return false, deletes
 	}
 	keep := toSet(c.keep)
@@ -164,11 +219,13 @@ func (m *ownedModel) apply(c exportCall, deletes map[string]bool) {
 	for p := range deletes {
 		delete(m.present, p)
 		delete(m.recordedBy, p)
+		delete(m.writer, p)
 	}
 	for _, p := range c.writes {
 		m.present[p] = true
+		m.writer[p] = fuzzOwners[c.owner].writer
 	}
-	if c.complete && !fuzzOwners[c.owner].legacy {
+	if c.complete {
 		for _, p := range c.keep {
 			m.recordedBy[p] = c.owner
 		}
@@ -184,6 +241,8 @@ type exportOp struct {
 	cutAt  int // parts actually sent; == len(masks) when complete
 	plan   *sink.PrunePlan
 	single bool
+
+	foreignManifest bool // another owner recorded this set's manifest path when the set started
 }
 
 type ownedPruneHarness struct {
@@ -235,7 +294,7 @@ func newOwnedPruneHarness(t *testing.T) *ownedPruneHarness {
 		t:        t,
 		fs:       fs,
 		registry: registry,
-		model:    &ownedModel{present: map[string]bool{}, recordedBy: map[string]int{}},
+		model:    &ownedModel{present: map[string]bool{}, recordedBy: map[string]int{}, writer: map[string]string{}},
 	}
 }
 
@@ -313,6 +372,10 @@ func (h *ownedPruneHarness) run(program []byte) {
 				continue
 			}
 			h.sendPart(last, len(last.masks))
+		case opMismatch:
+			owner := r.next() % len(fuzzOwners)
+			pathOwner := r.next() % len(fuzzOwners)
+			h.sendMismatch(owner, fuzzOwners[pathOwner].objectPath, r.nextByte())
 		}
 	}
 }
@@ -324,6 +387,8 @@ func (h *ownedPruneHarness) runExport(op *exportOp) {
 		return
 	}
 	op.plan = sink.NewPrunePlan()
+	manifestOwner, claimed := h.model.recordedBy[fuzzOwners[op.owner].manifest]
+	op.foreignManifest = claimed && manifestOwner != op.owner
 	for i := 1; i <= op.cutAt; i++ {
 		if !h.sendPart(op, i) {
 			// A rejected part ends the set; it is now interrupted.
@@ -338,8 +403,43 @@ func (h *ownedPruneHarness) sendSingle(op *exportOp) {
 	paths := maskPaths(op.masks[0])
 	call := exportCall{owner: op.owner, writes: paths, keep: paths, complete: true}
 	h.check(call, fmt.Sprintf("single-part export by %s of %v", fuzzOwners[op.owner].label, paths), "", func() error {
-		return h.export(fuzzOwners[op.owner].objectPath, maskItems(op.masks[0]), export.Metadata{}, nil)
+		return h.export(op.owner, fuzzOwners[op.owner].objectPath, maskItems(op.owner, op.masks[0]), export.Metadata{}, nil)
 	})
+}
+
+// sendMismatch sends a single-part export whose identity is owner's but whose object path may be
+// another inventory's. A consistent pair (L and N share a path; any owner on its own path) is an
+// ordinary export of owner. Any other pair must be refused before anything is written.
+func (h *ownedPruneHarness) sendMismatch(owner int, objectPath string, mask byte) {
+	t := h.t
+	t.Helper()
+	paths := maskPaths(mask)
+	if consistentPath(fuzzOwners[owner].id, objectPath) {
+		call := exportCall{owner: owner, writes: paths, keep: paths, complete: true}
+		h.check(call, fmt.Sprintf("export by %s on %s of %v", fuzzOwners[owner].label, objectPath, paths), "", func() error {
+			return h.export(owner, objectPath, maskItems(owner, mask), export.Metadata{}, nil)
+		})
+
+		return
+	}
+
+	h.step++
+	where := fmt.Sprintf("step %d, export with identity %s on object path %s", h.step, fuzzOwners[owner].id, objectPath)
+	beforeDigests := h.repoDigests()
+	beforeRecords := h.recordBytes()
+	err := h.export(owner, objectPath, maskItems(owner, mask), export.Metadata{}, nil)
+	if err == nil {
+		t.Fatalf("FORBIDDEN (invariant 9): %s was accepted; an identity that disagrees with its object path must be refused", where)
+	}
+	if !strings.Contains(err.Error(), "inventory identity") {
+		t.Fatalf("%s: want an identity/path rejection, got: %v", where, err)
+	}
+	if after := h.repoDigests(); !sameDigests(beforeDigests, after) {
+		t.Fatalf("FORBIDDEN (invariant 9): refused %s still changed repository files", where)
+	}
+	if after := h.recordBytes(); !sameRecords(beforeRecords, after) {
+		t.Fatalf("FORBIDDEN (invariant 9): refused %s still changed ownership records", where)
+	}
 }
 
 // sendPart sends part index (1-based) of op's set and reports whether it was accepted.
@@ -347,7 +447,11 @@ func (h *ownedPruneHarness) sendPart(op *exportOp, index int) bool {
 	total := len(op.masks)
 	owner := fuzzOwners[op.owner]
 	paths := maskPaths(op.masks[index-1])
-	call := exportCall{owner: op.owner, writes: paths, keep: paths, complete: index == total}
+	call := exportCall{owner: op.owner, writes: paths, keep: paths, complete: index == total, foreignManifest: op.foreignManifest}
+	if !call.complete {
+		// Every part of a set claims the manifest the final part will write (pre-claim).
+		call.claims = []string{owner.manifest}
+	}
 	if call.complete {
 		union := map[string]bool{}
 		for _, m := range op.masks {
@@ -367,7 +471,7 @@ func (h *ownedPruneHarness) sendPart(op *exportOp, index int) bool {
 
 	accepted := true
 	h.check(call, desc, partial, func() error {
-		err := h.export(export.PartitionObjectPath(owner.objectPath, index, total), maskItems(op.masks[index-1]),
+		err := h.export(op.owner, export.PartitionObjectPath(owner.objectPath, index, total), maskItems(op.owner, op.masks[index-1]),
 			export.Metadata{PartIndex: index, PartTotal: total}, op.plan)
 		accepted = err == nil
 
@@ -377,7 +481,7 @@ func (h *ownedPruneHarness) sendPart(op *exportOp, index int) bool {
 	return accepted
 }
 
-func (h *ownedPruneHarness) export(objectPath string, items []collect.Item, meta export.Metadata, plan *sink.PrunePlan) error {
+func (h *ownedPruneHarness) export(owner int, objectPath string, items []collect.Item, meta export.Metadata, plan *sink.PrunePlan) error {
 	h.generation++
 	meta.Generation = h.generation
 	// Rejected collisions are expected outcomes here; five in a row would trip the per-sink
@@ -394,6 +498,7 @@ func (h *ownedPruneHarness) export(objectPath string, items []collect.Item, meta
 		SinkNamespace: "default",
 		SinkName:      "owned-prune-fuzz",
 		ObjectPath:    objectPath,
+		Inventory:     fuzzOwners[owner].id,
 		Envelope:      envelope,
 		SinkSpec:      ownedPruneSpec(),
 		PrunePlan:     plan,
@@ -411,6 +516,7 @@ func (h *ownedPruneHarness) writeUnknown(p string) {
 		h.t.Fatalf("write unknown file: %v", err)
 	}
 	h.model.present[p] = true
+	h.model.writer[p] = ""
 }
 
 // check runs one export call and asserts every invariant against the model before advancing it.
@@ -426,6 +532,7 @@ func (h *ownedPruneHarness) check(c exportCall, desc, partial string, run func()
 	reject, wantDeletes := h.model.predict(c)
 	err := run()
 	after := h.repoFiles()
+	afterDigests := h.repoDigests()
 
 	deleted := map[string]bool{}
 	for p := range before {
@@ -436,13 +543,29 @@ func (h *ownedPruneHarness) check(c exportCall, desc, partial string, run func()
 	if partial != "" && len(deleted) > 0 {
 		t.Fatalf("FORBIDDEN (invariant 4): %s is an incomplete multipart set (%s) yet deleted %v", where, partial, sortedKeys(deleted))
 	}
-	if actor.legacy && len(deleted) > 0 {
-		t.Fatalf("FORBIDDEN (invariant 5): %s uses the ambiguous legacy cluster identity yet deleted %v", where, sortedKeys(deleted))
+	if c.foreignManifest && err == nil {
+		t.Fatalf("FORBIDDEN (invariant 8): %s was committed although its set manifest %q belongs to %s",
+			where, actor.manifest, fuzzOwners[h.model.recordedBy[actor.manifest]].label)
+	}
+	for p, sum := range beforeDigests {
+		o, recorded := h.model.recordedBy[p]
+		if !recorded || o == c.owner || !after[p] {
+			continue
+		}
+		if afterDigests[p] != sum {
+			if sameObjectPath(o, c.owner) {
+				t.Fatalf("FORBIDDEN (invariant 5): %s rewrote %q, which belongs to %s (same object path, other kind)", where, p, fuzzOwners[o].label)
+			}
+			t.Fatalf("FORBIDDEN (invariant 1): %s rewrote %q, which belongs to %s", where, p, fuzzOwners[o].label)
+		}
 	}
 	for _, p := range sortedKeys(deleted) {
 		o, recorded := h.model.recordedBy[p]
 		if !recorded {
 			t.Fatalf("FORBIDDEN (invariant 2): %s deleted %q, a file no ownership record claims", where, p)
+		}
+		if o != c.owner && sameObjectPath(o, c.owner) {
+			t.Fatalf("FORBIDDEN (invariant 5): %s deleted %q, which belongs to %s (same object path, other kind)", where, p, fuzzOwners[o].label)
 		}
 		if o != c.owner {
 			t.Fatalf("FORBIDDEN (invariant 1): %s deleted %q, which belongs to %s", where, p, fuzzOwners[o].label)
@@ -461,16 +584,17 @@ func (h *ownedPruneHarness) check(c exportCall, desc, partial string, run func()
 		if len(deleted) > 0 || !sameSet(before, after) {
 			t.Fatalf("FORBIDDEN: rejected %s still changed the repo: before %v after %v", where, sortedKeys(before), sortedKeys(after))
 		}
-		for p, sum := range h.repoDigests() {
+		for p, sum := range afterDigests {
 			if beforeDigests[p] != sum {
 				t.Fatalf("FORBIDDEN (invariant 1): rejected %s rewrote %q", where, p)
 			}
 		}
+		h.checkRecords(where)
 
 		return
 	}
 
-	if partial == "" && !actor.legacy && !sameSet(deleted, wantDeletes) {
+	if partial == "" && !sameSet(deleted, wantDeletes) {
 		t.Fatalf("FORBIDDEN (invariant 3): complete %s must delete exactly %v (previously owned minus current set), deleted %v",
 			where, sortedKeys(wantDeletes), sortedKeys(deleted))
 	}
@@ -480,6 +604,135 @@ func (h *ownedPruneHarness) check(c exportCall, desc, partial string, run func()
 		t.Fatalf("FORBIDDEN (invariant 6): after %s the repo diverges from the model:\n model %v\n repo  %v",
 			where, sortedKeys(h.model.present), sortedKeys(after))
 	}
+	h.checkWriters(where)
+	h.checkRecords(where)
+}
+
+// sameObjectPath reports whether two distinct owners render the same object path (L and N).
+func sameObjectPath(a, b int) bool {
+	return a != b && fuzzOwners[a].objectPath == fuzzOwners[b].objectPath
+}
+
+// checkWriters compares every resource file's writer label with the model's last writer, so an
+// export that overwrote another owner's file with its own bytes is caught even when the path set
+// is unchanged.
+func (h *ownedPruneHarness) checkWriters(where string) {
+	h.t.Helper()
+	for p, writer := range h.model.writer {
+		if !strings.HasPrefix(p, "default/") || !h.model.present[p] {
+			continue
+		}
+		data, err := util.ReadFile(h.fs, p)
+		if err != nil {
+			h.t.Fatalf("read %q: %v", p, err)
+		}
+		if writer == "" {
+			if string(data) != "hand-written\n" {
+				h.t.Fatalf("FORBIDDEN (invariant 6): after %s the hand-written %q was rewritten:\n%s", where, p, data)
+			}
+			continue
+		}
+		if !strings.Contains(string(data), "kollect.dev/fuzz-writer: "+writer+"\n") {
+			h.t.Fatalf("FORBIDDEN (invariant 6): after %s %q should hold %s's bytes:\n%s", where, p, writer, data)
+		}
+	}
+}
+
+type fuzzRecord struct {
+	Version int      `json:"version"`
+	Owner   string   `json:"owner"`
+	Paths   []string `json:"paths"`
+}
+
+// recordBytes maps each committed ownership record file to its bytes.
+func (h *ownedPruneHarness) recordBytes() map[string]string {
+	h.t.Helper()
+	out := map[string]string{}
+	entries, err := h.fs.ReadDir(".kollect-prune")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return out
+		}
+		h.t.Fatalf("list records: %v", err)
+	}
+	for _, e := range entries {
+		data, readErr := util.ReadFile(h.fs, ".kollect-prune/"+e.Name())
+		if readErr != nil {
+			h.t.Fatalf("read record %s: %v", e.Name(), readErr)
+		}
+		out[e.Name()] = string(data)
+	}
+
+	return out
+}
+
+// checkRecords decodes every committed ownership record: no path may be claimed twice (invariant
+// 7), every owner must be one of the fuzz owners' kind-qualified owners, and each owner's record
+// must list exactly the paths the model says it owns.
+func (h *ownedPruneHarness) checkRecords(where string) {
+	t := h.t
+	t.Helper()
+	ownerIndex := map[string]int{}
+	for i := range fuzzOwners {
+		ownerIndex[pruneOwnerOf(t, i)] = i
+	}
+	claimedBy := map[string]string{}
+	got := map[int][]string{}
+	for name, data := range h.recordBytes() {
+		var rec fuzzRecord
+		if err := json.Unmarshal([]byte(data), &rec); err != nil {
+			t.Fatalf("after %s record %s does not decode: %v", where, name, err)
+		}
+		for _, p := range rec.Paths {
+			if prev, dup := claimedBy[p]; dup {
+				t.Fatalf("FORBIDDEN (invariant 7): after %s path %q is claimed twice, by %s and %s", where, p, prev, rec.Owner)
+			}
+			claimedBy[p] = rec.Owner
+		}
+		i, known := ownerIndex[rec.Owner]
+		if !known {
+			t.Fatalf("FORBIDDEN (invariant 7): after %s record %s carries unknown owner %s", where, name, rec.Owner)
+		}
+		got[i] = append([]string(nil), rec.Paths...)
+	}
+	want := map[int][]string{}
+	for p, o := range h.model.recordedBy {
+		want[o] = append(want[o], p)
+	}
+	for i := range fuzzOwners {
+		g, w := got[i], want[i]
+		sort.Strings(g)
+		sort.Strings(w)
+		if strings.Join(g, ",") != strings.Join(w, ",") {
+			t.Fatalf("FORBIDDEN (invariant 7): after %s %s's record lists %v, model %v", where, fuzzOwners[i].label, g, w)
+		}
+	}
+}
+
+func sameDigests(a, b map[string][sha256.Size]byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if w, ok := b[k]; !ok || w != v {
+			return false
+		}
+	}
+
+	return true
+}
+
+func sameRecords(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if w, ok := b[k]; !ok || w != v {
+			return false
+		}
+	}
+
+	return true
 }
 
 // repoDigests maps every file repoFiles lists to the SHA-256 of its content, so a rejected export
@@ -531,13 +784,16 @@ func (h *ownedPruneHarness) repoFiles() map[string]bool {
 
 // --- helpers -----------------------------------------------------------------------------------
 
-func maskItems(mask byte) []collect.Item {
+func maskItems(owner int, mask byte) []collect.Item {
 	var items []collect.Item
 	for i, r := range fuzzResources {
 		if mask&(1<<i) == 0 {
 			continue
 		}
-		metadata := map[string]any{"name": r.name}
+		metadata := map[string]any{
+			"name":   r.name,
+			"labels": map[string]any{"kollect.dev/fuzz-writer": fuzzOwners[owner].writer},
+		}
 		if r.namespace != "" {
 			metadata["namespace"] = r.namespace
 		}
@@ -617,9 +873,12 @@ const (
 	oB = 1
 	oC = 2
 	oL = 3
+	oN = 4
 )
 
 func single(owner, mask byte) []byte { return []byte{opSingle, owner, mask} }
+
+func mismatch(owner, pathOwner, mask byte) []byte { return []byte{opMismatch, owner, pathOwner, mask} }
 
 // multi encodes a set; interrupted keeps only the first `sent` parts (sent < len(masks)).
 func multi(owner byte, masks []byte, sent int) []byte {
@@ -662,8 +921,18 @@ func ownedPruneSeeds() [][]byte {
 		prog(single(oA, rDeployAPI|rServiceAPI|rWeb|rCluster), single(oA, rServiceAPI|rDB), multi(oA, []byte{rDB, rPartShapeB, rWeb}, 3), single(oA, rPartShaped)),
 		// Invariant 4: an interrupted multipart set (1 of 2, then 2 of 3) deletes nothing.
 		prog(single(oA, rDeployAPI|rWeb|rDB), multi(oA, []byte{rServiceAPI, rCluster}, 1), multi(oA, []byte{rServiceAPI, rCluster, rPartShaped}, 2), single(oA, rDeployAPI)),
-		// Invariant 5: the legacy cluster identity never prunes, not even on an empty or shrinking set.
+		// Invariant 3 for a cluster inventory: L prunes its own stale files like any owner, down to empty.
 		prog(single(oL, rDeployAPI|rWeb), single(oL, rDB), single(oL, 0), multi(oL, []byte{rServiceAPI, rCluster}, 2), single(oA, rDeployAPI), single(oL, rDeployAPI)),
+		// Invariant 3/4/6 for a cluster inventory: L's A -> B -> A replays A; an interrupted L set deletes nothing.
+		prog(single(oL, rDeployAPI|rWeb), single(oL, rDeployAPI), []byte{opReplay, 1}, multi(oL, []byte{rDB, rCluster}, 1), single(oL, rDB)),
+		// Invariant 5: L and N share an object path but never delete each other's files.
+		prog(single(oL, rCluster|rWeb), single(oN, rDB|rTeamBAPI), single(oL, 0), single(oN, rDB), single(oL, rCluster), single(oN, 0)),
+		// Invariant 5: a path L owns is refused to N (and back), with L's bytes untouched.
+		prog(single(oL, rDeployAPI), single(oN, rDeployAPI|rDB), single(oN, rDB), single(oL, rDB), single(oL, 0), single(oN, rDeployAPI)),
+		// Invariant 8: N owns the shared set manifest; L's set is refused on part 1, nothing committed.
+		prog(multi(oN, []byte{rDB, rWeb}, 2), multi(oL, []byte{rCluster, rServiceAPI}, 2), multi(oL, []byte{rCluster, rServiceAPI, rTeamBAPI}, 3), single(oN, rDB)),
+		// Invariant 9: an identity on another inventory's object path is refused; L on N's path is not a mismatch.
+		prog(single(oA, rDeployAPI), mismatch(oA, oB, rWeb), mismatch(oB, oA, rDeployAPI), mismatch(oL, oA, rCluster), mismatch(oC, oA, rDB), mismatch(oL, oN, rCluster), mismatch(oN, oL, rWeb)),
 		// Invariant 6: A -> B -> A, then replays and a retried final part.
 		prog(single(oA, rDeployAPI|rWeb), single(oB, rTeamBAPI|rPartShapeB), []byte{opReplay, 1}, []byte{opReplay, 1}, single(oA, rWeb), multi(oB, []byte{rTeamBAPI, rDB}, 2), []byte{opRetryFinal}, []byte{opReplay, 2}),
 	}

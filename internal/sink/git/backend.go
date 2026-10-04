@@ -79,6 +79,7 @@ func (b *Backend) filesConfig(opts ExportFilesOptions) Config {
 	cfg.Prune = (cfg.Prune || opts.Prune) && !opts.SuppressPrune
 	cfg.PruneKeepPaths = opts.PruneKeepPaths
 	cfg.PruneOwner = opts.PruneOwner
+	cfg.PruneClaimPaths = opts.PruneClaimPaths
 
 	return cfg
 }

@@ -205,6 +205,11 @@ func prepareOwnedPrune(fs billy.Filesystem, cfg Config, written []string) (*owne
 	}
 	plan.data = append(plan.data, '\n')
 	records[cfg.PruneOwner] = record
+	// The records this commit leaves behind may claim each path once. This is where a recorded
+	// path of another inventory is refused for a record-advancing export.
+	if err := checkSingleClaims(records, cfg.PruneOwner); err != nil {
+		return nil, err
+	}
 	if len(records) > maxPruneOwners {
 		return nil, invalidPrune("prune metadata exceeds %d owners", maxPruneOwners)
 	}
@@ -266,12 +271,71 @@ func validateOwnedPrunePaths(fs billy.Filesystem, cfg Config, written []string, 
 		if err := validatePrunePath(p); err != nil {
 			return nil, err
 		}
-		if owner, ok := owners[p]; ok && owner != cfg.PruneOwner {
-			return nil, invalidPrune("prune path %q belongs to another inventory", p)
+		// A record-advancing export is checked against the records it would commit
+		// (checkSingleClaims); every other call must not write over another owner's path.
+		if !cfg.Prune {
+			if err := checkForeignClaim(cfg, owners, p); err != nil {
+				return nil, err
+			}
 		}
 		if pathErr := checkPruneFile(fs, p); pathErr != nil {
 			return nil, pathErr
 		}
 	}
+	// Claim paths are written by a later call of the same export (the set manifest); refusing them
+	// now keeps a set that cannot finish from committing any part.
+	for _, p := range cfg.PruneClaimPaths {
+		if err := validatePrunePath(p); err != nil {
+			return nil, err
+		}
+		if err := checkForeignClaim(cfg, owners, p); err != nil {
+			return nil, err
+		}
+	}
 	return current, nil
+}
+
+// checkForeignClaim refuses a path another owner's record lists, naming that owner and its record.
+func checkForeignClaim(cfg Config, owners map[string]string, p string) error {
+	owner, ok := owners[p]
+	if !ok || owner == cfg.PruneOwner {
+		return nil
+	}
+
+	return foreignClaimError(p, owner)
+}
+
+func foreignClaimError(p, owner string) error {
+	return invalidPrune("prune path %q belongs to another inventory: %s, ownership record %s",
+		p, describePruneOwner(owner), pruneRecordPath(owner))
+}
+
+// checkSingleClaims asserts, before anything is written, that the ownership records a commit would
+// leave behind claim every path at most once. A path claimed by self (the exporting owner) and by
+// another owner is reported as that other inventory's path.
+func checkSingleClaims(records map[string]pruneRecord, self string) error {
+	claimedBy := make(map[string]string)
+	owners := make([]string, 0, len(records))
+	for owner := range records {
+		owners = append(owners, owner)
+	}
+	sort.Strings(owners)
+	for _, owner := range owners {
+		for _, p := range records[owner].Paths {
+			prev, dup := claimedBy[p]
+			if !dup {
+				claimedBy[p] = owner
+				continue
+			}
+			switch {
+			case prev != owner && owner == self:
+				return foreignClaimError(p, prev)
+			case prev != owner && prev == self:
+				return foreignClaimError(p, owner)
+			}
+			return invalidPrune("ownership records would claim %q twice: %s and %s",
+				p, describePruneOwner(prev), describePruneOwner(owner))
+		}
+	}
+	return nil
 }

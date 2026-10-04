@@ -72,6 +72,7 @@ func TestRunExportEnvelope_GitAutoInfersResourceMode(t *testing.T) {
 		SinkNamespace: "default",
 		SinkName:      "resource-git",
 		ObjectPath:    "inventory/team-a/apps.json",
+		Inventory:     InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "apps"},
 		Envelope:      envelope,
 		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{
 			Type:     kollectdevv1alpha1.SinkTypeGit,

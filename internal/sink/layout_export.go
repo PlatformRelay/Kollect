@@ -5,7 +5,6 @@ package sink
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -113,6 +112,7 @@ func resolveSnapshotExport(
 	invNS, invName string,
 	generation int64,
 	defaultObjectPath string,
+	inventory InventoryIdentity,
 	prunePlan *PrunePlan,
 ) (snapshotExport, error) {
 	if !isGitLayoutFamily(spec.Type) {
@@ -194,27 +194,12 @@ func resolveSnapshotExport(
 	}
 
 	opts := gitExportOpts(resolved.Prune, meta.PartIndex, meta.PartTotal, projectedPaths, prunePlan)
-	// JSON separates identity components without delimiter collisions. Generation
-	// and multipart suffixes must not create a new owner for the same inventory.
-	cluster := resolved.Cluster
-	if cluster == "" {
-		cluster = "default"
-	}
-	owner, err := json.Marshal([3]string{cluster, resolved.InventoryNamespace, baseInventoryName(resolved.InventoryName, meta.PartIndex, meta.PartTotal)})
+	owner, err := inventoryPruneOwner(resolved, inventory)
 	if err != nil {
-		return snapshotExport{}, fmt.Errorf("encode prune owner: %w", err)
+		return snapshotExport{}, err
 	}
-	opts.PruneOwner = string(owner)
-
-	// Both inventory kinds use inventory/cluster/<name> for this legacy identity.
-	// Without a kind/UID in the request, retaining stale files is safer than
-	// letting either inventory prune the other's files.
-	if resolved.InventoryNamespace == "cluster" {
-		opts.SuppressPrune = true
-		if len(gitFiles) == 0 {
-			return snapshotExport{objectPath: resolved.DocumentPath(), run: func(context.Context) error { return nil }}, nil
-		}
-	}
+	opts.PruneOwner = owner
+	opts.PruneClaimPaths = setManifestClaim(resolved, meta.PartIndex, meta.PartTotal, prunePlan)
 
 	gitFiles, err = appendSetManifest(resolved, gitFiles, &opts, meta.PartIndex, meta.PartTotal, prunePlan)
 	if err != nil {
@@ -231,6 +216,48 @@ func resolveSnapshotExport(
 		writtenPaths: writtenPaths,
 		run:          func(ctx context.Context) error { return fileExporter.ExportFiles(ctx, gitFiles, opts) },
 	}, nil
+}
+
+// inventoryPruneOwner is the kind-qualified owner of the files a git layout export writes through
+// FileExporter (ADR-0422). The identity, not the object path, names the owner: a
+// KollectClusterInventory and a KollectInventory in namespace "cluster" render the same path but
+// never share an owner. Generation and multipart suffixes never create a new owner. Every
+// FileExporter call carries an owner (a document-mode export records ownership too when the sink
+// enables git prune), so an export without an identity cannot be attributed and is refused.
+func inventoryPruneOwner(resolved layout.ResolvedLayout, inventory InventoryIdentity) (string, error) {
+	if inventory.IsZero() {
+		return "", fmt.Errorf("git layout export of inventory/%s/%s requires an inventory identity (kind, namespace, name)",
+			resolved.InventoryNamespace, resolved.InventoryName)
+	}
+	if err := inventory.validate(); err != nil {
+		return "", err
+	}
+	cluster := resolved.Cluster
+	if cluster == "" {
+		cluster = "default"
+	}
+
+	return git.InventoryPruneOwner(inventory.Kind, cluster, inventory.Namespace, inventory.Name)
+}
+
+// setManifestClaim returns the set-manifest path a non-final part of a prune-bearing multipart set
+// claims ahead of the final part that writes it. The ownership engine checks it against other
+// inventories' records on every part, so a set whose manifest belongs to another inventory is
+// refused on part 1, before any part is committed.
+func setManifestClaim(resolved layout.ResolvedLayout, partIndex, partTotal int, plan *PrunePlan) []string {
+	if !resolved.Prune || partTotal <= 1 || partIndex >= partTotal || plan == nil {
+		return nil
+	}
+
+	return []string{setManifestPath(resolved, partIndex, partTotal)}
+}
+
+// setManifestPath is the per-set sidecar path, stable across every part of the set.
+func setManifestPath(resolved layout.ResolvedLayout, partIndex, partTotal int) string {
+	setResolved := resolved
+	setResolved.InventoryName = baseInventoryName(resolved.InventoryName, partIndex, partTotal)
+
+	return setResolved.SetManifestPath()
 }
 
 // gitExportOpts decides prune intent for one part of a (possibly multipart) layout export.
@@ -305,7 +332,7 @@ func appendSetManifest(
 	setResolved.InventoryName = baseInventoryName(resolved.InventoryName, partIndex, partTotal)
 
 	union := plan.Union()
-	manifestPath := setResolved.SetManifestPath()
+	manifestPath := setManifestPath(resolved, partIndex, partTotal)
 
 	// Fail loudly rather than silently overwrite a data file, mirroring the split-index collision
 	// guard: a custom template must never render the manifest onto a projected resource path.

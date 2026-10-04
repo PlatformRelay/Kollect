@@ -409,9 +409,12 @@ func (r *KollectInventoryReconciler) exportToSinks(
 					SinkName:      job.binding.Name,
 					SinkUID:       job.resolved.UID,
 					ObjectPath:    partPath,
-					Envelope:      part.Envelope,
-					SinkSpec:      job.resolved.Spec,
-					PrunePlan:     prunePlan,
+					Inventory: sink.InventoryIdentity{
+						Kind: sink.InventoryKindNamespaced, Namespace: inv.Namespace, Name: inv.Name,
+					},
+					Envelope:  part.Envelope,
+					SinkSpec:  job.resolved.Spec,
+					PrunePlan: prunePlan,
 				})
 				if exportErr != nil {
 					break

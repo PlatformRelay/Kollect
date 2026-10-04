@@ -84,6 +84,10 @@ type ExportFilesOptions struct {
 	PruneOwner     string
 	PruneKeepPaths []string
 	SuppressPrune  bool
+	// PruneClaimPaths are paths a later part of the same set will write (the set manifest). They are
+	// claim-checked against other owners now, so a set whose manifest belongs to another inventory
+	// is rejected before any part is committed.
+	PruneClaimPaths []string
 }
 
 // ExportFilesWithBranch writes a set of files in a single commit and pushes to the remote (ADR-0419).
