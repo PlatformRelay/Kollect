@@ -3,7 +3,7 @@
 Forward-looking work that has not shipped. This page is intentionally shorter than the engineering
 backlog: it describes user-visible directions, not every implementation task.
 
-**Last verified:** 2026-09-21 against **v0.20.0**. BigQuery and NATS already ship; completed work
+**Last verified:** 2026-10-04 against **v0.21.0**. BigQuery and NATS already ship; completed work
 belongs in the [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md).
 
 ## Status legend
@@ -52,16 +52,6 @@ schema-evolution documentation, manifest metadata, and broader interoperability 
 
 No Azure backend ships today. Graduation requires a concrete authentication model, emulator or
 integration coverage, connection tests, redacted errors, and operator documentation.
-
-### Multipart export completeness for Git sinks
-
-**Status: Planned**
-
-Sharded (large) exports written to Git/GitLab in the default YAML layout will emit a per-set
-manifest sidecar recording the export generation and expected part count, so operators and CI can
-verify from the YAML output that a snapshot set is complete rather than torn or stale. The
-JSON/object-store sinks already carry this completeness marker; this extends the same guarantee to
-the default YAML sinks.
 
 ## API & tenancy
 
