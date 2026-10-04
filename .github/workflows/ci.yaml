@@ -469,6 +469,8 @@ jobs:
         run: task test-integration
         env:
           CI: "true"
+          # Docker is promised on this runner: fail, never skip, when a container cannot start.
+          KOLLECT_REQUIRE_DOCKER: "true"
 
   helm:
     name: helm

@@ -47,7 +47,7 @@ func startNATSTestContainer(t *testing.T) string {
 	)
 	if err != nil {
 		if integrationtest.IsDockerUnavailable(err) {
-			t.Skipf("docker not available: %v", err)
+			integrationtest.SkipDockerUnavailable(t, err)
 		}
 
 		t.Fatalf("start nats: %v", err)
