@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **pipeline:** Resolve git.auth.secretRef and tls.caSecretRef [1586d31](https://github.com/platformrelay/kollect/commit/1586d31b6470efb927dbaad3d966e22a2d9e4e60)
+
 - **docs:** Keep release-truth claims on GA releases [ba49406](https://github.com/platformrelay/kollect/commit/ba4940647e230581eed81dee9e260dbb310bf90d)
 
 - **docs:** Check release claims against the chart version [b3d9433](https://github.com/platformrelay/kollect/commit/b3d9433bee13d16a8001b13c92463729f7f49465)
