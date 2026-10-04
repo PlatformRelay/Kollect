@@ -98,8 +98,7 @@ class DocsLaunchTruthTest(unittest.TestCase):
 
     def test_chart_behind_changelog_fails(self) -> None:
         # Docs move down with the chart, so only the ordering guard can reject this state.
-        major, minor, _ = self.current.split(".")
-        older = f"{major}.{int(minor) - 1}.0"
+        older = "0.0.1"
         self.bump_chart(older)
         self.bump_docs(self.current, older)
 
@@ -146,6 +145,8 @@ class DocsLaunchTruthTest(unittest.TestCase):
         result = self.run_check()
 
         self.assertNotEqual(result.returncode, 0, "stale docs passed at GA prep after an RC")
+        self.assertIn(f"v{candidate}", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
