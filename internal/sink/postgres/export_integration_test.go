@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 
@@ -546,6 +547,153 @@ func TestNewBackend_authFailureFailFast(t *testing.T) {
 	if elapsed > 10*time.Second {
 		t.Fatalf("TestConnection auth failure took %s, want fail-fast", elapsed)
 	}
+}
+
+// TestNewBackend_ExistingMode drives the production provisioning.mode=existing path through
+// NewBackend against a real server: the table is verified, never created, and a role without
+// CREATE can still construct the backend (ADR-0416 §5).
+func TestNewBackend_ExistingMode(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short mode")
+	}
+
+	ctx, connStr := startIntegrationPostgres(t)
+
+	admin, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(admin.Close)
+
+	createTable := func(t *testing.T, table string) {
+		t.Helper()
+
+		if _, err := admin.Exec(ctx, fmt.Sprintf(`
+CREATE TABLE public.%s (
+  inventory_namespace TEXT NOT NULL,
+  inventory_name TEXT NOT NULL,
+  target_name TEXT NOT NULL,
+  source_uid TEXT NOT NULL,
+  cluster TEXT NOT NULL DEFAULT '',
+  resource_namespace TEXT NOT NULL DEFAULT '',
+  payload JSONB NOT NULL,
+  exported_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (inventory_namespace, inventory_name, target_name, source_uid)
+)`, table)); err != nil {
+			t.Fatalf("create table %s: %v", table, err)
+		}
+	}
+
+	relkind := func(t *testing.T, table string) string {
+		t.Helper()
+
+		var kind *string
+		if err := admin.QueryRow(ctx, `
+SELECT c.relkind::text FROM pg_catalog.pg_class c WHERE c.oid = to_regclass($1)
+`, "public."+table).Scan(&kind); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatalf("probe %s: %v", table, err)
+		}
+		if kind == nil {
+			return ""
+		}
+
+		return *kind
+	}
+
+	t.Run("table absent is not found and not created", func(t *testing.T) {
+		const table = "existing_absent"
+
+		_, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(connStr)})
+		if !errors.Is(err, ErrTableNotFound) {
+			t.Fatalf("NewBackend() error = %v, want ErrTableNotFound", err)
+		}
+		if kind := relkind(t, table); kind != "" {
+			t.Fatalf("existing mode created relation %s (relkind %q), want none", table, kind)
+		}
+	})
+
+	t.Run("table present", func(t *testing.T) {
+		const table = "existing_present"
+		createTable(t, table)
+
+		backend, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(connStr)})
+		if err != nil {
+			t.Fatalf("NewBackend() error = %v, want nil", err)
+		}
+		backend.Close()
+	})
+
+	t.Run("role without CREATE privilege", func(t *testing.T) {
+		const table = "existing_least_privilege"
+		createTable(t, table)
+
+		for _, stmt := range []string{
+			`CREATE ROLE kollect_writer LOGIN PASSWORD 'writer'`,
+			`REVOKE CREATE ON SCHEMA public FROM PUBLIC`,
+			`GRANT USAGE ON SCHEMA public TO kollect_writer`,
+			fmt.Sprintf(`GRANT SELECT, INSERT, UPDATE, DELETE ON public.%s TO kollect_writer`, table),
+		} {
+			if _, err := admin.Exec(ctx, stmt); err != nil {
+				t.Fatalf("%s: %v", stmt, err)
+			}
+		}
+
+		var canCreate bool
+		if err := admin.QueryRow(ctx,
+			`SELECT has_schema_privilege('kollect_writer', 'public', 'CREATE')`,
+		).Scan(&canCreate); err != nil {
+			t.Fatal(err)
+		}
+		if canCreate {
+			t.Fatal("precondition: kollect_writer must lack CREATE on schema public")
+		}
+
+		writerDSN, err := rewritePostgresUser(connStr, "kollect_writer", "writer")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		backend, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(writerDSN)})
+		if err != nil {
+			t.Fatalf("NewBackend() as role without CREATE: error = %v, want nil", err)
+		}
+		backend.Close()
+	})
+
+	t.Run("view with the table name is rejected", func(t *testing.T) {
+		const table = "existing_view"
+		if _, err := admin.Exec(ctx, fmt.Sprintf(`CREATE VIEW public.%s AS SELECT 1 AS x`, table)); err != nil {
+			t.Fatalf("create view: %v", err)
+		}
+
+		_, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(connStr)})
+		if !errors.Is(err, ErrTableNotFound) {
+			t.Fatalf("NewBackend() with a view named %s: error = %v, want ErrTableNotFound", table, err)
+		}
+	})
+}
+
+func existingModeSpec(table string) kollectdevv1alpha1.KollectSinkSpec {
+	return kollectdevv1alpha1.KollectSinkSpec{
+		Type:         "postgres",
+		Cluster:      "existing-cluster",
+		Provisioning: &kollectdevv1alpha1.ProvisioningSpec{Mode: kollectdevv1alpha1.ProvisioningModeExisting},
+		Postgres: &kollectdevv1alpha1.PostgresSpec{
+			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+			Table:       table,
+			Schema:      "public",
+		},
+	}
+}
+
+func rewritePostgresUser(dsn, user, password string) (string, error) {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return "", err
+	}
+	u.User = url.UserPassword(user, password)
+
+	return u.String(), nil
 }
 
 func startIntegrationPostgres(t *testing.T) (context.Context, string) {
