@@ -281,7 +281,7 @@ func (r *KollectTargetReconciler) setDegraded(
 	setSinkReachableCondition(&target.Status.Conditions, target.Generation, false, reason, message)
 	_, err := setTargetCondition(
 		ctx, r.Client, target, target.Generation, &target.Status.Conditions,
-		conditionDegraded, metav1.ConditionTrue, reason, message,
+		conditionDegraded, reason, message,
 	)
 
 	return err
@@ -343,7 +343,7 @@ func (r *KollectTargetReconciler) setReady(
 	setSyncedCondition(&target.Status.Conditions, target.Generation, true, syncedReason, syncedMsg)
 	written, err := setTargetCondition(
 		ctx, r.Client, target, target.Generation, &target.Status.Conditions,
-		conditionReady, metav1.ConditionTrue, reasonCollecting,
+		conditionReady, reasonCollecting,
 		msg,
 	)
 	if err != nil {

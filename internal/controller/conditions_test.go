@@ -49,7 +49,7 @@ func TestSetTargetCondition_skipsUnchanged(t *testing.T) {
 	msg := "profileRef \"apps\" resolved; collecting 3 resource(s)"
 	written, err := setTargetCondition(
 		bgCtx, cl, target, 2, &target.Status.Conditions,
-		conditionReady, metav1.ConditionTrue, "Collecting", msg,
+		conditionReady, "Collecting", msg,
 	)
 	if err != nil {
 		t.Fatalf("setTargetCondition: %v", err)

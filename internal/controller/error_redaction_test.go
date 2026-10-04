@@ -455,7 +455,7 @@ func TestClusterTargetSetDegraded_redactsMessage(t *testing.T) {
 		Build()
 
 	r := &KollectClusterTargetReconciler{Client: cl, Scheme: scheme}
-	if err := r.setDegraded(context.Background(), ct, "InformerRegistrationFailed", leakErr().Error()); err != nil {
+	if err := r.setDegraded(context.Background(), ct, "InformerRegistrationFailed", leakErr().Error(), false); err != nil {
 		t.Fatalf("setDegraded: %v", err)
 	}
 

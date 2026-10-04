@@ -4,6 +4,7 @@
 package inventory
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,12 +14,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
@@ -348,6 +352,65 @@ func TestServerHandleWatchNilStore(t *testing.T) {
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", rec.Code)
+	}
+}
+
+// syncBuffer is a concurrency-safe io.Writer for capturing logger output while the server
+// goroutine runs.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.String()
+}
+
+// TestServerStart_nilAuthDoesNotPanic is the D6 lock: the struct nil-guards Auth as optional
+// (server.go:46) but the listen log dereferenced it (server.go:76). A zero-value Server must
+// not panic; it must log authMode=disabled.
+func TestServerStart_nilAuthDoesNotPanic(t *testing.T) {
+	var buf syncBuffer
+	logger := zap.New(zap.WriteTo(&buf), zap.UseDevMode(true))
+	ctx, cancel := context.WithCancel(logf.IntoContext(context.Background(), logger))
+	defer cancel()
+
+	srv := &Server{Enabled: true, Port: freeTCPPort(t), Store: collect.NewStore()}
+
+	panicCh := make(chan any, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		defer func() { panicCh <- recover() }()
+		errCh <- srv.Start(ctx)
+	}()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && !strings.Contains(buf.String(), "inventory HTTP listening") {
+		time.Sleep(10 * time.Millisecond)
+	}
+	cancel()
+
+	select {
+	case p := <-panicCh:
+		if p != nil {
+			t.Fatalf("Start panicked with nil Auth: %v", p)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Start did not return after cancel")
+	}
+
+	if !strings.Contains(buf.String(), "authMode") || !strings.Contains(buf.String(), "disabled") {
+		t.Fatalf("log = %q, want authMode=disabled", buf.String())
 	}
 }
 
