@@ -13,10 +13,11 @@ import (
 )
 
 // reviewG1 lock: a crashed go-git export can leave an untracked candidate file
-// in the shared mirror (written before staging). removeWorktreeCandidates must
+// in the shared mirror (written before staging). releaseInWorktree (the go-git
+// engine's production removal) must
 // tolerate it: the disk removal is the whole effect, no error is raised, and it
 // stages no index change, so the caller never attempts an empty deletion commit.
-func TestRemoveWorktreeCandidates_UntrackedDirtIsTolerated(t *testing.T) {
+func TestReleaseInWorktree_UntrackedDirtIsTolerated(t *testing.T) {
 	dir := t.TempDir()
 	repo, initErr := git.PlainInit(dir, false)
 	if initErr != nil {
@@ -59,10 +60,10 @@ func TestRemoveWorktreeCandidates_UntrackedDirtIsTolerated(t *testing.T) {
 		t.Fatalf("WriteFile(untracked): %v", err)
 	}
 
-	removed, rmErr := removeWorktreeCandidates(wt, []string{
+	removed, rmErr := releaseInWorktree(wt, Config{}, []string{
 		"inventory/team-b/inv.json",
 		"inventory/team-a/inv.json",
-	}, nil)
+	})
 	if rmErr != nil {
 		t.Fatalf("DEFECT: untracked dirt errored the go-git deletion: %v", rmErr)
 	}

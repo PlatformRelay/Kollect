@@ -225,6 +225,9 @@ func TestRunCleanupExport_gitReleaseFailureIsRetried(t *testing.T) {
 		if err == nil {
 			t.Fatal("Retain release against a missing remote succeeded; the record cannot have been released")
 		}
+		if kollecterrors.IsTerminal(err) {
+			t.Fatalf("Retain release against a missing remote is terminal (%v); an unreachable backend must stay transient so the finalizer retries", err)
+		}
 	})
 }
 
@@ -243,5 +246,50 @@ func TestRunCleanupExport_gitReleaseNeedsIdentity(t *testing.T) {
 	}
 	if built != 0 {
 		t.Fatalf("backend built %d times without an identity", built)
+	}
+}
+
+// TestRunCleanupExport_releaseUsesSinkCluster (ROD-1, ROD-3): the cleanup derives the owner with the
+// sink's spec.cluster, as the export does. The same inventory exported through a "prod" sink and a
+// default-cluster sink of one repository has two records; deleting it through the prod sink releases
+// only the prod record and, under Delete, removes only the prod files.
+func TestRunCleanupExport_releaseUsesSinkCluster(t *testing.T) {
+	for _, policy := range []string{kollectdevv1alpha1.DeletionPolicyRetain, kollectdevv1alpha1.DeletionPolicyDelete} {
+		t.Run(policy, func(t *testing.T) {
+			r := newIdentityRemote(t)
+			item := []collect.Item{identityItem("", "ClusterRole", "admin", "L")}
+			if err := r.export(clusterPlatform, platformObjectPath, item, 1, 1, nil); err != nil {
+				t.Fatal(err)
+			}
+			r.spec.Cluster = "prod"
+			if err := r.export(clusterPlatform, platformObjectPath, item, 1, 1, nil); err != nil {
+				t.Fatal(err)
+			}
+			prodOwner, err := git.InventoryPruneOwner(clusterPlatform.Kind, "prod", "", clusterPlatform.Name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			prodRecord := fmt.Sprintf(".kollect-prune/%x.json", sha256.Sum256([]byte(prodOwner)))
+			defaultRecord := recordPathOf(t, clusterPlatform)
+			before := r.files()
+			for _, p := range []string{prodRecord, defaultRecord, "prod/clusterrole/admin.yaml", lResource} {
+				if _, ok := before[p]; !ok {
+					t.Fatalf("seed is missing %s; files %v", p, dataPaths(before))
+				}
+			}
+
+			if _, err := r.cleanup(clusterPlatform, policy, false); err != nil {
+				t.Fatalf("%s cleanup through the prod sink: %v", policy, err)
+			}
+			want := []string{prodRecord}
+			if policy == kollectdevv1alpha1.DeletionPolicyDelete {
+				want = append(want, "prod/clusterrole/admin.yaml")
+			}
+			sort.Strings(want)
+			if got := changedPaths(before, r.files()); strings.Join(got, ",") != strings.Join(want, ",") {
+				t.Fatalf("%s deletion through the prod sink changed %v, want exactly %v "+
+					"(FORBIDDEN: the default-cluster owner's record or files touched)", policy, got, want)
+			}
+		})
 	}
 }

@@ -252,9 +252,9 @@ func TestRemoveDiskCandidates_SkipsMissingAndNonMatching(t *testing.T) {
 	}
 }
 
-// removeWorktreeCandidates skips a missing directory, subdirectories and
+// releaseInWorktree (go-git production removal) skips a missing directory, subdirectories and
 // non-matching files, and stages the matching removal.
-func TestRemoveWorktreeCandidates_SkipsMissingAndNonMatching(t *testing.T) {
+func TestReleaseInWorktree_SkipsMissingAndNonMatching(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -267,7 +267,7 @@ func TestRemoveWorktreeCandidates_SkipsMissingAndNonMatching(t *testing.T) {
 		t.Fatalf("Worktree: %v", err)
 	}
 
-	if removed, rmErr := removeWorktreeCandidates(wt, []string{"inventory/team-gone/inv.json"}, nil); rmErr != nil || removed != nil {
+	if removed, rmErr := releaseInWorktree(wt, Config{}, []string{"inventory/team-gone/inv.json"}); rmErr != nil || removed != nil {
 		t.Fatalf("missing dir = %v/%v, want nil/nil", removed, rmErr)
 	}
 
@@ -290,9 +290,9 @@ func TestRemoveWorktreeCandidates_SkipsMissingAndNonMatching(t *testing.T) {
 		t.Fatalf("Commit: %v", rmErr)
 	}
 
-	removed, rmErr := removeWorktreeCandidates(wt, []string{"inventory/team-a/inv.json"}, nil)
+	removed, rmErr := releaseInWorktree(wt, Config{}, []string{"inventory/team-a/inv.json"})
 	if rmErr != nil {
-		t.Fatalf("removeWorktreeCandidates: %v", rmErr)
+		t.Fatalf("releaseInWorktree: %v", rmErr)
 	}
 	if len(removed) != 1 || removed[0] != "inventory/team-a/inv.json" {
 		t.Fatalf("removed = %v, want the exact candidate only", removed)

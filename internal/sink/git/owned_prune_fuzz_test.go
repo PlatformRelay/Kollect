@@ -213,7 +213,9 @@ func (m *ownedModel) predict(c exportCall) (reject bool, deletes map[string]bool
 	}
 	keep := toSet(c.keep)
 	for p, o := range m.recordedBy {
-		if o == c.owner && !keep[p] {
+		// A recorded path can be absent (a record lists what the export projected, not what the
+		// repository still holds); an absent file is not a deletion.
+		if o == c.owner && !keep[p] && m.present[p] {
 			deletes[p] = true
 		}
 	}
@@ -232,6 +234,13 @@ func (m *ownedModel) apply(c exportCall, deletes map[string]bool) {
 		m.writer[p] = fuzzOwners[c.owner].writer
 	}
 	if c.complete {
+		// The committed record lists exactly keep: every other claim of this owner, present or
+		// not, is dropped.
+		for p, o := range m.recordedBy {
+			if o == c.owner {
+				delete(m.recordedBy, p)
+			}
+		}
 		for _, p := range c.keep {
 			m.recordedBy[p] = c.owner
 		}
@@ -250,7 +259,7 @@ func (m *ownedModel) predictDelete(owner int, keepFiles bool) map[string]bool {
 		return deletes
 	}
 	for p, o := range m.recordedBy {
-		if o == owner {
+		if o == owner && m.present[p] {
 			deletes[p] = true
 		}
 	}
@@ -513,6 +522,15 @@ func (h *ownedPruneHarness) deleteInventory(owner, mode int) {
 	shared := mode == 2
 	keepFiles := mode != 1
 	where := fmt.Sprintf("step %d, deletion of %s (%s, shared identity %t)", h.step, actor.label, policy, shared)
+
+	// A multipart accumulator (PrunePlan) lives for one reconcile of a live inventory
+	// (kollectinventory_controller.go): no part of a set started before the deletion is ever sent
+	// after it. Drop the deleted owner's pending sets so opRetryFinal cannot resume one.
+	for _, op := range h.history {
+		if op.owner == owner {
+			op.plan = nil
+		}
+	}
 
 	before := h.repoFiles()
 	beforeDigests := h.repoDigests()
@@ -1112,6 +1130,10 @@ func ownedPruneSeeds() [][]byte {
 		// Invariants 10-12: a Delete retraction removes the owner's tree and its unrecorded manifest
 		// candidate but never another owner's file; recreate starts a new record; deleting twice is a no-op.
 		prog([]byte{opUnknown, 2}, single(oB, rTeamBAPI), multi(oA, []byte{rDeployAPI, rWeb}, 2), del(oA, delDelete), del(oA, delDelete), []byte{opReplay, 0}, del(oB, delRetain), del(oC, delRetain), single(oA, rTeamBAPI)),
+		// Fuzz crashers (model defects, PR #417 review F1): a deletion followed by a retried final
+		// part or a replay of the deleted owner's multipart set.
+		[]byte("2800A1081C081"),
+		[]byte("2012001001C100"),
 		// Invariant 6: A -> B -> A, then replays and a retried final part.
 		prog(single(oA, rDeployAPI|rWeb), single(oB, rTeamBAPI|rPartShapeB), []byte{opReplay, 1}, []byte{opReplay, 1}, single(oA, rWeb), multi(oB, []byte{rTeamBAPI, rDB}, 2), []byte{opRetryFinal}, []byte{opReplay, 2}),
 	}

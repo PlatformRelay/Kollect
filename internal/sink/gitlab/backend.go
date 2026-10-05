@@ -168,6 +168,12 @@ func (b *Backend) ReleaseExport(ctx context.Context, paths []string, opts git.Re
 	}
 
 	branchHasWork := len(deleted) > 0
+	if !branchHasWork && opts.KeepFiles {
+		// A record-only release (Retain) that removed nothing has nothing to merge. The feature
+		// branch of the deleted inventory's past exports may still exist; probing it would open or
+		// reopen a merge request for an inventory that no longer exists.
+		return nil, nil
+	}
 	if !branchHasWork {
 		// Either nothing was ever exported (no branch: nothing to merge) or a
 		// branch is present that may hold a deletion commit an earlier attempt

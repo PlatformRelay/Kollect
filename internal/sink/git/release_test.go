@@ -348,3 +348,33 @@ func TestExportFiles_legacyDirectoryPruneKeepsRecordedPaths(t *testing.T) {
 		})
 	}
 }
+
+// ROD-2 / design D2: a Retain release reads only the deleting owner's record, so a damaged record of
+// another inventory does not hold it. A Delete retraction must know every claim, so the same damage
+// makes it terminal and it removes nothing.
+func TestReleaseExport_damagedForeignRecord(t *testing.T) {
+	for _, engine := range releaseEngines {
+		t.Run(engine, func(t *testing.T) {
+			f := newReleaseFixture(t)
+			damaged := ".kollect-prune/" + strings.Repeat("ab", 32) + ".json"
+			plantRecord(t, f.remote, damaged, []byte("{not json"))
+			before, commits := f.tree(t), f.commits(t)
+
+			_, delErr := f.release(t, engine, f.candidates, ReleaseOptions{Owner: f.ownerA})
+			if delErr == nil || !kollecterrors.IsTerminal(delErr) {
+				t.Fatalf("Delete over a damaged record: err = %v, want terminal", delErr)
+			}
+			if got := diffTrees(before, f.tree(t)); len(got) != 0 || f.commits(t) != commits {
+				t.Fatalf("refused Delete changed %v", got)
+			}
+
+			if _, err := f.release(t, engine, f.candidates, ReleaseOptions{Owner: f.ownerA, KeepFiles: true}); err != nil {
+				t.Fatalf("Retain release blocked by another inventory's damaged record: %v", err)
+			}
+			got := diffTrees(before, f.tree(t))
+			if len(got) != 1 || got[0] != pruneRecordPath(f.ownerA) {
+				t.Fatalf("Retain release changed %v, want only A's record (the damaged record must stay)", got)
+			}
+		})
+	}
+}
