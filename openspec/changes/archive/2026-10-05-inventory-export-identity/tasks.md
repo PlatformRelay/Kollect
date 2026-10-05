@@ -41,9 +41,9 @@ Slice 1 of INVENTORY-IDENTITY-01. Option A for every inventory, decided by the o
   updated; ADR-0421 `Retain` note on recreated inventories; ADR index status
 - [x] 3.2 Release-note text (docs/operator-manual/upgrading.md, "Git export ownership by inventory identity") (by hand, git-cliff uses titles only): cluster inventories prune again;
   shared-path rejection naming the owner; records from earlier `main` builds are not migrated
-- [ ] 3.3 CI green on the PR head
+- [x] 3.3 CI green on the PR head (40 pass at 19ba4ac81 before the final rebase; re-run on the archive commit)
 - [x] 3.4 Independent adversarial review (REQUEST CHANGES F1/F2 fixed: non-final foreign-path test, GitLab claim-path forwarding test; mutants M1, M9 killed)
-- [ ] 3.5 Archive the change as the last commit of the PR
+- [x] 3.5 Archive the change as the last commit of the PR
 
 ## 4. Follow-ups (later slices, out of scope here)
 
