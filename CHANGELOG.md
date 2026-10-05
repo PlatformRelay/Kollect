@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Make the commit identity check fail closed ([#415](https://github.com/platformrelay/kollect/pull/415))[edb2449](https://github.com/platformrelay/kollect/commit/edb2449045089db6ea757505a283b0b9581ee439)
+
 - **postgres:** Accept only tables in the existing-mode probe [1480fca](https://github.com/platformrelay/kollect/commit/1480fca8afcbba312aa54fbbd1911143a0e0b643)
 
 - **sink:** Privilege-independent table probe and MongoDB preview [9fe4748](https://github.com/platformrelay/kollect/commit/9fe4748dc7da457fe9138f53ac91d6db22ded8b8)
