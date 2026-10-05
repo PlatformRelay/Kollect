@@ -42,8 +42,11 @@ rules:
     - >-
       End with a "Verification" section: a table mapping each requirement ID to
       the named check, expected outcome and evidence, with status pass, fail,
-      blocked, not-run or N/A (with a reason). Planned checks stay not-run until
-      they have been executed.
+      blocked, not-run, post-merge or N/A (with a reason). Planned checks stay
+      not-run until they have been executed. Use post-merge only for evidence
+      that cannot exist before the merge (a workflow that fires from the default
+      branch, a bot reading config from main, N days green); it must link an
+      open follow-up issue that owns the row.
     - >-
       Evidence names the revision, the command, what ran and what was skipped,
       the tool versions and the known limitations. Link CI runs; do not paste logs.
@@ -59,3 +62,5 @@ rules:
       Archive the change as the last commit of its PR, after the review and
       green CI, so the archived tasks.md does not keep not-run rows; the
       reviewer re-checks the archive commit and the record names both revisions.
+      A change with post-merge rows merges unarchived; a follow-up evidence PR
+      fills those rows and carries the archive commit.

@@ -66,7 +66,11 @@ Identity, persisted metadata, compatibility and migration changes need a `design
 | IEE-5 | real Docker integration run | expected = executed, 0 skipped | not-run | needs CI |
 ```
 
-Status is one of `pass`, `fail`, `blocked`, `not-run` or `N/A` (with a reason). Evidence names the
+Status is one of `pass`, `fail`, `blocked`, `not-run`, `post-merge` or `N/A` (with a reason).
+`post-merge` is only for evidence that cannot exist before the merge, such as a workflow that only
+fires from the default branch, a bot that reads its config from `main`, or "N days green". The row
+links an open follow-up issue that owns it. Such a change merges without the archive commit; a
+small follow-up evidence PR fills the rows and archives the change. Evidence names the
 revision, the command, what ran and what was skipped, the tool versions and the known limitations.
 Link CI runs instead of pasting logs. When a test found a failing input (a seed or a fuzz corpus
 entry), keep that input as a regression fixture.
