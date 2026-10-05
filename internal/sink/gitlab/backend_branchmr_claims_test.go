@@ -201,3 +201,29 @@ func TestBranchNameForExport_kindSeparatesSamePathInventories(t *testing.T) {
 		t.Fatalf("kind-less branch for inventory/team-a/apps = %q", got)
 	}
 }
+
+// TestBackend_BranchMR_documentExportRoutesByKind (IEI-11): the document-mode Export path picks the
+// merge-request branch from the commit context's kind, not from the object path, so a namespaced
+// inventory in namespace cluster lands on its own branch and a cluster inventory on _cluster. The
+// branch is pushed before the merge-request API call, which a file:// remote cannot serve.
+func TestBackend_BranchMR_documentExportRoutesByKind(t *testing.T) {
+	for _, tc := range []struct {
+		kind, ns, want string
+	}{
+		{kindNamespacedInventory, "cluster", "kollect/cluster/platform"},
+		{kindClusterInventory, "", "kollect/_cluster/platform"},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			remote, _ := seedGitLabTestRemote(t)
+			b := newFileBranchMRBackend(remote)
+			ctx := git.WithCommitContext(t.Context(), git.CommitContext{Kind: tc.kind, Namespace: tc.ns, Name: "platform"})
+			err := b.Export(ctx, []byte("kind: Inventory\n"), "inventory/cluster/platform.json")
+			if err != nil && !strings.Contains(err.Error(), "gitlab endpoint must use https or http") {
+				t.Fatalf("export: %v", err)
+			}
+			if got := remoteBranches(t, remote, "kollect"); len(got) != 1 || got[0] != tc.want {
+				t.Fatalf("feature branches = %v, want [%s]", got, tc.want)
+			}
+		})
+	}
+}
