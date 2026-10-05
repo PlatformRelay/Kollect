@@ -45,19 +45,33 @@ func exportViaCLI(
 		defer func() { _ = os.RemoveAll(workdir) }()
 	}
 
+	return exportViaCLIInWorkdir(ctx, cfg, auth, cli, workdir, cloneURL, cloneBranch, pushBranch, files, commitCtx)
+}
+
+// exportViaCLIInWorkdir is the CLI export once the mirror workdir is chosen: a cold directory is
+// cloned, a warm one is fetched and keeps its local branches.
+func exportViaCLIInWorkdir(
+	ctx context.Context,
+	cfg Config,
+	auth Auth,
+	cli *cliEnv,
+	workdir, cloneURL, cloneBranch, pushBranch string,
+	files []FileEntry,
+	commitCtx CommitContext,
+) error {
 	cloneURLForCLI := cloneURLForAuth(cloneURL, auth, cli)
 
-	if err = prepareCLIWorkdir(ctx, workdir, cloneURLForCLI, cloneBranch, pushBranch, cfg, cli); err != nil {
+	if err := prepareCLIWorkdir(ctx, workdir, cloneURLForCLI, cloneBranch, pushBranch, cfg, cli); err != nil {
 		return err
 	}
 
 	fs := osfs.New(workdir)
-	paths := make([]string, 0, len(files))
-	for _, f := range files {
-		paths = append(paths, f.Path)
-	}
+	paths := entryPaths(files)
 	owned, err := prepareOwnedPrune(fs, cfg, paths)
 	if err != nil {
+		return err
+	}
+	if err = checkCLIMergeTargetClaims(workdir, cloneBranch, pushBranch, cfg, paths); err != nil {
 		return err
 	}
 

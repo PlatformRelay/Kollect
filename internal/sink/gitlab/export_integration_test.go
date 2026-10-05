@@ -309,7 +309,7 @@ func TestExportGitLabMergeRequestMode(t *testing.T) {
 
 	const objectPath = "inventory/team-a/platform.json"
 	payload := []byte(`{"integration":true,"sink":"gitlab-mr"}`)
-	featureBranch := BranchNameForExport("", "team-a", "platform")
+	featureBranch := BranchNameForExport("", "KollectInventory", "team-a", "platform")
 
 	if err := backend.Export(ctx, payload, objectPath); err != nil {
 		t.Fatalf("Export MR mode: %v", err)

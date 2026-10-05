@@ -91,13 +91,13 @@ func TestValidateMergeRequestConfig(t *testing.T) {
 func TestBranchNameForExport(t *testing.T) {
 	t.Parallel()
 
-	got := BranchNameForExport("", "team-a", "inventory")
+	got := BranchNameForExport("", "KollectInventory", "team-a", "inventory")
 	want := "kollect/team-a/inventory"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 
-	custom := BranchNameForExport("exports", "ns", "inv")
+	custom := BranchNameForExport("exports", "KollectInventory", "ns", "inv")
 	if custom != "exports/ns/inv" {
 		t.Fatalf("custom prefix = %q", custom)
 	}

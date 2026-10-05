@@ -188,6 +188,20 @@ func exportRemote(
 		defer func() { _ = os.RemoveAll(workdir) }()
 	}
 
+	return exportRemoteInWorkdir(ctx, cfg, authMethod, req, files, commitCtx, workdir)
+}
+
+// exportRemoteInWorkdir is the go-git export once the mirror workdir is chosen: a cold directory is
+// cloned, a warm one is fetched and keeps its local branches.
+func exportRemoteInWorkdir(
+	ctx context.Context,
+	cfg Config,
+	authMethod transport.AuthMethod,
+	req exportRequest,
+	files []FileEntry,
+	commitCtx CommitContext,
+	workdir string,
+) error {
 	repo, emptyRemote, err := openOrWarmMirror(ctx, workdir, req.cloneURL, req.cloneBranch, cfg.CloneDepth, authMethod, cfg)
 	if err != nil {
 		return err
@@ -200,6 +214,12 @@ func exportRemote(
 
 	if checkoutErr := checkoutMirrorBranch(repo, wt, req.cloneBranch, req.pushBranch); checkoutErr != nil {
 		return fmt.Errorf("checkout branch: %w", checkoutErr)
+	}
+	if req.pushBranch != req.cloneBranch {
+		targetRef := plumbing.NewBranchReferenceName(req.cloneBranch)
+		if claimErr := checkMergeTargetClaims(repo, targetRef, req.cloneBranch, cfg, entryPaths(files)); claimErr != nil {
+			return claimErr
+		}
 	}
 
 	writtenPaths, err := writeBillyExportFiles(wt.Filesystem, cfg, files)

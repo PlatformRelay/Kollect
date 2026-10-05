@@ -259,6 +259,8 @@ func RunExportEnvelope(req ExportEnvelopeRequest) ([]string, error) {
 	commitCtx := git.CommitContextFromExport(
 		envelope, plan.objectPath, strings.TrimSpace(req.SinkSpec.Cluster), req.SinkName,
 	)
+	// The kind keeps a GitLab merge-request branch per inventory: the two kinds can share a path.
+	commitCtx.Kind = req.Inventory.Kind
 	exportCtx := git.WithCommitContext(req.Ctx, commitCtx)
 
 	start := time.Now()
