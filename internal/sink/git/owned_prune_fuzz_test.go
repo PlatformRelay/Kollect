@@ -35,7 +35,7 @@ import (
 // predicts the repo file set, the rejections, the deletions, the file contents and the committed
 // ownership records from that alone.
 //
-// Program bytes (each opcode byte is taken mod 6; missing bytes read as 0):
+// Program bytes (each opcode byte is taken mod 7; missing bytes read as 0):
 //
 //	0 owner mask             complete single-part export of the resources in mask
 //	1 owner n masks... cut   multipart export of 2+n%2 parts; cut%3==0 interrupts it
@@ -43,6 +43,8 @@ import (
 //	3 back                   replay an earlier export operation (A->B->A, retries)
 //	4                        retry the final part of the latest multipart set, same accumulator
 //	5 owner other mask       single-part export carrying owner's identity on other's object path
+//	6 owner mode             delete inventory owner through sink.RunCleanupExport: mode%3 is
+//	                         0 Retain, 1 Delete, 2 Delete with a shared export identity
 func FuzzOwnedPrune(f *testing.F) {
 	// Owner C is adversarial only while A's part 1/2 renders C's exact object path; if the
 	// partition format changes, fail here rather than let the collision silently disappear.
@@ -165,6 +167,7 @@ const (
 	opReplay
 	opRetryFinal
 	opMismatch
+	opDelete
 	opCount
 
 	maxSteps = 10
@@ -180,6 +183,9 @@ type ownedModel struct {
 	present    map[string]bool
 	recordedBy map[string]int
 	writer     map[string]string
+	// hasRecord tracks which owners have a committed record file, including an empty one: a
+	// complete export commits it, a deletion releases it (ADR-0422).
+	hasRecord map[int]bool
 }
 
 type exportCall struct {
@@ -229,7 +235,47 @@ func (m *ownedModel) apply(c exportCall, deletes map[string]bool) {
 		for _, p := range c.keep {
 			m.recordedBy[p] = c.owner
 		}
+		m.hasRecord[c.owner] = true
 	}
+}
+
+// predictDelete is the model's deletion of owner: Retain (keepFiles) deletes no file; Delete deletes
+// every path owner's record lists and owner's set-manifest candidate when present and not recorded
+// by another owner. The deleted inventory's record is released either way. The only cleanup
+// candidate that can exist in this vocabulary is the owner's set manifest: resources live under
+// default/, and no document or index path is ever written.
+func (m *ownedModel) predictDelete(owner int, keepFiles bool) map[string]bool {
+	deletes := map[string]bool{}
+	if keepFiles {
+		return deletes
+	}
+	for p, o := range m.recordedBy {
+		if o == owner {
+			deletes[p] = true
+		}
+	}
+	manifest := fuzzOwners[owner].manifest
+	if o, recorded := m.recordedBy[manifest]; m.present[manifest] && (!recorded || o == owner) {
+		deletes[manifest] = true
+	}
+
+	return deletes
+}
+
+func (m *ownedModel) applyDelete(owner int, deletes map[string]bool) {
+	for p := range deletes {
+		delete(m.present, p)
+		delete(m.writer, p)
+	}
+	for p, o := range m.recordedBy {
+		if o == owner {
+			delete(m.recordedBy, p)
+		}
+	}
+	for p := range deletes {
+		delete(m.recordedBy, p)
+	}
+	delete(m.hasRecord, owner)
 }
 
 // --- harness -----------------------------------------------------------------------------------
@@ -268,6 +314,10 @@ func (b *memBackend) ExportFiles(_ context.Context, files []git.FileEntry, opts 
 	return b.ExportFilesToFilesystemForTest(b.fs, files, opts)
 }
 
+func (b *memBackend) ReleaseExport(_ context.Context, paths []string, opts git.ReleaseOptions) ([]string, error) {
+	return b.ReleaseExportToFilesystemForTest(b.fs, paths, opts)
+}
+
 func ownedPruneSpec() kollectdevv1alpha1.KollectSinkSpec {
 	return kollectdevv1alpha1.KollectSinkSpec{
 		Type:     kollectdevv1alpha1.SinkTypeGit,
@@ -294,7 +344,9 @@ func newOwnedPruneHarness(t *testing.T) *ownedPruneHarness {
 		t:        t,
 		fs:       fs,
 		registry: registry,
-		model:    &ownedModel{present: map[string]bool{}, recordedBy: map[string]int{}, writer: map[string]string{}},
+		model: &ownedModel{
+			present: map[string]bool{}, recordedBy: map[string]int{}, writer: map[string]string{}, hasRecord: map[int]bool{},
+		},
 	}
 }
 
@@ -376,6 +428,9 @@ func (h *ownedPruneHarness) run(program []byte) {
 			owner := r.next() % len(fuzzOwners)
 			pathOwner := r.next() % len(fuzzOwners)
 			h.sendMismatch(owner, fuzzOwners[pathOwner].objectPath, r.nextByte())
+		case opDelete:
+			owner := r.next() % len(fuzzOwners)
+			h.deleteInventory(owner, r.next()%3)
 		}
 	}
 }
@@ -440,6 +495,101 @@ func (h *ownedPruneHarness) sendMismatch(owner int, objectPath string, mask byte
 	if after := h.recordBytes(); !sameRecords(beforeRecords, after) {
 		t.Fatalf("FORBIDDEN (invariant 9): refused %s still changed ownership records", where)
 	}
+}
+
+// deleteInventory deletes owner's inventory through the production cleanup entry point and checks
+// the release invariants: the deleted inventory's record is gone (10), Retain deletes no file (11),
+// another owner's record keeps its bytes and none of its recorded files is deleted (12), and Delete
+// deletes exactly the model's prediction.
+func (h *ownedPruneHarness) deleteInventory(owner, mode int) {
+	t := h.t
+	t.Helper()
+	h.step++
+	actor := fuzzOwners[owner]
+	policy := kollectdevv1alpha1.DeletionPolicyRetain
+	if mode > 0 {
+		policy = kollectdevv1alpha1.DeletionPolicyDelete
+	}
+	shared := mode == 2
+	keepFiles := mode != 1
+	where := fmt.Sprintf("step %d, deletion of %s (%s, shared identity %t)", h.step, actor.label, policy, shared)
+
+	before := h.repoFiles()
+	beforeDigests := h.repoDigests()
+	beforeRecords := h.recordBytes()
+	wantDeletes := h.model.predictDelete(owner, keepFiles)
+
+	spec := ownedPruneSpec()
+	spec.DeletionPolicy = policy
+	sink.ResetBreakersForTest()
+	_, err := sink.RunCleanupExport(sink.CleanupExportRequest{
+		Ctx:                  context.Background(),
+		Registry:             h.registry,
+		SinkNamespace:        "default",
+		SinkName:             "owned-prune-fuzz",
+		SinkUID:              "uid-owned-prune-fuzz",
+		SinkSpec:             spec,
+		ObjectPath:           actor.objectPath,
+		Inventory:            actor.id,
+		Generation:           h.generation,
+		SharedExportIdentity: shared,
+	})
+	if err != nil {
+		t.Fatalf("%s failed: %v", where, err)
+	}
+
+	after := h.repoFiles()
+	afterDigests := h.repoDigests()
+	afterRecords := h.recordBytes()
+	ownRecord := path.Base(recordPathOf(t, owner))
+	if _, survived := afterRecords[ownRecord]; survived {
+		t.Fatalf("FORBIDDEN (invariant 10): after %s its ownership record %s survived", where, ownRecord)
+	}
+	for name, data := range beforeRecords {
+		if name == ownRecord {
+			continue
+		}
+		if afterRecords[name] != data {
+			t.Fatalf("FORBIDDEN (invariant 12): %s removed or rewrote another inventory's record %s", where, name)
+		}
+	}
+	deleted := map[string]bool{}
+	for p := range before {
+		if !after[p] {
+			deleted[p] = true
+		}
+	}
+	for p, sum := range beforeDigests {
+		if after[p] && afterDigests[p] != sum {
+			t.Fatalf("FORBIDDEN (invariant 11): %s rewrote %q", where, p)
+		}
+	}
+	if keepFiles && len(deleted) > 0 {
+		t.Fatalf("FORBIDDEN (invariant 11): %s deleted %v although its files are kept", where, sortedKeys(deleted))
+	}
+	for p := range deleted {
+		if o, recorded := h.model.recordedBy[p]; recorded && o != owner {
+			t.Fatalf("FORBIDDEN (invariant 12): %s deleted %q, which belongs to %s", where, p, fuzzOwners[o].label)
+		}
+	}
+	if !sameSet(deleted, wantDeletes) {
+		t.Fatalf("%s must delete exactly %v, deleted %v", where, sortedKeys(wantDeletes), sortedKeys(deleted))
+	}
+
+	h.model.applyDelete(owner, wantDeletes)
+	if !sameSet(after, h.model.present) {
+		t.Fatalf("FORBIDDEN (invariant 6): after %s the repo diverges from the model:\n model %v\n repo  %v",
+			where, sortedKeys(h.model.present), sortedKeys(after))
+	}
+	h.checkWriters(where)
+	h.checkRecords(where)
+}
+
+// recordPathOf is the record path of fuzz owner i.
+func recordPathOf(t *testing.T, i int) string {
+	t.Helper()
+
+	return fmt.Sprintf(".kollect-prune/%x.json", sha256.Sum256([]byte(pruneOwnerOf(t, i))))
 }
 
 // sendPart sends part index (1-based) of op's set and reports whether it was accepted.
@@ -678,6 +828,7 @@ func (h *ownedPruneHarness) checkRecords(where string) {
 	}
 	claimedBy := map[string]string{}
 	got := map[int][]string{}
+	seen := map[int]bool{}
 	for name, data := range h.recordBytes() {
 		var rec fuzzRecord
 		if err := json.Unmarshal([]byte(data), &rec); err != nil {
@@ -693,7 +844,16 @@ func (h *ownedPruneHarness) checkRecords(where string) {
 		if !known {
 			t.Fatalf("FORBIDDEN (invariant 7): after %s record %s carries unknown owner %s", where, name, rec.Owner)
 		}
+		if !h.model.hasRecord[i] {
+			t.Fatalf("FORBIDDEN (invariant 10): after %s %s has a record the model released or never wrote", where, fuzzOwners[i].label)
+		}
 		got[i] = append([]string(nil), rec.Paths...)
+		seen[i] = true
+	}
+	for i := range fuzzOwners {
+		if h.model.hasRecord[i] && !seen[i] {
+			t.Fatalf("after %s %s's record is missing", where, fuzzOwners[i].label)
+		}
 	}
 	want := map[int][]string{}
 	for p, o := range h.model.recordedBy {
@@ -880,6 +1040,15 @@ func single(owner, mask byte) []byte { return []byte{opSingle, owner, mask} }
 
 func mismatch(owner, pathOwner, mask byte) []byte { return []byte{opMismatch, owner, pathOwner, mask} }
 
+// Deletion modes of opDelete.
+const (
+	delRetain = 0
+	delDelete = 1
+	delShared = 2
+)
+
+func del(owner, mode byte) []byte { return []byte{opDelete, owner, mode} }
+
 // multi encodes a set; interrupted keeps only the first `sent` parts (sent < len(masks)).
 func multi(owner byte, masks []byte, sent int) []byte {
 	extra := byte(0) // 2 parts
@@ -936,6 +1105,13 @@ func ownedPruneSeeds() [][]byte {
 		prog(single(oN, rDeployAPI|rDB), multi(oL, []byte{rDeployAPI, rWeb}, 1), multi(oL, []byte{rWeb, rDeployAPI}, 2), single(oN, rDB)),
 		// Invariant 9: an identity on another inventory's object path is refused; L on N's path is not a mismatch.
 		prog(single(oA, rDeployAPI), mismatch(oA, oB, rWeb), mismatch(oB, oA, rDeployAPI), mismatch(oL, oA, rCluster), mismatch(oC, oA, rDB), mismatch(oL, oN, rCluster), mismatch(oN, oL, rWeb)),
+		// Invariants 10-12: L and N share an object path and a manifest path; deleting either under
+		// each mode releases only its own record, Retain keeps every file, and the successor of the
+		// other kind takes over a released path.
+		prog(single(oL, rDeployAPI|rWeb), multi(oN, []byte{rDB, rCluster}, 2), del(oL, delRetain), single(oN, rDeployAPI|rDB), del(oN, delDelete), single(oL, rWeb), del(oL, delShared)),
+		// Invariants 10-12: a Delete retraction removes the owner's tree and its unrecorded manifest
+		// candidate but never another owner's file; recreate starts a new record; deleting twice is a no-op.
+		prog([]byte{opUnknown, 2}, single(oB, rTeamBAPI), multi(oA, []byte{rDeployAPI, rWeb}, 2), del(oA, delDelete), del(oA, delDelete), []byte{opReplay, 0}, del(oB, delRetain), del(oC, delRetain), single(oA, rTeamBAPI)),
 		// Invariant 6: A -> B -> A, then replays and a retried final part.
 		prog(single(oA, rDeployAPI|rWeb), single(oB, rTeamBAPI|rPartShapeB), []byte{opReplay, 1}, []byte{opReplay, 1}, single(oA, rWeb), multi(oB, []byte{rTeamBAPI, rDB}, 2), []byte{opRetryFinal}, []byte{opReplay, 2}),
 	}

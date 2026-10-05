@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/osfs"
 )
 
 // managedDirs returns the unique parent directories of the written paths (slash form), excluding
@@ -42,10 +43,23 @@ func pathSet(paths []string) map[string]struct{} {
 	return set
 }
 
+// recordedPaths lists every path an ownership record in the worktree claims. The ownerless
+// directory-scoped prune never removes one: those files belong to an inventory (ADR-0422).
+func recordedPaths(fs billy.Filesystem) (map[string]string, error) {
+	owners, _, _, err := loadPruneRecords(fs)
+
+	return owners, err
+}
+
 // removeBillyOrphans deletes files in managed directories that are not part of the new write set
-// (go-git engine). Removed files are picked up by stageChanges' prune path as worktree deletions.
+// and no ownership record claims (go-git engine). Removed files are picked up by stageChanges'
+// prune path as worktree deletions.
 func removeBillyOrphans(fs billy.Filesystem, written []string) error {
 	keep := pathSet(written)
+	recorded, err := recordedPaths(fs)
+	if err != nil {
+		return err
+	}
 	for _, dir := range managedDirs(written) {
 		entries, err := fs.ReadDir(dir)
 		if err != nil {
@@ -65,6 +79,9 @@ func removeBillyOrphans(fs billy.Filesystem, written []string) error {
 			if _, ok := keep[p]; ok {
 				continue
 			}
+			if _, ok := recorded[p]; ok {
+				continue
+			}
 
 			if err := fs.Remove(p); err != nil {
 				return fmt.Errorf("prune remove %q: %w", p, err)
@@ -76,9 +93,13 @@ func removeBillyOrphans(fs billy.Filesystem, written []string) error {
 }
 
 // removeDiskOrphans deletes files in managed directories that are not part of the new write set
-// (CLI engine). Removed files are staged by the subsequent git add -A.
+// and no ownership record claims (CLI engine). Removed files are staged by the subsequent git add -A.
 func removeDiskOrphans(workdir string, written []string) error {
 	keep := pathSet(written)
+	recorded, err := recordedPaths(osfs.New(workdir))
+	if err != nil {
+		return err
+	}
 	for _, dir := range managedDirs(written) {
 		full := filepath.Join(workdir, filepath.FromSlash(dir))
 		entries, err := os.ReadDir(full)
@@ -97,6 +118,9 @@ func removeDiskOrphans(workdir string, written []string) error {
 
 			rel := path.Join(dir, e.Name())
 			if _, ok := keep[rel]; ok {
+				continue
+			}
+			if _, ok := recorded[rel]; ok {
 				continue
 			}
 

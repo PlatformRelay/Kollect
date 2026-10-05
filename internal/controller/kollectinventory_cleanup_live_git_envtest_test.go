@@ -251,75 +251,97 @@ var _ = Describe("KollectInventory cleanup evidence with a real git sink (envtes
 		}
 	})
 
-	It("announces retention for a recorded auto-upgraded per-resource tree", func() {
-		suffix := testNameSuffix()
-		sinkName := "live-git-tree-" + suffix
-		invName := "live-inv-" + suffix
-		remote := gitBareRepo(GinkgoT().TempDir(), "remote.git")
+	// ADR-0422: the auto-upgraded tree is recorded in the inventory's ownership record, so a Delete
+	// retraction removes the tree files and the record (ROD-1, ROD-4), and Retain removes only the
+	// record and keeps every file (ROD-1, ROD-2). Both run the real reconciler against a real repo.
+	for _, policy := range []string{kollectdevv1alpha1.DeletionPolicyDelete, kollectdevv1alpha1.DeletionPolicyRetain} {
+		It("releases the ownership record of a recorded auto-upgraded per-resource tree ("+policy+")", func() {
+			suffix := testNameSuffix()
+			sinkName := "live-git-tree-" + suffix
+			invName := "live-inv-" + suffix
+			remote := gitBareRepo(GinkgoT().TempDir(), "remote.git")
 
-		sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
-			ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: "default"},
-			Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
-				Type:           kollectdevv1alpha1.SnapshotSinkTypeGit,
-				DeletionPolicy: kollectdevv1alpha1.DeletionPolicyDelete,
-				SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
-					Endpoint: "file://" + remote,
+			sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
+				ObjectMeta: metav1.ObjectMeta{Name: sinkName, Namespace: "default"},
+				Spec: kollectdevv1alpha1.KollectSnapshotSinkSpec{
+					Type:           kollectdevv1alpha1.SnapshotSinkTypeGit,
+					DeletionPolicy: policy,
+					SinkCommonFields: kollectdevv1alpha1.SinkCommonFields{
+						Endpoint: "file://" + remote,
+					},
 				},
-			},
-		}
-		Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
-		DeferCleanup(func() { _ = k8sClient.Delete(ctx, sinkObj) })
+			}
+			Expect(k8sClient.Create(ctx, sinkObj)).To(Succeed())
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, sinkObj) })
 
-		inv := newGitLiveInventory(suffix, sinkName)
-		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
+			inv := newGitLiveInventory(suffix, sinkName)
+			Expect(k8sClient.Create(ctx, inv)).To(Succeed())
 
-		// An embedded-object attribute makes the unset-layout export auto-upgrade
-		// to the per-resource tree (layout_export.go inferResourceLayoutHints).
-		manifest := map[string]any{"apiVersion": "apps/v1", "kind": "Deployment",
-			"metadata": map[string]any{"namespace": "default", "name": "nginx"}}
-		store := liveInventoryStore(collect.Item{
-			TargetNamespace: "default",
-			TargetName:      "nginx-deployments",
-			UID:             "uid-live-tree",
-			Namespace:       "default",
-			Name:            "nginx",
-			Version:         "v1",
-			Kind:            "Deployment",
-			Attributes:      map[string]any{"payload": manifest, "image": "nginx:1.27-alpine"},
+			// An embedded-object attribute makes the unset-layout export auto-upgrade
+			// to the per-resource tree (layout_export.go inferResourceLayoutHints).
+			manifest := map[string]any{"apiVersion": "apps/v1", "kind": "Deployment",
+				"metadata": map[string]any{"namespace": "default", "name": "nginx"}}
+			store := liveInventoryStore(collect.Item{
+				TargetNamespace: "default",
+				TargetName:      "nginx-deployments",
+				UID:             "uid-live-tree",
+				Namespace:       "default",
+				Name:            "nginx",
+				Version:         "v1",
+				Kind:            "Deployment",
+				Attributes:      map[string]any{"payload": manifest, "image": "nginx:1.27-alpine"},
+			})
+
+			recorder := record.NewFakeRecorder(20)
+			reconciler := &KollectInventoryReconciler{
+				Client:   k8sClient,
+				Scheme:   k8sClient.Scheme(),
+				Store:    store,
+				Registry: sink.NewRegistry(),
+				Recorder: recorder,
+			}
+
+			req := reconcile.Request{NamespacedName: types.NamespacedName{Name: invName, Namespace: "default"}}
+			_, err := reconciler.Reconcile(context.Background(), req)
+			Expect(err).NotTo(HaveOccurred())
+
+			var afterExport kollectdevv1alpha1.KollectInventory
+			Expect(k8sClient.Get(ctx, req.NamespacedName, &afterExport)).To(Succeed())
+			recorded := afterExport.Status.SinkExports[0].LastExportPaths
+			Expect(recorded).NotTo(BeEmpty())
+			GinkgoWriter.Printf("recorded tree lastExportPaths=%v\n", recorded)
+
+			var records []string
+			for _, p := range gitListTree(remote) {
+				if strings.HasPrefix(p, ".kollect-prune/") {
+					records = append(records, p)
+				}
+			}
+			Expect(records).To(HaveLen(1), "the tree export must commit one ownership record")
+
+			Expect(k8sClient.Delete(ctx, &afterExport)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var deleting kollectdevv1alpha1.KollectInventory
+				g.Expect(k8sClient.Get(ctx, req.NamespacedName, &deleting)).To(Succeed())
+				g.Expect(deleting.DeletionTimestamp).NotTo(BeNil())
+			}).WithTimeout(5 * time.Second).Should(Succeed())
+
+			_, err = reconciler.Reconcile(context.Background(), req)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(gitHasPath(remote, records[0])).To(BeFalse(), "the ownership record must not survive the deletion")
+			for _, p := range recorded {
+				Expect(gitHasPath(remote, p)).To(Equal(policy == kollectdevv1alpha1.DeletionPolicyRetain),
+					"recorded tree file %q after a %s deletion", p, policy)
+			}
+			if policy == kollectdevv1alpha1.DeletionPolicyDelete {
+				// drainCleanupRetained matches by prefix, so it is consulted only where no
+				// CleanupRetainedByPolicy event is expected.
+				Expect(drainCleanupRetained(recorder)).To(BeFalse(),
+					"a fully retracted recorded tree is not a CleanupRetained warning")
+			}
 		})
-
-		recorder := record.NewFakeRecorder(20)
-		reconciler := &KollectInventoryReconciler{
-			Client:   k8sClient,
-			Scheme:   k8sClient.Scheme(),
-			Store:    store,
-			Registry: sink.NewRegistry(),
-			Recorder: recorder,
-		}
-
-		req := reconcile.Request{NamespacedName: types.NamespacedName{Name: invName, Namespace: "default"}}
-		_, err := reconciler.Reconcile(context.Background(), req)
-		Expect(err).NotTo(HaveOccurred())
-
-		var afterExport kollectdevv1alpha1.KollectInventory
-		Expect(k8sClient.Get(ctx, req.NamespacedName, &afterExport)).To(Succeed())
-		recorded := afterExport.Status.SinkExports[0].LastExportPaths
-		Expect(recorded).NotTo(BeEmpty())
-		GinkgoWriter.Printf("recorded tree lastExportPaths=%v\n", recorded)
-
-		Expect(k8sClient.Delete(ctx, &afterExport)).To(Succeed())
-		Eventually(func(g Gomega) {
-			var deleting kollectdevv1alpha1.KollectInventory
-			g.Expect(k8sClient.Get(ctx, req.NamespacedName, &deleting)).To(Succeed())
-			g.Expect(deleting.DeletionTimestamp).NotTo(BeNil())
-		}).WithTimeout(5 * time.Second).Should(Succeed())
-
-		_, err = reconciler.Reconcile(context.Background(), req)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(drainCleanupRetained(recorder)).To(BeTrue(),
-			"a recorded per-resource tree must announce CleanupRetained")
-	})
+	}
 })
 
 // drainCleanupRetained reports whether the fake recorder captured any

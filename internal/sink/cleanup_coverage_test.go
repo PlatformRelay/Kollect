@@ -82,6 +82,7 @@ func TestRunCleanupExport_DeleteErrorIsClassified(t *testing.T) {
 		SinkUID:    "uid-delete-error",
 		SinkSpec:   deleteSpec("cleaner"),
 		ObjectPath: "inventory/team-a/inv.json",
+		Inventory:  InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 	})
 	if err == nil {
 		t.Fatal("delete failure must surface as an error")
@@ -102,6 +103,7 @@ func TestRunCleanupExport_CleanerSuccessIsCleaned(t *testing.T) {
 		SinkUID:    "uid-success",
 		SinkSpec:   deleteSpec("cleaner"),
 		ObjectPath: "inventory/team-a/inv.json",
+		Inventory:  InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 	})
 	if err != nil {
 		t.Fatalf("RunCleanupExport: %v", err)

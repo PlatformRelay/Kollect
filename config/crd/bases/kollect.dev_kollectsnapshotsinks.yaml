@@ -55,8 +55,9 @@ spec:
                   deletionPolicy decides what happens to the objects this sink exported for an
                   inventory when that inventory is deleted (ADR-0421). Retain (default) leaves
                   them in place; Delete retracts them (git/gitlab deletion commit, S3/GCS object
-                  deletion). Retain never contacts the backend, so it always releases the inventory's
-                  cleanup finalizer; a terminal Delete failure keeps the finalizer until it is resolved.
+                  deletion). Retain keeps every exported object; on git/gitlab it commits only the removal of
+                  the inventory's ownership record (ADR-0422) and never contacts S3/GCS. A failed cleanup keeps
+                  the inventory's finalizer and retries until it is resolved.
                 enum:
                 - Retain
                 - Delete

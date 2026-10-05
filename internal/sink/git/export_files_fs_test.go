@@ -24,3 +24,21 @@ func (b *Backend) ExportFilesToFilesystemForTest(fs billy.Filesystem, files []Fi
 
 	return err
 }
+
+// ReleaseExportToFilesystemForTest is the in-memory twin of Backend.ReleaseExport for the owned-prune
+// fuzz target: the same config (ReleaseConfig, deletionConfig), path validation (validateDeletePaths)
+// and release engine (planRelease, candidate and exact removal) against fs, without clone, commit or
+// push. Test-only.
+func (b *Backend) ReleaseExportToFilesystemForTest(fs billy.Filesystem, paths []string, opts ReleaseOptions) ([]string, error) {
+	cfg := deletionConfig(ReleaseConfig(b.cfg, opts))
+
+	_, validated, err := validateDeletePaths(cfg, paths, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(validated) == 0 && cfg.PruneOwner == "" {
+		return nil, nil
+	}
+
+	return releaseFS(fs, cfg, validated, nil)
+}

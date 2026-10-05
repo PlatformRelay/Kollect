@@ -219,7 +219,7 @@ func TestRemoveDiskCandidates_SkipsMissingAndNonMatching(t *testing.T) {
 
 	work := t.TempDir()
 
-	if removed, err := removeDiskCandidates(work, []string{"inventory/team-gone/inv.json"}); err != nil || removed != nil {
+	if removed, err := removeDiskCandidates(work, []string{"inventory/team-gone/inv.json"}, nil); err != nil || removed != nil {
 		t.Fatalf("missing dir = %v/%v, want nil/nil", removed, err)
 	}
 
@@ -229,7 +229,7 @@ func TestRemoveDiskCandidates_SkipsMissingAndNonMatching(t *testing.T) {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 	mustWriteFile(t, filepath.Join(work, "inventory", "team-b"), []byte("not a dir\n"))
-	if _, err := removeDiskCandidates(work, []string{"inventory/team-b/inv.json"}); err == nil {
+	if _, err := removeDiskCandidates(work, []string{"inventory/team-b/inv.json"}, nil); err == nil {
 		t.Fatal("a file where a directory is expected must error")
 	}
 
@@ -240,7 +240,7 @@ func TestRemoveDiskCandidates_SkipsMissingAndNonMatching(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, "inv.json"), []byte("{}"))
 	mustWriteFile(t, filepath.Join(dir, "inv-v2.json"), []byte("{}"))
 
-	removed, err := removeDiskCandidates(work, []string{"inventory/team-a/inv.json"})
+	removed, err := removeDiskCandidates(work, []string{"inventory/team-a/inv.json"}, nil)
 	if err != nil {
 		t.Fatalf("removeDiskCandidates: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestRemoveWorktreeCandidates_SkipsMissingAndNonMatching(t *testing.T) {
 		t.Fatalf("Worktree: %v", err)
 	}
 
-	if removed, rmErr := removeWorktreeCandidates(wt, []string{"inventory/team-gone/inv.json"}); rmErr != nil || removed != nil {
+	if removed, rmErr := removeWorktreeCandidates(wt, []string{"inventory/team-gone/inv.json"}, nil); rmErr != nil || removed != nil {
 		t.Fatalf("missing dir = %v/%v, want nil/nil", removed, rmErr)
 	}
 
@@ -290,7 +290,7 @@ func TestRemoveWorktreeCandidates_SkipsMissingAndNonMatching(t *testing.T) {
 		t.Fatalf("Commit: %v", rmErr)
 	}
 
-	removed, rmErr := removeWorktreeCandidates(wt, []string{"inventory/team-a/inv.json"})
+	removed, rmErr := removeWorktreeCandidates(wt, []string{"inventory/team-a/inv.json"}, nil)
 	if rmErr != nil {
 		t.Fatalf("removeWorktreeCandidates: %v", rmErr)
 	}

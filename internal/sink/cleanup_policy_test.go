@@ -27,14 +27,14 @@ func countingRegistry(sinkType string, backend Backend, built *int) *Registry {
 }
 
 // ADR-0421: a snapshot sink created without spec.deletionPolicy retains the
-// inventory's exported objects. Cleanup must not touch them and must not even
-// build the backend, so a revoked credential cannot wedge a Retain deletion.
+// inventory's exported objects. For object stores cleanup must not touch them
+// and must not even build the backend, so a revoked credential cannot wedge a
+// Retain deletion. Git and GitLab sinks are contacted to release the ownership
+// record (ADR-0422, release_on_delete_test.go).
 func TestRunCleanupExport_DefaultPolicyRetainsWithoutBackendContact(t *testing.T) {
 	t.Parallel()
 
 	for _, sinkType := range []string{
-		kollectdevv1alpha1.SnapshotSinkTypeGit,
-		kollectdevv1alpha1.SnapshotSinkTypeGitLab,
 		kollectdevv1alpha1.SnapshotSinkTypeS3,
 		kollectdevv1alpha1.SnapshotSinkTypeGCS,
 	} {
@@ -51,6 +51,7 @@ func TestRunCleanupExport_DefaultPolicyRetainsWithoutBackendContact(t *testing.T
 				SinkUID:    "uid-retain",
 				SinkSpec:   kollectdevv1alpha1.KollectSinkSpec{Type: sinkType},
 				ObjectPath: "inventory/team-a/inv.json",
+				Inventory:  InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 				Generation: 3,
 			})
 			if err != nil {
@@ -84,6 +85,7 @@ func TestRunCleanupExport_ExplicitRetainNeverCallsDeleteExport(t *testing.T) {
 			DeletionPolicy: kollectdevv1alpha1.DeletionPolicyRetain,
 		},
 		ObjectPath: "inventory/team-a/inv.json",
+		Inventory:  InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 	})
 	if err != nil {
 		t.Fatalf("RunCleanupExport: %v", err)
@@ -110,6 +112,7 @@ func TestRunCleanupExport_DeletePolicyRetracts(t *testing.T) {
 		SinkUID:           "uid-git-delete",
 		SinkSpec:          defaultGitSinkSpec(),
 		ObjectPath:        "inventory/team-a/inv.json",
+		Inventory:         InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 		Generation:        7,
 		LastExportedPaths: []string{"inventory/team-a/inv.yaml"},
 	})
@@ -141,6 +144,7 @@ func TestRunCleanupExport_SharedIdentitySkipsRetraction(t *testing.T) {
 		SinkUID:              "uid-git-shared",
 		SinkSpec:             defaultGitSinkSpec(),
 		ObjectPath:           "inventory/cluster/inv.json",
+		Inventory:            InventoryIdentity{Kind: InventoryKindCluster, Name: "inv"},
 		Generation:           2,
 		SharedExportIdentity: true,
 	})
@@ -152,6 +156,9 @@ func TestRunCleanupExport_SharedIdentitySkipsRetraction(t *testing.T) {
 	}
 	if len(backend.deleteCalls) != 0 {
 		t.Fatalf("DeleteExport called %d times for a shared identity, want 0", len(backend.deleteCalls))
+	}
+	if len(backend.releaseCalls) != 1 || !backend.releaseCalls[0].KeepFiles || backend.releaseCalls[0].Owner == "" {
+		t.Fatalf("release calls = %+v, want one record-only release with an owner (ADR-0422)", backend.releaseCalls)
 	}
 }
 
@@ -172,6 +179,7 @@ func TestRunCleanupExport_UnrecordedPastExportIsNotClean(t *testing.T) {
 		SinkUID:               "uid-git-pre-upgrade",
 		SinkSpec:              defaultGitSinkSpec(),
 		ObjectPath:            "inventory/team-a/inv.json",
+		Inventory:             InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 		Generation:            4,
 		ExportPathsUnrecorded: true,
 	})
@@ -201,6 +209,7 @@ func TestRunCleanupExport_RelationalPruneIgnoresPolicy(t *testing.T) {
 		SinkUID:    "uid-relational",
 		SinkSpec:   kollectdevv1alpha1.KollectSinkSpec{Type: "cleaner"},
 		ObjectPath: "inventory/team-a/inv.json",
+		Inventory:  InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 	})
 	if err != nil {
 		t.Fatalf("RunCleanupExport: %v", err)
