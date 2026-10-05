@@ -196,6 +196,26 @@ moved or renamed project) now fail; set `spec.endpoint` to the final URL. Kafka 
 `spec.tls`: a sink with a CA bundle switches its broker connection to TLS, so make sure the broker
 listener it points at speaks TLS.
 
+### Git export ownership by inventory identity (after v0.21.0)
+
+Git and GitLab layout exports record which inventory owns each file, keyed by kind, cluster,
+namespace and name ([ADR-0422](../adr/0422-inventory-export-identity.md)). Cluster inventories
+prune their own stale files again, and a cluster inventory and a namespaced inventory in a
+namespace called `cluster` never delete each other's files.
+
+!!! warning "Inventories that project the same file are rejected"
+    The default resource path (`{cluster}/{sourceNamespace}/{kind}/{sourceName}`) names no
+    inventory. When a namespaced inventory and a cluster inventory export the same resource to the
+    same Git sink, whichever exports second fails with
+    `prune path "<path>" belongs to another inventory: <Kind namespace/name> ...`, naming the owner and
+    its record file. Give overlapping inventories separate sinks, or a `spec.layout.pathTemplate`
+    that includes the inventory (`{namespace}` and `{name}` are the inventory's, for example
+    `{namespace}/{name}/{sourceNamespace}/{kind}/{sourceName}{extension}`), or narrow their
+    selection so they do not overlap.
+
+Ownership records written by builds before this change are not migrated. A repository that holds
+them keeps those files until they are removed by hand.
+
 ## GitOps and CI/CD
 
 For Argo CD, Flux, or similar:
