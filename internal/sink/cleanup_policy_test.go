@@ -218,3 +218,32 @@ func TestRunCleanupExport_RelationalPruneIgnoresPolicy(t *testing.T) {
 		t.Fatalf("outcome = %v, want CleanupPruned", outcome)
 	}
 }
+
+// The release names the deleting inventory's kind in the commit context, so GitLab branchMR picks
+// that kind's feature branch: a namespaced inventory in namespace cluster must not be routed to
+// the cluster inventory's branch by guessing the kind from its path.
+func TestRunCleanupExport_releaseCarriesInventoryKind(t *testing.T) {
+	t.Parallel()
+
+	backend := &evidenceCleanerBackend{}
+	_, err := RunCleanupExport(CleanupExportRequest{
+		Ctx:               t.Context(),
+		Registry:          newEvidenceRegistry(backend),
+		SinkName:          "git-release-kind",
+		SinkUID:           "uid-git-release-kind",
+		SinkSpec:          defaultGitSinkSpec(),
+		ObjectPath:        "inventory/cluster/platform.json",
+		Inventory:         InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "cluster", Name: "platform"},
+		Generation:        3,
+		LastExportedPaths: []string{"inventory/cluster/platform.yaml"},
+	})
+	if err != nil {
+		t.Fatalf("RunCleanupExport: %v", err)
+	}
+	if len(backend.releaseCtxs) != 1 {
+		t.Fatalf("release calls = %d, want 1", len(backend.releaseCtxs))
+	}
+	if got := backend.releaseCtxs[0].Kind; got != InventoryKindNamespaced {
+		t.Fatalf("release commit context kind = %q, want %q", got, InventoryKindNamespaced)
+	}
+}

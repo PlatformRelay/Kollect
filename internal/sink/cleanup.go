@@ -251,9 +251,8 @@ func releaseGitExport(req CleanupExportRequest, backend Backend, owner, invNS, i
 
 	// The commit context names the deleting inventory for the commit subject and, in GitLab
 	// branchMR mode, the feature branch, so the backends do not re-derive it from a path.
-	// TODO(gitlab-branchmr-claims): set Kind: req.Inventory.Kind once git.CommitContext has it.
 	commitCtx := git.CommitContextFromObjectPath(resolved.DocumentPath(), resolved.Cluster)
-	commitCtx.Namespace, commitCtx.Name = invNS, invName
+	commitCtx.Kind, commitCtx.Namespace, commitCtx.Name = req.Inventory.Kind, invNS, invName
 	ctx := git.WithCommitContext(req.Ctx, commitCtx)
 
 	deleted, derr := releaser.ReleaseExport(ctx, paths, git.ReleaseOptions{Owner: owner, KeepFiles: keepFiles})
