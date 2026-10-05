@@ -28,15 +28,21 @@ The finalizer itself must never wedge on these questions: a sink deleted before 
 `Delete` as `Retain`. The field exists only on snapshot sinks: database sinks keep their
 empty-export prune of the inventory's rows, and event sinks cannot retract what they emitted.
 
-- **`Retain` (default):** inventory deletion does not contact the backend. The exported objects
-  stay, the finalizer is released, and a `Normal` event with reason `CleanupRetainedByPolicy` names
-  the sink. A broken credential cannot block a `Retain` deletion. `Retain` concerns only the
-  deletion event: an inventory recreated later with the same kind, namespace and name continues
-  its predecessor's ownership record and may prune the predecessor's stale files
-  ([ADR-0422](0422-inventory-export-identity.md)).
+- **`Retain` (default):** the exported objects stay, the finalizer is released, and a `Normal`
+  event with reason `CleanupRetainedByPolicy` names the sink. For S3, GCS and local sinks deletion
+  does not contact the backend, so a broken credential cannot block it. **Revised 2026-10-05:**
+  a Git or GitLab sink is contacted once, to release the inventory's ownership record
+  ([ADR-0422](0422-inventory-export-identity.md)): one commit that removes only
+  `.kollect-prune/<sha256(owner)>.json`, and no commit when there is no record. A failed release
+  keeps the finalizer and retries like a failed retraction, so a broken Git credential now holds a
+  `Retain` deletion until it is fixed or `kollect.dev/force-cleanup` is set. An inventory recreated
+  later with the same kind, namespace and name starts a new record and prunes none of its
+  predecessor's files.
 - **`Delete`:** inventory deletion retracts the objects the inventory exported: the document, its
   `.part-NNNN-of-NNNN` siblings, layout sidecars, and for parquet the inventory's hive partition
-  including the per-part partitions a multipart export writes. When a full retraction cannot be
+  including the per-part partitions a multipart export writes. On Git and GitLab the same commit
+  removes every file the inventory's ownership record lists and the record, and never removes a
+  file another inventory's record lists (ADR-0422). When a full retraction cannot be
   proven, the deletion still proceeds and a `CleanupRetained` warning names the retained identity:
   layout trees, past generations, an unmerged deletion merge request, a recorded export path the
   cleanup no longer addresses, or an export from before export paths were recorded.
@@ -51,7 +57,9 @@ drops the finalizer without backend contact.
 A `KollectClusterInventory` named `X` exports as `inventory/cluster/X`, which is also the identity of
 a `KollectInventory` named `X` in a namespace called `cluster`. With `Delete`, retracting one would
 remove the other's export. Before a `Delete` retraction the cleanup checks whether the other object
-exists. When it does, the retraction is skipped and a `CleanupSharedIdentity` warning is recorded.
+exists. When it does, the retraction is skipped and a `CleanupSharedIdentity` warning is recorded; on Git
+and GitLab the deleting inventory's ownership record is still released, because the two owners are
+kind-qualified and never share a record.
 When the other scope is one the operator never reconciles — cluster-scoped kinds in tenant mode, or
 namespace `cluster` outside `--watch-namespaces` — or the lookup is `NotFound` or `Forbidden`, the
 operator cannot have exported the other object, and the retraction runs. Any other lookup error is
@@ -61,7 +69,8 @@ transient: cleanup retries and keeps the finalizer. The export-side collision it
 
 - Upgrading keeps the existing outcome for snapshot sinks: before this decision, inventory deletion
   left their exported objects untouched (the empty-item cleanup export was skipped by every snapshot
-  backend), and `Retain` does the same without contacting the backend at all. Owners who want
+  backend), and `Retain` does the same; only Git and GitLab sinks are contacted, to release the
+  ownership record. Owners who want
   retraction set `deletionPolicy: Delete` per sink.
 - Retraction has to be announced whenever it cannot be proven, so `Delete` users can see
   `CleanupRetained` warnings on deletions that did remove the document.

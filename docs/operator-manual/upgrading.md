@@ -230,6 +230,14 @@ are listed in an old record is rejected as if another inventory owned them, so d
 `.kollect-prune/` directory from the export branch when upgrading; the next export records the
 current files again.
 
+Deleting an inventory releases its ownership record on every Git and GitLab sink, under both
+deletion policies ([ADR-0421](../adr/0421-snapshot-sink-deletion-policy.md)). With `Retain` the
+exported files stay and one commit removes only the record; with `Delete` the same commit also
+removes the files the record lists. Another inventory can then take over those paths. Because the
+release needs the repository, a Git or GitLab sink with a broken credential now keeps a `Retain`
+deletion in `Terminating` until the credential is fixed or `kollect.dev/force-cleanup: "true"` is
+set (which leaves the record in place).
+
 ## GitOps and CI/CD
 
 For Argo CD, Flux, or similar:
