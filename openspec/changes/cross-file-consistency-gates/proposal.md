@@ -48,9 +48,7 @@ None.
 
 ## Dependencies
 
-Landing order across the seven proposed changes: developer-toolchain-consistency (with its Go
-bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation,
-nightly-failure-reporting, test-depth-signals, public-agent-contract.
+Landing order across the eight proposed changes: developer-toolchain-consistency (with its Go bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation, nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract.
 
 ## Non-goals
 

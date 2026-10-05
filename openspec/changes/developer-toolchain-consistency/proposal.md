@@ -51,10 +51,7 @@ None.
 
 ## Impact
 
-- Landing order across the seven proposed changes: developer-toolchain-consistency (this one, with
-  the Go bump) first, then cross-file-consistency-gates, ci-workflow-hardening,
-  dependency-update-automation, nightly-failure-reporting, test-depth-signals,
-  mutation-testing-signal, public-agent-contract. This change and ci-workflow-hardening both edit
+- Landing order across the eight proposed changes: developer-toolchain-consistency (with its Go bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation, nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract. This change and ci-workflow-hardening both edit
   every job and both meta-tests parse the workflows, so they land sequentially.
 - Entry points: `Taskfile.yml`, `Makefile`, `hack/tooling/.custom-gcl.yml`, `mise.toml`,
   `.github/workflows/*`, `.github/actions/*`, `renovate.json` (regex managers), and the drift tests

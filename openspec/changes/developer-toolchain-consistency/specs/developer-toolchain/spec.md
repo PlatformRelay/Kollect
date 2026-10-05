@@ -28,6 +28,11 @@ Go. Renovate SHALL move the `go` directive and the golang image tag in one group
 - **WHEN** `go.mod` says `go 1.26.6` and a Dockerfile says `golang:1.27.1`
 - **THEN** the tree fails the check (this change fixes the tree; `cross-file-consistency-gates` adds the permanent check)
 
+#### Scenario: Lone golang-image PR
+
+- **WHEN** Renovate opens a PR bumping only the golang image tag (the group rule is missing, ordered before a more general rule, or the `go` directive is not bumped by the manager)
+- **THEN** `cross-file-consistency-gates` CFC-1 turns red on that PR, which is the signal that the group rule is wrong; the drift test checks the rule's presence and order
+
 #### Scenario: Group rule
 
 - **WHEN** `renovate.json` lacks a rule grouping the `go` directive with the `golang` Docker image

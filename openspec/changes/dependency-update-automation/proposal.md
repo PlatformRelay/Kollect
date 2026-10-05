@@ -41,9 +41,7 @@ None.
 
 ## Dependencies
 
-Landing order across the seven proposed changes: developer-toolchain-consistency (with its Go
-bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation,
-nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract.
+Landing order across the eight proposed changes: developer-toolchain-consistency (with its Go bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation, nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract.
 The toolchain change's Renovate edits (regex managers, golang-image group) land first so both
 touch `renovate.json` sequentially. A dependency bump itself needs no change; this one exists
 because it adds a credential and a merge path.

@@ -85,6 +85,11 @@ an absolute home path, `~/`-relative path, or a reference to a gitignored harnes
 - **WHEN** a file headed "LOCAL ONLY" or "never commit" is tracked or staged under `AGENTS.md`, `CLAUDE.md` or `.github/copilot-instructions.md`
 - **THEN** the test SHALL fail
 
+#### Scenario: OpenSpec markers
+
+- **WHEN** a committed agent file contains an OpenSpec managed-block marker (`<!-- OPENSPEC:START -->` or similar)
+- **THEN** the test SHALL fail, because OpenSpec's legacy cleanup rewrites root `AGENTS.md` and `CLAUDE.md`; the contract is hand-written
+
 #### Scenario: Agent files are secret-scanned
 
 - **WHEN** `.github/gitleaks.toml` allowlists `AGENTS.md` or `CLAUDE.md`
