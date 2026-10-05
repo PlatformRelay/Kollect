@@ -45,6 +45,17 @@ on:
 permissions:
   contents: read
 
+# CWS-4: supersede a PR's own in-flight run on a new push, but never cancel a `push`-to-main run
+# (each main SHA must keep its own complete run so release eligibility sees exact-SHA checks).
+# The group is keyed by the PR number, falling back to the commit SHA on push -- never by
+# `github.ref`, which would make two quick merges to main share one group and lose the middle
+# commit's run. The `${{ github.workflow }}` prefix keeps `ci.yaml` and `e2e-smoke.yaml` in
+# separate groups so neither cancels the other for the same PR. Locked by
+# hack/test/ci_workflow_security_test.sh.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # CI-DOCSGATE-01: the per-PR verdict every expensive job below hangs off. `code=true` means
   # the change touches something other than documentation. Fail-safe in one direction only:
@@ -155,6 +166,52 @@ jobs:
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
       - name: Scan repository
         run: gitleaks detect --source . --config .github/gitleaks.toml --verbose --redact --no-git
+
+  # CWS-1/CWS-2: static analysis of the workflows themselves. A pinned zizmor release is
+  # downloaded and SHA256-verified (hack/install-zizmor.sh), then run offline over .github/ at a
+  # pinned minimum severity with the committed .github/zizmor.yml. It is deliberately NOT gated
+  # on the changes verdict: it must run on every PR, including a docs-only one, so a workflow
+  # edit cannot slip past it. The job is a required check (CWS-5/CWS-6).
+  workflow-security:
+    name: workflow-security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install zizmor
+        env:
+          ZIZMOR_VERSION: "1.30.1"
+        run: |
+          bash hack/install-zizmor.sh "${RUNNER_TEMP}"
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+      - name: Audit workflows (zizmor, offline)
+        # --offline forbids every online audit and remote-repository input, so the job needs no
+        # token and cannot be affected by network state. --min-severity=high is the pinned
+        # threshold: it catches template injection, app-token scope and cache poisoning. Lower
+        # severities are filtered by this threshold, not suppressed; the measured breakdown is
+        # recorded in openspec/changes/ci-workflow-hardening/tasks.md.
+        run: zizmor --offline --no-progress --min-severity=high --config .github/zizmor.yml .github/
+
+  # CWS-3: review the dependencies a PR adds. It runs on pull_request only -- it does not run on
+  # main, so it is deliberately NOT a release-eligibility check (see verify-eligibility.sh). The
+  # severity threshold stays at the action's default (`low`); the licence policy is an
+  # allow-list of the SPDX identifiers actually present in the module graph, and a dependency
+  # whose licence cannot be detected is reported without failing (the action's default).
+  dependency-review:
+    name: dependency-review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # Derived from `go-licenses csv ./...` over the module graph (2026-10-05):
+          # 141 Apache-2.0, 60 MIT, 42 BSD-3-Clause, 9 BSD-2-Clause, 1 ISC. No dependency needs
+          # an allow-dependencies-licenses exception, and unknown licences do not fail.
+          allow-licenses: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC
 
   verify:
     name: verify
@@ -352,6 +409,41 @@ jobs:
       # explicit step; it needs the yq installed above.
       - name: Verify every required context reports on a docs-only PR (CI-DOCSGATE-01)
         run: bash hack/test/ci_docs_gate_test.sh
+      # CI-WFS-01 (openspec change ci-workflow-hardening, CWS-1..CWS-7): the meta-test for the
+      # workflow-security gate itself. It reads ci.yaml, e2e-smoke.yaml, .github/zizmor.yml,
+      # hack/install-zizmor.sh and hack/release/verify-eligibility.sh, and asserts the exact
+      # invocation shape, the version pin, the suppression policy, the concurrency contract,
+      # the push trigger and the required-checks wiring. It runs here for the same reason
+      # CI-DOCSGATE-01 does: lint is not gated on the changes verdict, so it runs on docs-only
+      # PRs too, where a workflow edit that weakens the gate would otherwise never trigger it.
+      # Plain and --self-test are separate steps so a red names its direction: the first reds
+      # when the gate's wiring drifts, the second reds when the gate can no longer fail (CWS-7
+      # mutants). hack/test/ci_workflow_security_test.sh enforces this wiring in both
+      # directions (CWS-6: a gate CI does not run guards nothing).
+      - name: Verify the workflow-security gate wiring (CWS-1..CWS-6)
+        run: bash hack/test/ci_workflow_security_test.sh
+      - name: Verify the workflow-security gate can still fail (CWS-7)
+        run: bash hack/test/ci_workflow_security_test.sh --self-test
+      # CWS-6: this guard asserted its scenario's wiring from the nightly and extended e2e
+      # suites, neither of which is a required check -- so its verdict never gated a merge and
+      # a PR could silently break the finalizer-cleanup e2e scenario it pins. The lint job is
+      # the required home for the same pattern (HY-07 below): the nightly runs keep it covered
+      # on the cluster, this step gives every PR a required verdict.
+      - name: Verify finalizer-cleanup e2e assert + workflow wiring
+        run: bash hack/test/finalizer_cleanup_e2e_test.sh
+      # CWS-6: these three guards pin e2e scenario wiring from jobs that are NOT required
+      # checks -- the extended/nightly e2e suites and a smoke-only job -- so their verdicts
+      # never gated a merge, and a PR could silently break the scenario contracts they pin.
+      # All three are pure static contract tests (no kind cluster), so they take their
+      # required home here, the same pattern as HY-07: the suites keep running them for
+      # cluster coverage, this step gives every PR a required verdict.
+      - name: Verify multitenant e2e repro hardening contract
+        run: bash hack/test/e2e_mt_repro_harden_test.sh
+      - name: Verify webhook-existing-cluster e2e contract
+        run: bash hack/test/e2e_webhook_existing_cluster_test.sh
+      - name: Verify the hero demo smoke contract (DEMO-03)
+        run: bash hack/test/demo_03_hero_smoke_test.sh
+      - name: Run Sonar SECURITY remediation meta-tests
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob

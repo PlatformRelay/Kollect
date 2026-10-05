@@ -10,7 +10,7 @@ trap 'rm -rf "${TMP}"' EXIT
 SHA="1111111111111111111111111111111111111111"
 MAIN="2222222222222222222222222222222222222222"
 
-REQUIRED_NAMES='gitleaks verify audit-rbac vulncheck lint test build test-integration helm docker-build preflight kind-smoke pipeline-cli-smoke'
+REQUIRED_NAMES='gitleaks verify audit-rbac vulncheck lint test build test-integration helm docker-build preflight kind-smoke pipeline-cli-smoke workflow-security'
 
 cat >"${TMP}/gh" <<'MOCK'
 #!/usr/bin/env bash

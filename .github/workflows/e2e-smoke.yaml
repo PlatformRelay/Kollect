@@ -28,9 +28,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: e2e-smoke-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  # HY-06: never cancel in-flight runs on main (would leave CI-UNKNOWN); PR runs still supersede.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # CWS-4: same shape as ci.yaml -- supersede a PR's own in-flight run, never a main push.
+  # The group is keyed by PR number (falling back to the commit SHA), so two quick merges to
+  # main each keep their own run; the `${{ github.workflow }}` prefix keeps this workflow and
+  # ci.yaml from cancelling each other for the same PR. HY-06 is preserved: `cancel-in-progress`
+  # is false on any non-PR event, so a push-to-main run is never cancelled. Locked by
+  # hack/test/ci_workflow_security_test.sh.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # CI-DOCSGATE-01: the per-PR verdict `kind-smoke-run` hangs off. `code=true` means the change

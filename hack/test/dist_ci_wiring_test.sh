@@ -99,7 +99,11 @@ LINT_MATCH="${RUN_CODE} | test(\"^task lint[[:space:]]*\$\")"
 # (an empty matrix means zero job instances), `container` and `defaults` (a different
 # interpreter), `env` (BASH_ENV is sourced by every non-interactive bash), `needs` (a job whose
 # dependency skips, skips), `timeout-minutes` (0 kills it immediately).
-WORKFLOW_KEY_ALLOWLIST=(name on permissions jobs)
+# `concurrency` (CWS-4): a run-superkey that cancels a SUPERSEDED run of the same PR, not a
+# step of this one; it cannot stop the lint job materialising or swallow its failure in the run
+# that matters. Locked in both directions by hack/test/ci_workflow_security_test.sh, which
+# requires the exact group and cancel-in-progress expressions.
+WORKFLOW_KEY_ALLOWLIST=(name on permissions jobs concurrency)
 JOB_KEY_ALLOWLIST=(name runs-on steps)
 STEP_KEY_ALLOWLIST=(name run uses with env shell)
 

@@ -18,7 +18,7 @@ fi
 
 required_checks=(
 	gitleaks verify audit-rbac vulncheck lint test build test-integration helm
-	docker-build preflight kind-smoke pipeline-cli-smoke
+	docker-build preflight kind-smoke pipeline-cli-smoke workflow-security
 )
 
 main_sha="$(gh api "repos/${REPO}/commits/${DEFAULT_BRANCH}" --jq .sha)"
