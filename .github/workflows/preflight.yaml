@@ -40,12 +40,12 @@ jobs:
       - name: Check commit identity
         if: github.event_name == 'pull_request'
         # Maintainer commits must use the project address (hack/check-commit-identity.sh).
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # The checkout is the PR merge commit: HEAD^1 is the current base tip and HEAD^2 the
+        # PR head, so the range is exactly what the merge brings in, even if the event's
+        # base.sha is stale.
         run: |
           bash hack/test/commit_identity_test.sh
-          bash hack/check-commit-identity.sh "${BASE_SHA}" "${HEAD_SHA}"
+          bash hack/check-commit-identity.sh HEAD^1 HEAD^2
       - name: Lint Markdown
         run: task lint:markdown
       - name: Check go mod tidy

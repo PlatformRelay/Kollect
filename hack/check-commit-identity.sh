@@ -30,8 +30,19 @@ is_allowed() {
   return 1
 }
 
+# Fail closed: an unknown revision must not turn into an empty, passing range.
+for rev in "$1" "$2"; do
+  git rev-parse --verify --quiet "${rev}^{commit}" >/dev/null || {
+    printf 'commit identity: unknown revision %s\n' "${rev}" >&2
+    exit 2
+  }
+done
+# Captured, not piped, so a git failure stops the script under set -e. The unit
+# separator is not whitespace, so an empty field cannot shift the ones after it.
+log="$(git log --format='%H%x1f%an%x1f%ae%x1f%cn%x1f%ce' "$1..$2")"
+
 bad=()
-while IFS=$'\t' read -r sha an ae cn ce; do
+while IFS=$'\x1f' read -r sha an ae cn ce; do
   [[ -n "${sha}" ]] || continue
   if [[ "${an}" == "${maintainer}" ]] && ! is_allowed "${ae}"; then
     bad+=("${sha:0:9} author ${ae}")
@@ -39,7 +50,7 @@ while IFS=$'\t' read -r sha an ae cn ce; do
   if [[ "${cn}" == "${maintainer}" ]] && ! is_allowed "${ce}"; then
     bad+=("${sha:0:9} committer ${ce}")
   fi
-done < <(git log --format='%H%x09%an%x09%ae%x09%cn%x09%ce' "$1..$2")
+done <<<"${log}"
 
 if ((${#bad[@]} > 0)); then
   printf 'commit identity: maintainer commits use a non-project address:\n' >&2

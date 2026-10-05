@@ -55,6 +55,17 @@ new_repo
 commit "Konrad Heimel" "konrad.heimel@gmail.com" "konrad.heimel@work.example"
 expect_fail "maintainer committer on a non-allowed address" "konrad.heimel@work.example"
 
+# An unknown revision must fail closed, never print ok.
+new_repo
+if (cd "${work}/repo" && bash "${check}" deadbeefdeadbeefdeadbeefdeadbeefdeadbeef HEAD) >/dev/null 2>&1; then
+  fail "unknown base revision: accepted"
+fi
+
+# An empty email field must not shift the committer into its place.
+new_repo
+commit "Konrad Heimel" "" "konrad.heimel@work.example"
+expect_fail "empty author email with a bad committer" "committer konrad.heimel@work.example"
+
 # An empty range is a pass, not an error: a PR can be rebased onto its own base.
 new_repo
 expect_pass "empty range"
