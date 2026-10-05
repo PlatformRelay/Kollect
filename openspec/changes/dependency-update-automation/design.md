@@ -18,10 +18,18 @@ See proposal.md. Credentials and merge authority are involved, so the trade-offs
   injection surface (the zizmor audit in `ci-workflow-hardening` flags it) and splits the policy
   across two files. Rebase because the workspace merge policy is rebase-merge, linear history,
   never squash or merge commits.
-- **Scope: patch and minor** of `gomod`, `github-actions` (including digest pins) and the
-  `custom.regex` pinned-tools group. Major updates, `k8s.io/` and `sigs.k8s.io/` modules, the
-  Dockerfile base image and anything touching the Go toolchain are reviewed by a human: they
-  change behaviour or compatibility.
+- **Scope: `patch` and `minor` of `gomod` and the `custom.regex` pinned-tools group; `patch`,
+  `minor`, `digest` and `pinDigest` of `github-actions`.** Major updates, `k8s.io/` and
+  `sigs.k8s.io/` modules, the Dockerfile base image and the `go` directive are reviewed by a
+  human: they change behaviour or compatibility.
+- **Deny rules come last and are asserted structurally.** There is no offline evaluator of the
+  final merged rule set. Instead the config puts the deny rules (major, `k8s.io/`, dockerfile,
+  go directive) after every allow rule with `automerge: false` (later `packageRules` win), and the
+  guard asserts with `jq` that those rules exist, set `automerge: false`, and are the last
+  entries. Adding a rule after them fails the guard, which is the intended friction.
+- **Pinned-tool automerge stays**, which is why `developer-toolchain-consistency` asserts a
+  version floor and agreement between sites, not exact values (an exact-value test would make
+  every bot PR red).
 - **Cooldown 7 days** (`minimumReleaseAge`) so a compromised or yanked release is usually
   caught upstream first; security advisories are raised by the existing sweep, outside this
   config.

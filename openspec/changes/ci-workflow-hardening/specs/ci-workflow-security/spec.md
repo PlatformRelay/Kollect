@@ -11,7 +11,11 @@ cancellation) and which CI triggers must be preserved so that release eligibilit
 ### Requirement: CWS-1 Every job audits runner egress
 
 Every job that has `steps:` in `.github/workflows/*.yaml` SHALL have `step-security/harden-runner`,
-pinned by commit digest, as its first step with `egress-policy: audit`.
+pinned by commit digest, as its first step with `egress-policy: audit`, except the reporter and
+classifier jobs that `hack/test/ci_docs_gate_test.sh` pins to an exact step count (`test` and
+`changes` in `ci.yaml` and `e2e-smoke.yaml`, plus any other job that test pins; task 1.1 lists
+them). The exemption list lives in the meta-test with that reason, because a third-party step in
+those jobs could write `$GITHUB_ENV` and report a required context green.
 
 #### Scenario: Job with harden-runner first
 
@@ -22,6 +26,16 @@ pinned by commit digest, as its first step with `egress-policy: audit`.
 
 - **WHEN** a job is added whose first step is `actions/checkout`
 - **THEN** the meta-test SHALL fail and name the workflow and job
+
+#### Scenario: Exempt job gets the action
+
+- **WHEN** harden-runner is added to the `test` reporter job
+- **THEN** both the meta-test and `ci_docs_gate_test.sh` SHALL fail
+
+#### Scenario: Exemption list widened without reason
+
+- **WHEN** a job name is added to the exemption list without a reason on the same line
+- **THEN** the meta-test SHALL fail
 
 #### Scenario: Block mode is not introduced here
 
@@ -78,20 +92,26 @@ states why it is safe.
 - **WHEN** `verify-eligibility.sh` lists required checks
 - **THEN** `dependency-review` SHALL NOT be among them, because it does not run on `main`
 
-### Requirement: CWS-5 Superseded pull-request runs are cancelled, main runs are not
+### Requirement: CWS-5 Superseded pull-request runs are cancelled, every main push keeps its own run
 
-`ci.yaml` SHALL declare `concurrency:` with a per-PR group and
-`cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}`.
+`ci.yaml` and `e2e-smoke.yaml` SHALL declare `concurrency:` whose group is the pull-request number
+for `pull_request` events and the commit SHA otherwise, with
+`cancel-in-progress: ${{ github.event_name == 'pull_request' }}`.
 
 #### Scenario: Two pushes to one PR
 
 - **WHEN** a second commit is pushed while the first run is in progress
 - **THEN** the first run is cancelled
 
-#### Scenario: Two merges to main in quick succession
+#### Scenario: Three quick merges to main
 
-- **WHEN** a second commit lands on `main` while the first run is in progress
-- **THEN** the first run SHALL NOT be cancelled
+- **WHEN** three commits land on `main` within one run's duration
+- **THEN** each commit gets its own complete run; none is cancelled and none is dropped as a superseded pending run
+
+#### Scenario: Group keyed by ref
+
+- **WHEN** a group expression uses `github.ref` for push events in either workflow
+- **THEN** the meta-test SHALL fail
 
 ### Requirement: CWS-6 CI keeps running on push to main
 
@@ -105,8 +125,13 @@ states why it is safe.
 
 #### Scenario: Transition PR green, then main
 
-- **WHEN** a PR is green, is rebase-merged, and the push run on `main` starts
+- **WHEN** a PR that changes code is green, is rebase-merged, and the push run on `main` starts
 - **THEN** the push run executes the same jobs and reports on the exact merge SHA
+
+#### Scenario: Documentation-only merge
+
+- **WHEN** a merge touches only paths in the push `paths-ignore` list (`ci.yaml:33-42`)
+- **THEN** no push run is expected; release eligibility applies to code commits, and the meta-test SHALL NOT require a push run for them
 
 ### Requirement: CWS-7 Each new gate is proven able to fail
 

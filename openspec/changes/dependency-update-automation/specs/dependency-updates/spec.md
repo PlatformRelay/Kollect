@@ -51,33 +51,37 @@ the repository SHALL select squash or a merge commit for a bot PR.
 
 ### Requirement: DUA-3 Auto-merge is narrow
 
-Auto-merge SHALL apply only to patch and minor updates from the `gomod`, `github-actions` and
-`custom.regex` managers, and SHALL NOT apply to major updates, to `k8s.io/` or `sigs.k8s.io/`
-modules, to the Dockerfile manager, or to the Go toolchain.
+Auto-merge SHALL apply only to `patch` and `minor` updates from the `gomod` and `custom.regex`
+managers and to `patch`, `minor`, `digest` and `pinDigest` updates from `github-actions`, and SHALL
+NOT apply to `major` updates, to `k8s.io/` or `sigs.k8s.io/` modules, to the Dockerfile manager,
+or to the `go` directive. The deny rules SHALL be the last entries of `packageRules`.
 
 #### Scenario: Patch bump of a Go module
 
 - **WHEN** Renovate proposes a patch update of a non-Kubernetes Go module older than the cooldown
 - **THEN** the PR is marked for auto-merge
 
-#### Scenario: Major bump
+#### Scenario: Digest bump of an action
 
-- **WHEN** Renovate proposes a major update of any dependency
+- **WHEN** Renovate proposes a digest update of a pinned action
+- **THEN** the PR is marked for auto-merge once the DUA-4 rule for digests is satisfied
+
+#### Scenario: Major bump or Kubernetes group
+
+- **WHEN** Renovate proposes a major update, or any `k8s.io/` or `sigs.k8s.io/` update
 - **THEN** the PR is NOT marked for auto-merge
 
-#### Scenario: Kubernetes group
+#### Scenario: Rule appended after the deny rules
 
-- **WHEN** Renovate updates `k8s.io/api`
-- **THEN** the PR is NOT marked for auto-merge
-
-#### Scenario: Rule order cannot widen scope
-
-- **WHEN** a new `packageRules` entry matches `k8s.io/` after the automerge rule
-- **THEN** the guard evaluates the final rule set and fails if `automerge` resolves true for a Kubernetes package or a major update
+- **WHEN** a new `packageRules` entry is added after the deny rules
+- **THEN** the `jq` guard SHALL fail, because the deny rules are no longer last
 
 ### Requirement: DUA-4 New releases wait seven days
 
-Updates eligible for auto-merge SHALL set `minimumReleaseAge` to at least `7 days`.
+`patch` and `minor` updates eligible for auto-merge SHALL set `minimumReleaseAge` to at least
+`7 days`. Digest updates, which have no release timestamp, SHALL either be held by the same age
+rule or be exempt by an explicit rule with the reason, according to the probe in task 1.2; they
+SHALL NOT be held forever.
 
 #### Scenario: Release one day old
 
@@ -86,8 +90,13 @@ Updates eligible for auto-merge SHALL set `minimumReleaseAge` to at least `7 day
 
 #### Scenario: Setting removed
 
-- **WHEN** `minimumReleaseAge` is absent or below 7 days on an automerge rule
+- **WHEN** `minimumReleaseAge` is absent or below 7 days on a patch/minor automerge rule
 - **THEN** the guard SHALL fail
+
+#### Scenario: Digest update never matures
+
+- **WHEN** the probe shows digest updates stay pending forever under `minimumReleaseAge`
+- **THEN** the config carries a digest-specific exemption with a comment naming the reason
 
 ### Requirement: DUA-5 Bot credentials carry no bypass
 
