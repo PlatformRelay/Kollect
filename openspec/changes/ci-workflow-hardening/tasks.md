@@ -38,7 +38,7 @@
 | CWS-2 | `workflow-security` job on the PR head; template-injection fixture | green on tree, red on fixture | not-run | |
 | CWS-3 | meta-test, bare-suppression mutant | fails on mutant | not-run | |
 | CWS-4 | `dependency-review` on a throwaway PR with a vulnerable module | job red | not-run | |
-| CWS-5 | meta-test group/expression check (ref-keyed mutant); two pushes to a PR; three quick merges to main | first PR run cancelled; every main SHA has a run | not-run | |
+| CWS-5 | meta-test group/expression check (ref-keyed and unprefixed-group mutants); two pushes to a PR; three quick merges to main | first PR run cancelled; every main SHA has a run | not-run | |
 | CWS-6 | meta-test with `push` removed (mutant); push run on merge SHA | mutant fails; push run reports | not-run | |
 | CWS-7 | self-test mutants plus a no-op control, judged by exit status | each mutant red, no-op green | not-run | |
 | all | independent review, CI on PR head | APPROVE, green; record both the reviewed and the archive revision | not-run | |

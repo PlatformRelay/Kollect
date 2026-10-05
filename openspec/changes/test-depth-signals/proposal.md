@@ -23,7 +23,7 @@ Mutation measurement is a separate change, `mutation-testing-signal`.
 - TDS-1: the fuzz retry moves to `hack/ci/fuzz-retry.sh`, which retries only when the output is
   the known Go engine deadline artifact (golang/go#75804) and nothing else.
 - TDS-2: `task test:shuffle` runs the unit packages with `-shuffle=on -count=3`, printing the seed;
-  CI runs it in `test-suite`.
+  CI runs it nightly, not per PR (it triples unit-test time).
 - TDS-3: `hack/test/readme_quickstart_test.sh` checks the README quick-start commands against the
   Taskfile, the sample path and the CRD short names.
 
@@ -39,14 +39,12 @@ None.
 
 ## Impact
 
-- Entry points: job `fuzz` in `ci.yaml` calling `hack/ci/fuzz-retry.sh`; the `test-suite` job
+- Entry points: job `fuzz` in `ci.yaml` calling `hack/ci/fuzz-retry.sh`; the nightly job
   running `task test:shuffle`; the `lint` job running the README test.
 
 ## Dependencies
 
-Landing order across the seven proposed changes: developer-toolchain-consistency (with its Go
-bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation,
-nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract.
+Landing order across the eight proposed changes: developer-toolchain-consistency (with its Go bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation, nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract.
 
 ## Non-goals
 

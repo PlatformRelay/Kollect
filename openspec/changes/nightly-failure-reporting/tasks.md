@@ -18,7 +18,7 @@
 
 ## 4. Live
 
-- [ ] 4.1 `workflow_dispatch` a scheduled-style run on a branch with a deliberately failing job via a throwaway workflow copy: issue opens, second run comments, passing run closes (record the three run links)
+- [ ] 4.1 `workflow_run` fires only for workflow files on the default branch, and the `schedule` guard filters dispatch runs, so a pre-merge live probe is impossible here. Evidence is the first real scheduled night(s) after merge (a failing night opens an issue, a later green night closes it), or a throwaway repository with the same two workflows; the row stays not-run until then
 
 ## 5. Land
 
@@ -34,5 +34,5 @@
 | NFR-4 | body fixtures | failed jobs listed, cap respected, marker on truncation | not-run | |
 | NFR-5 | dispatch, fork and non-schedule event cases; `gh` error case | no action; error visible in the report run | not-run | |
 | NFR-6 | mutants judged by exit status plus no-op control | each mutant red | not-run | |
-| all | live throwaway run (4.1) | open, comment, close observed | not-run | |
+| all | first scheduled nights after merge, or a throwaway repository (4.1) | open, comment, close observed | not-run | |
 | all | independent review, CI on PR head | APPROVE, green; reviewed and archive revisions recorded | not-run | |

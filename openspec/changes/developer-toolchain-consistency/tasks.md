@@ -7,7 +7,8 @@
 
 ## 2. Bumps without behaviour change (DTC-1 to DTC-4, DTC-6, DTC-7)
 
-- [ ] 2.0 Bump `go.mod` to `go 1.27.1` (one commit, version only); `task test`, `task lint`, `task vulncheck` recorded; add the `go`-directive + golang-image Renovate group
+- [ ] 2.0 Probe Renovate: does `gomod` bump the `go` directive at all (`golang` depType, `rangeStrategy`), and which group wins; the golang-image group rule must come after the existing "go minor and patch dependencies" and "docker images" `groupName` rules to take effect. Probe CodeQL's Go extractor on 1.27 (`codeql.yaml`).
+- [ ] 2.0b After 3.1 (so golangci-lint v2.13.1, not v2.11.4, runs under Go 1.27.1): bump `go.mod` to `go 1.27.1` (one commit, version only); `task test`, `task lint`, `task vulncheck` recorded; add the `go`-directive + golang-image Renovate group
 
 - [ ] 2.1 Task 3.52.0 at every site including `mise.toml`; guard passes for DTC-2
 - [ ] 2.2 `GOVULNCHECK_VERSION` variable with Renovate annotation; `task vulncheck` uses it; guard passes
@@ -43,6 +44,6 @@
 | DTC-3 | drift test, lagging `.custom-gcl.yml` and inline-govulncheck mutants; `task lint` and `task vulncheck` real runs | mutants red; lint clean; vulncheck result recorded (red advisories are a finding, not a pass) | not-run | |
 | DTC-4 | drift test, pre-commit rev mutant | red | not-run | |
 | DTC-5 | `task --list-all`; reachability test | both names listed; uncovered job named | not-run | |
-| DTC-6 | empty-scan, dead-manager and uncovered-site fixtures; no-op control | each red; no-op green |
+| DTC-6 | empty-scan, dead-manager and uncovered-site fixtures; no-op control | each red; no-op green | not-run | |
 | DTC-7 | stale-comment mutant | red | not-run | |
 | all | CI on the PR head; independent review | green; APPROVE; both revisions recorded | not-run | |

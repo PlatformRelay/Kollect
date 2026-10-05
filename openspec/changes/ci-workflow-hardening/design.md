@@ -17,7 +17,7 @@ See proposal.md. The reference project attune removes CI on push to `main`.
   a newer pending run replaces the older pending one even with `cancel-in-progress: false`.
   With a `github.ref` key, three quick merges to `main` would leave the middle SHA with no run,
   and `verify-eligibility.sh` needs a verdict for the exact release SHA (it would also serialize
-  main runs). Group: `ci-${{ github.event.pull_request.number || github.sha }}`,
+  main runs). Group: `${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}` (the prefix matters: groups are repository-global, so `ci.yaml` and `e2e-smoke.yaml` on one PR would otherwise cancel each other),
   `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`. `e2e-smoke.yaml:31` has the
   `github.ref` key today and gets the same group shape (it produces the required `kind-smoke`).
   `codeql.yaml` and the e2e-extended/test-e2e groups do not produce required exact-SHA

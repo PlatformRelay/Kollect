@@ -40,10 +40,9 @@ report.
 
 ### Requirement: MUT-3 Success to tool failure to recovery is visible
 
-A night where the tool fails SHALL leave the previous night's report untouched and SHALL be
-distinguishable in the run from a night with surviving mutants.
+A night where the tool fails SHALL be distinguishable in the run from a night with surviving mutants.
 
 #### Scenario: Night 1 ok, night 2 tool failure, night 3 ok
 
 - **WHEN** the three nights run
-- **THEN** night 2 is red with the tool error, nights 1 and 3 are green with their own reports
+- **THEN** night 2 is red with the tool error, nights 1 and 3 are green, each with its own run's report

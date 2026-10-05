@@ -94,7 +94,7 @@ states why it is safe.
 
 ### Requirement: CWS-5 Superseded pull-request runs are cancelled, every main push keeps its own run
 
-`ci.yaml` and `e2e-smoke.yaml` SHALL declare `concurrency:` whose group is the pull-request number
+`ci.yaml` and `e2e-smoke.yaml` SHALL declare `concurrency:` whose group is the workflow name (`${{ github.workflow }}-`) followed by the pull-request number
 for `pull_request` events and the commit SHA otherwise, with
 `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`.
 
@@ -107,6 +107,11 @@ for `pull_request` events and the commit SHA otherwise, with
 
 - **WHEN** three commits land on `main` within one run's duration
 - **THEN** each commit gets its own complete run; none is cancelled and none is dropped as a superseded pending run
+
+#### Scenario: Two workflows on one PR
+
+- **WHEN** `ci.yaml` and `e2e-smoke.yaml` run for the same PR
+- **THEN** neither cancels the other; a group expression without a per-workflow prefix (bare `PR number || sha`) SHALL fail the meta-test
 
 #### Scenario: Group keyed by ref
 

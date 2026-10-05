@@ -10,7 +10,7 @@
 
 - [ ] 2.1 Probe the seed output and fix the unit package list with exclusion reasons in `Taskfile.yml`
 - [ ] 2.2 Write a test with a deliberately order-dependent fixture package that fails under `-shuffle` for a fixed seed (pass the seed explicitly so the red is deterministic) and a guard test for exclusions without a reason; watch both fail
-- [ ] 2.3 Add `task test:shuffle`; run it in `test-suite`; fix any order dependence it finds in its own commits
+- [ ] 2.3 Add `task test:shuffle`; run it in the nightly, recording the measured duration; fix any order dependence it finds in its own commits
 
 ## 3. README truth (TDS-3)
 

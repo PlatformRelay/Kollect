@@ -42,7 +42,8 @@ Every other failure SHALL fail the job at once.
 ### Requirement: TDS-2 Unit tests do not depend on order
 
 `task test:shuffle` SHALL run the unit packages with `-shuffle=on -count=3`, SHALL print the seed,
-and CI SHALL run it. Packages that need Docker, envtest or kind are excluded by an explicit list
+and CI SHALL run it in the nightly (`e2e-nightly.yaml`), not in the PR `test-suite`, because it
+multiplies unit-test time by three; the measured cost is recorded in task 2.1. Packages that need Docker, envtest or kind are excluded by an explicit list
 with reasons.
 
 #### Scenario: Order-dependent test
