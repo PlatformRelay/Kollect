@@ -40,10 +40,10 @@ follow-up). Design: option (a) plus a branch per inventory kind and an owner-nam
 
 - [x] 3.1 ADR-0407 (branch name, target check), ADR-0422 follow-up, upgrade note
   (docs/operator-manual/upgrading.md)
-- [ ] 3.2 Independent adversarial review (reviewer, revision, verdict)
-- [ ] 3.3 CI green on the PR head
-- [ ] 3.4 Operator decision on the open-MR race (design.md D4): accept, or add option (c)
-- [ ] 3.5 Archive the change as the last commit of the PR
+- [x] 3.2 Independent adversarial review: APPROVE at `67afb3dad` after F1 (same-branch CLI duplicate, folded in), F2 (document Export routing test), F3 and F4
+- [x] 3.3 CI green on the PR head (40 pass at `67afb3dad`: https://github.com/PlatformRelay/Kollect/actions/runs/37283623556)
+- [x] 3.4 Open-MR race (design.md D4): accepted and documented (decision 2026-10-05); revisit with option (c) if branchMR gets multi-tenant users
+- [x] 3.5 Archive the change as the last commit of the PR
 
 ## Verification
 
@@ -80,8 +80,8 @@ assertion, not on compilation.
 | all | `task spec:validate`; `task lint:markdown`; markdownlint-cli2 on the untracked change files | pass | pass | spec:validate exit 0 (4 items, `change/gitlab-branchmr-claims` strict-valid); lint:markdown exit 0, 190 tracked files, 0 issues. `lint:markdown` lists tracked files only, so the new, uncommitted change files were linted directly with the same config: 7 files, 0 issues |
 | all | `go test ./internal/controller/...` | pass | not-run | the controllers are unchanged; `RunExportEnvelope` only gains one field assignment, covered by the sink tests above |
 | IEI-10 | two merge requests open at once (design.md D4) | — | N/A | not addressed by design; operator decision 3.4 |
-| — | independent adversarial review | APPROVE | not-run | pending |
-| — | CI on the PR head | required checks green | not-run | pending |
+| — | independent adversarial review | APPROVE | pass | APPROVE at `67afb3dad` (findings F1–F4 resolved) |
+| — | CI on the PR head | required checks green | pass | https://github.com/PlatformRelay/Kollect/actions/runs/37283623556 |
 
 | IEI-10 | `TestSameBranchExport_warmMirrorRefusesClaimPushedMeanwhile` (cli, go-git) | push branch == clone branch, warm mirror: a claim pushed meanwhile is refused, no duplicate on the branch | pass | red on cli before the fix: `FORBIDDEN: merging main into main claims ... twice` (pull --rebase merged both records); go-git already refused. Fix: the CLI target check runs in every branch mode (found by independent review) |
 | IEI-11 | `TestBackend_BranchMR_documentExportRoutesByKind` (document-mode `Backend.Export`, both kinds) | branch chosen from the commit context kind | pass | mutant passing kind "" in `Export` killed (exit 1: lands on `kollect/_cluster/platform`). `DeleteExport` gets its kind from the cleanup path once the ownership-release change sets it |
