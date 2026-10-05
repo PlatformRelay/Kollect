@@ -54,7 +54,7 @@ Slice 1 of INVENTORY-IDENTITY-01. Option A for every inventory, decided by the o
 
 ## Verification
 
-Rev: uncommitted worktree (branch `design/inventory-identity`, rebased on `origin/main`), local,
+Rev: implementation `b0694ddf9` (branch `design/inventory-identity`, PR #414; rebased since), local,
 Go 1.26.6 (`GOTOOLCHAIN=go1.26.6`), linux/amd64, `umask 022`, envtest assets 1.36.0. Every red below
 was observed before the production edit with the scaffolding in place (identity fields wired, old owner
 and guard still active), so each failed on its assertion, not on compilation.
@@ -86,5 +86,9 @@ and guard still active), so each failed on its assertion, not on compilation.
 | all | `task test` with `GOFLAGS=-buildvcs=false` (the subagent sandbox blocks the git call Go uses for VCS stamping) | pass | pass | exit 0, 47 packages ok; envtest 1.36.2 downloaded by the Makefile; generated `config/` and `zz_generated` identical to the main checkout |
 | all | `go test -tags integration ./internal/sink/ -run 'Multipart\|Prune\|LayoutExport\|RunExportEnvelope\|Resource'` | pass | pass | exit 0 (local Git remotes; the Docker-backed integration tier was not run) |
 | all | `task spec:validate`; `task lint:markdown` (docs:verify skipped: needs a Python 3.12 venv) | pass | pass | spec:validate exit 0 (3 items passed, `change/inventory-export-identity` strict-valid); lint:markdown exit 0, 189 files, 0 issues |
-| all | CI on the PR head | required checks green | not-run | needs a pushed PR |
-| — | independent adversarial review | APPROVE | not-run | not the author |
+| IEI-2 | `TestOwnedPrune_nonPruningExportRefusesForeignPath` (non-final part and document export without prune, memfs and osfs); `FuzzOwnedPrune` seed 10 | terminal error naming N, N's bytes unchanged | pass | added after review (F1) |
+| IEI-6 | `TestBackend_ExportFilesForwardsClaimPaths` (GitLab, local bare remote) | foreign manifest rejected on a non-final part, nothing pushed | pass | added after review (F2) |
+| IEI-2 | mutation M1: `prune_owned.go` `if !cfg.Prune` → `if false` | tests fail | pass | exit 1 (reviewer, and the coordinator independently): the test above and fuzz seed 10. Restored |
+| IEI-6 | mutation M9: drop GitLab `PruneClaimPaths` forwarding | tests fail | pass | exit 1 (reviewer): `TestBackend_ExportFilesForwardsClaimPaths`. Restored |
+| all | CI on the PR head | required checks green | pass | 40 pass at `19ba4ac81`: https://github.com/PlatformRelay/Kollect/actions/runs/37276366271 ; re-run on the archive commit before merge |
+| — | independent adversarial review | APPROVE | pass | REQUEST CHANGES → F1/F2 tests added, release note and this table corrected; re-review of the final revision recorded in the PR |

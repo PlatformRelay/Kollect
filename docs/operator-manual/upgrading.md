@@ -211,10 +211,14 @@ namespace called `cluster` never delete each other's files.
     its record file. Give overlapping inventories separate sinks, or a `spec.layout.pathTemplate`
     that includes the inventory (`{namespace}` and `{name}` are the inventory's, for example
     `{namespace}/{name}/{sourceNamespace}/{kind}/{sourceName}{extension}`), or narrow their
-    selection so they do not overlap.
+    selection so they do not overlap. A cluster inventory `X` and a namespaced inventory `X` in
+    namespace `cluster` render the same `{namespace}/{name}` (`cluster/X`), so give those two
+    separate sinks.
 
-Ownership records written by builds before this change are not migrated. A repository that holds
-them keeps those files until they are removed by hand.
+Ownership records written by builds before this change are not migrated. An inventory whose paths
+are listed in an old record is rejected as if another inventory owned them, so delete the
+`.kollect-prune/` directory from the export branch when upgrading; the next export records the
+current files again.
 
 ## GitOps and CI/CD
 
