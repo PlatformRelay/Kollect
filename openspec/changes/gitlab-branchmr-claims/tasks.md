@@ -47,8 +47,8 @@ follow-up). Design: option (a) plus a branch per inventory kind and an owner-nam
 
 ## Verification
 
-Rev: uncommitted worktree `fix/gitlab-branchmr-claims` based on `origin/main` (includes #414); the
-coordinator commits, so the revision is recorded at commit time. Local, Go 1.26.6
+Rev: implementation commit "fix(sink/gitlab)!: refuse claims already merged on the branchMR target" on
+`fix/gitlab-branchmr-claims` (PR #416, based on `origin/main` including #414). Local, Go 1.26.6
 (`GOTOOLCHAIN=go1.26.6`, `GOFLAGS=-buildvcs=false`), linux/amd64, `umask 022`, git CLI from PATH.
 Every red below was observed with the scaffolding in place (seams extracted, `CommitContext.Kind` and
 the `kind` parameter present but unused, no target check, old error text), so each failed on its
@@ -82,3 +82,6 @@ assertion, not on compilation.
 | IEI-10 | two merge requests open at once (design.md D4) | — | N/A | not addressed by design; operator decision 3.4 |
 | — | independent adversarial review | APPROVE | not-run | pending |
 | — | CI on the PR head | required checks green | not-run | pending |
+
+| IEI-10 | `TestSameBranchExport_warmMirrorRefusesClaimPushedMeanwhile` (cli, go-git) | push branch == clone branch, warm mirror: a claim pushed meanwhile is refused, no duplicate on the branch | pass | red on cli before the fix: `FORBIDDEN: merging main into main claims ... twice` (pull --rebase merged both records); go-git already refused. Fix: the CLI target check runs in every branch mode (found by independent review) |
+| IEI-11 | document-mode `Backend.Export` / `DeleteExport` kind routing | branch chosen from the commit context kind | not-run | `Export` rejects `file://` endpoints, so it is not reachable with the local-remote fixtures; mutants passing kind "" there survive. Impact limited to a namespaced inventory in namespace `cluster` that shares a name with a cluster inventory, documented as "use separate sinks" |
