@@ -114,9 +114,14 @@ record listed, and the released owner SHALL no longer count toward the owner cap
 - **WHEN** `KollectClusterInventory` `platform` owned a path, was deleted under `Retain`, and `KollectInventory` `cluster/platform` exports that path
 - **THEN** the export succeeds and its record lists the path
 
+## RENAMED Requirements
+
+- FROM: `### Requirement: IEI-8 Delete and recreate continues the record`
+- TO: `### Requirement: IEI-8 Delete and recreate starts a new record`
+
 ## MODIFIED Requirements
 
-### Requirement: IEI-8 Delete and recreate continues the record
+### Requirement: IEI-8 Delete and recreate starts a new record
 
 The owner SHALL carry no UID. An inventory recreated with the same kind, namespace and name after a
 deletion that released its record (ROD-1) SHALL start a new record and SHALL NOT delete any file its
