@@ -56,6 +56,11 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 - **inventory:** Keep a failed body write from appending a 500 [049adbe](https://github.com/platformrelay/kollect/commit/049adbe23b4f934c838eb33470f7a62c19c677ca)
 
 
+### Features
+
+- **sink:** [**breaking**] Own git export files by kind-qualified inventory identity [df455ca](https://github.com/platformrelay/kollect/commit/df455caa43dbb7e4e83cb567e360273219485705)
+
+
 ### Performance
 
 - **test:** Reuse the build cache in the no-Docker proof ([#407](https://github.com/platformrelay/kollect/pull/407))[27023f3](https://github.com/platformrelay/kollect/commit/27023f37bafd4aaf64e46bdfabbccd50f3571844)
