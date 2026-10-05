@@ -76,11 +76,20 @@ jobs:
         with:
           app-id: ${{ secrets.CHANGELOG_SYNC_GITHUB_APP_ID }}
           private-key: ${{ secrets.CHANGELOG_SYNC_GITHUB_APP_PRIVATE_KEY }}
+          # zizmor github-app: without an explicit permission the minted token inherits every
+          # permission the installation has. This job only commits and pushes CHANGELOG.md, so
+          # scope the token to contents: write and nothing else.
+          permission-contents: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # git-cliff needs full history + tags
           fetch-tags: true
           token: ${{ steps.app-token.outputs.token }}
+          # zizmor artipacked: the checkout must not persist the App token in the local git
+          # config, where every later step could read it. The push below authenticates itself
+          # per-invocation with the same token through GIT_CONFIG_* (the pattern actions/checkout
+          # itself uses), so nothing needs persisted credentials.
+          persist-credentials: false
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
           version: 3.51.1
@@ -107,6 +116,8 @@ jobs:
           esac
       - name: Commit & push if drifted
         if: steps.guard.outputs.verdict == 'push'
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -114,6 +125,16 @@ jobs:
           # [skip ci] keeps App-token pushes from re-triggering workflows; paths-ignore
           # is the primary loop guard when only CHANGELOG.md changes.
           git commit -m ":page_facing_up: docs: sync CHANGELOG.md [skip ci]"
+          # zizmor artipacked: authenticate this one push without persisted credentials --
+          # the token reaches git through GIT_CONFIG_* env keys (the same extraheader pattern
+          # actions/checkout uses), scoped to github.com, and never appears in argv or in
+          # .git/config.
+          GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_COUNT
+          GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
+          export GIT_CONFIG_KEY_0
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${APP_TOKEN}" | base64)"
+          export GIT_CONFIG_VALUE_0
           if git push origin HEAD:main; then
             echo "::notice title=changelog-sync::Pushed regenerated CHANGELOG.md to main."
           else

@@ -151,6 +151,9 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          # zizmor cache-poisoning: this tag-triggered workflow publishes runtime artifacts, so a
+          # cache an untrusted event could seed must not feed the release build. Cache off.
+          cache: false
 
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
@@ -547,6 +550,9 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          # zizmor cache-poisoning: this tag-triggered workflow publishes runtime artifacts, so a
+          # cache an untrusted event could seed must not feed the release build. Cache off.
+          cache: false
 
       # DIST-OH-02: hack/operatorhub-pr.sh validates the bundle with the modern OperatorHub
       # validator set before pushing anything to a third-party repo, and hard-fails without
