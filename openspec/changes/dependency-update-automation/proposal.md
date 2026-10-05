@@ -4,29 +4,45 @@
 
 Self-hosted Renovate runs weekly (`.github/workflows/renovate.yaml`, `cron: "0 4 * * 1"`) with
 `secrets.RENOVATE_TOKEN` when set and `github.token` otherwise (last line of the file). No
-`RENOVATE_TOKEN` exists, so Renovate pushes `renovate/*` branches, cannot open pull requests the
-way CI expects, and any PR it does open by that token does not start workflows (GitHub does not
-trigger workflows for events caused by `GITHUB_TOKEN`). The result is branches nobody merges and
-dependency drift that only the manual security sweep catches. `renovate.json` has no
-`automerge`, no `minimumReleaseAge` and no schedule; every update is manual.
+`RENOVATE_TOKEN` exists, so Renovate pushes `renovate/*` branches and cannot get CI started on
+its pull requests (GitHub does not trigger workflows for events caused by `GITHUB_TOKEN`).
+`renovate.json` has no `automerge`, no `minimumReleaseAge` and no schedule; every update is manual.
+
+Auto-merging bot PRs is only safe if the gates can block them, and if nothing a bot merges runs
+with a privileged token. Probed on this tree:
+
+- The `protect-main` ruleset requires only `preflight`, `test`, `kind-smoke` and `Analyze (Go)`;
+  `lint` and `vulncheck` are not required (`test` needs only `changes` and `test-suite`). An
+  auto-merged bump could land with `lint` red and then block a release at
+  `hack/release/verify-eligibility.sh:19-22`.
+- `changelog-sync.yaml` mints the token of an App on the `protect-main` bypass list
+  (`bypass_mode: always`, lines 18-19), checks out with that token (credentials persist in the
+  job), runs `go-task/setup-task` and git-cliff, and `hack/install-git-cliff.sh:39` verifies no
+  checksum. A merged Renovate bump of any of those runs inside a job that can push to `main`.
 
 ## What Changes
 
-- `.github/workflows/renovate.yaml` mints a short-lived installation token with `actions/create-github-app-token`
-  (already pinned in `changelog-sync.yaml:74`) from a NEW GitHub App dedicated to Renovate, and
-  passes it to the Renovate action. The `github.token` fallback is removed.
-- `renovate.json` (the repo config; `.github/renovate-config.json` only points Renovate at it) enables auto-merge for patch and minor updates of Go modules, the `github-actions`
-  manager (digest pins and minor/patch) and the pinned-tools group, with
-  `minimumReleaseAge: "7 days"`, and with `automergeStrategy: "rebase"`. Major updates and the
-  Kubernetes module group are never auto-merged.
-- A guard (`hack/test/renovate_automerge_test.sh`) proves the config cannot select a squash or
-  merge-commit strategy, scopes auto-merge as specified, and keeps the token step wired.
+- `.github/workflows/renovate.yaml` mints a short-lived installation token with
+  `actions/create-github-app-token` (pattern at `changelog-sync.yaml:74`) from a NEW App with no
+  ruleset bypass; the `github.token` fallback is removed. It runs daily.
+- `renovate.json` (the repo config; `.github/renovate-config.json` only points at it) auto-merges
+  only `patch` and `minor` updates of non-Kubernetes Go modules, with `automergeStrategy:
+  "rebase"`, `platformAutomerge: false` (Renovate merges itself and so waits for every check on
+  the head SHA, not just the required ones) and `minimumReleaseAge: "7 days"`. Everything else is
+  never auto-merged: majors, `k8s.io/` and `sigs.k8s.io/`, the `go` directive, Dockerfiles,
+  GitHub Actions of every kind (they run in jobs that hold tokens), pinned tools (`custom.regex`),
+  and `digest`/`pinDigest` updates (no release timestamp, cannot be aged).
+- A step before Renovate sets `automerge: false` for the run when the latest push CI on `main`
+  is not green.
+- `changelog-sync.yaml` checks out with `persist-credentials: false` and passes the App token only
+  to the push step.
+- `hack/test/renovate_automerge_test.sh` guards all of this structurally.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `dependency-updates`: how dependency update PRs are created, tested and merged.
+- `dependency-updates`: how update PRs are created, tested and merged, and what a bot can merge.
 
 ### Modified Capabilities
 
@@ -34,42 +50,40 @@ None.
 
 ## Impact
 
-- Entry points: `.github/workflows/renovate.yaml` (token step), `renovate.json` (rules), and the
-  repository's required checks, which gate every bot PR exactly as human PRs.
-- Operator-owned prerequisites are listed in tasks section 4 (App creation, secrets, repo setting
-  "Allow auto-merge", rebase-merge enabled, ruleset review).
+- Entry points: `.github/workflows/renovate.yaml`, `renovate.json`, `.github/workflows/changelog-sync.yaml`
+  (checkout and push step), the `lint` job (required after change 1) running the guard.
 
 ## Dependencies
 
-Landing order across the eight proposed changes: developer-toolchain-consistency (with its Go bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation, nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract.
-The toolchain change's Renovate edits (regex managers, golang-image group) land first so both
-touch `renovate.json` sequentially. A dependency bump itself needs no change; this one exists
-because it adds a credential and a merge path.
+Landing order across the ten proposed changes: (1) ci-workflow-hardening, (2) task-check-entrypoint,
+(3) golangci-lint-bump, (4) cross-file-consistency-gates, (5) developer-toolchain-pins,
+(6) dependency-update-automation, (7) ci-failure-reporting, (8) test-depth-signals,
+(9) mutation-testing-signal, (10) public-agent-contract.
+
+Hard prerequisites, checked in tasks section 0 before any other task:
+the four jobs `lint`, `vulncheck`, `workflow-security`, `dependency-review` are required checks
+(change 1, operator step); `install-git-cliff.sh` verifies a checksum (change 5). The operator also
+chooses the dependency bot; this change assumes Renovate stays (the choice is the operator's and
+is recorded elsewhere).
 
 ## Non-goals
 
-- Replacing Renovate with Dependabot (open question in `developer-toolchain-consistency`).
-- Auto-merging major updates, Kubernetes modules, Dockerfile base images or the Go toolchain (the `go` directive).
-- Changing which checks are required.
-- Reusing the changelog-sync App (see design.md).
+- Auto-merging anything beyond Go module patch/minor; widening is a later reviewed change.
+- Dependabot, `pull_request_target` workflows (forbidden here), changing which checks are required
+  beyond the prerequisite.
+- Reusing the changelog-sync App.
 
 ## Assumptions
 
-- Renovate update types: `patch`, `minor`, `major`, and, separately, `digest` and `pinDigest`
-  (`matchUpdateTypes`). Digest updates of `github-actions` carry no release timestamp, so
-  `minimumReleaseAge` may hold them forever or ignore them depending on
-  `minimumReleaseAgeBehaviour`. Probe in task 1.2 against the pinned Renovate version; the result
-  decides DUA-4's digest wording.
-
-- Pull requests and pushes made with a GitHub App installation token DO trigger workflows (the
-  exception is `GITHUB_TOKEN`). Source: GitHub docs, "Triggering a workflow from a workflow".
-  Probe in task 3.1: the first Renovate PR shows a CI run.
-- Renovate's `platformAutomerge: true` with `automergeStrategy: "rebase"` enables GitHub
-  auto-merge using the rebase method; it needs "Allow auto-merge" on the repository and merges only
-  after required checks pass. Source: Renovate docs, "automerge" and "automergeStrategy". Probe in
-  task 3.2 on the first eligible PR.
-- Renovate editing files under `.github/workflows/` needs the App to hold the `workflows`
-  permission; without it the push is rejected. Probe in task 3.1.
-- The existing App behind `changelog-sync.yaml` is on the `protect-main` bypass list with
-  `bypass_mode: always` (`changelog-sync.yaml:18-19`). Reusing it would give the bot a path
-  around required checks.
+- Events made with an App installation token DO trigger workflows (`GITHUB_TOKEN` is the
+  exception). Source: GitHub docs, "Triggering a workflow from a workflow"; post-merge row below.
+- With `platformAutomerge: false` Renovate merges through the API after all status checks on the
+  branch pass, using `automergeStrategy`; a PR behind `main` under a strict up-to-date rule is
+  refused until Renovate rebases it (`rebaseWhen: "behind-base-branch"`), which happens at its
+  next run; daily runs bound that delay. Source: Renovate docs ("automerge", "automergeStrategy",
+  "platformAutomerge", "rebaseWhen"); probe in task 3.2.
+- `RENOVATE_FORCE` can carry `{"automerge":false}` for one run (the workflow already uses it for
+  `schedule`). Probe in task 2.3.
+- Renovate editing files under `.github/workflows/` needs the App's `workflows` permission.
+- The ruleset may contain `require_extra_approval_for_unattributed_changes`; probe in task 0.3
+  whether it blocks bot-authored merges.

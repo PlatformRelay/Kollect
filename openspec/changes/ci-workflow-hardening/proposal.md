@@ -2,34 +2,42 @@
 
 ## Why
 
-`ci.yaml` has no `concurrency:` block, so every push to a PR branch leaves the previous run
-burning runner minutes (`codeql.yaml:18-21` and `e2e-smoke.yaml:30-33` already cancel superseded
-PR runs). `e2e-smoke.yaml`, which produces the required `kind-smoke` context, groups pushes to
-`main` by `github.ref`, which has a second defect (see design.md). No workflow audits the runners' network egress, no static analysis
-looks at the workflows themselves, and nothing reviews dependency changes on a PR. A comparison
-with the OSS project attune (`.github/workflows/ci.yaml`) showed that it closes these gaps with
-`step-security/harden-runner`, `zizmor --offline` and `actions/dependency-review-action`.
+Probed on this tree:
+
+- `ci.yaml` has no `concurrency:` block, so every push to a PR branch leaves the previous run
+  burning runner minutes. `e2e-smoke.yaml:30-33`, which produces the required `kind-smoke`
+  context, groups pushes to `main` by `github.ref`, so quick successive merges can lose the
+  middle commit's run (see design.md).
+- No static analysis looks at the workflows themselves, and nothing reviews dependency changes
+  on a PR.
+- The `protect-main` ruleset requires only `preflight`, `test`, `kind-smoke` and `Analyze (Go)`.
+  `lint`, `vulncheck` and any job added here can be red on a merged PR (`test` needs only
+  `changes` and `test-suite`), yet `hack/release/verify-eligibility.sh:19-22` demands them green
+  on the release SHA. A guard that cannot block a merge is not a gate.
+
+The reference project attune (`.github/workflows/ci.yaml`) runs `zizmor`, `dependency-review` and
+cancels superseded PR runs.
 
 ## What Changes
 
-- Every job in every workflow starts with `step-security/harden-runner` in `egress-policy: audit`,
-  except the reporter and classifier jobs whose step count `hack/test/ci_docs_gate_test.sh` pins
-  (`test` has exactly 1 step and `changes` exactly 2, in `ci.yaml` and `e2e-smoke.yaml`): a step
-  there could write `$GITHUB_ENV` and turn a required context green.
-- A new `workflow-security` job in `ci.yaml` runs `zizmor --offline` against `.github/` with a
-  committed config, `.github/zizmor.yml`, in which every suppression carries its reason.
+- A new `workflow-security` job in `ci.yaml` runs `zizmor --offline` over `.github/` with a pinned
+  version and `--min-severity`, and a committed config, `.github/zizmor.yml`, in which each
+  suppression carries its reason. Existing findings are fixed, not suppressed.
 - A new `dependency-review` job (pull requests only) runs `actions/dependency-review-action`
-  with `fail-on-severity: high`.
-- `ci.yaml` gets `concurrency:` that cancels superseded pull-request runs and gives every push to
-  `main` its own group (keyed by SHA). `e2e-smoke.yaml` gets the same fix to its group.
-- `hack/test/ci_workflow_security_test.sh` proves each of the above stays wired and can fail.
+  with its default severity threshold, a licence policy through `allow-licenses`, and unknown
+  licences reported, not failed.
+- `concurrency:` in `ci.yaml`, and the group fix in `e2e-smoke.yaml`.
+- The jobs `lint`, `vulncheck`, `workflow-security` and `dependency-review` become required
+  checks (ruleset, operator-owned), so every guard in `lint` can block a merge.
+- `hack/test/ci_workflow_security_test.sh` proves each of the above stays wired and can fail, and
+  that each new guard script runs in a required job.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `ci-workflow-security`: what the CI workflows must guarantee about their own supply chain,
-  and which CI triggers must never be removed.
+- `ci-workflow-security`: the supply-chain guarantees of the CI workflows, which gates must be
+  able to block a merge, and which triggers must never be removed.
 
 ### Modified Capabilities
 
@@ -37,36 +45,45 @@ None.
 
 ## Impact
 
-- Entry point: `.github/workflows/ci.yaml` (jobs `workflow-security`, `dependency-review`, the
-  `concurrency:` block) and the `hack/test/ci_workflow_security_test.sh` meta-test, which runs
-  in the existing `lint` job next to `ci_docs_gate_test.sh`.
-- `hack/release/verify-eligibility.sh` `required_checks` gains `workflow-security`. It does NOT
-  gain `dependency-review`, which only runs on pull requests and so has no exact-SHA result on
-  main.
-- Making the new jobs required status checks is a repository-ruleset change owned by the
-  operator (see tasks 5.x).
-
-## Non-goals
-
-- Switching harden-runner to `block` mode. Block needs an allowed-endpoints list built from
-  audit data; that is a follow-up once audit runs exist.
-- Removing the push-to-main CI trigger (see design.md).
-- Fixing findings zizmor reports beyond what task 3.2 plans.
+- Entry points: `.github/workflows/ci.yaml` (jobs `workflow-security`, `dependency-review`, the
+  `concurrency:` block), `.github/workflows/e2e-smoke.yaml`, the `lint` job running the meta-test,
+  and the repository ruleset.
+- `hack/release/verify-eligibility.sh` `required_checks` gains `workflow-security`, not
+  `dependency-review` (PR-only, no exact-SHA result on main).
+- Any later change that edits workflow steps must grep `hack/test/` for step-index assertions
+  (`steps[0]`, `steps | length`, `steps[N]`; for example `hack/test/dist_operatorhub_pr_test.sh:146`
+  and `ci_docs_gate_test.sh`) and update them in the same PR.
 
 ## Dependencies
 
-Landing order across the eight proposed changes: developer-toolchain-consistency (with its Go bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation, nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract. This change and the
-toolchain change both edit every job and both meta-tests parse the workflows, so they land
-sequentially, not in parallel.
+Landing order across the ten proposed changes: (1) ci-workflow-hardening, (2) task-check-entrypoint,
+(3) golangci-lint-bump, (4) cross-file-consistency-gates (with the Go bump),
+(5) developer-toolchain-pins, (6) dependency-update-automation, (7) ci-failure-reporting,
+(8) test-depth-signals, (9) mutation-testing-signal, (10) public-agent-contract. This change is
+first because it makes the later guards blocking. Operator prerequisite: the ruleset edit in
+tasks section 5.
+
+## Deferred
+
+`step-security/harden-runner` is deferred. In audit mode it gates nothing, adds a privileged
+third-party agent to jobs that hold tokens, and its telemetry has no reader. Revival precondition:
+a written block-mode egress allowlist plan.
+
+## Non-goals
+
+- Removing the push-to-main CI trigger (see design.md).
+- Fixing more zizmor findings than task 3.2 plans.
 
 ## Assumptions
 
-- `zizmor --offline` runs without network access and without a GitHub token, and exits non-zero
-  on findings. Source: zizmor docs, "Usage"; probe in task 3.1 on the pinned release.
-- `step-security/harden-runner` only supports GitHub-hosted Linux runners here; all jobs use
-  `ubuntu-latest` (`ubuntu-latest-8-cores` in one dispatch-only job, which is also Linux).
-  Probe: `grep -h "runs-on:" .github/workflows/*.yaml | sort -u` in task 1.1.
-- `actions/dependency-review-action` needs the repository's dependency graph, which is on for
-  GitHub-hosted public repositories. Probe in task 4.2.
-- The required check `test` and `verify-eligibility.sh` read exact-SHA results on `main`
-  (`hack/release/verify-eligibility.sh`, `required_checks`).
+- `zizmor --offline` runs without network or token and exits non-zero on findings at or above
+  `--min-severity`. Source: zizmor docs, "Usage"; probe in task 3.1 on the pinned release (version
+  >= 1.30.1, exact pin chosen at implementation).
+- `actions/dependency-review-action` needs the dependency graph, on for GitHub-hosted public
+  repositories; `allow-licenses` and `allow-dependencies-licenses` are its supported licence
+  inputs and `deny-licenses` is deprecated. Probe on a throwaway PR in task 4.2.
+- A job skipped by its `if:` reports `skipped`, which a required check treats as passing
+  (`vulncheck` is gated on `changes.code`). Probe in task 5.1.
+- `hack/release/verify-eligibility.sh` reads exact-SHA results on `main` (`required_checks`).
+- A rule `require_extra_approval_for_unattributed_changes` in the ruleset could change how bot PRs
+  merge; probe in task 5.2 (read the ruleset JSON).

@@ -2,50 +2,17 @@
 
 ## Purpose
 
-Defines what the CI workflows must guarantee about their own supply chain (runner egress
-visibility, static analysis of the workflows, dependency review on pull requests, superseded-run
-cancellation) and which CI triggers must be preserved so that release eligibility keeps working.
+Defines what the CI workflows must guarantee about their own supply chain, which gates must be
+able to block a merge, and which CI triggers must be preserved so that release eligibility keeps
+working.
 
 ## ADDED Requirements
 
-### Requirement: CWS-1 Every job audits runner egress
+### Requirement: CWS-1 Workflows are statically analysed offline
 
-Every job that has `steps:` in `.github/workflows/*.yaml` SHALL have `step-security/harden-runner`,
-pinned by commit digest, as its first step with `egress-policy: audit`, except the reporter and
-classifier jobs that `hack/test/ci_docs_gate_test.sh` pins to an exact step count (`test` and
-`changes` in `ci.yaml` and `e2e-smoke.yaml`, plus any other job that test pins; task 1.1 lists
-them). The exemption list lives in the meta-test with that reason, because a third-party step in
-those jobs could write `$GITHUB_ENV` and report a required context green.
-
-#### Scenario: Job with harden-runner first
-
-- **WHEN** the meta-test scans the workflows
-- **THEN** every job's first step uses `step-security/harden-runner` with `egress-policy: audit`
-
-#### Scenario: A job without it
-
-- **WHEN** a job is added whose first step is `actions/checkout`
-- **THEN** the meta-test SHALL fail and name the workflow and job
-
-#### Scenario: Exempt job gets the action
-
-- **WHEN** harden-runner is added to the `test` reporter job
-- **THEN** both the meta-test and `ci_docs_gate_test.sh` SHALL fail
-
-#### Scenario: Exemption list widened without reason
-
-- **WHEN** a job name is added to the exemption list without a reason on the same line
-- **THEN** the meta-test SHALL fail
-
-#### Scenario: Block mode is not introduced here
-
-- **WHEN** a job sets `egress-policy: block`
-- **THEN** the meta-test SHALL fail until a later change specifies the allowlist
-
-### Requirement: CWS-2 Workflows are statically analysed offline
-
-`ci.yaml` SHALL run `zizmor --offline` over `.github/` in a job named `workflow-security`, using
-the committed `.github/zizmor.yml`, and the job SHALL fail on any unsuppressed finding.
+`ci.yaml` SHALL run `zizmor --offline` over `.github/` in a job named `workflow-security`, with a
+pinned zizmor version, a pinned `--min-severity`, and the committed `.github/zizmor.yml`, and the
+job SHALL fail on any unsuppressed finding.
 
 #### Scenario: Clean tree
 
@@ -59,43 +26,65 @@ the committed `.github/zizmor.yml`, and the job SHALL fail on any unsuppressed f
 
 #### Scenario: Gate cannot be silenced by omission
 
-- **WHEN** the `workflow-security` job loses `--offline`, the config path, or is removed
+- **WHEN** the job loses `--offline`, the version pin, `--min-severity`, the config path, or is removed
 - **THEN** the meta-test SHALL fail
 
-### Requirement: CWS-3 Every zizmor suppression is justified
+#### Scenario: Skip switch
 
-Each entry in `.github/zizmor.yml` that suppresses a finding SHALL be preceded by a comment that
-states why it is safe.
+- **WHEN** any workflow sets an environment variable or input that skips or disables the `workflow-security` job
+- **THEN** the meta-test SHALL fail
 
-#### Scenario: Suppression with a reason
+### Requirement: CWS-2 Every zizmor suppression is justified, existing findings are fixed
 
-- **WHEN** an ignore entry has a preceding `#` comment
-- **THEN** the meta-test accepts it
+Each suppression in `.github/zizmor.yml` SHALL be preceded by a comment stating why it is safe.
+Findings that can be fixed in the workflow SHALL be fixed, not suppressed.
 
 #### Scenario: Bare suppression
 
-- **WHEN** an ignore entry has no comment
+- **WHEN** a suppression has no comment
 - **THEN** the meta-test SHALL fail and name the entry
 
-### Requirement: CWS-4 Pull requests are dependency-reviewed
+#### Scenario: Fixable finding suppressed
+
+- **WHEN** a suppression covers a pattern the workflow could simply stop using (for example a language cache in a publish workflow)
+- **THEN** the reviewer rejects it; the review record notes each suppression's justification
+
+### Requirement: CWS-3 Pull requests are dependency-reviewed
 
 `ci.yaml` SHALL run `actions/dependency-review-action` in a job named `dependency-review` on
-`pull_request` only, with `fail-on-severity: high`.
+`pull_request` only, with the action's default severity threshold, a licence policy expressed
+with `allow-licenses` (and `allow-dependencies-licenses` entries each with a reason), and unknown
+licences reported without failing.
 
-#### Scenario: PR adds a vulnerable high-severity dependency
+#### Scenario: PR adds a vulnerable dependency
 
-- **WHEN** a PR adds a Go module with a known high-severity advisory
+- **WHEN** a PR adds a Go module with a known advisory at or above the default threshold
 - **THEN** `dependency-review` SHALL fail
+
+#### Scenario: Disallowed licence
+
+- **WHEN** a PR adds a dependency whose licence is not in `allow-licenses`
+- **THEN** `dependency-review` SHALL fail
+
+#### Scenario: Threshold loosened
+
+- **WHEN** `fail-on-severity` is set above the default without a `# why:` line citing a measured trial
+- **THEN** the meta-test SHALL fail
+
+#### Scenario: Deprecated input
+
+- **WHEN** `deny-licenses` is used
+- **THEN** the meta-test SHALL fail
 
 #### Scenario: Not a release check
 
 - **WHEN** `verify-eligibility.sh` lists required checks
 - **THEN** `dependency-review` SHALL NOT be among them, because it does not run on `main`
 
-### Requirement: CWS-5 Superseded pull-request runs are cancelled, every main push keeps its own run
+### Requirement: CWS-4 Superseded pull-request runs are cancelled, every main push keeps its own run
 
-`ci.yaml` and `e2e-smoke.yaml` SHALL declare `concurrency:` whose group is the workflow name (`${{ github.workflow }}-`) followed by the pull-request number
-for `pull_request` events and the commit SHA otherwise, with
+`ci.yaml` and `e2e-smoke.yaml` SHALL declare `concurrency:` with group
+`${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}` and
 `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`.
 
 #### Scenario: Two pushes to one PR
@@ -103,22 +92,22 @@ for `pull_request` events and the commit SHA otherwise, with
 - **WHEN** a second commit is pushed while the first run is in progress
 - **THEN** the first run is cancelled
 
-#### Scenario: Three quick merges to main
-
-- **WHEN** three commits land on `main` within one run's duration
-- **THEN** each commit gets its own complete run; none is cancelled and none is dropped as a superseded pending run
-
 #### Scenario: Two workflows on one PR
 
 - **WHEN** `ci.yaml` and `e2e-smoke.yaml` run for the same PR
-- **THEN** neither cancels the other; a group expression without a per-workflow prefix (bare `PR number || sha`) SHALL fail the meta-test
+- **THEN** neither cancels the other; a group without the workflow prefix SHALL fail the meta-test
+
+#### Scenario: Three quick merges to main
+
+- **WHEN** three commits land on `main` within one run's duration
+- **THEN** each commit gets its own complete run (live evidence is post-merge)
 
 #### Scenario: Group keyed by ref
 
 - **WHEN** a group expression uses `github.ref` for push events in either workflow
 - **THEN** the meta-test SHALL fail
 
-### Requirement: CWS-6 CI keeps running on push to main
+### Requirement: CWS-5 CI keeps running on push to main
 
 `ci.yaml` SHALL keep `push: branches: [main]` as a trigger, and `workflow-security` SHALL be in
 `required_checks` of `hack/release/verify-eligibility.sh`.
@@ -128,23 +117,39 @@ for `pull_request` events and the commit SHA otherwise, with
 - **WHEN** a change removes the `push` trigger or its `main` branch from `ci.yaml`
 - **THEN** the meta-test SHALL fail with a message pointing to `verify-eligibility.sh`
 
-#### Scenario: Transition PR green, then main
-
-- **WHEN** a PR that changes code is green, is rebase-merged, and the push run on `main` starts
-- **THEN** the push run executes the same jobs and reports on the exact merge SHA
-
 #### Scenario: Documentation-only merge
 
-- **WHEN** a merge touches only paths in the push `paths-ignore` list (`ci.yaml:33-42`)
-- **THEN** no push run is expected; release eligibility applies to code commits, and the meta-test SHALL NOT require a push run for them
+- **WHEN** a merge touches only paths in the push `paths-ignore` list
+- **THEN** no push run is expected, and the meta-test SHALL NOT require one
+
+### Requirement: CWS-6 A guard that cannot block a merge is not a gate
+
+Every guard script under `hack/test/` that CI runs, in every mode (plain, `--self-test`, and any
+other), SHALL be invoked on `pull_request` by its own step of a job that is a required check. The
+required set is `lint`, `vulncheck`, `workflow-security`, `dependency-review` and the existing
+required contexts.
+
+#### Scenario: Guard in a non-required job
+
+- **WHEN** a guard script is invoked only from a job outside the required set
+- **THEN** the meta-test SHALL fail and name the script
+
+#### Scenario: Mode not pinned
+
+- **WHEN** a guard's `--self-test` mode is not run by any step
+- **THEN** the meta-test SHALL fail
+
+#### Scenario: Required set shrinks
+
+- **WHEN** the declared required set in the meta-test no longer lists `lint`
+- **THEN** the meta-test SHALL fail; the ruleset itself is checked by the operator (post-merge evidence)
 
 ### Requirement: CWS-7 Each new gate is proven able to fail
 
-`hack/test/ci_workflow_security_test.sh` SHALL include a self-test that mutates a copy of the
-tree to break each of CWS-1 to CWS-6 and asserts the check fails, plus one no-op mutation that
-must still pass.
+`hack/test/ci_workflow_security_test.sh` SHALL include a self-test that mutates a copy of the tree
+to break each of CWS-1 to CWS-6 and asserts the check fails, plus one no-op mutation that must pass.
 
 #### Scenario: Mutation survives
 
-- **WHEN** removing harden-runner from one job does not make the meta-test fail
+- **WHEN** removing `--offline` from the job does not make the meta-test fail
 - **THEN** the self-test SHALL fail

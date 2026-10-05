@@ -2,31 +2,33 @@
 
 ## Purpose
 
-Defines measurements and refusals that go beyond "the tests passed once": a fuzz retry that cannot hide a crash, repeated runs of golden tests, and a README that matches what
-the smoke test runs.
+Defines refusals that go beyond "the tests passed once, in source order": a fuzz runner that
+cannot hide a crash or a no-op, shuffled repeated unit runs, and a README quick start that names
+things that exist.
 
 ## ADDED Requirements
 
-### Requirement: TDS-1 Only the known fuzz-engine deadline artifact is retried
+### Requirement: TDS-1 Fuzz runs once per target, retries only the known flake, and cannot be empty
 
-`hack/ci/fuzz-retry.sh` SHALL retry a failed fuzz run once only when its output contains
-`context deadline exceeded` and contains no `panic:`, no `fatal error:`, no `Failing input written`,
-no `signal: killed`, and `git status` shows no new file under `testdata/fuzz/`.
-Every other failure SHALL fail the job at once.
+`hack/ci/fuzz-retry.sh` SHALL run each target for 30 seconds, SHALL retry at most once and only when
+the output contains `context deadline exceeded` and none of `panic:`, `fatal error:`,
+`Failing input written`, `signal: killed`, and `git status` shows no new file under
+`testdata/fuzz/`. Every other failure SHALL fail the job at once. A run in which no fuzz target ran
+SHALL fail.
 
 #### Scenario: Pure deadline artifact
 
-- **WHEN** the first attempt fails with `context deadline exceeded` and the usual `--- FAIL: FuzzX` line, with none of the deny patterns, and the second passes
+- **WHEN** the first attempt fails with `context deadline exceeded` and the usual `--- FAIL: FuzzX` line, with none of the deny markers, and the second passes
 - **THEN** the job passes and logs a warning naming golang/go#75804
 
 #### Scenario: Panic is never retried
 
-- **WHEN** the first attempt prints `panic:` (even with `context deadline exceeded` also present)
+- **WHEN** the first attempt prints `panic:`, even alongside `context deadline exceeded`
 - **THEN** the job SHALL fail without a second attempt
 
 #### Scenario: Killed process
 
-- **WHEN** the output contains `signal: killed` (out-of-memory)
+- **WHEN** the output contains `signal: killed`
 - **THEN** the job SHALL fail without a second attempt
 
 #### Scenario: Deadline twice
@@ -39,17 +41,21 @@ Every other failure SHALL fail the job at once.
 - **WHEN** the output is empty or matches none of the known patterns
 - **THEN** the job SHALL fail without a retry
 
+#### Scenario: Zero fuzz targets
+
+- **WHEN** the run reports that no fuzz test was found or ran (a renamed target, a wrong package)
+- **THEN** the job SHALL fail; a matrix leg that fuzzes nothing never passes
+
 ### Requirement: TDS-2 Unit tests do not depend on order
 
-`task test:shuffle` SHALL run the unit packages with `-shuffle=on -count=3`, SHALL print the seed,
-and CI SHALL run it in the nightly (`e2e-nightly.yaml`), not in the PR `test-suite`, because it
-multiplies unit-test time by three; the measured cost is recorded in task 2.1. Packages that need Docker, envtest or kind are excluded by an explicit list
-with reasons.
+A nightly workflow `test-shuffle.yaml` SHALL run the unit packages with `-shuffle=on -count=3`,
+SHALL print the seed, and SHALL be a workflow of its own listed among those the CI-failure reporter
+reports. Packages that need Docker, envtest or kind are excluded by an explicit list with reasons.
 
 #### Scenario: Order-dependent test
 
 - **WHEN** a unit test passes only after another test has run
-- **THEN** `task test:shuffle` SHALL fail on some seed, and the output names the seed to reproduce
+- **THEN** the run SHALL fail on some seed and the output names the seed
 
 #### Scenario: Seed reproducible
 
@@ -60,6 +66,11 @@ with reasons.
 
 - **WHEN** a package is excluded from the list with no reason
 - **THEN** the guard test SHALL fail
+
+#### Scenario: Shuffle failure does not hide the nightly
+
+- **WHEN** the shuffle workflow and the nightly both fail
+- **THEN** two separate issues exist
 
 ### Requirement: TDS-3 The README quick start names things that exist
 
