@@ -280,6 +280,7 @@ func TestRunExportEnvelope_multipartForeignManifestRejectedOnPart1(t *testing.T)
 type recordingTreeBackend struct {
 	mu    sync.Mutex
 	calls []git.ExportFilesOptions
+	kinds []string // commit-context kind of each call
 }
 
 func (b *recordingTreeBackend) Type() string { return "git" }
@@ -288,10 +289,12 @@ func (b *recordingTreeBackend) Capabilities() Capabilities { return SnapshotStor
 
 func (b *recordingTreeBackend) Export(context.Context, []byte, string) error { return nil }
 
-func (b *recordingTreeBackend) ExportFiles(_ context.Context, _ []git.FileEntry, opts git.ExportFilesOptions) error {
+func (b *recordingTreeBackend) ExportFiles(ctx context.Context, _ []git.FileEntry, opts git.ExportFilesOptions) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.calls = append(b.calls, opts)
+	commitCtx, _ := git.CommitContextFromContext(ctx)
+	b.kinds = append(b.kinds, commitCtx.Kind)
 
 	return nil
 }
@@ -342,6 +345,22 @@ func TestRunExportEnvelope_ownerFromIdentity(t *testing.T) {
 		}
 		if len(b.calls) != 1 || b.calls[0].PruneOwner != tc.want || b.calls[0].SuppressPrune || !b.calls[0].Prune {
 			t.Fatalf("%s: ExportFiles options = %+v, want owner %s with prune requested", tc.id, b.calls, tc.want)
+		}
+	}
+}
+
+// TestRunExportEnvelope_commitContextCarriesKind (IEI-11): the backend's commit context names the
+// inventory kind, which the GitLab sink needs to give the two same-path kinds separate branches.
+func TestRunExportEnvelope_commitContextCarriesKind(t *testing.T) {
+	DisableBackendPoolForTest()
+	t.Cleanup(func() { EnableBackendPoolForTest(); ResetBackendPoolForTest(); ResetBreakersForTest() })
+	for _, id := range []InventoryIdentity{clusterPlatform, namespacedPlatform} {
+		b := &recordingTreeBackend{}
+		if err := runRecorded(t, b, id, platformObjectPath); err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+		if len(b.kinds) != 1 || b.kinds[0] != id.Kind {
+			t.Fatalf("%s: commit-context kinds = %v, want [%s]", id, b.kinds, id.Kind)
 		}
 	}
 }

@@ -152,8 +152,9 @@ func loadPruneRecords(fs billy.Filesystem) (map[string]string, map[string]pruneR
 			if err := validatePrunePath(p); err != nil {
 				return nil, nil, 0, err
 			}
-			if _, exists := owners[p]; exists {
-				return nil, nil, 0, invalidPrune("duplicate ownership of %q", p)
+			if prev, exists := owners[p]; exists {
+				return nil, nil, 0, invalidPrune("duplicate ownership of %q: %s (ownership record %s) and %s (ownership record %s); delete one of the two records to repair the branch",
+					p, describePruneOwner(prev), pruneRecordPath(prev), describePruneOwner(record.Owner), pruneRecordPath(record.Owner))
 			}
 			owners[p] = record.Owner
 		}

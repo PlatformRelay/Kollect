@@ -53,18 +53,18 @@ func (b *Backend) Config() Config {
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
 	invNS, invName := pathvalidate.InventoryFromObjectPath(objectPath)
 
+	commitCtx, ok := git.CommitContextFromContext(ctx)
+	if !ok {
+		commitCtx = git.CommitContextFromObjectPath(objectPath, b.cfg.GitConfig().Cluster)
+	}
+
 	var branchSpec *git.BranchSpec
-	featureBranch := BranchNameForExport(b.cfg.MergeRequest.BranchPrefix, invNS, invName)
+	featureBranch := BranchNameForExport(b.cfg.MergeRequest.BranchPrefix, commitCtx.Kind, invNS, invName)
 	if b.cfg.MergeRequest.Mode == MergeRequestModeBranchMR {
 		branchSpec = &git.BranchSpec{
 			PushBranch:  featureBranch,
 			CloneBranch: b.cfg.MergeRequest.TargetBranch,
 		}
-	}
-
-	commitCtx, ok := git.CommitContextFromContext(ctx)
-	if !ok {
-		commitCtx = git.CommitContextFromObjectPath(objectPath, b.cfg.GitConfig().Cluster)
 	}
 
 	if err := git.ExportWithBranch(
@@ -97,7 +97,7 @@ func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, opts g
 	invNS, invName := commitCtx.Namespace, commitCtx.Name
 
 	var branchSpec *git.BranchSpec
-	featureBranch := BranchNameForExport(b.cfg.MergeRequest.BranchPrefix, invNS, invName)
+	featureBranch := BranchNameForExport(b.cfg.MergeRequest.BranchPrefix, commitCtx.Kind, invNS, invName)
 	if b.cfg.MergeRequest.Mode == MergeRequestModeBranchMR {
 		branchSpec = &git.BranchSpec{
 			PushBranch:  featureBranch,
@@ -142,7 +142,7 @@ func (b *Backend) DeleteExport(ctx context.Context, paths []string) ([]string, e
 	invNS, invName := commitCtx.Namespace, commitCtx.Name
 
 	var branchSpec *git.BranchSpec
-	featureBranch := BranchNameForExport(b.cfg.MergeRequest.BranchPrefix, invNS, invName)
+	featureBranch := BranchNameForExport(b.cfg.MergeRequest.BranchPrefix, commitCtx.Kind, invNS, invName)
 	if b.cfg.MergeRequest.Mode == MergeRequestModeBranchMR {
 		branchSpec = &git.BranchSpec{
 			PushBranch:  featureBranch,

@@ -74,14 +74,34 @@ func ValidateMergeRequestConfig(cfg MergeRequestConfig) error {
 	}
 }
 
-// BranchNameForExport builds a feature branch path for inventory exports.
-func BranchNameForExport(prefix, inventoryNamespace, inventoryName string) string {
+// Inventory kinds a commit context can carry (sink.InventoryKind*; the sink package imports this one).
+const (
+	inventoryKindCluster = "KollectClusterInventory"
+
+	// clusterInventoryPathNamespace is the namespace component of a KollectClusterInventory's object
+	// path, which a KollectInventory in a namespace called "cluster" renders too.
+	clusterInventoryPathNamespace = "cluster"
+
+	// clusterInventoryBranchSegment replaces the namespace in a KollectClusterInventory's branch. A
+	// namespace is a DNS-1123 label and cannot contain "_", so no KollectInventory branch collides.
+	clusterInventoryBranchSegment = "_cluster"
+)
+
+// BranchNameForExport builds the merge-request feature branch of one inventory: prefix/<namespace>/<name>
+// for a KollectInventory and prefix/_cluster/<name> for a KollectClusterInventory, so the two kinds
+// that share the object path inventory/cluster/<name> never share a branch (and so never carry each
+// other's ownership records). kind is empty when the caller has no inventory identity (the deletion
+// cleanup); the path namespace "cluster" then selects the cluster inventory's branch.
+func BranchNameForExport(prefix, kind, inventoryNamespace, inventoryName string) string {
 	p := strings.Trim(strings.TrimSpace(prefix), "/")
 	if p == "" {
 		p = DefaultBranchPrefix
 	}
 	ns := strings.Trim(strings.TrimSpace(inventoryNamespace), "/")
 	name := strings.Trim(strings.TrimSpace(inventoryName), "/")
+	if kind == inventoryKindCluster || (kind == "" && ns == clusterInventoryPathNamespace) {
+		ns = clusterInventoryBranchSegment
+	}
 	return fmt.Sprintf("%s/%s/%s", p, ns, name)
 }
 

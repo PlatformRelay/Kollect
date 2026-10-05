@@ -19,6 +19,9 @@ const defaultClusterName = "default"
 
 // CommitContext carries inventory and export metadata for commit message templates (ADR-0415).
 type CommitContext struct {
+	// Kind is the exporting inventory's kind (KollectInventory or KollectClusterInventory), empty
+	// when the caller did not supply an inventory identity. It is not rendered into commit text.
+	Kind       string
 	Namespace  string
 	Name       string
 	Cluster    string
