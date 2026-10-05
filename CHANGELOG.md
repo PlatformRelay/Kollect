@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink/git:** Check the fetched tip in same-branch CLI exports too [a3c775b](https://github.com/platformrelay/kollect/commit/a3c775b8b55587da653715a1794a2ed8bec0afb3)
+
+- **sink/gitlab:** [**breaking**] Refuse claims already merged on the branchMR target [bb74e71](https://github.com/platformrelay/kollect/commit/bb74e7151ef062d612290dec895e28450aa12e50)
+
 - **ci:** Make the commit identity check fail closed ([#415](https://github.com/platformrelay/kollect/pull/415))[edb2449](https://github.com/platformrelay/kollect/commit/edb2449045089db6ea757505a283b0b9581ee439)
 
 - **postgres:** Accept only tables in the existing-mode probe [1480fca](https://github.com/platformrelay/kollect/commit/1480fca8afcbba312aa54fbbd1911143a0e0b643)
