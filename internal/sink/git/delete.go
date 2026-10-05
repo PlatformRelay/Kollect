@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -29,7 +31,8 @@ const deleteCommitMessage = "chore({cluster}/{namespace}/{name}): remove invento
 // DeleteExport removes the inventory's exported files at the given candidate
 // paths — each exact path plus its deterministic .part-NNNN-of-NNNN siblings —
 // in a single commit and pushes. Missing candidates are not errors: cleanup is
-// retried and must be idempotent.
+// retried and must be idempotent. Without an owner it never removes a path an
+// ownership record lists (ADR-0422); ReleaseExport is the owner-aware form.
 func (b *Backend) DeleteExport(ctx context.Context, paths []string) ([]string, error) {
 	commitCtx, ok := CommitContextFromContext(ctx)
 	if !ok && len(paths) > 0 {
@@ -37,6 +40,37 @@ func (b *Backend) DeleteExport(ctx context.Context, paths []string) ([]string, e
 	}
 
 	return DeleteExportWithBranch(ctx, b.cfg, b.auth, paths, nil, commitCtx)
+}
+
+// ReleaseOptions names the deleting inventory for an ownership-aware deletion (ADR-0422).
+//
+// Owner is the deleting inventory's prune owner (InventoryPruneOwner); its ownership record is
+// removed. KeepFiles (deletionPolicy Retain, or a retraction skipped for a shared export identity)
+// removes only that record; otherwise the candidate paths and every path the owner's record lists
+// are removed too. Paths another owner's record lists are never removed.
+type ReleaseOptions struct {
+	Owner     string
+	KeepFiles bool
+}
+
+// ReleaseExport is DeleteExport for a known owner: it releases the owner's ownership record and,
+// unless opts.KeepFiles, retracts the candidate paths and the owner's recorded files, in one commit.
+// paths also name the inventory for the commit subject when no commit context is attached.
+func (b *Backend) ReleaseExport(ctx context.Context, paths []string, opts ReleaseOptions) ([]string, error) {
+	commitCtx, ok := CommitContextFromContext(ctx)
+	if !ok && len(paths) > 0 {
+		commitCtx = CommitContextFromObjectPath(paths[0], b.cfg.Cluster)
+	}
+
+	return DeleteExportWithBranch(ctx, ReleaseConfig(b.cfg, opts), b.auth, paths, nil, commitCtx)
+}
+
+// ReleaseConfig applies opts to a deletion's config.
+func ReleaseConfig(cfg Config, opts ReleaseOptions) Config {
+	cfg.PruneOwner = opts.Owner
+	cfg.ReleaseOnly = opts.KeepFiles
+
+	return cfg
 }
 
 // DeleteExportWithBranch mirrors ExportFilesWithBranch's engine split for the
@@ -51,16 +85,18 @@ func DeleteExportWithBranch(
 	branch *BranchSpec,
 	commitCtx CommitContext,
 ) ([]string, error) {
-	if len(paths) == 0 {
+	if len(paths) == 0 && cfg.PruneOwner == "" {
 		return nil, nil
 	}
 
-	cfg = cfg.withDefaults()
-	cfg.CommitMessage = deleteCommitMessage
+	cfg = deletionConfig(cfg)
 
 	req, validated, err := validateDeletePaths(cfg, paths, branch)
 	if err != nil {
 		return nil, err
+	}
+	if len(validated) == 0 && cfg.PruneOwner == "" {
+		return nil, nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, exportTimeout)
@@ -93,6 +129,18 @@ func DeleteExportWithBranch(
 	return deleted, ClassifyExportError(deleteErr)
 }
 
+// deletionConfig defaults cfg for a deletion and selects its commit subject: a release that keeps
+// the files is not a retraction.
+func deletionConfig(cfg Config) Config {
+	cfg = cfg.withDefaults()
+	cfg.CommitMessage = deleteCommitMessage
+	if cfg.ReleaseOnly {
+		cfg.CommitMessage = releaseCommitMessage
+	}
+
+	return cfg
+}
+
 func validateDeletePaths(cfg Config, paths []string, branch *BranchSpec) (exportRequest, []string, error) {
 	validated := make([]string, 0, len(paths))
 	seen := make(map[string]struct{}, len(paths))
@@ -111,7 +159,7 @@ func validateDeletePaths(cfg Config, paths []string, branch *BranchSpec) (export
 		validated = append(validated, validatedPath)
 	}
 
-	if len(validated) == 0 {
+	if len(validated) == 0 && cfg.PruneOwner == "" {
 		return exportRequest{}, nil, nil
 	}
 
@@ -134,11 +182,16 @@ func validateDeletePaths(cfg Config, paths []string, branch *BranchSpec) (export
 		return exportRequest{}, nil, fmt.Errorf("git cleanup: invalid push branch: %w", err)
 	}
 
+	objectPath := pruneRecordPath(cfg.PruneOwner)
+	if len(validated) > 0 {
+		objectPath = validated[0]
+	}
+
 	return exportRequest{
 		cloneURL:    cloneURL,
 		cloneBranch: cloneBranch,
 		pushBranch:  pushBranch,
-		objectPath:  validated[0],
+		objectPath:  objectPath,
 	}, validated, nil
 }
 
@@ -200,7 +253,7 @@ func deleteViaCLI(
 		}
 	}
 
-	removed, err := removeDiskCandidates(workdir, paths)
+	removed, err := releaseOnDisk(workdir, cfg, paths)
 	if err != nil {
 		return nil, fmt.Errorf("git cleanup: %w", err)
 	}
@@ -392,9 +445,33 @@ func pushBranchWithoutWork(
 	return remoteSHAFromLsRemote(string(cloneOut)) == head, "", nil
 }
 
+// releaseOnDisk removes what planRelease decides from the CLI engine's worktree:
+// the matched candidates no other owner records, then the owner's recorded
+// files and its record (ADR-0422).
+func releaseOnDisk(workdir string, cfg Config, paths []string) ([]string, error) {
+	fs := osfs.New(workdir)
+	plan, err := planRelease(fs, cfg, paths)
+	if err != nil {
+		return nil, err
+	}
+
+	removed, err := removeDiskCandidates(workdir, plan.candidates, plan.protected)
+	if err != nil {
+		return nil, err
+	}
+
+	exact, err := removeExact(fs, plan.exact, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return appendNew(removed, exact), nil
+}
+
 // removeDiskCandidates deletes every worktree file matching the candidates'
-// cleanup matchers (exact path + part siblings). Missing files are skipped.
-func removeDiskCandidates(workdir string, paths []string) ([]string, error) {
+// cleanup matchers (exact path + part siblings), except a path protected lists
+// (another inventory's recorded file). Missing files are skipped.
+func removeDiskCandidates(workdir string, paths []string, protected map[string]string) ([]string, error) {
 	var removed []string
 
 	for _, candidate := range paths {
@@ -416,6 +493,9 @@ func removeDiskCandidates(workdir string, paths []string) ([]string, error) {
 
 				full := objectstore.JoinDir(listDir, entry.Name())
 				if !m.Matches(full) {
+					continue
+				}
+				if _, foreign := protected[full]; foreign {
 					continue
 				}
 
@@ -508,7 +588,7 @@ func deleteRemote(
 		return nil, fmt.Errorf("checkout branch: %w", checkoutErr)
 	}
 
-	removed, err := removeWorktreeCandidates(wt, paths)
+	removed, err := releaseInWorktree(wt, cfg, paths)
 	if err != nil {
 		return nil, err
 	}
@@ -729,13 +809,79 @@ func remoteTipFastForwardable(repo *git.Repository, remoteTip, head plumbing.Has
 	return ancestor
 }
 
-func removeWorktreeCandidates(wt *git.Worktree, paths []string) ([]string, error) {
+// releaseInWorktree is releaseOnDisk for the go-git engine: removals are staged
+// in the index as they happen.
+func releaseInWorktree(wt *git.Worktree, cfg Config, paths []string) ([]string, error) {
+	return releaseFS(wt.Filesystem, cfg, paths, func(p string) (bool, error) {
+		if _, rmErr := wt.Remove(p); rmErr != nil {
+			if errors.Is(rmErr, index.ErrEntryNotFound) {
+				// Untracked leftover dirt: the disk removal is the whole
+				// effect, so it stages no index change and is not reported as
+				// a removal the caller may commit.
+				return false, nil
+			}
+
+			return false, fmt.Errorf("git remove %q: %w", p, rmErr)
+		}
+
+		return true, nil
+	})
+}
+
+// releaseFS plans and applies a release on a billy worktree; stage records each
+// removal in the index (nil: no index, as for the in-memory test twin).
+func releaseFS(fs billy.Filesystem, cfg Config, paths []string, stage func(string) (bool, error)) ([]string, error) {
+	plan, err := planRelease(fs, cfg, paths)
+	if err != nil {
+		return nil, err
+	}
+
+	removed, err := removeFSCandidates(fs, plan.candidates, plan.protected, stage)
+	if err != nil {
+		return nil, err
+	}
+
+	exact, err := removeExact(fs, plan.exact, stage)
+	if err != nil {
+		return nil, err
+	}
+
+	return appendNew(removed, exact), nil
+}
+
+// removeWorktreeCandidates deletes and unstages every worktree file matching
+// the candidates' cleanup matchers, except a path protected lists.
+func removeWorktreeCandidates(wt *git.Worktree, paths []string, protected map[string]string) ([]string, error) {
+	return removeFSCandidates(wt.Filesystem, paths, protected, func(p string) (bool, error) {
+		if _, rmErr := wt.Remove(p); rmErr != nil {
+			if errors.Is(rmErr, index.ErrEntryNotFound) {
+				return false, nil
+			}
+
+			return false, fmt.Errorf("git remove %q: %w", p, rmErr)
+		}
+
+		return true, nil
+	})
+}
+
+// removeFSCandidates deletes every file matching the candidates' cleanup
+// matchers (exact path + part siblings), except a path protected lists
+// (another inventory's recorded file). stage, when set, records the removal and
+// reports false for a path the index never tracked; such a path is not
+// reported as removed.
+func removeFSCandidates(
+	fs billy.Filesystem,
+	paths []string,
+	protected map[string]string,
+	stage func(string) (bool, error),
+) ([]string, error) {
 	var removed []string
 
 	for _, candidate := range paths {
 		for _, m := range objectstore.CleanupMatchers(candidate) {
 			listDir := m.ListDir()
-			entries, err := wt.Filesystem.ReadDir(listDir)
+			entries, err := fs.ReadDir(listDir)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					continue
@@ -753,20 +899,22 @@ func removeWorktreeCandidates(wt *git.Worktree, paths []string) ([]string, error
 				if !m.Matches(full) {
 					continue
 				}
+				if _, foreign := protected[full]; foreign {
+					continue
+				}
 
-				if rmErr := wt.Filesystem.Remove(full); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				if rmErr := fs.Remove(full); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 					return nil, fmt.Errorf("cleanup remove %q: %w", full, rmErr)
 				}
 
-				if _, rmErr := wt.Remove(full); rmErr != nil {
-					if errors.Is(rmErr, index.ErrEntryNotFound) {
-						// Untracked leftover dirt: the disk removal above is the whole
-						// effect, so it stages no index change and is not reported as
-						// a removal the caller may commit.
+				if stage != nil {
+					tracked, stageErr := stage(full)
+					if stageErr != nil {
+						return nil, stageErr
+					}
+					if !tracked {
 						continue
 					}
-
-					return nil, fmt.Errorf("git remove %q: %w", full, rmErr)
 				}
 
 				removed = append(removed, full)

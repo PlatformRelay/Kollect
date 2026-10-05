@@ -130,12 +130,19 @@ func (b *Backend) ExportFiles(ctx context.Context, files []git.FileEntry, opts g
 // succeed (GitLab rejects a missing source branch) and would wedge the cleanup
 // retry loop while the inventory is Terminating.
 func (b *Backend) DeleteExport(ctx context.Context, paths []string) ([]string, error) {
-	if len(paths) == 0 {
+	return b.ReleaseExport(ctx, paths, git.ReleaseOptions{})
+}
+
+// ReleaseExport is DeleteExport for a known owner (ADR-0422): it releases the owner's ownership
+// record and, unless opts.KeepFiles, retracts the candidate paths and the owner's recorded files.
+// Branch and merge-request handling are DeleteExport's.
+func (b *Backend) ReleaseExport(ctx context.Context, paths []string, opts git.ReleaseOptions) ([]string, error) {
+	if len(paths) == 0 && opts.Owner == "" {
 		return nil, nil
 	}
 
 	commitCtx, ok := git.CommitContextFromContext(ctx)
-	if !ok {
+	if !ok && len(paths) > 0 {
 		commitCtx = git.CommitContextFromObjectPath(paths[0], b.cfg.GitConfig().Cluster)
 	}
 
@@ -150,7 +157,8 @@ func (b *Backend) DeleteExport(ctx context.Context, paths []string) ([]string, e
 		}
 	}
 
-	deleted, delErr := git.DeleteExportWithBranch(ctx, b.cfg.GitConfig(), b.auth, paths, branchSpec, commitCtx)
+	cfg := git.ReleaseConfig(b.cfg.GitConfig(), opts)
+	deleted, delErr := git.DeleteExportWithBranch(ctx, cfg, b.auth, paths, branchSpec, commitCtx)
 	if delErr != nil {
 		return deleted, delErr
 	}

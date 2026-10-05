@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -20,6 +21,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/git"
 )
 
 func cleanupPolicyScheme(t *testing.T) *runtime.Scheme {
@@ -50,6 +52,17 @@ func gitRegistryCounting(backend sink.Backend, built *int) *sink.Registry {
 	return reg
 }
 
+// mustOwner is the prune owner a sink without spec.cluster derives for an inventory (ADR-0422).
+func mustOwner(t *testing.T, kind, namespace, name string) string {
+	t.Helper()
+	owner, err := git.InventoryPruneOwner(kind, "default", namespace, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return owner
+}
+
 func drainEvents(recorder *record.FakeRecorder) []string {
 	var events []string
 	for {
@@ -71,7 +84,8 @@ func assertFinalizerReleased(t *testing.T, cl client.Client, key types.Namespace
 }
 
 // ADR-0421 default: a snapshot sink created without spec.deletionPolicy keeps
-// the deleting inventory's exported objects. The backend is never built, the
+// the deleting inventory's exported objects. A git sink is contacted once to
+// release the inventory's ownership record and nothing else (ADR-0422), the
 // finalizer is released, and a Normal event says the exports were retained by
 // policy.
 func TestKollectInventoryReconciler_defaultRetainPolicyKeepsExports(t *testing.T) {
@@ -96,8 +110,12 @@ func TestKollectInventoryReconciler_defaultRetainPolicyKeepsExports(t *testing.T
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	if built != 0 || len(tomb.deleted) != 0 {
-		t.Fatalf("Retain must not contact the backend: built=%d DeleteExport calls=%d", built, len(tomb.deleted))
+	if len(tomb.deleted) != 0 {
+		t.Fatalf("FORBIDDEN: Retain retracted exported files: DeleteExport calls=%v", tomb.deleted)
+	}
+	wantOwner := mustOwner(t, sink.InventoryKindNamespaced, inv.Namespace, inv.Name)
+	if built != 1 || len(tomb.released) != 1 || tomb.released[0] != (git.ReleaseOptions{Owner: wantOwner, KeepFiles: true}) {
+		t.Fatalf("Retain must release the record only: built=%d releases=%+v, want one {%s KeepFiles}", built, tomb.released, wantOwner)
 	}
 	assertFinalizerReleased(t, cl, key, &kollectdevv1alpha1.KollectInventory{}, inventoryCleanupFinalizer)
 
@@ -179,6 +197,10 @@ func TestKollectInventoryReconciler_sharedClusterIdentitySkipsRetraction(t *test
 	if len(tomb.deleted) != 0 {
 		t.Fatalf("DeleteExport must not run for a shared identity: %v", tomb.deleted)
 	}
+	wantOwner := mustOwner(t, sink.InventoryKindNamespaced, "cluster", "platform")
+	if len(tomb.released) != 1 || tomb.released[0] != (git.ReleaseOptions{Owner: wantOwner, KeepFiles: true}) {
+		t.Fatalf("releases = %+v, want the namespaced inventory's record-only release %s", tomb.released, wantOwner)
+	}
 	assertFinalizerReleased(t, cl, key, &kollectdevv1alpha1.KollectInventory{}, inventoryCleanupFinalizer)
 
 	events := drainEvents(recorder)
@@ -232,10 +254,53 @@ func TestKollectClusterInventoryReconciler_sharedNamespacedIdentitySkipsRetracti
 	if len(tomb.deleted) != 0 {
 		t.Fatalf("DeleteExport must not run for a shared identity: %v", tomb.deleted)
 	}
+	wantOwner := mustOwner(t, sink.InventoryKindCluster, "", "platform")
+	if len(tomb.released) != 1 || tomb.released[0] != (git.ReleaseOptions{Owner: wantOwner, KeepFiles: true}) {
+		t.Fatalf("releases = %+v, want the cluster inventory's record-only release %s", tomb.released, wantOwner)
+	}
 	assertFinalizerReleased(t, cl, key, &kollectdevv1alpha1.KollectClusterInventory{}, clusterInventoryCleanupFinalizer)
 
 	events := drainEvents(recorder)
 	if len(events) != 1 || !strings.Contains(events[0], reasonCleanupSharedIdentity) {
 		t.Fatalf("events = %q, want one %s warning", events, reasonCleanupSharedIdentity)
+	}
+}
+
+// ROD-6: a Retain deletion whose git release fails (the backend cannot be built) keeps the
+// finalizer and returns the error, so controller-runtime retries; it is not reported as retained.
+func TestKollectInventoryReconciler_failedReleaseKeepsFinalizer(t *testing.T) {
+	t.Parallel()
+
+	scheme := cleanupPolicyScheme(t)
+	sinkObj, inv := deletingInventoryWithSnapshotSink("git-unreachable")
+	sinkObj.Spec.DeletionPolicy = kollectdevv1alpha1.DeletionPolicyRetain
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sinkObj, inv).WithStatusSubresource(sinkObj, inv).Build()
+
+	reg := sink.NewRegistry()
+	reg.Register(kollectdevv1alpha1.SnapshotSinkTypeGit, func(
+		_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext,
+	) (sink.Backend, error) {
+		return nil, errors.New("remote unreachable")
+	})
+	recorder := record.NewFakeRecorder(10)
+	rec := &KollectInventoryReconciler{Client: cl, Scheme: scheme, Store: collect.NewStore(), Registry: reg, Recorder: recorder}
+
+	key := types.NamespacedName{Name: inv.Name, Namespace: inv.Namespace}
+	if _, err := rec.Reconcile(context.Background(), reconcile.Request{NamespacedName: key}); err == nil {
+		t.Fatal("Reconcile succeeded although the ownership record could not be released")
+	}
+
+	var got kollectdevv1alpha1.KollectInventory
+	if err := cl.Get(context.Background(), key, &got); err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if !containsFinalizer(got.Finalizers, inventoryCleanupFinalizer) {
+		t.Fatalf("FORBIDDEN: finalizer dropped after a failed release: %v", got.Finalizers)
+	}
+	for _, ev := range drainEvents(recorder) {
+		if strings.Contains(ev, reasonCleanupRetainedByPolicy) {
+			t.Fatalf("failed release announced as retained by policy: %q", ev)
+		}
 	}
 }

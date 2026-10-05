@@ -49,6 +49,20 @@ type ExportCleaner interface {
 	DeleteExport(ctx context.Context, paths []string) ([]string, error)
 }
 
+// Git-family backends release the deleting inventory's ownership record (ADR-0422).
+var (
+	_ OwnershipReleaser = (*git.Backend)(nil)
+	_ OwnershipReleaser = (*gitlab.Backend)(nil)
+)
+
+// OwnershipReleaser is implemented by the Git-family backends, whose tree exports keep per-inventory
+// ownership records (ADR-0422). ReleaseExport removes opts.Owner's record and, unless opts.KeepFiles,
+// the candidate paths and every path that record lists, never a path another owner's record lists.
+// An absent record is not an error. It returns the paths it removed, the record included.
+type OwnershipReleaser interface {
+	ReleaseExport(ctx context.Context, paths []string, opts git.ReleaseOptions) ([]string, error)
+}
+
 // CleanupExportRequest carries one inventory-deletion cleanup attempt against a
 // resolved sink. The sink CR is expected to have been resolved by the caller
 // (cleanupSinkExports), so cleanup does not re-resolve it.
@@ -62,6 +76,10 @@ type CleanupExportRequest struct {
 	SinkSpec      kollectdevv1alpha1.KollectSinkSpec
 	ObjectPath    string // canonical inventory/<ns>/<name>.json of the deleting inventory
 	Generation    int64
+
+	// Inventory names the deleting inventory. Git-family sinks derive the owner whose ownership
+	// record the deletion releases from it (ADR-0422); it must match ObjectPath.
+	Inventory InventoryIdentity
 
 	// LastExportedPaths carries the sink-relative paths the deleting
 	// inventory's status recorded for the last successful export to this sink
@@ -100,8 +118,9 @@ const (
 	// with other inventories' trees). Callers must announce the retention loudly.
 	CleanupRetained
 	// CleanupRetainedByPolicy: the snapshot sink's deletionPolicy is Retain
-	// (the default, ADR-0421); exported objects were deliberately left in place
-	// and the backend was not contacted.
+	// (the default, ADR-0421); exported objects were deliberately left in place.
+	// Object stores were not contacted; a git/gitlab sink released only the
+	// inventory's ownership record (ADR-0422).
 	CleanupRetainedByPolicy
 	// CleanupRetainedSharedIdentity: the sink's deletionPolicy is Delete, but
 	// another live inventory renders the same export identity, so retracting
@@ -110,8 +129,9 @@ const (
 )
 
 // retractableSnapshotTypes are the sink types whose backends implement
-// ExportCleaner. Their deletionPolicy is decided before the backend is built,
-// so a Retain deletion never needs working credentials.
+// ExportCleaner. For the object stores the deletionPolicy is decided before the
+// backend is built, so their Retain deletion never needs working credentials;
+// git and gitlab are always contacted to release the ownership record.
 var retractableSnapshotTypes = map[string]struct{}{
 	kollectdevv1alpha1.SnapshotSinkTypeGit:    {},
 	kollectdevv1alpha1.SnapshotSinkTypeGitLab: {},
@@ -123,12 +143,19 @@ var retractableSnapshotTypes = map[string]struct{}{
 // RunCleanupExport retracts one inventory's exported data at deletion time.
 //
 // Routing (K-28 / C-2a, ADR-0421): relational (SupportsDelete) sinks keep the
-// empty-export prune; backends implementing ExportCleaner (git/gitlab, S3/GCS,
-// local) act on the sink's deletionPolicy — Retain (the default) reports
+// empty-export prune; backends implementing ExportCleaner (S3/GCS, local) act
+// on the sink's deletionPolicy — Retain (the default) reports
 // CleanupRetainedByPolicy without building the backend, Delete retracts the
 // inventory's objects unless the export identity is shared with another live
 // inventory; everything else is reported retained so the controller emits a
 // Warning Event naming the path instead of a silent no-op.
+//
+// Git and GitLab sinks always reach the backend (ADR-0422): the deleting
+// inventory's ownership record is released under every policy. Retain and a
+// shared identity release only the record and keep every file; Delete also
+// retracts the candidates and the inventory's recorded files, never a path
+// another inventory's record lists. A failed release is returned like a failed
+// retraction, so the finalizer keeps retrying.
 //
 // The returned outcome is meaningful only when err == nil: on error the outcome
 // is a zero value (CleanupCleaned) that callers must ignore (cleanupSinkExports
@@ -141,7 +168,14 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 		return CleanupCleaned, kollecterrors.Terminal(fmt.Errorf("sink spec is required for cleanup of %q", req.SinkName))
 	}
 
-	if _, retractable := retractableSnapshotTypes[req.SinkSpec.Type]; retractable {
+	gitFamily := isGitLayoutFamily(req.SinkSpec.Type)
+	owner := ""
+	if gitFamily {
+		var err error
+		if owner, err = cleanupPruneOwner(req); err != nil {
+			return CleanupCleaned, kollecterrors.Terminal(err)
+		}
+	} else if _, retractable := retractableSnapshotTypes[req.SinkSpec.Type]; retractable {
 		if outcome, decided := retractionPrecheck(req); decided {
 			return outcome, nil
 		}
@@ -164,6 +198,10 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 		return CleanupPruned, pruneRelationalExport(req)
 	}
 
+	if gitFamily {
+		return releaseGitExport(req, backend, owner, invNS, invName)
+	}
+
 	cleaner, canDelete := backend.(ExportCleaner)
 	if !canDelete {
 		// Streams (Kafka/NATS) physically cannot unsent events; unknown future
@@ -176,13 +214,6 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 	}
 
 	paths := cleanupCandidatePaths(req.SinkSpec, invNS, invName, req.Generation)
-	treeMode := isGitLayoutFamily(req.SinkSpec.Type) &&
-		!layout.Resolve(layout.ResolveInput{
-			Spec:               req.SinkSpec,
-			InventoryNamespace: invNS,
-			InventoryName:      invName,
-			Generation:         req.Generation,
-		}).IsDocument()
 
 	// A {generation} path template leaves one object per past generation: git
 	// document mode never prunes (layout.go Prune = mode != document) and object
@@ -193,15 +224,91 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 
 	deleted, derr := cleaner.DeleteExport(req.Ctx, paths)
 	if derr != nil {
-		// Backends classify their own transport/config errors (git engines call
-		// ClassifyExportError); anything unclassified stays transient so cleanup
-		// retries instead of wedging the deletion.
-		derr = classifyCleanupFailure(req.SinkName, derr)
-		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(derr)).Inc()
-
-		return CleanupCleaned, derr
+		return CleanupCleaned, cleanupFailure(req.SinkName, derr)
 	}
 
+	return retractionOutcome(req, paths, deleted, staleGenerations, false), nil
+}
+
+// releaseGitExport is the Git-family cleanup (ADR-0422): one ReleaseExport call
+// that removes the deleting inventory's ownership record and, when the policy
+// retracts, its candidates and recorded files.
+func releaseGitExport(req CleanupExportRequest, backend Backend, owner, invNS, invName string) (CleanupExportOutcome, error) {
+	releaser, ok := backend.(OwnershipReleaser)
+	if !ok {
+		return CleanupCleaned, kollecterrors.Terminal(fmt.Errorf(
+			"sink %q: %s backend cannot release ownership records", req.SinkName, req.SinkSpec.Type))
+	}
+
+	kept, keepFiles := retractionPrecheck(req)
+	paths := cleanupCandidatePaths(req.SinkSpec, invNS, invName, req.Generation)
+	resolved := layout.Resolve(layout.ResolveInput{
+		Spec:               req.SinkSpec,
+		InventoryNamespace: invNS,
+		InventoryName:      invName,
+		Generation:         req.Generation,
+	})
+
+	// The commit context names the deleting inventory for the commit subject and, in GitLab
+	// branchMR mode, the feature branch, so the backends do not re-derive it from a path.
+	// TODO(gitlab-branchmr-claims): set Kind: req.Inventory.Kind once git.CommitContext has it.
+	commitCtx := git.CommitContextFromObjectPath(resolved.DocumentPath(), resolved.Cluster)
+	commitCtx.Namespace, commitCtx.Name = invNS, invName
+	ctx := git.WithCommitContext(req.Ctx, commitCtx)
+
+	deleted, derr := releaser.ReleaseExport(ctx, paths, git.ReleaseOptions{Owner: owner, KeepFiles: keepFiles})
+	if derr != nil {
+		return CleanupCleaned, cleanupFailure(req.SinkName, derr)
+	}
+	if keepFiles {
+		return kept, nil
+	}
+
+	treeMode := !resolved.IsDocument()
+	staleGenerations := strings.Contains(req.SinkSpec.PathTemplate, "{generation}")
+
+	return retractionOutcome(req, paths, deleted, staleGenerations, treeMode), nil
+}
+
+// cleanupPruneOwner derives the deleting inventory's prune owner exactly as the
+// export does (inventoryPruneOwner on the layout resolved from the sink spec),
+// after checking the identity against the object path.
+func cleanupPruneOwner(req CleanupExportRequest) (string, error) {
+	if req.Inventory.IsZero() {
+		return "", fmt.Errorf("git cleanup of %s requires an inventory identity (kind, namespace, name)", req.ObjectPath)
+	}
+	invNS, invName := objectstore.InventoryFromObjectPath(req.ObjectPath)
+	if err := req.Inventory.checkObjectPath(req.ObjectPath, invNS, invName, 0, 0); err != nil {
+		return "", err
+	}
+	resolved := layout.Resolve(layout.ResolveInput{
+		Spec:               req.SinkSpec,
+		InventoryNamespace: invNS,
+		InventoryName:      invName,
+		Generation:         req.Generation,
+	})
+
+	return inventoryPruneOwner(resolved, req.Inventory)
+}
+
+// cleanupFailure classifies a failed retraction or release and counts it.
+// Backends classify their own transport/config errors (git engines call
+// ClassifyExportError); anything unclassified stays transient so cleanup
+// retries instead of wedging the deletion.
+func cleanupFailure(sinkName string, err error) error {
+	err = classifyCleanupFailure(sinkName, err)
+	metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
+
+	return err
+}
+
+// retractionOutcome decides whether a completed retraction is a clean
+// tombstone or announced retention.
+func retractionOutcome(
+	req CleanupExportRequest,
+	paths, deleted []string,
+	staleGenerations, treeMode bool,
+) CleanupExportOutcome {
 	// gitlab merge_request mode lands retraction on the target branch only when
 	// a human merges the deletion MR: never a clean tombstone, and a later merge
 	// of a stale unmerged export branch could even resurrect objects.
@@ -233,10 +340,10 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 	// covered what it wrote.
 	if treeMode || staleGenerations || mrMediated || req.ExportPathsUnrecorded ||
 		recordedExportPathsUnaddressed(req.LastExportedPaths, paths, deleted) {
-		return CleanupRetained, nil
+		return CleanupRetained
 	}
 
-	return CleanupCleaned, nil
+	return CleanupCleaned
 }
 
 // pruneRelationalExport is the relational (SupportsDelete) cleanup: the empty

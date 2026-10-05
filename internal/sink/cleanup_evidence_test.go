@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/sink/git"
 )
 
 // evidenceCleanerBackend is a git-family ExportCleaner stub whose delete report
@@ -20,7 +21,8 @@ import (
 type evidenceCleanerBackend struct {
 	respond func(paths []string) []string
 
-	deleteCalls [][]string
+	deleteCalls  [][]string
+	releaseCalls []git.ReleaseOptions
 }
 
 func (b *evidenceCleanerBackend) Type() string {
@@ -42,6 +44,17 @@ func (b *evidenceCleanerBackend) DeleteExport(_ context.Context, paths []string)
 	}
 
 	return cp, nil
+}
+
+// ReleaseExport records the release and retracts through DeleteExport unless the files are kept,
+// so the evidence assertions below see the same deletions as before (ADR-0422).
+func (b *evidenceCleanerBackend) ReleaseExport(ctx context.Context, paths []string, opts git.ReleaseOptions) ([]string, error) {
+	b.releaseCalls = append(b.releaseCalls, opts)
+	if opts.KeepFiles {
+		return nil, nil
+	}
+
+	return b.DeleteExport(ctx, paths)
 }
 
 func newEvidenceRegistry(backend *evidenceCleanerBackend) *Registry {
@@ -85,6 +98,7 @@ func TestRunCleanupExport_DefaultGitDocumentFullyRetractedIsClean(t *testing.T) 
 		SinkUID:           "uid-git-fp-clean",
 		SinkSpec:          defaultGitSinkSpec(),
 		ObjectPath:        "inventory/team-a/inv.json",
+		Inventory:         InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 		Generation:        7,
 		LastExportedPaths: []string{"inventory/team-a/inv.yaml"},
 	})
@@ -112,6 +126,7 @@ func TestRunCleanupExport_DefaultGitNeverExportedIsClean(t *testing.T) {
 		SinkUID:    "uid-git-never-exported",
 		SinkSpec:   defaultGitSinkSpec(),
 		ObjectPath: "inventory/team-a/inv.json",
+		Inventory:  InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 		Generation: 7,
 	})
 	if err != nil {
@@ -139,6 +154,7 @@ func TestRunCleanupExport_RecordedTreePathsAnnounceRetention(t *testing.T) {
 		SinkUID:    "uid-git-auto-upgraded-tree",
 		SinkSpec:   defaultGitSinkSpec(),
 		ObjectPath: "inventory/team-a/inv.json",
+		Inventory:  InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 		Generation: 7,
 		LastExportedPaths: []string{
 			"inventory/team-a/inv.yaml",
@@ -206,6 +222,7 @@ func TestRunCleanupExport_RecordedPathOutsideCandidatesAnnouncesRetention(t *tes
 				SinkUID:           types.UID("uid-git-changed-config-" + name),
 				SinkSpec:          tc.spec,
 				ObjectPath:        "inventory/team-a/inv.json",
+				Inventory:         InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 				Generation:        7,
 				LastExportedPaths: tc.lastExportedPaths,
 			})
@@ -247,6 +264,7 @@ func TestRunCleanupExport_RecordedPartSiblingsAddressedByDeletedReport(t *testin
 		SinkUID:    "uid-git-part-siblings",
 		SinkSpec:   defaultGitSinkSpec(),
 		ObjectPath: "inventory/team-a/inv.json",
+		Inventory:  InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 		Generation: 7,
 		LastExportedPaths: []string{
 			"inventory/team-a/inv.part-0000-of-0002.yaml",
@@ -283,6 +301,7 @@ func TestRunCleanupExport_ExplicitTreeModeAnnouncesRetentionWithoutRecordedState
 		SinkUID:    "uid-git-explicit-tree",
 		SinkSpec:   spec,
 		ObjectPath: "inventory/team-a/inv.json",
+		Inventory:  InventoryIdentity{Kind: InventoryKindNamespaced, Namespace: "team-a", Name: "inv"},
 		Generation: 7,
 	})
 	if err != nil {

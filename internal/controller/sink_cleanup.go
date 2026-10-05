@@ -55,6 +55,8 @@ type sinkExportEvidence struct {
 // cleanupTarget identifies the deleting inventory for cleanupSinkExports.
 type cleanupTarget struct {
 	objectPath string
+	// inventory is the deleting inventory's identity; git-family sinks release its ownership record.
+	inventory  sink.InventoryIdentity
 	generation int64
 	// evidence is keyed by sink export key ("<family>/<name>").
 	evidence map[string]sinkExportEvidence
@@ -149,6 +151,7 @@ func cleanupSinkExports(
 			SinkUID:               resolved.UID,
 			SinkSpec:              resolved.Spec,
 			ObjectPath:            target.objectPath,
+			Inventory:             target.inventory,
 			Generation:            target.generation,
 			LastExportedPaths:     evidence.paths,
 			ExportPathsUnrecorded: evidence.exported && len(evidence.paths) == 0,

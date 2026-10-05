@@ -90,6 +90,7 @@ func (r *KollectClusterInventoryReconciler) cleanupClusterInventorySinks(
 		true,
 		cleanupTarget{
 			objectPath:     fmt.Sprintf("inventory/%s/%s.json", clusterExportNamespace, inv.Name),
+			inventory:      sink.InventoryIdentity{Kind: sink.InventoryKindCluster, Name: inv.Name},
 			generation:     inv.Generation,
 			evidence:       exportEvidenceBySink(inv.Status.SinkExports),
 			sharedIdentity: r.namespacedCounterpartLookup(inv),

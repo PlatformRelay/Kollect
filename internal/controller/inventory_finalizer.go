@@ -16,6 +16,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/metrics"
+	"github.com/platformrelay/kollect/internal/sink"
 )
 
 const inventoryCleanupFinalizer = "kollect.dev/inventory-cleanup"
@@ -98,6 +99,7 @@ func (r *KollectInventoryReconciler) cleanupInventoryDeletion(
 		false,
 		cleanupTarget{
 			objectPath:     fmt.Sprintf("inventory/%s/%s.json", inv.Namespace, inv.Name),
+			inventory:      sink.InventoryIdentity{Kind: sink.InventoryKindNamespaced, Namespace: inv.Namespace, Name: inv.Name},
 			generation:     inv.Generation,
 			evidence:       exportEvidenceBySink(inv.Status.SinkExports),
 			sharedIdentity: r.clusterCounterpartLookup(inv),

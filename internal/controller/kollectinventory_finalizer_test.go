@@ -25,6 +25,7 @@ import (
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/metrics"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/git"
 )
 
 type failingRelationalBackend struct {
@@ -463,7 +464,8 @@ func (r *retentionSnapshotBackend) Export(context.Context, []byte, string) error
 // tombstoneBackend implements sink.ExportCleaner: inventory deletion must reach
 // DeleteExport with the canonical object path (C-2a tombstone/delete).
 type tombstoneBackend struct {
-	deleted [][]string
+	deleted  [][]string
+	released []git.ReleaseOptions
 }
 
 func (t *tombstoneBackend) Type() string { return "git" }
@@ -479,6 +481,17 @@ func (t *tombstoneBackend) DeleteExport(_ context.Context, paths []string) ([]st
 	t.deleted = append(t.deleted, cp)
 
 	return cp, nil
+}
+
+// ReleaseExport records each git-family release; a release that retracts reaches DeleteExport, so
+// the tombstone assertions see the same candidates (ADR-0422).
+func (t *tombstoneBackend) ReleaseExport(ctx context.Context, paths []string, opts git.ReleaseOptions) ([]string, error) {
+	t.released = append(t.released, opts)
+	if opts.KeepFiles {
+		return nil, nil
+	}
+
+	return t.DeleteExport(ctx, paths)
 }
 
 func deletingInventoryWithSnapshotSink(sinkName string) (*kollectdevv1alpha1.KollectSnapshotSink, *kollectdevv1alpha1.KollectInventory) {
@@ -595,6 +608,9 @@ func TestKollectInventoryReconciler_retentionBackendAnnouncesAndCompletes(t *tes
 	}
 
 	sinkObj, inv := deletingInventoryWithSnapshotSink("git-demo")
+	// Git-family sinks always release through ReleaseExport (ADR-0422); the
+	// cannot-retract path is an object-store snapshot type.
+	sinkObj.Spec.Type = kollectdevv1alpha1.SnapshotSinkTypeS3
 
 	cl := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -603,7 +619,7 @@ func TestKollectInventoryReconciler_retentionBackendAnnouncesAndCompletes(t *tes
 		Build()
 
 	reg := sink.NewRegistry()
-	reg.Register(kollectdevv1alpha1.SnapshotSinkTypeGit, func(
+	reg.Register(kollectdevv1alpha1.SnapshotSinkTypeS3, func(
 		_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext,
 	) (sink.Backend, error) {
 		return &retentionSnapshotBackend{}, nil

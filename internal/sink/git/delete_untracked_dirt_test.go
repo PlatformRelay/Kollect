@@ -62,7 +62,7 @@ func TestRemoveWorktreeCandidates_UntrackedDirtIsTolerated(t *testing.T) {
 	removed, rmErr := removeWorktreeCandidates(wt, []string{
 		"inventory/team-b/inv.json",
 		"inventory/team-a/inv.json",
-	})
+	}, nil)
 	if rmErr != nil {
 		t.Fatalf("DEFECT: untracked dirt errored the go-git deletion: %v", rmErr)
 	}
