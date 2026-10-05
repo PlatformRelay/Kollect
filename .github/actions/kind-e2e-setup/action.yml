@@ -97,7 +97,10 @@ runs:
         KIND_CLUSTER_WAIT: 300s
         KOLLECT_HELM_TIMEOUT: 300s
         KOLLECT_MANAGER_WAIT: 300s
-      run: bash "${{ inputs.setup-script }}"
+        # zizmor template-injection: bind the input to an environment variable rather than
+        # interpolating it straight into the shell script, where a crafted value would execute.
+        SETUP_SCRIPT: ${{ inputs.setup-script }}
+      run: bash "${SETUP_SCRIPT}"
 
     - name: Run e2e scenario
       if: inputs.scenario-script != ''
@@ -106,14 +109,18 @@ runs:
         WAIT_TIMEOUT: ${{ inputs.wait-timeout }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GIT_EXPORT_TEST_REPO: ${{ inputs.git-export-test-repo }}
+        # zizmor template-injection: inputs are untrusted shell text; pass them through the
+        # environment so the runner's interpolation cannot inject code into the script below.
+        SCENARIO_SCRIPT: ${{ inputs.scenario-script }}
+        RUN_MODE: ${{ inputs.run-mode }}
       run: |
         set -euo pipefail
-        script="${{ inputs.scenario-script }}"
+        script="${SCENARIO_SCRIPT}"
         chmod +x "${script}"
-        case "${{ inputs.run-mode }}" in
+        case "${RUN_MODE}" in
           bash) bash "${script}" ;;
           repo_root) REPO_ROOT="${GITHUB_WORKSPACE}" "${script}" ;;
-          *) echo "unknown run-mode: ${{ inputs.run-mode }}" >&2; exit 1 ;;
+          *) echo "unknown run-mode: ${RUN_MODE}" >&2; exit 1 ;;
         esac
 
     - name: Delete kind cluster
