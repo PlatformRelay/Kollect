@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Name the deleting inventory's kind on ownership release [0a95162](https://github.com/platformrelay/kollect/commit/0a951623afa4c76e27be4e827c1190e45b5506cc)
+
 - **sink/git:** Check the fetched tip in same-branch CLI exports too [a3c775b](https://github.com/platformrelay/kollect/commit/a3c775b8b55587da653715a1794a2ed8bec0afb3)
 
 - **sink/gitlab:** [**breaking**] Refuse claims already merged on the branchMR target [bb74e71](https://github.com/platformrelay/kollect/commit/bb74e7151ef062d612290dec895e28450aa12e50)
@@ -61,6 +63,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **sink:** [**breaking**] Release git ownership records when an inventory is deleted [21ef7b7](https://github.com/platformrelay/kollect/commit/21ef7b76b4a751302280829a5c269570faea4989)
 
 - **sink:** [**breaking**] Own git export files by kind-qualified inventory identity [df455ca](https://github.com/platformrelay/kollect/commit/df455caa43dbb7e4e83cb567e360273219485705)
 
