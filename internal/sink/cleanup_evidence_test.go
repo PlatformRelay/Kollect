@@ -23,6 +23,7 @@ type evidenceCleanerBackend struct {
 
 	deleteCalls  [][]string
 	releaseCalls []git.ReleaseOptions
+	releaseCtxs  []git.CommitContext
 }
 
 func (b *evidenceCleanerBackend) Type() string {
@@ -50,6 +51,8 @@ func (b *evidenceCleanerBackend) DeleteExport(_ context.Context, paths []string)
 // so the evidence assertions below see the same deletions as before (ADR-0422).
 func (b *evidenceCleanerBackend) ReleaseExport(ctx context.Context, paths []string, opts git.ReleaseOptions) ([]string, error) {
 	b.releaseCalls = append(b.releaseCalls, opts)
+	cc, _ := git.CommitContextFromContext(ctx)
+	b.releaseCtxs = append(b.releaseCtxs, cc)
 	if opts.KeepFiles {
 		return nil, nil
 	}
