@@ -95,9 +95,25 @@ an absolute home path, `~/`-relative path, or a reference to a gitignored harnes
 - **WHEN** `.github/gitleaks.toml` allowlists `AGENTS.md` or `CLAUDE.md`
 - **THEN** the test SHALL fail, because a committed agent file must not be exempt from secret scanning
 
+### Requirement: PAC-6 Hostnames and internal hosts are refused generically
+
+Committed agent files SHALL NOT contain a workstation hostname, a `*.internal`, `*.local` or
+private-address host, or an SSH/host alias line, as matched by a generic pattern set in the test
+in addition to `hack/scrub-patterns.txt`.
+
+#### Scenario: Hostname string
+
+- **WHEN** `AGENTS.md` names a machine hostname or an internal host
+- **THEN** the test SHALL fail
+
+#### Scenario: Pattern set can fail
+
+- **WHEN** the generic pattern set is emptied in a copy
+- **THEN** the self-test SHALL fail
+
 ### Requirement: PAC-5 The test can fail
 
-`agent_contract_test.sh` SHALL carry throwaway-copy mutants for each of PAC-1 to PAC-4 and a no-op
+`agent_contract_test.sh` SHALL carry throwaway-copy mutants for each of PAC-1 to PAC-4 and PAC-6 and a no-op
 copy that passes.
 
 #### Scenario: Mutant survives

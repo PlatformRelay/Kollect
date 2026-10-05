@@ -12,7 +12,7 @@ for other assistants.
 
 ## What Changes
 
-- A committed, public `AGENTS.md` at the repository root: how to build and test, the gates CI
+- A committed, public `AGENTS.md`, written in a worktree where no local `AGENTS.md` or harness file is loaded (so private text cannot be paraphrased from context), at the repository root: how to build and test, the gates CI
   enforces, conventions (commit format, rebase merge, spec workflow), and incident-derived
   checklists for adding a CRD field, a metric and a sink.
 - One-line `CLAUDE.md` and `.github/copilot-instructions.md` that point to `AGENTS.md`.
@@ -22,7 +22,7 @@ for other assistants.
   `git add -A` from being committed. The local harness references to `AGENTS.md` are updated.
 - `.github/gitleaks.toml:10` allowlists `AGENTS\.md`; that entry is removed so the committed file
   is secret-scanned like any other.
-- `hack/test/agent_contract_test.sh`: scrub-pattern match, machine-local paths, referenced paths
+- `hack/test/agent_contract_test.sh`: scrub-pattern match, a generic pattern check for hostnames, internal hosts and home paths (the local file also names a workstation hostname that is not in `hack/scrub-patterns.txt`), machine-local paths, referenced paths
   exist, pointers stay one line, checklists name real files.
 - Private gotchas stay in the maintainer's local harness (`agent-context/`, `AGENTS.local.md`).
 
@@ -45,8 +45,17 @@ None.
 
 ## Dependencies
 
-Landing order across the eight proposed changes: developer-toolchain-consistency (with its Go bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation, nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract
-(last, so its checklists can name the gates the earlier changes add).
+Landing order across the ten proposed changes: (1) ci-workflow-hardening, (2) task-check-entrypoint,
+(3) golangci-lint-bump, (4) cross-file-consistency-gates, (5) developer-toolchain-pins,
+(6) dependency-update-automation, (7) ci-failure-reporting, (8) test-depth-signals,
+(9) mutation-testing-signal, (10) public-agent-contract (last, so its checklists can name the gates
+the earlier changes add).
+
+## Hard gate
+
+The independent human or reviewer read of the committed text (task 3.1) is a hard gate before
+merge: a pattern test cannot know every private string, and the scrub list is incomplete by
+construction.
 
 ## Non-goals
 
