@@ -90,5 +90,8 @@ inventory continues it, as before.
 - [Sink spec drift] → the owner uses the sink's current `spec.cluster`. If it changed since the last
   export, the old record is not found and stays, like objects at an old `pathTemplate`.
 - [GitLab branchMR] → the release lands on the feature branch and its merge request; the target branch
-  loses the record when the MR merges. Same mechanism as the `Delete` retraction.
+  loses the record when the MR merges. Same mechanism as the `Delete` retraction. A record-only release
+  that removed nothing opens no merge request, even when the deleted inventory's feature branch still
+  exists; the cost is that a release commit an earlier attempt pushed but never opened an MR for stays
+  on that branch.
 - [Damaged foreign record under Delete] → terminal until repaired, as for exports.
