@@ -71,7 +71,7 @@ func exportViaCLIInWorkdir(
 	if err != nil {
 		return err
 	}
-	if err = checkCLIMergeTargetClaims(workdir, cloneBranch, pushBranch, cfg, paths); err != nil {
+	if err = checkCLIMergeTargetClaims(workdir, cloneBranch, cfg, paths); err != nil {
 		return err
 	}
 

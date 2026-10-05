@@ -156,6 +156,62 @@ func TestBranchExport_warmMirrorRefusesClaimMergedOnTarget(t *testing.T) {
 	}
 }
 
+// TestSameBranchExport_warmMirrorRefusesClaimPushedMeanwhile: without a merge-request branch the CLI
+// engine checked out its stale local branch, so a claim another inventory pushed meanwhile was
+// invisible; the push was rejected as non-fast-forward and pull --rebase merged both records in
+// (identical bytes rebase cleanly). The check must read the fetched tip in this mode too.
+func TestSameBranchExport_warmMirrorRefusesClaimPushedMeanwhile(t *testing.T) {
+	const (
+		shared  = "prod/team-a/Deployment/api.yaml"
+		ownPath = "prod/team-b/Deployment/worker.yaml"
+	)
+	for _, engine := range []string{"cli", "go-git"} {
+		t.Run(engine, func(t *testing.T) {
+			skipWithoutGit(t)
+			remote := createBareRemoteWithMainCommit(t)
+			cloneURL := "file://" + remote
+			workdir := filepath.Join(t.TempDir(), "mirror")
+			a, _ := InventoryPruneOwner("KollectInventory", "default", "team-a", "apps")
+			b, _ := InventoryPruneOwner("KollectInventory", "default", "team-b", "apps")
+
+			exportB := func(files ...FileEntry) error {
+				t.Helper()
+				cfg := Config{Endpoint: cloneURL, Prune: true, PruneOwner: b}.withDefaults()
+				req, validated, err := validateExportFiles(cfg, files, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if engine == "go-git" {
+					return exportRemoteInWorkdir(t.Context(), cfg, nil, req, validated, CommitContext{}, workdir)
+				}
+				cli, err := newCLIEnv(cfg, Auth{}, cfg.AuthType)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer cli.cleanup()
+				return exportViaCLIInWorkdir(t.Context(), cfg, Auth{}, cli, workdir, req.cloneURL, req.cloneBranch, req.pushBranch, validated, CommitContext{})
+			}
+
+			if err := exportB(FileEntry{Path: ownPath, Data: []byte("b")}); err != nil {
+				t.Fatalf("B's first export: %v", err)
+			}
+			aCfg := Config{Endpoint: cloneURL, Prune: true, PruneOwner: a}.withDefaults()
+			if err := ExportFilesWithBranch(t.Context(), aCfg, Auth{}, []FileEntry{{Path: shared, Data: []byte("same")}}, nil, CommitContext{}); err != nil {
+				t.Fatalf("A's export: %v", err)
+			}
+
+			err := exportB(FileEntry{Path: ownPath, Data: []byte("b")}, FileEntry{Path: shared, Data: []byte("same")})
+			assertMergeClaimsUnique(t, remote, "main", "main")
+			if !kollecterrors.IsTerminal(err) {
+				t.Fatalf("B claims the path A pushed meanwhile: err = %v, want a terminal rejection", err)
+			}
+			if !strings.Contains(err.Error(), "belongs to another inventory") {
+				t.Fatalf("rejection %q does not name the ownership conflict", err)
+			}
+		})
+	}
+}
+
 // TestLoadPruneRecords_duplicateNamesBothOwnersAndRecords (IEI-12): a branch that already holds two
 // records claiming one path fails every export with an error an operator can act on: both owners
 // and both record files.
