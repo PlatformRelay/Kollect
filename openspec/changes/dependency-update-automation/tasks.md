@@ -3,7 +3,7 @@
 ## 1. Guard first (DUA-1 to DUA-5)
 
 - [ ] 1.1 Write `hack/test/renovate_automerge_test.sh` over `renovate.json` and `renovate.yaml` (token step, no `github.token` fallback, strategy, scope, age, distinct secret names) with mutants for each scenario; watch it fail on the assertions
-- [ ] 1.2 Probe how to evaluate the final rule set (for example `renovate-config-validator --strict` plus a dry run `LOG_LEVEL=debug renovate --platform=local`); record what the test uses
+- [ ] 1.2 Probe, on the pinned Renovate, how `minimumReleaseAge` treats digest updates (`minimumReleaseAgeBehaviour`) and record it; validate the config with `renovate-config-validator --strict`; the scope guard is a structural `jq` check (deny rules last, `automerge: false`), not an evaluation
 
 ## 2. Config (DUA-1 to DUA-4)
 
@@ -23,13 +23,17 @@
 - [ ] 4.3 (operator) Enable "Allow auto-merge" and confirm rebase merging is allowed; confirm `protect-main` lists no bypass for the new App
 - [ ] 4.4 (operator) Delete the stale `renovate/*` branches that never got PRs, or let Renovate adopt them
 
+## 5. Land
+
+- [ ] 5.1 Archive the change (`openspec archive`) as the last commit of the PR, after review and green CI; the review record names the reviewed and the archive revision
+
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | DUA-1 | guard token-step and no-fallback checks; live dispatch | mutant red; PR has CI | not-run | needs operator tasks 4.1-4.2 |
 | DUA-2 | guard strategy mutants (squash, merge); live eligible PR | mutants red; rebase merge observed | not-run | needs 4.3 |
-| DUA-3 | guard evaluation of the final rule set on patch, major, k8s.io fixtures | automerge only for the patch fixture | not-run | |
-| DUA-4 | guard age mutant | red when removed or under 7 days | not-run | |
+| DUA-3 | `jq` structural guard: deny rules last with `automerge: false`; mutant appending a rule | guard green on tree, red on mutant | not-run | |
+| DUA-4 | guard age mutant; digest probe result | red when removed or under 7 days; digest rule matches the probe | not-run | |
 | DUA-5 | guard distinct-secret check; ruleset inspected by the operator | mutant red; no bypass listed | not-run | operator evidence |
-| all | CI on the PR head; independent review | green; APPROVE | not-run | |
+| all | CI on the PR head; independent review | green; APPROVE; both revisions recorded | not-run | |

@@ -80,6 +80,16 @@ an absolute home path, `~/`-relative path, or a reference to a gitignored harnes
 - **WHEN** `.gitignore` ignores `AGENTS.md` or `CLAUDE.md` again
 - **THEN** the test SHALL fail; `AGENTS.local.md` and the harness directories SHALL stay ignored
 
+#### Scenario: Private local file would be un-ignored
+
+- **WHEN** a file headed "LOCAL ONLY" or "never commit" is tracked or staged under `AGENTS.md`, `CLAUDE.md` or `.github/copilot-instructions.md`
+- **THEN** the test SHALL fail
+
+#### Scenario: Agent files are secret-scanned
+
+- **WHEN** `.github/gitleaks.toml` allowlists `AGENTS.md` or `CLAUDE.md`
+- **THEN** the test SHALL fail, because a committed agent file must not be exempt from secret scanning
+
 ### Requirement: PAC-5 The test can fail
 
 `agent_contract_test.sh` SHALL carry throwaway-copy mutants for each of PAC-1 to PAC-4 and a no-op

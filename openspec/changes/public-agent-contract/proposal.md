@@ -16,8 +16,12 @@ for other assistants.
   enforces, conventions (commit format, rebase merge, spec workflow), and incident-derived
   checklists for adding a CRD field, a metric and a sink.
 - One-line `CLAUDE.md` and `.github/copilot-instructions.md` that point to `AGENTS.md`.
-- `.gitignore` stops ignoring `CLAUDE.md` and `AGENTS.md` (keeps `AGENTS.local.md` and the
-  harness directories ignored).
+- The maintainer's existing local `AGENTS.md` (a large file headed "LOCAL ONLY, never commit" in
+  the main checkout) is renamed to `AGENTS.local.md`, which stays ignored, BEFORE `.gitignore`
+  stops ignoring `AGENTS.md` and `CLAUDE.md`; otherwise un-ignoring would leave a private file one
+  `git add -A` from being committed. The local harness references to `AGENTS.md` are updated.
+- `.github/gitleaks.toml:10` allowlists `AGENTS\.md`; that entry is removed so the committed file
+  is secret-scanned like any other.
 - `hack/test/agent_contract_test.sh`: scrub-pattern match, machine-local paths, referenced paths
   exist, pointers stay one line, checklists name real files.
 - Private gotchas stay in the maintainer's local harness (`agent-context/`, `AGENTS.local.md`).
@@ -38,6 +42,13 @@ None.
   `hack/test/agent_contract_test.sh`. `task scrub` only scans staged files
   (`hack/scrub.sh:9`), so the new test scans the committed files directly.
 - `CONTRIBUTING.md` gets one line pointing at `AGENTS.md`.
+
+## Dependencies
+
+Landing order across the seven proposed changes: developer-toolchain-consistency (with its Go
+bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation,
+nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract
+(last, so its checklists can name the gates the earlier changes add).
 
 ## Non-goals
 

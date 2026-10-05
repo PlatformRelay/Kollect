@@ -12,10 +12,10 @@ dependency drift that only the manual security sweep catches. `renovate.json` ha
 
 ## What Changes
 
-- `renovate.yaml` mints a short-lived installation token with `actions/create-github-app-token`
+- `.github/workflows/renovate.yaml` mints a short-lived installation token with `actions/create-github-app-token`
   (already pinned in `changelog-sync.yaml:74`) from a NEW GitHub App dedicated to Renovate, and
   passes it to the Renovate action. The `github.token` fallback is removed.
-- `renovate.json` enables auto-merge for patch and minor updates of Go modules, the `github-actions`
+- `renovate.json` (the repo config; `.github/renovate-config.json` only points Renovate at it) enables auto-merge for patch and minor updates of Go modules, the `github-actions`
   manager (digest pins and minor/patch) and the pinned-tools group, with
   `minimumReleaseAge: "7 days"`, and with `automergeStrategy: "rebase"`. Major updates and the
   Kubernetes module group are never auto-merged.
@@ -39,14 +39,29 @@ None.
 - Operator-owned prerequisites are listed in tasks section 4 (App creation, secrets, repo setting
   "Allow auto-merge", rebase-merge enabled, ruleset review).
 
+## Dependencies
+
+Landing order across the seven proposed changes: developer-toolchain-consistency (with its Go
+bump), cross-file-consistency-gates, ci-workflow-hardening, dependency-update-automation,
+nightly-failure-reporting, test-depth-signals, mutation-testing-signal, public-agent-contract.
+The toolchain change's Renovate edits (regex managers, golang-image group) land first so both
+touch `renovate.json` sequentially. A dependency bump itself needs no change; this one exists
+because it adds a credential and a merge path.
+
 ## Non-goals
 
 - Replacing Renovate with Dependabot (open question in `developer-toolchain-consistency`).
-- Auto-merging major updates, Kubernetes modules, Dockerfile base images or the Go toolchain.
+- Auto-merging major updates, Kubernetes modules, Dockerfile base images or the Go toolchain (the `go` directive).
 - Changing which checks are required.
 - Reusing the changelog-sync App (see design.md).
 
 ## Assumptions
+
+- Renovate update types: `patch`, `minor`, `major`, and, separately, `digest` and `pinDigest`
+  (`matchUpdateTypes`). Digest updates of `github-actions` carry no release timestamp, so
+  `minimumReleaseAge` may hold them forever or ignore them depending on
+  `minimumReleaseAgeBehaviour`. Probe in task 1.2 against the pinned Renovate version; the result
+  decides DUA-4's digest wording.
 
 - Pull requests and pushes made with a GitHub App installation token DO trigger workflows (the
   exception is `GITHUB_TOKEN`). Source: GitHub docs, "Triggering a workflow from a workflow".

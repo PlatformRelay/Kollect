@@ -7,25 +7,34 @@ statements disagree, so drift is found by CI and not by a user or an outage.
 
 ## ADDED Requirements
 
-### Requirement: CFC-1 The shipped binary is built with a toolchain no older than the tested one
+"Manager roles" means the `Role` and `ClusterRole` objects the chart renders for the manager's
+service account (`templates/clusterrole.yaml`, `templates/role.yaml` and
+`templates/role-leader-election.yaml`); the metrics-reader roles are excluded.
 
-The Go version in the `FROM golang:<version>` line of every `Dockerfile*` SHALL be greater than or
-equal to the `go` directive of `go.mod`, and all `Dockerfile*` that build Go SHALL use the same tag.
+### Requirement: CFC-1 The shipped binary is built with the tested toolchain
+
+The Go version in the `FROM golang:<version>` line of every `Dockerfile*` that builds Go SHALL
+equal the `go` directive of `go.mod`.
+
+#### Scenario: Equal
+
+- **WHEN** `go.mod` says `go 1.27.1` and every Dockerfile says `golang:1.27.1`
+- **THEN** the check passes
 
 #### Scenario: Image newer than go.mod
 
-- **WHEN** `go.mod` says `go 1.26.6` and the Dockerfiles say `golang:1.27.1`
-- **THEN** the check passes, and its output states the difference as information
+- **WHEN** `go.mod` says `go 1.26.6` and a Dockerfile says `golang:1.27.1`
+- **THEN** the check SHALL fail and name the file and both versions, because tests and govulncheck run the go.mod toolchain and never see the one that ships
 
 #### Scenario: Image older than go.mod
 
 - **WHEN** `go.mod` is bumped to `go 1.27.2` and a Dockerfile still says `golang:1.27.1`
-- **THEN** the check SHALL fail and name the file and both versions
-
-#### Scenario: Two Dockerfiles disagree
-
-- **WHEN** `Dockerfile` and `Dockerfile.pipeline` use different Go tags
 - **THEN** the check SHALL fail
+
+#### Scenario: Transition in a bot PR
+
+- **WHEN** Renovate bumps the golang image
+- **THEN** it bumps the `go` directive in the same PR (group rule, see `developer-toolchain-consistency`), and the check passes on that PR
 
 #### Scenario: No Go image found
 
@@ -34,8 +43,8 @@ equal to the `go` directive of `go.mod`, and all `Dockerfile*` that build Go SHA
 
 ### Requirement: CFC-2 The chart grants at least what the kustomize role grants
 
-Every (apiGroup, resource, verb) triple in `config/rbac/role.yaml` SHALL be granted by the manager
-roles rendered from `charts/kollect` with default values, unless listed with a reason in
+Every (apiGroup, resource, verb) triple in `config/rbac/role.yaml` SHALL be granted by the
+"manager roles" rendered from `charts/kollect` with default values, unless listed with a reason in
 `hack/test/testdata/consistency-rbac-exceptions.txt`.
 
 #### Scenario: Chart matches
@@ -45,7 +54,7 @@ roles rendered from `charts/kollect` with default values, unless listed with a r
 
 #### Scenario: A kubebuilder marker adds a permission the chart lacks
 
-- **WHEN** a controller gains `+kubebuilder:rbac` for `coordination.k8s.io/leases` and `make manifests` updates `role.yaml`, but the chart template is not changed
+- **WHEN** a controller gains `+kubebuilder:rbac` for a new resource and `make manifests` updates `role.yaml`, but the chart templates are not changed
 - **THEN** the check SHALL fail and name the missing triple
 
 #### Scenario: Exception without a reason
@@ -56,7 +65,7 @@ roles rendered from `charts/kollect` with default values, unless listed with a r
 #### Scenario: Tenant mode
 
 - **WHEN** the chart is rendered with `tenantMode=true`
-- **THEN** the union of the rendered `Role` and `ClusterRole` still covers every triple, or the tenant-mode difference is a listed exception with a reason
+- **THEN** namespaced triples are covered by the rendered namespaced `Role`; cluster-scoped triples (namespaces, tokenreviews, subjectaccessreviews, `kollectcluster*`) cannot be and appear as listed exceptions with the reason that tenant mode drops cluster scope
 
 ### Requirement: CFC-3 Metric names agree between code, docs and chart
 
@@ -90,17 +99,7 @@ stripped) SHALL be registered in `internal/metrics`, every registered metric SHA
 - **WHEN** the source scan returns no names
 - **THEN** the check SHALL fail
 
-### Requirement: CFC-4 Chart appVersion and the image annotation agree
-
-`appVersion` in `charts/kollect/Chart.yaml` SHALL equal the tag, without the leading `v`, of the
-image in the `artifacthub.io/images` annotation.
-
-#### Scenario: Version bumped in one place
-
-- **WHEN** `appVersion` is `0.22.0` and the annotation says `v0.21.0`
-- **THEN** the check SHALL fail
-
-### Requirement: CFC-5 Each consistency gate is proven able to fail
+### Requirement: CFC-4 Each consistency gate is proven able to fail
 
 Each check SHALL contain a self-test that corrupts a copy of the tree to break its invariant and
 asserts a non-zero exit, plus a no-op copy that must pass.

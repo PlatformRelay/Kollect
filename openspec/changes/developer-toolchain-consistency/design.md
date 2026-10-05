@@ -41,7 +41,7 @@ Options:
   `verify` is a required check name via the job, not the task).
 - **C. Do nothing.**
 
-Recommendation: A. The spec (DTC-5) requires the alias and states the meaning.
+Recommendation: A. The spec (DTC-5) requires the alias and states the meaning (the Docker-free gates).
 
 ## Open question 3: should `vulncheck` be a required status check
 
@@ -58,10 +58,25 @@ C. leave as is. Operator-owned ruleset change; not part of the tasks.
   `.custom-gcl.yml` mirrors it. govulncheck: `Taskfile.yml` variable. gitleaks: the install script
   default is the authority; the CI env and pre-commit `rev` mirror it. Mirrors are enforced by a
   drift test, as `dev_mise_pin_drift_test.sh` does for Task.
-- **The baseline values are asserted in the drift test**, not just consistency, so a bot PR that
-  moves all sites together to a different version still reds the test and forces a deliberate
-  baseline change (a one-line edit that reviewers see). Trade-off: every legitimate bump edits the
-  test too; Renovate grouping plus the test message make that a mechanical step.
+- **The drift test asserts agreement between sites plus a floor**: every site equals the others
+  and is at least the baseline (3.52.0, v2.13.1, 8.30.1, v2.13.1, govulncheck v1.6.0). It does
+  not assert exact values: `dependency-update-automation` auto-merges patch/minor bumps of the
+  pinned tools, and an exact-value test would make every such bot PR red until a human edited the
+  test. The floor stops a downgrade or a lagging site; Renovate's grouping moves the sites together.
+- **Go: one version in `go.mod` and both Dockerfiles, 1.27.1.** The image currently ships Go 1.27.1
+  while tests and govulncheck run 1.26.6, so the shipped toolchain is never scanned. This change
+  bumps `go.mod` (the Dockerfiles already say 1.27.1) and adds a Renovate group so the `go`
+  directive and the `golang` image always move in one PR. The equality check itself belongs to
+  `cross-file-consistency-gates` (CFC-1), which lands after this change.
+- **Renovate managers need a liveness check.** A custom regex manager that matches no file is
+  silent and looks like "nothing to update" (`renovate.json:40-46` is one today). The test runs
+  each `customManagers` entry's `managerFilePatterns` and `matchStrings` against the tree and fails
+  if one matches nothing; new managers cover `Makefile` and `hack/tooling/.custom-gcl.yml`
+  (golangci-lint, one group) and the real gitleaks sites. Renovate's `pre-commit` manager is off by
+  default, so the `.pre-commit-config.yaml` rev needs a regex manager too.
+- **`task check` is defined as the gates that run without Docker or kind**, not "everything CI
+  requires": `kind-smoke`, `test-integration` and `docker-build` need a container runtime and would
+  make the alias mostly exceptions. They stay separate tasks; the alias lists what it runs.
 - **Bump and findings are separate commits** (golangci-lint): the bump commit changes versions
   only; new findings are fixed or justified in later commits, because a gate that is loosened to
   absorb a bump is a weaker gate (the repo's gate-weakening rule).
@@ -70,4 +85,5 @@ C. leave as is. Operator-owned ruleset change; not part of the tasks.
 
 - [v2.13.1 reveals many findings] -> task 3.2 is open-ended on purpose; the bump does not merge
   until the tree is clean without new `//nolint` unless each carries its reason.
-- [Asserting baseline values makes bot bumps need a test edit] -> see above; mechanical.
+- [A floor does not catch an unwanted upgrade] -> upgrades are what the bot is for; the floor
+  catches the dangerous direction (a stale site).
