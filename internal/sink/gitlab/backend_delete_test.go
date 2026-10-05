@@ -130,3 +130,37 @@ func TestBackend_DeleteExport_BranchMR_ReopensMergeRequestForStrandedBranch(t *t
 		t.Fatal("no-op delete with a stranded feature branch must still attempt the merge request")
 	}
 }
+
+// ADR-0422, PR #417 review F6: a record-only release (Retain) that finds no record removes nothing.
+// The deleted inventory's feature branch from its past exports still exists, and the release must
+// not open or reopen a merge request for it. A file:// endpoint cannot serve the API, so any
+// merge-request call fails loudly: a nil error proves the MR step was skipped.
+func TestBackend_ReleaseExport_RetainNoRecordSkipsMergeRequest(t *testing.T) {
+	remote, runRemote := seedGitLabTestRemote(t)
+
+	runRemote("update-ref", "refs/heads/kollect/team-a/apps", "HEAD")
+
+	b := &Backend{
+		cfg: Config{
+			Endpoint: "file://" + remote,
+			MergeRequest: MergeRequestConfig{
+				Mode:         MergeRequestModeBranchMR,
+				TargetBranch: "main",
+			},
+		},
+		auth: git.Auth{},
+	}
+	owner, err := git.InventoryPruneOwner("KollectInventory", "default", "team-a", "apps")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := b.ReleaseExport(t.Context(), []string{"inventory/team-a/apps.yaml"},
+		git.ReleaseOptions{Owner: owner, KeepFiles: true})
+	if err != nil {
+		t.Fatalf("record-only release with no record reached the merge-request step: %v", err)
+	}
+	if len(removed) != 0 {
+		t.Fatalf("removed = %v, want nothing", removed)
+	}
+}

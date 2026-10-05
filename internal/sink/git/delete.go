@@ -849,22 +849,6 @@ func releaseFS(fs billy.Filesystem, cfg Config, paths []string, stage func(strin
 	return appendNew(removed, exact), nil
 }
 
-// removeWorktreeCandidates deletes and unstages every worktree file matching
-// the candidates' cleanup matchers, except a path protected lists.
-func removeWorktreeCandidates(wt *git.Worktree, paths []string, protected map[string]string) ([]string, error) {
-	return removeFSCandidates(wt.Filesystem, paths, protected, func(p string) (bool, error) {
-		if _, rmErr := wt.Remove(p); rmErr != nil {
-			if errors.Is(rmErr, index.ErrEntryNotFound) {
-				return false, nil
-			}
-
-			return false, fmt.Errorf("git remove %q: %w", p, rmErr)
-		}
-
-		return true, nil
-	})
-}
-
 // removeFSCandidates deletes every file matching the candidates' cleanup
 // matchers (exact path + part siblings), except a path protected lists
 // (another inventory's recorded file). stage, when set, records the removal and
