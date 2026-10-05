@@ -37,6 +37,15 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: docs/package-lock.json
+      - name: Check commit identity
+        if: github.event_name == 'pull_request'
+        # Maintainer commits must use the project address (hack/check-commit-identity.sh).
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bash hack/test/commit_identity_test.sh
+          bash hack/check-commit-identity.sh "${BASE_SHA}" "${HEAD_SHA}"
       - name: Lint Markdown
         run: task lint:markdown
       - name: Check go mod tidy
