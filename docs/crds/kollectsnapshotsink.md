@@ -118,15 +118,17 @@ See samples
 
 When a `KollectInventory` or `KollectClusterInventory` bound to this sink is deleted,
 `spec.deletionPolicy` decides what happens to the objects the sink holds for it
-([ADR-0421](../adr/0421-snapshot-sink-deletion-policy.md)). Under `Retain` the cleanup finalizer
-always releases. Under `Delete` it releases once the retraction ran or was announced as retained;
-a terminal backend failure keeps it (`CleanupTerminal`, re-checked every 5 minutes) until the sink
+([ADR-0421](../adr/0421-snapshot-sink-deletion-policy.md)). On git and gitlab sinks both policies
+also release the inventory's ownership record `.kollect-prune/<sha256(owner)>.json`
+([ADR-0422](../adr/0422-inventory-export-identity.md)), so another inventory can take over its
+paths. The finalizer releases once the cleanup ran or was announced as retained; a terminal backend
+failure keeps it (`CleanupTerminal`, re-checked every 5 minutes) until the sink
 is fixed or `kollect.dev/force-cleanup: "true"` is set, and a transient failure retries:
 
 | Policy | Effect on deletion | Event |
 | --- | --- | --- |
-| `Retain` (default) | Exported objects are left in place; the backend is not contacted, so broken credentials cannot block deletion | `Normal` `CleanupRetainedByPolicy` |
-| `Delete` | Retracts the inventory's export: git/gitlab deletion commit (on the merge-request feature branch in `branchMR` mode), S3/GCS object deletion — the document, its `.part-NNNN-of-NNNN` siblings, layout sidecars, and for parquet the inventory's hive partitions including multipart ones | none when the retraction is provably complete; `Warning` `CleanupRetained` when it cannot be proven (layout trees, `{generation}` templates, an unmerged deletion MR, a changed `pathTemplate`/format, exports recorded before `lastExportPaths` existed) |
+| `Retain` (default) | Exported objects are left in place. S3/GCS are not contacted, so broken credentials cannot block deletion; git/gitlab get one commit that removes only the inventory's ownership record (none when it has no record), so a broken git credential keeps the finalizer until fixed | `Normal` `CleanupRetainedByPolicy` |
+| `Delete` | Retracts the inventory's export: git/gitlab deletion commit (on the merge-request feature branch in `branchMR` mode) that also removes every file the inventory's ownership record lists and the record itself, never a file another inventory's record lists; S3/GCS object deletion — the document, its `.part-NNNN-of-NNNN` siblings, layout sidecars, and for parquet the inventory's hive partitions including multipart ones | none when the retraction is provably complete; `Warning` `CleanupRetained` when it cannot be proven (layout trees, `{generation}` templates, an unmerged deletion MR, a changed `pathTemplate`/format, exports recorded before `lastExportPaths` existed) |
 
 ```yaml
 # kollect-doc: fragment KollectSnapshotSink

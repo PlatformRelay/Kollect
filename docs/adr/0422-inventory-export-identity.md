@@ -86,11 +86,19 @@ Scores 1 (worst) to 5 (best); weight × score.
   identity decides the owner.
 - **Owner.** `["v2", kind, cluster, namespace, name]`, built by `git.InventoryPruneOwner`. `cluster`
   is the sink's `spec.cluster` or `default`; `name` carries no multipart suffix. The owner carries no
-  UID: a deleted and recreated inventory with the same kind, namespace and name continues its
-  predecessor's record, and its first complete export prunes the predecessor's recorded paths it no
-  longer projects. This holds for `deletionPolicy: Retain` too, which concerns only the deletion
-  event ([ADR-0421](0421-snapshot-sink-deletion-policy.md)). A kind or name change never continues a
-  record.
+  UID. A kind or name change never continues a record.
+- **Release on deletion (2026-10-05, slice 2).** Deleting an inventory releases its record on every
+  reachable Git or GitLab sink under both deletion policies
+  ([ADR-0421](0421-snapshot-sink-deletion-policy.md)): the cleanup derives the owner from the
+  inventory's identity with `git.InventoryPruneOwner`, exactly as the export does, and removes
+  `.kollect-prune/<sha256(owner)>.json` in a commit. `Retain` (and a retraction skipped for a shared
+  export identity) removes only the record; `Delete` also removes the cleanup candidates and every
+  path the record lists, never a path another owner's record lists. An absent record is a completed
+  release. A recreated inventory with the same identity therefore starts a new record. The record
+  survives only a deletion that cannot reach the sink (the sink CR is gone, or the finalizer is
+  forced), and a recreated inventory then continues it.
+- **Ownerless deletion respects records.** `DeleteExport` without an owner and the legacy
+  directory-scoped prune (an ownerless tree export) never remove a path any record lists.
 - **Identity is mandatory.** A git layout export (everything that goes through the tree writer and
   therefore carries an owner) without an identity is a terminal error. There is no fallback to a
   path-derived owner and no suppression.
@@ -120,16 +128,16 @@ Scores 1 (worst) to 5 (best); weight × score.
   (split index, set manifest, a resource under the default template); the second exporter is rejected.
 - A repository that holds records from earlier `main` builds rejects exports whose paths those records
   list, until the old records are removed by hand. Acceptable while Kollect is not in production.
-- An inventory deleted under `Retain` keeps its record, so a successor of another kind or name cannot
-  take over its paths. Releasing records on deletion is a later slice.
+- Releasing a record on deletion needs the backend: a Git or GitLab sink with a broken credential
+  now holds a `Retain` deletion in `Terminating` until the credential is fixed or the finalizer is
+  forced (which leaves the record).
 
 ## Follow-ups
 
-- Release an inventory's ownership record when the inventory is deleted (files kept, claims dropped).
-- GitLab `branchMR` mode: two inventories can claim one path on separate feature branches. Partly
-  addressed by `openspec/changes/gitlab-branchmr-claims/`: exports are checked against the merge
-  target's records, each inventory kind has its own feature branch, and the duplicate-ownership error
-  names both records. Two merge requests open at the same time can still both claim a path.
+- GitLab `branchMR` mode: two merge requests open at the same time can still both claim a path.
+  Exports are checked against the merge target's records, each inventory kind has its own feature
+  branch, and the duplicate-ownership error names both records
+  (`openspec/changes/archive/2026-10-05-gitlab-branchmr-claims/`).
 
 ## Related
 
@@ -137,4 +145,5 @@ Scores 1 (worst) to 5 (best); weight × score.
 - [ADR-0421](0421-snapshot-sink-deletion-policy.md) — deletion policy and shared export identity
 - [ADR-0407](0407-git-object-store-layout.md) — repository and path layout
 - [ADR-0501](0501-multi-cluster-fleet.md) — `spec.cluster` partitioning
-- `openspec/changes/inventory-export-identity/` — the change that implements it
+- `openspec/changes/archive/2026-10-05-inventory-export-identity/` — the change that implements it
+- `openspec/changes/release-ownership-on-delete/` — release on deletion (slice 2)
