@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
 
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 )
@@ -92,6 +93,63 @@ func TestOwnedPrune_claimPathsCheckedAgainstOtherOwners(t *testing.T) {
 			t.Fatalf("own claim path rejected: %v", err)
 		}
 	})
+}
+
+// TestOwnedPrune_nonPruningExportRefusesForeignPath: an export that does not advance its ownership
+// record (a non-final multipart part, or a document-mode export without prune) is never checked by
+// checkSingleClaims, so the per-path foreign-claim check is the only thing that stops it from
+// overwriting a path another inventory owns. L (KollectClusterInventory platform) and N
+// (KollectInventory cluster/platform) share an object path; N owns P through a complete export,
+// then L sends a call without prune that projects P. It must be refused naming N, with N's bytes
+// at P unchanged.
+func TestOwnedPrune_nonPruningExportRefusesForeignPath(t *testing.T) {
+	const (
+		shared   = "default/team-a/deployment/api.yaml"
+		manifest = "inventory/cluster/platform.manifest.json"
+		nBytes   = "written by N\n"
+	)
+	n, _ := InventoryPruneOwner("KollectInventory", "default", "cluster", "platform")
+	l, _ := InventoryPruneOwner("KollectClusterInventory", "default", "", "platform")
+
+	for _, tc := range []struct {
+		name string
+		opts ExportFilesOptions
+	}{
+		// Part 1/2 of L's set: prune suppressed, the set manifest pre-claimed (N does not own it).
+		{"non-final multipart part", ExportFilesOptions{Prune: true, SuppressPrune: true, PruneOwner: l, PruneClaimPaths: []string{manifest}}},
+		{"document mode without prune", ExportFilesOptions{PruneOwner: l}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ownedFilesystems(t, func(t *testing.T, fs billy.Filesystem) {
+				b := &Backend{cfg: Config{Endpoint: "file:///nonexistent/kollect.git"}.withDefaults()}
+				if err := b.ExportFilesToFilesystemForTest(fs, []FileEntry{{Path: shared, Data: []byte(nBytes)}},
+					ExportFilesOptions{Prune: true, PruneOwner: n, PruneKeepPaths: []string{shared}}); err != nil {
+					t.Fatalf("N's complete export: %v", err)
+				}
+
+				err := b.ExportFilesToFilesystemForTest(fs, []FileEntry{{Path: shared, Data: []byte("written by L\n")}}, tc.opts)
+				if !kollecterrors.IsTerminal(err) {
+					t.Fatalf("L's %s over N's path: err = %v, want terminal", tc.name, err)
+				}
+				for _, want := range []string{
+					"belongs to another inventory",
+					`KollectInventory cluster/platform (cluster "default")`,
+					pruneRecordPath(n),
+				} {
+					if !strings.Contains(err.Error(), want) {
+						t.Fatalf("rejection %q does not name %q", err, want)
+					}
+				}
+				got, readErr := util.ReadFile(fs, shared)
+				if readErr != nil {
+					t.Fatalf("read %q: %v", shared, readErr)
+				}
+				if string(got) != nBytes {
+					t.Fatalf("FORBIDDEN: refused export by L rewrote N's %q to %q", shared, got)
+				}
+			})
+		})
+	}
 }
 
 // TestCheckSingleClaims_rejectsDuplicate: the records a commit would leave behind may claim each

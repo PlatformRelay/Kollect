@@ -931,6 +931,9 @@ func ownedPruneSeeds() [][]byte {
 		prog(single(oL, rDeployAPI), single(oN, rDeployAPI|rDB), single(oN, rDB), single(oL, rDB), single(oL, 0), single(oN, rDeployAPI)),
 		// Invariant 8: N owns the shared set manifest; L's set is refused on part 1, nothing committed.
 		prog(multi(oN, []byte{rDB, rWeb}, 2), multi(oL, []byte{rCluster, rServiceAPI}, 2), multi(oL, []byte{rCluster, rServiceAPI, rTeamBAPI}, 3), single(oN, rDB)),
+		// Invariant 5, non-final part: N owns a resource path (not the manifest); L's interrupted set
+		// projects it on part 1 with prune suppressed and must be refused, N's bytes untouched.
+		prog(single(oN, rDeployAPI|rDB), multi(oL, []byte{rDeployAPI, rWeb}, 1), multi(oL, []byte{rWeb, rDeployAPI}, 2), single(oN, rDB)),
 		// Invariant 9: an identity on another inventory's object path is refused; L on N's path is not a mismatch.
 		prog(single(oA, rDeployAPI), mismatch(oA, oB, rWeb), mismatch(oB, oA, rDeployAPI), mismatch(oL, oA, rCluster), mismatch(oC, oA, rDB), mismatch(oL, oN, rCluster), mismatch(oN, oL, rWeb)),
 		// Invariant 6: A -> B -> A, then replays and a retried final part.
