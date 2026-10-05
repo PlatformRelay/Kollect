@@ -215,6 +215,15 @@ namespace called `cluster` never delete each other's files.
     namespace `cluster` render the same `{namespace}/{name}` (`cluster/X`), so give those two
     separate sinks.
 
+In GitLab `merge_request` mode an export is also checked against the target branch's ownership
+records, and fails with `... belongs to another inventory on merge target branch "<target>" ...`
+when another inventory's merged record claims one of its paths. A cluster inventory's merge requests
+now use the branch `<prefix>/_cluster/<name>` instead of `<prefix>/cluster/<name>`, so they no longer
+share a branch with a namespaced inventory of the same name in namespace `cluster`; close merge
+requests left open on the old branch. If a target branch already holds two records claiming one path,
+every export to it fails with `duplicate ownership of "<path>": ...`, naming both inventories and
+both record files: delete one of the two records.
+
 Ownership records written by builds before this change are not migrated. An inventory whose paths
 are listed in an old record is rejected as if another inventory owned them, so delete the
 `.kollect-prune/` directory from the export branch when upgrading; the next export records the
