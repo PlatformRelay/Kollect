@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/sink/cap"
 	"github.com/platformrelay/kollect/internal/sink/git"
 )
@@ -282,5 +283,40 @@ func TestBackend_ExportFilesOwnedPrune(t *testing.T) {
 	out, err = exec.Command("git", "--git-dir", remote, "ls-tree", "-r", "--name-only", "main").CombinedOutput() //nolint:gosec // G204: local fixture
 	if err != nil || strings.Contains(string(out), files[0].Path) {
 		t.Fatalf("empty inventory retained resource: %s: %v", out, err)
+	}
+}
+
+// TestBackend_ExportFilesForwardsClaimPaths: ExportFiles forwards opts.PruneClaimPaths to the git
+// engine. N owns a set manifest through a committed export; L's non-final part writes only its own
+// path but pre-claims that manifest, and must be refused before anything reaches the remote.
+func TestBackend_ExportFilesForwardsClaimPaths(t *testing.T) {
+	const (
+		manifest = "inventory/cluster/platform.manifest.json"
+		lPath    = "default/clusterrole/admin.yaml"
+	)
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	if out, err := exec.Command("git", "init", "--bare", "-b", "main", remote).CombinedOutput(); err != nil { //nolint:gosec // G204: local fixture
+		t.Fatalf("init remote: %s: %v", out, err)
+	}
+	b := &Backend{cfg: Config{Endpoint: "file://" + remote}}
+	n, _ := git.InventoryPruneOwner("KollectInventory", "default", "cluster", "platform")
+	l, _ := git.InventoryPruneOwner("KollectClusterInventory", "default", "", "platform")
+
+	nFiles := []git.FileEntry{{Path: manifest, Data: []byte(`{"parts":1}`)}}
+	if err := b.ExportFiles(t.Context(), nFiles, git.ExportFilesOptions{Prune: true, PruneOwner: n}); err != nil {
+		t.Fatalf("N's export: %v", err)
+	}
+
+	lFiles := []git.FileEntry{{Path: lPath, Data: []byte("kind: ClusterRole\n")}}
+	err := b.ExportFiles(t.Context(), lFiles, git.ExportFilesOptions{
+		Prune: true, SuppressPrune: true, PruneOwner: l, PruneClaimPaths: []string{manifest},
+	})
+	if !kollecterrors.IsTerminal(err) || !strings.Contains(err.Error(), "belongs to another inventory") ||
+		!strings.Contains(err.Error(), manifest) {
+		t.Fatalf("L's part pre-claiming N's manifest: err = %v, want a terminal ownership rejection naming %q", err, manifest)
+	}
+	out, lsErr := exec.Command("git", "--git-dir", remote, "ls-tree", "-r", "--name-only", "main").CombinedOutput() //nolint:gosec // G204: local fixture
+	if lsErr != nil || strings.Contains(string(out), lPath) {
+		t.Fatalf("refused part reached the remote: %s: %v", out, lsErr)
 	}
 }
