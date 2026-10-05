@@ -78,8 +78,11 @@ the escape hatch is one flag rather than a separate SSH field are recorded in
 
 - **Direct mode**: commit straight to the target branch (same as Git).
 - **Branch+MR mode** (`MergeRequestModeBranchMR`): push to a per-inventory feature branch
-  (`BranchNameForExport(prefix, ns, name)`) off the target branch, then `EnsureMergeRequest` opens or
-  updates one MR per inventory via the GitLab API. One stable branch/MR per inventory keeps churn
+  (`BranchNameForExport(prefix, kind, ns, name)`: `prefix/<ns>/<name>`, or `prefix/_cluster/<name>`
+  for a `KollectClusterInventory`) off the target branch, then `EnsureMergeRequest` opens or
+  updates one MR per inventory via the GitLab API. Before writing, the export is also checked against
+  the target branch's ownership records, so a feature branch never claims a path the target already
+  gives another inventory ([ADR-0422](0422-inventory-export-identity.md)). One stable branch/MR per inventory keeps churn
   reviewable instead of spawning an MR per export.
 
 ## Consequences

@@ -126,8 +126,10 @@ Scores 1 (worst) to 5 (best); weight × score.
 ## Follow-ups
 
 - Release an inventory's ownership record when the inventory is deleted (files kept, claims dropped).
-- GitLab `branchMR` mode: two inventories can claim one path on separate feature branches; the claim
-  check sees only the target branch.
+- GitLab `branchMR` mode: two inventories can claim one path on separate feature branches. Partly
+  addressed by `openspec/changes/gitlab-branchmr-claims/`: exports are checked against the merge
+  target's records, each inventory kind has its own feature branch, and the duplicate-ownership error
+  names both records. Two merge requests open at the same time can still both claim a path.
 
 ## Related
 
