@@ -38,8 +38,8 @@ deletion policies (operator decision, 2026-10-05).
 - [x] 3.1 ADR-0421 (`Retain` contacts Git/GitLab sinks to release the record), ADR-0422 (release on
   deletion; recreate starts a new record; follow-up removed), CRD field doc and generated CRDs/chart
   CRDs/schema golden, `docs/crds/kollectsnapshotsink.md`, upgrade note
-- [ ] 3.2 Independent review
-- [ ] 3.3 Archive the change as the last commit of the PR
+- [x] 3.2 Independent review: REQUEST CHANGES (fuzz model, dead-code guard, spec.cluster pin, plus F4–F7) → APPROVE at `bc6d62c80`; mutants X2, X3, X5, X9, F6 and R10 killed
+- [x] 3.3 Archive the change as the last commit of the PR
 
 ## Verification
 
@@ -87,5 +87,5 @@ Controller-level reds are shown by mutation M1b, which restores the old routing.
 | IEI-8 | F7: the delta renames IEI-8 to "Delete and recreate starts a new record" (`## RENAMED Requirements`) and modifies it under the new name | heading and body agree | pass | `task spec:validate` 4 passed; an archive dry run in a scratch copy applied "~ 1 modified, → 1 renamed" and the living spec carries the new heading |
 | all | review-round mutations, a scratch copy: `go test -count=1 -v ./internal/sink/ ./internal/sink/git/ ./internal/sink/gitlab/ ./internal/controller/`, judged by exit status, each file restored and compared with `cmp`; no-op control (comment in `release.go`) | no-op survives, the rest fail | pass | no-op exit 0; X2, X3, X5, X9 and the F6 mutant exit 1 |
 | all | review round: `task lint`, `go vet ./...`, `go vet -tags integration ./...`, `go test -count=1 ./...`, race gate as above (sink `-count=3`, controller 3 runs), `task spec:validate`, `task lint:markdown` | pass | pass | lint 0 issues, arch-lint OK; vet exit 0 both; 47 packages ok; race exit 0 throughout; spec 4 passed; markdown 0 issues |
-| — | CI on the PR head | required checks green | not-run | needs the PR |
-| — | independent review | APPROVE | not-run | |
+| — | CI on the PR head | required checks green | pass | 40 pass at `bc6d62c80`: https://github.com/PlatformRelay/Kollect/actions/runs/37287503962 (codecov/patch advisory red: error branches in release.go/delete.go; project 88.11→87.97%, repo floor 90% met) |
+| — | independent review | APPROVE | pass | APPROVE at `bc6d62c80` after one REQUEST CHANGES round |
