@@ -133,7 +133,7 @@ jobs:
           export GIT_CONFIG_COUNT
           GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
           export GIT_CONFIG_KEY_0
-          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${APP_TOKEN}" | base64)"
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${APP_TOKEN}" | base64 -w0)"
           export GIT_CONFIG_VALUE_0
           if git push origin HEAD:main; then
             echo "::notice title=changelog-sync::Pushed regenerated CHANGELOG.md to main."

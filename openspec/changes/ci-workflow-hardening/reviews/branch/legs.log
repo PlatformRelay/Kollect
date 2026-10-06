@@ -1,0 +1,6 @@
+claude-opus-spec exit=0 101s
+claude-opus-adversarial exit=0 114s
+Qwen3.8-Flash-Next-security exit=0 167s
+GLM-5.3-spec exit=0 299s
+GLM-5.3-fitness exit=0 456s
+DeepSeek-V4.1-Flash-adversarial exit=1 2263s

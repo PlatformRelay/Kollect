@@ -55,7 +55,7 @@ findings are all cosmetic:
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| CWS-1 | `workflow-security` on the PR head; template-injection fixture; meta-test mutants (no `--offline`, skip switch) | green on tree, red on fixture and mutants | mutants red locally (8 mutants); PR-head run is post-merge | evidence/evidence.md |
+| CWS-1 | `workflow-security` on the PR head; template-injection fixture; meta-test mutants (no `--offline`, skip switch) | green on tree, red on fixture and mutants | mutants red locally (12 mutants); PR-head run is post-merge | evidence/evidence.md |
 | CWS-2 | meta-test bare-suppression mutant; review of each suppression | red on mutant; each justified | red on mutant; zero suppressions exist (`rules: {}`) | evidence/evidence.md |
 | CWS-3 | `dependency-review` on throwaway PRs (vulnerable module, disallowed licence); meta-test mutants | job red twice; mutants red | mutants red; throwaway-PR probe post-merge (task 4.2) | evidence/evidence.md |
 | CWS-4 | meta-test group check (ref-keyed, unprefixed mutants); two pushes to a PR | first run cancelled | mutants red locally; two-push cancellation is live post-merge | evidence/evidence.md |
@@ -63,5 +63,5 @@ findings are all cosmetic:
 | CWS-5 | meta-test with `push` removed (mutant) | mutant red | red locally | evidence/evidence.md |
 | CWS-6 | meta-test: guard in non-required job, unpinned mode | red | red locally (4 pre-existing orphans wired into `lint`) | evidence/evidence.md |
 | CWS-6 | ruleset lists the four jobs as required | listed | post-merge | operator, task 5.1 |
-| CWS-7 | self-test mutants plus no-op control, by exit status | each mutant red, no-op green | green locally (19 mutants + no-op) | evidence/evidence.md |
+| CWS-7 | self-test mutants plus no-op control, by exit status | each mutant red, no-op green | green locally (33 mutants + no-op) | evidence/evidence.md |
 | all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | not-run | this PR |

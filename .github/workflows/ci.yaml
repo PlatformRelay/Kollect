@@ -444,7 +444,6 @@ jobs:
       - name: Verify the hero demo smoke contract (DEMO-03)
         run: bash hack/test/demo_03_hero_smoke_test.sh
       - name: Run Sonar SECURITY remediation meta-tests
-      - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob
           scripts=(hack/test/sonar_ko_*_test.sh)

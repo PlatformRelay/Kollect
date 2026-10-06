@@ -1,10 +1,11 @@
 # zizmor configuration (change ci-workflow-hardening, requirements CWS-1 and CWS-2).
 #
-# Every suppression listed under `rules:` is a deliberate, reviewed exception. A suppression
-# MUST be preceded by a comment naming the audit id and why it is safe:
-# hack/test/ci_workflow_security_test.sh fails on a bare suppression. A finding that the
-# workflow can simply stop causing is fixed in the workflow, never listed here (for example,
-# a language cache in a tag-triggered publish workflow is removed, not suppressed).
+# Every suppression listed under `rules:` is a deliberate, reviewed exception. A suppression is
+# a list item under a rule's `ignore:` block; each such item MUST be preceded by a comment
+# naming the audit id and why it is safe -- hack/test/ci_workflow_security_test.sh fails on an
+# uncommented list item. A finding that the workflow can simply stop causing is fixed in the
+# workflow, never listed here (for example, a language cache in a tag-triggered publish
+# workflow is removed, not suppressed).
 #
 # The workflow-security job runs zizmor at `--min-severity=high` over `.github/`. At that
 # threshold zizmor reports no findings on this tree, so there are no suppressions yet. Findings
