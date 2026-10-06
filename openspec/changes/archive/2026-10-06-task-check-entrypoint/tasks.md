@@ -19,7 +19,11 @@
 
 ## 3. Land
 
-- [ ] 3.1 Archive the change as the last commit of the PR, after review and green CI; the review record names the reviewed and the archive revision
+- [x] 3.1 Archive the change as the last commit of the PR, after review and green CI; the review record names the reviewed and the archive revision
+  - The change is archived as `openspec/changes/archive/2026-10-06-task-check-entrypoint/`; the
+    reviewed revisions are 45f3f756 (implementation), c186cd71 (round-one fixes) and a56965e0 +
+    db10d008 (round-two/three fixes); the archive commit is the last commit of this PR and the
+    post-merge verification rows stay open (TCE-1 end-to-end runtime evidence is operator-run).
 
 ## Verification
 
