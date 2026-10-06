@@ -16,9 +16,9 @@ integration files) because the default build skips them.
 
 ## 2. Zero-reference deletions (DR-2, DR-3)
 
-- [ ] 2.1 Probe then delete `MergeRequestAPI` from `internal/sink/gitlab/client.go` (zero refs anywhere, tests included)
-- [ ] 2.2 Probe: `grep -rn "ConditionConnected\|ConditionCredentialsVerified" --include='*.go' .` → only `api/v1alpha1/constants.go:10-11`; delete both constants. The deletion commit's body names the removed exported constants (the changelog is commit-derived, no manual CHANGELOG.md edits)
-- [ ] 2.3 Compile clean; `go test ./internal/sink/gitlab/... ./api/...` green; grep confirms no docs/CRD text names the constants
+- [x] 2.1 Probe then delete `MergeRequestAPI` from `internal/sink/gitlab/client.go` (zero refs anywhere, tests included)
+- [x] 2.2 Probe: `grep -rn "ConditionConnected\|ConditionCredentialsVerified" --include='*.go' .` → only `api/v1alpha1/constants.go:10-11`; delete both constants. The deletion commit's body names the removed exported constants (the changelog is commit-derived, no manual CHANGELOG.md edits)
+- [x] 2.3 Compile clean; `go test ./internal/sink/gitlab/... ./api/...` green; grep confirms no docs/CRD text names the constants — closed 2026-10-07, evidence: evidence/T2.md
 
 ## 3. Superseded store methods (DR-4)
 
@@ -61,8 +61,8 @@ integration files) because the default build skips them.
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | DR-1 | probe 1.1 then `go build ./...` after 1.2 | probe shows definition+tests only; build clean with symbols gone | done | evidence/T1.md |
-| DR-2 | probe 2.1/2.2 then compile | zero refs; gitlab+api packages compile | not-run | |
-| DR-3 | probe 2.2 then compile + `grep` docs/CRDs | no text reference survives | not-run | |
+| DR-2 | probe 2.1/2.2 then compile | zero refs; gitlab+api packages compile | done | evidence/T2.md |
+| DR-3 | probe 2.2 then compile + `grep` docs/CRDs | no text reference survives | done | evidence/T2.md |
 | DR-4 | probe 3.1 then compile + collect suite | store compiles without the methods; suite green | not-run | |
 | DR-4b | review: deleted tests guarded no reachable path | recorded reasoning, reviewer-checked | not-run | |
 | DR-5 | probe 4.1 then compile + git unit suite + tagged-file compile | pipeline coverage unchanged via `ExportWithBranch` | not-run | |

@@ -22,15 +22,6 @@ const defaultAPIVersion = "v4"
 // HTTPClientTimeout bounds GitLab REST calls (matches git sink export timeout).
 const HTTPClientTimeout = 2 * time.Minute
 
-// MergeRequestAPI abstracts GitLab REST merge request operations (testable stub).
-type MergeRequestAPI interface {
-	EnsureOpenMergeRequest(
-		ctx context.Context,
-		project ProjectRef,
-		sourceBranch, targetBranch, title string,
-	) error
-}
-
 // RESTClient calls GitLab API v4 merge request endpoints.
 type RESTClient struct {
 	BaseURL    string
