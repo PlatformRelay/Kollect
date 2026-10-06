@@ -14,7 +14,7 @@
 | --- | --- |
 | P plan+tasks | done — spec set committed `af6c58f5` (proposal.md, tasks.md, .openspec.yaml skip_specs) |
 | R spec-set review | done — round 1 BLOCK (3 CRITICALs, all code-verified, fixed, commit `92360d72`); round 2 CONCERNS 6/6 legs, no CRITICAL: 8 findings fixed in the spec set (commit below), 1 WARNING rejected with reason (below). Two rounds used; loop continues per the no-CRITICAL gate |
-| L task loop | running — T1 CLOSED (commit `824b3ba3`, review APPROVE 2/2 free legs); T2 next |
+| L task loop | running — T1 CLOSED (commit `824b3ba3`, review APPROVE 2/2 free legs); T2 CLOSED (review CONCERNS→fixed wording, see task log); T3 next |
 | B branch review | pending |
 | hand-off | pending |
 
@@ -23,6 +23,7 @@
 | Task | Verdict | Note |
 | --- | --- | --- |
 | T1 | CLOSED | review APPROVE (DeepSeek+Qwen3.8Flash diff legs, CLEAN); commit `824b3ba3`; 9 dead-path tests deleted, 2 breaker tests migrated to `RunExportEnvelope` (trip/reset intact); orphaned fixture+imports pruned; coverage accounting in evidence/T1.md |
+| T2 | CLOSED | review CONCERNS 2/2 (DeepSeek WARNING verified → REQUEST_CHANGES, wording-only fix, no second round); commit amends to the sanctioned breaking form `refactor(api)!:` + `BREAKING CHANGE:` footer (cliff.toml routes it under Breaking Changes, CHANGELOG.md:19 precedent); `MergeRequestAPI` + both condition constants deleted, probes recorded in evidence/T2.md |
 
 ## R round-2 triage
 
@@ -76,6 +77,8 @@ widening is permitted: if a gate goes red, classify before touching anything.
 - The combined `internal/sink` + `internal/controller` suite needs a 900s+ timeout window. [T1]
 - Fanout diff legs need a committed diff range: the task commits its work, then amends only for evidence wording, keeping one logical commit. [T1]
 - `ResetBreakersForTest` is process-global; running breaker tests in parallel can flake — pre-existing, out of scope; proposed to the owner as a scoped reset. [T1]
+- Deleting importable `api/v1alpha1` symbols should commit as `type(scope)!:` + `BREAKING CHANGE:` footer from the first commit (CONTRIBUTING.md:100-104); cliff.toml routes it under Breaking Changes. [T2]
+- Never run `task changelog`/`bin/git-cliff` locally to verify rendering: it overwrites CHANGELOG.md (`output =` in cliff.toml) and, on unpushed commits, writes a truncated changelog when the GitHub-metadata fetch 404s. [T2]
 
 ## Known red
 

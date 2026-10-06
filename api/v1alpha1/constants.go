@@ -5,15 +5,13 @@ package v1alpha1
 
 // Condition and annotation keys used across reconcilers and sinks.
 const (
-	ConditionConnectionVerified  = "ConnectionVerified"
-	ConditionTLSInsecure         = "TLSInsecure"
-	ConditionConnected           = "Connected"
-	ConditionCredentialsVerified = "CredentialsVerified"
-	ConditionSinkReachable       = "SinkReachable"
-	ConditionSynced              = "Synced"
-	ConditionExportSucceeded     = "ExportSucceeded"
-	ConditionReady               = "Ready"
-	ConditionDegraded            = "Degraded"
+	ConditionConnectionVerified = "ConnectionVerified"
+	ConditionTLSInsecure        = "TLSInsecure"
+	ConditionSinkReachable      = "SinkReachable"
+	ConditionSynced             = "Synced"
+	ConditionExportSucceeded    = "ExportSucceeded"
+	ConditionReady              = "Ready"
+	ConditionDegraded           = "Degraded"
 
 	ReasonExportTerminal = "ExportTerminal"
 
