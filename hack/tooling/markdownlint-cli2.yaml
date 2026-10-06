@@ -45,5 +45,11 @@ ignores:
   # redaction documented in lab-evidence/README.md. Linting them would invite reformatting
   # that silently drifts an archive away from what was actually captured.
   - lab-evidence/**
+  # Multi-model review records (register + leg reports) under an openspec change's reviews/
+  # directory. Same rationale as lab-evidence: they are a record of what independent
+  # reviewers reported, not prose we maintain -- reformatting them would drift the archive
+  # away from what was actually said, and MD024 (repeated model/finding headings) or MD032
+  # (the legs' bullet spacing) would push every future review commit to reword its evidence.
+  - openspec/changes/**/reviews/**
   - .mkdocs-venv/**
   - docs/node_modules/**
