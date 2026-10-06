@@ -2,13 +2,17 @@
 
 Every task: run its zero-caller probe first and record it, delete, then prove with
 `go build ./...` and `go vet ./...` plus the affected package suite. No behavioural red exists
-for this change (unreachable surface); the probe + compile pair is the per-task evidence.
+for this change (unreachable surface): the probe record plus post-deletion compile plus the
+package suites are the per-task evidence, per task 1.1 of each task below. Files behind a
+build tag are additionally compiled with that tag (`go vet -tags integration ./...` for the
+integration files) because the default build skips them.
 
 ## 1. Dead sink runner (DR-1)
 
-- [ ] 1.1 Probe: `grep -rn "RunExportItems\|ExportItemsRequest" --include='*.go' internal/ cmd/ api/ test/ hack/` shows only `internal/sink/export.go`, `internal/sink/export_test.go` and the stale comment in `kollectclusterinventory_controller.go`
-- [ ] 1.2 Delete `RunExportItems` + `ExportItemsRequest` from `internal/sink/export.go`; delete the `TestRunExportItems_*` tests (they exercise only the unreachable path); reword the stale comment in `kollectclusterinventory_controller.go` so it no longer names the deleted runner
-- [ ] 1.3 `go build ./...` and `go vet ./...` compile clean; `go test ./internal/sink/... ./internal/controller/...` green
+- [ ] 1.1 Probe (record the full list, do not truncate): `grep -rn "RunExportItems\|ExportItemsRequest" --include='*.go' internal/ cmd/ api/ test/ hack/` → production hits only in `internal/sink/export.go`; test hits only in `internal/sink/export_test.go` and `internal/sink/circuit_breaker_test.go`; plus the stale comment in `kollectclusterinventory_controller.go`
+- [ ] 1.2 Delete `RunExportItems` + `ExportItemsRequest` from `internal/sink/export.go`; reword the stale comment in `kollectclusterinventory_controller.go` so it no longer names the deleted runner
+- [ ] 1.3 Delete the `TestRunExportItems_*` tests in `internal/sink/export_test.go` (they exercise only the unreachable path) and migrate the two breaker tests in `internal/sink/circuit_breaker_test.go` (`TestRunExportItems_circuitBreakerTripsAfterRepeatedFailures`, `TestResetBreakersForTest_clearsOpenBreaker`) to drive the live `RunExportEnvelope` path instead, which is where production calls `exportThroughBreaker` (`export.go:267`); the trip-at-N and reset semantics must be asserted as before
+- [ ] 1.4 `go build ./...` and `go vet ./...` compile clean; `go test ./internal/sink/... ./internal/controller/...` green
 
 ## 2. Zero-reference deletions (DR-2, DR-3)
 
@@ -19,21 +23,21 @@ for this change (unreachable surface); the probe + compile pair is the per-task 
 ## 3. Superseded store methods (DR-4)
 
 - [ ] 3.1 Probe: `Store.RemoveCluster` and `Store.MarshalTargetJSON` referenced only by tests; delete both
-- [ ] 3.2 Delete `TestStoreRemoveCluster` and the `RemoveCluster`-based version-monotonicity test (shard deletion is reachable only through the dead method — production `RemoveTarget` never deletes shards); adapt `engine_extract_failure_test.go` where it used `MarshalTargetJSON` to inspect envelopes
-- [ ] 3.3 Update `store.go` comments that cite `RemoveCluster` (:43, :174, :179) so no dangling name remains
+- [ ] 3.2 Delete `TestStoreRemoveCluster` and the `RemoveCluster`-based version-monotonicity test (shard deletion is reachable only through the dead method — production `RemoveTarget` never deletes shards); adapt every remaining test that used `MarshalTargetJSON` to inspect envelopes — `engine_extract_failure_test.go` and `TestStoreSubscribeAndMarshal` in `store_test.go` — via `SnapshotTarget` or the envelope the subscriber actually delivers
+- [ ] 3.3 Update `store.go` comments that cite `RemoveCluster` (:43, :174, :179) so no dangling name remains; keep the version-monotonicity rationale (it documents `bumpNamespaceVersion` behaviour, not the deleted method)
 - [ ] 3.4 Compile clean; `go test ./internal/collect/...` green
 
 ## 4. Superseded git entry points (DR-5)
 
-- [ ] 4.1 Probe: package-level `git.Export`/`ExportMemory` have zero production callers (`Backend.Export` calls `ExportWithBranch` directly)
-- [ ] 4.2 Delete `git.Export`; migrate `export_test.go` and `export_forgejo_integration_test.go` call sites to `ExportWithBranch` through one test-local helper that replicates the deleted wrapper's commit-context derivation; move the in-memory commit builder (`ExportMemory`) into the test file as an unexported helper — no production file keeps either symbol
-- [ ] 4.3 Compile clean; `go test ./internal/sink/git/...` green (unit); the integration-tagged forgejo suite compiles (`go vet -tags integration ./internal/sink/git/` or build the tagged files)
+- [ ] 4.1 Probe (record the full list): package-level `git.Export`/`ExportMemory` have zero production callers (`Backend.Export` calls `ExportWithBranch` directly); test callers live in `export_test.go`, `export_integration_test.go` (`//go:build integration`) and `export_forgejo_integration_test.go` (`//go:build integration`)
+- [ ] 4.2 Delete `git.Export`; migrate every `Export(` call site in those three test files to `ExportWithBranch` through one test-local helper that replicates the deleted wrapper's commit-context derivation; move the in-memory commit builder (`ExportMemory`) into the test file as an unexported helper — no production file keeps either symbol
+- [ ] 4.3 Compile clean; `go test ./internal/sink/git/...` green (unit); the tagged test files compile with their tag on: `go vet -tags integration ./internal/sink/git/`
 
 ## 5. Test-only capability aliases (DR-6)
 
-- [ ] 5.1 Probe: the four aliases have zero production references; tests reference them across ~19 sites
-- [ ] 5.2 Delete the aliases and their four self-tests; migrate test references to `cap.SnapshotStore()`/`cap.ObjectStoreSnapshot()`/`cap.StreamEmitter()`/`cap.RelationalStore()`
-- [ ] 5.3 Compile clean; `go test ./internal/sink/...` green
+- [ ] 5.1 Probe (record the full reference list, every file and package): the four aliases have zero production references; every test reference found by the probe migrates — expect multiple packages outside `internal/sink/`, each gaining a `cap` import
+- [ ] 5.2 Delete the aliases and their four self-tests; migrate every probe-listed test reference to `cap.SnapshotStore()`/`cap.ObjectStoreSnapshot()`/`cap.StreamEmitter()`/`cap.RelationalStore()`
+- [ ] 5.3 Compile clean; `go test ./internal/sink/...` green plus every other package whose tests the probe listed
 
 ## 6. Superseded engine binding (DR-7)
 
