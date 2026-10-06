@@ -124,10 +124,20 @@ licences reported without failing.
 
 ### Requirement: CWS-6 A guard that cannot block a merge is not a gate
 
-Every guard script under `hack/test/` that CI runs, in every mode (plain, `--self-test`, and any
-other), SHALL be invoked on `pull_request` by its own step of a job that is a required check. The
-required set is `lint`, `vulncheck`, `workflow-security`, `dependency-review` and the existing
-required contexts.
+Every guard script under `hack/test/` that CI runs, in every mode (plain, `--self-test`, and
+any other mode its code accepts), SHALL be invoked on `pull_request` by a step of a job that
+is a required check. The required set is `lint`, `vulncheck`, `workflow-security`,
+`dependency-review` and the existing required contexts.
+
+A guard reached only through a wrapper script (for example `hack/docs/verify.sh` via
+`task docs:verify`) counts as invoked by CI and must ALSO be pinned by a required-job step.
+Several guards may share one step (the `sonar_ko_*`/`dist_*` glob steps and the docs-side
+group do); the requirement is the required-job invocation, not one step per script.
+
+The repo's recognised flag mode is `--self-test`; `hack/test/ci_workflow_security_test.sh`
+enforces its wiring. A guard adopting a NEW flag mode is a re-review event for the meta-test,
+not something the mode detector can parse generically (a generic flag parser false-positives
+on guard fixtures that embed foreign command lines).
 
 #### Scenario: Guard in a non-required job
 

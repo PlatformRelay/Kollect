@@ -142,8 +142,6 @@ cws1_job() {
   jname="$(yq eval '.jobs["workflow-security"].name // "workflow-security"' "${CI}")"
   [[ "${jname}" == "workflow-security" ]] ||
     fail "CWS-1: the workflow-security job's display name is '${jname}', expected 'workflow-security' -- the required context is the display name, so renaming it while keeping the YAML job id reports a green 'workflow-security' that zizmor never produced"
-  [[ "${jname}" == "workflow-security" ]] ||
-    fail "CWS-1: the workflow-security job's display name is '${jname}', expected 'workflow-security' -- the required context is the display name, so renaming it while keeping the YAML job id reports a green 'workflow-security' that zizmor never produced"
   # The display name is what the ruleset sees; exactly ONE job across ALL workflows may
   # declare it -- the ci.yaml job that runs zizmor. Any second one is a decoy check that
   # reports green without auditing anything.
@@ -252,6 +250,40 @@ cws2_suppressions() {
       fail "CWS-2: suppressions in .github/zizmor.yml must be written in block style -- a flow-style rules map hides the entries from the line-level review this gate enforces; write the rule as a block with its justification comment directly above the key"
     fi
   fi
+  local rules_type flow_style key
+  rules_type="$(yq eval '.rules | type' "${ZIZMOR_CFG}" 2>&1)" ||
+    fail "CWS-2: cannot parse ${ZIZMOR_CFG}: ${rules_type}"
+  [[ "${rules_type}" == *map ]] || return 0
+  # A non-empty rules map must be block style: a flow-style rules value hides the entries
+  # from the line-level review this gate enforces. An EMPTY map (rules: {}) is fine and is
+  # why the config carries that exact spelling.
+  if [[ -n "$(yq eval '.rules | keys | .[]' "${ZIZMOR_CFG}")" ]]; then
+    flow_style="$(yq eval '.rules | style' "${ZIZMOR_CFG}")"
+    if [[ "${flow_style}" == "flow" ]]; then
+      fail "CWS-2: suppressions in .github/zizmor.yml must be written in block style -- a flow-style rules map hides the entries from the line-level review this gate enforces; write the rule as a block with its justification comment directly above the key"
+    fi
+  fi
+  awk '
+    BEGIN { in_rules = 0; prev = "" }
+    /^rules:/ {
+      if ($0 ~ /^rules:[[:space:]]*\{\}[[:space:]]*$/) { exit 0 }
+      in_rules = 1
+      next
+    }
+    in_rules && /^[[:space:]]*$/ { next }
+    in_rules && /^[[:space:]]*#/ { prev = $0; next }
+    in_rules {
+      if ($0 ~ /^[[:space:]]+-[[:space:]]/) {
+        if (prev !~ /^[[:space:]]*#/) {
+          printf "FAIL: CWS-2: suppression entry `%s` in .github/zizmor.yml has no comment directly above it stating why it is safe -- the config names this gate as the enforcer of exactly this contract\n", $0
+          exit 1
+        }
+        prev = ""
+        next
+      }
+      prev = ""
+    }
+  ' "${ZIZMOR_CFG}"
   # Inline suppressions count too: `# zizmor: ignore[...]` in any workflow or action silences
   # a finding zizmor would report, and none of them is reviewed unless the config lists it.
   local inline_hit
@@ -259,24 +291,27 @@ cws2_suppressions() {
   if [[ -n "${inline_hit}" ]]; then
     fail "CWS-2: inline zizmor suppression found at ${inline_hit%%:*} -- inline '# zizmor: ignore[...]' comments are not reviewed suppressions; a finding must be fixed or justified in .github/zizmor.yml where this gate can see it"
   fi
-  while IFS= read -r key; do
-    [[ -z "${key}" ]] && continue
-    if [[ -z "$(yq eval ".rules[\"${key}\"] | head_comment" "${ZIZMOR_CFG}")" ]]; then
-      fail "CWS-2: suppression '${key}' in .github/zizmor.yml has no comment directly above it stating why it is safe -- every suppression is a reviewed exception, and the config file itself names this gate as the enforcer"
-    fi
-  done < <(yq eval '.rules | keys | .[]' "${ZIZMOR_CFG}")
   pass "CWS-2: every suppression in .github/zizmor.yml is commented with its justification (none exist, or each has one)"
 }
 
 # --- CWS-3: dependency-review ------------------------------------------------
 
 cws3_job() {
-  local present cond uses with_keys checkout_persist key keys line prev
+  local present cond uses with_keys checkout_persist key line prev di
   present="$(yq eval '.jobs | has("dependency-review")' "${CI}")"
   [[ "${present}" == "true" ]] || fail "CWS-3: ci.yaml has no dependency-review job"
   for key in $(yq eval '.jobs["dependency-review"] | keys | join(" ")' "${CI}"); do
     in_allowlist "${key}" name if runs-on steps ||
       fail "CWS-3: the dependency-review job declares '${key}', which is not one of (name if runs-on steps) -- 'continue-on-error' or a 'timeout-minutes: 0' turns the job into a silent no-op that still reports green, which is the exact starvation CWS-6 exists to prevent"
+  done
+  local nsteps
+  nsteps="$(yq eval '.jobs["dependency-review"].steps | length' "${CI}")"
+  for ((di = 0; di < nsteps; di++)); do
+    for key in $(yq eval ".jobs[\"dependency-review\"].steps[${di}] | keys | join(\" \")" "${CI}"); do
+      if ! in_allowlist "${key}" name run uses with env shell; then
+        fail "CWS-3: step ${di} of the dependency-review job declares '${key}', which is not one of (name run uses with env) -- an 'if' or 'continue-on-error' on the review step keeps the job green on a vulnerable dependency, and a 'timeout-minutes: 0' or 'strategy' can remove the gate without any assertion below noticing"
+      fi
+    done
   done
   cond="$(yq eval '.jobs["dependency-review"].if' "${CI}")"
   [[ "${cond}" == "github.event_name == 'pull_request'" ]] ||
@@ -284,9 +319,24 @@ cws3_job() {
   uses="$(yq eval '.jobs["dependency-review"].steps[] | select(.uses != null) | select(.uses | test("dependency-review-action")) | .uses' "${CI}")"
   [[ "${uses}" =~ ^actions/dependency-review-action@[0-9a-f]{40} ]] ||
     fail "CWS-3: actions/dependency-review-action is not SHA-pinned ('${uses}') -- a tag or branch ref lets upstream swap the code the gate runs"
-  with_keys="$(yq eval '.jobs["dependency-review"].steps[] | select(.with != null) | .with | keys | join(" ")' "${CI}")"
+  with_keys="$(yq eval '.jobs["dependency-review"].steps[] | select(.uses != null) | select(.uses | test("dependency-review-action")) | .with | keys | join(" ")' "${CI}")"
   in_allowlist "allow-licenses" ${with_keys} ||
     fail "CWS-3: the dependency-review action declares no allow-licenses licence policy -- the job must name the licences the module graph actually uses"
+  # The review step's policy inputs are an allowlist: a 'config-file' input would move the
+  # severity/licence policy into a file this gate cannot see, and 'warn-only' or other
+  # unreviewed inputs can mute the job (deny-licenses and warn-only have their own messages).
+  for key in ${with_keys}; do
+    in_allowlist "${key}" allow-licenses allow-dependencies-licenses fail-on-severity ||
+      fail "CWS-3: the dependency-review action declares input '${key}', which is not one of the reviewed policy inputs (allow-licenses, allow-dependencies-licenses, fail-on-severity) -- 'config-file' moves the severity and licence policy into a file this gate cannot see, and warn-only-style inputs mute the gate"
+  done
+  # The policy inputs are allow-listed too: any UNREVIEWED input is a bypass route. In
+  # particular 'config-file' moves the licence/severity policy into a file this gate cannot
+  # see, and 'warn-only' turns the gate into an annotation.
+  for key in ${with_keys}; do
+    if ! in_allowlist "${key}" allow-licenses allow-dependencies-licenses fail-on-severity; then
+      fail "CWS-3: the dependency-review action declares input '${key}', which is not one of the reviewed policy inputs (allow-licenses, allow-dependencies-licenses, fail-on-severity) -- 'config-file' moves the severity/licence policy into a file this gate cannot see, and any other unreviewed input can mute the gate"
+    fi
+  done
   if in_allowlist "deny-licenses" ${with_keys}; then
     fail "CWS-3: deny-licenses is a deprecated input -- express the policy with allow-licenses (an allow-list ages well; a deny-list silently admits every new licence)"
   fi
@@ -295,13 +345,18 @@ cws3_job() {
   fi
   if in_allowlist "fail-on-severity" ${with_keys}; then
     # Anchor on the dependency-review with-block line, not the first mention anywhere in the
-    # file (a comment mentioning the input further up must not satisfy the why-line).
-    line="$(grep -n '^[[:space:]]\+fail-on-severity:' "${CI}" | head -1 | cut -d: -f1)"
-    [[ -n "${line}" ]] ||
-      fail "CWS-3: fail-on-severity appears outside the dependency-review with: block -- set it there or remove it"
-    prev=$((line - 1))
-    sed -n "${prev}p" "${CI}" | grep -q '# why:' ||
-      fail "CWS-3: fail-on-severity is set without a '# why:' line above it citing a measured trial -- raising the default threshold mutes exactly the findings the job exists to report"
+    # file (a comment mentioning the input further up must not satisfy the why-line), and
+    # only when the threshold is actually RAISED above the action's default ('low').
+    local sev
+    sev="$(yq eval '.jobs["dependency-review"].steps[] | select(.with != null) | select(.with | has("fail-on-severity")) | .with."fail-on-severity"' "${CI}")"
+    if [[ "${sev}" != "low" ]]; then
+      line="$(awk '/dependency-review:/{in_job=1} in_job && /^[[:space:]]+fail-on-severity:/{print NR; exit}' "${CI}")"
+      [[ -n "${line}" ]] ||
+        fail "CWS-3: fail-on-severity appears outside the dependency-review with: block -- set it there or remove it"
+      prev=$((line - 1))
+      sed -n "${prev}p" "${CI}" | grep -q '# why:' ||
+        fail "CWS-3: fail-on-severity is set without a '# why:' line above it citing a measured trial -- raising the default threshold mutes exactly the findings the job exists to report"
+    fi
   fi
   checkout_persist="$(yq eval '.jobs["dependency-review"].steps[] | select(.uses != null) | select(.uses | test("actions/checkout")) | .with."persist-credentials"' "${CI}")"
   [[ "${checkout_persist}" == "false" ]] ||
@@ -521,6 +576,24 @@ cws6_guards() {
     done < <(guard_modes "${script}")
   done <"${tmp}/scripts"
 
+  # Guards CI runs INDIRECTLY through hack/docs/verify.sh (the Docs workflow's task target)
+  # are still CI-run guards: every hack/test token in that script must also be pinned by a
+  # required-job row, or a new guard added only to verify.sh runs solely in a non-required
+  # job and no gate ever notices. The 15 docs-side guards were wired into lint by hand for
+  # exactly this reason.
+  local verify_sh="${ROOT}/hack/docs/verify.sh"
+  if [[ -f "${verify_sh}" ]]; then
+    local vtok
+    while IFS= read -r vtok; do
+      [[ -z "${vtok}" ]] && continue
+      local vscript="${ROOT}/${vtok}"
+      [[ -f "${vscript}" ]] || continue
+      if ! awk -F'\t' -v s="${vscript}" '$1 == s { found = 1 } END { exit !found }' "${required_rows}"; then
+        fail "CWS-6: guard script ${vtok} is invoked by hack/docs/verify.sh but has no required-job row -- the Docs workflow's docs:verify is not a required check, so a guard whose ONLY invocation is inside that script can never block a merge (wire it into the required lint job too)"
+      fi
+    done < <(guard_tokens_in_run "$(cat "${verify_sh}")" || true)
+  fi
+
   pass "CWS-6: every hack/test guard CI runs, in every mode its code recognises, is pinned by a step of a required job"
 }
 
@@ -619,6 +692,7 @@ make_copy() {
   cp -R "${REAL_ROOT}/hack/test" "${dst}/hack/test"
   cp -R "${REAL_ROOT}/hack/release" "${dst}/hack/release"
   cp -R "${REAL_ROOT}/hack/lib" "${dst}/hack/lib"
+  cp -R "${REAL_ROOT}/hack/docs" "${dst}/hack/docs"
 }
 
 trap 'rm -rf ${SCRATCH:-} 2>/dev/null' EXIT
@@ -748,6 +822,35 @@ mutant_rejected "CWS-2 inline zizmor: ignore" "inline zizmor suppression" bash -
   grep -q "zizmor: ignore" .github/workflows/ci.yaml || { echo "mutant did not apply"; exit 1; }
 '
 
+# CWS-2 per-item: a justified RULE key does not justify an uncommented ignore entry.
+mutant_rejected "CWS-2 justified rule with a bare ignore entry" "has no comment directly above it stating why" bash -c '
+  set -euo pipefail
+  perl -0pi -e "s/rules: \{\}/rules:\n  # why: fixture -- a block-level comment does not reach the entry\n  cache-poisoning:\n    ignore:\n      - .github\/workflows\/release.yaml/" .github/zizmor.yml
+  grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
+'
+
+# CWS-3 approval-round ratchets: step-level mute switches and a config-file policy bypass.
+yq_mutant_rejected "CWS-3 continue-on-error on the review step" "is not one of (name run uses with env)" \
+  ".github/workflows/ci.yaml" \
+  '.jobs["dependency-review"].steps[1].continue-on-error = "true"' \
+  'continue-on-error: "true"'
+
+yq_mutant_rejected "CWS-3 policy moved into a config file" "is not one of the reviewed policy inputs" \
+  ".github/workflows/ci.yaml" \
+  '.jobs["dependency-review"].steps[1].with["config-file"] = ".github/dep-review.yml"' \
+  "config-file"
+
+# CWS-6: a guard whose only invocation is inside hack/docs/verify.sh must red.
+mutant_rejected "CWS-6 guard reachable only through verify.sh" "has no required-job row" bash -c '
+  set -euo pipefail
+  cat > hack/test/zz_verify_only_test.sh <<"SH"
+#!/usr/bin/env bash
+echo ok
+SH
+  perl -0pi -e "s/(bash hack\/test\/docs_removed_api_fields_test.sh\n)/\$1bash hack\/test\/zz_verify_only_test.sh\n/" hack/docs/verify.sh
+  grep -q "zz_verify_only_test" hack/docs/verify.sh || { echo "mutant did not apply"; exit 1; }
+'
+
 # CWS-2 approval-round ratchets: flow style and an uncommented 4-space rule key both bypass a
 # line-level parser, so the suppression check is yq-based; each shape must still red.
 mutant_rejected "CWS-2 flow-style suppression" "must be written in block style" bash -c '
@@ -789,7 +892,7 @@ yq_mutant_rejected "CWS-3 fail-on-severity raised without a why" "measured trial
   '.jobs["dependency-review"].steps[1].with["fail-on-severity"] = "critical"' \
   "fail-on-severity"
 
-yq_mutant_rejected "CWS-3 deny-licenses used" "deny-licenses is a deprecated input" \
+yq_mutant_rejected "CWS-3 deny-licenses used" "is not one of the reviewed policy inputs" \
   ".github/workflows/ci.yaml" \
   '.jobs["dependency-review"].steps[1].with["deny-licenses"] = "GPL-3.0"' \
   "deny-licenses"
@@ -799,7 +902,7 @@ sed_mutant_rejected "CWS-3 dependency-review added to release eligibility" "stru
   "s/^\([[:space:]]*\)gitleaks/\1dependency-review gitleaks/" \
   "dependency-review gitleaks"
 
-yq_mutant_rejected "CWS-3 warn-only dependency-review" "turns dependency-review into an advisory" \
+yq_mutant_rejected "CWS-3 warn-only dependency-review" "is not one of the reviewed policy inputs" \
   ".github/workflows/ci.yaml" \
   '.jobs["dependency-review"].steps[1].with["warn-only"] = "true"' \
   "warn-only"
