@@ -273,9 +273,25 @@ cws2_suppressions() {
     in_rules && /^[[:space:]]*$/ { next }
     in_rules && /^[[:space:]]*#/ { prev = $0; next }
     in_rules {
+      # An ignore list item carries its own entry comment (the spec names the entry).
       if ($0 ~ /^[[:space:]]+-[[:space:]]/) {
         if (prev !~ /^[[:space:]]*#/) {
           printf "FAIL: CWS-2: suppression entry `%s` in .github/zizmor.yml has no comment directly above it stating why it is safe -- the config names this gate as the enforcer of exactly this contract\n", $0
+          exit 1
+        }
+        prev = ""
+        next
+      }
+      # Every other key under a rule -- the rule key itself AND a policy switch inside it
+      # (for example `disable: true`, which switches the audit off with no list to inspect) --
+      # carries the block comment. `ignore:` is exempt: it is the structure that holds the
+      # items this walk checks one by one.
+      if ($0 ~ /^[[:space:]]*[a-zA-Z0-9_-]+:/) {
+        key = $0
+        sub(/^[[:space:]]*/, "", key)
+        sub(/:.*/, "", key)
+        if (key != "ignore" && prev !~ /^[[:space:]]*#/) {
+          printf "FAIL: CWS-2: suppression `%s` in .github/zizmor.yml has no comment directly above it stating why it is safe -- the config names this gate as the enforcer of exactly this contract\n", $0
           exit 1
         }
         prev = ""
@@ -308,8 +324,8 @@ cws3_job() {
   nsteps="$(yq eval '.jobs["dependency-review"].steps | length' "${CI}")"
   for ((di = 0; di < nsteps; di++)); do
     for key in $(yq eval ".jobs[\"dependency-review\"].steps[${di}] | keys | join(\" \")" "${CI}"); do
-      if ! in_allowlist "${key}" name run uses with env shell; then
-        fail "CWS-3: step ${di} of the dependency-review job declares '${key}', which is not one of (name run uses with env) -- an 'if' or 'continue-on-error' on the review step keeps the job green on a vulnerable dependency, and a 'timeout-minutes: 0' or 'strategy' can remove the gate without any assertion below noticing"
+      if ! in_allowlist "${key}" name run uses with env; then
+        fail "CWS-3: step ${di} of the dependency-review job declares '${key}', which is not one of (name run uses with env) -- an 'if' or 'continue-on-error' on the review step keeps the job green on a vulnerable dependency, a 'shell:' can replace the review body with 'true {0}', and a 'timeout-minutes: 0' or 'strategy' can remove the gate without any assertion below noticing"
       fi
     done
   done
@@ -827,6 +843,14 @@ mutant_rejected "CWS-2 justified rule with a bare ignore entry" "has no comment 
   set -euo pipefail
   perl -0pi -e "s/rules: \{\}/rules:\n  # why: fixture -- a block-level comment does not reach the entry\n  cache-poisoning:\n    ignore:\n      - .github\/workflows\/release.yaml/" .github/zizmor.yml
   grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
+'
+
+# CWS-2 approval-3 ratchet: a policy switch under a rule (disable: true) switches the audit
+# off with no list to inspect, so it needs the block comment too.
+mutant_rejected "CWS-2 uncommented disable policy" "has no comment directly above it stating why" bash -c '
+  set -euo pipefail
+  perl -0pi -e "s/rules: \{\}/rules:\n  template-injection:\n    disable: true/" .github/zizmor.yml
+  grep -q "disable" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
 '
 
 # CWS-3 approval-round ratchets: step-level mute switches and a config-file policy bypass.
