@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # task check -- the full local gate (openspec change task-check-entrypoint, TCE-1..TCE-3).
 #
+# Tool prerequisites: Go (module toolchain), yq, node/npm (for lint:markdown and the OpenSpec
+# CLI), helm + the helm-unittest plugin, kubectl/kustomize (the kustomize-rendering guards),
+# envtest assets (task test sets them up) and network for the pinned tool downloads
+# (gitleaks, zizmor). A machine with the repo's dev setup (docs/development/tooling-setup.md)
+# has all of these; missing-tool failures are reported as gate failures, not skipped.
+#
 # Runs every required CI gate that can run on a developer machine, runs every hack/test guard
 # in every mode its code declares (bare, plus --self-test for the scripts that parse it), and
 # prints the required gates it does NOT run, each with its reason. A failed gate is reported
@@ -59,18 +65,21 @@ run_gate workflow-security-audit ./bin/zizmor --offline --no-progress --min-seve
 # hack/test/task_check_test.sh reads these lines; guard-sweep is the entry for the guard run.
 #   coverage: preflight=lint:markdown,go-mod,verify,guard-sweep
 
-run_gate go-mod bash -c 'go mod tidy && git diff --exit-code go.sum && go mod verify'
 
 # The guard sweep: every hack/test guard, bare, plus --self-test for the scripts that parse
 # the flag (a new guard is picked up by the glob with no edit to this script or the Taskfile).
-# Guards that declare a Docker requirement in their own header are skipped with the reason --
-# they cannot run on the Dockerless machine TCE-1 promises the gate works on.
+# A guard whose HEADER (its leading comment block) declares a Docker requirement is skipped
+# with a printed reason -- it cannot run on the Dockerless machine TCE-1 promises to serve.
+# The declaration is read from the header only: a guard's own assertion text (for example
+# hack/test/task_check_test.sh's mutant literals) must not make the sweep skip the guard
+# itself.
 printf '\n--- task check: hack/test guards (every mode) ---\n'
 for guard in hack/test/*_test.sh hack/test/lab_harness_meta_suite.sh; do
-  # The Docker requirement is matched case-insensitively on the whole guard file: a guard
-  # whose header declares it is skipped (the # inside the grep pattern would otherwise be
-  # eaten by the comment-stripping view the meta-test uses).
-  if grep -qi 'requires docker' "${guard}"; then
+  # The Docker declaration is matched case-insensitively against the header only. Whole-file
+  # content greps here would make the sweep skip a guard that merely MENTIONS the phrase (the
+  # meta-test's own mutant literals), and an unregistered mention would silently drop a guard.
+  guard_header="$(awk '!/^[[:space:]]*#/ {exit} {print}' "${guard}")"
+  if grep -qi 'requires docker' <<<"${guard_header}"; then
     printf 'check: excluded guard %-22s needs a Docker daemon on the host (declared in its header); run task test-integration:no-docker\n' "${guard##*/}"
     continue
   fi

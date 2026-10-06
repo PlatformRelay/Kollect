@@ -270,14 +270,25 @@ cws2_suppressions() {
         next
       }
       # Every other key under a rule -- the rule key itself AND a policy switch inside it
-      # (for example `disable: true`, which switches the audit off with no list to inspect) --
-      # carries the block comment. `ignore:` is exempt: it is the structure that holds the
-      # items this walk checks one by one.
-      if ($0 ~ /^[[:space:]]*[a-zA-Z0-9_-]+:/) {
+      # (for example `disable: true`, which switches the audit off with no list to inspect)
+      # -- carries the block comment. Two spellings are exempt, both BARE `ignore:` keys and
+      # nothing else: an inline `ignore: [x]` is a policy value this walk cannot inspect, and
+      # a quoted key is the same policy in disguise.
+      if ($0 ~ /^[[:space:]]*"?[a-zA-Z0-9_-]+"?:/) {
         key = $0
         sub(/^[[:space:]]*/, "", key)
-        sub(/:.*/, "", key)
-        if (key != "ignore" && prev !~ /^[[:space:]]*#/) {
+        sub(/"?.*/, "", key)
+        gsub(/"/, "", key)
+        rest = $0
+        sub(/^[[:space:]]*"?[a-zA-Z0-9_-]+"?:/, "", value)
+        if (key == "ignore") {
+          # A bare `ignore:` (list block marker) is structure; an inline `ignore: [x]`
+          # carries a value and is treated as a policy line, needing the comment.
+          tail = substr($0, index($0, ":") + 1)
+          gsub(/[[:space:]]/, "", tail)
+          if (length(tail) == 0) { prev = ""; next }
+        }
+        if (prev !~ /^[[:space:]]*#/) {
           printf "FAIL: CWS-2: suppression `%s` in .github/zizmor.yml has no comment directly above it stating why it is safe -- the config names this gate as the enforcer of exactly this contract\n", $0
           exit 1
         }
@@ -837,6 +848,19 @@ mutant_rejected "CWS-2 justified rule with a bare ignore entry" "has no comment 
 mutant_rejected "CWS-2 uncommented disable policy" "has no comment directly above it stating why" bash -c '
   set -euo pipefail
   perl -0pi -e "s/rules: \{\}/rules:\n  template-injection:\n    disable: true/" .github/zizmor.yml
+  grep -q "disable" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
+'
+
+# CWS-2 round-two ratchets: the inline and quoted spellings of the same policy.
+mutant_rejected "CWS-2 inline ignore with a policy value" "has no comment directly above it stating why" bash -c '
+  set -euo pipefail
+  perl -0pi -e "s/rules: \{\}/rules:\n  # why: fixture -- an inline ignore list is a policy, not structure\n  cache-poisoning:\n    ignore: [.github\/workflows\/release.yaml]/" .github/zizmor.yml
+  grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
+'
+
+mutant_rejected "CWS-2 quoted-key policy switch" "has no comment directly above it stating why" bash -c '
+  set -euo pipefail
+  perl -0pi -e "s/rules: \{\}/rules:\n  template-injection:\n    \\\"disable\\\": true/" .github/zizmor.yml
   grep -q "disable" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
 '
 

@@ -83,6 +83,7 @@ declare -A GATE_COMMAND=(
   [lint:shell]="task lint:shell"
   [lint:markdown]="task lint:markdown"
   [go-mod]="bash -c 'go mod tidy && git diff --exit-code go.mod go.sum && go mod verify'"
+  [format:check]="task format:check"
 )
 
 # The Taskfile declares a check task and it runs the orchestrator, not a local reimplementation.
@@ -135,6 +136,13 @@ c_tce1_aggregation() {
     fail "TCE-1: hack/check.sh has no failing exit -- a failed gate must turn the exit non-zero so a caller cannot mistake a red gate for a green one"
   grep -qF 'set -uo pipefail' <<<"${body}" ||
     fail "TCE-1: hack/check.sh must run with the failure-collecting shell mode (set -uo pipefail, deliberately NOT set -e) -- set -e would stop at the first gate and hide the ones after it"
+  # A duplicated run_gate line runs the gate twice per check and silently doubles the runtime;
+  # each gate label must appear exactly once.
+  for gate in "${!GATE_COMMAND[@]}"; do
+    if [[ $(grep -cF "run_gate ${gate} " <<<"${body}") -ne 1 ]]; then
+      fail "TCE-1: the '${gate}' gate is declared $(grep -cF "run_gate ${gate} " <<<"${body}") times in hack/check.sh, expected exactly once -- a duplicated gate line runs the gate twice per task check and two copies drift apart"
+    fi
+  done
   pass "TCE-1: a failed gate is reported and turns the exit non-zero (the last gate cannot mask the rest)"
 }
 
@@ -173,7 +181,8 @@ c_tce3_coverage() {
     [[ -z "${xline}" ]] && continue
     name="${xline#exclusion }"
     name="${name%% *}"
-    local reason="${xline#exclusion ${name} }"
+    local reason="${xline#exclusion ${name}}"
+    reason="${reason# }"
     if [[ -z "${reason}" || "${reason}" == '""' ]]; then
       fail "TCE-3: the exclusion for '${name}' has no reason -- an exclusion without its reason is how a required gate goes silently missing from the local gate"
     fi
@@ -334,6 +343,13 @@ mutant_rejected "TCE-3 exclusion without reason" "has no reason" bash -c '
   set -euo pipefail
   sed -i.bak "s/exclusion test-integration .*/exclusion test-integration \"\"/" hack/check.sh && rm -f hack/check.sh.bak
   if ! grep -q "exclusion test-integration \"\"" hack/check.sh; then echo "mutant did not apply"; exit 1; fi
+'
+
+# TCE-3: a required check with no run, mapping or exclusion — the silent-missing case.
+mutant_rejected "TCE-3 new required gate without coverage" "neither run by hack/check.sh nor listed as an exclusion" bash -c '
+  set -euo pipefail
+  sed -i.bak "s/^	docker-build preflight kind-smoke pipeline-cli-smoke workflow-security$/& unregistered-gate/" hack/release/verify-eligibility.sh && rm -f hack/release/verify-eligibility.sh.bak
+  if ! grep -q "unregistered-gate" hack/release/verify-eligibility.sh; then echo "mutant did not apply"; exit 1; fi
 '
 
 echo "All task-check self-tests passed."
