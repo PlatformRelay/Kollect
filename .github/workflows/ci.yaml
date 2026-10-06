@@ -406,6 +406,16 @@ jobs:
       # paths-ignore, so every change class that can break the contract triggers this job.
       - name: Verify mise.toml has not drifted from the CI pins (DEV-MISE-01)
         run: bash hack/test/dev_mise_pin_drift_test.sh
+      # DOC-ADRREFS-01: every ADR-\d{4} token in tracked files must resolve to a committed ADR.
+      # ADRs get renumbered and deleted; code comments, CRD descriptions (user-visible via
+      # `kubectl explain`), the chart values schema, and docs keep citing the retired numbers
+      # for years. The gate also runs under hack/docs/verify.sh in the Docs workflow, but that
+      # check is not a required context, so CWS-6 requires this required-job row -- the same
+      # wiring convention as the other docs-side guards above. Run it here, unconditionally:
+      # hack/** is outside this workflow's paths-ignore, so every change class that can break
+      # the contract triggers this job.
+      - name: Verify every ADR citation resolves to a committed ADR (DOC-ADRREFS-01)
+        run: bash hack/test/docs_adr_refs_test.sh
       # CI-DOCSGATE-01: asserts that all four required contexts (preflight, test, kind-smoke,
       # Analyze (Go)) report a conclusion on EVERY PR, and that the no-op reporting path cannot
       # stand in for the real job when code changed. It runs here because `lint` is the one job
