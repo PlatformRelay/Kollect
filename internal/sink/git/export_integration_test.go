@@ -34,7 +34,7 @@ func TestExportBareRepoIntegration(t *testing.T) {
 	cfg := Config{Endpoint: "file://" + bare}
 	payload := []byte(`{"integration":true}`)
 
-	if err := Export(t.Context(), cfg, Auth{}, payload, "inventory/integration.json"); err != nil {
+	if err := exportForTest(t.Context(), cfg, Auth{}, payload, "inventory/integration.json"); err != nil {
 		t.Fatalf("Export: %v", err)
 	}
 

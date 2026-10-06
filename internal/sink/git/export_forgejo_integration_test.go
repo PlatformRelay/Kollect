@@ -45,7 +45,7 @@ func TestExportGoGit_nonFastForwardCommitPolicy_Forgejo(t *testing.T) {
 	}
 
 	auth := Auth{Username: user, Password: pass}
-	if err := Export(ctx, cfg, auth, []byte(`{"seed":true}`), objectPath); err != nil {
+	if err := exportForTest(ctx, cfg, auth, []byte(`{"seed":true}`), objectPath); err != nil {
 		t.Fatalf("seed export: %v", err)
 	}
 
@@ -95,7 +95,7 @@ func TestExportGoGit_nonFastForwardCommitPolicy_Forgejo(t *testing.T) {
 		t.Fatalf("expected non-fast-forward, got success: %s", out)
 	}
 
-	if err := Export(ctx, cfg, auth, []byte(`{"merged":true}`), objectPath); err != nil {
+	if err := exportForTest(ctx, cfg, auth, []byte(`{"merged":true}`), objectPath); err != nil {
 		t.Fatalf("export after divergence: %v", err)
 	}
 
@@ -127,7 +127,7 @@ func TestExportGit_authFailureTerminal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Export(ctx, cfg, Auth{Username: user, Password: "wrong-password"}, []byte(`{}`), "inventory/x.json")
+	err = exportForTest(ctx, cfg, Auth{Username: user, Password: "wrong-password"}, []byte(`{}`), "inventory/x.json")
 	if err == nil {
 		t.Fatal("expected auth failure")
 	}

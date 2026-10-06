@@ -29,9 +29,9 @@ integration files) because the default build skips them.
 
 ## 4. Superseded git entry points (DR-5)
 
-- [ ] 4.1 Probe (record the full list): package-level `git.Export`/`ExportMemory` have zero production callers (`Backend.Export` calls `ExportWithBranch` directly); test callers live in `export_test.go`, `export_integration_test.go` (`//go:build integration`) and `export_forgejo_integration_test.go` (`//go:build integration`)
-- [ ] 4.2 Delete `git.Export`; migrate every `Export(` call site in those three test files to `ExportWithBranch` through one test-local helper that replicates the deleted wrapper's commit-context derivation; move the in-memory commit builder (`ExportMemory`) into the test file as an unexported helper — no production file keeps either symbol
-- [ ] 4.3 Compile clean; `go test ./internal/sink/git/...` green (unit); the tagged test files compile with their tag on: `go vet -tags integration ./internal/sink/git/`
+- [x] 4.1 Probe (record the full list): package-level `git.Export`/`ExportMemory` have zero production callers (`Backend.Export` calls `ExportWithBranch` directly); test callers live in `export_test.go`, `export_integration_test.go` (`//go:build integration`) and `export_forgejo_integration_test.go` (`//go:build integration`)
+- [x] 4.2 Delete `git.Export`; migrate every `Export(` call site in those three test files to `ExportWithBranch` through one test-local helper that replicates the deleted wrapper's commit-context derivation; move the in-memory commit builder (`ExportMemory`) into the test file as an unexported helper — no production file keeps either symbol
+- [x] 4.3 Compile clean; `go test ./internal/sink/git/...` green (unit); the tagged test files compile with their tag on: `go vet -tags integration ./internal/sink/git/` — closed 2026-10-07, evidence: evidence/T4.md
 
 ## 5. Test-only capability aliases (DR-6)
 
@@ -65,7 +65,7 @@ integration files) because the default build skips them.
 | DR-3 | probe 2.2 then compile + `grep` docs/CRDs | no text reference survives | done | evidence/T2.md |
 | DR-4 | probe 3.1 then compile + collect suite | store compiles without the methods; suite green | done | evidence/T3.md |
 | DR-4b | review: deleted tests guarded no reachable path | recorded reasoning, reviewer-checked | done | evidence/T3.md |
-| DR-5 | probe 4.1 then compile + git unit suite + tagged-file compile | pipeline coverage unchanged via `ExportWithBranch` | not-run | |
+| DR-5 | probe 4.1 then compile + git unit suite + tagged-file compile | pipeline coverage unchanged via `ExportWithBranch` | done | evidence/T4.md |
 | DR-6 | probe 5.1 then compile + sink suites | tests use `cap.*` | not-run | |
 | DR-7 | probe 6.1 then compile + controller suite; reader call sites still covered | engine compiles without the method; tests still reach `NamespacesForClusterTarget` | not-run | |
 | DR-8 | compile + inventory suite | `_ = user` gone; cache tests green | not-run | |
