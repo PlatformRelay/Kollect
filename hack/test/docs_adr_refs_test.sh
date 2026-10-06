@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # DOC-ADRREFS-01: every ADR-\d{4} token in the repository must resolve to a committed ADR.
 #
-# ADRs get renumbered (0020-error-taxonomy -> 0602) and deleted (the SPA removal dropped
-# 0408; the 2026 retcon dropped 0503/0703). Code comments, CRD descriptions, chart values
-# schema, and docs keep citing the old numbers for years afterwards — user-visible through
-# `kubectl explain` CRD descriptions. This gate reds at the cite site instead of in a
-# consolidated review.
+# ADRs get renumbered (the error-taxonomy ADR moved into theme 06) and deleted (the SPA
+# removal dropped the read-API ADR; the 2026 retcon dropped the hub-auth and platform-pivot
+# ADRs). Code comments, CRD descriptions, chart values schema, and docs keep citing the old
+# numbers for years afterwards — user-visible through `kubectl explain` CRD descriptions.
+# This gate reds at the cite site instead of in a consolidated review.
 #
 # Scope: every tracked file. CHANGELOG.md is exempt because its entries are historical
-# commit titles ("Complete ADR-0020 metrics catalog") that must not be rewritten.
+# commit titles that must not be rewritten.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
