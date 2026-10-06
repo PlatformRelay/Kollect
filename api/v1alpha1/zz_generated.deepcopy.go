@@ -822,6 +822,15 @@ func (in *KollectClusterTargetStatus) DeepCopyInto(out *KollectClusterTargetStat
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.CollectedCount != nil {
+		in, out := &in.CollectedCount, &out.CollectedCount
+		*out = new(int64)
+		**out = **in
+	}
+	if in.CollectedCountUpdatedAt != nil {
+		in, out := &in.CollectedCountUpdatedAt, &out.CollectedCountUpdatedAt
+		*out = (*in).DeepCopy()
+	}
 	in.CollectionFilterStatus.DeepCopyInto(&out.CollectionFilterStatus)
 }
 
