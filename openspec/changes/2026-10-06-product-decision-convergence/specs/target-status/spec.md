@@ -25,6 +25,11 @@ columns (Collected / Updated) mirroring the namespaced target.
 - **WHEN** the derived count changes while the Ready condition payload stays byte-identical (the shared no-op-skip writer would skip the write)
 - **THEN** the new count is still persisted (the PERF-FIX-05 escape hatch holds on the cluster path)
 
+#### Scenario: Count and filter move together, one write
+
+- **WHEN** a reconcile changes both the filter-status fields and the count while the condition payload is unchanged
+- **THEN** one status write persists both (no second Status().Update site)
+
 #### Scenario: Degraded target keeps its last count
 
 - **WHEN** a previously Ready cluster target goes Degraded
