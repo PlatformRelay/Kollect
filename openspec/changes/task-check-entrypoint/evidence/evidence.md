@@ -15,14 +15,16 @@ Recorded 2026-10-06 on the branch that produced the PR, against origin/main as t
   workflow-security job, and the guard sweep (every `hack/test/*_test.sh` plus
   `lab_harness_meta_suite.sh`, bare, plus `--self-test` where the script's code parses it —
   today only `ci_workflow_security_test.sh`).
-- Exclusions with reasons: test-integration (Docker), kind-smoke (kind cluster),
-  docker-build (Docker daemon), pipeline-cli-smoke (kind cluster + CLI image),
-  dependency-review (GitHub pull-request context).
+  CI's gitleaks job, the pinned zizmor + the same offline audit as ci.yaml's
+  workflow-security job, and the guard sweep (every `hack/test/*_test.sh` plus
+  `lab_harness_meta_suite.sh`, bare, plus `--self-test` where the script's code parses it —
+  today only `ci_workflow_security_test.sh`).
 - Exclusions with reasons: test-integration (Docker), kind-smoke (kind cluster),
   docker-build (Docker daemon), pipeline-cli-smoke (kind cluster + CLI image),
   dependency-review (GitHub pull-request context). Guards whose header declares a Docker
   requirement (today `integration_no_docker_test.sh`) are skipped in the guard sweep with the
-  same printed-reason contract.
+  same printed-reason contract; the declaration is read from the guard's header only, so a
+  guard that merely mentions the phrase in its assertion text is never skipped.
 - The `coverage: preflight=lint:markdown,go-mod,verify,guard-sweep` line maps the required
   preflight context to the gates above (preflight runs task lint:markdown + task verify + the
   commit-identity guard + the go mod tidy/verify half, all of which the check runs).
