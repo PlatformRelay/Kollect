@@ -38,6 +38,19 @@ type KollectClusterTargetStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// collectedCount is the number of resources this cluster target was collecting when the
+	// controller last refreshed the count. Semantics are identical to KollectTarget's
+	// collectedCount (design D3 — one contract, twice): null means never computed, zero is a
+	// measured zero, and a Degraded target keeps its last known count.
+	// +optional
+	CollectedCount *int64 `json:"collectedCount,omitempty"`
+
+	// collectedCountUpdatedAt is when collectedCount last *changed* — not when it was last
+	// checked. It moves only when the number moves, so it pairs with the conditions to tell
+	// a steady count from a stale one.
+	// +optional
+	CollectedCountUpdatedAt *metav1.Time `json:"collectedCountUpdatedAt,omitempty"`
+
 	CollectionFilterStatus `json:",inline"`
 }
 
@@ -45,6 +58,8 @@ type KollectClusterTargetStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,shortName=kctgt
 // +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Collected",type=integer,JSONPath=`.status.collectedCount`
+// +kubebuilder:printcolumn:name="Updated",type=date,JSONPath=`.status.collectedCountUpdatedAt`
 
 // KollectClusterTarget selects resources cluster-wide for platform operators.
 type KollectClusterTarget struct {
