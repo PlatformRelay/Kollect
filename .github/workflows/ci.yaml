@@ -443,6 +443,41 @@ jobs:
         run: bash hack/test/e2e_webhook_existing_cluster_test.sh
       - name: Verify the hero demo smoke contract (DEMO-03)
         run: bash hack/test/demo_03_hero_smoke_test.sh
+      # CWS-6: the docs-side guards' only CI invocation is inside hack/docs/verify.sh, which
+      # the Docs workflow reaches through `task docs:verify` in a NON-required job, so their
+      # verdicts never gated a merge. They are static contract tests (no mkdocs build, no
+      # chrome), so they take their required home here; docs:verify keeps running them for the
+      # docs-pipeline side. One grouped step with a named group per script, because the list
+      # is long and stable -- a red names the failing guard in its group.
+      - name: Docs-side contract meta-tests (required side of docs:verify, CWS-6)
+        run: |
+          shopt -s nullglob
+          scripts=(
+            hack/test/docs_adr_kollectsink_retcon_test.sh
+            hack/test/docs_coverage_floor_drift_test.sh
+            hack/test/docs_lab_doc_01_runbook_test.sh
+            hack/test/docs_lab_doc_03_scale_claims_test.sh
+            hack/test/docs_lab_doc_04_fidelity_test.sh
+            hack/test/docs_lab_doc_05_scenario_matrix_test.sh
+            hack/test/docs_lab_evidence_contract_test.sh
+            hack/test/docs_launch_truth_test.sh
+            hack/test/docs_map_wiring_test.sh
+            hack/test/docs_pages_concurrency_test.sh
+            hack/test/docs_removed_api_fields_test.sh
+            hack/test/hyg_ui_gitignore_test.sh
+            hack/test/lab_adr_0707_indexed_test.sh
+            hack/test/security_architecture_docs_test.sh
+            hack/test/ui_removal_reference_test.sh
+          )
+          if [ "${#scripts[@]}" -eq 0 ]; then
+            echo "no docs-side guard scripts wired"
+            exit 1
+          fi
+          for script in "${scripts[@]}"; do
+            echo "::group::${script}"
+            bash "${script}"
+            echo "::endgroup::"
+          done
       - name: Run Sonar SECURITY remediation meta-tests
         run: |
           shopt -s nullglob

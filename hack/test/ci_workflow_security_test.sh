@@ -130,9 +130,22 @@ cws1_job() {
       fail "CWS-1: the workflow-security job declares '${key}', which is not one of (name runs-on steps) -- a job-level 'if', 'needs', 'continue-on-error' or 'strategy' is a skip switch for the one gate that audits the workflows themselves, so every key beyond the reviewed shape is reported"
   done
   n="$(yq eval '.jobs["workflow-security"].steps | length' "${CI}")"
-  [[ "${n}" -ge 3 ]] ||
-    fail "CWS-1: the workflow-security job has ${n} step(s), expected at least 3 (checkout, install, audit)"
+  # Exactly three steps, each pinned below: a fourth step could overwrite the installed
+  # zizmor binary with a green stub (RUNNER_TEMP is first on GITHUB_PATH), so the step LIST
+  # is pinned, not just a minimum -- an extra step is a stub route, not extra coverage.
+  [[ "${n}" -eq 3 ]] ||
+    fail "CWS-1: the workflow-security job has ${n} step(s), expected exactly 3 (checkout, install, audit) -- an extra step can run AFTER the install and BEFORE the audit, replacing the zizmor binary with a green stub, so any step count beyond the reviewed three is rejected"
   for ((i = 0; i < n; i++)); do
+    local sname
+    sname="$(yq eval ".jobs[\"workflow-security\"].steps[${i}].name // \"\"" "${CI}")"
+    case "${i}" in
+      0) yq eval ".jobs[\"workflow-security\"].steps[0].uses" "${CI}" | grep -q 'actions/checkout@' ||
+        fail "CWS-1: step 0 of the workflow-security job is '${sname}', expected the checkout -- the reviewed step order is checkout, install, audit and the audit must come last" ;;
+      1) [[ "${sname}" == "Install zizmor" ]] ||
+        fail "CWS-1: step 1 of the workflow-security job is '${sname}', expected 'Install zizmor'" ;;
+      2) [[ "${sname}" == "Audit workflows (zizmor, offline)" ]] ||
+        fail "CWS-1: step 2 of the workflow-security job is '${sname}', expected the zizmor audit step" ;;
+    esac
     for key in $(yq eval ".jobs[\"workflow-security\"].steps[${i}] | keys | join(\" \")" "${CI}"); do
       if ! in_allowlist "${key}" name run uses with env; then
         fail "CWS-1: step ${i} of the workflow-security job declares '${key}', which is not one of (name run uses with env) -- an 'if' or 'continue-on-error' here is a skip switch, 'shell' can replace the audit body with 'true {0}' so the job passes without zizmor running, and a 'timeout-minutes: 0' or 'strategy' can remove the gate without any assertion below noticing"
@@ -203,12 +216,12 @@ cws1_version_pin() {
 # --- CWS-2: suppressions are justified ---------------------------------------
 
 cws2_suppressions() {
-  # A suppression is a LIST ITEM under `rules:` (zizmor.yml's shape: rule → ignore: → list of
-  # locations). Each suppression must be preceded by a comment line stating why it is safe.
-  # Rule keys and the `ignore:` key are structure, not suppressions, so they need no comment
-  # of their own -- but every uncommented location entry under them is one suppression.
-  # With `rules: {}` there is nothing to check, which is why the config carries that exact
-  # spelling.
+  # Suppression semantics (round-one and round-two review consensus): a suppression is a
+  # RULE under `rules:` (zizmor.yml's shape: rule -> ignore: -> locations), and each rule
+  # must carry its justification comment directly above the rule key. Deeper lines in the
+  # block (the ignore: key, list items, flow-style `ignore: [a, b]`) inherit the block's
+  # comment, so a justified multi-line entry does not false-red. With `rules: {}` there is
+  # nothing to check, which is why the config carries that exact spelling.
   awk '
     BEGIN { in_rules = 0; prev = "" }
     /^rules:/ {
@@ -218,17 +231,15 @@ cws2_suppressions() {
     }
     in_rules && /^[[:space:]]*$/ { next }
     in_rules && /^[[:space:]]*#/ { prev = $0; next }
-    in_rules {
-      if ($0 ~ /^[[:space:]]+-[[:space:]]/) {
-        if (prev !~ /^[[:space:]]*#/) {
-          printf "FAIL: CWS-2: suppression `%s` in .github/zizmor.yml has no comment directly above it stating why it is safe -- every suppression is a reviewed exception, and the config file itself names this gate as the enforcer\n", $0
-          exit 1
-        }
-        prev = ""
-        next
+    in_rules && /^[[:space:]]{2}[a-zA-Z0-9_-]+:/ {
+      if (prev !~ /^[[:space:]]*#/) {
+        printf "FAIL: CWS-2: suppression `%s` in .github/zizmor.yml has no comment directly above it stating why it is safe -- every suppression is a reviewed exception, and the config file itself names this gate as the enforcer\n", $0
+        exit 1
       }
       prev = ""
+      next
     }
+    in_rules { next }
   ' "${ZIZMOR_CFG}"
   # Inline suppressions count too: `# zizmor: ignore[...]` in any workflow or action silences
   # a finding zizmor would report, and none of them is reviewed unless the config lists it.
@@ -409,7 +420,7 @@ cws6_guards() {
           mode_token="bare"
           case "${line}" in *'--self-test'*) mode_token="--self-test" ;; esac
           for tok in $(guard_tokens_in_run "${line}"); do
-            printf '%s\t%s\t%s\n' "${tok}" "${mode_token}" "${jname}" >>"${invocations}"
+            printf '%s\t%s\t%s\t%s\n' "${tok}" "${mode_token}" "${jname}" "${yaml_file}" >>"${invocations}"
           done
         done <<<"$(strip_comments "${run_body}")"
       done
@@ -423,8 +434,8 @@ cws6_guards() {
   # Resolve globs to concrete scripts; record (script, mode, job) rows.
   local resolved="${tmp}/resolved.tsv"
   : >"${resolved}"
-  local tok pattern match found
-  while IFS=$'\t' read -r tok mode_token jname; do
+  local tok pattern match found src_yaml
+  while IFS=$'\t' read -r tok mode_token jname src_yaml; do
     if [[ "${tok}" == *'*'* || "${tok}" == *'?'* ]]; then
       pattern="${tok#hack/test/}"
       found=0
@@ -432,13 +443,13 @@ cws6_guards() {
       # shellcheck disable=SC2086
       for match in "${ROOT}"/hack/test/${pattern}; do
         [[ -e "${match}" ]] || continue
-        printf '%s\t%s\t%s\n' "${match}" "${mode_token}" "${jname}" >>"${resolved}"
+        printf '%s\t%s\t%s\t%s\n' "${match}" "${mode_token}" "${jname}" "${src_yaml}" >>"${resolved}"
         found=1
       done
       [[ "${found}" == "1" ]] ||
         fail "CWS-6: the glob hack/test/${pattern} invoked by job '${jname}' matches no script -- a renamed or deleted guard silently drops out of the gate"
     else
-      printf '%s\t%s\t%s\n' "${ROOT}/${tok}" "${mode_token}" "${jname}" >>"${resolved}"
+      printf '%s\t%s\t%s\t%s\n' "${ROOT}/${tok}" "${mode_token}" "${jname}" "${src_yaml}" >>"${resolved}"
     fi
   done <"${invocations}"
 
@@ -464,17 +475,22 @@ cws6_guards() {
   done
 
   # Every mode of every invoked script must be pinned to a required-job step. Coverage is
-  # computed over the rows whose invoking job is in the required set, so a guard that runs
-  # ONLY in nightly/extended suites reds here, while an extra nightly invocation of a guard
-  # that lint already runs does not.
+  # computed over the rows whose invoking job is in the required set AND whose workflow
+  # actually runs on pull_request: required contexts gate PRs, so a job that only happens to
+  # carry a required CONTEXT NAME in a workflow that never runs on a PR gates nothing (a
+  # job named `lint` in a push-only workflow is not the lint gate).
   local required_rows="${tmp}/required_rows.tsv"
   : >"${required_rows}"
   local required_names
   required_names="dependency-review $(elig_names | tr '\n' ' ')"
-  while IFS=$'\t' read -r script mode jname_row; do
-    if in_allowlist "${jname_row}" ${required_names}; then
-      printf '%s\t%s\t%s\n' "${script}" "${mode}" "${jname_row}" >>"${required_rows}"
+  while IFS=$'\t' read -r script mode jname_row src_yaml; do
+    if ! in_allowlist "${jname_row}" ${required_names}; then
+      continue
     fi
+    if [[ "$(yq eval '."on" | has("pull_request")' "${src_yaml}")" != "true" ]]; then
+      continue
+    fi
+    printf '%s\t%s\t%s\n' "${script}" "${mode}" "${jname_row}" >>"${required_rows}"
   done <"${resolved}"
 
   cut -f1 "${resolved}" | sort -u >"${tmp}/scripts"
@@ -495,7 +511,7 @@ cws6_guards() {
 # which GitHub rejects at load time and which every key allowlist happily accepted): every step
 # of every job, and of every composite action, must declare run or uses.
 schema_steps() {
-  local yaml_file ftype
+  local yaml_file ftype yaml_files job jobkeys has_run has_uses sidx ns a__idx
   local yaml_files=()
   mapfile -t yaml_files < <(
     ls "${ROOT}"/.github/workflows/*.yaml \
@@ -517,7 +533,16 @@ schema_steps() {
         done
       done
     else
-      :
+      # A composite action: its runs.steps live outside .jobs, and GitHub rejects the ACTION
+      # the same way, so every workflow using the action fails at load.
+      ns="$(yq eval '.runs.steps // [] | length' "${yaml_file}")"
+      for ((a__idx = 0; a__idx < ns; a__idx++)); do
+        has_run="$(yq eval ".runs.steps[${a__idx}].run != null" "${yaml_file}")"
+        has_uses="$(yq eval ".runs.steps[${a__idx}].uses != null" "${yaml_file}")"
+        if [[ "${has_run}" != "true" && "${has_uses}" != "true" ]]; then
+          fail "schema: step ${a__idx} of the composite action ${yaml_file#"${ROOT}"/} declares neither run nor uses -- GitHub rejects the action at load, so every workflow that uses it fails to start and not one required context would ever report"
+        fi
+      done
     fi
   done
   pass "schema: every step in every workflow and composite action declares run or uses"
@@ -842,6 +867,27 @@ mutant_rejected "CWS-6 guard in a composite action" "is not a job and can never 
   set -euo pipefail
   yq eval ".runs.steps += {\"name\": \"guard inside an action (mutant)\", \"run\": \"bash hack/test/dev_mise_pin_drift_test.sh\"}" .github/actions/go-cache/action.yml > m.yaml && mv m.yaml .github/actions/go-cache/action.yml
   grep -q "dev_mise_pin_drift_test" .github/actions/go-cache/action.yml || { echo "mutant did not apply"; exit 1; }
+'
+
+# CWS-6: a job that carries a required CONTEXT NAME in a workflow that never runs on PRs is
+# not the required gate -- required contexts gate PRs.
+mutant_rejected "CWS-6 required-named job without a pull_request trigger" "runs in CI but its" bash -c '
+  set -euo pipefail
+  cat > hack/test/zz_fake_lint_guard_test.sh <<"SH"
+#!/usr/bin/env bash
+echo ok
+SH
+  cat > .github/workflows/zzz-fake-lint.yaml <<"YAML"
+name: fake-lint
+on: [push]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: run a guard from a job with a required context name
+        run: bash hack/test/zz_fake_lint_guard_test.sh
+YAML
+  grep -q "zz_fake_lint_guard_test" .github/workflows/zzz-fake-lint.yaml || { echo "mutant did not apply"; exit 1; }
 '
 
 echo "All workflow-security self-tests passed."

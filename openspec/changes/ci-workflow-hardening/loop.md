@@ -41,12 +41,39 @@ triggered CI-workflow function (the new meta-test itself) runs green on the bran
 
 ## Branch review (stage B)
 
-- Fan-out: `GLM-5.3:spec,DeepSeek-V4.1-Flash:adversarial,Qwen3.8-Flash-Next:security,GLM-5.3:fitness`
-  free legs + `claude/opus:spec` + `claude/opus:adversarial` (CI/protected paths trigger),
-  `--leg-timeout 1800`.
-- Target: `git range a1a300e1..HEAD`; spec lens on
-  `openspec/changes/ci-workflow-hardening/specs/ci-workflow-security/spec.md`.
-- Raw leg reports and the register live in `reviews/branch/` (`.err` files are never committed).
+### Round one (6 legs; DeepSeek adversarial timed out, 5 counted) — all BLOCK
+
+- CRITICAL (all 5 legs): dangling name-only step in ci.yaml — fixed + schema ratchet.
+- Fixed: install-step/env/shell skip switches; dependency-review warn-only/continue-on-error
+  holes; `# why:` anchoring; CWS-2 list-item semantics; composite-action guard hole; inline
+  `# zizmor: ignore` policing; `base64 -w0`.
+- Rejected after verification: "medium zizmor audits pass silently" claim about
+  `unsound-inputs` (the tree audits clean at medium — measured).
+- Round one raw legs + register: `reviews/branch/` (the DeepSeek leg timed out twice, its
+  empty report is not committed).
+
+### Round two (5 legs, DeepSeek adversarial timed out again, 4 counted)
+
+- Verdicts: GLM-fitness BLOCK, Qwen3.8-security BLOCK, GLM-spec CONCERNS, Opus-spec CONCERNS.
+- FIXED and re-verified: schema_steps now covers composite actions (the pass message had
+  claimed it already — fitness CRITICAL); the workflow-security step LIST is pinned exactly
+  (3 steps, names + shapes pinned) closing the stub-binary route Qwen found (CRITICAL); 15
+  docs-side guards whose only CI invocation was inside `task docs:verify` are now wired into
+  the required lint job as one grouped step (spec WARNING); CWS-2 moved to block-level
+  justification (comment above the rule key; deeper lines inherit — the round-one and
+  round-two Opus consensus); a job carrying a required context NAME in a PR-less workflow no
+  longer counts as required coverage (+ mutant); evidence mutant counts and the zizmor
+  baseline re-recorded against the branch tip.
+- Rejected: "--min-severity=high filters medium findings silently" (the spec pins a
+  `--min-severity` and tasks.md records the measured breakdown — that IS the recorded
+  decision); "the release API publishes no asset digests" (false — verified against the live
+  API, the darwin/arm64 digest matches exactly); "sonar_ko_*/dist_* loops share one step" (the
+  required-job criterion is what the spec's scenarios test).
+- Deferred: actionlint as a pinned second schema opinion (fitness leg, new dependency —
+  follow-up change); docs.yaml Pages concurrency keyed on `github.ref` for push (same
+  rationale as CWS-4, outside this spec's scope).
+- Max two rounds at stage B per the skill; remaining NOTEs are documented limits, not open
+  defects.
 
 ## Task log
 
