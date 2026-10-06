@@ -1,7 +1,7 @@
 # Loop — 2026-10-06-product-decision-convergence
 
 Repo: `/Users/kheimel/.treehouse/kollect-79dca7/1/kollect` · Branch: `fm/kollect-product-decisions-impl` · Base: `3ee21266` (= `origin/main`) · Started: 2026-10-06 · Reviewers: fanout (free only)
-Next: L task loop — dispatch T02
+Next: L task loop — dispatch T03
 Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (session 2026-10-06–) · source: overlay default
 
 ## Stages
@@ -53,12 +53,14 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
 | T01 | CLOSED-WITH-GAPS (3 commits d67309bf, 066038ee, f8f643a5) | r1 2/2 legs (DeepSeek+QFN diff), r2 2/2 (GLM+QFN); all 7 findings verified+fixed; no Claude | gaps: full-suite + mutation deferred to T10; collect -count=2 flake pre-exists at base (owner) |
+| T02 | CLOSED-WITH-GAPS (2 commits 31888ae5, eef75b58) | r1 2/2 legs (DeepSeek+QFN diff), REQUEST_CHANGES->fixed; no Claude | CRITICAL verified: scaffolding fields without regen make `task verify` red (exit 201) + CI exposure; T07 owns `make generate manifests` |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
 |---|---|---|---|
 | internal/controller/requested_at_annotation_test.go (6 tests) | ERA-1 | T01 | |
 | internal/collect/prune_collected_generation_test.go + dispatch test (4 tests incl. scrub-survival) | ERA-2 | T01 | |
+| internal/controller/cluster_target_status_test.go (4 tests) | TSP-1 | T02 | |
 
 ## Test changes
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
@@ -70,6 +72,9 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 - (T01) Test-local contexts in internal/controller tests: name them `bg`, not `ctx` (govet shadow).
 - (T01) Fake client needs .WithStatusSubresource(...) for Status().Update on unregistered objects (controller-runtime v0.24.1).
 - (T01) PruneResource never reads Prune.ScrubKeys; the engine merges them into the *Scrubber (engine.go:266). A profile scrub rule reaches the stamp only through the scrubber argument.
+- (T02) `task verify` regenerates in place before diffing: as a read-only probe with drift present it dirties the tree (revert or budget the regen commit). T07/T09/T10 run it for real.
+- (T02) KUBEBUILDER_ASSETS must be an absolute path for internal/controller Ginkgo envtest suites; a relative path fails BeforeSuite (fork/exec bin/k8s/...).
+- (T02) Run gates and record them in evidence BEFORE the review brief; round 1 then found nothing new (gate-runs-before-brief).
 
 ## Where a human should look first
 <!-- filled at hand-off -->
