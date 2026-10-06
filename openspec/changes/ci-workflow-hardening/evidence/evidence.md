@@ -8,7 +8,7 @@ was run against the branch tip, not against main.
 Plain mode against the branch tree: all CWS-1..CWS-6 assertions green
 (`All workflow-security meta-tests passed.`).
 
-`--self-test` (CWS-7): no-op control green, 33 mutants each rejected with the exact message of
+`--self-test` (CWS-7): no-op control green, 34 mutants each rejected with the exact message of
 the assertion the mutation was built to trip:
 
 - CWS-1: audit without `--offline`; loosened `--min-severity`; renamed config; scope narrowed
@@ -39,23 +39,27 @@ ci_docs_gate_test.sh, plain and --self-test as separate steps`.
 
 ## zizmor audit (zizmor 1.30.1, installed by hack/install-zizmor.sh)
 
-- `zizmor --offline --no-progress --min-severity=high --config .github/zizmor.yml .github/`:
-  exit 0, `No findings to report. Good job! (27 ignored, 25 suppressed)`.
+- `zizmor --offline --no-progress --min-severity=high --config .github/zizmor.yml .github/`
+  on the branch tip: exit 0, `No findings to report. Good job! (36 ignored, 27 suppressed)`.
 - At `--min-severity=medium`: 0 findings (the single medium on the pre-fix tree was
   `artipacked` on changelog-sync.yaml — fixed, see below).
-- At `--min-severity=low`: 15 findings, all `self-repository`, all Regular persona — style
-  hygiene below the gate threshold; each is mechanically fixable if the threshold ever drops.
-- 25 "suppressed" are zizmor's default Pedantic-persona filtering, NOT config suppressions
+- At `--min-severity=low`: 24 findings, all `self-repository`, all Regular persona — style
+  hygiene below the gate threshold (9 in ci.yaml, 15 across the other workflows/actions);
+  each is mechanically fixable if the threshold ever drops.
+- 27 "suppressed" are zizmor's default Pedantic-persona filtering, NOT config suppressions
   (`.github/zizmor.yml` has `rules: {}`).
+- The pinned digests were re-checked against the GitHub release API's asset `digest` fields
+  (`gh api repos/zizmorcore/zizmor/releases/tags/v1.30.1`): the darwin/arm64 pin matches
+  exactly, and the linux/x86_64 pin is verified by every CI run.
 - The `artipacked` medium finding on changelog-sync.yaml was fixed, not suppressed:
   `persist-credentials: false` on the checkout + per-push `GIT_CONFIG_*` extraheader with the
-  app token (the actions/checkout pattern); `git push origin HEAD:main` keeps its exact
-  spelling so `hack/test/changelog_sync_release_guard_test.sh` still recognises it.
+  app token (the actions/checkout pattern; `base64 -w0` so the header cannot wrap), keeping
+  the exact `git push origin HEAD:main` spelling the release guard test recognises.
 
 ## Gate runs on the tree
 
 - `bash hack/test/ci_workflow_security_test.sh` — green (plain mode).
-- `bash hack/test/ci_workflow_security_test.sh --self-test` — green (19 mutants + no-op).
+- `bash hack/test/ci_workflow_security_test.sh --self-test` — green (34 mutants + no-op).
 - `bash hack/test/dist_ci_wiring_test.sh` — green after `WORKFLOW_KEY_ALLOWLIST` gained
   `concurrency` with the CWS-4 justification.
 - `bash hack/test/ci_docs_gate_test.sh` — green (runs slow locally with signed global git

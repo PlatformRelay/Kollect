@@ -61,7 +61,7 @@ findings are all cosmetic:
 | CWS-4 | meta-test group check (ref-keyed, unprefixed mutants); two pushes to a PR | first run cancelled | mutants red locally; two-push cancellation is live post-merge | evidence/evidence.md |
 | CWS-4 | three quick merges to main each get a run | each SHA has a run | post-merge | follow-up evidence PR |
 | CWS-5 | meta-test with `push` removed (mutant) | mutant red | red locally | evidence/evidence.md |
-| CWS-6 | meta-test: guard in non-required job, unpinned mode | red | red locally (4 pre-existing orphans wired into `lint`) | evidence/evidence.md |
+| CWS-6 | meta-test: guard in non-required job, unpinned mode | red | red locally (19 pre-existing orphans wired into `lint`: 4 e2e-side + 15 docs-side) | evidence/evidence.md |
 | CWS-6 | ruleset lists the four jobs as required | listed | post-merge | operator, task 5.1 |
-| CWS-7 | self-test mutants plus no-op control, by exit status | each mutant red, no-op green | green locally (33 mutants + no-op) | evidence/evidence.md |
+| CWS-7 | self-test mutants plus no-op control, by exit status | each mutant red, no-op green | green locally (34 mutants + no-op) | evidence/evidence.md |
 | all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | not-run | this PR |
