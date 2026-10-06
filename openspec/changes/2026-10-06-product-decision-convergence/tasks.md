@@ -7,7 +7,7 @@ Commits with `Signed-off-by`.
 
 ## 1. Behavioural tests first
 
-- [ ] T01 Write the annotation tests before any production change:
+- [x] T01 Write the annotation tests before any production change:
   (a) namespaced + cluster controllers: changing `kollect.dev/requestedAt` re-exports unchanged
   content that would otherwise debounce, and an unchanged value keeps the debounce
   (ERA-1); absence→present and present→absence count as changes; the cluster path behaves like
@@ -16,7 +16,7 @@ Commits with `Signed-off-by`.
   fires): no production symbol is referenced that does not exist. (b) `PruneResource`:
   Resource-mode copy is stamped with the source generation; the stamp survives a profile prune
   of `metadata.annotations`; no stamp when include excludes metadata; Attributes mode
-  byte-identical (ERA-2). Red on the missing stamp.
+  byte-identical (ERA-2). Red on the missing stamp. — closed 2026-10-07, evidence: evidence/T01.md
 - [ ] T02 Add the `KollectClusterTargetStatus` fields as scaffolding (spec-shaped: pointers,
   json names, printer-column markers — the signature the spec fixes) and write the parity test:
   reconcile persists `status.collectedCount` + `collectedCountUpdatedAt` on Ready; a changed

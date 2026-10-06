@@ -108,11 +108,11 @@ func TestPruneResource_stampSurvivesScrubRule(t *testing.T) {
 	export := &kollectdevv1alpha1.ExportSpec{
 		Mode:    kollectdevv1alpha1.ExportModeResource,
 		Include: kollectdevv1alpha1.ExportIncludeAll,
-		Prune: &kollectdevv1alpha1.PruneSpec{
-			ScrubKeys: []string{collectedGenerationAnnotation},
-		},
 	}
 
+	// The scrubber carries the profile scrub rule the engine would merge from
+	// Export.Prune.ScrubKeys (engine.go:266); PruneResource itself only sees
+	// the *Scrubber, so that is where the denylist must be pinned.
 	got := PruneResource(obj, export, NewScrubber([]string{collectedGenerationAnnotation}))
 
 	annotations := embeddedAnnotationsOf(t, got)
