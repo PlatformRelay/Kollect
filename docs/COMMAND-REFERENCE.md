@@ -86,6 +86,7 @@ Run from repository root with [Task](https://taskfile.dev/). Full list: `task --
 | `task build` | Compile manager binary |
 | `task test` | Unit tests + envtest (race) |
 | `task lint` | golangci-lint |
+| `task check` | The full local gate: every required CI gate that runs locally + every `hack/test` guard in every mode, with the Docker/kind exclusions printed |
 | `task verify` | Codegen drift gate |
 | `task lint:markdown` | Markdownlint on `docs/` |
 

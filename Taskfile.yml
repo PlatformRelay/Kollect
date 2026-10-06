@@ -187,6 +187,11 @@ tasks:
     cmds:
       - bash hack/docs/verify.sh
 
+  check:
+    desc: Run the full local gate (everything CI requires that runs locally + every hack/test guard in every mode); see hack/check.sh for the exclusion table
+    cmds:
+      - bash hack/check.sh
+
   lint:shell:
     desc: Lint shell scripts with ShellCheck v0.11.0
     cmds:
