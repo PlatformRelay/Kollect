@@ -14,6 +14,7 @@ This is an OpenSpec repo (no `.specify/`); the spec set lives in `openspec/chang
 free internal models only, per the firstmate brief.
 
 ## Stages
+
 - [x] 0 orient — feature dir, what existed (proposal / spec delta / tasks, all present); branch and base recorded
 - [ ] P plan + tasks — skipped: present (authored when the change was proposed; re-verified not implemented: tasks.md all unchecked, both version pins still v2.11.4)
 - [x] R spec-set review — round 1 `reviews/R-spec-set/` on base: BLOCK, 9 CRITICALs verified (8 fixed in the spec set, 1 rejected as false) + 1 warning deferred; round 2 `reviews/R-spec-set-round2/` on aebb276b: 5/5 legs CONCERNS (unified BLOCK via the promote rule; no leg rated a CRITICAL itself), 8 findings — all mechanical, fixed below; two spec-set rounds spent, no further spec-set re-review per the round limit · CRITICAL: none surviving
@@ -37,6 +38,7 @@ This branch is version-only + lint-fix commits; the linter move itself is the fi
 findings count before (v2.11.4) vs after (v2.13.1) is the recorded measure (LTB-3).
 
 ## Triage
+
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
 | R | 1 LTB-1 pin-mismatch scenario delivered by no task (`\|\| true` custom-build downgrade; guard deferred to change 5) | CRITICAL | 4/7 | fix | scenario re-scoped to this change's pin-equality check; runtime guard stays change 5's | no |
@@ -82,26 +84,41 @@ so the round-2 re-review replaced the stop (logged 2026-10-06).
 - 9 the v2.11.4 "before" count was never produced: FIXED (task 1.1 records it first).
 
 ## Tasks
+
 | Task | Verdict | Review (legs, rounds) | Gaps / decision request |
 |---|---|---|---|
+| 1.1 probe | CLOSED | 1 diff leg DeepSeek-V4.1-Flash, round 1 — `reviews/L-tasks/1.1/` (CONCERNS; 1 WARNING verified, evidence fix, no round 2) | none |
 
 ## Known red
-(none)
+
+- Pre-existing at base `7825750b`: `task lint:markdown` — 7 errors (`loop.md:17,40,85,101,105`
+  MD032/MD058 + `task-prompt.md:10,33` MD032), verified by linting the committed files. The
+  loop.md half is fixed by the task-1.1 commit; `task-prompt.md` (orchestrator transcript)
+  deferred here. Not a feature red.
 
 ## Test changes
 (none)
 
 ## Lessons
 <!-- master list; __LESSONS__ is rendered from it -->
+- tooling (task 1.1): never read a long sensor log through `tail` — capture to a file, then
+  grep; a truncated finding list propagated a wrong count into evidence until review caught it.
+- tooling (task 1.1): after the custom-build `mv`, `bin/golangci-lint` is a plain file, so the
+  next `make golangci-lint` re-runs install + custom build (~40 s warm) instead of skipping.
+- tooling (task 1.1): golangci-lint `config verify` does not catch an unregistered module
+  plugin — the vanilla-build failure is at `run` start (exit 3, "plugin not found"); word the
+  structural proof accordingly.
 
 ## Where a human should look first
 <!-- filled at hand-off -->
 
 ## Proposed harness changes
+
 | Lesson | Seen in | Proposed change |
 |---|---|---|
 
 ## Owner tasks (skipped by the loop)
+
 | Task | Command sheet |
 |---|---|
 | 2.1 archive lands as PR's last commit | merged by the merge authority; PR must be green at that point |

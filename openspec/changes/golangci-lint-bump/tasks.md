@@ -2,7 +2,7 @@
 
 ## 1. Bump
 
-- [ ] 1.1 Probe (evidence: `evidence/probe.md`, raw output and exit codes for every command —
+- [x] 1.1 Probe (evidence: `evidence/probe.md`, raw output and exit codes for every command —
   do not rely on `task format:check`'s stderr-swallowed view): FIRST run `task lint` at the
   current pin (v2.11.4, `bin/golangci-lint` already built) and record its findings count as
   the before baseline; then in the working tree (uncommitted) set BOTH pins —
@@ -12,7 +12,7 @@
   validation on the custom logcheck linter — record that failure as probe evidence), then
   `task lint` and `task format:check`; record the findings count, any formatter drift, and
   `bin/golangci-lint version`; record the resolved `sigs.k8s.io/logtools` version the plugin
-  build used; revert both pins when done
+  build used; revert both pins when done — closed 2026-10-07, evidence: `evidence/1.1.md`
 - [ ] 1.2 Version-only commit: `Makefile` and `.custom-gcl.yml` together — the linter version
   in both sites, and the logcheck plugin pin (`version: latest` becomes the resolved version
   recorded by the probe)
