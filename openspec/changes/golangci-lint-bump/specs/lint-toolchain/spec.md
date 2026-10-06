@@ -14,7 +14,9 @@ equal and at least v2.13.1.
 #### Scenario: Custom build file lags
 
 - **WHEN** `Makefile` says v2.13.1 and `.custom-gcl.yml` says v2.11.4
-- **THEN** `task lint` SHALL fail or the change's check SHALL fail; the two never differ in a merged tree
+- **THEN** the change's pin-equality check (LTB-1: grep both files, diff) SHALL fail; the two
+  never differ in a merged tree. A runtime `task lint` failure on mismatch is the drift guard
+  of change 5 (developer-toolchain-pins), not this change's.
 
 ### Requirement: LTB-2 A bump does not loosen the linter
 
@@ -29,14 +31,19 @@ The bump SHALL NOT add a disabled linter or a blanket exclusion to `.golangci.ya
 #### Scenario: Findings fixed
 
 - **WHEN** v2.13.1 reports new findings
-- **THEN** each is fixed or justified in its own commit, separate from the version-only commit
+- **THEN** each is fixed or justified in commits separate from the version-only commit
+  (grouped when one rule produces many findings); every new `//nolint` or exclusion carries a
+  reason on the same or preceding line
 
 ### Requirement: LTB-3 The bump is observable
 
-The version-only commit SHALL leave `task lint` runnable, and the review record SHALL state the
-findings count before and after.
+The version-only commit SHALL leave `task lint` runnable — the linter binary starts and reports
+its findings (exit may be non-zero until task 1.3 lands) — and the review record SHALL state the
+findings count before and after, with the number fixed and the number justified, and the version
+the executed binary reports.
 
 #### Scenario: Findings count recorded
 
 - **WHEN** the change is reviewed
-- **THEN** the record shows the count under v2.13.1 and the number fixed or justified
+- **THEN** the record shows the count under v2.13.1 and the number fixed or justified, and the
+  executed binary's reported version matches the pin

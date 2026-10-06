@@ -12,7 +12,8 @@ linter to absorb them.
 
 - Raise golangci-lint to v2.13.1 in `Makefile` and `hack/tooling/.custom-gcl.yml` together
   (version-only commit).
-- Fix each new finding, or justify it in `.golangci.yaml` with a reason, in separate commits.
+- Fix each new finding, or justify it in `.golangci.yaml` with a reason, in commits separate
+  from the version-only commit (grouped when one rule produces many findings).
 
 ## Capabilities
 
