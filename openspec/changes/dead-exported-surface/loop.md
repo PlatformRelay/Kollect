@@ -14,7 +14,7 @@
 | --- | --- |
 | P plan+tasks | done — spec set committed `af6c58f5` (proposal.md, tasks.md, .openspec.yaml skip_specs) |
 | R spec-set review | done — round 1 BLOCK (3 CRITICALs, all code-verified, fixed, commit `92360d72`); round 2 CONCERNS 6/6 legs, no CRITICAL: 8 findings fixed in the spec set (commit below), 1 WARNING rejected with reason (below). Two rounds used; loop continues per the no-CRITICAL gate |
-| L task loop | running — T1 CLOSED (commit `824b3ba3`, review APPROVE 2/2 free legs); T2 CLOSED (review CONCERNS→fixed wording, see task log); T3 next |
+| L task loop | running — T1 CLOSED (`824b3ba3`, APPROVE), T2 CLOSED (`04a16ff1`, breaking-form commit, CONCERNS→fixed); T3 next |
 | B branch review | pending |
 | hand-off | pending |
 
@@ -77,6 +77,9 @@ widening is permitted: if a gate goes red, classify before touching anything.
 - The combined `internal/sink` + `internal/controller` suite needs a 900s+ timeout window. [T1]
 - Fanout diff legs need a committed diff range: the task commits its work, then amends only for evidence wording, keeping one logical commit. [T1]
 - `ResetBreakersForTest` is process-global; running breaker tests in parallel can flake — pre-existing, out of scope; proposed to the owner as a scoped reset. [T1]
+- Deleting importable `api/v1alpha1` symbols uses the Conventional `!` + `BREAKING CHANGE:` footer from the first commit (CONTRIBUTING.md; cliff routes it under Breaking Changes). [T2]
+- Never run `task changelog` locally to verify changelog rendering: git-cliff fetches api.github.com metadata (404 on unpushed commits) and its preview overwrites CHANGELOG.md. [T2]
+- Commit loop.md/task-prompt.md edits BEFORE dispatching the next task: a task subagent will sweep uncommitted state files into its own housekeeping commit. [T2]
 - Deleting importable `api/v1alpha1` symbols should commit as `type(scope)!:` + `BREAKING CHANGE:` footer from the first commit (CONTRIBUTING.md:100-104); cliff.toml routes it under Breaking Changes. [T2]
 - Never run `task changelog`/`bin/git-cliff` locally to verify rendering: it overwrites CHANGELOG.md (`output =` in cliff.toml) and, on unpushed commits, writes a truncated changelog when the GitHub-metadata fetch 404s. [T2]
 
