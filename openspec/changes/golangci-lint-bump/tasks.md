@@ -13,9 +13,9 @@
   `task lint` and `task format:check`; record the findings count, any formatter drift, and
   `bin/golangci-lint version`; record the resolved `sigs.k8s.io/logtools` version the plugin
   build used; revert both pins when done — closed 2026-10-07, evidence: `evidence/1.1.md`
-- [ ] 1.2 Version-only commit: `Makefile` and `.custom-gcl.yml` together — the linter version
+- [x] 1.2 Version-only commit: `Makefile` and `.custom-gcl.yml` together — the linter version
   in both sites, and the logcheck plugin pin (`version: latest` becomes the resolved version
-  recorded by the probe)
+  recorded by the probe) — closed 2026-10-07, evidence: `evidence/1.2.md`
 - [ ] 1.3 Fix or justify each new finding, one commit per group, no linter disabled; every new
   `//nolint` directive or exclusion carries a reason on the same or preceding line;
   `task lint` and `task format:check` clean; record in `evidence/1.3.md`: findings count

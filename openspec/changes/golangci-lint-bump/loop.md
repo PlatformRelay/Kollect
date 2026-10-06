@@ -88,13 +88,16 @@ so the round-2 re-review replaced the stop (logged 2026-10-06).
 | Task | Verdict | Review (legs, rounds) | Gaps / decision request |
 |---|---|---|---|
 | 1.1 probe | CLOSED | 1 diff leg DeepSeek-V4.1-Flash, round 1 — `reviews/L-tasks/1.1/` (CONCERNS; 1 WARNING verified, evidence fix, no round 2) | none |
+| 1.2 version-only commit | CLOSED | 2 diff legs DeepSeek-V4.1-Flash + Qwen3.8-Flash-Next, round 1 — `reviews/L-tasks/1.2/` (CONCERNS → APPROVE: 1 ERROR = pre-existing stale-target hazard, loop-deferred, both legs non-gating; 1 WARNING closed by `go version -m` pin verification) | none |
 
 ## Known red
 
-- Pre-existing at base `7825750b`: `task lint:markdown` — 7 errors (`loop.md:17,40,85,101,105`
-  MD032/MD058 + `task-prompt.md:10,33` MD032), verified by linting the committed files. The
-  loop.md half is fixed by the task-1.1 commit; `task-prompt.md` (orchestrator transcript)
-  deferred here. Not a feature red.
+- Feature red, owned by task 1.3: `task lint` at the v2.13.1 pin reports **57 findings**
+  (goconst 44 · gosec G710 ×1 · staticcheck SA1019 ×12) — recorded at the probe (probe.md §5),
+  reproduced class-for-class by task 1.2's gate run. LTB-3 defines runnable, not clean.
+- Cleared upstream during task 1.2: the 2 `task lint:markdown` errors in `task-prompt.md`
+  (deferred at task 1.1) were fixed by the orchestrator's `b26702e6` rewrite; `task
+  lint:markdown` now reports 0 issues. No markdown red remains.
 
 ## Test changes
 (none)
@@ -108,6 +111,14 @@ so the round-2 re-review replaced the stop (logged 2026-10-06).
 - tooling (task 1.1): golangci-lint `config verify` does not catch an unregistered module
   plugin — the vanilla-build failure is at `run` start (exit 3, "plugin not found"); word the
   structural proof accordingly.
+- tooling (task 1.2): `go version -m bin/golangci-lint` reads the resolved plugin module
+  version out of the custom binary — one-command proof that a plugin pin is what the build
+  used (proposed to change 5 as a DTP-3 companion check).
+- tooling (task 1.2): go-task 3.51.1 exits 201 for any failed task and prints the inner code
+  (`exit status 2`) only in the message — do not mix the two conventions across gate records.
+- tooling (task 1.2): the stale-`bin/golangci-lint`-target hazard also swallows pin-only
+  edits (make skips on an already-current binary); only `rm -f bin/golangci-lint*` + a fresh
+  build proves the committed pins produce the binary.
 
 ## Where a human should look first
 <!-- filled at hand-off -->
