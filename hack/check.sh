@@ -51,12 +51,13 @@ run_gate spec:validate task spec:validate
 run_gate audit-rbac task audit:rbac
 run_gate build task build
 run_gate helm task helm-test
-# preflight's module-graph half: the same tidy + verify + go.sum drift check the Preflight
-# workflow runs (its lint:markdown and verify halves are the gates above).
-run_gate go-mod bash -c 'go mod tidy && git diff --exit-code go.mod go.sum && go mod verify'
+# preflight's module-graph half: the same contract the Preflight workflow runs. `go mod tidy
+# -diff` reports the changes tidy WOULD make and exits non-zero when the module files drift,
+# without mutating the developer's tree (go mod verify then checks the sum integrity).
+run_gate go-mod bash -c 'go mod tidy -diff && go mod verify'
 run_gate gitleaks bash hack/install-gitleaks.sh ./bin
 # The same invocation shape as CI's gitleaks job (the checksum-pinned installer first).
-run_gate gitleaks-detect ./bin/gitleaks detect --source . --config .github/gitleaks.toml --redact --no-git
+run_gate gitleaks-detect ./bin/gitleaks detect --source . --config .github/gitleaks.toml --verbose --redact --no-git
 run_gate workflow-security bash hack/install-zizmor.sh ./bin
 # The pinned offline audit, same invocation as ci.yaml's workflow-security job.
 run_gate workflow-security-audit ./bin/zizmor --offline --no-progress --min-severity=high --config .github/zizmor.yml .github/
