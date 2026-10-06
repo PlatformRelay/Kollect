@@ -10,6 +10,11 @@ Contributor-runnable playbook for recording the **hero story** demos with
 | **A — Git-only** | ≤60s | `docs/assets/demo/hero-git-only.gif` (+ `.mp4`) | README teaser, docs index |
 | **B — Git + Postgres** | ~2–3 min | `docs/assets/demo/hero-git-postgres.mp4` (GIF optional) | QUICKSTART deep dive, examples |
 
+!!! note "Committed today"
+    `docs/assets/demo/` currently holds only `hero-git-only.mp4`. The `.gif` targets above and the
+    Variant B MP4 do **not** exist yet — this guide is the playbook that produces them (§7, §B.7);
+    §8 embeds them only after you record and commit them.
+
 > **Hero sentence:** *Your cluster, in Git, diffable.* Declare GVK + CEL in CRDs; when the cluster
 > changes, inventory commits change. `git log` is your audit trail; `git diff` is your drift report.
 

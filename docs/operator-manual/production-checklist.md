@@ -37,7 +37,7 @@ For install defaults, see [Operator manual](index.md).
 ### Per-team install (recommended default)
 
 Install one operator per tenant boundary with namespaced RBAC and a restricted informer cache
-([ADR-0203](../adr/0203-namespaced-multi-tenancy.md), ADR-0703 (archived)):
+([ADR-0203](../adr/0203-namespaced-multi-tenancy.md)):
 
 ```yaml
 # kollect-doc: ignore Helm values, not a kollect CR
@@ -90,7 +90,7 @@ canonical artifact; every sink is a projection of it.
 
 | Role | Backends | Answers | Deletes |
 | --- | --- | --- | --- |
-| **Snapshot store** | Git/GitLab, S3/GCS (`json` or `parquet`) | Current state, written whole each cycle | **Free** — absent from snapshot = deleted |
+| **Snapshot store** | Git/GitLab (`yaml`/`json`/`ndjson`), S3/GCS (`json`, `parquet`, `csv`) | Current state, written whole each cycle | **Free** — absent from snapshot = deleted |
 | **Relational SoR** | Postgres | Queryable current state, SQL joins for portals | Requires **delete reconciliation** |
 | **Event emitter** | NATS JetStream (lean default), Kafka/Redpanda | Change stream for downstream integration | Tombstone (consumer-owned) |
 

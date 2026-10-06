@@ -1,4 +1,4 @@
-description: KollectConnectionTestSpec defines a one-shot connectivity probe (ADR-0703).
+description: KollectConnectionTestSpec defines a one-shot connectivity probe (ADR-0403).
 properties:
   ownerSink:
     description: ownerSink sets an ownerReference to the sink when true (default).

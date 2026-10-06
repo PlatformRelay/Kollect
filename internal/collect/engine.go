@@ -466,7 +466,7 @@ func (e *Engine) HasAccessCheckFailure(targetNamespace, targetName string) bool 
 }
 
 // extractFailureState tracks resources currently failing attribute extraction for a target
-// (ADR-0020 ErrTerminal class — invalid CEL/JSONPath or per-resource evaluation error).
+// (ADR-0602 ErrTerminal class — invalid CEL/JSONPath or per-resource evaluation error).
 type extractFailureState struct {
 	resources map[string]struct{} // resource UID -> currently failing
 	lastErr   string

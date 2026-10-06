@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// formatCompletions lists the valid --format values (ADR-0802), default first.
+// formatCompletions lists the valid --format values (ADR-0801), default first.
 var formatCompletions = []string{
 	cobra.CompletionWithDesc("ndjson", "one compact JSON object per line (default)"),
 	cobra.CompletionWithDesc("yaml", "a ---separated multi-document YAML stream"),

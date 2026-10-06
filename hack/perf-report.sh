@@ -157,7 +157,7 @@ ${METRICS_LIST}
 | kollect_informer_objects growing | Prefer namespace-scoped targets; split profiles by GVK |
 | kollect_export_bytes_total spike | Lower churn or raise debounce; verify payload hash skip |
 
-See [docs/PERFORMANCE.md](../docs/PERFORMANCE.md) and [docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md).
+See [docs/operator-manual/performance.md](../docs/operator-manual/performance.md).
 EOF
 
 echo "Wrote ${SNAPSHOT}"

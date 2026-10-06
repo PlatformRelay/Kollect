@@ -26,7 +26,7 @@ unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDi
 | allowPrivateSinks | bool | `false` | NET-01 (SSRF opt-in, cluster-admin only). When true, sink endpoints may resolve to RFC1918 / IPv6-ULA (in-cluster ClusterIP) addresses at both admission and dial time — for exporting to in-cluster Postgres/MinIO/NATS. Default false (deny). Loopback, link-local, cloud-metadata, and file:// stay denied even when enabled. Enabling widens SSRF reach to RFC1918/VPC peers reachable from the manager pod: a principal who can create/edit sink CRs can then aim connection-tests/exports at those targets. Enable only in private clusters with trusted sink-CR authors. This is NOT a per-tenant/CRD field. |
 | allowSecretRefNamespaces | list | `[]` | K-04 (cross-namespace secretRef opt-in, cluster-admin only). Namespaces that a family sink (KollectSnapshotSink/KollectDatabaseSink/KollectEventSink) may reference from another namespace via spec.secretRef, spec.tls.caSecretRef, spec.git.auth.secretRef or a per-backend secretRef/databaseRef. Empty (default) rejects every cross-namespace Secret reference at admission, closing the confused-deputy path where a namespaced sink author makes the manager present another namespace's Secret to an attacker endpoint. List only namespaces whose Secrets any sink author is trusted to read. This is NOT a per-tenant/CRD field. |
 | controller.collectDispatchQueueSize | int | `512` | Collection informer dispatch queue depth. |
-| controller.collectDispatchWorkers | int | `4` | Collection informer dispatch worker count (PERF-03). |
+| controller.collectDispatchWorkers | int | `4` | Collection informer dispatch worker count (NFR-PERF-6). |
 | controller.collectMetricsSampleInterval | string | `"30s"` |  |
 | controller.informerResyncPeriod | string | `"12h"` |  |
 | controller.maxConcurrentReconciles.inventory | int | `3` | Max concurrent reconciles for KollectInventory. |
@@ -113,7 +113,7 @@ Critical values are validated by [`values.schema.json`](values.schema.json); CI 
 
 **Golden path:** platform cluster-wide operator + namespaced `KollectScope` per tenant.
 **Team path:** supported with namespace-scoped reconciler RBAC — see
-[Team-owned operator (minimal RBAC)](../../docs/deployment/team-operator.md).
+[Team-owned operator (minimal RBAC)](../../docs/examples/team-operator.md).
 
 Helm profile: [`values-minimal-rbac.yaml`](values-minimal-rbac.yaml)
 
@@ -146,7 +146,7 @@ Portal read path: **Postgres or event sink export** (or Git snapshot for audit).
 Fleet scale uses **one operator per cluster** writing to a **shared sink** (Postgres, Git, S3/GCS,
 Kafka). Label exports with **`spec.cluster`** on each `KollectInventory` so the sink can merge rows
 from many clusters ([ADR-0501](../../docs/adr/0501-multi-cluster-fleet.md),
-[fleet scaling](../../docs/operator-manual/scaling-and-fleet.md)).
+[fleet scaling](../../docs/operator-manual/performance.md)).
 
 ```yaml
 # Each cluster — same chart, different release/namespace as needed

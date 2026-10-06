@@ -36,7 +36,7 @@ func FormatInitTrialKubectlApplyCmd(configDir string) string {
 }
 
 // FormatInitTrialScreen builds the completion-screen text: exact trial commands plus a
-// clearly-marked copyable kubectl apply as future guidance only (ADR-0802 §7).
+// clearly-marked copyable kubectl apply as future guidance only (ADR-0801).
 func FormatInitTrialScreen(configDir string) string {
 	var b strings.Builder
 	b.WriteString("\nTrial the result\n")

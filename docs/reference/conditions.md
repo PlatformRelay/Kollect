@@ -8,6 +8,8 @@ Conditions describe the latest observed generation; use them with Events and con
 | `ConnectionVerified` | An explicit sink connectivity probe succeeded. |
 | `SinkReachable` | The inventory can currently resolve and use its referenced sink. |
 | `Synced` | The latest observed inventory was exported successfully. |
+| `ExportSucceeded` | Set on `KollectClusterInventory` per export pass: `True` (`Exported`) when every referenced sink exported, `True` (`PartiallySynced`) when some did, `False` when the export failed. Cluster inventories only. |
+| `TLSInsecure` | Set on a family sink while `spec.tls.insecureSkipVerify` is `true`; removed when the field is unset. Present only when TLS certificate verification is disabled — dev use, never production. |
 | `Degraded` | A terminal or partial failure needs attention. |
 
 **`KollectTarget` `Ready.lastTransitionTime` is not a flap signal.** The `Ready` message restates

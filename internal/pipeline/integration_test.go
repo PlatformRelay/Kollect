@@ -120,7 +120,7 @@ func TestPipelineCLI_collectAndWrite(t *testing.T) {
 	assertEnvelope(t, ingressFile, "")
 }
 
-// TestPipelineCLI_collectToStdout is the L2 integration counterpart for stdout export (ADR-0802,
+// TestPipelineCLI_collectToStdout is the L2 integration counterpart for stdout export (ADR-0801,
 // REQ-PIPE-02). It drives the same RunAllContexts wiring against a live envtest API server but with
 // the stdout sink (ResolveSink(-)), then asserts the per-context records the CLI would stream —
 // exercising the runOneContext stdout branch (CollectStdoutRecords) end to end and confirming the

@@ -14,7 +14,7 @@ type CatalogEntry struct {
 }
 
 // Catalog lists perf-related kollect metrics with help strings agents can grep.
-// Keep in sync with metrics.go Register() and docs/PERFORMANCE.md.
+// Keep in sync with metrics.go Register() and docs/operator-manual/performance.md.
 var Catalog = []CatalogEntry{
 	{
 		Name:       "kollect_inventory_items_total",
@@ -198,9 +198,9 @@ var Catalog = []CatalogEntry{
 		Name:       "kollect_custom_resource_series",
 		Type:       "gauge",
 		Labels:     []string{"profile", "gvk", "series"},
-		Help:       "Domain metric series from collected custom resources (ADR-0304 Phase 4 stub).",
+		Help:       "Domain metric series from collected custom resources (spec.metrics paths).",
 		PromQLHint: "sum by (profile, gvk, series) (kollect_custom_resource_series)",
-		AgentHint:  "Phase 4 KSM-style paths; misconfigured series names explode cardinality.",
+		AgentHint:  "Wired per snapshot; misconfigured series names explode cardinality.",
 	},
 	{
 		Name:       "kollect_custom_resource_labeled_series",

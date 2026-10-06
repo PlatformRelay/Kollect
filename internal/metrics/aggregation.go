@@ -19,17 +19,19 @@ type MetricPathSpec struct {
 }
 
 // CustomResourceSeries exposes domain gauges derived from collected custom resources.
-// Wired to the collection engine in Phase 4; registered now for catalog and scrape stability.
+// Wired to the collection engine: collect/metrics_snapshot.go records a series per profile/GVK
+// for object_count and every spec.metrics[] path.
 var CustomResourceSeries = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "kollect_custom_resource_series",
-		Help: "Domain metric series from collected custom resources (ADR-0304 Phase 4 stub).",
+		Help: "Domain metric series from collected custom resources (spec.metrics paths).",
 	},
 	[]string{"profile", "gvk", "series"},
 )
 
 // RecordCustomResourceSeries sets one domain series value for a profile/GVK tuple.
-// Collection engine integration will call this when metric paths are configured.
+// The collection engine calls this per snapshot (collect/metrics_snapshot.go) and from the
+// labeled-attribute sampler.
 func RecordCustomResourceSeries(profile, gvk, series string, value float64) {
 	CustomResourceSeries.WithLabelValues(profile, gvk, series).Set(value)
 }

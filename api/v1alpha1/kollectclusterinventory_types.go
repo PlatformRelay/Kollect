@@ -14,7 +14,7 @@ const (
 )
 
 // KollectClusterInventorySpec defines platform-wide rollup across KollectClusterTarget objects
-// (ADR-0703). Reconciled by KollectClusterInventoryReconciler.
+// (ADR-0201). Reconciled by KollectClusterInventoryReconciler.
 type KollectClusterInventorySpec struct {
 	// profileRef optionally overrides the rollup extraction schema with a namespaced
 	// KollectProfile by name and namespace (ADR-0208). namespace is required when set.

@@ -29,7 +29,7 @@ Critical values are validated by [`values.schema.json`](values.schema.json); CI 
 
 **Golden path:** platform cluster-wide operator + namespaced `KollectScope` per tenant.
 **Team path:** supported with namespace-scoped reconciler RBAC — see
-[Team-owned operator (minimal RBAC)](../../docs/deployment/team-operator.md).
+[Team-owned operator (minimal RBAC)](../../docs/examples/team-operator.md).
 
 Helm profile: [`values-minimal-rbac.yaml`](values-minimal-rbac.yaml)
 
@@ -62,7 +62,7 @@ Portal read path: **Postgres or event sink export** (or Git snapshot for audit).
 Fleet scale uses **one operator per cluster** writing to a **shared sink** (Postgres, Git, S3/GCS,
 Kafka). Label exports with **`spec.cluster`** on each `KollectInventory` so the sink can merge rows
 from many clusters ([ADR-0501](../../docs/adr/0501-multi-cluster-fleet.md),
-[fleet scaling](../../docs/operator-manual/scaling-and-fleet.md)).
+[fleet scaling](../../docs/operator-manual/performance.md)).
 
 ```yaml
 # Each cluster — same chart, different release/namespace as needed

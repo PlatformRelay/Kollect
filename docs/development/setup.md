@@ -404,7 +404,7 @@ make deploy IMG=ghcr.io/platformrelay/kollect:dev
 ### Sample CRs vs controller maturity
 
 Controllers reconcile namespaced and cluster-scoped inventory CRs today — see
-[getting-started/install.md](../ROADMAP.md) for phase-level status. Applying samples validates
+[ROADMAP.md](../ROADMAP.md) for phase-level status. Applying samples validates
 CRD schema, webhook rules, and end-to-end export when sinks are configured.
 
 ## Documentation site (MkDocs)

@@ -11,14 +11,22 @@ repo: github.com/platformrelay/kollect
 resources:
 - api:
     crdVersion: v1
+  controller: true
   domain: kollect.dev
-  kind: KollectProfile
+  kind: KollectClusterInventory
   path: github.com/platformrelay/kollect/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
   domain: kollect.dev
-  kind: KollectSink
+  kind: KollectClusterScope
+  path: github.com/platformrelay/kollect/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+  controller: true
+  domain: kollect.dev
+  kind: KollectClusterTarget
   path: github.com/platformrelay/kollect/api/v1alpha1
   version: v1alpha1
 - api:
@@ -26,7 +34,23 @@ resources:
     namespaced: true
   controller: true
   domain: kollect.dev
-  kind: KollectTarget
+  kind: KollectConnectionTest
+  path: github.com/platformrelay/kollect/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kollect.dev
+  kind: KollectDatabaseSink
+  path: github.com/platformrelay/kollect/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kollect.dev
+  kind: KollectEventSink
   path: github.com/platformrelay/kollect/api/v1alpha1
   version: v1alpha1
 - api:
@@ -35,6 +59,36 @@ resources:
   controller: true
   domain: kollect.dev
   kind: KollectInventory
+  path: github.com/platformrelay/kollect/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: kollect.dev
+  kind: KollectProfile
+  path: github.com/platformrelay/kollect/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: kollect.dev
+  kind: KollectScope
+  path: github.com/platformrelay/kollect/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kollect.dev
+  kind: KollectSnapshotSink
+  path: github.com/platformrelay/kollect/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kollect.dev
+  kind: KollectTarget
   path: github.com/platformrelay/kollect/api/v1alpha1
   version: v1alpha1
 version: "3"
