@@ -430,6 +430,16 @@ jobs:
         run: bash hack/test/ci_workflow_security_test.sh
       - name: Verify the workflow-security gate can still fail (CWS-7)
         run: bash hack/test/ci_workflow_security_test.sh --self-test
+      # TCE-1..TCE-4 (openspec change task-check-entrypoint): the guard pins task check's
+      # wiring -- hack/check.sh runs every required gate that can run locally, sweeps the
+      # hack/test guards in every mode via the glob, and prints the exclusions with reasons.
+      # Plain and --self-test as separate steps (TCE-4), same convention as the CWS-7 gate
+      # above: the first reds when the wiring drifts, the second when the gate can no longer
+      # fail. hack/test/task_check_test.sh enforces this wiring in both directions.
+      - name: Verify the task check gate wiring (TCE-1..TCE-4)
+        run: bash hack/test/task_check_test.sh
+      - name: Verify the task check gate can still fail (TCE-4)
+        run: bash hack/test/task_check_test.sh --self-test
       # CWS-6: this guard asserted its scenario's wiring from the nightly and extended e2e
       # suites, neither of which is a required check -- so its verdict never gated a merge and
       # a PR could silently break the finalizer-cleanup e2e scenario it pins. The lint job is

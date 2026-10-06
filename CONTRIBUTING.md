@@ -33,8 +33,14 @@ duplicate prose across them.
 [Changelog and releases](#changelog-and-releases)). `main` requires green **`preflight`** and
 **`test`** CI checks and linear history.
 
-**Local preflight** (before opening a PR): `task lint` · `task coverage` · `task coverage:race`
-(recommended) · `task verify` · `task scrub` · `gitleaks protect --staged --no-banner`. Technical gate
+**Local preflight** (before opening a PR): `task check` — the full local gate, one command: it
+runs everything CI requires that can run locally (verify, lint, unit tests, vulncheck, scrub,
+the shell and markdown lints, spec validation, gitleaks, the helm and RBAC audits, the build,
+the workflow-security audit and every `hack/test` guard in every mode) and prints the
+Docker/kind-dependent gates it leaves out, each with its reason (`task test-integration`,
+`task docker:build` and the e2e-smoke scenarios stay separate). Individually:
+`task lint` · `task coverage` · `task coverage:race` (recommended) · `task verify` · `task
+scrub` · `gitleaks protect --staged --no-banner`. Technical gate
 details: [coding-standards.md § Pull request and CI gates](docs/development/coding-standards.md#pull-request-and-ci-gates).
 
 ## Commit messages
