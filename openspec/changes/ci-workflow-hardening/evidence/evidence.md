@@ -8,22 +8,29 @@ was run against the branch tip, not against main.
 Plain mode against the branch tree: all CWS-1..CWS-6 assertions green
 (`All workflow-security meta-tests passed.`).
 
-`--self-test` (CWS-7): no-op control green, 19 mutants each rejected with the exact message of
+`--self-test` (CWS-7): no-op control green, 33 mutants each rejected with the exact message of
 the assertion the mutation was built to trip:
 
 - CWS-1: audit without `--offline`; loosened `--min-severity`; renamed config; scope narrowed
   to `workflows/`; job with `if` (skip switch); job deleted; install step without the version
-  pin — all rejected with the pinned-invocation / skip-switch / version-pin messages.
-- CWS-2: bare suppression appended under `rules:` → rejected naming the missing comment.
+  pin; install step swapped for `pipx`; audit step with a `shell:` override; install step with
+  a second env binding (KOLLECT_FORCE_SHA256) — all rejected with the pinned-invocation /
+  skip-switch / version-pin messages.
+- CWS-2: bare suppression appended under `rules:`; inline `# zizmor: ignore[...]` in a
+  workflow — each rejected naming the missing comment or the unreviewed inline suppression.
 - CWS-3: `if` dropped (not PR-only), `fail-on-severity: critical` without `# why:`,
-  `deny-licenses` used, `dependency-review` added to release eligibility → each rejected.
+  `deny-licenses` used, `warn-only` used, job-level `continue-on-error`,
+  `dependency-review` added to release eligibility → each rejected.
 - CWS-4: group keyed by `github.ref`; group without the `github.workflow` prefix;
   `cancel-in-progress: true` → each rejected with the exact-expression message.
 - CWS-5: `push` trigger deleted; push branch moved off `main`; `workflow-security` dropped
   from `verify-eligibility.sh` → each rejected.
 - CWS-6: guard run only from a non-required job; a `--self-test` mode parsed but never
-  invoked; this meta-test's own lint wiring removed → each rejected with the message naming
-  the script and mode.
+  invoked; this meta-test's own lint wiring removed; a guard invoked from a composite action
+  → each rejected with the message naming the script and mode.
+- Schema ratchet: a dangling name-only step (run and uses both absent — GitHub rejects the
+  whole workflow at load) → rejected. Added after the round-one review found exactly this
+  defect in ci.yaml.
 
 Pre-wiring red (task 1.1's "watch it fail on the missing wiring"): before the lint wiring
 existed, the gate reds with `FAIL: CWS-6: this meta-test (hack/test/ci_workflow_security_test.sh)

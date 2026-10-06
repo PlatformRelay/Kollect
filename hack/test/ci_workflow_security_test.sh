@@ -134,11 +134,26 @@ cws1_job() {
     fail "CWS-1: the workflow-security job has ${n} step(s), expected at least 3 (checkout, install, audit)"
   for ((i = 0; i < n; i++)); do
     for key in $(yq eval ".jobs[\"workflow-security\"].steps[${i}] | keys | join(\" \")" "${CI}"); do
-      if ! in_allowlist "${key}" name run uses with env shell; then
-        fail "CWS-1: step ${i} of the workflow-security job declares '${key}', which is not one of (name run uses with env shell) -- an 'if' or 'continue-on-error' here is a skip switch, and a 'timeout-minutes: 0' or 'strategy' can remove the gate without any assertion below noticing"
+      if ! in_allowlist "${key}" name run uses with env; then
+        fail "CWS-1: step ${i} of the workflow-security job declares '${key}', which is not one of (name run uses with env) -- an 'if' or 'continue-on-error' here is a skip switch, 'shell' can replace the audit body with 'true {0}' so the job passes without zizmor running, and a 'timeout-minutes: 0' or 'strategy' can remove the gate without any assertion below noticing"
       fi
     done
+    # Only the reviewed env binding may exist on a workflow-security step: anything else (for
+    # example KOLLECT_FORCE_SHA256, which hack/install-zizmor.sh honours to override the pinned
+    # digest) is a skip switch the spec's CWS-1 scenario names.
+    for key in $(yq eval ".jobs[\"workflow-security\"].steps[${i}].env // {} | keys | join(\" \")" "${CI}"); do
+      [[ "${key}" == "ZIZMOR_VERSION" ]] ||
+        fail "CWS-1: step ${i} of the workflow-security job declares env '${key}', which is not ZIZMOR_VERSION -- a second binding here is a skip switch (KOLLECT_FORCE_SHA256 overrides the pinned digest; any other var can short-circuit the audit)"
+    done
   done
+  local install_idx install_body install_stripped
+  install_idx="$(yq eval '.jobs["workflow-security"].steps | to_entries[] | select(.value.run != null) | select(.value.run | test("install-zizmor.sh")) | .key' "${CI}")"
+  [[ -n "${install_idx}" ]] ||
+    fail "CWS-1: no workflow-security step runs hack/install-zizmor.sh -- a gate installed any other way (pipx, a stub on GITHUB_PATH) is not the gate that was reviewed"
+  install_body="$(yq eval ".jobs[\"workflow-security\"].steps[${install_idx}].run" "${CI}")"
+  install_stripped="$(strip_comments "${install_body}" | tr -s ' \n' ' ' | sed -e 's/[[:space:]]*$//')"
+  [[ "${install_stripped}" == "bash hack/install-zizmor.sh \"\${RUNNER_TEMP}\" echo \"\${RUNNER_TEMP}\" >> \"\${GITHUB_PATH}\"" ]] ||
+    fail "CWS-1: the workflow-security install step must run exactly 'bash hack/install-zizmor.sh \"\${RUNNER_TEMP}\"' then add the dir to GITHUB_PATH; got '${install_stripped}' -- the reviewed installer is the only thing that may put zizmor on PATH"
   persist="$(yq eval '.jobs["workflow-security"].steps[] | select(.uses != null) | select(.uses | test("actions/checkout")) | .with."persist-credentials"' "${CI}")"
   [[ "${persist}" == "false" ]] ||
     fail "CWS-1: the workflow-security checkout must set persist-credentials: false -- the audit is offline and needs no token, so a persisted one is an exfiltration surface with no purpose"
@@ -188,9 +203,12 @@ cws1_version_pin() {
 # --- CWS-2: suppressions are justified ---------------------------------------
 
 cws2_suppressions() {
-  # A suppression is any non-comment, non-blank line under `rules:`. Each one must be preceded
-  # by a comment line stating why it is safe. With `rules: {}` there is nothing to check,
-  # which is why the config carries that exact spelling.
+  # A suppression is a LIST ITEM under `rules:` (zizmor.yml's shape: rule → ignore: → list of
+  # locations). Each suppression must be preceded by a comment line stating why it is safe.
+  # Rule keys and the `ignore:` key are structure, not suppressions, so they need no comment
+  # of their own -- but every uncommented location entry under them is one suppression.
+  # With `rules: {}` there is nothing to check, which is why the config carries that exact
+  # spelling.
   awk '
     BEGIN { in_rules = 0; prev = "" }
     /^rules:/ {
@@ -201,22 +219,37 @@ cws2_suppressions() {
     in_rules && /^[[:space:]]*$/ { next }
     in_rules && /^[[:space:]]*#/ { prev = $0; next }
     in_rules {
-      if (prev !~ /^[[:space:]]*#/) {
-        printf "FAIL: CWS-2: suppression `%s` in .github/zizmor.yml has no comment directly above it stating why it is safe -- every suppression is a reviewed exception, and the config file itself names this gate as the enforcer\n", $0
-        exit 1
+      if ($0 ~ /^[[:space:]]+-[[:space:]]/) {
+        if (prev !~ /^[[:space:]]*#/) {
+          printf "FAIL: CWS-2: suppression `%s` in .github/zizmor.yml has no comment directly above it stating why it is safe -- every suppression is a reviewed exception, and the config file itself names this gate as the enforcer\n", $0
+          exit 1
+        }
+        prev = ""
+        next
       }
       prev = ""
     }
   ' "${ZIZMOR_CFG}"
+  # Inline suppressions count too: `# zizmor: ignore[...]` in any workflow or action silences
+  # a finding zizmor would report, and none of them is reviewed unless the config lists it.
+  local inline_hit
+  inline_hit="$(grep -rn -- 'zizmor: ignore' "${ROOT}/.github/" 2>/dev/null | head -1 || true)"
+  if [[ -n "${inline_hit}" ]]; then
+    fail "CWS-2: inline zizmor suppression found at ${inline_hit%%:*} -- inline '# zizmor: ignore[...]' comments are not reviewed suppressions; a finding must be fixed or justified in .github/zizmor.yml where this gate can see it"
+  fi
   pass "CWS-2: every suppression in .github/zizmor.yml is commented with its justification (none exist, or each has one)"
 }
 
 # --- CWS-3: dependency-review ------------------------------------------------
 
 cws3_job() {
-  local present cond uses with_keys checkout_persist line prev
+  local present cond uses with_keys checkout_persist key keys line prev
   present="$(yq eval '.jobs | has("dependency-review")' "${CI}")"
   [[ "${present}" == "true" ]] || fail "CWS-3: ci.yaml has no dependency-review job"
+  for key in $(yq eval '.jobs["dependency-review"] | keys | join(" ")' "${CI}"); do
+    in_allowlist "${key}" name if runs-on steps ||
+      fail "CWS-3: the dependency-review job declares '${key}', which is not one of (name if runs-on steps) -- 'continue-on-error' or a 'timeout-minutes: 0' turns the job into a silent no-op that still reports green, which is the exact starvation CWS-6 exists to prevent"
+  done
   cond="$(yq eval '.jobs["dependency-review"].if' "${CI}")"
   [[ "${cond}" == "github.event_name == 'pull_request'" ]] ||
     fail "CWS-3: the dependency-review job's 'if' is '${cond}', expected github.event_name == 'pull_request' -- it must not run on main (a push event carries no base SHA to compare against) and must not be skippable on a PR"
@@ -229,8 +262,15 @@ cws3_job() {
   if in_allowlist "deny-licenses" ${with_keys}; then
     fail "CWS-3: deny-licenses is a deprecated input -- express the policy with allow-licenses (an allow-list ages well; a deny-list silently admits every new licence)"
   fi
+  if in_allowlist "warn-only" ${with_keys}; then
+    fail "CWS-3: warn-only turns dependency-review into an advisory -- the job must fail the PR on a finding, not annotate it"
+  fi
   if in_allowlist "fail-on-severity" ${with_keys}; then
-    line="$(grep -n 'fail-on-severity' "${CI}" | head -1 | cut -d: -f1)"
+    # Anchor on the dependency-review with-block line, not the first mention anywhere in the
+    # file (a comment mentioning the input further up must not satisfy the why-line).
+    line="$(grep -n '^[[:space:]]\+fail-on-severity:' "${CI}" | head -1 | cut -d: -f1)"
+    [[ -n "${line}" ]] ||
+      fail "CWS-3: fail-on-severity appears outside the dependency-review with: block -- set it there or remove it"
     prev=$((line - 1))
     sed -n "${prev}p" "${CI}" | grep -q '# why:' ||
       fail "CWS-3: fail-on-severity is set without a '# why:' line above it citing a measured trial -- raising the default threshold mutes exactly the findings the job exists to report"
@@ -303,10 +343,14 @@ cws6_required_set() {
   pass "CWS-6: the required set (${set_names}) lists lint, vulncheck, workflow-security and dependency-review"
 }
 
-# Every mode a guard script's code recognises: bare always; `--self-test` when a non-comment
-# line of the script mentions the flag. Existing guards run their self-tests unconditionally
-# at the bottom, so the flag detection only fires for scripts that actually parse it. One
-# mode per line: the caller loops with `read -r mode`.
+# Every mode a guard script's code recognises: bare always, plus `--self-test` when a
+# non-comment line of the script mentions the flag. Deliberately NOT a generic flag parser:
+# guard scripts embed foreign command lines in their fixtures (a mocked `curl --fail ...`
+# in ci_fetch_lib_hardening_test.sh looks exactly like a mode), so a generic parse
+# false-positives. The spec's "any other mode" is therefore enforced for the one flag mode
+# the repo's convention uses (--self-test), and a script adopting a NEW flag mode must be
+# re-reviewed -- it will not be pinned by accident. One mode per line: the caller loops
+# with `read -r mode`.
 guard_modes() {
   echo bare
   if grep -v '^[[:space:]]*#' "${1}" 2>/dev/null | grep -q -- '--self-test'; then
@@ -329,6 +373,7 @@ cws6_guards() {
   : >"${invocations}"
 
   local yaml_file yq_out job jname nsteps sidx run_body line tok mode_token
+  local action_step action_nsteps action_line atok
   local yaml_files=()
   mapfile -t yaml_files < <(
     ls "${ROOT}"/.github/workflows/*.yaml \
@@ -337,7 +382,17 @@ cws6_guards() {
   )
   for yaml_file in "${yaml_files[@]}"; do
     # A composite action has runs: and no jobs:; a parse error is still a hard failure.
+    # A composite action can never be a required check, so a guard invoked from one would be
+    # invisible to every gate below -- fail loudly instead of skipping silently.
     if [[ "$(yq eval '.jobs | type' "${yaml_file}" 2>&1)" != *map ]]; then
+      action_nsteps="$(yq eval '.runs.steps // [] | length' "${yaml_file}")"
+      for ((action_step = 0; action_step < action_nsteps; action_step++)); do
+        action_line="$(yq eval ".runs.steps[${action_step}].run // \"\"" "${yaml_file}")"
+        while IFS= read -r atok; do
+          [[ -z "${atok}" ]] && continue
+          fail "CWS-6: composite action ${yaml_file#"${ROOT}"/} runs step ${action_step} which invokes ${atok} -- a composite action is not a job and can never be a required check, so a guard reached this way can never block a merge; invoke the guard from a required job instead"
+        done < <(guard_tokens_in_run "${action_line}")
+      done
       continue
     fi
     yq_out="$(yq eval '.jobs | keys | .[]' "${yaml_file}" 2>&1)" ||
@@ -351,9 +406,9 @@ cws6_guards() {
         run_body="$(yq eval ".jobs[\"${job}\"].steps[${sidx}].run // \"\"" "${yaml_file}")"
         while IFS= read -r line; do
           [[ -z "${line}" ]] && continue
+          mode_token="bare"
+          case "${line}" in *'--self-test'*) mode_token="--self-test" ;; esac
           for tok in $(guard_tokens_in_run "${line}"); do
-            mode_token="bare"
-            case "${line}" in *'--self-test'*) mode_token="--self-test" ;; esac
             printf '%s\t%s\t%s\n' "${tok}" "${mode_token}" "${jname}" >>"${invocations}"
           done
         done <<<"$(strip_comments "${run_body}")"
@@ -436,6 +491,38 @@ cws6_guards() {
 
 # --- the whole contract ------------------------------------------------------
 
+# Schema ratchet (added after the round-one review found a dangling name-only step in ci.yaml,
+# which GitHub rejects at load time and which every key allowlist happily accepted): every step
+# of every job, and of every composite action, must declare run or uses.
+schema_steps() {
+  local yaml_file ftype
+  local yaml_files=()
+  mapfile -t yaml_files < <(
+    ls "${ROOT}"/.github/workflows/*.yaml \
+      "${ROOT}"/.github/workflows/*.yml \
+      "${ROOT}"/.github/actions/*/action.yml 2>/dev/null || true
+  )
+  for yaml_file in "${yaml_files[@]}"; do
+    ftype="$(yq eval '.jobs | type' "${yaml_file}" 2>&1)" ||
+      fail "schema: cannot parse ${yaml_file#"${ROOT}"/}: ${ftype}"
+    if [[ "${ftype}" == *map ]]; then
+      mapfile -t jobkeys < <(yq eval '.jobs | keys | .[]' "${yaml_file}")
+      for job in "${jobkeys[@]}"; do
+        for sidx in $(seq 0 $(($(yq eval ".jobs[\"${job}\"].steps | length" "${yaml_file}") - 1))); do
+          has_run="$(yq eval ".jobs[\"${job}\"].steps[${sidx}].run != null" "${yaml_file}")"
+          has_uses="$(yq eval ".jobs[\"${job}\"].steps[${sidx}].uses != null" "${yaml_file}")"
+          if [[ "${has_run}" != "true" && "${has_uses}" != "true" ]]; then
+            fail "schema: step ${sidx} of job '${job}' in ${yaml_file#"${ROOT}"/} declares neither run nor uses -- GitHub rejects the whole workflow at load, so not one required context would ever report; a bare step header is a leftover from a bad edit and the workflow silently stops existing"
+          fi
+        done
+      done
+    else
+      :
+    fi
+  done
+  pass "schema: every step in every workflow and composite action declares run or uses"
+}
+
 check_all() {
   local root="$1"
   CI="${root}/.github/workflows/ci.yaml"
@@ -454,6 +541,7 @@ check_all() {
   cws5_eligibility
   cws6_required_set
   cws6_guards
+  schema_steps
 }
 
 SCRATCH=""
@@ -579,10 +667,28 @@ mutant_rejected "CWS-1 job removed" "has no workflow-security job" bash -c '
   fi
 '
 
-sed_mutant_rejected "CWS-1 install step without the version pin" "must pin ZIZMOR_VERSION" \
+sed_mutant_rejected "CWS-1 install step without the version pin" "is not ZIZMOR_VERSION" \
   ".github/workflows/ci.yaml" \
   's/ZIZMOR_VERSION: "1.30.1"/ZIZMOR_VERSION_REMOVED: "1.30.1"/' \
   "ZIZMOR_VERSION_REMOVED"
+
+# CWS-1 round-two ratchets: the install step may not be swapped out, and a workflow-security
+# step may not carry a shell override or a second env binding (skip switches).
+mutant_rejected "CWS-1 install step replaced" "no workflow-security step runs hack/install-zizmor.sh" bash -c '
+  set -euo pipefail
+  yq eval "(.jobs[\"workflow-security\"].steps[] | select(.run | test(\"install-zizmor.sh\")) | .run) = \"pipx install zizmor\"" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  grep -q "pipx install zizmor" .github/workflows/ci.yaml || { echo "mutant did not apply"; exit 1; }
+'
+
+yq_mutant_rejected "CWS-1 audit step with a shell override" "is a skip switch" \
+  ".github/workflows/ci.yaml" \
+  '.jobs["workflow-security"].steps[2].shell = "true {0}"' \
+  "shell: true {0}"
+
+yq_mutant_rejected "CWS-1 install step with a second env binding" "is a skip switch" \
+  ".github/workflows/ci.yaml" \
+  '.jobs["workflow-security"].steps[1].env.KOLLECT_FORCE_SHA256 = "e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1b"' \
+  "KOLLECT_FORCE_SHA256"
 
 # --- CWS-2 mutants: bare suppressions ----------------------------------------
 
@@ -590,6 +696,12 @@ mutant_rejected "CWS-2 bare suppression" "has no comment directly above it" bash
   set -euo pipefail
   perl -0pi -e "s/rules: \{\}/rules:\n  cache-poisoning:\n    ignore:\n      - .github\/workflows\/release.yaml/" .github/zizmor.yml
   grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
+'
+
+mutant_rejected "CWS-2 inline zizmor: ignore" "inline zizmor suppression" bash -c '
+  set -euo pipefail
+  perl -0pi -e "s/(run: bash hack\/test\/demo_task_aliases_test.sh)/\$1 # zizmor: ignore[template-injection]/" .github/workflows/ci.yaml
+  grep -q "zizmor: ignore" .github/workflows/ci.yaml || { echo "mutant did not apply"; exit 1; }
 '
 
 # --- CWS-3 mutants: the dependency-review job --------------------------------
@@ -613,6 +725,16 @@ sed_mutant_rejected "CWS-3 dependency-review added to release eligibility" "stru
   "hack/release/verify-eligibility.sh" \
   "s/^\([[:space:]]*\)gitleaks/\1dependency-review gitleaks/" \
   "dependency-review gitleaks"
+
+yq_mutant_rejected "CWS-3 warn-only dependency-review" "turns dependency-review into an advisory" \
+  ".github/workflows/ci.yaml" \
+  '.jobs["dependency-review"].steps[1].with["warn-only"] = "true"' \
+  "warn-only"
+
+yq_mutant_rejected "CWS-3 continue-on-error on dependency-review" "is not one of (name if runs-on steps)" \
+  ".github/workflows/ci.yaml" \
+  '.jobs["dependency-review"].continue-on-error = "true"' \
+  'continue-on-error: "true"'
 
 # --- CWS-4 mutants: the concurrency contract ---------------------------------
 
@@ -702,10 +824,24 @@ SH
 
 mutant_rejected "CWS-6 this gate not itself run by ci.yaml" "is not itself run by ci.yaml" bash -c '
   set -euo pipefail
-  yq eval "(.jobs.lint.steps |= map(select(.run | test(\"ci_workflow_security_test.sh\") | not)))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  yq eval "(.jobs.lint.steps |= map(select(.run // \"\" | test(\"ci_workflow_security_test.sh\") | not)))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
   if yq eval ".jobs.lint.steps | map(.run) | join(\" \")" .github/workflows/ci.yaml | grep -q "ci_workflow_security_test"; then
     echo "mutant did not apply"; exit 1
   fi
+'
+
+# schema ratchet: a name-only step (the round-one CRITICAL) must red the meta-test.
+mutant_rejected "schema dangling name-only step" "declares neither run nor uses" bash -c '
+  set -euo pipefail
+  yq eval ".jobs.lint.steps += {\"name\": \"dangling leftover step\"}" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  yq eval ".jobs.lint.steps[-1].name" .github/workflows/ci.yaml | grep -q "dangling leftover" || { echo "mutant did not apply"; exit 1; }
+'
+
+# CWS-6 ratchet: a guard invoked from a composite action can never be a required check.
+mutant_rejected "CWS-6 guard in a composite action" "is not a job and can never be a required check" bash -c '
+  set -euo pipefail
+  yq eval ".runs.steps += {\"name\": \"guard inside an action (mutant)\", \"run\": \"bash hack/test/dev_mise_pin_drift_test.sh\"}" .github/actions/go-cache/action.yml > m.yaml && mv m.yaml .github/actions/go-cache/action.yml
+  grep -q "dev_mise_pin_drift_test" .github/actions/go-cache/action.yml || { echo "mutant did not apply"; exit 1; }
 '
 
 echo "All workflow-security self-tests passed."

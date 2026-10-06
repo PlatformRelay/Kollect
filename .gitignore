@@ -92,3 +92,4 @@ __pycache__/
 
 # --- Spec Kit scaffolding (specify init); specs/ stays tracked, the tool scaffolding does not ---
 /.specify/
+**/reviews/**/*.err
