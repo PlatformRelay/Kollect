@@ -37,8 +37,9 @@ production path, which it is not.
 - Record the sweep's exclusions and their reasons (see Non-goals).
 
 No observable behaviour changes: every deleted symbol is unreachable from production entry
-points, so there is no behavioural red-first test to write. The per-task "red" is the recorded
-zero-caller probe; the green is a clean compile with the symbol gone.
+points, so there is no behavioural red-first test to write. Per-task evidence is the recorded
+zero-caller probe, a clean compile with the symbol gone, and the package suites; files behind
+a build tag are compiled with the tag on as part of the proof.
 
 ## Capabilities
 
@@ -80,10 +81,19 @@ None: independent of the ten in-flight tooling changes and of the docs lane
 
 ## Assumptions
 
-- Zero-caller probes are correct at this HEAD. Each task re-runs its own probe before deleting
-  and the compile after deletion is the backstop: a missed caller fails `go build ./...`.
-- Deleting the dead runner's tests loses no reachable coverage: production dispatches through
-  `RunExportEnvelope` (6 production references) and the controller export loops, which keep
-  their own suites. The deleted tests exercise only the unreachable `RunExportItems` path.
+- Zero-caller probes are correct at this HEAD. Each task re-runs its own probe (full output
+  recorded, never truncated) and the compile after deletion is the backstop: a missed caller
+  fails `go build ./...`; tagged files are caught by the tag-on vet each task records.
+- Deleting the dead runner's tests loses no reachable coverage, with one exception handled in
+  task 1.3: the two circuit-breaker tests drive the live `exportThroughBreaker` (production
+  `RunExportEnvelope`) through the dead runner and are migrated to the live path, keeping their
+  trip/reset assertions. Every other deleted test exercises only the unreachable
+  `RunExportItems` path; production dispatches through `RunExportEnvelope` (6 production
+  references) and the controller export loops, which keep their own suites.
 - The coverage floor holds because unreachable code and its tests leave together; the final
   tree is measured (`task coverage`), not assumed.
+- Deleting `ConditionConnected`/`ConditionCredentialsVerified` from the importable
+  `api/v1alpha1` package assumes no external consumer: the module is pre-1.0, the constants
+  have zero in-repo references (code, tests, docs, CRDs), and they were never wired to any
+  status write, so no consumer could have observed them in a shipped object. Recorded as an
+  accepted limit; the compile cannot prove the external half.
