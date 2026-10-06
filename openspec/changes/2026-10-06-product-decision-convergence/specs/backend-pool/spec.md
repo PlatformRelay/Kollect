@@ -5,16 +5,23 @@
 ### Requirement: BEP-1 Deleting a family sink evicts its pooled backend immediately
 
 When a `KollectSnapshotSink`, `KollectDatabaseSink` or `KollectEventSink` is deleted, the process
-pool SHALL drop the cached backend entry for that sink (by object UID, and by namespace/name when
-the entry is keyed that way) and Close it, instead of holding it for the idle TTL. Eviction is
-best-effort and idempotent: it SHALL NOT re-export, retract, or reconcile anything, and SHALL NOT
-fail when no entry is pooled.
+pool SHALL drop the cached backend entry for that sink's object UID and Close it, instead of
+holding it for the idle TTL. A backend whose build was still in flight when the delete event
+landed SHALL be discarded instead of pooled for the deleted sink (delete-tombstone), so eviction
+cannot be undone by the re-store race. Eviction is best-effort and idempotent: it SHALL NOT
+re-export, retract, reconcile or clean up anything, and SHALL NOT fail when no entry is pooled.
+An in-flight export that already holds the evicted backend may fail against it; the sink no
+longer exists and no new acquire SHALL rebuild an entry for that sink's UID.
 
-#### Scenario: Deleted sink's backend is closed promptly
+#### Scenario: Deleted sink's pooled entry is evicted and closed
 
 - **WHEN** a sink's backend is pooled (an export ran) and the sink object is then deleted
-- **THEN** the pool no longer holds an entry for that sink's UID and the backend's Close has run
-- **AND** no connection to the sink's backend endpoint outlives the deletion beyond the eviction call
+- **THEN** the pool no longer holds an entry for that sink's UID and the pooled backend's Close has run
+
+#### Scenario: In-flight build cannot re-pool after eviction
+
+- **WHEN** an acquire-build for a sink is in flight and the sink is deleted before the build's store lands
+- **THEN** the built backend is discarded, not pooled
 
 #### Scenario: Eviction without a pooled entry is a no-op
 

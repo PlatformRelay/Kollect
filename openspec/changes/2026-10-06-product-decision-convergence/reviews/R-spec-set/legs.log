@@ -1,0 +1,6 @@
+Qwen3.8-Flash-Next-adversarial exit=0 193s
+GLM-5.3-spec exit=0 214s
+Qwen3.8-Flash-Next-spec exit=0 228s
+Qwen3.8-2.4T-A95B-NVFP4-spec exit=0 503s
+DeepSeek-V4.1-Flash-spec exit=143 900s
+DeepSeek-V4.1-Flash-adversarial exit=143 900s

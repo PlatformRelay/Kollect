@@ -10,6 +10,8 @@ its appearance on an object that had none, and its removal after being set) as a
 the per-sink export debounce: the next reconcile SHALL export to every sink binding that would
 otherwise be debounced. After that export, the steady-state debounce SHALL resume unchanged: same
 content, same generation and no further change to the annotation SHALL debounce again as before.
+The annotation documentation SHALL scope the key to exactly the kinds whose reconcilers honour it
+(the two inventory kinds), not to "reconciled Kollect CRs" generally.
 
 #### Scenario: Changed annotation re-exports unchanged content
 
@@ -26,6 +28,11 @@ content, same generation and no further change to the annotation SHALL debounce 
 
 - **WHEN** the annotation changes on a `KollectClusterInventory`
 - **THEN** the same one-export bypass applies on the cluster export path
+
+#### Scenario: Preview does not report a debounce the export will not do
+
+- **WHEN** the annotation changes and a preview is rendered before the next export
+- **THEN** the preview does not report the affected bindings as debounced
 
 #### Scenario: Absence is a value, not a wildcard
 
