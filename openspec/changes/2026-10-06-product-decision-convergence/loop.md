@@ -1,7 +1,7 @@
 # Loop — 2026-10-06-product-decision-convergence
 
 Repo: `/Users/kheimel/.treehouse/kollect-79dca7/1/kollect` · Branch: `fm/kollect-product-decisions-impl` · Base: `3ee21266` (= `origin/main`) · Started: 2026-10-06 · Reviewers: fanout (free only)
-Next: L task loop — dispatch T01 via scripts/run-task.sh
+Next: L task loop — dispatch T02
 Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (session 2026-10-06–) · source: overlay default
 
 ## Stages
@@ -52,18 +52,24 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 ## Tasks
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
-| T01..T10 | <pending> | <pending> | <pending> |
+| T01 | CLOSED-WITH-GAPS (3 commits d67309bf, 066038ee, f8f643a5) | r1 2/2 legs (DeepSeek+QFN diff), r2 2/2 (GLM+QFN); all 7 findings verified+fixed; no Claude | gaps: full-suite + mutation deferred to T10; collect -count=2 flake pre-exists at base (owner) |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
 |---|---|---|---|
+| internal/controller/requested_at_annotation_test.go (6 tests) | ERA-1 | T01 | |
+| internal/collect/prune_collected_generation_test.go + dispatch test (4 tests incl. scrub-survival) | ERA-2 | T01 | |
 
 ## Test changes
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
 
 ## Lessons
-<!-- master list; __LESSONS__ renders from it -->
+- (T01) `go test -count>1` is rejected by the Ginkgo suites in internal/controller; the race gate there is -race -count=1 (matching hack/coverage.sh). Do not burn a correction on -count=2 for that package.
+- (T01) TestExtractHotPathBudget fails under full-package -race load and TestRecordLabeledMetricSeries_CapsCardinalityDeterministically under -count=2 (the latter at base too); rerun alone before classifying either.
+- (T01) Test-local contexts in internal/controller tests: name them `bg`, not `ctx` (govet shadow).
+- (T01) Fake client needs .WithStatusSubresource(...) for Status().Update on unregistered objects (controller-runtime v0.24.1).
+- (T01) PruneResource never reads Prune.ScrubKeys; the engine merges them into the *Scrubber (engine.go:266). A profile scrub rule reaches the stamp only through the scrubber argument.
 
 ## Where a human should look first
 <!-- filled at hand-off -->
