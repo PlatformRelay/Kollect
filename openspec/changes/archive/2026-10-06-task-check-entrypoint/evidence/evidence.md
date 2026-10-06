@@ -37,6 +37,7 @@ with a reason).
 
 `--self-test`: no-op control green; 8 mutants and one positive control, each rejected/passes with the exact message of the
 assertion the mutation was built to trip:
+
 - TCE-1 gate removed (`vulncheck` deleted from the run list) → the gate-list check reds
 - TCE-1 gate command swapped for a no-op (`run_gate verify true`) → the exact-command pin reds
 - TCE-1 guard sweep hard-coded (glob replaced by a single script) → the must-sweep-the-glob check reds
