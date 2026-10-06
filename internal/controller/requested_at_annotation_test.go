@@ -83,6 +83,7 @@ func newRequestedAtNamespacedHarness(
 	cl := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(sinkObj, inv, pgSecret).
+		WithStatusSubresource(inv).
 		Build()
 
 	recorder := &recordingBackend{}
@@ -360,12 +361,43 @@ func TestKollectClusterInventoryReconciler_requestedAt_presenceTransitions(t *te
 		t.Fatalf("absence→present (cluster path) = %d exported / %d debounced, want 1/0",
 			third.ExportedCount, third.DebouncedCount)
 	}
+	assertClusterSyncedAsForAnyExport(t, rec, inv, third)
 
 	inv.Annotations = nil
 	fourth := rec.exportClusterToSinks(bg, logr.Discard(), inv, invKey, sinkNS, items, checksum)
 	if fourth.ExportedCount != 1 || fourth.DebouncedCount != 0 {
 		t.Fatalf("present→absence (cluster path) = %d exported / %d debounced, want 1/0",
 			fourth.ExportedCount, fourth.DebouncedCount)
+	}
+}
+
+// assertClusterSyncedAsForAnyExport is the cluster-path twin of
+// assertSyncedAsForAnyExport: after the forced re-export the Synced condition
+// and requeue cadence read exactly as for any other cluster export.
+func assertClusterSyncedAsForAnyExport(
+	t *testing.T,
+	rec *KollectClusterInventoryReconciler,
+	inv *kollectdevv1alpha1.KollectClusterInventory,
+	outcome perSinkExportOutcome,
+) {
+	t.Helper()
+
+	result, err := rec.updateStatus(context.Background(), inv, 1, 1, outcome, nil)
+	if err != nil {
+		t.Fatalf("cluster updateStatus: %v", err)
+	}
+
+	synced := apimeta.FindStatusCondition(inv.Status.Conditions, kollectdevv1alpha1.ConditionSynced)
+	if synced == nil || synced.Status != metav1.ConditionTrue || synced.Reason != "Exported" {
+		t.Fatalf("cluster Synced condition after the forced export = %+v, want True/Exported as for any other export", synced)
+	}
+	if synced.Message != "exported to 1 sink(s)" {
+		t.Fatalf("cluster Synced message after the forced export = %q, want \"exported to 1 sink(s)\"", synced.Message)
+	}
+
+	if want := 5 * time.Minute; result.RequeueAfter != want {
+		t.Fatalf("cluster RequeueAfter after the forced export = %v, want %v (cadence stays as for any other export)",
+			result.RequeueAfter, want)
 	}
 }
 
