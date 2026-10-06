@@ -15,8 +15,8 @@ equal and at least v2.13.1.
 
 - **WHEN** `Makefile` says v2.13.1 and `.custom-gcl.yml` says v2.11.4
 - **THEN** the change's pin-equality check (LTB-1: grep both files, diff) SHALL fail; the two
-  never differ in a merged tree. A runtime `task lint` failure on mismatch is the drift guard
-  of change 5 (developer-toolchain-pins), not this change's.
+  never differ in a merged tree. A drift test red-flagging any mismatch is change 5's
+  (developer-toolchain-pins, DTP-3, which names both sites), not this change's.
 
 ### Requirement: LTB-2 A bump does not loosen the linter
 
@@ -47,3 +47,14 @@ the executed binary reports.
 - **WHEN** the change is reviewed
 - **THEN** the record shows the count under v2.13.1 and the number fixed or justified, and the
   executed binary's reported version matches the pin
+
+### Requirement: LTB-4 The plugin does not float
+
+The logcheck plugin's `version:` in `hack/tooling/.custom-gcl.yml` SHALL be a pinned release
+(not `latest`), recorded in the probe evidence, so the checker set does not drift between
+builds. The pin moves with the linter bump.
+
+#### Scenario: Plugin floats
+
+- **WHEN** the plugin block names `version: latest`
+- **THEN** the change's check SHALL fail; the resolved version is in the evidence
