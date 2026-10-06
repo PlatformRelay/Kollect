@@ -22,8 +22,8 @@
 | P plan+tasks | present (spec.md, plan.md, tasks.md) |
 | R spec-set review | done by earlier sessions; four review commits land on the spec set (886c5b98 independent review, b69f66ce round-two, 57981438 cold adversarial review, a1a300e1 post-merge verification status). Recorded per the skill's "already happened by other means" rule with commit hash a1a300e1; not repeated. |
 | L task loop | implementation resumed and finished in this session (meta-test 1.1/1.2 was missing — written and wired; all agent-owned tasks closed; 4.2 and 5.x are throwaway-PR/operator rows left open) |
-| B branch review | in progress — fanout-review register under `reviews/branch/` |
-| hand-off | push + PR (non-draft, per the firstmate brief; the skill's default draft rule is overridden by the task contract) |
+| B branch review | done — two rounds; round 1: 5/6 legs all BLOCK (one real CRITICAL, fixed + schema ratchet); round 2: 4/5 legs, both remaining CRITICALs fixed; rejections and deferrals recorded below |
+| hand-off | done — pushed and opened as a ready-for-review PR (non-draft, per the firstmate brief): https://github.com/PlatformRelay/Kollect/pull/450 |
 
 ## Fitness functions (inventory at orient)
 
