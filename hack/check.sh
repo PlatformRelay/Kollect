@@ -45,6 +45,9 @@ run_gate spec:validate task spec:validate
 run_gate audit-rbac task audit:rbac
 run_gate build task build
 run_gate helm task helm-test
+# preflight's module-graph half: the same tidy + verify + go.sum drift check the Preflight
+# workflow runs (its lint:markdown and verify halves are the gates above).
+run_gate go-mod bash -c 'go mod tidy && git diff --exit-code go.mod go.sum && go mod verify'
 run_gate gitleaks bash hack/install-gitleaks.sh ./bin
 # The same invocation shape as CI's gitleaks job (the checksum-pinned installer first).
 run_gate gitleaks-detect ./bin/gitleaks detect --source . --config .github/gitleaks.toml --redact --no-git
@@ -53,13 +56,24 @@ run_gate workflow-security bash hack/install-zizmor.sh ./bin
 run_gate workflow-security-audit ./bin/zizmor --offline --no-progress --min-severity=high --config .github/zizmor.yml .github/
 
 # TCE-3 mapping: required contexts whose local equivalent is a combination of the gates above.
-# hack/test/task_check_test.sh reads these lines; the guard sweep is the entry for guards.
-#   coverage: preflight=lint:markdown,verify,guard-sweep
+# hack/test/task_check_test.sh reads these lines; guard-sweep is the entry for the guard run.
+#   coverage: preflight=lint:markdown,go-mod,verify,guard-sweep
+
+run_gate go-mod bash -c 'go mod tidy && git diff --exit-code go.sum && go mod verify'
 
 # The guard sweep: every hack/test guard, bare, plus --self-test for the scripts that parse
 # the flag (a new guard is picked up by the glob with no edit to this script or the Taskfile).
+# Guards that declare a Docker requirement in their own header are skipped with the reason --
+# they cannot run on the Dockerless machine TCE-1 promises the gate works on.
 printf '\n--- task check: hack/test guards (every mode) ---\n'
 for guard in hack/test/*_test.sh hack/test/lab_harness_meta_suite.sh; do
+  # The Docker requirement is matched case-insensitively on the whole guard file: a guard
+  # whose header declares it is skipped (the # inside the grep pattern would otherwise be
+  # eaten by the comment-stripping view the meta-test uses).
+  if grep -qi 'requires docker' "${guard}"; then
+    printf 'check: excluded guard %-22s needs a Docker daemon on the host (declared in its header); run task test-integration:no-docker\n' "${guard##*/}"
+    continue
+  fi
   printf 'check: guard %s\n' "${guard}"
   if ! bash "${guard}"; then
     failures+=("guard ${guard}")

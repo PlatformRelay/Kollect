@@ -250,19 +250,6 @@ cws2_suppressions() {
       fail "CWS-2: suppressions in .github/zizmor.yml must be written in block style -- a flow-style rules map hides the entries from the line-level review this gate enforces; write the rule as a block with its justification comment directly above the key"
     fi
   fi
-  local rules_type flow_style key
-  rules_type="$(yq eval '.rules | type' "${ZIZMOR_CFG}" 2>&1)" ||
-    fail "CWS-2: cannot parse ${ZIZMOR_CFG}: ${rules_type}"
-  [[ "${rules_type}" == *map ]] || return 0
-  # A non-empty rules map must be block style: a flow-style rules value hides the entries
-  # from the line-level review this gate enforces. An EMPTY map (rules: {}) is fine and is
-  # why the config carries that exact spelling.
-  if [[ -n "$(yq eval '.rules | keys | .[]' "${ZIZMOR_CFG}")" ]]; then
-    flow_style="$(yq eval '.rules | style' "${ZIZMOR_CFG}")"
-    if [[ "${flow_style}" == "flow" ]]; then
-      fail "CWS-2: suppressions in .github/zizmor.yml must be written in block style -- a flow-style rules map hides the entries from the line-level review this gate enforces; write the rule as a block with its justification comment directly above the key"
-    fi
-  fi
   awk '
     BEGIN { in_rules = 0; prev = "" }
     /^rules:/ {
