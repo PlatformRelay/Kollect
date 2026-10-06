@@ -181,7 +181,7 @@ Hub/spoke federation and `kollect_hub_*` counters were **removed** with the hub 
 | Target labels | One series per **CR** (`target_namespace` + `target_name`), not per collected object |
 | Domain attribute labels | Webhook: max 5 label keys per `MetricSpec`; reject `name`/`namespace` unless allow-listed |
 | Operator budget | Document **soft cap** 10k active series per operator instance at baseline tier ([ADR-0603](0603-performance-scalability.md)); split profiles or reduce targets when exceeded |
-| HA | Only the **leader** pod runs collection reconcilers ([ADR-0706](0706-testing-merge-gate-architecture.md)) — `/metrics` on non-leader replicas expose Tier A only (controller-runtime defaults) unless documented otherwise |
+| HA | Only the **leader** pod runs collection reconcilers ([ADR-0104](0104-security-model.md)) — `/metrics` on non-leader replicas expose Tier A only (controller-runtime defaults) unless documented otherwise |
 
 Add a `kollect_metrics_series_estimated` internal gauge (optional implementation detail) for
 operators to alert on cardinality growth — not required for first ship.
