@@ -14,14 +14,12 @@ import (
 	"time"
 
 	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/storage/memory"
 )
 
 const (
@@ -34,15 +32,6 @@ const (
 type BranchSpec struct {
 	PushBranch  string
 	CloneBranch string
-}
-
-func Export(ctx context.Context, cfg Config, auth Auth, payload []byte, objectPath string) error {
-	commitCtx, ok := CommitContextFromContext(ctx)
-	if !ok {
-		commitCtx = CommitContextFromObjectPath(objectPath, cfg.Cluster)
-	}
-
-	return ExportWithBranch(ctx, cfg, auth, payload, objectPath, nil, commitCtx)
 }
 
 func ExportWithBranch(
@@ -583,44 +572,6 @@ func isEmptyRemote(err error) bool {
 	return strings.Contains(msg, "remote repository is empty") ||
 		strings.Contains(msg, "couldn't find remote ref") ||
 		strings.Contains(msg, "reference not found")
-}
-
-func ExportMemory(payload []byte, objectPath string) (plumbing.Hash, error) {
-	repo, err := git.Init(memory.NewStorage(), memfs.New())
-	if err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	wt, err := repo.Worktree()
-	if err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	validatedPath, err := validateObjectPath(objectPath)
-	if err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	objectPath = validatedPath
-	if objectPath == "" {
-		objectPath = defaultObjectKey
-	}
-
-	if err := wt.Filesystem.MkdirAll(filepath.Dir(objectPath), 0o755); err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	if err := util.WriteFile(wt.Filesystem, objectPath, payload, 0o644); err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	if _, err := wt.Add(objectPath); err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	return wt.Commit("test", &git.CommitOptions{
-		Author: &object.Signature{Name: "test", Email: "test@test", When: time.Now()},
-	})
 }
 
 func writeBillyExportFiles(fs billy.Filesystem, cfg Config, files []FileEntry) ([]string, error) {

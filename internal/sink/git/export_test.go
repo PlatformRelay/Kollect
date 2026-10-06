@@ -4,19 +4,28 @@
 package git
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v5/util"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage/memory"
 )
 
 func TestExportMemory(t *testing.T) {
 	t.Parallel()
 
-	hash, err := ExportMemory([]byte(`{"items":[]}`), "inventory/latest.json")
+	hash, err := exportMemory([]byte(`{"items":[]}`), "inventory/latest.json")
 	if err != nil {
-		t.Fatalf("ExportMemory() error = %v", err)
+		t.Fatalf("exportMemory() error = %v", err)
 	}
 
 	if hash.IsZero() {
@@ -27,9 +36,9 @@ func TestExportMemory(t *testing.T) {
 func TestExportMemory_emptyPathUsesDefaultObjectKey(t *testing.T) {
 	t.Parallel()
 
-	hash, err := ExportMemory([]byte(`{"items":[]}`), "")
+	hash, err := exportMemory([]byte(`{"items":[]}`), "")
 	if err != nil {
-		t.Fatalf("ExportMemory() error = %v", err)
+		t.Fatalf("exportMemory() error = %v", err)
 	}
 	if hash.IsZero() {
 		t.Fatal("expected non-zero commit hash")
@@ -39,7 +48,7 @@ func TestExportMemory_emptyPathUsesDefaultObjectKey(t *testing.T) {
 func TestExportMemory_rejectsTraversal(t *testing.T) {
 	t.Parallel()
 
-	if _, err := ExportMemory([]byte(`{"items":[]}`), "../escape.json"); err == nil {
+	if _, err := exportMemory([]byte(`{"items":[]}`), "../escape.json"); err == nil {
 		t.Fatal("expected error for path traversal")
 	}
 }
@@ -60,8 +69,8 @@ func TestExportFileRemote(t *testing.T) {
 	cfg := Config{Endpoint: endpoint}
 	payload := []byte(`{"hello":"world"}`)
 
-	if err := Export(t.Context(), cfg, Auth{}, payload, "inventory/test.json"); err != nil {
-		t.Fatalf("Export() error = %v", err)
+	if err := exportForTest(t.Context(), cfg, Auth{}, payload, "inventory/test.json"); err != nil {
+		t.Fatalf("exportForTest() error = %v", err)
 	}
 
 	cloneDir := filepath.Join(dir, "clone")
@@ -150,7 +159,7 @@ func TestExportFileRemoteCommitPolicyOnPopulatedRemote(t *testing.T) {
 	cfg := Config{Endpoint: endpoint, PushPolicy: PushPolicyCommit}
 	payload := []byte(`{"items":[{"uid":"u1"}]}`)
 
-	if err := Export(t.Context(), cfg, Auth{}, payload, "inventory/test.json"); err != nil {
+	if err := exportForTest(t.Context(), cfg, Auth{}, payload, "inventory/test.json"); err != nil {
 		t.Fatalf("export on populated remote: %v", err)
 	}
 
@@ -213,7 +222,7 @@ func TestExportFileRemoteForcePushResolvesNonFastForward(t *testing.T) {
 
 	endpoint := "file://" + bare
 	cfg := Config{Endpoint: endpoint, PushPolicy: PushPolicyCommit}
-	if err := Export(t.Context(), cfg, Auth{}, []byte(`{"base":true}`), "inventory/test.json"); err != nil {
+	if err := exportForTest(t.Context(), cfg, Auth{}, []byte(`{"base":true}`), "inventory/test.json"); err != nil {
 		t.Fatalf("seed export: %v", err)
 	}
 
@@ -266,7 +275,7 @@ func TestExportFileRemoteForcePushResolvesNonFastForward(t *testing.T) {
 	}
 
 	cfg.PushPolicy = PushPolicyForcePush
-	if err := Export(t.Context(), cfg, Auth{}, []byte(`{"export":"force"}`), "inventory/test.json"); err != nil {
+	if err := exportForTest(t.Context(), cfg, Auth{}, []byte(`{"export":"force"}`), "inventory/test.json"); err != nil {
 		t.Fatalf("ForcePush export: %v", err)
 	}
 
@@ -343,7 +352,7 @@ func TestExportGoGit_nonFastForwardCommitPolicy(t *testing.T) {
 
 	endpoint := "file://" + bare
 	cfg := Config{Endpoint: endpoint, PushPolicy: PushPolicyCommit}
-	if err := Export(t.Context(), cfg, Auth{}, []byte(`{"base":true}`), "inventory/test.json"); err != nil {
+	if err := exportForTest(t.Context(), cfg, Auth{}, []byte(`{"base":true}`), "inventory/test.json"); err != nil {
 		t.Fatalf("seed export: %v", err)
 	}
 
@@ -394,7 +403,7 @@ func TestExportGoGit_nonFastForwardCommitPolicy(t *testing.T) {
 	}
 
 	cfg.PushPolicy = PushPolicyCommit
-	if err := Export(t.Context(), cfg, Auth{}, []byte(`{"export":"merged"}`), "inventory/test.json"); err != nil {
+	if err := exportForTest(t.Context(), cfg, Auth{}, []byte(`{"export":"merged"}`), "inventory/test.json"); err != nil {
 		t.Fatalf("Commit policy export after divergence: %v", err)
 	}
 
@@ -412,4 +421,51 @@ func TestExportGoGit_nonFastForwardCommitPolicy(t *testing.T) {
 	if string(data) != `{"export":"merged"}` {
 		t.Fatalf("payload after merge recovery = %q", data)
 	}
+}
+
+func exportForTest(ctx context.Context, cfg Config, auth Auth, payload []byte, objectPath string) error {
+	commitCtx, ok := CommitContextFromContext(ctx)
+	if !ok {
+		commitCtx = CommitContextFromObjectPath(objectPath, cfg.Cluster)
+	}
+
+	return ExportWithBranch(ctx, cfg, auth, payload, objectPath, nil, commitCtx)
+}
+
+func exportMemory(payload []byte, objectPath string) (plumbing.Hash, error) {
+	repo, err := git.Init(memory.NewStorage(), memfs.New())
+	if err != nil {
+		return plumbing.ZeroHash, err
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return plumbing.ZeroHash, err
+	}
+
+	validatedPath, err := validateObjectPath(objectPath)
+	if err != nil {
+		return plumbing.ZeroHash, err
+	}
+
+	objectPath = validatedPath
+	if objectPath == "" {
+		objectPath = defaultObjectKey
+	}
+
+	if err := wt.Filesystem.MkdirAll(filepath.Dir(objectPath), 0o755); err != nil {
+		return plumbing.ZeroHash, err
+	}
+
+	if err := util.WriteFile(wt.Filesystem, objectPath, payload, 0o644); err != nil {
+		return plumbing.ZeroHash, err
+	}
+
+	if _, err := wt.Add(objectPath); err != nil {
+		return plumbing.ZeroHash, err
+	}
+
+	return wt.Commit("test", &git.CommitOptions{
+		Author: &object.Signature{Name: "test", Email: "test@test", When: time.Now()},
+	})
 }
