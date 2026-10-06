@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -221,6 +222,40 @@ func TestKollectInventoryReconciler_requestedAt_absenceToPresent(t *testing.T) {
 		t.Fatalf("absence→present = %d exported / %d debounced, want 1/0 "+
 			"(absence must count as a value)", third.ExportedCount, third.DebouncedCount)
 	}
+
+	assertSyncedAsForAnyExport(t, rec, inv, len(items), third)
+}
+
+// assertSyncedAsForAnyExport drives updateStatus and locks the "Absence is a
+// value, not a wildcard" clause: after the forced export the Synced condition
+// and requeue cadence read exactly as for any other successful export, not as
+// a special forced-sync marker.
+func assertSyncedAsForAnyExport(
+	t *testing.T,
+	rec *KollectInventoryReconciler,
+	inv *kollectdevv1alpha1.KollectInventory,
+	itemCount int,
+	outcome perSinkExportOutcome,
+) {
+	t.Helper()
+
+	result, err := rec.updateStatus(context.Background(), inv, itemCount, outcome)
+	if err != nil {
+		t.Fatalf("updateStatus: %v", err)
+	}
+
+	synced := apimeta.FindStatusCondition(inv.Status.Conditions, kollectdevv1alpha1.ConditionSynced)
+	if synced == nil || synced.Status != metav1.ConditionTrue || synced.Reason != "Exported" {
+		t.Fatalf("Synced condition after the forced export = %+v, want True/Exported as for any other export", synced)
+	}
+	if synced.Message != "exported to 1 sink(s)" {
+		t.Fatalf("Synced message after the forced export = %q, want \"exported to 1 sink(s)\"", synced.Message)
+	}
+
+	if want := 5 * time.Minute; result.RequeueAfter != want {
+		t.Fatalf("RequeueAfter after the forced export = %v, want %v (cadence stays as for any other export)",
+			result.RequeueAfter, want)
+	}
 }
 
 // TestKollectInventoryReconciler_requestedAt_presentToAbsence locks the
@@ -247,6 +282,7 @@ func TestKollectInventoryReconciler_requestedAt_presentToAbsence(t *testing.T) {
 		t.Fatalf("present→absence = %d exported / %d debounced, want 1/0 "+
 			"(removal must count as a change)", second.ExportedCount, second.DebouncedCount)
 	}
+	assertSyncedAsForAnyExport(t, rec, inv, len(items), second)
 
 	third := rec.exportToSinks(bg, noopLogger{}, inv, invKey, items, checksum)
 	if third.ExportedCount != 0 || third.DebouncedCount != 1 {

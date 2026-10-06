@@ -97,6 +97,34 @@ func TestPruneResource_stampSurvivesAnnotationPrune(t *testing.T) {
 		"(the stamp must be applied after prune)", keysOf(annotations))
 }
 
+// TestPruneResource_stampSurvivesScrubRule locks the other half of the
+// ordering claim (the stamp is applied after scrubbing): a profile scrub
+// denylist that suffix-matches the stamp key (scrub.go suffix matching) must
+// not redact the stamp value.
+func TestPruneResource_stampSurvivesScrubRule(t *testing.T) {
+	t.Parallel()
+
+	obj := deploymentWithGeneration(42)
+	export := &kollectdevv1alpha1.ExportSpec{
+		Mode:    kollectdevv1alpha1.ExportModeResource,
+		Include: kollectdevv1alpha1.ExportIncludeAll,
+		Prune: &kollectdevv1alpha1.PruneSpec{
+			ScrubKeys: []string{collectedGenerationAnnotation},
+		},
+	}
+
+	got := PruneResource(obj, export, NewScrubber([]string{collectedGenerationAnnotation}))
+
+	annotations := embeddedAnnotationsOf(t, got)
+	stamp := annotations[collectedGenerationAnnotation]
+	if redacted, ok := stamp.(map[string]any); ok {
+		t.Fatalf("scrub rule redacted the collectedGeneration stamp: %v (the stamp must be applied after scrub)", redacted)
+	}
+	if stamp != "42" {
+		t.Fatalf("collectedGeneration stamp = %v, want \"42\" (the stamp must be applied after scrub)", stamp)
+	}
+}
+
 // TestPruneResource_noStampWithoutMetadata locks the honesty clause: when the
 // profile's include section excludes metadata there is no place for the
 // stamp, the copy carries none, and the export payload is still built.
@@ -115,6 +143,14 @@ func TestPruneResource_noStampWithoutMetadata(t *testing.T) {
 	}
 	if _, ok := got["metadata"]; ok {
 		t.Fatalf("StatusOnly must drop metadata, got keys %v", keysOf(got))
+	}
+
+	blob, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal pruned copy: %v", err)
+	}
+	if strings.Contains(string(blob), collectedGenerationAnnotation) {
+		t.Fatalf("the pruned copy carries the collectedGeneration stamp somewhere else: %s", blob)
 	}
 }
 
