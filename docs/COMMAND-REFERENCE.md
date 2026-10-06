@@ -84,7 +84,7 @@ Run from repository root with [Task](https://taskfile.dev/). Full list: `task --
 | `task kind-dev-down` | Delete `kollect-dev` cluster |
 | `task kind-dev-status` | Show cluster and operator health |
 | `task build` | Compile manager binary |
-| `task test` | Unit tests + envtest (race) |
+| `task test` | Unit tests with envtest (no race detector — `task coverage:race` for race) |
 | `task lint` | golangci-lint |
 | `task check` | The full local gate: every required CI gate that runs locally + every `hack/test` guard in every mode, with the Docker/kind exclusions printed |
 | `task verify` | Codegen drift gate |
@@ -101,7 +101,7 @@ Run from repository root with [Task](https://taskfile.dev/). Full list: `task --
 | `task docker:build` | Build `kollect-controller-manager:dev` image |
 | `task docker:build:local` | Build `ghcr.io/platformrelay/kollect:local` for kind/minikube load |
 | `task docker:push:local` | Build and push maintainer-only tag to GHCR (default `test-<short-sha>`) |
-| `task deploy:operator` | Helm install to `kollect-system` |
+| `task deploy:operator` | Apply operator manifests (kustomize + kubectl) |
 | `task kind-dev-load` | Load dev image into kind |
 
 ### Quality and release

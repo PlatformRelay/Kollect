@@ -34,7 +34,7 @@ const (
 	// implications without side effects (ADR-0416 §8).
 	AnnotationPreview = "kollect.dev/preview"
 
-	// Multi-cluster registration (Istio remote-secret parallel — ADR-0503).
+	// Multi-cluster registration (Istio remote-secret parallel).
 	LabelMultiCluster        = "kollect.dev/multiCluster"
 	AnnotationClusterName    = "kollect.dev/cluster"
 	AnnotationSpokePrincipal = "kollect.dev/spokePrincipal"

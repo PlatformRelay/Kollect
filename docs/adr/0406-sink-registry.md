@@ -10,8 +10,8 @@
 Kollect exports to many backends (Git, GitLab, S3, GCS, Postgres, Kafka — [ADR-0402](0402-sink-backends-database-kafka.md),
 [ADR-0401](0401-sink-taxonomy-state-vs-stream.md)). Reconcilers must not import vendor SDKs directly,
 and adding a backend must not touch controller code. This decision was implemented in
-`internal/sink/registry.go` but never recorded — earlier ADRs even cited a non-existent "ADR-0005"
-for it. This ADR fills that gap.
+`internal/sink/registry.go` but never recorded — earlier ADRs even cited a non-existent registry
+ADR for it. This ADR fills that gap.
 
 Public configuration uses **family sink** CRDs ([ADR-0414](0414-sink-family-crds.md)); the registry
 consumes the Go-only `KollectSinkSpec` adapter those CRDs normalize into — there is no public

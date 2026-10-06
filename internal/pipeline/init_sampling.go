@@ -52,7 +52,7 @@ func (r InitSampleRef) Identity() string {
 
 // InitSampler lists and reads representative objects for attribute suggestions.
 // Discovery alone must not read object contents — callers gate GetSampleObject
-// behind an explicit consent prompt that shows Identity() first (ADR-0802 §6).
+// behind an explicit consent prompt that shows Identity() first (ADR-0801).
 type InitSampler interface {
 	ListSampleCandidates(
 		ctx context.Context, res InitResourceInfo, namespaces []string, limit int,

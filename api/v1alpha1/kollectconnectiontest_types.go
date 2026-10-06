@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// KollectConnectionTestSpec defines a one-shot connectivity probe (ADR-0703).
+// KollectConnectionTestSpec defines a one-shot connectivity probe (ADR-0403).
 type KollectConnectionTestSpec struct {
 	// sinkRef identifies exactly one family sink to probe (ADR-0414).
 	// +required

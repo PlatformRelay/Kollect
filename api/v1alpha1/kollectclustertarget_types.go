@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// KollectClusterTargetSpec defines platform-wide collection across namespaces (ADR-0703).
+// KollectClusterTargetSpec defines platform-wide collection across namespaces (ADR-0201).
 // No collection controller is registered in Phase 1 — API + webhook + samples only.
 type KollectClusterTargetSpec struct {
 	// profileRef points at a namespaced KollectProfile by name and namespace (ADR-0208).

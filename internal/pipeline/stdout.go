@@ -16,7 +16,7 @@ import (
 )
 
 // StdoutSentinel is the --output value that routes the pipeline export to stdout instead
-// of a filesystem directory or a configured sink (ADR-0802). A single dash is the
+// of a filesystem directory or a configured sink (ADR-0801). A single dash is the
 // conventional "write to stdout" token; ResolveSink treats it specially so it is never
 // misread as a literal directory named "-".
 const StdoutSentinel = "-"
@@ -26,7 +26,7 @@ const StdoutSentinel = "-"
 // instead of building a network/filesystem backend.
 const StdoutSinkType = "stdout"
 
-// StdoutFormat is the encoding for stdout export records (ADR-0802).
+// StdoutFormat is the encoding for stdout export records (ADR-0801).
 type StdoutFormat string
 
 const (

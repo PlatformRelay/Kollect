@@ -156,6 +156,5 @@ kubectl get pods -n kollect-system -l app.kubernetes.io/name=kollect
 
 - [ADR-0205: Watch labels](adr/0205-watch-labels.md)
 - [ADR-0403: Connection test](adr/0403-connection-test.md)
-- ADR-0503: Hub cluster auth
 - [Operator manual — Watch scope](operator-manual/index.md#watch-scope)
 - [Troubleshooting](operator-manual/troubleshooting.md) · [Best practices](operator-manual/production-checklist.md)

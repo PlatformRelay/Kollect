@@ -22,7 +22,7 @@ type ListFilter struct {
 	Offset    int
 }
 
-// Pagination describes a page of inventory items (ADR-0408).
+// Pagination describes a page of inventory items.
 type Pagination struct {
 	Limit   int  `json:"limit"`
 	Offset  int  `json:"offset"`
@@ -39,7 +39,7 @@ type ExportStatus struct {
 	Message        string `json:"message,omitempty"`
 }
 
-// InventorySummary is the versioned Read API envelope (ADR-0405, ADR-0408).
+// InventorySummary is the versioned Read API envelope (ADR-0404, ADR-0405).
 type InventorySummary struct {
 	SchemaVersion string         `json:"schemaVersion"`
 	ItemCount     int            `json:"itemCount"`

@@ -74,7 +74,7 @@
             "enabled": {
               "type": "boolean",
               "default": false,
-              "description": "Expose GET /inventory for debug and small installs only (ADR-0703)."
+              "description": "Expose GET /inventory for debug and small installs only (ADR-0103)."
             },
             "port": {
               "type": "integer",

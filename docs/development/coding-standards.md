@@ -169,11 +169,11 @@ and `codeql_regression_test.go`. Keep these guards in lockstep when refactoring 
 `//nolint:gosec // G204` markers in `exec_git.go`/`export_file.go` are justified by these
 validators, not blanket suppressions.
 
-### Transport and hub ingest
+### Transport
 
 Sink and doc endpoints must use **verified TLS** with org CA support (`caBundle` / `caSecretRef`).
-Hub HTTP ingest listens in plain HTTP inside the pod — **terminate TLS at the ingress or service
-mesh** before traffic reaches the operator (ADR-0503).
+There is no hub HTTP ingest surface — inventory HTTP (when enabled) is authenticated with
+TokenReview/SAR ([ADR-0404](../adr/0404-inventory-api-auth.md)).
 
 ## Commits
 

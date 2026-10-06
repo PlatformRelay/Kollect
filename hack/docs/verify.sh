@@ -11,6 +11,8 @@ task lint:markdown
 # shell tests. This composition point makes them impossible for Docs CI to omit.
 bash hack/test/docs_launch_truth_test.sh
 bash hack/test/docs_adr_kollectsink_retcon_test.sh
+# DOC-ADRREFS-01: every ADR-\d{4} citation in tracked files must resolve to a committed ADR.
+bash hack/test/docs_adr_refs_test.sh
 bash hack/test/docs_coverage_floor_drift_test.sh
 bash hack/test/security_architecture_docs_test.sh
 bash hack/test/docs_removed_api_fields_test.sh

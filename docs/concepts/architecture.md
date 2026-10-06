@@ -70,7 +70,7 @@ flowchart TD
   ConnTest -.-> Db
   ConnTest -.-> Ev
   Db --> DB["Postgres · MongoDB (relational SoR)"]
-  Ev --> Stream["Kafka (event emitter)"]
+  Ev --> Stream["NATS JetStream · Kafka (event emitters)"]
   Snap --> Git["Git · GitLab · S3 · GCS (snapshot store)"]
   Inv -.->|"optional, gated"| HTTP["HTTP debug API"]
 ```
@@ -155,10 +155,10 @@ Key properties:
 Classified by role, not vendor ([ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)). The
 in-memory snapshot per Inventory is canonical; sinks are projections.
 
-- **Snapshot stores** — **Git/GitLab** (audit) and **S3/GCS** (`json` or `parquet`). Deletes are free.
+- **Snapshot stores** — **Git/GitLab** (audit; `yaml`/`json`/`ndjson`) and **S3/GCS** (`json`, `parquet`, or `csv`). Deletes are free.
 - **Relational SoR** — **Postgres** (rich portal SQL; needs delete reconciliation).
 - **Event emitters** — **NATS JetStream** (lean default), **Kafka/Redpanda** (enterprise opt-in). Doubles as multi-cluster fan-in.
-- **GitLab** — Phase 2 enterprise Git host (internal CA via `tls.caSecretRef`).
+- **GitLab** — enterprise Git host (internal CA via `tls.caSecretRef`).
 
 ## Multi-cluster (build order)
 

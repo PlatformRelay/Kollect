@@ -12,7 +12,7 @@ var ErrCanceled = errors.New("wizard canceled")
 // ValidateFunc optionally rejects an Input answer.
 type ValidateFunc func(answer string) error
 
-// Prompter is the thin injectable prompt surface for the init wizard (ADR-0802 /
+// Prompter is the thin injectable prompt surface for the init wizard (ADR-0801 /
 // PIPE-SPIKE-01). The wizard depends on this interface, not on survey directly.
 type Prompter interface {
 	Input(message, defaultValue string, validate ValidateFunc) (string, error)

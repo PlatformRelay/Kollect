@@ -146,7 +146,7 @@ var (
 		[]string{"sink_type"},
 	)
 
-	// CustomResourceSeries is registered via aggregation.go (ADR-0304 Phase 4 stub).
+	// CustomResourceSeries is registered via aggregation.go (ADR-0304 Phase 4, wired).
 
 	ExportDebouncedTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{

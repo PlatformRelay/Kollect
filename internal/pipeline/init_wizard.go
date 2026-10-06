@@ -379,7 +379,7 @@ func collectInitAttributesAndName(opts InitOptions, intent *initDraft) error {
 }
 
 // maybeSampleInitAttributes optionally reads one representative object after consent.
-// API/namespace discovery never authorizes this read (ADR-0802 §6 / REQ-PIPE-06).
+// API/namespace discovery never authorizes this read (ADR-0801 / REQ-PIPE-06).
 func maybeSampleInitAttributes(opts InitOptions, intent *initDraft, attrOpts *[]initAttributeOpt) error {
 	if opts.Sampler == nil {
 		return nil

@@ -82,7 +82,9 @@ All duration fields validated ≤ **24h** without cron (`MaxExportInterval`). Cr
 ## Consequences
 
 - Controller debounce maps keyed by `(inventoryKey, sinkName)`; marshal-once fan-out per reconcile.
-- Hub env `KOLLECT_HUB_SINK_REFS` unchanged in this ADR — structured hub intervals deferred.
+- Hub env `KOLLECT_HUB_SINK_REFS` — **superseded: never implemented.** No hub tier ships —
+  [ADR-0501](0501-multi-cluster-fleet.md) keeps one operator per cluster — so structured hub
+  intervals remain unshipped; per-inventory `exportMinInterval` is the only knob.
 - Read API `/status` export list prefers per-sink `sinkExports` when present.
 
 ## See also
