@@ -5,10 +5,14 @@
 #   TCE-1  task check runs every required CI gate that can run locally, every hack/test guard
 #          in every mode its code declares (a new guard is picked up by the glob with no edit),
 #          and reports a failing gate and exits non-zero instead of letting the last gate pass.
-#   TCE-2  task verify keeps its one meaning: it still runs bash hack/verify.sh and is not
-#          redefined as a subset or superset of check.
+#          A guard whose header declares a Docker requirement is skipped with a printed reason
+#          -- sweeping it unconditionally reds the no-Docker machine TCE-1 promises to serve.
+#   TCE-2  task verify keeps its one meaning: it still runs exactly `bash hack/verify.sh` and
+#          is not redefined as a subset or a superset of check.
 #   TCE-3  every required gate in verify-eligibility.sh's required_checks is either run by
-#          hack/check.sh or listed in its exclusion table WITH a reason.
+#          hack/check.sh or listed in its exclusion table WITH a reason; coverage mappings
+#          (comment lines `coverage: <context>=<gate>,<gate>`) hold only while every gate they
+#          name is still declared.
 #   TCE-4  --self-test mutates a copy of the tree: each of TCE-1..TCE-3 is broken by one
 #          mutant, each check reds with the message of the assertion the mutation was built
 #          to trip, and one unmutated no-op copy passes.
@@ -61,11 +65,24 @@ strip_comments() {
   sed -e 's/[[:space:]]*#.*$//' <<<"$1" | grep -v '^$' || true
 }
 
-# The gates the local check runs (the required contexts plus the local-only lints). Every one
-# of these must appear in hack/check.sh as an explicit run_gate line.
-RUNNABLE=(
-  verify lint vulncheck test build audit-rbac helm gitleaks workflow-security
-  scrub spec:validate lint:shell lint:markdown format:check
+# The gates the local check runs (the required contexts plus the local-only lints), each with
+# its EXACT command: a name-only pin would let `run_gate verify true` pass, so the command is
+# part of the contract.
+declare -A GATE_COMMAND=(
+  [verify]="task verify"
+  [lint]="task lint"
+  [vulncheck]="task vulncheck"
+  [test]="task test"
+  [build]="task build"
+  [audit-rbac]="task audit:rbac"
+  [helm]="task helm-test"
+  [gitleaks]="bash hack/install-gitleaks.sh ./bin"
+  [workflow-security]="bash hack/install-zizmor.sh ./bin"
+  [scrub]="task scrub"
+  [spec:validate]="task spec:validate"
+  [lint:shell]="task lint:shell"
+  [lint:markdown]="task lint:markdown"
+  [go-mod]="bash -c 'go mod tidy && git diff --exit-code go.mod go.sum && go mod verify'"
 )
 
 # The Taskfile declares a check task and it runs the orchestrator, not a local reimplementation.
@@ -80,24 +97,30 @@ c_tce1_task() {
   pass "TCE-1: task check exists and runs hack/check.sh"
 }
 
-# Every runnable gate appears as an explicit run_gate line, the sweep is the glob, and the
-# modes are pinned.
+# Every gate appears with its EXACT command; the sweep is the glob; the --self-test mode is
+# run where a guard's code parses it; the gitleaks/zizmor invocations match CI's.
 c_tce1_gates() {
-  local body
+  local body gate
   body="$(strip_comments "$(cat "${CHECKSH}")")"
-  for gate in "${RUNNABLE[@]}"; do
-    if ! grep -qF "run_gate ${gate} " <<<"${body}"; then
-      fail "TCE-1: hack/check.sh does not run the '${gate}' gate -- a required gate must be reachable from task check or listed as an exclusion with a reason; removing a line here silently drops it from the local gate"
+  for gate in "${!GATE_COMMAND[@]}"; do
+    if ! grep -qF "run_gate ${gate} ${GATE_COMMAND[${gate}]}" <<<"${body}"; then
+      fail "TCE-1: hack/check.sh does not run the '${gate}' gate with its exact command ('run_gate ${gate} ${GATE_COMMAND[${gate}]}') -- the command is part of the contract, so a name-only stub or a swapped invocation reds here"
     fi
   done
   grep -qF 'gitleaks detect --source . --config .github/gitleaks.toml' <<<"${body}" ||
     fail "TCE-1: hack/check.sh must run the same gitleaks detect invocation as CI's gitleaks job -- a local gate that skips secret scanning is not the full gate"
-  grep -qF 'bin/zizmor --offline --no-progress --min-severity=high --config .github/zizmor.yml .github/' <<<"${body}" ||
+  grep -qF 'zizmor --offline --no-progress --min-severity=high --config .github/zizmor.yml .github/' <<<"${body}" ||
     fail "TCE-1: hack/check.sh must run the pinned offline zizmor audit over .github/ exactly as ci.yaml's workflow-security job does -- a local gate that never audits the workflows is not the full gate"
   grep -qF 'hack/test/*_test.sh' <<<"${body}" ||
     fail "TCE-1: hack/check.sh must sweep every hack/test guard through the glob (a new guard then runs with no edit to the script); a hardcoded guard list rots the moment someone adds a guard and forgets it"
   grep -qF -- '--self-test' <<<"${body}" ||
     fail "TCE-1: hack/check.sh must run the guards' --self-test mode where the script's code declares it -- a mode CI runs that task check does not is a mode that can rot locally"
+  # A guard whose header declares a Docker requirement must NOT be swept: on the no-Docker
+  # machine this gate promises to serve it would fail for the wrong reason. It must be
+  # skipped with a printed reason instead.
+  if ! grep -qF 'requires docker' <<<"${body}"; then
+    fail "TCE-1: hack/check.sh must skip Docker-requiring guards (their header declares it) with a printed reason -- sweeping them unconditionally makes task check red on exactly the no-Docker machine TCE-1 promises it serves"
+  fi
   pass "TCE-1: the local gate runs the required runnable gates and the full guard sweep"
 }
 
@@ -115,9 +138,14 @@ c_tce1_aggregation() {
   pass "TCE-1: a failed gate is reported and turns the exit non-zero (the last gate cannot mask the rest)"
 }
 
-# TCE-2: verify keeps its one meaning.
+# TCE-2: verify keeps its one meaning -- exactly bash hack/verify.sh, nothing added (a
+# superset redefinition, verify.sh plus extra commands, is still a redefinition).
 c_tce2_verify() {
-  local desc cmds
+  local ncmds desc
+  ncmds="$(yq eval '.tasks.verify.cmds | length' "${TASKFILE}")"
+  [[ "${ncmds}" == "1" ]] ||
+    fail "TCE-2: the verify task declares ${ncmds} command(s), expected exactly 1 (bash hack/verify.sh) -- a superset redefinition (verify plus extra commands) is still a redefinition of the one task name whose meaning must not drift"
+  local cmds
   cmds="$(strip_comments "$(yq eval '.tasks.verify.cmds // [] | join("\n")' "${TASKFILE}")")"
   grep -qF 'bash hack/verify.sh' <<<"${cmds}" ||
     fail "TCE-2: the verify task no longer runs bash hack/verify.sh -- task verify is the generated-artifact drift check and must not be redefined as a subset or superset of check"
@@ -127,23 +155,25 @@ c_tce2_verify() {
   pass "TCE-2: task verify still means the generated-artifact drift check"
 }
 
-# TCE-3: every required check is runnable or excluded with a reason.
+# TCE-3: every required check is runnable, mapped, or excluded with a reason.
 c_tce3_coverage() {
   local names body name
-  names="$(awk '/^required_checks=\(/ {f=1;next} /^\)/{f=0} f' "${ELIG}" | tr -s ' \t' '\n' | grep -v '^$' || true)"
+  names="$(awk '/^required_checks=\(/{f=1;next} /^\)/{f=0} f' "${ELIG}" | tr -s ' \t' '\n' | grep -v '^$' || true)"
   [[ -n "${names}" ]] ||
     fail "TCE-3: no required_checks could be parsed from hack/release/verify-eligibility.sh -- the list of CI gates is what TCE-3 checks against"
   body="$(strip_comments "$(cat "${CHECKSH}")")"
-  for gate in "${RUNNABLE[@]}"; do
-    grep -qF "run_gate ${gate} " <<<"${body}" ||
-      fail "TCE-3: hack/check.sh no longer declares the local run for the '${gate}' gate -- a required gate must be reachable from task check or listed as an exclusion with a reason"
+  local gate command
+  for gate in "${!GATE_COMMAND[@]}"; do
+    command="${GATE_COMMAND[${gate}]}"
+    grep -qF "run_gate ${gate} ${command}" <<<"${body}" ||
+      fail "TCE-3: hack/check.sh no longer declares the exact local run for the '${gate}' gate ('${command}') -- a required gate must be reachable from task check or listed as an exclusion with a reason"
   done
   # Exclusion lines must carry a reason: `exclusion <name> "<reason>"` with a non-empty tail.
   while IFS= read -r xline; do
     [[ -z "${xline}" ]] && continue
     name="${xline#exclusion }"
     name="${name%% *}"
-    reason="${xline#exclusion ${name} }"
+    local reason="${xline#exclusion ${name} }"
     if [[ -z "${reason}" || "${reason}" == '""' ]]; then
       fail "TCE-3: the exclusion for '${name}' has no reason -- an exclusion without its reason is how a required gate goes silently missing from the local gate"
     fi
@@ -151,19 +181,20 @@ c_tce3_coverage() {
   # Coverage mapping lines are comments in hack/check.sh:
   #   `coverage: <context>=<gate>,<gate>` -- a mapped context is covered when EVERY gate on the
   # right-hand side is declared as a run_gate (guard-sweep = the guard sweep line).
-  local coverage_raw cov cov_context cov_gates rg
+  local coverage_raw cov cov_context cov_gates
   coverage_raw="$(grep -E '^[[:space:]]*#[[:space:]]+coverage: ' "${CHECKSH}" | sed -E 's/^[[:space:]]*#[[:space:]]+coverage:[[:space:]]+//' || true)"
   while IFS= read -r cov; do
     [[ -z "${cov}" ]] && continue
     cov_context="${cov%%=*}"
     cov_gates="${cov#*=}"
-    IFS=, read -ra cov_parts <<<"${cov_gates}"
-    for rg in "${cov_parts[@]}"; do
-      if [[ "${rg}" == "guard-sweep" ]]; then
+    local IFS=','
+    read -ra cov_parts <<<"${cov_gates}"
+    for gate in "${cov_parts[@]}"; do
+      if [[ "${gate}" == "guard-sweep" ]]; then
         grep -qF 'hack/test/*_test.sh' <<<"${body}" ||
           fail "TCE-3: the mapped required check '${cov_context}' relies on the guard sweep, which hack/check.sh no longer declares"
-      elif ! grep -qF "run_gate ${rg} " <<<"${body}"; then
-        fail "TCE-3: the mapped required check '${cov_context}' relies on the '${rg}' gate, which hack/check.sh no longer declares"
+      elif ! grep -qF "run_gate ${gate} " <<<"${body}"; then
+        fail "TCE-3: the mapped required check '${cov_context}' relies on the '${gate}' gate, which hack/check.sh no longer declares"
       fi
     done
   done <<<"${coverage_raw}"
@@ -176,7 +207,8 @@ c_tce3_coverage() {
     if grep -qF "coverage: ${name}=" "${CHECKSH}"; then
       local rhs comps comp
       rhs="$(grep -oE "coverage: ${name}=[^ ]+" "${CHECKSH}" | head -1 | cut -d= -f2)"
-      IFS=, read -ra comps <<<"${rhs}"
+      local IFS=','
+      read -ra comps <<<"${rhs}"
       for comp in "${comps[@]}"; do
         if [[ "${comp}" == "guard-sweep" ]]; then
           grep -qF 'hack/test/*_test.sh' <<<"${body}" ||
@@ -191,7 +223,6 @@ c_tce3_coverage() {
   done <<<"${names}"
   pass "TCE-3: every required check is run locally or excluded with its reason"
 }
-
 
 if [[ "${MODE}" == "check" ]]; then
   c_tce1_task
@@ -259,9 +290,14 @@ pass "self-test: no-op control passes on an unmutated copy"
 mutant_rejected "TCE-1 gate removed" "does not run the 'vulncheck' gate" bash -c '
   set -euo pipefail
   sed -i.bak "/run_gate vulncheck task vulncheck/d" hack/check.sh && rm -f hack/check.sh.bak
-  if grep -q "run_gate vulncheck" hack/check.sh; then
-    echo "mutant did not apply"; exit 1
-  fi
+  if grep -q "run_gate vulncheck" hack/check.sh; then echo "mutant did not apply"; exit 1; fi
+'
+
+# TCE-1: a gate swapped for a no-op with the same name -- the EXACT command pin catches it.
+mutant_rejected "TCE-1 gate command swapped for a no-op" "with its exact command" bash -c '
+  set -euo pipefail
+  sed -i.bak "s|run_gate verify task verify|run_gate verify true|" hack/check.sh && rm -f hack/check.sh.bak
+  if grep -qF "run_gate verify task verify" hack/check.sh; then echo "mutant did not apply"; exit 1; fi
 '
 
 # TCE-1: the guard sweep hard-coded instead of the glob -- a new guard would never be picked up.
@@ -271,6 +307,13 @@ mutant_rejected "TCE-1 guard glob hard-coded" "must sweep every hack/test guard 
   if grep -q "hack/test/\*_test.sh" hack/check.sh; then echo "mutant did not apply"; exit 1; fi
 '
 
+# TCE-1: a Docker-requiring guard swept unconditionally reds the no-Docker promise.
+mutant_rejected "TCE-1 Docker guard swept" "Docker-requiring guards" bash -c '
+  set -euo pipefail
+  sed -i.bak "s|if grep -qi .*requires docker.*then|if false; then|" hack/check.sh && rm -f hack/check.sh.bak
+  if grep -qF "requires docker" hack/check.sh; then echo "mutant did not apply"; exit 1; fi
+'
+
 # TCE-2: verify redefined into something else.
 mutant_rejected "TCE-2 verify redefined" "no longer runs bash hack/verify.sh" bash -c '
   set -euo pipefail
@@ -278,11 +321,19 @@ mutant_rejected "TCE-2 verify redefined" "no longer runs bash hack/verify.sh" ba
   if grep -q "bash hack/verify.sh" Taskfile.yml; then echo "mutant did not apply"; exit 1; fi
 '
 
+# TCE-2: verify redefined as a SUPERSET (its own check plus an extra one).
+mutant_rejected "TCE-2 verify redefined as a superset" "declares 2 command" bash -c '
+  set -euo pipefail
+  yq eval ".tasks.verify.cmds += [\"task lint\"]" Taskfile.yml > m.yaml && mv m.yaml Taskfile.yml
+  n=$(yq eval ".tasks.verify.cmds | length" Taskfile.yml)
+  [[ "$n" -ge 2 ]] || { echo "mutant did not apply"; exit 1; }
+'
+
 # TCE-3: an exclusion without its reason.
 mutant_rejected "TCE-3 exclusion without reason" "has no reason" bash -c '
   set -euo pipefail
   sed -i.bak "s/exclusion test-integration .*/exclusion test-integration \"\"/" hack/check.sh && rm -f hack/check.sh.bak
-  grep -q "exclusion test-integration \"\"" hack/check.sh || { echo "mutant did not apply"; exit 1; }
+  if ! grep -q "exclusion test-integration \"\"" hack/check.sh; then echo "mutant did not apply"; exit 1; fi
 '
 
 echo "All task-check self-tests passed."

@@ -9,13 +9,15 @@ Defines the standard task entry points a contributor can rely on and what each p
 ### Requirement: TCE-1 `task check` is the full local gate
 
 `task check` SHALL run every required CI gate that can run on a developer machine, SHALL run
-every `hack/test` guard in every mode its header declares (including `--self-test`), and SHALL
-print the required gates it does not run, each with its reason.
+every `hack/test` guard in every mode its code declares (including `--self-test`; a guard whose
+header declares a Docker requirement is skipped with a printed reason, because it cannot run on
+the machine this gate promises to serve), and SHALL print the required gates it does not run,
+each with its reason.
 
 #### Scenario: Everything runnable runs
 
 - **WHEN** a contributor runs `task check` on a machine without Docker
-- **THEN** it runs verify, lint, vulncheck, unit tests, scrub, the shell and markdown lints, spec validation and every guard, and prints the Docker-dependent gates as not run
+- **THEN** it runs verify, lint, vulncheck, unit tests, scrub, the shell and markdown lints, spec validation and every runnable guard, and prints the Docker/kind-dependent gates and guards as not run
 
 #### Scenario: A new guard appears
 

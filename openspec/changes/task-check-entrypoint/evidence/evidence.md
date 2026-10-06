@@ -18,9 +18,14 @@ Recorded 2026-10-06 on the branch that produced the PR, against origin/main as t
 - Exclusions with reasons: test-integration (Docker), kind-smoke (kind cluster),
   docker-build (Docker daemon), pipeline-cli-smoke (kind cluster + CLI image),
   dependency-review (GitHub pull-request context).
-- The `coverage: preflight=lint:markdown,verify,guard-sweep` line maps the required preflight
-  context to the gates above (preflight runs task lint:markdown + task verify + the
-  commit-identity guard, all of which the check runs).
+- Exclusions with reasons: test-integration (Docker), kind-smoke (kind cluster),
+  docker-build (Docker daemon), pipeline-cli-smoke (kind cluster + CLI image),
+  dependency-review (GitHub pull-request context). Guards whose header declares a Docker
+  requirement (today `integration_no_docker_test.sh`) are skipped in the guard sweep with the
+  same printed-reason contract.
+- The `coverage: preflight=lint:markdown,go-mod,verify,guard-sweep` line maps the required
+  preflight context to the gates above (preflight runs task lint:markdown + task verify + the
+  commit-identity guard + the go mod tidy/verify half, all of which the check runs).
 
 ## hack/test/task_check_test.sh (TCE-1..TCE-4 meta-test)
 
@@ -28,13 +33,17 @@ Plain mode: green (task check exists, the gate list is pinned, the sweep is the 
 aggregation exits non-zero, verify keeps its meaning, every required check is run or excluded
 with a reason).
 
-`--self-test`: no-op control green; 4 mutants each rejected with the exact message of the
+`--self-test`: no-op control green; 7 mutants each rejected with the exact message of the
 assertion the mutation was built to trip:
-- TCE-1 gate removed (`vulncheck` deleted from the run list) → `does not run the 'vulncheck' gate`
-- TCE-1 guard sweep hard-coded (glob replaced by a single script) → rejected with the
-  must-sweep-the-glob message (a new guard would never be picked up)
-- TCE-2 `verify` redefined to `task lint` in the Taskfile → rejected with the
-  generated-artifact message
+- TCE-1 gate removed (`vulncheck` deleted from the run list) → the gate-list check reds
+- TCE-1 gate command swapped for a no-op (`run_gate verify true`) → the exact-command pin reds
+- TCE-1 guard sweep hard-coded (glob replaced by a single script) → the must-sweep-the-glob check reds
+- TCE-1 Docker guard swept unconditionally → red (task check would exit 1 on exactly the
+  no-Docker machine TCE-1 promises to serve; the guard's header declares the requirement and
+  hack/check.sh skips it with a printed reason)
+- TCE-2 `verify` redefined to `task lint` → red
+- TCE-2 `verify` redefined as a superset (its own command plus `task lint`) → red (the
+  exact-cmds-length pin; a superset is still a redefinition)
 - TCE-3 exclusion without reason → red naming the missing reason
 
 ## The pre-wiring red (TCE-1's "watch it fail on the missing task")
@@ -44,8 +53,9 @@ Before the Taskfile had the `check` task, the guard reds with
 
 ## Carried-over hardening from the merged ci-workflow-hardening change
 
-This branch also carries one commit of approval-round leftovers for change
-ci-workflow-hardening (merged as PR #450): the CWS-2 policy-switch check
-(`disable: true` under a rule needs its justification comment — the bypass the approval leg
-found), the removed duplicate yq block, and the spec wording amendment. Recorded here so the
-reviewer reads both changes in one diff.
+This branch also carries the approval-round leftovers for change ci-workflow-hardening
+(merged as PR #450): the CWS-2 policy-switch check (`disable: true` under a rule needs its
+justification comment — the bypass the approval legs found, plus its mutant), the duplicated
+yq type/flow-style block actually REMOVED this time (the previous claim was unbacked until
+this branch: the duplicate survived the merge), and the TCE-1 wording above. Recorded here so
+the reviewer reads both changes in one diff.
