@@ -9,10 +9,10 @@ integration files) because the default build skips them.
 
 ## 1. Dead sink runner (DR-1)
 
-- [ ] 1.1 Probe (record the full list, do not truncate): `grep -rn "RunExportItems\|ExportItemsRequest" --include='*.go' internal/ cmd/ api/ test/ hack/` → production hits only in `internal/sink/export.go`; test hits only in `internal/sink/export_test.go` and `internal/sink/circuit_breaker_test.go`; plus the stale comment in `kollectclusterinventory_controller.go`
-- [ ] 1.2 Delete `RunExportItems` + `ExportItemsRequest` from `internal/sink/export.go`, and `sinkNamespaceForExport` with them (its sole caller is the dead runner — leaving it trips the enabled `unused` linter); reword the stale comment in `kollectclusterinventory_controller.go` so it no longer names the deleted runner
-- [ ] 1.3 Delete the `TestRunExportItems_*` tests in `internal/sink/export_test.go` (they exercise only the unreachable path) and migrate the two breaker tests in `internal/sink/circuit_breaker_test.go` (`TestRunExportItems_circuitBreakerTripsAfterRepeatedFailures`, `TestResetBreakersForTest_clearsOpenBreaker`) to drive the live `RunExportEnvelope` path instead, which is where production calls `exportThroughBreaker` (the `exportThroughBreaker` call inside `RunExportEnvelope`); the trip-at-N and reset semantics must be asserted as before. Then record, per deleted `TestRunExportItems_*` test, which live test or suite covers the same behaviour (or that the behaviour is runner-specific) — the coverage accounting goes into the task's evidence file
-- [ ] 1.4 `go build ./...` and `go vet ./...` compile clean; `go test ./internal/sink/... ./internal/controller/...` green
+- [x] 1.1 Probe (record the full list, do not truncate): `grep -rn "RunExportItems\|ExportItemsRequest" --include='*.go' internal/ cmd/ api/ test/ hack/` → production hits only in `internal/sink/export.go`; test hits only in `internal/sink/export_test.go` and `internal/sink/circuit_breaker_test.go`; plus the stale comment in `kollectclusterinventory_controller.go`
+- [x] 1.2 Delete `RunExportItems` + `ExportItemsRequest` from `internal/sink/export.go`, and `sinkNamespaceForExport` with them (its sole caller is the dead runner — leaving it trips the enabled `unused` linter); reword the stale comment in `kollectclusterinventory_controller.go` so it no longer names the deleted runner
+- [x] 1.3 Delete the `TestRunExportItems_*` tests in `internal/sink/export_test.go` (they exercise only the unreachable path) and migrate the two breaker tests in `internal/sink/circuit_breaker_test.go` (`TestRunExportItems_circuitBreakerTripsAfterRepeatedFailures`, `TestResetBreakersForTest_clearsOpenBreaker`) to drive the live `RunExportEnvelope` path instead, which is where production calls `exportThroughBreaker` (the `exportThroughBreaker` call inside `RunExportEnvelope`); the trip-at-N and reset semantics must be asserted as before. Then record, per deleted `TestRunExportItems_*` test, which live test or suite covers the same behaviour (or that the behaviour is runner-specific) — the coverage accounting goes into the task's evidence file
+- [x] 1.4 `go build ./...` and `go vet ./...` compile clean; `go test ./internal/sink/... ./internal/controller/...` green — closed 2026-10-07, evidence: evidence/T1.md
 
 ## 2. Zero-reference deletions (DR-2, DR-3)
 
@@ -60,7 +60,7 @@ integration files) because the default build skips them.
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| DR-1 | probe 1.1 then `go build ./...` after 1.2 | probe shows definition+tests only; build clean with symbols gone | not-run | |
+| DR-1 | probe 1.1 then `go build ./...` after 1.2 | probe shows definition+tests only; build clean with symbols gone | done | evidence/T1.md |
 | DR-2 | probe 2.1/2.2 then compile | zero refs; gitlab+api packages compile | not-run | |
 | DR-3 | probe 2.2 then compile + `grep` docs/CRDs | no text reference survives | not-run | |
 | DR-4 | probe 3.1 then compile + collect suite | store compiles without the methods; suite green | not-run | |
