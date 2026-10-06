@@ -154,11 +154,11 @@ func bindStartupFlags(fs *flag.FlagSet, cfg *startupConfig) {
 	fs.StringVar(&cfg.scrubKeysRaw, "scrub-keys", "",
 		"Comma-separated extra attribute keys to redact before store insert (built-in denylist always applies).")
 	fs.IntVar(&cfg.collectDispatchWorkers, "collect-dispatch-workers", 4,
-		"Worker goroutines draining the collection informer dispatch queue (PERF-03).")
+		"Worker goroutines draining the collection informer dispatch queue (NFR-PERF-6).")
 	fs.IntVar(&cfg.collectDispatchQueueSize, "collect-dispatch-queue-size", 512,
 		"Bounded queue depth for collection informer dispatch jobs.")
 	fs.DurationVar(&cfg.informerResyncPeriod, "informer-resync-period", 12*time.Hour,
-		"Dynamic informer resync period as a correctness backstop (PERF-15).")
+		"Dynamic informer resync period as a correctness backstop (NFR-PERF-6).")
 	fs.DurationVar(&cfg.collectMetricsSampleInterval, "collect-metrics-sample-interval", 30*time.Second,
 		"Minimum interval between domain snapshot metric refreshes per target (PERF-08).")
 	fs.DurationVar(&cfg.collectDispatchEnqueueWait, "collect-dispatch-enqueue-wait", 25*time.Millisecond,

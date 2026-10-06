@@ -14,7 +14,7 @@
 #     -f charts/kollect/values-minimal-rbac.yaml \
 #     --set watchNamespaces[0]=team-a
 #
-# See docs/deployment/team-operator.md for RBAC verbs, workload grants, and tradeoffs.
+# See docs/examples/team-operator.md for RBAC verbs, workload grants, and tradeoffs.
 
 # Restrict informer cache to team namespace(s). Must be non-empty for minimal RBAC.
 watchNamespaces:

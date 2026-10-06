@@ -38,8 +38,14 @@ while IFS= read -r line; do
   rest="${line#*:}"
   lineno="${rest%%:*}"
   [[ "${file}" == "CHANGELOG.md" ]] && continue
-  for num in $(printf '%s' "${line}" | grep -oE 'ADR-[0-9]{4}' | sort -u); do
-    n="${num#ADR-}"
+  # Word-boundary + trailing-digit guard via perl: ADR-12345 is not a citation
+  # (extracts the exact 4-digit token only), and lowercase adr-NNNN counts too.
+  for num in $(
+    printf '%s' "${line}" |
+      perl -ne 'while (/\b(?:adr|ADR)-[0-9]{4}(?![0-9])/g) { print lc($&), "\n" }' |
+      sort -u
+  ); do
+    n="${num#*-}"
     [[ "${n}" =~ ^[0-9]{4}$ ]] || continue
     if ! ls "docs/adr/${n}"-*.md >/dev/null 2>&1; then
       printf 'docs adr refs: %s:%s cites %s but docs/adr/%s-*.md does not exist\n' \

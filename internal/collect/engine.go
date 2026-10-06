@@ -41,7 +41,7 @@ const (
 	defaultDispatchEnqueueWait   = 25 * time.Millisecond
 )
 
-// EngineConfig tunes collection engine concurrency and observability (PERF-03/08/15).
+// EngineConfig tunes collection engine concurrency and observability (NFR-PERF-6).
 type EngineConfig struct {
 	DispatchWorkers       int
 	DispatchQueueSize     int
