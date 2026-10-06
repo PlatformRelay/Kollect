@@ -11,7 +11,8 @@ linter to absorb them.
 ## What Changes
 
 - Raise golangci-lint to v2.13.1 in `Makefile` and `hack/tooling/.custom-gcl.yml` together
-  (version-only commit).
+  (version-only commit), and pin the logcheck plugin's version in the same file (`latest`
+  becomes the resolved release, recorded in the probe evidence).
 - Fix each new finding, or justify it in `.golangci.yaml` with a reason, in commits separate
   from the version-only commit (grouped when one rule produces many findings).
 
@@ -46,6 +47,5 @@ Landing order across the ten proposed changes: (1) ci-workflow-hardening, (2) ta
 
 - golangci-lint v2.13.1 exists (operator baseline). `.golangci.yaml` is `version: "2"`; v2.13.1
   may change defaults or deprecate options. Probe: run `task lint` after the bump (task 1.1) and
-  record the findings count.
-- `hack/tooling/.custom-gcl.yml` `version:` must equal the version it builds on; probe that a
-  mismatch fails or misbehaves (task 1.1).
+  record the findings count; the pin-mismatch behaviour is NOT probed — on mismatch this
+  change's pin-equality check fails by construction, and the CI drift test is change 5's (DTP-3).

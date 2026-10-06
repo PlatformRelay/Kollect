@@ -16,7 +16,7 @@ free internal models only, per the firstmate brief.
 ## Stages
 - [x] 0 orient — feature dir, what existed (proposal / spec delta / tasks, all present); branch and base recorded
 - [ ] P plan + tasks — skipped: present (authored when the change was proposed; re-verified not implemented: tasks.md all unchecked, both version pins still v2.11.4)
-- [ ] R spec-set review — `reviews/R-spec-set/` on base · round 1: BLOCK 9 CRITICAL + 1 WARNING (7/7 legs) · all mechanical, fixed in the spec set; round 2 pending · CRITICAL: none surviving
+- [x] R spec-set review — round 1 `reviews/R-spec-set/` on base: BLOCK, 9 CRITICALs verified (8 fixed in the spec set, 1 rejected as false) + 1 warning deferred; round 2 `reviews/R-spec-set-round2/` on aebb276b: 5/5 legs CONCERNS (unified BLOCK via the promote rule; no leg rated a CRITICAL itself), 8 findings — all mechanical, fixed below; two spec-set rounds spent, no further spec-set re-review per the round limit · CRITICAL: none surviving
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review — `reviews/B-branch/round-N/` · rounds: <n> · verdict: <…>
 - [ ] Hand-off — <date> · `pr-description.md` · PR: <none | link>
@@ -52,7 +52,34 @@ findings count before (v2.11.4) vs after (v2.13.1) is the recorded measure (LTB-
 
 Decision logged per the skill's CRITICAL-with-mechanical-fix rule: no CRITICAL survived
 verification as needing a stop — every fix is a spec-set edit the spec set already implies,
-so the round-2 re-review replaces the stop (logged 2026-10-06).
+so the round-2 re-review replaced the stop (logged 2026-10-06).
+
+### Round 2 (5/5 legs, on aebb276b) — all findings WARNING-grade (promoted only by the 2+ rule)
+
+- 1 plugin-pin deferral hollow (change 5 covers only the golangci pins — verified, zero
+  plugin/logtools/latest mentions there): FIX IN THIS CHANGE — scope extension, logged as a
+  decision: LTB-4 added, the pin lands in the version-only commit. Rationale: the file is
+  already in scope, the pin directly serves LTB-3's reproducibility, and no other change owns
+  it.
+- 2 proposal still promised a mismatch probe "(task 1.1)": FIXED (assumption reworded).
+- 3 "the review record" never named: FIXED (`evidence/probe.md`, `evidence/1.3.md`).
+- 4 loop.md bookkeeping wrong (pre-announced round 2; count conflict): FIXED (triage row
+  above rewritten; stage line now says round 2 done).
+- 5 version string cannot distinguish custom from vanilla build: FIXED (task 1.3 states the
+  structural proof: clean lint requires the custom build — vanilla fails config validation on
+  logcheck; established as probe evidence).
+- 6 spec promised change 5 a "runtime task lint failure" guard: FIXED (reworded: DTP-3 drift
+  test red-flags the mismatch in CI; verified DTP-3 names both golangci sites).
+- 7 make skips the stale `$(GOLANGCI_LINT)` file target on a version change: VERIFIED REAL
+  (`make -n golangci-lint GOLANGCI_LINT_VERSION=v2.13.1` → "Nothing to be done"); FIXED in the
+  probe procedure (`rm -f bin/golangci-lint*` first). The latent Makefile staleness itself is
+  a pre-existing defect beyond this change's version-only scope — deferred, named in the
+  archive record.
+- 8 `task format:check` swallows stderr (`2>/dev/null` in Taskfile.yml:324): VERIFIED REAL;
+  FIXED for this change's evidence (raw output + exit codes recorded; do not rely on the
+  swallowed view). The Taskfile weakness is pre-existing — deferred, named in the archive
+  record.
+- 9 the v2.11.4 "before" count was never produced: FIXED (task 1.1 records it first).
 
 ## Tasks
 | Task | Verdict | Review (legs, rounds) | Gaps / decision request |
