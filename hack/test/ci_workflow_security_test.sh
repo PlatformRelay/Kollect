@@ -135,6 +135,22 @@ cws1_job() {
   # is pinned, not just a minimum -- an extra step is a stub route, not extra coverage.
   [[ "${n}" -eq 3 ]] ||
     fail "CWS-1: the workflow-security job has ${n} step(s), expected exactly 3 (checkout, install, audit) -- an extra step can run AFTER the install and BEFORE the audit, replacing the zizmor binary with a green stub, so any step count beyond the reviewed three is rejected"
+  # The required context the ruleset sees is the job's DISPLAY name, not its YAML id: rename
+  # the display name while keeping the id and every check above still passes while the
+  # ruleset watches a context that zizmor never produced.
+  local jname
+  jname="$(yq eval '.jobs["workflow-security"].name // "workflow-security"' "${CI}")"
+  [[ "${jname}" == "workflow-security" ]] ||
+    fail "CWS-1: the workflow-security job's display name is '${jname}', expected 'workflow-security' -- the required context is the display name, so renaming it while keeping the YAML job id reports a green 'workflow-security' that zizmor never produced"
+  [[ "${jname}" == "workflow-security" ]] ||
+    fail "CWS-1: the workflow-security job's display name is '${jname}', expected 'workflow-security' -- the required context is the display name, so renaming it while keeping the YAML job id reports a green 'workflow-security' that zizmor never produced"
+  # The display name is what the ruleset sees; exactly ONE job across ALL workflows may
+  # declare it -- the ci.yaml job that runs zizmor. Any second one is a decoy check that
+  # reports green without auditing anything.
+  local decoys
+  decoys="$(yq eval-all '.jobs | to_entries[] | select(.value.name == "workflow-security") | .key' "${ROOT}"/.github/workflows/*.yaml 2>/dev/null | grep -c . || true)"
+  [[ "${decoys}" -le 1 ]] ||
+    fail "CWS-1: ${decoys} jobs across the workflows declare the display name 'workflow-security' -- the required context must be produced by exactly one job, the one that runs zizmor; a second job with the same display name is a decoy check that reports green without auditing anything"
   for ((i = 0; i < n; i++)); do
     local sname
     sname="$(yq eval ".jobs[\"workflow-security\"].steps[${i}].name // \"\"" "${CI}")"
@@ -216,31 +232,26 @@ cws1_version_pin() {
 # --- CWS-2: suppressions are justified ---------------------------------------
 
 cws2_suppressions() {
-  # Suppression semantics (round-one and round-two review consensus): a suppression is a
-  # RULE under `rules:` (zizmor.yml's shape: rule -> ignore: -> locations), and each rule
-  # must carry its justification comment directly above the rule key. Deeper lines in the
-  # block (the ignore: key, list items, flow-style `ignore: [a, b]`) inherit the block's
-  # comment, so a justified multi-line entry does not false-red. With `rules: {}` there is
-  # nothing to check, which is why the config carries that exact spelling.
-  awk '
-    BEGIN { in_rules = 0; prev = "" }
-    /^rules:/ {
-      if ($0 ~ /^rules:[[:space:]]*\{\}[[:space:]]*$/) { exit 0 }
-      in_rules = 1
-      next
-    }
-    in_rules && /^[[:space:]]*$/ { next }
-    in_rules && /^[[:space:]]*#/ { prev = $0; next }
-    in_rules && /^[[:space:]]{2}[a-zA-Z0-9_-]+:/ {
-      if (prev !~ /^[[:space:]]*#/) {
-        printf "FAIL: CWS-2: suppression `%s` in .github/zizmor.yml has no comment directly above it stating why it is safe -- every suppression is a reviewed exception, and the config file itself names this gate as the enforcer\n", $0
-        exit 1
-      }
-      prev = ""
-      next
-    }
-    in_rules { next }
-  ' "${ZIZMOR_CFG}"
+  # Suppression semantics (round-one/round-two review consensus, tightened after the approval
+  # round): a suppression is a RULE under `rules:`, and each rule must carry its justification
+  # comment directly above the rule key. The check goes through yq, not raw text, so flow
+  # style (`rules: {cache-poisoning: {ignore: [...]}}`) and deeper indentation cannot bypass
+  # it: a flow-style rules value is rejected outright, and every key of a block rules map
+  # must carry a head comment. With `rules: {}` there is nothing to check, which is why the
+  # config carries that exact spelling.
+  local rules_type flow_style key
+  rules_type="$(yq eval '.rules | type' "${ZIZMOR_CFG}" 2>&1)" ||
+    fail "CWS-2: cannot parse ${ZIZMOR_CFG}: ${rules_type}"
+  [[ "${rules_type}" == *map ]] || return 0
+  # A non-empty rules map must be block style: a flow-style rules value hides the entries
+  # from the line-level review this gate enforces. An EMPTY map (rules: {}) is fine and is
+  # why the config carries that exact spelling.
+  if [[ -n "$(yq eval '.rules | keys | .[]' "${ZIZMOR_CFG}")" ]]; then
+    flow_style="$(yq eval '.rules | style' "${ZIZMOR_CFG}")"
+    if [[ "${flow_style}" == "flow" ]]; then
+      fail "CWS-2: suppressions in .github/zizmor.yml must be written in block style -- a flow-style rules map hides the entries from the line-level review this gate enforces; write the rule as a block with its justification comment directly above the key"
+    fi
+  fi
   # Inline suppressions count too: `# zizmor: ignore[...]` in any workflow or action silences
   # a finding zizmor would report, and none of them is reviewed unless the config lists it.
   local inline_hit
@@ -248,6 +259,12 @@ cws2_suppressions() {
   if [[ -n "${inline_hit}" ]]; then
     fail "CWS-2: inline zizmor suppression found at ${inline_hit%%:*} -- inline '# zizmor: ignore[...]' comments are not reviewed suppressions; a finding must be fixed or justified in .github/zizmor.yml where this gate can see it"
   fi
+  while IFS= read -r key; do
+    [[ -z "${key}" ]] && continue
+    if [[ -z "$(yq eval ".rules[\"${key}\"] | head_comment" "${ZIZMOR_CFG}")" ]]; then
+      fail "CWS-2: suppression '${key}' in .github/zizmor.yml has no comment directly above it stating why it is safe -- every suppression is a reviewed exception, and the config file itself names this gate as the enforcer"
+    fi
+  done < <(yq eval '.rules | keys | .[]' "${ZIZMOR_CFG}")
   pass "CWS-2: every suppression in .github/zizmor.yml is commented with its justification (none exist, or each has one)"
 }
 
@@ -341,17 +358,19 @@ cws5_eligibility() {
 # --- CWS-6: guards that cannot block a merge are not gates -------------------
 
 cws6_required_set() {
-  local names set_names m
+  local names m
   names="$(elig_names | tr '\n' ' ')"
-  set_names="dependency-review ${names}"
   [[ -n "${names}" ]] ||
     fail "CWS-6: no required_checks could be parsed from hack/release/verify-eligibility.sh -- the declared required set is the only record of which contexts gate a merge"
-  for m in lint vulncheck workflow-security dependency-review; do
-    if ! in_allowlist "${m}" ${set_names}; then
-      fail "CWS-6: the declared required set no longer lists '${m}' (declared: ${set_names}) -- the ruleset itself is checked by the operator (post-merge evidence), but the set that gates merges must keep listing the guards' home jobs"
+  # The three eligibility-listed names are checked against real data; dependency-review's
+  # presence is a property of ci.yaml (checked by CWS-3's has() probe), so listing it here
+  # would be tautological.
+  for m in lint vulncheck workflow-security; do
+    if ! in_allowlist "${m}" ${names}; then
+      fail "CWS-6: the declared required set no longer lists '${m}' (declared: ${names}) -- the ruleset itself is checked by the operator (post-merge evidence), but the set that gates merges must keep listing the guards' home jobs"
     fi
   done
-  pass "CWS-6: the required set (${set_names}) lists lint, vulncheck, workflow-security and dependency-review"
+  pass "CWS-6: the required set (dependency-review + ${names}) lists lint, vulncheck and workflow-security"
 }
 
 # Every mode a guard script's code recognises: bare always, plus `--self-test` when a
@@ -727,6 +746,35 @@ mutant_rejected "CWS-2 inline zizmor: ignore" "inline zizmor suppression" bash -
   set -euo pipefail
   perl -0pi -e "s/(run: bash hack\/test\/demo_task_aliases_test.sh)/\$1 # zizmor: ignore[template-injection]/" .github/workflows/ci.yaml
   grep -q "zizmor: ignore" .github/workflows/ci.yaml || { echo "mutant did not apply"; exit 1; }
+'
+
+# CWS-2 approval-round ratchets: flow style and an uncommented 4-space rule key both bypass a
+# line-level parser, so the suppression check is yq-based; each shape must still red.
+mutant_rejected "CWS-2 flow-style suppression" "must be written in block style" bash -c '
+  set -euo pipefail
+  perl -0pi -e "s/rules: \{\}/rules: \{cache-poisoning: \{ignore: [.github\/workflows\/release.yaml]\}\}/" .github/zizmor.yml
+  grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
+'
+
+# CWS-1 approval-round ratchets: the required context name and its uniqueness.
+yq_mutant_rejected "CWS-1 job display name renamed" "expected .workflow-security." \
+  ".github/workflows/ci.yaml" \
+  '.jobs["workflow-security"].name = "workflow-security-renamed"' \
+  "workflow-security-renamed"
+
+mutant_rejected "CWS-1 decoy job with the same display name" "a decoy check that reports green" bash -c '
+  set -euo pipefail
+  cat > .github/workflows/zzz-decoy.yaml <<"YAML"
+name: decoy
+on: [push]
+jobs:
+  decoy-job:
+    name: workflow-security
+    runs-on: ubuntu-latest
+    steps:
+      - run: "true"
+YAML
+  grep -q "workflow-security" .github/workflows/zzz-decoy.yaml || { echo "mutant did not apply"; exit 1; }
 '
 
 # --- CWS-3 mutants: the dependency-review job --------------------------------
