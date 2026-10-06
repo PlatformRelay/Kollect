@@ -254,9 +254,9 @@ func TestEngineDispatchExtractionFailureInvalidatesPriorRow(t *testing.T) {
 	if fpAfterSuccess == "" {
 		t.Fatal("expected non-empty fingerprint after successful store")
 	}
-	envelopeAfterSuccess, err := store.MarshalTargetJSON("team-a", "deploys")
+	envelopeAfterSuccess, err := store.MarshalTargetExport("team-a", "deploys", ExportMetadata{})
 	if err != nil {
-		t.Fatalf("MarshalTargetJSON after success: %v", err)
+		t.Fatalf("MarshalTargetExport after success: %v", err)
 	}
 	if len(envelopeAfterSuccess) == 0 {
 		t.Fatal("expected non-empty export envelope after success")
@@ -285,9 +285,9 @@ func TestEngineDispatchExtractionFailureInvalidatesPriorRow(t *testing.T) {
 	if fpAfterFailure == fpAfterSuccess {
 		t.Fatalf("fingerprint unchanged after failure removal: %q", fpAfterFailure)
 	}
-	envelopeAfterFailure, err := store.MarshalTargetJSON("team-a", "deploys")
+	envelopeAfterFailure, err := store.MarshalTargetExport("team-a", "deploys", ExportMetadata{})
 	if err != nil {
-		t.Fatalf("MarshalTargetJSON after failure: %v", err)
+		t.Fatalf("MarshalTargetExport after failure: %v", err)
 	}
 	items, err := ItemsFromExportPayload(envelopeAfterFailure)
 	if err != nil {

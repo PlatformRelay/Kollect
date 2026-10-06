@@ -22,10 +22,10 @@ integration files) because the default build skips them.
 
 ## 3. Superseded store methods (DR-4)
 
-- [ ] 3.1 Probe: `Store.RemoveCluster` and `Store.MarshalTargetJSON` referenced only by tests; delete both
-- [ ] 3.2 Delete `TestStoreRemoveCluster` and the `RemoveCluster`-based version-monotonicity test (shard deletion is reachable only through the dead method — production `RemoveTarget` never deletes shards); adapt every remaining test that used `MarshalTargetJSON` to inspect envelopes — `engine_extract_failure_test.go` and `TestStoreSubscribeAndMarshal` in `store_test.go` — via `SnapshotTarget` or the envelope the subscriber actually delivers
-- [ ] 3.3 Update `store.go` comments that cite `RemoveCluster` (:43, :174, :179) so no dangling name remains; keep the version-monotonicity rationale (it documents `bumpNamespaceVersion` behaviour, not the deleted method)
-- [ ] 3.4 Compile clean; `go test ./internal/collect/...` green
+- [x] 3.1 Probe: `Store.RemoveCluster` and `Store.MarshalTargetJSON` referenced only by tests; delete both
+- [x] 3.2 Delete `TestStoreRemoveCluster` and the `RemoveCluster`-based version-monotonicity test (shard deletion is reachable only through the dead method — production `RemoveTarget` never deletes shards); adapt every remaining test that used `MarshalTargetJSON` to inspect envelopes — `engine_extract_failure_test.go` and `TestStoreSubscribeAndMarshal` in `store_test.go` — via `SnapshotTarget` or the envelope the subscriber actually delivers
+- [x] 3.3 Update `store.go` comments that cite `RemoveCluster` (:43, :174, :179) so no dangling name remains; keep the version-monotonicity rationale (it documents `bumpNamespaceVersion` behaviour, not the deleted method)
+- [x] 3.4 Compile clean; `go test ./internal/collect/...` green — closed 2026-10-07, evidence: evidence/T3.md
 
 ## 4. Superseded git entry points (DR-5)
 
@@ -63,8 +63,8 @@ integration files) because the default build skips them.
 | DR-1 | probe 1.1 then `go build ./...` after 1.2 | probe shows definition+tests only; build clean with symbols gone | done | evidence/T1.md |
 | DR-2 | probe 2.1/2.2 then compile | zero refs; gitlab+api packages compile | done | evidence/T2.md |
 | DR-3 | probe 2.2 then compile + `grep` docs/CRDs | no text reference survives | done | evidence/T2.md |
-| DR-4 | probe 3.1 then compile + collect suite | store compiles without the methods; suite green | not-run | |
-| DR-4b | review: deleted tests guarded no reachable path | recorded reasoning, reviewer-checked | not-run | |
+| DR-4 | probe 3.1 then compile + collect suite | store compiles without the methods; suite green | done | evidence/T3.md |
+| DR-4b | review: deleted tests guarded no reachable path | recorded reasoning, reviewer-checked | done | evidence/T3.md |
 | DR-5 | probe 4.1 then compile + git unit suite + tagged-file compile | pipeline coverage unchanged via `ExportWithBranch` | not-run | |
 | DR-6 | probe 5.1 then compile + sink suites | tests use `cap.*` | not-run | |
 | DR-7 | probe 6.1 then compile + controller suite; reader call sites still covered | engine compiles without the method; tests still reach `NamespacesForClusterTarget` | not-run | |
