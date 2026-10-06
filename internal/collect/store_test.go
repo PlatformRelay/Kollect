@@ -100,65 +100,6 @@ func TestStoreNamespaceVersion_BumpsOnMutationAndIsolatesNamespaces(t *testing.T
 	}
 }
 
-// TestStoreNamespaceVersion_MonotonicAcrossRemoveClusterAndShardRecreation
-// guards a specific trap: RemoveCluster deletes the whole storeShard for a
-// namespace, so if the version counter lived on the shard itself, the next
-// Upsert into that namespace would recreate the shard at version 0 and could
-// climb back to a version number a stale cache entry was holding — a true
-// (version, content) collision, not just a missed cache hit. The version
-// must survive shard deletion and never repeat a previously-issued value for
-// the same namespace.
-func TestStoreNamespaceVersion_MonotonicAcrossRemoveClusterAndShardRecreation(t *testing.T) {
-	t.Parallel()
-
-	s := NewStore()
-	s.Upsert(Item{
-		TargetNamespace: "ns-a",
-		TargetName:      "deploys",
-		UID:             "1",
-		Namespace:       "ns-a",
-		Name:            "app",
-		Version:         "v1",
-		Kind:            "Deployment",
-	})
-	vBefore := s.NamespaceVersion("ns-a")
-
-	s.RemoveCluster("ns-a")
-	vAfterRemove := s.NamespaceVersion("ns-a")
-	if vAfterRemove <= vBefore {
-		t.Fatalf("version must strictly increase after RemoveCluster, not reset: before=%d after=%d", vBefore, vAfterRemove)
-	}
-
-	// Repopulate the namespace (shard recreated from scratch) enough times
-	// that a naive shard-local counter reset to 0 would climb back through
-	// vBefore and vAfterRemove (both are small single-digit values here).
-	var vAfterRepopulate uint64
-	for i := range 5 {
-		s.Upsert(Item{
-			TargetNamespace: "ns-a",
-			TargetName:      "deploys",
-			UID:             "1",
-			Namespace:       "ns-a",
-			Name:            "app",
-			Version:         "v2",
-			Kind:            "Deployment",
-			Attributes:      map[string]any{"i": i},
-		})
-		v := s.NamespaceVersion("ns-a")
-		if v == vBefore {
-			t.Fatalf("version repeated a previously-issued value (vBefore=%d) after RemoveCluster + repopulate — a cache entry recorded at vBefore would now incorrectly hit", vBefore)
-		}
-		if v == vAfterRemove {
-			t.Fatalf("version repeated a previously-issued value (vAfterRemove=%d) after repopulate — a cache entry recorded at vAfterRemove would now incorrectly hit", vAfterRemove)
-		}
-		vAfterRepopulate = v
-	}
-
-	if vAfterRepopulate <= vAfterRemove {
-		t.Fatalf("version must keep increasing across repopulation: vAfterRemove=%d vAfterRepopulate=%d", vAfterRemove, vAfterRepopulate)
-	}
-}
-
 func TestStoreNamespaceIsolation(t *testing.T) {
 	t.Parallel()
 
@@ -249,9 +190,9 @@ func TestStoreSubscribeAndMarshal(t *testing.T) {
 		t.Fatalf("CountForTarget = %d", got)
 	}
 
-	payload, err := s.MarshalTargetJSON("team-a", "deploys")
+	payload, err := s.MarshalTargetExport("team-a", "deploys", ExportMetadata{})
 	if err != nil || len(payload) == 0 {
-		t.Fatalf("MarshalTargetJSON: %v (%q)", err, payload)
+		t.Fatalf("MarshalTargetExport: %v (%q)", err, payload)
 	}
 
 	nsPayload, err := s.MarshalNamespaceJSON("team-a")

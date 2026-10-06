@@ -40,11 +40,12 @@ type Store struct {
 	nsWatchers map[chan string]struct{}
 
 	// versionMu/versions track a per-namespace mutation counter (AR-10),
-	// deliberately kept separate from shards: RemoveCluster deletes the
-	// shard entirely, and a counter living on the shard would reset to 0
-	// and could re-issue a value a stale cache entry already holds. Keeping
-	// it in its own map (never deleted, only incremented) makes it survive
-	// shard deletion/recreation and stay strictly monotonic per namespace.
+	// deliberately kept separate from shards: a counter living on the
+	// shard would reset to 0 if that shard were ever deleted and
+	// recreated (no current mutation path deletes one), re-issuing a
+	// value a stale cache entry already holds. Keeping it in its own
+	// map (never deleted, only incremented) makes it survive shard
+	// deletion/recreation and stay strictly monotonic per namespace.
 	versionMu sync.Mutex
 	versions  map[string]uint64
 }
@@ -171,15 +172,15 @@ func (s *Store) bumpNamespaceVersion(namespace string) {
 }
 
 // NamespaceVersion returns a counter bumped on every mutation (Upsert/Remove/
-// RemoveTarget/RemoveCluster) scoped to this namespace (AR-10). Two reads
+// RemoveTarget) scoped to this namespace (AR-10). Two reads
 // returning the same value guarantee the namespace's item content has not
 // changed in between, so callers can skip a full SnapshotNamespace + content
 // fingerprint recompute when the version is unchanged since the last one
 // they computed. The counter is strictly monotonic per namespace for the
-// lifetime of the Store — including across RemoveCluster, which deletes the
-// shard but never the version entry, so a value is never re-issued. Every
-// bump happens while the caller still holds the content lock (shard mu or
-// shardsMu) that made the corresponding change visible, so "this version was
+// lifetime of the Store — the version map is never pruned, not even by a
+// hypothetical future shard deletion, so a value is never re-issued. Every
+// bump happens while the caller still holds the content lock (shard mu)
+// that made the corresponding change visible, so "this version was
 // observed" always implies "this content (or later) is visible" — never the
 // reverse, which would let a cache entry serve a fingerprint for content
 // that has already moved on.
@@ -200,20 +201,6 @@ func (s *Store) RemoveTarget(targetNamespace, targetName string) {
 	sh.mu.Unlock()
 
 	s.notifyWatchers(targetNamespace)
-}
-
-// RemoveCluster drops all targets for one cluster target namespace.
-func (s *Store) RemoveCluster(cluster string) {
-	if cluster == "" {
-		return
-	}
-
-	s.shardsMu.Lock()
-	delete(s.shards, cluster)
-	s.bumpNamespaceVersion(cluster) // atomic with the content change; see Upsert
-	s.shardsMu.Unlock()
-
-	s.notifyWatchers(cluster)
 }
 
 // CountForTarget returns items collected for one target.
@@ -244,11 +231,6 @@ func (s *Store) SnapshotTarget(targetNamespace, targetName string) []Item {
 	}
 
 	return out
-}
-
-// MarshalTargetJSON returns a versioned export envelope for one target (ADR-0405).
-func (s *Store) MarshalTargetJSON(targetNamespace, targetName string) ([]byte, error) {
-	return s.MarshalTargetExport(targetNamespace, targetName, ExportMetadata{})
 }
 
 // MarshalTargetExport returns a versioned export envelope for one target.
