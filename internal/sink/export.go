@@ -55,21 +55,6 @@ func ExportPayload(c Capabilities, payload []byte) (export []byte, skip bool) {
 	return cap.ExportPayload(c, payload)
 }
 
-// ExportItemsRequest carries one inventory export fan-out attempt to a sink.
-type ExportItemsRequest struct {
-	Ctx           context.Context
-	Client        client.Client
-	Registry      *Registry
-	SinkNamespace string
-	SinkName      string
-	SinkFamily    string
-	ObjectPath    string
-	// Inventory names the exporting inventory; see ExportEnvelopeRequest.Inventory.
-	Inventory InventoryIdentity
-	Items     []collect.Item
-	Meta      export.Metadata
-}
-
 // ExportEnvelopeRequest carries a pre-marshalled export envelope to a sink.
 type ExportEnvelopeRequest struct {
 	Ctx           context.Context
@@ -89,60 +74,6 @@ type ExportEnvelopeRequest struct {
 	// so prune can run exactly once, against the union, on the final part. Nil for single-part and
 	// non-git sinks (no-op).
 	PrunePlan *PrunePlan
-}
-
-// RunExportItems loads the sink, applies capability gating, wraps the envelope, and exports.
-func RunExportItems(req ExportItemsRequest) error {
-	if req.Registry == nil {
-		return kollecterrors.Terminal(fmt.Errorf("sink registry is not configured"))
-	}
-
-	items := req.Items
-	if items == nil {
-		items = []collect.Item{}
-	}
-
-	meta := req.Meta
-	if meta.ExportedAt.IsZero() {
-		meta.ExportedAt = time.Now().UTC()
-	}
-
-	envelope, err := export.MarshalEnvelope(items, meta)
-	if err != nil {
-		err = kollecterrors.Terminal(err)
-		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
-
-		return err
-	}
-
-	resolved, err := ResolveSink(req.Ctx, req.Client, ResolveOptions{
-		Namespace: req.SinkNamespace,
-		Name:      req.SinkName,
-		Family:    req.SinkFamily,
-	})
-	if err != nil {
-		err = kollecterrors.ClassifyAPI(fmt.Errorf("load sink %q: %w", req.SinkName, err))
-		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
-
-		return err
-	}
-
-	// RunExportEnvelope's written paths are retraction evidence for callers that
-	// record export state; RunExportItems has no state to record.
-	_, err = RunExportEnvelope(ExportEnvelopeRequest{
-		Ctx:           req.Ctx,
-		Client:        req.Client,
-		Registry:      req.Registry,
-		SinkNamespace: sinkNamespaceForExport(resolved, req.SinkNamespace),
-		SinkName:      req.SinkName,
-		SinkUID:       resolved.UID,
-		ObjectPath:    req.ObjectPath,
-		Inventory:     req.Inventory,
-		Envelope:      envelope,
-		SinkSpec:      resolved.Spec,
-	})
-
-	return err
 }
 
 // RunExportEnvelope exports a pre-built envelope without re-marshalling items.
@@ -308,10 +239,6 @@ func checkInventoryIdentity(req ExportEnvelopeRequest) error {
 	}
 
 	return nil
-}
-
-func sinkNamespaceForExport(resolved *ResolvedSink, fallback string) string {
-	return SinkNamespaceForResolved(resolved, fallback)
 }
 
 func classifyExportFailure(sinkName string, err error) error {

@@ -279,7 +279,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		// Per-binding export ceiling: the ref override replaces the operator global
 		// cap wholesale when set (AR-01 / EC-P0-01, Option B). KollectClusterInventory
 		// has no spec-level maxExportBytes, so the global cap is the fallback. The
-		// rollup is size-bounded here — the previous RunExportItems path applied no
+		// rollup is size-bounded here — the retired items-level runner applied no
 		// ceiling and re-marshalled per binding.
 		ceiling := validation.ResolveBindingMaxExportBytes(ref.MaxExportBytes, validation.MaxExportBytesGlobal())
 		// Multipart is a snapshot-family feature only; database/event sinks

@@ -14,10 +14,14 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
+	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
-func TestRunExportItems_circuitBreakerTripsAfterRepeatedFailures(t *testing.T) {
+// The breaker pair drives the live RunExportEnvelope path — production calls
+// exportThroughBreaker inside RunExportEnvelope (export.go). The same trip/reset
+// semantics were previously asserted through the deleted items-level runner.
+func TestRunExportEnvelope_circuitBreakerTripsAfterRepeatedFailures(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -48,24 +52,36 @@ func TestRunExportItems_circuitBreakerTripsAfterRepeatedFailures(t *testing.T) {
 		return stub, nil
 	})
 
-	req := ExportItemsRequest{
+	envelope, err := export.MarshalEnvelope(
+		[]collect.Item{{Name: "demo"}},
+		export.Metadata{Generation: 1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Client:        cl,
 		Registry:      reg,
 		SinkNamespace: sinkNamespace,
 		SinkName:      sinkName,
 		ObjectPath:    sinkNamespace + "/inv.json",
-		Items:         []collect.Item{{Name: "demo"}},
+		Envelope:      envelope,
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{
+			Type:     "stub",
+			Endpoint: "https://example.com/repo.git",
+		},
 	}
 
 	for range circuitBreakerTripAt {
-		err := RunExportItems(req)
+		_, err := RunExportEnvelope(req)
 		if err == nil || kollecterrors.ClassOf(err) != kollecterrors.ClassTransient {
-			t.Fatalf("RunExportItems() before trip = %v (%v), want transient", err, kollecterrors.ClassOf(err))
+			t.Fatalf("RunExportEnvelope() before trip = %v (%v), want transient", err, kollecterrors.ClassOf(err))
 		}
 	}
 
-	err := RunExportItems(req)
+	_, err = RunExportEnvelope(req)
 	if err == nil {
 		t.Fatal("expected circuit breaker open error")
 	}
@@ -105,26 +121,38 @@ func TestResetBreakersForTest_clearsOpenBreaker(t *testing.T) {
 		return stub, nil
 	})
 
-	req := ExportItemsRequest{
+	envelope, err := export.MarshalEnvelope(
+		[]collect.Item{{Name: "demo"}},
+		export.Metadata{Generation: 1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := ExportEnvelopeRequest{
 		Ctx:           t.Context(),
 		Client:        cl,
 		Registry:      reg,
 		SinkNamespace: sinkNamespace,
 		SinkName:      sinkName,
 		ObjectPath:    sinkNamespace + "/inv.json",
-		Items:         []collect.Item{{Name: "demo"}},
+		Envelope:      envelope,
+		SinkSpec: kollectdevv1alpha1.KollectSinkSpec{
+			Type:     "stub",
+			Endpoint: "https://example.com/repo.git",
+		},
 	}
 
 	for range circuitBreakerTripAt {
-		_ = RunExportItems(req)
+		_, _ = RunExportEnvelope(req)
 	}
-	if err := RunExportItems(req); err == nil {
+	if _, err := RunExportEnvelope(req); err == nil {
 		t.Fatal("expected open breaker before reset")
 	}
 
 	ResetBreakersForTest()
 	stub.exportErr = nil
-	if err := RunExportItems(req); err != nil {
-		t.Fatalf("RunExportItems after ResetBreakersForTest: %v", err)
+	if _, err := RunExportEnvelope(req); err != nil {
+		t.Fatalf("RunExportEnvelope after ResetBreakersForTest: %v", err)
 	}
 }
