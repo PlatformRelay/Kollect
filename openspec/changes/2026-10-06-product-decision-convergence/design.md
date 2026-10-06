@@ -46,22 +46,38 @@ Field names, JSON names, pointer types, "timestamp moves only when the count cha
 semantics and printer columns mirror `KollectTargetStatus` so a fleet operator reads one contract
 twice, not two contracts. The write escape hatch (`countChanged && !written`) mirrors
 PERF-FIX-05: `setTargetCondition` skips byte-identical writes, so a moving count with a frozen
-condition must still persist. The count source is the same one the Ready message already uses
+condition must still persist. The cluster path already has one such hatch for the filter-status
+fields (`persistFilterStatusIfSkipped`, `kollectclustertarget_controller.go:332-342`); the count
+extends that single write (`filterChanged || countChanged`) rather than adding a second
+Status().Update site. The count source is the same one the Ready message already uses
 (`collectedCount(ct, matched)`), so the number and the prose cannot disagree. CRD/codegen ripple
 (`config/crd/bases`, `charts/kollect/crds`, deepcopy, `hack/gen-glossary.py`) regenerates via
 `make generate manifests` and the docs task.
 
-## D4 — Evict-on-delete rides the family-sink controller's delete events; the pool API does not change
+## D4 — Evict-on-delete rides the family-sink controller's delete events, with a delete tombstone in the pool
 
 `FamilySinkReconciler` already exists generically for the three kinds; each instantiation adds a
-`Watches` on its own kind whose `DeleteFunc` calls the existing `EvictBackendPoolByUID` (and
-`EvictBackendPool(ns, name)` for the legacy key form) — one small, typed hook, no new
-controller, no finalizer (sinks have none; adding one to drain connections would turn best-effort
-eviction into a deletion dependency, which the product decision does not ask for). The TTL stays
-as the backstop for entries whose sink never produced a delete event (pipeline-mode one-shots,
-tests, restarts). Metrics: eviction is silent on success (idempotent no-op) — a counter here
-would count ordinary deletes, not defects; the pool's existing log line on Close names the
-reason.
+`Watches` on its own kind whose `DeleteFunc` calls a small hook. Eviction is by sink UID
+(`EvictBackendPoolByUID`) — production pooling is always UID-keyed (`poolKeyForSink` prefers UID;
+both production acquirers pass a resolved UID), so a namespace/name eviction would be dead code;
+the namespace/name form is used only as the defensive fallback when a
+`DeleteStateUnknown` tombstone carries no UID.
+
+The interleaving hazard: a delete event can land while an export still holds the pooled backend,
+or while an in-flight `acquireBackend` build is about to `storePooledBackend` — without a guard,
+the build would re-pool a fresh backend for a deleted sink and the 48 h TTL would again be the
+contract, re-creating the exact defect this decision removes. The pool therefore keeps a
+delete-tombstone per evicted key (bounded, pruned with the same opportunistic cycle as entries);
+`storePooledBackend` discards a backend whose key is tombstoned. A tombstoned UID can never be
+reused (Kubernetes UIDs are unique), so discarding is correct; the in-flight export may fail
+against the closed backend — acceptable, the sink no longer exists and no new acquire can
+legitimately rebuild for it (production acquires load the sink object first).
+
+No finalizer: adding one to drain connections would turn best-effort eviction into a deletion
+dependency the product decision does not ask for. The TTL stays as the backstop for entries
+whose sink never produced a delete event (pipeline-mode one-shots, restarts). Metrics: eviction
+is silent on success — a counter would count ordinary deletes, not defects; the pool's existing
+log line on Close names the reason.
 
 ## D5 — The git engine converges to go-git; the CLI machinery survives where it is genuinely shared
 
@@ -75,9 +91,21 @@ engines today, so `exec_git.go`/`cli_env.go`/`export_file.go` stay regardless �
 never on the table; (4) ADR-0104 documents the CLI SSH path as the weaker host-key story
 (no fail-closed guard), so making the CLI the only engine would regress the documented security
 model. Convergence therefore removes the `engine: cli` opt-in (CRD enum, admission validation,
-backend config), deletes the engine branch points and the internal `GitEngine` type/field, and
-extends the KEX pin. Existing `engine: cli` sinks fail validation with an error naming `go-git`
-(pre-v0.x, no breaking marker; upgrade note in `docs/operator-manual/upgrading.md`; ADR-0803).
+backend config), removes the exported `GitEngineCLI` API constant and the CRD field's `cli` enum
+value (the marker becomes `+kubebuilder:validation:Enum=go-git`), deletes the engine branch
+points and the internal `GitEngine` type and `Config.Engine` field, and extends the KEX pin.
+Existing `engine: cli` sinks fail validation with an error naming `go-git`
+(pre-v0.x, no breaking marker; upgrade note in `docs/operator-manual/upgrading.md`; ADR-0803,
+which notes that number 0802 stays reserved — eight pipeline code comments already cite
+"ADR-0802" as the future pipeline-CLI contract, so 0803 avoids squatting on it).
+
+Doc sites that assert `engine: cli` works and must be truthed-up with the code: the CRD reference
+row (`docs/crds/kollectsnapshotsink.md:22`), `charts/kollect/README.md.gotmpl:15-18` (+ chart
+README regeneration), `docs/operator-manual/index.md:131-143` (engine table),
+`docs/development/coding-standards.md:74-78` (MUST line), `docs/security/security-architecture.md`
+(engine sections — the address-pin and host-key paragraphs now describe the shared probe/file
+machinery, not a selectable engine), `Dockerfile:34-35` and `Dockerfile.pipeline:33-38`
+comments, and ADR-0415's per-engine commit-ergonomics sentence.
 
 Not converged here: the per-engine probe/delivery function pairs inside the surviving shared
 machinery (Sweep 2's ~130-line hoist) — the engine branch points that made them drift are gone,

@@ -8,7 +8,7 @@ The git snapshot sink SHALL export and delete through the go-git engine only. `s
 SHALL accept `go-git` (the default) and SHALL reject `cli` — at the CRD schema, at admission
 validation, and at backend construction — with an error naming `go-git` as the engine. The
 `file://` remote handling and the `git ls-remote` connection probe SHALL keep using the CLI
-machinery they already use for both engines.
+machinery they already use today, unchanged by the convergence.
 
 #### Scenario: engine=cli is rejected at admission
 
@@ -23,7 +23,7 @@ machinery they already use for both engines.
 
 #### Scenario: file:// remotes are unchanged
 
-- **WHEN** a git sink targets a `file://` remote (any engine value it carried)
+- **WHEN** a git sink targets a `file://` remote
 - **THEN** export, delete and connection probing use the CLI machinery, as today
 
 ### Requirement: GTE-2 The go-git SSH client offers the key exchanges x/crypto implements
@@ -47,7 +47,9 @@ implemented by the pinned x/crypto; the offer, not the library, was the limiter.
 
 `docs/crds/kollectsnapshotsink.md` and the API field description SHALL describe `go-git` as the
 engine, SHALL NOT claim `cli` is required for SSH/KEX edge cases, and SHALL note the convergence
-(ADR-0803). The pipeline image's documented engine support statement stays true.
+(ADR-0803). The other in-repo sites asserting `engine: cli` works (chart README template,
+operator manual, coding standards, security architecture, image Dockerfile comments) SHALL be
+truthed-up in the same change.
 
 #### Scenario: CRD reference does not advertise cli
 
