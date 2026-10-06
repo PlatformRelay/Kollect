@@ -1,0 +1,6 @@
+Qwen3.8-Flash-Next-security exit=0 139s
+Qwen3.8-Flash-Next-spec exit=0 150s
+GLM-5.3-security exit=0 277s
+GLM-5.3-adversarial exit=0 301s
+DeepSeek-V4.1-Flash-spec exit=0 728s
+DeepSeek-V4.1-Flash-adversarial exit=0 736s

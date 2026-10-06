@@ -10,14 +10,14 @@ integration files) because the default build skips them.
 ## 1. Dead sink runner (DR-1)
 
 - [ ] 1.1 Probe (record the full list, do not truncate): `grep -rn "RunExportItems\|ExportItemsRequest" --include='*.go' internal/ cmd/ api/ test/ hack/` → production hits only in `internal/sink/export.go`; test hits only in `internal/sink/export_test.go` and `internal/sink/circuit_breaker_test.go`; plus the stale comment in `kollectclusterinventory_controller.go`
-- [ ] 1.2 Delete `RunExportItems` + `ExportItemsRequest` from `internal/sink/export.go`; reword the stale comment in `kollectclusterinventory_controller.go` so it no longer names the deleted runner
-- [ ] 1.3 Delete the `TestRunExportItems_*` tests in `internal/sink/export_test.go` (they exercise only the unreachable path) and migrate the two breaker tests in `internal/sink/circuit_breaker_test.go` (`TestRunExportItems_circuitBreakerTripsAfterRepeatedFailures`, `TestResetBreakersForTest_clearsOpenBreaker`) to drive the live `RunExportEnvelope` path instead, which is where production calls `exportThroughBreaker` (`export.go:267`); the trip-at-N and reset semantics must be asserted as before
+- [ ] 1.2 Delete `RunExportItems` + `ExportItemsRequest` from `internal/sink/export.go`, and `sinkNamespaceForExport` with them (its sole caller is the dead runner — leaving it trips the enabled `unused` linter); reword the stale comment in `kollectclusterinventory_controller.go` so it no longer names the deleted runner
+- [ ] 1.3 Delete the `TestRunExportItems_*` tests in `internal/sink/export_test.go` (they exercise only the unreachable path) and migrate the two breaker tests in `internal/sink/circuit_breaker_test.go` (`TestRunExportItems_circuitBreakerTripsAfterRepeatedFailures`, `TestResetBreakersForTest_clearsOpenBreaker`) to drive the live `RunExportEnvelope` path instead, which is where production calls `exportThroughBreaker` (the `exportThroughBreaker` call inside `RunExportEnvelope`); the trip-at-N and reset semantics must be asserted as before. Then record, per deleted `TestRunExportItems_*` test, which live test or suite covers the same behaviour (or that the behaviour is runner-specific) — the coverage accounting goes into the task's evidence file
 - [ ] 1.4 `go build ./...` and `go vet ./...` compile clean; `go test ./internal/sink/... ./internal/controller/...` green
 
 ## 2. Zero-reference deletions (DR-2, DR-3)
 
 - [ ] 2.1 Probe then delete `MergeRequestAPI` from `internal/sink/gitlab/client.go` (zero refs anywhere, tests included)
-- [ ] 2.2 Probe: `grep -rn "ConditionConnected\|ConditionCredentialsVerified" --include='*.go' .` → only `api/v1alpha1/constants.go:10-11`; delete both constants
+- [ ] 2.2 Probe: `grep -rn "ConditionConnected\|ConditionCredentialsVerified" --include='*.go' .` → only `api/v1alpha1/constants.go:10-11`; delete both constants. The deletion commit's body names the removed exported constants (the changelog is commit-derived, no manual CHANGELOG.md edits)
 - [ ] 2.3 Compile clean; `go test ./internal/sink/gitlab/... ./api/...` green; grep confirms no docs/CRD text names the constants
 
 ## 3. Superseded store methods (DR-4)
@@ -42,7 +42,7 @@ integration files) because the default build skips them.
 ## 6. Superseded engine binding (DR-7)
 
 - [ ] 6.1 Probe: `BindClusterTargetNamespaces` referenced only by tests; record that production binds via `RegisterTarget` synthetic objects (`kollectclustertarget_controller.go` `syncEngineTargets`)
-- [ ] 6.2 Delete the method; migrate the ~14 test sites in 8 files: seed through the production-shaped `RegisterTarget` path (or the narrowest same-package equivalent) so the `NamespacesForClusterTarget` reader paths stay covered; delete tests that exist only to exercise the deleted writer
+- [ ] 6.2 Delete the method; migrate the probe-listed test sites (controller-package tests and collect-package tests, ~8 files): production binds cluster targets via `RegisterTarget` with a synthetic `KollectTarget` (as `kollectclustertarget_controller.go` `syncEngineTargets` does — profile object plus synthetic object fixture needed), so prefer that shape where the test needs a populated target state; where a test only needs the reader to see a name, the narrowest same-package equivalent is acceptable, recorded in the evidence. Share one fixture helper across the controller tests rather than duplicating per file; delete tests that exist only to exercise the deleted writer
 - [ ] 6.3 Compile clean; `go test ./internal/collect/... ./internal/controller/...` green; confirm every `NamespacesForClusterTarget` production call site keeps a test that reaches it
 
 ## 7. Auth cache without dead identity (DR-8)
@@ -53,7 +53,7 @@ integration files) because the default build skips them.
 ## 8. Final gates and record (DR-8, DR-9)
 
 - [ ] 8.1 One full suite on the final tree: `task test`; plus `task lint`, `task coverage` (floor 90% holds), `task spec:validate`, `go vet ./...`
-- [ ] 8.2 Sweep exclusions recorded in the proposal's Non-goals remain true; record the `EvictBackendPool*` and `AutoMerge` exclusion reasons in the PR description
+- [ ] 8.2 Sweep exclusions recorded in the proposal's Non-goals remain true; record the `EvictBackendPool*` and `AutoMerge` exclusion reasons in the PR description; the commit bodies name every removed exported symbol so the commit-derived changelog records the API changes
 - [ ] 8.3 Zero dangling references: the per-symbol probe greps return no hits outside review records
 
 ## Verification
