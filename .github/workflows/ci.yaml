@@ -271,6 +271,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # CWS-6: the docs-side guards wired below verify anchors that reach back into main's
+          # history (security_architecture_docs_test.sh resolves a pinned security-review
+          # commit), so the lint job must have full history -- a depth-1 checkout makes every
+          # history-dependent guard fail-closed here while passing under docs:verify's
+          # fetch-depth: 0 checkout.
+          fetch-depth: 0
       - uses: ./.github/actions/go-cache
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
