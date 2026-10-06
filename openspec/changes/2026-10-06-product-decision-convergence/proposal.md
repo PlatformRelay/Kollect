@@ -26,6 +26,19 @@ What the docs promise and the code does not do today:
    image ships no git binary (`Dockerfile.pipeline:33-35`), so the CLI engine cannot be the single
    engine; go-git must be.
 
+## Source decisions (captain's answer, verbatim substance)
+
+The five product decisions this change answers, as stated in the final consolidated review §7
+(and pass B's "Recommended next actions" #5), with the resolution relayed with the task brief:
+
+| # | Decision (review §7) | Resolution |
+| --- | --- | --- |
+| 1 | Un-document or implement `kollect.dev/requestedAt` and `kollect.dev/collectedGeneration` | **Implement both** (D1, D2) |
+| 2 | Delete or wire the Helm `mode` value | **Wire it** — "either wire the templates to honour it or, if wiring is unsafe, say so and stop for a decision" → D7: wiring target undefined; stopped for the captain |
+| 3 | Cluster `collectedCount` parity gap: decide parity vs documented difference | **Parity** — add `status.collectedCount` (+ updatedAt) to `KollectClusterTarget` (D3) |
+| 4 | Backend-pool eviction: evict-on-delete, or document the 48 h TTL as the contract | **Evict-on-delete** (D4) |
+| 5 | Git engine future: verify which auth modes genuinely need the CLI, then deprecate or hoist-and-keep | **Converge to ONE engine**: verify first; if the evidence is ambiguous, stop for a decision → verification found no auth mode needs the CLI engine; converge to go-git (D5) |
+
 ## What Changes
 
 - `kollect.dev/requestedAt` is implemented: on `KollectInventory` and `KollectClusterInventory`,
@@ -99,7 +112,7 @@ None.
 ## Assumptions
 
 - The go-git KEX pin is in-repo and extendable: `defaultSSHKeyExchangeAlgorithms`
-  (`internal/sink/git/ssh_auth.go:23-33`) is passed to `ssh.Config{KeyExchanges}`. Source: read at
+  (`internal/sink/git/ssh_auth.go:27-36`) is passed to `ssh.Config{KeyExchanges}`. Source: read at
   HEAD. x/crypto v0.57.0 implements `mlkem768x25519-sha256` (`ssh/kex.go:409`,
   `KeyExchangeMLKEM768X25519`) and `diffie-hellman-group16-sha512` (`ssh/kex.go:448`). Source:
   module cache read.
@@ -110,7 +123,7 @@ None.
   takes effect on the next reconcile of the same manager process; after a manager restart every
   inventory exports once anyway (cold tracker). Source: read of `per_sink_export.go`.
 - Sink deletion events reach the controller as a delete event carrying the last observed state;
-  controller-runtime v0.24.1 wraps an uncached final state in a `DeletionFinalStateUnknown`
+  controller-runtime v0.24.1 wraps an uncached final state in a `cache.DeletedFinalStateUnknown`
   tombstone whose name/namespace/UID remain readable. Source:
   `event.DeleteEvent` / tombstone handling in controller-runtime v0.24.1 (`pkg/event/events.go`,
   `pkg/handler/eventhandler.go:105-146`). The eviction hook is defensive about the unknown-state

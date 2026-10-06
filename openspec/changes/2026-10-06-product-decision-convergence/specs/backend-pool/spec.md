@@ -6,12 +6,13 @@
 
 When a `KollectSnapshotSink`, `KollectDatabaseSink` or `KollectEventSink` is deleted, the process
 pool SHALL drop the cached backend entry for that sink's object UID and Close it, instead of
-holding it for the idle TTL. A backend whose build was still in flight when the delete event
-landed SHALL be discarded instead of pooled for the deleted sink (delete-tombstone), so eviction
-cannot be undone by the re-store race. Eviction is best-effort and idempotent: it SHALL NOT
-re-export, retract, reconcile or clean up anything, and SHALL NOT fail when no entry is pooled.
-An in-flight export that already holds the evicted backend may fail against it; the sink no
-longer exists and no new acquire SHALL rebuild an entry for that sink's UID.
+holding it for the idle TTL; when the delete event's object carries no UID, the eviction SHALL
+fall back to the sink's namespace/name key. A backend whose build was still in flight when the
+delete event landed SHALL be discarded instead of pooled for the deleted sink (delete-tombstone),
+so eviction cannot be undone by the re-store race. Eviction is best-effort and idempotent: it
+SHALL NOT re-export, retract, reconcile or clean up anything, and SHALL NOT fail when no entry
+is pooled. An in-flight export that already holds the evicted backend may fail against it; the
+sink no longer exists and no new acquire SHALL rebuild an entry for that sink's UID.
 
 #### Scenario: Deleted sink's pooled entry is evicted and closed
 

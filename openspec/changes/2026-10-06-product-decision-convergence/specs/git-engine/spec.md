@@ -21,6 +21,17 @@ machinery they already use today, unchanged by the convergence.
 - **WHEN** a sink sets `spec.git.engine: go-git` or omits the field
 - **THEN** export and delete behave as the go-git engine does today
 
+#### Scenario: Existing sinks' auth modes are unchanged
+
+- **WHEN** a sink authenticates with token over HTTPS, or with an SSH key, as it did before the convergence
+- **THEN** its export path is the go-git one and its auth behaviour is unchanged
+
+#### Scenario: Persisted engine=cli sink after the upgrade
+
+- **WHEN** an existing `KollectSnapshotSink` still carries `spec.git.engine: cli` from before the upgrade and something next builds its backend
+- **THEN** the build fails with an error naming `go-git` as the engine
+- **AND** the sink object itself is not deleted or rewritten by the operator
+
 #### Scenario: file:// remotes are unchanged
 
 - **WHEN** a git sink targets a `file://` remote

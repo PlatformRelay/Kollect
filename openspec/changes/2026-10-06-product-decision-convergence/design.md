@@ -71,7 +71,8 @@ delete-tombstone per evicted key (bounded, pruned with the same opportunistic cy
 `storePooledBackend` discards a backend whose key is tombstoned. A tombstoned UID can never be
 reused (Kubernetes UIDs are unique), so discarding is correct; the in-flight export may fail
 against the closed backend — acceptable, the sink no longer exists and no new acquire can
-legitimately rebuild for it (production acquires load the sink object first).
+legitimately rebuild for it (production acquires load the sink object first, and are
+UID-keyed anyway, so a stale namespace/name tombstone can never block a legitimate build).
 
 No finalizer: adding one to drain connections would turn best-effort eviction into a deletion
 dependency the product decision does not ask for. The TTL stays as the backstop for entries

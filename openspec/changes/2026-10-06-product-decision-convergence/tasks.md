@@ -35,7 +35,8 @@ Commits with `Signed-off-by`.
   contains `mlkem768x25519-sha256` and `diffie-hellman-group16-sha512` with the existing eight
   names in their current relative order. Green-by-construction regressions (assert unchanged
   behaviour, expected to pass before and after): `file://` routing and `ls-remote` probe tests
-  (GTE-1, GTE-2).
+  (GTE-1, GTE-2). Note: 19 existing `internal/sink/git` test fixtures construct
+  `Config{Engine: GitEngineCLI}`; T09 migrates them rather than T04.
 
 ## 2. Implementation
 
@@ -58,12 +59,15 @@ Commits with `Signed-off-by`.
 - [ ] T09 Implement the git-engine convergence: CRD enum marker becomes `go-git` only, remove
   the exported `GitEngineCLI` API constant, admission validation and backend config reject
   `cli` naming `go-git`, remove the engine branch points and the internal `GitEngine` type and
-  `Config.Engine` field, extend the KEX pin, regenerate CRDs, truth up every `engine: cli` doc
-  site (CRD reference, chart README template + `task helm-docs` regen, operator manual engine
-  table, coding-standards MUST line, security-architecture engine sections, Dockerfile /
-  Dockerfile.pipeline comments, ADR-0415 sentence), upgrade note in
-  `docs/operator-manual/upgrading.md`, ADR-0803 (notes 0802 reserved by the pipeline-CLI
-  comments) (GTE-1..GTE-3). Makes T04 green.
+  `Config.Engine` field, migrate the 19 existing `Config{Engine: GitEngineCLI}` test fixtures
+  (file:// fixtures route on the URL; cli_env tests target the machinery directly), extend the
+  KEX pin, regenerate CRDs, truth up every `engine: cli` doc site (CRD reference, chart README
+  template + `task helm-docs` regen, operator manual engine table, coding-standards MUST line,
+  security-architecture engine sections, Dockerfile / Dockerfile.pipeline comments, ADR-0415
+  sentence), upgrade note in `docs/operator-manual/upgrading.md` naming the persisted-sink
+  behaviour (an existing object still carrying `engine: cli` is rejected at construction, not
+  retroactively deleted), ADR-0803 (notes 0802 reserved by the pipeline-CLI comments)
+  (GTE-1..GTE-3). Makes T04 green.
 - [ ] T10 Sweep: `ANNOTATIONS-LABELS.md` rows state implemented semantics; `task spec:validate`;
   full local gate subset (`task lint`, focused `-race` on changed packages, `task verify`);
   fill the Verification table below with executed evidence; record the independent review row.
