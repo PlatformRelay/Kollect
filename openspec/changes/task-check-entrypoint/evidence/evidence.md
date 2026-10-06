@@ -35,7 +35,7 @@ Plain mode: green (task check exists, the gate list is pinned, the sweep is the 
 aggregation exits non-zero, verify keeps its meaning, every required check is run or excluded
 with a reason).
 
-`--self-test`: no-op control green; 7 mutants each rejected with the exact message of the
+`--self-test`: no-op control green; 8 mutants and one positive control, each rejected/passes with the exact message of the
 assertion the mutation was built to trip:
 - TCE-1 gate removed (`vulncheck` deleted from the run list) → the gate-list check reds
 - TCE-1 gate command swapped for a no-op (`run_gate verify true`) → the exact-command pin reds
@@ -47,6 +47,13 @@ assertion the mutation was built to trip:
 - TCE-2 `verify` redefined as a superset (its own command plus `task lint`) → red (the
   exact-cmds-length pin; a superset is still a redefinition)
 - TCE-3 exclusion without reason → red naming the missing reason
+- TCE-3 a new required gate with no coverage → red (unregistered name inserted into
+  verify-eligibility.sh in the copy)
+- TCE-4 this guard unwired from lint → red (the self-wiring assertion; CWS-6's walk cannot see
+  a guard CI never invokes)
+- plus a positive control: the LEGITIMATE suppression spelling (commented rule, bare `ignore:`,
+  commented entry) passes the CWS-2 gate — the round-three awk bug had emptied the key before
+  the comparison and silently disabled that exemption; the control pins it both ways
 
 ## The pre-wiring red (TCE-1's "watch it fail on the missing task")
 

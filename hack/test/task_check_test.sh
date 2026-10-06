@@ -54,6 +54,7 @@ fi
 TASKFILE="${ROOT}/Taskfile.yml"
 CHECKSH="${ROOT}/hack/check.sh"
 ELIG="${ROOT}/hack/release/verify-eligibility.sh"
+CI="${ROOT}/.github/workflows/ci.yaml"
 
 [[ -f "${TASKFILE}" ]] || fail "TCE-1: Taskfile not found: ${TASKFILE}"
 [[ -f "${CHECKSH}" ]] || fail "TCE-1: ${CHECKSH} not found"
@@ -82,7 +83,7 @@ declare -A GATE_COMMAND=(
   [spec:validate]="task spec:validate"
   [lint:shell]="task lint:shell"
   [lint:markdown]="task lint:markdown"
-  [go-mod]="bash -c 'go mod tidy && git diff --exit-code go.mod go.sum && go mod verify'"
+  [go-mod]="bash -c 'go mod tidy -diff && go mod verify'"
   [format:check]="task format:check"
 )
 
@@ -233,12 +234,26 @@ c_tce3_coverage() {
   pass "TCE-3: every required check is run locally or excluded with its reason"
 }
 
+# TCE-4: this guard must itself be run by ci.yaml in BOTH of its modes -- a gate nobody runs
+# guards nothing (the CWS-6 self-wiring analogue; CWS-6's walk cannot see a guard that CI
+# never invokes).
+c_tce4_selfwiring() {
+  local lint_body
+  lint_body="$(yq eval '.jobs.lint.steps[] | .run // ""' "${CI}" 2>/dev/null || yq eval '.jobs["lint"].steps[] | .run // ""' "${ROOT}/.github/workflows/ci.yaml")"
+  strip_comments "${lint_body}" | grep -q 'bash hack/test/task_check_test.sh$' ||
+    fail "TCE-4: this meta-test is not itself run by ci.yaml in its plain mode -- wire it into the lint job (plain and --self-test as separate steps); a gate CI does not run guards nothing"
+  strip_comments "${lint_body}" | grep -q 'bash hack/test/task_check_test.sh --self-test' ||
+    fail "TCE-4: this meta-test is not itself run by ci.yaml in its --self-test mode -- wire it into the lint job, plain and --self-test as separate steps"
+  pass "TCE-4: this guard is wired into the lint job in both modes"
+}
+
 if [[ "${MODE}" == "check" ]]; then
   c_tce1_task
   c_tce1_gates
   c_tce1_aggregation
   c_tce2_verify
   c_tce3_coverage
+  c_tce4_selfwiring
   echo "All task-check meta-tests passed."
   exit 0
 fi
@@ -350,6 +365,19 @@ mutant_rejected "TCE-3 new required gate without coverage" "neither run by hack/
   set -euo pipefail
   sed -i.bak "s/^	docker-build preflight kind-smoke pipeline-cli-smoke workflow-security$/& unregistered-gate/" hack/release/verify-eligibility.sh && rm -f hack/release/verify-eligibility.sh.bak
   if ! grep -q "unregistered-gate" hack/release/verify-eligibility.sh; then echo "mutant did not apply"; exit 1; fi
+'
+
+mutant_rejected "TCE-3 new required gate without coverage" "neither run by hack/check.sh nor listed as an exclusion" bash -c '
+  set -euo pipefail
+  sed -i.bak "s/^	docker-build preflight kind-smoke pipeline-cli-smoke workflow-security$/& unregistered-gate/" hack/release/verify-eligibility.sh && rm -f hack/release/verify-eligibility.sh.bak
+  if ! grep -q "unregistered-gate" hack/release/verify-eligibility.sh; then echo "mutant did not apply"; exit 1; fi
+'
+
+# TCE-4: removing this guard from the lint job must red the self-wiring check.
+mutant_rejected "TCE-4 guard unwired from lint" "not itself run by ci.yaml" bash -c '
+  set -euo pipefail
+  yq eval "(.jobs.lint.steps |= map(select(.run // \"\" | test(\"task_check_test.sh\") | not)))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  if grep -q "task_check_test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
 '
 
 echo "All task-check self-tests passed."

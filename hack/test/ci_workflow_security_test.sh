@@ -277,10 +277,8 @@ cws2_suppressions() {
       if ($0 ~ /^[[:space:]]*"?[a-zA-Z0-9_-]+"?:/) {
         key = $0
         sub(/^[[:space:]]*/, "", key)
-        sub(/"?.*/, "", key)
+        sub(/:.*/, "", key)
         gsub(/"/, "", key)
-        rest = $0
-        sub(/^[[:space:]]*"?[a-zA-Z0-9_-]+"?:/, "", value)
         if (key == "ignore") {
           # A bare `ignore:` (list block marker) is structure; an inline `ignore: [x]`
           # carries a value and is treated as a policy line, needing the comment.
@@ -856,6 +854,31 @@ mutant_rejected "CWS-2 inline ignore with a policy value" "has no comment direct
   set -euo pipefail
   perl -0pi -e "s/rules: \{\}/rules:\n  # why: fixture -- an inline ignore list is a policy, not structure\n  cache-poisoning:\n    ignore: [.github\/workflows\/release.yaml]/" .github/zizmor.yml
   grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
+'
+
+# CWS-2: the LEGITIMATE suppression spelling must pass — a commented rule, a bare ignore:
+# marker and a commented entry. Round-3's awk bug emptied the key before the comparison and
+# silently disabled this exemption; the control pins it in both directions.
+control_passes() {
+  local label="$1"
+  shift
+  local copy
+  copy="$(mktemp -d)"
+  make_copy "${copy}"
+  (cd "${copy}" && "$@") ||
+    fail "self-test: the ${label} mutation step failed -- nothing was tested"
+  local out rc
+  out="$(bash "${SELF}" "${copy}" 2>&1)" && rc=0 || rc=$?
+  [[ "${rc}" == "0" ]] ||
+    fail "self-test: the gate red on the ${label} control -- the legitimate spelling must pass: $(echo "${out}" | head -2 | tr '\n' ' ')"
+  rm -rf "${copy}"
+  pass "self-test: ${label} control passes"
+}
+
+control_passes "CWS-2 legitimate bare-ignore suppression" bash -c '
+  set -euo pipefail
+  perl -0pi -e "s/rules: \{\}/rules:\n  # why: fixture -- a reviewed, justified suppression\n  cache-poisoning:\n    ignore:\n      # why: the release workflow legitimately needs it\n      - .github\/workflows\/release.yaml/" .github/zizmor.yml
+  grep -q "cache-poisoning" .github/zizmor.yml || { echo "control did not apply"; exit 1; }
 '
 
 mutant_rejected "CWS-2 quoted-key policy switch" "has no comment directly above it stating why" bash -c '

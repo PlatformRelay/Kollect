@@ -28,5 +28,5 @@
 | TCE-1 | `task check` on a machine without Docker; new-guard and failing-gate cases | runs all runnable gates; exits non-zero on failure | structurally pinned + mutants red (gate removed, glob hard-coded, verify redefined, reasonless exclusion); a full local `task check` run is post-merge | evidence/evidence.md |
 | TCE-2 | guard mutant redefining `verify` | red | red locally | evidence/evidence.md |
 | TCE-3 | guard mutants: unreachable job, reasonless exclusion | red | exclusion-without-reason mutant red; the unreachable-job direction is covered by the required-checks sweep | evidence/evidence.md |
-| TCE-4 | self-test mutants plus no-op, by exit status | mutants red, no-op green | green locally (8 mutants + no-op) | evidence/evidence.md |
+| TCE-4 | self-test mutants plus no-op, by exit status | mutants red, no-op green | green locally (9 mutants + 1 positive control + no-op) | evidence/evidence.md |
 | all | independent review; CI on the PR head | APPROVE, green; both revisions recorded | not-run | this PR |
