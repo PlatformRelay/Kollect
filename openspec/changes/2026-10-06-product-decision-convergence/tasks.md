@@ -17,12 +17,12 @@ Commits with `Signed-off-by`.
   Resource-mode copy is stamped with the source generation; the stamp survives a profile prune
   of `metadata.annotations`; no stamp when include excludes metadata; Attributes mode
   byte-identical (ERA-2). Red on the missing stamp. — closed 2026-10-07, evidence: evidence/T01.md
-- [ ] T02 Add the `KollectClusterTargetStatus` fields as scaffolding (spec-shaped: pointers,
+- [x] T02 Add the `KollectClusterTargetStatus` fields as scaffolding (spec-shaped: pointers,
   json names, printer-column markers — the signature the spec fixes) and write the parity test:
   reconcile persists `status.collectedCount` + `collectedCountUpdatedAt` on Ready; a changed
   count is persisted even when the condition payload is byte-identical; steady count keeps its
   timestamp; Degraded keeps the last count (TSP-1). Red on the persistence behaviour (fields
-  stay unset — the controller does not write them yet).
+  stay unset — the controller does not write them yet). — closed 2026-10-07, evidence: evidence/T02.md
 - [ ] T03 Write the eviction test before the watch change, against a no-op seam stub: define
   the hook the controller will call (spec-shaped signature) with a no-op body; the test pools a
   backend under a sink UID via the production acquire path, fires the delete-hook seam, and
