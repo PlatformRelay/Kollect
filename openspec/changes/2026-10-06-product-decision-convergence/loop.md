@@ -1,7 +1,7 @@
 # Loop — 2026-10-06-product-decision-convergence
 
 Repo: `/Users/kheimel/.treehouse/kollect-79dca7/1/kollect` · Branch: `fm/kollect-product-decisions-impl` · Base: `3ee21266` (= `origin/main`) · Started: 2026-10-06 · Reviewers: fanout (free only)
-Next: L task loop — dispatch T04
+Next: L task loop — dispatch T05
 Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (session 2026-10-06–) · source: overlay default
 
 ## Stages
@@ -55,6 +55,7 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | T01 | CLOSED-WITH-GAPS (3 commits d67309bf, 066038ee, f8f643a5) | r1 2/2 legs (DeepSeek+QFN diff), r2 2/2 (GLM+QFN); all 7 findings verified+fixed; no Claude | gaps: full-suite + mutation deferred to T10; collect -count=2 flake pre-exists at base (owner) |
 | T02 | CLOSED-WITH-GAPS (2 commits 31888ae5, eef75b58) | r1 2/2 legs (DeepSeek+QFN diff), REQUEST_CHANGES->fixed; no Claude | CRITICAL verified: scaffolding fields without regen make `task verify` red (exit 201) + CI exposure; T07 owns `make generate manifests` |
 | T03 | CLOSED-WITH-GAPS (4 commits f0e82035, 0632218d, 3264913d, 0651939d) | r1 DeepSeek truncated + QFN -> REQUEST_CHANGES (fallback red added); r2 2/2 BLOCK -> all 3 verified+fixed; no Claude | deferred: pre-existing breakerRegistry parallel-test race (owner+harness proposal); gap: cheapest no-error-log sensor named |
+| T04 | CLOSED-WITH-GAPS (1 commit 4161a55d, amended) | r1 2/2 legs (DeepSeek+QFN diff) CONCERNS -> 1 finding rejected with reason (KEX block-first reading), 1 verified scaffolding drift fixed, no round 2; no Claude | gaps: 4 reds green only at T09; routing branch has no outcome-level sensor (rides on T09's diff review); CRD-enum green depends on T09's regen incl. the schema-package golden |
 | T03 | CLOSED-WITH-GAPS (3 commits f0e82035, 0632218d, 3264913d) | r1 1/2 legs (DeepSeek truncated 900s, QFN diff) CONCERNS->fixed; r2 2/2 (DeepSeek+QFN diff) BLOCK register->all 3 verified, 2 fixed as reds/guards, 1 deferred; no Claude | gaps: pre-existing breakerRegistry parallel-test race deferred (harness task + owner); log-sensor clause; watch-side Delete-only wiring is T08's |
 
 ## Known red
@@ -64,7 +65,10 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | internal/collect/prune_collected_generation_test.go + dispatch test (4 tests incl. scrub-survival) | ERA-2 | T01 | |
 | internal/controller/cluster_target_status_test.go (4 tests) | TSP-1 | T02 | |
 | internal/sink/backend_pool_delete_hook_test.go (4 tests) | BEP-1 | T03 | |
-| internal/sink/backend_pool_delete_hook_test.go (4 tests: evictsEntryAndCloses, inFlightBuildDiscardedNotRepooled, noUIDFallsBackToNamespaceName, noNewAcquireRebuildsEvictedEntry) | BEP-1 | T03 | |
+| internal/validation/engine_convergence_test.go TestValidateGitSpec_rejectsCLINamingGoGit | GTE-1 | T04 | |
+| internal/sink/git/engine_convergence_test.go TestConfigFromSpec_rejectsCLIEngineNamingGoGit | GTE-1 | T04 | |
+| test/schema/engine_enum_test.go TestKollectSnapshotSinkGitEngineEnumIsGoGitOnly | GTE-1 | T04 | |
+| internal/sink/git/kex_convergence_test.go TestSSHKeyExchangeOffer_carriesModernAlgorithms | GTE-2 | T04 | |
 
 ## Test changes
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
@@ -85,6 +89,9 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 - (T03) internal/sink has a pre-existing parallel-test race on `breakerRegistry` (circuit_breaker.go:67 vs :27): full-package `-race` is intermittently red with bystander failures (~2/5 with T03's tests, 0/4 at base); rerun before classifying; fix is a harness task (Proposed harness changes).
 - (T03) Delta SHALL clauses without a `#### Scenario` still need a matrix row + red test: BEP-1's fallback and no-rebuild clauses shipped untested until review rounds forced them (r1 CONCERNS, r2 BLOCK register).
 - (T03) A test task's missing red (verified) is a deliverable defect -> CORRECT + one fresh review round; not an "evidence/wording" fix.
+- (T04) The gitleaks mise shim fails ("No version is set"); call `~/.local/share/mise/installs/gitleaks/8.30.1/gitleaks` directly for the per-commit fitness row.
+- (T04) No outcome-level test distinguishes which branch served a `file://` remote (both paths succeed end-to-end); routing regressions pin outcomes, the branch condition rides on the implementing task's diff review.
+- (T04) GTE-2's SHALL body and its scenario admit two orderings readings; task text pinned the scenario (relative-order) reading for T04 — the block-first reading was raised in review and rejected as over-constraining; T09 should not silently re-litigate it.
 
 ## Where a human should look first
 <!-- filled at hand-off -->
