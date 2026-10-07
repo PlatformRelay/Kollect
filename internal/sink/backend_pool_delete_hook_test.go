@@ -379,3 +379,60 @@ func TestEvictBackendPoolForSink_specUpdateIsNotEviction(t *testing.T) {
 		t.Fatalf("replacement backend should stay open (closes=%d)", v2.closes.Load())
 	}
 }
+
+func TestEvictBackendPoolForSink_tombstonesAgeOutOnTheOpportunisticCycle(t *testing.T) {
+	backendPoolDisabled.Store(false)
+	t.Cleanup(func() {
+		timeNow = time.Now
+		ResetBackendPoolForTest()
+	})
+
+	scheme := runtime.NewScheme()
+	_ = kollectdevv1alpha1.AddToScheme(scheme)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "counting"}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	reg := NewRegistry()
+	reg.Register("counting", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return &countingBackend{}, nil
+	})
+
+	const evictedUID = types.UID("tombstone-age-uid")
+	EvictBackendPoolForSink(evictedUID, "team-a", "aging-sink")
+
+	base := time.Now()
+	timeNow = func() time.Time { return base }
+	key := poolKeyForSink(evictedUID, "", "")
+
+	// A fresh tombstone survives the opportunistic prune every acquire runs.
+	if _, release, err := acquireBackend(context.Background(), cl, reg, "team-b", "unrelated", "tombstone-age-other", spec); err != nil {
+		t.Fatalf("acquire while the tombstone is fresh: %v", err)
+	} else {
+		release()
+	}
+
+	globalBackendPool.mu.Lock()
+	_, fresh := globalBackendPool.tombstones[key]
+	globalBackendPool.mu.Unlock()
+
+	if !fresh {
+		t.Fatal("opportunistic prune dropped a fresh delete-tombstone (want kept)")
+	}
+
+	// Past backendPoolTTL the tombstone ages out on the next acquire, so the
+	// bound stays the backstop (BEP-2) instead of growing the map forever.
+	timeNow = func() time.Time { return base.Add(backendPoolTTL + time.Minute) }
+	if _, release, err := acquireBackend(context.Background(), cl, reg, "team-b", "unrelated", "tombstone-age-other", spec); err != nil {
+		t.Fatalf("acquire after the tombstone aged out: %v", err)
+	} else {
+		release()
+	}
+
+	globalBackendPool.mu.Lock()
+	_, stillGuarded := globalBackendPool.tombstones[key]
+	globalBackendPool.mu.Unlock()
+
+	if stillGuarded {
+		t.Fatal("delete-tombstone did not age out after backendPoolTTL (want dropped)")
+	}
+}
