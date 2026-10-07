@@ -198,6 +198,31 @@ func TestEvictBackendPoolForSink_noPooledEntryIsNoOp(t *testing.T) {
 	backendPoolDisabled.Store(false)
 	t.Cleanup(func() { ResetBackendPoolForTest() })
 
+	scheme := runtime.NewScheme()
+	_ = kollectdevv1alpha1.AddToScheme(scheme)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "counting"}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	unrelated := &closeCountBackend{}
+	reg := NewRegistry()
+	reg.Register("counting", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return unrelated, nil
+	})
+
+	// Seed one live entry for another sink: evicting an absent key must not
+	// touch it (BEP-1 eviction is best-effort and idempotent, with no
+	// collateral damage).
+	const otherUID = types.UID("evict-uid-other")
+	b, release, err := acquireBackend(context.Background(), cl, reg, "team-b", "live-sink", otherUID, spec)
+	if err != nil {
+		t.Fatalf("acquire for the unrelated sink: %v", err)
+	}
+	release()
+
+	if b != unrelated {
+		t.Fatal("acquire returned an unexpected backend")
+	}
+
 	globalBackendPool.mu.Lock()
 	before := len(globalBackendPool.entries)
 	globalBackendPool.mu.Unlock()
@@ -206,10 +231,80 @@ func TestEvictBackendPoolForSink_noPooledEntryIsNoOp(t *testing.T) {
 
 	globalBackendPool.mu.Lock()
 	after := len(globalBackendPool.entries)
+	_, unrelatedStillPooled := globalBackendPool.entries[poolKeyForSink(otherUID, "", "")]
 	globalBackendPool.mu.Unlock()
 
 	if after != before {
 		t.Fatalf("evicting a sink without a pooled entry changed the pool (%d -> %d)", before, after)
+	}
+
+	if !unrelatedStillPooled {
+		t.Fatal("evicting an absent key dropped an unrelated sink's pooled entry")
+	}
+
+	if unrelated.closes.Load() != 0 {
+		t.Fatalf("evicting an absent key Closed an unrelated sink's backend (closes=%d)", unrelated.closes.Load())
+	}
+}
+
+func TestEvictBackendPoolForSink_noNewAcquireRebuildsEvictedEntry(t *testing.T) {
+	backendPoolDisabled.Store(false)
+	t.Cleanup(func() { ResetBackendPoolForTest() })
+
+	scheme := runtime.NewScheme()
+	_ = kollectdevv1alpha1.AddToScheme(scheme)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "counting"}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	reg := NewRegistry()
+	v1 := &closeCountBackend{}
+	v2 := &closeCountBackend{}
+	var builtCount atomic.Int32
+	reg.Register("counting", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		if builtCount.Add(1) == 1 {
+			return v1, nil
+		}
+
+		return v2, nil
+	})
+
+	const (
+		uid  = types.UID("evict-uid-4")
+		ns   = "team-a"
+		name = "no-rebuild-sink"
+	)
+
+	if _, release, err := acquireBackend(context.Background(), cl, reg, ns, name, uid, spec); err != nil {
+		t.Fatalf("first acquire: %v", err)
+	} else {
+		release()
+	}
+
+	EvictBackendPoolForSink(uid, ns, name)
+
+	// The sink no longer exists: a new acquire for the same UID must not
+	// rebuild a pooled entry for it (BEP-1).
+	if _, release, err := acquireBackend(context.Background(), cl, reg, ns, name, uid, spec); err != nil {
+		t.Fatalf("acquire after eviction: %v", err)
+	} else {
+		release()
+	}
+
+	globalBackendPool.mu.Lock()
+	_, rebuilt := globalBackendPool.entries[poolKeyForSink(uid, "", "")]
+	globalBackendPool.mu.Unlock()
+
+	if rebuilt {
+		t.Fatal("acquire after eviction re-pooled an entry for the deleted sink (want none)")
+	}
+
+	// D4's tombstone discards at store time, so the post-eviction build may
+	// have run: if it did, the built backend must have been discarded (Closed),
+	// never leaked open.
+	if builtCount.Load() > 1 {
+		if v2.closes.Load() != 1 {
+			t.Fatalf("post-eviction build was not discarded (closes=%d, want 1)", v2.closes.Load())
+		}
 	}
 }
 
