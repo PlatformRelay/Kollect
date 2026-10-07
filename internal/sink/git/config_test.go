@@ -4,6 +4,7 @@
 package git
 
 import (
+	"strings"
 	"testing"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -165,17 +166,20 @@ func TestApplyGitSpec_invalidCloneDepth(t *testing.T) {
 	}
 }
 
-func TestApplyGitSpec_engine(t *testing.T) {
+// Engine-convergence (T09, GTE-1): backend construction accepts go-git (and an omitted engine)
+// and rejects every other value naming go-git as the only engine — T04's
+// TestConfigFromSpec_rejectsCLIEngineNamingGoGit pins the "cli" case; this covers arbitrary
+// invalid values at the same construction path.
+func TestApplyGitSpec_engineAcceptsGoGitAndRejectsOthers(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name    string
 		engine  string
-		want    GitEngine
 		wantErr bool
 	}{
-		{name: "go-git", engine: kollectdevv1alpha1.GitEngineGoGit, want: GitEngineGoGit},
-		{name: "cli", engine: kollectdevv1alpha1.GitEngineCLI, want: GitEngineCLI},
+		{name: "go-git", engine: kollectdevv1alpha1.GitEngineGoGit},
+		{name: "cli", engine: "cli", wantErr: true},
 		{name: "invalid", engine: "magic", wantErr: true},
 	}
 
@@ -183,23 +187,23 @@ func TestApplyGitSpec_engine(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cfg, err := ConfigFromSpec(kollectdevv1alpha1.KollectSinkSpec{
+			_, err := ConfigFromSpec(kollectdevv1alpha1.KollectSinkSpec{
 				Type:     TypeName,
 				Endpoint: "https://example.com/inventory.git",
 				Git:      &kollectdevv1alpha1.GitSpec{Engine: tc.engine},
 			}, nil)
 			if tc.wantErr {
 				if err == nil {
-					t.Fatal("expected error for invalid engine")
+					t.Fatalf("ConfigFromSpec(engine=%q) error = nil, want a rejection naming go-git", tc.engine)
+				}
+				if !strings.Contains(err.Error(), "go-git") {
+					t.Fatalf("ConfigFromSpec(engine=%q) error = %q, want it to name go-git as the engine", tc.engine, err)
 				}
 
 				return
 			}
 			if err != nil {
 				t.Fatal(err)
-			}
-			if cfg.Engine != tc.want {
-				t.Fatalf("Engine = %q, want %q", cfg.Engine, tc.want)
 			}
 		})
 	}

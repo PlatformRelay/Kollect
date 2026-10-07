@@ -85,16 +85,12 @@ func validateGitSpec(spec *kollectdevv1alpha1.KollectSinkSpec) field.ErrorList {
 		}
 	}
 
-	if engine := strings.TrimSpace(spec.Git.Engine); engine != "" {
-		switch engine {
-		case kollectdevv1alpha1.GitEngineGoGit, kollectdevv1alpha1.GitEngineCLI:
-		default:
-			allErrs = append(allErrs, field.NotSupported(
-				gitPath.Child("engine"),
-				spec.Git.Engine,
-				[]string{kollectdevv1alpha1.GitEngineGoGit, kollectdevv1alpha1.GitEngineCLI},
-			))
-		}
+	if engine := strings.TrimSpace(spec.Git.Engine); engine != "" && engine != kollectdevv1alpha1.GitEngineGoGit {
+		allErrs = append(allErrs, field.NotSupported(
+			gitPath.Child("engine"),
+			spec.Git.Engine,
+			[]string{kollectdevv1alpha1.GitEngineGoGit},
+		))
 	}
 
 	if spec.Git.CloneDepth != nil && *spec.Git.CloneDepth < 1 {

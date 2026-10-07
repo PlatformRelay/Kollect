@@ -87,7 +87,7 @@ func TestExportFilesWithBranch_CLIPathClassifiesError(t *testing.T) {
 	}
 
 	missing := filepath.Join(t.TempDir(), "nonexistent.git")
-	cfg := Config{Endpoint: "file://" + missing, Engine: GitEngineCLI}
+	cfg := Config{Endpoint: "file://" + missing}
 
 	files := []FileEntry{{Path: "inventory/latest.json", Data: []byte(`{"x":1}`)}}
 	err := ExportFilesWithBranch(t.Context(), cfg, Auth{}, files, nil, CommitContext{})

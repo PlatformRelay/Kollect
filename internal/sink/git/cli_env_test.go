@@ -20,7 +20,6 @@ func TestNewCLIEnv_forceBasicAuthHeader(t *testing.T) {
 	cfg := Config{
 		Endpoint:       "https://example.com/r.git",
 		ForceBasicAuth: true,
-		Engine:         GitEngineCLI,
 	}
 	auth := Auth{Username: "user", Password: "pass"}
 
@@ -149,54 +148,6 @@ func TestConfigFromSpec_forceBasicAuthEnv(t *testing.T) {
 
 func minimalGitSpec(endpoint string) kollectdevv1alpha1.KollectSinkSpec {
 	return kollectdevv1alpha1.KollectSinkSpec{Type: TypeName, Endpoint: endpoint}
-}
-
-func TestCfgNeedsCLISSH(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name     string
-		cfg      Config
-		authType AuthType
-		want     bool
-	}{
-		{
-			name: "non-cli engine",
-			cfg: Config{
-				Endpoint: "ssh://git@example.com/repo.git",
-				Engine:   GitEngineGoGit,
-			},
-			authType: AuthTypeToken,
-			want:     false,
-		},
-		{
-			name: "cli ssh endpoint",
-			cfg: Config{
-				Endpoint: "ssh://git@example.com/repo.git",
-				Engine:   GitEngineCLI,
-			},
-			authType: AuthTypeToken,
-			want:     true,
-		},
-		{
-			name: "cli with ssh auth",
-			cfg: Config{
-				Endpoint: "https://example.com/repo.git",
-				Engine:   GitEngineCLI,
-			},
-			authType: AuthTypeSSH,
-			want:     true,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			if got := cfgNeedsCLISSH(tc.cfg, tc.authType); got != tc.want {
-				t.Fatalf("cfgNeedsCLISSH() = %v, want %v", got, tc.want)
-			}
-		})
-	}
 }
 
 func TestApplyCLIEnvAndPrependGitArgs(t *testing.T) {
@@ -383,7 +334,7 @@ func TestBuildGitSSHCommand_WithKeyAndKnownHostsCleansUpFiles(t *testing.T) {
 func TestNewCLIEnv_defaultsToHeaderForCLIHTTP(t *testing.T) {
 	t.Parallel()
 
-	cfg := Config{Endpoint: "https://example.com/r.git", Engine: GitEngineCLI}
+	cfg := Config{Endpoint: "https://example.com/r.git"}
 	auth := Auth{Token: "secret-token"}
 
 	cli, err := newCLIEnv(cfg, auth, AuthTypeToken)

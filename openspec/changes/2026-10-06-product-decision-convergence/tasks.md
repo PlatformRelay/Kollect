@@ -62,7 +62,7 @@ Commits with `Signed-off-by`.
   delete-tombstone discarding in-flight re-stores, pool comment truth-up (the "no caller"
   claim goes away), TTL comment stays as backstop (BEP-1, BEP-2). Makes T03 green.
   — closed 2026-10-07, evidence: evidence/T08.md
-- [ ] T09 Implement the git-engine convergence: CRD enum marker becomes `go-git` only, remove
+- [x] T09 Implement the git-engine convergence: CRD enum marker becomes `go-git` only, remove
   the exported `GitEngineCLI` API constant, admission validation and backend config reject
   `cli` naming `go-git`, remove the engine branch points and the internal `GitEngine` type and
   `Config.Engine` field, migrate the 19 existing `Config{Engine: GitEngineCLI}` test fixtures
@@ -74,6 +74,7 @@ Commits with `Signed-off-by`.
   behaviour (an existing object still carrying `engine: cli` is rejected at construction, not
   retroactively deleted), ADR-0803 (notes 0802 reserved by the pipeline-CLI comments)
   (GTE-1..GTE-3). Makes T04 green.
+  — closed 2026-10-07, evidence: evidence/T09.md
 - [ ] T10 Sweep: `ANNOTATIONS-LABELS.md` rows state implemented semantics; `task spec:validate`;
   full local gate subset (`task lint`, focused `-race` on changed packages, `task verify`);
   fill the Verification table below with executed evidence; record the independent review row.

@@ -1,7 +1,7 @@
 # Loop — 2026-10-06-product-decision-convergence
 
 Repo: `/Users/kheimel/.treehouse/kollect-79dca7/1/kollect` · Branch: `fm/kollect-product-decisions-impl` · Base: `3ee21266` (= `origin/main`) · Started: 2026-10-06 · Reviewers: fanout (free only)
-Next: L task loop — dispatch T07
+Next: L task loop — dispatch T10 (sweep + full gate subset + Verification table)
 Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (session 2026-10-06–) · source: overlay default
 
 ## Stages
@@ -63,6 +63,7 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | T03 | CLOSED-WITH-GAPS (3 commits f0e82035, 0632218d, 3264913d) | r1 1/2 legs (DeepSeek truncated 900s, QFN diff) CONCERNS->fixed; r2 2/2 (DeepSeek+QFN diff) BLOCK register->all 3 verified, 2 fixed as reds/guards, 1 deferred; no Claude | gaps: pre-existing breakerRegistry parallel-test race deferred (harness task + owner); log-sensor clause; watch-side Delete-only wiring is T08's |
 | T07 | CLOSED-WITH-GAPS (commit 86e4636b, amended with closure) | r1 2/2 legs (DeepSeek+QFN diff), register BLOCK -> #1 CRITICAL rejected as spec-silent (register itself records the promotion artifact; both legs' verdicts CONCERNS) + deferred as the cadence decision request, #2/#3 verified coverage/claim-pinning gaps fixed with tests, no round 2; no Claude | gaps: cluster count-refresh cadence decision request (owner, B-branch); integration tier (no Docker); Age-suppression mechanism believed (namespaced guard states it) |
 | T08 | CLOSED-WITH-GAPS (commits 3ad77833, 738b5feb, aa967f23) | r1 2/2 (DeepSeek+QFN diff) BLOCK -> #1 wiring unpinned fixed (envtest spec + mutation check), #2 rejected (spec-sanctioned; rationale corrected in r2), #3 aging unpinned fixed (pin test); r2 2/2 BLOCK (last round) -> #1 nats re-dial leak verified fixed (owning-release shape, red-first test), #2 delete-only pin fixed (extracted handler + mutation check); no Claude | gaps: r2 fixes machine-verified but not independently re-reviewed (B's whole-branch review owns it); -count=2 count-order flake on TestRunCleanupExport_gitReleaseFailureIsRetried recorded (no owner); integration tier (no Docker); T03's 4 BEP reds cleared |
+| T09 | CLOSED-WITH-GAPS (commit ce0b19d6, amended with closure) | r1 2/2 legs (DeepSeek+QFN diff, uncommitted-diff review) CONCERNS -> 1 HIGH verified wording-only (stale "CLI engine" wording in 6 cited sites), fixed with 3 same-class sites, no round 2; no Claude (budget 0/0) | gaps: integration tier not-run (no Docker; 9 mirror locks deleted with their surface, remaining 6 CI-owned); row 9 "object not rewritten" half agent-review (pure function); spec:validate/coverage/docs-truth pinned to T10/B; T04's 4 GTE reds cleared (no known red remains for the change) |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
@@ -70,11 +71,11 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | internal/collect/prune_collected_generation_test.go + dispatch test (4 tests incl. scrub-survival) | ERA-2 | T01 | T06 |
 | internal/controller/kollectclustertarget_collected_count_test.go (4 tests; T02's Known red — loop.md previously misnamed this `cluster_target_status_test.go`) | TSP-1 | T02 | T07 |
 | internal/sink/backend_pool_delete_hook_test.go (4 tests) | BEP-1 | T03 | T08 |
-| internal/validation engine_convergence_test.go + internal/sink/git kex test + test/schema engine_enum_test.go (GTE-1/GTE-2 reds) | GTE-1/GTE-2 | T04 | |
-| internal/validation/engine_convergence_test.go TestValidateGitSpec_rejectsCLINamingGoGit | GTE-1 | T04 | |
-| internal/sink/git/engine_convergence_test.go TestConfigFromSpec_rejectsCLIEngineNamingGoGit | GTE-1 | T04 | |
-| test/schema/engine_enum_test.go TestKollectSnapshotSinkGitEngineEnumIsGoGitOnly | GTE-1 | T04 | |
-| internal/sink/git/kex_convergence_test.go TestSSHKeyExchangeOffer_carriesModernAlgorithms | GTE-2 | T04 | |
+| internal/validation engine_convergence_test.go + internal/sink/git kex test + test/schema engine_enum_test.go (GTE-1/GTE-2 reds) | GTE-1/GTE-2 | T04 | T09 (all cleared; no known red remains for the change) |
+| internal/sink/git/kex_convergence_test.go TestSSHKeyExchangeOffer_carriesModernAlgorithms | GTE-2 | T04 | T09 |
+| internal/validation/engine_convergence_test.go TestValidateGitSpec_rejectsCLINamingGoGit | GTE-1 | T04 | T09 |
+| internal/sink/git/engine_convergence_test.go TestConfigFromSpec_rejectsCLIEngineNamingGoGit | GTE-1 | T04 | T09 |
+| test/schema/engine_enum_test.go TestKollectSnapshotSinkGitEngineEnumIsGoGitOnly | GTE-1 | T04 | T09 |
 
 ## Test changes
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |

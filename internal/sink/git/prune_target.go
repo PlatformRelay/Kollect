@@ -144,7 +144,7 @@ func copyTreeEntry(fs billy.Filesystem, tree *object.Tree, entry *object.TreeEnt
 	return nil
 }
 
-// checkCLIMergeTargetClaims is checkMergeTargetClaims for the CLI engine's workdir, where the target
+// checkCLIMergeTargetClaims is checkMergeTargetClaims for the CLI machinery's workdir, where the target
 // tip prepareCLIWorkdir fetched is the remote-tracking ref origin/<cloneBranch>. It runs in every
 // branch mode: with push branch == clone branch a warm mirror checks out its stale local branch, so
 // a claim pushed meanwhile is only visible on origin/<cloneBranch>, and the non-fast-forward

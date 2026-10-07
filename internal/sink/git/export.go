@@ -123,7 +123,7 @@ func ExportFilesWithBranch(
 
 	fpKey, fingerprint := ownedExportFingerprint(lockKey, req.pushBranch, req.objectPath, commitCtx.Checksum, cfg, validated)
 
-	if isFileRemote(req.cloneURL) || cfg.Engine == GitEngineCLI {
+	if isFileRemote(req.cloneURL) {
 		var exportErr error
 		if err := withRepoExportLock(req.cloneURL, req.cloneBranch, func() error {
 			if fingerprintTracker.shouldSkip(fpKey, fingerprint) {
@@ -266,7 +266,7 @@ func pruneKeepSet(cfg Config, writtenPaths []string) []string {
 	return writtenPaths
 }
 
-// pruneBillyOrphans removes directory-scoped stale files (go-git engine) when prune is enabled.
+// pruneBillyOrphans removes directory-scoped stale files (go-git path) when prune is enabled.
 func pruneBillyOrphans(fs billy.Filesystem, cfg Config, writtenPaths []string) error {
 	if !cfg.Prune || cfg.PruneOwner != "" {
 		return nil

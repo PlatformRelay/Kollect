@@ -30,11 +30,11 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags
     -a -o kollect-pipeline ./cmd/cli
 
 # Runtime image: distroless static nonroot. Unlike the operator image, the pipeline CLI does not
-# ship the git/openssh binaries: the git snapshot sink defaults to the pure-Go go-git engine
-# (internal/sink/git/config.go), which needs no external tooling. `git.engine: cli` and `file://`
-# git remotes (which shell out to git) are therefore unsupported in this minimal image; go-git over
-# HTTPS, the local filesystem sink, and the object-store sinks (s3/gcs) all work. ca-certificates
-# and tzdata ship in the distroless base, so TLS to sink endpoints works out of the box.
+# ship the git/openssh binaries: the git snapshot sink's only export engine is the pure-Go go-git
+# (internal/sink/git/config.go, ADR-0803), which needs no external tooling. `file://` git remotes
+# (which shell out to git) are therefore unsupported in this minimal image; go-git over HTTPS, the
+# local filesystem sink, and the object-store sinks (s3/gcs) all work. ca-certificates and tzdata
+# ship in the distroless base, so TLS to sink endpoints works out of the box.
 FROM gcr.io/distroless/static:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
 WORKDIR /
 COPY --from=builder /workspace/kollect-pipeline /kollect-pipeline

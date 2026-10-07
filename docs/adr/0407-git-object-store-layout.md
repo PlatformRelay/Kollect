@@ -54,7 +54,7 @@ inventory/<inventory-namespace>/<inventory-name>.json
 | Path | Effect when the flag is set |
 | --- | --- |
 | `internal/sink/git/export.go` → `effectiveSSHConfig` → `sshAuthMethod` | go-git installs `ssh.InsecureIgnoreHostKey` for an `ssh://` remote |
-| `internal/sink/git/cli_env.go` → `effectiveSSHConfig` → `buildGitSSHCommand` | git-CLI engine gets `GIT_SSH_COMMAND=... -o StrictHostKeyChecking=no` (emitted at two points: keyless and keyed). `GIT_SSL_NO_VERIFY=true` is also added unconditionally — it is what disables HTTP(S) certificate checking and is simply inert for `ssh://` |
+| `internal/sink/git/cli_env.go` → `effectiveSSHConfig` → `buildGitSSHCommand` | the git-CLI machinery (the `git ls-remote` probe) gets `GIT_SSH_COMMAND=... -o StrictHostKeyChecking=no` (emitted at two points: keyless and keyed). `GIT_SSL_NO_VERIFY=true` is also added unconditionally — it is what disables HTTP(S) certificate checking and is simply inert for `ssh://` |
 | `internal/sink/git/connection.go` (`lsRemoteUncached`) | reaches the same `newCLIEnv` at `:143`, so the connection test skips host-key verification too. Its own `GIT_SSL_NO_VERIFY=true` re-append is redundant — `applyCLIEnv` set it one line earlier |
 
 `internal/sink/git/mirror.go`, `sync_remote.go` and the fetch/push options in `export.go` also pass

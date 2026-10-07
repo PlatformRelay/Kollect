@@ -117,6 +117,7 @@ Then drill into [0414 — Sink family CRDs](0414-sink-family-crds.md) when wirin
 | ADR | Title | Status |
 | --- | --- | --- |
 | [0801](0801-pipeline-cli-mode.md) | Pipeline CLI mode — kubeconfig-based collection without operator deployment | Accepted |
+| [0803](0803-git-engine-convergence.md) | Git engine convergence — one export engine, go-git | Accepted |
 
 ---
 

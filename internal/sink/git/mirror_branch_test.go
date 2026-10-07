@@ -93,7 +93,7 @@ func TestPrepareCLIWorkdir_WarmMirrorDiscardsDirtBeforeCheckout(t *testing.T) {
 	}
 }
 
-// An existing push branch is checked out as-is by the CLI engine: `checkout -B`
+// An existing push branch is checked out as-is by the CLI machinery: `checkout -B`
 // would reset it to the mirror's HEAD (possibly another inventory's tip) and
 // drop a commit it still has to deliver.
 func TestGitCheckoutPushBranch_KeepsExistingBranchTip(t *testing.T) {
@@ -122,7 +122,7 @@ func TestGitCheckoutPushBranch_KeepsExistingBranchTip(t *testing.T) {
 	}
 }
 
-// go-git engine: a missing push branch is created at the clone-branch tip, not
+// go-git path: a missing push branch is created at the clone-branch tip, not
 // at the mirror's current HEAD; an existing one keeps its tip.
 func TestCheckoutMirrorBranch_BasesNewBranchOnCloneTip(t *testing.T) {
 	skipWithoutGit(t)

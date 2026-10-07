@@ -52,7 +52,7 @@ func recordedPaths(fs billy.Filesystem) (map[string]string, error) {
 }
 
 // removeBillyOrphans deletes files in managed directories that are not part of the new write set
-// and no ownership record claims (go-git engine). Removed files are picked up by stageChanges'
+// and no ownership record claims (go-git path). Removed files are picked up by stageChanges'
 // prune path as worktree deletions.
 func removeBillyOrphans(fs billy.Filesystem, written []string) error {
 	keep := pathSet(written)
@@ -93,7 +93,7 @@ func removeBillyOrphans(fs billy.Filesystem, written []string) error {
 }
 
 // removeDiskOrphans deletes files in managed directories that are not part of the new write set
-// and no ownership record claims (CLI engine). Removed files are staged by the subsequent git add -A.
+// and no ownership record claims (CLI machinery). Removed files are staged by the subsequent git add -A.
 func removeDiskOrphans(workdir string, written []string) error {
 	keep := pathSet(written)
 	recorded, err := recordedPaths(osfs.New(workdir))

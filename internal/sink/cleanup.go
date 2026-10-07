@@ -291,7 +291,7 @@ func cleanupPruneOwner(req CleanupExportRequest) (string, error) {
 }
 
 // cleanupFailure classifies a failed retraction or release and counts it.
-// Backends classify their own transport/config errors (git engines call
+// Backends classify their own transport/config errors (the git backend calls
 // ClassifyExportError); anything unclassified stays transient so cleanup
 // retries instead of wedging the deletion.
 func cleanupFailure(sinkName string, err error) error {
