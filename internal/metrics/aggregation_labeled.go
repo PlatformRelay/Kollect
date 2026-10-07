@@ -98,7 +98,7 @@ func (e labeledSeriesEntry) desc() *prometheus.Desc {
 		return d
 	}
 
-	labelNames := append([]string{"profile", "gvk", "series"}, e.names...)
+	labelNames := append([]string{StaticRefTypeProfile, LabelGVK, LabelSeries}, e.names...)
 	d := prometheus.NewDesc(
 		customResourceLabeledSeriesName,
 		"Domain metric series from collected custom resources with attribute label dimensions (ADR-0304).",

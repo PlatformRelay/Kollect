@@ -21,6 +21,15 @@ import (
 
 const connectTimeout = 30 * time.Second
 
+// Document field names shared by the identity index, the document shape and the
+// stale-delete filters.
+const (
+	docFieldInventoryNamespace = "inventory_namespace"
+	docFieldInventoryName      = "inventory_name"
+	docFieldTargetName         = "target_name"
+	docFieldSourceUID          = "source_uid"
+)
+
 // Backend upserts inventory documents into MongoDB.
 type Backend struct {
 	cfg    Config
@@ -198,10 +207,10 @@ func (b *Backend) ensureCollection(ctx context.Context) error {
 	}
 
 	keys := bson.D{
-		{Key: "inventory_namespace", Value: 1},
-		{Key: "inventory_name", Value: 1},
-		{Key: "target_name", Value: 1},
-		{Key: "source_uid", Value: 1},
+		{Key: docFieldInventoryNamespace, Value: 1},
+		{Key: docFieldInventoryName, Value: 1},
+		{Key: docFieldTargetName, Value: 1},
+		{Key: docFieldSourceUID, Value: 1},
 	}
 	if err := b.admin.EnsureUniqueIndex(ctx, keys); err != nil {
 		return fmt.Errorf("mongodb ensure index: %w", err)
@@ -227,14 +236,14 @@ func itemDocument(scope exportScope, item collect.Item, exportedAt time.Time) (b
 	}
 
 	return bson.M{
-		"inventory_namespace": scope.inventoryNamespace,
-		"inventory_name":      scope.inventoryName,
-		"target_name":         item.TargetName,
-		"source_uid":          item.UID,
-		"cluster":             scope.cluster,
-		"resource_namespace":  resourceNS,
-		"payload":             payload,
-		"exported_at":         exportedAt,
+		docFieldInventoryNamespace: scope.inventoryNamespace,
+		docFieldInventoryName:      scope.inventoryName,
+		docFieldTargetName:         item.TargetName,
+		docFieldSourceUID:          item.UID,
+		"cluster":                  scope.cluster,
+		"resource_namespace":       resourceNS,
+		"payload":                  payload,
+		"exported_at":              exportedAt,
 	}, nil
 }
 
@@ -266,8 +275,8 @@ func staleDeleteFilter(scope exportScope, items []collect.Item) (bson.M, bool) {
 	orFilters := make([]bson.M, 0, len(items))
 	for _, item := range items {
 		orFilters = append(orFilters, bson.M{
-			"target_name": item.TargetName,
-			"source_uid":  item.UID,
+			docFieldTargetName: item.TargetName,
+			docFieldSourceUID:  item.UID,
 		})
 	}
 	filter["$nor"] = orFilters

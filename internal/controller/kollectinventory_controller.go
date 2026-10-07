@@ -440,7 +440,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 			job.status.LastExportTime = &exportTime
 			job.status.LastChecksum = sinkChecksum
 			job.status.LastExportPaths = recordExportPaths(writtenPaths, job.status.LastExportPaths)
-			setSinkExportSynced(job.status, inv.Generation, true, "Exported", "export completed")
+			setSinkExportSynced(job.status, inv.Generation, true, reasonExported, "export completed")
 			outcome.ExportedCount++
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter,
 				validation.RequeueAfterForZeroInterval(job.interval))
@@ -558,7 +558,7 @@ func (r *KollectInventoryReconciler) updateStatus(
 			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
 				Type:               conditionReady,
 				Status:             metav1.ConditionTrue,
-				Reason:             "Exported",
+				Reason:             reasonExported,
 				Message:            fmt.Sprintf("exported %d item(s) across %d sink(s)", itemCount, sinkCount),
 				ObservedGeneration: inv.Generation,
 				LastTransitionTime: metav1.Now(),

@@ -19,7 +19,13 @@ import (
 	"github.com/platformrelay/kollect/internal/sink/postgres"
 )
 
-const syntheticSampleSource = "synthetic"
+const (
+	syntheticSampleSource = "synthetic"
+
+	// Synthetic sample identity rendered into previews; never sent to a sink.
+	sampleNamespace  = "team-a"
+	sampleTargetName = "api"
+)
 
 // Render builds status.preview for a normalized sink spec (ADR-0416).
 func Render(spec kollectdevv1alpha1.KollectSinkSpec, sinkName string) *kollectdevv1alpha1.SinkPreviewStatus {
@@ -43,16 +49,16 @@ func Render(spec kollectdevv1alpha1.KollectSinkSpec, sinkName string) *kollectde
 	case kollectdevv1alpha1.SnapshotSinkTypeGit, kollectdevv1alpha1.SnapshotSinkTypeGitLab:
 		resolved := layout.Resolve(layout.ResolveInput{
 			Spec:               spec,
-			InventoryNamespace: "team-a",
-			InventoryName:      "api",
+			InventoryNamespace: sampleNamespace,
+			InventoryName:      sampleTargetName,
 			Generation:         1,
 		})
 		path := resolved.DocumentPath()
 		preview.ObjectPath = path
 		preview.Layout = renderLayoutPreview(resolved)
 		ctx := git.CommitContext{
-			Namespace:  "team-a",
-			Name:       "api",
+			Namespace:  sampleNamespace,
+			Name:       sampleTargetName,
 			Cluster:    defaultCluster(spec.Cluster),
 			Generation: 1,
 			ExportGen:  1,
@@ -68,7 +74,7 @@ func Render(spec kollectdevv1alpha1.KollectSinkSpec, sinkName string) *kollectde
 			SampleCommitBody:    body,
 		}
 	case kollectdevv1alpha1.SnapshotSinkTypeS3, kollectdevv1alpha1.SnapshotSinkTypeGCS, kollectdevv1alpha1.SnapshotSinkTypeAzureBlob:
-		preview.ObjectPath = objectstore.ObjectPath(spec, "team-a", "api", 1)
+		preview.ObjectPath = objectstore.ObjectPath(spec, sampleNamespace, sampleTargetName, 1)
 	case kollectdevv1alpha1.DatabaseSinkTypePostgres:
 		// provisioning.mode=existing means Kollect will not create the table, so the preview
 		// must not advertise DDL that will never run (it would contradict the warning above).
@@ -148,11 +154,11 @@ func samplePreviewItems() []collect.Item {
 	}
 
 	// Four synthetic rows so renderLayoutPreview exercises the SamplePaths cap (max 3).
-	names := []string{"api", "web", "cache", "worker"}
+	names := []string{sampleTargetName, "web", "cache", "worker"}
 	items := make([]collect.Item, 0, len(names))
 	for _, name := range names {
 		items = append(items, collect.Item{
-			TargetNamespace: "team-a", TargetName: name, Namespace: "team-a", Name: name,
+			TargetNamespace: sampleNamespace, TargetName: name, Namespace: sampleNamespace, Name: name,
 			Group: "apps", Version: "v1", Kind: "Deployment", UID: "uid-" + name,
 			Attributes: map[string]any{layout.DefaultManifestKey: manifest, "image": "nginx:1.27"},
 		})

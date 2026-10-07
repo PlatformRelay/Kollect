@@ -33,6 +33,9 @@ const (
 	initProfileFileName     = "profile.yaml"
 	initTargetFileName      = "target.yaml"
 
+	// initAttrTypeString is the wizard's attribute-type enum value for string columns.
+	initAttrTypeString = "string"
+
 	// InitPatternSnapshotAdvice is printed after a discovery-time name pattern expands.
 	// The Target API has no glob field — the match is a snapshot, not durable membership.
 	InitPatternSnapshotAdvice = "Note: this match is a discovery-time snapshot. " +
@@ -580,13 +583,13 @@ type initAttributeOpt struct {
 
 func safeInitAttributeOptions(namespaced bool) []initAttributeOpt {
 	opts := []initAttributeOpt{
-		{Name: "name", Path: "$.metadata.name", Type: "string"},
-		{Name: "creationTimestamp", Path: "$.metadata.creationTimestamp", Type: "string"},
+		{Name: "name", Path: "$.metadata.name", Type: initAttrTypeString},
+		{Name: "creationTimestamp", Path: "$.metadata.creationTimestamp", Type: initAttrTypeString},
 		{Name: "labels", Path: "$.metadata.labels", Type: "object"},
 	}
 	if namespaced {
 		opts = append([]initAttributeOpt{
-			{Name: "namespace", Path: "$.metadata.namespace", Type: "string"},
+			{Name: "namespace", Path: "$.metadata.namespace", Type: initAttrTypeString},
 		}, opts...)
 	}
 	return opts

@@ -30,19 +30,43 @@ const (
 	StaticRefTypeSnapshot = "snapshot"
 	StaticRefTypeDatabase = "database"
 	StaticRefTypeEvent    = "event"
+
+	// Metric label names shared by the metric vectors (metrics.go,
+	// aggregation*.go) and the agent catalog (metrics_catalog.go). Bounded
+	// label enums — do not extend without a cardinality note.
+	LabelProfile  = StaticRefTypeProfile
+	LabelGVK      = "gvk"
+	LabelSeries   = "series"
+	LabelGroup    = "group"
+	LabelVersion  = "version"
+	LabelResource = "resource"
+
+	LabelController = "controller"
+	LabelResult     = "result"
+	LabelKind       = "kind"
+	LabelSinkType   = "sink_type"
+
+	// Catalog type names and the metric names repeated by the vectors and
+	// the catalog.
+	MetricTypeGauge     = "gauge"
+	MetricTypeCounter   = "counter"
+	MetricTypeHistogram = "histogram"
+
+	MetricNameInventoryItemsTotal = "kollect_inventory_items_total"
+	MetricNameCollectItemsTotal   = "kollect_collect_items_total"
 )
 
 var (
 	InventoryItemsTotal = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "kollect_inventory_items_total",
+			Name: MetricNameInventoryItemsTotal,
 			Help: "Number of inventory items in the last aggregated snapshot.",
 		},
 	)
 
 	CollectItemsTotal = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "kollect_collect_items_total",
+			Name: MetricNameCollectItemsTotal,
 			Help: "Number of items currently held in the in-memory collection store.",
 		},
 	)
@@ -52,7 +76,7 @@ var (
 			Name: "kollect_collected_objects",
 			Help: "Collected objects by profile and GVK.",
 		},
-		[]string{"profile", "gvk"},
+		[]string{StaticRefTypeProfile, LabelGVK},
 	)
 
 	ReconcileTotal = prometheus.NewCounterVec(
@@ -60,7 +84,7 @@ var (
 			Name: "kollect_reconcile_total",
 			Help: "Reconcile attempts by controller and result.",
 		},
-		[]string{"controller", "result"},
+		[]string{LabelController, LabelResult},
 	)
 
 	ReconcileErrorsTotal = prometheus.NewCounterVec(
@@ -68,7 +92,7 @@ var (
 			Name: "kollect_reconcile_errors_total",
 			Help: "Reconcile errors by kind and error class.",
 		},
-		[]string{"kind", "error_class"},
+		[]string{LabelKind, "error_class"},
 	)
 
 	exportDurationBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
@@ -79,7 +103,7 @@ var (
 			Help:    "Sink export duration in seconds.",
 			Buckets: exportDurationBuckets,
 		},
-		[]string{"sink_type"},
+		[]string{LabelSinkType},
 	)
 
 	SinkErrorsTotal = prometheus.NewCounterVec(
@@ -109,7 +133,7 @@ var (
 			Name: "kollect_sink_connection_test_total",
 			Help: "Git/TLS sink connection tests by sink type and result.",
 		},
-		[]string{"type", "result"},
+		[]string{"type", LabelResult},
 	)
 
 	// ReconcileInFlight approximates workqueue depth (items currently being reconciled).
@@ -118,7 +142,7 @@ var (
 			Name: "kollect_workqueue_depth",
 			Help: "Approximate reconcile workqueue depth (in-flight reconciles per controller).",
 		},
-		[]string{"controller"},
+		[]string{LabelController},
 	)
 
 	ReconcileDurationSeconds = prometheus.NewHistogramVec(
@@ -127,7 +151,7 @@ var (
 			Help:    "Controller reconcile latency in seconds.",
 			Buckets: prometheus.DefBuckets,
 		},
-		[]string{"controller"},
+		[]string{LabelController},
 	)
 
 	InformerObjects = prometheus.NewGaugeVec(
@@ -135,7 +159,7 @@ var (
 			Name: "kollect_informer_objects",
 			Help: "Objects in the dynamic informer indexer by GVR.",
 		},
-		[]string{"group", "version", "resource"},
+		[]string{LabelGroup, LabelVersion, LabelResource},
 	)
 
 	ExportBytesTotal = prometheus.NewCounterVec(
@@ -143,7 +167,7 @@ var (
 			Name: "kollect_export_bytes_total",
 			Help: "Total inventory payload bytes exported to sinks.",
 		},
-		[]string{"sink_type"},
+		[]string{LabelSinkType},
 	)
 
 	// CustomResourceSeries is registered via aggregation.go (ADR-0304 Phase 4, wired).
@@ -153,7 +177,7 @@ var (
 			Name: "kollect_export_debounced_total",
 			Help: "Export attempts skipped by per-sink debounce coalescing.",
 		},
-		[]string{"controller"},
+		[]string{LabelController},
 	)
 
 	NamespaceFingerprintCacheTotal = prometheus.NewCounterVec(
@@ -162,7 +186,7 @@ var (
 			Help: "Namespace content fingerprint cache outcomes (AR-10): hit skips the " +
 				"SnapshotNamespace + ItemsFingerprint recompute, miss pays for it.",
 		},
-		[]string{"controller", "result"},
+		[]string{LabelController, LabelResult},
 	)
 
 	WatchMapListErrorsTotal = prometheus.NewCounterVec(
@@ -170,7 +194,7 @@ var (
 			Name: "kollect_watch_map_list_errors_total",
 			Help: "Secondary watch map handlers that failed to list related objects.",
 		},
-		[]string{"controller", "watch"},
+		[]string{LabelController, "watch"},
 	)
 
 	CollectDispatchDurationSeconds = prometheus.NewHistogram(
@@ -200,7 +224,7 @@ var (
 			Name: "kollect_informer_resync_dispatches_total",
 			Help: "Informer Update events driven by periodic resync (same resourceVersion).",
 		},
-		[]string{"group", "version", "resource"},
+		[]string{LabelGroup, LabelVersion, LabelResource},
 	)
 
 	// CollectNamespaceMismatchTotal counts objects dropped because their namespace is
@@ -213,7 +237,7 @@ var (
 			Help: "Collected objects rejected because their namespace is outside a target's " +
 				"effective namespace set.",
 		},
-		[]string{"group", "version", "resource"},
+		[]string{LabelGroup, LabelVersion, LabelResource},
 	)
 
 	InformerClusterWideScope = prometheus.NewGaugeVec(
@@ -221,7 +245,7 @@ var (
 			Name: "kollect_informer_cluster_wide_scope",
 			Help: "1 when a GVR informer watches all namespaces; 0 when namespace-scoped.",
 		},
-		[]string{"group", "version", "resource"},
+		[]string{LabelGroup, LabelVersion, LabelResource},
 	)
 
 	// StaticRefResolutionTotal counts cluster-kind namespaced static-ref resolutions (ADR-0208).
@@ -231,7 +255,7 @@ var (
 			Name: "kollect_static_ref_resolution_total",
 			Help: "Cluster-kind namespaced static-ref resolutions by kind, ref_type, and result (ok/not_found/forbidden).",
 		},
-		[]string{"kind", "ref_type", "result"},
+		[]string{LabelKind, "ref_type", LabelResult},
 	)
 
 	// AccessCacheTotal counts SelfSubjectAccessReview cache outcomes (REL-05).
@@ -242,7 +266,7 @@ var (
 			Help: "SelfSubjectAccessReview access-cache outcomes (REL-05): hit serves a cached " +
 				"decision, miss issues a fresh SubjectAccessReview.",
 		},
-		[]string{"result"},
+		[]string{LabelResult},
 	)
 
 	// LabeledSeriesCardinalityCappedTotal counts label tuples dropped by the
@@ -253,7 +277,7 @@ var (
 			Name: "kollect_custom_resource_labeled_series_capped_total",
 			Help: "Distinct label tuples dropped because they exceeded the per-series cardinality cap.",
 		},
-		[]string{"profile", "gvk", "series"},
+		[]string{StaticRefTypeProfile, LabelGVK, LabelSeries},
 	)
 
 	// CleanupTerminalTotal counts terminal sink-cleanup attempts on deleting
@@ -266,7 +290,7 @@ var (
 			Name: "kollect_cleanup_terminal_total",
 			Help: "Terminal sink-cleanup attempts on deleting inventories; the finalizer is retained and the attempt re-checks every 5 minutes, so one wedged object increments it once per re-check.",
 		},
-		[]string{"kind"},
+		[]string{LabelKind},
 	)
 )
 

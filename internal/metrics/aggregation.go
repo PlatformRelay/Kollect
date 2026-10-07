@@ -26,7 +26,7 @@ var CustomResourceSeries = prometheus.NewGaugeVec(
 		Name: "kollect_custom_resource_series",
 		Help: "Domain metric series from collected custom resources (spec.metrics paths).",
 	},
-	[]string{"profile", "gvk", "series"},
+	[]string{StaticRefTypeProfile, LabelGVK, LabelSeries},
 )
 
 // RecordCustomResourceSeries sets one domain series value for a profile/GVK tuple.

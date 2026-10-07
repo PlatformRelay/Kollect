@@ -27,9 +27,9 @@ func newExportScope(objectPath, cluster string) exportScope {
 
 func (s exportScope) filter() bson.M {
 	return bson.M{
-		"inventory_namespace": s.inventoryNamespace,
-		"inventory_name":      s.inventoryName,
-		"cluster":             s.cluster,
+		docFieldInventoryNamespace: s.inventoryNamespace,
+		docFieldInventoryName:      s.inventoryName,
+		"cluster":                  s.cluster,
 	}
 }
 

@@ -359,7 +359,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		status.LastExportTime = &exportTime
 		status.LastChecksum = sinkChecksum
 		status.LastExportPaths = recordExportPaths(writtenPaths, status.LastExportPaths)
-		setSinkExportSynced(status, inv.Generation, true, "Exported", "export completed")
+		setSinkExportSynced(status, inv.Generation, true, reasonExported, "export completed")
 		outcome.ExportedCount++
 		outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, validation.RequeueAfterForZeroInterval(interval))
 	}
@@ -745,7 +745,7 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
 				Type:               kollectdevv1alpha1.ConditionExportSucceeded,
 				Status:             metav1.ConditionTrue,
-				Reason:             "Exported",
+				Reason:             reasonExported,
 				Message:            fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, outcome.ExportedCount),
 				ObservedGeneration: inv.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -753,7 +753,7 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
 				Type:               conditionReady,
 				Status:             metav1.ConditionTrue,
-				Reason:             "Exported",
+				Reason:             reasonExported,
 				Message:            fmt.Sprintf("rolled up %d target(s), %d item(s)", targetCount, itemCount),
 				ObservedGeneration: inv.Generation,
 				LastTransitionTime: metav1.Now(),

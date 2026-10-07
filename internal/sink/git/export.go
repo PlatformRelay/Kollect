@@ -27,6 +27,7 @@ import (
 const (
 	defaultBranch    = "main"
 	defaultObjectKey = "inventory/latest.json"
+	defaultRemote    = "origin"
 	exportTimeout    = 2 * time.Minute
 )
 
@@ -425,7 +426,7 @@ func pushCommitted(
 		return fmt.Errorf("set branch ref: %w", refErr)
 	}
 
-	remote, err := repo.Remote("origin")
+	remote, err := repo.Remote(defaultRemote)
 	if err != nil {
 		return fmt.Errorf("remote origin: %w", err)
 	}
@@ -563,7 +564,7 @@ func cloneOrInit(
 	}
 
 	if _, err := repo.CreateRemote(&config.RemoteConfig{
-		Name: "origin",
+		Name: defaultRemote,
 		URLs: []string{cloneURL},
 	}); err != nil {
 		return nil, false, fmt.Errorf("add remote: %w", err)

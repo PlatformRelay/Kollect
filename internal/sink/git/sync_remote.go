@@ -21,7 +21,7 @@ func syncRemoteBeforePush(
 	cloneURL, branch string,
 	cfg Config,
 ) error {
-	remote, err := repo.Remote("origin")
+	remote, err := repo.Remote(defaultRemote)
 	if err != nil {
 		return fmt.Errorf("remote origin: %w", err)
 	}
@@ -42,7 +42,7 @@ func syncRemoteBeforePush(
 	}
 
 	if pullErr := wt.PullContext(ctx, &git.PullOptions{
-		RemoteName:    "origin",
+		RemoteName:    defaultRemote,
 		ReferenceName: plumbing.NewBranchReferenceName(branch),
 		SingleBranch:  true,
 		Auth:          auth,

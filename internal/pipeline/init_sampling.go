@@ -251,7 +251,7 @@ func suggestAttributesFromSample(obj map[string]any, sensitive bool) (opts []ini
 							opts = append(opts, initAttributeOpt{
 								Name: sampleAttrName(path),
 								Path: "$." + path,
-								Type: "string",
+								Type: initAttrTypeString,
 							})
 							preview = append(preview, path+"  (key only; value hidden)")
 						}
@@ -346,7 +346,7 @@ func sampleAttrType(v any) string {
 	case []any:
 		return "array"
 	default:
-		return "string"
+		return initAttrTypeString
 	}
 }
 

@@ -335,7 +335,7 @@ func aggregateInventorySync(
 		setSyncedCondition(conditions, generation, false, kollectdevv1alpha1.ReasonPartiallySynced,
 			fmt.Sprintf("%d/%d sinks debounced", debounced, exported+debounced))
 	default:
-		setSyncedCondition(conditions, generation, true, "Exported",
+		setSyncedCondition(conditions, generation, true, reasonExported,
 			fmt.Sprintf("exported to %d sink(s)", exported))
 	}
 }

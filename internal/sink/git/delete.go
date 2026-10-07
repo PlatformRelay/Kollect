@@ -293,7 +293,7 @@ func baseOnRemotePushBranch(ctx context.Context, workdir string, req exportReque
 	}
 
 	pushRef := "refs/heads/" + req.pushBranch
-	out, err := gitInWorkdir(ctx, workdir, cli, "ls-remote", "origin", pushRef).CombinedOutput()
+	out, err := gitInWorkdir(ctx, workdir, cli, "ls-remote", defaultRemote, pushRef).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git ls-remote origin %s: %s: %w", pushRef, cli.redact(strings.TrimSpace(string(out))), err)
 	}
@@ -426,7 +426,7 @@ func pushBranchWithoutWork(
 	}
 
 	pushRef := "refs/heads/" + pushBranch
-	pushOut, err := gitInWorkdir(ctx, workdir, cli, "ls-remote", "origin", pushRef).CombinedOutput()
+	pushOut, err := gitInWorkdir(ctx, workdir, cli, "ls-remote", defaultRemote, pushRef).CombinedOutput()
 	if err != nil {
 		return false, "", fmt.Errorf("git ls-remote origin %s: %s: %w", pushRef, cli.redact(strings.TrimSpace(string(pushOut))), err)
 	}
@@ -437,7 +437,7 @@ func pushBranchWithoutWork(
 	}
 
 	cloneRef := "refs/heads/" + cloneBranch
-	cloneOut, err := gitInWorkdir(ctx, workdir, cli, "ls-remote", "origin", cloneRef).CombinedOutput()
+	cloneOut, err := gitInWorkdir(ctx, workdir, cli, "ls-remote", defaultRemote, cloneRef).CombinedOutput()
 	if err != nil {
 		return false, "", fmt.Errorf("git ls-remote origin %s: %s: %w", cloneRef, cli.redact(strings.TrimSpace(string(cloneOut))), err)
 	}
@@ -633,7 +633,7 @@ func fetchRemotePushBranch(
 		return nil
 	}
 
-	remote, err := repo.Remote("origin")
+	remote, err := repo.Remote(defaultRemote)
 	if err != nil {
 		return fmt.Errorf("remote origin: %w", err)
 	}
@@ -665,7 +665,7 @@ func fetchRemotePushBranch(
 	}
 
 	fetchErr := repo.FetchContext(ctx, &git.FetchOptions{
-		RemoteName:      "origin",
+		RemoteName:      defaultRemote,
 		RefSpecs:        []config.RefSpec{config.RefSpec(fmt.Sprintf("+%s:%s", pushRef, pushRef))},
 		Depth:           cfg.CloneDepth,
 		Auth:            authMethod,
@@ -746,7 +746,7 @@ func pushBranchSynced(
 	authMethod transport.AuthMethod,
 	cloneBranch, pushBranch string,
 ) (bool, plumbing.Hash, bool, error) {
-	remote, err := repo.Remote("origin")
+	remote, err := repo.Remote(defaultRemote)
 	if err != nil {
 		return false, plumbing.ZeroHash, false, fmt.Errorf("remote origin: %w", err)
 	}
