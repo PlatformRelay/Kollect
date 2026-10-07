@@ -78,7 +78,12 @@ No finalizer: adding one to drain connections would turn best-effort eviction in
 dependency the product decision does not ask for. The TTL stays as the backstop for entries
 whose sink never produced a delete event (pipeline-mode one-shots, restarts). Metrics: eviction
 is silent on success — a counter would count ordinary deletes, not defects; the pool's existing
-log line on Close names the reason.
+log line on Close names the reason. Two accepted residuals, deferred with reasons: (1) the
+eviction's Close runs inline on the informer dispatch goroutine — the same shape as the
+pre-existing TTL prune and the acquire-time swap, and the delete watch's listener is
+non-blocking, so a slow Close delays that sink family's dispatch briefly but does not stall the
+For() reconcile path; (2) an export holding a nats backend at eviction could re-dial a fresh
+connection after the close — fixed by the closed-latch (tasks.md T13) rather than refcounting.
 
 ## D5 — The git engine converges to go-git; the CLI machinery survives where it is genuinely shared
 
