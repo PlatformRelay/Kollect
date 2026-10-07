@@ -8,7 +8,7 @@ Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (se
 - [x] 0 orient — OpenSpec repo (no .specify/): change dir `openspec/changes/2026-10-06-product-decision-convergence/` is the feature dir; spec set = proposal.md + design.md + specs/*/spec.md + tasks.md. Spec set committed: `<sha>`
 - [x] P plan + tasks — generated (OpenSpec change); spec set committed a93f6862
 - [x] R spec-set review — round 1 on a93f6862: 4/6 legs ok (both DeepSeek legs exit=truncated at 900s), CRITICAL x1 (capability-id mismatch) fixed in place + 20 findings fixed; round 2 (bigQwen, 1 leg) on 8e2ee768: CONCERNS, 2 warnings closed (fixture migration, persisted-sink scenario, in-repo decisions table), no CRITICAL. Gate passed.
-- [ ] L task loop — see *Tasks*
+- [x] L task loop — T01–T10 closed (T10 sweep 2026-10-07: gates green on final tree, Verification table filled, review CLEAN); remaining gaps are owner/CI-owned (integration tier, B-stage holistics)
 - [ ] B branch review — `reviews/B-branch/round-N/` · rounds: <pending>
 - [ ] Hand-off — <date> · `pr-description.md` · PR: <pending; direct-PR contract allows non-draft>
 
@@ -64,6 +64,7 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | T07 | CLOSED-WITH-GAPS (commit 86e4636b, amended with closure) | r1 2/2 legs (DeepSeek+QFN diff), register BLOCK -> #1 CRITICAL rejected as spec-silent (register itself records the promotion artifact; both legs' verdicts CONCERNS) + deferred as the cadence decision request, #2/#3 verified coverage/claim-pinning gaps fixed with tests, no round 2; no Claude | gaps: cluster count-refresh cadence decision request (owner, B-branch); integration tier (no Docker); Age-suppression mechanism believed (namespaced guard states it) |
 | T08 | CLOSED-WITH-GAPS (commits 3ad77833, 738b5feb, aa967f23) | r1 2/2 (DeepSeek+QFN diff) BLOCK -> #1 wiring unpinned fixed (envtest spec + mutation check), #2 rejected (spec-sanctioned; rationale corrected in r2), #3 aging unpinned fixed (pin test); r2 2/2 BLOCK (last round) -> #1 nats re-dial leak verified fixed (owning-release shape, red-first test), #2 delete-only pin fixed (extracted handler + mutation check); no Claude | gaps: r2 fixes machine-verified but not independently re-reviewed (B's whole-branch review owns it); -count=2 count-order flake on TestRunCleanupExport_gitReleaseFailureIsRetried recorded (no owner); integration tier (no Docker); T03's 4 BEP reds cleared |
 | T09 | CLOSED-WITH-GAPS (commit ce0b19d6, amended with closure) | r1 2/2 legs (DeepSeek+QFN diff, uncommitted-diff review) CONCERNS -> 1 HIGH verified wording-only (stale "CLI engine" wording in 6 cited sites), fixed with 3 same-class sites, no round 2; no Claude (budget 0/0) | gaps: integration tier not-run (no Docker; 9 mirror locks deleted with their surface, remaining 6 CI-owned); row 9 "object not rewritten" half agent-review (pure function); spec:validate/coverage/docs-truth pinned to T10/B; T04's 4 GTE reds cleared (no known red remains for the change) |
+| T10 | CLOSED-WITH-GAPS (closure commit, see evidence) | 1/1 leg (GLM-5.3 diff; docs/evidence-only sizing), register CLEAN -> 2 NOTEs verified: 1 wording fixed (ERA-2 run = 8 stamp tests among 23 matched), 1 resolved by pasting the verdict; no Claude (budget 0/0) | gaps: test-integration not-run (no Docker, CI owns on PR); B review + coverage/mutation holistic remain at B; doc-wide ANNOTATIONS sweep is agent-review (rows adjacent to the two changed rows read, not every row diffed) |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
@@ -105,6 +106,9 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 - (T07) A "mirroring X" claim needs an equality assertion against X, not a re-typed copy of X's expectations (the copy passes while the sides drift).
 - (T07) gen-glossary.py needs PyYAML; system python3 lacks it and the drift gate calls bare `python3` — run the gate with the mise python 3.12 bin on PATH.
 - (T07) Updating a pre-existing test's stale premise can orphan incidental coverage it carried (skipsWrite nil→0) — pin the orphaned case explicitly.
+- (T10) `internal/sink/git -race -count=2` is green at ~505s on the final tree (T08's count-order flake did not fire); budget a long timeout when gating that package.
+- (T10) `internal/collect`'s `-count=2` race gate stays `-count=1`-shaped until the owner fixes `TestRecordLabeledMetricSeries_CapsCardinalityDeterministically` (non-idempotent; verified alone and at base `3ee21266` in a throwaway worktree).
+- (T10) State focused-run coverage as "N target tests among the M matched by the `-run` pattern" — fanout legs recompute the pattern's true match count and flag an understated/overstated count.
 
 ## Where a human should look first
 <!-- filled at hand-off -->
