@@ -90,6 +90,37 @@ func TestPruneResource_stampIncludesGenerationZero(t *testing.T) {
 	}
 }
 
+// TestPruneResource_defaultIncludeCarriesNoStamp pins the spec's
+// "No metadata section, no stamp" scenario for the DEFAULT include selector:
+// SpecAndStatus (the CRD and IncludeOrDefault default) drops metadata, so the
+// copy carries no stamp rather than an invented metadata block (design D2). A
+// profile that needs the stamp sets include: All or MetadataOnly.
+func TestPruneResource_defaultIncludeCarriesNoStamp(t *testing.T) {
+	t.Parallel()
+
+	obj := deploymentWithGeneration(42)
+	export := &kollectdevv1alpha1.ExportSpec{
+		Mode: kollectdevv1alpha1.ExportModeResource,
+		// Include unset: IncludeOrDefault() yields SpecAndStatus.
+	}
+
+	got := PruneResource(obj, export, NewScrubber(nil))
+	if got == nil {
+		t.Fatal("export must succeed with the default include, got nil")
+	}
+	if _, ok := got["metadata"]; ok {
+		t.Fatalf("SpecAndStatus must drop metadata, got keys %v", keysOf(got))
+	}
+
+	blob, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal pruned copy: %v", err)
+	}
+	if strings.Contains(string(blob), collectedGenerationAnnotation) {
+		t.Fatalf("the default-include copy carries the collectedGeneration stamp somewhere else: %s", blob)
+	}
+}
+
 // TestPruneResource_stampSurvivesAnnotationPrune locks the ordering claim:
 // the stamp is applied after profile pruning, so a prune path that removes
 // metadata.annotations wholesale cannot erase it.
