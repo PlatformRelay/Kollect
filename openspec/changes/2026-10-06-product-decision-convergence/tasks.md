@@ -50,12 +50,13 @@ Commits with `Signed-off-by`.
   the `ANNOTATIONS-LABELS.md` row to the Resource-mode embedded copy with implemented
   semantics (ERA-2). Makes T01(b) green.
   — closed 2026-10-07, evidence: evidence/T06.md
-- [ ] T07 Implement cluster-target parity: reuse the namespaced sync semantics via a shared
+- [x] T07 Implement cluster-target parity: reuse the namespaced sync semantics via a shared
   helper, wire the count into the ONE existing cluster escape-hatch write
   (`persistFilterStatusIfSkipped` extended to `filterChanged || countChanged`), regenerate CRDs
   (`make generate manifests`), update `docs/crds/kollectclustertarget.md` (and
   `docs/crds/kollecttarget.md` only if it restates fields), regen glossary (TSP-1). Makes T02
   green.
+  — closed 2026-10-07, evidence: evidence/T07.md
 - [ ] T08 Implement evict-on-delete: family-sink controller delete watch per kind calling the
   seam (UID eviction; ns/name fallback only when the event object carries no UID), pool-side
   delete-tombstone discarding in-flight re-stores, pool comment truth-up (the "no caller"

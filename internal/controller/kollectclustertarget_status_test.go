@@ -8,6 +8,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -240,7 +241,11 @@ func TestClusterTargetFilterChanged(t *testing.T) {
 }
 
 // TestClusterTargetSetReady_skipsWriteWhenNothingChanged pins the churn reduction: an
-// unchanged condition with an unchanged filter set issues no status write at all.
+// unchanged condition with an unchanged filter set and an already-persisted count issues no
+// status write at all. The count must be seeded as already persisted (a measured zero, stale
+// timestamp): a nil count on a Ready target is "never computed" (TSP-1), and the first Ready
+// observation persists it even under a byte-identical condition — that upgrade-path write is
+// the parity anchor's measured-zero case, not a churn violation.
 func TestClusterTargetSetReady_skipsWriteWhenNothingChanged(t *testing.T) {
 	t.Parallel()
 
@@ -249,13 +254,18 @@ func TestClusterTargetSetReady_skipsWriteWhenNothingChanged(t *testing.T) {
 		ns      = "kollect-system"
 	)
 
+	staleCount := int64(0)
+	staleStamp := metav1.NewTime(time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC))
+
 	ct := &kollectdevv1alpha1.KollectClusterTarget{
 		ObjectMeta: metav1.ObjectMeta{Name: "ct", Generation: 1},
 		Spec: kollectdevv1alpha1.KollectClusterTargetSpec{
 			ProfileRef: kollectdevv1alpha1.NamespacedObjectReference{Name: profile, Namespace: ns},
 		},
 		Status: kollectdevv1alpha1.KollectClusterTargetStatus{
-			ObservedGeneration: 1,
+			ObservedGeneration:      1,
+			CollectedCount:          &staleCount,
+			CollectedCountUpdatedAt: &staleStamp,
 			CollectionFilterStatus: kollectdevv1alpha1.CollectionFilterStatus{
 				MatchedNamespaces:   []string{"a"},
 				EffectiveNamespaces: []string{"a"},

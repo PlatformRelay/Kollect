@@ -186,6 +186,53 @@ func TestClusterTargetSetReady_persistsCountWhenConditionUnchanged(t *testing.T)
 	}
 }
 
+// TestClusterTargetSetReady_persistsMeasuredZeroWhenConditionUnchanged is the cluster
+// mirror of the namespaced measured-zero case (kollecttarget_collected_count_test.go): a
+// target whose count was never computed (nil) and whose byte-identical Ready condition
+// already restates "collecting 0" still gets the measured zero persisted through the escape
+// hatch — after this first Ready observation the count is a measured zero, no longer "never
+// computed" (TSP-1 "null means never computed").
+func TestClusterTargetSetReady_persistsMeasuredZeroWhenConditionUnchanged(t *testing.T) {
+	t.Parallel()
+
+	bg := context.Background()
+
+	ct := freshClusterTarget()
+	ct.Status.ObservedGeneration = 2
+	ct.Status.Conditions = []metav1.Condition{{
+		Type:               conditionReady,
+		Status:             metav1.ConditionTrue,
+		Reason:             reasonCollecting,
+		Message:            readyConditionMessage(clusterCountProfile, clusterCountProfileNS, 1, 0),
+		ObservedGeneration: 2,
+	}}
+	// nil Engine: the derived count is a measured zero.
+	cl, updates, live := clusterCountClient(t, ct)
+
+	seededCondition := *apimeta.FindStatusCondition(live.Status.Conditions, conditionReady)
+
+	r := &KollectClusterTargetReconciler{Client: cl}
+	if err := r.setReady(bg, live, []string{clusterCountNSReady}, false); err != nil {
+		t.Fatalf("setReady: %v", err)
+	}
+
+	stored := storedClusterTarget(t, cl)
+	if stored.Status.CollectedCount == nil || *stored.Status.CollectedCount != 0 {
+		t.Fatalf("persisted collectedCount = %v, want measured 0 (null must mean never computed, "+
+			"so a Ready target's first observation persists the zero)", stored.Status.CollectedCount)
+	}
+	if stored.Status.CollectedCountUpdatedAt == nil {
+		t.Fatal("persisted collectedCountUpdatedAt = <nil>, want set on the first observation")
+	}
+	kept := apimeta.FindStatusCondition(stored.Status.Conditions, conditionReady)
+	if kept == nil || kept.Message != seededCondition.Message {
+		t.Fatalf("Ready condition was rewritten (%+v), want the seeded payload kept byte-identical", kept)
+	}
+	if *updates != 1 {
+		t.Fatalf("status writes = %d, want 1 (the escape hatch, not the condition writer)", *updates)
+	}
+}
+
 // TestClusterTargetSetReady_steadyCountKeepsTimestamp covers the spec scenario "Steady
 // count keeps its timestamp": two consecutive reconciles deriving the same count leave the
 // timestamp where the first one put it, and the second reconcile issues no write at all.

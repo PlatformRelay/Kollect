@@ -306,8 +306,20 @@ func (r *KollectClusterTargetReconciler) setReady(
 	matched []string,
 	filterChanged bool,
 ) error {
-	count := r.collectedCount(ct, matched)
-	msg := clusterTargetReadyMessage(ct.Spec.ProfileRef, len(matched), count)
+	// status.collectedCount mirrors the namespaced KollectTarget (TSP-1 / D3 — one
+	// contract, twice; the count source is the same read the Ready message restates, so
+	// the prose and the stored number cannot disagree). The count and timestamp are synced
+	// in memory here and persist only through the condition write; when that write is
+	// skipped (byte-identical Ready condition) the escape hatch below must still persist a
+	// moved count — otherwise a measured zero would stay absent forever, indistinguishable
+	// from never computed (PERF-FIX-05 parity).
+	count, countChanged := syncCollectedCountFields(
+		&ct.Status.CollectedCount,
+		&ct.Status.CollectedCountUpdatedAt,
+		r.collectedCount(ct, matched),
+	)
+	// The helper derives its int64 from this same int read, so the cast back is lossless.
+	msg := clusterTargetReadyMessage(ct.Spec.ProfileRef, len(matched), int(count))
 
 	apimeta.RemoveStatusCondition(&ct.Status.Conditions, conditionDegraded)
 	ct.Status.ObservedGeneration = ct.Generation
@@ -323,18 +335,20 @@ func (r *KollectClusterTargetReconciler) setReady(
 		return err
 	}
 
-	return r.persistFilterStatusIfSkipped(ctx, ct, filterChanged, written)
+	return r.persistFilterStatusIfSkipped(ctx, ct, filterChanged || countChanged, written)
 }
 
 // persistFilterStatusIfSkipped issues the status write the shared condition writer skipped,
-// when the filter-status fields moved but the condition did not. It mirrors the
-// namespaced KollectTarget `countChanged && !written` escape hatch (PERF-FIX-05 / F-05).
+// when the filter-status or collected-count fields moved but the condition did not. It is
+// the cluster-path counterpart of the namespaced KollectTarget `countChanged && !written`
+// escape hatch (PERF-FIX-05 / F-05) and the ONE write site that carries both field groups —
+// a second Status().Update site would double every persist for no extra guarantee.
 func (r *KollectClusterTargetReconciler) persistFilterStatusIfSkipped(
 	ctx context.Context,
 	ct *kollectdevv1alpha1.KollectClusterTarget,
-	filterChanged, written bool,
+	changed, written bool,
 ) error {
-	if !filterChanged || written {
+	if !changed || written {
 		return nil
 	}
 
