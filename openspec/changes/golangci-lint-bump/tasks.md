@@ -16,7 +16,7 @@
 - [x] 1.2 Version-only commit: `Makefile` and `.custom-gcl.yml` together — the linter version
   in both sites, and the logcheck plugin pin (`version: latest` becomes the resolved version
   recorded by the probe) — closed 2026-10-07, evidence: `evidence/1.2.md`
-- [ ] 1.3 Fix or justify each new finding, one commit per group, no linter disabled; every new
+- [x] 1.3 Fix or justify each new finding, one commit per group, no linter disabled; every new
   `//nolint` directive or exclusion carries a reason on the same or preceding line;
   `task lint` and `task format:check` clean; record in `evidence/1.3.md`: findings count
   after, number fixed, number justified, `bin/golangci-lint version` (must report the pin).
@@ -31,8 +31,8 @@
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| LTB-1 | grep both files; `task lint` + `task format:check` real runs | equal, at least v2.13.1; both clean | not-run | |
-| LTB-2 | diff review of `.golangci.yaml` and every `//nolint` in the diff | no disabled linter or blanket exclusion; every new nolint/exclusion has a reason | not-run | |
-| LTB-3 | findings count before and after in the review record | recorded, with the fixed/justified numbers and the executed binary's version | not-run | |
-| LTB-4 | grep `.custom-gcl.yml` plugin block | a pinned version, not `latest` | not-run | |
-| all | independent review; CI on the PR head | APPROVE, green; both revisions recorded | not-run | |
+| LTB-1 | grep both files; `task lint` + `task format:check` real runs | equal, at least v2.13.1; both clean | pass (1.2 evidence + orchestrator re-run at c9e795bb: lint 0, format 0) | evidence/1.2.md, evidence/1.3.md |
+| LTB-2 | diff review of `.golangci.yaml` and every `//nolint` in the diff | no disabled linter or blanket exclusion; every new nolint/exclusion has a reason | pass (empty .golangci.yaml diff; 2 reasoned nolints, both reviewed) | evidence/1.3.md §7, reviews/L-tasks/1.3 |
+| LTB-3 | findings count before and after in the review record | recorded, with the fixed/justified numbers and the executed binary's version | pass (57 → 0; 55 fixed, 2 justified; binary reports the pin) | evidence/probe.md §5, evidence/1.3.md §8 |
+| LTB-4 | grep `.custom-gcl.yml` plugin block | a pinned version, not `latest` | pass (`version: v0.10.1`, machine-verified by `go version -m`) | evidence/1.2.md |
+| all | independent review; CI on the PR head | APPROVE, green; both revisions recorded | pending (B-stage review next; CI at PR time) | |
