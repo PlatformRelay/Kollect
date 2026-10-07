@@ -5,8 +5,10 @@ package nats
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	natsgo "github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -67,6 +69,77 @@ func TestBackend_Export_rejectsEmptyPayload(t *testing.T) {
 	err := b.Export(context.Background(), nil, "inventory/default/inv.json")
 	if err == nil {
 		t.Fatal("expected error for empty payload")
+	}
+}
+
+func TestBackend_Export_afterCloseFailsWithoutRedialling(t *testing.T) {
+	t.Cleanup(resetJetStreamFromConn)
+	fjs := &fakeJetStream{}
+	jetStreamFromConn = func(*natsgo.Conn) (jetstream.JetStream, error) { return fjs, nil }
+
+	dials := 0
+	b, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: "nats",
+		Nats: &kollectdevv1alpha1.NatsSpec{URL: "nats://broker:4222", Subject: "inventory.events", Stream: "events"},
+	}, nil, nil)
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	b.connectFn = func(Config, TLSConfig) (*natsgo.Conn, error) {
+		dials++
+		return nil, nil
+	}
+
+	payload := []byte(`[{"uid":"u1"}]`)
+	err = b.Export(context.Background(), payload, "inventory/apps/demo.json")
+	if err != nil {
+		t.Fatalf("first Export: %v", err)
+	}
+	if dials != 1 {
+		t.Fatalf("dials after first Export = %d, want 1", dials)
+	}
+	err = b.Close()
+	if err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	err = b.Export(context.Background(), payload, "inventory/apps/demo.json")
+	if !errors.Is(err, errBackendClosed) {
+		t.Fatalf("Export after Close = %v, want errBackendClosed", err)
+	}
+	if dials != 1 {
+		t.Fatalf("dials = %d, want 1 (no new connection after Close)", dials)
+	}
+}
+
+func TestBackend_Close_beforeFirstConnectLatchesClosed(t *testing.T) {
+	t.Cleanup(resetJetStreamFromConn)
+	jetStreamFromConn = func(*natsgo.Conn) (jetstream.JetStream, error) { return &fakeJetStream{}, nil }
+
+	dials := 0
+	b, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		Type: "nats",
+		Nats: &kollectdevv1alpha1.NatsSpec{URL: "nats://broker:4222", Subject: "inventory.events", Stream: "events"},
+	}, nil, nil)
+	if err != nil {
+		t.Fatalf("NewBackend: %v", err)
+	}
+	b.connectFn = func(Config, TLSConfig) (*natsgo.Conn, error) {
+		dials++
+		return nil, nil
+	}
+
+	err = b.Close()
+	if err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	err = b.Export(context.Background(), []byte(`{"x":1}`), "inventory/apps/demo.json")
+	if !errors.Is(err, errBackendClosed) {
+		t.Fatalf("Export after Close-before-connect = %v, want errBackendClosed", err)
+	}
+	if dials != 0 {
+		t.Fatalf("dials = %d, want 0 (Close must latch before any dial)", dials)
 	}
 }
 

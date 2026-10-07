@@ -168,8 +168,9 @@ func acquireBackend(
 // reasonDeleteTombstone marks the store decision for a tombstoned key: nothing
 // was pooled, and acquireBackend hands the built backend to its caller with an
 // owning release instead of closing it — the caller's release Closes it after
-// its export is done, so a backend that self-heals on Close (e.g. the nats
-// re-dial in jetStream) cannot leak a fresh connection for a deleted sink.
+// its export is done, and the nats backend's closed latch (jetStream returns
+// errBackendClosed after Close) means a Closed backend can no longer re-dial a
+// fresh connection nothing would Close.
 const reasonDeleteTombstone = "delete tombstone"
 
 // storePooledBackend saves built under key, or keeps the pooled backend when
