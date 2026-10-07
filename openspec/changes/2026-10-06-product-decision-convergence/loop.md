@@ -26,7 +26,7 @@ Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (se
 | Race (stateful rule) | `go test -race -count=2` on changed packages | triggered | green | per task (stateful/export changes) |
 | Integration tier | `task test-integration` (Docker) | holistic | green in CI | not-run locally: no Docker in this env |
 
-Holistic run at B: <pending — coverage over internal/ on tip vs base>
+Holistic run at B: internal/ coverage 91.3% at tip (floor 90) — pass; race -count=2 on sink/git ~505s green, -count=2 sink 63s green, -count=1 controller/collect green (T10 record)
 
 ## Model routing (spec-loop-opencode overlay)
 - Implementer: this session (GLM-5.3) + per-task `opencode run --agent build` processes via `scripts/run-task.sh`
