@@ -37,7 +37,7 @@ func newEngineWithBoundClusterTargets(t *testing.T, store *collect.Store, bindin
 		map[schema.GroupVersionResource]string{gvr: "DeploymentList"},
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	engineCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
 	engine, err := collect.NewEngine(dyn, nil, store, collect.EngineConfig{})
@@ -48,7 +48,7 @@ func newEngineWithBoundClusterTargets(t *testing.T, store *collect.Store, bindin
 	// Start wires runCtx: RegisterTarget derives its informers from
 	// informerContext() — Background without Start — so only this call makes the
 	// cleanup below able to stop the factories.
-	if err := engine.Start(ctx); err != nil {
+	if err := engine.Start(engineCtx); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 
@@ -76,7 +76,7 @@ func newEngineWithBoundClusterTargets(t *testing.T, store *collect.Store, bindin
 					},
 				},
 			}
-			if err := engine.RegisterTarget(ctx, synthetic, profile, collect.RegisterTargetOptions{
+			if err := engine.RegisterTarget(engineCtx, synthetic, profile, collect.RegisterTargetOptions{
 				EffectiveNamespaces: []string{ns},
 			}); err != nil {
 				t.Fatalf("register synthetic cluster target %s/%s: %v", ns, name, err)
