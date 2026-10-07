@@ -25,14 +25,21 @@
 
 ## 2. Land
 
-- [ ] 2.1 Archive the change as the last commit of the PR, after review and green CI; the review record names the reviewed and the archive revision
+- [ ] 2.1 Archive the change as the last commit of the PR, after review and green CI; the
+  review record names the reviewed and the archive revision, and the archive record carries
+  the deferred tech-debt notes with their numbers: gomodguard → gomodguard_v2 migration
+  (deprecation warning on every lint run since v2.12.0), the 9/11 untested conflict-requeue
+  sites (pre-existing coverage; the conflict-requeue policy itself is disclosed at
+  finalizer.go:16-24 and accepted in review), the Makefile stale-`$(GOLANGCI_LINT)` file
+  target (make skips a version-variable change), `task format:check`'s stderr swallowing
+  (Taskfile.yml:324), and the `--uniq-by-line=false` CI sensor proposal for goconst
 
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | LTB-1 | grep both files; `task lint` + `task format:check` real runs | equal, at least v2.13.1; both clean | pass (1.2 evidence + orchestrator re-run at c9e795bb: lint 0, format 0) | evidence/1.2.md, evidence/1.3.md |
-| LTB-2 | diff review of `.golangci.yaml` and every `//nolint` in the diff | no disabled linter or blanket exclusion; every new nolint/exclusion has a reason | pass (empty `.golangci.yaml` diff; 3 reasoned nolints in the branch — 2 product + 1 test assertion — all reviewed; corrected at stage B) | evidence/1.3.md §7, reviews/L-tasks/1.3 |
+| LTB-2 | diff review of `.golangci.yaml` and every `//nolint` in the diff | no disabled linter or blanket exclusion; every new nolint/exclusion has a reason | pass (empty `.golangci.yaml` diff; 3 reasoned nolints in the branch — 1 product + 2 test (gitlab client_test.go is a _test.go file; corrected at stage B round 2) — all reviewed) | evidence/1.3.md §7, reviews/L-tasks/1.3 |
 | LTB-3 | findings count before and after in the review record | recorded, with the fixed/justified numbers and the executed binary's version | pass (57 → 0; 55 fixed, 2 justified; binary reports the pin) | evidence/probe.md §5, evidence/1.3.md §8 |
 | LTB-4 | grep `.custom-gcl.yml` plugin block | a pinned version, not `latest` | pass (`version: v0.10.1`, machine-verified by `go version -m`) | evidence/1.2.md |
 | all | independent review; CI on the PR head | APPROVE, green; both revisions recorded | pending (B-stage review next; CI at PR time) | |
