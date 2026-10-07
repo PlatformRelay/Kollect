@@ -96,13 +96,13 @@ Commits with `Signed-off-by`.
   the closed error; no new connection dialled); also state the D4 residual note for the
   inline-Close-on-dispatch-goroutine deferral.
   — closed 2026-10-07, evidence: evidence/T13.md
-- [ ] T12 Hand-off: PR description per the repo's review discipline, push, non-draft PR, final
-  status report. Owner-gated parts: helm `mode` decision (D7, needs-decision open),
-  breakerRegistry harness race fix, collect -count=2 flakes, cluster count-refresh cadence.
+- [x] T12 Hand-off: PR description per the repo's review discipline (`pr-description.md`), push,
+  non-draft PR, final status report.
+  — closed 2026-10-07 by the orchestrator (push/PR are orchestrator-owned, not task-process work), PR: the branch's non-draft PR; owner-gated residuals listed in loop.md §Owner tasks
 
 ## 3. Verification
 
-Rev: implementation commits on `fm/kollect-product-decisions-impl`, based on `3ee21266`.
+Rev: final code commit `d6a95520` (T13 nats closed-latch; everything after is spec/evidence/docs), branch `fm/kollect-product-decisions-impl`, based on `3ee21266` = `origin/main`.
 Local: Go 1.26.6 (darwin/arm64), no Docker in this environment (integration rows below).
 
 | Req | Check | Expected | Status | Evidence |
@@ -121,5 +121,8 @@ Local: Go 1.26.6 (darwin/arm64), no Docker in this environment (integration rows
 | — | `-race` on changed packages | pass, -count=2 | pass | rev `81bea0b0` (2026-10-07), no DATA RACE anywhere: `-count=2` on internal/validation, test/schema, api/v1alpha1 (6.3s), internal/sink (69.9s), internal/sink/git (505.3s); `-count=1` where the repo's own race gate (`hack/coverage.sh`) does: internal/controller (Ginkgo rejects `-count>1`, 42.9s), internal/collect (10.6s — `-count=2` blocked by the pre-existing `TestRecordLabeledMetricSeries_CapsCardinalityDeterministically` non-idempotency, reproduced alone at base `3ee21266`; owner task in loop.md) |
 | — | `task test-integration` | executed, 0 skipped | not-run | needs Docker; CI owns on PR |
 
-Independent review (per task): T10 — fanout diff review, free-model legs only, verdict and register at
-`reviews/L-tasks/T10/` (see evidence/T10.md for legs, rounds and disposition).
+Independent review (per task): T01–T11, T13 — fanout diff reviews, free-model legs only, verdicts and
+registers at `reviews/L-tasks/T*/`; spec-set gate `reviews/R-spec-set/` (round 1 4/6 legs + round 2
+strong leg: CRITICAL fixed, gate passed); whole-branch review rounds 1 and 2 at `reviews/B-branch/`
+(round 2 verdict CONCERNS with one CRITICAL confirmed and fixed in T13; remaining warnings deferred
+with reasons). Verdicts recorded before merge; reviewer revisions named in each register.

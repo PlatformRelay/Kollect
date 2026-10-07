@@ -5,14 +5,16 @@ Next: L task loop — dispatch T10 (sweep + full gate subset + Verification tabl
 Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (session 2026-10-06–) · source: overlay default
 
 ## Stages
+
 - [x] 0 orient — OpenSpec repo (no .specify/): change dir `openspec/changes/2026-10-06-product-decision-convergence/` is the feature dir; spec set = proposal.md + design.md + specs/*/spec.md + tasks.md. Spec set committed: `<sha>`
 - [x] P plan + tasks — generated (OpenSpec change); spec set committed a93f6862
 - [x] R spec-set review — round 1 on a93f6862: 4/6 legs ok (both DeepSeek legs exit=truncated at 900s), CRITICAL x1 (capability-id mismatch) fixed in place + 20 findings fixed; round 2 (bigQwen, 1 leg) on 8e2ee768: CONCERNS, 2 warnings closed (fixture migration, persisted-sink scenario, in-repo decisions table), no CRITICAL. Gate passed.
 - [x] L task loop — T01–T10 closed (T10 sweep 2026-10-07: gates green on final tree, Verification table filled, review CLEAN); remaining gaps are owner/CI-owned (integration tier, B-stage holistics)
-- [ ] B branch review — `reviews/B-branch/round-N/` · rounds: <pending>
-- [ ] Hand-off — <date> · `pr-description.md` · PR: <pending; direct-PR contract allows non-draft>
+- [x] B branch review — round 1 6/6 legs CONCERNS (5 fixed via T11, 1 reject, 5 defer with reasons); round 2 3/3 legs: CRITICAL nats evict-during-use leak confirmed by 2 models -> T13 fix landed, review CLEAN; cadence + inline-Close deferrals recorded in design D4/loop.md
+- [ ] Hand-off — in progress: pr-description.md written; push + non-draft PR next
 
 ## Fitness functions
+
 | Characteristic | Command | Kind | Baseline (number, list, allow-list) | Per task / at B |
 |---|---|---|---|---|
 | Go vet/build | `go build ./...`, `go vet ./...` | triggered | clean | per task |
@@ -29,12 +31,14 @@ Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (se
 Holistic run at B: internal/ coverage 91.3% at tip (floor 90) — pass; race -count=2 on sink/git ~505s green, -count=2 sink 63s green, -count=1 controller/collect green (T10 record)
 
 ## Model routing (spec-loop-opencode overlay)
+
 - Implementer: this session (GLM-5.3) + per-task `opencode run --agent build` processes via `scripts/run-task.sh`
 - Per-task review legs: `DeepSeek-V4.1-Flash:diff,Qwen3.8-Flash-Next:diff` (different families from implementer)
 - Strong legs at R and B: `Qwen3.8-2.4T-A95B-NVFP4:spec` (R), `:spec` + `:adversarial` (B)
 - No Claude leg anywhere (`__NO_CLAUDE__` filled in task prompts)
 
 ## Triage
+
 | Stage | Finding (one line) | Sev | Models | Disposition (fix / reject / defer) | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
 | R | Capability ids promised but absent from deltas (ERA-3/TSP-2/BEP-3/GTE-4) | CRITICAL | GLM | fix | proposal now names the ids the deltas define | no |
@@ -50,6 +54,7 @@ Holistic run at B: internal/ coverage 91.3% at tip (floor 90) — pass; race -co
 | R | misc: duplicate .gitignore line, tombstone type name, ssh_auth citation | NOTE | bigQwen/QFN | fix | corrected | no |
 
 ## Tasks
+
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
 | T01 | CLOSED-WITH-GAPS (3 commits d67309bf, 066038ee, f8f643a5) | r1 2/2 legs (DeepSeek+QFN diff), r2 2/2 (GLM+QFN); all 7 findings verified+fixed; no Claude | gaps: full-suite + mutation deferred to T10; collect -count=2 flake pre-exists at base (owner) |
@@ -67,8 +72,11 @@ Holistic run at B: internal/ coverage 91.3% at tip (floor 90) — pass; race -co
 | T10 | CLOSED-WITH-GAPS (closure commit, see evidence) | 1/1 leg (GLM-5.3 diff; docs/evidence-only sizing), register CLEAN -> 2 NOTEs verified: 1 wording fixed (ERA-2 run = 8 stamp tests among 23 matched), 1 resolved by pasting the verdict; no Claude (budget 0/0) | gaps: test-integration not-run (no Docker, CI owns on PR); B review + coverage/mutation holistic remain at B; doc-wide ANNOTATIONS sweep is agent-review (rows adjacent to the two changed rows read, not every row diffed) |
 | T11 | CLOSED-WITH-GAPS (commit, see evidence) | r1 2/2 legs (DeepSeek+QFN diff, --leg-timeout 1500) register CLEAN -> 2 LOWs verified as wording/evidence-only: 1 comment-equivalence qualification fixed in code, 1 matrix-results + gitleaks record fixed; no round 2; no Claude (budget 0/0) | gaps: test-integration not-run (no Docker, CI owns on PR); upgrading.md doc-truth sensor absent (agent-review + diff legs) |
 | T13 | CLOSED-WITH-GAPS (commit 033d957d, amended with closure) | r1 2/2 legs (DeepSeek+QFN diff, --leg-timeout 1500, no truncation) register CLEAN -> MINOR evidence-path fix + 1 dropped NOTE verified stale (backend_pool tombstone comment cited the now-removed re-dial-on-Close) fixed in code, no round 2; no Claude (budget 0/0) | gaps: integration tier not-run (no Docker; real-conn Close branch is CI-owned); sibling eager-client backends (s3/gcs/bigquery) redial-on-close class only skimmed — deferred to B |
+| B r1 | 6/6 legs, CONCERNS: 11 findings -> 5 FIX (T11: terminal git config faults, tombstone prune, release-notes truth-up, .gitignore, ERA-2 wording), 1 reject (#7 spec-sanctioned), 5 defer | 6/6 | deferred items live in loop.md + design D4 |
+| B r2 | CONCERNS 3/3: nats leak CRITICAL confirmed (2 models, conf 100) -> fixed T13; cadence WARNING = the T07 owner decision request; inline-Close WARNING -> deferral sound (paper trail in D4) | 3/3 | open at hand-off: sibling eager-client re-dial class (s3/gcs/bigquery skimmed only), -count=2 base repro double-confirmed by T01/T03 throwaway worktrees, x/crypto KEX names verified by orchestrator module-cache read |
 
 ## Known red
+
 | Test (file:name) | Story | Written in | Cleared in |
 |---|---|---|---|
 | internal/collect/prune_collected_generation_test.go + dispatch test (4 tests incl. scrub-survival) | ERA-2 | T01 | T06 |
@@ -81,10 +89,12 @@ Holistic run at B: internal/ coverage 91.3% at tip (floor 90) — pass; race -co
 | test/schema/engine_enum_test.go TestKollectSnapshotSinkGitEngineEnumIsGoGitOnly | GTE-1 | T04 | T09 |
 
 ## Test changes
+
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
 
 ## Lessons
+
 - (T01) `go test -count>1` is rejected by the Ginkgo suites in internal/controller; the race gate there is -race -count=1 (matching hack/coverage.sh). Do not burn a correction on -count=2 for that package.
 - (T01) TestExtractHotPathBudget fails under full-package -race load and TestRecordLabeledMetricSeries_CapsCardinalityDeterministically under -count=2 (the latter at base too); rerun alone before classifying either.
 - (T01) Test-local contexts in internal/controller tests: name them `bg`, not `ctx` (govet shadow).
@@ -116,6 +126,7 @@ Holistic run at B: internal/ coverage 91.3% at tip (floor 90) — pass; race -co
 <!-- filled at hand-off -->
 
 ## Proposed harness changes
+
 | Lesson | Seen in | Proposed change |
 |---|---|---|
 | breakerRegistry parallel-test race in internal/sink | T03 | harness task: clear the map in place under a lock / drop t.Parallel() / per-test registry (owner decision) |

@@ -8,6 +8,7 @@ Repo spec contract (read the slice you need): docs/development/spec-workflow.md 
 Do this: invoke the `close-task` skill (Skill tool, name `close-task`, args `__TID__`) and follow it end to end for task __TID__. Its helper scripts are at ~/.claude/skills/close-task/scripts/task.sh and sensors.sh; run `task.sh show __TID__` from the repo root first and read only the slice it gives you plus the ids it cites. The repo has no repo-local scripts/task.sh; use the bundled one.
 
 Per-task review (this replaces the reviewer dispatch in close-task's REVIEW step). Record the pre-task sha before you change anything. Size the review to the diff:
+
 - evidence or documentation only -> `--legs "GLM-5.3:diff"`;
 - anything else -> `--legs "DeepSeek-V4.1-Flash:diff,Qwen3.8-Flash-Next:diff"`;
 - Never add a Claude leg; where the prompt says `claude/opus:diff`, use `Qwen3.8-2.4T-A95B-NVFP4:diff` instead.
@@ -32,6 +33,7 @@ Implementation tasks: tests written by an earlier test task of this change are f
 Task kinds: if the task text says "Owner session" or "Owner gate", or needs a host, account, push, pull request or decision you do not have, do NOT attempt that part. Whole task -> stop at SELECT and report `OWNER` with the command sheet you would hand the owner written to openspec/changes/2026-10-06-product-decision-convergence/evidence/__TID__.md. Part -> do the agent part, write the owner part as a command sheet in the same file, close CLOSED-WITH-GAPS listing it.
 
 Hard rules:
+
 - Never read, print, decrypt or copy a secret value; reference entries and secret names only. There are no secret stores in-tree; never print values from kubeconfig, environment or test fixtures that look like credentials.
 - Do not push, add or change any git remote, or open a pull request. Local commits on `fm/kollect-product-decisions-impl` only, one logical commit including the state file, Conventional Commit style with the repo's gitmoji prefix habit; end the message body with a `Signed-off-by: Konrad Heimel <konrad.heimel@gmail.com>` trailer.
 - Do not edit CLAUDE.md, AGENTS.md, openspec/config.yaml or the historical `specs/001-*` bundles; propose instead.
