@@ -37,6 +37,13 @@ free internal models only, per the firstmate brief.
 This branch is version-only + lint-fix commits; the linter move itself is the fitness event:
 findings count before (v2.11.4) vs after (v2.13.1) is the recorded measure (LTB-3).
 
+Holistic run at B (branch tip a674783e, code tree c9e795bb): `task coverage` — full suite
+green on the final tree (all internal/ packages ok; closes the 1.3 record gap — the earlier
+full run was at e2941062), internal/ coverage **91.3%** (floor 90%): pass. The branch adds
+no new code paths (constants + requeue swaps + 2 reasoned nolints), so the coverage floor is
+not at risk; the base-branch value was not re-measured. `task lint` 0 findings, arch-lint
+OK, markdown 0, shell 0, zizmor 0 (1.3 evidence), CI guard meta-tests: CI-covered at PR time.
+
 ## Triage
 
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
