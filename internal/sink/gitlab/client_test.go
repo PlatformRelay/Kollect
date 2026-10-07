@@ -132,6 +132,7 @@ func TestRESTClient_stripsAuthHeaderOnCrossHostRedirect(t *testing.T) {
 
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		originHeaders <- r.Header.Get("PRIVATE-TOKEN")
+		//nolint:gosec // G710: deliberate path-echoing redirect of this K-15 test double; both hosts are in-process httptest fixtures, no untrusted input.
 		http.Redirect(w, r, target.URL+r.URL.Path, http.StatusFound)
 	}))
 	t.Cleanup(origin.Close)
