@@ -36,7 +36,9 @@ const (
 	// label enums — do not extend without a cardinality note.
 	// LabelProfile is an independent metric label name; it only happens to
 	// share the value "profile" with StaticRefTypeProfile (the static-ref type
-	// enum) — a rename of either must not touch the other.
+	// enum) — the vectors use LabelProfile for the label NAME and
+	// StaticRefType* only for recorded values, so a rename of either must not
+	// touch the other.
 	LabelProfile  = "profile"
 	LabelGVK      = "gvk"
 	LabelSeries   = "series"
@@ -79,7 +81,7 @@ var (
 			Name: "kollect_collected_objects",
 			Help: "Collected objects by profile and GVK.",
 		},
-		[]string{StaticRefTypeProfile, LabelGVK},
+		[]string{LabelProfile, LabelGVK},
 	)
 
 	ReconcileTotal = prometheus.NewCounterVec(
@@ -280,7 +282,7 @@ var (
 			Name: "kollect_custom_resource_labeled_series_capped_total",
 			Help: "Distinct label tuples dropped because they exceeded the per-series cardinality cap.",
 		},
-		[]string{StaticRefTypeProfile, LabelGVK, LabelSeries},
+		[]string{LabelProfile, LabelGVK, LabelSeries},
 	)
 
 	// CleanupTerminalTotal counts terminal sink-cleanup attempts on deleting

@@ -18,6 +18,9 @@ import (
 // limiter backoff): conflicts are transient and the watch event for the update
 // re-enqueues the object anyway, so a short bounded floor converges faster than
 // an exponential limiter without hammering a persistently contended object.
+// The panic path is the deliberate exception (reconcileGuard keeps
+// Result.Requeue's backoff): a panicking reconciler makes no progress and emits
+// no watch event, so only the rate limiter protects against a hot loop.
 const conflictRequeueAfter = time.Second
 
 func ensureFinalizer(ctx context.Context, c client.Client, obj client.Object, finalizer string) error {
