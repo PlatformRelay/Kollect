@@ -127,9 +127,9 @@ packages run under `-race` per the repo's stateful-change rule (`task coverage:r
 Integration-tier rows (`task test-integration`, Docker) are named and `not-run` with reason if
 Docker is unavailable here; CI owns them on the PR.
 
-## D7 — Helm `mode`: parked for the captain (stopped per the brief)
+## D7 — Helm `mode`: decided by the captain — delete the value
 
-The wiring target is undefined, and any wiring either duplicates or contradicts `tenantMode`:
+The wiring target was undefined, and any wiring either duplicates or contradicts `tenantMode`:
 
 - (a) **Delete the value + schema entry** (+ docs rows). Matches the value's history: it was the
   hub/spoke transport-era knob (`single|hub|spoke`, commit `5ee4ef89`), whose pair (`transport`)
@@ -143,5 +143,9 @@ The wiring target is undefined, and any wiring either duplicates or contradicts 
 - (c) **Keep the value, narrow the schema enum to `["single"]`.** The schema stops admitting
   `cluster` (the defect the review filed), the descriptive knob survives for future modes.
 
-Recommendation: (a) or (c). Wiring (b) is a chart-API design decision that belongs to the
-captain, not an implementation detail.
+**Decision (captain, relayed 2026-10-07T07:19Z on the open needs-decision
+`[key=helm-mode-wiring]`): option (a)** — the value is a dead hub/spoke transport knob with no
+consumer and an undefined wiring target; the docs already say single-cluster only. Implemented
+in T14: `charts/kollect/values.yaml` value + comment, `values.schema.json` entry,
+`README.md.gotmpl` sample blocks, `docs/operator-manual/helm-values.md` row, chart README
+regenerated (`task helm-docs`). `tenantMode` stays the RBAC/cluster-scope knob it already was.

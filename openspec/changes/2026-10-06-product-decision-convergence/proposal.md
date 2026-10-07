@@ -34,7 +34,7 @@ The five product decisions this change answers, as stated in the final consolida
 | # | Decision (review §7) | Resolution |
 | --- | --- | --- |
 | 1 | Un-document or implement `kollect.dev/requestedAt` and `kollect.dev/collectedGeneration` | **Implement both** (D1, D2) |
-| 2 | Delete or wire the Helm `mode` value | **Wire it** — "either wire the templates to honour it or, if wiring is unsafe, say so and stop for a decision" → D7: wiring target undefined; stopped for the captain |
+| 2 | Delete or wire the Helm `mode` value | **Wire it** — "either wire the templates to honour it or, if wiring is unsafe, say so and stop for a decision" → verification found the wiring target undefined; stopped for the captain → captain chose **delete** (option (a), D7) |
 | 3 | Cluster `collectedCount` parity gap: decide parity vs documented difference | **Parity** — add `status.collectedCount` (+ updatedAt) to `KollectClusterTarget` (D3) |
 | 4 | Backend-pool eviction: evict-on-delete, or document the 48 h TTL as the contract | **Evict-on-delete** (D4) |
 | 5 | Git engine future: verify which auth modes genuinely need the CLI, then deprecate or hoist-and-keep | **Converge to ONE engine**: verify first; if the evidence is ambiguous, stop for a decision → verification found no auth mode needs the CLI engine; converge to go-git (D5) |
@@ -57,10 +57,10 @@ The five product decisions this change answers, as stated in the final consolida
   `git ls-remote` connection probes keep the CLI machinery they already share; the go-git SSH
   key-exchange list gains `mlkem768x25519-sha256` and `diffie-hellman-group16-sha512`, both already
   implemented by x/crypto v0.57.0.
-- **Pending decision (not implemented here):** Helm value `mode` — see design.md D7. Options
-  (a) delete value + schema entry, (b) fold `tenantMode` into `mode`, (c) keep the value and
-  narrow the schema enum to `["single"]`. Stopped for the captain per the brief ("if wiring is
-  unsafe, say so and stop").
+- **Helm value `mode` deleted (captain's decision, option (a), design.md D7):** the value was a
+  dead hub/spoke transport-era knob with no template consumer and an undefined wiring target;
+  the docs already said single-cluster only. Value, schema entry, README sample blocks and the
+  helm-values row are gone.
 
 ## Capabilities
 
@@ -103,7 +103,8 @@ None.
 
 ## Non-goals
 
-- Helm value `mode`: pending captain decision (D7), not implemented in this change.
+- Folding `tenantMode` into another knob or otherwise restructuring the chart's RBAC surface
+  (the captain's decision (a) keeps `tenantMode` as is).
 - The Sweep 1 docs-truth train (chart links, ADR sweep, doc rot) — a separate worker/PR.
 - Dead-surface deletion beyond what the engine convergence itself removes (Sweep 2 owns the rest).
 - Deprecating or changing `file://` remote support, which the shared CLI machinery keeps serving.

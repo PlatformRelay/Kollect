@@ -100,6 +100,14 @@ Commits with `Signed-off-by`.
   non-draft PR, final status report.
   — closed 2026-10-07 by the orchestrator (push/PR are orchestrator-owned, not task-process work), PR: the branch's non-draft PR; owner-gated residuals listed in loop.md §Owner tasks
 
+- [x] T14 Implement the captain's helm-`mode` decision (option (a), D7): delete the value +
+  comment from `charts/kollect/values.yaml`, the schema entry from `values.schema.json`, the
+  two `mode: single` sample lines from `README.md.gotmpl`, the row from
+  `docs/operator-manual/helm-values.md`; regenerate the chart README (`task helm-docs`);
+  gates: `helm-docs:verify`, `helm-test` (schema + unittest suites), `spec:validate`,
+  `lint:markdown`.
+  — closed 2026-10-07, evidence: evidence/T14.md
+
 ## 3. Verification
 
 Rev: final code commit `d6a95520` (T13 nats closed-latch; everything after is spec/evidence/docs), branch `fm/kollect-product-decisions-impl`, based on `3ee21266` = `origin/main`.
@@ -120,6 +128,7 @@ Local: Go 1.26.6 (darwin/arm64), no Docker in this environment (integration rows
 | — | `task lint` | pass | pass | rev `81bea0b0`, exit 0, 50.0s; golangci `0 issues` + go-arch-lint clean (2026-10-07) |
 | — | `-race` on changed packages | pass, -count=2 | pass | rev `81bea0b0` (2026-10-07), no DATA RACE anywhere: `-count=2` on internal/validation, test/schema, api/v1alpha1 (6.3s), internal/sink (69.9s), internal/sink/git (505.3s); `-count=1` where the repo's own race gate (`hack/coverage.sh`) does: internal/controller (Ginkgo rejects `-count>1`, 42.9s), internal/collect (10.6s — `-count=2` blocked by the pre-existing `TestRecordLabeledMetricSeries_CapsCardinalityDeterministically` non-idempotency, reproduced alone at base `3ee21266`; owner task in loop.md) |
 | — | `task test-integration` | executed, 0 skipped | not-run | needs Docker; CI owns on PR |
+| D7 | T14 chart deletion + gates | mode value/schema/README/helm-values rows gone; schema rejects nothing extra; helm-docs drift clean | pass | rev `ff01b12d`+T14: `task helm-docs:verify` ok, `task helm-test` green, `task lint:markdown` 0 issues, `task spec:validate` 14/14 (2026-10-07, evidence/T14.md) |
 
 Independent review (per task): T01–T11, T13 — fanout diff reviews, free-model legs only, verdicts and
 registers at `reviews/L-tasks/T*/`; spec-set gate `reviews/R-spec-set/` (round 1 4/6 legs + round 2

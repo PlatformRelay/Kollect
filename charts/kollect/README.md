@@ -73,7 +73,6 @@ The only git export engine is `spec.git.engine: go-git`, which does not require 
 | metrics.serviceMonitor.interval | string | `"30s"` | Scrape interval. |
 | metrics.serviceMonitor.labels | object | `{}` | Labels merged onto ServiceMonitor (must match Prometheus serviceMonitorSelector). |
 | metrics.serviceMonitor.scrapeTimeout | string | `"10s"` | Scrape timeout. |
-| mode | string | `"single"` | Operator deployment mode (single-cluster only). |
 | nameOverride | string | `""` | Override the chart name used in labels and resource names. |
 | nodeSelector | object | `{}` |  |
 | oauth2Proxy | object | `{"enabled":false}` | Optional oauth2-proxy sidecar for browser/OIDC access (not rendered yet). |
@@ -130,7 +129,6 @@ helm upgrade --install kollect-team ./charts/kollect \
 tenantMode: true
 watchNamespaces:
   - team-a
-mode: single
 webhooks:
   enabled: false
 featureGates:
@@ -152,7 +150,6 @@ from many clusters ([ADR-0501](../../docs/adr/0501-multi-cluster-fleet.md),
 
 ```yaml
 # Each cluster — same chart, different release/namespace as needed
-mode: single
 tenantMode: true
 watchNamespaces:
   - team-a
