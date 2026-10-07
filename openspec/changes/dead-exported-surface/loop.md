@@ -14,7 +14,8 @@
 | --- | --- |
 | P plan+tasks | done — spec set committed `af6c58f5` (proposal.md, tasks.md, .openspec.yaml skip_specs) |
 | R spec-set review | done — round 1 BLOCK (3 CRITICALs, all code-verified, fixed, commit `92360d72`); round 2 CONCERNS 6/6 legs, no CRITICAL: 8 findings fixed in the spec set (commit below), 1 WARNING rejected with reason (below). Two rounds used; loop continues per the no-CRITICAL gate |
-| L task loop | running — T1–T6 CLOSED (see task log); T7 next |
+| L task loop | done — T1–T9 CLOSED (see task log; T8 = final gates BLOCKED→resolved by T9; T9 = 2-line govet-shadow fix, lint green ×2) |
+| B branch review | running — fanout on 3ee21266..HEAD |
 | B branch review | pending |
 | hand-off | pending |
 
@@ -28,6 +29,22 @@
 | T4 | CLOSED | commit `6e42ee59`; review CLEAN 2/2 (zero noise: matrix finalized pre-dispatch, loop decision rows quoted in the fanout target); 10 `Export(` sites → `exportForTest`, 3 `ExportMemory` sites → unexported `exportMemory`; tag-on vet green; git suite 571s green |
 | T5 | CLOSED | commit `83a040a7`; review APPROVE (import-count undercount fixed in evidence 11→13; RelationalStore struct-pin loss deferred to a named cap-package ratchet); 4 self-tests deleted, 21 re-points; one ENVIRONMENT retry on the git suite (10-min test alarm under load) |
 | T6 | CLOSED | commit `31ae74dd`; round-1 CONCERNS found a verified CRITICAL (helper `t.Cleanup` inert — RegisterTarget derives informers from `informerContext()`), fixed with `engine.Start(ctx)`; round-2 CLEAN → APPROVE; 14 sites re-pointed via one shared production-shaped helper; all four reader sites keep coverage |
+| T7 | CLOSED | commit `5cf4df7f`; review CLEAN 2/2 → APPROVE; cache entry holds only `allowed`; `_ = user` gone |
+| T8 | BLOCKED→resolved | commit `979bee0f` (records only); final gates on the final tree: `task test` 47 pkgs green (470.9s, envtest local — Docker not needed for these gates), `task coverage` 91.3% (floor 90, parity with base), `task spec:validate` 14/14, `go vet` clean, arch-lint OK, exclusion checks pass, per-symbol re-probes clean; `task lint` red: 2 govet `shadow` findings (base verified green — branch debt), decision request filed |
+| T9 | CLOSED | commit `2906c7eb`; authorised by orchestrator in response to T8's request: helper ctx rename + one `:=`→`=`, nothing else; `task lint` green ×2 (0 issues + arch-lint OK), suites green; T8's red cleared; section-8 ticks resolved |
+
+## Holistic fitness on the branch tip (stage B input)
+
+Measured at `f5736ec7` by T8 and re-measured post-T9-fix at `2906c7eb` (evidence/T8.md, evidence/T9.md):
+
+| Characteristic | Base `3ee21266` | Branch tip | Verdict |
+| --- | --- | --- | --- |
+| Coverage (internal/, floor 90) | 91.3% | 91.3% (`task coverage`, floor check passes) | holds exactly |
+| Full suite (`task test`, 47 pkgs) | green | green (470.9s) | green |
+| golangci-lint | "0 issues." | "0 issues." after T9 (2 shadow findings fixed, config untouched) | green |
+| arch-lint | OK | OK | green |
+| `go vet ./...` | clean | clean | green |
+| `task spec:validate` | green | 14/14 | green |
 
 ## R round-2 triage
 
