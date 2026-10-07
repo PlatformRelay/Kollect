@@ -146,6 +146,54 @@ func TestEvictBackendPoolForSink_inFlightBuildDiscardedNotRepooled(t *testing.T)
 	}
 }
 
+func TestEvictBackendPoolForSink_noUIDFallsBackToNamespaceName(t *testing.T) {
+	backendPoolDisabled.Store(false)
+	t.Cleanup(func() { ResetBackendPoolForTest() })
+
+	scheme := runtime.NewScheme()
+	_ = kollectdevv1alpha1.AddToScheme(scheme)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "counting"}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	pooled := &closeCountBackend{}
+	reg := NewRegistry()
+	reg.Register("counting", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return pooled, nil
+	})
+
+	// A delete event whose object carries no UID (DeleteStateUnknown tombstone)
+	// must fall back to the sink's namespace/name key (BEP-1): pool under that
+	// key first (the acquire path keys ns/name exactly when the UID is empty).
+	const (
+		ns   = "team-a"
+		name = "fallback-sink"
+	)
+
+	b, release, err := acquireBackend(context.Background(), cl, reg, ns, name, "", spec)
+	if err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	release()
+
+	if b != pooled {
+		t.Fatal("acquire returned an unexpected backend")
+	}
+
+	EvictBackendPoolForSink("", ns, name)
+
+	globalBackendPool.mu.Lock()
+	_, stillThere := globalBackendPool.entries[poolKeyForSink("", ns, name)]
+	globalBackendPool.mu.Unlock()
+
+	if stillThere {
+		t.Fatal("empty-UID fallback did not evict the namespace/name-keyed entry (want gone)")
+	}
+
+	if pooled.closes.Load() != 1 {
+		t.Fatalf("empty-UID fallback did not Close the pooled backend (closes=%d, want 1)", pooled.closes.Load())
+	}
+}
+
 func TestEvictBackendPoolForSink_noPooledEntryIsNoOp(t *testing.T) {
 	backendPoolDisabled.Store(false)
 	t.Cleanup(func() { ResetBackendPoolForTest() })
