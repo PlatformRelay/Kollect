@@ -47,6 +47,15 @@ const (
 	// nothing here.
 	AnnotationRequestedAt = "kollect.dev/requestedAt"
 
+	// AnnotationCollectedGeneration records the source object's
+	// metadata.generation on the embedded copy a Resource-mode profile exports
+	// (Export.mode: Resource). It is stamped after profile pruning and
+	// scrubbing, so prune paths and scrub rules cannot remove or redact it,
+	// and it is written whenever a metadata map survives the profile's include
+	// section (generation 0 included); no metadata map means no stamp.
+	// Attributes-mode exports carry no embedded copy and no stamp.
+	AnnotationCollectedGeneration = "kollect.dev/collectedGeneration"
+
 	// Multi-cluster registration (Istio remote-secret parallel).
 	LabelMultiCluster        = "kollect.dev/multiCluster"
 	AnnotationClusterName    = "kollect.dev/cluster"
