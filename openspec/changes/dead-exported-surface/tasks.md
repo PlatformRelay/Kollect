@@ -69,5 +69,5 @@ integration files) because the default build skips them.
 | DR-6 | probe 5.1 then compile + sink suites | tests use `cap.*` | done | evidence/T5.md |
 | DR-7 | probe 6.1 then compile + controller suite; reader call sites still covered | engine compiles without the method; tests still reach `NamespacesForClusterTarget` | done | evidence/T6.md |
 | DR-8 | compile + inventory suite | `_ = user` gone; cache tests green | done | evidence/T7.md |
-| DR-9 | `task test`, `task lint`, `task coverage`, `task spec:validate` on final tree | all green, floor holds | not-run | |
-| DR-10 | re-run per-symbol greps | no hits outside review records | not-run | |
+| DR-9 | `task test`, `task lint`, `task coverage`, `task spec:validate` on final tree | all green, floor holds | red — task test/coverage/spec:validate/vet green, coverage floor 91.3%; `task lint` RED: 2 govet shadow findings (T1/T6 test files, base verified green) — decision request in evidence/T8.md | evidence/T8.md |
+| DR-10 | re-run per-symbol greps | no hits outside review records | done — zero live references; historical-record hits (CHANGELOG, archived change) and 3 `TestExportMemory*` name-only lines classified in evidence/T8.md | evidence/T8.md |
