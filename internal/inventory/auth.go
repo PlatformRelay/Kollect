@@ -112,14 +112,13 @@ func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
 		hash := tokenHash(token)
 		cacheKey := authCacheKey(hash, verb, namespace, name+":"+resource)
 
-		if user, allowed, ok := a.cache.get(cacheKey); ok {
+		if allowed, ok := a.cache.get(cacheKey); ok {
 			if a.RequireInventoryGet && !allowed {
 				http.Error(w, "forbidden", http.StatusForbidden)
 
 				return
 			}
 
-			_ = user
 			next.ServeHTTP(w, r)
 
 			return
@@ -143,7 +142,7 @@ func (a *AuthConfig) Middleware(next http.Handler) http.Handler {
 			}
 		}
 
-		a.cache.set(cacheKey, user, allowed)
+		a.cache.set(cacheKey, allowed)
 
 		if !allowed {
 			http.Error(w, "forbidden", http.StatusForbidden)
