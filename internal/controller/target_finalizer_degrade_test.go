@@ -55,8 +55,8 @@ func TestRemoveFinalizerAndUpdate_Conflict_RequeuesKeepingFinalizer(t *testing.T
 	if err != nil {
 		t.Fatalf("removeFinalizerAndUpdate() error = %v, want nil (conflict is a requeue, not an error)", err)
 	}
-	if !res.Requeue { //nolint:staticcheck // SA1019: asserting the reconciler requeues on conflict
-		t.Fatal("removeFinalizerAndUpdate() Requeue = false on conflict; want a requeue so the finalizer is retried")
+	if res.RequeueAfter <= 0 {
+		t.Fatal("removeFinalizerAndUpdate() RequeueAfter = 0 on conflict; want a requeue so the finalizer is retried")
 	}
 
 	var got kollectdevv1alpha1.KollectTarget
@@ -177,7 +177,7 @@ func TestReconcileTargetFinalizers_EnsureConflict_Requeues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcileTargetFinalizers() error = %v, want nil on ensure-finalizer conflict", err)
 	}
-	if !done || !res.Requeue { //nolint:staticcheck // SA1019: asserting the reconciler requeues on conflict
-		t.Fatalf("reconcileTargetFinalizers() = (res=%+v, done=%v); want done=true, Requeue=true on conflict", res, done)
+	if !done || res.RequeueAfter <= 0 {
+		t.Fatalf("reconcileTargetFinalizers() = (res=%+v, done=%v); want done=true and a requeue on conflict", res, done)
 	}
 }
