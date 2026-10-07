@@ -9,6 +9,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/export"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 	"github.com/platformrelay/kollect/internal/sink/objectstore"
 )
 
@@ -20,7 +21,7 @@ import (
 func exportedObjectPaths(t *testing.T, spec kollectdevv1alpha1.KollectSinkSpec, sinkName, ns, name string, parts int) []string {
 	t.Helper()
 
-	stub := &stubBackend{caps: ObjectStoreSnapshotCapabilities()}
+	stub := &stubBackend{caps: cap.ObjectStoreSnapshot()}
 	reg := NewRegistry()
 	reg.Register(spec.Type, func(kollectdevv1alpha1.KollectSinkSpec, BuildContext) (Backend, error) {
 		return stub, nil

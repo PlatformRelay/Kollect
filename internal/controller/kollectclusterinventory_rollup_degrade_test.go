@@ -23,6 +23,7 @@ import (
 	"github.com/platformrelay/kollect/internal/collect"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
 // terminalFailBackend fails every Export with a TERMINAL (invalid-config) error so the
@@ -31,7 +32,7 @@ type terminalFailBackend struct{}
 
 func (terminalFailBackend) Type() string { return "terminal" }
 
-func (terminalFailBackend) Capabilities() sink.Capabilities { return sink.SnapshotStoreCapabilities() }
+func (terminalFailBackend) Capabilities() sink.Capabilities { return cap.SnapshotStore() }
 
 func (terminalFailBackend) Export(_ context.Context, _ []byte, _ string) error {
 	return kollecterrors.Terminal(errors.New("sink misconfigured: unknown table"))

@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 	"github.com/platformrelay/kollect/internal/sink/git"
 )
 
@@ -31,7 +32,7 @@ func (b *evidenceCleanerBackend) Type() string {
 }
 
 func (b *evidenceCleanerBackend) Capabilities() Capabilities {
-	return SnapshotStoreCapabilities()
+	return cap.SnapshotStore()
 }
 
 func (b *evidenceCleanerBackend) Export(context.Context, []byte, string) error { return nil }

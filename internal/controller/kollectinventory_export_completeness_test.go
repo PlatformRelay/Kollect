@@ -23,6 +23,7 @@ import (
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
 // partFailingBackend records every exported payload/path and fails the export
@@ -39,7 +40,7 @@ type partFailingBackend struct {
 func (b *partFailingBackend) Type() string { return "part-failing" }
 
 func (b *partFailingBackend) Capabilities() sink.Capabilities {
-	return sink.SnapshotStoreCapabilities()
+	return cap.SnapshotStore()
 }
 
 func (b *partFailingBackend) Export(_ context.Context, payload []byte, path string) error {

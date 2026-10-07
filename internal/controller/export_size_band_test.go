@@ -22,6 +22,7 @@ import (
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
 // sizeBandBackend records the payloads a sink receives. Its capabilities decide
@@ -136,7 +137,7 @@ func TestExportSizeBand_gitOnlyOversizeDegrades(t *testing.T) {
 		WithStatusSubresource(sinkObj, inv).
 		Build()
 
-	gitBackend := &sizeBandBackend{caps: sink.SnapshotStoreCapabilities()}
+	gitBackend := &sizeBandBackend{caps: cap.SnapshotStore()}
 	reg := sink.NewRegistry()
 	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext) (sink.Backend, error) {
 		return gitBackend, nil
@@ -210,8 +211,8 @@ func TestExportSizeBand_gitPostgresMixedNotSilentlyGreen(t *testing.T) {
 		WithStatusSubresource(gitSink, pgSink, inv).
 		Build()
 
-	gitBackend := &sizeBandBackend{caps: sink.SnapshotStoreCapabilities()}
-	pgBackend := &sizeBandBackend{caps: sink.RelationalStoreCapabilities()}
+	gitBackend := &sizeBandBackend{caps: cap.SnapshotStore()}
+	pgBackend := &sizeBandBackend{caps: cap.RelationalStore()}
 	reg := sink.NewRegistry()
 	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext) (sink.Backend, error) {
 		return gitBackend, nil
@@ -297,7 +298,7 @@ func TestExportSizeBand_postgresCeilingKeepsAllRows(t *testing.T) {
 		WithStatusSubresource(pgSink, inv).
 		Build()
 
-	pgBackend := &sizeBandBackend{caps: sink.RelationalStoreCapabilities()}
+	pgBackend := &sizeBandBackend{caps: cap.RelationalStore()}
 	reg := sink.NewRegistry()
 	reg.Register("postgres", func(_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext) (sink.Backend, error) {
 		return pgBackend, nil

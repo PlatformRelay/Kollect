@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
 type countingBackend struct {
@@ -23,7 +24,7 @@ type countingBackend struct {
 }
 
 func (c *countingBackend) Type() string               { return "counting" }
-func (c *countingBackend) Capabilities() Capabilities { return SnapshotStoreCapabilities() }
+func (c *countingBackend) Capabilities() Capabilities { return cap.SnapshotStore() }
 func (c *countingBackend) Export(context.Context, []byte, string) error {
 	return nil
 }
@@ -33,7 +34,7 @@ type closeCountBackend struct {
 }
 
 func (c *closeCountBackend) Type() string               { return "close-count" }
-func (c *closeCountBackend) Capabilities() Capabilities { return SnapshotStoreCapabilities() }
+func (c *closeCountBackend) Capabilities() Capabilities { return cap.SnapshotStore() }
 func (c *closeCountBackend) Export(context.Context, []byte, string) error {
 	return nil
 }
@@ -49,7 +50,7 @@ type lockProbeBackend struct {
 }
 
 func (b *lockProbeBackend) Type() string               { return "lock-probe" }
-func (b *lockProbeBackend) Capabilities() Capabilities { return SnapshotStoreCapabilities() }
+func (b *lockProbeBackend) Capabilities() Capabilities { return cap.SnapshotStore() }
 func (b *lockProbeBackend) Export(context.Context, []byte, string) error {
 	return nil
 }

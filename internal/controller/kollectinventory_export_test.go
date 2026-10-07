@@ -25,6 +25,7 @@ import (
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
 type recordingBackend struct {
@@ -36,7 +37,7 @@ type recordingBackend struct {
 func (r *recordingBackend) Type() string { return "recording" }
 
 func (r *recordingBackend) Capabilities() sink.Capabilities {
-	return sink.SnapshotStoreCapabilities()
+	return cap.SnapshotStore()
 }
 
 func (r *recordingBackend) Export(_ context.Context, payload []byte, path string) error {

@@ -16,6 +16,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
 type recordedExport struct {
@@ -31,7 +32,7 @@ type mockBackend struct {
 func (m *mockBackend) Type() string { return "mock" }
 
 func (m *mockBackend) Capabilities() sink.Capabilities {
-	return sink.SnapshotStoreCapabilities()
+	return cap.SnapshotStore()
 }
 
 func (m *mockBackend) Export(_ context.Context, payload []byte, path string) error {

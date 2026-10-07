@@ -459,27 +459,6 @@ func TestCloseBackend_voidCloser(t *testing.T) {
 	}
 }
 
-func TestSnapshotStoreCapabilities(t *testing.T) {
-	t.Parallel()
-
-	caps := SnapshotStoreCapabilities()
-	if caps.ObjectStore || caps.Stream || caps.SupportsDelete {
-		t.Fatalf("SnapshotStoreCapabilities must leave all projection flags unset: %+v", caps)
-	}
-}
-
-func TestRelationalStoreCapabilities(t *testing.T) {
-	t.Parallel()
-
-	caps := RelationalStoreCapabilities()
-	if !caps.SupportsDelete {
-		t.Fatal("RelationalStoreCapabilities must set SupportsDelete for stale-row pruning")
-	}
-	if caps.Stream || caps.ObjectStore {
-		t.Fatalf("unexpected flags: %+v", caps)
-	}
-}
-
 func TestClassifyExportFailure_terminalStaysTerminal(t *testing.T) {
 	t.Parallel()
 
@@ -537,29 +516,5 @@ func TestClassifyExportFailure_transientNetworkStaysRetryable(t *testing.T) {
 	}
 	if !strings.Contains(got.Error(), "git-sink") {
 		t.Fatalf("error should name the sink: %v", got)
-	}
-}
-
-func TestObjectStoreSnapshotCapabilities(t *testing.T) {
-	t.Parallel()
-
-	caps := ObjectStoreSnapshotCapabilities()
-	if !caps.ObjectStore {
-		t.Fatal("ObjectStoreSnapshotCapabilities must set ObjectStore")
-	}
-	if caps.SupportsDelete || caps.Stream {
-		t.Fatalf("unexpected flags: %+v", caps)
-	}
-}
-
-func TestStreamEmitterCapabilities(t *testing.T) {
-	t.Parallel()
-
-	caps := StreamEmitterCapabilities()
-	if !caps.Stream {
-		t.Fatal("StreamEmitterCapabilities must set Stream")
-	}
-	if caps.ObjectStore || caps.SupportsDelete {
-		t.Fatalf("unexpected flags: %+v", caps)
 	}
 }
