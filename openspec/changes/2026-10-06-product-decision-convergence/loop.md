@@ -1,7 +1,7 @@
 # Loop — 2026-10-06-product-decision-convergence
 
 Repo: `/Users/kheimel/.treehouse/kollect-79dca7/1/kollect` · Branch: `fm/kollect-product-decisions-impl` · Base: `3ee21266` (= `origin/main`) · Started: 2026-10-06 · Reviewers: fanout (free only)
-Next: L task loop — dispatch T10 (sweep + full gate subset + Verification table)
+Next: none — handed off; PR 455 awaiting merge authority; needs-decision [helm-mode-wiring] open
 Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (session 2026-10-06–) · source: overlay default
 
 ## Stages
@@ -11,7 +11,7 @@ Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (se
 - [x] R spec-set review — round 1 on a93f6862: 4/6 legs ok (both DeepSeek legs exit=truncated at 900s), CRITICAL x1 (capability-id mismatch) fixed in place + 20 findings fixed; round 2 (bigQwen, 1 leg) on 8e2ee768: CONCERNS, 2 warnings closed (fixture migration, persisted-sink scenario, in-repo decisions table), no CRITICAL. Gate passed.
 - [x] L task loop — T01–T10 closed (T10 sweep 2026-10-07: gates green on final tree, Verification table filled, review CLEAN); remaining gaps are owner/CI-owned (integration tier, B-stage holistics)
 - [x] B branch review — round 1 6/6 legs CONCERNS (5 fixed via T11, 1 reject, 5 defer with reasons); round 2 3/3 legs: CRITICAL nats evict-during-use leak confirmed by 2 models -> T13 fix landed, review CLEAN; cadence + inline-Close deferrals recorded in design D4/loop.md
-- [ ] Hand-off — in progress: pr-description.md written; push + non-draft PR next
+- [x] Hand-off — 2026-10-07 · `pr-description.md` · PR: https://github.com/PlatformRelay/Kollect/pull/455 (non-draft; direct-PR contract). Owner tasks: helm `mode` D7 decision (needs-decision open with firstmate), breakerRegistry race, collect -count=2 flakes, cluster cadence, sibling eager-client re-dial class.
 
 ## Fitness functions
 
