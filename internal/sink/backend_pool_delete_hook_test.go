@@ -17,13 +17,13 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 )
 
-// Tests for the delete-hook seam (BEP-1, BEP-2): EvictBackendPoolForSink is the
-// hook the family-sink controllers' delete watches will call. It is a no-op
-// stub until the watch change fills it, so the eviction tests here are
-// deliberately red on the assertion the seam must satisfy: the UID-keyed entry
-// is gone and the pooled backend's Close ran, an in-flight acquire-build at
-// eviction is discarded rather than re-pooled, a delete without a pooled entry
-// is a no-op, and a spec-update is not an eviction.
+// Tests for the delete-hook seam (BEP-1, BEP-2): EvictBackendPoolForSink is
+// the hook the family-sink controllers' delete watches call, and it now
+// evicts: the UID-keyed entry is gone and the pooled backend's Close ran, an
+// in-flight acquire-build at eviction is discarded rather than re-pooled
+// (delete-tombstone), an empty-UID delete falls back to the namespace/name
+// key, a delete without a pooled entry is a no-op, and a spec-update is not
+// an eviction.
 
 func TestEvictBackendPoolForSink_evictsEntryAndCloses(t *testing.T) {
 	backendPoolDisabled.Store(false)

@@ -7,11 +7,16 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	"github.com/platformrelay/kollect/internal/sink"
 )
 
 // +kubebuilder:rbac:groups=kollect.dev,resources=kollectsnapshotsinks,verbs=get;list;watch;create;update;patch;delete
@@ -70,11 +75,40 @@ func (r *FamilySinkReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Re
 	})
 }
 
+// evictBackendPoolOnSinkDelete is the DeleteFunc body of the family-sink
+// delete watches (BEP-1): evict the deleted sink's pooled backend through the
+// pool's delete-hook seam. The handler value only implements Delete — Create,
+// Update and Generic stay no-ops, so live sinks are never evicted by this
+// watch (their spec changes swap the pooled entry on acquire). controller-
+// runtime unwraps DeletedFinalStateUnknown tombstones before DeleteFunc runs
+// (internal/source/event_handler.go OnDelete), so the object carries the
+// sink's last-known identity; the seam falls back to namespace/name only when
+// that object carries no UID.
+func evictBackendPoolOnSinkDelete(obj client.Object) {
+	if obj == nil {
+		return
+	}
+
+	sink.EvictBackendPoolForSink(obj.GetUID(), obj.GetNamespace(), obj.GetName())
+}
+
 func (r *FamilySinkReconciler[T, PT]) SetupWithManager(mgr ctrl.Manager) error {
 	var t T
 
+	// BEP-1: a delete watch per kind evicts the deleted sink's pooled backend
+	// immediately instead of holding it for the idle TTL. The watch enqueues
+	// nothing: For() still delivers every event for reconcile, and eviction
+	// must not re-export, retract or reconcile anything.
 	return ctrl.NewControllerManagedBy(mgr).
 		For(PT(&t)).
+		Watches(
+			PT(&t),
+			handler.Funcs{
+				DeleteFunc: func(_ context.Context, e event.DeleteEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+					evictBackendPoolOnSinkDelete(e.Object)
+				},
+			},
+		).
 		Named(r.Name).
 		Complete(r)
 }
