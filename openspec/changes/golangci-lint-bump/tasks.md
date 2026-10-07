@@ -39,7 +39,7 @@
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | LTB-1 | grep both files; `task lint` + `task format:check` real runs | equal, at least v2.13.1; both clean | pass (1.2 evidence + orchestrator re-run at c9e795bb: lint 0, format 0) | evidence/1.2.md, evidence/1.3.md |
-| LTB-2 | diff review of `.golangci.yaml` and every `//nolint` in the diff | no disabled linter or blanket exclusion; every new nolint/exclusion has a reason | pass (empty `.golangci.yaml` diff; 3 reasoned nolints in the branch — 1 product + 2 test (gitlab client_test.go is a _test.go file; corrected at stage B round 2) — all reviewed) | evidence/1.3.md §7, reviews/L-tasks/1.3 |
+| LTB-2 | diff review of `.golangci.yaml` and every `//nolint` in the diff | no disabled linter or blanket exclusion; every new nolint/exclusion has a reason | pass (empty `.golangci.yaml` diff; 3 reasoned nolints in the branch — 1 product + 2 test, the gitlab one being a Go test file; corrected at stage B round 2 — all reviewed) | evidence/1.3.md §7, reviews/L-tasks/1.3 |
 | LTB-3 | findings count before and after in the review record | recorded, with the fixed/justified numbers and the executed binary's version | pass (57 → 0; 55 fixed, 2 justified; binary reports the pin) | evidence/probe.md §5, evidence/1.3.md §8 |
 | LTB-4 | grep `.custom-gcl.yml` plugin block | a pinned version, not `latest` | pass (`version: v0.10.1`, machine-verified by `go version -m`) | evidence/1.2.md |
 | all | independent review; CI on the PR head | APPROVE, green; both revisions recorded | pending (B-stage review next; CI at PR time) | |
