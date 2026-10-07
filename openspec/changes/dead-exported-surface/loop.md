@@ -15,7 +15,8 @@
 | P plan+tasks | done — spec set committed `af6c58f5` (proposal.md, tasks.md, .openspec.yaml skip_specs) |
 | R spec-set review | done — round 1 BLOCK (3 CRITICALs, all code-verified, fixed, commit `92360d72`); round 2 CONCERNS 6/6 legs, no CRITICAL: 8 findings fixed in the spec set (commit below), 1 WARNING rejected with reason (below). Two rounds used; loop continues per the no-CRITICAL gate |
 | L task loop | done — T1–T9 CLOSED (see task log; T8 = final gates BLOCKED→resolved by T9; T9 = 2-line govet-shadow fix, lint green ×2) |
-| B branch review | running — fanout on 3ee21266..HEAD |
+| B branch review | done — round 1 CLEAN, 9/9 legs (reviews/B/register.md); 5 surviving WARNINGs triaged (2 fixed via T10, 3 rejected/deferred with reasons below); no round 2 needed (no behaviour defect) |
+| hand-off | done — PR opened |
 | B branch review | pending |
 | hand-off | pending |
 
@@ -32,6 +33,27 @@
 | T7 | CLOSED | commit `5cf4df7f`; review CLEAN 2/2 → APPROVE; cache entry holds only `allowed`; `_ = user` gone |
 | T8 | BLOCKED→resolved | commit `979bee0f` (records only); final gates on the final tree: `task test` 47 pkgs green (470.9s, envtest local — Docker not needed for these gates), `task coverage` 91.3% (floor 90, parity with base), `task spec:validate` 14/14, `go vet` clean, arch-lint OK, exclusion checks pass, per-symbol re-probes clean; `task lint` red: 2 govet `shadow` findings (base verified green — branch debt), decision request filed |
 | T9 | CLOSED | commit `2906c7eb`; authorised by orchestrator in response to T8's request: helper ctx rename + one `:=`→`=`, nothing else; `task lint` green ×2 (0 issues + arch-lint OK), suites green; T8's red cleared; section-8 ticks resolved |
+| T10 | CLOSED | commit `b22bb962`; stage-B findings 2+3 fixed: `exportMemory`→`commitInMemoryRepo` + `TestExportMemory*`→`TestCommitInMemoryRepo*` (no deleted-identifier greppability), stale anchors re-pointed to symbols; review REQUEST_CHANGES→wording fixed |
+
+## Stage-B triage (reviews/B/register.md, unified CLEAN 9/9)
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| 1 | WARNING: out-of-repo importers of the deleted `api/v1alpha1` constants | reject — recorded decision (proposal.md assumptions; pre-1.0; zero in-repo refs; `BREAKING CHANGE` footer on 04a16ff1) |
+| 2 | WARNING: `exportMemory` verbatim copy + `TestExportMemory*` names keep the dead identifier greppable | fix — T10.1 renamed both (no `ExportMemory` substring survives) |
+| 3 | WARNING: stale line anchors (T1 evidence rows; export_test.go comment) | fix — T10.2 re-pointed to symbol anchors |
+| 4 | WARNING: per-task gate set misses the lint class (govet shadow caught only at T8) | defer — recorded as a proposed harness change (below); owner decision |
+| 5 | WARNING: no fitness function measures exported-surface size (measured 809→797 exported Go symbols on this branch) | defer — proposed ratchet recorded as an owner proposal (below), never added to CI from the loop |
+| 6 | NOTE: breaker `t.Parallel` global-registry flake | reject — pre-existing, dispositioned (T1 learning + owner proposal) |
+
+## Hand-off
+
+- Tasks closed: T1–T10 all CLOSED (T8 BLOCKED → resolved by T9; owner-gated: none).
+- Review verdicts: R round1 BLOCK (3 CRITICALs fixed) → round2 CONCERNS (all fixed or rejected with reasons); L: every task reviewed by 2 free diff legs except T8 (1 leg, records-only) and T10 (1 leg); verdicts APPROVE-equivalent or fixed-then-approved; B: CLEAN 9/9 (GLM-5.3 ×4, DeepSeek ×2, Qwen3.8-Flash-Next ×2, Qwen3.8-2.4T ×2 — 9 legs incl. fitness; unifier GLM-5.3).
+- Stage-B rejections and deferrals: #1 reject (recorded decision), #4/#5 defer (owner proposals, below), #6 reject (pre-existing, recorded). T6's sorted-output NOTE: no order-dependent consumer, ratchet named in evidence Harness gaps. T5's RelationalStore struct-pin loss: deferred to a named cap-package ratchet (owner proposal). Coverage-parity NOTE: the floor gate is a binary pass at 90% (binary gate, not a decimal ratchet) — exactness of 91.3↔91.3 is informational.
+- What no sensor covers: out-of-repo importers of the deleted `api/v1alpha1` constants (accepted assumption); the integration-tagged suites executed against a live remote (compile/vet only); base-tree coverage re-measurement rests on T8's recorded detached-worktree run.
+- Proposed harness changes (owner decisions, proposals only): (1) per-task package-scoped golangci-lint when a task rewrites test files (T8 evidence; the deferral found exactly the accumulated debt); (2) an exported-surface-size fitness function/ratchet (stage-B fitness leg; `unused` sees only unexported symbols); (3) scope `ResetBreakersForTest` to remove the latent parallel flake (T1); (4) raise the default `go test -timeout` for `internal/sink/git` or split the package suite (T5/T8/B: it brushes the 10-minute alarm under load).
+- Claude legs run: 0 (forbidden by the brief). Budget: ~7.5 h wall across the run; free-model legs only.
 
 ## Holistic fitness on the branch tip (stage B input)
 
