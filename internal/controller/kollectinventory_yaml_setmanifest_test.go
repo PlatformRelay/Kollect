@@ -22,6 +22,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 	"github.com/platformrelay/kollect/internal/sink/git"
 	"github.com/platformrelay/kollect/internal/sink/layout"
 )
@@ -43,7 +44,7 @@ type treeCall struct {
 func (b *treeBackend) Type() string { return "tree" }
 
 func (b *treeBackend) Capabilities() sink.Capabilities {
-	return sink.SnapshotStoreCapabilities()
+	return cap.SnapshotStore()
 }
 
 // Export satisfies sink.Backend for the single-document fallback; the multipart tree path uses

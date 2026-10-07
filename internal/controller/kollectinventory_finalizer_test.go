@@ -25,6 +25,7 @@ import (
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/metrics"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 	"github.com/platformrelay/kollect/internal/sink/git"
 )
 
@@ -35,7 +36,7 @@ type failingRelationalBackend struct {
 func (f *failingRelationalBackend) Type() string { return "relational-failing" }
 
 func (f *failingRelationalBackend) Capabilities() sink.Capabilities {
-	return sink.RelationalStoreCapabilities()
+	return cap.RelationalStore()
 }
 
 func (f *failingRelationalBackend) Export(context.Context, []byte, string) error {
@@ -49,7 +50,7 @@ type relationalRecordingBackend struct {
 func (r *relationalRecordingBackend) Type() string { return "relational-recording" }
 
 func (r *relationalRecordingBackend) Capabilities() sink.Capabilities {
-	return sink.RelationalStoreCapabilities()
+	return cap.RelationalStore()
 }
 
 func (r *relationalRecordingBackend) Export(_ context.Context, payload []byte, _ string) error {
@@ -456,7 +457,7 @@ type retentionSnapshotBackend struct{}
 func (r *retentionSnapshotBackend) Type() string { return "git" }
 
 func (r *retentionSnapshotBackend) Capabilities() sink.Capabilities {
-	return sink.SnapshotStoreCapabilities()
+	return cap.SnapshotStore()
 }
 
 func (r *retentionSnapshotBackend) Export(context.Context, []byte, string) error { return nil }
@@ -471,7 +472,7 @@ type tombstoneBackend struct {
 func (t *tombstoneBackend) Type() string { return "git" }
 
 func (t *tombstoneBackend) Capabilities() sink.Capabilities {
-	return sink.SnapshotStoreCapabilities()
+	return cap.SnapshotStore()
 }
 
 func (t *tombstoneBackend) Export(context.Context, []byte, string) error { return nil }

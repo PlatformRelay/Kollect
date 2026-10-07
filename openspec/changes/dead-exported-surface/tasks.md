@@ -35,9 +35,9 @@ integration files) because the default build skips them.
 
 ## 5. Test-only capability aliases (DR-6)
 
-- [ ] 5.1 Probe (record the full reference list, every file and package): the four aliases have zero production references; every test reference found by the probe migrates — expect multiple packages outside `internal/sink/`, each gaining a `cap` import
-- [ ] 5.2 Delete the aliases and their four self-tests; migrate every probe-listed test reference to `cap.SnapshotStore()`/`cap.ObjectStoreSnapshot()`/`cap.StreamEmitter()`/`cap.RelationalStore()`
-- [ ] 5.3 Compile clean; `go test ./internal/sink/...` green plus every other package whose tests the probe listed
+- [x] 5.1 Probe (record the full reference list, every file and package): the four aliases have zero production references; every test reference found by the probe migrates — expect multiple packages outside `internal/sink/`, each gaining a `cap` import
+- [x] 5.2 Delete the aliases and their four self-tests; migrate every probe-listed test reference to `cap.SnapshotStore()`/`cap.ObjectStoreSnapshot()`/`cap.StreamEmitter()`/`cap.RelationalStore()`
+- [x] 5.3 Compile clean; `go test ./internal/sink/...` green plus every other package whose tests the probe listed — closed 2026-10-07, evidence: evidence/T5.md
 
 ## 6. Superseded engine binding (DR-7)
 
@@ -66,7 +66,7 @@ integration files) because the default build skips them.
 | DR-4 | probe 3.1 then compile + collect suite | store compiles without the methods; suite green | done | evidence/T3.md |
 | DR-4b | review: deleted tests guarded no reachable path | recorded reasoning, reviewer-checked | done | evidence/T3.md |
 | DR-5 | probe 4.1 then compile + git unit suite + tagged-file compile | pipeline coverage unchanged via `ExportWithBranch` | done | evidence/T4.md |
-| DR-6 | probe 5.1 then compile + sink suites | tests use `cap.*` | not-run | |
+| DR-6 | probe 5.1 then compile + sink suites | tests use `cap.*` | done | evidence/T5.md |
 | DR-7 | probe 6.1 then compile + controller suite; reader call sites still covered | engine compiles without the method; tests still reach `NamespacesForClusterTarget` | not-run | |
 | DR-8 | compile + inventory suite | `_ = user` gone; cache tests green | not-run | |
 | DR-9 | `task test`, `task lint`, `task coverage`, `task spec:validate` on final tree | all green, floor holds | not-run | |

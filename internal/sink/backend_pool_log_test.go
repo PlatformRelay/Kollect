@@ -7,12 +7,14 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
 type failingCloser struct{}
 
 func (failingCloser) Type() string               { return "failing" }
-func (failingCloser) Capabilities() Capabilities { return SnapshotStoreCapabilities() }
+func (failingCloser) Capabilities() Capabilities { return cap.SnapshotStore() }
 func (failingCloser) Export(_ context.Context, _ []byte, _ string) error {
 	return nil
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/platformrelay/kollect/internal/collect"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/export"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 	"github.com/platformrelay/kollect/internal/sink/git"
 )
 
@@ -285,7 +286,7 @@ type recordingTreeBackend struct {
 
 func (b *recordingTreeBackend) Type() string { return "git" }
 
-func (b *recordingTreeBackend) Capabilities() Capabilities { return SnapshotStoreCapabilities() }
+func (b *recordingTreeBackend) Capabilities() Capabilities { return cap.SnapshotStore() }
 
 func (b *recordingTreeBackend) Export(context.Context, []byte, string) error { return nil }
 

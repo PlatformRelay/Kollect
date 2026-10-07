@@ -18,6 +18,7 @@ import (
 	"github.com/platformrelay/kollect/internal/collect"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
 type failingBackend struct {
@@ -27,7 +28,7 @@ type failingBackend struct {
 func (f *failingBackend) Type() string { return "failing" }
 
 func (f *failingBackend) Capabilities() sink.Capabilities {
-	return sink.SnapshotStoreCapabilities()
+	return cap.SnapshotStore()
 }
 
 func (f *failingBackend) Export(_ context.Context, _ []byte, _ string) error {
