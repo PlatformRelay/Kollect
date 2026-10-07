@@ -184,7 +184,7 @@ func openOrWarmMirror(
 
 	fetchErr := withTransportRetry(ctx, defaultTransportRetry(), func() error {
 		return repo.FetchContext(ctx, &git.FetchOptions{
-			RemoteName: "origin",
+			RemoteName: defaultRemote,
 			RefSpecs: []config.RefSpec{
 				config.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/heads/%s", branch, branch)),
 			},

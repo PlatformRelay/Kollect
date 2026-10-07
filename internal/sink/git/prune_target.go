@@ -158,7 +158,7 @@ func checkCLIMergeTargetClaims(workdir, cloneBranch string, cfg Config, written 
 		return fmt.Errorf("merge target %q: open workdir: %w", cloneBranch, err)
 	}
 
-	return checkMergeTargetClaims(repo, plumbing.NewRemoteReferenceName("origin", cloneBranch), cloneBranch, cfg, written)
+	return checkMergeTargetClaims(repo, plumbing.NewRemoteReferenceName(defaultRemote, cloneBranch), cloneBranch, cfg, written)
 }
 
 func entryPaths(files []FileEntry) []string {

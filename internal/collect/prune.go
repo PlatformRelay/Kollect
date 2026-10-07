@@ -122,7 +122,7 @@ func dropEnvelopeIdentity(root map[string]any) {
 		return
 	}
 
-	for _, k := range []string{"name", "namespace", "uid"} {
+	for _, k := range []string{"name", namespaceField, "uid"} {
 		delete(meta, k)
 	}
 }

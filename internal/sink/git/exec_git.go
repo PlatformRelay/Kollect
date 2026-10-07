@@ -210,7 +210,7 @@ func gitRemoteAddOrigin(ctx context.Context, workdir, cloneURL string, cli *cliE
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir, cli, "remote", "add", "origin", safeURL)
+	cmd := gitInWorkdir(ctx, workdir, cli, "remote", "add", defaultRemote, safeURL)
 	return runGitOutput(cmd, "remote add origin", cli)
 }
 
@@ -322,9 +322,9 @@ func gitPushOrigin(ctx context.Context, workdir string, force bool, branch strin
 
 	var cmd *exec.Cmd
 	if force {
-		cmd = gitInWorkdir(ctx, workdir, cli, "push", "--force", "-u", "origin", branch)
+		cmd = gitInWorkdir(ctx, workdir, cli, "push", "--force", "-u", defaultRemote, branch)
 	} else {
-		cmd = gitInWorkdir(ctx, workdir, cli, "push", "-u", "origin", branch)
+		cmd = gitInWorkdir(ctx, workdir, cli, "push", "-u", defaultRemote, branch)
 	}
 
 	return runGitOutput(cmd, "push", cli)
@@ -340,7 +340,7 @@ func gitFetchShallow(ctx context.Context, workdir, branch string, depth int, cli
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	args := []string{"fetch", "origin", branch}
+	args := []string{"fetch", defaultRemote, branch}
 	if depth > 0 {
 		args = append(args, "--depth", strconv.Itoa(depth))
 	}
@@ -359,7 +359,7 @@ func gitPullRebase(ctx context.Context, workdir string, branch string, cli *cliE
 		return fmt.Errorf("git export: %w", err)
 	}
 
-	cmd := gitInWorkdir(ctx, workdir, cli, "pull", "--rebase", "origin", branch)
+	cmd := gitInWorkdir(ctx, workdir, cli, "pull", "--rebase", defaultRemote, branch)
 	return runGitOutput(cmd, "pull --rebase", cli)
 }
 
@@ -472,7 +472,7 @@ func remoteHasLocalHead(ctx context.Context, workdir, pushBranch string, cli *cl
 	localHead := strings.TrimSpace(string(headOut))
 
 	ref := "refs/heads/" + pushBranch
-	lsCmd := gitInWorkdir(ctx, workdir, cli, "ls-remote", "origin", ref)
+	lsCmd := gitInWorkdir(ctx, workdir, cli, "ls-remote", defaultRemote, ref)
 	lsOut, err := lsCmd.CombinedOutput()
 	if err != nil {
 		return false, fmt.Errorf("git ls-remote origin %s: %s: %w", ref, cli.redact(strings.TrimSpace(string(lsOut))), err)

@@ -23,6 +23,7 @@ const (
 	reasonSinkNotFound    = "SinkNotFound"
 	reasonSinkUnreachable = "SinkUnreachable"
 	reasonSinksReachable  = "SinksReachable"
+	reasonExported        = "Exported"
 	reasonExportFailed    = "ExportFailed"
 	reasonProgressing     = "Progressing"
 	reasonCleanupTerminal = "CleanupTerminal"

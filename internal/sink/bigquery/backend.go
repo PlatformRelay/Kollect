@@ -21,6 +21,12 @@ import (
 
 const connectTimeout = 30 * time.Second
 
+// BigQuery column names used by the table schema, clustering spec and query params.
+const (
+	colCluster    = "cluster"
+	colExportedAt = "exported_at"
+)
+
 // Backend upserts inventory rows into BigQuery.
 type Backend struct {
 	cfg      Config
@@ -184,17 +190,17 @@ func (b *Backend) ensureTable(ctx context.Context) error {
 			{Name: "inventory_name", Type: bigquery.StringFieldType, Required: true},
 			{Name: "target_name", Type: bigquery.StringFieldType, Required: true},
 			{Name: "source_uid", Type: bigquery.StringFieldType, Required: true},
-			{Name: "cluster", Type: bigquery.StringFieldType, Required: true},
+			{Name: colCluster, Type: bigquery.StringFieldType, Required: true},
 			{Name: "resource_namespace", Type: bigquery.StringFieldType, Required: true},
 			{Name: "payload", Type: bigquery.JSONFieldType, Required: true},
-			{Name: "exported_at", Type: bigquery.TimestampFieldType, Required: true},
+			{Name: colExportedAt, Type: bigquery.TimestampFieldType, Required: true},
 		},
 		TimePartitioning: &bigquery.TimePartitioning{
 			Type:  bigquery.DayPartitioningType,
-			Field: "exported_at",
+			Field: colExportedAt,
 		},
 		Clustering: &bigquery.Clustering{
-			Fields: []string{"cluster", "inventory_namespace", "inventory_name", "resource_namespace"},
+			Fields: []string{colCluster, "inventory_namespace", "inventory_name", "resource_namespace"},
 		},
 	}
 
@@ -243,7 +249,7 @@ WHEN NOT MATCHED BY TARGET THEN
   )
 `, qualifiedTable(b.cfg.Project, b.cfg.Dataset, b.cfg.Table), sourceRows)
 	params := []bigquery.QueryParameter{
-		{Name: "exported_at", Value: time.Now().UTC()},
+		{Name: colExportedAt, Value: time.Now().UTC()},
 	}
 	if err := b.executeQuery(ctx, statement, params); err != nil {
 		return classifyError(fmt.Errorf("%w: %w", ErrMergeUpsertFailed, err))
@@ -272,7 +278,7 @@ WHERE t.inventory_namespace = @inv_ns
 	params := []bigquery.QueryParameter{
 		{Name: "inv_ns", Value: invNS},
 		{Name: "inv_name", Value: invName},
-		{Name: "cluster", Value: cluster},
+		{Name: colCluster, Value: cluster},
 	}
 	if err := b.executeQuery(ctx, statement, params); err != nil {
 		return classifyError(fmt.Errorf("%w: %w", ErrDeleteStaleFailed, err))
@@ -291,7 +297,7 @@ WHERE inventory_namespace = @inv_ns
 	params := []bigquery.QueryParameter{
 		{Name: "inv_ns", Value: invNS},
 		{Name: "inv_name", Value: invName},
-		{Name: "cluster", Value: cluster},
+		{Name: colCluster, Value: cluster},
 	}
 	if err := b.executeQuery(ctx, statement, params); err != nil {
 		return classifyError(fmt.Errorf("bigquery delete: %w", err))
@@ -414,7 +420,7 @@ SELECT
 FROM %s AS s
 `, qualifiedTable(b.cfg.Project, b.cfg.Dataset, b.cfg.Table), sourceRows)
 	params := []bigquery.QueryParameter{
-		{Name: "exported_at", Value: time.Now().UTC()},
+		{Name: colExportedAt, Value: time.Now().UTC()},
 	}
 	if err := b.executeQuery(ctx, statement, params); err != nil {
 		return classifyError(fmt.Errorf("%w: %w", ErrEmulatorInsertFailed, err))

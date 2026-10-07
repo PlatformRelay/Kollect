@@ -47,7 +47,7 @@ func RemoteBranchExists(ctx context.Context, cfg Config, auth Auth, branch strin
 	}
 
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
-		Name: "origin",
+		Name: defaultRemote,
 		URLs: []string{cloneURL},
 	})
 

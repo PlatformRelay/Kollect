@@ -18,6 +18,10 @@ import (
 const (
 	// HelmReleasePathPrefix selects fields from a decoded helm.sh/v1 release Secret payload.
 	HelmReleasePathPrefix = "helm:release."
+
+	// Field names shared by the release aliases and the envelope-identity prune.
+	namespaceField = "namespace"
+	configField    = "config"
 )
 
 var magicGzip = []byte{0x1f, 0x8b, 0x08}
@@ -31,8 +35,8 @@ var helmReleaseFieldAliases = map[string]string{
 	"revision":     "version",
 	"status":       "info.status",
 	"lastDeployed": "info.last_deployed",
-	"namespace":    "namespace",
-	"config":       "config",
+	namespaceField: namespaceField,
+	configField:    configField,
 }
 
 // helmReleaseDeniedPaths block export of raw manifest blobs and chart file payloads.
@@ -211,7 +215,7 @@ func HelmReleasePathRequiresSecretOptIn(path string) bool {
 
 	field := resolveHelmReleaseField(strings.TrimPrefix(path, HelmReleasePathPrefix))
 
-	return field == "config" || strings.HasPrefix(field, "config.")
+	return field == configField || strings.HasPrefix(field, configField+".")
 }
 
 // ValidateHelmReleaseAttributePath checks helm:release.<field> syntax and export policy.
