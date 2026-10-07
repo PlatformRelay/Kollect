@@ -211,9 +211,9 @@ at run start (§4), which is the harder proof.
 - `go list -m sigs.k8s.io/logtools@latest` run **before** the build and **after** it:
   `sigs.k8s.io/logtools v0.10.1` both times (verified). The plugin build uses the same
   `@latest` resolution; the bracketing reads agree within the build window, so the build used
-  **v0.10.1** (*believed* for the build itself — the `golangci-lint custom` temp module is
-  deleted after the build and prints no resolved version; the two bracketing resolutions plus
-  the same module cache make v0.10.1 the only consistent value).
+  **v0.10.1** — *verified after the fact* by task 1.2's `go version -m bin/golangci-lint`
+  (`dep sigs.k8s.io/logtools v0.10.1` in the binary built from the committed pins; also
+  re-confirmed by four stage-B review legs against the built binary; see evidence/1.2.md).
 - Task 1.2 should pin `version: v0.10.1`.
 
 ## 9. Revert

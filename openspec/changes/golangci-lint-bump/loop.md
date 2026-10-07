@@ -19,7 +19,7 @@ free internal models only, per the firstmate brief.
 - [ ] P plan + tasks — skipped: present (authored when the change was proposed; re-verified not implemented: tasks.md all unchecked, both version pins still v2.11.4)
 - [x] R spec-set review — round 1 `reviews/R-spec-set/` on base: BLOCK, 9 CRITICALs verified (8 fixed in the spec set, 1 rejected as false) + 1 warning deferred; round 2 `reviews/R-spec-set-round2/` on aebb276b: 5/5 legs CONCERNS (unified BLOCK via the promote rule; no leg rated a CRITICAL itself), 8 findings — all mechanical, fixed below; two spec-set rounds spent, no further spec-set re-review per the round limit · CRITICAL: none surviving
 - [ ] L task loop — see *Tasks*
-- [ ] B branch review — `reviews/B-branch/round-N/` · rounds: <n> · verdict: <…>
+- [ ] B branch review — round 1 `reviews/B-branch/round-1/` (9/9 legs, unified BLOCK: 3 CRITICAL verified → 2 fixed, 1 premise rejected after verification; 3 WARNINGs → 2 fixed, 2 deferred) · round 2 pending · rounds: 1/2
 - [ ] Hand-off — <date> · `pr-description.md` · PR: <none | link>
 
 ## Fitness functions (inventory at orient)
@@ -48,6 +48,12 @@ OK, markdown 0, shell 0, zizmor 0 (1.3 evidence), CI guard meta-tests: CI-covere
 
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| B1 | 1 LabelProfile decoupling cosmetic — const unused, label-name sites still read the unrelated StaticRefTypeProfile enum | CRITICAL | 4/8 | fix | VERIFIED REAL: made the decoupling real — the 8 label-name sites (metrics.go ×2, aggregation.go, aggregation_labeled.go, metrics_catalog.go ×4) now use LabelProfile; values unchanged ("profile"); metrics + collect tests green | no |
+| B1 | 2 conflict-requeue: "the anti-hot-loop argument kept at reconcile_guard.go:36 was not applied" to the 11 conflict sites; 9/11 untested | CRITICAL | 4/8 | fix + reject-premise + defer | Premise REJECTED after verification: the two paths have different, documented rationales — panic = no progress and no watch event (reconcile_guard.go:36 nolint), conflict = transient + watch re-enqueues (finalizer.go:16-20 const comment, b1d32712); 3 of the 4 models judged the disclosed delta acceptable (NOTE). Fix applied: the const comment now contrasts the panic path explicitly. Deferred: the 9/11 per-site requeue tests are pre-existing coverage (the branch preserved "a requeue happens" semantics, 2 tests pin it), named in the archive record's tech-debt notes. Logged as an operator-re-openable decision. | no |
+| B1 | 3 close-out nolint count stale: records say 2, branch carries 3 (guard-test assertion nolint unrecorded) | CRITICAL | 2/2 | fix | records updated (tasks.md LTB-2 row, evidence/1.3.md row 7 + disposition): 3 reasoned nolints — 2 product + 1 TEST-class | no |
+| B1 | 4 gomodguard deprecated (warns on every run), migration to gomodguard_v2 owned by no task | WARNING | 3/5 | defer | archive record names it (warning-only, exit 0; the migration is a future tooling change) | no |
+| B1 | 5 namespaceField (helm-release alias) reused for envelope pruning — coupling created by this branch's goconst hoist (verified via 5b97c562 diff) | WARNING | 3/3 | fix | VERIFIED REAL, branch-created: dropEnvelopeIdentity now owns its own envelope constants with a no-alias comment; helmdecode comment states the prune owns its own | no |
+| B1 | 6 probe.md:214 logtools build-version still "believed" despite the go version -m proof | WARNING | 2/2 | fix | probe.md §8 updated to verified (1.2's go version -m + four stage-B legs) | no |
 | R | 1 LTB-1 pin-mismatch scenario delivered by no task (`\|\| true` custom-build downgrade; guard deferred to change 5) | CRITICAL | 4/7 | fix | scenario re-scoped to this change's pin-equality check; runtime guard stays change 5's | no |
 | R | 2 LTB-2 nolint/exclusion reason rule absent from task 1.3 and the LTB-2 check row | CRITICAL | 4/6 | fix | task 1.3 + verification row now cover reasonless nolint/exclusions | no |
 | R | 3 LTB-3 after-count/fixed/justified numbers have no producing task | CRITICAL | 5/7 | fix | task 1.3 records count after, fixed/justified numbers, binary version | no |
@@ -143,6 +149,10 @@ dispatch commit was fixed by the task process.)
 - process (task 1.3, orchestrator): the biggest task of a run can outlive the run-task 5400s
   cap (three commits + review + fixes here) — dispatch heavy tasks with a raised limit and
   expect the close to be reconciled from files on a 124.
+- process (stage B, orchestrator decision, logged): the round-1 fix batch (6 findings, 2 code
+  files + record updates) was applied orchestrator-side instead of a fresh task dispatch — a
+  single coherent micro-batch whose context was already loaded; round 2 reviews it with fresh
+  legs, which is the protection the L stage would have provided.
 
 ## Where a human should look first
 <!-- filled at hand-off -->

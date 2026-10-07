@@ -33,7 +33,7 @@ var Catalog = []CatalogEntry{
 	{
 		Name:       "kollect_collected_objects",
 		Type:       MetricTypeGauge,
-		Labels:     []string{StaticRefTypeProfile, LabelGVK},
+		Labels:     []string{LabelProfile, LabelGVK},
 		Help:       "Collected objects by profile and GVK.",
 		PromQLHint: "sum by (profile, gvk) (kollect_collected_objects)",
 		AgentHint:  "Per-target cardinality; split profiles when label cardinality explodes.",
@@ -197,7 +197,7 @@ var Catalog = []CatalogEntry{
 	{
 		Name:       "kollect_custom_resource_series",
 		Type:       MetricTypeGauge,
-		Labels:     []string{StaticRefTypeProfile, LabelGVK, LabelSeries},
+		Labels:     []string{LabelProfile, LabelGVK, LabelSeries},
 		Help:       "Domain metric series from collected custom resources (spec.metrics paths).",
 		PromQLHint: "sum by (profile, gvk, series) (kollect_custom_resource_series)",
 		AgentHint:  "Wired per snapshot; misconfigured series names explode cardinality.",
@@ -205,7 +205,7 @@ var Catalog = []CatalogEntry{
 	{
 		Name:       "kollect_custom_resource_labeled_series",
 		Type:       MetricTypeGauge,
-		Labels:     []string{StaticRefTypeProfile, LabelGVK, LabelSeries, "<attribute labels>"},
+		Labels:     []string{LabelProfile, LabelGVK, LabelSeries, "<attribute labels>"},
 		Help:       "Domain metric series with attribute label dimensions from spec.metrics[].labels.",
 		PromQLHint: "sum by (profile, gvk, series) (kollect_custom_resource_labeled_series)",
 		AgentHint:  "Per-label-tuple sums when profile metrics declare labels; bounded by distinct tuples.",
@@ -213,7 +213,7 @@ var Catalog = []CatalogEntry{
 	{
 		Name:       "kollect_custom_resource_labeled_series_capped_total",
 		Type:       MetricTypeCounter,
-		Labels:     []string{StaticRefTypeProfile, LabelGVK, LabelSeries},
+		Labels:     []string{LabelProfile, LabelGVK, LabelSeries},
 		Help:       "Distinct label tuples dropped by the per-series cardinality cap (EC-P2-09).",
 		PromQLHint: "sum by (profile, gvk, series) (kollect_custom_resource_labeled_series_capped_total)",
 		AgentHint:  "Nonzero → a spec.metrics[].labels attribute is high-cardinality; pick a bounded attribute instead.",

@@ -19,7 +19,9 @@ const (
 	// HelmReleasePathPrefix selects fields from a decoded helm.sh/v1 release Secret payload.
 	HelmReleasePathPrefix = "helm:release."
 
-	// Field names shared by the release aliases and the envelope-identity prune.
+	// Field names of the helm-release aliases (decoded below). Prune scope:
+	// dropEnvelopeIdentity owns its own constants — a rename of either side
+	// must not silently re-scope the other.
 	namespaceField = "namespace"
 	configField    = "config"
 )

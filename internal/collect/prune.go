@@ -122,7 +122,15 @@ func dropEnvelopeIdentity(root map[string]any) {
 		return
 	}
 
-	for _, k := range []string{"name", namespaceField, "uid"} {
+	// envelopeNamespaceField is this prune's own name for the "namespace"
+	// metadata key: it must not alias helmdecode's namespaceField (the
+	// helm-release alias) — a rename of either must not re-scope the pruning.
+	const (
+		envelopeNameField      = "name"
+		envelopeNamespaceField = "namespace"
+		envelopeUIDField       = "uid"
+	)
+	for _, k := range []string{envelopeNameField, envelopeNamespaceField, envelopeUIDField} {
 		delete(meta, k)
 	}
 }
