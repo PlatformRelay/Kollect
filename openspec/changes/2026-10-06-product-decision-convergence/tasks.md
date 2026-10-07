@@ -80,13 +80,14 @@ Commits with `Signed-off-by`.
   fill the Verification table below with executed evidence; record the independent review row.
   — closed 2026-10-07, evidence: evidence/T10.md
 
-- [ ] T11 Branch-review fixes (B round 1): (a) classify git-sink config errors as terminal at
+- [x] T11 Branch-review fixes (B round 1): (a) classify git-sink config errors as terminal at
   backend construction so a persisted `engine: cli` sink fails terminally as the upgrade note
   states, not Transient forever (red-first test); (b) prune expired delete-tombstones
   opportunistically on the eviction path so an export-less manager does not leak one tombstone
   per delete; (c) truth up `.github/release-notes-install.md` (the last live `engine: cli`
   advert); (d) repair the orphaned trailing comment in `.gitignore`; (e) assert the ERA-2
   requirement wording change with the existing no-metadata tests (no code change expected).
+  — closed 2026-10-07, evidence: evidence/T11.md
 - [ ] T12 Hand-off: PR description per the repo's review discipline, push, non-draft PR, final
   status report. Owner-gated parts: helm `mode` decision (D7, needs-decision open),
   breakerRegistry harness race fix, collect -count=2 flakes, nats evict-during-use residual,

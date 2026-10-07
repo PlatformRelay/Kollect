@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
@@ -64,6 +65,29 @@ func TestRunCleanupExport_AcquireErrorIsClassified(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("acquire failure must surface as an error")
+	}
+}
+
+// A cleanup acquire fault that construction already classified TERMINAL keeps
+// its class through the envelope (the persisted-sink upgrade contract,
+// ADR-0803): the delete path reports terminal instead of retrying a
+// deterministic spec fault as transient.
+func TestRunCleanupExport_acquireKeepsTerminalClass(t *testing.T) {
+	t.Parallel()
+
+	reg := NewRegistry()
+	reg.Register("cleaner", func(kollectdevv1alpha1.KollectSinkSpec, BuildContext) (Backend, error) {
+		return nil, kollecterrors.Terminal(errors.New(`unsupported git engine "cli": the git sink exports through go-git only`))
+	})
+
+	_, err := RunCleanupExport(CleanupExportRequest{
+		Ctx:      t.Context(),
+		Registry: reg,
+		SinkName: "cleaner-prod",
+		SinkSpec: deleteSpec("cleaner"),
+	})
+	if !kollecterrors.IsTerminal(err) {
+		t.Fatalf("cleanup acquire fault class = %q, want terminal (the cleanup path must not demote a terminal construction fault to transient): %v", kollecterrors.ClassOf(err), err)
 	}
 }
 

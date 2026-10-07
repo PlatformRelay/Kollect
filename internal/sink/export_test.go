@@ -460,6 +460,49 @@ func TestRunExportItems_marshalFailureIsTerminal(t *testing.T) {
 	}
 }
 
+// TestRunExportEnvelope_configFaultStaysTerminal pins the envelope side of
+// the persisted-sink upgrade contract (ADR-0803, upgrading.md): an acquire
+// error that construction already classified TERMINAL keeps its class through
+// the envelope, so the sink's conditions report terminal instead of
+// requeueing the deterministic fault as transient forever.
+func TestRunExportEnvelope_configFaultStaysTerminal(t *testing.T) {
+	t.Parallel()
+
+	envelope, err := export.MarshalEnvelope(
+		[]collect.Item{{Name: "demo"}},
+		export.Metadata{Generation: 1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reg := NewRegistry()
+	reg.Register("git", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return nil, kollecterrors.Terminal(errors.New(`unsupported git engine "cli": the git sink exports through go-git only`))
+	})
+
+	_, err = RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           t.Context(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "cli-fault-sink",
+		ObjectPath:    "team-a/inv.json",
+		Envelope:      envelope,
+		SinkSpec:      kollectdevv1alpha1.KollectSinkSpec{Type: "git"},
+	})
+	t.Cleanup(func() { EvictBackendPool("team-a", "cli-fault-sink") })
+
+	if err == nil {
+		t.Fatal("expected acquire-backend failure")
+	}
+	if !kollecterrors.IsTerminal(err) {
+		t.Fatalf("envelope acquire fault class = %q, want terminal (the envelope must not demote a terminal construction fault to transient): %v", kollecterrors.ClassOf(err), err)
+	}
+	if !strings.Contains(err.Error(), "acquire backend") || !strings.Contains(err.Error(), "go-git") {
+		t.Fatalf("error = %q, want the acquire-backend wrap and the go-git name", err)
+	}
+}
+
 func TestRunExportEnvelope_acquireBackendFailure(t *testing.T) {
 	t.Parallel()
 

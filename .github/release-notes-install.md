@@ -4,7 +4,7 @@
 ${IMAGE_REPO}:${TAG}
 ```
 
-Multi-arch (`linux/amd64`, `linux/arm64`), Debian bookworm-slim nonroot base (includes `git` and `openssh-client` for `spec.git.engine: cli`).
+Multi-arch (`linux/amd64`, `linux/arm64`), Debian bookworm-slim nonroot base (includes `git` and `openssh-client` for `file://` remotes and `git ls-remote` connection probes).
 
 OCI attestations (SBOM + SLSA provenance) are attached in GHCR and on the repository
 [Attestations](https://github.com/${GITHUB_REPOSITORY}/attestations) page. Verify the signature:
@@ -26,8 +26,8 @@ ${PIPELINE_IMAGE_REPO}:${VERSION}
 ```
 
 Multi-arch (`linux/amd64`, `linux/arm64`), distroless static nonroot base. The git snapshot sink
-uses the pure-Go go-git engine over HTTPS; `git.engine: cli` and `file://` remotes are not supported
-in this minimal image.
+exports through the pure-Go go-git engine; `file://` remotes are not supported in this minimal
+image.
 
 ```sh
 cosign verify \
