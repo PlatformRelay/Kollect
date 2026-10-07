@@ -88,13 +88,14 @@ Commits with `Signed-off-by`.
   advert); (d) repair the orphaned trailing comment in `.gitignore`; (e) assert the ERA-2
   requirement wording change with the existing no-metadata tests (no code change expected).
   — closed 2026-10-07, evidence: evidence/T11.md
-- [ ] T13 Fix the verified B-round-2 behaviour defect (no further review; machine evidence
+- [x] T13 Fix the verified B-round-2 behaviour defect (no further review; machine evidence
   only): the evict-during-use NATS leak — a backend Closed by the delete hook mid-export
   redials a fresh JetStream connection on the export's next `jetStream()` call and nothing ever
   Closes it. Add a closed-latch to the nats backend: after Close, `jetStream()` returns an
-  error instead of re-dialling; red-first test through the backend (Close then Export fails
-  with the closed error; no new connection dialled); also state the D4 residual note for the
+  error instead of re-dialling; red-first test through the backend (Close then Export fails with
+  the closed error; no new connection dialled); also state the D4 residual note for the
   inline-Close-on-dispatch-goroutine deferral.
+  — closed 2026-10-07, evidence: evidence/T13.md
 - [ ] T12 Hand-off: PR description per the repo's review discipline, push, non-draft PR, final
   status report. Owner-gated parts: helm `mode` decision (D7, needs-decision open),
   breakerRegistry harness race fix, collect -count=2 flakes, cluster count-refresh cadence.

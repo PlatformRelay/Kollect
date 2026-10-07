@@ -6,6 +6,7 @@ package nats
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -23,6 +24,12 @@ var jetStreamFromConn = func(nc *natsgo.Conn) (jetstream.JetStream, error) {
 	return jetstream.New(nc)
 }
 
+// errBackendClosed is returned by jetStream after an explicit Close: the pool
+// evicted the backend, so a re-dial would cache a connection nothing ever
+// Closes. A connection that died on its own (server gone) is NOT this case —
+// that self-heal re-dial in jetStream stays.
+var errBackendClosed = errors.New("nats backend closed")
+
 // EventEnvelope is the JSON message published to NATS JetStream subjects.
 type EventEnvelope struct {
 	SchemaVersion string          `json:"schemaVersion"`
@@ -38,6 +45,12 @@ type Backend struct {
 	mu  sync.Mutex
 	nc  *natsgo.Conn
 	js  jetstream.JetStream
+
+	// closed latches an explicit Close: the pool evicted this backend (delete
+	// hook, TTL prune, acquire-time swap), so re-dialling would cache a fresh
+	// connection nothing ever Closes (B-round-2 finding #1). A connection that
+	// dies on its own keeps the jetStream self-heal re-dial below.
+	closed bool
 
 	// jsProvider is the seam over jetStream that lets Export be unit-tested
 	// with a fake JetStream instead of a real connection. NewBackend defaults
@@ -77,6 +90,7 @@ func (b *Backend) Capabilities() cap.Capabilities { return cap.StreamEmitter() }
 func (b *Backend) Close() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.closed = true
 	if b.nc != nil {
 		b.nc.Close()
 		b.nc = nil
@@ -116,6 +130,9 @@ func (b *Backend) cachedConnDead() bool {
 func (b *Backend) jetStream(ctx context.Context) (jetstream.JetStream, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.closed {
+		return nil, errBackendClosed
+	}
 	if b.js != nil && !b.cachedConnDead() {
 		return b.js, nil
 	}
