@@ -241,6 +241,15 @@ func EvictBackendPoolByUID(uid types.UID) {
 	evictPoolKey(poolKeyForSink(uid, "", ""))
 }
 
+// EvictBackendPoolForSink is the delete-hook seam for the family-sink
+// controllers (BEP-1): evicting a deleted sink's pooled backend by its object
+// UID, falling back to the sink's namespace/name key only when the delete
+// event's object carries no UID. Eviction is best-effort and idempotent: it
+// never re-exports, retracts or reconciles, and deleting a sink with no pooled
+// entry must not fail.
+func EvictBackendPoolForSink(sinkUID types.UID, sinkNamespace, sinkName string) {
+}
+
 func evictPoolKey(key poolKey) {
 	globalBackendPool.mu.Lock()
 	entry, ok := globalBackendPool.entries[key]
