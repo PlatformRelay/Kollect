@@ -86,15 +86,13 @@ func PruneResource(
 // pruning and scrubbing, so profile prune paths and scrub rules cannot remove
 // or redact the stamp. When the profile's include section leaves no metadata
 // map, the copy is exported without one rather than inventing a metadata block
-// the profile excluded; generation 0 (or an absent field) still stamps "0" so
-// "no stamp" and "generation 0" never collapse. The generation is read from the
-// source object: the built-in prune pointers drop /metadata/generation from the
-// copy itself.
+// the profile excluded (the default SpecAndStatus selector drops metadata, so
+// a copy that should carry the stamp needs include: All or MetadataOnly);
+// generation 0 (or an absent field) still stamps "0" so "no stamp" and
+// "generation 0" never collapse. The generation is read from the source
+// object: the built-in prune pointers drop /metadata/generation from the copy
+// itself.
 func stampCollectedGeneration(root map[string]any, src *unstructured.Unstructured) {
-	if src == nil {
-		return
-	}
-
 	meta, ok := root["metadata"].(map[string]any)
 	if !ok {
 		return

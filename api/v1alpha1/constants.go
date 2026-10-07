@@ -52,8 +52,10 @@ const (
 	// (Export.mode: Resource). It is stamped after profile pruning and
 	// scrubbing, so prune paths and scrub rules cannot remove or redact it,
 	// and it is written whenever a metadata map survives the profile's include
-	// section (generation 0 included); no metadata map means no stamp.
-	// Attributes-mode exports carry no embedded copy and no stamp.
+	// section (generation 0 included); no metadata map means no stamp — the
+	// default SpecAndStatus include drops metadata, so profiles that want the
+	// stamp set include: All or MetadataOnly. Attributes-mode exports carry no
+	// embedded copy and no stamp.
 	AnnotationCollectedGeneration = "kollect.dev/collectedGeneration"
 
 	// Multi-cluster registration (Istio remote-secret parallel).
