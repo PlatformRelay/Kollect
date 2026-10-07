@@ -5,18 +5,87 @@ package controller
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 )
+
+// newEngineWithBoundClusterTargets builds an engine whose cluster-scoped target
+// bindings mirror production (kollectclustertarget_controller.go syncEngineTargets):
+// for every namespace of every bound target name one synthetic KollectTarget is
+// registered through Engine.RegisterTarget against a minimal profile, with that
+// namespace supplied as EffectiveNamespaces. The dynamic informer runs against an
+// empty fake client, so it delivers nothing — the caller seeds store rows itself.
+func newEngineWithBoundClusterTargets(t *testing.T, store *collect.Store, bindings map[string][]string) *collect.Engine {
+	t.Helper()
+
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{gvr: "DeploymentList"},
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	engine, err := collect.NewEngine(dyn, nil, store, collect.EngineConfig{})
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	// Start wires runCtx: RegisterTarget derives its informers from
+	// informerContext() — Background without Start — so only this call makes the
+	// cleanup below able to stop the factories.
+	if err := engine.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	profile := &kollectdevv1alpha1.KollectProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-binding-profile", Namespace: "kollect-system"},
+		Spec: kollectdevv1alpha1.KollectProfileSpec{
+			TargetGVK: kollectdevv1alpha1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		},
+	}
+
+	names := make([]string, 0, len(bindings))
+	for name := range bindings {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	for _, name := range names {
+		for _, ns := range bindings[name] {
+			synthetic := &kollectdevv1alpha1.KollectTarget{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+				Spec: kollectdevv1alpha1.KollectTargetSpec{
+					ProfileRef: "cluster-binding-profile",
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{corev1.LabelMetadataName: ns},
+					},
+				},
+			}
+			if err := engine.RegisterTarget(ctx, synthetic, profile, collect.RegisterTargetOptions{
+				EffectiveNamespaces: []string{ns},
+			}); err != nil {
+				t.Fatalf("register synthetic cluster target %s/%s: %v", ns, name, err)
+			}
+		}
+	}
+
+	return engine
+}
 
 func TestTargetSelectorFor_defaultsToNil(t *testing.T) {
 	t.Parallel()
@@ -274,12 +343,10 @@ func TestKollectClusterInventoryReconciler_composeNamespaceRollup(t *testing.T) 
 		Kind:            "ConfigMap",
 	})
 
-	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	engine.BindClusterTargetNamespaces("target-a", []string{"team-a", "team-b"})
-	engine.BindClusterTargetNamespaces("target-b", []string{"team-a"})
+	engine := newEngineWithBoundClusterTargets(t, store, map[string][]string{
+		"target-a": {"team-a", "team-b"},
+		"target-b": {"team-a"},
+	})
 
 	reconciler := &KollectClusterInventoryReconciler{
 		Store:  store,

@@ -140,12 +140,10 @@ func TestKollectClusterInventoryReconciler_dedupesCrossTargetRows(t *testing.T) 
 		WithStatusSubresource(targetObjs[0], targetObjs[1], sinkObj, inv).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	engine.BindClusterTargetNamespaces(targetA, []string{workloadNS})
-	engine.BindClusterTargetNamespaces(targetB, []string{workloadNS})
+	engine := newEngineWithBoundClusterTargets(t, store, map[string][]string{
+		targetA: {workloadNS},
+		targetB: {workloadNS},
+	})
 
 	recorder := &recordingBackend{}
 	reg := sink.NewRegistry()
@@ -341,12 +339,10 @@ func TestKollectClusterInventoryReconciler_keepAllPreservesCrossTargetRows(t *te
 		WithStatusSubresource(targetObjs[0], targetObjs[1], sinkObj, inv).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	engine.BindClusterTargetNamespaces(targetA, []string{workloadNS})
-	engine.BindClusterTargetNamespaces(targetB, []string{workloadNS})
+	engine := newEngineWithBoundClusterTargets(t, store, map[string][]string{
+		targetA: {workloadNS},
+		targetB: {workloadNS},
+	})
 
 	recorder := &recordingBackend{}
 	reg := sink.NewRegistry()

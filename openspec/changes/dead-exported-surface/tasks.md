@@ -41,9 +41,9 @@ integration files) because the default build skips them.
 
 ## 6. Superseded engine binding (DR-7)
 
-- [ ] 6.1 Probe: `BindClusterTargetNamespaces` referenced only by tests; record that production binds via `RegisterTarget` synthetic objects (`kollectclustertarget_controller.go` `syncEngineTargets`)
-- [ ] 6.2 Delete the method; migrate the probe-listed test sites (controller-package tests and collect-package tests, ~8 files): production binds cluster targets via `RegisterTarget` with a synthetic `KollectTarget` (as `kollectclustertarget_controller.go` `syncEngineTargets` does — profile object plus synthetic object fixture needed), so prefer that shape where the test needs a populated target state; where a test only needs the reader to see a name, the narrowest same-package equivalent is acceptable, recorded in the evidence. Share one fixture helper across the controller tests rather than duplicating per file; delete tests that exist only to exercise the deleted writer
-- [ ] 6.3 Compile clean; `go test ./internal/collect/... ./internal/controller/...` green; confirm every `NamespacesForClusterTarget` production call site keeps a test that reaches it
+- [x] 6.1 Probe: `BindClusterTargetNamespaces` referenced only by tests; record that production binds via `RegisterTarget` synthetic objects (`kollectclustertarget_controller.go` `syncEngineTargets`)
+- [x] 6.2 Delete the method; migrate the probe-listed test sites (controller-package tests and collect-package tests, ~8 files): production binds cluster targets via `RegisterTarget` with a synthetic `KollectTarget` (as `kollectclustertarget_controller.go` `syncEngineTargets` does — profile object plus synthetic object fixture needed), so prefer that shape where the test needs a populated target state; where a test only needs the reader to see a name, the narrowest same-package equivalent is acceptable, recorded in the evidence. Share one fixture helper across the controller tests rather than duplicating per file; delete tests that exist only to exercise the deleted writer
+- [x] 6.3 Compile clean; `go test ./internal/collect/... ./internal/controller/...` green; confirm every `NamespacesForClusterTarget` production call site keeps a test that reaches it — closed 2026-10-07, evidence: evidence/T6.md
 
 ## 7. Auth cache without dead identity (DR-8)
 
@@ -67,7 +67,7 @@ integration files) because the default build skips them.
 | DR-4b | review: deleted tests guarded no reachable path | recorded reasoning, reviewer-checked | done | evidence/T3.md |
 | DR-5 | probe 4.1 then compile + git unit suite + tagged-file compile | pipeline coverage unchanged via `ExportWithBranch` | done | evidence/T4.md |
 | DR-6 | probe 5.1 then compile + sink suites | tests use `cap.*` | done | evidence/T5.md |
-| DR-7 | probe 6.1 then compile + controller suite; reader call sites still covered | engine compiles without the method; tests still reach `NamespacesForClusterTarget` | not-run | |
+| DR-7 | probe 6.1 then compile + controller suite; reader call sites still covered | engine compiles without the method; tests still reach `NamespacesForClusterTarget` | done | evidence/T6.md |
 | DR-8 | compile + inventory suite | `_ = user` gone; cache tests green | not-run | |
 | DR-9 | `task test`, `task lint`, `task coverage`, `task spec:validate` on final tree | all green, floor holds | not-run | |
 | DR-10 | re-run per-symbol greps | no hits outside review records | not-run | |

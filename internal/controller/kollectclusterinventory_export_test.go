@@ -109,11 +109,7 @@ func TestKollectClusterInventoryReconciler_exportsRollupToSink(t *testing.T) {
 		WithStatusSubresource(target, sinkObj, inv).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	engine.BindClusterTargetNamespaces(targetName, []string{workloadNS})
+	engine := newEngineWithBoundClusterTargets(t, store, map[string][]string{targetName: {workloadNS}})
 
 	recorder := &recordingBackend{}
 	reg := sink.NewRegistry()

@@ -115,11 +115,7 @@ func TestClusterInventory_TerminalExportFailure_DegradesNoRequeue(t *testing.T) 
 		WithStatusSubresource(target, sinkObj, inv).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	engine.BindClusterTargetNamespaces(targetName, []string{workloadNS})
+	engine := newEngineWithBoundClusterTargets(t, store, map[string][]string{targetName: {workloadNS}})
 
 	reg := sink.NewRegistry()
 	reg.Register("postgres", func(_ kollectdevv1alpha1.KollectSinkSpec, _ sink.BuildContext) (sink.Backend, error) {
@@ -233,11 +229,7 @@ func TestClusterInventory_MultipartExport_SharedPrunePlan(t *testing.T) {
 		WithStatusSubresource(target, sinkObj, inv).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	engine.BindClusterTargetNamespaces(targetName, []string{workloadNS})
+	engine := newEngineWithBoundClusterTargets(t, store, map[string][]string{targetName: {workloadNS}})
 
 	recorder := &recordingBackend{}
 	reg := sink.NewRegistry()
@@ -303,11 +295,7 @@ func readyClusterFixture(t *testing.T) (*collect.Store, *collect.Engine, *corev1
 		Attributes: map[string]any{"image": "nginx:1.27"},
 	})
 
-	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-	engine.BindClusterTargetNamespaces(targetName, []string{workloadNS})
+	engine := newEngineWithBoundClusterTargets(t, store, map[string][]string{targetName: {workloadNS}})
 
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: workloadNS, Labels: map[string]string{tenantLabel: tenantVal}}}
 	target := &kollectdevv1alpha1.KollectClusterTarget{
