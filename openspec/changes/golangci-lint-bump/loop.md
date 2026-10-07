@@ -20,7 +20,7 @@ free internal models only, per the firstmate brief.
 - [x] R spec-set review — round 1 `reviews/R-spec-set/` on base: BLOCK, 9 CRITICALs verified (8 fixed in the spec set, 1 rejected as false) + 1 warning deferred; round 2 `reviews/R-spec-set-round2/` on aebb276b: 5/5 legs CONCERNS (unified BLOCK via the promote rule; no leg rated a CRITICAL itself), 8 findings — all mechanical, fixed below; two spec-set rounds spent, no further spec-set re-review per the round limit · CRITICAL: none surviving
 - [ ] L task loop — see *Tasks*
 - [x] B branch review — round 1 `reviews/B-branch/round-1/` (9/9 legs, unified BLOCK: 3 CRITICAL verified → 2 fixed, 1 premise rejected after verification; 3 WARNINGs → 2 fixed, 2 deferred) · round 2 `reviews/B-branch/round-2/` (4/4 legs: 2 CLEAN, 2 CONCERNS; unified BLOCK via the 2-model promotion — the promoted finding is the pre-existing requeue-test gap whose behaviour both critics explicitly accept; actionable cores fixed: archive-record contents bound in tasks.md 2.1, nolint provenance corrected to 1 product + 2 test) · rounds: 2/2 (limit reached; remaining findings are recorded deferrals) · full `task lint` re-run at HEAD 33a7dd66: exit 0
-- [ ] Hand-off — <date> · `pr-description.md` · PR: <none | link>
+- [ ] Hand-off — 2026-10-07 · `pr-description.md` · PR: pushed, non-draft (direct-PR per the firstmate brief); archive commit lands as the PR's last commit after green CI (task 2.1)
 
 ## Fitness functions (inventory at orient)
 
@@ -158,15 +158,30 @@ dispatch commit was fixed by the task process.)
   legs, which is the protection the L stage would have provided.
 
 ## Where a human should look first
-<!-- filled at hand-off -->
+
+- `internal/controller/finalizer.go:16-24` — the conflict-requeue policy change (deprecated
+  `Result.Requeue` → fixed 1 s on conflict; the panic path keeps the rate limiter; both
+  rationales in the const comment) — the branch's one real behaviour delta.
+- `internal/metrics/metrics.go:34-43` + the 7 other label-name sites — metric label names now
+  read `LabelProfile`, not the static-ref enum (values unchanged, `"profile"`).
+- `internal/collect/prune.go` `dropEnvelopeIdentity` — owns its own envelope constants now.
+- `Makefile:184`, `hack/tooling/.custom-gcl.yml:6,11` — the three pins (linter v2.13.1 ×2,
+  logtools v0.10.1); `.golangci.yaml` is untouched (empty diff).
+- `evidence/probe.md` — the 57→0 findings record and the vanilla-binary structural proof the
+  downgrade defense rests on.
 
 ## Proposed harness changes
 
 | Lesson | Seen in | Proposed change |
 |---|---|---|
+| uniq-by-line hides goconst findings | 1.3 | a change-5/DTP CI check that runs golangci-lint with `--uniq-by-line=false` |
+| plugin pin unprovable from `.custom-gcl.yml` alone | 1.2 | DTP-3 companion: `go version -m bin/golangci-lint` must report the pinned plugin version |
+| make skips the stale `$(GOLANGCI_LINT)` file target on a version change | 1.1, 1.2 | change 5: make the target version-aware or phony |
+| `task format:check` swallows the linter's stderr | 1.3 | change 5 or follow-up: drop the `2>/dev/null`, fail on tool error |
+| goconst const-hoists can create cross-concern aliases | 1.3 | hoist review rule: never share a constant across semantically distinct uses without a no-alias comment |
 
 ## Owner tasks (skipped by the loop)
 
 | Task | Command sheet |
 |---|---|
-| 2.1 archive lands as PR's last commit | merged by the merge authority; PR must be green at that point |
+| 2.1 archive lands as PR's last commit | merged by the merge authority; PR must be green at that point; the merge authority decides |
