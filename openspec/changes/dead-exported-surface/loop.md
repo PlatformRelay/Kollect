@@ -14,7 +14,7 @@
 | --- | --- |
 | P plan+tasks | done — spec set committed `af6c58f5` (proposal.md, tasks.md, .openspec.yaml skip_specs) |
 | R spec-set review | done — round 1 BLOCK (3 CRITICALs, all code-verified, fixed, commit `92360d72`); round 2 CONCERNS 6/6 legs, no CRITICAL: 8 findings fixed in the spec set (commit below), 1 WARNING rejected with reason (below). Two rounds used; loop continues per the no-CRITICAL gate |
-| L task loop | running — T1–T4 CLOSED (see task log); T5 next |
+| L task loop | running — T1–T6 CLOSED (see task log); T7 next |
 | B branch review | pending |
 | hand-off | pending |
 
@@ -26,6 +26,8 @@
 | T2 | CLOSED | review CONCERNS 2/2 (DeepSeek WARNING verified → REQUEST_CHANGES, wording-only fix, no second round); commit amends to the sanctioned breaking form `refactor(api)!:` + `BREAKING CHANGE:` footer (cliff.toml routes it under Breaking Changes, CHANGELOG.md:19 precedent); `MergeRequestAPI` + both condition constants deleted, probes recorded in evidence/T2.md |
 | T3 | CLOSED | commit `746e85c6`; CONCERNS→fixed (stale evidence status); monotonicity-invariant ERROR finding rejected — white-box map surgery is exactly what R1-F7/R2-#9 rejects; general monotonicity still guarded by `TestStoreNamespaceVersion_BumpsOnMutationAndIsolatesNamespaces`; adapted tests re-pointed to the production `MarshalTargetExport` (pipeline-live) |
 | T4 | CLOSED | commit `6e42ee59`; review CLEAN 2/2 (zero noise: matrix finalized pre-dispatch, loop decision rows quoted in the fanout target); 10 `Export(` sites → `exportForTest`, 3 `ExportMemory` sites → unexported `exportMemory`; tag-on vet green; git suite 571s green |
+| T5 | CLOSED | commit `83a040a7`; review APPROVE (import-count undercount fixed in evidence 11→13; RelationalStore struct-pin loss deferred to a named cap-package ratchet); 4 self-tests deleted, 21 re-points; one ENVIRONMENT retry on the git suite (10-min test alarm under load) |
+| T6 | CLOSED | commit `31ae74dd`; round-1 CONCERNS found a verified CRITICAL (helper `t.Cleanup` inert — RegisterTarget derives informers from `informerContext()`), fixed with `engine.Start(ctx)`; round-2 CLEAN → APPROVE; 14 sites re-pointed via one shared production-shaped helper; all four reader sites keep coverage |
 
 ## R round-2 triage
 
@@ -83,6 +85,8 @@ widening is permitted: if a gate goes red, classify before touching anything.
 - Never run `task changelog` locally to verify changelog rendering: git-cliff fetches api.github.com metadata (404 on unpushed commits) and its preview overwrites CHANGELOG.md. [T2]
 - Commit loop.md/task-prompt.md edits BEFORE dispatching the next task: a task subagent will sweep uncommitted state files into its own housekeeping commit. [T2]
 - `${PIPESTATUS[0]}` is a bash-ism and is empty under zsh — record the tool's own ok line instead. [T4]
+- Test fixtures calling `RegisterTarget` must `engine.Start(ctx)` first, or ctx-cleanup cannot stop informers (leak). [T6]
+- Derive probe records mechanically via `git grep <sha>`; live grep output can omit lines on a clean tree. [T6]
 - Deleting importable `api/v1alpha1` symbols should commit as `type(scope)!:` + `BREAKING CHANGE:` footer from the first commit (CONTRIBUTING.md:100-104); cliff.toml routes it under Breaking Changes. [T2]
 - Never run `task changelog`/`bin/git-cliff` locally to verify rendering: it overwrites CHANGELOG.md (`output =` in cliff.toml) and, on unpushed commits, writes a truncated changelog when the GitHub-metadata fetch 404s. [T2]
 
