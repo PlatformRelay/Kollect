@@ -30,14 +30,15 @@ Commits with `Signed-off-by`.
   discarded, not re-pooled (delete-tombstone); a delete without a pooled entry is a no-op; a
   spec-update is not an eviction (BEP-1, BEP-2). Red because the seam is a no-op. — closed
   2026-10-07, evidence: evidence/T03.md
-- [ ] T04 Write the engine-convergence tests before the API change. Red assertions: admission
+- [x] T04 Write the engine-convergence tests before the API change. Red assertions: admission
   validation rejects `engine: cli` naming `go-git`; backend config rejects it independently;
   the generated CRD schema enum for `spec.git.engine` lists only `go-git`; the go-git KEX offer
   contains `mlkem768x25519-sha256` and `diffie-hellman-group16-sha512` with the existing eight
   names in their current relative order. Green-by-construction regressions (assert unchanged
   behaviour, expected to pass before and after): `file://` routing and `ls-remote` probe tests
   (GTE-1, GTE-2). Note: 19 existing `internal/sink/git` test fixtures construct
-  `Config{Engine: GitEngineCLI}`; T09 migrates them rather than T04.
+  `Config{Engine: GitEngineCLI}`; T09 migrates them rather than T04. — closed 2026-10-07,
+  evidence: evidence/T04.md
 
 ## 2. Implementation
 
