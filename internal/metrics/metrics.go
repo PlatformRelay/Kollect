@@ -34,7 +34,10 @@ const (
 	// Metric label names shared by the metric vectors (metrics.go,
 	// aggregation*.go) and the agent catalog (metrics_catalog.go). Bounded
 	// label enums — do not extend without a cardinality note.
-	LabelProfile  = StaticRefTypeProfile
+	// LabelProfile is an independent metric label name; it only happens to
+	// share the value "profile" with StaticRefTypeProfile (the static-ref type
+	// enum) — a rename of either must not touch the other.
+	LabelProfile  = "profile"
 	LabelGVK      = "gvk"
 	LabelSeries   = "series"
 	LabelGroup    = "group"

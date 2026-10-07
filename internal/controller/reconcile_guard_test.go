@@ -29,8 +29,13 @@ func TestGuardReconcile_recoversPanicAndRequeues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("guardReconcile err = %v", err)
 	}
-	if result.RequeueAfter == 0 && !result.Requeue { //nolint:staticcheck // SA1019: guard uses Requeue for immediate requeue
-		t.Fatal("expected requeue after panic")
+	// Pin the rate-limited requeue specifically: the guard's //nolint:staticcheck
+	// at guardReconcile argues that the rate limiter's backoff is what stops a
+	// persistently panicking reconciler from hot-looping. Accepting a
+	// RequeueAfter here would let a future conversion re-introduce that hot loop
+	// with this test green.
+	if !result.Requeue { //nolint:staticcheck // SA1019: asserting the deprecated field is deliberate — this is the mechanism the guard's nolint pins
+		t.Fatal("expected rate-limited requeue (Result.Requeue) after panic")
 	}
 
 	select {
