@@ -33,20 +33,20 @@ func TestPerSinkCoalesceTracker(t *testing.T) {
 	hashA := "fingerprint-a"
 	hashB := "fingerprint-b"
 
-	if tracker.shouldSkip(invKey, sinkName, gen, hashA, interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, gen, hashA, "", interval, now) {
 		t.Fatal("first export must not debounce")
 	}
 
-	tracker.record(invKey, sinkName, gen, hashA, now)
-	if !tracker.shouldSkip(invKey, sinkName, gen, hashA, interval, now) {
+	tracker.record(invKey, sinkName, gen, hashA, "", now)
+	if !tracker.shouldSkip(invKey, sinkName, gen, hashA, "", interval, now) {
 		t.Fatal("identical payload within interval should debounce")
 	}
 
-	if tracker.shouldSkip(invKey, sinkName, gen, hashB, interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, gen, hashB, "", interval, now) {
 		t.Fatal("payload change must bypass debounce")
 	}
 
-	if tracker.shouldSkip(invKey, sinkName, gen+1, hashA, interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, gen+1, hashA, "", interval, now) {
 		t.Fatal("spec generation bump must bypass debounce")
 	}
 }
@@ -218,7 +218,7 @@ func TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced(t *tes
 	now := time.Now()
 	bindings := inventorySinkBindings(inv)
 	for _, binding := range bindings {
-		rec.sinkCoalesce.record(invKey, sinkExportKey(binding), inv.Generation, checksum, now)
+		rec.sinkCoalesce.record(invKey, sinkExportKey(binding), inv.Generation, checksum, "", now)
 	}
 
 	outcome, allDebounced := rec.previewAllSinksDebounced(context.Background(), inv, invKey, checksum)
@@ -245,7 +245,7 @@ func TestKollectInventoryReconciler_previewAllSinksDebounced_oneSinkDue(t *testi
 	checksum := "fingerprint-a"
 	bindings := inventorySinkBindings(inv)
 	// Only the first sink has a fresh export recorded; the second is due.
-	rec.sinkCoalesce.record(invKey, sinkExportKey(bindings[0]), inv.Generation, checksum, time.Now())
+	rec.sinkCoalesce.record(invKey, sinkExportKey(bindings[0]), inv.Generation, checksum, "", time.Now())
 
 	if _, allDebounced := rec.previewAllSinksDebounced(context.Background(), inv, invKey, checksum); allDebounced {
 		t.Fatal("previewAllSinksDebounced = true, want false when a sink is due for export")

@@ -37,9 +37,10 @@ const conditionSinkSynced = "Synced"
 const coalesceStateTTL = 2 * validation.MaxExportInterval
 
 type sinkCoalesceState struct {
-	lastExport     time.Time
-	lastChecksum   string
-	lastGeneration int64
+	lastExport      time.Time
+	lastChecksum    string
+	lastGeneration  int64
+	lastRequestedAt string
 }
 
 type perSinkCoalesceTracker struct {
@@ -54,7 +55,7 @@ func (t *perSinkCoalesceTracker) key(invKey, sinkName string) string {
 func (t *perSinkCoalesceTracker) shouldSkip(
 	invKey, sinkName string,
 	generation int64,
-	checksum string,
+	checksum, requestedAt string,
 	interval time.Duration,
 	now time.Time,
 ) bool {
@@ -72,6 +73,15 @@ func (t *perSinkCoalesceTracker) shouldSkip(
 	if state.lastChecksum != checksum {
 		return false
 	}
+	// ERA-1 third axis: the manual re-export trigger. Any change of the
+	// kollect.dev/requestedAt value — absence→present, present→absence, or a
+	// different value — invalidates this binding's debounce once (checked
+	// before the zero-interval early return so an interval==0 binding still
+	// re-exports). record() pins the new value, so the steady-state debounce
+	// resumes after the forced export.
+	if state.lastRequestedAt != requestedAt {
+		return false
+	}
 	if interval == 0 {
 		return true
 	}
@@ -82,7 +92,7 @@ func (t *perSinkCoalesceTracker) shouldSkip(
 	return now.Sub(state.lastExport) < interval
 }
 
-func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int64, checksum string, now time.Time) {
+func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int64, checksum, requestedAt string, now time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -102,6 +112,7 @@ func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int6
 	state.lastExport = now
 	state.lastChecksum = checksum
 	state.lastGeneration = generation
+	state.lastRequestedAt = requestedAt
 }
 
 // pruneStaleLocked evicts entries that haven't recorded an export in

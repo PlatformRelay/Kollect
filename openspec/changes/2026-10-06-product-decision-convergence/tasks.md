@@ -42,9 +42,10 @@ Commits with `Signed-off-by`.
 
 ## 2. Implementation
 
-- [ ] T05 Implement `requestedAt`: API constant, tracker third axis (`shouldSkip`/`record`),
+- [x] T05 Implement `requestedAt`: API constant, tracker third axis (`shouldSkip`/`record`),
   both inventory controllers (export + preview paths), narrow the `ANNOTATIONS-LABELS.md` row
   to the two inventory kinds and state the implemented semantics (ERA-1). Makes T01(a) green.
+  — closed 2026-10-07, evidence: evidence/T05.md
 - [ ] T06 Implement `collectedGeneration` stamp in `PruneResource` after prune/scrub; clarify
   the `ANNOTATIONS-LABELS.md` row to the Resource-mode embedded copy with implemented
   semantics (ERA-2). Makes T01(b) green.

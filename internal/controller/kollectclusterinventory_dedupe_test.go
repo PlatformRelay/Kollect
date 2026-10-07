@@ -206,20 +206,20 @@ func TestKollectClusterInventoryReconciler_shouldDebounce(t *testing.T) {
 	hashA := "hash-a"
 	hashB := "hash-b"
 
-	if tracker.shouldSkip(invKey, sinkName, gen, hashA, interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, gen, hashA, "", interval, now) {
 		t.Fatal("first export must not debounce")
 	}
 
-	tracker.record(invKey, sinkName, gen, hashA, now)
-	if !tracker.shouldSkip(invKey, sinkName, gen, hashA, interval, now) {
+	tracker.record(invKey, sinkName, gen, hashA, "", now)
+	if !tracker.shouldSkip(invKey, sinkName, gen, hashA, "", interval, now) {
 		t.Fatal("identical payload within interval should debounce")
 	}
 
-	if tracker.shouldSkip(invKey, sinkName, gen, hashB, interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, gen, hashB, "", interval, now) {
 		t.Fatal("payload change must not debounce")
 	}
 
-	if tracker.shouldSkip(invKey, sinkName, gen+1, hashA, interval, now) {
+	if tracker.shouldSkip(invKey, sinkName, gen+1, hashA, "", interval, now) {
 		t.Fatal("generation bump must not debounce")
 	}
 }

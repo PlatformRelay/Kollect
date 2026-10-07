@@ -250,6 +250,10 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 	now := time.Now()
 	defaultInterval := r.exportDebounce(inv)
 	scopeFloor := r.clusterScopeFloor(ctx, sinkNS)
+	// ERA-1: the manual re-export trigger read from the reconciled cluster
+	// inventory; read once so every binding's skip decision and the eventual
+	// record() see the same value.
+	requestedAt := inv.GetAnnotations()[kollectdevv1alpha1.AnnotationRequestedAt]
 
 	var outcome perSinkExportOutcome
 	outcome.RequeueAfter = defaultInterval
@@ -302,7 +306,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		if binding.Family == kollectdevv1alpha1.SinkFamilySnapshot {
 			sinkChecksum = export.PartitionsChecksum(parts)
 		}
-		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, interval, now) {
+		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, interval, now) {
 			outcome.DebouncedCount++
 			metrics.ExportDebouncedTotal.WithLabelValues("KollectClusterInventory").Inc()
 			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
@@ -354,7 +358,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 			continue
 		}
 
-		r.sinkCoalesce.record(invKey, exportKey, inv.Generation, sinkChecksum, now)
+		r.sinkCoalesce.record(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, now)
 		exportTime := metav1.Now()
 		status.LastExportTime = &exportTime
 		status.LastChecksum = sinkChecksum

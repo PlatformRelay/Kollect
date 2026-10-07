@@ -98,7 +98,7 @@ headers are **not** used in the default architecture.
 | --- | --- | --- | --- | --- |
 | `kollect.dev/allow-secret-extraction` | Annotation | `KollectProfile` | `"true"` | Admission allows CEL/JSONPath paths into `Secret.data` |
 | `kollect.dev/collectedGeneration` | Annotation | Exported source objects (metadata) | `"<n>"` | Records source `metadata.generation` for staleness detection |
-| `kollect.dev/requestedAt` | Annotation | Reconciled Kollect CRs | RFC3339 timestamp | Manual reconcile trigger ([ADR-0201](adr/0201-crd-model.md)) |
+| `kollect.dev/requestedAt` | Annotation | `KollectInventory`, `KollectClusterInventory` | RFC3339 timestamp (convention) | Manual re-export trigger: changing the value — set on an object that had none, removed after being set, or a different value — forces **one** immediate export to every bound sink past the export debounce; afterwards the steady-state debounce resumes unchanged. The value is not parsed (any non-empty string works, absence counts as a value) |
 
 !!! warning "Secret extraction"
     Profiles that read `Secret.data` require explicit opt-in via `kollect.dev/allow-secret-extraction: "true"`.

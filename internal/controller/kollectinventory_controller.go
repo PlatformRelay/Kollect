@@ -286,6 +286,10 @@ func (r *KollectInventoryReconciler) exportToSinks(
 	defaultInterval := r.exportDebounce(inv)
 	scopeFloor := r.scopeFloor(ctx, inv.Namespace)
 	inventoryCeiling := r.maxExportBytes(inv)
+	// ERA-1: the manual re-export trigger read from the reconciled object;
+	// read once so every binding's skip decision and the eventual record()
+	// see the same value.
+	requestedAt := inv.GetAnnotations()[kollectdevv1alpha1.AnnotationRequestedAt]
 
 	bindings := inventorySinkBindings(inv)
 	var outcome perSinkExportOutcome
@@ -353,7 +357,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		if binding.Family == kollectdevv1alpha1.SinkFamilySnapshot {
 			sinkChecksum = export.PartitionsChecksum(parts)
 		}
-		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, interval, now) {
+		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, interval, now) {
 			outcome.DebouncedCount++
 			metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Inc()
 			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
@@ -435,7 +439,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 				return
 			}
 
-			r.sinkCoalesce.record(invKey, exportKey, inv.Generation, sinkChecksum, now)
+			r.sinkCoalesce.record(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, now)
 			exportTime := metav1.Now()
 			job.status.LastExportTime = &exportTime
 			job.status.LastChecksum = sinkChecksum
@@ -465,6 +469,9 @@ func (r *KollectInventoryReconciler) previewAllSinksDebounced(
 	now := time.Now()
 	defaultInterval := r.exportDebounce(inv)
 	scopeFloor := r.scopeFloor(ctx, inv.Namespace)
+	// ERA-1: the preview must agree with the export decision, so it feeds the
+	// tracker the same requestedAt value the export path will use.
+	requestedAt := inv.GetAnnotations()[kollectdevv1alpha1.AnnotationRequestedAt]
 
 	var outcome perSinkExportOutcome
 	outcome.RequeueAfter = defaultInterval
@@ -484,7 +491,7 @@ func (r *KollectInventoryReconciler) previewAllSinksDebounced(
 			interval = validation.ResolveSinkExportInterval(ref, sinkInterval, defaultInterval, scopeFloor)
 		}
 
-		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, checksum, interval, now) {
+		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, checksum, requestedAt, interval, now) {
 			outcome.DebouncedCount++
 			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
 				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
