@@ -75,9 +75,6 @@ allowSecretRefNamespaces: []
 # only for development. This is NOT a per-tenant/CRD field.
 allowInsecureSinks: false
 
-# -- Operator deployment mode (single-cluster only).
-mode: single
-
 # -- Defaults for KollectSink connection probes in bundled samples (CRD default is true).
 sinkDefaults:
   # -- Default spec.connectionTest for sample sinks (CI/dev overlays often set true).

@@ -33,7 +33,7 @@ knobs; the authoritative full list lives in the chart tree.
 | `leaderElection.leaseDuration` | How long a non-leader waits before acquiring leadership | `""` → binary default `60s` |
 | `leaderElection.renewDeadline` | API-server outage the leader rides out before exiting | `""` → binary default `40s` |
 | `leaderElection.retryPeriod` | Interval between renewal attempts | `""` → binary default `5s` |
-| `mode` | Operator deployment mode — **single-cluster only**; fleets run N single-mode operators ([ADR-0501](../adr/0501-multi-cluster-fleet.md)) | `single` |
+
 | `tenantMode` | Namespaced Role RBAC for per-team installs | `false` |
 | `watchNamespaces` | Restrict informer cache to these namespaces | `[]` (all) |
 | `webhooks.enabled` | Validating webhook for profiles | `true` |

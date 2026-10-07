@@ -35,10 +35,6 @@
       "type": "boolean",
       "description": "When true, render namespaced Role/RoleBinding instead of ClusterRole/ClusterRoleBinding."
     },
-    "mode": {
-      "type": "string",
-      "enum": ["single", "cluster"]
-    },
     "watchNamespaces": {
       "type": "array",
       "items": {
