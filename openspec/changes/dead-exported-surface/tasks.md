@@ -56,6 +56,12 @@ integration files) because the default build skips them.
 - [ ] 8.2 Sweep exclusions recorded in the proposal's Non-goals remain true; record the `EvictBackendPool*` and `AutoMerge` exclusion reasons in the PR description; the commit bodies name every removed exported symbol so the commit-derived changelog records the API changes
 - [ ] 8.3 Zero dangling references: the per-symbol probe greps return no hits outside review records
 
+## 9. Lint-debt fix from the final gates (DR-9)
+
+- [ ] 9.1 Fix the two govet `shadow` findings this branch's test files introduced (base lint green at `3ee21266`, both mechanisms verified in `evidence/T8.md`): `internal/controller/kollectclusterinventory_helpers_test.go:40` rename the helper's local `ctx` (it shadows the package-level `var ctx` at `suite_test.go:39`; the helper must keep NOT touching the suite's `ctx`); `internal/sink/circuit_breaker_test.go:78` change `_, err := RunExportEnvelope(req)` to `_, err = RunExportEnvelope(req)` (the outer `err` is reused with `=` after the loop)
+- [ ] 9.2 `task lint` green on the final tree; `go build ./...`, `go vet ./...` clean; `go test ./internal/sink/ ./internal/controller/` green
+- [ ] 9.3 Tick 8.1-8.3 in section 8 once 9.1-9.2 are green (T8's red rows resolve)
+
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
