@@ -1,0 +1,16 @@
+## Verdict: CLEAN
+
+Checked, per persona: Saboteur — re-derived every migrated test path against the live code (breaker test reaches `exportThroughBreaker` via `RunExportEnvelope` `internal/sink/export.go:186`; `newEngineWithBoundClusterTargets` registers through the real `RegisterTarget`, which writes the exact `targetKey(ns,name)` entries `NamespacesForClusterTarget` reads, `internal/collect/engine.go:281,401`; `refreshNamespaceCache` nil-guards the absent kube client, `internal/collect/engine.go:603`; seeded-store tests cannot be disturbed by the empty fake informer). New Hire — store.go monotonicity comments rewritten accurately; verified no surviving path executes `delete(s.shards,...)`, so the rejected shard-recreation test guards an unreachable state. Security Auditor — pure deletion; auth cache now stores strictly less (decision only, identity dropped), cache key and miss-path authz unchanged, `user` still consumed on miss (`internal/inventory/auth.go:137,193-194`); no new deps, go.mod untouched. Budget Holder — code scope is exactly the Sweep 2 list minus the three recorded non-goals; no config, allow-list, coverage-floor, CI or chart file touched (verified via name-only diff). Spec — every deletion bullet in proposal.md verified in the diff and by zero-hit greps at tip; the two non-deleted comment fixes are dispositioned (controller comment reworded `internal/controller/kollectclusterinventory_controller.go:278`; s3 comment verified accurate at `internal/sink/s3/backend.go:53-54`).
+
+## Findings
+- [NOTE] T1 coverage-accounting line anchors are stale at the branch tip — `openspec/changes/dead-exported-surface/evidence/T1.md:86,87,90`
+  Failure: rows cite `TestRunExportEnvelope_guards (export_test.go:389)`, `_acquireBackendFailure (:463)`, `_relationalRemashalsNullItemsPreservingMeta (:517)`; at tip these tests live at `internal/sink/export_test.go:70,126,180` and the file ends ~:470 — the anchors point at the pre-deletion file written in the same task that deleted it. A future auditor following the evidence lands on wrong lines and may distrust the accounting (the accounting's substance itself checks out).
+  Fix: none required for merge; if evidence is ever regenerated, use symbol names only (the loop already learned this for code anchors, R-round2 #6).
+  Confidence: 90 that the anchors are stale; 95 that the substance is correct (I verified each cited test exists and asserts what the row claims).
+
+## Could not check
+- No gate was executed by this leg (read-only): `task test`, `task coverage` (91.3% claim), `task lint`, `go vet ./...` and `go vet -tags integration` are taken from recorded evidence (evidence/T8.md, evidence/T9.md, per-task files), not re-run; my verification was static (diffs, greps, code reads at tip).
+- The external source report `data/kollect-xconsol-final/report.md` (outside this repo) — out of bounds; the self-contained Sweep 2 excerpt in proposal.md was used instead.
+- External module consumers of `api/v1alpha1` (compile cannot prove the external half; recorded as an accepted pre-1.0 assumption, breaking-change footer present in commit `04a16ff1`).
+- Integration-tagged git/forgejo tests require a live remote; only their compile-with-tag is recorded.
+- Untracked `openspec/changes/dead-exported-surface/reviews/B/` (this stage's in-flight records) was not treated as evidence.
