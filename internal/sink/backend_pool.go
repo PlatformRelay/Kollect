@@ -28,11 +28,13 @@ type pooledEntry struct {
 	lastUsed time.Time
 }
 
-// backendPoolTTL bounds the lifetime of an idle pooled backend entry.
-// globalBackendPool is a process-lifetime map keyed by sink UID/namespace-
-// name; EvictBackendPool/EvictBackendPoolByUID have no caller in this
-// codebase today, so without this TTL the pool grows unbounded as sinks are
-// created/deleted/renamed over the life of a long-running controller.
+// backendPoolTTL bounds the lifetime of an idle pooled backend entry and of a
+// delete-tombstone. globalBackendPool is a process-lifetime map keyed by sink
+// UID/namespace-name; the family-sink controllers' delete watches evict a
+// deleted sink's entry immediately (EvictBackendPoolForSink, BEP-1), so the
+// TTL is the backstop that ages out entries and tombstones whose sink never
+// produced a delete event (pipeline-mode one-shots, controller restarts) and
+// keeps the pool bounded over the life of a long-running controller.
 //
 // This mirrors coalesceStateTTL's reasoning in internal/controller: it must
 // stay comfortably above validation.MaxExportInterval (24h) so a slow-but-
@@ -47,10 +49,12 @@ var (
 	backendPoolDisabled atomic.Bool
 
 	globalBackendPool = struct {
-		mu      sync.Mutex
-		entries map[poolKey]*pooledEntry
+		mu         sync.Mutex
+		entries    map[poolKey]*pooledEntry
+		tombstones map[poolKey]time.Time
 	}{
-		entries: make(map[poolKey]*pooledEntry),
+		entries:    make(map[poolKey]*pooledEntry),
+		tombstones: make(map[poolKey]time.Time),
 	}
 )
 
@@ -65,7 +69,7 @@ func EnableBackendPoolForTest() {
 	backendPoolDisabled.Store(false)
 }
 
-// ResetBackendPoolForTest evicts all pooled backends.
+// ResetBackendPoolForTest evicts all pooled backends and delete-tombstones.
 func ResetBackendPoolForTest() {
 	globalBackendPool.mu.Lock()
 	defer globalBackendPool.mu.Unlock()
@@ -73,6 +77,9 @@ func ResetBackendPoolForTest() {
 	for k, e := range globalBackendPool.entries {
 		closeBackendLogged(e.backend, "pool reset")
 		delete(globalBackendPool.entries, k)
+	}
+	for k := range globalBackendPool.tombstones {
+		delete(globalBackendPool.tombstones, k)
 	}
 }
 
@@ -154,11 +161,20 @@ func acquireBackend(
 }
 
 // storePooledBackend saves built under key, or keeps the pooled backend when
-// specHash already matches. It unlocks before returning so the caller can Close
-// discard without holding globalBackendPool.mu.
+// specHash already matches. A key that carries a delete-tombstone (the sink
+// was deleted while the build was in flight) pools nothing: the built backend
+// is returned as both pooled and discard so the caller Closes it once and
+// hands the closed backend to its caller — the sink no longer exists, so the
+// export it backs may fail against it (BEP-1) and no entry is ever pooled.
+// The function unlocks before returning so the caller can Close discard
+// without holding globalBackendPool.mu.
 func storePooledBackend(key poolKey, specHash string, now time.Time, built Backend) (Backend, Backend, string) {
 	globalBackendPool.mu.Lock()
 	defer globalBackendPool.mu.Unlock()
+
+	if _, deleted := globalBackendPool.tombstones[key]; deleted {
+		return built, built, "delete tombstone"
+	}
 
 	old, ok := globalBackendPool.entries[key]
 	if !ok {
@@ -193,9 +209,11 @@ func closeBackendsLogged(backends []Backend, reason string) {
 }
 
 // pruneStaleEntriesLocked removes entries idle longer than backendPoolTTL and
-// returns their backends. Caller holds globalBackendPool.mu and must Close
-// those backends only after Unlock; Pool.Close under the mutex stalls every
-// other acquire. Called on every acquire so deleted sinks age out (AR-11).
+// returns their backends, and ages out delete-tombstones on the same
+// opportunistic cycle (a tombstone older than backendPoolTTL stops guarding
+// its key). Caller holds globalBackendPool.mu and must Close those backends
+// only after Unlock; Pool.Close under the mutex stalls every other acquire.
+// Called on every acquire so deleted sinks age out (AR-11).
 func pruneStaleEntriesLocked(now time.Time) []Backend {
 	stale := make([]Backend, 0, len(globalBackendPool.entries))
 	for k, entry := range globalBackendPool.entries {
@@ -206,6 +224,12 @@ func pruneStaleEntriesLocked(now time.Time) []Backend {
 		if now.Sub(entry.lastUsed) > backendPoolTTL {
 			stale = append(stale, entry.backend)
 			delete(globalBackendPool.entries, k)
+		}
+	}
+
+	for k, tombstoned := range globalBackendPool.tombstones {
+		if now.Sub(tombstoned) > backendPoolTTL {
+			delete(globalBackendPool.tombstones, k)
 		}
 	}
 
@@ -223,7 +247,8 @@ func specFingerprint(spec kollectdevv1alpha1.KollectSinkSpec) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-// EvictBackendPool removes a cached backend by namespace/name (tests and sink spec updates).
+// EvictBackendPool removes a cached backend by namespace/name (test utility;
+// production evictions go through EvictBackendPoolForSink).
 func EvictBackendPool(namespace, name string) {
 	if backendPoolDisabled.Load() {
 		return
@@ -232,7 +257,8 @@ func EvictBackendPool(namespace, name string) {
 	evictPoolKey(poolKeyForSink("", namespace, name))
 }
 
-// EvictBackendPoolByUID removes a cached backend keyed by sink object UID.
+// EvictBackendPoolByUID removes a cached backend keyed by sink object UID
+// (test utility; production evictions go through EvictBackendPoolForSink).
 func EvictBackendPoolByUID(uid types.UID) {
 	if backendPoolDisabled.Load() || uid == "" {
 		return
@@ -246,8 +272,33 @@ func EvictBackendPoolByUID(uid types.UID) {
 // UID, falling back to the sink's namespace/name key only when the delete
 // event's object carries no UID. Eviction is best-effort and idempotent: it
 // never re-exports, retracts or reconciles, and deleting a sink with no pooled
-// entry must not fail.
+// entry must not fail. It also records a delete-tombstone for the evicted key
+// so an acquire-build still in flight when the delete landed is discarded
+// instead of re-pooled for the deleted sink.
 func EvictBackendPoolForSink(sinkUID types.UID, sinkNamespace, sinkName string) {
+	if backendPoolDisabled.Load() {
+		return
+	}
+
+	evictPoolKeyForDelete(poolKeyForSink(sinkUID, sinkNamespace, sinkName))
+}
+
+// evictPoolKeyForDelete drops the entry for key and records a delete-tombstone
+// so storePooledBackend discards any backend built for the key afterwards.
+// Only the delete hook records tombstones: TTL pruning, the acquire-time
+// spec-hash swap and the EvictBackendPool/EvictBackendPoolByUID test helpers
+// evict live entries and must never block a live sink's next build.
+func evictPoolKeyForDelete(key poolKey) {
+	globalBackendPool.mu.Lock()
+	entry, ok := globalBackendPool.entries[key]
+	if ok {
+		delete(globalBackendPool.entries, key)
+	}
+	globalBackendPool.tombstones[key] = timeNow()
+	globalBackendPool.mu.Unlock()
+	if ok {
+		closeBackendLogged(entry.backend, "sink delete eviction")
+	}
 }
 
 func evictPoolKey(key poolKey) {
