@@ -89,15 +89,15 @@ so the round-2 re-review replaced the stop (logged 2026-10-06).
 |---|---|---|---|
 | 1.1 probe | CLOSED | 1 diff leg DeepSeek-V4.1-Flash, round 1 — `reviews/L-tasks/1.1/` (CONCERNS; 1 WARNING verified, evidence fix, no round 2) | none |
 | 1.2 version-only commit | CLOSED | 2 diff legs DeepSeek-V4.1-Flash + Qwen3.8-Flash-Next, round 1 — `reviews/L-tasks/1.2/` (CONCERNS → APPROVE: 1 ERROR = pre-existing stale-target hazard, loop-deferred, both legs non-gating; 1 WARNING closed by `go version -m` pin verification) | none |
+| 1.3 fix findings | CLOSED-WITH-GAPS (closed by the orchestrator from the task's files after the run-task 5400s cap killed it mid-final-lint; final gates re-run by the orchestrator: lint 0 / format 0 / arch 0 / markdown 0, exit 0 each) | 2 diff legs DeepSeek-V4.1-Flash + Qwen3.8-Flash-Next, round 1 — `reviews/L-tasks/1.3/` (CONCERNS; 3 findings verified real, all fixed in c9e795bb; no CRITICAL, no behaviour defect → no round 2). 57 before → 0 after: 55 fixed, 2 justified (reasoned nolints); `.golangci.yaml` untouched | gaps: CI guard meta-tests not-run locally (CI-covered, inputs untouched); SA1019 conflict-requeue policy delta (rate-limited → fixed 1 s) accepted by review, monitoring note recorded |
 
 ## Known red
 
-- Feature red, owned by task 1.3: `task lint` at the v2.13.1 pin reports **57 findings**
-  (goconst 44 · gosec G710 ×1 · staticcheck SA1019 ×12) — recorded at the probe (probe.md §5),
-  reproduced class-for-class by task 1.2's gate run. LTB-3 defines runnable, not clean.
-- Cleared upstream during task 1.2: the 2 `task lint:markdown` errors in `task-prompt.md`
-  (deferred at task 1.1) were fixed by the orchestrator's `b26702e6` rewrite; `task
-  lint:markdown` now reports 0 issues. No markdown red remains.
+(none — the 57-finding feature red was cleared by task 1.3: `task lint` 0 findings, exit 0,
+at c9e795bb and re-verified by the orchestrator after the 1.3 process timed out mid-close.
+The 2 task-prompt.md markdown errors were fixed earlier (a3cd387e; loop.md's b26702e6
+attribution here was wrong and is corrected) and a third MD032 introduced by the 1.3
+dispatch commit was fixed by the task process.)
 
 ## Test changes
 (none)
@@ -119,6 +119,23 @@ so the round-2 re-review replaced the stop (logged 2026-10-06).
 - tooling (task 1.2): the stale-`bin/golangci-lint`-target hazard also swallows pin-only
   edits (make skips on an already-current binary); only `rm -f bin/golangci-lint*` + a fresh
   build proves the committed pins produce the binary.
+- tooling (task 1.3): golangci-lint's `uniq-by-line` (default true) hides goconst findings on
+  lines that already carry one — size goconst work with `--uniq-by-line=false` or a "0
+  visible" gate is measured against a truncated set (proposed as a change-5 CI check).
+- tooling (task 1.3): goconst v1.11.0 emits per (string, file), excludes direct call args
+  (`ExcludeTypes: [Call]`), and const declarations never count — constants may share values
+  freely without re-triggering goconst.
+- tooling (task 1.3): controller-runtime v0.24 `Requeue:true` = AddRateLimited (exponential
+  backoff), `RequeueAfter` = fixed delay — the deprecated-field migration is a policy choice,
+  per-site justification required.
+- process (task 1.3): a focused sensor run that times out on one package must not be dropped
+  from the record — the git package's 480s timeout hid two controller test corrections until
+  the full-suite run caught them.
+- tooling (task 1.3): zizmor is not preinstalled locally; `bash hack/install-zizmor.sh <dir>`
+  reproduces the CI-pinned 1.30.1 offline audit in seconds.
+- process (task 1.3, orchestrator): the biggest task of a run can outlive the run-task 5400s
+  cap (three commits + review + fixes here) — dispatch heavy tasks with a raised limit and
+  expect the close to be reconciled from files on a 124.
 
 ## Where a human should look first
 <!-- filled at hand-off -->
