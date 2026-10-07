@@ -43,9 +43,12 @@ The annotation documentation SHALL scope the key to exactly the kinds whose reco
 ### Requirement: ERA-2 Exported source-object copies record the collected generation
 
 When a profile exports in Resource mode, the embedded pruned copy of the source object SHALL carry
-`kollect.dev/collectedGeneration: "<n>"` in its `metadata.annotations`, where `<n>` is the source
-object's `metadata.generation` at collection time. The stamp SHALL be applied after pruning and
-scrubbing, so profile prune paths and scrub rules cannot remove it.
+`kollect.dev/collectedGeneration: "<n>"` in its `metadata.annotations` whenever the copy retains a
+metadata section, where `<n>` is the source object's `metadata.generation` at collection time. The
+stamp SHALL be applied after pruning and scrubbing, so profile prune paths and scrub rules cannot
+remove it. A profile whose include section drops metadata (the default `SpecAndStatus` does) SHALL
+export the copy without the stamp: there is no metadata section to carry it. The annotation
+documentation SHALL state that the stamp requires a metadata-retaining include section.
 
 #### Scenario: Resource-mode copy is stamped
 
