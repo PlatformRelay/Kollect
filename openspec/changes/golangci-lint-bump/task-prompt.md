@@ -26,6 +26,7 @@ Test budget: focused checks while iterating; after an evidence- or docs-only com
 Shell: if the session is worktree-isolated, keep each Bash command plain — no loops over hosts, no `$(…)` or variables feeding git/gh/codex, no heredoc whose text mentions git, no long jq/python filters inline; write scripts and briefs with the Write tool and run them as files. Refused commands cost a round trip each.
 
 Lessons from earlier tasks:
+
 - tooling (task 1.1): never read a long sensor log through tail — capture to a file, then grep; a truncated finding list propagated a wrong count into evidence until review caught it.
 - tooling (task 1.1): after the custom-build mv, bin/golangci-lint is a plain file, so the next make golangci-lint re-runs install + custom build (~40 s warm) instead of skipping.
 - tooling (task 1.1): golangci-lint config verify does not catch an unregistered module plugin — the vanilla-build failure is at run start (exit 3, "plugin not found"); word the structural proof accordingly.
