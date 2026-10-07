@@ -1,7 +1,7 @@
 # Loop — 2026-10-06-product-decision-convergence
 
 Repo: `/Users/kheimel/.treehouse/kollect-79dca7/1/kollect` · Branch: `fm/kollect-product-decisions-impl` · Base: `3ee21266` (= `origin/main`) · Started: 2026-10-06 · Reviewers: fanout (free only)
-Next: L task loop — dispatch T05
+Next: L task loop — dispatch T06
 Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (session 2026-10-06–) · source: overlay default
 
 ## Stages
@@ -57,14 +57,14 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | T03 | CLOSED-WITH-GAPS (4 commits f0e82035, 0632218d, 3264913d, 0651939d) | r1 DeepSeek truncated + QFN -> REQUEST_CHANGES (fallback red added); r2 2/2 BLOCK -> all 3 verified+fixed; no Claude | deferred: pre-existing breakerRegistry parallel-test race (owner+harness proposal); gap: cheapest no-error-log sensor named |
 | T04 | CLOSED-WITH-GAPS (commit 4161a55d) | test-task review 2 legs (GLM+QFN diff); #1 KEX block-first rejected (reason recorded), #2 skip-guard fixed; no Claude | gaps: full-suite/mutation to T10; gitleaks shim note |
 | T04 | CLOSED-WITH-GAPS (1 commit 4161a55d, amended) | r1 2/2 legs (DeepSeek+QFN diff) CONCERNS -> 1 finding rejected with reason (KEX block-first reading), 1 verified scaffolding drift fixed, no round 2; no Claude | gaps: 4 reds green only at T09; routing branch has no outcome-level sensor (rides on T09's diff review); CRD-enum green depends on T09's regen incl. the schema-package golden |
+| T05 | CLOSED-WITH-GAPS (commit 8cfd88d6, amended with closure) | r1 2/2 legs (DeepSeek+QFN diff) CONCERNS -> F1 CRITICAL verified as coverage gap (zero-interval ordering unpinned) fixed with a pin test, F2 rejected (tick is the close step); no Claude, no round 2 | gaps: task verify to T07/T09 (no generated artifact); integration tier (no Docker); task-prompt.md MD032 deferred to owner at B; T01(a) 6 known reds cleared |
 | T03 | CLOSED-WITH-GAPS (3 commits f0e82035, 0632218d, 3264913d) | r1 1/2 legs (DeepSeek truncated 900s, QFN diff) CONCERNS->fixed; r2 2/2 (DeepSeek+QFN diff) BLOCK register->all 3 verified, 2 fixed as reds/guards, 1 deferred; no Claude | gaps: pre-existing breakerRegistry parallel-test race deferred (harness task + owner); log-sensor clause; watch-side Delete-only wiring is T08's |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
 |---|---|---|---|
-| internal/controller/requested_at_annotation_test.go (6 tests) | ERA-1 | T01 | |
 | internal/collect/prune_collected_generation_test.go + dispatch test (4 tests incl. scrub-survival) | ERA-2 | T01 | |
-| internal/controller/cluster_target_status_test.go (4 tests) | TSP-1 | T02 | |
+| internal/controller/kollectclustertarget_collected_count_test.go (4 tests; T02's Known red — loop.md previously misnamed this `cluster_target_status_test.go`) | TSP-1 | T02 | |
 | internal/sink/backend_pool_delete_hook_test.go (4 tests) | BEP-1 | T03 | |
 | internal/validation engine_convergence_test.go + internal/sink/git kex test + test/schema engine_enum_test.go (GTE-1/GTE-2 reds) | GTE-1/GTE-2 | T04 | |
 | internal/validation/engine_convergence_test.go TestValidateGitSpec_rejectsCLINamingGoGit | GTE-1 | T04 | |
@@ -106,6 +106,7 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | Pre-existing parallel-test race on `breakerRegistry`: `ResetBreakersForTest` replaces the global map (circuit_breaker.go:67) while parallel export tests read it (circuit_breaker.go:27); full-package `-race` intermittently red (T03: 2/5, base 0/4) | T03 | Owner/harness task: clear the map in place under a lock, or drop `t.Parallel()` at circuit_breaker_test.go:78, or give breaker tests a private registry; otherwise CI and every later task's `-race` gate is a rerun lottery |
 
 ## Owner tasks (skipped by the loop)
+
 | Task | Command sheet |
 |---|---|
 | Helm `mode` decision (D7) | Captain decides (a) delete value+enum / (b) fold tenantMode / (c) narrow enum to ["single"]; reported needs-decision in the status file |

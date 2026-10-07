@@ -160,13 +160,78 @@ func TestPerSinkCoalesceTracker_shouldSkip_zeroIntervalAfterRecord(t *testing.T)
 	invKey := "default/inv"
 	sinkName := "git"
 
-	if tracker.shouldSkip(invKey, sinkName, 1, "hash", 0, now) {
+	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "", 0, now) {
 		t.Fatal("first export must not skip")
 	}
 
-	tracker.record(invKey, sinkName, 1, "hash", now)
-	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", 0, now) {
+	tracker.record(invKey, sinkName, 1, "hash", "", now)
+	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "", 0, now) {
 		t.Fatal("material-change-only cadence should skip identical payload")
+	}
+}
+
+// ERA-1 third axis at the unit level: the kollect.dev/requestedAt value is a
+// debounce axis of its own. Any change — absence→present, present→absence, or
+// a different value — invalidates a within-interval state once; recording the
+// new value resumes the steady-state debounce. The value is not parsed: only
+// equality against the recorded value matters.
+func TestPerSinkCoalesceTracker_requestedAtAxis(t *testing.T) {
+	t.Parallel()
+
+	var tracker perSinkCoalesceTracker
+	invKey := "default/inv"
+	sinkName := "git"
+	interval := time.Minute
+	now := time.Now()
+
+	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-1", interval, now) {
+		t.Fatal("first export must not skip, even with a requestedAt set")
+	}
+
+	tracker.record(invKey, sinkName, 1, "hash", "ts-1", now)
+	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-1", interval, now) {
+		t.Fatal("unchanged requestedAt within interval should skip")
+	}
+
+	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-2", interval, now) {
+		t.Fatal("a different requestedAt value must bypass the debounce")
+	}
+
+	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "", interval, now) {
+		t.Fatal("removal of the annotation must bypass the debounce (absence is a value)")
+	}
+
+	tracker.record(invKey, sinkName, 1, "hash", "", now)
+	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "", interval, now) {
+		t.Fatal("steady absence should skip again after the forced export recorded it")
+	}
+}
+
+// Pins the shouldSkip ordering the ERA-1 comment claims: the requestedAt
+// comparison sits before the zero-interval early return, so a binding with
+// exportMinInterval: 0 still re-exports on a requestedAt change instead of
+// hitting the material-change-only skip. A future reorder breaks this test
+// before it breaks production.
+func TestPerSinkCoalesceTracker_requestedAt_zeroIntervalStillReexports(t *testing.T) {
+	t.Parallel()
+
+	var tracker perSinkCoalesceTracker
+	invKey := "default/inv"
+	sinkName := "git"
+	now := time.Now()
+
+	tracker.record(invKey, sinkName, 1, "hash", "ts-1", now)
+	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-1", 0, now) {
+		t.Fatal("zero-interval binding should skip an identical payload (material-change-only cadence)")
+	}
+
+	if tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-2", 0, now) {
+		t.Fatal("zero-interval binding must still re-export on a requestedAt change")
+	}
+
+	tracker.record(invKey, sinkName, 1, "hash", "ts-2", now)
+	if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "ts-2", 0, now) {
+		t.Fatal("zero-interval binding resumes skipping after the forced export recorded the new value")
 	}
 }
 
@@ -187,20 +252,20 @@ func TestPerSinkCoalesceTracker_prunesStaleEntries(t *testing.T) {
 
 	// Stale entry: recorded once, then its owning inventory/sink is deleted
 	// and nothing ever touches this key again.
-	tracker.record(staleInvKey, staleSink, 1, "hash-v1", base)
+	tracker.record(staleInvKey, staleSink, 1, "hash-v1", "", base)
 
 	// Active entry: keeps recording well within the TTL window.
 	activeNow := base
 	for i := 0; i < 3; i++ {
 		activeNow = activeNow.Add(coalesceStateTTL / 4)
-		tracker.record(activeInvKey, activeSink, int64(i), "hash-active", activeNow)
+		tracker.record(activeInvKey, activeSink, int64(i), "hash-active", "", activeNow)
 	}
 
 	// Long after the stale entry's TTL has elapsed, the active sink records
 	// again. This is the prune trigger point: any record() call sweeps the
 	// whole map for entries that have aged out.
 	farFuture := base.Add(coalesceStateTTL + time.Minute)
-	tracker.record(activeInvKey, activeSink, 5, "hash-final", farFuture)
+	tracker.record(activeInvKey, activeSink, 5, "hash-final", "", farFuture)
 
 	tracker.mu.Lock()
 	_, staleStillPresent := tracker.states[tracker.key(staleInvKey, staleSink)]
@@ -216,7 +281,7 @@ func TestPerSinkCoalesceTracker_prunesStaleEntries(t *testing.T) {
 
 	// The active entry must still coalesce correctly after surviving a sweep:
 	// an identical payload at the same generation should be skipped.
-	if !tracker.shouldSkip(activeInvKey, activeSink, 5, "hash-final", 0, farFuture) {
+	if !tracker.shouldSkip(activeInvKey, activeSink, 5, "hash-final", "", 0, farFuture) {
 		t.Fatal("active entry's coalescing state must remain intact after a sweep")
 	}
 }

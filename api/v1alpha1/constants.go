@@ -34,6 +34,19 @@ const (
 	// implications without side effects (ADR-0416 §8).
 	AnnotationPreview = "kollect.dev/preview"
 
+	// AnnotationRequestedAt is the manual re-export trigger on the two
+	// inventory kinds whose reconcilers own an export debounce
+	// (KollectInventory, KollectClusterInventory). The reconcilers treat any
+	// change of its value — appearing on an object that had none, removal
+	// after being set, or a different value — as a one-export invalidation of
+	// the per-sink export debounce: the next reconcile exports to every sink
+	// binding that would otherwise be debounced, then the steady-state
+	// debounce resumes unchanged. The value is not parsed (any non-empty
+	// string works as a trigger, RFC3339 is the documented convention only)
+	// and absence counts as a value. Kinds without an export debounce honour
+	// nothing here.
+	AnnotationRequestedAt = "kollect.dev/requestedAt"
+
 	// Multi-cluster registration (Istio remote-secret parallel).
 	LabelMultiCluster        = "kollect.dev/multiCluster"
 	AnnotationClusterName    = "kollect.dev/cluster"

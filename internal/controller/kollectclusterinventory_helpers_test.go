@@ -61,7 +61,7 @@ func TestPerSinkCoalesceTracker_nextDue(t *testing.T) {
 	invKey := "platform"
 	sinkName := "git"
 	now := time.Now().UTC().Truncate(time.Second)
-	tracker.record(invKey, sinkName, 1, "abc", now)
+	tracker.record(invKey, sinkName, 1, "abc", "", now)
 
 	got := tracker.nextDue(invKey, sinkName, time.Minute, now)
 	if got <= 0 {

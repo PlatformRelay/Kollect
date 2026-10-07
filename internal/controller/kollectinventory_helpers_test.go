@@ -31,7 +31,7 @@ func TestPerSinkCoalesceTracker_recordAndNextDue(t *testing.T) {
 	invKey := "team-a/inv"
 	sinkName := "git"
 	now := time.Now().UTC().Truncate(time.Second)
-	tracker.record(invKey, sinkName, 1, "abc123fingerprint", now)
+	tracker.record(invKey, sinkName, 1, "abc123fingerprint", "", now)
 
 	if tracker.nextDue(invKey, sinkName, time.Minute, now) <= 0 {
 		t.Fatal("expected positive nextDue after record")
