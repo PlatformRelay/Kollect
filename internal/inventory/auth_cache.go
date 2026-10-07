@@ -8,12 +8,9 @@ import (
 	"encoding/hex"
 	"sync"
 	"time"
-
-	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
 type authCacheEntry struct {
-	user      authenticationv1.UserInfo
 	allowed   bool
 	expiresAt time.Time
 }
@@ -32,9 +29,9 @@ func newAuthCache(ttl time.Duration) *authCache {
 	return &authCache{ttl: ttl, items: make(map[string]authCacheEntry)}
 }
 
-func (c *authCache) get(key string) (authenticationv1.UserInfo, bool, bool) {
+func (c *authCache) get(key string) (bool, bool) {
 	if c == nil {
-		return authenticationv1.UserInfo{}, false, false
+		return false, false
 	}
 
 	c.mu.Lock()
@@ -42,13 +39,13 @@ func (c *authCache) get(key string) (authenticationv1.UserInfo, bool, bool) {
 
 	entry, ok := c.items[key]
 	if !ok || time.Now().After(entry.expiresAt) {
-		return authenticationv1.UserInfo{}, false, false
+		return false, false
 	}
 
-	return entry.user, entry.allowed, true
+	return entry.allowed, true
 }
 
-func (c *authCache) set(key string, user authenticationv1.UserInfo, allowed bool) {
+func (c *authCache) set(key string, allowed bool) {
 	if c == nil {
 		return
 	}
@@ -57,7 +54,6 @@ func (c *authCache) set(key string, user authenticationv1.UserInfo, allowed bool
 	defer c.mu.Unlock()
 
 	c.items[key] = authCacheEntry{
-		user:      user,
 		allowed:   allowed,
 		expiresAt: time.Now().Add(c.ttl),
 	}

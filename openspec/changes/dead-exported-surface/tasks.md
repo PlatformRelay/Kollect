@@ -47,8 +47,8 @@ integration files) because the default build skips them.
 
 ## 7. Auth cache without dead identity (DR-8)
 
-- [ ] 7.1 Delete the `user` field from `authCacheEntry`; `get` returns `(allowed, ok)`, `set` takes `allowed` only; drop the `_ = user` line and the discarded binding in `auth.go`; drop the then-unused import
-- [ ] 7.2 Compile clean; `go test ./internal/inventory/...` green, including the cache tests
+- [x] 7.1 Delete the `user` field from `authCacheEntry`; `get` returns `(allowed, ok)`, `set` takes `allowed` only; drop the `_ = user` line and the discarded binding in `auth.go`; drop the then-unused import
+- [x] 7.2 Compile clean; `go test ./internal/inventory/...` green, including the cache tests — closed 2026-10-07, evidence: evidence/T7.md
 
 ## 8. Final gates and record (DR-8, DR-9)
 
@@ -68,6 +68,6 @@ integration files) because the default build skips them.
 | DR-5 | probe 4.1 then compile + git unit suite + tagged-file compile | pipeline coverage unchanged via `ExportWithBranch` | done | evidence/T4.md |
 | DR-6 | probe 5.1 then compile + sink suites | tests use `cap.*` | done | evidence/T5.md |
 | DR-7 | probe 6.1 then compile + controller suite; reader call sites still covered | engine compiles without the method; tests still reach `NamespacesForClusterTarget` | done | evidence/T6.md |
-| DR-8 | compile + inventory suite | `_ = user` gone; cache tests green | not-run | |
+| DR-8 | compile + inventory suite | `_ = user` gone; cache tests green | done | evidence/T7.md |
 | DR-9 | `task test`, `task lint`, `task coverage`, `task spec:validate` on final tree | all green, floor holds | not-run | |
 | DR-10 | re-run per-symbol greps | no hits outside review records | not-run | |
