@@ -75,7 +75,7 @@ func TestRunExportEnvelope_circuitBreakerTripsAfterRepeatedFailures(t *testing.T
 	}
 
 	for range circuitBreakerTripAt {
-		_, err := RunExportEnvelope(req)
+		_, err = RunExportEnvelope(req)
 		if err == nil || kollecterrors.ClassOf(err) != kollecterrors.ClassTransient {
 			t.Fatalf("RunExportEnvelope() before trip = %v (%v), want transient", err, kollecterrors.ClassOf(err))
 		}

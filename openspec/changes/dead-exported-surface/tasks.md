@@ -52,15 +52,15 @@ integration files) because the default build skips them.
 
 ## 8. Final gates and record (DR-8, DR-9)
 
-- [ ] 8.1 One full suite on the final tree: `task test`; plus `task lint`, `task coverage` (floor 90% holds), `task spec:validate`, `go vet ./...`
-- [ ] 8.2 Sweep exclusions recorded in the proposal's Non-goals remain true; record the `EvictBackendPool*` and `AutoMerge` exclusion reasons in the PR description; the commit bodies name every removed exported symbol so the commit-derived changelog records the API changes
-- [ ] 8.3 Zero dangling references: the per-symbol probe greps return no hits outside review records
+- [x] 8.1 One full suite on the final tree: `task test`; plus `task lint`, `task coverage` (floor 90% holds), `task spec:validate`, `go vet ./...` — closed 2026-10-07, evidence: evidence/T8.md (`task lint` red resolved by T9: evidence/T9.md; `task test`/`task coverage` stand from T8 rows 1/4 — the final-tree delta since `f5736ec7` is test-file-only plus records, affected packages re-run green, evidence/T9.md)
+- [x] 8.2 Sweep exclusions recorded in the proposal's Non-goals remain true; record the `EvictBackendPool*` and `AutoMerge` exclusion reasons in the PR description; the commit bodies name every removed exported symbol so the commit-derived changelog records the API changes — closed 2026-10-07, evidence: evidence/T8.md
+- [x] 8.3 Zero dangling references: the per-symbol probe greps return no hits outside review records — closed 2026-10-07, evidence: evidence/T8.md
 
 ## 9. Lint-debt fix from the final gates (DR-9)
 
-- [ ] 9.1 Fix the two govet `shadow` findings this branch's test files introduced (base lint green at `3ee21266`, both mechanisms verified in `evidence/T8.md`): `internal/controller/kollectclusterinventory_helpers_test.go:40` rename the helper's local `ctx` (it shadows the package-level `var ctx` at `suite_test.go:39`; the helper must keep NOT touching the suite's `ctx`); `internal/sink/circuit_breaker_test.go:78` change `_, err := RunExportEnvelope(req)` to `_, err = RunExportEnvelope(req)` (the outer `err` is reused with `=` after the loop)
-- [ ] 9.2 `task lint` green on the final tree; `go build ./...`, `go vet ./...` clean; `go test ./internal/sink/ ./internal/controller/` green
-- [ ] 9.3 Tick 8.1-8.3 in section 8 once 9.1-9.2 are green (T8's red rows resolve)
+- [x] 9.1 Fix the two govet `shadow` findings this branch's test files introduced (base lint green at `3ee21266`, both mechanisms verified in `evidence/T8.md`): `internal/controller/kollectclusterinventory_helpers_test.go:40` rename the helper's local `ctx` (it shadows the package-level `var ctx` at `suite_test.go:39`; the helper must keep NOT touching the suite's `ctx`); `internal/sink/circuit_breaker_test.go:78` change `_, err := RunExportEnvelope(req)` to `_, err = RunExportEnvelope(req)` (the outer `err` is reused with `=` after the loop) — closed 2026-10-07, evidence: evidence/T9.md
+- [x] 9.2 `task lint` green on the final tree; `go build ./...`, `go vet ./...` clean; `go test ./internal/sink/ ./internal/controller/` green — closed 2026-10-07, evidence: evidence/T9.md
+- [x] 9.3 Tick 8.1-8.3 in section 8 once 9.1-9.2 are green (T8's red rows resolve) — closed 2026-10-07, evidence: evidence/T9.md (resolves T8's decision request)
 
 ## Verification
 
@@ -75,5 +75,5 @@ integration files) because the default build skips them.
 | DR-6 | probe 5.1 then compile + sink suites | tests use `cap.*` | done | evidence/T5.md |
 | DR-7 | probe 6.1 then compile + controller suite; reader call sites still covered | engine compiles without the method; tests still reach `NamespacesForClusterTarget` | done | evidence/T6.md |
 | DR-8 | compile + inventory suite | `_ = user` gone; cache tests green | done | evidence/T7.md |
-| DR-9 | `task test`, `task lint`, `task coverage`, `task spec:validate` on final tree | all green, floor holds | red — task test/coverage/spec:validate/vet green, coverage floor 91.3%; `task lint` RED: 2 govet shadow findings (T1/T6 test files, base verified green) — decision request in evidence/T8.md | evidence/T8.md |
+| DR-9 | `task test`, `task lint`, `task coverage`, `task spec:validate` on final tree | all green, floor holds | done — task test/coverage/spec:validate/vet green, coverage floor 91.3% (evidence/T8.md); `task lint` RED (2 govet shadow findings) resolved by the T9 lint-debt fix, green on the final tree (evidence/T9.md) | evidence/T8.md + evidence/T9.md |
 | DR-10 | re-run per-symbol greps | no hits outside review records | done — zero live references; historical-record hits (CHANGELOG, archived change) and 3 `TestExportMemory*` name-only lines classified in evidence/T8.md | evidence/T8.md |
