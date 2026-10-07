@@ -23,12 +23,13 @@ Commits with `Signed-off-by`.
   count is persisted even when the condition payload is byte-identical; steady count keeps its
   timestamp; Degraded keeps the last count (TSP-1). Red on the persistence behaviour (fields
   stay unset — the controller does not write them yet). — closed 2026-10-07, evidence: evidence/T02.md
-- [ ] T03 Write the eviction test before the watch change, against a no-op seam stub: define
+- [x] T03 Write the eviction test before the watch change, against a no-op seam stub: define
   the hook the controller will call (spec-shaped signature) with a no-op body; the test pools a
   backend under a sink UID via the production acquire path, fires the delete-hook seam, and
   asserts the entry is gone and `Close` ran; an acquire-build in flight at eviction is
   discarded, not re-pooled (delete-tombstone); a delete without a pooled entry is a no-op; a
-  spec-update is not an eviction (BEP-1, BEP-2). Red because the seam is a no-op.
+  spec-update is not an eviction (BEP-1, BEP-2). Red because the seam is a no-op. — closed
+  2026-10-07, evidence: evidence/T03.md
 - [ ] T04 Write the engine-convergence tests before the API change. Red assertions: admission
   validation rejects `engine: cli` naming `go-git`; backend config rejects it independently;
   the generated CRD schema enum for `spec.git.engine` lists only `go-git`; the go-git KEX offer
