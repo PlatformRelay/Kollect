@@ -62,6 +62,12 @@ integration files) because the default build skips them.
 - [x] 9.2 `task lint` green on the final tree; `go build ./...`, `go vet ./...` clean; `go test ./internal/sink/ ./internal/controller/` green — closed 2026-10-07, evidence: evidence/T9.md
 - [x] 9.3 Tick 8.1-8.3 in section 8 once 9.1-9.2 are green (T8's red rows resolve) — closed 2026-10-07, evidence: evidence/T9.md (resolves T8's decision request)
 
+## 10. Stage-B hygiene fixes (records + test names only)
+
+- [ ] 10.1 Rename the test-local in-memory commit helper in `internal/sink/git/export_test.go` so no identifier keeps the deleted `ExportMemory` spelling greppable (helper `exportMemory` and the `TestExportMemory*` test names; pick a descriptive name without the substring, e.g. around "in-memory commit"); assertions and bodies unchanged
+- [ ] 10.2 Refresh the stale line anchors the deletion invalidated: `evidence/T1.md` coverage-accounting rows (:389/:463/:517 → current anchors) and the `export_test.go` comment that cites `export.go:125-127` — prefer citing symbols over line numbers so anchors cannot go stale again
+- [ ] 10.3 Gates: `go build ./...`, `go vet ./...`, `go test ./internal/sink/git/` green; `task spec:validate` 14/14
+
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
