@@ -1,0 +1,27 @@
+ERA-1/ERA-2 implementation verified against prune ordering. Now the cluster-target parity and backend-pool changes.
+Pool + delete watch verified. Now the git-engine convergence and its call sites.
+x/crypto v0.57.0 verified to register both KEX names. Now let me execute the deciding tests (read-only inspection) to verify against code, not claims.
+Spec deltas match verbatim. Now the loop state and any recorded open items.
+All requirements verified against code with focused test runs on the final tree (code unchanged since `81bea0b0`; later commits are docs-only).
+
+## Verdict: CONCERNS
+## Findings
+- [WARNING] ERA-2 scenario 1 over-promises for the default profile: default `include: SpecAndStatus` drops `metadata`, so a minimal `export.mode: Resource` profile gets **no stamp** — `api/v1alpha1/export_spec_types.go:51`, `internal/collect/prune.go:96-99`
+  Failure: user creates a Resource-mode profile without setting `include`; exported copy has no `kollect.dev/collectedGeneration`; spec text (`specs/export-annotations/spec.md` scenario 1) reads as unconditional, while only scenario 3 + design D2 + `docs/ANNOTATIONS-LABELS.md:100` carry the caveat. The reviewed divergence (commit `de704f4e`) was documented in user docs, never amended into the requirement text — the same "docs promise, code doesn't" class this change was chartered to kill.
+  Fix: amend scenario 1's WHEN to "…and its `export.include` retains metadata (`All` or `MetadataOnly`)", or stamp via an envelope-level field.
+  Confidence: 80
+- [NOTE] BEP-1 "discarded instead of pooled" is implemented as deferred-close: a tombstoned in-flight build is handed to the caller with an owning release, used for the export, then Closed — `internal/sink/backend_pool.go:159-163`
+  Failure: none observed — the normative properties hold (never pooled, tombstone blocks re-store, no entry survives for the UID; `TestEvictBackendPoolForSink_inFlightBuildDiscardedNotRepooled` + `_noNewAcquireRebuildsEvictedEntry` pass, executed). The r2 refinement (commit `aa967f23`) avoids nats-style self-heal-on-Close connection leaks; scenario wording "is discarded, not pooled" is met in the pooling sense only.
+  Fix: none required; optionally restate the scenario as "is never pooled and is closed after its in-flight use".
+  Confidence: 25 (that this is a real deviation)
+- [NOTE] TSP-1 parity stops at field semantics: namespaced `KollectTarget` re-counts on a `targetCountResync()` cadence, cluster target refreshes every reconcile — `internal/controller/kollecttarget_controller.go:359` vs `kollectclustertarget_controller.go:316`
+  Failure: none against TSP-1 (fields, null semantics, timestamp rule, printer columns, escape hatch all hold; 6 tests pass, executed; CRDs regenerated in `config/crd/bases` + `charts/kollect/crds`, mirroring pinned by equality in `test/schema/printer_columns_test.go:55-94`). Cadence asymmetry is already logged in `loop.md` as an owner decision request.
+  Fix: owner resolves per loop.md — document or align.
+  Confidence: 30
+
+**Requirements matrix (all verified by reading code + executing named tests, not the evidence table):** ERA-1 holds (`per_sink_export.go:40,76-86,115`; both controllers + preview `kollectinventory_controller.go:292,360,442,474,494`; `kollectclusterinventory_controller.go:256,309,361`; KollectTarget correctly excluded; docs scoped to two kinds `ANNOTATIONS-LABELS.md:101`). ERA-2 holds modulo finding 1 (`prune.go:79` stamps after prune **and** scrub; `engine.go:957` Resource-mode-only chokepoint; gen-0 stamped; Attributes untouched). TSP-1 holds (shared helper `collected_count.go:22-37`; one write site `kollectclustertarget_controller.go:338,346-356`; Degraded keeps count `:283-301`). BEP-1/BEP-2 hold (delete-only watch `family_sink_controller.go:88-123` wired for all three kinds `cmd/main.go:276-296`; UID key + ns/name fallback `backend_pool.go:86-92,289-313`; TTL unchanged 48h `:43`). GTE-1 holds (enum `kollectsink_types.go:179-183` + regenerated manifests/golden; admission `validation/git.go:88-94` via webhook `family_sink_webhook.go:60`; config `sink/git/config.go:169-171`; branch points reduced to `isFileRemote` `export.go:125`, `delete.go:107`; SSH-probe equivalence preserved since `resolveAuthType` maps `ssh://`→`AuthTypeSSH` `config.go:195-197`). GTE-2 holds (`ssh_auth.go:27-40`; I verified in the x/crypto v0.57.0 module cache that both names are registered in `kexAlgoMap`, which silently skips unregistered names). GTE-3 holds (all 8 listed doc sites truthed; grep finds no surviving "engine: cli works" claim outside removal descriptions; ADR-0803 + upgrading note present). Unrequested but consistent: D7 Helm `mode` untouched per non-goal; no lint/CI/allow-list changes; CLI-engine regression locks deleted in `delete_mirror_regression_test.go` are configurations that no longer exist, with file:// coverage retained.
+
+## Could not check
+- `task test-integration` (Docker absent; pre-declared not-run, CI owns), the envtest-tier `family_sink_delete_watch_envtest_test.go` run, and full `-race`/`task lint`/`task verify` sweeps (claimed at `81bea0b0`; I executed the focused unit matrix instead on the identical code tree).
+- The supervisor's knowledge-base review artifacts (`data/kollect-xconsol-*`) — outside this repo; the five decisions were checked only via the proposal's relay of them.
+- `task spec:validate` / openspec strict validation not re-run by me (claimed pass 14/14).

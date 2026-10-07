@@ -1,0 +1,23 @@
+## Verdict: CONCERNS
+
+Reviewed the full range `3ee21266..HEAD` (code identical from verified rev `81bea0b0`; only openspec docs since). Re-ran, green: build+vet; `validation`, `test/schema`, `api`, `collect` (stamp tests), `sink` (tombstone/evict ×2), `controller` (tracker/requestedAt/cluster-count unit tests), focused `sink/git` incl. release/warm-mirror engine loops, and the envtest delete-watch wiring spec (1/1). Verified premises live: controller-runtime v0.24.1 unwraps `DeletedFinalStateUnknown` before DeleteFunc (`pkg/internal/source/event_handler.go:122-146`); x/crypto v0.57.0 registers both new KEX algos (`ssh/common.go:54,62`, `ssh/kex.go:409,448`); all three family-sink reconcilers register the delete watch (`cmd/main.go:276-300`).
+
+## Findings
+- [WARNING] Upgrade note overclaims: persisted `engine: cli` fails *transiently*, not terminally, and retries forever — `docs/operator-manual/upgrading.md:250-253`
+  Failure: persisted `engine: cli` sink → `applyGitSpec` returns a bare `fmt.Errorf` (`internal/sink/git/config.go:169-171`) → `RunExportEnvelope` wraps via `ClassifyAPI` (`internal/sink/export.go:175-178`), default branch → Transient (`internal/errors/errors.go:136-137`). The circuit breaker wraps only the export call, not acquire (`internal/sink/export.go:267`), so every debounce-interval reconcile reattempts a permanently failing build. The registry's own precedent classifies the identical error shape ("only a spec change fixes it") as Terminal (`internal/sink/registry.go:86-91`).
+  Fix: wrap the rejection in `kollecterrors.Terminal` in `applyGitSpec` (one line); then the note is true. Confidence: 85
+- [WARNING] Evict-on-delete can leak a NATS connection: pooled-in-use path lacks the owning-release guard the r2 fix added for builds — `internal/sink/backend_pool.go:136-141`
+  Failure: pooled NATS backend acquired (no-op release), sink deleted mid-export → `evictPoolKeyForDelete` Closes it (`backend_pool.go:302-313`); the in-flight export then calls `jetStream()`, sees `nc==nil`, redials and stores a fresh connection (`internal/sink/nats/backend.go:115-156`), publishes to the deleted sink, and nothing ever Closes that connection — the exact leak class commit aa967f23 fixed for tombstoned builds, left open here. Bounded (≤1 conn per racy delete) and new with this branch: pre-branch, Close-during-use could not happen (TTL prunes only idle entries).
+  Fix: add a `closed` flag to the nats `Backend`; `Close()` sets it, `jetStream()` errors instead of redialing when set. Confidence: 70
+- [NOTE] Zero-interval bypass is stronger than "debounced" — a `requestedAt` change forces one export into material-change-only (`interval: 0`) sinks — `internal/controller/per_sink_export.go:76-87`
+  Failure: none observed; defensible under ERA-1's "every sink binding that would otherwise be debounced", pinned by test and code comment — but the spec prose never names this corner; an operator setting `exportMinInterval: 0` to mean "never on a timer" still gets manual pushes. Keep, but worth a sentence in the annotation doc row. Confidence: 40 (that it surprises anyone)
+- [NOTE] Orphaned `.gitignore` comment with no pattern; stale "engine" loop labels now select delivery mechanisms, not engines — `.gitignore:97`, `internal/sink/git/release_test.go:147`, `internal/sink/git/prune_merge_target_test.go:90,168`
+  Failure: cosmetic/maintenance only; both compile and still cover the surviving file:// CLI machinery. Confidence: 90
+- [NOTE] Known-open item surfaced for B: cluster path has no count-resync equivalent of `targetCountResync()` (`internal/controller/kollecttarget_controller.go:359`); a quiet cluster target's `collectedCount` ages without reconciles while the namespaced one self-requeues. Spec-silent (TSP-1 says "last healthy refresh"); loop.md carries it as an owner decision request. Confidence: 60
+
+## Could not check
+- `task lint` / `task verify` / `task spec:validate` / coverage-floor run: executing them regenerates files in-place (forbidden in this read-only run); I hand-verified generated artifacts against markers instead (CRD enum, printer columns, deepcopy, golden openapi, both CRD copies) — no drift seen
+- Full `internal/sink/git -race -count=2` (505 s) and `task test-integration` (no Docker); integration-tier rows stay CI-owned
+- Mutation-testing the new tests (read-only); assessed non-vacuity by reading: tracker/KEX/enum/printer/delete-only-handler tests fail if their guarded clause is removed
+- Sibling knowledge-base artefacts named in proposal.md (`data/kollect-xconsol-*` §7 source) — outside this repo
+- The untracked `reviews/B-branch/` dir is this review's own stage; not read
