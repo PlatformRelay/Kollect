@@ -46,9 +46,10 @@ Commits with `Signed-off-by`.
   both inventory controllers (export + preview paths), narrow the `ANNOTATIONS-LABELS.md` row
   to the two inventory kinds and state the implemented semantics (ERA-1). Makes T01(a) green.
   — closed 2026-10-07, evidence: evidence/T05.md
-- [ ] T06 Implement `collectedGeneration` stamp in `PruneResource` after prune/scrub; clarify
+- [x] T06 Implement `collectedGeneration` stamp in `PruneResource` after prune/scrub; clarify
   the `ANNOTATIONS-LABELS.md` row to the Resource-mode embedded copy with implemented
   semantics (ERA-2). Makes T01(b) green.
+  — closed 2026-10-07, evidence: evidence/T06.md
 - [ ] T07 Implement cluster-target parity: reuse the namespaced sync semantics via a shared
   helper, wire the count into the ONE existing cluster escape-hatch write
   (`persistFilterStatusIfSkipped` extended to `filterChanged || countChanged`), regenerate CRDs
