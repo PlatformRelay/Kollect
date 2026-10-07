@@ -64,9 +64,9 @@ integration files) because the default build skips them.
 
 ## 10. Stage-B hygiene fixes (records + test names only)
 
-- [ ] 10.1 Rename the test-local in-memory commit helper in `internal/sink/git/export_test.go` so no identifier keeps the deleted `ExportMemory` spelling greppable (helper `exportMemory` and the `TestExportMemory*` test names; pick a descriptive name without the substring, e.g. around "in-memory commit"); assertions and bodies unchanged
-- [ ] 10.2 Refresh the stale line anchors the deletion invalidated: `evidence/T1.md` coverage-accounting rows (:389/:463/:517 → current anchors) and the `export_test.go` comment that cites `export.go:125-127` — prefer citing symbols over line numbers so anchors cannot go stale again
-- [ ] 10.3 Gates: `go build ./...`, `go vet ./...`, `go test ./internal/sink/git/` green; `task spec:validate` 14/14
+- [x] 10.1 Rename the test-local in-memory commit helper in `internal/sink/git/export_test.go` so no identifier keeps the deleted `ExportMemory` spelling greppable (helper `exportMemory` and the `TestExportMemory*` test names; pick a descriptive name without the substring, e.g. around "in-memory commit"); assertions and bodies unchanged — closed 2026-10-07, evidence: evidence/T10.md
+- [x] 10.2 Refresh the stale line anchors the deletion invalidated: `evidence/T1.md` coverage-accounting rows (:389/:463/:517 → current anchors) and the `export_test.go` comment that cites `export.go:125-127` — prefer citing symbols over line numbers so anchors cannot go stale again — closed 2026-10-07, evidence: evidence/T10.md
+- [x] 10.3 Gates: `go build ./...`, `go vet ./...`, `go test ./internal/sink/git/` green; `task spec:validate` 14/14 — closed 2026-10-07, evidence: evidence/T10.md
 
 ## Verification
 
