@@ -20,12 +20,12 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
-func TestExportMemory(t *testing.T) {
+func TestCommitInMemoryRepo(t *testing.T) {
 	t.Parallel()
 
-	hash, err := exportMemory([]byte(`{"items":[]}`), "inventory/latest.json")
+	hash, err := commitInMemoryRepo([]byte(`{"items":[]}`), "inventory/latest.json")
 	if err != nil {
-		t.Fatalf("exportMemory() error = %v", err)
+		t.Fatalf("commitInMemoryRepo() error = %v", err)
 	}
 
 	if hash.IsZero() {
@@ -33,22 +33,22 @@ func TestExportMemory(t *testing.T) {
 	}
 }
 
-func TestExportMemory_emptyPathUsesDefaultObjectKey(t *testing.T) {
+func TestCommitInMemoryRepo_emptyPathUsesDefaultObjectKey(t *testing.T) {
 	t.Parallel()
 
-	hash, err := exportMemory([]byte(`{"items":[]}`), "")
+	hash, err := commitInMemoryRepo([]byte(`{"items":[]}`), "")
 	if err != nil {
-		t.Fatalf("exportMemory() error = %v", err)
+		t.Fatalf("commitInMemoryRepo() error = %v", err)
 	}
 	if hash.IsZero() {
 		t.Fatal("expected non-zero commit hash")
 	}
 }
 
-func TestExportMemory_rejectsTraversal(t *testing.T) {
+func TestCommitInMemoryRepo_rejectsTraversal(t *testing.T) {
 	t.Parallel()
 
-	if _, err := exportMemory([]byte(`{"items":[]}`), "../escape.json"); err == nil {
+	if _, err := commitInMemoryRepo([]byte(`{"items":[]}`), "../escape.json"); err == nil {
 		t.Fatal("expected error for path traversal")
 	}
 }
@@ -432,7 +432,7 @@ func exportForTest(ctx context.Context, cfg Config, auth Auth, payload []byte, o
 	return ExportWithBranch(ctx, cfg, auth, payload, objectPath, nil, commitCtx)
 }
 
-func exportMemory(payload []byte, objectPath string) (plumbing.Hash, error) {
+func commitInMemoryRepo(payload []byte, objectPath string) (plumbing.Hash, error) {
 	repo, err := git.Init(memory.NewStorage(), memfs.New())
 	if err != nil {
 		return plumbing.ZeroHash, err

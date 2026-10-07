@@ -70,7 +70,7 @@ func TestExportErrorReason(t *testing.T) {
 func TestRunExportEnvelope_guards(t *testing.T) {
 	t.Parallel()
 
-	// nil registry → terminal error (line 125-127)
+	// nil registry → terminal error (RunExportEnvelope, export.go:75-77)
 	_, err := RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:      context.Background(),
 		Registry: nil,
@@ -83,7 +83,7 @@ func TestRunExportEnvelope_guards(t *testing.T) {
 		t.Fatalf("nil registry error = %q, want registry mention", err)
 	}
 
-	// empty sink type → terminal error (line 129-131)
+	// empty sink type → terminal error (RunExportEnvelope, export.go:79-81)
 	_, err = RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:      context.Background(),
 		Registry: NewRegistry(),
