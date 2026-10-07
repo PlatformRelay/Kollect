@@ -93,6 +93,30 @@ func assertPooled(t *testing.T, builds *atomic.Int32) {
 	}
 }
 
+// TestFamilySinkDeleteEventHandler_isDeleteOnly pins the delete-only shape of
+// the handler the generic SetupWithManager wires: a future edit that adds
+// CreateFunc/UpdateFunc/GenericFunc would evict live sinks' pooled backends on
+// every create or status update — this test fails before that ships.
+func TestFamilySinkDeleteEventHandler_isDeleteOnly(t *testing.T) {
+	h := familySinkDeleteEventHandler()
+
+	if h.DeleteFunc == nil {
+		t.Fatal("delete watch lost its DeleteFunc (want set)")
+	}
+
+	if h.CreateFunc != nil {
+		t.Fatal("create events must not reach the delete hook (want no CreateFunc)")
+	}
+
+	if h.UpdateFunc != nil {
+		t.Fatal("update events must not evict live sinks' pooled backends (want no UpdateFunc)")
+	}
+
+	if h.GenericFunc != nil {
+		t.Fatal("generic events must not reach the delete hook (want no GenericFunc)")
+	}
+}
+
 func TestEvictBackendPoolOnSinkDelete_evictsPooledEntryByObjectIdentity(t *testing.T) {
 	sink.EnableBackendPoolForTest()
 	t.Cleanup(func() {

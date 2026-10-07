@@ -156,24 +156,35 @@ func acquireBackend(
 	if discard != nil {
 		closeBackendLogged(discard, reason)
 	}
+	if reason == reasonDeleteTombstone {
+		// Nothing was pooled for the deleted sink: the caller owns the built
+		// backend and its release Closes it once the export is done.
+		return backend, func() { closeBackendLogged(backend, "delete tombstone release") }, nil
+	}
 
 	return backend, func() {}, nil
 }
 
+// reasonDeleteTombstone marks the store decision for a tombstoned key: nothing
+// was pooled, and acquireBackend hands the built backend to its caller with an
+// owning release instead of closing it — the caller's release Closes it after
+// its export is done, so a backend that self-heals on Close (e.g. the nats
+// re-dial in jetStream) cannot leak a fresh connection for a deleted sink.
+const reasonDeleteTombstone = "delete tombstone"
+
 // storePooledBackend saves built under key, or keeps the pooled backend when
 // specHash already matches. A key that carries a delete-tombstone (the sink
 // was deleted while the build was in flight) pools nothing: the built backend
-// is returned as both pooled and discard so the caller Closes it once and
-// hands the closed backend to its caller — the sink no longer exists, so the
-// export it backs may fail against it (BEP-1) and no entry is ever pooled.
-// The function unlocks before returning so the caller can Close discard
-// without holding globalBackendPool.mu.
+// is handed to the caller open, and the release acquireBackend returns Closes
+// it exactly once (reasonDeleteTombstone). Nothing is ever pooled for the
+// deleted sink (BEP-1). The function unlocks before returning so the caller
+// can Close discard without holding globalBackendPool.mu.
 func storePooledBackend(key poolKey, specHash string, now time.Time, built Backend) (Backend, Backend, string) {
 	globalBackendPool.mu.Lock()
 	defer globalBackendPool.mu.Unlock()
 
 	if _, deleted := globalBackendPool.tombstones[key]; deleted {
-		return built, built, "delete tombstone"
+		return built, nil, reasonDeleteTombstone
 	}
 
 	old, ok := globalBackendPool.entries[key]

@@ -92,6 +92,22 @@ func evictBackendPoolOnSinkDelete(obj client.Object) {
 	sink.EvictBackendPoolForSink(obj.GetUID(), obj.GetNamespace(), obj.GetName())
 }
 
+// familySinkDeleteEventHandler builds the delete-only event handler for the
+// family-sink delete watches (BEP-1): only Delete reaches the seam — Create,
+// Update and Generic stay no-ops so live sinks are never evicted by this watch
+// (their spec changes swap the pooled entry on acquire). controller-runtime
+// unwraps DeletedFinalStateUnknown tombstones before DeleteFunc runs
+// (internal/source/event_handler.go OnDelete), so the object carries the
+// sink's last-known identity; the seam falls back to namespace/name only when
+// that object carries no UID.
+func familySinkDeleteEventHandler() handler.Funcs {
+	return handler.Funcs{
+		DeleteFunc: func(_ context.Context, e event.DeleteEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			evictBackendPoolOnSinkDelete(e.Object)
+		},
+	}
+}
+
 func (r *FamilySinkReconciler[T, PT]) SetupWithManager(mgr ctrl.Manager) error {
 	var t T
 
@@ -103,11 +119,7 @@ func (r *FamilySinkReconciler[T, PT]) SetupWithManager(mgr ctrl.Manager) error {
 		For(PT(&t)).
 		Watches(
 			PT(&t),
-			handler.Funcs{
-				DeleteFunc: func(_ context.Context, e event.DeleteEvent, _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-					evictBackendPoolOnSinkDelete(e.Object)
-				},
-			},
+			familySinkDeleteEventHandler(),
 		).
 		Named(r.Name).
 		Complete(r)

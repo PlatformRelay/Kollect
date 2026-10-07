@@ -380,6 +380,65 @@ func TestEvictBackendPoolForSink_specUpdateIsNotEviction(t *testing.T) {
 	}
 }
 
+func TestAcquireBackend_tombstoneHandsBackendToCallerWithOwningRelease(t *testing.T) {
+	backendPoolDisabled.Store(false)
+	t.Cleanup(func() { ResetBackendPoolForTest() })
+
+	scheme := runtime.NewScheme()
+	_ = kollectdevv1alpha1.AddToScheme(scheme)
+
+	spec := kollectdevv1alpha1.KollectSinkSpec{Type: "counting"}
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	var builtMu sync.Mutex
+	var builds []*closeCountBackend
+	reg := NewRegistry()
+	reg.Register("counting", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		b := &closeCountBackend{}
+		builtMu.Lock()
+		builds = append(builds, b)
+		builtMu.Unlock()
+
+		return b, nil
+	})
+
+	const uid = types.UID("tombstone-owning-release-uid")
+	if _, release, err := acquireBackend(context.Background(), cl, reg, "team-a", "owning-release", uid, spec); err != nil {
+		t.Fatalf("pooling acquire: %v", err)
+	} else {
+		release()
+	}
+
+	EvictBackendPoolForSink(uid, "team-a", "owning-release")
+
+	// The sink was deleted while this build ran: nothing is pooled, and the
+	// built backend must be handed to the caller OPEN — the caller owns it
+	// until its export is done, and its release Closes it exactly once. A
+	// backend Closed before the export runs is what lets a self-healing
+	// backend (e.g. nats) re-dial mid-export and leak the new connection.
+	b, release, err := acquireBackend(context.Background(), cl, reg, "team-a", "owning-release", uid, spec)
+	if err != nil {
+		t.Fatalf("acquire after eviction: %v", err)
+	}
+
+	builtMu.Lock()
+	postEviction := builds[len(builds)-1]
+	builtMu.Unlock()
+
+	if b != postEviction {
+		t.Fatal("tombstone acquire returned an unexpected backend")
+	}
+
+	if postEviction.closes.Load() != 0 {
+		t.Fatalf("tombstone acquire Closed the handed-off backend before release (closes=%d, want 0)", postEviction.closes.Load())
+	}
+
+	release()
+
+	if postEviction.closes.Load() != 1 {
+		t.Fatalf("release did not Close the handed-off backend exactly once (closes=%d, want 1)", postEviction.closes.Load())
+	}
+}
+
 func TestEvictBackendPoolForSink_tombstonesAgeOutOnTheOpportunisticCycle(t *testing.T) {
 	backendPoolDisabled.Store(false)
 	t.Cleanup(func() {

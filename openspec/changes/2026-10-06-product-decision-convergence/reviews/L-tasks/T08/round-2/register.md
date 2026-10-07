@@ -1,0 +1,14 @@
+## Unified verdict: BLOCK (legs ok: 2/2)
+| # | Sev | Claim (one line) | Where | Models | Legs | Conf |
+|---|---|---|---|---|---|---|
+| 1 | CRITICAL | Tombstone-discard path returns the just-Closed backend as the live one (`return built, built, "delete tombstone"`), and round-1's rejection premise "no backend nils a field its Export dereferences" is false: nats `Close` nils `nc`/`js`, `Export`→`jetStream` re-dials on nil `js`, so the export to a deleted sink **succeeds** on a fresh connection that nobody ever Closes (pool entry never stored, release is a no-op) → one leaked NATS connection per mid-build delete; fix is to return `Terminal("sink deleted mid-build")` instead of the discarded backend, or correct the rejection rationale and the `backend_pool.go:165-168` comment | internal/sink/backend_pool.go:155-160,175-177 + internal/sink/nats/backend.go:77-86,116-156 | DeepSeek, Qwen3.8 | both | 100 |
+| 2 | WARNING | Delete-only eviction invariant (no eviction on Create/Update/Generic) is pinned by review, not by a machine sensor: nothing fails if a future edit adds `UpdateFunc`/`GenericFunc` eviction — every status update would Close a live sink's pooled backend — and the new envtest spec only exercises Delete | internal/controller/family_sink_controller.go:106-110 | DeepSeek, Qwen3.8 | both | 100 |
+
+## Disagreements
+- Entry #1, `backend_pool.go:175-177`: DeepSeek judged the closed-backend handback benign (BEP-1's sanctioned "export may fail against it" window, conf 80) without reading backend `Close`/`Export` bodies; Qwen3.8 read nats end to end and showed the export succeeds-and-leaks instead of failing. I re-verified Qwen's mechanics on this tree (tombstone double-return, nats nil-and-redial) — Qwen is right, DeepSeek's benignity was an unverified guess.
+- Wiring closure: DeepSeek called the delete wiring "pinned" by the envtest spec (`spy.closes==1`, conf 90); Qwen3.8 and DeepSeek's own first NOTE agree it pins only the Delete half — no spec asserts non-eviction on Update/Generic.
+
+## Nobody could check
+- Neither leg re-ran `task lint`, go-arch-lint, gitleaks, `task verify`, `task test-integration`; Qwen ran nothing at all (all green matrix results taken from `evidence/T08.md`), DeepSeek ran build/vet/gofmt, sink `-race`, and the controller envtest suite but not the full `-count=2` sink run (documented pre-existing `breakerRegistry` race).
+- Backend internals beyond nats: postgres/mongodb/kafka mid-Export behaviour taken from the round-1 disposition (DeepSeek read no backend bodies; Qwen checked only presence/absence of `Close()` in s3/gcs/local/bigquery).
+- HA/leader-election assumption (per-process pool, only the leader exports) not verified against deployment docs; prior-round registers deliberately not opened by either leg (out-of-bounds), so dispositions rest on what `evidence/T08.md` quotes verbatim.

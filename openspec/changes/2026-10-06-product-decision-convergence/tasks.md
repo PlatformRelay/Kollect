@@ -57,10 +57,11 @@ Commits with `Signed-off-by`.
   `docs/crds/kollecttarget.md` only if it restates fields), regen glossary (TSP-1). Makes T02
   green.
   — closed 2026-10-07, evidence: evidence/T07.md
-- [ ] T08 Implement evict-on-delete: family-sink controller delete watch per kind calling the
+- [x] T08 Implement evict-on-delete: family-sink controller delete watch per kind calling the
   seam (UID eviction; ns/name fallback only when the event object carries no UID), pool-side
   delete-tombstone discarding in-flight re-stores, pool comment truth-up (the "no caller"
   claim goes away), TTL comment stays as backstop (BEP-1, BEP-2). Makes T03 green.
+  — closed 2026-10-07, evidence: evidence/T08.md
 - [ ] T09 Implement the git-engine convergence: CRD enum marker becomes `go-git` only, remove
   the exported `GitEngineCLI` API constant, admission validation and backend config reject
   `cli` naming `go-git`, remove the engine branch points and the internal `GitEngine` type and
