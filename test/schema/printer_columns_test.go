@@ -48,6 +48,53 @@ func TestKollectTargetPrinterColumns(t *testing.T) {
 	}
 }
 
+// TestKollectClusterTargetPrinterColumns is the TSP-1 cluster parity for the namespaced
+// guard above (D3 — one contract, twice): `kubectl get kollectclustertargets` must show
+// Collected and Updated on the same status paths, and — because declaring any
+// additionalPrinterColumns suppresses the apiserver's default AGE column — the Age entry the
+// namespaced kind carries must be mirrored too, or the cluster kind would silently lose it.
+func TestKollectClusterTargetPrinterColumns(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	want := map[string]string{
+		"Collected": ".status.collectedCount",
+		"Updated":   ".status.collectedCountUpdatedAt",
+		"Age":       ".metadata.creationTimestamp",
+	}
+
+	paths := map[string]string{
+		"config/crd/bases": CRDPath(root, "kollect.dev_kollectclustertargets.yaml"),
+		"charts/kollect/crds": root +
+			"/charts/kollect/crds/kollect.dev_kollectclustertargets.yaml",
+	}
+
+	for source, path := range paths {
+		t.Run(source, func(t *testing.T) {
+			t.Parallel()
+
+			got := printerColumns(t, path)
+			for name, jsonPath := range want {
+				if got[name] != jsonPath {
+					t.Fatalf("printer column %q = %q, want %q (columns: %v)", name, got[name], jsonPath, got)
+				}
+			}
+
+			// Mirroring is asserted, not just claimed: the cluster column set must equal
+			// the namespaced one. The namespaced test pins that set absolutely, so
+			// equality here transitively pins the cluster set against name or path drift
+			// on either side.
+			namespaced := printerColumns(t, CRDPath(root, "kollect.dev_kollecttargets.yaml"))
+			for name, jsonPath := range got {
+				if namespaced[name] != jsonPath {
+					t.Fatalf("cluster printer column %q = %q, want the namespaced %q (mirroring)",
+						name, jsonPath, namespaced[name])
+				}
+			}
+		})
+	}
+}
+
 // printerColumns returns every additionalPrinterColumn declared by a CRD manifest, keyed
 // by column name.
 func printerColumns(t *testing.T, path string) map[string]string {

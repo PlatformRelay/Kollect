@@ -60,6 +60,7 @@ type KollectClusterTargetStatus struct {
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Collected",type=integer,JSONPath=`.status.collectedCount`
 // +kubebuilder:printcolumn:name="Updated",type=date,JSONPath=`.status.collectedCountUpdatedAt`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // KollectClusterTarget selects resources cluster-wide for platform operators.
 type KollectClusterTarget struct {

@@ -9,7 +9,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -287,21 +286,18 @@ func (r *KollectTargetReconciler) setDegraded(
 	return err
 }
 
-// syncCollectedCount records the freshly derived resource count on status, returning the
-// stored value and whether it moved. The timestamp marks when the number last *changed*,
-// so an operator can tell a live count from one frozen by a degraded or failing target —
-// the whole point of PERF-FIX-05: the old prose-only count could not signal staleness.
+// syncCollectedCount records the freshly derived resource count on the target's status,
+// returning the stored value and whether it moved. The semantics (timestamp marks when the
+// number last *changed*, so an operator can tell a live count from one frozen by a degraded
+// or failing target — the whole point of PERF-FIX-05: the old prose-only count could not
+// signal staleness) live in syncCollectedCountFields, shared with the cluster-scoped
+// KollectClusterTarget (TSP-1 / D3 — one contract, twice).
 func syncCollectedCount(target *kollectdevv1alpha1.KollectTarget, collected int) (int64, bool) {
-	next := int64(collected)
-	if target.Status.CollectedCount != nil && *target.Status.CollectedCount == next {
-		return next, false
-	}
-
-	now := metav1.Now()
-	target.Status.CollectedCount = &next
-	target.Status.CollectedCountUpdatedAt = &now
-
-	return next, true
+	return syncCollectedCountFields(
+		&target.Status.CollectedCount,
+		&target.Status.CollectedCountUpdatedAt,
+		collected,
+	)
 }
 
 func (r *KollectTargetReconciler) setReady(

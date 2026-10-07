@@ -113,6 +113,17 @@ Scope violations unregister the target's informers before degrading, so collecti
 rejects these cases up front; reconcile repeats the check as backstop for objects admitted before the
 ceiling existed or before `profileRef` resolved ([ADR-0207](../adr/0207-target-collection-filtering.md)).
 
+## Status fields
+
+`kubectl get kctgt` surfaces these fields in the `Collected` and `Updated` printer columns
+(`Age` shows the object's age). The contract mirrors the namespaced
+[`KollectTarget`](kollecttarget.md) — one contract, twice.
+
+| Field | Meaning |
+| --- | --- |
+| `status.collectedCount` | Number of resources the cluster target was collecting at its last healthy refresh — the machine-readable number the Ready message restates as prose. `null` means never computed; `0` is a measured zero. A Degraded target keeps its last known count. |
+| `status.collectedCountUpdatedAt` | When `collectedCount` last **changed** — not when it was last checked. A steady count keeps its timestamp, so an old timestamp on its own does not mean the number is stale; read it together with the conditions. |
+
 ## RBAC
 
 | Actor | Verbs | Resource | Notes |

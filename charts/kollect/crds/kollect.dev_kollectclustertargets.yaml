@@ -16,7 +16,17 @@ spec:
     singular: kollectclustertarget
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.collectedCount
+      name: Collected
+      type: integer
+    - jsonPath: .status.collectedCountUpdatedAt
+      name: Updated
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: KollectClusterTarget selects resources cluster-wide for platform
@@ -303,6 +313,21 @@ spec:
                 description: activeResourceRules is the number of compiled resourceRules
                   entries (0 when using legacy fallback).
                 type: integer
+              collectedCount:
+                description: |-
+                  collectedCount is the number of resources this cluster target was collecting when the
+                  controller last refreshed the count. Semantics are identical to KollectTarget's
+                  collectedCount (design D3 — one contract, twice): null means never computed, zero is a
+                  measured zero, and a Degraded target keeps its last known count.
+                format: int64
+                type: integer
+              collectedCountUpdatedAt:
+                description: |-
+                  collectedCountUpdatedAt is when collectedCount last *changed* — not when it was last
+                  checked. It moves only when the number moves, so it pairs with the conditions to tell
+                  a steady count from a stale one.
+                format: date-time
+                type: string
               conditions:
                 description: conditions represent the current state of the KollectClusterTarget
                   resource.

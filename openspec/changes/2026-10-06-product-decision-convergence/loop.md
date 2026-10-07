@@ -61,12 +61,13 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | T04 | CLOSED-WITH-GAPS (1 commit 4161a55d, amended) | r1 2/2 legs (DeepSeek+QFN diff) CONCERNS -> 1 finding rejected with reason (KEX block-first reading), 1 verified scaffolding drift fixed, no round 2; no Claude | gaps: 4 reds green only at T09; routing branch has no outcome-level sensor (rides on T09's diff review); CRD-enum green depends on T09's regen incl. the schema-package golden |
 | T05 | CLOSED-WITH-GAPS (commit 8cfd88d6, amended with closure) | r1 2/2 legs (DeepSeek+QFN diff) CONCERNS -> F1 CRITICAL verified as coverage gap (zero-interval ordering unpinned) fixed with a pin test, F2 rejected (tick is the close step); no Claude, no round 2 | gaps: task verify to T07/T09 (no generated artifact); integration tier (no Docker); task-prompt.md MD032 deferred to owner at B; T01(a) 6 known reds cleared |
 | T03 | CLOSED-WITH-GAPS (3 commits f0e82035, 0632218d, 3264913d) | r1 1/2 legs (DeepSeek truncated 900s, QFN diff) CONCERNS->fixed; r2 2/2 (DeepSeek+QFN diff) BLOCK register->all 3 verified, 2 fixed as reds/guards, 1 deferred; no Claude | gaps: pre-existing breakerRegistry parallel-test race deferred (harness task + owner); log-sensor clause; watch-side Delete-only wiring is T08's |
+| T07 | CLOSED-WITH-GAPS (commit 86e4636b, amended with closure) | r1 2/2 legs (DeepSeek+QFN diff), register BLOCK -> #1 CRITICAL rejected as spec-silent (register itself records the promotion artifact; both legs' verdicts CONCERNS) + deferred as the cadence decision request, #2/#3 verified coverage/claim-pinning gaps fixed with tests, no round 2; no Claude | gaps: cluster count-refresh cadence decision request (owner, B-branch); integration tier (no Docker); Age-suppression mechanism believed (namespaced guard states it) |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
 |---|---|---|---|
 | internal/collect/prune_collected_generation_test.go + dispatch test (4 tests incl. scrub-survival) | ERA-2 | T01 | T06 |
-| internal/controller/kollectclustertarget_collected_count_test.go (4 tests; T02's Known red — loop.md previously misnamed this `cluster_target_status_test.go`) | TSP-1 | T02 | |
+| internal/controller/kollectclustertarget_collected_count_test.go (4 tests; T02's Known red — loop.md previously misnamed this `cluster_target_status_test.go`) | TSP-1 | T02 | T07 |
 | internal/sink/backend_pool_delete_hook_test.go (4 tests) | BEP-1 | T03 | |
 | internal/validation engine_convergence_test.go + internal/sink/git kex test + test/schema engine_enum_test.go (GTE-1/GTE-2 reds) | GTE-1/GTE-2 | T04 | |
 | internal/validation/engine_convergence_test.go TestValidateGitSpec_rejectsCLINamingGoGit | GTE-1 | T04 | |
@@ -98,6 +99,10 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 - (T04) GTE-2's SHALL body and its scenario admit two orderings readings; task text pinned the scenario (relative-order) reading for T04 — the block-first reading was raised in review and rejected as over-constraining; T09 should not silently re-litigate it.
 - (T06) A pre-change test's exact deep-equality (copy == input) goes stale when the copy legitimately gains a mandated field: pin the new field inside the strip/compare helper (assert presence, then strip) instead of weakening the comparison — both review legs verified that shape independently.
 - (T06) An unconditional SHALL plus a "no-metadata" scenario reads as "stamp iff a metadata map survives"; the delta's specific scenario resolves the general clause. Pin the default-selector branch (IncludeOrDefault) when an implementation keys off it — both legs flagged the missing default-include pin.
+- (T07) A unified register can headline BLOCK on a severity promotion while both legs' own verdicts are CONCERNS: verify findings against the spec and map on verified findings, recording the promotion.
+- (T07) A "mirroring X" claim needs an equality assertion against X, not a re-typed copy of X's expectations (the copy passes while the sides drift).
+- (T07) gen-glossary.py needs PyYAML; system python3 lacks it and the drift gate calls bare `python3` — run the gate with the mise python 3.12 bin on PATH.
+- (T07) Updating a pre-existing test's stale premise can orphan incidental coverage it carried (skipsWrite nil→0) — pin the orphaned case explicitly.
 
 ## Where a human should look first
 <!-- filled at hand-off -->
