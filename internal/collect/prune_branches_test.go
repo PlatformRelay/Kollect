@@ -19,6 +19,32 @@ func TestPruneResource_nilObjectReturnsNil(t *testing.T) {
 	}
 }
 
+// stripCollectedGenerationStamp removes the ERA-2 stamp from an embedded copy
+// before the deep comparison. The stamp is applied after every prune path
+// (design D2: written whenever a metadata map survives), so it is present even
+// when the pointers under test are no-ops; these tests assert that the pointers
+// themselves mutate nothing else, and the stamp assertion inside the helper
+// keeps that contract pinned.
+func stripCollectedGenerationStamp(t *testing.T, got map[string]any) {
+	t.Helper()
+
+	meta, ok := got["metadata"].(map[string]any)
+	if !ok {
+		t.Fatal("no metadata in the copy")
+	}
+
+	annotations, ok := meta["annotations"].(map[string]any)
+	if !ok {
+		t.Fatal("no annotations in the copy (the ERA-2 stamp must be present whenever metadata survives)")
+	}
+
+	if _, ok := annotations[kollectdevv1alpha1.AnnotationCollectedGeneration]; !ok {
+		t.Fatal("copy missing the ERA-2 collectedGeneration stamp")
+	}
+
+	delete(annotations, kollectdevv1alpha1.AnnotationCollectedGeneration)
+}
+
 // TestPruneResource_invalidPointersAreNoOps locks that malformed RFC 6901 pointers
 // never mutate the object and never panic.
 func TestPruneResource_invalidPointersAreNoOps(t *testing.T) {
@@ -37,6 +63,7 @@ func TestPruneResource_invalidPointersAreNoOps(t *testing.T) {
 	got := PruneResource(sampleDeployment(), export, nil)
 	want := sampleDeployment().Object
 
+	stripCollectedGenerationStamp(t, got)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("invalid pointers mutated the object:\ngot  %#v\nwant %#v", got, want)
 	}
@@ -163,6 +190,7 @@ func TestPruneResource_unsupportedJSONPathsAreNoOps(t *testing.T) {
 	got := PruneResource(sampleDeployment(), export, nil)
 	want := sampleDeployment().Object
 
+	stripCollectedGenerationStamp(t, got)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unsupported JSONPaths mutated the object:\ngot  %#v\nwant %#v", got, want)
 	}

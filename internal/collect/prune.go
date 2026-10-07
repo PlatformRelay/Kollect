@@ -76,7 +76,37 @@ func PruneResource(
 		}
 	}
 
+	stampCollectedGeneration(root, obj)
+
 	return root
+}
+
+// stampCollectedGeneration records the source object's metadata.generation on
+// the embedded copy's metadata.annotations (ERA-2, design D2). It runs after
+// pruning and scrubbing, so profile prune paths and scrub rules cannot remove
+// or redact the stamp. When the profile's include section leaves no metadata
+// map, the copy is exported without one rather than inventing a metadata block
+// the profile excluded; generation 0 (or an absent field) still stamps "0" so
+// "no stamp" and "generation 0" never collapse. The generation is read from the
+// source object: the built-in prune pointers drop /metadata/generation from the
+// copy itself.
+func stampCollectedGeneration(root map[string]any, src *unstructured.Unstructured) {
+	if src == nil {
+		return
+	}
+
+	meta, ok := root["metadata"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	annotations, ok := meta["annotations"].(map[string]any)
+	if !ok {
+		annotations = make(map[string]any, 1)
+		meta["annotations"] = annotations
+	}
+
+	annotations[kollectdevv1alpha1.AnnotationCollectedGeneration] = strconv.FormatInt(src.GetGeneration(), 10)
 }
 
 // selectIncludeSections returns a new object keeping only the requested top-level

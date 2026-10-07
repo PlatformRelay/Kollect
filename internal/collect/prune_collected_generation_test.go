@@ -69,6 +69,27 @@ func TestPruneResource_stampsCollectedGeneration(t *testing.T) {
 	}
 }
 
+// TestPruneResource_stampIncludesGenerationZero pins the design-D2 honesty
+// clause: generation 0 (or an absent generation field) still stamps "0" when a
+// metadata map survives, so "no stamp" and "generation 0" never collapse.
+func TestPruneResource_stampIncludesGenerationZero(t *testing.T) {
+	t.Parallel()
+
+	obj := deploymentWithGeneration(0)
+	export := &kollectdevv1alpha1.ExportSpec{
+		Mode:    kollectdevv1alpha1.ExportModeResource,
+		Include: kollectdevv1alpha1.ExportIncludeAll,
+	}
+
+	got := PruneResource(obj, export, NewScrubber(nil))
+
+	annotations := embeddedAnnotationsOf(t, got)
+	if stamp := annotations[collectedGenerationAnnotation]; stamp != "0" {
+		t.Fatalf("collectedGeneration stamp = %v, want \"0\" "+
+			"(generation 0 must not collapse into \"no stamp\")", stamp)
+	}
+}
+
 // TestPruneResource_stampSurvivesAnnotationPrune locks the ordering claim:
 // the stamp is applied after profile pruning, so a prune path that removes
 // metadata.annotations wholesale cannot erase it.
