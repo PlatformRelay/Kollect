@@ -33,7 +33,7 @@ func (r *KollectTargetReconciler) reconcileTargetFinalizers(
 
 	if err := r.ensureTargetFinalizer(ctx, target); err != nil {
 		if apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, true, nil
+			return ctrl.Result{RequeueAfter: conflictRequeueAfter}, true, nil
 		}
 
 		return ctrl.Result{}, true, err

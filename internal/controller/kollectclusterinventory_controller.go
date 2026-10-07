@@ -86,7 +86,7 @@ func (r *KollectClusterInventoryReconciler) Reconcile(ctx context.Context, req c
 
 		if err := r.ensureClusterInventoryFinalizer(ctx, &inv); err != nil {
 			if apierrors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
+				return ctrl.Result{RequeueAfter: conflictRequeueAfter}, nil
 			}
 
 			return ctrl.Result{}, err
@@ -700,7 +700,7 @@ func (r *KollectClusterInventoryReconciler) setDegraded(
 
 	if err := r.Status().Update(ctx, inv); err != nil {
 		if apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: conflictRequeueAfter}, nil
 		}
 
 		return ctrl.Result{}, err
@@ -822,7 +822,7 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 
 	if err := r.Status().Update(ctx, inv); err != nil {
 		if apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: conflictRequeueAfter}, nil
 		}
 
 		return ctrl.Result{}, err

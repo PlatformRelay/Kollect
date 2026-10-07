@@ -33,6 +33,7 @@ func guardReconcile(
 				recordWarning(recorder, obj, "ReconcilePanic",
 					fmt.Sprintf("panic recovered: %v", recovered))
 			}
+			//nolint:staticcheck // SA1019: the rate-limited requeue is intentional after a recovered panic — a fixed RequeueAfter delay would hot-loop a persistently panicking reconciler instead of backing off.
 			result = ctrl.Result{Requeue: true}
 			err = nil
 		}

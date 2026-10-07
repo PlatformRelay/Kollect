@@ -74,7 +74,7 @@ func (r *KollectClusterTargetReconciler) Reconcile(ctx context.Context, req ctrl
 
 		if err := r.ensureClusterTargetFinalizer(ctx, &ct); err != nil {
 			if apierrors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
+				return ctrl.Result{RequeueAfter: conflictRequeueAfter}, nil
 			}
 
 			retErr = err
