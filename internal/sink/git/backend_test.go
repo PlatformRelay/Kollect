@@ -7,9 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 )
 
 func TestBackendConfigAndType(t *testing.T) {
@@ -31,6 +33,57 @@ func TestBackendConfigAndType(t *testing.T) {
 	}
 	if b.Capabilities().Stream {
 		t.Fatal("git snapshot should not be stream emitter")
+	}
+}
+
+// TestNewBackend_configFaultsAreTerminal pins the persisted-sink upgrade
+// contract (ADR-0803, upgrading.md): a stored object still carrying a config
+// fault (engine: cli among them) is rejected at backend construction as a
+// TERMINAL error, so the sink's conditions report it terminal instead of
+// requeueing the deterministic fault as transient forever.
+func TestNewBackend_configFaultsAreTerminal(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		spec    kollectdevv1alpha1.KollectSinkSpec
+		wantMsg string
+	}{
+		{
+			name: "persisted engine cli",
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type:     TypeName,
+				Endpoint: "https://example.com/inventory.git",
+				Git:      &kollectdevv1alpha1.GitSpec{Engine: "cli"},
+			},
+			wantMsg: "go-git",
+		},
+		{
+			name: "unsupported pushPolicy",
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type:     TypeName,
+				Endpoint: "https://example.com/inventory.git",
+				Git:      &kollectdevv1alpha1.GitSpec{PushPolicy: "rebase"},
+			},
+			wantMsg: "unsupported git pushPolicy",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := NewBackend(tc.spec, nil, Auth{}, nil)
+			if err == nil {
+				t.Fatal("NewBackend(config fault) error = nil, want a terminal-classified fault")
+			}
+			if !kollecterrors.IsTerminal(err) {
+				t.Fatalf("NewBackend config fault class = %q, want terminal (a deterministic spec fault must not requeue as transient): %v", kollecterrors.ClassOf(err), err)
+			}
+			if !strings.Contains(err.Error(), tc.wantMsg) {
+				t.Fatalf("NewBackend config fault error = %q, want it to name %q", err, tc.wantMsg)
+			}
+		})
 	}
 }
 

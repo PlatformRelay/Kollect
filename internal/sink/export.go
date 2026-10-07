@@ -171,7 +171,18 @@ func RunExportEnvelope(req ExportEnvelopeRequest) ([]string, error) {
 		req.Ctx, req.Client, req.Registry, req.SinkNamespace, req.SinkName, req.SinkUID, req.SinkSpec,
 	)
 	if err != nil {
-		err = kollecterrors.ClassifyAPI(fmt.Errorf("acquire backend for %q: %w", req.SinkName, err))
+		// The acquire error already carries its class when construction
+		// classified it (e.g. git.NewBackend wraps config faults TERMINAL);
+		// ClassifyAPI here would demote that class to transient. For
+		// UNCLASSIFIED acquire errors ClassOf derives the same class the old
+		// re-classification produced (NotFound/Invalid/BadRequest → terminal,
+		// Forbidden → forbidden, else transient); the only case where the old
+		// call disagreed was an already-classified error carrying a
+		// contradicting API status deeper in its chain, which does not occur
+		// at this site (construction faults are never K8s API errors, and
+		// ResolveSecret rewrites a missing secret's NotFound into a plain
+		// error, credentials.go).
+		err = fmt.Errorf("acquire backend for %q: %w", req.SinkName, err)
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
 		return nil, err

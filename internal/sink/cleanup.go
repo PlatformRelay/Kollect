@@ -185,7 +185,12 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 		req.Ctx, req.Client, req.Registry, req.SinkNamespace, req.SinkName, req.SinkUID, req.SinkSpec,
 	)
 	if err != nil {
-		err = kollecterrors.ClassifyAPI(fmt.Errorf("acquire backend for cleanup of %q: %w", req.SinkName, err))
+		// Same as RunExportEnvelope: the acquire error already carries its
+		// class when construction classified it; ClassifyAPI here would demote
+		// a terminal construction fault (e.g. a persisted `engine: cli` sink)
+		// to transient. For unclassified acquire errors ClassOf derives the
+		// same class the old re-classification produced.
+		err = fmt.Errorf("acquire backend for cleanup of %q: %w", req.SinkName, err)
 		metrics.SinkErrorsTotal.WithLabelValues(ExportErrorReason(err)).Inc()
 
 		return CleanupCleaned, err

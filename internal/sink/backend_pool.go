@@ -238,13 +238,25 @@ func pruneStaleEntriesLocked(now time.Time) []Backend {
 		}
 	}
 
+	pruneExpiredTombstonesLocked(now)
+
+	return stale
+}
+
+// pruneExpiredTombstonesLocked drops delete-tombstones older than
+// backendPoolTTL (a tombstone older than the TTL stops guarding its key).
+// Tombstones carry no backends, so no Close follows; caller holds
+// globalBackendPool.mu. Run on the acquire path's opportunistic cycle and on
+// the delete-eviction hook (evictPoolKeyForDelete) so a manager that never
+// exports — its only pool touchpoint being delete evictions — still bounds
+// the tombstone map instead of leaking one tombstone per delete for the life
+// of the process (BEP-2).
+func pruneExpiredTombstonesLocked(now time.Time) {
 	for k, tombstoned := range globalBackendPool.tombstones {
 		if now.Sub(tombstoned) > backendPoolTTL {
 			delete(globalBackendPool.tombstones, k)
 		}
 	}
-
-	return stale
 }
 
 func specFingerprint(spec kollectdevv1alpha1.KollectSinkSpec) (string, error) {
@@ -300,12 +312,18 @@ func EvictBackendPoolForSink(sinkUID types.UID, sinkNamespace, sinkName string) 
 // spec-hash swap and the EvictBackendPool/EvictBackendPoolByUID test helpers
 // evict live entries and must never block a live sink's next build.
 func evictPoolKeyForDelete(key poolKey) {
+	now := timeNow()
 	globalBackendPool.mu.Lock()
 	entry, ok := globalBackendPool.entries[key]
 	if ok {
 		delete(globalBackendPool.entries, key)
 	}
-	globalBackendPool.tombstones[key] = timeNow()
+	globalBackendPool.tombstones[key] = now
+	// Opportunistic sweep on the eviction path: a manager that only deletes
+	// sinks (no exports, so acquireBackend's prune cycle never runs) ages its
+	// tombstones out here instead of leaking one entry per delete. Tombstones
+	// carry no backends, so the sweep is mutex-only.
+	pruneExpiredTombstonesLocked(now)
 	globalBackendPool.mu.Unlock()
 	if ok {
 		closeBackendLogged(entry.backend, "sink delete eviction")

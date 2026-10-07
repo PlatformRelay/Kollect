@@ -7,6 +7,7 @@ import (
 	"context"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
@@ -17,6 +18,10 @@ type Backend struct {
 }
 
 // NewBackend constructs a git sink backend from spec, optional resolved CA PEM, and credentials.
+// Every ConfigFromSpec fault is a spec fault (bad endpoint/TLS/engine/auth/pushPolicy), so it is
+// classified TERMINAL here: a persisted sink carrying a fault the operator must fix (an
+// `engine: cli` object stored before ADR-0803, for example) stops requeueing with terminal
+// conditions instead of retrying as transient forever (upgrading.md).
 func NewBackend(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	caPEM []byte,
@@ -25,7 +30,7 @@ func NewBackend(
 ) (*Backend, error) {
 	cfg, err := ConfigFromSpec(spec, caPEM)
 	if err != nil {
-		return nil, err
+		return nil, kollecterrors.Terminal(err)
 	}
 
 	if len(sshKnownHosts) > 0 {

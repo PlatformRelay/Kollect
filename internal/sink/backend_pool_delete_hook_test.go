@@ -495,3 +495,61 @@ func TestEvictBackendPoolForSink_tombstonesAgeOutOnTheOpportunisticCycle(t *test
 		t.Fatal("delete-tombstone did not age out after backendPoolTTL (want dropped)")
 	}
 }
+
+// TestEvictBackendPoolForSink_prunesExpiredTombstones pins the eviction-path
+// sweep (B round-1 finding #4): a manager that only ever deletes sinks (no
+// exports, so no acquireBackend run) still bounds its tombstone map, because
+// every delete-eviction sweeps the expired tombstones off the same mutex it
+// already holds. Fresh tombstones survive; only tombstones past
+// backendPoolTTL are dropped.
+func TestEvictBackendPoolForSink_prunesExpiredTombstones(t *testing.T) {
+	backendPoolDisabled.Store(false)
+	t.Cleanup(func() {
+		timeNow = time.Now
+		ResetBackendPoolForTest()
+	})
+
+	base := time.Now()
+	timeNow = func() time.Time { return base }
+
+	const agedUID = types.UID("tombstone-evict-aged-uid")
+	EvictBackendPoolForSink(agedUID, "team-a", "export-less-sink")
+	key := poolKeyForSink(agedUID, "", "")
+
+	globalBackendPool.mu.Lock()
+	_, guarded := globalBackendPool.tombstones[key]
+	globalBackendPool.mu.Unlock()
+	if !guarded {
+		t.Fatal("eviction did not record the delete-tombstone (precondition)")
+	}
+
+	// A fresh tombstone recorded by an unrelated delete survives the sweep.
+	timeNow = func() time.Time { return base.Add(time.Minute) }
+	const freshUID = types.UID("tombstone-evict-fresh-uid")
+	EvictBackendPoolForSink(freshUID, "team-a", "fresh-delete")
+
+	globalBackendPool.mu.Lock()
+	_, freshGuarded := globalBackendPool.tombstones[poolKeyForSink(freshUID, "", "")]
+	globalBackendPool.mu.Unlock()
+	if !freshGuarded {
+		t.Fatal("the unrelated eviction did not record its fresh tombstone (precondition)")
+	}
+
+	// Past backendPoolTTL a later delete-eviction sweeps the expired
+	// tombstone: an export-less manager must not leak one tombstone per
+	// delete for the life of the process (BEP-2 on the eviction path).
+	timeNow = func() time.Time { return base.Add(backendPoolTTL + time.Minute) }
+	EvictBackendPoolForSink(types.UID("tombstone-evict-third-uid"), "team-a", "another-delete")
+
+	globalBackendPool.mu.Lock()
+	_, agedStill := globalBackendPool.tombstones[key]
+	_, freshKept := globalBackendPool.tombstones[poolKeyForSink(freshUID, "", "")]
+	globalBackendPool.mu.Unlock()
+
+	if agedStill {
+		t.Fatal("expired delete-tombstone was not pruned by the eviction path (want dropped)")
+	}
+	if !freshKept {
+		t.Fatal("the eviction-path sweep dropped a fresh tombstone (want kept)")
+	}
+}
