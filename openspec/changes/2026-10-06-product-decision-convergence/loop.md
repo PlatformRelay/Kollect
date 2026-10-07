@@ -1,7 +1,7 @@
 # Loop — 2026-10-06-product-decision-convergence
 
 Repo: `/Users/kheimel/.treehouse/kollect-79dca7/1/kollect` · Branch: `fm/kollect-product-decisions-impl` · Base: `3ee21266` (= `origin/main`) · Started: 2026-10-06 · Reviewers: fanout (free only)
-Next: L task loop — dispatch T03
+Next: L task loop — dispatch T04
 Budget: claude review legs 0/0 (free-model-only overlay) · active hours 0/8 (session 2026-10-06–) · source: overlay default
 
 ## Stages
@@ -54,6 +54,7 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 |---|---|---|---|
 | T01 | CLOSED-WITH-GAPS (3 commits d67309bf, 066038ee, f8f643a5) | r1 2/2 legs (DeepSeek+QFN diff), r2 2/2 (GLM+QFN); all 7 findings verified+fixed; no Claude | gaps: full-suite + mutation deferred to T10; collect -count=2 flake pre-exists at base (owner) |
 | T02 | CLOSED-WITH-GAPS (2 commits 31888ae5, eef75b58) | r1 2/2 legs (DeepSeek+QFN diff), REQUEST_CHANGES->fixed; no Claude | CRITICAL verified: scaffolding fields without regen make `task verify` red (exit 201) + CI exposure; T07 owns `make generate manifests` |
+| T03 | CLOSED-WITH-GAPS (3 commits f0e82035, 0632218d, 3264913d) | r1 1/2 legs (DeepSeek truncated 900s, QFN diff) CONCERNS->fixed; r2 2/2 (DeepSeek+QFN diff) BLOCK register->all 3 verified, 2 fixed as reds/guards, 1 deferred; no Claude | gaps: pre-existing breakerRegistry parallel-test race deferred (harness task + owner); log-sensor clause; watch-side Delete-only wiring is T08's |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
@@ -61,6 +62,7 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 | internal/controller/requested_at_annotation_test.go (6 tests) | ERA-1 | T01 | |
 | internal/collect/prune_collected_generation_test.go + dispatch test (4 tests incl. scrub-survival) | ERA-2 | T01 | |
 | internal/controller/cluster_target_status_test.go (4 tests) | TSP-1 | T02 | |
+| internal/sink/backend_pool_delete_hook_test.go (4 tests: evictsEntryAndCloses, inFlightBuildDiscardedNotRepooled, noUIDFallsBackToNamespaceName, noNewAcquireRebuildsEvictedEntry) | BEP-1 | T03 | |
 
 ## Test changes
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
@@ -75,6 +77,9 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 - (T02) `task verify` regenerates in place before diffing: as a read-only probe with drift present it dirties the tree (revert or budget the regen commit). T07/T09/T10 run it for real.
 - (T02) KUBEBUILDER_ASSETS must be an absolute path for internal/controller Ginkgo envtest suites; a relative path fails BeforeSuite (fork/exec bin/k8s/...).
 - (T02) Run gates and record them in evidence BEFORE the review brief; round 1 then found nothing new (gate-runs-before-brief).
+- (T03) internal/sink has a pre-existing parallel-test race on `breakerRegistry` (circuit_breaker.go:67 vs :27): full-package `-race` is intermittently red with bystander failures (~2/5 with T03's tests, 0/4 at base); rerun before classifying; fix is a harness task (Proposed harness changes).
+- (T03) Delta SHALL clauses without a `#### Scenario` still need a matrix row + red test: BEP-1's fallback and no-rebuild clauses shipped untested until review rounds forced them (r1 CONCERNS, r2 BLOCK register).
+- (T03) A test task's missing red (verified) is a deliverable defect -> CORRECT + one fresh review round; not an "evidence/wording" fix.
 
 ## Where a human should look first
 <!-- filled at hand-off -->
@@ -82,6 +87,7 @@ Holistic run at B: <pending — coverage over internal/ on tip vs base>
 ## Proposed harness changes
 | Lesson | Seen in | Proposed change |
 |---|---|---|
+| Pre-existing parallel-test race on `breakerRegistry`: `ResetBreakersForTest` replaces the global map (circuit_breaker.go:67) while parallel export tests read it (circuit_breaker.go:27); full-package `-race` intermittently red (T03: 2/5, base 0/4) | T03 | Owner/harness task: clear the map in place under a lock, or drop `t.Parallel()` at circuit_breaker_test.go:78, or give breaker tests a private registry; otherwise CI and every later task's `-race` gate is a rerun lottery |
 
 ## Owner tasks (skipped by the loop)
 | Task | Command sheet |
