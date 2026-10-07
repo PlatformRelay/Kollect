@@ -342,7 +342,7 @@ func TestExportGoGit_nonFastForwardCommitPolicy(t *testing.T) {
 	}
 
 	endpoint := "file://" + bare
-	cfg := Config{Endpoint: endpoint, PushPolicy: PushPolicyCommit, Engine: GitEngineGoGit}
+	cfg := Config{Endpoint: endpoint, PushPolicy: PushPolicyCommit}
 	if err := Export(t.Context(), cfg, Auth{}, []byte(`{"base":true}`), "inventory/test.json"); err != nil {
 		t.Fatalf("seed export: %v", err)
 	}

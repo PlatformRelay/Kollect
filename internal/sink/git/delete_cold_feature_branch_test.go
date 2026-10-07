@@ -49,7 +49,7 @@ func TestDeleteExportWithBranch_CLIColdMirror_RetractsFromRemoteFeatureBranch(t 
 	skipWithoutGit(t)
 
 	remote := createBareRemoteWithMainCommit(t)
-	cfg := Config{Endpoint: "file://" + remote, Engine: GitEngineCLI}.withDefaults()
+	cfg := Config{Endpoint: "file://" + remote}.withDefaults()
 	branch := &BranchSpec{PushBranch: "kollect/team-a/inv", CloneBranch: "main"}
 
 	seedUnmergedFeatureExport(t, cfg, branch)

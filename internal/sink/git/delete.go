@@ -73,8 +73,8 @@ func ReleaseConfig(cfg Config, opts ReleaseOptions) Config {
 	return cfg
 }
 
-// DeleteExportWithBranch mirrors ExportFilesWithBranch's engine split for the
-// deletion path (file:// or CLI engine -> git worktree + git add -A; otherwise
+// DeleteExportWithBranch mirrors ExportFilesWithBranch's path split for the
+// deletion path (file:// remote -> git worktree + git add -A; otherwise
 // go-git), reusing the same repo export lock so a delete can never race an
 // in-flight export of the same branch.
 func DeleteExportWithBranch(
@@ -104,7 +104,7 @@ func DeleteExportWithBranch(
 
 	var deleted []string
 
-	if isFileRemote(req.cloneURL) || cfg.Engine == GitEngineCLI {
+	if isFileRemote(req.cloneURL) {
 		var deleteErr error
 		if err := withRepoExportLock(req.cloneURL, req.cloneBranch, func() error {
 			deleted, deleteErr = deleteViaCLI(ctx, cfg, auth, req, validated, commitCtx)
@@ -311,13 +311,13 @@ func baseOnRemotePushBranch(ctx context.Context, workdir string, req exportReque
 }
 
 // realignDivergedDirectBranch handles direct mode (push branch == clone branch)
-// for the CLI engine. `git fetch` only moves origin/<branch>; the mirror's local
+// for the CLI machinery. `git fetch` only moves origin/<branch>; the mirror's local
 // branch keeps whatever an earlier crashed attempt committed. When the remote
 // advanced past such a stranded commit, it can no longer be delivered as a
 // fast-forward, and the deletion would see its own files already gone locally
 // and report a no-op over a remote that still holds them. Reset the local
 // branch to the fetched remote tip instead, so the candidates are removed again
-// on top of the remote's history (the go-git engine gets the same effect from
+// on top of the remote's history (the go-git path gets the same effect from
 // its forced fetch refspec). A local branch the remote tip is an ancestor of —
 // a stranded commit that still fast-forwards — is kept and delivered.
 func realignDivergedDirectBranch(ctx context.Context, workdir string, req exportRequest, cli *cliEnv) error {
@@ -340,7 +340,7 @@ func realignDivergedDirectBranch(ctx context.Context, workdir string, req export
 	return gitResetHardTo(ctx, workdir, remoteTip, cli)
 }
 
-// cliStrandedDeliveryDue decides whether the CLI engine may deliver a deletion
+// cliStrandedDeliveryDue decides whether the CLI machinery may deliver a deletion
 // commit stranded on a pre-existing push branch. It returns true only for a
 // genuine fast-forward delivery: the push-branch ref pre-existed the operation's
 // checkout, HEAD still equals that captured tip, and the remote push tip exists
@@ -397,7 +397,7 @@ func cliStrandedDeliveryDue(
 	return true, nil
 }
 
-// pushBranchWithoutWork reports a provably empty deletion for the CLI engine:
+// pushBranchWithoutWork reports a provably empty deletion for the CLI machinery:
 // a clean worktree whose HEAD equals the remote clone-branch tip while the push
 // branch either does not exist remotely or already sits exactly at HEAD. It
 // also returns the remote push-branch tip ("" when the branch is absent) so the
@@ -445,7 +445,7 @@ func pushBranchWithoutWork(
 	return remoteSHAFromLsRemote(string(cloneOut)) == head, "", nil
 }
 
-// releaseOnDisk removes what planRelease decides from the CLI engine's worktree:
+// releaseOnDisk removes what planRelease decides from the CLI machinery's worktree:
 // the matched candidates no other owner records, then the owner's recorded
 // files and its record (ADR-0422).
 func releaseOnDisk(workdir string, cfg Config, paths []string) ([]string, error) {
@@ -680,7 +680,7 @@ func fetchRemotePushBranch(
 }
 
 // deliverRemoteStrandedDeletion handles the nothing-matched case for the go-git
-// engine: it either reports a no-op or pushes a deletion commit stranded on a
+// path: it either reports a no-op or pushes a deletion commit stranded on a
 // pre-existing push branch. It pushes only for a genuine fast-forward delivery;
 // every other state is a no-op that must never push.
 func deliverRemoteStrandedDeletion(
@@ -733,8 +733,8 @@ func deliverRemoteStrandedDeletion(
 }
 
 // pushBranchSynced reports whether the remote already holds the local
-// push-branch tip, mirroring the CLI engine's pushBranchWithoutWork probe for
-// the go-git engine: a push branch absent remotely counts as synced only when
+// push-branch tip, mirroring the CLI machinery's pushBranchWithoutWork probe for
+// the go-git path: a push branch absent remotely counts as synced only when
 // HEAD equals the remote clone tip, so a pointer-only branch that never held
 // work is never pushed. The remote list runs once and covers both branches; it
 // also yields the remote push tip (when present) so the caller can require a
@@ -809,7 +809,7 @@ func remoteTipFastForwardable(repo *git.Repository, remoteTip, head plumbing.Has
 	return ancestor
 }
 
-// releaseInWorktree is releaseOnDisk for the go-git engine: removals are staged
+// releaseInWorktree is releaseOnDisk for the go-git path: removals are staged
 // in the index as they happen.
 func releaseInWorktree(wt *git.Worktree, cfg Config, paths []string) ([]string, error) {
 	return releaseFS(wt.Filesystem, cfg, paths, func(p string) (bool, error) {

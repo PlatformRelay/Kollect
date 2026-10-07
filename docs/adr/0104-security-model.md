@@ -114,9 +114,11 @@ defaulting and migration cost to express a choice the operator cannot make indep
 - **The git-CLI path has no equivalent fail-closed guard.** With the flag unset and no `known_hosts`
   supplied it simply omits `UserKnownHostsFile` and leaves host-key policy to the ambient ssh
   configuration. It never sets `StrictHostKeyChecking=no` unless the flag is set, but the outcome on
-  an unknown host is then ssh's default, not a Kollect decision. Supply `known_hosts` when using the
-  CLI engine over SSH.
-- The resolved-address guard is unaffected by the flag, on **both** engines: `pinGoGitSSHResolution`
+  an unknown host is then ssh's default, not a Kollect decision. The export engine is go-git only
+  ([ADR-0803](0803-git-engine-convergence.md)); the git-CLI machinery is reached over SSH only by
+  the `git ls-remote` connection probe, which keeps this ambient-policy behaviour.
+- The resolved-address guard is unaffected by the flag, on **both** delivery paths:
+  `pinGoGitSSHResolution`
   (`internal/sink/git/gogit_ssh_guard.go`) wraps whatever host-key callback is installed so it is
   called with the original hostname, and its git-CLI twin `guardSSHResolution`
   (`internal/sink/git/cli_resolve.go:64`) pins `-o Hostname=<checked ip> -o HostKeyAlias=<hostname>`.

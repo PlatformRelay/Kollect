@@ -42,7 +42,7 @@ func newCLIEnv(cfg Config, auth Auth, authType AuthType) (*cliEnv, error) {
 		cli.extraEnv = append(cli.extraEnv, "GIT_SSL_NO_VERIFY=true")
 	}
 
-	// K-16: for HTTP(S) remotes the CLI engine supplies credentials through
+	// K-16: for HTTP(S) remotes the CLI machinery supplies credentials through
 	// http.extraHeader by default, not by embedding them in the clone URL. This
 	// keeps the token out of /proc/<pid>/cmdline and out of the persistent warm
 	// mirror's .git/config. An explicit ForceBasicAuth keeps the same header path;
@@ -56,7 +56,7 @@ func newCLIEnv(cfg Config, auth Auth, authType AuthType) (*cliEnv, error) {
 
 	sshCfg := cfg.effectiveSSHConfig()
 
-	if authType == AuthTypeSSH || cfgNeedsCLISSH(cfg, authType) {
+	if authType == AuthTypeSSH {
 		sshCmd, cleanup, err := buildGitSSHCommand(auth, sshCfg)
 		if err != nil {
 			return nil, err
@@ -91,21 +91,8 @@ func (c *cliEnv) cleanup() {
 	}
 }
 
-func cfgNeedsCLISSH(cfg Config, authType AuthType) bool {
-	if cfg.Engine != GitEngineCLI {
-		return false
-	}
-
-	u, err := url.Parse(cfg.Endpoint)
-	if err != nil {
-		return false
-	}
-
-	return u.Scheme == schemeSSH || authType == AuthTypeSSH
-}
-
 // endpointUsesHTTP reports whether the endpoint scheme is http or https. It is
-// used to decide whether the CLI engine can carry credentials in the
+// used to decide whether the CLI machinery can carry credentials in the
 // http.extraHeader rather than the remote URL (K-16).
 func endpointUsesHTTP(endpoint string) bool {
 	u, err := url.Parse(strings.TrimSpace(endpoint))

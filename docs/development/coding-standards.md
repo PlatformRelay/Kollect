@@ -73,8 +73,9 @@ Short, actionable rules for Go code in this repo. Operator reconcile semantics a
 
 - **MUST** build the operator manager with `CGO_ENABLED=0` for the shipped image
   ([`Dockerfile`](https://github.com/platformrelay/kollect/blob/main/Dockerfile)); enable CGO locally only for `task coverage:race`. The runtime
-  stage is Debian bookworm-slim (nonroot UID 65532) with `git` and `openssh-client` for
-  `spec.git.engine: cli` and `git ls-remote` probes; `go-git` (default) does not use those binaries.
+  stage is Debian bookworm-slim (nonroot UID 65532) with `git` and `openssh-client` for the
+  `file://` remote machinery and `git ls-remote` probes; the only git export engine is `go-git`
+  (default, ADR-0803), which does not use those binaries.
 
 ## Go style and lint
 

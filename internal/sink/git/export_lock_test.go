@@ -59,7 +59,7 @@ func TestMirrorLock_serializesDifferentPushBranchesOnOneMirror(t *testing.T) {
 	skipWithoutGit(t)
 
 	remote := createBareRemoteWithMainCommit(t)
-	cfg := Config{Endpoint: "file://" + remote, Engine: GitEngineCLI}.withDefaults()
+	cfg := Config{Endpoint: "file://" + remote}.withDefaults()
 
 	cloneURL, _, err := parseRemote(cfg.Endpoint)
 	if err != nil {

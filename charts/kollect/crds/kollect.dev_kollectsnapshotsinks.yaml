@@ -139,11 +139,11 @@ spec:
                     type: array
                   engine:
                     description: |-
-                      engine selects the git implementation: go-git (default) or host git CLI.
-                      file:// remotes always use the CLI path regardless of this field.
+                      engine is the git export engine; only `go-git` is accepted (the default, ADR-0803).
+                      file:// remotes and `git ls-remote` connection probes still use the shared git CLI
+                      machinery they always used.
                     enum:
                     - go-git
-                    - cli
                     type: string
                   forceBasicAuth:
                     description: |-

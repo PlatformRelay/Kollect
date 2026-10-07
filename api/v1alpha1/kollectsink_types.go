@@ -127,10 +127,9 @@ const (
 	GitAuthTypeSSH   = "ssh"
 )
 
-// Git engine values select go-git (default) or the host git CLI.
+// Git engine values: go-git is the only export engine (ADR-0803).
 const (
 	GitEngineGoGit = "go-git"
-	GitEngineCLI   = "cli"
 )
 
 // GitSpec configures plain git sink export behavior.
@@ -176,9 +175,10 @@ type GitSpec struct {
 	// +optional
 	Prune bool `json:"prune,omitempty"`
 
-	// engine selects the git implementation: go-git (default) or host git CLI.
-	// file:// remotes always use the CLI path regardless of this field.
-	// +kubebuilder:validation:Enum=go-git;cli
+	// engine is the git export engine; only `go-git` is accepted (the default, ADR-0803).
+	// file:// remotes and `git ls-remote` connection probes still use the shared git CLI
+	// machinery they always used.
+	// +kubebuilder:validation:Enum=go-git
 	// +optional
 	Engine string `json:"engine,omitempty"`
 

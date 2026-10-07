@@ -31,8 +31,9 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags
     -X github.com/platformrelay/kollect/internal/version.Date=${DATE}" \
     -a -o manager ./cmd
 
-# Runtime image: Debian slim with git + openssh-client for spec.git.engine=cli and git ls-remote probes.
-# go-git export (default engine) does not require the git binary; the CLI path and connection probes do.
+# Runtime image: Debian slim with git + openssh-client for file:// git remotes and git ls-remote probes.
+# The only git export engine is go-git (default, ADR-0803), which does not require the git binary; the
+# file:// CLI machinery and connection probes do.
 FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
 
 RUN apt-get update && \

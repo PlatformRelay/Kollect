@@ -12,7 +12,7 @@ import (
 // Engine-convergence regressions (T04, GTE-1 scenario 5): file:// remotes and the connection
 // probe keep their current behaviour through the engine convergence. Every fixture here is
 // engine-less on purpose — no Config{Engine: ...} and no GitEngineCLI constant, both of which
-// T09 removes — so these tests pass before and after the API change unchanged.
+// T09 removed — so these tests pass before and after the API change unchanged.
 
 // Engine-less file:// export lands the file on the remote branch, as today.
 func TestFileRemote_DefaultEngine_ExportLandsFile(t *testing.T) {

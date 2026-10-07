@@ -24,7 +24,7 @@ import (
 //
 // The server grants authenticated push unconditionally (REMOTE_USER is always
 // set and http.receivepack is enabled on each served repo), so both the git
-// CLI engine and the go-git engine can clone/fetch/push anonymously.
+// CLI machinery and the go-git engine can clone/fetch/push anonymously.
 type gitHTTPServer struct {
 	*httptest.Server
 	projectRoot string
@@ -139,23 +139,6 @@ func remoteFileExists(t *testing.T, url, branch, path string) bool {
 	_, err := os.Stat(filepath.Join(dir, filepath.FromSlash(path)))
 
 	return err == nil
-}
-
-// remoteLogSubjects returns the commit subjects of a branch's recent history.
-func remoteLogSubjects(t *testing.T, url, branch string) string {
-	t.Helper()
-
-	dir := filepath.Join(t.TempDir(), "log")
-	if out, err := exec.Command("git", "clone", "--branch", branch, "--single-branch", "--depth", "10", url, dir).CombinedOutput(); err != nil { //nolint:gosec // G204: test fixture
-		t.Fatalf("clone %s: %s: %v", branch, out, err)
-	}
-
-	out, err := exec.Command("git", "-C", dir, "log", "--format=%s").CombinedOutput() //nolint:gosec // G204: test fixture inspects its own temp repo
-	if err != nil {
-		t.Fatalf("log: %v", err)
-	}
-
-	return strings.TrimSpace(string(out))
 }
 
 // remoteParentSHA returns the parent commit of a branch's remote tip via a

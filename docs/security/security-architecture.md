@@ -104,9 +104,10 @@ Kollect normally uses two layers for sink endpoint policy:
    an approved numeric address. The decision is repeated for new connections, redirects, and backend
    reconnects, reducing DNS-rebinding and time-of-check/time-of-use exposure.
 
-Git remotes no longer follow HTTP redirects. The Git CLI engine's address pin is keyed to the
-endpoint host, so redirects are refused outright (`http.followRedirects=false`) and a redirect can
-never move the transfer to an unpinned host. A remote that only works through a redirect (an
+Git remotes no longer follow HTTP redirects. The git CLI machinery's address pin (which the
+ls-remote probe and `file://` remotes use) is keyed to the endpoint host, so redirects are refused
+outright (`http.followRedirects=false`) and a redirect can never move the transfer to an unpinned
+host. A remote that only works through a redirect (an
 `http://` URL upgraded to `https://`, a renamed or moved project) now fails; configure
 `spec.endpoint` with the final URL. The GitLab REST client still follows redirects but strips its
 `PRIVATE-TOKEN` and `Authorization` headers on a redirect to another host or from `https` down to
@@ -249,12 +250,13 @@ it can be used to find insecure sinks. See [ADR-0104](../adr/0104-security-model
 `spec.tls.insecureSkipVerify` is TLS-named but transport-scoped: it disables verification of the
 remote's identity for whichever transport the sink's endpoint selects. For an `ssh://` Git remote
 that means **SSH host-key verification is disabled too**, not only certificate checking. A sink has
-one endpoint and therefore one transport, so the flag never applies to both at once. On the
-**go-git** path the secure alternative fails closed: without the flag and without a `known_hosts`
-key in the sink's secret, the export errors instead of falling back to trust-on-first-use. The
-**git-CLI** engine has no equivalent guard — with the flag unset and no `known_hosts` supplied it
-omits `UserKnownHostsFile` and leaves host-key policy to the ambient ssh configuration, so supply
-`known_hosts` when using that engine over SSH. See [ADR-0407](../adr/0407-git-object-store-layout.md).
+one endpoint and therefore one transport, so the flag never applies to both at once. The export
+engine is go-git only ([ADR-0803](../adr/0803-git-engine-convergence.md)); on that path the secure
+alternative fails closed: without the flag and without a `known_hosts` key in the sink's secret,
+the export errors instead of falling back to trust-on-first-use. The git CLI machinery that the
+ls-remote probe and `file://` remotes share has no equivalent guard — with the flag unset and no
+`known_hosts` supplied it omits `UserKnownHostsFile` and leaves host-key policy to the ambient ssh
+configuration. See [ADR-0407](../adr/0407-git-object-store-layout.md).
 
 Git SSH retains the original hostname for host-key verification while dialing the checked numeric
 address — the address guard is independent of `insecureSkipVerify`, but with the flag set there is

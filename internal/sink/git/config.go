@@ -52,7 +52,6 @@ type Config struct {
 	// written nor recorded.
 	PruneClaimPaths []string
 	AuthType        AuthType
-	Engine          GitEngine
 	ForceBasicAuth  bool
 }
 
@@ -167,15 +166,8 @@ func applyGitSpec(cfg *Config, gitSpec *kollectdevv1alpha1.GitSpec) error {
 
 	cfg.Prune = gitSpec.Prune
 
-	if engine := strings.TrimSpace(gitSpec.Engine); engine != "" {
-		switch engine {
-		case kollectdevv1alpha1.GitEngineGoGit:
-			cfg.Engine = GitEngineGoGit
-		case kollectdevv1alpha1.GitEngineCLI:
-			cfg.Engine = GitEngineCLI
-		default:
-			return fmt.Errorf("unsupported git engine %q", gitSpec.Engine)
-		}
+	if engine := strings.TrimSpace(gitSpec.Engine); engine != "" && engine != kollectdevv1alpha1.GitEngineGoGit {
+		return fmt.Errorf("unsupported git engine %q: the git sink exports through go-git only", gitSpec.Engine)
 	}
 
 	cfg.ForceBasicAuth = gitSpec.ForceBasicAuth || forceBasicAuthFromEnv()
@@ -252,10 +244,6 @@ func (c Config) withDefaults() Config {
 
 	if c.AuthType == "" {
 		c.AuthType = AuthTypeToken
-	}
-
-	if c.Engine == "" {
-		c.Engine = GitEngineGoGit
 	}
 
 	return c

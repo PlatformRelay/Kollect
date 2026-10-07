@@ -129,8 +129,8 @@ func TestSSHAuthMethod_FailsClosedWithoutKnownHosts(t *testing.T) {
 	}
 }
 
-// TestNewCLIEnv_TLSInsecureSkipVerifyDisablesStrictHostKeyChecking pins the git-CLI engine, which
-// is also the engine the connection test uses: lsRemoteUncached builds its environment with
+// TestNewCLIEnv_TLSInsecureSkipVerifyDisablesStrictHostKeyChecking pins the git-CLI machinery,
+// which the connection test also uses: lsRemoteUncached builds its environment with
 // newCLIEnv, so a fix applied only to the go-git path would leave this path diverging.
 func TestNewCLIEnv_TLSInsecureSkipVerifyDisablesStrictHostKeyChecking(t *testing.T) {
 	t.Parallel()
@@ -160,7 +160,6 @@ func TestNewCLIEnv_TLSInsecureSkipVerifyDisablesStrictHostKeyChecking(t *testing
 
 	insecure := sshCommand(t, Config{
 		Endpoint: "ssh://git@git.example/repo.git",
-		Engine:   GitEngineCLI,
 		TLS:      TLSConfig{InsecureSkipVerify: true},
 		SSH:      SSHConfig{KnownHosts: knownHosts},
 	})
@@ -170,7 +169,6 @@ func TestNewCLIEnv_TLSInsecureSkipVerifyDisablesStrictHostKeyChecking(t *testing
 
 	secure := sshCommand(t, Config{
 		Endpoint: "ssh://git@git.example/repo.git",
-		Engine:   GitEngineCLI,
 		TLS:      TLSConfig{InsecureSkipVerify: false},
 		SSH:      SSHConfig{KnownHosts: knownHosts},
 	})

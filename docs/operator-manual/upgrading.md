@@ -238,6 +238,35 @@ release needs the repository, a Git or GitLab sink with a broken credential now 
 deletion in `Terminating` until the credential is fixed or `kollect.dev/force-cleanup: "true"` is
 set (which leaves the record in place).
 
+### Git engine convergence: `engine: cli` removed (after v0.21.0)
+
+The git snapshot sink exports through one engine, `go-git`
+([ADR-0803](../adr/0803-git-engine-convergence.md)). `spec.git.engine` accepts only `go-git` (or
+omission, the default): the CRD schema, admission validation and backend construction all reject
+`cli`. `file://` remotes and `git ls-remote` connection probes keep using the git CLI machinery
+they always used, so the operator image keeps `git` and `openssh-client`.
+
+!!! warning "Persisted `engine: cli` sinks stop exporting"
+    An existing `KollectSnapshotSink` object that still carries `spec.git.engine: cli` is **not**
+    deleted or rewritten by the operator, and admission does not re-run on stored objects. At that
+    sink's next export build the construction fails terminally with an error naming `go-git`, and
+    the sink reports the failure through its conditions.
+
+Audit before upgrading:
+
+```sh
+kubectl get kollectsnapshotsinks.kollect.dev -A \
+  -o jsonpath='{range .items[?(@.spec.git.engine=="cli")]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}'
+```
+
+Remediate by removing `spec.git.engine` from the sink spec (or setting `go-git`). The go-git
+engine serves HTTPS token auth and SSH key auth through the same `spec.auth` modes as before, but
+SSH host-key verification differs: the go-git path fails closed without a `known_hosts` key in the
+sink's credential secret (or `tls.insecureSkipVerify`, dev only), where the CLI path left host-key
+policy to the ambient ssh configuration. SSH key-exchange preferences are otherwise unchanged
+apart from two additions x/crypto already implements (`mlkem768x25519-sha256`,
+`diffie-hellman-group16-sha512`).
+
 ## GitOps and CI/CD
 
 For Argo CD, Flux, or similar:

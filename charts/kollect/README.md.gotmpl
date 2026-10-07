@@ -13,9 +13,11 @@ helm install kollect ./charts/kollect -n kollect-system --create-namespace
 ### Container image
 
 The default image is **Debian bookworm-slim** (UID/GID 65532) with `git` and `openssh-client` so
-`spec.git.engine: cli` and `git ls-remote` connection probes work out of the box. Default
-`spec.git.engine: go-git` does not require those binaries. Pod `securityContext` defaults are
-unchanged (`readOnlyRootFilesystem: true`, capabilities dropped, `/tmp` `emptyDir` for git workdirs).
+`file://` git remotes and `git ls-remote` connection probes work out of the box (the shared git CLI
+machinery, [ADR-0803](https://github.com/platformrelay/kollect/blob/main/docs/adr/0803-git-engine-convergence.md)).
+The only git export engine is `spec.git.engine: go-git`, which does not require those binaries. Pod
+`securityContext` defaults are unchanged (`readOnlyRootFilesystem: true`, capabilities dropped,
+`/tmp` `emptyDir` for git workdirs).
 
 {{ template "chart.valuesSection" . }}
 

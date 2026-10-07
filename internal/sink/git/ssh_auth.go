@@ -33,6 +33,10 @@ var defaultSSHKeyExchangeAlgorithms = []string{
 	"diffie-hellman-group-exchange-sha256",
 	"diffie-hellman-group14-sha256",
 	"diffie-hellman-group14-sha1",
+	// x/crypto already implements both; appended so the existing eight keep their
+	// relative order and stay ahead in preference (GTE-2, ADR-0803).
+	"mlkem768x25519-sha256",
+	"diffie-hellman-group16-sha512",
 }
 
 // effectiveSSHConfig returns the SSH settings actually used for a transfer.

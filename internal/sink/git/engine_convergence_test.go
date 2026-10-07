@@ -12,10 +12,10 @@ import (
 
 // Engine-convergence red (T04, GTE-1): backend construction must independently reject
 // spec.git.engine=cli with an error naming go-git — defence in depth behind admission validation.
-// Red until T09: today the engine switch accepts cli and maps it onto the CLI engine
-// (config.go applyGitSpec), so the test fails on the missing rejection. Deliberately written
-// engine-less (string literal "cli", no Config{Engine: ...}): T09 removes the GitEngine field
-// and both GitEngineCLI constants, and this test must survive that unchanged.
+// Was red until T09 landed the convergence (the engine switch used to accept cli and map it
+// onto the CLI engine, config.go applyGitSpec). Deliberately written
+// engine-less (string literal "cli", no Config{Engine: ...}): T09 removed the GitEngine field
+// and both GitEngineCLI constants, and this test survived that unchanged.
 func TestConfigFromSpec_rejectsCLIEngineNamingGoGit(t *testing.T) {
 	t.Parallel()
 

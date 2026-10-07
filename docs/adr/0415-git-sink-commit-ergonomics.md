@@ -62,7 +62,9 @@ Subject (`commitMessage`), body (`commitBody`), and trailers (`commitTrailers`) 
 
 - `spec.git.commitBody` — optional multi-line body (same placeholders).
 - `spec.git.commitTrailers` — optional git trailers (e.g. `Kollect-Checksum: {checksum}`).
-- go-git and CLI engines write subject + body + trailers as separate commit paragraphs.
+- go-git (the only export engine, [ADR-0803](0803-git-engine-convergence.md)) and the git CLI
+  machinery that `file://` remotes use write subject + body + trailers as separate commit
+  paragraphs.
 
 ### Author identity
 
