@@ -397,26 +397,6 @@ func (e *Engine) ItemCount(namespace, name string) int {
 	return e.store.CountForTarget(namespace, name)
 }
 
-// BindClusterTargetNamespaces records workload namespaces for a cluster-scoped target name.
-//
-// It writes a bare targetState, so any collection-state fingerprint for that key is
-// cleared and the next RegisterTarget backfills the store once. That is the safe
-// direction (re-dispatch rather than silent under-collection), but it means this must
-// not be called per-reconcile alongside RegisterTarget.
-func (e *Engine) BindClusterTargetNamespaces(targetName string, namespaces []string) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	for _, ns := range namespaces {
-		key := targetKey(ns, targetName)
-		e.targets[key] = targetState{
-			target: kollectdevv1alpha1.KollectTarget{
-				ObjectMeta: metav1.ObjectMeta{Name: targetName, Namespace: ns},
-			},
-		}
-	}
-}
-
 // NamespacesForClusterTarget returns workload namespaces where a cluster target name is registered.
 func (e *Engine) NamespacesForClusterTarget(targetName string) []string {
 	e.mu.RLock()

@@ -107,8 +107,6 @@ func TestKollectTargetReconciler_deleteUnregistersAndRemovesFinalizer(t *testing
 		t.Fatalf("NewEngine: %v", err)
 	}
 
-	engine.BindClusterTargetNamespaces("web", []string{"default"})
-
 	rec := &KollectTargetReconciler{
 		Client: cl,
 		Scheme: scheme,

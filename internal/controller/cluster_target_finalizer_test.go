@@ -52,12 +52,7 @@ func TestKollectClusterTargetReconciler_deleteUnregistersAndRemovesFinalizer(t *
 		WithStatusSubresource(ct).
 		Build()
 
-	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
-
-	engine.BindClusterTargetNamespaces("platform", []string{"team-a"})
+	engine := newEngineWithBoundClusterTargets(t, store, map[string][]string{"platform": {"team-a"}})
 
 	rec := &KollectClusterTargetReconciler{
 		Client: cl,
@@ -65,7 +60,7 @@ func TestKollectClusterTargetReconciler_deleteUnregistersAndRemovesFinalizer(t *
 		Engine: engine,
 	}
 
-	_, err = rec.Reconcile(context.Background(), reconcile.Request{
+	_, err := rec.Reconcile(context.Background(), reconcile.Request{
 		NamespacedName: types.NamespacedName{Name: "platform"},
 	})
 	if err != nil {

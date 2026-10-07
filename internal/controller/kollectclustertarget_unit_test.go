@@ -28,11 +28,7 @@ func TestKollectClusterTargetReconciler_suspend(t *testing.T) {
 	}
 
 	store := collect.NewStore()
-	engine, err := collect.NewEngine(nil, nil, store, collect.EngineConfig{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	engine.BindClusterTargetNamespaces("cluster-deploys", []string{"team-a"})
+	engine := newEngineWithBoundClusterTargets(t, store, map[string][]string{"cluster-deploys": {"team-a"}})
 	store.Upsert(collect.Item{
 		TargetNamespace: "team-a",
 		TargetName:      "cluster-deploys",

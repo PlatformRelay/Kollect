@@ -32,7 +32,7 @@ func TestEngineNamespaceDefaultsAndSnapshot(t *testing.T) {
 	}
 }
 
-func TestEngineSetScrubKeysAndBindClusterTargetNamespaces(t *testing.T) {
+func TestEngineSetScrubKeys(t *testing.T) {
 	t.Parallel()
 
 	e, err := NewEngine(nil, nil, NewStore(), EngineConfig{})
@@ -47,12 +47,6 @@ func TestEngineSetScrubKeysAndBindClusterTargetNamespaces(t *testing.T) {
 		t.Fatalf("scrubKeys = %#v", e.scrubKeys)
 	}
 	e.mu.RUnlock()
-
-	e.BindClusterTargetNamespaces("shared-target", []string{"team-b", "team-a"})
-	got := e.NamespacesForClusterTarget("shared-target")
-	if len(got) != 2 || got[0] != "team-a" || got[1] != "team-b" {
-		t.Fatalf("NamespacesForClusterTarget = %#v, want sorted team-a/team-b", got)
-	}
 }
 
 func TestEngineNamespaceMetaSnapshot(t *testing.T) {
