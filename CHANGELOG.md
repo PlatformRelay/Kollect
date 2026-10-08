@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Address independent review of the sweep-1 branch [481db27](https://github.com/platformrelay/kollect/commit/481db2759dd3a5a8661d2f1cafef7628d06f6083)
+
+- **docs:** Keep the ADR-refs gate from citing its own examples [5e1a5de](https://github.com/platformrelay/kollect/commit/5e1a5def194107ee6e4d42affdebba0f6632782a)
+
 - **sink:** Name the deleting inventory's kind on ownership release [0a95162](https://github.com/platformrelay/kollect/commit/0a951623afa4c76e27be4e827c1190e45b5506cc)
 
 - **sink/git:** Check the fetched tip in same-branch CLI exports too [a3c775b](https://github.com/platformrelay/kollect/commit/a3c775b8b55587da653715a1794a2ed8bec0afb3)
