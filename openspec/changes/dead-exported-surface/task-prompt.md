@@ -30,6 +30,7 @@ If a trigger fires but no Claude review legs are left, run no Claude leg and clo
 Task kinds: if the task text says "Owner session" or "Owner gate", or needs a host, account, push, pull request or decision you do not have, do NOT attempt that part.
 
 Hard rules:
+
 - Never read, print, decrypt or copy a secret value; reference entries and secret names only.
 - Do not push, add or change any git remote, or open a pull request. Local commits on `fm/kollect-docs-review-followup` only, one logical commit including the state file, Conventional Commit style with a gitmoji prefix (repo convention, e.g. `:recycle: test(git): drop the deleted identifier from test names`).
 - Do not edit CLAUDE.md, AGENTS.md, the constitution, .specify/ or .claude/; propose instead.
