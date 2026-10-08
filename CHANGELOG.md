@@ -64,6 +64,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **ci:** Add task check, the full local gate (TCE-1..TCE-4) [1d8f0c0](https://github.com/platformrelay/kollect/commit/1d8f0c05b58cddb0c26256b768fb46f86397d4fb)
+
 - **sink:** [**breaking**] Release git ownership records when an inventory is deleted [21ef7b7](https://github.com/platformrelay/kollect/commit/21ef7b76b4a751302280829a5c269570faea4989)
 
 - **sink:** [**breaking**] Own git export files by kind-qualified inventory identity [df455ca](https://github.com/platformrelay/kollect/commit/df455caa43dbb7e4e83cb567e360273219485705)
