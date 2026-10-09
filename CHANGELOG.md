@@ -82,6 +82,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Refactoring
 
+- **lint:** Make the LabelProfile decoupling real and separate the prune's namespace constant [3be8306](https://github.com/platformrelay/kollect/commit/3be8306de6586eddcdec4ceb86298d9ecbe36e91)
+
+- **lint:** Decouple LabelProfile from the static-ref enum and pin the panic requeue [14bc8c6](https://github.com/platformrelay/kollect/commit/14bc8c6b826a33bd927923be7136a0d50f91b60d)
+
+- **lint:** Justify the gosec G710 finding in the GitLab redirect test [6bf78c9](https://github.com/platformrelay/kollect/commit/6bf78c9ff801ecaa8344e01358b42f58d3f0c9d7)
+
+- **lint:** Replace deprecated Result.Requeue with RequeueAfter (staticcheck SA1019) [4af9c9d](https://github.com/platformrelay/kollect/commit/4af9c9d0d72b0659aa8e23b8d84834f965dc5300)
+
+- **lint:** Hoist repeated string literals into package constants (goconst) [31f43a3](https://github.com/platformrelay/kollect/commit/31f43a3192f9df96a6d17e4240b0f3eb66f628d8)
+
 - **sink/git:** Share the ExportFiles option merge with its test twin [9fedfe1](https://github.com/platformrelay/kollect/commit/9fedfe12813077695c48e3e487628e3d6c1725b4)
 
 ## [0.21.0](https://github.com/platformrelay/kollect/compare/v0.20.0..v0.21.0) - 2026-10-01
