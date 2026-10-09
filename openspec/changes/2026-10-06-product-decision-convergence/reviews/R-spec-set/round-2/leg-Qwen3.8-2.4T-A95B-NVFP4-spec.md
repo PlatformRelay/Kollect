@@ -2,7 +2,7 @@ Round-1 register and all four leg reports read. Now verifying the fixed spec set
 All checks done. Every round-1 register item and all four spec deltas verified against code at HEAD `7132b02c`.
 
 ## Verdict: CONCERNS
-Round-1 register #1–#4, #6, #8 are genuinely closed (verified against code, not prose): the 8 requirement IDs now align across proposal/tasks/deltas; all doc sites from #2 exist and are enumerated in GTE-3 + T09; the BEP-1 re-store race is closed by the delete-tombstone requirement + scenario; T02 compiles-first ordering fixed; .gitignore dedup done; ADR-0802 reservation is real (8 code cites, theme 08 holds only 0801). Residuals: #5 and #7 partially closed, plus one new task-executability defect.
+Round-1 register #1–#4, #6, #8 are genuinely closed (verified against code, not prose): the 8 requirement IDs now align across proposal/tasks/deltas; all doc sites from #2 exist and are enumerated in GTE-3 + T09; the BEP-1 re-store race is closed by the delete-tombstone requirement + scenario; T02 compiles-first ordering fixed; .gitignore dedup done; ADR 0802 reservation is real (8 code cites, theme 08 holds only 0801). Residuals: #5 and #7 partially closed, plus one new task-executability defect.
 
 ## Findings
 - [WARNING] T04's "green-by-construction... pass before and after" regressions cannot pass: the named file:// and ls-remote fixtures construct `Config{Engine: GitEngineCLI}`, which T09 deletes — `tasks.md:36-38`
