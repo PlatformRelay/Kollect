@@ -11,6 +11,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Latch closed nats backends against re-dial (T13) [2074da7](https://github.com/platformrelay/kollect/commit/2074da796453bee3e2728d5bb73cacc72fc1a3e7)
+
+- **sink:** Terminal git config faults and bounded tombstones (T11) [3d17cf2](https://github.com/platformrelay/kollect/commit/3d17cf263c3fc745f78561907934e57dd2a3379d)
+
+- **backend-pool:** Hand tombstone builds to the caller with an owning release (T08 r2) [c235994](https://github.com/platformrelay/kollect/commit/c2359945efdc62655752abc1fb544958d08a81be)
+
 - **deps:** Raise Go and x/net to clear GO-2026-6617 (HTTP/2 HPACK race) [baa40ae](https://github.com/platformrelay/kollect/commit/baa40ae3a3911d9c3381541002a917a78cfeea6f)
 
 - **docs:** Address independent review of the sweep-1 branch [481db27](https://github.com/platformrelay/kollect/commit/481db2759dd3a5a8661d2f1cafef7628d06f6083)
@@ -69,6 +75,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **git-engine:** Converge the git snapshot sink to one export engine, go-git (T09) [c1d3ef8](https://github.com/platformrelay/kollect/commit/c1d3ef8cbb5d05f315af087c96536ecf52a0afc8)
+
+- **backend-pool:** Evict pooled backends on family-sink delete (T08) [f737f37](https://github.com/platformrelay/kollect/commit/f737f374a02618021e2a78a3ead44db3c50506d9)
+
+- **target-status:** Wire cluster collectedCount through the shared count sync (T07) [3f7c075](https://github.com/platformrelay/kollect/commit/3f7c07584b28cdb1f667696700ba5adca1c93b23)
+
+- **export:** Stamp collectedGeneration after prune and scrub (T06) [0688b7b](https://github.com/platformrelay/kollect/commit/0688b7b5db118e696a0d4c3fc110e344b8425da3)
+
+- **export:** Implement the requestedAt re-export trigger (T05) [55a356c](https://github.com/platformrelay/kollect/commit/55a356cc0ecb5b745f03f5d34db36180bdb74937)
 
 - **ci:** Add task check, the full local gate (TCE-1..TCE-4) [1d8f0c0](https://github.com/platformrelay/kollect/commit/1d8f0c05b58cddb0c26256b768fb46f86397d4fb)
 
