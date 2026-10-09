@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **deps:** Raise Go and x/net to clear GO-2026-6617 (HTTP/2 HPACK race) [baa40ae](https://github.com/platformrelay/kollect/commit/baa40ae3a3911d9c3381541002a917a78cfeea6f)
+
 - **docs:** Address independent review of the sweep-1 branch [481db27](https://github.com/platformrelay/kollect/commit/481db2759dd3a5a8661d2f1cafef7628d06f6083)
 
 - **docs:** Keep the ADR-refs gate from citing its own examples [5e1a5de](https://github.com/platformrelay/kollect/commit/5e1a5def194107ee6e4d42affdebba0f6632782a)
