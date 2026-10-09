@@ -209,9 +209,15 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           # Derived from `go-licenses csv ./...` over the module graph (2026-10-05):
-          # 141 Apache-2.0, 60 MIT, 42 BSD-3-Clause, 9 BSD-2-Clause, 1 ISC. No dependency needs
-          # an allow-dependencies-licenses exception, and unknown licences do not fail.
+          # 141 Apache-2.0, 60 MIT, 42 BSD-3-Clause, 9 BSD-2-Clause, 1 ISC. Unknown licences do
+          # not fail.
           allow-licenses: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC
+          # One exception: from v0.60.0 the scanner reports golang.org/x/net as "BSD-3-Clause AND
+          # LicenseRef-scancode-google-patent-license-golang" — the Go PATENTS file, an extra
+          # patent grant that every golang.org/x module ships and go-licenses reads as plain
+          # BSD-3-Clause. Scoped to this one package, not the licence, so a new dependency
+          # under that ref still has to be looked at.
+          allow-dependencies-licenses: pkg:golang/golang.org/x/net
 
   verify:
     name: verify
