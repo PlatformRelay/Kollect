@@ -36,7 +36,7 @@
 
 [settings]
 # Go is intentionally absent from [tools]: this setting makes mise read the Go version
-# straight out of `go.mod` (currently `go 1.26.6`), which is precisely what CI does.
+# straight out of `go.mod` (currently `go 1.26.9`), which is precisely what CI does.
 # .github/actions/go-cache/action.yml runs actions/setup-go with
 # `go-version-file: go.mod`, and every Go job in .github/workflows/ci.yaml -- including
 # the required `test` and `kind-smoke` checks -- goes through that composite action;
