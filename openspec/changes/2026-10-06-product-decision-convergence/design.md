@@ -102,8 +102,8 @@ value (the marker becomes `+kubebuilder:validation:Enum=go-git`), deletes the en
 points and the internal `GitEngine` type and `Config.Engine` field, and extends the KEX pin.
 Existing `engine: cli` sinks fail validation with an error naming `go-git`
 (pre-v0.x, no breaking marker; upgrade note in `docs/operator-manual/upgrading.md`; ADR-0803,
-which notes that number 0802 stays reserved — eight pipeline code comments already cite
-"ADR-0802" as the future pipeline-CLI contract, so 0803 avoids squatting on it).
+which records why it skips 0802 — at spec time eight pipeline code comments cited 0802 as
+the future pipeline-CLI contract; the docs-truth sweep has since removed them).
 
 Doc sites that assert `engine: cli` works and must be truthed-up with the code: the CRD reference
 row (`docs/crds/kollectsnapshotsink.md:22`), `charts/kollect/README.md.gotmpl:15-18` (+ chart

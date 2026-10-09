@@ -4,7 +4,7 @@
 > git CLI machinery survives only where it is genuinely shared (file:// remotes and the
 > ls-remote connection probe).
 
-**Theme:** 04 · Export & sinks (numbered in the 08 range: 0802 is reserved by the pipeline-CLI
+**Theme:** 04 · Export & sinks (numbered in the 08 range: 0802 was held for the pipeline-CLI
 contract, see Notes) · **Status:** Accepted (2026-10-06)
 
 ## Context
@@ -74,8 +74,9 @@ The git snapshot sink exports and deletes through go-git only:
 
 ## Notes
 
-- ADR number 0802 stays reserved: eight pipeline code comments already cite "ADR-0802" as the
-  future pipeline-CLI contract, so this ADR takes 0803 to avoid squatting on it.
+- ADR number 0802 is skipped: when this ADR was written, eight pipeline code comments cited 0802
+  as the future pipeline-CLI contract, so it took 0803 to avoid squatting on it. The docs-truth
+  sweep has since removed those cites; 0803 keeps its number rather than being renumbered.
 - GTE-1..GTE-3 in
   `openspec/changes/2026-10-06-product-decision-convergence/specs/git-engine/spec.md` are the
   requirement form of this decision.
