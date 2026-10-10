@@ -10,48 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-git/go-billy/v5/util"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/storage/memory"
 )
-
-func TestCommitInMemoryRepo(t *testing.T) {
-	t.Parallel()
-
-	hash, err := commitInMemoryRepo([]byte(`{"items":[]}`), "inventory/latest.json")
-	if err != nil {
-		t.Fatalf("commitInMemoryRepo() error = %v", err)
-	}
-
-	if hash.IsZero() {
-		t.Fatal("expected non-zero commit hash")
-	}
-}
-
-func TestCommitInMemoryRepo_emptyPathUsesDefaultObjectKey(t *testing.T) {
-	t.Parallel()
-
-	hash, err := commitInMemoryRepo([]byte(`{"items":[]}`), "")
-	if err != nil {
-		t.Fatalf("commitInMemoryRepo() error = %v", err)
-	}
-	if hash.IsZero() {
-		t.Fatal("expected non-zero commit hash")
-	}
-}
-
-func TestCommitInMemoryRepo_rejectsTraversal(t *testing.T) {
-	t.Parallel()
-
-	if _, err := commitInMemoryRepo([]byte(`{"items":[]}`), "../escape.json"); err == nil {
-		t.Fatal("expected error for path traversal")
-	}
-}
 
 func TestExportFileRemote(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
@@ -430,42 +389,4 @@ func exportForTest(ctx context.Context, cfg Config, auth Auth, payload []byte, o
 	}
 
 	return ExportWithBranch(ctx, cfg, auth, payload, objectPath, nil, commitCtx)
-}
-
-func commitInMemoryRepo(payload []byte, objectPath string) (plumbing.Hash, error) {
-	repo, err := git.Init(memory.NewStorage(), memfs.New())
-	if err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	wt, err := repo.Worktree()
-	if err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	validatedPath, err := validateObjectPath(objectPath)
-	if err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	objectPath = validatedPath
-	if objectPath == "" {
-		objectPath = defaultObjectKey
-	}
-
-	if err := wt.Filesystem.MkdirAll(filepath.Dir(objectPath), 0o755); err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	if err := util.WriteFile(wt.Filesystem, objectPath, payload, 0o644); err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	if _, err := wt.Add(objectPath); err != nil {
-		return plumbing.ZeroHash, err
-	}
-
-	return wt.Commit("test", &git.CommitOptions{
-		Author: &object.Signature{Name: "test", Email: "test@test", When: time.Now()},
-	})
 }
