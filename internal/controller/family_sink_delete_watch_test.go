@@ -17,6 +17,7 @@ import (
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/sink"
+	"github.com/platformrelay/kollect/internal/sink/cap"
 )
 
 // Tests for the family-sink delete hook (BEP-1): the DeleteFunc body the
@@ -33,7 +34,7 @@ type deleteWatchSpyBackend struct {
 
 func (b *deleteWatchSpyBackend) Type() string { return "counting" }
 func (b *deleteWatchSpyBackend) Capabilities() sink.Capabilities {
-	return sink.SnapshotStoreCapabilities()
+	return cap.SnapshotStore()
 }
 func (b *deleteWatchSpyBackend) Export(context.Context, []byte, string) error { return nil }
 func (b *deleteWatchSpyBackend) Close() error {
