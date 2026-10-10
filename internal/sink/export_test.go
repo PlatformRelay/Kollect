@@ -94,6 +94,41 @@ func TestRunExportEnvelope_guards(t *testing.T) {
 	}
 }
 
+func TestRunExportEnvelope_skipsEmptySnapshotStream(t *testing.T) {
+	t.Parallel()
+
+	envelope, err := export.MarshalEnvelope([]collect.Item{}, export.Metadata{Generation: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stub := &stubBackend{caps: cap.StreamEmitter()}
+	reg := NewRegistry()
+	reg.Register("stub", func(_ kollectdevv1alpha1.KollectSinkSpec, _ BuildContext) (Backend, error) {
+		return stub, nil
+	})
+	t.Cleanup(func() { EvictBackendPool("team-a", "skip-empty-stream") })
+
+	paths, err := RunExportEnvelope(ExportEnvelopeRequest{
+		Ctx:           t.Context(),
+		Registry:      reg,
+		SinkNamespace: "team-a",
+		SinkName:      "skip-empty-stream",
+		ObjectPath:    "team-a/inv.json",
+		Envelope:      envelope,
+		SinkSpec:      kollectdevv1alpha1.KollectSinkSpec{Type: "stub", Endpoint: "https://example.com/repo.git"},
+	})
+	if err != nil {
+		t.Fatalf("RunExportEnvelope() error = %v", err)
+	}
+	if paths != nil {
+		t.Fatalf("paths = %v, want nil for a skipped empty snapshot", paths)
+	}
+	if stub.lastBody != nil {
+		t.Fatalf("backend received body %q, want no export", stub.lastBody)
+	}
+}
+
 func mustStubEnvelopeRegistry(t *testing.T, stub Backend) *Registry {
 	t.Helper()
 	reg := NewRegistry()
