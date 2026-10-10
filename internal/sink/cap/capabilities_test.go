@@ -14,6 +14,9 @@ func TestCapabilityConstructors(t *testing.T) {
 	if got := StreamEmitter(); got != (Capabilities{Stream: true}) {
 		t.Fatalf("StreamEmitter() = %#v", got)
 	}
+	if got := RelationalStore(); got != (Capabilities{SupportsDelete: true}) {
+		t.Fatalf("RelationalStore() = %#v", got)
+	}
 	if got := SnapshotStore(); got != (Capabilities{}) {
 		t.Fatalf("SnapshotStore() = %#v", got)
 	}
