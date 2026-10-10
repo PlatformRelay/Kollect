@@ -11,6 +11,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **git:** Classify HTTP status codes from typed errors and status phrases ([#459](https://github.com/platformrelay/kollect/pull/459))[76239b7](https://github.com/platformrelay/kollect/commit/76239b7b239aa058ba52c6de57b4e36268a9f568)
+
+- **git:** Match HTTP status codes in errors as whole tokens [66c3b14](https://github.com/platformrelay/kollect/commit/66c3b14e9bb0679fd75304ab0bfc22bea765c61c)
+
+- **docs:** Clear markdown lint in the dead-exported-surface evidence [070074e](https://github.com/platformrelay/kollect/commit/070074ef40424c874426a150ec14b90b61235e21)
+
 - **deps:** Floor cairosvg at 2.9.1 in the docs requirements input (GHSA-c3jg-qh8m-j3h2) ([#457](https://github.com/platformrelay/kollect/pull/457))[3f17512](https://github.com/platformrelay/kollect/commit/3f17512f897bfb85492f8a08fc415ea98bb75168)
 
 - **sink:** Latch closed nats backends against re-dial (T13) [2074da7](https://github.com/platformrelay/kollect/commit/2074da796453bee3e2728d5bb73cacc72fc1a3e7)
@@ -101,6 +107,22 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Refactoring
+
+- **controller:** Migrate delete-watch spy to cap.SnapshotStore [de1a154](https://github.com/platformrelay/kollect/commit/de1a1540476d2f65f59353d54d38ef098ee584d0)
+
+- **inventory:** Drop dead user field from auth cache [d51fff9](https://github.com/platformrelay/kollect/commit/d51fff97c6f0456da86f4fe614055b7cda374020)
+
+- **collect:** Delete superseded engine binding [88dad9e](https://github.com/platformrelay/kollect/commit/88dad9efe417b3553413e5a402eb7fd889226daf)
+
+- **sink:** Delete test-only capability aliases [12f7b21](https://github.com/platformrelay/kollect/commit/12f7b21ea67883480332dc554c04e189bdbaa86e)
+
+- **git:** Delete superseded git entry points (git.Export, git.ExportMemory) [d2a1388](https://github.com/platformrelay/kollect/commit/d2a1388e07aeab758ccd698d4cf027c924068f14)
+
+- **collect:** Delete superseded store methods (Store.RemoveCluster, Store.MarshalTargetJSON) [c6180bd](https://github.com/platformrelay/kollect/commit/c6180bd00432512ea7d786b54a0019bf99bba73e)
+
+- **api:** [**breaking**] Delete unused exported symbols (MergeRequestAPI, ConditionConnected, ConditionCredentialsVerified) [5ed94fc](https://github.com/platformrelay/kollect/commit/5ed94fc95789c260586448a1dcddeb7365c87a92)
+
+- **sink:** Delete dead items-level export runner [32afa87](https://github.com/platformrelay/kollect/commit/32afa871953b93244415162a4bb90de3998b9e66)
 
 - **lint:** Make the LabelProfile decoupling real and separate the prune's namespace constant [3be8306](https://github.com/platformrelay/kollect/commit/3be8306de6586eddcdec4ceb86298d9ecbe36e91)
 
