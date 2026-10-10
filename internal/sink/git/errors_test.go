@@ -7,11 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"strings"
 	"syscall"
 	"testing"
 
+	"github.com/go-git/go-git/v5/plumbing"
 	gittransport "github.com/go-git/go-git/v5/plumbing/transport"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 )
@@ -153,27 +157,51 @@ func TestIsNonFastForwardError(t *testing.T) {
 	}
 }
 
-// Digits inside a path (a random temp dir) are not an HTTP status: a missing
-// local remote must not classify as an auth failure.
-func TestClassifyExportError_statusCodeNeedsTokenBoundary(t *testing.T) {
+// Status codes are read from typed go-git errors and status phrases only; digit
+// runs inside paths, hostnames and mirror dirs are not statuses.
+func TestClassifyExportError_statusCodes(t *testing.T) {
 	t.Parallel()
 
-	pathErr := errors.New("git clone: fatal: '/tmp/x3401029481/missing.git' does not appear to be a git repository")
-	if kollecterrors.IsTerminal(ClassifyExportError(pathErr)) {
-		t.Fatalf("digits in a path classified as terminal: %v", ClassifyExportError(pathErr))
+	typed := plumbing.NewUnexpectedError(&githttp.Err{
+		Response: &http.Response{StatusCode: 502, Request: &http.Request{URL: &url.URL{Scheme: "https", Host: "git.example.com", Path: "/team401/infra.git/info/refs"}}},
+	})
+
+	rows := []struct {
+		name string
+		err  error
+		want string // terminal | transient | other
+	}{
+		{"missing local remote, digits in temp dir", errors.New("git clone: fatal: '/tmp/x3401029481/missing.git' does not appear to be a git repository"), "other"},
+		{"typed 502 with team401 in URL", typed, "transient"},
+		{"text 502 with team401 in URL", errors.New(`unexpected requesting "https://git.example.com/team401/infra.git/info/refs" status code: 502`), "transient"},
+		{"hex mirror dir", errors.New("mirror dir: mkdir /var/git-mirrors/3fa401bc9e0d: permission denied"), "other"},
+		{"hostname with 503", errors.New("lookup git-503.example.com: no such host"), "other"},
+		{"digits inside 15039", errors.New("path /tmp/a15039b"), "other"},
+		{"cli 403", errors.New("fatal: unable to access 'https://h/r.git/': The requested URL returned error: 403"), "terminal"},
+		{"unexpected client error 401", errors.New("unexpected client error: 401"), "terminal"},
+		{"http 403 forbidden", errors.New("HTTP 403 Forbidden"), "terminal"},
+		{"status code 401", errors.New("status code: 401"), "terminal"},
+		{"code=401", errors.New("code=401"), "terminal"},
+		{"401 colon", errors.New("push: 401: bad"), "terminal"},
+		{"remote rejected (403)", errors.New("remote rejected (403)"), "terminal"},
+		{"wrapped authorization failed", fmt.Errorf("push: %w", gittransport.ErrAuthorizationFailed), "terminal"},
+		{"returned error 503", errors.New("The requested URL returned error: 503"), "transient"},
+		{"(429)", errors.New("rate limited (429)"), "transient"},
+		{"status code 429", errors.New("status code: 429"), "transient"},
 	}
 
-	for _, msg := range []string{"unexpected client error: 401", "HTTP 403 Forbidden"} {
-		if !kollecterrors.IsTerminal(ClassifyExportError(errors.New(msg))) {
-			t.Fatalf("%q must stay terminal", msg)
+	for _, row := range rows {
+		got := "other"
+
+		switch classified := ClassifyExportError(row.err); {
+		case kollecterrors.IsTerminal(classified):
+			got = "terminal"
+		case strings.Contains(classified.Error(), "git transport"):
+			got = "transient"
 		}
-	}
 
-	if !kollecterrors.IsTransient(ClassifyExportError(errors.New("server said 503"))) {
-		t.Fatal("standalone 503 must stay transient")
-	}
-
-	if strings.Contains(ClassifyExportError(errors.New("path /tmp/a15039b")).Error(), "git transport") {
-		t.Fatal("503 inside a longer number must not be transient")
+		if got != row.want {
+			t.Errorf("%s: classified %s, want %s (%v)", row.name, got, row.want, row.err)
+		}
 	}
 }

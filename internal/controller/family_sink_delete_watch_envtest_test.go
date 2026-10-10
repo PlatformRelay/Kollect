@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,6 +17,7 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/export"
+	"github.com/platformrelay/kollect/internal/metrics"
 	"github.com/platformrelay/kollect/internal/sink"
 )
 
@@ -45,12 +47,6 @@ var _ = Describe("family-sink delete watch (envtest, BEP-1)", func() {
 		go func() { _ = mgr.Start(watchCtx) }()
 		Eventually(func() bool { return mgr.GetCache().WaitForCacheSync(watchCtx) }).
 			WithTimeout(30 * time.Second).WithPolling(200 * time.Millisecond).Should(BeTrue())
-
-		sinkObj := &kollectdevv1alpha1.KollectSnapshotSink{
-			ObjectMeta: metav1.ObjectMeta{GenerateName: "delete-watch-", Namespace: "default"},
-			Spec:       kollectdevv1alpha1.KollectSnapshotSinkSpec{Type: "s3"},
-		}
-		Expect(k8sClient.Create(watchCtx, sinkObj)).To(Succeed())
 
 		envelope, envErr := export.MarshalEnvelope([]collect.Item{}, export.Metadata{})
 		Expect(envErr).NotTo(HaveOccurred())
@@ -87,24 +83,25 @@ var _ = Describe("family-sink delete watch (envtest, BEP-1)", func() {
 			return obj, spy
 		}
 
-		// Cache sync does not mean the controller's Watches handler is attached:
-		// the manager starts controllers (and their event sources) after the
-		// caches sync, asynchronously. A delete issued before the handler is
-		// registered is never replayed to it (late handlers only get synthetic
-		// Adds for objects still in the store), so the spec would flake with
-		// closes=0. Probe with throwaway sinks until one delete reaches the
-		// seam: from then on the handler is provably live.
-		watchLive := false
-		for deadline := time.Now().Add(60 * time.Second); !watchLive && time.Now().Before(deadline); {
-			probe, probeSpy := createPooledSink()
-			Expect(k8sClient.Delete(watchCtx, probe)).To(Succeed())
-			for end := time.Now().Add(2 * time.Second); !watchLive && time.Now().Before(end); time.Sleep(50 * time.Millisecond) {
-				watchLive = probeSpy.closes.Load() == 1
-			}
+		const controllerLabel = "kollectsnapshotsink-delete-watch"
+
+		reconciles := func() float64 {
+			return testutil.ToFloat64(metrics.ReconcileTotal.WithLabelValues(controllerLabel, metrics.ResultSuccess)) +
+				testutil.ToFloat64(metrics.ReconcileTotal.WithLabelValues(controllerLabel, metrics.ResultFailure))
 		}
-		Expect(watchLive).To(BeTrue(), "delete watch handler never became live")
+		before := reconciles()
 
 		sinkObj, spy := createPooledSink()
+
+		// Cache sync does not mean the controller's Watches handler is attached:
+		// the manager starts controllers after the caches sync, asynchronously,
+		// and a delete issued before the handler registers is never replayed to
+		// it (late handlers only get synthetic Adds for objects still in the
+		// store). Workers start only after every source has synced, which is
+		// after its handler was added, so an observed reconcile of the sink
+		// proves the Watches handler is live before the delete.
+		Eventually(reconciles).WithTimeout(30*time.Second).WithPolling(50*time.Millisecond).
+			Should(BeNumerically(">", before), "controller never reconciled the sink: manager/controller did not start")
 
 		Expect(k8sClient.Delete(watchCtx, sinkObj)).To(Succeed())
 
