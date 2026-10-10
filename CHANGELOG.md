@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **deps:** Floor cairosvg at 2.9.1 in the docs requirements input (GHSA-c3jg-qh8m-j3h2) ([#457](https://github.com/platformrelay/kollect/pull/457))[3f17512](https://github.com/platformrelay/kollect/commit/3f17512f897bfb85492f8a08fc415ea98bb75168)
+
 - **sink:** Latch closed nats backends against re-dial (T13) [2074da7](https://github.com/platformrelay/kollect/commit/2074da796453bee3e2728d5bb73cacc72fc1a3e7)
 
 - **sink:** Terminal git config faults and bounded tombstones (T11) [3d17cf2](https://github.com/platformrelay/kollect/commit/3d17cf263c3fc745f78561907934e57dd2a3379d)
