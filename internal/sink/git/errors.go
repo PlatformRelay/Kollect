@@ -64,18 +64,40 @@ func isTransientTransportError(err error) bool {
 		strings.Contains(msg, "timeout") ||
 		strings.Contains(msg, "temporary failure") ||
 		strings.Contains(msg, "eof") ||
-		strings.Contains(msg, "503") ||
-		strings.Contains(msg, "429") ||
+		hasStatusCode(msg, "503") ||
+		hasStatusCode(msg, "429") ||
 		strings.Contains(msg, "too many requests")
 }
+
+// hasStatusCode reports whether msg contains code as a standalone token. A bare
+// substring match misreads digits inside paths (a temp dir named ...3401029481
+// is not an HTTP 401), which flipped a missing-remote clone from transient to
+// terminal.
+func hasStatusCode(msg, code string) bool {
+	for from := 0; ; {
+		i := strings.Index(msg[from:], code)
+		if i < 0 {
+			return false
+		}
+
+		start, end := from+i, from+i+len(code)
+		if (start == 0 || !isDigit(msg[start-1])) && (end == len(msg) || !isDigit(msg[end])) {
+			return true
+		}
+
+		from = start + 1
+	}
+}
+
+func isDigit(b byte) bool { return b >= '0' && b <= '9' }
 
 func isAuthFailure(msg string, err error) bool {
 	if strings.Contains(msg, "authentication required") ||
 		strings.Contains(msg, "invalid credentials") ||
 		strings.Contains(msg, "authorization failed") ||
 		strings.Contains(msg, "access denied") ||
-		strings.Contains(msg, "401") ||
-		strings.Contains(msg, "403 forbidden") {
+		hasStatusCode(msg, "401") ||
+		hasStatusCode(msg, "403 forbidden") {
 		return true
 	}
 

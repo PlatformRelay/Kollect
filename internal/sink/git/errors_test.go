@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -149,5 +150,30 @@ func TestIsNonFastForwardError(t *testing.T) {
 
 	if !isNonFastForwardError(errors.New("failed to push some refs: updates were rejected")) {
 		t.Fatal("expected non-fast-forward for combined rejected-refs message")
+	}
+}
+
+// Digits inside a path (a random temp dir) are not an HTTP status: a missing
+// local remote must not classify as an auth failure.
+func TestClassifyExportError_statusCodeNeedsTokenBoundary(t *testing.T) {
+	t.Parallel()
+
+	pathErr := errors.New("git clone: fatal: '/tmp/x3401029481/missing.git' does not appear to be a git repository")
+	if kollecterrors.IsTerminal(ClassifyExportError(pathErr)) {
+		t.Fatalf("digits in a path classified as terminal: %v", ClassifyExportError(pathErr))
+	}
+
+	for _, msg := range []string{"unexpected client error: 401", "HTTP 403 Forbidden"} {
+		if !kollecterrors.IsTerminal(ClassifyExportError(errors.New(msg))) {
+			t.Fatalf("%q must stay terminal", msg)
+		}
+	}
+
+	if !kollecterrors.IsTransient(ClassifyExportError(errors.New("server said 503"))) {
+		t.Fatal("standalone 503 must stay transient")
+	}
+
+	if strings.Contains(ClassifyExportError(errors.New("path /tmp/a15039b")).Error(), "git transport") {
+		t.Fatal("503 inside a longer number must not be transient")
 	}
 }
