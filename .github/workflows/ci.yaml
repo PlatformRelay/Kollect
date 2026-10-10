@@ -217,7 +217,11 @@ jobs:
           # patent grant that every golang.org/x module ships and go-licenses reads as plain
           # BSD-3-Clause. Scoped to this one package, not the licence, so a new dependency
           # under that ref still has to be looked at.
-          allow-dependencies-licenses: pkg:golang/golang.org/x/net
+          # Second exception: cairosvg (LGPL-3.0-or-later) is a docs-site build tool only, pulled in
+          # by docs/requirements-docs.txt for mkdocs-material's image rendering. It never ships in
+          # the kollect binary or image, so the LGPL does not reach a release artefact. Scoped to
+          # the package for the same reason as above.
+          allow-dependencies-licenses: pkg:golang/golang.org/x/net, pkg:pypi/cairosvg
 
   verify:
     name: verify
