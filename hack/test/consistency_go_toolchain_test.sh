@@ -70,12 +70,20 @@ golang_images() {
   local root="$1" f
   while IFS= read -r f; do
     [[ -n "${f}" ]] || continue
+    # Backslash continuations are joined first, so `FROM --platform=... \` + `golang:...` on
+    # the next line is one instruction.
     awk -v f="${f}" '
-      /^[[:space:]]*#/ { next }
-      toupper($1) == "FROM" {
-        for (i = 2; i <= NF; i++) {
-          if ($i ~ /^--/) continue
-          img = $i
+      {
+        line = (cont != "") ? cont " " $0 : $0
+        cont = ""
+        if (line ~ /\\[[:space:]]*$/) { sub(/\\[[:space:]]*$/, "", line); cont = line; next }
+        if (line ~ /^[[:space:]]*#/) next
+        sub(/^[[:space:]]+/, "", line)
+        n = split(line, w, /[[:space:]]+/)
+        if (toupper(w[1]) != "FROM") next
+        for (i = 2; i <= n; i++) {
+          if (w[i] ~ /^--/) continue
+          img = w[i]
           sub(/^(docker\.io\/)?(library\/)?/, "", img)
           if (img ~ /^golang:/) { sub(/^golang:/, "", img); sub(/@.*$/, "", img); print f, img }
           else if (img ~ /^golang(@|$)/) { print f, "<untagged>" }
@@ -87,9 +95,12 @@ golang_images() {
 
   f=".devcontainer/devcontainer.json"
   if [[ -f "${root}/${f}" ]]; then
-    # Anywhere on a line, so compact (one-line) JSON is read too.
-    { grep -oE '"image"[[:space:]]*:[[:space:]]*"[^"]*"' "${root}/${f}" || true; } |
-      sed -E 's/^"image"[[:space:]]*:[[:space:]]*"//; s/"$//; s#^(docker\.io/)?(library/)?##' |
+    # devcontainer.json is JSONC: `//` comment lines are dropped, and the key must open a line
+    # or follow `{` / `,`, so compact (one-line) JSON is read and a commented-out image is not.
+    # /* */ block comments are not handled.
+    { grep -vE '^[[:space:]]*//' "${root}/${f}" |
+      grep -oE '(^|[{,])[[:space:]]*"image"[[:space:]]*:[[:space:]]*"[^"]*"' || true; } |
+      sed -E 's/^[{,]?[[:space:]]*"image"[[:space:]]*:[[:space:]]*"//; s/"$//; s#^(docker\.io/)?(library/)?##' |
       while IFS= read -r img; do
         case "${img}" in
           golang:*) img="${img#golang:}"; echo "${f} ${img%%@*}" ;;
@@ -117,8 +128,8 @@ setup_go_without_gomod() {
       function close_step() { if (open && !ok) print f ":" at; open = 0 }
       /^[[:space:]]*#/ { next }
       /^[[:space:]]*-[[:space:]]/ { close_step() }
-      /uses:[[:space:]]*["\047]?actions\/setup-go@/ { open = 1; ok = 0; at = NR; next }
-      open && /^[[:space:]]*go-version-file:[[:space:]]*["\047]?go\.mod["\047]?[[:space:]]*(#.*)?$/ { ok = 1 }
+      /["\047]?uses["\047]?:[[:space:]]*["\047]?actions\/setup-go@/ { open = 1; ok = 0; at = NR; next }
+      open && /^[[:space:]]*["\047]?go-version-file["\047]?:[[:space:]]*["\047]?go\.mod["\047]?[[:space:]]*(#.*)?$/ { ok = 1 }
       END { close_step() }
     ' "${file}"
   done < <(ci_files "${root}")
@@ -127,7 +138,7 @@ setup_go_without_gomod() {
 count_setup_go() {
   local root="$1" file n=0 c
   while IFS= read -r file; do
-    c="$(grep -Ec "^[^#]*uses:[[:space:]]*[\"']?actions/setup-go@" "${file}" || true)"
+    c="$(grep -Ec "^[^#]*[\"']?uses[\"']?:[[:space:]]*[\"']?actions/setup-go@" "${file}" || true)"
     n=$((n + c))
   done < <(ci_files "${root}")
   echo "${n}"
@@ -197,7 +208,7 @@ check_go_toolchain() {
       [[ -n "${line}" ]] || continue
       echo "FAIL: ${file#"${root}"/}: go-version: literal ($(sed -E 's/^[[:space:]]+//' <<<"${line#*:}")) -- CI must read the Go version from go.mod via go-version-file" >&2
       broken=1
-    done < <(grep -nE '^[[:space:]]*-?[[:space:]]*go-version:' "${file}" || true)
+    done < <(grep -nE "^[[:space:]]*-?[[:space:]]*[\"']?go-version[\"']?:" "${file}" || true)
   done < <(ci_files "${root}")
 
   n="$(count_setup_go "${root}")"
@@ -240,19 +251,18 @@ check_go_toolchain() {
     fi
   fi
 
-  # A rule after the group rule that sets another groupName and can match the go directive or
-  # a golang image (by depName, or by manager with no name filter) would win over it.
+  # Any later rule that sets a different groupName may match go or golang (a catch-all, a
+  # matchPackageNames or matchDatasources filter, a custom.regex dep named golang) and would win.
+  # Deciding which can match means re-implementing Renovate's matchers, so the group rule must
+  # simply be the LAST rule that sets a groupName.
   if [[ "${group_idx}" -ge 0 ]]; then
     local later
     later="$(jq -r --argjson g "${group_idx}" '.packageRules[$g].groupName as $name
       | [.packageRules | to_entries[] | select(.key > $g)
         | select((.value.groupName // $name) != $name)
-        | select(((.value.matchDepNames // []) | (index("go") != null or index("golang") != null))
-            or (((.value.matchManagers // []) | map(IN("gomod", "dockerfile", "devcontainer")) | any)
-                and (.value.matchDepNames == null) and (.value.matchPackageNames == null)))
         | "packageRules[\(.key)] (\(.value.groupName))"] | join(", ")' "${renovate}")"
     if [[ -n "${later}" ]]; then
-      echo "FAIL: renovate.json's go/golang group rule (packageRules[${group_idx}]) is overridden by a later rule that can match go or golang: ${later}" >&2
+      echo "FAIL: renovate.json's go/golang group rule (packageRules[${group_idx}]) is overridden by a later rule that sets another groupName: ${later} -- keep the go toolchain group the last group rule" >&2
       broken=1
     fi
   fi
@@ -260,6 +270,7 @@ check_go_toolchain() {
   if ! jq -e '[.packageRules[]
       | select((.matchDepTypes // []) | index("golang") != null)
       | select((.matchDepNames // ["go"]) | index("go") != null)
+      | select((.matchPackageNames // ["go"]) | index("go") != null)
       | select(.rangeStrategy == "bump")
       | select((.matchManagers // ["gomod"]) | index("gomod") != null)
       | select((.matchFileNames // ["go.mod"]) | index("go.mod") != null)] | length > 0' \
@@ -404,6 +415,42 @@ mutant_rejected "no golang image found" \
   "no golang image found" 'debian:1' Dockerfile \
   sed -i -E 's/golang:/debian:/' Dockerfile Dockerfile.pipeline .devcontainer/devcontainer.json
 
+mutant_rejected "FROM continued onto the next line drifts" \
+  "Dockerfile: golang:1.92.0 is newer than go.mod's go" '^  golang:1\.92\.0' Dockerfile \
+  sed -i -E 's/^FROM golang:[^ ]+ AS builder/FROM --platform=linux\/amd64 \\\n  golang:1.92.0 AS builder/' Dockerfile
+
+# shellcheck disable=SC2016 # ${GO_VERSION} is literal Dockerfile text, not a shell expansion
+mutant_rejected "golang tag from a build arg" \
+  "Dockerfile: golang:\${GO_VERSION} is not a literal Go version" 'golang:\$\{GO_VERSION\}' Dockerfile \
+  sed -i -E 's/^FROM golang:[^ ]+ AS builder/FROM golang:${GO_VERSION} AS builder/' Dockerfile
+
+mutant_rejected "quoted YAML keys on a setup-go step not reading go.mod" \
+  "does not read go-version-file: go.mod" '"uses": actions/setup-go@' .github/actions/go-cache/action.yml \
+  sed -i -E 's#uses: actions/setup-go@#"uses": actions/setup-go@#; s/go-version-file: go\.mod/"go-version-file": .go-version/' \
+  .github/actions/go-cache/action.yml
+
+mutant_rejected "quoted go-version key literal" \
+  "go-version: literal" '"go-version": "1\.99"' .github/actions/go-cache/action.yml \
+  sed -i -E 's/go-version-file: go\.mod/go-version-file: go.mod\n        "go-version": "1.99"/' .github/actions/go-cache/action.yml
+
+# Green controls: legitimate spellings the gate must accept.
+control_passes() {
+  local label="$1" probe="$2" probe_file="$3"
+  shift 3
+  local copy out
+  copy="$(new_copy)"
+  (cd "${copy}" && "$@") || fail "self-test: the control step for '${label}' failed -- nothing was tested"
+  grep -Eq -- "${probe}" "${copy}/${probe_file}" ||
+    fail "self-test: the '${label}' control did not land (no '${probe}' in ${probe_file})"
+  out="$(bash "${SELF}" "${copy}" 2>&1)" ||
+    fail "self-test: the gate red on the '${label}' control -- a legitimate spelling must pass: $(head -2 <<<"${out}" | tr '\n' ' ')"
+  pass "self-test: ${label} control passes"
+}
+
+control_passes "commented-out devcontainer image (JSONC)" '^  // "image": "golang:1\.0\.0"' \
+  .devcontainer/devcontainer.json \
+  sed -i -E '2i\  // "image": "golang:1.0.0",' .devcontainer/devcontainer.json
+
 # Renovate mutants rewrite renovate.json with one jq program and fail when the rewrite changed
 # nothing, so a selector that stopped matching cannot pass as a tested mutant. The programs use
 # jq variables ($g, $d), hence single quotes.
@@ -440,7 +487,19 @@ mutant_rejected "Renovate go directive bump names another dep" \
   renovate_jq '(.packageRules[] | select((.matchDepTypes // []) | index("golang") != null) | .matchDepNames) |= ["not-go"]'
 
 mutant_rejected "Renovate later rule overrides the go group" \
-  "is overridden by a later rule that can match go or golang" '"late override"' renovate.json \
+  "is overridden by a later rule that sets another groupName" '"late override"' renovate.json \
   renovate_jq '.packageRules += [{"matchManagers": ["dockerfile"], "groupName": "late override"}]'
+
+mutant_rejected "Renovate later catch-all group rule" \
+  "is overridden by a later rule that sets another groupName" '"catch all"' renovate.json \
+  renovate_jq '.packageRules += [{"groupName": "catch all"}]'
+
+mutant_rejected "Renovate later matchPackageNames golang rule" \
+  "is overridden by a later rule that sets another groupName" '"images by name"' renovate.json \
+  renovate_jq '.packageRules += [{"matchPackageNames": ["golang"], "groupName": "images by name"}]'
+
+mutant_rejected "Renovate go directive bump filtered to another package" \
+  "no packageRule that sets rangeStrategy bump for the gomod go directive" '"not-go-pkg"' renovate.json \
+  renovate_jq '(.packageRules[] | select((.matchDepTypes // []) | index("golang") != null)) += {"matchPackageNames": ["not-go-pkg"]}'
 
 echo "All Go toolchain consistency self-tests passed."
