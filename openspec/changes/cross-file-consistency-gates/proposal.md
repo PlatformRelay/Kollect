@@ -4,8 +4,9 @@
 
 Some facts live in two files by necessity, and nothing compares them. Probed on this tree:
 
-- `go.mod` says `go 1.26.6`; `Dockerfile:2` and `Dockerfile.pipeline:4` build with a newer
-  `golang:` image. CI tests and runs govulncheck with the go.mod toolchain (`go-version-file:
+- `go.mod` says `go 1.26.9`; `Dockerfile:2` and `Dockerfile.pipeline:4` build with
+  `golang:1.27.2` (re-measured 2026-10-14; the proposal was written at 1.26.6 vs 1.27.1).
+  `.devcontainer/devcontainer.json` pins `golang:1.26.9`, so it drifts the other way after a bump. CI tests and runs govulncheck with the go.mod toolchain (`go-version-file:
   go.mod`; `Taskfile.yml:14` sets `GOTOOLCHAIN` from it), so the shipped binary is built by a
   toolchain no test ran under and govulncheck never scanned. Nothing notices.
 - Tools run through `go run <pkg>@<version>` or `go install` (go-arch-lint, govulncheck,
@@ -27,9 +28,9 @@ taken.
 
 ## What Changes
 
-- Go: `go.mod` is bumped to the Go version the Dockerfiles ship (`go 1.27.1`, no separate
-  `toolchain` line); a guard keeps the Dockerfiles and `go.mod` equal; Renovate groups the `go`
-  directive with the golang image so they move in one PR.
+- Go: `go.mod` is bumped to the Go version the Dockerfiles ship (`go 1.27.2` at re-measure, no
+  separate `toolchain` line); a guard keeps the Dockerfiles, the devcontainer image and `go.mod`
+  equal; Renovate groups the `go` directive with the golang images so they move in one PR.
 - A guard builds each pinned `go run`/`go install` tool under `GOTOOLCHAIN=local` with the go.mod
   Go (reading each tool's Go directive from `go mod download -json`).
 - A scheduled sensor goes red when `go.mod`'s Go is behind the latest patch of its minor.
@@ -77,7 +78,7 @@ newer one). The sensor's red runs are reported once change 7 lists it.
 
 ## Assumptions
 
-- Go 1.27.1 builds the module at current dependency versions; probe `go build ./... && go vet
+- Go 1.27.2 builds the module at current dependency versions; probe `go build ./... && go vet
   ./...` and the test suite before the bump (task 1.1).
 - `go mod download -json <pkg>@<version>` returns the module's `GoMod` file path, whose `go` line
   gives the tool's required Go. Source: `go help mod download`; probe in task 3.1.

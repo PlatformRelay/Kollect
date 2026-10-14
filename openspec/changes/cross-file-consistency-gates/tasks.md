@@ -3,8 +3,8 @@
 ## 1. Go equality and bump (CFC-1, CFC-6)
 
 - [ ] 1.1 Probe: `go build ./... && go vet ./...` and `task test` under the target Go; probe whether Renovate bumps the `go` directive and which group rule wins (the golang-image group must come after the existing "go minor and patch dependencies" and "docker images" rules); probe CodeQL's Go extractor on the target Go (`codeql.yaml`)
-- [ ] 1.2 Write `hack/test/consistency_go_toolchain_test.sh` (plain and `--self-test`) with fixtures (equal, image newer, image older, disagree, toolchain line, literal, none found, group rule missing); watch the newer/older cases fail on the assertion
-- [ ] 1.3 Bump `go.mod` to the version the Dockerfiles ship (version-only commit, no `toolchain` line); add the Renovate group; guard passes; `task test`, `task lint`, `task vulncheck` recorded
+- [ ] 1.2 Write `hack/test/consistency_go_toolchain_test.sh` (plain and `--self-test`) with fixtures (equal, image newer, image older, devcontainer differs, disagree, toolchain line, literal, none found, group rule missing); watch the newer/older cases fail on the assertion
+- [ ] 1.3 Bump `go.mod` (and the devcontainer image) to the version the Dockerfiles ship (version-only commit, no `toolchain` line); add the Renovate group; guard passes; `task test`, `task lint`, `task vulncheck` recorded
 
 ## 2. Tool pins (CFC-2, CFC-6)
 
