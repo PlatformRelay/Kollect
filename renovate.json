@@ -114,11 +114,6 @@
       "rangeStrategy": "bump"
     },
     {
-      "description": "Move the go directive and every golang image (Dockerfiles, devcontainer) in ONE pull request. Must stay AFTER the 'go minor and patch dependencies' and 'docker images' rules: a later rule's groupName wins. hack/test/consistency_go_toolchain_test.sh checks presence and order.",
-      "matchDepNames": ["go", "golang"],
-      "groupName": "go toolchain"
-    },
-    {
       "matchManagers": ["npm"],
       "matchFileNames": ["docs/**"],
       "groupName": "docs npm dependencies"
@@ -142,6 +137,11 @@
       "matchManagers": ["gomod"],
       "matchPackageNames": ["github.com/google/cel-go"],
       "allowedVersions": "<0.32.0"
+    },
+    {
+      "description": "Move the go directive and every golang image (Dockerfiles, devcontainer) in ONE pull request. Must stay the LAST rule that sets a groupName: a later rule's groupName wins, and any later group rule could pull go or golang out of this one. hack/test/consistency_go_toolchain_test.sh checks presence and position.",
+      "matchDepNames": ["go", "golang"],
+      "groupName": "go toolchain"
     }
   ]
 }
