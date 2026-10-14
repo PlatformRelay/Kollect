@@ -13,8 +13,9 @@ service account (`templates/clusterrole.yaml`, `templates/role.yaml` and
 
 ### Requirement: CFC-1 The shipped binary is built with the tested toolchain
 
-The Go version in the `FROM golang:<version>` line of every `Dockerfile*` that builds Go SHALL
-equal the `go` directive of `go.mod`. `go.mod` SHALL carry no separate `toolchain` line, and every
+The Go version in the `FROM golang:<version>` line of every `Dockerfile*` that builds Go, and in
+the `golang:<version>` image of `.devcontainer/devcontainer.json`, SHALL equal the `go` directive
+of `go.mod`. `go.mod` SHALL carry no separate `toolchain` line, and every
 Go setup in CI SHALL use `go-version-file: go.mod`. Renovate SHALL move the `go` directive and the
 golang image tag in one group.
 
@@ -25,7 +26,7 @@ golang image tag in one group.
 
 #### Scenario: Image differs from go.mod
 
-- **WHEN** a Dockerfile names a newer or older Go than `go.mod`
+- **WHEN** a Dockerfile or the devcontainer image names a newer or older Go than `go.mod`
 - **THEN** the check SHALL fail and name the file and both versions, because tests and govulncheck run the go.mod toolchain and never see the one that ships
 
 #### Scenario: Lone image PR
