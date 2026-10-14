@@ -106,6 +106,19 @@
       "pinDigests": true
     },
     {
+      "description": "Bump the go directive of go.mod. The gomod manager never proposes it by default (docs.renovatebot.com/modules/manager/gomod); without this rule the golang image moves alone and the shipped binary is built by a Go the tests never ran. Scoped to the root go.mod so test fixtures keep their own directive.",
+      "matchManagers": ["gomod"],
+      "matchFileNames": ["go.mod"],
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump"
+    },
+    {
+      "description": "Move the go directive and every golang image (Dockerfiles, devcontainer) in ONE pull request. Must stay AFTER the 'go minor and patch dependencies' and 'docker images' rules: a later rule's groupName wins. hack/test/consistency_go_toolchain_test.sh checks presence and order.",
+      "matchDepNames": ["go", "golang"],
+      "groupName": "go toolchain"
+    },
+    {
       "matchManagers": ["npm"],
       "matchFileNames": ["docs/**"],
       "groupName": "docs npm dependencies"
