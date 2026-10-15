@@ -1,8 +1,8 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: astra + claude (duo) — `/spec-loop-duo` from G3 on (operator, 2026-10-15); G1–G2 ran the earlier codex + claude/sonnet two-leg per-task sizing
-Next: L — dispatch G4 (task 4.1, CFC-5 go-patch-lag sensor; new workflow → astra + claude/opus)
-Budget: claude review legs 5/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
+Next: L — dispatch G5 (tasks 5.1–5.2, CFC-4 metrics; astra only)
+Budget: claude review legs 7/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
 (proposal.md, specs/cross-file-consistency/spec.md, tasks.md). Landing order position 4 of 10;
@@ -47,6 +47,7 @@ Holistic run at B: pending
 | G2 (2.1) | CLOSED-WITH-GAPS | codex + claude/sonnet, 2 rounds (round 1 REQUEST_CHANGES verified/fixed; round 2 REQUEST_CHANGES verified/fixed, no round 3); no opus | Commits 13b263c1f, f62e76e01, b564d1f49. Gap: unwired until 6.1. Self-test ~5 min → own lint step at 6.1. Deferred to B: parallel-unsafe fixture deletion from the shared module cache; misleading message for a literal golangci pin in a Makefile recipe (fails closed). Orchestrator lost ~80 min to a self-matching `pgrep -f` wait loop (killed). CFC-2 `GOTOOLCHAIN=local` → amended to exactly go.mod's Go (orchestrator decision, spec-set commit) |
 | G3 (3.1) | CLOSED (3.1); 3.2 was BLOCKED → resolved | none (probe evidence only, 8178695c2) | Default render covers all 113 role.yaml triples (no drift). Tenant render misses 36: 30 cluster-scoped (spec-named) + 6 namespaced workload reads (deployments, certificates g/l/w) → SPECIFICATION block; operator chose A 2026-10-15: exempt workload reads per team-operator.md §3 (spec amended). Deferred to B/backlog: default ClusterRole over-grants services CRUD + deployments write; tenant Role grants profiles/scopes write (CFC-3 is one-directional) |
 | G3 (3.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (RBAC = security posture), 2 rounds: r1 astra BLOCK / opus CONCERNS (team-workload accepted any read incl. secrets; leader-election Role counted as ClusterRole; Role covering cluster-scoped) all verified+fixed; r2 astra REQUEST_CHANGES (test isolation, fixed) / opus CLEAN | Commits 913a08ffa, f3489c06f, 1b5b7b78d. Mode-scoped exception lines with closed reason classes; 37 tenant exceptions, no default drift. SSAR (cluster-scoped, granted to all via system:basic-user) added to the spec's cluster-scoped list by orchestrator. Deferred: tenant Role's no-op SSAR rule (chart change); unwired until 6.1 |
+| G4 (4.1) | CLOSED-WITH-GAPS | astra + claude/opus:diff (new workflow), 2 rounds: r1 astra REQUEST_CHANGES (octal leading-zero false green, curl past job timeout) / opus CONCERNS, fixed; r2 astra REQUEST_CHANGES (2^63 overflow false green, fixed unreviewed per cap) / opus CLEAN | fba3eef06 (review-fix commits squashed in, local). Live sensor green (1.27.2 current). Needs `&include=all`. Deferred: tie curl retry budget to timeout-minutes (6.1/later). Gaps: wire both modes at 6.1; first scheduled run = post-merge row. Fresh worktree needed `make operator-sdk` for dist_operatorhub_pr_test.sh (ENVIRONMENT) |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
@@ -57,6 +58,9 @@ Holistic run at B: pending
 |---|---|---|---|
 
 ## Lessons
+- Validate numbers as bounded + canonical before bash `(( ))`: inside `if` an arithmetic error is false and big values wrap → false green in a fail-closed sensor (G4)
+- Under pipefail, `grep -v | grep -q` can SIGPIPE and read as no-match; use `grep >/dev/null` (G4)
+- A fresh worktree lacks bin/operator-sdk: run `make operator-sdk` before the dist_* guards (G4)
 - RBAC coverage must respect role kind and scope: never pool a namespaced Role with a ClusterRole; a Role never covers a cluster-scoped resource or subresource (G3)
 - An exception class must be a closed list, or "any other X fails" is undone by one line (G3)
 - A negative mutant must pass every check except the clause it names; one gate mutant per clause proves it; a file-deleting mutant needs an absence probe (G3)
