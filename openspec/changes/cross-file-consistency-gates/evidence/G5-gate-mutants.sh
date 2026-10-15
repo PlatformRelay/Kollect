@@ -37,6 +37,9 @@ run "Namespace split allowed" 'm = re.search(r"\b(Namespace|Subsystem)\s*:", mas
 run "outside registration allowed" '                    if CLIENT_IMPORT.search(fh.read()):' '                    if False:'
 run "missing file read as empty" '        print(f"FAIL: {rel} is missing", file=sys.stderr)
         sys.exit(1)' '        return ""'
+run "names read as their lowercase prefix" '    names = set(TOKEN.findall(read(rel)))' '    names = set(NAME.findall(read(rel)))'
 cp "$SAVE" "$G"
 echo "killed=$killed survived=$survived not-landed=$notlanded"
-bash "$G" >/dev/null && echo "restored gate passes"
+bash "$G" >/dev/null || { echo "FAIL: the restored gate does not pass"; exit 1; }
+echo "restored gate passes"
+[[ "$survived" -eq 0 && "$notlanded" -eq 0 ]] || { echo "FAIL: survived or not-landed mutants"; exit 1; }
