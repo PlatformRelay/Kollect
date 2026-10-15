@@ -100,6 +100,9 @@ All custom metrics use the `kollect_` prefix. Controller-runtime also exposes st
 | `kollect_reconcile_errors_total` | counter | `kind`, `error_class` | Errors by CR kind and class (`transient`, `terminal`, `forbidden`) |
 | `kollect_reconcile_duration_seconds` | histogram | `controller` | Reconcile latency |
 | `kollect_workqueue_depth` | gauge | `controller` | In-flight reconciles (approximate depth) |
+| `kollect_watch_map_list_errors_total` | counter | `controller`, `watch` | Secondary watch map handlers that failed to list related objects (RBAC or API list failures) |
+| `kollect_static_ref_resolution_total` | counter | `kind`, `ref_type`, `result` | Cluster-kind namespaced static-ref resolutions (`ok` / `not_found` / `forbidden`, [ADR-0208](../adr/0208-cluster-static-refs-via-namespace.md)) |
+| `kollect_access_cache_total` | counter | `result` | SelfSubjectAccessReview access-cache outcomes: `hit` serves a cached decision, `miss` issues a fresh review |
 
 ### Collection
 
@@ -118,6 +121,8 @@ All custom metrics use the `kollect_` prefix. Controller-runtime also exposes st
 | `kollect_export_bytes_total` | counter | `sink_type` | Payload bytes exported |
 | `kollect_sink_errors_total` | counter | `reason` | Export failures (`transient`, `terminal`, `forbidden`, `payload_too_large`, `spill_required`, …) |
 | `kollect_export_spill_warn_total` | counter | — | Payloads at/above 1 MiB spill warn threshold |
+| `kollect_export_shard_warn_total` | counter | — | Inventory namespace aggregates at/above the export sharding warn row threshold (~1800 rows) |
+| `kollect_namespace_fingerprint_cache_total` | counter | `controller`, `result` | Namespace content fingerprint cache outcomes: `hit` skips the snapshot + fingerprint recompute, `miss` pays for it |
 | `kollect_sink_connection_test_total` | counter | `type`, `result` | Git/TLS connection tests |
 | `kollect_cleanup_terminal_total` | counter | `kind` | Terminal sink-cleanup attempts on deleting objects (`inventory`, `cluster-inventory`). The cleanup finalizer is retained and the attempt re-checks every 5 minutes, so one wedged object increments the counter once per re-check — alert on any increase, not on the count; see [Troubleshooting](troubleshooting.md) |
 
@@ -157,7 +162,8 @@ sum(increase(kollect_sink_errors_total[15m])) by (reason)
 kollect_collect_items_total
 ```
 
-Source of truth for registration: `internal/metrics/metrics.go` and `internal/metrics/metrics_catalog.go`.
+Source of truth for registration: `internal/metrics/metrics.go` and `internal/metrics/aggregation*.go`.
+`internal/metrics/metrics_catalog.go` documents the same names for agents; it registers nothing.
 
 ## See also
 
