@@ -88,13 +88,15 @@ golang_images() {
           if (w[i] ~ /^--/) continue
           img = w[i]
           sub(/^(docker\.io\/)?(library\/)?/, "", img)
-          # The repository part (up to the first ":" or "@") holds a variable: which image this
-          # is, and its Go, is only known at build time (an ARG default is replaced by
-          # --build-arg), so it is reported, never resolved. A variable TAG on a literal
-          # repository is not caught here; for golang it fails the literal-version check below.
-          repo = img
-          sub(/[:@].*$/, "", repo)
-          if (repo ~ /\$/) { print f, "<variable>", w[i]; break }
+          # A "$" anywhere but in the tag or digest of a literal repository (optional
+          # registry host:port, then literal path components) means the image is only known
+          # at build time (an ARG default is replaced by --build-arg), so it is reported, never
+          # resolved: `${B}`, `$B`, `${B:-golang:1}`, `localhost:5000/${B}:1`. A variable TAG on
+          # a literal repository passes here; for golang it fails the literal-version check below.
+          if (img ~ /\$/ && img !~ /^[A-Za-z0-9][A-Za-z0-9._-]*(:[0-9]+)?(\/[A-Za-z0-9._-]+)*(:[^\/@]*)?(@.*)?$/) {
+            print f, "<variable>", w[i]
+            break
+          }
           if (img ~ /^golang:/) { sub(/^golang:/, "", img); sub(/@.*$/, "", img); print f, img }
           else if (img ~ /^golang(@|$)/) { print f, "<untagged>" }
           break
@@ -454,6 +456,12 @@ mutant_rejected "FROM image from a build arg, braced" \
 mutant_rejected "FROM image from a build arg, bare" \
   'Dockerfile.pipeline: FROM $B names its image through a variable' '^FROM \$B AS builder' Dockerfile.pipeline \
   sed -i -E 's/^FROM golang:[^ ]+ AS builder/ARG B=golang:1.99.0\nFROM $B AS builder/' Dockerfile.pipeline
+
+# A registry host:port before the variable: the first ":" is the port, not a tag separator.
+# shellcheck disable=SC2016
+mutant_rejected "FROM image from a build arg behind a registry port" \
+  'Dockerfile: FROM localhost:5000/${B}:1.99.0 names its image through a variable' '^FROM localhost:5000/\$\{B\}' Dockerfile \
+  sed -i -E 's#^FROM golang:[^ ]+ AS builder#ARG B=golang\nFROM localhost:5000/${B}:1.99.0 AS builder#' Dockerfile
 
 # shellcheck disable=SC2016
 mutant_rejected "FROM image from a build arg with an inline default" \
