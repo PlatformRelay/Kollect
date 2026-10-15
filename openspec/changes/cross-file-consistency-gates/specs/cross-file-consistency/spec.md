@@ -48,12 +48,18 @@ golang image tag in one group.
 
 Every tool pinned through `go run <pkg>@<version>` or `go install` SHALL build under
 `GOTOOLCHAIN=local` with the Go of `go.mod`; the check reads each tool's required Go from
-`go mod download -json` and fails when it exceeds `go.mod`'s.
+`go mod download -json` and fails when it exceeds `go.mod`'s. Each pinned analysis tool SHALL also
+run once against the module under that Go and exit cleanly.
 
 #### Scenario: Tool needs a newer Go
 
 - **WHEN** a pinned tool's `go` directive is newer than `go.mod`'s
 - **THEN** the check SHALL fail and name the tool, version and both Go versions
+
+#### Scenario: Analysis tool too old for go.mod's Go
+
+- **WHEN** a pinned analysis tool (golangci-lint, govulncheck, go-arch-lint) is older than `go.mod`'s Go, so it cannot load or analyse the module (its `golang.org/x/tools` predates that Go)
+- **THEN** the check SHALL fail and name the tool and version, because a smoke run of each analysis tool under `go.mod`'s Go exits non-zero or panics; one clean run is the pass condition
 
 #### Scenario: Tool lookup fails
 
