@@ -1,7 +1,7 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: astra + claude (duo) — `/spec-loop-duo` from G3 on (operator, 2026-10-15); G1–G2 ran the earlier codex + claude/sonnet two-leg per-task sizing
-Next: L — dispatch G7 (tasks 7.1–7.5, stage-B round-1 fixes), then B round 2 (accepted CRITICAL H1)
+Next: B round 2 — holistic re-run + astra:adversarial + claude/opus:spec on the G7 fix range
 Budget: claude review legs 10/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
@@ -63,6 +63,7 @@ Holistic run at B: pending
 | G4 (4.1) | CLOSED-WITH-GAPS | astra + claude/opus:diff (new workflow), 2 rounds: r1 astra REQUEST_CHANGES (octal leading-zero false green, curl past job timeout) / opus CONCERNS, fixed; r2 astra REQUEST_CHANGES (2^63 overflow false green, fixed unreviewed per cap) / opus CLEAN | fba3eef06 (review-fix commits squashed in, local). Live sensor green (1.27.2 current). Needs `&include=all`. Deferred: tie curl retry budget to timeout-minutes (6.1/later). Gaps: wire both modes at 6.1; first scheduled run = post-merge row. Fresh worktree needed `make operator-sdk` for dist_operatorhub_pr_test.sh (ENVIRONMENT) |
 | G5 (5.1–5.2) | CLOSED-WITH-GAPS | astra only, 2 rounds: r1 REQUEST_CHANGES (prefix typo passed; gate-mutant runner exit 0 on survivor) fixed; r2 REQUEST_CHANGES (const mirror entry dropped; backtick import missed) fixed unreviewed per cap, each with mutants | Real drift: 5 registered metrics missing from metrics.md → docs-only fix 0dbc6302a. Guard 05842fe59..dcf2be244. Gaps: concatenated/Sprintf metric names invisible to the literal scan (none today); wiring at 6.1 |
 | G6 (6.1) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI), 2 rounds (r1 astra APPROVE / opus CONCERNS; r2 astra REQUEST_CHANGES / opus CONCERNS, all verified fixed); decision-A follow-up: astra only (L Claude legs exhausted; B opus covers it), APPROVE | 300801927, 3915645d4, 366dc0840; decision A (operator 2026-10-16): tool-pins self-test in its own unconditional job `tool-pins-selftest` (timeout 45 min, in verify-eligibility.sh required_checks) d770c56f3, b94b69066 (unique fixture module per run — G2 race fixed), 2a9b5b946. ci_workflow_security CFC-6 rule now fails on an unwired guard. Gaps: first CI run on PR head; add `tool-pins-selftest` to protect-main AFTER merge; runner runtimes estimated |
+| G7 (7.1–7.5) | CLOSED-WITH-GAPS | astra only, 2 rounds (r1 REQUEST_CHANGES: registry-port bypass, Register() untested — fixed; r2 REQUEST_CHANGES: `localhost:${B}` bypass — fixed unreviewed per cap, mutants) | a3880bc47..7d5a4d790. Any `$` in a FROM image fails; metrics registration proved via Describe + AlreadyRegisteredError; TestRegister now uses registerOnce (test change: double Register panics). Deferred to BACKLOG: `localhost:5000/golang:x` not recognised as golang; `go test -count=2 ./internal/metrics/` panics on base |
 
 ## Known red
 
@@ -75,6 +76,8 @@ Holistic run at B: pending
 |---|---|---|---|
 
 ## Lessons
+- A variable image tag can contain `/` and `:` and name another repo: fail on any `$` in an image, never parse around it (G7)
+- The Bash tool runs zsh here: `${PIPESTATUS[0]}` is empty — use `set -o pipefail` or bash -c (G7)
 
 - A wiring rule must take its required modes from the spec, not from the guard's own code; anchor sed mutants on stable prefixes, not exact config lines (G6)
 - Sensors: match whole tokens of the target grammar (Prometheus `[A-Za-z0-9_:]`), and make a parser fail on leftover input it does not recognise (G5)
