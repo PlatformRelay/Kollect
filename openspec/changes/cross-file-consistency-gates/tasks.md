@@ -12,7 +12,7 @@
 
 ## 3. RBAC (CFC-3, CFC-6)
 
-- [ ] 3.1 Probe `helm template` for default and `tenantMode=true`; record the real current difference
+- [x] 3.1 Probe `helm template` for default and `tenantMode=true`; record the real current difference — closed 2026-10-15, evidence: evidence/G3.md
 - [ ] 3.2 Write `consistency_rbac_test.sh` with a fixture missing a triple; add the exceptions file with reasons; implement; fix real drift in its own commit
 
 ## 4. Sensor (CFC-5)
