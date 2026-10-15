@@ -98,7 +98,7 @@ cleanup() {
     mc="$(go env GOMODCACHE 2>/dev/null || true)"
     if [[ -n "${mc}" ]]; then
       chmod -R u+w "${mc}/cache/download/kollect.invalid" "${mc}/kollect.invalid@v1.0.0" "${mc}/kollect.invalid" 2>/dev/null || true
-      rm -rf "${mc}/cache/download/kollect.invalid" "${mc}/kollect.invalid"
+      rm -rf "${mc}/cache/download/kollect.invalid" "${mc}/kollect.invalid" 2>/dev/null || true
     fi
   fi
   return 0
@@ -106,7 +106,7 @@ cleanup() {
 trap cleanup EXIT
 
 new_tmp() {
-  mktemp -d -p "${WORKROOT}"
+  mktemp -d "${WORKROOT}/XXXXXXXX"
 }
 
 # make_var <root> <NAME>: the value make itself computes for a Makefile variable, so derived pins
@@ -167,7 +167,11 @@ scan_pins() {
       [[ -d .github ]] && find .github -type f \( -name '*.yml' -o -name '*.yaml' \)
       [[ -d hack ]] && find hack -path hack/test -prune -o -type f -print
     } | sed 's|^\./||' | sort -u | while IFS= read -r file; do
-      grep -HIE 'go[[:space:]]+(run|install)[[:space:]].*[a-z0-9.-]+\.[a-z]{2,}/[^[:space:]]*@' "${file}" || true
+      # Backslash continuations are joined and quotes dropped first, so `go install \` + `pkg@v`
+      # on the next line, and `pkg@"v1.2.3"`, are read as pins too.
+      sed -e ':a' -e '/\\$/{N;s/\\\n/ /;ta' -e '}' "${file}" | tr -d "\"'" |
+        grep -IE 'go[[:space:]]+(run|install)[[:space:]].*[a-z0-9.-]+\.[a-z]{2,}/[^[:space:]]*@' |
+        sed "s|^|${file}:|" || true
     done
   )
 
@@ -537,6 +541,14 @@ mutant_rejected "pin after a flag with a separate value" \
 mutant_rejected "literal pin in a Makefile recipe" \
   "Makefile: golang.org/x/vuln/cmd/govulncheck@v1.9.96 cannot be resolved" 'govulncheck@v1\.9\.96' Makefile \
   bash -c 'printf "\n.PHONY: kollect-fixture\nkollect-fixture:\n\tgo install golang.org/x/vuln/cmd/govulncheck@v1.9.96\n" >> Makefile'
+
+mutant_rejected "pin continued onto the next line" \
+  "golang.org/x/vuln/cmd/govulncheck@v1.9.95 cannot be resolved" 'govulncheck@v1\.9\.95' Makefile \
+  bash -c 'printf "\n.PHONY: kollect-fixture\nkollect-fixture:\n\tgo install \\\\\n\t  golang.org/x/vuln/cmd/govulncheck@v1.9.95\n" >> Makefile'
+
+mutant_rejected "quoted pin version" \
+  "golang.org/x/vuln/cmd/govulncheck@v1.9.94 cannot be resolved" 'govulncheck@"v1\.9\.94"' Taskfile.yml \
+  bash -c "printf '\n  kollect-quoted:\n    cmds:\n      - go run golang.org/x/vuln/cmd/govulncheck@\"v1.9.94\" ./...\n' >> Taskfile.yml"
 
 # A golangci-lint pinned outside the Makefile is built and smoke-run at ITS version (go install,
 # --no-config), not replaced by the Makefile's custom build: the sentinel is v2.13.1's own failure
