@@ -26,7 +26,7 @@
 
 ## 6. Wiring and land
 
-- [ ] 6.1 Run all guards in `lint` (plain and `--self-test` as separate steps) and, by the glob, in `task check`
+- [x] 6.1 Run all guards in `lint` (plain and `--self-test` as separate steps) and, by the glob, in `task check` — closed 2026-10-15, evidence: evidence/G6.md
 - [ ] 6.2 Merge with the `post-merge` row open; archive in a follow-up evidence PR once it passes
 
 ## Verification

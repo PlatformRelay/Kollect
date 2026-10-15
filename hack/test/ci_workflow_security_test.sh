@@ -593,17 +593,19 @@ cws6_guards() {
 
   # CFC-6 (openspec change cross-file-consistency-gates): the loop above only covers guards CI
   # already invokes, so a guard whose steps are deleted outright drops out silently. These guards
-  # SHALL run in a required job in every mode (plain and --self-test), so they are named here.
+  # SHALL run in a required job in BOTH modes (plain and --self-test), so they are named here --
+  # and the modes are CFC-6's, not read from the guard's code: deleting a guard's --self-test
+  # handling must not delete the requirement to run it.
   local cfc_guards=("${ROOT}"/hack/test/consistency_*_test.sh "${ROOT}/hack/test/go_patch_lag_test.sh")
   [[ -f "${cfc_guards[0]}" ]] ||
     fail "CFC-6: no hack/test/consistency_*_test.sh guard found -- the cross-file consistency gates are gone"
   for script in "${cfc_guards[@]}"; do
     [[ -f "${script}" ]] || fail "CFC-6: ${script#"${ROOT}"/} is missing"
-    while IFS= read -r mode; do
+    for mode in bare --self-test; do
       if ! awk -F'\t' -v s="${script}" -v m="${mode}" '$1 == s && $2 == m { found = 1 } END { exit !found }' "${required_rows}"; then
         fail "CFC-6: cross-file consistency guard ${script#"${ROOT}"/} is not run in its '${mode}' mode by any step of a required job -- wire it into the lint job, plain and --self-test as separate steps"
       fi
-    done < <(guard_modes "${script}")
+    done
   done
 
   # Guards CI runs INDIRECTLY through hack/docs/verify.sh (the Docs workflow's task target)
@@ -1080,6 +1082,15 @@ mutant_rejected "CFC-6 consistency guard unwired" "cross-file consistency guard 
   set -euo pipefail
   yq eval "del(.jobs.lint.steps[] | select((.run // \"\") | test(\"consistency_metrics_test\")))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
   if grep -q "consistency_metrics_test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
+'
+
+# CFC-6: the required modes are CFC-6's, not the guard's: stripping a guard's --self-test handling
+# and its CI step together must still red.
+mutant_rejected "CFC-6 consistency guard loses its self-test" "consistency_metrics_test.sh is not run in its '--self-test' mode" bash -c '
+  set -euo pipefail
+  yq eval "del(.jobs.lint.steps[] | select((.run // \"\") == \"bash hack/test/consistency_metrics_test.sh --self-test\"))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  sed -i "/--self-test/d" hack/test/consistency_metrics_test.sh
+  if grep -q -- "--self-test" hack/test/consistency_metrics_test.sh || grep -q "consistency_metrics_test.sh --self-test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
 '
 
 mutant_rejected "CWS-6 this gate not itself run by ci.yaml" "is not itself run by ci.yaml" bash -c '
