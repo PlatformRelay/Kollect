@@ -201,7 +201,7 @@ tasks:
     desc: Scan for known Go vulnerabilities (govulncheck)
     deps: [install]
     cmds:
-      - go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+      - go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
   test:
     desc: Run unit tests with envtest (alias for test:run)
