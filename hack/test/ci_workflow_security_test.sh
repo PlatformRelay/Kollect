@@ -24,6 +24,9 @@
 #          dependency-review, and must list lint, vulncheck, workflow-security and
 #          dependency-review. This meta-test must itself be run by ci.yaml in both of its own
 #          modes -- a gate CI does not run guards nothing (the LAB-DEKIND defect class).
+#          The cross-file consistency guards (hack/test/consistency_*_test.sh and
+#          go_patch_lag_test.sh, openspec change cross-file-consistency-gates CFC-6) must be
+#          invoked that way too, so deleting their steps outright reds here as well.
 #   CWS-7  --self-test mutates a COPY of the tree to break each of CWS-1..CWS-6 and asserts
 #          each check reds with the MESSAGE of the assertion the mutation was built to trip
 #          (a non-zero exit alone is not evidence), plus one unmutated no-op control.
@@ -588,6 +591,21 @@ cws6_guards() {
     done < <(guard_modes "${script}")
   done <"${tmp}/scripts"
 
+  # CFC-6 (openspec change cross-file-consistency-gates): the loop above only covers guards CI
+  # already invokes, so a guard whose steps are deleted outright drops out silently. These guards
+  # SHALL run in a required job in every mode (plain and --self-test), so they are named here.
+  local cfc_guards=("${ROOT}"/hack/test/consistency_*_test.sh "${ROOT}/hack/test/go_patch_lag_test.sh")
+  [[ -f "${cfc_guards[0]}" ]] ||
+    fail "CFC-6: no hack/test/consistency_*_test.sh guard found -- the cross-file consistency gates are gone"
+  for script in "${cfc_guards[@]}"; do
+    [[ -f "${script}" ]] || fail "CFC-6: ${script#"${ROOT}"/} is missing"
+    while IFS= read -r mode; do
+      if ! awk -F'\t' -v s="${script}" -v m="${mode}" '$1 == s && $2 == m { found = 1 } END { exit !found }' "${required_rows}"; then
+        fail "CFC-6: cross-file consistency guard ${script#"${ROOT}"/} is not run in its '${mode}' mode by any step of a required job -- wire it into the lint job, plain and --self-test as separate steps"
+      fi
+    done < <(guard_modes "${script}")
+  done
+
   # Guards CI runs INDIRECTLY through hack/docs/verify.sh (the Docs workflow's task target)
   # are still CI-run guards: every hack/test token in that script must also be pinned by a
   # required-job row, or a new guard added only to verify.sh runs solely in a non-required
@@ -1054,6 +1072,14 @@ echo ok
 SH
   yq eval ".jobs.lint.steps += {\"name\": \"mode probe\", \"run\": \"bash hack/test/zz_mode_probe_test.sh\"}" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
   grep -q "zz_mode_probe_test" .github/workflows/ci.yaml || { echo "mutant did not apply"; exit 1; }
+'
+
+# CFC-6: a cross-file consistency guard deleted from CI outright (both steps) must red; the
+# generic CWS-6 loop cannot see a guard CI no longer invokes at all.
+mutant_rejected "CFC-6 consistency guard unwired" "cross-file consistency guard hack/test/consistency_metrics_test.sh is not run" bash -c '
+  set -euo pipefail
+  yq eval "del(.jobs.lint.steps[] | select((.run // \"\") | test(\"consistency_metrics_test\")))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  if grep -q "consistency_metrics_test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
 '
 
 mutant_rejected "CWS-6 this gate not itself run by ci.yaml" "is not itself run by ci.yaml" bash -c '
