@@ -363,13 +363,13 @@ mutant_rejected "TCE-3 exclusion without reason" "has no reason" bash -c '
 # TCE-3: a required check with no run, mapping or exclusion — the silent-missing case.
 mutant_rejected "TCE-3 new required gate without coverage" "neither run by hack/check.sh nor listed as an exclusion" bash -c '
   set -euo pipefail
-  sed -i.bak "s/^	docker-build preflight kind-smoke pipeline-cli-smoke workflow-security$/& unregistered-gate/" hack/release/verify-eligibility.sh && rm -f hack/release/verify-eligibility.sh.bak
+  sed -i.bak "s/^	docker-build preflight kind-smoke pipeline-cli-smoke workflow-security tool-pins-selftest$/& unregistered-gate/" hack/release/verify-eligibility.sh && rm -f hack/release/verify-eligibility.sh.bak
   if ! grep -q "unregistered-gate" hack/release/verify-eligibility.sh; then echo "mutant did not apply"; exit 1; fi
 '
 
 mutant_rejected "TCE-3 new required gate without coverage" "neither run by hack/check.sh nor listed as an exclusion" bash -c '
   set -euo pipefail
-  sed -i.bak "s/^	docker-build preflight kind-smoke pipeline-cli-smoke workflow-security$/& unregistered-gate/" hack/release/verify-eligibility.sh && rm -f hack/release/verify-eligibility.sh.bak
+  sed -i.bak "s/^	docker-build preflight kind-smoke pipeline-cli-smoke workflow-security tool-pins-selftest$/& unregistered-gate/" hack/release/verify-eligibility.sh && rm -f hack/release/verify-eligibility.sh.bak
   if ! grep -q "unregistered-gate" hack/release/verify-eligibility.sh; then echo "mutant did not apply"; exit 1; fi
 '
 

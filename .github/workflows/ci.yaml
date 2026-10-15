@@ -21,7 +21,8 @@
 # no required context is at stake. Locked by hack/test/ci_docs_gate_test.sh.
 #
 # The docs-only path is NOT free, and that is a deliberate trade. Where this workflow previously
-# was not dispatched at all, a documentation-only PR now runs `changes`, `gitleaks` and `lint` --
+# was not dispatched at all, a documentation-only PR now runs `changes`, `gitleaks`, `lint` and
+# `tool-pins-selftest` (CFC-6, the tool-pins gate's self-test, split out of lint for wall time) --
 # `lint` because two existing gates (dist_ci_wiring_test.sh, repo_root_links_wiring_test.sh)
 # require it to be unconditional, and because it is where ci_docs_gate_test.sh runs, so leaving
 # it ungated is the only thing that exercises the docs-only direction at all. What such a PR no
@@ -570,11 +571,25 @@ jobs:
         run: bash hack/test/consistency_tool_pins_test.sh
       - name: Lint
         run: task lint
-      # CFC-6 for CFC-2, last and on its own: it builds each pinned analysis tool at its own and
-      # at a too-old version (about 7 minutes warm), so it runs after the fast gates have
-      # reported. Its newer-Go mutant passes a fixture module through the shared module cache
-      # and deletes it again on exit; that is safe here because the steps of a job run one at a
-      # time and nothing in this job runs in the background.
+
+  # CFC-6 for CFC-2 (openspec change cross-file-consistency-gates): the tool-pins gate's
+  # --self-test builds each pinned analysis tool at its own and at a too-old version (about
+  # 7 minutes warm), so it runs in its own job, in parallel with lint, instead of doubling
+  # lint's wall time (operator decision 2026-10-16). Like lint it is NOT gated on the changes
+  # verdict: it runs on every PR, docs-only included, and is a required context
+  # (hack/release/verify-eligibility.sh). hack/test/ci_workflow_security_test.sh (CFC-6 rule)
+  # requires the self-test in this job and hack/test/ci_docs_gate_test.sh keeps the job
+  # unconditional. The timeout bounds a stalled module or vuln-DB download; local runs took
+  # 7 to 17 minutes.
+  tool-pins-selftest:
+    name: tool-pins-selftest
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/go-cache
       - name: Verify the tool-pins gate can still fail (CFC-6)
         run: bash hack/test/consistency_tool_pins_test.sh --self-test
 

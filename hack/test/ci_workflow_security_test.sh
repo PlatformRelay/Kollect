@@ -607,6 +607,13 @@ cws6_guards() {
       fi
     done
   done
+  # The tool-pins self-test (~7 min) has its own required job, tool-pins-selftest, so lint's wall
+  # time stays bounded (operator decision 2026-10-16); it must run THERE, which also requires
+  # tool-pins-selftest to stay in the required set (rows above are required jobs only).
+  local tp_script="${ROOT}/hack/test/consistency_tool_pins_test.sh"
+  if ! awk -F'\t' -v s="${tp_script}" '$1 == s && $2 == "--self-test" && $3 == "tool-pins-selftest" { found = 1 } END { exit !found }' "${required_rows}"; then
+    fail "CFC-6: hack/test/consistency_tool_pins_test.sh --self-test is not run by the required job 'tool-pins-selftest' -- the slow self-test has its own job, unconditional and required, so it neither starves nor doubles lint"
+  fi
 
   # Guards CI runs INDIRECTLY through hack/docs/verify.sh (the Docs workflow's task target)
   # are still CI-run guards: every hack/test token in that script must also be pinned by a
@@ -1091,6 +1098,20 @@ mutant_rejected "CFC-6 consistency guard loses its self-test" "consistency_metri
   yq eval "del(.jobs.lint.steps[] | select((.run // \"\") == \"bash hack/test/consistency_metrics_test.sh --self-test\"))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
   sed -i "/--self-test/d" hack/test/consistency_metrics_test.sh
   if grep -q -- "--self-test" hack/test/consistency_metrics_test.sh || grep -q "consistency_metrics_test.sh --self-test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
+'
+
+# CFC-6: the tool-pins self-test moved back into lint (its own job deleted) must red.
+mutant_rejected "CFC-6 tool-pins self-test back in lint" "is not run by the required job 'tool-pins-selftest'" bash -c '
+  set -euo pipefail
+  yq eval "del(.jobs[\"tool-pins-selftest\"]) | .jobs.lint.steps += [{\"name\": \"tool-pins self-test\", \"run\": \"bash hack/test/consistency_tool_pins_test.sh --self-test\"}]" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  if grep -q "tool-pins-selftest:" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
+'
+
+# CFC-6: tool-pins-selftest dropped from the required set must red (the generic CWS-6 loop fires first).
+mutant_rejected "CFC-6 tool-pins-selftest not required" "consistency_tool_pins_test.sh runs in CI but its '--self-test' mode is not invoked by any step of a required job" bash -c '
+  set -euo pipefail
+  sed -i "s/ tool-pins-selftest$//" hack/release/verify-eligibility.sh
+  if grep -q "tool-pins-selftest" hack/release/verify-eligibility.sh; then echo "mutant did not apply"; exit 1; fi
 '
 
 mutant_rejected "CWS-6 this gate not itself run by ci.yaml" "is not itself run by ci.yaml" bash -c '
