@@ -44,7 +44,8 @@
 # Usage:
 #   hack/test/consistency_tool_pins_test.sh              # check the repository tree
 #   hack/test/consistency_tool_pins_test.sh --self-test  # mutate copies, assert each check fails
-#   hack/test/consistency_tool_pins_test.sh <tree-root>  # check an arbitrary tree root
+#   hack/test/consistency_tool_pins_test.sh <tree-root>  # check another tree root -- a TRUSTED one:
+#                                                          # it runs that tree's Makefile and tools
 set -euo pipefail
 
 fail() {
@@ -84,21 +85,28 @@ command -v make >/dev/null 2>&1 || fail "make not found; install make to run thi
 unset MAKEFLAGS MAKELEVEL MFLAGS
 export GOWORK=off
 
-TMP_DIRS=""
+# Every temp dir lives under WORKROOT, created here in the parent shell, so the EXIT trap
+# removes them all even though new_tmp mostly runs inside $(...).
+WORKROOT="$(mktemp -d)"
+FIXTURE_IN_MODCACHE=0
 cleanup() {
-  local d
-  for d in ${TMP_DIRS}; do
-    chmod -R u+w "${d}" 2>/dev/null || true
-    rm -rf "${d}" 2>/dev/null || true
-  done
+  local mc
+  chmod -R u+w "${WORKROOT}" 2>/dev/null || true
+  rm -rf "${WORKROOT}" 2>/dev/null || true
+  if [[ "${FIXTURE_IN_MODCACHE}" == 1 ]]; then
+    # The self-test's newer-Go fixture module passes through the shared module cache.
+    mc="$(go env GOMODCACHE 2>/dev/null || true)"
+    if [[ -n "${mc}" ]]; then
+      chmod -R u+w "${mc}/cache/download/kollect.invalid" "${mc}/kollect.invalid@v1.0.0" "${mc}/kollect.invalid" 2>/dev/null || true
+      rm -rf "${mc}/cache/download/kollect.invalid" "${mc}/kollect.invalid"
+    fi
+  fi
+  return 0
 }
 trap cleanup EXIT
 
 new_tmp() {
-  local d
-  d="$(mktemp -d)"
-  TMP_DIRS="${TMP_DIRS} ${d}"
-  echo "${d}"
+  mktemp -d -p "${WORKROOT}"
 }
 
 # make_var <root> <NAME>: the value make itself computes for a Makefile variable, so derived pins
@@ -131,30 +139,35 @@ scan_pins() {
     done < <(grep -oE '\$\(call go-install-tool,[^,]*,[^,]+,\$\([A-Za-z0-9_]+\)\)' "${root}/Makefile" || true)
   fi
 
-  # `go run|install [-flags] <pkg>@<version>` in Taskfile.yml, .github/ and hack/ (not hack/test,
-  # whose guards carry pin-shaped fixtures). `@latest` is not a pin and is skipped.
+  # Lines that run `go run` or `go install` in Makefile recipes, Taskfile.yml, .github/ and hack/
+  # (not hack/test, whose guards carry pin-shaped fixtures); EVERY `<domain>/<path>@<version>`
+  # token on such a line is a pin, whatever flags (with or without values) come before it, and
+  # however many commands share the line. `@latest` is not a pin and is skipped.
   while IFS= read -r line; do
     [[ -n "${line}" ]] || continue
     file="${line%%:*}"
-    spec="$(grep -oE '[a-z0-9.-]+\.[a-z]{2,}(/[A-Za-z0-9._~+-]+)+@[^[:space:]"'"'"'`)]+' <<<"${line#*:}" | head -1)"
-    pkg="${spec%@*}"
-    ver="${spec##*@}"
-    [[ "${ver}" == "latest" ]] && continue
-    if [[ "${ver}" =~ ^\{\{\.([A-Za-z0-9_]+)\}\}$ && "${file}" == "Taskfile.yml" ]]; then
-      var="${BASH_REMATCH[1]}"
-      ver="$(taskfile_var "${root}" "${var}")"
-      [[ -n "${ver}" ]] || ver="<unresolved:{{.${var}}}>"
-    elif [[ ! "${ver}" =~ ^v[0-9] ]]; then
-      ver="<unresolved:${ver}>"
-    fi
-    printf '%s\t%s\t%s\tpkg\n' "${file}" "${pkg}" "${ver}"
+    while IFS= read -r spec; do
+      [[ -n "${spec}" ]] || continue
+      pkg="${spec%@*}"
+      ver="${spec##*@}"
+      [[ "${ver}" == "latest" ]] && continue
+      if [[ "${ver}" =~ ^\{\{\.([A-Za-z0-9_]+)\}\}$ && "${file}" == "Taskfile.yml" ]]; then
+        var="${BASH_REMATCH[1]}"
+        ver="$(taskfile_var "${root}" "${var}")"
+        [[ -n "${ver}" ]] || ver="<unresolved:{{.${var}}}>"
+      elif [[ ! "${ver}" =~ ^v[0-9] ]]; then
+        ver="<unresolved:${ver}>"
+      fi
+      printf '%s\t%s\t%s\tpkg\n' "${file}" "${pkg}" "${ver}"
+    done < <(grep -oE '[a-z0-9.-]+\.[a-z]{2,}(/[A-Za-z0-9._~+-]+)+@[^[:space:]"'"'"'`);&|]+' <<<"${line#*:}" || true)
   done < <(
     cd "${root}" && {
+      [[ -f Makefile ]] && echo Makefile
       [[ -f Taskfile.yml ]] && echo Taskfile.yml
       [[ -d .github ]] && find .github -type f \( -name '*.yml' -o -name '*.yaml' \)
       [[ -d hack ]] && find hack -path hack/test -prune -o -type f -print
     } | sed 's|^\./||' | sort -u | while IFS= read -r file; do
-      grep -HIE 'go[[:space:]]+(run|install)([[:space:]]+-[^[:space:]]+)*[[:space:]]+[a-z0-9.-]+\.[a-z]{2,}/[^[:space:]]*@' "${file}" || true
+      grep -HIE 'go[[:space:]]+(run|install)[[:space:]].*[a-z0-9.-]+\.[a-z]{2,}/[^[:space:]]*@' "${file}" || true
     done
   )
 
@@ -213,50 +226,63 @@ tool_cache() {
     mkdir -p "${KOLLECT_TOOL_PINS_CACHE}"
     echo "${KOLLECT_TOOL_PINS_CACHE}"
   else
-    [[ -n "${RUN_CACHE:-}" ]] || RUN_CACHE="$(new_tmp)"
-    echo "${RUN_CACHE}"
+    mkdir -p "${WORKROOT}/tools"
+    echo "${WORKROOT}/tools"
   fi
 }
 
-# build_tool <name> <pkg> <version> <root>: prints the binary path; output of a failed build goes
-# to stderr. golangci-lint goes through the repo's own Makefile target (custom build with
-# plugins), keyed by the Makefile + .custom-gcl.yml contents; the others through go install.
+# build_tool <name> <pkg> <version> <root> <source>: prints the binary path; output of a failed
+# build goes to stderr. The Makefile's golangci-lint pin is built by the repo's own Makefile target
+# (custom build with plugins), keyed by the Makefile + .custom-gcl.yml contents, and the binary
+# must report the pinned version; every other pin (a golangci-lint pinned elsewhere included) is
+# built by go install at exactly its version. A build dir is complete only once `.ok` exists.
 build_tool() {
-  local name="$1" pkg="$2" ver="$3" root="$4" cache key dir
+  local name="$1" pkg="$2" ver="$3" root="$4" src="$5" cache key dir bin want
   cache="$(tool_cache)"
-  if [[ "${name}" == "golangci-lint" ]]; then
+  if [[ "${name}" == "golangci-lint" && "${src}" == "Makefile" ]]; then
     key="$(cat "${root}/Makefile" "${root}/hack/tooling/.custom-gcl.yml" 2>/dev/null | sha256sum | cut -c1-12)"
-    dir="${cache}/${name}-${ver}-${key}"
-    if [[ ! -x "${dir}/golangci-lint" ]]; then
-      rm -rf "${dir}.tmp"
-      make -s --no-print-directory -C "${root}" golangci-lint LOCALBIN="${dir}.tmp" >&2 || return 1
-      [[ -x "${dir}.tmp/golangci-lint" ]] || return 1
-      rm -rf "${dir}" && mv "${dir}.tmp" "${dir}"
+    dir="${cache}/${name}-make-${ver}-${key}"
+    bin="${dir}/golangci-lint"
+    if [[ ! -e "${dir}/.ok" ]]; then
+      rm -rf "${dir}"
+      make -s --no-print-directory -C "${root}" golangci-lint LOCALBIN="${dir}" >&2 || return 1
+      [[ -x "${bin}" ]] || { echo "make golangci-lint produced no binary" >&2; return 1; }
+      # Plain build: "has version 2.14.0 built ..."; custom build: "has version v2.14.0-custom-gcl-...".
+      want="${ver#v}"
+      want="${want//./\\.}"
+      if ! "${bin}" version 2>&1 | grep -Eq "has version v?${want}( |-custom-gcl-)"; then
+        echo "make golangci-lint built '$("${bin}" version 2>&1 | head -1)', not the pinned ${ver}" >&2
+        return 1
+      fi
+      touch "${dir}/.ok"
     fi
-    echo "${dir}/golangci-lint"
+    echo "${bin}"
     return 0
   fi
   dir="${cache}/${name}-${ver}"
-  if [[ ! -x "${dir}/${pkg##*/}" ]]; then
-    rm -rf "${dir}.tmp"
-    (cd "${cache}" && GOBIN="${dir}.tmp" go install "${pkg}@${ver}") >&2 || return 1
-    rm -rf "${dir}" && mv "${dir}.tmp" "${dir}"
+  bin="${dir}/${pkg##*/}"
+  if [[ ! -e "${dir}/.ok" ]]; then
+    rm -rf "${dir}"
+    (cd "${cache}" && GOBIN="${dir}" go install "${pkg}@${ver}") >&2 || return 1
+    touch "${dir}/.ok"
   fi
-  echo "${dir}/${pkg##*/}"
+  echo "${bin}"
 }
 
-# smoke <name> <pkg> <version> <root>: one run of the analysis tool against the module. Returns
-# non-zero with the reason on stderr.
+# smoke <name> <pkg> <version> <root> <source>: one run of the analysis tool against the module.
+# Returns non-zero with the reason on stderr.
 smoke() {
-  local name="$1" pkg="$2" ver="$3" root="$4" bin log rc=0
+  local name="$1" pkg="$2" ver="$3" root="$4" src="$5" bin log rc=0 cfg=()
   log="$(new_tmp)/smoke.log"
-  if ! bin="$(build_tool "${name}" "${pkg}" "${ver}" "${root}" 2>"${log}")"; then
+  if ! bin="$(build_tool "${name}" "${pkg}" "${ver}" "${root}" "${src}" 2>"${log}")"; then
     echo "build failed: $(grep -v '^[[:space:]]*$' "${log}" | tail -2 | tr '\n' ' ')" >&2
     return 1
   fi
   case "${name}" in
     golangci-lint)
-      (cd "${root}" && "${bin}" run --default=none --enable=govet "${SMOKE_PKG}") >"${log}" 2>&1 || rc=$?
+      # The repo config needs the logcheck plugin, which only the Makefile's custom build has.
+      [[ "${src}" == "Makefile" ]] || cfg=(--no-config)
+      (cd "${root}" && "${bin}" run ${cfg[@]+"${cfg[@]}"} --default=none --enable=govet "${SMOKE_PKG}") >"${log}" 2>&1 || rc=$?
       ;;
     govulncheck)
       (cd "${root}" && "${bin}" -format json "${SMOKE_PKG}") >/dev/null 2>"${log}" || rc=$?
@@ -351,13 +377,13 @@ check_tool_pins() {
     [[ "${kind}" == "pkg" ]] || continue
     name="$(analysis_tool "${path}")"
     [[ -n "${name}" ]] || continue
-    case " ${seen} " in *" ${name}@${ver} "*) continue ;; esac
-    seen="${seen} ${name}@${ver}"
+    case " ${seen} " in *" ${name}@${ver}@${src} "*) continue ;; esac
+    seen="${seen} ${name}@${ver}@${src}"
     if [[ "${ver}" == "<unresolved:"* ]]; then
       continue
     fi
     t0="${SECONDS}"
-    if reason="$(smoke "${name}" "${path}" "${ver}" "${root}" 2>&1)"; then
+    if reason="$(smoke "${name}" "${path}" "${ver}" "${root}" "${src}" 2>&1)"; then
       echo "smoke: ${name} ${ver} ran clean under go ${go_version} ($((SECONDS - t0)) s)"
     else
       echo "FAIL: ${name} ${ver} (pinned in ${src}) failed its smoke run under go ${go_version}: ${reason} -- an analysis tool too old for go.mod's Go cannot load the module; a build or network failure fails closed too" >&2
@@ -452,16 +478,13 @@ fi
 pass "self-test: no-op control passes on an unmutated copy"
 
 PROXY="$(make_proxy)"
+FIXTURE_IN_MODCACHE=1 # the EXIT trap takes the fixture module out of the shared cache again
 MUTANT_ENV=("GOPROXY=file://${PROXY},$(go env GOPROXY)" "GONOSUMDB=kollect.invalid" "GOFLAGS=-modcacherw")
 mutant_rejected "pin needs a newer Go than go.mod" \
   "kollect.invalid/newgo@v1.0.0 (module kollect.invalid/newgo) needs go 1.99.0, newer than go.mod's go" \
   'kollect\.invalid/newgo@v1\.0\.0' Taskfile.yml \
   bash -c 'printf "\n  kollect-newgo-fixture:\n    cmds:\n      - go run kollect.invalid/newgo@v1.0.0\n" >> Taskfile.yml'
 MUTANT_ENV=()
-# The fixture module landed in the shared module cache; take it out again.
-MODCACHE="$(go env GOMODCACHE)"
-chmod -R u+w "${MODCACHE}/cache/download/kollect.invalid" "${MODCACHE}/kollect.invalid" 2>/dev/null || true
-rm -rf "${MODCACHE}/cache/download/kollect.invalid" "${MODCACHE}/kollect.invalid"
 
 mutant_rejected "unresolvable pin (version typo)" \
   "golang.org/x/vuln/cmd/govulncheck@v1.9.99 cannot be resolved by go mod download" \
@@ -500,5 +523,26 @@ mutant_rejected "custom-gcl version differs from the Makefile pin" \
   "hack/tooling/.custom-gcl.yml version v2.13.1 differs from Makefile GOLANGCI_LINT_VERSION" \
   '^version: v2\.13\.1' hack/tooling/.custom-gcl.yml \
   sed -i -E 's/^version: v[0-9.]+/version: v2.13.1/' hack/tooling/.custom-gcl.yml
+
+# Extraction: a pin is not dropped because it shares a line, follows a flag that takes a value,
+# or sits in a literal Makefile recipe.
+mutant_rejected "second pin on one line" \
+  "golang.org/x/vuln/cmd/govulncheck@v1.9.98 cannot be resolved" 'govulncheck@v1\.9\.98' Taskfile.yml \
+  bash -c 'printf "\n  kollect-two-pins:\n    cmds:\n      - go install golang.org/x/vuln/cmd/govulncheck@v1.9.0 && go run golang.org/x/vuln/cmd/govulncheck@v1.9.98 ./...\n" >> Taskfile.yml'
+
+mutant_rejected "pin after a flag with a separate value" \
+  "golang.org/x/vuln/cmd/govulncheck@v1.9.97 cannot be resolved" 'govulncheck@v1\.9\.97' .github/workflows/ci.yaml \
+  bash -c 'printf "\n# kollect fixture: go run -tags integration golang.org/x/vuln/cmd/govulncheck@v1.9.97 ./...\n" >> .github/workflows/ci.yaml'
+
+mutant_rejected "literal pin in a Makefile recipe" \
+  "Makefile: golang.org/x/vuln/cmd/govulncheck@v1.9.96 cannot be resolved" 'govulncheck@v1\.9\.96' Makefile \
+  bash -c 'printf "\n.PHONY: kollect-fixture\nkollect-fixture:\n\tgo install golang.org/x/vuln/cmd/govulncheck@v1.9.96\n" >> Makefile'
+
+# A golangci-lint pinned outside the Makefile is built and smoke-run at ITS version (go install,
+# --no-config), not replaced by the Makefile's custom build: the sentinel is v2.13.1's own failure
+# (the Makefile's v2.14.0 passes, so only the Taskfile pin can produce it).
+mutant_rejected "golangci-lint pinned outside the Makefile is too old" \
+  "export data version 5 is greater than maximum supported version 4" 'golangci-lint@v2\.13\.1' Taskfile.yml \
+  bash -c 'printf "\n  kollect-old-gcl:\n    cmds:\n      - go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1 run\n" >> Taskfile.yml'
 
 echo "All tool-pin consistency self-tests passed."
