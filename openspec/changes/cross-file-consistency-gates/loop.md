@@ -1,8 +1,8 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: codex (`codex exec --sandbox read-only`) + `claude/sonnet` via `fanout.sh --no-unify` (no opencode on this host); `claude/opus` at gates
-Next: L — G1 BLOCKED on 1.3 (pinned golangci-lint v2.13.1 / govulncheck v1.1.4 break under Go 1.27.2); decision request with the operator (A: bump both in this lane)
-Budget: claude review legs 2/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
+Next: L — dispatch G2 (task 2.1, CFC-2 incl. analysis-tool smoke run)
+Budget: claude review legs 3/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
 (proposal.md, specs/cross-file-consistency/spec.md, tasks.md). Landing order position 4 of 10;
@@ -41,7 +41,7 @@ Holistic run at B: pending
 ## Tasks
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
-| G1 (1.1–1.3) | BLOCKED on 1.3 (1.1, 1.2 closed) | codex + claude/sonnet, 2 rounds, all behaviour findings fixed with mutants; no opus (no trigger) | `task lint` red / `task vulncheck` panics under Go 1.27.2: pinned tools too old. Options A bump golangci-lint→v2.14.0 + govulncheck→v1.9.0 here (rec.), B defer to 2.1, C revert bump. Commits c2b744ac0..fc959302c |
+| G1 (1.1–1.3) | CLOSED-WITH-GAPS | codex + claude/sonnet, 2 rounds on c2b744ac0..fc959302c; tool-pin commits reviewed separately (codex APPROVE, sonnet CLEAN); no opus | Was BLOCKED on 1.3; operator chose A: golangci-lint v2.14.0 (fa9bc99be), govulncheck v1.9.0 (812c7f274), plus go-arch-lint v1.15.0→v1.19.0 (9d38f7431) — NOT in the ruling, same x/tools-under-Go-1.27 failure, version-only, accepted by orchestrator. Gaps: CodeQL on Go 1.27 proven only by CI Analyze (Go); guard unwired until 6.1; Renovate grouping proven by a one-off local dry-run |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
@@ -52,7 +52,7 @@ Holistic run at B: pending
 |---|---|---|---|
 
 ## Lessons
-- A Go bump can break pinned analysis tools whose x/tools predates that Go; CFC-2 as written checks only the other direction (G1)
+- A Go minor bump breaks every pinned tool embedding golang.org/x/tools (golangci-lint, go-arch-lint, govulncheck at 1.27.2); 2.1 must cover all `go run`/`go install` tools; re-run `task lint` after each tool fix — the next broken step only shows once the earlier passes (G1)
 - Run `task test` with `umask 022` on this host; umask 002 reds two internal/sink/git mirror tests at base too (G1)
 - mise shims for gitleaks/jq fail in some dirs: use ~/.local/share/mise/installs/gitleaks/8.30.1/gitleaks; keep mise.toml out of scratch copies (G1)
 - Renovate: the LAST matching rule wins, so a group rule must be the last groupName-setting rule; prove grouping with a local `renovate --platform=local` lookup dry-run (~1 min) (G1)
