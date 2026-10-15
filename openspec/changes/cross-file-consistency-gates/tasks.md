@@ -17,7 +17,7 @@
 
 ## 4. Sensor (CFC-5)
 
-- [ ] 4.1 Probe `https://go.dev/dl/?mode=json`; write the formatter test (behind, current, lookup failure, newer minor); implement `hack/ci/go-patch-lag.sh` and `.github/workflows/go-patch-lag.yaml` (weekly, `contents: read`); the workflow satisfies the zizmor gate
+- [x] 4.1 Probe `https://go.dev/dl/?mode=json`; write the formatter test (behind, current, lookup failure, newer minor); implement `hack/ci/go-patch-lag.sh` and `.github/workflows/go-patch-lag.yaml` (weekly, `contents: read`); the workflow satisfies the zizmor gate — closed 2026-10-15, evidence: evidence/G4.md
 
 ## 5. Metrics (CFC-4, CFC-6)
 
