@@ -1,7 +1,7 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: astra + claude (duo) — `/spec-loop-duo` from G3 on (operator, 2026-10-15); G1–G2 ran the earlier codex + claude/sonnet two-leg per-task sizing
-Next: L — dispatch G5 (tasks 5.1–5.2, CFC-4 metrics; astra only)
+Next: L — dispatch G6 (task 6.1, wire all guards into lint; CI → astra + claude/opus)
 Budget: claude review legs 7/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
@@ -48,6 +48,7 @@ Holistic run at B: pending
 | G3 (3.1) | CLOSED (3.1); 3.2 was BLOCKED → resolved | none (probe evidence only, 8178695c2) | Default render covers all 113 role.yaml triples (no drift). Tenant render misses 36: 30 cluster-scoped (spec-named) + 6 namespaced workload reads (deployments, certificates g/l/w) → SPECIFICATION block; operator chose A 2026-10-15: exempt workload reads per team-operator.md §3 (spec amended). Deferred to B/backlog: default ClusterRole over-grants services CRUD + deployments write; tenant Role grants profiles/scopes write (CFC-3 is one-directional) |
 | G3 (3.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (RBAC = security posture), 2 rounds: r1 astra BLOCK / opus CONCERNS (team-workload accepted any read incl. secrets; leader-election Role counted as ClusterRole; Role covering cluster-scoped) all verified+fixed; r2 astra REQUEST_CHANGES (test isolation, fixed) / opus CLEAN | Commits 913a08ffa, f3489c06f, 1b5b7b78d. Mode-scoped exception lines with closed reason classes; 37 tenant exceptions, no default drift. SSAR (cluster-scoped, granted to all via system:basic-user) added to the spec's cluster-scoped list by orchestrator. Deferred: tenant Role's no-op SSAR rule (chart change); unwired until 6.1 |
 | G4 (4.1) | CLOSED-WITH-GAPS | astra + claude/opus:diff (new workflow), 2 rounds: r1 astra REQUEST_CHANGES (octal leading-zero false green, curl past job timeout) / opus CONCERNS, fixed; r2 astra REQUEST_CHANGES (2^63 overflow false green, fixed unreviewed per cap) / opus CLEAN | fba3eef06 (review-fix commits squashed in, local). Live sensor green (1.27.2 current). Needs `&include=all`. Deferred: tie curl retry budget to timeout-minutes (6.1/later). Gaps: wire both modes at 6.1; first scheduled run = post-merge row. Fresh worktree needed `make operator-sdk` for dist_operatorhub_pr_test.sh (ENVIRONMENT) |
+| G5 (5.1–5.2) | CLOSED-WITH-GAPS | astra only, 2 rounds: r1 REQUEST_CHANGES (prefix typo passed; gate-mutant runner exit 0 on survivor) fixed; r2 REQUEST_CHANGES (const mirror entry dropped; backtick import missed) fixed unreviewed per cap, each with mutants | Real drift: 5 registered metrics missing from metrics.md → docs-only fix 0dbc6302a. Guard 05842fe59..dcf2be244. Gaps: concatenated/Sprintf metric names invisible to the literal scan (none today); wiring at 6.1 |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
@@ -58,6 +59,8 @@ Holistic run at B: pending
 |---|---|---|---|
 
 ## Lessons
+- Sensors: match whole tokens of the target grammar (Prometheus `[A-Za-z0-9_:]`), and make a parser fail on leftover input it does not recognise (G5)
+- The block-ai-mentions hook checks the whole Bash command string: keep model names in evidence out of any command that also runs `git commit` (G5)
 - Validate numbers as bounded + canonical before bash `(( ))`: inside `if` an arithmetic error is false and big values wrap → false green in a fail-closed sensor (G4)
 - Under pipefail, `grep -v | grep -q` can SIGPIPE and read as no-match; use `grep >/dev/null` (G4)
 - A fresh worktree lacks bin/operator-sdk: run `make operator-sdk` before the dist_* guards (G4)
