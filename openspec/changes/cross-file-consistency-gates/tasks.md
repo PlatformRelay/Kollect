@@ -8,7 +8,7 @@
 
 ## 2. Tool pins (CFC-2, CFC-6)
 
-- [ ] 2.1 Write `consistency_tool_pins_test.sh` with a fixture pin whose Go directive is newer and an unresolvable pin; watch them fail; implement through `go mod download -json`
+- [ ] 2.1 Write `consistency_tool_pins_test.sh` with a fixture pin whose Go directive is newer and an unresolvable pin; watch them fail; implement through `go mod download -json`; add the analysis-tool smoke run (golangci-lint, govulncheck, go-arch-lint under go.mod's Go) with a fixture that pins an analysis tool too old for go.mod's Go (e.g. golangci-lint v2.13.1 vs go 1.27.2) and watch it fail
 
 ## 3. RBAC (CFC-3, CFC-6)
 
@@ -34,7 +34,7 @@
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | CFC-1 | `consistency_go_toolchain_test.sh` fixtures; real suite under the bumped Go | equal passes; others fail; suite green | not-run | |
-| CFC-2 | `consistency_tool_pins_test.sh` fixtures; real pins | newer-Go and unresolved fail; real pins pass | not-run | |
+| CFC-2 | `consistency_tool_pins_test.sh` fixtures; real pins | newer-Go, too-old analysis tool and unresolved fail; real pins pass | not-run | |
 | CFC-3 | `consistency_rbac_test.sh` with one triple removed; tenant render | fails naming the triple; tenant exceptions listed | not-run | |
 | CFC-4 | `consistency_metrics_test.sh` cases | each fails or passes as specified | not-run | |
 | CFC-5 | formatter tests | behind and lookup failure red | not-run | |
