@@ -10,14 +10,18 @@
 # triples and fails on every role.yaml triple the rendered manager roles do not grant.
 #
 # What it locks:
-#   * `helm template` with default values grants every role.yaml triple, except lines of mode
-#     `default` in hack/test/testdata/consistency-rbac-exceptions.txt;
-#   * `helm template --set tenantMode=true` grants every role.yaml triple except lines of mode
-#     `tenant`: cluster-scoped triples (reason class `cluster-scoped:`; a kollect.dev kind must be
-#     a Cluster-scoped CRD in config/crd/bases, any other resource a known cluster-scoped
-#     built-in) and workload-collection reads (class `team-workload:`, get/list/watch only, never
-#     a kollect.dev kind), which tenant mode leaves to the team (docs/examples/team-operator.md
-#     §3). Any other namespaced triple missing from the tenant Role fails;
+#   * `helm template` with default values: the rendered manager ClusterRole(s) grant every
+#     role.yaml triple, except lines of mode `default` in
+#     hack/test/testdata/consistency-rbac-exceptions.txt. role.yaml is a ClusterRole, so a
+#     namespaced Role (leader election, release namespace only) never stands in for it;
+#   * `helm template --set tenantMode=true`: the rendered manager Role(s) grant every role.yaml
+#     triple except lines of mode `tenant`: cluster-scoped triples (reason class
+#     `cluster-scoped:`; a kollect.dev kind must be a Cluster-scoped CRD in config/crd/bases, any
+#     other resource a known cluster-scoped built-in) and workload-collection reads (class
+#     `team-workload:`, get/list/watch of a kind in TEAM_WORKLOAD_KINDS), which tenant mode
+#     leaves to the team (docs/examples/team-operator.md §3). A Role never covers a
+#     cluster-scoped resource (RBAC ignores it there). Any other namespaced triple missing from
+#     the tenant Role fails;
 #   * the exceptions carry the mode on each line, so a tenant-only exception cannot excuse a gap
 #     in the default render; every line needs a reason; a line the render does not need (stale)
 #     fails;
@@ -71,6 +75,14 @@ import yaml
 root, exceptions_rel = sys.argv[1], sys.argv[2]
 MANAGER_TEMPLATES = ("clusterrole.yaml", "role.yaml", "role-leader-election.yaml")
 MODES = {"default": [], "tenant": ["--set", "tenantMode=true"]}
+# The role kind that may cover role.yaml's triples in each render: the default install is
+# cluster-wide (role.yaml is a ClusterRole), the tenant install is namespaced by design.
+COVERING_KIND = {"default": "ClusterRole", "tenant": "Role"}
+# Workload kinds a KollectTarget collects whose reads tenant mode leaves to the team (CFC-3 as
+# amended 2026-10-15, docs/examples/team-operator.md §3). A closed list, so a reconciler need
+# (secrets, configmaps, events, kollect.dev kinds) cannot be filed as team workload: a new
+# workload marker means extending this set in a reviewed change to the gate and the spec.
+TEAM_WORKLOAD_KINDS = {("apps", "deployments"), ("cert-manager.io", "certificates")}
 READ_VERBS = {"get", "list", "watch"}
 # Built-in resources that are cluster-scoped (Kubernetes API facts), the only non-kollect.dev
 # resources a tenant `cluster-scoped:` exception may name. kollect.dev kinds are read from the
@@ -106,8 +118,17 @@ def rule_triples(rules):
     return out
 
 
-def covers(rules, t):
+def is_cluster_scoped(g, r):
+    base = (g, r.split("/")[0])
+    if g == "kollect.dev":
+        return crd_scope.get(base) == "Cluster"
+    return base in CLUSTER_SCOPED_BUILTINS
+
+
+def covers(rules, t, kind):
     g, r, v = t
+    if kind == "Role" and is_cluster_scoped(g, r):
+        return False
     for rule in rules:
         if rule.get("resourceNames"):
             continue
@@ -171,8 +192,8 @@ for n, raw in enumerate(exc_lines, 1):
                 errors.append(f"{where}: {show(t)} is marked cluster-scoped but {base[0] or 'core'}/{base[1]} is not a known cluster-scoped resource")
                 continue
         elif reason.startswith("team-workload:"):
-            if t[0] == "kollect.dev" or verb not in READ_VERBS or "/" in resource:
-                errors.append(f"{where}: {show(t)} is marked team-workload but only a get/list/watch of a non-kollect.dev workload kind can be")
+            if (t[0], resource) not in TEAM_WORKLOAD_KINDS or verb not in READ_VERBS:
+                errors.append(f"{where}: {show(t)} is marked team-workload but only get/list/watch of a kind in TEAM_WORKLOAD_KINDS can be")
                 continue
         else:
             errors.append(f"{where}: a tenant exception's reason must start with 'cluster-scoped:' or 'team-workload:' ('{reason}')")
@@ -201,24 +222,25 @@ for mode, args in MODES.items():
         if not src or not any(src.endswith("/templates/" + t) for t in MANAGER_TEMPLATES):
             continue
         doc = yaml.safe_load(chunk)
-        if not doc or doc.get("kind") not in ("Role", "ClusterRole"):
+        if not doc or doc.get("kind") != COVERING_KIND[mode]:
             continue
         roles.append(f"{doc['kind']} {doc['metadata']['name']}")
         rules += doc.get("rules") or []
     if not roles:
-        errors.append(f"{mode}: the chart rendered no manager Role or ClusterRole -- an empty scan never passes")
+        errors.append(f"{mode}: the chart rendered no manager {COVERING_KIND[mode]} -- an empty scan never passes")
         continue
     used, before = set(), len(errors)
     for t in sorted(want):
-        if covers(rules, t):
+        if covers(rules, t, COVERING_KIND[mode]):
             continue
         if (mode, t) in exceptions:
             used.add((mode, t))
             continue
-        errors.append(f"{mode}: role.yaml grants {show(t)} but the chart's manager roles ({', '.join(roles)}) do not")
+        hint = " (cluster-scoped: a Role cannot grant it)" if COVERING_KIND[mode] == "Role" and is_cluster_scoped(t[0], t[1]) else ""
+        errors.append(f"{mode}: role.yaml grants {show(t)} but the chart's manager roles ({', '.join(roles)}) do not{hint}")
     for (m, t), n in sorted(exceptions.items(), key=lambda kv: kv[1]):
         if m == mode and (m, t) not in used:
-            why = "the chart grants it" if covers(rules, t) else "role.yaml does not grant it"
+            why = "the chart grants it" if covers(rules, t, COVERING_KIND[mode]) else "role.yaml does not grant it"
             errors.append(f"{exceptions_rel}:{n}: stale {mode} exception {show(t)} -- {why}")
     if len(errors) == before:
         print(f"ok - {mode}: {len(want)} role.yaml triples, {len(used)} excepted, rendered {', '.join(roles)}")
@@ -264,6 +286,7 @@ new_copy() {
 
 # mutant_rejected <label> <sentinel> <probe-regex> <probe-file> <command...>
 # The command runs inside the copy; the probe proves the mutation landed before the gate runs.
+# The probe ABSENT asserts that <probe-file> no longer exists.
 mutant_rejected() {
   local label="$1" sentinel="$2" probe="$3" probe_file="$4"
   shift 4
@@ -271,8 +294,13 @@ mutant_rejected() {
   new_copy
   (cd "${COPY}" && "$@") ||
     fail "self-test: the mutation step for '${label}' failed -- nothing was tested"
-  grep -Eq -- "${probe}" "${COPY}/${probe_file}" ||
-    fail "self-test: the '${label}' mutant did not land (no '${probe}' in ${probe_file}) -- nothing was tested"
+  if [[ "${probe}" == "ABSENT" ]]; then
+    [[ ! -e "${COPY}/${probe_file}" ]] ||
+      fail "self-test: the '${label}' mutant did not land (${probe_file} still exists) -- nothing was tested"
+  else
+    grep -Eq -- "${probe}" "${COPY}/${probe_file}" ||
+      fail "self-test: the '${label}' mutant did not land (no '${probe}' in ${probe_file}) -- nothing was tested"
+  fi
   out="$(bash "${SELF}" "${COPY}" 2>&1)" && rc=0 || rc=$?
   [[ "${rc}" -ne 0 ]] ||
     fail "self-test: the gate accepted the '${label}' mutant (exit 0) -- the assertion '${sentinel}' did not fire"
@@ -347,9 +375,17 @@ mutant_rejected "namespaced kollect.dev kind excused as cluster-scoped" \
   bash -c 'printf "tenant kollect.dev kollecttargets get cluster-scoped: wrong\n" >> '"${EXC}"
 
 mutant_rejected "write verb excused as team workload" \
-  "core secrets create is marked team-workload but only a get/list/watch" \
+  "core secrets create is marked team-workload but only get/list/watch of a kind in TEAM_WORKLOAD_KINDS" \
   '^tenant core secrets create' "${EXC}" \
   bash -c 'printf "tenant core secrets create team-workload: wrong\n" >> '"${EXC}"
+
+# A reconciler read (secrets) dropped from the tenant Role and filed as team workload: refused,
+# team-workload is a closed list of collected kinds.
+mutant_rejected "reconciler read excused as team workload" \
+  "core secrets get is marked team-workload but only get/list/watch of a kind in TEAM_WORKLOAD_KINDS" \
+  '^tenant core secrets get team-workload' "${EXC}" \
+  bash -c 'sed -i -E "s/resources: \[secrets\]/resources: [configmaps]/" '"${TR}"' &&
+    printf "tenant core secrets get team-workload: x\ntenant core secrets list team-workload: x\ntenant core secrets watch team-workload: x\n" >> '"${EXC}"
 
 mutant_rejected "tenant exception without a class" \
   "a tenant exception's reason must start with 'cluster-scoped:' or 'team-workload:'" \
@@ -384,7 +420,7 @@ mutant_rejected "default-only exception does not excuse a tenant-mode gap" \
     printf "default core secrets get example\ndefault core secrets list example\ndefault core secrets watch example\n" >> '"${EXC}"
 
 mutant_rejected "missing exceptions file" \
-  "${EXC} is missing" 'kollect' "${CR}" \
+  "${EXC} is missing" ABSENT "${EXC}" \
   rm "${EXC}"
 
 mutant_rejected "empty role.yaml scan" \
@@ -394,13 +430,35 @@ mutant_rejected "empty role.yaml scan" \
 # role-leader-election.yaml is not gated on rbac.create, so turning RBAC off still renders a
 # manager Role; removing the three manager templates is what leaves the scan empty.
 mutant_rejected "no manager role rendered" \
-  "default: the chart rendered no manager Role or ClusterRole" '^tenantMode:' charts/kollect/values.yaml \
+  "default: the chart rendered no manager ClusterRole" ABSENT "${CR}" \
   rm "${CR}" "${TR}" charts/kollect/templates/role-leader-election.yaml
 
 mutant_rejected "rule restricted by resourceNames covers nothing" \
   "default: role.yaml grants authentication.k8s.io tokenreviews create but" \
   'resourceNames: \[only-this\]' "${CR}" \
   sed -i -E 's/^(    resources: \[tokenreviews\])$/\1\n    resourceNames: [only-this]/' "${CR}"
+
+# role.yaml is a ClusterRole: the namespaced leader-election Role (configmaps, events in the
+# release namespace only) must not stand in for the ClusterRole in the default render.
+mutant_rejected "leader-election Role does not stand in for the ClusterRole" \
+  "default: role.yaml grants core configmaps get but" \
+  'resources: \[namespaces, secrets\]' "${CR}" \
+  sed -i -E 's/resources: \[configmaps, namespaces, secrets\]/resources: [namespaces, secrets]/' "${CR}"
+
+# The tenant manager role must be a Role (its RoleBinding binds a Role); a ClusterRole rendered
+# in its place covers nothing in tenant mode.
+mutant_rejected "tenant manager Role rendered as a ClusterRole" \
+  "tenant: role.yaml grants core secrets get but" \
+  '^kind: ClusterRole$' "${TR}" \
+  sed -i -E 's/^kind: Role$/kind: ClusterRole/' "${TR}"
+
+# A Role cannot grant a cluster-scoped resource: listing namespaces in the tenant Role does not
+# make the namespaces exceptions stale, and deleting them reds the tenant render.
+mutant_rejected "Role does not cover a cluster-scoped resource" \
+  "tenant: role.yaml grants core namespaces get but the chart's manager roles (Role kollect-leader-election, Role kollect-manager) do not (cluster-scoped: a Role cannot grant it)" \
+  'resources: \[secrets, namespaces\]' "${TR}" \
+  bash -c 'sed -i -E "s/resources: \[secrets\]/resources: [secrets, namespaces]/" '"${TR}"' &&
+    sed -i -E "/^tenant core namespaces /d" '"${EXC}"
 
 # Green control: a default-mode exception excuses a real default-mode gap (the mechanism the
 # spec allows), and a wildcard verb covers every verb.
