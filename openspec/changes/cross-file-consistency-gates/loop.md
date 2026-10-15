@@ -9,6 +9,7 @@ OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-
 1–3 merged (#450, #452, #453). Issue #441.
 
 ## Stages
+
 - [x] 0 orient — proposal / spec delta / tasks present, nothing implemented (all unticked); branch and base recorded
 - [x] P plan + tasks — skipped: present · spec-set fix committed with this file (see Triage)
 - [x] R spec-set review — done by other means before #437 merged: commits `a0aba9880` (independent Opus review), `10bc634ed` (round two), `50580a3ad` (cold adversarial), `1745b60ba` (post-merge status). Not repeated. Re-measure on 2026-10-14 found 3 WARNINGs (Triage), no CRITICAL; mechanical fixes applied
@@ -17,6 +18,7 @@ OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-
 - [ ] Hand-off
 
 ## Fitness functions
+
 | Characteristic | Command | Kind | Baseline | Per task / at B |
 |---|---|---|---|---|
 | CI guard meta-tests | `bash hack/test/<guard>_test.sh` and `--self-test` (lint job) | triggered | green suite | per task (touched + new guards) |
@@ -32,6 +34,7 @@ OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-
 Holistic run at B: pending
 
 ## Triage
+
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
 | B1 | H1 lint:markdown red (MD032/MD038) in this change's loop/evidence files; preflight would fail | CRITICAL | holistic | fix | 7.1 | no |
@@ -50,6 +53,7 @@ Holistic run at B: pending
 | R | `lint` is not a `protect-main` required check; CFC-6 "required job" depends on change 1's operator step 5.1 | WARNING | re-measure | fix | operator ruling 2026-10-15; ruleset 18802410 now also requires lint, workflow-security, dependency-review (applied via gh api) | done |
 
 ## Tasks
+
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
 | G1 (1.1–1.3) | CLOSED-WITH-GAPS | codex + claude/sonnet, 2 rounds on c2b744ac0..fc959302c; tool-pin commits reviewed separately (codex APPROVE, sonnet CLEAN); no opus | Was BLOCKED on 1.3; operator chose A: golangci-lint v2.14.0 (fa9bc99be), govulncheck v1.9.0 (812c7f274), plus go-arch-lint v1.15.0→v1.19.0 (9d38f7431) — NOT in the ruling, same x/tools-under-Go-1.27 failure, version-only, accepted by orchestrator. Gaps: CodeQL on Go 1.27 proven only by CI Analyze (Go); guard unwired until 6.1; Renovate grouping proven by a one-off local dry-run |
@@ -61,14 +65,17 @@ Holistic run at B: pending
 | G6 (6.1) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI), 2 rounds (r1 astra APPROVE / opus CONCERNS; r2 astra REQUEST_CHANGES / opus CONCERNS, all verified fixed); decision-A follow-up: astra only (L Claude legs exhausted; B opus covers it), APPROVE | 300801927, 3915645d4, 366dc0840; decision A (operator 2026-10-16): tool-pins self-test in its own unconditional job `tool-pins-selftest` (timeout 45 min, in verify-eligibility.sh required_checks) d770c56f3, b94b69066 (unique fixture module per run — G2 race fixed), 2a9b5b946. ci_workflow_security CFC-6 rule now fails on an unwired guard. Gaps: first CI run on PR head; add `tool-pins-selftest` to protect-main AFTER merge; runner runtimes estimated |
 
 ## Known red
+
 | Test (file:name) | Story | Written in | Cleared in |
 |---|---|---|---|
 
 ## Test changes
+
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
 
 ## Lessons
+
 - A wiring rule must take its required modes from the spec, not from the guard's own code; anchor sed mutants on stable prefixes, not exact config lines (G6)
 - Sensors: match whole tokens of the target grammar (Prometheus `[A-Za-z0-9_:]`), and make a parser fail on leftover input it does not recognise (G5)
 - The block-ai-mentions hook checks the whole Bash command string: keep model names in evidence out of any command that also runs `git commit` (G5)
@@ -95,10 +102,12 @@ Holistic run at B: pending
 ## Where a human should look first
 
 ## Proposed harness changes
+
 | Lesson | Seen in | Proposed change |
 |---|---|---|
 
 ## Owner tasks (skipped by the loop)
+
 | Task | Command sheet |
 |---|---|
 | post-merge | add `tool-pins-selftest` to protect-main required checks (orchestrator, gh api, right after merge) |

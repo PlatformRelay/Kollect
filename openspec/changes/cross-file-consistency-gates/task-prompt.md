@@ -7,9 +7,10 @@ Records directory for review registers: openspec/changes/cross-file-consistency-
 Do this: invoke the `close-task` skill (Skill tool, name `close-task`, args `__TID__`) and follow it end to end for task __TID__. Its helper scripts are at ~/.claude/skills/close-task/scripts/task.sh and sensors.sh; run `task.sh show __TID__` from the repo root first and read only the slice it gives you plus the ids it cites.
 
 Per-task review (this replaces the reviewer dispatch in close-task's REVIEW step). Record the pre-task sha before you change anything. Size the review to the diff:
+
 - evidence or documentation only → `--legs "GLM-5.3:diff"`;
 - anything else → `--legs "GLM-5.3:diff,DeepSeek-V4.1-Flash:diff"`;
-- append `,claude/opus:diff` (with `--claude-budget 3`) ONLY when Claude review legs left for this task (see dispatch note) is above 0 and: the free register says BLOCK; fewer than two free legs produced a verdict (`legs.log` shows `exit=truncated` or non-zero) on a non-doc diff; or the diff touches secrets handling, hieradata, Terraform, manifests, CI or a protected path. 
+- append `,claude/opus:diff` (with `--claude-budget 3`) ONLY when Claude review legs left for this task (see dispatch note) is above 0 and: the free register says BLOCK; fewer than two free legs produced a verdict (`legs.log` shows `exit=truncated` or non-zero) on a non-doc diff; or the diff touches secrets handling, hieradata, Terraform, manifests, CI or a protected path.
 Command:
   ~/.claude/skills/fanout-review/scripts/fanout.sh --repo /home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates --target "task __TID__: <task text>; verification matrix in openspec/changes/cross-file-consistency-gates/evidence/__TID__.md; diff <pre-task sha>..HEAD" --legs "<as sized>" --out openspec/changes/cross-file-consistency-gates/reviews/L-tasks/__TID__[/round-N]
 Without opencode, the orchestrator names the legs instead (e.g. `codex exec --sandbox read-only - < <brief.md> > leg-codex-diff.md` plus `fanout.sh --legs "claude/sonnet:diff" --no-unify`); write the brief with the Write tool and pass it on stdin.
@@ -32,6 +33,7 @@ Implementation tasks: tests written by an earlier test task of this feature are 
 Task kinds: if the task text says "Owner session" or "Owner gate", or needs a host, account, push, pull request or decision you do not have, do NOT attempt that part. Whole task → stop at SELECT and report `OWNER` with the command sheet you would hand the owner written to openspec/changes/cross-file-consistency-gates/evidence/__TID__.md. Part → do the agent part, write the owner part as a command sheet in the same file, close CLOSED-WITH-GAPS listing it.
 
 Hard rules:
+
 - Never read, print, decrypt or copy a secret value; reference entries and secret names only. No .env, kubeconfig or token files; Renovate/App secrets are referenced by name only.
 - Do not push, add or change any git remote, or open a pull request. Local commits on `feat/cross-file-consistency-gates` only, one logical commit including the state file, Conventional Commit style with the repo convention `:gitmoji: <type>(<scope>): <summary>` (ASCII shortcode first, e.g. `:white_check_mark: test(ci): ...`, `:wrench: build: ...`, `:arrow_up: chore(deps): ...`); NO Co-Authored-By or any agent/model/tool attribution anywhere in the message.
 - Do not edit CLAUDE.md, AGENTS.md, the constitution, .specify/ or .claude/; propose instead.
@@ -43,6 +45,7 @@ Hard rules:
 Final report, at most 20 lines: task · verdict (CLOSED / CLOSED-WITH-GAPS / BLOCKED / OWNER) · matrix summary · sensors run · corrections · review verdict, legs and register path, Claude legs used · findings rejected or deferred (one line each: finding · reject/defer · reason or destination) · known red added or cleared · test changes · learnings (class, plus each reusable lesson in one line, for the next task's prompt) · commit sha · next action or decision request. Nothing else.
 
 Repo specifics (kollect):
+
 - REVIEW SIZING (spec-loop-duo, operator choice 2026-10-15; replaces every sizing instruction above): ONE leg per task: astra = `codex exec --sandbox read-only - < <brief.md> > <out>/leg-astra-diff.md` (run from the repo root; brief written with the Write tool from ~/.claude/skills/close-task/reference/review-brief.md plus the diff range). Add a second leg `~/.claude/skills/fanout-review/scripts/fanout.sh --repo <repo> --target "..." --legs "claude/opus:diff" --no-unify --out <out>` ONLY if the diff touches secrets, CI (.github/ workflows or the CI wiring), infra or manifests, or security posture, or astra says BLOCK. Never pass an opencode model to fanout.sh; always --no-unify; read the leg files' `## Verdict` yourself. Codex quota error → claude/sonnet stands in for astra and say so in the evidence; codex "at capacity" → stand-in for this round only. A second round only for a verified BEHAVIOUR defect; at most two.
 - Task ids in tasks.md are `N.M` numbers; you close the whole group named in the dispatch, ticking each line. One logical commit per sub-task where the task says "its own commit" (e.g. the go.mod bump is version-only, real drift fixes are separate).
 - Guards follow `hack/test/dev_mise_pin_drift_test.sh` and `hack/test/ci_workflow_security_test.sh`: plain mode checks the real tree, `--self-test` corrupts a throwaway copy (mktemp) per mutant and asserts non-zero, plus a no-op copy that must pass. Run `task lint:shell` on new scripts.
