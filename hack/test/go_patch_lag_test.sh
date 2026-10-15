@@ -190,8 +190,9 @@ if [[ "${MODE}" == "check" ]]; then
 
   # curl's worst case (the last retry may start at --retry-max-time and run --max-time) must end
   # inside the sensor step's own timeout, and the job's timeout must exceed the step's (checkout
-  # and runner setup count against the job, not the step), so the job never ends first:
-  # otherwise a stalled go.dev kills the run before the script prints why it failed.
+  # and runner setup count against the job, not the step), so the step's timeout fires first.
+  # Otherwise a stalled go.dev kills the run before the script prints why it failed. (The
+  # setup headroom is job minus step, at least a minute; nothing here measures setup time.)
   # Canonical, bounded numbers only before any arithmetic (an error inside `if` reads as false).
   bounded='^[1-9][0-9]{0,3}$'
   step_timeout="$(yq '[.jobs[].steps[] | select(has("run"))][0]."timeout-minutes" // ""' "${WORKFLOW}")"
@@ -204,10 +205,12 @@ if [[ "${MODE}" == "check" ]]; then
     wf_fail "the job's timeout-minutes (${job_timeout}) is not above the sensor step's (${step_timeout}); checkout counts against the job, so the job could end before the step"
   # Code lines only: the script's comments name the flags too.
   code="$(grep -v '^[[:space:]]*#' "${SCRIPT}")"
-  # One fetch, one budget: a second curl or a second flag would go unchecked by a first-match parse.
-  [[ "$(grep -cE '(^|[[:space:]])curl[[:space:]]' <<<"${code}")" == "1" &&
-    "$(grep -cE '[[:space:]]--max-time[[:space:]]' <<<"${code}")" == "1" &&
-    "$(grep -cE '[[:space:]]--retry-max-time[[:space:]]' <<<"${code}")" == "1" ]] ||
+  # One fetch, one budget: a second curl or a second flag would go unchecked by the parse below.
+  # Occurrences, not lines: two calls on one line count twice.
+  occurrences() { grep -oE -- "$1" <<<"${code}" | wc -l | tr -d '[:space:]'; }
+  [[ "$(occurrences '(^|[^A-Za-z0-9_./-])curl([[:space:]]|$)')" == "1" &&
+    "$(occurrences '[[:space:]]--max-time[[:space:]]')" == "1" &&
+    "$(occurrences '[[:space:]]--retry-max-time[[:space:]]')" == "1" ]] ||
     fail "hack/ci/go-patch-lag.sh must make exactly one curl call with one --max-time and one --retry-max-time; the retry budget check reads only that one"
   max_time="$(sed -nE 's/.*[[:space:]]--max-time[[:space:]]+([^[:space:]]+).*/\1/p' <<<"${code}")"
   retry_max="$(sed -nE 's/.*[[:space:]]--retry-max-time[[:space:]]+([^[:space:]]+).*/\1/p' <<<"${code}")"
@@ -359,6 +362,10 @@ mutant_rejected "second curl call with its own budget" \
   "exactly one curl call" 'MUTANT-SECOND-CURL' "${S}" \
   perl -pi -e 's/^(# --- the listing.*)$/$1\nunused_fetch() { curl -fsS --max-time 900 --retry-max-time 900 https:\/\/127.0.0.1:9\/; } # MUTANT-SECOND-CURL/' "${S}"
 
+
+mutant_rejected "second curl call on the same line" \
+  "exactly one curl call" 'MUTANT-SAME-LINE ' "${S}" \
+  perl -0pi -e 's/^(  )(curl -fsSL --proto .*?) \\\n\s+(--retry .*? \|\|)$/$1curl -fsS --max-time 900 --retry-max-time 900 https:\/\/127.0.0.1:9\/MUTANT-SAME-LINE >\/dev\/null 2>&1 || true; $2 $3/m' "${S}"
 
 mutant_rejected "job timeout below the step's" \
   "is not above the sensor step's" '^    timeout-minutes: 4$' "${W}" \
