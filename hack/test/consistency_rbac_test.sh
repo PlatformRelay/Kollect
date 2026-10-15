@@ -183,6 +183,9 @@ for n, raw in enumerate(exc_lines, 1):
     t = ("" if group == "core" else group, resource, verb)
     base = (t[0], resource.split("/")[0])
     if mode == "tenant":
+        if reason.split(":", 1)[0] in ("cluster-scoped", "team-workload") and not reason.split(":", 1)[1].strip():
+            errors.append(f"{where}: exception has no reason after its class ('{line}')")
+            continue
         if reason.startswith("cluster-scoped:"):
             if t[0] == "kollect.dev":
                 if crd_scope.get(base) != "Cluster":
@@ -374,10 +377,15 @@ mutant_rejected "namespaced kollect.dev kind excused as cluster-scoped" \
   '^tenant kollect.dev kollecttargets get' "${EXC}" \
   bash -c 'printf "tenant kollect.dev kollecttargets get cluster-scoped: wrong\n" >> '"${EXC}"
 
+# apps/deployments IS a team-workload kind, so only the read-only clause can reject this line.
 mutant_rejected "write verb excused as team workload" \
-  "core secrets create is marked team-workload but only get/list/watch of a kind in TEAM_WORKLOAD_KINDS" \
-  '^tenant core secrets create' "${EXC}" \
-  bash -c 'printf "tenant core secrets create team-workload: wrong\n" >> '"${EXC}"
+  "apps deployments create is marked team-workload but only get/list/watch of a kind in TEAM_WORKLOAD_KINDS" \
+  '^tenant apps deployments create' "${EXC}" \
+  bash -c 'printf "tenant apps deployments create team-workload: wrong\n" >> '"${EXC}"
+
+mutant_rejected "class token without reason text" \
+  "exception has no reason after its class" '^tenant core namespaces get cluster-scoped:$' "${EXC}" \
+  sed -i -E 's/^(tenant core namespaces get cluster-scoped:) .*/\1/' "${EXC}"
 
 # A reconciler read (secrets) dropped from the tenant Role and filed as team workload: refused,
 # team-workload is a closed list of collected kinds.
@@ -460,8 +468,14 @@ mutant_rejected "Role does not cover a cluster-scoped resource" \
   bash -c 'sed -i -E "s/resources: \[secrets\]/resources: [secrets, namespaces]/" '"${TR}"' &&
     sed -i -E "/^tenant core namespaces /d" '"${EXC}"
 
+mutant_rejected "Role does not cover a cluster-scoped subresource" \
+  "tenant: role.yaml grants kollect.dev kollectclusterinventories/status get but the chart's manager roles (Role kollect-leader-election, Role kollect-manager) do not (cluster-scoped: a Role cannot grant it)" \
+  'kollectclusterinventories/status, kollectconnectiontests/status' "${TR}" \
+  bash -c 'sed -i -E "s#resources: \[kollectconnectiontests/status,#resources: [kollectclusterinventories/status, kollectconnectiontests/status,#" '"${TR}"' &&
+    sed -i -E "/^tenant kollect.dev kollectclusterinventories\/status /d" '"${EXC}"
+
 # Green control: a default-mode exception excuses a real default-mode gap (the mechanism the
-# spec allows), and a wildcard verb covers every verb.
+# spec allows), and `*` covers any verb, group or resource.
 control_passes() {
   local label="$1" probe="$2" probe_file="$3"
   shift 3
@@ -481,5 +495,9 @@ control_passes "default exception excuses a default gap" '^default authenticatio
 
 control_passes "wildcard verb covers every verb" 'verbs: \["\*"\]' "${CR}" \
   sed -i -E '/apiGroups: \[authentication\.k8s\.io\]/,/verbs:/ s/verbs: \[create\]/verbs: ["*"]/' "${CR}"
+
+# tokenreviews moved under a rule whose group and resource are both "*".
+control_passes "wildcard group and resource cover" 'apiGroups: \["\*"\]' "${CR}" \
+  sed -i -E 's/^  - apiGroups: \[authentication\.k8s\.io\]$/  - apiGroups: ["*"]/; s/^    resources: \[tokenreviews\]$/    resources: ["*"]/' "${CR}"
 
 echo "All RBAC consistency self-tests passed."
