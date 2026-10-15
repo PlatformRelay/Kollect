@@ -31,7 +31,7 @@ taken.
 - Go: `go.mod` is bumped to the Go version the Dockerfiles ship (`go 1.27.2` at re-measure, no
   separate `toolchain` line); a guard keeps the Dockerfiles, the devcontainer image and `go.mod`
   equal; Renovate groups the `go` directive with the golang images so they move in one PR.
-- A guard builds each pinned `go run`/`go install` tool under `GOTOOLCHAIN=local` with the go.mod
+- A guard builds each pinned `go run`/`go install` tool under exactly the go.mod Go (`GOTOOLCHAIN=go<version>`) with the go.mod
   Go (reading each tool's Go directive from `go mod download -json`), and runs each pinned analysis
   tool once under that Go (a tool older than the Go it analyses fails; seen at the 1.27.2 bump).
 - A scheduled sensor goes red when `go.mod`'s Go is behind the latest patch of its minor.
