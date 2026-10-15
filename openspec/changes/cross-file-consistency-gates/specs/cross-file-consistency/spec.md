@@ -96,7 +96,10 @@ roles rendered from `charts/kollect` with default values, unless listed with a r
 #### Scenario: Tenant mode
 
 - **WHEN** the chart is rendered with `tenantMode=true`
-- **THEN** namespaced triples are covered by the rendered namespaced `Role`; cluster-scoped triples (namespaces, tokenreviews, subjectaccessreviews, `kollectcluster*`) appear as listed exceptions with the reason that tenant mode drops cluster scope
+- **THEN** namespaced triples are covered by the rendered namespaced `Role`; cluster-scoped triples (namespaces, tokenreviews, subjectaccessreviews, `kollectcluster*`) appear as listed exceptions with the reason that tenant mode drops cluster scope; namespaced
+  workload-collection reads (today `apps/deployments` and `cert-manager.io/certificates`, get/list/watch)
+  appear as listed exceptions with the reason that tenant mode leaves workload RBAC to the team
+  (`docs/examples/team-operator.md` §3); any other namespaced triple missing from the `Role` fails
 
 ### Requirement: CFC-4 Metric names agree between code, docs and chart
 

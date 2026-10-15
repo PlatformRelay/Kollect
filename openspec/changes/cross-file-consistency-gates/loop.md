@@ -1,7 +1,7 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: astra + claude (duo) — `/spec-loop-duo` from G3 on (operator, 2026-10-15); G1–G2 ran the earlier codex + claude/sonnet two-leg per-task sizing
-Next: L — dispatch G3 (tasks 3.1–3.2, CFC-3 RBAC)
+Next: L — dispatch fresh G3b (task 3.2, CFC-3 guard) on the amended tenant scenario
 Budget: claude review legs 3/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
@@ -37,6 +37,7 @@ Holistic run at B: pending
 | R | proposal quotes stale versions (1.26.6 / 1.27.1); now go.mod 1.26.9, Dockerfiles 1.27.2 | WARNING | re-measure | fix | proposal.md updated | no |
 | R | `.devcontainer/devcontainer.json` pins `golang:1.26.9`; CFC-1 scanned only Dockerfiles, so it drifts after the bump | WARNING | re-measure | fix | CFC-1 + scenario + tasks 1.2/1.3 include the devcontainer image | no |
 | L/G2 | CFC-2 said `GOTOOLCHAIN=local`; on a host whose Go differs that tests the wrong Go | WARNING | claude/sonnet | fix | spec + proposal amended to `GOTOOLCHAIN=go<version>` (exactly go.mod's Go) | no |
+| L/G3 | CFC-3 tenant scenario exempted only cluster-scoped triples; workload reads are deliberately team-granted (team-operator.md §3) | WARNING (spec) | probe | fix | operator ruling A 2026-10-15: tenant scenario lists workload-collection reads as exceptions | done |
 | R | `lint` is not a `protect-main` required check; CFC-6 "required job" depends on change 1's operator step 5.1 | WARNING | re-measure | fix | operator ruling 2026-10-15; ruleset 18802410 now also requires lint, workflow-security, dependency-review (applied via gh api) | done |
 
 ## Tasks
@@ -44,6 +45,7 @@ Holistic run at B: pending
 |---|---|---|---|
 | G1 (1.1–1.3) | CLOSED-WITH-GAPS | codex + claude/sonnet, 2 rounds on c2b744ac0..fc959302c; tool-pin commits reviewed separately (codex APPROVE, sonnet CLEAN); no opus | Was BLOCKED on 1.3; operator chose A: golangci-lint v2.14.0 (fa9bc99be), govulncheck v1.9.0 (812c7f274), plus go-arch-lint v1.15.0→v1.19.0 (9d38f7431) — NOT in the ruling, same x/tools-under-Go-1.27 failure, version-only, accepted by orchestrator. Gaps: CodeQL on Go 1.27 proven only by CI Analyze (Go); guard unwired until 6.1; Renovate grouping proven by a one-off local dry-run |
 | G2 (2.1) | CLOSED-WITH-GAPS | codex + claude/sonnet, 2 rounds (round 1 REQUEST_CHANGES verified/fixed; round 2 REQUEST_CHANGES verified/fixed, no round 3); no opus | Commits 13b263c1f, f62e76e01, b564d1f49. Gap: unwired until 6.1. Self-test ~5 min → own lint step at 6.1. Deferred to B: parallel-unsafe fixture deletion from the shared module cache; misleading message for a literal golangci pin in a Makefile recipe (fails closed). Orchestrator lost ~80 min to a self-matching `pgrep -f` wait loop (killed). CFC-2 `GOTOOLCHAIN=local` → amended to exactly go.mod's Go (orchestrator decision, spec-set commit) |
+| G3 (3.1) | CLOSED (3.1); 3.2 was BLOCKED → resolved | none (probe evidence only, 8178695c2) | Default render covers all 113 role.yaml triples (no drift). Tenant render misses 36: 30 cluster-scoped (spec-named) + 6 namespaced workload reads (deployments, certificates g/l/w) → SPECIFICATION block; operator chose A 2026-10-15: exempt workload reads per team-operator.md §3 (spec amended). Deferred to B/backlog: default ClusterRole over-grants services CRUD + deployments write; tenant Role grants profiles/scopes write (CFC-3 is one-directional) |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
@@ -54,6 +56,9 @@ Holistic run at B: pending
 |---|---|---|---|
 
 ## Lessons
+- Check a spec's exception list against the product docs' "by design" sections before cutting tasks (G3)
+- `helm template --show-only` errors when the template renders nothing (clusterrole.yaml in tenant mode): render all, filter on `# Source:` (G3)
+- `python3 -I` loses user-site PyYAML on this host; use plain `python3` as the repo guards do (G3)
 - Wait on PIDs (`wait $pid`, `while kill -0 $pid`), NEVER `pgrep -f <pattern>` where the pattern appears in your own command line — it matches itself and never ends (G2, ~80 min lost)
 - A bash helper called as `$(helper)` runs in a subshell and loses global state: register cleanup/temp roots in the parent shell (G2)
 - `go mod download` under an exact GOTOOLCHAIN refuses a module needing a newer Go: parse "requires go >=" (G2)
