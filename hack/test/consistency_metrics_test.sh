@@ -14,7 +14,8 @@
 #   * the scan's blind spots fail instead of passing: a `Namespace:`/`Subsystem:` field in
 #     internal/metrics (a name split into parts no literal shows), and a non-test .go file
 #     outside internal/metrics that imports the Prometheus client (registration elsewhere);
-#   * every kollect_* name in metrics.md and in prometheusrule.yaml is registered, or is
+#   * every kollect_* name in metrics.md and in prometheusrule.yaml (the whole token, [A-Za-z0-9_:])
+#     is registered, or is
 #     `<h>_bucket|_sum|_count` where <h> is registered with HistogramOpts. Any other suffix
 #     (`_created`, `_bucket` on a counter, ...) fails. Either file yielding no name fails;
 #   * every registered metric appears by its exact name in metrics.md;
@@ -68,6 +69,10 @@ RULES = "charts/kollect/templates/prometheusrule.yaml"
 OTHER_GO_DIRS = ("api", "cmd", "internal", "pkg", "test")
 CLIENT_IMPORT = re.compile(r'"github\.com/prometheus/client_golang/prometheus(?:/promauto)?"')
 NAME = re.compile(r"kollect_[a-z0-9_]+")
+# A whole Prometheus metric-name token that starts with kollect_ ([a-zA-Z0-9_:] per the
+# exposition format), so `kollect_fooTYPO` or `kollect_foo:x` is read whole, never as its
+# registered prefix `kollect_foo`.
+TOKEN = re.compile(r"(?<![A-Za-z0-9_:])kollect_[A-Za-z0-9_:]+")
 SUFFIXES = ("_bucket", "_sum", "_count")
 errors = []
 
@@ -172,7 +177,7 @@ catalog_names = set(NAME.findall(read(CATALOG)))
 
 
 def check_names(rel):
-    names = set(NAME.findall(read(rel)))
+    names = set(TOKEN.findall(read(rel)))
     if not names:
         errors.append(f"{rel} yields no kollect_* name -- an empty scan never passes")
     for n in sorted(names):
@@ -339,6 +344,23 @@ mutant_rejected "_bucket on a non-histogram" \
   "${RUL}: kollect_workqueue_depth_bucket is not a registered metric (kollect_workqueue_depth is registered but not with HistogramOpts" \
   'kollect_workqueue_depth_bucket' "${RUL}" \
   sed -i -E 's/max\(kollect_workqueue_depth\)/max(kollect_workqueue_depth_bucket)/' "${RUL}"
+
+# A typo or a recording-rule style suffix glued to a registered name is a different token.
+mutant_rejected "unknown name sharing a registered prefix (case)" \
+  "${RUL}: kollect_workqueue_depthTYPO is not a registered metric" \
+  'kollect_workqueue_depthTYPO' "${RUL}" \
+  sed -i -E 's/max\(kollect_workqueue_depth\)/max(kollect_workqueue_depthTYPO)/' "${RUL}"
+
+mutant_rejected "unknown name sharing a registered prefix (colon)" \
+  "${RUL}: kollect_workqueue_depth:typo is not a registered metric" \
+  'kollect_workqueue_depth:typo' "${RUL}" \
+  sed -i -E 's/max\(kollect_workqueue_depth\)/max(kollect_workqueue_depth:typo)/' "${RUL}"
+
+# The only docs mention of a registered metric becomes a longer token: it is undocumented.
+mutant_rejected "docs mention only as a longer token" \
+  "registered metric kollect_informer_objects is missing from ${DOC}" \
+  'kollect_informer_objectsX' "${DOC}" \
+  sed -i -E 's/kollect_informer_objects/kollect_informer_objectsX/' "${DOC}"
 
 mutant_rejected "suffix outside _bucket/_sum/_count" \
   "${DOC}: kollect_export_duration_seconds_created is not a registered metric" \
