@@ -1,8 +1,8 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: astra + claude (duo) — `/spec-loop-duo` from G3 on (operator, 2026-10-15); G1–G2 ran the earlier codex + claude/sonnet two-leg per-task sizing
-Next: L — dispatch fresh G3b (task 3.2, CFC-3 guard) on the amended tenant scenario
-Budget: claude review legs 3/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
+Next: L — dispatch G4 (task 4.1, CFC-5 go-patch-lag sensor; new workflow → astra + claude/opus)
+Budget: claude review legs 5/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
 (proposal.md, specs/cross-file-consistency/spec.md, tasks.md). Landing order position 4 of 10;
@@ -46,6 +46,7 @@ Holistic run at B: pending
 | G1 (1.1–1.3) | CLOSED-WITH-GAPS | codex + claude/sonnet, 2 rounds on c2b744ac0..fc959302c; tool-pin commits reviewed separately (codex APPROVE, sonnet CLEAN); no opus | Was BLOCKED on 1.3; operator chose A: golangci-lint v2.14.0 (fa9bc99be), govulncheck v1.9.0 (812c7f274), plus go-arch-lint v1.15.0→v1.19.0 (9d38f7431) — NOT in the ruling, same x/tools-under-Go-1.27 failure, version-only, accepted by orchestrator. Gaps: CodeQL on Go 1.27 proven only by CI Analyze (Go); guard unwired until 6.1; Renovate grouping proven by a one-off local dry-run |
 | G2 (2.1) | CLOSED-WITH-GAPS | codex + claude/sonnet, 2 rounds (round 1 REQUEST_CHANGES verified/fixed; round 2 REQUEST_CHANGES verified/fixed, no round 3); no opus | Commits 13b263c1f, f62e76e01, b564d1f49. Gap: unwired until 6.1. Self-test ~5 min → own lint step at 6.1. Deferred to B: parallel-unsafe fixture deletion from the shared module cache; misleading message for a literal golangci pin in a Makefile recipe (fails closed). Orchestrator lost ~80 min to a self-matching `pgrep -f` wait loop (killed). CFC-2 `GOTOOLCHAIN=local` → amended to exactly go.mod's Go (orchestrator decision, spec-set commit) |
 | G3 (3.1) | CLOSED (3.1); 3.2 was BLOCKED → resolved | none (probe evidence only, 8178695c2) | Default render covers all 113 role.yaml triples (no drift). Tenant render misses 36: 30 cluster-scoped (spec-named) + 6 namespaced workload reads (deployments, certificates g/l/w) → SPECIFICATION block; operator chose A 2026-10-15: exempt workload reads per team-operator.md §3 (spec amended). Deferred to B/backlog: default ClusterRole over-grants services CRUD + deployments write; tenant Role grants profiles/scopes write (CFC-3 is one-directional) |
+| G3 (3.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (RBAC = security posture), 2 rounds: r1 astra BLOCK / opus CONCERNS (team-workload accepted any read incl. secrets; leader-election Role counted as ClusterRole; Role covering cluster-scoped) all verified+fixed; r2 astra REQUEST_CHANGES (test isolation, fixed) / opus CLEAN | Commits 913a08ffa, f3489c06f, 1b5b7b78d. Mode-scoped exception lines with closed reason classes; 37 tenant exceptions, no default drift. SSAR (cluster-scoped, granted to all via system:basic-user) added to the spec's cluster-scoped list by orchestrator. Deferred: tenant Role's no-op SSAR rule (chart change); unwired until 6.1 |
 
 ## Known red
 | Test (file:name) | Story | Written in | Cleared in |
@@ -56,6 +57,10 @@ Holistic run at B: pending
 |---|---|---|---|
 
 ## Lessons
+- RBAC coverage must respect role kind and scope: never pool a namespaced Role with a ClusterRole; a Role never covers a cluster-scoped resource or subresource (G3)
+- An exception class must be a closed list, or "any other X fails" is undone by one line (G3)
+- A negative mutant must pass every check except the clause it names; one gate mutant per clause proves it; a file-deleting mutant needs an absence probe (G3)
+- Write variable rm targets as "${R:?}"/... — the safety hook refuses `rm -f $R/*` (G3)
 - Check a spec's exception list against the product docs' "by design" sections before cutting tasks (G3)
 - `helm template --show-only` errors when the template renders nothing (clusterrole.yaml in tenant mode): render all, filter on `# Source:` (G3)
 - `python3 -I` loses user-site PyYAML on this host; use plain `python3` as the repo guards do (G3)
