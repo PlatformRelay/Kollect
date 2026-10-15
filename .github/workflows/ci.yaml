@@ -539,8 +539,44 @@ jobs:
             bash "${script}"
             echo "::endgroup::"
           done
+      # CFC-1..CFC-6 (openspec change cross-file-consistency-gates): the cross-file consistency
+      # gates -- the Go toolchain agrees across go.mod, the Dockerfiles and the devcontainer
+      # (CFC-1), every pinned tool resolves and its analysis tools run under go.mod's Go (CFC-2),
+      # the chart's RBAC covers config/rbac/role.yaml in both install modes (CFC-3), registered
+      # metrics match the docs and rules (CFC-4), and the go-patch-lag sensor keeps its verdicts
+      # and its workflow shape (CFC-5). Plain and --self-test are separate steps (CFC-6): the
+      # first reds when the tree drifts, the second when a gate can no longer fail. They run here,
+      # unconditionally, because lint is a required context that also runs on docs-only PRs.
+      # Tools: jq (runner image), yq, helm and PyYAML installed above; Go from go.mod through
+      # go-cache (the tool-pins gate forces GOTOOLCHAIN=go<go.mod version> itself).
+      - name: Verify the Go toolchain agrees across go.mod, images and devcontainer (CFC-1)
+        run: bash hack/test/consistency_go_toolchain_test.sh
+      - name: Verify the Go toolchain gate can still fail (CFC-6)
+        run: bash hack/test/consistency_go_toolchain_test.sh --self-test
+      - name: Verify the chart RBAC covers role.yaml in both install modes (CFC-3)
+        run: bash hack/test/consistency_rbac_test.sh
+      - name: Verify the chart RBAC gate can still fail (CFC-6)
+        run: bash hack/test/consistency_rbac_test.sh --self-test
+      - name: Verify registered metrics match the docs and alert rules (CFC-4)
+        run: bash hack/test/consistency_metrics_test.sh
+      - name: Verify the metrics gate can still fail (CFC-6)
+        run: bash hack/test/consistency_metrics_test.sh --self-test
+      - name: Verify the go-patch-lag sensor verdicts and workflow shape (CFC-5)
+        run: bash hack/test/go_patch_lag_test.sh
+      - name: Verify the go-patch-lag test can still fail (CFC-6)
+        run: bash hack/test/go_patch_lag_test.sh --self-test
+      # Network: the module proxy, golangci-lint's custom build and the vuln DB (about 30 s warm).
+      - name: Verify every pinned tool resolves and runs under go.mod's Go (CFC-2)
+        run: bash hack/test/consistency_tool_pins_test.sh
       - name: Lint
         run: task lint
+      # CFC-6 for CFC-2, last and on its own: it builds each pinned analysis tool at its own and
+      # at a too-old version (about 7 minutes warm), so it runs after the fast gates have
+      # reported. Its newer-Go mutant passes a fixture module through the shared module cache
+      # and deletes it again on exit; that is safe here because the steps of a job run one at a
+      # time and nothing in this job runs in the background.
+      - name: Verify the tool-pins gate can still fail (CFC-6)
+        run: bash hack/test/consistency_tool_pins_test.sh --self-test
 
   # CI-DOCSGATE-01: the REAL suite. It is deliberately NOT named `test` -- the required context
   # of that name is produced by the `test` job at the end of this file, which reports on every

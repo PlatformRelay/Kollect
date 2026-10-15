@@ -18,7 +18,10 @@
 #     still is), and unstable (rc/beta) releases never count as "latest";
 #   * the workflow runs on a weekly schedule and workflow_dispatch only, with
 #     `permissions: contents: read` and nothing wider, no secrets, runs the script as one plain
-#     step, and has no `if:` or `continue-on-error` that could skip or soften it.
+#     step, and has no `if:` or `continue-on-error` that could skip or soften it;
+#   * curl's worst case in the script (--retry-max-time + --max-time) ends inside that step's own
+#     `timeout-minutes`, and the job's timeout is not below the step's, so a stalled go.dev fails
+#     with the script's message instead of a killed step.
 #
 # Usage:
 #   hack/test/go_patch_lag_test.sh              # check the repository tree
@@ -185,7 +188,30 @@ if [[ "${MODE}" == "check" ]]; then
   [[ "${runs}" == '["bash hack/ci/go-patch-lag.sh"]' ]] ||
     wf_fail "run steps are ${runs}, want exactly one: bash hack/ci/go-patch-lag.sh"
 
+  # curl's worst case (the last retry may start at --retry-max-time and run --max-time) must end
+  # inside the sensor step's own timeout, and the job's timeout must not cut the step short:
+  # otherwise a stalled go.dev kills the step before the script prints why it failed.
+  # Canonical, bounded numbers only before any arithmetic (an error inside `if` reads as false).
+  bounded='^[1-9][0-9]{0,3}$'
+  step_timeout="$(yq '[.jobs[].steps[] | select(has("run"))][0]."timeout-minutes" // ""' "${WORKFLOW}")"
+  [[ "${step_timeout}" =~ ${bounded} ]] ||
+    wf_fail "the sensor step has no usable timeout-minutes (got '${step_timeout}'); curl's retry budget must be bounded by the step's own timeout"
+  job_timeout="$(yq '[.jobs[] | select([.steps[] | has("run")] | any)][0]."timeout-minutes" // ""' "${WORKFLOW}")"
+  [[ "${job_timeout}" =~ ${bounded} ]] ||
+    wf_fail "the sensor job has no usable timeout-minutes (got '${job_timeout}')"
+  ((10#${job_timeout} >= 10#${step_timeout})) ||
+    wf_fail "the job's timeout-minutes (${job_timeout}) is below the sensor step's (${step_timeout}); the job would end first"
+  # Code lines only: the script's comments name the flags too.
+  code="$(grep -v '^[[:space:]]*#' "${SCRIPT}")"
+  max_time="$(sed -nE 's/.*[[:space:]]--max-time[[:space:]]+([^[:space:]]+).*/\1/p' <<<"${code}" | head -1)"
+  retry_max="$(sed -nE 's/.*[[:space:]]--retry-max-time[[:space:]]+([^[:space:]]+).*/\1/p' <<<"${code}" | head -1)"
+  [[ "${max_time}" =~ ${bounded} && "${retry_max}" =~ ${bounded} ]] ||
+    fail "cannot read curl's --max-time ('${max_time}') and --retry-max-time ('${retry_max}') from hack/ci/go-patch-lag.sh; the retry budget must be bounded"
+  ((10#${retry_max} + 10#${max_time} < 10#${step_timeout} * 60)) ||
+    wf_fail "curl's worst case (--retry-max-time ${retry_max} + --max-time ${max_time} s) does not end inside the sensor step's timeout-minutes ${step_timeout}"
+
   pass "workflow: weekly schedule + workflow_dispatch, contents: read only, no secrets, one plain sensor step"
+  pass "workflow: curl's retry budget ($((10#${retry_max} + 10#${max_time})) s) ends inside the sensor step's ${step_timeout}-minute timeout"
   echo "All go-patch-lag checks passed."
   exit 0
 fi
@@ -305,5 +331,26 @@ mutant_rejected "sensor step skipped by if" \
 mutant_rejected "sensor run masked with || true" \
   "workflow: run steps are" 'go-patch-lag\.sh \|\| true' "${W}" \
   yq -i '(.jobs[].steps[] | select(has("run"))).run = "bash hack/ci/go-patch-lag.sh || true"' "${W}"
+
+# --- retry budget vs. timeout mutants ---------------------------------------------------------
+mutant_rejected "sensor step timeout removed" \
+  "workflow: the sensor step has no usable timeout-minutes" 'MUTANT-NO-STEP-TIMEOUT' "${W}" \
+  perl -0pi -e 's/^        timeout-minutes: 5\n/        # MUTANT-NO-STEP-TIMEOUT\n/m' "${W}"
+
+mutant_rejected "sensor step timeout below curl's budget" \
+  "does not end inside the sensor step's timeout-minutes 3" 'timeout-minutes: 3$' "${W}" \
+  yq -i '(.jobs[].steps[] | select(has("run")))."timeout-minutes" = 3' "${W}"
+
+mutant_rejected "curl retry budget grown past the step timeout" \
+  "does not end inside the sensor step's timeout-minutes" '--retry-max-time 400 ' "${S}" \
+  perl -pi -e 's/--retry-max-time 200 /--retry-max-time 400 /' "${S}"
+
+mutant_rejected "curl retry budget unbounded" \
+  "cannot read curl's --max-time" 'MUTANT-NO-RETRY-MAX' "${S}" \
+  perl -pi -e 's/ --retry-max-time 200 / /; s/^(# --- the listing)/# MUTANT-NO-RETRY-MAX\n$1/' "${S}"
+
+mutant_rejected "job timeout below the step's" \
+  "is below the sensor step's" '^    timeout-minutes: 4$' "${W}" \
+  yq -i '.jobs[]."timeout-minutes" = 4' "${W}"
 
 echo "All go-patch-lag self-tests passed."

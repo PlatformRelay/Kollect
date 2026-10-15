@@ -1,7 +1,8 @@
 # CFC-5 (openspec change cross-file-consistency-gates): red when go.mod's Go is behind the latest
 # patch of its minor, or when that patch cannot be determined (the lookup fails closed). A Go patch
 # carries stdlib security fixes; this makes the lag visible before govulncheck does.
-# Pinned by hack/test/go_patch_lag_test.sh (triggers, permissions, no secrets, one plain step).
+# Pinned by hack/test/go_patch_lag_test.sh (triggers, permissions, no secrets, one plain step,
+# curl's retry budget inside the step's timeout-minutes).
 name: Go patch lag
 
 on:
@@ -27,4 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Compare go.mod's Go with the latest patch of its minor
+        # why: curl's retry budget in the script (--retry-max-time + --max-time) must end inside
+        # this step's own timeout so a stalled go.dev fails with the script's message.
+        timeout-minutes: 5
         run: bash hack/ci/go-patch-lag.sh

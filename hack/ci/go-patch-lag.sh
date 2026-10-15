@@ -76,8 +76,9 @@ patch="${BASH_REMATCH[3]}"
 if [[ -z "${LISTING}" ]]; then
   LISTING="$(mktemp)"
   trap 'rm -f "${LISTING:?}"' EXIT
-  # Bounded well inside the workflow's 5-minute job timeout, so a stalled go.dev ends with this
-  # script's own message, not a killed job: <= 200 s of retries plus one 45 s attempt.
+  # Bounded well inside the workflow step's 5-minute timeout, so a stalled go.dev ends with this
+  # script's own message, not a killed step: <= 200 s of retries plus one 45 s attempt.
+  # hack/test/go_patch_lag_test.sh fails when --retry-max-time + --max-time outgrow that timeout.
   curl -fsSL --proto '=https' --tlsv1.2 --connect-timeout 10 --max-time 45 \
     --retry "${RETRIES}" --retry-all-errors --retry-max-time 200 -o "${LISTING}" "${URL}" ||
     undetermined "fetching ${URL} failed"
