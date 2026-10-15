@@ -34,10 +34,12 @@ run "mirror extra names not checked" '    for n in sorted(mirror - registered):'
 run "empty source scan passes" 'if not registered:' 'if False:'
 run "empty docs/rules scan passes" '    if not names:' '    if False:'
 run "Namespace split allowed" 'm = re.search(r"\b(Namespace|Subsystem)\s*:", masked)' 'm = None'
-run "outside registration allowed" '                    if CLIENT_IMPORT.search(fh.read()):' '                    if False:'
+run "outside registration allowed" '                    if CLIENT_PKGS & set(mask_go(fh.read())[1]):' '                    if False:'
 run "missing file read as empty" '        print(f"FAIL: {rel} is missing", file=sys.stderr)
         sys.exit(1)' '        return ""'
 run "names read as their lowercase prefix" '    names = set(TOKEN.findall(read(rel)))' '    names = set(NAME.findall(read(rel)))'
+run "non-literal mirror entries dropped" '    if rest:' '    if False:'
+run "imports matched double-quoted only" '                    if CLIENT_PKGS & set(mask_go(fh.read())[1]):' '                    if '"'"'"github.com/prometheus/client_golang/prometheus"'"'"' in fh.read():'
 cp "$SAVE" "$G"
 echo "killed=$killed survived=$survived not-landed=$notlanded"
 bash "$G" >/dev/null || { echo "FAIL: the restored gate does not pass"; exit 1; }
