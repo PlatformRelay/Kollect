@@ -183,7 +183,10 @@ for n, raw in enumerate(exc_lines, 1):
     t = ("" if group == "core" else group, resource, verb)
     base = (t[0], resource.split("/")[0])
     if mode == "tenant":
-        if reason.split(":", 1)[0] in ("cluster-scoped", "team-workload") and not reason.split(":", 1)[1].strip():
+        # partition, not split: a class token with no colon ('cluster-scoped') has no [1] and
+        # falls through to the "must start with" FAIL below instead of an IndexError.
+        cls, colon, why = reason.partition(":")
+        if colon and cls in ("cluster-scoped", "team-workload") and not why.strip():
             errors.append(f"{where}: exception has no reason after its class ('{line}')")
             continue
         if reason.startswith("cluster-scoped:"):
@@ -386,6 +389,12 @@ mutant_rejected "write verb excused as team workload" \
 mutant_rejected "class token without reason text" \
   "exception has no reason after its class" '^tenant core namespaces get cluster-scoped:$' "${EXC}" \
   sed -i -E 's/^(tenant core namespaces get cluster-scoped:) .*/\1/' "${EXC}"
+
+# The class token alone, without its colon: a clear FAIL line, not a Python traceback.
+mutant_rejected "class token without colon" \
+  "a tenant exception's reason must start with 'cluster-scoped:' or 'team-workload:' ('cluster-scoped')" \
+  '^tenant core namespaces get cluster-scoped$' "${EXC}" \
+  sed -i -E 's/^(tenant core namespaces get cluster-scoped):.*/\1/' "${EXC}"
 
 # A reconciler read (secrets) dropped from the tenant Role and filed as team workload: refused,
 # team-workload is a closed list of collected kinds.
