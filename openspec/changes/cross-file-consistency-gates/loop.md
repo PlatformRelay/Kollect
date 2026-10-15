@@ -1,8 +1,8 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: astra + claude (duo) — `/spec-loop-duo` from G3 on (operator, 2026-10-15); G1–G2 ran the earlier codex + claude/sonnet two-leg per-task sizing
-Next: B — holistic run on the tip, then astra:adversarial + claude/opus:spec branch review (B reserve 3 legs)
-Budget: claude review legs 9/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
+Next: L — dispatch G7 (tasks 7.1–7.5, stage-B round-1 fixes), then B round 2 (accepted CRITICAL H1)
+Budget: claude review legs 10/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
 (proposal.md, specs/cross-file-consistency/spec.md, tasks.md). Landing order position 4 of 10;
@@ -13,7 +13,7 @@ OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-
 - [x] P plan + tasks — skipped: present · spec-set fix committed with this file (see Triage)
 - [x] R spec-set review — done by other means before #437 merged: commits `a0aba9880` (independent Opus review), `10bc634ed` (round two), `50580a3ad` (cold adversarial), `1745b60ba` (post-merge status). Not repeated. Re-measure on 2026-10-14 found 3 WARNINGs (Triage), no CRITICAL; mechanical fixes applied
 - [x] L task loop — G1–G6 closed (all CLOSED-WITH-GAPS); 6.2 owner/post-merge
-- [ ] B branch review
+- [ ] B branch review — round 1 (`reviews/B-branch/round-1/`, b18354a39): astra:adversarial BLOCK, claude/opus:spec CONCERNS; holistic: task check 2/18 red (lint:markdown = branch, demo_04 = host kubectl), coverage 91.3% = base, vulncheck 0. Triage below; fixes → G7; round 2 pending
 - [ ] Hand-off
 
 ## Fitness functions
@@ -34,6 +34,15 @@ Holistic run at B: pending
 ## Triage
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| B1 | H1 lint:markdown red (MD032/MD038) in this change's loop/evidence files; preflight would fail | CRITICAL | holistic | fix | 7.1 | no |
+| B1 | A1 `ARG B=golang:x` + `FROM ${B}` passes CFC-1 | WARNING | astra | fix | 7.2 | no |
+| B1 | A2 metrics guard counts any literal as registered; MustRegister removal stays green | WARNING | astra | fix | 7.3 (Go registry test) | no |
+| B1 | A3 kustomize/controller-gen/setup-envtest get only the go-directive check | WARNING | astra | reject | required verify/test jobs compile them under go.mod's Go; CFC-2 noted partial | no |
+| B1 | A4 go_toolchain self-test leaks 31 temp dirs per run | WARNING | astra | fix | 7.4 | no |
+| B1 | O1 tool-pins-selftest not in protect-main | WARNING | opus | defer | post-merge owner row (orchestrator) | no |
+| B1 | O2 required lint job now network-bound (tool-pins plain) | WARNING | opus | reject | task lint in the same job already downloads modules; trade-off in decisions.md | no |
+| B1 | O3 rbac guard tracebacks on malformed exception line (still red) | NOTE | opus | fix | 7.5 | no |
+| B1 | O4 literal scan over-counts; O5 Summary `_sum`/`_count` rejected | NOTE | opus | defer | BACKLOG (CFC-4 follow-ups) | no |
 | R | proposal quotes stale versions (1.26.6 / 1.27.1); now go.mod 1.26.9, Dockerfiles 1.27.2 | WARNING | re-measure | fix | proposal.md updated | no |
 | R | `.devcontainer/devcontainer.json` pins `golang:1.26.9`; CFC-1 scanned only Dockerfiles, so it drifts after the bump | WARNING | re-measure | fix | CFC-1 + scenario + tasks 1.2/1.3 include the devcontainer image | no |
 | L/G2 | CFC-2 said `GOTOOLCHAIN=local`; on a host whose Go differs that tests the wrong Go | WARNING | claude/sonnet | fix | spec + proposal amended to `GOTOOLCHAIN=go<version>` (exactly go.mod's Go) | no |

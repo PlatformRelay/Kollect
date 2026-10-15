@@ -29,6 +29,14 @@
 - [x] 6.1 Run all guards in `lint` (plain and `--self-test` as separate steps) and, by the glob, in `task check` — closed 2026-10-15, evidence: evidence/G6.md
 - [ ] 6.2 Merge with the `post-merge` row open; archive in a follow-up evidence PR once it passes
 
+## 7. Stage-B fixes (round 1)
+
+- [ ] 7.1 Fix markdownlint (MD032, MD038) in this change's loop.md, task-prompt.md and evidence/*.md so `task lint:markdown` is green (H1)
+- [ ] 7.2 CFC-1: fail on a `FROM` whose image is a variable (or resolve it from its `ARG` default); fixture + mutant (A1)
+- [ ] 7.3 CFC-4: add a Go test that gathers the metrics registry and compares the registered names with `registeredMetricNames`, so dropping a collector from `MustRegister` goes red; mutant (A2)
+- [ ] 7.4 consistency_go_toolchain_test.sh: call `new_copy` in the parent shell so the EXIT trap removes every copy (no temp-dir leak) (A4)
+- [ ] 7.5 consistency_rbac_test.sh: reject a malformed exception line (class token without colon) with a clear FAIL instead of a Python traceback (O3)
+
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
