@@ -301,7 +301,14 @@ var (
 
 // Register adds kollect custom metrics to the controller-runtime registry.
 func Register() {
-	metrics.Registry.MustRegister(
+	registerTo(metrics.Registry)
+}
+
+// registerTo registers every kollect collector with r. Split from Register so a test can
+// register into a recording Registerer and compare the names with the documented set
+// (metrics_catalog_test.go) without touching the process-global registry.
+func registerTo(r prometheus.Registerer) {
+	r.MustRegister(
 		InventoryItemsTotal,
 		CollectItemsTotal,
 		CollectedObjects,
