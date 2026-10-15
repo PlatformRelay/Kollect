@@ -89,6 +89,10 @@ export GOWORK=off
 # removes them all even though new_tmp mostly runs inside $(...).
 WORKROOT="$(mktemp -d)"
 FIXTURE_IN_MODCACHE=0
+# The self-test's newer-Go fixture module is unique per run, so the cleanup below removes only
+# this run's copy from the shared module cache and two runs in parallel cannot delete each
+# other's fixture.
+FIXTURE_NAME="newgo-$$-${RANDOM}"
 cleanup() {
   local mc
   chmod -R u+w "${WORKROOT}" 2>/dev/null || true
@@ -97,8 +101,9 @@ cleanup() {
     # The self-test's newer-Go fixture module passes through the shared module cache.
     mc="$(go env GOMODCACHE 2>/dev/null || true)"
     if [[ -n "${mc}" ]]; then
-      chmod -R u+w "${mc}/cache/download/kollect.invalid" "${mc}/kollect.invalid@v1.0.0" "${mc}/kollect.invalid" 2>/dev/null || true
-      rm -rf "${mc}/cache/download/kollect.invalid" "${mc}/kollect.invalid" 2>/dev/null || true
+      chmod -R u+w "${mc}/cache/download/kollect.invalid/${FIXTURE_NAME}" "${mc}/kollect.invalid/${FIXTURE_NAME}@v1.0.0" 2>/dev/null || true
+      rm -rf "${mc}/cache/download/kollect.invalid/${FIXTURE_NAME:?}" "${mc}/kollect.invalid/${FIXTURE_NAME:?}@v1.0.0" 2>/dev/null || true
+      rmdir "${mc}/cache/download/kollect.invalid" "${mc}/kollect.invalid" 2>/dev/null || true
     fi
   fi
   return 0
@@ -436,15 +441,15 @@ new_copy() {
   echo "${copy}"
 }
 
-# A module proxy on disk serving kollect.invalid/newgo@v1.0.0, whose go.mod needs Go 1.99.0. The
+# A module proxy on disk serving kollect.invalid/<FIXTURE_NAME>@v1.0.0, whose go.mod needs Go 1.99.0. The
 # `go` command itself reads it, so the fixture is checked by the tool it feeds.
 make_proxy() {
   local base stage mv
   base="$(new_tmp)"
-  stage="${base}/stage/kollect.invalid/newgo@v1.0.0"
-  mv="${base}/proxy/kollect.invalid/newgo/@v"
+  stage="${base}/stage/kollect.invalid/${FIXTURE_NAME}@v1.0.0"
+  mv="${base}/proxy/kollect.invalid/${FIXTURE_NAME}/@v"
   mkdir -p "${stage}" "${mv}"
-  printf 'module kollect.invalid/newgo\n\ngo 1.99.0\n' >"${stage}/go.mod"
+  printf 'module kollect.invalid/%s\n\ngo 1.99.0\n' "${FIXTURE_NAME}" >"${stage}/go.mod"
   printf 'package main\n\nfunc main() {}\n' >"${stage}/main.go"
   cp "${stage}/go.mod" "${mv}/v1.0.0.mod"
   echo v1.0.0 >"${mv}/list"
@@ -485,9 +490,9 @@ PROXY="$(make_proxy)"
 FIXTURE_IN_MODCACHE=1 # the EXIT trap takes the fixture module out of the shared cache again
 MUTANT_ENV=("GOPROXY=file://${PROXY},$(go env GOPROXY)" "GONOSUMDB=kollect.invalid" "GOFLAGS=-modcacherw")
 mutant_rejected "pin needs a newer Go than go.mod" \
-  "kollect.invalid/newgo@v1.0.0 (module kollect.invalid/newgo) needs go 1.99.0, newer than go.mod's go" \
-  'kollect\.invalid/newgo@v1\.0\.0' Taskfile.yml \
-  bash -c 'printf "\n  kollect-newgo-fixture:\n    cmds:\n      - go run kollect.invalid/newgo@v1.0.0\n" >> Taskfile.yml'
+  "kollect.invalid/${FIXTURE_NAME}@v1.0.0 (module kollect.invalid/${FIXTURE_NAME}) needs go 1.99.0, newer than go.mod's go" \
+  "kollect\\.invalid/${FIXTURE_NAME}@v1\\.0\\.0" Taskfile.yml \
+  bash -c 'printf "\n  kollect-newgo-fixture:\n    cmds:\n      - go run kollect.invalid/%s@v1.0.0\n" "$1" >> Taskfile.yml' _ "${FIXTURE_NAME}"
 MUTANT_ENV=()
 
 mutant_rejected "unresolvable pin (version typo)" \
