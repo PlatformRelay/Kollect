@@ -47,7 +47,8 @@ golang image tag in one group.
 ### Requirement: CFC-2 Pinned tools build with the repository's Go
 
 Every tool pinned through `go run <pkg>@<version>` or `go install` SHALL build under
-`GOTOOLCHAIN=local` with the Go of `go.mod`; the check reads each tool's required Go from
+exactly the Go of `go.mod` (`GOTOOLCHAIN=go<version>`, never `auto` and never whatever Go the
+host has); the check reads each tool's required Go from
 `go mod download -json` and fails when it exceeds `go.mod`'s. Each pinned analysis tool SHALL also
 run once against the module under that Go and exit cleanly.
 
