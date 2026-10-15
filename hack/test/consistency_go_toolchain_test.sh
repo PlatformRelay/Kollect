@@ -12,9 +12,9 @@
 # What it locks:
 #   * every golang image (Dockerfile* FROM lines, devcontainer image) equals go.mod's `go`;
 #   * the images agree with each other;
-#   * no FROM names its image through a variable (`FROM ${B}`, `FROM $B`, `FROM ${B:-golang:x}`):
-#     the image is then only known at build time, so the gate refuses it rather than resolve an
-#     ARG default that `--build-arg` can replace;
+#   * no FROM names its image through a variable (`FROM ${B}`, `FROM $B`, `FROM ${B:-golang:x}`,
+#     `FROM debian:${T}`): the image is then only known at build time, so the gate refuses it
+#     rather than resolve an ARG default that `--build-arg` can replace;
 #   * go.mod has a `go` directive and no `toolchain` line (a toolchain line is a second source
 #     of truth that setup-go and the images would not follow);
 #   * no workflow or composite action carries a `go-version:` literal, and every
@@ -88,15 +88,11 @@ golang_images() {
           if (w[i] ~ /^--/) continue
           img = w[i]
           sub(/^(docker\.io\/)?(library\/)?/, "", img)
-          # A "$" anywhere but in the tag or digest of a literal repository (optional
-          # registry host:port, then literal path components) means the image is only known
-          # at build time (an ARG default is replaced by --build-arg), so it is reported, never
-          # resolved: `${B}`, `$B`, `${B:-golang:1}`, `localhost:5000/${B}:1`. A variable TAG on
-          # a literal repository passes here; for golang it fails the literal-version check below.
-          if (img ~ /\$/ && img !~ /^[A-Za-z0-9][A-Za-z0-9._-]*(:[0-9]+)?(\/[A-Za-z0-9._-]+)*(:[^\/@]*)?(@.*)?$/) {
-            print f, "<variable>", w[i]
-            break
-          }
+          # Any "$" makes the image known only at build time (an ARG default is replaced by
+          # --build-arg), so it is reported, never resolved. That includes a "tag": its value
+          # may hold "/" and ":" (`localhost:${B}` with B=5000/golang:1.99.0 is another image).
+          # `golang:${V}` is left to the literal-version check below, which fails it too.
+          if (img ~ /\$/ && img !~ /^golang:/) { print f, "<variable>", w[i]; break }
           if (img ~ /^golang:/) { sub(/^golang:/, "", img); sub(/@.*$/, "", img); print f, img }
           else if (img ~ /^golang(@|$)/) { print f, "<untagged>" }
           break
@@ -463,6 +459,17 @@ mutant_rejected "FROM image from a build arg behind a registry port" \
   'Dockerfile: FROM localhost:5000/${B}:1.99.0 names its image through a variable' '^FROM localhost:5000/\$\{B\}' Dockerfile \
   sed -i -E 's#^FROM golang:[^ ]+ AS builder#ARG B=golang\nFROM localhost:5000/${B}:1.99.0 AS builder#' Dockerfile
 
+# A variable "tag" is no safer: its value may carry "/" and name another repository.
+# shellcheck disable=SC2016
+mutant_rejected "FROM variable after a registry host" \
+  'Dockerfile: FROM localhost:${B} names its image through a variable' '^FROM localhost:\$\{B\}' Dockerfile \
+  sed -i -E 's#^FROM golang:[^ ]+ AS builder#ARG B=5000/golang:1.99.0\nFROM localhost:${B} AS builder#' Dockerfile
+
+# shellcheck disable=SC2016
+mutant_rejected "variable tag on a literal non-golang image" \
+  'Dockerfile: FROM debian:${DEB_TAG} names its image through a variable' '^FROM debian:\$\{DEB_TAG\}' Dockerfile \
+  sed -i -E 's/^FROM debian:[^ ]+$/ARG DEB_TAG=bookworm-slim\nFROM debian:${DEB_TAG}/' Dockerfile
+
 # shellcheck disable=SC2016
 mutant_rejected "FROM image from a build arg with an inline default" \
   'Dockerfile: FROM ${B:-golang:1.27.2} names its image through a variable' '^FROM \$\{B:-golang:' Dockerfile \
@@ -495,11 +502,6 @@ control_passes() {
 control_passes "commented-out devcontainer image (JSONC)" '^  // "image": "golang:1\.0\.0"' \
   .devcontainer/devcontainer.json \
   sed -i -E '2i\  // "image": "golang:1.0.0",' .devcontainer/devcontainer.json
-
-# A variable TAG on a literal non-golang image is not a Go image and stays legal.
-# shellcheck disable=SC2016 # ${DEB_TAG} is literal Dockerfile text
-control_passes "variable tag on a literal non-golang image" '^FROM debian:\$\{DEB_TAG\}' Dockerfile \
-  sed -i -E 's/^FROM debian:[^ ]+$/ARG DEB_TAG=bookworm-slim\nFROM debian:${DEB_TAG}/' Dockerfile
 
 # Renovate mutants rewrite renovate.json with one jq program and fail when the rewrite changed
 # nothing, so a selector that stopped matching cannot pass as a tested mutant. The programs use
