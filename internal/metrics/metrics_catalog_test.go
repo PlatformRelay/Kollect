@@ -4,11 +4,14 @@
 package metrics
 
 import (
+	"errors"
 	"regexp"
 	"sort"
+	"sync"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	crmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 // registeredMetricNames mirrors metrics.go Register() — update both when adding metrics.
@@ -137,5 +140,46 @@ func TestRegisterMatchesRegisteredMetricNames(t *testing.T) {
 		if _, ok := want[name]; !ok {
 			t.Errorf("Register() registers %q but registeredMetricNames does not list it", name)
 		}
+	}
+}
+
+// registerOnce guards every test call of Register(): a second call in one process panics on
+// the duplicate registration, and TestRegister (metrics_test.go) calls it too.
+var registerOnce sync.Once
+
+// TestRegisterFillsControllerRuntimeRegistry closes the other half: the test above proves what
+// registerTo registers, this one that Register() hands it controller-runtime's metrics.Registry
+// (the registry the manager serves on /metrics). After Register(), re-registering each collector
+// there must return AlreadyRegisteredError. The registry is not Gathered: an unobserved *Vec
+// gathers no family (see above). customResourceLabeledCollector is skipped: it describes no
+// metric until a series is recorded, so client_golang registers it unchecked and a second
+// registration always succeeds; it rides on the same registerTo call as every checked collector.
+func TestRegisterFillsControllerRuntimeRegistry(t *testing.T) {
+	t.Parallel()
+
+	registerOnce.Do(Register)
+
+	var rec recordingRegisterer
+	registerTo(&rec)
+
+	checked := 0
+	for _, c := range rec.collectors {
+		if _, ok := c.(customResourceLabeledCollector); ok {
+			continue
+		}
+		checked++
+		err := crmetrics.Registry.Register(c)
+		var already prometheus.AlreadyRegisteredError
+		switch {
+		case errors.As(err, &already):
+		case err == nil:
+			crmetrics.Registry.Unregister(c)
+			t.Errorf("Register() did not put collector %T into controller-runtime's metrics.Registry", c)
+		default:
+			t.Errorf("re-registering %T: %v", c, err)
+		}
+	}
+	if checked == 0 {
+		t.Fatal("registerTo registered no checked collector -- nothing was compared")
 	}
 }

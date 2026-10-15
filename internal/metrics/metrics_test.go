@@ -12,7 +12,9 @@ import (
 func TestRegister(t *testing.T) {
 	t.Parallel()
 
-	Register()
+	// Shared with TestRegisterFillsControllerRuntimeRegistry: a second Register() in one
+	// process panics on the duplicate registration.
+	registerOnce.Do(Register)
 
 	InventoryItemsTotal.Set(3)
 	if v := testutil.ToFloat64(InventoryItemsTotal); v != 3 {
