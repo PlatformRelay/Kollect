@@ -1077,6 +1077,19 @@ assert_job_can_fail_build "${CODEQL_WORKFLOW}" analyze \
   "the required context 'Analyze (Go)' must report a conclusion on every PR, including a documentation-only one"
 pass "preflight and Analyze (Go) run unconditionally on every PR"
 
+# CFC-6 (openspec change cross-file-consistency-gates): the tool-pins self-test has its own
+# required job, run unconditionally like lint so it reports on docs-only PRs too -- an `if:`
+# (for instance on the changes verdict) would starve that required context on every docs PR.
+check_tool_pins_job() {
+  local workflow="$1"
+  assert_job_can_fail_build "${workflow}" tool-pins-selftest \
+    "the required context 'tool-pins-selftest' must report a conclusion on every PR, including a documentation-only one"
+  [[ "$(yq eval '.jobs["tool-pins-selftest"].needs' "${workflow}")" == "null" ]] ||
+    fail "job 'tool-pins-selftest' in ${workflow} must not declare needs -- a failed or skipped dependency skips it, and a skipped required context never reports"
+}
+check_tool_pins_job "${CI_WORKFLOW}"
+pass "tool-pins-selftest runs unconditionally on every PR"
+
 # The bound on the documentation set comes first; the probes below are belt-and-braces.
 # Behaviour before text: the behavioural check is the one that cannot be evaded by restructuring.
 check_docs_set_behaves_like_paths_ignore "${CI_WORKFLOW}"
@@ -1633,6 +1646,24 @@ mutant_rejected "${CODEQL_WORKFLOW}" "${MUTANTS}/analyze-disabled.yaml" \
   'must run unconditionally' \
   assert_job_can_fail_build "${MUTANTS}/analyze-disabled.yaml" analyze \
   "the required context 'Analyze (Go)' must report a conclusion on every PR, including a documentation-only one"
+
+yq eval '.jobs["tool-pins-selftest"].if = "needs.changes.outputs.code == '"'"'true'"'"'"' "${CI_WORKFLOW}" >"${MUTANTS}/tool-pins-gated.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/tool-pins-gated.yaml" \
+  "the tool-pins-selftest job is gated on the changes verdict" \
+  'must run unconditionally' \
+  check_tool_pins_job "${MUTANTS}/tool-pins-gated.yaml"
+
+yq eval '.jobs["tool-pins-selftest"].needs = ["changes"]' "${CI_WORKFLOW}" >"${MUTANTS}/tool-pins-needs.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/tool-pins-needs.yaml" \
+  "the tool-pins-selftest job depends on another job" \
+  'must not declare needs' \
+  check_tool_pins_job "${MUTANTS}/tool-pins-needs.yaml"
+
+yq eval '.jobs["tool-pins-selftest"].continue-on-error = true' "${CI_WORKFLOW}" >"${MUTANTS}/tool-pins-soft.yaml"
+mutant_rejected "${CI_WORKFLOW}" "${MUTANTS}/tool-pins-soft.yaml" \
+  "the tool-pins-selftest job is soft-failed" \
+  'must not declare' \
+  check_tool_pins_job "${MUTANTS}/tool-pins-soft.yaml"
 
 # --- the classifier check-run names ---
 yq eval '.jobs.changes.name = "changes (ci)"' "${SMOKE_WORKFLOW}" >"${MUTANTS}/classifier-name-collision.yaml"
