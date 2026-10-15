@@ -1,8 +1,8 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: astra + claude (duo) — `/spec-loop-duo` from G3 on (operator, 2026-10-15); G1–G2 ran the earlier codex + claude/sonnet two-leg per-task sizing
-Next: B round 2 — holistic re-run + astra:adversarial + claude/opus:spec on the G7 fix range
-Budget: claude review legs 10/12 (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
+Next: G8 (round-2 behaviour fixes C1, C2; no further review per cap), then hand-off: PR
+Budget: claude review legs 11/12 (cap lifted by operator goal 2026-10-16) (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
 (proposal.md, specs/cross-file-consistency/spec.md, tasks.md). Landing order position 4 of 10;
@@ -14,7 +14,7 @@ OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-
 - [x] P plan + tasks — skipped: present · spec-set fix committed with this file (see Triage)
 - [x] R spec-set review — done by other means before #437 merged: commits `a0aba9880` (independent Opus review), `10bc634ed` (round two), `50580a3ad` (cold adversarial), `1745b60ba` (post-merge status). Not repeated. Re-measure on 2026-10-14 found 3 WARNINGs (Triage), no CRITICAL; mechanical fixes applied
 - [x] L task loop — G1–G6 closed (all CLOSED-WITH-GAPS); 6.2 owner/post-merge
-- [ ] B branch review — round 1 (`reviews/B-branch/round-1/`, b18354a39): astra:adversarial BLOCK, claude/opus:spec CONCERNS; holistic: task check 2/18 red (lint:markdown = branch, demo_04 = host kubectl), coverage 91.3% = base, vulncheck 0. Triage below; fixes → G7; round 2 pending
+- [ ] B branch review — round 1 (`reviews/B-branch/round-1/`, b18354a39): astra:adversarial BLOCK, claude/opus:spec CONCERNS; holistic: task check 2/18 red (lint:markdown = branch, demo_04 = host kubectl), coverage 91.3% = base, vulncheck 0. Triage below; fixes → G7; round 2 (`reviews/B-branch/round-2/`, aa2241523): astra BLOCK, opus CONCERNS; task check 17/18 (lint:markdown = orchestrator regression); race ./internal/... green; A2/A4/O3 closed, H1 regressed, A1 partial → G8. Rounds: 2/2
 - [ ] Hand-off
 
 ## Fitness functions
@@ -37,6 +37,13 @@ Holistic run at B: pending
 
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| B2 | H1b loop.md MD032 regression from orchestrator commit 800a33e69 | CRITICAL | astra+holistic | fix | orchestrator, blank line; lint:markdown re-run | no |
+| B2 | C1 `golang:1.27.2@${D}` / `golang:1.27.2-${X}` pass CFC-1 (golang exempt from `$` rule) | WARNING | opus | fix | 8.1 (no review, cap) | no |
+| B2 | C2 comment line inside a `FROM \` continuation hides the image (pre-existing) | WARNING | astra | fix | 8.2 (no review, cap) | no |
+| B2 | C3 `mirror.gcr.io/library/golang:x`, `localhost:5000/golang:x` not recognised | WARNING | opus | defer | BACKLOG CFC1-REGISTRY-PREFIX | no |
+| B2 | C4 heredoc body `FROM ${B}` trips the `$` rule (false red, fails closed) | WARNING | astra | defer | BACKLOG | no |
+| B2 | C5 duplicated labeled collector accepted twice by client_golang; outside CFC-4's name invariant | WARNING | astra | defer | BACKLOG | no |
+| B2 | C6 tool-pins-selftest not in protect-main | WARNING | opus | defer | post-merge owner row | no |
 | B1 | H1 lint:markdown red (MD032/MD038) in this change's loop/evidence files; preflight would fail | CRITICAL | holistic | fix | 7.1 | no |
 | B1 | A1 `ARG B=golang:x` + `FROM ${B}` passes CFC-1 | WARNING | astra | fix | 7.2 | no |
 | B1 | A2 metrics guard counts any literal as registered; MustRegister removal stays green | WARNING | astra | fix | 7.3 (Go registry test) | no |
@@ -76,6 +83,8 @@ Holistic run at B: pending
 |---|---|---|---|
 
 ## Lessons
+
+- Orchestrator: run `task lint:markdown` on every state-file edit before committing (B2 regression from 800a33e69)
 - A variable image tag can contain `/` and `:` and name another repo: fail on any `$` in an image, never parse around it (G7)
 - The Bash tool runs zsh here: `${PIPESTATUS[0]}` is empty — use `set -o pipefail` or bash -c (G7)
 

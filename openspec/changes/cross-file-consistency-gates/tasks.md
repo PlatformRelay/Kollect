@@ -37,6 +37,12 @@
 - [x] 7.4 consistency_go_toolchain_test.sh: call `new_copy` in the parent shell so the EXIT trap removes every copy (no temp-dir leak) (A4) — closed 2026-10-16, evidence: evidence/G7.md
 - [x] 7.5 consistency_rbac_test.sh: reject a malformed exception line (class token without colon) with a clear FAIL instead of a Python traceback (O3) — closed 2026-10-16, evidence: evidence/G7.md
 
+## 8. Stage-B fixes (round 2, no further review)
+
+- [ ] 8.1 CFC-1: no `golang:` exemption from the variable-image rule; `golang:1.27.2@${D}` and `golang:1.27.2-${X}` fail; mutants (C1)
+- [ ] 8.2 CFC-1: ignore comment lines inside a `FROM \` continuation so the image is still parsed; mutant with a literal golang:1.99.0 (C2)
+- [ ] 8.3 Fill the Verification table statuses from the evidence (6.2 / post-merge rows stay open)
+
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
