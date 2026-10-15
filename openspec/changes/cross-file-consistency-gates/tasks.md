@@ -21,8 +21,8 @@
 
 ## 5. Metrics (CFC-4, CFC-6)
 
-- [ ] 5.1 Probe histogram suffix use and the literal scan (excluding `metrics_catalog.go`)
-- [ ] 5.2 Write `consistency_metrics_test.sh` with renamed-metric, undocumented, catalog-only, stale-mirror, suffix and empty-scan cases; watch them fail; implement; fix real drift in its own commit
+- [x] 5.1 Probe histogram suffix use and the literal scan (excluding `metrics_catalog.go`) — closed 2026-10-15, evidence: evidence/G5.md
+- [x] 5.2 Write `consistency_metrics_test.sh` with renamed-metric, undocumented, catalog-only, stale-mirror, suffix and empty-scan cases; watch them fail; implement; fix real drift in its own commit — closed 2026-10-15, evidence: evidence/G5.md
 
 ## 6. Wiring and land
 

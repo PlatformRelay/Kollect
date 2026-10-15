@@ -67,7 +67,9 @@ MIRROR = f"{PKG}/metrics_catalog_test.go"
 DOCS = "docs/operator-manual/metrics.md"
 RULES = "charts/kollect/templates/prometheusrule.yaml"
 OTHER_GO_DIRS = ("api", "cmd", "internal", "pkg", "test")
-CLIENT_IMPORT = re.compile(r'"github\.com/prometheus/client_golang/prometheus(?:/promauto)?"')
+# Matched against string literal values ("..." or `...`), so either import spelling counts.
+CLIENT_PKGS = {"github.com/prometheus/client_golang/prometheus",
+               "github.com/prometheus/client_golang/prometheus/promauto"}
 NAME = re.compile(r"kollect_[a-z0-9_]+")
 # A whole Prometheus metric-name token that starts with kollect_ ([a-zA-Z0-9_:] per the
 # exposition format), so `kollect_fooTYPO` or `kollect_foo:x` is read whole, never as its
@@ -168,7 +170,7 @@ for d in OTHER_GO_DIRS:
         for f in sorted(files):
             if f.endswith(".go") and not f.endswith("_test.go"):
                 with open(os.path.join(dirpath, f)) as fh:
-                    if CLIENT_IMPORT.search(fh.read()):
+                    if CLIENT_PKGS & set(mask_go(fh.read())[1]):
                         errors.append(f"{rel_dir}/{f}: imports the Prometheus client outside {PKG} -- "
                                       f"metrics registered there are invisible to this check; register them in {PKG}")
 
@@ -206,7 +208,13 @@ mm = re.search(r"\bregisteredMetricNames\s*=\s*\[\]string\s*\{", mmask)
 if not mm:
     errors.append(f"{MIRROR}: registeredMetricNames = []string{{...}} not found")
 else:
-    mirror = {mlits[int(i)] for i in re.findall(r"S(\d+)", block_after(mmask, mm.start()))}
+    body = block_after(mmask, mm.start())[1:-1]
+    mirror = {mlits[int(i)] for i in re.findall(r"S(\d+)", body)}
+    # Only string literals are compared; any other entry (a const, a call) is not silently dropped.
+    rest = re.sub(r"S\d+|[\s,]", "", body)
+    if rest:
+        errors.append(f"{MIRROR}: registeredMetricNames has an entry that is not a string literal "
+                      f"('{rest[:60]}') -- list each name as a literal")
     for n in sorted(registered - mirror):
         errors.append(f"{MIRROR}: registeredMetricNames lacks {n}, which {PKG} registers")
     for n in sorted(mirror - registered):
@@ -334,6 +342,13 @@ mutant_rejected "mirror list not updated (stale name)" \
   '"kollect_phantom_total"' "${MIR}" \
   sed -i -E 's/^var registeredMetricNames = \[\]string\{$/&\n\t"kollect_phantom_total",/' "${MIR}"
 
+# A const entry in the mirror (valid Go) must not be dropped silently.
+mutant_rejected "mirror entry that is not a literal" \
+  "${MIR}: registeredMetricNames has an entry that is not a string literal ('phantomName')" \
+  '^[[:space:]]+phantomName,$' "${MIR}" \
+  bash -c 'sed -i -E "s/^var registeredMetricNames = \[\]string\{$/&\n\tphantomName,/" '"${MIR}"' &&
+    printf "\nconst phantomName = \"kollect_phantom_total\"\n" >> '"${MIR}"
+
 mutant_rejected "mirror list removed" \
   "${MIR}: registeredMetricNames = []string{...} not found" \
   'registeredMirror' "${MIR}" \
@@ -408,6 +423,11 @@ mutant_rejected "registration outside internal/metrics" \
   "internal/othermetrics/x.go: imports the Prometheus client outside internal/metrics" \
   'client_golang/prometheus"' internal/othermetrics/x.go \
   bash -c 'mkdir -p internal/othermetrics && printf "package othermetrics\n\nimport \"github.com/prometheus/client_golang/prometheus\"\n\nvar _ = prometheus.NewCounter\n" > internal/othermetrics/x.go'
+
+mutant_rejected "registration outside internal/metrics, raw-string import" \
+  "internal/othermetrics/x.go: imports the Prometheus client outside internal/metrics" \
+  'client_golang/prometheus`' internal/othermetrics/x.go \
+  bash -c 'mkdir -p internal/othermetrics && printf "package othermetrics\n\nimport \140github.com/prometheus/client_golang/prometheus\140\n\nvar _ = prometheus.NewCounter\n" > internal/othermetrics/x.go'
 
 # Every kollect_ literal in the sources is gone: the scan is empty.
 mutant_rejected "empty source scan" \
