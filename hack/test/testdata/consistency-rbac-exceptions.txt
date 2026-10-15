@@ -1,0 +1,57 @@
+# Exceptions for hack/test/consistency_rbac_test.sh (CFC-3, openspec change
+# cross-file-consistency-gates): triples of config/rbac/role.yaml that the chart's manager roles
+# may NOT grant in one render mode.
+#
+# One triple per line:   <mode> <apiGroup> <resource> <verb> <reason>
+#   mode      default | tenant  -- the render the line excuses, and only that one. A tenant line
+#             never excuses a gap in the default render, and the reverse.
+#   apiGroup  `core` for the core group ("").
+#   reason    required, free text after the verb. A tenant line's reason starts with its class:
+#               cluster-scoped:  the resource is cluster-scoped; tenant mode renders no
+#                                ClusterRole (kollect.dev kinds are checked against the CRD scope)
+#               team-workload:   a read (get/list/watch) of a workload kind a KollectTarget
+#                                collects; tenant mode leaves that RBAC to the team
+# A line the render does not need (the chart grants the triple, or role.yaml no longer has it)
+# fails the gate as stale, so this list cannot outlive the gap it excuses.
+
+# Tenant mode drops cluster scope (no ClusterRole is rendered).
+tenant core namespaces get cluster-scoped: tenant mode drops cluster scope
+tenant core namespaces list cluster-scoped: tenant mode drops cluster scope
+tenant core namespaces watch cluster-scoped: tenant mode drops cluster scope
+tenant authentication.k8s.io tokenreviews create cluster-scoped: tenant mode drops cluster scope
+tenant authorization.k8s.io subjectaccessreviews create cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories create cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories delete cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories get cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories list cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories patch cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories update cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories watch cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories/finalizers update cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories/status get cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories/status patch cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterinventories/status update cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterscopes get cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterscopes list cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclusterscopes watch cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets create cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets delete cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets get cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets list cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets patch cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets update cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets watch cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets/finalizers update cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets/status get cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets/status patch cluster-scoped: tenant mode drops cluster scope
+tenant kollect.dev kollectclustertargets/status update cluster-scoped: tenant mode drops cluster scope
+
+# Tenant mode leaves workload-collection RBAC to the team (docs/examples/team-operator.md §3,
+# "Workload collection RBAC (team)"). These reads come from the KollectTarget controller's
+# markers for the GVKs the default samples collect, not from a reconciler need.
+tenant apps deployments get team-workload: tenant mode leaves workload RBAC to the team (docs/examples/team-operator.md §3)
+tenant apps deployments list team-workload: tenant mode leaves workload RBAC to the team (docs/examples/team-operator.md §3)
+tenant apps deployments watch team-workload: tenant mode leaves workload RBAC to the team (docs/examples/team-operator.md §3)
+tenant cert-manager.io certificates get team-workload: tenant mode leaves workload RBAC to the team (docs/examples/team-operator.md §3)
+tenant cert-manager.io certificates list team-workload: tenant mode leaves workload RBAC to the team (docs/examples/team-operator.md §3)
+tenant cert-manager.io certificates watch team-workload: tenant mode leaves workload RBAC to the team (docs/examples/team-operator.md §3)
