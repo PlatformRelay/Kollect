@@ -22,7 +22,7 @@ tenant core namespaces list cluster-scoped: tenant mode drops cluster scope
 tenant core namespaces watch cluster-scoped: tenant mode drops cluster scope
 tenant authentication.k8s.io tokenreviews create cluster-scoped: tenant mode drops cluster scope
 tenant authorization.k8s.io subjectaccessreviews create cluster-scoped: tenant mode drops cluster scope
-tenant authorization.k8s.io selfsubjectaccessreviews create cluster-scoped: a Role cannot grant it (the tenant Role lists it to no effect); system:basic-user grants it to every authenticated user
+tenant authorization.k8s.io selfsubjectaccessreviews create cluster-scoped: tenant mode drops cluster scope; the tenant Role lists it to no effect (a Role cannot grant it), and system:basic-user grants it to every authenticated user
 tenant kollect.dev kollectclusterinventories create cluster-scoped: tenant mode drops cluster scope
 tenant kollect.dev kollectclusterinventories delete cluster-scoped: tenant mode drops cluster scope
 tenant kollect.dev kollectclusterinventories get cluster-scoped: tenant mode drops cluster scope

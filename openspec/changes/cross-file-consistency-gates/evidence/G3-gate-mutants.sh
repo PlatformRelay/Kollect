@@ -27,5 +27,10 @@ run "default counts the leader-election Role" 'if not doc or doc.get("kind") != 
 run "Role covers cluster-scoped" '    if kind == "Role" and is_cluster_scoped(g, r):
         return False' '    pass'
 run "team-workload open list" 'if (t[0], resource) not in TEAM_WORKLOAD_KINDS or verb not in READ_VERBS:' 'if t[0] == "kollect.dev" or verb not in READ_VERBS:'
+run "subresource not mapped to its kind" '    base = (g, r.split("/")[0])
+    if g == "kollect.dev":' '    base = (g, r)
+    if g == "kollect.dev":'
+run "bare class token accepted" 'and not reason.split(":", 1)[1].strip():' 'and False:'
+run "team-workload any verb" 'if (t[0], resource) not in TEAM_WORKLOAD_KINDS or verb not in READ_VERBS:' 'if (t[0], resource) not in TEAM_WORKLOAD_KINDS:'
 cp "$SAVE" "$G"
 bash "$G" >/dev/null && echo "restored gate passes"
