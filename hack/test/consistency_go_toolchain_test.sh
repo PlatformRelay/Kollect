@@ -12,6 +12,9 @@
 # What it locks:
 #   * every golang image (Dockerfile* FROM lines, devcontainer image) equals go.mod's `go`;
 #   * the images agree with each other;
+#   * no FROM names its image through a variable (`FROM ${B}`, `FROM $B`, `FROM ${B:-golang:x}`):
+#     the image is then only known at build time, so the gate refuses it rather than resolve an
+#     ARG default that `--build-arg` can replace;
 #   * go.mod has a `go` directive and no `toolchain` line (a toolchain line is a second source
 #     of truth that setup-go and the images would not follow);
 #   * no workflow or composite action carries a `go-version:` literal, and every
@@ -85,6 +88,13 @@ golang_images() {
           if (w[i] ~ /^--/) continue
           img = w[i]
           sub(/^(docker\.io\/)?(library\/)?/, "", img)
+          # The repository part (up to the first ":" or "@") holds a variable: which image this
+          # is, and its Go, is only known at build time (an ARG default is replaced by
+          # --build-arg), so it is reported, never resolved. A variable TAG on a literal
+          # repository is not caught here; for golang it fails the literal-version check below.
+          repo = img
+          sub(/[:@].*$/, "", repo)
+          if (repo ~ /\$/) { print f, "<variable>", w[i]; break }
           if (img ~ /^golang:/) { sub(/^golang:/, "", img); sub(/@.*$/, "", img); print f, img }
           else if (img ~ /^golang(@|$)/) { print f, "<untagged>" }
           break
@@ -171,6 +181,11 @@ check_go_toolchain() {
     broken=1
   else
     while read -r path tag; do
+      if [[ "${tag}" == "<variable> "* ]]; then
+        echo "FAIL: ${path}: FROM ${tag#<variable> } names its image through a variable -- whether it is a golang image, and which Go it ships, is only known at build time (--build-arg overrides an ARG default); spell the image literally" >&2
+        broken=1
+        continue
+      fi
       ver="${tag%%-*}"
       if [[ ! "${ver}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
         echo "FAIL: ${path}: golang:${tag} is not a literal Go version, so it cannot be compared with go.mod" >&2
@@ -194,7 +209,7 @@ check_go_toolchain() {
       broken=1
     fi
 
-    distinct="$(awk '{ v = $2; sub(/-.*/, "", v); print v }' <<<"${images}" | sort -u -V | tr '\n' ' ')"
+    distinct="$(awk '$2 != "<variable>" { v = $2; sub(/-.*/, "", v); print v }' <<<"${images}" | sort -u -V | tr '\n' ' ')"
     distinct="${distinct% }"
     if [[ "${distinct}" == *" "* ]]; then
       echo "FAIL: the golang images disagree with each other: ${distinct}" >&2
@@ -311,12 +326,13 @@ make_copy() {
   return 0
 }
 
+# Called directly (never as $(new_copy)): a command substitution runs in a subshell, so its
+# SCRATCH update would be lost and the EXIT trap would leave every copy behind.
+COPY=""
 new_copy() {
-  local copy
-  copy="$(mktemp -d)"
-  SCRATCH="${SCRATCH} ${copy}"
-  make_copy "${copy}"
-  echo "${copy}"
+  COPY="$(mktemp -d)"
+  SCRATCH="${SCRATCH} ${COPY}"
+  make_copy "${COPY}"
 }
 
 # mutant_rejected <label> <sentinel> <probe-regex> <probe-file> <command...>
@@ -325,7 +341,8 @@ mutant_rejected() {
   local label="$1" sentinel="$2" probe="$3" probe_file="$4"
   shift 4
   local copy out rc
-  copy="$(new_copy)"
+  new_copy
+  copy="${COPY}"
   (cd "${copy}" && "$@") ||
     fail "self-test: the mutation step for '${label}' failed -- nothing was tested"
   grep -Eq -- "${probe}" "${copy}/${probe_file}" ||
@@ -339,7 +356,8 @@ mutant_rejected() {
 }
 
 # No-op control: an unmutated copy passes. Also proves the gate reads the root it is given.
-CONTROL="$(new_copy)"
+new_copy
+CONTROL="${COPY}"
 if ! out="$(bash "${SELF}" "${CONTROL}" 2>&1)"; then
   fail "self-test: the no-op control failed on an unmutated copy -- fix the real tree (or the gate) first: $(head -3 <<<"${out}" | tr '\n' ' ')"
 fi
@@ -424,6 +442,24 @@ mutant_rejected "golang tag from a build arg" \
   "Dockerfile: golang:\${GO_VERSION} is not a literal Go version" 'golang:\$\{GO_VERSION\}' Dockerfile \
   sed -i -E 's/^FROM golang:[^ ]+ AS builder/FROM golang:${GO_VERSION} AS builder/' Dockerfile
 
+# A FROM whose image is a build-arg variable cannot be compared: the ARG default is only a
+# default (`--build-arg` replaces it), so the gate refuses the spelling instead of resolving it.
+# The third spelling's default equals go.mod's Go on purpose: it must red anyway.
+# shellcheck disable=SC2016 # ${B} / $B are literal Dockerfile text, not shell expansions
+mutant_rejected "FROM image from a build arg, braced" \
+  'Dockerfile: FROM ${B} names its image through a variable' '^FROM \$\{B\} AS builder' Dockerfile \
+  sed -i -E 's/^FROM golang:[^ ]+ AS builder/ARG B=golang:1.99.0\nFROM ${B} AS builder/' Dockerfile
+
+# shellcheck disable=SC2016
+mutant_rejected "FROM image from a build arg, bare" \
+  'Dockerfile.pipeline: FROM $B names its image through a variable' '^FROM \$B AS builder' Dockerfile.pipeline \
+  sed -i -E 's/^FROM golang:[^ ]+ AS builder/ARG B=golang:1.99.0\nFROM $B AS builder/' Dockerfile.pipeline
+
+# shellcheck disable=SC2016
+mutant_rejected "FROM image from a build arg with an inline default" \
+  'Dockerfile: FROM ${B:-golang:1.27.2} names its image through a variable' '^FROM \$\{B:-golang:' Dockerfile \
+  sed -i -E 's/^FROM golang:[^ ]+ AS builder/FROM ${B:-golang:1.27.2} AS builder/' Dockerfile
+
 mutant_rejected "quoted YAML keys on a setup-go step not reading go.mod" \
   "does not read go-version-file: go.mod" '"uses": actions/setup-go@' .github/actions/go-cache/action.yml \
   sed -i -E 's#uses: actions/setup-go@#"uses": actions/setup-go@#; s/go-version-file: go\.mod/"go-version-file": .go-version/' \
@@ -438,7 +474,8 @@ control_passes() {
   local label="$1" probe="$2" probe_file="$3"
   shift 3
   local copy out
-  copy="$(new_copy)"
+  new_copy
+  copy="${COPY}"
   (cd "${copy}" && "$@") || fail "self-test: the control step for '${label}' failed -- nothing was tested"
   grep -Eq -- "${probe}" "${copy}/${probe_file}" ||
     fail "self-test: the '${label}' control did not land (no '${probe}' in ${probe_file})"
@@ -450,6 +487,11 @@ control_passes() {
 control_passes "commented-out devcontainer image (JSONC)" '^  // "image": "golang:1\.0\.0"' \
   .devcontainer/devcontainer.json \
   sed -i -E '2i\  // "image": "golang:1.0.0",' .devcontainer/devcontainer.json
+
+# A variable TAG on a literal non-golang image is not a Go image and stays legal.
+# shellcheck disable=SC2016 # ${DEB_TAG} is literal Dockerfile text
+control_passes "variable tag on a literal non-golang image" '^FROM debian:\$\{DEB_TAG\}' Dockerfile \
+  sed -i -E 's/^FROM debian:[^ ]+$/ARG DEB_TAG=bookworm-slim\nFROM debian:${DEB_TAG}/' Dockerfile
 
 # Renovate mutants rewrite renovate.json with one jq program and fail when the rewrite changed
 # nothing, so a selector that stopped matching cannot pass as a tested mutant. The programs use
