@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# DTP-1, DTP-2, DTP-3, DTP-5, DTP-6 and DTP-7 (openspec change developer-toolchain-pins): the
+# DTP-1 to DTP-7 (openspec change developer-toolchain-pins): the
 # developer and CI tools that are pinned in more than one file agree, meet their floor, and can be
-# installed.
+# installed, and the update bot (Renovate) finds and groups every pin.
 #
 # gitleaks, git-cliff and shellcheck are each pinned in three files, and nothing kept the three
 # equal: a bot bump or a hand edit moves one site and the others silently run another release.
@@ -47,7 +47,15 @@
 #   * DTP-5 comments: a comment in mise.toml or Taskfile.yml may state a tool version only in the
 #     unbroken run of comment lines directly above a pin, or inline on it, naming that pin's tool
 #     at the pin's value; any other version (a dotted or quoted number after a tool name) and any
-#     count of pin sites ("17 occurrences") is a failure.
+#     count of pin sites ("17 occurrences") is a failure;
+#   * DTP-4 Renovate: every customManagers entry in renovate.json matches a tracked file with a
+#     file pattern AND extracts a dependency from it (a pattern hit alone is a dead manager), no
+#     file pattern matches nothing, every gitleaks, git-cliff, shellcheck, Task, govulncheck and
+#     golangci-lint site above is extracted at its line and value under that tool's depName (the
+#     golangci-lint pins must be plain vN.N.N), each tool's sites resolve to one groupName (the
+#     last matching packageRule wins), and shellcheck's group holds nothing else (its bump is red
+#     until its digests are added). python3 evaluates renovate.json itself; shapes it does not
+#     model (RE2-foreign regex syntax included) fail.
 # Lines whose first non-blank character is `#` are comments and never count as a site.
 #
 # --self-test (DTP-7) copies the tracked tree once per case, breaks one clause, and asserts the
@@ -613,6 +621,328 @@ check_comments() {
   echo "comments: ${n} DTP-5 finding(s) in mise.toml and Taskfile.yml"
 }
 
+# --- DTP-4 Renovate managers: every manager is alive, every pin site is covered, one group per tool ---
+# Mechanism (task 3.1): a model of Renovate's regex managers and packageRules order, evaluated by
+# python3 over renovate.json itself (no copy of the regexes to drift). Checked against Renovate
+# 44.115.4 `--platform=local` dry-runs on this tree (openspec change developer-toolchain-pins,
+# evidence/G3.md). Anything the model does not implement (a glob it cannot read, an unknown
+# matcher or manager key, a template helper, a rule whose group depends on the update type) is a
+# failure, never a guess.
+#
+# renovate_deps <root>: reads the tracked file list on stdin and prints one line per dependency a
+# custom regex manager extracts, "DEP\t<manager>\t<file>\t<line of the value>\t<value>\t<depName>\t
+# <groupName or ->", and one "ERR\t<message>" per manager that is dead (no file, or no dependency
+# from its files), per file pattern that matches no tracked file, and per config shape the model
+# cannot evaluate.
+renovate_deps() {
+  # The program comes from -c: stdin carries the file list.
+  python3 -c "${RENOVATE_MODEL}" "$1"
+}
+RENOVATE_MODEL="$(cat <<'PY'
+import json, re, sys
+
+root = sys.argv[1]
+files = [l for l in sys.stdin.read().split("\n") if l]
+out = []
+
+def err(msg):
+    out.append("ERR\t" + msg)
+
+try:
+    raw = open(root + "/renovate.json", encoding="utf-8").read()
+    cfg = json.loads(raw)
+except (OSError, ValueError) as e:
+    print("ERR\trenovate.json cannot be read as JSON (%s) -- no manager can be checked" % e)
+    sys.exit(0)
+
+def js_regex(src, flags=""):
+    # Renovate compiles with RE2 (JS syntax). RE2 has no lookaround, backreference, atomic group or
+    # possessive quantifier, all of which Python would accept; named groups are the only spelling
+    # Python differs on. Character classes are skipped: `[*+]` is two literals.
+    i = 0
+    while i < len(src):
+        c = src[i]
+        if c == "\\":
+            if i + 1 < len(src) and (src[i + 1] in "123456789" or src[i + 1] == "k"):
+                raise ValueError("backreference %r is not RE2" % src[i:i + 2])
+            i += 2
+            continue
+        if c == "[":
+            j = i + 1
+            if src.startswith("^", j):
+                j += 1
+            if src.startswith("]", j):
+                j += 1
+            while j < len(src) and src[j] != "]":
+                j += 2 if src[j] == "\\" else 1
+            i = j + 1
+            continue
+        if src.startswith(("(?=", "(?!", "(?<=", "(?<!"), i):
+            raise ValueError("lookaround %r is not RE2" % src[i:i + 4])
+        for t in ("(?P=", "(?>"):
+            if src.startswith(t, i):
+                raise ValueError("construct %r is not RE2" % t)
+        if c in "*+?}" and src.startswith("+", i + 1):
+            raise ValueError("possessive quantifier %r is not RE2" % src[i:i + 2])
+        i += 1
+    py = re.sub(r"\(\?<([A-Za-z_][A-Za-z0-9_]*)>", r"(?P<\1>", src)
+    f = 0
+    for c in flags:
+        if c == "i":
+            f |= re.I
+        else:
+            raise ValueError("regex flag %r is not modelled" % c)
+    return re.compile(py, f)
+
+def glob_regex(g):
+    if re.search(r"[{}\[\]]", g):
+        raise ValueError("glob %r uses braces or classes, which the model does not read" % g)
+    s, i = "", 0
+    while i < len(g):
+        if g.startswith("**/", i):
+            s += "(?:.*/)?"; i += 3
+        elif g.startswith("**", i):
+            s += ".*"; i += 2
+        elif g[i] == "*":
+            s += "[^/]*"; i += 1
+        elif g[i] == "?":
+            s += "[^/]"; i += 1
+        else:
+            s += re.escape(g[i]); i += 1
+    return re.compile(s + r"\Z")
+
+def pattern(p):
+    # "/re/flags" is a regex (searched), anything else a glob (whole string).
+    m = re.fullmatch(r"/(.*)/([a-z]*)", p, re.S)
+    if m:
+        r = js_regex(m.group(1), m.group(2))
+        return lambda s: r.search(s) is not None
+    r = glob_regex(p)
+    return lambda s: r.match(s) is not None
+
+def match_list(pats, value):
+    # Renovate's matchRegexOrGlobList: any positive matches, and no "!" negation matches.
+    if value is None:
+        return False
+    pos = [p for p in pats if not p.startswith("!")]
+    neg = [p[1:] for p in pats if p.startswith("!")]
+    if pos and not any(pattern(p)(value) for p in pos):
+        return False
+    return not any(pattern(n)(value) for n in neg)
+
+def render(tpl, groups, what):
+    def sub(m):
+        return groups.get(m.group(1) or m.group(2)) or ""
+    if re.search(r"\{\{[#/^>!&]", tpl):
+        raise ValueError("%s template %r uses a helper the model does not run" % (what, tpl))
+    return re.sub(r"\{\{\{\s*([A-Za-z_]\w*)\s*\}\}\}|\{\{\s*([A-Za-z_]\w*)\s*\}\}", sub, tpl)
+
+try:
+    files = [f for f in files
+             if not any(p in f or glob_regex(p).match(f) for p in cfg.get("ignorePaths", []))]
+except ValueError as e:
+    err("renovate.json ignorePaths: %s" % e)
+
+em = cfg.get("enabledManagers")
+if em is not None and not ({"custom.regex", "regex"} & set(em)):
+    err("renovate.json enabledManagers leaves out custom.regex -- every custom manager is off")
+
+MANAGER_KEYS = {"customType", "description", "managerFilePatterns", "matchStrings",
+                "matchStringsStrategy", "datasourceTemplate", "depNameTemplate",
+                "packageNameTemplate", "versioningTemplate", "extractVersionTemplate",
+                "autoReplaceStringTemplate", "currentValueTemplate", "registryUrlTemplate"}
+FIELDS = ("datasource", "depName", "packageName", "currentValue")
+
+starts = [raw.count("\n", 0, m.start()) + 1 for m in re.finditer(r'"customType"', raw)]
+deps = []
+for i, m in enumerate(cfg.get("customManagers", [])):
+    desc = (m.get("description") or "").split(" -- ")[0]
+    if len(desc) > 60:
+        desc = desc[:57] + "..."
+    label = 'customManagers[%d] "%s" (renovate.json:%s)' % (i, desc, starts[i] if i < len(starts) else "?")
+    try:
+        extra = sorted(set(m) - MANAGER_KEYS)
+        if extra:
+            raise ValueError("keys %s are not modelled" % ", ".join(extra))
+        for k in sorted(m):
+            # Every template, rendered here or not (autoReplaceStringTemplate is not), may only
+            # substitute names: a helper is a shape the model does not run.
+            if k.endswith("Template"):
+                render(m[k], {}, k)
+        if m.get("customType") != "regex":
+            raise ValueError("customType %r is not modelled" % m.get("customType"))
+        if m.get("matchStringsStrategy", "any") != "any":
+            raise ValueError("matchStringsStrategy %r is not modelled" % m.get("matchStringsStrategy"))
+        pats = m.get("managerFilePatterns") or []
+        strings = [js_regex(s) for s in m.get("matchStrings") or []]
+        if not pats or not strings:
+            raise ValueError("no managerFilePatterns or no matchStrings")
+        hit = []
+        for p in pats:
+            ok = [f for f in files if pattern(p)(f)]
+            if not ok:
+                err("%s: file pattern %s matches no tracked file -- the pattern has rotted" % (label, p))
+            hit += [f for f in ok if f not in hit]
+        found = 0
+        for f in hit:
+            try:
+                text = open(root + "/" + f, encoding="utf-8").read()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for r in strings:
+                for mm in r.finditer(text):
+                    g = {k: v for k, v in mm.groupdict().items() if v is not None}
+                    d = {}
+                    for k in FIELDS:
+                        tpl = m.get(k + "Template")
+                        d[k] = render(tpl, g, k) if tpl is not None else g.get(k, "")
+                    if not d["packageName"]:
+                        d["packageName"] = d["depName"]
+                    if not (d["currentValue"] and d["depName"] and d["datasource"]):
+                        continue
+                    pos = mm.start("currentValue") if "currentValue" in g else mm.start()
+                    d.update(file=f, line=text.count("\n", 0, pos) + 1, manager=label)
+                    deps.append(d)
+                    found += 1
+        if not hit:
+            err("%s matches no tracked file -- a dead manager" % label)
+        elif not found:
+            err("%s matches %d file(s) (%s) but its matchStrings extract no dependency from them -- a dead manager"
+                % (label, len(hit), ", ".join(hit[:3]) + (", ..." if len(hit) > 3 else "")))
+    except (ValueError, re.error) as e:
+        err("%s cannot be evaluated: %s" % (label, e))
+
+# What each matcher compares for a custom regex dependency (None: never set, so never matches).
+MATCHERS = {"matchManagers": lambda d: "custom.regex", "matchDepNames": lambda d: d["depName"],
+            "matchPackageNames": lambda d: d["packageName"], "matchFileNames": lambda d: d["file"],
+            "matchDatasources": lambda d: d["datasource"], "matchDepTypes": lambda d: None,
+            "matchUpdateTypes": None}
+for d in deps:
+    group, enabled = "", True
+    for n, rule in enumerate(cfg.get("packageRules", [])):
+        try:
+            other = [k for k in rule if k.startswith(("match", "exclude")) and k not in MATCHERS]
+            if other:
+                raise ValueError("matcher %s is not modelled" % ", ".join(other))
+            hit = True
+            for k, get in MATCHERS.items():
+                if k in rule and get is not None:
+                    vals = ["custom.regex" if v == "regex" else v for v in rule[k]] if k == "matchManagers" else rule[k]
+                    hit = hit and match_list(vals, get(d))
+            if not hit:
+                continue
+            if "matchUpdateTypes" in rule and ("groupName" in rule or "enabled" in rule):
+                raise ValueError("its groupName/enabled depends on the update type, which only a lookup knows")
+            # The LAST matching rule that sets a key wins.
+            group = rule.get("groupName", group)
+            enabled = rule.get("enabled", enabled)
+        except (ValueError, re.error) as e:
+            err("renovate.json packageRules[%d] cannot be evaluated for %s (%s:%d): %s"
+                % (n, d["depName"], d["file"], d["line"], e))
+    if enabled:
+        out.append("\t".join(["DEP", d["manager"], d["file"], str(d["line"]), d["currentValue"],
+                              d["depName"], group or "-"]))
+print("\n".join(out))
+PY
+)"
+
+# tracked_files <root>: the files Renovate sees. A git work tree lists its index; a self-test copy
+# holds the tracked files only, so it lists everything.
+tracked_files() {
+  if [[ "$(git -C "$1" rev-parse --show-toplevel 2>/dev/null)" == "$(cd "$1" && pwd -P)" ]]; then
+    git -C "$1" ls-files
+  else
+    (cd "$1" && find . -type f | sed 's|^\./||' | sort)
+  fi
+}
+
+# golangci_sites <root>: Makefile GOLANGCI_LINT_VERSION and the custom build's `version:`. Their
+# agreement and floor are CFC-2's (consistency_tool_pins_test.sh); DTP-4 only needs the sites.
+golangci_sites() {
+  local root="$1"
+  if [[ -f "${root}/Makefile" ]]; then
+    awk '/^GOLANGCI_LINT_VERSION[[:space:]]*\?=/ { v = $0; sub(/^[^=]*=[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v); print "Makefile:" NR "\t" v }' "${root}/Makefile"
+  fi
+  if [[ -f "${root}/hack/tooling/.custom-gcl.yml" ]]; then
+    awk '/^version:/ { v = $0; sub(/^version:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/["\047]/, "", v); print "hack/tooling/.custom-gcl.yml:" NR "\t" v }' "${root}/hack/tooling/.custom-gcl.yml"
+  fi
+}
+
+# COVER: "<tool>\t<file>:<line>\t<value as written>\t<value compared>" for every pin site DTP-4
+# requires a manager for (sites without a compared form compare with a leading v stripped).
+COVER=""
+cover_add() {
+  local tool="$1" loc v c
+  while IFS=$'\t' read -r loc v c; do
+    [[ -n "${loc}" ]] && COVER+="${tool}"$'\t'"${loc}"$'\t'"${v}"$'\t'"${c:-${v#v}}"$'\n'
+  done <<<"$2"
+}
+
+# The depNames a manager must give each tool's sites: a site extracted under another name is looked
+# up, and grouped, as another tool.
+declare -A TOOL_DEPS=(
+  [gitleaks]="gitleaks/gitleaks"
+  [git-cliff]="orhun/git-cliff"
+  [shellcheck]="koalaman/shellcheck shellcheck-py/shellcheck-py"
+  [task]="go-task/task"
+  [golangci-lint]="golangci/golangci-lint"
+  [govulncheck]="golang.org/x/vuln"
+)
+
+# check_managers <root>: DTP-4 over COVER (filled by check_all) and renovate_deps.
+check_managers() {
+  local root="$1" deps line tool loc v c file ln covered tag dfile dline dval dname dgroup
+  local -A groups=() where=()
+  if ! command -v python3 >/dev/null 2>&1; then
+    err "renovate: python3 not found; the manager model needs it -- an unchecked config never passes"
+    return 0
+  fi
+  if [[ ! -f "${root}/renovate.json" ]]; then
+    err "renovate: renovate.json is missing -- no pin site has a manager"
+    return 0
+  fi
+  if ! deps="$(tracked_files "${root}" | renovate_deps "${root}" 2>"${WORKROOT}/model.err")"; then
+    err "renovate: the renovate.json model failed ($(tail -1 "${WORKROOT}/model.err")) -- a config it cannot read never passes"
+    return 0
+  fi
+  while IFS=$'\t' read -r tag line; do
+    [[ "${tag}" == "ERR" ]] && err "renovate: ${line}"
+  done <<<"${deps}"
+  while IFS=$'\t' read -r tool loc v c; do
+    [[ -n "${tool}" ]] || continue
+    # A value that is not a plain release is already the tool check's failure (one clause per site).
+    [[ "${c}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+    file="${loc%%:*}" ln="${loc##*:}" covered=""
+    while IFS=$'\t' read -r tag _ dfile dline dval dname dgroup; do
+      [[ "${tag}" == "DEP" && "${dfile}" == "${file}" && "${dline}" == "${ln}" && "${dval#v}" == "${v#v}" ]] || continue
+      [[ " ${TOOL_DEPS[${tool}]} " == *" ${dname} "* ]] || continue
+      covered="${dgroup}"
+      break
+    done <<<"${deps}"
+    if [[ -z "${covered}" ]]; then
+      err "renovate: ${tool} pin ${v} at ${loc} is extracted by no custom manager as ${TOOL_DEPS[${tool}]// / or } -- the bot never bumps ${file}"
+      continue
+    fi
+    groups[${tool}]+="${covered}"$'\n'
+    where[${tool}]+="${loc} in '${covered}'; "
+  done <<<"${COVER}"
+  for tool in "${!groups[@]}"; do
+    if [[ "$(sort -u <<<"${groups[${tool}]}" | grep -c .)" -ne 1 ]] || grep -qx -- '-' <<<"${groups[${tool}]}"; then
+      err "renovate: ${tool} sites are not in one group (${where[${tool}]%; }) -- a bump can move one site and leave the others behind"
+    fi
+  done
+  if [[ -n "${groups[shellcheck]:-}" ]]; then
+    dgroup="$(head -1 <<<"${groups[shellcheck]}")"
+    while IFS=$'\t' read -r tag _ dfile dline dval dname line; do
+      [[ "${tag}" == "DEP" && "${line}" == "${dgroup}" && "${dgroup}" != "-" ]] || continue
+      [[ " ${TOOL_DEPS[shellcheck]} " == *" ${dname} "* ]] && continue
+      err "renovate: shellcheck shares the group '${dgroup}' with ${dname} (${dfile}:${dline}) -- a shellcheck bump stays red until install-shellcheck.sh has its digests, and must hold back no other tool"
+      break
+    done <<<"${deps}"
+  fi
+  echo "renovate: $(grep -c '^DEP' <<<"${deps}" || true) custom-manager dependencies, $(grep -c . <<<"${COVER}") pin sites checked"
+}
+
 # --- DTP-2 govulncheck ---
 GOVULN_PKG="golang.org/x/vuln/cmd/govulncheck"
 GOVULN_ANNOTATION="# renovate: datasource=go depName=golang.org/x/vuln"
@@ -680,8 +1010,9 @@ check_govulncheck() {
 }
 
 check_all() {
-  local root="$1" sites
+  local root="$1" sites f loc v
   BROKEN=0
+  COVER=""
 
   sites="$({
     yaml_env_sites "${root}" GITLEAKS_VERSION
@@ -690,6 +1021,7 @@ check_all() {
   } | with_compare plain)"
   check_tool gitleaks "${GITLEAKS_FLOOR}" hack/install-gitleaks.sh "${sites}" \
     .github/workflows/ci.yaml hack/install-gitleaks.sh .pre-commit-config.yaml
+  cover_add gitleaks "${sites}"
 
   sites="$({
     taskfile_sites "${root}" GIT_CLIFF_VERSION
@@ -698,6 +1030,7 @@ check_all() {
   } | with_compare plain)"
   check_tool git-cliff "${GIT_CLIFF_FLOOR}" Taskfile.yml "${sites}" \
     Taskfile.yml .github/workflows/release.yaml hack/verify-changelog.sh
+  cover_add git-cliff "${sites}"
 
   sites="$({
     yaml_env_sites "${root}" SHELLCHECK_VERSION | with_compare plain
@@ -706,6 +1039,7 @@ check_all() {
   })"
   check_tool shellcheck - hack/install-shellcheck.sh "${sites}" \
     .github/workflows/ci.yaml hack/install-shellcheck.sh .pre-commit-config.yaml
+  cover_add shellcheck "${sites}"
   if [[ -n "${AGREED}" ]]; then
     check_shellcheck_digests "${root}" "${AGREED}"
   fi
@@ -721,18 +1055,39 @@ check_all() {
     } | with_compare plain)"
     check_tool task "${TASK_FLOOR}" .github/workflows/ci.yaml "${sites}" \
       .github/workflows/ci.yaml .github/actions/kind-e2e-setup/action.yml
+    cover_add task "${sites}"
+  fi
+
+  sites="$(golangci_sites "${root}")"
+  for f in Makefile hack/tooling/.custom-gcl.yml; do
+    awk -v f="${f}" 'index($0, f ":") == 1 { found = 1 } END { exit !found }' <<<"${sites}" ||
+      err "golangci-lint: no pin found in ${f} -- DTP-4 cannot check that a manager covers it"
+  done
+  while IFS=$'\t' read -r loc v; do
+    [[ -z "${loc}" || "${v}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+      err "golangci-lint: ${loc} says '${v}', not a plain vN.N.N release -- renovate.json's golangci-lint manager extracts only that form"
+  done <<<"${sites}"
+  cover_add golangci-lint "${sites}"
+  # DTP-2's site, the definition under vars: (a task-level one is check_govulncheck's failure); its
+  # annotation form is check_govulncheck's too, DTP-4 checks the manager extracts it.
+  if [[ -f "${root}/Taskfile.yml" ]]; then
+    cover_add govulncheck "$(awk '
+      /^[^[:space:]#]/ { section = $0; sub(/:.*/, "", section) }
+      section == "vars" && /^  GOVULNCHECK_VERSION:/ { v = $0; sub(/^  GOVULNCHECK_VERSION:[[:space:]]*/, "", v); print "Taskfile.yml:" NR "\t" v }
+    ' "${root}/Taskfile.yml")"
   fi
 
   check_govulncheck "${root}"
   check_unverified_limit "${root}"
   check_mise "${root}"
   check_comments "${root}"
+  check_managers "${root}"
   return "${BROKEN}"
 }
 
 if [[ "${MODE}" == "check" ]]; then
   if check_all "${ROOT}"; then
-    pass "Task, gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, task vulncheck runs the annotated GOVULNCHECK_VERSION, UNVERIFIED_BY_DESIGN is within its limit, mise.toml agrees with every node/python pin in .github with Go read from go.mod, and no mise.toml or Taskfile.yml comment restates a version away from its pin"
+    pass "Task, gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, task vulncheck runs the annotated GOVULNCHECK_VERSION, UNVERIFIED_BY_DESIGN is within its limit, mise.toml agrees with every node/python pin in .github with Go read from go.mod, and no mise.toml or Taskfile.yml comment restates a version away from its pin, and every renovate.json custom manager is alive, covers every pin site and keeps each tool in one group (shellcheck alone)"
     exit 0
   fi
   fail "toolchain pins disagree (listed above)"
@@ -749,7 +1104,10 @@ git -C "${ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
 
 # Called directly (never as $(new_copy)), so COPY is set in this shell; WORKROOT's trap removes it.
 COPY=""
+# Each case needs only its own copy: the previous one is removed first, so ~120 cases hold one
+# tree (~2000 files) at a time instead of every tree until exit (inodes on a shared /tmp).
 new_copy() {
+  if [[ -n "${COPY}" ]]; then rm -rf "${COPY:?}"; fi
   COPY="$(mktemp -d "${WORKROOT}/XXXXXXXX")"
   (cd "${ROOT}" && git ls-files -z | tar --null --ignore-failed-read -T - -cf - 2>/dev/null) |
     tar -xf - -C "${COPY}"
@@ -796,6 +1154,13 @@ mutant_rejected() {
   # One clause per mutant: every other FAIL line (bar this gate's closing summary) is a mutant
   # that also trips a clause it does not name, so it proves less than its label says.
   others="$(grep '^FAIL: ' <<<"${out}" | grep -v '^FAIL: toolchain pins disagree (listed above)$' | grep -Ev -- "${sentinel}" || true)"
+  # ALSO_RED (set on the call): a second clause the mutant trips by construction. It must fire,
+  # and it is the only other clause allowed.
+  if [[ -n "${ALSO_RED:-}" ]]; then
+    grep -Eq -- "${ALSO_RED}" <<<"${others}" ||
+      fail "self-test: the '${label}' mutant did not also trip '${ALSO_RED}', which it declares"
+    others="$(grep -Ev -- "${ALSO_RED}" <<<"${others}" || true)"
+  fi
   [[ -z "${others}" ]] ||
     fail "self-test: the '${label}' mutant also trips other clauses: $(head -3 <<<"${others}" | tr '\n' ' ')"
   pass "self-test: ${label} rejected"
@@ -891,7 +1256,10 @@ mutant_rejected "git-cliff empty scan" \
   '!GIT_CLIFF_VERSION:' Taskfile.yml \
   bash -c 'sed -i -E "s/^([[:space:]]*)GIT_CLIFF_VERSION:/\1GC_VERSION:/" Taskfile.yml &&
     sed -i -E "s#orhun/git-cliff-action@#example/cliff-action@#" '"${REL}"' &&
-    sed -i -E "s/install-git-cliff\.sh v/install-cliff.sh v/" '"${VC}"
+    sed -i -E "s/install-git-cliff\.sh v/install-cliff.sh v/" '"${VC}"' &&
+    sed -i -E "s#orhun/git-cliff-action#example/cliff-action#; s#install-git-cliff#install-cliff#" renovate.json'
+# (DTP-4: renovate.json follows the rename, so its git-cliff manager stays alive and only the
+# scan clause trips.)
 
 mutant_rejected "git-cliff-action step without a version input" \
   "git-cliff: \\.github/workflows/release\\.yaml:[0-9]+ says '<no version: input>', not a plain release version" \
@@ -899,6 +1267,9 @@ mutant_rejected "git-cliff-action step without a version input" \
   sed -i -E '/orhun\/git-cliff-action@/,/version:/ { /^[[:space:]]+version: v[0-9.]+/d }' "${REL}"
 
 # env: goes before and after the with: block, so neither a first-wins nor a last-wins reader passes.
+# An env: between uses: and with: also hides the input from renovate.json's git-cliff manager,
+# whose matchString expects with: next (DTP-4).
+ALSO_RED='renovate: git-cliff pin v2\.12\.0 at \.github/workflows/release\.yaml:[0-9]+ is extracted by no custom manager' \
 mutant_rejected "git-cliff env version masks a drifted input" \
   'git-cliff: \.github/workflows/release\.yaml:[0-9]+ says v2\.12\.0, but the reference site Taskfile\.yml' \
   'version: v2\.13\.1 # mutant-env-before@@version: v2\.13\.1 # mutant-env-after@@version: v2\.12\.0' "${REL}" \
@@ -906,8 +1277,10 @@ mutant_rejected "git-cliff env version masks a drifted input" \
     sed -i -E "/orhun\/git-cliff-action@/{n;s/^([[:space:]]+)with:\$/\1env:\n\1  version: v2.13.1 # mutant-env-before\n\1with:/}" '"${REL}"' &&
     sed -i -E "/orhun\/git-cliff-action@/,/github_token:/ s/^([[:space:]]+github_token:.*)\$/\1\n        env:\n          version: v2.13.1 # mutant-env-after/" '"${REL}"
 
-# Key order: the with: block before uses: is the same step and the same input.
-control_passes "git-cliff with: before uses:" \
+# Key order: the with: block before uses: is the same step and the same input, so DTP-3 raises
+# nothing; renovate.json's manager expects with: after uses:, so DTP-4 is the only clause that reds.
+mutant_rejected "git-cliff with: before uses:" \
+  'renovate: git-cliff pin v2\.13\.1 at \.github/workflows/release\.yaml:[0-9]+ is extracted by no custom manager' \
   'orhun/git-cliff-action@' "${REL}" \
   bash -c 'awk "/uses: orhun\/git-cliff-action@/ { u = \$0; next } u != \"\" && /github_token:/ { print; print u; u = \"\"; next } { print }" '"${REL}"' > m.yaml && mv m.yaml '"${REL}"' &&
     awk "p ~ /github_token:/ && /uses: orhun\/git-cliff-action@/ { ok = 1 } { p = \$0 } END { exit !ok }" '"${REL}"
@@ -943,7 +1316,9 @@ mutant_rejected "shellcheck empty scan" \
   '!SHELLCHECK_VERSION' "${CI}" \
   bash -c 'sed -i -E "s/SHELLCHECK_VERSION:/SC_VERSION:/" '"${CI}"' &&
     sed -i -E "s/SHELLCHECK_VERSION:-/SC_VERSION:-/" '"${SI}"' &&
-    sed -i -E "s#github.com/shellcheck-py/shellcheck-py#github.com/example/sc#" '"${PC}"
+    sed -i -E "s#github.com/shellcheck-py/shellcheck-py#github.com/example/sc#" '"${PC}"' &&
+    sed -i -E "s#com/shellcheck-py/shellcheck-py#com/example/sc#" renovate.json'
+# (DTP-4: renovate.json follows the rename, so its shellcheck-py manager stays alive.)
 
 mutant_rejected "shellcheck platforms unreadable" \
   'shellcheck: cannot read the supported platforms of hack/install-shellcheck\.sh' \
@@ -1067,6 +1442,8 @@ mutant_rejected "mise task moved from [tools] to [settings]" \
     awk "/^\[settings\]\$/ { s = 1 } /^\[tools\]\$/ { s = 0 } s && /^task = / { ok = 1 } END { exit !ok }" mise.toml'
 
 # The file is gone: the in-command test is the absence probe (a probe of a missing file is vacuous).
+# renovate.json's go-task manager names mise.toml, so its pattern rots with it (DTP-4).
+ALSO_RED='renovate: customManagers\[[0-9]+\] "go-task versions[^"]*" \(renovate\.json:[0-9]+\): file pattern /\^mise\\\.toml\$/ matches no tracked file' \
 mutant_rejected "mise.toml missing (old missing mise.toml case)" \
   'mise: mise\.toml does not exist' \
   '!.' "${M}" \
@@ -1213,12 +1590,16 @@ mutant_rejected "govulncheck inline pin returns" \
   'govulncheck@v1\.9\.0' Taskfile.yml \
   sed -i -E 's#(cmd/govulncheck)@\{\{\.GOVULNCHECK_VERSION\}\}#\1@v1.9.0#' Taskfile.yml
 
+# Without its annotation the Taskfile manager no longer extracts the pin (DTP-4 is right too).
+ALSO_RED='renovate: govulncheck pin [^ ]+ at Taskfile\.yml:[0-9]+ is extracted by no custom manager' \
 mutant_rejected "govulncheck annotation deleted" \
   "govulncheck: Taskfile\\.yml:[0-9]+ GOVULNCHECK_VERSION has no '# renovate: datasource=go depName=golang\\.org/x/vuln' line directly above it" \
   '!depName=golang\.org/x/vuln' Taskfile.yml \
   sed -i -E '/^[[:space:]]*# renovate: datasource=go depName=golang\.org\/x\/vuln[[:space:]]*$/d' Taskfile.yml
 
 # A github-releases annotation still extracts (DTP-4 would pass) while every lookup fails.
+# Under another depName the site is a different dependency to DTP-4 (right too).
+ALSO_RED='renovate: govulncheck pin [^ ]+ at Taskfile\.yml:[0-9]+ is extracted by no custom manager' \
 mutant_rejected "govulncheck annotation on the wrong datasource" \
   "govulncheck: Taskfile\\.yml:[0-9]+ GOVULNCHECK_VERSION has no '# renovate: datasource=go depName=golang\\.org/x/vuln' line directly above it" \
   'datasource=github-releases depName=golang/vuln' Taskfile.yml \
@@ -1249,6 +1630,8 @@ mutant_rejected "GOVULNCHECK_VERSION set to latest" \
   sed -i -E 's/^(  GOVULNCHECK_VERSION: )v[0-9.]+$/\1latest/' Taskfile.yml
 
 # Renovate's `depName=(\S+)\n` extracts nothing when a blank follows the name.
+# The trailing blank also stops the Taskfile manager's regex (DTP-4 is right too).
+ALSO_RED='renovate: govulncheck pin [^ ]+ at Taskfile\.yml:[0-9]+ is extracted by no custom manager' \
 mutant_rejected "govulncheck annotation with a trailing blank" \
   "govulncheck: Taskfile\\.yml:[0-9]+ GOVULNCHECK_VERSION has no '# renovate: datasource=go depName=golang\\.org/x/vuln' line directly above it" \
   'depName=golang\.org/x/vuln $' Taskfile.yml \
@@ -1272,6 +1655,205 @@ mutant_rejected "vulncheck task gone" \
   'govulncheck: Taskfile\.yml has no vulncheck task' \
   '!^  vulncheck:' Taskfile.yml \
   sed -i -E 's/^  vulncheck:/  vulnscan:/' Taskfile.yml
+
+# --- DTP-4 Renovate managers ---
+# rj <python statements>: edit the copy's renovate.json. In scope: cfg (the parsed file), mgr(dep)
+# (the one custom manager whose depNameTemplate is dep), rule(group) (the index of the rule that
+# sets that groupName) and drop(dep, needle) (remove the one file pattern of mgr(dep) containing
+# needle, and tag the manager so the probe sees the edit landed).
+rj() {
+  python3 -c '
+import json, sys
+cfg = json.load(open("renovate.json"))
+def mgr(dep):
+    ms = [m for m in cfg["customManagers"] if m.get("depNameTemplate") == dep]
+    assert len(ms) == 1, "no single manager for " + dep
+    return ms[0]
+def rule(group):
+    return [i for i, r in enumerate(cfg["packageRules"]) if r.get("groupName") == group][0]
+def drop(dep, needle):
+    m = mgr(dep)
+    keep = [p for p in m["managerFilePatterns"] if needle not in p]
+    assert len(keep) == len(m["managerFilePatterns"]) - 1, "no single pattern with " + needle
+    m["managerFilePatterns"] = keep
+    m["description"] += " MUTANT-DROPPED " + needle
+exec(sys.argv[1])
+json.dump(cfg, open("renovate.json", "w"), indent=2)
+' "$1"
+}
+RJ=renovate.json
+
+# Today's (base) gitleaks and shellcheck managers, verbatim: they match ci.yaml by file pattern and
+# extract nothing, because CI no longer downloads by a versioned URL. A file-pattern-only check
+# would call them alive.
+mutant_rejected "today's gitleaks download-URL manager" \
+  'renovate: customManagers\[[0-9]+\] "Pinned gitleaks release download in CI" \(renovate\.json:[0-9]+\) matches 1 file\(s\) \(\.github/workflows/ci\.yaml\) but its matchStrings extract no dependency from them -- a dead manager' \
+  'Pinned gitleaks release download in CI' "${RJ}" \
+  rj 'cfg["customManagers"].append({"customType": "regex", "description": "Pinned gitleaks release download in CI", "managerFilePatterns": [r"/^\.github/workflows/ci\.yaml$/"], "matchStrings": [r"releases/download/v[0-9.]+/gitleaks_(?<currentValue>[0-9.]+)_linux_x64\.tar\.gz"], "datasourceTemplate": "github-releases", "depNameTemplate": "gitleaks/gitleaks", "autoReplaceStringTemplate": "releases/download/v{{{newValue}}}/gitleaks_{{{newValue}}}_linux_x64.tar.gz"})'
+
+mutant_rejected "today's shellcheck download-URL manager" \
+  'renovate: customManagers\[[0-9]+\] "Pinned ShellCheck release download in CI" \(renovate\.json:[0-9]+\) matches 1 file\(s\) \(\.github/workflows/ci\.yaml\) but its matchStrings extract no dependency from them -- a dead manager' \
+  'Pinned ShellCheck release download in CI' "${RJ}" \
+  rj 'cfg["customManagers"].append({"customType": "regex", "description": "Pinned ShellCheck release download in CI", "managerFilePatterns": [r"/^\.github/workflows/ci\.yaml$/"], "matchStrings": [r"releases/download/v[0-9.]+/shellcheck-v(?<currentValue>[0-9.]+)\.linux\.x86_64\.tar\.xz"], "datasourceTemplate": "github-releases", "depNameTemplate": "koalaman/shellcheck", "autoReplaceStringTemplate": "releases/download/v{{{newValue}}}/shellcheck-v{{{newValue}}}.linux.x86_64.tar.xz"})'
+
+mutant_rejected "manager file pattern rotted" \
+  'renovate: customManagers\[[0-9]+\] "golangci-lint[^"]*" \(renovate\.json:[0-9]+\): file pattern [^ ]*no-such-gcl[^ ]* matches no tracked file -- the pattern has rotted' \
+  'no-such-gcl' "${RJ}" \
+  rj 'mgr("golangci/golangci-lint")["managerFilePatterns"].append(r"/^hack/tooling/\.no-such-gcl\.yml$/")'
+
+mutant_rejected "manager whose only pattern matches no file" \
+  'renovate: customManagers\[[0-9]+\] "mutant-rotted" \(renovate\.json:[0-9]+\)(: file pattern [^ ]+ matches no tracked file -- the pattern has rotted| matches no tracked file -- a dead manager)$' \
+  'mutant-rotted' "${RJ}" \
+  rj 'cfg["customManagers"].append({"customType": "regex", "description": "mutant-rotted", "managerFilePatterns": [r"/^no-such-dir/x\.sh$/"], "matchStrings": [r"X_VERSION=(?<currentValue>\S+)"], "datasourceTemplate": "github-releases", "depNameTemplate": "example/x"})'
+
+# Uncovered sites, one per case: the file leaves its manager (a manager with one file is removed).
+uncovered() {
+  mutant_rejected "no manager covers ${1} in ${2}" \
+    "renovate: ${1} pin [^ ]+ at ${2//./\\.}:[0-9]+ is extracted by no custom manager" \
+    "${3}" "${RJ}" rj "${4}"
+}
+uncovered gitleaks .github/workflows/ci.yaml 'MUTANT-DROPPED github' 'drop("gitleaks/gitleaks", "github")'
+uncovered gitleaks hack/install-gitleaks.sh 'MUTANT-DROPPED install-gitleaks' 'drop("gitleaks/gitleaks", "install-gitleaks")'
+uncovered gitleaks .pre-commit-config.yaml 'MUTANT-DROPPED pre-commit' 'drop("gitleaks/gitleaks", "pre-commit")'
+uncovered shellcheck .github/workflows/ci.yaml 'MUTANT-DROPPED github' 'drop("koalaman/shellcheck", "github")'
+uncovered shellcheck hack/install-shellcheck.sh 'MUTANT-DROPPED install-shellcheck' 'drop("koalaman/shellcheck", "install-shellcheck")'
+uncovered shellcheck .pre-commit-config.yaml '!"depNameTemplate": "shellcheck-py/shellcheck-py"' 'cfg["customManagers"].remove(mgr("shellcheck-py/shellcheck-py"))'
+uncovered git-cliff .github/workflows/release.yaml 'MUTANT-DROPPED github' 'drop("orhun/git-cliff", "github")'
+uncovered git-cliff hack/verify-changelog.sh 'MUTANT-DROPPED verify-changelog' 'drop("orhun/git-cliff", "verify-changelog")'
+uncovered golangci-lint Makefile 'MUTANT-DROPPED Makefile' 'drop("golangci/golangci-lint", "Makefile")'
+uncovered golangci-lint hack/tooling/.custom-gcl.yml 'MUTANT-DROPPED custom-gcl' 'drop("golangci/golangci-lint", "custom-gcl")'
+# Sites the generic loop covers beyond the task's ten: a Task site and DTP-2's govulncheck.
+uncovered task mise.toml 'MUTANT-DROPPED mise' 'drop("go-task/task", "mise")'
+uncovered govulncheck Taskfile.yml 'mutant-vuln-off' 'cfg["packageRules"].insert(rule("go toolchain"), {"description": "mutant-vuln-off", "matchDepNames": ["golang.org/x/vuln"], "enabled": False})'
+
+# CFC-2 builds golangci-lint at any version both sites agree on; the manager extracts vN.N.N only.
+# Both sites move, so the manager extracts nothing at all (DTP-4's dead-manager line is right too).
+ALSO_RED='renovate: customManagers\[[0-9]+\] "golangci-lint[^"]*" \(renovate\.json:[0-9]+\) matches 2 file\(s\) .* -- a dead manager' \
+mutant_rejected "golangci-lint pinned to a pre-release" \
+  "golangci-lint: (Makefile|hack/tooling/\\.custom-gcl\\.yml):[0-9]+ says 'v2\\.99\\.0-rc\\.1', not a plain vN\\.N\\.N release" \
+  'GOLANGCI_LINT_VERSION \?= v2\.99\.0-rc\.1' Makefile \
+  bash -c 'sed -i -E "s/^(GOLANGCI_LINT_VERSION \?= )v[0-9.]+\$/\1v2.99.0-rc.1/" Makefile &&
+    sed -i -E "s/^version: v[0-9.]+\$/version: v2.99.0-rc.1/" hack/tooling/.custom-gcl.yml'
+
+# Coverage is per site line and value: the installer's usage comment (GITLEAKS_VERSION=<v>) still
+# extracts from the same file when the `:-` default no longer does, and a capture that stops at
+# N.N would make the bot rewrite part of the version.
+mutant_rejected "gitleaks installer default not matched, its usage comment still is" \
+  'renovate: gitleaks pin [^ ]+ at hack/install-gitleaks\.sh:[0-9]+ is extracted by no custom manager' \
+  'MUTANT-NO-DEFAULT' "${RJ}" \
+  rj 'm = mgr("gitleaks/gitleaks"); s = m["matchStrings"][0]; m["matchStrings"][0] = s.replace("|:-|", "|"); assert m["matchStrings"][0] != s; m["description"] += " MUTANT-NO-DEFAULT"'
+
+mutant_rejected "gitleaks capture stops at N.N" \
+  'renovate: gitleaks pin [^ ]+ at (\.github/workflows/ci\.yaml|hack/install-gitleaks\.sh):[0-9]+ is extracted by no custom manager' \
+  'MUTANT-SHORT' "${RJ}" \
+  rj 'm = mgr("gitleaks/gitleaks"); s = m["matchStrings"][0]; m["matchStrings"][0] = s.replace("[0-9]+\\.[0-9]+\\.[0-9]+", "[0-9]+\\.[0-9]+"); assert m["matchStrings"][0] != s; m["description"] += " MUTANT-SHORT"'
+
+# Extracted under another name, the site is looked up and grouped as another tool.
+mutant_rejected "gitleaks extracted under another depName" \
+  'renovate: gitleaks pin [^ ]+ at [^ ]+ is extracted by no custom manager as gitleaks/gitleaks' \
+  'zricethezav/gitleaks' "${RJ}" \
+  rj 'mgr("gitleaks/gitleaks")["depNameTemplate"] = "zricethezav/gitleaks"'
+
+mutant_rejected "golangci-lint disabled by a rule" \
+  'renovate: golangci-lint pin [^ ]+ at [^ ]+ is extracted by no custom manager' \
+  'mutant-disabled' "${RJ}" \
+  rj 'cfg["packageRules"].insert(rule("go toolchain"), {"description": "mutant-disabled", "matchDepNames": ["golangci/golangci-lint"], "enabled": False})'
+
+mutant_rejected "golangci-lint sites in different groups" \
+  'renovate: golangci-lint sites are not in one group \(Makefile:[0-9]+ in .golangci split.; hack/tooling/\.custom-gcl\.yml:[0-9]+ in .pinned build tools.\)' \
+  'golangci split' "${RJ}" \
+  rj 'cfg["packageRules"].insert(rule("go toolchain"), {"matchFileNames": ["Makefile"], "groupName": "golangci split"})'
+
+# No groupName at all: each depName gets its own branch, so shellcheck's two depNames split.
+mutant_rejected "pinned build tools rule removed (no group)" \
+  "renovate: [a-z-]+ sites are not in one group \\([^)]*in '-'" \
+  '!"groupName": "pinned build tools"' "${RJ}" \
+  rj 'del cfg["packageRules"][rule("pinned build tools")]'
+
+mutant_rejected "shellcheck group rule removed" \
+  "renovate: shellcheck shares the group 'pinned build tools' with " \
+  '!"groupName": "shellcheck"' "${RJ}" \
+  rj 'del cfg["packageRules"][rule("shellcheck")]'
+
+# Order: the shellcheck rule before "pinned build tools" loses (the last matching groupName wins).
+mutant_rejected "shellcheck group rule before pinned build tools" \
+  "renovate: shellcheck shares the group 'pinned build tools' with " \
+  'MUTANT-MOVED' "${RJ}" \
+  rj 'r = cfg["packageRules"].pop(rule("shellcheck")); r["description"] = "MUTANT-MOVED"; cfg["packageRules"].insert(rule("pinned build tools"), r)'
+
+# Shapes the model cannot evaluate fail closed.
+mutant_rejected "group rule that depends on the update type" \
+  'renovate: renovate\.json packageRules\[[0-9]+\] cannot be evaluated for golangci/golangci-lint .*depends on the update type' \
+  'golangci majors' "${RJ}" \
+  rj 'cfg["packageRules"].insert(rule("go toolchain"), {"matchDepNames": ["golangci/golangci-lint"], "matchUpdateTypes": ["major"], "groupName": "golangci majors"})'
+
+mutant_rejected "matcher the model does not implement" \
+  'renovate: renovate\.json packageRules\[[0-9]+\] cannot be evaluated for .*matcher matchCurrentVersion is not modelled' \
+  'matchCurrentVersion' "${RJ}" \
+  rj 'cfg["packageRules"].insert(rule("go toolchain"), {"matchCurrentVersion": "<1.0.0", "groupName": "old"})'
+
+mutant_rejected "manager key the model does not implement" \
+  'renovate: customManagers\[[0-9]+\] "Helm release versions[^"]*" \(renovate\.json:[0-9]+\) cannot be evaluated: keys fileMatch are not modelled' \
+  '"fileMatch"' "${RJ}" \
+  rj 'mgr("helm/helm")["fileMatch"] = ["x"]'
+
+mutant_rejected "lookbehind in a matchString (not RE2)" \
+  'renovate: customManagers\[[0-9]+\] "Helm release versions[^"]*" \(renovate\.json:[0-9]+\) cannot be evaluated: lookaround .\(\?<=. is not RE2' \
+  '\(\?<=HELM\)' "${RJ}" \
+  rj 'm = mgr("helm/helm"); m["matchStrings"][0] = "(?<=HELM)" + m["matchStrings"][0]'
+
+mutant_rejected "lookahead in a matchString (not RE2)" \
+  'renovate: customManagers\[[0-9]+\] "Helm release versions[^"]*" \(renovate\.json:[0-9]+\) cannot be evaluated: lookaround .\(\?=v. is not RE2' \
+  '\(\?=v' "${RJ}" \
+  rj 'm = mgr("helm/helm"); m["matchStrings"][0] = "(?=v)" + m["matchStrings"][0]'
+
+mutant_rejected "backreference in a matchString (not RE2)" \
+  'renovate: customManagers\[[0-9]+\] "Helm release versions[^"]*" \(renovate\.json:[0-9]+\) cannot be evaluated: backreference .\\\\1. is not RE2' \
+  'MUTANT-BACKREF' "${RJ}" \
+  rj 'm = mgr("helm/helm"); m["matchStrings"][0] = "(H)\\1?" + m["matchStrings"][0]; m["description"] += " MUTANT-BACKREF"'
+
+mutant_rejected "named backreference in a matchString (not RE2)" \
+  'renovate: customManagers\[[0-9]+\] "Helm release versions[^"]*" \(renovate\.json:[0-9]+\) cannot be evaluated: construct .\(\?P=. is not RE2' \
+  'MUTANT-NAMED-BACKREF' "${RJ}" \
+  rj 'm = mgr("helm/helm"); m["matchStrings"][0] = "(?P<h>H)?(?P=h)?" + m["matchStrings"][0]; m["description"] += " MUTANT-NAMED-BACKREF"'
+
+mutant_rejected "atomic group in a matchString (not RE2)" \
+  'renovate: customManagers\[[0-9]+\] "Helm release versions[^"]*" \(renovate\.json:[0-9]+\) cannot be evaluated: construct .\(\?>. is not RE2' \
+  'MUTANT-ATOMIC' "${RJ}" \
+  rj 'm = mgr("helm/helm"); m["matchStrings"][0] = "(?>H)?" + m["matchStrings"][0]; m["description"] += " MUTANT-ATOMIC"'
+
+mutant_rejected "possessive quantifier in a matchString (not RE2)" \
+  'renovate: customManagers\[[0-9]+\] "Helm release versions[^"]*" \(renovate\.json:[0-9]+\) cannot be evaluated: possessive quantifier .\?\+. is not RE2' \
+  'MUTANT-POSSESSIVE' "${RJ}" \
+  rj 'm = mgr("helm/helm"); m["matchStrings"][0] = "H?+" + m["matchStrings"][0]; m["description"] += " MUTANT-POSSESSIVE"'
+
+mutant_rejected "template helper in autoReplaceStringTemplate" \
+  'renovate: customManagers\[[0-9]+\] "Helm release versions[^"]*" \(renovate\.json:[0-9]+\) cannot be evaluated: autoReplaceStringTemplate template .* uses a helper' \
+  'MUTANT-HELPER' "${RJ}" \
+  rj 'm = mgr("helm/helm"); m["autoReplaceStringTemplate"] = "{{#if depName}}x{{/if}}"; m["description"] += " MUTANT-HELPER"'
+
+# `+` after `*` inside a character class is a literal, not a possessive quantifier.
+control_passes "character class holding quantifier characters" \
+  'MUTANT-CLASS' "${RJ}" \
+  rj 'm = mgr("helm/helm"); m["matchStrings"][0] = "[*+]?" + m["matchStrings"][0]; m["description"] += " MUTANT-CLASS"'
+
+# A renovate.json the model cannot walk (customManagers as an object) fails with the model's
+# error, not as thirty uncovered sites.
+mutant_rejected "renovate.json the model cannot walk" \
+  'renovate: the renovate\.json model failed \(.*Error' \
+  '"customManagers": \{' "${RJ}" \
+  rj 'cfg["customManagers"] = {"x": cfg["customManagers"][0]}'
+
+mutant_rejected "custom managers left out of enabledManagers" \
+  'renovate: renovate\.json enabledManagers leaves out custom\.regex' \
+  '"enabledManagers"' "${RJ}" \
+  rj 'cfg["enabledManagers"] = ["gomod"]'
+
+# renovate.json writes a newline in a matchString both ways (the regex escape `\\n` at the go-task
+# manager's first string, a JSON newline in its second); the model reads both as Renovate does.
+control_passes "matchString newline written as a JSON newline" \
+  'MUTANT-JSON-NEWLINE' "${RJ}" \
+  rj 'm = mgr("go-task/task"); m["matchStrings"][0] = m["matchStrings"][0].replace("\\n", "\n"); m["description"] += " MUTANT-JSON-NEWLINE"; assert "\\n" not in m["matchStrings"][0]'
 
 # --- DTP-7 wiring: the meta-test in the copy must notice an unwired guard ---
 GATE="hack/test/ci_workflow_security_test.sh"

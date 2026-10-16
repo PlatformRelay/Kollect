@@ -36,25 +36,72 @@
     },
     {
       "customType": "regex",
-      "description": "Pinned gitleaks release download in CI",
-      "managerFilePatterns": ["/^\\.github/workflows/ci\\.yaml$/"],
+      "description": "gitleaks: the GITLEAKS_VERSION env and installer default (written without a v) and the pre-commit rev (written with one). The value is captured without the v and releases are read without it, so each site keeps its own form. hack/test/consistency_toolchain_pins_test.sh (DTP-4) checks every site is extracted.",
+      "managerFilePatterns": [
+        "/^\\.github/(actions|workflows)/.+\\.ya?ml$/",
+        "/^hack/install-gitleaks\\.sh$/",
+        "/^\\.pre-commit-config\\.yaml$/"
+      ],
       "matchStrings": [
-        "releases/download/v[0-9.]+/gitleaks_(?<currentValue>[0-9.]+)_linux_x64\\.tar\\.gz"
+        "GITLEAKS_VERSION(?:: \"?|:-|=)(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)",
+        "repo: [\"']?https://github\\.com/gitleaks/gitleaks(?:\\.git)?[\"']?\\n\\s+rev: [\"']?v(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)[\"']?\\n"
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "gitleaks/gitleaks",
-      "autoReplaceStringTemplate": "releases/download/v{{{newValue}}}/gitleaks_{{{newValue}}}_linux_x64.tar.gz"
+      "extractVersionTemplate": "^v?(?<version>.+)$"
     },
     {
       "customType": "regex",
-      "description": "Pinned ShellCheck release download in CI",
-      "managerFilePatterns": ["/^\\.github/workflows/ci\\.yaml$/"],
+      "description": "ShellCheck: the SHELLCHECK_VERSION env and installer default. Its bump PR stays red until hack/install-shellcheck.sh's pinned_sha256 table has the new digests (the intended manual step), so the shellcheck rule below keeps it out of every other group.",
+      "managerFilePatterns": [
+        "/^\\.github/(actions|workflows)/.+\\.ya?ml$/",
+        "/^hack/install-shellcheck\\.sh$/"
+      ],
       "matchStrings": [
-        "releases/download/v[0-9.]+/shellcheck-v(?<currentValue>[0-9.]+)\\.linux\\.x86_64\\.tar\\.xz"
+        "SHELLCHECK_VERSION(?:: \"?|:-|=)(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "koalaman/shellcheck",
-      "autoReplaceStringTemplate": "releases/download/v{{{newValue}}}/shellcheck-v{{{newValue}}}.linux.x86_64.tar.xz"
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "ShellCheck for pre-commit: the shellcheck-py rev (four components; the fourth is the wrapper's packaging revision). Tracked as its own tag so the bot writes a rev that exists; grouped with koalaman/shellcheck by the shellcheck rule below.",
+      "managerFilePatterns": ["/^\\.pre-commit-config\\.yaml$/"],
+      "matchStrings": [
+        "repo: [\"']?https://github\\.com/shellcheck-py/shellcheck-py(?:\\.git)?[\"']?\\n\\s+rev: [\"']?(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)[\"']?\\n"
+      ],
+      "datasourceTemplate": "github-tags",
+      "depNameTemplate": "shellcheck-py/shellcheck-py",
+      "versioningTemplate": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "git-cliff outside Taskfile.yml: the orhun/git-cliff-action version input (the github-actions manager bumps the action, not the binary it installs) and the install-git-cliff.sh call in verify-changelog.sh. Same depName as the Taskfile pin, so all three land in one group.",
+      "managerFilePatterns": [
+        "/^\\.github/(actions|workflows)/.+\\.ya?ml$/",
+        "/^hack/verify-changelog\\.sh$/"
+      ],
+      "matchStrings": [
+        "uses: orhun/git-cliff-action@[^#\\n]+(?:#[^\\n]+)?\\n\\s+with:\\n\\s+version: (?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)",
+        "install-git-cliff\\.sh (?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "orhun/git-cliff"
+    },
+    {
+      "customType": "regex",
+      "description": "golangci-lint: Makefile GOLANGCI_LINT_VERSION and the custom build's version in hack/tooling/.custom-gcl.yml, one depName so they move together.",
+      "managerFilePatterns": [
+        "/^Makefile$/",
+        "/^hack/tooling/\\.custom-gcl\\.yml$/"
+      ],
+      "matchStrings": [
+        "\\nGOLANGCI_LINT_VERSION \\?= (?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)\\n",
+        "(?:^|\\n)version: (?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)\\n"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "golangci/golangci-lint"
     },
     {
       "customType": "regex",
@@ -131,6 +178,11 @@
       "description": "Keep every Helm pin on one version. The azure/setup-helm input in release.yaml is seen by the github-actions manager while the annotated HELM_VERSION pins are seen by the custom manager, so without this they land in different groups and drift apart -- which is exactly how release.yaml reached v3.21.4 while CI stayed on v3.17.3. Both resolve to depName helm/helm.",
       "matchDepNames": ["helm/helm"],
       "groupName": "helm"
+    },
+    {
+      "description": "ShellCheck in a group of its own: its bump PR is red until hack/install-shellcheck.sh gets the new digests, and must hold back no other tool. After 'pinned build tools' (a later groupName wins), before 'go toolchain' (which stays last).",
+      "matchDepNames": ["koalaman/shellcheck", "shellcheck-py/shellcheck-py"],
+      "groupName": "shellcheck"
     },
     {
       "description": "Hold cel-go below 0.32. v0.32.0 renamed its module path to cel.dev/cel-go, and k8s.io/apiserver still imports github.com/google/cel-go, so taking it is a module migration, not a bump. Revisit together with the k8s.io modules once a k8s.io release imports cel.dev/cel-go.",
