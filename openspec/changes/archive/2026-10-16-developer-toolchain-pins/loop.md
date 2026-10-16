@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: hand-off — integrator: pr-description.md, scrub, push, ready PR, all checks green by headSha, rebase-merge, close #442; then archive PR
+Next: none
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -13,7 +13,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 - [x] R spec-set review — `reviews/R-spec-set/` (b3fd2d944) on 9621c98aa: astra REQUEST CHANGES, claude/opus CONCERNS; no CRITICAL; 11 WARNING + 6 NOTE all verified; fixes applied faa6754fd (R2 placement deviation: lint wiring lands with 1.1 because CFC-6 reds an unwired consistency_* guard; R9 mutants in 2.2)
 - [x] L task loop — 1.1–4.3 closed (5.1 archive is post-merge)
 - [x] B branch review — round 1 `reviews/B-branch/round-1/` (650d7c765): task check exit 0 (1528 s), vulncheck 0; astra REQUEST_CHANGES (B1 P1), opus CONCERNS; no spec row contradicted/absent; fixes → G6; round 2 `reviews/B-branch/round-2/` (b1b54080f): task check exit 0 (1224 s); all 11 G6 commits pass per-commit gate; astra BLOCK, opus CONCERNS (DTP-1..7 hold). Rounds 2/2
-- [ ] Hand-off
+- [x] Hand-off — PR #465 merged (rebase, merge 7ced03a7e); #442 closed; Verification rows filled and change archived in a follow-up evidence PR
 
 ## Fitness functions
 
