@@ -41,8 +41,8 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
 # The digest comes from the release's checksums.txt (`<sha256>  <asset>` per asset) and is in hand
-# before the tarball is fetched; a failed checksum fetch stops here, so nothing is ever installed
-# unverified.
+# before the tarball is fetched; a failed checksum fetch stops here. Like git-cliff's, it catches a
+# corrupted or swapped download, not a compromised release.
 fetch_to "${base_url}/checksums.txt" "${tmpdir}/checksums.txt" "helm-docs ${VERSION} checksums"
 expected="$(awk -v file="${asset}" '$2 == file {print $1}' "${tmpdir}/checksums.txt")"
 if [[ -z "${expected}" ]]; then

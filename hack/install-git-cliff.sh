@@ -39,7 +39,8 @@ trap 'rm -rf "${tmpdir}"' EXIT
 
 # Upstream publishes one `<sha512>  <asset>` file per asset and no SHA256, so this compares with
 # sha512sum rather than verify_sha256. The digest is in hand before the tarball is fetched, and a
-# failed checksum fetch stops here: nothing is ever installed unverified.
+# failed checksum fetch stops here. The checksum comes from the same release as the tarball, so it
+# catches a corrupted or swapped download, not a compromised release.
 fetch_to "${url}.sha512" "${tmpdir}/${asset}.sha512" "git-cliff ${VERSION} checksum"
 expected="$(awk -v file="${asset}" '$2 == file || $2 == "*" file {print $1}' "${tmpdir}/${asset}.sha512")"
 if [[ ! "${expected}" =~ ^[0-9a-f]{128}$ ]]; then
