@@ -198,7 +198,7 @@ argument per line, so argument boundaries survive.
 
 ## 5. Proof and wiring (CFR-7)
 
-- [ ] 5.1 Add `--self-test` to `hack/test/ci_failure_report_test.sh`, mutating copies, each judged
+- [ ] 5.1 Add `--self-test` to `hack/test/ci_failure_report_test.sh`, mutating copies, each judged; also assert the 4000-byte line cut happens (`[line cut]` present) with a cut-removed mutant (deferred from G2, its mutant M20 survived)
   by exit status and the message of the assertion it targets, plus a no-op control:
   - recovery branch removed: the pass-after-fail case reds;
   - label-and-author lookup reduced to title or label: the spoofed-issue case reds;
