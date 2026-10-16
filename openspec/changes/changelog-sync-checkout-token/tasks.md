@@ -2,10 +2,11 @@
 
 ## 1. Probe (assumption in proposal.md)
 
-- [ ] 1.1 Read `.github/workflows/changelog-sync.yaml` end to end and record, with line numbers, how
+- [x] 1.1 Read `.github/workflows/changelog-sync.yaml` end to end and record, with line numbers, how
   the `sync` job pushes and whether any step after the checkout relies on the checkout's
   credentials. If removing `token:` would break the push, stop: the change is BLOCKED.
-  Evidence: `evidence/T1.1.md`.
+  Evidence: `evidence/T1.1.md`. — closed 2026-10-16: not blocked; the push sets its own
+  extraheader from `APP_TOKEN` and no later step uses checkout credentials
 
 ## 2. Guard first (CST-1, CST-2)
 
