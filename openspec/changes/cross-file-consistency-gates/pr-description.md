@@ -13,7 +13,7 @@ Paste everything below the line.
 
 ## TL;DR
 
-- **What:** five `hack/test/consistency_*` / patch-lag guards, each with a `--self-test`, wired into `lint` and `task check`; `go.mod` bumped to Go 1.27.2 with the analysis tools that break under it; a new required job `tool-pins-selftest`; a weekly `go-patch-lag` workflow.
+- **What:** five `hack/test/consistency_*` / patch-lag guards plus an openspec evidence guard, each with a `--self-test`, wired into `lint` and `task check`; `go.mod` bumped to Go 1.27.2 with the analysis tools that break under it; a new required job `tool-pins-selftest`; a weekly `go-patch-lag` workflow.
 - **Why:** facts that live in two files (Go version, tool pins, chart RBAC vs `role.yaml`, metric names) drifted silently; the shipped binary was built with Go 1.27.2 while tests and govulncheck ran on 1.26.9.
 - **Risk:** the new guards are fail-closed and run in required jobs, so a guard bug blocks every PR until fixed.
 - **Reviewer action:** check the CI wiring and the RBAC exceptions file (a trust boundary); approving means accepting Go 1.27.2 as the module's Go.
@@ -28,6 +28,7 @@ Closes #441.
 - **New required job `tool-pins-selftest`** (45 min timeout, listed in `hack/release/verify-eligibility.sh`). It is separate from `lint` because the tool-pins self-test builds every pinned tool and takes about 5 min locally. It has to be added to the `protect-main` ruleset **after** this merges, because before the merge no PR on main can report it.
 - **CFC-1 fails on any `$` in a `FROM` image.** No variable image is parsed around, `golang:` included. A comment line inside a `FROM \` continuation is skipped the way BuildKit skips it.
 - **CFC-3 RBAC exceptions are a closed list.** `hack/test/testdata/consistency-rbac-exceptions.txt` holds 37 tenant-mode exceptions, each mode-scoped with a closed reason class. Workload reads are exempt per team-operator.md §3 (operator ruling A, 2026-10-15). There is no drift in default mode.
+- **Evidence stays Markdown-only.** Probe scripts under `openspec/changes/**/evidence/` were analysed by SonarCloud as uncovered new code and failed its quality gate. They are now inlined into the evidence `.md` files, and a new guard, `hack/test/openspec_evidence_markdown_only_test.sh` (plain and `--self-test`, run in `lint`), keeps that directory Markdown-only. `sonar.exclusions` stays as it was.
 - **Real drift fixed:** five registered metrics were missing from `docs/operator-manual/metrics.md` (docs-only commit).
 
 ## Risk
@@ -39,8 +40,9 @@ Closes #441.
 
 ## Files to look at first
 
-- `.github/workflows/ci.yaml`: 10 new lint steps plus the new job `tool-pins-selftest`.
+- `.github/workflows/ci.yaml`: 12 new lint steps plus the new job `tool-pins-selftest`.
 - `hack/test/ci_workflow_security_test.sh`: new CFC-6 rule that fails on an unwired guard. This changes what green means for CI wiring.
+- `hack/test/openspec_evidence_markdown_only_test.sh`: new guard that fails on any non-Markdown file under openspec evidence.
 - `hack/test/testdata/consistency-rbac-exceptions.txt`: 37 tenant exceptions (trust boundary: RBAC).
 - `.github/workflows/go-patch-lag.yaml` + `hack/ci/go-patch-lag.sh`: new scheduled sensor with network access, `contents: read`, fails closed.
 - `internal/metrics/metrics_test.go`: `TestRegister` now uses `registerOnce`, because a second `Register` panics.
@@ -54,7 +56,7 @@ Closes #441.
 
 - [x] Locally: `task lint`, `task test` (under 1.27.2), `task vulncheck`, `task spec:validate`, `task lint:markdown`, each guard plain and with `--self-test`.
 - [x] Scrub grep and `gitleaks detect` over `origin/main..HEAD` clean.
-- [ ] Every check on the PR head SHA is green, including `lint` (all ten new steps appear in its log) and `tool-pins-selftest` (10-20 min expected).
+- [ ] Every check on the PR head SHA is green, SonarCloud Code Analysis included, as are `lint` (all twelve new steps appear in its log) and `tool-pins-selftest` (10-20 min expected).
 - [ ] Rebase-merge: `gh pr merge <n> --rebase --delete-branch`.
 - [ ] Right after merge: add `tool-pins-selftest` (integration_id 15368) to ruleset 18802410, then read it back and diff against the backup. Only that context may differ.
 - [ ] `gh workflow run go-patch-lag.yaml --ref main`; it must finish `success` while go.mod is on the current 1.27 patch. A red run with "lookup failed" means go.dev was unreachable, not lag.
