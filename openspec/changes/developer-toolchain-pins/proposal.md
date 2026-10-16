@@ -10,15 +10,20 @@ against `main` at 966e17e10 (change 4, cross-file-consistency-gates, merged):
 | Task | 3.51.1 | 18 `version:` inputs (17 in `.github/workflows/*`, 1 in `.github/actions/kind-e2e-setup/action.yml`), plus `mise.toml:54` (`task = "3.51.1"`) |
 | govulncheck | v1.9.0 | inline in `Taskfile.yml:204`, no variable, no Renovate annotation |
 | gitleaks | 8.30.1 | `ci.yaml:164` env, `hack/install-gitleaks.sh:14`, `.pre-commit-config.yaml:5` |
-| git-cliff | v2.13.1 | `Taskfile.yml:22` (annotated for Renovate) |
+| git-cliff | v2.13.1 | `Taskfile.yml:22` (annotated for Renovate), `release.yaml:420` (git-cliff-action `version:`), `hack/verify-changelog.sh:11` (fallback install) |
 | golangci-lint | v2.14.0 | `Makefile:184`, `hack/tooling/.custom-gcl.yml:6` |
+| shellcheck | 0.11.0 | `ci.yaml:299` env, `hack/install-shellcheck.sh:15` default (digest table at `:42-60` holds 0.11.0 only), `.pre-commit-config.yaml:56` (shellcheck-py `v0.11.0.1`) |
 
 The Renovate side is partly dead. Two custom managers match a `releases/download` URL that
 `ci.yaml` does not contain: the gitleaks one (`renovate.json:37-47`; the real pins are the env at
 `ci.yaml:164`, `hack/install-gitleaks.sh:14` and `.pre-commit-config.yaml:5`) and the shellcheck
 one (`renovate.json:48-58`; CI pins shellcheck through the env at `ci.yaml:299`). Nothing matches
-`Makefile:184` or `hack/tooling/.custom-gcl.yml:6`, and Renovate's `pre-commit` manager is off by
-default. A manager that matches nothing is silent and looks like "nothing to update".
+`Makefile:184`, `hack/tooling/.custom-gcl.yml:6`, `release.yaml:420` or `hack/verify-changelog.sh:11`,
+and Renovate's `pre-commit` manager is off by default. A manager that matches nothing is silent and
+looks like "nothing to update". Every `custom.regex` dependency shares the "pinned build tools"
+group (`renovate.json:126-129`), so a live shellcheck manager that bumps `ci.yaml:299` alone would
+open a PR that is red (`install-shellcheck.sh` has no digest for the new version) and holds back
+every other tool in that group.
 
 `mise.toml` comments restate values that live elsewhere: helm v3.21.4 at `mise.toml:28` while
 `Taskfile.yml:31` pins v3.22.0, git-cliff and helm-docs versions at `:24`, `go 1.27.2` at `:39`,
@@ -34,8 +39,10 @@ auto-merge change must not widen.
 ## What Changes
 
 - Task to 3.52.0 at every site; govulncheck behind one Taskfile variable `GOVULNCHECK_VERSION`
-  (Renovate-annotated, value unchanged unless a bot moves it); gitleaks kept in agreement at its
-  floor, git-cliff at its floor.
+  (Renovate-annotated on the `go` datasource, value unchanged unless a bot moves it); gitleaks and
+  git-cliff kept in agreement across their three sites each, at their floors; shellcheck's three
+  sites kept in agreement, with the guard red when the installer's digest table lacks the pinned
+  version.
 - **Pin ownership (decision A, 2026-10-16, pending operator validation):** golangci-lint and
   govulncheck get no floor and no agreement check here. Change 4's CFC-2
   (`hack/test/consistency_tool_pins_test.sh`) already smoke-runs each analysis tool under
@@ -45,17 +52,26 @@ auto-merge change must not widen.
 - The drift checks assert that all sites of a tool agree AND are at least the floor, never exact
   values (bot bumps that move every site together stay green).
 - Renovate managers: replace the dead gitleaks and shellcheck managers with ones that match the
-  real pins; add managers for `Makefile`, `.custom-gcl.yml`, `.pre-commit-config.yaml` and
-  `hack/install-gitleaks.sh`; a check fails when a manager matches no file or a pin site is matched
-  by none.
+  real pins; add managers for `Makefile`, `.custom-gcl.yml`, `.pre-commit-config.yaml`,
+  `hack/install-gitleaks.sh`, `hack/install-shellcheck.sh`, the `release.yaml` git-cliff input and
+  `hack/verify-changelog.sh`; shellcheck gets a group of its own, so its digest-gated bumps hold
+  back no other tool; a check fails when a manager matches no file, a pin site is matched by none,
+  or one tool's sites land in different groups.
+- git-cliff's two extra sites stay literal and join the agreement check rather than reading the
+  Taskfile variable: `release.yaml:420` is an action input that cannot read a Taskfile variable, so
+  a three-site agreement check and a manager are needed anyway, and `verify-changelog.sh` also runs
+  outside `task`, where reading the variable would need a Taskfile parse in bash.
 - `mise.toml`: Go stays out of `[tools]` (already true and already checked); its comments stop
   restating versions and site counts.
 - `install-git-cliff.sh` verifies the per-asset `.sha512` with `sha512sum`; `install-helm-docs.sh`
-  verifies against `checksums.txt`. Both leave `UNVERIFIED_BY_DESIGN`, which only shrinks.
+  verifies against `checksums.txt`. Both leave `UNVERIFIED_BY_DESIGN`, which only shrinks; once it
+  is empty, the new guard reds on any entry.
 - **Guard shape (decision C, 2026-10-16, pending operator validation):** the checks live in a new
   `hack/test/consistency_toolchain_pins_test.sh` (plain and `--self-test`). CFC-6 in
   `hack/test/ci_workflow_security_test.sh` enrols every `consistency_*_test.sh` and requires both
-  modes in a required job, so the wiring is enforced without a self-wiring check.
+  modes in a required job, so the wiring is enforced without a self-wiring check. The static
+  installer-checksum scan stays in `hack/test/ci_fetch_lib_hardening_test.sh`, which owns it; the
+  installer execution tests go in the new guard's `--self-test`.
   `hack/test/dev_mise_pin_drift_test.sh` (DEV-MISE-01) is folded into it, mutant for mutant, and
   deleted together with its `ci.yaml` step.
 
@@ -73,8 +89,9 @@ None.
 ## Impact
 
 - Entry points: `Taskfile.yml`, `mise.toml`, `.github/workflows/*`, `.github/actions/*`,
-  `renovate.json`, `hack/install-git-cliff.sh`, `hack/install-helm-docs.sh`, the new guard run in
-  the `lint` job, and `task check`.
+  `renovate.json`, `hack/install-git-cliff.sh`, `hack/install-helm-docs.sh`,
+  `hack/verify-changelog.sh`, `docs/development/setup.md`, the new guard run in the `lint` job, and
+  `task check`.
 - Test changes on guards this change does not own: CFC-2's govulncheck mutants in
   `hack/test/consistency_tool_pins_test.sh` (change 4), the checksum scan and
   `UNVERIFIED_BY_DESIGN` in `hack/test/ci_fetch_lib_hardening_test.sh`, and the CWS-6 mutant at
@@ -99,7 +116,7 @@ unwired. Changes 2 and 3 are archived. The installer checksums are a hard prereq
 - Floors or agreement for golangci-lint and govulncheck (CFC-2 owns them), the Go version
   (change 4), the `task check` entry point (change 2).
 - Tool versions not listed: helm, shellcheck, polaris, kubeaudit and kind keep their pins
-  (shellcheck only gets a live manager).
+  (shellcheck gets a live manager, its own group and a site-agreement check, but no floor).
 
 ## Assumptions
 
