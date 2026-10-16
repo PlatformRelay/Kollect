@@ -159,7 +159,9 @@ scan_pins() {
       if [[ "${ver}" =~ ^\{\{\.([A-Za-z0-9_]+)\}\}$ && "${file}" == "Taskfile.yml" ]]; then
         var="${BASH_REMATCH[1]}"
         ver="$(taskfile_var "${root}" "${var}")"
-        [[ -n "${ver}" ]] || ver="<unresolved:{{.${var}}}>"
+        # The variable must hold a version, as a literal must: `latest` (or a branch) through
+        # a variable is the same floating pin that `@latest` is.
+        [[ "${ver}" =~ ^v[0-9] ]] || ver="<unresolved:{{.${var}}}=${ver:-<empty>}>"
       elif [[ ! "${ver}" =~ ^v[0-9] ]]; then
         ver="<unresolved:${ver}>"
       fi
@@ -499,6 +501,13 @@ mutant_rejected "unresolvable pin (version typo)" \
   "golang.org/x/vuln/cmd/govulncheck@v1.9.99 cannot be resolved by go mod download" \
   'GOVULNCHECK_VERSION: v1\.9\.99' Taskfile.yml \
   sed -i -E 's/^(  GOVULNCHECK_VERSION: )v[0-9.]+/\1v1.9.99/' Taskfile.yml
+
+# A Taskfile variable resolving to `latest` floats exactly like a literal @latest (the old reader
+# resolved it with go mod download and passed).
+mutant_rejected "Taskfile pin variable set to latest" \
+  "golang.org/x/vuln/cmd/govulncheck@<unresolved:{{.GOVULNCHECK_VERSION}}=latest> -- the version is not a literal" \
+  '^  GOVULNCHECK_VERSION: latest$' Taskfile.yml \
+  sed -i -E 's/^(  GOVULNCHECK_VERSION: )v[0-9.]+/\1latest/' Taskfile.yml
 
 mutant_rejected "package path typo in a real module" \
   "golang.org/x/vuln/cmd/govulncheckk@" 'govulncheckk@' Taskfile.yml \
