@@ -560,9 +560,12 @@ jobs:
       # runs the Renovate-annotated GOVULNCHECK_VERSION, and the installer-checksum exemptions
       # only shrink. DEV-MISE-01: mise.toml pins task, its
       # node/python equal every setup-node/setup-python pin under .github/ and Go stays read from
-      # go.mod (nothing else manages the node/python inputs, so this comparison is the only thing
-      # that would notice). DTP-5: a mise.toml or Taskfile.yml comment states a version only
-      # directly above (or on) the pin it names, at its value, and never counts pin sites.
+      # go.mod. Renovate's github-actions manager extracts those node/python inputs too, but a
+      # renovate.json rule disables them (their bump would leave mise.toml behind and red this
+      # check), so they are bumped by hand and this comparison keeps mise.toml in step; the
+      # guard's Renovate model checks the rule. DTP-5: a mise.toml or Taskfile.yml comment states
+      # a version only directly above (or on) the pin it names, at its value, and never counts
+      # pin sites.
       # Its --self-test (DTP-7) runs in the tool-pins-selftest job below.
       - name: Verify Task, gitleaks, git-cliff, shellcheck, govulncheck and mise.toml pins agree (DTP-1, DTP-2, DTP-3, DTP-5, DTP-6, DEV-MISE-01)
         run: bash hack/test/consistency_toolchain_pins_test.sh

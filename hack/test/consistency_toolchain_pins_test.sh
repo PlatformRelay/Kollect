@@ -57,8 +57,10 @@
 #     golangci-lint pins must be plain vN.N.N), each tool's sites resolve to one groupName (the
 #     last matching packageRule wins), and shellcheck's and golangci-lint's groups each hold
 #     nothing else (a shellcheck bump is red until its digests are added, a golangci-lint bump
-#     often on new findings). python3 evaluates renovate.json itself; shapes it does not
-#     model (RE2-foreign regex syntax included) fail.
+#     often on new findings), and the github-actions manager's node-version/python-version
+#     inputs (depType uses-with) are disabled, because their bump would land in the
+#     "github actions" group without mise.toml and red it on DEV-MISE-01. python3 evaluates
+#     renovate.json itself; shapes it does not model (RE2-foreign regex syntax included) fail.
 # Lines whose first non-blank character is `#` are comments and never count as a site.
 #
 # --self-test (DTP-7) copies the tracked tree once per case, breaks one clause, and asserts the
@@ -819,12 +821,61 @@ for i, m in enumerate(cfg.get("customManagers", [])):
     except (ValueError, re.error) as e:
         err("%s cannot be evaluated: %s" % (label, e))
 
-# What each matcher compares for a custom regex dependency (None: never set, so never matches).
-MATCHERS = {"matchManagers": lambda d: "custom.regex", "matchDepNames": lambda d: d["depName"],
+# The node-version / python-version inputs the built-in github-actions manager extracts (Renovate
+# 44.115.4 known-actions/github-releases.ts: depType uses-with). Their bump would land in the
+# "github actions" group without mise.toml, which DEV-MISE-01 compares them with, so it must stay
+# disabled. Modelled line by line: a `uses:` of the action, then that step's `with:` mapping.
+GA_FILES = [r"(^|/)(workflow-templates|\.(?:github|gitea|forgejo)/(?:workflows|actions))/.+\.ya?ml$",
+            r"(^|/)action\.ya?ml$"]
+KNOWN = {"actions/setup-node": ("node", "actions/node-versions", "node-version"),
+         "actions/setup-python": ("python", "actions/python-versions", "python-version")}
+def indent(l):
+    return len(l) - len(l.lstrip(" "))
+def plain(l):
+    return l.strip() and not l.strip().startswith("#")
+uw = []
+for f in files:
+    if not any(re.search(p, f) for p in GA_FILES):
+        continue
+    try:
+        lines = open(root + "/" + f, encoding="utf-8").read().split("\n")
+    except (OSError, UnicodeDecodeError):
+        continue
+    for i, l in enumerate(lines):
+        m = re.match(r"^( *)(- +)?uses: *[\"']?([^\s\"'#]+)", l)
+        if not m:
+            continue
+        act = [k for k in KNOWN if re.search(r"(?:https?://[^/]+/)?" + re.escape(k) + r"(?:@.+)?$", m.group(3))]
+        if not act:
+            continue
+        dep, pkg, key = KNOWN[act[0]]
+        col = len(m.group(1)) + len(m.group(2) or "")
+        start = i
+        while not m.group(2) and start > 0 and not re.match(r"^ {%d}- " % (col - 2), lines[start]):
+            start -= 1
+        end = i + 1
+        while end < len(lines) and (not plain(lines[end]) or indent(lines[end]) >= col):
+            end += 1
+        w = [j for j in range(start, end) if re.match(r"^(?: {%d}| {%d}- +)with: *(#.*)?$" % (col, col - 2), lines[j])]
+        for j in w:
+            k = j + 1
+            while k < end and (not plain(lines[k]) or indent(lines[k]) > col):
+                v = re.match(r"^ *" + re.escape(key) + r": *(.*)$", lines[k])
+                if v and indent(lines[k]) > col:
+                    val = re.sub(r"\s+#.*$", "", v.group(1)).strip().strip("\"'")
+                    if val:
+                        uw.append(dict(file=f, line=k + 1, currentValue=val, depName=dep, packageName=pkg,
+                                       datasource="github-releases", mgrname="github-actions",
+                                       depType="uses-with", action=act[0], key=key))
+                k += 1
+
+# What each matcher compares for a dependency (None: never set, so never matches). Custom regex
+# dependencies have no depType.
+MATCHERS = {"matchManagers": lambda d: d.get("mgrname", "custom.regex"), "matchDepNames": lambda d: d["depName"],
             "matchPackageNames": lambda d: d["packageName"], "matchFileNames": lambda d: d["file"],
-            "matchDatasources": lambda d: d["datasource"], "matchDepTypes": lambda d: None,
+            "matchDatasources": lambda d: d["datasource"], "matchDepTypes": lambda d: d.get("depType"),
             "matchUpdateTypes": None}
-for d in deps:
+for d in deps + uw:
     group, enabled = "", True
     for n, rule in enumerate(cfg.get("packageRules", [])):
         try:
@@ -846,9 +897,14 @@ for d in deps:
         except (ValueError, re.error) as e:
             err("renovate.json packageRules[%d] cannot be evaluated for %s (%s:%d): %s"
                 % (n, d["depName"], d["file"], d["line"], e))
-    if enabled:
+    if "depType" in d:
+        if enabled:
+            err("github-actions extracts %s %s at %s:%d (%s, depType uses-with) and would bump it in group '%s' without mise.toml -- DEV-MISE-01 reds that whole group PR; keep uses-with updates of node and python disabled"
+                % (d["key"], d["currentValue"], d["file"], d["line"], d["action"], group or "-"))
+    elif enabled:
         out.append("\t".join(["DEP", d["manager"], d["file"], str(d["line"]), d["currentValue"],
                               d["depName"], group or "-"]))
+out.append("UW\t%d" % len(uw))
 print("\n".join(out))
 PY
 )"
@@ -954,7 +1010,7 @@ check_managers() {
       break
     done <<<"${deps}"
   done
-  echo "renovate: $(grep -c '^DEP' <<<"${deps}" || true) custom-manager dependencies, $(grep -c . <<<"${COVER}") pin sites checked"
+  echo "renovate: $(grep -c '^DEP' <<<"${deps}" || true) custom-manager dependencies, $(grep -c . <<<"${COVER}") pin sites checked, $(awk -F'\t' '$1 == "UW" { print $2 }' <<<"${deps}") node/python uses-with inputs checked"
 }
 
 # --- DTP-2 govulncheck ---
@@ -1101,7 +1157,7 @@ check_all() {
 
 if [[ "${MODE}" == "check" ]]; then
   if check_all "${ROOT}"; then
-    pass "Task, gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, task vulncheck runs the annotated GOVULNCHECK_VERSION, UNVERIFIED_BY_DESIGN is within its limit, mise.toml agrees with every node/python pin in .github with Go read from go.mod, and no mise.toml or Taskfile.yml comment restates a version away from its pin, and every renovate.json custom manager is alive, covers every pin site and keeps each tool in one group (shellcheck and golangci-lint alone)"
+    pass "Task, gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, task vulncheck runs the annotated GOVULNCHECK_VERSION, UNVERIFIED_BY_DESIGN is within its limit, mise.toml agrees with every node/python pin in .github with Go read from go.mod, and no mise.toml or Taskfile.yml comment restates a version away from its pin, and every renovate.json custom manager is alive, covers every pin site and keeps each tool in one group (shellcheck and golangci-lint alone), and the github-actions manager leaves the node/python inputs alone"
     exit 0
   fi
   fail "toolchain pins disagree (listed above)"
@@ -2183,6 +2239,21 @@ mutant_rejected "golangci-lint group rule removed" \
   "renovate: golangci-lint shares the group 'pinned build tools' with " \
   '!"groupName": "golangci-lint"' "${RJ}" \
   rj 'del cfg["packageRules"][rule("golangci-lint")]'
+
+# DEV-MISE-01 x github-actions: the manager extracts setup-node/setup-python's node-version and
+# python-version (depType uses-with); without the rule that disables them, their bump lands in the
+# "github actions" group without mise.toml and the mise check reds that whole group PR.
+UW_RED="renovate: github-actions extracts (node|python)-version [^ ]+ at \\.github/workflows/[a-z-]+\\.yaml:[0-9]+ \\(actions/setup-(node|python), depType uses-with\\) and would bump it in group 'github actions' without mise\\.toml"
+mutant_rejected "node/python uses-with disable rule removed" \
+  "${UW_RED}" \
+  '!"uses-with"' "${RJ}" \
+  rj 'n = len(cfg["packageRules"]); cfg["packageRules"] = [r for r in cfg["packageRules"] if "uses-with" not in r.get("matchDepTypes", [])]; assert len(cfg["packageRules"]) == n - 1'
+
+# Order: a later rule that enables them wins (the last matching rule that sets a key wins).
+mutant_rejected "node/python uses-with re-enabled by a later rule" \
+  "${UW_RED}" \
+  'mutant-reenable' "${RJ}" \
+  rj 'cfg["packageRules"].append({"description": "mutant-reenable", "matchManagers": ["github-actions"], "matchDepNames": ["node", "python"], "enabled": True})'
 
 # Order: the shellcheck rule before "pinned build tools" loses (the last matching groupName wins).
 mutant_rejected "shellcheck group rule before pinned build tools" \
