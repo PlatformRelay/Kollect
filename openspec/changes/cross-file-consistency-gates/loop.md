@@ -1,7 +1,7 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: astra + claude (duo) — `/spec-loop-duo` from G3 on (operator, 2026-10-15); G1–G2 ran the earlier codex + claude/sonnet two-leg per-task sizing
-Next: hand-off — integrator: pr-description.md, scrub, push, ready PR, CI by headSha, rebase-merge; then protect-main += tool-pins-selftest, dispatch go-patch-lag, close #441; archive in a follow-up PR
+Next: integrator — push G9, PR #463 checks by headSha (SonarCloud must go green), rebase-merge, post-merge steps
 Budget: claude review legs 11/12 (cap lifted by operator goal 2026-10-16) (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
@@ -72,6 +72,7 @@ Holistic run at B: pending
 | G6 (6.1) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI), 2 rounds (r1 astra APPROVE / opus CONCERNS; r2 astra REQUEST_CHANGES / opus CONCERNS, all verified fixed); decision-A follow-up: astra only (L Claude legs exhausted; B opus covers it), APPROVE | 300801927, 3915645d4, 366dc0840; decision A (operator 2026-10-16): tool-pins self-test in its own unconditional job `tool-pins-selftest` (timeout 45 min, in verify-eligibility.sh required_checks) d770c56f3, b94b69066 (unique fixture module per run — G2 race fixed), 2a9b5b946. ci_workflow_security CFC-6 rule now fails on an unwired guard. Gaps: first CI run on PR head; add `tool-pins-selftest` to protect-main AFTER merge; runner runtimes estimated |
 | G7 (7.1–7.5) | CLOSED-WITH-GAPS | astra only, 2 rounds (r1 REQUEST_CHANGES: registry-port bypass, Register() untested — fixed; r2 REQUEST_CHANGES: `localhost:${B}` bypass — fixed unreviewed per cap, mutants) | a3880bc47..7d5a4d790. Any `$` in a FROM image fails; metrics registration proved via Describe + AlreadyRegisteredError; TestRegister now uses registerOnce (test change: double Register panics). Deferred to BACKLOG: `localhost:5000/golang:x` not recognised as golang; `go test -count=2 ./internal/metrics/` panics on base |
 | G8 (8.1–8.3) | CLOSED | none (post-round-2 behaviour fixes; cap) — mutants red-before/green-after; BuildKit `--check` probe for continuation semantics | d4b943806 (no golang exemption from `$` rule; test change: `golang:${GO_VERSION}` mutant sentinel), 4409d94dc (comment/blank lines in continuations, matches BuildKit), 5d01c4a0e (Verification table filled) |
+| G9 (Sonar) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI), 2 rounds (r1 astra REQUEST_CHANGES wording / opus CONCERNS unwired guard → fixed; r2 astra APPROVE / opus CONCERNS fixed) | PR #463 SonarCloud gate red on evidence probe scripts (coverage 6.4%, security C). Model-aligned decision B (astra+opus agree; decisions.md 2026-10-16): no exclusion widening; probes inlined into evidence .md, scripts removed; new guard `openspec_evidence_markdown_only_test.sh` in lint + CFC-6 list. 4a367e2c0..ac5711a56. Gaps: guard scans only changes/**/evidence/ (Sonar reads all openspec/); Sonar green only provable after push |
 
 ## Known red
 
