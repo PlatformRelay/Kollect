@@ -44,6 +44,7 @@ Holistic run at B: not run yet.
 | 1.1 | CLOSED-WITH-GAPS | astra, 1 round (REQUEST_CHANGES, evidence only, fixed); no Claude leg (fixtures and evidence only) | timed-out job shape not seen live (F7); concurrency replacement and 65536 cap not probable read-only; F1 lookup argv has no `--label`, F2 comment author shape, F5 empty run list: inputs for 3.1–3.3 |
 | G2 (2.1, 2.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds: R1 astra REQUEST_CHANGES, opus CONCERNS (fixed); R2 astra APPROVE, opus CONCERNS (one test-strength gap, deferred) | line-cut at 4000 bytes unasserted (M20 survives): add `[line cut]` assertion and a cut-removed mutant in 5.1 |
 | G3 (3.1, 3.2, 3.3) | CLOSED-WITH-GAPS | astra + claude/opus:diff (token-writing script: security posture), 1 round: astra APPROVE, opus CONCERNS (payload-guard test gap, fixed with 5 cases) | live gh shapes read by the implementer (row 29); lookup ceiling 500 shared with every github-actions issue (recorded in G3 Harness gaps) |
+| G4 (4.1, 4.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (privileged `workflow_run` workflow, CI and security posture), 1 round: astra REQUEST_CHANGES, opus CONCERNS (guard-strength gaps and wording, all fixed, fix-line mutants 9/9) | header comment agent-review; workflow firing on GitHub is the 6.1 post-merge row; one test change: CWS-2 self-test mutant anchors (`rules: {}` gone) |
 
 ## Known red
 
@@ -54,6 +55,7 @@ Holistic run at B: not run yet.
 
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
+| `hack/test/ci_workflow_security_test.sh`: seven CWS-2 self-test mutants and control | ci-workflow-hardening | G4 | anchored on the literal `rules: {}`, which tasks.md 4.2 replaces; mutants no longer applied. Same rule text and expected message, anchor now the `rules:` line (evidence/G4.md *Test changes*) |
 
 ## Lessons
 
@@ -71,6 +73,9 @@ This change (ci-failure-reporting):
 - A "no write" case for a bad id must also assert the call that returned it was the last; later checks hide its unchecked use (G3)
 - Scope a forbidden-flag grep to the call it guards: `--label` on `issue create` is legitimate (G3)
 - Read a fake's `--limit` from the recorded argv, then serve exactly that many items (G3)
+- Scan raw `run:` bodies for `${{`: GitHub expands expressions before the shell, comment lines included; forbid every `${{` (G4)
+- A file-name zizmor exception covers every trigger in the file: pin `on:` keys exactly (G4)
+- Before replacing a literal in a config, grep existing self-tests for mutants anchored on it (G4: `rules: {}`)
 
 Carried over from change 5 (developer-toolchain-pins):
 

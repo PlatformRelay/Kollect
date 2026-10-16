@@ -8,7 +8,14 @@
 # workflow is removed, not suppressed).
 #
 # The workflow-security job runs zizmor at `--min-severity=high` over `.github/`. At that
-# threshold zizmor reports no findings on this tree, so there are no suppressions yet. Findings
-# below the threshold are filtered by it, not suppressed here; the measured breakdown is recorded
-# in the change's tasks.md so the threshold stays a visible decision rather than amnesia.
-rules: {}
+# threshold the one suppression below (dangerous-triggers, for the guarded CI failure reporter;
+# change ci-failure-reporting, CFR-7) is the only finding silenced. Findings below the threshold
+# are filtered by it, not suppressed here; the measured breakdown is recorded in
+# ci-workflow-hardening's tasks.md so the threshold stays a visible decision rather than amnesia.
+rules:
+  # dangerous-triggers: default-branch code only, no checkout of the triggering run, no log
+  # text evaluated, schedule and same-repository guard.
+  dangerous-triggers:
+    ignore:
+      # dangerous-triggers: exception limited to the guarded CI failure reporter.
+      - ci-failure-report.yaml

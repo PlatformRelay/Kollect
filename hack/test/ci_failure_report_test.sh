@@ -1009,6 +1009,215 @@ for mode in fail empty; do
   fi
 done
 
+# =============================================================================================
+# Workflow wiring (CFR-1, CFR-6, CFR-7): .github/workflows/ci-failure-report.yaml. Each check
+# reports what it found, also when the file is absent, so one run names every missing piece.
+# =============================================================================================
+command -v yq >/dev/null 2>&1 || {
+  echo "FAIL: yq not found; install yq to run the workflow wiring checks" >&2
+  exit 1
+}
+WF="${ROOT}/.github/workflows/ci-failure-report.yaml"
+WF_REL=".github/workflows/ci-failure-report.yaml"
+
+# wq <yq expression>: the expression on the workflow as compact JSON, or <missing file> /
+# <parse error>, so a check on an absent file still names what it looked for.
+wq() {
+  [[ -f "${WF}" ]] || {
+    echo "<missing file>"
+    return 0
+  }
+  yq eval -o=json -I=0 "$1" "${WF}" 2>/dev/null || echo "<parse error>"
+}
+
+# Reported workflows: exactly E2E nightly and Go patch lag, each the name: of exactly one
+# workflow file (workflow_run matches by name, so a rename silently stops the trigger).
+listed="$(wq '."on".workflow_run.workflows')"
+if [[ "${listed}" == '["E2E nightly","Go patch lag"]' ]]; then
+  ok "wiring: workflow_run lists exactly E2E nightly and Go patch lag"
+else
+  bad "wiring: ${WF_REL} on.workflow_run.workflows must be exactly [\"E2E nightly\",\"Go patch lag\"], found ${listed}"
+fi
+listed_names=()
+if [[ -f "${WF}" ]]; then
+  mapfile -t listed_names < <(yq eval '."on".workflow_run.workflows[]' "${WF}" 2>/dev/null || true)
+fi
+[[ "${#listed_names[@]}" -gt 0 ]] ||
+  bad "wiring: ${WF_REL} lists no workflow under on.workflow_run.workflows to match against the workflow files' name:"
+for name in "${listed_names[@]}"; do
+  n=0
+  for f in "${ROOT}"/.github/workflows/*.yaml "${ROOT}"/.github/workflows/*.yml; do
+    [[ -f "${f}" ]] || continue
+    if [[ "$(yq eval '.name // ""' "${f}" 2>/dev/null)" == "${name}" ]]; then
+      n=$((n + 1))
+    fi
+  done
+  if [[ "${n}" -eq 1 ]]; then
+    ok "wiring: listed workflow '${name}' is the name: of exactly one workflow file"
+  else
+    bad "wiring: listed workflow '${name}' matches the name: of ${n} workflow files, expected exactly 1 (workflow_run matches by name and stops firing silently on a rename)"
+  fi
+done
+
+# workflow_run is the only trigger: the zizmor dangerous-triggers exception covers the whole file,
+# so a second trigger (pull_request_target, workflow_dispatch) would be silenced with it.
+on_keys="$(wq '."on" | keys')"
+if [[ "${on_keys}" == '["workflow_run"]' ]]; then
+  ok "wiring: workflow_run is the only trigger"
+else
+  bad "wiring: ${WF_REL} on: must hold only workflow_run (the zizmor exception covers the whole file), found ${on_keys}"
+fi
+
+types="$(wq '."on".workflow_run.types')"
+if [[ "${types}" == '["completed"]' ]]; then
+  ok "wiring: workflow_run types is [completed] only"
+else
+  bad "wiring: ${WF_REL} on.workflow_run.types must be exactly [completed], found ${types}"
+fi
+
+# One job; its if: is exactly the schedule and same-repository guard (CFR-6), no weaker form.
+jobs_n="$(wq '.jobs | length')"
+if [[ "${jobs_n}" == 1 ]]; then
+  ok "wiring: one job"
+else
+  bad "wiring: ${WF_REL} must have exactly one job, found ${jobs_n}"
+fi
+want_if="github.event.workflow_run.event == 'schedule' && github.event.workflow_run.head_repository.full_name == github.repository"
+got_if="$(wq '.jobs | to_entries | .[0].value.if // "<no if>"')"
+got_if="$(jq -r '.' <<<"${got_if}" 2>/dev/null || echo "${got_if}")"
+if [[ "$(tr -s '[:space:]' ' ' <<<"${got_if}" | sed 's/^ //; s/ $//')" == "${want_if}" ]]; then
+  ok "wiring: the job's if: requires a schedule event of this repository"
+else
+  bad "wiring: ${WF_REL} job if: must be exactly \"${want_if}\", found ${got_if}"
+fi
+
+conc="$(wq '[.concurrency.group, .concurrency."cancel-in-progress"]')"
+# shellcheck disable=SC2016 # the GitHub expression is the expected text, not a shell expansion
+want_conc='["ci-failure-report-${{ github.event.workflow_run.workflow_id }}",false]'
+if [[ "${conc}" == "${want_conc}" ]]; then
+  ok "wiring: concurrency group ci-failure-report-<workflow_id>, cancel-in-progress false"
+else
+  bad "wiring: ${WF_REL} concurrency must be ${want_conc} as [group, cancel-in-progress], found ${conc}"
+fi
+
+wperm="$(wq '.permissions')"
+if [[ "${wperm}" == '{"contents":"read"}' ]]; then
+  ok "wiring: workflow permissions contents: read"
+else
+  bad "wiring: ${WF_REL} workflow permissions must be exactly {contents: read}, found ${wperm}"
+fi
+jperm="$(wq '.jobs | to_entries | .[0].value.permissions | to_entries | map(.key + "=" + .value) | sort')"
+if [[ "${jperm}" == '["actions=read","contents=read","issues=write"]' ]]; then
+  ok "wiring: job permissions exactly contents: read, actions: read, issues: write"
+else
+  bad "wiring: ${WF_REL} job permissions must be exactly contents: read, actions: read, issues: write, found ${jperm}"
+fi
+
+# No checkout of the triggering run: every actions/checkout has persist-credentials: false and
+# no ref: or repository:.
+checkouts="$(wq '[.jobs[].steps[] | select((.uses // "") | test("^actions/checkout@"))] | length')"
+bad_co="$(wq '[.jobs[].steps[] | select((.uses // "") | test("^actions/checkout@")) | select(.with."persist-credentials" != false or (.with | has("ref")) or (.with | has("repository")))] | length')"
+if [[ "${checkouts}" =~ ^[1-9][0-9]*$ && "${bad_co}" == 0 ]]; then
+  ok "wiring: ${checkouts} checkout(s), each persist-credentials: false with no ref: or repository:"
+else
+  bad "wiring: ${WF_REL} needs actions/checkout of the default branch only (persist-credentials: false, no ref:, no repository:), found ${checkouts} checkout(s), ${bad_co} offending"
+fi
+
+# Steps: the label create (fixed colour and description) comes before the reporter step; no run:
+# interpolates the event; the token reaches gh through env:.
+label_idx=""
+report_idx=""
+label_n=0
+report_n=0
+inject=""
+if [[ -f "${WF}" ]]; then
+  nsteps="$(yq eval '.jobs | to_entries | .[0].value.steps | length' "${WF}" 2>/dev/null || echo 0)"
+  for ((i = 0; i < nsteps; i++)); do
+    raw_body="$(yq eval ".jobs | to_entries | .[0].value.steps[${i}].run // \"\"" "${WF}")"
+    run_body="$(grep -v '^[[:space:]]*#' <<<"${raw_body}" || true)"
+    if grep -qE '(^|[[:space:]])gh label create ci-failure --force([[:space:]]|$)' <<<"${run_body}"; then
+      label_n=$((label_n + 1))
+      if grep -qE -- "--color [0-9A-Fa-f]{6}([[:space:]]|$)" <<<"${run_body}" &&
+        grep -qE -- "--description '[^'\$]+'" <<<"${run_body}"; then
+        label_idx="${i}"
+      fi
+    fi
+    # The reporter takes no arguments (G3 interface): the step's code is exactly the one call.
+    if grep -qF 'ci-failure-report.sh' <<<"${run_body}"; then
+      report_n=$((report_n + 1))
+      if [[ "$(tr -s '[:space:]' ' ' <<<"${run_body}" | sed 's/^ //; s/ $//')" == 'bash hack/ci/ci-failure-report.sh' ]]; then
+        report_idx="${i}"
+      fi
+    fi
+    # Any expression in a run: body, comment lines included: GitHub expands ${{ }} before the
+    # shell parses the script, so a comment is no shelter. Values reach scripts through env:.
+    if grep -qF '${{' <<<"${raw_body}"; then
+      inject="${inject} ${i}"
+    fi
+  done
+fi
+if [[ "${label_n}" -eq 1 && -n "${label_idx}" ]]; then
+  ok "wiring: one step runs gh label create ci-failure --force with a fixed --color and --description"
+else
+  bad "wiring: ${WF_REL} needs exactly one step running 'gh label create ci-failure --force --color <hex6> --description '<text>'' (fixed values), found ${label_n} label step(s), fixed colour and description: ${label_idx:-none}"
+fi
+if [[ "${report_n}" -eq 1 && -n "${report_idx}" ]]; then
+  ok "wiring: one step runs exactly 'bash hack/ci/ci-failure-report.sh' (no arguments)"
+else
+  bad "wiring: ${WF_REL} needs exactly one step whose run: is exactly 'bash hack/ci/ci-failure-report.sh' (the reporter takes no arguments), found ${report_n} step(s) naming it, exact: ${report_idx:-none}"
+fi
+if [[ -n "${label_idx}" && -n "${report_idx}" && "${label_idx}" -lt "${report_idx}" ]]; then
+  ok "wiring: the label step (${label_idx}) precedes the report step (${report_idx})"
+else
+  bad "wiring: ${WF_REL} the label-create step must precede the report step, found label step ${label_idx:-none}, report step ${report_idx:-none}"
+fi
+if [[ -f "${WF}" && -z "${inject}" ]]; then
+  ok "wiring: no run: body holds a \${{ }} expression, comments included"
+else
+  bad "wiring: ${WF_REL} run: bodies must hold no \${{ }} expression, comment lines included (GitHub expands it before the shell runs; values reach scripts through env:), found in step(s) ${inject:-<missing file>}"
+fi
+# Exactly three steps: the checkout, the label step, the reporter step. Any other step could use
+# event data (through env: or with:) under this privileged trigger without another check seeing it.
+steps_shape="$(wq '[.jobs | to_entries | .[0].value.steps[] | ((.uses // "") | sub("@.*$"; "")) + "|" + ((.run // "") | sub("\\s+$"; ""))]')"
+first_uses="$(wq '.jobs | to_entries | .[0].value.steps[0].uses // ""' | jq -r '.' 2>/dev/null || true)"
+if [[ "$(wq '.jobs | to_entries | .[0].value.steps | length')" == 3 && "${first_uses}" == actions/checkout@* &&
+  "${label_idx}" == 1 && "${report_idx}" == 2 ]]; then
+  ok "wiring: exactly three steps: checkout, label, report"
+else
+  bad "wiring: ${WF_REL} job steps must be exactly [actions/checkout, the label step, the report step], found ${steps_shape}"
+fi
+# shellcheck disable=SC2016 # the GitHub expression is the expected text
+want_tok='${{ github.token }}'
+tok="$(wq "[(.jobs | to_entries | .[0].value.steps[${label_idx:-0}].env.GH_TOKEN), (.jobs | to_entries | .[0].value.steps[${report_idx:-0}].env.GH_TOKEN)]")"
+if [[ "${tok}" == "[\"${want_tok}\",\"${want_tok}\"]" ]]; then
+  ok "wiring: the label and report steps get GH_TOKEN through env:"
+else
+  bad "wiring: ${WF_REL} the label and report steps must set env GH_TOKEN: ${want_tok}, found ${tok}"
+fi
+
+# The comment directly above the workflows: list names the race gap and SINK-BREAKER-RACE-01.
+wf_comment=""
+if [[ -f "${WF}" ]]; then
+  wf_comment="$(awk '
+    /^[[:space:]]*#/ { block = block $0 "\n"; next }
+    /^[[:space:]]+workflows:/ { printf "%s", block; exit }
+    { block = "" }
+  ' "${WF}")"
+fi
+if grep -qw 'race' <<<"${wf_comment}" && grep -qF 'SINK-BREAKER-RACE-01' <<<"${wf_comment}"; then
+  ok "wiring: the comment above the workflow list names the race gap and SINK-BREAKER-RACE-01"
+else
+  bad "wiring: ${WF_REL} needs a comment directly above on.workflow_run.workflows naming the race gap and SINK-BREAKER-RACE-01, found '${wf_comment:-<none>}'"
+fi
+
+# The dangerous-triggers exception in .github/zizmor.yml covers this workflow only.
+zig="$(yq eval -o=json -I=0 '.rules."dangerous-triggers".ignore' "${ROOT}/.github/zizmor.yml" 2>/dev/null || echo "<parse error>")"
+if [[ "${zig}" == '["ci-failure-report.yaml"]' ]]; then
+  ok "wiring: zizmor dangerous-triggers ignores ci-failure-report.yaml only"
+else
+  bad "wiring: .github/zizmor.yml rules.dangerous-triggers.ignore must be exactly [ci-failure-report.yaml], found ${zig}"
+fi
+
 if [[ "${FAILURES}" -gt 0 ]]; then
   echo "ci_failure_report_test: ${FAILURES} check(s) failed" >&2
   exit 1
