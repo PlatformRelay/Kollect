@@ -25,8 +25,9 @@
 #          dependency-review. This meta-test must itself be run by ci.yaml in both of its own
 #          modes -- a gate CI does not run guards nothing (the LAB-DEKIND defect class).
 #          The cross-file consistency guards (hack/test/consistency_*_test.sh and
-#          go_patch_lag_test.sh, openspec change cross-file-consistency-gates CFC-6) must be
-#          invoked that way too, so deleting their steps outright reds here as well.
+#          go_patch_lag_test.sh, openspec change cross-file-consistency-gates CFC-6) and the
+#          openspec evidence guard (openspec_evidence_markdown_only_test.sh) must be invoked
+#          that way too, so deleting their steps outright reds here as well.
 #   CWS-7  --self-test mutates a COPY of the tree to break each of CWS-1..CWS-6 and asserts
 #          each check reds with the MESSAGE of the assertion the mutation was built to trip
 #          (a non-zero exit alone is not evidence), plus one unmutated no-op control.
@@ -604,7 +605,7 @@ cws6_guards() {
     [[ -f "${script}" ]] || fail "CFC-6: ${script#"${ROOT}"/} is missing"
     for mode in bare --self-test; do
       if ! awk -F'\t' -v s="${script}" -v m="${mode}" '$1 == s && $2 == m { found = 1 } END { exit !found }' "${required_rows}"; then
-        fail "CFC-6: cross-file consistency guard ${script#"${ROOT}"/} is not run in its '${mode}' mode by any step of a required job -- wire it into the lint job, plain and --self-test as separate steps"
+        fail "CFC-6: guard ${script#"${ROOT}"/} is not run in its '${mode}' mode by any step of a required job -- wire it into the lint job, plain and --self-test as separate steps"
       fi
     done
   done
@@ -1086,10 +1087,18 @@ SH
 
 # CFC-6: a cross-file consistency guard deleted from CI outright (both steps) must red; the
 # generic CWS-6 loop cannot see a guard CI no longer invokes at all.
-mutant_rejected "CFC-6 consistency guard unwired" "cross-file consistency guard hack/test/consistency_metrics_test.sh is not run" bash -c '
+mutant_rejected "CFC-6 consistency guard unwired" "CFC-6: guard hack/test/consistency_metrics_test.sh is not run" bash -c '
   set -euo pipefail
   yq eval "del(.jobs.lint.steps[] | select((.run // \"\") | test(\"consistency_metrics_test\")))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
   if grep -q "consistency_metrics_test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
+'
+
+# The CFC-6 list names guards outside the consistency_* glob too: the openspec evidence guard
+# deleted from CI outright (both steps) must red.
+mutant_rejected "CFC-6 evidence guard unwired" "CFC-6: guard hack/test/openspec_evidence_markdown_only_test.sh is not run" bash -c '
+  set -euo pipefail
+  yq eval "del(.jobs.lint.steps[] | select((.run // \"\") | test(\"openspec_evidence_markdown_only_test\")))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  if grep -q "openspec_evidence_markdown_only_test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
 '
 
 # CFC-6: the required modes are CFC-6's, not the guard's: stripping a guard's --self-test handling
