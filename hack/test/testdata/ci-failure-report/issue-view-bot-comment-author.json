@@ -1,0 +1,14 @@
+{
+  "author": {
+    "is_bot": true,
+    "login": "app/github-actions"
+  },
+  "comments": [
+    {
+      "author": {
+        "login": "github-actions"
+      },
+      "authorAssociation": "CONTRIBUTOR"
+    }
+  ]
+}

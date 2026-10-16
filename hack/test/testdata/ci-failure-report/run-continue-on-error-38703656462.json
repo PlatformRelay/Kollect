@@ -1,0 +1,693 @@
+{
+  "conclusion": "success",
+  "jobs": [
+    {
+      "completedAt": "2026-10-15T08:11:37Z",
+      "conclusion": "success",
+      "databaseId": 116317630251,
+      "name": "extract-budget",
+      "startedAt": "2026-10-15T08:09:25Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:27Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:29Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:10:13Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/go-cache",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:10:14Z",
+          "conclusion": "success",
+          "name": "Run go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e",
+          "number": 4,
+          "startedAt": "2026-10-15T08:10:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:11:34Z",
+          "conclusion": "success",
+          "name": "Extractor hot-path budget (micro-benchmark, not a scale tier)",
+          "number": 5,
+          "startedAt": "2026-10-15T08:10:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:11:34Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/go-cache",
+          "number": 9,
+          "startedAt": "2026-10-15T08:11:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:11:34Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 10,
+          "startedAt": "2026-10-15T08:11:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:11:35Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-10-15T08:11:34Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630251"
+    },
+    {
+      "completedAt": "2026-10-15T08:09:30Z",
+      "conclusion": "success",
+      "databaseId": 116317630405,
+      "name": "multitenant-meta",
+      "startedAt": "2026-10-15T08:09:24Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:25Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:27Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:27Z",
+          "conclusion": "success",
+          "name": "Verify multitenant assert diagnostics + collecting wait",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:27Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 6,
+          "startedAt": "2026-10-15T08:09:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:27Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 7,
+          "startedAt": "2026-10-15T08:09:27Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630405"
+    },
+    {
+      "completedAt": "2026-10-15T08:16:03Z",
+      "conclusion": "success",
+      "databaseId": 116317630407,
+      "name": "e2e-smoke",
+      "startedAt": "2026-10-15T08:09:24Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:26Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:28Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:59Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/kind-e2e-setup",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:59Z",
+          "conclusion": "skipped",
+          "name": "Summarize nightly failure",
+          "number": 4,
+          "startedAt": "2026-10-15T08:15:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:16:00Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/kind-e2e-setup",
+          "number": 7,
+          "startedAt": "2026-10-15T08:15:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:16:01Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 8,
+          "startedAt": "2026-10-15T08:16:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:16:01Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-15T08:16:01Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630407"
+    },
+    {
+      "completedAt": "2026-10-15T08:16:00Z",
+      "conclusion": "success",
+      "databaseId": 116317630419,
+      "name": "e2e-finalizer-cleanup",
+      "startedAt": "2026-10-15T08:09:24Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:25Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:27Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:57Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/kind-e2e-setup",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:57Z",
+          "conclusion": "skipped",
+          "name": "Summarize nightly failure",
+          "number": 4,
+          "startedAt": "2026-10-15T08:15:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:58Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/kind-e2e-setup",
+          "number": 7,
+          "startedAt": "2026-10-15T08:15:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:58Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 8,
+          "startedAt": "2026-10-15T08:15:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:58Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-15T08:15:58Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630419"
+    },
+    {
+      "completedAt": "2026-10-15T08:09:31Z",
+      "conclusion": "success",
+      "databaseId": 116317630427,
+      "name": "finalizer-cleanup-meta",
+      "startedAt": "2026-10-15T08:09:24Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:26Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:28Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:29Z",
+          "conclusion": "success",
+          "name": "Verify finalizer-cleanup assert + workflow wiring",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:29Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 6,
+          "startedAt": "2026-10-15T08:09:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:29Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 7,
+          "startedAt": "2026-10-15T08:09:29Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630427"
+    },
+    {
+      "completedAt": "2026-10-15T08:15:57Z",
+      "conclusion": "success",
+      "databaseId": 116317630444,
+      "name": "e2e-tenant-mode",
+      "startedAt": "2026-10-15T08:09:29Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:30Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:31Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:54Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/kind-e2e-setup",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:54Z",
+          "conclusion": "skipped",
+          "name": "Summarize nightly failure",
+          "number": 4,
+          "startedAt": "2026-10-15T08:15:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:55Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/kind-e2e-setup",
+          "number": 7,
+          "startedAt": "2026-10-15T08:15:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:55Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 8,
+          "startedAt": "2026-10-15T08:15:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:55Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-15T08:15:55Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630444"
+    },
+    {
+      "completedAt": "2026-10-15T08:11:26Z",
+      "conclusion": "success",
+      "databaseId": 116317630494,
+      "name": "e2e-bench",
+      "startedAt": "2026-10-15T08:09:24Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:26Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:27Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:54Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/go-cache",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:55Z",
+          "conclusion": "success",
+          "name": "Run go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e",
+          "number": 4,
+          "startedAt": "2026-10-15T08:09:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:11:23Z",
+          "conclusion": "success",
+          "name": "Micro-benchmarks",
+          "number": 5,
+          "startedAt": "2026-10-15T08:09:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:11:24Z",
+          "conclusion": "success",
+          "name": "Upload bench artifact",
+          "number": 6,
+          "startedAt": "2026-10-15T08:11:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:11:25Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/go-cache",
+          "number": 11,
+          "startedAt": "2026-10-15T08:11:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:11:25Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 12,
+          "startedAt": "2026-10-15T08:11:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:11:25Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "startedAt": "2026-10-15T08:11:25Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630494"
+    },
+    {
+      "completedAt": "2026-10-15T08:22:11Z",
+      "conclusion": "failure",
+      "databaseId": 116317630502,
+      "name": "race (advisory)",
+      "startedAt": "2026-10-15T08:09:24Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:27Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:28Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:10:01Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/go-cache",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:10:02Z",
+          "conclusion": "success",
+          "name": "Run go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e",
+          "number": 4,
+          "startedAt": "2026-10-15T08:10:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:22:08Z",
+          "conclusion": "failure",
+          "name": "Unit + envtest under -race",
+          "number": 5,
+          "startedAt": "2026-10-15T08:10:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:22:09Z",
+          "conclusion": "success",
+          "name": "Upload race log",
+          "number": 6,
+          "startedAt": "2026-10-15T08:22:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:22:09Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/go-cache",
+          "number": 11,
+          "startedAt": "2026-10-15T08:22:09Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:22:09Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 12,
+          "startedAt": "2026-10-15T08:22:09Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:22:09Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "startedAt": "2026-10-15T08:22:09Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630502"
+    },
+    {
+      "completedAt": "2026-10-15T08:15:49Z",
+      "conclusion": "success",
+      "databaseId": 116317630614,
+      "name": "e2e-multitenant",
+      "startedAt": "2026-10-15T08:09:24Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:26Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:27Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:45Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/kind-e2e-setup",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:45Z",
+          "conclusion": "skipped",
+          "name": "Summarize nightly failure",
+          "number": 4,
+          "startedAt": "2026-10-15T08:15:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:47Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/kind-e2e-setup",
+          "number": 7,
+          "startedAt": "2026-10-15T08:15:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:47Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 8,
+          "startedAt": "2026-10-15T08:15:47Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:15:47Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-15T08:15:47Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630614"
+    },
+    {
+      "completedAt": "2026-10-15T08:16:18Z",
+      "conclusion": "success",
+      "databaseId": 116317630639,
+      "name": "e2e-git-export",
+      "startedAt": "2026-10-15T08:09:25Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-15T08:09:26Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-15T08:09:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:09:28Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-15T08:09:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:16:14Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/kind-e2e-setup",
+          "number": 3,
+          "startedAt": "2026-10-15T08:09:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:16:14Z",
+          "conclusion": "skipped",
+          "name": "Summarize nightly failure",
+          "number": 4,
+          "startedAt": "2026-10-15T08:16:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:16:15Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/kind-e2e-setup",
+          "number": 7,
+          "startedAt": "2026-10-15T08:16:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:16:16Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 8,
+          "startedAt": "2026-10-15T08:16:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-15T08:16:16Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-15T08:16:16Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317630639"
+    },
+    {
+      "completedAt": "2026-10-15T08:09:21Z",
+      "conclusion": "skipped",
+      "databaseId": 116317631910,
+      "name": "scale-envtest-10k",
+      "startedAt": "2026-10-15T08:09:22Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38703656462/job/116317631910"
+    }
+  ]
+}

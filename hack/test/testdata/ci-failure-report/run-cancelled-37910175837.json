@@ -1,0 +1,68 @@
+{
+  "attempt": 1,
+  "conclusion": "cancelled",
+  "event": "pull_request",
+  "jobs": [
+    {
+      "completedAt": "2026-10-09T09:16:11Z",
+      "conclusion": "cancelled",
+      "databaseId": 113753164939,
+      "name": "gate",
+      "startedAt": "2026-10-09T09:16:10Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/37910175837/job/113753164939"
+    },
+    {
+      "completedAt": "2026-10-09T09:16:11Z",
+      "conclusion": "cancelled",
+      "databaseId": 113753165086,
+      "name": "webhook-existing-cluster-meta",
+      "startedAt": "2026-10-09T09:16:10Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/37910175837/job/113753165086"
+    },
+    {
+      "completedAt": "2026-10-09T09:16:11Z",
+      "conclusion": "cancelled",
+      "databaseId": 113753165106,
+      "name": "multitenant-meta",
+      "startedAt": "2026-10-09T09:16:10Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/37910175837/job/113753165106"
+    },
+    {
+      "completedAt": "2026-10-09T09:16:11Z",
+      "conclusion": "cancelled",
+      "databaseId": 113753165385,
+      "name": "finalizer-cleanup-meta",
+      "startedAt": "2026-10-09T09:16:10Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/37910175837/job/113753165385"
+    },
+    {
+      "completedAt": "2026-10-09T09:16:11Z",
+      "conclusion": "cancelled",
+      "databaseId": 113753172982,
+      "name": "e2e-${{ matrix.scenario }}",
+      "startedAt": "2026-10-09T09:16:12Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/37910175837/job/113753172982"
+    },
+    {
+      "completedAt": "2026-10-09T09:16:11Z",
+      "conclusion": "cancelled",
+      "databaseId": 113753172987,
+      "name": "kind-webhook-smoke",
+      "startedAt": "2026-10-09T09:16:12Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/37910175837/job/113753172987"
+    }
+  ],
+  "status": "completed"
+}

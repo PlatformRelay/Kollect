@@ -1,0 +1,64 @@
+# CFR-1 to CFR-7 (openspec change ci-failure-reporting): when a scheduled run of a reported
+# workflow completes, keep one up-to-date `ci-failure` issue for that workflow: open it on the
+# first failure, comment on later failures, comment the recovery and close it on success.
+#
+# workflow_run is a privileged trigger (zizmor dangerous-triggers, suppressed for this file only
+# in .github/zizmor.yml). It is safe here because: the job runs only for a schedule event of this
+# repository (the if: below); the checkout is the default branch, never the triggering run, and
+# keeps no credentials; no run: step interpolates event data (the reporter reads the payload from
+# GITHUB_EVENT_PATH with jq); and log text goes into an issue body through --body-file, never
+# evaluated (hack/ci/ci-failure-issue-body.sh). The reporter's own failures show only in this
+# workflow's runs in the Actions tab.
+# Pinned by hack/test/ci_failure_report_test.sh (workflow list, guards, concurrency,
+# permissions, checkout, label step order, env-only values).
+name: CI failure report
+
+on:
+  workflow_run:
+    # Matched by name: each entry must equal one workflow file's name: (the test checks it).
+    # Keep the names ASCII: the reporter cuts the issue title at 200 bytes, not characters.
+    # Known race gap: the nightly `race` job runs with continue-on-error, so its failure leaves the
+    # run concluded success and is not reported until SINK-BREAKER-RACE-01 makes the job blocking.
+    workflows:
+      - E2E nightly
+      - Go patch lag
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: report
+    if: github.event.workflow_run.event == 'schedule' && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # One report at a time per reported workflow, queued and never cancelled, so two reports
+    # cannot both open an issue (CFR-1). At job level, after the if:, so only scheduled runs
+    # queue: a run whose job is skipped cannot replace a pending scheduled report. A dropped
+    # pending event is harmless: the reporter acts on the latest completed scheduled run.
+    concurrency:
+      group: ci-failure-report-${{ github.event.workflow_run.workflow_id }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      # Default-branch code only: no ref: or repository:, so the triggering run's code never runs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Before the report, so the first issue never fails on a missing label. The workflow owns
+      # the label: --force with fixed values makes a repeat change nothing, and resets hand edits.
+      - name: Ensure the ci-failure label exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh label create ci-failure --force --color b60205 --description 'A scheduled CI workflow is failing (managed by the CI failure report workflow)'
+
+      - name: Report the latest completed scheduled run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash hack/ci/ci-failure-report.sh
