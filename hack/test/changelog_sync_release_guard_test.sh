@@ -178,18 +178,23 @@ def _strings(node):
 
 
 def _output_ref(step_id):
-    """Matches `steps.<id>.outputs` in dot and bracket spellings, mixed freely."""
+    """Matches any reference to the minting step's context, dot or bracket spelling.
+
+    Not only `steps.<id>.outputs`: `toJSON(steps.<id>)` hands over the outputs too, so the
+    step object itself counts. The lookahead keeps `steps.<id>-other` from matching.
+    """
     sid = re.escape(step_id)
     return re.compile(
-        r"steps\s*(?:\.\s*" + sid + r"|\[\s*['\"]" + sid + r"['\"]\s*\])"
-        r"\s*(?:\.\s*outputs|\[\s*['\"]outputs['\"]\s*\])",
-        re.I,
+        r"steps\s*(?:\.\s*" + sid + r"(?![\w-])|\[\s*['\"]" + sid + r"['\"]\s*\])", re.I
     )
 
 
 # `toJSON(steps)` hands every step output, the App token included, to one place.
 _WHOLE_STEPS = re.compile(r"toJSON\s*\(\s*steps\s*\)", re.I)
 _SECRET_NAME = re.compile(r"secrets\s*(?:\.\s*(\w+)|\[\s*['\"](\w+)['\"]\s*\])", re.I)
+# Secret access whose name cannot be read statically: every secret at once, or a computed
+# index such as secrets[format(...)]. Either can reach the App's private key.
+_OPAQUE_SECRETS = re.compile(r"toJSON\s*\(\s*secrets\s*\)|secrets\s*\[\s*(?!['\"])", re.I)
 
 
 def _secret_names(step):
@@ -201,8 +206,16 @@ def _secret_names(step):
     }
 
 
-def credential_errors(steps, pushes):
-    """CST-1 findings: checkout credentials and every reader of the App token."""
+def _label(step, i):
+    return f"step {step.get('name') or step.get('uses') or i!r} (index {i})"
+
+
+def credential_errors(steps, pushes, scopes=None):
+    """CST-1 findings: checkout credentials and every reader of the App token.
+
+    `scopes` maps a label to a workflow- or job-level `env:` block; an App secret there
+    reaches every step, so it is checked like a step.
+    """
     errs = []
     checkouts = checkout_indices(steps)
     if not checkouts:
@@ -227,19 +240,27 @@ def credential_errors(steps, pushes):
     # The App's own secrets mint the same bypass-capable token anywhere they appear, so they
     # belong to the minting step alone -- the push step included.
     app_secrets = set().union(*(_secret_names(steps[i]) for i in minters)) if minters else set()
-    for i, step in enumerate(steps):
-        if i in minters:
-            continue
-        leaked = sorted(app_secrets & _secret_names(step))
+    holders = [(label, node) for label, node in (scopes or {}).items() if node]
+    holders += [(_label(step, i), step) for i, step in enumerate(steps) if i not in minters]
+    for label, node in holders:
+        leaked = sorted(app_secrets & _secret_names(node))
         if leaked:
             errs.append(
-                f"step {step.get('name') or step.get('uses') or i!r} (index {i}) references the "
-                f"App secrets {leaked} -- only the create-github-app-token step may"
+                f"{label} references the App secrets {leaked} -- only the "
+                "create-github-app-token step may"
             )
-        if i not in pushes and any(_WHOLE_STEPS.search(text) for text in _strings(step)):
+        if any(_OPAQUE_SECRETS.search(text) for text in _strings(node)):
             errs.append(
-                f"step {step.get('name') or step.get('uses') or i!r} (index {i}) reads every "
-                "step output through toJSON(steps), the App token included -- only the push step may"
+                f"{label} reads secrets by toJSON(secrets) or a computed index, which can reach "
+                "the App secrets -- only the create-github-app-token step may"
+            )
+    for i, step in enumerate(steps):
+        if i in minters or i in pushes:
+            continue
+        if any(_WHOLE_STEPS.search(text) for text in _strings(step)):
+            errs.append(
+                f"{_label(step, i)} reads every step output through toJSON(steps), the App "
+                "token included -- only the push step may"
             )
     if not ids:
         errs.append("no actions/create-github-app-token step in job 'sync' -- the push has no token")
@@ -253,8 +274,8 @@ def credential_errors(steps, pushes):
                 continue
             if any(ref.search(text) for text in _strings(step)):
                 errs.append(
-                    f"step {step.get('name') or step.get('uses') or i!r} (index {i}) reads "
-                    f"the App token (steps.{token_id}.outputs) -- only the push step may"
+                    f"{_label(step, i)} reads the App token (steps.{token_id}) -- only the "
+                    "push step may"
                 )
     return errs
 PY
@@ -601,7 +622,13 @@ if guard >= 0 and push >= 0:
                 f"push step 'if:' must reference steps.{guard_id}.outputs, got {cond!r}"
             )
 # CST-1: the bypass-capable App token reaches the push step and nothing else.
-errs.extend(credential_errors(steps, pushes))
+errs.extend(
+    credential_errors(
+        steps,
+        pushes,
+        {"workflow-level env": wf.get("env"), "job-level env": wf["jobs"]["sync"].get("env")},
+    )
+)
 
 if errs:
     for e in errs:
@@ -925,6 +952,18 @@ elif kind == "token-bracket-ref":  # same leak, bracket spelling
     )
 elif kind == "token-tojson-steps":  # every step output at once
     guard.setdefault("env", {})["LEAKED"] = "${{ toJSON(steps) }}"
+elif kind == "token-step-object":  # the whole minting step, outputs included
+    guard.setdefault("env", {})["LEAKED"] = "${{ toJSON(steps.%s) }}" % token_ids[0]
+elif kind == "secrets-tojson":
+    guard.setdefault("env", {})["ALL"] = "${{ toJSON(secrets) }}"
+elif kind == "secrets-computed-index":
+    guard.setdefault("env", {})["KEY"] = (
+        "${{ secrets[format('CHANGELOG_SYNC_{0}', 'GITHUB_APP_PRIVATE_KEY')] }}"
+    )
+elif kind == "app-secret-job-env":  # reaches every step of the job
+    wf["jobs"]["sync"].setdefault("env", {})["KEY"] = (
+        "${{ secrets.CHANGELOG_SYNC_GITHUB_APP_PRIVATE_KEY }}"
+    )
 elif kind == "app-secret-remint":  # a second step mints the same App token itself
     steps.insert(
         guards[0],
@@ -1058,6 +1097,18 @@ mutant_rejected token-bracket-ref \
 mutant_rejected token-tojson-steps \
   'the guard step reads every step output through toJSON(steps)' \
   'toJSON(steps)'
+mutant_rejected token-step-object \
+  'the guard step reads the whole minting step through toJSON(steps.<id>)' \
+  'only the push step may'
+mutant_rejected secrets-tojson \
+  'the guard step reads toJSON(secrets)' \
+  'computed index'
+mutant_rejected secrets-computed-index \
+  'the guard step reads a secret through a computed secrets[format(...)] index' \
+  'computed index'
+mutant_rejected app-secret-job-env \
+  'the job-level env references the App private-key secret' \
+  'job-level env references the App secrets'
 mutant_rejected app-secret-remint \
   'another step references the App private-key secret' \
   'only the create-github-app-token step may'
