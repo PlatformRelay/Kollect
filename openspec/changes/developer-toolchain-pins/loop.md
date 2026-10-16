@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: R — spec-set review (astra:spec + claude/opus:spec) on 649e5811c
+Next: L — dispatch 1.1 (new consistency_toolchain_pins_test.sh + lint wiring)
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -10,7 +10,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 
 - [x] 0 orient — re-measured against change 4's tip (2026-10-16): 6 mechanical edits + 2 model-aligned decisions
 - [x] P plan + tasks — present; spec set updated 649e5811c (re-measure, decisions A pin ownership and C guard shape)
-- [ ] R spec-set review
+- [x] R spec-set review — `reviews/R-spec-set/` (b3fd2d944) on 9621c98aa: astra REQUEST CHANGES, claude/opus CONCERNS; no CRITICAL; 11 WARNING + 6 NOTE all verified; fixes applied faa6754fd (R2 placement deviation: lint wiring lands with 1.1 because CFC-6 reds an unwired consistency_* guard; R9 mutants in 2.2)
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review
 - [ ] Hand-off
@@ -32,6 +32,20 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| R | R1 shellcheck manager bump would always be red (digest table has only 0.11.0); shared group blocks | WARNING | opus | fix | own group, all 3 sites, missing-digest guard case | no |
+| R | R2 1.1 left red until 2.x | WARNING | opus | fix | each check lands with its fix task | no |
+| R | R3 DTP-7 vs installer-scan owner | WARNING | opus+astra | fix | fetch-lib gate owns the scan; tamper tests in new guard --self-test | no |
+| R | R4 UNVERIFIED_BY_DESIGN shrink-only never tightened | WARNING | opus | fix | 4.3 limit = empty | no |
+| R | R5 liveness mechanism unspecified | WARNING | opus | fix | 3.1 records mechanism + Renovate version | no |
+| R | R6 tamper tests only negative | WARNING | astra | fix | valid-archive positive case first | no |
+| R | R7 comment-to-pin rule undefined | WARNING | astra | fix | block-above/inline rule + Node/Python/Taskfile cases | no |
+| R | R8 CWS-6 exits before CFC-6 | WARNING | astra | fix | scenario + both-steps-removed case | no |
+| R | R9 vulncheck var not proven | WARNING | astra | fix | other-var + missing-def mutants (2.2) | no |
+| R | R10 git-cliff pins at release.yaml:420, verify-changelog.sh:11 missed | WARNING | reviewer-verifier | fix | DTP-3/DTP-4 cover both (literal; action input can't read a Taskfile var) | no |
+| R | R11 setup.md:39 restates Task version | WARNING | reviewer-verifier | fix | 2.1 rewrites without version | no |
+| R | R12/R13/R15/R17 datasource, rule order, template pointer, gitleaks v-prefix | NOTE | mixed | fix | spec set | no |
+| R | R14 sha512sum missing on stock macOS | NOTE | opus | defer | BACKLOG DTP-SHA512-MACOS | no |
+| R | R16 change 4 archive state | NOTE | opus | reject | CFC-2/6 are merged code; archive state irrelevant | no |
 | 0 | DTP-2/DTP-3 floors + golangci agreement duplicate CFC-2 | decision | astra+opus | fix (A) | dropped; CFC-2 owns analysis-tool pins | logged, pending validation |
 | 0 | guard shape: extend dev_mise vs new consistency_* guard | decision | astra+opus | fix (C) | new consistency_toolchain_pins_test.sh; dev_mise folded (task 1.2) | logged, pending validation |
 
