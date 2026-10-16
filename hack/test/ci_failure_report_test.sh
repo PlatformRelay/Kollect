@@ -31,7 +31,9 @@
 #   * only scheduled runs of this repository report; the latest completed scheduled run is acted
 #     on, at its attempt; bodies through --body-file, a bodyless close, numeric ids checked; a gh
 #     error at any call stops the script with the error on stderr; a failed or empty log fetch
-#     still writes, then exits non-zero (CFR-1, CFR-6).
+#     still writes, then exits non-zero (CFR-1, CFR-6);
+#   * a read that exits 0 with empty, malformed, multi-document or wrong-type JSON (run list,
+#     jobs, issue list, comments) stops the script with no write (stage-B finding B1).
 #
 # The test is wired into ci.yaml bare and with --self-test (self-wiring check at the end), and
 # --self-test mutates throwaway copies of the tree, one mutant per checked clause, and asserts
