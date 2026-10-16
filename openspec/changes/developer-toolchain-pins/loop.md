@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: L — dispatch 1.2 (fold dev_mise_pin_drift_test.sh)
+Next: L — dispatch 2.1 (DTP-1 Task 3.52.0 + step-reset-off case)
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -54,6 +54,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
 | 1.1 | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI), 2 rounds, all behaviour findings fixed with mutants | 30a377146. Also fixed a pre-existing flake on main: ci_workflow_security_test.sh guard_modes `grep -v \| grep -q` under pipefail dropped --self-test 73/500 → 0/500. Gaps: round-2 fixes unreviewed (B: read `unverified_other_uses`, `cliff_action_sites` first); DTP-6 scan blind to computed-name eval/sourced writes. Deferred: SIGPIPE at ci_workflow_security_test.sh:756 (its own self-test) |
+| 1.2 | CLOSED-WITH-GAPS | astra APPROVE + claude/opus:diff CONCERNS (wording, fixed), 1 round | 6fe60b5a7. dev_mise_pin_drift_test.sh folded: 12 cases ported 1:1 + a 13th (section-off survived all 12 old cases); old guard + ci.yaml step deleted; refs updated. Test changes: old guard deleted, CWS-6 mutant retargeted. Deferred to 2.1: step-reset-off (setup-task step without `version:` silently skipped) |
 
 ## Known red
 
@@ -71,6 +72,10 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 - Self-test mutant values must never be a plausible next release: use 99.0.0 or derive from the tree (1.1)
 - A mutant probe must tag inserted lines with a marker; a regex matching existing lines proves nothing (1.1)
 - In single-quoted awk inside bash, an apostrophe in an awk comment ends the quote (1.1)
+
+- Run hand mutants on ported code, not only the ported cases (1.2: section-off survived all 12 old cases)
+- A comment naming the check that enforces a rule must match that check's real scope (1.2)
+- Run hand-mutant self-tests one at a time; parallel runs gave spurious exit 2 (1.2)
 
 Carried over from change 4 (cross-file-consistency-gates):
 
