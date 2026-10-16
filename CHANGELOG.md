@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Keep the App token out of the changelog-sync checkout [b70f01b](https://github.com/platformrelay/kollect/commit/b70f01bd3f1d056258216f39f0dea633f903785e)
+
 - **ci:** Require a full version for CFC-2 pins [21b381e](https://github.com/platformrelay/kollect/commit/21b381e045e43ac9523c481757c8e2c61ce33876)
 
 - **ci:** Read mixed-case uses: refs as the same action [2f05158](https://github.com/platformrelay/kollect/commit/2f05158f4a6ddaabaa324eed8c5b2dd85167e9bb)
