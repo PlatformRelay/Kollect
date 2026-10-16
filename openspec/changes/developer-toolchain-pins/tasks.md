@@ -177,6 +177,10 @@ tests with 4.3.
 - [x] 6.7 Renovate: golangci-lint in its own group (a red golangci bump must not block Task/gitleaks/git-cliff/govulncheck); grouping check + mutant — closed 2026-10-16, evidence: evidence/G6.md
 - [x] 6.8 Spec text: drop the CWS-6 line number (spec.md:218); state DTP-5 (dotted numbers fail closed) and DTP-4 (one dead file pattern fails the manager) as stronger-than-spec; comment the Renovate model's `extends`-presets limit — closed 2026-10-16, evidence: evidence/G6.md
 
+## 7. Stage-B fixes (round 2, no further review)
+
+- [ ] 7.1 O1: Renovate's github-actions manager extracts `node-version`/`python-version` (depType `uses-with`) into the "github actions" group without mise.toml, so the mise check would red that whole group PR. Add a packageRule that disables `uses-with` updates for node and python (they stay hand-bumped and guard-checked, as intended), correct the ci.yaml:~563 comment, and add a Renovate-model case plus a mutant (rule removed → red)
+
 ## 5. Land
 
 - [ ] 5.1 Archive the change as the last commit of the PR, after review and green CI; the review
