@@ -168,14 +168,14 @@ tests with 4.3.
 
 ## 6. Stage-B fixes (round 1)
 
-- [ ] 6.1 B1: derive every pinned version the self-test sentinels and probes use from the tree (git-cliff at consistency_toolchain_pins_test.sh ~:1268, :1277-1285, as SC_CUR does at ~:1293); add a control that bumps EVERY pin the guard owns to a plausible next release (Task, gitleaks, git-cliff, shellcheck, helm, govulncheck) in a copy and requires plain and --self-test green
-- [ ] 6.2 B2: run the toolchain-pins --self-test as a step of the existing `tool-pins-selftest` job (not lint), following the operator ruling that keeps slow self-tests out of lint; extend the CFC-6 job pin in ci_workflow_security_test.sh accordingly, with a mutant that moves it back into lint
-- [ ] 6.3 macOS: in the git-cliff installer and hack/verify-sha256.sh, fall back to `shasum -a 512` / `shasum -a 256` when sha512sum / sha256sum are absent; fail closed only when neither exists; self-test case with sha*sum hidden from PATH
-- [ ] 6.4 helm-docs: require the digest to be 64 hex before comparing (mutant)
-- [ ] 6.5 CFC-2: `consistency_tool_pins_test.sh` rejects `latest` (or any non-version) resolved through a Taskfile var (~:159-163), with a mutant (test change on change 4's guard)
-- [ ] 6.6 DTP-1/git-cliff readers: match `uses:` action refs case-insensitively (GitHub treats owner/repo case-insensitively), with a mutant; add a `task = "latest"` mise case
-- [ ] 6.7 Renovate: golangci-lint in its own group (a red golangci bump must not block Task/gitleaks/git-cliff/govulncheck); grouping check + mutant
-- [ ] 6.8 Spec text: drop the CWS-6 line number (spec.md:218); state DTP-5 (dotted numbers fail closed) and DTP-4 (one dead file pattern fails the manager) as stronger-than-spec; comment the Renovate model's `extends`-presets limit
+- [x] 6.1 B1: derive every pinned version the self-test sentinels and probes use from the tree (git-cliff at consistency_toolchain_pins_test.sh ~:1268, :1277-1285, as SC_CUR does at ~:1293); add a control that bumps EVERY pin the guard owns to a plausible next release (Task, gitleaks, git-cliff, shellcheck, helm, govulncheck) in a copy and requires plain and --self-test green — closed 2026-10-16, evidence: evidence/G6.md
+- [x] 6.2 B2: run the toolchain-pins --self-test as a step of the existing `tool-pins-selftest` job (not lint), following the operator ruling that keeps slow self-tests out of lint; extend the CFC-6 job pin in ci_workflow_security_test.sh accordingly, with a mutant that moves it back into lint — closed 2026-10-16, evidence: evidence/G6.md
+- [x] 6.3 macOS: in the git-cliff installer and hack/verify-sha256.sh, fall back to `shasum -a 512` / `shasum -a 256` when sha512sum / sha256sum are absent; fail closed only when neither exists; self-test case with sha*sum hidden from PATH — closed 2026-10-16, evidence: evidence/G6.md
+- [x] 6.4 helm-docs: require the digest to be 64 hex before comparing (mutant) — closed 2026-10-16, evidence: evidence/G6.md
+- [x] 6.5 CFC-2: `consistency_tool_pins_test.sh` rejects `latest` (or any non-version) resolved through a Taskfile var (~:159-163), with a mutant (test change on change 4's guard) — closed 2026-10-16, evidence: evidence/G6.md
+- [x] 6.6 DTP-1/git-cliff readers: match `uses:` action refs case-insensitively (GitHub treats owner/repo case-insensitively), with a mutant; add a `task = "latest"` mise case — closed 2026-10-16, evidence: evidence/G6.md
+- [x] 6.7 Renovate: golangci-lint in its own group (a red golangci bump must not block Task/gitleaks/git-cliff/govulncheck); grouping check + mutant — closed 2026-10-16, evidence: evidence/G6.md
+- [x] 6.8 Spec text: drop the CWS-6 line number (spec.md:218); state DTP-5 (dotted numbers fail closed) and DTP-4 (one dead file pattern fails the manager) as stronger-than-spec; comment the Renovate model's `extends`-presets limit — closed 2026-10-16, evidence: evidence/G6.md
 
 ## 5. Land
 
