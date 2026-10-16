@@ -13,11 +13,13 @@ The `workflow_run` payload SHALL only trigger the reporter. The reporter SHALL a
 completed scheduled run of the reported workflow
 (`gh run list --workflow <workflow_run.path> --event schedule --status completed --limit 1`), with
 that run's attempt, so an event dropped by the concurrency group or delivered late is harmless.
-When that run is in the failure class of the decision table below and no bot issue for the
-workflow is open, the reporter SHALL open one. The reporter SHALL judge the run by its conclusion
+The reporter SHALL take the action that the run's row of the decision table below names; it
+opens an issue only when the run is in the failure class and the newest bot issue for the
+workflow is absent, or closed with an older key. The reporter SHALL judge the run by its conclusion
 only: a job that fails under `continue-on-error` does not change the run's conclusion and is not
 reported. Before the reporter runs, the workflow SHALL create the `ci-failure` label idempotently
-(`gh label create ci-failure --force`).
+(`gh label create ci-failure --force` with a fixed `--color` and `--description`, so a repeat
+changes nothing).
 
 Ordering key: `(run_number, run_attempt)` of the run acted on, compared lexicographically.
 Recorded key: the key in the last bot marker (CFR-4) of the newest bot issue for the workflow,
@@ -145,7 +147,8 @@ read from the newest bot issue for the workflow whether it is open or closed.
 
 The reporter SHALL find the newest bot issue for a workflow by label `ci-failure` AND bot
 authorship AND a bot marker whose workflow key equals `workflow_run.path`, through the issue list
-API (never `--search`), and SHALL NOT trust a title match. The bot marker is the first line of a
+API (never `--search`), and SHALL NOT trust a title match. The lookup SHALL be complete: it passes
+an explicit `--limit` and exits non-zero when the result count reaches it. The bot marker is the first line of a
 bot-authored issue body or comment:
 `<!-- ci-failure-report v1 workflow=<path> run_id=<id> key=<run_number>.<run_attempt> event=<failure|recovery> -->`.
 The reporter SHALL read markers only from the first line of bot-authored bodies and comments; a

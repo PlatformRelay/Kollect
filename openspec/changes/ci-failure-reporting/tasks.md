@@ -32,15 +32,21 @@ argument per line, so argument boundaries survive.
     --limit 1 --json databaseId,number,attempt,conclusion`, and, from any workflow with a re-run
     of an older run, whether `gh run list` still lists the newer run first;
   - a cancelled-before-start run (`gh run list --status cancelled` on any workflow), or the
-    documented shape if none exists, marked as such;
+    documented shape if none exists, marked as such; from it, the rule that tells a started job
+    from an unstarted one (which job fields), which 3.1's fixtures then pin;
   - `gh run view --log-failed` on an in-progress run (expected: refused or empty);
   - the job conclusion and run conclusion of a failed `continue-on-error` job, from any repository
     run, to confirm the run stays `success`;
-  - the real output of `gh issue list --label <its label> --author <spelling> --state open --json
-    number,author,labels` against an existing bot-authored issue (the Renovate Dependency
-    Dashboard), for the spellings `app/renovate`, `renovate[bot]` and `--app renovate`; record
-    which returns the issue, and the `author` object. The reporter uses the working spelling for
-    `github-actions`, and the fake `gh` matches that exact argv. Never `--search`.
+  - the bot-author spelling for `gh issue list`. This repository has no bot-authored issue
+    (29 issues, all user-authored, read 2026-10-16), and Renovate here may author as a user or as
+    `github-actions` (`.github/workflows/renovate.yaml:33`). So: find a bot-authored issue in any
+    public repository, read its `author` object, and record the real output of
+    `gh issue list --repo <it> --label <its label> --author <spelling> --state open --json
+    number,author,labels` for the spellings that follow from it (`app/<bot>`, `<bot>[bot]`,
+    `--app <bot>`), including `app/github-actions` when a `github-actions`-authored issue is
+    found. The reporter uses the working spelling for `github-actions`, and the fake `gh` matches
+    that exact argv. If no `github-actions`-authored issue can be probed, say so, and the lookup
+    argv joins the post-merge row. Never `--search`.
   `gh label create --force` is not probed: its documented behaviour is cited in proposal.md, and
   its live proof is the post-merge row. If a payload field CFR-6 relies on is absent, stop: the
   change is BLOCKED. Evidence: `evidence/T1.1.md`.
@@ -57,8 +63,9 @@ argument per line, so argument boundaries survive.
   - given a log with 80 `FAIL` lines, when the body is built, then it carries exactly 50 (exposes an
     unbounded excerpt);
   - given a failed log over the cap, when the body is built, then the whole body, marker included,
-    is under 60000 characters, ends the log part with a visible truncation marker and still lists
-    every failed job (exposes truncation that drops jobs, or a body GitHub rejects at 65536);
+    is under 60000 characters, closes the excerpt fence before a visible truncation marker and
+    still lists every failed job (exposes truncation that drops jobs, leaves a fence open, or
+    yields a body GitHub rejects at 65536);
   - given a timed-out job with no `FAIL` line, when the body is built, then the job is listed with
     its failed step name (exposes a builder keyed on `FAIL` lines only);
   - given a log line `$(touch pwned)` and one with backticks, when the body is built in a scratch
@@ -68,6 +75,9 @@ argument per line, so argument boundaries survive.
     key, when the body is built, then the excerpt's fence is longer than five backticks and closes
     after the line, no `@user` appears outside a fence, and the first line is the real marker
     (exposes a fence the log can close, a bot that pings users, and a forgeable marker);
+  - given a failed job named `deploy @user`, when the body is built, then the name is listed with
+    its `@` neutralised and no `@user` mention appears outside a fence (exposes a mention through a
+    job or step name);
   - given no failed log (fetch failed), when the body is built, then it lists the failed jobs and
     says "logs unavailable" (exposes a body that drops jobs when logs expire);
   - given a job list with no failed job, when the body is built, then it says so and lists none
@@ -117,23 +127,27 @@ argument per line, so argument boundaries survive.
     one comment, because only the first-line marker counts (CFR-4; exposes a key forged by a log);
   - `E2E nightly` and `Go patch lag` issues both open, nightly `success`: only the nightly's issue
     gets the recovery and closes (CFR-4; exposes a lookup without the workflow filter);
-  - the lookup argv equals the spelling recorded in 1.1, uses `--state all`, and never `--search`
-    (CFR-4; exposes a lookup that returns `[]` on the real API);
+  - the lookup argv equals the spelling recorded in 1.1, uses `--state all` and an explicit
+    `--limit`, and never `--search` (CFR-4; exposes a lookup that returns `[]` on the real API);
+  - the fake returns exactly `--limit` bot issues, all from another workflow: the script exits
+    non-zero with no write (CFR-4; exposes a truncated lookup that opens a second issue);
   - the payload names run N but the fake lists N+1 as the latest completed scheduled run: the
     decision uses N+1 (CFR-1; exposes acting on a late or replaced payload);
   - event `workflow_dispatch`, or `push`, or a head repository other than this one: no `gh` call
     at all (CFR-6; exposes reports from manual or fork runs);
   - the fake `gh` rejects any `run view` without `--attempt` equal to the listed run's attempt; a
     failing run with attempt 2 still reports (exposes jobs and logs read from the wrong attempt);
-  - every write goes through `--body-file`, never `--body`, and a non-numeric run id or issue number
-    from the fake makes the script exit non-zero with no write (CFR-6);
+  - every `issue create` and `issue comment` passes its body through `--body-file`, never
+    `--body`; the close is a bodyless `gh issue close <number>` and the fake rejects any other
+    close flag; a non-numeric run id or issue number from the fake makes the script exit non-zero
+    with no write (CFR-6);
   - `gh` exiting non-zero at each call in turn (run list, jobs, issue list, issue comments, create,
     comment, close): the script exits non-zero, stderr carries the `gh` error, and no write follows
     the failing call (CFR-6; exposes a swallowed error that leaves the run green);
   - recovery comment written, close fails, then the reporter runs again: one close, no second
     comment (CFR-3; exposes a retry that skips the close);
-  - log fetch fails: the issue is still opened with the job names and "logs unavailable", and the
-    script exits non-zero (CFR-6).
+  - log fetch exits non-zero, and separately exits 0 with empty output: each time the issue is
+    still opened with the job names and "logs unavailable", and the script exits non-zero (CFR-6).
 - [ ] 3.3 Implement `hack/ci/ci-failure-report.sh`; 3.1 and 3.2 green. Quoted arguments,
   `--body-file`, numeric ids checked. One commit with 3.1 and 3.2.
 
@@ -155,8 +169,9 @@ argument per line, so argument boundaries survive.
     `actions: read`, `issues: write` (exposes a job map that silently drops `contents`);
   - every `actions/checkout` sets `persist-credentials: false` and no `ref:` or `repository:`
     (exposes a checkout of the triggering run);
-  - a step running `gh label create ci-failure --force` precedes the step that runs
-    `hack/ci/ci-failure-report.sh` (exposes a first report failing on a missing label);
+  - a step running `gh label create ci-failure --force` with a fixed `--color` and
+    `--description` precedes the step that runs `hack/ci/ci-failure-report.sh` (exposes a first
+    report failing on a missing label, and a label recoloured at random on every run);
   - no step's `run:` interpolates `github.event.workflow_run.*` directly; values reach scripts
     through `env:` (exposes template injection through a branch or title);
   - a comment on the workflow list names the `race` gap and SINK-BREAKER-RACE-01.
@@ -225,5 +240,5 @@ argument per line, so argument boundaries survive.
 | CFR-6 | 3.2 dispatch, fork, non-schedule, `gh` error at every call, log fetch failure, `--attempt`, `--body-file`; 4.1 `if:`, permissions and checkout | no action; error visible | not-run | |
 | CFR-7 | 5.1 mutants judged by exit status plus no-op; rename mutant; both zizmor comment mutants; unwiring mutant; zizmor gate on the workflow | each mutant red; gate green | not-run | |
 | all | `gh label list` after the first scheduled run following the merge (proves `--force` and `issues: write` live) | `ci-failure` exists | post-merge | follow-up evidence PR |
-| all | first real scheduled night(s) and Monday(s) after merge | issue opens on a failure, closes on recovery; a green run makes no write | post-merge | follow-up evidence PR |
+| all | first real scheduled night(s) and Monday(s) after merge; the bot-author lookup argv if 1.1 could not probe it | issue opens on a failure, closes on recovery; a green run makes no write; the lookup finds the bot issue | post-merge | follow-up evidence PR |
 | all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | not-run | |
