@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: L — dispatch G4 (4.1–4.3: installer checksums, DTP-6)
+Next: B — holistic run + astra:adversarial + claude/opus:spec branch review
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -11,7 +11,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 - [x] 0 orient — re-measured against change 4's tip (2026-10-16): 6 mechanical edits + 2 model-aligned decisions
 - [x] P plan + tasks — present; spec set updated 649e5811c (re-measure, decisions A pin ownership and C guard shape)
 - [x] R spec-set review — `reviews/R-spec-set/` (b3fd2d944) on 9621c98aa: astra REQUEST CHANGES, claude/opus CONCERNS; no CRITICAL; 11 WARNING + 6 NOTE all verified; fixes applied faa6754fd (R2 placement deviation: lint wiring lands with 1.1 because CFC-6 reds an unwired consistency_* guard; R9 mutants in 2.2)
-- [ ] L task loop — see *Tasks*
+- [x] L task loop — 1.1–4.3 closed (5.1 archive is post-merge)
 - [ ] B branch review
 - [ ] Hand-off
 
@@ -59,6 +59,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 | 2.2 | CLOSED-WITH-GAPS | r1 astra APPROVE + claude/opus:diff CONCERNS (2 WARNING verified: `latest` passed both guards; task-level vars override ran v1.1.4 → fixed); r2 astra APPROVE | fc1135a99. GOVULNCHECK_VERSION var + renovate annotation (dry-run extracts it); `task vulncheck` green. Test change: 2 CFC-2 mutants re-anchored. Deferred to B (fix there): CFC-2 accepts `latest` via any Taskfile var (consistency_tool_pins_test.sh:159-163) |
 | 2.3 | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES (bare majors, -rc truncation, case-sensitive count rule → fixed) + claude/opus:diff CLEAN (lint step renamed); r2 astra APPROVE | 25efc58f9. DTP-5 comment-to-pin rule; mise.toml :24/:28/:39/:52 rewritten as pointers; Task comment no longer restates a version (Renovate would red every bump). Test changes: 4 ported DEV-MISE-01 mutants move/delete attached comments. Gaps: dotted prose numbers fail closed; `# gitleaks 8` passes |
 | G3 (3.1–3.3) | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES + claude/opus:diff CONCERNS; r2 astra REQUEST_CHANGES (2 P2, fixed unreviewed per cap) | c01c6ab49, d2354912a. Liveness = file hit AND ≥1 extracted dep; mechanism = python model reading renovate.json (matches Renovate 44.115.4 extract: 29 deps today / 41 final); Renovate not run in lint (groups need lookup + GitHub token). New gitleaks/shellcheck/shellcheck-py/git-cliff/golangci managers; shellcheck own group before go toolchain. Test changes: 3 earlier cases rewritten, ALSO_RED on 7 cases. Gaps: model ≠ Renovate (presets, minimatch); rewrite simulated from replace string |
+| G4 (4.1–4.3) | CLOSED-WITH-GAPS | astra APPROVE + claude/opus:diff CONCERNS (1 WARNING, 3 NOTE), 1 round | 5bb2e11ff, e814eeddf, 3b05a8148. git-cliff verifies per-asset .sha512 (inline sha512sum), helm-docs verify_sha256 vs checksums.txt; UNVERIFIED_BY_DESIGN and guard limit EMPTY; real installs on linux/amd64. Test changes: mutant relabel; fetch-lib scan messages SHA256→checksum. **Orchestrator override:** macOS (no sha512sum/sha256sum) now fails closed → fix at B with `shasum -a` fallback, not deferred (operator works on macOS). Deferred to B: helm-docs digest not checked as 64 hex. Gaps: Darwin/arm64 install paths probed by URL only |
 
 ## Known red
 
@@ -92,6 +93,8 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 
 - A self-test keeping one tree copy per case exhausts shared /tmp inodes: free each copy before the next (G3)
 - A Renovate model must reject what RE2 rejects (lookaround, backrefs, atomic groups) (G3)
+
+- A tamper fixture must still extract (flip gzip MTIME byte 4) so the test fails on the checksum, not tar; add a correct-digest-under-another-asset case (G4)
 
 Carried over from change 4 (cross-file-consistency-gates):
 
