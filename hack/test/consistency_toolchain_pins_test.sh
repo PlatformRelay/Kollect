@@ -633,8 +633,8 @@ check_comments() {
 # matcher or manager key, a template helper, a rule whose group depends on the update type) is a
 # failure, never a guess. One limit it does not fail on: `extends` presets (renovate.json's
 # config:recommended and friends) are not expanded, so a preset that set a groupName or disabled a
-# manager would go unseen (the Renovate 44.115.4 dry-runs above agreed with the model on this
-# config, presets included).
+# manager would go unseen (the Renovate 44.115.4 dry-runs above agreed with the model on the G3
+# config, presets included; not re-run after golangci-lint got its own group).
 #
 # renovate_deps <root>: reads the tracked file list on stdin and prints one line per dependency a
 # custom regex manager extracts, "DEP\t<manager>\t<file>\t<line of the value>\t<value>\t<depName>\t
@@ -1259,7 +1259,9 @@ if not new_arms or tail not in src:
 open(si, "w", encoding="utf-8").write(src.replace(tail, "".join(new_arms) + tail, 1))
 PY
 )"
-if [[ -z "${KOLLECT_TP_NESTED:-}" ]]; then
+if [[ -n "${KOLLECT_TP_NESTED:-}" ]]; then
+  echo "skip - self-test: all-pins bump control (KOLLECT_TP_NESTED is set: this is the nested run)"
+else
   new_copy
   before="$(tracked_files "${COPY}" | renovate_deps "${COPY}" | grep '^DEP' || true)"
   [[ -n "${before}" ]] || fail "self-test: the Renovate model extracts no dependency from the tree -- the bump control has nothing to bump"
@@ -1984,10 +1986,13 @@ mutant_rejected "task empty scan" \
     ! grep -rq "go-task/setup-task@" .github'
 
 # --- DTP-2 govulncheck ---
+# Today's pin from the tree, like GC_CUR: the inline and env: mutants restate the real value.
+GV_CUR="$(sed -n -E 's/^  GOVULNCHECK_VERSION: (v[0-9]+\.[0-9]+\.[0-9]+)$/\1/p' "${ROOT}/Taskfile.yml" | head -1)"
+[[ -n "${GV_CUR}" ]] || fail "self-test: cannot read GOVULNCHECK_VERSION from Taskfile.yml -- run the plain mode first"
 mutant_rejected "govulncheck inline pin returns" \
-  'govulncheck: Taskfile\.yml:[0-9]+ task vulncheck pins golang\.org/x/vuln/cmd/govulncheck@v1\.9\.0 inline' \
-  'govulncheck@v1\.9\.0' Taskfile.yml \
-  sed -i -E 's#(cmd/govulncheck)@\{\{\.GOVULNCHECK_VERSION\}\}#\1@v1.9.0#' Taskfile.yml
+  "govulncheck: Taskfile\\.yml:[0-9]+ task vulncheck pins golang\\.org/x/vuln/cmd/govulncheck@${GV_CUR//./\\.} inline" \
+  "govulncheck@${GV_CUR//./\\.}" Taskfile.yml \
+  sed -i -E "s#(cmd/govulncheck)@\\{\\{\\.GOVULNCHECK_VERSION\\}\\}#\\1@${GV_CUR}#" Taskfile.yml
 
 # Without its annotation the Taskfile manager no longer extracts the pin (DTP-4 is right too).
 ALSO_RED='renovate: govulncheck pin [^ ]+ at Taskfile\.yml:[0-9]+ is extracted by no custom manager' \
@@ -2047,7 +2052,7 @@ mutant_rejected "GOVULNCHECK_VERSION defined under env:" \
   'govulncheck: Taskfile\.yml defines no GOVULNCHECK_VERSION under vars:' \
   '^  GOVULNCHECK_VERSION: v[0-9]' Taskfile.yml \
   bash -c 'sed -i -E "/^  # renovate: datasource=go depName=golang\.org\/x\/vuln\$/d; /^  GOVULNCHECK_VERSION: /d" Taskfile.yml &&
-    sed -i -E "s/^env:\$/&\n  # renovate: datasource=go depName=golang.org\/x\/vuln\n  GOVULNCHECK_VERSION: v1.9.0/" Taskfile.yml &&
+    sed -i -E "s/^env:\$/&\n  # renovate: datasource=go depName=golang.org\/x\/vuln\n  GOVULNCHECK_VERSION: '"${GV_CUR}"'/" Taskfile.yml &&
     awk "/^env:/ { e = 1; next } /^[^[:space:]#]/ { e = 0 } e && /^  GOVULNCHECK_VERSION:/ { f = 1 } END { exit !f }" Taskfile.yml'
 
 mutant_rejected "vulncheck task gone" \
