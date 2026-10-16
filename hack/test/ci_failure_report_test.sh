@@ -835,6 +835,46 @@ for ev in "workflow_dispatch ${REPO}" "push ${REPO}" "schedule evil/Kollect"; do
   fi
 done
 
+# Malformed payload fields: a workflow path off the .github/workflows/<file>.y(a)ml shape, or a
+# repository that is not owner/repo, stops the script before any gh call, with a non-zero exit.
+# expect_nocall <label>
+expect_nocall() {
+  local n
+  n="$(calls | wc -l)"
+  if [[ "${RC}" -ne 0 && "${n}" -eq 0 && ! -s "${S}/rejected" ]]; then
+    ok "$1: exit ${RC}, no gh call"
+  else
+    bad "$1: expected a non-zero exit and no gh call, got exit ${RC} and ${n} call(s)"
+  fi
+}
+for bad_path in '.github/workflows/../x.yaml' '.github/workflows/a b.yaml' '.github/workflows/e2e-nightly.yaml@refs/heads/main'; do
+  store "bad-path-${#bad_path}"
+  run_listed 162 1 failure
+  payload schedule "${REPO}" "${bad_path}"
+  report
+  expect_nocall "payload: workflow path '${bad_path}'"
+done
+store bad-repository
+run_listed 162 1 failure
+payload schedule 'Platform Relay/Kollect'
+report GITHUB_REPOSITORY='Platform Relay/Kollect'
+expect_nocall "payload: repository 'Platform Relay/Kollect'"
+
+# A workflow name with a new line and a command substitution: one quoted title argument, on one
+# line, and nothing runs.
+store hostile-name
+run_listed 162 1 failure
+payload schedule "${REPO}" "${NIGHTLY}" $'E2E nightly\n$(touch pwned)`touch pwned2`'
+report
+expect "payload: hostile workflow name" "create"
+title="$(jq -r 'sort_by(.number) | last | .title // ""' "${S}/issues.json")"
+if [[ "${title}" == 'CI failure: E2E nightly$(touch pwned)`touch pwned2`' ]] &&
+  [[ -z "$(find "${WORK}" -name 'pwned*' -print -quit)" ]]; then
+  ok "payload: hostile workflow name kept verbatim on one title line, nothing ran"
+else
+  bad "payload: expected the title 'CI failure: E2E nightly\$(touch pwned)\`touch pwned2\`' on one line and no pwned file, got '${title}'"
+fi
+
 # Attempt 2 of a failing run reports; the fake refuses a run read without --attempt 2.
 store attempt-2
 run_listed 162 2 failure
