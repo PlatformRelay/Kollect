@@ -566,6 +566,14 @@ jobs:
         run: bash hack/test/go_patch_lag_test.sh
       - name: Verify the go-patch-lag test can still fail (CFC-6)
         run: bash hack/test/go_patch_lag_test.sh --self-test
+      # Evidence under openspec/changes/**/evidence/ (archive included) is Markdown only: a probe
+      # script committed there is analysed by SonarCloud as uncovered new code although CI never
+      # runs it (decision 2026-10-16: inline probes in the evidence .md instead of widening
+      # sonar.exclusions). Plain and --self-test as separate steps, like the CFC gates above.
+      - name: Verify openspec evidence is Markdown only
+        run: bash hack/test/openspec_evidence_markdown_only_test.sh
+      - name: Verify the openspec evidence guard can still fail
+        run: bash hack/test/openspec_evidence_markdown_only_test.sh --self-test
       # Network: the module proxy, golangci-lint's custom build and the vuln DB (about 30 s warm).
       - name: Verify every pinned tool resolves and runs under go.mod's Go (CFC-2)
         run: bash hack/test/consistency_tool_pins_test.sh
