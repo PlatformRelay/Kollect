@@ -11,12 +11,25 @@ recovery is recorded, and how the reporter resists spoofing and stale events.
 
 When a reported workflow completes with conclusion `failure` or `timed_out`, or with `cancelled`
 after at least one job started, and no open issue with label `ci-failure` authored by the
-workflow's bot exists for that workflow, the reporter SHALL open one.
+workflow's bot exists for that workflow, the reporter SHALL open one. The reporter SHALL judge the
+run by its conclusion only: a job that fails under `continue-on-error` does not change the run's
+conclusion and is not reported. Before the reporter runs, the workflow SHALL create the
+`ci-failure` label idempotently (`gh label create ci-failure --force`).
 
 #### Scenario: First failure
 
 - **WHEN** the nightly fails and no matching open issue exists
 - **THEN** one issue is created with the label and a body listing the failed jobs
+
+#### Scenario: Label missing
+
+- **WHEN** the repository has no `ci-failure` label and a reported run fails
+- **THEN** the label is created and the issue is opened with it; when the label already exists the create step succeeds and changes nothing the reporter relies on
+
+#### Scenario: Job failed under continue-on-error
+
+- **WHEN** the nightly `race` job (`continue-on-error: true`) fails and every other job passes, so the run concludes `success`
+- **THEN** the run is treated as a success; no issue is opened (known gap until SINK-BREAKER-RACE-01 makes the job blocking)
 
 #### Scenario: Cancelled without a started job
 
@@ -42,6 +55,11 @@ opening another issue.
 
 - **WHEN** the workflow fails on consecutive nights
 - **THEN** the existing issue gets a comment with that run's link and failed jobs, and no new issue is created
+
+#### Scenario: Go lags for several weeks
+
+- **WHEN** `Go patch lag` (weekly, `23 6 * * 1`) exits 1 on three Mondays in a row and passes on the fourth after a Go bump
+- **THEN** one issue is opened on the first Monday, commented on the second and third, and closed on the fourth
 
 ### Requirement: CFR-3 Recovery is recorded, in order
 
@@ -92,7 +110,7 @@ SHALL NOT evaluate or expand any text taken from logs.
 
 #### Scenario: Two failed jobs
 
-- **WHEN** the recorded job list of the nightly (7 jobs) has two failed
+- **WHEN** the recorded job list of a scheduled nightly (7 job definitions, 11 job entries once the 5-scenario matrix expands, `scale-envtest-10k` skipped) has two failed
 - **THEN** the body lists exactly those two
 
 #### Scenario: Huge log
@@ -129,8 +147,12 @@ the triggering run, and SHALL surface its own errors as its own failed run.
 ### Requirement: CFR-7 The decision logic is tested and the workflow satisfies the zizmor gate
 
 `hack/test/ci_failure_report_test.sh` SHALL cover every row of (conclusion x open-issue x ordering)
-and the body builder on recorded fixtures with a fake `gh`, with mutants, and SHALL run on
-`pull_request` in a required job. The workflow's `dangerous-triggers` suppression SHALL carry its
+and the body builder on recorded fixtures with a fake `gh`, with mutants, and SHALL run in both
+modes (plain and `--self-test`) in the required `lint` job on `pull_request`. It SHALL assert the
+workflow's wiring: every name under `on.workflow_run.workflows` equals the `name:` of exactly one
+file under `.github/workflows/`, the event and repository guards, the concurrency group, the
+permissions, no checkout of the triggering run, and the label-create step before the report step.
+The workflow's `dangerous-triggers` suppression SHALL live in `.github/zizmor.yml` and carry its
 reason.
 
 #### Scenario: Decision row removed
@@ -138,7 +160,17 @@ reason.
 - **WHEN** the recovery branch, the ordering check or the label-and-author lookup is removed (mutants)
 - **THEN** the test SHALL fail
 
+#### Scenario: Reported workflow renamed
+
+- **WHEN** a listed workflow's `name:` changes (for example `E2E nightly` to `E2E Nightly`) and the list does not
+- **THEN** the test SHALL fail naming the listed name that matches no workflow file, because `workflow_run` matches by name and would stop firing silently
+
+#### Scenario: Label step missing or late
+
+- **WHEN** the `gh label create ci-failure --force` step is removed or moved after the report step
+- **THEN** the test SHALL fail
+
 #### Scenario: Suppression without reason
 
-- **WHEN** the `dangerous-triggers` entry has no comment
-- **THEN** the zizmor meta-test SHALL fail
+- **WHEN** the `dangerous-triggers` entry in `.github/zizmor.yml` has no comment directly above it
+- **THEN** the existing CWS-2 rule (`cws2_suppressions`, `hack/test/ci_workflow_security_test.sh:236`) SHALL fail; an inline `# zizmor: ignore[dangerous-triggers]` fails the same rule (`:303-308`)
