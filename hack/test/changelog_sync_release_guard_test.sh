@@ -178,11 +178,27 @@ def _strings(node):
 
 
 def _output_ref(step_id):
-    """Matches `steps.<id>.outputs` and `steps['<id>'].outputs` spellings."""
+    """Matches `steps.<id>.outputs` in dot and bracket spellings, mixed freely."""
     sid = re.escape(step_id)
     return re.compile(
-        r"steps\s*(?:\.\s*" + sid + r"|\[\s*['\"]" + sid + r"['\"]\s*\])\s*\.\s*outputs"
+        r"steps\s*(?:\.\s*" + sid + r"|\[\s*['\"]" + sid + r"['\"]\s*\])"
+        r"\s*(?:\.\s*outputs|\[\s*['\"]outputs['\"]\s*\])",
+        re.I,
     )
+
+
+# `toJSON(steps)` hands every step output, the App token included, to one place.
+_WHOLE_STEPS = re.compile(r"toJSON\s*\(\s*steps\s*\)", re.I)
+_SECRET_NAME = re.compile(r"secrets\s*(?:\.\s*(\w+)|\[\s*['\"](\w+)['\"]\s*\])", re.I)
+
+
+def _secret_names(step):
+    """Names of the secrets a step references, upper-cased (GitHub ignores case)."""
+    return {
+        (m.group(1) or m.group(2)).upper()
+        for text in _strings(step)
+        for m in _SECRET_NAME.finditer(text)
+    }
 
 
 def credential_errors(steps, pushes):
@@ -207,6 +223,24 @@ def credential_errors(steps, pushes):
                 "by every later step"
             )
     ids = app_token_ids(steps)
+    minters = [i for i, step in enumerate(steps) if _uses(step, APP_TOKEN_ACTION)]
+    # The App's own secrets mint the same bypass-capable token anywhere they appear, so they
+    # belong to the minting step alone -- the push step included.
+    app_secrets = set().union(*(_secret_names(steps[i]) for i in minters)) if minters else set()
+    for i, step in enumerate(steps):
+        if i in minters:
+            continue
+        leaked = sorted(app_secrets & _secret_names(step))
+        if leaked:
+            errs.append(
+                f"step {step.get('name') or step.get('uses') or i!r} (index {i}) references the "
+                f"App secrets {leaked} -- only the create-github-app-token step may"
+            )
+        if i not in pushes and any(_WHOLE_STEPS.search(text) for text in _strings(step)):
+            errs.append(
+                f"step {step.get('name') or step.get('uses') or i!r} (index {i}) reads every "
+                "step output through toJSON(steps), the App token included -- only the push step may"
+            )
     if not ids:
         errs.append("no actions/create-github-app-token step in job 'sync' -- the push has no token")
     for token_id in ids:
@@ -885,6 +919,21 @@ elif kind == "checkout-persist-removed":  # the action's default is true
     checkout_with.pop("persist-credentials", None)
 elif kind == "token-in-guard-env":  # the token reaches a step before the push
     guard.setdefault("env", {})["LEAKED"] = token_ref
+elif kind == "token-bracket-ref":  # same leak, bracket spelling
+    guard.setdefault("env", {})["LEAKED"] = token_ref.replace(
+        "steps.%s.outputs.token" % token_ids[0], "steps['%s']['outputs']['token']" % token_ids[0]
+    )
+elif kind == "token-tojson-steps":  # every step output at once
+    guard.setdefault("env", {})["LEAKED"] = "${{ toJSON(steps) }}"
+elif kind == "app-secret-remint":  # a second step mints the same App token itself
+    steps.insert(
+        guards[0],
+        {
+            "name": "Re-mint",
+            "run": "echo mint\n",
+            "env": {"KEY": "${{ secrets.CHANGELOG_SYNC_GITHUB_APP_PRIVATE_KEY }}"},
+        },
+    )
 elif kind == "checkout-persist-string-false":  # honest spelling -- must NOT be rejected
     checkout_with["persist-credentials"] = "false"
 else:
@@ -1003,6 +1052,15 @@ mutant_rejected checkout-persist-removed \
 mutant_rejected token-in-guard-env \
   'the App token reaches the guard step through its env' \
   'only the push step may'
+mutant_rejected token-bracket-ref \
+  "the guard step reads the App token as steps['id']['outputs']['token']" \
+  'only the push step may'
+mutant_rejected token-tojson-steps \
+  'the guard step reads every step output through toJSON(steps)' \
+  'toJSON(steps)'
+mutant_rejected app-secret-remint \
+  'another step references the App private-key secret' \
+  'only the create-github-app-token step may'
 
 mutant_accepted guard-if-fork-check \
   'the guard step carries an honest `if:` condition (a fork guard)'

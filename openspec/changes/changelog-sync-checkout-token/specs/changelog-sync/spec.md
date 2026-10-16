@@ -12,7 +12,8 @@ can bypass `protect-main` reaches only the one step that pushes.
 In `.github/workflows/changelog-sync.yaml`, job `sync`, every `actions/checkout` step SHALL set
 `persist-credentials: false` and SHALL NOT set a `token:` input. The output of the
 `actions/create-github-app-token` step SHALL be referenced by no step other than the step that
-pushes to `main`. (Moved from DUA-6 of `dependency-update-automation`.)
+pushes to `main`, in any spelling or through `toJSON(steps)`, and the App's secrets SHALL be
+referenced by the minting step alone. (Moved from DUA-6 of `dependency-update-automation`.)
 
 #### Scenario: Honest workflow
 
@@ -31,8 +32,13 @@ pushes to `main`. (Moved from DUA-6 of `dependency-update-automation`.)
 
 #### Scenario: Token reaches another step
 
-- **WHEN** a step other than the push step references the App token output
+- **WHEN** a step other than the push step references the App token output (`steps.<id>.outputs` or `steps['<id>']['outputs']`) or reads `toJSON(steps)`
 - **THEN** the guard SHALL fail naming that step
+
+#### Scenario: App secrets used outside the minting step
+
+- **WHEN** any step other than the `create-github-app-token` step references one of the secrets that step mints from
+- **THEN** the guard SHALL fail naming that step, because those secrets mint the same bypass-capable token
 
 #### Scenario: Push still authenticates
 
@@ -47,7 +53,7 @@ honest variant SHALL pass.
 
 #### Scenario: Mutant passes
 
-- **WHEN** a mutant that re-adds the checkout token, flips or removes `persist-credentials`, or reads the token in another step passes the check
+- **WHEN** a mutant that re-adds the checkout token, flips or removes `persist-credentials`, reads the token in another step (dot or bracket spelling, or `toJSON(steps)`), or references the App's secrets in another step passes the check
 - **THEN** the guard SHALL fail and name the vacuous assertion
 
 #### Scenario: No-op control
