@@ -15,10 +15,16 @@ github.com/attune-io/attune).
 ## What Changes
 
 - `hack/ci/ci-failure-issue-body.sh` builds a Markdown body from a run's job list and failed-step
-  logs: workflow, run link, failed jobs, `FAIL` lines. It never evaluates log text.
-- `hack/ci/ci-failure-report.sh` decides `open`, `comment`, `close` or `none` from the run's
-  conclusion, its ordering key `(run_number, run_attempt)` and the existing open issue, and calls
-  `gh`. It reads the run's conclusion only, never the conclusion of a single job.
+  logs: a bot marker on the first line, workflow, run link, failed jobs, `FAIL` lines. It never
+  evaluates log text and keeps excerpts Markdown-inert (fence longer than any backtick run inside,
+  `@` neutralised outside fences).
+- `hack/ci/ci-failure-report.sh` treats the `workflow_run` payload as a trigger only. It acts on
+  the latest completed scheduled run of the workflow (`gh run list --workflow <path> --event
+  schedule --status completed --limit 1`) and decides `open`, `comment`, `close` or `none` from
+  that run's conclusion, its ordering key `(run_number, run_attempt)` and the key in the bot marker
+  of the newest bot issue for the workflow, open or closed (spec.md CFR-1 decision table). It reads
+  the run's conclusion only, never the conclusion of a single job. Full reconciliation of every
+  missed run is rejected: the latest run is the state worth reporting.
 - `.github/workflows/ci-failure-report.yaml`, triggered by `workflow_run` (completed) for a listed
   set of scheduled workflows, runs it. One open issue per reported workflow, label `ci-failure`.
   The workflow creates the label idempotently (`gh label create ci-failure --force`) before the
@@ -41,8 +47,9 @@ None.
 
 ## Impact
 
-- Entry point: `.github/workflows/ci-failure-report.yaml` (job `issues: write`, `actions: read`,
-  workflow default `contents: read`). It checks out the default branch only, never the triggering
+- Entry point: `.github/workflows/ci-failure-report.yaml` (workflow default `contents: read`; the
+  job holds exactly `contents: read`, `actions: read`, `issues: write`, because job permissions
+  replace the workflow map; precedent `codeql.yaml:28-31`). It checks out the default branch only, never the triggering
   run's ref or repository.
 - The reported set is `E2E nightly` (daily) and `Go patch lag` (weekly, Mondays). While Go lags,
   Go patch lag keeps one issue open and adds one comment per red Monday; the first green Monday
@@ -52,7 +59,10 @@ None.
 - `workflow_run` trips zizmor's `dangerous-triggers` at high severity (measured with zizmor 1.30.1
   at the gate's `--min-severity=high` on a scratch workflow). The suppression goes in
   `.github/zizmor.yml` with its reason (no checkout of the triggering run, no log text evaluated,
-  same-repo guard). Inline `# zizmor: ignore[...]` is not an option: CWS-2 rejects it
+  same-repo guard), as `rules:` > `dangerous-triggers:` > `ignore:` > `- ci-failure-report.yaml`,
+  with a comment directly above the rule key and another directly above the entry (CWS-2 checks
+  both). No comment under `.github/` may contain the literal `zizmor: ignore`, which CWS-2's inline
+  grep matches anywhere. Inline `# zizmor: ignore[...]` is not an option: CWS-2 rejects it
   (`hack/test/ci_workflow_security_test.sh:303-308`). The config's header comment, which says
   there are no suppressions (`.github/zizmor.yml:10-14`), changes with it.
 
@@ -77,11 +87,14 @@ tasks.
   (`e2e-nightly.yaml:220`) and is skipped on every scheduled run.
 - Reporting `codeql`, `scorecard`, `renovate` (own notification paths); the workflow list is
   data, so a later change can add them.
+- Reporting the reporter's own failures: they are visible only in the Actions tab, because nothing
+  reports a `workflow_run` run.
 
 ## Assumptions
 
 - `workflow_run` payloads carry `workflow_run.event`, `.conclusion`, `.html_url`, `.id`,
-  `.run_number`, `.run_attempt`, `.name`, `.path` and `.head_repository.full_name`. Source: GitHub
+  `.run_number`, `.run_attempt`, `.name`, `.path`, `.workflow_id` and
+  `.head_repository.full_name`. Source: GitHub
   docs, "workflow_run" event; probe in task 1.1 with a recorded payload.
 - `on.workflow_run.workflows` matches the triggering workflow's `name:`, not its file name, so a
   rename disconnects the reporter silently unless a test pins the names.
@@ -93,10 +106,19 @@ tasks.
   not started. A `workflow_dispatch` that replaces a pending run shows that run as `cancelled`.
   Probe in task 1.1.
 - `gh run view --log-failed` prints logs only for a completed run (probe in task 1.1).
-- `gh label create <name> --force` succeeds when the label exists (it updates colour and
-  description) and needs only `issues: write` (probe in task 1.1).
+- `gh label create <name> --force` succeeds when the label exists: "Update the label color and
+  description if label already exists" (`gh label create --help`, gh 2.98.0, read 2026-10-16;
+  manual https://cli.github.com/manual/gh_label_create; source `pkg/cmd/label/create.go` in
+  github.com/cli/cli). That it needs only `issues: write` is proven live by the post-merge row.
+- `gh run list --workflow .github/workflows/e2e-nightly.yaml --event schedule --status completed
+  --limit 1` accepts the path form and returned run 38871014363 (verified 2026-10-16, gh 2.98.0,
+  read-only). Runs list newest first by creation, so a re-run of an older run is not the latest
+  (believed; probe in task 1.1).
+- `gh run view` defaults to the latest attempt; `--attempt` selects one (`gh run view --help`).
+- The bot-author spelling for `gh issue list` (`--author app/<bot>` or `--app <bot>`) is recorded
+  read-only against an existing bot-authored issue in task 1.1; the list API is used, never
+  `--search`, whose index lags.
 - A concurrency group keeps at most one pending run, so a third event for one workflow while one
-  report runs and one waits replaces the waiting one. For a daily and a weekly workflow that needs
-  three completions inside one report's runtime; the ordering key lets the next report correct the
-  state.
+  report runs and one waits replaces the waiting one. Harmless: the payload only triggers the
+  reporter, which reads the latest completed scheduled run itself.
 - GitHub issue bodies cap at 65536 characters.
