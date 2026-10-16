@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# DTP-3, DTP-6 and DTP-7 (openspec change developer-toolchain-pins): the developer and CI tools
-# that are pinned in more than one file agree, meet their floor, and can be installed.
+# DTP-1, DTP-3, DTP-6 and DTP-7 (openspec change developer-toolchain-pins): the developer and CI
+# tools that are pinned in more than one file agree, meet their floor, and can be installed.
 #
 # gitleaks, git-cliff and shellcheck are each pinned in three files, and nothing kept the three
 # equal: a bot bump or a hand edit moves one site and the others silently run another release.
@@ -19,6 +19,11 @@
 #     the packaging revision of the pre-commit wrapper, not a shellcheck release) agree, and
 #     hack/install-shellcheck.sh's pinned_sha256 table has an entry for that version on every
 #     OS and architecture the installer maps (a bump without digests cannot install);
+#   * Task (DTP-1): the `with: version:` input of every go-task/setup-task step under .github/
+#     (read like git-cliff's: a step without one installs an unpinned Task and fails) and
+#     mise.toml's [tools] task agree and are at least TASK_FLOOR; ci.yaml and the kind-e2e-setup
+#     composite action must each carry one; whether mise.toml has a task entry at all is the
+#     DEV-MISE-01 check below;
 #   * versions compare with a leading `v` stripped and must be plain releases (N.N.N); a
 #     variable, `latest` or an empty value is a failure, never skipped;
 #   * an empty scan for any tool fails, never passes;
@@ -27,7 +32,7 @@
 #     of read forms; any other mention is a write), and lists nothing outside
 #     UNVERIFIED_LIMIT: the list may only shrink;
 #   * DEV-MISE-01 (folded in from the former mise pin-drift guard): mise.toml exists and has a [tools]
-#     table whose task, node and python equal every go-task/setup-task `version:`,
+#     table with a task entry (its value is DTP-1's) and node and python equal to every
 #     `node-version:` and `python-version:` under .github/ (which must agree among themselves
 #     and must not be empty); Go is not under [tools], idiomatic_version_file_enable_tools
 #     names "go" and go.mod has a `go` line, so mise reads Go from go.mod as actions/setup-go does.
@@ -69,6 +74,7 @@ ROOT="${ROOT%/}"
 
 GITLEAKS_FLOOR="8.30.1"
 GIT_CLIFF_FLOOR="2.13.1"
+TASK_FLOOR="3.52.0"
 # The exemptions UNVERIFIED_BY_DESIGN may hold. Shrink-only: removing an entry here and from the
 # hardening gate is the only allowed edit.
 UNVERIFIED_LIMIT=("install-git-cliff.sh" "install-helm-docs.sh")
@@ -157,19 +163,20 @@ precommit_rev_sites() {
     }' "${root}/${f}"
 }
 
-# cliff_action_sites <root>: the `with: version:` input of every orhun/git-cliff-action step, or
-# "<no version: input>" when the step has none. A step is read whole (key order does not matter):
-# it opens at a `- ` line and ends at the next `- ` line at its indent or a line left of it. Only
-# a direct child of the step's `with:` is the input; a `version:` under `env:` or another map is
-# not, and must not stand in for it.
-cliff_action_sites() {
-  local root="$1" f
+# action_version_sites <root> <action>: the `with: version:` input of every step that uses
+# <action> (`owner/name`), or "<no version: input>" when the step has none (the action then
+# installs whatever it defaults to). A step is read whole (key order does not matter): it opens at
+# a `- ` line and ends at the next `- ` line at its indent or a line left of it. Only a direct
+# child of the step's `with:` is the input; a `version:` under `env:` or another map is not, and
+# must not stand in for it.
+action_version_sites() {
+  local root="$1" action="$2" f
   while IFS= read -r f; do
-    awk -v f="${f}" '
+    awk -v f="${f}" -v action="${action}" '
       function indent(s) { match(s, /^[[:space:]]*/); return RLENGTH }
       function flush() {
-        if (open && cliff) print f ":" (ver == "" ? at "\t<no version: input>" : vat "\t" ver)
-        open = 0; cliff = 0; ver = ""; w = -1; wc = -1
+        if (open && hit) print f ":" (ver == "" ? at "\t<no version: input>" : vat "\t" ver)
+        open = 0; hit = 0; ver = ""; w = -1; wc = -1
       }
       /^[[:space:]]*#/ { next }
       !/[^[:space:]]/ { next }
@@ -188,7 +195,11 @@ cliff_action_sites() {
         sub(/[[:space:]]+#.*$/, "", k)
         if (lvl == kl) {
           w = -1
-          if (k ~ /^uses:[[:space:]]*["\047]?orhun\/git-cliff-action@/) { cliff = 1; at = NR }
+          if (index(k, "uses:") == 1) {
+            u = substr(k, 6)
+            gsub(/^[[:space:]]*["\047]?/, "", u)
+            if (index(u, action "@") == 1) { hit = 1; at = NR }
+          }
           if (k ~ /^with:[[:space:]]*$/) { w = kl; wc = -1 }
           next
         }
@@ -395,28 +406,6 @@ check_unverified_limit() {
 }
 
 # --- DEV-MISE-01 (folded in from the former mise pin-drift guard, mutant for mutant) ---
-# setup_task_versions <root>: every `version:` input given to go-task/setup-task under .github/.
-setup_task_versions() {
-  local root="$1" f
-  while IFS= read -r f; do
-    awk '
-      /^[[:space:]]*#/ { next }
-      /uses:[[:space:]]*go-task\/setup-task@/ { want = 1; next }
-      want && /^[[:space:]]*version:[[:space:]]*/ {
-        line = $0
-        sub(/^[[:space:]]*version:[[:space:]]*/, "", line)
-        sub(/[[:space:]]*#.*$/, "", line)
-        gsub(/["\047[:space:]]/, "", line)
-        if (line != "") print line
-        want = 0
-        next
-      }
-      # A new step before any version: means that use carried no pin to read.
-      want && /^[[:space:]]*-[[:space:]]*(uses|name|run):/ { want = 0 }
-    ' "${root}/${f}"
-  done < <(yaml_files "${root}")
-}
-
 # input_versions <root> <key>: every value of a plain workflow input (node-version, python-version).
 input_versions() {
   local root="$1" key="$2" f
@@ -433,8 +422,9 @@ input_versions() {
   done < <(yaml_files "${root}")
 }
 
-# mise_tool_value <file> <tool>: the value of one key in mise.toml's [tools] table; empty if absent.
-mise_tool_value() {
+# mise_tool_sites <file> <tool>: "mise.toml:<line>\t<value>" for one key in mise.toml's [tools]
+# table; nothing if absent.
+mise_tool_sites() {
   awk -v tool="$2" '
     /^[[:space:]]*#/ { next }
     /^[[:space:]]*\[/ { section = $0; gsub(/[[:space:]]/, "", section); next }
@@ -443,8 +433,13 @@ mise_tool_value() {
       sub("^[[:space:]]*" tool "[[:space:]]*=[[:space:]]*", "", line)
       sub(/[[:space:]]*#.*$/, "", line)
       gsub(/["\047[:space:]]/, "", line)
-      print line
+      print "mise.toml:" NR "\t" line
     }' "$1"
+}
+
+# mise_tool_value <file> <tool>: the value of one key in mise.toml's [tools] table; empty if absent.
+mise_tool_value() {
+  mise_tool_sites "$1" "$2" | cut -f2
 }
 
 # mise_assert_pin <label> <mise value> <CI values, one per line> <origin>: one mise.toml literal
@@ -468,8 +463,9 @@ mise_assert_pin() {
     err "mise: mise.toml pins ${label} = ${mise_value} but ${origin} pins ${distinct} -- contributors would run a different ${label} than the merge gates"
 }
 
-# check_mise <root>: mise.toml's task/node/python equal every CI pin; Go stays out of [tools] and
-# is read from go.mod (idiomatic_version_file_enable_tools), as actions/setup-go reads it.
+# check_mise <root>: mise.toml has a task entry (DTP-1 compares its value) and its node/python equal
+# every CI pin; Go stays out of [tools] and is read from go.mod (idiomatic_version_file_enable_tools),
+# as actions/setup-go reads it.
 check_mise() {
   local root="$1" mise="mise.toml" go_pin
   if [[ ! -f "${root}/${mise}" ]]; then
@@ -487,8 +483,9 @@ check_mise() {
     err "mise: mise.toml no longer enables the idiomatic version file for go -- without idiomatic_version_file_enable_tools = [\"go\"] mise stops reading go.mod and Go silently becomes unmanaged"
   { [[ -f "${root}/go.mod" ]] && grep -Eq '^go[[:space:]]+[0-9]' "${root}/go.mod"; } ||
     err "mise: go.mod has no 'go <version>' line -- the file mise and actions/setup-go both read has nothing to read"
-  mise_assert_pin task "$(mise_tool_value "${root}/${mise}" task)" \
-    "$(setup_task_versions "${root}")" "the go-task/setup-task version: inputs"
+  # Task: DTP-1 compares the value with every go-task/setup-task input; only presence is checked here.
+  [[ -n "$(mise_tool_value "${root}/${mise}" task)" ]] ||
+    err "mise: mise.toml has no task entry under [tools], but CI pins task with go-task/setup-task -- the local toolchain is unpinned while the gates are not"
   mise_assert_pin node "$(mise_tool_value "${root}/${mise}" node)" \
     "$(input_versions "${root}" node-version)" "the actions/setup-node node-version: inputs"
   mise_assert_pin python "$(mise_tool_value "${root}/${mise}" python)" \
@@ -510,7 +507,7 @@ check_all() {
 
   sites="$({
     taskfile_sites "${root}" GIT_CLIFF_VERSION
-    cliff_action_sites "${root}"
+    action_version_sites "${root}" orhun/git-cliff-action
     cliff_install_sites "${root}"
   } | with_compare plain)"
   check_tool git-cliff "${GIT_CLIFF_FLOOR}" Taskfile.yml "${sites}" \
@@ -527,6 +524,19 @@ check_all() {
     check_shellcheck_digests "${root}" "${AGREED}"
   fi
 
+  # DTP-1: mise.toml is a site, but its presence is check_mise's (one clause, one message).
+  sites="$(action_version_sites "${root}" go-task/setup-task)"
+  if [[ -z "${sites}" ]]; then
+    err "task: the scan found no go-task/setup-task step under .github -- an empty scan never passes"
+  else
+    sites="$({
+      printf '%s\n' "${sites}"
+      if [[ -f "${root}/mise.toml" ]]; then mise_tool_sites "${root}/mise.toml" task; fi
+    } | with_compare plain)"
+    check_tool task "${TASK_FLOOR}" .github/workflows/ci.yaml "${sites}" \
+      .github/workflows/ci.yaml .github/actions/kind-e2e-setup/action.yml
+  fi
+
   check_unverified_limit "${root}"
   check_mise "${root}"
   return "${BROKEN}"
@@ -534,7 +544,7 @@ check_all() {
 
 if [[ "${MODE}" == "check" ]]; then
   if check_all "${ROOT}"; then
-    pass "gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, UNVERIFIED_BY_DESIGN is within its limit, and mise.toml agrees with every task/node/python pin in .github with Go read from go.mod"
+    pass "Task, gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, UNVERIFIED_BY_DESIGN is within its limit, and mise.toml agrees with every node/python pin in .github with Go read from go.mod"
     exit 0
   fi
   fail "toolchain pins disagree (listed above)"
@@ -803,8 +813,9 @@ control_passes "UNVERIFIED_BY_DESIGN read in a loop and named in a message" \
 # --- DEV-MISE-01, ported one-to-one from the former mise pin-drift guard (its `honest` fixture is the
 # no-op control above). Old values kept: each is older than the real pin, never a next release.
 M=mise.toml
+# The task comparison is DTP-1's since 2.1, so this case reds with its message.
 mutant_rejected "mise task drifts from CI (old task-drift)" \
-  'mise: mise\.toml pins task = 3\.50\.0 but the go-task/setup-task version: inputs pins [0-9.]+' \
+  'task: mise\.toml:[0-9]+ says 3\.50\.0, but the reference site \.github/workflows/ci\.yaml:[0-9]+ says' \
   '^task = "3\.50\.0"' "${M}" \
   sed -i -E 's/^task = "[0-9.]+"/task = "3.50.0"/' "${M}"
 
@@ -834,16 +845,17 @@ mutant_rejected "go.mod loses its go line (old gomod-gone)" \
   sed -i -E '/^go[[:space:]]+[0-9]/d' go.mod
 
 mutant_rejected "composite action disagrees with the workflows on task (old ci-self-drift)" \
-  'mise: CI disagrees with itself on task' \
+  'task: \.github/actions/kind-e2e-setup/action\.yml:[0-9]+ says 3\.50\.0, but the reference site \.github/workflows/ci\.yaml' \
   '^[[:space:]]+version: 3\.50\.0$' .github/actions/kind-e2e-setup/action.yml \
   sed -i -E '/go-task\/setup-task@/,/version:/ s/version: [0-9.]+$/version: 3.50.0/' .github/actions/kind-e2e-setup/action.yml
 
-# Every task/node/python pin under .github renamed away; the in-command grep proves none is left.
-mutant_rejected "no task/node/python pin in CI (old no-ci-pins)" \
-  'mise: the scan set is empty -- found none of the (go-task/setup-task|actions/setup-node|actions/setup-python) ' \
-  '!go-task/setup-task[@]@@!node-version:@@!python-version:' .github/workflows/docs.yaml \
-  bash -c 'grep -rlE "go-task/setup-task@|(node|python)-version:" .github | xargs sed -i -E "s#go-task/setup-task@#example/setup-task@#; s/(node|python)-version:/\1-ver:/" &&
-    ! grep -rqE "go-task/setup-task@|(node|python)-version:" .github'
+# Every node/python pin under .github renamed away; the in-command grep proves none is left. The
+# task half of the old case is DTP-1's empty-scan case below.
+mutant_rejected "no node/python pin in CI (old no-ci-pins)" \
+  'mise: the scan set is empty -- found none of the actions/setup-(node|python) ' \
+  '!node-version:@@!python-version:' .github/workflows/docs.yaml \
+  bash -c 'grep -rlE "(node|python)-version:" .github | xargs sed -i -E "s/(node|python)-version:/\1-ver:/" &&
+    ! grep -rqE "(node|python)-version:" .github'
 
 mutant_rejected "mise [tools] table empty (old empty-tools)" \
   'mise: mise\.toml has no (task|node|python) entry under \[tools\]' \
@@ -868,6 +880,42 @@ mutant_rejected "mise.toml missing (old missing mise.toml case)" \
   'mise: mise\.toml does not exist' \
   '!.' "${M}" \
   bash -c 'rm -f mise.toml && test ! -e mise.toml'
+
+# --- DTP-1 Task ---
+mutant_rejected "task one workflow site missed" \
+  'task: \.github/workflows/sonarcloud\.yaml:[0-9]+ says 3\.51\.1, but the reference site \.github/workflows/ci\.yaml:[0-9]+ says' \
+  '^[[:space:]]+version: 3\.51\.1$' .github/workflows/sonarcloud.yaml \
+  sed -i -E '/go-task\/setup-task@/,/version:/ s/version: [0-9.]+$/version: 3.51.1/' .github/workflows/sonarcloud.yaml
+
+# The whole set, mise.toml included; the sentinel only fires when every site agrees.
+mutant_rejected "task set below floor" \
+  'task: every site says 3\.51\.1, below the floor 3\.52\.0' \
+  '^task = "3\.51\.1"$' "${M}" \
+  bash -c 'grep -rl "go-task/setup-task@" .github | xargs sed -i -E "/go-task\/setup-task@/,/version:/ s/version: [0-9.]+\$/version: 3.51.1/" &&
+    sed -i -E "s/^task = \"[0-9.]+\"/task = \"3.51.1\"/" mise.toml'
+
+# A bot bump moves every site at once; an exact-value check would block it.
+control_passes "task set moved to a newer release" \
+  '^task = "99\.0\.0"$' "${M}" \
+  bash -c 'grep -rl "go-task/setup-task@" .github | xargs sed -i -E "/go-task\/setup-task@/,/version:/ s/version: [0-9.]+\$/version: 99.0.0/" &&
+    sed -i -E "s/^task = \"[0-9.]+\"/task = \"99.0.0\"/" mise.toml'
+
+# The step stays and installs an unpinned Task: it must red, never be skipped (1.2 step-reset-off).
+mutant_rejected "setup-task step without a version input" \
+  "task: \\.github/workflows/docs\\.yaml:[0-9]+ says '<no version: input>', not a plain release version" \
+  'go-task/setup-task[@]@@!^[[:space:]]+version: [0-9.]+$' .github/workflows/docs.yaml \
+  sed -i -E '/go-task\/setup-task@/,/version:/ { /^[[:space:]]+version: [0-9.]+$/d }' .github/workflows/docs.yaml
+
+mutant_rejected "task named site loses its setup-task step" \
+  'task: no pin found in \.github/actions/kind-e2e-setup/action\.yml' \
+  '!go-task/setup-task@' .github/actions/kind-e2e-setup/action.yml \
+  sed -i -E 's#go-task/setup-task@#example/setup-task@#' .github/actions/kind-e2e-setup/action.yml
+
+mutant_rejected "task empty scan" \
+  'task: the scan found no go-task/setup-task step under \.github' \
+  '!go-task/setup-task@' .github/workflows/ci.yaml \
+  bash -c 'grep -rl "go-task/setup-task@" .github | xargs sed -i -E "s#go-task/setup-task@#example/setup-task@#" &&
+    ! grep -rq "go-task/setup-task@" .github'
 
 # --- DTP-7 wiring: the meta-test in the copy must notice an unwired guard ---
 GATE="hack/test/ci_workflow_security_test.sh"

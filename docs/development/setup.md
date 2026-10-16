@@ -36,7 +36,7 @@ mise trust && mise install
 | Pinned by `mise.toml` | What it mirrors |
 | --- | --- |
 | Go | `go.mod` — read straight from it, so the two cannot drift |
-| Task | `go-task/setup-task` `version: 3.51.1` in `.github/workflows/` |
+| Task | the `go-task/setup-task` `version:` input in `.github/workflows/` and `.github/actions/` |
 | Node | `node-version: "22"` in the Docs and Preflight workflows (markdownlint) |
 | Python | `python-version: "3.12"` in the Docs workflow (MkDocs build) |
 

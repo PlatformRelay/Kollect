@@ -56,12 +56,13 @@ tests with 4.3.
 
 ## 2. Pins (DTP-1, DTP-2, DTP-5)
 
-- [ ] 2.1 Add the DTP-1 check, with self-test cases given 18 setup-task sites and `mise.toml` at
+- [x] 2.1 Add the DTP-1 check, with self-test cases given 18 setup-task sites and `mise.toml` at
   3.52.0: when one site says 3.51.1, then red naming that file (a missed site); when all say 3.51.1,
   then red (set below floor); when all say a newer release, then green (an exact-value check would
   block bot bumps). Record the plain mode red on today's 18 + 1 Task 3.51.1 sites. Then set Task
   3.52.0 at all 18 sites and `mise.toml:54`, and rewrite `docs/development/setup.md:39` so the row
   names the `go-task/setup-task` `version:` input without a version. Plain mode green; one commit.
+  — closed 2026-10-16, evidence: evidence/T2.1.md
 - [ ] 2.2 Add the DTP-2 check, then move govulncheck, in one commit. Self-test cases given an
   annotated `GOVULNCHECK_VERSION` used by `task vulncheck`: when `task vulncheck` carries a literal
   `govulncheck@v1.9.0`, then red (inline pin returns); when the annotation is deleted, then red
