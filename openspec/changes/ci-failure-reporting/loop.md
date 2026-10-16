@@ -43,6 +43,7 @@ Holistic run at B: not run yet.
 |---|---|---|---|
 | 1.1 | CLOSED-WITH-GAPS | astra, 1 round (REQUEST_CHANGES, evidence only, fixed); no Claude leg (fixtures and evidence only) | timed-out job shape not seen live (F7); concurrency replacement and 65536 cap not probable read-only; F1 lookup argv has no `--label`, F2 comment author shape, F5 empty run list: inputs for 3.1–3.3 |
 | G2 (2.1, 2.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds: R1 astra REQUEST_CHANGES, opus CONCERNS (fixed); R2 astra APPROVE, opus CONCERNS (one test-strength gap, deferred) | line-cut at 4000 bytes unasserted (M20 survives): add `[line cut]` assertion and a cut-removed mutant in 5.1 |
+| G3 (3.1, 3.2, 3.3) | CLOSED-WITH-GAPS | astra + claude/opus:diff (token-writing script: security posture), 1 round: astra APPROVE, opus CONCERNS (payload-guard test gap, fixed with 5 cases) | live gh shapes read by the implementer (row 29); lookup ceiling 500 shared with every github-actions issue (recorded in G3 Harness gaps) |
 
 ## Known red
 
@@ -67,6 +68,9 @@ This change (ci-failure-reporting):
 - A test's own Markdown fence oracle needs a fixed-text control case (G2)
 - Each escaped character class needs its own killing case: three escapes survived deletion at 15/15 (G2)
 - Review legs here cannot write /tmp: put any check they must rerun in the evidence, not in a /tmp script (G2)
+- A "no write" case for a bad id must also assert the call that returned it was the last; later checks hide its unchecked use (G3)
+- Scope a forbidden-flag grep to the call it guards: `--label` on `issue create` is legitimate (G3)
+- Read a fake's `--limit` from the recorded argv, then serve exactly that many items (G3)
 
 Carried over from change 5 (developer-toolchain-pins):
 

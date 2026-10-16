@@ -87,7 +87,7 @@ argument per line, so argument boundaries survive.
 
 ## 3. Decision logic (CFR-1 to CFR-4, CFR-6)
 
-- [ ] 3.1 Write the decision-table cases with a fake `gh` on `PATH` that records every call and
+- [x] 3.1 Write the decision-table cases with a fake `gh` on `PATH` that records every call and
   serves a fake issue store, parameterised from the table in spec.md CFR-1, and record them red
   (preamble rule). The run acted on comes from the fake `gh run list`; each case asserts the exact
   recorded writes:
@@ -117,7 +117,8 @@ argument per line, so argument boundaries survive.
   - sequence pass, fail, fail, pass, fail on one fake issue store: none, create, comment, close,
     create;
   - sequence for `Go patch lag`: fail, fail, fail, pass: create, comment, comment, close.
-- [ ] 3.2 Write the lookup, trigger and robustness cases with the same fake `gh`, red by the
+  — closed 2026-10-16, evidence: evidence/G3.md
+- [x] 3.2 Write the lookup, trigger and robustness cases with the same fake `gh`, red by the
   preamble rule:
   - only a user-authored open issue with the label, the reporter's title and a marker: a new bot
     issue and no write to the user's (CFR-4; exposes a title or label-only lookup);
@@ -148,8 +149,10 @@ argument per line, so argument boundaries survive.
     comment (CFR-3; exposes a retry that skips the close);
   - log fetch exits non-zero, and separately exits 0 with empty output: each time the issue is
     still opened with the job names and "logs unavailable", and the script exits non-zero (CFR-6).
-- [ ] 3.3 Implement `hack/ci/ci-failure-report.sh`; 3.1 and 3.2 green. Quoted arguments,
-  `--body-file`, numeric ids checked. One commit with 3.1 and 3.2.
+  — closed 2026-10-16, evidence: evidence/G3.md
+- [x] 3.3 Implement `hack/ci/ci-failure-report.sh`; 3.1 and 3.2 green. Quoted arguments,
+  `--body-file`, numeric ids checked. One commit with 3.1 and 3.2. — closed 2026-10-16, evidence:
+  evidence/G3.md
 
 ## 4. Workflow (CFR-1, CFR-6, CFR-7)
 
