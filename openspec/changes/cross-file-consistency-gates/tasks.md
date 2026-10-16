@@ -39,19 +39,19 @@
 
 ## 8. Stage-B fixes (round 2, no further review)
 
-- [ ] 8.1 CFC-1: no `golang:` exemption from the variable-image rule; `golang:1.27.2@${D}` and `golang:1.27.2-${X}` fail; mutants (C1)
-- [ ] 8.2 CFC-1: ignore comment lines inside a `FROM \` continuation so the image is still parsed; mutant with a literal golang:1.99.0 (C2)
-- [ ] 8.3 Fill the Verification table statuses from the evidence (6.2 / post-merge rows stay open)
+- [x] 8.1 CFC-1: no `golang:` exemption from the variable-image rule; `golang:1.27.2@${D}` and `golang:1.27.2-${X}` fail; mutants (C1) — closed 2026-10-16, evidence: evidence/G8.md
+- [x] 8.2 CFC-1: ignore comment lines inside a `FROM \` continuation so the image is still parsed; mutant with a literal golang:1.99.0 (C2) — closed 2026-10-16, evidence: evidence/G8.md
+- [x] 8.3 Fill the Verification table statuses from the evidence (6.2 / post-merge rows stay open) — closed 2026-10-16, evidence: evidence/G8.md
 
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| CFC-1 | `consistency_go_toolchain_test.sh` fixtures; real suite under the bumped Go | equal passes; others fail; suite green | not-run | |
-| CFC-2 | `consistency_tool_pins_test.sh` fixtures; real pins | newer-Go, too-old analysis tool and unresolved fail; real pins pass | not-run | |
-| CFC-3 | `consistency_rbac_test.sh` with one triple removed; tenant render | fails naming the triple; tenant exceptions listed | not-run | |
-| CFC-4 | `consistency_metrics_test.sh` cases | each fails or passes as specified | not-run | |
-| CFC-5 | formatter tests | behind and lookup failure red | not-run | |
+| CFC-1 | `consistency_go_toolchain_test.sh` fixtures; real suite under the bumped Go | equal passes; others fail; suite green | pass | evidence/G1.md (fixtures, `task test` under 1.27.2), G7.md, G8.md (variable and continuation mutants) |
+| CFC-2 | `consistency_tool_pins_test.sh` fixtures; real pins | newer-Go, too-old analysis tool and unresolved fail; real pins pass | pass | evidence/G2.md |
+| CFC-3 | `consistency_rbac_test.sh` with one triple removed; tenant render | fails naming the triple; tenant exceptions listed | pass | evidence/G3.md (self-test `triple removed`; tenant probe), G7.md |
+| CFC-4 | `consistency_metrics_test.sh` cases | each fails or passes as specified | pass | evidence/G5.md, G7.md (registry test) |
+| CFC-5 | formatter tests | behind and lookup failure red | pass | evidence/G4.md |
 | CFC-5 | first scheduled run | green on current go.mod | post-merge | follow-up evidence PR |
-| CFC-6 | each script's self-test plus no-op copy, by exit status | mutants red, no-op green | not-run | |
-| all | `lint` job on the PR head; independent review | green, all guards in the log; APPROVE; both revisions recorded | not-run | |
+| CFC-6 | each script's self-test plus no-op copy, by exit status | mutants red, no-op green | pass | evidence/G1.md–G5.md (per guard), G6.md (CI wiring), G7.md, G8.md |
+| all | `lint` job on the PR head; independent review | green, all guards in the log; APPROVE; both revisions recorded | not-run | PR head CI |
