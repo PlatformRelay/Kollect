@@ -22,12 +22,13 @@
 #
 # The docs-only path is NOT free, and that is a deliberate trade. Where this workflow previously
 # was not dispatched at all, a documentation-only PR now runs `changes`, `gitleaks`, `lint` and
-# `tool-pins-selftest` (CFC-6, the tool-pins gate's self-test, split out of lint for wall time) --
-# `lint` because two existing gates (dist_ci_wiring_test.sh, repo_root_links_wiring_test.sh)
-# require it to be unconditional, and because it is where ci_docs_gate_test.sh runs, so leaving
-# it ungated is the only thing that exercises the docs-only direction at all. What such a PR no
-# longer pays for is the Go suite, the kind clusters, testcontainers, the fuzz matrix and the
-# image builds -- and it no longer needs a ruleset bypass to merge.
+# `tool-pins-selftest` (CFC-6 and DTP-7: the tool-pins and toolchain-pins self-tests, split out of
+# lint for wall time) -- `lint` because two existing gates (dist_ci_wiring_test.sh,
+# repo_root_links_wiring_test.sh) require it to be unconditional, and because it is where
+# ci_docs_gate_test.sh runs, so leaving it ungated is the only thing that exercises the docs-only
+# direction at all. What such a PR no longer pays for is the Go suite, the kind clusters,
+# testcontainers, the fuzz matrix and the image builds -- and it no longer needs a ruleset bypass
+# to merge.
 name: CI
 
 on:
@@ -562,12 +563,9 @@ jobs:
       # go.mod (nothing else manages the node/python inputs, so this comparison is the only thing
       # that would notice). DTP-5: a mise.toml or Taskfile.yml comment states a version only
       # directly above (or on) the pin it names, at its value, and never counts pin sites.
-      # The self-test also removes these two steps from a copy and expects the
-      # CWS-6/CFC-6 meta-test to red. Needs yq.
+      # Its --self-test (DTP-7) runs in the tool-pins-selftest job below.
       - name: Verify Task, gitleaks, git-cliff, shellcheck, govulncheck and mise.toml pins agree (DTP-1, DTP-2, DTP-3, DTP-5, DTP-6, DEV-MISE-01)
         run: bash hack/test/consistency_toolchain_pins_test.sh
-      - name: Verify the toolchain-pins gate can still fail (DTP-7)
-        run: bash hack/test/consistency_toolchain_pins_test.sh --self-test
       - name: Verify the go-patch-lag sensor verdicts and workflow shape (CFC-5)
         run: bash hack/test/go_patch_lag_test.sh
       - name: Verify the go-patch-lag test can still fail (CFC-6)
@@ -593,8 +591,11 @@ jobs:
   # verdict: it runs on every PR, docs-only included, and is a required context
   # (hack/release/verify-eligibility.sh). hack/test/ci_workflow_security_test.sh (CFC-6 rule)
   # requires the self-test in this job and hack/test/ci_docs_gate_test.sh keeps the job
-  # unconditional. The timeout bounds a stalled module or vuln-DB download; local runs took
-  # 7 to 17 minutes.
+  # unconditional. The toolchain-pins self-test (DTP-7, openspec change developer-toolchain-pins)
+  # runs here too, for the same reason: about 8 minutes, half of it the all-pins bump control's
+  # nested self-test. It also removes the toolchain-pins guard's steps from a copy and expects
+  # the CWS-6/CFC-6 meta-test to red, so it needs yq. The timeout bounds a stalled module or
+  # vuln-DB download; local runs of the two took 15 to 25 minutes.
   tool-pins-selftest:
     name: tool-pins-selftest
     runs-on: ubuntu-latest
@@ -606,6 +607,13 @@ jobs:
       - uses: ./.github/actions/go-cache
       - name: Verify the tool-pins gate can still fail (CFC-6)
         run: bash hack/test/consistency_tool_pins_test.sh --self-test
+      - name: Ensure yq is available
+        run: |
+          # ubuntu-latest images generally ship yq, but don't assume it (same step as lint's).
+          command -v yq >/dev/null 2>&1 || sudo snap install yq
+          yq --version
+      - name: Verify the toolchain-pins gate can still fail (DTP-7)
+        run: bash hack/test/consistency_toolchain_pins_test.sh --self-test
 
   # CI-DOCSGATE-01: the REAL suite. It is deliberately NOT named `test` -- the required context
   # of that name is produced by the `test` job at the end of this file, which reports on every
