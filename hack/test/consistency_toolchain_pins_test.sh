@@ -62,7 +62,7 @@
 #
 # --self-test (DTP-7) copies the tracked tree once per case, breaks one clause, and asserts the
 # gate reds with that clause's message; one unmutated copy and the four-component shellcheck-py
-# rev must pass; removing this guard's lint steps must red hack/test/ci_workflow_security_test.sh
+# rev must pass; removing this guard's CI steps must red hack/test/ci_workflow_security_test.sh
 # (CWS-6 for one step, CFC-6 for both).
 #
 # Usage:
@@ -2141,7 +2141,7 @@ control_passes "matchString newline written as a JSON newline" \
 # --- DTP-7 wiring: the meta-test in the copy must notice an unwired guard ---
 GATE="hack/test/ci_workflow_security_test.sh"
 G="hack/test/consistency_toolchain_pins_test.sh"
-mutant_rejected "self-test step removed from lint" \
+mutant_rejected "self-test step removed from tool-pins-selftest" \
   "CWS-6: guard script ${G} runs in CI but its '--self-test' mode is not invoked" \
   "!run: bash ${G} --self-test" "${CI}" \
   drop_step "${CI}" "run: bash ${G} --self-test\$"
@@ -2151,7 +2151,7 @@ mutant_rejected "plain step removed from lint" \
   "!run: bash ${G}\$" "${CI}" \
   drop_step "${CI}" "run: bash ${G}\$"
 
-mutant_rejected "both steps removed from lint" \
+mutant_rejected "both steps removed from CI" \
   "CFC-6: guard ${G} is not run in its 'bare' mode" \
   "!${G}" "${CI}" \
   drop_step "${CI}" "run: bash ${G}( --self-test)?\$"
