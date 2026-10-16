@@ -63,7 +63,7 @@ tests with 4.3.
   3.52.0 at all 18 sites and `mise.toml:54`, and rewrite `docs/development/setup.md:39` so the row
   names the `go-task/setup-task` `version:` input without a version. Plain mode green; one commit.
   — closed 2026-10-16, evidence: evidence/T2.1.md
-- [ ] 2.2 Add the DTP-2 check, then move govulncheck, in one commit. Self-test cases given an
+- [x] 2.2 Add the DTP-2 check, then move govulncheck, in one commit. Self-test cases given an
   annotated `GOVULNCHECK_VERSION` used by `task vulncheck`: when `task vulncheck` carries a literal
   `govulncheck@v1.9.0`, then red (inline pin returns); when the annotation is deleted, then red
   (Renovate stops seeing it); when `task vulncheck` reads another variable holding v1.9.0 while the
@@ -80,7 +80,8 @@ tests with 4.3.
   match `govulncheck@` without a version (~503-505 "package path typo", ~527-529 "pin missing")
   still apply and red for their stated reason. Confirm the plain run resolves
   `{{.GOVULNCHECK_VERSION}}` (the variable lookup at ~162) rather than reporting `<unresolved:…>`.
-  Record a real `task vulncheck` run. Both guards green, both modes.
+  Record a real `task vulncheck` run. Both guards green, both modes. — closed 2026-10-16, evidence:
+  evidence/T2.2.md
 - [ ] 2.3 Add the DTP-5 comment rule, then fix the comments, in one commit. Self-test cases, each
   with the failure it exposes:
   - when a `mise.toml` comment says `helm (v3.21.4)`, `go 1.27.2` or "all 17 occurrences", then red
