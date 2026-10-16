@@ -30,8 +30,8 @@ Every `go-task/setup-task` `version:` input under `.github/workflows/` and `.git
 
 ### Requirement: DTP-2 govulncheck is pinned once
 
-`Taskfile.yml` SHALL define `GOVULNCHECK_VERSION` with a Renovate annotation and `task vulncheck`
-SHALL use it. No floor is set here: CFC-2 (change 4) checks that the pinned govulncheck builds and
+`Taskfile.yml` SHALL define `GOVULNCHECK_VERSION` with a Renovate annotation on the Go module
+datasource (`datasource=go depName=golang.org/x/vuln`) and `task vulncheck` SHALL use it. No floor is set here: CFC-2 (change 4) checks that the pinned govulncheck builds and
 runs under `go.mod`'s Go.
 
 #### Scenario: Inline version returns
@@ -44,16 +44,45 @@ runs under `go.mod`'s Go.
 - **WHEN** `GOVULNCHECK_VERSION` has no `# renovate:` line above it
 - **THEN** the guard SHALL fail
 
-### Requirement: DTP-3 gitleaks and git-cliff meet their floors
+#### Scenario: vulncheck reads another variable
 
-gitleaks (`hack/install-gitleaks.sh`, the CI environment, `.pre-commit-config.yaml`) SHALL be equal
-and at least `8.30.1`; git-cliff (`Taskfile.yml`) SHALL be at least `v2.13.1`. golangci-lint is not
-checked here: CFC-2 checks `.custom-gcl.yml` against `Makefile` and smoke-runs the tool.
+- **WHEN** `task vulncheck` references a different variable holding the same version while the
+  annotated `GOVULNCHECK_VERSION` stays defined
+- **THEN** the guard SHALL fail and name the missing `GOVULNCHECK_VERSION` reference
+
+#### Scenario: Variable definition removed
+
+- **WHEN** `GOVULNCHECK_VERSION` is no longer defined
+- **THEN** the guard SHALL fail with a missing-definition message
+
+### Requirement: DTP-3 gitleaks, git-cliff and shellcheck sites agree
+
+gitleaks (`ci.yaml:164` env, `hack/install-gitleaks.sh:14`, `.pre-commit-config.yaml:5` `rev`)
+SHALL be equal and at least `8.30.1`. git-cliff (`Taskfile.yml:22` `GIT_CLIFF_VERSION`,
+`.github/workflows/release.yaml:420` git-cliff-action `version:`, `hack/verify-changelog.sh:11`
+fallback install) SHALL be equal and at least `v2.13.1`. shellcheck (`ci.yaml:299` env,
+`hack/install-shellcheck.sh:15` default, `.pre-commit-config.yaml:56` shellcheck-py `rev`, compared
+on its first three components) SHALL be equal, and `hack/install-shellcheck.sh`'s digest table SHALL
+have an entry for the pinned version on every platform it supports. Versions compare with any
+leading `v` stripped. golangci-lint is not checked here: CFC-2 checks `.custom-gcl.yml` against
+`Makefile` and smoke-runs the tool.
 
 #### Scenario: Pre-commit rev drifts
 
 - **WHEN** `.pre-commit-config.yaml` names a different gitleaks release than the others
 - **THEN** the guard SHALL fail
+
+#### Scenario: git-cliff release pin drifts
+
+- **WHEN** `release.yaml` or `hack/verify-changelog.sh` names a different git-cliff release than
+  `Taskfile.yml`
+- **THEN** the guard SHALL fail and name the file
+
+#### Scenario: shellcheck bumped without a digest
+
+- **WHEN** every shellcheck site says a release that `hack/install-shellcheck.sh`'s digest table
+  has no entry for
+- **THEN** the guard SHALL fail and name the missing table entry
 
 #### Scenario: Empty scan
 
@@ -64,9 +93,13 @@ checked here: CFC-2 checks `.custom-gcl.yml` against `Makefile` and smoke-runs t
 
 Every `customManagers` entry in `renovate.json` SHALL match at least one tracked file, where
 "matches" is the definition settled by the task 3.1 probe (a file pattern alone is not enough when
-the match strings find nothing in that file), and every pin site of DTP-1 to DTP-3, plus
-golangci-lint in `Makefile` and `hack/tooling/.custom-gcl.yml` and shellcheck in the CI
-environment, SHALL be covered by a manager of one group per tool.
+the match strings find nothing in that file), and every pin site of DTP-1 to DTP-3 (including the
+three git-cliff and three shellcheck sites), plus golangci-lint in `Makefile` and
+`hack/tooling/.custom-gcl.yml`, SHALL be covered by a manager. All sites of one tool SHALL land in
+one group, and shellcheck SHALL have a group of its own, so a shellcheck bump that is red until its
+digests are added holds back no other tool. The check's mechanism (Renovate run in `lint` at a
+pinned version, or a bash copy of the managers' regexes and `packageRules` order) is the one task
+3.1 records.
 
 #### Scenario: Dead manager
 
@@ -79,14 +112,24 @@ environment, SHALL be covered by a manager of one group per tool.
 - **WHEN** a tool's pin (for example `Makefile` `GOLANGCI_LINT_VERSION`) is matched by no manager
 - **THEN** the guard SHALL fail and name the file
 
+#### Scenario: shellcheck shares a group
+
+- **WHEN** a shellcheck site resolves to the same group as another tool
+- **THEN** the guard SHALL fail and name the group
+
 ### Requirement: DTP-5 mise mirrors CI, reads Go from go.mod and states no stale versions
 
 `mise.toml` SHALL NOT list `go` under `[tools]` and SHALL enable `idiomatic_version_file_enable_tools
 = ["go"]`, with `go.mod` carrying a `go` line; this half is already satisfied and checked by
 DEV-MISE-01 and is carried over unchanged. `mise.toml` `node` and `python` SHALL equal the CI
-`node-version` and `python-version` inputs, which SHALL agree with each other. Comments in
-`mise.toml` and `Taskfile.yml` SHALL NOT restate a tool version other than the pin they sit on, nor
-a count of pin sites.
+`node-version` and `python-version` inputs, which SHALL agree with each other.
+
+A version-bearing comment in `mise.toml` or `Taskfile.yml` is allowed only in the contiguous
+comment block directly above its pin (no blank line between), or inline on the pin's line, and only
+when it names that pin's tool (the pin key or its CI input name, such as `node-version` for `node`
+or setup-task `version:` for `task`) at a value equal to the pin's, with any leading `v` stripped.
+Any other tool-version restatement in a comment, and any count of pin sites (a number followed by
+`occurrences`, `sites`, `places` or `workflows`), SHALL fail the guard.
 
 #### Scenario: Go listed in mise
 
@@ -103,6 +146,17 @@ a count of pin sites.
 - **WHEN** a comment says `helm (v3.21.4)` while `Taskfile.yml` pins another version
 - **THEN** the guard SHALL fail
 
+#### Scenario: Attached comment names another value
+
+- **WHEN** the comment block directly above `task = "3.52.0"` says `version: 3.51.1`
+- **THEN** the guard SHALL fail
+
+#### Scenario: Attached comment names the pin
+
+- **WHEN** the comment block directly above `node = "22"` says `node-version: "22"`, or the one
+  above `python = "3.12"` says `python-version: "3.12"`
+- **THEN** the guard passes
+
 #### Scenario: Restated site count
 
 - **WHEN** a comment says "all 17 occurrences in .github/workflows/"
@@ -113,13 +167,18 @@ a count of pin sites.
 Every `hack/install-*.sh` that downloads a binary SHALL verify a published checksum before installing
 it. git-cliff SHALL be verified against its per-asset `.sha512` with `sha512sum`; helm-docs against
 its `checksums.txt`. The only exceptions list is `UNVERIFIED_BY_DESIGN` in
-`hack/test/ci_fetch_lib_hardening_test.sh`; it SHALL only shrink, and this change removes both of
-its entries.
+`hack/test/ci_fetch_lib_hardening_test.sh`; it SHALL only shrink, this change removes both of its
+entries, and once they are gone any entry SHALL fail the guard.
 
 #### Scenario: Installer without verification
 
 - **WHEN** `install-git-cliff.sh` downloads a tarball and does not compare a checksum
-- **THEN** the guard SHALL fail and name the script
+- **THEN** `hack/test/ci_fetch_lib_hardening_test.sh` SHALL fail and name the script
+
+#### Scenario: Valid download
+
+- **WHEN** the downloaded archive matches the published checksum
+- **THEN** the installer SHALL succeed and the expected executable SHALL exist at the output path
 
 #### Scenario: Tampered download
 
@@ -133,23 +192,32 @@ its entries.
 
 #### Scenario: Exception added
 
-- **WHEN** an installer name is added to `UNVERIFIED_BY_DESIGN`
+- **WHEN** an installer name is added to `UNVERIFIED_BY_DESIGN`, including after the list is empty
 - **THEN** the guard SHALL fail
 
 ### Requirement: DTP-7 The guards can fail
 
-The checks of DTP-1 to DTP-6 SHALL live in `hack/test/consistency_toolchain_pins_test.sh`, which
-SHALL carry throwaway-copy mutants for each requirement, every mutant of the folded
-`hack/test/dev_mise_pin_drift_test.sh`, and a no-op copy that passes. It SHALL run in a required
-job, plain and `--self-test` as separate steps, which CFC-6 enforces for every
-`consistency_*_test.sh`.
+The checks of DTP-1 to DTP-6 SHALL live in `hack/test/consistency_toolchain_pins_test.sh`, with
+one exception: the static installer-checksum scan of DTP-6 stays in
+`hack/test/ci_fetch_lib_hardening_test.sh`, which owns it and which this change widens to accept
+`sha512sum`. The new guard SHALL carry throwaway-copy mutants for each requirement, every mutant of
+the folded `hack/test/dev_mise_pin_drift_test.sh`, the installer execution tests of DTP-6 (valid,
+tampered and missing-checksum downloads) in its `--self-test`, and a no-op copy that passes. It SHALL
+run in a required job, plain and `--self-test` as separate steps, which CWS-6 and CFC-6 in
+`hack/test/ci_workflow_security_test.sh` enforce.
 
 #### Scenario: Mutant survives
 
 - **WHEN** editing one site in a copy does not make the guard fail
 - **THEN** the self-test SHALL fail
 
+#### Scenario: One step unwired
+
+- **WHEN** one of the new guard's two steps is removed from the required job
+- **THEN** `hack/test/ci_workflow_security_test.sh` SHALL fail, naming the guard and the mode that
+  no required step runs (CWS-6 fires first, at `ci_workflow_security_test.sh:590`)
+
 #### Scenario: Guard unwired
 
-- **WHEN** either step of the new guard is removed from the required job
+- **WHEN** both steps of the new guard are removed from the required job
 - **THEN** CFC-6 SHALL fail and name the guard
