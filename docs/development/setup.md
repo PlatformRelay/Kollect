@@ -50,7 +50,7 @@ fetches `shellcheck`, `helm`, `helm-docs`, `git-cliff` and friends. Keeping thos
 `mise.toml` keeps them at one source of truth each.
 
 **CI remains the source of truth for every version**, and that is enforced rather than merely
-asked for: `hack/test/dev_mise_pin_drift_test.sh` compares `mise.toml`'s `task` / `node` /
+asked for: `hack/test/consistency_toolchain_pins_test.sh` compares `mise.toml`'s `task` / `node` /
 `python` values against every `setup-task` / `setup-node` / `setup-python` pin under `.github/`
 and reds the `lint` job on any disagreement. It also locks the Go arrangement — a `go` entry
 added under `[tools]` would override `go.mod`, so the gate rejects one. If `mise.toml` and a

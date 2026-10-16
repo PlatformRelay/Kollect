@@ -71,7 +71,7 @@
     },
     {
       "customType": "regex",
-      "description": "go-task versions in the CI actions AND the mise.toml pin that mirrors them. Both resolve to depName go-task/task and both are custom.regex, so the 'pinned build tools' rule below lands them in ONE pull request instead of letting mise.toml go stale behind a workflow bump -- the same reasoning as the helm/helm rule. hack/test/dev_mise_pin_drift_test.sh is the fail-closed backstop if this ever stops matching.",
+      "description": "go-task versions in the CI actions AND the mise.toml pin that mirrors them. Both resolve to depName go-task/task and both are custom.regex, so the 'pinned build tools' rule below lands them in ONE pull request instead of letting mise.toml go stale behind a workflow bump -- the same reasoning as the helm/helm rule. hack/test/consistency_toolchain_pins_test.sh is the fail-closed backstop if this ever stops matching.",
       "managerFilePatterns": [
         "/^\\.github/(actions|workflows)/.+\\.ya?ml$/",
         "/^mise\\.toml$/"

@@ -25,7 +25,12 @@
 #   * DTP-6: UNVERIFIED_BY_DESIGN in hack/test/ci_fetch_lib_hardening_test.sh (installers exempt
 #     from its checksum scan) is defined once, on one line, and otherwise only read (a closed list
 #     of read forms; any other mention is a write), and lists nothing outside
-#     UNVERIFIED_LIMIT: the list may only shrink.
+#     UNVERIFIED_LIMIT: the list may only shrink;
+#   * DEV-MISE-01 (folded in from the former mise pin-drift guard): mise.toml exists and has a [tools]
+#     table whose task, node and python equal every go-task/setup-task `version:`,
+#     `node-version:` and `python-version:` under .github/ (which must agree among themselves
+#     and must not be empty); Go is not under [tools], idiomatic_version_file_enable_tools
+#     names "go" and go.mod has a `go` line, so mise reads Go from go.mod as actions/setup-go does.
 # Lines whose first non-blank character is `#` are comments and never count as a site.
 #
 # --self-test (DTP-7) copies the tracked tree once per case, breaks one clause, and asserts the
@@ -389,6 +394,108 @@ check_unverified_limit() {
   echo "UNVERIFIED_BY_DESIGN: ${body:-<empty>}"
 }
 
+# --- DEV-MISE-01 (folded in from the former mise pin-drift guard, mutant for mutant) ---
+# setup_task_versions <root>: every `version:` input given to go-task/setup-task under .github/.
+setup_task_versions() {
+  local root="$1" f
+  while IFS= read -r f; do
+    awk '
+      /^[[:space:]]*#/ { next }
+      /uses:[[:space:]]*go-task\/setup-task@/ { want = 1; next }
+      want && /^[[:space:]]*version:[[:space:]]*/ {
+        line = $0
+        sub(/^[[:space:]]*version:[[:space:]]*/, "", line)
+        sub(/[[:space:]]*#.*$/, "", line)
+        gsub(/["\047[:space:]]/, "", line)
+        if (line != "") print line
+        want = 0
+        next
+      }
+      # A new step before any version: means that use carried no pin to read.
+      want && /^[[:space:]]*-[[:space:]]*(uses|name|run):/ { want = 0 }
+    ' "${root}/${f}"
+  done < <(yaml_files "${root}")
+}
+
+# input_versions <root> <key>: every value of a plain workflow input (node-version, python-version).
+input_versions() {
+  local root="$1" key="$2" f
+  while IFS= read -r f; do
+    awk -v key="${key}" '
+      /^[[:space:]]*#/ { next }
+      $0 ~ "^[[:space:]]*" key ":[[:space:]]*" {
+        line = $0
+        sub("^[[:space:]]*" key ":[[:space:]]*", "", line)
+        sub(/[[:space:]]*#.*$/, "", line)
+        gsub(/["\047[:space:]]/, "", line)
+        if (line != "") print line
+      }' "${root}/${f}"
+  done < <(yaml_files "${root}")
+}
+
+# mise_tool_value <file> <tool>: the value of one key in mise.toml's [tools] table; empty if absent.
+mise_tool_value() {
+  awk -v tool="$2" '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*\[/ { section = $0; gsub(/[[:space:]]/, "", section); next }
+    section == "[tools]" && $0 ~ "^[[:space:]]*" tool "[[:space:]]*=" {
+      line = $0
+      sub("^[[:space:]]*" tool "[[:space:]]*=[[:space:]]*", "", line)
+      sub(/[[:space:]]*#.*$/, "", line)
+      gsub(/["\047[:space:]]/, "", line)
+      print line
+    }' "$1"
+}
+
+# mise_assert_pin <label> <mise value> <CI values, one per line> <origin>: one mise.toml literal
+# against the CI pins it mirrors. An empty CI scan or a missing mise value is a failure.
+mise_assert_pin() {
+  local label="$1" mise_value="$2" ci_list="$3" origin="$4" distinct
+  if [[ -z "${ci_list}" ]]; then
+    err "mise: the scan set is empty -- found none of ${origin} under .github, so the ${label} check would pass without comparing anything"
+    return 0
+  fi
+  distinct="$(sort -u <<<"${ci_list}")"
+  if [[ "$(grep -c '' <<<"${distinct}")" != "1" ]]; then
+    err "mise: CI disagrees with itself on ${label} -- ${origin} yields $(tr '\n' ' ' <<<"${distinct}")"
+    return 0
+  fi
+  if [[ -z "${mise_value}" ]]; then
+    err "mise: mise.toml has no ${label} entry under [tools], but CI pins ${label} ${distinct} -- the local toolchain is unpinned while the gates are not"
+    return 0
+  fi
+  [[ "${mise_value}" == "${distinct}" ]] ||
+    err "mise: mise.toml pins ${label} = ${mise_value} but ${origin} pins ${distinct} -- contributors would run a different ${label} than the merge gates"
+}
+
+# check_mise <root>: mise.toml's task/node/python equal every CI pin; Go stays out of [tools] and
+# is read from go.mod (idiomatic_version_file_enable_tools), as actions/setup-go reads it.
+check_mise() {
+  local root="$1" mise="mise.toml" go_pin
+  if [[ ! -f "${root}/${mise}" ]]; then
+    err "mise: ${mise} does not exist -- this check exists to keep it honest, so its absence is a failure, not a skip"
+    return 0
+  fi
+  if ! grep -Eq '^[[:space:]]*\[tools\][[:space:]]*$' "${root}/${mise}"; then
+    err "mise: ${mise} has no [tools] table -- every pin lookup would return empty and pass vacuously"
+    return 0
+  fi
+  go_pin="$(mise_tool_value "${root}/${mise}" go)"
+  [[ -z "${go_pin}" ]] ||
+    err "mise: mise.toml pins go = ${go_pin} under [tools]; that value WINS over go.mod and goes stale the next time go.mod is bumped -- remove it and let idiomatic_version_file_enable_tools read go.mod, as actions/setup-go does via go-version-file"
+  grep -Eq '^[[:space:]]*idiomatic_version_file_enable_tools[[:space:]]*=.*"go"' "${root}/${mise}" ||
+    err "mise: mise.toml no longer enables the idiomatic version file for go -- without idiomatic_version_file_enable_tools = [\"go\"] mise stops reading go.mod and Go silently becomes unmanaged"
+  { [[ -f "${root}/go.mod" ]] && grep -Eq '^go[[:space:]]+[0-9]' "${root}/go.mod"; } ||
+    err "mise: go.mod has no 'go <version>' line -- the file mise and actions/setup-go both read has nothing to read"
+  mise_assert_pin task "$(mise_tool_value "${root}/${mise}" task)" \
+    "$(setup_task_versions "${root}")" "the go-task/setup-task version: inputs"
+  mise_assert_pin node "$(mise_tool_value "${root}/${mise}" node)" \
+    "$(input_versions "${root}" node-version)" "the actions/setup-node node-version: inputs"
+  mise_assert_pin python "$(mise_tool_value "${root}/${mise}" python)" \
+    "$(input_versions "${root}" python-version)" "the actions/setup-python python-version: inputs"
+  echo "mise.toml: task $(mise_tool_value "${root}/${mise}" task), node $(mise_tool_value "${root}/${mise}" node), python $(mise_tool_value "${root}/${mise}" python), go from go.mod"
+}
+
 check_all() {
   local root="$1" sites
   BROKEN=0
@@ -421,12 +528,13 @@ check_all() {
   fi
 
   check_unverified_limit "${root}"
+  check_mise "${root}"
   return "${BROKEN}"
 }
 
 if [[ "${MODE}" == "check" ]]; then
   if check_all "${ROOT}"; then
-    pass "gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, and UNVERIFIED_BY_DESIGN is within its limit"
+    pass "gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, UNVERIFIED_BY_DESIGN is within its limit, and mise.toml agrees with every task/node/python pin in .github with Go read from go.mod"
     exit 0
   fi
   fail "toolchain pins disagree (listed above)"
@@ -449,7 +557,8 @@ new_copy() {
     tar -xf - -C "${COPY}"
 }
 
-# probe <label> <probe> <file>: the mutation landed. A probe starting with `!` must NOT match;
+# probe <label> <probe> <file>: the mutation landed. A probe starting with `!` must NOT match (a
+# missing file matches nothing, so a deleting mutant also proves the deletion in its command);
 # several probes joined by `@@` must each hold.
 probe() {
   local label="$1" p="$2" file="$3" one
@@ -690,6 +799,75 @@ mutant_rejected "UNVERIFIED_BY_DESIGN written by printf -v with the bare name" \
 control_passes "UNVERIFIED_BY_DESIGN read in a loop and named in a message" \
   'listed in UNVERIFIED_BY_DESIGN here' "${FG}" \
   sed -i -E '/^UNVERIFIED_BY_DESIGN=\(/a for k in "${UNVERIFIED_BY_DESIGN[@]}"; do echo "${k} listed in UNVERIFIED_BY_DESIGN here (${#UNVERIFIED_BY_DESIGN[@]})"; done' "${FG}"
+
+# --- DEV-MISE-01, ported one-to-one from the former mise pin-drift guard (its `honest` fixture is the
+# no-op control above). Old values kept: each is older than the real pin, never a next release.
+M=mise.toml
+mutant_rejected "mise task drifts from CI (old task-drift)" \
+  'mise: mise\.toml pins task = 3\.50\.0 but the go-task/setup-task version: inputs pins [0-9.]+' \
+  '^task = "3\.50\.0"' "${M}" \
+  sed -i -E 's/^task = "[0-9.]+"/task = "3.50.0"/' "${M}"
+
+mutant_rejected "mise node drifts from CI (old node-drift)" \
+  'mise: mise\.toml pins node = 20 but the actions/setup-node node-version: inputs pins [0-9]+' \
+  '^node = "20"' "${M}" \
+  sed -i -E 's/^node = "[0-9.]+"/node = "20"/' "${M}"
+
+mutant_rejected "mise python drifts from CI (old python-drift)" \
+  'mise: mise\.toml pins python = 3\.11 but the actions/setup-python python-version: inputs pins [0-9.]+' \
+  '^python = "3\.11"' "${M}" \
+  sed -i -E 's/^python = "[0-9.]+"/python = "3.11"/' "${M}"
+
+mutant_rejected "mise pins go under [tools] (old go-pinned)" \
+  'mise: mise\.toml pins go = 1\.26\.6 under \[tools\]' \
+  '^go = "1\.26\.6"$' "${M}" \
+  sed -i -E 's/^\[tools\]$/[tools]\ngo = "1.26.6"/' "${M}"
+
+mutant_rejected "mise stops reading go.mod (old go-setting-gone)" \
+  'mise: mise\.toml no longer enables the idiomatic version file for go' \
+  '!idiomatic_version_file_enable_tools' "${M}" \
+  sed -i -E '/^[[:space:]]*idiomatic_version_file_enable_tools[[:space:]]*=/d' "${M}"
+
+mutant_rejected "go.mod loses its go line (old gomod-gone)" \
+  "mise: go\\.mod has no 'go <version>' line" \
+  '!^go[[:space:]]+[0-9]' go.mod \
+  sed -i -E '/^go[[:space:]]+[0-9]/d' go.mod
+
+mutant_rejected "composite action disagrees with the workflows on task (old ci-self-drift)" \
+  'mise: CI disagrees with itself on task' \
+  '^[[:space:]]+version: 3\.50\.0$' .github/actions/kind-e2e-setup/action.yml \
+  sed -i -E '/go-task\/setup-task@/,/version:/ s/version: [0-9.]+$/version: 3.50.0/' .github/actions/kind-e2e-setup/action.yml
+
+# Every task/node/python pin under .github renamed away; the in-command grep proves none is left.
+mutant_rejected "no task/node/python pin in CI (old no-ci-pins)" \
+  'mise: the scan set is empty -- found none of the (go-task/setup-task|actions/setup-node|actions/setup-python) ' \
+  '!go-task/setup-task[@]@@!node-version:@@!python-version:' .github/workflows/docs.yaml \
+  bash -c 'grep -rlE "go-task/setup-task@|(node|python)-version:" .github | xargs sed -i -E "s#go-task/setup-task@#example/setup-task@#; s/(node|python)-version:/\1-ver:/" &&
+    ! grep -rqE "go-task/setup-task@|(node|python)-version:" .github'
+
+mutant_rejected "mise [tools] table empty (old empty-tools)" \
+  'mise: mise\.toml has no (task|node|python) entry under \[tools\]' \
+  '^\[tools\]$@@!^(task|node|python)[[:space:]]*=' "${M}" \
+  sed -i -E '/^\[tools\]$/,$ { /^[[:space:]]*[a-z]+[[:space:]]*=/d }' "${M}"
+
+mutant_rejected "mise has no [tools] table (old no-tools-table)" \
+  'mise: mise\.toml has no \[tools\] table' \
+  '!^[[:space:]]*\[tools\]' "${M}" \
+  sed -i -E '/^\[tools\]$/d' "${M}"
+
+# Not in the old guard (its section scope was untested): a task key outside [tools] is not a pin.
+mutant_rejected "mise task moved from [tools] to [settings]" \
+  'mise: mise\.toml has no task entry under \[tools\]' \
+  '^\[tools\]$' "${M}" \
+  bash -c 't="$(grep -E "^task = " mise.toml)" && sed -i -E "/^task = /d" mise.toml &&
+    sed -i -E "s/^\[settings\]\$/[settings]\n${t}/" mise.toml &&
+    awk "/^\[settings\]\$/ { s = 1 } /^\[tools\]\$/ { s = 0 } s && /^task = / { ok = 1 } END { exit !ok }" mise.toml'
+
+# The file is gone: the in-command test is the absence probe (a probe of a missing file is vacuous).
+mutant_rejected "mise.toml missing (old missing mise.toml case)" \
+  'mise: mise\.toml does not exist' \
+  '!.' "${M}" \
+  bash -c 'rm -f mise.toml && test ! -e mise.toml'
 
 # --- DTP-7 wiring: the meta-test in the copy must notice an unwired guard ---
 GATE="hack/test/ci_workflow_security_test.sh"
