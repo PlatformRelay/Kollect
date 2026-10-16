@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: L — dispatch G3 (3.1–3.3: Renovate manager probe, liveness/coverage/grouping check, manager fixes)
+Next: L — dispatch G4 (4.1–4.3: installer checksums, DTP-6)
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -58,6 +58,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 | 2.1 | CLOSED | astra APPROVE + claude/opus:diff CLEAN, 1 round | 8d9a13d4c. Task 3.52.0 at 18 setup-task sites + mise.toml; setup.md:39 version-free; step-reset-off closed (setup-task step without `version:` reds). Test changes: 1.2 cases task-drift/ci-self-drift now expect DTP-1 message; no-ci-pins split. Deferred to B: case-sensitive `uses:` match (shared reader); no `task = "latest"` case |
 | 2.2 | CLOSED-WITH-GAPS | r1 astra APPROVE + claude/opus:diff CONCERNS (2 WARNING verified: `latest` passed both guards; task-level vars override ran v1.1.4 → fixed); r2 astra APPROVE | fc1135a99. GOVULNCHECK_VERSION var + renovate annotation (dry-run extracts it); `task vulncheck` green. Test change: 2 CFC-2 mutants re-anchored. Deferred to B (fix there): CFC-2 accepts `latest` via any Taskfile var (consistency_tool_pins_test.sh:159-163) |
 | 2.3 | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES (bare majors, -rc truncation, case-sensitive count rule → fixed) + claude/opus:diff CLEAN (lint step renamed); r2 astra APPROVE | 25efc58f9. DTP-5 comment-to-pin rule; mise.toml :24/:28/:39/:52 rewritten as pointers; Task comment no longer restates a version (Renovate would red every bump). Test changes: 4 ported DEV-MISE-01 mutants move/delete attached comments. Gaps: dotted prose numbers fail closed; `# gitleaks 8` passes |
+| G3 (3.1–3.3) | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES + claude/opus:diff CONCERNS; r2 astra REQUEST_CHANGES (2 P2, fixed unreviewed per cap) | c01c6ab49, d2354912a. Liveness = file hit AND ≥1 extracted dep; mechanism = python model reading renovate.json (matches Renovate 44.115.4 extract: 29 deps today / 41 final); Renovate not run in lint (groups need lookup + GitHub token). New gitleaks/shellcheck/shellcheck-py/git-cliff/golangci managers; shellcheck own group before go toolchain. Test changes: 3 earlier cases rewritten, ALSO_RED on 7 cases. Gaps: model ≠ Renovate (presets, minimatch); rewrite simulated from replace string |
 
 ## Known red
 
@@ -88,6 +89,9 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 
 - Before adding a rule over a file earlier mutants edit, run every mutant touching that file first (2.3)
 - Hand-mutate each regex alternative; one was redundant (2.3)
+
+- A self-test keeping one tree copy per case exhausts shared /tmp inodes: free each copy before the next (G3)
+- A Renovate model must reject what RE2 rejects (lookaround, backrefs, atomic groups) (G3)
 
 Carried over from change 4 (cross-file-consistency-gates):
 
