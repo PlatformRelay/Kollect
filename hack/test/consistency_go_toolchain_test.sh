@@ -13,7 +13,8 @@
 #   * every golang image (Dockerfile* FROM lines, devcontainer image) equals go.mod's `go`;
 #   * the images agree with each other;
 #   * no FROM names its image through a variable (`FROM ${B}`, `FROM $B`, `FROM ${B:-golang:x}`,
-#     `FROM debian:${T}`): the image is then only known at build time, so the gate refuses it
+#     `FROM debian:${T}`, `FROM golang:1.x@${D}`): the image is then only known at build time,
+#     so the gate refuses it
 #     rather than resolve an ARG default that `--build-arg` can replace;
 #   * go.mod has a `go` directive and no `toolchain` line (a toolchain line is a second source
 #     of truth that setup-go and the images would not follow);
@@ -91,8 +92,9 @@ golang_images() {
           # Any "$" makes the image known only at build time (an ARG default is replaced by
           # --build-arg), so it is reported, never resolved. That includes a "tag": its value
           # may hold "/" and ":" (`localhost:${B}` with B=5000/golang:1.99.0 is another image).
-          # `golang:${V}` is left to the literal-version check below, which fails it too.
-          if (img ~ /\$/ && img !~ /^golang:/) { print f, "<variable>", w[i]; break }
+          # A golang image is no exception: `golang:1.27.2@${D}` or `golang:1.27.2-${X}` would
+          # pass the version parse below, which strips the digest and the tag suffix.
+          if (img ~ /\$/) { print f, "<variable>", w[i]; break }
           if (img ~ /^golang:/) { sub(/^golang:/, "", img); sub(/@.*$/, "", img); print f, img }
           else if (img ~ /^golang(@|$)/) { print f, "<untagged>" }
           break
@@ -437,7 +439,7 @@ mutant_rejected "FROM continued onto the next line drifts" \
 
 # shellcheck disable=SC2016 # ${GO_VERSION} is literal Dockerfile text, not a shell expansion
 mutant_rejected "golang tag from a build arg" \
-  "Dockerfile: golang:\${GO_VERSION} is not a literal Go version" 'golang:\$\{GO_VERSION\}' Dockerfile \
+  "Dockerfile: FROM golang:\${GO_VERSION} names its image through a variable" 'golang:\$\{GO_VERSION\}' Dockerfile \
   sed -i -E 's/^FROM golang:[^ ]+ AS builder/FROM golang:${GO_VERSION} AS builder/' Dockerfile
 
 # A FROM whose image is a build-arg variable cannot be compared: the ARG default is only a
@@ -474,6 +476,18 @@ mutant_rejected "variable tag on a literal non-golang image" \
 mutant_rejected "FROM image from a build arg with an inline default" \
   'Dockerfile: FROM ${B:-golang:1.27.2} names its image through a variable' '^FROM \$\{B:-golang:' Dockerfile \
   sed -i -E 's/^FROM golang:[^ ]+ AS builder/FROM ${B:-golang:1.27.2} AS builder/' Dockerfile
+
+# A golang image is no exception: a variable digest or tag suffix is stripped by the version
+# parse, so the literal version left over (go.mod's own, kept from the real line) would pass.
+# shellcheck disable=SC2016
+mutant_rejected "golang image with a variable digest" \
+  '@${D} names its image through a variable' '^FROM golang:[0-9.]+@\$\{D\} AS builder' Dockerfile \
+  sed -i -E 's/^FROM (golang:[0-9.]+)@[^ ]+ AS builder/FROM \1@${D} AS builder/' Dockerfile
+
+# shellcheck disable=SC2016
+mutant_rejected "golang image with a variable tag suffix" \
+  '-${X} names its image through a variable' '^FROM golang:[0-9.]+-\$\{X\} AS builder' Dockerfile.pipeline \
+  sed -i -E 's/^FROM (golang:[0-9.]+)@[^ ]+ AS builder/FROM \1-${X} AS builder/' Dockerfile.pipeline
 
 mutant_rejected "quoted YAML keys on a setup-go step not reading go.mod" \
   "does not read go-version-file: go.mod" '"uses": actions/setup-go@' .github/actions/go-cache/action.yml \
