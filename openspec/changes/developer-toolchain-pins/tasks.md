@@ -144,10 +144,10 @@ tests with 4.3.
 
 ## 4. Installers (DTP-6)
 
-- [ ] 4.1 Probe the upstream checksum files for every platform each installer supports: git-cliff
+- [x] 4.1 Probe the upstream checksum files for every platform each installer supports: git-cliff
   per-asset `<asset>.sha512` (the `.sha256` is 404), helm-docs `checksums.txt`. Stop if one is
-  missing.
-- [ ] 4.2 Tests first, in the new guard's `--self-test`, with a fake `fetch_to`, per installer:
+  missing. — closed 2026-10-16, evidence: evidence/G4.md
+- [x] 4.2 Tests first, in the new guard's `--self-test`, with a fake `fetch_to`, per installer:
   given a valid archive and a checksum file in the published format, then the installer exits 0 and
   the expected executable exists at the output path (an installer that always fails would pass
   every negative case); from that passing fixture, flip one byte of the archive, then the installer
@@ -158,13 +158,13 @@ tests with 4.3.
   `hack/test/ci_fetch_lib_hardening_test.sh` (`verify_sha256|sha256sum`, ~779 and ~793) to accept
   `sha512sum`, with a mutant that deletes the `sha512sum` call from a copy of
   `install-git-cliff.sh` and must red once the entry leaves `UNVERIFIED_BY_DESIGN`. Watch all red;
-  the tests commit with 4.3.
-- [ ] 4.3 Verify git-cliff with `sha512sum` against `<asset>.sha512` and helm-docs against
+  the tests commit with 4.3. — closed 2026-10-16, evidence: evidence/G4.md
+- [x] 4.3 Verify git-cliff with `sha512sum` against `<asset>.sha512` and helm-docs against
   `checksums.txt` through `hack/lib/fetch.sh`; remove the NOTE at `install-git-cliff.sh:40-42` and
   `install-helm-docs.sh:40`; remove both entries from `UNVERIFIED_BY_DESIGN` (~766). Set the new
   guard's limit for `UNVERIFIED_BY_DESIGN` to empty, with a self-test case: when
   `install-git-cliff.sh` is re-added, then red (the ratchet holds after the list empties). 4.2's
-  tests and the stale-exemption check turn green.
+  tests and the stale-exemption check turn green. — closed 2026-10-16, evidence: evidence/G4.md
 
 ## 5. Land
 
