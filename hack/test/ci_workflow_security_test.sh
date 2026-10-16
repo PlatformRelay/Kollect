@@ -596,7 +596,8 @@ cws6_guards() {
   # SHALL run in a required job in BOTH modes (plain and --self-test), so they are named here --
   # and the modes are CFC-6's, not read from the guard's code: deleting a guard's --self-test
   # handling must not delete the requirement to run it.
-  local cfc_guards=("${ROOT}"/hack/test/consistency_*_test.sh "${ROOT}/hack/test/go_patch_lag_test.sh")
+  local cfc_guards=("${ROOT}"/hack/test/consistency_*_test.sh "${ROOT}/hack/test/go_patch_lag_test.sh"
+    "${ROOT}/hack/test/openspec_evidence_markdown_only_test.sh")
   [[ -f "${cfc_guards[0]}" ]] ||
     fail "CFC-6: no hack/test/consistency_*_test.sh guard found -- the cross-file consistency gates are gone"
   for script in "${cfc_guards[@]}"; do
