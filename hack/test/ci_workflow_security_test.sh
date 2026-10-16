@@ -239,15 +239,14 @@ cws2_suppressions() {
   # comment directly above the rule key. The check goes through yq, not raw text, so flow
   # style (`rules: {cache-poisoning: {ignore: [...]}}`) and deeper indentation cannot bypass
   # it: a flow-style rules value is rejected outright, and every key of a block rules map
-  # must carry a head comment. With `rules: {}` there is nothing to check, which is why the
-  # config carries that exact spelling.
+  # must carry a head comment. With `rules: {}` there is nothing to check. The self-test
+  # mutants insert their rule directly under the `rules:` line, whichever spelling it has.
   local rules_type flow_style key
   rules_type="$(yq eval '.rules | type' "${ZIZMOR_CFG}" 2>&1)" ||
     fail "CWS-2: cannot parse ${ZIZMOR_CFG}: ${rules_type}"
   [[ "${rules_type}" == *map ]] || return 0
   # A non-empty rules map must be block style: a flow-style rules value hides the entries
-  # from the line-level review this gate enforces. An EMPTY map (rules: {}) is fine and is
-  # why the config carries that exact spelling.
+  # from the line-level review this gate enforces. An EMPTY map (rules: {}) is fine.
   if [[ -n "$(yq eval '.rules | keys | .[]' "${ZIZMOR_CFG}")" ]]; then
     flow_style="$(yq eval '.rules | style' "${ZIZMOR_CFG}")"
     if [[ "${flow_style}" == "flow" ]]; then
@@ -859,7 +858,7 @@ yq_mutant_rejected "CWS-1 install step with a second env binding" "is a skip swi
 
 mutant_rejected "CWS-2 bare suppression" "has no comment directly above it" bash -c '
   set -euo pipefail
-  perl -0pi -e "s/rules: \{\}/rules:\n  cache-poisoning:\n    ignore:\n      - .github\/workflows\/release.yaml/" .github/zizmor.yml
+  perl -0pi -e "s/^rules:[^\n]*\n/rules:\n  cache-poisoning:\n    ignore:\n      - .github\/workflows\/release.yaml\n/m" .github/zizmor.yml
   grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
 '
 
@@ -872,7 +871,7 @@ mutant_rejected "CWS-2 inline zizmor: ignore" "inline zizmor suppression" bash -
 # CWS-2 per-item: a justified RULE key does not justify an uncommented ignore entry.
 mutant_rejected "CWS-2 justified rule with a bare ignore entry" "has no comment directly above it stating why" bash -c '
   set -euo pipefail
-  perl -0pi -e "s/rules: \{\}/rules:\n  # why: fixture -- a block-level comment does not reach the entry\n  cache-poisoning:\n    ignore:\n      - .github\/workflows\/release.yaml/" .github/zizmor.yml
+  perl -0pi -e "s/^rules:[^\n]*\n/rules:\n  # why: fixture -- a block-level comment does not reach the entry\n  cache-poisoning:\n    ignore:\n      - .github\/workflows\/release.yaml\n/m" .github/zizmor.yml
   grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
 '
 
@@ -880,14 +879,14 @@ mutant_rejected "CWS-2 justified rule with a bare ignore entry" "has no comment 
 # off with no list to inspect, so it needs the block comment too.
 mutant_rejected "CWS-2 uncommented disable policy" "has no comment directly above it stating why" bash -c '
   set -euo pipefail
-  perl -0pi -e "s/rules: \{\}/rules:\n  template-injection:\n    disable: true/" .github/zizmor.yml
+  perl -0pi -e "s/^rules:[^\n]*\n/rules:\n  template-injection:\n    disable: true\n/m" .github/zizmor.yml
   grep -q "disable" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
 '
 
 # CWS-2 round-two ratchets: the inline and quoted spellings of the same policy.
 mutant_rejected "CWS-2 inline ignore with a policy value" "has no comment directly above it stating why" bash -c '
   set -euo pipefail
-  perl -0pi -e "s/rules: \{\}/rules:\n  # why: fixture -- an inline ignore list is a policy, not structure\n  cache-poisoning:\n    ignore: [.github\/workflows\/release.yaml]/" .github/zizmor.yml
+  perl -0pi -e "s/^rules:[^\n]*\n/rules:\n  # why: fixture -- an inline ignore list is a policy, not structure\n  cache-poisoning:\n    ignore: [.github\/workflows\/release.yaml]\n/m" .github/zizmor.yml
   grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
 '
 
@@ -912,13 +911,13 @@ control_passes() {
 
 control_passes "CWS-2 legitimate bare-ignore suppression" bash -c '
   set -euo pipefail
-  perl -0pi -e "s/rules: \{\}/rules:\n  # why: fixture -- a reviewed, justified suppression\n  cache-poisoning:\n    ignore:\n      # why: the release workflow legitimately needs it\n      - .github\/workflows\/release.yaml/" .github/zizmor.yml
+  perl -0pi -e "s/^rules:[^\n]*\n/rules:\n  # why: fixture -- a reviewed, justified suppression\n  cache-poisoning:\n    ignore:\n      # why: the release workflow legitimately needs it\n      - .github\/workflows\/release.yaml\n/m" .github/zizmor.yml
   grep -q "cache-poisoning" .github/zizmor.yml || { echo "control did not apply"; exit 1; }
 '
 
 mutant_rejected "CWS-2 quoted-key policy switch" "has no comment directly above it stating why" bash -c '
   set -euo pipefail
-  perl -0pi -e "s/rules: \{\}/rules:\n  template-injection:\n    \\\"disable\\\": true/" .github/zizmor.yml
+  perl -0pi -e "s/^rules:[^\n]*\n/rules:\n  template-injection:\n    \\\"disable\\\": true\n/m" .github/zizmor.yml
   grep -q "disable" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
 '
 
@@ -948,7 +947,7 @@ SH
 # line-level parser, so the suppression check is yq-based; each shape must still red.
 mutant_rejected "CWS-2 flow-style suppression" "must be written in block style" bash -c '
   set -euo pipefail
-  perl -0pi -e "s/rules: \{\}/rules: \{cache-poisoning: \{ignore: [.github\/workflows\/release.yaml]\}\}/" .github/zizmor.yml
+  perl -0pi -e "s/^rules:.*\z/rules: \{cache-poisoning: \{ignore: [.github\/workflows\/release.yaml]\}\}\n/ms" .github/zizmor.yml
   grep -q "cache-poisoning" .github/zizmor.yml || { echo "mutant did not apply"; exit 1; }
 '
 

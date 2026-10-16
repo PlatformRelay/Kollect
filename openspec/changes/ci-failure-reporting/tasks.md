@@ -156,7 +156,7 @@ argument per line, so argument boundaries survive.
 
 ## 4. Workflow (CFR-1, CFR-6, CFR-7)
 
-- [ ] 4.1 Write the wiring and guard assertions on `.github/workflows/ci-failure-report.yaml` and
+- [x] 4.1 Write the wiring and guard assertions on `.github/workflows/ci-failure-report.yaml` and
   record them red on today's tree (the file is absent, so each assertion must name what it found
   missing, not stop at the first):
   - every name under `on.workflow_run.workflows` equals the `name:` of exactly one file under
@@ -178,7 +178,8 @@ argument per line, so argument boundaries survive.
   - no step's `run:` interpolates `github.event.workflow_run.*` directly; values reach scripts
     through `env:` (exposes template injection through a branch or title);
   - a comment on the workflow list names the `race` gap and SINK-BREAKER-RACE-01.
-- [ ] 4.2 Add `.github/workflows/ci-failure-report.yaml` and the `dangerous-triggers` rule in
+  — closed 2026-10-16, evidence: evidence/G4.md
+- [x] 4.2 Add `.github/workflows/ci-failure-report.yaml` and the `dangerous-triggers` rule in
   `.github/zizmor.yml`, replacing `rules: {}` (`.github/zizmor.yml:14`) with exactly this shape,
   each comment directly above its line:
 
@@ -197,7 +198,8 @@ argument per line, so argument boundaries survive.
   that says there are no suppressions (`.github/zizmor.yml:10-13`). Then: 4.1 green; zizmor at the
   gate's command (`zizmor --offline --no-progress --min-severity=high --config .github/zizmor.yml
   .github/`) has no findings, which proves the filename selector; `hack/test/ci_workflow_security_test.sh`
-  green in both modes, CWS-2 (`:236`) included. One commit with 4.1.
+  green in both modes, CWS-2 (`:236`) included. One commit with 4.1. — closed 2026-10-16,
+  evidence: evidence/G4.md
 
 ## 5. Proof and wiring (CFR-7)
 
