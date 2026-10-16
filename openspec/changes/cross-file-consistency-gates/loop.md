@@ -1,7 +1,7 @@
 # Loop — cross-file-consistency-gates (spec-loop run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/cross-file-consistency-gates` · Branch: `feat/cross-file-consistency-gates` · Base: `origin/main` @ `0c1456b5d` · Started: 2026-10-14 · Reviewers: astra + claude (duo) — `/spec-loop-duo` from G3 on (operator, 2026-10-15); G1–G2 ran the earlier codex + claude/sonnet two-leg per-task sizing
-Next: G8 (round-2 behaviour fixes C1, C2; no further review per cap), then hand-off: PR
+Next: hand-off — integrator: pr-description.md, scrub, push, ready PR, CI by headSha, rebase-merge; then protect-main += tool-pins-selftest, dispatch go-patch-lag, close #441; archive in a follow-up PR
 Budget: claude review legs 11/12 (cap lifted by operator goal 2026-10-16) (B reserve 3) · active hours 0/8 (sessions: 2026-10-14–) · source: default
 
 OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-consistency-gates/`
@@ -14,7 +14,7 @@ OpenSpec repo (no `.specify/`): the feature dir is `openspec/changes/cross-file-
 - [x] P plan + tasks — skipped: present · spec-set fix committed with this file (see Triage)
 - [x] R spec-set review — done by other means before #437 merged: commits `a0aba9880` (independent Opus review), `10bc634ed` (round two), `50580a3ad` (cold adversarial), `1745b60ba` (post-merge status). Not repeated. Re-measure on 2026-10-14 found 3 WARNINGs (Triage), no CRITICAL; mechanical fixes applied
 - [x] L task loop — G1–G6 closed (all CLOSED-WITH-GAPS); 6.2 owner/post-merge
-- [ ] B branch review — round 1 (`reviews/B-branch/round-1/`, b18354a39): astra:adversarial BLOCK, claude/opus:spec CONCERNS; holistic: task check 2/18 red (lint:markdown = branch, demo_04 = host kubectl), coverage 91.3% = base, vulncheck 0. Triage below; fixes → G7; round 2 (`reviews/B-branch/round-2/`, aa2241523): astra BLOCK, opus CONCERNS; task check 17/18 (lint:markdown = orchestrator regression); race ./internal/... green; A2/A4/O3 closed, H1 regressed, A1 partial → G8. Rounds: 2/2
+- [x] B branch review — round 1 (`reviews/B-branch/round-1/`, b18354a39): astra:adversarial BLOCK, claude/opus:spec CONCERNS; holistic: task check 2/18 red (lint:markdown = branch, demo_04 = host kubectl), coverage 91.3% = base, vulncheck 0. Triage below; fixes → G7; round 2 (`reviews/B-branch/round-2/`, aa2241523): astra BLOCK, opus CONCERNS; task check 17/18 (lint:markdown = orchestrator regression); race ./internal/... green; A2/A4/O3 closed, H1 regressed, A1 partial → G8. Rounds: 2/2
 - [ ] Hand-off
 
 ## Fitness functions
@@ -71,6 +71,7 @@ Holistic run at B: pending
 | G5 (5.1–5.2) | CLOSED-WITH-GAPS | astra only, 2 rounds: r1 REQUEST_CHANGES (prefix typo passed; gate-mutant runner exit 0 on survivor) fixed; r2 REQUEST_CHANGES (const mirror entry dropped; backtick import missed) fixed unreviewed per cap, each with mutants | Real drift: 5 registered metrics missing from metrics.md → docs-only fix 0dbc6302a. Guard 05842fe59..dcf2be244. Gaps: concatenated/Sprintf metric names invisible to the literal scan (none today); wiring at 6.1 |
 | G6 (6.1) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI), 2 rounds (r1 astra APPROVE / opus CONCERNS; r2 astra REQUEST_CHANGES / opus CONCERNS, all verified fixed); decision-A follow-up: astra only (L Claude legs exhausted; B opus covers it), APPROVE | 300801927, 3915645d4, 366dc0840; decision A (operator 2026-10-16): tool-pins self-test in its own unconditional job `tool-pins-selftest` (timeout 45 min, in verify-eligibility.sh required_checks) d770c56f3, b94b69066 (unique fixture module per run — G2 race fixed), 2a9b5b946. ci_workflow_security CFC-6 rule now fails on an unwired guard. Gaps: first CI run on PR head; add `tool-pins-selftest` to protect-main AFTER merge; runner runtimes estimated |
 | G7 (7.1–7.5) | CLOSED-WITH-GAPS | astra only, 2 rounds (r1 REQUEST_CHANGES: registry-port bypass, Register() untested — fixed; r2 REQUEST_CHANGES: `localhost:${B}` bypass — fixed unreviewed per cap, mutants) | a3880bc47..7d5a4d790. Any `$` in a FROM image fails; metrics registration proved via Describe + AlreadyRegisteredError; TestRegister now uses registerOnce (test change: double Register panics). Deferred to BACKLOG: `localhost:5000/golang:x` not recognised as golang; `go test -count=2 ./internal/metrics/` panics on base |
+| G8 (8.1–8.3) | CLOSED | none (post-round-2 behaviour fixes; cap) — mutants red-before/green-after; BuildKit `--check` probe for continuation semantics | d4b943806 (no golang exemption from `$` rule; test change: `golang:${GO_VERSION}` mutant sentinel), 4409d94dc (comment/blank lines in continuations, matches BuildKit), 5d01c4a0e (Verification table filled) |
 
 ## Known red
 
@@ -84,6 +85,7 @@ Holistic run at B: pending
 
 ## Lessons
 
+- `task lint:markdown` lints only git-tracked files: a probe file needs `git add -N` or it is skipped with exit 0 (G8)
 - Orchestrator: run `task lint:markdown` on every state-file edit before committing (B2 regression from 800a33e69)
 - A variable image tag can contain `/` and `:` and name another repo: fail on any `$` in an image, never parse around it (G7)
 - The Bash tool runs zsh here: `${PIPESTATUS[0]}` is empty — use `set -o pipefail` or bash -c (G7)
@@ -112,6 +114,15 @@ Holistic run at B: pending
 - Renovate: the LAST matching rule wins, so a group rule must be the last groupName-setting rule; prove grouping with a local `renovate --platform=local` lookup dry-run (~1 min) (G1)
 
 ## Where a human should look first
+
+- `hack/test/ci_workflow_security_test.sh` — new CFC-6 rule (tightened; changes what green means for CI wiring)
+- `hack/test/task_check_test.sh` — one mutant re-anchored (G6)
+- `internal/metrics/metrics_test.go` — `TestRegister` now uses `registerOnce` (G7 test change)
+- `hack/test/consistency_go_toolchain_test.sh` — `golang:${GO_VERSION}` mutant sentinel changed (G8)
+- `hack/test/testdata/consistency-rbac-exceptions.txt` — 37 tenant exceptions (trust boundary: RBAC)
+- `.github/workflows/ci.yaml` — 10 new lint steps + new required job `tool-pins-selftest` (45 min timeout)
+- `.github/workflows/go-patch-lag.yaml` — new scheduled workflow (network; fails closed)
+- `go.mod`, `Dockerfile*`, `.devcontainer/devcontainer.json`, `Makefile`, `Taskfile.yml`, `hack/tooling/.custom-gcl.yml` — Go 1.27.2 + golangci-lint v2.14.0, go-arch-lint v1.19.0, govulncheck v1.9.0
 
 ## Proposed harness changes
 
