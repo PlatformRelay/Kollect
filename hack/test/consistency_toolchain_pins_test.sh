@@ -1197,6 +1197,77 @@ out="$(run_gate)" ||
   fail "self-test: the no-op control failed on an unmutated copy -- fix the real tree (or the gate) first: $(grep FAIL <<<"${out}" | head -3 | tr '\n' ' ')"
 pass "self-test: no-op control passes on an unmutated copy"
 
+# DTP-7: a correct Renovate group bump keeps the guard green. Renovate rewrites every site its
+# custom managers extract, each group in one PR; this copy moves EVERY extracted pin (Task,
+# gitleaks, git-cliff, shellcheck, helm, govulncheck, golangci-lint and the rest) to the next
+# patch release of its own value, components after the third reset to 0 (shellcheck-py
+# v0.11.0.1 -> v0.11.1.0), and adds the digests a shellcheck bump needs by hand (the
+# pinned_sha256 arms of the old version, copied under the new one with stand-in digests).
+# Plain mode and --self-test must both pass on it, so no sentinel, probe or mutant value may
+# hard-code today's pins. The nested run skips this control (it would recurse).
+BUMP_PY="$(cat <<'PY'
+import hashlib, re, sys
+
+root = sys.argv[1]
+def nxt(v):
+    pre, num = ("v", v[1:]) if v.startswith("v") else ("", v)
+    parts = num.split(".")
+    if len(parts) < 3 or not all(p.isdigit() for p in parts):
+        sys.exit("cannot bump %r: not a dotted release of three or more numbers" % v)
+    parts[2] = str(int(parts[2]) + 1)
+    return pre + ".".join(parts[:3] + ["0"] * (len(parts) - 3))
+
+sites, sc = {}, None
+for row in sys.stdin.read().splitlines():
+    _, _, f, line, val, dep, _ = row.split("\t")
+    sites.setdefault((f, int(line)), val)
+    if dep == "koalaman/shellcheck":
+        sc = (val.lstrip("v"), nxt(val).lstrip("v"))
+if sc is None:
+    sys.exit("no koalaman/shellcheck pin extracted")
+edits = {}
+for (f, line), val in sorted(sites.items()):
+    edits.setdefault(f, []).append((line, val, nxt(val)))
+for f, rows in edits.items():
+    text = open(root + "/" + f, encoding="utf-8").read().split("\n")
+    for line, val, new in rows:
+        if val not in text[line - 1]:
+            sys.exit("%s:%d does not hold %s" % (f, line, val))
+        text[line - 1] = text[line - 1].replace(val, new, 1)
+        print("%s\t%d\t%s" % (f, line, new))
+    open(root + "/" + f, "w", encoding="utf-8").write("\n".join(text))
+si = root + "/hack/install-shellcheck.sh"
+src = open(si, encoding="utf-8").read()
+arm = re.compile(r'^    shellcheck-v%s\.([a-z0-9_]+\.[a-z0-9_]+)\.tar\.xz\)\n      echo "[0-9a-f]{64}"\n      ;;\n' % re.escape(sc[0]), re.M)
+new_arms = ['    shellcheck-v%s.%s.tar.xz)\n      echo "%s"\n      ;;\n' % (sc[1], m.group(1), hashlib.sha256(m.group(1).encode()).hexdigest())
+            for m in arm.finditer(src)]
+tail = "    *)\n      return 1\n"
+if not new_arms or tail not in src:
+    sys.exit("no pinned_sha256 arms for shellcheck %s in hack/install-shellcheck.sh" % sc[0])
+open(si, "w", encoding="utf-8").write(src.replace(tail, "".join(new_arms) + tail, 1))
+PY
+)"
+if [[ -z "${KOLLECT_TP_NESTED:-}" ]]; then
+  new_copy
+  before="$(tracked_files "${COPY}" | renovate_deps "${COPY}" | grep '^DEP' || true)"
+  [[ -n "${before}" ]] || fail "self-test: the Renovate model extracts no dependency from the tree -- the bump control has nothing to bump"
+  want="$(python3 -c "${BUMP_PY}" "${COPY}" <<<"${before}" | sort -u)" ||
+    fail "self-test: the bump control could not rewrite the copy"
+  # Probe: the model extracts the same sites from the copy, each at its bumped value.
+  got="$(tracked_files "${COPY}" | renovate_deps "${COPY}" | awk -F'\t' '$1 == "DEP" { print $3 "\t" $4 "\t" $5 }' | sort -u)"
+  [[ -n "${want}" && "${got}" == "${want}" ]] ||
+    fail "self-test: the bump control did not land as Renovate would: $(diff <(cat <<<"${want}") <(cat <<<"${got}") | head -4 | tr '\n' ' ')"
+  out="$(run_gate)" ||
+    fail "self-test: the gate red on a copy with every pin bumped to its next release -- a correct Renovate PR would be red: $(grep FAIL <<<"${out}" | head -3 | tr '\n' ' ')"
+  pass "self-test: all-pins bump control passes ($(wc -l <<<"${want}") sites bumped)"
+  # The nested --self-test copies the copy's tracked files: index them.
+  { git -C "${COPY}" init -q && git -C "${COPY}" add -A -f; } ||
+    fail "self-test: cannot index the bumped copy for its nested --self-test"
+  out="$(KOLLECT_TP_NESTED=1 bash "${SELF}" --self-test "${COPY}" 2>&1)" ||
+    fail "self-test: --self-test red on a copy with every pin bumped to its next release -- a sentinel, probe or mutant hard-codes a pin: $(grep FAIL <<<"${out}" | head -3 | tr '\n' ' ')"
+  pass "self-test: all-pins bump control passes --self-test"
+fi
+
 # --- DTP-3 gitleaks ---
 mutant_rejected "gitleaks pre-commit rev drifts" \
   'gitleaks: \.pre-commit-config\.yaml:[0-9]+ says v8\.29\.0, but the reference site hack/install-gitleaks\.sh' \
@@ -1236,6 +1307,11 @@ mutant_rejected "gitleaks pin with a fourth component" \
 # --- DTP-3 git-cliff ---
 REL=.github/workflows/release.yaml
 VC=hack/verify-changelog.sh
+# Read from the tree, like SC_CUR below: a correct git-cliff bump must not break the cases that
+# use today's value (the all-pins bump control above proves it).
+GC_CUR="$(sed -n -E 's/^  GIT_CLIFF_VERSION: (v[0-9]+\.[0-9]+\.[0-9]+)$/\1/p' "${ROOT}/Taskfile.yml" | head -1)"
+[[ -n "${GC_CUR}" ]] || fail "self-test: cannot read GIT_CLIFF_VERSION from Taskfile.yml -- run the plain mode first"
+GC_RE="${GC_CUR//./\\.}"
 mutant_rejected "git-cliff release.yaml drifts" \
   'git-cliff: \.github/workflows/release\.yaml:[0-9]+ says v2\.12\.0, but the reference site Taskfile\.yml' \
   'version: v2\.12\.0' "${REL}" \
@@ -1265,7 +1341,7 @@ mutant_rejected "git-cliff empty scan" \
 
 mutant_rejected "git-cliff-action step without a version input" \
   "git-cliff: \\.github/workflows/release\\.yaml:[0-9]+ says '<no version: input>', not a plain release version" \
-  '!^[[:space:]]+version: v2\.13\.1' "${REL}" \
+  "!^[[:space:]]+version: ${GC_RE}" "${REL}" \
   sed -i -E '/orhun\/git-cliff-action@/,/version:/ { /^[[:space:]]+version: v[0-9.]+/d }' "${REL}"
 
 # env: goes before and after the with: block, so neither a first-wins nor a last-wins reader passes.
@@ -1274,15 +1350,15 @@ mutant_rejected "git-cliff-action step without a version input" \
 ALSO_RED='renovate: git-cliff pin v2\.12\.0 at \.github/workflows/release\.yaml:[0-9]+ is extracted by no custom manager' \
 mutant_rejected "git-cliff env version masks a drifted input" \
   'git-cliff: \.github/workflows/release\.yaml:[0-9]+ says v2\.12\.0, but the reference site Taskfile\.yml' \
-  'version: v2\.13\.1 # mutant-env-before@@version: v2\.13\.1 # mutant-env-after@@version: v2\.12\.0' "${REL}" \
+  "version: ${GC_RE} # mutant-env-before@@version: ${GC_RE} # mutant-env-after@@version: v2\\.12\\.0" "${REL}" \
   bash -c 'sed -i -E "/orhun\/git-cliff-action@/,/version:/ s/version: v[0-9.]+/version: v2.12.0/" '"${REL}"' &&
-    sed -i -E "/orhun\/git-cliff-action@/{n;s/^([[:space:]]+)with:\$/\1env:\n\1  version: v2.13.1 # mutant-env-before\n\1with:/}" '"${REL}"' &&
-    sed -i -E "/orhun\/git-cliff-action@/,/github_token:/ s/^([[:space:]]+github_token:.*)\$/\1\n        env:\n          version: v2.13.1 # mutant-env-after/" '"${REL}"
+    sed -i -E "/orhun\/git-cliff-action@/{n;s/^([[:space:]]+)with:\$/\1env:\n\1  version: '"${GC_CUR}"' # mutant-env-before\n\1with:/}" '"${REL}"' &&
+    sed -i -E "/orhun\/git-cliff-action@/,/github_token:/ s/^([[:space:]]+github_token:.*)\$/\1\n        env:\n          version: '"${GC_CUR}"' # mutant-env-after/" '"${REL}"
 
 # Key order: the with: block before uses: is the same step and the same input, so DTP-3 raises
 # nothing; renovate.json's manager expects with: after uses:, so DTP-4 is the only clause that reds.
 mutant_rejected "git-cliff with: before uses:" \
-  'renovate: git-cliff pin v2\.13\.1 at \.github/workflows/release\.yaml:[0-9]+ is extracted by no custom manager' \
+  "renovate: git-cliff pin ${GC_RE} at \\.github/workflows/release\\.yaml:[0-9]+ is extracted by no custom manager" \
   'orhun/git-cliff-action@' "${REL}" \
   bash -c 'awk "/uses: orhun\/git-cliff-action@/ { u = \$0; next } u != \"\" && /github_token:/ { print; print u; u = \"\"; next } { print }" '"${REL}"' > m.yaml && mv m.yaml '"${REL}"' &&
     awk "p ~ /github_token:/ && /uses: orhun\/git-cliff-action@/ { ok = 1 } { p = \$0 } END { exit !ok }" '"${REL}"
