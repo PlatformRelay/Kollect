@@ -45,7 +45,8 @@ trap 'rm -rf "${tmpdir}"' EXIT
 # corrupted or swapped download, not a compromised release.
 fetch_to "${base_url}/checksums.txt" "${tmpdir}/checksums.txt" "helm-docs ${VERSION} checksums"
 expected="$(awk -v file="${asset}" '$2 == file {print $1}' "${tmpdir}/checksums.txt")"
-if [[ -z "${expected}" ]]; then
+# One full SHA256 or nothing: a missing, short or doubled line is refused before any comparison.
+if [[ ! "${expected}" =~ ^[0-9a-f]{64}$ ]]; then
   echo "failed to resolve a checksum for ${asset} from ${base_url}/checksums.txt" >&2
   exit 1
 fi

@@ -1529,11 +1529,56 @@ inst_fixtures() {
   esac
 }
 
-# inst_run <tool> <installer> <scenario>: run a copy of <installer> in a fresh scratch root. Sets
-# INST_ROOT, INST_RC, INST_OUT (combined output) and INST_LOG (the URLs fetched, in order).
+# hashless_path <dir> <shasum|none>: a PATH directory linking every command on PATH except the
+# sha*sum tools, as on stock macOS (no coreutils sha512sum/sha256sum); with `shasum` it adds
+# shasum: the host's, or a shim over the coreutils tools by absolute path where the host has none.
+hashless_path() {
+  local dir="$1" with="$2" d f n real
+  [[ -d "${dir}" ]] && return 0
+  mkdir -p "${dir}"
+  local -a dirs
+  IFS=: read -ra dirs <<<"${PATH}"
+  for d in "${dirs[@]}"; do
+    [[ -d "${d}" ]] || continue
+    for f in "${d}"/*; do
+      n="${f##*/}"
+      [[ -x "${f}" && ! -d "${f}" && ! "${n}" =~ ^sha[0-9]*sum$ && ! -e "${dir}/${n}" ]] || continue
+      ln -s "${f}" "${dir}/${n}"
+    done
+  done
+  if [[ "${with}" == shasum ]]; then
+    if real="$(command -v shasum)"; then
+      ln -s "${real}" "${dir}/shasum"
+    else
+      printf '#!/bin/sh
+[ "$1" = -a ] || exit 2
+case "$2" in 256) exec %s "$3" ;; 512) exec %s "$3" ;; esac
+exit 2
+' \
+        "$(command -v sha256sum)" "$(command -v sha512sum)" >"${dir}/shasum"
+      chmod 0755 "${dir}/shasum"
+    fi
+  fi
+  # Probe: the tools are really gone (and shasum really there when asked for).
+  if PATH="${dir}" command -v sha512sum >/dev/null || PATH="${dir}" command -v sha256sum >/dev/null; then
+    fail "self-test: ${dir} still resolves sha512sum or sha256sum -- the macOS cases would test nothing"
+  fi
+  if [[ "${with}" == shasum ]] && ! PATH="${dir}" command -v shasum >/dev/null; then
+    fail "self-test: ${dir} has no shasum -- the macOS fallback case would test nothing"
+  fi
+}
+
+# inst_run <tool> <installer> <scenario> [shasum|nohash]: run a copy of <installer> in a fresh
+# scratch root, with sha512sum/sha256sum hidden from PATH when a fourth argument is given (shasum:
+# only shasum left, as on macOS; nohash: no hash tool at all). Sets INST_ROOT, INST_RC, INST_OUT
+# (combined output) and INST_LOG (the URLs fetched, in order).
 INST_ROOT=""
 inst_run() {
-  local tool="$1" src="$2" scenario="$3" fx
+  local tool="$1" src="$2" scenario="$3" fx path="${PATH}"
+  case "${4:-}" in
+    shasum) hashless_path "${WORKROOT}/path-shasum" shasum && path="${WORKROOT}/path-shasum" ;;
+    nohash) hashless_path "${WORKROOT}/path-nohash" none && path="${WORKROOT}/path-nohash" ;;
+  esac
   if [[ -n "${INST_ROOT}" ]]; then rm -rf "${INST_ROOT:?}"; fi
   INST_ROOT="$(mktemp -d "${WORKROOT}/inst.XXXXXXXX")"
   fx="${INST_ROOT}/fixtures"
@@ -1566,6 +1611,13 @@ EOF
         fail "self-test: the tampered ${tool} fixture no longer extracts -- the case would pass on tar, not on the checksum"
       ;;
     missing-checksum) rm -f "${fx:?}/${INST_SUM_FILE}" ;;
+    short-digest)
+      # The asset's line keeps its name but loses one hex digit: not a digest, so it must be
+      # refused as unresolved before any comparison.
+      sed -i -E "s/^([0-9a-f]+)[0-9a-f](  ${INST_ASSET//./\\.})\$/\1\2/" "${fx}/${INST_SUM_FILE}"
+      grep -Eq "^([0-9a-f]{63}|[0-9a-f]{127})  ${INST_ASSET//./\\.}\$" "${fx}/${INST_SUM_FILE}" ||
+        fail "self-test: the short-digest ${tool} fixture did not shorten its checksum line"
+      ;;
     other-asset)
       # The right digest, filed under another asset's name: only the name check stands in the way.
       sed -i "s/  ${INST_ASSET//./\\.}\$/  other-${INST_ASSET}/" "${fx}/${INST_SUM_FILE}"
@@ -1574,7 +1626,7 @@ EOF
       ;;
   esac
   : >"${INST_ROOT}/fetch.log"
-  INST_OUT="$(cd "${INST_ROOT}" && PATH="${INST_ROOT}/fakebin:${PATH}" FAKE_FETCH_DIR="${fx}" \
+  INST_OUT="$(cd "${INST_ROOT}" && PATH="${INST_ROOT}/fakebin:${path}" FAKE_FETCH_DIR="${fx}" \
     FAKE_FETCH_LOG="${INST_ROOT}/fetch.log" bash "hack/install-${tool}.sh" "v${INST_VERSION}" "bin/${tool}" 2>&1)" &&
     INST_RC=0 || INST_RC=$?
   INST_LOG="$(cat "${INST_ROOT}/fetch.log")"
@@ -1636,6 +1688,34 @@ inst_cases() {
     inst_err "DTP-6 ${tool}: ${why}"
   fi
 
+  inst_run "${tool}" "${src}" short-digest
+  if why="$(inst_refused "${tool}" short-digest 'failed to resolve a (sha512|checksum) for ')"; then
+    pass "self-test: DTP-6 ${tool} refuses a checksum line whose digest is not a full hex digest"
+  else
+    inst_err "DTP-6 ${tool}: ${why}"
+  fi
+
+  # macOS has no sha512sum/sha256sum, only shasum: the installer must still verify, and with no
+  # hash tool at all refuse and install nothing.
+  inst_run "${tool}" "${src}" valid shasum
+  if [[ "${INST_RC}" -eq 0 && -x "${INST_ROOT}/bin/${tool}" ]]; then
+    pass "self-test: DTP-6 ${tool} installs a valid archive with only shasum on PATH"
+  else
+    inst_err "DTP-6 ${tool}: a valid archive did not install with only shasum on PATH (exit ${INST_RC}): $(tail -2 <<<"${INST_OUT}" | tr '\n' ' ')"
+  fi
+  inst_run "${tool}" "${src}" tampered shasum
+  if why="$(inst_refused "${tool}" "shasum-only tampered" 'checksum mismatch')"; then
+    pass "self-test: DTP-6 ${tool} refuses a tampered archive with only shasum on PATH"
+  else
+    inst_err "DTP-6 ${tool}: ${why}"
+  fi
+  inst_run "${tool}" "${src}" valid nohash
+  if why="$(inst_refused "${tool}" "no-hash-tool" 'neither sha(512|256)sum nor shasum is installed')"; then
+    pass "self-test: DTP-6 ${tool} refuses to install with no hash tool on PATH"
+  else
+    inst_err "DTP-6 ${tool}: ${why}"
+  fi
+
   # The tampered case can see a missing check: on a copy without the verification it must fail.
   stripped="${WORKROOT}/install-${tool}-unverified.sh"
   sed -E "${unverify}" "${src}" >"${stripped}"
@@ -1651,7 +1731,7 @@ inst_cases() {
   fi
 }
 
-inst_cases git-cliff '/^actual="\$\(sha512sum /,/^fi$/d'
+inst_cases git-cliff '/^actual="\$\(sha512 /,/^fi$/d'
 inst_cases helm-docs '/^verify_sha256 /d'
 if [[ -n "${INST_ROOT}" ]]; then rm -rf "${INST_ROOT:?}"; fi
 ((INST_BROKEN == 0)) || fail "self-test: DTP-6 installer execution cases failed (listed above)"

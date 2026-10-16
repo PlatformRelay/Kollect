@@ -18,7 +18,15 @@ verify_sha256() {
     return 1
   fi
 
-  actual="$(sha256sum "${file}" | awk '{print $1}')"
+  # sha256sum is GNU coreutils; stock macOS has only shasum. Neither: refuse, never skip.
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "${file}" | awk '{print $1}')"
+  elif command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "${file}" | awk '{print $1}')"
+  else
+    echo "cannot verify $(basename "${file}"): neither sha256sum nor shasum is installed" >&2
+    return 1
+  fi
   if [[ "${actual}" != "${expected}" ]]; then
     echo "checksum mismatch for $(basename "${file}")" >&2
     echo "  expected: ${expected}" >&2
