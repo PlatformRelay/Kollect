@@ -179,7 +179,7 @@ tests with 4.3.
 
 ## 7. Stage-B fixes (round 2, no further review)
 
-- [ ] 7.1 O1: Renovate's github-actions manager extracts `node-version`/`python-version` (depType `uses-with`) into the "github actions" group without mise.toml, so the mise check would red that whole group PR. Add a packageRule that disables `uses-with` updates for node and python (they stay hand-bumped and guard-checked, as intended), correct the ci.yaml:~563 comment, and add a Renovate-model case plus a mutant (rule removed → red)
+- [x] 7.1 O1: Renovate's github-actions manager extracts `node-version`/`python-version` (depType `uses-with`) into the "github actions" group without mise.toml, so the mise check would red that whole group PR. Add a packageRule that disables `uses-with` updates for node and python (they stay hand-bumped and guard-checked, as intended), correct the ci.yaml:~563 comment, and add a Renovate-model case plus a mutant (rule removed → red)
 
 ## 5. Land
 
