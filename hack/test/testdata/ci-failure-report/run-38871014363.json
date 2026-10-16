@@ -1,0 +1,18 @@
+{
+  "id": 38871014363,
+  "name": "E2E nightly",
+  "path": ".github/workflows/e2e-nightly.yaml",
+  "workflow_id": 289537575,
+  "event": "schedule",
+  "status": "completed",
+  "conclusion": "success",
+  "html_url": "https://github.com/PlatformRelay/Kollect/actions/runs/38871014363",
+  "run_number": 162,
+  "run_attempt": 1,
+  "head_repository": {
+    "full_name": "PlatformRelay/Kollect"
+  },
+  "repository": {
+    "full_name": "PlatformRelay/Kollect"
+  }
+}

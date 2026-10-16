@@ -1,0 +1,26 @@
+{
+  "action": "completed",
+  "workflow_run": {
+    "id": 289782451,
+    "name": "",
+    "path": ".github/workflows/test.yml",
+    "workflow_id": 2823525,
+    "event": "repository_dispatch",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/octo-org/octo-repo/actions/runs/289782451",
+    "run_number": 163,
+    "run_attempt": 1,
+    "head_repository": {
+      "full_name": "octo-org/octo-repo"
+    }
+  },
+  "workflow": {
+    "id": 2823525,
+    "name": "test",
+    "path": ".github/workflows/test.yml"
+  },
+  "repository": {
+    "full_name": "octo-org/octo-repo"
+  }
+}

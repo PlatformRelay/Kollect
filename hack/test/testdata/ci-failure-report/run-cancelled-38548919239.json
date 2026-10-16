@@ -1,0 +1,279 @@
+{
+  "attempt": 1,
+  "conclusion": "cancelled",
+  "event": "push",
+  "jobs": [
+    {
+      "completedAt": "2026-10-14T10:20:59Z",
+      "conclusion": "success",
+      "databaseId": 115801786303,
+      "name": "changes (e2e-smoke)",
+      "startedAt": "2026-10-14T10:20:51Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-14T10:20:53Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-14T10:20:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:20:56Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-14T10:20:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:20:56Z",
+          "conclusion": "success",
+          "name": "Run set -euo pipefail",
+          "number": 3,
+          "startedAt": "2026-10-14T10:20:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:20:57Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 6,
+          "startedAt": "2026-10-14T10:20:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:20:57Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 7,
+          "startedAt": "2026-10-14T10:20:57Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38548919239/job/115801786303"
+    },
+    {
+      "completedAt": "2026-10-14T10:41:45Z",
+      "conclusion": "cancelled",
+      "databaseId": 115801857143,
+      "name": "pipeline-cli-smoke",
+      "startedAt": "2026-10-14T10:21:04Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-14T10:21:08Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-14T10:21:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:21:13Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-14T10:21:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:41:34Z",
+          "conclusion": "cancelled",
+          "name": "Run ./.github/actions/kind-e2e-setup",
+          "number": 3,
+          "startedAt": "2026-10-14T10:21:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:41:34Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/kind-e2e-setup",
+          "number": 5,
+          "startedAt": "2026-10-14T10:41:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:41:38Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 6,
+          "startedAt": "2026-10-14T10:41:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:41:38Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 7,
+          "startedAt": "2026-10-14T10:41:38Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38548919239/job/115801857143"
+    },
+    {
+      "completedAt": "2026-10-14T10:27:38Z",
+      "conclusion": "success",
+      "databaseId": 115801857190,
+      "name": "kind-smoke-run",
+      "startedAt": "2026-10-14T10:21:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-14T10:21:03Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-14T10:21:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:21:05Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-14T10:21:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:34Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/kind-e2e-setup",
+          "number": 3,
+          "startedAt": "2026-10-14T10:21:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:35Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/kind-e2e-setup",
+          "number": 5,
+          "startedAt": "2026-10-14T10:27:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:36Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 6,
+          "startedAt": "2026-10-14T10:27:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:36Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 7,
+          "startedAt": "2026-10-14T10:27:36Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38548919239/job/115801857190"
+    },
+    {
+      "completedAt": "2026-10-14T10:27:29Z",
+      "conclusion": "success",
+      "databaseId": 115801857270,
+      "name": "hero-demo-smoke",
+      "startedAt": "2026-10-14T10:21:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-14T10:21:03Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-14T10:21:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:21:05Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-10-14T10:21:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:21:05Z",
+          "conclusion": "success",
+          "name": "Hero smoke contract (no kind)",
+          "number": 3,
+          "startedAt": "2026-10-14T10:21:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:26Z",
+          "conclusion": "success",
+          "name": "Run ./.github/actions/kind-e2e-setup",
+          "number": 4,
+          "startedAt": "2026-10-14T10:21:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:27Z",
+          "conclusion": "success",
+          "name": "Post Run ./.github/actions/kind-e2e-setup",
+          "number": 7,
+          "startedAt": "2026-10-14T10:27:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:27Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 8,
+          "startedAt": "2026-10-14T10:27:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:27Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-14T10:27:27Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38548919239/job/115801857270"
+    },
+    {
+      "completedAt": "2026-10-14T10:27:44Z",
+      "conclusion": "success",
+      "databaseId": 115804422743,
+      "name": "kind-smoke",
+      "startedAt": "2026-10-14T10:27:41Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-14T10:27:42Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-14T10:27:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:42Z",
+          "conclusion": "success",
+          "name": "Report the required kind-smoke context",
+          "number": 2,
+          "startedAt": "2026-10-14T10:27:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-14T10:27:42Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 3,
+          "startedAt": "2026-10-14T10:27:42Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/PlatformRelay/Kollect/actions/runs/38548919239/job/115804422743"
+    }
+  ],
+  "status": "completed"
+}

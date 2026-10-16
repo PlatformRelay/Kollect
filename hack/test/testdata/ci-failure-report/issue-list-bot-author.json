@@ -1,0 +1,230 @@
+[
+  {
+    "number": 41,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 35,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 34,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 33,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 32,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 31,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 30,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 28,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 27,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 26,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 25,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 22,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 21,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 20,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 19,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 18,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 17,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 13,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  },
+  {
+    "number": 8,
+    "author": {
+      "is_bot": true,
+      "login": "app/github-actions"
+    },
+    "labels": [
+      {
+        "name": "nightly-failure"
+      }
+    ]
+  }
+]
