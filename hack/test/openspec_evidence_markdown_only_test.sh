@@ -100,7 +100,8 @@ trap 'rm -rf ${SCRATCH} 2>/dev/null' EXIT
 make_copy() {
   local dst="$1"
   git -C "${dst}" init -q
-  git -C "${ROOT}" ls-files -z -- openspec | tar -C "${ROOT}" --null -T - -cf - | tar -C "${dst}" -xf -
+  git -C "${ROOT}" ls-files -z -- openspec | tar -C "${ROOT}" --null -T - -cf - | tar -C "${dst}" -xf - ||
+    fail "self-test: copying the tracked openspec/ files failed (a tracked file deleted from the working tree?) -- nothing was tested"
   git -C "${dst}" add -A
 }
 
