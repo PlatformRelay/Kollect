@@ -454,7 +454,9 @@ cws6_required_set() {
 # with `read -r mode`.
 guard_modes() {
   echo bare
-  if grep -v '^[[:space:]]*#' "${1}" 2>/dev/null | grep -q -- '--self-test'; then
+  # Not `grep -q`: under pipefail it exits at the first match and the upstream grep dies of
+  # SIGPIPE, so the pipeline reads as no-match at random (15% of runs on a 28 KB guard).
+  if grep -v '^[[:space:]]*#' "${1}" 2>/dev/null | grep -- '--self-test' >/dev/null; then
     echo --self-test
   fi
 }

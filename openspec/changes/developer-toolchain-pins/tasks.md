@@ -10,7 +10,7 @@ tests with 4.3.
 
 ## 1. Guard first (DTP-3, DTP-6, DTP-7)
 
-- [ ] 1.1 Write `hack/test/consistency_toolchain_pins_test.sh` (plain and `--self-test`) with the
+- [x] 1.1 Write `hack/test/consistency_toolchain_pins_test.sh` (plain and `--self-test`) with the
   checks that are green today, and add its two steps to the `lint` job. Self-test cases on
   throwaway copies, each with the failure it exposes:
   - DTP-3 gitleaks, given 8.30.1 at `ci.yaml:164`, `hack/install-gitleaks.sh:14` and
@@ -35,7 +35,8 @@ tests with 4.3.
     `hack/test/ci_workflow_security_test.sh` reds naming the guard and the missing mode (CWS-6, at
     `:590`, fires before CFC-6); when both are removed, then it reds with the CFC-6 enrolment
     diagnostic naming the guard (`:608`).
-  Run the plain mode on today's tree and record it green.
+  Run the plain mode on today's tree and record it green. — closed 2026-10-16, evidence:
+  evidence/T1.1.md
 - [ ] 1.2 Fold `hack/test/dev_mise_pin_drift_test.sh`: port every existing inline mutant one-to-one
   into `--self-test`, show each red against the new guard, list the mapping in evidence, then
   delete the old guard and its `ci.yaml` step. The mutants to port (old label -> expected
