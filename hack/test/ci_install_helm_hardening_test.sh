@@ -683,8 +683,8 @@ assert_stub_was_used "missing install prefix"
 pass "the installer creates a nested install prefix that does not exist yet"
 
 # ---------------------------------------------------------------------------------------------
-# REVIEW FIX (F2): this gate must assert its own registration. House precedent is
-# hack/test/dev_mise_pin_drift_test.sh -- "an unwired gate is not a gate".
+# REVIEW FIX (F2): this gate must assert its own registration -- "an unwired gate is not a gate"
+# (house rule: CWS-6 only sees guards CI already runs, so a deleted step needs this check).
 #
 # It carries more weight here than for the scripts around it. The lint job runs most of its
 # meta-tests through two globs, `hack/test/dist_*_test.sh` and `hack/test/sonar_ko_*_test.sh`,

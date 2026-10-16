@@ -37,7 +37,7 @@ tests with 4.3.
     diagnostic naming the guard (`:608`).
   Run the plain mode on today's tree and record it green. — closed 2026-10-16, evidence:
   evidence/T1.1.md
-- [ ] 1.2 Fold `hack/test/dev_mise_pin_drift_test.sh`: port every existing inline mutant one-to-one
+- [x] 1.2 Fold `hack/test/dev_mise_pin_drift_test.sh`: port every existing inline mutant one-to-one
   into `--self-test`, show each red against the new guard, list the mapping in evidence, then
   delete the old guard and its `ci.yaml` step. The mutants to port (old label -> expected
   failure): `honest` (green), `task-drift` (mise task 3.50.0 vs CI), `node-drift` (node 20 vs 22),
@@ -52,7 +52,7 @@ tests with 4.3.
   `hack/test/ci_workflow_security_test.sh:1145-1146` (retarget it to the new guard and show it
   still reds), and the comments at `hack/test/ci_fetch_lib_hardening_test.sh:844` and
   `hack/test/ci_install_helm_hardening_test.sh:687`. Change 4's evidence and review files keep the
-  old name as history.
+  old name as history. — closed 2026-10-16, evidence: evidence/T1.2.md
 
 ## 2. Pins (DTP-1, DTP-2, DTP-5)
 

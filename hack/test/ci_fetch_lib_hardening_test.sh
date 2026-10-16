@@ -841,7 +841,7 @@ require_count "${stale_sleep_hits}" "kind-e2e-setup stale-sleep scan"
 pass "the kind download goes through the shared helper, with no hand-rolled loop and no dead sleep left behind"
 
 # ================================================================================================
-# Self-wiring. "An unwired gate is not a gate" (house precedent: hack/test/dev_mise_pin_drift_test.sh).
+# Self-wiring. "An unwired gate is not a gate" (house rule: CWS-6 only sees guards CI already runs, so this gate asserts its own wiring below).
 # ================================================================================================
 #
 # This gate is reached in CI through its own named step in the lint job of

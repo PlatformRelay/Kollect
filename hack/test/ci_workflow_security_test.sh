@@ -1144,8 +1144,8 @@ mutant_rejected "schema dangling name-only step" "declares neither run nor uses"
 # CWS-6 ratchet: a guard invoked from a composite action can never be a required check.
 mutant_rejected "CWS-6 guard in a composite action" "is not a job and can never be a required check" bash -c '
   set -euo pipefail
-  yq eval ".runs.steps += {\"name\": \"guard inside an action (mutant)\", \"run\": \"bash hack/test/dev_mise_pin_drift_test.sh\"}" .github/actions/go-cache/action.yml > m.yaml && mv m.yaml .github/actions/go-cache/action.yml
-  grep -q "dev_mise_pin_drift_test" .github/actions/go-cache/action.yml || { echo "mutant did not apply"; exit 1; }
+  yq eval ".runs.steps += {\"name\": \"guard inside an action (mutant)\", \"run\": \"bash hack/test/consistency_toolchain_pins_test.sh\"}" .github/actions/go-cache/action.yml > m.yaml && mv m.yaml .github/actions/go-cache/action.yml
+  grep -q "consistency_toolchain_pins_test" .github/actions/go-cache/action.yml || { echo "mutant did not apply"; exit 1; }
 '
 
 # CWS-6: a job that carries a required CONTEXT NAME in a workflow that never runs on PRs is

@@ -408,15 +408,6 @@ jobs:
       # half; docs.yaml's docs/** filter covers a change to the map itself.
       - name: Verify the docs map labels the pages it points at (DOC-MAP-01)
         run: bash hack/test/docs_map_contract_test.sh
-      # DEV-MISE-01: mise.toml restates the task/node/python versions this job installs, and a
-      # restated literal with no mechanism behind it is how release.yaml reached helm v3.21.4
-      # while CI stayed on v3.17.3 (see renovate.json's own comment). Renovate's go-task manager
-      # scans only .github/(actions|workflows)/, and nothing at all manages the node-version /
-      # python-version inputs, so this comparison is the only thing that would notice. Run it
-      # here, unconditionally: mise.toml and hack/** are both outside this workflow's
-      # paths-ignore, so every change class that can break the contract triggers this job.
-      - name: Verify mise.toml has not drifted from the CI pins (DEV-MISE-01)
-        run: bash hack/test/dev_mise_pin_drift_test.sh
       # DOC-ADRREFS-01: every ADR-\d{4} token in tracked files must resolve to a committed ADR.
       # ADRs get renumbered and deleted; code comments, CRD descriptions (user-visible via
       # `kubectl explain`), the chart values schema, and docs keep citing the retired numbers
@@ -564,9 +555,12 @@ jobs:
         run: bash hack/test/consistency_metrics_test.sh --self-test
       # DTP-3/DTP-6/DTP-7 (openspec change developer-toolchain-pins): gitleaks, git-cliff and
       # shellcheck agree across their pin sites and meet their floors, shellcheck has digests for
-      # its pin, and the installer-checksum exemptions only shrink. The self-test also removes
-      # these two steps from a copy and expects the CWS-6/CFC-6 meta-test to red. Needs yq.
-      - name: Verify gitleaks, git-cliff and shellcheck pins agree (DTP-3, DTP-6)
+      # its pin, and the installer-checksum exemptions only shrink. DEV-MISE-01: mise.toml's
+      # task/node/python equal every setup-task/setup-node/setup-python pin under .github/ and Go
+      # stays read from go.mod (nothing else manages the node/python inputs, so this comparison is
+      # the only thing that would notice). The self-test also removes these two steps from a copy
+      # and expects the CWS-6/CFC-6 meta-test to red. Needs yq.
+      - name: Verify gitleaks, git-cliff, shellcheck and mise.toml pins agree (DTP-3, DTP-6, DEV-MISE-01)
         run: bash hack/test/consistency_toolchain_pins_test.sh
       - name: Verify the toolchain-pins gate can still fail (DTP-7)
         run: bash hack/test/consistency_toolchain_pins_test.sh --self-test
