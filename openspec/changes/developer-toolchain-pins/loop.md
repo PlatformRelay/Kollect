@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: L — dispatch 1.1 (new consistency_toolchain_pins_test.sh + lint wiring)
+Next: L — dispatch 1.2 (fold dev_mise_pin_drift_test.sh)
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -53,6 +53,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
+| 1.1 | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI), 2 rounds, all behaviour findings fixed with mutants | 30a377146. Also fixed a pre-existing flake on main: ci_workflow_security_test.sh guard_modes `grep -v \| grep -q` under pipefail dropped --self-test 73/500 → 0/500. Gaps: round-2 fixes unreviewed (B: read `unverified_other_uses`, `cliff_action_sites` first); DTP-6 scan blind to computed-name eval/sourced writes. Deferred: SIGPIPE at ci_workflow_security_test.sh:756 (its own self-test) |
 
 ## Known red
 
@@ -65,6 +66,11 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 |---|---|---|---|
 
 ## Lessons
+
+- A shrink-only bash list needs a closed list of allowed mentions, not a list of write forms (1.1)
+- Self-test mutant values must never be a plausible next release: use 99.0.0 or derive from the tree (1.1)
+- A mutant probe must tag inserted lines with a marker; a regex matching existing lines proves nothing (1.1)
+- In single-quoted awk inside bash, an apostrophe in an awk comment ends the quote (1.1)
 
 Carried over from change 4 (cross-file-consistency-gates):
 
