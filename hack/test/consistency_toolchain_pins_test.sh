@@ -55,8 +55,9 @@
 #     file pattern matches nothing, every gitleaks, git-cliff, shellcheck, Task, govulncheck and
 #     golangci-lint site above is extracted at its line and value under that tool's depName (the
 #     golangci-lint pins must be plain vN.N.N), each tool's sites resolve to one groupName (the
-#     last matching packageRule wins), and shellcheck's group holds nothing else (its bump is red
-#     until its digests are added). python3 evaluates renovate.json itself; shapes it does not
+#     last matching packageRule wins), and shellcheck's and golangci-lint's groups each hold
+#     nothing else (a shellcheck bump is red until its digests are added, a golangci-lint bump
+#     often on new findings). python3 evaluates renovate.json itself; shapes it does not
 #     model (RE2-foreign regex syntax included) fail.
 # Lines whose first non-blank character is `#` are comments and never count as a site.
 #
@@ -892,6 +893,12 @@ declare -A TOOL_DEPS=(
   [govulncheck]="golang.org/x/vuln"
 )
 
+# Tools whose bump PR is often red, so their group holds nothing else (why, for the message).
+declare -A ALONE=(
+  [shellcheck]="a shellcheck bump stays red until install-shellcheck.sh has its digests"
+  [golangci-lint]="a golangci-lint bump is often red (new findings, or a release that needs a newer Go)"
+)
+
 # check_managers <root>: DTP-4 over COVER (filled by check_all) and renovate_deps.
 check_managers() {
   local root="$1" deps line tool loc v c file ln covered tag dfile dline dval dname dgroup
@@ -934,15 +941,16 @@ check_managers() {
       err "renovate: ${tool} sites are not in one group (${where[${tool}]%; }) -- a bump can move one site and leave the others behind"
     fi
   done
-  if [[ -n "${groups[shellcheck]:-}" ]]; then
-    dgroup="$(head -1 <<<"${groups[shellcheck]}")"
+  for tool in "${!ALONE[@]}"; do
+    [[ -n "${groups[${tool}]:-}" ]] || continue
+    dgroup="$(head -1 <<<"${groups[${tool}]}")"
     while IFS=$'\t' read -r tag _ dfile dline dval dname line; do
       [[ "${tag}" == "DEP" && "${line}" == "${dgroup}" && "${dgroup}" != "-" ]] || continue
-      [[ " ${TOOL_DEPS[shellcheck]} " == *" ${dname} "* ]] && continue
-      err "renovate: shellcheck shares the group '${dgroup}' with ${dname} (${dfile}:${dline}) -- a shellcheck bump stays red until install-shellcheck.sh has its digests, and must hold back no other tool"
+      [[ " ${TOOL_DEPS[${tool}]} " == *" ${dname} "* ]] && continue
+      err "renovate: ${tool} shares the group '${dgroup}' with ${dname} (${dfile}:${dline}) -- ${ALONE[${tool}]}, and must hold back no other tool"
       break
     done <<<"${deps}"
-  fi
+  done
   echo "renovate: $(grep -c '^DEP' <<<"${deps}" || true) custom-manager dependencies, $(grep -c . <<<"${COVER}") pin sites checked"
 }
 
@@ -1090,7 +1098,7 @@ check_all() {
 
 if [[ "${MODE}" == "check" ]]; then
   if check_all "${ROOT}"; then
-    pass "Task, gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, task vulncheck runs the annotated GOVULNCHECK_VERSION, UNVERIFIED_BY_DESIGN is within its limit, mise.toml agrees with every node/python pin in .github with Go read from go.mod, and no mise.toml or Taskfile.yml comment restates a version away from its pin, and every renovate.json custom manager is alive, covers every pin site and keeps each tool in one group (shellcheck alone)"
+    pass "Task, gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, task vulncheck runs the annotated GOVULNCHECK_VERSION, UNVERIFIED_BY_DESIGN is within its limit, mise.toml agrees with every node/python pin in .github with Go read from go.mod, and no mise.toml or Taskfile.yml comment restates a version away from its pin, and every renovate.json custom manager is alive, covers every pin site and keeps each tool in one group (shellcheck and golangci-lint alone)"
     exit 0
   fi
   fail "toolchain pins disagree (listed above)"
@@ -2148,7 +2156,7 @@ mutant_rejected "golangci-lint disabled by a rule" \
   rj 'cfg["packageRules"].insert(rule("go toolchain"), {"description": "mutant-disabled", "matchDepNames": ["golangci/golangci-lint"], "enabled": False})'
 
 mutant_rejected "golangci-lint sites in different groups" \
-  'renovate: golangci-lint sites are not in one group \(Makefile:[0-9]+ in .golangci split.; hack/tooling/\.custom-gcl\.yml:[0-9]+ in .pinned build tools.\)' \
+  'renovate: golangci-lint sites are not in one group \(Makefile:[0-9]+ in .golangci split.; hack/tooling/\.custom-gcl\.yml:[0-9]+ in .golangci-lint.\)' \
   'golangci split' "${RJ}" \
   rj 'cfg["packageRules"].insert(rule("go toolchain"), {"matchFileNames": ["Makefile"], "groupName": "golangci split"})'
 
@@ -2162,6 +2170,11 @@ mutant_rejected "shellcheck group rule removed" \
   "renovate: shellcheck shares the group 'pinned build tools' with " \
   '!"groupName": "shellcheck"' "${RJ}" \
   rj 'del cfg["packageRules"][rule("shellcheck")]'
+
+mutant_rejected "golangci-lint group rule removed" \
+  "renovate: golangci-lint shares the group 'pinned build tools' with " \
+  '!"groupName": "golangci-lint"' "${RJ}" \
+  rj 'del cfg["packageRules"][rule("golangci-lint")]'
 
 # Order: the shellcheck rule before "pinned build tools" loses (the last matching groupName wins).
 mutant_rejected "shellcheck group rule before pinned build tools" \
