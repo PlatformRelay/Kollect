@@ -1,7 +1,7 @@
 # Loop — ci-failure-reporting (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/ci-failure-reporting` · Branch: `feat/ci-failure-reporting` · Base: `origin/main` @ `81637dcde` (change 6 archive merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: B — holistic run + astra:adversarial + claude/opus:spec branch review
+Next: L — dispatch G7 (7.1–7.4 stage-B fixes), then hand-off
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 7 of 10 (issue #444). Spec set: proposal.md, specs/ci-failure-reporting/spec.md, tasks.md.
@@ -12,7 +12,7 @@ Change 7 of 10 (issue #444). Spec set: proposal.md, specs/ci-failure-reporting/s
 - [x] P plan + tasks — present; spec set updated 98ed12ff4 (re-measure, decision A, red-first order)
 - [x] R spec-set review — round 1 (43a6b4525): astra NO-GO (3 CRITICAL, verified → WARNING-level, treated as accepted), opus CONCERNS; R1–R15 fixed 75a764bc4, R16 → non-goal. Round 2 (last): astra GO WITH FIXES, opus CONCERNS; 9 mechanical findings fixed b7fcce05a (A1 gh issue close has no --body-file; C3 gh issue list default limit 30). No CRITICAL remains. Records `reviews/R-spec-set/` + `round-2/`
 - [x] L task loop — 1.1–5.1 closed (6.1 is hand-off); task subagents recorded their own rows
-- [ ] B branch review — `reviews/B-branch/round-N/`
+- [x] B branch review — round 1 (2e02ba15a): task check exit 0 (1091 s); per-commit gate green; astra REQUEST_CHANGES (B1, B2 WARNING), claude/opus:spec CLEAN (CFR-1..7 hold); no CRITICAL → no round 2; fixes as tasks 7.1–7.4 with normal task review
 - [ ] Hand-off — `pr-description.md`
 
 ## Fitness functions
@@ -35,6 +35,11 @@ Holistic run at B: not run yet.
 |---|---|---|---|---|---|---|
 | 0 | scope: run-conclusion only, keep Go patch lag, label created by the workflow | decision | astra+opus | fix (A) | spec set 98ed12ff4; race gap is a non-goal pointing at SINK-BREAKER-RACE-01 | operator-accepted |
 
+| B1 | B1 malformed/empty gh output with exit 0 → duplicate issue/comment | WARNING | astra | fix | 7.1 | no |
+| B1 | B2 deleting both lint steps undetected outside the test (not in CFC-6 list) | WARNING | astra | fix | 7.2 | no |
+| B1 | B3 workflow-level concurrency lets a dispatch displace a pending scheduled report | NOTE | opus | fix | 7.3 (cheap) | no |
+| B1 | H1 hack/check.sh grep -v \| grep -q SIGPIPE silently skips 3 large guards' --self-test (pre-existing) | WARNING | holistic | fix | 7.4, on this branch (touches the same gate) | no |
+| B1 | B4 failed-job list over cap → no issue (impossible with 11 jobs); B5 self-wiring matches any ci.yaml line | NOTE | opus | accept | B4 bounded by job count; B5 CWS-6 requires the required job | no |
 | L/5.1 | 3-min --self-test kept in lint (not tool-pins-selftest) despite the 2026-10-16 ruling on slow self-tests | decision | orchestrator | accept | ruling's aim was bounding lint (was heading to ~20 min); lint ~11–12 → ~15 min stays under tool-pins-selftest (19–20 min, the slowest required job), which adding it there would lengthen | no |
 | L/T1.1 | F1 `--label` routes gh issue list to search; F2 comment authors lack is_bot; F3 started = non-empty steps; F5 empty scheduled-run list unspecified | WARNING (spec) | probe | fix | spec: author-only lookup + client-side label; comment-author rule; started-job definition; empty list → no write, exit 0 (orchestrator) | no |
 
