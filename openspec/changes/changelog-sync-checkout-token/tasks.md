@@ -10,7 +10,7 @@
 
 ## 2. Guard first (CST-1, CST-2)
 
-- [ ] 2.1 Extend `hack/test/changelog_sync_release_guard_test.sh`: section 6 checks the checkout's
+- [x] 2.1 Extend `hack/test/changelog_sync_release_guard_test.sh`: section 6 checks the checkout's
   credentials and that the App token output is read only by the push step; section 8 adds mutants.
   Run it on today's `main` and record it red on the token assertion (not on a parse or usage
   error). Cases, each on a structural copy of the real workflow:
@@ -27,11 +27,15 @@
   - CST-2 no-op controls: the identity round-trip passes; `persist-credentials: "false"` (a string)
     passes.
 
+  Closed 2026-10-16: red on `main` on the checkout `token` assertion, then green with 3.1;
+  evidence: `evidence/T2.1.md`.
+
 ## 3. Implement (CST-1)
 
-- [ ] 3.1 Remove `token:` from the changelog-sync checkout and correct its comment. Then: the guard
+- [x] 3.1 Remove `token:` from the changelog-sync checkout and correct its comment. Then: the guard
   is green; `hack/test/ci_workflow_security_test.sh` (zizmor) green in plain and `--self-test`;
-  `hack/test/sonar_ko_08_workflow_permissions_test.sh` green; `task lint:shell` clean.
+  `hack/test/sonar_ko_08_workflow_permissions_test.sh` green; `task lint:shell` clean. — closed
+  2026-10-16, evidence: `evidence/T2.1.md`
 
 ## 4. Land
 
@@ -44,10 +48,10 @@
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| CST-1 | probe of the push path | push needs no checkout credentials | not-run | evidence/T1.1.md |
-| CST-1 | guard on `main` before 3.1 | red on the checkout `token` assertion | not-run | |
-| CST-1 | guard after 3.1 | green | not-run | |
+| CST-1 | probe of the push path | push needs no checkout credentials | pass | evidence/T1.1.md (read of `a9913eda9`, runs 38889827962, 38551429146) |
+| CST-1 | guard on `main` before 3.1 | red on the checkout `token` assertion | pass | evidence/T2.1.md, base `950743808`, exit 1 |
+| CST-1 | guard after 3.1 | green | pass | evidence/T2.1.md, exit 0 |
 | CST-1 | changelog-sync run on `main` after the merge | success; no auth failure | post-merge | issue #443 owns the row until the follow-up evidence PR |
-| CST-2 | token, persist-true, persist-removed and other-step mutants by exit status; identity and string-`"false"` controls | mutants rejected for the named reason; controls pass | not-run | |
-| all | zizmor gate both modes, `task lint:shell`, `task spec:validate` | green | not-run | |
+| CST-2 | token, persist-true, persist-removed and other-step mutants by exit status; identity and string-`"false"` controls | mutants rejected for the named reason; controls pass | pass | evidence/T2.1.md: 4 self-test mutants rejected, 2 controls accepted; real-file token and persist mutants exit 1, restored exit 0 |
+| all | zizmor gate both modes, `task lint:shell`, `task spec:validate` | green | pass | evidence/T2.1.md; zizmor 1.30.1 no findings |
 | all | independent review; CI on the PR head | APPROVE or verified findings fixed; green | not-run | |
