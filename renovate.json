@@ -185,6 +185,11 @@
       "groupName": "shellcheck"
     },
     {
+      "description": "golangci-lint in a group of its own: a new release often adds findings or breaks on a Go bump (CFC-2 builds and runs it), and its red PR must hold back no other tool. After 'pinned build tools', before 'go toolchain'.",
+      "matchDepNames": ["golangci/golangci-lint"],
+      "groupName": "golangci-lint"
+    },
+    {
       "description": "Hold cel-go below 0.32. v0.32.0 renamed its module path to cel.dev/cel-go, and k8s.io/apiserver still imports github.com/google/cel-go, so taking it is a module migration, not a bump. Revisit together with the k8s.io modules once a k8s.io release imports cel.dev/cel-go.",
       "matchManagers": ["gomod"],
       "matchPackageNames": ["github.com/google/cel-go"],
