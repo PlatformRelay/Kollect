@@ -1,7 +1,7 @@
 # Loop — ci-failure-reporting (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/ci-failure-reporting` · Branch: `feat/ci-failure-reporting` · Base: `origin/main` @ `81637dcde` (change 6 archive merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: L — dispatch G7 (7.1–7.4 stage-B fixes), then hand-off
+Next: hand-off — integrator: pr-description, ready PR, all checks green, merge; post-merge: main CI by headSha + first ci-failure-report run after the next E2E nightly; archive after that run
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 7 of 10 (issue #444). Spec set: proposal.md, specs/ci-failure-reporting/spec.md, tasks.md.
@@ -154,6 +154,13 @@ Carried over from change 4 (cross-file-consistency-gates):
 - Renovate: the LAST matching rule wins, so a group rule must be the last groupName-setting rule; prove grouping with a local `renovate --platform=local` lookup dry-run (~1 min) (G1)
 
 ## Where a human should look first
+
+- `.github/workflows/ci-failure-report.yaml` — new privileged `workflow_run` workflow (issues:write); exactly 3 steps, job-level concurrency, no checkout of the triggering ref
+- `.github/zizmor.yml` — commented `dangerous-triggers` file exception for that workflow
+- `hack/ci/ci-failure-report.sh`, `hack/ci/ci-failure-issue-body.sh` — the reporter and its hardened body builder
+- `hack/check.sh` — `task check` now really runs the --self-test of 5 large guards it silently skipped (SIGPIPE); `task check` ~18 → ~30 min
+- `hack/test/ci_workflow_security_test.sh` — CFC-6 list gains ci_failure_report_test.sh; CWS-2 mutants re-anchored (test changes)
+- `.github/workflows/ci.yaml` — lint job gains the reporter test steps (~3 min self-test); lint ~12 → ~16 min
 
 <!-- filled at hand-off -->
 
