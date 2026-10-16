@@ -11,6 +11,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Require a full version for CFC-2 pins [21b381e](https://github.com/platformrelay/kollect/commit/21b381e045e43ac9523c481757c8e2c61ce33876)
+
+- **ci:** Read mixed-case uses: refs as the same action [2f05158](https://github.com/platformrelay/kollect/commit/2f05158f4a6ddaabaa324eed8c5b2dd85167e9bb)
+
+- **ci:** Reject a Taskfile pin variable that holds latest in CFC-2 [89d36cd](https://github.com/platformrelay/kollect/commit/89d36cd2cb64746c4b508f0eb80f67be85eb1682)
+
+- **hack:** Verify installer checksums with shasum on macOS [b3f8ec5](https://github.com/platformrelay/kollect/commit/b3f8ec542c3cc0a3d85b60e6a4d72955c0d7dc8d)
+
+- **hack:** Verify git-cliff and helm-docs downloads by checksum [d7b9a4f](https://github.com/platformrelay/kollect/commit/d7b9a4fba7c5fc1703e11c9cee7c40ebb0501c40)
+
 - **test:** Stage evidence-guard fixtures past global ignores [5247fd4](https://github.com/platformrelay/kollect/commit/5247fd49df118a988b63f137ff2e086464e513a5)
 
 - **test:** Name the copy failure in the evidence guard self-test [db2eade](https://github.com/platformrelay/kollect/commit/db2eaded4d386df8e25501496ca994b815510d65)
