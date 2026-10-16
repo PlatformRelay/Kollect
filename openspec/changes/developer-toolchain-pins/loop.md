@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: L — dispatch 2.3 (DTP-5 comment-to-pin rule)
+Next: L — dispatch G3 (3.1–3.3: Renovate manager probe, liveness/coverage/grouping check, manager fixes)
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -57,6 +57,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 | 1.2 | CLOSED-WITH-GAPS | astra APPROVE + claude/opus:diff CONCERNS (wording, fixed), 1 round | 6fe60b5a7. dev_mise_pin_drift_test.sh folded: 12 cases ported 1:1 + a 13th (section-off survived all 12 old cases); old guard + ci.yaml step deleted; refs updated. Test changes: old guard deleted, CWS-6 mutant retargeted. Deferred to 2.1: step-reset-off (setup-task step without `version:` silently skipped) |
 | 2.1 | CLOSED | astra APPROVE + claude/opus:diff CLEAN, 1 round | 8d9a13d4c. Task 3.52.0 at 18 setup-task sites + mise.toml; setup.md:39 version-free; step-reset-off closed (setup-task step without `version:` reds). Test changes: 1.2 cases task-drift/ci-self-drift now expect DTP-1 message; no-ci-pins split. Deferred to B: case-sensitive `uses:` match (shared reader); no `task = "latest"` case |
 | 2.2 | CLOSED-WITH-GAPS | r1 astra APPROVE + claude/opus:diff CONCERNS (2 WARNING verified: `latest` passed both guards; task-level vars override ran v1.1.4 → fixed); r2 astra APPROVE | fc1135a99. GOVULNCHECK_VERSION var + renovate annotation (dry-run extracts it); `task vulncheck` green. Test change: 2 CFC-2 mutants re-anchored. Deferred to B (fix there): CFC-2 accepts `latest` via any Taskfile var (consistency_tool_pins_test.sh:159-163) |
+| 2.3 | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES (bare majors, -rc truncation, case-sensitive count rule → fixed) + claude/opus:diff CLEAN (lint step renamed); r2 astra APPROVE | 25efc58f9. DTP-5 comment-to-pin rule; mise.toml :24/:28/:39/:52 rewritten as pointers; Task comment no longer restates a version (Renovate would red every bump). Test changes: 4 ported DEV-MISE-01 mutants move/delete attached comments. Gaps: dotted prose numbers fail closed; `# gitleaks 8` passes |
 
 ## Known red
 
@@ -84,6 +85,9 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 
 - A "reads the variable" check must forbid task-level overrides (Task's task vars beat global vars) (2.2)
 - Match the bot's extraction regex exactly (one space, no trailing blanks) (2.2)
+
+- Before adding a rule over a file earlier mutants edit, run every mutant touching that file first (2.3)
+- Hand-mutate each regex alternative; one was redundant (2.3)
 
 Carried over from change 4 (cross-file-consistency-gates):
 
