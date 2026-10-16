@@ -27,19 +27,19 @@ on:
 permissions:
   contents: read
 
-# One report at a time per reported workflow, queued and never cancelled, so two reports cannot
-# both open an issue (CFR-1). A dropped pending event is harmless: the reporter acts on the latest
-# completed scheduled run, not on the event.
-concurrency:
-  group: ci-failure-report-${{ github.event.workflow_run.workflow_id }}
-  cancel-in-progress: false
-
 jobs:
   report:
     name: report
     if: github.event.workflow_run.event == 'schedule' && github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # One report at a time per reported workflow, queued and never cancelled, so two reports
+    # cannot both open an issue (CFR-1). At job level, after the if:, so only scheduled runs
+    # queue: a run whose job is skipped cannot replace a pending scheduled report. A dropped
+    # pending event is harmless: the reporter acts on the latest completed scheduled run.
+    concurrency:
+      group: ci-failure-report-${{ github.event.workflow_run.workflow_id }}
+      cancel-in-progress: false
     permissions:
       contents: read
       actions: read

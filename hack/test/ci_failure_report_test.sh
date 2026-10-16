@@ -424,7 +424,9 @@ if [[ "${MODE}" == self-test ]]; then
     judge cfr wiring "G4 W3 second job" "must have exactly one job" \
       yqe "${W}" '.jobs.extra = {"runs-on": "ubuntu-latest", "steps": [{"run": "true"}]}'
     judge cfr wiring "G4 W4 cancel-in-progress true" "concurrency must be" \
-      yqe "${W}" '.concurrency."cancel-in-progress" = true'
+      yqe "${W}" '.jobs.report.concurrency."cancel-in-progress" = true'
+    judge cfr wiring "B3 concurrency back at workflow level" "concurrency must be" \
+      yqe "${W}" '.concurrency = .jobs.report.concurrency | del(.jobs.report.concurrency)'
     judge cfr wiring "G4 W5 workflow permissions widened" "workflow permissions must be exactly" \
       yqe "${W}" '.permissions.issues = "write"'
     judge cfr wiring "G4 W5 job adds pull-requests: write" "job permissions must be exactly" \
@@ -1592,13 +1594,15 @@ else
   bad "wiring: ${WF_REL} job if: must be exactly \"${want_if}\", found ${got_if}"
 fi
 
-conc="$(wq '[.concurrency.group, .concurrency."cancel-in-progress"]')"
+# Job level, not workflow level (B3): a workflow-level group also queues the runs whose job the
+# if: skips, so a dispatched run's report could replace a pending scheduled one.
+conc="$(wq '[.concurrency, (.jobs | to_entries | .[0].value.concurrency.group), (.jobs | to_entries | .[0].value.concurrency."cancel-in-progress")]')"
 # shellcheck disable=SC2016 # the GitHub expression is the expected text, not a shell expansion
-want_conc='["ci-failure-report-${{ github.event.workflow_run.workflow_id }}",false]'
+want_conc='[null,"ci-failure-report-${{ github.event.workflow_run.workflow_id }}",false]'
 if [[ "${conc}" == "${want_conc}" ]]; then
-  ok "wiring: concurrency group ci-failure-report-<workflow_id>, cancel-in-progress false"
+  ok "wiring: job concurrency group ci-failure-report-<workflow_id>, cancel-in-progress false, none at workflow level"
 else
-  bad "wiring: ${WF_REL} concurrency must be ${want_conc} as [group, cancel-in-progress], found ${conc}"
+  bad "wiring: ${WF_REL} concurrency must be ${want_conc} as [workflow concurrency, job group, job cancel-in-progress], found ${conc}"
 fi
 
 wperm="$(wq '.permissions')"
