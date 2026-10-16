@@ -562,6 +562,14 @@ jobs:
         run: bash hack/test/consistency_metrics_test.sh
       - name: Verify the metrics gate can still fail (CFC-6)
         run: bash hack/test/consistency_metrics_test.sh --self-test
+      # DTP-3/DTP-6/DTP-7 (openspec change developer-toolchain-pins): gitleaks, git-cliff and
+      # shellcheck agree across their pin sites and meet their floors, shellcheck has digests for
+      # its pin, and the installer-checksum exemptions only shrink. The self-test also removes
+      # these two steps from a copy and expects the CWS-6/CFC-6 meta-test to red. Needs yq.
+      - name: Verify gitleaks, git-cliff and shellcheck pins agree (DTP-3, DTP-6)
+        run: bash hack/test/consistency_toolchain_pins_test.sh
+      - name: Verify the toolchain-pins gate can still fail (DTP-7)
+        run: bash hack/test/consistency_toolchain_pins_test.sh --self-test
       - name: Verify the go-patch-lag sensor verdicts and workflow shape (CFC-5)
         run: bash hack/test/go_patch_lag_test.sh
       - name: Verify the go-patch-lag test can still fail (CFC-6)
