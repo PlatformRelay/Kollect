@@ -11,6 +11,30 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **test:** Stage evidence-guard fixtures past global ignores [5247fd4](https://github.com/platformrelay/kollect/commit/5247fd49df118a988b63f137ff2e086464e513a5)
+
+- **test:** Name the copy failure in the evidence guard self-test [db2eade](https://github.com/platformrelay/kollect/commit/db2eaded4d386df8e25501496ca994b815510d65)
+
+- **ci:** Parse comment and blank lines in a FROM continuation like Docker [f072cf8](https://github.com/platformrelay/kollect/commit/f072cf82b057adabb6b6b47a4bb1c2f7ba63c25c)
+
+- **ci:** Fail a golang FROM image that holds a variable [5b3816d](https://github.com/platformrelay/kollect/commit/5b3816d6db7c4b7fddb5428b23e400353c105de1)
+
+- **ci:** Fail cleanly on an exception class without its colon [edb8937](https://github.com/platformrelay/kollect/commit/edb8937586105f0e36f9b7eeaa15940b1365fa57)
+
+- **test:** Fail on non-literal mirror entries in the metrics guard [3bfecc6](https://github.com/platformrelay/kollect/commit/3bfecc6bfedd3f00616e60b74d52ac25937ae9cc)
+
+- **test:** Read metric names as whole tokens in the metrics guard [b74d3d7](https://github.com/platformrelay/kollect/commit/b74d3d7281930a27b6b807c8307d68b137a096e0)
+
+- **ci:** Reject bare-class RBAC exceptions; close G3 [204e510](https://github.com/platformrelay/kollect/commit/204e510d05fa1da917939a4172cef4cc8684963d)
+
+- **ci:** Scope RBAC coverage by role kind and close team-workload [8ad1fdc](https://github.com/platformrelay/kollect/commit/8ad1fdc30b98f14966db586baf2ba102928a5e69)
+
+- **ci:** Read continued and quoted tool pins; close G2 [3dd6a1d](https://github.com/platformrelay/kollect/commit/3dd6a1dc271bfad14e86d186b2ad26477cc47d46)
+
+- **ci:** Close round-1 gaps in the tool-pin guard [68bdca7](https://github.com/platformrelay/kollect/commit/68bdca7a5c6e83891664fc383fe54306ab6c156b)
+
+- **deps:** Override katex to 0.18.2 in the docs lint toolchain ([#462](https://github.com/platformrelay/kollect/pull/462))[0c1456b](https://github.com/platformrelay/kollect/commit/0c1456b5d5e8bdb9f43e3ad8b53ffc2147fa081c)
+
 - **git:** Classify HTTP status codes from typed errors and status phrases ([#459](https://github.com/platformrelay/kollect/pull/459))[76239b7](https://github.com/platformrelay/kollect/commit/76239b7b239aa058ba52c6de57b4e36268a9f568)
 
 - **git:** Match HTTP status codes in errors as whole tokens [66c3b14](https://github.com/platformrelay/kollect/commit/66c3b14e9bb0679fd75304ab0bfc22bea765c61c)
@@ -84,6 +108,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **ci:** Add a weekly Go patch-lag sensor [c75e726](https://github.com/platformrelay/kollect/commit/c75e7261d33c41c0deb0530e0e86f9f1afdb4dbd)
+
 - **git-engine:** Converge the git snapshot sink to one export engine, go-git (T09) [c1d3ef8](https://github.com/platformrelay/kollect/commit/c1d3ef8cbb5d05f315af087c96536ecf52a0afc8)
 
 - **backend-pool:** Evict pooled backends on family-sink delete (T08) [f737f37](https://github.com/platformrelay/kollect/commit/f737f374a02618021e2a78a3ead44db3c50506d9)
@@ -107,6 +133,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Refactoring
+
+- **spec:** Keep evidence probes as Markdown [4bbcc7f](https://github.com/platformrelay/kollect/commit/4bbcc7f122b4c5f1ca3e1482016580845df5605b)
 
 - **controller:** Migrate delete-watch spy to cap.SnapshotStore [de1a154](https://github.com/platformrelay/kollect/commit/de1a1540476d2f65f59353d54d38ef098ee584d0)
 
