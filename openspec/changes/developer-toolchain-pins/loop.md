@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: B round 2 (last) on the G6 range, then hand-off
+Next: G7 (7.1, O1 fix, no review per cap), then hand-off (integrator)
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -12,7 +12,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 - [x] P plan + tasks — present; spec set updated 649e5811c (re-measure, decisions A pin ownership and C guard shape)
 - [x] R spec-set review — `reviews/R-spec-set/` (b3fd2d944) on 9621c98aa: astra REQUEST CHANGES, claude/opus CONCERNS; no CRITICAL; 11 WARNING + 6 NOTE all verified; fixes applied faa6754fd (R2 placement deviation: lint wiring lands with 1.1 because CFC-6 reds an unwired consistency_* guard; R9 mutants in 2.2)
 - [x] L task loop — 1.1–4.3 closed (5.1 archive is post-merge)
-- [ ] B branch review — round 1 `reviews/B-branch/round-1/` (650d7c765): task check exit 0 (1528 s), vulncheck 0; astra REQUEST_CHANGES (B1 P1), opus CONCERNS; no spec row contradicted/absent; fixes → G6
+- [ ] B branch review — round 1 `reviews/B-branch/round-1/` (650d7c765): task check exit 0 (1528 s), vulncheck 0; astra REQUEST_CHANGES (B1 P1), opus CONCERNS; no spec row contradicted/absent; fixes → G6; round 2 `reviews/B-branch/round-2/` (b1b54080f): task check exit 0 (1224 s); all 11 G6 commits pass per-commit gate; astra BLOCK, opus CONCERNS (DTP-1..7 hold). Rounds 2/2
 - [ ] Hand-off
 
 ## Fitness functions
@@ -32,6 +32,12 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| B2 | O1 github-actions manager bumps node-version/python-version (uses-with) without mise.toml → mise check reds the group PR | WARNING | opus (verified in Renovate source) | fix | 7.1 disable uses-with for node/python (no review, cap) | no |
+| B2 | A1 Makefile go-install-tool var `?= v1` floats past CFC-2 | WARNING | astra | defer | BACKLOG CFC2-MAKEFILE-LATEST (ENVTEST branch pin needs a decision) | no |
+| B2 | A2 inherited KOLLECT_TP_NESTED skips the bump control | NOTE | astra | reject | nothing sets it in CI; documented | no |
+| B2 | A3 consistency_go_toolchain matches setup-go case-sensitively | NOTE | astra | defer | BACKLOG (change-4 guard) | no |
+| B2 | O2 golangci group not re-checked against real Renovate; O3 PIN_VERSION_RE stricter than asked; O4 two serial self-tests in 45 min; O5 install-helm/polaris lack shasum fallback | NOTE | opus | accept / defer O5 | O5 → BACKLOG; O4 watch first CI run | no |
+| B2 | O6 intermediate commits unverified | NOTE | opus | reject | closed: per-commit gate green on all 11 | no |
 | B1 | B1 hard-coded git-cliff v2.13.1 sentinel: a correct bump reds --self-test and blocks the shared group | P1 | astra (reproduced) | fix | 6.1 + all-pins bump control | no |
 | B1 | B2 new 233 s --self-test in required lint, against operator ruling 2026-10-16 (slow self-tests out of lint) | WARNING | opus | fix | 6.2: step in existing tool-pins-selftest job (no new required context); orchestrator applies precedent, no new decision | no |
 | B1 | golangci-lint in shared Renovate group; a red golangci bump blocks Task/gitleaks/git-cliff/govulncheck | WARNING | opus (unmentioned behaviour) | fix | 6.7 own group | no |
