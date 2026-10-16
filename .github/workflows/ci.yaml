@@ -236,7 +236,7 @@ jobs:
       - uses: ./.github/actions/go-cache
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.51.1
+          version: 3.52.0
       - name: Verify generated artifacts
         run: task verify
         env:
@@ -269,7 +269,7 @@ jobs:
       - uses: ./.github/actions/go-cache
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.51.1
+          version: 3.52.0
       - name: govulncheck
         run: task vulncheck
 
@@ -291,7 +291,7 @@ jobs:
       - uses: ./.github/actions/go-cache
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.51.1
+          version: 3.52.0
       - name: Check formatting
         run: task format:check
       - name: Install ShellCheck
@@ -553,14 +553,15 @@ jobs:
         run: bash hack/test/consistency_metrics_test.sh
       - name: Verify the metrics gate can still fail (CFC-6)
         run: bash hack/test/consistency_metrics_test.sh --self-test
-      # DTP-3/DTP-6/DTP-7 (openspec change developer-toolchain-pins): gitleaks, git-cliff and
-      # shellcheck agree across their pin sites and meet their floors, shellcheck has digests for
-      # its pin, and the installer-checksum exemptions only shrink. DEV-MISE-01: mise.toml's
-      # task/node/python equal every setup-task/setup-node/setup-python pin under .github/ and Go
-      # stays read from go.mod (nothing else manages the node/python inputs, so this comparison is
-      # the only thing that would notice). The self-test also removes these two steps from a copy
-      # and expects the CWS-6/CFC-6 meta-test to red. Needs yq.
-      - name: Verify gitleaks, git-cliff, shellcheck and mise.toml pins agree (DTP-3, DTP-6, DEV-MISE-01)
+      # DTP-1/DTP-3/DTP-6/DTP-7 (openspec change developer-toolchain-pins): Task (every
+      # setup-task version: input and mise.toml), gitleaks, git-cliff and shellcheck agree across
+      # their pin sites and meet their floors, shellcheck has digests for its pin, and the
+      # installer-checksum exemptions only shrink. DEV-MISE-01: mise.toml pins task, its
+      # node/python equal every setup-node/setup-python pin under .github/ and Go stays read from
+      # go.mod (nothing else manages the node/python inputs, so this comparison is the only thing
+      # that would notice). The self-test also removes these two steps from a copy and expects the
+      # CWS-6/CFC-6 meta-test to red. Needs yq.
+      - name: Verify Task, gitleaks, git-cliff, shellcheck and mise.toml pins agree (DTP-1, DTP-3, DTP-6, DEV-MISE-01)
         run: bash hack/test/consistency_toolchain_pins_test.sh
       - name: Verify the toolchain-pins gate can still fail (DTP-7)
         run: bash hack/test/consistency_toolchain_pins_test.sh --self-test
@@ -626,7 +627,7 @@ jobs:
           envtest: true
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.51.1
+          version: 3.52.0
       - name: Unit tests and coverage floor
         run: task coverage
         env:
@@ -666,7 +667,7 @@ jobs:
       - uses: ./.github/actions/go-cache
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.51.1
+          version: 3.52.0
       - name: Build manager
         run: task build
 
@@ -683,7 +684,7 @@ jobs:
       - uses: ./.github/actions/go-cache
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.51.1
+          version: 3.52.0
       - name: Verify Forgejo pre-pull safeguards
         run: bash test/ci/forgejo_prepull_test.sh
       - name: Pre-pull Forgejo image
@@ -709,7 +710,7 @@ jobs:
           persist-credentials: false
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.51.1
+          version: 3.52.0
       - name: Install Helm
         env:
           HELM_VERSION: v3.22.0
@@ -735,7 +736,7 @@ jobs:
           envtest: true
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.51.1
+          version: 3.52.0
       - name: Performance snapshot (optional gate)
         run: task perf-report
         env:
@@ -859,7 +860,7 @@ jobs:
       - uses: ./.github/actions/go-cache
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
-          version: 3.51.1
+          version: 3.52.0
       - name: Build controller image
         run: task docker:build
 
