@@ -84,11 +84,11 @@ jobs:
         with:
           fetch-depth: 0 # git-cliff needs full history + tags
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token }}
-          # zizmor artipacked: the checkout must not persist the App token in the local git
-          # config, where every later step could read it. The push below authenticates itself
-          # per-invocation with the same token through GIT_CONFIG_* (the pattern actions/checkout
-          # itself uses), so nothing needs persisted credentials.
+          # No `token:` here (CST-1): the checkout only fetches this public repository, which the
+          # job's default GITHUB_TOKEN does. The App token can bypass protect-main, so only the
+          # push step below receives it, and it authenticates that one push through GIT_CONFIG_*
+          # (the extraheader pattern actions/checkout itself uses). zizmor artipacked: nothing
+          # needs persisted credentials either. Guarded by hack/test/changelog_sync_release_guard_test.sh.
           persist-credentials: false
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:

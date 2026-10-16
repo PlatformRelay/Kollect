@@ -141,6 +141,88 @@ def falsy_if(node):
     if text.strip("'\"").strip().lower() in _FALSY_WORDS:
         return repr(raw)
     return None
+
+
+# CST-1: the App token sits on the protect-main bypass list, so it may reach
+# exactly one step -- the push. Steps are recognised by the action they use,
+# not by name or id, for the same reason as GUARD_NEEDLE.
+CHECKOUT_ACTION = "actions/checkout@"
+APP_TOKEN_ACTION = "actions/create-github-app-token@"
+
+
+def _uses(step, prefix):
+    return str(step.get("uses") or "").startswith(prefix)
+
+
+def checkout_indices(steps):
+    """Indices of every actions/checkout step."""
+    return [i for i, step in enumerate(steps) if _uses(step, CHECKOUT_ACTION)]
+
+
+def app_token_ids(steps):
+    """The `id` of every create-github-app-token step (None when it has none)."""
+    return [step.get("id") for step in steps if _uses(step, APP_TOKEN_ACTION)]
+
+
+def _strings(node):
+    """Every string anywhere in a parsed YAML node: keys, values, `run:` bodies."""
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            yield from _strings(key)
+            yield from _strings(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _strings(item)
+
+
+def _output_ref(step_id):
+    """Matches `steps.<id>.outputs` and `steps['<id>'].outputs` spellings."""
+    sid = re.escape(step_id)
+    return re.compile(
+        r"steps\s*(?:\.\s*" + sid + r"|\[\s*['\"]" + sid + r"['\"]\s*\])\s*\.\s*outputs"
+    )
+
+
+def credential_errors(steps, pushes):
+    """CST-1 findings: checkout credentials and every reader of the App token."""
+    errs = []
+    checkouts = checkout_indices(steps)
+    if not checkouts:
+        errs.append("no actions/checkout step in job 'sync' -- its credentials cannot be checked")
+    for i in checkouts:
+        given = steps[i].get("with") or {}
+        if "token" in given:
+            errs.append(
+                f"checkout step (index {i}) must not set a 'token' input (found "
+                f"{given['token']!r}) -- it fetches a public repository with the default "
+                "GITHUB_TOKEN; the bypass App token belongs to the push step alone"
+            )
+        persist = given.get("persist-credentials")
+        if persist is not False and str(persist).strip().lower() != "false":
+            errs.append(
+                f"checkout step (index {i}) must set persist-credentials: false (found "
+                f"{persist!r}; absent means true) -- persisted credentials are readable "
+                "by every later step"
+            )
+    ids = app_token_ids(steps)
+    if not ids:
+        errs.append("no actions/create-github-app-token step in job 'sync' -- the push has no token")
+    for token_id in ids:
+        if not token_id:
+            errs.append("the create-github-app-token step needs an 'id' for the push step to read")
+            continue
+        ref = _output_ref(token_id)
+        for i, step in enumerate(steps):
+            if i in pushes:
+                continue
+            if any(ref.search(text) for text in _strings(step)):
+                errs.append(
+                    f"step {step.get('name') or step.get('uses') or i!r} (index {i}) reads "
+                    f"the App token (steps.{token_id}.outputs) -- only the push step may"
+                )
+    return errs
 PY
 
 # ---------------------------------------------------------------------------
@@ -404,7 +486,8 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 6. the workflow actually wires the guard in ahead of the push
+# 6. the workflow actually wires the guard in ahead of the push, and the
+#    bypass-capable App token reaches the push step alone (CST-1)
 # ---------------------------------------------------------------------------
 
 # static_wiring_check WORKFLOW -- the structural guard/push assertions, applied
@@ -418,7 +501,7 @@ import sys
 
 import yaml
 
-from syncwf import falsy_if, guard_step_indices, push_step_indices
+from syncwf import credential_errors, falsy_if, guard_step_indices, push_step_indices
 
 wf = yaml.safe_load(open(sys.argv[1]))
 steps = wf["jobs"]["sync"]["steps"]
@@ -483,6 +566,8 @@ if guard >= 0 and push >= 0:
             errs.append(
                 f"push step 'if:' must reference steps.{guard_id}.outputs, got {cond!r}"
             )
+# CST-1: the bypass-capable App token reaches the push step and nothing else.
+errs.extend(credential_errors(steps, pushes))
 
 if errs:
     for e in errs:
@@ -494,9 +579,9 @@ PY
 
 if [[ -f "${WORKFLOW}" ]]; then
   if static_wiring_check "${WORKFLOW}"; then
-    pass "changelog-sync.yaml runs the guard before the push and gates the push on its verdict"
+    pass "changelog-sync.yaml runs the guard before the push, gates the push on its verdict, and gives the App token to the push step alone"
   else
-    fail "changelog-sync.yaml guard/push wiring is wrong (see above)"
+    fail "changelog-sync.yaml guard/push wiring or token isolation is wrong (see above)"
   fi
 
   # The header comment documents soft-fail behaviour; it must stay truthful now
@@ -737,7 +822,7 @@ import sys
 
 import yaml
 
-from syncwf import guard_step_indices, push_step_indices
+from syncwf import app_token_ids, checkout_indices, guard_step_indices, push_step_indices
 
 source, target, kind = sys.argv[1], sys.argv[2], sys.argv[3]
 wf = yaml.safe_load(open(source))
@@ -752,6 +837,13 @@ if not guards or not pushes:
     sys.exit(2)
 guard = steps[guards[0]]
 push = steps[pushes[0]]
+checkouts = checkout_indices(steps)
+token_ids = [i for i in app_token_ids(steps) if i]
+if not checkouts or not token_ids:
+    print("no checkout or App token step to mutate", file=sys.stderr)
+    sys.exit(2)
+checkout_with = steps[checkouts[0]].setdefault("with", {})
+token_ref = "${{ steps.%s.outputs.token }}" % token_ids[0]
 
 if kind == "identity":
     pass  # normalisation baseline: proves the round-trip itself changes nothing
@@ -785,6 +877,16 @@ elif kind == "push-spelled-plain":  # honest rewrite -- must NOT be rejected
     push["run"] = push["run"].replace("git push origin HEAD:main", "git push origin main")
 elif kind == "extra-push-other-branch":  # not main -- must NOT be rejected
     steps.append({"name": "Publish docs", "run": "git push origin HEAD:gh-pages\n"})
+elif kind == "checkout-token":  # CST-1: the App token handed to the checkout again
+    checkout_with["token"] = token_ref
+elif kind == "checkout-persist-true":
+    checkout_with["persist-credentials"] = True
+elif kind == "checkout-persist-removed":  # the action's default is true
+    checkout_with.pop("persist-credentials", None)
+elif kind == "token-in-guard-env":  # the token reaches a step before the push
+    guard.setdefault("env", {})["LEAKED"] = token_ref
+elif kind == "checkout-persist-string-false":  # honest spelling -- must NOT be rejected
+    checkout_with["persist-credentials"] = "false"
 else:
     print(f"unknown mutation {kind!r}", file=sys.stderr)
     sys.exit(2)
@@ -843,7 +945,7 @@ mutant_rejected() {
     fail "self-test: could not build the '${kind}' mutant -- nothing was tested"
     return
   }
-  mutation_took_effect "${kind}" "${mutant}" || return
+  mutation_took_effect "${kind}" "${mutant}" || return 0 # fail() already counted it; a non-zero return would end the run under set -e
   output="$(static_wiring_check "${mutant}" 2>&1)" || status=$?
   if [[ "${status}" -eq 0 ]]; then
     fail "self-test: the gate still passed on a workflow where ${label} -- that assertion is vacuous"
@@ -861,7 +963,7 @@ mutant_accepted() {
     fail "self-test: could not build the '${kind}' variant -- nothing was tested"
     return
   }
-  mutation_took_effect "${kind}" "${mutant}" || return
+  mutation_took_effect "${kind}" "${mutant}" || return 0
   output="$(static_wiring_check "${mutant}" 2>&1)" || status=$?
   if [[ "${status}" -eq 0 ]]; then
     pass "self-test: gate accepts a workflow where ${label}"
@@ -889,12 +991,27 @@ mutant_rejected push-commented-out \
   'the push invocation is commented out, so self-healing silently stops' \
   "runs a 'git push' to main"
 
+mutant_rejected checkout-token \
+  'the checkout is handed the App token again (`token:`)' \
+  "must not set a 'token' input"
+mutant_rejected checkout-persist-true \
+  'the checkout sets `persist-credentials: true`' \
+  'must set persist-credentials: false'
+mutant_rejected checkout-persist-removed \
+  'the checkout omits `persist-credentials` (default true)' \
+  'must set persist-credentials: false'
+mutant_rejected token-in-guard-env \
+  'the App token reaches the guard step through its env' \
+  'only the push step may'
+
 mutant_accepted guard-if-fork-check \
   'the guard step carries an honest `if:` condition (a fork guard)'
 mutant_accepted push-spelled-plain \
   "the one gated push is spelled 'git push origin main'"
 mutant_accepted extra-push-other-branch \
   'another step pushes to a different branch (gh-pages)'
+mutant_accepted checkout-persist-string-false \
+  'the checkout spells persist-credentials as the string "false"'
 
 if [[ "${failures}" -ne 0 ]]; then
   printf '\nchangelog_sync_release_guard: %d check(s) failed\n' "${failures}" >&2
