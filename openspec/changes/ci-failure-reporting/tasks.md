@@ -203,7 +203,7 @@ argument per line, so argument boundaries survive.
 
 ## 5. Proof and wiring (CFR-7)
 
-- [ ] 5.1 Add `--self-test` to `hack/test/ci_failure_report_test.sh`, mutating copies, each judged; also assert the 4000-byte line cut happens (`[line cut]` present) with a cut-removed mutant (deferred from G2, its mutant M20 survived)
+- [x] 5.1 Add `--self-test` to `hack/test/ci_failure_report_test.sh`, mutating copies, each judged; also assert the 4000-byte line cut happens (`[line cut]` present) with a cut-removed mutant (deferred from G2, its mutant M20 survived)
   by exit status and the message of the assertion it targets, plus a no-op control:
   - recovery branch removed: the pass-after-fail case reds;
   - label-and-author lookup reduced to title or label: the spoofed-issue case reds;
@@ -226,7 +226,8 @@ argument per line, so argument boundaries survive.
   CFC-6's fixed list (`ci_workflow_security_test.sh:602-603`) does not name this test. Wire
   `--self-test` into `lint` next to the plain step. Grep `hack/test/` for step-index or step-count
   assertions on `ci.yaml`'s `lint` job and update any that the new step moves.
-  `hack/test/ci_workflow_security_test.sh` both modes and `task lint:shell` green.
+  `hack/test/ci_workflow_security_test.sh` both modes and `task lint:shell` green. — closed
+  2026-10-16, evidence: evidence/T5.1.md
 
 ## 6. Land
 

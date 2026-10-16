@@ -45,6 +45,7 @@ Holistic run at B: not run yet.
 | G2 (2.1, 2.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds: R1 astra REQUEST_CHANGES, opus CONCERNS (fixed); R2 astra APPROVE, opus CONCERNS (one test-strength gap, deferred) | line-cut at 4000 bytes unasserted (M20 survives): add `[line cut]` assertion and a cut-removed mutant in 5.1 |
 | G3 (3.1, 3.2, 3.3) | CLOSED-WITH-GAPS | astra + claude/opus:diff (token-writing script: security posture), 1 round: astra APPROVE, opus CONCERNS (payload-guard test gap, fixed with 5 cases) | live gh shapes read by the implementer (row 29); lookup ceiling 500 shared with every github-actions issue (recorded in G3 Harness gaps) |
 | G4 (4.1, 4.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (privileged `workflow_run` workflow, CI and security posture), 1 round: astra REQUEST_CHANGES, opus CONCERNS (guard-strength gaps and wording, all fixed, fix-line mutants 9/9) | header comment agent-review; workflow firing on GitHub is the 6.1 post-merge row; one test change: CWS-2 self-test mutant anchors (`rules: {}` gone) |
+| 5.1 | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI wiring), 2 rounds: R1 astra APPROVE, opus CONCERNS (bump control could become a no-op; no cws control; both fixed, fix-line mutant red); R2 astra APPROVE, opus CLEAN (comment wording fixed; multi-name filter typo note deferred) | filter env var is believed harmless in CI (no CI step sets it); `task check` is the stage-B row |
 
 ## Known red
 
@@ -76,6 +77,9 @@ This change (ci-failure-reporting):
 - Scan raw `run:` bodies for `${{`: GitHub expands expressions before the shell, comment lines included; forbid every `${{` (G4)
 - A file-name zizmor exception covers every trigger in the file: pin `on:` keys exactly (G4)
 - Before replacing a literal in a config, grep existing self-tests for mutants anchored on it (G4: `rules: {}`)
+- A per-mutant self-test of a slow guard needs a case filter in the guard first: 43 s plain x 85 mutants is an hour, filtered 3.5 min (5.1)
+- Mutate shell code with an exactly-once literal replace, not sed: no escaping, and a vanished anchor fails loudly (5.1)
+- Before moving a self-test out of `lint`, compare job wall times: lint 12 min < tool-pins-selftest 20 min, so lint was the free slot (5.1)
 
 Carried over from change 5 (developer-toolchain-pins):
 

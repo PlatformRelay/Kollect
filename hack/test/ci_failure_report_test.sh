@@ -33,21 +33,52 @@
 #     error at any call stops the script with the error on stderr; a failed or empty log fetch
 #     still writes, then exits non-zero (CFR-1, CFR-6).
 #
+# The test is wired into ci.yaml bare and with --self-test (self-wiring check at the end), and
+# --self-test mutates throwaway copies of the tree, one mutant per checked clause, and asserts
+# each makes this test red with the message of the assertion it targets (CFR-7), plus no-op
+# controls that must pass.
+#
 # Usage:
 #   hack/test/ci_failure_report_test.sh              # check the repository tree
 #   hack/test/ci_failure_report_test.sh <tree-root>  # check an arbitrary tree root
+#   hack/test/ci_failure_report_test.sh --self-test  # mutate copies, assert each mutant reds
 set -euo pipefail
 
 FAILURES=0
 
+# CFR_SELFTEST_ONLY (set by --self-test only, never in CI): an anchored regex over case names.
+# Cases it does not name are skipped (their checks print nothing and count nothing), so one
+# mutant runs only the case that judges it. Unset, every case runs.
+ONLY="${CFR_SELFTEST_ONLY:-}"
+SKIP=0
+SELECTED=0
+
+# select_case <name>: run or skip the checks that follow, until the next select_case.
+select_case() {
+  if [[ -z "${ONLY}" || "$1" =~ ^(${ONLY})$ ]]; then
+    SKIP=0
+    SELECTED=$((SELECTED + 1))
+  else
+    SKIP=1
+  fi
+}
+
 bad() {
+  if ((SKIP)); then return 0; fi
   echo "FAIL: $*" >&2
   FAILURES=$((FAILURES + 1))
 }
 
 ok() {
+  if ((SKIP)); then return 0; fi
   echo "ok - $*"
 }
+
+MODE=plain
+if [[ "${1:-}" == --self-test ]]; then
+  MODE=self-test
+  shift
+fi
 
 ROOT="${1:-}"
 if [[ -z "${ROOT}" ]]; then
@@ -74,6 +105,381 @@ done
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK:?}"' EXIT
 
+# =============================================================================================
+# --self-test (CFR-7): each mutant edits a throwaway copy of the files this test reads, then this
+# test runs on the copy (with CFR_SELFTEST_ONLY naming the cases that judge the mutant) and must
+# exit non-zero with a FAIL line holding each expected message; a non-zero exit alone is no
+# evidence. Unmutated and bot-bumped copies must pass. One copy at a time, freed after each
+# mutant (a /tmp shared with other sessions has a finite inode budget). The edits are derived
+# from the tree: a literal that is gone makes the mutation step fail loudly, never pass.
+# =============================================================================================
+if [[ "${MODE}" == self-test ]]; then
+  SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+  CWS="${ROOT}/hack/test/ci_workflow_security_test.sh"
+  BASE="${WORK}/base"
+  COPY="${WORK}/mutant"
+  # What this test and, for the CWS-2 mutants, ci_workflow_security_test.sh read.
+  mkdir -p "${BASE}/hack"
+  cp -R "${ROOT}/.github" "${BASE}/.github"
+  for d in ci test release lib docs; do
+    cp -R "${ROOT}/hack/${d}" "${BASE}/hack/${d}"
+  done
+  cp "${ROOT}/hack/install-zizmor.sh" "${BASE}/hack/install-zizmor.sh"
+
+  # lit <file> <old> <new>: replace the one literal occurrence of <old>; fails when it is absent
+  # or occurs more than once.
+  lit() {
+    local f="$1" old="$2" new="$3" text rest
+    [[ -f "${f}" ]] || {
+      echo "lit: ${f} is missing" >&2
+      return 1
+    }
+    text="$(
+      cat "${f}"
+      printf x
+    )"
+    text="${text%x}"
+    [[ "${text}" == *"${old}"* ]] || {
+      echo "lit: text not found in ${f}: ${old}" >&2
+      return 1
+    }
+    rest="${text#*"${old}"}"
+    [[ "${rest}" != *"${old}"* ]] || {
+      echo "lit: text occurs more than once in ${f}: ${old}" >&2
+      return 1
+    }
+    printf '%s' "${text/"${old}"/"${new}"}" >"${f}"
+  }
+  # rx <file> <sed -E script>
+  rx() {
+    sed -E -i "$2" "$1"
+  }
+  # yqe <file> <yq expression>: edit in place.
+  yqe() {
+    yq eval -i "$2" "$1"
+  }
+  # drop_comment_above <file> <ERE>: delete the comment block directly above the one line
+  # matching <ERE>, then probe that no comment is left directly above it.
+  drop_comment_above() {
+    awk -v re="$2" '
+      /^[[:space:]]*#/ { buf = buf $0 "\n"; next }
+      $0 ~ re { if (buf != "") dropped++; buf = ""; print; next }
+      { printf "%s", buf; buf = ""; print }
+      END { printf "%s", buf; exit (dropped == 1 ? 0 : 3) }
+    ' "$1" >"$1.new" && mv "$1.new" "$1" &&
+      awk -v re="$2" '$0 ~ re && prev ~ /^[[:space:]]*#/ { left = 1 } { prev = $0 } END { exit left }' "$1"
+  }
+  # gone <file> <text>: absence probe, no uncommented line of <file> holds <text>.
+  gone() {
+    ! grep -v '^[[:space:]]*#' "$1" | grep -F -- "$2" >/dev/null
+  }
+  # rmf <file>: delete the file, then probe that it is gone.
+  rmf() {
+    rm -f "$1" && [[ ! -e "$1" ]]
+  }
+
+  # judge <gate> <only> <label> <messages> <edit...>: copy BASE, apply the edit in the copy,
+  # refuse an edit that changed nothing, run <gate> (cfr: this test with CFR_SELFTEST_ONLY=<only>;
+  # cws: ci_workflow_security_test.sh) on the copy; every line of <messages> must be in a FAIL
+  # line of its output, and its exit must be non-zero.
+  judge() {
+    local gate="$1" only="$2" label="$3" messages="$4" out rc=0 m missing="" nfail
+    shift 4
+    rm -rf "${COPY:?}"
+    cp -R "${BASE}" "${COPY}"
+    if ! (cd "${COPY}" && "$@") >"${WORK}/edit.log" 2>&1; then
+      bad "self-test: ${label}: the mutation step failed, nothing was tested: $(head -c 300 "${WORK}/edit.log" | tr '\n' ' ')"
+      rm -rf "${COPY:?}"
+      return 0
+    fi
+    if diff -r "${BASE}" "${COPY}" >/dev/null 2>&1; then
+      bad "self-test: ${label}: the mutation changed nothing, nothing was tested"
+      rm -rf "${COPY:?}"
+      return 0
+    fi
+    if [[ "${gate}" == cws ]]; then
+      out="$(env -u CFR_SELFTEST_ONLY bash "${CWS}" "${COPY}" 2>&1)" || rc=$?
+    else
+      out="$(CFR_SELFTEST_ONLY="${only}" bash "${SELF}" "${COPY}" 2>&1)" || rc=$?
+    fi
+    while IFS= read -r m; do
+      grep '^FAIL: ' <<<"${out}" | grep -F -- "${m}" >/dev/null || missing+=" '${m}'"
+    done <<<"${messages}"
+    nfail="$(grep -c '^FAIL: ' <<<"${out}" || true)"
+    if [[ "${rc}" -ne 0 && -z "${missing}" ]]; then
+      ok "self-test: ${label}: red (exit ${rc}, ${nfail} FAIL line(s)) with '${messages%%$'\n'*}'"
+    else
+      bad "self-test: ${label}: expected a non-zero exit and a FAIL line with each of${missing:- the messages}, got exit ${rc}: $(grep '^FAIL: ' <<<"${out}" | head -n 2 | tr '\n' ' ')"
+    fi
+    rm -rf "${COPY:?}"
+  }
+
+  # control <gate> <label> <only> [edit...]: as judge, but the copy must pass. Without an edit
+  # it is the no-op control; with one, an edit that changed nothing is refused, so a bump
+  # control cannot turn into a second no-op control.
+  control() {
+    local gate="$1" label="$2" only="$3" out rc=0
+    shift 3
+    rm -rf "${COPY:?}"
+    cp -R "${BASE}" "${COPY}"
+    if [[ "$#" -gt 0 ]]; then
+      (cd "${COPY}" && "$@") >"${WORK}/edit.log" 2>&1 || {
+        bad "self-test: control ${label}: the edit failed: $(head -c 300 "${WORK}/edit.log" | tr '\n' ' ')"
+        rm -rf "${COPY:?}"
+        return 0
+      }
+      if diff -r "${BASE}" "${COPY}" >/dev/null 2>&1; then
+        bad "self-test: control ${label}: the edit changed nothing, nothing was tested"
+        rm -rf "${COPY:?}"
+        return 0
+      fi
+    fi
+    if [[ "${gate}" == cws ]]; then
+      out="$(env -u CFR_SELFTEST_ONLY bash "${CWS}" "${COPY}" 2>&1)" || rc=$?
+    else
+      out="$(CFR_SELFTEST_ONLY="${only}" bash "${SELF}" "${COPY}" 2>&1)" || rc=$?
+    fi
+    if [[ "${rc}" -eq 0 ]]; then
+      ok "self-test: control ${label}: passes"
+    else
+      bad "self-test: control ${label}: expected a pass, got exit ${rc}: $(grep '^FAIL: ' <<<"${out}" | head -n 3 | tr '\n' ' ')"
+    fi
+    rm -rf "${COPY:?}"
+  }
+
+  # The mutants. G2/G3/G4 name the hand mutants these port (openspec change ci-failure-reporting,
+  # evidence/G2.md, G3.md, G4.md); one per checked clause.
+  # shellcheck disable=SC2016 # every ${...} below is file text to find or write, never expanded
+  run_mutants() {
+    local B=hack/ci/ci-failure-issue-body.sh R=hack/ci/ci-failure-report.sh
+    local W=.github/workflows/ci-failure-report.yaml Z=.github/zizmor.yml C=.github/workflows/ci.yaml
+    local nl=$'\n'
+
+    control cfr "unmutated copy, every case" ""
+    # The cws gate's own no-op control: the partial copy passes ci_workflow_security_test.sh, so
+    # the CWS-2 mutants' non-zero exit is theirs.
+    control cws "unmutated copy, ci_workflow_security_test.sh" -
+    control cfr "checkout pin bumped by a bot (implausible sha and version)" "wiring|self-wiring" \
+      rx "${W}" 's/(actions\/checkout@)[0-9a-f]{40} # v[0-9.]+/\1ffffffffffffffffffffffffffffffffffffffff # v99.0.0/'
+    # The case filter itself: a filter naming no case must red, or a mistyped one passes silently.
+    local out rc=0
+    out="$(CFR_SELFTEST_ONLY='no-such-case' bash "${SELF}" "${BASE}" 2>&1)" || rc=$?
+    if [[ "${rc}" -ne 0 ]] && grep '^FAIL: ' <<<"${out}" | grep -F 'names no case' >/dev/null; then
+      ok "self-test: a case filter naming no case reds (exit ${rc})"
+    else
+      bad "self-test: a case filter naming no case must red with 'names no case', got exit ${rc}"
+    fi
+
+    # --- body builder (CFR-5; G2 M1-M20) ---
+    judge cfr two-failed "G2 M1 every job listed" "two failed jobs: expected exactly 2 items" \
+      lit "${B}" '  | .jobs[] | select(.conclusion | bad)' '  | .jobs[]'
+    judge cfr eighty "G2 M3 FAIL lines unbounded" "FAIL bound:" \
+      lit "${B}" 'grep -a -m "${MAX_FAIL_LINES}" -F' 'grep -a -F'
+    judge cfr huge "G2 M4 cap raised tenfold" "cap: expected a body of 1..59999 bytes" \
+      rx "${B}" 's/^CAP=([0-9]+)$/CAP=\10/'
+    m5() {
+      lit "${B}" "    truncated=1${nl}" "    truncated=1${nl}    excerpt+=\"\${TRUNC_NOTE}${nl}\"${nl}" &&
+        lit "${B}" 'if [[ "${truncated}" -eq 1 ]]; then' 'if false; then'
+    }
+    judge cfr huge "G2 M5 truncation note inside the fence" "cap: expected a body of 1..59999 bytes" m5
+    judge cfr timeout "G2 M6 failed means conclusion failure only" "timed out: expected an item naming e2e-smoke" \
+      lit "${B}" '($c != "success" and $c != "skipped" and $c != "neutral")' '($c == "failure")'
+    judge cfr hostile "G2 M7 log line evaluated" "hostile text:" \
+      lit "${B}" '  lines[i]="${l}"' "  lines[i]=\"\${l}\"${nl}"'  eval "echo \"${l}\"" >/dev/null 2>&1 || true'
+    judge cfr inject "G2 M8 fence fixed at three backticks" "injection:" \
+      lit "${B}" 'fence_len=$((longest + 1))' 'fence_len=3'
+    judge cfr at-name "G2 M9 @ not escaped" "job name: expected" \
+      lit "${B}" ' | gsub("@"; "@&#8203;")' ''
+    judge cfr no-log "G2 M10 logs-unavailable body without the job list" "logs unavailable (no-log)" \
+      lit "${B}" "\"\${head_md}\" \"\${UNAVAILABLE}\"${nl}  exit 0${nl}fi${nl}${nl}#" \
+      "\"\${head_md%%### Failed jobs*}\" \"\${UNAVAILABLE}\"${nl}  exit 0${nl}fi${nl}${nl}#"
+    judge cfr none "G2 M11 no 'No failed job' sentence" "no failed job:" \
+      lit "${B}" "No failed job in this run's job list." "Nothing to list."
+    judge cfr refuse "G2 M12 key check reduced to non-empty" "refused: expected a non-zero exit and no body for --key" \
+      lit "${B}" '[[ "${KEY}" =~ ^[1-9][0-9]{0,9}\.[1-9][0-9]{0,4}$ ]]' '[[ -n "${KEY}" ]]'
+    judge cfr timeout "G2 M13 job name printed as the failed step" "timed out:" \
+      lit "${B}" '"failed step " + ($s.name | safe)' '"failed step " + (.name | safe)'
+    judge cfr hostile-names "G2 M14 < not escaped" "job names:" \
+      lit "${B}" ' | gsub("<"; "&lt;")' ''
+    judge cfr hostile-names "G2 M15 control characters kept" "job names:" \
+      lit "${B}" 'gsub("[[:cntrl:]]"; " ") | ' ''
+    judge cfr hostile-names "G2 M16 & not escaped" "job names:" \
+      lit "${B}" 'gsub("&"; "&amp;") | ' ''
+    judge cfr utf8 "G2 M17 partial UTF-8 sequence kept at the cut" "UTF-8:" \
+      lit "${B}" " | sed 's/[\\xC0-\\xFF][\\x80-\\xBF]*\$//'" ''
+    judge cfr unreadable-log "G2 M18 grep exit 2 read as no FAIL line" "logs unavailable (unreadable-log)" \
+      lit "${B}" '[[ "${grep_rc}" -gt 1 ]]' '[[ "${grep_rc}" -gt 2 ]]'
+    judge cfr oversized "G2 M19 job-list size precheck removed" "oversized job list:" \
+      lit "${B}" '[[ $((${#head_md} + ${#TRUNC_NOTE}' 'true || [[ $((${#head_md} + ${#TRUNC_NOTE}'
+    judge cfr line-cut "G2 M20 line cut removed" "line cut:" \
+      lit "${B}" 'if [[ "${#l}" -gt "${LINE_CAP}" ]]; then' 'if false; then'
+
+    # --- reporter decision table, lookup and trigger (CFR-1 to CFR-4, CFR-6; G3 M1-M28) ---
+    judge cfr success-open-newer "G3 M1 recovery branch removed" "table: success, open, newer:" \
+      lit "${R}" "  if [[ \"\${order}\" -gt 0 ]]; then${nl}    action=recover" "  if false; then${nl}    action=recover"
+    judge cfr spoof-issue-off "G3 M2 lookup reduced to the label (author check removed)" \
+      "lookup: user-authored issue only (server author filter off)" \
+      lit "${R}" 'select(.author.login == $login and .author.is_bot == true)' 'select(true)'
+    judge cfr unlabelled "G3 M3 label check removed" "lookup: bot issue without the label" \
+      lit "${R}" "        | select(any(.labels[]?; .name == \$label))${nl}" ''
+    judge cfr both-open "G3 M4 workflow filter dropped from the lookup (R5)" "lookup: both open, nightly success" \
+      lit "${R}" ' | select(.wf == $wf)' ''
+    judge cfr 'fail-open-163.1|fail-closed-stale' "G3 M5 ordering check removed" \
+      "table: failure, open, recorded 163.1 vs 162.1${nl}table: failure, closed (163.1), run 162.2" \
+      lit "${R}" "order=1${nl}if [[ -n \"\${issue_num}\" ]]; then" "order=1${nl}if false; then"
+    judge cfr 'guard-workflow_dispatch-.*' "G3 M6 event guard removed from the script" "trigger: event workflow_dispatch" \
+      lit "${R}" 'if [[ "${event}" != schedule || ' 'if [[ '
+    judge cfr 'guard-schedule-evil/Kollect' "G3 M7 repository guard removed from the script" \
+      "trigger: event schedule, head evil/Kollect" \
+      lit "${R}" ' || "${head_repo}" != "${GITHUB_REPOSITORY}"' ''
+    judge cfr noop-cancelled-37910175837-none "G3 M8 a cancelled run with no started job reported" \
+      "table: no-op cancelled-37910175837, none issue" \
+      lit "${R}" 'if [[ "${started}" -gt 0 ]]; then class=failure; else class=noop; fi' 'class=failure'
+    judge cfr spoof-comment "G3 M9 comment author not checked" "lookup: user comment with a higher-key marker" \
+      lit "${R}" '.comments[]? | select(.author.login == $login) | .body' '.comments[]? | .body'
+    judge cfr spoof-excerpt "G3 M10 markers read beyond the first line" "lookup: marker lookalike outside the first line" \
+      lit "${R}" 'split("\n")[0]' 'split("\n")[]'
+    judge cfr open-failure "G3 M11 jobs read without the attempt" "table: failure, no issue" \
+      lit "${R}" 'gh run view "${run_id}" --attempt "${run_attempt}" --json jobs' 'gh run view "${run_id}" --json jobs'
+    judge cfr 'lookup-argv|limit-reached' "G3 M12 full lookup page accepted" "issues returned at --limit" \
+      lit "${R}" '[[ "${listed}" -lt "${LOOKUP_LIMIT}" ]] ||' 'true ||'
+    judge cfr log-fail "G3 M13a failed log fetch exits 0" "log fetch fail: expected writes" \
+      lit "${R}" "    log_args=()${nl}    rc=1" "    log_args=()${nl}    rc=0"
+    judge cfr log-empty "G3 M13b empty log fetch exits 0" "log fetch empty: expected writes" \
+      lit "${R}" "logs unavailable\" >&2${nl}    rc=1" "logs unavailable\" >&2${nl}    rc=0"
+    judge cfr success-open-equal-recovery "G3 M14 close retry removed" "table: success, open, equal, last marker recovery" \
+      lit "${R}" 'elif [[ "${order}" -eq 0 && "${rec_event}" == recovery ]]; then' 'elif false; then'
+    judge cfr non-numeric-run-1 "G3 M15 run id not checked" 'numeric: run list entry "990162x" 162 1' \
+      lit "${R}" "need_int \"run id\" \"\${run_id}\" 20${nl}" ''
+    judge cfr non-numeric-run-2 "G3 M15b run number not checked" 'numeric: run list entry 990162 "162x" 1' \
+      lit "${R}" "need_int \"run number\" \"\${run_number}\" 10${nl}" ''
+    judge cfr non-numeric-run-3 "G3 M15c run attempt not checked" 'numeric: run list entry 990162 162 "1;2"' \
+      lit "${R}" "need_int \"run attempt\" \"\${run_attempt}\" 5${nl}" ''
+    judge cfr fail-open-newer "G3 M16 comment body passed with --body" "table: failure, open, newer:" \
+      lit "${R}" '    gh issue comment "${issue_num}" --body-file "${WORK}/body.md"' \
+      '    gh issue comment "${issue_num}" --body "$(cat "${WORK}/body.md")"'
+    judge cfr gh-error-issue-view "G3 M17 gh issue view error ignored" "gh error at issue-view" \
+      lit "${R}" '|| die "gh issue view --json comments failed"' '|| true'
+    judge cfr fail-closed-newer "G3 M18 closed issue with an older key not replaced" "table: failure, closed, newer:" \
+      lit "${R}" ' || [[ "${issue_state}" == CLOSED && "${order}" -gt 0 ]]' ''
+    judge cfr non-numeric-issue "G3 M19 issue number not checked" "numeric: issue number '10 '" \
+      lit "${R}" "  need_int \"issue number\" \"\${issue_num}\" 12${nl}" ''
+    judge cfr empty-list "G3 M20 empty run list exits non-zero" "trigger: no completed scheduled run" \
+      lit "${R}" "scheduled run yet; nothing to do\"${nl}  exit 0" "scheduled run yet; nothing to do\"${nl}  exit 1"
+    judge cfr 'fail-open-162.2' "G3 M21 attempt order ignored" "table: failure, open, recorded 162.2 vs 162.1" \
+      lit "${R}" 'if ((run_attempt > rec_a)); then order=1; else order=-1; fi' 'order=1'
+    judge cfr open-cancelled "G3 M22 a cancelled run with a started job not reported" "table: cancelled, no issue" \
+      lit "${R}" 'if [[ "${started}" -gt 0 ]]; then class=failure; else class=noop; fi' 'class=noop'
+    judge cfr open-timed_out "G3 M23 timed_out not a failure" "table: timed_out, no issue" \
+      lit "${R}" 'failure | timed_out | startup_failure)' 'failure | startup_failure)'
+    judge cfr lookup-argv "G3 M24 lookup by label (search API)" "lookup argv:" \
+      lit "${R}" "gh issue list --author 'github-actions[bot]'" "gh issue list --label \"\${LABEL}\" --author 'github-actions[bot]'"
+    judge cfr fail-open-last-comment "G3 M25 first bot comment marker read instead of the last" \
+      "table: failure, open, recorded key from the last of two bot comments" \
+      lit "${R}" '| marker($wf) ] | last // empty' '| marker($wf) ] | first // empty'
+    judge cfr 'bad-path-.*' "G3 M26 workflow path not checked" "payload: workflow path '.github/workflows/../x.yaml'" \
+      lit "${R}" '[[ "${wf_path}" =~' 'true || [[ "${wf_path}" =~'
+    judge cfr hostile-name "G3 M27 control characters kept in the workflow name" "payload: expected the title" \
+      lit "${R}" " | tr -d '[:cntrl:]'" ''
+    judge cfr bad-repository "G3 M28 repository not checked" "payload: repository 'Platform Relay/Kollect'" \
+      lit "${R}" '[[ "${GITHUB_REPOSITORY:-}" =~' 'true || [[ "${GITHUB_REPOSITORY:-}" =~'
+    judge cfr continue-on-error "conclusion widened to job-level failures" \
+      "table: success with a failed continue-on-error job" \
+      lit "${R}" 'success) class=success ;;' \
+      'success) class=success; gh run view "${run_id}" --attempt "${run_attempt}" --json jobs >"${WORK}/jobs.json"; if jq -e "any(.jobs[]; .conclusion == \"failure\")" "${WORK}/jobs.json" >/dev/null; then class=failure; fi ;;'
+
+    # --- workflow wiring (CFR-1, CFR-6, CFR-7; G4 W1-W11, F1-F4) ---
+    judge cfr wiring "G4 W1 E2E nightly renamed in e2e-nightly.yaml" "listed workflow 'E2E nightly' matches the name: of 0" \
+      rx .github/workflows/e2e-nightly.yaml 's/^name: E2E nightly$/name: E2E nightly (renamed)/'
+    judge cfr wiring "G4 W1 list loses Go patch lag" "on.workflow_run.workflows must be exactly" \
+      rx "${W}" '/^ +- Go patch lag$/d'
+    judge cfr wiring "G4 W2 types widened" "on.workflow_run.types must be exactly" \
+      yqe "${W}" '."on".workflow_run.types += ["requested"]'
+    judge cfr wiring "G4 W3 repository guard dropped from the workflow if:" "job if: must be exactly" \
+      lit "${W}" ' && github.event.workflow_run.head_repository.full_name == github.repository' ''
+    judge cfr wiring "G4 W3 event guard dropped from the workflow if:" "job if: must be exactly" \
+      lit "${W}" "github.event.workflow_run.event == 'schedule' && " ''
+    judge cfr wiring "G4 W3 second job" "must have exactly one job" \
+      yqe "${W}" '.jobs.extra = {"runs-on": "ubuntu-latest", "steps": [{"run": "true"}]}'
+    judge cfr wiring "G4 W4 cancel-in-progress true" "concurrency must be" \
+      yqe "${W}" '.concurrency."cancel-in-progress" = true'
+    judge cfr wiring "G4 W5 workflow permissions widened" "workflow permissions must be exactly" \
+      yqe "${W}" '.permissions.issues = "write"'
+    judge cfr wiring "G4 W5 job adds pull-requests: write" "job permissions must be exactly" \
+      yqe "${W}" '.jobs.report.permissions."pull-requests" = "write"'
+    judge cfr wiring "G4 W6 checkout of the head sha" "needs actions/checkout of the default branch only" \
+      yqe "${W}" '(.jobs.report.steps[] | select(.uses // "" | test("^actions/checkout@")) | .with.ref) = "${{ github.event.workflow_run.head_sha }}"'
+    judge cfr wiring "G4 W6 checkout of another repository" "needs actions/checkout of the default branch only" \
+      yqe "${W}" '(.jobs.report.steps[] | select(.uses // "" | test("^actions/checkout@")) | .with.repository) = "evil/Kollect"'
+    judge cfr wiring "G4 W6 credentials persisted" "needs actions/checkout of the default branch only" \
+      yqe "${W}" '(.jobs.report.steps[] | select(.uses // "" | test("^actions/checkout@")) | .with."persist-credentials") = true'
+    m_label_removed() {
+      yqe "${W}" 'del(.jobs.report.steps[] | select(.run // "" | test("gh label create")))' && gone "${W}" 'gh label create'
+    }
+    judge cfr wiring "G4 W7 label step removed" "needs exactly one step running 'gh label create ci-failure --force" m_label_removed
+    judge cfr wiring "G4 W7 label step after the report step" "the label-create step must precede the report step" \
+      yqe "${W}" '.jobs.report.steps |= (map(select(.run // "" | test("gh label create") | not)) + map(select(.run // "" | test("gh label create"))))'
+    judge cfr wiring "G4 W7 colour not a fixed value" "needs exactly one step running 'gh label create ci-failure --force" \
+      rx "${W}" 's/--color [0-9A-Fa-f]{6}/--color "$COLOR"/'
+    judge cfr wiring "G4 W7 no --force" "needs exactly one step running 'gh label create ci-failure --force" \
+      rx "${W}" 's/gh label create ci-failure --force /gh label create ci-failure /'
+    judge cfr wiring "G4 W7 description dropped" "needs exactly one step running 'gh label create ci-failure --force" \
+      rx "${W}" "s/ --description '[^']*'//"
+    m_report_removed() {
+      yqe "${W}" 'del(.jobs.report.steps[] | select(.run // "" | test("ci-failure-report.sh")))' && gone "${W}" 'ci-failure-report.sh'
+    }
+    judge cfr wiring "G4 W7 report step removed" "needs exactly one step whose run: is exactly 'bash hack/ci/ci-failure-report.sh'" \
+      m_report_removed
+    judge cfr wiring "G4 F2 reporter given an argument" "needs exactly one step whose run: is exactly 'bash hack/ci/ci-failure-report.sh'" \
+      rx "${W}" 's|run: bash hack/ci/ci-failure-report.sh$|run: bash hack/ci/ci-failure-report.sh --verbose|'
+    judge cfr wiring "G4 W8 run interpolates the event" "run: bodies must hold no" \
+      yqe "${W}" '(.jobs.report.steps[] | select(.run // "" | test("gh label create")) | .run) += "\necho \"${{ github.event.workflow_run.head_branch }}\""'
+    judge cfr wiring "G4 F1 expression on a run comment line" "run: bodies must hold no" \
+      yqe "${W}" '(.jobs.report.steps[] | select(.run // "" | test("ci-failure-report.sh")) | .run) = "# ${{ github.event.workflow_run.head_branch }}\nbash hack/ci/ci-failure-report.sh"'
+    judge cfr wiring "G4 F3 second trigger" "on: must hold only workflow_run" \
+      yqe "${W}" '."on".workflow_dispatch = {}'
+    judge cfr wiring "G4 F4 extra step reading event data through env" "job steps must be exactly" \
+      yqe "${W}" '.jobs.report.steps += [{"env": {"B": "${{ github.event.workflow_run.head_branch }}"}, "run": "echo \"$B\""}]'
+    judge cfr wiring "G4 F4b label step before the checkout" "job steps must be exactly" \
+      yqe "${W}" '.jobs.report.steps |= [.[1], .[0], .[2]]'
+    judge cfr wiring "G4 W9 token dropped from the report step" "the label and report steps must set env GH_TOKEN" \
+      yqe "${W}" 'del(.jobs.report.steps[] | select(.run // "" | test("ci-failure-report.sh")) | .env.GH_TOKEN)'
+    judge cfr wiring "G4 W10 race comment removed" "needs a comment directly above on.workflow_run.workflows" \
+      drop_comment_above "${W}" '^ +workflows:'
+    judge cfr wiring "G4 W11 zizmor exception widened" "rules.dangerous-triggers.ignore must be exactly" \
+      yqe "${Z}" '.rules."dangerous-triggers".ignore += ["ci.yaml"]'
+    judge cfr wiring "workflow file deleted (absence)" "on.workflow_run.workflows must be exactly" rmf "${W}"
+
+    # --- zizmor suppression shape, judged by CWS-2 (CFR-7; G4) ---
+    judge cws - "CWS-2 comment above dangerous-triggers: removed" 'CWS-2: suppression `  dangerous-triggers:`' \
+      drop_comment_above "${Z}" '^  dangerous-triggers:'
+    judge cws - "CWS-2 comment above - ci-failure-report.yaml removed" 'CWS-2: suppression entry `      - ci-failure-report.yaml`' \
+      drop_comment_above "${Z}" '^ +- ci-failure-report\.yaml$'
+    judge cws - "CWS-2 inline zizmor: ignore in the workflow" "CWS-2: inline zizmor suppression" \
+      rx "${W}" 's|^( +run: bash hack/ci/ci-failure-report.sh)$|\1 # zizmor: ignore[dangerous-triggers]|'
+
+    # --- self-wiring (CFR-7) ---
+    m_unwired() {
+      yqe "${C}" 'del(.jobs[].steps[] | select(.run // "" | test("ci_failure_report_test\\.sh")))' &&
+        gone "${C}" 'ci_failure_report_test.sh'
+    }
+    judge cfr self-wiring "both ci.yaml steps running this test deleted (R12)" \
+      "must run 'bash hack/test/ci_failure_report_test.sh'${nl}must run 'bash hack/test/ci_failure_report_test.sh --self-test'" \
+      m_unwired
+    judge cfr self-wiring "self-test step commented out" "must run 'bash hack/test/ci_failure_report_test.sh --self-test'" \
+      rx "${C}" 's|^( *)run: bash hack/test/ci_failure_report_test.sh --self-test$|\1# run: bash hack/test/ci_failure_report_test.sh --self-test|'
+    judge cfr self-wiring "ci.yaml deleted (absence)" "must run 'bash hack/test/ci_failure_report_test.sh'" rmf "${C}"
+  }
+
+  run_mutants
+  if [[ "${FAILURES}" -gt 0 ]]; then
+    echo "ci_failure_report_test --self-test: ${FAILURES} check(s) failed" >&2
+    exit 1
+  fi
+  echo "All ci-failure-report self-test checks passed."
+  exit 0
+fi
+
 RUN_URL='https://github.com/PlatformRelay/Kollect/actions/runs/38871014363'
 MARKER='<!-- ci-failure-report v1 workflow=.github/workflows/e2e-nightly.yaml run_id=38871014363 key=162.1 event=failure -->'
 TS='2026-08-05T05:56:50.0005226Z'
@@ -89,6 +495,12 @@ build() {
   ERR="${WORK}/${name}/stderr"
   mkdir -p "${CWD}"
   RC=0
+  select_case "${name}"
+  if ((SKIP)); then
+    : >"${BODY}"
+    : >"${ERR}"
+    return 0
+  fi
   (cd "${CWD}" && bash "${BUILDER}" --workflow-name 'E2E nightly' \
     --workflow-path .github/workflows/e2e-nightly.yaml --run-id 38871014363 \
     --run-url "${RUN_URL}" --key 162.1 "$@") >"${BODY}" 2>"${ERR}" || RC=$?
@@ -128,6 +540,7 @@ fences() {
 # --- 0. oracle control: the fence model itself ----------------------------------------------
 # A backtick in the opener's info string makes it a paragraph, not a fence (CommonMark); a
 # shorter backtick line does not close a longer fence; a proper fence hides its content.
+select_case oracle
 oracle="${WORK}/oracle.md"
 printf '%s\n' '```x`y' 'bad @one' '````' 'hidden @two' '```' 'still hidden @three' '````' 'shown @four' >"${oracle}"
 got="$(outside "${oracle}" | tr '\n' '|')"
@@ -344,6 +757,18 @@ else
   bad "UTF-8: expected the cut line in the body and the body to be valid UTF-8 (exit ${RC})"
 fi
 
+# --- 12b. an over-long line is cut at 4000 bytes and says so ---------------------------------
+# ASCII only, so the expected cut is the first 4000 characters. The 5000-byte line fits the
+# budget uncut, so only the line cut itself can produce this shape.
+long_line="e2e-multitenant${TAB}UNKNOWN STEP${TAB}${TS} FAIL cut $(printf 'y%.0s' $(seq 1 5000))"
+printf '%s\n' "${long_line}" >"${WORK}/cut.log"
+build line-cut --jobs "${FX}/jobs-two-failed.json" --log "${WORK}/cut.log"
+if [[ "${RC}" -eq 0 ]] && grep -qxF -- "${long_line:0:4000} [line cut]" "${BODY}"; then
+  ok "line cut: a 5000-byte line appears as its first 4000 bytes followed by ' [line cut]'"
+else
+  bad "line cut: expected the 5000-byte line cut to its first 4000 bytes plus ' [line cut]' (exit ${RC}); found $(grep -c 'FAIL cut ' "${BODY}" || true) line(s) naming it, '[line cut]' present: $(grep -qF '[line cut]' "${BODY}" && echo yes || echo no)"
+fi
+
 # --- 13. a job list too long for the cap is refused, never cut -------------------------------
 jobs="${WORK}/jobs-oversized.json"
 jq '.jobs[0] as $j | .jobs = [range(0; 300) | $j | .name = ("@" * 200) | .conclusion = "failure"]' \
@@ -396,7 +821,9 @@ SEQ=0
 store() {
   S="${WORK}/gh/$1"
   mkdir -p "${S}"
+  select_case "$1"
   echo '[]' >"${S}/issues.json"
+  if ((SKIP)); then return 0; fi
   cp "${FX}/jobs-two-failed.json" "${S}/jobs.json"
   cp "${FX}/log-failed-excerpt.txt" "${S}/log.txt"
 }
@@ -404,6 +831,7 @@ store() {
 # run_listed <number> <attempt> <conclusion> [jobs file]: the latest completed scheduled run the
 # fake lists (database id 990000 + number).
 run_listed() {
+  if ((SKIP)); then return 0; fi
   jq -n --argjson n "$1" --argjson a "$2" --arg c "$3" \
     '[{attempt: $a, conclusion: $c, databaseId: (990000 + $n), number: $n}]' >"${S}/runs.json"
   if [[ -n "${4:-}" ]]; then
@@ -419,6 +847,7 @@ marker() {
 # issue <number> <state> <path> <key> <event> [login] [is_bot] [label] [body]: add an issue to the
 # store; the default is a bot issue labelled ci-failure whose body starts with the marker.
 issue() {
+  if ((SKIP)); then return 0; fi
   local body="${9:-}"
   if [[ -z "${body}" ]]; then
     body="$(marker "$3" "$((990000 + ${4%.*}))" "$4" "$5")
@@ -433,6 +862,7 @@ issue() {
 
 # comment <number> <login> <body>: add a comment to an issue in the store.
 comment() {
+  if ((SKIP)); then return 0; fi
   jq --argjson n "$1" --arg l "$2" --arg b "$3" \
     'map(if .number == $n then .comments += [{author: {login: $l}, body: $b}] else . end)' \
     "${S}/issues.json" >"${S}/issues.new"
@@ -444,6 +874,7 @@ comment() {
 payload() {
   SEQ=$((SEQ + 1))
   PAYLOAD="${WORK}/payload-${SEQ}.json"
+  if ((SKIP)); then return 0; fi
   jq --arg e "${1:-schedule}" --arg h "${2:-${REPO}}" --arg p "${3:-${NIGHTLY}}" \
     --arg nm "${4:-E2E nightly}" --argjson rn "${5:-162}" \
     '.workflow_run.event = $e | .workflow_run.head_repository.full_name = $h
@@ -463,6 +894,11 @@ report() {
   local cwd="${WORK}/cwd-${SEQ}"
   mkdir -p "${cwd}"
   RC=0
+  if ((SKIP)); then
+    : >"${OUT}"
+    : >"${ERR}"
+    return 0
+  fi
   (cd "${cwd}" && env -u GH_TOKEN -u GITHUB_TOKEN -u GH_ENTERPRISE_TOKEN -u GH_HOST -u GH_REPO \
     PATH="${BIN}:${PATH}" FAKE_GH_DIR="${S}" FAKE_GH_REPO="${REPO}" \
     GITHUB_REPOSITORY="${REPO}" GITHUB_EVENT_PATH="${PAYLOAD}" "$@" \
@@ -510,6 +946,7 @@ first_line() {
 # expect <label> <writes> [rc]: the run made exactly these writes, exited with rc (default 0)
 # and the fake refused no call.
 expect() {
+  if ((SKIP)); then return 0; fi
   local got rej=""
   got="$(writes)"
   [[ -s "${S}/rejected" ]] && rej="$(cat "${S}/rejected")"
@@ -522,6 +959,7 @@ expect() {
 
 # expect_marker <label> <jq path> <marker>: the stored body's first line is exactly the marker.
 expect_marker() {
+  if ((SKIP)); then return 0; fi
   local got
   got="$(first_line "$2")"
   if [[ "${got}" == "$3" ]]; then
@@ -1017,12 +1455,17 @@ command -v yq >/dev/null 2>&1 || {
   echo "FAIL: yq not found; install yq to run the workflow wiring checks" >&2
   exit 1
 }
+select_case wiring
 WF="${ROOT}/.github/workflows/ci-failure-report.yaml"
 WF_REL=".github/workflows/ci-failure-report.yaml"
 
 # wq <yq expression>: the expression on the workflow as compact JSON, or <missing file> /
 # <parse error>, so a check on an absent file still names what it looked for.
 wq() {
+  if ((SKIP)); then
+    echo "<skipped>"
+    return 0
+  fi
   [[ -f "${WF}" ]] || {
     echo "<missing file>"
     return 0
@@ -1041,6 +1484,9 @@ fi
 listed_names=()
 if [[ -f "${WF}" ]]; then
   mapfile -t listed_names < <(yq eval '."on".workflow_run.workflows[]' "${WF}" 2>/dev/null || true)
+fi
+if ((SKIP)); then
+  listed_names=() # filtered out: no yq call per workflow file and listed name
 fi
 [[ "${#listed_names[@]}" -gt 0 ]] ||
   bad "wiring: ${WF_REL} lists no workflow under on.workflow_run.workflows to match against the workflow files' name:"
@@ -1130,7 +1576,7 @@ report_idx=""
 label_n=0
 report_n=0
 inject=""
-if [[ -f "${WF}" ]]; then
+if [[ -f "${WF}" ]] && ! ((SKIP)); then
   nsteps="$(yq eval '.jobs | to_entries | .[0].value.steps | length' "${WF}" 2>/dev/null || echo 0)"
   for ((i = 0; i < nsteps; i++)); do
     raw_body="$(yq eval ".jobs | to_entries | .[0].value.steps[${i}].run // \"\"" "${WF}")"
@@ -1218,6 +1664,31 @@ else
   bad "wiring: .github/zizmor.yml rules.dangerous-triggers.ignore must be exactly [ci-failure-report.yaml], found ${zig}"
 fi
 
+# =============================================================================================
+# Self-wiring (CFR-7): ci.yaml runs this test bare and with --self-test, each on an uncommented
+# line. No other gate names this test (CFC-6's fixed list does not), and CWS-6 only pins the modes
+# of a guard CI already runs, so deleting both steps would drop it from CI silently.
+# =============================================================================================
+select_case self-wiring
+CI_YAML="${ROOT}/.github/workflows/ci.yaml"
+for form in "bash hack/test/ci_failure_report_test.sh" "bash hack/test/ci_failure_report_test.sh --self-test"; do
+  n=0
+  if [[ -f "${CI_YAML}" ]]; then
+    n="$(grep -v '^[[:space:]]*#' "${CI_YAML}" |
+      sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^-[[:space:]]*//; s/^run:[[:space:]]*//' |
+      grep -cFx -- "${form}" || true)"
+  fi
+  if [[ "${n}" -ge 1 ]]; then
+    ok "self-wiring: .github/workflows/ci.yaml runs '${form}' on an uncommented line"
+  else
+    bad "self-wiring: .github/workflows/ci.yaml must run '${form}' on an uncommented line (a step's run:), found ${n}$([[ -f "${CI_YAML}" ]] || echo ' (file missing)')"
+  fi
+done
+
+if [[ -n "${ONLY}" && "${SELECTED}" -eq 0 ]]; then
+  SKIP=0
+  bad "CFR_SELFTEST_ONLY='${ONLY}' names no case; nothing was checked"
+fi
 if [[ "${FAILURES}" -gt 0 ]]; then
   echo "ci_failure_report_test: ${FAILURES} check(s) failed" >&2
   exit 1
