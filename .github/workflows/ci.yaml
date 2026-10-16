@@ -553,16 +553,18 @@ jobs:
         run: bash hack/test/consistency_metrics_test.sh
       - name: Verify the metrics gate can still fail (CFC-6)
         run: bash hack/test/consistency_metrics_test.sh --self-test
-      # DTP-1/DTP-2/DTP-3/DTP-6/DTP-7 (openspec change developer-toolchain-pins): Task (every
+      # DTP-1/DTP-2/DTP-3/DTP-5/DTP-6/DTP-7 (openspec change developer-toolchain-pins): Task (every
       # setup-task version: input and mise.toml), gitleaks, git-cliff and shellcheck agree across
       # their pin sites and meet their floors, shellcheck has digests for its pin, task vulncheck
       # runs the Renovate-annotated GOVULNCHECK_VERSION, and the installer-checksum exemptions
       # only shrink. DEV-MISE-01: mise.toml pins task, its
       # node/python equal every setup-node/setup-python pin under .github/ and Go stays read from
       # go.mod (nothing else manages the node/python inputs, so this comparison is the only thing
-      # that would notice). The self-test also removes these two steps from a copy and expects the
+      # that would notice). DTP-5: a mise.toml or Taskfile.yml comment states a version only
+      # directly above (or on) the pin it names, at its value, and never counts pin sites.
+      # The self-test also removes these two steps from a copy and expects the
       # CWS-6/CFC-6 meta-test to red. Needs yq.
-      - name: Verify Task, gitleaks, git-cliff, shellcheck, govulncheck and mise.toml pins agree (DTP-1, DTP-2, DTP-3, DTP-6, DEV-MISE-01)
+      - name: Verify Task, gitleaks, git-cliff, shellcheck, govulncheck and mise.toml pins agree (DTP-1, DTP-2, DTP-3, DTP-5, DTP-6, DEV-MISE-01)
         run: bash hack/test/consistency_toolchain_pins_test.sh
       - name: Verify the toolchain-pins gate can still fail (DTP-7)
         run: bash hack/test/consistency_toolchain_pins_test.sh --self-test
