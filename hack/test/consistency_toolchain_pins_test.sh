@@ -631,7 +631,10 @@ check_comments() {
 # 44.115.4 `--platform=local` dry-runs on this tree (openspec change developer-toolchain-pins,
 # evidence/G3.md). Anything the model does not implement (a glob it cannot read, an unknown
 # matcher or manager key, a template helper, a rule whose group depends on the update type) is a
-# failure, never a guess.
+# failure, never a guess. One limit it does not fail on: `extends` presets (renovate.json's
+# config:recommended and friends) are not expanded, so a preset that set a groupName or disabled a
+# manager would go unseen (the Renovate 44.115.4 dry-runs above agreed with the model on this
+# config, presets included).
 #
 # renovate_deps <root>: reads the tracked file list on stdin and prints one line per dependency a
 # custom regex manager extracts, "DEP\t<manager>\t<file>\t<line of the value>\t<value>\t<depName>\t
