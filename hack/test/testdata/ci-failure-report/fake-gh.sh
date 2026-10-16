@@ -16,7 +16,7 @@
 #   ${FAKE_GH_DIR}/fail             optional: the kind of call that errors (run-list, jobs, log,
 #                                   issue-list, issue-view, create, comment, close); one-shot when
 #                                   ${FAKE_GH_DIR}/fail-once exists
-#   ${FAKE_GH_DIR}/raw-<kind>       optional, for run-list, issue-list and issue-view: served
+#   ${FAKE_GH_DIR}/raw-<kind>       optional, for run-list, jobs, issue-list and issue-view: served
 #                                   verbatim (exit 0) instead of the normal answer, so a test can
 #                                   hand the reporter empty or malformed output from a gh success
 #
@@ -86,6 +86,7 @@ case "${1:-} ${2:-}" in
   [[ "$5" == "$(listed_attempt)" ]] || reject "run view --attempt $5, listed attempt is $(listed_attempt)"
   if [[ $# -eq 7 && "$6" == --json && "$7" == jobs ]]; then
     inject jobs
+    raw jobs
     cat "${D}/jobs.json"
   elif [[ $# -eq 6 && "$6" == --log-failed ]]; then
     inject log

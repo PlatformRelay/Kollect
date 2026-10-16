@@ -109,6 +109,7 @@ action_required | neutral | skipped | stale) class=noop ;;
 esac
 if [[ "${class}" == failure || "${class}" == cancelled ]]; then
   gh run view "${run_id}" --attempt "${run_attempt}" --json jobs >"${WORK}/jobs.json" || die "gh run view --json jobs failed"
+  need_json "${WORK}/jobs.json" 'type == "object" and (.jobs | type == "array")' "gh run view --json jobs"
   if [[ "${class}" == cancelled ]]; then
     started="$(jq '[.jobs[]? | select((.steps // []) | length > 0)] | length' "${WORK}/jobs.json")" ||
       die "cannot read the jobs JSON"

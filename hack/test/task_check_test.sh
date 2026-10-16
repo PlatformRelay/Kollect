@@ -141,7 +141,7 @@ c_tce1_selftest_detection() {
   [[ -n "${def}" ]] || fail "TCE-1: hack/check.sh defines no declares_self_test() function for the guard sweep"
   DETECT_DIR="$(mktemp -d)"
   trap 'rm -rf "${DETECT_DIR:?}"' EXIT
-  # About 1.2 MB, the mode on line 2: far past the 64 KiB pipe buffer, so an early-exiting reader
+  # About 1.6 MB, the mode on line 2: far past the 64 KiB pipe buffer, so an early-exiting reader
   # always leaves the upstream grep writing.
   awk 'BEGIN { print "#!/usr/bin/env bash"; print "[[ \"${1:-}\" == --self-test ]] && MODE=self-test"
     for (i = 0; i < 30000; i++) print ": filler line to outgrow the pipe buffer, number " i }' >"${DETECT_DIR}/big_test.sh"
