@@ -126,6 +126,40 @@ c_tce1_gates() {
   pass "TCE-1: the local gate runs the required runnable gates and the full guard sweep"
 }
 
+# The sweep's --self-test detection must hold for a guard of any size. Under pipefail,
+# `grep -v ... | grep -q` reads as "no" once a guard outgrows the pipe buffer: grep -q exits at
+# its first match, the upstream grep dies of SIGPIPE, and the sweep silently skips that guard's
+# self-test (finding H1 of openspec change ci-failure-reporting). The detection is
+# declares_self_test in hack/check.sh, run here the way the sweep runs it (set -uo pipefail).
+c_tce1_selftest_detection() {
+  local body def
+  body="$(strip_comments "$(cat "${CHECKSH}")")"
+  # shellcheck disable=SC2016 # the sweep's literal text, not an expansion
+  grep -qF 'if declares_self_test "${guard}"; then' <<<"${body}" ||
+    fail "TCE-1: hack/check.sh's guard sweep must decide whether to run a guard's --self-test with declares_self_test on the guard -- the one detection this test proves on a guard larger than the pipe buffer"
+  def="$(awk '/^declares_self_test\(\) \{/ { f = 1 } f { print } f && /^\}/ { exit }' "${CHECKSH}")"
+  [[ -n "${def}" ]] || fail "TCE-1: hack/check.sh defines no declares_self_test() function for the guard sweep"
+  DETECT_DIR="$(mktemp -d)"
+  trap 'rm -rf "${DETECT_DIR:?}"' EXIT
+  # About 1.2 MB, the mode on line 2: far past the 64 KiB pipe buffer, so an early-exiting reader
+  # always leaves the upstream grep writing.
+  awk 'BEGIN { print "#!/usr/bin/env bash"; print "[[ \"${1:-}\" == --self-test ]] && MODE=self-test"
+    for (i = 0; i < 30000; i++) print ": filler line to outgrow the pipe buffer, number " i }' >"${DETECT_DIR}/big_test.sh"
+  awk 'BEGIN { print "#!/usr/bin/env bash"; print "# usage: big_test.sh --self-test"
+    for (i = 0; i < 30000; i++) print ": filler line to outgrow the pipe buffer, number " i }' >"${DETECT_DIR}/comment_test.sh"
+  detect() {
+    bash -c 'set -uo pipefail; eval "$1"; declares_self_test "$2"' _ "${def}" "$1"
+  }
+  detect "${DETECT_DIR}/big_test.sh" ||
+    fail "TCE-1: declares_self_test says a guard larger than the pipe buffer ($(wc -c <"${DETECT_DIR}/big_test.sh") bytes, --self-test on line 2) has no --self-test mode -- task check would silently skip that guard's self-test"
+  if detect "${DETECT_DIR}/comment_test.sh"; then
+    fail "TCE-1: declares_self_test counts a --self-test that appears only in a comment line -- a guard's mode is what its code parses, not what its comments mention"
+  fi
+  rm -rf "${DETECT_DIR:?}"
+  trap - EXIT
+  pass "TCE-1: the sweep detects --self-test in a guard larger than the pipe buffer, and not in a comment"
+}
+
 # A failed gate must be reported and must make the final exit non-zero; the last gate passing
 # never masks an earlier failure.
 c_tce1_aggregation() {
@@ -250,6 +284,7 @@ c_tce4_selfwiring() {
 if [[ "${MODE}" == "check" ]]; then
   c_tce1_task
   c_tce1_gates
+  c_tce1_selftest_detection
   c_tce1_aggregation
   c_tce2_verify
   c_tce3_coverage
@@ -336,6 +371,27 @@ mutant_rejected "TCE-1 Docker guard swept" "Docker-requiring guards" bash -c '
   set -euo pipefail
   sed -i.bak "s|if grep -qi .*requires docker.*then|if false; then|" hack/check.sh && rm -f hack/check.sh.bak
   if grep -qF "requires docker" hack/check.sh; then echo "mutant did not apply"; exit 1; fi
+'
+
+# TCE-1: the self-test detection back to `| grep -q` (H1): a large guard's self-test is skipped.
+mutant_rejected "TCE-1 self-test detection SIGPIPEs on a large guard" "larger than the pipe buffer" bash -c '
+  set -euo pipefail
+  sed -i.bak "s/| grep -- .--self-test. >\/dev\/null\$/| grep -q -- \x27--self-test\x27/" hack/check.sh && rm -f hack/check.sh.bak
+  grep -q "| grep -q -- .--self-test.\$" hack/check.sh || { echo "mutant did not apply"; exit 1; }
+'
+
+# TCE-1: the sweep stops asking the detection, so no guard's self-test runs.
+mutant_rejected "TCE-1 sweep bypasses the self-test detection" "with declares_self_test on the guard" bash -c '
+  set -euo pipefail
+  sed -i.bak "s/if declares_self_test \"\${guard}\"; then/if false; then/" hack/check.sh && rm -f hack/check.sh.bak
+  if grep -q "if declares_self_test" hack/check.sh; then echo "mutant did not apply"; exit 1; fi
+'
+
+# TCE-1: the detection counts comment lines (the grep -v filter dropped).
+mutant_rejected "TCE-1 self-test detection counts comments" "appears only in a comment line" bash -c '
+  set -euo pipefail
+  sed -i.bak "s/^  grep -v .\^\[\[:space:\]\]\*#. \"\$1\" 2>\/dev\/null | grep -- /  grep -- /; s/^  grep -- \(.--self-test.\) >\/dev\/null\$/  grep -- \1 \"\$1\" >\/dev\/null/" hack/check.sh && rm -f hack/check.sh.bak
+  grep -q "^  grep -- .--self-test. \"\$1\" >/dev/null\$" hack/check.sh || { echo "mutant did not apply"; exit 1; }
 '
 
 # TCE-2: verify redefined into something else.

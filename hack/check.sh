@@ -76,6 +76,13 @@ run_gate workflow-security-audit ./bin/zizmor --offline --no-progress --min-seve
 # hack/test/task_check_test.sh's mutant literals) must not make the sweep skip the guard
 # itself.
 printf '\n--- task check: hack/test guards (every mode) ---\n'
+# declares_self_test <guard>: the guard's code (comment lines aside) mentions --self-test.
+# Never `| grep -q` here: under pipefail, grep -q exits at its first match, the upstream grep then
+# dies of SIGPIPE on any guard larger than the pipe buffer, and the pipeline reads as "no", which
+# silently skipped the self-test of the largest guards (hack/test/task_check_test.sh proves it).
+declares_self_test() {
+  grep -v '^[[:space:]]*#' "$1" 2>/dev/null | grep -- '--self-test' >/dev/null
+}
 for guard in hack/test/*_test.sh hack/test/lab_harness_meta_suite.sh; do
   # The Docker declaration is matched case-insensitively against the header only. Whole-file
   # content greps here would make the sweep skip a guard that merely MENTIONS the phrase (the
@@ -90,7 +97,7 @@ for guard in hack/test/*_test.sh hack/test/lab_harness_meta_suite.sh; do
     failures+=("guard ${guard}")
     printf 'check: guard %s FAILED\n' "${guard}" >&2
   fi
-  if grep -v '^[[:space:]]*#' "${guard}" 2>/dev/null | grep -q -- '--self-test'; then
+  if declares_self_test "${guard}"; then
     printf 'check: guard %s (--self-test)\n' "${guard}"
     if bash "${guard}" --self-test; then
       printf 'check: %-22s ok\n' "guard ${guard} --self-test"
