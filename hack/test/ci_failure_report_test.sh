@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# CFR-5 (openspec change ci-failure-reporting): the CI failure issue body names what failed and
-# cannot execute or inject log text.
+# CFR-1 to CFR-6 (openspec change ci-failure-reporting): the CI failure reporter keeps one
+# up-to-date issue per failing scheduled workflow, and its body names what failed and cannot
+# execute or inject log text.
 #
 # hack/ci/ci-failure-issue-body.sh builds the body of the issue (or comment) that the CI failure
 # reporter writes for a failed scheduled run. This test runs it on the recorded fixtures under
@@ -19,6 +20,18 @@
 #     text or job names, and the only marker is the real one on line 1;
 #   * marker inputs that would break the marker line are refused, and a job list too long for the
 #     cap is refused rather than cut.
+#
+# hack/ci/ci-failure-report.sh runs against a fake gh (testdata/ci-failure-report/fake-gh.sh) first
+# on PATH, never the real one. What that part locks:
+#   * every row of the decision table in spec.md CFR-1, per conclusion, and two sequences on one
+#     issue store (CFR-1 to CFR-3);
+#   * the lookup: list API by author only (--author 'github-actions[bot]', --state all, explicit
+#     --limit, never --search or --label), label and author checked here, markers read only from
+#     the first line of bot bodies and comments, per workflow; a full page is an error (CFR-4);
+#   * only scheduled runs of this repository report; the latest completed scheduled run is acted
+#     on, at its attempt; bodies through --body-file, a bodyless close, numeric ids checked; a gh
+#     error at any call stops the script with the error on stderr; a failed or empty log fetch
+#     still writes, then exits non-zero (CFR-1, CFR-6).
 #
 # Usage:
 #   hack/test/ci_failure_report_test.sh              # check the repository tree
@@ -342,8 +355,622 @@ else
   bad "oversized job list: expected a non-zero exit, no body and 'does not fit' on stderr, got exit ${RC} and $(wc -c <"${BODY}") bytes"
 fi
 
+
+# =============================================================================================
+# Reporter: decision table (CFR-1 to CFR-4) and lookup, trigger and robustness (CFR-4, CFR-6).
+#
+# hack/ci/ci-failure-report.sh runs against the fake gh (testdata/ci-failure-report/fake-gh.sh)
+# copied to ${WORK}/bin/gh, first on PATH; the real gh is never called. The fake accepts only the
+# argv shapes the reporter may use (it refuses --search, --label on issue list, --body, a run read
+# without the listed attempt, and any flag on issue close), records every call one argument per
+# line and serves an issue store. Each case below asserts the exact recorded writes and that the
+# fake refused nothing. The rows follow the decision table in spec.md CFR-1, one case per row and
+# conclusion.
+# =============================================================================================
+REPORTER="${ROOT}/hack/ci/ci-failure-report.sh"
+for f in "${REPORTER}" "${FX}/fake-gh.sh" "${FX}/workflow-run-completed.payload.json" \
+  "${FX}/run-cancelled-37910175837.json" "${FX}/run-cancelled-37910176249.json" \
+  "${FX}/run-cancelled-38548919239.json" "${FX}/run-continue-on-error-38703656462.json"; do
+  [[ -f "${f}" ]] || {
+    echo "FAIL: ${f#"${ROOT}"/} is missing" >&2
+    exit 1
+  }
+done
+
+BIN="${WORK}/bin"
+mkdir -p "${BIN}"
+cp "${FX}/fake-gh.sh" "${BIN}/gh"
+chmod +x "${BIN}/gh"
+[[ "$(PATH="${BIN}:${PATH}" command -v gh)" == "${BIN}/gh" ]] || {
+  echo "FAIL: the fake gh is not first on PATH; refusing to run the reporter" >&2
+  exit 1
+}
+
+REPO='PlatformRelay/Kollect'
+NIGHTLY='.github/workflows/e2e-nightly.yaml'
+GOLAG='.github/workflows/go-patch-lag.yaml'
+SEQ=0
+
+# store <name>: a fresh fake-gh state directory S: empty issue store, the two-failed jobs and the
+# recorded log excerpt, no run list yet.
+store() {
+  S="${WORK}/gh/$1"
+  mkdir -p "${S}"
+  echo '[]' >"${S}/issues.json"
+  cp "${FX}/jobs-two-failed.json" "${S}/jobs.json"
+  cp "${FX}/log-failed-excerpt.txt" "${S}/log.txt"
+}
+
+# run_listed <number> <attempt> <conclusion> [jobs file]: the latest completed scheduled run the
+# fake lists (database id 990000 + number).
+run_listed() {
+  jq -n --argjson n "$1" --argjson a "$2" --arg c "$3" \
+    '[{attempt: $a, conclusion: $c, databaseId: (990000 + $n), number: $n}]' >"${S}/runs.json"
+  if [[ -n "${4:-}" ]]; then
+    cp "$4" "${S}/jobs.json"
+  fi
+}
+
+# marker <path> <run_id> <key> <event>
+marker() {
+  printf '<!-- ci-failure-report v1 workflow=%s run_id=%s key=%s event=%s -->' "$1" "$2" "$3" "$4"
+}
+
+# issue <number> <state> <path> <key> <event> [login] [is_bot] [label] [body]: add an issue to the
+# store; the default is a bot issue labelled ci-failure whose body starts with the marker.
+issue() {
+  local body="${9:-}"
+  if [[ -z "${body}" ]]; then
+    body="$(marker "$3" "$((990000 + ${4%.*}))" "$4" "$5")
+## CI failure"
+  fi
+  jq --argjson n "$1" --arg s "$2" --arg l "${6:-app/github-actions}" --argjson bot "${7:-true}" \
+    --arg lab "${8:-ci-failure}" --arg b "${body}" \
+    '. + [{number: $n, state: $s, title: "CI failure: E2E nightly", author: {is_bot: $bot, login: $l},
+      labels: [{name: $lab}], body: $b, comments: []}]' "${S}/issues.json" >"${S}/issues.new"
+  mv "${S}/issues.new" "${S}/issues.json"
+}
+
+# comment <number> <login> <body>: add a comment to an issue in the store.
+comment() {
+  jq --argjson n "$1" --arg l "$2" --arg b "$3" \
+    'map(if .number == $n then .comments += [{author: {login: $l}, body: $b}] else . end)' \
+    "${S}/issues.json" >"${S}/issues.new"
+  mv "${S}/issues.new" "${S}/issues.json"
+}
+
+# payload [event] [head repository] [path] [name] [run number]: a workflow_run payload built from
+# the recorded GitHub example; defaults are a scheduled nightly of this repository. Sets PAYLOAD.
+payload() {
+  SEQ=$((SEQ + 1))
+  PAYLOAD="${WORK}/payload-${SEQ}.json"
+  jq --arg e "${1:-schedule}" --arg h "${2:-${REPO}}" --arg p "${3:-${NIGHTLY}}" \
+    --arg nm "${4:-E2E nightly}" --argjson rn "${5:-162}" \
+    '.workflow_run.event = $e | .workflow_run.head_repository.full_name = $h
+     | .workflow_run.path = $p | .workflow.path = $p | .workflow_run.name = $nm | .workflow.name = $nm
+     | .workflow_run.run_number = $rn | .workflow_run.id = (990000 + $rn) | .repository.full_name = $h' \
+    "${FX}/workflow-run-completed.payload.json" >"${PAYLOAD}"
+}
+
+# report [env assignments...]: run the reporter on PAYLOAD against store S, from a scratch
+# directory, with no token in its environment. Sets RC, OUT and ERR; the calls of this run only
+# are in S/calls (cleared first).
+report() {
+  rm -rf "${S}/calls"
+  SEQ=$((SEQ + 1))
+  OUT="${WORK}/out-${SEQ}"
+  ERR="${WORK}/err-${SEQ}"
+  local cwd="${WORK}/cwd-${SEQ}"
+  mkdir -p "${cwd}"
+  RC=0
+  (cd "${cwd}" && env -u GH_TOKEN -u GITHUB_TOKEN -u GH_ENTERPRISE_TOKEN -u GH_HOST -u GH_REPO \
+    PATH="${BIN}:${PATH}" FAKE_GH_DIR="${S}" FAKE_GH_REPO="${REPO}" \
+    GITHUB_REPOSITORY="${REPO}" GITHUB_EVENT_PATH="${PAYLOAD}" "$@" \
+    bash "${REPORTER}") >"${OUT}" 2>"${ERR}" || RC=$?
+}
+
+# kind <call file>: run-list, jobs, log, issue-list, issue-view, create, comment, close or other.
+kind() {
+  local a b
+  a="$(sed -n 1p "$1")"
+  b="$(sed -n 2p "$1")"
+  case "${a} ${b}" in
+  "run list") echo run-list ;;
+  "run view") if grep -qx -- '--log-failed' "$1"; then echo log; else echo jobs; fi ;;
+  "issue list") echo issue-list ;;
+  "issue view") echo issue-view ;;
+  "issue create") echo create ;;
+  "issue comment") echo "comment $(sed -n 3p "$1")" ;;
+  "issue close") echo "close $(sed -n 3p "$1")" ;;
+  *) echo other ;;
+  esac
+}
+
+# calls: every recorded call of the last run, "kind" per line, in order.
+calls() {
+  local f
+  [[ -d "${S}/calls" ]] || return 0
+  for f in "${S}"/calls/*; do
+    [[ -f "${f}" ]] && kind "${f}"
+  done
+}
+
+# writes: the write calls of the last run, comma-separated, or "none".
+writes() {
+  local w
+  w="$(calls | grep -E '^(create|comment|close)' | paste -sd, - | sed 's/,/, /g')" || true
+  echo "${w:-none}"
+}
+
+# first_line <jq path into the store>: first line of a stored body ("" when absent).
+first_line() {
+  jq -r "($1 // \"\") | split(\"\\n\")[0]" "${S}/issues.json"
+}
+
+# expect <label> <writes> [rc]: the run made exactly these writes, exited with rc (default 0)
+# and the fake refused no call.
+expect() {
+  local got rej=""
+  got="$(writes)"
+  [[ -s "${S}/rejected" ]] && rej="$(cat "${S}/rejected")"
+  if [[ "${got}" == "$2" && -z "${rej}" ]] && { [[ "${3:-0}" == nonzero && "${RC}" -ne 0 ]] || [[ "${RC}" == "${3:-0}" ]]; }; then
+    ok "$1: ${got} (exit ${RC})"
+  else
+    bad "$1: expected writes '$2' and exit ${3:-0}, got '${got}' and exit ${RC}${rej:+; fake refused: ${rej}}; stderr: $(head -c 300 "${ERR}" | tr '\n' ' ')"
+  fi
+}
+
+# expect_marker <label> <jq path> <marker>: the stored body's first line is exactly the marker.
+expect_marker() {
+  local got
+  got="$(first_line "$2")"
+  if [[ "${got}" == "$3" ]]; then
+    ok "$1: marker $3"
+  else
+    bad "$1: expected first line '$3' at $2, got '${got}'"
+  fi
+}
+
+LAST_ISSUE='(sort_by(.number) | last | .body)'
+EMPTY_JOBS="${WORK}/jobs-empty.json"
+echo '{"jobs": []}' >"${EMPTY_JOBS}"
+
+# --- 3.1 decision table ----------------------------------------------------------------------
+# Failure class, no bot issue: open one issue (marker event=failure).
+for c in failure timed_out startup_failure cancelled; do
+  store "open-${c}"
+  case "${c}" in
+  timed_out) j="${FX}/jobs-timed-out.json" ;;
+  startup_failure) j="${EMPTY_JOBS}" ;;
+  cancelled) j="${FX}/run-cancelled-38548919239.json" ;; # cancelled with started jobs
+  *) j="${FX}/jobs-two-failed.json" ;;
+  esac
+  run_listed 162 1 "${c}" "${j}"
+  payload
+  report
+  expect "table: ${c}, no issue" "create"
+  expect_marker "table: ${c}, no issue" "${LAST_ISSUE}" "$(marker "${NIGHTLY}" 990162 162.1 failure)"
+done
+
+# Failure, open issue, newer key: one comment, no create.
+store fail-open-newer
+run_listed 162 1 failure
+issue 10 OPEN "${NIGHTLY}" 161.1 failure
+payload
+report
+expect "table: failure, open, newer" "comment 10"
+expect_marker "table: failure, open, newer" '(.[] | select(.number == 10) | .comments[-1].body)' \
+  "$(marker "${NIGHTLY}" 990162 162.1 failure)"
+
+# Failure, open issue, equal key (replay) or older key: no write.
+for k in 162.1 163.1 162.2; do
+  store "fail-open-${k}"
+  run_listed 162 1 failure
+  issue 10 OPEN "${NIGHTLY}" "${k}" failure
+  payload
+  report
+  expect "table: failure, open, recorded ${k} vs 162.1" "none"
+done
+
+# The recorded key is the LAST bot marker: body 160.1, bot comments 161.1 then 162.1; replaying
+# 162.1 writes nothing (a reporter reading the first comment would comment again).
+store fail-open-last-comment
+run_listed 162 1 failure
+issue 10 OPEN "${NIGHTLY}" 160.1 failure
+comment 10 github-actions "$(marker "${NIGHTLY}" 990161 161.1 failure)"
+comment 10 github-actions "$(marker "${NIGHTLY}" 990162 162.1 failure)"
+payload
+report
+expect "table: failure, open, recorded key from the last of two bot comments" "none"
+
+# Failure, closed issue, newer key: a new issue, the closed one is not reopened.
+store fail-closed-newer
+run_listed 162 1 failure
+issue 10 CLOSED "${NIGHTLY}" 161.1 recovery
+payload
+report
+expect "table: failure, closed, newer" "create"
+if [[ "$(jq -r '[.[] | select(.number == 10) | .state] | first' "${S}/issues.json")" == CLOSED ]]; then
+  ok "table: failure, closed, newer: the closed issue stays closed"
+else
+  bad "table: failure, closed, newer: issue 10 was reopened"
+fi
+
+# Failure, closed issue keyed (N+1, 1), run (N, 2); and closed with an equal key: no write.
+store fail-closed-stale
+run_listed 162 2 failure
+issue 10 CLOSED "${NIGHTLY}" 163.1 recovery
+payload
+report
+expect "table: failure, closed (163.1), run 162.2" "none"
+store fail-closed-equal
+run_listed 162 1 failure
+issue 10 CLOSED "${NIGHTLY}" 162.1 failure
+payload
+report
+expect "table: failure, closed, equal" "none"
+
+# Success, no issue: no write.
+store success-none
+run_listed 162 1 success
+payload
+report
+expect "table: success, no issue" "none"
+
+# Success, open issue, newer key: recovery comment (event=recovery), then close.
+store success-open-newer
+run_listed 162 1 success
+issue 10 OPEN "${NIGHTLY}" 161.1 failure
+payload
+report
+expect "table: success, open, newer" "comment 10, close 10"
+expect_marker "table: success, open, newer" '(.[] | select(.number == 10) | .comments[-1].body)' \
+  "$(marker "${NIGHTLY}" 990162 162.1 recovery)"
+
+# Success, open issue, equal key, last marker event=recovery: close only.
+store success-open-equal-recovery
+run_listed 162 1 success
+issue 10 OPEN "${NIGHTLY}" 161.1 failure
+comment 10 github-actions "$(marker "${NIGHTLY}" 990162 162.1 recovery)
+Recovered."
+payload
+report
+expect "table: success, open, equal, last marker recovery" "close 10"
+
+# Success, open issue, equal key with last marker event=failure, or older: no write.
+for k in 162.1 163.1 162.2; do
+  store "success-open-${k}"
+  run_listed 162 1 success
+  issue 10 OPEN "${NIGHTLY}" "${k}" failure
+  payload
+  report
+  expect "table: success, open, recorded ${k} (failure) vs 162.1" "none"
+done
+
+# Success, closed issue (any key): no write.
+for k in 161.1 162.1 163.1; do
+  store "success-closed-${k}"
+  run_listed 162 1 success
+  issue 10 CLOSED "${NIGHTLY}" "${k}" failure
+  payload
+  report
+  expect "table: success, closed, recorded ${k}" "none"
+done
+
+# No-op class, with and without an open issue: no write.
+for c in cancelled-37910175837 cancelled-37910176249 action_required neutral skipped stale; do
+  for with in none open; do
+    store "noop-${c}-${with}"
+    case "${c}" in
+    cancelled-*) run_listed 162 1 cancelled "${FX}/run-${c}.json" ;; # no job has steps
+    *) run_listed 162 1 "${c}" ;;
+    esac
+    if [[ "${with}" == open ]]; then
+      issue 10 OPEN "${NIGHTLY}" 161.1 failure
+    fi
+    payload
+    report
+    expect "table: no-op ${c}, ${with} issue" "none"
+  done
+done
+
+# Run N attempt 1 recorded as failed, run N attempt 2 success: recovery and close.
+store rerun-success
+run_listed 162 2 success
+issue 10 OPEN "${NIGHTLY}" 162.1 failure
+payload
+report
+expect "table: 162.1 failed, 162.2 success" "comment 10, close 10"
+
+# Run success while one job failed under continue-on-error: no write.
+store continue-on-error
+run_listed 162 1 success "${FX}/run-continue-on-error-38703656462.json"
+payload
+report
+expect "table: success with a failed continue-on-error job" "none"
+
+# Sequences on one store. seq_step <n> <conclusion> <expected writes> <label>
+seq_step() {
+  run_listed "$1" 1 "$2"
+  payload schedule "${REPO}" "${SEQ_PATH}" "${SEQ_NAME}" "$1"
+  report
+  expect "$4: night $1 $2" "$3"
+}
+store seq-nightly
+SEQ_PATH="${NIGHTLY}" SEQ_NAME='E2E nightly'
+seq_step 1 success "none" "sequence nightly"
+seq_step 2 failure "create" "sequence nightly"
+seq_step 3 failure "comment 100" "sequence nightly"
+seq_step 4 success "comment 100, close 100" "sequence nightly"
+seq_step 5 failure "create" "sequence nightly"
+store seq-golag
+SEQ_PATH="${GOLAG}" SEQ_NAME='Go patch lag'
+seq_step 1 failure "create" "sequence Go patch lag"
+seq_step 2 failure "comment 100" "sequence Go patch lag"
+seq_step 3 failure "comment 100" "sequence Go patch lag"
+seq_step 4 success "comment 100, close 100" "sequence Go patch lag"
+
+# --- 3.2 lookup, trigger and robustness ------------------------------------------------------
+# Only a user-authored open issue with the label, the reporter's title and a marker: a new bot
+# issue, no write to the user's; also when the author filter is not applied server-side.
+for filter in on off; do
+  store "spoof-issue-${filter}"
+  run_listed 162 1 failure
+  issue 10 OPEN "${NIGHTLY}" 161.1 failure mallory false
+  payload
+  report FAKE_GH_AUTHOR_FILTER="${filter}"
+  expect "lookup: user-authored issue only (server author filter ${filter})" "create"
+done
+
+# A bot issue without the ci-failure label: not the reporter's (label checked client-side).
+store unlabelled
+run_listed 162 1 failure
+issue 10 OPEN "${NIGHTLY}" 161.1 failure app/github-actions true other
+payload
+report
+expect "lookup: bot issue without the label" "create"
+
+# A user comment with a higher-key marker on the bot issue: ignored.
+store spoof-comment
+run_listed 162 1 failure
+issue 10 OPEN "${NIGHTLY}" 161.1 failure
+comment 10 mallory "$(marker "${NIGHTLY}" 999999 999.1 recovery)"
+payload
+report
+expect "lookup: user comment with a higher-key marker" "comment 10"
+
+# A marker lookalike in the excerpt (not the first line) of a bot body or bot comment: ignored.
+store spoof-excerpt
+run_listed 162 1 failure
+issue 10 OPEN "${NIGHTLY}" 161.1 failure app/github-actions true ci-failure \
+  "$(marker "${NIGHTLY}" 990161 161.1 failure)
+\`\`\`
+$(marker "${NIGHTLY}" 999999 999.1 failure)
+\`\`\`"
+comment 10 github-actions "Note
+$(marker "${NIGHTLY}" 999999 999.1 recovery)"
+payload
+report
+expect "lookup: marker lookalike outside the first line" "comment 10"
+
+# E2E nightly and Go patch lag issues both open, nightly success: only the nightly's closes.
+store both-open
+run_listed 162 1 success
+issue 10 OPEN "${NIGHTLY}" 161.1 failure
+issue 11 OPEN "${GOLAG}" 5.1 failure
+payload
+report
+expect "lookup: both open, nightly success" "comment 10, close 10"
+
+# The lookup argv: list API by author, --state all, explicit --limit, never --search or --label.
+store lookup-argv
+run_listed 162 1 failure
+payload
+report
+LOOKUP=""
+LOOKUP_FILE=""
+for f in "${S}"/calls/*; do
+  if [[ -f "${f}" && "$(kind "${f}")" == issue-list ]]; then
+    LOOKUP="$(paste -sd' ' "${f}")"
+    LOOKUP_FILE="${f}"
+  fi
+done
+LIMIT="$(sed -n 's/^issue list --author github-actions\[bot\] --state all --limit \([1-9][0-9]*\) --json number,state,author,labels,body$/\1/p' <<<"${LOOKUP}")"
+if [[ -n "${LIMIT}" ]] && ! grep -qxE -- '--search|--label|-S' "${LOOKUP_FILE}" &&
+  ! grep -rqxE -- '--search|-S' "${S}/calls"; then
+  ok "lookup argv: ${LOOKUP}"
+else
+  bad "lookup argv: expected 'issue list --author github-actions[bot] --state all --limit <N> --json number,state,author,labels,body' and no --search or --label, got '${LOOKUP}'"
+  LIMIT=""
+fi
+
+# Exactly --limit bot issues, all from another workflow: exit non-zero, no write.
+if [[ -n "${LIMIT}" ]]; then
+  store limit-reached
+  run_listed 162 1 failure
+  jq -n --argjson lim "${LIMIT}" --arg m "$(marker "${GOLAG}" 990005 5.1 failure)" \
+    '[range(1; $lim + 1) | {number: ., state: "CLOSED", title: "CI failure: Go patch lag",
+      author: {is_bot: true, login: "app/github-actions"}, labels: [{name: "ci-failure"}],
+      body: $m, comments: []}]' >"${S}/issues.json"
+  payload
+  report
+  expect "lookup: ${LIMIT} issues returned at --limit ${LIMIT}" "none" nonzero
+else
+  bad "lookup: limit case not run (no --limit recorded)"
+fi
+
+# The payload names run N; the latest completed scheduled run is N+1: the decision uses N+1.
+store late-payload
+run_listed 163 1 failure
+payload schedule "${REPO}" "${NIGHTLY}" 'E2E nightly' 162
+report
+expect "trigger: payload 162, listed 163" "create"
+expect_marker "trigger: payload 162, listed 163" "${LAST_ISSUE}" "$(marker "${NIGHTLY}" 990163 163.1 failure)"
+store late-payload-green
+run_listed 163 1 success
+issue 10 OPEN "${NIGHTLY}" 162.1 failure
+payload schedule "${REPO}" "${NIGHTLY}" 'E2E nightly' 162
+report
+expect "trigger: payload 162 (failure), listed 163 success" "comment 10, close 10"
+
+# Empty scheduled-run list: no write, exit 0.
+store empty-list
+echo '[]' >"${S}/runs.json"
+payload schedule "${REPO}" "${GOLAG}" 'Go patch lag'
+report
+expect "trigger: no completed scheduled run" "none"
+
+# workflow_dispatch, push or another head repository: no gh call at all.
+for ev in "workflow_dispatch ${REPO}" "push ${REPO}" "schedule evil/Kollect"; do
+  store "guard-${ev%% *}-${ev#* }"
+  S_GUARD="${S}"
+  run_listed 162 1 failure
+  payload "${ev%% *}" "${ev#* }"
+  report
+  n_calls="$(calls | wc -l)"
+  if [[ "${RC}" -eq 0 && "${n_calls}" -eq 0 && ! -s "${S_GUARD}/rejected" ]]; then
+    ok "trigger: event ${ev%% *}, head ${ev#* }: no gh call (exit 0)"
+  else
+    bad "trigger: event ${ev%% *}, head ${ev#* }: expected no gh call and exit 0, got ${n_calls} call(s) and exit ${RC}"
+  fi
+done
+
+# Attempt 2 of a failing run reports; the fake refuses a run read without --attempt 2.
+store attempt-2
+run_listed 162 2 failure
+payload
+report
+expect "attempt: failing 162.2" "create"
+expect_marker "attempt: failing 162.2" "${LAST_ISSUE}" "$(marker "${NIGHTLY}" 990162 162.2 failure)"
+n_reads="$(calls | grep -cE '^(jobs|log)$')" || true
+if [[ "${n_reads}" -ge 2 ]]; then
+  ok "attempt: ${n_reads} run reads, each with --attempt 2 (the fake refuses others)"
+else
+  bad "attempt: expected the jobs and log reads with --attempt 2, got ${n_reads} run read(s)"
+fi
+
+# Every create and comment passes its body through --body-file; the close is bodyless.
+store body-file
+run_listed 162 1 success
+issue 10 OPEN "${NIGHTLY}" 161.1 failure
+payload
+report
+bodyless=1
+for f in "${S}"/calls/*; do
+  [[ -f "${f}" ]] || continue
+  case "$(kind "${f}")" in
+  create | comment*) grep -qx -- '--body-file' "${f}" || bodyless=0 ;;
+  close*) [[ "$(wc -l <"${f}")" -eq 3 ]] || bodyless=0 ;;
+  esac
+done
+if [[ "${bodyless}" -eq 1 && "$(writes)" == "comment 10, close 10" ]]; then
+  ok "writes: comment through --body-file, bodyless close"
+else
+  bad "writes: expected a --body-file comment and a bare 'issue close 10', got '$(writes)'"
+fi
+
+# A non-numeric run id, run number, attempt or issue number: exit non-zero, no write, and no gh
+# call after the one that returned it (the value never reaches a later call).
+# expect_stop <label> <kind of the last call>
+expect_stop() {
+  local last
+  last="$(calls | tail -n 1)"
+  if [[ "${RC}" -ne 0 && "$(writes)" == none && "${last}" == "$2" && ! -s "${S}/rejected" ]]; then
+    ok "$1: exit ${RC}, no call after ${last}"
+  else
+    bad "$1: expected a non-zero exit, no write and '$2' as the last call, got exit ${RC}, writes '$(writes)', last call '${last}'"
+  fi
+}
+i=0
+for bad_run in '"990162x" 162 1' '990162 "162x" 1' '990162 162 "1;2"'; do
+  i=$((i + 1))
+  store "non-numeric-run-${i}"
+  read -r id num att <<<"${bad_run}"
+  jq -n --argjson id "${id}" --argjson n "${num}" --argjson a "${att}" \
+    '[{attempt: $a, conclusion: "failure", databaseId: $id, number: $n}]' >"${S}/runs.json"
+  payload
+  report
+  expect_stop "numeric: run list entry ${bad_run}" run-list
+done
+store non-numeric-issue
+run_listed 162 1 success
+issue 10 OPEN "${NIGHTLY}" 161.1 failure
+jq 'map(.number = "10 ")' "${S}/issues.json" >"${S}/issues.new"
+mv "${S}/issues.new" "${S}/issues.json"
+payload
+report
+expect_stop "numeric: issue number '10 '" issue-list
+
+# gh exiting non-zero at each call in turn: exit non-zero, the gh error on stderr, and the
+# failing call is the last call made.
+for k in run-list jobs issue-list issue-view create comment close; do
+  store "gh-error-${k}"
+  case "${k}" in
+  run-list | jobs | issue-list | create) run_listed 162 1 failure ;;
+  issue-view | comment)
+    run_listed 162 1 failure
+    issue 10 OPEN "${NIGHTLY}" 161.1 failure
+    ;;
+  close)
+    run_listed 162 1 success
+    issue 10 OPEN "${NIGHTLY}" 161.1 failure
+    ;;
+  esac
+  echo "${k}" >"${S}/fail"
+  payload
+  report
+  last="$(calls | tail -n 1)"
+  if [[ "${RC}" -ne 0 && "${last%% *}" == "${k}" && ! -s "${S}/rejected" ]] &&
+    grep -qF "injected fake gh error (${k})" "${ERR}"; then
+    ok "gh error at ${k}: exit ${RC}, error on stderr, no call after it"
+  else
+    bad "gh error at ${k}: expected a non-zero exit, the injected error on stderr and '${k}' as the last call, got exit ${RC}, last call '${last}'"
+  fi
+done
+
+# Recovery comment written, close fails, the reporter runs again: one close, no second comment.
+store close-retry
+run_listed 162 1 success
+issue 10 OPEN "${NIGHTLY}" 161.1 failure
+echo close >"${S}/fail"
+touch "${S}/fail-once"
+payload
+report
+expect "close retry: first run (close fails)" "comment 10, close 10" nonzero
+report
+expect "close retry: second run" "close 10"
+if [[ "$(jq '[.[] | select(.number == 10)][0] | [.state, (.comments | length)] | join(" ")' -r "${S}/issues.json")" == "CLOSED 1" ]]; then
+  ok "close retry: issue closed with one recovery comment"
+else
+  bad "close retry: expected issue 10 CLOSED with 1 comment, got $(jq -c '[.[] | select(.number == 10)][0] | [.state, (.comments | length)]' "${S}/issues.json")"
+fi
+
+# Log fetch exits non-zero, and separately exits 0 with empty output: the issue is still opened
+# with the job names and "logs unavailable", and the script exits non-zero.
+for mode in fail empty; do
+  store "log-${mode}"
+  run_listed 162 1 failure
+  rc_env="FAKE_GH_LOG_RC=0"
+  if [[ "${mode}" == fail ]]; then
+    rm -f "${S}/log.txt"
+    rc_env="FAKE_GH_LOG_RC=1"
+  else
+    : >"${S}/log.txt"
+  fi
+  payload
+  report "${rc_env}"
+  expect "log fetch ${mode}" "create" nonzero
+  created="$(jq -r "${LAST_ISSUE} // \"\"" "${S}/issues.json")"
+  if grep -qF 'logs unavailable' <<<"${created}" && grep -qF 'e2e-multitenant' <<<"${created}" &&
+    grep -qF 'e2e-finalizer-cleanup' <<<"${created}"; then
+    ok "log fetch ${mode}: body lists both failed jobs and says logs unavailable"
+  else
+    bad "log fetch ${mode}: expected the body to list e2e-multitenant and e2e-finalizer-cleanup and say 'logs unavailable'"
+  fi
+done
+
 if [[ "${FAILURES}" -gt 0 ]]; then
   echo "ci_failure_report_test: ${FAILURES} check(s) failed" >&2
   exit 1
 fi
-echo "All ci-failure-report body checks passed."
+echo "All ci-failure-report checks passed."
