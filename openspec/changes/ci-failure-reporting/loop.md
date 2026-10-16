@@ -1,7 +1,7 @@
 # Loop — ci-failure-reporting (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/ci-failure-reporting` · Branch: `feat/ci-failure-reporting` · Base: `origin/main` @ `81637dcde` (change 6 archive merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: R spec-set review — astra spec leg + claude/opus:spec leg on the spec set at 98ed12ff4
+Next: L — dispatch G1 (1.1 read-only probes)
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 7 of 10 (issue #444). Spec set: proposal.md, specs/ci-failure-reporting/spec.md, tasks.md.
@@ -10,7 +10,7 @@ Change 7 of 10 (issue #444). Spec set: proposal.md, specs/ci-failure-reporting/s
 
 - [x] 0 orient — re-measured against `origin/main` @ `81637dcde` (2026-10-16); scope decision A applied (decisions.md 2026-10-16 "Change 7 ci-failure-reporting scope")
 - [x] P plan + tasks — present; spec set updated 98ed12ff4 (re-measure, decision A, red-first order)
-- [ ] R spec-set review — `reviews/R-spec-set/`
+- [x] R spec-set review — round 1 (43a6b4525): astra NO-GO (3 CRITICAL, verified → WARNING-level, treated as accepted), opus CONCERNS; R1–R15 fixed 75a764bc4, R16 → non-goal. Round 2 (last): astra GO WITH FIXES, opus CONCERNS; 9 mechanical findings fixed b7fcce05a (A1 gh issue close has no --body-file; C3 gh issue list default limit 30). No CRITICAL remains. Records `reviews/R-spec-set/` + `round-2/`
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review — `reviews/B-branch/round-N/`
 - [ ] Hand-off — `pr-description.md`
