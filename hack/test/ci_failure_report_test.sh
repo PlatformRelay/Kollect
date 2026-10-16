@@ -397,6 +397,12 @@ if [[ "${MODE}" == self-test ]]; then
     judge cfr gh-output-run-list-empty "B1 run list output not checked" \
       "gh output: run-list empty: expected a non-zero exit" \
       lit "${R}" 'need_json "${WORK}/runs.json"' ': "${WORK}/runs.json"'
+    judge cfr gh-output-jobs-empty "B1 jobs output not checked" \
+      "gh output: jobs empty: expected a non-zero exit" \
+      lit "${R}" 'need_json "${WORK}/jobs.json"' ': "${WORK}/jobs.json"'
+    judge cfr gh-output-jobs-wrong "B1 jobs not required to be an array" \
+      "gh output: jobs wrong: expected a non-zero exit" \
+      lit "${R}" ' and (.jobs | type == "array")' ''
     judge cfr gh-output-issue-list-empty "B1 issue list output not checked" \
       "gh output: issue-list empty: expected a non-zero exit" \
       lit "${R}" 'need_json "${WORK}/issues.json"' ': "${WORK}/issues.json"'
@@ -1404,18 +1410,24 @@ report
 expect_stop "numeric: issue number '10 '" issue-list
 
 # gh exiting 0 with empty or malformed output at each read (B1): the output must be exactly one
-# JSON document of the expected shape (an array; for comments an object with a comments array).
-# Otherwise exit non-zero, say so on stderr, no write, and no call after that read. An empty issue
-# list read as "no issue" would open a duplicate; empty comments read as "no comment" would fall
-# back to the body key and comment again.
-for k in run-list issue-list issue-view; do
+# JSON document of the expected shape (an array; for jobs and comments an object holding that
+# array). Otherwise exit non-zero, say so on stderr, no write, and no call after that read. An
+# empty issue list read as "no issue" would open a duplicate; empty comments read as "no comment"
+# would fall back to the body key and comment again; an empty job list of a cancelled run would
+# read as "no job started" and drop the report.
+for k in run-list jobs issue-list issue-view; do
   case "${k}" in
   issue-view) wrong='{"comments": "x"}' two='{"comments": []} {"comments": []}' ;;
+  jobs) wrong='{"jobs": "x"}' two='{"jobs": []} {"jobs": []}' ;;
   *) wrong='{"total": 0}' two='[] []' ;;
   esac
   for shape in empty garbage two wrong; do
     store "gh-output-${k}-${shape}"
-    run_listed 162 1 failure
+    if [[ "${k}" == jobs ]]; then
+      run_listed 162 1 cancelled
+    else
+      run_listed 162 1 failure
+    fi
     if [[ "${k}" == issue-view ]]; then
       issue 10 OPEN "${NIGHTLY}" 161.1 failure
     fi

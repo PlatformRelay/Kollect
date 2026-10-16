@@ -79,7 +79,9 @@ printf '\n--- task check: hack/test guards (every mode) ---\n'
 # declares_self_test <guard>: the guard's code (comment lines aside) mentions --self-test.
 # Never `| grep -q` here: under pipefail, grep -q exits at its first match, the upstream grep then
 # dies of SIGPIPE on any guard larger than the pipe buffer, and the pipeline reads as "no", which
-# silently skipped the self-test of the largest guards (hack/test/task_check_test.sh proves it).
+# silently skipped the self-test of the largest guards. GNU grep with its output on /dev/null
+# reads its whole input, so the upstream grep finishes; hack/test/task_check_test.sh runs this
+# function on a 1.6 MB guard, so a grep that behaves otherwise reds there, not silently here.
 declares_self_test() {
   grep -v '^[[:space:]]*#' "$1" 2>/dev/null | grep -- '--self-test' >/dev/null
 }
