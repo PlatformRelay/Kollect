@@ -104,7 +104,7 @@ tests with 4.3.
 
 ## 3. Managers (DTP-4)
 
-- [ ] 3.1 Probe which files and dependencies each custom manager matches
+- [x] 3.1 Probe which files and dependencies each custom manager matches
   (`renovate-config-validator --strict` plus a local dry run). Settle and record:
   - what "a manager matches a file" means: at least one `managerFilePatterns` hit on a tracked file
     AND at least one `matchStrings` dependency extracted from it. The gitleaks and shellcheck
@@ -117,7 +117,8 @@ tests with 4.3.
   - that each gitleaks pin form is rewritten correctly by a dry-run bump: `8.30.1` without `v` at
     `ci.yaml:164` and `hack/install-gitleaks.sh:14`, `v8.30.1` at `.pre-commit-config.yaml:5` (no
     `vv`, no dropped `v`); likewise shellcheck's `0.11.0` and the shellcheck-py `v0.11.0.1` rev.
-- [ ] 3.2 Add the manager-liveness, site-coverage and grouping checks to the guard, using 3.1's
+  — closed 2026-10-16, evidence: evidence/G3.md
+- [x] 3.2 Add the manager-liveness, site-coverage and grouping checks to the guard, using 3.1's
   definition and mechanism, with self-test cases: given today's `renovate.json`, then red naming
   the gitleaks (`renovate.json:37-47`) and shellcheck (`renovate.json:48-58`) managers (dead
   manager); given a manager whose file pattern matches no tracked file, then red (pattern rot);
@@ -127,8 +128,8 @@ tests with 4.3.
   `hack/verify-changelog.sh:11`, then red naming the file (uncovered site); given two golangci-lint
   sites in different groups, then red (sites can move apart); given a shellcheck site in the
   "pinned build tools" group, then red naming the group (a red shellcheck bump holds other tools).
-  Record it red on today's tree; it commits with 3.3.
-- [ ] 3.3 Replace the dead gitleaks manager with one that matches `ci.yaml:164`,
+  Record it red on today's tree; it commits with 3.3. — closed 2026-10-16, evidence: evidence/G3.md
+- [x] 3.3 Replace the dead gitleaks manager with one that matches `ci.yaml:164`,
   `hack/install-gitleaks.sh:14` and `.pre-commit-config.yaml:5`; replace the dead shellcheck manager
   with one that matches `ci.yaml:299`, `hack/install-shellcheck.sh:15` and
   `.pre-commit-config.yaml:56`, in a `shellcheck` group of its own; add managers for `Makefile:184`
@@ -139,7 +140,7 @@ tests with 4.3.
   `hack/test/consistency_go_toolchain_test.sh` both modes. Re-run 3.1's probe; 3.2's checks turn
   green. A shellcheck bump PR stays red until its digests are added to `install-shellcheck.sh`'s
   `pinned_sha256` table: that is the intended manual step, and the own group keeps it from holding
-  other tools.
+  other tools. — closed 2026-10-16, evidence: evidence/G3.md
 
 ## 4. Installers (DTP-6)
 
