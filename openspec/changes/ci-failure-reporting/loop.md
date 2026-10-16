@@ -39,6 +39,7 @@ Holistic run at B: not run yet.
 
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
+| 1.1 | CLOSED-WITH-GAPS | astra, 1 round (REQUEST_CHANGES, evidence only, fixed); no Claude leg (fixtures and evidence only) | timed-out job shape not seen live (F7); concurrency replacement and 65536 cap not probable read-only; F1 lookup argv has no `--label`, F2 comment author shape, F5 empty run list: inputs for 3.1–3.3 |
 
 ## Known red
 
@@ -51,6 +52,14 @@ Holistic run at B: not run yet.
 |---|---|---|---|
 
 ## Lessons
+
+This change (ci-failure-reporting):
+
+- `gh issue list --label` runs GraphQL search (gh 2.98.0); only label-free `--author 'github-actions[bot]'` uses the list API: check `GH_DEBUG=api` before calling an argv "not search" (1.1)
+- A job started iff its `steps` array is non-empty; `startedAt` is set on jobs that never ran (1.1)
+- `gh issue view --json comments` spells the bot `github-actions` (no `is_bot`), issues spell it `app/github-actions` (1.1)
+- The Bash tool's zsh does not word-split `$var`: run loops over flag strings under `bash` (1.1)
+- A codex review leg here has no network: live-shape checks stay with the implementer (1.1)
 
 Carried over from change 5 (developer-toolchain-pins):
 

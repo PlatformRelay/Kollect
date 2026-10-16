@@ -21,7 +21,7 @@ argument per line, so argument boundaries survive.
 
 ## 1. Probe
 
-- [ ] 1.1 Record fixtures and check the assumptions in proposal.md, each with its source. Every
+- [x] 1.1 Record fixtures and check the assumptions in proposal.md, each with its source. Every
   `gh` call here is read-only:
   - a `workflow_run` payload (GitHub docs example, trimmed to the fields CFR-1 to CFR-6 read,
     `workflow_id` and `path` included);
@@ -49,7 +49,7 @@ argument per line, so argument boundaries survive.
     argv joins the post-merge row. Never `--search`.
   `gh label create --force` is not probed: its documented behaviour is cited in proposal.md, and
   its live proof is the post-merge row. If a payload field CFR-6 relies on is absent, stop: the
-  change is BLOCKED. Evidence: `evidence/T1.1.md`.
+  change is BLOCKED. Evidence: `evidence/T1.1.md`. — closed 2026-10-16, evidence: evidence/T1.1.md
 
 ## 2. Body builder (CFR-5)
 
