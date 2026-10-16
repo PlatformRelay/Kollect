@@ -186,7 +186,7 @@ precommit_rev_sites() {
 }
 
 # action_version_sites <root> <action>: the `with: version:` input of every step that uses
-# <action> (`owner/name`), or "<no version: input>" when the step has none (the action then
+# <action> (`owner/name`, matched case-insensitively as GitHub does), or "<no version: input>" when the step has none (the action then
 # installs whatever it defaults to). A step is read whole (key order does not matter): it opens at
 # a `- ` line and ends at the next `- ` line at its indent or a line left of it. Only a direct
 # child of the step's `with:` is the input; a `version:` under `env:` or another map is not, and
@@ -220,7 +220,8 @@ action_version_sites() {
           if (index(k, "uses:") == 1) {
             u = substr(k, 6)
             gsub(/^[[:space:]]*["\047]?/, "", u)
-            if (index(u, action "@") == 1) { hit = 1; at = NR }
+            # GitHub resolves owner/repo case-insensitively, so Go-Task/Setup-Task@ is the same action.
+            if (index(tolower(u), tolower(action) "@") == 1) { hit = 1; at = NR }
           }
           if (k ~ /^with:[[:space:]]*$/) { w = kl; wc = -1 }
           next
@@ -1363,6 +1364,16 @@ mutant_rejected "git-cliff with: before uses:" \
   bash -c 'awk "/uses: orhun\/git-cliff-action@/ { u = \$0; next } u != \"\" && /github_token:/ { print; print u; u = \"\"; next } { print }" '"${REL}"' > m.yaml && mv m.yaml '"${REL}"' &&
     awk "p ~ /github_token:/ && /uses: orhun\/git-cliff-action@/ { ok = 1 } { p = \$0 } END { exit !ok }" '"${REL}"
 
+# GitHub resolves owner/repo case-insensitively: a mixed-case uses: is the same action and its
+# version: the same pin. renovate.json's manager matches the lower-case spelling only, so the
+# site is uncovered too (DTP-4 is right as well).
+ALSO_RED='renovate: git-cliff pin v2\.12\.0 at \.github/workflows/release\.yaml:[0-9]+ is extracted by no custom manager' \
+mutant_rejected "git-cliff-action uses: in mixed case drifts" \
+  'git-cliff: \.github/workflows/release\.yaml:[0-9]+ says v2\.12\.0, but the reference site Taskfile\.yml' \
+  'uses: Orhun/Git-Cliff-Action[@]@@version: v2\.12\.0' "${REL}" \
+  bash -c 'sed -i -E "/orhun\/git-cliff-action@/,/version:/ s/version: v[0-9.]+/version: v2.12.0/" '"${REL}"' &&
+    sed -i -E "s#uses: orhun/git-cliff-action@#uses: Orhun/Git-Cliff-Action@#" '"${REL}"
+
 # --- DTP-3 shellcheck ---
 # Mutant values come from the tree, so a correct shellcheck bump (all sites plus digests) does not
 # break the self-test: 99.0.0 is never a real release, the control adds a packaging revision.
@@ -1929,6 +1940,20 @@ control_passes "task set moved to a newer release" \
   '^task = "99\.0\.0"$' "${M}" \
   bash -c 'grep -rl "go-task/setup-task@" .github | xargs sed -i -E "/go-task\/setup-task@/,/version:/ s/version: [0-9.]+\$/version: 99.0.0/" &&
     sed -i -E "s/^task = \"[0-9.]+\"/task = \"99.0.0\"/" mise.toml'
+
+# Mixed-case uses: is the same action (GitHub matches owner/repo case-insensitively); the manager
+# matches the lower-case spelling only, so DTP-4 reds too.
+ALSO_RED='renovate: task pin 3\.51\.1 at \.github/workflows/sonarcloud\.yaml:[0-9]+ is extracted by no custom manager' \
+mutant_rejected "setup-task uses: in mixed case drifts" \
+  'task: \.github/workflows/sonarcloud\.yaml:[0-9]+ says 3\.51\.1, but the reference site \.github/workflows/ci\.yaml:[0-9]+ says' \
+  'uses: Go-Task/Setup-Task[@]@@^[[:space:]]+version: 3\.51\.1$' .github/workflows/sonarcloud.yaml \
+  bash -c 'sed -i -E "/go-task\/setup-task@/,/version:/ s/version: [0-9.]+\$/version: 3.51.1/" .github/workflows/sonarcloud.yaml &&
+    sed -i -E "s#uses: go-task/setup-task@#uses: Go-Task/Setup-Task@#" .github/workflows/sonarcloud.yaml'
+
+mutant_rejected "mise task set to latest" \
+  "task: mise\\.toml:[0-9]+ says 'latest', not a plain release version" \
+  '^task = "latest"$' "${M}" \
+  sed -i -E 's/^task = "[0-9.]+"/task = "latest"/' "${M}"
 
 # The step stays and installs an unpinned Task: it must red, never be skipped (1.2 step-reset-off).
 mutant_rejected "setup-task step without a version input" \
