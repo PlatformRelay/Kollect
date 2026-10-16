@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: B — holistic run + astra:adversarial + claude/opus:spec branch review
+Next: L — dispatch G6 (6.1–6.8 stage-B round-1 fixes), then B round 2 if a fix is behavioural-critical, else hand-off
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -12,7 +12,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 - [x] P plan + tasks — present; spec set updated 649e5811c (re-measure, decisions A pin ownership and C guard shape)
 - [x] R spec-set review — `reviews/R-spec-set/` (b3fd2d944) on 9621c98aa: astra REQUEST CHANGES, claude/opus CONCERNS; no CRITICAL; 11 WARNING + 6 NOTE all verified; fixes applied faa6754fd (R2 placement deviation: lint wiring lands with 1.1 because CFC-6 reds an unwired consistency_* guard; R9 mutants in 2.2)
 - [x] L task loop — 1.1–4.3 closed (5.1 archive is post-merge)
-- [ ] B branch review
+- [ ] B branch review — round 1 `reviews/B-branch/round-1/` (650d7c765): task check exit 0 (1528 s), vulncheck 0; astra REQUEST_CHANGES (B1 P1), opus CONCERNS; no spec row contradicted/absent; fixes → G6
 - [ ] Hand-off
 
 ## Fitness functions
@@ -32,6 +32,11 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| B1 | B1 hard-coded git-cliff v2.13.1 sentinel: a correct bump reds --self-test and blocks the shared group | P1 | astra (reproduced) | fix | 6.1 + all-pins bump control | no |
+| B1 | B2 new 233 s --self-test in required lint, against operator ruling 2026-10-16 (slow self-tests out of lint) | WARNING | opus | fix | 6.2: step in existing tool-pins-selftest job (no new required context); orchestrator applies precedent, no new decision | no |
+| B1 | golangci-lint in shared Renovate group; a red golangci bump blocks Task/gitleaks/git-cliff/govulncheck | WARNING | opus (unmentioned behaviour) | fix | 6.7 own group | no |
+| B1 | queued: macOS shasum fallback; helm-docs 64-hex; CFC-2 `latest` via var; case-insensitive uses:; task=latest case | — | earlier tasks | fix | 6.3–6.6 | no |
+| B1 | B3 stale line ref; B4 dotted numbers fail closed; B5 one dead file pattern fails manager; B6 extends presets ignored | NOTE | opus | fix (text) | 6.8 | no |
 | R | R1 shellcheck manager bump would always be red (digest table has only 0.11.0); shared group blocks | WARNING | opus | fix | own group, all 3 sites, missing-digest guard case | no |
 | R | R2 1.1 left red until 2.x | WARNING | opus | fix | each check lands with its fix task | no |
 | R | R3 DTP-7 vs installer-scan owner | WARNING | opus+astra | fix | fetch-lib gate owns the scan; tamper tests in new guard --self-test | no |
