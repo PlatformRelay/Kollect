@@ -96,13 +96,14 @@ trap 'rm -rf ${SCRATCH} 2>/dev/null' EXIT
 
 # The copy holds the TRACKED files under openspec/ only (all the gate reads; an untracked local
 # file must not red the no-op control), registered in a new index: ls-files reads the index, so
-# no commit (and no git identity) is needed.
+# no commit (and no git identity) is needed. `add -f` everywhere: a global core.excludesFile
+# (say `*.log`) must not keep a mutant or control from landing.
 make_copy() {
   local dst="$1"
   git -C "${dst}" init -q
   git -C "${ROOT}" ls-files -z -- openspec | tar -C "${ROOT}" --null -T - -cf - | tar -C "${dst}" -xf - ||
     fail "self-test: copying the tracked openspec/ files failed (a tracked file deleted from the working tree?) -- nothing was tested"
-  git -C "${dst}" add -A
+  git -C "${dst}" add -A -f
 }
 
 # Called directly (never as $(new_copy)), so SCRATCH survives in this shell for the EXIT trap.
@@ -130,7 +131,7 @@ mutant_rejected() {
   shift 4
   local out rc
   new_copy
-  (cd "${COPY}" && "$@" && git add -A) ||
+  (cd "${COPY}" && "$@" && git add -A -f) ||
     fail "self-test: the mutation step for '${label}' failed -- nothing was tested"
   landed "${probe}" "${probe_path}" ||
     fail "self-test: the '${label}' mutant did not land (${probe} ${probe_path}) -- nothing was tested"
@@ -148,7 +149,7 @@ control_passes() {
   shift 2
   local out
   new_copy
-  (cd "${COPY}" && "$@" && git add -A) ||
+  (cd "${COPY}" && "$@" && git add -A -f) ||
     fail "self-test: the control step for '${label}' failed -- nothing was tested"
   landed PRESENT "${probe_path}" ||
     fail "self-test: the '${label}' control did not land (${probe_path} not tracked)"
