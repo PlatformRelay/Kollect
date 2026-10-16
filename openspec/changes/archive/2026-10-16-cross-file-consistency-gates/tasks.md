@@ -27,7 +27,7 @@
 ## 6. Wiring and land
 
 - [x] 6.1 Run all guards in `lint` (plain and `--self-test` as separate steps) and, by the glob, in `task check` — closed 2026-10-15, evidence: evidence/G6.md
-- [ ] 6.2 Merge with the `post-merge` row open; archive in a follow-up evidence PR once it passes
+- [x] 6.2 Merge with the `post-merge` row open; archive in a follow-up evidence PR once it passes — closed 2026-10-16: merged in PR #463 (merge 4e8c7b40d); post-merge rows filled below; archived in this follow-up PR
 
 ## 7. Stage-B fixes (round 1)
 
@@ -52,6 +52,6 @@
 | CFC-3 | `consistency_rbac_test.sh` with one triple removed; tenant render | fails naming the triple; tenant exceptions listed | pass | evidence/G3.md (self-test `triple removed`; tenant probe), G7.md |
 | CFC-4 | `consistency_metrics_test.sh` cases | each fails or passes as specified | pass | evidence/G5.md, G7.md (registry test) |
 | CFC-5 | formatter tests | behind and lookup failure red | pass | evidence/G4.md |
-| CFC-5 | first scheduled run | green on current go.mod | post-merge | follow-up evidence PR |
+| CFC-5 | first scheduled run | green on current go.mod | pass | workflow_dispatch run 38833372718 on main@4e8c7b40d: success. The first scheduled weekly run has not happened yet; the dispatched run exercises the same workflow and script |
 | CFC-6 | each script's self-test plus no-op copy, by exit status | mutants red, no-op green | pass | evidence/G1.md–G5.md (per guard), G6.md (CI wiring), G7.md, G8.md |
-| all | `lint` job on the PR head; independent review | green, all guards in the log; APPROVE; both revisions recorded | not-run | PR head CI |
+| all | `lint` job on the PR head; independent review | green, all guards in the log; APPROVE; both revisions recorded | pass | PR #463 head 361a00e6e: all 44 non-skipped checks green, including lint, tool-pins-selftest and SonarCloud; main post-merge CI by headSha 4e8c7b40d: all workflows success; reviews in loop.md (G1–G9, B rounds 1–2) |
