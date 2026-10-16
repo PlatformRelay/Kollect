@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: L — dispatch G6 (6.1–6.8 stage-B round-1 fixes), then B round 2 if a fix is behavioural-critical, else hand-off
+Next: B round 2 (last) on the G6 range, then hand-off
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -65,6 +65,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 | 2.3 | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES (bare majors, -rc truncation, case-sensitive count rule → fixed) + claude/opus:diff CLEAN (lint step renamed); r2 astra APPROVE | 25efc58f9. DTP-5 comment-to-pin rule; mise.toml :24/:28/:39/:52 rewritten as pointers; Task comment no longer restates a version (Renovate would red every bump). Test changes: 4 ported DEV-MISE-01 mutants move/delete attached comments. Gaps: dotted prose numbers fail closed; `# gitleaks 8` passes |
 | G3 (3.1–3.3) | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES + claude/opus:diff CONCERNS; r2 astra REQUEST_CHANGES (2 P2, fixed unreviewed per cap) | c01c6ab49, d2354912a. Liveness = file hit AND ≥1 extracted dep; mechanism = python model reading renovate.json (matches Renovate 44.115.4 extract: 29 deps today / 41 final); Renovate not run in lint (groups need lookup + GitHub token). New gitleaks/shellcheck/shellcheck-py/git-cliff/golangci managers; shellcheck own group before go toolchain. Test changes: 3 earlier cases rewritten, ALSO_RED on 7 cases. Gaps: model ≠ Renovate (presets, minimatch); rewrite simulated from replace string |
 | G4 (4.1–4.3) | CLOSED-WITH-GAPS | astra APPROVE + claude/opus:diff CONCERNS (1 WARNING, 3 NOTE), 1 round | 5bb2e11ff, e814eeddf, 3b05a8148. git-cliff verifies per-asset .sha512 (inline sha512sum), helm-docs verify_sha256 vs checksums.txt; UNVERIFIED_BY_DESIGN and guard limit EMPTY; real installs on linux/amd64. Test changes: mutant relabel; fetch-lib scan messages SHA256→checksum. **Orchestrator override:** macOS (no sha512sum/sha256sum) now fails closed → fix at B with `shasum -a` fallback, not deferred (operator works on macOS). Deferred to B: helm-docs digest not checked as 64 hex. Gaps: Darwin/arm64 install paths probed by URL only |
+| G6 (6.1–6.8) | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES (2 P2) + claude/opus:diff CONCERNS (1 WARNING, 6 NOTE) fixed; r2 astra APPROVE | 632246c28..58c516203. P1 reproduced then fixed (all-pins bump control, 41 sites); toolchain self-test moved to tool-pins-selftest job (7.6+7.4 min, 45 min timeout); shasum fallback; helm-docs 64-hex; CFC-2 full-semver for literal + Taskfile-var pins (`latest`, `v1` floated); case-insensitive uses:; golangci own group. Test changes: change-4 CFC-2/CFC-6 mutants adjusted. CAVEAT: 10 commits split from one tested tree, intermediates not run individually. Gaps: no real Darwin run; shim branch for no-shasum hosts never ran. Deferred: Makefile var `latest` / literal `@latest` in CFC-2 → BACKLOG (ENVTEST_VERSION branch pin needs its own decision) |
 
 ## Known red
 
@@ -100,6 +101,9 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 - A Renovate model must reject what RE2 rejects (lookaround, backrefs, atomic groups) (G3)
 
 - A tamper fixture must still extract (flip gzip MTIME byte 4) so the test fails on the checksum, not tar; add a correct-digest-under-another-asset case (G4)
+
+- Run long self-tests on a throwaway snapshot (tracked files, git init, add -A -f) so editing can continue (G6)
+- `^v[0-9]` lets a go query like `v1` through: require full semver (G6)
 
 Carried over from change 4 (cross-file-consistency-gates):
 
