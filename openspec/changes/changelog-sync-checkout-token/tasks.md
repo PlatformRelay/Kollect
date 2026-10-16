@@ -27,6 +27,9 @@
   - CST-2 (review round 1) given the fixed workflow, when a mutant reads the token as
     `steps['app-token']['outputs']['token']`, reads `toJSON(steps)`, or adds a step that references
     `secrets.CHANGELOG_SYNC_GITHUB_APP_PRIVATE_KEY`, then the check fails naming that step.
+  - CST-2 (review round 2) given the fixed workflow, when a mutant reads `toJSON(steps.app-token)`,
+    `toJSON(secrets)` or `secrets[format(...)]` in the guard step, or puts the App private key in
+    the job-level `env:`, then the check fails naming that step or scope.
   - CST-2 no-op controls: the identity round-trip passes; `persist-credentials: "false"` (a string)
     passes.
 
@@ -55,6 +58,6 @@
 | CST-1 | guard on `main` before 3.1 | red on the checkout `token` assertion | pass | evidence/T2.1.md, base `950743808`, exit 1 |
 | CST-1 | guard after 3.1 | green | pass | evidence/T2.1.md, exit 0 |
 | CST-1 | changelog-sync run on `main` after the merge | success, and the push step logs "Pushed regenerated CHANGELOG.md" (the push soft-fails, so a green run alone is not proof); verdict `in-sync` means no push was tried and the row stays open | post-merge | issue #443 owns the row until the follow-up evidence PR |
-| CST-2 | token, persist-true, persist-removed, other-step, bracket-ref, `toJSON(steps)` and App-secret mutants by exit status; identity and string-`"false"` controls | mutants rejected for the named reason; controls pass | pass | evidence/T2.1.md: 7 self-test mutants rejected, 2 controls accepted; real-file token and persist mutants exit 1, restored exit 0; each new check switched off in a scratch copy reds the self-test |
+| CST-2 | token, persist-true, persist-removed, other-step, bracket-ref, step-object, `toJSON(steps)`, `toJSON(secrets)`, computed-index, job-env and App-secret mutants by exit status; identity and string-`"false"` controls | mutants rejected for the named reason; controls pass | pass | evidence/T2.1.md: 11 self-test mutants rejected, 2 controls accepted; real-file token and persist mutants exit 1, restored exit 0; each new check switched off in a scratch copy reds the self-test |
 | all | zizmor gate both modes, `task lint:shell`, `task spec:validate` | green | pass | evidence/T2.1.md; zizmor 1.30.1 no findings |
-| all | independent review; CI on the PR head | APPROVE or verified findings fixed; green | not-run | round 1 on `bcd248619`: astra REQUEST_CHANGES (P1 bracket spelling, fixed), claude/opus CLEAN (notes; two fixed); reviews/T/ |
+| all | independent review; CI on the PR head | APPROVE or verified findings fixed; green | not-run | round 1 on `bcd248619`: astra REQUEST_CHANGES (P1 bracket spelling, fixed), claude/opus CLEAN (notes; two fixed); round 2 on `2e3640092`: astra APPROVE, claude/opus CONCERNS (2 WARNING, both fixed after the round, no third round); reviews/T/ |
