@@ -199,6 +199,14 @@
       "description": "Move the go directive and every golang image (Dockerfiles, devcontainer) in ONE pull request. Must stay the LAST rule that sets a groupName: a later rule's groupName wins, and any later group rule could pull go or golang out of this one. hack/test/consistency_go_toolchain_test.sh checks presence and position.",
       "matchDepNames": ["go", "golang"],
       "groupName": "go toolchain"
+    },
+    {
+      "description": "Keep the node-version and python-version inputs of actions/setup-node and actions/setup-python out of the bot. The github-actions manager extracts them (depType uses-with, depNames node and python), so a bump would land in the 'github actions' group without mise.toml, and hack/test/consistency_toolchain_pins_test.sh (DEV-MISE-01) would red that whole group PR. They are bumped by hand together with mise.toml, and the guard checks they agree. Last rule, so no later rule can re-enable them; it sets no groupName, so 'go toolchain' stays the last group rule.",
+      "matchManagers": ["github-actions"],
+      "matchDepTypes": ["uses-with"],
+      "matchDepNames": ["node", "python"],
+      "matchPackageNames": ["actions/node-versions", "actions/python-versions"],
+      "enabled": false
     }
   ]
 }
