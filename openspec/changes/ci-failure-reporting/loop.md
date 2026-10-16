@@ -13,7 +13,7 @@ Change 7 of 10 (issue #444). Spec set: proposal.md, specs/ci-failure-reporting/s
 - [x] R spec-set review — round 1 (43a6b4525): astra NO-GO (3 CRITICAL, verified → WARNING-level, treated as accepted), opus CONCERNS; R1–R15 fixed 75a764bc4, R16 → non-goal. Round 2 (last): astra GO WITH FIXES, opus CONCERNS; 9 mechanical findings fixed b7fcce05a (A1 gh issue close has no --body-file; C3 gh issue list default limit 30). No CRITICAL remains. Records `reviews/R-spec-set/` + `round-2/`
 - [x] L task loop — 1.1–5.1 closed (6.1 is hand-off); task subagents recorded their own rows
 - [x] B branch review — round 1 (2e02ba15a): task check exit 0 (1091 s); per-commit gate green; astra REQUEST_CHANGES (B1, B2 WARNING), claude/opus:spec CLEAN (CFR-1..7 hold); no CRITICAL → no round 2; fixes as tasks 7.1–7.4 with normal task review
-- [ ] Hand-off — `pr-description.md`
+- [x] Hand-off — `pr-description.md` (ready PR, integrator)
 
 ## Fitness functions
 
