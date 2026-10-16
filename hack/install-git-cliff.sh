@@ -38,9 +38,18 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
 # Upstream publishes one `<sha512>  <asset>` file per asset and no SHA256, so this compares with
-# sha512sum rather than verify_sha256. The digest is in hand before the tarball is fetched, and a
-# failed checksum fetch stops here. The checksum comes from the same release as the tarball, so it
-# catches a corrupted or swapped download, not a compromised release.
+# sha512sum rather than verify_sha256 (stock macOS has no sha512sum, only shasum -a 512; with
+# neither it refuses before downloading). The digest is in hand before the tarball is fetched, and
+# a failed checksum fetch stops here. The checksum comes from the same release as the tarball, so
+# it catches a corrupted or swapped download, not a compromised release.
+if command -v sha512sum >/dev/null 2>&1; then
+  sha512() { sha512sum "$1"; }
+elif command -v shasum >/dev/null 2>&1; then
+  sha512() { shasum -a 512 "$1"; }
+else
+  echo "cannot verify ${asset}: neither sha512sum nor shasum is installed" >&2
+  exit 1
+fi
 fetch_to "${url}.sha512" "${tmpdir}/${asset}.sha512" "git-cliff ${VERSION} checksum"
 expected="$(awk -v file="${asset}" '$2 == file || $2 == "*" file {print $1}' "${tmpdir}/${asset}.sha512")"
 if [[ ! "${expected}" =~ ^[0-9a-f]{128}$ ]]; then
@@ -48,7 +57,7 @@ if [[ ! "${expected}" =~ ^[0-9a-f]{128}$ ]]; then
   exit 1
 fi
 fetch_to "${url}" "${tmpdir}/${asset}" "git-cliff ${VERSION} tarball"
-actual="$(sha512sum "${tmpdir}/${asset}" | awk '{print $1}')"
+actual="$(sha512 "${tmpdir}/${asset}" | awk '{print $1}')"
 if [[ "${actual}" != "${expected}" ]]; then
   echo "checksum mismatch for ${asset}" >&2
   echo "  expected: ${expected}" >&2
