@@ -16,6 +16,9 @@
 #   ${FAKE_GH_DIR}/fail             optional: the kind of call that errors (run-list, jobs, log,
 #                                   issue-list, issue-view, create, comment, close); one-shot when
 #                                   ${FAKE_GH_DIR}/fail-once exists
+#   ${FAKE_GH_DIR}/raw-<kind>       optional, for run-list, issue-list and issue-view: served
+#                                   verbatim (exit 0) instead of the normal answer, so a test can
+#                                   hand the reporter empty or malformed output from a gh success
 #
 # Environment: FAKE_GH_DIR (required), FAKE_GH_REPO (the repository GH_REPO must name),
 # FAKE_GH_LOG_RC (exit status of the log fetch, default 0), FAKE_GH_AUTHOR_FILTER=off (serve
@@ -32,6 +35,14 @@ reject() {
   printf '%s | %s\n' "$*" "$(tr '\n' ' ' <"${call}")" >>"${D}/rejected"
   echo "fake gh: refused: $*" >&2
   exit 64
+}
+
+# raw <kind>: serve ${D}/raw-<kind> verbatim and exit 0, if it exists.
+raw() {
+  if [[ -f "${D}/raw-$1" ]]; then
+    cat "${D}/raw-$1"
+    exit 0
+  fi
 }
 
 inject() {
@@ -66,6 +77,7 @@ case "${1:-} ${2:-}" in
     "${12}" == databaseId,number,attempt,conclusion ]] || reject "run list argv"
   [[ "$4" =~ ^\.github/workflows/[A-Za-z0-9._-]+\.ya?ml$ ]] || reject "run list --workflow $4"
   inject run-list
+  raw run-list
   cat "${D}/runs.json"
   ;;
 "run view")
@@ -89,6 +101,7 @@ case "${1:-} ${2:-}" in
     reject "issue list argv"
   [[ "$8" =~ ^[1-9][0-9]*$ ]] || reject "issue list --limit $8"
   inject issue-list
+  raw issue-list
   jq --argjson lim "$8" --arg filter "${FAKE_GH_AUTHOR_FILTER:-on}" '
     [ .[] | select($filter == "off" or (.author.login == "app/github-actions" and .author.is_bot == true)) ]
     | sort_by(-(.number | tonumber? // 0)) | .[0:$lim]
@@ -97,6 +110,7 @@ case "${1:-} ${2:-}" in
 "issue view")
   [[ $# -eq 5 && "$4" == --json && "$5" == comments ]] || reject "issue view argv"
   inject issue-view
+  raw issue-view
   jq --arg n "$3" '[ .[] | select((.number | tostring) == $n) ] | if length == 1 then {comments: .[0].comments} else error("no issue \($n)") end' "${store}" ||
     {
       echo "GraphQL: Could not resolve to an issue with the number of $3." >&2

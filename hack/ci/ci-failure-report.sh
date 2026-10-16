@@ -20,8 +20,9 @@
 # Hardening: every gh value is a quoted argument; every body goes through --body-file; every id
 # used in a gh call or in arithmetic is checked to be a bounded positive integer first; a marker
 # counts only on the first line of a bot-authored body or comment. Any gh error other than the
-# log fetch stops the script before its next call, with gh's error on stderr. A failed or empty
-# log fetch still writes (with "logs unavailable") and then exits non-zero.
+# log fetch stops the script before its next call, with gh's error on stderr; so does a read that
+# exits 0 without exactly one JSON document of the expected shape. A failed or empty log fetch
+# still writes (with "logs unavailable") and then exits non-zero.
 #
 # Environment (set by the workflow, never interpolated into a command):
 #   GITHUB_EVENT_PATH   the workflow_run payload (JSON)
@@ -51,6 +52,14 @@ need_int() { # need_int <name> <value> <max digits>
   [[ "$2" =~ ^[1-9][0-9]*$ && "${#2}" -le "$3" ]] || die "$1 is not a positive integer: '$2'"
 }
 
+# need_json <file> <jq test> <gh call>: a gh read that exited 0 must have printed exactly one JSON
+# document passing the test. Empty or malformed output is an error, never "nothing found": an
+# empty issue list read as "no issue" would open a duplicate issue.
+need_json() {
+  jq -e -s "length == 1 and (.[0] | $2)" "$1" >/dev/null 2>&1 ||
+    die "$3 did not return one JSON document of the expected shape"
+}
+
 [[ -n "${GITHUB_EVENT_PATH:-}" && -r "${GITHUB_EVENT_PATH}" ]] || die "GITHUB_EVENT_PATH must name the payload file"
 [[ "${GITHUB_REPOSITORY:-}" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] ||
   die "GITHUB_REPOSITORY must be owner/repo, got '${GITHUB_REPOSITORY:-}'"
@@ -74,6 +83,7 @@ trap 'rm -rf "${WORK:?}"' EXIT
 # --- CFR-1: the run acted on is the latest completed scheduled run -----------------------------
 gh run list --workflow "${wf_path}" --event schedule --status completed --limit 1 \
   --json databaseId,number,attempt,conclusion >"${WORK}/runs.json" || die "gh run list failed"
+need_json "${WORK}/runs.json" 'type == "array"' "gh run list"
 if [[ "$(jq 'length' "${WORK}/runs.json")" -eq 0 ]]; then
   echo "ci-failure-report: ${wf_path} has no completed scheduled run yet; nothing to do"
   exit 0
@@ -113,6 +123,7 @@ fi
 # --- CFR-4: the newest bot issue for this workflow ---------------------------------------------
 gh issue list --author 'github-actions[bot]' --state all --limit "${LOOKUP_LIMIT}" \
   --json number,state,author,labels,body >"${WORK}/issues.json" || die "gh issue list failed"
+need_json "${WORK}/issues.json" 'type == "array"' "gh issue list"
 listed="$(jq 'length' "${WORK}/issues.json")"
 [[ "${listed}" -lt "${LOOKUP_LIMIT}" ]] ||
   die "gh issue list returned ${listed} issues, the --limit; the lookup may be incomplete, refusing to write"
@@ -139,6 +150,7 @@ if [[ -n "${issue_num}" ]]; then
   rec="$(jq -r --argjson n "${issue_num}" --arg wf "${wf_path}" "${JQ_MARKER}"'
     .[] | select(.number == $n) | .body | marker($wf) | "\(.n) \(.a) \(.e)"' "${WORK}/mine.json")"
   gh issue view "${issue_num}" --json comments >"${WORK}/comments.json" || die "gh issue view --json comments failed"
+  need_json "${WORK}/comments.json" 'type == "object" and (.comments | type == "array")' "gh issue view --json comments"
   # Comment authors carry no is_bot: the bot's comments read as login github-actions.
   last="$(jq -r --arg wf "${wf_path}" --arg login "${BOT_COMMENT_LOGIN}" "${JQ_MARKER}"'
     [ .comments[]? | select(.author.login == $login) | .body | marker($wf) ] | last // empty
