@@ -42,6 +42,7 @@ Holistic run at B: not run yet.
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
 | 1.1 | CLOSED-WITH-GAPS | astra, 1 round (REQUEST_CHANGES, evidence only, fixed); no Claude leg (fixtures and evidence only) | timed-out job shape not seen live (F7); concurrency replacement and 65536 cap not probable read-only; F1 lookup argv has no `--label`, F2 comment author shape, F5 empty run list: inputs for 3.1–3.3 |
+| G2 (2.1, 2.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds: R1 astra REQUEST_CHANGES, opus CONCERNS (fixed); R2 astra APPROVE, opus CONCERNS (one test-strength gap, deferred) | line-cut at 4000 bytes unasserted (M20 survives): add `[line cut]` assertion and a cut-removed mutant in 5.1 |
 
 ## Known red
 
@@ -62,6 +63,10 @@ This change (ci-failure-reporting):
 - `gh issue view --json comments` spells the bot `github-actions` (no `is_bot`), issues spell it `app/github-actions` (1.1)
 - The Bash tool's zsh does not word-split `$var`: run loops over flag strings under `bash` (1.1)
 - A codex review leg here has no network: live-shape checks stay with the implementer (1.1)
+- A size-cap case must make the input too big to fit uncut, or a removed cut passes it (G2)
+- A test's own Markdown fence oracle needs a fixed-text control case (G2)
+- Each escaped character class needs its own killing case: three escapes survived deletion at 15/15 (G2)
+- Review legs here cannot write /tmp: put any check they must rerun in the evidence, not in a /tmp script (G2)
 
 Carried over from change 5 (developer-toolchain-pins):
 

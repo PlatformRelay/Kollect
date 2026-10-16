@@ -53,7 +53,7 @@ argument per line, so argument boundaries survive.
 
 ## 2. Body builder (CFR-5)
 
-- [ ] 2.1 Write the body-builder cases in `hack/test/ci_failure_report_test.sh` and record them
+- [x] 2.1 Write the body-builder cases in `hack/test/ci_failure_report_test.sh` and record them
   red against a stub `hack/ci/ci-failure-issue-body.sh` that prints nothing:
   - given the nightly job list with two failed entries, when the body is built, then it lists
     exactly those two by name (exposes a builder that lists all jobs, or only the first);
@@ -81,9 +81,9 @@ argument per line, so argument boundaries survive.
   - given no failed log (fetch failed), when the body is built, then it lists the failed jobs and
     says "logs unavailable" (exposes a body that drops jobs when logs expire);
   - given a job list with no failed job, when the body is built, then it says so and lists none
-    (exposes a builder that invents a failure).
-- [ ] 2.2 Implement `hack/ci/ci-failure-issue-body.sh`; 2.1 green; plain mode wired into `lint`.
-  One commit with 2.1.
+    (exposes a builder that invents a failure). — closed 2026-10-16, evidence: evidence/G2.md
+- [x] 2.2 Implement `hack/ci/ci-failure-issue-body.sh`; 2.1 green; plain mode wired into `lint`.
+  One commit with 2.1. — closed 2026-10-16, evidence: evidence/G2.md
 
 ## 3. Decision logic (CFR-1 to CFR-4, CFR-6)
 
