@@ -358,8 +358,13 @@ if [[ "${MODE}" == self-test ]]; then
     judge cfr fail-open-newer "G3 M16 comment body passed with --body" "table: failure, open, newer:" \
       lit "${R}" '    gh issue comment "${issue_num}" --body-file "${WORK}/body.md"' \
       '    gh issue comment "${issue_num}" --body "$(cat "${WORK}/body.md")"'
-    judge cfr gh-error-issue-view "G3 M17 gh issue view error ignored" "gh error at issue-view" \
-      lit "${R}" '|| die "gh issue view --json comments failed"' '|| true'
+    # The comments shape check (B1) also stops on the empty output of a failed read, so the
+    # ignored error is only a write once that check goes too.
+    m17() {
+      lit "${R}" '|| die "gh issue view --json comments failed"' '|| true' &&
+        lit "${R}" 'need_json "${WORK}/comments.json"' ': "${WORK}/comments.json"'
+    }
+    judge cfr gh-error-issue-view "G3 M17 gh issue view error ignored" "gh error at issue-view" m17
     judge cfr fail-closed-newer "G3 M18 closed issue with an older key not replaced" "table: failure, closed, newer:" \
       lit "${R}" ' || [[ "${issue_state}" == CLOSED && "${order}" -gt 0 ]]' ''
     judge cfr non-numeric-issue "G3 M19 issue number not checked" "numeric: issue number '10 '" \
@@ -387,6 +392,23 @@ if [[ "${MODE}" == self-test ]]; then
       "table: success with a failed continue-on-error job" \
       lit "${R}" 'success) class=success ;;' \
       'success) class=success; gh run view "${run_id}" --attempt "${run_attempt}" --json jobs >"${WORK}/jobs.json"; if jq -e "any(.jobs[]; .conclusion == \"failure\")" "${WORK}/jobs.json" >/dev/null; then class=failure; fi ;;'
+
+    # --- gh output shape (B1, tasks.md 7.1): each read's check removed, then each clause ---
+    judge cfr gh-output-run-list-empty "B1 run list output not checked" \
+      "gh output: run-list empty: expected a non-zero exit" \
+      lit "${R}" 'need_json "${WORK}/runs.json"' ': "${WORK}/runs.json"'
+    judge cfr gh-output-issue-list-empty "B1 issue list output not checked" \
+      "gh output: issue-list empty: expected a non-zero exit" \
+      lit "${R}" 'need_json "${WORK}/issues.json"' ': "${WORK}/issues.json"'
+    judge cfr gh-output-issue-view-empty "B1 comments output not checked" \
+      "gh output: issue-view empty: expected a non-zero exit" \
+      lit "${R}" 'need_json "${WORK}/comments.json"' ': "${WORK}/comments.json"'
+    judge cfr gh-output-issue-view-two "B1 more than one JSON document accepted" \
+      "gh output: issue-view two: expected a non-zero exit" \
+      lit "${R}" '"length == 1 and (.[0] | $2)"' '"length >= 1 and (.[0] | $2)"'
+    judge cfr gh-output-issue-view-wrong "B1 comments not required to be an array" \
+      "gh output: issue-view wrong: expected a non-zero exit" \
+      lit "${R}" ' and (.comments | type == "array")' ''
 
     # --- workflow wiring (CFR-1, CFR-6, CFR-7; G4 W1-W11, F1-F4) ---
     judge cfr wiring "G4 W1 E2E nightly renamed in e2e-nightly.yaml" "listed workflow 'E2E nightly' matches the name: of 0" \
@@ -1378,6 +1400,39 @@ mv "${S}/issues.new" "${S}/issues.json"
 payload
 report
 expect_stop "numeric: issue number '10 '" issue-list
+
+# gh exiting 0 with empty or malformed output at each read (B1): the output must be exactly one
+# JSON document of the expected shape (an array; for comments an object with a comments array).
+# Otherwise exit non-zero, say so on stderr, no write, and no call after that read. An empty issue
+# list read as "no issue" would open a duplicate; empty comments read as "no comment" would fall
+# back to the body key and comment again.
+for k in run-list issue-list issue-view; do
+  case "${k}" in
+  issue-view) wrong='{"comments": "x"}' two='{"comments": []} {"comments": []}' ;;
+  *) wrong='{"total": 0}' two='[] []' ;;
+  esac
+  for shape in empty garbage two wrong; do
+    store "gh-output-${k}-${shape}"
+    run_listed 162 1 failure
+    if [[ "${k}" == issue-view ]]; then
+      issue 10 OPEN "${NIGHTLY}" 161.1 failure
+    fi
+    if ((!SKIP)); then
+      case "${shape}" in
+      empty) : >"${S}/raw-${k}" ;;
+      garbage) echo 'not json' >"${S}/raw-${k}" ;;
+      two) echo "${two}" >"${S}/raw-${k}" ;;
+      wrong) echo "${wrong}" >"${S}/raw-${k}" ;;
+      esac
+    fi
+    payload
+    report
+    expect_stop "gh output: ${k} ${shape}" "${k}"
+    if ((!SKIP)) && ! grep -qF 'did not return one JSON document of the expected shape' "${ERR}"; then
+      bad "gh output: ${k} ${shape}: expected 'did not return one JSON document of the expected shape' on stderr, got: $(head -c 300 "${ERR}" | tr '\n' ' ')"
+    fi
+  done
+done
 
 # gh exiting non-zero at each call in turn: exit non-zero, the gh error on stderr, and the
 # failing call is the last call made.
