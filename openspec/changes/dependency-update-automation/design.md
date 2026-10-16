@@ -33,8 +33,8 @@ See proposal.md. Credentials and merge authority are involved, so the trade-offs
   but does not bound freshness. A daily run, `rebaseWhen: "behind-base-branch"`, `prCreation:
   "not-pending"`, one group for non-Kubernetes Go modules and one for Kubernetes modules keep the
   PR count and the rebase churn low.
-- **Privileged token isolation in changelog-sync.** The checkout does not persist credentials; the
-  App token reaches only the push step. A compromised tool in an earlier step then has no token.
+- **Privileged token isolation in changelog-sync** moved to the change
+  `changelog-sync-checkout-token` (formerly DUA-6); `persist-credentials: false` is already on `main`.
 
 ## Risks / Trade-offs
 

@@ -116,21 +116,6 @@ the one used by `changelog-sync.yaml`, compared by App slug.
 - **WHEN** a bot PR has a failing required check
 - **THEN** the merge is blocked as for a human PR; no bypass path exists
 
-### Requirement: DUA-6 The privileged token is isolated in changelog-sync
-
-In `changelog-sync.yaml` the checkout SHALL set `persist-credentials: false`, and the App token SHALL
-be passed only to the step that pushes.
-
-#### Scenario: Credentials persist
-
-- **WHEN** the checkout step omits `persist-credentials: false` or receives the App token
-- **THEN** the guard SHALL fail
-
-#### Scenario: Token reaches an earlier step
-
-- **WHEN** a step before the push references the App token output
-- **THEN** the guard SHALL fail
-
 ### Requirement: DUA-7 Auto-merge pauses on a red main and has no pull_request_target variant
 
 The Renovate run SHALL set `automerge: false` when the latest push run of `ci.yaml` on `main` is not
