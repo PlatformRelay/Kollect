@@ -122,6 +122,10 @@ make_var() {
     --eval 'kollect-print-var-%: ; @printf "%s\n" "$($*)"' "kollect-print-var-$2" 2>/dev/null
 }
 
+# A literal or Taskfile-variable pin is a full semantic version (pre-release and pseudo-versions
+# included); `v1` or `v1.9` would be a query that floats to the newest match.
+PIN_VERSION_RE='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+
 # taskfile_var <root> <NAME>: a top-level `vars:` entry of Taskfile.yml.
 taskfile_var() {
   sed -n -E "s/^  $2:[[:space:]]*[\"']?([^\"'#[:space:]]+)[\"']?.*$/\1/p" "$1/Taskfile.yml" | head -1
@@ -159,10 +163,11 @@ scan_pins() {
       if [[ "${ver}" =~ ^\{\{\.([A-Za-z0-9_]+)\}\}$ && "${file}" == "Taskfile.yml" ]]; then
         var="${BASH_REMATCH[1]}"
         ver="$(taskfile_var "${root}" "${var}")"
-        # The variable must hold a version, as a literal must: `latest` (or a branch) through
-        # a variable is the same floating pin that `@latest` is.
-        [[ "${ver}" =~ ^v[0-9] ]] || ver="<unresolved:{{.${var}}}=${ver:-<empty>}>"
-      elif [[ ! "${ver}" =~ ^v[0-9] ]]; then
+        # The variable must hold a full version, as a literal must: `latest`, a branch or a
+        # partial `v1` through a variable is a query go mod download resolves to whatever is
+        # newest, not a pin.
+        [[ "${ver}" =~ ${PIN_VERSION_RE} ]] || ver="<unresolved:{{.${var}}}=${ver:-<empty>}>"
+      elif [[ ! "${ver}" =~ ${PIN_VERSION_RE} ]]; then
         ver="<unresolved:${ver}>"
       fi
       printf '%s\t%s\t%s\tpkg\n' "${file}" "${pkg}" "${ver}"
@@ -508,6 +513,11 @@ mutant_rejected "Taskfile pin variable set to latest" \
   "golang.org/x/vuln/cmd/govulncheck@<unresolved:{{.GOVULNCHECK_VERSION}}=latest> -- the version is not a literal" \
   '^  GOVULNCHECK_VERSION: latest$' Taskfile.yml \
   sed -i -E 's/^(  GOVULNCHECK_VERSION: )v[0-9.]+/\1latest/' Taskfile.yml
+
+mutant_rejected "Taskfile pin variable set to a major-version query" \
+  "golang.org/x/vuln/cmd/govulncheck@<unresolved:{{.GOVULNCHECK_VERSION}}=v1> -- the version is not a literal" \
+  '^  GOVULNCHECK_VERSION: v1$' Taskfile.yml \
+  sed -i -E 's/^(  GOVULNCHECK_VERSION: )v[0-9.]+/\1v1/' Taskfile.yml
 
 mutant_rejected "package path typo in a real module" \
   "golang.org/x/vuln/cmd/govulncheckk@" 'govulncheckk@' Taskfile.yml \
