@@ -7,9 +7,11 @@
 #
 # That agreement is ENFORCED, not merely documented: hack/test/consistency_toolchain_pins_test.sh
 # compares the values below against every setup-task / setup-node / setup-python pin under
-# .github/ and reds the `lint` job on any disagreement. renovate.json additionally moves the
-# task pin here in the same PR as the workflow bump, and leaves Renovate's own mise manager
-# off so this file can never run ahead of CI.
+# .github/ and reds the `lint` job on any disagreement, on a comment here that restates a
+# version anywhere but directly above (or on) the pin it names at that pin's value, and on any
+# count of pin sites. renovate.json additionally moves the task pin here in the same PR as the
+# workflow bump, and leaves Renovate's own mise manager off so this file can never run ahead
+# of CI.
 #
 #   mise trust && mise install
 #
@@ -21,11 +23,11 @@
 # Deliberately NOT listed here:
 #   * kustomize, controller-gen, setup-envtest, operator-sdk, golangci-lint -- pinned in
 #     the Makefile and installed into bin/ (`make kustomize`, `task lint`, ...).
-#   * git-cliff (v2.13.1) and helm-docs (v1.14.2) -- pinned in Taskfile.yml vars
+#   * git-cliff and helm-docs -- pinned in Taskfile.yml vars
 #     (GIT_CLIFF_VERSION, HELM_DOCS_VERSION), which pass the version to the matching
 #     hack/install-*.sh downloader as its first argument (`task tools:git-cliff`,
 #     `task tools:helm-docs`).
-#   * helm (v3.21.4) -- Taskfile.yml HELM_VERSION, mirrored by hack/install-helm.sh's
+#   * helm -- Taskfile.yml HELM_VERSION, mirrored by hack/install-helm.sh's
 #     own default.
 #   * shellcheck, gitleaks, polaris, kubeaudit -- default versions live inside their own
 #     hack/install-*.sh and are overridden by an env var where CI needs to.
@@ -36,7 +38,7 @@
 
 [settings]
 # Go is intentionally absent from [tools]: this setting makes mise read the Go version
-# straight out of `go.mod` (currently `go 1.27.2`), which is precisely what CI does.
+# straight out of the `go` line in `go.mod`, which is precisely what CI does.
 # .github/actions/go-cache/action.yml runs actions/setup-go with
 # `go-version-file: go.mod`, and every Go job in .github/workflows/ci.yaml -- including
 # the required `test` and `kind-smoke` checks -- goes through that composite action;
@@ -48,9 +50,8 @@
 idiomatic_version_file_enable_tools = ["go"]
 
 [tools]
-# Task runs the whole gate matrix (Taskfile.yml). Matches `go-task/setup-task` with
-# `version: 3.52.0` -- unanimous across all 17 occurrences in .github/workflows/
-# (ci, docs, preflight, changelog-sync, sonarcloud, e2e-nightly).
+# Task runs the whole gate matrix (Taskfile.yml). Matches the `version:` input of every
+# `go-task/setup-task` step under .github/ (workflows and composite actions).
 task = "3.52.0"
 
 # Node runs markdownlint-cli2 for `task lint:markdown` (pinned in docs/package.json).

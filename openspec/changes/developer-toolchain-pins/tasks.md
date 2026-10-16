@@ -82,7 +82,7 @@ tests with 4.3.
   `{{.GOVULNCHECK_VERSION}}` (the variable lookup at ~162) rather than reporting `<unresolved:…>`.
   Record a real `task vulncheck` run. Both guards green, both modes. — closed 2026-10-16, evidence:
   evidence/T2.2.md
-- [ ] 2.3 Add the DTP-5 comment rule, then fix the comments, in one commit. Self-test cases, each
+- [x] 2.3 Add the DTP-5 comment rule, then fix the comments, in one commit. Self-test cases, each
   with the failure it exposes:
   - when a `mise.toml` comment says `helm (v3.21.4)`, `go 1.27.2` or "all 17 occurrences", then red
     (a restated version or count away from its pin);
@@ -99,7 +99,8 @@ tests with 4.3.
     are in scope).
   Record the plain mode red on today's `mise.toml:24`, `:28`, `:39` and `:52`. Replace those
   restated versions and the count with pointers to the owning file. The Go half of DTP-5 needs no
-  change: it is the existing DEV-MISE-01 check, carried over by 1.2.
+  change: it is the existing DEV-MISE-01 check, carried over by 1.2. — closed 2026-10-16, evidence:
+  evidence/T2.3.md
 
 ## 3. Managers (DTP-4)
 
