@@ -52,6 +52,7 @@ Holistic run at B: not run yet.
 | G3 (3.1, 3.2, 3.3) | CLOSED-WITH-GAPS | astra + claude/opus:diff (token-writing script: security posture), 1 round: astra APPROVE, opus CONCERNS (payload-guard test gap, fixed with 5 cases) | live gh shapes read by the implementer (row 29); lookup ceiling 500 shared with every github-actions issue (recorded in G3 Harness gaps) |
 | G4 (4.1, 4.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (privileged `workflow_run` workflow, CI and security posture), 1 round: astra REQUEST_CHANGES, opus CONCERNS (guard-strength gaps and wording, all fixed, fix-line mutants 9/9) | header comment agent-review; workflow firing on GitHub is the 6.1 post-merge row; one test change: CWS-2 self-test mutant anchors (`rules: {}` gone) |
 | 5.1 | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI wiring), 2 rounds: R1 astra APPROVE, opus CONCERNS (bump control could become a no-op; no cws control; both fixed, fix-line mutant red); R2 astra APPROVE, opus CLEAN (comment wording fixed; multi-name filter typo note deferred) | filter env var is believed harmless in CI (no CI step sets it); `task check` is the stage-B row |
+| G7 (7.1–7.4) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI wiring, privileged workflow, local gate), 2 rounds: R1 astra APPROVE, opus CONCERNS (R1-1 jobs read unchecked: behaviour, fixed red-first; two comment fixes); R2 astra APPROVE, opus CONCERNS (notes: two wording fixes, one rejected) | 7.3 runtime semantics believed (job `if:` before job concurrency); final `task check` 29:58, one ENVIRONMENT red (demo_04: mise kubectl shim unset in the worktree), guard rerun green with a real kubectl |
 
 ## Known red
 
@@ -63,6 +64,9 @@ Holistic run at B: not run yet.
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
 | `hack/test/ci_workflow_security_test.sh`: seven CWS-2 self-test mutants and control | ci-workflow-hardening | G4 | anchored on the literal `rules: {}`, which tasks.md 4.2 replaces; mutants no longer applied. Same rule text and expected message, anchor now the `rules:` line (evidence/G4.md *Test changes*) |
+| `hack/test/ci_workflow_security_test.sh`: CFC-6 `cfc_guards` list, one mutant added | cross-file-consistency-gates (CFC-6) | G7 (7.2) | B2: the list omitted a guard that checks its own wiring only when run; entry and mutant added, nothing weakened (evidence/G7.md *Test changes*) |
+| `hack/test/ci_failure_report_test.sh` self-test: G3 M17 mutant | 5.1 | G7 (7.1) | B1's comments shape check made the mutant equivalent (survived); it now also drops that check, same case and message |
+| `hack/test/ci_failure_report_test.sh`: concurrency wiring assertion, W4 mutant | G4 (4.1), 5.1 | G7 (7.3) | tasks.md 7.3 moves the block to the job: same group and value, now also no workflow-level block |
 
 ## Lessons
 
@@ -86,6 +90,11 @@ This change (ci-failure-reporting):
 - A per-mutant self-test of a slow guard needs a case filter in the guard first: 43 s plain x 85 mutants is an hour, filtered 3.5 min (5.1)
 - Mutate shell code with an exactly-once literal replace, not sed: no escaping, and a vanished anchor fails loudly (5.1)
 - Before moving a self-test out of `lint`, compare job wall times: lint 12 min < tool-pins-selftest 20 min, so lint was the free slot (5.1)
+- After adding a defensive check, rerun the self-test: it can make an old mutant equivalent (G7: the B1 shape check silenced G3 M17)
+- Apply a finding's rule to every call of that kind, not only the ones it lists (G7: the jobs read had B1's defect, found in review)
+- `grep >/dev/null` avoids pipefail's SIGPIPE only because GNU grep drains its input; keep a large-file test on the detection (G7)
+- Fixing a silent skip turns on never-run work: `task check` went from ~18 to ~30 min, and the skipped self-tests ran for the first time (G7)
+- A fresh worktree's mise sets no kubectl: put a real kubectl first on PATH for the kustomize guards in `task check` (G7)
 
 Carried over from change 5 (developer-toolchain-pins):
 
