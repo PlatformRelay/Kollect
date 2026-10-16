@@ -75,13 +75,20 @@ golang_images() {
   while IFS= read -r f; do
     [[ -n "${f}" ]] || continue
     # Backslash continuations are joined first, so `FROM --platform=... \` + `golang:...` on
-    # the next line is one instruction.
+    # the next line is one instruction. As in BuildKit's parser, a comment line is dropped before
+    # the continuation check (a trailing "\" does not continue a comment), and comment and blank
+    # lines inside a continuation are skipped (a blank one only warns, NoEmptyContinuation).
     awk -v f="${f}" '
       {
-        line = (cont != "") ? cont " " $0 : $0
+        if (cont != "") {
+          if ($0 ~ /^[[:space:]]*(#|$)/) next
+          line = cont " " $0
+        } else {
+          if ($0 ~ /^[[:space:]]*#/) next
+          line = $0
+        }
         cont = ""
         if (line ~ /\\[[:space:]]*$/) { sub(/\\[[:space:]]*$/, "", line); cont = line; next }
-        if (line ~ /^[[:space:]]*#/) next
         sub(/^[[:space:]]+/, "", line)
         n = split(line, w, /[[:space:]]+/)
         if (toupper(w[1]) != "FROM") next
@@ -436,6 +443,21 @@ mutant_rejected "no golang image found" \
 mutant_rejected "FROM continued onto the next line drifts" \
   "Dockerfile: golang:1.92.0 is newer than go.mod's go" '^  golang:1\.92\.0' Dockerfile \
   sed -i -E 's/^FROM golang:[^ ]+ AS builder/FROM --platform=linux\/amd64 \\\n  golang:1.92.0 AS builder/' Dockerfile
+
+# Docker drops comment lines and blank lines inside a continuation (a blank one only warns), so
+# the image on the line after them still belongs to the FROM.
+mutant_rejected "FROM continuation with a comment line drifts" \
+  "Dockerfile: golang:1.99.0 is newer than go.mod's go" '^  golang:1\.99\.0' Dockerfile \
+  sed -i -E 's/^FROM golang:[^ ]+ AS builder/FROM \\\n# pinned below\n  golang:1.99.0 AS builder/' Dockerfile
+
+mutant_rejected "FROM continuation with a blank line drifts" \
+  "Dockerfile.pipeline: golang:1.91.0 is newer than go.mod's go" '^  golang:1\.91\.0' Dockerfile.pipeline \
+  sed -i -E 's/^FROM golang:[^ ]+ AS builder/FROM \\\n\n  golang:1.91.0 AS builder/' Dockerfile.pipeline
+
+# A comment ending in a backslash is still only a comment: the FROM after it is read.
+mutant_rejected "FROM after a comment ending in a backslash drifts" \
+  "Dockerfile: golang:1.90.0 is newer than go.mod's go" '^FROM golang:1\.90\.0' Dockerfile \
+  sed -i -E 's/^FROM golang:[^ ]+ AS builder/# builder stage \\\nFROM golang:1.90.0 AS builder/' Dockerfile
 
 # shellcheck disable=SC2016 # ${GO_VERSION} is literal Dockerfile text, not a shell expansion
 mutant_rejected "golang tag from a build arg" \
