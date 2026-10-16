@@ -183,18 +183,19 @@ tests with 4.3.
 
 ## 5. Land
 
-- [ ] 5.1 Archive the change as the last commit of the PR, after review and green CI; the review
-  record names the reviewed and the archive revision
+- [x] 5.1 Archive the change as the last commit of the PR, after review and green CI; the review
+  record names the reviewed and the archive revision — closed 2026-10-16: merged in PR #465 (head
+  6f5dc8e55, merge 7ced03a7e); Verification rows filled below; archived in a follow-up evidence PR
 
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| DTP-1 | guard: one-site and below-floor mutants red; newer set passes; today's tree red before 2.1 | as stated | not-run | |
-| DTP-2 | inline-govulncheck, dropped-annotation, other-variable and missing-definition mutants; CFC-2 self-test after re-anchoring; `task vulncheck` real run | red; CFC-2 green; run result recorded | not-run | |
-| DTP-3 | gitleaks, git-cliff and shellcheck drift, below-floor and empty-scan mutants; shellcheck missing-digest mutant; four-component rev passes | red; rev case green | not-run | |
-| DTP-4 | dead-manager, rotted-pattern, uncovered-site, split-group and shared-shellcheck-group fixtures; gitleaks pin forms rewritten correctly | red; forms recorded | not-run | |
-| DTP-5 | ported go/node/python/task mutants; stale, detached, other-tool and site-count comment mutants; Node, Python and Taskfile attached comments pass | red; positives green | not-run | |
-| DTP-6 | valid, tampered and missing-checksum cases per installer; verification-removed copy; grown-exceptions mutant before and after the list empties | valid installs; others fail, nothing installed; red | not-run | |
-| DTP-7 | all mutants plus no-op by exit status; old-to-new mutant mapping; one step removed; both steps removed | mutants red, no-op green, mapping complete, CWS-6 red, CFC-6 red | not-run | |
-| all | independent review; CI on the PR head | APPROVE, green; both revisions recorded | not-run | |
+| DTP-1 | guard: one-site and below-floor mutants red; newer set passes; today's tree red before 2.1 | as stated | pass | evidence/T2.1.md, G6.md |
+| DTP-2 | inline-govulncheck, dropped-annotation, other-variable and missing-definition mutants; CFC-2 self-test after re-anchoring; `task vulncheck` real run | red; CFC-2 green; run result recorded | pass | evidence/T2.2.md |
+| DTP-3 | gitleaks, git-cliff and shellcheck drift, below-floor and empty-scan mutants; shellcheck missing-digest mutant; four-component rev passes | red; rev case green | pass | evidence/T1.1.md, G3.md |
+| DTP-4 | dead-manager, rotted-pattern, uncovered-site, split-group and shared-shellcheck-group fixtures; gitleaks pin forms rewritten correctly | red; forms recorded | pass | evidence/G3.md, G6.md, G7.md |
+| DTP-5 | ported go/node/python/task mutants; stale, detached, other-tool and site-count comment mutants; Node, Python and Taskfile attached comments pass | red; positives green | pass | evidence/T2.3.md, T1.2.md |
+| DTP-6 | valid, tampered and missing-checksum cases per installer; verification-removed copy; grown-exceptions mutant before and after the list empties | valid installs; others fail, nothing installed; red | pass | evidence/G4.md, G6.md |
+| DTP-7 | all mutants plus no-op by exit status; old-to-new mutant mapping; one step removed; both steps removed | mutants red, no-op green, mapping complete, CWS-6 red, CFC-6 red | pass | evidence/T1.1.md, T1.2.md, G6.md |
+| all | independent review; CI on the PR head | APPROVE, green; both revisions recorded | pass | PR #465 head 6f5dc8e55: 39 checks green, 3 skipped; independent cold review: REQUEST_CHANGES with 2 P2 findings, non-blocking, deferred to the backlog; main post-merge CI by headSha 7ced03a7e: all 8 workflows success (CI, Preflight, Docs, E2E smoke, CodeQL, CodeQL - Code Quality, OpenSSF Scorecard, changelog-sync); reviews in loop.md (R, L, B rounds 1–2) |
