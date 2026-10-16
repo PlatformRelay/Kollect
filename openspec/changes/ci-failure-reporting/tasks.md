@@ -229,6 +229,13 @@ argument per line, so argument boundaries survive.
   `hack/test/ci_workflow_security_test.sh` both modes and `task lint:shell` green. — closed
   2026-10-16, evidence: evidence/T5.1.md
 
+## 7. Stage-B fixes (round 1)
+
+- [ ] 7.1 B1: the reporter requires exactly one JSON array from each gh read (run list, issue list, comments); malformed or empty output with gh exit 0 is an error (exit non-zero, no write). Fake-gh cases for empty and malformed output on each read, red first
+- [ ] 7.2 B2: add `hack/test/ci_failure_report_test.sh` to the CFC-6 fixed guard list in `hack/test/ci_workflow_security_test.sh` (plain and --self-test), with a mutant deleting both lint steps that CWS-6/CFC-6 catches
+- [ ] 7.3 B3: move `concurrency:` from workflow level to the `report` job in `.github/workflows/ci-failure-report.yaml`; update the wiring assertion and its mutant
+- [ ] 7.4 H1 (pre-existing on main): `hack/check.sh` detects a guard's `--self-test` mode with `grep -v | grep -q` under pipefail, which SIGPIPEs on large guards and silently skips their self-test (ci_failure_report, ci_workflow_security, consistency_toolchain_pins). Use `grep … >/dev/null`; add a `task_check_test.sh` case with a guard larger than the pipe buffer whose self-test must be run
+
 ## 6. Land
 
 - [ ] 6.1 Independent review; PR with green CI on the head SHA; rebase merge with the `post-merge`
