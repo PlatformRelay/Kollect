@@ -1,7 +1,7 @@
 # Loop — developer-toolchain-pins (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/developer-toolchain-pins` · Branch: `feat/developer-toolchain-pins` · Base: `origin/main` @ `966e17e10` (change 4 merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: G7 (7.1, O1 fix, no review per cap), then hand-off (integrator)
+Next: hand-off — integrator: pr-description.md, scrub, push, ready PR, all checks green by headSha, rebase-merge, close #442; then archive PR
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/spec.md, tasks.md.
@@ -12,7 +12,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 - [x] P plan + tasks — present; spec set updated 649e5811c (re-measure, decisions A pin ownership and C guard shape)
 - [x] R spec-set review — `reviews/R-spec-set/` (b3fd2d944) on 9621c98aa: astra REQUEST CHANGES, claude/opus CONCERNS; no CRITICAL; 11 WARNING + 6 NOTE all verified; fixes applied faa6754fd (R2 placement deviation: lint wiring lands with 1.1 because CFC-6 reds an unwired consistency_* guard; R9 mutants in 2.2)
 - [x] L task loop — 1.1–4.3 closed (5.1 archive is post-merge)
-- [ ] B branch review — round 1 `reviews/B-branch/round-1/` (650d7c765): task check exit 0 (1528 s), vulncheck 0; astra REQUEST_CHANGES (B1 P1), opus CONCERNS; no spec row contradicted/absent; fixes → G6; round 2 `reviews/B-branch/round-2/` (b1b54080f): task check exit 0 (1224 s); all 11 G6 commits pass per-commit gate; astra BLOCK, opus CONCERNS (DTP-1..7 hold). Rounds 2/2
+- [x] B branch review — round 1 `reviews/B-branch/round-1/` (650d7c765): task check exit 0 (1528 s), vulncheck 0; astra REQUEST_CHANGES (B1 P1), opus CONCERNS; no spec row contradicted/absent; fixes → G6; round 2 `reviews/B-branch/round-2/` (b1b54080f): task check exit 0 (1224 s); all 11 G6 commits pass per-commit gate; astra BLOCK, opus CONCERNS (DTP-1..7 hold). Rounds 2/2
 - [ ] Hand-off
 
 ## Fitness functions
@@ -72,6 +72,7 @@ Change 5 of 10 (issue #442). Spec set: proposal.md, specs/developer-toolchain/sp
 | G3 (3.1–3.3) | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES + claude/opus:diff CONCERNS; r2 astra REQUEST_CHANGES (2 P2, fixed unreviewed per cap) | c01c6ab49, d2354912a. Liveness = file hit AND ≥1 extracted dep; mechanism = python model reading renovate.json (matches Renovate 44.115.4 extract: 29 deps today / 41 final); Renovate not run in lint (groups need lookup + GitHub token). New gitleaks/shellcheck/shellcheck-py/git-cliff/golangci managers; shellcheck own group before go toolchain. Test changes: 3 earlier cases rewritten, ALSO_RED on 7 cases. Gaps: model ≠ Renovate (presets, minimatch); rewrite simulated from replace string |
 | G4 (4.1–4.3) | CLOSED-WITH-GAPS | astra APPROVE + claude/opus:diff CONCERNS (1 WARNING, 3 NOTE), 1 round | 5bb2e11ff, e814eeddf, 3b05a8148. git-cliff verifies per-asset .sha512 (inline sha512sum), helm-docs verify_sha256 vs checksums.txt; UNVERIFIED_BY_DESIGN and guard limit EMPTY; real installs on linux/amd64. Test changes: mutant relabel; fetch-lib scan messages SHA256→checksum. **Orchestrator override:** macOS (no sha512sum/sha256sum) now fails closed → fix at B with `shasum -a` fallback, not deferred (operator works on macOS). Deferred to B: helm-docs digest not checked as 64 hex. Gaps: Darwin/arm64 install paths probed by URL only |
 | G6 (6.1–6.8) | CLOSED-WITH-GAPS | r1 astra REQUEST_CHANGES (2 P2) + claude/opus:diff CONCERNS (1 WARNING, 6 NOTE) fixed; r2 astra APPROVE | 632246c28..58c516203. P1 reproduced then fixed (all-pins bump control, 41 sites); toolchain self-test moved to tool-pins-selftest job (7.6+7.4 min, 45 min timeout); shasum fallback; helm-docs 64-hex; CFC-2 full-semver for literal + Taskfile-var pins (`latest`, `v1` floated); case-insensitive uses:; golangci own group. Test changes: change-4 CFC-2/CFC-6 mutants adjusted. CAVEAT: 10 commits split from one tested tree, intermediates not run individually. Gaps: no real Darwin run; shim branch for no-shasum hosts never ran. Deferred: Makefile var `latest` / literal `@latest` in CFC-2 → BACKLOG (ENVTEST_VERSION branch pin needs its own decision) |
+| G7 (7.1) | CLOSED-WITH-GAPS | none (post-round-2 behaviour fix, cap) — Renovate 44.115.4 extract/lookup dry-runs + 2 mutants | 1d2016336, b5e9414aa. packageRule disables github-actions uses-with node/python (3 inputs skipReason disabled; 22 other updates unaffected); guard reads them; ci.yaml comment fixed. Gaps: flow-style `with: {}` not modelled; O1 may not fire today (pinDigests drops it) — rule removes the reliance |
 
 ## Known red
 
@@ -141,6 +142,14 @@ Carried over from change 4 (cross-file-consistency-gates):
 - Renovate: the LAST matching rule wins, so a group rule must be the last groupName-setting rule; prove grouping with a local `renovate --platform=local` lookup dry-run (~1 min) (G1)
 
 ## Where a human should look first
+
+- `hack/test/consistency_toolchain_pins_test.sh` — new guard (absorbs dev_mise_pin_drift_test.sh; 146 self-test cases incl. all-pins bump control and a python Renovate model)
+- `hack/test/consistency_tool_pins_test.sh` — change 4's CFC-2 tightened: full semver for literal and Taskfile-var pins; re-anchored mutants (test change on another change's guard)
+- `hack/test/ci_workflow_security_test.sh` — CFC-6 now pins BOTH self-tests to `tool-pins-selftest`; guard_modes SIGPIPE flake fix
+- `.github/workflows/ci.yaml` — toolchain self-test runs in `tool-pins-selftest` (~15 min with CFC-2's, 45 min timeout); old dev_mise step removed
+- `renovate.json` — new managers (gitleaks, shellcheck, shellcheck-py, git-cliff, golangci-lint), own groups for shellcheck and golangci-lint, uses-with node/python disabled
+- `hack/install-git-cliff.sh`, `hack/install-helm-docs.sh`, `hack/verify-sha256.sh` — supply-chain: checksum verification now mandatory (UNVERIFIED_BY_DESIGN empty); macOS `shasum` fallback
+- `.github/workflows/*` + `mise.toml` — Task 3.52.0 at 19 sites; govulncheck via GOVULNCHECK_VERSION
 
 ## Proposed harness changes
 
