@@ -38,7 +38,9 @@
 #   * DTP-6: UNVERIFIED_BY_DESIGN in hack/test/ci_fetch_lib_hardening_test.sh (installers exempt
 #     from its checksum scan) is defined once, on one line, and otherwise only read (a closed list
 #     of read forms; any other mention is a write), and lists nothing outside
-#     UNVERIFIED_LIMIT: the list may only shrink;
+#     UNVERIFIED_LIMIT, which is empty: no installer is exempt from the checksum scan, and
+#     --self-test runs each checksum-verifying installer on valid, tampered and missing-checksum
+#     downloads;
 #   * DEV-MISE-01 (folded in from the former mise pin-drift guard): mise.toml exists and has a [tools]
 #     table with a task entry (its value is DTP-1's) and node and python equal to every
 #     `node-version:` and `python-version:` under .github/ (which must agree among themselves
@@ -95,9 +97,9 @@ ROOT="${ROOT%/}"
 GITLEAKS_FLOOR="8.30.1"
 GIT_CLIFF_FLOOR="2.13.1"
 TASK_FLOOR="3.52.0"
-# The exemptions UNVERIFIED_BY_DESIGN may hold. Shrink-only: removing an entry here and from the
-# hardening gate is the only allowed edit.
-UNVERIFIED_LIMIT=("install-git-cliff.sh" "install-helm-docs.sh")
+# The exemptions UNVERIFIED_BY_DESIGN may hold: none since DTP-6 (task 4.3) emptied the list.
+# Shrink-only, so it stays empty.
+UNVERIFIED_LIMIT=()
 FETCH_GATE="hack/test/ci_fetch_lib_hardening_test.sh"
 
 WORKROOT="$(mktemp -d)"
@@ -1327,7 +1329,7 @@ mutant_rejected "shellcheck platforms unreadable" \
 
 # --- DTP-6 exceptions list ---
 FG="${FETCH_GATE}"
-mutant_rejected "UNVERIFIED_BY_DESIGN gains a third entry" \
+mutant_rejected "UNVERIFIED_BY_DESIGN gains an entry" \
   'DTP-6: UNVERIFIED_BY_DESIGN lists install-kind\.sh, which is not in this guard.s limit' \
   '^UNVERIFIED_BY_DESIGN=\(.*"install-kind\.sh"\)$' "${FG}" \
   sed -i -E 's/^(UNVERIFIED_BY_DESIGN=\(.*)\)$/\1 "install-kind.sh")/' "${FG}"
@@ -1372,6 +1374,211 @@ mutant_rejected "UNVERIFIED_BY_DESIGN written by printf -v with the bare name" \
 control_passes "UNVERIFIED_BY_DESIGN read in a loop and named in a message" \
   'listed in UNVERIFIED_BY_DESIGN here' "${FG}" \
   sed -i -E '/^UNVERIFIED_BY_DESIGN=\(/a for k in "${UNVERIFIED_BY_DESIGN[@]}"; do echo "${k} listed in UNVERIFIED_BY_DESIGN here (${#UNVERIFIED_BY_DESIGN[@]})"; done' "${FG}"
+
+# The ratchet holds once the list is empty: the limit is empty too, so re-adding an installer reds.
+mutant_rejected "install-git-cliff.sh re-added to the emptied UNVERIFIED_BY_DESIGN" \
+  'DTP-6: UNVERIFIED_BY_DESIGN lists install-git-cliff\.sh, which is not in this guard.s limit \(empty\)' \
+  '^UNVERIFIED_BY_DESIGN=\("install-git-cliff\.sh"\)$' "${FG}" \
+  sed -i -E 's/^UNVERIFIED_BY_DESIGN=\(\)$/UNVERIFIED_BY_DESIGN=("install-git-cliff.sh")/' "${FG}"
+
+# The checksum scan of the hardening gate (it owns the scan) sees each installer's verifier: delete
+# it from a copy and that gate reds naming the installer. The step fails if the verifier is absent,
+# so the case cannot pass on an installer that never had one.
+GATE="${FETCH_GATE}"
+mutant_rejected "sha512sum deleted from install-git-cliff.sh" \
+  'hack/install-git-cliff\.sh no longer verifies a checksum' \
+  '!sha512sum' hack/install-git-cliff.sh \
+  bash -c 'grep -q sha512sum hack/install-git-cliff.sh && sed -i "/sha512sum/d" hack/install-git-cliff.sh'
+
+mutant_rejected "verify_sha256 deleted from install-helm-docs.sh" \
+  'hack/install-helm-docs\.sh no longer verifies a checksum' \
+  '!^verify_sha256 ' hack/install-helm-docs.sh \
+  bash -c 'grep -q "^verify_sha256 " hack/install-helm-docs.sh && sed -i "/^verify_sha256 /d" hack/install-helm-docs.sh'
+GATE="${SELF}"
+
+# --- DTP-6 installer execution: valid, tampered and missing-checksum downloads ---
+# Each run uses a scratch root holding only what the installer sources: the installer under test,
+# the real hack/lib/verify-sha256.sh and a fake hack/lib/fetch.sh whose fetch_to copies the fixture
+# named by the URL's basename (logging each URL) or fails like the real one. uname is faked to
+# Linux x86_64, so the asset names are fixed on any host. Version 99.0.0 is a fixture, never a
+# release. Every case runs; the section fails at its end if any case did.
+INST_BROKEN=0
+inst_err() {
+  echo "FAIL: $*" >&2
+  INST_BROKEN=1
+}
+
+INST_VERSION="99.0.0"
+# inst_meta <tool>: sets INST_ASSET, INST_TARBALL_URL, INST_SUM_FILE and INST_SUM_URL.
+inst_meta() {
+  case "$1" in
+    git-cliff)
+      INST_ASSET="git-cliff-${INST_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+      INST_TARBALL_URL="https://github.com/orhun/git-cliff/releases/download/v${INST_VERSION}/${INST_ASSET}"
+      INST_SUM_FILE="${INST_ASSET}.sha512"
+      INST_SUM_URL="${INST_TARBALL_URL}.sha512"
+      ;;
+    helm-docs)
+      INST_ASSET="helm-docs_${INST_VERSION}_Linux_x86_64.tar.gz"
+      INST_TARBALL_URL="https://github.com/norwoodj/helm-docs/releases/download/v${INST_VERSION}/${INST_ASSET}"
+      INST_SUM_FILE="checksums.txt"
+      INST_SUM_URL="https://github.com/norwoodj/helm-docs/releases/download/v${INST_VERSION}/checksums.txt"
+      ;;
+  esac
+}
+
+# inst_fixtures <tool> <dir>: a valid archive in the release layout and its checksum file in the
+# published format (probed upstream in task 4.1): git-cliff's per-asset `<sha512>  <asset>`, and
+# helm-docs' checksums.txt of `<sha256>  <asset>` lines, here with a decoy line for another asset
+# first. gzip -n zeroes the header's MTIME, which the tampered case flips.
+inst_fixtures() {
+  local tool="$1" dir="$2" stage="$2/stage" bin
+  inst_meta "${tool}"
+  case "${tool}" in
+    git-cliff) bin="${stage}/git-cliff-${INST_VERSION}/git-cliff" ;;
+    helm-docs) bin="${stage}/helm-docs" ;;
+  esac
+  mkdir -p "$(dirname "${bin}")"
+  printf '#!/bin/sh\necho "%s fixture %s"\n' "${tool}" "${INST_VERSION}" >"${bin}"
+  chmod 0755 "${bin}"
+  tar -cf - -C "${stage}" . | gzip -n >"${dir}/${INST_ASSET}"
+  case "${tool}" in
+    git-cliff) (cd "${dir}" && sha512sum "${INST_ASSET}" >"${INST_SUM_FILE}") ;;
+    helm-docs)
+      {
+        printf '%s  helm-docs_%s_Darwin_arm64.tar.gz\n' "$(printf decoy | sha256sum | awk '{print $1}')" "${INST_VERSION}"
+        (cd "${dir}" && sha256sum "${INST_ASSET}")
+      } >"${dir}/${INST_SUM_FILE}"
+      ;;
+  esac
+}
+
+# inst_run <tool> <installer> <scenario>: run a copy of <installer> in a fresh scratch root. Sets
+# INST_ROOT, INST_RC, INST_OUT (combined output) and INST_LOG (the URLs fetched, in order).
+INST_ROOT=""
+inst_run() {
+  local tool="$1" src="$2" scenario="$3" fx
+  if [[ -n "${INST_ROOT}" ]]; then rm -rf "${INST_ROOT:?}"; fi
+  INST_ROOT="$(mktemp -d "${WORKROOT}/inst.XXXXXXXX")"
+  fx="${INST_ROOT}/fixtures"
+  mkdir -p "${INST_ROOT}/hack/lib" "${INST_ROOT}/fakebin" "${fx}"
+  cp "${src}" "${INST_ROOT}/hack/install-${tool}.sh"
+  cp "${ROOT}/hack/lib/verify-sha256.sh" "${INST_ROOT}/hack/lib/verify-sha256.sh"
+  cat >"${INST_ROOT}/hack/lib/fetch.sh" <<'EOF'
+# shellcheck shell=bash
+fetch_to() {
+  local src="${FAKE_FETCH_DIR}/${1##*/}"
+  echo "$1" >>"${FAKE_FETCH_LOG}"
+  if [[ -f "${src}" ]]; then
+    cp "${src}" "$2"
+    return 0
+  fi
+  rm -f "$2"
+  echo "failed to download ${3:-$1} from $1" >&2
+  return 1
+}
+EOF
+  printf '#!/bin/sh\ncase "$1" in -m) echo x86_64 ;; -s) echo Linux ;; *) exit 2 ;; esac\n' >"${INST_ROOT}/fakebin/uname"
+  chmod 0755 "${INST_ROOT}/fakebin/uname"
+  inst_fixtures "${tool}" "${fx}"
+  case "${scenario}" in
+    valid) ;;
+    tampered)
+      # One byte of the gzip MTIME: the archive still extracts, so only a checksum can catch it.
+      printf '\001' | dd of="${fx}/${INST_ASSET}" bs=1 seek=4 count=1 conv=notrunc 2>/dev/null
+      tar -tzf "${fx}/${INST_ASSET}" >/dev/null ||
+        fail "self-test: the tampered ${tool} fixture no longer extracts -- the case would pass on tar, not on the checksum"
+      ;;
+    missing-checksum) rm -f "${fx:?}/${INST_SUM_FILE}" ;;
+    other-asset)
+      # The right digest, filed under another asset's name: only the name check stands in the way.
+      sed -i "s/  ${INST_ASSET//./\\.}\$/  other-${INST_ASSET}/" "${fx}/${INST_SUM_FILE}"
+      grep -q "  other-${INST_ASSET}\$" "${fx}/${INST_SUM_FILE}" ||
+        fail "self-test: the other-asset ${tool} fixture did not rename its checksum line"
+      ;;
+  esac
+  : >"${INST_ROOT}/fetch.log"
+  INST_OUT="$(cd "${INST_ROOT}" && PATH="${INST_ROOT}/fakebin:${PATH}" FAKE_FETCH_DIR="${fx}" \
+    FAKE_FETCH_LOG="${INST_ROOT}/fetch.log" bash "hack/install-${tool}.sh" "v${INST_VERSION}" "bin/${tool}" 2>&1)" &&
+    INST_RC=0 || INST_RC=$?
+  INST_LOG="$(cat "${INST_ROOT}/fetch.log")"
+}
+
+# inst_refused <tool> <scenario> <diagnostic-ERE>: the last run failed, printed the diagnostic and
+# installed nothing. Prints why not and returns 1 otherwise.
+inst_refused() {
+  local tool="$1" scenario="$2" diag="$3"
+  if [[ "${INST_RC}" -eq 0 ]]; then
+    echo "the ${scenario} install of ${tool} exited 0"
+    return 1
+  fi
+  if [[ -e "${INST_ROOT}/bin/${tool}" ]]; then
+    echo "the ${scenario} install of ${tool} left bin/${tool} behind"
+    return 1
+  fi
+  if ! grep -Eq -- "${diag}" <<<"${INST_OUT}"; then
+    echo "the ${scenario} install of ${tool} failed without '${diag}': $(tail -2 <<<"${INST_OUT}" | tr '\n' ' ')"
+    return 1
+  fi
+}
+
+# inst_cases <tool> <sed script that removes the installer's verification>
+inst_cases() {
+  local tool="$1" unverify="$2" src="${ROOT}/hack/install-$1.sh" why expected stripped
+  inst_meta "${tool}"
+  # Valid first: an installer that always fails would pass every negative case below.
+  inst_run "${tool}" "${src}" valid
+  expected="$(printf '%s\n%s' "${INST_SUM_URL}" "${INST_TARBALL_URL}")"
+  if [[ "${INST_RC}" -ne 0 ]]; then
+    inst_err "DTP-6 ${tool}: a valid archive with a matching checksum did not install (exit ${INST_RC}): $(tail -2 <<<"${INST_OUT}" | tr '\n' ' ')"
+  elif [[ ! -x "${INST_ROOT}/bin/${tool}" || "$("${INST_ROOT}/bin/${tool}")" != "${tool} fixture ${INST_VERSION}" ]]; then
+    inst_err "DTP-6 ${tool}: the valid install exited 0 but bin/${tool} is not the fixture's executable"
+  elif [[ "${INST_LOG}" != "${expected}" ]]; then
+    inst_err "DTP-6 ${tool}: the valid install fetched [$(tr '\n' ' ' <<<"${INST_LOG}")], expected the checksum file then the archive [$(tr '\n' ' ' <<<"${expected}")]"
+  else
+    pass "self-test: DTP-6 ${tool} installs a valid archive"
+  fi
+
+  inst_run "${tool}" "${src}" tampered
+  if why="$(inst_refused "${tool}" tampered 'checksum mismatch')"; then
+    pass "self-test: DTP-6 ${tool} refuses a tampered archive"
+  else
+    inst_err "DTP-6 ${tool}: ${why}"
+  fi
+
+  inst_run "${tool}" "${src}" missing-checksum
+  if why="$(inst_refused "${tool}" missing-checksum "failed to download .* from ${INST_SUM_URL//./\\.}")"; then
+    pass "self-test: DTP-6 ${tool} refuses to install when the checksum file cannot be fetched"
+  else
+    inst_err "DTP-6 ${tool}: ${why}"
+  fi
+
+  inst_run "${tool}" "${src}" other-asset
+  if why="$(inst_refused "${tool}" other-asset 'failed to resolve a (sha512|checksum) for ')"; then
+    pass "self-test: DTP-6 ${tool} refuses a checksum file with no line for its asset"
+  else
+    inst_err "DTP-6 ${tool}: ${why}"
+  fi
+
+  # The tampered case can see a missing check: on a copy without the verification it must fail.
+  stripped="${WORKROOT}/install-${tool}-unverified.sh"
+  sed -E "${unverify}" "${src}" >"${stripped}"
+  if cmp -s "${src}" "${stripped}"; then
+    inst_err "DTP-6 ${tool}: removing the verification ('${unverify}') changed nothing -- the installer has no verification to remove"
+  else
+    inst_run "${tool}" "${stripped}" tampered
+    if inst_refused "${tool}" tampered 'checksum mismatch' >/dev/null; then
+      inst_err "DTP-6 ${tool}: the tampered case passed on a copy with its verification removed -- it cannot see a missing check"
+    else
+      pass "self-test: DTP-6 ${tool} tampered case fails on a copy without verification"
+    fi
+  fi
+}
+
+inst_cases git-cliff '/^actual="\$\(sha512sum /,/^fi$/d'
+inst_cases helm-docs '/^verify_sha256 /d'
+if [[ -n "${INST_ROOT}" ]]; then rm -rf "${INST_ROOT:?}"; fi
+((INST_BROKEN == 0)) || fail "self-test: DTP-6 installer execution cases failed (listed above)"
 
 # --- DEV-MISE-01, ported one-to-one from the former mise pin-drift guard (its `honest` fixture is the
 # no-op control above). Old values kept: each is older than the real pin, never a next release.

@@ -758,12 +758,13 @@ done
 pass "every hack/install-*.sh sources the shared helper, fetches only through fetch_to, and names no plaintext URL"
 
 # The other direction: nothing may weaken the digest verification while routing through the
-# helper. Each installer either compares a sha256 itself or delegates to verify_sha256.
-# hack/install-git-cliff.sh and hack/install-helm-docs.sh are the two that verify NOTHING today;
-# they are listed here explicitly so the gap is recorded in code rather than lost in a report,
-# and so adding verification to them is a one-line deletion from this list rather than a
-# rediscovery.
-UNVERIFIED_BY_DESIGN=("install-git-cliff.sh" "install-helm-docs.sh")
+# helper. Each installer either compares a digest itself (sha256sum, or sha512sum where upstream
+# publishes only SHA512, as git-cliff does) or delegates to verify_sha256. Accepting sha512sum adds
+# a stronger verifier to the scan; it exempts no installer.
+# UNVERIFIED_BY_DESIGN names installers exempt from this scan. It is empty since git-cliff and
+# helm-docs gained verification (DTP-6), and hack/test/consistency_toolchain_pins_test.sh reds on
+# any entry: an installer that cannot verify its download is a decision, not a list edit.
+UNVERIFIED_BY_DESIGN=()
 for installer in "${INSTALLERS[@]}"; do
   base="$(basename "${installer}")"
   skip=0
@@ -776,21 +777,20 @@ for installer in "${INSTALLERS[@]}"; do
   # `EXPECTED_SHA256=` assigned somewhere in the file passed it -- an installer with a digest
   # variable and no digest check, which is the exact shape this assertion exists to forbid.
   verify_hits="$(logical_lines "${installer}" |
-    count_matches -E '(^|[^[:alnum:]_])(verify_sha256|sha256sum)([[:space:]]|$)')"
+    count_matches -E '(^|[^[:alnum:]_])(verify_sha256|sha256sum|sha512sum)([[:space:]]|$)')"
   require_count "${verify_hits}" "hack/${base} checksum scan"
   [[ "${verify_hits}" != "0" ]] ||
-    fail "hack/${base} no longer verifies a SHA256. Routing a download through a hardened helper must never be traded against verifying what came back: the helper protects the transport, the digest protects the CONTENT, and neither substitutes for the other"
+    fail "hack/${base} no longer verifies a checksum. Routing a download through a hardened helper must never be traded against verifying what came back: the helper protects the transport, the digest protects the CONTENT, and neither substitutes for the other"
 done
-pass "every installer that verified a SHA256 before still does"
+pass "every installer that verified a checksum before still does"
 
-# Guards the list above from rotting into a licence to stop verifying: if someone ADDS
-# verification to git-cliff or helm-docs, the entry must be removed, or the next reader will
-# believe those two are still unverified.
+# Guards the list above from rotting into a licence to stop verifying: an installer listed there
+# that verifies after all must be removed, or the next reader will believe it is unverified.
 for known in "${UNVERIFIED_BY_DESIGN[@]}"; do
   [[ -f "${ROOT}/hack/${known}" ]] ||
     fail "hack/${known} is listed as unverified-by-design but does not exist -- the exemption list is stale and now silently exempts nothing"
   verify_hits="$(logical_lines "${ROOT}/hack/${known}" |
-    count_matches -E '(^|[^[:alnum:]_])(verify_sha256|sha256sum)([[:space:]]|$)')"
+    count_matches -E '(^|[^[:alnum:]_])(verify_sha256|sha256sum|sha512sum)([[:space:]]|$)')"
   require_count "${verify_hits}" "hack/${known} exemption scan"
   [[ "${verify_hits}" == "0" ]] ||
     fail "hack/${known} now verifies a checksum but is still listed in UNVERIFIED_BY_DESIGN in this gate -- drop it from the list so the exemption stops advertising a gap that has been closed"

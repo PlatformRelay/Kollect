@@ -27,9 +27,12 @@ case "$(uname -s)" in
 esac
 
 asset="helm-docs_${VER}_${os}_${arch}.tar.gz"
-url="https://github.com/norwoodj/helm-docs/releases/download/${VERSION}/${asset}"
+base_url="https://github.com/norwoodj/helm-docs/releases/download/${VERSION}"
+url="${base_url}/${asset}"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/verify-sha256.sh
+source "${root}/hack/lib/verify-sha256.sh"
 # shellcheck source=lib/fetch.sh
 source "${root}/hack/lib/fetch.sh"
 
@@ -37,8 +40,17 @@ mkdir -p "$(dirname "${root}/${OUT}")"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
-# NOTE: this installer verifies no digest -- see the matching note in hack/install-git-cliff.sh.
-fetch_to "${url}" "${tmpdir}/helm-docs.tgz" "helm-docs ${VERSION} tarball"
-tar -xzf "${tmpdir}/helm-docs.tgz" -C "${tmpdir}"
+# The digest comes from the release's checksums.txt (`<sha256>  <asset>` per asset) and is in hand
+# before the tarball is fetched; a failed checksum fetch stops here, so nothing is ever installed
+# unverified.
+fetch_to "${base_url}/checksums.txt" "${tmpdir}/checksums.txt" "helm-docs ${VERSION} checksums"
+expected="$(awk -v file="${asset}" '$2 == file {print $1}' "${tmpdir}/checksums.txt")"
+if [[ -z "${expected}" ]]; then
+  echo "failed to resolve a checksum for ${asset} from ${base_url}/checksums.txt" >&2
+  exit 1
+fi
+fetch_to "${url}" "${tmpdir}/${asset}" "helm-docs ${VERSION} tarball"
+verify_sha256 "${tmpdir}/${asset}" "${expected}"
+tar -xzf "${tmpdir}/${asset}" -C "${tmpdir}"
 install -m 0755 "${tmpdir}/helm-docs" "${root}/${OUT}"
 echo "installed ${OUT} (${VERSION} ${os}/${arch})"
