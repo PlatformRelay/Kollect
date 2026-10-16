@@ -45,10 +45,13 @@
 
 ## 4. Land
 
-- [ ] 4.1 Independent review of the diff (CI and security posture); PR with green CI on the head SHA;
-  rebase merge.
-- [ ] 4.2 After the merge, find the changelog-sync run on `main` by the merge head SHA and record its
-  conclusion (whether it pushed or found nothing to sync). Archive in a follow-up evidence PR.
+- [x] 4.1 Independent review of the diff (CI and security posture); PR with green CI on the head SHA;
+  rebase merge. — closed 2026-10-16: PR #467 (head f75c1bb12, merge 743a536fc), 38 checks green,
+  2 skipped; reviews in `reviews/T/` rounds 1–2
+- [x] 4.2 After the merge, find the changelog-sync run on `main` by the merge head SHA and record its
+  conclusion (whether it pushed or found nothing to sync). Archive in a follow-up evidence PR. —
+  closed 2026-10-16: run 38926231432 on headSha 743a536fc, success, pushed `743a536f..0ce077f6`
+  and logged "Pushed regenerated CHANGELOG.md to main"; archived in a follow-up evidence PR
 
 ## Verification
 
@@ -57,7 +60,7 @@
 | CST-1 | probe of the push path | push needs no checkout credentials | pass | evidence/T1.1.md (read of `a9913eda9`, runs 38889827962, 38551429146) |
 | CST-1 | guard on `main` before 3.1 | red on the checkout `token` assertion | pass | evidence/T2.1.md, base `950743808`, exit 1 |
 | CST-1 | guard after 3.1 | green | pass | evidence/T2.1.md, exit 0 |
-| CST-1 | changelog-sync run on `main` after the merge | success, and the push step logs "Pushed regenerated CHANGELOG.md" (the push soft-fails, so a green run alone is not proof); verdict `in-sync` means no push was tried and the row stays open | post-merge | issue #443 owns the row until the follow-up evidence PR |
+| CST-1 | changelog-sync run on `main` after the merge | success, and the push step logs "Pushed regenerated CHANGELOG.md" (the push soft-fails, so a green run alone is not proof); verdict `in-sync` means no push was tried and the row stays open | pass | changelog-sync run 38926231432 on `main` (headSha 743a536fc): success; the push step pushed `743a536f..0ce077f6 HEAD -> main` and logged "Pushed regenerated CHANGELOG.md to main." |
 | CST-2 | token, persist-true, persist-removed, other-step, bracket-ref, step-object, `toJSON(steps)`, `toJSON(secrets)`, computed-index, job-env and App-secret mutants by exit status; identity and string-`"false"` controls | mutants rejected for the named reason; controls pass | pass | evidence/T2.1.md: 11 self-test mutants rejected, 2 controls accepted; real-file token and persist mutants exit 1, restored exit 0; each new check switched off in a scratch copy reds the self-test |
 | all | zizmor gate both modes, `task lint:shell`, `task spec:validate` | green | pass | evidence/T2.1.md; zizmor 1.30.1 no findings |
-| all | independent review; CI on the PR head | APPROVE or verified findings fixed; green | not-run | round 1 on `bcd248619`: astra REQUEST_CHANGES (P1 bracket spelling, fixed), claude/opus CLEAN (notes; two fixed); round 2 on `2e3640092`: astra APPROVE, claude/opus CONCERNS (2 WARNING, both fixed after the round, no third round); reviews/T/ |
+| all | independent review; CI on the PR head | APPROVE or verified findings fixed; green | pass | PR #467 head f75c1bb12: 38 checks green, 2 skipped; main post-merge CI by headSha 743a536fc: all 7 workflows success (CI, Preflight, E2E smoke, CodeQL, CodeQL - Code Quality, OpenSSF Scorecard, changelog-sync); round 1 on `bcd248619`: astra REQUEST_CHANGES (P1 bracket spelling, fixed), claude/opus CLEAN (notes; two fixed); round 2 on `2e3640092`: astra APPROVE, claude/opus CONCERNS (2 WARNING, both fixed after the round, no third round); reviews/T/ |
