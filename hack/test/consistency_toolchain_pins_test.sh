@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DTP-1, DTP-3, DTP-6 and DTP-7 (openspec change developer-toolchain-pins): the developer and CI
+# DTP-1, DTP-2, DTP-3, DTP-6 and DTP-7 (openspec change developer-toolchain-pins): the developer and CI
 # tools that are pinned in more than one file agree, meet their floor, and can be installed.
 #
 # gitleaks, git-cliff and shellcheck are each pinned in three files, and nothing kept the three
@@ -24,6 +24,13 @@
 #     mise.toml's [tools] task agree and are at least TASK_FLOOR; ci.yaml and the kind-e2e-setup
 #     composite action must each carry one; whether mise.toml has a task entry at all is the
 #     DEV-MISE-01 check below;
+#   * govulncheck (DTP-2): Taskfile.yml defines GOVULNCHECK_VERSION directly under
+#     `# renovate: datasource=go depName=golang.org/x/vuln` (the Go module datasource; a
+#     github-releases annotation would extract but never look up), and every govulncheck the
+#     vulncheck task runs reads {{.GOVULNCHECK_VERSION}}: an inline version, another variable or a
+#     task-level GOVULNCHECK_VERSION is a failure. The value is one plain vN.N.N in the exact form
+#     renovate.json's Taskfile manager extracts. No floor: CFC-2 (consistency_tool_pins_test.sh)
+#     builds and runs the pin;
 #   * versions compare with a leading `v` stripped and must be plain releases (N.N.N); a
 #     variable, `latest` or an empty value is a failure, never skipped;
 #   * an empty scan for any tool fails, never passes;
@@ -493,6 +500,72 @@ check_mise() {
   echo "mise.toml: task $(mise_tool_value "${root}/${mise}" task), node $(mise_tool_value "${root}/${mise}" node), python $(mise_tool_value "${root}/${mise}" python), go from go.mod"
 }
 
+# --- DTP-2 govulncheck ---
+GOVULN_PKG="golang.org/x/vuln/cmd/govulncheck"
+GOVULN_ANNOTATION="# renovate: datasource=go depName=golang.org/x/vuln"
+
+# vulncheck_lines <root>: "<line>\t<text>" for every non-comment line of the top-level `vulncheck:`
+# task in Taskfile.yml, quotes dropped (`pkg@"v1.9.0"` is the same pin); nothing if the task is absent.
+vulncheck_lines() {
+  awk '
+    /^tasks:/ { in_tasks = 1; next }
+    in_tasks && /^  vulncheck:[[:space:]]*$/ { in_task = 1; next }
+    !in_task || /^[[:space:]]*(#|$)/ { next }
+    { match($0, /^[[:space:]]*/) }
+    RLENGTH <= 2 { in_task = 0; next }
+    { line = $0; gsub(/["\047]/, "", line); print NR "\t" line }
+  ' "$1/Taskfile.yml"
+}
+
+# check_govulncheck <root>: Taskfile.yml defines GOVULNCHECK_VERSION directly under its Renovate
+# annotation, and every govulncheck the vulncheck task runs reads that variable.
+check_govulncheck() {
+  local root="$1" f="Taskfile.yml" def line above lines spec ver n text found=0
+  # Only the top-level vars: block defines it; the same key under env: is not {{.GOVULNCHECK_VERSION}}.
+  def="$(awk '
+    /^[^[:space:]#]/ { section = $0; sub(/:.*/, "", section) }
+    section == "vars" && /^  GOVULNCHECK_VERSION:/ { print NR; exit }
+  ' "${root}/${f}" 2>/dev/null || true)"
+  if [[ -z "${def}" ]]; then
+    err "govulncheck: ${f} defines no GOVULNCHECK_VERSION under vars: -- {{.GOVULNCHECK_VERSION}} resolves to nothing and Renovate has no pin to bump"
+  else
+    line="$(sed -n "${def}p" "${root}/${f}")"
+    above="$(sed -n "$((def - 1))p" "${root}/${f}")"
+    # Exact forms: renovate.json's Taskfile manager needs `depName=<x>` then a newline, and
+    # `_VERSION: ` then the value, so trailing blanks or a second space extract nothing.
+    [[ "${above}" =~ ^[[:space:]]*"${GOVULN_ANNOTATION}"$ ]] ||
+      err "govulncheck: ${f}:${def} GOVULNCHECK_VERSION has no '${GOVULN_ANNOTATION}' line directly above it -- Renovate stops seeing the pin"
+    [[ "${line}" =~ ^"  GOVULNCHECK_VERSION: "v[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+      err "govulncheck: ${f}:${def} GOVULNCHECK_VERSION is '${line#*: }', not one plain release (vN.N.N) -- latest or a variable floats, and Renovate cannot bump it"
+  fi
+  if ! grep -qE '^  vulncheck:[[:space:]]*$' "${root}/${f}" 2>/dev/null; then
+    err "govulncheck: ${f} has no vulncheck task -- the pin it should run is unchecked"
+    return 0
+  fi
+  lines="$(vulncheck_lines "${root}")"
+  while IFS=$'\t' read -r n text; do
+    [[ -n "${n}" ]] || continue
+    # A task-level var wins over the global one, so the annotated pin would not be the one that runs.
+    [[ ! "${text}" =~ GOVULNCHECK_VERSION[[:space:]]*: ]] ||
+      err "govulncheck: ${f}:${n} task vulncheck sets its own GOVULNCHECK_VERSION -- a task var overrides the annotated one under vars:"
+    while IFS= read -r spec; do
+      [[ -n "${spec}" ]] || continue
+      found=1
+      ver="${spec#*@}"
+      if [[ "${ver}" == "{{.GOVULNCHECK_VERSION}}" ]]; then
+        continue
+      elif [[ "${ver}" =~ ^v?[0-9] ]]; then
+        err "govulncheck: ${f}:${n} task vulncheck pins ${spec} inline -- the version belongs in GOVULNCHECK_VERSION, where Renovate's annotation sees it"
+      else
+        err "govulncheck: ${f}:${n} task vulncheck runs ${spec}, not {{.GOVULNCHECK_VERSION}} -- the annotated pin is not the one that runs"
+      fi
+    done < <(grep -oE "${GOVULN_PKG//./\\.}@[^[:space:];&|)]+" <<<"${text}" || true)
+  done <<<"${lines}"
+  [[ "${found}" == 1 ]] ||
+    err "govulncheck: ${f} task vulncheck runs no ${GOVULN_PKG}@{{.GOVULNCHECK_VERSION}} -- the annotated pin is not the one that runs"
+  echo "govulncheck: task vulncheck runs GOVULNCHECK_VERSION $(taskfile_sites "${root}" GOVULNCHECK_VERSION | cut -f2 | head -1) (${f}:${def:-<undefined>})"
+}
+
 check_all() {
   local root="$1" sites
   BROKEN=0
@@ -537,6 +610,7 @@ check_all() {
       .github/workflows/ci.yaml .github/actions/kind-e2e-setup/action.yml
   fi
 
+  check_govulncheck "${root}"
   check_unverified_limit "${root}"
   check_mise "${root}"
   return "${BROKEN}"
@@ -544,7 +618,7 @@ check_all() {
 
 if [[ "${MODE}" == "check" ]]; then
   if check_all "${ROOT}"; then
-    pass "Task, gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, UNVERIFIED_BY_DESIGN is within its limit, and mise.toml agrees with every node/python pin in .github with Go read from go.mod"
+    pass "Task, gitleaks, git-cliff and shellcheck sites agree and meet their floors, shellcheck has digests for its pin, task vulncheck runs the annotated GOVULNCHECK_VERSION, UNVERIFIED_BY_DESIGN is within its limit, and mise.toml agrees with every node/python pin in .github with Go read from go.mod"
     exit 0
   fi
   fail "toolchain pins disagree (listed above)"
@@ -916,6 +990,72 @@ mutant_rejected "task empty scan" \
   '!go-task/setup-task@' .github/workflows/ci.yaml \
   bash -c 'grep -rl "go-task/setup-task@" .github | xargs sed -i -E "s#go-task/setup-task@#example/setup-task@#" &&
     ! grep -rq "go-task/setup-task@" .github'
+
+# --- DTP-2 govulncheck ---
+mutant_rejected "govulncheck inline pin returns" \
+  'govulncheck: Taskfile\.yml:[0-9]+ task vulncheck pins golang\.org/x/vuln/cmd/govulncheck@v1\.9\.0 inline' \
+  'govulncheck@v1\.9\.0' Taskfile.yml \
+  sed -i -E 's#(cmd/govulncheck)@\{\{\.GOVULNCHECK_VERSION\}\}#\1@v1.9.0#' Taskfile.yml
+
+mutant_rejected "govulncheck annotation deleted" \
+  "govulncheck: Taskfile\\.yml:[0-9]+ GOVULNCHECK_VERSION has no '# renovate: datasource=go depName=golang\\.org/x/vuln' line directly above it" \
+  '!depName=golang\.org/x/vuln' Taskfile.yml \
+  sed -i -E '/^[[:space:]]*# renovate: datasource=go depName=golang\.org\/x\/vuln[[:space:]]*$/d' Taskfile.yml
+
+# A github-releases annotation still extracts (DTP-4 would pass) while every lookup fails.
+mutant_rejected "govulncheck annotation on the wrong datasource" \
+  "govulncheck: Taskfile\\.yml:[0-9]+ GOVULNCHECK_VERSION has no '# renovate: datasource=go depName=golang\\.org/x/vuln' line directly above it" \
+  'datasource=github-releases depName=golang/vuln' Taskfile.yml \
+  sed -i -E 's#^([[:space:]]*\# renovate: )datasource=go depName=golang\.org/x/vuln#\1datasource=github-releases depName=golang/vuln#' Taskfile.yml
+
+# Same value, unannotated variable: the pin Renovate bumps is not the one that runs.
+mutant_rejected "vulncheck reads another variable" \
+  'govulncheck: Taskfile\.yml:[0-9]+ task vulncheck runs golang\.org/x/vuln/cmd/govulncheck@\{\{\.GOVULN_PIN\}\}, not \{\{\.GOVULNCHECK_VERSION\}\}' \
+  'govulncheck@\{\{\.GOVULN_PIN\}\}@@^  GOVULN_PIN: v[0-9]@@^  GOVULNCHECK_VERSION: v[0-9]' Taskfile.yml \
+  sed -i -E -e 's/^(  GOVULNCHECK_VERSION: (v[0-9.]+))$/\1\n  GOVULN_PIN: \2/' \
+    -e 's#(cmd/govulncheck)@\{\{\.GOVULNCHECK_VERSION\}\}#\1@{{.GOVULN_PIN}}#' Taskfile.yml
+
+mutant_rejected "GOVULNCHECK_VERSION definition removed" \
+  'govulncheck: Taskfile\.yml defines no GOVULNCHECK_VERSION under vars:' \
+  '!^  GOVULNCHECK_VERSION:@@govulncheck@\{\{\.GOVULNCHECK_VERSION\}\}' Taskfile.yml \
+  sed -i -E '/^  GOVULNCHECK_VERSION:/d' Taskfile.yml
+
+# The run moves to a task appended after vulncheck: only the end of the vulncheck block keeps it out.
+mutant_rejected "vulncheck runs no govulncheck" \
+  'govulncheck: Taskfile\.yml task vulncheck runs no golang\.org/x/vuln/cmd/govulncheck@\{\{\.GOVULNCHECK_VERSION\}\}' \
+  '^  kollect-vuln-elsewhere:' Taskfile.yml \
+  bash -c 'sed -i -E "/cmd\/govulncheck@/d" Taskfile.yml && ! grep -q "cmd/govulncheck@" Taskfile.yml &&
+    printf "\n  kollect-vuln-elsewhere:\n    cmds:\n      - go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} ./...\n" >> Taskfile.yml'
+
+mutant_rejected "GOVULNCHECK_VERSION set to latest" \
+  "govulncheck: Taskfile\\.yml:[0-9]+ GOVULNCHECK_VERSION is 'latest', not one plain release" \
+  '^  GOVULNCHECK_VERSION: latest$' Taskfile.yml \
+  sed -i -E 's/^(  GOVULNCHECK_VERSION: )v[0-9.]+$/\1latest/' Taskfile.yml
+
+# Renovate's `depName=(\S+)\n` extracts nothing when a blank follows the name.
+mutant_rejected "govulncheck annotation with a trailing blank" \
+  "govulncheck: Taskfile\\.yml:[0-9]+ GOVULNCHECK_VERSION has no '# renovate: datasource=go depName=golang\\.org/x/vuln' line directly above it" \
+  'depName=golang\.org/x/vuln $' Taskfile.yml \
+  sed -i -E 's#(depName=golang\.org/x/vuln)$#\1 #' Taskfile.yml
+
+# Task runs the task-level value; CFC-2 would still smoke-test the global one.
+mutant_rejected "vulncheck overrides GOVULNCHECK_VERSION" \
+  'govulncheck: Taskfile\.yml:[0-9]+ task vulncheck sets its own GOVULNCHECK_VERSION' \
+  '^      GOVULNCHECK_VERSION: v1\.1\.4$' Taskfile.yml \
+  sed -i -E 's/^  vulncheck:$/&\n    vars:\n      GOVULNCHECK_VERSION: v1.1.4/' Taskfile.yml
+
+# Annotation and definition moved under env:; the in-command awk proves they sit there.
+mutant_rejected "GOVULNCHECK_VERSION defined under env:" \
+  'govulncheck: Taskfile\.yml defines no GOVULNCHECK_VERSION under vars:' \
+  '^  GOVULNCHECK_VERSION: v[0-9]' Taskfile.yml \
+  bash -c 'sed -i -E "/^  # renovate: datasource=go depName=golang\.org\/x\/vuln\$/d; /^  GOVULNCHECK_VERSION: /d" Taskfile.yml &&
+    sed -i -E "s/^env:\$/&\n  # renovate: datasource=go depName=golang.org\/x\/vuln\n  GOVULNCHECK_VERSION: v1.9.0/" Taskfile.yml &&
+    awk "/^env:/ { e = 1; next } /^[^[:space:]#]/ { e = 0 } e && /^  GOVULNCHECK_VERSION:/ { f = 1 } END { exit !f }" Taskfile.yml'
+
+mutant_rejected "vulncheck task gone" \
+  'govulncheck: Taskfile\.yml has no vulncheck task' \
+  '!^  vulncheck:' Taskfile.yml \
+  sed -i -E 's/^  vulncheck:/  vulnscan:/' Taskfile.yml
 
 # --- DTP-7 wiring: the meta-test in the copy must notice an unwired guard ---
 GATE="hack/test/ci_workflow_security_test.sh"

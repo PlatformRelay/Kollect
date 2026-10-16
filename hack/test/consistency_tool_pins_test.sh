@@ -497,8 +497,8 @@ MUTANT_ENV=()
 
 mutant_rejected "unresolvable pin (version typo)" \
   "golang.org/x/vuln/cmd/govulncheck@v1.9.99 cannot be resolved by go mod download" \
-  'govulncheck@v1\.9\.99' Taskfile.yml \
-  sed -i -E 's#(golang\.org/x/vuln/cmd/govulncheck)@v[0-9.]+#\1@v1.9.99#' Taskfile.yml
+  'GOVULNCHECK_VERSION: v1\.9\.99' Taskfile.yml \
+  sed -i -E 's/^(  GOVULNCHECK_VERSION: )v[0-9.]+/\1v1.9.99/' Taskfile.yml
 
 mutant_rejected "package path typo in a real module" \
   "golang.org/x/vuln/cmd/govulncheckk@" 'govulncheckk@' Taskfile.yml \
@@ -521,8 +521,8 @@ mutant_rejected "go-arch-lint too old for go.mod's Go" \
   sed -i -E 's/^(  GO_ARCH_LINT_VERSION: )v[0-9.]+/\1v1.15.0/' Taskfile.yml
 
 mutant_rejected "govulncheck too old for go.mod's Go" \
-  "govulncheck v1.1.4 (pinned in Taskfile.yml) failed its smoke run" 'govulncheck@v1\.1\.4' Taskfile.yml \
-  sed -i -E 's#(golang\.org/x/vuln/cmd/govulncheck)@v[0-9.]+#\1@v1.1.4#' Taskfile.yml
+  "govulncheck v1.1.4 (pinned in Taskfile.yml) failed its smoke run" 'GOVULNCHECK_VERSION: v1\.1\.4' Taskfile.yml \
+  sed -i -E 's/^(  GOVULNCHECK_VERSION: )v[0-9.]+/\1v1.1.4/' Taskfile.yml
 
 mutant_rejected "analysis tool pin missing" \
   "no pin found for analysis tool govulncheck" '^  vulncheck:' Taskfile.yml \

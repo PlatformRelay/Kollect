@@ -27,6 +27,8 @@ vars:
   MARKDOWNLINT_CONFIG: hack/tooling/markdownlint-cli2.yaml
   # renovate: datasource=github-releases depName=fe3dback/go-arch-lint
   GO_ARCH_LINT_VERSION: v1.19.0
+  # renovate: datasource=go depName=golang.org/x/vuln
+  GOVULNCHECK_VERSION: v1.9.0
   # renovate: datasource=github-releases depName=helm/helm
   HELM_VERSION: v3.22.0
   # renovate: datasource=github-releases depName=norwoodj/helm-docs
@@ -201,7 +203,7 @@ tasks:
     desc: Scan for known Go vulnerabilities (govulncheck)
     deps: [install]
     cmds:
-      - go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      - go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} ./...
 
   test:
     desc: Run unit tests with envtest (alias for test:run)
