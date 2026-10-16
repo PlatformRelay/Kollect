@@ -13,6 +13,8 @@ The `workflow_run` payload SHALL only trigger the reporter. The reporter SHALL a
 completed scheduled run of the reported workflow
 (`gh run list --workflow <workflow_run.path> --event schedule --status completed --limit 1`), with
 that run's attempt, so an event dropped by the concurrency group or delivered late is harmless.
+When that list is empty (the workflow has no completed scheduled run yet), the reporter SHALL make no
+write and exit 0.
 The reporter SHALL take the action that the run's row of the decision table below names; it
 opens an issue only when the run is in the failure class and the newest bot issue for the
 workflow is absent, or closed with an older key. The reporter SHALL judge the run by its conclusion
@@ -53,6 +55,9 @@ open or closed. "None" means no such issue exists.
 
 - **WHEN** the nightly `race` job (`continue-on-error: true`) fails and every other job passes, so the run concludes `success`
 - **THEN** the run is treated as a success; no issue is opened (known gap until SINK-BREAKER-RACE-01 makes the job blocking)
+
+A job counts as started only when its `steps` array is non-empty (`startedAt` is set on jobs that never
+ran; probe T1.1 F3).
 
 #### Scenario: Cancelled without a started job
 
@@ -147,7 +152,10 @@ read from the newest bot issue for the workflow whether it is open or closed.
 
 The reporter SHALL find the newest bot issue for a workflow by label `ci-failure` AND bot
 authorship AND a bot marker whose workflow key equals `workflow_run.path`, through the issue list
-API (never `--search`), and SHALL NOT trust a title match. The lookup SHALL be complete: it passes
+API (never `--search`), and SHALL NOT trust a title match. Because `gh issue list --label` is served
+by the search API, the lookup SHALL list by author only (`--author 'github-actions[bot]'`, no
+`--label`) and check the label client-side. Issue authors carry `is_bot`; comment authors do not
+(they read `github-actions`), so a comment counts as bot-authored by that login on a bot issue. The lookup SHALL be complete: it passes
 an explicit `--limit` and exits non-zero when the result count reaches it. The bot marker is the first line of a
 bot-authored issue body or comment:
 `<!-- ci-failure-report v1 workflow=<path> run_id=<id> key=<run_number>.<run_attempt> event=<failure|recovery> -->`.

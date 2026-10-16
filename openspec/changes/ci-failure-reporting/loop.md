@@ -1,7 +1,7 @@
 # Loop — ci-failure-reporting (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/ci-failure-reporting` · Branch: `feat/ci-failure-reporting` · Base: `origin/main` @ `81637dcde` (change 6 archive merged) · Started: 2026-10-16 · Reviewers: astra + claude (duo)
-Next: L — dispatch G1 (1.1 read-only probes)
+Next: L — dispatch G2 (2.1 body-builder tests + 2.2 builder)
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 7 of 10 (issue #444). Spec set: proposal.md, specs/ci-failure-reporting/spec.md, tasks.md.
@@ -34,6 +34,8 @@ Holistic run at B: not run yet.
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
 | 0 | scope: run-conclusion only, keep Go patch lag, label created by the workflow | decision | astra+opus | fix (A) | spec set 98ed12ff4; race gap is a non-goal pointing at SINK-BREAKER-RACE-01 | operator-accepted |
+
+| L/T1.1 | F1 `--label` routes gh issue list to search; F2 comment authors lack is_bot; F3 started = non-empty steps; F5 empty scheduled-run list unspecified | WARNING (spec) | probe | fix | spec: author-only lookup + client-side label; comment-author rule; started-job definition; empty list → no write, exit 0 (orchestrator) | no |
 
 ## Tasks
 
