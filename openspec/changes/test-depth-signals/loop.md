@@ -1,7 +1,7 @@
 # Loop — test-depth-signals (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/test-depth-signals` · Branch: `feat/test-depth-signals` · Base: `origin/main` @ `b05651d20` (change 7 merged as #469) · Started: 2026-10-18 · Reviewers: astra + claude (duo)
-Next: L — dispatch G5 (5.1–5.6 stage-B fixes), then B round 2 (last)
+Next: hand-off — integrator: pr-description, ready PR, all checks green, merge; post-merge: main CI + first scheduled Test shuffle run and its ci-failure-report run; archive after
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 8 of 10 (issue #445). Spec set: proposal.md, specs/test-depth/spec.md, tasks.md.
@@ -12,7 +12,7 @@ Change 8 of 10 (issue #445). Spec set: proposal.md, specs/test-depth/spec.md, ta
 - [x] P plan + tasks — present; spec set updated da4009a78 (re-measure, decisions A/A, red-first order with given/when/then cases)
 - [x] R spec-set review — round 1 (58a84b979): astra BLOCK, opus CONCERNS; V1 CRITICAL (Ginkgo refuses -count≠1 → RunSpecs packages run 3× at -count=1) accepted and fixed inside decision A; V2–V14, V16 fixed (9a42d7591), V15 reject, V17 → 1.1. Round 2 (last): astra BLOCK, opus CLEAN; R2-1..R2-9 fixed (99949a331; R2-2 exact flake sequence). No CRITICAL remains
 - [x] L task loop — 1.1–3.2 closed (4.1 is hand-off); shuffle probe found 2 real order-dependent tests, fixed a52189aa9, 297952dee
-- [ ] B branch review — round 1 (c0fbcd07e): task check exit 0 (32 min); task test:shuffle exit 0 (211 s); per-commit gate green; astra BLOCK (A1, A2 rated CRITICAL by the leg → treated as accepted), opus CONCERNS (TDS-1..3 hold); fixes → G5 (5.1–5.6); round 2 after
+- [x] B branch review — round 1 (c0fbcd07e) → G5 fixes 6ca8576fa..d1dd0930e; round 2 (last): task check exit 0 (2138 s), astra BLOCK (3 CRITICAL guard bypasses, all reproduced and fixed b07e34841, f8931a0ff), opus CONCERNS (fixed); no CRITICAL open; HEAD 344cdbd94
 - [ ] Hand-off — `pr-description.md` · PR: none
 
 ## Fitness functions
@@ -176,6 +176,13 @@ Carried over from change 4 (cross-file-consistency-gates):
 - Renovate: the LAST matching rule wins, so a group rule must be the last groupName-setting rule; prove grouping with a local `renovate --platform=local` lookup dry-run (~1 min) (G1)
 
 ## Where a human should look first
+
+- `hack/ci/fuzz-retry.sh` — strict fuzz retry (exact flake sequence, exit 1 only); fail-closed policy (operator-validated)
+- `hack/ci/test-shuffle.sh`, `.github/workflows/test-shuffle.yaml` — nightly shuffle (cron `30 2 * * *`), envtest provisioned, RunSpecs packages 3× at -count=1
+- `internal/collect`, `internal/metrics` tests — two real order-dependent tests fixed (a52189aa9, 297952dee)
+- `.github/workflows/ci-failure-report.yaml`, `hack/test/ci_failure_report_test.sh` — "Test shuffle" added to the reporter list (test change on change 7's guard)
+- `.github/workflows/ci.yaml` — fuzz job: `go mod download` step + runner; lint gains 3 guards × 2 modes (~+132 s)
+- `hack/test/readme_quickstart_test.sh` — README quick-start guard (bash/awk only)
 
 <!-- filled at hand-off -->
 
