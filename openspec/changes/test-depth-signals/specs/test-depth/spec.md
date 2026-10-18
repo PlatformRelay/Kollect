@@ -10,12 +10,16 @@ things that exist.
 
 ### Requirement: TDS-1 Fuzz runs once per target, retries only the known flake, and cannot be empty
 
-`hack/ci/fuzz-retry.sh` SHALL run each target for 30 seconds. It SHALL retry at most once, and
-only when the failed attempt's output contains `--- FAIL: <target>` followed by a
-`context deadline exceeded` line, contains none of `panic:`, `fatal error:`,
-`Failing input written`, `signal: killed`, and `git status --porcelain` shows no new file under
-`testdata/fuzz/`. Every other failure SHALL fail the job at once (fail closed): when the failure
-matches neither the deadline flake nor a deny marker, the error message SHALL contain
+`hack/ci/fuzz-retry.sh <target> <pkg>` SHALL run
+`go test -run='^$' -fuzz=<target> -fuzztime=30s <pkg>`. It SHALL retry at most once, and only
+when the failed attempt is exactly the known deadline flake: every line of its output other than
+`fuzz:` progress lines matches, in order, the flake's line set captured from the real runs in task
+1.1 (today: `--- FAIL: <target> (<duration>)` naming the matrix target, an indented
+`context deadline exceeded`, `FAIL`, `exit status 1`, `FAIL\t<import path>\t<duration>`), and
+`git status --porcelain --untracked-files=all` shows no path under `testdata/fuzz/`. A `git status`
+that fails SHALL fail the job (fail closed). The deny markers `panic:`, `fatal error:`,
+`Failing input written` and `signal: killed` SHALL fail the job at once with a message naming the
+marker. Every other failure SHALL fail the job at once (fail closed) with a message containing
 `unrecognised failure text`, so a change in Go's wording is diagnosable from the log. A run that
 exits 0 with `no fuzz tests to fuzz` in its output and no `fuzz: elapsed` line SHALL fail as zero
 targets run. A run that exits 0 with no `fuzz: elapsed` line and without that warning SHALL also
@@ -23,34 +27,46 @@ fail (fail closed, `unrecognised` in the message): a pass that fuzzed nothing is
 
 #### Scenario: Pure deadline artifact
 
-- **WHEN** the first attempt fails with `--- FAIL: FuzzX` and `context deadline exceeded`, with
-  none of the deny markers and no new corpus file, and the second passes
-- **THEN** the job passes and logs a warning naming golang/go#75804
+- **WHEN** the first attempt's output is exactly the deadline flake for the matrix target, with no
+  path under `testdata/fuzz/`, and the second attempt passes
+- **THEN** the job passes and logs a warning naming the deadline flake
 
 #### Scenario: Panic is never retried
 
 - **WHEN** the first attempt prints `panic:`, even alongside `context deadline exceeded`
-- **THEN** the job SHALL fail without a second attempt
+- **THEN** the job SHALL fail without a second attempt, naming `panic:`
 
 #### Scenario: Killed process
 
-- **WHEN** the output contains `signal: killed`
+- **WHEN** the output is the deadline flake plus `signal: killed`
+- **THEN** the job SHALL fail without a second attempt, naming `signal: killed`
+
+#### Scenario: Crash corpus written in a package with no tracked testdata
+
+- **WHEN** the first attempt prints the deadline flake and no deny marker, and a new file appears
+  under `<pkg>/testdata/fuzz/` where `<pkg>` tracks no `testdata/` directory
 - **THEN** the job SHALL fail without a second attempt
 
-#### Scenario: Crash corpus written
+#### Scenario: git status fails
 
-- **WHEN** the first attempt fails with the deadline text and a new file appears under
-  `testdata/fuzz/`
+- **WHEN** the first attempt prints the deadline flake and `git status` exits non-zero
 - **THEN** the job SHALL fail without a second attempt
 
 #### Scenario: Deadline twice
 
 - **WHEN** both attempts fail with the deadline artifact
-- **THEN** the job SHALL fail
+- **THEN** the job SHALL fail after exactly two attempts
 
 #### Scenario: Unknown failure text
 
-- **WHEN** the output is empty or matches none of the known patterns
+- **WHEN** the output is empty, matches none of the known patterns, or is the deadline flake plus
+  one line outside its line set
+- **THEN** the job SHALL fail without a retry, and the message SHALL contain
+  `unrecognised failure text`
+
+#### Scenario: Deadline under another target
+
+- **WHEN** the deadline lines follow `--- FAIL: FuzzOther` while the matrix target is another one
 - **THEN** the job SHALL fail without a retry, and the message SHALL contain
   `unrecognised failure text`
 
@@ -64,13 +80,18 @@ fail (fail closed, `unrecognised` in the message): a pass that fuzzed nothing is
 ### Requirement: TDS-2 Unit tests do not depend on order
 
 `task test:shuffle` (`shuffle:` in `hack/task/Taskfile.test.yml`) SHALL choose a seed, print it
-before any test runs, and run the unit packages with `-shuffle=<seed> -count=3`. The unit packages
-are `go list ./...` minus an explicit exclusion list in which every entry carries a reason; the
-list SHALL hold only the e2e packages. Envtest-backed packages SHALL run, with envtest assets
-provisioned as the CI test jobs do (`.github/actions/go-cache` with `envtest: true`, then
-`make setup-envtest`, as `hack/coverage.sh:23` does). A nightly workflow `test-shuffle.yaml`
-SHALL run it on `schedule:`, SHALL be a workflow of its own, and SHALL be listed under
-`on.workflow_run.workflows` of `ci-failure-report.yaml`, which reports scheduled runs only.
+before any test runs, and run every unit package three times with `-shuffle=<seed>`. A package
+whose `_test.go` files call `RunSpecs` SHALL run as three invocations of
+`go test -shuffle=<seed> -count=1` and SHALL never get another `-count` (Ginkgo v2 refuses it);
+every other unit package SHALL run with `go test -shuffle=<seed> -count=3`. Ginkgo packages are
+found by searching the `_test.go` files, not by a hard-coded list. The unit packages are
+`go list ./...` minus an explicit exclusion list in which every entry carries a reason; an entry is
+allowed only for an e2e package. The list is empty on 2026-10-18 (`go list ./...` holds no e2e
+package). The script SHALL provision envtest itself as `hack/coverage.sh:23-30` does: run
+`make setup-envtest`, export `KUBEBUILDER_ASSETS` from `make -s echo-kubebuilder-assets`, and fail
+when it is empty. A nightly workflow `test-shuffle.yaml` SHALL run it on `schedule:`, SHALL be a
+workflow of its own, and SHALL be listed under `on.workflow_run.workflows` of
+`ci-failure-report.yaml`, which reports scheduled runs only.
 
 `-shuffle` reorders top-level `Test*` functions only, not Ginkgo specs; a pass of this workflow is
 not evidence that the Ginkgo suites are order-independent (see proposal *Non-goals*).
@@ -83,8 +104,24 @@ not evidence that the Ginkgo suites are order-independent (see proposal *Non-goa
 #### Scenario: Seed reproducible
 
 - **WHEN** a shuffled run fails with seed N at `-count=3`
-- **THEN** `go test -shuffle=N -count=3` on the same package reproduces the failure (one RNG stream
-  serves all iterations, so `-count` must match)
+- **THEN** `go test -shuffle=N -count=3` on the same package reproduces the failure (each test
+  binary shuffles once with seed N and repeats that order; reproduce with the same seed and
+  repetition settings)
+
+#### Scenario: Ginkgo package
+
+- **WHEN** a unit package's tests call `RunSpecs`
+- **THEN** the script SHALL run it three times with `-count=1` and never pass it another `-count`
+
+#### Scenario: Every discovered package runs
+
+- **WHEN** the script runs
+- **THEN** the set of packages it tests SHALL equal `go list ./...` minus the exclusion list
+
+#### Scenario: Envtest assets missing
+
+- **WHEN** `make -s echo-kubebuilder-assets` prints nothing
+- **THEN** the script SHALL fail before any test runs
 
 #### Scenario: Exclusion without a reason
 
@@ -99,18 +136,20 @@ not evidence that the Ginkgo suites are order-independent (see proposal *Non-goa
 #### Scenario: Shuffle failure does not hide the nightly
 
 - **WHEN** the scheduled shuffle run and the scheduled E2E nightly both fail
-- **THEN** two separate issues exist
+- **THEN** two separate issues exist (held by the reporter's per-workflow lookup, change 7's case
+  "both open, nightly success" at `hack/test/ci_failure_report_test.sh:1225-1232`, and its job
+  concurrency per `workflow_id`, `ci-failure-report.yaml:38-40`)
 
 ### Requirement: TDS-3 The README quick start names things that exist
 
 `hack/test/readme_quickstart_test.sh` SHALL take the README section whose `##` heading starts with
 `Quick start` (today `## Quick start (MVP)`) and extract the commands of its fenced `sh` blocks,
 including commands in `#` comments (`# or: task dev-up` offers `task dev-up` to users, so it
-counts); prose outside the fences is not extracted. It SHALL fail when a `task <name>` is not a task
-of `Taskfile.yml` or of a Taskfile it includes (an included task is `<namespace>:<name>`), a
-`kubectl apply -k <path>` path does not exist, or a short name in `kubectl get` is not a CRD
-`shortNames` entry in `config/crd/bases`. It SHALL NOT duplicate the delegation checks of
-`demo_task_aliases_test.sh`.
+counts); prose, other sections and fences of another language are not extracted. It SHALL fail
+when the extraction is empty, a `task <name>` is not a task of `Taskfile.yml` or of a Taskfile it
+includes (an included task is `<namespace>:<name>`), a `kubectl apply -k <path>` path does not
+exist, or a short name in `kubectl get` is not a CRD `shortNames` entry in `config/crd/bases`. It
+SHALL NOT duplicate the delegation checks of `demo_task_aliases_test.sh` (held by review).
 
 #### Scenario: Task renamed
 
@@ -121,6 +160,11 @@ of `Taskfile.yml` or of a Taskfile it includes (an included task is `<namespace>
 
 - **WHEN** `dev-up` is renamed and the README comment `# or: task dev-up` is not updated
 - **THEN** the test SHALL fail and name `dev-up`
+
+#### Scenario: Unknown namespaced task
+
+- **WHEN** the section says `task test:nosuch`
+- **THEN** the test SHALL fail and name `test:nosuch`
 
 #### Scenario: Unknown short name
 
@@ -136,3 +180,13 @@ of `Taskfile.yml` or of a Taskfile it includes (an included task is `<namespace>
 
 - **WHEN** the README has no `##` heading starting with "Quick start"
 - **THEN** the test SHALL fail; an empty extraction never passes
+
+#### Scenario: Section without commands
+
+- **WHEN** the section exists but holds no `sh` fence
+- **THEN** the test SHALL fail
+
+#### Scenario: Commands outside the section
+
+- **WHEN** invalid commands appear only in prose, in another section or in a non-`sh` fence
+- **THEN** the test SHALL pass
