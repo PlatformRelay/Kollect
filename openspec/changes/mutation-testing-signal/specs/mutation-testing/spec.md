@@ -16,14 +16,22 @@ be installed only by a root `Taskfile.yml` task running
 `go install github.com/go-gremlins/gremlins/cmd/gremlins@{{.GREMLINS_VERSION}}` into a
 version-named path, where `GREMLINS_VERSION` is one full version (v0.6.0 today), a top-level
 `vars:` entry directly under `# renovate: datasource=go depName=github.com/go-gremlins/gremlins`.
-No other executable or configuration file (Makefile, Taskfiles, `.github/`, `hack/` outside
-`hack/test/`) SHALL install or invoke gremlins; only `hack/ci/mutation.sh` invokes it. Evidence and
+Neither task SHALL carry anything that can skip or soften it (`status:`, `sources:`,
+`generates:`, `method:`, `preconditions:`, `ignore_error:` at task or command level, `env:`,
+`dotenv:`). No other executable or configuration file (the `Makefile`, `Taskfile.yml` and every
+Taskfile it includes, everything under `.github/`, `hack/` outside `hack/test/`) SHALL install or
+invoke gremlins, or reach the install task, the `mutation` task or `hack/ci/mutation.sh`; only the
+`mutation.yaml` run step runs `task mutation`, and only `hack/ci/mutation.sh` invokes gremlins. Evidence and
 fixture provenance may name the version.
 
 `hack/ci/mutation.sh` SHALL invoke gremlins once per package on `internal/aggregate`,
 `internal/redact` and `internal/pathvalidate`, each writing its own JSON report into a directory
 created fresh for the run, with every mutator flag of the pinned version passed explicitly as
-enabled and `--config=hack/ci/gremlins.yaml`. `hack/ci/mutation-summary.sh` SHALL take exactly one
+enabled and `--config=<repository root>/hack/ci/gremlins.yaml` as an absolute path (the fixture
+call runs from the fixture's directory). When `$GITHUB_OUTPUT` is set, the runner SHALL write
+`reports=<that directory>` to it before its first gremlins call and SHALL leave the directory in
+place; the workflow's upload step SHALL take its `path:` from that output, with
+`if-no-files-found: error`. `hack/ci/mutation-summary.sh` SHALL take exactly one
 `<package>=<report>` argument per measured package, reject a missing, duplicate or unknown
 package, validate every report before it prints anything, and write, per package, the killed,
 lived, not covered, timed out and not viable counts, counted from the report's mutation statuses,
@@ -73,9 +81,11 @@ fresh report. No threshold SHALL be set by any source gremlins reads:
   any `GREMLINS_` variable is set, which covers sources the scan cannot see (an `env:` built from a
   `${{ }}` expression, a Taskfile `dotenv:`).
 
-The guard reads those files; the formatter never sees the arguments or the environment. Every
-read, `git ls-files` call and YAML parse the guard makes SHALL fail the guard when it errors,
-never read as "nothing found". The required `lint` job SHALL run the guard plain and with
+The guard reads those files; the formatter never sees the arguments or the environment. The
+guard reads YAML semantically (anchors and aliases expanded, flow and block forms alike, quoted
+keys alike). Every read, `git ls-files` call and YAML parse the guard makes SHALL fail the guard
+when it errors, never read as "nothing found". The guard SHALL collect every failure before it
+exits, so one defect never hides another's message. The required `lint` job SHALL run the guard plain and with
 `--self-test` and SHALL NOT install or run gremlins.
 
 #### Scenario: Surviving mutants
@@ -111,7 +121,8 @@ never read as "nothing found". The required `lint` job SHALL run the guard plain
 #### Scenario: Environment set where the scan cannot see it
 
 - **WHEN** any `GREMLINS_` variable is present in the runner's environment
-- **THEN** the runner SHALL fail before its first gremlins call and name the variable
+- **THEN** the runner SHALL fail before its first gremlins call and name the variable, whatever
+  the variable's name after the prefix and whether or not its value is empty
 
 ### Requirement: MUT-3 The measurement is proven able to see a surviving mutant
 

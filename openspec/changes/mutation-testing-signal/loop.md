@@ -1,7 +1,7 @@
 # Loop — mutation-testing-signal (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/mutation-testing-signal` · Branch: `feat/mutation-testing-signal` · Base: `origin/main` @ `3c01608ff` (changes 7 and 8 merged) · Started: 2026-10-19 · Reviewers: astra + claude (duo)
-Next: R spec-set review — astra spec lens + claude/opus:spec on fa3fdf389
+Next: L task loop — dispatch T1.1 (0.1 + 1.1 probe, evidence only) with task-prompt.md
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 9 of 10 (issue #446). Spec set: proposal.md, specs/mutation-testing/spec.md, tasks.md.
@@ -10,7 +10,7 @@ Change 9 of 10 (issue #446). Spec set: proposal.md, specs/mutation-testing/spec.
 
 - [x] 0 orient — re-measured against `origin/main` @ `3c01608ff` (2026-10-19); decisions applied (decisions.md 2026-10-19 "change 9": threshold sources A, fixture placement A, flat signal A)
 - [x] P plan + tasks — present; spec set updated fa3fdf389 (re-measure, decisions A/A/A, red-first order with given/when/then cases)
-- [ ] R spec-set review — `reviews/R-spec-set/` on fa3fdf389 · verdict: pending · CRITICAL: pending
+- [x] R spec-set review — round 1 (9a5426f3a): astra BLOCK, opus CONCERNS; V1-V5 CRITICAL (config extensions, inert CLI/env thresholds, fail-open scans, unpinned commands, env narrowing) verified by a scratch gremlins probe and fixed with V6-V15 (2b14ee6c2), V7 partly rejected, V16 no action. Round 2 (last, 2b14ee6c2): astra BLOCK, opus CONCERNS; R2-1..R2-13 all fixed, unreviewed (task skip keys, lint reaching `task mutation`, report hand-off). No CRITICAL remains open
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review — `reviews/B-branch/round-N/` · rounds: 0 · verdict: pending
 - [ ] Hand-off — pending · `pr-description.md` · PR: none
@@ -34,6 +34,8 @@ Holistic run at B: not run yet.
 | Stage | Finding (one line) | Sev | Models | Disposition | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
 | 0 | threshold sources A, fixture placement A, flat signal A | decision | astra+opus | fix (A, A, A) | spec set; counterpoints as proposal *Risks* and *Non-goals* | pending operator validation |
+| R1 | V1-V16 (`reviews/R-spec-set/verification.md`) | 5 CRITICAL | astra+opus | fix (V7 part reject, V16 none) | spec set 2b14ee6c2 | no |
+| R2 | R2-1..R2-13 (`reviews/R-spec-set/round-2/verification.md`) | 3 CRITICAL | astra+opus | fix | spec set, last round, unreviewed: stage B looks at W2/W3 and the hand-off | no |
 | 0 | decision brief named `arithmetic-base` and `invert-negatives` as default-off; v0.6.0 has them on (`internal/configuration/mutantenabled.go`) | spec | orchestrator | fix | proposal *Assumptions*; 1.1 confirms from `--help` | no |
 
 ## Tasks
@@ -56,6 +58,9 @@ Holistic run at B: not run yet.
 <!-- master list: one line per reusable lesson with the task ids that hit it; two or more ids → a proposed harness change at hand-off -->
 
 This change (mutation-testing-signal):
+
+- Probe a tool's threshold and config sources by running it, not by reading flags: gremlins v0.6.0 ignores CLI/env thresholds, reads `.gremlins` under any extension, and any `GREMLINS_MUTANTS_*_ENABLED` value disables a mutator (R)
+- A Task task can be skipped by `sources:`/`generates:`/`method:` as well as `status:`; pin all of them when a guard says "cannot be skipped" (R)
 
 Carried over from change 8 (test-depth-signals):
 
