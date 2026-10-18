@@ -43,8 +43,9 @@ else
 fi
 say "seed ${seed} (reproduce: SHUFFLE_SEED=${seed} task test:shuffle)"
 
-make setup-envtest >&2
-echo >&2 # setup-envtest prints its path without a newline
+# setup-envtest prints its path without a newline: end that line before the next one.
+make setup-envtest >&2 || { echo >&2; die "make setup-envtest failed"; }
+echo >&2
 KUBEBUILDER_ASSETS="$(make -s echo-kubebuilder-assets)" || die "make -s echo-kubebuilder-assets failed"
 export KUBEBUILDER_ASSETS
 [[ -n "${KUBEBUILDER_ASSETS}" ]] || die "make -s echo-kubebuilder-assets printed nothing: envtest assets missing"

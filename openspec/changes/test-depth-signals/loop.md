@@ -44,7 +44,7 @@ Holistic run at B: not run yet.
 | 2.1 | CLOSED | astra (evidence only), 1 round | found two repetition-dependent tests (collect, metrics), fixed in their own commits before G2 |
 | G2 (2.2-2.5) | CLOSED | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (empty SHUFFLE_SEED accepted, go list argv unasserted: fixed), opus CLEAN; r2 astra APPROVE, opus CLEAN | first scheduled run + reporter run stay the post-merge row; deferred to B: `make setup-envtest` failure has no `::error::` line |
 | G3 (3.1-3.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (kubectl flag before verb, single `&`: fixed), opus CONCERNS; r2 astra REQUEST_CHANGES (backslash continuation, indented fence: fixed after the last round), opus CONCERNS (evidence: fixed) | round-2 fixes unreviewed (mutation-checked); deferred to B: `internal: true` tasks count as existing, `bash`/`shell` fences unread (spec reads `sh` only); README had no drift |
-| G5 (5.1-5.6) | in progress: 5.1-5.4 closed | review pending (astra + claude/opus:diff at the end of G5) | |
+| G5 (5.1-5.6) | in progress: 5.1-5.5 closed | review pending (astra + claude/opus:diff at the end of G5) | |
 
 ## Known red
 
@@ -60,6 +60,7 @@ Holistic run at B: not run yet.
 | `hack/test/readme_quickstart_test.sh`: `kubectl get` operand reader (cases X15-X18) | G3 | 5.1 | wrong: only the first operand was read, so `kubectl get kinv/a foo/b` passed (A1, reviews/B-branch/round-1/verification.md) |
 | `hack/test/fuzz_retry_test.sh` F11, F16; `hack/test/test_shuffle_test.sh` S11 | G1, 1.6, G2 | 5.2 | incomplete: `if:` and `continue-on-error:` on the job or a step were never read (A2, deferred F16) |
 | `hack/test/test_shuffle_test.sh`: fake `go` (per-call exit status), case S13 | G2 | 5.4 | incomplete: the fake never failed a non-forwarded call, so a swallowed Ginkgo failure passed (A4) |
+| `fuzz_retry_test.sh` F0 (empty pkg), F18; `test_shuffle_test.sh` fake `make`, S9c; `readme_quickstart_test.sh` task reader, X19, X20 | G1, G2, G3 | 5.5 | incomplete: the deferred stage-B items (no error line on a failed envtest setup, internal tasks counted, two missing cases) |
 
 ## Lessons
 
@@ -84,6 +85,7 @@ This change (test-depth-signals):
 - A workflow pin must also refuse the keys that skip or soften a job or step (`if:`, `continue-on-error:`), not only its triggers and pins (5.2)
 - A retry decision must read the exit status as well as the text: the exact flake text under exit 2 or 137 was retried (5.3)
 - A fake that always succeeds cannot test failure aggregation: give it a per-call exit status and a case that fails one call of several (5.4)
+- Synthetic fixtures put markers at a line start; replay one real output too, or a line-anchored matcher survives every case (5.5: F18)
 
 Carried over from change 7 (ci-failure-reporting):
 
