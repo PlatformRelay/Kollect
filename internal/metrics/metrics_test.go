@@ -67,9 +67,12 @@ func TestRegister(t *testing.T) {
 		t.Fatalf("informer objects gauge: got %v", v)
 	}
 
+	// The counter is process-global and never reset: assert this run's increment, which a
+	// -count=N repetition (TDS-2 nightly shuffle) would otherwise see on top of the earlier ones.
+	bytesBefore := testutil.ToFloat64(ExportBytesTotal.WithLabelValues("git"))
 	ExportBytesTotal.WithLabelValues("git").Add(1024)
-	if v := testutil.ToFloat64(ExportBytesTotal.WithLabelValues("git")); v != 1024 {
-		t.Fatalf("export bytes counter: got %v", v)
+	if v := testutil.ToFloat64(ExportBytesTotal.WithLabelValues("git")) - bytesBefore; v != 1024 {
+		t.Fatalf("export bytes counter increment: got %v", v)
 	}
 
 	RecordCustomResourceSeries("deployments", "apps/v1/Deployment", "ready_replicas", 3)
