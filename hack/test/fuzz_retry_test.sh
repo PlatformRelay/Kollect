@@ -362,9 +362,10 @@ FAKE
     case_fail F11 "the fuzz job's if: is '${job_if}', want exactly needs.changes.outputs.code == 'true'"
   [[ "$(yq eval '.jobs.fuzz | has("continue-on-error")' "${CI}")" == false ]] ||
     case_fail F11 "the fuzz job sets continue-on-error:"
-  soft="$(yq eval '[.jobs.fuzz.steps[] | select((.run // "") | sub("\s+$"; "") != "go mod download") | select(has("if") or has("continue-on-error")) | (.name // .uses // .run)] | join(", ")' "${CI}")"
-  [[ -z "${soft}" ]] ||
-    case_fail F11 "fuzz job steps set if: or continue-on-error: (${soft})"
+  # Counted, not joined from names: a step named "" would join to an empty string.
+  soft_sel='[.jobs.fuzz.steps[] | select((.run // "") | sub("\s+$"; "") != "go mod download") | select(has("if") or has("continue-on-error"))]'
+  [[ "$(yq eval "${soft_sel} | length" "${CI}")" == 0 ]] ||
+    case_fail F11 "fuzz job steps set if: or continue-on-error: ($(yq eval "${soft_sel} | map(.name // .uses // .run) | join(\", \")" "${CI}"))"
   inline="$(yq eval '[.jobs.fuzz.steps[] | select((.run // "") | test("for attempt|go test"))] | length' "${CI}")"
   [[ "${inline}" == 0 ]] ||
     case_fail F11 "the fuzz job still runs go test or a 'for attempt' loop inline (${inline} steps)"
@@ -533,6 +534,8 @@ done
 mutant_rejected "runner step continue-on-error" .github/workflows/ci.yaml \
   "${RUN_LINE}" "${RUN_LINE}"$'\n        continue-on-error: true' F11
 mutant_rejected "runner step if" .github/workflows/ci.yaml "${RUN_LINE}" "${RUN_LINE}"$'\n        if: false' F11
+mutant_rejected "unnamed runner step continue-on-error" .github/workflows/ci.yaml \
+  $'      - name: Native Go fuzz (30s)\n' $'      - name: ""\n        continue-on-error: true\n' F11
 mutant_rejected "job continue-on-error" .github/workflows/ci.yaml \
   $'    name: fuzz\n' $'    name: fuzz\n    continue-on-error: true\n' F11
 mutant_rejected "job if widened" .github/workflows/ci.yaml \

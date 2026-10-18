@@ -64,7 +64,9 @@ taskfile_tasks() {
     END { flush() }
   ' "${file}"
   dir="$(dirname "${file}")"
-  while IFS=$'\t' read -r ns path internal; do
+  # internal (0 or 1) comes before path: tab is IFS whitespace, so an empty field in the middle
+  # would merge with its neighbour and shift the path into the next variable.
+  while IFS=$'\t' read -r ns internal path; do
     [[ -n "${ns}" ]] || continue
     [[ "${internal}" != 1 ]] || continue
     [[ -n "${path}" ]] || die input "${file#"${ROOT}"/} includes '${ns}' without a taskfile path"
@@ -81,7 +83,7 @@ taskfile_tasks() {
     }
     ns != "" && /^    taskfile:/ { path = $0; sub(/^    taskfile:[[:space:]]*/, "", path); sub(/[[:space:]]+#.*/, "", path) }
     ns != "" && /^    internal:[[:space:]]*true[[:space:]]*(#.*)?$/ { internal = 1 }
-    function flush() { if (ns != "") { gsub(/["'\'']/, "", path); print ns "\t" path "\t" internal }; ns = ""; path = ""; internal = 0 }
+    function flush() { if (ns != "") { gsub(/["'\'']/, "", path); print ns "\t" (internal ? 1 : 0) "\t" path }; ns = ""; path = ""; internal = 0 }
     END { flush() }
   ' "${file}")
 }
@@ -171,7 +173,7 @@ check_tree() {
             fi
             for ((j = i + 1; j < ${#w[@]}; j++)); do
               case "${w[j]}" in
-                -n | --namespace | -o | --output | -l | --selector) ((j += 1)) ;;
+                -n | --namespace | -o | --output | -l | --selector | -L | --label-columns | --sort-by | --field-selector) ((j += 1)) ;;
                 -k | --kustomize) ((j += 1)) && path="${w[j]:-}" ;;
                 -k=* | --kustomize=*) path="${w[j]#*=}" ;;
                 -*) ;;
@@ -425,6 +427,16 @@ task test:run" &&
     taskfile:'; then
   expect_red "X20 task of an internal include" task "'test:run'"
 fi
+reject "X21 include without a taskfile path" input "without a taskfile path" Taskfile.yml \
+  '    taskfile: ./hack/task/Taskfile.test.yml' '    taskfile:'
+accept "X22 value flags after a TYPE/NAME operand" "${R}" \
+  'kubectl get kinv,ktgt,ksnap -A' 'kubectl get kinv/a ktgt/b --sort-by .metadata.name -L env --field-selector x=y'
+reject "X23 tilde fence of another language in the section" extract "~~~" "${R}" \
+  "${FENCE2}" "${FENCE2}
+
+~~~yaml
+kind: Example
+~~~"
 new_copy
 rm -f "${COPY}/Taskfile.yml"
 expect_red "X4 Taskfile.yml missing" input "Taskfile.yml"

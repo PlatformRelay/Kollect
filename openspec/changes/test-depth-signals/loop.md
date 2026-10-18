@@ -44,7 +44,7 @@ Holistic run at B: not run yet.
 | 2.1 | CLOSED | astra (evidence only), 1 round | found two repetition-dependent tests (collect, metrics), fixed in their own commits before G2 |
 | G2 (2.2-2.5) | CLOSED | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (empty SHUFFLE_SEED accepted, go list argv unasserted: fixed), opus CLEAN; r2 astra APPROVE, opus CLEAN | first scheduled run + reporter run stay the post-merge row; deferred to B: `make setup-envtest` failure has no `::error::` line |
 | G3 (3.1-3.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (kubectl flag before verb, single `&`: fixed), opus CONCERNS; r2 astra REQUEST_CHANGES (backslash continuation, indented fence: fixed after the last round), opus CONCERNS (evidence: fixed) | round-2 fixes unreviewed (mutation-checked); deferred to B: `internal: true` tasks count as existing, `bash`/`shell` fences unread (spec reads `sh` only); README had no drift |
-| G5 (5.1-5.6) | in progress: 5.1-5.6 closed, review pending | review pending (astra + claude/opus:diff at the end of G5) | |
+| G5 (5.1-5.6) | CLOSED | astra + claude/opus:diff (CI guards), 1 round; astra REQUEST_CHANGES (F11 unnamed step), opus CONCERNS (include reader diagnostic, value-flag false red, TDS-1 text): all fixed with cases; second look = stage-B round 2 | README guard code mutants hand-run only (deferred to hand-off) |
 
 ## Known red
 
@@ -86,6 +86,8 @@ This change (test-depth-signals):
 - A retry decision must read the exit status as well as the text: the exact flake text under exit 2 or 137 was retried (5.3)
 - A fake that always succeeds cannot test failure aggregation: give it a per-call exit status and a case that fails one call of several (5.4)
 - Synthetic fixtures put markers at a line start; replay one real output too, or a line-anchored matcher survives every case (5.5: F18)
+- Count matching nodes, never join their names: a node named "" joins to an empty string and passes an emptiness check (G5 review)
+- Tab is IFS whitespace in bash `read`: an empty middle field merges; put always-non-empty fields first (G5 review)
 
 Carried over from change 7 (ci-failure-reporting):
 
