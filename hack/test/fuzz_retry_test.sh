@@ -18,10 +18,12 @@
 #   F7-F9   empty or unknown output, zero fuzz targets, a pass with no `fuzz: elapsed`: red;
 #   F10     control: a plain pass is green after one call with the exact argv;
 #   F11     ci.yaml's fuzz job calls the runner with the matrix values and keeps no inline loop,
-#           and the runner is executable (the step runs it directly);
+#           the runner is executable (the step runs it directly), the job's if: is exactly its
+#           changes gate, and neither the job nor a step sets continue-on-error: or another if:;
 #   F12-F15 the flake is the exact, ordered, complete line sequence for the matrix target;
 #   F16     ci.yaml's fuzz job runs `go mod download` in its own step between go-cache and the
-#           runner, so cold-cache `go: downloading` lines never reach the flake match (task 1.6).
+#           runner, with no if: or continue-on-error:, so cold-cache `go: downloading` lines
+#           never reach the flake match (task 1.6).
 # "The diagnostic" is the runner's own `::error::fuzz-retry:` line; a case asserts the full set
 # of those lines, never the replayed go output.
 #
@@ -325,6 +327,17 @@ FAKE
   fi
   [[ -x "${RUNNER}" ]] ||
     case_fail F11 "${RUNNER#"${ROOT}"/} is not executable; the fuzz step runs it directly"
+  # An `if:` or `continue-on-error:` would skip or soften the gate: the job keeps exactly its
+  # changes gate, and no step but the download one (F16's) carries either key (precedent:
+  # dist_operatorhub_pr_test.sh reads continue-on-error the same way).
+  job_if="$(yq eval '.jobs.fuzz.if // ""' "${CI}")"
+  [[ "${job_if}" == "needs.changes.outputs.code == 'true'" ]] ||
+    case_fail F11 "the fuzz job's if: is '${job_if}', want exactly needs.changes.outputs.code == 'true'"
+  [[ "$(yq eval '.jobs.fuzz | has("continue-on-error")' "${CI}")" == false ]] ||
+    case_fail F11 "the fuzz job sets continue-on-error:"
+  soft="$(yq eval '[.jobs.fuzz.steps[] | select((.run // "") | sub("\s+$"; "") != "go mod download") | select(has("if") or has("continue-on-error")) | (.name // .uses // .run)] | join(", ")' "${CI}")"
+  [[ -z "${soft}" ]] ||
+    case_fail F11 "fuzz job steps set if: or continue-on-error: (${soft})"
   inline="$(yq eval '[.jobs.fuzz.steps[] | select((.run // "") | test("for attempt|go test"))] | length' "${CI}")"
   [[ "${inline}" == 0 ]] ||
     case_fail F11 "the fuzz job still runs go test or a 'for attempt' loop inline (${inline} steps)"
@@ -346,6 +359,8 @@ FAKE
     case_fail F16 "the fuzz job needs one go-cache step and one runner step to order the download against"
   elif ((dl <= cache || dl >= runner)); then
     case_fail F16 "the 'go mod download' step is step ${dl}, want it after go-cache (${cache}) and before the runner (${runner})"
+  elif [[ "$(yq eval ".jobs.fuzz.steps[${dl}] | (has(\"if\") or has(\"continue-on-error\"))" "${CI}")" != false ]]; then
+    case_fail F16 "the 'go mod download' step sets if: or continue-on-error:; a skipped or failed download lets go test fetch modules inside the judged output"
   fi
   done_case F16
 
@@ -481,6 +496,23 @@ for where in after-runner before-cache; do
   rm -rf "${COPY:?}"
   pass "self-test: module download step ${where} rejected by F16"
 done
+
+# F11 / F16: an if: or continue-on-error: that skips or softens the gate (5.2).
+mutant_rejected "runner step continue-on-error" .github/workflows/ci.yaml \
+  "${RUN_LINE}" "${RUN_LINE}"$'\n        continue-on-error: true' F11
+mutant_rejected "runner step if" .github/workflows/ci.yaml "${RUN_LINE}" "${RUN_LINE}"$'\n        if: false' F11
+mutant_rejected "job continue-on-error" .github/workflows/ci.yaml \
+  $'    name: fuzz\n' $'    name: fuzz\n    continue-on-error: true\n' F11
+mutant_rejected "job if widened" .github/workflows/ci.yaml \
+  $'    name: fuzz\n    needs: [changes]\n    if: needs.changes.outputs.code == \'true\'' \
+  $'    name: fuzz\n    needs: [changes]\n    if: always()' F11
+# shellcheck disable=SC2016 # literal workflow text
+mutant_rejected "go-cache step if" .github/workflows/ci.yaml \
+  'cache-suffix: fuzz-${{ matrix.target }}' 'cache-suffix: fuzz-${{ matrix.target }}'$'\n        if: false' F11
+mutant_rejected "download step continue-on-error" .github/workflows/ci.yaml \
+  '        run: go mod download' $'        run: go mod download\n        continue-on-error: true' F16
+mutant_rejected "download step if" .github/workflows/ci.yaml \
+  '        run: go mod download' $'        run: go mod download\n        if: false' F16
 
 # F11: the runner loses its exec bit.
 new_copy
