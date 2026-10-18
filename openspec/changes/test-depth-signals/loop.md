@@ -13,7 +13,7 @@ Change 8 of 10 (issue #445). Spec set: proposal.md, specs/test-depth/spec.md, ta
 - [x] R spec-set review — round 1 (58a84b979): astra BLOCK, opus CONCERNS; V1 CRITICAL (Ginkgo refuses -count≠1 → RunSpecs packages run 3× at -count=1) accepted and fixed inside decision A; V2–V14, V16 fixed (9a42d7591), V15 reject, V17 → 1.1. Round 2 (last): astra BLOCK, opus CLEAN; R2-1..R2-9 fixed (99949a331; R2-2 exact flake sequence). No CRITICAL remains
 - [x] L task loop — 1.1–3.2 closed (4.1 is hand-off); shuffle probe found 2 real order-dependent tests, fixed a52189aa9, 297952dee
 - [x] B branch review — round 1 (c0fbcd07e) → G5 fixes 6ca8576fa..d1dd0930e; round 2 (last): task check exit 0 (2138 s), astra BLOCK (3 CRITICAL guard bypasses, all reproduced and fixed b07e34841, f8931a0ff), opus CONCERNS (fixed); no CRITICAL open; HEAD 344cdbd94
-- [ ] Hand-off — `pr-description.md` · PR: none
+- [x] Hand-off — `pr-description.md` (ready PR body, closes #445) · PR: opened by the integrator
 
 ## Fitness functions
 
