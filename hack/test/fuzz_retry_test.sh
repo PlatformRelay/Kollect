@@ -7,7 +7,7 @@
 # (hack/test/testdata/fuzz-retry/, captured from runs 37911142180 and 37288739312) and records
 # each call's argv, inside a throwaway git repository so the corpus check reads a real index.
 #
-# What it locks (cases F1-F15 of tasks.md 1.1-1.2):
+# What it locks (cases F0-F17 of tasks.md 1.1-1.2, 1.6 and 5.2-5.5):
 #   F0      a malformed target or a missing pkg: usage error, go never called;
 #   F1      the deadline flake then a pass: exit 0, two calls, exact argv, a warning naming it;
 #   F2-F4   a deny marker (panic:, signal: killed, fatal error:) next to the deadline: no retry;
@@ -21,6 +21,7 @@
 #           the runner is executable (the step runs it directly), the job's if: is exactly its
 #           changes gate, and neither the job nor a step sets continue-on-error: or another if:;
 #   F12-F15 the flake is the exact, ordered, complete line sequence for the matrix target;
+#   F17     the flake text under an exit status other than 1 (2, 137) is not the flake: no retry;
 #   F16     ci.yaml's fuzz job runs `go mod download` in its own step between go-cache and the
 #           runner, with no if: or continue-on-error:, so cold-cache `go: downloading` lines
 #           never reach the flake match (task 1.6).
@@ -274,6 +275,18 @@ FAKE
   expect_diag F6 "deadline flake on both attempts"
   done_case F6
 
+  # --- F17: the exact flake text under an exit status other than 1 ----------------------------------
+  # go test exits 1 for a failed test; 2 (build or usage), 137 (SIGKILL) and others are not the
+  # flake, whatever the output says.
+  for code in 2 137; do
+    ATTEMPTS=("${code}:${DEADLINE}" "0:${PASSFX}")
+    run_case F17 "${T}" "${P}"
+    expect_rc F17 nonzero
+    expect_calls F17 1
+    expect_diag F17 "unrecognised failure text"
+    done_case "F17 (exit ${code})"
+  done
+
   # --- F7: empty and unknown output -----------------------------------------------------------------
   : >"${VAR}/empty"
   one_attempt_red F7 "${VAR}/empty" "unrecognised failure text"
@@ -380,7 +393,7 @@ FAKE
   one_attempt_red F15 "${VAR}/f15b" "unrecognised failure text"
 
   [[ "${BAD}" -eq 0 ]] || fail "the fuzz runner breaks TDS-1 (cases above)"
-  pass "the fuzz runner retries only the deadline flake and is never green on nothing (F1-F16)"
+  pass "the fuzz runner retries only the deadline flake and is never green on nothing (F0-F17)"
   exit 0
 fi
 
@@ -457,6 +470,7 @@ mutant_rejected "unrecognised diagnostic dropped" "${R}" "diag 'unrecognised fai
 mutant_rejected "-fuzztime=1s" "${R}" '-fuzztime=30s "${pkg}"' '-fuzztime=1s "${pkg}"' F1 F10
 mutant_rejected "allow-list replaced by a substring match" "${R}" \
   'is_deadline_flake "${out}" ||' "grep -F 'context deadline exceeded' \"\${out}\" >/dev/null ||" F12
+mutant_rejected "any non-zero exit retried" "${R}" '[[ "${rc}" -eq 1 ]] || unrecognised' ":" F17
 mutant_rejected "target pin dropped" "${R}" '"^--- FAIL: ${target} ' '"^--- FAIL: Fuzz[A-Za-z0-9_]* ' F13
 mutant_rejected "every line of the sequence no longer required" "${R}" \
   '[[ "${#got[@]}" -eq "${#want[@]}" ]] || return 1' ":" F14
