@@ -223,7 +223,11 @@ jobs:
           # by docs/requirements-docs.txt for mkdocs-material's image rendering. It never ships in
           # the kollect binary or image, so the LGPL does not reach a release artefact. Scoped to
           # the package for the same reason as above.
-          allow-dependencies-licenses: pkg:golang/golang.org/x/net, pkg:pypi/cairosvg
+          # Third exception: go-task/setup-task (reported GPL-3.0) is a CI-only action that
+          # downloads the Task binary on runners. It is never linked, vendored or shipped in the
+          # kollect binary, image or chart, and every workflow already uses it at the same pinned
+          # sha. Scoped to the package, not the licence, so another GPL action still fails.
+          allow-dependencies-licenses: pkg:golang/golang.org/x/net, pkg:pypi/cairosvg, pkg:githubactions/go-task/setup-task
 
   verify:
     name: verify
