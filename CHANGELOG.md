@@ -11,6 +11,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Close the round-2 bypasses of the README guard [eb31506](https://github.com/platformrelay/kollect/commit/eb315068615923d299374c5892f004cc00f63db3)
+
+- **ci:** Name a failed envtest setup, close deferred guard gaps [fd41110](https://github.com/platformrelay/kollect/commit/fd411104797e3d318f925dd85dee9ea1bc571ca6)
+
+- **ci:** Retry a fuzz attempt only when go test exited 1 [a9ffb12](https://github.com/platformrelay/kollect/commit/a9ffb1237e49111af0a0de2ad93a06e38dd012dc)
+
 - **ci:** Refuse empty or malformed jobs output in the CI failure reporter [7465752](https://github.com/platformrelay/kollect/commit/7465752210297cf69ca36b0afc0196dfc740f1c5)
 
 - **check:** Run the self-test of large guards in task check [354a57a](https://github.com/platformrelay/kollect/commit/354a57a0a2f5b130a01f5cd1277b32124b32153f)
@@ -125,6 +131,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **ci:** Run the unit tests nightly under a shuffled, repeated seed [862c38f](https://github.com/platformrelay/kollect/commit/862c38f64c47adeb8084c75e0a433b01bc89c3c9)
+
+- **ci:** Retry only the fuzz deadline flake, never pass on nothing [5a45618](https://github.com/platformrelay/kollect/commit/5a45618130566511c2a922cc774662db6a139adf)
 
 - **ci:** Add a weekly Go patch-lag sensor [c75e726](https://github.com/platformrelay/kollect/commit/c75e7261d33c41c0deb0530e0e86f9f1afdb4dbd)
 
