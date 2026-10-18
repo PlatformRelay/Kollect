@@ -116,7 +116,7 @@ quickstart_lines() {
     !insec && /^## Quick start/ { insec = 1; found = 1; next }
     !insec { next }
     /^```/ {
-      if (!infence) { infence = 1; open = NR; lang = substr($0, 4); sub(/[[:space:]].*/, "", lang); next }
+      if (!infence) { infence = 1; open = NR; lang = substr($0, 4); sub(/^[[:space:]]+/, "", lang); sub(/[[:space:]].*/, "", lang); next }
       if ($0 ~ /^```[[:space:]]*$/) { if (buf != "") print at "\t" buf; buf = ""; at = 0; infence = 0; next }
     }
     infence && /^## / { print "UNCLOSED\t" open; infence = 0; exit }
@@ -149,6 +149,8 @@ check_tree() {
     text="$(awk '{ gsub(/(^|[[:space:]])#/, "\n"); gsub(/&&|\|\||[;|&()`]/, "\n"); print }' <<<"${text}")"
     while IFS= read -r seg; do
       read -ra w <<<"${seg}"
+      # Quotes are syntax, not part of a word: `kubectl "get" pods` is `kubectl get pods`.
+      w=("${w[@]//[\"\']/}")
       for ((i = 0; i < ${#w[@]}; i++)); do
         case "${w[i]}" in
           task)
@@ -173,7 +175,8 @@ check_tree() {
             fi
             for ((j = i + 1; j < ${#w[@]}; j++)); do
               case "${w[j]}" in
-                -n | --namespace | -o | --output | -l | --selector | -L | --label-columns | --sort-by | --field-selector) ((j += 1)) ;;
+                -n | --namespace | -o | --output | -l | --selector | -L | --label-columns | --sort-by | --field-selector | \
+                  --context | --cluster | --user | --kubeconfig | -s | --server | --as | -f | --filename) ((j += 1)) ;;
                 -k | --kustomize) ((j += 1)) && path="${w[j]:-}" ;;
                 -k=* | --kustomize=*) path="${w[j]#*=}" ;;
                 -*) ;;
@@ -193,8 +196,10 @@ check_tree() {
                   bad get "'${op}' (README line ${n}) is a plain operand next to a TYPE/NAME one; kubectl rejects the mix"
                   continue
                 fi
-                IFS=',' read -ra r <<<"${op%%/*}"
+                # Split at commas first, then cut each part's /NAME: `kinv/a,foo/b` names foo.
+                IFS=',' read -ra r <<<"${op}"
                 for res in "${r[@]}"; do
+                  res="${res%%/*}"
                   grep -Fx -- "${res}" <<<"${names}" >/dev/null ||
                     bad get "'${res}' (README line ${n}) is not a shortNames, singular or plural name of a CRD in config/crd/bases"
                 done
@@ -437,6 +442,18 @@ reject "X23 tilde fence of another language in the section" extract "~~~" "${R}"
 ~~~yaml
 kind: Example
 ~~~"
+reject "X24 comma-joined TYPE/NAME operands" get "'foo'" "${R}" \
+  'kubectl get kinv,ktgt,ksnap -A' 'kubectl get kinv/a,foo/b'
+reject "X25 quoted kubectl verb" get "'pods'" "${R}" \
+  'kubectl get kinv,ktgt,ksnap -A' 'kubectl "get" pods'
+accept "X26 quoted resource name" "${R}" 'kubectl get kinv,ktgt,ksnap -A' 'kubectl get "kinv" -A'
+reject "X27 flag value after the verb is not the resource" get "'pods'" "${R}" \
+  'kubectl get kinv,ktgt,ksnap -A' 'kubectl get --context kinv pods'
+reject "X28 sh fence with a space before its info string" task "'nosuch'" "${R}" \
+  "\`\`\`sh
+${CLONE}" "\`\`\` sh
+task nosuch
+${CLONE}"
 new_copy
 rm -f "${COPY}/Taskfile.yml"
 expect_red "X4 Taskfile.yml missing" input "Taskfile.yml"
