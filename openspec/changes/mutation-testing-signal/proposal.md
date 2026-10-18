@@ -28,7 +28,7 @@ That task installs gremlins at the pinned version and runs `hack/ci/mutation.sh`
   a committed file whose content is `{}`, so gremlins reads no other config file;
 - refuses to start when any `GREMLINS_` environment variable is set, whatever set it;
 - writes the reports to a fresh temporary directory, so a stale report can never stand in for a
-  missing one;
+  missing one, and hands that directory to the upload step through `$GITHUB_OUTPUT`;
 - hands the reports to `hack/ci/mutation-summary.sh`, which writes killed, lived, not covered,
   timed out and not viable counts per package to the job summary. It validates every report
   before it prints anything, and fails on a missing, empty or unreadable report without printing
@@ -127,8 +127,9 @@ Hard dependency: change 7 must have shipped (merged as #469; change 8 merged sin
   longer.
 - **Guard scope (threshold-sources decision).** The static guard reads the repository's files
   only. Without `--config`, gremlins v0.6.0 would also read `/etc/gremlins`,
-  `$XDG_CONFIG_HOME/gremlins/gremlins` and `~/.gremlins` (`internal/configuration/configuration.go`,
-  `defaultConfigPaths`); passing `--config` closes those (probe 2026-10-19: a threshold in the
+  `$XDG_CONFIG_HOME/gremlins/gremlins`, `~/.gremlins`, the module root and the current directory
+  (`internal/configuration/configuration.go`, `defaultConfigPaths`); passing `--config` closes
+  those (probe 2026-10-19: a threshold in the
   module root's `.gremlins.yaml` exits 10 without it and 0 with it). A later gremlins that adds a
   config source `--config` does not override, changes its env prefix, or renames its threshold
   keys would pass the guard while missing the new source; the pinned version means that only
