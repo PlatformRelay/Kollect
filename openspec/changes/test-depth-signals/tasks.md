@@ -113,7 +113,7 @@ Each case below reads: given / when / then · the failure it exposes.
 
 ## 2. Shuffle (TDS-2)
 
-- [ ] 2.1 Probe, evidence only:
+- [x] 2.1 Probe, evidence only:
   - how `-shuffle=<seed>` prints the seed (`-test.shuffle N`), and that two packages in one
     `go test` call each get the same explicit seed;
   - that a binary shuffles once and `-count=3` repeats that order; whether a fixture failure at
@@ -128,7 +128,8 @@ Each case below reads: given / when / then · the failure it exposes.
     showing Ginkgo's "Only -count=1 is allowed";
   - the wall time of the whole split run with envtest provisioned (`make setup-envtest`), to set
     the workflow's `timeout-minutes`;
-  - a seed that runs the 2.2 fixture's dependent test first.
+  - a seed that runs the 2.2 fixture's dependent test first. — closed 2026-10-18, evidence:
+    evidence/G2.md
 - [ ] 2.2 Write `hack/test/test_shuffle_test.sh` (plain and `--self-test`) and an order-dependent
   fixture package under `hack/test/testdata/shuffle/` (or behind a build tag, per 2.1), so
   `go list ./...` ignores it. Script cases, red against a stub `hack/ci/test-shuffle.sh` that runs
