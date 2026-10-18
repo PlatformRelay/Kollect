@@ -5,9 +5,9 @@
 #   hack/ci/fuzz-retry.sh <FuzzTarget> <pkg>
 #
 # Runs `go test -run='^$' -fuzz=<target> -fuzztime=30s <pkg>` and retries it at most once, and
-# only when the failed attempt is exactly the fuzz engine's "context deadline exceeded" flake at
-# the -fuzztime boundary (golang/go#75804) and wrote no crash corpus. Everything else fails at
-# once, fail closed:
+# only when the failed attempt exited 1 with exactly the fuzz engine's "context deadline exceeded"
+# flake at the -fuzztime boundary (golang/go#75804) and wrote no crash corpus. Everything else
+# fails at once, fail closed:
 #   * a deny marker (panic:, fatal error:, Failing input written, signal: killed) is a real
 #     finding or a killed process, never a flake;
 #   * the flake is an exact, ordered line sequence (captured from runs 37911142180 and
@@ -85,6 +85,9 @@ while :; do
     unrecognised
   fi
 
+  # go test exits 1 for a failed test; any other status (2 for a build or usage error, 137 for
+  # SIGKILL) is never the flake, whatever the output says.
+  [[ "${rc}" -eq 1 ]] || unrecognised
   is_deadline_flake "${out}" || unrecognised
 
   status="$(git status --porcelain --untracked-files=all)" || { diag "git status failed"; exit 1; }
