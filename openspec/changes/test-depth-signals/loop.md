@@ -42,6 +42,7 @@ Holistic run at B: not run yet.
 | G1 (1.1-1.5) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (deny markers bypassed on exit 0, fixed), opus CLEAN; r2 astra APPROVE, opus CONCERNS (deferred) | CI on the PR head not run; deferred to B: empty-pkg F0 case, crash-fixture replay; spec question: `go: downloading` lines on a cold cache make a real flake unrecognised (filter them in TDS-1, or an uncaptured `go mod download` step) |
 | 1.6 | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 1 round; astra APPROVE, opus CONCERNS (wording fixed, two NOTEs deferred to B) | cold-cache probe local only; F16 ignores `if:`/`continue-on-error:` (deferred to B, fails closed) |
 | 2.1 | CLOSED | astra (evidence only), 1 round | found two repetition-dependent tests (collect, metrics), fixed in their own commits before G2 |
+| G2 (2.2-2.5) | CLOSED | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (empty SHUFFLE_SEED accepted, go list argv unasserted: fixed), opus CLEAN; r2 astra APPROVE, opus CLEAN | first scheduled run + reporter run stay the post-merge row; deferred to B: `make setup-envtest` failure has no `::error::` line |
 
 ## Known red
 
@@ -52,6 +53,8 @@ Holistic run at B: not run yet.
 
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
+| `hack/test/ci_failure_report_test.sh`: exact `workflow_run.workflows` list, comment, message (+ mutant) | change 7 (ci-failure-reporting) | G2 | not wrong, extended: TDS-2 requires `Test shuffle` in the list (spec.md TDS-2, task 2.4) |
+| `internal/collect` `TestRecordLabeledMetricSeries_CapsCardinalityDeterministically`; `internal/metrics` `TestRegister` | before this change | 2.1 fixes `a52189aa9`, `297952dee` | absolute reads of process-global counters: red at `-shuffle=off -count=3` (evidence/G2.md) |
 
 ## Lessons
 
@@ -66,6 +69,8 @@ This change (test-depth-signals):
 - Keep the evidence Status pending until the review is recorded: a reviewer reads a premature CLOSED as a claim (1.6)
 - `make setup-envtest` prints the assets path to stderr with no newline: keep it off the line that carries a seed or marker (2.1)
 - Run the new nightly's real command once before writing its guard: the 2.1 split found two counters read as absolutes, red at every `-count=3` (2.1)
+- Under `set -e`, a `$(grep … | head | cut)` with no match aborts the whole guard: add `|| true` to every probe substitution, or the red stops at the first missing line (G2)
+- A mutant that adds a bad entry to a validated list reds every case that runs the script: name the clause it targets and accept the spill, or mutate the validation instead (G2)
 
 Carried over from change 7 (ci-failure-reporting):
 

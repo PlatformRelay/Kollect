@@ -130,7 +130,7 @@ Each case below reads: given / when / then · the failure it exposes.
     the workflow's `timeout-minutes`;
   - a seed that runs the 2.2 fixture's dependent test first. — closed 2026-10-18, evidence:
     evidence/G2.md
-- [ ] 2.2 Write `hack/test/test_shuffle_test.sh` (plain and `--self-test`) and an order-dependent
+- [x] 2.2 Write `hack/test/test_shuffle_test.sh` (plain and `--self-test`) and an order-dependent
   fixture package under `hack/test/testdata/shuffle/` (or behind a build tag, per 2.1), so
   `go list ./...` ignores it. Script cases, red against a stub `hack/ci/test-shuffle.sh` that runs
   `go test -count=3` without `-shuffle` on `go list ./...` and ignores `SHUFFLE_SEED`. Every case
@@ -165,8 +165,9 @@ Each case below reads: given / when / then · the failure it exposes.
     any `go test` call, naming the missing assets · an empty assets path accepted (red today);
   - S10 given a fake `go list` with several packages, when the script runs, then the set of
     packages passed to `go test` equals that list minus the exclusion list · a package silently
-    dropped outside the exclusion list.
-- [ ] 2.3 Add the wiring cases to `test_shuffle_test.sh`, red against the tree before 2.4:
+    dropped outside the exclusion list. — closed 2026-10-18, evidence:
+    evidence/G2.md
+- [x] 2.3 Add the wiring cases to `test_shuffle_test.sh`, red against the tree before 2.4:
   - S11 `test-shuffle.yaml` has `name: Test shuffle`, `schedule:` cron `30 2 * * *`,
     `permissions: contents: read`, a SHA-pinned `actions/checkout` with
     `persist-credentials: false`, `./.github/actions/go-cache` with `envtest: true`, a SHA-pinned
@@ -174,8 +175,9 @@ Each case below reads: given / when / then · the failure it exposes.
     no `SHUFFLE_SEED` anywhere · a nightly that cannot run, leaks credentials, runs without bound
     or uses the same seed every night;
   - S12 `shuffle:` in `hack/task/Taskfile.test.yml` runs `hack/ci/test-shuffle.sh`, and
-    `ci-failure-report.yaml` lists `Test shuffle` · a nightly nobody hears from.
-- [ ] 2.4 Implement `hack/ci/test-shuffle.sh` (seed from `SHUFFLE_SEED` or chosen, echoed first;
+    `ci-failure-report.yaml` lists `Test shuffle` · a nightly nobody hears from. — closed 2026-10-18, evidence:
+    evidence/G2.md
+- [x] 2.4 Implement `hack/ci/test-shuffle.sh` (seed from `SHUFFLE_SEED` or chosen, echoed first;
   Ginkgo packages three times at `-count=1` and the rest at `-count=3`, all with
   `-shuffle=<seed>`; exclusion list
   with reasons, e2e only, empty today; envtest provisioned as `hack/coverage.sh:23-30`),
@@ -186,14 +188,16 @@ Each case below reads: given / when / then · the failure it exposes.
   message in `hack/test/ci_failure_report_test.sh:1547-1553`, with a self-test mutant like W1
   (`:424`) that drops it. Wire `test_shuffle_test.sh` into `lint` in both modes and into
   `cfc_guards`. The zizmor gate passes. Fix any order dependence found, each in its own commit
-  before this one.
-- [ ] 2.5 Defect controls in `--self-test`, one mutant each of a copy: drop `-shuffle` (S1), drop
+  before this one. — closed 2026-10-18, evidence:
+  evidence/G2.md
+- [x] 2.5 Defect controls in `--self-test`, one mutant each of a copy: drop `-shuffle` (S1), drop
   `-count=3` (S8), echo the seed after the run (S4), a reasonless exclusion (S5), a non-e2e
   exclusion (S6), an empty package list (S7), `-count=3` on the Ginkgo package (S8), drop
   `make setup-envtest` (S9a), drop the `KUBEBUILDER_ASSETS` export (S9a), drop the empty-assets
   check (S9b), drop one discovered package (S10), drop `persist-credentials: false` (S11), set
   `SHUFFLE_SEED` in the workflow (S11), drop `Test shuffle` from the reporter list (S12); each turns
-  its case red; a no-op copy passes.
+  its case red; a no-op copy passes. — closed 2026-10-18, evidence:
+  evidence/G2.md
 
 ## 3. README truth (TDS-3)
 

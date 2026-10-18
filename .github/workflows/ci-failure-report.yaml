@@ -22,6 +22,7 @@ on:
     workflows:
       - E2E nightly
       - Go patch lag
+      - Test shuffle
     types: [completed]
 
 permissions:
