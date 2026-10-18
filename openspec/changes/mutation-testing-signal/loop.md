@@ -1,7 +1,7 @@
 # Loop — mutation-testing-signal (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/mutation-testing-signal` · Branch: `feat/mutation-testing-signal` · Base: `origin/main` @ `3c01608ff` (changes 7 and 8 merged) · Started: 2026-10-19 · Reviewers: astra + claude (duo)
-Next: L task loop — dispatch T1.1 (0.1 + 1.1 probe, evidence only) with task-prompt.md
+Next: L — dispatch G1 (0.1 + 1.1 probe), then G2 (2.1–2.8)
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 9 of 10 (issue #446). Spec set: proposal.md, specs/mutation-testing/spec.md, tasks.md.
