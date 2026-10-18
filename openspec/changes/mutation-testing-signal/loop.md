@@ -42,6 +42,7 @@ Holistic run at B: not run yet.
 
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
+| G1 (0.1, 1.1) | CLOSED-WITH-GAPS | astra:diff, 1 round, no Claude (evidence and fixtures only) | LIVED classification is agent-review; finding F1 (warm test cache turns every mutant TIMED OUT) handled in G2 by `GOFLAGS=-count=1` in the runner, not a spec contradiction |
 
 ## Known red
 
@@ -61,6 +62,8 @@ This change (mutation-testing-signal):
 
 - Probe a tool's threshold and config sources by running it, not by reading flags: gremlins v0.6.0 ignores CLI/env thresholds, reads `.gremlins` under any extension, and any `GREMLINS_MUTANTS_*_ENABLED` value disables a mutator (R)
 - A Task task can be skipped by `sources:`/`generates:`/`method:` as well as `status:`; pin all of them when a guard says "cannot be skipped" (R)
+- gremlins times each mutant out at 3x the coverage run's time; a cached `go test -cover` (about 50 ms) turns every covered mutant TIMED OUT, so run it with `GOFLAGS=-count=1`; the fixture control does not notice (G1)
+- gremlins exits 0 and writes no report when `--output` names a missing directory: check the report exists, never the exit status alone (G1)
 
 Carried over from change 8 (test-depth-signals):
 

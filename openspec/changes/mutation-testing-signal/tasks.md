@@ -28,13 +28,13 @@ Each case below reads: given / when / then · the failure it exposes.
 
 ## 0. Prerequisite
 
-- [ ] 0.1 Confirm change 7 is merged (#469) and `ci-failure-report.yaml` `on.workflow_run.workflows`
+- [x] 0.1 Confirm change 7 is merged (#469) and `ci-failure-report.yaml` `on.workflow_run.workflows`
   (`:22-25`) is the exact list `ci_failure_report_test.sh:1549-1556` asserts; record both in the
-  1.1 evidence
+  1.1 evidence — closed 2026-10-19, evidence: evidence/G1.md
 
 ## 1. Probe (evidence only)
 
-- [ ] 1.1 Probe gremlins v0.6.0 under the `go.mod` Go (1.27.2), installed exactly as the task will
+- [x] 1.1 Probe gremlins v0.6.0 under the `go.mod` Go (1.27.2), installed exactly as the task will
   (`GOBIN=<absolute tmp>/gremlins-v0.6.0 go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0`;
   `go install` refuses a relative `GOBIN`, believed), and record:
   - `gremlins unleash --help`: all eleven mutator flags, and which default to false (expected
@@ -63,7 +63,7 @@ Each case below reads: given / when / then · the failure it exposes.
     (LIVED expected), and the status of a function no test calls (NOT COVERED expected).
   Save the recorded reports (three packages and the fixture under the runner's argv; a dry run)
   as fixtures for G2. If a measured fact contradicts proposal.md or spec.md, stop: it is a spec
-  finding.
+  finding. — closed 2026-10-19, evidence: evidence/G1.md
 
 ## 2. Measurement, guard and wiring (MUT-1 to MUT-4), group G2, one commit
 
