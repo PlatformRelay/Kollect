@@ -423,6 +423,8 @@ if [[ "${MODE}" == self-test ]]; then
       rx .github/workflows/e2e-nightly.yaml 's/^name: E2E nightly$/name: E2E nightly (renamed)/'
     judge cfr wiring "G4 W1 list loses Go patch lag" "on.workflow_run.workflows must be exactly" \
       rx "${W}" '/^ +- Go patch lag$/d'
+    judge cfr wiring "TDS-2 list loses Test shuffle" "on.workflow_run.workflows must be exactly" \
+      rx "${W}" '/^ +- Test shuffle$/d'
     judge cfr wiring "G4 W2 types widened" "on.workflow_run.types must be exactly" \
       yqe "${W}" '."on".workflow_run.types += ["requested"]'
     judge cfr wiring "G4 W3 repository guard dropped from the workflow if:" "job if: must be exactly" \
@@ -1544,13 +1546,14 @@ wq() {
   yq eval -o=json -I=0 "$1" "${WF}" 2>/dev/null || echo "<parse error>"
 }
 
-# Reported workflows: exactly E2E nightly and Go patch lag, each the name: of exactly one
-# workflow file (workflow_run matches by name, so a rename silently stops the trigger).
+# Reported workflows: exactly E2E nightly, Go patch lag and Test shuffle (TDS-2, openspec change
+# test-depth-signals), each the name: of exactly one workflow file (workflow_run matches by name,
+# so a rename silently stops the trigger).
 listed="$(wq '."on".workflow_run.workflows')"
-if [[ "${listed}" == '["E2E nightly","Go patch lag"]' ]]; then
-  ok "wiring: workflow_run lists exactly E2E nightly and Go patch lag"
+if [[ "${listed}" == '["E2E nightly","Go patch lag","Test shuffle"]' ]]; then
+  ok "wiring: workflow_run lists exactly E2E nightly, Go patch lag and Test shuffle"
 else
-  bad "wiring: ${WF_REL} on.workflow_run.workflows must be exactly [\"E2E nightly\",\"Go patch lag\"], found ${listed}"
+  bad "wiring: ${WF_REL} on.workflow_run.workflows must be exactly [\"E2E nightly\",\"Go patch lag\",\"Test shuffle\"], found ${listed}"
 fi
 listed_names=()
 if [[ -f "${WF}" ]]; then

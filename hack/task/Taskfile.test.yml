@@ -17,6 +17,11 @@ tasks:
     cmds:
       - make test
 
+  shuffle:
+    desc: Every unit package three times under one printed -shuffle seed (nightly; hack/ci/test-shuffle.sh)
+    cmds:
+      - bash hack/ci/test-shuffle.sh
+
   coverage:
     desc: Unit/envtest with internal/ coverage.out and floor (COVERAGE_MIN from Taskfile.yml)
     cmds:

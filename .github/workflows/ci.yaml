@@ -588,6 +588,14 @@ jobs:
         run: bash hack/test/fuzz_retry_test.sh
       - name: Verify the fuzz runner test can still fail (TDS-1)
         run: bash hack/test/fuzz_retry_test.sh --self-test
+      # TDS-2 (openspec change test-depth-signals): the nightly shuffle script against a fake make
+      # and go (an order-dependent fixture through the real go), and test-shuffle.yaml's wiring.
+      # Plain and --self-test as separate steps; CWS-6/CFC-6 checks each mode runs in a required
+      # job. Needs go and yq (installed above).
+      - name: Verify the nightly shuffle runs every unit package under one seed (TDS-2)
+        run: bash hack/test/test_shuffle_test.sh
+      - name: Verify the nightly shuffle test can still fail (TDS-2)
+        run: bash hack/test/test_shuffle_test.sh --self-test
       # Evidence under openspec/changes/**/evidence/ (archive included) is Markdown only: a probe
       # script committed there is analysed by SonarCloud as uncovered new code although CI never
       # runs it (decision 2026-10-16: inline probes in the evidence .md instead of widening
