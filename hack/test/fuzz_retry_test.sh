@@ -362,10 +362,14 @@ FAKE
     case_fail F11 "the fuzz job's if: is '${job_if}', want exactly needs.changes.outputs.code == 'true'"
   [[ "$(yq eval '.jobs.fuzz | has("continue-on-error")' "${CI}")" == false ]] ||
     case_fail F11 "the fuzz job sets continue-on-error:"
+  # A job `defaults.run.shell` or a step `shell:` decides what runs the `run:` text: a
+  # `bash -c "true" {0}` keeps every pinned string and executes none of them.
+  [[ "$(yq eval '.jobs.fuzz | has("defaults")' "${CI}")" == false ]] ||
+    case_fail F11 "the fuzz job sets defaults: (a run shell would replace what the steps run)"
   # Counted, not joined from names: a step named "" would join to an empty string.
-  soft_sel='[.jobs.fuzz.steps[] | select((.run // "") | sub("\s+$"; "") != "go mod download") | select(has("if") or has("continue-on-error"))]'
+  soft_sel='[.jobs.fuzz.steps[] | select((.run // "") | sub("\s+$"; "") != "go mod download") | select(has("if") or has("continue-on-error") or has("shell"))]'
   [[ "$(yq eval "${soft_sel} | length" "${CI}")" == 0 ]] ||
-    case_fail F11 "fuzz job steps set if: or continue-on-error: ($(yq eval "${soft_sel} | map(.name // .uses // .run) | join(\", \")" "${CI}"))"
+    case_fail F11 "fuzz job steps set if:, continue-on-error: or shell: ($(yq eval "${soft_sel} | map(.name // .uses // .run) | join(\", \")" "${CI}"))"
   inline="$(yq eval '[.jobs.fuzz.steps[] | select((.run // "") | test("for attempt|go test"))] | length' "${CI}")"
   [[ "${inline}" == 0 ]] ||
     case_fail F11 "the fuzz job still runs go test or a 'for attempt' loop inline (${inline} steps)"
@@ -387,8 +391,8 @@ FAKE
     case_fail F16 "the fuzz job needs one go-cache step and one runner step to order the download against"
   elif ((dl <= cache || dl >= runner)); then
     case_fail F16 "the 'go mod download' step is step ${dl}, want it after go-cache (${cache}) and before the runner (${runner})"
-  elif [[ "$(yq eval ".jobs.fuzz.steps[${dl}] | (has(\"if\") or has(\"continue-on-error\"))" "${CI}")" != false ]]; then
-    case_fail F16 "the 'go mod download' step sets if: or continue-on-error:; a skipped or failed download lets go test fetch modules inside the judged output"
+  elif [[ "$(yq eval ".jobs.fuzz.steps[${dl}] | (has(\"if\") or has(\"continue-on-error\") or has(\"shell\"))" "${CI}")" != false ]]; then
+    case_fail F16 "the 'go mod download' step sets if:, continue-on-error: or shell:; a skipped or failed download lets go test fetch modules inside the judged output"
   fi
   done_case F16
 
@@ -536,6 +540,11 @@ mutant_rejected "runner step continue-on-error" .github/workflows/ci.yaml \
 mutant_rejected "runner step if" .github/workflows/ci.yaml "${RUN_LINE}" "${RUN_LINE}"$'\n        if: false' F11
 mutant_rejected "unnamed runner step continue-on-error" .github/workflows/ci.yaml \
   $'      - name: Native Go fuzz (30s)\n' $'      - name: ""\n        continue-on-error: true\n' F11
+mutant_rejected "job defaults.run.shell" .github/workflows/ci.yaml \
+  $'    name: fuzz\n' $'    name: fuzz\n    defaults:\n      run:\n        shell: bash -c "true" {0}\n' F11
+mutant_rejected "runner step shell" .github/workflows/ci.yaml "${RUN_LINE}" "${RUN_LINE}"$'\n        shell: bash -c "true" {0}' F11
+mutant_rejected "download step shell" .github/workflows/ci.yaml \
+  '        run: go mod download' $'        run: go mod download\n        shell: bash -c "true" {0}' F16
 mutant_rejected "job continue-on-error" .github/workflows/ci.yaml \
   $'    name: fuzz\n' $'    name: fuzz\n    continue-on-error: true\n' F11
 mutant_rejected "job if widened" .github/workflows/ci.yaml \

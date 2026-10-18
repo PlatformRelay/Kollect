@@ -455,10 +455,12 @@ FAKE
   fi
   # An `if:` or `continue-on-error:` on the job or a step would skip the run or turn its failure
   # green (precedent: dist_operatorhub_pr_test.sh reads continue-on-error the same way).
-  [[ "$(wq '[.jobs[] | select(has("if") or has("continue-on-error"))] | length')" == 0 ]] ||
-    case_fail S11 "the job sets if: or continue-on-error:"
-  soft="$(wq '[.jobs[].steps[] | select(has("if") or has("continue-on-error")) | (.name // .uses // .run)]')"
-  [[ "${soft}" == '[]' ]] || case_fail S11 "steps set if: or continue-on-error: ${soft}"
+  # A `defaults.run.shell` (workflow or job) or a step `shell:` decides what runs the `run:` text.
+  [[ "$(wq '[.jobs[] | select(has("if") or has("continue-on-error") or has("defaults"))] | length')" == 0 ]] ||
+    case_fail S11 "the job sets if:, continue-on-error: or defaults:"
+  [[ "$(wq 'has("defaults")')" == false ]] || case_fail S11 "the workflow sets defaults: (a run shell would replace what the step runs)"
+  [[ "$(wq '[.jobs[].steps[] | select(has("if") or has("continue-on-error") or has("shell"))] | length')" == 0 ]] ||
+    case_fail S11 "steps set if:, continue-on-error: or shell: $(wq '[.jobs[].steps[] | select(has("if") or has("continue-on-error") or has("shell")) | (.name // .uses // .run)]')"
   # The script picks a fresh seed when SHUFFLE_SEED is unset: the workflow must not set it, anywhere.
   ! grep -F 'SHUFFLE_SEED' "${WF}" >/dev/null ||
     case_fail S11 "test-shuffle.yaml mentions SHUFFLE_SEED: the nightly would rerun one seed"
@@ -469,6 +471,10 @@ FAKE
   got="$(yq eval -o=json -I=0 '.tasks.shuffle.cmds' "${TF}" 2>/dev/null || echo '<parse error>')"
   [[ "${got}" == '["bash hack/ci/test-shuffle.sh"]' ]] ||
     case_fail S12 "Taskfile.test.yml shuffle.cmds is ${got}, want [\"bash hack/ci/test-shuffle.sh\"]"
+  # Only reviewed keys: `status:` can skip the task as up to date, `ignore_error:` hide its failure,
+  # `deps:`/`preconditions:`/`dir:` change what or where it runs.
+  got="$(yq eval -o=json -I=0 '.tasks.shuffle | keys | . - ["desc", "summary", "cmds"]' "${TF}" 2>/dev/null || echo '<parse error>')"
+  [[ "${got}" == '[]' ]] || case_fail S12 "Taskfile.test.yml shuffle: sets keys beyond desc, summary and cmds: ${got}"
   ! grep -F 'SHUFFLE_SEED' "${TF}" >/dev/null ||
     case_fail S12 "Taskfile.test.yml mentions SHUFFLE_SEED: a task variable would pin the seed"
   [[ "$(yq eval '."on".workflow_run.workflows | any_c(. == "Test shuffle")' "${CFR}" 2>/dev/null)" == true ]] ||
@@ -592,6 +598,14 @@ W=.github/workflows/test-shuffle.yaml
   mutant "job if" "${W}" S11 '    runs-on: ubuntu-latest' $'    runs-on: ubuntu-latest\n    if: false'
   mutant "checkout step if" "${W}" S11 \
     '          persist-credentials: false' $'          persist-credentials: false\n        if: false'
+  mutant "job defaults.run.shell" "${W}" S11 '    timeout-minutes: 45' \
+    $'    timeout-minutes: 45\n    defaults:\n      run:\n        shell: bash -c "true" {0}'
+  mutant "workflow defaults.run.shell" "${W}" S11 $'permissions:\n' $'defaults:\n  run:\n    shell: bash -c "true" {0}\n\npermissions:\n'
+  mutant "run step shell" "${W}" S11 '        run: task test:shuffle' $'        run: task test:shuffle\n        shell: bash -c "true" {0}'
+  mutant "shuffle task skipped by status" hack/task/Taskfile.test.yml S12 \
+    '      - bash hack/ci/test-shuffle.sh' $'      - bash hack/ci/test-shuffle.sh\n    status: ["true"]'
+  mutant "shuffle task failure ignored" hack/task/Taskfile.test.yml S12 \
+    '      - bash hack/ci/test-shuffle.sh' $'      - bash hack/ci/test-shuffle.sh\n    ignore_error: true'
   mutant "Test shuffle dropped from the reporter list" .github/workflows/ci-failure-report.yaml S12 \
     '      - Test shuffle
 ' ''
