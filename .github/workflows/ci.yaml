@@ -821,6 +821,10 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           cache-suffix: fuzz-${{ matrix.target }}
+      # Its own step, so a cold module cache's `go: downloading` lines never reach the runner's
+      # exact flake match below (hack/test/fuzz_retry_test.sh F16 pins it here).
+      - name: Download Go modules
+        run: go mod download
       - name: Native Go fuzz (30s)
         env:
           FUZZ_TARGET: ${{ matrix.target }}

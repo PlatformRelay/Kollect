@@ -19,7 +19,9 @@
 #   F10     control: a plain pass is green after one call with the exact argv;
 #   F11     ci.yaml's fuzz job calls the runner with the matrix values and keeps no inline loop,
 #           and the runner is executable (the step runs it directly);
-#   F12-F15 the flake is the exact, ordered, complete line sequence for the matrix target.
+#   F12-F15 the flake is the exact, ordered, complete line sequence for the matrix target;
+#   F16     ci.yaml's fuzz job runs `go mod download` in its own step between go-cache and the
+#           runner, so cold-cache `go: downloading` lines never reach the flake match (task 1.6).
 # "The diagnostic" is the runner's own `::error::fuzz-retry:` line; a case asserts the full set
 # of those lines, never the replayed go output.
 #
@@ -328,6 +330,25 @@ FAKE
     case_fail F11 "the fuzz job still runs go test or a 'for attempt' loop inline (${inline} steps)"
   done_case F11
 
+  # --- F16: modules download in their own step, after go-cache and before the runner --------------
+  # A cold module cache prints `go: downloading` lines, which the runner's exact flake sequence
+  # does not allow; a separate, uncaptured step keeps them out of the output it judges.
+  CASE_BAD="${BAD}"
+  idx() { # <yq select expression>: the indexes of the fuzz job's steps that match, one per line
+    yq eval ".jobs.fuzz.steps | to_entries | .[] | select($1) | .key" "${CI}"
+  }
+  dl="$(idx '(.value.run // "") | sub("\s+$"; "") == "go mod download"')"
+  cache="$(idx '(.value.uses // "") == "./.github/actions/go-cache"')"
+  runner="$(idx '(.value.run // "") | test("fuzz-retry\.sh")')"
+  if [[ "$(wc -w <<<"${dl}")" -ne 1 ]]; then
+    case_fail F16 "the fuzz job has $(wc -w <<<"${dl}") steps running exactly 'go mod download', want 1"
+  elif [[ "$(wc -w <<<"${cache}")" -ne 1 || "$(wc -w <<<"${runner}")" -ne 1 ]]; then
+    case_fail F16 "the fuzz job needs one go-cache step and one runner step to order the download against"
+  elif ((dl <= cache || dl >= runner)); then
+    case_fail F16 "the 'go mod download' step is step ${dl}, want it after go-cache (${cache}) and before the runner (${runner})"
+  fi
+  done_case F16
+
   # --- F12-F15: the exact, ordered, complete line sequence for the matrix target -----------------------
   variant '{print} /context deadline exceeded/ {print "    fuzzing process hung or terminated unexpectedly"}' >"${VAR}/f12"
   one_attempt_red F12 "${VAR}/f12" "unrecognised failure text"
@@ -344,7 +365,7 @@ FAKE
   one_attempt_red F15 "${VAR}/f15b" "unrecognised failure text"
 
   [[ "${BAD}" -eq 0 ]] || fail "the fuzz runner breaks TDS-1 (cases above)"
-  pass "the fuzz runner retries only the deadline flake and is never green on nothing (F1-F15)"
+  pass "the fuzz runner retries only the deadline flake and is never green on nothing (F1-F16)"
   exit 0
 fi
 
@@ -432,6 +453,34 @@ mutant_rejected "membership instead of the ordered sequence" "${R}" \
 mutant_rejected "fuzz job bypasses the runner" .github/workflows/ci.yaml \
   'hack/ci/fuzz-retry.sh "${FUZZ_TARGET}" "${FUZZ_PKG}"' \
   'go test -run='"'"'^$'"'"' -fuzz="${FUZZ_TARGET}" -fuzztime=30s "${FUZZ_PKG}"' F11
+
+# F16: the module download step dropped, or moved out from between go-cache and the runner.
+mutant_rejected "module download step dropped" .github/workflows/ci.yaml \
+  "run: go mod download" "run: go version" F16
+# shellcheck disable=SC2016 # literal workflow text
+DL_STEP=$'      - name: Download Go modules\n        run: go mod download\n'
+# shellcheck disable=SC2016 # literal workflow text
+RUN_LINE='        run: hack/ci/fuzz-retry.sh "${FUZZ_TARGET}" "${FUZZ_PKG}"'
+# shellcheck disable=SC2016 # literal workflow text
+CACHE_STEP=$'      - uses: ./.github/actions/go-cache\n        with:\n          cache-suffix: fuzz-${{ matrix.target }}'
+for where in after-runner before-cache; do
+  new_copy
+  replace_once "${COPY}/.github/workflows/ci.yaml" "${DL_STEP}" "" ||
+    fail "self-test: the module download step is not the expected two lines -- nothing was tested"
+  if [[ "${where}" == after-runner ]]; then
+    replace_once "${COPY}/.github/workflows/ci.yaml" "${RUN_LINE}" "${RUN_LINE}"$'\n'"${DL_STEP%$'\n'}"
+  else
+    replace_once "${COPY}/.github/workflows/ci.yaml" "${CACHE_STEP}" "${DL_STEP}${CACHE_STEP}"
+  fi || fail "self-test: the ${where} anchor is missing or not unique in ci.yaml -- nothing was tested"
+  out="$(bash "${SELF}" "${COPY}" 2>&1)" && rc=0 || rc=$?
+  [[ "${rc}" -ne 0 ]] || fail "self-test: the check accepted the module download step ${where} (exit 0)"
+  grep '^FAIL: F16:.*want it after go-cache' <<<"${out}" >/dev/null ||
+    fail "self-test: the download-${where} mutant did not red F16; got: $(grep '^FAIL' <<<"${out}" | head -3 | tr '\n' ' ')"
+  [[ "$(grep -c '^FAIL: F[0-9]*[a-z]*:' <<<"${out}")" -eq 1 ]] ||
+    fail "self-test: the download-${where} mutant red more than F16: $(grep '^FAIL' <<<"${out}" | head -3 | tr '\n' ' ')"
+  rm -rf "${COPY:?}"
+  pass "self-test: module download step ${where} rejected by F16"
+done
 
 # F11: the runner loses its exec bit.
 new_copy

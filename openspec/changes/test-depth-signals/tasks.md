@@ -102,11 +102,14 @@ Each case below reads: given / when / then · the failure it exposes.
   `--untracked-files=all` (F5a), ignore a failing `git status` (F5c), raise the retry cap (F6);
   each turns its case red; a no-op copy passes. — closed 2026-10-18, evidence: evidence/G1.md
 - [x] 1.5 Output-shape defect controls in `--self-test`, one mutant each: drop the zero-target
-- [ ] 1.6 Add an uncaptured `go mod download` step before the fuzz runner in the fuzz job (model-aligned decision 2026-10-18: cold-cache `go: downloading` lines must not reach the strict matcher); wiring assertion + mutant in fuzz_retry_test.sh --self-test
   check (F8), drop the `fuzz: elapsed` check (F9), drop the `unrecognised failure text` diagnostic
   (F7), use `-fuzztime=1s` (F1, F10), replace the allow-list with a substring match (F12), drop the
   target pin (F13), stop requiring every line of the sequence (F14), check membership instead of
   the ordered sequence (F15); each turns its case red; a no-op copy passes. — closed 2026-10-18, evidence: evidence/G1.md
+- [x] 1.6 Add an uncaptured `go mod download` step before the fuzz runner in the fuzz job
+  (model-aligned decision 2026-10-18: cold-cache `go: downloading` lines must not reach the strict
+  matcher); wiring assertion + mutant in fuzz_retry_test.sh --self-test. — closed 2026-10-18,
+  evidence: evidence/T1.6.md
 
 ## 2. Shuffle (TDS-2)
 
