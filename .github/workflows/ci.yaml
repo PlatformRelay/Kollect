@@ -596,6 +596,14 @@ jobs:
         run: bash hack/test/test_shuffle_test.sh
       - name: Verify the nightly shuffle test can still fail (TDS-2)
         run: bash hack/test/test_shuffle_test.sh --self-test
+      # TDS-3 (openspec change test-depth-signals): every task, kubectl apply -k path and kubectl get
+      # name in the README's Quick start sh fences exists in the tree. Static (bash, awk), no
+      # cluster. Plain and --self-test as separate steps; CWS-6/CFC-6 checks each mode runs in a
+      # required job.
+      - name: Verify the README quick start names only existing tasks and resources (TDS-3)
+        run: bash hack/test/readme_quickstart_test.sh
+      - name: Verify the README quick-start test can still fail (TDS-3)
+        run: bash hack/test/readme_quickstart_test.sh --self-test
       # Evidence under openspec/changes/**/evidence/ (archive included) is Markdown only: a probe
       # script committed there is analysed by SonarCloud as uncovered new code although CI never
       # runs it (decision 2026-10-16: inline probes in the evidence .md instead of widening

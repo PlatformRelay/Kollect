@@ -201,7 +201,7 @@ Each case below reads: given / when / then · the failure it exposes.
 
 ## 3. README truth (TDS-3)
 
-- [ ] 3.1 Write `hack/test/readme_quickstart_test.sh` (plain and `--self-test`). Cases, each a
+- [x] 3.1 Write `hack/test/readme_quickstart_test.sh` (plain and `--self-test`). Cases, each a
   mutant of a copy of the tree:
   - R1 given `demo-up` renamed in `Taskfile.yml`, then the test fails and names `demo-up` · a
     README naming a task that is gone;
@@ -223,8 +223,9 @@ Each case below reads: given / when / then · the failure it exposes.
     namespaced task accepted;
   - R10 control: given invalid commands (`task nosuch`, `kubectl get foo`) only in the section's
     prose, in another section and in a `text` fence, then the test passes · an extractor that
-    reads outside the section's `sh` fences.
-- [ ] 3.2 Implement; wire into `lint` in both modes and into `cfc_guards`.
+    reads outside the section's `sh` fences. — closed 2026-10-18, evidence: evidence/G3.md
+- [x] 3.2 Implement; wire into `lint` in both modes and into `cfc_guards`. — closed 2026-10-18,
+  evidence: evidence/G3.md
 
 ## 4. Land
 

@@ -43,6 +43,7 @@ Holistic run at B: not run yet.
 | 1.6 | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 1 round; astra APPROVE, opus CONCERNS (wording fixed, two NOTEs deferred to B) | cold-cache probe local only; F16 ignores `if:`/`continue-on-error:` (deferred to B, fails closed) |
 | 2.1 | CLOSED | astra (evidence only), 1 round | found two repetition-dependent tests (collect, metrics), fixed in their own commits before G2 |
 | G2 (2.2-2.5) | CLOSED | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (empty SHUFFLE_SEED accepted, go list argv unasserted: fixed), opus CLEAN; r2 astra APPROVE, opus CLEAN | first scheduled run + reporter run stay the post-merge row; deferred to B: `make setup-envtest` failure has no `::error::` line |
+| G3 (3.1-3.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (kubectl flag before verb, single `&`: fixed), opus CONCERNS; r2 astra REQUEST_CHANGES (backslash continuation, indented fence: fixed after the last round), opus CONCERNS (evidence: fixed) | round-2 fixes unreviewed (mutation-checked); deferred to B: `internal: true` tasks count as existing, `bash`/`shell` fences unread (spec reads `sh` only); README had no drift |
 
 ## Known red
 
@@ -71,6 +72,9 @@ This change (test-depth-signals):
 - Run the new nightly's real command once before writing its guard: the 2.1 split found two counters read as absolutes, red at every `-count=3` (2.1)
 - Under `set -e`, a `$(grep … | head | cut)` with no match aborts the whole guard: add `|| true` to every probe substitution, or the red stops at the first missing line (G2)
 - A mutant that adds a bad entry to a validated list reds every case that runs the script: name the clause it targets and accept the spill, or mutate the validation instead (G2)
+- A Markdown-fence guard must treat a fence that runs into the next `##` heading as unclosed: a later bare fence "closes" it and the section boundary is lost (G3)
+- A hand mutant that drops a tokenizer step can survive every task-named case: add one case with two commands on one line (G3)
+- A command extractor needs cases for every shell joint, not only `&&`: single `&`, `$(…)`, a flag before the verb, `\` continuation and indented fences all slipped past a reviewed first version (G3)
 
 Carried over from change 7 (ci-failure-reporting):
 
