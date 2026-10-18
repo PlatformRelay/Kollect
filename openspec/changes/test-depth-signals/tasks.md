@@ -4,7 +4,7 @@ Red first. Every test task comes before the implementation it drives and records
 evidence, failing on the target assertion (not on a missing file, a parse error or a usage error).
 `task check` runs every `hack/test/*_test.sh` bare and, when its code declares it, with
 `--self-test` (`hack/check.sh:88-111`, since change 7), so a red guard cannot be committed alone:
-each group closes in one commit, test tasks first (1.1-1.4; 2.2-2.5; 3.1 with 3.2), and the tree is
+each group closes in one commit, test tasks first (1.1-1.5; 2.2-2.5; 3.1 with 3.2), and the tree is
 green at every commit. Each new guard has both modes from its first commit, and that commit wires
 both into the required `lint` job (`ci.yaml:279`), as CWS-6
 (`hack/test/ci_workflow_security_test.sh:429`) demands for a guard CI runs, and adds the guard to
@@ -41,57 +41,71 @@ Each case below reads: given / when / then · the failure it exposes.
 
   Retry-decision cases, red against a stub `hack/ci/fuzz-retry.sh <target> <pkg>` that holds
   today's inline loop (`ci.yaml:827-838`) verbatim, with `FUZZ_TARGET` and `FUZZ_PKG` set from its
-  two arguments:
+  two arguments. "The diagnostic" below is the runner's own `::error::fuzz-retry:` line (TDS-1),
+  matched on that line alone, never on the replayed `go test` output, which may hold the same text:
   - F1 given the deadline fixture then the pass fixture, when the runner runs, then exit 0, two
     `go` calls, each argv exactly `test -run=^$ -fuzz=<target> -fuzztime=30s <pkg>`, and a warning
     naming the deadline flake · a retry removed, a missing warning, or a wrong target or fuzztime;
   - F2 given `panic:` alongside `context deadline exceeded`, then non-zero after one call and the
-    message names `panic:` · the blind retry (red today);
+    diagnostic is `deny marker panic:` · the blind retry (red today);
   - F3 given the deadline fixture plus `signal: killed`, then non-zero after one call and the
-    message names `signal: killed` · a retried OOM kill (red today);
-  - F4 given the deadline fixture plus `fatal error:`, then non-zero after one call and the message
-    names `fatal error:` · a retried runtime crash (red today);
+    diagnostic is `deny marker signal: killed` · a retried OOM kill (red today);
+  - F4 given the deadline fixture plus `fatal error:`, then non-zero after one call and the
+    diagnostic is `deny marker fatal error:` · a retried runtime crash (red today);
   - F5a given the deadline fixture with no deny marker, and the fake `go` writing
-    `<pkg>/testdata/fuzz/<target>/abc` in a package that tracks no `testdata/`, then non-zero after
-    one call · a corpus check blind to a collapsed untracked directory (red today);
+    `<dir>/testdata/fuzz/<target>/abc`, where `<dir>` is the matrix `pkg` without its trailing
+    `/...` and tracks no `testdata/`, then non-zero after one call · a corpus check blind to a
+    collapsed untracked directory (red today);
   - F5b given the deadline fixture plus `Failing input written` and no corpus file, then non-zero
-    after one call and the message names `Failing input written` · a retried real finding Go
-    reported but did not persist (red today);
+    after one call and the diagnostic is `deny marker Failing input written` · a retried real
+    finding Go reported but did not persist (red today);
   - F5c given the deadline fixture and a fake `git` whose `status` exits 128, then non-zero after
     one call · a corpus check that fails open (red today);
   - F6 given the deadline fixture twice and then the pass fixture, then non-zero after exactly two
     calls · an unbounded or swallowed retry.
 - [ ] 1.2 Add the remaining cases to `fuzz_retry_test.sh`, red against the same stub:
   - F7 given empty output and given unknown failure text, then non-zero after one call and the
-    message contains `unrecognised failure text` · fail open, and an undiagnosable Go wording
+    diagnostic is `unrecognised failure text` · fail open, and an undiagnosable Go wording
     change (red today);
-  - F8 given the zero-target fixture (exit 0), then non-zero and the message says no fuzz target
-    ran · a leg that fuzzes nothing reports green (red today);
-  - F9 given exit 0 with no `fuzz: elapsed` line and no warning, then non-zero with
-    `unrecognised` · a pass that fuzzed nothing for a reason the runner does not know (red today);
+  - F8 given the zero-target fixture (exit 0), then non-zero and the diagnostic is `no fuzz target
+    ran` · a leg that fuzzes nothing reports green (red today);
+  - F9 given exit 0 with no `fuzz: elapsed` line and no warning, then non-zero with the
+    `unrecognised failure text` diagnostic · a pass that fuzzed nothing for a reason the runner
+    does not know (red today);
   - F10 control: given the pass fixture, then exit 0 after one call whose argv is exactly
     `test -run=^$ -fuzz=<target> -fuzztime=30s <pkg>` · an over-strict runner, or a wrong argv;
   - F11 wiring: the `fuzz` job's fuzz step runs `hack/ci/fuzz-retry.sh "${FUZZ_TARGET}"
     "${FUZZ_PKG}"` with both set from the matrix in `env:`, and has no inline `for attempt` loop ·
     the job bypassing the runner (red today);
   - F12 given the deadline fixture plus one line outside its line set
-    (`fuzzing process hung or terminated unexpectedly`), then non-zero after one call and
-    `unrecognised failure text` · a substring match that retries unknown diagnostics (red today);
+    (`fuzzing process hung or terminated unexpectedly`), then non-zero after one call and the
+    `unrecognised failure text` diagnostic · a substring match that retries unknown diagnostics
+    (red today);
   - F13 given the deadline lines under `--- FAIL: FuzzOther` while the target is `FuzzX`, then
-    non-zero after one call and `unrecognised failure text` · a retry that does not pin the matrix
-    target (red today).
+    non-zero after one call and the `unrecognised failure text` diagnostic · a retry that does not
+    pin the matrix target (red today);
+  - F14 given the deadline fixture truncated before `exit status 1` (its last two lines removed),
+    then non-zero after one call and the `unrecognised failure text` diagnostic · a runner that
+    retries a partial capture because every line it saw is allowed (red today);
+  - F15 given the deadline fixture with one line repeated, and given it with `FAIL` and
+    `context deadline exceeded` swapped, then non-zero after one call each and the
+    `unrecognised failure text` diagnostic · a membership check standing in for the ordered
+    sequence (red today).
 - [ ] 1.3 Implement `hack/ci/fuzz-retry.sh` (`-fuzztime=30s`, allow-list, deny markers, corpus
   check with `--untracked-files=all` failing closed, messages as TDS-1); point the `fuzz` job at
   it; wire `fuzz_retry_test.sh` into `lint` in both modes and into `cfc_guards`; zizmor gate passes.
   No existing guard asserts on the `fuzz` job's steps (`grep -n fuzz hack/test/*.sh` outside the
   new guard matched nothing on 2026-10-18), so none needs updating.
-- [ ] 1.4 Defect controls in `--self-test`, one mutant each of a copy of the runner: drop each deny
-  marker (four mutants, killed by F2-F4 and F5b through the named marker), drop the corpus check
-  (F5a), drop `--untracked-files=all` (F5a), ignore a failing `git status` (F5c), raise the retry
-  cap (F6), drop the zero-target check (F8), drop the `fuzz: elapsed` check (F9), drop the
-  `unrecognised failure text` message (F7), use `-fuzztime=1s` (F1, F10), replace the allow-list
-  with a substring match (F12), drop the target pin (F13); each turns its case red; a no-op copy
-  passes.
+- [ ] 1.4 Retry-decision defect controls in `--self-test`, one mutant each of a copy of the runner:
+  drop each deny marker (four mutants, killed by F2-F4 and F5b through the diagnostic, since the
+  allow-list still rejects the output), drop the corpus check (F5a), drop
+  `--untracked-files=all` (F5a), ignore a failing `git status` (F5c), raise the retry cap (F6);
+  each turns its case red; a no-op copy passes.
+- [ ] 1.5 Output-shape defect controls in `--self-test`, one mutant each: drop the zero-target
+  check (F8), drop the `fuzz: elapsed` check (F9), drop the `unrecognised failure text` diagnostic
+  (F7), use `-fuzztime=1s` (F1, F10), replace the allow-list with a substring match (F12), drop the
+  target pin (F13), stop requiring every line of the sequence (F14), check membership instead of
+  the ordered sequence (F15); each turns its case red; a no-op copy passes.
 
 ## 2. Shuffle (TDS-2)
 
@@ -114,11 +128,16 @@ Each case below reads: given / when / then · the failure it exposes.
 - [ ] 2.2 Write `hack/test/test_shuffle_test.sh` (plain and `--self-test`) and an order-dependent
   fixture package under `hack/test/testdata/shuffle/` (or behind a build tag, per 2.1), so
   `go list ./...` ignores it. Script cases, red against a stub `hack/ci/test-shuffle.sh` that runs
-  `go test -count=3` without `-shuffle` on `go list ./...`:
-  - S1 given the fixture and the 2.1 seed, when the script runs on the fixture with that seed,
-    then non-zero and the output names the seed · the script does not pass `-shuffle` (red
+  `go test -count=3` without `-shuffle` on `go list ./...` and ignores `SHUFFLE_SEED`. Every case
+  puts a fake `make` first on `PATH` that records its calls and whose `echo-kubebuilder-assets`
+  prints a temp assets directory (unless the case says otherwise). S1, S3 and S4 also put a fake
+  `go` first on `PATH` whose `list` prints the fixture's import path and which forwards `test` to
+  the real `go` (the TDS-2 seam; no package override exists):
+  - S1 given the fixture and `SHUFFLE_SEED` set to the 2.1 seed, when the script runs, then
+    non-zero and the output names the seed · the script does not pass `-shuffle` (red
     today);
-  - S2 control: given the fixture with `-shuffle=off`, then it passes · a fixture red for a reason
+  - S2 control: given the fixture run directly with `go test -shuffle=off -count=3`, then it
+    passes · a fixture red for a reason
     other than order;
   - S3 given a failing run's printed seed, when rerun with that seed and `-count=3`, then the same
     test fails · `-shuffle=on` with an uncontrolled seed, or a printed seed that is not the one
@@ -133,9 +152,12 @@ Each case below reads: given / when / then · the failure it exposes.
     package, then the Ginkgo package is invoked three times, never with `-count` other than 1,
     and the plain package once with `-count=3` · a nightly red every night on Ginkgo's
     `-count` refusal (red today);
-  - S9 given a fake `make` whose `echo-kubebuilder-assets` prints nothing, then non-zero before
-    any `go test` call, naming the missing assets · envtest tests skipped on a cache miss (red
-    today);
+  - S9a given the fake `make` printing an assets directory, then `make setup-envtest` is called
+    before `make -s echo-kubebuilder-assets`, and every `go test` call sees `KUBEBUILDER_ASSETS`
+    equal to that directory · provisioning or the export dropped, so envtest tests skip on a
+    cache miss (red today);
+  - S9b given a fake `make` whose `echo-kubebuilder-assets` prints nothing, then non-zero before
+    any `go test` call, naming the missing assets · an empty assets path accepted (red today);
   - S10 given a fake `go list` with several packages, when the script runs, then the set of
     packages passed to `go test` equals that list minus the exclusion list · a package silently
     dropped outside the exclusion list.
@@ -143,12 +165,14 @@ Each case below reads: given / when / then · the failure it exposes.
   - S11 `test-shuffle.yaml` has `name: Test shuffle`, `schedule:` cron `30 2 * * *`,
     `permissions: contents: read`, a SHA-pinned `actions/checkout` with
     `persist-credentials: false`, `./.github/actions/go-cache` with `envtest: true`, a SHA-pinned
-    `go-task/setup-task`, `timeout-minutes` as measured in 2.1, and runs `task test:shuffle` · a
-    nightly that cannot run, leaks credentials or runs without bound;
+    `go-task/setup-task`, `timeout-minutes` as measured in 2.1, runs `task test:shuffle`, and sets
+    no `SHUFFLE_SEED` anywhere · a nightly that cannot run, leaks credentials, runs without bound
+    or uses the same seed every night;
   - S12 `shuffle:` in `hack/task/Taskfile.test.yml` runs `hack/ci/test-shuffle.sh`, and
     `ci-failure-report.yaml` lists `Test shuffle` · a nightly nobody hears from.
-- [ ] 2.4 Implement `hack/ci/test-shuffle.sh` (chooses a seed, echoes it, runs Ginkgo packages
-  three times at `-count=1` and the rest at `-count=3`, all with `-shuffle=<seed>`; exclusion list
+- [ ] 2.4 Implement `hack/ci/test-shuffle.sh` (seed from `SHUFFLE_SEED` or chosen, echoed first;
+  Ginkgo packages three times at `-count=1` and the rest at `-count=3`, all with
+  `-shuffle=<seed>`; exclusion list
   with reasons, e2e only, empty today; envtest provisioned as `hack/coverage.sh:23-30`),
   `shuffle:` in `hack/task/Taskfile.test.yml` (so `task test:shuffle`), and
   `.github/workflows/test-shuffle.yaml` (as S11; a `workflow_dispatch` run is never reported,
@@ -160,10 +184,11 @@ Each case below reads: given / when / then · the failure it exposes.
   before this one.
 - [ ] 2.5 Defect controls in `--self-test`, one mutant each of a copy: drop `-shuffle` (S1), drop
   `-count=3` (S8), echo the seed after the run (S4), a reasonless exclusion (S5), a non-e2e
-  exclusion (S6), an empty package list (S7), `-count=3` on the Ginkgo package (S8), drop the
-  envtest provisioning (S9), drop one discovered package (S10), drop `persist-credentials: false`
-  (S11), drop `Test shuffle` from the reporter list (S12); each turns its case red; a no-op copy
-  passes.
+  exclusion (S6), an empty package list (S7), `-count=3` on the Ginkgo package (S8), drop
+  `make setup-envtest` (S9a), drop the `KUBEBUILDER_ASSETS` export (S9a), drop the empty-assets
+  check (S9b), drop one discovered package (S10), drop `persist-credentials: false` (S11), set
+  `SHUFFLE_SEED` in the workflow (S11), drop `Test shuffle` from the reporter list (S12); each turns
+  its case red; a no-op copy passes.
 
 ## 3. README truth (TDS-3)
 
@@ -174,6 +199,8 @@ Each case below reads: given / when / then · the failure it exposes.
   - R2 given `dev-up` renamed, then the test fails and names `dev-up` · commented alternatives
     skipped;
   - R3 given `kubectl get kinv,foo`, then the test fails and names `foo` · short names unchecked;
+  - R3b given `kubectl get kollectprofiles,pods`, then the test fails and names `pods` only · CRD
+    plural names rejected, or a non-Kollect resource accepted;
   - R4 given `kubectl apply -k config/samples/nosuch/`, then the test fails and names the path ·
     sample paths unchecked;
   - R5 given the heading renamed so no `##` heading starts with "Quick start", then the test fails
@@ -198,11 +225,11 @@ Each case below reads: given / when / then · the failure it exposes.
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| TDS-1 | `fuzz_retry_test.sh` F1-F13, both modes; 1.4 mutants by exit status | only the pure deadline case retries; argv exact; zero targets and unknown text red | not-run | |
+| TDS-1 | `fuzz_retry_test.sh` F1-F15, both modes; 1.4 and 1.5 mutants by exit status | only the pure deadline case retries; argv exact; zero targets and unknown text red | not-run | |
 | TDS-2 | `test_shuffle_test.sh` S1-S12 with the fixed seed; 2.5 mutants | fixture red; seed printed; Ginkgo split; envtest provisioned; control green | not-run | |
 | TDS-2 | 2.1 smoke run of both Ginkgo suites under the split | green; `-count=3` refused | not-run | |
 | TDS-2 | first scheduled `Test shuffle` run, and the `CI failure report` run (`workflow_run`) it triggers | both complete | post-merge | follow-up evidence PR |
-| TDS-3 | `readme_quickstart_test.sh` R1-R10 | each mutant red, controls and tree green | not-run | |
+| TDS-3 | `readme_quickstart_test.sh` R1-R10 and R3b | each mutant red, controls and tree green | not-run | |
 | all | `ci_workflow_security_test.sh` plain and `--self-test` after each `cfc_guards` edit | green | not-run | |
 | all | wall time of each new guard, plain and `--self-test`, and the `lint` job delta | recorded in the group evidence | not-run | |
 | all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | not-run | |

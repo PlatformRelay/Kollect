@@ -12,18 +12,21 @@ things that exist.
 
 `hack/ci/fuzz-retry.sh <target> <pkg>` SHALL run
 `go test -run='^$' -fuzz=<target> -fuzztime=30s <pkg>`. It SHALL retry at most once, and only
-when the failed attempt is exactly the known deadline flake: every line of its output other than
-`fuzz:` progress lines matches, in order, the flake's line set captured from the real runs in task
-1.1 (today: `--- FAIL: <target> (<duration>)` naming the matrix target, an indented
-`context deadline exceeded`, `FAIL`, `exit status 1`, `FAIL\t<import path>\t<duration>`), and
+when the failed attempt is exactly the known deadline flake: once `fuzz:` progress lines are
+removed, its output is the flake's line sequence captured from the real runs in task 1.1, each
+line exactly once and in this order (today: `--- FAIL: <target> (<duration>)` naming the matrix
+target, an indented `context deadline exceeded`, `FAIL`, `exit status 1`,
+`FAIL\t<import path>\t<duration>`); a missing, repeated or reordered line is not the flake. And
 `git status --porcelain --untracked-files=all` shows no path under `testdata/fuzz/`. A `git status`
-that fails SHALL fail the job (fail closed). The deny markers `panic:`, `fatal error:`,
-`Failing input written` and `signal: killed` SHALL fail the job at once with a message naming the
-marker. Every other failure SHALL fail the job at once (fail closed) with a message containing
-`unrecognised failure text`, so a change in Go's wording is diagnosable from the log. A run that
-exits 0 with `no fuzz tests to fuzz` in its output and no `fuzz: elapsed` line SHALL fail as zero
-targets run. A run that exits 0 with no `fuzz: elapsed` line and without that warning SHALL also
-fail (fail closed, `unrecognised` in the message): a pass that fuzzed nothing is never green.
+that fails SHALL fail the job (fail closed). The runner's own diagnostics are lines starting
+`::error::fuzz-retry:`, distinct from the replayed `go test` output. The deny markers `panic:`,
+`fatal error:`, `Failing input written` and `signal: killed` SHALL fail the job at once with the
+diagnostic `::error::fuzz-retry: deny marker <marker>`. Every other failure SHALL fail the job at
+once (fail closed) with the diagnostic `::error::fuzz-retry: unrecognised failure text`, so a
+change in Go's wording is diagnosable from the log. A run that exits 0 with `no fuzz tests to fuzz`
+in its output and no `fuzz: elapsed` line SHALL fail with `::error::fuzz-retry: no fuzz target ran`.
+A run that exits 0 with no `fuzz: elapsed` line and without that warning SHALL also fail with the
+`unrecognised failure text` diagnostic: a pass that fuzzed nothing is never green.
 
 #### Scenario: Pure deadline artifact
 
@@ -44,7 +47,8 @@ fail (fail closed, `unrecognised` in the message): a pass that fuzzed nothing is
 #### Scenario: Crash corpus written in a package with no tracked testdata
 
 - **WHEN** the first attempt prints the deadline flake and no deny marker, and a new file appears
-  under `<pkg>/testdata/fuzz/` where `<pkg>` tracks no `testdata/` directory
+  under `<dir>/testdata/fuzz/`, where `<dir>` is the package directory (the matrix `pkg` without
+  its trailing `/...`) and tracks no `testdata/` directory
 - **THEN** the job SHALL fail without a second attempt
 
 #### Scenario: git status fails
@@ -93,8 +97,16 @@ when it is empty. A nightly workflow `test-shuffle.yaml` SHALL run it on `schedu
 workflow of its own, and SHALL be listed under `on.workflow_run.workflows` of
 `ci-failure-report.yaml`, which reports scheduled runs only.
 
-`-shuffle` reorders top-level `Test*` functions only, not Ginkgo specs; a pass of this workflow is
+`-shuffle` reorders top-level `Test*` functions only and does not control ordering inside
+`RunSpecs`. Ginkgo keeps its default randomization of top-level containers with its own seed; this
+change neither enables full spec randomization nor ties that seed to the Go shuffle seed, so
+reproducing a Ginkgo failure may need the Ginkgo seed the suite reports. A pass of this workflow is
 not evidence that the Ginkgo suites are order-independent (see proposal *Non-goals*).
+
+The script SHALL take the seed from `SHUFFLE_SEED` when it is set (a decimal integer, else it
+fails) and choose one otherwise; it SHALL discover packages only through `go list ./...`, so a test
+reaches a fixture by putting a fake `go` first on `PATH`. The workflow SHALL NOT set
+`SHUFFLE_SEED`.
 
 #### Scenario: Order-dependent test
 
@@ -106,7 +118,7 @@ not evidence that the Ginkgo suites are order-independent (see proposal *Non-goa
 - **WHEN** a shuffled run fails with seed N at `-count=3`
 - **THEN** `go test -shuffle=N -count=3` on the same package reproduces the failure (each test
   binary shuffles once with seed N and repeats that order; reproduce with the same seed and
-  repetition settings)
+  repetition settings; for a `RunSpecs` package, `-count=1`, and its Ginkgo seed, see below)
 
 #### Scenario: Ginkgo package
 
@@ -136,9 +148,9 @@ not evidence that the Ginkgo suites are order-independent (see proposal *Non-goa
 #### Scenario: Shuffle failure does not hide the nightly
 
 - **WHEN** the scheduled shuffle run and the scheduled E2E nightly both fail
-- **THEN** two separate issues exist (held by the reporter's per-workflow lookup, change 7's case
-  "both open, nightly success" at `hack/test/ci_failure_report_test.sh:1225-1232`, and its job
-  concurrency per `workflow_id`, `ci-failure-report.yaml:38-40`)
+- **THEN** two separate issues exist (held by the reporter's per-workflow marker filter,
+  `hack/ci/ci-failure-report.sh:133-140`, change 7's case "both open, nightly success" at `hack/test/ci_failure_report_test.sh:1226-1233`,
+  and its job concurrency per `workflow_id`, `ci-failure-report.yaml:40-42`)
 
 ### Requirement: TDS-3 The README quick start names things that exist
 
@@ -148,7 +160,9 @@ including commands in `#` comments (`# or: task dev-up` offers `task dev-up` to 
 counts); prose, other sections and fences of another language are not extracted. It SHALL fail
 when the extraction is empty, a `task <name>` is not a task of `Taskfile.yml` or of a Taskfile it
 includes (an included task is `<namespace>:<name>`), a `kubectl apply -k <path>` path does not
-exist, or a short name in `kubectl get` is not a CRD `shortNames` entry in `config/crd/bases`. It
+exist, or a resource name in `kubectl get` (each comma-separated name) is not a `shortNames`,
+`singular` or `plural` entry of a CRD in `config/crd/bases` (fail closed: built-in resources are
+not in the quick start). It
 SHALL NOT duplicate the delegation checks of `demo_task_aliases_test.sh` (held by review).
 
 #### Scenario: Task renamed
