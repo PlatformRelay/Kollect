@@ -44,7 +44,7 @@ Holistic run at B: not run yet.
 | 2.1 | CLOSED | astra (evidence only), 1 round | found two repetition-dependent tests (collect, metrics), fixed in their own commits before G2 |
 | G2 (2.2-2.5) | CLOSED | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (empty SHUFFLE_SEED accepted, go list argv unasserted: fixed), opus CLEAN; r2 astra APPROVE, opus CLEAN | first scheduled run + reporter run stay the post-merge row; deferred to B: `make setup-envtest` failure has no `::error::` line |
 | G3 (3.1-3.2) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (kubectl flag before verb, single `&`: fixed), opus CONCERNS; r2 astra REQUEST_CHANGES (backslash continuation, indented fence: fixed after the last round), opus CONCERNS (evidence: fixed) | round-2 fixes unreviewed (mutation-checked); deferred to B: `internal: true` tasks count as existing, `bash`/`shell` fences unread (spec reads `sh` only); README had no drift |
-| G5 (5.1-5.6) | in progress: 5.1-5.5 closed | review pending (astra + claude/opus:diff at the end of G5) | |
+| G5 (5.1-5.6) | in progress: 5.1-5.6 closed, review pending | review pending (astra + claude/opus:diff at the end of G5) | |
 
 ## Known red
 
