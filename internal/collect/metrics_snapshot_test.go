@@ -86,6 +86,10 @@ func TestRecordLabeledMetricSeries_CapsCardinalityDeterministically(t *testing.T
 	}
 	spec := metrics.MetricPathSpec{Name: series, Path: "size", Labels: []string{"name"}}
 
+	// The counter is process-global and never reset, so measure this run's increment: under
+	// -count=N the earlier repetitions' increments are still there (TDS-2 nightly shuffle).
+	cappedBefore := testutil.ToFloat64(metrics.LabeledSeriesCardinalityCappedTotal.WithLabelValues(profile, gvk, series))
+
 	recordLabeledMetricSeries(profile, gvk, spec, items)
 
 	if _, ok := metrics.CustomResourceLabeledSeriesValue(profile, gvk, series, map[string]string{"name": "a"}); !ok {
@@ -98,9 +102,9 @@ func TestRecordLabeledMetricSeries_CapsCardinalityDeterministically(t *testing.T
 		t.Fatal("expected tuple {name=c} to be dropped by the cap")
 	}
 
-	capped := testutil.ToFloat64(metrics.LabeledSeriesCardinalityCappedTotal.WithLabelValues(profile, gvk, series))
+	capped := testutil.ToFloat64(metrics.LabeledSeriesCardinalityCappedTotal.WithLabelValues(profile, gvk, series)) - cappedBefore
 	if capped != 1 {
-		t.Fatalf("capped counter = %v, want 1", capped)
+		t.Fatalf("capped counter increment = %v, want 1", capped)
 	}
 
 	// Re-run as if a second snapshot refresh happened; the survivors must be
