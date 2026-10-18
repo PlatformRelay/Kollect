@@ -1,7 +1,7 @@
 # Loop — test-depth-signals (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/test-depth-signals` · Branch: `feat/test-depth-signals` · Base: `origin/main` @ `b05651d20` (change 7 merged as #469) · Started: 2026-10-18 · Reviewers: astra + claude (duo)
-Next: L — dispatch G1 (1.1–1.5 fuzz runner)
+Next: B — holistic run + per-commit gate + astra:adversarial + claude/opus:spec
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 8 of 10 (issue #445). Spec set: proposal.md, specs/test-depth/spec.md, tasks.md.
@@ -11,7 +11,7 @@ Change 8 of 10 (issue #445). Spec set: proposal.md, specs/test-depth/spec.md, ta
 - [x] 0 orient — re-measured against `origin/main` @ `b05651d20` (2026-10-18); decisions applied (decisions.md 2026-10-16 "change 8": shuffle scope A, fuzz retry A)
 - [x] P plan + tasks — present; spec set updated da4009a78 (re-measure, decisions A/A, red-first order with given/when/then cases)
 - [x] R spec-set review — round 1 (58a84b979): astra BLOCK, opus CONCERNS; V1 CRITICAL (Ginkgo refuses -count≠1 → RunSpecs packages run 3× at -count=1) accepted and fixed inside decision A; V2–V14, V16 fixed (9a42d7591), V15 reject, V17 → 1.1. Round 2 (last): astra BLOCK, opus CLEAN; R2-1..R2-9 fixed (99949a331; R2-2 exact flake sequence). No CRITICAL remains
-- [ ] L task loop — see *Tasks*
+- [x] L task loop — 1.1–3.2 closed (4.1 is hand-off); shuffle probe found 2 real order-dependent tests, fixed a52189aa9, 297952dee
 - [ ] B branch review — `reviews/B-branch/round-N/` · rounds: · verdict:
 - [ ] Hand-off — `pr-description.md` · PR: none
 
