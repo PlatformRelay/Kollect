@@ -78,8 +78,11 @@ Needs 7 (the shuffle failures must reach an issue) and 1 (guards block merges); 
   compare to a fixed file and `encoding/json` sorts map keys, so repeating them adds nothing).
 - Reordering Ginkgo specs. `-shuffle` reorders top-level `Test*` functions only; the Ginkgo suites
   (`internal/controller/suite_test.go`, `internal/webhook/v1alpha1/suite_test.go`) are one
-  `Test*` each, so their specs still run in Ginkgo's default order and their order dependence stays
-  hidden. A green shuffle nightly is not evidence that the controller and webhook specs are
+  `Test*` each, and Go's `-shuffle` does not control ordering inside `RunSpecs`. Ginkgo keeps its
+  default randomization of top-level containers with its own time-based seed (v2.33.0
+  `types/config.go:50`, `:287-288`); this change neither enables full spec randomization nor ties
+  that seed to the Go shuffle seed, so reproducing a Ginkgo failure may need the Ginkgo seed the
+  suite reports. A green shuffle nightly is not evidence that the controller and webhook specs are
   order-independent. Ginkgo's own `--randomize-all` is the follow-up for that, not this change.
 - Executing `task demo-up` (needs kind and Docker; `hero-demo-smoke` does).
 - Re-checking what `demo_task_aliases_test.sh` already asserts.
