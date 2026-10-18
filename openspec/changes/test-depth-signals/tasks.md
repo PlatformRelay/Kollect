@@ -232,7 +232,7 @@ Each case below reads: given / when / then · the failure it exposes.
 - [x] 5.1 A1: readme_quickstart_test.sh checks the type of EVERY `kubectl get` TYPE/NAME operand (`kubectl get kinv/a foo/b` must fail); case + mutant — closed 2026-10-18, evidence: evidence/G5.md
 - [x] 5.2 A2 + deferred F16: fuzz_retry_test.sh (F11, F16) and test_shuffle_test.sh (S11) refuse `if:` and `continue-on-error:` on the guarded job and its steps (precedent dist_operatorhub_pr_test.sh:154); cases + mutants — closed 2026-10-18, evidence: evidence/G5.md
 - [x] 5.3 A3: fuzz-retry.sh retries only when the attempt exited 1 (exact flake text on rc 2/137 is a real failure); cases + mutant — closed 2026-10-18, evidence: evidence/G5.md
-- [ ] 5.4 A4: the fake go records a per-call exit status; a case where Ginkgo run 1 of 3 fails; mutant `|| rc=1` → `|| true` (test-shuffle.sh:78)
+- [x] 5.4 A4: the fake go records a per-call exit status; a case where Ginkgo run 1 of 3 fails; mutant `|| rc=1` → `|| true` (test-shuffle.sh:78) — closed 2026-10-18, evidence: evidence/G5.md
 - [ ] 5.5 Deferred: `make setup-envtest` failure emits an `::error::` line; F0 empty-package case + mutant; a case replaying the real crash fixture (no retry); `internal: true` tasks do not count as existing in the README guard
 - [ ] 5.6 O1 (spec text): TDS-3 states that a `~~~` or indented fence of any language in the Quick start section fails (stronger than before); fold opus notes O2/O3
 
