@@ -8,7 +8,7 @@
 # each call's argv, inside a throwaway git repository so the corpus check reads a real index.
 #
 # What it locks (cases F0-F17 of tasks.md 1.1-1.2, 1.6 and 5.2-5.5):
-#   F0      a malformed target or a missing pkg: usage error, go never called;
+#   F0      a malformed target, a missing or an empty pkg: usage error, go never called;
 #   F1      the deadline flake then a pass: exit 0, two calls, exact argv, a warning naming it;
 #   F2-F4   a deny marker (panic:, signal: killed, fatal error:) next to the deadline: no retry;
 #           a deny marker in an attempt that exited 0 is red too;
@@ -22,6 +22,7 @@
 #           changes gate, and neither the job nor a step sets continue-on-error: or another if:;
 #   F12-F15 the flake is the exact, ordered, complete line sequence for the matrix target;
 #   F17     the flake text under an exit status other than 1 (2, 137) is not the flake: no retry;
+#   F18     the real crash output (crash-local.txt) is rejected on its deny marker, no retry;
 #   F16     ci.yaml's fuzz job runs `go mod download` in its own step between go-cache and the
 #           runner, with no if: or continue-on-error:, so cold-cache `go: downloading` lines
 #           never reach the flake match (task 1.6).
@@ -215,6 +216,15 @@ FAKE
     done_case "F0 (${bad})"
   done
 
+  # F0: an empty pkg (the matrix value missing): usage error, go never called.
+  ATTEMPTS=("0:${PASSFX}")
+  ARGS=(FuzzContentHash "")
+  run_case F0 x x
+  [[ "${RC}" -eq 2 ]] || case_fail F0 "runner exited ${RC} on an empty pkg, want 2"
+  expect_calls F0 0
+  expect_diag F0 "usage: fuzz-retry.sh <FuzzTarget> <pkg>"
+  done_case "F0 (empty pkg)"
+
   # --- F1: the deadline flake then a pass, for both captured runs --------------------------------
   for t in FuzzContentHash:./internal/aggregate/... FuzzValidateAttributePath:./internal/collect/...; do
     tgt="${t%%:*}" pkg="${t#*:}"
@@ -265,6 +275,10 @@ FAKE
   one_attempt_red F5b "${VAR}/f5b" "deny marker Failing input written"
   GIT_STATUS_FAILS=1
   one_attempt_red F5c "${DEADLINE}" "git status failed"
+
+  # --- F18: the real crash output (crash-local.txt, a panicking target), never retried -----------
+  [[ -s "${FIX}/crash-local.txt" ]] || fail "fixture crash-local.txt is missing or empty"
+  one_attempt_red F18 "${FIX}/crash-local.txt" "deny marker panic:"
 
   # --- F6: the deadline twice -----------------------------------------------------------------------
   ATTEMPTS=("1:${DEADLINE}" "1:${DEADLINE}" "0:${PASSFX}")
@@ -393,7 +407,7 @@ FAKE
   one_attempt_red F15 "${VAR}/f15b" "unrecognised failure text"
 
   [[ "${BAD}" -eq 0 ]] || fail "the fuzz runner breaks TDS-1 (cases above)"
-  pass "the fuzz runner retries only the deadline flake and is never green on nothing (F0-F17)"
+  pass "the fuzz runner retries only the deadline flake and is never green on nothing (F0-F18)"
   exit 0
 fi
 
@@ -461,6 +475,10 @@ mutant_rejected "deny markers only on a failed attempt" "${R}" \
   'if [[ "${rc}" -ne 0 ]] && grep -F -- "${marker}" "${out}" >/dev/null; then' F2
 mutant_rejected "target not validated" "${R}" ' || ! "${1}" =~ ^Fuzz[A-Za-z0-9_]*$' "" F0
 mutant_rejected "argument count not checked" "${R}" '"$#" -ne 2 || ' "" F0
+mutant_rejected "empty pkg accepted" "${R}" ' || -z "${2}"' "" F0
+mutant_rejected "deny markers matched at line start only" "${R}" \
+  'if grep -F -- "${marker}" "${out}" >/dev/null; then' \
+  'if grep -E -- "^[[:space:]]*${marker}" "${out}" >/dev/null; then' F18
 # 1.5: output-shape defects.
 mutant_rejected "zero-target check dropped" "${R}" \
   "grep -F 'no fuzz tests to fuzz' \"\${out}\" >/dev/null" "false" F8

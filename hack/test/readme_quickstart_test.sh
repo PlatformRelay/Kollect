@@ -8,7 +8,8 @@
 #   section  no `##` heading starts with "Quick start";
 #   extract  the section holds no `sh` fence line, or a fence in it is never closed;
 #   task     a `task <name>` is not a task of Taskfile.yml or of a Taskfile it includes (an
-#            included task is `<namespace>:<name>`);
+#            included task is `<namespace>:<name>`; an `internal: true` task or include does not
+#            count);
 #   apply    a `kubectl apply -k <path>` path does not exist in the tree;
 #   kubectl  a flag comes before the kubectl verb (its value would hide the verb);
 #   get      a `kubectl get` resource name (each comma-separated name, and the type part of
@@ -45,21 +46,27 @@ die() {
   exit 1
 }
 
-# taskfile_tasks <Taskfile> <prefix>: print every task name of the Taskfile, then recurse into its
-# `includes:` with `<prefix><namespace>:`. Keys are read at the two-space indent of the top-level
-# `tasks:` / `includes:` maps; a task key may hold colons (`coverage:race:`).
+# taskfile_tasks <Taskfile> <prefix>: print every task name of the Taskfile a user can run, then
+# recurse into its `includes:` with `<prefix><namespace>:`. Keys are read at the two-space indent of
+# the top-level `tasks:` / `includes:` maps; a task key may hold colons (`coverage:race:`). A task
+# or an include with `internal: true` (at the four-space indent) is left out: `task <name>` refuses
+# it.
 taskfile_tasks() {
-  local file="$1" prefix="$2" ns path dir
+  local file="$1" prefix="$2" ns path internal dir
   [[ -f "${file}" ]] || die input "${file#"${ROOT}"/} is missing"
   awk -v p="${prefix}" '
-    /^[^[:space:]#]/ { intasks = ($0 ~ /^tasks:[[:space:]]*$/) }
+    function flush() { if (k != "" && !internal) print p k; k = ""; internal = 0 }
+    /^[^[:space:]#]/ { flush(); intasks = ($0 ~ /^tasks:[[:space:]]*$/); next }
     intasks && /^  [A-Za-z0-9_.:-]+:([[:space:]]|$)/ {
-      k = substr($0, 3); sub(/:([[:space:]].*)?$/, "", k); print p k
+      flush(); k = substr($0, 3); sub(/:([[:space:]].*)?$/, "", k); next
     }
+    intasks && k != "" && /^    internal:[[:space:]]*true[[:space:]]*(#.*)?$/ { internal = 1 }
+    END { flush() }
   ' "${file}"
   dir="$(dirname "${file}")"
-  while IFS=$'\t' read -r ns path; do
+  while IFS=$'\t' read -r ns path internal; do
     [[ -n "${ns}" ]] || continue
+    [[ "${internal}" != 1 ]] || continue
     [[ -n "${path}" ]] || die input "${file#"${ROOT}"/} includes '${ns}' without a taskfile path"
     path="${dir}/${path#./}"
     [[ -d "${path}" ]] && path="${path}/Taskfile.yml"
@@ -73,7 +80,8 @@ taskfile_tasks() {
       path = val; next
     }
     ns != "" && /^    taskfile:/ { path = $0; sub(/^    taskfile:[[:space:]]*/, "", path); sub(/[[:space:]]+#.*/, "", path) }
-    function flush() { if (ns != "") { gsub(/["'\'']/, "", path); print ns "\t" path }; ns = ""; path = "" }
+    ns != "" && /^    internal:[[:space:]]*true[[:space:]]*(#.*)?$/ { internal = 1 }
+    function flush() { if (ns != "") { gsub(/["'\'']/, "", path); print ns "\t" path "\t" internal }; ns = ""; path = ""; internal = 0 }
     END { flush() }
   ' "${file}")
 }
@@ -405,6 +413,18 @@ reject "X13 indented sh fence in the section" extract "indented" "${R}" \
   \`\`\`sh
   kubectl get foo
   \`\`\`"
+reject "X19 internal task named in the README" task "'demo-up'" Taskfile.yml \
+  '    desc: Bootstrap the local demo (alias for demo-hero-up)' '    desc: Bootstrap the local demo (alias for demo-hero-up)
+    internal: true'
+new_copy
+if apply_edits "X20 task of an internal include" "${R}" "${CLONE}" "${CLONE}
+task test:run" &&
+  apply_edits "X20 task of an internal include" Taskfile.yml '  test:
+    taskfile:' '  test:
+    internal: true
+    taskfile:'; then
+  expect_red "X20 task of an internal include" task "'test:run'"
+fi
 new_copy
 rm -f "${COPY}/Taskfile.yml"
 expect_red "X4 Taskfile.yml missing" input "Taskfile.yml"

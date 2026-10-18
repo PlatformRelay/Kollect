@@ -24,6 +24,7 @@
 #   S9a  make setup-envtest runs before make -s echo-kubebuilder-assets, and every go test call
 #        sees KUBEBUILDER_ASSETS set to what it printed;
 #   S9b  empty assets fail before any go test call;
+#   S9c  a failing make setup-envtest fails with an ::error:: line before any go test call;
 #   S10  the packages tested are exactly go list ./... minus the exclusion list;
 #   S11  test-shuffle.yaml: name, cron, permissions, pinned checkout without credentials,
 #        go-cache with envtest, pinned setup-task, timeout, task test:shuffle, no seed set, and
@@ -101,7 +102,8 @@ if [[ "${MODE}" == "check" ]]; then
   # Globals a case sets before run_script: LIST (lines "<import path> <dir>" the fake go list
   # prints), FORWARD (1: go test runs the real go), ASSETS_EMPTY (1: echo-kubebuilder-assets
   # prints nothing), SEED_ENV (SHUFFLE_SEED: unset when empty, set to "" when "<empty>"), UNDER
-  # (the script to run), FAIL_CALLS (go test call numbers that fail, space-separated).
+  # (the script to run), FAIL_CALLS (go test call numbers that fail, space-separated), SETUP_FAILS
+  # (1: make setup-envtest exits 2).
   # Results: RC, D (case dir: log, make.log, test.N argv files, kba.N), NTEST (go test calls).
   run_script() {
     new_tmp
@@ -148,7 +150,13 @@ FAKE
 d="${FAKE_DIR:?}"
 printf '%s\n' "$*" >>"${d}/make.log"
 case "$*" in
-  setup-envtest) printf '%s' "${d}/assets" >&2 ;;
+  setup-envtest)
+    if [[ "${FAKE_SETUP_FAILS:-0}" == 1 ]]; then
+      echo "fake make: setup-envtest: download failed" >&2
+      exit 2
+    fi
+    printf '%s' "${d}/assets" >&2
+    ;;
   "-s echo-kubebuilder-assets") [[ "${FAKE_ASSETS_EMPTY:-0}" == 1 ]] || printf '%s\n' "${d}/assets" ;;
   *)
     echo "fake make: unexpected target: $*" >&2
@@ -165,12 +173,13 @@ FAKE
     fi
     (cd "${REPO}" && env "${envs[@]}" PATH="${D}/bin:${PATH}" FAKE_DIR="${D}" REAL_GO="${REAL_GO}" \
       FAKE_FORWARD="${FORWARD}" FAKE_ASSETS_EMPTY="${ASSETS_EMPTY}" FAKE_FAIL_CALLS="${FAIL_CALLS}" \
+      FAKE_SETUP_FAILS="${SETUP_FAILS}" \
       bash "${UNDER}") \
       >"${D}/log" 2>&1 && RC=0 || RC=$?
     NTEST="$(cat "${D}/ntest")"
-    LIST="" FORWARD=0 ASSETS_EMPTY=0 SEED_ENV="" UNDER="${SCRIPT}" FAIL_CALLS=""
+    LIST="" FORWARD=0 ASSETS_EMPTY=0 SEED_ENV="" UNDER="${SCRIPT}" FAIL_CALLS="" SETUP_FAILS=0
   }
-  LIST="" FORWARD=0 ASSETS_EMPTY=0 SEED_ENV="" UNDER="${SCRIPT}" FAIL_CALLS=""
+  LIST="" FORWARD=0 ASSETS_EMPTY=0 SEED_ENV="" UNDER="${SCRIPT}" FAIL_CALLS="" SETUP_FAILS=0
 
   # with_exclusion <id> <entry>: a copy of the script with one exclusion entry added; sets UNDER.
   with_exclusion() {
@@ -378,6 +387,15 @@ FAKE
   diag_has S9b "envtest assets missing"
   done_case S9b
 
+  # --- S9c: a failing make setup-envtest fails with the script's own error line, before any test ------
+  CASE_BAD="${BAD}"
+  LIST="${PL} ${PK}/plain" SETUP_FAILS=1
+  run_script
+  [[ "${RC}" -ne 0 ]] || case_fail S9c "a failing make setup-envtest was accepted (exit 0)"
+  [[ "${NTEST}" -eq 0 ]] || case_fail S9c "go test ran ${NTEST} times after make setup-envtest failed, want 0"
+  diag_has S9c "::error::test-shuffle: make setup-envtest failed"
+  done_case S9c
+
   # --- S10: the packages tested are go list ./... minus the exclusion list -------------------------------
   CASE_BAD="${BAD}"
   LIST="${GK} ${PK}/gk"$'\n'"${PL} ${PK}/plain"$'\n'"${PL}2 ${PK}/plain"$'\n'"${E2E} ${PK}/e2e"
@@ -547,6 +565,8 @@ W=.github/workflows/test-shuffle.yaml
   mutant "-count=3 on the Ginkgo package" "${S}" S8 \
     'go test -shuffle="${seed}" -count=1 "${ginkgo[@]}"' 'go test -shuffle="${seed}" -count=3 "${ginkgo[@]}"'
   mutant "make setup-envtest dropped" "${S}" S9a 'make setup-envtest >&2' ':'
+  mutant "setup-envtest failure without an error line" "${S}" S9c \
+    ' || { echo >&2; die "make setup-envtest failed"; }' ''
   mutant "KUBEBUILDER_ASSETS export dropped" "${S}" S9a 'export KUBEBUILDER_ASSETS' ':'
   mutant "empty-assets check dropped" "${S}" S9b '[[ -n "${KUBEBUILDER_ASSETS}" ]] || die' ': ||'
   mutant "one discovered package dropped" "${S}" S10 'done <<<"${listing}"' 'done < <(sed 1d <<<"${listing}")'
