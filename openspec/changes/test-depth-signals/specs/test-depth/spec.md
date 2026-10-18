@@ -157,13 +157,20 @@ reaches a fixture by putting a fake `go` first on `PATH`. The workflow SHALL NOT
 `hack/test/readme_quickstart_test.sh` SHALL take the README section whose `##` heading starts with
 `Quick start` (today `## Quick start (MVP)`) and extract the commands of its fenced `sh` blocks,
 including commands in `#` comments (`# or: task dev-up` offers `task dev-up` to users, so it
-counts); prose, other sections and fences of another language are not extracted. It SHALL fail
-when the extraction is empty, a `task <name>` is not a task of `Taskfile.yml` or of a Taskfile it
-includes (an included task is `<namespace>:<name>`), a `kubectl apply -k <path>` path does not
-exist, or a resource name in `kubectl get` (each comma-separated name) is not a `shortNames`,
-`singular` or `plural` entry of a CRD in `config/crd/bases` (fail closed: built-in resources are
-not in the quick start). It
-SHALL NOT duplicate the delegation checks of `demo_task_aliases_test.sh` (held by review).
+counts); prose, other sections and column-0 backtick fences of another language are not
+extracted. Inside the section every fence SHALL open with backticks at column 0: an indented or
+`~~~` fence of any language SHALL fail, and so SHALL a fence of any language that is never closed
+(it reaches the next `##` heading or the end of the file), because either would hide `sh` commands
+from the reader. It SHALL fail when the extraction is empty, a `task <name>` is not a task of
+`Taskfile.yml` or of a Taskfile it includes (an included task is `<namespace>:<name>`; a task or an
+include marked `internal: true` does not count, as `task` refuses to run it), a
+`kubectl apply -k <path>` path does not exist, a flag comes before the `kubectl` verb (its value
+would be read as the verb), or a resource name in `kubectl get` is not a `shortNames`, `singular`
+or `plural` entry of a CRD in `config/crd/bases` (fail closed: built-in resources are not in the
+quick start). The resource names of `kubectl get` are each comma-separated name of its first
+operand; once any operand is `TYPE/NAME`, they are the type part of every operand, and a plain
+operand next to a `TYPE/NAME` one fails (kubectl rejects the mix). It SHALL NOT duplicate the
+delegation checks of `demo_task_aliases_test.sh` (held by review).
 
 #### Scenario: Task renamed
 
@@ -185,6 +192,16 @@ SHALL NOT duplicate the delegation checks of `demo_task_aliases_test.sh` (held b
 - **WHEN** the README says `kubectl get kinv,foo`
 - **THEN** the test SHALL fail and name `foo`
 
+#### Scenario: Unknown type in a TYPE/NAME operand
+
+- **WHEN** the README says `kubectl get kinv/a foo/b`
+- **THEN** the test SHALL fail and name `foo`
+
+#### Scenario: Internal task
+
+- **WHEN** a task the section names is marked `internal: true`
+- **THEN** the test SHALL fail and name the task
+
 #### Scenario: Missing apply path
 
 - **WHEN** the README says `kubectl apply -k config/samples/nosuch/`
@@ -200,7 +217,14 @@ SHALL NOT duplicate the delegation checks of `demo_task_aliases_test.sh` (held b
 - **WHEN** the section exists but holds no `sh` fence
 - **THEN** the test SHALL fail
 
+#### Scenario: Fence the reader cannot see
+
+- **WHEN** the section holds an indented or `~~~` fence, of any language, or a fence that is never
+  closed
+- **THEN** the test SHALL fail
+
 #### Scenario: Commands outside the section
 
-- **WHEN** invalid commands appear only in prose, in another section or in a non-`sh` fence
+- **WHEN** invalid commands appear only in prose, in another section or in a closed, column-0
+  backtick fence of another language
 - **THEN** the test SHALL pass

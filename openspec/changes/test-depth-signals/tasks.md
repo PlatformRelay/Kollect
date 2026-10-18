@@ -234,7 +234,7 @@ Each case below reads: given / when / then · the failure it exposes.
 - [x] 5.3 A3: fuzz-retry.sh retries only when the attempt exited 1 (exact flake text on rc 2/137 is a real failure); cases + mutant — closed 2026-10-18, evidence: evidence/G5.md
 - [x] 5.4 A4: the fake go records a per-call exit status; a case where Ginkgo run 1 of 3 fails; mutant `|| rc=1` → `|| true` (test-shuffle.sh:78) — closed 2026-10-18, evidence: evidence/G5.md
 - [x] 5.5 Deferred: `make setup-envtest` failure emits an `::error::` line; F0 empty-package case + mutant; a case replaying the real crash fixture (no retry); `internal: true` tasks do not count as existing in the README guard — closed 2026-10-18, evidence: evidence/G5.md
-- [ ] 5.6 O1 (spec text): TDS-3 states that a `~~~` or indented fence of any language in the Quick start section fails (stronger than before); fold opus notes O2/O3
+- [x] 5.6 O1 (spec text): TDS-3 states that a `~~~` or indented fence of any language in the Quick start section fails (stronger than before); fold opus notes O2/O3 — closed 2026-10-18, evidence: evidence/G5.md
 
 ## 4. Land
 
