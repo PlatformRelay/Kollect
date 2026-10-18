@@ -23,10 +23,16 @@ That task installs gremlins at the pinned version and runs `hack/ci/mutation.sh`
 - runs gremlins once per package on `internal/aggregate`, `internal/redact` and
   `internal/pathvalidate`, each to its own JSON report, because the v0.6.0 JSON report names the
   Go module (`go_module`) and files but no package path;
-- enables, by explicit flag, every mutator v0.6.0 ships switched off;
+- passes every one of v0.6.0's eleven mutator flags explicitly (so the six it ships switched off
+  are enabled, and no environment value can switch one off) and `--config=hack/ci/gremlins.yaml`,
+  a committed file whose content is `{}`, so gremlins reads no other config file;
+- refuses to start when any `GREMLINS_` environment variable is set, whatever set it;
+- writes the reports to a fresh temporary directory, so a stale report can never stand in for a
+  missing one;
 - hands the reports to `hack/ci/mutation-summary.sh`, which writes killed, lived, not covered,
-  timed out and not viable counts per package to the job summary and fails on a missing, empty or
-  unreadable report.
+  timed out and not viable counts per package to the job summary. It validates every report
+  before it prints anything, and fails on a missing, empty or unreadable report without printing
+  a partial table.
 
 The reports are uploaded as an artifact. It is a measurement, explicitly not a gate: a low score
 never fails the run, a missing measurement always does. It is a separate workflow so its failures
@@ -36,12 +42,19 @@ suite.
 Model-aligned decisions applied (agent-context/decisions.md 2026-10-19, change 9, pending operator
 validation):
 
-- **Threshold sources (A):** MUT-2 also rejects thresholds set through a `.gremlins.yaml` or
-  `.gremlins.yml` and through `GREMLINS_*THRESHOLD*` environment variables at workflow, job or
-  step level, each with a mutant. Report-only must not be bypassable silently.
+- **Threshold sources (A):** MUT-2 also rejects thresholds set through a config file and through
+  `GREMLINS_*THRESHOLD*` environment variables at workflow, job or step level, each with a mutant.
+  Report-only must not be bypassable silently. The config-file ban covers `.gremlins` and every
+  `.gremlins.*`, not only `.yaml`/`.yml`: gremlins names its config `.gremlins` and forces the YAML
+  decoder, and viper tries every extension and the bare name (probe 2026-10-19: a YAML threshold
+  in `.gremlins.json` and in a bare `.gremlins` both exit 10). The runner's `--config` and its
+  `GREMLINS_` refusal enforce the same rule at run time, for sources a file scan cannot see (an
+  `env:` built from a `${{ }}` expression, a Taskfile `dotenv:`).
 - **Fixture control placement (A):** the MUT-3 fixture control runs in the nightly only, before
-  the real packages. The required `lint` job runs only the static guard and never installs
-  gremlins, so no required check gains a dependency on the module proxy.
+  the real packages. The required `lint` job runs only the static guard and never installs or runs
+  gremlins. It does gain one module resolution: CFC-2, already in `lint`
+  (`.github/workflows/ci.yaml:619-621`), resolves every pin through the module proxy with
+  `go mod download`, the new one included; the `lint` delta is measured cold and warm.
 - **Flat signal (A):** keep the three packages and enable gremlins' default-off mutators
   explicitly; task 1.1 re-measures counts and runtime with them; the run stays report-only.
 
@@ -59,9 +72,10 @@ change to its requirements (CFR-1 already acts on any listed workflow).
 ## Impact
 
 - New: `.github/workflows/mutation.yaml`, `hack/ci/mutation.sh` (runner),
-  `hack/ci/mutation-summary.sh` (formatter), `hack/test/mutation_signal_test.sh` (guard, plain and
-  `--self-test`), `hack/test/testdata/mutation/` (fixture module and recorded reports).
-- `Taskfile.yml`: `GREMLINS_VERSION: v0.6.0` directly under
+  `hack/ci/mutation-summary.sh` (formatter), `hack/ci/gremlins.yaml` (the only config gremlins
+  reads, content `{}`), `hack/test/mutation_signal_test.sh` (guard, plain and `--self-test`), `hack/test/testdata/mutation/` (fixture module and recorded reports).
+- `Taskfile.yml`: `GREMLINS_VERSION: v0.6.0`, a two-space entry of the top-level `vars:` (the
+  shape CFC-2's resolver reads, `hack/test/consistency_tool_pins_test.sh:129-132`), directly under
   `# renovate: datasource=go depName=github.com/go-gremlins/gremlins` (the shape the Taskfile
   custom manager matches, `renovate.json:27-36`); an install task running
   `go install github.com/go-gremlins/gremlins/cmd/gremlins@{{.GREMLINS_VERSION}}`; a `mutation`
@@ -111,12 +125,14 @@ Hard dependency: change 7 must have shipped (merged as #469; change 8 merged sin
   a Taskfile edit, a report format change) can merge and stay unnoticed until the next nightly,
   about a day. The reporter then opens an issue; if those issues are ignored the breakage lasts
   longer.
-- **Guard scope (threshold-sources decision).** The guard reads the repository's files only.
-  gremlins v0.6.0 also reads `/etc/gremlins`, `$XDG_CONFIG_HOME/gremlins/gremlins` and
-  `~/.gremlins` (`internal/configuration/configuration.go`, `defaultConfigPaths`); GitHub-hosted
-  runners carry none of them. A later gremlins that renames its config file, search paths, env
-  prefix or threshold keys would pass the guard while missing the new source; the pinned version
-  means that only happens on a reviewed bump, whose PR must re-check this list.
+- **Guard scope (threshold-sources decision).** The static guard reads the repository's files
+  only. Without `--config`, gremlins v0.6.0 would also read `/etc/gremlins`,
+  `$XDG_CONFIG_HOME/gremlins/gremlins` and `~/.gremlins` (`internal/configuration/configuration.go`,
+  `defaultConfigPaths`); passing `--config` closes those (probe 2026-10-19: a threshold in the
+  module root's `.gremlins.yaml` exits 10 without it and 0 with it). A later gremlins that adds a
+  config source `--config` does not override, changes its env prefix, or renames its threshold
+  keys would pass the guard while missing the new source; the pinned version means that only
+  happens on a reviewed bump, whose PR must re-check this list.
 
 ## Assumptions
 
@@ -128,8 +144,20 @@ Hard dependency: change 7 must have shipped (merged as #469; change 8 merged sin
   (`internal/configuration/mutantenabled.go`). `arithmetic-base` and `invert-negatives`, named as
   examples in the decision brief, are on by default; task 1.1 confirms the set from
   `gremlins unleash --help`.
-- gremlins exits non-zero only on an error or a configured threshold; with no threshold, any
-  non-zero exit is a tool failure.
+- gremlins exits non-zero only on an error or a configured threshold (exit 10 for efficacy); with
+  no threshold, any non-zero exit is a tool failure. It also exits 0 and writes no report when it
+  finds nothing to report or is cancelled (`internal/report/report.go:255-260`,
+  `cmd/unleash.go:135-136`), so a missing report is a failure in its own right.
+- In v0.6.0 a threshold given on the command line or through the environment has no effect
+  (probe 2026-10-19: `--threshold-efficacy 100` and `GREMLINS_UNLEASH_THRESHOLD_EFFICACY=100` both
+  exit 0 on a 0 % efficacy run; viper hands the value back as a string and gremlins' typed lookup
+  reads 0). Only a YAML threshold gates today. The ban on command-line and environment thresholds
+  stays as policy, because a later version can fix that lookup.
+- Any value of a `GREMLINS_MUTANTS_<TYPE>_ENABLED` variable switches that mutator off, `true`
+  included (probe 2026-10-19, same lookup); an explicit flag wins over the environment. Hence the
+  explicit flags for all eleven mutators and the runner's `GREMLINS_` refusal.
+- A `go install`ed gremlins reports its version as `dev`, so the version is held by a
+  version-named install path, not by asking the binary.
 - Gremlins reports code that no test executes as NOT COVERED, never LIVED. The control therefore
   needs a function the test EXECUTES but does not assert on.
 - A dry run (`--dry-run`) reports mutants as RUNNABLE, and v0.6.0 also has SKIPPED; neither is a
@@ -141,4 +169,4 @@ Hard dependency: change 7 must have shipped (merged as #469; change 8 merged sin
 - The reporter acts on scheduled runs only (`ci-failure-report.yaml:34`), so the live failure proof
   must be a scheduled run, not a dispatch. It is forced by an owner-set repository variable
   `MUTATION_FORCE_FAILURE` read by one step that can only fail the run (never skip or pass it),
-  pinned by the guard.
+  pinned by the guard. The runner reads it; the workflow passes it through `env:` only.
