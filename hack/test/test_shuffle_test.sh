@@ -26,7 +26,8 @@
 #   S9b  empty assets fail before any go test call;
 #   S10  the packages tested are exactly go list ./... minus the exclusion list;
 #   S11  test-shuffle.yaml: name, cron, permissions, pinned checkout without credentials,
-#        go-cache with envtest, pinned setup-task, timeout, task test:shuffle, no seed set;
+#        go-cache with envtest, pinned setup-task, timeout, task test:shuffle, no seed set, and
+#        no if: or continue-on-error: on the job or a step;
 #   S12  Taskfile.test.yml `shuffle:` runs the script; ci-failure-report.yaml lists Test shuffle.
 #
 # Usage:
@@ -412,6 +413,12 @@ FAKE
   if ((co >= 0 && gc >= 0 && st >= 0 && rn >= 0)) && ! ((co < gc && gc < st && st < rn)); then
     case_fail S11 "steps out of order: checkout ${co}, go-cache ${gc}, setup-task ${st}, task test:shuffle ${rn}"
   fi
+  # An `if:` or `continue-on-error:` on the job or a step would skip the run or turn its failure
+  # green (precedent: dist_operatorhub_pr_test.sh reads continue-on-error the same way).
+  [[ "$(wq '[.jobs[] | select(has("if") or has("continue-on-error"))] | length')" == 0 ]] ||
+    case_fail S11 "the job sets if: or continue-on-error:"
+  soft="$(wq '[.jobs[].steps[] | select(has("if") or has("continue-on-error")) | (.name // .uses // .run)]')"
+  [[ "${soft}" == '[]' ]] || case_fail S11 "steps set if: or continue-on-error: ${soft}"
   # The script picks a fresh seed when SHUFFLE_SEED is unset: the workflow must not set it, anywhere.
   ! grep -F 'SHUFFLE_SEED' "${WF}" >/dev/null ||
     case_fail S11 "test-shuffle.yaml mentions SHUFFLE_SEED: the nightly would rerun one seed"
@@ -532,6 +539,13 @@ W=.github/workflows/test-shuffle.yaml
     'run: task test:shuffle' 'run: task test:shuffle
         env:
           SHUFFLE_SEED: "1"'
+  mutant "run step continue-on-error" "${W}" S11 \
+    '        run: task test:shuffle' $'        run: task test:shuffle\n        continue-on-error: true'
+  mutant "run step if" "${W}" S11 '        run: task test:shuffle' $'        run: task test:shuffle\n        if: false'
+  mutant "job continue-on-error" "${W}" S11 '    timeout-minutes: 45' $'    timeout-minutes: 45\n    continue-on-error: true'
+  mutant "job if" "${W}" S11 '    runs-on: ubuntu-latest' $'    runs-on: ubuntu-latest\n    if: false'
+  mutant "checkout step if" "${W}" S11 \
+    '          persist-credentials: false' $'          persist-credentials: false\n        if: false'
   mutant "Test shuffle dropped from the reporter list" .github/workflows/ci-failure-report.yaml S12 \
     '      - Test shuffle
 ' ''

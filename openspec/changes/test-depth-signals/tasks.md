@@ -230,7 +230,7 @@ Each case below reads: given / when / then · the failure it exposes.
 ## 5. Stage-B fixes (round 1)
 
 - [x] 5.1 A1: readme_quickstart_test.sh checks the type of EVERY `kubectl get` TYPE/NAME operand (`kubectl get kinv/a foo/b` must fail); case + mutant — closed 2026-10-18, evidence: evidence/G5.md
-- [ ] 5.2 A2 + deferred F16: fuzz_retry_test.sh (F11, F16) and test_shuffle_test.sh (S11) refuse `if:` and `continue-on-error:` on the guarded job and its steps (precedent dist_operatorhub_pr_test.sh:154); cases + mutants
+- [x] 5.2 A2 + deferred F16: fuzz_retry_test.sh (F11, F16) and test_shuffle_test.sh (S11) refuse `if:` and `continue-on-error:` on the guarded job and its steps (precedent dist_operatorhub_pr_test.sh:154); cases + mutants — closed 2026-10-18, evidence: evidence/G5.md
 - [ ] 5.3 A3: fuzz-retry.sh retries only when the attempt exited 1 (exact flake text on rc 2/137 is a real failure); cases + mutant
 - [ ] 5.4 A4: the fake go records a per-call exit status; a case where Ginkgo run 1 of 3 fails; mutant `|| rc=1` → `|| true` (test-shuffle.sh:78)
 - [ ] 5.5 Deferred: `make setup-envtest` failure emits an `::error::` line; F0 empty-package case + mutant; a case replaying the real crash fixture (no retry); `internal: true` tasks do not count as existing in the README guard
