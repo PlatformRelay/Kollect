@@ -26,8 +26,9 @@
 #          modes -- a gate CI does not run guards nothing (the LAB-DEKIND defect class).
 #          The cross-file consistency guards (hack/test/consistency_*_test.sh and
 #          go_patch_lag_test.sh, openspec change cross-file-consistency-gates CFC-6) and the
-#          openspec evidence guard (openspec_evidence_markdown_only_test.sh) and the CI failure
-#          report test (ci_failure_report_test.sh, openspec change ci-failure-reporting) must be
+#          openspec evidence guard (openspec_evidence_markdown_only_test.sh), the CI failure
+#          report test (ci_failure_report_test.sh, openspec change ci-failure-reporting) and the
+#          fuzz runner test (fuzz_retry_test.sh, openspec change test-depth-signals TDS-1) must be
 #          invoked that way too, so deleting their steps outright reds here as well.
 #   CWS-7  --self-test mutates a COPY of the tree to break each of CWS-1..CWS-6 and asserts
 #          each check reds with the MESSAGE of the assertion the mutation was built to trip
@@ -599,9 +600,11 @@ cws6_guards() {
   # SHALL run in a required job in BOTH modes (plain and --self-test), so they are named here --
   # and the modes are CFC-6's, not read from the guard's code: deleting a guard's --self-test
   # handling must not delete the requirement to run it. The CI failure report test (openspec
-  # change ci-failure-reporting, CFR-7) checks its own wiring only when it runs, so it is named too.
+  # change ci-failure-reporting, CFR-7) checks its own wiring only when it runs, so it is named too,
+  # and so is the fuzz runner test (openspec change test-depth-signals, TDS-1).
   local cfc_guards=("${ROOT}"/hack/test/consistency_*_test.sh "${ROOT}/hack/test/go_patch_lag_test.sh"
-    "${ROOT}/hack/test/openspec_evidence_markdown_only_test.sh" "${ROOT}/hack/test/ci_failure_report_test.sh")
+    "${ROOT}/hack/test/openspec_evidence_markdown_only_test.sh" "${ROOT}/hack/test/ci_failure_report_test.sh"
+    "${ROOT}/hack/test/fuzz_retry_test.sh")
   [[ -f "${cfc_guards[0]}" ]] ||
     fail "CFC-6: no hack/test/consistency_*_test.sh guard found -- the cross-file consistency gates are gone"
   for script in "${cfc_guards[@]}"; do
@@ -1114,6 +1117,14 @@ mutant_rejected "CFC-6 CI failure report guard unwired" "CFC-6: guard hack/test/
   set -euo pipefail
   yq eval "del(.jobs.lint.steps[] | select((.run // \"\") | test(\"ci_failure_report_test\")))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
   if grep -q "ci_failure_report_test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
+'
+
+# The fuzz runner test (openspec change test-depth-signals, TDS-1): deleting both of its lint steps
+# must red here.
+mutant_rejected "CFC-6 fuzz runner guard unwired" "CFC-6: guard hack/test/fuzz_retry_test.sh is not run" bash -c '
+  set -euo pipefail
+  yq eval "del(.jobs.lint.steps[] | select((.run // \"\") | test(\"fuzz_retry_test\")))" .github/workflows/ci.yaml > m.yaml && mv m.yaml .github/workflows/ci.yaml
+  if grep -q "bash hack/test/fuzz_retry_test" .github/workflows/ci.yaml; then echo "mutant did not apply"; exit 1; fi
 '
 
 # CFC-6: the required modes are CFC-6's, not the guard's: stripping a guard's --self-test handling

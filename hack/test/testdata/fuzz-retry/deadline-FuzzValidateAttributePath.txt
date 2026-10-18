@@ -1,0 +1,18 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/266 completed
+fuzz: elapsed: 3s, gathering baseline coverage: 151/266 completed
+fuzz: elapsed: 5s, gathering baseline coverage: 266/266 completed, now fuzzing with 4 workers
+fuzz: elapsed: 6s, execs: 2274 (708/sec), new interesting: 2 (total: 268)
+fuzz: elapsed: 9s, execs: 13466 (3731/sec), new interesting: 15 (total: 281)
+fuzz: elapsed: 12s, execs: 26566 (4368/sec), new interesting: 32 (total: 298)
+fuzz: elapsed: 15s, execs: 37166 (3532/sec), new interesting: 47 (total: 313)
+fuzz: elapsed: 18s, execs: 48449 (3761/sec), new interesting: 58 (total: 324)
+fuzz: elapsed: 21s, execs: 59561 (3705/sec), new interesting: 72 (total: 338)
+fuzz: elapsed: 24s, execs: 67513 (2650/sec), new interesting: 78 (total: 344)
+fuzz: elapsed: 27s, execs: 77051 (3180/sec), new interesting: 87 (total: 353)
+fuzz: elapsed: 30s, execs: 83682 (2210/sec), new interesting: 94 (total: 360)
+fuzz: elapsed: 31s, execs: 83682 (0/sec), new interesting: 94 (total: 360)
+--- FAIL: FuzzValidateAttributePath (31.03s)
+    context deadline exceeded
+FAIL
+exit status 1
+FAIL	github.com/platformrelay/kollect/internal/collect	31.049s

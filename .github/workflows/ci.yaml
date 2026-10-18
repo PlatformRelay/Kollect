@@ -581,6 +581,13 @@ jobs:
         run: bash hack/test/ci_failure_report_test.sh
       - name: Verify the CI failure reporter test can still fail (CFR-7)
         run: bash hack/test/ci_failure_report_test.sh --self-test
+      # TDS-1 (openspec change test-depth-signals): the fuzz job's runner against a fake go
+      # replaying captured CI output, and its wiring. Plain and --self-test as separate steps;
+      # CWS-6/CFC-6 checks each mode runs in a required job. Needs git and yq (installed above).
+      - name: Verify the fuzz runner retries only the deadline flake (TDS-1)
+        run: bash hack/test/fuzz_retry_test.sh
+      - name: Verify the fuzz runner test can still fail (TDS-1)
+        run: bash hack/test/fuzz_retry_test.sh --self-test
       # Evidence under openspec/changes/**/evidence/ (archive included) is Markdown only: a probe
       # script committed there is analysed by SonarCloud as uncovered new code although CI never
       # runs it (decision 2026-10-16: inline probes in the evidence .md instead of widening
@@ -818,24 +825,11 @@ jobs:
         env:
           FUZZ_TARGET: ${{ matrix.target }}
           FUZZ_PKG: ${{ matrix.pkg }}
-        # Retry transient failures only. A reproducible crash writes a seed
-        # under testdata/fuzz/ and fails every run, so if that corpus appears
-        # we bail immediately rather than mask a real finding. Retries cover
-        # the runner-contention artifact where the engine reports
-        # "context deadline exceeded" at the fuzztime boundary.
-        run: |
-          set -uo pipefail
-          for attempt in 1 2; do
-            if go test -run='^$' -fuzz="${FUZZ_TARGET}" -fuzztime=30s "${FUZZ_PKG}"; then
-              exit 0
-            fi
-            if git status --porcelain | grep -q 'testdata/fuzz/'; then
-              echo "::error::${FUZZ_TARGET} produced a crashing input — not retrying"
-              exit 1
-            fi
-            echo "::warning::${FUZZ_TARGET} failed transiently on attempt ${attempt} (no crash corpus); retrying"
-          done
-          exit 1
+        # TDS-1 (openspec change test-depth-signals): one retry, and only for the exact
+        # "context deadline exceeded" flake at the fuzztime boundary with no crash corpus;
+        # a deny marker, unknown failure text or a leg that fuzzed nothing fails at once.
+        # Locked by hack/test/fuzz_retry_test.sh (F11 pins this step).
+        run: hack/ci/fuzz-retry.sh "${FUZZ_TARGET}" "${FUZZ_PKG}"
 
   # SonarCloud: GitHub secret SONAR_TOKEN (SonarCloud analysis token). Local dev uses
   # SONARCLOUD_TOKEN in .envrc — same value, different name (see tooling-setup.md).

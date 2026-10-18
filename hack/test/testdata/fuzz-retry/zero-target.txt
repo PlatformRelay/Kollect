@@ -1,0 +1,3 @@
+testing: warning: no fuzz tests to fuzz
+PASS
+ok  	github.com/platformrelay/kollect/internal/aggregate	0.018s
