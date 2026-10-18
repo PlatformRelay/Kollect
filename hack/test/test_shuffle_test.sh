@@ -28,7 +28,8 @@
 #   S11  test-shuffle.yaml: name, cron, permissions, pinned checkout without credentials,
 #        go-cache with envtest, pinned setup-task, timeout, task test:shuffle, no seed set, and
 #        no if: or continue-on-error: on the job or a step;
-#   S12  Taskfile.test.yml `shuffle:` runs the script; ci-failure-report.yaml lists Test shuffle.
+#   S12  Taskfile.test.yml `shuffle:` runs the script; ci-failure-report.yaml lists Test shuffle;
+#   S13  a failing Ginkgo run (1 of 3) fails the script, and runs 2 and 3 still happen.
 #
 # Usage:
 #   hack/test/test_shuffle_test.sh              # check the repository tree
@@ -100,7 +101,7 @@ if [[ "${MODE}" == "check" ]]; then
   # Globals a case sets before run_script: LIST (lines "<import path> <dir>" the fake go list
   # prints), FORWARD (1: go test runs the real go), ASSETS_EMPTY (1: echo-kubebuilder-assets
   # prints nothing), SEED_ENV (SHUFFLE_SEED: unset when empty, set to "" when "<empty>"), UNDER
-  # (the script to run).
+  # (the script to run), FAIL_CALLS (go test call numbers that fail, space-separated).
   # Results: RC, D (case dir: log, make.log, test.N argv files, kba.N), NTEST (go test calls).
   run_script() {
     new_tmp
@@ -111,7 +112,8 @@ if [[ "${MODE}" == "check" ]]; then
     cat >"${D}/bin/go" <<'FAKE'
 #!/usr/bin/env bash
 # Fake go: `list` prints the case's packages; `test` records argv and KUBEBUILDER_ASSETS, then
-# prints ok per package or forwards to the real go.
+# prints ok per package (or FAIL and exit 1 on a call listed in FAKE_FAIL_CALLS), or forwards to
+# the real go; each call's exit status goes to rc.N.
 d="${FAKE_DIR:?}"
 case "${1:-}" in
   list)
@@ -127,10 +129,14 @@ case "${1:-}" in
     if [[ "${FAKE_FORWARD:-0}" == 1 ]]; then
       exec "${REAL_GO:?}" "$@"
     fi
+    rc=0
+    [[ " ${FAKE_FAIL_CALLS:-} " != *" ${n} "* ]] || rc=1
     for a in "${@:2}"; do
-      [[ "${a}" == -* ]] || printf 'ok  \t%s\t0.001s\n' "${a}"
+      [[ "${a}" == -* ]] && continue
+      if ((rc)); then printf 'FAIL\t%s\t0.001s\n' "${a}"; else printf 'ok  \t%s\t0.001s\n' "${a}"; fi
     done
-    exit 0
+    echo "${rc}" >"${d}/rc.${n}"
+    exit "${rc}"
     ;;
 esac
 echo "fake go: unexpected call: $*" >&2
@@ -158,12 +164,13 @@ FAKE
       envs+=("SHUFFLE_SEED=${SEED_ENV}")
     fi
     (cd "${REPO}" && env "${envs[@]}" PATH="${D}/bin:${PATH}" FAKE_DIR="${D}" REAL_GO="${REAL_GO}" \
-      FAKE_FORWARD="${FORWARD}" FAKE_ASSETS_EMPTY="${ASSETS_EMPTY}" bash "${UNDER}") \
+      FAKE_FORWARD="${FORWARD}" FAKE_ASSETS_EMPTY="${ASSETS_EMPTY}" FAKE_FAIL_CALLS="${FAIL_CALLS}" \
+      bash "${UNDER}") \
       >"${D}/log" 2>&1 && RC=0 || RC=$?
     NTEST="$(cat "${D}/ntest")"
-    LIST="" FORWARD=0 ASSETS_EMPTY=0 SEED_ENV="" UNDER="${SCRIPT}"
+    LIST="" FORWARD=0 ASSETS_EMPTY=0 SEED_ENV="" UNDER="${SCRIPT}" FAIL_CALLS=""
   }
-  LIST="" FORWARD=0 ASSETS_EMPTY=0 SEED_ENV="" UNDER="${SCRIPT}"
+  LIST="" FORWARD=0 ASSETS_EMPTY=0 SEED_ENV="" UNDER="${SCRIPT}" FAIL_CALLS=""
 
   # with_exclusion <id> <entry>: a copy of the script with one exclusion entry added; sets UNDER.
   with_exclusion() {
@@ -329,6 +336,21 @@ FAKE
   [[ "${pl_calls}" -eq 1 ]] || case_fail S8 "the plain package was invoked ${pl_calls} times, want 1"
   done_case S8
 
+  # --- S13: a failing Ginkgo run fails the script, and the other runs still happen -----------------
+  # Call 1 is the plain package at -count=3, calls 2-4 the Ginkgo runs; run 1 of 3 fails.
+  CASE_BAD="${BAD}"
+  LIST="${GK} ${PK}/gk"$'\n'"${PL} ${PK}/plain" SEED_ENV=7 FAIL_CALLS=2
+  run_script
+  if ! call_pkgs 2 2>/dev/null | grep -Fx "${GK}" >/dev/null; then
+    case_fail S13 "go test call 2 is not a Ginkgo run (packages '$(call_pkgs 2 2>/dev/null | tr '\n' ' ')'): the case would fail another call"
+  fi
+  [[ "${RC}" -ne 0 ]] || case_fail S13 "Ginkgo run 1 of 3 failed but the script exited 0"
+  [[ "${NTEST}" -eq 4 ]] || case_fail S13 "go test ran ${NTEST} times, want 4 (runs 2 and 3 after the failing run 1)"
+  [[ "$(cat "${D}/rc.2" 2>/dev/null)" == 1 && "$(cat "${D}/rc.3" 2>/dev/null)" == 0 && "$(cat "${D}/rc.4" 2>/dev/null)" == 0 ]] ||
+    case_fail S13 "the fake's per-call exit statuses are not 1, 0, 0 for the Ginkgo runs"
+  diag_has S13 "::error::test-shuffle: FAILED with seed 7;"
+  done_case S13
+
   # --- S9a: envtest provisioned and exported -----------------------------------------------------------
   CASE_BAD="${BAD}"
   LIST="${GK} ${PK}/gk"$'\n'"${PL} ${PK}/plain"
@@ -436,7 +458,7 @@ FAKE
   done_case S12
 
   [[ "${BAD}" -eq 0 ]] || fail "the nightly shuffle breaks TDS-2 (cases above)"
-  pass "the nightly shuffle runs every unit package three times under one printed seed (S0-S12)"
+  pass "the nightly shuffle runs every unit package three times under one printed seed (S0-S13)"
   exit 0
 fi
 
@@ -518,6 +540,10 @@ W=.github/workflows/test-shuffle.yaml
     '((${#plain[@]} + ${#ginkgo[@]} > 0)) || die' ': ||'
   mutant "-count=3 dropped" "${S}" S8 \
     'go test -shuffle="${seed}" -count=3 "${plain[@]}"' 'go test -shuffle="${seed}" "${plain[@]}"'
+  mutant "a failing Ginkgo run ignored" "${S}" S13 \
+    'go test -shuffle="${seed}" -count=1 "${ginkgo[@]}" || rc=1' 'go test -shuffle="${seed}" -count=1 "${ginkgo[@]}" || true'
+  mutant "Ginkgo runs stop at the first failure" "${S}" S13 \
+    'go test -shuffle="${seed}" -count=1 "${ginkgo[@]}" || rc=1' 'go test -shuffle="${seed}" -count=1 "${ginkgo[@]}" || exit 1'
   mutant "-count=3 on the Ginkgo package" "${S}" S8 \
     'go test -shuffle="${seed}" -count=1 "${ginkgo[@]}"' 'go test -shuffle="${seed}" -count=3 "${ginkgo[@]}"'
   mutant "make setup-envtest dropped" "${S}" S9a 'make setup-envtest >&2' ':'
