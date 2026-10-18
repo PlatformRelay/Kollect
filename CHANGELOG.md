@@ -11,6 +11,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Refuse empty or malformed jobs output in the CI failure reporter [7465752](https://github.com/platformrelay/kollect/commit/7465752210297cf69ca36b0afc0196dfc740f1c5)
+
+- **check:** Run the self-test of large guards in task check [354a57a](https://github.com/platformrelay/kollect/commit/354a57a0a2f5b130a01f5cd1277b32124b32153f)
+
+- **ci:** Refuse empty or malformed gh output in the CI failure reporter [64057b7](https://github.com/platformrelay/kollect/commit/64057b7bd47447b855d56a99cdd9c0dbc7811617)
+
 - **ci:** Keep the App token out of the changelog-sync checkout [b70f01b](https://github.com/platformrelay/kollect/commit/b70f01bd3f1d056258216f39f0dea633f903785e)
 
 - **ci:** Require a full version for CFC-2 pins [21b381e](https://github.com/platformrelay/kollect/commit/21b381e045e43ac9523c481757c8e2c61ce33876)
