@@ -156,8 +156,8 @@ reaches a fixture by putting a fake `go` first on `PATH`. The workflow SHALL NOT
 
 - **WHEN** the scheduled shuffle run and the scheduled E2E nightly both fail
 - **THEN** two separate issues exist (held by the reporter's per-workflow marker filter,
-  `hack/ci/ci-failure-report.sh:133-140`, change 7's case "both open, nightly success" at `hack/test/ci_failure_report_test.sh:1226-1233`,
-  and its job concurrency per `workflow_id`, `ci-failure-report.yaml:40-42`)
+  `hack/ci/ci-failure-report.sh:133-140`, change 7's case "both open, nightly success" at `hack/test/ci_failure_report_test.sh:1228-1235`,
+  and its job concurrency per `workflow_id`, `ci-failure-report.yaml:41-43`)
 
 ### Requirement: TDS-3 The README quick start names things that exist
 

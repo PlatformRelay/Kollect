@@ -61,6 +61,7 @@ Holistic run at B: not run yet.
 | `hack/test/fuzz_retry_test.sh` F11, F16; `hack/test/test_shuffle_test.sh` S11 | G1, 1.6, G2 | 5.2 | incomplete: `if:` and `continue-on-error:` on the job or a step were never read (A2, deferred F16) |
 | `hack/test/test_shuffle_test.sh`: fake `go` (per-call exit status), case S13 | G2 | 5.4 | incomplete: the fake never failed a non-forwarded call, so a swallowed Ginkgo failure passed (A4) |
 | `fuzz_retry_test.sh` F0 (empty pkg), F18; `test_shuffle_test.sh` fake `make`, S9c; `readme_quickstart_test.sh` task reader, X19, X20 | G1, G2, G3 | 5.5 | incomplete: the deferred stage-B items (no error line on a failed envtest setup, internal tasks counted, two missing cases) |
+| `readme_quickstart_test.sh` operand and fence reader (X24-X28); `fuzz_retry_test.sh` F11, F16; `test_shuffle_test.sh` S11, S12 | G1, G2, G3, G5 | B round 2 | fail open: comma-joined TYPE/NAME, quoted verb, flag value read as type, ```` ``` sh ```` fence, shell overrides, task `status:`/`ignore_error:` (reviews/B-branch/round-2/verification.md) |
 
 ## Lessons
 
@@ -88,6 +89,8 @@ This change (test-depth-signals):
 - Synthetic fixtures put markers at a line start; replay one real output too, or a line-anchored matcher survives every case (5.5: F18)
 - Count matching nodes, never join their names: a node named "" joins to an empty string and passes an emptiness check (G5 review)
 - Tab is IFS whitespace in bash `read`: an empty middle field merges; put always-non-empty fields first (G5 review)
+- A pin on what a step runs must also refuse what decides how it runs: `defaults.run.shell`, step `shell:`, Task `status:`/`ignore_error:` (B round 2)
+- In zsh an unmatched glob aborts the `&&` chain: a leg launched after `rm -f <glob> &&` never started; use `rm -f -- file1 file2` or bash (B round 2)
 
 Carried over from change 7 (ci-failure-reporting):
 
