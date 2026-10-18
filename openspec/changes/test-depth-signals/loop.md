@@ -41,6 +41,7 @@ Holistic run at B: not run yet.
 |---|---|---|---|
 | G1 (1.1-1.5) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (deny markers bypassed on exit 0, fixed), opus CLEAN; r2 astra APPROVE, opus CONCERNS (deferred) | CI on the PR head not run; deferred to B: empty-pkg F0 case, crash-fixture replay; spec question: `go: downloading` lines on a cold cache make a real flake unrecognised (filter them in TDS-1, or an uncaptured `go mod download` step) |
 | 1.6 | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 1 round; astra APPROVE, opus CONCERNS (wording fixed, two NOTEs deferred to B) | cold-cache probe local only; F16 ignores `if:`/`continue-on-error:` (deferred to B, fails closed) |
+| 2.1 | CLOSED | astra (evidence only), 1 round | found two repetition-dependent tests (collect, metrics), fixed in their own commits before G2 |
 
 ## Known red
 
@@ -63,6 +64,8 @@ This change (test-depth-signals):
 - A CFC-6 "mutant did not apply" grep must match the step's `bash hack/test/<guard>` text, not the guard's name, once a job comment names the guard (G1)
 - Give every exit path of a decision script a case, the success path included: deny markers after the exit-0 branch passed `panic:` on exit 0 (G1)
 - Keep the evidence Status pending until the review is recorded: a reviewer reads a premature CLOSED as a claim (1.6)
+- `make setup-envtest` prints the assets path to stderr with no newline: keep it off the line that carries a seed or marker (2.1)
+- Run the new nightly's real command once before writing its guard: the 2.1 split found two counters read as absolutes, red at every `-count=3` (2.1)
 
 Carried over from change 7 (ci-failure-reporting):
 
