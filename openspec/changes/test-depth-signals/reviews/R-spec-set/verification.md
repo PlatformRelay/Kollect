@@ -204,8 +204,8 @@ Folded into V5 (F13).
 
 ### V15 NOTE: no check for "SHALL NOT duplicate"
 
-Reject: it is a scope rule for the author, held by review; a guard asserting the absence of
-duplicated checks would cost more than the duplication it prevents.
+Reject: the rule is held by review, and a guard asserting the absence of duplicated checks would
+cost more than the duplication it prevents. The spec now says "(held by review)" after the rule.
 
 ### V16 NOTE: citations
 
@@ -237,3 +237,24 @@ None. No task needs an operator account; the post-merge row (V12) needs only rea
 
 One accepted CRITICAL (V1), twelve WARNINGs to fix in the spec set before the task loop. Per the
 duo table, an accepted CRITICAL earns a second spec-set round after the fix.
+
+## Applied (round 1 fixes)
+
+Applied to the spec set 2026-10-18 (proposal.md, specs/test-depth/spec.md, tasks.md; task-prompt.md
+only for the new dispatch groups G1 = 1.1-1.4, G2 = 2.2-2.5). Every fix above is in, with these
+notes:
+
+- V1: TDS-2 runs `RunSpecs` packages as three `-shuffle=<seed> -count=1` invocations, the rest
+  with `-count=3`; S8 and a 2.5 mutant hold the split; 2.1 smoke-runs both Ginkgo suites.
+- V5 and V6 interact: with an allow-list, a deadline fixture plus a deny marker is rejected even
+  when the marker check is dropped. So F2-F4 and F5b also assert that the message names the
+  marker, and the drop-marker mutants are killed through that message.
+- Split for size: 1.1 (fixtures, F1-F6 with F5a-F5c) and 1.2 (F7-F13); 1.3 implements, 1.4
+  mutants. 2.2 script cases S1-S10, 2.3 wiring cases S11-S12, 2.4 implements, 2.5 mutants.
+- V16 citations corrected and re-checked 2026-10-18: `ci.yaml:790` (job), `:817` (step),
+  `:827-838` (loop body; `:826` is `run: |`), `hack/check.sh:88-111`, `hack/coverage.sh:23-30`,
+  `Makefile:70`, `ci_workflow_security_test.sh:603-604` (`cfc_guards`), `:597-602` (its comment),
+  Go `testing.go:2572-2587` and `:2714`, Ginkgo `core_dsl.go:260-262`; the per-workflow reporter
+  case is `ci_failure_report_test.sh:1225-1232`.
+- V15 rejected (above). V17 deferred: task 1.1 verifies the id or names the flake without it; the
+  spec's scenario now says "a warning naming the deadline flake".
