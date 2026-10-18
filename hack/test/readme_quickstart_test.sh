@@ -11,9 +11,10 @@
 #            included task is `<namespace>:<name>`);
 #   apply    a `kubectl apply -k <path>` path does not exist in the tree;
 #   kubectl  a flag comes before the kubectl verb (its value would hide the verb);
-#   get      a `kubectl get` resource name (each comma-separated name) is not a `shortNames`,
-#            `singular` or `plural` entry of a CRD in config/crd/bases. Fail closed: built-in
-#            resources (pods, ...) are not quick-start material.
+#   get      a `kubectl get` resource name (each comma-separated name, and the type part of
+#            every operand once one is TYPE/NAME) is not a `shortNames`, `singular` or `plural`
+#            entry of a CRD in config/crd/bases. Fail closed: built-in resources (pods, ...) are
+#            not quick-start material.
 # Whether demo-up/demo-down delegate to the hero harness is demo_task_aliases_test.sh's, not
 # repeated here. Static: no Docker, no cluster, no task binary.
 #
@@ -118,7 +119,8 @@ quickstart_lines() {
 }
 
 check_tree() {
-  local readme="${ROOT}/README.md" lines tasks names n text seg i w verb j res r path
+  local readme="${ROOT}/README.md" lines tasks names n text seg i w verb j res r path op slashed
+  local -a ops
   [[ -f "${readme}" ]] || die input "README.md is missing"
   tasks="$(taskfile_tasks "${ROOT}/Taskfile.yml" "")"
   names="$(crd_names)"
@@ -152,7 +154,7 @@ check_tree() {
             break
             ;;
           kubectl)
-            verb="" res="" path=""
+            verb="" path="" ops=()
             # Fail closed on a flag before the verb (`kubectl --context x get ...`): its value
             # would be read as the verb and nothing checked.
             if [[ "${w[i + 1]:-}" == -* ]]; then
@@ -165,16 +167,27 @@ check_tree() {
                 -k | --kustomize) ((j += 1)) && path="${w[j]:-}" ;;
                 -k=* | --kustomize=*) path="${w[j]#*=}" ;;
                 -*) ;;
-                *) if [[ -z "${verb}" ]]; then verb="${w[j]}"; elif [[ -z "${res}" ]]; then res="${w[j]}"; fi ;;
+                *) if [[ -z "${verb}" ]]; then verb="${w[j]}"; else ops+=("${w[j]}"); fi ;;
               esac
             done
             if [[ "${verb}" == get ]]; then
-              [[ -n "${res}" ]] || bad get "'kubectl get' (README line ${n}) names no resource"
-              IFS=',' read -ra r <<<"${res}"
-              for res in "${r[@]}"; do
-                res="${res%%/*}"
-                grep -Fx -- "${res}" <<<"${names}" >/dev/null ||
-                  bad get "'${res}' (README line ${n}) is not a shortNames, singular or plural name of a CRD in config/crd/bases"
+              ((${#ops[@]})) || bad get "'kubectl get' (README line ${n}) names no resource"
+              # `get TYPE[,TYPE...] [NAME...]` names its types in the first operand only. Once any
+              # operand is TYPE/NAME, every operand must be (kubectl rejects the mix, so the
+              # guard does too) and the type part of each is checked.
+              slashed=0
+              for op in "${ops[@]}"; do [[ "${op}" != */* ]] || slashed=1; done
+              ((slashed)) || ops=("${ops[@]:0:1}")
+              for op in "${ops[@]}"; do
+                if ((slashed)) && [[ "${op}" != */* ]]; then
+                  bad get "'${op}' (README line ${n}) is a plain operand next to a TYPE/NAME one; kubectl rejects the mix"
+                  continue
+                fi
+                IFS=',' read -ra r <<<"${op%%/*}"
+                for res in "${r[@]}"; do
+                  grep -Fx -- "${res}" <<<"${names}" >/dev/null ||
+                    bad get "'${res}' (README line ${n}) is not a shortNames, singular or plural name of a CRD in config/crd/bases"
+                done
               done
             elif [[ "${verb}" == apply && "${seg}" =~ (^|[[:space:]])(-k|--kustomize)([=[:space:]]|$) ]]; then
               [[ -n "${path}" && -e "${ROOT}/${path}" ]] ||
@@ -368,6 +381,14 @@ new_copy
 head -n "$(grep -n -F 'kubectl apply -k config/samples/advanced/' "${COPY}/${R}" | cut -d: -f1)" "${COPY}/${R}" >"${COPY}/cut.md"
 mv "${COPY}/cut.md" "${COPY}/${R}"
 expect_red "X11 sh fence open at the end of the file" extract "never closed"
+reject "X15 second TYPE/NAME operand of kubectl get" get "'foo'" "${R}" \
+  'kubectl get kinv,ktgt,ksnap -A' 'kubectl get kinv/a foo/b -A'
+reject "X16 plain operand after a TYPE/NAME operand" get "'ktgt'" "${R}" \
+  'kubectl get kinv,ktgt,ksnap -A' 'kubectl get kinv/a ktgt -A'
+accept "X17 TYPE/NAME operands of Kollect resources" "${R}" \
+  'kubectl get kinv,ktgt,ksnap -A' 'kubectl get kinv/a ktgt/b kollectprofiles/c -A'
+accept "X18 plain NAME operands after the type are not types" "${R}" \
+  'kubectl get kinv,ktgt,ksnap -A' 'kubectl get kinv my-inventory other -n demo'
 reject "X12 backslash-continued kubectl get" get "'foo'" "${R}" \
   "${CLONE}" "${CLONE}
 kubectl \\
