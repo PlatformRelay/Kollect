@@ -1,0 +1,18 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/9 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 9/9 completed, now fuzzing with 4 workers
+fuzz: elapsed: 3s, execs: 8513 (2837/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 6s, execs: 20626 (4037/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 9s, execs: 34145 (4507/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 12s, execs: 47832 (4562/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 15s, execs: 61422 (4530/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 18s, execs: 74934 (4504/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 21s, execs: 88382 (4483/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 24s, execs: 101842 (4484/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 27s, execs: 115313 (4484/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 30s, execs: 128849 (4521/sec), new interesting: 1 (total: 10)
+fuzz: elapsed: 30s, execs: 128849 (0/sec), new interesting: 1 (total: 10)
+--- FAIL: FuzzContentHash (30.07s)
+    context deadline exceeded
+FAIL
+exit status 1
+FAIL	github.com/platformrelay/kollect/internal/aggregate	30.086s

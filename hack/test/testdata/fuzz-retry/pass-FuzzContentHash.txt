@@ -1,0 +1,15 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/10 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 10/10 completed, now fuzzing with 4 workers
+fuzz: elapsed: 3s, execs: 11795 (3932/sec), new interesting: 0 (total: 10)
+fuzz: elapsed: 6s, execs: 23331 (3845/sec), new interesting: 0 (total: 10)
+fuzz: elapsed: 9s, execs: 36842 (4504/sec), new interesting: 0 (total: 10)
+fuzz: elapsed: 12s, execs: 50436 (4532/sec), new interesting: 0 (total: 10)
+fuzz: elapsed: 15s, execs: 63936 (4499/sec), new interesting: 1 (total: 11)
+fuzz: elapsed: 18s, execs: 77512 (4526/sec), new interesting: 1 (total: 11)
+fuzz: elapsed: 21s, execs: 90708 (4397/sec), new interesting: 1 (total: 11)
+fuzz: elapsed: 24s, execs: 103922 (4406/sec), new interesting: 1 (total: 11)
+fuzz: elapsed: 27s, execs: 117331 (4470/sec), new interesting: 1 (total: 11)
+fuzz: elapsed: 30s, execs: 130754 (4475/sec), new interesting: 1 (total: 11)
+fuzz: elapsed: 30s, execs: 130754 (0/sec), new interesting: 1 (total: 11)
+PASS
+ok  	github.com/platformrelay/kollect/internal/aggregate	30.133s

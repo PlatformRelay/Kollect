@@ -39,6 +39,7 @@ Holistic run at B: not run yet.
 
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
+| G1 (1.1-1.5) | CLOSED-WITH-GAPS | astra + claude/opus:diff (CI touched), 2 rounds; r1 astra REQUEST_CHANGES (deny markers bypassed on exit 0, fixed), opus CLEAN; r2 astra APPROVE, opus CONCERNS (deferred) | CI on the PR head not run; deferred to B: empty-pkg F0 case, crash-fixture replay; spec question: `go: downloading` lines on a cold cache make a real flake unrecognised (filter them in TDS-1, or an uncaptured `go mod download` step) |
 
 ## Known red
 
@@ -55,6 +56,11 @@ Holistic run at B: not run yet.
 <!-- master list: one line per reusable lesson with the task ids that hit it; two or more ids → a proposed harness change at hand-off -->
 
 This change (test-depth-signals):
+
+- `gh run view <run> --log --job <id>` ignores the run id: list the run's jobs first and take the id from that run (G1)
+- An exactly-once literal mutant anchor fails when a comment repeats the flag: keep each mutated clause on one line at one site (G1)
+- A CFC-6 "mutant did not apply" grep must match the step's `bash hack/test/<guard>` text, not the guard's name, once a job comment names the guard (G1)
+- Give every exit path of a decision script a case, the success path included: deny markers after the exit-0 branch passed `panic:` on exit 0 (G1)
 
 Carried over from change 7 (ci-failure-reporting):
 

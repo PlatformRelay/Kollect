@@ -20,7 +20,7 @@ Each case below reads: given / when / then · the failure it exposes.
 
 ## 1. Fuzz runner (TDS-1)
 
-- [ ] 1.1 Capture fixtures first (log retention expires), then write `hack/test/fuzz_retry_test.sh`
+- [x] 1.1 Capture fixtures first (log retention expires), then write `hack/test/fuzz_retry_test.sh`
   (plain and `--self-test`) with a fake `go` on `PATH` that replays one fixture per attempt and
   records each call's argv; the corpus cases run in a throwaway git repository.
   Fixtures in `hack/test/testdata/fuzz-retry/`:
@@ -62,8 +62,8 @@ Each case below reads: given / when / then · the failure it exposes.
   - F5c given the deadline fixture and a fake `git` whose `status` exits 128, then non-zero after
     one call · a corpus check that fails open (red today);
   - F6 given the deadline fixture twice and then the pass fixture, then non-zero after exactly two
-    calls · an unbounded or swallowed retry.
-- [ ] 1.2 Add the remaining cases to `fuzz_retry_test.sh`, red against the same stub:
+    calls · an unbounded or swallowed retry. — closed 2026-10-18, evidence: evidence/G1.md
+- [x] 1.2 Add the remaining cases to `fuzz_retry_test.sh`, red against the same stub:
   - F7 given empty output and given unknown failure text, then non-zero after one call and the
     diagnostic is `unrecognised failure text` · fail open, and an undiagnosable Go wording
     change (red today);
@@ -90,22 +90,22 @@ Each case below reads: given / when / then · the failure it exposes.
   - F15 given the deadline fixture with one line repeated, and given it with `FAIL` and
     `context deadline exceeded` swapped, then non-zero after one call each and the
     `unrecognised failure text` diagnostic · a membership check standing in for the ordered
-    sequence (red today).
-- [ ] 1.3 Implement `hack/ci/fuzz-retry.sh` (`-fuzztime=30s`, allow-list, deny markers, corpus
+    sequence (red today). — closed 2026-10-18, evidence: evidence/G1.md
+- [x] 1.3 Implement `hack/ci/fuzz-retry.sh` (`-fuzztime=30s`, allow-list, deny markers, corpus
   check with `--untracked-files=all` failing closed, messages as TDS-1); point the `fuzz` job at
   it; wire `fuzz_retry_test.sh` into `lint` in both modes and into `cfc_guards`; zizmor gate passes.
   No existing guard asserts on the `fuzz` job's steps (`grep -n fuzz hack/test/*.sh` outside the
-  new guard matched nothing on 2026-10-18), so none needs updating.
-- [ ] 1.4 Retry-decision defect controls in `--self-test`, one mutant each of a copy of the runner:
+  new guard matched nothing on 2026-10-18), so none needs updating. — closed 2026-10-18, evidence: evidence/G1.md
+- [x] 1.4 Retry-decision defect controls in `--self-test`, one mutant each of a copy of the runner:
   drop each deny marker (four mutants, killed by F2-F4 and F5b through the diagnostic, since the
   allow-list still rejects the output), drop the corpus check (F5a), drop
   `--untracked-files=all` (F5a), ignore a failing `git status` (F5c), raise the retry cap (F6);
-  each turns its case red; a no-op copy passes.
-- [ ] 1.5 Output-shape defect controls in `--self-test`, one mutant each: drop the zero-target
+  each turns its case red; a no-op copy passes. — closed 2026-10-18, evidence: evidence/G1.md
+- [x] 1.5 Output-shape defect controls in `--self-test`, one mutant each: drop the zero-target
   check (F8), drop the `fuzz: elapsed` check (F9), drop the `unrecognised failure text` diagnostic
   (F7), use `-fuzztime=1s` (F1, F10), replace the allow-list with a substring match (F12), drop the
   target pin (F13), stop requiring every line of the sequence (F14), check membership instead of
-  the ordered sequence (F15); each turns its case red; a no-op copy passes.
+  the ordered sequence (F15); each turns its case red; a no-op copy passes. — closed 2026-10-18, evidence: evidence/G1.md
 
 ## 2. Shuffle (TDS-2)
 

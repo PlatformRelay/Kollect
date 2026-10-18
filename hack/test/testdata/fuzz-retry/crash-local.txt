@@ -1,0 +1,34 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/1 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 1/1 completed, now fuzzing with 16 workers
+fuzz: minimizing 48-byte failing input file
+fuzz: elapsed: 0s, minimizing
+--- FAIL: FuzzCrash (0.05s)
+    --- FAIL: FuzzCrash (0.00s)
+        testing.go:2076: panic: boom: 0000
+            goroutine 97 [running]:
+            runtime/debug.Stack()
+            	/usr/local/go/src/runtime/debug/stack.go:26 +0x9b
+            testing.tRunner.func1()
+            	/usr/local/go/src/testing/testing.go:2076 +0x1b0
+            panic({0x83b1a8?, 0x2a1bc226490?})
+            	/usr/local/go/src/runtime/panic.go:859 +0x125
+            example.com/crashfuzz.FuzzCrash.func1(0x0?, {0x2a1bc20a368, 0x4})
+            	/tmp/claude-g1tds/crashmod/crash_test.go:9 +0xba
+            reflect.Value.call({0x8264e0?, 0x8679c0?, 0x13?}, {0x64b398, 0x4}, {0x2a1bc212570, 0x2, 0x2?})
+            	/usr/local/go/src/reflect/value.go:586 +0xed9
+            reflect.Value.Call({0x8264e0?, 0x8679c0?, 0x55d308?}, {0x2a1bc212570?, 0x864230?, 0x687d5f?})
+            	/usr/local/go/src/reflect/value.go:369 +0xb9
+            testing.(*F).Fuzz.func1.1(0x2a1bc245208?)
+            	/usr/local/go/src/testing/fuzz.go:341 +0x312
+            testing.tRunner(0x2a1bc245208, 0x2a1bc214990)
+            	/usr/local/go/src/testing/testing.go:2193 +0xea
+            created by testing.(*F).Fuzz.func1 in goroutine 19
+            	/usr/local/go/src/testing/fuzz.go:328 +0x678
+
+
+    Failing input written to testdata/fuzz/FuzzCrash/81476e3145e0ed8c
+    To re-run:
+    go test -run=FuzzCrash/81476e3145e0ed8c
+FAIL
+exit status 1
+FAIL	example.com/crashfuzz	0.057s
