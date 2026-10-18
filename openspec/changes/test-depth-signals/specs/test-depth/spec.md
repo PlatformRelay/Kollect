@@ -12,7 +12,8 @@ things that exist.
 
 `hack/ci/fuzz-retry.sh <target> <pkg>` SHALL run
 `go test -run='^$' -fuzz=<target> -fuzztime=30s <pkg>`. It SHALL retry at most once, and only
-when the failed attempt is exactly the known deadline flake: once `fuzz:` progress lines are
+when the failed attempt exited 1 (the status `go test` gives a failed test; 2, 137 or any other
+status is never the flake) and is exactly the known deadline flake: once `fuzz:` progress lines are
 removed, its output is the flake's line sequence captured from the real runs in task 1.1, each
 line exactly once and in this order (today: `--- FAIL: <target> (<duration>)` naming the matrix
 target, an indented `context deadline exceeded`, `FAIL`, `exit status 1`,
@@ -65,6 +66,12 @@ A run that exits 0 with no `fuzz: elapsed` line and without that warning SHALL a
 
 - **WHEN** the output is empty, matches none of the known patterns, or is the deadline flake plus
   one line outside its line set
+- **THEN** the job SHALL fail without a retry, and the message SHALL contain
+  `unrecognised failure text`
+
+#### Scenario: Flake text under another exit status
+
+- **WHEN** the output is exactly the deadline flake but `go test` exited 2 or 137
 - **THEN** the job SHALL fail without a retry, and the message SHALL contain
   `unrecognised failure text`
 
