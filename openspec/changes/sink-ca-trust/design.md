@@ -47,11 +47,12 @@ options builder). So probe and export reject the same input with the same error.
 After `pgxpool.ParseConfig(dsn)` (`pool.go:17`), when a CA is configured:
 
 1. Before parsing, reject a root certificate from any source pgx would read, naming the source
-   (`sslrootcert` in the DSN, keyword or URL form; `PGSSLROOTCERT`; `~/.postgresql/root.crt` when
-   it exists, `pgconn/defaults.go:58`) and `spec.tls`, never the DSN. Checking first means an
-   unreadable or malformed root file is reported as the conflict, not as the static
-   `invalid connection string` (`pool.go:46-55`). A service file (`PGSERVICEFILE`) that sets
-   `sslrootcert` is caught by the backstop in step 2.
+   (`sslrootcert` in the DSN, keyword or URL form; `sslrootcert` in the service-file entry the DSN
+   or `PGSERVICE` selects, from `PGSERVICEFILE` or pgx's default service file, merged at
+   `pgconn/config.go:449-452`; `PGSSLROOTCERT`; `~/.postgresql/root.crt` when it exists,
+   `pgconn/defaults.go:58`) and `spec.tls`, never the DSN. Checking first means an unreadable or
+   malformed root file is reported as the conflict, not as the static `invalid connection string`
+   (`pool.go:46-55`). The backstop in step 2 stays for any source this check misses.
 2. Parse, then classify: `TLSConfig == nil` (`disable`) or any fallback with a nil `TLSConfig`
    (`allow`, `prefer`, unset without direct negotiation) → reject, naming the sslmode class and the
    fix (`sslmode=verify-full`, `verify-ca` or `require`). Backstop: a parsed `TLSConfig.RootCAs`
@@ -80,7 +81,7 @@ and treating a repeated key as the driver does (0.1 records which): reject
 `tlsCAFile`/`sslCertificateAuthorityFile`; reject TLS off (`mongodb://` without `tls=true`/`ssl=true`
 or another option that turns TLS on, e.g. `tlsCertificateKeyFile`, `connstring.go:596-640`; or
 `tls=false`/`ssl=false` on either scheme); reject `tlsInsecure`/`sslInsecure` set to anything but
-`false`. Then `ApplyURI`, and as a backstop reject a driver-built `TLSConfig` that is nil or already
+`false` (a malformed value is rejected as the driver would). Then `ApplyURI`, and as a backstop reject a driver-built `TLSConfig` that is nil or already
 carries `RootCAs` or `InsecureSkipVerify`. Clone it and set `RootCAs` to the appended pool, keeping
 client-certificate settings from the URI. Error text names the URI parameter, never the URI.
 
@@ -91,8 +92,10 @@ keeps the guarded `DialContext` and `Proxy = nil`) and sets `TLSClientConfig.Roo
 appended pool with `MinVersion: tls.VersionTLS12`. A spec endpoint with scheme `http` and a CA is
 rejected in `ConfigFromSpec`. For `s3://` endpoints kollect sets no `BaseEndpoint`
 (`s3/backend.go:141-145`), so the SDK may take one from `AWS_ENDPOINT_URL`, `AWS_ENDPOINT_URL_S3`
-or shared config; with a CA configured `newClient` reads the effective base endpoint from the loaded
-config and rejects `http`. The client's `CheckRedirect` refuses a redirect to a non-HTTPS URL when a
+or shared config, and the S3-specific source (`AWS_ENDPOINT_URL_S3`, a `services` section) is
+resolved inside `s3.NewFromConfig`, not in the loaded `aws.Config`. With a CA configured, `newClient`
+builds the S3 client and then reads `client.Options().BaseEndpoint`, rejecting `http` before it
+returns the client. The client's `CheckRedirect` refuses a redirect to a non-HTTPS URL when a
 CA is configured.
 
 ## Compatibility
@@ -101,7 +104,7 @@ CA is configured.
 | --- | --- |
 | CA ignored; private-CA server fails verification (S3, GCS, MongoDB with TLS, Postgres `verify-*`) | Verifies with system roots plus the CA |
 | MongoDB `tlsCAFile`, TLS off, or `tlsInsecure`/`sslInsecure` + CA: the URI's settings used | Terminal error |
-| Postgres `sslmode` unset/`prefer`/`require` + CA: TLS without verification | `require`: chain verified; unset/`prefer`/`allow`/`disable`: terminal error |
+| Postgres effective `sslmode` `prefer`/`require` + CA (`prefer` is the default when neither the DSN nor `PGSSLMODE` sets one): TLS without verification | `require`: chain verified; effective `prefer`/`allow`/`disable`: terminal error |
 | `sslrootcert` / `tlsCAFile` in the connection string + CA: the connection string's CA used | Terminal error |
 | Secret with no CA key: no CA; system roots (Git, GitLab, S3, GCS), plaintext (Kafka, NATS without other TLS material), connection-string TLS (Postgres, MongoDB) | Terminal error (all types) |
 | `caBundle` and `caSecretRef` both set: `caBundle` used (Git/GitLab rejected it already) | Terminal error (all types) |

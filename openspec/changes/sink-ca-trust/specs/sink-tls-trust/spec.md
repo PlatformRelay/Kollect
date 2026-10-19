@@ -67,8 +67,9 @@ chain as `verify-ca` does (libpq's rule when a root certificate is configured). 
 sslmode is the one pgx uses (DSN, else `PGSSLMODE`, else `prefer`, after the
 `sslnegotiation=direct` rewrite of `prefer` to `require`). An effective `disable`, `allow` or
 `prefer` SHALL be rejected at backend build with a terminal error that names the sslmode and the
-accepted values. A root certificate from another source (`sslrootcert` in the DSN, `PGSSLROOTCERT`,
-`~/.postgresql/root.crt`) while the sink configures a CA SHALL be rejected the same way, naming the
+accepted values. A root certificate from another source (`sslrootcert` in the DSN or in the
+service-file entry it selects, `PGSSLROOTCERT`, `~/.postgresql/root.crt`) while the sink configures a
+CA SHALL be rejected the same way, naming the
 source and `spec.tls`, whether or not that file is readable. No error this requirement adds, and no
 connection error, SHALL contain the DSN, host, user, password or database name. Without a CA,
 behaviour is unchanged.
@@ -106,7 +107,8 @@ behaviour is unchanged.
 
 #### Scenario: A sslmode that would ignore the CA is rejected
 
-- **WHEN** a sink with a CA has a DSN with no sslmode, or `sslmode=prefer`, `allow` or `disable`
+- **WHEN** a sink with a CA has an effective sslmode of `prefer`, `allow` or `disable` (for example
+  `sslmode=prefer` in the DSN, or no sslmode with no `PGSSLMODE` and no direct negotiation)
 - **THEN** the build fails with a terminal error naming the sslmode and `verify-full`, `verify-ca`,
   `require`
 - **AND** no connection is attempted
@@ -114,7 +116,8 @@ behaviour is unchanged.
 #### Scenario: DSN CA file conflicts with the sink CA
 
 - **WHEN** a sink with a CA has a DSN containing `sslrootcert=/path` (keyword or URL form), or
-  `PGSSLROOTCERT` names a file (present, missing or malformed), or `~/.postgresql/root.crt` exists
+  `PGSSLROOTCERT` or a selected service-file entry names a file (present, missing or malformed), or
+  `~/.postgresql/root.crt` exists
 - **THEN** the build fails with a terminal error naming that source and `spec.tls`
 - **AND** the error SHALL NOT contain the DSN, host, user or password
 
@@ -131,8 +134,8 @@ When a `mongodb` sink configures a CA, the driver's TLS configuration SHALL veri
 system roots plus that CA, keeping the URI's other TLS settings (client certificate). URI option
 names SHALL match case-insensitively, as in the driver. A URI that sets `tlsCAFile` or
 `sslCertificateAuthorityFile`, a URI on which TLS is off (`mongodb://` with no option that turns
-TLS on, or `tls=false`/`ssl=false` on either scheme), or a URI with `tlsInsecure` or `sslInsecure`
-set SHALL be rejected at backend build, without a DNS lookup, with a terminal error naming the
+TLS on, or `tls=false`/`ssl=false` on either scheme), or a URI whose effective `tlsInsecure` or
+`sslInsecure` is `true` SHALL be rejected at backend build, without a DNS lookup, with a terminal error naming the
 URI parameter and `spec.tls`. A driver-built TLS configuration that is absent or already carries a
 root pool or disabled verification SHALL be rejected the same way, so a spelling the key check
 misses cannot pass. The errors this requirement adds SHALL NOT contain the URI, host or
@@ -164,10 +167,10 @@ credentials. Without a CA, behaviour is unchanged.
 - **AND** the error SHALL NOT contain the URI or credentials
 - **AND** a `mongodb+srv://` URI is rejected without any DNS lookup
 
-#### Scenario: Default TLS on SRV and ssl=true are accepted
+#### Scenario: Default TLS on SRV, ssl=true and explicit verification are accepted
 
 - **WHEN** a sink with CA X has a `mongodb+srv://` URI without `tls`, or `mongodb://` with
-  `ssl=true`
+  `ssl=true`, or `tls=true&tlsInsecure=false`
 - **THEN** the build is accepted and the CA applies
 
 ### Requirement: SCT-4 An unusable CA is a terminal error, never ignored
@@ -177,9 +180,11 @@ trimming, or only non-certificate blocks such as a private key) SHALL fail backe
 terminal error that names `spec.tls` and does not echo the PEM. For every sink type, a `caSecretRef`
 Secret with none of the keys `tls.crt`, `ca.crt`, `ca.pem` SHALL fail with a terminal error naming
 the Secret and the expected keys, and a spec that sets both `caBundle` and `caSecretRef` SHALL fail
-with a terminal error before either Secret is fetched. A terminal build failure SHALL NOT be cached: after the Secret or spec is
-fixed, the next backend acquisition (`acquireBackend`, `internal/sink/backend_pool.go:145-153`)
-builds the backend.
+with a terminal error before the CA Secret is fetched. A terminal build failure SHALL NOT be cached:
+after the Secret or spec is fixed, the next backend acquisition (`acquireBackend`,
+`internal/sink/backend_pool.go:145-153`) builds the backend. A terminal error does not requeue and
+no controller watches Secrets, so that acquisition happens on the next sink or inventory event; the
+docs SHALL tell users to touch the sink after fixing a Secret.
 
 #### Scenario: Garbage PEM
 
@@ -227,11 +232,12 @@ the constructors. The CLI SHALL exit 2 (`ExitFatalError`) on a CA error, before 
 - **WHEN** a sink with a CA and a conflicting DSN/URI is probed and exported
 - **THEN** both fail with the same terminal error
 
-#### Scenario: CLI fails fast
+#### Scenario: CLI stops before any export
 
 - **WHEN** `kollect-pipeline collect` runs an `s3` sink with garbage CA PEM, or with a CA and an
   `http://` endpoint
 - **THEN** the process exits 2 and writes nothing to the sink
+- **AND** the context's fatal error wraps the same shared error the operator returns
 
 ### Requirement: SCT-6 Documentation states the trust rules
 

@@ -52,8 +52,8 @@ that CA and only that CA": append never pins.
   "sslmode still applies" together with "never ignored, never off": a mode that would ignore the CA
   is an error, and `require` gets the chain check libpq gives it with a root certificate. A root
   certificate from any other source is rejected when the sink also sets a CA: `sslrootcert` in the
-  DSN, `PGSSLROOTCERT`, or pgx's home-directory default `~/.postgresql/root.crt`
-  (`pgconn/defaults.go:58`), detected before pgx reads the file.
+  DSN, in a service-file entry the DSN selects, `PGSSLROOTCERT`, or pgx's home-directory default
+  `~/.postgresql/root.crt` (`pgconn/defaults.go:58`), detected before pgx reads the file.
 - SCT-3: MongoDB applies the CA the same way to the driver's TLS config. A URI that sets
   `tlsCAFile` / `sslCertificateAuthorityFile` is rejected when the sink sets a CA; so is a URI on
   which TLS is off (`mongodb://` without `tls=true`/`ssl=true`, or `tls=false`) or that sets
@@ -123,6 +123,13 @@ missing-key error to both.
   (`specFingerprint`, `:263`).
 - Database sinks in the CLI: `kollect-pipeline` does not load `KollectDatabaseSink`; adding it is
   separate work.
+- Resolving the CA before collection in the CLI (backlog CLI-CA-EARLY-01): the CLI resolves it in
+  `cliBuildContext` after collecting each context (`internal/pipeline/wire.go:462-496`); a CA error
+  still stops the context before any export with exit 2.
+- Retrying a sink on a Secret change: a terminal export error does not requeue
+  (`internal/controller/kollectinventory_controller.go:262-264`) and no controller watches Secrets
+  (`:685-700`), so after fixing a Secret the operator retries on the next sink or inventory event;
+  the docs say to touch the sink.
 - Redacting MongoDB driver errors that exist today (`mongodb connect: %w`, `mongodb ping: %w`,
   `internal/sink/mongodb/backend.go:97-105`, `connection.go:34-41`), which can carry hosts; recorded
   as a follow-up. This change adds no such error.
@@ -145,7 +152,8 @@ missing-key error to both.
 - mongo-driver v1.17.10 turns `tls`/`ssl`, `tlsCAFile`/`sslCertificateAuthorityFile` and
   `tlsInsecure`/`sslInsecure` into `ClientOptions.TLSConfig` in `ApplyURI`
   (`mongo/options/clientoptions.go:560-598`; keys in `x/mongo/driver/connstring/connstring.go:579-640`;
-  `mongodb+srv` defaults TLS on at `:1000`, after the TXT and SRV lookups at `:994` and `:1016`); it has no `tlsAllowInvalidCertificates` /
+  `mongodb+srv` defaults TLS on at `:1000`, after the TXT lookup at `:994` and before the SRV
+  lookup at `:1016`); it has no `tlsAllowInvalidCertificates` /
   `tlsAllowInvalidHostnames` option. Read 2026-10-19.
 - Go (`go.mod:3`, go 1.27.2) `x509.SystemCertPool` on Linux reads `SSL_CERT_FILE` and
   `SSL_CERT_DIR` once per process; the "still trusts

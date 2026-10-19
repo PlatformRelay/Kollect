@@ -1,7 +1,7 @@
 # Loop — sink-ca-trust (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-ca-trust` · Branch: `feat/sink-ca-trust` · Base: `origin/main` @ `7f97d59ec` · Started: 2026-10-19 · Reviewers: astra + claude (duo)
-Next: R spec-set review round 2 (fresh legs) on the round-1 fix commit
+Next: L task loop — dispatch T0.1 (probe) with task-prompt.md
 Budget: claude review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SINK-CA-UNUSED-01 (decisions 2026-10-04 "→ A, honour it" and 2026-10-19 "CA semantics", outcome A). Release note: v0.22.0. Spec set: proposal.md, design.md, specs/sink-tls-trust/spec.md, tasks.md.
@@ -10,7 +10,7 @@ Backlog SINK-CA-UNUSED-01 (decisions 2026-10-04 "→ A, honour it" and 2026-10-1
 
 - [x] 0 orient — new change, created with `task spec:cli -- new change sink-ca-trust`; file:line references measured against `origin/main` @ `7f97d59ec` (2026-10-19)
 - [x] P plan + tasks — written; spec set committed: `70c847a8e`
-- [ ] R spec-set review — round 1 on `b3da7b2c9`: astra BLOCK, opus CONCERNS; A-F1 (MongoDB `sslInsecure` alias) and A-F3 (CLI loads no database sinks) CRITICAL accepted and fixed, all others fixed or narrowed (`reviews/R-spec-set/verification.md`); round 2 pending
+- [x] R spec-set review — round 1 on `b3da7b2c9`: astra BLOCK, opus CONCERNS; A-F1 (MongoDB `sslInsecure` alias) and A-F3 (CLI loads no database sinks) CRITICAL accepted and fixed, all others fixed or narrowed (`reviews/R-spec-set/verification.md`). Round 2 (last) on `07ac4d2a3`: astra CONCERNS, opus CONCERNS, no CRITICAL; all findings fixed (`reviews/R-spec-set/round-2/verification.md`). No CRITICAL remains
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review — `reviews/B-branch/round-N/` · rounds: <n> · verdict: <…>
 - [ ] Hand-off — <date> · `pr-description.md` · PR: <none>
@@ -45,6 +45,12 @@ Holistic run at B: not run yet.
 | R1 | Subprocess env, Go version, integration evidence | WARNING | astra, opus | fix | tasks test rules, 0.1 | no |
 | R1 | Compatibility and release note scope | WARNING | astra | fix | design table, 6.1, SCT-6 | no |
 | R1 | Stale lines and small wording | NOTE | astra, opus | fix | proposal, tasks | no |
+| R2 | S3-specific endpoint resolved inside `s3.NewFromConfig` | WARNING | astra, opus | fix | design *S3 and GCS*, S1b | no |
+| R2 | CLI C1/C3 unexecutable as written (error only printed; envtest absent in integration job) | WARNING | astra, opus | fix | C1a, C1b, C3; CLI-CA-EARLY-01 stays backlog | no |
+| R2 | Recovery after a Secret fix has no trigger | WARNING | opus | fix | SCT-4, docs retry note, non-goal | no |
+| R2 | `tlsInsecure=false` spec/design mismatch | WARNING | astra, opus | fix | SCT-3, M4 | no |
+| R2 | Service-file `sslrootcert` fails before the backstop | WARNING | astra | fix | design step 1, D4 | no |
+| R2 | Effective-sslmode wording; CLI fetch order; SRV wording | NOTE | astra, opus | fix | spec, design, proposal | no |
 
 ## Tasks
 
