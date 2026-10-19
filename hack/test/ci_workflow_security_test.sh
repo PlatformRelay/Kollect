@@ -612,7 +612,7 @@ cws6_guards() {
     "${ROOT}/hack/test/openspec_evidence_markdown_only_test.sh" "${ROOT}/hack/test/ci_failure_report_test.sh"
     "${ROOT}/hack/test/fuzz_retry_test.sh" "${ROOT}/hack/test/test_shuffle_test.sh"
     "${ROOT}/hack/test/readme_quickstart_test.sh" "${ROOT}/hack/test/mutation_signal_test.sh"
-    "${ROOT}/hack/test/agent_contract_test.sh")
+    "${ROOT}/hack/test/agent_contract_test.sh" "${ROOT}/hack/test/docs_lock_header_test.sh")
   [[ -f "${cfc_guards[0]}" ]] ||
     fail "CFC-6: no hack/test/consistency_*_test.sh guard found -- the cross-file consistency gates are gone"
   for script in "${cfc_guards[@]}"; do

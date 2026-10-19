@@ -626,6 +626,13 @@ jobs:
         run: bash hack/test/openspec_evidence_markdown_only_test.sh
       - name: Verify the openspec evidence guard can still fail
         run: bash hack/test/openspec_evidence_markdown_only_test.sh --self-test
+      # The docs lock's uv header writes every option that takes a value as --opt=value:
+      # Renovate's pip-compile manager rejects a space-separated value and then extracts no
+      # dependency, with only a WARN line in a green run. Plain and --self-test as separate steps.
+      - name: Verify the docs lock header is Renovate-parseable
+        run: bash hack/test/docs_lock_header_test.sh
+      - name: Verify the docs lock header guard can still fail
+        run: bash hack/test/docs_lock_header_test.sh --self-test
       # PAC-1 to PAC-6 (openspec change public-agent-contract): the tracked AGENTS.md names only
       # existing tasks, lists exactly the gates hack/check.sh runs, keeps its checklist paths and
       # symbols real, and carries no scrub-pattern match, home or harness path, internal host or
