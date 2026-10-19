@@ -46,12 +46,13 @@ Holistic run at B: not run yet.
 | R2 | Cleanup paths not wired to the uncached reader | WARNING | both | fix | `cleanupSinkExports`, `pruneRelationalExport`, reconciler default | no |
 | R2 | Postgres assertion on the upsert path; reds green on G1; annotations in metadata; SCR-2/SCR-3 retire contradiction; terminal Git auth doc | WARNING | both | fix | round-2/verification.md A3-A5, B2, B3 | no |
 | R2 | TTL wording, stream set, namespace attribution, empty refs, CLI message, CA compat row | NOTE | reviewer-b | fix | round-2/verification.md B4-B10 | no |
+| L/T0.1 | `exportMinInterval: 0s` never re-exports an unchanged inventory and an inventory-level `0s` gives no timed retry after a transient total failure; contradicts the interval bound and SCR-2 recovery | SPECIFICATION | probe | fix | decision 2026-10-19 rotation-zero-interval, option B, models agreed: wording limited to intervals > 0, SCR-7 added, tasks 2.3/2.4 | no (models agreed) |
 
 ## Tasks
 
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
-| T0.1 | BLOCKED (SPECIFICATION) | reviewer-a diff, 1 round, REQUEST_CHANGES on evidence class and wording, fixed; no paid leg (evidence only, no BLOCK) | `exportMinInterval: 0s` bindings never re-export unchanged inventories and an inventory-level `0s` does not requeue a transient total failure; contradicts proposal *Non-goals*/*Assumptions* and SCR-2 recovery for that case. Options A/B/C in `evidence/T0.1.md` *Decision request*. Rows 4, 5 by reading (gap). 0.1 left unticked until the decision |
+| T0.1 | CLOSED-WITH-GAPS (first BLOCKED, SPECIFICATION, resolved by decision B) | reviewer-a diff, 1 round, REQUEST_CHANGES on evidence class and wording, fixed; no paid leg (evidence only, no BLOCK) | rows 4, 5 by reading (gap); the `0s` finding became SCR-7 and tasks 2.3, 2.4 (spec-set commit after `74e8376c1`) |
 
 ## Known red
 

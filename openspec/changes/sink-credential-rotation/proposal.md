@@ -48,8 +48,9 @@ Two further defects sit on the same path:
 - SCR-2: a deleted referenced Secret, or one whose data holds no non-empty value, fails the
   acquire with an error that names the Secret and its namespace, and retires the pooled backend,
   so the export fails instead of running on cached credentials. The error is retryable (as a
-  missing Secret is today), so restoring the Secret recovers without touching the sink. The
-  empty-Secret rule lives in the shared resolver and applies to the CLI too.
+  missing Secret is today), so restoring the Secret recovers without touching the sink (for a
+  `0s` interval, through SCR-7). The empty-Secret rule lives in the shared resolver and applies to
+  the CLI too.
 - SCR-3: retiring a pooled backend (rotation, spec change, delete eviction, TTL) never closes it
   under an export in flight. Pooled entries count their holders; a retired entry is removed from
   the pool at once (no new acquire gets it) and closed exactly once, when its last holder
@@ -68,6 +69,17 @@ Two further defects sit on the same path:
   emptied Secret now stops exports, S3/GCS no longer fall back to ambient credentials when their
   Secret is emptied, and a Git sink whose credentials were rotated away now keeps a Retain release
   in `Terminating` until the Secret is fixed (`kollect.dev/force-cleanup` stays the escape hatch).
+  The docs also state that `exportMinInterval: 0s` means "export only on material change", so a
+  Secret change alone never triggers an export for such a binding.
+- SCR-7: an inventory whose export interval is `0s` and whose export failed transiently with no
+  sink exported is requeued after `validation.ZeroIntervalWatchdog` (30 s), in both inventory
+  reconcilers. Today that path returns `RequeueAfter: exportDebounce(inv)`, which is 0 for `0s`
+  (`internal/controller/kollectinventory_controller.go:652`,
+  `internal/controller/kollectclusterinventory_controller.go:713`), so a missing Secret's
+  retryable error is never retried on a timer (probe 0.1, finding 3). A terminal failure still
+  does not requeue, and an unchanged inventory that exported successfully is still not
+  re-exported: `0s` keeps its meaning (model-aligned decision 2026-10-19,
+  `rotation-zero-interval`, option B).
 
 ## Capabilities
 
@@ -94,7 +106,9 @@ waits for an export that already holds the backend, which BEP-1 allowed to fail.
   are unchanged. `kollect-pipeline collect` gains only the empty-Secret error.
 - Code: `internal/sink/backend_pool.go`, `build_context.go`, `credentials.go`, `export.go`,
   `cleanup.go` (reader field, forwarded by `pruneRelationalExport`; stream retain before acquire),
-  the two inventory reconcilers and `internal/controller/sink_cleanup.go` (API reader wiring),
+  the two inventory reconcilers (API reader wiring; the `0s` requeue of SCR-7 in
+  `setInventoryDegraded` and the cluster reconciler's `setDegraded`) and
+  `internal/controller/sink_cleanup.go` (API reader wiring),
   `internal/pipeline/wire.go` (empty rule). No CRD, RBAC or
   dependency change: the manager already has `get/list/watch` on Secrets
   (`config/rbac/role.yaml:6-16`, marker `internal/controller/family_sink_controller.go:24`).
@@ -107,9 +121,12 @@ waits for an export that already holds the backend, which BEP-1 allowed to fail.
 ## Non-goals
 
 - Watching Secrets. No controller gains a Secret watch, and a Secret change does not by itself
-  trigger an export, a probe or a reconcile. Rotation takes effect on the sink's next export
-  (bounded by the inventory's export interval, at most `validation.MaxExportInterval`, 24 h), and
-  an idle pooled backend keeps its old connections until then or until the TTL. Design records the
+  trigger an export, a probe or a reconcile. Rotation takes effect on the sink's next export.
+  For a binding with an export interval > 0 that is bounded by the interval (at most
+  `validation.MaxExportInterval`, 24 h). For a `0s` binding ("export only on material change",
+  `internal/controller/per_sink_export.go:85-87`) there is no time bound: the next export comes
+  with the next material change, spec generation or `kollect.dev/requestedAt` change. An idle
+  pooled backend keeps its old connections until then or until the TTL. Design records the
   alternative.
 - Recovering a terminal error on a Secret fix. A terminal export error does not requeue
   (`internal/controller/kollectinventory_controller.go:262-264`); after fixing a Secret that
@@ -142,8 +159,10 @@ waits for an export that already holds the backend, which BEP-1 allowed to fail.
 - The API server keeps `resourceVersion` unchanged on a no-op update and changes it on every write
   that changes the object, and a delete-and-recreate changes the UID. Kubernetes API conventions;
   probe 0.1 checks it against envtest.
-- Exports run at least once per export interval: the coalesce skip ends when the interval is due
-  (`internal/controller/kollectinventory_controller.go:360-368`). Believed; probe 0.1 verifies it.
+- For an interval > 0, exports run at least once per export interval: the coalesce skip ends when
+  the interval is due (`internal/controller/kollectinventory_controller.go:360-368`). Verified by
+  probe 0.1 (2026-10-19), which also found that a `0s` interval skips an unchanged inventory
+  forever and gives no timed requeue after a total transient failure; SCR-7 covers the latter.
 - Close behaviour differs per client (read 2026-10-19): pgx v5.11.0 `Pool.Close` waits for
   acquired connections (`pgxpool/pool.go:468-470`); mongo-driver v1.17.10 `Disconnect` waits unless
   its context ends (`mongo/client.go:299-306`); kafka-go v0.4.51 `Writer.Close` flushes and waits

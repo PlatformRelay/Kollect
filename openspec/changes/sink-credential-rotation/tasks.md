@@ -38,7 +38,7 @@ Test rules for every group:
 
 ## 0. Probe
 
-- [ ] 0.1 Verify the load-bearing assumptions in `proposal.md` and record each as verified
+- [x] 0.1 Verify the load-bearing assumptions in `proposal.md` and record each as verified
   (command, versions, date) in `evidence/T0.1.md`; a failed one stops the loop as a spec finding:
   - `mgr.GetAPIReader().Get` of a `metav1.PartialObjectMetadata` with kind Secret works in envtest
     with the operator's RBAC verbs, returns UID and `resourceVersion` and no data; the fake client
@@ -59,6 +59,8 @@ Test rules for every group:
     requeues (`internal/sink/export.go:96-108`, `internal/errors/errors.go:86-106`);
   - which sink types `RunCleanupExport` retains without contacting the sink
     (`internal/sink/cleanup.go:210-214`), and a type-level test for them that needs no backend.
+  — closed 2026-10-19, evidence: evidence/T0.1.md (finding 3 resolved by decision
+  2026-10-19 `rotation-zero-interval`, option B: SCR-7, tasks 2.3 and 2.4)
 
 ## 1. Rotation rebuilds the backend (SCR-1, SCR-4 key)
 
@@ -123,9 +125,18 @@ Test rules for every group:
   `referencedSecretRefs` (reflection test fails); no-op control: reorder two independent
   statements in `acquireBackend` (all pass).
 
-## 2. Deleted and emptied Secrets fail (SCR-2, SCR-4, SCR-5)
+## 2. Deleted and emptied Secrets fail (SCR-2, SCR-4, SCR-5, SCR-7)
+
+Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 finding 3
+(model-aligned decision 2026-10-19, `rotation-zero-interval`, option B).
 
 - [ ] 2.1 Tests (red on the G1 commit):
+  - `TestSecretMeta_notFoundIsTransient`: the metadata GET of a missing Secret (fake client and
+    the envtest API reader both return an API NotFound) / `secretMeta` returns the plain
+    `secret %q not found in namespace %q` error, `kollecterrors.ClassOf` is transient and
+    `apierrors.IsNotFound` is false on it · exposes a raw NotFound, which `ClassOf` classes
+    terminal (`internal/errors/errors.go:99-101`, probe 0.1 finding 7), so a deleted Secret is
+    never retried (red on G1 while `secretMeta` returns the API error as is).
   - `TestAcquireBackend_deletedSecretFails` (rows: `secretRef`, `databaseRef`, `caSecretRef`,
     `git.auth.secretRef`): pooled backend, Secret deleted, acquire / error names Secret and
     namespace, `kollecterrors.ClassOf` is transient, the entry is gone and its `Close` ran once,
@@ -173,8 +184,42 @@ Test rules for every group:
   `resolveSecretValues`; retire only on not-found, empty, or a failed rebuild after a key change;
   the stream retain before the acquire in `RunCleanupExport` (design: *Fingerprint and acquire*
   errors, *Cleanup before acquire*). Mutations: skip the retire on not-found (deleted test fails);
-  accept an empty map (emptied test fails); retire on every error (cancelled test fails); no-op
-  control as in 1.2.
+  accept an empty map (emptied test fails); retire on every error (cancelled test fails); return
+  the metadata GET's NotFound as is (`TestSecretMeta_notFoundIsTransient` and the deleted test's
+  class assertion fail); no-op control as in 1.2. `secretMeta` maps NotFound to the plain text
+  (design *Errors on the acquire path*).
+- [ ] 2.3 Tests for SCR-7 (red on the G1 commit), unit tests in `internal/controller` next to
+  `TestKollectInventoryReconciler_setInventoryDegraded` (`kollectinventory_status_test.go:18`)
+  and `TestKollectClusterInventoryReconciler_setDegraded`
+  (`kollectclusterinventory_helpers_test.go:273`), fake client with the status subresource:
+  - `TestSetInventoryDegraded_zeroIntervalRequeues`: given a `KollectInventory` with
+    `exportMinInterval: 0s` / when `setInventoryDegraded` runs / then `RequeueAfter ==
+    validation.ZeroIntervalWatchdog` · exposes the `RequeueAfter: 0` that drops the retry
+    (`kollectinventory_controller.go:652`). *Control* rows: `30s` and unset (CRD default 30 s)
+    keep `RequeueAfter == 30s`; `5m` keeps `5m`.
+  - `TestClusterSetDegraded_zeroIntervalRequeues`: the same rows for
+    `KollectClusterInventoryReconciler.setDegraded`
+    (`kollectclusterinventory_controller.go:713`) · exposes the cluster half.
+  - *control* `TestApplyInventoryExportOutcome_zeroIntervalTerminalNoRequeue`: a `0s` inventory
+    whose only sink export fails with `kollecterrors.Terminal` (recording registry whose factory
+    returns it) / the result has `RequeueAfter == 0` and a nil error (green on G1; the 2.4 mutation
+    "watchdog for terminal too" must turn it red).
+  - envtest spec "zero-interval inventory retries a deleted secret": a `0s` inventory bound to one
+    sink whose Secret is missing / the export fails with the not-found error and the reconcile
+    result requeues after the watchdog; after the Secret is created the next reconcile exports
+    with no change to the inventory or the sink · exposes the stuck failure end to end.
+  - *control* envtest spec "unchanged zero-interval inventory is not re-exported": a `0s`
+    inventory exports once successfully; reconcile it twice more with an unchanged payload, spec
+    and `kollect.dev/requestedAt` / the recording backend's `Export` count stays 1 (green on G1;
+    the 2.4 mutation "drop the interval-0 skip" must turn it red).
+- [ ] 2.4 Implement SCR-7: `setInventoryDegraded` and the cluster `setDegraded` return
+  `RequeueAfter: validation.RequeueAfterForZeroInterval(r.exportDebounce(inv))`; the terminal
+  branches that zero it (`kollectinventory_controller.go:262-264`, cluster `:224-226`) stay
+  (design *Zero export interval*). Mutations, judged by exit status: keep `exportDebounce` (the
+  zero-interval tests fail); requeue terminal failures at the watchdog too (terminal control
+  fails); make `shouldSkip` return false for interval 0 (the not-re-exported control fails);
+  no-op control: rename a local variable in `setDegraded` (all pass). `go test -race -count=3
+  ./internal/controller/`.
 
 ## 3. Retired backends drain (SCR-3)
 
@@ -222,7 +267,9 @@ Test rules for every group:
   `kollectsnapshotsink.md:53-54` and `kollectdatabasesink.md:70-71`), `kollecteventsink.md` (a
   rotation paragraph), `docs/security/security-architecture.md` (rotation sentence at the Secrets
   section, `:214-216`), `docs/operator-manual/troubleshooting.md` (rows for a deleted or emptied
-  Secret, which recover on the next retry; the Git auth `terminal` row at `:204` keeps its
+  Secret, which recover on the next retry, within 30 s for a `0s` inventory; a sentence that
+  `exportMinInterval: 0s` means "export only on material change", so a Secret change alone never
+  triggers an export for such a binding; the Git auth `terminal` row at `:204` keeps its
   re-annotate step, because a terminal error does not requeue and no controller watches
   Secrets), and
   `docs/operator-manual/upgrading.md` (new section "Sink Secret rotation (after v0.21.0)" with the
@@ -265,6 +312,12 @@ Test rules for every group:
 | SCR-4 | `TestSecretMeta_metadataOnly` | key from metadata only; a hit reads no values | not-run | |
 | SCR-5 | `TestResolveSinkSecretData_emptySecretFails` (4 rows) | CLI fails before build, operator's text; `stringData` and env rows pass | not-run | |
 | SCR-5 | *control* `TestRunOneContext_secretManifestChangeNextRun` | second run uses the new value | not-run | |
+| SCR-2 | `TestSecretMeta_notFoundIsTransient` | metadata NotFound becomes the plain, transient not-found error | not-run | |
+| SCR-2 | mutation: metadata NotFound returned as is | not-found and deleted tests fail | not-run | |
+| SCR-7 | `TestSetInventoryDegraded_zeroIntervalRequeues`, `TestClusterSetDegraded_zeroIntervalRequeues` (controls: 30s, unset, 5m) | `0s` requeues at the watchdog; other intervals unchanged | not-run | |
+| SCR-7 | *control* `TestApplyInventoryExportOutcome_zeroIntervalTerminalNoRequeue` | terminal under `0s` is not requeued | not-run | |
+| SCR-7 | envtest specs "zero-interval inventory retries a deleted secret", *control* "unchanged zero-interval inventory is not re-exported" | retried and recovers; no re-export of an unchanged `0s` inventory | not-run | |
+| SCR-7 | mutations: keep `exportDebounce`; watchdog for terminal; no interval-0 skip | zero-interval / terminal / not-re-exported tests fail | not-run | |
 | SCR-6 | `rg -U 'keeps its\s+CA' docs`; `task lint:markdown` | no match; 0 issues | not-run | |
 | all | `task check` on the branch head; CI on the PR head | green | not-run | |
 | all | independent branch review | APPROVE recorded with revision | not-run | |
