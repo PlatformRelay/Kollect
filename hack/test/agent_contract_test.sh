@@ -262,11 +262,12 @@ content_checks() {
     *) bad "PAC-4: rg failed (exit ${rc}) while scrubbing ${label}" ;;
     esac
   fi
-  # /home/<user> and /Users/<user>, also under /var (rpm-ostree systems), root's home, and a
-  # Windows profile (C:\Users\<user>, either slash, any case).
-  if grep -E -e '(^|[^A-Za-z0-9_.~-])(/var)?/(home|Users)/[A-Za-z0-9._-]+' \
-    -e '(^|[^A-Za-z0-9_.~-])/root(/|[[:space:]]|$)' "${f}" >/dev/null ||
-    grep -Ei '(^|[^A-Za-z0-9_])[a-z]:[\/]users[\/][a-z0-9._-]+' "${f}" >/dev/null; then
+  # /home/<user> and /Users/<user>, also under /var (rpm-ostree systems) and as a mounted Windows
+  # drive (/mnt/c/Users, /c/Users); root's home, bare or with a path; and a Windows profile
+  # (C:\Users\<user>, either slash, doubled when escaped, any case).
+  if grep -E -e '(^|[^A-Za-z0-9_.~-])(/var|/mnt/[a-z]|/[a-z])?/(home|Users)/[A-Za-z0-9._-]+' \
+    -e '(^|[^A-Za-z0-9_.~-])/root([^A-Za-z0-9_-]|$)' "${f}" >/dev/null ||
+    grep -Ei '(^|[^A-Za-z0-9_])[a-z]:[\/]+users[\/]+[a-z0-9._-]+' "${f}" >/dev/null; then
     bad "PAC-4: ${label} names a home path"
   fi
   if grep -E '(^|[^A-Za-z0-9_])~/' "${f}" >/dev/null; then
@@ -847,6 +848,11 @@ expect_red "PAC-4 home path /Users" "PAC-4: AGENTS.md (disk) names a home path" 
 expect_red "PAC-4 home path /var/home" "PAC-4: AGENTS.md (disk) names a home path" plant "see /var/home/someone/x"
 expect_red "PAC-4 home path /root" "PAC-4: AGENTS.md (disk) names a home path" plant "see /root/x"
 expect_red "PAC-4 home path C:\\Users" "PAC-4: AGENTS.md (disk) names a home path" plant 'see C:\Users\someone\x'
+expect_red "PAC-4 home path bare /root in a code span" "PAC-4: AGENTS.md (disk) names a home path" plant 'files land in `/root`.'
+expect_red "PAC-4 home path c:/users" "PAC-4: AGENTS.md (disk) names a home path" plant 'see c:/users/someone/x'
+expect_red "PAC-4 home path escaped C:\\\\Users" "PAC-4: AGENTS.md (disk) names a home path" plant 'see "C:\\Users\\someone\\x"'
+expect_red "PAC-4 home path /mnt/c/Users" "PAC-4: AGENTS.md (disk) names a home path" plant 'see /mnt/c/Users/someone/x'
+expect_red "PAC-4 home path /c/Users" "PAC-4: AGENTS.md (disk) names a home path" plant 'see /c/Users/someone/x'
 expect_red "PAC-4 home path ~/" "PAC-4: AGENTS.md (disk) names a ~/ path" plant "see ~/x"
 for h in "${HARNESS_PATHS[@]}"; do
   expect_red "PAC-4 harness path ${h}" "PAC-4: AGENTS.md (disk) names the gitignored harness path '${h}'" plant "see ${h}GUIDE"
