@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -201,21 +202,46 @@ func guardedHTTPClient(rootCAs *x509.CertPool) (*http.Client, error) {
 	return httpClient, nil
 }
 
-// redactedRedirectClient replaces the error of a refused redirect, a *url.Error
-// whose text holds the redirect target the server sent, with the static terminal
-// ErrCAInsecureRedirect, so no probe, export or status message names that URL.
+// ErrRedirectFailed marks a request that failed after the endpoint redirected it: the
+// redirect limit, a Location that does not parse, or a failure on the followed hop.
+// Not terminal: the hop can fail transiently.
+var ErrRedirectFailed = errors.New("s3: the request failed after the endpoint redirected it; the redirect target is withheld")
+
+// redactedRedirectClient replaces the error of a redirect the server sent, a
+// *url.Error whose text holds that target, with a static one: a refused redirect
+// to a non-https URL is the terminal ErrCAInsecureRedirect, any other redirect
+// failure ErrRedirectFailed. So no probe, export or status message names that URL.
 type redactedRedirectClient struct {
 	*http.Client
 }
 
 func (c redactedRedirectClient) Do(req *http.Request) (*http.Response, error) {
 	resp, err := c.Client.Do(req) //nolint:gosec // G704: the SDK builds req for the sink endpoint; the client dials through netguard
-	if err != nil && errors.Is(err, ErrCAInsecureRedirect) {
+	switch {
+	case err == nil:
+		return resp, nil
+	case errors.Is(err, ErrCAInsecureRedirect):
 		// net/http has already closed the redirect response's body.
 		return nil, kollecterrors.Terminal(ErrCAInsecureRedirect)
+	case redirectFailed(req, err):
+		return nil, ErrRedirectFailed
 	}
 
 	return resp, err
+}
+
+// redirectFailed reports whether err comes from a redirect: net/http names the hop
+// it was on, so a URL other than the request's means a followed redirect (or the
+// redirect limit, which names the next target); an unparsable Location is reported
+// on the request that received it, with the header quoted.
+func redirectFailed(req *http.Request, err error) bool {
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) {
+		return false
+	}
+
+	return urlErr.URL != req.URL.String() ||
+		strings.HasPrefix(urlErr.Err.Error(), "failed to parse Location header")
 }
 
 func refuseInsecureRedirect(req *http.Request, via []*http.Request) error {
