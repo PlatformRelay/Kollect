@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/config"
@@ -93,7 +92,7 @@ func offlineManager(t *testing.T, scheme *runtime.Scheme) manager.Manager {
 		MapperProvider:         func(*rest.Config, *http.Client) (meta.RESTMapper, error) { return mapper, nil },
 		Metrics:                metricsserver.Options{BindAddress: "0"},
 		HealthProbeBindAddress: "0",
-		Controller:             config.Controller{SkipNameValidation: ptr.To(true)},
+		Controller:             config.Controller{SkipNameValidation: boolPtr(true)},
 	})
 	if err != nil {
 		t.Fatalf("manager.New: %v", err)
