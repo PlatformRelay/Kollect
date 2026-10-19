@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **sink:** Make breaker reset safe for parallel tests [99b3946](https://github.com/platformrelay/kollect/commit/99b3946a4dc65d9da986991d85a07c3739985665)
+
 - **test:** Refuse bare /root and mounted or escaped Windows home paths [9ddc902](https://github.com/platformrelay/kollect/commit/9ddc902b5c0f1142ebb93096ff6fc8573baffac7)
 
 - **test:** Refuse an SSH Host line with a negated alias [0cf3527](https://github.com/platformrelay/kollect/commit/0cf35277e173e30d4fafc21a96c4936887998746)
