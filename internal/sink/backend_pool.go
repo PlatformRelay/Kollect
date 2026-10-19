@@ -202,7 +202,14 @@ func acquireBackendWithReader(
 	// the metadata read.
 	secrets, err := fetchSecrets(ctx, reader, uses)
 	if err != nil {
-		return nil, func() {}, caRulesFirst(ctx, reader, spec, defaultNamespace, err)
+		final := caRulesFirst(ctx, reader, spec, defaultNamespace, err)
+		if isSecretGone(err) || isSecretGone(final) {
+			// The full read observed a missing or empty Secret after the metadata read: retire
+			// what is pooled now and fence builds in flight, as the metadata path does (SCR-2).
+			retirePoolEntry(key, 0, true, "referenced secret missing or empty")
+		}
+
+		return nil, func() {}, final
 	}
 	built := versionsOf(uses, secrets)
 
