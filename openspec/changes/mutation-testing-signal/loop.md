@@ -43,6 +43,7 @@ Holistic run at B: not run yet.
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
 | G1 (0.1, 1.1) | CLOSED-WITH-GAPS | astra:diff, 1 round, no Claude (evidence and fixtures only) | LIVED classification is agent-review; finding F1 (warm test cache turns every mutant TIMED OUT) handled in G2 by `GOFLAGS=-count=1` in the runner, not a spec contradiction |
+| G2 (2.1-2.8) | CLOSED-WITH-GAPS | astra + claude/opus:diff, 2 rounds (r1 astra REQUEST_CHANGES, opus APPROVE; r2 the same), Claude leg because the diff adds a workflow and edits CI wiring and the privileged reporter list; 9 verified P2 guard gaps fixed (a71c7a5e9, e059e0f56) | post-merge rows are 3.1's; W3 is a text and Taskfile scan, not a shell model (residual: `eval`, run-time names) |
 
 ## Known red
 
@@ -53,6 +54,8 @@ Holistic run at B: not run yet.
 
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
+| `hack/test/ci_failure_report_test.sh`: exact `workflow_run` list, comment, message, plus a `MUT-1 list loses Mutation testing` mutant | change 7 (TDS-2 entry: change 8) | G2 (3c8d59194) | not wrong: MUT-1 adds `Mutation testing` to the list (spec MUT-1, tasks.md 2.7) |
+| `hack/test/ci_workflow_security_test.sh`: `cfc_guards`, CWS-6 header, CFC-6 comment, `CFC-6 mutation signal guard unwired` mutant | change 4 (list grown by 7, 8) | G2 (3c8d59194) | not wrong: the new guard must be pinned in both modes (tasks.md preamble, 2.7) |
 
 ## Lessons
 
@@ -64,6 +67,11 @@ This change (mutation-testing-signal):
 - A Task task can be skipped by `sources:`/`generates:`/`method:` as well as `status:`; pin all of them when a guard says "cannot be skipped" (R)
 - gremlins times each mutant out at 3x the coverage run's time; a cached `go test -cover` (about 50 ms) turns every covered mutant TIMED OUT, so run it with `GOFLAGS=-count=1`; the fixture control does not notice (G1)
 - gremlins exits 0 and writes no report when `--output` names a missing directory: check the report exists, never the exit status alone (G1)
+- The Renovate model in `consistency_toolchain_pins_test.sh` reads tracked files only: stage a new workflow before judging DTP-4 (G2)
+- A scan read through `< <(awk ...)` or `... || true` hides its own failure: write it to a file and check the status, or the scan-error clause is decoration (G2, both review rounds)
+- A mutant judged by a message another rule also prints proves nothing about its own rule: judge it by its rule's own message (G2 round 2)
+- A text scan for an invocation needs cases for quotes, flags before the target, another binary name and templates: reviewers found each in turn (G2, both rounds)
+- Keep `mise.toml` out of a scratch tree that runs a guard: mise refuses the untrusted config and the guard prints nothing else (G2; change-5 lesson again)
 
 Carried over from change 8 (test-depth-signals):
 
