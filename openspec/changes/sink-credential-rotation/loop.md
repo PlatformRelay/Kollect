@@ -1,8 +1,8 @@
 # Loop — sink-credential-rotation (spec-loop-duo run state)
 
-Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-credential-rotation` · Branch: `feat/sink-credential-rotation` · Base: `origin/main` @ `ae98ef106` · Started: 2026-10-19 · Reviewers: astra + claude (duo)
+Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-credential-rotation` · Branch: `feat/sink-credential-rotation` · Base: `origin/main` @ `ae98ef106` · Started: 2026-10-19 · Reviewers: two independent review legs (duo)
 Next: L task loop, dispatch T0.1 (probe)
-Budget: claude review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
+Task prompt: local, `agent-context/loops/sink-credential-rotation/task-prompt.md` (harness, not committed) · Budget: paid review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SECRET-ROTATION-01 (release inventory 2026-10-19 items 12-13). Release note: v0.22.0. Spec set: proposal.md, design.md, specs/sink-secret-rotation/spec.md, tasks.md.
 
