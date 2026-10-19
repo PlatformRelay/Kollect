@@ -131,7 +131,7 @@ Test rules for every group:
 Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 finding 3
 (model-aligned decision 2026-10-19, `rotation-zero-interval`, option B).
 
-- [ ] 2.1 Tests (red on the G1 commit):
+- [x] 2.1 Tests (red on the G1 commit):
   - `TestSecretMeta_notFoundIsTransient`: the metadata GET of a missing Secret (fake client and
     the envtest API reader both return an API NotFound) / `secretMeta` returns the plain
     `secret %q not found in namespace %q` error, `kollecterrors.ClassOf` is transient and
@@ -180,16 +180,16 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
     before `registry.NewBackend` with the operator's message text (without the namespace clause
     when the manifest has none) · exposes a missing CLI parity.
   - *control* `TestRunOneContext_secretManifestChangeNextRun`: a second run with a changed manifest
-    builds from the new value.
-- [ ] 2.2 Implement the empty check in `ResolveSecret`, the rebuild path and
+    builds from the new value. — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.2 Implement the empty check in `ResolveSecret`, the rebuild path and
   `resolveSecretValues`; retire only on not-found, empty, or a failed rebuild after a key change;
   the stream retain before the acquire in `RunCleanupExport` (design: *Fingerprint and acquire*
   errors, *Cleanup before acquire*). Mutations: skip the retire on not-found (deleted test fails);
   accept an empty map (emptied test fails); retire on every error (cancelled test fails); return
   the metadata GET's NotFound as is (`TestSecretMeta_notFoundIsTransient` and the deleted test's
   class assertion fail); no-op control as in 1.2. `secretMeta` maps NotFound to the plain text
-  (design *Errors on the acquire path*).
-- [ ] 2.3 Tests for SCR-7 (red on the G1 commit), unit tests in `internal/controller` next to
+  (design *Errors on the acquire path*). — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.3 Tests for SCR-7 (red on the G1 commit), unit tests in `internal/controller` next to
   `TestKollectInventoryReconciler_setInventoryDegraded` (`kollectinventory_status_test.go:18`)
   and `TestKollectClusterInventoryReconciler_setDegraded`
   (`kollectclusterinventory_helpers_test.go:273`), fake client with the status subresource:
@@ -212,15 +212,15 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
   - *control* envtest spec "unchanged zero-interval inventory is not re-exported": a `0s`
     inventory exports once successfully; reconcile it twice more with an unchanged payload, spec
     and `kollect.dev/requestedAt` / the recording backend's `Export` count stays 1 (green on G1;
-    the 2.4 mutation "drop the interval-0 skip" must turn it red).
-- [ ] 2.4 Implement SCR-7: `setInventoryDegraded` and the cluster `setDegraded` return
+    the 2.4 mutation "drop the interval-0 skip" must turn it red). — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.4 Implement SCR-7: `setInventoryDegraded` and the cluster `setDegraded` return
   `RequeueAfter: validation.RequeueAfterForZeroInterval(r.exportDebounce(inv))`; the terminal
   branches that zero it (`kollectinventory_controller.go:262-264`, cluster `:224-226`) stay
   (design *Zero export interval*). Mutations, judged by exit status: keep `exportDebounce` (the
   zero-interval tests fail); requeue terminal failures at the watchdog too (terminal control
   fails); make `shouldSkip` return false for interval 0 (the not-re-exported control fails);
   no-op control: rename a local variable in `setDegraded` (all pass). `go test -race -count=3
-  ./internal/controller/`.
+  ./internal/controller/`. — closed 2026-10-19, evidence: evidence/G2.md
 
 ## 3. Retired backends drain (SCR-3)
 
@@ -298,27 +298,27 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 | SCR-1 | integration `TestS3Export_caRotation` | handshake fails on CA X, succeeds after rotation to CA Y | pass (local, Docker not needed) | evidence/G1.md (2026-10-19); CI `test-integration` at 5.1 |
 | SCR-1 | integration `TestPostgresExport_passwordRotation` | rows as `u2`, no `u1` session left | pass (local Docker) | evidence/G1.md (2026-10-19); CI `test-integration` at 5.1 |
 | SCR-1 | mutations: Secret part dropped from the key; reads through `Client` | rotation / uncached tests fail | pass | evidence/G1.md (2026-10-19) (M1, M2; also M3 reflection, M0 control) |
-| SCR-2 | `TestAcquireBackend_deletedSecretFails`, `_emptiedSecretFails`, `_observedChangeRetiresOnFailedRead`; *controls* `_restoredSecretRecovers`, `_cancelledReadKeepsEntry` | named, transient error; retire on not-found, empty or observed change only; recovery without sink change | not-run | |
-| SCR-2 | `TestS3_emptiedSecretNoAmbientCredentials` | fails, factory not called | not-run | |
-| SCR-2 | `TestCleanup_streamSinkDeletedSecretRetained`, `TestStreamSinkTypes_matchRetainingBackends`; *control* `TestCleanup_deletedGitAuthSecretFails` | stream retained without a read; set matches backends; Git release fails naming the Secret | not-run | |
-| SCR-2 | envtest spec "deleted secret fails the export with a redacted status" | condition names the Secret; recovers after recreate | not-run | |
-| SCR-2 | mutations: no retire on not-found; retire on every error | deleted / cancelled tests fail | not-run | |
+| SCR-2 | `TestAcquireBackend_deletedSecretFails`, `_emptiedSecretFails`, `_observedChangeRetiresOnFailedRead`; *controls* `_restoredSecretRecovers`, `_cancelledReadKeepsEntry` | named, transient error; retire on not-found, empty or observed change only; recovery without sink change | pass | evidence/G2.md (2026-10-19); also `_caGoneBehindFailedCredentialReadRetires`, `_emptiedCASecretIsRetryable` |
+| SCR-2 | `TestS3_emptiedSecretNoAmbientCredentials` | fails, factory not called | pass | evidence/G2.md (2026-10-19) |
+| SCR-2 | `TestCleanup_streamSinkDeletedSecretRetained`, `TestStreamSinkTypes_matchRetainingBackends`; *control* `TestCleanup_deletedGitAuthSecretFails` | stream retained without a read; set matches backends; Git release fails naming the Secret | pass | evidence/G2.md (2026-10-19) |
+| SCR-2 | envtest spec "deleted secret fails the export with a redacted status" | condition names the Secret; recovers after recreate | pass | evidence/G2.md (2026-10-19; green on G1 too) |
+| SCR-2 | mutations: no retire on not-found; retire on every error | deleted / cancelled tests fail | pass | evidence/G2.md (2026-10-19) (M1, M3; also M2, M5-M8, M13-M15, M0 control) |
 | SCR-3 | `TestAcquireBackend_rotationDuringExportDefersClose`, `_specChange…`, `_deleteEviction…`, `_ttlSkipsHeldEntry` | close after the holder's release | not-run | |
 | SCR-3 | `TestAcquireBackend_slowBuilderDoesNotReplaceNewer`, `_slowBuilderAfterRetireNotPooled`, `_sameKeyBuildersShare` | newer or retired entry not overwritten; same-key builders share | not-run | |
 | SCR-3 | `TestAcquireBackend_concurrentAcquiresAfterRotation` `-race -count=10` | each backend closed exactly once | not-run | |
 | SCR-3 | `TestAcquireBackend_failedRebuildRetiresOld`, `TestRelease_idempotent` | no stale fallback; single decrement | not-run | |
 | SCR-3 | BEP-1 tests unchanged | pass | not-run | |
 | SCR-3 | mutations: close at retire regardless of holders; no fence | defer / slow-builder tests fail | not-run | |
-| SCR-4 | `TestRotationErrors_noSentinel`, envtest status/Event assertions | no sentinel in errors this change adds, logs, status, Events | not-run | |
+| SCR-4 | `TestRotationErrors_noSentinel`, envtest status/Event assertions | no sentinel in errors this change adds, logs, status, Events | pass | evidence/G2.md (2026-10-19) |
 | SCR-4 | `TestSecretMeta_metadataOnly` | key from metadata only; a hit reads no values | pass (key and type; G1) | evidence/G1.md (2026-10-19) |
-| SCR-5 | `TestResolveSinkSecretData_emptySecretFails` (4 rows) | CLI fails before build, operator's text; `stringData` and env rows pass | not-run | |
-| SCR-5 | *control* `TestRunOneContext_secretManifestChangeNextRun` | second run uses the new value | not-run | |
-| SCR-2 | `TestSecretMeta_notFoundIsTransient` | metadata NotFound becomes the plain, transient not-found error | not-run | |
-| SCR-2 | mutation: metadata NotFound returned as is | not-found and deleted tests fail | not-run | |
-| SCR-7 | `TestSetInventoryDegraded_zeroIntervalRequeues`, `TestClusterSetDegraded_zeroIntervalRequeues` (controls: 30s, unset, 5m) | `0s` requeues at the watchdog; other intervals unchanged | not-run | |
-| SCR-7 | *control* `TestApplyInventoryExportOutcome_zeroIntervalTerminalNoRequeue` | terminal under `0s` is not requeued | not-run | |
-| SCR-7 | envtest specs "zero-interval inventory retries a deleted secret", *control* "unchanged zero-interval inventory is not re-exported" | retried and recovers; no re-export of an unchanged `0s` inventory | not-run | |
-| SCR-7 | mutations: keep `exportDebounce`; watchdog for terminal; no interval-0 skip | zero-interval / terminal / not-re-exported tests fail | not-run | |
+| SCR-5 | `TestResolveSinkSecretData_emptySecretFails` (4 rows) | CLI fails before build, operator's text; `stringData` and env rows pass | pass | evidence/G2.md (2026-10-19) (5 rows; plus `_emptySecretFailsBeforeTheBackend`) |
+| SCR-5 | *control* `TestRunOneContext_secretManifestChangeNextRun` | second run uses the new value | pass | evidence/G2.md (2026-10-19) |
+| SCR-2 | `TestSecretMeta_notFoundIsTransient` | metadata NotFound becomes the plain, transient not-found error | pass | evidence/G2.md (2026-10-19; green on G1 too) |
+| SCR-2 | mutation: metadata NotFound returned as is | not-found and deleted tests fail | pass | evidence/G2.md (2026-10-19) (M4a, M4b) |
+| SCR-7 | `TestSetInventoryDegraded_zeroIntervalRequeues`, `TestClusterSetDegraded_zeroIntervalRequeues` (controls: 30s, unset, 5m) | `0s` requeues at the watchdog; other intervals unchanged | pass | evidence/G2.md (2026-10-19) |
+| SCR-7 | *control* `TestApplyInventoryExportOutcome_zeroIntervalTerminalNoRequeue` | terminal under `0s` is not requeued | pass (namespaced only; the cluster twin is a gap) | evidence/G2.md (2026-10-19) |
+| SCR-7 | envtest specs "zero-interval inventory retries a deleted secret", *control* "unchanged zero-interval inventory is not re-exported" | retried and recovers; no re-export of an unchanged `0s` inventory | pass | evidence/G2.md (2026-10-19) |
+| SCR-7 | mutations: keep `exportDebounce`; watchdog for terminal; no interval-0 skip | zero-interval / terminal / not-re-exported tests fail | pass | evidence/G2.md (2026-10-19) (M9, M9e, M10, M11, M12) |
 | SCR-6 | `rg -U 'keeps its\s+CA' docs`; `task lint:markdown` | no match; 0 issues | not-run | |
 | all | `task check` on the branch head; CI on the PR head | green | not-run | |
 | all | independent branch review | APPROVE recorded with revision | not-run | |

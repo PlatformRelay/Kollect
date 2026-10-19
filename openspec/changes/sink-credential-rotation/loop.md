@@ -54,6 +54,7 @@ Holistic run at B: not run yet.
 |---|---|---|---|
 | T0.1 | CLOSED-WITH-GAPS (first BLOCKED, SPECIFICATION, resolved by decision B) | reviewer-a diff, 1 round, REQUEST_CHANGES on evidence class and wording, fixed; no paid leg (evidence only, no BLOCK) | rows 4, 5 by reading (gap); the `0s` finding became SCR-7 and tasks 2.3, 2.4 (spec-set commit after `74e8376c1`) |
 | G1 | CLOSED-WITH-GAPS | reviewer-a and reviewer-b (paid leg: credential handling is security posture), diff lens, 2 rounds: r1 APPROVE / CONCERNS (cluster export wiring untested, fixed), FINAL red on CA-before-credential precedence fixed, r2 REQUEST_CHANGES / CONCERNS (CA-read masking, nameless caSecretRef, fixed after the last round) | rows 15, 16 agent-review (sensors in G2); G1-G3 must land together (G1 alone: stream cleanup reads the Secret, rotated backend closed under a concurrent export) |
+| G2 | CLOSED-WITH-GAPS | reviewer-a and reviewer-b (paid leg: credential handling is security posture), diff lens, 2 rounds: r1 REQUEST_CHANGES (a CA Secret seen gone only by the CA-rules read did not retire, fixed) / CONCERNS (watchdog on every degraded path rejected per tasks.md 2.4; empty-CA compatibility pinned by a test), r2 APPROVE / CLEAN | cluster-side terminal-no-requeue control missing (gap, stage B); `TestSecretMeta_notFoundIsTransient` and the redacted-status envtest were green on G1 (outcome already held); G1's stream-cleanup gap closed; the rotated-backend-under-export gap stays for G3, and G2 widens it (retire before rebuild) |
 
 ## Known red
 
@@ -82,6 +83,10 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G1: run the full suite with `umask 022`; `internal/sink/git` mirror tests fail on a group-writable temp dir.
 - G1: the worktree has no `bin/`; envtest needs `KUBEBUILDER_ASSETS=<main checkout>/bin/k8s/1.36.0-linux-amd64` or `BeforeSuite` fails on etcd.
 - G1: a never-started manager with a static REST mapper (`MapperProvider`) lets a plain unit test call `SetupWithManager` without an API server.
+- G2: a "red on base" test can already hold when the earlier group built the shared helper; record it green-on-base and make it load-bearing through a mutant.
+- G2: an error path that reads a second Secret (CA rules after a failed credential read) is a second observation point; retire rules must look at the final error too.
+- G2: changing a shared status helper (`setInventoryDegraded`) widens behaviour to every caller; list the callers in the evidence before review.
+- G2: G3 must cover a stale-read interleaving (an acquire whose metadata read predates a rotation retires the newer entry at lookup).
 
 ## Where a human should look first
 

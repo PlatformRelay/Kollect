@@ -17,7 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/validation"
@@ -161,37 +160,27 @@ func acquireBackendWithReader(
 		return nil, func() {}, caErr
 	}
 
+	key := poolKeyForSink(sinkUID, sinkNamespace, sinkName)
+
 	uses := referencedSecretRefs(spec, defaultNamespace)
 	versions, err := secretMeta(ctx, reader, uses)
 	if err != nil {
-		return nil, func() {}, caRulesFirst(ctx, reader, spec, defaultNamespace, err)
+		// A missing or empty Secret retires the pooled backend, whether the metadata read or the
+		// CA-rules read behind it saw it; any other failed read (timeout, cancelled context,
+		// forbidden) observed no change and keeps a backend others share.
+		final := caRulesFirst(ctx, reader, spec, defaultNamespace, err)
+		if isSecretGone(err) || isSecretGone(final) {
+			retirePoolEntry(key, "referenced secret missing or empty")
+		}
+
+		return nil, func() {}, final
 	}
 
-	key := poolKeyForSink(sinkUID, sinkNamespace, sinkName)
 	now := timeNow()
-
-	// Closed after Unlock: Pool.Close must not run while globalBackendPool.mu is held.
-	var stale []Backend
-	defer func() {
-		closeBackendsLogged(stale, "ttl expired")
-	}()
-
-	globalBackendPool.mu.Lock()
-	stale = pruneStaleEntriesLocked(now)
-	var previous []secretVersion
-	if entry, ok := globalBackendPool.entries[key]; ok {
-		if entry.key == poolEntryKey(specHash, versions) {
-			entry.lastUsed = now
-			backend := entry.backend
-			globalBackendPool.mu.Unlock()
-
-			return backend, func() {}, nil
-		}
-		if entry.specHash == specHash {
-			previous = entry.secrets
-		}
+	hit, previous := lookupOrRetire(key, specHash, poolEntryKey(specHash, versions), now)
+	if hit != nil {
+		return hit, func() {}, nil
 	}
-	globalBackendPool.mu.Unlock()
 
 	// Miss: read the Secrets in full and build from those objects. The stored key comes from
 	// the same objects, so key and values are one snapshot even if a Secret changed after
@@ -213,7 +202,7 @@ func acquireBackendWithReader(
 	}
 
 	if changed := changedSecrets(previous, built); previous != nil && len(changed) > 0 {
-		logf.Log.WithName("sink").Info("rebuilt sink backend",
+		sinkLog().Info("rebuilt sink backend",
 			"sinkNamespace", sinkNamespace, "sinkName", sinkName,
 			"reason", "referenced secret changed", "secrets", changed)
 	}
@@ -259,6 +248,9 @@ func caRulesFirst(
 		if err := getSecretObject(ctx, reader, use, secret); err != nil {
 			return nil, err
 		}
+		if SecretDataEmpty(secret.Data) {
+			return nil, &secretReadError{use: use, empty: true, err: EmptySecretError(use.Namespace, use.Name)}
+		}
 
 		return secret, nil
 	}
@@ -267,6 +259,57 @@ func caRulesFirst(
 	}
 
 	return readErr
+}
+
+// lookupOrRetire returns the pooled backend for key when its entry key matches entryKey. Otherwise
+// the read observed a change: the old entry is retired now, whatever the rebuild then does, so a
+// failed rebuild never leaves it in use (SCR-2, SCR-3); previous is its Secrets' metadata when
+// only Secrets changed (for the rebuild log). It also prunes idle entries; every Close runs after
+// Unlock, since Pool.Close must not run while globalBackendPool.mu is held.
+func lookupOrRetire(key poolKey, specHash, entryKey string, now time.Time) (Backend, []secretVersion) {
+	var stale []Backend
+	var retired Backend
+	var previous []secretVersion
+	retireReason := "spec hash change"
+
+	globalBackendPool.mu.Lock()
+	stale = pruneStaleEntriesLocked(now)
+	if entry, ok := globalBackendPool.entries[key]; ok {
+		if entry.key == entryKey {
+			entry.lastUsed = now
+			globalBackendPool.mu.Unlock()
+			closeBackendsLogged(stale, "ttl expired")
+
+			return entry.backend, nil
+		}
+		if entry.specHash == specHash {
+			previous = entry.secrets
+			retireReason = "referenced secret change"
+		}
+		delete(globalBackendPool.entries, key)
+		retired = entry.backend
+	}
+	globalBackendPool.mu.Unlock()
+
+	closeBackendsLogged(stale, "ttl expired")
+	if retired != nil {
+		closeBackendLogged(retired, retireReason)
+	}
+
+	return nil, previous
+}
+
+// retirePoolEntry drops the pooled entry for key, if any, and closes its backend after Unlock.
+func retirePoolEntry(key poolKey, reason string) {
+	globalBackendPool.mu.Lock()
+	entry, ok := globalBackendPool.entries[key]
+	if ok {
+		delete(globalBackendPool.entries, key)
+	}
+	globalBackendPool.mu.Unlock()
+	if ok {
+		closeBackendLogged(entry.backend, reason)
+	}
 }
 
 // reasonDeleteTombstone marks the store decision for a tombstoned key: nothing

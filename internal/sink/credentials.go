@@ -60,7 +60,7 @@ func ResolveSecret(
 }
 
 // getSecret reads one Secret through c. A missing Secret is the plain, unclassified
-// "not found" error; any other read error is returned as is.
+// "not found" error, an empty one EmptySecretError; any other read error is returned as is.
 func getSecret(ctx context.Context, c client.Reader, use secretUse) (*corev1.Secret, error) {
 	var secret corev1.Secret
 	if err := c.Get(ctx, types.NamespacedName{Name: use.Name, Namespace: use.Namespace}, &secret); err != nil {
@@ -70,6 +70,33 @@ func getSecret(ctx context.Context, c client.Reader, use secretUse) (*corev1.Sec
 
 		return nil, err
 	}
+	if SecretDataEmpty(secret.Data) {
+		return nil, EmptySecretError(use.Namespace, use.Name)
+	}
 
 	return &secret, nil
+}
+
+// SecretDataEmpty reports whether data holds no non-empty value (nil, no keys, or only empty
+// values). Such a Secret is refused rather than handed to a backend, which could otherwise fall
+// back to ambient credentials (SCR-2).
+func SecretDataEmpty(data map[string][]byte) bool {
+	for _, v := range data {
+		if len(v) > 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+// EmptySecretError is the shared, unclassified (retryable) error for a referenced Secret with no
+// data; the operator and kollect-pipeline print the same text (SCR-5). An empty namespace (a
+// config-dir manifest without one) drops the namespace clause.
+func EmptySecretError(namespace, name string) error {
+	if namespace == "" {
+		return fmt.Errorf("secret %q has no data", name)
+	}
+
+	return fmt.Errorf("secret %q in namespace %q has no data", name, namespace)
 }

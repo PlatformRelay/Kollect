@@ -201,6 +201,11 @@ func resolveSecretValues(secret *corev1.Secret) (map[string][]byte, error) {
 		merged[key] = []byte(envValue)
 	}
 
+	// The operator's empty check and text, after stringData and substitution (SCR-5).
+	if sink.SecretDataEmpty(merged) {
+		return nil, sink.EmptySecretError(secret.Namespace, secret.Name)
+	}
+
 	return merged, nil
 }
 

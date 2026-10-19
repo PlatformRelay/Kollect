@@ -653,7 +653,9 @@ func (r *KollectInventoryReconciler) setInventoryDegraded(
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{RequeueAfter: r.exportDebounce(inv)}, nil
+	// A 0s interval would drop the retry of a transient failure; requeue it at the watchdog
+	// (SCR-7). Callers zero it for terminal errors.
+	return ctrl.Result{RequeueAfter: validation.RequeueAfterForZeroInterval(r.exportDebounce(inv))}, nil
 }
 
 func hasSnapshotSinkBinding(bindings []kollectdevv1alpha1.InventorySinkBinding) bool {
