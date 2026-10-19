@@ -43,22 +43,21 @@ func TestAcquireBackend_failedReReadAfterStaleReadDrainsNewer(t *testing.T) {
 		t.Fatal("timed out waiting for the stale acquire")
 	}
 
+	if pooledEntryFor("stalefail") != nil {
+		t.Fatal("the failed re-read did not retire the entry the first read did not match")
+	}
 	if closes := b6.(*drainBackend).closes.Load(); closes != 0 {
 		t.Fatalf("the newer backend was closed %d times while its holder runs, want 0", closes)
 	}
 	next, releaseNext := mustAcquire(t, c, c, reg.Registry, "stalefail", drainSpec())
 	defer releaseNext()
+	if next == b6 {
+		t.Fatal("the acquire after the retire got the retired backend")
+	}
 	if got := next.(*drainBackend).token; got != "sentinel-token-6" {
 		t.Fatalf("the acquire after the retire built from %q, want the current value", got)
 	}
 	release6()
-	if next == b6 {
-		if closes := b6.(*drainBackend).closes.Load(); closes != 0 {
-			t.Fatalf("the shared newer backend closed %d times, want 0", closes)
-		}
-
-		return
-	}
 	if closes := b6.(*drainBackend).closes.Load(); closes != 1 {
 		t.Fatalf("the retired newer backend closed %d times after its holder released, want 1", closes)
 	}
