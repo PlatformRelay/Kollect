@@ -51,6 +51,7 @@ Holistic run at B: not run yet.
 | R2 | `tlsInsecure=false` spec/design mismatch | WARNING | astra, opus | fix | SCT-3, M4 | no |
 | R2 | Service-file `sslrootcert` fails before the backstop | WARNING | astra | fix | design step 1, D4 | no |
 | R2 | Effective-sslmode wording; CLI fetch order; SRV wording | NOTE | astra, opus | fix | spec, design, proposal | no |
+| R-post | Postgres sslmode with a CA: unset → `verify-full`, explicit `prefer`/`allow`/`disable` → error, `require` → chain check | decision | orchestrator (model-aligned, both legs B) | fix (orchestrator decision, mechanical edit, no review round) | decisions.md 2026-10-19, brief `decisions/2026-10-19-sink-ca-pg-sslmode.md`; SCT-2, design *Postgres*, D3, D3b, D5, PI6, release note | no |
 
 ## Tasks
 

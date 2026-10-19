@@ -45,12 +45,14 @@ that CA and only that CA": append never pins.
 - SCT-2: Postgres applies the CA to every TLS config pgx builds from the DSN (main and fallbacks),
   as system roots plus the CA. `sslmode=verify-full` and `verify-ca` keep their meaning;
   `sslmode=require` verifies the chain as `verify-ca` does, which is libpq's documented behaviour
-  when a root certificate is configured. The effective sslmode is the one pgx uses: the DSN's,
-  else `PGSSLMODE`, else `prefer`, after pgx's `sslnegotiation=direct` rewrite of `prefer` to
-  `require` (`pgconn/config.go:903-908`). An effective `disable`, `allow` or `prefer` with a CA
-  configured is rejected (the CA would never be checked). This is how the change reads the ruling
-  "sslmode still applies" together with "never ignored, never off": a mode that would ignore the CA
-  is an error, and `require` gets the chain check libpq gives it with a root certificate. A root
+  when a root certificate is configured. When neither the DSN nor `PGSSLMODE` sets an sslmode,
+  a CA-configured sink uses `verify-full` (instead of pgx's default `prefer`, which would never
+  check the CA). An explicit `disable`, `allow` or `prefer` (DSN or `PGSSLMODE`) with a CA
+  configured is rejected with a clear message. Orchestrator decision 2026-10-19 (model-aligned,
+  option B, `agent-context/decisions.md`, brief `decisions/2026-10-19-sink-ca-pg-sslmode.md`):
+  an unset mode is upgraded, an explicitly weak mode is an error, and `require` gets the chain check
+  libpq gives it with a root certificate. Consequence: a DSN host that does not match the server
+  certificate's SAN now fails; explicit `sslmode=verify-ca` is the escape hatch. A root
   certificate from any other source is rejected when the sink also sets a CA: `sslrootcert` in the
   DSN, in a service-file entry the DSN selects, `PGSSLROOTCERT`, or pgx's home-directory default
   `~/.postgresql/root.crt` (`pgconn/defaults.go:58`), detected before pgx reads the file.

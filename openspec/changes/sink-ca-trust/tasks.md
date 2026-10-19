@@ -130,18 +130,24 @@ Test rules for every group:
     dbname=sentinel-db sslmode=verify-full sslrootcert=/x` and CA X, when the config is built, then a
     terminal error naming `sslrootcert` and `spec.tls`, containing no sentinel · silent precedence
     and a DSN leak; D2 the same with URL form `postgres://...?sslrootcert=/x`;
-  - unit D3 table, CA X, `HOME` set to an empty `t.TempDir()`: sslmode unset, `disable`, `allow`,
-    `prefer` → terminal error naming the mode and `verify-full`, `verify-ca`, `require`; `require`,
-    `verify-ca`, `verify-full`, and unset with `sslnegotiation=direct` → accepted · a CA silently
-    unused under `prefer` (today's default), direct negotiation misclassified;
+  - unit D3 explicit-weak rejection, table, CA X, `HOME` set to an empty `t.TempDir()`: DSN
+    `sslmode=disable`, `allow`, `prefer` → terminal error naming the mode, the source `DSN` and
+    `verify-full`, `verify-ca`, `require`, before any dial; `require`, `verify-ca`, `verify-full` →
+    accepted · an explicitly weak mode silently ignoring the CA, or upgraded instead of rejected;
+  - unit D3b unset→verify-full: given CA X, a keyword DSN and a URL DSN without sslmode (and one with
+    `sslnegotiation=direct`), `PGSSLMODE` unset, when the pool config is built, then the main config
+    and every fallback have `ServerName` set to their host, `InsecureSkipVerify` false and no
+    plaintext fallback · the default left at pgx's `prefer` (CA never checked, red today) or
+    downgraded to a chain-only check;
   - unit D4 CA X and a root certificate from another source, each rejected naming its source:
     `t.Setenv("PGSSLROOTCERT", f)` with `f` a valid PEM file, a missing path and a malformed file;
     `HOME` = a temp dir holding `.postgresql/root.crt`; a `PGSERVICEFILE` whose selected entry sets
     `sslrootcert` to a valid, a missing and a malformed file (selected by `service=` in the DSN and
     by `PGSERVICE`) · env, home or service defaults bypassing the conflict rule, a malformed file
     reported as the static `invalid connection string`;
-  - unit D5 `t.Setenv("PGSSLMODE", "prefer")` and a DSN without sslmode → rejected as D3;
-    `PGSSLMODE=verify-full` and a DSN without sslmode → accepted · env defaults bypassing the rules;
+  - unit D5 `t.Setenv("PGSSLMODE", "prefer")` and a DSN without sslmode → rejected as D3 with
+    source `PGSSLMODE`; `PGSSLMODE=verify-ca` and a DSN without sslmode → accepted as `verify-ca`,
+    not upgraded · env defaults bypassing the rules, or an explicit env mode overridden;
   - unit D6 given CA X and a two-host `verify-full` DSN, when the pool config is built, then the main
     config and every fallback's `TLSConfig.RootCAs` is the appended pool; with `require`,
     `VerifyPeerCertificate` is set; given no CA, the parsed config equals today's (no-op control) ·
@@ -160,6 +166,9 @@ Test rules for every group:
     the hostname, or `verify-full` not checking it;
   - integration PI3: subprocess with `SSL_CERT_FILE` = P, server signed by P, CA X, `verify-full`
     → success · replace instead of append;
+  - integration PI6: the PI5 server (SAN `other.invalid`), CA X, DSN without sslmode → fails on the
+    hostname; the PI1 server (matching SAN), DSN without sslmode → succeeds · the unset→verify-full
+    upgrade missing on the real connection path;
   - integration PI4 (`internal/sink/ca_trust_recovery_integration_test.go`, `package sink`, so it
     can call the unexported `acquireBackend`, `internal/sink/backend_pool.go:94`): with a fake
     client and the PI1 server, a DSN Secret that sets `sslrootcert` fails; after the Secret is
@@ -255,11 +264,13 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
   - the v0.22.0 release-note line, in `pr-description.md`: "S3, GCS, Postgres and MongoDB sinks now
     trust `spec.tls.caBundle`/`caSecretRef` in addition to the system roots; on those types a CA
     that cannot take effect (an `http` endpoint, Postgres `sslmode` other than
-    `require`/`verify-ca`/`verify-full` as the effective mode or another root certificate source,
-    a MongoDB `tlsCAFile`,
+    `require`/`verify-ca`/`verify-full` set explicitly or another root certificate source, a
+    MongoDB `tlsCAFile`,
     plaintext or `tlsInsecure`/`sslInsecure`) now fails the sink instead of being ignored, and on
     every sink type, Kafka and NATS included, a `caSecretRef` Secret without a CA key or a spec
-    with both `caBundle` and `caSecretRef` now fails the sink."
+    with both `caBundle` and `caSecretRef` now fails the sink. CA-configured Postgres sinks without
+    an sslmode now verify the server, including the hostname: a DSN host that does not match the
+    certificate SAN now fails; set `sslmode=verify-ca` explicitly to verify the chain only."
   - `task lint:markdown` reports `0 issues`; the docs guards under `hack/test/docs_*` pass.
 
 ## 7. Land
@@ -275,7 +286,9 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
 | SCT-1 | S1, S1b, S2, S3 (`go test -v ./internal/sink/s3/`) | rejections incl. SDK endpoints, guarded transport, no-CA unchanged | not-run | |
 | SCT-1 | I1, I2, I3, I4, G1 (`-tags integration`) | private CA trusted, Y refused, P trusted, downgrade redirect refused | not-run | |
 | SCT-1 | mutation: pool built with `x509.NewCertPool()` | I3 fails | not-run | |
-| SCT-2 | D1-D8 (`go test -v ./internal/sink/postgres/`) | conflicts and sslmodes rejected, no sentinel, fallbacks set | not-run | |
+| SCT-2 | D1-D8, D3b (`go test -v ./internal/sink/postgres/`) | conflicts and explicit weak modes rejected, unset → verify-full, no sentinel, fallbacks set | not-run | |
+| SCT-2 | PI6 (`-tags integration`) | unset sslmode verifies the hostname | not-run | |
+| SCT-2 | mutation: leave unset sslmode at pgx's default | D3b and PI6 fail | not-run | |
 | SCT-2 | PI1-PI5 (`-tags integration`) | verify-full trusted, require/verify-ca verified, hostname rule per mode, P trusted, recovery | not-run | |
 | SCT-2 | mutation: skip the `sslrootcert` check; skip the `require` upgrade | D1 fails; PI2 fails | not-run | |
 | SCT-3 | M1-M8 (`go test -v ./internal/sink/mongodb/`) | conflicts and aliases rejected, backstop holds, SRV accepted, no DNS, no sentinel | not-run | |
