@@ -58,6 +58,7 @@ Holistic run at B: not run yet.
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
 | 0.1 | CLOSED-WITH-GAPS: probe only, rows agent-review; no proposal or design claim contradicted | covered by the G1 review | evidence in `evidence/G1.md` (dispatch), not `T0.1.md` |
+| 1.1 + 1.2 (G1) | CLOSED | astra + claude/opus:diff, 2 rounds (`reviews/L-tasks/G1/`, `round-2/`); Claude leg: trust handling (dispatch) | defer to B: `internal/controller/secret_ca.go` third resolver (test-only caller) and `git.ValidateTLSSpec`'s own both-sources text |
 
 ## Known red
 
@@ -72,11 +73,17 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
-| `internal/pipeline/sink_credentials_test.go:TestCLICredentials_matchOperatorResolver` | before this change | 1.1 (planned) | compares error presence only (`:384`); case `"inline bundle wins"` (`:356`) pins a precedence SCT-4 forbids |
+| `internal/pipeline/sink_credentials_test.go:TestCLICredentials_matchOperatorResolver` | before this change | 1.1 | compared error presence only (`:384`); `"inline bundle wins"` (`:356`) pinned a precedence SCT-4 forbids and `"caSecret no key"` the silent fallback. Now: `"both sources rejected"`, `"caSecret no key"` expects the missing-key error, `"caSecret ca.pem"` added, shared errors compared with `errors.Is` (`evidence/G1.md` *Test changes*) |
+| `internal/sink/build_context_test.go:TestBuildContextFromSpec` case `"ca secret with no known PEM keys yields empty CAPEM"` | before this change | 1.1 | pinned the silent fallback SCT-4 forbids; moved to `TestBuildContextFromSpec_errors`, expects an error naming the Secret |
 
 ## Lessons
 
 <!-- master list: one line per reusable lesson with the task ids that hit it -->
+
+- G1: a mutant that leaves dead code after `return` fails `go vet` inside `go test` and reads as a kill; guard it with a condition.
+- G1: check a reviewer's platform claim against the pinned toolchain's source; Go 1.27 reads `SSL_CERT_FILE` on macOS and Windows too.
+- G1: a fresh worktree has no `bin/k8s`; `internal/controller` then fails in `BeforeSuite`. Set `KUBEBUILDER_ASSETS` to the main checkout's assets or run `make setup-envtest`.
+- G1: `gitleaks` via mise needs `MISE_GITLEAKS_VERSION=8.30.1` here (the shim has no default).
 
 ## Where a human should look first
 

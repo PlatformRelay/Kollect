@@ -12,6 +12,7 @@ import (
 	"errors"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/validation"
 )
 
@@ -21,10 +22,12 @@ type Config struct {
 	RootCAs            *x509.CertPool
 }
 
-// FromSpec builds Config from the sink spec and an optional CA PEM resolved from
-// spec.tls.caSecretRef, which takes precedence over the inline caBundle. It
-// refuses insecureSkipVerify unless the process-wide --allow-insecure-sinks
-// opt-in is set (K-14), so the gate holds even where no admission webhook runs.
+// FromSpec builds Config from the sink spec and the CA PEM the caller resolved
+// (sink.CheckCASources rejects a spec that sets both caBundle and caSecretRef, so
+// at most one source reaches here; the inline caBundle is the fallback when caPEM
+// is empty). The pool holds only that CA. It refuses insecureSkipVerify unless the
+// process-wide --allow-insecure-sinks opt-in is set (K-14), so the gate holds even
+// where no admission webhook runs.
 func FromSpec(tlsSpec *kollectdevv1alpha1.TLSSpec, caPEM []byte) (Config, error) {
 	cfg := Config{}
 	if tlsSpec == nil {
@@ -75,4 +78,25 @@ func (c Config) HandshakeConfig() *tls.Config {
 		InsecureSkipVerify: c.InsecureSkipVerify, //nolint:gosec // gated by --allow-insecure-sinks (K-14)
 		RootCAs:            c.RootCAs,
 	}
+}
+
+// ErrNoCACertificate marks CA PEM from spec.tls that yields no certificate.
+var ErrNoCACertificate = errors.New("spec.tls: the CA bundle holds no PEM certificate")
+
+// AppendedPool returns the system roots with the certificates in caPEM appended, the
+// rule go-git applies to a Git CABundle. Unlike go-git, PEM that adds no certificate
+// (garbage, empty, only a key) is a terminal error, and the error never echoes the PEM.
+// It is the pool for the S3, GCS, Postgres and MongoDB sinks; FromSpec (Kafka, NATS,
+// the Git probe) keeps its CA-only pool.
+func AppendedPool(caPEM []byte) (*x509.CertPool, error) {
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		pool = x509.NewCertPool()
+	}
+
+	if !pool.AppendCertsFromPEM(caPEM) {
+		return nil, kollecterrors.Terminal(ErrNoCACertificate)
+	}
+
+	return pool, nil
 }

@@ -218,6 +218,10 @@ func resolveCAPEM(
 	tlsSpec *kollectdevv1alpha1.TLSSpec,
 	defaultNamespace string,
 ) ([]byte, error) {
+	if err := CheckCASources(tlsSpec); err != nil {
+		return nil, err
+	}
+
 	if tlsSpec == nil {
 		return nil, nil
 	}
@@ -235,11 +239,5 @@ func resolveCAPEM(
 		return nil, err
 	}
 
-	for _, key := range []string{"tls.crt", "ca.crt", "ca.pem"} {
-		if v, ok := creds.Data[key]; ok && len(v) > 0 {
-			return v, nil
-		}
-	}
-
-	return nil, nil
+	return SelectCAKey(tlsSpec.CASecretRef.Name, creds.Data)
 }

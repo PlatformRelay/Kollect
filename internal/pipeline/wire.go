@@ -137,12 +137,13 @@ func resolveConfigSecret(
 	return nil, fmt.Errorf("%s %q not found in config directory (expected a v1.Secret YAML manifest)", field, ref.Name)
 }
 
-// caKeys are the Secret keys a CA bundle is read from, in the operator's order.
-var caKeys = []string{"tls.crt", "ca.crt", "ca.pem"}
-
-// resolveCAPEM returns the sink's CA bundle as the operator does: spec.tls.caBundle when set,
-// else the first CA key of the Secret named by spec.tls.caSecretRef.
+// resolveCAPEM returns the sink's CA bundle through the operator's shared rules
+// (sink.CheckCASources before any lookup, sink.SelectCAKey on the config-dir Secret).
 func resolveCAPEM(tlsSpec *kollectdevv1alpha1.TLSSpec, secrets []corev1.Secret) ([]byte, error) {
+	if err := sink.CheckCASources(tlsSpec); err != nil {
+		return nil, err
+	}
+
 	if tlsSpec == nil {
 		return nil, nil
 	}
@@ -160,13 +161,7 @@ func resolveCAPEM(tlsSpec *kollectdevv1alpha1.TLSSpec, secrets []corev1.Secret) 
 		return nil, err
 	}
 
-	for _, key := range caKeys {
-		if v := data[key]; len(v) > 0 {
-			return v, nil
-		}
-	}
-
-	return nil, nil
+	return sink.SelectCAKey(tlsSpec.CASecretRef.Name, data)
 }
 
 // resolveSecretValues builds the effective credential map for one config-dir Secret:
