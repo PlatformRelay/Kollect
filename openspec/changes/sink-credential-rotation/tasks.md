@@ -264,7 +264,7 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 
 ## 4. Docs (SCR-6)
 
-- [ ] 4.1 Update `docs/crds/kollectsnapshotsink.md` and `kollectdatabasesink.md` (rotation
+- [x] 4.1 Update `docs/crds/kollectsnapshotsink.md` and `kollectdatabasesink.md` (rotation
   paragraph; remove "A backend that already built keeps its CA until the sink spec changes" at
   `kollectsnapshotsink.md:53-54` and `kollectdatabasesink.md:70-71`), `kollecteventsink.md` (a
   rotation paragraph), `docs/security/security-architecture.md` (rotation sentence at the Secrets
@@ -279,6 +279,7 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
   `force-cleanup` note, and the CA-section sentence at `:167-168` removed). Checks:
   `rg -U 'keeps its\s+CA' docs` finds nothing; `task lint:markdown` 0 issues; `task docs:verify`
   where it runs (see AGENTS.md gotcha).
+  — closed 2026-10-20, evidence: evidence/G4.md
 
 ## 5. Integration
 
@@ -321,6 +322,6 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 | SCR-7 | *control* `TestApplyInventoryExportOutcome_zeroIntervalTerminalNoRequeue` | terminal under `0s` is not requeued | pass (namespaced only; the cluster twin is a gap) | evidence/G2.md (2026-10-19) |
 | SCR-7 | envtest specs "zero-interval inventory retries a deleted secret", *control* "unchanged zero-interval inventory is not re-exported" | retried and recovers; no re-export of an unchanged `0s` inventory | pass | evidence/G2.md (2026-10-19) |
 | SCR-7 | mutations: keep `exportDebounce`; watchdog for terminal; no interval-0 skip | zero-interval / terminal / not-re-exported tests fail | pass | evidence/G2.md (2026-10-19) (M9, M9e, M10, M11, M12) |
-| SCR-6 | `rg -U 'keeps its\s+CA' docs`; `task lint:markdown` | no match; 0 issues | not-run | |
+| SCR-6 | `rg -U 'keeps its\s+CA' docs`; `task lint:markdown` | no match; 0 issues | pass | evidence/G4.md (2026-10-20; also docs guards and `task docs:verify`) |
 | all | `task check` on the branch head; CI on the PR head | green | not-run | |
 | all | independent branch review | APPROVE recorded with revision | not-run | |
