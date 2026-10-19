@@ -16,8 +16,8 @@
 #          mutant killed or lived) or misattributed report,
 #          and a missing, repeated or unknown package, fail with an ::error::mutation: line and
 #          no counts table;
-#   R1-R8  the runner: four calls in order with the exact argv, a fresh report directory and
-#          GOFLAGS=-count=1; a gremlins failure or a missing or stale report fails; the fixture
+#   R1-R8  the runner: four calls in order with the exact argv (--timeout-coefficient=10 in it),
+#          a fresh report directory and GOFLAGS=-count=1; a gremlins failure or a missing or stale report fails; the fixture
 #          control must be LIVED exactly once; MUTATION_FORCE_FAILURE can only fail the run; any
 #          GREMLINS_ variable is refused; a tool failure never reads like a night with survivors;
 #          the report directory reaches $GITHUB_OUTPUT before the first call and is kept;
@@ -89,6 +89,9 @@ REP="${FX}/reports"
 FLAGS=(--arithmetic-base --conditionals-boundary --conditionals-negation --invert-assignments
   --invert-bitwise --invert-bwassign --increment-decrement --invert-logical --invert-loopctrl
   --invert-negatives --remove-self-assignments)
+# Stage-B review B1: at gremlins' default coefficient (3) a loaded runner times mutants out
+# before their tests finish (4 of 6 local runs had TIMED OUT mutants, 0 of 6 at 10).
+TIMEOUT_FLAG=--timeout-coefficient=10
 PKGS=(internal/aggregate internal/redact internal/pathvalidate)
 # The control mutant (task 1.1): control.go:9:11 ARITHMETIC_BASE (the fixture's only file).
 CTRL='.line == 9 and .column == 11 and .type == "ARITHMETIC_BASE"'
@@ -395,7 +398,7 @@ FAKE
       i=$((i + 1))
       read -r short cwd pkg <<<"${spec}"
       want_argv="$(printf '%s\n' unleash "--config=${ROOT}/hack/ci/gremlins.yaml" \
-        "--output=${dir}/${short}.json" "${FLAGS[@]}" "${pkg}")"
+        "--output=${dir}/${short}.json" "${TIMEOUT_FLAG}" "${FLAGS[@]}" "${pkg}")"
       got_argv="$(cat "${RD}/calls/${i}.argv" 2>/dev/null || echo '<no call>')"
       [[ "${got_argv}" == "${want_argv}" ]] ||
         case_fail R1 "call ${i} (${short}) argv is '$(tr '\n' ' ' <<<"${got_argv}")', want '$(tr '\n' ' ' <<<"${want_argv}")'"
@@ -1120,6 +1123,10 @@ fi
     lit "${R}" '"--config=${CONFIG}" "--output=${out}"' '"--config=hack/ci/gremlins.yaml" "--output=${out}"'
   judge R1 "a GREMLINS_ variable set inline on the call (R1, round-1 review)" "R1: call 1 (fixture) saw GREMLINS_ variables 'GREMLINS_UNLEASH_TAGS=x '" \
     lit "${R}" '(cd "$2" && "${GREMLINS}" unleash' '(cd "$2" && GREMLINS_UNLEASH_TAGS=x "${GREMLINS}" unleash'
+  judge R1 "the timeout coefficient dropped (R1, stage-B B1)" "R1: call 1 (fixture) argv is" \
+    lit "${R}" '"--output=${out}" "${TIMEOUT_FLAG}" "${FLAGS[@]}"' '"--output=${out}" "${FLAGS[@]}"'
+  judge R1 "the timeout coefficient back at the default 3 (R1, stage-B B1)" "R1: call 1 (fixture) argv is" \
+    lit "${R}" 'TIMEOUT_FLAG=--timeout-coefficient=10' 'TIMEOUT_FLAG=--timeout-coefficient=3'
   judge R1 "GOFLAGS=-count=1 dropped (R1, task 1.1 F1)" "R1: call 1 (fixture) saw GOFLAGS='-tags=narrowed'" \
     lit "${R}" 'export GOFLAGS=-count=1' ':'
   judge R1 "one merged run instead of one per package (R1)" "R1: gremlins was called 2 times, want 4" \

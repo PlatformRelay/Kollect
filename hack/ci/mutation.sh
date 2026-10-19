@@ -19,7 +19,8 @@
 #    must be reported exactly once and LIVED, or the pipeline cannot see a survivor (MUT-3).
 # 5. Runs gremlins once per package, each to its own report (the JSON names no package), with all
 #    eleven mutator flags of the pinned version and the empty --config, so no other config file
-#    and no environment value changes what is measured.
+#    and no environment value changes what is measured, and with --timeout-coefficient=10, so a
+#    loaded runner does not turn measurements into timeouts.
 # 6. Hands the three reports to hack/ci/mutation-summary.sh, which validates them all and writes
 #    the counts to the job summary. A low score never fails the run; a tool failure, a missing
 #    report or a broken control always does. Diagnostics are ::error::mutation: lines on stderr.
@@ -61,6 +62,11 @@ FIXTURE="${ROOT}/hack/test/testdata/mutation"
 FLAGS=(--arithmetic-base --conditionals-boundary --conditionals-negation --invert-assignments
   --invert-bitwise --invert-bwassign --increment-decrement --invert-logical --invert-loopctrl
   --invert-negatives --remove-self-assignments)
+# gremlins gives each mutant three times the coverage run's time by default, counted from before
+# the mutant's build; on a loaded runner builds alone exceed that and whole packages come back
+# TIMED OUT (stage-B review: 4 of 6 local runs at 3, 0 of 6 at 10). A hung mutant then costs about
+# ten coverage runs, seconds here.
+TIMEOUT_FLAG=--timeout-coefficient=10
 
 REPORTS="$(mktemp -d)"
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
@@ -72,7 +78,7 @@ echo "mutation: reports in ${REPORTS}"
 measure() {
   local out="${REPORTS}/$1.json" rc=0
   echo "mutation: gremlins on $4"
-  (cd "$2" && "${GREMLINS}" unleash "--config=${CONFIG}" "--output=${out}" "${FLAGS[@]}" "$3") || rc=$?
+  (cd "$2" && "${GREMLINS}" unleash "--config=${CONFIG}" "--output=${out}" "${TIMEOUT_FLAG}" "${FLAGS[@]}" "$3") || rc=$?
   ((rc == 0)) || die "gremlins failed on $4 (exit ${rc}): a tool failure, not a measurement; its output is above"
   [[ -s "${out}" ]] || die "no report for $4: gremlins exited 0 but wrote nothing to ${out}"
 }

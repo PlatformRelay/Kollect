@@ -25,5 +25,8 @@ gremlins unleash --config=<absolute empty {} file> --output=<dir>/<short-pkg>.js
 | `dryrun-pathvalidate.json` | `./internal/pathvalidate` | repository root | same argv plus `--dry-run`: RUNNABLE 12 |
 | `warm-cache-pathvalidate.json` | `./internal/pathvalidate` | repository root | without `GOFLAGS=-count=1`, test cache warm: TIMED OUT 12 (case M9: a package that measured nothing) |
 
+The runner has since added `--timeout-coefficient=10` (stage-B review, B1); it changes how
+long a mutant may run, not the report's shape, so these recordings stand.
+
 The files are gremlins' output byte for byte (no trailing newline). The probe that produced them
 is recorded in `openspec/changes/mutation-testing-signal/evidence/G1.md`.
