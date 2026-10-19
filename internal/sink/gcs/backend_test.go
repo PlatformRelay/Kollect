@@ -13,7 +13,7 @@ import (
 func TestNewBackend_wrongType(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "s3"}, nil)
+	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: "s3"}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for non-gcs type")
 	}
@@ -22,7 +22,7 @@ func TestNewBackend_wrongType(t *testing.T) {
 func TestNewBackend_missingEndpoint(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: TypeName}, nil)
+	_, err := NewBackend(kollectdevv1alpha1.KollectSinkSpec{Type: TypeName}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error without endpoint")
 	}
@@ -40,7 +40,7 @@ func TestNewBackend_valid(t *testing.T) {
 	}, map[string][]byte{
 		"accessKeyID":     []byte("a"),
 		"secretAccessKey": []byte("b"),
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("NewBackend: %v", err)
 	}

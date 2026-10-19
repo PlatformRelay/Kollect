@@ -20,7 +20,7 @@ func TestConfigFromSpecParquet(t *testing.T) {
 			Format:        "parquet",
 			HotAttributes: []string{"image", "version"},
 		},
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

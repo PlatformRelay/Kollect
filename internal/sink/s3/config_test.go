@@ -18,7 +18,7 @@ func TestConfigFromSpec(t *testing.T) {
 	}, map[string][]byte{
 		"accessKeyID":     []byte("a"),
 		"secretAccessKey": []byte("b"),
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestConfigFromSpec(t *testing.T) {
 func TestConfigFromSpec_wrongType(t *testing.T) {
 	t.Parallel()
 
-	_, err := ConfigFromSpec(kollectdevv1alpha1.KollectSinkSpec{Type: "git"}, nil)
+	_, err := ConfigFromSpec(kollectdevv1alpha1.KollectSinkSpec{Type: "git"}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for wrong type")
 	}
@@ -44,7 +44,7 @@ func TestConfigFromSpec_wrongType(t *testing.T) {
 func TestConfigFromSpec_missingEndpoint(t *testing.T) {
 	t.Parallel()
 
-	_, err := ConfigFromSpec(kollectdevv1alpha1.KollectSinkSpec{Type: "s3", Endpoint: "   "}, nil)
+	_, err := ConfigFromSpec(kollectdevv1alpha1.KollectSinkSpec{Type: "s3", Endpoint: "   "}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for missing endpoint")
 	}
@@ -59,7 +59,7 @@ func TestConfigFromSpec_awsEnvKeys(t *testing.T) {
 	}, map[string][]byte{
 		"AWS_ACCESS_KEY_ID":     []byte("keyid"),
 		"AWS_SECRET_ACCESS_KEY": []byte("secret"),
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

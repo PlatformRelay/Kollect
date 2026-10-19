@@ -21,7 +21,7 @@ func TestTestConnection_missingBucket(t *testing.T) {
 	err := TestConnection(t.Context(), kollectdevv1alpha1.KollectSinkSpec{
 		Type:     "s3",
 		Endpoint: "",
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for empty endpoint")
 	}
@@ -33,7 +33,7 @@ func TestTestConnection_invalidEndpoint(t *testing.T) {
 	err := TestConnection(t.Context(), kollectdevv1alpha1.KollectSinkSpec{
 		Type:     "s3",
 		Endpoint: "s3://",
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for bucket-less endpoint")
 	}

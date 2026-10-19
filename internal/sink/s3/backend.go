@@ -6,8 +6,11 @@ package s3
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/http"
 	"path"
 	"strings"
 	"time"
@@ -18,6 +21,7 @@ import (
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	kollecterrors "github.com/platformrelay/kollect/internal/errors"
 	"github.com/platformrelay/kollect/internal/export"
 	"github.com/platformrelay/kollect/internal/sink/cap"
 	"github.com/platformrelay/kollect/internal/sink/netguard"
@@ -35,8 +39,10 @@ type Backend struct {
 	client *awss3.Client
 }
 
-func NewBackend(spec kollectdevv1alpha1.KollectSinkSpec, creds map[string][]byte) (*Backend, error) {
-	cfg, err := ConfigFromSpec(spec, creds)
+// NewBackend builds an S3 sink. caPEM is the CA resolved from spec.tls (nil when none):
+// the client trusts the system roots plus that CA.
+func NewBackend(spec kollectdevv1alpha1.KollectSinkSpec, creds map[string][]byte, caPEM []byte) (*Backend, error) {
+	cfg, err := ConfigFromSpec(spec, creds, caPEM)
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +127,22 @@ func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string)
 	return nil
 }
 
+// ErrCAInsecureRedirect marks a redirect to a non-https URL that a CA-configured
+// client refused to follow.
+var ErrCAInsecureRedirect = errors.New("spec.tls: refused a redirect to a non-https URL")
+
+// maxRedirects matches net/http's default redirect limit.
+const maxRedirects = 10
+
 func newClient(cfg Config) (*awss3.Client, error) {
+	httpClient, err := guardedHTTPClient(cfg.RootCAs)
+	if err != nil {
+		return nil, err
+	}
+
 	loadOpts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(cfg.Region),
-		awsconfig.WithHTTPClient(netguard.HTTPClient(0)),
+		awsconfig.WithHTTPClient(httpClient),
 	}
 
 	if cfg.AccessKeyID != "" || cfg.SecretAccessKey != "" {
@@ -138,10 +156,53 @@ func newClient(cfg Config) (*awss3.Client, error) {
 		return nil, fmt.Errorf("load AWS config: %w", err)
 	}
 
-	return awss3.NewFromConfig(awsCfg, func(o *awss3.Options) {
+	client := awss3.NewFromConfig(awsCfg, func(o *awss3.Options) {
 		if cfg.Endpoint != "" {
 			o.BaseEndpoint = aws.String(cfg.Endpoint)
 			o.UsePathStyle = cfg.ForcePathStyle
 		}
-	}), nil
+	})
+
+	// For s3:// the SDK resolves the endpoint itself (AWS_ENDPOINT_URL_S3,
+	// AWS_ENDPOINT_URL, a shared-config services section) inside NewFromConfig, so
+	// the scheme is checked on the built client.
+	if cfg.RootCAs != nil {
+		if endpoint := client.Options().BaseEndpoint; endpoint != nil {
+			if err := requireHTTPS(*endpoint); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return client, nil
+}
+
+// guardedHTTPClient returns netguard's client (guarded dialer, no proxy). With
+// rootCAs it trusts that pool and refuses redirects to non-https URLs.
+func guardedHTTPClient(rootCAs *x509.CertPool) (*http.Client, error) {
+	httpClient := netguard.HTTPClient(0)
+	if rootCAs == nil {
+		return httpClient, nil
+	}
+
+	transport, ok := httpClient.Transport.(*http.Transport)
+	if !ok {
+		return nil, fmt.Errorf("s3 client: unexpected transport %T", httpClient.Transport)
+	}
+
+	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: rootCAs}
+	httpClient.CheckRedirect = refuseInsecureRedirect
+
+	return httpClient, nil
+}
+
+func refuseInsecureRedirect(req *http.Request, via []*http.Request) error {
+	if req.URL.Scheme != "https" {
+		return kollecterrors.Terminal(ErrCAInsecureRedirect)
+	}
+	if len(via) >= maxRedirects {
+		return fmt.Errorf("stopped after %d redirects", maxRedirects)
+	}
+
+	return nil
 }

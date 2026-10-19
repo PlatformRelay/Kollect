@@ -118,11 +118,11 @@ func newGitLabBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext)
 }
 
 func newS3Backend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
-	return s3.NewBackend(spec, ctx.SecretData)
+	return s3.NewBackend(spec, ctx.SecretData, ctx.CAPEM)
 }
 
 func newGCSBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
-	return gcs.NewBackend(spec, ctx.SecretData)
+	return gcs.NewBackend(spec, ctx.SecretData, ctx.CAPEM)
 }
 
 func newLocalBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
