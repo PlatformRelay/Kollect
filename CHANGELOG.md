@@ -11,6 +11,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **ci:** Read every mutator line of the gremlins help [f1fbe78](https://github.com/platformrelay/kollect/commit/f1fbe78673d992065d833fdf0357b5ebd2f556b4)
+
+- **ci:** Fail the mutation run when gremlins offers other mutators [5609222](https://github.com/platformrelay/kollect/commit/5609222c98eda2ccf4271caa68b4d677e425530f)
+
+- **ci:** Give gremlins mutants a timeout a loaded runner meets [bb005ed](https://github.com/platformrelay/kollect/commit/bb005edbbcececda2b1df68e541dc72226b85d20)
+
+- **ci:** Fail a mutation night where a package measured nothing [8256985](https://github.com/platformrelay/kollect/commit/825698585b8ec163a2c09b57d0c7bb4286160bbc)
+
 - **ci:** Close the round-2 bypasses of the README guard [eb31506](https://github.com/platformrelay/kollect/commit/eb315068615923d299374c5892f004cc00f63db3)
 
 - **ci:** Name a failed envtest setup, close deferred guard gaps [fd41110](https://github.com/platformrelay/kollect/commit/fd411104797e3d318f925dd85dee9ea1bc571ca6)
@@ -131,6 +139,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **ci:** Measure mutation nightly, report only [dac648e](https://github.com/platformrelay/kollect/commit/dac648e72db7642e154bf2ef9ab9ef082cbf331b)
 
 - **ci:** Run the unit tests nightly under a shuffled, repeated seed [862c38f](https://github.com/platformrelay/kollect/commit/862c38f64c47adeb8084c75e0a433b01bc89c3c9)
 
