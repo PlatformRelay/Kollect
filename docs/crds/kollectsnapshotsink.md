@@ -42,16 +42,45 @@ key of `tls.crt`, `ca.crt`, `ca.pem`) adds a private CA. Set one of the two.
   followed.
 - **Terminal errors** (the sink stops until its spec or Secret changes): CA PEM that holds no
   certificate (S3, GCS); a CA with an `http` endpoint (S3, GCS); and, for every sink type, a
-  `caSecretRef` Secret with none of the three keys, or a spec that sets both `caBundle` and
-  `caSecretRef`.
+  `caSecretRef` Secret that has data but none of the three keys, or a spec that sets both
+  `caBundle` and `caSecretRef`. An entirely empty `caSecretRef` Secret is a retryable error
+  instead, see [Secret rotation](#secret-rotation).
 - **No pinning.** The CA adds trust; there is no option to trust only the CA for exports.
 
 A failed backend build is not cached, but no controller watches the CA Secret and a terminal
 error does not requeue. After fixing a Secret that failed the sink, change any annotation on
 the sink, for example `kubectl annotate kollectsnapshotsink <name> ca-fixed-at="$(date +%s)" --overwrite`:
 the probe runs again, and the inventories that reference the sink reconcile and build its
-backend on their next export. A backend that already built keeps its CA until the sink spec
-changes.
+backend on their next export.
+
+## Secret rotation
+
+Each export, and each cleanup that builds the backend, reads the metadata of the Secrets the sink
+references (`spec.secretRef`, `spec.git.auth.secretRef`, `spec.tls.caSecretRef`) from the API
+server. When one of them changed
+since the backend was built, that export builds a new backend from the current values. No
+restart, spec change or annotation is needed. Exports already running finish on the old backend,
+which is closed after the last of them ends.
+
+- **When it takes effect.** A Secret change alone does not trigger an export. With an export
+  interval above `0s`, the next export comes within the interval. With `exportMinInterval: 0s`
+  ("export only on material change"), it comes with the next material change, spec generation
+  change or `kollect.dev/requestedAt` change.
+- **Deleted or emptied Secret.** A missing Secret, or one with no non-empty value in its data,
+  fails the export with a retryable error that names the Secret and its namespace
+  (`secret "<name>" not found in namespace "<namespace>"` or `… has no data`) and never a value.
+  The sink is not contacted and its backend is dropped. Once the Secret is restored, the next
+  retry exports again with no change to the sink; an inventory with `exportMinInterval: 0s`
+  retries every 30 s. S3 and GCS do not fall back to the pod's ambient credentials when the
+  Secret is entirely empty; a Secret with other keys but no access key still falls back, as
+  before.
+- **Terminal errors** (for example a Git `401`/`403`, or a CA Secret with data but no CA key) do
+  not requeue. After fixing the Secret, change an annotation on the sink as above.
+- **Inventory deletion.** Git and GitLab cleanup, and S3/GCS cleanup under `deletionPolicy:
+  Delete`, build the backend, so a deleted or emptied Secret keeps the inventory `Terminating`
+  until the Secret is restored or `kollect.dev/force-cleanup: "true"` is set on the inventory.
+  S3/GCS cleanup that retracts nothing (`Retain`, or an export identity shared with another
+  inventory) does not read the Secret.
 
 ## Example
 

@@ -55,6 +55,7 @@ Holistic run at B: not run yet.
 | T0.1 | CLOSED-WITH-GAPS (first BLOCKED, SPECIFICATION, resolved by decision B) | reviewer-a diff, 1 round, REQUEST_CHANGES on evidence class and wording, fixed; no paid leg (evidence only, no BLOCK) | rows 4, 5 by reading (gap); the `0s` finding became SCR-7 and tasks 2.3, 2.4 (spec-set commit after `74e8376c1`) |
 | G1 | CLOSED-WITH-GAPS | reviewer-a and reviewer-b (paid leg: credential handling is security posture), diff lens, 2 rounds: r1 APPROVE / CONCERNS (cluster export wiring untested, fixed), FINAL red on CA-before-credential precedence fixed, r2 REQUEST_CHANGES / CONCERNS (CA-read masking, nameless caSecretRef, fixed after the last round) | rows 15, 16 agent-review (sensors in G2); G1-G3 must land together (G1 alone: stream cleanup reads the Secret, rotated backend closed under a concurrent export) |
 | G3 | CLOSED-WITH-GAPS | reviewer-a and reviewer-b (paid leg: credential handling is security posture), diff lens, 2 rounds: r1 BLOCK (stale-read guard kept an older entry after an observed change; aged-out generation read as 0; both fixed) / CLEAN, r2 BLOCK (a failed re-read dropped the observed change, fixed after the last round) / CLEAN | the round-2 fix (`observeAndLookup` failed re-read path) is unreviewed: stage B should read it; accepted residual: a store during the forced re-read is retired (one extra build) |
+| G4 | CLOSED | reviewer-a, diff lens, 1 round: REQUEST_CHANGES on wording (event-page `spec.secretRef` list; "every cleanup" overstated), fixed, no second round; no paid leg (docs only, no BLOCK) | none; upgrade section titled per tasks.md ("Sink Secret rotation"), not the dispatch's "Sink credential rotation" |
 | G2 | CLOSED-WITH-GAPS | reviewer-a and reviewer-b (paid leg: credential handling is security posture), diff lens, 2 rounds: r1 REQUEST_CHANGES (a CA Secret seen gone only by the CA-rules read did not retire, fixed) / CONCERNS (watchdog on every degraded path rejected per tasks.md 2.4; empty-CA compatibility pinned by a test), r2 APPROVE / CLEAN | cluster-side terminal-no-requeue control missing (gap, stage B); `TestSecretMeta_notFoundIsTransient` and the redacted-status envtest were green on G1 (outcome already held); G1's stream-cleanup gap closed; the rotated-backend-under-export gap stays for G3, and G2 widens it (retire before rebuild) |
 
 ## Known red
@@ -92,6 +93,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G3: a fence on "value unchanged" needs values never reissued, also after aging out; an absent key must not read as a value a caller could have recorded.
 - G3: a concurrency test with one barrier after the read lets late goroutines hit; hold all in the factory and assert the build count, or surplus-close mutants survive.
 - G3: check a line-deleting mutant's line is live before citing it (G3's first M14 deleted dead code).
+- G4: check "every export and cleanup" doc claims against each cleanup branch (stream retain, Retain, shared identity skip the Secret read).
+- G4: `task docs:verify` in a worktree needs `MISE_KUBECTL_VERSION=1.36.1` and a temp mkdocs venv from `docs/requirements-docs.txt` on `PATH`.
 
 ## Where a human should look first
 

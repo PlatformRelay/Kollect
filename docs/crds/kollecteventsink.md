@@ -66,6 +66,31 @@ NATS credentials go in the Secret named by `spec.secretRef` (`token`, or `userna
 `nats://token@host`) is rejected at config validation, so the credential can never be echoed into
 a status condition or Event.
 
+## Secret rotation
+
+Each export reads the metadata of the Secrets the sink references (`spec.secretRef`,
+`spec.kafka.secretRef` or `spec.nats.secretRef`, and `spec.tls.caSecretRef`) from the API server;
+a `spec.secretRef` counts even when the type-specific reference overrides it.
+When one of them changed since the backend was built, that export builds a new producer or
+connection from the current values. No restart, spec change or annotation is needed. Exports
+already running finish on the old backend, which is closed after the last of them ends.
+
+- **When it takes effect.** A Secret change alone does not trigger an export. With an export
+  interval above `0s`, the next export comes within the interval. With `exportMinInterval: 0s`
+  ("export only on material change", the usual setting for event sinks), it comes with the next
+  material change, spec generation change or `kollect.dev/requestedAt` change.
+- **Deleted or emptied Secret.** A missing Secret, or one with no non-empty value in its data,
+  fails the export with a retryable error that names the Secret and its namespace
+  (`secret "<name>" not found in namespace "<namespace>"` or `… has no data`) and never a value.
+  No message is sent and the backend is dropped. Once the Secret is restored, the next retry
+  exports again with no change to the sink; an inventory with `exportMinInterval: 0s` retries
+  every 30 s.
+- **Terminal errors** do not requeue, and no controller watches Secrets. After fixing the Secret,
+  change any annotation on the sink, for example
+  `kubectl annotate kollecteventsink <name> secret-fixed-at="$(date +%s)" --overwrite`.
+- **Inventory deletion** does not need the Secret: events cannot be retracted, so cleanup reports
+  `CleanupRetained` without reading the Secret or contacting the broker.
+
 NATS messages carry a versioned `EventEnvelope` (`schemaVersion`, `timestamp`, `cluster`,
 `namespace`, `payload`) with JetStream `Nats-Msg-Id` dedupe — see
 `test/schema/golden/nats-event-envelope.json`.

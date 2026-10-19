@@ -213,7 +213,16 @@ as the enforcement boundary.
 
 Use workload identity or short-lived credentials where a backend supports them. Kubernetes Secret
 encryption at rest, secret rotation, external secret management, and sink-side encryption are
-deployment responsibilities.
+deployment responsibilities. The operator follows a rotation: each export, and each cleanup that builds a
+backend, reads the referenced Secrets' metadata (namespace, name, UID, `resourceVersion`) from the API server, and a
+changed credential or CA Secret replaces the pooled backend at the next export. Exports already
+running finish on the old backend, which is closed when they end. The pool keys backends on that
+metadata only and keeps no Secret data after a build; a backend keeps what it needs to
+authenticate until it is closed. A deleted or emptied Secret fails the export with a retryable
+error that names the Secret, never a value, and S3/GCS do not fall back to ambient credentials
+for an entirely empty Secret. A Secret change alone does not trigger an export, so the old
+backend stays pooled until the next export or its idle timeout (see
+[Upgrading](../operator-manual/upgrading.md#sink-secret-rotation-after-v0210)).
 
 ## Transport security
 

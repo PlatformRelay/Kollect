@@ -60,15 +60,42 @@ the URI (`tlsCAFile`, `sslCertificateAuthorityFile`), and verification off (`tls
 `sslInsecure`, `tlsAllowInvalidCertificates`, `tlsAllowInvalidHostnames` set to anything but
 `false`). Option names match in any letter case. Client certificates from the URI are kept.
 
-**Both types:** CA PEM that holds no certificate, a `caSecretRef` Secret with none of the three
-keys, and a spec that sets both `caBundle` and `caSecretRef` are terminal errors.
+**Both types:** CA PEM that holds no certificate, a `caSecretRef` Secret that has data but none of
+the three keys, and a spec that sets both `caBundle` and `caSecretRef` are terminal errors. An
+entirely empty `caSecretRef` Secret is a retryable error instead, see
+[Secret rotation](#secret-rotation).
 
 A failed backend build is not cached, but no controller watches the CA Secret and a terminal
 error does not requeue. After fixing a Secret that failed the sink, change any annotation on
 the sink, for example `kubectl annotate kollectdatabasesink <name> ca-fixed-at="$(date +%s)" --overwrite`:
 the probe runs again, and the inventories that reference the sink reconcile and build its
-backend on their next export. A backend that already built keeps its CA until the sink spec
-changes.
+backend on their next export.
+
+## Secret rotation
+
+Each export and each row-prune cleanup reads the metadata of the Secrets the sink references
+(`spec.postgres.databaseRef`, `spec.mongodb.databaseRef`, `spec.bigquery.secretRef`,
+`spec.secretRef`, `spec.tls.caSecretRef`) from the API server. When one of them changed since the
+backend was built, that export builds a new backend, and a new connection pool, from the current
+values. No restart, spec change or annotation is needed. Exports already running finish on the
+old backend, which is closed after the last of them ends, so a rotated database password is used
+from the next export on and the old sessions end with the old backend.
+
+- **When it takes effect.** A Secret change alone does not trigger an export. With an export
+  interval above `0s`, the next export comes within the interval. With `exportMinInterval: 0s`
+  ("export only on material change"), it comes with the next material change, spec generation
+  change or `kollect.dev/requestedAt` change.
+- **Deleted or emptied Secret.** A missing Secret, or one with no non-empty value in its data,
+  fails the export with a retryable error that names the Secret and its namespace
+  (`secret "<name>" not found in namespace "<namespace>"` or `… has no data`) and never a value.
+  The database is not contacted and the backend is dropped. Once the Secret is restored, the next
+  retry exports again with no change to the sink; an inventory with `exportMinInterval: 0s`
+  retries every 30 s.
+- **Terminal errors** do not requeue. After fixing the Secret, change an annotation on the sink
+  as above.
+- **Inventory deletion.** The row prune builds the backend, so a deleted or emptied Secret keeps
+  the inventory `Terminating` until the Secret is restored or `kollect.dev/force-cleanup: "true"`
+  is set on the inventory.
 
 BigQuery writes one row per inventory item into `spec.bigquery.dataset`/`spec.bigquery.table`,
 partitioned on `exported_at` and clustered by inventory identity fields; each export performs

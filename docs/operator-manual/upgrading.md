@@ -164,8 +164,54 @@ A failed backend build is not cached, but no controller watches the CA Secret an
 error does not requeue. After fixing a Secret that failed the sink, change any annotation on
 the sink, for example `kubectl annotate <sink kind> <name> ca-fixed-at="$(date +%s)" --overwrite`:
 the probe runs again, and the inventories that reference the sink reconcile and build its
-backend on their next export. A backend that already built keeps its CA until the sink spec
-changes.
+backend on their next export.
+
+Rollback to v0.21.x restores the old behaviour; nothing is persisted.
+
+### Sink Secret rotation (after v0.21.0)
+
+From v0.22.0 the operator picks up a changed sink Secret without a restart. Each export, and
+each cleanup that builds the backend, reads the metadata of every Secret the sink references (credential, database and CA
+Secrets) from the API server, not from the informer cache. When one changed since the backend was
+built, that export builds a new backend from the current values. Exports already running finish
+on the old backend, which is closed after the last of them ends. A deleted or emptied Secret
+now fails the export instead of being ignored.
+
+| Before (v0.21.x) | After (v0.22.0) |
+| --- | --- |
+| Rotated credential or CA Secret: old value used until spec change, sink delete, restart or 48 h idle | New value used from the next export |
+| Deleted referenced Secret: exports keep working on the cached backend | Next export fails (retryable), naming the Secret |
+| Entirely empty referenced Secret: same as above; S3/GCS fall back to the pod's ambient AWS credentials on the next build | Next export fails (retryable), naming the Secret. A Secret that has other keys but no access key still falls back, as before |
+| Cross-namespace `secretRef` under `--watch-namespaces`: build fails ("unknown namespace for the cache") | Export path reads through the API reader and works; the connection probe still reads through the cache |
+| Git sink, credentials rotated away, inventory deleted with Retain: release used cached credentials | Release fails and the inventory stays `Terminating` until the Secret is fixed or `kollect.dev/force-cleanup: "true"` is set |
+| Kafka/NATS sink with a deleted Secret, inventory deleted | Unchanged: retained without contacting the sink |
+| `caSecretRef` Secret emptied entirely: terminal "none of the CA keys" error on the next build | Retryable "has no data" error on the next export (a Secret with other keys but no CA key keeps the terminal error) |
+| Spec change while another export used the backend: backend closed under it | Closed after that export releases it |
+| Inventory with `exportMinInterval: 0s`, every sink export fails transiently: no timed retry | Retried every 30 s (`ZeroIntervalWatchdog`) until it succeeds; a successful, unchanged `0s` inventory is still not re-exported, and a Secret change alone still does not trigger an export |
+
+What to know before upgrading:
+
+- **When a rotation takes effect.** A Secret change alone never triggers an export. With an
+  export interval above `0s` the next export, and so the new value, comes within the interval.
+  With `exportMinInterval: 0s` ("export only on material change") it comes with the next material
+  change, spec generation change or `kollect.dev/requestedAt` change.
+- **Empty means entirely empty.** A Secret counts as emptied when its data holds no non-empty
+  value. Only then does S3 or GCS stop falling back to ambient credentials. Check that no S3 or GCS
+  sink relies on an empty `secretRef` Secret for ambient credentials; point those at a Secret with
+  keys, or remove the `secretRef`.
+- **Errors carry no values.** A deleted or emptied Secret gives
+  `secret "<name>" not found in namespace "<namespace>"` or `… has no data`, on status, Events
+  and logs. `kollect-pipeline` prints the same "has no data" text for an empty Secret manifest
+  before it builds a backend.
+- **Cleanup.** Kafka and NATS sinks retain on inventory deletion without reading the Secret.
+  Git, GitLab, database sinks and S3/GCS cleanup that retracts objects (`deletionPolicy: Delete`,
+  identity not shared) need the Secret to clean up: restore it, or set `kollect.dev/force-cleanup: "true"` on the deleting inventory and accept
+  that the exported objects stay.
+- **Terminal errors still need a nudge.** No controller watches Secrets and a terminal error does
+  not requeue. After fixing a Secret behind a terminal error (a Git `401`/`403`, a CA Secret with
+  data but no CA key), change any annotation on the sink as in
+  [Sink CA trust](#sink-ca-trust-after-v0210).
+- **No RBAC change.** The metadata read uses the existing `get` on `secrets`.
 
 Rollback to v0.21.x restores the old behaviour; nothing is persisted.
 
