@@ -262,7 +262,11 @@ content_checks() {
     *) bad "PAC-4: rg failed (exit ${rc}) while scrubbing ${label}" ;;
     esac
   fi
-  if grep -E '(^|[^A-Za-z0-9_.~-])/(home|Users)/[A-Za-z0-9._-]+' "${f}" >/dev/null; then
+  # /home/<user> and /Users/<user>, also under /var (rpm-ostree systems), root's home, and a
+  # Windows profile (C:\Users\<user>, either slash, any case).
+  if grep -E -e '(^|[^A-Za-z0-9_.~-])(/var)?/(home|Users)/[A-Za-z0-9._-]+' \
+    -e '(^|[^A-Za-z0-9_.~-])/root(/|[[:space:]]|$)' "${f}" >/dev/null ||
+    grep -Ei '(^|[^A-Za-z0-9_])[a-z]:[\/]users[\/][a-z0-9._-]+' "${f}" >/dev/null; then
     bad "PAC-4: ${label} names a home path"
   fi
   if grep -E '(^|[^A-Za-z0-9_])~/' "${f}" >/dev/null; then
@@ -840,6 +844,9 @@ expect_red "PAC-4 rg missing" "PAC-4: rg not found" true
 # --- PAC-4 paths, ignore rules, headers, markers, gitleaks ---------------------------------------
 expect_red "PAC-4 home path /home" "PAC-4: AGENTS.md (disk) names a home path" plant "see /home/someone/x"
 expect_red "PAC-4 home path /Users" "PAC-4: AGENTS.md (disk) names a home path" plant "see /Users/someone/x"
+expect_red "PAC-4 home path /var/home" "PAC-4: AGENTS.md (disk) names a home path" plant "see /var/home/someone/x"
+expect_red "PAC-4 home path /root" "PAC-4: AGENTS.md (disk) names a home path" plant "see /root/x"
+expect_red "PAC-4 home path C:\\Users" "PAC-4: AGENTS.md (disk) names a home path" plant 'see C:\Users\someone\x'
 expect_red "PAC-4 home path ~/" "PAC-4: AGENTS.md (disk) names a ~/ path" plant "see ~/x"
 for h in "${HARNESS_PATHS[@]}"; do
   expect_red "PAC-4 harness path ${h}" "PAC-4: AGENTS.md (disk) names the gitignored harness path '${h}'" plant "see ${h}GUIDE"
