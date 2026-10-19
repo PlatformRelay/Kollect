@@ -1,7 +1,7 @@
 # Loop — mutation-testing-signal (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/mutation-testing-signal` · Branch: `feat/mutation-testing-signal` · Base: `origin/main` @ `3c01608ff` (changes 7 and 8 merged) · Started: 2026-10-19 · Reviewers: astra + claude (duo)
-Next: B — branch review (round 1, fixes, round 2 if a CRITICAL is accepted), then hand-off
+Next: hand-off — integrator: ready PR, all checks green, merge; post-merge: main CI by headSha, first scheduled mutation run (01:30 UTC) + report artifact; forced-failure night via MUTATION_FORCE_FAILURE; archive after
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 9 of 10 (issue #446). Spec set: proposal.md, specs/mutation-testing/spec.md, tasks.md.
@@ -12,7 +12,7 @@ Change 9 of 10 (issue #446). Spec set: proposal.md, specs/mutation-testing/spec.
 - [x] P plan + tasks — present; spec set updated fa3fdf389 (re-measure, decisions A/A/A, red-first order with given/when/then cases)
 - [x] R spec-set review — round 1 (9a5426f3a): astra BLOCK, opus CONCERNS; V1-V5 CRITICAL (config extensions, inert CLI/env thresholds, fail-open scans, unpinned commands, env narrowing) verified by a scratch gremlins probe and fixed with V6-V15 (2b14ee6c2), V7 partly rejected, V16 no action. Round 2 (last, 2b14ee6c2): astra BLOCK, opus CONCERNS; R2-1..R2-13 all fixed, unreviewed (task skip keys, lint reaching `task mutation`, report hand-off). No CRITICAL remains open
 - [x] L task loop — 0.1, 1.1, 2.1–2.8 closed (3.1 is hand-off); probe finding F1: warm test cache made every mutant TIMED OUT → runner exports GOFLAGS=-count=1
-- [ ] B branch review — `reviews/B-branch/round-N/` · rounds: 0 · verdict: pending
+- [x] B branch review — round 1: task check 1 red (consistency_toolchain_pins --self-test nested bump, passes alone on branch and base → ENVIRONMENT, /tmp pressure); astra BLOCK (B1 CRITICAL all-timed-out read as green → fixed: formatter fails no-kill/no-live packages, --timeout-coefficient=10), opus CONCERNS; fixes 4.1–4.7 reviewed (astra APPROVE); round 2 (last): astra BLOCK, opus CONCERNS — R2-1..3 fixed unreviewed (cap). No CRITICAL open. HEAD c2781dfb1
 - [ ] Hand-off — pending · `pr-description.md` · PR: none
 
 ## Fitness functions
@@ -192,6 +192,12 @@ Carried over from change 4 (cross-file-consistency-gates):
 - Renovate: the LAST matching rule wins, so a group rule must be the last groupName-setting rule; prove grouping with a local `renovate --platform=local` lookup dry-run (~1 min) (G1)
 
 ## Where a human should look first
+
+- `.github/workflows/mutation.yaml` (new scheduled, report-only) and its guard — report-only must not be bypassable
+- `hack/ci/mutation-*.sh` — runner pins `--config` (committed `{}`), all 11 mutator flags, `GOFLAGS=-count=1`, `--timeout-coefficient=10`, refuses `GREMLINS_` env; fails a package with nothing killed or lived
+- `MUTATION_FORCE_FAILURE` knob — repo variable used once for the post-merge forced-failure proof
+- `.github/workflows/ci-failure-report.yaml`, `hack/test/ci_failure_report_test.sh`, `hack/test/ci_workflow_security_test.sh` — test changes on other changes' guards
+- lint job: +4–5 min (new guard self-test ~250–320 s) → ~18 min, close to tool-pins-selftest (~20 min)
 
 <!-- filled at hand-off -->
 
