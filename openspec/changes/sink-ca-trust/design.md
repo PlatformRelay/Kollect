@@ -59,9 +59,12 @@ After `pgxpool.ParseConfig(dsn)` (`pool.go:17`), when a CA is configured:
    pgx's default `prefer` and its `sslnegotiation=direct` rewrite never apply. Explicit `disable`,
    `allow` or `prefer` → reject, naming the mode, its source (DSN or `PGSSLMODE`) and the fix
    (`sslmode=verify-full`, `verify-ca` or `require`; `verify-ca` when the DSN host does not match
-   the certificate SAN). An accepted mode is pinned the same way (stage-B fix 8.5): pgx parses
-   `require` and `prefer` with `sslnegotiation=direct` to the same shape, so no backstop could tell
-   them apart if the key read and pgx disagreed. Then parse. Backstops: a parsed `TLSConfig == nil` or a fallback with a nil
+   the certificate SAN). An accepted mode is pinned the same way, in front of the DSN keys
+   (stage-B fix 8.5): pgx parses `require` and `prefer` with `sslnegotiation=direct` to the same
+   shape, so no backstop could tell them apart if the key read and pgx disagreed. A later DSN mode
+   the key read missed still wins in pgx; it is never weaker than the pinned one (plaintext is
+   rejected below, `prefer`+`direct` gets the `require` chain check, and verify-full rejects a
+   config without the hostname check). Then parse. Backstops: a parsed `TLSConfig == nil` or a fallback with a nil
    `TLSConfig` → reject (a weak mode the key read missed); a parsed `TLSConfig.RootCAs` that is
    non-nil before kollect sets it → reject as a conflict.
 3. For the main config and every fallback with a TLS config: set `RootCAs` to the appended pool. A

@@ -311,7 +311,9 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
 - [x] 8.5 D2: pin the effective Postgres sslmode in the DSN handed to pgx, so `require` and
   `prefer`+`sslnegotiation=direct` cannot be confused. — closed 2026-10-19:
   `TestCADSN_pinsEffectiveSSLMode` red on the `PGSSLMODE` and service-entry cases (caDSN's output
-  parsed on its own fell back to plaintext), green after; Postgres unit and PI1-PI6 green.
+  parsed on its own fell back to plaintext), green after; Postgres unit and PI1-PI6 green. It is a
+  property test (the output states its own mode); no DSN that splits the reader and pgx is known,
+  so none is in the table.
 - [x] 8.6 D3/O2: delete the unused third CA resolver `internal/controller/secret_ca.go`. — closed
   2026-10-19: no caller outside its own test (`grep resolveCAPEM internal/controller`); build and
   vet clean.
@@ -327,6 +329,10 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
   `ErrRedirectFailed` for those. — closed 2026-10-19:
   `TestCATrustIntegration_redirectFailuresWithholdTarget` red in all three cases, green after;
   dropping either detection branch fails it again.
+- [x] 8.10 Fix review notes: the 8.5 comment and design note claimed `applyCA` judges a missed DSN
+  mode (it cannot tell `require` from `prefer`+`direct`; the comment now says why such a mode is
+  never weaker), and the `ResolveSinkSecretData` doc still put `spec.secretRef` first. Wording
+  only. — closed 2026-10-19.
 
 ## Verification
 
