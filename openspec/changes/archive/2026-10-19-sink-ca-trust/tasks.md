@@ -285,9 +285,10 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
 
 ## 7. Land
 
-- [ ] 7.1 Integrator: `task check` on the tip; `task test-integration` (or CI `test-integration`
+- [x] 7.1 Integrator: `task check` on the tip; `task test-integration` (or CI `test-integration`
   with every new integration test in its `=== RUN` list and none skipped); branch review; PR
   closing SINK-CA-UNUSED-01's issue; after review and green CI, archive as the last commit.
+  — closed 2026-10-19: PR #478, all checks green on `6d7850841`; archived as the last commit.
 
 ## 8. Stage-B fixes
 
@@ -352,14 +353,15 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
 | SCT-2 | mutation: leave unset sslmode at pgx's default | D3b and PI6 fail | pass | `evidence/G3.md` mutants 1, 2 |
 | SCT-2 | PI1-PI5 (`-tags integration`) | verify-full trusted, require/verify-ca verified, hostname rule per mode, P trusted, recovery | pass | `evidence/G3.md` rows 9-12, 14 |
 | SCT-2 | mutation: skip the `sslrootcert` check; skip the `require` upgrade | D1 fails; PI2 fails | pass | `evidence/G3.md` mutants 3, 4 |
-| SCT-3 | M1-M8 (`go test -v ./internal/sink/mongodb/`) | conflicts and aliases rejected, backstop holds, SRV accepted, no DNS, no sentinel | not-run | |
-| SCT-3 | MI1-MI3 (`-tags integration`) | private CA trusted, Y refused, P trusted | not-run | |
-| SCT-3 | mutation: accept `sslInsecure=true`; drop the post-`ApplyURI` backstop | M4 fails; M7 fails | not-run | |
-| SCT-4 | P1-P3, R1, D7, M5, S2 | terminal errors, no PEM echoed | not-run | |
+| SCT-3 | M1-M8 (`go test -v ./internal/sink/mongodb/`) | conflicts and aliases rejected, backstop holds, SRV accepted, no DNS, no sentinel | pass | `evidence/G4.md` rows 1-9 |
+| SCT-3 | MI1-MI3 (`-tags integration`) | private CA trusted, Y refused, P trusted | pass | `evidence/G4.md` rows 10-12; PR #478 head `6d7850841`, CI run 39281703457 `test-integration`: expected 66, executed 66, skipped 0 |
+| SCT-3 | mutation: accept `sslInsecure=true`; drop the post-`ApplyURI` backstop | M4 fails; M7 fails | pass | `evidence/G4.md` mutants 5, 2 |
+| SCT-4 | P1-P3, R1, D7, M5, S2 | terminal errors, no PEM echoed | pass | `evidence/G1.md` rows 5-10; `evidence/G3.md` row 7; `evidence/G4.md` row 5; `evidence/G2.md` row 3 |
 | SCT-4 | mutation: resolver returns nil on a missing key | R1 fails | pass | `evidence/G1.md` mutant 1 |
 | SCT-5 | R2, C1a, C1b, C2, C3 and the 5.1 mutations | same shared error on both paths, exit 2 after collection, no write | pass | `evidence/G5.md` rows 1-6 |
 | SCT-5 | no-op mutation control | survives | pass | `evidence/G5.md` mutant 0 |
-| SCT-1..5 | `go test -race -count=3` on changed packages | pass | not-run | |
+| SCT-1..5 | `go test -race -count=3` on changed packages | pass | pass | `evidence/G1.md` row 16, `G2.md` row 14, `G3.md` row 19, `G4.md` row 18, `G5.md` row 9 |
 | SCT-6 | `task lint:markdown`, `hack/test/docs_*`, `task verify` | 0 issues, green | pass | `evidence/G6.md` rows 12-13 |
 | SCT-6 | FR-EXP-7 read against `registry.go` | lists exactly the CA-applying types | pass | `evidence/G6.md` row 1 |
-| all | independent review (reviewer, revision, verdict) | recorded before merge | not-run | |
+| all | independent review (reviewer, revision, verdict) | recorded before merge | pass | `reviews/B-branch/round-1/verification.md`; `reviews/B-branch/round-2/verification.md` on `ba80c8023` (astra REQUEST_CHANGES, one WARNING, fixed in 8.11 `bd7f93ace`; opus CLEAN) |
+| all | CI on the PR head (pre-merge) | every check green | pass | PR #478 head `6d7850841`, CI run 39281703457: `test-integration` expected 66, executed 66, skipped 0; `lint`, `vulncheck`, `sonarcloud` green; Docs run 39281703380 `Verify and build docs` green; SonarCloud Code Analysis quality gate passed; 44 checks pass, Pages deploy skipped |
