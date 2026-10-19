@@ -73,6 +73,10 @@ Errors on the acquire path:
 
 - Secret not found: the existing text `secret %q not found in namespace %q`, unclassified
   (transient, as today, `internal/sink/export.go:96-108`, `internal/errors/errors.go:86-106`).
+  This holds for the metadata GET too: `secretMeta` maps its API NotFound to that plain error,
+  as `ResolveSecret` does (`credentials.go:43-46`). Left as an API status, `ClassOf` classes a
+  NotFound terminal (`internal/errors/errors.go:99-101`; probe 0.1 finding 7), and a terminal
+  export error never requeues, so a deleted Secret would never be retried.
 - Secret found but `Data` is empty or every value in it is empty: `secret %q in namespace %q has
   no data`, unclassified. The same check runs in `ResolveSecret`, so the probes and the
   pool-disabled path give the same error.
@@ -142,6 +146,27 @@ what they need to authenticate (a DSN, a token, static AWS keys) for their own l
 ends at the next Secret change. The key holds a digest of metadata only. The informer cache's own
 copy of Secrets (the probes and other controllers read through it) is unchanged.
 
+## Zero export interval (SCR-7)
+
+`exportMinInterval: 0s` means "export only on material change": the coalesce skip holds for an
+unchanged inventory however much time passes (`internal/controller/per_sink_export.go:85-87`).
+So for a `0s` binding a Secret change alone never causes an export; the rotation takes effect
+with the next material change, spec generation or `kollect.dev/requestedAt` change. That stays
+(model-aligned decision 2026-10-19, `rotation-zero-interval`, option B), and the docs say it.
+
+What changes is the retry after a failure. On a total export failure both reconcilers return
+`RequeueAfter: r.exportDebounce(inv)` (`kollectinventory_controller.go:652` in
+`setInventoryDegraded`, `kollectclusterinventory_controller.go:713` in `setDegraded`), which is
+0 for an inventory-level `0s`, so a transient failure (a deleted or emptied Secret, SCR-2) is
+never retried on a timer. Both return `validation.RequeueAfterForZeroInterval(r.exportDebounce(inv))`
+instead, which keeps a positive interval and turns 0 into `validation.ZeroIntervalWatchdog`
+(30 s). The terminal branch keeps setting `RequeueAfter = 0` after the call
+(`kollectinventory_controller.go:262-264`, cluster `:224-226`), so terminal errors still do not
+requeue. A failed export never calls `record` (`kollectinventory_controller.go:434-442`), so
+the retry is not skipped: the payload checksum differs from the last successful one, or no
+state exists yet. Partial failures already requeue through `outcome.RequeueAfter`, which
+successful and debounced `0s` bindings set to the watchdog (`:368`, `:449-450`).
+
 ## Logging
 
 A rebuild caused by a Secret change logs once at info on the `sink` logger: sink namespace and
@@ -170,5 +195,6 @@ found in config directory" text for a missing Secret, CSC-3).
 | Kafka/NATS sink with a deleted Secret, inventory deleted | Unchanged: retained without contacting the sink |
 | `caSecretRef` Secret emptied entirely: terminal "none of the CA keys" error on the next build | Retryable "has no data" error on the next export (a Secret with other keys but no CA key keeps the terminal error) |
 | Spec change while another export used the backend: backend closed under it | Closed after that export releases it |
+| Inventory with `exportMinInterval: 0s`, every sink export fails transiently: no timed retry | Retried every 30 s (`ZeroIntervalWatchdog`) until it succeeds; a successful, unchanged `0s` inventory is still not re-exported, and a Secret change alone still does not trigger an export |
 
 Rollback to v0.21.x restores the old behaviour; nothing is persisted.

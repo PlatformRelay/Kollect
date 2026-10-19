@@ -12,7 +12,10 @@ the pooled backend was built, the next export or cleanup that acquires the sink'
 build a new backend from the current Secret values and SHALL NOT use the old one. The pool SHALL
 read these Secrets from the API server, not from the informer cache, so a Secret change SHALL take
 effect on the first export attempt that starts after the change was written, without a restart, a
-spec change or a sink delete.
+spec change or a sink delete. For a binding with an export interval > 0 that attempt comes within
+the interval. For a binding whose interval is `0s` ("export only on material change") a Secret
+change alone SHALL NOT trigger an export; the change takes effect at the next export that a
+material change, a spec generation change or a `kollect.dev/requestedAt` change causes.
 
 #### Scenario: Rotated database password is used by the next export
 
@@ -75,7 +78,9 @@ pooled backend, and the export or cleanup SHALL fail without contacting the sink
 stream sink (Kafka, NATS), which never contacts the sink, SHALL decide retained before reading
 any Secret. The error SHALL
 be retryable (not terminal), so the export succeeds again once the Secret is restored, without a
-change to the sink. An S3 or GCS sink whose referenced Secret is empty SHALL NOT fall back to
+change to the sink; this holds for the uncached metadata read too, whose not-found result SHALL
+carry the same retryable error and not a terminal API status. For an inventory whose interval is
+`0s`, the retry comes from SCR-7. An S3 or GCS sink whose referenced Secret is empty SHALL NOT fall back to
 ambient credentials. A metadata read that fails for any other reason (timeout, cancelled
 context, forbidden) observed no change: it SHALL fail that acquire only and SHALL NOT retire the
 pooled backend.
@@ -234,7 +239,10 @@ run from the config directory, so a changed Secret manifest takes effect on the 
 
 The sink reference pages, the security architecture and the troubleshooting page SHALL state that
 a Secret change takes effect on the next export, that a deleted or emptied Secret stops exports
-until restored, and that a Secret change alone does not trigger an export. The upgrade notes
+until restored, and that a Secret change alone does not trigger an export. They SHALL state that
+for an interval > 0 the next export comes within the interval, and that for `exportMinInterval:
+0s` ("export only on material change") it comes only with the next material change, spec
+generation or `kollect.dev/requestedAt` change. The upgrade notes
 SHALL carry a v0.22.0 entry with the compatibility table from `design.md`, and the sentences that
 say a built backend keeps its CA until the spec changes SHALL be removed.
 
@@ -242,3 +250,36 @@ say a built backend keeps its CA until the spec changes SHALL be removed.
 
 - **WHEN** the docs are searched across line breaks for "keeps its CA" (`rg -U 'keeps its\s+CA'`)
 - **THEN** there is no match
+
+### Requirement: SCR-7 A transient total export failure is retried when the interval is 0s
+
+When a `KollectInventory` or `KollectClusterInventory` whose inventory-level export interval is
+`0s` has an export in which every sink export failed and the aggregated error is not terminal,
+the reconcile SHALL return a requeue after `validation.ZeroIntervalWatchdog` (30 s). A terminal
+aggregated error SHALL NOT requeue, as today. An inventory with an interval > 0 SHALL keep its
+current requeue (its interval). An unchanged `0s` inventory whose last export succeeded SHALL NOT
+be exported again by this requeue or any other timer.
+
+#### Scenario: Deleted Secret under a zero interval is retried
+
+- **GIVEN** a `KollectInventory` with `exportMinInterval: 0s` bound to one sink
+- **WHEN** the sink's Secret is missing and the export fails with the retryable not-found error
+- **THEN** the reconcile result requeues after `validation.ZeroIntervalWatchdog`
+- **AND** after the Secret is created again the next reconcile exports successfully, with no change to the inventory or the sink
+
+#### Scenario: Cluster inventory under a zero interval is retried
+
+- **GIVEN** a `KollectClusterInventory` with `exportMinInterval: 0s` whose every sink export fails with a retryable error
+- **WHEN** it reconciles
+- **THEN** the result requeues after `validation.ZeroIntervalWatchdog`
+
+#### Scenario: Terminal failure under a zero interval is not requeued
+
+- **WHEN** every sink export of a `0s` inventory fails with a terminal error
+- **THEN** the reconcile result has no requeue
+
+#### Scenario: Unchanged, successfully exported zero-interval inventory is not re-exported
+
+- **GIVEN** a `0s` inventory whose export succeeded
+- **WHEN** it reconciles again with an unchanged payload, spec and `kollect.dev/requestedAt`, at any later time
+- **THEN** no sink export runs
