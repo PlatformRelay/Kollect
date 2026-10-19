@@ -1,7 +1,7 @@
 # Loop — public-agent-contract (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/public-agent-contract` · Branch: `feat/public-agent-contract` · Base: `origin/main` @ `3c01608ff` · Started: 2026-10-19 · Reviewers: astra + claude (duo)
-Next: R spec-set review on the spec-set commit (astra spec lens + claude/opus:spec)
+Next: G0 (0.1c, 0.2, 0.3 — 0.3 waits for change 9's merge), then G2 (1.1 + 2.1-2.4) in one commit
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in the maintainer's local decision log)
 
 Change 10 of 10 (issue #447). Spec set: proposal.md, specs/agent-contract/spec.md, tasks.md.
@@ -11,7 +11,7 @@ Lands after change 9 (PR #471) merges; the branch is rebased on it at task 0.3.
 
 - [x] 0 orient — re-measured against `origin/main` @ `3c01608ff` (2026-10-19); four decisions applied (rename ordering A, private loading A, hostname A, landing A)
 - [x] P plan + tasks — present; spec set updated cb93d3750 (re-measure, decisions, red-first order with given/when/then cases)
-- [ ] R spec-set review — `reviews/R-spec-set/` on <sha> · verdict: <…> · CRITICAL: <…>
+- [x] R spec-set review — round 1 (1c880b52f): astra BLOCK, opus CONCERNS; A-R2/A-R4/A-R5 CRITICAL (migration gate, index vs disk, `check-ignore` on tracked files) verified and fixed in 4685ebd33 with the rest (A-R1 partly rejected, O-9 partly rejected). Round 2 (last, 4685ebd33): astra CONCERNS, opus CONCERNS, no CRITICAL; all findings fixed, unreviewed. No CRITICAL remains open
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review — `reviews/B-branch/round-N/` · rounds: <n> · verdict: <…>
 - [ ] Hand-off — <date> · `pr-description.md` · PR: none
@@ -39,6 +39,8 @@ Holistic run at B: not run yet.
 | 0 | rename ordering A, private loading A, hostname A, landing A | decision | astra+opus | fix | spec set cb93d3750 | pending operator validation |
 | 0 | private loading A (ignored local `CLAUDE.md` loader) contradicts the old committed `CLAUDE.md` pointer: git replaces an ignored file on pull | spec | orchestrator | fix | PAC-2: `CLAUDE.md` stays untracked and ignored; Copilot pointer only | no |
 | 0 | the old spec's literal scrub-string mutants would red `task scrub` on the commit that stages them | spec | orchestrator | fix | PAC-4/PAC-5: mutants built at run time | no |
+| R1 | A-R1..A-R10, O-1..O-13 (`reviews/R-spec-set/verification.md`) | 3 CRITICAL | astra+opus | fix (A-R1, A-R9, O-9 in part) | spec set 4685ebd33 | no |
+| R2 | A2-1..A2-5, O2-1..O2-10 (`reviews/R-spec-set/round-2/verification.md`) | none CRITICAL | astra+opus | fix | spec set, last round, unreviewed: stage B checks the PAC-6 skip rules and self-test cost | no |
 
 ## Tasks
 
@@ -62,6 +64,9 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 |---|---|---|---|
 
 ## Lessons
+
+- R: plain `git check-ignore` never reports a tracked file, and it reads the global excludes file; use `git -c core.excludesFile=/dev/null check-ignore --no-index` in guards (R)
+- R: a committed task prompt copied from another change can carry literal scrub patterns or machine names; re-scrub it on copy (R)
 
 <!-- master list: one line per reusable lesson with the task ids that hit it; two or more ids → a proposed harness change at hand-off -->
 

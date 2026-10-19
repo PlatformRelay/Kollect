@@ -13,8 +13,11 @@ The repository SHALL contain a tracked `AGENTS.md` at the root with: the command
 `task test`, `task lint`, `task verify`, `task check`, `task scrub`, `task lint:markdown` and
 `task spec:validate`; every `task <name>` it names in a code span or code fence (flags and
 leading `VAR=value` assignments skipped) SHALL be defined (as `task --list-all` reports it); a
-list of the gates the full local gate runs that SHALL name exactly the gate names `hack/check.sh`
-passes to `run_gate` (so a gate added or removed later reds the test until `AGENTS.md` follows);
+list of the gates the full local gate runs, between the lines `<!-- gates:start -->` and
+`<!-- gates:end -->`, that SHALL name (one code span per gate) exactly the gate names
+`hack/check.sh` passes to `run_gate` (the first argument of each non-comment `run_gate` call, not
+the `run_gate()` definition), so a gate added or removed later reds the test until `AGENTS.md`
+follows;
 the CI-enforced rules that exist on `main` when the change lands; the commit and merge
 conventions (linking `CONTRIBUTING.md`); the spec workflow (linking
 `docs/development/spec-workflow.md`); and the checklists of PAC-3. Every relative link in it SHALL
@@ -65,17 +68,18 @@ replaces an ignored file with a tracked one on pull without warning.
 
 ### Requirement: PAC-3 Checklists say where else to change
 
-`AGENTS.md` SHALL include "when adding X, update these places" checklists for at least: a CRD
-field, a metric and a sink, and every repository path and every code symbol named in them SHALL
+`AGENTS.md` SHALL include "when adding X, update these places" checklists under the headings
+`### When adding a CRD field`, `### When adding a metric` and `### When adding a sink`, and every repository path and every code symbol named in them SHALL
 exist in the tree. A path is a code-span token containing `/`; a `<placeholder>` segment is read
 as `*` and a glob SHALL match at least one tracked file. A symbol is a code-span Go identifier
-named on the same checklist line as a `.go` path, and SHALL be declared (`func`, `type`, `var` or
-`const`) in that file.
+named on the same checklist line as one or more `.go` paths, and SHALL be declared in at least one
+of them (a `func` including a method, a `type`, or a `var`/`const`, also inside a grouped
+`var (`/`const (` block).
 
 #### Scenario: Metric checklist
 
 - **WHEN** a reader adds a metric
-- **THEN** the checklist names `internal/metrics/metrics.go`, the `Catalog` and `registeredMetricNames` lists, and `docs/operator-manual/metrics.md`
+- **THEN** the checklist names `internal/metrics/metrics.go`, `Catalog` in `internal/metrics/metrics_catalog.go`, `registeredMetricNames` in `internal/metrics/metrics_catalog_test.go`, and `docs/operator-manual/metrics.md`
 
 #### Scenario: Stale reference
 
@@ -125,7 +129,7 @@ pattern as a literal: it reads them from `hack/scrub-patterns.txt` at run time.
 
 #### Scenario: Ignore rules
 
-- **WHEN** `.gitignore` ignores `AGENTS.md` again, or stops ignoring any of `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.local.md`, `agent-context/`, `.claude/`, `.agents/` or `.cursor/` (evaluated with `git check-ignore --no-index`, directories probed through a child path, because plain `git check-ignore` does not report tracked files)
+- **WHEN** `.gitignore` ignores `AGENTS.md` again, or stops ignoring any of `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.local.md`, `agent-context/`, `.claude/`, `.agents/` or `.cursor/` (evaluated against the repository's `.gitignore` only, with `git -c core.excludesFile=/dev/null check-ignore --no-index` and an empty `.git/info/exclude` in the copy, directories probed through a child path; plain `git check-ignore` does not report tracked files, and a global excludes file would make the result machine-dependent)
 - **THEN** the test SHALL fail
 
 #### Scenario: Private local file would be un-ignored
@@ -135,12 +139,12 @@ pattern as a literal: it reads them from `hack/scrub-patterns.txt` at run time.
 
 #### Scenario: OpenSpec markers
 
-- **WHEN** a committed agent file contains an OpenSpec managed-block marker (`<!-- OPENSPEC:START -->` or similar)
+- **WHEN** a committed agent file contains `<!-- OPENSPEC:START -->` or `<!-- OPENSPEC:END -->` (case-insensitive)
 - **THEN** the test SHALL fail, because OpenSpec's legacy cleanup rewrites root `AGENTS.md` and `CLAUDE.md`; the contract is hand-written
 
 #### Scenario: Agent files are secret-scanned
 
-- **WHEN** any `.github/gitleaks.toml` allowlist path regex matches `AGENTS.md`, `CLAUDE.md` or `.github/copilot-instructions.md` (each regex evaluated against each path, not a text search)
+- **WHEN** any allowlist path regex in `.github/gitleaks.toml`, in any table form gitleaks reads (`[allowlist]`, `[[allowlists]]`, `[[rules.allowlists]]`), matches `AGENTS.md`, `CLAUDE.md` or `.github/copilot-instructions.md` (each regex evaluated against each path with a PCRE-compatible matcher such as `grep -P`, which fails the test on a regex error, not a text search)
 - **THEN** the test SHALL fail, because a committed agent file must not be exempt from secret scanning
 
 ### Requirement: PAC-5 The test can fail
@@ -149,10 +153,12 @@ pattern as a literal: it reads them from `hack/scrub-patterns.txt` at run time.
 PAC-1, PAC-2, PAC-4 and PAC-6 and for the PAC-3 stale-reference and checklist-entry cases (the
 fresh-clone scenario is covered by the missing-file mutant; the dry-run scenario is evidence,
 not a mutant). Each mutant SHALL red the plain check with the diagnostic of the clause it
-targets; the self-test SHALL fail when a mutant stays green or reds with another clause's
-diagnostic. A no-op copy SHALL pass. Mutant strings for scrub patterns and hostnames SHALL be
-built at run time. The PAC-6 empty-pattern-set mutant expects the copy's own `--self-test` to
-fail, and it SHALL NOT recurse: the nested self-test it starts skips that mutant.
+targets (other diagnostics may appear too); the self-test SHALL fail when a mutant stays green or
+reds without its target diagnostic. A no-op copy SHALL pass. Mutant strings for scrub patterns and
+hostnames SHALL be built at run time. Mutants that change the guard itself (the PAC-6
+empty-pattern set, the PAC-4 fixed-string matcher) expect the copy's own `--self-test` to fail
+for the reason they name, and SHALL NOT recurse: a nested self-test runs with
+`AGENT_CONTRACT_NESTED=1` and skips every mutant that would start another nested self-test.
 
 #### Scenario: Mutant survives
 
@@ -161,7 +167,7 @@ fail, and it SHALL NOT recurse: the nested self-test it starts skips that mutant
 
 #### Scenario: Wrong clause
 
-- **WHEN** a mutant reds the plain check only because of an unrelated failure (a missing tool, an unloadable Taskfile, another clause)
+- **WHEN** a mutant reds the plain check only with an unrelated diagnostic (a missing tool, an unloadable Taskfile, another clause) and not with its target diagnostic
 - **THEN** the self-test SHALL fail and name the mutant
 
 #### Scenario: No-op copy
@@ -175,12 +181,16 @@ Committed agent files SHALL NOT contain, matched case-insensitively by a generic
 the test in addition to `hack/scrub-patterns.txt`: a host whose last DNS label is `internal`,
 `local`, `lan` or `home.arpa` (a label ends at a character outside `[a-z0-9-]`; `cluster.local`
 service names, `localhost` and file names such as `mise.local.toml` are allowed); an IPv4 address
-in `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` or `169.254.0.0/16` (valid octets only); a
-line starting with an SSH `Host` directive; or a `user@host:` address other than
-`git@github.com:`. They SHALL NOT contain the short hostname of the machine running the test, read
+in `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16` or `100.64.0.0/10` (valid
+octets only), or an IPv6 unique-local address (`fc00::/7`); a line starting with an SSH `Host`
+directive; or an scp-style `user@host:path` address (no `://` before the `@`, the host not
+followed by a port number), other than `git@github.com:` (image digests such as
+`kollect@sha256:` and URLs with credentials are not this form). They SHALL NOT contain the short hostname of the machine running the test, read
 at run time (`AGENT_CONTRACT_HOSTNAME` overrides it for tests), matched case-insensitively as a
 whole word; the check is skipped with a printed reason when the name cannot be read, is shorter
-than 4 characters, is `localhost`, or is a task name `task --list-all` reports. This check is
+than 4 characters, is `localhost`, is a task name `task --list-all` reports, or occurs as a
+whole word in a tracked Markdown file other than the agent files (an ordinary word, such as
+`operator`). A contributor may set `AGENT_CONTRACT_HOSTNAME=` (empty) to skip it. This check is
 supplementary: it sees only the machine it runs on, and the independent review covers other
 machines' names. No hostname is written into a tracked file.
 
@@ -196,7 +206,7 @@ machines' names. No hostname is written into a tracked file.
 
 #### Scenario: Allowed look-alikes
 
-- **WHEN** `AGENTS.md` contains `svc.cluster.local`, `localhost`, `mise.local.toml`, `git@github.com:` and a public example address
+- **WHEN** `AGENTS.md` contains `svc.cluster.local`, `localhost`, `mise.local.toml`, `git@github.com:`, `kollect@sha256:`, `postgres://user:pass@db.example:5432/x` and a public example address
 - **THEN** the test SHALL pass
 
 #### Scenario: Pattern set can fail
