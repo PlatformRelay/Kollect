@@ -36,12 +36,15 @@ Two further defects sit on the same path:
 ## What Changes
 
 - SCR-1: the pool key covers every Secret the build reads. On each acquire the pool reads the
-  referenced Secrets' metadata (namespace, name, UID, `resourceVersion`) through the manager's
-  cached client and folds it into the fingerprint. A changed Secret (credentials `secretRef`,
+  referenced Secrets' metadata (namespace, name, UID, `resourceVersion`) with an uncached
+  metadata-only GET through the manager's API reader and folds it into the key; only a changed key
+  fetches the values, and the rebuilt backend and its key come from the same objects
+  (model-aligned decision 2026-10-19, design *Option chosen*). A changed Secret (credentials `secretRef`,
   `git.auth.secretRef`, `kafka.secretRef`, `nats.secretRef`, `postgres.databaseRef`,
   `mongodb.databaseRef`, `bigquery.secretRef`, `tls.caSecretRef`) retires the pooled backend, and
   the export that noticed builds a new one from the current values. One function enumerates the
-  references, and both the build and the fingerprint use it.
+  references, and both the build and the key use it. Reading uncached also lets the export path
+  reach an allowlisted cross-namespace `secretRef` when `--watch-namespaces` restricts the cache.
 - SCR-2: a deleted referenced Secret, or one whose data holds no non-empty value, fails the
   acquire with an error that names the Secret and its namespace, and retires the pooled backend,
   so the export fails instead of running on cached credentials. The error is retryable (as a
@@ -51,9 +54,13 @@ Two further defects sit on the same path:
   under an export in flight. Pooled entries count their holders; a retired entry is removed from
   the pool at once (no new acquire gets it) and closed exactly once, when its last holder
   releases. A rebuild that fails after a Secret change still retires the old entry: no fallback to
-  stale credentials.
-- SCR-4: no credential value reaches a log line, Event, status condition or returned error on
-  these paths; the fingerprint and pool hold no Secret data.
+  stale credentials. A slower builder never replaces a newer pooled entry (store fence). Cleanup
+  for stream sinks (Kafka, NATS), which never contacts the sink, decides `Retained` before the
+  acquire, so a deleted Secret cannot block their inventory deletion.
+- SCR-4: no error or log line this change adds, and no status condition or Event that carries
+  one, contains a credential value; the key and the pool hold no Secret data, and a pool hit
+  transfers none. Errors a third-party client returns from its constructor or connect are passed
+  through as today (non-goal below).
 - SCR-5: operator and CLI behave the same where it applies (the empty-Secret rule); the CLI is
   otherwise unaffected, because `kollect-pipeline` builds one backend per context per run from the
   config directory and closes it (`internal/pipeline/wire.go:515-535`) and never uses the pool.
@@ -81,18 +88,20 @@ waits for an export that already holds the backend, which BEP-1 allowed to fail.
 - Entry points: `KollectInventory` and `KollectClusterInventory` exports through
   `RunExportEnvelope` (`internal/sink/export.go:89`) and the Retain/Delete cleanup through
   `internal/sink/cleanup.go:184`, both on `acquireBackend`, for every family sink
-  (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`) and the legacy
-  `KollectSink`. The connection probes (`internal/controller/family_sink_connection.go:49`,
+  (`KollectSnapshotSink`, `KollectDatabaseSink`, `KollectEventSink`, resolved by
+  `internal/sink/resolver.go:35`). The connection probes (`internal/controller/family_sink_connection.go:49`,
   `internal/controller/kollectconnectiontest_controller.go:91`) build a fresh backend per run and
   are unchanged. `kollect-pipeline collect` gains only the empty-Secret error.
 - Code: `internal/sink/backend_pool.go`, `build_context.go`, `credentials.go`, `export.go`,
-  `cleanup.go` (release handling), `internal/pipeline/wire.go` (empty rule). No CRD, RBAC or
+  `cleanup.go` (reader field, stream retain before acquire), the two inventory reconcilers and
+  `cmd/main.go` (API reader wiring), `internal/pipeline/wire.go` (empty rule). No CRD, RBAC or
   dependency change: the manager already has `get/list/watch` on Secrets
-  (`config/rbac/role.yaml:6-15`, marker `internal/controller/family_sink_controller.go:23`).
+  (`config/rbac/role.yaml:6-16`, marker `internal/controller/family_sink_controller.go:24`).
 - Behaviour change, release-noted for v0.22.0 (see SCR-6).
 - Tests: unit tests in `internal/sink` and `internal/pipeline`; envtest in `internal/controller`
-  for the Secret update and delete path through the inventory controller; a Postgres integration
-  test (testcontainers) for a real long-lived pool across a rotation.
+  for the Secret update and delete path through the inventory controller and for a
+  cross-namespace Secret under a restricted cache; a Postgres integration test (testcontainers)
+  for a real long-lived pool across a rotation; an S3 HTTPS test (httptest) for CA rotation.
 
 ## Non-goals
 
@@ -106,27 +115,38 @@ waits for an export that already holds the backend, which BEP-1 allowed to fail.
   caused one (for example a CA Secret with no CA key), the docs keep the "touch the sink" step.
   Missing and emptied Secrets are retryable, so they recover on their own.
 - Per-sink "required key missing" checks (a Secret that has data but lacks the key a sink needs).
-  Each sink keeps its own validation; only an entirely empty Secret is a new shared error.
+  Each sink keeps its own validation; only an entirely empty Secret is a new shared error. An
+  S3/GCS Secret that keeps other keys but drops both access keys still falls back to ambient
+  credentials, as today (release-noted).
 - The informer cache's own copy of Secrets. The manager already caches Secrets in the watched
-  namespaces (it reads them through the cached client); narrowing that cache is separate work.
+  namespaces (the probes read them through the cached client); narrowing that cache is separate
+  work.
+- A metric for the pool's Secret reads (suggested in the decision as load visibility); recorded
+  as a follow-up.
 - Cross-namespace `secretRef` enforcement at runtime (backlog SECRETREF-NS-RUNTIME-01).
 - Database sinks in the CLI (backlog CLI-DB-SINK-REACH-01).
-- Redacting third-party driver errors that exist today (MongoDB, see the `sink-ca-trust`
-  follow-up). This change adds no error that embeds a driver message with a connection string.
+- Redacting third-party client errors that exist today: a constructor or connect error (for
+  example a MongoDB URI parse error, `internal/sink/mongodb/backend.go:97-105`) can carry what the
+  Secret holds, after a rotation as before it (see the `sink-ca-trust` follow-up). This change
+  adds no error that embeds a client message or a connection string.
+- The legacy `KollectSink` kind: exports resolve only the three family kinds
+  (`internal/sink/resolver.go:35`); `KollectSinkSpec` is the internal shape they normalise to.
 
 ## Assumptions
 
-- The inventory reconcilers pass the manager's client to `RunExportEnvelope`, and that client
-  serves `Get` on a Secret from an informer cache, so a per-acquire metadata read costs no API
-  call. Believed from `cmd/main.go:190-203` (default `client.Options`, no `DisableFor`);
-  probe 0.1 verifies it.
+- The manager's API reader (`mgr.GetAPIReader()`) serves `Get` of a
+  `metav1.PartialObjectMetadata` for Secrets uncached, with the existing `get` verb, and the
+  controller-runtime fake client and envtest support the same call. Believed (controller-runtime
+  v0.24.1); probe 0.1 verifies it.
 - The API server keeps `resourceVersion` unchanged on a no-op update and changes it on every write
   that changes the object, and a delete-and-recreate changes the UID. Kubernetes API conventions;
   probe 0.1 checks it against envtest.
 - Exports run at least once per export interval: the coalesce skip ends when the interval is due
   (`internal/controller/kollectinventory_controller.go:360-368`). Believed; probe 0.1 verifies it.
-- `pgxpool.Pool.Close` blocks until acquired connections are returned (pgx v5.11.0,
-  `pgxpool/pool.go:468-470`, read 2026-10-19); the other long-lived clients (mongo-driver v1.17.10
-  `Disconnect`, kafka-go v0.4.51 `Writer.Close`, nats.go v1.54.0 `Conn.Close`, BigQuery v1.85.0
-  `Client.Close`) do not promise to wait for an operation in flight, which is why SCR-3 drains in
-  the pool instead of relying on each client. Probe 0.1 records each.
+- Close behaviour differs per client (read 2026-10-19): pgx v5.11.0 `Pool.Close` waits for
+  acquired connections (`pgxpool/pool.go:468-470`); mongo-driver v1.17.10 `Disconnect` waits unless
+  its context ends (`mongo/client.go:299-306`); kafka-go v0.4.51 `Writer.Close` flushes and waits
+  (`writer.go:551-554`); the NATS backend latches closed and fails the next call
+  (`internal/sink/nats/backend.go:90-100`). None of them protects a backend operation that makes
+  a new call after Close, which is why SCR-3 drains whole holds in the pool. Probe 0.1 records
+  BigQuery v1.85.0 `Client.Close`.
