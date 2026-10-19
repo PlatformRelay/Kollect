@@ -41,6 +41,10 @@ type sinkCoalesceState struct {
 	lastChecksum    string
 	lastGeneration  int64
 	lastRequestedAt string
+	// lastSkipped is when a 0s binding last skipped an unchanged payload. Such a binding never
+	// records again while it stays unchanged, yet its watchdog reconciles keep consulting the
+	// state, so pruning counts those skips as activity (SCR-7: no re-export after the TTL).
+	lastSkipped time.Time
 }
 
 type perSinkCoalesceTracker struct {
@@ -83,6 +87,8 @@ func (t *perSinkCoalesceTracker) shouldSkip(
 		return false
 	}
 	if interval == 0 {
+		state.lastSkipped = now
+
 		return true
 	}
 	if state.lastExport.IsZero() {
@@ -115,15 +121,15 @@ func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int6
 	state.lastRequestedAt = requestedAt
 }
 
-// pruneStaleLocked evicts entries that haven't recorded an export in
-// coalesceStateTTL. Callers must hold t.mu. Triggered opportunistically on
+// pruneStaleLocked evicts entries that haven't recorded an export, nor skipped
+// one under a 0s interval, in coalesceStateTTL. Callers must hold t.mu. Triggered opportunistically on
 // every record() (AR-11) so the map doesn't grow unbounded for long-lived
 // controller processes as inventories/sinks churn — entries for deleted
 // inventories/sinks stop receiving record() calls and age out the next time
 // any other key is recorded.
 func (t *perSinkCoalesceTracker) pruneStaleLocked(now time.Time) {
 	for k, state := range t.states {
-		if state == nil || now.Sub(state.lastExport) > coalesceStateTTL {
+		if state == nil || now.Sub(latestTime(state.lastExport, state.lastSkipped)) > coalesceStateTTL {
 			delete(t.states, k)
 		}
 	}
@@ -363,4 +369,13 @@ func latestExportTime(exports []kollectdevv1alpha1.InventorySinkExportStatus) *m
 		}
 	}
 	return latest
+}
+
+// latestTime returns the later of a and b.
+func latestTime(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+
+	return a
 }
