@@ -1,4 +1,7 @@
-# Input for docs/requirements-docs.txt (regenerate with pip-compile --generate-hashes).
+# Input for docs/requirements-docs.txt. Regenerate from the repository root with:
+#   uv pip compile --python-version=3.12 --generate-hashes --output-file=docs/requirements-docs.txt docs/requirements-docs.in
+# Keep every option in --opt=value form: Renovate replays the lock header and rejects a
+# space-separated value (hack/test/docs_lock_header_test.sh).
 mkdocs-material[imaging]==9.7.7
 mkdocs-redirects==1.2.3
 # GHSA-5xmw-vc9v-4wf2, GHSA-cfh3-3jmp-rvhc, GHSA-pwv6-vv43-88gr,
