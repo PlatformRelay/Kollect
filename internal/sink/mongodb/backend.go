@@ -16,7 +16,6 @@ import (
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
 	"github.com/platformrelay/kollect/internal/sink/cap"
-	"github.com/platformrelay/kollect/internal/sink/netguard"
 )
 
 const connectTimeout = 30 * time.Second
@@ -81,6 +80,7 @@ func NewBackend(
 	ctx context.Context,
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	databaseSecret map[string][]byte,
+	caPEM []byte,
 ) (*Backend, error) {
 	cfg, err := ConfigFromSpec(spec, databaseSecret)
 	if err != nil {
@@ -94,7 +94,12 @@ func NewBackend(
 		defer cancel()
 	}
 
-	client, err := mongo.Connect(connectCtx, options.Client().ApplyURI(cfg.URI).SetDialer(netguard.DefaultDialer))
+	opts, err := clientOptions(cfg.URI, caPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := mongo.Connect(connectCtx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("mongodb connect: %w", err)
 	}

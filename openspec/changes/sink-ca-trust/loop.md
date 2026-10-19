@@ -61,6 +61,7 @@ Holistic run at B: not run yet.
 | 1.1 + 1.2 (G1) | CLOSED | astra + claude/opus:diff, 2 rounds (`reviews/L-tasks/G1/`, `round-2/`); Claude leg: trust handling (dispatch) | defer to B: `internal/controller/secret_ca.go` third resolver (test-only caller) and `git.ValidateTLSSpec`'s own both-sources text |
 | 2.1 + 2.2 (G2) | CLOSED | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G2/`); Claude leg: TLS trust (dispatch). astra REQUEST_CHANGES (P1 missing request counter, fixed), opus CLEAN | B: `task lint` does not lint integration-tagged files (9 pre-existing findings in `export*_integration_test.go`) |
 | 3.1 + 3.2 (G3) | CLOSED-WITH-GAPS | astra + claude/opus:diff, 2 rounds (`reviews/L-tasks/G3/`, `round-2/`); Claude leg: TLS trust (dispatch). R1 astra BLOCK (bracketed-host misread, fixed), opus CONCERNS (backstops untested, no-CA error text, fixed); R2 astra BLOCK (empty `service=` precedence, fixed, not re-reviewed), opus CLEAN | B: read the round-2 fix (`caDSN` service presence); residual chain-only case when the reader sees a mode pgx does not (opus R2 N3) |
+| 4.1 + 4.2 (G4) | CLOSED | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G4/`); Claude leg: TLS trust (dispatch). astra APPROVE, opus CLEAN (4 notes, fixed: test and wording) | none; URI check lives in `clientOptions`, not `ConfigFromSpec` (`config.go` unchanged, `evidence/G4.md` *Notes*) |
 
 ## Known red
 
@@ -92,6 +93,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G3: a reader that mirrors a library parser drifts on key presence versus empty value and on syntax corners (bracketed hosts); assert the reader's own output on a table of edge spellings and keep a post-parse shape check.
 - G3: `net.Pipe` is unbuffered; a TLS client that rejects the certificate deadlocks against the server's flight until the context ends; give the server end a short deadline.
 - G3: run `go test` with `umask 022`; under 002, `t.TempDir()` is 0775 and `internal/sink/git`'s mirror guard fails.
+- G4: prove "no DNS lookup" for mongo-driver by swapping `dns.DefaultResolver.LookupSRV`/`LookupTXT` for test-failing functions in a serial test that runs the real build path; a check function without DNS code proves nothing.
+- G4: a parser-mirroring reader's differential table must include URIs the library refuses (an `@` in the query with no user info); a mutant survived until it did.
 
 ## Where a human should look first
 

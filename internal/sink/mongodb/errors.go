@@ -16,6 +16,22 @@ import (
 // wrapping with these sentinels changes no observable error message.
 var (
 	ErrUpsertFailed = errors.New("mongodb upsert")
+
+	// ErrCAFileConflict marks a mongodb sink that configures a spec.tls CA while its
+	// URI names a CA file of its own (tlsCAFile, sslCertificateAuthorityFile).
+	ErrCAFileConflict = errors.New("spec.tls: a CA is configured, so the mongodb URI's own CA file conflicts with it")
+
+	// ErrCATLSOff marks a mongodb sink that configures a spec.tls CA on a URI that
+	// does not use TLS, so the CA would never be checked.
+	ErrCATLSOff = errors.New("spec.tls: a CA is configured, but the mongodb URI does not use TLS")
+
+	// ErrCAInsecure marks a mongodb sink that configures a spec.tls CA on a URI that
+	// turns certificate verification off.
+	ErrCAInsecure = errors.New("spec.tls: a CA is configured, but the mongodb URI turns certificate verification off")
+
+	// ErrCAURIInvalid marks a mongodb URI whose TLS options cannot be read when a
+	// spec.tls CA is configured.
+	ErrCAURIInvalid = errors.New("spec.tls: a CA is configured, but the mongodb URI's options cannot be read")
 )
 
 // MongoDB write error codes that retry cannot fix without a spec/data change.

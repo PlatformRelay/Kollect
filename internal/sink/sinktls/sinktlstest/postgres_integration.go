@@ -60,7 +60,7 @@ func StartTLSPostgres(t testing.TB, cert tls.Certificate) PostgresServer {
 
 	var certPEM strings.Builder
 	for _, der := range cert.Certificate {
-		certPEM.Write(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+		certPEM.Write(pem.EncodeToMemory(&pem.Block{Type: certBlockType, Bytes: der}))
 	}
 
 	ctx := context.Background()

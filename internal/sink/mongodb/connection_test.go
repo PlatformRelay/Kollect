@@ -18,7 +18,7 @@ func TestTestConnection_missingDatabaseRef(t *testing.T) {
 	err := TestConnection(context.Background(), kollectdevv1alpha1.KollectSinkSpec{
 		Type:    TypeName,
 		MongoDB: &kollectdevv1alpha1.MongoSpec{},
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error when databaseRef is missing")
 	}
@@ -37,7 +37,7 @@ func TestTestConnection_invalidURI(t *testing.T) {
 			Database:    "inventory",
 			Collection:  "items",
 		},
-	}, map[string][]byte{"uri": []byte("mongodb://127.0.0.1:1/unreachable")})
+	}, map[string][]byte{"uri": []byte("mongodb://127.0.0.1:1/unreachable")}, nil)
 	if err == nil {
 		t.Fatal("expected connect error for unreachable host")
 	}

@@ -112,7 +112,7 @@ func testMongoConnection(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	buildCtx BuildContext,
 ) (string, error) {
-	if err := mongodb.TestConnection(ctx, spec, buildCtx.DatabaseSecretData); err != nil {
+	if err := mongodb.TestConnection(ctx, spec, buildCtx.DatabaseSecretData, buildCtx.CAPEM); err != nil {
 		return "", err
 	}
 

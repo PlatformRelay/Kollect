@@ -183,7 +183,7 @@ Test rules for every group:
 
 ## 4. MongoDB (SCT-3, SCT-4)
 
-- [ ] 4.1 Tests, red against stubs that accept `caPEM` in `mongodb.NewBackend` and
+- [x] 4.1 Tests, red against stubs that accept `caPEM` in `mongodb.NewBackend` and
   `mongodb.TestConnection`:
   - unit M1 given URI `mongodb://sentinel-user:sentinel-pass@sentinel-host/?tls=true&tlsCAFile=/x`
     and CA X, then a terminal error naming `tlsCAFile` and `spec.tls`, no sentinel · silent
@@ -211,9 +211,11 @@ Test rules for every group:
     container with `--tlsMode requireTLS` and a certificate signed by X, when a sink with CA X and
     `tls=true` exports and probes, then both succeed · CA not applied (red today);
   - integration MI2: server signed by Y → verification error; MI3: subprocess with
-    `SSL_CERT_FILE` = P, server signed by P → success · replace instead of append.
-- [ ] 4.2 Implement (`design.md`, *MongoDB*): `mongodb/config.go`, `backend.go:97`,
-  `connection.go:34`, `registry.go:150-157`, `probe.go:115`.
+    `SSL_CERT_FILE` = P, server signed by P → success · replace instead of append. — closed
+    2026-10-19, evidence: evidence/G4.md
+- [x] 4.2 Implement (`design.md`, *MongoDB*): `mongodb/config.go`, `backend.go:97`,
+  `connection.go:34`, `registry.go:150-157`, `probe.go:115`. — closed 2026-10-19, evidence:
+  evidence/G4.md
 
 ## 5. Operator and CLI parity (SCT-5)
 
