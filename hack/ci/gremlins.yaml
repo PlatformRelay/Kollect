@@ -1,0 +1,7 @@
+# The only configuration gremlins reads in the nightly mutation run (MUT-2, openspec change
+# mutation-testing-signal). hack/ci/mutation.sh passes it with --config=<absolute path>, which
+# stops gremlins from searching the module root, the working directory, the home directory and
+# /etc for another config file. It stays an empty map: every setting the run needs is a flag on
+# the command line, and a key here (a score gate above all) is rejected by
+# hack/test/mutation_signal_test.sh (T2).
+{}

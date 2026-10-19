@@ -23,6 +23,7 @@ on:
       - E2E nightly
       - Go patch lag
       - Test shuffle
+      - Mutation testing
     types: [completed]
 
 permissions:

@@ -29,6 +29,8 @@ vars:
   GO_ARCH_LINT_VERSION: v1.19.0
   # renovate: datasource=go depName=golang.org/x/vuln
   GOVULNCHECK_VERSION: v1.9.0
+  # renovate: datasource=go depName=github.com/go-gremlins/gremlins
+  GREMLINS_VERSION: v0.6.0
   # renovate: datasource=github-releases depName=helm/helm
   HELM_VERSION: v3.22.0
   # renovate: datasource=github-releases depName=norwoodj/helm-docs
@@ -204,6 +206,21 @@ tasks:
     deps: [install]
     cmds:
       - go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} ./...
+
+  # MUT-1 (openspec change mutation-testing-signal): the nightly mutation measurement, run only by
+  # .github/workflows/mutation.yaml. No status: or sources:, so a stale binary is never reused and
+  # the run is never skipped as up to date; GOBIN is version-named, so the path names the pin.
+  # Pinned by hack/test/mutation_signal_test.sh (W2, W3).
+  tools:gremlins:
+    desc: Install the pinned gremlins under bin/ (nightly mutation run only)
+    cmds:
+      - GOBIN={{.ROOT_DIR}}/bin/gremlins-{{.GREMLINS_VERSION}} go install github.com/go-gremlins/gremlins/cmd/gremlins@{{.GREMLINS_VERSION}}
+
+  mutation:
+    desc: Nightly mutation measurement of three packages, report only (see mutation.yaml)
+    deps: [tools:gremlins]
+    cmds:
+      - bash hack/ci/mutation.sh {{.ROOT_DIR}}/bin/gremlins-{{.GREMLINS_VERSION}}/gremlins
 
   test:
     desc: Run unit tests with envtest (alias for test:run)
