@@ -238,20 +238,24 @@ argument per line, so argument boundaries survive.
 
 ## 6. Land
 
-- [ ] 6.1 Independent review; PR with green CI on the head SHA; rebase merge with the `post-merge`
-  rows open; archive in a follow-up evidence PR once they pass.
+- [x] 6.1 Independent review; PR with green CI on the head SHA; rebase merge with the `post-merge`
+  rows open; archive in a follow-up evidence PR once they pass. — closed 2026-10-19: merged in
+  PR #469 (head 1ca96bb6d, merge 0b9cd0a53), 38 checks green, 2 skipped; the label row and the
+  green-path row passed on the first scheduled runs after the merge; archived in a follow-up
+  evidence PR with the failure-path row still `post-merge` (pending, not claimed)
 
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| CFR-1 | 3.1 table rows per conclusion class, `continue-on-error` case; 3.2 late-payload case; 4.1 label step first, concurrency group | one issue; never two; no-op conclusions and job-level failure write nothing | not-run | |
-| CFR-2 | 3.1 fail+open newer and equal; Go patch lag sequence | comment only; replay writes nothing | not-run | |
-| CFR-3 | 3.1 pass-fail-pass sequence, re-run attempt, older and equal keys, closed-issue stale row; 3.2 close retry | recovery closes; stale writes nothing; failed close retried | not-run | |
-| CFR-4 | 3.2 spoofed issue, spoofed comment marker, both-open, lookup argv | not touched; only own issue closes | not-run | |
-| CFR-5 | 2.1 body fixtures incl. hostile text, Markdown injection, `FAIL` bound, logs unavailable | listed, capped, inert | not-run | |
-| CFR-6 | 3.2 dispatch, fork, non-schedule, `gh` error at every call, log fetch failure, `--attempt`, `--body-file`; 4.1 `if:`, permissions and checkout | no action; error visible | not-run | |
-| CFR-7 | 5.1 mutants judged by exit status plus no-op; rename mutant; both zizmor comment mutants; unwiring mutant; zizmor gate on the workflow | each mutant red; gate green | not-run | |
-| all | `gh label list` after the first scheduled run following the merge (proves `--force` and `issues: write` live) | `ci-failure` exists | post-merge | follow-up evidence PR |
-| all | first real scheduled night(s) and Monday(s) after merge; the bot-author lookup argv if 1.1 could not probe it | issue opens on a failure, closes on recovery; a green run makes no write; the lookup finds the bot issue | post-merge | follow-up evidence PR |
-| all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | not-run | |
+| CFR-1 | 3.1 table rows per conclusion class, `continue-on-error` case; 3.2 late-payload case; 4.1 label step first, concurrency group | one issue; never two; no-op conclusions and job-level failure write nothing | pass | evidence/G3.md, G4.md, G7.md (7.3 job-level concurrency) |
+| CFR-2 | 3.1 fail+open newer and equal; Go patch lag sequence | comment only; replay writes nothing | pass | evidence/G3.md |
+| CFR-3 | 3.1 pass-fail-pass sequence, re-run attempt, older and equal keys, closed-issue stale row; 3.2 close retry | recovery closes; stale writes nothing; failed close retried | pass | evidence/G3.md |
+| CFR-4 | 3.2 spoofed issue, spoofed comment marker, both-open, lookup argv | not touched; only own issue closes | pass | evidence/G3.md, G7.md (7.1 unreadable gh reads write nothing); lookup argv probed in T1.1.md (P7) |
+| CFR-5 | 2.1 body fixtures incl. hostile text, Markdown injection, `FAIL` bound, logs unavailable | listed, capped, inert | pass | evidence/G2.md, T5.1.md (4000-byte line cut asserted) |
+| CFR-6 | 3.2 dispatch, fork, non-schedule, `gh` error at every call, log fetch failure, `--attempt`, `--body-file`; 4.1 `if:`, permissions and checkout | no action; error visible | pass | evidence/G3.md, G4.md, G7.md |
+| CFR-7 | 5.1 mutants judged by exit status plus no-op; rename mutant; both zizmor comment mutants; unwiring mutant; zizmor gate on the workflow | each mutant red; gate green | pass | evidence/T5.1.md, G4.md, G7.md (7.2 CFC-6 list); zizmor gate no findings |
+| all | `gh label list` after the first scheduled run following the merge (proves `--force` and `issues: write` live) | `ci-failure` exists | pass | ci-failure-report run 39220696845 on `main` (the first after the merge): the "Ensure the ci-failure label exists" step (`gh label create ci-failure --force`) succeeded; `gh label list` on 2026-10-19 shows `ci-failure` |
+| all | first real scheduled runs after the merge, green path | a green triggering run makes no write | pass | ci-failure-report run 39220696845 (`workflow_run` after the scheduled Test shuffle run 39219472013, success): logged "concluded 'success'" and "action none"; run 39225804618 (after the scheduled E2E nightly run 39224579635, success): same; both runs success; `gh issue list --label ci-failure --state all` empty on 2026-10-19 |
+| all | first real scheduled night(s) and Monday(s) after merge; the bot-author lookup argv if 1.1 could not probe it | issue opens on a failure, closes on recovery; a green run makes no write; the lookup finds the bot issue | post-merge | pending, not claimed: no scheduled run has failed since the merge, so the failure path (open, comment, close on recovery) and the live lookup of the reporter's own issue have not run on GitHub; the green path is the row above; the lookup argv itself was probed in 1.1 (evidence/T1.1.md P7); refs #444 |
+| all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | pass | PR #469 head 1ca96bb6d: 38 checks green, 2 skipped; main post-merge CI by headSha 0b9cd0a53: all 7 workflows success (CI, Preflight, E2E smoke, CodeQL, CodeQL - Code Quality, OpenSSF Scorecard, changelog-sync); spec set two rounds, every task group diff-reviewed, branch round 1 on `2e02ba15a` REQUEST_CHANGES (B1, B2 WARNING; fixed as 7.1–7.4 with their own review rounds); archive revision: the follow-up evidence PR; reviews/ and loop.md |
