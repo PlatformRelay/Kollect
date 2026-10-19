@@ -312,7 +312,9 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
   `prefer`+`sslnegotiation=direct` cannot be confused. — closed 2026-10-19:
   `TestCADSN_pinsEffectiveSSLMode` red on the `PGSSLMODE` and service-entry cases (caDSN's output
   parsed on its own fell back to plaintext), green after; Postgres unit and PI1-PI6 green.
-- [ ] 8.6 D3/O2: delete the unused third CA resolver `internal/controller/secret_ca.go`.
+- [x] 8.6 D3/O2: delete the unused third CA resolver `internal/controller/secret_ca.go`. — closed
+  2026-10-19: no caller outside its own test (`grep resolveCAPEM internal/controller`); build and
+  vet clean.
 - [ ] 8.7 D4: `git.ValidateTLSSpec` returns the shared terminal both-sources error.
 - [ ] 8.8 D7: `Registry.NewBackend` returns a nil `Backend` when the factory fails.
 
