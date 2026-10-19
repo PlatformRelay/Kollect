@@ -288,6 +288,37 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
   independent branch review recorded (reviewer, revision, verdict); then archive the change as the
   last commit and record both revisions.
 
+## 6. Stage-B fixes
+
+From the stage-B branch review, round 1 (`reviews/B-branch/round-1/verification.md`). One commit
+each; red first where behaviour changes; mutants in a scratch tree outside the repository, judged
+by the test command's exit status, with a no-op control that survives.
+
+- [x] 6.1 H1 (holistic): the controller tests use the package's `boolPtr`, not `k8s.io/utils/ptr`,
+  so `go mod tidy -diff` (Preflight) is clean. — `e2b3193e1`; `go mod tidy -diff` exit 0
+- [x] 6.2 A1: a missing or empty Secret seen by the full read of a miss (or the CA-rules read behind
+  it) retires the key, forced, so an entry stored meanwhile is retired and a build in flight is
+  not pooled (SCR-2). Tests `TestAcquireBackend_fullReadNotFoundFencesBuildInFlight`,
+  `_fullReadNotFoundRetiresEntryStoredMeanwhile`, `_fullReadCAGoneFencesBuildInFlight`
+  (`internal/sink/backend_pool_full_read_test.go`), red on the pre-fix `backend_pool.go` at `:76`,
+  `:112`, `:181`; mutants: no retire, not forced, CA-rules result ignored, all killed; control
+  survives. — `353acdb78`
+- [x] 6.3 A2: a `0s` skip counts as activity for the coalescing-state prune, so the watchdog's
+  reconciles of an unchanged, exported `0s` binding never age its state out and re-export it
+  (SCR-7). Test `TestPerSinkCoalesceTracker_zeroIntervalSkipsKeepStateAlive`, red at `:165`
+  (`not skipped at +60h0m0s`); mutants: no touch, prune on export time only, both killed;
+  control survives. — `e42866e4c`
+- [x] 6.4 B4 (G2 gap): cluster twin `TestClusterReconcile_zeroIntervalTerminalNoRequeue`; green
+  (the code already zeroed it); mutants: zeroing removed, watchdog for terminal, both killed;
+  control survives. — `404da3763`
+- [x] 6.5 B1 (accepted residual): `TestAcquireBackend_failedReReadAfterStaleReadDrainsNewer` pins
+  that a failed re-read after a stale first read only costs a build (no Close while held, the next
+  acquire builds from the current value); green; killed by "retire ignores holders". —
+  `349c22173`
+- [x] 6.6 B1, B3 wording: SCR-2 (a failed read retires nothing on its own account), SCR-3 (the
+  fence starts at the pool miss), design *Fingerprint and acquire* (full-read retire, stale-read
+  residual); `task spec:validate` exit 0. — `c542c6f22`
+
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
@@ -307,7 +338,7 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 | SCR-2 | mutations: no retire on not-found; retire on every error | deleted / cancelled tests fail | pass | evidence/G2.md (2026-10-19) (M1, M3; also M2, M5-M8, M13-M15, M0 control) |
 | SCR-3 | `TestAcquireBackend_rotationDuringExportDefersClose`, `_specChange…`, `_deleteEviction…`, `_ttlSkipsHeldEntry` | close after the holder's release | pass | evidence/G3.md (2026-10-20); also `TestEvictBackendPool_heldEntryDrains`, `TestResetBackendPoolForTest_lateReleaseDoesNotCloseAgain` |
 | SCR-3 | `TestAcquireBackend_slowBuilderDoesNotReplaceNewer`, `_slowBuilderAfterRetireNotPooled`, `_sameKeyBuildersShare` | newer or retired entry not overwritten; same-key builders share | pass | evidence/G3.md (2026-10-20); also `_agedGenerationDoesNotAdmitOldBuild` |
-| SCR-3 | stale reads: `_staleReadDoesNotRetireNewer`, `_staleNotFoundDoesNotRetireNewer`, `_observedChangeRetiresEntryStoredDuringRead`, `_failedReReadKeepsObservedChange` | a read older than the entry does not retire it; an observed change still retires | pass | evidence/G3.md (2026-10-20; G2 deferral; the last test's fix is unreviewed, gap) |
+| SCR-3 | stale reads: `_staleReadDoesNotRetireNewer`, `_staleNotFoundDoesNotRetireNewer`, `_observedChangeRetiresEntryStoredDuringRead`, `_failedReReadKeepsObservedChange` | a read older than the entry does not retire it; an observed change still retires | pass | evidence/G3.md (2026-10-20; G2 deferral; the last test's fix reviewed at stage B round 1) |
 | SCR-3 | `TestAcquireBackend_concurrentAcquiresAfterRotation` `-race -count=10` | each backend closed exactly once | pass | evidence/G3.md (2026-10-20; green on G2 too, killed by M5, M9) |
 | SCR-3 | `TestAcquireBackend_failedRebuildRetiresOld`, `TestRelease_idempotent` | no stale fallback; single decrement | pass | evidence/G3.md (2026-10-20) |
 | SCR-3 | BEP-1 tests unchanged | pass | pass | evidence/G3.md (2026-10-20) |
@@ -319,9 +350,12 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 | SCR-2 | `TestSecretMeta_notFoundIsTransient` | metadata NotFound becomes the plain, transient not-found error | pass | evidence/G2.md (2026-10-19; green on G1 too) |
 | SCR-2 | mutation: metadata NotFound returned as is | not-found and deleted tests fail | pass | evidence/G2.md (2026-10-19) (M4a, M4b) |
 | SCR-7 | `TestSetInventoryDegraded_zeroIntervalRequeues`, `TestClusterSetDegraded_zeroIntervalRequeues` (controls: 30s, unset, 5m) | `0s` requeues at the watchdog; other intervals unchanged | pass | evidence/G2.md (2026-10-19) |
-| SCR-7 | *control* `TestApplyInventoryExportOutcome_zeroIntervalTerminalNoRequeue` | terminal under `0s` is not requeued | pass (namespaced only; the cluster twin is a gap) | evidence/G2.md (2026-10-19) |
+| SCR-7 | *control* `TestApplyInventoryExportOutcome_zeroIntervalTerminalNoRequeue` | terminal under `0s` is not requeued | pass | evidence/G2.md (2026-10-19); cluster twin `TestClusterReconcile_zeroIntervalTerminalNoRequeue`, tasks 6.4 |
 | SCR-7 | envtest specs "zero-interval inventory retries a deleted secret", *control* "unchanged zero-interval inventory is not re-exported" | retried and recovers; no re-export of an unchanged `0s` inventory | pass | evidence/G2.md (2026-10-19) |
 | SCR-7 | mutations: keep `exportDebounce`; watchdog for terminal; no interval-0 skip | zero-interval / terminal / not-re-exported tests fail | pass | evidence/G2.md (2026-10-19) (M9, M9e, M10, M11, M12) |
+| SCR-2 | `TestAcquireBackend_fullReadNotFoundFencesBuildInFlight`, `_fullReadNotFoundRetiresEntryStoredMeanwhile`, `_fullReadCAGoneFencesBuildInFlight` | a gone Secret seen by the full read retires the key and fences builds in flight | pass | tasks 6.2 (2026-10-20) |
+| SCR-3 | `TestAcquireBackend_failedReReadAfterStaleReadDrainsNewer` | a spurious retire drains and rebuilds from the current value | pass | tasks 6.5 (2026-10-20) |
+| SCR-7 | `TestPerSinkCoalesceTracker_zeroIntervalSkipsKeepStateAlive` | an unchanged `0s` binding is still skipped after two state TTLs of watchdog reconciles | pass | tasks 6.3 (2026-10-20) |
 | SCR-6 | `rg -U 'keeps its\s+CA' docs`; `task lint:markdown` | no match; 0 issues | pass | evidence/G4.md (2026-10-20; also docs guards and `task docs:verify`) |
 | all | `task check` on the branch head; CI on the PR head | green | not-run | |
 | all | independent branch review | APPROVE recorded with revision | not-run | |
