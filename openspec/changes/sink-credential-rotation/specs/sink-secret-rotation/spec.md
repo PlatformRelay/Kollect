@@ -9,9 +9,10 @@ The operator's backend pool SHALL key each pooled backend on the sink spec and o
 `git.auth.secretRef`, `kafka.secretRef`, `nats.secretRef`, `postgres.databaseRef`,
 `mongodb.databaseRef`, `bigquery.secretRef` and `tls.caSecretRef`. When any of them changed since
 the pooled backend was built, the next export or cleanup that acquires the sink's backend SHALL
-build a new backend from the current Secret values and SHALL NOT use the old one. A Secret change
-SHALL take effect no later than the sink's next export attempt, without a restart, a spec change
-or a sink delete.
+build a new backend from the current Secret values and SHALL NOT use the old one. The pool SHALL
+read these Secrets from the API server, not from the informer cache, so a Secret change SHALL take
+effect on the first export attempt that starts after the change was written, without a restart, a
+spec change or a sink delete.
 
 #### Scenario: Rotated database password is used by the next export
 
@@ -23,8 +24,20 @@ or a sink delete.
 #### Scenario: Rotated CA is trusted by the next export
 
 - **GIVEN** an S3 sink with `tls.caSecretRef: ca` whose pooled backend trusts CA X
-- **WHEN** Secret `ca` is updated to CA Y and the next export runs against a server signed by CA Y
-- **THEN** the export verifies the server against CA Y
+- **WHEN** Secret `ca` is updated to CA Y and the next export runs against an HTTPS server whose certificate CA Y signed
+- **THEN** the TLS handshake succeeds against CA Y, where the backend built from CA X fails it
+
+#### Scenario: Change visible before the cache sees it
+
+- **GIVEN** a sink whose pooled backend was built from Secret value A
+- **WHEN** the Secret is updated to B and an export starts before the operator's informer has delivered the update
+- **THEN** that export runs on a backend built from B
+
+#### Scenario: Cross-namespace Secret under a restricted cache
+
+- **GIVEN** the manager cache restricted to namespace `team-a` and a sink in `team-a` whose allowlisted `secretRef` names a Secret in `shared-creds`
+- **WHEN** an export runs
+- **THEN** the backend is built from that Secret and SHALL NOT fail with an unknown-namespace cache error
 
 #### Scenario: Every reference kind is covered
 
@@ -52,10 +65,13 @@ or a sink delete.
 
 When a Secret from SCR-1's list is missing, or exists with no non-empty value in its data, the
 acquire SHALL fail with an error that names the Secret and its namespace, SHALL retire the sink's
-pooled backend, and the export or cleanup SHALL fail without contacting the sink. The error SHALL
+pooled backend, and the export or cleanup SHALL fail without contacting the sink. Cleanup for a
+stream sink (Kafka, NATS), which never contacts the sink, SHALL decide retained before reading
+any Secret. The error SHALL
 be retryable (not terminal), so the export succeeds again once the Secret is restored, without a
 change to the sink. An S3 or GCS sink whose referenced Secret is empty SHALL NOT fall back to
-ambient credentials.
+ambient credentials. A failed read for any other reason (timeout, cancelled context, forbidden)
+SHALL fail that acquire only and SHALL NOT retire the pooled backend.
 
 #### Scenario: Deleted credential Secret
 
@@ -72,7 +88,7 @@ ambient credentials.
 #### Scenario: Emptied S3 Secret does not use ambient credentials
 
 - **GIVEN** an S3 sink with `secretRef` and an AWS identity available to the process
-- **WHEN** the Secret is emptied and an export runs
+- **WHEN** every key of the Secret is removed and an export runs
 - **THEN** the export fails naming the Secret, and no S3 client is built
 
 #### Scenario: Deleted CA Secret
@@ -85,6 +101,18 @@ ambient credentials.
 - **GIVEN** a sink whose export failed because its Secret was deleted
 - **WHEN** the Secret is created again and the export is retried
 - **THEN** the export succeeds on a newly built backend, with no change to the sink object
+
+#### Scenario: A cancelled read does not retire a shared backend
+
+- **GIVEN** a pooled backend used by two inventories
+- **WHEN** one inventory's acquire fails because its context was cancelled during the Secret read
+- **THEN** that acquire fails, and the other inventory's next acquire gets the same pooled backend
+
+#### Scenario: Stream sink cleanup with a deleted Secret
+
+- **GIVEN** a Kafka or NATS sink whose `secretRef` Secret was deleted
+- **WHEN** an inventory exported to it is deleted
+- **THEN** the cleanup returns retained without reading the Secret or building a backend, and the inventory deletion completes
 
 #### Scenario: Cleanup after a rotated-away Git credential
 
@@ -126,7 +154,18 @@ as a fallback.
 #### Scenario: Sink deleted during an export
 
 - **WHEN** the sink is deleted while E1 holds its backend
-- **THEN** the pool no longer holds the entry, no acquire rebuilds it, and the backend is closed after E1 releases it
+- **THEN** the pool no longer holds the entry, no later acquire re-pools a backend for that sink, and the backend is closed after E1 releases it
+
+#### Scenario: A slower builder does not replace a newer entry
+
+- **GIVEN** acquire G1 missed and is building from Secret version 5
+- **WHEN** the Secret moves to version 6, acquire G2 builds and stores B6, and then G1's build completes
+- **THEN** B6 stays pooled, G1 exports on its own backend under an owning release that closes it, and the next acquire gets B6
+
+#### Scenario: The TTL does not close a held backend
+
+- **WHEN** the TTL prune runs while an export holds an entry
+- **THEN** the entry is not closed under that export
 
 #### Scenario: Real Postgres pool across a password rotation
 
@@ -136,10 +175,12 @@ as a fallback.
 
 ### Requirement: SCR-4 Credential values stay out of logs, events, status and the pool
 
-No error, log line, Kubernetes Event or status condition produced on the SCR-1 to SCR-3 paths
-SHALL contain a value from a referenced Secret. The pool fingerprint SHALL be computed from Secret
-metadata (namespace, name, UID, `resourceVersion`) and the spec only, and the pool SHALL NOT keep
-the resolved Secret data after the backend is built.
+No error or log line that this change adds, and no Kubernetes Event or status condition that
+carries one, SHALL contain a value from a referenced Secret. The pool key SHALL be computed from
+Secret metadata (namespace, name, UID, `resourceVersion`) and the spec only; an acquire that hits
+the pool SHALL NOT read Secret values; and the pool SHALL NOT keep the resolved Secret data after
+the backend is built. Errors returned by a third-party client's constructor or connect call are
+outside this requirement.
 
 #### Scenario: Sentinel values never surface
 
@@ -150,7 +191,12 @@ the resolved Secret data after the backend is built.
 #### Scenario: Fingerprint carries no Secret data
 
 - **WHEN** two Secrets differ only in their data and carry the same metadata
-- **THEN** the fingerprint function cannot tell them apart, because it receives no data
+- **THEN** the key function cannot tell them apart, because it receives no data
+
+#### Scenario: A pool hit reads no values
+
+- **WHEN** an acquire finds a pooled backend whose key matches
+- **THEN** the Secrets were read as metadata only
 
 ### Requirement: SCR-5 Operator and CLI agree where the CLI applies
 
@@ -179,5 +225,5 @@ say a built backend keeps its CA until the spec changes SHALL be removed.
 
 #### Scenario: Stale statement removed
 
-- **WHEN** the docs are searched for "keeps its CA until the sink spec"
+- **WHEN** the docs are searched across line breaks for "keeps its CA" (`rg -U 'keeps its\s+CA'`)
 - **THEN** there is no match
