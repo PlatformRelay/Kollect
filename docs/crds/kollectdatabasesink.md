@@ -20,6 +20,7 @@ BigQuery uses atomic `MERGE` jobs with stale-row delete reconciliation.
 | --- | --- |
 | `spec.type` | Backend: `postgres`, `bigquery`, `mongodb` |
 | `spec.postgres` / `spec.bigquery` / `spec.mongodb` | Type-specific connection settings |
+| `spec.tls` | Private CA trust for Postgres and MongoDB (`caBundle` or `caSecretRef`), see [TLS trust](#tls-trust-spectls) |
 | `spec.provisioning.mode` | `ensure` (create table, default) or `existing` (never issue DDL) ([ADR-0416](../adr/0416-sink-config-layering.md)) |
 | `spec.options` | Non-secret pass-through tuning (secret-like keys rejected by the webhook) |
 | `spec.exportMinInterval` | Default per-ref debounce when inventory ref omits override |
@@ -28,6 +29,46 @@ BigQuery uses atomic `MERGE` jobs with stale-row delete reconciliation.
 MongoDB upserts one document per inventory item into `spec.mongodb.database`/`spec.mongodb.collection`,
 keyed on `(inventory_namespace, inventory_name, target_name, source_uid)`
 ([ADR-0417](../adr/0417-mongodb-database-sink.md)).
+
+## TLS trust (`spec.tls`)
+
+`spec.tls.caBundle` (inline PEM) or `spec.tls.caSecretRef` (a Secret, read from the first non-empty
+key of `tls.crt`, `ca.crt`, `ca.pem`) adds a private CA. Set one of the two. Postgres and MongoDB
+trust the CA **in addition to** the system roots; BigQuery ignores it. There is no strict pinning
+option.
+
+**Postgres.** The CA is checked according to the effective `sslmode`: the DSN's (`ssl=true` in a
+URL DSN counts as `require`), else the one in the service-file entry the DSN or `PGSERVICE`
+selects, else `PGSSLMODE`:
+
+| `sslmode` with a CA | Result |
+| --- | --- |
+| unset everywhere | `verify-full`: chain and hostname verified; a DSN host that does not match the certificate SAN fails |
+| `verify-full` | chain and hostname verified |
+| `verify-ca` | chain verified, hostname not checked (set it explicitly when the DSN host is not in the SAN) |
+| `require` | chain verified (the libpq rule for `require` with a root certificate) |
+| `disable`, `allow`, `prefer` set explicitly | terminal error naming the mode and its source |
+
+A second root certificate source is a terminal error naming the source: `sslrootcert` in the DSN
+or in the selected service-file entry, `PGSSLROOTCERT`, or `~/.postgresql/root.crt`. Use
+`spec.tls` or the DSN, not both.
+
+**MongoDB.** The URI must use TLS (`tls=true` or `ssl=true`, a TLS option such as
+`tlsCertificateKeyFile`, or `mongodb+srv://`). With a CA, these are terminal errors naming the URI
+option, never the URI: TLS off (`mongodb://` without TLS, or `tls=false`/`ssl=false`), a CA file in
+the URI (`tlsCAFile`, `sslCertificateAuthorityFile`), and verification off (`tlsInsecure`,
+`sslInsecure`, `tlsAllowInvalidCertificates`, `tlsAllowInvalidHostnames` set to anything but
+`false`). Option names match in any letter case. Client certificates from the URI are kept.
+
+**Both types:** CA PEM that holds no certificate, a `caSecretRef` Secret with none of the three
+keys, and a spec that sets both `caBundle` and `caSecretRef` are terminal errors.
+
+A failed backend build is not cached, but no controller watches the CA Secret and a terminal
+error does not requeue. After fixing a Secret that failed the sink, change any annotation on
+the sink, for example `kubectl annotate kollectdatabasesink <name> ca-fixed-at="$(date +%s)" --overwrite`:
+the probe runs again, and the inventories that reference the sink reconcile and build its
+backend on their next export. A backend that already built keeps its CA until the sink spec
+changes.
 
 BigQuery writes one row per inventory item into `spec.bigquery.dataset`/`spec.bigquery.table`,
 partitioned on `exported_at` and clustered by inventory identity fields; each export performs

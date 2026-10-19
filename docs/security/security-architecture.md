@@ -218,9 +218,20 @@ deployment responsibilities.
 ## Transport security
 
 Kollect does not force every backend to use TLS: Kafka and NATS enable TLS only when `spec.tls`
-supplies TLS material, and Postgres/MongoDB inherit transport policy from their connection strings.
-Where Kollect constructs TLS configuration, certificate verification is on by default, the minimum
-version is TLS 1.2, and custom CA material is supported.
+supplies TLS material, and Postgres/MongoDB take their transport policy from their connection
+strings. Where Kollect constructs TLS configuration, certificate verification is on by default, the
+minimum version is TLS 1.2, and custom CA material is supported.
+
+A custom CA (`spec.tls.caBundle` or `caSecretRef`) is added to the system roots for Git and GitLab
+exports, S3, GCS, Postgres and MongoDB; Kafka, NATS and the Git/GitLab connection probes trust only
+the CA. There is no strict pinning option. A CA that cannot take effect is a terminal error, not
+ignored: an `http` S3/GCS endpoint (including one the AWS SDK selects) or a redirect to plain
+`http`; a Postgres `sslmode` set explicitly to `disable`, `allow` or `prefer`, or a second root
+certificate source; a MongoDB URI with TLS off, its own CA file or verification off. With a CA and
+no `sslmode`, Postgres uses `verify-full`. On every sink type, a `caSecretRef` Secret without a CA
+key and a spec that sets both CA sources are terminal errors. These errors name the setting, never
+the DSN, URI or PEM. Details: [snapshot sinks](../crds/kollectsnapshotsink.md#tls-trust-spectls),
+[database sinks](../crds/kollectdatabasesink.md#tls-trust-spectls).
 
 Kafka sinks honour `spec.tls` for both exports and the connection probe. **Limitation:** Kafka TLS is
 switched on only when a CA bundle (`spec.tls.caBundle` or `spec.tls.caSecretRef`) or
@@ -240,7 +251,8 @@ not implied by `allowPrivateSinks` and no tenant can set it. Without the flag:
 - the sinks that honour the field (Git, GitLab, Kafka, NATS) refuse it at construction, including
   for kinds without an admission webhook such as the legacy `KollectSink`, so an insecure sink that
   predates the upgrade stops connecting and exporting until the operator enables the flag or removes
-  the field. Other backends ignore `spec.tls`.
+  the field. S3, GCS, Postgres and MongoDB use only the CA from `spec.tls` and ignore
+  `insecureSkipVerify`; BigQuery ignores `spec.tls`.
 
 With the flag on, the manager logs a startup warning, and every family sink that sets the field
 carries the `TLSInsecure=True` condition. The condition is reconciled on every pass, whether the

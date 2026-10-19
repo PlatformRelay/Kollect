@@ -63,6 +63,7 @@ Holistic run at B: not run yet.
 | 3.1 + 3.2 (G3) | CLOSED-WITH-GAPS | astra + claude/opus:diff, 2 rounds (`reviews/L-tasks/G3/`, `round-2/`); Claude leg: TLS trust (dispatch). R1 astra BLOCK (bracketed-host misread, fixed), opus CONCERNS (backstops untested, no-CA error text, fixed); R2 astra BLOCK (empty `service=` precedence, fixed, not re-reviewed), opus CLEAN | B: read the round-2 fix (`caDSN` service presence); residual chain-only case when the reader sees a mode pgx does not (opus R2 N3) |
 | 4.1 + 4.2 (G4) | CLOSED | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G4/`); Claude leg: TLS trust (dispatch). astra APPROVE, opus CLEAN (4 notes, fixed: test and wording) | none; URI check lives in `clientOptions`, not `ConfigFromSpec` (`config.go` unchanged, `evidence/G4.md` *Notes*) |
 | 5.1 + 5.2 (G5) | CLOSED (5.2: none) | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G5/`); Claude leg: TLS trust (dispatch). astra APPROVE, opus CLEAN (4 notes, fixed: test and wording) | none; C1b lives in `cmd/cli` (exit mapping is in package `main`); C2 Postgres "no sslmode" case replaced per the R-post decision (`evidence/G5.md` *Deviations*) |
+| 6.1 (G6) | CLOSED-WITH-GAPS | astra only, 1 round (`reviews/L-tasks/G6/`); no Claude leg (docs, astra did not BLOCK). astra REQUEST_CHANGES (5 P1 + 1 P2, all wording, verified and fixed) | B: `task docs:verify` not run locally (no pinned `kubectl`, mkdocs `redirects` plugin missing); CI Docs workflow |
 
 ## Known red
 
@@ -98,6 +99,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G4: a parser-mirroring reader's differential table must include URIs the library refuses (an `@` in the query with no user info); a mutant survived until it did.
 - G5: a mutant that sets a value to `nil` can leave its source variable unused (a build failure, not a kill); use an empty value derived from it (`x[:0:0]`) and read each kill's failure line.
 - G5: prove "fails after collection" through a seam reached only after collection: wrap the registry factory inside the real `runAllContexts`, assert the call count and the error prefix, and add a `--output` control run.
+- G6: `kollect.dev/test-connection=true` is cleared only when automatic probes are off, so re-setting it can be a no-op; to touch a sink, change any annotation.
+- G6: `task docs:verify` locally needs `MISE_KUBECTL_VERSION` and the mkdocs `redirects` plugin; without them it is ENVIRONMENT, not a docs failure.
 
 ## Where a human should look first
 

@@ -297,13 +297,23 @@ spec:
                 properties:
                   caBundle:
                     description: |-
-                      caBundle is an inline PEM-encoded CA certificate bundle.
-                      Prefer caSecretRef for production; do not set both caBundle and caSecretRef.
+                      caBundle is an inline PEM-encoded CA certificate bundle. Set at most one of caBundle and
+                      caSecretRef: a sink of any type that sets both fails with a terminal error. Git and GitLab
+                      exports and s3, gcs, postgres and mongodb sinks trust the CA in addition to the system roots;
+                      Kafka, NATS and the Git/GitLab connection probe trust only the CA. On s3, gcs, postgres and
+                      mongodb sinks, PEM that holds no certificate, or a CA the endpoint or connection string would
+                      never check (an http endpoint; postgres sslmode disable, allow or prefer, or sslrootcert; mongodb
+                      TLS off, tlsCAFile or tlsInsecure), fails the sink with a terminal error. Prefer caSecretRef for
+                      production.
                     format: byte
                     type: string
                   caSecretRef:
-                    description: caSecretRef references a Secret containing a PEM
-                      CA bundle (key tls.crt or ca.crt).
+                    description: |-
+                      caSecretRef references a Secret containing a PEM CA bundle, read from the first non-empty key
+                      of tls.crt, ca.crt and ca.pem. A Secret with none of those keys fails the sink with a terminal
+                      error. The same trust rules as caBundle apply. No controller watches the Secret, and a failed
+                      build is not retried on its own: after fixing a Secret that failed the sink, change any
+                      annotation on the sink so the next reconcile builds the backend.
                     properties:
                       name:
                         description: name is the name of the referenced Secret.

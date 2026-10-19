@@ -159,7 +159,11 @@ For a private repo, add the referenced `v1/Secret` manifest (with a `token` key)
 directory; `kollect-pipeline` resolves `secretRef` against Secrets in that directory, not the
 cluster. It resolves `spec.git.auth.secretRef` (which takes precedence over `secretRef`, as in the
 operator) and `spec.tls.caSecretRef` (keys `tls.crt`, `ca.crt` or `ca.pem`) the same way. A
-referenced Secret that is not in the directory stops the run with an error naming it.
+referenced Secret that is not in the directory stops the run with an error naming it. The CA rules
+are the operator's ([TLS trust](../crds/kollectsnapshotsink.md#tls-trust-spectls)): a Secret with none
+of those keys, a sink that sets both `caBundle` and `caSecretRef`, CA PEM without a certificate, or
+an S3/GCS CA with an `http` endpoint fails the context after collection with exit code `2`, before
+anything is written.
 
 ### Sink credentials from the CI environment (`${env:VAR}`)
 
@@ -479,6 +483,9 @@ continuous, event-driven collection instead of scheduled runs.
 | `N KollectSnapshotSink objects found … only one is supported` | Keep at most one sink manifest per config dir (or use `--output`). |
 | `--output and a KollectSnapshotSink … are ambiguous` | Use `--output` **or** a sink manifest, not both. |
 | `sink secretRef "…" not found`, `sink git.auth.secretRef "…" not found`, `sink tls.caSecretRef "…" not found` | Add the referenced `v1/Secret` manifest to the config dir. |
+| `spec.tls.caSecretRef: the Secret has no CA key` | The CA Secret has none of `tls.crt`, `ca.crt`, `ca.pem`; add the CA under one of them. Exit code `2`. |
+| `spec.tls sets both caBundle and caSecretRef; set exactly one` | Keep one CA source. Exit code `2`. |
+| `spec.tls: the CA bundle holds no PEM certificate`, `spec.tls: a CA is never checked over plain http; use an https endpoint` | Fix the CA PEM, or use an `https` endpoint. Exit code `2`. |
 | `environment variable for secret placeholder not set` | A Secret value is `${env:VAR}` but `VAR` is unset/empty — define it in the CI job env (e.g. a GitLab masked variable). |
 | Exit code `1` | Some targets were skipped (RBAC forbidden / GVK absent), or some objects failed required attribute extraction. Run with `--log-level debug` to see which. |
-| Exit code `2` | Cluster unreachable or config invalid — check `--kubeconfig` and the manifests. |
+| Exit code `2` | Cluster unreachable, config invalid, or the sink could not be built (for example a CA error above) — check `--kubeconfig`, the manifests and the error printed for the context. |
