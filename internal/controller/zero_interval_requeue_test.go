@@ -13,7 +13,10 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/collect"
@@ -166,5 +169,90 @@ func TestPerSinkCoalesceTracker_zeroIntervalSkipsKeepStateAlive(t *testing.T) {
 		}
 		// Another inventory exports meanwhile; its record() sweeps the tracker.
 		tracker.record("team-a/other", sinkName, 1, "other", "", at)
+	}
+}
+
+// SCR-7, cluster twin of TestApplyInventoryExportOutcome_zeroIntervalTerminalNoRequeue: a terminal
+// total export failure of a 0s KollectClusterInventory is not requeued, watchdog or otherwise.
+func TestClusterReconcile_zeroIntervalTerminalNoRequeue(t *testing.T) {
+	t.Parallel()
+
+	const (
+		targetName = "zero-terminal-deployments"
+		workloadNS = "tenant-zero"
+		sinkNS     = sink.DefaultSecretNamespace
+		label      = "kollect.dev/tenant"
+		labelValue = "zero-terminal"
+	)
+
+	store := collect.NewStore()
+	store.Upsert(collect.Item{
+		TargetNamespace: workloadNS, TargetName: targetName, UID: "uid-zero-terminal-cluster",
+		Namespace: workloadNS, Name: "web", Version: "v1", Kind: "Deployment",
+	})
+
+	selector := &metav1.LabelSelector{MatchLabels: map[string]string{label: labelValue}}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: workloadNS, Labels: map[string]string{label: labelValue}}}
+	target := &kollectdevv1alpha1.KollectClusterTarget{
+		ObjectMeta: metav1.ObjectMeta{Name: targetName},
+		Spec: kollectdevv1alpha1.KollectClusterTargetSpec{
+			ProfileRef:        kollectdevv1alpha1.NamespacedObjectReference{Name: "unused", Namespace: sinkNS},
+			NamespaceSelector: selector,
+		},
+		Status: kollectdevv1alpha1.KollectClusterTargetStatus{
+			Conditions: []metav1.Condition{{Type: conditionReady, Status: metav1.ConditionTrue, Reason: "Collecting"}},
+		},
+	}
+	sinkObj := &kollectdevv1alpha1.KollectDatabaseSink{
+		ObjectMeta: metav1.ObjectMeta{Name: "zero-terminal-pg", Namespace: sinkNS, UID: "uid-zero-terminal-pg"},
+		Spec: kollectdevv1alpha1.KollectDatabaseSinkSpec{
+			Type:     kollectdevv1alpha1.DatabaseSinkTypePostgres,
+			Postgres: &kollectdevv1alpha1.PostgresSpec{DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "zero-terminal-pg"}, Table: "inventory_items"},
+		},
+	}
+	inv := &kollectdevv1alpha1.KollectClusterInventory{
+		ObjectMeta: metav1.ObjectMeta{Name: "zero-terminal-rollup", Generation: 1},
+		Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
+			NamespaceSelector: selector,
+			TargetRefs:        []string{targetName},
+			DatabaseSinkRefs:  kollectdevv1alpha1.NewSinkRefList("zero-terminal-pg"),
+			SinkNamespace:     sinkNS,
+			ExportMinInterval: &metav1.Duration{},
+		},
+	}
+	pgSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "zero-terminal-pg", Namespace: sinkNS},
+		Data:       map[string][]byte{"dsn": []byte("sentinel-pass")},
+	}
+	cl := fake.NewClientBuilder().WithScheme(zeroIntervalScheme(t)).
+		WithObjects(ns, target, sinkObj, inv, pgSecret).WithStatusSubresource(target, sinkObj, inv).Build()
+
+	reg := sink.NewRegistry()
+	reg.Register("postgres", func(kollectdevv1alpha1.KollectSinkSpec, sink.BuildContext) (sink.Backend, error) {
+		return terminalFailBackend{}, nil
+	})
+	r := &KollectClusterInventoryReconciler{
+		Client: cl, Scheme: cl.Scheme(), Store: store, Registry: reg,
+		Engine:   newEngineWithBoundClusterTargets(t, store, map[string][]string{targetName: {workloadNS}}),
+		Recorder: record.NewFakeRecorder(10),
+	}
+	t.Cleanup(func() { sink.EvictBackendPoolByUID("uid-zero-terminal-pg") })
+
+	result, err := r.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Name: inv.Name}})
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	var got kollectdevv1alpha1.KollectClusterInventory
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: inv.Name}, &got); err != nil {
+		t.Fatalf("get cluster inventory: %v", err)
+	}
+	cond := apimeta.FindStatusCondition(got.Status.Conditions, conditionDegraded)
+	if cond == nil || cond.Reason != kollectdevv1alpha1.ReasonExportTerminal {
+		t.Fatalf("degraded condition = %+v, want reason %s (the terminal total-failure branch)", cond,
+			kollectdevv1alpha1.ReasonExportTerminal)
+	}
+	if result.RequeueAfter != 0 {
+		t.Fatalf("RequeueAfter = %v, want 0: a terminal failure must not be requeued", result.RequeueAfter)
 	}
 }
