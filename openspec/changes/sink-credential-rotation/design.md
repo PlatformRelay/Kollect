@@ -19,19 +19,28 @@ error; a read metric is a follow-up (loop.md triage).
 
 ## Readers
 
-`ExportEnvelopeRequest` and the cleanup request gain `SecretReader client.Reader`. Both inventory
-reconcilers set it to `mgr.GetAPIReader()` (wired in `cmd/main.go` next to the existing client).
-The pool uses `SecretReader` for every Secret read on the acquire path, metadata and full, and
-for the rebuild's `BuildContextFromSpec`. When it is nil (unit tests that build requests by hand)
-the pool uses `Client`; an envtest under a restricted cache (task 1.1) proves the production
-wiring. The pool-disabled path and the connection probes keep their current reader.
+`ExportEnvelopeRequest` and `CleanupExportRequest` gain `SecretReader client.Reader`. Both
+inventory reconcilers gain a `SecretReader` field; `SetupWithManager` sets it to
+`mgr.GetAPIReader()` when the caller left it nil, so production cannot miss the wiring. They pass
+it to every request they build: the export (`kollectinventory_controller.go:408-410` and the
+cluster reconciler's equivalent) and the cleanup helper `cleanupSinkExports`
+(`internal/controller/sink_cleanup.go:145-159`, which gains the reader as a parameter).
+`pruneRelationalExport` (`internal/sink/cleanup.go:369-379`) forwards it into the nested export
+request. The pool uses `SecretReader` for every Secret read on the acquire path, metadata and
+full, and for the rebuild's `BuildContextFromSpec`. When it is nil (unit tests that build requests
+by hand) the pool uses `Client`. The pool-disabled path and the connection probes keep their
+current reader.
 
 ## Referenced Secrets, one list
 
 A new unexported function `referencedSecretRefs(spec, defaultNamespace) []secretUse` in
 `internal/sink` returns, in a fixed order, every Secret reference `BuildContextFromSpec` reads for
-the spec, each with its effective namespace (`ref.Namespace`, else `defaultNamespace`, else
-`DefaultSecretNamespace`, as `ResolveSecret` does, `credentials.go:37-40`): `spec.secretRef`
+the spec, each with its effective namespace (`ref.Namespace`, else `defaultNamespace` as `ResolveSecret`
+does, `credentials.go:37-40`, where an empty `defaultNamespace` already became
+`DefaultSecretNamespace`, `build_context.go:34-36`). A reference with an empty `Name` is skipped,
+as `ResolveSecret` skips it (`credentials.go:33-35`), and a Secret that two references name (Kafka
+and NATS fall back to `spec.secretRef`, `build_context.go:138-141`, `:189-192`) is listed once:
+`spec.secretRef`
 (always read, `build_context.go:45`), then by type `postgres.databaseRef`, `bigquery.secretRef`,
 `mongodb.databaseRef`, `kafka.secretRef`, `git.auth.secretRef`, `nats.secretRef`, and
 `tls.caSecretRef` when `tls.caBundle` is unset. `BuildContextFromSpec` is rewritten to iterate
@@ -50,12 +59,15 @@ one is missing from the function's switch.
    objects (`BuildContextFromSpec` is split so the rebuild hands it the fetched Secrets instead of
    reading again). The stored key is recomputed from the full objects' metadata, so key and values
    come from one snapshot even when the Secret changed between the two reads.
-4. Store with a fence: `storePooledBackend` gets the key the caller saw at its miss (or "absent").
-   It replaces the pooled entry only when the pooled entry still has that key; if another
-   acquire stored a different entry in between, the caller's backend is not pooled: the caller
-   uses it for its own export under an owning release (as the tombstone path does) and the newer
-   entry stays. Two builders that end with the same key share one entry and the surplus build is
-   closed at once.
+4. Store with a fence. The pool keeps a per-sink generation counter in a map that survives entry
+   removal (`generations map[poolKey]uint64`, aged out with the tombstones); every store and
+   every retire increments it. At its miss, after any retire it caused itself, the acquire
+   records the generation. `storePooledBackend` then checks, in this order: (a) an entry with the
+   caller's new key is pooled → share it (take a hold) and close the surplus build at once; (b)
+   the generation is unchanged → store, increment; (c) otherwise another acquire stored or
+   retired in between → do not pool: the caller uses its backend for its own export under an
+   owning release (as the tombstone path does) and the pool is left as it is. So an older builder
+   can neither replace a newer entry nor re-populate a key that was retired after its miss.
 
 Errors on the acquire path:
 
@@ -67,8 +79,10 @@ Errors on the acquire path:
 - Other GET errors (timeout, forbidden, cancelled context): returned wrapped with the Secret's
   namespace and name, class as `ClassOf` derives it.
 
-Only not-found, empty, and a failed rebuild after a key change retire the pooled entry. A
-cancelled context or a transient read error from one caller does not retire a backend other
+Retire rules: a successful metadata GET that shows a changed key retires the pooled entry, before
+and whatever the rebuild then does (a failed full GET or constructor after that still leaves the
+entry retired). Not-found and empty retire it. A metadata GET that fails for another reason
+(timeout, cancelled context, forbidden) observed no change and does not retire a backend other
 inventories share.
 
 A metadata-only change (a label) changes `resourceVersion` and rebuilds once; accepted as rare and
@@ -84,8 +98,9 @@ harmless. A no-op update keeps `resourceVersion` (probe 0.1).
 - `retireLocked(key)` removes the entry from `entries`, sets `retired`, and returns the backend to
   close now only when `holders == 0`; otherwise the last release closes it. Every path that drops
   an entry uses it: key mismatch on acquire, not-found or empty Secret, delete eviction (BEP-1),
-  TTL prune, and the explicit test evictions. TTL prune skips an entry with holders (its
-  `lastUsed` is fresh anyway). `ResetBackendPoolForTest` closes at once (test only).
+  TTL prune of an idle entry, and the explicit test evictions. TTL prune never selects an entry
+  with holders (its `lastUsed` is fresh anyway). `ResetBackendPoolForTest` closes at once (test
+  only).
 - The tombstone path is unchanged: after a delete eviction an acquire may still build a backend,
   but it is never pooled for the deleted sink; the caller owns it and its release closes it
   (`backend_pool.go:159-163`). BEP-1's "Close has run" holds once the holders that acquired before
@@ -110,12 +125,18 @@ does.
 `CleanupRetained` for a backend that neither supports delete nor implements `ExportCleaner`
 (Kafka, NATS). With SCR-2 that acquire would fail on a deleted Secret and keep the inventory
 `Terminating` for a sink that is never contacted. The retain decision for stream types moves
-before the acquire, decided by sink type (the registry's stream types), so their cleanup needs no
-Secret. Git, GitLab, S3, GCS and the database sinks still acquire (they retract or release).
+before the acquire, decided by sink type: a new set `streamSinkTypes` in `internal/sink`
+(`kafka`, `nats`; the registry has no such classification, `registry.go:44-58`), with a test that
+every registered type whose backend is neither `SupportsDelete` nor an `ExportCleaner` is in the
+set, so the set and `cleanup.go:210-214` cannot drift. Their cleanup needs no Secret. Git, GitLab, S3, GCS and the database sinks still acquire (they retract or release).
 
 ## Secret data lifetime
 
-On a hit, no Secret value is transferred or copied (metadata-only GET). On a rebuild, values are
+On a hit, the Secret's `data` and `stringData` are neither transferred nor copied (metadata-only
+GET). The metadata response still carries annotations, which can hold values (a
+`kubectl.kubernetes.io/last-applied-configuration` annotation on a Secret created with
+`kubectl apply` contains its data); `secretMeta` copies only namespace, name, UID and
+`resourceVersion` out of the response and drops it. On a rebuild, values are
 read once, passed to the constructor and dropped; the pool keeps no `BuildContext`. Backends keep
 what they need to authenticate (a DSN, a token, static AWS keys) for their own lifetime, which now
 ends at the next Secret change. The key holds a digest of metadata only. The informer cache's own
@@ -133,8 +154,9 @@ name, the reason `referenced secret changed`, and the namespace/name of each Sec
 `kollect-pipeline` resolves Secrets from the config directory on every run and builds a fresh
 backend per context (`internal/pipeline/wire.go:515-538`); no pool, so rotation needs nothing.
 `resolveSecretValues` (`wire.go:177-208`) gains the same empty check after `stringData` and
-`${env:VAR}` substitution, with the same message as the operator (parity at the message text; the
-CLI keeps its own "not found in config directory" text for a missing Secret, CSC-3).
+`${env:VAR}` substitution, with the same message as the operator (parity at the message text; a
+config-dir Secret without a namespace prints `secret %q has no data`; the CLI keeps its own "not
+found in config directory" text for a missing Secret, CSC-3).
 
 ## Compatibility
 
@@ -146,6 +168,7 @@ CLI keeps its own "not found in config directory" text for a missing Secret, CSC
 | Cross-namespace `secretRef` under `--watch-namespaces`: build fails ("unknown namespace for the cache") | Export path reads through the API reader and works; the connection probe still reads through the cache |
 | Git sink, credentials rotated away, inventory deleted with Retain: release used cached credentials | Release fails and the inventory stays `Terminating` until the Secret is fixed or `kollect.dev/force-cleanup: "true"` is set |
 | Kafka/NATS sink with a deleted Secret, inventory deleted | Unchanged: retained without contacting the sink |
+| `caSecretRef` Secret emptied entirely: terminal "none of the CA keys" error on the next build | Retryable "has no data" error on the next export (a Secret with other keys but no CA key keeps the terminal error) |
 | Spec change while another export used the backend: backend closed under it | Closed after that export releases it |
 
 Rollback to v0.21.x restores the old behaviour; nothing is persisted.

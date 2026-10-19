@@ -1,7 +1,7 @@
 # Loop — sink-credential-rotation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-credential-rotation` · Branch: `feat/sink-credential-rotation` · Base: `origin/main` @ `ae98ef106` · Started: 2026-10-19 · Reviewers: astra + claude (duo)
-Next: R spec-set review, round 2 (fresh legs on the fixed revision)
+Next: L task loop, dispatch T0.1 (probe)
 Budget: claude review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SECRET-ROTATION-01 (release inventory 2026-10-19 items 12-13). Release note: v0.22.0. Spec set: proposal.md, design.md, specs/sink-secret-rotation/spec.md, tasks.md.
@@ -10,7 +10,7 @@ Backlog SECRET-ROTATION-01 (release inventory 2026-10-19 items 12-13). Release n
 
 - [x] 0 orient — new change, created with `task spec:cli -- new change sink-credential-rotation`; file:line references measured against `origin/main` @ `ae98ef106` (2026-10-19)
 - [x] P plan + tasks — written; spec set committed: `84f61bba3`
-- [ ] R spec-set review — round 1 on `84f61bba3`: reviewer-a BLOCK, reviewer-b CONCERNS; CRITICAL A1 (cached reads) accepted via model-aligned decision → C, CRITICAL A5 (SCR-4 scope) accepted and narrowed; all other findings fixed (`reviews/R-spec-set/verification.md`). Round 2 pending
+- [x] R spec-set review — round 1 on `84f61bba3`: reviewer-a BLOCK, reviewer-b CONCERNS; CRITICAL A1 (cached reads) accepted via model-aligned decision → C, CRITICAL A5 (SCR-4 scope) accepted and narrowed; all other findings fixed (`reviews/R-spec-set/verification.md`). Round 2 (last) on `a0ac1aefe`: reviewer-a BLOCK (WARNINGs only), reviewer-b CONCERNS, no CRITICAL; all verified findings fixed (`reviews/R-spec-set/round-2/verification.md`). No CRITICAL remains
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review — `reviews/B-branch/round-N/`
 - [ ] Hand-off — `pr-description.md` · PR: none
@@ -42,6 +42,10 @@ Holistic run at B: not run yet.
 | R1 | Stream-sink cleanup blocked by a deleted Secret | WARNING | reviewer-b | fix | retain before acquire; SCR-2; 2.1 | no |
 | R1 | Tombstone wording, namespace param, reds per base, matrix gaps, Close assumption, legacy kind, citations, retire-on-any-error, partial S3 Secret, multiline rg | WARNING/NOTE | both | fix | verification.md rows A4, A6-A12, B2, B4, B6 | no |
 | R1 | Metric for pool Secret reads | NOTE | decision counterpoint | defer | follow-up (proposal non-goals) | no |
+| R2 | Store fence fails after own retire / absent-as-permission | WARNING | both | fix | generation counter, share-then-fence (design step 4) | no |
+| R2 | Cleanup paths not wired to the uncached reader | WARNING | both | fix | `cleanupSinkExports`, `pruneRelationalExport`, reconciler default | no |
+| R2 | Postgres assertion on the upsert path; reds green on G1; annotations in metadata; SCR-2/SCR-3 retire contradiction; terminal Git auth doc | WARNING | both | fix | round-2/verification.md A3-A5, B2, B3 | no |
+| R2 | TTL wording, stream set, namespace attribution, empty refs, CLI message, CA compat row | NOTE | reviewer-b | fix | round-2/verification.md B4-B10 | no |
 
 ## Tasks
 

@@ -93,8 +93,9 @@ waits for an export that already holds the backend, which BEP-1 allowed to fail.
   `internal/controller/kollectconnectiontest_controller.go:91`) build a fresh backend per run and
   are unchanged. `kollect-pipeline collect` gains only the empty-Secret error.
 - Code: `internal/sink/backend_pool.go`, `build_context.go`, `credentials.go`, `export.go`,
-  `cleanup.go` (reader field, stream retain before acquire), the two inventory reconcilers and
-  `cmd/main.go` (API reader wiring), `internal/pipeline/wire.go` (empty rule). No CRD, RBAC or
+  `cleanup.go` (reader field, forwarded by `pruneRelationalExport`; stream retain before acquire),
+  the two inventory reconcilers and `internal/controller/sink_cleanup.go` (API reader wiring),
+  `internal/pipeline/wire.go` (empty rule). No CRD, RBAC or
   dependency change: the manager already has `get/list/watch` on Secrets
   (`config/rbac/role.yaml:6-16`, marker `internal/controller/family_sink_controller.go:24`).
 - Behaviour change, release-noted for v0.22.0 (see SCR-6).
