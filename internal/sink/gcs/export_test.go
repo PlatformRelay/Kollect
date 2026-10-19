@@ -91,7 +91,7 @@ func TestTestConnection_missingBucket(t *testing.T) {
 
 	err := TestConnection(t.Context(), kollectdevv1alpha1.KollectSinkSpec{
 		Type: TypeName,
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for empty endpoint")
 	}

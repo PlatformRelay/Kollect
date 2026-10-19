@@ -22,8 +22,9 @@ func TestConnection(
 	ctx context.Context,
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	creds map[string][]byte,
+	caPEM []byte,
 ) error {
-	cfg, err := ConfigFromSpec(spec, creds)
+	cfg, err := ConfigFromSpec(spec, creds, caPEM)
 	if err != nil {
 		return err
 	}

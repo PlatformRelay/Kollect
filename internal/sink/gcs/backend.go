@@ -22,8 +22,9 @@ type Backend struct {
 	inner *s3.Backend
 }
 
-// NewBackend constructs a GCS sink using S3-compatible credentials and endpoint.
-func NewBackend(spec kollectdevv1alpha1.KollectSinkSpec, creds map[string][]byte) (*Backend, error) {
+// NewBackend constructs a GCS sink using S3-compatible credentials and endpoint; caPEM
+// is the spec.tls CA, trusted in addition to the system roots.
+func NewBackend(spec kollectdevv1alpha1.KollectSinkSpec, creds map[string][]byte, caPEM []byte) (*Backend, error) {
 	if spec.Type != typeName {
 		return nil, fmt.Errorf("expected gcs sink, got %q", spec.Type)
 	}
@@ -31,7 +32,7 @@ func NewBackend(spec kollectdevv1alpha1.KollectSinkSpec, creds map[string][]byte
 	clone := spec
 	clone.Type = "s3"
 
-	inner, err := s3.NewBackend(clone, creds)
+	inner, err := s3.NewBackend(clone, creds, caPEM)
 	if err != nil {
 		return nil, err
 	}

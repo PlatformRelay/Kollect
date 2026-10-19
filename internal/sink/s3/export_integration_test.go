@@ -79,7 +79,7 @@ func TestExportMinIO(t *testing.T) {
 	backend, err := NewBackend(spec, map[string][]byte{
 		"accessKeyID":     []byte(accessKey),
 		"secretAccessKey": []byte(secretKey),
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

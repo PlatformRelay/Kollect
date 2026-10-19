@@ -92,7 +92,7 @@ Test rules for every group:
 
 ## 2. S3 and GCS (SCT-1, SCT-4)
 
-- [ ] 2.1 Tests, red against stubs that accept `caPEM` in `s3.NewBackend`, `s3.TestConnection`,
+- [x] 2.1 Tests, red against stubs that accept `caPEM` in `s3.NewBackend`, `s3.TestConnection`,
   `gcs.NewBackend`, `gcs.TestConnection` (registry and probe pass `ctx.CAPEM`):
   - unit S1 given endpoint `http://h/b` and CA X, when `s3.NewBackend` runs, then a terminal error
     naming `spec.tls` and `http`, and the counting transport saw no request · CA ignored over HTTP;
@@ -118,10 +118,12 @@ Test rules for every group:
     server; CA X → the export fails and the plaintext server recorded no request · a redirect that
     downgrades to plain HTTP;
   - integration G1 (`internal/sink/gcs/ca_trust_integration_test.go`): I1 and I2 through
-    `gcs.NewBackend` / `gcs.TestConnection` · the GCS wrapper not passing the CA.
-- [ ] 2.2 Implement (`design.md`, *S3 and GCS*): `s3/config.go` rejects `http` with a CA,
+    `gcs.NewBackend` / `gcs.TestConnection` · the GCS wrapper not passing the CA. — closed
+  2026-10-19, evidence: evidence/G2.md
+- [x] 2.2 Implement (`design.md`, *S3 and GCS*): `s3/config.go` rejects `http` with a CA,
   `s3/backend.go:124-149` sets the pool on the cloned netguard transport, `gcs/backend.go:26-40` and
   `gcs/connection.go:13-21` pass the CA, `registry.go:120-126` and `probe.go:151`, `:163` pass it.
+  — closed 2026-10-19, evidence: evidence/G2.md
 
 ## 3. Postgres (SCT-2, SCT-4)
 
@@ -284,9 +286,9 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| SCT-1 | S1, S1b, S2, S3 (`go test -v ./internal/sink/s3/`) | rejections incl. SDK endpoints, guarded transport, no-CA unchanged | not-run | |
-| SCT-1 | I1, I2, I3, I4, G1 (`-tags integration`) | private CA trusted, Y refused, P trusted, downgrade redirect refused | not-run | |
-| SCT-1 | mutation: pool built with `x509.NewCertPool()` | I3 fails | not-run | |
+| SCT-1 | S1, S1b, S2, S3 (`go test -v ./internal/sink/s3/`) | rejections incl. SDK endpoints, guarded transport, no-CA unchanged | pass | `evidence/G2.md` rows 1-4 |
+| SCT-1 | I1, I2, I3, I4, G1 (`-tags integration`) | private CA trusted, Y refused, P trusted, downgrade redirect refused | pass | `evidence/G2.md` rows 5-9 |
+| SCT-1 | mutation: pool built with `x509.NewCertPool()` | I3 fails | pass | `evidence/G2.md` mutant 1 |
 | SCT-2 | D1-D8, D3b (`go test -v ./internal/sink/postgres/`) | conflicts and explicit weak modes rejected, unset → verify-full, no sentinel, fallbacks set | not-run | |
 | SCT-2 | PI6 (`-tags integration`) | unset sslmode verifies the hostname | not-run | |
 | SCT-2 | mutation: leave unset sslmode at pgx's default | D3b and PI6 fail | not-run | |

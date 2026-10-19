@@ -148,7 +148,7 @@ func testS3Connection(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	buildCtx BuildContext,
 ) (string, error) {
-	if err := s3sink.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
+	if err := s3sink.TestConnection(ctx, spec, buildCtx.SecretData, buildCtx.CAPEM); err != nil {
 		return "", err
 	}
 
@@ -160,7 +160,7 @@ func testGCSConnection(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	buildCtx BuildContext,
 ) (string, error) {
-	if err := gcs.TestConnection(ctx, spec, buildCtx.SecretData); err != nil {
+	if err := gcs.TestConnection(ctx, spec, buildCtx.SecretData, buildCtx.CAPEM); err != nil {
 		return "", err
 	}
 
