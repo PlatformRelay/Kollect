@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,6 +18,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
+	kafkasink "github.com/platformrelay/kollect/internal/sink/kafka"
+	natssink "github.com/platformrelay/kollect/internal/sink/nats"
 )
 
 // secretReadTimeout bounds each Secret read on the pool's acquire path.
@@ -62,9 +65,9 @@ func referencedSecretRefs(spec kollectdevv1alpha1.KollectSinkSpec, defaultNamesp
 		if spec.MongoDB != nil {
 			refs = append(refs, spec.MongoDB.DatabaseRef)
 		}
-	case "kafka":
+	case kafkasink.TypeName:
 		refs = append(refs, kafkaSecretRef(spec))
-	case "nats":
+	case natssink.TypeName:
 		refs = append(refs, natsSecretRef(spec))
 	}
 	refs = append(refs, gitAuthSecretRef(spec))
@@ -150,13 +153,16 @@ func secretMeta(ctx context.Context, reader client.Reader, uses []secretUse) ([]
 	return out, nil
 }
 
-// fetchSecrets reads each used Secret in full, for a rebuild.
+// fetchSecrets reads each used Secret in full, for a rebuild; an empty Secret is an error.
 func fetchSecrets(ctx context.Context, reader client.Reader, uses []secretUse) (map[secretUse]*corev1.Secret, error) {
 	out := make(map[secretUse]*corev1.Secret, len(uses))
 	for _, use := range uses {
 		secret := &corev1.Secret{}
 		if err := getSecretObject(ctx, reader, use, secret); err != nil {
 			return nil, err
+		}
+		if SecretDataEmpty(secret.Data) {
+			return nil, &secretReadError{use: use, empty: true, err: EmptySecretError(use.Namespace, use.Name)}
 		}
 		out[use] = secret
 	}
@@ -185,7 +191,10 @@ func getSecretObject(ctx context.Context, reader client.Reader, use secretUse, o
 
 	if err := reader.Get(readCtx, types.NamespacedName{Namespace: use.Namespace, Name: use.Name}, obj); err != nil {
 		if apierrors.IsNotFound(err) {
-			return &secretReadError{use: use, err: fmt.Errorf("secret %q not found in namespace %q", use.Name, use.Namespace)}
+			return &secretReadError{
+				use: use, notFound: true,
+				err: fmt.Errorf("secret %q not found in namespace %q", use.Name, use.Namespace),
+			}
 		}
 
 		return &secretReadError{use: use, err: fmt.Errorf("read secret %q in namespace %q: %w", use.Name, use.Namespace, err)}
@@ -197,12 +206,23 @@ func getSecretObject(ctx context.Context, reader client.Reader, use secretUse, o
 // secretReadError records which Secret a pool-path read failed on; its text is the inner error's.
 type secretReadError struct {
 	use secretUse
-	err error
+	// notFound and empty mark a missing or empty Secret: the read failures that retire the pooled
+	// backend (any other read failure observed no change).
+	notFound bool
+	empty    bool
+	err      error
 }
 
 func (e *secretReadError) Error() string { return e.err.Error() }
 
 func (e *secretReadError) Unwrap() error { return e.err }
+
+// isSecretGone reports whether err is a pool-path read of a missing or empty Secret.
+func isSecretGone(err error) bool {
+	var failed *secretReadError
+
+	return errors.As(err, &failed) && (failed.notFound || failed.empty)
+}
 
 // poolEntryKey derives the pool key from the spec hash and the referenced Secrets' metadata.
 func poolEntryKey(specHash string, versions []secretVersion) string {

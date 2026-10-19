@@ -20,8 +20,10 @@ import (
 	"github.com/platformrelay/kollect/internal/sink/gcs"
 	"github.com/platformrelay/kollect/internal/sink/git"
 	"github.com/platformrelay/kollect/internal/sink/gitlab"
+	kafkasink "github.com/platformrelay/kollect/internal/sink/kafka"
 	"github.com/platformrelay/kollect/internal/sink/layout"
 	"github.com/platformrelay/kollect/internal/sink/local"
+	natssink "github.com/platformrelay/kollect/internal/sink/nats"
 	"github.com/platformrelay/kollect/internal/sink/objectstore"
 	"github.com/platformrelay/kollect/internal/sink/s3"
 )
@@ -168,6 +170,12 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 	}
 	if req.SinkSpec.Type == "" {
 		return CleanupCleaned, kollecterrors.Terminal(fmt.Errorf("sink spec is required for cleanup of %q", req.SinkName))
+	}
+
+	// Streams cannot unsend events: retained without contacting the sink, so before the acquire
+	// and without reading a Secret (a deleted one must not block the inventory's deletion).
+	if _, stream := streamSinkTypes[req.SinkSpec.Type]; stream {
+		return CleanupRetained, nil
 	}
 
 	gitFamily := isGitLayoutFamily(req.SinkSpec.Type)
@@ -489,3 +497,8 @@ func classifyCleanupFailure(sinkName string, err error) error {
 
 	return kollecterrors.Transient(fmt.Errorf("cleanup delete for %q: %w", sinkName, err))
 }
+
+// streamSinkTypes are the sink types whose backend can neither delete nor retract (Kafka, NATS):
+// their cleanup is retained without contacting the sink, so it needs no Secret
+// (TestStreamSinkTypes_matchRetainingBackends keeps the set equal to cleanup.go's routing).
+var streamSinkTypes = map[string]struct{}{kafkasink.TypeName: {}, natssink.TypeName: {}}

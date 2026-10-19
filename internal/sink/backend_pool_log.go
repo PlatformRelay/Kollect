@@ -3,10 +3,16 @@
 
 package sink
 
-import logf "sigs.k8s.io/controller-runtime/pkg/log"
+import (
+	"github.com/go-logr/logr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+// sinkLog returns the pool's logger; a test seam so redaction tests can capture its lines.
+var sinkLog = func() logr.Logger { return logf.Log.WithName("sink") }
 
 func closeBackendLogged(backend Backend, reason string) {
 	if err := closeBackend(backend); err != nil {
-		logf.Log.WithName("sink").Error(err, "closeBackend failed during pool eviction", "reason", reason)
+		sinkLog().Error(err, "closeBackend failed during pool eviction", "reason", reason)
 	}
 }
