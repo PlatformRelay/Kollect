@@ -79,4 +79,4 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 | Task | Command sheet |
 |---|---|
 | 0.2 | verify the rename in every checkout the agent controls; the operator's other machines follow the INBOX notice |
-| 4.1 | merge after 0.2, 0.3, 3.1 and green CI; post-merge checksum check in the main checkout |
+| 4.2 | merge after 0.2, 0.3, 3.1, the 4.1 archive re-check and green CI; post-merge checksum check in each listed checkout |
