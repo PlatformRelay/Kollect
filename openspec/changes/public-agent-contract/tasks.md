@@ -229,11 +229,13 @@ Each case below reads: given / when / then · the failure it exposes.
 
 ## 4. Land
 
-- [ ] 4.1 After 3.1 approves and CI is green, archive the change (`openspec archive`) as the last
+- [x] 4.1 After 3.1 approves and CI is green, archive the change (`openspec archive`) as the last
   commit of the PR (`docs/development/spec-workflow.md` step 6); the reviewer re-checks that
   commit, and the review record names the reviewed and the archive revision; `git diff` of the
   archive commit touches no root `AGENTS.md` or `CLAUDE.md`, and the sha256 of the ignored local
-  files in the checkout where `openspec archive` ran is unchanged around it (pass/fail only)
+  files in the checkout where `openspec archive` ran is unchanged around it (pass/fail only) — closed 2026-10-19: the archive commit is the last
+  commit of PR #472 after green CI on `75ea54eee`; no local `AGENTS.local.md` or `CLAUDE.md` in
+  the archiving checkout (absent before and after, pass); the re-check is recorded on PR #472
 - [ ] 4.2 (integrator) Merge on green required CI on the archive revision, only after 0.2 and 0.3
   are recorded; after merge, in each listed checkout: pull, then confirm the 0.2 baseline holds
   (`AGENTS.local.md` and the loader `CLAUDE.md` unchanged where they existed, absent where they
@@ -272,10 +274,10 @@ whose messages name reviewer models (a history rewrite of reviewed commits).
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| PAC-1 | guard plain on the tree; missing, untracked, unknown-task, task-name-parsing, gate-list, required-command and link mutants; `git ls-files AGENTS.md` in a fresh clone; `repo_root_links_test.sh` | green; each mutant red | not-run | |
-| PAC-2 | pointer length, target and tracked-`CLAUDE.md` mutants | red | not-run | |
-| PAC-3 | heading, stale-path, stale-symbol, metric-entry and placeholder mutants; dry-run record from 2.1 | red; no unnamed gate fired | not-run | |
-| PAC-4 | per-pattern, upper-case and regex-witness scrub, fixed-string, staged-differs, empty/missing list, rg-error and rg-missing, home/harness-path, ignore-rule (7 paths), private-header, OpenSpec-marker and gitleaks (3 paths) mutants; `hack/scrub.sh` with files staged; `gitleaks detect --no-git` | each mutant red; scrub ok; no leaks | not-run | |
-| PAC-5 | `--self-test` exit status; no-op copy; surviving-mutant and wrong-clause cases | mutants red, no-op green | not-run | |
-| PAC-6 | generic-host (range edges, mixed case, ULA, scp form), allowed look-alikes (digest, DSN), running-host and empty-pattern-set mutants | red; look-alikes green; no recursion | not-run | |
-| all | 0.2 checkout record; CI on the PR head; independent review | recorded; green; APPROVE; both revisions recorded | not-run | |
+| PAC-1 | guard plain on the tree; missing, untracked, unknown-task, task-name-parsing, gate-list, required-command and link mutants; `git ls-files AGENTS.md` in a fresh clone; `repo_root_links_test.sh` | green; each mutant red | pass | `evidence/G2.md` rows 3-5; CI run 39217141284 on `75ea54eee` (lint printed `ripgrep 14.1.0`; guard plain and `--self-test` green) |
+| PAC-2 | pointer length, target and tracked-`CLAUDE.md` mutants | red | pass | `evidence/G2.md` rows 4, 6; CI run 39217141284 on `75ea54eee` (lint printed `ripgrep 14.1.0`; guard plain and `--self-test` green) |
+| PAC-3 | heading, stale-path, stale-symbol, metric-entry and placeholder mutants; dry-run record from 2.1 | red; no unnamed gate fired | pass | `evidence/G2.md` rows 1, 4 (dry-runs A/B/C); CI run 39217141284 on `75ea54eee` (lint printed `ripgrep 14.1.0`; guard plain and `--self-test` green) |
+| PAC-4 | per-pattern, upper-case and regex-witness scrub, fixed-string, staged-differs, empty/missing list, rg-error and rg-missing, home/harness-path, ignore-rule (7 paths), private-header, OpenSpec-marker and gitleaks (3 paths) mutants; `hack/scrub.sh` with files staged; `gitleaks detect --no-git` | each mutant red; scrub ok; no leaks | pass | `evidence/G2.md` rows 4, 6, 10; `reviews/B-branch/` fixes 5.1, 5.3, 5.8; CI run 39217141284 on `75ea54eee` (lint printed `ripgrep 14.1.0`; guard plain and `--self-test` green) |
+| PAC-5 | `--self-test` exit status; no-op copy; surviving-mutant and wrong-clause cases | mutants red, no-op green | pass | `evidence/G1.md` rows 8, 10; `evidence/G2.md` row 4; CI run 39217141284 on `75ea54eee` (lint printed `ripgrep 14.1.0`; guard plain and `--self-test` green) |
+| PAC-6 | generic-host (range edges, mixed case, ULA, scp form), allowed look-alikes (digest, DSN), running-host and empty-pattern-set mutants | red; look-alikes green; no recursion | pass | `evidence/G2.md` row 4; fixes 5.2, 5.7; CI run 39217141284 on `75ea54eee` (lint printed `ripgrep 14.1.0`; guard plain and `--self-test` green) |
+| all | 0.2 checkout record; CI on the PR head; independent review | recorded; green; APPROVE; both revisions recorded | pass | `evidence/G1.md` 0.2 (10 checkouts, 10 pass; re-run before merge, pass); PR #472 head `75ea54eee`: 39 checks pass, 3 skipped, `dependency-review` green; 3.1 review revisions `73e92c8c4` and `96d4ec716` |
