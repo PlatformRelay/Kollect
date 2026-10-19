@@ -45,8 +45,11 @@ func ExportPayload(c Capabilities, payload []byte) (export []byte, skip bool) {
 
 // ExportEnvelopeRequest carries a pre-marshalled export envelope to a sink.
 type ExportEnvelopeRequest struct {
-	Ctx           context.Context
-	Client        client.Client
+	Ctx    context.Context
+	Client client.Client
+	// SecretReader reads the sink's referenced Secrets on the pool's acquire path, uncached
+	// (the manager's API reader in production). Nil falls back to Client.
+	SecretReader  client.Reader
 	Registry      *Registry
 	SinkNamespace string
 	SinkName      string
@@ -86,8 +89,8 @@ func RunExportEnvelope(req ExportEnvelopeRequest) ([]string, error) {
 		return nil, err
 	}
 
-	backend, release, err := acquireBackend(
-		req.Ctx, req.Client, req.Registry, req.SinkNamespace, req.SinkName, req.SinkUID, req.SinkSpec,
+	backend, release, err := acquireBackendWithReader(
+		req.Ctx, req.Client, req.SecretReader, req.Registry, req.SinkNamespace, req.SinkName, req.SinkUID, req.SinkSpec,
 	)
 	if err != nil {
 		// The acquire error already carries its class when construction

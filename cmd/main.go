@@ -264,11 +264,12 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&controller.KollectInventoryReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Store:    collectStore,
-		Registry: sinkRegistry,
-		Options:  ctrlOpts,
+		Client:       mgr.GetClient(),
+		SecretReader: mgr.GetAPIReader(),
+		Scheme:       mgr.GetScheme(),
+		Store:        collectStore,
+		Registry:     sinkRegistry,
+		Options:      ctrlOpts,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectinventory")
 		os.Exit(1)
@@ -318,12 +319,13 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&controller.KollectClusterInventoryReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Store:    collectStore,
-		Engine:   collectEngine,
-		Registry: sinkRegistry,
-		Options:  ctrlOpts,
+		Client:       mgr.GetClient(),
+		SecretReader: mgr.GetAPIReader(),
+		Scheme:       mgr.GetScheme(),
+		Store:        collectStore,
+		Engine:       collectEngine,
+		Registry:     sinkRegistry,
+		Options:      ctrlOpts,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "kollectclusterinventory")
 		os.Exit(1)

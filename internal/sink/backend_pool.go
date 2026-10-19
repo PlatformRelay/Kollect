@@ -8,13 +8,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	"github.com/platformrelay/kollect/internal/validation"
@@ -25,6 +28,11 @@ type poolKey string
 type pooledEntry struct {
 	backend  Backend
 	specHash string
+	// key is poolEntryKey(specHash, secrets): an entry is reused only while the spec and every
+	// referenced Secret's UID and resourceVersion are unchanged (SCR-1).
+	key string
+	// secrets is the metadata of the Secrets the backend was built from (no values).
+	secrets  []secretVersion
 	lastUsed time.Time
 }
 
@@ -99,6 +107,22 @@ func acquireBackend(
 	sinkUID types.UID,
 	spec kollectdevv1alpha1.KollectSinkSpec,
 ) (Backend, func(), error) {
+	return acquireBackendWithReader(ctx, c, nil, reg, sinkNamespace, sinkName, sinkUID, spec)
+}
+
+// acquireBackendWithReader returns the sink's backend: the pooled one while the spec and the
+// referenced Secrets' metadata are unchanged, else one built from the current Secrets.
+// secretReader reads those Secrets (uncached in production); nil falls back to c. The
+// pool-disabled path keeps reading through c.
+func acquireBackendWithReader(
+	ctx context.Context,
+	c client.Client,
+	secretReader client.Reader,
+	reg *Registry,
+	sinkNamespace, sinkName string,
+	sinkUID types.UID,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+) (Backend, func(), error) {
 	if reg == nil {
 		return nil, func() {}, fmt.Errorf("sink registry is not configured")
 	}
@@ -122,6 +146,27 @@ func acquireBackend(
 		return backend, func() { closeBackendLogged(backend, "pool disabled release") }, nil
 	}
 
+	var reader client.Reader = c
+	if secretReader != nil {
+		reader = secretReader
+	}
+
+	defaultNamespace := sinkNamespace
+	if defaultNamespace == "" {
+		defaultNamespace = DefaultSecretNamespace
+	}
+
+	// Same order BuildContextFromSpec keeps: the CA source check before any Secret read.
+	if caErr := CheckCASources(spec.TLS); caErr != nil {
+		return nil, func() {}, caErr
+	}
+
+	uses := referencedSecretRefs(spec, defaultNamespace)
+	versions, err := secretMeta(ctx, reader, uses)
+	if err != nil {
+		return nil, func() {}, caRulesFirst(ctx, reader, spec, defaultNamespace, err)
+	}
+
 	key := poolKeyForSink(sinkUID, sinkNamespace, sinkName)
 	now := timeNow()
 
@@ -133,36 +178,95 @@ func acquireBackend(
 
 	globalBackendPool.mu.Lock()
 	stale = pruneStaleEntriesLocked(now)
-	if entry, ok := globalBackendPool.entries[key]; ok && entry.specHash == specHash {
-		entry.lastUsed = now
-		backend := entry.backend
-		globalBackendPool.mu.Unlock()
+	var previous []secretVersion
+	if entry, ok := globalBackendPool.entries[key]; ok {
+		if entry.key == poolEntryKey(specHash, versions) {
+			entry.lastUsed = now
+			backend := entry.backend
+			globalBackendPool.mu.Unlock()
 
-		return backend, func() {}, nil
+			return backend, func() {}, nil
+		}
+		if entry.specHash == specHash {
+			previous = entry.secrets
+		}
 	}
 	globalBackendPool.mu.Unlock()
 
-	buildCtx, err := BuildContextFromSpec(ctx, c, spec, sinkNamespace)
+	// Miss: read the Secrets in full and build from those objects. The stored key comes from
+	// the same objects, so key and values are one snapshot even if a Secret changed after
+	// the metadata read.
+	secrets, err := fetchSecrets(ctx, reader, uses)
+	if err != nil {
+		return nil, func() {}, caRulesFirst(ctx, reader, spec, defaultNamespace, err)
+	}
+	built := versionsOf(uses, secrets)
+
+	buildCtx, err := buildContextFromSecrets(ctx, spec, defaultNamespace, secrets)
 	if err != nil {
 		return nil, func() {}, err
 	}
 
-	built, err := reg.NewBackend(spec, buildCtx)
+	backend, err := reg.NewBackend(spec, buildCtx)
 	if err != nil {
 		return nil, func() {}, err
 	}
 
-	backend, discard, reason := storePooledBackend(key, specHash, now, built)
+	if changed := changedSecrets(previous, built); previous != nil && len(changed) > 0 {
+		logf.Log.WithName("sink").Info("rebuilt sink backend",
+			"sinkNamespace", sinkNamespace, "sinkName", sinkName,
+			"reason", "referenced secret changed", "secrets", changed)
+	}
+
+	stored, discard, reason := storePooledBackend(key, pooledEntry{
+		backend:  backend,
+		specHash: specHash,
+		key:      poolEntryKey(specHash, built),
+		secrets:  built,
+		lastUsed: now,
+	})
 	if discard != nil {
 		closeBackendLogged(discard, reason)
 	}
 	if reason == reasonDeleteTombstone {
 		// Nothing was pooled for the deleted sink: the caller owns the built
 		// backend and its release Closes it once the export is done.
-		return backend, func() { closeBackendLogged(backend, "delete tombstone release") }, nil
+		return stored, func() { closeBackendLogged(stored, "delete tombstone release") }, nil
 	}
 
-	return backend, func() {}, nil
+	return stored, func() {}, nil
+}
+
+// caRulesFirst keeps BuildContextFromSpec's error precedence on the pool path: when a credential
+// Secret read failed, a CA Secret that is missing or has no CA key is reported instead of readErr.
+// A failed read of the CA Secret itself is returned as is, as the CA-first order returned it. It
+// reads the CA Secret only on this error path, so a pool hit never transfers its data.
+func caRulesFirst(
+	ctx context.Context,
+	reader client.Reader,
+	spec kollectdevv1alpha1.KollectSinkSpec,
+	defaultNamespace string,
+	readErr error,
+) error {
+	caUse, ok := caSecretUse(spec, defaultNamespace)
+	var failed *secretReadError
+	if !ok || (errors.As(readErr, &failed) && failed.use == caUse) {
+		return readErr
+	}
+
+	read := func(use secretUse) (*corev1.Secret, error) {
+		secret := &corev1.Secret{}
+		if err := getSecretObject(ctx, reader, use, secret); err != nil {
+			return nil, err
+		}
+
+		return secret, nil
+	}
+	if _, _, caErr := checkCASecret(spec, defaultNamespace, read); caErr != nil {
+		return caErr
+	}
+
+	return readErr
 }
 
 // reasonDeleteTombstone marks the store decision for a tombstoned key: nothing
@@ -173,45 +277,40 @@ func acquireBackend(
 // fresh connection nothing would Close.
 const reasonDeleteTombstone = "delete tombstone"
 
-// storePooledBackend saves built under key, or keeps the pooled backend when
-// specHash already matches. A key that carries a delete-tombstone (the sink
-// was deleted while the build was in flight) pools nothing: the built backend
-// is handed to the caller open, and the release acquireBackend returns Closes
-// it exactly once (reasonDeleteTombstone). Nothing is ever pooled for the
-// deleted sink (BEP-1). The function unlocks before returning so the caller
-// can Close discard without holding globalBackendPool.mu.
-func storePooledBackend(key poolKey, specHash string, now time.Time, built Backend) (Backend, Backend, string) {
+// storePooledBackend saves next under key, or keeps the pooled backend when its key already
+// matches next.key. A key that carries a delete-tombstone (the sink was deleted while the build
+// was in flight) pools nothing: the built backend is handed to the caller open, and the release
+// acquireBackend returns Closes it exactly once (reasonDeleteTombstone). Nothing is ever pooled
+// for the deleted sink (BEP-1). The function unlocks before returning so the caller can Close
+// discard without holding globalBackendPool.mu.
+func storePooledBackend(key poolKey, next pooledEntry) (Backend, Backend, string) {
 	globalBackendPool.mu.Lock()
 	defer globalBackendPool.mu.Unlock()
 
 	if _, deleted := globalBackendPool.tombstones[key]; deleted {
-		return built, nil, reasonDeleteTombstone
+		return next.backend, nil, reasonDeleteTombstone
 	}
 
 	old, ok := globalBackendPool.entries[key]
 	if !ok {
-		globalBackendPool.entries[key] = &pooledEntry{
-			backend:  built,
-			specHash: specHash,
-			lastUsed: now,
-		}
+		globalBackendPool.entries[key] = &next
 
-		return built, nil, ""
+		return next.backend, nil, ""
 	}
 
-	if old.specHash == specHash {
-		old.lastUsed = now
+	if old.key == next.key {
+		old.lastUsed = next.lastUsed
 
-		return old.backend, built, "duplicate pool backend"
+		return old.backend, next.backend, "duplicate pool backend"
 	}
 
-	globalBackendPool.entries[key] = &pooledEntry{
-		backend:  built,
-		specHash: specHash,
-		lastUsed: now,
+	globalBackendPool.entries[key] = &next
+	reason := "spec hash change"
+	if old.specHash == next.specHash {
+		reason = "referenced secret change"
 	}
 
-	return built, old.backend, "spec hash change"
+	return next.backend, old.backend, reason
 }
 
 func closeBackendsLogged(backends []Backend, reason string) {

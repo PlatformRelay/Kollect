@@ -53,6 +53,7 @@ Holistic run at B: not run yet.
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
 | T0.1 | CLOSED-WITH-GAPS (first BLOCKED, SPECIFICATION, resolved by decision B) | reviewer-a diff, 1 round, REQUEST_CHANGES on evidence class and wording, fixed; no paid leg (evidence only, no BLOCK) | rows 4, 5 by reading (gap); the `0s` finding became SCR-7 and tasks 2.3, 2.4 (spec-set commit after `74e8376c1`) |
+| G1 | CLOSED-WITH-GAPS | reviewer-a and reviewer-b (paid leg: credential handling is security posture), diff lens, 2 rounds: r1 APPROVE / CONCERNS (cluster export wiring untested, fixed), FINAL red on CA-before-credential precedence fixed, r2 REQUEST_CHANGES / CONCERNS (CA-read masking, nameless caSecretRef, fixed after the last round) | rows 15, 16 agent-review (sensors in G2); G1-G3 must land together (G1 alone: stream cleanup reads the Secret, rotated backend closed under a concurrent export) |
 
 ## Known red
 
@@ -76,6 +77,11 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - T0.1: the fake client keeps the UID a test sets and starts `resourceVersion` at 999, +1 per write; model delete-and-recreate by setting a new UID.
 - T0.1: a probe that only prints is agent-review, not machine; assert the reported outcome in the probe.
 - T0.1: check "bounded by the export interval" claims against `exportMinInterval: 0s` (material-change only, `per_sink_export.go:85-87`).
+- G1: a list-driven rewrite of an ordered reader keeps the read set but can change error precedence; the pinned CA-before-credential order (`internal/pipeline` `TestCAParity_caRulesPrecedeCredentialLookup`) only showed up in the full suite.
+- G1: Ginkgo refuses `go test -count>1` and `-ginkgo.repeat` is CLI-only; repeat `go test -race -count=1 -run '^TestControllers$'` N times.
+- G1: run the full suite with `umask 022`; `internal/sink/git` mirror tests fail on a group-writable temp dir.
+- G1: the worktree has no `bin/`; envtest needs `KUBEBUILDER_ASSETS=<main checkout>/bin/k8s/1.36.0-linux-amd64` or `BeforeSuite` fails on etcd.
+- G1: a never-started manager with a static REST mapper (`MapperProvider`) lets a plain unit test call `SetupWithManager` without an API server.
 
 ## Where a human should look first
 

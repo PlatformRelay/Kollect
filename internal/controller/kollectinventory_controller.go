@@ -35,11 +35,14 @@ import (
 // KollectInventoryReconciler reconciles a KollectInventory object
 type KollectInventoryReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Store    *collect.Store
-	Registry *sink.Registry
-	Options  RuntimeOptions
-	Recorder record.EventRecorder
+	// SecretReader reads sink Secrets uncached on the export and cleanup paths.
+	// SetupWithManager defaults it to the manager's API reader.
+	SecretReader client.Reader
+	Scheme       *runtime.Scheme
+	Store        *collect.Store
+	Registry     *sink.Registry
+	Options      RuntimeOptions
+	Recorder     record.EventRecorder
 
 	sinkCoalesce       perSinkCoalesceTracker
 	nsFingerprintCache namespaceFingerprintCache
@@ -408,6 +411,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 				partWritten, exportErr = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
 					Ctx:           ctx,
 					Client:        r.Client,
+					SecretReader:  r.SecretReader,
 					Registry:      r.Registry,
 					SinkNamespace: sink.SinkNamespaceForResolved(job.resolved, inv.Namespace),
 					SinkName:      job.binding.Name,
@@ -672,6 +676,11 @@ func (r *KollectInventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Recorder == nil {
 		//nolint:staticcheck // SA1019: record API until events migration
 		r.Recorder = mgr.GetEventRecorderFor("kollectinventory-controller")
+	}
+
+	// Sink Secrets are read uncached on the export and cleanup paths (SCR-1).
+	if r.SecretReader == nil {
+		r.SecretReader = mgr.GetAPIReader()
 	}
 
 	// AR-09: index KollectInventory by its sink bindings so sink-watch mappers can do an indexed
