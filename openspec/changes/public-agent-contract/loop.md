@@ -1,6 +1,6 @@
 # Loop — public-agent-contract (spec-loop-duo run state)
 
-Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/public-agent-contract` · Branch: `feat/public-agent-contract` · Base: `origin/main` @ `3c01608ff` · Started: 2026-10-19 · Reviewers: astra + claude (duo)
+Repo: `<worktree>` · Branch: `feat/public-agent-contract` · Base: `origin/main` @ `3c01608ff` · Started: 2026-10-19 · Reviewers: astra + claude (duo)
 Next: G0 (0.1c, 0.2, 0.3 — 0.3 waits for change 9's merge), then G2 (1.1 + 2.1-2.4) in one commit
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in the maintainer's local decision log)
 
