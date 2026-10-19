@@ -828,9 +828,38 @@ FAKE
     done
     : >"${SJ}/lines"
     if ((${#readable[@]} > 0)); then
-      (cd "${ROOT}" && awk '!/^[[:space:]]*#/ { t = $0; sub(/^[[:space:]]+/, "", t); sub(/^-[[:space:]]+/, "", t); sub(/[[:space:]]+$/, "", t); print FILENAME "\t" FNR "\t" t }' "${readable[@]}") >"${SJ}/lines" ||
+      # A line ending in a backslash is joined with the next (shell and make continuations), so
+      # `task \` / `mutation` is one line, reported at its first line number (stage-B B4).
+      (cd "${ROOT}" && awk '
+        function flush() { if (pend != "") print pf "\t" pl "\t" pend; pend = "" }
+        FNR == 1 { flush() }
+        pend == "" && /^[[:space:]]*#/ { next }
+        {
+          t = $0; sub(/^[[:space:]]+/, "", t); sub(/^-[[:space:]]+/, "", t); sub(/[[:space:]]+$/, "", t)
+          if (pend != "") t = pend " " t
+          else { pf = FILENAME; pl = FNR }
+          if (t ~ /\\$/) { sub(/[[:space:]]*\\$/, "", t); pend = t; next }
+          pend = ""
+          print pf "\t" pl "\t" t
+        }
+        END { flush() }' "${readable[@]}") >"${SJ}/lines" ||
         scan_error "awk could not read the scan set"
     fi
+    # The parsed text of every block scalar (`|` or `>`) in the scan set's YAML files, line by
+    # line with continuations joined, as "<file>\tblock\t<text>": a folded `>-` holding `task` and
+    # `mutation` on two source lines is one command (stage-B B4). Plain scalars are already one
+    # source line each.
+    for f in "${readable[@]}"; do
+      [[ "${f}" == *.yml || "${f}" == *.yaml ]] || continue
+      if ! yq eval -o=json -I=0 '[explode(.) | .. | select(tag == "!!str" and (style == "literal" or style == "folded"))]' "${ROOT}/${f}" >"${SJ}/blocks.json" 2>/dev/null; then
+        scan_error "${f}: the block-scalar query failed (does not parse as YAML)"
+        continue
+      fi
+      jq -r --arg f "${f}" '.[] | gsub("\\\\\\n\\s*"; " ") | split("\n")[]
+        | sub("^\\s+"; "") | sub("^-\\s+"; "") | sub("\\s+$"; "")
+        | select(. != "" and (startswith("#") | not)) | $f + "\tblock\t" + .' "${SJ}/blocks.json" >>"${SJ}/lines" ||
+        scan_error "${f}: the block-scalar lines could not be listed"
+    done
     # One awk pass over the scan lines: "<rule>\t<file>\t<line>\t<text>" per hit that is not the
     # W1/W2 chain itself. Its exit status is checked (no `|| true`): an awk that fails is a scan
     # error, never "nothing found". The hits are read from a file in this shell, so case_fail
@@ -1327,6 +1356,13 @@ done' 'measure aggregate "${ROOT}" ./internal/... ./internal/...'
     lit hack/task/Taskfile.test.yml '      - bash hack/ci/test-shuffle.sh' "      - bash hack/ci/test-shuffle.sh${nl}      - task {{.MEASUREMENT}}"
   judge W3 "a binary in a variable running unleash in a hack script (W3)" "W3: hack/run-mutants.sh:2: a gremlins unleash outside hack/ci/mutation.sh" \
     add hack/run-mutants.sh "#!/usr/bin/env bash${nl}\"\${G:?}\" unleash ./..."
+  # Stage-B review (B4): a task call split by a shell continuation, or folded by YAML.
+  judge W3 "run: | with task \\ continued onto mutation in ci.yaml (W3, stage-B B4)" "W3: .github/workflows/ci.yaml:" \
+    lit .github/workflows/ci.yaml "      - name: Lint${nl}        run: task lint${nl}" "      - run: |${nl}          task \\${nl}            mutation${nl}      - name: Lint${nl}        run: task lint${nl}"
+  judge W3 "run: >- folding task and mutation into one command in ci.yaml (W3, stage-B B4)" "W3: .github/workflows/ci.yaml:" \
+    lit .github/workflows/ci.yaml "      - name: Lint${nl}        run: task lint${nl}" "      - run: >-${nl}          task${nl}          mutation${nl}      - name: Lint${nl}        run: task lint${nl}"
+  judge W3 "a hack script continuing task onto mutation (W3, stage-B B4)" "W3: hack/run-nightly.sh:2:" \
+    add hack/run-nightly.sh "#!/usr/bin/env bash${nl}task \\${nl}  mutation"
   judge 'W3|C3' "a deps: of an unexpected shape (C3)" "C3: scan error: Taskfile.yml: the task dependency query failed" \
     lit "${T}" "    desc: Scan for known Go vulnerabilities (govulncheck)${nl}    deps: [install]" "    desc: Scan for known Go vulnerabilities (govulncheck)${nl}    deps: mutation"
 

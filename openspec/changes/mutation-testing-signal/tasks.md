@@ -250,6 +250,9 @@ each, evidence in evidence/B.md.
 - [x] 4.3 S3 (B2): the runner reads `unleash --help` before the first call and fails unless the
   pinned binary's mutator flags are exactly `FLAGS` (case R9 on a recorded help fixture: extra,
   missing, none, failing; four mutants) — closed 2026-10-19, evidence: evidence/B.md
+- [x] 4.4 S4 (B4): the W3 scan joins backslash-continued lines and also scans the parsed lines of
+  every YAML block scalar in the scan set (three W3 mutants: `run: |` with `task \`, `run: >-`
+  folding, a hack script continuation) — closed 2026-10-19, evidence: evidence/B.md
 
 ## Verification
 

@@ -86,3 +86,23 @@ mutation` exit 0 with the recorded counts; the same with `--remove-self-assignme
 ```text
 ::error::mutation: the pinned gremlins' mutator flags differ from FLAGS in this script: offered, not passed: --remove-self-assignments ; passed, not offered: none. Update FLAGS after a gremlins bump
 ```
+
+## S4 (4.4): W3 sees a task call split over lines (B4)
+
+Red: three new W3 mutants in `--self-test` on the unfixed guard (exit 1 in 188 s, every other
+mutant and control as before):
+
+```text
+FAIL: self-test: run: | with task \ continued onto mutation in ci.yaml (W3, stage-B B4): expected a non-zero exit and a FAIL line with 'W3: .github/workflows/ci.yaml:', got exit 0:
+FAIL: self-test: run: >- folding task and mutation into one command in ci.yaml (W3, stage-B B4): expected a non-zero exit and a FAIL line with 'W3: .github/workflows/ci.yaml:', got exit 0:
+FAIL: self-test: a hack script continuing task onto mutation (W3, stage-B B4): expected a non-zero exit and a FAIL line with 'W3: hack/run-nightly.sh:2:', got exit 0:
+FAIL: self-test: 3 mutant(s) or control(s) above did not behave
+```
+
+Fix: the W3 line producer joins a line ending in `\` with the next (reported at the first line);
+then every YAML file of the scan set is parsed once more (`explode`, block scalars only, literal
+or folded) and each parsed line, continuations joined, is added as `<file>\tblock\t<text>`. A
+failing parse is a C3 scan error. Plain scalars were already one source line each.
+
+Green: guard plain exit 0 in 13 s (no new hit on the real tree); `--self-test` exit 0 in 266 s
+with the three mutants red by their messages.
