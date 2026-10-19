@@ -95,8 +95,11 @@ func caDSN(dsn string) (string, bool, error) {
 
 	// The mode is pinned in the DSN even when it came from the DSN: pgx parses
 	// require and prefer+sslnegotiation=direct to the same shape, so applyCA cannot
-	// catch a DSN the reader and pgx split differently. Pinned, pgx uses this mode
-	// or a later DSN mode the reader missed, which applyCA then judges.
+	// tell them apart. Pinned, pgx uses this mode, or a later DSN mode the reader
+	// missed. Such a missed mode is never weaker than this one: disable, allow and
+	// prefer without direct leave a plaintext config, which applyCA rejects; prefer
+	// with direct gets require's chain check, as require and verify-ca have; under
+	// verify-full, applyCA rejects any config that skips the hostname.
 	return withSSLMode(dsn, mode.value), mode.value == "verify-full", nil
 }
 

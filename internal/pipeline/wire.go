@@ -69,8 +69,9 @@ var envPlaceholderPattern = regexp.MustCompile(`^\$\{env:([A-Za-z_][A-Za-z0-9_]*
 
 // ResolveSinkSecretData resolves the sink's credential Secret against Secrets loaded from the
 // config directory (pipeline mode reads a local v1.Secret manifest instead of the cluster API).
-// It follows the operator's order (sink.BuildContextFromSpec): spec.secretRef first, then, for a
-// git sink, spec.git.auth.secretRef replaces it. Every reference that is set must resolve.
+// It follows the operator's order (sink.BuildContextFromSpec): the spec.tls CA rules first, then
+// spec.secretRef, then, for a git sink, spec.git.auth.secretRef replaces it. Every reference that
+// is set must resolve.
 // Returns nil when no reference is set (no credentials required, e.g. type: local).
 //
 // The returned map merges the manifest's stringData over data (apiserver semantics —
