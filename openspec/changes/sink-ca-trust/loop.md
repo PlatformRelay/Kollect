@@ -1,7 +1,7 @@
 # Loop — sink-ca-trust (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-ca-trust` · Branch: `feat/sink-ca-trust` · Base: `origin/main` @ `7f97d59ec` · Started: 2026-10-19 · Reviewers: astra + claude (duo)
-Next: R spec-set review on the spec-set commit
+Next: R spec-set review round 2 (fresh legs) on the round-1 fix commit
 Budget: claude review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SINK-CA-UNUSED-01 (decisions 2026-10-04 "→ A, honour it" and 2026-10-19 "CA semantics", outcome A). Release note: v0.22.0. Spec set: proposal.md, design.md, specs/sink-tls-trust/spec.md, tasks.md.
@@ -10,7 +10,7 @@ Backlog SINK-CA-UNUSED-01 (decisions 2026-10-04 "→ A, honour it" and 2026-10-1
 
 - [x] 0 orient — new change, created with `task spec:cli -- new change sink-ca-trust`; file:line references measured against `origin/main` @ `7f97d59ec` (2026-10-19)
 - [x] P plan + tasks — written; spec set committed: `70c847a8e`
-- [ ] R spec-set review — `reviews/R-spec-set/` on <sha> · verdict: <…> · CRITICAL: <…>
+- [ ] R spec-set review — round 1 on `b3da7b2c9`: astra BLOCK, opus CONCERNS; A-F1 (MongoDB `sslInsecure` alias) and A-F3 (CLI loads no database sinks) CRITICAL accepted and fixed, all others fixed or narrowed (`reviews/R-spec-set/verification.md`); round 2 pending
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review — `reviews/B-branch/round-N/` · rounds: <n> · verdict: <…>
 - [ ] Hand-off — <date> · `pr-description.md` · PR: <none>
@@ -35,6 +35,16 @@ Holistic run at B: not run yet.
 
 | Stage | Finding (one line) | Sev | Models | Disposition (fix / reject / defer) | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| R1 | MongoDB `sslInsecure` alias and mixed-case keys bypass the rejection | CRITICAL | astra (+opus backstop) | fix | SCT-3, design *MongoDB*, M2/M4/M7 | no |
+| R1 | CLI loads only `KollectSnapshotSink`; Postgres CLI scenario unexecutable | CRITICAL | astra | fix | SCT-5 scope, C1 in `cmd/cli`, non-goal | no |
+| R1 | `s3://` + SDK env endpoint can be `http`; no redirect policy | WARNING (astra CRITICAL) | astra | fix | SCT-1, S1b, I4 | no |
+| R1 | MongoDB driver errors leak hosts today | WARNING (astra CRITICAL) | astra | defer | non-goal + follow-up; spec narrowed to errors this change adds | no |
+| R1 | Postgres: direct negotiation, env and home root defaults, ordering | WARNING | astra, opus | fix | SCT-2, design *Postgres*, D3-D5 | no |
+| R1 | Both-set check order, parity by `errors.Is`, R2 scope | WARNING | astra, opus | fix | design *CA resolution*, R1/R2 | no |
+| R1 | Missing mode/hostname/SRV cases; PI4 package | WARNING | astra | fix | PI2, PI5, PI4, M8 | no |
+| R1 | Subprocess env, Go version, integration evidence | WARNING | astra, opus | fix | tasks test rules, 0.1 | no |
+| R1 | Compatibility and release note scope | WARNING | astra | fix | design table, 6.1, SCT-6 | no |
+| R1 | Stale lines and small wording | NOTE | astra, opus | fix | proposal, tasks | no |
 
 ## Tasks
 

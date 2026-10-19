@@ -24,9 +24,15 @@ Test rules for every group:
   `internal/sink/postgres/export_integration_test.go:34-45`. httptest-based ones need no Docker
   but still run only in that tier. Unit cases (no network) carry no build tag.
 - "Still trusts public CAs" cases replace the system pool with root P by re-executing the test
-  binary as a subprocess with `SSL_CERT_FILE=<P.pem>` and `SSL_CERT_DIR=` (an empty directory), so
-  the rest of the package keeps the real pool; the parent asserts the child's exit status and its
-  `=== RUN` line. Probe this in 0.1 before relying on it.
+  binary as a subprocess (`os.Args[0] -test.v -test.run '^<ChildTest>$'`) with
+  `SSL_CERT_FILE=<P.pem>` and `SSL_CERT_DIR=<an empty t.TempDir()>` (an empty value does not clear
+  Go's default directories), so the rest of the package keeps the real pool; the parent asserts the
+  child's exit status and its `=== RUN <ChildTest>` and `--- PASS` lines. Probe this in 0.1.
+- Integration evidence: `task test-integration` runs `hack/tools/integrationevidence`, which hides
+  per-test output; run the named tests separately with `go test -tags integration -v -run` or keep
+  the raw stream with `-json-out=<file>` (`hack/tools/integrationevidence/main.go:30`), and quote the
+  `=== RUN` lines. Without Docker the container-backed cases skip; that is neither red nor green and
+  leaves the row `blocked` until a Docker run (CI `test-integration`) records it.
 - Error-text assertions check for sentinel values put into the DSN/URI (host `sentinel-host`, user
   `sentinel-user`, password `sentinel-pass`, database `sentinel-db`) and SHALL find none of them.
 - Each group records `go test -race -count=3` on the packages it changed.
@@ -41,9 +47,14 @@ Test rules for every group:
     shape each sslmode yields (TLSConfig nil, fallbacks with nil TLSConfig, `InsecureSkipVerify` with
     or without `VerifyPeerCertificate`); that `PGSSLMODE` / `PGSSLROOTCERT` reach the parse;
   - mongo-driver v1.17.10: a parse of the URI's TLS keys that does no DNS lookup for
-    `mongodb+srv` (the SRV resolve at `x/mongo/driver/connstring/connstring.go:995-1002` must not run
-    in validation); otherwise SCT-3's check parses the query string itself;
-  - Go 1.26 on Linux: `SSL_CERT_FILE` in a child process replaces `x509.SystemCertPool()`;
+    `mongodb+srv` (the TXT and SRV lookups at `x/mongo/driver/connstring/connstring.go:994` and
+    `:1016` must not run in validation); otherwise SCT-3's check parses the query string itself;
+  - pgx v5.11.0: the home-directory default `~/.postgresql/root.crt` (`pgconn/defaults.go:58`),
+    `PGSERVICEFILE` entries, and what an unreadable `PGSSLROOTCERT` does to `ParseConfig`;
+  - mongo-driver v1.17.10: how a repeated query key and mixed-case keys are handled
+    (`connstring.go:348`), and which options besides `tls`/`ssl` turn TLS on (`:596-640`);
+  - Go 1.27.2 (`go.mod:3`) on Linux: `SSL_CERT_FILE` plus an empty `SSL_CERT_DIR` directory in a
+    child process replace `x509.SystemCertPool()`;
   - Postgres image `postgres:16-alpine` accepts a test key mounted into the container (key owner
     and mode rules) and MongoDB's image accepts `--tlsMode requireTLS --tlsCertificateKeyFile`;
     record the command that worked.
@@ -62,13 +73,17 @@ Test rules for every group:
   - R1 table through the shared resolver: no `tls` → nil; `caBundle` → it; Secret with `ca.crt` →
     it; with `tls.crt` and `ca.crt` → `tls.crt`; with `ca.pem` only → it; with only `other` → error
     naming the Secret and `tls.crt`, `ca.crt`, `ca.pem`, `kollecterrors.IsTerminal` true; `caBundle`
-    and `caSecretRef` → terminal error · the silent fallback at `build_context.go:244` and the
-    silent `caBundle` precedence at `:225` (both red today);
+    and `caSecretRef` → the both-sources terminal error, also when the referenced Secret does not
+    exist (the check runs before any fetch) · the silent fallback at `build_context.go:244` and the
+    silent `caBundle` precedence at `:225` (both red today), a both-set spec failing on not-found;
   - R2 extend `TestCLICredentials_matchOperatorResolver`
-    (`internal/pipeline/sink_credentials_test.go:312`): compare error **text**, not only presence
-    (`:384`); rename `"inline bundle wins"` (`:356`) to `"both sources rejected"` and expect the
-    terminal error on both paths; add `"caSecret ca.pem"` and `"caSecret no key"` (`:354`) expects
-    the same terminal error on both paths · operator and CLI drifting apart (record both as *Test
+    (`internal/pipeline/sink_credentials_test.go:312`): for the cases whose error comes from the
+    shared functions, assert with `errors.Is` that both paths wrap the same shared error (today
+    only presence is compared, `:384`); the not-found cases (`"both, default absent"`,
+    `"gitAuth absent"`, `"caSecret absent"`) keep the presence check, their texts differ by design;
+    rename `"inline bundle wins"` (`:356`) to `"both sources rejected"` and expect the both-sources
+    error on both paths; change `"caSecret no key"` (`:354`) to expect the missing-key error on both
+    paths; add `"caSecret ca.pem"` · operator and CLI drifting apart (record the changes as *Test
     changes* in `loop.md`).
 - [ ] 1.2 Implement `AppendedPool` and the shared resolver; `resolveCAPEM` in
   `internal/sink/build_context.go:215-245` and `internal/pipeline/wire.go:143-171` call it. Fix the
@@ -80,6 +95,8 @@ Test rules for every group:
   `gcs.NewBackend`, `gcs.TestConnection` (registry and probe pass `ctx.CAPEM`):
   - unit S1 given endpoint `http://h/b` and CA X, when `s3.NewBackend` runs, then a terminal error
     naming `spec.tls` and `http`, and the counting transport saw no request · CA ignored over HTTP;
+    S1b the same for endpoint `s3://b` with `t.Setenv("AWS_ENDPOINT_URL_S3", "http://h")`, and again
+    with `AWS_ENDPOINT_URL` · an SDK-selected plaintext endpoint bypassing the spec check;
   - unit S2 given garbage CA PEM, then a terminal error before any request · garbage accepted;
   - unit S3 given CA X, when the client is built, then its transport's `DialContext` is netguard's,
     `Proxy` is nil and `TLSClientConfig.RootCAs` is the appended pool; given no CA, `RootCAs` is nil
@@ -93,6 +110,9 @@ Test rules for every group:
     · trust widened to any server;
   - integration I3: subprocess with `SSL_CERT_FILE` = P, server signed by P, CA X → success ·
     replace instead of append;
+  - integration I4: the X-signed server answers `PutObject` with a 307 to an `http://` httptest
+    server; CA X → the export fails and the plaintext server recorded no request · a redirect that
+    downgrades to plain HTTP;
   - integration G1 (`internal/sink/gcs/ca_trust_integration_test.go`): I1 and I2 through
     `gcs.NewBackend` / `gcs.TestConnection` · the GCS wrapper not passing the CA.
 - [ ] 2.2 Implement (`design.md`, *S3 and GCS*): `s3/config.go` rejects `http` with a CA,
@@ -107,12 +127,16 @@ Test rules for every group:
     dbname=sentinel-db sslmode=verify-full sslrootcert=/x` and CA X, when the config is built, then a
     terminal error naming `sslrootcert` and `spec.tls`, containing no sentinel · silent precedence
     and a DSN leak; D2 the same with URL form `postgres://...?sslrootcert=/x`;
-  - unit D3 table, CA X: sslmode unset, `disable`, `allow`, `prefer` → terminal error naming the mode
-    and `verify-full`, `verify-ca`, `require`; `require`, `verify-ca`, `verify-full` → accepted ·
-    a CA silently unused under `prefer` (today's default);
-  - unit D4 `t.Setenv("PGSSLROOTCERT", <file>)` and CA X → rejected as D1; D5
-    `t.Setenv("PGSSLMODE", "prefer")` and a DSN without sslmode → rejected as D3 · env defaults
-    bypassing the rules (relevant to the CLI in CI);
+  - unit D3 table, CA X, `HOME` set to an empty `t.TempDir()`: sslmode unset, `disable`, `allow`,
+    `prefer` → terminal error naming the mode and `verify-full`, `verify-ca`, `require`; `require`,
+    `verify-ca`, `verify-full`, and unset with `sslnegotiation=direct` → accepted · a CA silently
+    unused under `prefer` (today's default), direct negotiation misclassified;
+  - unit D4 CA X and a root certificate from another source, each rejected naming its source:
+    `t.Setenv("PGSSLROOTCERT", f)` with `f` a valid PEM file, a missing path and a malformed file;
+    `HOME` = a temp dir holding `.postgresql/root.crt` · env or home defaults bypassing the conflict
+    rule, a malformed file reported as the static `invalid connection string`;
+  - unit D5 `t.Setenv("PGSSLMODE", "prefer")` and a DSN without sslmode → rejected as D3;
+    `PGSSLMODE=verify-full` and a DSN without sslmode → accepted · env defaults bypassing the rules;
   - unit D6 given CA X and a two-host `verify-full` DSN, when the pool config is built, then the main
     config and every fallback's `TLSConfig.RootCAs` is the appended pool; with `require`,
     `VerifyPeerCertificate` is set; given no CA, the parsed config equals today's (no-op control) ·
@@ -124,13 +148,17 @@ Test rules for every group:
   - integration PI1 (`internal/sink/postgres/ca_trust_integration_test.go`): given
     `postgres:16-alpine` with `ssl=on` and a server certificate signed by X, when a sink with CA X
     and `sslmode=verify-full` exports and probes, then both succeed · CA not applied (red today);
-  - integration PI2: server signed by Y, CA X, `sslmode=require` → verification error · `require`
-    left unverified (red today: it connects);
+  - integration PI2: server signed by Y, CA X, `sslmode=require` and `verify-ca` → verification
+    error each · `require` left unverified (red today: it connects), a broken chain callback;
+  - integration PI5: server certificate signed by X for `other.invalid` (not the dialled host), CA X:
+    `require` and `verify-ca` succeed, `verify-full` fails on the hostname · chain-only modes checking
+    the hostname, or `verify-full` not checking it;
   - integration PI3: subprocess with `SSL_CERT_FILE` = P, server signed by P, CA X, `verify-full`
     → success · replace instead of append;
-  - integration PI4: through `acquireBackend` (`internal/sink/backend_pool.go:94`) with a fake
-    client, a DSN Secret that sets `sslrootcert` fails; after the Secret is corrected, the next
-    acquisition builds and exports, sink spec unchanged · a cached failure.
+  - integration PI4 (`internal/sink/ca_trust_recovery_integration_test.go`, `package sink`, so it
+    can call the unexported `acquireBackend`, `internal/sink/backend_pool.go:94`): with a fake
+    client and the PI1 server, a DSN Secret that sets `sslrootcert` fails; after the Secret is
+    corrected, the next acquisition builds and exports, sink spec unchanged · a cached failure.
 - [ ] 3.2 Implement (`design.md`, *Postgres*): `postgres/pool.go:16-24` and `:69-76`,
   `postgres/config.go`, `backend.go:53`, `connection.go:24`, `registry.go:132-139`, `probe.go:91`.
 
@@ -140,13 +168,20 @@ Test rules for every group:
   `mongodb.TestConnection`:
   - unit M1 given URI `mongodb://sentinel-user:sentinel-pass@sentinel-host/?tls=true&tlsCAFile=/x`
     and CA X, then a terminal error naming `tlsCAFile` and `spec.tls`, no sentinel · silent
-    precedence and a URI leak; M2 the same with `sslCertificateAuthorityFile`;
+    precedence and a URI leak; M2 the same with `sslCertificateAuthorityFile`, with `TLSCAFILE`
+    (letter case) and with the key repeated;
   - unit M3 table, CA X: `mongodb://h/` (no tls), `mongodb://h/?tls=false`,
     `mongodb+srv://sentinel-host.invalid/?tls=false` → terminal error naming TLS off; and the srv
     case does no DNS lookup (it returns before the SRV resolve; asserted with a resolver that fails
     the test if called, or by timing against an unroutable resolver as 0.1 decides) · CA unused on
     plaintext, validation that dials;
-  - unit M4 `tlsInsecure=true` → terminal error · verification off next to a CA;
+  - unit M4 `tlsInsecure=true`, `sslInsecure=true`, `TLSINSECURE=true` → terminal error ·
+    verification off next to a CA through an alias;
+  - unit M7 backstop: with the key check mutated to skip `tlsCAFile` (a test seam, or the mutation
+    row), a URI with `tlsCAFile=<valid file>` is still rejected after `ApplyURI` because the
+    driver-built `TLSConfig.RootCAs` is set · a spelling the key check misses passing silently;
+  - unit M8 the key check accepts `mongodb+srv://h.invalid/` without `tls` and `mongodb://h/?ssl=true`
+    and does no DNS lookup · SRV default TLS misread as plaintext;
   - unit M5 garbage PEM → terminal error before any connect;
   - unit M6 given `tls=true&tlsCertificateKeyFile=<test file>` and CA X, when client options are
     built, then `TLSConfig.RootCAs` is the appended pool and the client certificate is kept; given no
@@ -165,13 +200,15 @@ These guard tests may pass when written, because groups 1-4 route both paths thr
 resolver and constructors; their red is a mutation instead (5.1 names it).
 
 - [ ] 5.1 Tests:
-  - C1 given a `postgres` sink with CA X and a DSN without sslmode in a config directory, when
-    `kollect-pipeline collect` runs (`internal/pipeline`, as `sink_credentials_test.go` does), then
-    the context result is fatal, the CLI exits 2 (`cmd/cli/exitcode.go:17`), the sink saw no write,
-    and the error text equals the operator's from `BuildContextFromSpec` + `NewBackend` · a CLI path
-    with its own validation;
-  - C2 given the same sink, when `RunConnectionTest` (`internal/sink/probe.go:37`) and
-    `Registry.NewBackend` run, then both return the same terminal error text · a probe not plumbed;
+  - C1 given a config directory with a `KollectSnapshotSink` of type `s3` and garbage CA PEM, and
+    one with a CA and an `http://` endpoint, when the `collect` command runs in `cmd/cli` (as
+    `cmd/cli/collect_test.go` drives it), then the process exit code is 2
+    (`cmd/cli/exitcode.go:17`), nothing was written, and the error wraps the same shared error the
+    operator's `BuildContextFromSpec` + `NewBackend` returns (`errors.Is`) · a CLI path with its own
+    validation (the CLI loads no database sinks, `internal/pipeline/loader.go:122-135`);
+  - C2 given a `postgres` sink with CA X and a DSN without sslmode, and a `mongodb` sink with CA X
+    and `tlsInsecure=true`, when `RunConnectionTest` (`internal/sink/probe.go:37`) and
+    `Registry.NewBackend` run, then each pair returns the same terminal error · a probe not plumbed;
   - C3 integration (`internal/pipeline/ca_trust_integration_test.go`): `collect` to the private-CA
     S3 httptest server from 2.1 with CA X in a config-dir Secret → exported · the CLI not passing
     the CA;
@@ -188,20 +225,24 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
     (append, keys `tls.crt`/`ca.crt`/`ca.pem`, the Postgres sslmode and `sslrootcert` rules, the
     MongoDB URI rules, no strict pinning);
   - `docs/operator-manual/upgrading.md`: a `### Sink CA trust (after v0.21.0)` section under
-    *Values and behaviour changes* (`:121`) with the compatibility table from `design.md` and how to
-    find affected sinks;
+    *Values and behaviour changes* (`:121`) with the compatibility table from `design.md` (previous
+    behaviour per backend), the all-sink-type scope of the missing-key and both-sources errors, and
+    how to find affected sinks;
   - `docs/security/security-architecture.md:220-221` (Postgres/MongoDB "inherit transport policy
     from their connection strings") and `:239-243` ("Other backends ignore `spec.tls`");
   - `docs/guides/pipeline-cli.md:161` and the error table at `:481` (missing CA key, both sources);
   - `docs/operator-manual/troubleshooting.md:227` (the new terminal errors);
-  - the CRD field comments `api/v1alpha1/kollectsink_types.go:341-348` (add `ca.pem`, append,
-    errors), then regenerate per `AGENTS.md` *When adding a CRD field* (manifests, chart CRDs,
+  - the CRD field comments `api/v1alpha1/kollectsink_types.go:341-348` (add `ca.pem` and the
+    errors; append semantics stated only for the types that have them, since Kafka, NATS and the
+    Git probe keep their pool), then regenerate per `AGENTS.md` *When adding a CRD field* (manifests, chart CRDs,
     glossary, schema golden) and finish with `task verify` green;
   - the v0.22.0 release-note line, in `pr-description.md`: "S3, GCS, Postgres and MongoDB sinks now
-    trust `spec.tls.caBundle`/`caSecretRef` in addition to the system roots; a CA that cannot take
-    effect (Postgres `sslmode` other than `require`/`verify-ca`/`verify-full`, a DSN `sslrootcert`,
-    a MongoDB `tlsCAFile`, plaintext or `tlsInsecure`, a Secret without a CA key, both CA sources)
-    now fails the sink instead of being ignored."
+    trust `spec.tls.caBundle`/`caSecretRef` in addition to the system roots; on those types a CA
+    that cannot take effect (an `http` endpoint, Postgres `sslmode` other than
+    `require`/`verify-ca`/`verify-full` or another root certificate source, a MongoDB `tlsCAFile`,
+    plaintext or `tlsInsecure`/`sslInsecure`) now fails the sink instead of being ignored, and on
+    every sink type, Kafka and NATS included, a `caSecretRef` Secret without a CA key or a spec
+    with both `caBundle` and `caSecretRef` now fails the sink."
   - `task lint:markdown` reports `0 issues`; the docs guards under `hack/test/docs_*` pass.
 
 ## 7. Land
@@ -214,15 +255,15 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| SCT-1 | S1, S2, S3 (`go test -v ./internal/sink/s3/`) | rejections, guarded transport, no-CA unchanged | not-run | |
-| SCT-1 | I1, I2, I3, G1 (`-tags integration`) | private CA trusted, Y refused, P trusted | not-run | |
+| SCT-1 | S1, S1b, S2, S3 (`go test -v ./internal/sink/s3/`) | rejections incl. SDK endpoints, guarded transport, no-CA unchanged | not-run | |
+| SCT-1 | I1, I2, I3, I4, G1 (`-tags integration`) | private CA trusted, Y refused, P trusted, downgrade redirect refused | not-run | |
 | SCT-1 | mutation: pool built with `x509.NewCertPool()` | I3 fails | not-run | |
 | SCT-2 | D1-D8 (`go test -v ./internal/sink/postgres/`) | conflicts and sslmodes rejected, no sentinel, fallbacks set | not-run | |
-| SCT-2 | PI1-PI4 (`-tags integration`) | verify-full trusted, require verified, P trusted, recovery | not-run | |
+| SCT-2 | PI1-PI5 (`-tags integration`) | verify-full trusted, require/verify-ca verified, hostname rule per mode, P trusted, recovery | not-run | |
 | SCT-2 | mutation: skip the `sslrootcert` check; skip the `require` upgrade | D1 fails; PI2 fails | not-run | |
-| SCT-3 | M1-M6 (`go test -v ./internal/sink/mongodb/`) | conflicts rejected, no DNS, no sentinel | not-run | |
+| SCT-3 | M1-M8 (`go test -v ./internal/sink/mongodb/`) | conflicts and aliases rejected, backstop holds, SRV accepted, no DNS, no sentinel | not-run | |
 | SCT-3 | MI1-MI3 (`-tags integration`) | private CA trusted, Y refused, P trusted | not-run | |
-| SCT-3 | mutation: accept `tlsInsecure=true` | M4 fails | not-run | |
+| SCT-3 | mutation: accept `sslInsecure=true`; drop the post-`ApplyURI` backstop | M4 fails; M7 fails | not-run | |
 | SCT-4 | P1-P3, R1, D7, M5, S2 | terminal errors, no PEM echoed | not-run | |
 | SCT-4 | mutation: resolver returns nil on a missing key | R1 fails | not-run | |
 | SCT-5 | R2, C1, C2, C3 and the 5.1 mutations | same text on both paths, exit 2, no write | not-run | |
