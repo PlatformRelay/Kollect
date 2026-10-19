@@ -17,9 +17,11 @@ message of the clause it names. Each self-test mutant runs on a throwaway `mktem
 every tracked file (`git ls-files`, so `Taskfile.yml` and its include `hack/task/Taskfile.test.yml`
 are there for `task --list-all`) that is its own `git init` repository with those files
 committed, so `git ls-files`, the index and `git check-ignore --no-index` answer for the copy,
-never for this checkout. A mutant passes only when the plain run is red with the expected
-diagnostic of its clause (PAC-5); a red from a missing tool or another clause fails the
-self-test. The guard needs `rg`: it fails closed with "rg not found" when it is absent, and 2.4
+never for this checkout; `git` in the copy runs with `-c core.excludesFile=/dev/null` and an
+empty `.git/info/exclude`, so a maintainer's global ignore cannot change a result. A mutant
+passes only when the plain run is red with the target diagnostic of its clause (PAC-5; other
+diagnostics may appear too); a red with only a missing-tool or other-clause diagnostic fails the
+self-test. Record the plain and `--self-test` wall times in `evidence/G2.md`. The guard needs `rg`: it fails closed with "rg not found" when it is absent, and 2.4
 makes sure the `lint` runner has it.
 
 No scrub pattern and no hostname is written into a tracked file, the test included: a literal
@@ -57,9 +59,11 @@ Each case below reads: given / when / then · the failure it exposes.
   to or pulls any commit that tracks `AGENTS.md` (this branch included): no root `AGENTS.md`
   that is untracked or ignored, whatever its header; if it had one, it is renamed to
   `AGENTS.local.md` first, refusing to overwrite an existing `AGENTS.local.md`, with that
-  checkout's own before/after sha256 compared. `evidence/G0.md` records only the count of
-  checkouts, an opaque label per checkout (C1, C2, ...) and pass/fail, never paths or machine
-  names. The INBOX notice "rename before pulling" for the operator's other machines is posted
+  checkout's own before/after sha256 compared. A local, untracked record outside the repository
+  maps each opaque label (C1, C2, ...) to its checkout and keeps its baseline: whether it holds
+  `AGENTS.local.md` and a loader `CLAUDE.md`, and their sha256. `evidence/G0.md` records only the
+  count of checkouts, the labels and pass/fail, never paths, checksums of private files or
+  machine names. No loader is created in a checkout that had none. The INBOX notice "rename before pulling" for the operator's other machines is posted
   (2026-10-19). Until 0.2 is recorded, no agent moves a listed checkout onto a commit that tracks
   `AGENTS.md`
 - [ ] 0.3 Change 9 (mutation-testing-signal, PR #471) is merged; record its merge sha in
@@ -76,8 +80,10 @@ Each case below reads: given / when / then · the failure it exposes.
     red · a contract that exists only locally.
   - PAC-1 unknown task: given `task frobnicate` in `AGENTS.md` / then red naming `frobnicate`
     (names checked against `task --list-all` in the copy) · a stale command.
-  - PAC-1 gate list: given `AGENTS.md` without one `run_gate` name of `hack/check.sh`, and given
-    one naming a gate `hack/check.sh` does not run / then red naming the gate · a gate list that
+  - PAC-1 gate list: given `AGENTS.md` without one `run_gate` name of `hack/check.sh`, given
+    one naming a gate `hack/check.sh` does not run, and given the `<!-- gates:start -->` marker
+    removed / then red naming the gate or the missing marker; a gate name mentioned in prose
+    outside the markers changes nothing · a gate list that
     goes stale when a later change adds or drops a gate.
   - PAC-1 task-name parsing: given prose "the task that ...", `task --list-all` and
     `FOO=1 task build` in `AGENTS.md` / then green (only code spans and fences, flags and
@@ -92,12 +98,15 @@ Each case below reads: given / when / then · the failure it exposes.
     path / then red · a dangling pointer.
   - PAC-2 CLAUDE.md tracked: given `CLAUDE.md` committed in the copy / then red · a tracked file
     that would replace the maintainer's local loader on pull.
-  - PAC-3 headings: given `AGENTS.md` without the sink checklist (one mutant per checklist) /
+  - PAC-3 headings: given `AGENTS.md` without the `### When adding a sink` heading (one mutant per
+    checklist heading) /
     then red · a missing checklist.
   - PAC-3 stale path: given `internal/sink/registry.go` moved in the copy / then red naming the
     path · a checklist pointing at nothing.
-  - PAC-3 stale symbol: given `NewRegistry` renamed in the copy / then red naming the symbol · a
-    checklist naming a function that no longer exists.
+  - PAC-3 stale symbol: given `NewRegistry` renamed in the copy / then red naming the symbol; given
+    a method (`Register` on `internal/sink/registry.go`) and a symbol declared in a grouped
+    `var (` block / then green · a checklist naming a function that no longer exists, and false
+    reds on real declarations.
   - PAC-3 metric entries: given the metric checklist without `registeredMetricNames`, without
     `Catalog`, and without `docs/operator-manual/metrics.md` (one mutant each) / then red · a
     checklist that drops a place CFC-4 or the catalog test needs.
@@ -110,7 +119,9 @@ Each case below reads: given / when / then · the failure it exposes.
     pattern before use; a line with no usable witness fails the self-test) / then red · a
     forbidden string, a case-sensitive check, and a fixed-string (`rg -F`) check.
   - PAC-4 fixed-string implementation: given the copy's guard with `-F` added to its scrub `rg` /
-    then that copy's self-test fails · a guard that lost regex parity with `hack/scrub.sh`.
+    then that copy's self-test fails with the regex-witness mutant's "survived" diagnostic (nested
+    run under `AGENT_CONTRACT_NESTED=1`, which skips the mutants that start another nested
+    self-test) · a guard that lost regex parity with `hack/scrub.sh`.
   - PAC-4 staged differs: given a planted scrub string, and separately a "LOCAL ONLY" first line,
     staged in the copy's index while the working-tree `AGENTS.md` is clean / then red · private
     content committed from the index while the disk looks clean (`hack/scrub.sh` reads disk).
@@ -125,27 +136,36 @@ Each case below reads: given / when / then · the failure it exposes.
   - PAC-4 ignore rules: given `.gitignore` ignoring the tracked `AGENTS.md` again, and given it no
     longer ignoring `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.local.md`, `agent-context/`,
     `.claude/`, `.agents/` or `.cursor/` (one mutant each; checked with
-    `git check-ignore --no-index`, directories through a child path such as `.claude/x`) / then
+    `git -c core.excludesFile=/dev/null check-ignore --no-index`, directories through a child path
+    such as `.claude/x`), also with `HOME` pointing at a directory whose global ignore lists
+    `.claude/` / then
     red · an ignore rule on a tracked file that plain `git check-ignore` never reports, and an
     un-ignored private file one `git add -A` from a commit.
   - PAC-4 private header: given `AGENTS.md` whose first 10 lines carry "LOCAL ONLY" or "never
     commit" (any case), on disk and committed / then red · the private file committed under the
     public name.
-  - PAC-4 OpenSpec marker: given `<!-- OPENSPEC:START -->` in `AGENTS.md` / then red · OpenSpec's
+  - PAC-4 OpenSpec marker: given `<!-- OPENSPEC:START -->`, and separately `<!-- openspec:end -->`,
+    in `AGENTS.md` / then red · OpenSpec's
     legacy cleanup rewriting the hand-written contract.
   - PAC-4 gitleaks: given `.github/gitleaks.toml` with an allowlist path regex matching
     `AGENTS.md` (also a broad `.*\.md$`), one matching `CLAUDE.md`, and one matching
-    `.github/copilot-instructions.md` / then red · an agent file exempt from secret scanning.
+    `.github/copilot-instructions.md`, each also in a `[[allowlists]]` table; and given an
+    invalid regex there / then red · an agent file exempt from secret scanning, or a regex the
+    matcher could not read taken as "no match".
   - PAC-6 generic hosts: given a host under each of `.internal`, `.local`, `.lan` and
-    `.home.arpa` in mixed case, an address at each edge of the four ranges (for example
-    `172.16.0.1` and `172.31.255.254`), a `Host` alias line and a `user@host:` address, each built
+    `.home.arpa` in mixed case, an address at each edge of the five IPv4 ranges (for example
+    `172.16.0.1` and `172.31.255.254`), an `fd00::1` address, a `Host` alias line and an
+    scp-style `user@host:path` address, each built
     at run time / then red · an internal host leaked, or a range checked only at its first subnet.
   - PAC-6 allowed look-alikes: given `svc.cluster.local`, `localhost`, `mise.local.toml`,
-    `git@github.com:`, `172.32.0.1` and `192.0.2.1` / then green · false reds on content an
+    `git@github.com:`, `kollect@sha256:`, `postgres://user:pass@db.example:5432/x`, `172.32.0.1`
+    and `192.0.2.1` / then green · false reds on content an
     operator contract needs.
   - PAC-6 running host: given `AGENT_CONTRACT_HOSTNAME` set to a run-time-built name and that name
-    planted in any case / then red; given it set to `ab`, `localhost` or `build` (a task name) /
-    then a printed skip; the plain run reads `hostname -s` · the maintainer's workstation name
+    planted in any case / then red; given it set to `ab`, `localhost`, `build` (a task name),
+    `operator` (a word in tracked Markdown) or empty / then a printed skip; the plain run reads
+    `hostname -s`, and the evidence says whether the check was active on the maintainer's machine
+    (without naming it) · the maintainer's workstation name
     leaked (it is not in the public scrub list by decision); false reds on contributors' machines.
   - PAC-6 empty pattern set: given the copy's guard with its generic pattern array emptied / then
     that copy's `--self-test` fails; the nested run is started with `AGENT_CONTRACT_NESTED=1`,
@@ -153,8 +173,10 @@ Each case below reads: given / when / then · the failure it exposes.
   - PAC-5 no-op: given an unmodified copy / then plain is green · a guard red on a correct tree.
   - PAC-5 surviving mutant: given a mutant whose plain run stays green / then `--self-test` fails
     naming the mutant · a self-test that reports success without its mutants failing.
-  - PAC-5 wrong clause: given a mutant whose copy also lacks `Taskfile.yml` / then `--self-test`
-    fails naming the mutant · a mutant counted as covered because something else broke.
+  - PAC-5 wrong clause: given a mutant entry whose planted violation is absent and whose copy
+    lacks `Taskfile.yml` (so the plain run reds only with the unloadable-Taskfile diagnostic) /
+    then `--self-test` fails naming the mutant · a mutant counted as covered because something
+    else broke.
 
 ## 2. Contract (closes with 1.1 in one commit, group G2)
 
@@ -166,7 +188,9 @@ Each case below reads: given / when / then · the failure it exposes.
 - [ ] 2.2 A fresh subagent started in this worktree (no private agent file in it or loaded: `ls
   AGENTS.local.md CLAUDE.md` fails here; dispatched with `task-prompt.md` only, no inherited
   conversation) writes `AGENTS.md` from the tracked files PAC-1 lists, citing in
-  `evidence/G2.md` the tracked file behind each command, gate and checklist line, in these sections: commands (the PAC-1 set plus `task lint:shell`,
+  `evidence/G2.md` the tracked file behind each command, gate and checklist line, with the gate
+  list between the PAC-1 markers and the checklists under the PAC-3 headings, in these
+  sections: commands (the PAC-1 set plus `task lint:shell`,
   `task helm-test`, `task test-integration`, as defined); CI-enforced rules (the required
   contexts and what each runs, read from `.github/workflows/ci.yaml` and `hack/check.sh` on
   `main` after 0.3, so it names only gates that exist there); conventions (link
@@ -203,10 +227,12 @@ Each case below reads: given / when / then · the failure it exposes.
 - [ ] 4.1 After 3.1 approves and CI is green, archive the change (`openspec archive`) as the last
   commit of the PR (`docs/development/spec-workflow.md` step 6); the reviewer re-checks that
   commit, and the review record names the reviewed and the archive revision; `git diff` of the
-  archive commit touches no root `AGENTS.md` or `CLAUDE.md`
+  archive commit touches no root `AGENTS.md` or `CLAUDE.md`, and the sha256 of the ignored local
+  files in the checkout where `openspec archive` ran is unchanged around it (pass/fail only)
 - [ ] 4.2 (integrator) Merge on green required CI on the archive revision, only after 0.2 and 0.3
-  are recorded; after merge, in each listed checkout: pull, then confirm `AGENTS.local.md`
-  still matches its 0.2 checksum and the local `CLAUDE.md` still contains `@AGENTS.local.md`
+  are recorded; after merge, in each listed checkout: pull, then confirm the 0.2 baseline holds
+  (`AGENTS.local.md` and the loader `CLAUDE.md` unchanged where they existed, absent where they
+  were absent); `evidence` gets pass/fail per label only
 
 ## Verification
 
@@ -217,5 +243,5 @@ Each case below reads: given / when / then · the failure it exposes.
 | PAC-3 | heading, stale-path, stale-symbol, metric-entry and placeholder mutants; dry-run record from 2.1 | red; no unnamed gate fired | not-run | |
 | PAC-4 | per-pattern, upper-case and regex-witness scrub, fixed-string, staged-differs, empty/missing list, rg-error and rg-missing, home/harness-path, ignore-rule (7 paths), private-header, OpenSpec-marker and gitleaks (3 paths) mutants; `hack/scrub.sh` with files staged; `gitleaks detect --no-git` | each mutant red; scrub ok; no leaks | not-run | |
 | PAC-5 | `--self-test` exit status; no-op copy; surviving-mutant and wrong-clause cases | mutants red, no-op green | not-run | |
-| PAC-6 | generic-host (range edges, mixed case), allowed look-alikes, running-host and empty-pattern-set mutants | red; look-alikes green; no recursion | not-run | |
+| PAC-6 | generic-host (range edges, mixed case, ULA, scp form), allowed look-alikes (digest, DSN), running-host and empty-pattern-set mutants | red; look-alikes green; no recursion | not-run | |
 | all | 0.2 checkout record; CI on the PR head; independent review | recorded; green; APPROVE; both revisions recorded | not-run | |
