@@ -379,7 +379,9 @@ These directories are **gitignored** and hold private planning material and OSS 
 They are not in the public module graph.
 
 - Do **not** expect `go mod tidy` to resolve imports from `references/`.
-- Do not commit paths under `agent-context/`, `references/`, or `AGENTS.md`.
+- Do not commit paths under `agent-context/` or `references/`. The root `AGENTS.md` is tracked
+  (the public instructions for coding assistants); keep private agent notes in the ignored
+  `AGENTS.local.md` or `CLAUDE.md`.
 - If present locally, `references/IBM-Message-Queue-Operator/` is an **example reference only**
   (not production-grade). Borrow layout, Taskfiles, CI, and docs/ADR structure selectively; do not
   copy MQ-specific logic.

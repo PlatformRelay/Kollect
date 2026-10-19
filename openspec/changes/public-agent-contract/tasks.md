@@ -49,11 +49,11 @@ Each case below reads: given / when / then · the failure it exposes.
   `@AGENTS.local.md` (no `@AGENTS.md` line, so the public file is not loaded twice) — done
   2026-10-19; a fresh Claude Code session in the main checkout loaded the private notes (verified
   by the orchestrator 2026-10-19). Not `CLAUDE.local.md` (decision 2026-10-19, private loading A)
-- [ ] 0.1c (maintainer, local, not committed) Repoint the local harness references from
+- [x] 0.1c (maintainer, local, not committed) Repoint the local harness references from
   `AGENTS.md` to `AGENTS.local.md`: 24 `agent-context/` files (the `agent-context/decisions/`
   briefs are excluded: they discuss the public file) and 6 skill files under `.claude/`,
-  `.agents/` and `.cursor/`; re-count with `rg -l --no-ignore 'AGENTS\.md'` at execution
-- [ ] 0.2 HARD PREREQUISITE, merge gate. Inventory: every kollect clone on this host (each
+  `.agents/` and `.cursor/`; re-count with `rg -l --no-ignore 'AGENTS\.md'` at execution — closed 2026-10-19, evidence: evidence/G1.md
+- [x] 0.2 HARD PREREQUISITE, merge gate. Inventory: every kollect clone on this host (each
   directory under the workspace whose `origin` is the kollect GitHub repository) and every
   worktree `git worktree list` shows for it. For each, before it checks out, rebases onto, resets
   to or pulls any commit that tracks `AGENTS.md` (this branch included): no root `AGENTS.md`
@@ -65,13 +65,13 @@ Each case below reads: given / when / then · the failure it exposes.
   count of checkouts, the labels and pass/fail, never paths, checksums of private files or
   machine names. No loader is created in a checkout that had none. The INBOX notice "rename before pulling" for the operator's other machines is posted
   (2026-10-19). Until 0.2 is recorded, no agent moves a listed checkout onto a commit that tracks
-  `AGENTS.md`
-- [ ] 0.3 Change 9 (mutation-testing-signal, PR #471) is merged; record its merge sha in
-  `evidence/G0.md` and rebase this branch on it before 2.2 lists the gates
+  `AGENTS.md` — closed 2026-10-19, evidence: evidence/G1.md (the dispatch put 0.2 in G1)
+- [x] 0.3 Change 9 (mutation-testing-signal, PR #471) is merged; record its merge sha in
+  `evidence/G0.md` and rebase this branch on it before 2.2 lists the gates — closed 2026-10-19, evidence: evidence/G1.md
 
 ## 1. Test first (PAC-1 to PAC-6)
 
-- [ ] 1.1 Write `hack/test/agent_contract_test.sh` (plain checks the real tree; `--self-test`
+- [x] 1.1 Write `hack/test/agent_contract_test.sh` (plain checks the real tree; `--self-test`
   runs one mutant copy per case and a no-op copy). Record its red on this tree (no `AGENTS.md`
   yet): plain mode fails on the PAC-1 "AGENTS.md is not tracked" assertion. Cases:
   - PAC-1 missing: given a copy without `AGENTS.md` / when plain runs / then red "AGENTS.md is
@@ -176,16 +176,16 @@ Each case below reads: given / when / then · the failure it exposes.
   - PAC-5 wrong clause: given a mutant entry whose planted violation is absent and whose copy
     lacks `Taskfile.yml` (so the plain run reds only with the unloadable-Taskfile diagnostic) /
     then `--self-test` fails naming the mutant · a mutant counted as covered because something
-    else broke.
+    else broke. — closed 2026-10-19 red (known red until G2), evidence: evidence/G1.md
 
 ## 2. Contract (closes with 1.1 in one commit, group G2)
 
-- [ ] 2.1 Derive the three checklists by dry-run (change one CRD field, one metric, stub one sink
+- [x] 2.1 Derive the three checklists by dry-run (change one CRD field, one metric, stub one sink
   on a scratch branch in a scratch worktree outside this one) and record in `evidence/G2.md`, as
   Markdown only, which gates fired for each and which files each needed; reconcile with the
   proposal's lists (no `INTEGRATION_PACKAGES` edit for a sink: `Taskfile.yml:20` covers
-  `./internal/sink/...`)
-- [ ] 2.2 A fresh subagent started in this worktree (no private agent file in it or loaded: `ls
+  `./internal/sink/...`) — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.2 A fresh subagent started in this worktree (no private agent file in it or loaded: `ls
   AGENTS.local.md CLAUDE.md` fails here; dispatched with `task-prompt.md` only, no inherited
   conversation) writes `AGENTS.md` from the tracked files PAC-1 lists, citing in
   `evidence/G2.md` the tracked file behind each command, gate and checklist line, with the gate
@@ -197,8 +197,8 @@ Each case below reads: given / when / then · the failure it exposes.
   `CONTRIBUTING.md` for commit format and rebase merge, link `docs/development/spec-workflow.md`);
   the three checklists from 2.1; and gotchas only where a tracked file states them (cite the
   file). Do not restate CONTRIBUTING.md. Every relative link resolves
-  (`bash hack/test/repo_root_links_test.sh` green). Change 6 adds its own entry when it lands
-- [ ] 2.3 Add `.github/copilot-instructions.md` (at most 3 lines; one is enough) pointing to
+  (`bash hack/test/repo_root_links_test.sh` green). Change 6 adds its own entry when it lands — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.3 Add `.github/copilot-instructions.md` (at most 3 lines; one is enough) pointing to
   `AGENTS.md`; in
   `.gitignore` (the edit formerly numbered 0.1d) delete only the `AGENTS.md` line, keep
   `CLAUDE.md` and `AGENTS.local.md`, and add `CLAUDE.local.md`; remove `.github/gitleaks.toml:10`
@@ -206,15 +206,15 @@ Each case below reads: given / when / then · the failure it exposes.
   does (`ci.yaml:170`); add the pointer line to `CONTRIBUTING.md`; correct
   `docs/development/setup.md:382`. Confirm `git check-ignore -v AGENTS.local.md CLAUDE.md`
   still matches in the main checkout. In a fresh Claude Code session on a clean clone of the
-  branch, confirm the root `AGENTS.md` loads without a `CLAUDE.md` (record in `evidence/G2.md`)
-- [ ] 2.4 Wire the guard into the required `lint` job as two steps (plain, then `--self-test`;
+  branch, confirm the root `AGENTS.md` loads without a `CLAUDE.md` (record in `evidence/G2.md`) — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.4 Wire the guard into the required `lint` job as two steps (plain, then `--self-test`;
   CWS-6/CFC-6) and add it to `cfc_guards` (`hack/test/ci_workflow_security_test.sh:608-611`; a
   test change on change 4's guard, listed under *Test changes*); run
   `bash hack/test/ci_workflow_security_test.sh` and `--self-test`, the new guard in both modes,
   `task lint:shell`, `task lint:markdown`, and `bash hack/scrub.sh` plus
   `gitleaks protect --staged --no-banner` with the files staged. Check whether the `lint` runner
   image has `rg` (a CI run of the guard printing `rg --version`); if not, install it in the
-  `lint` job the way that job installs its other tools, before the guard steps
+  `lint` job the way that job installs its other tools, before the guard steps — closed 2026-10-19, evidence: evidence/G2.md
 
 ## 3. Review
 

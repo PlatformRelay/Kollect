@@ -48,6 +48,8 @@ Holistic run at B: not run yet.
 |---|---|---|---|
 | 0.1 | CLOSED (orchestrator, 2026-10-19) | none (local, checksum recorded) | — |
 | 0.1b | CLOSED (orchestrator, 2026-10-19) | none (local, fresh-session load verified) | — |
+| G1 (0.1c, 0.2, 0.3, 1.1) | CLOSED-WITH-GAPS (2026-10-19) | astra + claude/opus, 2 rounds (`reviews/L-tasks/G1/`), Claude leg by dispatch | 0.1c classification is agent-review; guard known red until G2; decision: fixup the guard commit into G2 before the PR (recommended) |
+| G2 (2.1, 2.2, 2.3, 2.4) | CLOSED-WITH-GAPS (2026-10-19) | astra + claude/opus, 1 round (`reviews/L-tasks/G2/`), Claude leg by dispatch (CI and secret scanning) | CI must print `rg --version` on the PR's first run; 3.1 is the hard gate on the text; G1 guard commits folded into the G2 commit |
 
 ## Known red
 
@@ -55,6 +57,8 @@ Tests a test task left red for a later task; excluded from "green" at close, not
 
 | Test (file:name) | Story | Written in | Cleared in |
 |---|---|---|---|
+| `hack/test/agent_contract_test.sh` (plain) | PAC-1 to PAC-6 | G1 (1.1) | G2 |
+| `hack/test/agent_contract_test.sh --self-test` | PAC-5 | G1 (1.1) | G2 |
 
 ## Test changes
 
@@ -62,11 +66,20 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
+| `hack/test/ci_workflow_security_test.sh` `cfc_guards` (CFC-6) | change 4 | G2 (2.4) | not wrong: extended so the new guard cannot drop out of the lint job silently (tasks.md 2.4) |
 
 ## Lessons
 
 - R: plain `git check-ignore` never reports a tracked file, and it reads the global excludes file; use `git -c core.excludesFile=/dev/null check-ignore --no-index` in guards (R)
 - R: a committed task prompt copied from another change can carry literal scrub patterns or machine names; re-scrub it on copy (R)
+- G1: a guard for a file that does not exist yet proves its self-test only on a scratch fixture tree built outside the repository from the tracked files (G1)
+- G1: a split group commits its guard red; `task check` stays red until the group that adds the file, so list it under *Known red* (G1)
+- G1: a helper called as `$(helper)` that appends to a cleanup list loses the entry in the subshell; return paths through a global (G1)
+- G1: a line-based TOML reader in a guard misses quoted keys, inline tables and dotted keys; parse with `tomllib` (G1)
+- G2: `task verify` regenerates CRDs in place and then runs the schema contract test; a changed schema stays red until `UPDATE_GOLDEN=1 go test ./test/schema/` (G2)
+- G2: a checklist dry-run needs one sweep per step (source only, then each named place), because each gate hides the next until it is cleared (G2)
+- G2: the `ubuntu-latest` image ships no ripgrep; a guard that needs `rg` must install it in its job (G2)
+- G2: Claude Code drops HTML comments from a loaded `AGENTS.md`; marker comments serve guards, not readers (G2)
 
 <!-- master list: one line per reusable lesson with the task ids that hit it; two or more ids → a proposed harness change at hand-off -->
 
