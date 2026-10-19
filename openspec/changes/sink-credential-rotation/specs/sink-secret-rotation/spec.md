@@ -33,6 +33,12 @@ spec change or a sink delete.
 - **WHEN** the Secret is updated to B and an export starts before the operator's informer has delivered the update
 - **THEN** that export runs on a backend built from B
 
+#### Scenario: Cleanup reads uncached too
+
+- **GIVEN** a Postgres sink whose `databaseRef` Secret was rotated, with the operator's cache still holding the old value
+- **WHEN** an inventory with Delete is deleted and the relational prune runs
+- **THEN** the prune's backend is built from the new value
+
 #### Scenario: Cross-namespace Secret under a restricted cache
 
 - **GIVEN** the manager cache restricted to namespace `team-a` and a sink in `team-a` whose allowlisted `secretRef` names a Secret in `shared-creds`
@@ -70,8 +76,9 @@ stream sink (Kafka, NATS), which never contacts the sink, SHALL decide retained 
 any Secret. The error SHALL
 be retryable (not terminal), so the export succeeds again once the Secret is restored, without a
 change to the sink. An S3 or GCS sink whose referenced Secret is empty SHALL NOT fall back to
-ambient credentials. A failed read for any other reason (timeout, cancelled context, forbidden)
-SHALL fail that acquire only and SHALL NOT retire the pooled backend.
+ambient credentials. A metadata read that fails for any other reason (timeout, cancelled
+context, forbidden) observed no change: it SHALL fail that acquire only and SHALL NOT retire the
+pooled backend.
 
 #### Scenario: Deleted credential Secret
 
@@ -102,6 +109,11 @@ SHALL fail that acquire only and SHALL NOT retire the pooled backend.
 - **WHEN** the Secret is created again and the export is retried
 - **THEN** the export succeeds on a newly built backend, with no change to the sink object
 
+#### Scenario: An observed change retires even when the rebuild read fails
+
+- **WHEN** the metadata read shows a changed `resourceVersion` and the full read then times out
+- **THEN** that acquire fails and the old pooled backend is retired
+
 #### Scenario: A cancelled read does not retire a shared backend
 
 - **GIVEN** a pooled backend used by two inventories
@@ -122,12 +134,14 @@ SHALL fail that acquire only and SHALL NOT retire the pooled backend.
 
 ### Requirement: SCR-3 Retiring a pooled backend never cuts an export in flight
 
-Every path that removes a pooled backend (a referenced Secret change, a spec change, a failed
-acquire, the delete eviction, the TTL) SHALL remove it from the pool at once, so no later acquire
+Every path that removes a pooled backend (a referenced Secret change, a spec change, a deleted or
+emptied Secret, the delete eviction) SHALL remove it from the pool at once, so no later acquire
 receives it, and SHALL close it exactly once, after the last export or cleanup that acquired it
-has released it. A retired backend SHALL NOT be closed while an acquirer holds it. When the
-rebuild after a Secret change fails, the old backend SHALL still be retired and SHALL NOT be used
-as a fallback.
+has released it. A retired backend SHALL NOT be closed while an acquirer holds it, and the idle
+TTL SHALL NOT remove an entry that is held. A Secret change observed by a successful read SHALL
+retire the old backend even when the rebuild then fails, and the old backend SHALL NOT be used as
+a fallback. A backend built by an acquire that started before another acquire stored or retired
+the sink's entry SHALL NOT be pooled.
 
 #### Scenario: Rotation during a long export
 
@@ -178,8 +192,9 @@ as a fallback.
 No error or log line that this change adds, and no Kubernetes Event or status condition that
 carries one, SHALL contain a value from a referenced Secret. The pool key SHALL be computed from
 Secret metadata (namespace, name, UID, `resourceVersion`) and the spec only; an acquire that hits
-the pool SHALL NOT read Secret values; and the pool SHALL NOT keep the resolved Secret data after
-the backend is built. Errors returned by a third-party client's constructor or connect call are
+the pool SHALL NOT read the Secret's `data` or `stringData` and SHALL keep no other metadata
+(annotations included) beyond those four fields; and the pool SHALL NOT keep the resolved Secret
+data after the backend is built. Errors returned by a third-party client's constructor or connect call are
 outside this requirement.
 
 #### Scenario: Sentinel values never surface
@@ -195,8 +210,8 @@ outside this requirement.
 
 #### Scenario: A pool hit reads no values
 
-- **WHEN** an acquire finds a pooled backend whose key matches
-- **THEN** the Secrets were read as metadata only
+- **WHEN** an acquire finds a pooled backend whose key matches, for a Secret whose annotations contain a sentinel value
+- **THEN** the Secrets were read as metadata only, and nothing the pool keeps contains the sentinel
 
 ### Requirement: SCR-5 Operator and CLI agree where the CLI applies
 

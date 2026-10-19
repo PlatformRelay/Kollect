@@ -70,10 +70,18 @@ Test rules for every group:
     when the Secret's data changes to B and acquire runs / then the factory ran twice, the second
     `BuildContext` holds B, and after release the first backend's `Close` ran once · exposes a key
     that ignores Secrets (base: one build, A reused).
-  - `TestAcquireBackend_readsSecretsUncached`: `Client` is a fake holding the stale Secret A,
-    `SecretReader` a fake holding B / acquire builds from B · exposes reads through the cache.
+  - `TestAcquireBackend_readsSecretsUncached` (rows: export; Retain cleanup; Delete cleanup
+    through `pruneRelationalExport`): `Client` is a fake holding the stale Secret A,
+    `SecretReader` a fake holding B / the backend is built from B · exposes reads through the cache
+    and a nested request that drops the reader.
+  - `TestInventoryReconcilers_defaultSecretReader` (both reconcilers): `SetupWithManager` with no
+    reader set / the field holds the manager's API reader, and `cleanupSinkExports` receives it ·
+    exposes production wiring that falls back to the cached client.
   - `TestAcquireBackend_rotateBack`: A, B, A with an acquire after each / three builds, each with
-    the current value · exposes a key on content that skips the return to A.
+    the current value · exposes reuse of a backend built for an earlier version (base: one build).
+  - `TestAcquireBackend_sameDataNewVersionRebuilds`: an update that rewrites the same data with a
+    changed label / one rebuild · pins the metadata-identity rule (a content hash would not
+    rebuild).
   - *control* `TestAcquireBackend_unchangedSecretsReuse`, `TestAcquireBackend_unrelatedSecretReuse`:
     two acquires, nothing referenced changed (or an unreferenced Secret changed) / one build, same
     instance · exposes an over-eager key once the change lands.
@@ -100,9 +108,11 @@ Test rules for every group:
     old roots.
   - integration `TestPostgresExport_passwordRotation` (testcontainers Postgres): export as role
     `u1`; switch the `databaseRef` Secret to role `u2`, `ALTER ROLE u1 NOLOGIN`; export again /
-    the second export's rows carry `current_user = u2` (a column default), and after release
-    `pg_stat_activity` shows no `u1` session · exposes a pool that keeps authenticating as `u1`
-    on an idle connection (base: export succeeds as `u1`).
+    the second export carries one item with a new source UID, whose row (an insert, not the
+    `ON CONFLICT` update path, `internal/sink/postgres/bulk_export.go:67-69`) has the column
+    default `current_user = u2`; a separate observer connection (superuser) sees no `u1` session
+    from the test's backends after release · exposes a pool that keeps authenticating as `u1` on an
+    idle connection (`NOLOGIN` does not end open sessions; base: export succeeds as `u1`).
 - [ ] 1.2 Implement `referencedSecretRefs`, `secretMeta` (metadata GET through `SecretReader`;
   not-found keeps today's text), the key, the rebuild from the full objects, the `SecretReader`
   field and its wiring in both inventory reconcilers and `cmd/main.go`, the `BuildContextFromSpec`
@@ -123,11 +133,15 @@ Test rules for every group:
   - `TestAcquireBackend_emptiedSecretFails`: rows for `Data == nil`, `Data == {}` and all values
     empty / error `has no data` naming the Secret, transient, entry retired · exposes an empty
     Secret accepted (on G1 it rebuilds with empty values).
-  - `TestAcquireBackend_restoredSecretRecovers`: delete, acquire fails, recreate, acquire / new
-    build succeeds with the new value; no sink change · exposes a sticky failure.
-  - `TestAcquireBackend_cancelledReadKeepsEntry`: the reader returns `context.Canceled` for one
-    acquire / that acquire fails, the entry stays pooled, the next acquire is a hit · exposes
-    retire on any error.
+  - *control* `TestAcquireBackend_restoredSecretRecovers`: delete, acquire fails, recreate,
+    acquire / new build succeeds with the new value; no sink change (green on G1 already).
+  - *control* `TestAcquireBackend_cancelledReadKeepsEntry`: the metadata read returns
+    `context.Canceled` for one acquire / that acquire fails, the entry stays pooled, the next
+    acquire is a hit (green on G1, which retires nothing; the 2.2 mutation "retire on every
+    error" must turn it red).
+  - `TestAcquireBackend_observedChangeRetiresOnFailedRead`: the metadata read shows a new
+    `resourceVersion`, the full read returns a timeout / the acquire fails and the old entry is
+    retired · exposes a stale entry kept after an observed change.
   - `TestResolveSecret_emptyIsError` (pool disabled, the probe path) · exposes a check that lives
     only in the pool.
   - `TestS3_emptiedSecretNoAmbientCredentials`: `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` set in
@@ -136,20 +150,23 @@ Test rules for every group:
   - `TestCleanup_streamSinkDeletedSecretRetained` (Kafka and NATS rows): Secret deleted,
     `RunCleanupExport` / `CleanupRetained`, nil error, no Secret read and no factory call ·
     exposes a deletion blocked by a Secret the cleanup never needs (on G1: acquire fails).
-  - `TestCleanup_deletedGitAuthSecretFails`: Retain release for a Git sink whose auth Secret was
-    deleted / `RunCleanupExport` returns the naming error, not success · exposes a release on the
-    pooled backend.
-  - `TestRotationErrors_noSentinel`: through rotate, empty and delete, every error this change
-    adds and every line captured from the `sink` logger (a test logr sink) contains none of the
-    sentinels.
+  - *control* `TestCleanup_deletedGitAuthSecretFails`: Retain release for a Git sink whose auth
+    Secret was deleted / `RunCleanupExport` returns the naming error, not success (green on G1).
+  - `TestStreamSinkTypes_matchRetainingBackends`: every registered type whose backend is neither
+    `SupportsDelete` nor an `ExportCleaner` is in `streamSinkTypes`, and no other type is ·
+    exposes drift between the set and `cleanup.go:210-214`.
+  - `TestRotationErrors_noSentinel`: through rotate, empty and delete, with a sentinel also in a
+    Secret annotation, every error this change adds, every line captured from the `sink` logger
+    (a test logr sink) and the pool's entries contain none of the sentinels.
   - envtest spec "deleted secret fails the export with a redacted status": delete the sink Secret /
     the inventory's export condition names the Secret, the recorded Events and status contain no
     sentinel, and after recreating the Secret the next retry exports with no sink change · exposes
     the controller path (condition text, requeue) and SCR-4 on status and Events.
   - CLI `TestResolveSinkSecretData_emptySecretFails` (`internal/pipeline`; rows: no `data` and no
     `stringData`; `data` keys all empty; `stringData` only, non-empty, *control*; a value
-    `${env:VAR}` with `VAR` set, *control*): an empty Secret fails before `registry.NewBackend`
-    with the operator's message text · exposes a missing CLI parity.
+    `${env:VAR}` with `VAR` set, *control*; a Secret without a namespace): an empty Secret fails
+    before `registry.NewBackend` with the operator's message text (without the namespace clause
+    when the manifest has none) · exposes a missing CLI parity.
   - *control* `TestRunOneContext_secretManifestChangeNextRun`: a second run with a changed manifest
     builds from the new value.
 - [ ] 2.2 Implement the empty check in `ResolveSecret`, the rebuild path and
@@ -176,6 +193,13 @@ Test rules for every group:
     factory; the Secret moves to 6; G2 builds and stores B6; G1's build completes / B6 stays
     pooled, G1's backend is returned under an owning release and closed after it, the next acquire
     gets B6 · exposes the last-writer-wins store (`backend_pool.go:208-214`).
+  - `TestAcquireBackend_slowBuilderAfterRetireNotPooled`: G1 misses and blocks; the Secret is
+    deleted and an acquire retires the entry; G1 completes / G1's backend is not pooled (owning
+    release), the pool holds no entry for the sink · exposes a fence that treats an absent entry
+    as permission.
+  - `TestAcquireBackend_sameKeyBuildersShare`: two builders miss at the same version and both
+    complete / one entry, both hold it, the surplus is closed once · exposes a fence checked
+    before the same-key share.
   - `TestAcquireBackend_concurrentAcquiresAfterRotation`: 16 goroutines acquire after one Secret
     change, with a barrier between the metadata read and the store / all hold one new backend;
     each surplus build and B1 closed exactly once; run with `-race -count=10` · exposes double
@@ -198,7 +222,9 @@ Test rules for every group:
   `kollectsnapshotsink.md:53-54` and `kollectdatabasesink.md:70-71`), `kollecteventsink.md` (a
   rotation paragraph), `docs/security/security-architecture.md` (rotation sentence at the Secrets
   section, `:214-216`), `docs/operator-manual/troubleshooting.md` (rows for a deleted or emptied
-  Secret; the Git auth row's "rotate secretRef" now takes effect on the next export, `:204`), and
+  Secret, which recover on the next retry; the Git auth `terminal` row at `:204` keeps its
+  re-annotate step, because a terminal error does not requeue and no controller watches
+  Secrets), and
   `docs/operator-manual/upgrading.md` (new section "Sink Secret rotation (after v0.21.0)" with the
   design compatibility table, "entirely empty" stated for the S3/GCS fallback, the Retain and
   `force-cleanup` note, and the CA-section sentence at `:167-168` removed). Checks:
@@ -217,20 +243,20 @@ Test rules for every group:
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | SCR-1 | `TestAcquireBackend_rotatedSecretRebuilds` (8 references × 2 namespace forms), `_rotateBack` | rebuild with the current value per reference kind | not-run | |
-| SCR-1 | `TestAcquireBackend_readsSecretsUncached`, `_keyFromBuildSnapshot` | reads bypass the cache; key and values from one read | not-run | |
+| SCR-1 | `TestAcquireBackend_readsSecretsUncached` (export, Retain, Delete prune), `_keyFromBuildSnapshot`, `_sameDataNewVersionRebuilds`, `TestInventoryReconcilers_defaultSecretReader` | reads bypass the cache on every path; key and values from one read; production wiring | not-run | |
 | SCR-1 | *control* `TestAcquireBackend_unchangedSecretsReuse`, `_unrelatedSecretReuse` | one build, same instance | not-run | |
 | SCR-1 | `TestReferencedSecretRefs_coversEverySecretReferenceField` | every `*SecretReference` field covered | not-run | |
 | SCR-1 | envtest specs "secret rotation takes effect on the next export", "cross-namespace secret under a restricted cache" | next export sees the new value; no cache error | not-run | |
 | SCR-1 | integration `TestS3Export_caRotation` | handshake fails on CA X, succeeds after rotation to CA Y | not-run | |
 | SCR-1 | integration `TestPostgresExport_passwordRotation` | rows as `u2`, no `u1` session left | not-run | needs Docker (CI `test-integration`) |
 | SCR-1 | mutations: Secret part dropped from the key; reads through `Client` | rotation / uncached tests fail | not-run | |
-| SCR-2 | `TestAcquireBackend_deletedSecretFails`, `_emptiedSecretFails`, `_restoredSecretRecovers`, `_cancelledReadKeepsEntry` | named, transient error; entry retired only on not-found or empty; recovery without sink change | not-run | |
+| SCR-2 | `TestAcquireBackend_deletedSecretFails`, `_emptiedSecretFails`, `_observedChangeRetiresOnFailedRead`; *controls* `_restoredSecretRecovers`, `_cancelledReadKeepsEntry` | named, transient error; retire on not-found, empty or observed change only; recovery without sink change | not-run | |
 | SCR-2 | `TestS3_emptiedSecretNoAmbientCredentials` | fails, factory not called | not-run | |
-| SCR-2 | `TestCleanup_streamSinkDeletedSecretRetained`, `TestCleanup_deletedGitAuthSecretFails` | stream retained without a read; Git release fails naming the Secret | not-run | |
+| SCR-2 | `TestCleanup_streamSinkDeletedSecretRetained`, `TestStreamSinkTypes_matchRetainingBackends`; *control* `TestCleanup_deletedGitAuthSecretFails` | stream retained without a read; set matches backends; Git release fails naming the Secret | not-run | |
 | SCR-2 | envtest spec "deleted secret fails the export with a redacted status" | condition names the Secret; recovers after recreate | not-run | |
 | SCR-2 | mutations: no retire on not-found; retire on every error | deleted / cancelled tests fail | not-run | |
 | SCR-3 | `TestAcquireBackend_rotationDuringExportDefersClose`, `_specChange…`, `_deleteEviction…`, `_ttlSkipsHeldEntry` | close after the holder's release | not-run | |
-| SCR-3 | `TestAcquireBackend_slowBuilderDoesNotReplaceNewer` | newer entry stays pooled | not-run | |
+| SCR-3 | `TestAcquireBackend_slowBuilderDoesNotReplaceNewer`, `_slowBuilderAfterRetireNotPooled`, `_sameKeyBuildersShare` | newer or retired entry not overwritten; same-key builders share | not-run | |
 | SCR-3 | `TestAcquireBackend_concurrentAcquiresAfterRotation` `-race -count=10` | each backend closed exactly once | not-run | |
 | SCR-3 | `TestAcquireBackend_failedRebuildRetiresOld`, `TestRelease_idempotent` | no stale fallback; single decrement | not-run | |
 | SCR-3 | BEP-1 tests unchanged | pass | not-run | |
