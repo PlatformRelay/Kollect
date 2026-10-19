@@ -333,6 +333,12 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
   mode (it cannot tell `require` from `prefer`+`direct`; the comment now says why such a mode is
   never weaker), and the `ResolveSinkSecretData` doc still put `spec.secretRef` first. Wording
   only. — closed 2026-10-19.
+- [x] 8.11 Branch round 2: a redirect loop on the request's own URL slipped past 8.9's URL test,
+  a redirected hop's context error lost its identity, and the unparsable-`Location` text match was
+  guarded only in the integration tier; the redirect limit is now matched by identity, a context
+  error is kept (`errors.Is`) without its text, and a unit test covers every case. — closed
+  2026-10-19: `TestRedactedRedirectClient_withholdsTarget` red on the loop and the timeout, green
+  after; mutants (limit match, context error, `Location` match) each killed in the unit tier.
 
 ## Verification
 
