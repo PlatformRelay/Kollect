@@ -218,9 +218,14 @@ Each case below reads: given / when / then · the failure it exposes.
 
 ## 3. Review
 
-- [ ] 3.1 HARD GATE: an independent reviewer (not the author) reads the committed text as a
+- [x] 3.1 HARD GATE: an independent reviewer (not the author) reads the committed text as a
   stranger: every sentence true on a fresh clone; no private gotcha, hostname or internal host
-  leaked; the review record names the revision
+  leaked; the review record names the revision — closed 2026-10-19 (stage B, two legs and the
+  stage-B orchestrator, none of them an author): reviewed revision `73e92c8c4`; `AGENTS.md`,
+  `.github/copilot-instructions.md`, `.gitignore` and `.github/gitleaks.toml` are unchanged
+  from it to `96d4ec716`. Every statement true, nothing private. Records:
+  `reviews/B-branch/round-1/verification.md`, `reviews/B-branch/round-1/holistic.md`,
+  `reviews/B-branch/round-2/verification.md`
 
 ## 4. Land
 
@@ -233,6 +238,35 @@ Each case below reads: given / when / then · the failure it exposes.
   are recorded; after merge, in each listed checkout: pull, then confirm the 0.2 baseline holds
   (`AGENTS.local.md` and the loader `CLAUDE.md` unchanged where they existed, absent where they
   were absent); `evidence` gets pass/fail per label only
+
+## 5. Stage-B fixes
+
+From the stage-B branch review (`reviews/B-branch/`). Each guard fix went red first (its new
+mutant survived on the unfixed guard, run but not committed) and lands with the mutant in one
+commit, so the guard is green at every commit.
+
+- [x] 5.1 Refuse an empty gitleaks path regex (round-1 A3), mutant `PAC-4 gitleaks empty regex` —
+  `5312acd86`
+- [x] 5.2 Refuse an SSH `Host` line with any number of aliases (round-1 A4), mutant
+  `PAC-6 Host line with four aliases`; the `PAC-6 prose look-alikes` control has "host" mid-line
+  (a test change) — `8f59b5779`
+- [x] 5.3 Refuse `/var/home/<user>`, `/root/` and `C:\Users\<user>` as home paths (round-1 O3),
+  one mutant each — `3148ff5d6`
+- [x] 5.4 Install ripgrep in the `lint` job without the noble-only version pin (round-1 A5/O2) —
+  `221eb661e`
+- [x] 5.5 Warn in `docs/development/setup.md` to rename a private `AGENTS.md` before pulling
+  (round-1 A2) — `48dae840f`
+- [x] 5.6 Replace the absolute worktree and harness paths in `task-prompt.md` and `loop.md` with
+  placeholders (round-1 A1/O1, in part) — `4d5209acf`
+- [x] 5.7 Refuse a `Host` line with a negated alias (round-2 R2-1), mutant
+  `PAC-6 Host line with a negated alias`; an `expect_red` control pins the accepted false red on a
+  prose line that starts with "host" (R2-4) — `ca5854194`
+- [x] 5.8 Refuse bare `/root`, `/mnt/c/Users/<user>`, `/c/Users/<user>` and an escaped
+  `C:\\Users\\<user>`, one mutant each, plus a `c:/users` pin (round-2 R2-2, R2-3) — `96d4ec716`
+
+Not fixed, for the operator: whether loop and review records that name reviewers and models
+belong in the public tree, and whether to reword the two spec commits (`ec288c216`, `3cb6d45df`)
+whose messages name reviewer models (a history rewrite of reviewed commits).
 
 ## Verification
 

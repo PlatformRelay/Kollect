@@ -50,6 +50,7 @@ Holistic run at B: not run yet.
 | 0.1b | CLOSED (orchestrator, 2026-10-19) | none (local, fresh-session load verified) | — |
 | G1 (0.1c, 0.2, 0.3, 1.1) | CLOSED-WITH-GAPS (2026-10-19) | astra + claude/opus, 2 rounds (`reviews/L-tasks/G1/`), Claude leg by dispatch | 0.1c classification is agent-review; guard known red until G2; decision: fixup the guard commit into G2 before the PR (recommended) |
 | G2 (2.1, 2.2, 2.3, 2.4) | CLOSED-WITH-GAPS (2026-10-19) | astra + claude/opus, 1 round (`reviews/L-tasks/G2/`), Claude leg by dispatch (CI and secret scanning) | CI must print `rg --version` on the PR's first run; 3.1 is the hard gate on the text; G1 guard commits folded into the G2 commit |
+| 3.1 + B fixes (5.1-5.8) | CLOSED-WITH-GAPS (2026-10-19) | astra + claude/opus, 2 rounds (`reviews/B-branch/`); round 1 BLOCK/CONCERNS, round 2 REQUEST_CHANGES/CONCERNS, no CRITICAL open | operator: review records naming reviewers and models in the public tree, and two spec commit messages naming reviewer models (reword = history rewrite) |
 
 ## Known red
 
@@ -67,6 +68,7 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
 | `hack/test/ci_workflow_security_test.sh` `cfc_guards` (CFC-6) | change 4 | G2 (2.4) | not wrong: extended so the new guard cannot drop out of the lint job silently (tasks.md 2.4) |
+| `hack/test/agent_contract_test.sh` control `PAC-6 prose look-alikes` | G1 (1.1) | B (5.2) | the control pinned a prose line starting with "host" as green, which kept the Host pattern capped at three aliases (a fail-open); "host" moved mid-line, and 5.7 pins the old line as an accepted false red |
 
 ## Lessons
 
@@ -80,6 +82,10 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G2: a checklist dry-run needs one sweep per step (source only, then each named place), because each gate hides the next until it is cleared (G2)
 - G2: the `ubuntu-latest` image ships no ripgrep; a guard that needs `rg` must install it in its job (G2)
 - G2: Claude Code drops HTML comments from a loaded `AGENTS.md`; marker comments serve guards, not readers (G2)
+- B: a leak guard's skip of empty input (an empty allowlist regex) is a fail-open; an empty regex matches everything (B)
+- B: a fix to one leak pattern needs a sweep of its siblings (negated aliases, `/root` before punctuation, WSL and escaped Windows paths); round 2 found what round 1's fix missed (B)
+- B: git replaces an ignored untracked file with a tracked one on pull without a warning; un-ignoring a path needs a before-pull notice (B)
+- B: `git commit -F file` bypasses the agent-mention hook, so a commit body can name reviewer models; check `git log --format=%B` before the PR (B)
 
 <!-- master list: one line per reusable lesson with the task ids that hit it; two or more ids → a proposed harness change at hand-off -->
 
