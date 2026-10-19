@@ -238,17 +238,20 @@ Each case below reads: given / when / then · the failure it exposes.
 
 ## 4. Land
 
-- [ ] 4.1 Merge with the `post-merge` row open; archive in a follow-up evidence PR once it passes
+- [x] 4.1 Merge with the `post-merge` row open; archive in a follow-up evidence PR once it passes
+  — closed 2026-10-19: merged in PR #470 (head 970b9998e, merge 8037cc82b), 43 checks green; the
+  post-merge row passed (Test shuffle run 39219472013, ci-failure-report run 39220696845);
+  archived in a follow-up evidence PR
 
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| TDS-1 | `fuzz_retry_test.sh` F1-F15, both modes; 1.4 and 1.5 mutants by exit status | only the pure deadline case retries; argv exact; zero targets and unknown text red | not-run | |
-| TDS-2 | `test_shuffle_test.sh` S1-S12 with the fixed seed; 2.5 mutants | fixture red; seed printed; Ginkgo split; envtest provisioned; control green | not-run | |
-| TDS-2 | 2.1 smoke run of both Ginkgo suites under the split | green; `-count=3` refused | not-run | |
-| TDS-2 | first scheduled `Test shuffle` run, and the `CI failure report` run (`workflow_run`) it triggers | both complete | post-merge | follow-up evidence PR |
-| TDS-3 | `readme_quickstart_test.sh` R1-R10 and R3b | each mutant red, controls and tree green | not-run | |
-| all | `ci_workflow_security_test.sh` plain and `--self-test` after each `cfc_guards` edit | green | not-run | |
-| all | wall time of each new guard, plain and `--self-test`, and the `lint` job delta | recorded in the group evidence | not-run | |
-| all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | not-run | |
+| TDS-1 | `fuzz_retry_test.sh` F1-F15, both modes; 1.4 and 1.5 mutants by exit status | only the pure deadline case retries; argv exact; zero targets and unknown text red | pass | evidence/G1.md, T1.6.md, G5.md (5.2, 5.3, 5.5) |
+| TDS-2 | `test_shuffle_test.sh` S1-S12 with the fixed seed; 2.5 mutants | fixture red; seed printed; Ginkgo split; envtest provisioned; control green | pass | evidence/G2.md, G5.md (5.2, 5.4, 5.5) |
+| TDS-2 | 2.1 smoke run of both Ginkgo suites under the split | green; `-count=3` refused | pass | evidence/G2.md (six Ginkgo invocations green; `-count=3` refused, exit 1) |
+| TDS-2 | first scheduled `Test shuffle` run, and the `CI failure report` run (`workflow_run`) it triggers | both complete | pass | Test shuffle run 39219472013 on `main` (schedule, 2026-10-19, headSha e9a9779c5): success; printed `test-shuffle: seed 722060194 (reproduce: SHUFFLE_SEED=722060194 task test:shuffle)`; 45 packages at `-count=3` plus the 2 Ginkgo packages (`internal/controller`, `internal/webhook/v1alpha1`) three times at `-count=1`, 51 `ok` lines, no `FAIL`; "passed with seed 722060194". CI failure report run 39220696845 (`workflow_run` on that run): success, "action none" |
+| TDS-3 | `readme_quickstart_test.sh` R1-R10 and R3b | each mutant red, controls and tree green | pass | evidence/G3.md, G5.md (5.1, 5.5, 5.6) |
+| all | `ci_workflow_security_test.sh` plain and `--self-test` after each `cfc_guards` edit | green | pass | evidence/G1.md, G2.md, G3.md, G5.md |
+| all | wall time of each new guard, plain and `--self-test`, and the `lint` job delta | recorded in the group evidence | pass | evidence/G1.md (about 1 min), G2.md (about 87 s), G3.md, G5.md; `lint` job on `main`: 10 min 42 s at 0b9cd0a53 (CI run 39145000481), 14 min 13 s at 8037cc82b (CI run 39174100571) |
+| all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | pass | PR #470 head 970b9998e: 43 checks green; main post-merge CI by headSha 8037cc82b: all 7 workflows success (CI, Preflight, E2E smoke, CodeQL, CodeQL - Code Quality, OpenSSF Scorecard, changelog-sync); spec set two rounds, every task group diff-reviewed, branch rounds 1 on `c0fbcd07e` and 2 (findings fixed, no CRITICAL open, HEAD 344cdbd94); archive revision: the follow-up evidence PR; reviews/ and loop.md |
