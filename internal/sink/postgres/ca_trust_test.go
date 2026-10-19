@@ -720,3 +720,63 @@ func TestExport_namesTLSVerificationOnlyWithCA(t *testing.T) {
 		}
 	}
 }
+
+// The DSN handed to pgx states the effective sslmode itself, wherever the reader
+// found it (DSN, ssl=true, service file entry, PGSSLMODE, or unset → verify-full).
+// pgx parses require and prefer+sslnegotiation=direct to the same shape, so no
+// backstop on the parsed config can tell them apart; pinning the mode the reader
+// validated means pgx uses that mode, or a DSN mode the reader missed, which the
+// backstops then judge. Checked by parsing caDSN's output with the environment and
+// service selection cleared.
+func TestCADSN_pinsEffectiveSSLMode(t *testing.T) {
+	cases := []struct {
+		name, dsn, pgsslmode, pgservice, want string
+	}{
+		{"DSN keyword verify-ca", sentinelKV + " sslmode=verify-ca", "", "", "verify-ca"},
+		{"DSN url require", sentinelURL + "?sslmode=require", "", "", "require"},
+		{"DSN url ssl=true", sentinelURL + "?ssl=true", "", "", "require"},
+		{"PGSSLMODE verify-ca", sentinelKV, "verify-ca", "", "verify-ca"},
+		{"PGSSLMODE require, url", sentinelURL + "?application_name=kollect", "require", "", "require"},
+		{"service entry verify-ca", sentinelKV, "", "s", "verify-ca"},
+		{"unset", sentinelKV + " sslnegotiation=direct", "", "", "verify-full"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := isolatePGEnv(t)
+			t.Setenv("PGSERVICEFILE", writeFile(t, filepath.Join(home, "svc.conf"), []byte("[s]\nsslmode=verify-ca\n")))
+			t.Setenv("PGSSLMODE", tc.pgsslmode)
+			t.Setenv("PGSERVICE", tc.pgservice)
+
+			out, _, err := caDSN(tc.dsn)
+			if err != nil {
+				t.Fatalf("caDSN: %v", err)
+			}
+
+			t.Setenv("PGSSLMODE", "")
+			t.Setenv("PGSERVICE", "")
+
+			cfg, err := pgconn.ParseConfig(out)
+			if err != nil {
+				t.Fatalf("parse caDSN output: %v", err)
+			}
+
+			c := cfg.TLSConfig
+			if c == nil || len(cfg.Fallbacks) != 0 {
+				t.Fatalf("caDSN output parses with a plaintext or fallback config; want %s", tc.want)
+			}
+
+			got := "require"
+			switch {
+			case !c.InsecureSkipVerify:
+				got = "verify-full"
+			case c.VerifyPeerCertificate != nil:
+				got = "verify-ca"
+			}
+
+			if got != tc.want {
+				t.Errorf("caDSN output parses as %s on its own, want %s", got, tc.want)
+			}
+		})
+	}
+}

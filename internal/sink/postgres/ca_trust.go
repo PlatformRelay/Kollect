@@ -36,9 +36,9 @@ var validSSLModes = map[string]bool{
 // caDSN checks dsn against a configured CA before pgx parses it (sink-ca-trust
 // design, Postgres steps 1 and 2): a root certificate from any other source is a
 // conflict, an explicit disable/allow/prefer is rejected, and an sslmode set nowhere
-// becomes verify-full. It returns the DSN to parse and whether the effective mode is
-// verify-full, which applyCA checks against what pgx parsed. Errors never contain
-// the DSN.
+// becomes verify-full. It returns the DSN to parse, with the effective mode pinned
+// in it, and whether that mode is verify-full, which applyCA checks against what pgx
+// parsed. Errors never contain the DSN.
 func caDSN(dsn string) (string, bool, error) {
 	settings, err := connStringSettings(dsn)
 	if err != nil {
@@ -79,7 +79,7 @@ func caDSN(dsn string) (string, bool, error) {
 	}
 
 	if !ok {
-		return withVerifyFull(dsn), true, nil
+		return withSSLMode(dsn, "verify-full"), true, nil
 	}
 
 	switch {
@@ -93,7 +93,11 @@ func caDSN(dsn string) (string, bool, error) {
 			"%w: the sslmode from %s is not a valid mode; %s", ErrCAWeakSSLMode, mode.source, acceptedSSLModes))
 	}
 
-	return dsn, mode.value == "verify-full", nil
+	// The mode is pinned in the DSN even when it came from the DSN: pgx parses
+	// require and prefer+sslnegotiation=direct to the same shape, so applyCA cannot
+	// catch a DSN the reader and pgx split differently. Pinned, pgx uses this mode
+	// or a later DSN mode the reader missed, which applyCA then judges.
+	return withSSLMode(dsn, mode.value), mode.value == "verify-full", nil
 }
 
 // rootCertSource names the first root certificate source pgx would read besides
@@ -154,19 +158,20 @@ func serviceSettings(settings map[string]pgSetting, service string) map[string]s
 	return entry.Settings
 }
 
-// withVerifyFull adds sslmode=verify-full to a DSN that sets no sslmode. The keyword
-// form gets the pair in front, so a trailing backslash in the DSN cannot swallow it;
-// the URL form gets it as the first query parameter.
-func withVerifyFull(dsn string) string {
+// withSSLMode adds sslmode=mode in front of the DSN's own keys, so a later sslmode in
+// the DSN still wins. The keyword form gets the pair in front, so a trailing
+// backslash in the DSN cannot swallow it; the URL form gets it as the first query
+// parameter. mode is one of validSSLModes, never DSN text.
+func withSSLMode(dsn, mode string) string {
 	if !isURLDSN(dsn) {
-		return "sslmode=verify-full " + dsn
+		return "sslmode=" + mode + " " + dsn
 	}
 
 	if i := queryIndex(dsn); i >= 0 {
-		return dsn[:i+1] + "sslmode=verify-full&" + dsn[i+1:]
+		return dsn[:i+1] + "sslmode=" + mode + "&" + dsn[i+1:]
 	}
 
-	return dsn + "?sslmode=verify-full"
+	return dsn + "?sslmode=" + mode
 }
 
 func isURLDSN(dsn string) bool {
