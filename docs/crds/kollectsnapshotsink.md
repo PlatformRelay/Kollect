@@ -21,11 +21,37 @@ snapshot sinks via `KollectInventory.spec.snapshotSinkRefs`.
 | `spec.git` / `spec.gitlab` / `spec.objectStore` | Type-specific settings |
 | `spec.git.engine` | Git export engine: `go-git` only (the default, pure Go). `cli` is no longer accepted — admission validation and backend construction reject it ([ADR-0803](../adr/0803-git-engine-convergence.md)); `file://` remotes and `git ls-remote` connection probes still use the shared git CLI machinery. Shipped operator image includes `git` and `openssh-client` for those |
 | `spec.serialization.format` | Output format. **Git/GitLab: `yaml` (default), `json`, or `ndjson`**; **S3/GCS: `json` (default), `parquet`, or `csv`** ([ADR-0419](../adr/0419-git-export-serialization-layout.md), [ADR-0416](../adr/0416-sink-config-layering.md)) |
+| `spec.tls` | Private CA trust (`caBundle` or `caSecretRef`), see [TLS trust](#tls-trust-spectls) |
 | `spec.pathTemplate` | Inventory document path; `{extension}` resolves from the format (e.g. `.yaml`) |
 | `spec.layout` | **Git/GitLab only** — document shape and folder layout (`document`/`perResource`/`split`) ([ADR-0419](../adr/0419-git-export-serialization-layout.md)) |
 | `spec.exportMinInterval` | Default per-ref debounce when inventory ref omits override |
 | `spec.connectionTest` | Automatic probe on create/update (default `true`) |
 | `spec.deletionPolicy` | What inventory deletion does to this sink's exported objects: `Retain` (default) leaves them, `Delete` retracts them ([ADR-0421](../adr/0421-snapshot-sink-deletion-policy.md)) |
+
+## TLS trust (`spec.tls`)
+
+`spec.tls.caBundle` (inline PEM) or `spec.tls.caSecretRef` (a Secret, read from the first non-empty
+key of `tls.crt`, `ca.crt`, `ca.pem`) adds a private CA. Set one of the two.
+
+- **Append.** Git and GitLab exports, S3 and GCS trust the CA in addition to the system roots, so
+  one sink reaches a private-CA endpoint without losing the public CAs. The Git and GitLab
+  connection probes trust only the CA.
+- **S3 and GCS need https with a CA.** A CA with an `http://` endpoint is refused, and so is an
+  `http` endpoint the AWS SDK picks for an `s3://` endpoint (`AWS_ENDPOINT_URL_S3`,
+  `AWS_ENDPOINT_URL`, a shared-config `services` section). A redirect to a plain `http` URL is not
+  followed.
+- **Terminal errors** (the sink stops until its spec or Secret changes): CA PEM that holds no
+  certificate (S3, GCS); a CA with an `http` endpoint (S3, GCS); and, for every sink type, a
+  `caSecretRef` Secret with none of the three keys, or a spec that sets both `caBundle` and
+  `caSecretRef`.
+- **No pinning.** The CA adds trust; there is no option to trust only the CA for exports.
+
+A failed backend build is not cached, but no controller watches the CA Secret and a terminal
+error does not requeue. After fixing a Secret that failed the sink, change any annotation on
+the sink, for example `kubectl annotate kollectsnapshotsink <name> ca-fixed-at="$(date +%s)" --overwrite`:
+the probe runs again, and the inventories that reference the sink reconcile and build its
+backend on their next export. A backend that already built keeps its CA until the sink spec
+changes.
 
 ## Example
 

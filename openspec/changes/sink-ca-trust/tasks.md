@@ -251,7 +251,7 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
 
 ## 6. Documentation (SCT-6)
 
-- [ ] 6.1 Docs, each claim checked against the code of groups 1-4:
+- [x] 6.1 Docs, each claim checked against the code of groups 1-4:
   - `docs/REQUIREMENTS.md:90` FR-EXP-7: list Git, GitLab, Kafka, NATS, S3, GCS, Postgres, MongoDB;
   - `docs/crds/kollectsnapshotsink.md` (*Spec highlights*, `:15`) and
     `docs/crds/kollectdatabasesink.md` (`:17`): a `spec.tls` row and a short TLS trust section
@@ -280,7 +280,8 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
     with both `caBundle` and `caSecretRef` now fails the sink. CA-configured Postgres sinks without
     an sslmode now verify the server, including the hostname: a DSN host that does not match the
     certificate SAN now fails; set `sslmode=verify-ca` explicitly to verify the chain only."
-  - `task lint:markdown` reports `0 issues`; the docs guards under `hack/test/docs_*` pass.
+  - `task lint:markdown` reports `0 issues`; the docs guards under `hack/test/docs_*` pass. — closed
+  2026-10-19, evidence: evidence/G6.md
 
 ## 7. Land
 
@@ -308,6 +309,6 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
 | SCT-5 | R2, C1a, C1b, C2, C3 and the 5.1 mutations | same shared error on both paths, exit 2 after collection, no write | pass | `evidence/G5.md` rows 1-6 |
 | SCT-5 | no-op mutation control | survives | pass | `evidence/G5.md` mutant 0 |
 | SCT-1..5 | `go test -race -count=3` on changed packages | pass | not-run | |
-| SCT-6 | `task lint:markdown`, `hack/test/docs_*`, `task verify` | 0 issues, green | not-run | |
-| SCT-6 | FR-EXP-7 read against `registry.go` | lists exactly the CA-applying types | not-run | |
+| SCT-6 | `task lint:markdown`, `hack/test/docs_*`, `task verify` | 0 issues, green | pass | `evidence/G6.md` rows 12-13 |
+| SCT-6 | FR-EXP-7 read against `registry.go` | lists exactly the CA-applying types | pass | `evidence/G6.md` row 1 |
 | all | independent review (reviewer, revision, verdict) | recorded before merge | not-run | |

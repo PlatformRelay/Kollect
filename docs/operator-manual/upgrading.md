@@ -130,6 +130,45 @@ bumping versions. Common upgrade touchpoints:
 | `featureGates.*` | New gates default off; dev overlays may differ from production values |
 | `webhooks.certManager.create` | `false` requires an operator-provided serving Secret and webhook CA trust; the chart does not generate either |
 
+### Sink CA trust (after v0.21.0)
+
+S3, GCS, Postgres and MongoDB sinks now use `spec.tls.caBundle` / `caSecretRef`, trusted in
+addition to the system roots. Before, they ignored it. A CA that cannot take effect now fails the
+sink instead of being ignored, and two CA errors apply to every sink type.
+
+| Before (v0.21.x) | After |
+| --- | --- |
+| CA ignored; a private-CA server fails verification (S3, GCS, MongoDB with TLS, Postgres `verify-ca`/`verify-full`) | Verified against the system roots plus the CA |
+| MongoDB `tlsCAFile`, TLS off, or `tlsInsecure`/`sslInsecure` with a CA: the URI's settings used | Terminal error |
+| Postgres `sslmode` unset in the DSN, the service-file entry and `PGSSLMODE`, with a CA (pgx default `prefer`): TLS without verification | `verify-full`: chain and hostname verified; a DSN host that does not match the certificate SAN fails. Set `sslmode=verify-ca` explicitly to check the chain only |
+| Postgres explicit `sslmode=require` with a CA: TLS without verification | Chain verified (libpq `verify-ca` rule) |
+| Postgres explicit `sslmode=prefer`/`allow`/`disable` with a CA: CA ignored | Terminal error |
+| `sslrootcert` (Postgres) or `tlsCAFile` (MongoDB) in the connection string with a CA: the connection string's CA used | Terminal error |
+| S3/GCS `http` endpoint with a CA: CA ignored | Terminal error |
+| `caSecretRef` Secret with none of `tls.crt`, `ca.crt`, `ca.pem`: no CA (system roots for Git, GitLab, S3, GCS; plaintext for Kafka and NATS without other TLS settings; the connection string's TLS for Postgres and MongoDB) | Terminal error, **every sink type** |
+| `caBundle` and `caSecretRef` both set: `caBundle` used (Git and GitLab already rejected it) | Terminal error, **every sink type** |
+
+To find affected sinks before upgrading, list every sink that sets `spec.tls`:
+
+```sh
+kubectl get kollectsnapshotsinks,kollectdatabasesinks,kollecteventsinks -A -o json \
+  | jq -r '.items[] | select(.spec.tls) | "\(.kind) \(.metadata.namespace)/\(.metadata.name)"'
+```
+
+For each, check that a `caSecretRef` Secret holds one of the three keys, that only one CA source
+is set, and, for Postgres and MongoDB, the connection string against the rules on the
+[database sink page](../crds/kollectdatabasesink.md#tls-trust-spectls). After the upgrade, a
+failing sink shows the terminal error on its status and connection test.
+
+A failed backend build is not cached, but no controller watches the CA Secret and a terminal
+error does not requeue. After fixing a Secret that failed the sink, change any annotation on
+the sink, for example `kubectl annotate <sink kind> <name> ca-fixed-at="$(date +%s)" --overwrite`:
+the probe runs again, and the inventories that reference the sink reconcile and build its
+backend on their next export. A backend that already built keeps its CA until the sink spec
+changes.
+
+Rollback to v0.21.x restores the old behaviour; nothing is persisted.
+
 !!! info "Export debouncing"
     Debounce interval is per **`KollectInventory.spec.exportMinInterval`** (CRD default **30s**).
 
