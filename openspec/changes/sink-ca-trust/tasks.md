@@ -61,7 +61,7 @@ Test rules for every group:
 
 ## 1. Shared pool and CA resolution (SCT-4, SCT-5)
 
-- [ ] 1.1 Tests, red against stubs of `sinktls.AppendedPool(pem []byte) (*x509.CertPool, error)` and
+- [x] 1.1 Tests, red against stubs of `sinktls.AppendedPool(pem []byte) (*x509.CertPool, error)` and
   the shared resolver in `internal/sink` (`design.md`, *CA resolution, shared*):
   - P1 given CA X, when `AppendedPool` builds the pool, then a leaf signed by X verifies · the CA is
     dropped;
@@ -84,10 +84,11 @@ Test rules for every group:
     rename `"inline bundle wins"` (`:356`) to `"both sources rejected"` and expect the both-sources
     error on both paths; change `"caSecret no key"` (`:354`) to expect the missing-key error on both
     paths; add `"caSecret ca.pem"` · operator and CLI drifting apart (record the changes as *Test
-    changes* in `loop.md`).
-- [ ] 1.2 Implement `AppendedPool` and the shared resolver; `resolveCAPEM` in
+    changes* in `loop.md`). — closed 2026-10-19, evidence: evidence/G1.md
+- [x] 1.2 Implement `AppendedPool` and the shared resolver; `resolveCAPEM` in
   `internal/sink/build_context.go:215-245` and `internal/pipeline/wire.go:143-171` call it. Fix the
-  `sinktls.FromSpec` comment that claims `caSecretRef` precedence (`sinktls.go:24-26`).
+  `sinktls.FromSpec` comment that claims `caSecretRef` precedence (`sinktls.go:24-26`). — closed
+  2026-10-19, evidence: evidence/G1.md
 
 ## 2. S3 and GCS (SCT-1, SCT-4)
 
@@ -295,7 +296,7 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
 | SCT-3 | MI1-MI3 (`-tags integration`) | private CA trusted, Y refused, P trusted | not-run | |
 | SCT-3 | mutation: accept `sslInsecure=true`; drop the post-`ApplyURI` backstop | M4 fails; M7 fails | not-run | |
 | SCT-4 | P1-P3, R1, D7, M5, S2 | terminal errors, no PEM echoed | not-run | |
-| SCT-4 | mutation: resolver returns nil on a missing key | R1 fails | not-run | |
+| SCT-4 | mutation: resolver returns nil on a missing key | R1 fails | pass | `evidence/G1.md` mutant 1 |
 | SCT-5 | R2, C1a, C1b, C2, C3 and the 5.1 mutations | same shared error on both paths, exit 2 after collection, no write | not-run | |
 | SCT-5 | no-op mutation control | survives | not-run | |
 | SCT-1..5 | `go test -race -count=3` on changed packages | pass | not-run | |

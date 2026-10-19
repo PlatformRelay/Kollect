@@ -275,20 +275,6 @@ func TestBuildContextFromSpec(t *testing.T) {
 			wantNoCAPEM: true,
 		},
 		{
-			name: "ca secret with no known PEM keys yields empty CAPEM",
-			secrets: []*corev1.Secret{{
-				ObjectMeta: metav1.ObjectMeta{Name: "ca-other", Namespace: "kollect-system"},
-				Data:       map[string][]byte{"other.pem": []byte("ignored")},
-			}},
-			spec: kollectdevv1alpha1.KollectSinkSpec{
-				Type: "git",
-				TLS: &kollectdevv1alpha1.TLSSpec{
-					CASecretRef: &kollectdevv1alpha1.SecretReference{Name: "ca-other"},
-				},
-			},
-			wantNoCAPEM: true,
-		},
-		{
 			name: "ca secret prefers tls.crt key",
 			secrets: []*corev1.Secret{{
 				ObjectMeta: metav1.ObjectMeta{Name: "ca-tls", Namespace: "kollect-system"},
@@ -459,6 +445,20 @@ func TestBuildContextFromSpec_errors(t *testing.T) {
 				},
 			},
 			wantSub: "missing-ca",
+		},
+		{
+			name: "ca secret with no known PEM keys",
+			secrets: []*corev1.Secret{{
+				ObjectMeta: metav1.ObjectMeta{Name: "ca-other", Namespace: "kollect-system"},
+				Data:       map[string][]byte{"other.pem": []byte("ignored")},
+			}},
+			spec: kollectdevv1alpha1.KollectSinkSpec{
+				Type: "git",
+				TLS: &kollectdevv1alpha1.TLSSpec{
+					CASecretRef: &kollectdevv1alpha1.SecretReference{Name: "ca-other"},
+				},
+			},
+			wantSub: "ca-other",
 		},
 	}
 

@@ -308,7 +308,9 @@ func TestWithCLIBackend_closesAfterFailedExport(t *testing.T) {
 
 // TestCLICredentials_matchOperatorResolver uses the operator's resolver as the oracle: for the
 // same snapshot sink and Secrets, the CLI must give the backend the same data and CA, or fail
-// when the operator fails.
+// when the operator fails. Where the failure comes from the shared CA rules (sink.CheckCASources,
+// sink.SelectCAKey), both paths must wrap the same error value; Secret-lookup failures are
+// source-specific and only their presence is compared.
 func TestCLICredentials_matchOperatorResolver(t *testing.T) {
 	ca := credentialsCAPEM(t)
 	otherCA := credentialsCAPEM(t)
@@ -328,6 +330,7 @@ func TestCLICredentials_matchOperatorResolver(t *testing.T) {
 		secret("ca-crt", map[string]string{"ca.crt": string(ca)}),
 		secret("tls-crt", map[string]string{"tls.crt": string(ca), "ca.crt": string(otherCA)}),
 		secret("no-ca-key", map[string]string{"other": "x"}),
+		secret("ca-pem", map[string]string{"ca.pem": string(otherCA)}),
 	}
 
 	ref := func(name string) *kollectdevv1alpha1.SecretReference {
@@ -352,12 +355,19 @@ func TestCLICredentials_matchOperatorResolver(t *testing.T) {
 		"caSecret ca.crt":       {Type: "git", TLS: &kollectdevv1alpha1.TLSSpec{CASecretRef: ref("ca-crt")}},
 		"caSecret tls.crt wins": {Type: "git", TLS: &kollectdevv1alpha1.TLSSpec{CASecretRef: ref("tls-crt")}},
 		"caSecret no key":       {Type: "git", TLS: &kollectdevv1alpha1.TLSSpec{CASecretRef: ref("no-ca-key")}},
+		"caSecret ca.pem":       {Type: "git", TLS: &kollectdevv1alpha1.TLSSpec{CASecretRef: ref("ca-pem")}},
 		"caSecret absent":       {Type: "git", TLS: &kollectdevv1alpha1.TLSSpec{CASecretRef: ref("absent")}},
-		"inline bundle wins": {Type: "git", TLS: &kollectdevv1alpha1.TLSSpec{
+		"both sources rejected": {Type: "git", TLS: &kollectdevv1alpha1.TLSSpec{
 			CABundle: otherCA, CASecretRef: ref("absent"),
 		}},
 		"s3 caSecret": {Type: "s3", SecretRef: ref("default-creds"),
 			TLS: &kollectdevv1alpha1.TLSSpec{CASecretRef: ref("ca-crt")}},
+	}
+
+	// The cases whose error comes from the shared CA rules, with the error both paths wrap.
+	wantShared := map[string]error{
+		"caSecret no key":       sink.ErrCAKeyMissing,
+		"both sources rejected": sink.ErrCABothSources,
 	}
 
 	objs := make([]corev1.Secret, len(all))
@@ -383,6 +393,12 @@ func TestCLICredentials_matchOperatorResolver(t *testing.T) {
 
 			if (wantErr != nil) != (gotErr != nil) {
 				t.Fatalf("operator error %v, CLI error %v: one fails, the other does not", wantErr, gotErr)
+			}
+
+			if shared, ok := wantShared[name]; ok {
+				if !errors.Is(wantErr, shared) || !errors.Is(gotErr, shared) {
+					t.Fatalf("operator error %v, CLI error %v: both must wrap %v", wantErr, gotErr, shared)
+				}
 			}
 
 			if wantErr != nil {
