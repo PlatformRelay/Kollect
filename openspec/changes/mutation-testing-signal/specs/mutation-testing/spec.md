@@ -96,7 +96,9 @@ exits, so one defect never hides another's message. The required `lint` job SHAL
 #### Scenario: Tool broken
 
 - **WHEN** gremlins cannot run (build failure, panic, non-zero exit, no report, an empty report,
-  a report with no mutants, or a status that is not a measurement such as RUNNABLE or SKIPPED)
+  a report with no mutants, a status that is not a measurement such as RUNNABLE or SKIPPED, or a
+  package none of whose mutants was killed or lived, because each one timed out, was not viable
+  or is not covered)
 - **THEN** the run SHALL fail with an `::error::mutation:` line and no counts table, because a
   missing measurement must not look like a clean one
 

@@ -236,6 +236,15 @@ Each case below reads: given / when / then · the failure it exposes.
   `CI failure: Mutation testing` issue, unset it, and confirm the next scheduled run is green and
   the issue closes.
 
+## 4. Stage-B fixes
+
+From the branch review (`reviews/B-branch/round-1/verification.md`); each red first, one commit
+each, evidence in evidence/B.md.
+
+- [x] 4.1 S1 (B1, B5): the formatter fails a package none of whose mutants was killed or lived
+  (case M9 on the recorded warm-cache report, all-NOT-COVERED and mixed synthetic reports; two
+  mutants; M4 now asserts its own message) — closed 2026-10-19, evidence: evidence/B.md
+
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
