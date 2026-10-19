@@ -148,3 +148,23 @@ func TestApplyInventoryExportOutcome_zeroIntervalTerminalNoRequeue(t *testing.T)
 		t.Fatalf("RequeueAfter = %v, want 0: a terminal failure must not be requeued", result.RequeueAfter)
 	}
 }
+
+// SCR-7: the watchdog keeps reconciling an unchanged, successfully exported 0s binding; its
+// coalescing state must not age out while those reconciles keep skipping it, or a later
+// reconcile after another binding's record() pruned it would export the unchanged payload again.
+func TestPerSinkCoalesceTracker_zeroIntervalSkipsKeepStateAlive(t *testing.T) {
+	t.Parallel()
+
+	var tracker perSinkCoalesceTracker
+	base := time.Now()
+	invKey, sinkName := "team-a/zero", "git"
+
+	tracker.record(invKey, sinkName, 1, "hash", "", base)
+	for at := base; !at.After(base.Add(2 * coalesceStateTTL)); at = at.Add(coalesceStateTTL / 8) {
+		if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "", 0, at) {
+			t.Fatalf("unchanged 0s binding not skipped at +%v", at.Sub(base))
+		}
+		// Another inventory exports meanwhile; its record() sweeps the tracker.
+		tracker.record("team-a/other", sinkName, 1, "other", "", at)
+	}
+}
