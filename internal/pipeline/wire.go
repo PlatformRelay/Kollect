@@ -81,6 +81,12 @@ var envPlaceholderPattern = regexp.MustCompile(`^\$\{env:([A-Za-z_][A-Za-z0-9_]*
 // An unset or empty variable is a hard error naming the secret, key, and variable —
 // never a silently empty credential.
 func ResolveSinkSecretData(sinkSpec kollectdevv1alpha1.KollectSinkSpec, secrets []corev1.Secret) (map[string][]byte, error) {
+	// The CA rules run before any credential Secret is read, as in the operator's
+	// BuildContextFromSpec, so a CA error is the same shared error on both paths.
+	if _, err := resolveCAPEM(sinkSpec.TLS, secrets); err != nil {
+		return nil, err
+	}
+
 	var data map[string][]byte
 
 	if sinkSpec.SecretRef != nil {
@@ -244,12 +250,13 @@ func cliBuildContext(
 	secretData map[string][]byte,
 	secrets []corev1.Secret,
 ) (sink.BuildContext, error) {
-	dbData, err := ResolveDatabaseSecretData(spec, secrets)
+	// CA first, as the operator does, so a CA error wins over a missing database Secret.
+	caPEM, err := resolveCAPEM(spec.TLS, secrets)
 	if err != nil {
 		return sink.BuildContext{}, err
 	}
 
-	caPEM, err := resolveCAPEM(spec.TLS, secrets)
+	dbData, err := ResolveDatabaseSecretData(spec, secrets)
 	if err != nil {
 		return sink.BuildContext{}, err
 	}

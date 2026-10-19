@@ -301,8 +301,9 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
   `ErrCAInsecureRedirect` from the guarded S3/GCS client. — closed 2026-10-19: I4
   (`TestCATrustIntegration_plainRedirectRefused`) red on the probe error naming
   `http://127.0.0.1:…/sentinel-redirect/b`, green after; removing the wrapper fails it again.
-- [ ] 8.3 A2: the CLI resolves credential Secrets before the CA rules; resolve the CA first, as the
-  operator does.
+- [x] 8.3 A2: the CLI resolves credential Secrets before the CA rules; resolve the CA first, as the
+  operator does. — closed 2026-10-19: `TestCAParity_caRulesPrecedeCredentialLookup` red on the CLI
+  lookup error in all three cases, green after; reverting either reorder fails it again.
 - [ ] 8.4 A3/O1: the MongoDB CA path returns the driver's URI error (host) unchanged; return a
   static, target-free error.
 - [ ] 8.5 D2: pin the effective Postgres sslmode in the DSN handed to pgx, so `require` and
