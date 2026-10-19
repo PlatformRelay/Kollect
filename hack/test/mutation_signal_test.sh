@@ -852,20 +852,20 @@ FAKE
         END { flush() }' "${readable[@]}") >"${SJ}/lines" ||
         scan_error "awk could not read the scan set"
     fi
-    # The parsed text of every block scalar (`|` or `>`) in the scan set's YAML files, line by
-    # line with continuations joined, as "<file>\tblock\t<text>": a folded `>-` holding `task` and
-    # `mutation` on two source lines is one command (stage-B B4). Plain scalars are already one
-    # source line each.
+    # The parsed text of every string scalar in the scan set's YAML files, line by line with
+    # continuations joined, as "<file>\tparsed\t<text>": YAML folds a `>-` block, and a plain or
+    # quoted scalar continued on an indented line, into one command whose words sit on two
+    # source lines (stage-B B4 and round 2).
     for f in "${readable[@]}"; do
       [[ "${f}" == *.yml || "${f}" == *.yaml ]] || continue
-      if ! yq eval -o=json -I=0 '[explode(.) | .. | select(tag == "!!str" and (style == "literal" or style == "folded"))]' "${ROOT}/${f}" >"${SJ}/blocks.json" 2>/dev/null; then
-        scan_error "${f}: the block-scalar query failed (does not parse as YAML)"
+      if ! yq eval -o=json -I=0 '[explode(.) | .. | select(tag == "!!str")]' "${ROOT}/${f}" >"${SJ}/blocks.json" 2>/dev/null; then
+        scan_error "${f}: the string-scalar query failed (does not parse as YAML)"
         continue
       fi
       jq -r --arg f "${f}" '.[] | gsub("\\\\\\n\\s*"; " ") | split("\n")[]
         | sub("^\\s+"; "") | sub("^-\\s+"; "") | sub("\\s+$"; "")
-        | select(. != "" and (startswith("#") | not)) | $f + "\tblock\t" + .' "${SJ}/blocks.json" >>"${SJ}/lines" ||
-        scan_error "${f}: the block-scalar lines could not be listed"
+        | select(. != "" and (startswith("#") | not)) | $f + "\tparsed\t" + .' "${SJ}/blocks.json" >>"${SJ}/lines" ||
+        scan_error "${f}: the parsed string lines could not be listed"
     done
     # One awk pass over the scan lines: "<rule>\t<file>\t<line>\t<text>" per hit that is not the
     # W1/W2 chain itself. Its exit status is checked (no `|| true`): an awk that fails is a scan
@@ -874,7 +874,7 @@ FAKE
     if ! awk -F'\t' -v il="${INSTALL_LINE}" -v rl="${RUN_LINE}" -v w="${WF_REL}" '
       function hit(rule) { print rule "\t" $1 "\t" $2 "\t" $3 }
       {
-        chain = ($1 == "Taskfile.yml" && ($3 == il || $3 == rl))
+        chain = ($1 == "Taskfile.yml" && ($3 == il || $3 == rl || ($2 == "parsed" && $3 == "tools:gremlins")))
         if ($3 ~ /go-gremlins/ && !($1 == "Taskfile.yml" && $3 == il)) hit("go-gremlins outside the W2 install line")
         if ($1 != "hack/ci/mutation.sh" && !chain) {
           if ($3 ~ /(^|[^A-Za-z0-9_.-])gremlins["\047]?([[:space:]]+(unleash|run|r|help|version|completion)([^A-Za-z0-9_-]|$)|[[:space:]]+-|[[:space:]]*$)/)
@@ -882,12 +882,15 @@ FAKE
           if ($3 ~ /(^|[^A-Za-z0-9_-])unleash([^A-Za-z0-9_-]|$)/) hit("a gremlins unleash outside hack/ci/mutation.sh")
           if ($3 ~ /hack\/ci\/mutation\.sh/) hit("hack/ci/mutation.sh run outside the mutation task")
         }
-        if ($3 ~ /tools:gremlins/ && !($1 == "Taskfile.yml" && ($3 == "tools:gremlins:" || $3 == "deps: [tools:gremlins]")))
+        # Parsed lines hold values without their keys: the dependency of the mutation task is the
+        # bare string (the dependency query below rejects it on any other task).
+        if ($3 ~ /tools:gremlins/ && !($1 == "Taskfile.yml" && ($3 == "tools:gremlins:" || $3 == "deps: [tools:gremlins]" || ($2 == "parsed" && $3 == "tools:gremlins"))))
           hit("the gremlins install task reached outside the mutation task")
         # Any task command line naming mutation as a word, quoted or not, whatever flags or other
         # tasks come first; and any task command line whose argument is a template, which could
-        # name it.
-        if ($3 ~ /(^|[^A-Za-z0-9_.:-])(go-)?task["\047]?([[:space:]]+[^[:space:]]+)*[[:space:]]+["\047]?:?mutation([[:space:]"\047;&|)]|$)/ && !($1 == w && $3 == "run: task mutation"))
+        # name it. In mutation.yaml the bare `task mutation` is the W1 run step (block form or
+        # parsed value); W1 pins that step as the only run: there.
+        if ($3 ~ /(^|[^A-Za-z0-9_.:-])(go-)?task["\047]?([[:space:]]+[^[:space:]]+)*[[:space:]]+["\047]?:?mutation([[:space:]"\047;&|)]|$)/ && !($1 == w && ($3 == "run: task mutation" || $3 == "task mutation")))
           hit("a task command running mutation outside the mutation.yaml run step")
         if ($3 ~ /(^|[^A-Za-z0-9_.:-])(go-)?task["\047]?([[:space:]]+[^[:space:]]+)*[[:space:]]+[^[:space:]]*[{][{]/)
           hit("a templated task call the scan cannot resolve (it could name the mutation chain)")
@@ -1168,6 +1171,10 @@ bump() { # what a grouped bot PR would do: every pin the guard reads, at every s
     sed -E -i 's/(version: )3\.[0-9]+\.[0-9]+$/\199.0.0/' .github/workflows/*.yaml
 }
 control "every pin bumped by a bot (implausible versions and SHAs)" bump
+# Stage-B round 2 (R2-2): the run step as a literal block is the same step; W1 accepts it, so
+# W3 must too.
+control "the mutation.yaml run step written as a literal block (C2)" \
+  lit "${W}" "        run: task mutation${nl}" "        run: |${nl}          task mutation${nl}"
 # The case filter itself: a filter naming no case must red, or a mistyped one passes silently.
 fout="$(MUTATION_SIGNAL_ONLY='no-such-case' bash "${SELF}" "${BASE}" 2>&1)" && frc=0 || frc=$?
 if [[ "${frc}" -ne 0 ]] && grep '^FAIL: ' <<<"${fout}" | grep -F 'names no case' >/dev/null; then
@@ -1377,6 +1384,11 @@ done' 'measure aggregate "${ROOT}" ./internal/... ./internal/...'
     lit .github/workflows/ci.yaml "      - name: Lint${nl}        run: task lint${nl}" "      - run: >-${nl}          task${nl}          mutation${nl}      - name: Lint${nl}        run: task lint${nl}"
   judge W3 "a hack script continuing task onto mutation (W3, stage-B B4)" "W3: hack/run-nightly.sh:2:" \
     add hack/run-nightly.sh "#!/usr/bin/env bash${nl}task \\${nl}  mutation"
+  # Stage-B round 2 (R2-1): a plain or double-quoted YAML scalar folded over two lines.
+  judge W3 "run: task / mutation as a multi-line plain scalar in ci.yaml (W3, stage-B round 2)" "W3: .github/workflows/ci.yaml:parsed:" \
+    lit .github/workflows/ci.yaml "      - name: Lint${nl}        run: task lint${nl}" "      - run: task${nl}          mutation${nl}      - name: Lint${nl}        run: task lint${nl}"
+  judge W3 "run: \"task / mutation\" as a multi-line quoted scalar in ci.yaml (W3, stage-B round 2)" "W3: .github/workflows/ci.yaml:parsed:" \
+    lit .github/workflows/ci.yaml "      - name: Lint${nl}        run: task lint${nl}" "      - run: \"task${nl}          mutation\"${nl}      - name: Lint${nl}        run: task lint${nl}"
   judge 'W3|C3' "a deps: of an unexpected shape (C3)" "C3: scan error: Taskfile.yml: the task dependency query failed" \
     lit "${T}" "    desc: Scan for known Go vulnerabilities (govulncheck)${nl}    deps: [install]" "    desc: Scan for known Go vulnerabilities (govulncheck)${nl}    deps: mutation"
 

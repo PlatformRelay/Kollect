@@ -257,6 +257,10 @@ each, evidence in evidence/B.md.
   `$GITHUB_OUTPUT` held then; R5 and R6 require no help query before the refusal or the forced
   failure, R8 requires the hand-off before it (three mutants) — closed 2026-10-19, evidence:
   evidence/B.md
+- [x] 4.6 S6 (round 2, R2-1 and R2-2): W3 scans the parsed lines of every YAML string scalar,
+  not only block scalars, so a plain or quoted scalar continued on the next line is one command;
+  the run step's bare `task mutation` is exempt in mutation.yaml only (two W3 mutants; a C2
+  control for the run step as a literal block) — closed 2026-10-19, evidence: evidence/B.md
 
 ## Verification
 
