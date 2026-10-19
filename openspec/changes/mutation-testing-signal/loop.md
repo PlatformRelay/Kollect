@@ -44,6 +44,7 @@ Holistic run at B: not run yet.
 |---|---|---|---|
 | G1 (0.1, 1.1) | CLOSED-WITH-GAPS | astra:diff, 1 round, no Claude (evidence and fixtures only) | LIVED classification is agent-review; finding F1 (warm test cache turns every mutant TIMED OUT) handled in G2 by `GOFLAGS=-count=1` in the runner, not a spec contradiction |
 | G2 (2.1-2.8) | CLOSED-WITH-GAPS | astra + claude/opus:diff, 2 rounds (r1 astra REQUEST_CHANGES, opus APPROVE; r2 the same), Claude leg because the diff adds a workflow and edits CI wiring and the privileged reporter list; 9 verified P2 guard gaps fixed (a71c7a5e9, e059e0f56) | post-merge rows are 3.1's; W3 is a text and Taskfile scan, not a shell model (residual: `eval`, run-time names) |
+| B fixes (4.1-4.7) | CLOSED-WITH-GAPS | S1-S4 reviewed by one astra:diff leg (APPROVE, one P2 fixed as S5); no Claude leg (no CI wiring changed); S6-S7 from round 2, unreviewed (last round), mutation-checked | B3 rejected, B6 and B7 deferred (`reviews/B-branch/round-1/verification.md`); W3 stays a text plus parsed-YAML scan, not a shell model |
 
 ## Known red
 
@@ -56,6 +57,10 @@ Holistic run at B: not run yet.
 |---|---|---|---|
 | `hack/test/ci_failure_report_test.sh`: exact `workflow_run` list, comment, message, plus a `MUT-1 list loses Mutation testing` mutant | change 7 (TDS-2 entry: change 8) | G2 (3c8d59194) | not wrong: MUT-1 adds `Mutation testing` to the list (spec MUT-1, tasks.md 2.7) |
 | `hack/test/ci_workflow_security_test.sh`: `cfc_guards`, CWS-6 header, CFC-6 comment, `CFC-6 mutation signal guard unwired` mutant | change 4 (list grown by 7, 8) | G2 (3c8d59194) | not wrong: the new guard must be pinned in both modes (tasks.md preamble, 2.7) |
+| `hack/test/mutation_signal_test.sh`: M4 asserts its own message; its self-test mutant is judged by that message | G2 (3c8d59194) | S1 (7b650b5cd) | not wrong: M9's new check also rejects an empty list, so "exited 0" stopped proving M4's own clause |
+| `hack/test/mutation_signal_test.sh`: R1 exact argv gains `--timeout-coefficient=10` | G2 (3c8d59194) | S2 (45b1ab13d) | wrong for the product: the default coefficient timed whole packages out (B1, `reviews/B-branch/round-1/holistic.md`) |
+| `hack/test/mutation_signal_test.sh`: fake gremlins answers `unleash --help`; R5, R6, R8 assert on the help query | G2 (3c8d59194) | S3 (de5385760), S5 (2200cb61d) | incomplete: the help query was invisible to R5, R6 and R8 (fix review P2) |
+| `hack/test/mutation_signal_test.sh`: W3 joins continuations and scans every parsed YAML string; mutation.yaml's bare `task mutation` exempt | G2 (3c8d59194, a71c7a5e9, e059e0f56) | S4 (49310e2ad), S6 (9037e6e3d) | wrong: split and folded `task mutation` passed (B4, R2-1); the literal-block run step was red (R2-2) |
 
 ## Lessons
 
@@ -72,6 +77,11 @@ This change (mutation-testing-signal):
 - A mutant judged by a message another rule also prints proves nothing about its own rule: judge it by its rule's own message (G2 round 2)
 - A text scan for an invocation needs cases for quotes, flags before the target, another binary name and templates: reviewers found each in turn (G2, both rounds)
 - Keep `mise.toml` out of a scratch tree that runs a guard: mise refuses the untrusted config and the guard prints nothing else (G2; change-5 lesson again)
+- Run the real tool several times before calling a measurement sound: one green `task mutation` hid that 2 of 7 runs timed a whole package out at gremlins' default coefficient (B)
+- A report-only sensor still needs a "measured nothing" failure: zero killed and zero lived is a broken night, not a clean one (B)
+- gremlins copies the whole module, `bin/` included, once per worker into `/tmp`, and a panic skips its cleanup: run it from a tree with a small `bin/` (B; about 8 GB left behind here)
+- A fake that answers a side query (`--help`) must record it like any call, or "no call before X" cases cannot see it moved (B fix review)
+- YAML folds plain and quoted scalars as well as `>` blocks: a line scan of a workflow needs the parsed strings too (B round 2)
 
 Carried over from change 8 (test-depth-signals):
 
