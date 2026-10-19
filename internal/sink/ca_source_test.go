@@ -82,7 +82,11 @@ func TestResolveCAPEM_sharedRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := resolveCAPEM(t.Context(), cl, tc.tls, ns)
+			got, err := resolveCAPEM(tc.tls, func(r *kollectdevv1alpha1.SecretReference) (map[string][]byte, error) {
+				creds, rerr := ResolveSecret(t.Context(), cl, r, ns)
+
+				return creds.Data, rerr
+			})
 
 			if tc.wantErr == nil {
 				if err != nil {

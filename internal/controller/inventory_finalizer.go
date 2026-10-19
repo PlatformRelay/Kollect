@@ -93,6 +93,7 @@ func (r *KollectInventoryReconciler) cleanupInventoryDeletion(
 	return cleanupSinkExports(
 		ctx,
 		r.Client,
+		r.SecretReader,
 		r.Registry,
 		inv.Namespace,
 		inventorySinkBindings(inv),

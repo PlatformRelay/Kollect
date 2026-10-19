@@ -34,17 +34,8 @@ func ResolveSecret(
 		return Credentials{}, nil
 	}
 
-	ns := ref.Namespace
-	if ns == "" {
-		ns = defaultNamespace
-	}
-
-	var secret corev1.Secret
-	if err := c.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: ns}, &secret); err != nil {
-		if apierrors.IsNotFound(err) {
-			return Credentials{}, fmt.Errorf("secret %q not found in namespace %q", ref.Name, ns)
-		}
-
+	secret, err := getSecret(ctx, c, secretUse{Namespace: secretRefNamespace(ref, defaultNamespace), Name: ref.Name})
+	if err != nil {
 		return Credentials{}, err
 	}
 
@@ -66,4 +57,19 @@ func ResolveSecret(
 	}
 
 	return creds, nil
+}
+
+// getSecret reads one Secret through c. A missing Secret is the plain, unclassified
+// "not found" error; any other read error is returned as is.
+func getSecret(ctx context.Context, c client.Reader, use secretUse) (*corev1.Secret, error) {
+	var secret corev1.Secret
+	if err := c.Get(ctx, types.NamespacedName{Name: use.Name, Namespace: use.Namespace}, &secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("secret %q not found in namespace %q", use.Name, use.Namespace)
+		}
+
+		return nil, err
+	}
+
+	return &secret, nil
 }

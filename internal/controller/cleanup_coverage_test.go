@@ -34,6 +34,7 @@ func TestCleanupSinkExports_ResolutionErrorIsCollected(t *testing.T) {
 	report, err := cleanupSinkExports(
 		context.Background(),
 		cl,
+		nil,
 		sink.NewRegistry(),
 		"default",
 		[]kollectdevv1alpha1.InventorySinkBinding{{Family: "bogus", Name: "x"}},

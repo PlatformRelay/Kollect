@@ -84,6 +84,7 @@ func (r *KollectClusterInventoryReconciler) cleanupClusterInventorySinks(
 	return cleanupSinkExports(
 		ctx,
 		r.Client,
+		r.SecretReader,
 		r.Registry,
 		sinkNS,
 		clusterInventorySinkBindings(inv),

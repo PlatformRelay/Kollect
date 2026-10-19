@@ -67,8 +67,10 @@ type OwnershipReleaser interface {
 // resolved sink. The sink CR is expected to have been resolved by the caller
 // (cleanupSinkExports), so cleanup does not re-resolve it.
 type CleanupExportRequest struct {
-	Ctx           context.Context
-	Client        client.Client
+	Ctx    context.Context
+	Client client.Client
+	// SecretReader reads the sink's referenced Secrets uncached; nil falls back to Client.
+	SecretReader  client.Reader
 	Registry      *Registry
 	SinkNamespace string
 	SinkName      string
@@ -181,8 +183,8 @@ func RunCleanupExport(req CleanupExportRequest) (CleanupExportOutcome, error) {
 		}
 	}
 
-	backend, release, err := acquireBackend(
-		req.Ctx, req.Client, req.Registry, req.SinkNamespace, req.SinkName, req.SinkUID, req.SinkSpec,
+	backend, release, err := acquireBackendWithReader(
+		req.Ctx, req.Client, req.SecretReader, req.Registry, req.SinkNamespace, req.SinkName, req.SinkUID, req.SinkSpec,
 	)
 	if err != nil {
 		// Same as RunExportEnvelope: the acquire error already carries its
@@ -369,6 +371,7 @@ func pruneRelationalExport(req CleanupExportRequest) error {
 	if _, rerr := RunExportEnvelope(ExportEnvelopeRequest{
 		Ctx:           req.Ctx,
 		Client:        req.Client,
+		SecretReader:  req.SecretReader,
 		Registry:      req.Registry,
 		SinkNamespace: req.SinkNamespace,
 		SinkName:      req.SinkName,

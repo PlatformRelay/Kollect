@@ -90,6 +90,7 @@ func (t cleanupTarget) sharedIdentityOnce() func(context.Context) (bool, error) 
 func cleanupSinkExports(
 	ctx context.Context,
 	c client.Client,
+	secretReader client.Reader,
 	registry *sink.Registry,
 	sinkNamespace string,
 	bindings []kollectdevv1alpha1.InventorySinkBinding,
@@ -145,6 +146,7 @@ func cleanupSinkExports(
 		outcome, cerr := sink.RunCleanupExport(sink.CleanupExportRequest{
 			Ctx:                   ctx,
 			Client:                c,
+			SecretReader:          secretReader,
 			Registry:              registry,
 			SinkNamespace:         sink.SinkNamespaceForResolved(resolved, sinkNamespace),
 			SinkName:              binding.Name,

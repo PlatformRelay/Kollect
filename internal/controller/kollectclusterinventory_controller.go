@@ -45,12 +45,15 @@ const clusterTargetBootstrapWindow = 5 * time.Minute
 // KollectClusterInventoryReconciler rolls up cluster targets and exports to namespaced sinks.
 type KollectClusterInventoryReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Store    *collect.Store
-	Engine   *collect.Engine
-	Registry *sink.Registry
-	Options  RuntimeOptions
-	Recorder record.EventRecorder
+	// SecretReader reads sink Secrets uncached on the export and cleanup paths.
+	// SetupWithManager defaults it to the manager's API reader.
+	SecretReader client.Reader
+	Scheme       *runtime.Scheme
+	Store        *collect.Store
+	Engine       *collect.Engine
+	Registry     *sink.Registry
+	Options      RuntimeOptions
+	Recorder     record.EventRecorder
 
 	sinkCoalesce perSinkCoalesceTracker
 }
@@ -335,6 +338,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 			partWritten, exportErr = sink.RunExportEnvelope(sink.ExportEnvelopeRequest{
 				Ctx:           ctx,
 				Client:        r.Client,
+				SecretReader:  r.SecretReader,
 				Registry:      r.Registry,
 				SinkNamespace: sink.SinkNamespaceForResolved(resolved, sinkNS),
 				SinkName:      binding.Name,
@@ -850,6 +854,11 @@ func (r *KollectClusterInventoryReconciler) SetupWithManager(mgr ctrl.Manager) e
 	if r.Recorder == nil {
 		//nolint:staticcheck // SA1019: record API until events migration
 		r.Recorder = mgr.GetEventRecorderFor("kollectclusterinventory-controller")
+	}
+
+	// Sink Secrets are read uncached on the export and cleanup paths (SCR-1).
+	if r.SecretReader == nil {
+		r.SecretReader = mgr.GetAPIReader()
 	}
 
 	// AR-09: index KollectClusterInventory by its sink bindings (family/name/namespace) so

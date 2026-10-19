@@ -64,7 +64,7 @@ Test rules for every group:
 
 ## 1. Rotation rebuilds the backend (SCR-1, SCR-4 key)
 
-- [ ] 1.1 Tests (red on `origin/main`):
+- [x] 1.1 Tests (red on `origin/main`):
   - `TestAcquireBackend_rotatedSecretRebuilds` (table, one row per reference: `secretRef`,
     `git.auth.secretRef`, `kafka.secretRef`, `nats.secretRef`, `postgres.databaseRef`,
     `mongodb.databaseRef`, `bigquery.secretRef`, `tls.caSecretRef`; each row once with the
@@ -115,7 +115,8 @@ Test rules for every group:
     default `current_user = u2`; a separate observer connection (superuser) sees no `u1` session
     from the test's backends after release · exposes a pool that keeps authenticating as `u1` on an
     idle connection (`NOLOGIN` does not end open sessions; base: export succeeds as `u1`).
-- [ ] 1.2 Implement `referencedSecretRefs`, `secretMeta` (metadata GET through `SecretReader`;
+  — closed 2026-10-19, evidence: evidence/G1.md
+- [x] 1.2 Implement `referencedSecretRefs`, `secretMeta` (metadata GET through `SecretReader`;
   not-found keeps today's text), the key, the rebuild from the full objects, the `SecretReader`
   field and its wiring in both inventory reconcilers and `cmd/main.go`, the `BuildContextFromSpec`
   split, and the info log (design: *Readers*, *Referenced Secrets, one list*, *Fingerprint and
@@ -123,7 +124,7 @@ Test rules for every group:
   Mutations, judged by exit status: drop the Secret part from the key (rotation tests fail); read
   through `Client` instead of `SecretReader` (uncached test fails); drop one case from
   `referencedSecretRefs` (reflection test fails); no-op control: reorder two independent
-  statements in `acquireBackend` (all pass).
+  statements in `acquireBackend` (all pass). — closed 2026-10-19, evidence: evidence/G1.md
 
 ## 2. Deleted and emptied Secrets fail (SCR-2, SCR-4, SCR-5, SCR-7)
 
@@ -289,14 +290,14 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| SCR-1 | `TestAcquireBackend_rotatedSecretRebuilds` (8 references × 2 namespace forms), `_rotateBack` | rebuild with the current value per reference kind | not-run | |
-| SCR-1 | `TestAcquireBackend_readsSecretsUncached` (export, Retain, Delete prune), `_keyFromBuildSnapshot`, `_sameDataNewVersionRebuilds`, `TestInventoryReconcilers_defaultSecretReader` | reads bypass the cache on every path; key and values from one read; production wiring | not-run | |
-| SCR-1 | *control* `TestAcquireBackend_unchangedSecretsReuse`, `_unrelatedSecretReuse` | one build, same instance | not-run | |
-| SCR-1 | `TestReferencedSecretRefs_coversEverySecretReferenceField` | every `*SecretReference` field covered | not-run | |
-| SCR-1 | envtest specs "secret rotation takes effect on the next export", "cross-namespace secret under a restricted cache" | next export sees the new value; no cache error | not-run | |
-| SCR-1 | integration `TestS3Export_caRotation` | handshake fails on CA X, succeeds after rotation to CA Y | not-run | |
-| SCR-1 | integration `TestPostgresExport_passwordRotation` | rows as `u2`, no `u1` session left | not-run | needs Docker (CI `test-integration`) |
-| SCR-1 | mutations: Secret part dropped from the key; reads through `Client` | rotation / uncached tests fail | not-run | |
+| SCR-1 | `TestAcquireBackend_rotatedSecretRebuilds` (8 references × 2 namespace forms), `_rotateBack` | rebuild with the current value per reference kind | pass | evidence/G1.md (2026-10-19) |
+| SCR-1 | `TestAcquireBackend_readsSecretsUncached` (export, Retain, Delete prune), `_keyFromBuildSnapshot`, `_sameDataNewVersionRebuilds`, `TestInventoryReconcilers_defaultSecretReader` | reads bypass the cache on every path; key and values from one read; production wiring | pass | evidence/G1.md (2026-10-19) |
+| SCR-1 | *control* `TestAcquireBackend_unchangedSecretsReuse`, `_unrelatedSecretReuse` | one build, same instance | pass | evidence/G1.md (2026-10-19) |
+| SCR-1 | `TestReferencedSecretRefs_coversEverySecretReferenceField` | every `*SecretReference` field covered | pass | evidence/G1.md (2026-10-19) |
+| SCR-1 | envtest specs "secret rotation takes effect on the next export", "cross-namespace secret under a restricted cache" | next export sees the new value; no cache error | pass | evidence/G1.md (2026-10-19) |
+| SCR-1 | integration `TestS3Export_caRotation` | handshake fails on CA X, succeeds after rotation to CA Y | pass (local, Docker not needed) | evidence/G1.md (2026-10-19); CI `test-integration` at 5.1 |
+| SCR-1 | integration `TestPostgresExport_passwordRotation` | rows as `u2`, no `u1` session left | pass (local Docker) | evidence/G1.md (2026-10-19); CI `test-integration` at 5.1 |
+| SCR-1 | mutations: Secret part dropped from the key; reads through `Client` | rotation / uncached tests fail | pass | evidence/G1.md (2026-10-19) (M1, M2; also M3 reflection, M0 control) |
 | SCR-2 | `TestAcquireBackend_deletedSecretFails`, `_emptiedSecretFails`, `_observedChangeRetiresOnFailedRead`; *controls* `_restoredSecretRecovers`, `_cancelledReadKeepsEntry` | named, transient error; retire on not-found, empty or observed change only; recovery without sink change | not-run | |
 | SCR-2 | `TestS3_emptiedSecretNoAmbientCredentials` | fails, factory not called | not-run | |
 | SCR-2 | `TestCleanup_streamSinkDeletedSecretRetained`, `TestStreamSinkTypes_matchRetainingBackends`; *control* `TestCleanup_deletedGitAuthSecretFails` | stream retained without a read; set matches backends; Git release fails naming the Secret | not-run | |
@@ -309,7 +310,7 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 | SCR-3 | BEP-1 tests unchanged | pass | not-run | |
 | SCR-3 | mutations: close at retire regardless of holders; no fence | defer / slow-builder tests fail | not-run | |
 | SCR-4 | `TestRotationErrors_noSentinel`, envtest status/Event assertions | no sentinel in errors this change adds, logs, status, Events | not-run | |
-| SCR-4 | `TestSecretMeta_metadataOnly` | key from metadata only; a hit reads no values | not-run | |
+| SCR-4 | `TestSecretMeta_metadataOnly` | key from metadata only; a hit reads no values | pass (key and type; G1) | evidence/G1.md (2026-10-19) |
 | SCR-5 | `TestResolveSinkSecretData_emptySecretFails` (4 rows) | CLI fails before build, operator's text; `stringData` and env rows pass | not-run | |
 | SCR-5 | *control* `TestRunOneContext_secretManifestChangeNextRun` | second run uses the new value | not-run | |
 | SCR-2 | `TestSecretMeta_notFoundIsTransient` | metadata NotFound becomes the plain, transient not-found error | not-run | |
