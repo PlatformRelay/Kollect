@@ -181,3 +181,21 @@ lines it did not understand.
 Green: R9 seven lines `ok`; guard plain exit 0; `--self-test` exit 0 in 278 s with two new
 mutants red by message (shorthand not parsed; unread lines accepted). Real `task mutation` in a
 clean detached worktree with this runner: exit 0, the recorded counts.
+
+## Final gates (HEAD `9339b2cd3`, 2026-10-19, `umask 022`)
+
+| Gate | Exit | Seconds | Last line |
+| --- | --- | --- | --- |
+| `bash hack/test/mutation_signal_test.sh` | 0 | 15 | `ok - the nightly mutation measurement reports, cannot gate, and cannot go blind (M1-M9, R1-R9, W1-W3, T1-T3, C1, C3)` |
+| `bash hack/test/mutation_signal_test.sh --self-test` | 0 | 250 | `All mutation signal self-tests passed.` |
+| `bash hack/test/ci_failure_report_test.sh` | 0 | 46 | `All ci-failure-report checks passed.` |
+| `bash hack/test/ci_failure_report_test.sh --self-test` | 0 | 224 | `All ci-failure-report self-test checks passed.` |
+| `bash hack/test/ci_workflow_security_test.sh` | 0 | 11 | `All workflow-security meta-tests passed.` |
+| `bash hack/test/ci_workflow_security_test.sh --self-test` | 0 | 134 | `All workflow-security self-tests passed.` |
+| `bash hack/test/task_check_test.sh` | 0 | 0 | `All task-check meta-tests passed.` |
+| `bash hack/test/task_check_test.sh --self-test` | 0 | 2 | `All task-check self-tests passed.` |
+| `task lint:shell` | 0 | 17 | no warnings |
+| `task spec:validate` | 0 | 3 | ok |
+
+The guard's `--self-test` now takes 250-320 s on this host (153 s at G2), so the required `lint`
+job grows by about four to five minutes in all.
