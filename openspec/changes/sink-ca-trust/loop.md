@@ -1,7 +1,7 @@
 # Loop — sink-ca-trust (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-ca-trust` · Branch: `feat/sink-ca-trust` · Base: `origin/main` @ `7f97d59ec` · Started: 2026-10-19 · Reviewers: astra + claude (duo)
-Next: L task loop — dispatch T0.1 (probe) with task-prompt.md
+Next: hand-off — integrator 7.1: ready PR, all checks green (incl. Docs + test-integration), merge, archive
 Budget: claude review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SINK-CA-UNUSED-01 (decisions 2026-10-04 "→ A, honour it" and 2026-10-19 "CA semantics", outcome A). Release note: v0.22.0. Spec set: proposal.md, design.md, specs/sink-tls-trust/spec.md, tasks.md.
@@ -11,8 +11,8 @@ Backlog SINK-CA-UNUSED-01 (decisions 2026-10-04 "→ A, honour it" and 2026-10-1
 - [x] 0 orient — new change, created with `task spec:cli -- new change sink-ca-trust`; file:line references measured against `origin/main` @ `7f97d59ec` (2026-10-19)
 - [x] P plan + tasks — written; spec set committed: `70c847a8e`
 - [x] R spec-set review — round 1 on `b3da7b2c9`: astra BLOCK, opus CONCERNS; A-F1 (MongoDB `sslInsecure` alias) and A-F3 (CLI loads no database sinks) CRITICAL accepted and fixed, all others fixed or narrowed (`reviews/R-spec-set/verification.md`). Round 2 (last) on `07ac4d2a3`: astra CONCERNS, opus CONCERNS, no CRITICAL; all findings fixed (`reviews/R-spec-set/round-2/verification.md`). No CRITICAL remains
-- [ ] L task loop — see *Tasks*
-- [ ] B branch review — `reviews/B-branch/round-N/` · rounds: <n> · verdict: <…>
+- [x] L task loop — 0.1, 1.1–6.1 closed
+- [x] B branch review — round 1: astra BLOCK (redirect target leaked into errors/status → fixed 8.2/8.9/8.11), opus CONCERNS; test-integration was red on the branch (skipped child tests) → fixed 8.1; fixes 8.1–8.11 reviewed; round 2: no new CRITICAL (redirect-loop WARNING fixed). Final: test-integration 66/66 ran, task check green with host tools, docs:verify green. Tip 4b582beea
 - [ ] Hand-off — <date> · `pr-description.md` · PR: <none>
 
 ## Fitness functions
