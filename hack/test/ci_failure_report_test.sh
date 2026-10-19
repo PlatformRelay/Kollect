@@ -480,8 +480,10 @@ if [[ "${MODE}" == self-test ]]; then
       yqe "${W}" '.jobs.report.steps |= [.[1], .[0], .[2]]'
     judge cfr wiring "G4 W9 token dropped from the report step" "the label and report steps must set env GH_TOKEN" \
       yqe "${W}" 'del(.jobs.report.steps[] | select(.run // "" | test("ci-failure-report.sh")) | .env.GH_TOKEN)'
-    judge cfr wiring "G4 W10 race comment removed" "needs a comment directly above on.workflow_run.workflows" \
-      drop_comment_above "${W}" '^ +workflows:'
+    judge cfr wiring "G4 W10 nightly race job soft-fails again" "listed workflow 'E2E nightly' sets continue-on-error on [\"race\"]" \
+      yqe .github/workflows/e2e-nightly.yaml '.jobs.race."continue-on-error" = true'
+    judge cfr wiring "G4 W10b a Go patch lag step soft-fails" "listed workflow 'Go patch lag' sets continue-on-error on" \
+      yqe .github/workflows/go-patch-lag.yaml '(.jobs[].steps[0])."continue-on-error" = "${{ always() }}"'
     judge cfr wiring "G4 W11 zizmor exception widened" "rules.dangerous-triggers.ignore must be exactly" \
       yqe "${Z}" '.rules."dangerous-triggers".ignore += ["ci.yaml"]'
     judge cfr wiring "workflow file deleted (absence)" "on.workflow_run.workflows must be exactly" rmf "${W}"
@@ -1569,16 +1571,27 @@ fi
   bad "wiring: ${WF_REL} lists no workflow under on.workflow_run.workflows to match against the workflow files' name:"
 for name in "${listed_names[@]}"; do
   n=0
+  match=""
   for f in "${ROOT}"/.github/workflows/*.yaml "${ROOT}"/.github/workflows/*.yml; do
     [[ -f "${f}" ]] || continue
     if [[ "$(yq eval '.name // ""' "${f}" 2>/dev/null)" == "${name}" ]]; then
       n=$((n + 1))
+      match="${f}"
     fi
   done
   if [[ "${n}" -eq 1 ]]; then
     ok "wiring: listed workflow '${name}' is the name: of exactly one workflow file"
   else
     bad "wiring: listed workflow '${name}' matches the name: of ${n} workflow files, expected exactly 1 (workflow_run matches by name and stops firing silently on a rename)"
+    continue
+  fi
+  # The reporter classes a run by its conclusion only, so a job or step that may fail under
+  # continue-on-error (true, or any expression) fails unreported (SINK-BREAKER-RACE-01).
+  coe="$(yq eval -o=json -I=0 '[.jobs | to_entries[] | select(.value | has("continue-on-error") and .["continue-on-error"] != false) | .key] + [.jobs[].steps[]? | select(has("continue-on-error") and .["continue-on-error"] != false) | (.name // .uses // "unnamed step")]' "${match}" 2>/dev/null || echo "<parse error>")"
+  if [[ "${coe}" == "[]" ]]; then
+    ok "wiring: listed workflow '${name}' sets no continue-on-error, so every failure reaches the run conclusion"
+  else
+    bad "wiring: listed workflow '${name}' sets continue-on-error on ${coe}; the reporter judges the run conclusion only, so that failure would go unreported"
   fi
 done
 
@@ -1718,21 +1731,6 @@ if [[ "${tok}" == "[\"${want_tok}\",\"${want_tok}\"]" ]]; then
   ok "wiring: the label and report steps get GH_TOKEN through env:"
 else
   bad "wiring: ${WF_REL} the label and report steps must set env GH_TOKEN: ${want_tok}, found ${tok}"
-fi
-
-# The comment directly above the workflows: list names the race gap and SINK-BREAKER-RACE-01.
-wf_comment=""
-if [[ -f "${WF}" ]]; then
-  wf_comment="$(awk '
-    /^[[:space:]]*#/ { block = block $0 "\n"; next }
-    /^[[:space:]]+workflows:/ { printf "%s", block; exit }
-    { block = "" }
-  ' "${WF}")"
-fi
-if grep -qw 'race' <<<"${wf_comment}" && grep -qF 'SINK-BREAKER-RACE-01' <<<"${wf_comment}"; then
-  ok "wiring: the comment above the workflow list names the race gap and SINK-BREAKER-RACE-01"
-else
-  bad "wiring: ${WF_REL} needs a comment directly above on.workflow_run.workflows naming the race gap and SINK-BREAKER-RACE-01, found '${wf_comment:-<none>}'"
 fi
 
 # The dangerous-triggers exception in .github/zizmor.yml covers this workflow only.

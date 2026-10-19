@@ -353,8 +353,10 @@ jobs:
         env:
           OPERATOR_SDK_VERSION: v1.42.3
         run: bash hack/install-operator-sdk.sh ./bin
-      - name: Verify nightly advisory race job contract (HY-07)
+      - name: Verify nightly race job contract (HY-07)
         run: bash hack/test/hyg_07_nightly_race_test.sh
+      - name: Verify nightly race job contract mutants (HY-07 --self-test)
+        run: bash hack/test/hyg_07_nightly_race_test.sh --self-test
       - name: Verify manager RBAC grants core Events (not events.k8s.io)
         run: bash hack/test/core_events_rbac_test.sh
       - name: Verify manager RBAC can read KollectClusterScope

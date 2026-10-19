@@ -121,14 +121,14 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
-  # Advisory race detector for unit + envtest (TEST-02 / HY-07).
-  # continue-on-error: does not block nightly green; file issues from the summary excerpt.
-  # COVERAGE_MIN=0: racing is the signal — do not fail the advisory job on the coverage floor.
+  # Race detector for unit + envtest (TEST-02 / HY-07). Blocking since SINK-BREAKER-RACE-01:
+  # no continue-on-error, so a DATA RACE fails the nightly run and reaches the CI failure
+  # reporter, which judges the run conclusion only.
+  # COVERAGE_MIN=0: racing is the signal — do not fail the race job on the coverage floor.
   race:
-    name: race (advisory)
+    name: race
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
