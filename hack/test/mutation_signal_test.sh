@@ -757,16 +757,20 @@ FAKE
         chain = ($1 == "Taskfile.yml" && ($3 == il || $3 == rl))
         if ($3 ~ /go-gremlins/ && !($1 == "Taskfile.yml" && $3 == il)) hit("go-gremlins outside the W2 install line")
         if ($1 != "hack/ci/mutation.sh" && !chain) {
-          if ($3 ~ /(^|[^A-Za-z0-9_.-])gremlins["\047]?([[:space:]]+(unleash|run|r|help|version|completion)([[:space:]]|$)|[[:space:]]+-|[[:space:]]*$)/)
+          if ($3 ~ /(^|[^A-Za-z0-9_.-])gremlins["\047]?([[:space:]]+(unleash|run|r|help|version|completion)([^A-Za-z0-9_-]|$)|[[:space:]]+-|[[:space:]]*$)/)
             hit("gremlins invoked outside hack/ci/mutation.sh")
           if ($3 ~ /(^|[^A-Za-z0-9_-])unleash([^A-Za-z0-9_-]|$)/) hit("a gremlins unleash outside hack/ci/mutation.sh")
           if ($3 ~ /hack\/ci\/mutation\.sh/) hit("hack/ci/mutation.sh run outside the mutation task")
         }
         if ($3 ~ /tools:gremlins/ && !($1 == "Taskfile.yml" && ($3 == "tools:gremlins:" || $3 == "deps: [tools:gremlins]")))
           hit("the gremlins install task reached outside the mutation task")
-        # Any task command line naming mutation as a word, whatever flags or other tasks come first.
-        if ($3 ~ /(^|[^A-Za-z0-9_.:-])task([[:space:]]+[^[:space:]]+)*[[:space:]]+:?mutation([[:space:]"\047;&|)]|$)/ && !($1 == w && $3 == "run: task mutation"))
+        # Any task command line naming mutation as a word, quoted or not, whatever flags or other
+        # tasks come first; and any task command line whose argument is a template, which could
+        # name it.
+        if ($3 ~ /(^|[^A-Za-z0-9_.:-])(go-)?task["\047]?([[:space:]]+[^[:space:]]+)*[[:space:]]+["\047]?:?mutation([[:space:]"\047;&|)]|$)/ && !($1 == w && $3 == "run: task mutation"))
           hit("a task command running mutation outside the mutation.yaml run step")
+        if ($3 ~ /(^|[^A-Za-z0-9_.:-])(go-)?task["\047]?([[:space:]]+[^[:space:]]+)*[[:space:]]+[^[:space:]]*[{][{]/)
+          hit("a templated task call the scan cannot resolve (it could name the mutation chain)")
       }' "${SJ}/lines" >"${SJ}/hits"; then
       scan_error "the W3 line scan failed"
     fi
@@ -831,10 +835,12 @@ FAKE
   # --- T2: no gremlins config file but the empty one ----------------------------------------------
   if want T2; then
     start_case
+    awk -F/ '$NF == ".gremlins" || $NF ~ /^\.gremlins\./' "${SJ}/files" >"${SJ}/t2" ||
+      scan_error "the T2 config-file scan failed"
     while IFS= read -r p; do
       [[ -n "${p}" ]] || continue
       case_fail T2 "${p}: a gremlins config file (gremlins reads .gremlins under any extension from a module root)"
-    done < <(awk -F/ '$NF == ".gremlins" || $NF ~ /^\.gremlins\./' "${SJ}/files")
+    done <"${SJ}/t2"
     if [[ "${GC_OK}" -eq -1 ]]; then
       case_fail T2 "absence: hack/ci/gremlins.yaml is missing"
     elif [[ "${GC_OK}" -eq 1 && "$(jq -c '.' "${SJ}/gc.json")" != '{}' ]]; then
@@ -852,10 +858,12 @@ FAKE
     for pair in "${WF_REL}:wf" "Taskfile.yml:tf"; do
       f="${pair%%:*}" j="${SJ}/${pair##*:}.json"
       [[ -s "${j}" ]] || continue
+      jq -r '[.. | objects | keys[]] + [.. | strings] | .[] | select(test("GREMLINS_[A-Z0-9_]*THRESHOLD"; "i"))' "${j}" >"${SJ}/t3" ||
+        scan_error "the T3 parsed scan of ${f} failed"
       while IFS= read -r k; do
         [[ -n "${k}" ]] || continue
         case_fail T3 "${f}: parsed key or value names a gremlins threshold variable: ${k}"
-      done < <(jq -r '[.. | objects | keys[]] + [.. | strings] | .[] | select(test("GREMLINS_[A-Z0-9_]*THRESHOLD"; "i"))' "${j}")
+      done <"${SJ}/t3"
     done
     done_case "T3 no gremlins threshold variable in the workflow, the Taskfile or the scripts"
   fi
@@ -1206,6 +1214,16 @@ done' 'measure aggregate "${ROOT}" ./internal/... ./internal/...'
     lit "${T}" "    desc: Scan for known Go vulnerabilities (govulncheck)${nl}    deps: [install]" "    desc: Scan for known Go vulnerabilities (govulncheck)${nl}    vars:${nl}      MEASUREMENT: mutation${nl}    deps: [install, \"{{.MEASUREMENT}}\"]"
   judge W3 "a quoted \"gremlins\" unleash in a workflow step (W3)" "W3: .github/workflows/test-shuffle.yaml:" \
     lit .github/workflows/test-shuffle.yaml '        run: task test:shuffle' "        run: task test:shuffle${nl}${nl}      - run: '\"gremlins\" unleash ./...'"
+  # Round-2 review (G2): the quote after gremlins without the unleash rule's help, quoted task
+  # names, go-task, and a templated shell-form task call.
+  judge W3 "a quoted \"gremlins\" version in a workflow step (W3)" "W3: .github/workflows/test-shuffle.yaml:44: gremlins invoked outside hack/ci/mutation.sh" \
+    lit .github/workflows/test-shuffle.yaml '        run: task test:shuffle' "        run: task test:shuffle${nl}${nl}      - run: '\"gremlins\" version'"
+  for tc in "task 'mutation'" 'task "mutation"' "'\"task\" mutation'" 'go-task mutation'; do
+    judge W3 "run: ${tc} in the ci.yaml lint job (W3)" "W3: .github/workflows/ci.yaml:" \
+      lit .github/workflows/ci.yaml "      - name: Lint${nl}        run: task lint${nl}" "      - run: ${tc}${nl}      - name: Lint${nl}        run: task lint${nl}"
+  done
+  judge W3 "a templated shell-form task call (W3)" "W3: hack/task/Taskfile.test.yml:" \
+    lit hack/task/Taskfile.test.yml '      - bash hack/ci/test-shuffle.sh' "      - bash hack/ci/test-shuffle.sh${nl}      - task {{.MEASUREMENT}}"
   judge W3 "a binary in a variable running unleash in a hack script (W3)" "W3: hack/run-mutants.sh:2: a gremlins unleash outside hack/ci/mutation.sh" \
     add hack/run-mutants.sh "#!/usr/bin/env bash${nl}\"\${G:?}\" unleash ./..."
   judge 'W3|C3' "a deps: of an unexpected shape (C3)" "C3: scan error: Taskfile.yml: the task dependency query failed" \
