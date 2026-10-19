@@ -14,7 +14,9 @@
 #    (task 1.1, finding F1). This also replaces any inherited GOFLAGS (a -tags would narrow).
 # 3. Writes every report into a directory created fresh for this run, so a report from an earlier
 #    run can never stand in for a missing one, and hands it to the upload step through
-#    $GITHUB_OUTPUT (reports=<dir>) before the first gremlins call. The directory is kept.
+#    $GITHUB_OUTPUT (reports=<dir>) before the first gremlins call. The directory is kept. Then
+#    reads the binary's own mutator flags from `unleash --help` and fails unless they are exactly
+#    the list below, so a gremlins bump cannot add a mutator that stays silently off.
 # 4. Runs gremlins on the fixture module first (hack/test/testdata/mutation/): its control mutant
 #    must be reported exactly once and LIVED, or the pipeline cannot see a survivor (MUT-3).
 # 5. Runs gremlins once per package, each to its own report (the JSON names no package), with all
@@ -24,7 +26,7 @@
 # 6. Hands the three reports to hack/ci/mutation-summary.sh, which validates them all and writes
 #    the counts to the job summary. A low score never fails the run; a tool failure, a missing
 #    report or a broken control always does. Diagnostics are ::error::mutation: lines on stderr.
-# Locked by hack/test/mutation_signal_test.sh (R1-R8).
+# Locked by hack/test/mutation_signal_test.sh (R1-R9).
 set -euo pipefail
 
 die() {
@@ -73,6 +75,21 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   echo "reports=${REPORTS}" >>"${GITHUB_OUTPUT}"
 fi
 echo "mutation: reports in ${REPORTS}"
+
+# The pinned binary's own mutator flags (its `enable "<TYPE>" mutants` help lines) must be exactly
+# FLAGS: after a bump that adds a mutator, off by default, the run would otherwise leave it
+# disabled and say nothing; one that drops a flag is named here, not by a usage error.
+help="$("${GREMLINS}" unleash --help 2>&1)" ||
+  die "'gremlins unleash --help' failed, so the mutator flags cannot be checked: ${help:0:300}"
+offered="$(sed -nE 's/^[[:space:]]+(--[a-z0-9-]+)[[:space:]]+enable "[A-Z0-9_]+" mutants.*$/\1/p' <<<"${help}" | LC_ALL=C sort)"
+[[ -n "${offered}" ]] ||
+  die "'gremlins unleash --help' lists no mutator flag (no 'enable \"...\" mutants' line): its help changed; re-check FLAGS in this script"
+passed="$(printf '%s\n' "${FLAGS[@]}" | LC_ALL=C sort)"
+if [[ "${offered}" != "${passed}" ]]; then
+  added="$(LC_ALL=C comm -23 <(echo "${offered}") <(echo "${passed}") | tr '\n' ' ')"
+  gone="$(LC_ALL=C comm -13 <(echo "${offered}") <(echo "${passed}") | tr '\n' ' ')"
+  die "the pinned gremlins' mutator flags differ from FLAGS in this script: offered, not passed: ${added:-none}; passed, not offered: ${gone:-none}. Update FLAGS after a gremlins bump"
+fi
 
 # measure <short> <dir> <package> <label>: one gremlins call, run in <dir>, to <short>.json.
 measure() {

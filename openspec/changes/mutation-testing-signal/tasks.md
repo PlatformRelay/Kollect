@@ -247,6 +247,9 @@ each, evidence in evidence/B.md.
 - [x] 4.2 S2 (B1): the runner passes `--timeout-coefficient=10` on every gremlins call (R1 argv;
   two mutants: the flag dropped, the coefficient back at 3) — closed 2026-10-19, evidence:
   evidence/B.md
+- [x] 4.3 S3 (B2): the runner reads `unleash --help` before the first call and fails unless the
+  pinned binary's mutator flags are exactly `FLAGS` (case R9 on a recorded help fixture: extra,
+  missing, none, failing; four mutants) — closed 2026-10-19, evidence: evidence/B.md
 
 ## Verification
 
