@@ -80,6 +80,19 @@ func (c Config) HandshakeConfig() *tls.Config {
 	}
 }
 
+// ErrCABothSources marks a spec.tls that sets both caBundle and caSecretRef.
+var ErrCABothSources = errors.New("spec.tls sets both caBundle and caSecretRef; set exactly one")
+
+// CheckCASources rejects a spec.tls that names two CA sources. It lives here so the
+// git and GitLab config check and sink.CheckCASources return the same error.
+func CheckCASources(tlsSpec *kollectdevv1alpha1.TLSSpec) error {
+	if tlsSpec != nil && len(tlsSpec.CABundle) > 0 && tlsSpec.CASecretRef != nil {
+		return kollecterrors.Terminal(ErrCABothSources)
+	}
+
+	return nil
+}
+
 // ErrNoCACertificate marks CA PEM from spec.tls that yields no certificate.
 var ErrNoCACertificate = errors.New("spec.tls: the CA bundle holds no PEM certificate")
 
