@@ -62,6 +62,7 @@ Holistic run at B: not run yet.
 | 2.1 + 2.2 (G2) | CLOSED | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G2/`); Claude leg: TLS trust (dispatch). astra REQUEST_CHANGES (P1 missing request counter, fixed), opus CLEAN | B: `task lint` does not lint integration-tagged files (9 pre-existing findings in `export*_integration_test.go`) |
 | 3.1 + 3.2 (G3) | CLOSED-WITH-GAPS | astra + claude/opus:diff, 2 rounds (`reviews/L-tasks/G3/`, `round-2/`); Claude leg: TLS trust (dispatch). R1 astra BLOCK (bracketed-host misread, fixed), opus CONCERNS (backstops untested, no-CA error text, fixed); R2 astra BLOCK (empty `service=` precedence, fixed, not re-reviewed), opus CLEAN | B: read the round-2 fix (`caDSN` service presence); residual chain-only case when the reader sees a mode pgx does not (opus R2 N3) |
 | 4.1 + 4.2 (G4) | CLOSED | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G4/`); Claude leg: TLS trust (dispatch). astra APPROVE, opus CLEAN (4 notes, fixed: test and wording) | none; URI check lives in `clientOptions`, not `ConfigFromSpec` (`config.go` unchanged, `evidence/G4.md` *Notes*) |
+| 5.1 + 5.2 (G5) | CLOSED (5.2: none) | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G5/`); Claude leg: TLS trust (dispatch). astra APPROVE, opus CLEAN (4 notes, fixed: test and wording) | none; C1b lives in `cmd/cli` (exit mapping is in package `main`); C2 Postgres "no sslmode" case replaced per the R-post decision (`evidence/G5.md` *Deviations*) |
 
 ## Known red
 
@@ -95,6 +96,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G3: run `go test` with `umask 022`; under 002, `t.TempDir()` is 0775 and `internal/sink/git`'s mirror guard fails.
 - G4: prove "no DNS lookup" for mongo-driver by swapping `dns.DefaultResolver.LookupSRV`/`LookupTXT` for test-failing functions in a serial test that runs the real build path; a check function without DNS code proves nothing.
 - G4: a parser-mirroring reader's differential table must include URIs the library refuses (an `@` in the query with no user info); a mutant survived until it did.
+- G5: a mutant that sets a value to `nil` can leave its source variable unused (a build failure, not a kill); use an empty value derived from it (`x[:0:0]`) and read each kill's failure line.
+- G5: prove "fails after collection" through a seam reached only after collection: wrap the registry factory inside the real `runAllContexts`, assert the call count and the error prefix, and add a `--output` control run.
 
 ## Where a human should look first
 
