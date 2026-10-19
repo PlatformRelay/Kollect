@@ -11,6 +11,16 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **test:** Refuse bare /root and mounted or escaped Windows home paths [9ddc902](https://github.com/platformrelay/kollect/commit/9ddc902b5c0f1142ebb93096ff6fc8573baffac7)
+
+- **test:** Refuse an SSH Host line with a negated alias [0cf3527](https://github.com/platformrelay/kollect/commit/0cf35277e173e30d4fafc21a96c4936887998746)
+
+- **test:** Refuse more home-path forms in the agent contract [867d117](https://github.com/platformrelay/kollect/commit/867d1176ce0d1aa22e014418202a6efd548f152d)
+
+- **test:** Refuse an SSH Host line with any number of aliases [00d8673](https://github.com/platformrelay/kollect/commit/00d86735ffc193463ff7c601451f05f7077519a9)
+
+- **test:** Refuse an empty gitleaks path regex in the agent contract [4a94c89](https://github.com/platformrelay/kollect/commit/4a94c89bafaf3dd8f8a88ea9a0055962bf715acf)
+
 - **ci:** Read every mutator line of the gremlins help [f1fbe78](https://github.com/platformrelay/kollect/commit/f1fbe78673d992065d833fdf0357b5ebd2f556b4)
 
 - **ci:** Fail the mutation run when gremlins offers other mutators [5609222](https://github.com/platformrelay/kollect/commit/5609222c98eda2ccf4271caa68b4d677e425530f)
