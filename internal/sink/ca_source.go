@@ -10,10 +10,11 @@ import (
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
+	"github.com/platformrelay/kollect/internal/sink/sinktls"
 )
 
 // ErrCABothSources marks a spec.tls that sets both caBundle and caSecretRef.
-var ErrCABothSources = errors.New("spec.tls sets both caBundle and caSecretRef; set exactly one")
+var ErrCABothSources = sinktls.ErrCABothSources
 
 // ErrCAKeyMissing marks a spec.tls.caSecretRef Secret that has none of the CA keys.
 var ErrCAKeyMissing = errors.New("spec.tls.caSecretRef: the Secret has no CA key")
@@ -24,11 +25,7 @@ var caKeys = []string{"tls.crt", "ca.crt", "ca.pem"}
 // CheckCASources rejects a spec.tls that names two CA sources. Callers run it before
 // fetching any Secret, so a both-set spec never fails on a missing Secret first.
 func CheckCASources(tlsSpec *kollectdevv1alpha1.TLSSpec) error {
-	if tlsSpec != nil && len(tlsSpec.CABundle) > 0 && tlsSpec.CASecretRef != nil {
-		return kollecterrors.Terminal(ErrCABothSources)
-	}
-
-	return nil
+	return sinktls.CheckCASources(tlsSpec)
 }
 
 // SelectCAKey returns the first non-empty CA key (tls.crt, ca.crt, ca.pem) of the

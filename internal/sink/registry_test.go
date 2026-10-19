@@ -5,6 +5,7 @@ package sink
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -206,12 +207,19 @@ func TestRegistry_NewBackend_gitFactoryConfigError(t *testing.T) {
 	}
 
 	for _, sinkType := range []string{"git", "gitlab"} {
-		if _, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
+		_, err := reg.NewBackend(kollectdevv1alpha1.KollectSinkSpec{
 			Type:     sinkType,
 			Endpoint: "https://example.com/inventory.git",
 			TLS:      ambiguousTLS,
-		}, BuildContext{}); err == nil {
+		}, BuildContext{})
+		if err == nil {
 			t.Fatalf("NewBackend(%s) expected config error for ambiguous TLS", sinkType)
+		}
+
+		// The git/gitlab check is the shared rule (sink-ca-trust SCT-4/SCT-5): the same
+		// terminal sentinel as CheckCASources, not a text of its own.
+		if !errors.Is(err, ErrCABothSources) || !kollecterrors.IsTerminal(err) {
+			t.Errorf("NewBackend(%s) error = %v; want terminal %v", sinkType, err, ErrCABothSources)
 		}
 	}
 }

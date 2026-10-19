@@ -14,14 +14,15 @@ import (
 // HandshakeConfig is always non-nil because HTTPS is TLS by scheme).
 type TLSConfig = sinktls.Config
 
-// ValidateTLSSpec rejects ambiguous TLS configuration.
+// ValidateTLSSpec rejects ambiguous TLS configuration; both CA sources set is the
+// shared terminal sinktls.ErrCABothSources.
 func ValidateTLSSpec(tlsSpec *kollectdevv1alpha1.TLSSpec) error {
 	if tlsSpec == nil {
 		return nil
 	}
 
-	if len(tlsSpec.CABundle) > 0 && tlsSpec.CASecretRef != nil {
-		return fmt.Errorf("tls: set either caBundle or caSecretRef, not both")
+	if err := sinktls.CheckCASources(tlsSpec); err != nil {
+		return err
 	}
 
 	if tlsSpec.CASecretRef != nil && tlsSpec.CASecretRef.Name == "" {

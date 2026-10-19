@@ -315,7 +315,10 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
 - [x] 8.6 D3/O2: delete the unused third CA resolver `internal/controller/secret_ca.go`. — closed
   2026-10-19: no caller outside its own test (`grep resolveCAPEM internal/controller`); build and
   vet clean.
-- [ ] 8.7 D4: `git.ValidateTLSSpec` returns the shared terminal both-sources error.
+- [x] 8.7 D4: `git.ValidateTLSSpec` returns the shared terminal both-sources error. — closed
+  2026-10-19: `TestRegistry_NewBackend_gitFactoryConfigError` red on `tls: set either caBundle or
+  caSecretRef, not both` (git and GitLab), green after; the check and sentinel now live in
+  `sinktls`, and `sink.CheckCASources`/`sink.ErrCABothSources` delegate to them.
 - [ ] 8.8 D7: `Registry.NewBackend` returns a nil `Backend` when the factory fails.
 
 ## Verification
