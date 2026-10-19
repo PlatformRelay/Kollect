@@ -62,7 +62,9 @@ func breakerFor(key string) *gobreaker.CircuitBreaker[struct{}] {
 	return actual.(*gobreaker.CircuitBreaker[struct{}])
 }
 
-// ResetBreakersForTest clears per-sink circuit breakers between tests.
+// ResetBreakersForTest clears per-sink circuit breakers between tests. It
+// clears the registry in place, so it is safe to call while parallel tests
+// export through it; assigning a fresh sync.Map would race with their reads.
 func ResetBreakersForTest() {
-	breakerRegistry = sync.Map{}
+	breakerRegistry.Clear()
 }
