@@ -1,7 +1,7 @@
 # Loop — mutation-testing-signal (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/mutation-testing-signal` · Branch: `feat/mutation-testing-signal` · Base: `origin/main` @ `3c01608ff` (changes 7 and 8 merged) · Started: 2026-10-19 · Reviewers: astra + claude (duo)
-Next: L — dispatch G1 (0.1 + 1.1 probe), then G2 (2.1–2.8)
+Next: B — branch review (round 1, fixes, round 2 if a CRITICAL is accepted), then hand-off
 Budget: Claude review legs uncapped (operator goal 2026-10-16) · run under GOAL-2026-10-16-announcement-ready (decisions by model alignment, logged in agent-context/decisions.md)
 
 Change 9 of 10 (issue #446). Spec set: proposal.md, specs/mutation-testing/spec.md, tasks.md.
@@ -11,7 +11,7 @@ Change 9 of 10 (issue #446). Spec set: proposal.md, specs/mutation-testing/spec.
 - [x] 0 orient — re-measured against `origin/main` @ `3c01608ff` (2026-10-19); decisions applied (decisions.md 2026-10-19 "change 9": threshold sources A, fixture placement A, flat signal A)
 - [x] P plan + tasks — present; spec set updated fa3fdf389 (re-measure, decisions A/A/A, red-first order with given/when/then cases)
 - [x] R spec-set review — round 1 (9a5426f3a): astra BLOCK, opus CONCERNS; V1-V5 CRITICAL (config extensions, inert CLI/env thresholds, fail-open scans, unpinned commands, env narrowing) verified by a scratch gremlins probe and fixed with V6-V15 (2b14ee6c2), V7 partly rejected, V16 no action. Round 2 (last, 2b14ee6c2): astra BLOCK, opus CONCERNS; R2-1..R2-13 all fixed, unreviewed (task skip keys, lint reaching `task mutation`, report hand-off). No CRITICAL remains open
-- [ ] L task loop — see *Tasks*
+- [x] L task loop — 0.1, 1.1, 2.1–2.8 closed (3.1 is hand-off); probe finding F1: warm test cache made every mutant TIMED OUT → runner exports GOFLAGS=-count=1
 - [ ] B branch review — `reviews/B-branch/round-N/` · rounds: 0 · verdict: pending
 - [ ] Hand-off — pending · `pr-description.md` · PR: none
 
