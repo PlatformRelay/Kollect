@@ -5,6 +5,8 @@ package sink
 
 import (
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,4 +157,30 @@ func TestResetBreakersForTest_clearsOpenBreaker(t *testing.T) {
 	if _, err := RunExportEnvelope(req); err != nil {
 		t.Fatalf("RunExportEnvelope after ResetBreakersForTest: %v", err)
 	}
+}
+
+// SINK-BREAKER-RACE-01: parallel tests reset the shared registry while other
+// tests export through it. Run under -race, this fails if the reset replaces
+// the registry instead of clearing it through its own synchronisation. Not
+// t.Parallel: it races its own goroutines, and its many resets must not wipe
+// the breakers of sibling parallel tests mid-trip.
+func TestResetBreakersForTest_safeAgainstConcurrentExport(t *testing.T) {
+	const workers = 8
+	var wg sync.WaitGroup
+	for i := range workers {
+		wg.Go(func() {
+			key := fmt.Sprintf("cb-race-ns/sink-%d", i)
+			for range 200 {
+				if i%2 == 0 {
+					ResetBreakersForTest()
+					continue
+				}
+				if err := exportThroughBreaker(key, func() error { return nil }); err != nil {
+					t.Errorf("exportThroughBreaker(%q) = %v, want nil", key, err)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
 }
