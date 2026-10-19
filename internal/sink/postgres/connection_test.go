@@ -16,7 +16,7 @@ func TestTestConnection_missingDatabaseRef(t *testing.T) {
 	err := TestConnection(context.Background(), kollectdevv1alpha1.KollectSinkSpec{
 		Type:     "postgres",
 		Postgres: &kollectdevv1alpha1.PostgresSpec{},
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error when databaseRef is missing")
 	}
@@ -31,7 +31,7 @@ func TestTestConnection_invalidDSN(t *testing.T) {
 			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 			Table:       "inventory",
 		},
-	}, map[string][]byte{"dsn": []byte("postgres://invalid-host:1/bad")})
+	}, map[string][]byte{"dsn": []byte("postgres://invalid-host:1/bad")}, nil)
 	if err == nil {
 		t.Fatal("expected connect error for unreachable host")
 	}

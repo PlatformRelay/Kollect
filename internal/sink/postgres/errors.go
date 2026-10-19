@@ -24,4 +24,13 @@ var (
 	// destination table absent. Distinct from a failed verification query, which must not be
 	// reported as "table absent" (ADR-0416 §5).
 	ErrTableNotFound = errors.New("postgres table not found")
+
+	// ErrCARootConflict marks a postgres sink that configures a spec.tls CA while
+	// another root certificate source (DSN, service file, PGSSLROOTCERT,
+	// ~/.postgresql/root.crt) is also set.
+	ErrCARootConflict = errors.New("spec.tls: a CA is configured, so another postgres root certificate source conflicts with it")
+
+	// ErrCAWeakSSLMode marks a postgres sink that configures a spec.tls CA with an
+	// explicit sslmode that never checks a certificate.
+	ErrCAWeakSSLMode = errors.New("spec.tls: a CA is configured, but the postgres sslmode never checks it")
 )

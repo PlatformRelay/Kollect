@@ -31,7 +31,7 @@ func dialConnectError(t *testing.T) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	pool, err := newGuardedPool(ctx, dsn)
+	pool, err := newGuardedPool(ctx, dsn, nil)
 	if err != nil {
 		t.Fatalf("newGuardedPool returned an unexpected error: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestExport_RedactsConnectErrorOnBegin(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	pool, err := newGuardedPool(ctx, dsn)
+	pool, err := newGuardedPool(ctx, dsn, nil)
 	if err != nil {
 		t.Fatalf("newGuardedPool returned an unexpected error: %v", err)
 	}

@@ -30,6 +30,8 @@ const connectTimeout = 30 * time.Second
 type Backend struct {
 	cfg  Config
 	pool *pgxpool.Pool
+	// caConfigured records a spec.tls CA, so connect errors can name it (withCAHint).
+	caConfigured bool
 }
 
 // NewBackend constructs a postgres sink backend.
@@ -37,6 +39,7 @@ func NewBackend(
 	ctx context.Context,
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	databaseSecret map[string][]byte,
+	caPEM []byte,
 ) (*Backend, error) {
 	cfg, err := ConfigFromSpec(spec, databaseSecret)
 	if err != nil {
@@ -50,12 +53,12 @@ func NewBackend(
 		defer cancel()
 	}
 
-	pool, err := newGuardedPool(connectCtx, cfg.DSN)
+	pool, err := newGuardedPool(connectCtx, cfg.DSN, caPEM)
 	if err != nil {
 		return nil, fmt.Errorf("postgres connect: %w", err)
 	}
 
-	b := &Backend{cfg: cfg, pool: pool}
+	b := &Backend{cfg: cfg, pool: pool, caConfigured: len(caPEM) > 0}
 	// Provisioning runs once when the backend is constructed; pooled backends reuse the same
 	// instance so DDL is not repeated on every export (PERF-02). In provisioning.mode=existing
 	// Kollect must not create destination resources: it verifies the table instead of running
@@ -63,7 +66,7 @@ func NewBackend(
 	if err := provisionTable(connectCtx, cfg.ProvisioningMode, b.verifyTable, b.ensureTable); err != nil {
 		pool.Close()
 
-		return nil, redactedConnectError(err)
+		return nil, withCAHint(redactedConnectError(err), b.caConfigured)
 	}
 
 	return b, nil
@@ -104,6 +107,10 @@ func (b *Backend) Close() {
 // Export upserts each inventory item keyed by inventory, target, and source UID,
 // then deletes rows absent from the current snapshot (ADR-0401 delete reconciliation).
 func (b *Backend) Export(ctx context.Context, payload []byte, objectPath string) error {
+	return withCAHint(b.export(ctx, payload, objectPath), b.caConfigured)
+}
+
+func (b *Backend) export(ctx context.Context, payload []byte, objectPath string) error {
 	items, err := collect.ItemsFromExportPayload(payload)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrDecodePayloadFailed, err)

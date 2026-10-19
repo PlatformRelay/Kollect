@@ -60,7 +60,7 @@ func TestNewGuardedPoolRedactsDSNOnParseError(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := newGuardedPool(context.Background(), tc.dsn)
+			_, err := newGuardedPool(context.Background(), tc.dsn, nil)
 			if err == nil {
 				t.Fatalf("expected ParseConfig to fail for %q, got nil error", tc.dsn)
 			}
@@ -145,7 +145,7 @@ func TestRedactedConnectErrorRedactsDialError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	pool, err := newGuardedPool(ctx, dsn)
+	pool, err := newGuardedPool(ctx, dsn, nil)
 	if err != nil {
 		t.Fatalf("newGuardedPool returned an unexpected error: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestTestConnectionRedactsDialError(t *testing.T) {
 			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 			Table:       "inventory",
 		},
-	}, map[string][]byte{"dsn": []byte(dsn)})
+	}, map[string][]byte{"dsn": []byte(dsn)}, nil)
 	if err == nil {
 		t.Fatal("expected a dial failure for an unreachable host")
 	}
@@ -230,7 +230,7 @@ func TestNewBackendRedactsDialError(t *testing.T) {
 			DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
 			Table:       "inventory",
 		},
-	}, map[string][]byte{"dsn": []byte(dsn)})
+	}, map[string][]byte{"dsn": []byte(dsn)}, nil)
 	if err == nil {
 		t.Fatal("expected a dial failure constructing the backend")
 	}

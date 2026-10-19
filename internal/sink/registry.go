@@ -135,7 +135,7 @@ func newPostgresBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContex
 		connectCtx = context.Background()
 	}
 
-	return postgres.NewBackend(connectCtx, spec, ctx.DatabaseSecretData)
+	return postgres.NewBackend(connectCtx, spec, ctx.DatabaseSecretData, ctx.CAPEM)
 }
 
 func newBigQueryBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {

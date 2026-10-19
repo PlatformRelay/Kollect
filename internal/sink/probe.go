@@ -88,7 +88,7 @@ func testPostgresConnection(
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	buildCtx BuildContext,
 ) (string, error) {
-	if err := postgres.TestConnection(ctx, spec, buildCtx.DatabaseSecretData); err != nil {
+	if err := postgres.TestConnection(ctx, spec, buildCtx.DatabaseSecretData, buildCtx.CAPEM); err != nil {
 		return "", err
 	}
 
