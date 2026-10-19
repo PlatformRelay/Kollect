@@ -64,6 +64,7 @@ Holistic run at B: not run yet.
 | 4.1 + 4.2 (G4) | CLOSED | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G4/`); Claude leg: TLS trust (dispatch). astra APPROVE, opus CLEAN (4 notes, fixed: test and wording) | none; URI check lives in `clientOptions`, not `ConfigFromSpec` (`config.go` unchanged, `evidence/G4.md` *Notes*) |
 | 5.1 + 5.2 (G5) | CLOSED (5.2: none) | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G5/`); Claude leg: TLS trust (dispatch). astra APPROVE, opus CLEAN (4 notes, fixed: test and wording) | none; C1b lives in `cmd/cli` (exit mapping is in package `main`); C2 Postgres "no sslmode" case replaced per the R-post decision (`evidence/G5.md` *Deviations*) |
 | 6.1 (G6) | CLOSED-WITH-GAPS | astra only, 1 round (`reviews/L-tasks/G6/`); no Claude leg (docs, astra did not BLOCK). astra REQUEST_CHANGES (5 P1 + 1 P2, all wording, verified and fixed) | B: `task docs:verify` not run locally (no pinned `kubectl`, mkdocs `redirects` plugin missing); CI Docs workflow |
+| 8.1-8.11 (B fixes) | CLOSED | B round 1: astra adversarial BLOCK (A1 CRITICAL, lowered to WARNING), opus:spec CONCERNS; fixes reviewed by astra + claude/opus:diff (REQUEST_CHANGES, CONCERNS: FX1 fixed in 8.9); B round 2 (fresh legs, opened by A1): astra REQUEST_CHANGES (one WARNING), opus CLEAN; fixed with mutants in 8.11, no further review (`reviews/B-branch/`) | deferred: D5 `task lint` skips integration-tagged files (backlog, 9 old findings); O3 release note to the GitHub Release at tag time. Holistic: `task check` green but for 3 ENVIRONMENT guards, green with `kubectl`/`operator-sdk` supplied; `task docs:verify` green locally |
 
 ## Known red
 
@@ -103,6 +104,9 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G5: prove "fails after collection" through a seam reached only after collection: wrap the registry factory inside the real `runAllContexts`, assert the call count and the error prefix, and add a `--output` control run.
 - G6: `kollect.dev/test-connection=true` is cleared only when automatic probes are off, so re-setting it can be a no-op; to touch a sink, change any annotation.
 - G6: `task docs:verify` locally needs `MISE_KUBECTL_VERSION` and the mkdocs `redirects` plugin; without them it is ENVIRONMENT, not a docs failure.
+- B: `task test-integration` counts every top-level test in an integration-tagged file as required, so a subprocess child that skips in the parent fails it; run the child branch inside the parent test (`if InChild() { …; return }`, re-exec `t.Name()`).
+- B: `task docs:verify` runs locally with a venv from `docs/requirements-docs.txt` (`--require-hashes --only-binary=:all:`) on `PATH` and `MISE_KUBECTL_VERSION=1.36.1`; `task check`'s OLM guards need a linux `operator-sdk` (`bash hack/install-operator-sdk.sh ./bin`), the main checkout's is darwin.
+- B: net/http puts a server-sent URL into a `*url.Error` on every redirect failure (limit, unparsable `Location`, failed hop, `CheckRedirect` refusal), and the limit can name the request's own URL; redact by error identity and a "was redirected" test, covered by a fake-transport unit test.
 
 ## Where a human should look first
 
