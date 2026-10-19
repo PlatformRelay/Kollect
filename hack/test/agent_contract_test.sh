@@ -84,7 +84,7 @@ GENERIC_PATTERNS=(
   'internal DNS name=(?<![a-z0-9.-])(?!(?:[a-z0-9-]+\.)*cluster\.local(?![a-z0-9-]|\.[a-z0-9]))(?:[a-z0-9-]+\.)+(?:internal|local|lan|home\.arpa)(?![a-z0-9-]|\.[a-z0-9])'
   "private IPv4 address=(?<![0-9.])(?:10\.${OCTET}\.${OCTET}\.${OCTET}|172\.(?:1[6-9]|2[0-9]|3[01])\.${OCTET}\.${OCTET}|192\.168\.${OCTET}\.${OCTET}|169\.254\.${OCTET}\.${OCTET}|100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.${OCTET}\.${OCTET})(?![0-9]|\.[0-9])"
   'unique-local IPv6 address=(?<![0-9a-z:])f[cd][0-9a-f]{2}:[0-9a-f]{0,4}:[0-9a-f:]*'
-  'SSH Host directive=^\s*host(?:\s*=\s*|\s+)[a-z0-9*?._-]+(?:\s+[a-z0-9*?._-]+)*\s*(?:#.*)?$'
+  'SSH Host directive=^\s*host(?:\s*=\s*|\s+)[a-z0-9*?._!-]+(?:\s+[a-z0-9*?._!-]+)*\s*(?:#.*)?$'
   'scp-style address=(?:^|(?<=[\s(<\x22\x27\x60]))(?!git@github\.com:)[a-z0-9._-]+@(?!sha(?:256|384|512):)[a-z0-9-]+(?:\.[a-z0-9-]+)*:(?=[^\s0-9])'
 )
 
@@ -897,6 +897,10 @@ expect_red "PAC-6 ULA" "(unique-local IPv6 address" plant "listen on fd00::1"
 expect_red "PAC-6 Host line" "(SSH Host directive" plant "Host ${stem}"
 expect_red "PAC-6 Host line with a comment" "(SSH Host directive" plant "Host ${stem} # build box"
 expect_red "PAC-6 Host line with four aliases" "(SSH Host directive" plant "Host ${stem}a ${stem}b ${stem}c ${stem}d"
+expect_red "PAC-6 Host line with a negated alias" "(SSH Host directive" plant "Host * !${stem}b"
+# Accepted false red: a prose line that starts with "host" and has no other punctuation reads as a
+# Host directive. Pinned so that loosening the pattern again is a deliberate choice.
+expect_red "PAC-6 Host-led prose line (accepted false red)" "(SSH Host directive" plant "host the chart in your own registry before you install it"
 expect_red "PAC-6 scp address at github.com, not git" "(scp-style address" plant "copy ${stem}@github.com:org/repo here"
 expect_red "PAC-6 scp address" "(scp-style address" plant "copy ${stem}@${stem}box:src/x here"
 expect_green "PAC-6 prose look-alikes" "" plant_lines "You can host the chart in your own registry before you install it" "Report it to security@example.com: we answer within a week."
