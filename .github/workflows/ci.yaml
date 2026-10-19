@@ -629,13 +629,15 @@ jobs:
       # symbols real, and carries no scrub-pattern match, home or harness path, internal host or
       # private header; .gitignore and the gitleaks allowlist keep the agent files public and
       # scanned. The guard needs rg (hack/scrub.sh semantics), which the runner image does not
-      # ship: install the noble archive's version when it is absent. Plain and --self-test as
-      # separate steps; CWS-6/CFC-6 checks each mode runs in a required job.
+      # ship: install the runner image archive's ripgrep when it is absent (no version pin: a
+      # pinned Debian revision exists in one Ubuntu release only, and ubuntu-latest moves on).
+      # Plain and --self-test as separate steps; CWS-6/CFC-6 checks each mode runs in a required
+      # job.
       - name: Ensure ripgrep is available
         run: |
           if ! command -v rg >/dev/null 2>&1; then
             sudo apt-get update
-            sudo apt-get install -y --no-install-recommends ripgrep=14.1.0-1
+            sudo apt-get install -y --no-install-recommends ripgrep
           fi
           rg --version
       - name: Verify the public agent contract (PAC-1 to PAC-6)
