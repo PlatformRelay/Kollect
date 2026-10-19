@@ -17,8 +17,9 @@ on:
   workflow_run:
     # Matched by name: each entry must equal one workflow file's name: (the test checks it).
     # Keep the names ASCII: the reporter cuts the issue title at 200 bytes, not characters.
-    # Known race gap: the nightly `race` job runs with continue-on-error, so its failure leaves the
-    # run concluded success and is not reported until SINK-BREAKER-RACE-01 makes the job blocking.
+    # The reporter judges the run conclusion only, so no job or step of a listed workflow may set
+    # continue-on-error: its failure would leave the run concluded success, unreported (the test
+    # checks it; the nightly `race` job lost its continue-on-error in SINK-BREAKER-RACE-01).
     workflows:
       - E2E nightly
       - Go patch lag

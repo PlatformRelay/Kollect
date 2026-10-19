@@ -18,7 +18,7 @@ The reporter SHALL take the action that the run's row of the decision table belo
 opens an issue only when the run is in the failure class and the newest bot issue for the
 workflow is absent, or closed with an older key. The reporter SHALL judge the run by its conclusion
 only: a job that fails under `continue-on-error` does not change the run's conclusion and is not
-reported. Before the reporter runs, the workflow SHALL create the `ci-failure` label idempotently
+reported, so no job or step of a reported workflow SHALL set `continue-on-error`. Before the reporter runs, the workflow SHALL create the `ci-failure` label idempotently
 (`gh label create ci-failure --force` with a fixed `--color` and `--description`, so a repeat
 changes nothing).
 
@@ -52,8 +52,8 @@ open or closed. "None" means no such issue exists.
 
 #### Scenario: Job failed under continue-on-error
 
-- **WHEN** the nightly `race` job (`continue-on-error: true`) fails and every other job passes, so the run concludes `success`
-- **THEN** the run is treated as a success; no issue is opened (known gap until SINK-BREAKER-RACE-01 makes the job blocking)
+- **WHEN** a job of a reported workflow runs with `continue-on-error: true`, fails, and every other job passes, so the run concludes `success`
+- **THEN** the run is treated as a success and no issue is opened; this is why reported workflows set no `continue-on-error` (the nightly `race` job lost it in SINK-BREAKER-RACE-01), and `hack/test/ci_failure_report_test.sh` fails when one does
 
 A job counts as started only when its `steps` array is non-empty (`startedAt` is set on jobs that never
 ran; probe T1.1 F3).

@@ -13,7 +13,7 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 | Tier | Scope | Blocks merge? | Typical command |
 | --- | --- | --- | --- |
 | **L0 — Unit** | Pure packages, table-driven tests, mocks | Yes | `task test` |
-| **L1 — Controller / API** | envtest reconcilers, webhooks | Yes | `task coverage`; nightly advisory `task coverage:race` |
+| **L1 — Controller / API** | envtest reconcilers, webhooks | Yes | `task coverage`; nightly `task coverage:race` |
 | **L2 — Golden / contract** | OpenAPI fragments, sample YAML, extractor goldens | Yes | `task test` |
 | **L3 — Integration** | Real Postgres, Kafka, Git, S3, GCS, Redis, NATS (testcontainers) | Yes | `task test-integration` |
 | **L4 — E2E** | Kind cluster: Helm install, smoke, export asserts | **PR smoke (required)** + nightly / extended | `task test:e2e` |
@@ -40,7 +40,7 @@ sustainably — see ADR-0706 for the ratchet policy.
 
 ```sh
 task coverage          # unit + envtest + floor check → coverage.out (CI path; no -race)
-task coverage:race     # COVERAGE_RACE=1 + CGO_ENABLED=1 (local + nightly advisory CI)
+task coverage:race     # COVERAGE_RACE=1 + CGO_ENABLED=1 (local + nightly CI)
 task coverage:report   # go tool cover -func summary
 task coverage:html     # coverage.html for browser review
 ```
@@ -131,13 +131,14 @@ the maintainer to install the [Codecov GitHub App](https://github.com/apps/codec
 | `docs.yaml` | Docs paths | Markdown lint, strict MkDocs build, GitHub Pages deploy (`main` only) |
 | `e2e-smoke.yaml` | L4 Tier 0 | **Mandatory** kind smoke on PR + `main` (job `kind-smoke-run`, reported as `kind-smoke`) |
 | `e2e-extended.yaml` | L4 Tier 1 | Optional git-export, multitenant, tenant-mode, webhook profile |
-| `e2e-nightly.yaml` | L4 Tier 2 | Full Kind matrix + bench/perf (deduped L3) + advisory race |
+| `e2e-nightly.yaml` | L4 Tier 2 | Full Kind matrix + bench/perf (deduped L3) + race |
 | `test-e2e.yaml` | L4 Tier 3 | Manual full matrix (`workflow_dispatch`) |
 | `release.yaml` | Supply chain | Image signing, SBOM, chart publish |
 
-### Nightly advisory race detector (HY-07 / TEST-02)
+### Nightly race detector (HY-07 / TEST-02)
 
-`e2e-nightly.yaml` runs a **`race`** job (`continue-on-error: true`) that executes
+`e2e-nightly.yaml` runs a blocking **`race`** job (no `continue-on-error`, so a race fails the
+nightly run and the CI failure reporter files it) that executes
 `task coverage:race` with `CI=true`, `CGO_ENABLED=1`, and `COVERAGE_MIN=0` (racing is the
 signal — the merge-gate floor stays on the non-race `test` job). On a `WARNING: DATA RACE`
 finding the step summary prints an excerpt; **file a GitHub issue labeled `race`/`flake`**
@@ -186,7 +187,7 @@ or the 100k cloud gate. Raw protocols stay local-only — see the
 | `task docs:verify` | Tracked Markdown, truth/freshness contracts, samples, strict site build, and browser layout when Chrome is available |
 | `task test` | Unit + envtest (no floor check; no race detector) |
 | `task coverage` | Unit + envtest + 90% floor (CI; CGO off, no `-race`) |
-| `task coverage:race` | Same as coverage with race detector (local + nightly advisory) |
+| `task coverage:race` | Same as coverage with race detector (local + nightly) |
 | `task test-integration` | L3 sink/transport integration (Docker); fails unless every integration test ran and passed |
 | `task test-integration:explore` | Same tests without requiring Docker; skips are listed and the run is reported as incomplete, not passed |
 | `task test-integration:no-docker` | Prove L3 tests skip without Docker and fail when `KOLLECT_REQUIRE_DOCKER=true` |

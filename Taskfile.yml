@@ -245,7 +245,7 @@ tasks:
       - task: test:coverage:html
 
   coverage:race:
-    desc: Coverage with race detector (COVERAGE_RACE=1; nightly advisory CI + local pre-PR)
+    desc: Coverage with race detector (COVERAGE_RACE=1; nightly CI + local pre-PR)
     env:
       COVERAGE_MIN: "{{.COVERAGE_MIN}}"
     cmds:
