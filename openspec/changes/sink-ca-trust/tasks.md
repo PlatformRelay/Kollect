@@ -39,7 +39,7 @@ Test rules for every group:
 
 ## 0. Probe
 
-- [ ] 0.1 Verify the load-bearing assumptions in `proposal.md` and record each as verified (command,
+- [x] 0.1 Verify the load-bearing assumptions in `proposal.md` and record each as verified (command,
   versions, date) in `evidence/T0.1.md`; a failed one stops the loop as a spec finding:
   - pgx v5.11.0: the `verify-ca` callback reads `RootCAs` from the same `*tls.Config` that
     `ConnConfig.TLSConfig` / `Fallbacks[i].TLSConfig` point to after `pgxpool.ParseConfig`
@@ -57,7 +57,7 @@ Test rules for every group:
     child process replace `x509.SystemCertPool()`;
   - Postgres image `postgres:16-alpine` accepts a test key mounted into the container (key owner
     and mode rules) and MongoDB's image accepts `--tlsMode requireTLS --tlsCertificateKeyFile`;
-    record the command that worked.
+    record the command that worked. — closed 2026-10-19, evidence: evidence/G1.md (T0.1 section)
 
 ## 1. Shared pool and CA resolution (SCT-4, SCT-5)
 
