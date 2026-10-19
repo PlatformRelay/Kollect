@@ -474,8 +474,8 @@ for x in out:
     3) bad "PAC-4: .github/gitleaks.toml could not be parsed as TOML" ;;
     *) bad "PAC-4: python3 with tomllib not found or failed (exit ${rc}); it reads .github/gitleaks.toml" ;;
     esac
+    # An empty path regex is not skipped: gitleaks compiles it, and it matches every path.
     while IFS= read -r a; do
-      [[ -z "${a}" ]] && continue
       for name in "${LEAK_PATHS[@]}"; do
         printf '%s\n' "${name}" | grep -P -- "${a}" >/dev/null 2>&1
         rc=$?
@@ -871,6 +871,7 @@ expect_red "PAC-4 gitleaks escaped basic string" "exempts AGENTS.md from secret 
 expect_red "PAC-4 gitleaks quoted table and key" "exempts AGENTS.md from secret scanning" append_toml '[[ "allowlists" ]]' "\"paths\" = ['''(?:^|/)AGENTS\\.md\$''']"
 expect_red "PAC-4 gitleaks rule inline allowlist" "exempts AGENTS.md from secret scanning" append_toml '[[rules]]' 'id = "zz-rule"' "regex = '''zz'''" "allowlist = { paths = ['''AGENTS\\.md'''] }"
 expect_red "PAC-4 gitleaks rule dotted allowlist" "exempts CLAUDE.md from secret scanning" append_toml '[[rules]]' 'id = "zz-rule2"' "regex = '''zz'''" "allowlist.paths = ['''CLAUDE\\.md''']"
+expect_red "PAC-4 gitleaks empty regex" "exempts AGENTS.md from secret scanning" append_toml '[[allowlists]]' "paths = ['']"
 expect_red "PAC-4 gitleaks unparseable" "could not be parsed as TOML" append_toml '[allowlist'
 expect_red "PAC-4 gitleaks invalid regex" "could not be compiled" allow_path table '(unclosed'
 
