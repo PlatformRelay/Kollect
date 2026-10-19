@@ -222,7 +222,7 @@ Test rules for every group:
 These guard tests may pass when written, because groups 1-4 route both paths through the same
 resolver and constructors; their red is a mutation instead (5.1 names it).
 
-- [ ] 5.1 Tests:
+- [x] 5.1 Tests:
   - C1a (`internal/pipeline`, unit) given a hand-filled `collect.Store` (as
     `internal/pipeline/git_integration_test.go:36-50` does) and an `s3` `KollectSnapshotSink` spec
     with garbage CA PEM, and one with a CA and an `http://` endpoint, when `cliBuildContext` and
@@ -245,7 +245,9 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
     2.1 → exported · the CLI not passing the CA;
   - mutations, judged by exit status, with one no-op control that must survive: CLI `resolveCAPEM`
     bypasses the shared resolver (R2 or C1 fails); `probe.go` passes nil instead of the CA (C2 fails).
-- [ ] 5.2 Fix whatever 5.1 shows; record "none" if all pass and the mutations are killed.
+  — closed 2026-10-19, evidence: evidence/G5.md
+- [x] 5.2 Fix whatever 5.1 shows; record "none" if all pass and the mutations are killed. — closed
+  2026-10-19 (none), evidence: evidence/G5.md
 
 ## 6. Documentation (SCT-6)
 
@@ -303,8 +305,8 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
 | SCT-3 | mutation: accept `sslInsecure=true`; drop the post-`ApplyURI` backstop | M4 fails; M7 fails | not-run | |
 | SCT-4 | P1-P3, R1, D7, M5, S2 | terminal errors, no PEM echoed | not-run | |
 | SCT-4 | mutation: resolver returns nil on a missing key | R1 fails | pass | `evidence/G1.md` mutant 1 |
-| SCT-5 | R2, C1a, C1b, C2, C3 and the 5.1 mutations | same shared error on both paths, exit 2 after collection, no write | not-run | |
-| SCT-5 | no-op mutation control | survives | not-run | |
+| SCT-5 | R2, C1a, C1b, C2, C3 and the 5.1 mutations | same shared error on both paths, exit 2 after collection, no write | pass | `evidence/G5.md` rows 1-6 |
+| SCT-5 | no-op mutation control | survives | pass | `evidence/G5.md` mutant 0 |
 | SCT-1..5 | `go test -race -count=3` on changed packages | pass | not-run | |
 | SCT-6 | `task lint:markdown`, `hack/test/docs_*`, `task verify` | 0 issues, green | not-run | |
 | SCT-6 | FR-EXP-7 read against `registry.go` | lists exactly the CA-applying types | not-run | |
