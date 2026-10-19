@@ -120,31 +120,31 @@ func TestCATrustIntegration_unknownCARefused(t *testing.T) {
 	}
 }
 
-// I3: the appended pool keeps the system roots. The child runs with root P as the only
-// system root and exports, with CA X configured, to a server signed by P.
+// I3: the appended pool keeps the system roots. The test re-runs itself as a child
+// process with root P as the only system root and exports, with CA X configured, to a
+// server signed by P. The child branch is part of this test, not a test of its own, so
+// no integration test skips in the parent (task test-integration requires none).
 func TestCATrustIntegration_systemRootsKept(t *testing.T) {
+	if sinktlstest.InChild() {
+		exportErr, probeErr := exportAndProbe(t, os.Getenv("S3_CATRUST_ENDPOINT"), []byte(os.Getenv("S3_CATRUST_CA")))
+		if exportErr != nil || probeErr != nil {
+			t.Fatalf("export = %v, probe = %v; want both to succeed against a system root", exportErr, probeErr)
+		}
+
+		return
+	}
+
 	caX := sinktlstest.NewCA(t, "X")
 	rootP := sinktlstest.NewCA(t, "P")
 	f := &tlsFakeS3{}
 
-	sinktlstest.RunWithSystemRoots(t, "TestCATrustIntegrationChild_systemRootsKept", rootP.PEM,
+	sinktlstest.RunWithSystemRoots(t, t.Name(), rootP.PEM,
 		"S3_CATRUST_ENDPOINT="+startTLS(t, rootP, f),
 		"S3_CATRUST_CA="+string(caX.PEM),
 	)
 
 	if got := f.recorded(http.MethodPut); len(got) != 1 {
 		t.Fatalf("server signed by P recorded %v, want one PutObject", got)
-	}
-}
-
-func TestCATrustIntegrationChild_systemRootsKept(t *testing.T) {
-	if !sinktlstest.InChild() {
-		t.Skip("child of TestCATrustIntegration_systemRootsKept only")
-	}
-
-	exportErr, probeErr := exportAndProbe(t, os.Getenv("S3_CATRUST_ENDPOINT"), []byte(os.Getenv("S3_CATRUST_CA")))
-	if exportErr != nil || probeErr != nil {
-		t.Fatalf("export = %v, probe = %v; want both to succeed against a system root", exportErr, probeErr)
 	}
 }
 

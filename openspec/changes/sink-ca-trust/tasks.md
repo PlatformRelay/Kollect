@@ -289,6 +289,26 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
   with every new integration test in its `=== RUN` list and none skipped); branch review; PR
   closing SINK-CA-UNUSED-01's issue; after review and green CI, archive as the last commit.
 
+## 8. Stage-B fixes
+
+Findings of the branch review (`reviews/B-branch/round-1/verification.md`) and the items the task
+loop deferred to B. One commit each; behaviour fixes start from a failing test.
+
+- [x] 8.1 H1: `task test-integration` fails on three skipped subprocess children; run each child
+  inside its parent test (PI3, MI3, I3). — closed 2026-10-19: `task test-integration` expected 65,
+  executed 65, skipped 0, PASS; a CA-only pool still fails all three parents.
+- [ ] 8.2 A1: a refused redirect's error carries the `Location` URL; return a static terminal
+  `ErrCAInsecureRedirect` from the guarded S3/GCS client.
+- [ ] 8.3 A2: the CLI resolves credential Secrets before the CA rules; resolve the CA first, as the
+  operator does.
+- [ ] 8.4 A3/O1: the MongoDB CA path returns the driver's URI error (host) unchanged; return a
+  static, target-free error.
+- [ ] 8.5 D2: pin the effective Postgres sslmode in the DSN handed to pgx, so `require` and
+  `prefer`+`sslnegotiation=direct` cannot be confused.
+- [ ] 8.6 D3/O2: delete the unused third CA resolver `internal/controller/secret_ca.go`.
+- [ ] 8.7 D4: `git.ValidateTLSSpec` returns the shared terminal both-sources error.
+- [ ] 8.8 D7: `Registry.NewBackend` returns a nil `Backend` when the factory fails.
+
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |

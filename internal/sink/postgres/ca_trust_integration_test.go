@@ -148,26 +148,26 @@ func TestPostgresCATrust_PI6_unsetSSLModeVerifiesHostname(t *testing.T) {
 	requireSuccess(t, "no sslmode, matching SAN", exportErr, probeErr)
 }
 
-// PI3: the CA is appended to the system roots. The child runs with root P as the only
-// system root, against a server signed by P, with CA X configured.
+// PI3: the CA is appended to the system roots. The test re-runs itself as a child
+// process with root P as the only system root, against a server signed by P, with CA
+// X configured. The child branch is part of this test, not a test of its own, so no
+// integration test skips in the parent (task test-integration requires none).
 func TestPostgresCATrust_PI3_keepsSystemRoots(t *testing.T) {
+	if sinktlstest.InChild() {
+		exportErr, probeErr := exportAndProbe(t, os.Getenv("PG_CA_TRUST_DSN"), []byte(os.Getenv("PG_CA_TRUST_CA")))
+		requireSuccess(t, "verify-full, server signed by system root P, CA X", exportErr, probeErr)
+
+		return
+	}
+
 	t.Parallel()
 
 	caX := sinktlstest.NewCA(t, "X")
 	rootP := sinktlstest.NewCA(t, "P")
 	srv := sinktlstest.StartTLSPostgres(t, rootP.Server(t))
 
-	sinktlstest.RunWithSystemRoots(t, "TestPostgresCATrustChild_PI3", rootP.PEM,
+	sinktlstest.RunWithSystemRoots(t, t.Name(), rootP.PEM,
 		"PG_CA_TRUST_DSN="+srv.DSN("sslmode=verify-full"),
 		"PG_CA_TRUST_CA="+string(caX.PEM),
 	)
-}
-
-func TestPostgresCATrustChild_PI3(t *testing.T) {
-	if !sinktlstest.InChild() {
-		t.Skip("child of TestPostgresCATrust_PI3_keepsSystemRoots only")
-	}
-
-	exportErr, probeErr := exportAndProbe(t, os.Getenv("PG_CA_TRUST_DSN"), []byte(os.Getenv("PG_CA_TRUST_CA")))
-	requireSuccess(t, "verify-full, server signed by system root P, CA X", exportErr, probeErr)
 }
