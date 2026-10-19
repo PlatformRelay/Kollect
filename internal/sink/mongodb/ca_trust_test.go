@@ -439,3 +439,41 @@ func TestMongoCATrust_readerMatchesDriver(t *testing.T) {
 		}
 	}
 }
+
+// SCT-3 "the errors this requirement adds SHALL NOT contain the URI, host or
+// credentials": a URI the driver refuses after the TLS checks passed (a bad port, an
+// SRV lookup failure, whose resolver error names the host) is reported without the
+// driver's text, on build and probe.
+func TestMongoCATrust_driverURIErrorIsTargetFree(t *testing.T) {
+	caX := sinktlstest.NewCA(t, "X")
+
+	r := dns.DefaultResolver
+	srv, txt := r.LookupSRV, r.LookupTXT
+	r.LookupSRV = func(_, _, name string) (string, []*net.SRV, error) {
+		return "", nil, &net.DNSError{Err: "no such host", Name: name, IsNotFound: true}
+	}
+	r.LookupTXT = func(name string) ([]string, error) {
+		return nil, &net.DNSError{Err: "no such host", Name: name, IsNotFound: true}
+	}
+	t.Cleanup(func() { r.LookupSRV, r.LookupTXT = srv, txt })
+
+	for _, uri := range []string{
+		"mongodb://sentinel-user:sentinel-pass@sentinel-host:1:2/sentinel-db?tls=true",
+		"mongodb+srv://sentinel-user:sentinel-pass@sentinel-host.invalid/sentinel-db",
+	} {
+		buildErr, probeErr := buildAndProbe(t, uri, caX.PEM)
+
+		for name, err := range map[string]error{"build": buildErr, "probe": probeErr} {
+			if err == nil {
+				t.Errorf("%s: accepted; want the driver's refusal", name)
+				continue
+			}
+
+			for _, s := range leakSentinels {
+				if strings.Contains(err.Error(), s) {
+					t.Errorf("%s: error %q leaks %q", name, err, s)
+				}
+			}
+		}
+	}
+}

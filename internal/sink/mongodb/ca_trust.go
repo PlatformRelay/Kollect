@@ -78,7 +78,9 @@ func clientOptions(uri string, caPEM []byte) (*options.ClientOptions, error) {
 
 	opts := options.Client().ApplyURI(uri)
 	if err := opts.Validate(); err != nil {
-		return nil, fmt.Errorf("mongodb connect: %w", err)
+		// The driver's text can name the host (a bad port, an SRV lookup), so none of
+		// it is kept. Not terminal: an SRV lookup can fail transiently.
+		return nil, errURIRefused
 	}
 
 	if err := checkDriverTLS(opts.TLSConfig); err != nil {
@@ -90,6 +92,10 @@ func clientOptions(uri string, caPEM []byte) (*options.ClientOptions, error) {
 
 	return opts.SetTLSConfig(tlsConfig).SetDialer(netguard.DefaultDialer), nil
 }
+
+// errURIRefused is the target-free error for a URI the driver refuses once the
+// spec.tls checks passed.
+var errURIRefused = errors.New("mongodb connect: the driver refused the URI or its SRV lookup failed (details withheld: they can name the host)")
 
 // checkCAURI rejects a URI on which a spec.tls CA would be ignored or overridden.
 // Errors name the option, never the URI.
