@@ -106,3 +106,28 @@ failing parse is a C3 scan error. Plain scalars were already one source line eac
 
 Green: guard plain exit 0 in 13 s (no new hit on the real tree); `--self-test` exit 0 in 266 s
 with the three mutants red by their messages.
+
+## S5 (4.5): the help query counts as a gremlins call (fix review P2)
+
+The fix review (`reviews/B-branch/fixes/`) found that the fake gremlins answered `unleash --help`
+without counting it, so R5/R6 ("no gremlins call") and R8 ("`$GITHUB_OUTPUT` before the first
+call") could not see a help query moved ahead of the refusal or the hand-off.
+
+Red (gap): two detached worktrees at `49310e2ad`, each runner with this line inserted, once
+before `refused=()` and once before `REPORTS="$(mktemp -d)"`:
+
+```bash
+"${GREMLINS}" unleash --help >/dev/null 2>&1 || true
+```
+
+`MUTATION_SIGNAL_ONLY='R5|R6|R8'` of the unchanged guard against each: exit 0, 12 `ok` lines both.
+With the tightened guard: exit 1 on both, for example:
+
+```text
+FAIL: R5: MUTATION_FORCE_FAILURE=true still ran gremlins unleash --help
+FAIL: R6: GREMLINS_UNLEASH_DIFF=HEAD: gremlins unleash --help ran before the refusal
+FAIL: R8: when gremlins unleash --help ran, $GITHUB_OUTPUT held '-- reports=<dir> -- ', want 'reports=<dir>' (the hand-off comes before every gremlins call)
+```
+
+Green: guard plain exit 0 (also `R5|R6|R8|R9` on the real tree); `--self-test` exit 0 in 321 s,
+with the three new mutants red by message.
