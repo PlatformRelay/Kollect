@@ -91,7 +91,13 @@ func (r *Registry) NewBackend(
 		))
 	}
 
-	return factory(spec, ctx)
+	backend, err := factory(spec, ctx)
+	if err != nil {
+		// A constructor's typed nil (*s3.Backend)(nil) would make a non-nil Backend.
+		return nil, err
+	}
+
+	return backend, nil
 }
 
 func newGitBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {
