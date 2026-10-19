@@ -67,7 +67,7 @@ Each case below reads: given / when / then · the failure it exposes.
 
 ## 2. Measurement, guard and wiring (MUT-1 to MUT-4), group G2, one commit
 
-- [ ] 2.1 Write `hack/test/mutation_signal_test.sh` (plain and `--self-test`). Formatter cases, red
+- [x] 2.1 Write `hack/test/mutation_signal_test.sh` (plain and `--self-test`). Formatter cases, red
   against a stub `hack/ci/mutation-summary.sh <pkg>=<report>...` that prints `ok` and exits 0. Each
   invalid-report case puts the bad report LAST of three, so a formatter that prints as it goes
   shows a partial table:
@@ -88,8 +88,8 @@ Each case below reads: given / when / then · the failure it exposes.
     then the same failure shape · reports swapped between packages, which the JSON cannot reveal
     by itself (red today);
   - M8 given a package argument missing, given twice, or not one of the three (three cases), then
-    the same failure shape · a run that measures fewer packages than it claims (red today).
-- [ ] 2.2 Add measurement cases for the runner, red against a stub
+    the same failure shape · a run that measures fewer packages than it claims (red today). — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.2 Add measurement cases for the runner, red against a stub
   `hack/ci/mutation.sh <gremlins-bin>` that runs `<gremlins-bin> unleash ./...` once and exits 0.
   A fake gremlins (passed as the argument) records each call's argv and working directory, writes
   the recorded report named by its `--output`, and can fail or skip writing on a named call:
@@ -110,8 +110,8 @@ Each case below reads: given / when / then · the failure it exposes.
   - R4 given the fixture report with the control LIVED, then the run continues to the real
     packages; given it NOT COVERED, KILLED, twice, or absent while another mutant is LIVED (four
     cases), then non-zero before any real package call, naming the status · a pipeline blind to
-    survivors (MUT-3, red today).
-- [ ] 2.3 Add environment, night and hand-off cases for the runner, against the same stub and
+    survivors (MUT-3, red today). — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.3 Add environment, night and hand-off cases for the runner, against the same stub and
   fake:
   - R5 given `MUTATION_FORCE_FAILURE=true`, then non-zero with `::error::mutation:` naming the
     forced failure and no gremlins call; given it unset, empty or `false`, then the run is
@@ -128,8 +128,8 @@ Each case below reads: given / when / then · the failure it exposes.
     · a tool failure that reads like a night with survivors (red today);
   - R8 given `GITHUB_OUTPUT` set to a temp file, then before the first gremlins call it holds
     `reports=<dir>`, and after a green run `<dir>` still exists and holds the four reports · an
-    upload step pointed at nothing, or reports deleted on exit (red today).
-- [ ] 2.4 Add workflow cases, red against the tree before 2.7. Each mutant edits a throwaway copy
+    upload step pointed at nothing, or reports deleted on exit (red today). — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.4 Add workflow cases, red against the tree before 2.7. Each mutant edits a throwaway copy
   of only the files the guard reads:
   - W1 `mutation.yaml` has `name: Mutation testing`; `on:` exactly `schedule:` cron `30 1 * * *`
     and `workflow_dispatch:`; top-level `permissions: contents: read` and no job-level
@@ -146,8 +146,8 @@ Each case below reads: given / when / then · the failure it exposes.
     Mutants: `run: task mutation || true`; an extra `run:` step; `persist-credentials` dropped;
     `continue-on-error: true` on the job; `if:` on the run step; `upload-artifact` at another SHA;
     the upload `path:` changed; `if-no-files-found: warn`; the cron changed; `timeout-minutes`
-    dropped; a job-level `permissions:`; the run step's `env:` given a second key.
-- [ ] 2.5 Add install-chain and scope cases, red against the tree before 2.7:
+    dropped; a job-level `permissions:`; the run step's `env:` given a second key. — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.5 Add install-chain and scope cases, red against the tree before 2.7:
   - W2 `Taskfile.yml` holds `GREMLINS_VERSION: v0.6.0` (full semver) as a two-space top-level
     `vars:` entry directly under `# renovate: datasource=go depName=github.com/go-gremlins/gremlins`;
     the install task's `cmds:` is exactly one string,
@@ -171,8 +171,8 @@ Each case below reads: given / when / then · the failure it exposes.
     `hack/install-gremlins.sh` that downloads a release; a workflow step
     `run: gremlins unleash ./...`; a `run: task mutation` step in the `ci.yaml` `lint` job; a
     `deps: [mutation]` on another Taskfile task; an included Taskfile outside `hack/task/` that
-    runs `hack/ci/mutation.sh`.
-- [ ] 2.6 Add threshold-source, reporter and scan-error cases, red against the tree before 2.7:
+    runs `hack/ci/mutation.sh`. — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.6 Add threshold-source, reporter and scan-error cases, red against the tree before 2.7:
   - T1 `--threshold-efficacy`, `--threshold_efficacy=100`, `--threshold-mcover` and
     `--threshold.mcover` added to the runner, the `mutation` task and a workflow step (one mutant
     per spelling and file), then the guard fails naming file and line · a gate on the command
@@ -193,8 +193,8 @@ Each case below reads: given / when / then · the failure it exposes.
   - C3 an unparsable copy of each YAML file the guard reads (`mutation.yaml`, `Taskfile.yml`,
     `hack/ci/gremlins.yaml`, `ci-failure-report.yaml`), an unreadable file in the W3 scan set, and
     `git ls-files` failing (a copy that is not a git repository), each red with the guard's own
-    scan-error message · a scan error read as "nothing found".
-- [ ] 2.7 Implement: the fixture module from 1.1 under `hack/test/testdata/mutation/` (own
+    scan-error message · a scan error read as "nothing found". — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.7 Implement: the fixture module from 1.1 under `hack/test/testdata/mutation/` (own
   `go.mod`, a `go` line no newer than the root's); `hack/ci/gremlins.yaml` (`{}` and a comment);
   `hack/ci/mutation-summary.sh` and `hack/ci/mutation.sh` (`set -euo pipefail`, `GREMLINS_`
   prefix refusal and force-failure check first, a `mktemp -d` report directory written to
@@ -214,8 +214,8 @@ Each case below reads: given / when / then · the failure it exposes.
   `task lint:shell`; the zizmor gate at its CI command; the real chain once, `task mutation` with
   `GITHUB_OUTPUT` and `GITHUB_STEP_SUMMARY` pointed at temp files (green, summary and four reports
   recorded) and once with `MUTATION_FORCE_FAILURE=true` (red); wall time of the guard plain and
-  `--self-test`, and of CFC-2 with a cold and a warm module cache, as the `lint` delta.
-- [ ] 2.8 Defect controls in `--self-test`, one mutant each of a copy, judged by its case's message:
+  `--self-test`, and of CFC-2 with a cold and a warm module cache, as the `lint` delta. — closed 2026-10-19, evidence: evidence/G2.md
+- [x] 2.8 Defect controls in `--self-test`, one mutant each of a copy, judged by its case's message:
   formatter: count timed out as killed (M1), exit 1 on any LIVED (M2), print rows before
   validating the last report (M3), drop the zero-mutation check (M4), accept unknown statuses
   (M5), drop the package-file check (M6), accept a duplicate package (M8); runner: `|| true` on
@@ -225,7 +225,7 @@ Each case below reads: given / when / then · the failure it exposes.
   (R4), let `MUTATION_FORCE_FAILURE` skip gremlins and exit 0 (R5), drop the `GREMLINS_` refusal
   (R6), replace it with a fixed list of the three threshold and narrowing names (R6), ignore empty
   values (R6), drop the `$GITHUB_OUTPUT` line or remove the directory on exit (R8); static: the
-  mutants 2.4-2.6 list. Each turns its case red; the no-op copy passes.
+  mutants 2.4-2.6 list. Each turns its case red; the no-op copy passes. — closed 2026-10-19, evidence: evidence/G2.md
 
 ## 3. Land
 
@@ -240,15 +240,15 @@ Each case below reads: given / when / then · the failure it exposes.
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| MUT-1 | 1.1 probe: version, mutator flags, counts and runtime per package, report shape, exit statuses | recorded; matches the spec or stops as a finding | not-run | |
-| MUT-1 | M1, M8, R1, R8, W1-W3, C1 and their 2.8 mutants | counts exact; four calls, exact argv; report hand-off; wiring and install chain pinned; each mutant red | not-run | |
-| MUT-1 | 2.7 real chain: `task mutation` locally, plain and forced | green with summary and four reports; forced run red | not-run | |
+| MUT-1 | 1.1 probe: version, mutator flags, counts and runtime per package, report shape, exit statuses | recorded; matches the spec or stops as a finding | pass | evidence/G1.md |
+| MUT-1 | M1, M8, R1, R8, W1-W3, C1 and their 2.8 mutants | counts exact; four calls, exact argv; report hand-off; wiring and install chain pinned; each mutant red | pass | evidence/G2.md |
+| MUT-1 | 2.7 real chain: `task mutation` locally, plain and forced | green with summary and four reports; forced run red | pass | evidence/G2.md |
 | MUT-1 | first scheduled `Mutation testing` run and the `CI failure report` run it triggers | artifact present, summary has five counts per package; reporter run completes | post-merge | follow-up evidence PR |
-| MUT-2 | M2-M6, R2, R3, R6, T1-T3, C2, C3 and their 2.8 mutants | survivors green; broken, stale or empty measurement red; every threshold source red; prose control green; scan errors red | not-run | |
-| MUT-3 | R4 and its mutants; 1.1 fixture control on real gremlins | control LIVED continues; NOT COVERED, KILLED, duplicated, absent red | not-run | |
+| MUT-2 | M2-M6, R2, R3, R6, T1-T3, C2, C3 and their 2.8 mutants | survivors green; broken, stale or empty measurement red; every threshold source red; prose control green; scan errors red | pass | evidence/G2.md |
+| MUT-3 | R4 and its mutants; 1.1 fixture control on real gremlins | control LIVED continues; NOT COVERED, KILLED, duplicated, absent red | pass | evidence/G1.md, evidence/G2.md |
 | MUT-3 | first scheduled run's fixture step | control LIVED | post-merge | follow-up evidence PR |
-| MUT-4 | R7, R5 and their mutants | night 2 red and distinguishable; knob only fails | not-run | |
+| MUT-4 | R7, R5 and their mutants | night 2 red and distinguishable; knob only fails | pass | evidence/G2.md |
 | MUT-4 | owner-forced scheduled failure (3.1), then recovery | red run, `CI failure: Mutation testing` issue opened, then closed on the green night | post-merge | follow-up evidence PR |
-| all | `ci_workflow_security_test.sh`, `ci_failure_report_test.sh`, CFC-2 and DTP guards, zizmor, after the 2.7 edits | green | not-run | |
-| all | guard wall time plain and `--self-test`; CFC-2 cold and warm; `lint` job delta | recorded in the G2 evidence | not-run | |
+| all | `ci_workflow_security_test.sh`, `ci_failure_report_test.sh`, CFC-2 and DTP guards, zizmor, after the 2.7 edits | green | pass | evidence/G2.md |
+| all | guard wall time plain and `--self-test`; CFC-2 cold and warm; `lint` job delta | recorded in the G2 evidence | pass | evidence/G2.md |
 | all | independent review; CI on the PR head | APPROVE, green; reviewed and archive revisions recorded | not-run | |
