@@ -101,29 +101,29 @@ func TestMongoCATrust_MI2_unknownCARefused(t *testing.T) {
 	}
 }
 
-// MI3: the CA is appended to the system roots. The child runs with root P as the
-// only system root, against a server signed by P, with CA X configured.
+// MI3: the CA is appended to the system roots. The test re-runs itself as a child
+// process with root P as the only system root, against a server signed by P, with CA
+// X configured. The child branch is part of this test, not a test of its own, so no
+// integration test skips in the parent (task test-integration requires none).
 func TestMongoCATrust_MI3_keepsSystemRoots(t *testing.T) {
+	if sinktlstest.InChild() {
+		docs, probeErr, exportErr := mongoExportAndProbe(t, os.Getenv("MONGO_CA_TRUST_URI"), []byte(os.Getenv("MONGO_CA_TRUST_CA")))
+		if probeErr != nil || exportErr != nil || docs != 1 {
+			t.Fatalf("server signed by system root P, CA X: probe %v, export %v, documents %d; want success and 1",
+				probeErr, exportErr, docs)
+		}
+
+		return
+	}
+
 	t.Parallel()
 
 	caX := sinktlstest.NewCA(t, "X")
 	rootP := sinktlstest.NewCA(t, "P")
 	srv := sinktlstest.StartTLSMongo(t, rootP.Server(t), rootP.PEM)
 
-	sinktlstest.RunWithSystemRoots(t, "TestMongoCATrustChild_MI3", rootP.PEM,
+	sinktlstest.RunWithSystemRoots(t, t.Name(), rootP.PEM,
 		"MONGO_CA_TRUST_URI="+srv.URI("tls=true"),
 		"MONGO_CA_TRUST_CA="+string(caX.PEM),
 	)
-}
-
-func TestMongoCATrustChild_MI3(t *testing.T) {
-	if !sinktlstest.InChild() {
-		t.Skip("child of TestMongoCATrust_MI3_keepsSystemRoots only")
-	}
-
-	docs, probeErr, exportErr := mongoExportAndProbe(t, os.Getenv("MONGO_CA_TRUST_URI"), []byte(os.Getenv("MONGO_CA_TRUST_CA")))
-	if probeErr != nil || exportErr != nil || docs != 1 {
-		t.Fatalf("server signed by system root P, CA X: probe %v, export %v, documents %d; want success and 1",
-			probeErr, exportErr, docs)
-	}
 }
