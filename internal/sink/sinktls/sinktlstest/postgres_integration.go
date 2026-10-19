@@ -7,8 +7,10 @@ package sinktlstest
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"strings"
@@ -26,11 +28,13 @@ import (
 type PostgresServer struct {
 	Host string
 	Port string
+
+	// password is generated per container at run time, so no credential is in the source.
+	password string
 }
 
 const (
 	postgresUser     = "kollect"
-	postgresPassword = "kollect"
 	postgresDatabase = "inventory"
 )
 
@@ -38,7 +42,7 @@ const (
 // "sslmode=verify-full"); extra may be empty.
 func (s PostgresServer) DSN(extra string) string {
 	return strings.TrimSpace(fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s %s",
-		s.Host, s.Port, postgresUser, postgresPassword, postgresDatabase, extra))
+		s.Host, s.Port, postgresUser, s.password, postgresDatabase, extra))
 }
 
 // postgresTLSEntrypoint installs the key and certificate with the owner and mode the
@@ -63,11 +67,17 @@ func StartTLSPostgres(t testing.TB, cert tls.Certificate) PostgresServer {
 		certPEM.Write(pem.EncodeToMemory(&pem.Block{Type: certBlockType, Bytes: der}))
 	}
 
+	secret := make([]byte, 16)
+	if _, err := rand.Read(secret); err != nil {
+		t.Fatalf("generate postgres password: %v", err)
+	}
+	password := hex.EncodeToString(secret)
+
 	ctx := context.Background()
 	ctr, err := postgres.Run(ctx, "postgres:16-alpine",
 		postgres.WithDatabase(postgresDatabase),
 		postgres.WithUsername(postgresUser),
-		postgres.WithPassword(postgresPassword),
+		postgres.WithPassword(password),
 		testcontainers.WithFiles(
 			testcontainers.ContainerFile{
 				Reader:            strings.NewReader(string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}))),
@@ -109,5 +119,5 @@ func StartTLSPostgres(t testing.TB, cert tls.Certificate) PostgresServer {
 		t.Fatal(err)
 	}
 
-	return PostgresServer{Host: host, Port: port.Port()}
+	return PostgresServer{Host: host, Port: port.Port(), password: password}
 }
