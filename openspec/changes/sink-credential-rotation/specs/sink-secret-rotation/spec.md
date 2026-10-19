@@ -83,7 +83,8 @@ carry the same retryable error and not a terminal API status. For an inventory w
 `0s`, the retry comes from SCR-7. An S3 or GCS sink whose referenced Secret is empty SHALL NOT fall back to
 ambient credentials. A metadata read that fails for any other reason (timeout, cancelled
 context, forbidden) observed no change: it SHALL fail that acquire only and SHALL NOT retire the
-pooled backend.
+pooled backend on its own account; a change that an earlier successful read of the same acquire
+observed still retires, as SCR-3 says.
 
 #### Scenario: Deleted credential Secret
 
@@ -145,8 +146,8 @@ receives it, and SHALL close it exactly once, after the last export or cleanup t
 has released it. A retired backend SHALL NOT be closed while an acquirer holds it, and the idle
 TTL SHALL NOT remove an entry that is held. A Secret change observed by a successful read SHALL
 retire the old backend even when the rebuild then fails, and the old backend SHALL NOT be used as
-a fallback. A backend built by an acquire that started before another acquire stored or retired
-the sink's entry SHALL NOT be pooled.
+a fallback. A backend built after a pool miss that came before another acquire stored or
+retired the sink's entry SHALL NOT be pooled.
 
 #### Scenario: Rotation during a long export
 
