@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **docs:** Write the docs lock header in --opt=value form [4750f12](https://github.com/platformrelay/kollect/commit/4750f124101b7ff282d67f5408c1427842465d66)
+
 - **test:** Generate the TLS test database passwords at run time [7295baf](https://github.com/platformrelay/kollect/commit/7295baf40bd265d8dd1234ec02ce4c717401805c)
 
 - **s3:** Match the redirect limit by identity [cf708df](https://github.com/platformrelay/kollect/commit/cf708df89e30c4f7a829820989b21a0318bdc6f2)
