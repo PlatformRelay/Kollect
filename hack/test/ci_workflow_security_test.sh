@@ -606,11 +606,13 @@ cws6_guards() {
   # change ci-failure-reporting, CFR-7) checks its own wiring only when it runs, so it is named too,
   # and so are the fuzz runner, nightly shuffle and README quick-start tests (openspec change
   # test-depth-signals, TDS-1 to TDS-3) and the mutation signal test (openspec change
-  # mutation-testing-signal, MUT-1 to MUT-4).
+  # mutation-testing-signal, MUT-1 to MUT-4), and the agent contract test (openspec change
+  # public-agent-contract, PAC-1 to PAC-6).
   local cfc_guards=("${ROOT}"/hack/test/consistency_*_test.sh "${ROOT}/hack/test/go_patch_lag_test.sh"
     "${ROOT}/hack/test/openspec_evidence_markdown_only_test.sh" "${ROOT}/hack/test/ci_failure_report_test.sh"
     "${ROOT}/hack/test/fuzz_retry_test.sh" "${ROOT}/hack/test/test_shuffle_test.sh"
-    "${ROOT}/hack/test/readme_quickstart_test.sh" "${ROOT}/hack/test/mutation_signal_test.sh")
+    "${ROOT}/hack/test/readme_quickstart_test.sh" "${ROOT}/hack/test/mutation_signal_test.sh"
+    "${ROOT}/hack/test/agent_contract_test.sh")
   [[ -f "${cfc_guards[0]}" ]] ||
     fail "CFC-6: no hack/test/consistency_*_test.sh guard found -- the cross-file consistency gates are gone"
   for script in "${cfc_guards[@]}"; do

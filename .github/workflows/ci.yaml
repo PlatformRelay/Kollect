@@ -624,6 +624,24 @@ jobs:
         run: bash hack/test/openspec_evidence_markdown_only_test.sh
       - name: Verify the openspec evidence guard can still fail
         run: bash hack/test/openspec_evidence_markdown_only_test.sh --self-test
+      # PAC-1 to PAC-6 (openspec change public-agent-contract): the tracked AGENTS.md names only
+      # existing tasks, lists exactly the gates hack/check.sh runs, keeps its checklist paths and
+      # symbols real, and carries no scrub-pattern match, home or harness path, internal host or
+      # private header; .gitignore and the gitleaks allowlist keep the agent files public and
+      # scanned. The guard needs rg (hack/scrub.sh semantics), which the runner image does not
+      # ship: install the noble archive's version when it is absent. Plain and --self-test as
+      # separate steps; CWS-6/CFC-6 checks each mode runs in a required job.
+      - name: Ensure ripgrep is available
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ripgrep=14.1.0-1
+          fi
+          rg --version
+      - name: Verify the public agent contract (PAC-1 to PAC-6)
+        run: bash hack/test/agent_contract_test.sh
+      - name: Verify the agent contract guard can still fail (PAC-5)
+        run: bash hack/test/agent_contract_test.sh --self-test
       # Network: the module proxy, golangci-lint's custom build and the vuln DB (about 30 s warm).
       - name: Verify every pinned tool resolves and runs under go.mod's Go (CFC-2)
         run: bash hack/test/consistency_tool_pins_test.sh

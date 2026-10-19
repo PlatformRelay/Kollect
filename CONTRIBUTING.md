@@ -28,6 +28,7 @@ duplicate prose across them.
 | [ADR and RFC process](docs/development/adr-rfc-process.md) | When to write ADRs vs RFCs, numbering, lifecycle, review checklist |
 | [Planned features](docs/roadmap/planned-features.md) | Backlog and Exploring specs before they land on the phased roadmap |
 | [tooling-setup.md](docs/development/tooling-setup.md) | Maintainer setup for arch-lint, depguard, SonarCloud |
+| [AGENTS.md](AGENTS.md) | Instructions for AI coding assistants — commands, CI gates, change checklists |
 
 **Merge policy:** use **Rebase and merge** on pull requests (see
 [Changelog and releases](#changelog-and-releases)). `main` requires green **`preflight`** and

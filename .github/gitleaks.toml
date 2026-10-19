@@ -7,5 +7,4 @@ useDefault = true
 paths = [
   '''(?:^|/)references/''',
   '''(?:^|/)agent-context/''',
-  '''(?:^|/)AGENTS\.md$''',
 ]
