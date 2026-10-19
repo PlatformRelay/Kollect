@@ -158,3 +158,26 @@ counting it as the chain.
 
 Green: guard plain exit 0; `--self-test` exit 0 in 289 s, the two mutants red by message and the
 control passing.
+
+## S7 (4.7): the help parse cannot miss a mutator line (round 2, R2-3)
+
+Round 2 found that S3's parse (`^[[:space:]]+(--...)`) skips a help line with a shorthand,
+`-X, --invert-everything  enable "INVERT_EVERYTHING" mutants`, so a bump adding such a flag would
+pass with it off. No v0.6.0 mutator flag has a shorthand (`unleash-help.txt`).
+
+Red, `MUTATION_SIGNAL_ONLY=R9` with two new variants on the S6 runner (exit 1, 8 failures):
+
+```text
+FAIL: R9: help extra-short: the run exited 0
+FAIL: R9: help extra-short: gremlins unleash was called 4 times, want 0 (fail before measuring)
+FAIL: R9: help odd: the run exited 0
+FAIL: R9: help odd: gremlins unleash was called 4 times, want 0 (fail before measuring)
+```
+
+Fix: the parse accepts an optional shorthand (`-X,`) before the long flag, and the runner fails when the
+number of `enable "<TYPE>" mutants` lines differs from the number of flags it read, naming the
+lines it did not understand.
+
+Green: R9 seven lines `ok`; guard plain exit 0; `--self-test` exit 0 in 278 s with two new
+mutants red by message (shorthand not parsed; unread lines accepted). Real `task mutation` in a
+clean detached worktree with this runner: exit 0, the recorded counts.

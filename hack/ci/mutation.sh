@@ -81,9 +81,15 @@ echo "mutation: reports in ${REPORTS}"
 # disabled and say nothing; one that drops a flag is named here, not by a usage error.
 help="$("${GREMLINS}" unleash --help 2>&1)" ||
   die "'gremlins unleash --help' failed, so the mutator flags cannot be checked: ${help:0:300}"
-offered="$(sed -nE 's/^[[:space:]]+(--[a-z0-9-]+)[[:space:]]+enable "[A-Z0-9_]+" mutants.*$/\1/p' <<<"${help}" | LC_ALL=C sort)"
+offered="$(sed -nE 's/^[[:space:]]+(-[A-Za-z], )?(--[a-z0-9-]+)[[:space:]]+enable "[A-Z0-9_]+" mutants.*$/\2/p' <<<"${help}" | LC_ALL=C sort)"
 [[ -n "${offered}" ]] ||
   die "'gremlins unleash --help' lists no mutator flag (no 'enable \"...\" mutants' line): its help changed; re-check FLAGS in this script"
+# Every mutator line must be one the parse above read, or a new one in another shape stays off.
+mentions="$(grep -cE 'enable "[A-Z0-9_]+" mutants' <<<"${help}" || true)"
+if [[ "${mentions}" != "$(grep -c . <<<"${offered}")" ]]; then
+  odd="$(grep -E 'enable "[A-Z0-9_]+" mutants' <<<"${help}" | grep -vE '^[[:space:]]+(-[A-Za-z], )?--[a-z0-9-]+[[:space:]]+enable ' | tr -s ' ' | tr '\n' ';' || true)"
+  die "'gremlins unleash --help' has ${mentions} mutator lines, and these are not understood: ${odd:-?}; its help changed, re-check FLAGS in this script"
+fi
 passed="$(printf '%s\n' "${FLAGS[@]}" | LC_ALL=C sort)"
 if [[ "${offered}" != "${passed}" ]]; then
   added="$(LC_ALL=C comm -23 <(echo "${offered}") <(echo "${passed}") | tr '\n' ' ')"
