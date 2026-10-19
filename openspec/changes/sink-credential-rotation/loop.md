@@ -51,6 +51,7 @@ Holistic run at B: not run yet.
 
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
+| T0.1 | BLOCKED (SPECIFICATION) | reviewer-a diff, 1 round, REQUEST_CHANGES on evidence class and wording, fixed; no paid leg (evidence only, no BLOCK) | `exportMinInterval: 0s` bindings never re-export unchanged inventories and an inventory-level `0s` does not requeue a transient total failure; contradicts proposal *Non-goals*/*Assumptions* and SCR-2 recovery for that case. Options A/B/C in `evidence/T0.1.md` *Decision request*. Rows 4, 5 by reading (gap). 0.1 left unticked until the decision |
 
 ## Known red
 
@@ -69,6 +70,11 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 ## Lessons
 
 <!-- master list: one line per reusable lesson with the task ids that hit it; two or more ids → a proposed harness change at hand-off -->
+
+- T0.1: the metadata GET of a missing Secret returns an API NotFound that `ClassOf` classes terminal; `secretMeta` must rewrite it to the plain "not found" text (as `ResolveSecret` does) or a deleted Secret is never retried.
+- T0.1: the fake client keeps the UID a test sets and starts `resourceVersion` at 999, +1 per write; model delete-and-recreate by setting a new UID.
+- T0.1: a probe that only prints is agent-review, not machine; assert the reported outcome in the probe.
+- T0.1: check "bounded by the export interval" claims against `exportMinInterval: 0s` (material-change only, `per_sink_export.go:85-87`).
 
 ## Where a human should look first
 
