@@ -29,7 +29,9 @@ fixture provenance may name the version.
 created fresh for the run, with every mutator flag of the pinned version passed explicitly as
 enabled, `--config=<repository root>/hack/ci/gremlins.yaml` as an absolute path (the fixture
 call runs from the fixture's directory) and `--timeout-coefficient=10` (at the default 3 a loaded
-runner times whole packages out). When `$GITHUB_OUTPUT` is set, the runner SHALL write
+runner times whole packages out). Before its first `unleash` call it SHALL read the pinned
+binary's mutator flags from `gremlins unleash --help` and fail unless they are exactly the flags
+it passes, so a version bump cannot leave a new mutator silently off. When `$GITHUB_OUTPUT` is set, the runner SHALL write
 `reports=<that directory>` to it before its first gremlins call and SHALL leave the directory in
 place; the workflow's upload step SHALL take its `path:` from that output, with
 `if-no-files-found: error`. `hack/ci/mutation-summary.sh` SHALL take exactly one

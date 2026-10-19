@@ -16,11 +16,13 @@
 #          mutant killed or lived) or misattributed report,
 #          and a missing, repeated or unknown package, fail with an ::error::mutation: line and
 #          no counts table;
-#   R1-R8  the runner: four calls in order with the exact argv (--timeout-coefficient=10 in it),
-#          a fresh report directory and GOFLAGS=-count=1; a gremlins failure or a missing or stale report fails; the fixture
-#          control must be LIVED exactly once; MUTATION_FORCE_FAILURE can only fail the run; any
-#          GREMLINS_ variable is refused; a tool failure never reads like a night with survivors;
-#          the report directory reaches $GITHUB_OUTPUT before the first call and is kept;
+#   R1-R9  the runner: four calls in order with the exact argv (--timeout-coefficient=10 in it),
+#          a fresh report directory and GOFLAGS=-count=1; a gremlins failure or a missing or
+#          stale report fails; the fixture control must be LIVED exactly once;
+#          MUTATION_FORCE_FAILURE can only fail the run; any GREMLINS_ variable is refused; a tool
+#          failure never reads like a night with survivors; the report directory reaches
+#          $GITHUB_OUTPUT before the first call and is kept; the pinned binary's mutator flags
+#          are exactly the ones passed;
 #   W1-W3  mutation.yaml's shape, the Taskfile install chain, and no install or run of gremlins
 #          (or reach of the mutation task) anywhere else in the scanned tree;
 #   T1-T3  no threshold on a command line, in a config file or in the environment;
@@ -286,16 +288,18 @@ if [[ "${MODE}" == "check" ]]; then
   fi
 
   # ===========================================================================================
-  # Runner (R1-R8): hack/ci/mutation.sh <gremlins-bin>, with a fake gremlins.
+  # Runner (R1-R9): hack/ci/mutation.sh <gremlins-bin>, with a fake gremlins.
   # ===========================================================================================
   # Globals a case sets before run_runner: SRC (directory of <short>.json reports the fake
   # serves), FAIL_CALL / NOWRITE_CALL (call number that exits 1 / writes nothing; with FAIL_WRITE 1
 # the failing call writes its report first, as a gated gremlins does), XENV (array of
-  # extra NAME=VALUE), GHOUT (1: set GITHUB_OUTPUT), KEEP_TMPDIR (a TMPDIR to reuse).
-  # Results: RC, RD (case dir: out, err, summary, ghout, calls/N.{argv,cwd,goflags,ghout}),
-  # NCALL, RTMP (the TMPDIR the runner saw).
+  # extra NAME=VALUE), GHOUT (1: set GITHUB_OUTPUT), KEEP_TMPDIR (a TMPDIR to reuse), HELP (the
+  # text `unleash --help` prints; the recorded v0.6.0 help by default), HELP_FAIL (1: it exits 1).
+  # Results: RC, RD (case dir: out, err, summary, ghout, help, calls/N.{argv,cwd,goflags,ghout}),
+  # NCALL (unleash calls; the help query is not one), RTMP (the TMPDIR the runner saw).
   reset_runner() {
     SRC="${REP}" FAIL_CALL=0 FAIL_WRITE=0 NOWRITE_CALL=0 GHOUT=0 KEEP_TMPDIR=""
+    HELP="${FX}/unleash-help.txt" HELP_FAIL=0
     XENV=()
   }
   reset_runner
@@ -312,7 +316,18 @@ if [[ "${MODE}" == "check" ]]; then
 # Fake gremlins: records argv, working directory, GOFLAGS and $GITHUB_OUTPUT per call; fails or
 # writes nothing on a named call; otherwise copies the served report named like --output's
 # basename to --output, and like the real one writes nothing when its directory is missing.
+# `unleash --help` prints the served help (or fails) and records how many unleash calls came
+# before it; it is not counted as a call.
 d="${FAKE_DIR:?}"
+if [[ "$*" == "unleash --help" ]]; then
+  cat "${d}/n" >>"${d}/help"
+  if [[ "${FAKE_HELP_FAIL:-0}" == 1 ]]; then
+    echo "Error: unknown command" >&2
+    exit 1
+  fi
+  cat "${FAKE_HELP:?}"
+  exit 0
+fi
 n=$(($(cat "${d}/n") + 1))
 echo "${n}" >"${d}/n"
 printf '%s\n' "$@" >"${d}/calls/${n}.argv"
@@ -341,7 +356,7 @@ FAKE
     chmod +x "${RD}/bin/gremlins"
     local -a envs=(env -i "PATH=${PATH}" "HOME=${HOME:-/tmp}" "TMPDIR=${RTMP}" "FAKE_DIR=${RD}"
       "FAKE_SRC=${SRC}" "FAKE_FAIL_CALL=${FAIL_CALL}" "FAKE_FAIL_WRITE=${FAIL_WRITE}" "FAKE_NOWRITE_CALL=${NOWRITE_CALL}"
-      "GITHUB_STEP_SUMMARY=${RD}/summary")
+      "FAKE_HELP=${HELP}" "FAKE_HELP_FAIL=${HELP_FAIL}" "GITHUB_STEP_SUMMARY=${RD}/summary")
     ((GHOUT)) && {
       : >"${RD}/ghout"
       envs+=("GITHUB_OUTPUT=${RD}/ghout")
@@ -550,6 +565,52 @@ FAKE
     grep -Fx -- "| internal/redact | $(oracle "${N3}/redact.json") |" "${RD}/summary" >/dev/null ||
       case_fail R7 "night 3's summary does not hold night 3's own redact counts: $(grep -F 'internal/redact' "${RD}/summary" || true)"
     done_case "R7 night 1 ok, night 2 tool failure (red, no table), night 3 ok with its own counts"
+  fi
+
+  # R9 (stage-B review, B2): the runner reads the pinned binary's mutator flags before the first
+  # unleash call and fails unless they are exactly the ones it passes, so a bump that adds a
+  # mutator (off by default) cannot leave it silently disabled, and one that drops a flag names it.
+  if want R9; then
+    start_case
+    run_runner
+    [[ "${RC}" -eq 0 ]] || case_fail R9 "the runner exited ${RC} on the recorded v0.6.0 help; stderr: $(head -c 300 "${RD}/err" | tr '\n' '|')"
+    [[ "$(cat "${RD}/help" 2>/dev/null)" == 0 ]] ||
+      case_fail R9 "'unleash --help' was queried after [$(tr '\n' ' ' 2>/dev/null <"${RD}/help" || true)] unleash calls, want exactly once, before the first"
+    done_case "R9 the pinned gremlins' mutator flags are read before the first call"
+    for v in extra missing none fail; do
+      start_case
+      new_tmp
+      h="${TMP}/help"
+      case "${v}" in
+        extra)
+          sed 's/^  -h, --help /      --invert-everything           enable "INVERT_EVERYTHING" mutants\n&/' \
+            "${FX}/unleash-help.txt" >"${h}"
+          want_msg=--invert-everything
+          ;;
+        missing)
+          grep -v -- '--remove-self-assignments' "${FX}/unleash-help.txt" >"${h}" || true
+          want_msg=--remove-self-assignments
+          ;;
+        none)
+          grep -v 'enable "' "${FX}/unleash-help.txt" >"${h}" || true
+          want_msg="lists no mutator flag"
+          ;;
+        fail)
+          cp "${FX}/unleash-help.txt" "${h}"
+          HELP_FAIL=1
+          want_msg="unleash --help' failed"
+          ;;
+      esac
+      [[ "${v}" != extra ]] || grep -F -- '--invert-everything' "${h}" >/dev/null ||
+        case_fail R9 "the extra-mutator help was not built"
+      HELP="${h}"
+      run_runner
+      [[ "${RC}" -ne 0 ]] || case_fail R9 "help ${v}: the run exited 0"
+      [[ "${NCALL}" -eq 0 ]] || case_fail R9 "help ${v}: gremlins unleash was called ${NCALL} times, want 0 (fail before measuring)"
+      r_err_has R9 "${want_msg}"
+      r_no_table R9
+      done_case "R9 help ${v}: the run fails before measuring, naming it"
+    done
   fi
 
   if want R8; then
@@ -916,7 +977,7 @@ FAKE
     case_fail filter "MUTATION_SIGNAL_ONLY='${ONLY}' names no case; nothing was checked"
   fi
   [[ "${BAD}" -eq 0 ]] || fail "the mutation signal breaks MUT-1 to MUT-4 (${BAD} failure(s) above)"
-  pass "the nightly mutation measurement reports, cannot gate, and cannot go blind (M1-M9, R1-R8, W1-W3, T1-T3, C1, C3)"
+  pass "the nightly mutation measurement reports, cannot gate, and cannot go blind (M1-M9, R1-R9, W1-W3, T1-T3, C1, C3)"
   exit 0
 fi
 
@@ -1153,6 +1214,14 @@ done' 'measure aggregate "${ROOT}" ./internal/... ./internal/...'
     lit "${R}" 'if [[ "${name}" == GREMLINS_* ]]; then' 'if [[ "${name}" == GREMLINS_UNLEASH_THRESHOLD_EFFICACY || "${name}" == GREMLINS_UNLEASH_DIFF || "${name}" == GREMLINS_UNLEASH_TAGS || "${name}" == GREMLINS_MUTANTS_ARITHMETIC_BASE_ENABLED ]]; then'
   judge R6 "empty GREMLINS_ values ignored (R6)" "R6: GREMLINS_UNLEASH_TAGS=: the runner started" \
     lit "${R}" 'if [[ "${name}" == GREMLINS_* ]]; then' 'if [[ "${name}" == GREMLINS_* && -n "${!name}" ]]; then'
+  judge R9 "the mutator-flag comparison dropped (R9, stage-B B2)" "R9: help extra: the run exited 0" \
+    lit "${R}" 'if [[ "${offered}" != "${passed}" ]]; then' 'if false; then'
+  judge R9 "only a dropped flag checked, an added one accepted (R9, stage-B B2)" "R9: help extra: the run exited 0" \
+    lit "${R}" 'if [[ "${offered}" != "${passed}" ]]; then' 'if [[ -n "$(LC_ALL=C comm -13 <(echo "${offered}") <(echo "${passed}"))" ]]; then'
+  judge R9 "an empty mutator list not singled out (R9, stage-B B2)" "R9: no '::error::mutation:' line holding 'lists no mutator flag'" \
+    lit "${R}" '[[ -n "${offered}" ]] ||' 'true ||'
+  judge R9 "a failing --help ignored (R9, stage-B B2)" "R9: no '::error::mutation:' line holding 'unleash --help' failed'" \
+    lit "${R}" 'help="$("${GREMLINS}" unleash --help 2>&1)" ||' 'help="$("${GREMLINS}" unleash --help 2>&1)" || true ||'
   judge R8 "the \$GITHUB_OUTPUT line dropped (R8)" "R8: before the first gremlins call" \
     lit "${R}" '  echo "reports=${REPORTS}" >>"${GITHUB_OUTPUT}"' '  :'
   judge R8 "the report directory removed on exit (R8)" "R8: after the green run" \

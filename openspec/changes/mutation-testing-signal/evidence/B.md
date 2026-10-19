@@ -55,3 +55,34 @@ Real chain, in a clean detached worktree at `7b650b5cd` with the fixed runner co
 `bin/` holds only gremlins): five `task mutation` runs, each exit 0 with the recorded counts
 (aggregate 4/1/0/0/0, redact 12/1/1/0/0, pathvalidate 10/2/0/0/0), no TIMED OUT; one more run
 with 16 busy loops loading all 16 CPUs, exit 0, the same counts.
+
+## S3 (4.3): a gremlins bump cannot leave a new mutator off (B2)
+
+Fixture: `hack/test/testdata/mutation/unleash-help.txt`, `bin/gremlins-v0.6.0/gremlins unleash
+--help` (exit 0, 2882 bytes, stdout only), two trailing blanks stripped. Its eleven
+`enable "<TYPE>" mutants` lines are exactly the runner's `FLAGS`.
+
+Red, `MUTATION_SIGNAL_ONLY=R9 bash hack/test/mutation_signal_test.sh` with the fake gremlins
+answering `unleash --help` and the runner unchanged (exit 1, 17 failures, first lines):
+
+```text
+FAIL: R9: 'unleash --help' was queried after [] unleash calls, want exactly once, before the first
+FAIL: R9: help extra: the run exited 0
+FAIL: R9: help extra: gremlins unleash was called 4 times, want 0 (fail before measuring)
+```
+
+Fix: `hack/ci/mutation.sh` reads `"${GREMLINS}" unleash --help` after the `$GITHUB_OUTPUT` line,
+extracts the mutator flags, and dies unless they equal `FLAGS`, naming the added and the dropped
+ones; a failing help call and a help with no mutator line die with their own messages.
+
+Green: R9 five lines `ok`; guard plain exit 0; `--self-test` exit 0 in 200 s with four new
+mutants red by message (comparison dropped; only a dropped flag checked; an empty list not
+singled out; a failing `--help` ignored).
+
+Real chain, clean detached worktree at `45b1ab13d` with the fixed runner copied in: `task
+mutation` exit 0 with the recorded counts; the same with `--remove-self-assignments` removed from
+`FLAGS` exits 201 with
+
+```text
+::error::mutation: the pinned gremlins' mutator flags differ from FLAGS in this script: offered, not passed: --remove-self-assignments ; passed, not offered: none. Update FLAGS after a gremlins bump
+```

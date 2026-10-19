@@ -1,0 +1,51 @@
+Unleashes the gremlins and performs mutation testing on a Go module. It works by
+first gathering the coverage of the test suite and then analysing the source
+code to look for supported mutants.
+
+Unleash only tests covered mutants, since it doesn't make sense to test mutants
+that no test case is able to catch.
+
+In 'dry-run' mode, unleash only performs the analysis of the source code, but it
+doesn't actually perform the test.
+
+Thresholds are configurable quality gates that make gremlins exit with an error
+if those values are not met. Efficacy is the percent of KILLED mutants over
+the total KILLED and LIVED mutants. Mutant coverage is the percent of total
+KILLED + LIVED mutants, over the total mutants.
+
+Usage:
+  gremlins unleash [path] [flags]
+
+Aliases:
+  unleash, run, r
+
+Flags:
+  -d, --dry-run                     find mutations but do not executes tests
+  -S, --output-statuses string      print only statuses from this flag, allowed values - 'lctkvsr'
+  -t, --tags string                 a comma-separated list of build tags
+      --coverpkg string             a comma-separated list of package patterns
+  -D, --diff string                 diff branch or commit
+  -o, --output string               set the output file for machine readable results
+  -i, --integration                 makes Gremlins run the complete test suite for each mutation
+  -E, --exclude-files stringArray   exclude files from Gremlins run by filepath regexp
+      --threshold-efficacy float    threshold for code-efficacy percent
+      --threshold-mcover float      threshold for mutant-coverage percent
+      --workers int                 the number of workers to use in mutation testing
+      --test-cpu int                the number of CPUs to allow each test run to use
+      --timeout-coefficient int     the coefficient by which the timeout is increased
+      --arithmetic-base             enable "ARITHMETIC_BASE" mutants (default true)
+      --conditionals-boundary       enable "CONDITIONALS_BOUNDARY" mutants (default true)
+      --conditionals-negation       enable "CONDITIONALS_NEGATION" mutants (default true)
+      --invert-assignments          enable "INVERT_ASSIGNMENTS" mutants
+      --invert-bitwise              enable "INVERT_BITWISE" mutants
+      --invert-bwassign             enable "INVERT_BWASSIGN" mutants
+      --increment-decrement         enable "INCREMENT_DECREMENT" mutants (default true)
+      --invert-logical              enable "INVERT_LOGICAL" mutants
+      --invert-loopctrl             enable "INVERT_LOOPCTRL" mutants
+      --invert-negatives            enable "INVERT_NEGATIVES" mutants (default true)
+      --remove-self-assignments     enable "REMOVE_SELF_ASSIGNMENTS" mutants
+  -h, --help                        help for unleash
+
+Global Flags:
+      --config string   override config file
+  -s, --silent          suppress output and run in silent mode
