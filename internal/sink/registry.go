@@ -153,7 +153,7 @@ func newMongoBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) 
 		connectCtx = context.Background()
 	}
 
-	return mongodb.NewBackend(connectCtx, spec, ctx.DatabaseSecretData)
+	return mongodb.NewBackend(connectCtx, spec, ctx.DatabaseSecretData, ctx.CAPEM)
 }
 
 func newKafkaBackend(spec kollectdevv1alpha1.KollectSinkSpec, ctx BuildContext) (Backend, error) {

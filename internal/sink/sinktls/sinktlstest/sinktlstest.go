@@ -27,6 +27,9 @@ import (
 // childEnv marks a process started by RunWithSystemRoots.
 const childEnv = "KOLLECT_SINKTLSTEST_CHILD"
 
+// certBlockType is the PEM block type of a certificate.
+const certBlockType = "CERTIFICATE"
+
 // CA is a test certificate authority.
 type CA struct {
 	Cert *x509.Certificate
@@ -59,7 +62,7 @@ func NewCA(t testing.TB, name string) *CA {
 		t.Fatalf("parse CA %s: %v", name, err)
 	}
 
-	return &CA{Cert: cert, PEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), key: key}
+	return &CA{Cert: cert, PEM: pem.EncodeToMemory(&pem.Block{Type: certBlockType, Bytes: der}), key: key}
 }
 
 // Server issues a server certificate signed by ca for hosts (DNS names or IP

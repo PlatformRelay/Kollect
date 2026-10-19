@@ -50,7 +50,7 @@ func TestExportMongoDB(t *testing.T) {
 	)
 
 	spec := defaultMongoSpec(database, collection, cluster)
-	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)})
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)}, nil)
 	if err != nil {
 		t.Fatalf("NewBackend: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestExportMongoDB_scopeIsolation(t *testing.T) {
 
 	const database = "inventory"
 	spec := defaultMongoSpec(database, "scope-items", "test-cluster")
-	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)})
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)}, nil)
 	if err != nil {
 		t.Fatalf("NewBackend: %v", err)
 	}
@@ -265,13 +265,13 @@ func TestNewBackend_ensureCollectionIdempotent(t *testing.T) {
 	spec := defaultMongoSpec("inventory", "idempotent-items", "test-cluster")
 	secret := map[string][]byte{"uri": []byte(uri)}
 
-	first, err := NewBackend(ctx, spec, secret)
+	first, err := NewBackend(ctx, spec, secret, nil)
 	if err != nil {
 		t.Fatalf("first NewBackend: %v", err)
 	}
 	first.Close()
 
-	second, err := NewBackend(ctx, spec, secret)
+	second, err := NewBackend(ctx, spec, secret, nil)
 	if err != nil {
 		t.Fatalf("second NewBackend: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestExportMongoDB_existingProvisioningMode(t *testing.T) {
 		Provisioning: &kollectdevv1alpha1.ProvisioningSpec{Mode: kollectdevv1alpha1.ProvisioningModeExisting},
 	}
 
-	_, err = NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)})
+	_, err = NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)}, nil)
 	if err == nil {
 		t.Fatal("expected error when collection does not exist in provisioning.mode=existing")
 	}
@@ -356,7 +356,7 @@ func TestExportMongoDB_existingProvisioningModeSuccess(t *testing.T) {
 		Provisioning: &kollectdevv1alpha1.ProvisioningSpec{Mode: kollectdevv1alpha1.ProvisioningModeExisting},
 	}
 
-	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)})
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)}, nil)
 	if err != nil {
 		t.Fatalf("NewBackend existing collection: %v", err)
 	}
@@ -415,7 +415,7 @@ func TestConnectionMongoDB(t *testing.T) {
 		},
 	}
 
-	if err := TestConnection(ctx, spec, map[string][]byte{"uri": []byte(uri)}); err != nil {
+	if err := TestConnection(ctx, spec, map[string][]byte{"uri": []byte(uri)}, nil); err != nil {
 		t.Fatalf("TestConnection: %v", err)
 	}
 }
@@ -448,7 +448,7 @@ func TestExportMongoDB_replaceOneIdempotent(t *testing.T) {
 	)
 
 	spec := defaultMongoSpec(database, collection, cluster)
-	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)})
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)}, nil)
 	if err != nil {
 		t.Fatalf("NewBackend: %v", err)
 	}
@@ -569,7 +569,7 @@ func TestExportMongoDB_midBatchReplaceOneFailure(t *testing.T) {
 	)
 
 	spec := defaultMongoSpec(database, collection, cluster)
-	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)})
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(uri)}, nil)
 	if err != nil {
 		t.Fatalf("NewBackend: %v", err)
 	}
@@ -684,7 +684,7 @@ func TestNewBackend_authFailure(t *testing.T) {
 	spec := defaultMongoSpec("inventory", "auth-fail-items", "test-cluster")
 
 	// Sanity: correct credentials must succeed so auth is actually enforced.
-	okBackend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(goodURI)})
+	okBackend, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte(goodURI)}, nil)
 	if err != nil {
 		t.Fatalf("NewBackend with correct credentials: %v", err)
 	}
@@ -696,7 +696,7 @@ func TestNewBackend_authFailure(t *testing.T) {
 	}
 
 	start := time.Now()
-	_, err = NewBackend(ctx, spec, map[string][]byte{"uri": []byte(badURI)})
+	_, err = NewBackend(ctx, spec, map[string][]byte{"uri": []byte(badURI)}, nil)
 	elapsed := time.Since(start)
 	if err == nil {
 		t.Fatal("expected NewBackend auth failure with wrong credentials")
@@ -717,7 +717,7 @@ func TestNewBackend_authFailure(t *testing.T) {
 
 	// Probe path must likewise reject bad credentials promptly.
 	start = time.Now()
-	probeErr := TestConnection(ctx, spec, map[string][]byte{"uri": []byte(badURI)})
+	probeErr := TestConnection(ctx, spec, map[string][]byte{"uri": []byte(badURI)}, nil)
 	probeElapsed := time.Since(start)
 	if probeErr == nil {
 		t.Fatal("expected TestConnection auth failure with wrong credentials")

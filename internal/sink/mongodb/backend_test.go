@@ -62,7 +62,7 @@ func TestBackend_Export_decodeError(t *testing.T) {
 func TestNewBackend_configError(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewBackend(context.Background(), kollectdevv1alpha1.KollectSinkSpec{Type: "postgres"}, nil)
+	_, err := NewBackend(context.Background(), kollectdevv1alpha1.KollectSinkSpec{Type: "postgres"}, nil, nil)
 	if err == nil {
 		t.Fatal("expected config error for wrong sink type")
 	}
@@ -83,7 +83,7 @@ func TestNewBackend_unreachableHost(t *testing.T) {
 		},
 	}
 
-	_, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte("mongodb://127.0.0.1:1/unreachable")})
+	_, err := NewBackend(ctx, spec, map[string][]byte{"uri": []byte("mongodb://127.0.0.1:1/unreachable")}, nil)
 	if err == nil {
 		t.Fatal("expected connect error for unreachable host")
 	}
