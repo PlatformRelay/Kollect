@@ -581,7 +581,7 @@ FAKE
     [[ "$(cat "${RD}/help" 2>/dev/null)" == 0 ]] ||
       case_fail R9 "'unleash --help' was queried after [$(tr '\n' ' ' 2>/dev/null <"${RD}/help" || true)] unleash calls, want exactly once, before the first"
     done_case "R9 the pinned gremlins' mutator flags are read before the first call"
-    for v in extra missing none fail; do
+    for v in extra extra-short odd missing none fail; do
       start_case
       new_tmp
       h="${TMP}/help"
@@ -590,6 +590,16 @@ FAKE
           sed 's/^  -h, --help /      --invert-everything           enable "INVERT_EVERYTHING" mutants\n&/' \
             "${FX}/unleash-help.txt" >"${h}"
           want_msg=--invert-everything
+          ;;
+        extra-short) # round 2 (R2-3): a new mutator flag with a shorthand
+          sed 's/^  -h, --help /  -X, --invert-everything           enable "INVERT_EVERYTHING" mutants\n&/' \
+            "${FX}/unleash-help.txt" >"${h}"
+          want_msg="offered, not passed: --invert-everything"
+          ;;
+        odd) # round 2 (R2-3): a mutator line in a shape the parser does not know
+          sed 's/^  -h, --help /      --invert-everything=bool      enable "INVERT_EVERYTHING" mutants\n&/' \
+            "${FX}/unleash-help.txt" >"${h}"
+          want_msg="not understood"
           ;;
         missing)
           grep -v -- '--remove-self-assignments' "${FX}/unleash-help.txt" >"${h}" || true
@@ -605,7 +615,7 @@ FAKE
           want_msg="unleash --help' failed"
           ;;
       esac
-      [[ "${v}" != extra ]] || grep -F -- '--invert-everything' "${h}" >/dev/null ||
+      [[ "${v}" != extra* && "${v}" != odd ]] || grep -F -- '--invert-everything' "${h}" >/dev/null ||
         case_fail R9 "the extra-mutator help was not built"
       HELP="${h}"
       run_runner
@@ -1263,6 +1273,10 @@ done' 'measure aggregate "${ROOT}" ./internal/... ./internal/...'
     lit "${R}" 'if [[ "${offered}" != "${passed}" ]]; then' 'if [[ -n "$(LC_ALL=C comm -13 <(echo "${offered}") <(echo "${passed}"))" ]]; then'
   judge R9 "an empty mutator list not singled out (R9, stage-B B2)" "R9: no '::error::mutation:' line holding 'lists no mutator flag'" \
     lit "${R}" '[[ -n "${offered}" ]] ||' 'true ||'
+  judge R9 "a mutator flag with a shorthand not parsed (R9, stage-B round 2)" "R9: no '::error::mutation:' line holding 'offered, not passed: --invert-everything'" \
+    lit "${R}" 's/^[[:space:]]+(-[A-Za-z], )?(--[a-z0-9-]+)[[:space:]]+enable "[A-Z0-9_]+" mutants.*$/\2/p' 's/^[[:space:]]+(--[a-z0-9-]+)[[:space:]]+enable "[A-Z0-9_]+" mutants.*$/\1/p'
+  judge R9 "mutator lines the parse did not read accepted (R9, stage-B round 2)" "R9: help odd: the run exited 0" \
+    lit "${R}" 'if [[ "${mentions}" != "$(grep -c . <<<"${offered}")" ]]; then' 'if false; then'
   judge R9 "a failing --help ignored (R9, stage-B B2)" "R9: no '::error::mutation:' line holding 'unleash --help' failed'" \
     lit "${R}" 'help="$("${GREMLINS}" unleash --help 2>&1)" ||' 'help="$("${GREMLINS}" unleash --help 2>&1)" || true ||'
   # Astra fix review (P2): the help query is a gremlins call too.

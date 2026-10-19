@@ -261,6 +261,9 @@ each, evidence in evidence/B.md.
   not only block scalars, so a plain or quoted scalar continued on the next line is one command;
   the run step's bare `task mutation` is exempt in mutation.yaml only (two W3 mutants; a C2
   control for the run step as a literal block) — closed 2026-10-19, evidence: evidence/B.md
+- [x] 4.7 S7 (round 2, R2-3): the help parse reads a mutator flag with a shorthand
+  (`-X, --flag`) and fails on any `enable "<TYPE>" mutants` line it does not read (R9 variants
+  extra-short and odd; two mutants) — closed 2026-10-19, evidence: evidence/B.md
 
 ## Verification
 
