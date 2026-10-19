@@ -140,9 +140,14 @@ func newClient(cfg Config) (*awss3.Client, error) {
 		return nil, err
 	}
 
+	var doer awsconfig.HTTPClient = httpClient
+	if cfg.RootCAs != nil {
+		doer = redactedRedirectClient{httpClient}
+	}
+
 	loadOpts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(cfg.Region),
-		awsconfig.WithHTTPClient(httpClient),
+		awsconfig.WithHTTPClient(doer),
 	}
 
 	if cfg.AccessKeyID != "" || cfg.SecretAccessKey != "" {
@@ -194,6 +199,23 @@ func guardedHTTPClient(rootCAs *x509.CertPool) (*http.Client, error) {
 	httpClient.CheckRedirect = refuseInsecureRedirect
 
 	return httpClient, nil
+}
+
+// redactedRedirectClient replaces the error of a refused redirect, a *url.Error
+// whose text holds the redirect target the server sent, with the static terminal
+// ErrCAInsecureRedirect, so no probe, export or status message names that URL.
+type redactedRedirectClient struct {
+	*http.Client
+}
+
+func (c redactedRedirectClient) Do(req *http.Request) (*http.Response, error) {
+	resp, err := c.Client.Do(req) //nolint:gosec // G704: the SDK builds req for the sink endpoint; the client dials through netguard
+	if err != nil && errors.Is(err, ErrCAInsecureRedirect) {
+		// net/http has already closed the redirect response's body.
+		return nil, kollecterrors.Terminal(ErrCAInsecureRedirect)
+	}
+
+	return resp, err
 }
 
 func refuseInsecureRedirect(req *http.Request, via []*http.Request) error {

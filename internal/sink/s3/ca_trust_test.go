@@ -161,7 +161,8 @@ func TestCATrust_garbageCARejected(t *testing.T) {
 }
 
 // guardedTransport returns the client's *http.Transport, failing unless the client is
-// the *http.Client newClient installed.
+// the *http.Client newClient installed: bare without a CA, inside the
+// redactedRedirectClient with one.
 func guardedTransport(t *testing.T, cfg Config) *http.Transport {
 	t.Helper()
 
@@ -170,9 +171,17 @@ func guardedTransport(t *testing.T, cfg Config) *http.Transport {
 		t.Fatalf("newClient: %v", err)
 	}
 
-	hc, ok := client.Options().HTTPClient.(*http.Client)
-	if !ok {
-		t.Fatalf("HTTPClient is %T, want *http.Client", client.Options().HTTPClient)
+	var hc *http.Client
+	switch c := client.Options().HTTPClient.(type) {
+	case *http.Client:
+		if cfg.RootCAs != nil {
+			t.Fatal("HTTPClient is a bare *http.Client with a CA; refused redirects would echo their URL")
+		}
+		hc = c
+	case redactedRedirectClient:
+		hc = c.Client
+	default:
+		t.Fatalf("HTTPClient is %T, want *http.Client or redactedRedirectClient", c)
 	}
 
 	tr, ok := hc.Transport.(*http.Transport)

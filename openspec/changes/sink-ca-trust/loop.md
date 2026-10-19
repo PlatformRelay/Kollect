@@ -80,6 +80,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 |---|---|---|---|
 | `internal/pipeline/sink_credentials_test.go:TestCLICredentials_matchOperatorResolver` | before this change | 1.1 | compared error presence only (`:384`); `"inline bundle wins"` (`:356`) pinned a precedence SCT-4 forbids and `"caSecret no key"` the silent fallback. Now: `"both sources rejected"`, `"caSecret no key"` expects the missing-key error, `"caSecret ca.pem"` added, shared errors compared with `errors.Is` (`evidence/G1.md` *Test changes*) |
 | `internal/sink/build_context_test.go:TestBuildContextFromSpec` case `"ca secret with no known PEM keys yields empty CAPEM"` | before this change | 1.1 | pinned the silent fallback SCT-4 forbids; moved to `TestBuildContextFromSpec_errors`, expects an error naming the Secret |
+| `internal/sink/s3/ca_trust_test.go:guardedTransport` (used by `TestCATrust_clientKeepsGuardAndUsesPool`) | 2.1 | B 8.2 | required `HTTPClient` to be a bare `*http.Client`; with a CA it is now the `redactedRedirectClient` wrapping that client, and the helper fails if a CA client is bare |
+| `internal/sink/{postgres,mongodb,s3}/ca_trust_integration_test.go` PI3, MI3, I3 | 3.1, 4.1, 2.1 | B 8.1 | each child was its own top-level test that skipped in the parent, which `task test-integration` counts as a required skip; the child branch now runs inside the parent, same assertions |
 
 ## Lessons
 

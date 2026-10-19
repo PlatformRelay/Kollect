@@ -297,8 +297,10 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
 - [x] 8.1 H1: `task test-integration` fails on three skipped subprocess children; run each child
   inside its parent test (PI3, MI3, I3). — closed 2026-10-19: `task test-integration` expected 65,
   executed 65, skipped 0, PASS; a CA-only pool still fails all three parents.
-- [ ] 8.2 A1: a refused redirect's error carries the `Location` URL; return a static terminal
-  `ErrCAInsecureRedirect` from the guarded S3/GCS client.
+- [x] 8.2 A1: a refused redirect's error carries the `Location` URL; return a static terminal
+  `ErrCAInsecureRedirect` from the guarded S3/GCS client. — closed 2026-10-19: I4
+  (`TestCATrustIntegration_plainRedirectRefused`) red on the probe error naming
+  `http://127.0.0.1:…/sentinel-redirect/b`, green after; removing the wrapper fails it again.
 - [ ] 8.3 A2: the CLI resolves credential Secrets before the CA rules; resolve the CA first, as the
   operator does.
 - [ ] 8.4 A3/O1: the MongoDB CA path returns the driver's URI error (host) unchanged; return a
