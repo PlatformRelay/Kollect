@@ -163,3 +163,73 @@ func TestCAParity_C1a_cliAndOperatorShareError(t *testing.T) {
 		})
 	}
 }
+
+// SCT-5 and design *CA resolution*: the CA rules run before any credential Secret is
+// read, on both paths. With a CA error and a missing credential (or database) Secret,
+// the operator and the CLI both return the shared CA error, not a lookup error.
+func TestCAParity_caRulesPrecedeCredentialLookup(t *testing.T) {
+	isolateParityAWSEnv(t)
+
+	caX := sinktlstest.NewCA(t, "X")
+
+	secrets := []corev1.Secret{{
+		ObjectMeta: metav1.ObjectMeta{Name: "no-ca-key", Namespace: sinkNamespace},
+		Data:       map[string][]byte{"other": []byte("x")},
+	}}
+
+	missing := &kollectdevv1alpha1.SecretReference{Name: "missing-creds"}
+	both := &kollectdevv1alpha1.TLSSpec{
+		CABundle:    caX.PEM,
+		CASecretRef: &kollectdevv1alpha1.SecretReference{Name: "no-ca-key"},
+	}
+	noKey := &kollectdevv1alpha1.TLSSpec{CASecretRef: &kollectdevv1alpha1.SecretReference{Name: "no-ca-key"}}
+	pg := &kollectdevv1alpha1.PostgresSpec{DatabaseRef: missing, Table: "inventory"}
+
+	cases := []struct {
+		name string
+		spec kollectdevv1alpha1.KollectSinkSpec
+		want error
+	}{
+		{"s3 both sources, credential Secret missing", kollectdevv1alpha1.KollectSinkSpec{
+			Type: "s3", Endpoint: "https://sentinel-host.invalid/b", SecretRef: missing, TLS: both,
+		}, sink.ErrCABothSources},
+		{"s3 Secret without CA key, credential Secret missing", kollectdevv1alpha1.KollectSinkSpec{
+			Type: "s3", Endpoint: "https://sentinel-host.invalid/b", SecretRef: missing, TLS: noKey,
+		}, sink.ErrCAKeyMissing},
+		{"postgres both sources, database Secret missing", kollectdevv1alpha1.KollectSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres, Postgres: pg, TLS: both,
+		}, sink.ErrCABothSources},
+	}
+
+	objs := make([]corev1.Secret, len(secrets))
+	copy(objs, secrets)
+
+	builder := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme)
+	for i := range objs {
+		builder = builder.WithObjects(&objs[i])
+	}
+
+	operatorClient := builder.Build()
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			_, opErr := sink.BuildContextFromSpec(ctx, operatorClient, tc.spec, sinkNamespace)
+
+			data, cliErr := ResolveSinkSecretData(tc.spec, secrets)
+			if cliErr == nil {
+				_, cliErr = cliBuildContext(ctx, tc.spec, data, secrets)
+			}
+
+			// cliBuildContext on its own also checks the CA before the database Secret.
+			_, buildErr := cliBuildContext(ctx, tc.spec, nil, secrets)
+
+			for path, err := range map[string]error{"operator": opErr, "CLI": cliErr, "CLI build context": buildErr} {
+				if !errors.Is(err, tc.want) || !kollecterrors.IsTerminal(err) {
+					t.Errorf("%s error = %v, want terminal %v", path, err, tc.want)
+				}
+			}
+		})
+	}
+}
