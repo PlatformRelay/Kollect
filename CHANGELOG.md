@@ -11,6 +11,24 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **test:** Generate the TLS test database passwords at run time [7295baf](https://github.com/platformrelay/kollect/commit/7295baf40bd265d8dd1234ec02ce4c717401805c)
+
+- **s3:** Match the redirect limit by identity [cf708df](https://github.com/platformrelay/kollect/commit/cf708df89e30c4f7a829820989b21a0318bdc6f2)
+
+- **s3:** Withhold the target of every failed redirect [9ced215](https://github.com/platformrelay/kollect/commit/9ced21522750795e725eca6bce82373cee79b18b)
+
+- **sink:** Return a nil Backend when a factory fails [6c18900](https://github.com/platformrelay/kollect/commit/6c18900cc8fe3561de865735efbadc7b568226c6)
+
+- **sink:** Share the both-sources error with git and GitLab [fdb3459](https://github.com/platformrelay/kollect/commit/fdb34594e15298f5c037cddbdf7750d7087f10c7)
+
+- **postgres:** Pin the effective sslmode in the DSN pgx parses [d817a88](https://github.com/platformrelay/kollect/commit/d817a88dd7c826d484c13dc4330a3e57ea9b63a4)
+
+- **mongodb:** Keep the host out of a refused URI with a CA [c75beea](https://github.com/platformrelay/kollect/commit/c75beeae26ed91881b645518b1ab76f65eeaab12)
+
+- **pipeline:** Check the CA before CLI credential Secrets [72636a4](https://github.com/platformrelay/kollect/commit/72636a4a9c072b0a8216fdaf31ea7d3ebb705e82)
+
+- **s3:** Keep the redirect target out of a refused-redirect error [7916187](https://github.com/platformrelay/kollect/commit/7916187ae62a84b6f3e22345da415cf5227e52f8)
+
 - **sink:** Make breaker reset safe for parallel tests [99b3946](https://github.com/platformrelay/kollect/commit/99b3946a4dc65d9da986991d85a07c3739985665)
 
 - **test:** Refuse bare /root and mounted or escaped Windows home paths [9ddc902](https://github.com/platformrelay/kollect/commit/9ddc902b5c0f1142ebb93096ff6fc8573baffac7)
@@ -152,6 +170,14 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Features
 
+- **sink:** Trust the spec.tls CA on MongoDB sinks [b1ab884](https://github.com/platformrelay/kollect/commit/b1ab884a0e8033af32cdb9cc2cc532d695bc14a0)
+
+- **sink:** Trust the spec.tls CA on Postgres sinks [15ef1ce](https://github.com/platformrelay/kollect/commit/15ef1cebe6f19d28cc5eeb13ea30643c4cbbacf0)
+
+- **sink:** Trust the spec.tls CA on S3 and GCS sinks [8623e9a](https://github.com/platformrelay/kollect/commit/8623e9a8658f17194cf0388adf9fa9beb07fe84b)
+
+- **sink:** Share CA source rules and add an appended pool [1434ecf](https://github.com/platformrelay/kollect/commit/1434ecfa63deec96babf3b2a98e7d9deb8fdb242)
+
 - **ci:** Measure mutation nightly, report only [dac648e](https://github.com/platformrelay/kollect/commit/dac648e72db7642e154bf2ef9ab9ef082cbf331b)
 
 - **ci:** Run the unit tests nightly under a shuffled, repeated seed [862c38f](https://github.com/platformrelay/kollect/commit/862c38f64c47adeb8084c75e0a433b01bc89c3c9)
@@ -183,6 +209,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Refactoring
+
+- **controller:** Remove the unused CA resolver [c9154bc](https://github.com/platformrelay/kollect/commit/c9154bc3c4c39b5df448c88e693eadc9cc8814d3)
 
 - **spec:** Keep evidence probes as Markdown [4bbcc7f](https://github.com/platformrelay/kollect/commit/4bbcc7f122b4c5f1ca3e1482016580845df5605b)
 
