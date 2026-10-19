@@ -425,6 +425,8 @@ if [[ "${MODE}" == self-test ]]; then
       rx "${W}" '/^ +- Go patch lag$/d'
     judge cfr wiring "TDS-2 list loses Test shuffle" "on.workflow_run.workflows must be exactly" \
       rx "${W}" '/^ +- Test shuffle$/d'
+    judge cfr wiring "MUT-1 list loses Mutation testing" "on.workflow_run.workflows must be exactly" \
+      rx "${W}" '/^ +- Mutation testing$/d'
     judge cfr wiring "G4 W2 types widened" "on.workflow_run.types must be exactly" \
       yqe "${W}" '."on".workflow_run.types += ["requested"]'
     judge cfr wiring "G4 W3 repository guard dropped from the workflow if:" "job if: must be exactly" \
@@ -1546,14 +1548,15 @@ wq() {
   yq eval -o=json -I=0 "$1" "${WF}" 2>/dev/null || echo "<parse error>"
 }
 
-# Reported workflows: exactly E2E nightly, Go patch lag and Test shuffle (TDS-2, openspec change
-# test-depth-signals), each the name: of exactly one workflow file (workflow_run matches by name,
-# so a rename silently stops the trigger).
+# Reported workflows: exactly E2E nightly, Go patch lag, Test shuffle (TDS-2, openspec change
+# test-depth-signals) and Mutation testing (MUT-1, openspec change mutation-testing-signal), each
+# the name: of exactly one workflow file (workflow_run matches by name, so a rename silently stops
+# the trigger).
 listed="$(wq '."on".workflow_run.workflows')"
-if [[ "${listed}" == '["E2E nightly","Go patch lag","Test shuffle"]' ]]; then
-  ok "wiring: workflow_run lists exactly E2E nightly, Go patch lag and Test shuffle"
+if [[ "${listed}" == '["E2E nightly","Go patch lag","Test shuffle","Mutation testing"]' ]]; then
+  ok "wiring: workflow_run lists exactly E2E nightly, Go patch lag, Test shuffle and Mutation testing"
 else
-  bad "wiring: ${WF_REL} on.workflow_run.workflows must be exactly [\"E2E nightly\",\"Go patch lag\",\"Test shuffle\"], found ${listed}"
+  bad "wiring: ${WF_REL} on.workflow_run.workflows must be exactly [\"E2E nightly\",\"Go patch lag\",\"Test shuffle\",\"Mutation testing\"], found ${listed}"
 fi
 listed_names=()
 if [[ -f "${WF}" ]]; then

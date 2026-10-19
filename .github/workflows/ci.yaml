@@ -608,6 +608,14 @@ jobs:
         run: bash hack/test/readme_quickstart_test.sh
       - name: Verify the README quick-start test can still fail (TDS-3)
         run: bash hack/test/readme_quickstart_test.sh --self-test
+      # MUT-1 to MUT-4 (openspec change mutation-testing-signal): the nightly mutation runner and
+      # formatter against a fake gremlins, and mutation.yaml's wiring, install chain and threshold
+      # sources. Static: this job never installs or runs gremlins. Plain and --self-test as
+      # separate steps; CWS-6/CFC-6 checks each mode runs in a required job. Needs git, jq and yq.
+      - name: Verify the nightly mutation measurement reports and cannot gate (MUT-1 to MUT-4)
+        run: bash hack/test/mutation_signal_test.sh
+      - name: Verify the mutation signal test can still fail (MUT-1 to MUT-4)
+        run: bash hack/test/mutation_signal_test.sh --self-test
       # Evidence under openspec/changes/**/evidence/ (archive included) is Markdown only: a probe
       # script committed there is analysed by SonarCloud as uncovered new code although CI never
       # runs it (decision 2026-10-16: inline probes in the evidence .md instead of widening
