@@ -63,11 +63,10 @@ unchanged.
 When a `postgres` sink configures a CA, every TLS configuration derived from the DSN (the main
 connection and every fallback) SHALL verify against the system roots plus that CA. `sslmode=verify-full`
 SHALL verify chain and hostname; `verify-ca` SHALL verify the chain; `require` SHALL verify the
-chain as `verify-ca` does (libpq's rule when a root certificate is configured). The effective
-sslmode is the one pgx uses (DSN, else `PGSSLMODE`, else `prefer`, after the
-`sslnegotiation=direct` rewrite of `prefer` to `require`). An effective `disable`, `allow` or
-`prefer` SHALL be rejected at backend build with a terminal error that names the sslmode and the
-accepted values. A root certificate from another source (`sslrootcert` in the DSN or in the
+chain as `verify-ca` does (libpq's rule when a root certificate is configured). When neither the
+DSN nor `PGSSLMODE` sets an sslmode, the sink SHALL use `verify-full`. An explicit `disable`,
+`allow` or `prefer` (in the DSN or `PGSSLMODE`) SHALL be rejected at backend build with a terminal
+error that names the sslmode, its source and the accepted values. A root certificate from another source (`sslrootcert` in the DSN or in the
 service-file entry it selects, `PGSSLROOTCERT`, `~/.postgresql/root.crt`) while the sink configures a
 CA SHALL be rejected the same way, naming the
 source and `spec.tls`, whether or not that file is readable. No error this requirement adds, and no
@@ -99,18 +98,26 @@ behaviour is unchanged.
 - **WHEN** a sink with CA X and `sslmode=verify-full` connects
 - **THEN** it succeeds
 
-#### Scenario: Direct negotiation and environment defaults
+#### Scenario: Unset sslmode becomes verify-full
 
-- **WHEN** a sink with CA X has a DSN with `sslnegotiation=direct` and no sslmode, or a DSN without
-  sslmode while `PGSSLMODE=verify-full`
-- **THEN** the build is accepted (effective `require` and `verify-full`) and the CA applies
+- **GIVEN** a server signed by X whose certificate SAN does not match the DSN host
+- **WHEN** a sink with CA X has a DSN without sslmode (also with `sslnegotiation=direct`) and
+  `PGSSLMODE` is unset
+- **THEN** the connection verifies chain and hostname and fails on the hostname
+- **AND** the same DSN with explicit `sslmode=verify-ca` connects
+- **AND** the connection SHALL NOT fall back to plaintext or to an unverified handshake
 
-#### Scenario: A sslmode that would ignore the CA is rejected
+#### Scenario: Environment sslmode is respected
 
-- **WHEN** a sink with a CA has an effective sslmode of `prefer`, `allow` or `disable` (for example
-  `sslmode=prefer` in the DSN, or no sslmode with no `PGSSLMODE` and no direct negotiation)
-- **THEN** the build fails with a terminal error naming the sslmode and `verify-full`, `verify-ca`,
-  `require`
+- **WHEN** a sink with CA X has a DSN without sslmode while `PGSSLMODE=verify-ca`
+- **THEN** the build is accepted as `verify-ca` and the CA applies
+
+#### Scenario: An explicit weak sslmode is rejected
+
+- **WHEN** a sink with a CA has `sslmode=prefer`, `allow` or `disable` in the DSN, or `PGSSLMODE`
+  set to one of them with no sslmode in the DSN
+- **THEN** the build fails with a terminal error naming the sslmode, its source and `verify-full`,
+  `verify-ca`, `require`
 - **AND** no connection is attempted
 
 #### Scenario: DSN CA file conflicts with the sink CA

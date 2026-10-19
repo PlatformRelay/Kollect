@@ -53,12 +53,15 @@ After `pgxpool.ParseConfig(dsn)` (`pool.go:17`), when a CA is configured:
    `pgconn/defaults.go:58`) and `spec.tls`, never the DSN. Checking first means an unreadable or
    malformed root file is reported as the conflict, not as the static `invalid connection string`
    (`pool.go:46-55`). The backstop in step 2 stays for any source this check misses.
-2. Parse, then classify: `TLSConfig == nil` (`disable`) or any fallback with a nil `TLSConfig`
-   (`allow`, `prefer`, unset without direct negotiation) → reject, naming the sslmode class and the
-   fix (`sslmode=verify-full`, `verify-ca` or `require`). Backstop: a parsed `TLSConfig.RootCAs`
-   that is non-nil before kollect sets it → reject as a conflict. pgx rewrites `prefer` to `require`
-   under `sslnegotiation=direct` (`pgconn/config.go:903-908`); that input has no plaintext fallback
-   and is accepted as `require`.
+2. Before parsing, read the sslmode from the DSN keys (keyword or URL form) and `PGSSLMODE`
+   (orchestrator decision 2026-10-19, option B). Unset in both → add `sslmode=verify-full` to the
+   DSN (keyword: append the pair; URL: add the query parameter) before `pgxpool.ParseConfig`, so
+   pgx's default `prefer` and its `sslnegotiation=direct` rewrite never apply. Explicit `disable`,
+   `allow` or `prefer` → reject, naming the mode, its source (DSN or `PGSSLMODE`) and the fix
+   (`sslmode=verify-full`, `verify-ca` or `require`; `verify-ca` when the DSN host does not match
+   the certificate SAN). Then parse. Backstops: a parsed `TLSConfig == nil` or a fallback with a nil
+   `TLSConfig` → reject (a weak mode the key read missed); a parsed `TLSConfig.RootCAs` that is
+   non-nil before kollect sets it → reject as a conflict.
 3. For the main config and every fallback with a TLS config: set `RootCAs` to the appended pool. A
    config with `InsecureSkipVerify` and no `VerifyPeerCertificate` (`require` without a root) gets
    the `verify-ca` chain check installed (chain against the pool, no hostname), as pgx does for
@@ -67,7 +70,7 @@ After `pgxpool.ParseConfig(dsn)` (`pool.go:17`), when a CA is configured:
 
 `PGSSLMODE` / `PGSSLROOTCERT` in the process environment feed pgx's defaults (the operator pod
 sets neither; the CLI does not load database sinks, proposal non-goals). Step 2 sees the effective
-mode after env defaults.
+mode after env defaults, and the upgrade applies only when both are unset.
 
 `redactedConnectError` (`pool.go:69-76`) keeps its static text but adds a static suffix when the
 cause chain holds an `x509` verification error, so a wrong CA is diagnosable without the host.
@@ -104,7 +107,9 @@ CA is configured.
 | --- | --- |
 | CA ignored; private-CA server fails verification (S3, GCS, MongoDB with TLS, Postgres `verify-*`) | Verifies with system roots plus the CA |
 | MongoDB `tlsCAFile`, TLS off, or `tlsInsecure`/`sslInsecure` + CA: the URI's settings used | Terminal error |
-| Postgres effective `sslmode` `prefer`/`require` + CA (`prefer` is the default when neither the DSN nor `PGSSLMODE` sets one): TLS without verification | `require`: chain verified; effective `prefer`/`allow`/`disable`: terminal error |
+| Postgres `sslmode` unset + CA (pgx default `prefer`): TLS without verification | `verify-full`: chain and hostname verified; a DSN host that does not match the certificate SAN fails (escape hatch: explicit `sslmode=verify-ca`) |
+| Postgres explicit `sslmode=require` + CA: TLS without verification | chain verified (libpq `verify-ca` rule) |
+| Postgres explicit `sslmode=prefer`/`allow`/`disable` + CA: CA ignored | Terminal error |
 | `sslrootcert` / `tlsCAFile` in the connection string + CA: the connection string's CA used | Terminal error |
 | Secret with no CA key: no CA; system roots (Git, GitLab, S3, GCS), plaintext (Kafka, NATS without other TLS material), connection-string TLS (Postgres, MongoDB) | Terminal error (all types) |
 | `caBundle` and `caSecretRef` both set: `caBundle` used (Git/GitLab rejected it already) | Terminal error (all types) |
