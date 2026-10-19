@@ -31,3 +31,27 @@ ok - self-test: measured-nothing check dropped (M9, stage-B B1): red (exit 1) wi
 ok - self-test: only TIMED OUT counted as measuring nothing (M9, stage-B B1): red (exit 1) with 'M9: the formatter exited 0'
 All mutation signal self-tests passed.
 ```
+
+## S2 (4.2): a timeout coefficient a loaded runner does not exceed (B1)
+
+Red, `MUTATION_SIGNAL_ONLY=R1 bash hack/test/mutation_signal_test.sh` with R1's argv holding
+`--timeout-coefficient=10` and the runner unchanged (exit 1, each of the four calls, cut):
+
+```text
+FAIL: R1: call 1 (fixture) argv is 'unleash --config=<root>/hack/ci/gremlins.yaml --output=<dir>/fixture.json --arithmetic-base ...
+FAIL: the mutation signal breaks MUT-1 to MUT-4 (4 failure(s) above)
+```
+
+Why 10: the coefficient probe in `reviews/B-branch/round-1/holistic.md` (4 of 6 runs with TIMED
+OUT mutants at the default 3, 0 of 6 at 10).
+
+Fix: `hack/ci/mutation.sh` passes `--timeout-coefficient=10` after `--output`.
+
+Green: guard plain exit 0; `--self-test` exit 0 in 206 s with
+`the timeout coefficient dropped (R1, stage-B B1)` and
+`the timeout coefficient back at the default 3 (R1, stage-B B1)` red by R1's message.
+
+Real chain, in a clean detached worktree at `7b650b5cd` with the fixed runner copied in (so
+`bin/` holds only gremlins): five `task mutation` runs, each exit 0 with the recorded counts
+(aggregate 4/1/0/0/0, redact 12/1/1/0/0, pathvalidate 10/2/0/0/0), no TIMED OUT; one more run
+with 16 busy loops loading all 16 CPUs, exit 0, the same counts.

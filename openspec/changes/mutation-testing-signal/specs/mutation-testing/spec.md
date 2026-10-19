@@ -27,8 +27,9 @@ fixture provenance may name the version.
 `hack/ci/mutation.sh` SHALL invoke gremlins once per package on `internal/aggregate`,
 `internal/redact` and `internal/pathvalidate`, each writing its own JSON report into a directory
 created fresh for the run, with every mutator flag of the pinned version passed explicitly as
-enabled and `--config=<repository root>/hack/ci/gremlins.yaml` as an absolute path (the fixture
-call runs from the fixture's directory). When `$GITHUB_OUTPUT` is set, the runner SHALL write
+enabled, `--config=<repository root>/hack/ci/gremlins.yaml` as an absolute path (the fixture
+call runs from the fixture's directory) and `--timeout-coefficient=10` (at the default 3 a loaded
+runner times whole packages out). When `$GITHUB_OUTPUT` is set, the runner SHALL write
 `reports=<that directory>` to it before its first gremlins call and SHALL leave the directory in
 place; the workflow's upload step SHALL take its `path:` from that output, with
 `if-no-files-found: error`. `hack/ci/mutation-summary.sh` SHALL take exactly one

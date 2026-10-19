@@ -244,6 +244,9 @@ each, evidence in evidence/B.md.
 - [x] 4.1 S1 (B1, B5): the formatter fails a package none of whose mutants was killed or lived
   (case M9 on the recorded warm-cache report, all-NOT-COVERED and mixed synthetic reports; two
   mutants; M4 now asserts its own message) — closed 2026-10-19, evidence: evidence/B.md
+- [x] 4.2 S2 (B1): the runner passes `--timeout-coefficient=10` on every gremlins call (R1 argv;
+  two mutants: the flag dropped, the coefficient back at 3) — closed 2026-10-19, evidence:
+  evidence/B.md
 
 ## Verification
 
