@@ -95,3 +95,5 @@ __pycache__/
 
 # fanout-review raw leg transcripts (never committed)
 **/reviews/**/*.err
+**/reviews/**/legs.log
+**/reviews/**/legs.key
