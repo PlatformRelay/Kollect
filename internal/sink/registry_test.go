@@ -224,6 +224,52 @@ func TestRegistry_NewBackend_gitFactoryConfigError(t *testing.T) {
 	}
 }
 
+// A factory that fails returns a nil Backend interface, not a typed nil pointer
+// inside a non-nil interface, so a caller that tests backend != nil cannot call a
+// method on a nil receiver.
+func TestRegistry_NewBackend_failedBuildReturnsNilInterface(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	for _, k := range []string{"PGSSLMODE", "PGSSLROOTCERT", "PGSERVICE", "PGSERVICEFILE"} {
+		t.Setenv(k, "")
+	}
+
+	reg := NewRegistry()
+	garbageCA := BuildContext{CAPEM: []byte("not a certificate")}
+
+	cases := []struct {
+		name string
+		spec kollectdevv1alpha1.KollectSinkSpec
+		ctx  BuildContext
+	}{
+		{"s3 garbage CA", kollectdevv1alpha1.KollectSinkSpec{Type: "s3", Endpoint: "https://s3.example.com/bucket"}, garbageCA},
+		{"gcs garbage CA", kollectdevv1alpha1.KollectSinkSpec{Type: "gcs", Endpoint: "gs://bucket/prefix"}, garbageCA},
+		{"postgres garbage CA", kollectdevv1alpha1.KollectSinkSpec{
+			Type: kollectdevv1alpha1.DatabaseSinkTypePostgres,
+			Postgres: &kollectdevv1alpha1.PostgresSpec{
+				DatabaseRef: &kollectdevv1alpha1.SecretReference{Name: "pg"},
+				Table:       "inventory",
+			},
+		}, BuildContext{
+			CAPEM:              garbageCA.CAPEM,
+			DatabaseSecretData: map[string][]byte{"dsn": []byte("host=h.invalid user=u dbname=d sslmode=verify-full")},
+		}},
+		{"mongodb missing spec", kollectdevv1alpha1.KollectSinkSpec{Type: kollectdevv1alpha1.DatabaseSinkTypeMongoDB}, BuildContext{}},
+		{"local missing endpoint", kollectdevv1alpha1.KollectSinkSpec{Type: "local"}, BuildContext{}},
+	}
+
+	for _, tc := range cases {
+		backend, err := reg.NewBackend(tc.spec, tc.ctx)
+		if err == nil {
+			t.Fatalf("%s: NewBackend succeeded; want an error", tc.name)
+		}
+
+		if backend != nil {
+			t.Errorf("%s: NewBackend returned a non-nil Backend (%T) with error %v", tc.name, backend, err)
+		}
+	}
+}
+
 func TestRegistry_NewBackend_unknownTypeIsTerminal(t *testing.T) {
 	t.Parallel()
 

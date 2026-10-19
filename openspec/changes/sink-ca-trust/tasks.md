@@ -319,7 +319,9 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
   2026-10-19: `TestRegistry_NewBackend_gitFactoryConfigError` red on `tls: set either caBundle or
   caSecretRef, not both` (git and GitLab), green after; the check and sentinel now live in
   `sinktls`, and `sink.CheckCASources`/`sink.ErrCABothSources` delegate to them.
-- [ ] 8.8 D7: `Registry.NewBackend` returns a nil `Backend` when the factory fails.
+- [x] 8.8 D7: `Registry.NewBackend` returns a nil `Backend` when the factory fails. — closed
+  2026-10-19: `TestRegistry_NewBackend_failedBuildReturnsNilInterface` red on five typed nils (s3,
+  gcs, postgres, mongodb, local), green after.
 
 ## Verification
 
