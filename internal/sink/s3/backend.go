@@ -135,6 +135,11 @@ var ErrCAInsecureRedirect = errors.New("spec.tls: refused a redirect to a non-ht
 // maxRedirects matches net/http's default redirect limit.
 const maxRedirects = 10
 
+// errRedirectLimit is the CheckRedirect error at maxRedirects. net/http names the
+// next target with it, which can be the request's own URL, so Do matches it by
+// identity, not by URL.
+var errRedirectLimit = fmt.Errorf("stopped after %d redirects", maxRedirects)
+
 func newClient(cfg Config) (*awss3.Client, error) {
 	httpClient, err := guardedHTTPClient(cfg.RootCAs)
 	if err != nil {
@@ -223,11 +228,23 @@ func (c redactedRedirectClient) Do(req *http.Request) (*http.Response, error) {
 	case errors.Is(err, ErrCAInsecureRedirect):
 		// net/http has already closed the redirect response's body.
 		return nil, kollecterrors.Terminal(ErrCAInsecureRedirect)
-	case redirectFailed(req, err):
-		return nil, ErrRedirectFailed
+	case errors.Is(err, errRedirectLimit), redirectFailed(req, err):
+		return nil, redirectFailure(err)
 	}
 
 	return resp, err
+}
+
+// redirectFailure is ErrRedirectFailed, keeping a context error's identity (not its
+// text) so a cancelled or timed-out hop is still recognised as one.
+func redirectFailure(err error) error {
+	for _, ctxErr := range []error{context.Canceled, context.DeadlineExceeded} {
+		if errors.Is(err, ctxErr) {
+			return fmt.Errorf("%w: %w", ErrRedirectFailed, ctxErr)
+		}
+	}
+
+	return ErrRedirectFailed
 }
 
 // redirectFailed reports whether err comes from a redirect: net/http names the hop
@@ -249,7 +266,7 @@ func refuseInsecureRedirect(req *http.Request, via []*http.Request) error {
 		return kollecterrors.Terminal(ErrCAInsecureRedirect)
 	}
 	if len(via) >= maxRedirects {
-		return fmt.Errorf("stopped after %d redirects", maxRedirects)
+		return errRedirectLimit
 	}
 
 	return nil
