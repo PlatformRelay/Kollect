@@ -382,6 +382,9 @@ They are not in the public module graph.
 - Do not commit paths under `agent-context/` or `references/`. The root `AGENTS.md` is tracked
   (the public instructions for coding assistants); keep private agent notes in the ignored
   `AGENTS.local.md` or `CLAUDE.md`.
+- If your checkout still has an ignored root `AGENTS.md` of your own from before it was tracked,
+  rename it to `AGENTS.local.md` **before** you pull: git replaces an ignored file with the
+  tracked one without a warning.
 - If present locally, `references/IBM-Message-Queue-Operator/` is an **example reference only**
   (not production-grade). Borrow layout, Taskfiles, CI, and docs/ADR structure selectively; do not
   copy MQ-specific logic.
