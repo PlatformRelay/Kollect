@@ -85,9 +85,20 @@ Errors on the acquire path:
 
 Retire rules: a successful metadata GET that shows a changed key retires the pooled entry, before
 and whatever the rebuild then does (a failed full GET or constructor after that still leaves the
-entry retired). Not-found and empty retire it. A metadata GET that fails for another reason
-(timeout, cancelled context, forbidden) observed no change and does not retire a backend other
-inventories share.
+entry retired). Not-found and empty retire it, whichever read sees it: the metadata GET, the full
+GET of the miss, or the CA-rules read behind a failed credential read. A full GET that sees it
+retires the key outright, so an entry another acquire stored meanwhile is retired and a build in
+flight from the earlier value is not pooled (stage-B finding A1). A metadata GET that fails for
+another reason (timeout, cancelled context, forbidden) observed no change and does not retire a
+backend other inventories share.
+
+Stale reads: the acquire records the key's generation before each metadata GET. When the pool
+changed during the read, the read may predate the pooled entry, so it does not retire on that read
+but reads once more, and the second read acts. When that re-read fails for another reason, the
+entry the first read did not match is retired, as a change the first successful read observed.
+Either retire can hit an entry that is newer than the read (stored during it); its holders drain
+it and the acquire's rebuild reads after the retire, so the cost is one extra build, never a stale
+backend in use (accepted residual, stage-B finding B1).
 
 A metadata-only change (a label) changes `resourceVersion` and rebuilds once; accepted as rare and
 harmless. A no-op update keeps `resourceVersion` (probe 0.1).
