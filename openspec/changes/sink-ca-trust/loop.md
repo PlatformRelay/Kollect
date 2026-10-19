@@ -57,6 +57,7 @@ Holistic run at B: not run yet.
 
 | Task | Verdict | Review (legs, rounds, Claude?) | Gaps / decision request |
 |---|---|---|---|
+| 0.1 | CLOSED-WITH-GAPS: probe only, rows agent-review; no proposal or design claim contradicted | covered by the G1 review | evidence in `evidence/G1.md` (dispatch), not `T0.1.md` |
 
 ## Known red
 
