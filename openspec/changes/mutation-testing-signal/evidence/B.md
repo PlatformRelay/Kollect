@@ -131,3 +131,30 @@ FAIL: R8: when gremlins unleash --help ran, $GITHUB_OUTPUT held '-- reports=<dir
 
 Green: guard plain exit 0 (also `R5|R6|R8|R9` on the real tree); `--self-test` exit 0 in 321 s,
 with the three new mutants red by message.
+
+## S6 (4.6): W3 reads every parsed YAML string (round 2, R2-1 and R2-2)
+
+Round 2 (`reviews/B-branch/round-2/`) found that S4 scanned block scalars only: `run: task` with
+`mutation` on the next, indented line is a plain scalar whose value is `task mutation`, and the
+same holds for a double-quoted one (`yq` on a scratch copy: `["task mutation",""]`,
+`["task mutation","double"]`). And a `run: |` block holding `task mutation` in mutation.yaml,
+which W1 accepts, was red in W3.
+
+Red: two new W3 mutants (plain and quoted two-line scalars in the `ci.yaml` lint job) and a C2
+control (the run step as a literal block) in `--self-test` on the S5 guard (exit 1, 301 s):
+
+```text
+FAIL: self-test: control the mutation.yaml run step written as a literal block (C2): expected a pass, got exit 1: FAIL: W3: .github/workflows/mutation.yaml:43: a task command running mutation outside the mutation.yaml run step: task mutation ...
+FAIL: self-test: run: task / mutation as a multi-line plain scalar in ci.yaml (W3, stage-B round 2): expected a non-zero exit and a FAIL line with 'W3: .github/workflows/ci.yaml:parsed:', got exit 0:
+FAIL: self-test: run: "task / mutation" as a multi-line quoted scalar in ci.yaml (W3, stage-B round 2): expected a non-zero exit and a FAIL line with 'W3: .github/workflows/ci.yaml:parsed:', got exit 0:
+```
+
+Fix: the parsed scan takes every `!!str` (lines tagged `parsed`); in mutation.yaml a bare
+`task mutation` line is the W1 run step and is exempt there only (W1 pins it as the only `run:`);
+in Taskfile.yml the bare `tools:gremlins` value is the mutation task's dependency (the dependency
+query rejects it on any other task). First plain run after the change was red on that value
+(`Taskfile.yml:parsed: gremlins invoked outside hack/ci/mutation.sh: tools:gremlins`), fixed by
+counting it as the chain.
+
+Green: guard plain exit 0; `--self-test` exit 0 in 289 s, the two mutants red by message and the
+control passing.
