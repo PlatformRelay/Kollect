@@ -322,6 +322,11 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
 - [x] 8.8 D7: `Registry.NewBackend` returns a nil `Backend` when the factory fails. — closed
   2026-10-19: `TestRegistry_NewBackend_failedBuildReturnsNilInterface` red on five typed nils (s3,
   gcs, postgres, mongodb, local), green after.
+- [x] 8.9 Fix review (both legs): 8.2 left the redirect limit, an unparsable `Location` and a
+  failed followed hop naming the server-sent target; the guarded client returns the static
+  `ErrRedirectFailed` for those. — closed 2026-10-19:
+  `TestCATrustIntegration_redirectFailuresWithholdTarget` red in all three cases, green after;
+  dropping either detection branch fails it again.
 
 ## Verification
 

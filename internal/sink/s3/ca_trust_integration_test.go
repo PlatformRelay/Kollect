@@ -34,11 +34,12 @@ type tlsFakeS3 struct {
 func (f *tlsFakeS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	f.requests = append(f.requests, r.Method+" "+r.URL.Path)
+	redirectTo := f.redirectTo
 	f.mu.Unlock()
 
 	switch {
-	case f.redirectTo != "":
-		http.Redirect(w, r, f.redirectTo+r.URL.Path, http.StatusTemporaryRedirect) //nolint:gosec // G710: the test fake redirects to its own plaintext test server
+	case redirectTo != "":
+		http.Redirect(w, r, redirectTo+r.URL.Path, http.StatusTemporaryRedirect) //nolint:gosec // G710: the test fake redirects to its own test servers
 	case r.Method == http.MethodHead && r.URL.Path == "/b":
 		w.WriteHeader(http.StatusOK)
 	case r.Method == http.MethodPut:
@@ -232,6 +233,55 @@ func TestCATrustIntegration_rejectedBuildSendsNoRequest(t *testing.T) {
 			for name, err := range map[string]error{"NewBackend": buildErr, "TestConnection": probeErr} {
 				if !errors.Is(err, tc.want) || !kollecterrors.IsTerminal(err) {
 					t.Fatalf("%s error = %v, want terminal %v", name, err, tc.want)
+				}
+			}
+		})
+	}
+}
+
+// I4b: every other redirect failure keeps the server-sent target out of the probe and
+// export errors too: a redirect loop (the limit), a Location that does not parse, and
+// a followed https hop that fails (here: a server the CA does not sign).
+func TestCATrustIntegration_redirectFailuresWithholdTarget(t *testing.T) {
+	const marker = "sentinel-redirect"
+
+	caX := sinktlstest.NewCA(t, "X")
+	caY := sinktlstest.NewCA(t, "Y")
+
+	untrusted := &tlsFakeS3{}
+	untrustedBase := strings.TrimSuffix(startTLS(t, caY, untrusted), "/b")
+
+	cases := []struct {
+		name   string
+		target func(base string) string
+	}{
+		{"redirect loop", func(base string) string { return base + "/" + marker }},
+		{"unparsable Location", func(string) string { return "https://h.invalid/%zz?" + marker }},
+		{"followed hop fails", func(string) string { return untrustedBase + "/" + marker }},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := &tlsFakeS3{}
+			endpoint := startTLS(t, caX, f)
+
+			f.mu.Lock()
+			f.redirectTo = tc.target(strings.TrimSuffix(endpoint, "/b"))
+			f.mu.Unlock()
+
+			exportErr, probeErr := exportAndProbe(t, endpoint, caX.PEM)
+			if probeErr == nil {
+				t.Fatal("probe succeeded through a failing redirect")
+			}
+
+			for name, err := range map[string]error{"probe": probeErr, "export": exportErr} {
+				if err == nil {
+					continue
+				}
+
+				text := err.Error()
+				if strings.Contains(text, marker) || strings.Contains(text, strings.TrimPrefix(untrustedBase, "https://")) {
+					t.Errorf("%s error %q names the redirect target", name, text)
 				}
 			}
 		})
