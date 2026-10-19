@@ -157,7 +157,10 @@ func TestCATrustIntegration_plainRedirectRefused(t *testing.T) {
 	plainSrv := httptest.NewServer(plain)
 	t.Cleanup(plainSrv.Close)
 
-	f := &tlsFakeS3{redirectTo: plainSrv.URL}
+	// The redirect target carries a marker that no error may echo: a refused redirect
+	// names the setting, never the URL the server sent.
+	const marker = "sentinel-redirect"
+	f := &tlsFakeS3{redirectTo: plainSrv.URL + "/" + marker}
 	endpoint := startTLS(t, caX, f)
 
 	b, err := NewBackend(s3Spec(endpoint), caTrustCreds, caX.PEM)
@@ -177,6 +180,11 @@ func TestCATrustIntegration_plainRedirectRefused(t *testing.T) {
 	// instead of following it; the export must still fail.
 	if err := b.Export(t.Context(), []byte(`{"items":[]}`), caTrustObject); err == nil {
 		t.Fatal("export followed a redirect to plain http and succeeded")
+	}
+	for name, err := range map[string]error{"probe": probeErr, "export": b.Export(t.Context(), []byte(`{"items":[]}`), caTrustObject)} {
+		if text := err.Error(); strings.Contains(text, marker) || strings.Contains(text, strings.TrimPrefix(plainSrv.URL, "http://")) {
+			t.Errorf("%s error %q names the redirect target", name, text)
+		}
 	}
 	if len(f.recorded(http.MethodHead)) == 0 || len(f.recorded(http.MethodPut)) == 0 {
 		t.Fatalf("the HTTPS server saw %v; the redirects were never issued", f.recorded())
