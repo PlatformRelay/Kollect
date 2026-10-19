@@ -317,10 +317,12 @@ if [[ "${MODE}" == "check" ]]; then
 # writes nothing on a named call; otherwise copies the served report named like --output's
 # basename to --output, and like the real one writes nothing when its directory is missing.
 # `unleash --help` prints the served help (or fails) and records how many unleash calls came
-# before it; it is not counted as a call.
+# before it and what $GITHUB_OUTPUT held then (each record closed by a -- line); it is not
+# counted as an unleash call.
 d="${FAKE_DIR:?}"
 if [[ "$*" == "unleash --help" ]]; then
   cat "${d}/n" >>"${d}/help"
+  { [[ -z "${GITHUB_OUTPUT:-}" ]] || cat "${GITHUB_OUTPUT}" 2>/dev/null; echo "--"; } >>"${d}/help.ghout"
   if [[ "${FAKE_HELP_FAIL:-0}" == 1 ]]; then
     echo "Error: unknown command" >&2
     exit 1
@@ -515,6 +517,7 @@ FAKE
     run_runner
     [[ "${RC}" -ne 0 ]] || case_fail R5 "MUTATION_FORCE_FAILURE=true did not fail the run"
     [[ "${NCALL}" -eq 0 ]] || case_fail R5 "MUTATION_FORCE_FAILURE=true still called gremlins ${NCALL} times"
+    [[ ! -e "${RD}/help" ]] || case_fail R5 "MUTATION_FORCE_FAILURE=true still ran gremlins unleash --help"
     r_err_has R5 "forced failure"
     done_case "R5 MUTATION_FORCE_FAILURE=true fails the run, no gremlins call"
     for v in unset empty false; do
@@ -539,6 +542,7 @@ FAKE
       run_runner
       [[ "${RC}" -ne 0 ]] || case_fail R6 "${kv}: the runner started (exit 0)"
       [[ "${NCALL}" -eq 0 ]] || case_fail R6 "${kv}: gremlins was called ${NCALL} times, want 0"
+      [[ ! -e "${RD}/help" ]] || case_fail R6 "${kv}: gremlins unleash --help ran before the refusal"
       r_err_has R6 "${kv%%=*}"
       done_case "R6 ${kv} is refused before any gremlins call"
     done
@@ -622,6 +626,9 @@ FAKE
     first_out="$(cat "${RD}/calls/1.ghout" 2>/dev/null || echo '<no call or no GITHUB_OUTPUT>')"
     [[ -n "${dir}" && "${first_out}" == "reports=${dir}" ]] ||
       case_fail R8 "before the first gremlins call \$GITHUB_OUTPUT held '${first_out}', want 'reports=${dir}'"
+    help_out="$(cat "${RD}/help.ghout" 2>/dev/null || echo '<no help call>')"
+    [[ -n "${dir}" && "${help_out}" == "reports=${dir}"$'\n'"--" ]] ||
+      case_fail R8 "when gremlins unleash --help ran, \$GITHUB_OUTPUT held '$(tr '\n' ' ' <<<"${help_out}")', want 'reports=${dir}' (the hand-off comes before every gremlins call)"
     for s in fixture aggregate redact pathvalidate; do
       [[ -n "${dir}" && -s "${dir}/${s}.json" ]] ||
         case_fail R8 "after the green run ${dir:-<no dir>}/${s}.json is gone: the upload step would find nothing"
@@ -1251,6 +1258,13 @@ done' 'measure aggregate "${ROOT}" ./internal/... ./internal/...'
     lit "${R}" '[[ -n "${offered}" ]] ||' 'true ||'
   judge R9 "a failing --help ignored (R9, stage-B B2)" "R9: no '::error::mutation:' line holding 'unleash --help' failed'" \
     lit "${R}" 'help="$("${GREMLINS}" unleash --help 2>&1)" ||' 'help="$("${GREMLINS}" unleash --help 2>&1)" || true ||'
+  # Astra fix review (P2): the help query is a gremlins call too.
+  judge R6 "gremlins --help run before the refusal (R6, stage-B fix review)" "R6: GREMLINS_UNLEASH_DIFF=HEAD: gremlins unleash --help ran before the refusal" \
+    lit "${R}" "refused=()${nl}" "\"\${GREMLINS}\" unleash --help >/dev/null 2>&1 || true${nl}refused=()${nl}"
+  judge R5 "gremlins --help run before the force-failure check (R5, stage-B fix review)" "R5: MUTATION_FORCE_FAILURE=true still ran gremlins unleash --help" \
+    lit "${R}" 'case "${MUTATION_FORCE_FAILURE:-}" in' "\"\${GREMLINS}\" unleash --help >/dev/null 2>&1 || true${nl}case \"\${MUTATION_FORCE_FAILURE:-}\" in"
+  judge R8 "gremlins --help run before the \$GITHUB_OUTPUT hand-off (R8, stage-B fix review)" "R8: when gremlins unleash --help ran" \
+    lit "${R}" 'REPORTS="$(mktemp -d)"' "\"\${GREMLINS}\" unleash --help >/dev/null 2>&1 || true${nl}REPORTS=\"\$(mktemp -d)\""
   judge R8 "the \$GITHUB_OUTPUT line dropped (R8)" "R8: before the first gremlins call" \
     lit "${R}" '  echo "reports=${REPORTS}" >>"${GITHUB_OUTPUT}"' '  :'
   judge R8 "the report directory removed on exit (R8)" "R8: after the green run" \
