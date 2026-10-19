@@ -11,10 +11,12 @@
 # Actions). It is a measurement, not a gate: any number of survivors exits 0. Every report is
 # validated before anything is printed, so a broken one fails the run with no partial table:
 # missing, empty, not one JSON object, no files array, no mutation at all, a status that is not a
-# measurement (RUNNABLE from a dry run, SKIPPED, anything unknown), or a file that is not in the
-# package directory it is passed for (reports swapped between packages). A missing, repeated or
-# unknown package fails too. Diagnostics are ::error::mutation: lines on stderr.
-# Locked by hack/test/mutation_signal_test.sh (M1-M8).
+# measurement (RUNNABLE from a dry run, SKIPPED, anything unknown), no mutant killed or lived
+# (every one timed out, not viable or not covered: a loaded runner or a cached test run, not a
+# score), or a file that is not in the package directory it is passed for (reports swapped
+# between packages). A missing, repeated or unknown package fails too. Diagnostics are
+# ::error::mutation: lines on stderr.
+# Locked by hack/test/mutation_signal_test.sh (M1-M9).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
@@ -74,7 +76,9 @@ for p in "${PACKAGES[@]}"; do
           elif ([.files[].mutations[]] | length) == 0 then "no mutation: nothing was measured"
           elif ([.files[].mutations[] | (.status | type) == "string"] | all | not) then "a mutation without a status"
           else ([.files[].mutations[].status | select(. as $st | $known | index($st) | not)] | unique) as $bad
-            | if ($bad | length) > 0 then "status " + ($bad | join(", ")) + " is not a measurement" else "ok" end
+            | if ($bad | length) > 0 then "status " + ($bad | join(", ")) + " is not a measurement"
+              elif ([.files[].mutations[] | select(.status == "KILLED" or .status == "LIVED")] | length) == 0 then "no mutant was killed or lived (each one timed out, was not viable or is not covered): nothing was measured"
+              else "ok" end
           end
       end' "${r}" 2>/dev/null)"; then
     err "${p}: report ${r} is not valid JSON"

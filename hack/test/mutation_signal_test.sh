@@ -11,8 +11,9 @@
 # README there); everything else reads files.
 #
 # What it locks (tasks.md 2.1-2.6):
-#   M1-M8  the formatter: exact counts per status and package; survivors stay green; a missing,
-#          empty, unreadable, shapeless, mutation-less, non-measurement or misattributed report,
+#   M1-M9  the formatter: exact counts per status and package; survivors stay green; a missing,
+#          empty, unreadable, shapeless, mutation-less, non-measurement, measured-nothing (no
+#          mutant killed or lived) or misattributed report,
 #          and a missing, repeated or unknown package, fail with an ::error::mutation: line and
 #          no counts table;
 #   R1-R8  the runner: four calls in order with the exact argv, a fresh report directory and
@@ -120,7 +121,7 @@ if [[ "${MODE}" == "check" ]]; then
   }
 
   # ===========================================================================================
-  # Formatter (M1-M8): hack/ci/mutation-summary.sh <package>=<report>...
+  # Formatter (M1-M9): hack/ci/mutation-summary.sh <package>=<report>...
   # ===========================================================================================
   # run_fmt <summary:0|1> <arg>...: FRC, FD (out, err, summary). With <summary> 1 the table goes
   # to $GITHUB_STEP_SUMMARY, with 0 to stdout; TABLE is both.
@@ -178,6 +179,9 @@ if [[ "${MODE}" == "check" ]]; then
   printf '{"go_module": "github.com/platformrelay/kollect", "files": []}\n' >"${SYN}/zero.json"
   jq '.files[0].mutations[0].status = "SKIPPED"' "${REP}/pathvalidate.json" >"${SYN}/skipped.json"
   jq '.files[0].mutations[0].status = "FROZEN"' "${REP}/pathvalidate.json" >"${SYN}/unknown.json"
+  jq '.files[].mutations[].status = "NOT COVERED"' "${REP}/pathvalidate.json" >"${SYN}/not-covered.json"
+  jq '.files[].mutations |= [range(length) as $i | .[$i] | .status = (["TIMED OUT", "NOT VIABLE", "NOT COVERED"][$i % 3])]' \
+    "${REP}/pathvalidate.json" >"${SYN}/mixed.json"
   AG="internal/aggregate=${REP}/aggregate.json"
   RE="internal/redact=${REP}/redact.json"
   PV="internal/pathvalidate=${REP}/pathvalidate.json"
@@ -222,7 +226,7 @@ if [[ "${MODE}" == "check" ]]; then
   if want M4; then
     start_case
     run_fmt 1 "${AG}" "${RE}" "internal/pathvalidate=${SYN}/zero.json"
-    failed_shape M4 internal/pathvalidate
+    failed_shape M4 internal/pathvalidate "no mutation: nothing was measured"
     done_case "M4 a report with zero mutations fails"
   fi
 
@@ -260,6 +264,22 @@ if [[ "${MODE}" == "check" ]]; then
     run_fmt 1 "${AG}" "${RE}" "${PV}" "internal/collect=${REP}/redact.json"
     failed_shape M8 internal/collect
     done_case "M8 an unknown package fails"
+  fi
+
+  # M9 (stage-B review, B1): a package none of whose mutants was killed or lived measured
+  # nothing. The recorded warm-cache report (every mutant TIMED OUT, task 1.1 F1) is the real
+  # shape; a loaded runner produced the same for internal/aggregate in 2 of 7 local runs.
+  if want M9; then
+    for bad in warm-cache not-covered mixed; do
+      start_case
+      case "${bad}" in
+        warm-cache) r="${REP}/warm-cache-pathvalidate.json" ;;
+        *) r="${SYN}/${bad}.json" ;;
+      esac
+      run_fmt 1 "${AG}" "${RE}" "internal/pathvalidate=${r}"
+      failed_shape M9 internal/pathvalidate "no mutant was killed or lived"
+      done_case "M9 a ${bad} report with no killed or lived mutant fails"
+    done
   fi
 
   # ===========================================================================================
@@ -893,7 +913,7 @@ FAKE
     case_fail filter "MUTATION_SIGNAL_ONLY='${ONLY}' names no case; nothing was checked"
   fi
   [[ "${BAD}" -eq 0 ]] || fail "the mutation signal breaks MUT-1 to MUT-4 (${BAD} failure(s) above)"
-  pass "the nightly mutation measurement reports, cannot gate, and cannot go blind (M1-M8, R1-R8, W1-W3, T1-T3, C1, C3)"
+  pass "the nightly mutation measurement reports, cannot gate, and cannot go blind (M1-M9, R1-R8, W1-W3, T1-T3, C1, C3)"
   exit 0
 fi
 
@@ -1065,7 +1085,8 @@ fi
     lit "${S}" "((errors == 0)) || exit 1${nl}" "((errors == 0)) || exit 1${nl}for r in \"\${report[@]}\"; do ! grep -F '\"LIVED\"' \"\${r}\" >/dev/null || exit 1; done${nl}"
   judge M3 "rows printed before the last report is validated (M3)" "M3: a counts table was printed" \
     lit "${S}" '  row[${p}]="$(jq' '  echo "| Package | ${p} |"; echo "| ${p} | partial |"'"${nl}"'  row[${p}]="$(jq'
-  judge M4 "zero-mutation check dropped (M4)" "M4: the formatter exited 0" \
+  # M9's check also rejects an empty mutation list, so this mutant reds on M4's own message.
+  judge M4 "zero-mutation check dropped (M4)" "M4: no '::error::mutation:' line naming 'internal/pathvalidate' and 'no mutation: nothing was measured'" \
     lit "${S}" "          elif ([.files[].mutations[]] | length) == 0 then \"no mutation: nothing was measured\"${nl}" ''
   judge M5 "unknown statuses accepted (M5)" "M5: the formatter exited 0" \
     lit "${S}" 'select(. as $st | $known | index($st) | not)' 'select(false)'
@@ -1077,6 +1098,10 @@ fi
     lit "${S}" '[[ -n "${report[${p}]+set}" ]] || err "${p}: no report given' '[[ -n "${report[${p}]+set}" ]] || : "${p}: no report given'
   judge M8 "an unknown package accepted (M8)" "M8: no '::error::mutation:' line naming 'internal/collect'" \
     lit "${S}" 'if ((known == 0)); then' 'if false; then'
+  judge M9 "measured-nothing check dropped (M9, stage-B B1)" "M9: the formatter exited 0" \
+    lit "${S}" 'elif ([.files[].mutations[] | select(.status == "KILLED" or .status == "LIVED")] | length) == 0 then' 'elif false then'
+  judge M9 "only TIMED OUT counted as measuring nothing (M9, stage-B B1)" "M9: the formatter exited 0" \
+    lit "${S}" 'select(.status == "KILLED" or .status == "LIVED")' 'select(.status != "TIMED OUT")'
 
   # --- runner (2.8) ----------------------------------------------------------------------------
   judge R2 "|| true on the gremlins call (R2)" "R2: no '::error::mutation:' line holding 'gremlins failed on ./internal/redact'" \
