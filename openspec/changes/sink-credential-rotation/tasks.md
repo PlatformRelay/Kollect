@@ -224,7 +224,7 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 
 ## 3. Retired backends drain (SCR-3)
 
-- [ ] 3.1 Tests (red on the G2 commit, where a key change closes the old backend at once,
+- [x] 3.1 Tests (red on the G2 commit, where a key change closes the old backend at once,
   `backend_pool.go:156-158` and `:208-214`):
   - `TestAcquireBackend_rotationDuringExportDefersClose`: E1 acquires B1 and blocks in `Export`;
     Secret changes; E2 acquires / E2 gets B2, B1's `Close` count is 0 until E1's release, then 1;
@@ -255,11 +255,12 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
     a valid value builds B2 and never returns B1.
   - `TestRelease_idempotent`: calling a release twice decrements once.
   - Existing BEP-1 tests (`internal/sink/backend_pool_delete_hook_test.go`) stay green unchanged;
-    any change to them is a *Test changes* row with a reason.
-- [ ] 3.2 Implement holders, `retireLocked`, the release and the store fence (design: *Pool
+    any change to them is a *Test changes* row with a reason. — closed 2026-10-20, evidence: evidence/G3.md
+- [x] 3.2 Implement holders, `retireLocked`, the release and the store fence (design: *Pool
   entries with holders*, *Fingerprint and acquire* step 4). Mutations: close at retire regardless
   of holders (defer tests fail); drop the fence (slow-builder test fails); omit the `sync.Once`
   (idempotent test fails); no-op control as in 1.2. `go test -race -count=10 ./internal/sink/`.
+  — closed 2026-10-20, evidence: evidence/G3.md
 
 ## 4. Docs (SCR-6)
 
@@ -303,12 +304,13 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 | SCR-2 | `TestCleanup_streamSinkDeletedSecretRetained`, `TestStreamSinkTypes_matchRetainingBackends`; *control* `TestCleanup_deletedGitAuthSecretFails` | stream retained without a read; set matches backends; Git release fails naming the Secret | pass | evidence/G2.md (2026-10-19) |
 | SCR-2 | envtest spec "deleted secret fails the export with a redacted status" | condition names the Secret; recovers after recreate | pass | evidence/G2.md (2026-10-19; green on G1 too) |
 | SCR-2 | mutations: no retire on not-found; retire on every error | deleted / cancelled tests fail | pass | evidence/G2.md (2026-10-19) (M1, M3; also M2, M5-M8, M13-M15, M0 control) |
-| SCR-3 | `TestAcquireBackend_rotationDuringExportDefersClose`, `_specChange…`, `_deleteEviction…`, `_ttlSkipsHeldEntry` | close after the holder's release | not-run | |
-| SCR-3 | `TestAcquireBackend_slowBuilderDoesNotReplaceNewer`, `_slowBuilderAfterRetireNotPooled`, `_sameKeyBuildersShare` | newer or retired entry not overwritten; same-key builders share | not-run | |
-| SCR-3 | `TestAcquireBackend_concurrentAcquiresAfterRotation` `-race -count=10` | each backend closed exactly once | not-run | |
-| SCR-3 | `TestAcquireBackend_failedRebuildRetiresOld`, `TestRelease_idempotent` | no stale fallback; single decrement | not-run | |
-| SCR-3 | BEP-1 tests unchanged | pass | not-run | |
-| SCR-3 | mutations: close at retire regardless of holders; no fence | defer / slow-builder tests fail | not-run | |
+| SCR-3 | `TestAcquireBackend_rotationDuringExportDefersClose`, `_specChange…`, `_deleteEviction…`, `_ttlSkipsHeldEntry` | close after the holder's release | pass | evidence/G3.md (2026-10-20); also `TestEvictBackendPool_heldEntryDrains`, `TestResetBackendPoolForTest_lateReleaseDoesNotCloseAgain` |
+| SCR-3 | `TestAcquireBackend_slowBuilderDoesNotReplaceNewer`, `_slowBuilderAfterRetireNotPooled`, `_sameKeyBuildersShare` | newer or retired entry not overwritten; same-key builders share | pass | evidence/G3.md (2026-10-20); also `_agedGenerationDoesNotAdmitOldBuild` |
+| SCR-3 | stale reads: `_staleReadDoesNotRetireNewer`, `_staleNotFoundDoesNotRetireNewer`, `_observedChangeRetiresEntryStoredDuringRead`, `_failedReReadKeepsObservedChange` | a read older than the entry does not retire it; an observed change still retires | pass | evidence/G3.md (2026-10-20; G2 deferral; the last test's fix is unreviewed, gap) |
+| SCR-3 | `TestAcquireBackend_concurrentAcquiresAfterRotation` `-race -count=10` | each backend closed exactly once | pass | evidence/G3.md (2026-10-20; green on G2 too, killed by M5, M9) |
+| SCR-3 | `TestAcquireBackend_failedRebuildRetiresOld`, `TestRelease_idempotent` | no stale fallback; single decrement | pass | evidence/G3.md (2026-10-20) |
+| SCR-3 | BEP-1 tests unchanged | pass | pass | evidence/G3.md (2026-10-20) |
+| SCR-3 | mutations: close at retire regardless of holders; no fence | defer / slow-builder tests fail | pass | evidence/G3.md (2026-10-20) (M1, M2; also M3-M16, M0 control) |
 | SCR-4 | `TestRotationErrors_noSentinel`, envtest status/Event assertions | no sentinel in errors this change adds, logs, status, Events | pass | evidence/G2.md (2026-10-19) |
 | SCR-4 | `TestSecretMeta_metadataOnly` | key from metadata only; a hit reads no values | pass (key and type; G1) | evidence/G1.md (2026-10-19) |
 | SCR-5 | `TestResolveSinkSecretData_emptySecretFails` (4 rows) | CLI fails before build, operator's text; `stringData` and env rows pass | pass | evidence/G2.md (2026-10-19) (5 rows; plus `_emptySecretFailsBeforeTheBackend`) |
