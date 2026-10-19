@@ -15,20 +15,21 @@ func TestConnection(
 	ctx context.Context,
 	spec kollectdevv1alpha1.KollectSinkSpec,
 	databaseSecret map[string][]byte,
+	caPEM []byte,
 ) error {
 	cfg, err := ConfigFromSpec(spec, databaseSecret)
 	if err != nil {
 		return err
 	}
 
-	pool, err := newGuardedPool(ctx, cfg.DSN)
+	pool, err := newGuardedPool(ctx, cfg.DSN, caPEM)
 	if err != nil {
 		return fmt.Errorf("postgres connect: %w", err)
 	}
 	defer pool.Close()
 
 	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("postgres ping: %w", redactedConnectError(err))
+		return fmt.Errorf("postgres ping: %w", withCAHint(redactedConnectError(err), len(caPEM) > 0))
 	}
 
 	return nil

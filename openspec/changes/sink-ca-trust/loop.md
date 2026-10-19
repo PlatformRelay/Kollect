@@ -60,6 +60,7 @@ Holistic run at B: not run yet.
 | 0.1 | CLOSED-WITH-GAPS: probe only, rows agent-review; no proposal or design claim contradicted | covered by the G1 review | evidence in `evidence/G1.md` (dispatch), not `T0.1.md` |
 | 1.1 + 1.2 (G1) | CLOSED | astra + claude/opus:diff, 2 rounds (`reviews/L-tasks/G1/`, `round-2/`); Claude leg: trust handling (dispatch) | defer to B: `internal/controller/secret_ca.go` third resolver (test-only caller) and `git.ValidateTLSSpec`'s own both-sources text |
 | 2.1 + 2.2 (G2) | CLOSED | astra + claude/opus:diff, 1 round (`reviews/L-tasks/G2/`); Claude leg: TLS trust (dispatch). astra REQUEST_CHANGES (P1 missing request counter, fixed), opus CLEAN | B: `task lint` does not lint integration-tagged files (9 pre-existing findings in `export*_integration_test.go`) |
+| 3.1 + 3.2 (G3) | CLOSED-WITH-GAPS | astra + claude/opus:diff, 2 rounds (`reviews/L-tasks/G3/`, `round-2/`); Claude leg: TLS trust (dispatch). R1 astra BLOCK (bracketed-host misread, fixed), opus CONCERNS (backstops untested, no-CA error text, fixed); R2 astra BLOCK (empty `service=` precedence, fixed, not re-reviewed), opus CLEAN | B: read the round-2 fix (`caDSN` service presence); residual chain-only case when the reader sees a mode pgx does not (opus R2 N3) |
 
 ## Known red
 
@@ -88,6 +89,9 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G2: net/http does not follow a 307 for an SDK PutObject (body not replayable); exercise a `CheckRedirect` guard with a body-less call (HeadBucket).
 - G2: a mutant that leaves an import unused is a build failure, not a kill; keep imports used.
 - G2: unit-tier "no request" claims cannot use a loopback counter (netguard); count in the integration tier and assert the counter before the error.
+- G3: a reader that mirrors a library parser drifts on key presence versus empty value and on syntax corners (bracketed hosts); assert the reader's own output on a table of edge spellings and keep a post-parse shape check.
+- G3: `net.Pipe` is unbuffered; a TLS client that rejects the certificate deadlocks against the server's flight until the context ends; give the server end a short deadline.
+- G3: run `go test` with `umask 022`; under 002, `t.TempDir()` is 0775 and `internal/sink/git`'s mirror guard fails.
 
 ## Where a human should look first
 

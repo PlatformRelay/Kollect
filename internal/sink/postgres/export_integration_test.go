@@ -68,7 +68,7 @@ func TestExportPostgres(t *testing.T) {
 		},
 	}
 
-	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)})
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +235,7 @@ func TestExportPostgresBulk(t *testing.T) {
 		},
 	}
 
-	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)})
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestExportPostgres_idempotentDoubleExport(t *testing.T) {
 		},
 	}
 
-	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)})
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestExportPostgres_midBatchConstraintViolationRollsBack(t *testing.T) {
 		},
 	}
 
-	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)})
+	backend, err := NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(connStr)}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +525,7 @@ func TestNewBackend_authFailureFailFast(t *testing.T) {
 	}
 
 	start := time.Now()
-	_, err = NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(badDSN)})
+	_, err = NewBackend(ctx, spec, map[string][]byte{"dsn": []byte(badDSN)}, nil)
 	elapsed := time.Since(start)
 	if err == nil {
 		t.Fatal("expected auth failure for wrong password")
@@ -539,7 +539,7 @@ func TestNewBackend_authFailureFailFast(t *testing.T) {
 
 	// TestConnection must also reject bad credentials without hanging.
 	start = time.Now()
-	err = TestConnection(ctx, spec, map[string][]byte{"dsn": []byte(badDSN)})
+	err = TestConnection(ctx, spec, map[string][]byte{"dsn": []byte(badDSN)}, nil)
 	elapsed = time.Since(start)
 	if err == nil {
 		t.Fatal("expected TestConnection auth failure")
@@ -603,7 +603,7 @@ SELECT c.relkind::text FROM pg_catalog.pg_class c WHERE c.oid = to_regclass($1)
 	t.Run("table absent is not found and not created", func(t *testing.T) {
 		const table = "existing_absent"
 
-		_, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(connStr)})
+		_, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(connStr)}, nil)
 		if !errors.Is(err, ErrTableNotFound) {
 			t.Fatalf("NewBackend() error = %v, want ErrTableNotFound", err)
 		}
@@ -616,7 +616,7 @@ SELECT c.relkind::text FROM pg_catalog.pg_class c WHERE c.oid = to_regclass($1)
 		const table = "existing_present"
 		createTable(t, table)
 
-		backend, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(connStr)})
+		backend, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(connStr)}, nil)
 		if err != nil {
 			t.Fatalf("NewBackend() error = %v, want nil", err)
 		}
@@ -653,7 +653,7 @@ SELECT c.relkind::text FROM pg_catalog.pg_class c WHERE c.oid = to_regclass($1)
 			t.Fatal(err)
 		}
 
-		backend, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(writerDSN)})
+		backend, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(writerDSN)}, nil)
 		if err != nil {
 			t.Fatalf("NewBackend() as role without CREATE: error = %v, want nil", err)
 		}
@@ -666,7 +666,7 @@ SELECT c.relkind::text FROM pg_catalog.pg_class c WHERE c.oid = to_regclass($1)
 			t.Fatalf("create view: %v", err)
 		}
 
-		_, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(connStr)})
+		_, err := NewBackend(ctx, existingModeSpec(table), map[string][]byte{"dsn": []byte(connStr)}, nil)
 		if !errors.Is(err, ErrTableNotFound) {
 			t.Fatalf("NewBackend() with a view named %s: error = %v, want ErrTableNotFound", table, err)
 		}

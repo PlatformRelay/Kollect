@@ -127,7 +127,7 @@ Test rules for every group:
 
 ## 3. Postgres (SCT-2, SCT-4)
 
-- [ ] 3.1 Tests, red against stubs that accept `caPEM` in `postgres.NewBackend` and
+- [x] 3.1 Tests, red against stubs that accept `caPEM` in `postgres.NewBackend` and
   `postgres.TestConnection`:
   - unit D1 given keyword DSN `host=sentinel-host user=sentinel-user password=sentinel-pass
     dbname=sentinel-db sslmode=verify-full sslrootcert=/x` and CA X, when the config is built, then a
@@ -176,8 +176,10 @@ Test rules for every group:
     can call the unexported `acquireBackend`, `internal/sink/backend_pool.go:94`): with a fake
     client and the PI1 server, a DSN Secret that sets `sslrootcert` fails; after the Secret is
     corrected, the next acquisition builds and exports, sink spec unchanged · a cached failure.
-- [ ] 3.2 Implement (`design.md`, *Postgres*): `postgres/pool.go:16-24` and `:69-76`,
+    — closed 2026-10-19, evidence: evidence/G3.md
+- [x] 3.2 Implement (`design.md`, *Postgres*): `postgres/pool.go:16-24` and `:69-76`,
   `postgres/config.go`, `backend.go:53`, `connection.go:24`, `registry.go:132-139`, `probe.go:91`.
+  — closed 2026-10-19, evidence: evidence/G3.md
 
 ## 4. MongoDB (SCT-3, SCT-4)
 
@@ -289,11 +291,11 @@ resolver and constructors; their red is a mutation instead (5.1 names it).
 | SCT-1 | S1, S1b, S2, S3 (`go test -v ./internal/sink/s3/`) | rejections incl. SDK endpoints, guarded transport, no-CA unchanged | pass | `evidence/G2.md` rows 1-4 |
 | SCT-1 | I1, I2, I3, I4, G1 (`-tags integration`) | private CA trusted, Y refused, P trusted, downgrade redirect refused | pass | `evidence/G2.md` rows 5-9 |
 | SCT-1 | mutation: pool built with `x509.NewCertPool()` | I3 fails | pass | `evidence/G2.md` mutant 1 |
-| SCT-2 | D1-D8, D3b (`go test -v ./internal/sink/postgres/`) | conflicts and explicit weak modes rejected, unset → verify-full, no sentinel, fallbacks set | not-run | |
-| SCT-2 | PI6 (`-tags integration`) | unset sslmode verifies the hostname | not-run | |
-| SCT-2 | mutation: leave unset sslmode at pgx's default | D3b and PI6 fail | not-run | |
-| SCT-2 | PI1-PI5 (`-tags integration`) | verify-full trusted, require/verify-ca verified, hostname rule per mode, P trusted, recovery | not-run | |
-| SCT-2 | mutation: skip the `sslrootcert` check; skip the `require` upgrade | D1 fails; PI2 fails | not-run | |
+| SCT-2 | D1-D8, D3b (`go test -v ./internal/sink/postgres/`) | conflicts and explicit weak modes rejected, unset → verify-full, no sentinel, fallbacks set | pass | `evidence/G3.md` rows 1-8, 20-23 |
+| SCT-2 | PI6 (`-tags integration`) | unset sslmode verifies the hostname | pass | `evidence/G3.md` row 13 |
+| SCT-2 | mutation: leave unset sslmode at pgx's default | D3b and PI6 fail | pass | `evidence/G3.md` mutants 1, 2 |
+| SCT-2 | PI1-PI5 (`-tags integration`) | verify-full trusted, require/verify-ca verified, hostname rule per mode, P trusted, recovery | pass | `evidence/G3.md` rows 9-12, 14 |
+| SCT-2 | mutation: skip the `sslrootcert` check; skip the `require` upgrade | D1 fails; PI2 fails | pass | `evidence/G3.md` mutants 3, 4 |
 | SCT-3 | M1-M8 (`go test -v ./internal/sink/mongodb/`) | conflicts and aliases rejected, backstop holds, SRV accepted, no DNS, no sentinel | not-run | |
 | SCT-3 | MI1-MI3 (`-tags integration`) | private CA trusted, Y refused, P trusted | not-run | |
 | SCT-3 | mutation: accept `sslInsecure=true`; drop the post-`ApplyURI` backstop | M4 fails; M7 fails | not-run | |
