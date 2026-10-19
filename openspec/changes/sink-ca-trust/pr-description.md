@@ -22,7 +22,7 @@ Paste everything below the line.
   exporting with a terminal error, and a CA-configured Postgres sink without an `sslmode` now
   verifies the hostname.
 - **Reviewer action:** check the CA rules in the four sink packages and the redirect wrapper;
-  approving accepts the v0.22.0 release note below and three model-aligned decisions still pending
+  approving accepts the v0.22.0 release note below and two model-aligned decisions still pending
   operator validation.
 
 A sink that names a CA now uses it. Where the configuration means the CA would never be checked,
@@ -88,18 +88,22 @@ footers):
 > `kubectl annotate <kind> <name> ca-fixed-at="$(date +%s)" --overwrite`) so it is retried. See the
 > upgrade guide, *Sink CA trust (after v0.21.0)*.
 
-**Decisions taken by model alignment, pending operator validation** (recorded in the maintainer's
-decision log with counterpoints):
+**Decisions this PR rests on** (recorded in the maintainer's decision log with counterpoints):
 
-1. **CA semantics, outcome A (2026-10-19):** append the CA to the system roots for all four types;
-   supersedes the 2026-10-04 wording "trusts that CA and only that CA". Counterpoint: append never
-   pins.
-2. **Postgres `sslmode` with a CA, option B (2026-10-19):** unset → `verify-full`, explicit weak
-   mode → error, `require` → chain check. Counterpoint: the hostname check can fail existing sinks
-   whose DSN host does not match the SAN; `verify-ca` is the escape hatch.
-3. **Shared-resolver scope (spec SCT-4):** the missing-key and both-sources rejections apply to
-   every sink type, so Kafka and NATS sinks change too, release-noted, rather than limiting the new
-   errors to the four types this backlog item names.
+1. **Honour the CA, operator ruling A (2026-10-04):** S3, GCS, Postgres and MongoDB must use the
+   resolved CA, with a test per type; the DSN-versus-`caSecretRef` precedence must be stated, not
+   left to library defaults.
+2. **CA semantics, outcome A (2026-10-19, model-aligned, pending operator validation):** append the
+   CA to the system roots for all four types; supersedes the 2026-10-04 wording "trusts that CA and
+   only that CA". Counterpoint: append never pins.
+3. **Postgres `sslmode` with a CA, option B (2026-10-19, model-aligned, pending operator
+   validation):** unset → `verify-full`, explicit weak mode → error, `require` → chain check.
+   Counterpoint: the hostname check can fail existing sinks whose DSN host does not match the SAN;
+   `verify-ca` is the escape hatch.
+
+The missing-key and both-sources rejections on every sink type, Kafka and NATS included, are the
+spec's own choice (SCT-4, because the resolver is shared), not a logged decision; they are
+release-noted.
 
 ## Risk
 
