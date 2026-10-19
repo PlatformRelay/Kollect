@@ -304,8 +304,10 @@ loop deferred to B. One commit each; behaviour fixes start from a failing test.
 - [x] 8.3 A2: the CLI resolves credential Secrets before the CA rules; resolve the CA first, as the
   operator does. — closed 2026-10-19: `TestCAParity_caRulesPrecedeCredentialLookup` red on the CLI
   lookup error in all three cases, green after; reverting either reorder fails it again.
-- [ ] 8.4 A3/O1: the MongoDB CA path returns the driver's URI error (host) unchanged; return a
-  static, target-free error.
+- [x] 8.4 A3/O1: the MongoDB CA path returns the driver's URI error (host) unchanged; return a
+  static, target-free error. — closed 2026-10-19: `TestMongoCATrust_driverURIErrorIsTargetFree`
+  red on `invalid host … sentinel-host:1:2` and `lookup sentinel-host.invalid` (build and probe),
+  green after; class unchanged (not terminal).
 - [ ] 8.5 D2: pin the effective Postgres sslmode in the DSN handed to pgx, so `require` and
   `prefer`+`sslnegotiation=direct` cannot be confused.
 - [ ] 8.6 D3/O2: delete the unused third CA resolver `internal/controller/secret_ca.go`.
