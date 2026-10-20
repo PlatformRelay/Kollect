@@ -96,7 +96,9 @@ echo "Bundle validated: ${BUNDLE_DIR}"
 # .github/workflows/* among them, and the push or the PR then fails or rests on a stale base (the
 # forks had to be synced by hand on 2026-10-16). The sync is GitHub's merge-upstream endpoint
 # (the call behind `gh repo sync`), and only for a fork that is strictly BEHIND: a fork with
-# commits of its own (ahead or diverged) fails closed and is never force-pushed or merged into.
+# commits of its own (ahead or diverged) fails closed and is never force-pushed. merge-upstream
+# takes no expected SHA, so a fork that moves in the seconds between the check and the POST can
+# still get a merge commit from GitHub; the script then sees merge_type=merge and stops.
 # Every fork is checked before the first write to any of them, so a diverged second fork cannot
 # leave the first one half-submitted.
 SUBMISSIONS=(
@@ -158,7 +160,7 @@ preflight_forks() {
       cat >&2 <<ERR
 ERROR: fork ${fork_repo}:${branch} is ${status} relative to ${upstream_repo}:${UPSTREAM_BRANCH} (ahead by ${ahead}, behind by ${behind}).
   It carries commits upstream does not have, so it cannot be fast-forwarded. This script never
-  force-pushes or merges into a fork's default branch. Inspect the extra commits, reconcile the
+  force-pushes a fork's default branch or syncs one that is not behind. Inspect the extra commits, reconcile the
   fork by hand (see "Submit to OperatorHub" in docs/RELEASE.md), then re-run. Nothing was written.
 ERR
       return 1

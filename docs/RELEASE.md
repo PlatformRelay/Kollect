@@ -316,8 +316,9 @@ Before it branches or pushes, the script brings each fork's default branch up to
 upstream `main`. It reads both forks first, without writing: each must be a fork of its upstream,
 and its default branch must be identical to or behind upstream. A fork that is behind is then
 fast-forwarded through GitHub's `merge-upstream` API (what `gh repo sync` calls) and compared
-again. The script never force-pushes or merges into a fork's default branch. If either fork is
-ahead or has diverged, it stops before writing anything, with a message like:
+again. The script never force-pushes a fork's default branch and only syncs one that is strictly
+behind. If either fork is ahead or has diverged, it stops before writing anything, with a message
+like:
 
 ```text
 ERROR: fork platformrelay/community-operators:main is diverged relative to k8s-operatorhub/community-operators:main (ahead by 2, behind by 5).
@@ -329,6 +330,10 @@ If nothing on the fork's `main` needs keeping, reset it to upstream from a clone
 deliberate, manual force-push the script will not make. Then re-run the script. The same token
 scopes cover the sync: `public_repo` for the fork write, `workflow` when the upstream range
 touches `.github/workflows/`.
+
+`merge-upstream` takes no expected commit, so if someone pushes to a fork's `main` in the seconds
+between the check and the sync, GitHub can write a merge commit there. The script then reports
+`merge type 'merge', not a fast-forward` and stops before pushing; inspect the fork as above.
 
 `DRY_RUN=1` generates and validates the bundle and makes no remote writes. With `GH_TOKEN` set it
 also reads both forks (GET requests only) and prints, for each one, the sync it would make, the
