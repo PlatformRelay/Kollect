@@ -318,6 +318,14 @@ by the test command's exit status, with a no-op control that survives.
 - [x] 6.6 B1, B3 wording: SCR-2 (a failed read retires nothing on its own account), SCR-3 (the
   fence starts at the pool miss), design *Fingerprint and acquire* (full-read retire, stale-read
   residual); `task spec:validate` exit 0. — `c542c6f22`
+- [x] 6.7 Round 2 C2: the 6.5 test asserts the retire (the newer entry is retired, drains, and is
+  not handed to the next acquire); mutants "no failed re-read retire" (`:47`) and "retire ignores
+  holders" (`:50`) killed, control survives. — `b7c415293`
+- [x] 6.8 Round 2 C1, C3, C5 wording: SCR-7 and design name the two cases that re-export an
+  unchanged `0s` payload once (controller restart; more than 48 h on a degraded path that returns
+  before the export); the SCR-7 scenario reads "on any later watchdog requeue"; SCR-2 says
+  "mismatch", not "change"; troubleshooting page updated; `task spec:validate` exit 0. —
+  `df1993fa3`
 
 ## Verification
 
