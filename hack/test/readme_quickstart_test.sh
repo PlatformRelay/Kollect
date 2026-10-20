@@ -309,9 +309,12 @@ R=README.md
 CLONE='git clone https://github.com/platformrelay/kollect.git && cd kollect'
 FENCE1='```sh
 git clone https://github.com/platformrelay/kollect.git && cd kollect
-task demo-up                      # preferred: kind + Forgejo + Ready Git inventory
+task demo-up                      # kind + Forgejo + Ready Git inventory; about 3 minutes on a warm machine
 # or: task dev-up                 # same hero path after build
-kubectl get kinv,ktgt,ksnap -A    # watch Ready + ConnectionVerified
+kubectl get kinv,ktgt,ksnap -A    # demo-up has already waited for Ready + ConnectionVerified
+kubectl get kinv demo-inventory -n default \
+  -o jsonpath='"'"'{range .status.conditions[*]}{.type}={.status}{"\n"}{end}'"'"'
+task demo-down                    # delete the demo cluster when you are done
 ```'
 FENCE2='```sh
 kubectl apply -k config/samples/advanced/

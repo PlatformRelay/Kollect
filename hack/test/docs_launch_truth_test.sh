@@ -56,6 +56,9 @@ truth_files=(
   docs/operator-manual/troubleshooting.md
   docs/PLATFORM-DECISIONS.md
   docs/REQUIREMENTS.md
+  docs/operator-manual/stability.md
+  docs/getting-started/install.md
+  SECURITY.md
 )
 
 if grep -Eni \
@@ -116,6 +119,9 @@ if ! grep -qF -- "releases/tag/v${target_version}" overrides/main.html ||
   ! grep -qF -- "<strong>v${target_version}</strong>" overrides/main.html; then
   fail "announcement bar does not target v${target_version}"
 fi
+# The install guide pins the chart it tells users to install; the pin moves with the release.
+grep -qF -- "charts/kollect --version ${target_version} " docs/getting-started/install.md ||
+  fail "install guide does not pin the chart to --version ${target_version}"
 
 if grep -En \
   '^### (BigQuery sink|NATS event sink)|KollectClusterSink|Hub federated mTLS|Git sink.*Confluence' \
