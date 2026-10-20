@@ -8,7 +8,8 @@
 # Each fixture under hack/test/testdata/breaking-marker/<case>/ holds:
 #   title     the PR title (one line)
 #   body.txt  the PR body (optional; absent means an empty body)
-#   commits   one commit title per line, committed in order on top of a base commit
+#   commits   one commit title per line, committed in order on top of a base commit; a line
+#             `merge:<title>` adds a side commit and a merge commit with that title
 #   case      key=value lines: exit=<code>, out=<substring the output must contain> (repeatable),
 #             not=<substring the output must not contain> (repeatable), crlf=1 (send the body
 #             with CRLF line ends, as GitHub stores bodies edited in the web UI)
@@ -53,9 +54,18 @@ build_repo() {
   git init -q "${dir}"
   git_q "${dir}" commit -q --allow-empty -m "base"
   git -C "${dir}" rev-parse HEAD
+  local tree side merge
   while IFS= read -r subject || [[ -n "${subject}" ]]; do
     [[ -n "${subject}" ]] || continue
-    git_q "${dir}" commit -q --allow-empty -m "${subject}"
+    if [[ "${subject}" == merge:* ]]; then
+      tree="$(git -C "${dir}" rev-parse 'HEAD^{tree}')"
+      side="$(git_q "${dir}" commit-tree "${tree}" -p HEAD -m "side commit")"
+      merge="$(git_q "${dir}" commit-tree "${tree}" -p HEAD -p "${side}" -m "${subject#merge:}")"
+      git -C "${dir}" reset -q --hard "${merge}"
+    else
+      # verbatim: keep a subject's bytes as the fixture wrote them (a bare CR included)
+      git_q "${dir}" commit -q --allow-empty --cleanup=verbatim -m "${subject}"
+    fi
   done <"${commits}"
 }
 
@@ -116,15 +126,29 @@ case_workflow() {
     { echo "workflow: pull_request types are not edited,opened,reopened,synchronize -- a title or body edit must re-run the check"; return 1; }
   [[ "$(yq eval -o=json -I=0 '.permissions' "${wf}")" == '{"contents":"read"}' ]] ||
     { echo "workflow: top-level permissions are not exactly contents: read"; return 1; }
+  [[ "$(yq eval 'keys | join(",")' "${wf}")" == "name,on,permissions,concurrency,jobs" ]] ||
+    { echo "workflow: top-level keys are not exactly name, on, permissions, concurrency, jobs (no workflow env, no defaults)"; return 1; }
+  if grep -v '^[[:space:]]*#' "${wf}" | grep -q 'secrets\.'; then
+    echo "workflow: references secrets -- the check needs none, and same-repo PRs would receive them"
+    return 1
+  fi
   [[ "$(yq eval '.jobs | keys | join(",")' "${wf}")" == "breaking-marker" ]] ||
     { echo "workflow: jobs are not exactly breaking-marker"; return 1; }
   job='.jobs["breaking-marker"]'
   [[ "$(yq eval "${job}.name" "${wf}")" == "breaking-marker" ]] ||
     { echo "workflow: the job's name is not breaking-marker"; return 1; }
-  [[ "$(yq eval "${job} | has(\"permissions\")" "${wf}")" == "false" ]] ||
-    { echo "workflow: the job widens permissions"; return 1; }
+  [[ "$(yq eval "${job} | keys | join(\",\")" "${wf}")" == "name,runs-on,timeout-minutes,steps" ]] ||
+    { echo "workflow: job keys are not exactly name, runs-on, timeout-minutes, steps -- permissions, if, continue-on-error or env would widen or silence it"; return 1; }
+  local k
+  while IFS= read -r k; do
+    case "${k}" in
+      name | uses | with | env | run) ;;
+      *) echo "workflow: a step declares '${k}', outside name, uses, with, env, run -- if or continue-on-error would silence it"; return 1 ;;
+    esac
+  done < <(yq eval "${job}.steps[] | keys | .[]" "${wf}")
   while IFS= read -r uses; do
     [[ -n "${uses}" ]] || continue
+    [[ "${uses}" =~ ^actions/checkout@ ]] || { echo "workflow: action '${uses}' is not actions/checkout -- no other action is allowed"; return 1; }
     [[ "${uses}" =~ @[0-9a-f]{40}$ ]] || { echo "workflow: action '${uses}' is not pinned to a commit SHA"; return 1; }
   done < <(yq eval "${job}.steps[].uses | select(. != null)" "${wf}")
   [[ "$(yq eval "[${job}.steps[] | select(.uses | test(\"^actions/checkout@\"))] | length" "${wf}")" == 1 ]] ||
@@ -206,9 +230,14 @@ mutant() {
 {
   mutant title-ignored script 'title-bang-plain-commits: exit 0, want 1' 's/^\[\[ "\${PR_TITLE}" =~ \${marker_re} \]\] && title_marked=true$/:/'
   mutant body-ignored script 'body-footer-plain-commits: exit 0, want 1' 's/^  if \[\[ "\${line}" =~ \${footer_re} \]\]; then$/  if false; then/'
-  mutant bang-optional script 'empty-range: exit 1, want 0' 's/^marker_re=.*/marker_re='"'"'^(:[a-z0-9_+-]+:[[:space:]]+)?[a-z]+(\\([^)]*\\))?!?:'"'"'/'
+  mutant bang-optional script 'empty-range: exit 1, want 0' 's/^marker_re=.*/marker_re='"'"'^(:[a-z0-9_]+: )?[a-z]+(\\([^)]*\\))?!?:'"'"'/'
+  mutant gitmoji-loose script 'cliff-unparseable: exit 0, want 1' 's/^marker_re=.*/marker_re='"'"'^(:[a-z0-9_+-]+:[[:space:]]+)?[a-z]+(\\([^)]*\\))?!:'"'"'/'
+  mutant merges-counted script 'merge-commit-marked: exit 0, want 1' 's/git log --no-merges --format/git log --format/'
+  mutant fence-any-closes script 'fence-mixed: exit 0, want 1' 's/^    elif \[\[ "\${BASH_REMATCH\[1\]}" == "\${fence}" \]\]; then$/    else/'
+  mutant cr-unescaped script "commit-cr-subject: output lacks" '/^    s="\${s\/\/\$.\\r.\/%0D}"$/d'
+  mutant warn-despite-marked-title script 'warn-not-when-title-marked: output has' 's/^if ((\${#marked\[@\]} > 0)) \&\& ! \${title_marked}; then$/if ((${#marked[@]} > 0)); then/'
   mutant hyphen-unmatched script 'body-footer-hyphen: exit 0, want 1' 's/BREAKING\[ -\]CHANGE/BREAKING CHANGE/'
-  mutant fence-unskipped script 'mentions-only: exit 1, want 0' 's/^  \${in_fence} \&\& continue$/  :/'
+  mutant fence-unskipped script 'mentions-only: exit 1, want 0' 's/^  \[\[ -n "\${fence}" \]\] \&\& continue$/  :/'
   mutant commits-unread script 'title-and-commit-marked: exit 1, want 0' 's/^  \[\[ "\${s}" =~ \${marker_re} \]\] \&\& marked+=("\${s}")$/  :/'
   mutant warning-silent script "commit-marked-title-plain: output lacks '::warning title=breaking marker::'" 's/^    printf .::warning title=breaking marker::.*/    :/'
   mutant percent-unescaped script "output lacks 'keep 100%25 of rows'" 's/^    s="\${s\/\/%\/%25}"$/    :/'
@@ -221,6 +250,10 @@ mutant() {
   mutant wf-write workflow 'top-level permissions are not exactly contents: read' 's/^  contents: read$/  contents: write/'
   mutant wf-unpinned workflow 'is not pinned to a commit SHA' 's/actions\/checkout@[0-9a-f]\{40\}/actions\/checkout@v6/'
   mutant wf-persist workflow 'persist-credentials: false' 's/persist-credentials: false/persist-credentials: true/'
+  mutant wf-third-party workflow 'is not actions/checkout' 's/^      - uses: actions\/checkout@\([0-9a-f]\{40\}\).*/      - uses: evil\/act@\1/'
+  mutant wf-secrets workflow 'references secrets' 's/^          PR_BODY: .*/          PR_BODY: ${{ secrets.GITHUB_TOKEN }}/'
+  mutant wf-job-silenced workflow 'job keys are not exactly' 's/^    timeout-minutes: 5$/    timeout-minutes: 5\n    continue-on-error: true/'
+  mutant wf-step-skipped workflow "a step declares 'if'" 's/^      - name: Check breaking-change markers reach a commit title$/&\n        if: false/'
   mutant wf-inline workflow 'script injection' 's/^          bash hack\/check-breaking-marker.sh HEAD^1 HEAD^2$/          PR_TITLE="${{ github.event.pull_request.title }}" bash hack\/check-breaking-marker.sh HEAD^1 HEAD^2/'
   mutant noop script '' '$a\
 # no-op control'
