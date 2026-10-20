@@ -11,8 +11,8 @@ to matter, once "debounced" means "synced":
 3. `status.sinkExports[]` is rebuilt from empty entries every export pass, so a debounced pass
    erases `lastExportTime` and `lastChecksum` and recreates the condition with a new
    `lastTransitionTime`.
-4. The coalesce baseline ignores the sink object (UID, `metadata.generation`) and is never
-   cleared on failure.
+4. The coalesce baseline ignores the inventory object (UID) and the sink object (UID,
+   `metadata.generation`), and is never cleared on failure or on inventory deletion.
 5. The preview path treats an unresolvable sink as debounced with the default interval
    (`kollectinventory_controller.go:490`).
 6. The total-failure path never writes per-sink entries.
@@ -61,8 +61,8 @@ signature. Let `upToDate = exported + debounced`, `bound = upToDate + failed`.
 
 The total-failure branches (`applyInventoryExportOutcome` and the cluster reconciler's
 equivalent at `kollectclusterinventory_controller.go:211-231`), which set `ExportTerminal`,
-`SpillRequired` or `Progressing`, keep their aggregate reasons. They now also store
-`outcome.SinkExports` (built with the carry-over below) before calling `setInventoryDegraded` /
+`SpillRequired` or `Progressing`, keep their aggregate reasons. From G2 on (after the carry-over
+below exists, so the entries keep T1/C1) they also store `outcome.SinkExports` before calling `setInventoryDegraded` /
 `setDegraded`, so the failed sink's entry reads `False` with its reason and keeps its last
 successful `lastExportTime` and `lastChecksum` (SDC-3, SDC-5). `setInventoryDegraded` and
 `setDegraded` themselves do not touch `SinkExports`, so the paths that stop before an export pass
@@ -93,9 +93,11 @@ reads.
 
 ### When a sink counts as up to date (SDC-4)
 
-The tracker key stays `(inventory, exportKey)`. `sinkCoalesceState` gains `sinkUID` and
-`sinkGeneration`; `record` stores them from the `ResolvedSink` of the export that succeeded, and
-`shouldSkip` returns false when either differs from the resolved sink of the current pass.
+The tracker key stays `(inventory, exportKey)`. `sinkCoalesceState` gains `inventoryUID`,
+`sinkUID` and `sinkGeneration`; `record` stores them from the reconciled inventory and the
+`ResolvedSink` of the export that succeeded, and `shouldSkip` returns false when any differs from
+the current pass. The inventory UID covers an inventory deleted (with its backend cleanup) and
+recreated under the same name, which starts again at generation 1.
 `ResolvedSink` gains `Generation int64`, filled from the family sink object in
 `internal/sink/resolver.go:63`, `:78`, `:93`.
 
@@ -104,11 +106,14 @@ sites change together. The preview path (`previewAllSinksDebounced`) needs the r
 that argument; when `loadResolvedSink` fails it returns "not all debounced" and lets the full
 path report the failure, instead of debouncing with the default interval.
 
-`perSinkCoalesceTracker` gains `forget(invKey, exportKey)`, which deletes the entry. Every per-sink
-failure branch inside an export pass calls it: the job failure
-(`kollectinventory_controller.go:437-443`, cluster `kollectclusterinventory_controller.go:359-364`),
-the resolve failure (`:324-328`) and the partition failure (`:350-354`, and their cluster
-counterparts). With no entry, `shouldSkip` returns false, so the next reconcile exports. The
+`perSinkCoalesceTracker` gains `forget(invKey, exportKey)`, which deletes the entry. One helper,
+`failSinkExport(tracker, outcome, status, invKey, exportKey, generation, err)`, replaces the
+`addSinkFailure` + `setSinkExportSynced` pairs in every per-sink failure branch of an export
+pass (the job failure, `kollectinventory_controller.go:437-443`, cluster
+`kollectclusterinventory_controller.go:359-364`; the resolve failure, `:324-328`; the partition
+failure, `:350-354`; and their cluster counterparts) and calls `forget`. A unit test covers the
+helper, and the rule "no `outcome.addSinkFailure` call outside `failSinkExport`" is checked by
+`rg`, so no branch can skip the reset; the job-failure branch also has an envtest. With no entry, `shouldSkip` returns false, so the next reconcile exports. The
 requeue after a failure is unchanged (the reconciler's failure requeue; for a `0s` interval the
 `ZeroIntervalWatchdog`, `nextDue` returning the watchdog, not 1 s).
 
@@ -128,7 +133,9 @@ With these changes, a debounced pass that follows a debounced pass, with nothing
 produces a status equal to the stored one: aggregate condition unchanged, per-sink entries equal
 (seeded from the previous ones, same message, same `lastTransitionTime`), `itemCount`,
 `observedGeneration` and `lastExportTime` unchanged, `SinkReachable` and `Ready` messages
-unchanged. For the cluster inventory the pass also rewrites `namespaceShards`, `targetCount` and
+unchanged. That holds on the namespaced preview path and on the full path that snapshot sinks
+always take (the preview compares their partition checksum with the raw fingerprint, so it never
+short-circuits them); G2 tests both. For the cluster inventory the pass also rewrites `namespaceShards`, `targetCount` and
 the `ExportSucceeded` and `Ready` messages from the same inputs, so they are equal too; G2 tests
 this rather than assuming it. `Status().Update` of an unchanged object is not persisted, so
 `resourceVersion` stays and the inventory's own watch does not fire again. No Event is recorded
@@ -146,7 +153,8 @@ most reconciles.
 `exportStatusFromInventory` (`internal/inventory/status.go:159-182`) looks up the entry named
 `<family>/<name>` for each binding (the read API's bindings carry the family). Mapping order:
 reason `Debounced` → `debounced` for either status; then `True` → `ok`, `False` → `degraded`,
-other → `unknown`. A binding with no entry keeps the aggregate status, as today.
+other → `unknown`. A matched entry's `lastExportTime` is reported as is, empty when nil. A
+binding with no entry keeps the aggregate status and time, as today.
 
 ### Future pending state
 
@@ -167,7 +175,8 @@ exports instead.
 | Per-sink entry after a total failure | stale `True/Exported` | `False/ExportFailed` (or `SpillRequired`) |
 | Per-sink `lastExportTime`, `lastChecksum` after a debounced or failed pass | erased | kept |
 | Sink spec edited or sink recreated, payload unchanged | debounced until the interval | exported on the next pass |
-| Read API per-sink status | aggregate status (entries never matched) | per-sink: `ok`, `debounced`, `degraded` |
+| Inventory deleted and recreated under the same name, payload unchanged | debounced until the interval | exported on the first pass |
+| Read API per-sink status | aggregate status and time (entries never matched) | per-sink status and time (`ok`, `debounced`, `degraded`; empty time if none) |
 | `kollect_export_debounced_total` | counts skips | unchanged |
 | `Ready`, `Degraded`, Events | as today | unchanged |
 

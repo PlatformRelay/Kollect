@@ -23,9 +23,11 @@ Where it comes from (read 2026-10-20 on `origin/main` `0686f8276`):
   The interval debounces identical payloads only and never holds back a changed one
   ([ADR-0413](../../../docs/adr/0413-export-interval-scheduling.md) §2), so there is no
   "held-back change" state to report.
-- The tracker does not know which sink object it exported to: a sink spec change (which bumps the
-  sink's generation, not the inventory's) or a deleted and recreated sink leaves the baseline in
-  place, and a payload that returns to the last exported checksum after a failed export is skipped
+- The tracker does not know which objects it exported for: it is keyed by inventory name and
+  sink key, and is not cleared when an inventory is deleted (no other use of `sinkCoalesce` in
+  `internal/controller`). A sink spec change (which bumps the sink's generation, not the
+  inventory's), a deleted and recreated sink, or an inventory recreated under the same name
+  (generation 1 again) leaves the baseline in place, and a payload that returns to the last exported checksum after a failed export is skipped
   as unchanged. Today those cases read `Synced=False`, so they are hidden; once a debounce reads
   `Synced=True` they would claim an up-to-date sink that is not (SDC-4).
 - A debounced sink gets a per-sink `Synced=False reason=Debounced` condition with the message
@@ -79,15 +81,16 @@ does not match the code.
 - SDC-3: failures keep `Synced=False` with today's aggregate reasons; `PartiallySynced` then
   means only "some sinks failed". The total-failure path now writes the per-sink entries too, so a
   failed sink reads `Synced=False` even when no other sink exported.
-- SDC-4: a sink is debounced only when it is known to be up to date: the baseline also records the
-  family sink's UID and `metadata.generation`, a failed export clears the baseline, and an
-  unresolvable sink is never counted as debounced (also in the preview path).
+- SDC-4: a sink is debounced only when its export inputs are unchanged: the baseline also records
+  the inventory's UID and the family sink's UID and `metadata.generation`, a failed export clears
+  the baseline, and an unresolvable sink is never counted as debounced (also in the preview
+  path).
 - SDC-5: no condition churn: a debounced reconcile after a debounced reconcile writes no status
   and emits no Event; the aggregate is identical across export and debounce passes; per-sink
   entries keep `lastExportTime`, `lastChecksum` and their condition's `lastTransitionTime` across
   passes while the condition's status holds.
 - SDC-6: the read API matches entries by `<family>/<name>` and reports a debounced sink as
-  `debounced`, with that sink's own `lastExportTime`.
+  `debounced`, with that sink's own `lastExportTime` (empty when it has none).
 - SDC-7: docs match (`docs/reference/conditions.md`, `docs/operator-manual/troubleshooting.md`,
   `docs/operator-manual/metrics.md`, `docs/crds/kollectinventory.md`,
   `docs/crds/kollectclusterinventory.md`, the `ReasonPartiallySynced` comment in
@@ -126,11 +129,14 @@ SDC-1 sound.
   a sink spec change or replacement re-exports an unchanged payload once; the read API reports
   per-sink status.
 - Tests that encode today's behaviour and change (each a *Test changes* row):
-  `TestAggregateInventorySync` (`internal/controller/per_sink_export_test.go:86-123`); the two
+  `TestAggregateInventorySync` (`internal/controller/per_sink_export_test.go:86-123`);
+  `TestCarryOverLastExportPaths` (`:386-416`, replaced by the carry-over test); the two
   message assertions `"exported to 1 sink(s)"` in `internal/controller/requested_at_annotation_test.go:257`
   and `:402`; `TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus`
-  (`internal/inventory/cov_s06_test.go`, entry names become `<family>/<name>`). Tests that assert
-  only the `Debounced` reason stay green: `kollectinventory_dual_sink_test.go:121`,
+  (`internal/inventory/cov_s06_test.go`, entry names become `<family>/<name>`, and its
+  nil-time fallback row at `:124` changes). The tests that call `shouldSkip`, `record` or
+  `nextDue` directly change only for the new identity argument (mechanical; G3's evidence lists
+  them). Tests that assert only the `Debounced` reason stay green: `kollectinventory_dual_sink_test.go:121`,
   `kollectinventory_per_sink_envtest_test.go:198`, `kollectclusterinventory_export_envtest_test.go:257`.
 
 ## Non-goals
@@ -142,6 +148,11 @@ SDC-1 sound.
   sink, spill gate, registry missing): they keep what the last export pass wrote, and the
   aggregate `Synced=False` with the blocking reason reports the problem. Only export passes write
   per-sink entries.
+- Detecting changes outside the export inputs SDC-4 lists: a referenced Secret that points the
+  sink at another destination, or data removed on the backend. No controller watches Secrets
+  (`sink-secret-rotation` non-goals; a Secret change alone does not trigger an export for a `0s`
+  binding, decision 2026-10-19 `rotation-zero-interval`). For an interval > 0 the periodic
+  re-export bounds the gap.
 - Rate-limiting or delaying changed payloads. A later change that holds a changed payload back
   must report it with its own reason (design *Future pending state*); this change adds none,
   because no such state exists.
