@@ -312,10 +312,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, interval, now) {
 			outcome.DebouncedCount++
 			metrics.ExportDebouncedTotal.WithLabelValues("KollectClusterInventory").Inc()
-			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
-				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
-					r.sinkCoalesce.nextDue(invKey, exportKey, interval, now).Round(time.Second),
-					interval))
+			setSinkExportDebounced(status, inv.Generation, interval)
 			nextDue := r.sinkCoalesce.nextDue(invKey, exportKey, interval, now)
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
 			continue
@@ -753,10 +750,11 @@ func (r *KollectClusterInventoryReconciler) updateStatus(
 						itemCount, targetCount, outcome.ExportedCount))
 			}
 			apimeta.SetStatusCondition(&inv.Status.Conditions, metav1.Condition{
-				Type:               kollectdevv1alpha1.ConditionExportSucceeded,
-				Status:             metav1.ConditionTrue,
-				Reason:             reasonExported,
-				Message:            fmt.Sprintf("exported %d item(s) to %d sink(s)", itemCount, outcome.ExportedCount),
+				Type:   kollectdevv1alpha1.ConditionExportSucceeded,
+				Status: metav1.ConditionTrue,
+				Reason: reasonExported,
+				Message: fmt.Sprintf("exported %d item(s); %s", itemCount,
+					sinksUpToDateMessage(outcome.ExportedCount, outcome.DebouncedCount)),
 				ObservedGeneration: inv.Generation,
 				LastTransitionTime: metav1.Now(),
 			})

@@ -254,8 +254,8 @@ func assertSyncedAsForAnyExport(
 	if synced == nil || synced.Status != metav1.ConditionTrue || synced.Reason != "Exported" {
 		t.Fatalf("Synced condition after the forced export = %+v, want True/Exported as for any other export", synced)
 	}
-	if synced.Message != "exported to 1 sink(s)" {
-		t.Fatalf("Synced message after the forced export = %q, want \"exported to 1 sink(s)\"", synced.Message)
+	if synced.Message != "1/1 sink(s) up to date" {
+		t.Fatalf("Synced message after the forced export = %q, want \"1/1 sink(s) up to date\"", synced.Message)
 	}
 
 	if want := 5 * time.Minute; result.RequeueAfter != want {
@@ -399,8 +399,8 @@ func assertClusterSyncedAsForAnyExport(
 	if synced == nil || synced.Status != metav1.ConditionTrue || synced.Reason != "Exported" {
 		t.Fatalf("cluster Synced condition after the forced export = %+v, want True/Exported as for any other export", synced)
 	}
-	if synced.Message != "exported to 1 sink(s)" {
-		t.Fatalf("cluster Synced message after the forced export = %q, want \"exported to 1 sink(s)\"", synced.Message)
+	if synced.Message != "1/1 sink(s) up to date" {
+		t.Fatalf("cluster Synced message after the forced export = %q, want \"1/1 sink(s) up to date\"", synced.Message)
 	}
 
 	if want := 5 * time.Minute; result.RequeueAfter != want {

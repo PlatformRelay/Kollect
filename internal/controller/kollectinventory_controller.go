@@ -363,10 +363,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, interval, now) {
 			outcome.DebouncedCount++
 			metrics.ExportDebouncedTotal.WithLabelValues("KollectInventory").Inc()
-			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
-				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
-					r.sinkCoalesce.nextDue(invKey, exportKey, interval, now).Round(time.Second),
-					interval))
+			setSinkExportDebounced(status, inv.Generation, interval)
 			nextDue := r.sinkCoalesce.nextDue(invKey, exportKey, interval, now)
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
 			continue
@@ -497,10 +494,7 @@ func (r *KollectInventoryReconciler) previewAllSinksDebounced(
 
 		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, checksum, requestedAt, interval, now) {
 			outcome.DebouncedCount++
-			setSinkExportSynced(status, inv.Generation, false, kollectdevv1alpha1.ReasonDebounced,
-				fmt.Sprintf("next export in %s (interval %s, checksum unchanged)",
-					r.sinkCoalesce.nextDue(invKey, exportKey, interval, now).Round(time.Second),
-					interval))
+			setSinkExportDebounced(status, inv.Generation, interval)
 			nextDue := r.sinkCoalesce.nextDue(invKey, exportKey, interval, now)
 			outcome.RequeueAfter = mergeRequeueAfter(outcome.RequeueAfter, nextDue)
 			continue

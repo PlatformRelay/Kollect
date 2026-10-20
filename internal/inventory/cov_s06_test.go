@@ -24,107 +24,102 @@ import (
 
 // --- status.go: per-sink SinkExports resolution (exportStatusFromInventory) ---
 
-// TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus locks the inner
-// SinkExports loop, the lowest-covered func in the package. Each per-sink Synced condition
-// must override the inventory-wide status and message, mapping True->ok, False+Debounced->
-// debounced, False(other reason)->degraded, and Unknown->unknown, and a per-sink
-// LastExportTime must win over the inventory-wide one. A SinkExports entry whose name
-// matches no binding is ignored.
+// TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus locks SDC-6. The
+// per-sink status comes from the status.sinkExports entry named "<family>/<name>", the name the
+// reconcilers write (sinkExportKey). Mapping is reason first: Debounced -> debounced for either
+// status, then True -> ok, False -> degraded, Unknown -> unknown. A matched entry's
+// lastExportTime is reported as is, empty when it has none; the inventory-wide status and time
+// apply only to a binding with no entry. An entry whose name matches no binding is ignored, and
+// a bare-name entry (no family) matches nothing.
 func TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus(t *testing.T) {
 	t.Parallel()
 
 	invExport := metav1.NewTime(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 	okExport := metav1.NewTime(time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC))
+	snapshotGitExport := metav1.NewTime(time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC))
+	databaseGitExport := metav1.NewTime(time.Date(2026, 9, 2, 9, 30, 0, 0, time.UTC))
+	rfc := func(ts metav1.Time) string { return ts.UTC().Format(time.RFC3339) }
+	synced := func(status metav1.ConditionStatus, reason, message string) []metav1.Condition {
+		return []metav1.Condition{{
+			Type: kollectdevv1alpha1.ConditionSynced, Status: status, Reason: reason, Message: message,
+		}}
+	}
 
 	inv := &kollectdevv1alpha1.KollectInventory{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a"},
 		Spec: kollectdevv1alpha1.KollectInventorySpec{
-			SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList("git-ok", "git-debounced", "git-degraded", "git-unknown"),
+			SnapshotSinkRefs: kollectdevv1alpha1.NewSinkRefList(
+				"git-ok", "git-debounced", "git-degraded", "git-unknown", "git", "git-no-entry"),
+			DatabaseSinkRefs: kollectdevv1alpha1.NewSinkRefList("git"),
 		},
 		Status: kollectdevv1alpha1.KollectInventoryStatus{
 			LastExportTime: &invExport,
 			// Inventory-wide condition is degraded; per-sink conditions must override it.
-			Conditions: []metav1.Condition{{
-				Type:    kollectdevv1alpha1.ConditionSynced,
-				Status:  metav1.ConditionFalse,
-				Message: "inventory-wide message",
-			}},
+			Conditions: synced(metav1.ConditionFalse, "Progressing", "inventory-wide message"),
 			SinkExports: []kollectdevv1alpha1.InventorySinkExportStatus{
 				{
-					Name:           "git-ok",
+					Name:           "snapshot/git-ok",
 					LastExportTime: &okExport,
-					Conditions: []metav1.Condition{{
-						Type:    kollectdevv1alpha1.ConditionSynced,
-						Status:  metav1.ConditionTrue,
-						Message: "sink ok",
-					}},
+					Conditions:     synced(metav1.ConditionTrue, "Exported", "sink ok"),
 				},
 				{
-					Name: "git-debounced",
-					Conditions: []metav1.Condition{{
-						Type:    kollectdevv1alpha1.ConditionSynced,
-						Status:  metav1.ConditionFalse,
-						Reason:  kollectdevv1alpha1.ReasonDebounced,
-						Message: "unchanged within interval",
-					}},
+					// No lastExportTime: never exported successfully.
+					Name:       "snapshot/git-debounced",
+					Conditions: synced(metav1.ConditionFalse, kollectdevv1alpha1.ReasonDebounced, "unchanged within interval"),
 				},
 				{
-					Name: "git-degraded",
-					Conditions: []metav1.Condition{{
-						Type:    kollectdevv1alpha1.ConditionSynced,
-						Status:  metav1.ConditionFalse,
-						Reason:  "SinkError",
-						Message: "push rejected",
-					}},
+					Name:       "snapshot/git-degraded",
+					Conditions: synced(metav1.ConditionFalse, "SinkError", "push rejected"),
 				},
 				{
-					Name: "git-unknown",
-					Conditions: []metav1.Condition{{
-						Type:   kollectdevv1alpha1.ConditionSynced,
-						Status: metav1.ConditionUnknown,
-					}},
+					Name:       "snapshot/git-unknown",
+					Conditions: []metav1.Condition{{Type: kollectdevv1alpha1.ConditionSynced, Status: metav1.ConditionUnknown}},
+				},
+				{
+					Name:           "snapshot/git",
+					LastExportTime: &snapshotGitExport,
+					Conditions:     synced(metav1.ConditionTrue, kollectdevv1alpha1.ReasonDebounced, "payload unchanged"),
+				},
+				{
+					Name:           "database/git",
+					LastExportTime: &databaseGitExport,
+					Conditions:     synced(metav1.ConditionTrue, "Exported", "export completed"),
+				},
+				// Bare-name entry: not the controller's "<family>/<name>" key -> ignored.
+				{
+					Name:           "git-no-entry",
+					LastExportTime: &okExport,
+					Conditions:     synced(metav1.ConditionTrue, "Exported", "bare name"),
 				},
 				// Orphan export status: no binding named "stale-sink" -> ignored.
 				{
-					Name: "stale-sink",
-					Conditions: []metav1.Condition{{
-						Type:   kollectdevv1alpha1.ConditionSynced,
-						Status: metav1.ConditionTrue,
-					}},
+					Name:       "snapshot/stale-sink",
+					Conditions: synced(metav1.ConditionTrue, "Exported", ""),
 				},
 			},
 		},
 	}
 
 	got := exportStatusFromInventory(inv)
-	if len(got) != 4 {
-		t.Fatalf("expected 4 export statuses (one per binding, orphan ignored), got %d: %#v", len(got), got)
+	type want struct{ name, status, message, lastExport string }
+	wants := []want{
+		{"git-ok", "ok", "sink ok", rfc(okExport)},
+		{"git-debounced", "debounced", "unchanged within interval", ""},
+		{"git-degraded", statusDegraded, "push rejected", ""},
+		{"git-unknown", statusUnknown, "", ""},
+		{"git", "debounced", "payload unchanged", rfc(snapshotGitExport)},
+		{"git-no-entry", statusDegraded, "inventory-wide message", rfc(invExport)},
+		{"git", "ok", "export completed", rfc(databaseGitExport)},
 	}
-
-	byName := map[string]ExportStatus{}
-	for _, es := range got {
-		byName[es.SinkName] = es
+	if len(got) != len(wants) {
+		t.Fatalf("expected %d export statuses (one per binding, orphan ignored), got %d: %#v", len(wants), len(got), got)
 	}
-
-	if es := byName["git-ok"]; es.Status != "ok" || es.Message != "sink ok" {
-		t.Errorf("git-ok = %#v, want status=ok message=%q", es, "sink ok")
-	}
-	if es := byName["git-ok"]; es.LastExportTime != okExport.UTC().Format(time.RFC3339) {
-		t.Errorf("git-ok LastExportTime = %q, want per-sink time %q", es.LastExportTime, okExport.UTC().Format(time.RFC3339))
-	}
-	if es := byName["git-debounced"]; es.Status != "debounced" {
-		t.Errorf("git-debounced status = %q, want debounced", es.Status)
-	}
-	if es := byName["git-degraded"]; es.Status != statusDegraded {
-		t.Errorf("git-degraded status = %q, want degraded", es.Status)
-	}
-	if es := byName["git-unknown"]; es.Status != statusUnknown {
-		t.Errorf("git-unknown status = %q, want unknown", es.Status)
-	}
-	// A sink with no per-sink LastExportTime falls back to the inventory-wide time.
-	if es := byName["git-debounced"]; es.LastExportTime != invExport.UTC().Format(time.RFC3339) {
-		t.Errorf("git-debounced LastExportTime = %q, want inventory fallback %q",
-			es.LastExportTime, invExport.UTC().Format(time.RFC3339))
+	for i, w := range wants {
+		es := got[i]
+		if es.SinkName != w.name || es.Status != w.status || es.Message != w.message || es.LastExportTime != w.lastExport {
+			t.Errorf("binding %d = {name:%q status:%q message:%q lastExportTime:%q}, want {name:%q status:%q message:%q lastExportTime:%q}",
+				i, es.SinkName, es.Status, es.Message, es.LastExportTime, w.name, w.status, w.message, w.lastExport)
+		}
 	}
 }
 
