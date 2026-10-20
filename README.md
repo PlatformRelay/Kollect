@@ -106,20 +106,25 @@ flowchart LR
 ## Quick start (MVP)
 
 Spin up a credential-free Git export on a local kind cluster in one command. It builds the operator
-from your checkout, so it needs Docker, kind, kubectl, Helm, Git, curl, Go (the version in
-`go.mod`) and [Task](https://taskfile.dev/):
+from your checkout, so it needs Docker, kind, kubectl, Helm 3.8 or later, Git, curl, Go (the
+version in `go.mod`) and [Task](https://taskfile.dev/):
 
 ```sh
 git clone https://github.com/platformrelay/kollect.git && cd kollect
-task demo-up                      # preferred: kind + Forgejo + Ready Git inventory
+task demo-up                      # kind + Forgejo + Ready Git inventory; about 3 minutes on a warm machine
 # or: task dev-up                 # same hero path after build
-kubectl get kinv,ktgt,ksnap -A    # watch Ready + ConnectionVerified
+kubectl get kinv,ktgt,ksnap -A    # demo-up has already waited for Ready + ConnectionVerified
+kubectl get kinv demo-inventory -n default \
+  -o jsonpath='{range .status.conditions[*]}{.type}={.status}{"\n"}{end}'
+task demo-down                    # delete the demo cluster when you are done
 ```
 
 `task demo-up` (and `task dev-up`, which builds then runs the same hero harness) boots kind, installs
 Kollect, starts in-cluster Forgejo, and applies the golden Git-only sample — **no cloud/DB Secrets**.
-Watch `KollectInventory` `Ready` and sink `ConnectionVerified`, then follow the printed next steps
-(clone dir / Forgejo UI). Next to the exported files, the clone holds a `.kollect-prune/` directory:
+It waits for `KollectInventory` `Ready` and sink `ConnectionVerified`, then prints where to look:
+the clone of the exported repository (`/tmp/kollect-hero-inventory`; try `git log --oneline` there)
+and the Forgejo UI (`http://127.0.0.1:13000/`, user `kollect`, password `kollect-demo`). The
+`get` line lists the objects; the conditions line shows their state. Next to the exported files, the clone holds a `.kollect-prune/` directory:
 the ownership records that stop two inventories from deleting each other's files
 ([ADR-0422](https://platformrelay.github.io/Kollect/adr/0422-inventory-export-identity/)). The demo
 `shop` pod stays in `ErrImagePull` on purpose: its image does not exist, and Kollect reads the

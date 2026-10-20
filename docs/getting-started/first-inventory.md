@@ -4,7 +4,9 @@ Collect container images from a Deployment, export them to a Git repository, and
 result as an ordinary Git diff.
 
 > **Prerequisite:** a running operator from [Install Kollect](install.md) and an empty Git
-> repository you can push to. Use a disposable repository for this evaluation.
+> repository you can push to. Use a disposable repository for this evaluation. No hosted
+> repository? Run `task demo-up` instead (the README quick start); it brings its own in-cluster
+> Forgejo.
 
 ## 1. Prepare Git credentials
 
@@ -53,7 +55,7 @@ The sample target watches `demo` for Deployments labeled `app=shop`.
 ```sh
 kubectl create namespace demo --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n demo create deployment storefront --image=nginx:1.27
-kubectl -n demo label deployment storefront app=shop
+kubectl -n demo label deployment storefront app=shop --overwrite
 ```
 
 ## Verify
@@ -90,13 +92,14 @@ git diff "$first_export"..HEAD
 
 The diff is the result: a deterministic inventory file records the image change without querying
 the live cluster. The default sample path is
-`namespaces/demo/Deployment/storefront.yaml`.
+`namespaces/demo/deployment/storefront.yaml` (the `{kind}` path token is lowercase).
 
 ## If it didn't work
 
 | Symptom | Fix |
 | --- | --- |
 | `ConnectionVerified=False` | Check the repository URL, token scope, and Secret keys with `kubectl describe ksnap hero-git-sink`. |
+| `ConnectionVerified=False` with `resolved to a forbidden address` and `not globally routable` | The repository is on a private or cluster-internal address, which NetGuard blocks by default. For a local evaluation only: `helm upgrade kollect ./charts/kollect -n kollect-system --reuse-values --set allowPrivateSinks=true`. |
 | Inventory has zero items | Confirm the Deployment is in `demo` and has `app=shop`. |
 | No second commit | Wait at least the configured 15-second export interval and inspect manager logs. |
 | Push is rejected | Start with an empty repository, or allow a fast-forward commit to its configured `main` branch. |

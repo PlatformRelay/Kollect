@@ -25,8 +25,8 @@ kubectl -n kollect-system rollout status \
 
 `task kind-dev-up` creates the `kollect-dev` cluster, builds the operator image from your checkout,
 loads it into kind and installs the local chart with its CRDs. It then adds development extras:
-ingress-nginx, a trusted TLS certificate for `*.localhost` when mkcert is installed, Grafana and
-Prometheus. Set `KOLLECT_DEV_MINIMAL=1` (`KOLLECT_DEV_MINIMAL=1 task kind-dev-up`) to install the
+ingress-nginx, a trusted TLS certificate for `*.localhost` when mkcert is installed, and Grafana
+(Prometheus too with `KOLLECT_DEV_PROMETHEUS=1`). Set `KOLLECT_DEV_MINIMAL=1` (`KOLLECT_DEV_MINIMAL=1 task kind-dev-up`) to install the
 operator only. It deliberately does not apply `config/samples/`, so the next guide starts with an
 empty Kollect API and a collision-free Git-only pipeline.
 
@@ -40,21 +40,23 @@ kubectl api-resources --api-group=kollect.dev
 ## Helm on an existing cluster
 
 The default chart enables validating webhooks and creates cert-manager `Issuer` and `Certificate`
-resources. Install [cert-manager](https://cert-manager.io/docs/installation/) first and verify its
-CRDs are available:
+resources. Install [cert-manager](https://cert-manager.io/docs/installation/) first, for example
+from its OCI chart, and verify its CRDs are available:
 
 ```sh
+helm install cert-manager oci://quay.io/jetstack/charts/cert-manager --version v1.19.1 \
+  --namespace cert-manager --create-namespace --set crds.enabled=true --wait
 kubectl get crd certificates.cert-manager.io issuers.cert-manager.io
 ```
 
 Install the published OCI chart, or use the chart in your checkout. The chart is published only
 as an OCI artifact on GHCR; there is no classic Helm repository to `helm repo add`, and Helm 3.8 or
-later is needed for OCI. Without `--version`, Helm installs the newest release; pin one with
-`--version <chart-version>` (the [releases](https://github.com/platformrelay/kollect/releases) list
+later is needed for OCI. The command pins the current release; without `--version`, Helm
+installs the newest one (the [releases](https://github.com/platformrelay/kollect/releases) list
 them):
 
 ```sh
-helm install kollect oci://ghcr.io/platformrelay/charts/kollect \
+helm install kollect oci://ghcr.io/platformrelay/charts/kollect --version 0.21.0 \
   --namespace kollect-system --create-namespace
 kubectl -n kollect-system rollout status \
   deployment/kollect-controller-manager --timeout=120s

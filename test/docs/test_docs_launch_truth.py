@@ -31,6 +31,7 @@ TRUTH_FILES = (
     "docs/operator-manual/troubleshooting.md",
     "docs/PLATFORM-DECISIONS.md",
     "docs/REQUIREMENTS.md",
+    "docs/getting-started/install.md",
 )
 
 
@@ -72,6 +73,11 @@ class DocsLaunchTruthTest(unittest.TestCase):
         for rel in ("docs/ROADMAP.md", "docs/roadmap/planned-features.md", "overrides/main.html"):
             path = self.repo / rel
             path.write_text(path.read_text(encoding="utf-8").replace(f"v{old}", f"v{new}"), encoding="utf-8")
+        install = self.repo / "docs/getting-started/install.md"
+        install.write_text(
+            install.read_text(encoding="utf-8").replace(f"--version {old} ", f"--version {new} "),
+            encoding="utf-8",
+        )
 
     def test_current_tree_passes(self) -> None:
         result = self.run_check()
