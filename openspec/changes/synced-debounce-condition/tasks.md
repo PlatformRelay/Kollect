@@ -64,7 +64,7 @@ Test rules for every group:
 
 ## 1. Debounced is synced (SDC-1, SDC-2, SDC-3, SDC-6)
 
-- [ ] 1.1 Tests (red on `origin/main`):
+- [x] 1.1 Tests (red on `origin/main`):
   - `TestAggregateInventorySync` (changed; *Test changes* row citing SDC-2), rows
     (exported, debounced, failed): (2,0,0), (0,2,0), (1,1,0) → `True/Exported`, message
     "2/2 sink(s) up to date" in all three; (1,0,1) → `False/PartiallySynced`; (0,1,1) and (0,0,1)
@@ -102,7 +102,7 @@ Test rules for every group:
     `False/Debounced` → `debounced`; the entry with no `lastExportTime` (`:124`) now reports an
     empty time instead of the inventory's · exposes the bare-name lookup, a status-first mapping
     and the time fallback (base: the aggregate status and time for every binding).
-- [ ] 1.2 Implement: `setSinkExportDebounced` used by the three debounced branches
+- [x] 1.2 Implement: `setSinkExportDebounced` used by the three debounced branches
   (`kollectinventory_controller.go:363-371`, `:498-506`; `kollectclusterinventory_controller.go:312-320`);
   `aggregateInventorySync` per design *Aggregate*; the `ExportSucceeded` message of the cluster
   reconciler; the `<family>/<name>` lookup, reason-first mapping and per-entry time in

@@ -51,6 +51,7 @@ Holistic run at B: not run yet.
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
 | T0.1 · CLOSED (after spec fix) · probe: every 0.1 claim holds on `origin/main`; finding: `TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced` turns red under SDC-4's preview rule and is not in *Impact* | CLOSED | reviewer-a (diff), 1 round, no paid leg | finding 8 resolved by the orchestrator: option A applied to proposal *Impact* and tasks.md 3.1 (only option consistent with SDC-4; see *Triage* L) |
+| G1 · CLOSED · 1.1 + 1.2: debounced sink `True/Debounced`, aggregate `True/Exported` "N/N sink(s) up to date", cluster `ExportSucceeded` count, read API `<family>/<name>` + reason-first + own time; M1-M3 killed, M0 survived | CLOSED | reviewer-a (diff), 1 round, APPROVE with one P2 (evidence, fixed); no paid leg | none; race `-count=3` unit reds are pre-existing on base (`evidence/G1.md` *Iterations* 5) |
 
 ## Known red
 
@@ -65,10 +66,15 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
+| `internal/controller/per_sink_export_test.go:TestAggregateInventorySync` | before this change | G1 | SDC-2: no failed sink → `True/Exported`, one message for export and debounce passes |
+| `internal/controller/requested_at_annotation_test.go:257`, `:402` (message assertions) | before this change | G1 | SDC-2: message counts up-to-date sinks ("1/1 sink(s) up to date") |
+| `internal/inventory/cov_s06_test.go:TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` | before this change | G1 | SDC-6: `<family>/<name>` lookup, reason-first mapping, entry's own time (empty when none) |
 
 ## Lessons
 
 - T0.1: when a design removes a fall-back, grep the tests for fixtures that rely on it; a scratch mutant of just that rule over the whole package finds them in one run.
+- G1: `go test -race -count=3 ./internal/controller/` is red on base about one run in three (process-wide circuit breaker for `default/postgres-demo` across repetitions); diff against a `git archive <base>` copy before calling it a regression. Ginkgo refuses `-count>1`: run the unit tests with `-skip TestControllers` and the suite once with `-race`.
+- G1: envtest helpers that give each sink its own table let the registry selector route sinks to separate recording backends, so a spec can count exports per sink.
 - T0.1: throwaway envtest specs run unchanged in a `git archive origin/main | tar -x` scratch tree with `KUBEBUILDER_ASSETS` set (the relative `bin/k8s` resolver path does not exist there).
 
 ## Where a human should look first
@@ -77,6 +83,7 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 
 | Lesson | Seen in | Proposed change (AGENTS.md line / sensor / close-task.yml) |
 |---|---|---|
+| Race `-count=3` on `internal/controller` flakes on base: shared circuit breaker for `default/postgres-demo` | G1 | backlog RACE-COUNT-BREAKER-ISOLATION: reset or isolate the breaker per test in the four reconciler tests (`kollectinventory_export_test.go`, `kollectinventory_finalizer_test.go`) |
 
 ## Owner tasks (skipped by the loop)
 

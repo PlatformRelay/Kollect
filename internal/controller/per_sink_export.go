@@ -255,6 +255,22 @@ func setSinkExportSynced(
 	})
 }
 
+// setSinkExportDebounced marks a sink skipped as up to date (SDC-1): Synced=True, reason
+// Debounced. The message names the effective interval and nothing time-dependent, so repeated
+// debounced reconciles write the same condition.
+func setSinkExportDebounced(
+	status *kollectdevv1alpha1.InventorySinkExportStatus,
+	generation int64,
+	interval time.Duration,
+) {
+	message := fmt.Sprintf("payload unchanged since the last export; re-exported every %s", interval)
+	if interval == 0 {
+		message = "payload unchanged since the last export; exports only on change (interval 0s)"
+	}
+
+	setSinkExportSynced(status, generation, true, kollectdevv1alpha1.ReasonDebounced, message)
+}
+
 func upsertSinkExportStatus(
 	exports *[]kollectdevv1alpha1.InventorySinkExportStatus,
 	name string,
@@ -345,16 +361,19 @@ func aggregateInventorySync(
 	case failed > 0:
 		setSyncedCondition(conditions, generation, false, reasonProgressing,
 			fmt.Sprintf("%d sink(s) failed export", failed))
-	case debounced > 0 && exported == 0:
-		setSyncedCondition(conditions, generation, false, kollectdevv1alpha1.ReasonPartiallySynced,
-			fmt.Sprintf("%d sink(s) debounced", debounced))
-	case debounced > 0:
-		setSyncedCondition(conditions, generation, false, kollectdevv1alpha1.ReasonPartiallySynced,
-			fmt.Sprintf("%d/%d sinks debounced", debounced, exported+debounced))
 	default:
-		setSyncedCondition(conditions, generation, true, reasonExported,
-			fmt.Sprintf("exported to %d sink(s)", exported))
+		// SDC-2: a debounced sink is up to date, so an export pass and a debounce pass over the
+		// same sinks write the same condition.
+		setSyncedCondition(conditions, generation, true, reasonExported, sinksUpToDateMessage(exported, debounced))
 	}
+}
+
+// sinksUpToDateMessage counts exported and debounced sinks as up to date out of the bound sinks
+// of a pass in which no sink failed.
+func sinksUpToDateMessage(exported, debounced int) string {
+	upToDate := exported + debounced
+
+	return fmt.Sprintf("%d/%d sink(s) up to date", upToDate, upToDate)
 }
 
 func latestExportTime(exports []kollectdevv1alpha1.InventorySinkExportStatus) *metav1.Time {

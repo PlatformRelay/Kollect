@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
@@ -256,6 +257,84 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 			Expect(debounced).NotTo(BeNil())
 			Expect(debounced.Reason).To(Equal(kollectdevv1alpha1.ReasonDebounced))
 		}
+	})
+
+	It("reports debounced sinks as synced (SDC-1, SDC-2, cluster)", func() {
+		setupCollectFixtures()
+		// Freeze the store so informer updates cannot change the rollup checksum between passes.
+		if engineCancel != nil {
+			engineCancel()
+			engineCancel = nil
+		}
+
+		sinkB := "export-pg-b-" + suffix
+		sinkObjB, pgSecretB := createPostgresSinkFixtures(sinkB, "pg-b-"+suffix, sink.DefaultSecretNamespace)
+		Expect(k8sClient.Create(ctx, sinkObjB)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, sinkObjB) })
+		Expect(k8sClient.Create(ctx, pgSecretB)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, pgSecretB) })
+
+		longInterval := metav1.Duration{Duration: 15 * time.Minute}
+		inv := &kollectdevv1alpha1.KollectClusterInventory{
+			ObjectMeta: metav1.ObjectMeta{Name: inventoryName},
+			Spec: kollectdevv1alpha1.KollectClusterInventorySpec{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{tenantLabel: tenantLabelVal},
+				},
+				TargetRefs:        []string{targetName},
+				SinkNamespace:     sink.DefaultSecretNamespace,
+				ExportMinInterval: &longInterval,
+				DatabaseSinkRefs:  kollectdevv1alpha1.NewSinkRefList(sinkName, sinkB),
+			},
+		}
+		Expect(k8sClient.Create(ctx, inv)).To(Succeed())
+
+		recorder := &recordingBackend{}
+		events := record.NewFakeRecorder(32)
+		invReconciler := &KollectClusterInventoryReconciler{
+			Client:   k8sClient,
+			Scheme:   k8sClient.Scheme(),
+			Engine:   engine,
+			Store:    store,
+			Registry: newPostgresRecordingRegistry(recorder),
+			Recorder: events,
+		}
+		DeferCleanup(func() {
+			sink.EvictBackendPool(sink.DefaultSecretNamespace, sinkName)
+			sink.EvictBackendPool(sink.DefaultSecretNamespace, sinkB)
+		})
+
+		req := reconcile.Request{NamespacedName: types.NamespacedName{Name: inventoryName}}
+		_, err := invReconciler.Reconcile(context.Background(), req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(recorder.exported).To(HaveLen(2))
+
+		_, err = invReconciler.Reconcile(context.Background(), req)
+		Expect(err).NotTo(HaveOccurred())
+		recorder.mu.Lock()
+		exports := len(recorder.exported)
+		recorder.mu.Unlock()
+		Expect(exports).To(Equal(2), "second reconcile should debounce both sinks")
+
+		updated := &kollectdevv1alpha1.KollectClusterInventory{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: inventoryName}, updated)).To(Succeed())
+		Expect(updated.Status.SinkExports).To(HaveLen(2))
+		for _, exportStatus := range updated.Status.SinkExports {
+			perSink := apimeta.FindStatusCondition(exportStatus.Conditions, conditionSinkSynced)
+			Expect(perSink).NotTo(BeNil())
+			Expect(perSink.Status).To(Equal(metav1.ConditionTrue), "per-sink Synced of %s (%s %q)",
+				exportStatus.Name, perSink.Reason, perSink.Message)
+			Expect(perSink.Reason).To(Equal(kollectdevv1alpha1.ReasonDebounced))
+		}
+		agg := apimeta.FindStatusCondition(updated.Status.Conditions, conditionSynced)
+		Expect(agg).NotTo(BeNil())
+		Expect(agg.Status).To(Equal(metav1.ConditionTrue), "aggregate Synced %s %q", agg.Reason, agg.Message)
+		Expect(agg.Reason).To(Equal(reasonExported))
+		Expect(agg.Message).To(Equal("2/2 sink(s) up to date"))
+		exported := apimeta.FindStatusCondition(updated.Status.Conditions, kollectdevv1alpha1.ConditionExportSucceeded)
+		Expect(exported).NotTo(BeNil())
+		Expect(exported.Message).NotTo(ContainSubstring("to 0 sink(s)"))
+		Expect(exported.Message).To(ContainSubstring("2/2 sink(s) up to date"))
 	})
 
 	It("requeues when no cluster targets match during bootstrap window (EC-P1-14)", func() {

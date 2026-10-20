@@ -83,42 +83,90 @@ func TestSetSinkExportSynced(t *testing.T) {
 	}
 }
 
+// TestAggregateInventorySync pins the aggregate rule of SDC-2 and SDC-3: no failed sink means
+// Synced=True/Exported with one message for export and debounce passes; any failure keeps False.
 func TestAggregateInventorySync(t *testing.T) {
 	t.Parallel()
 
-	var conditions []metav1.Condition
-	aggregateInventorySync(&conditions, 1, 2, 0, 0)
-	synced := apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Status != metav1.ConditionTrue || synced.Reason != "Exported" {
-		t.Fatalf("exported = %#v", synced)
+	cases := []struct {
+		name                        string
+		exported, debounced, failed int
+		wantStatus                  metav1.ConditionStatus
+		wantReason                  string
+		wantMessage                 string
+	}{
+		{"all exported", 2, 0, 0, metav1.ConditionTrue, reasonExported, "2/2 sink(s) up to date"},
+		{"all debounced", 0, 2, 0, metav1.ConditionTrue, reasonExported, "2/2 sink(s) up to date"},
+		{"one exported, one debounced", 1, 1, 0, metav1.ConditionTrue, reasonExported, "2/2 sink(s) up to date"},
+		{"one exported, one failed", 1, 0, 1, metav1.ConditionFalse, kollectdevv1alpha1.ReasonPartiallySynced, ""},
+		{"one debounced, one failed", 0, 1, 1, metav1.ConditionFalse, reasonProgressing, ""},
+		{"only failed", 0, 0, 1, metav1.ConditionFalse, reasonProgressing, ""},
 	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	conditions = nil
-	aggregateInventorySync(&conditions, 1, 0, 2, 0)
-	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Reason != kollectdevv1alpha1.ReasonPartiallySynced {
-		t.Fatalf("all debounced = %#v", synced)
+			var conditions []metav1.Condition
+			aggregateInventorySync(&conditions, 1, tc.exported, tc.debounced, tc.failed)
+			synced := apimeta.FindStatusCondition(conditions, conditionSynced)
+			if synced == nil {
+				t.Fatal("aggregate Synced condition not set")
+			}
+			if synced.Status != tc.wantStatus || synced.Reason != tc.wantReason {
+				t.Fatalf("aggregate Synced = %s/%s %q, want %s/%s",
+					synced.Status, synced.Reason, synced.Message, tc.wantStatus, tc.wantReason)
+			}
+			if tc.wantMessage != "" && synced.Message != tc.wantMessage {
+				t.Fatalf("aggregate Synced message = %q, want %q", synced.Message, tc.wantMessage)
+			}
+		})
 	}
+}
 
-	conditions = nil
-	aggregateInventorySync(&conditions, 1, 1, 1, 0)
-	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Reason != kollectdevv1alpha1.ReasonPartiallySynced {
-		t.Fatalf("partial debounce = %#v", synced)
+// TestSetSinkExportDebounced pins SDC-1: a debounced sink reads Synced=True/Debounced and its
+// message names the interval with nothing that changes between reconciles.
+func TestSetSinkExportDebounced(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		interval time.Duration
+		want     string
+	}{
+		{"interval 15m", 15 * time.Minute, "15m0s"},
+		{"interval 0s", 0, "only on change"},
 	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	conditions = nil
-	aggregateInventorySync(&conditions, 1, 1, 0, 1)
-	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Reason != kollectdevv1alpha1.ReasonPartiallySynced {
-		t.Fatalf("partial export failure = %#v", synced)
-	}
+			status := &kollectdevv1alpha1.InventorySinkExportStatus{Name: "database/pg"}
+			setSinkExportDebounced(status, 3, tc.interval)
+			first := apimeta.FindStatusCondition(status.Conditions, conditionSinkSynced)
+			if first == nil {
+				t.Fatal("per-sink Synced condition not set")
+			}
+			firstCopy := *first
+			if firstCopy.Status != metav1.ConditionTrue || firstCopy.Reason != kollectdevv1alpha1.ReasonDebounced {
+				t.Fatalf("per-sink Synced = %s/%s, want True/Debounced", firstCopy.Status, firstCopy.Reason)
+			}
+			if !strings.Contains(firstCopy.Message, tc.want) {
+				t.Fatalf("per-sink Synced message = %q, want it to contain %q", firstCopy.Message, tc.want)
+			}
+			if firstCopy.ObservedGeneration != 3 {
+				t.Fatalf("observedGeneration = %d, want 3", firstCopy.ObservedGeneration)
+			}
 
-	conditions = nil
-	aggregateInventorySync(&conditions, 1, 0, 0, 1)
-	synced = apimeta.FindStatusCondition(conditions, conditionSynced)
-	if synced == nil || synced.Reason != "Progressing" {
-		t.Fatalf("failed = %#v", synced)
+			time.Sleep(1100 * time.Millisecond)
+			setSinkExportDebounced(status, 3, tc.interval)
+			second := apimeta.FindStatusCondition(status.Conditions, conditionSinkSynced)
+			if second.Message != firstCopy.Message {
+				t.Fatalf("per-sink Synced message changed between reconciles: %q -> %q", firstCopy.Message, second.Message)
+			}
+			if !second.LastTransitionTime.Equal(&firstCopy.LastTransitionTime) {
+				t.Fatalf("per-sink lastTransitionTime moved: %v -> %v", firstCopy.LastTransitionTime, second.LastTransitionTime)
+			}
+		})
 	}
 }
 
