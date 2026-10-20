@@ -1,0 +1,42 @@
+# Tasks
+
+## 1. Test first (OFS-1 to OFS-5)
+
+- [x] 1.1 Write `hack/test/operatorhub_fork_sync_test.sh` (fake `gh`, `git`, `curl`, `make` on
+  PATH; cases behind->synced, identical, diverged, ahead, wrong parent, stuck sync, dry run,
+  dry run diverged, offline dry run); run it against the script on `main` and record the red —
+  evidence: evidence/T1.md
+
+## 2. Implement (OFS-1 to OFS-4)
+
+- [x] 2.1 `hack/operatorhub-pr.sh`: `preflight_forks` (read-only, all forks first), `sync_forks`
+  (`merge-upstream` for a behind fork, then re-compare), DRY_RUN plan output; never force-push or
+  merge into a fork's default branch — evidence: evidence/T1.md
+- [x] 2.2 `hack/test/dist_operatorhub_pr_test.sh`: run its dry run with `GH_TOKEN` unset so it
+  stays offline — evidence: evidence/T1.md
+
+## 3. Guard and docs (OFS-5)
+
+- [x] 3.1 `--self-test`: one mutant per clause plus a no-op control; wire plain and `--self-test`
+  into the `lint` job; add the guard to `cfc_guards` — evidence: evidence/T1.md
+- [x] 3.2 `docs/RELEASE.md`: the sync step, the diverged-fork failure and remedy, the dry run's
+  output — evidence: evidence/T1.md
+
+## 4. Proof and land
+
+- [x] 4.1 Dry run against the real forks, read-only, with `gh` and `git` wrappers that block any
+  write — evidence: evidence/T1.md
+- [ ] 4.2 Independent review (two legs); PR with every check green on the head SHA; archive as the
+  last commit
+
+## Verification
+
+| Req | Check | Expected | Status | Evidence |
+| --- | --- | --- | --- | --- |
+| OFS-1 | `case_behind_synced`, `case_identical_no_sync`, `case_stuck_sync_fails`; mutants `no-sync`, `sync-after-clone`, `no-recompare` | sync before clone, re-compare, only the version branch pushed; no sync when identical; stuck sync stops before push | not-run | evidence/T1.md |
+| OFS-2 | `case_diverged_fails`, `case_ahead_fails`, `case_wrong_parent_fails`; mutants `diverged-accepted`, `ahead-accepted`, `parent-unchecked` | non-zero, named message, zero writes, no git | not-run | evidence/T1.md |
+| OFS-3 | `case_diverged_fails` (first fork behind, second diverged) | the behind fork is not synced | not-run | evidence/T1.md |
+| OFS-4 | `case_dry_run_plan`, `case_dry_run_diverged`, `case_dry_run_offline`; mutants `dry-run-syncs`, `dry-run-offline-calls`; real-fork dry run | plan printed, zero writes; diverged fails; offline makes no call | not-run | evidence/T1.md |
+| OFS-5 | `--self-test` (8 mutants + no-op); CWS-6/CFC-6 with the `--self-test` step removed | each mutant reds its own case; unwired mode reds | not-run | evidence/T1.md |
+| OFS-1 | live `merge-upstream` on a real fork | fast-forward | N/A | a write to the third-party forks is outside this change (operator-owned, first release after merge); the response shape is taken from the GitHub REST docs (proposal, Assumptions) and the fake `gh` returns that shape |
+| all | independent review; CI on the PR head | APPROVE, green | not-run | reviews/ |

@@ -312,10 +312,40 @@ VERSION="${TAG#v}" IMAGE_DIGEST="${IMAGE_DIGEST}" GH_TOKEN=<pat> hack/operatorhu
 (`hack/lib/olm-image-digest.sh`), so the chart digest is rejected before anything reaches a
 third-party repository.
 
-`DRY_RUN=1` generates and validates the bundle without pushing, but it exits **before** the
-runnable-image check — that check needs a registry, and keeping it off the dry-run path is what
-lets the offline meta-tests run with a synthetic digest. A clean dry run therefore says nothing
-about whether `IMAGE_DIGEST` points at a real image; only a live submission verifies that.
+Before it branches or pushes, the script brings each fork's default branch up to date with
+upstream `main`. It reads both forks first, without writing: each must be a fork of its upstream,
+and its default branch must be identical to or behind upstream. A fork that is behind is then
+fast-forwarded through GitHub's `merge-upstream` API (what `gh repo sync` calls) and compared
+again. The script never force-pushes or merges into a fork's default branch. If either fork is
+ahead or has diverged, it stops before writing anything, with a message like:
+
+```text
+ERROR: fork platformrelay/community-operators:main is diverged relative to k8s-operatorhub/community-operators:main (ahead by 2, behind by 5).
+```
+
+Look at the fork's extra commits (`gh api repos/k8s-operatorhub/community-operators/compare/main...platformrelay:community-operators:main`).
+If nothing on the fork's `main` needs keeping, reset it to upstream from a clone of the fork
+(`git fetch upstream main && git push --force-with-lease origin upstream/main:main`); that is a
+deliberate, manual force-push the script will not make. Then re-run the script. The same token
+scopes cover the sync: `public_repo` for the fork write, `workflow` when the upstream range
+touches `.github/workflows/`.
+
+`DRY_RUN=1` generates and validates the bundle and makes no remote writes. With `GH_TOKEN` set it
+also reads both forks (GET requests only) and prints, for each one, the sync it would make, the
+branch it would push and the PR it would open, and it fails on a diverged fork just as a real run
+would:
+
+```text
+DRY_RUN=1: would sync platformrelay/community-operators:main from k8s-operatorhub/community-operators:main (behind by 15) via POST repos/platformrelay/community-operators/merge-upstream
+DRY_RUN=1: would create branch kollect-v0.21.0 from k8s-operatorhub/community-operators:main with dist/olm-bundle/0.21.0 and push it to platformrelay/community-operators (git push --force origin kollect-v0.21.0)
+DRY_RUN=1: would open or update the PR platformrelay:kollect-v0.21.0 -> k8s-operatorhub/community-operators:main
+```
+
+Without `GH_TOKEN` it makes no API call and says the fork state was not checked. Either way it
+exits **before** the runnable-image check — that check needs a registry, and keeping it off the
+dry-run path is what lets the offline meta-tests run with a synthetic digest. A clean dry run
+therefore says nothing about whether `IMAGE_DIGEST` points at a real image; only a live
+submission verifies that.
 
 To correct an already-open submission, push a new commit to the `kollect-v<version>` branch on
 the `platformrelay` fork of each upstream repo — that re-triggers the hosted pipelines.

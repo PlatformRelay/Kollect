@@ -13,10 +13,14 @@
 #                   `workflow` — the submission branch is cut from upstream/main, which
 #                   carries .github/workflows/*, and GitHub rejects a PAT push that
 #                   introduces workflow files without it once the fork drifts behind.
+#                   The same scopes let the script fast-forward each fork's default branch
+#                   to upstream (POST repos/<fork>/merge-upstream) before branching.
 #
 # Optional env vars:
 #   FORK_OWNER      - GitHub org owning the forks (default: platformrelay)
-#   DRY_RUN         - Set to 1 to validate bundle and print actions without cloning
+#   DRY_RUN         - Set to 1 to validate the bundle and print what would be synced, branched,
+#                     pushed and opened, with no remote writes. With GH_TOKEN set it also reads
+#                     each fork's state (GET only); without it, it makes no API call at all.
 #   GIT_USER_NAME   - Git commit author name (default: github-actions[bot])
 #   GIT_USER_EMAIL  - Git commit author email (default: 41898282+github-actions[bot]@users.noreply.github.com)
 #   BUNDLE_DIR      - Pre-generated bundle path (default: generates via make)
@@ -86,8 +90,150 @@ make validate-olm-bundle VERSION="${VERSION}" BUNDLE_DIR="${BUNDLE_DIR}"
 
 echo "Bundle validated: ${BUNDLE_DIR}"
 
+# DIST-OH-05 (openspec change operatorhub-fork-sync, OFS-1..OFS-4): bring each fork's default
+# branch up to date with upstream BEFORE anything is branched or pushed. A fork that lags upstream
+# makes the submission branch (cut from upstream/main) carry every upstream commit the fork lacks,
+# .github/workflows/* among them, and the push or the PR then fails or rests on a stale base (the
+# forks had to be synced by hand on 2026-10-16). The sync is GitHub's merge-upstream endpoint
+# (the call behind `gh repo sync`), and only for a fork that is strictly BEHIND: a fork with
+# commits of its own (ahead or diverged) fails closed and is never force-pushed or merged into.
+# Every fork is checked before the first write to any of them, so a diverged second fork cannot
+# leave the first one half-submitted.
+SUBMISSIONS=(
+  "k8s-operatorhub/community-operators"
+  "redhat-openshift-ecosystem/community-operators-prod"
+)
+UPSTREAM_BRANCH="main"
+FORK_REPOS=()
+FORK_BRANCHES=()
+FORK_STATES=()
+FORK_BEHIND=()
+
+lowercase() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+# fork_default_branch <upstream> <fork> -> the fork's default branch on stdout. Fails unless the
+# fork exists, is readable and is a fork of <upstream> (owner/repo compared case-insensitively).
+fork_default_branch() {
+  local upstream_repo="$1" fork_repo="$2" info parent branch
+  if ! info="$(gh api "repos/${fork_repo}" --jq '(.parent.full_name // "") + " " + (.default_branch // "")')"; then
+    echo "ERROR: cannot read the fork ${fork_repo} through the GitHub API; check GH_TOKEN and FORK_OWNER." >&2
+    return 1
+  fi
+  parent="${info%% *}"
+  branch="${info#* }"
+  if [[ "$(lowercase "${parent}")" != "$(lowercase "${upstream_repo}")" ]]; then
+    echo "ERROR: ${fork_repo} is not a fork of ${upstream_repo} (its parent is '${parent:-none}'); refusing to submit through it." >&2
+    return 1
+  fi
+  if [[ -z "${branch}" || "${branch}" == *" "* ]]; then
+    echo "ERROR: cannot determine the default branch of ${fork_repo} (got '${branch}')." >&2
+    return 1
+  fi
+  printf '%s\n' "${branch}"
+}
+
+# fork_compare <upstream> <fork> <branch> -> "<status> <ahead_by> <behind_by>" of the fork's branch
+# against upstream's ${UPSTREAM_BRANCH}. Read-only.
+fork_compare() {
+  local upstream_repo="$1" fork_repo="$2" branch="$3"
+  gh api "repos/${upstream_repo}/compare/${UPSTREAM_BRANCH}...${fork_repo%%/*}:${fork_repo##*/}:${branch}" \
+    --jq '"\(.status) \(.ahead_by) \(.behind_by)"'
+}
+
+# preflight_forks: read-only. Records each fork's state in the FORK_* arrays (globals, not stdout,
+# so no state is lost to a subshell) and fails closed on anything but identical or behind.
+preflight_forks() {
+  local upstream_repo fork_repo branch state status ahead behind
+  for upstream_repo in "${SUBMISSIONS[@]}"; do
+    fork_repo="${FORK_OWNER}/${upstream_repo##*/}"
+    branch="$(fork_default_branch "${upstream_repo}" "${fork_repo}")" || return 1
+    if ! state="$(fork_compare "${upstream_repo}" "${fork_repo}" "${branch}")"; then
+      echo "ERROR: cannot compare ${fork_repo}:${branch} with ${upstream_repo}:${UPSTREAM_BRANCH}; refusing to submit on an unknown base." >&2
+      return 1
+    fi
+    read -r status ahead behind <<<"${state}"
+    case "${status}" in
+    identical | behind) ;;
+    ahead | diverged)
+      cat >&2 <<ERR
+ERROR: fork ${fork_repo}:${branch} is ${status} relative to ${upstream_repo}:${UPSTREAM_BRANCH} (ahead by ${ahead}, behind by ${behind}).
+  It carries commits upstream does not have, so it cannot be fast-forwarded. This script never
+  force-pushes or merges into a fork's default branch. Inspect the extra commits, reconcile the
+  fork by hand (see "Submit to OperatorHub" in docs/RELEASE.md), then re-run. Nothing was written.
+ERR
+      return 1
+      ;;
+    *)
+      echo "ERROR: unexpected compare result for ${fork_repo}:${branch} against ${upstream_repo}:${UPSTREAM_BRANCH}: '${state}'. Nothing was written." >&2
+      return 1
+      ;;
+    esac
+    FORK_REPOS+=("${fork_repo}")
+    FORK_BRANCHES+=("${branch}")
+    FORK_STATES+=("${status}")
+    FORK_BEHIND+=("${behind}")
+  done
+}
+
+# sync_forks: fast-forwards every fork preflight_forks found behind, then re-compares and fails
+# unless the fork is now identical to upstream. The only write this function makes.
+sync_forks() {
+  local i upstream_repo fork_repo branch merge_type state status ahead behind
+  for i in "${!FORK_REPOS[@]}"; do
+    upstream_repo="${SUBMISSIONS[i]}"
+    fork_repo="${FORK_REPOS[i]}"
+    branch="${FORK_BRANCHES[i]}"
+    if [[ "${FORK_STATES[i]}" == "identical" ]]; then
+      echo "Fork ${fork_repo}:${branch} is up to date with ${upstream_repo}:${UPSTREAM_BRANCH}."
+      continue
+    fi
+    echo "Syncing fork ${fork_repo}:${branch} from ${upstream_repo}:${UPSTREAM_BRANCH} (behind by ${FORK_BEHIND[i]})..."
+    if ! merge_type="$(gh api --method POST "repos/${fork_repo}/merge-upstream" -f branch="${branch}" --jq '.merge_type // ""')"; then
+      echo "ERROR: GitHub refused to sync ${fork_repo}:${branch} with upstream (the token needs push access to the fork and the 'workflow' scope). Nothing was pushed." >&2
+      return 1
+    fi
+    case "${merge_type}" in
+    fast-forward | none) ;;
+    *)
+      echo "ERROR: syncing ${fork_repo}:${branch} returned merge type '${merge_type}', not a fast-forward; the fork changed since the check. Inspect it before re-running. Nothing was pushed." >&2
+      return 1
+      ;;
+    esac
+    if ! state="$(fork_compare "${upstream_repo}" "${fork_repo}" "${branch}")"; then
+      echo "ERROR: cannot re-compare ${fork_repo}:${branch} after the sync. Nothing was pushed." >&2
+      return 1
+    fi
+    read -r status ahead behind <<<"${state}"
+    if [[ "${status}" != "identical" ]]; then
+      echo "ERROR: ${fork_repo}:${branch} is still ${status} (ahead by ${ahead}, behind by ${behind}) after the sync. Nothing was pushed." >&2
+      return 1
+    fi
+    echo "Fork ${fork_repo}:${branch} synced (${merge_type})."
+  done
+}
+
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
-  echo "DRY_RUN=1: would submit ${BUNDLE_DIR} to k8s-operatorhub/community-operators and redhat-openshift-ecosystem/community-operators-prod as ${BRANCH}"
+  # OFS-4: no remote writes. With GH_TOKEN the fork checks run (read-only GETs); without it no API
+  # call is made at all, which keeps the offline meta-tests hermetic.
+  if [[ -n "${GH_TOKEN:-}" ]]; then
+    preflight_forks || exit 1
+  else
+    echo "DRY_RUN=1: GH_TOKEN not set; fork state not checked (no API calls made)."
+  fi
+  for i in "${!SUBMISSIONS[@]}"; do
+    upstream_repo="${SUBMISSIONS[i]}"
+    fork_repo="${FORK_OWNER}/${upstream_repo##*/}"
+    if [[ -z "${FORK_STATES[i]:-}" ]]; then
+      echo "DRY_RUN=1: would sync ${fork_repo}'s default branch from ${upstream_repo}:${UPSTREAM_BRANCH} if it is behind, and fail if it has diverged"
+    elif [[ "${FORK_STATES[i]}" == "identical" ]]; then
+      echo "DRY_RUN=1: ${fork_repo}:${FORK_BRANCHES[i]} is identical to ${upstream_repo}:${UPSTREAM_BRANCH}; would not sync"
+    else
+      echo "DRY_RUN=1: would sync ${fork_repo}:${FORK_BRANCHES[i]} from ${upstream_repo}:${UPSTREAM_BRANCH} (behind by ${FORK_BEHIND[i]}) via POST repos/${fork_repo}/merge-upstream"
+    fi
+    echo "DRY_RUN=1: would create branch ${BRANCH} from ${upstream_repo}:${UPSTREAM_BRANCH} with ${BUNDLE_DIR} and push it to ${fork_repo} (git push --force origin ${BRANCH})"
+    echo "DRY_RUN=1: would open or update the PR ${FORK_OWNER}:${BRANCH} -> ${upstream_repo}:${UPSTREAM_BRANCH}"
+  done
+  echo "DRY_RUN=1: no remote writes made."
   exit 0
 fi
 
@@ -303,6 +449,10 @@ PRBODY
 
   cd "${CHECKOUT_DIR}"
 }
+
+# OFS-1/OFS-3: check every fork first (no writes), then sync, then submit.
+preflight_forks || exit 1
+sync_forks || exit 1
 
 submit_bundle "k8s-operatorhub/community-operators"
 submit_bundle "redhat-openshift-ecosystem/community-operators-prod" "v4.19"
