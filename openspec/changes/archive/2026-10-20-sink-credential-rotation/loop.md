@@ -1,7 +1,7 @@
 # Loop — sink-credential-rotation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-credential-rotation` · Branch: `feat/sink-credential-rotation` · Base: `origin/main` @ `ae98ef106` · Started: 2026-10-19 · Reviewers: two independent review legs (duo)
-Next: hand-off — PR, CI on the PR head, rebase merge, archive
+Next: none — merged and archived
 Task prompt: local, `agent-context/loops/sink-credential-rotation/task-prompt.md` (harness, not committed) · Budget: paid review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SECRET-ROTATION-01 (release inventory 2026-10-19 items 12-13). Release note: v0.22.0. Spec set: proposal.md, design.md, specs/sink-secret-rotation/spec.md, tasks.md.
@@ -13,7 +13,7 @@ Backlog SECRET-ROTATION-01 (release inventory 2026-10-19 items 12-13). Release n
 - [x] R spec-set review — round 1 on `84f61bba3`: reviewer-a BLOCK, reviewer-b CONCERNS; CRITICAL A1 (cached reads) accepted via model-aligned decision → C, CRITICAL A5 (SCR-4 scope) accepted and narrowed; all other findings fixed (`reviews/R-spec-set/verification.md`). Round 2 (last) on `a0ac1aefe`: reviewer-a BLOCK (WARNINGs only), reviewer-b CONCERNS, no CRITICAL; all verified findings fixed (`reviews/R-spec-set/round-2/verification.md`). No CRITICAL remains
 - [x] L task loop — 0.1, 1.1–4.1 closed (see *Tasks*)
 - [x] B branch review — round 1 on `df5170e57`: reviewer-a BLOCK (A1, A2 filed CRITICAL, verified and downgraded to WARNING, fixed 6.2, 6.3), reviewer-b CONCERNS (B1 pinned as residual 6.5, B2 rejected, B3 wording, B4 cluster twin 6.4); holistic H1 `go mod tidy` fixed 6.1. Round 2 (last) on the fixes: reviewer-a CONCERNS (C1 wording), reviewer-b CLEAN; no CRITICAL; C2 test fix 6.7, wording 6.8 (`reviews/B-branch/round-*/verification.md`). Final gates green on `00604732b`; tip `4f2f5e155`
-- [ ] Hand-off — 2026-10-20 · `pr-description.md` · PR: pending
+- [x] Hand-off — 2026-10-20 · `pr-description.md` · PR: #480, every check green on `b7f2e6bfe` (CI 39346375954, Preflight 39346376361, Docs 39346376214, CodeQL 39346375920, E2E smoke 39346375919, E2E extended 39346376211; `test-integration` expected 68, executed 68, skipped 0; SonarCloud green); rebase-merged as `a56abe376`; main CI on `a56abe376` green (CI 39348859149, Preflight 39348859160, Docs 39348859496, CodeQL 39348859122, E2E smoke 39348859093); no GitHub issue tracks SECRET-ROTATION-01; archived in a follow-up PR
 
 ## Fitness functions
 

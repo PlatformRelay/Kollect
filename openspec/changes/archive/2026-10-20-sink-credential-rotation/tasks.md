@@ -283,10 +283,15 @@ Group G2 is 2.1 to 2.4, closed in one commit; 2.3 and 2.4 come from probe 0.1 fi
 
 ## 5. Integration
 
-- [ ] 5.1 Integrator: `task check` on the branch head; CI `test-integration` names
+- [x] 5.1 Integrator: `task check` on the branch head; CI `test-integration` names
   `TestPostgresExport_passwordRotation` and `TestS3Export_caRotation` as run and passed;
   independent branch review recorded (reviewer, revision, verdict); then archive the change as the
-  last commit and record both revisions.
+  last commit and record both revisions. — PR #480 head `b7f2e6bfe`: every
+  check green (CI 39346375954: `test-integration` expected 68, executed 68, passed 68, skipped 0,
+  both rotation tests in the `integration`-tagged `internal/sink/rotation_integration_test.go`);
+  `task check` gates green on `00604732b` (stage B); branch review: two rounds, reviewer-a and
+  reviewer-b, no CRITICAL open (`reviews/B-branch/`). Rebase-merged as `a56abe376`; main CI
+  39348859149 green on it. Archived in a follow-up PR (the merge came before the archive).
 
 ## 6. Stage-B fixes
 
@@ -365,5 +370,5 @@ by the test command's exit status, with a no-op control that survives.
 | SCR-3 | `TestAcquireBackend_failedReReadAfterStaleReadDrainsNewer` | a spurious retire drains and rebuilds from the current value | pass | tasks 6.5 (2026-10-20) |
 | SCR-7 | `TestPerSinkCoalesceTracker_zeroIntervalSkipsKeepStateAlive` | an unchanged `0s` binding is still skipped after two state TTLs of watchdog reconciles | pass | tasks 6.3 (2026-10-20) |
 | SCR-6 | `rg -U 'keeps its\s+CA' docs`; `task lint:markdown` | no match; 0 issues | pass | evidence/G4.md (2026-10-20; also docs guards and `task docs:verify`) |
-| all | `task check` on the branch head; CI on the PR head | green | not-run | |
-| all | independent branch review | APPROVE recorded with revision | not-run | |
+| all | `task check` on the branch head; CI on the PR head | green | pass | final gates on `00604732b` (`reviews/B-branch/round-2/verification.md`); PR #480 head `b7f2e6bfe`, CI 39346375954 and every other check green (2026-10-20) |
+| all | independent branch review | APPROVE recorded with revision | pass | stage B, two rounds on `df5170e57` and the fixes: round 2 reviewer-a CONCERNS (wording, fixed), reviewer-b CLEAN, no CRITICAL (`reviews/B-branch/round-2/verification.md`) |
