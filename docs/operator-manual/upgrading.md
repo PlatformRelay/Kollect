@@ -39,7 +39,7 @@ Download `install-crds.yaml` from the target [GitHub Release](https://github.com
 or build locally:
 
 ```sh
-VERSION=0.1.0 task release-dry-run
+VERSION=X.Y.Z task release-dry-run
 ```
 
 Verify image digest or tag with cosign when adopting from GHCR ([ADR-0705](../adr/0705-release-supply-chain.md)).
@@ -68,7 +68,7 @@ helm upgrade kollect ./charts/kollect -n kollect-system -f values.yaml
 **OCI chart (GHCR):**
 
 ```sh
-# pin the target release version, e.g. --version 0.5.0
+# pin the target release version, for example --version X.Y.Z
 helm upgrade kollect oci://ghcr.io/platformrelay/charts/kollect \
   --version <chart-version> \
   -n kollect-system \
@@ -124,11 +124,11 @@ bumping versions. Common upgrade touchpoints:
 | Area | Check |
 | --- | --- |
 | `tenantMode` / `watchNamespaces` | RBAC shape changes require reconciling Role vs ClusterRole |
-| `mode` | Single-cluster only; remove legacy hub/spoke values from overlays |
+| `mode` | Removed after v0.21.0. The chart ignores it; delete it from your values and overlays |
 | `featureGates.*` | New gates default off; dev overlays may differ from production values |
 | `webhooks.certManager.create` | `false` requires an operator-provided serving Secret and webhook CA trust; the chart does not generate either |
 
-### Sink CA trust (after v0.21.0)
+### Sink CA trust (after v0.21.0) { #sink-ca-trust }
 
 S3, GCS, Postgres and MongoDB sinks now use `spec.tls.caBundle` / `caSecretRef`, trusted in
 addition to the system roots. Before, they ignored it. A CA that cannot take effect now fails the
@@ -166,7 +166,7 @@ backend on their next export.
 
 Rollback to v0.21.x restores the old behaviour; nothing is persisted.
 
-### Sink Secret rotation (after v0.21.0)
+### Sink Secret rotation (after v0.21.0) { #sink-secret-rotation }
 
 From v0.22.0 the operator picks up a changed sink Secret without a restart. Each export, and
 each cleanup that builds the backend, reads the metadata of every Secret the sink references (credential, database and CA
@@ -208,7 +208,7 @@ What to know before upgrading:
 - **Terminal errors still need a nudge.** No controller watches Secrets and a terminal error does
   not requeue. After fixing a Secret behind a terminal error (a Git `401`/`403`, a CA Secret with
   data but no CA key), change any annotation on the sink as in
-  [Sink CA trust](#sink-ca-trust-after-v0210).
+  [Sink CA trust](#sink-ca-trust).
 - **No RBAC change.** The metadata read uses the existing `get` on `secrets`.
 
 Rollback to v0.21.x restores the old behaviour; nothing is persisted.
@@ -279,7 +279,7 @@ moved or renamed project) now fail; set `spec.endpoint` to the final URL. Kafka 
 `spec.tls`: a sink with a CA bundle switches its broker connection to TLS, so make sure the broker
 listener it points at speaks TLS.
 
-### Git export ownership by inventory identity (after v0.21.0)
+### Git export ownership by inventory identity (after v0.21.0) { #git-export-ownership }
 
 Git and GitLab layout exports record which inventory owns each file, keyed by kind, cluster,
 namespace and name ([ADR-0422](../adr/0422-inventory-export-identity.md)). Cluster inventories
@@ -308,10 +308,24 @@ inventory's record, which would block that namespaced inventory's exports. If a 
 every export to it fails with `duplicate ownership of "<path>": ...`, naming both inventories and
 both record files: delete one of the two records.
 
-Ownership records written by builds before this change are not migrated. An inventory whose paths
-are listed in an old record is rejected as if another inventory owned them, so delete the
-`.kollect-prune/` directory from the export branch when upgrading; the next export records the
-current files again.
+Upgrading from v0.21.x: v0.21.x wrote no ownership records, so the first export after the upgrade
+records only the files it writes then. A file that a v0.21.x export left behind and that is no
+longer current is listed in no record, so no inventory ever prunes it
+([ADR-0419](../adr/0419-git-export-serialization-layout.md)). Remove those files once, by hand,
+after every inventory has exported once on the new version. To list the files no record claims, run
+this in a clone of the export branch and review the output before deleting anything (it also lists
+files you added yourself):
+
+```sh
+jq -r '.paths[]' .kollect-prune/*.json | sort -u > /tmp/owned
+git ls-files | grep -v '^\.kollect-prune/' | sort > /tmp/all
+comm -23 /tmp/all /tmp/owned
+```
+
+If you ran a build from `main` that wrote ownership records before this change, those records are
+not migrated. An inventory whose paths are listed in an old record is rejected as if another
+inventory owned them, so delete the `.kollect-prune/` directory from the export branch when
+upgrading; the next export records the current files again.
 
 Deleting an inventory releases its ownership record on every Git and GitLab sink, under both
 deletion policies ([ADR-0421](../adr/0421-snapshot-sink-deletion-policy.md)). With `Retain` the
@@ -321,7 +335,7 @@ release needs the repository, a Git or GitLab sink with a broken credential now 
 deletion in `Terminating` until the credential is fixed or `kollect.dev/force-cleanup: "true"` is
 set (which leaves the record in place).
 
-### Git engine convergence: `engine: cli` removed (after v0.21.0)
+### Git engine convergence: `engine: cli` removed (after v0.21.0) { #git-engine-convergence }
 
 The git snapshot sink exports through one engine, `go-git`
 ([ADR-0803](../adr/0803-git-engine-convergence.md)). `spec.git.engine` accepts only `go-git` (or
@@ -349,6 +363,60 @@ sink's credential secret (or `tls.insecureSkipVerify`, dev only), where the CLI 
 policy to the ambient ssh configuration. SSH key-exchange preferences are otherwise unchanged
 apart from two additions x/crypto already implements (`mlkem768x25519-sha256`,
 `diffie-hellman-group16-sha512`).
+
+### CRD schema changes (after v0.21.0) { #crd-schema-changes }
+
+This release changes the CRD schemas, so apply the new `install-crds.yaml` **before** the chart
+upgrade ([step 2](#2-apply-crd-schema)); `helm upgrade` does not update CRDs.
+
+- `KollectClusterTarget` gains `status.collectedCount` and `status.collectedCountUpdatedAt`, and
+  the `Collected` and `Updated` printer columns. Without the new CRDs, the API server drops these
+  fields when the new manager writes them.
+- `KollectSnapshotSink` `spec.git.engine` accepts only `go-git`
+  ([Git engine convergence](#git-engine-convergence)).
+- The family sink CRDs carry the new `spec.tls` trust rules in their field descriptions
+  ([Sink CA trust](#sink-ca-trust)).
+
+### Pipeline CLI (after v0.21.0) { #pipeline-cli-changes }
+
+`kollect-pipeline` resolves sink references the way the operator does.
+
+- **A missing referenced Secret fails the run.** Every Secret the sink references
+  (`spec.secretRef`, `spec.git.auth.secretRef` for a git sink, `spec.tls.caSecretRef`) must be a
+  `v1/Secret` manifest in the `--config` directory. Before, a missing `git.auth.secretRef` or
+  `caSecretRef` Secret was ignored and the run went ahead without credentials or CA. Now the run
+  fails with `sink git.auth.secretRef "<name>" not found in config directory` (or the
+  `tls.caSecretRef` equivalent) and exit code `2`. Add the Secret manifest, with `${env:VAR}`
+  placeholders for the values if they come from CI variables.
+- **The CA is checked first.** The `spec.tls` CA rules are checked before any credential Secret,
+  as in the operator, so a spec with both a CA error and a missing Secret reports the CA error.
+- **An invalid `labelSelector` fails its target.** A `KollectTarget` whose `spec.labelSelector`
+  does not parse used to collect every object of the profile's kind. It now collects nothing and
+  reports the parse error; other targets still collect. The run exits `1`, or `2` when nothing was
+  exported. Fix the selector. The operator already matched nothing for such a target.
+
+See [Pipeline CLI troubleshooting](../guides/pipeline-cli.md#troubleshooting).
+
+### Smaller behaviour changes (after v0.21.0) { #smaller-behaviour-changes }
+
+- **Git `401` and `403` are terminal.** A Git or GitLab sink now reads the HTTP status from
+  go-git's typed errors and from status phrases (`status code: 403`, `returned error: 403`,
+  `HTTP 401`, `403 forbidden`), and treats every `401` or `403` as a terminal auth failure. Before,
+  some `403` forms (for example the git CLI's `returned error: 403`) were not classified as auth
+  failures, and digits in a URL or directory name could be misread as a status. A terminal error is not retried: after fixing the credential, change an annotation on
+  the sink, as in [Sink CA trust](#sink-ca-trust). `429` and every `5xx` are retried.
+- **One-time diff from `kollect.dev/collectedGeneration`.** Resource-mode exports
+  (`export.mode: Resource`) whose profile keeps metadata (`include: All` or `MetadataOnly`) now
+  stamp the annotation `kollect.dev/collectedGeneration` on each embedded object. The first export
+  after the upgrade changes every such file once, which shows as one large commit in Git
+  ([annotations reference](../ANNOTATIONS-LABELS.md)).
+- **Cluster inventories go `Ready=False` when every export fails.** A `KollectClusterInventory`
+  that was `Ready` stayed `Ready=True` when one sink was waiting out its export interval and every
+  other sink write failed. It now reports `Ready=False`, as `KollectInventory` already did. Alerts
+  on `Ready` can fire where they did not before.
+- **Helm value `mode` removed.** The chart no longer has a `mode` value. The values schema still
+  accepts unknown keys, so a leftover `mode: single` is silently ignored; delete it from your
+  values.
 
 ## GitOps and CI/CD
 
