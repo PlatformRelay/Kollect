@@ -135,9 +135,10 @@ func TestMirrorRootDir_hostileRegularFileNotAdopted(t *testing.T) {
 }
 
 func TestMirrorRootDir_existingNonWritableDirIsReused(t *testing.T) {
-	// t.TempDir() dirs are owned by the current user with no group/other
-	// write bit (mode varies by platform, e.g. 0700 or 0755) -- safe to reuse.
-	dir := t.TempDir()
+	// A directory owned by the current user with no group/other write bit is
+	// safe to reuse. privateTempDir pins that mode: a bare t.TempDir() inherits
+	// the caller's umask and is 0775 under umask 002 (TEST-UMASK-01).
+	dir := privateTempDir(t)
 	t.Setenv(envMirrorDir, dir)
 
 	got, err := mirrorRootDir()
@@ -147,4 +148,19 @@ func TestMirrorRootDir_existingNonWritableDirIsReused(t *testing.T) {
 	if got != dir {
 		t.Fatalf("mirrorRootDir() = %q, want %q", got, dir)
 	}
+}
+
+// privateTempDir returns a t.TempDir() chmodded to mirrorRootPerm. t.TempDir
+// creates its directory with mode 0777 minus the umask, so under umask 002 it is
+// group-writable and the mirror-root safety check rightly refuses it. Tests that
+// expect a reusable mirror root must not depend on the caller's umask.
+func privateTempDir(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	if err := os.Chmod(dir, mirrorRootPerm); err != nil {
+		t.Fatalf("Chmod(%q, %04o): %v", dir, mirrorRootPerm, err)
+	}
+
+	return dir
 }
