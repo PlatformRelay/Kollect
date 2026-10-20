@@ -60,6 +60,10 @@ done
 # When it merges: re-point the badge at the listing and turn the absence assertion below back
 # into a presence assertion.
 #
+# Update 2026-10-20: #9070 merged on 2026-09-08 and the operatorhub.io API now serves
+# kollect.v0.18.0. Nobody has yet confirmed in a browser that the package page renders, so the
+# absence assertion stays until someone does.
+#
 # Scope note: only these two files are scanned. They are the ones this gate owns and the ones a
 # user actually follows; CHANGELOG.md and ADR-0708 may name the URL as history or as evidence.
 OPERATORHUB_PACKAGE_URL='operatorhub.io/operator/kollect'
@@ -100,7 +104,7 @@ for file in "${INSTALL}" "${README}"; do
   # case-sensitive absence check is a one-keystroke bypass of the whole gate -- proven by a review
   # mutation that re-added the dead link with a capital O/H and passed GREEN.
   ! grep -Fiq "${OPERATORHUB_PACKAGE_URL}" "${file}" ||
-    fail "${file} links to the OperatorHub.io package page, which answers HTTP 200 and then renders \"can't find package kollect\" -- k8s-operatorhub/community-operators#9070 is still waiting on a maintainer to approve its action_required workflow runs. Restore this link only once the listing is actually live."
+    fail "${file} links to the OperatorHub.io package page; keep it out until a browser check confirms that the page renders the package (ADR-0708)."
 done
 
 pass "install docs describe hub paths without premature listing URLs"

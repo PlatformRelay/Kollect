@@ -1,4 +1,6 @@
 # Sample workload for the hero drift story (shop:v2.0.0 → shop:v2.1.0).
+# The image does not exist, so the pod stays in ErrImagePull. That is intended: the profile
+# reads the Deployment spec, and the drift shows up as a changed image tag in Git.
 apiVersion: v1
 kind: Namespace
 metadata:

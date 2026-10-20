@@ -42,7 +42,6 @@ Install one operator per tenant boundary with namespaced RBAC and a restricted i
 tenantMode: true
 watchNamespaces:
   - team-a
-mode: single
 featureGates:
   inventoryHttp:
     enabled: false

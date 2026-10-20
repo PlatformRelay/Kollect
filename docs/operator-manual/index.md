@@ -88,7 +88,6 @@ For tenant isolation, enable namespaced RBAC and restrict the informer cache
 tenantMode: true
 watchNamespaces:
   - team-a
-mode: single
 featureGates:
   inventoryHttp:
     enabled: false
@@ -223,8 +222,8 @@ Summary for operators:
     pin — not a load, NetPol, or drain proof. See
     [testing · multi-node lab evidence](../development/testing.md#multi-node-lab-evidence).
 
-!!! info "Single-cluster mode only"
-    The operator runs `mode: single`. Multi-cluster fleets run **one single-mode operator per
+!!! info "Single-cluster operator only"
+    Each operator collects from its own cluster. Multi-cluster fleets run **one operator per
     cluster** exporting to a shared sink, partitioned by `spec.cluster` — there is no hub/spoke
     runtime tier ([ADR-0501](../adr/0501-multi-cluster-fleet.md)).
 

@@ -33,7 +33,7 @@ architecture context see [Understand the basics](concepts/resource-model.md) and
 
 | Term | Definition |
 | --- | --- |
-| **Fleet** | Many clusters each running `mode: single`, exporting to a **shared sink** with distinct `spec.cluster` ([ADR-0501](adr/0501-multi-cluster-fleet.md)). |
+| **Fleet** | Many clusters, each running its own operator and exporting to a **shared sink** with distinct `spec.cluster` ([ADR-0501](adr/0501-multi-cluster-fleet.md)). |
 | **Cluster label** | `spec.cluster` on database/event/snapshot sinks — merge dimension for Postgres PK, Git `pathTemplate`, or event subject. |
 | **Cluster target / inventory** | Cluster-scoped reconciled kinds (`KollectClusterTarget`, `KollectClusterInventory`) for cross-namespace rollup and platform-wide export. They reference namespaced `KollectProfile` / family sinks by `name` + `namespace` ([ADR-0208](adr/0208-cluster-static-refs-via-namespace.md)). |
 

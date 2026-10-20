@@ -354,7 +354,6 @@ save. Apply the release CRD bundle before upgrading the controller and follow
 tenantMode: true
 watchNamespaces:
   - team-a
-mode: single
 ```
 
 See [Operator manual — Watch scope](index.md#watch-scope) and
@@ -466,7 +465,7 @@ possible wrapper fields before `v1.0`.
 
 ### How do I inventory many clusters?
 
-**Default path:** run one Kollect operator per cluster with `mode: single` and export to a **shared sink**
+**Default path:** run one Kollect operator per cluster and export to a **shared sink**
 (Postgres, Kafka, NATS, Git) with **`spec.cluster`** set on inventory. The sink backend merges rows by
 cluster id — no central hub tier
 ([ADR-0501](../adr/0501-multi-cluster-fleet.md), [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md)).
@@ -505,7 +504,7 @@ resources, `watchMode: OptIn` without `enabled` labels, or `KollectScope` deny r
 
 1. Collect `kubectl describe` output for sink, target, and inventory.
 2. Capture operator logs (sanitize Secrets before sharing).
-3. Note Helm `mode`, `tenantMode`, and `watchNamespaces` values.
+3. Note the Helm `tenantMode` and `watchNamespaces` values, and the chart version.
 4. Open a GitHub issue with repro steps and condition JSON from `status.conditions`.
 
 ## See also

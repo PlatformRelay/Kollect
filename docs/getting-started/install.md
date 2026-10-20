@@ -4,8 +4,11 @@ Install the operator on a local kind cluster, then continue to a Git-backed inve
 inspect and diff.
 
 !!! note "Before you start"
-    You need Docker, [kind](https://kind.sigs.k8s.io/), `kubectl`, Git, Go, and
-    [Task](https://taskfile.dev/). The API is `v1alpha1`; pin a release for shared environments.
+    The local path builds the operator from source. You need Docker, [kind](https://kind.sigs.k8s.io/),
+    `kubectl`, [Helm](https://helm.sh/) 3.8 or later, Git, curl, Go (the version in `go.mod`), and
+    [Task](https://taskfile.dev/). [mkcert](https://github.com/FiloSottile/mkcert) is optional. The
+    API is `v1alpha1`; pin a release for shared environments
+    ([Stability and support](../operator-manual/stability.md)).
 
 ## Local evaluation
 
@@ -20,9 +23,12 @@ kubectl -n kollect-system rollout status \
   deployment/kollect-controller-manager --timeout=120s
 ```
 
-`task kind-dev-up` creates the `kollect-dev` cluster and installs only the operator and its CRDs.
-It deliberately does not apply `config/samples/`, so the next guide starts with an empty Kollect
-API and a collision-free Git-only pipeline.
+`task kind-dev-up` creates the `kollect-dev` cluster, builds the operator image from your checkout,
+loads it into kind and installs the local chart with its CRDs. It then adds development extras:
+ingress-nginx, a trusted TLS certificate for `*.localhost` when mkcert is installed, Grafana and
+Prometheus. Set `KOLLECT_DEV_MINIMAL=1` (`KOLLECT_DEV_MINIMAL=1 task kind-dev-up`) to install the
+operator only. It deliberately does not apply `config/samples/`, so the next guide starts with an
+empty Kollect API and a collision-free Git-only pipeline.
 
 Verify that the operator is ready:
 
@@ -41,7 +47,11 @@ CRDs are available:
 kubectl get crd certificates.cert-manager.io issuers.cert-manager.io
 ```
 
-Install the published OCI chart, or use the chart in your checkout:
+Install the published OCI chart, or use the chart in your checkout. The chart is published only
+as an OCI artifact on GHCR; there is no classic Helm repository to `helm repo add`, and Helm 3.8 or
+later is needed for OCI. Without `--version`, Helm installs the newest release; pin one with
+`--version <chart-version>` (the [releases](https://github.com/platformrelay/kollect/releases) list
+them):
 
 ```sh
 helm install kollect oci://ghcr.io/platformrelay/charts/kollect \
@@ -90,13 +100,14 @@ Additional distribution wiring ships under [ADR-0708](../adr/0708-operator-distr
   place keeps the repository ID, stars and Verified Publisher status, so the listing URL is
   unchanged.
 - **OperatorHub / OpenShift** — OLM bundles are generated at release and submitted to the community
-  operator catalogs when `OPERATORHUB_PAT` is configured. The **OpenShift community catalog**
-  submission is merged, so on OpenShift the operator installs from the console's OperatorHub tab
-  using package **`kollect`**, channel **`stable`**.
-  The **OperatorHub.io** listing is *not* live yet: our upstream submission is open and green on our
-  side, but its workflow runs sit at `action_required`, waiting for an upstream maintainer to
-  approve them. Until that merges there is no OperatorHub.io package page to link to — use Helm, the
-  OpenShift catalog, or the manifests on the [release page](../RELEASE.md).
+  operator catalogs when `OPERATORHUB_PAT` is configured. Kollect is listed on **OperatorHub.io**
+  and in the **OpenShift community catalog**, package **`kollect`**, channel **`stable`**; on
+  OpenShift it installs from the console's OperatorHub tab.
+  **The OLM catalogs lag behind the Helm chart.** A new version appears there only after the
+  upstream catalog maintainers merge its submission, so the catalogs can be several releases old.
+  Check the version the catalog offers against the
+  [latest release](https://github.com/platformrelay/kollect/releases/latest), and use Helm or the
+  release manifests when you need the current one.
   The OLM bundle runs with `--validating-webhooks-enabled=false` (no webhook Service/cert in the
   bundle). Prefer Helm OCI for the full admission path; CRD schema validation still applies under OLM.
 
