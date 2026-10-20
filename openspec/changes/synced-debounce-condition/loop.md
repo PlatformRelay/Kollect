@@ -1,7 +1,7 @@
 # Loop — synced-debounce-condition (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/synced-debounce-condition` · Branch: `feat/synced-debounce-condition` · Base: `origin/main` @ `0686f8276` · Started: 2026-10-20 · Reviewers: two independent review legs (duo)
-Next: L task loop — dispatch G4 (4.1) with the local task prompt
+Next: L done (T0.1, G1-G4 closed) — 5.1 integrator, then stage B branch review
 Task prompt: local, `agent-context/loops/synced-debounce-condition/task-prompt.md` (harness, not committed) · Budget: paid review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SYNCED-DEBOUNCE-STEADY-STATE (kind quick start 2026-10-20; operator: fix before v0.22.0).
@@ -13,7 +13,7 @@ tasks.md.
 - [x] 0 orient — new change; file:line references measured against `origin/main` @ `0686f8276` (2026-10-20)
 - [x] P plan + tasks — written; decision 2026-10-20 `synced-debounce-reason` (both legs A, pending operator validation); spec set committed: `b7871afcd`
 - [x] R spec-set review — round 1 on `a268bfc96`: reviewer-a BLOCK, reviewer-b BLOCK; four CRITICALs accepted (sink identity, preview resolve error, total-failure per-sink write, read API key) and fixed with the WARNINGs (`reviews/R-spec-set/verification.md`). Round 2 (last) on `138dada5c`: reviewer-a BLOCK, reviewer-b CONCERNS; CRITICAL inventory UID fixed, CRITICAL Secret-repointed destination rejected as scope (decision 2026-10-19 `rotation-zero-interval`), WARNINGs fixed (`reviews/R-spec-set/round-2/verification.md`). No CRITICAL remains
-- [ ] L task loop — see *Tasks*
+- [x] L task loop — see *Tasks* (T0.1, G1-G4 closed; 5.1 is the integrator's)
 - [ ] B branch review — `reviews/B-branch/round-N/`
 - [ ] Hand-off — `pr-description.md` · PR: none
 
@@ -54,6 +54,7 @@ Holistic run at B: not run yet.
 | G1 · CLOSED · 1.1 + 1.2: debounced sink `True/Debounced`, aggregate `True/Exported` "N/N sink(s) up to date", cluster `ExportSucceeded` count, read API `<family>/<name>` + reason-first + own time; M1-M3 killed, M0 survived | CLOSED | reviewer-a (diff), 1 round, APPROVE with one P2 (evidence, fixed); no paid leg | none; race `-count=3` unit reds are pre-existing on base (`evidence/G1.md` *Iterations* 5) |
 | G2 · CLOSED · 2.1 + 2.2: `carryOverSinkExport` seeds time, checksum, paths and conditions (deep copy) at the three call sites; both total-failure branches store the per-sink entries; 10 envtest specs + unit; M1, M2, M2t, M3a, M3b killed, M0 survived | CLOSED | reviewer-a (diff), 1 round, REQUEST_CHANGES with one P2 (test assertion, fixed); no paid leg | none; race `-count=3` unit red is the pre-existing breaker flake (`evidence/G2.md` *Iterations* 5) |
 | G3 · CLOSED · 3.1 + 3.2: debounce identity (inventory UID, sink UID, sink generation) in `shouldSkip`/`record`, `ResolvedSink.Generation`, `forget` via `failSinkExport` on all six failure branches, preview never debounces an unresolvable sink; 6 unit + 8 envtest specs (2 controls); M1-M5 killed, M0 survived | CLOSED | reviewer-a (diff), 1 round, APPROVE, no findings; no paid leg | none; race `-count=3` unit red is the pre-existing breaker flake (base archive red 4 of 6, `evidence/G3.md` *Iterations* 4) |
+| G4 · CLOSED · 4.1: conditions reference, troubleshooting (condition, per-sink, debounce and partial-failure rows, read API line), metrics note, both CRD pages, ADR-0413 §6 amendment note, upgrade-guide entry with old/new messages and what alerts and scripts must change; per-line `rg` check lists only the three allowed lines; markdown `0 issues`; 14 docs guards green | CLOSED | reviewer-a (diff), 1 round, REQUEST_CHANGES with two P2 wording findings (fixed, no round 2); no paid leg | none; `task docs:verify` stops on the local kubectl mise shim (environmental), remaining steps incl. `mkdocs build --strict` run by hand, green (`evidence/G4.md` row 6) |
 
 ## Known red
 
@@ -86,6 +87,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G3: a missing sink stops the namespaced reconcile at the reachability check, before the preview, so no envtest reaches the preview's resolve-error branch; its unit test (empty fake client) is the only sensor.
 - G3: for a new argument the stub ignores, a zero value on both sides of every existing call is the mechanical edit; one regex substitution over the test files plus a green suite proves it.
 - G3: the race `-count=3` breaker flake hit the base archive 4 of 6 runs (G1: 1 of 3, G2: 0 of 3); sample at least six base runs before calling a single red run noise.
+- G4: the per-line debounce check also catches a cell that says a debounce never causes `PartiallySynced`; keep debounce wording out of any line or table row that names `Synced=False` or `PartiallySynced`, and explain it in a separate paragraph.
+- G4: `task docs:verify` needs kubectl through mise (`MISE_KUBECTL_VERSION=1.36.1`) and `mkdocs build --strict` needs the `requirements-docs.txt` plugins (scratch venv outside the repo); without them run the remaining steps by hand.
 
 ## Where a human should look first
 
