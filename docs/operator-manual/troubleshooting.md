@@ -29,7 +29,7 @@ condition conventions (`Ready`, `Synced`, `Degraded`) with sink-specific types o
 | --- | --- | --- |
 | `Ready` | `KollectTarget`, `KollectInventory`, `KollectClusterInventory` | Pipeline healthy enough to collect or export |
 | `Synced` | Inventory / cluster inventory / target | Last export **or collection** cycle outcome (aggregate across sinks) |
-| `PartiallySynced` | Inventory (`Ready` or `Synced` **reason**) | Some sinks exported; others debounced or failed |
+| `PartiallySynced` | Inventory (`Ready` or `Synced` **reason**) | Some sinks exported in the pass; others failed |
 | `Degraded` | Target, inventory, sink family CRs | Terminal misconfig or export gate — **spec change required** |
 | `ExportShardWarning` | `KollectInventory` | Namespace aggregate ≥ ~1,800 rows — split before cap |
 | `SinkReachable` | Inventory / target | Sink ref resolves and backend reachable |
@@ -116,10 +116,13 @@ Each bound sink (`snapshotSinkRefs`, `databaseSinkRefs`, `eventSinkRefs`) gets a
 | Per-sink `Synced` | Operator read |
 | --- | --- |
 | `True`, reason `Exported` | Last attempt succeeded |
-| `False`, reason `Debounced` | **Not a failure** — cadence/coalesce skipped write |
+| `True`, reason `Debounced` | **Up to date, not a failure** — payload unchanged since the last export, write skipped; the message names the interval (`re-exported every 15m0s`, or `exports only on change (interval 0s)`) |
 | `False`, reason `ExportFailed` | Export attempt failed — read `message` |
 
-Read API mirrors this as `debounced` vs `degraded` per sink ([metrics note](metrics.md)).
+`lastExportTime` and `lastChecksum` keep the last successful export to that sink across debounced
+and failed passes. The read API reports each bound sink from its own `<family>/<name>` entry:
+`debounced` for reason `Debounced`, `ok` for any other `True`, `degraded` for `False`, with that
+entry's `lastExportTime` (empty when the sink never exported) ([metrics note](metrics.md)).
 
 ## Diagnostic commands
 
@@ -219,8 +222,8 @@ Family CRDs: **`KollectSnapshotSink`** (git/gitlab/s3/gcs), **`KollectDatabaseSi
 
 | Symptom | Likely causes | Identify | Handle | Escalate |
 | --- | --- | --- | --- | --- |
-| `Ready=True`, reason `PartiallySynced` | Per-sink `exportMinInterval`; unchanged payload checksum | `status.sinkExports[].conditions` reason `Debounced`; **no** `kollect_sink_errors_total` spike | Expected — wait for interval; tighten interval only if SLA requires fresher data | Mistaking debounce for outage |
-| `Synced=False`, reason `PartiallySynced`, all sinks debounced | All sinks within cadence window | All per-sink `Debounced`; `kollect_export_debounced_total` up | Normal for dual-cadence (e.g. Postgres 30s + Git 1h) | — |
+| `Synced=True`, reason `Exported`, but no new write in the backend | Per-sink `exportMinInterval`; unchanged payload checksum | `status.sinkExports[].conditions` `True`, reason `Debounced`; **no** `kollect_sink_errors_total` spike | Expected — the sink is up to date and re-exports when the interval elapses or the payload changes; tighten the interval only if SLA requires fresher writes | Mistaking debounce for outage |
+| Some sinks `Exported`, others `Debounced`, aggregate `Synced=True` | Dual cadence (e.g. Postgres 30s + Git 1h) | Per-sink reasons in `status.sinkExports[]`; `kollect_export_debounced_total` up | Normal — the aggregate message counts both as up to date (`2/2 sink(s) up to date`) | — |
 | Stale data in Postgres but `Synced=True` on Git ref | Different intervals per ref | Compare `lastExportTime` per `sinkExports` entry | Set ref-level `exportMinInterval` intentionally | — |
 
 ### Connection test
@@ -256,8 +259,9 @@ Family CRDs: **`KollectSnapshotSink`** (git/gitlab/s3/gcs), **`KollectDatabaseSi
 
 | Symptom | Likely causes | Identify | Handle | Escalate |
 | --- | --- | --- | --- | --- |
-| `Ready=True`, `PartiallySynced`; Postgres OK, Git failed | Independent per-sink export | `status.sinkExports[]` — mixed `Exported` / `ExportFailed` | Fix failing sink only; successful sinks stay current | — |
-| `Synced=False`, `PartiallySynced`; some failed | One backend terminal while others OK | Failed count in condition message | Terminal sink needs spec/cred fix; others self-heal | — |
+| `Ready=True`, `PartiallySynced`; Postgres OK, Git failed | Independent per-sink export; some sinks exported in the pass, some failed | `status.sinkExports[]` — mixed `Exported` / `ExportFailed` | Fix failing sink only; successful sinks stay current | — |
+| `Synced=False`, `PartiallySynced`; some failed | One backend terminal while others exported in the same pass | Failed count in condition message (`1/2 sinks exported; 1 failed`) | Terminal sink needs spec/cred fix; others self-heal | — |
+| Aggregate `Synced=False` with no sink exported, one per-sink entry `True` and one `False` | One sink was skipped as up to date (payload unchanged), the other failed | `status.sinkExports[]`: one entry `True`, the other `ExportFailed` | Fix the failing sink; an up-to-date sink never turns a failure into `Synced=True` | — |
 | Aggregate `Synced=False`, all per-sink failed | Shared payload inline-cap gate before export | Inventory-level `Degraded` + `SpillRequired`/`PayloadTooLarge` reasons | Fix size/sharding first | — |
 
 ### Multi-cluster fleet

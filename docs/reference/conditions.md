@@ -7,10 +7,17 @@ Conditions describe the latest observed generation; use them with Events and con
 | `Ready` | The resource is configured and able to perform its primary role. |
 | `ConnectionVerified` | An explicit sink connectivity probe succeeded. |
 | `SinkReachable` | The inventory can currently resolve and use its referenced sink. |
-| `Synced` | The latest observed inventory was exported successfully. |
-| `ExportSucceeded` | Set on `KollectClusterInventory` per export pass: `True` (`Exported`) when every referenced sink exported, `True` (`PartiallySynced`) when some did, `False` when the export failed. Cluster inventories only. |
+| `Synced` | Every bound sink holds the latest observed inventory. `True` (`Exported`, message `N/N sink(s) up to date`) when no sink failed in the last export pass. `False` when a sink failed: reason `PartiallySynced` when some sinks exported and some failed, otherwise `Progressing`, `ExportTerminal` or `SpillRequired`. |
+| `ExportSucceeded` | Set on `KollectClusterInventory` per export pass: `True` (`Exported`, message `exported N item(s); N/N sink(s) up to date`) when no sink failed; `True` (`PartiallySynced`) when some sinks exported and some failed; `False` when the export failed. Cluster inventories only. |
 | `TLSInsecure` | Set on a family sink while `spec.tls.insecureSkipVerify` is `true`; removed when the field is unset. Present only when TLS certificate verification is disabled — dev use, never production. |
 | `Degraded` | A terminal or partial failure needs attention. |
+
+**A debounced sink is up to date.** Each `status.sinkExports[]` entry carries its own `Synced`
+condition. When the payload, the inventory and the sink object are unchanged since the sink's last
+successful export and its `exportMinInterval` has not elapsed (or is `0s`), the operator skips the
+write and sets that entry to `Synced=True`, reason `Debounced`. Such a sink counts toward `N/N sink(s) up to date` in
+the aggregate `Synced` and in `ExportSucceeded`, exactly like a sink that exported in the pass.
+Use the per-sink reason or `kollect_export_debounced_total` to see debouncing.
 
 **`KollectTarget` `Ready.lastTransitionTime` is not a flap signal.** The `Ready` message restates
 the live collected count, and the controller treats a changed message as a transition. A busy

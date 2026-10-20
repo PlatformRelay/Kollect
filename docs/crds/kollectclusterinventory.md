@@ -128,9 +128,9 @@ Walkthrough: [examples/cluster-rollup.md](../examples/cluster-rollup.md).
 | Type | When set | Meaning | Remediation |
 | --- | --- | --- | --- |
 | `Ready=True` | Healthy | Rollup and export healthy | None |
-| `Synced=True` | Export OK | All sinks exported on last reconcile | Check `status.lastExportTime` |
-| `Synced=False` `PartiallySynced` | Mixed cadence | Some sinks exported; others debounced | Inspect `status.sinkExports[]` ([ADR-0413](../adr/0413-export-interval-scheduling.md)) |
-| `ExportSucceeded=True` | Last export OK | Sink write succeeded (legacy alias) | Check `status.lastExportTime` |
+| `Synced=True` | No sink failed | Every bound sink is up to date: it exported on the last reconcile or was debounced (payload unchanged); message `N/N sink(s) up to date` | Check `status.sinkExports[]` per sink ([ADR-0413](../adr/0413-export-interval-scheduling.md)) |
+| `Synced=False` `PartiallySynced` | Partial failure | Some sinks exported in the pass; others failed | Fix the failing sink — inspect `status.sinkExports[]` |
+| `ExportSucceeded=True` | Last export OK | Legacy alias. Reason `Exported` when no sink failed, message `exported N item(s); N/N sink(s) up to date`; reason `PartiallySynced` when some sinks exported and some failed | Check `status.lastExportTime` |
 | `Degraded=True` | Blocked | Scope, targets, size, or export error | See reasons below |
 
 ### Per-sink status (`status.sinkExports[]`)

@@ -77,7 +77,18 @@ All duration fields validated ≤ **24h** without cron (`MaxExportInterval`). Cr
 
 - `status.sinkExports[]` — per-sink `lastExportTime`, `lastChecksum`, `Synced` condition.
 - `status.lastExportTime` — **max** of per-sink times (backward compatible).
-- Aggregate `Synced=False`, reason **`PartiallySynced`** when some sinks debounced, none failed.
+- Aggregate `Synced=False`, reason **`PartiallySynced`** when some sinks debounced, none failed —
+  **amended after v0.21.0**, see the note below.
+
+!!! note "Amendment (after v0.21.0): debounced sinks are synced"
+    The aggregate rule above no longer holds. A debounced sink is up to date: its per-sink
+    condition is `Synced=True`, reason `Debounced`, and the aggregate is `Synced=True`, reason
+    `Exported` (`N/N sink(s) up to date`) whenever no sink failed. A debounce no longer sets
+    `Synced=False` or `PartiallySynced`; `PartiallySynced` now means some sinks exported and some
+    failed. A sink is debounced only while the payload, the inventory (UID, generation,
+    `kollect.dev/requestedAt`) and the sink object (UID, generation) are unchanged since its last
+    successful export. See [Conditions and status](../reference/conditions.md) and the
+    [upgrade note](../operator-manual/upgrading.md#smaller-behaviour-changes).
 
 ## Consequences
 

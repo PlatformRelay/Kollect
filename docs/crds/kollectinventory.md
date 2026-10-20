@@ -144,8 +144,8 @@ kubectl patch kinv team-inventory -n default --type=merge \
 | Type | When set | Meaning | Remediation |
 | --- | --- | --- | --- |
 | `Ready=True` | Healthy | Aggregating and exporting | None |
-| `Synced=True` | Export OK | All sinks exported on last reconcile (or debounced with no failures) | Check `status.lastExportTime` |
-| `Synced=False` `PartiallySynced` | Mixed cadence | Some sinks exported; others debounced on identical payload | Normal for dual-cadence fan-out — inspect `status.sinkExports[]` |
+| `Synced=True` | No sink failed | Every bound sink is up to date: it exported on the last reconcile or was debounced (payload unchanged); message `N/N sink(s) up to date` | Check `status.sinkExports[]` per sink |
+| `Synced=False` `PartiallySynced` | Partial failure | Some sinks exported in the pass; others failed | Fix the failing sink — inspect `status.sinkExports[]` |
 | `Synced=False` | Transient export error | `reason`: `Progressing` | Wait for retry/backoff |
 | `Degraded=True` | Hard block | Scope, size, or terminal export | See reasons below |
 | `SinkReachable=True/False` | Pre/post export | Sink probe or last export outcome | Fix family sink CR |
@@ -160,7 +160,7 @@ When family sink refs are configured, each entry mirrors export observation:
 | `lastExportTime` | Last successful export to this sink |
 | `lastChecksum` | Payload fingerprint from last export |
 | `lastExportPaths` | Sink-relative paths the last successful export wrote (capped sample); the deletion-time cleanup reads them as retraction evidence — recorded paths the cleanup cannot address announce `CleanupRetained` instead of a false-clean tombstone |
-| `conditions[]` | Per-sink `Synced` — `reason=Debounced` when interval not elapsed |
+| `conditions[]` | Per-sink `Synced`: `True`, reason `Exported` after a successful export; `True`, reason `Debounced` when the sink is up to date and the write was skipped (interval not elapsed, or `0s`); `False`, reason `ExportFailed` or `SpillRequired` when its export failed |
 
 Aggregate `status.lastExportTime` is the **max** of per-sink times (backward compatible). Read API
 `/status` prefers `sinkExports` when present ([ADR-0413](../adr/0413-export-interval-scheduling.md)).

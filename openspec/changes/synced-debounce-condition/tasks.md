@@ -219,7 +219,7 @@ Test rules for every group:
 
 ## 4. Documentation (SDC-7)
 
-- [ ] 4.1 Update `docs/reference/conditions.md` (`Synced` row; `ExportSucceeded` row),
+- [x] 4.1 Update `docs/reference/conditions.md` (`Synced` row; `ExportSucceeded` row),
   `docs/operator-manual/troubleshooting.md` (condition table row for `PartiallySynced`, the
   per-sink table and its read-API line, the two debounce rows, the partial-failure rows),
   `docs/operator-manual/metrics.md` (line 87 onward),
