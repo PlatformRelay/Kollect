@@ -222,7 +222,7 @@ authenticate until it is closed. A deleted or emptied Secret fails the export wi
 error that names the Secret, never a value, and S3/GCS do not fall back to ambient credentials
 for an entirely empty Secret. A Secret change alone does not trigger an export, so the old
 backend stays pooled until the next export or its idle timeout (see
-[Upgrading](../operator-manual/upgrading.md#sink-secret-rotation-after-v0210)).
+[Upgrading](../operator-manual/upgrading.md#sink-secret-rotation)).
 
 ## Transport security
 
