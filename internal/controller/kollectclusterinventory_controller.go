@@ -222,6 +222,9 @@ func (r *KollectClusterInventoryReconciler) reconcileRollupExport(
 		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, outcome.ExportErr)
 		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, outcome.ExportErr.Error())
 		recordWarning(r.Recorder, inv, reason, outcome.ExportErr.Error())
+		// SDC-3: every bound sink failed; store the per-sink entries so each reads Synced=False
+		// with its reason and keeps its last successful export record (SDC-5).
+		inv.Status.SinkExports = outcome.SinkExports
 
 		result, err := r.setDegraded(ctx, inv, reason, outcome.ExportErr.Error())
 		if kollecterrors.IsTerminal(outcome.ExportErr) {
@@ -269,7 +272,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		exportKey := sinkExportKey(binding)
 		resolved, err := loadClusterInventorySink(ctx, r.Client, sinkNS, binding)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
-		carryOverLastExportPaths(status, inv.Status.SinkExports, exportKey)
+		carryOverSinkExport(status, inv.Status.SinkExports, exportKey)
 		status.Namespace = sinkBindingNamespace(binding, sinkNS)
 		if err != nil {
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())

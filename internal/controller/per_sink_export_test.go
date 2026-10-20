@@ -431,36 +431,75 @@ func TestRecordExportPaths(t *testing.T) {
 	}
 }
 
-// carryOverLastExportPaths keeps the previous entry's recorded paths on a
-// rebuilt status entry, so a debounced or failed reconcile never erases the
-// cleanup evidence.
-func TestCarryOverLastExportPaths(t *testing.T) {
+// carryOverSinkExport seeds a rebuilt entry from the previous entry of the same name: the last
+// export time, checksum, recorded paths and the conditions, deep-copied (SDC-5).
+func TestCarryOverSinkExport(t *testing.T) {
 	t.Parallel()
 
-	recorded := []kollectdevv1alpha1.InventorySinkExportStatus{{
-		Name:            "snapshot/git",
-		LastExportPaths: []string{"inventory/team-a/inv.yaml"},
-	}}
-
-	rebuilt := &kollectdevv1alpha1.InventorySinkExportStatus{Name: "snapshot/git"}
-	carryOverLastExportPaths(rebuilt, recorded, "snapshot/git")
-	if len(rebuilt.LastExportPaths) != 1 {
-		t.Fatalf("rebuilt paths = %v, want the recorded paths carried over", rebuilt.LastExportPaths)
+	exportedAt := time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
+	t1 := metav1.NewTime(exportedAt)
+	l1 := metav1.NewTime(time.Date(2026, 9, 1, 7, 0, 0, 0, time.UTC))
+	previous := []kollectdevv1alpha1.InventorySinkExportStatus{
+		{Name: "database/other", LastChecksum: "other"},
+		{
+			Name:            "snapshot/git",
+			LastExportTime:  &t1,
+			LastChecksum:    "c1",
+			LastExportPaths: []string{"inventory/team-a/inv.yaml", "inventory/team-a/inv-2.yaml"},
+			Conditions: []metav1.Condition{{
+				Type: conditionSinkSynced, Status: metav1.ConditionTrue, Reason: reasonExported,
+				Message: "export completed", LastTransitionTime: l1,
+			}},
+		},
 	}
 
-	// A fresh success already wrote new paths: the carry-over must not win.
-	fresh := &kollectdevv1alpha1.InventorySinkExportStatus{
-		Name:            "snapshot/git",
-		LastExportPaths: []string{"inventory/team-a/inv-v2.yaml"},
+	entry := &kollectdevv1alpha1.InventorySinkExportStatus{Name: "snapshot/git"}
+	carryOverSinkExport(entry, previous, "snapshot/git")
+
+	if entry.LastExportTime == nil || !entry.LastExportTime.Equal(&t1) {
+		t.Fatalf("lastExportTime = %v, want %v carried over", entry.LastExportTime, t1)
 	}
-	carryOverLastExportPaths(fresh, recorded, "snapshot/git")
-	if len(fresh.LastExportPaths) != 1 || fresh.LastExportPaths[0] != "inventory/team-a/inv-v2.yaml" {
-		t.Fatalf("fresh paths = %v, want the new export's paths kept", fresh.LastExportPaths)
+	if entry.LastChecksum != "c1" {
+		t.Fatalf("lastChecksum = %q, want %q carried over", entry.LastChecksum, "c1")
+	}
+	if len(entry.LastExportPaths) != 2 || entry.LastExportPaths[0] != "inventory/team-a/inv.yaml" {
+		t.Fatalf("lastExportPaths = %v, want both recorded paths carried over", entry.LastExportPaths)
+	}
+	synced := apimeta.FindStatusCondition(entry.Conditions, conditionSinkSynced)
+	if synced == nil {
+		t.Fatalf("conditions = %v, want the previous Synced condition carried over", entry.Conditions)
+	}
+	if synced.Status != metav1.ConditionTrue || synced.Reason != reasonExported || !synced.LastTransitionTime.Equal(&l1) {
+		t.Fatalf("carried Synced = %s/%s at %v, want True/%s at %v",
+			synced.Status, synced.Reason, synced.LastTransitionTime, reasonExported, l1)
 	}
 
-	// No previous entry and no export key match: no-op, not a panic.
-	carryOverLastExportPaths(rebuilt, nil, "other")
-	carryOverLastExportPaths(nil, recorded, "snapshot/git")
+	// The seed is a deep copy: changing the new entry leaves the previous one unchanged.
+	setSinkExportSynced(entry, 2, false, reasonExportFailed, "sink unavailable")
+	entry.LastExportPaths[0] = "changed.yaml"
+	*entry.LastExportTime = metav1.NewTime(t1.Add(time.Hour))
+	prevSynced := apimeta.FindStatusCondition(previous[1].Conditions, conditionSinkSynced)
+	if prevSynced.Status != metav1.ConditionTrue || prevSynced.Reason != reasonExported || !prevSynced.LastTransitionTime.Equal(&l1) {
+		t.Fatalf("previous Synced = %s/%s at %v after changing the new entry, want True/%s at %v unchanged",
+			prevSynced.Status, prevSynced.Reason, prevSynced.LastTransitionTime, reasonExported, l1)
+	}
+	if previous[1].LastExportPaths[0] != "inventory/team-a/inv.yaml" {
+		t.Fatalf("previous paths = %v after changing the new entry, want them unchanged", previous[1].LastExportPaths)
+	}
+	if !previous[1].LastExportTime.Time.Equal(exportedAt) {
+		t.Fatalf("previous lastExportTime = %v after changing the new entry, want %v", previous[1].LastExportTime, exportedAt)
+	}
+
+	// No previous entry of that name: the entry stays empty.
+	fresh := &kollectdevv1alpha1.InventorySinkExportStatus{Name: "database/pg"}
+	carryOverSinkExport(fresh, previous, "database/pg")
+	if fresh.LastExportTime != nil || fresh.LastChecksum != "" || len(fresh.LastExportPaths) != 0 || len(fresh.Conditions) != 0 {
+		t.Fatalf("entry with no previous of its name = %+v, want empty", fresh)
+	}
+
+	// Nil entry or no previous entries: no-op, not a panic.
+	carryOverSinkExport(nil, previous, "snapshot/git")
+	carryOverSinkExport(fresh, nil, "database/pg")
 }
 
 // exportEvidenceBySink indexes the export status by export key: the recorded

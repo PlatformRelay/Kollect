@@ -285,14 +285,17 @@ func upsertSinkExportStatus(
 	return &(*exports)[len(*exports)-1]
 }
 
-// carryOverLastExportPaths keeps the previous sinkExports entry's recorded
-// export paths on the rebuilt status entry. outcome.SinkExports is rebuilt
-// fresh every reconcile and overwrites the inventory status wholesale, so
-// without the carry-over a debounced or failed reconcile would erase the
-// recorded paths the deletion-time cleanup path needs as retraction evidence
-// (K-28). The entry's other fields keep their existing rebuild semantics; the
-// recorded paths are the one piece cleanup cannot recover another way.
-func carryOverLastExportPaths(
+// carryOverSinkExport seeds a rebuilt sinkExports entry from the previous entry of the same
+// name: lastExportTime, lastChecksum, lastExportPaths and the conditions, deep-copied
+// (SDC-5). outcome.SinkExports is rebuilt every reconcile and overwrites the inventory status
+// wholesale, so without the seed a debounced or failed pass would erase the last successful
+// export's record, including the paths the deletion-time cleanup needs as retraction evidence
+// (K-28), and recreate the Synced condition with a new lastTransitionTime. Only a successful
+// export replaces the record; a debounced or failed pass changes the condition only, and
+// SetStatusCondition keeps lastTransitionTime while its status stays the same. Call it on the
+// fresh entry before the pass decides anything for the sink, in the sequential loop over
+// bindings (before any export goroutine starts).
+func carryOverSinkExport(
 	status *kollectdevv1alpha1.InventorySinkExportStatus,
 	previous []kollectdevv1alpha1.InventorySinkExportStatus,
 	exportKey string,
@@ -306,9 +309,11 @@ func carryOverLastExportPaths(
 			continue
 		}
 
-		if len(status.LastExportPaths) == 0 {
-			status.LastExportPaths = previous[i].LastExportPaths
-		}
+		seed := previous[i].DeepCopy()
+		status.LastExportTime = seed.LastExportTime
+		status.LastChecksum = seed.LastChecksum
+		status.LastExportPaths = seed.LastExportPaths
+		status.Conditions = seed.Conditions
 
 		return
 	}

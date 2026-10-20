@@ -260,6 +260,9 @@ func (r *KollectInventoryReconciler) applyInventoryExportOutcome(
 		setSinkReachableFromExport(&inv.Status.Conditions, inv.Generation, outcome.ExportErr)
 		setSyncedCondition(&inv.Status.Conditions, inv.Generation, false, reason, outcome.ExportErr.Error())
 		recordWarning(r.Recorder, inv, reason, outcome.ExportErr.Error())
+		// SDC-3: every bound sink failed; store the per-sink entries so each reads Synced=False
+		// with its reason and keeps its last successful export record (SDC-5).
+		inv.Status.SinkExports = outcome.SinkExports
 
 		result, err := r.setInventoryDegraded(ctx, inv, itemCount, reason, outcome.ExportErr.Error())
 		if kollecterrors.IsTerminal(outcome.ExportErr) {
@@ -320,7 +323,7 @@ func (r *KollectInventoryReconciler) exportToSinks(
 		exportKey := sinkExportKey(binding)
 		resolved, resolvedErr := loadResolvedSink(ctx, r.Client, inv.Namespace, binding)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
-		carryOverLastExportPaths(status, inv.Status.SinkExports, exportKey)
+		carryOverSinkExport(status, inv.Status.SinkExports, exportKey)
 		if resolvedErr != nil {
 			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, resolvedErr.Error())
 			outcome.addSinkFailure(exportKey, resolvedErr)
@@ -482,7 +485,7 @@ func (r *KollectInventoryReconciler) previewAllSinksDebounced(
 		ref := binding.Ref
 		exportKey := sinkExportKey(binding)
 		status := upsertSinkExportStatus(&outcome.SinkExports, exportKey)
-		carryOverLastExportPaths(status, inv.Status.SinkExports, exportKey)
+		carryOverSinkExport(status, inv.Status.SinkExports, exportKey)
 		interval := defaultInterval
 		if resolved, err := loadResolvedSink(ctx, r.Client, inv.Namespace, binding); err == nil {
 			var sinkInterval *metav1.Duration
