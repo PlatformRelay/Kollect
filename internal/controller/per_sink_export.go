@@ -13,6 +13,7 @@ import (
 
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	kollectdevv1alpha1 "github.com/platformrelay/kollect/api/v1alpha1"
 	kollecterrors "github.com/platformrelay/kollect/internal/errors"
@@ -36,7 +37,31 @@ const conditionSinkSynced = "Synced"
 // max interval leaves headroom for reconcile jitter/backoff.
 const coalesceStateTTL = 2 * validation.MaxExportInterval
 
+// sinkExportIdentity names the objects a sink export went to (SDC-4): the reconciled inventory
+// object and the family sink object the binding resolved to. The tracker key (inventory
+// namespace/name, sink export key) survives a delete and recreate of either object, and a sink
+// spec edit bumps only the sink's metadata.generation, so the debounce baseline compares these
+// too.
+type sinkExportIdentity struct {
+	inventoryUID   types.UID
+	sinkUID        types.UID
+	sinkGeneration int64
+}
+
+// newSinkExportIdentity builds the identity of an export from the inventory's UID and the
+// resolved sink; a nil sink leaves the sink fields empty.
+func newSinkExportIdentity(inventoryUID types.UID, resolved *sink.ResolvedSink) sinkExportIdentity {
+	identity := sinkExportIdentity{inventoryUID: inventoryUID}
+	if resolved != nil {
+		identity.sinkUID = resolved.UID
+		identity.sinkGeneration = resolved.Generation
+	}
+
+	return identity
+}
+
 type sinkCoalesceState struct {
+	identity        sinkExportIdentity
 	lastExport      time.Time
 	lastChecksum    string
 	lastGeneration  int64
@@ -58,6 +83,7 @@ func (t *perSinkCoalesceTracker) key(invKey, sinkName string) string {
 
 func (t *perSinkCoalesceTracker) shouldSkip(
 	invKey, sinkName string,
+	identity sinkExportIdentity,
 	generation int64,
 	checksum, requestedAt string,
 	interval time.Duration,
@@ -72,6 +98,11 @@ func (t *perSinkCoalesceTracker) shouldSkip(
 
 	state := t.states[t.key(invKey, sinkName)]
 	if state == nil || state.lastGeneration != generation {
+		return false
+	}
+	// SDC-4: the same names can point at another inventory or sink object (deleted and
+	// recreated) or at an edited sink spec; any of those re-exports.
+	if state.identity != identity {
 		return false
 	}
 	if state.lastChecksum != checksum {
@@ -98,7 +129,13 @@ func (t *perSinkCoalesceTracker) shouldSkip(
 	return now.Sub(state.lastExport) < interval
 }
 
-func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int64, checksum, requestedAt string, now time.Time) {
+func (t *perSinkCoalesceTracker) record(
+	invKey, sinkName string,
+	identity sinkExportIdentity,
+	generation int64,
+	checksum, requestedAt string,
+	now time.Time,
+) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -115,10 +152,21 @@ func (t *perSinkCoalesceTracker) record(invKey, sinkName string, generation int6
 		t.states[k] = state
 	}
 
+	state.identity = identity
 	state.lastExport = now
 	state.lastChecksum = checksum
 	state.lastGeneration = generation
 	state.lastRequestedAt = requestedAt
+}
+
+// forget drops the debounce state of one sink binding (SDC-4): after a failed export the sink is
+// not debounced until an export to it succeeds again, also when the inputs return to those of
+// the last successful export.
+func (t *perSinkCoalesceTracker) forget(invKey, sinkName string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	delete(t.states, t.key(invKey, sinkName))
 }
 
 // pruneStaleLocked evicts entries that haven't recorded an export, nor skipped
@@ -182,6 +230,22 @@ func (o *perSinkExportOutcome) addSinkFailure(exportKey string, err error) {
 	o.exportErrs = append(o.exportErrs, err)
 	o.FailedSink = strings.Join(o.failedSinks, ",")
 	o.ExportErr = aggregateExportErrs(o.exportErrs)
+}
+
+// failSinkExport records a failed export of one sink in an export pass: the outcome counts the
+// failure, the sink's entry reads Synced=False with the error's reason, and the sink's debounce
+// state is dropped.
+func failSinkExport(
+	tracker *perSinkCoalesceTracker,
+	outcome *perSinkExportOutcome,
+	status *kollectdevv1alpha1.InventorySinkExportStatus,
+	invKey, exportKey string,
+	generation int64,
+	err error,
+) {
+	outcome.addSinkFailure(exportKey, err)
+	setSinkExportSynced(status, generation, false, sinkExportFailureReason(err), err.Error())
+	tracker.forget(invKey, exportKey)
 }
 
 // aggregateExportErrs joins per-sink failures into one classified error. The

@@ -1,7 +1,7 @@
 # Loop — synced-debounce-condition (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/synced-debounce-condition` · Branch: `feat/synced-debounce-condition` · Base: `origin/main` @ `0686f8276` · Started: 2026-10-20 · Reviewers: two independent review legs (duo)
-Next: L task loop — dispatch G3 (3.1 then 3.2) with the local task prompt
+Next: L task loop — dispatch G4 (4.1) with the local task prompt
 Task prompt: local, `agent-context/loops/synced-debounce-condition/task-prompt.md` (harness, not committed) · Budget: paid review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SYNCED-DEBOUNCE-STEADY-STATE (kind quick start 2026-10-20; operator: fix before v0.22.0).
@@ -53,6 +53,7 @@ Holistic run at B: not run yet.
 | T0.1 · CLOSED (after spec fix) · probe: every 0.1 claim holds on `origin/main`; finding: `TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced` turns red under SDC-4's preview rule and is not in *Impact* | CLOSED | reviewer-a (diff), 1 round, no paid leg | finding 8 resolved by the orchestrator: option A applied to proposal *Impact* and tasks.md 3.1 (only option consistent with SDC-4; see *Triage* L) |
 | G1 · CLOSED · 1.1 + 1.2: debounced sink `True/Debounced`, aggregate `True/Exported` "N/N sink(s) up to date", cluster `ExportSucceeded` count, read API `<family>/<name>` + reason-first + own time; M1-M3 killed, M0 survived | CLOSED | reviewer-a (diff), 1 round, APPROVE with one P2 (evidence, fixed); no paid leg | none; race `-count=3` unit reds are pre-existing on base (`evidence/G1.md` *Iterations* 5) |
 | G2 · CLOSED · 2.1 + 2.2: `carryOverSinkExport` seeds time, checksum, paths and conditions (deep copy) at the three call sites; both total-failure branches store the per-sink entries; 10 envtest specs + unit; M1, M2, M2t, M3a, M3b killed, M0 survived | CLOSED | reviewer-a (diff), 1 round, REQUEST_CHANGES with one P2 (test assertion, fixed); no paid leg | none; race `-count=3` unit red is the pre-existing breaker flake (`evidence/G2.md` *Iterations* 5) |
+| G3 · CLOSED · 3.1 + 3.2: debounce identity (inventory UID, sink UID, sink generation) in `shouldSkip`/`record`, `ResolvedSink.Generation`, `forget` via `failSinkExport` on all six failure branches, preview never debounces an unresolvable sink; 6 unit + 8 envtest specs (2 controls); M1-M5 killed, M0 survived | CLOSED | reviewer-a (diff), 1 round, APPROVE, no findings; no paid leg | none; race `-count=3` unit red is the pre-existing breaker flake (base archive red 4 of 6, `evidence/G3.md` *Iterations* 4) |
 
 ## Known red
 
@@ -71,6 +72,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 | `internal/controller/requested_at_annotation_test.go:257`, `:402` (message assertions) | before this change | G1 | SDC-2: message counts up-to-date sinks ("1/1 sink(s) up to date") |
 | `internal/inventory/cov_s06_test.go:TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` | before this change | G1 | SDC-6: `<family>/<name>` lookup, reason-first mapping, entry's own time (empty when none) |
 | `internal/controller/per_sink_export_test.go:TestCarryOverLastExportPaths` → `TestCarryOverSinkExport` | before this change | G2 | SDC-5: the seed carries time, checksum, paths and conditions (deep copy); the "fresh paths win" case is moot because the seed runs on an empty entry first |
+| Mechanical identity argument in 35 `shouldSkip`/`record` call lines of six test files (list in `evidence/G3.md` *Test changes*) | before this change | G3 | SDC-4 and design *When a sink counts as up to date*: the identity is one struct argument; `sinkExportIdentity{}` on both sides keeps every assertion |
+| `internal/controller/kollectinventory_debounce_test.go:TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced` | before this change | G3 | SDC-4 (no unresolvable sink is debounced, also on the preview); T0.1 finding 8: fixture gains the two `KollectDatabaseSink` objects and records against their identity, assertion unchanged |
 
 ## Lessons
 
@@ -80,6 +83,9 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - T0.1: throwaway envtest specs run unchanged in a `git archive origin/main | tar -x` scratch tree with `KUBEBUILDER_ASSETS` set (the relative `bin/k8s` resolver path does not exist there).
 - G2: assert a multi-pass transition rule as a map of named booleans (`HaveEach(BeTrue())`): one red line then shows every pass that broke, not only the first.
 - G2: a shallow-copy mutant survives envtest when the previous entries come from a fresh `Get`; only a unit test that mutates the seeded entry and re-reads the source catches it.
+- G3: a missing sink stops the namespaced reconcile at the reachability check, before the preview, so no envtest reaches the preview's resolve-error branch; its unit test (empty fake client) is the only sensor.
+- G3: for a new argument the stub ignores, a zero value on both sides of every existing call is the mechanical edit; one regex substitution over the test files plus a green suite proves it.
+- G3: the race `-count=3` breaker flake hit the base archive 4 of 6 runs (G1: 1 of 3, G2: 0 of 3); sample at least six base runs before calling a single red run noise.
 
 ## Where a human should look first
 

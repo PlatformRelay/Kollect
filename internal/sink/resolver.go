@@ -22,6 +22,8 @@ type ResolvedSink struct {
 	Name              string
 	Family            string
 	UID               types.UID
+	// Generation is the family sink object's metadata.generation; a spec edit bumps it.
+	Generation int64
 }
 
 // ResolveOptions configures sink loading for inventory export.
@@ -67,6 +69,7 @@ func resolveSnapshotSink(ctx context.Context, c client.Client, opts ResolveOptio
 		Name:              opts.Name,
 		Family:            kollectdevv1alpha1.SinkFamilySnapshot,
 		UID:               ks.UID,
+		Generation:        ks.Generation,
 	}, nil
 }
 
@@ -82,6 +85,7 @@ func resolveDatabaseSink(ctx context.Context, c client.Client, opts ResolveOptio
 		Name:              opts.Name,
 		Family:            kollectdevv1alpha1.SinkFamilyDatabase,
 		UID:               ks.UID,
+		Generation:        ks.Generation,
 	}, nil
 }
 
@@ -97,6 +101,7 @@ func resolveEventSink(ctx context.Context, c client.Client, opts ResolveOptions)
 		Name:              opts.Name,
 		Family:            kollectdevv1alpha1.SinkFamilyEvent,
 		UID:               ks.UID,
+		Generation:        ks.Generation,
 	}, nil
 }
 

@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -344,10 +345,12 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 	// fixture sink only, with the store frozen; while fail is set the export goes to a failing
 	// backend.
 	type singleSinkClusterInventory struct {
-		recorder *recordingBackend
-		fail     *atomic.Bool
-		events   *record.FakeRecorder
-		get      func() *kollectdevv1alpha1.KollectClusterInventory
+		recorder   *recordingBackend
+		fail       *atomic.Bool
+		events     *record.FakeRecorder
+		get        func() *kollectdevv1alpha1.KollectClusterInventory
+		reconciler *KollectClusterInventoryReconciler
+		spec       kollectdevv1alpha1.KollectClusterInventorySpec
 	}
 	startSingleSinkClusterInventory := func() singleSinkClusterInventory {
 		GinkgoHelper()
@@ -395,6 +398,8 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 			Recorder: env.events,
 		}
 		DeferCleanup(func() { sink.EvictBackendPool(sink.DefaultSecretNamespace, sinkName) })
+		env.reconciler = invReconciler
+		env.spec = *inv.Spec.DeepCopy()
 
 		req := reconcile.Request{NamespacedName: types.NamespacedName{Name: inventoryName}}
 		env.get = func() *kollectdevv1alpha1.KollectClusterInventory {
@@ -421,7 +426,7 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 		return len(recorder.exported)
 	}
 
-	changeClusterPayload := func() {
+	changeClusterPayload := func() collect.Item {
 		GinkgoHelper()
 
 		items := store.SnapshotTarget(nsMatched, targetName)
@@ -430,6 +435,8 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 		extra.UID += "-extra"
 		extra.Name += "-extra"
 		store.Upsert(extra)
+
+		return extra
 	}
 
 	It("keeps the per-sink export record across a debounced pass (SDC-5, cluster)", func() {
@@ -486,6 +493,55 @@ var _ = Describe("KollectClusterInventory export (envtest)", func() {
 		Expect(got.ResourceVersion).To(Equal(debounced.ResourceVersion),
 			"a repeated debounced reconcile must not change the status")
 		Expect(env.events.Events).To(BeEmpty(), "a repeated debounced reconcile must not record an Event")
+	})
+
+	It("re-exports after a failed export when the payload returns (SDC-4, cluster)", func() {
+		env := startSingleSinkClusterInventory()
+		exportKey := kollectdevv1alpha1.SinkFamilyDatabase + "/" + sinkName
+
+		env.get()
+		Expect(clusterExports(env.recorder)).To(Equal(1), "first pass exports C1")
+
+		extra := changeClusterPayload()
+		env.fail.Store(true)
+		env.get()
+		Expect(clusterExports(env.recorder)).To(Equal(1), "the export of C2 fails")
+
+		store.Remove(extra.TargetNamespace, extra.TargetName, extra.UID)
+		env.fail.Store(false)
+		got := env.get()
+		Expect(clusterExports(env.recorder)).To(Equal(2), "the payload back at C1 must export after the failed export")
+		expectSinkSynced(got.Status.SinkExports, exportKey, metav1.ConditionTrue, reasonExported)
+	})
+
+	It("re-exports to a recreated inventory (SDC-4, cluster)", func() {
+		env := startSingleSinkClusterInventory()
+		exportKey := kollectdevv1alpha1.SinkFamilyDatabase + "/" + sinkName
+
+		first := env.get()
+		Expect(clusterExports(env.recorder)).To(Equal(1))
+
+		key := types.NamespacedName{Name: inventoryName}
+		Expect(k8sClient.Delete(ctx, first)).To(Succeed())
+		Eventually(func() bool {
+			_, err := env.reconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: key})
+			Expect(err).NotTo(HaveOccurred())
+
+			return apierrors.IsNotFound(k8sClient.Get(ctx, key, &kollectdevv1alpha1.KollectClusterInventory{}))
+		}).WithTimeout(10*time.Second).WithPolling(100*time.Millisecond).Should(BeTrue(),
+			"the reconciler removes the cleanup finalizer and the inventory is gone")
+
+		recreated := &kollectdevv1alpha1.KollectClusterInventory{
+			ObjectMeta: metav1.ObjectMeta{Name: inventoryName},
+			Spec:       *env.spec.DeepCopy(),
+		}
+		Expect(k8sClient.Create(ctx, recreated)).To(Succeed())
+		Expect(recreated.UID).NotTo(Equal(first.UID))
+		exportsBefore := clusterExports(env.recorder)
+
+		got := env.get()
+		Expect(clusterExports(env.recorder)).To(Equal(exportsBefore+1), "the recreated inventory's first reconcile must export")
+		expectSinkSynced(got.Status.SinkExports, exportKey, metav1.ConditionTrue, reasonExported)
 	})
 
 	It("requeues when no cluster targets match during bootstrap window (EC-P1-14)", func() {
