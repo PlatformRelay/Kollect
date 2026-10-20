@@ -11,9 +11,10 @@ git-cliff reads, given that pull requests land by rebase merge.
 
 `hack/check-breaking-marker.sh <base> <head>` SHALL exit non-zero when the PR title (`PR_TITLE`)
 has a conventional breaking marker (`type!:` or `type(scope)!:`, after an optional gitmoji
-shortcode), or the PR body (`PR_BODY`) has a `BREAKING CHANGE:` or `BREAKING-CHANGE:` footer line
-outside a fenced code block, and no commit title in `<base>..<head>` (merges excluded) has a
-breaking marker. The message SHALL name which declaration triggered the failure. When a commit
+shortcode written exactly as git-cliff's preprocessor strips it, `^:[a-z0-9_]+:` plus one space), or the PR body
+(`PR_BODY`) has a `BREAKING CHANGE:` or `BREAKING-CHANGE:` footer line outside a fenced code block
+(a fence closes only with the character that opened it), and no commit title in `<base>..<head>`
+(merges excluded, since a rebase merge drops them) has a breaking marker. The message SHALL name which declaration triggered the failure. When a commit
 title carries the marker, the script SHALL pass.
 
 #### Scenario: Marked PR title, plain commits
@@ -46,7 +47,8 @@ title carries the marker, the script SHALL pass.
 ### Requirement: BMC-2 An undeclared marked commit is a warning
 
 When a commit title in the range has a breaking marker and the PR title has none, the script SHALL
-print a GitHub `::warning::` naming the commit and SHALL exit 0.
+print a GitHub `::warning::` naming the commit, with `%`, CR and LF encoded as workflow-command
+data, and SHALL exit 0. When the PR title has the marker, it SHALL NOT warn.
 
 #### Scenario: Marked commit under a plain title
 
@@ -70,8 +72,9 @@ passes.
 
 `.github/workflows/breaking-marker.yaml` SHALL trigger on `pull_request` with the types `opened`,
 `edited`, `synchronize` and `reopened`, and SHALL NOT trigger on `pull_request_target`. Its
-permissions SHALL be `contents: read` only. Its job `breaking-marker` SHALL use only SHA-pinned
-actions, check out with `persist-credentials: false`, pass the PR title and body to the script
+permissions SHALL be `contents: read` only. Its job `breaking-marker` SHALL use no action but a SHA-pinned
+`actions/checkout`, reference no secrets, declare no `if`, `continue-on-error`, `permissions` or
+`env` on the job or its steps beyond step `env`, check out with `persist-credentials: false`, pass the PR title and body to the script
 through step `env:`, and SHALL NOT reference `github.event.pull_request` inside any `run:` body.
 The job SHALL NOT be listed in the required checks of `hack/release/verify-eligibility.sh`.
 

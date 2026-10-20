@@ -84,12 +84,13 @@ scopes (reference issues in the footer or description instead).
 trailing period; ≤ ~72 chars on the subject line (after gitmoji + type/scope).
 
 **Breaking changes** — pre-v0.x default is **no** breaking marker; CRD/schema pivots use plain
-`feat(api):`. Use `feat(scope)!:` / `fix(scope)!:` or a `BREAKING CHANGE:` footer only when a
-**tagged release already exists** and adopters must migrate. If `!` is used, footer
-`BREAKING CHANGE: <migration note>` is **required**. Do not mark breaking for pre-beta CRD churn,
+`feat(api):`. Mark a breaking change with `feat(scope)!:` / `fix(scope)!:` and a
+`BREAKING CHANGE: <migration note>` footer, both on the commit, only when a
+**tagged release already exists** and adopters must migrate. Do not mark breaking for pre-beta CRD churn,
 internal refactors, or dev-only flag removal. Put the `!` on the **commit** title, not only the PR
-title or body: PRs are rebase-merged and git-cliff reads commit titles, so the `breaking-marker`
-check fails a PR whose title has `!` or whose body has a `BREAKING CHANGE:` footer when no commit does.
+title or body: PRs are rebase-merged, so git-cliff never sees the PR, and the `breaking-marker`
+check fails a PR whose title has `!` or whose body has a `BREAKING CHANGE:` footer when no commit
+title has `!`.
 
 **Examples (good):**
 

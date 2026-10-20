@@ -33,10 +33,12 @@ the [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md)
 
 Before 1.0, a minor release may include breaking API or default changes. Mark each one with `!` in
 the title of the commit that makes it (`feat(sink)!: …`), with a `BREAKING CHANGE:` footer in that
-commit's body. Pull requests land by rebase merge and git-cliff reads only commit titles, so a `!`
-in a PR title or a `BREAKING CHANGE:` in a PR body never reaches the changelog, and git-cliff drops
-footer text even on a commit; the `breaking-marker` check fails a PR that declares a breaking change
-none of its commit titles carries. Write the migration steps in
+commit's body. Pull requests land by rebase merge, so git-cliff reads the commits and never the PR: a
+`!` in a PR title or a `BREAKING CHANGE:` in a PR body never reaches the changelog. On a commit,
+git-cliff renders only the title: a footer flags the entry `[**breaking**]` but its text is dropped,
+and only a `!` title puts a non-feat/fix commit in the Breaking Changes group, so the project rule
+is the `!` on the title. The `breaking-marker` check fails a PR that declares a breaking change none
+of its commit titles carries. Write the migration steps in
 [`docs/operator-manual/upgrading.md`](operator-manual/upgrading.md) and in the upgrade-notes block
 you prepend by hand to the GitHub Release (see [Cut a release](#cut-a-release)), not in the
 changelog. Patch releases stay compatible with their minor line.
@@ -274,7 +276,7 @@ job).
 
 **Prepend the upgrade notes** once the release is published. The GitHub Release body is git-cliff's
 section plus the install footer, and git-cliff renders only commit titles: a breaking commit shows
-as `[**breaking**]` with no migration text. Put a hand-written "Upgrade notes" block at the top, one
+as `[**breaking**]` with no migration text, even when its body has a `BREAKING CHANGE:` footer. Put a hand-written "Upgrade notes" block at the top, one
 entry per breaking change with a link to its section in
 [`docs/operator-manual/upgrading.md`](operator-manual/upgrading.md):
 
