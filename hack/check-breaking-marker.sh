@@ -7,9 +7,8 @@
 # Pull requests land by rebase merge, so git-cliff (hack/release/cliff.toml) reads the commits and
 # never the pull request: a `!` in the PR title, or a BREAKING CHANGE footer in the PR body, is lost
 # on merge. git-cliff renders only commit titles; a footer in a commit body does flag the entry
-# breaking, but its text is dropped, and only a `!` title puts a non-feat/fix commit in the
-# "Breaking Changes" group. The project rule is therefore a `!` on the commit title (CONTRIBUTING.md;
-# openspec change breaking-marker-check, BMC-1 to BMC-3).
+# breaking, but its text is dropped. The project rule is a `!` on the commit title, with the footer
+# in that commit's body (CONTRIBUTING.md; openspec change breaking-marker-check, BMC-1 to BMC-3).
 #
 #   - The PR title has a conventional `type!:` / `type(scope)!:` marker, or the PR body has a
 #     BREAKING CHANGE (or BREAKING-CHANGE) footer line outside a fenced code block, and no non-merge
@@ -36,6 +35,8 @@ body="${PR_BODY-}"
 # it does not strip (two spaces, `:+1:`) fails to parse there and is dropped from the changelog, so
 # it does not count as marked here either.
 marker_re='^(:[a-z0-9_]+: )?[a-z]+(\([^)]*\))?!:'
+# The PR title is only a declaration of intent, so any shortcode spelling counts there.
+title_re='^(:[a-z0-9_+-]+:[[:space:]]+)?[a-z]+(\([^)]*\))?!:'
 # A footer line, allowing list or quote markers and bold around the token.
 footer_re='^[[:space:]]*([-*>][[:space:]]*)*(\*\*)?BREAKING[ -]CHANGE(\*\*)?:'
 # A fence opens with ``` or ~~~ and closes only with the same character (CommonMark).
@@ -53,7 +54,7 @@ done
 subjects="$(git log --no-merges --format=%s "$1..$2")"
 
 title_marked=false
-[[ "${PR_TITLE}" =~ ${marker_re} ]] && title_marked=true
+[[ "${PR_TITLE}" =~ ${title_re} ]] && title_marked=true
 
 body_marked=false
 fence=""
@@ -89,7 +90,7 @@ if ((${#marked[@]} == 0)) && { ${title_marked} || ${body_marked}; }; then
   else
     where="a BREAKING CHANGE footer in the PR body"
   fi
-  printf '::error title=breaking marker::A breaking change is declared in %s, but no commit title in this PR has the "!" marker. PRs are rebase-merged and git-cliff reads only commit titles, so the declaration never reaches the changelog. Add "!" to the title of the commit that breaks (for example feat(sink)!: ...) and put the BREAKING CHANGE footer in that commit body.\n' "${where}"
+  printf '::error title=breaking marker::A breaking change is declared in %s, but no commit title in this PR has the "!" marker. PRs are rebase-merged, so the PR title and body never reach git-cliff, and the project rule is "!" on the commit title (a commit footer alone loses its text in the changelog). Add "!" to the title of the commit that breaks (for example feat(sink)!: ...) and put the BREAKING CHANGE footer in that commit body.\n' "${where}"
   exit 1
 fi
 

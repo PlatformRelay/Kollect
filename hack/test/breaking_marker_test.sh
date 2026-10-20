@@ -122,13 +122,15 @@ case_workflow() {
   fi
   [[ "$(yq eval '."on" | keys | join(",")' "${wf}")" == "pull_request" ]] ||
     { echo "workflow: triggers are '$(yq eval '."on" | keys | join(",")' "${wf}")', want only pull_request"; return 1; }
+  [[ "$(yq eval '."on".pull_request | keys | join(",")' "${wf}")" == "types" ]] ||
+    { echo "workflow: pull_request has keys besides types -- a paths or branches filter would skip the check"; return 1; }
   [[ "$(yq eval '."on".pull_request.types | sort | join(",")' "${wf}")" == "edited,opened,reopened,synchronize" ]] ||
     { echo "workflow: pull_request types are not edited,opened,reopened,synchronize -- a title or body edit must re-run the check"; return 1; }
   [[ "$(yq eval -o=json -I=0 '.permissions' "${wf}")" == '{"contents":"read"}' ]] ||
     { echo "workflow: top-level permissions are not exactly contents: read"; return 1; }
   [[ "$(yq eval 'keys | join(",")' "${wf}")" == "name,on,permissions,concurrency,jobs" ]] ||
     { echo "workflow: top-level keys are not exactly name, on, permissions, concurrency, jobs (no workflow env, no defaults)"; return 1; }
-  if grep -v '^[[:space:]]*#' "${wf}" | grep -q 'secrets\.'; then
+  if grep -v '^[[:space:]]*#' "${wf}" | grep -Eq '(^|[^A-Za-z0-9_])secrets([^A-Za-z0-9_]|$)'; then
     echo "workflow: references secrets -- the check needs none, and same-repo PRs would receive them"
     return 1
   fi
@@ -139,6 +141,16 @@ case_workflow() {
     { echo "workflow: the job's name is not breaking-marker"; return 1; }
   [[ "$(yq eval "${job} | keys | join(\",\")" "${wf}")" == "name,runs-on,timeout-minutes,steps" ]] ||
     { echo "workflow: job keys are not exactly name, runs-on, timeout-minutes, steps -- permissions, if, continue-on-error or env would widen or silence it"; return 1; }
+  [[ "$(yq eval "${job}.runs-on" "${wf}")" == "ubuntu-latest" ]] ||
+    { echo "workflow: runs-on is not ubuntu-latest -- PR code must not reach a self-hosted runner"; return 1; }
+  [[ "$(yq eval "${job}.timeout-minutes" "${wf}")" =~ ^([1-9]|10)$ ]] ||
+    { echo "workflow: timeout-minutes is not between 1 and 10"; return 1; }
+  [[ "$(yq eval "${job}.steps | length" "${wf}")" == 2 ]] ||
+    { echo "workflow: the job does not have exactly two steps (checkout, check)"; return 1; }
+  [[ "$(yq eval "${job}.steps[0].with | keys | sort | join(\",\")" "${wf}")" == "fetch-depth,filter,persist-credentials" ]] ||
+    { echo "workflow: checkout with-keys are not exactly fetch-depth, filter, persist-credentials -- no repository or ref override"; return 1; }
+  [[ "$(yq eval "${job}.steps[1].env | keys | sort | join(\",\")" "${wf}")" == "PR_BODY,PR_TITLE" ]] ||
+    { echo "workflow: the check step's env keys are not exactly PR_TITLE and PR_BODY"; return 1; }
   local k
   while IFS= read -r k; do
     case "${k}" in
@@ -164,6 +176,8 @@ case_workflow() {
   fi
   [[ "${runs}" == *'hack/check-breaking-marker.sh HEAD^1 HEAD^2'* ]] ||
     { echo "workflow: no step runs hack/check-breaking-marker.sh HEAD^1 HEAD^2"; return 1; }
+  [[ "$(yq eval "${job}.steps[1].run" "${wf}")" == "bash hack/check-breaking-marker.sh HEAD^1 HEAD^2" ]] ||
+    { echo "workflow: the check step's run body is not exactly 'bash hack/check-breaking-marker.sh HEAD^1 HEAD^2' -- '|| true' or extra commands would silence or widen it"; return 1; }
   bad="$(yq eval "${job}.steps[] | select(.run != null and (.run | test(\"check-breaking-marker\"))) | .env.PR_TITLE + \"|\" + .env.PR_BODY" "${wf}")"
   # shellcheck disable=SC2016
   [[ "${bad}" == '${{ github.event.pull_request.title }}|${{ github.event.pull_request.body }}' ]] ||
@@ -228,9 +242,9 @@ mutant() {
 # The sed expressions are single-quoted on purpose: they match the files' literal text.
 # shellcheck disable=SC2016
 {
-  mutant title-ignored script 'title-bang-plain-commits: exit 0, want 1' 's/^\[\[ "\${PR_TITLE}" =~ \${marker_re} \]\] && title_marked=true$/:/'
+  mutant title-ignored script 'title-bang-plain-commits: exit 0, want 1' 's/^\[\[ "\${PR_TITLE}" =~ \${title_re} \]\] && title_marked=true$/:/'
   mutant body-ignored script 'body-footer-plain-commits: exit 0, want 1' 's/^  if \[\[ "\${line}" =~ \${footer_re} \]\]; then$/  if false; then/'
-  mutant bang-optional script 'empty-range: exit 1, want 0' 's/^marker_re=.*/marker_re='"'"'^(:[a-z0-9_]+: )?[a-z]+(\\([^)]*\\))?!?:'"'"'/'
+  mutant bang-optional script 'pr478: exit 0, want 1' 's/^marker_re=.*/marker_re='"'"'^(:[a-z0-9_]+: )?[a-z]+(\\([^)]*\\))?!?:'"'"'/'
   mutant gitmoji-loose script 'cliff-unparseable: exit 0, want 1' 's/^marker_re=.*/marker_re='"'"'^(:[a-z0-9_+-]+:[[:space:]]+)?[a-z]+(\\([^)]*\\))?!:'"'"'/'
   mutant merges-counted script 'merge-commit-marked: exit 0, want 1' 's/git log --no-merges --format/git log --format/'
   mutant fence-any-closes script 'fence-mixed: exit 0, want 1' 's/^    elif \[\[ "\${BASH_REMATCH\[1\]}" == "\${fence}" \]\]; then$/    else/'
@@ -254,6 +268,16 @@ mutant() {
   mutant wf-secrets workflow 'references secrets' 's/^          PR_BODY: .*/          PR_BODY: ${{ secrets.GITHUB_TOKEN }}/'
   mutant wf-job-silenced workflow 'job keys are not exactly' 's/^    timeout-minutes: 5$/    timeout-minutes: 5\n    continue-on-error: true/'
   mutant wf-step-skipped workflow "a step declares 'if'" 's/^      - name: Check breaking-change markers reach a commit title$/&\n        if: false/'
+  mutant wf-tojson-secrets workflow 'references secrets' 's/^          PR_BODY: .*/          PR_BODY: ${{ toJSON(secrets) }}/'
+  mutant wf-index-secrets workflow 'references secrets' "s/^          PR_BODY: .*/          PR_BODY: \${{ secrets['GITHUB_TOKEN'] }}/"
+  mutant wf-or-true workflow 'run body is not exactly' 's/^          bash hack\/check-breaking-marker.sh HEAD^1 HEAD^2$/& || true/'
+  mutant wf-extra-env workflow 'env keys are not exactly' 's/^          PR_BODY: .*/&\n          REF: ${{ github.event.pull_request.head.ref }}/'
+  mutant wf-extra-step workflow 'exactly two steps' '$a\
+      - run: echo extra'
+  mutant wf-self-hosted workflow 'runs-on is not ubuntu-latest' 's/^    runs-on: ubuntu-latest$/    runs-on: self-hosted/'
+  mutant wf-paths workflow 'keys besides types' 's/^    types: \[opened, edited, synchronize, reopened\]$/&\n    paths: ["hack\/**"]/'
+  mutant wf-checkout-ref workflow 'no repository or ref override' 's/^          persist-credentials: false$/&\n          ref: main/'
+  mutant title-strict script 'title-loose-gitmoji: exit 0, want 1' 's/^\[\[ "\${PR_TITLE}" =~ \${title_re} \]\]/[[ "${PR_TITLE}" =~ ${marker_re} ]]/'
   mutant wf-inline workflow 'script injection' 's/^          bash hack\/check-breaking-marker.sh HEAD^1 HEAD^2$/          PR_TITLE="${{ github.event.pull_request.title }}" bash hack\/check-breaking-marker.sh HEAD^1 HEAD^2/'
   mutant noop script '' '$a\
 # no-op control'
