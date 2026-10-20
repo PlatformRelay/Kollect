@@ -58,7 +58,7 @@ func TestExportFingerprintSkipSameChecksum(t *testing.T) {
 }
 
 func TestMirrorDirForAndWarm(t *testing.T) {
-	dir := t.TempDir()
+	dir := privateTempDir(t)
 	t.Setenv(envMirrorDir, dir)
 
 	mirrorDir, err := mirrorDirFor("https://example.com/r.git", "main")
