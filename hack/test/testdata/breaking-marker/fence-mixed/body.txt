@@ -1,0 +1,7 @@
+Example:
+
+```text
+~~~
+```
+
+BREAKING CHANGE: Postgres sinks verify the hostname.

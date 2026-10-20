@@ -1,6 +1,6 @@
 # Breaking-change marker check (openspec change breaking-marker-check, BMC-1 to BMC-4).
 #
-# PRs land by rebase merge, so git-cliff reads commit titles and never the PR: a `!` in the PR
+# PRs land by rebase merge, so git-cliff reads the commits and never the PR: a `!` in the PR
 # title or a BREAKING CHANGE footer in the PR body is lost on merge. This job fails a PR that
 # declares a breaking change none of its commit titles carries, and warns on the reverse.
 #
@@ -8,6 +8,8 @@
 # no secrets, no persisted credentials, and the PR title and body reach the script through env,
 # never through an expression inside a run body. `edited` re-runs it when the title or body
 # changes. Not a required check (hack/release/verify-eligibility.sh); the operator decides.
+# Its verdict is advisory, not a security boundary: on pull_request the merge ref is the PR's own
+# code, so a PR can edit this file or the script. Review such a diff before trusting the result.
 # Locked by hack/test/breaking_marker_test.sh.
 name: Breaking marker
 
@@ -31,6 +33,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # the PR's commits: HEAD^1..HEAD^2 of the merge commit
+          filter: blob:none # only commit subjects are read
           persist-credentials: false
       - name: Check breaking-change markers reach a commit title
         # The checkout is the PR merge commit: HEAD^1 is the base tip and HEAD^2 the PR head.
