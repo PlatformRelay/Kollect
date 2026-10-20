@@ -27,8 +27,8 @@
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| BMC-1 | fixture cases `title-bang-plain-commits`, `body-footer-plain-commits`, `pr478`, `title-and-commit-marked`, `mentions-only` | fail, fail, fail, pass, pass | not-run | |
-| BMC-2 | fixture case `commit-marked-title-plain` | `::warning::`, exit 0 | not-run | |
+| BMC-1 | fixture cases `title-bang-plain-commits`, `body-footer-plain-commits`, `body-footer-hyphen`, `body-footer-crlf`, `pr478`, `merge-commit-marked`, `cliff-unparseable`, `fence-mixed`, `title-and-commit-marked`, `scopeless-marked`, `mentions-only`, `no-markers` | fail ×8, pass ×4 | not-run | |
+| BMC-2 | fixture cases `commit-marked-title-plain`, `body-footer-commit-marked`, `commit-cr-subject`, `warn-not-when-title-marked` | `::warning`, `%`/CR encoded, exit 0; no warning under a marked title | not-run | |
 | BMC-3 | unknown revision, missing `PR_TITLE`, wrong argument count, empty range | exit 2, 2, 2, 0 | not-run | |
 | BMC-4 | static workflow checks in the guard | pass on the tree; each injected defect reds | not-run | |
 | BMC-5 | `--self-test` mutants and no-op; CWS-6/CFC-6 with the steps removed | each mutant reds its own case; unwired reds | not-run | |
