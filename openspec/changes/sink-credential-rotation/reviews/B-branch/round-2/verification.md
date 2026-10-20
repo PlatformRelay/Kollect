@@ -32,3 +32,20 @@ reason.
 
 No CRITICAL in round 2; no verified behaviour defect. Fixes after the last round: one test
 assertion (C2) and wording (C1, C3, C5), each recorded above; no further review.
+
+## Final gates
+
+On the final code tree, `00604732b` (2026-10-20, `umask 022`, envtest assets from the main
+checkout), every exit 0:
+
+| Gate | Command | Result |
+|---|---|---|
+| unit + envtest | `go test -count=1 ./internal/sink/... ./internal/pipeline/... ./internal/controller/... ./cmd/...` | 23 packages `ok`, no `FAIL` |
+| race | `go test -race -count=10 ./internal/sink/`; `-count=3 ./internal/pipeline/`; `-count=1 ./internal/controller/` | no `DATA RACE`; envtest `Ran 59 of 59 Specs`, 0 failed, under `-race` (separate `-v` run) |
+| integration | `task test-integration` | expected 68, executed 68, passed 68, skipped 0 |
+| lint | `task lint` | `0 issues.`, go-arch-lint OK |
+| vet | `go vet -tags=integration ./...` | clean |
+| module graph | `go mod tidy -diff && go mod verify` | clean (H1 closed) |
+| codegen | `task verify` | clean |
+| OpenSpec | `task spec:validate` | 16 passed, 0 failed |
+| scrub, secrets | `task scrub`; `gitleaks detect --log-opts ae98ef106..HEAD` | `scrub: ok`; no leaks |

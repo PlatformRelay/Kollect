@@ -57,6 +57,7 @@ Holistic run at B: not run yet.
 | G3 | CLOSED-WITH-GAPS | reviewer-a and reviewer-b (paid leg: credential handling is security posture), diff lens, 2 rounds: r1 BLOCK (stale-read guard kept an older entry after an observed change; aged-out generation read as 0; both fixed) / CLEAN, r2 BLOCK (a failed re-read dropped the observed change, fixed after the last round) / CLEAN | the round-2 fix (`observeAndLookup` failed re-read path) is unreviewed: stage B should read it; accepted residual: a store during the forced re-read is retired (one extra build) |
 | G4 | CLOSED | reviewer-a, diff lens, 1 round: REQUEST_CHANGES on wording (event-page `spec.secretRef` list; "every cleanup" overstated), fixed, no second round; no paid leg (docs only, no BLOCK) | none; upgrade section titled per tasks.md ("Sink Secret rotation"), not the dispatch's "Sink credential rotation" |
 | G2 | CLOSED-WITH-GAPS | reviewer-a and reviewer-b (paid leg: credential handling is security posture), diff lens, 2 rounds: r1 REQUEST_CHANGES (a CA Secret seen gone only by the CA-rules read did not retire, fixed) / CONCERNS (watchdog on every degraded path rejected per tasks.md 2.4; empty-CA compatibility pinned by a test), r2 APPROVE / CLEAN | cluster-side terminal-no-requeue control missing (gap, stage B); `TestSecretMeta_notFoundIsTransient` and the redacted-status envtest were green on G1 (outcome already held); G1's stream-cleanup gap closed; the rotated-backend-under-export gap stays for G3, and G2 widens it (retire before rebuild) |
+| B | stage B: 2 rounds; fixes 6.1-6.8 | reviewer-a (adversarial) and reviewer-b (spec, paid leg), whole branch: r1 BLOCK (two CRITICAL, verified, downgraded to WARNING: full-read not-found did not retire or fence; 0s state aged out and re-exported) / CONCERNS (failed re-read residual, watchdog on every degraded path rejected again, fence wording, cluster twin); holistic: go.mod tidy red (fixed), four environment reds traced; r2 on the fixes CONCERNS (0s re-export after 48 h degraded: wording) / CLEAN | none open: every verified finding fixed or rejected with a reason (`reviews/B-branch/round-*/verification.md`); final gates green on `00604732b` |
 
 ## Known red
 
@@ -71,6 +72,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 
 | Test (file:name) | Written in | Changed in | Evidence it was wrong |
 |---|---|---|---|
+| `internal/controller/secret_reader_wiring_test.go`, `secret_rotation_envtest_test.go` (G1), `secret_retire_envtest_test.go` (G2): manager config | G1, G2 | B (6.1, `e2b3193e1`) | not wrong in what it asserts: `ptr.To(true)` became `boolPtr(true)` so `go mod tidy -diff` stays clean; assertions unchanged |
+| `internal/sink/backend_pool_reread_residual_test.go:TestAcquireBackend_failedReReadAfterStaleReadDrainsNewer` | B (6.5) | B (6.7, `b7c415293`) | it accepted both outcomes, so dropping the failed re-read retire left it green (round 2 C2) |
 
 ## Lessons
 
@@ -95,6 +98,12 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G3: check a line-deleting mutant's line is live before citing it (G3's first M14 deleted dead code).
 - G4: check "every export and cleanup" doc claims against each cleanup branch (stream retain, Retain, shared identity skip the Secret read).
 - G4: `task docs:verify` in a worktree needs `MISE_KUBECTL_VERSION=1.36.1` and a temp mkdocs venv from `docs/requirements-docs.txt` on `PATH`.
+- B: `task check` in a worktree needs `MISE_KUBECTL_VERSION=1.36.1`, `operator-sdk` in the worktree `bin/` (`bash hack/install-operator-sdk.sh ./bin`) and no stale ignored `.cache/` (mkdocs social cache trips `gitleaks-detect --no-git`); trace each red before blaming the branch.
+- B: a test-only import of a module `go.mod` lists as indirect (`k8s.io/utils/ptr`) fails `go mod tidy -diff` (Preflight) while every per-task gate stays green; run `go mod tidy -diff` per task when a test adds an import.
+- B: MinIO integration tests fail with `XMinioStorageFull` when the host disk is nearly full; check `df -h /` before reading it as a regression.
+- B: every read that can observe a missing Secret (metadata, full read, CA-rules read) must apply the same retire and fence; per-task reviews checked the metadata path and missed the full read (same class as the G2 CA-rules lesson).
+- B: a spec promise "at any later time" must be checked against in-memory state lifetimes (TTL prunes, restarts), not only against timers.
+- B: a test that branches on the outcome it should pin passes both ways; assert the one outcome the design states.
 
 ## Where a human should look first
 
