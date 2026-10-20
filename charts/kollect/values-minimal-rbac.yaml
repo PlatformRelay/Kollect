@@ -23,8 +23,6 @@ watchNamespaces:
 # Namespaced Role/RoleBinding for manager SA (no ClusterRole).
 tenantMode: true
 
-mode: single
-
 # ValidatingWebhookConfiguration is cluster-scoped; disable unless platform installs webhooks.
 webhooks:
   enabled: false

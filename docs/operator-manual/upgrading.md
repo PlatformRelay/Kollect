@@ -313,8 +313,9 @@ records only the files it writes then. A file that a v0.21.x export left behind 
 longer current is listed in no record, so no inventory ever prunes it
 ([ADR-0419](../adr/0419-git-export-serialization-layout.md)). Remove those files once, by hand,
 after every inventory has exported once on the new version. To list the files no record claims, run
-this in a clone of the export branch and review the output before deleting anything (it also lists
-files you added yourself):
+this in a clone of the export branch and review the output before deleting anything. It also lists
+files you added yourself, and the current files of exports that write no record: document-layout
+exports and exports with pruning off. With no record at all, it lists every file.
 
 ```sh
 jq -r '.paths[]' .kollect-prune/*.json | sort -u > /tmp/owned
@@ -388,8 +389,14 @@ upgrade ([step 2](#2-apply-crd-schema)); `helm upgrade` does not update CRDs.
   fails with `sink git.auth.secretRef "<name>" not found in config directory` (or the
   `tls.caSecretRef` equivalent) and exit code `2`. Add the Secret manifest, with `${env:VAR}`
   placeholders for the values if they come from CI variables.
-- **The CA is checked first.** The `spec.tls` CA rules are checked before any credential Secret,
-  as in the operator, so a spec with both a CA error and a missing Secret reports the CA error.
+- **`spec.tls` is applied.** v0.21.x ignored `spec.tls` in the CLI. The CLI now reads the CA from
+  `caBundle` or `caSecretRef` and applies the same CA rules as the operator: both sources set, a
+  CA Secret without `tls.crt`, `ca.crt` or `ca.pem`, or a CA the endpoint would never check fails
+  the run with exit code `2`. The CA rules are checked before any credential Secret, so a spec with
+  both a CA error and a missing Secret reports the CA error.
+- **`git.auth.secretRef` wins.** For a git sink that sets both `spec.secretRef` and
+  `spec.git.auth.secretRef`, the credentials now come from `git.auth.secretRef`, as in the
+  operator.
 - **An invalid `labelSelector` fails its target.** A `KollectTarget` whose `spec.labelSelector`
   does not parse used to collect every object of the profile's kind. It now collects nothing and
   reports the parse error; other targets still collect. The run exits `1`, or `2` when nothing was
