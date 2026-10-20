@@ -394,7 +394,8 @@ Annotate the family sink with `kollect.dev/test-connection=true` for a one-shot 
 the last successful export. A material change (payload checksum or `metadata.generation` bump)
 exports immediately per sink, regardless of the configured interval. Set `exportMinInterval: 0s` for
 *material-change only* semantics (typical for Kafka/NATS event sinks): instant export on change,
-identical payloads never re-sent. A sink Secret change is not a material change, so it does not
+identical payloads not re-sent (a controller restart, or more than 48 h degraded without an
+export attempt, re-sends the current payload once). A sink Secret change is not a material change, so it does not
 export by itself; the new Secret is used from the next export. A failed export under `0s` is
 retried every 30 s until it succeeds, unless the error is terminal. `0` and sub-second durations are valid (cap: 24h), but wake-ups
 floor at 1s, so anything below `1s` behaves like `0s`. Effective-interval precedence and full detail:
