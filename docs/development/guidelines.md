@@ -85,7 +85,7 @@ Operator test expectations. Pyramid tiers, coverage floors, and CI gates:
 - **Profiling** — pprof on `:6060` behind feature gate (default off); document in [operator-manual/performance.md](../operator-manual/performance.md).
 - **Benchmarks** — `task bench` (`-short`, `-benchmem`); `BenchmarkExtract` for the CEL/JSONPath hot
   path. `TestExtractHotPathBudget` drives the same workload and **fails on a >25% `B/op` or
-  `allocs/op` regression**; its `ns/op` ceiling is only a catastrophic-regression net, not a >25%
+  `allocs/op` regression**; its latency ceiling is only a catastrophic-regression net, not a >25%
   wall-clock gate. Re-record the baseline consts in
   `internal/collect/extractor_budget_test.go` with evidence.
 

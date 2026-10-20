@@ -150,11 +150,11 @@ cluster-scale evidence — see the tier table above.
 **Enforced at baseline +25%:** `B/op` and `allocs/op`. These are hardware-independent for a fixed
 Go toolchain, so an allocation regression fails on any runner.
 
-**Not enforced:** a >25% wall-clock gate. The `ns/op` ceiling is a coarse catastrophic-regression
-net only — a ceiling loose enough to be safe on a shared CI runner is far too loose to catch 25%,
-and a CPU-only regression at unchanged allocations will pass it. For a real latency floor, measure
-your own hardware and pin `KOLECT_EXTRACT_MAX_NS_PER_OP` to that value x 1.25 (also `_BYTES_` /
-`_ALLOCS_`).
+**Not enforced:** a >25% wall-clock gate. The latency ceiling bounds Extract's time relative to a
+calibration workload timed in the same run, so runner load mostly cancels out. It is still a coarse
+catastrophic-regression net only: a CPU-only regression of a few times at unchanged allocations will
+pass it. For a real latency floor, measure your own hardware and pin `KOLECT_EXTRACT_MAX_NS_PER_OP`
+to that value x 1.25 (also `_BYTES_` / `_ALLOCS_`).
 
 For local perf summaries (`task perf-report`), see [contributor setup](../development/setup.md).
 

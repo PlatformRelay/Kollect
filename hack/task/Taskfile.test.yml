@@ -90,7 +90,7 @@ tasks:
     desc: >-
       Assert the extractor hot-path budget. ENFORCED as a >25% regression gate:
       B/op and allocs/op vs the recorded baseline (hardware-independent for a
-      fixed toolchain). NOT enforced: a >25% wall-clock gate — the ns/op ceiling
+      fixed toolchain). NOT enforced: a >25% wall-clock gate — the latency ceiling
       is only a coarse catastrophic-regression net, and a CPU-only slowdown at
       unchanged allocations can pass it. EXERCISES: collect.Extractor.Extract
       over 128 varied objects, single-threaded, in-process. Does NOT exercise an
@@ -98,13 +98,9 @@ tasks:
       it is a micro-benchmark budget, not cluster-scale evidence. Also runs in
       task test:run. Override ceilings with
       KOLECT_EXTRACT_MAX_{NS,BYTES,ALLOCS}_PER_OP.
-    env:
-      # This task runs the budget test ALONE, so it can pin a tighter ns/op
-      # ceiling than the in-code default (which must survive the parallel PR
-      # gate). 8x the S-LOCAL baseline of 25551 ns/op: enough headroom for an
-      # unpinned GitHub runner, ~6x tighter than the default — but still a
-      # catastrophic-regression net, NOT a 25% gate. On calibrated hardware set
-      # this to your own measured ns/op x 1.25 for a real latency floor.
-      KOLECT_EXTRACT_MAX_NS_PER_OP: "204408"
+    # No KOLECT_EXTRACT_MAX_NS_PER_OP pin: the test's default latency ceiling
+    # is Extract's cost relative to a calibration workload measured in the same
+    # run, so it holds on a loaded or slower runner where an absolute ns/op pin
+    # false-reds. Set the variable on calibrated hardware for a real floor.
     cmds:
       - go test -run TestExtractHotPathBudget -count=1 -v -timeout=10m ./internal/collect/...
