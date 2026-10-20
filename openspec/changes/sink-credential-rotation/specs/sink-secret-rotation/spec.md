@@ -83,8 +83,8 @@ carry the same retryable error and not a terminal API status. For an inventory w
 `0s`, the retry comes from SCR-7. An S3 or GCS sink whose referenced Secret is empty SHALL NOT fall back to
 ambient credentials. A metadata read that fails for any other reason (timeout, cancelled
 context, forbidden) observed no change: it SHALL fail that acquire only and SHALL NOT retire the
-pooled backend on its own account; a change that an earlier successful read of the same acquire
-observed still retires, as SCR-3 says.
+pooled backend on its own account; a mismatch with the pooled entry that an earlier successful
+read of the same acquire saw still retires that entry.
 
 #### Scenario: Deleted credential Secret
 
@@ -259,7 +259,9 @@ When a `KollectInventory` or `KollectClusterInventory` whose inventory-level exp
 the reconcile SHALL return a requeue after `validation.ZeroIntervalWatchdog` (30 s). A terminal
 aggregated error SHALL NOT requeue, as today. An inventory with an interval > 0 SHALL keep its
 current requeue (its interval). An unchanged `0s` inventory whose last export succeeded SHALL NOT
-be exported again by this requeue or any other timer.
+be exported again by this requeue or any other timer. Its coalescing state is in memory and ages
+out 48 h after its last export or skip, so a controller restart, or more than 48 h on a degraded
+path that returns before the export, leads to one export of the current payload.
 
 #### Scenario: Deleted Secret under a zero interval is retried
 
@@ -282,5 +284,5 @@ be exported again by this requeue or any other timer.
 #### Scenario: Unchanged, successfully exported zero-interval inventory is not re-exported
 
 - **GIVEN** a `0s` inventory whose export succeeded
-- **WHEN** it reconciles again with an unchanged payload, spec and `kollect.dev/requestedAt`, at any later time
+- **WHEN** it reconciles again with an unchanged payload, spec and `kollect.dev/requestedAt`, on any later watchdog requeue
 - **THEN** no sink export runs

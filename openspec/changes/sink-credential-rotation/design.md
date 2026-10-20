@@ -160,7 +160,10 @@ copy of Secrets (the probes and other controllers read through it) is unchanged.
 ## Zero export interval (SCR-7)
 
 `exportMinInterval: 0s` means "export only on material change": the coalesce skip holds for an
-unchanged inventory however much time passes (`internal/controller/per_sink_export.go:85-87`).
+unchanged inventory however much time passes (`internal/controller/per_sink_export.go:85-87`),
+because each watchdog skip keeps the binding's in-memory state from ageing out (stage-B finding
+A2); only a controller restart, or more than 48 h on a degraded path that returns before the
+export, drops it and leads to one export of the current payload.
 So for a `0s` binding a Secret change alone never causes an export; the rotation takes effect
 with the next material change, spec generation or `kollect.dev/requestedAt` change. That stays
 (model-aligned decision 2026-10-19, `rotation-zero-interval`, option B), and the docs say it.
