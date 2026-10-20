@@ -13,7 +13,7 @@ Each case below reads: given / when / then · the failure it exposes.
 
 Test rules for every group:
 
-- Unit tests live in `internal/controller` and `internal/inventory` and are table tests where the
+- Unit tests live in `internal/controller` and `internal/inventory`, as table tests where the
   case says "rows".
 - Envtest cases are Ginkgo `It`s in `internal/controller`, next to
   `kollectinventory_per_sink_envtest_test.go` and `kollectclusterinventory_export_envtest_test.go`.
@@ -24,12 +24,19 @@ Test rules for every group:
   spec). The backend pool is off in this suite (`suite_test.go:31`), so the selector runs on every
   export. Each spec gives the reconciler a `record.NewFakeRecorder(32)` and drains its channel
   before the step whose Events it asserts.
-- Intervals are 15 minutes unless the case says `0s`, so a second reconcile is always inside the
-  window. A forced export pass is made by setting a new `kollect.dev/requestedAt` annotation value
-  and reconciling.
+- Envtest cases marked *both kinds* run once for `KollectInventory` and once for
+  `KollectClusterInventory` (a `DescribeTable` or two `It`s); the others are namespaced.
+- Every assertion reads the object freshly with `k8sClient.Get` after the reconcile.
+- `lastTransitionTime` and `lastExportTime` have one-second precision. Any two passes whose
+  timestamps a case compares, or whose difference makes the red, are separated by
+  `time.Sleep(1100 * time.Millisecond)`. A forced export pass uses a new `kollect.dev/requestedAt`
+  value; a pass where one sink re-exports and another is debounced uses a 1 s interval on the
+  first sink and a sleep over it.
+- Intervals are 15 minutes unless the case says otherwise.
 - Run envtest with `go test -v -run TestControllers ./internal/controller/ -ginkgo.focus '<text>'`
   and record the spec lines. A `BeforeSuite` failure is a real failure.
-- Each group records `go test -race -count=3 ./internal/controller/ ./internal/inventory/`.
+- Each group records `go test -race -count=3 ./internal/controller/ ./internal/inventory/` (G3 adds
+  `./internal/sink/`).
 - Mutations are judged by the test command's exit status, with one no-op control that must
   survive; mutant trees live outside the repository.
 
@@ -38,58 +45,76 @@ Test rules for every group:
 - [ ] 0.1 Verify the load-bearing claims in `proposal.md` and `design.md` and record each as
   verified (command, versions, date) in `evidence/T0.1.md`; a failed one stops the loop as a spec
   finding:
-  - on `origin/main`, an envtest run of export → reconcile → reconcile on one sink shows the
-    aggregate `Synced` `True/Exported` after the first and `False/PartiallySynced` after the
-    second, and the per-sink entry has no `lastExportTime` and a new `lastTransitionTime` after
-    the second (a throwaway spec outside the repository, or `-ginkgo.focus` on a spec that is not
-    committed);
+  - on `origin/main`, an envtest run (a throwaway spec kept outside the repository, run through
+    a scratch copy) of export → sleep → reconcile on one sink: the aggregate `Synced` is
+    `True/Exported` after the first pass and `False/PartiallySynced` after the second, and the
+    per-sink entry has no `lastExportTime` and a newer `lastTransitionTime` after the second;
+  - on `origin/main`, a total failure of the only sink leaves its per-sink condition
+    `True/Exported`; the read API's per-sink override does not fire for a `<family>/<name>` entry;
   - the API server keeps `resourceVersion` on a status update of an unchanged object (envtest);
   - `apimeta.SetStatusCondition` keeps `lastTransitionTime` when the status is unchanged (cite
     file:line in the pinned `k8s.io/apimachinery`);
+  - a family sink spec update bumps `metadata.generation` and a status update does not (envtest);
   - `shouldSkip` never returns true for a changed checksum, generation or `requestedAt` value
-    (`internal/controller/per_sink_export.go:59-97`);
-  - every reader of the per-sink or aggregate `Synced` reason: `rg -n 'ReasonDebounced|PartiallySynced|ConditionSynced|conditionSynced'`
-    over `internal`, `cmd`, `api`, `charts`, `hack`, `test`, listed with what each does with it.
+    (`internal/controller/per_sink_export.go:59-99`);
+  - every reader of the per-sink or aggregate `Synced` reason or message:
+    `rg -n 'ReasonDebounced|PartiallySynced|ConditionSynced|conditionSynced|sink\(s\)'` over
+    `internal`, `cmd`, `api`, `charts`, `hack`, `test`, listed with what each does with it; any
+    reader the proposal's *Impact* misses is a spec finding.
 
 ## 1. Debounced is synced (SDC-1, SDC-2, SDC-3, SDC-6)
 
 - [ ] 1.1 Tests (red on `origin/main`):
-  - `TestAggregateInventorySync` (changed; a *Test changes* row citing SDC-2), rows
+  - `TestAggregateInventorySync` (changed; *Test changes* row citing SDC-2), rows
     (exported, debounced, failed): (2,0,0), (0,2,0), (1,1,0) → `True/Exported`, message
     "2/2 sink(s) up to date" in all three; (1,0,1) → `False/PartiallySynced`; (0,1,1) and (0,0,1)
     → `False/Progressing` · exposes the debounce-to-`False` mapping (base: rows 2-3 are
     `False/PartiallySynced`, row 1's message differs).
+  - `requested_at_annotation_test.go:257` and `:402` (changed; *Test changes* rows citing SDC-2):
+    the expected message becomes "1/1 sink(s) up to date"; the forced-export assertions stay.
   - `TestSetSinkExportDebounced` (new helper `setSinkExportDebounced(status, generation,
-    interval)`), rows 15m and 0s: given an empty entry / when the helper runs twice with a
-    second's sleep between / then `Synced=True`, reason `Debounced`, message contains `15m0s` or
+    interval)`), rows 15m and 0s: given an empty entry / when the helper runs, then runs again
+    after a 1.1 s sleep / then `Synced=True`, reason `Debounced`, message contains `15m0s` or
     "only on change", identical after both calls · exposes a countdown or a `False` status (stub:
     no condition set).
-  - envtest "reports debounced sinks as synced": given two database sinks that exported / when
-    the inventory reconciles again / then each per-sink `Synced` is `True/Debounced`, the
-    aggregate is `True/Exported` and its reason is not `PartiallySynced` · exposes the reported
-    symptom (base: `False/PartiallySynced`).
-  - envtest "reports a debounced cluster inventory as synced": the same for a
-    `KollectClusterInventory`, plus `ExportSucceeded` message does not contain "to 0 sink(s)" ·
-    exposes the cluster path (base: `False`).
+  - envtest *both kinds* "reports debounced sinks as synced": given two sinks that exported /
+    when the inventory reconciles again / then each per-sink `Synced` is `True/Debounced`, the
+    aggregate is `True/Exported` "2/2 sink(s) up to date"; for the cluster kind the
+    `ExportSucceeded` message does not contain "to 0 sink(s)" · exposes the reported symptom
+    (base: `False/PartiallySynced`).
+  - envtest "reports one exported and one debounced sink as synced": given sink A with a 1 s
+    interval and sink B with 15 minutes, both exported / when, after a 1.1 s sleep, the inventory
+    reconciles with an unchanged payload / then the backend recorded one export (A), A is
+    `True/Exported`, B is `True/Debounced`, the aggregate is `True/Exported` "2/2 sink(s) up to
+    date" · exposes the mixed case (base: `False/PartiallySynced`).
   - envtest "keeps Synced=False when a debounced sink sits next to a failed one": given sinks A
     and B that both exported C1 / when the payload changes to C2 and the inventory reconciles with
     B failing (A exports C2, B fails), then reconciles again unchanged (A is debounced; B differs
-    from its baseline C1, is retried and fails again) / then the aggregate is `False`,
-    A is `True/Debounced`, B is `False/ExportFailed`, `Ready` is `False` · exposes a fix that
-    treats "no exports" as success (base: A is `False`; the aggregate row is a *control*).
+    from its baseline C1, is retried and fails again) / then the aggregate is `False`, A is
+    `True/Debounced`, B is `False/ExportFailed`, `Ready` is `False` · exposes a fix that treats
+    "no exports" as success (base: A is `False`; the aggregate row is a *control*).
+  - envtest *both kinds* "marks the only failing sink as not synced": given one sink that
+    exported / when the payload changes and the export fails / then the per-sink condition is
+    `False/ExportFailed` and the aggregate `Synced` is `False` · exposes the total-failure path
+    that skips the per-sink write (base: per-sink `True/Exported`).
   - *control* the EC-P1-02 spec "marks PartiallySynced when one sink fails and one succeeds"
     stays green unchanged.
-  - `TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` (changed; a *Test
-    changes* row citing SDC-6): add a sink whose condition is `True/Debounced` → `debounced`,
-    keep `False/Debounced` → `debounced` · exposes a read API that checks status before reason
-    (base: `ok`).
+  - `TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` (changed; *Test
+    changes* row citing SDC-6): entry names become `<family>/<name>`; add a snapshot sink `git`
+    and a database sink `git` whose entries are `True/Debounced` and `True/Exported` with
+    different `lastExportTime` values → `debounced` and `ok`, each with its own time; keep
+    `False/Debounced` → `debounced` · exposes the bare-name lookup and a status-first mapping
+    (base: the aggregate status for every binding).
 - [ ] 1.2 Implement: `setSinkExportDebounced` used by the three debounced branches
   (`kollectinventory_controller.go:363-371`, `:498-506`; `kollectclusterinventory_controller.go:312-320`);
   `aggregateInventorySync` per design *Aggregate*; the `ExportSucceeded` message of the cluster
-  reconciler; the reason-first mapping in `internal/inventory/status.go`.
+  reconciler; storing `outcome.SinkExports` in both total-failure branches; the
+  `<family>/<name>` lookup and reason-first mapping in `internal/inventory/status.go`; the
+  `ReasonPartiallySynced` comment in `api/v1alpha1/export_interval_types.go:16`.
   — Mutations: M1 the aggregate's no-failure case returns `False` when `debounced > 0`
-  (`TestAggregateInventorySync` and the first envtest fail); M2 the read API checks status before
-  reason (its test fails); M0 a no-op edit (all survive).
+  (`TestAggregateInventorySync` and the first envtest fail); M2 drop the per-sink write in the
+  total-failure branch ("marks the only failing sink" fails); M3 the read API checks status
+  before reason (its test fails); M0 a no-op edit (all survive).
 
 ## 2. No churn (SDC-5, SDC-3 transitions)
 
@@ -100,88 +125,113 @@ Test rules for every group:
     the entry has all four, and changing the new entry's condition leaves the previous one
     unchanged; no previous entry of that name → the entry stays empty · exposes the paths-only
     carry-over and a shallow copy (stub: copies paths only, as today).
-  - envtest "keeps the per-sink export record across a debounced pass": given one sink that
-    exported (T1, C1) / when the inventory reconciles again / then the entry still has T1, C1, and
-    its `Synced` `lastTransitionTime` is unchanged · exposes the rebuild from empty (base:
-    `lastExportTime` nil).
-  - envtest "keeps the last successful export record across a failed pass": given one sink that
-    exported (T1, C1) / when the payload changes and the export fails / then the entry has T1 and
-    C1, and its condition is `False/ExportFailed` · exposes the erase on failure (base: nil).
-  - envtest "writes no status on a repeated debounced reconcile": given one sink that exported,
-    then a debounced reconcile / when the inventory reconciles again after at least one second /
-    then `resourceVersion` equals the value after the debounced reconcile and the FakeRecorder
-    has no Event · exposes a per-pass `lastTransitionTime` or message change (base: the per-sink
-    `lastTransitionTime` moves, so `resourceVersion` changes).
+  - envtest *both kinds* "keeps the per-sink export record across a debounced pass": given one
+    sink that exported (T1, C1) / when, after a 1.1 s sleep, the inventory reconciles again / then
+    the entry still has T1 and C1, and its `Synced` `lastTransitionTime` is unchanged · exposes the
+    rebuild from empty (base: `lastExportTime` nil).
+  - envtest "keeps the last successful export record across a partly failed pass": given sinks A
+    and B that exported (B: T1, C1) / when the payload changes and B's export fails while A
+    exports / then B's entry has T1 and C1 and its condition is `False/ExportFailed` · exposes the
+    erase on a partial failure (base: B's `lastExportTime` nil). The total-failure case is G1's
+    "marks the only failing sink"; this group adds the T1/C1 assertion to it.
+  - envtest *both kinds* "writes no status on a repeated debounced reconcile": given one sink
+    that exported, then a debounced reconcile / when, after a 1.1 s sleep, the inventory
+    reconciles again / then `resourceVersion` equals the value after the first debounced
+    reconcile and the FakeRecorder has no Event · exposes a per-pass `lastTransitionTime` or
+    message change (base: the per-sink `lastTransitionTime` moves, so `resourceVersion`
+    changes).
   - envtest "export pass and debounce pass give the same aggregate": given one up-to-date sink /
-    when a forced export pass runs and then a debounced pass / then the aggregate `Synced` has the
-    same status, reason, message and `lastTransitionTime` after both, and the per-sink status is
-    `True` after both with the same `lastTransitionTime` · exposes the steady-state flip (base:
-    per-sink `lastTransitionTime` differs).
-  - *control* envtest "moves lastTransitionTime only on a status change": given one up-to-date
-    sink / when the payload changes and the export fails, then the sink recovers and the next
-    pass exports, then a debounced pass / then the aggregate `lastTransitionTime` changes at the
-    failure and at the recovery and not at the debounced pass (green on the G1 commit; it guards
-    G2's carry-over).
+    when a forced export pass runs and, after a 1.1 s sleep, a debounced pass / then the aggregate
+    `Synced` has the same status, reason, message and `lastTransitionTime` after both, and the
+    per-sink status is `True` after both with the same `lastTransitionTime` · exposes the
+    steady-state flip (base: per-sink `lastTransitionTime` differs).
+  - envtest "moves lastTransitionTime only on a status change": given one up-to-date sink / when,
+    with 1.1 s sleeps between passes, the payload changes and the export fails, then the sink
+    recovers and the next pass exports, then a debounced pass runs / then the aggregate
+    `lastTransitionTime` changes at the failure and at the recovery and not at the debounced
+    pass, and the per-sink one likewise · *control* for the aggregate (green on the G1 commit);
+    red for the per-sink part (base: it moves at the debounced pass).
 - [ ] 2.2 Implement `carryOverSinkExport` per design *Per-sink entry carry-over*, replacing
   `carryOverLastExportPaths` at its call sites in both reconcilers and the preview path.
-  — Mutations: M1 carry over paths only (the three envtest reds fail again); M2 copy
-  `Conditions` without a deep copy (`TestCarryOverSinkExport` fails); M0 no-op.
+  — Mutations: M1 carry over paths only (the envtest reds fail again); M2 copy `Conditions`
+  without a deep copy (`TestCarryOverSinkExport` fails); M0 no-op.
 
-## 3. A failed export clears the baseline (SDC-4)
+## 3. Debounced only when up to date (SDC-4)
 
 - [ ] 3.1 Tests (red on the G2 commit):
+  - `TestPerSinkCoalesceTracker_identity`, rows: same identity → skip; other sink UID → no skip;
+    other sink generation → no skip · exposes a baseline that ignores the sink object (stub:
+    identity ignored).
   - `TestPerSinkCoalesceTracker_forget`: given a recorded export of C1 / when `forget` runs /
     then `shouldSkip` with C1 is false, and `forget` of an unknown key is a no-op · exposes a
     missing reset (stub: no-op).
-  - envtest "re-exports after a failed export when the payload returns": given one sink that
-    exported C1 / when the payload changes to C2 and the export fails, then the payload returns
-    to C1 with the sink healthy and the inventory reconciles / then the backend recorded one
-    export of C1 in that reconcile and the per-sink condition is `True/Exported` · exposes a
+  - envtest *both kinds* "re-exports after a failed export when the payload returns": given one
+    sink that exported C1 / when the payload changes to C2 and the export fails, then the payload
+    returns to C1 with the sink healthy and the inventory reconciles / then the backend recorded
+    one export of C1 in that reconcile and the per-sink condition is `True/Exported` · exposes a
     stale baseline (base: no export, `True/Debounced`).
-  - envtest "reports a resolve failure, then exports on recovery": given one sink that exported
-    / when its sink CR is deleted (resolve fails) and recreated with the same spec / then the
-    next reconcile exports · exposes a reset only on the job failure branch (base: debounced).
+  - envtest "re-exports after a sink spec change": given a database sink that exported / when
+    its `postgres.table` is changed and the inventory reconciles with an unchanged payload / then
+    the backend recorded one export · exposes a baseline without the sink generation (base:
+    debounced).
+  - envtest "re-exports to a recreated sink": given a sink that exported / when the sink object
+    is deleted, the inventory reconciles (reachability fails), the sink is recreated with the same
+    name and spec, and the inventory reconciles again / then the second reconcile exports ·
+    exposes a baseline without the sink UID (base: debounced).
+  - `TestKollectInventoryReconciler_previewAllSinksDebounced_unresolvedSink`: given a recorded
+    export for a binding whose sink object does not exist / when the preview runs / then it
+    returns "not all debounced" · exposes the preview's resolve-error fall-back (base: true).
   - *control* envtest "exports a changed payload inside the interval": given one sink that
-    exported C1 a moment ago / when the payload changes to C2 / then the reconcile exports and the
-    condition is `True/Exported`, never `Debounced` (green on base; guards SDC-4's first clause).
-- [ ] 3.2 Implement `perSinkCoalesceTracker.forget` and call it on every per-sink failure branch
-  of both reconcilers (design *Baseline reset on failure*).
-  — Mutations: M1 drop the call in the job failure branch (the first envtest fails); M2 drop it
-  in the resolve failure branch (the second fails); M0 no-op.
+    exported C1 / when the payload changes to C2 / then the reconcile exports and the condition is
+    `True/Exported`, never `Debounced` (green on base; guards SDC-4's first clause).
+  - *control* envtest "exports on the first pass of a new reconciler": given a sink that exported
+    through reconciler R1 / when a new reconciler R2 (empty tracker, as after a restart)
+    reconciles the unchanged inventory / then it exports (green on base).
+- [ ] 3.2 Implement per design *When a sink counts as up to date*: `ResolvedSink.Generation`;
+  identity in `sinkCoalesceState`, `shouldSkip` and `record`; `forget` on every per-sink failure
+  branch of both reconcilers; the preview's resolve-error branch.
+  — Mutations: M1 drop the UID comparison (recreated-sink envtest fails); M2 drop the generation
+  comparison (spec-change envtest fails); M3 drop `forget` in the job failure branch (the
+  returning-payload envtest fails); M4 restore the preview's default-interval fall-back (preview
+  test fails); M0 no-op.
 
 ## 4. Documentation (SDC-7)
 
 - [ ] 4.1 Update `docs/reference/conditions.md` (`Synced` row; `ExportSucceeded` row),
   `docs/operator-manual/troubleshooting.md` (condition table row for `PartiallySynced`, the
-  per-sink table, the two debounce rows, the partial-failure rows),
+  per-sink table and its read-API line, the two debounce rows, the partial-failure rows),
+  `docs/operator-manual/metrics.md` (line 87 onward),
   `docs/crds/kollectinventory.md` and `docs/crds/kollectclusterinventory.md` (status condition
   tables, per-sink `conditions[]` row), an amendment note on `docs/adr/0413-export-interval-scheduling.md`
   §6, and an entry under *Smaller behaviour changes (after v0.21.0)* in
   `docs/operator-manual/upgrading.md` (aggregate `True` on a debounce, per-sink `True/Debounced`,
-  `PartiallySynced` only for partial failure, the new messages, per-sink export record kept).
-  Check: `rg -n -i 'debounc' docs | rg 'Synced=False|PartiallySynced'` lists only the upgrade
-  note and the ADR note; `task lint:markdown` reports `0 issues`; the `hack/test/docs_*` guards
-  pass.
+  `PartiallySynced` only for partial failure, the new messages, the per-sink record kept, a sink
+  edit or replacement re-exports once, the read API's per-sink status).
+  Check: `rg -n -i -U 'debounc[^|]{0,200}(Synced=False|PartiallySynced)|(Synced=False|PartiallySynced)[^|]{0,200}debounc' docs`
+  lists only the upgrade note and the ADR note (a sentence about a "debounced pass" that does not
+  pair it with those strings, such as `docs/REQUIREMENTS.md:89`, is not a hit); `task
+  lint:markdown` reports `0 issues`; the `hack/test/docs_*` guards pass.
 
 ## 5. Land
 
 - [ ] 5.1 Integrator: branch review, PR, green required CI, then `openspec archive
-  synced-debounce-condition` as the last commit.
+  synced-debounce-condition` as the last commit. File the follow-up backlog item
+  SHARD-WARN-EVENT-CHURN (proposal non-goals).
 
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| SDC-1 | `TestSetSinkExportDebounced` (15m, 0s); envtest "reports debounced sinks as synced" | `True/Debounced`, stable message | not-run | evidence/G1.md |
-| SDC-2 | `TestAggregateInventorySync`; envtest namespaced and cluster "reports … as synced" | `True/Exported` "N/N sink(s) up to date"; no `PartiallySynced`; no "to 0 sink(s)" | not-run | evidence/G1.md |
-| SDC-3 | envtest "keeps Synced=False when a debounced sink sits next to a failed one"; *control* EC-P1-02 spec | aggregate `False`; failed sink `False`; `Ready=False` | not-run | evidence/G1.md |
-| SDC-3 | *control* envtest "moves lastTransitionTime only on a status change" | moves at failure and recovery only | not-run | evidence/G2.md |
-| SDC-4 | `TestPerSinkCoalesceTracker_forget`; envtests "re-exports after a failed export when the payload returns", "reports a resolve failure, then exports on recovery" | export in the recovering reconcile | not-run | evidence/G3.md |
-| SDC-4 | *control* envtest "exports a changed payload inside the interval" | exported, never `Debounced` | not-run | evidence/G3.md |
-| SDC-5 | `TestCarryOverSinkExport`; envtests "keeps the per-sink export record …" (debounced, failed) | T1, C1 and `lastTransitionTime` kept | not-run | evidence/G2.md |
-| SDC-5 | envtests "writes no status on a repeated debounced reconcile", "export pass and debounce pass give the same aggregate" | `resourceVersion` unchanged, no Event; identical aggregate | not-run | evidence/G2.md |
-| SDC-6 | `TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` | `True/Debounced` → `debounced` | not-run | evidence/G1.md |
-| SDC-1–6 | mutations G1 M1-M2, G2 M1-M2, G3 M1-M2, each with M0 | each target test fails; M0 survives | not-run | evidence/G1.md, G2.md, G3.md |
-| SDC-1–6 | `go test -race -count=3 ./internal/controller/ ./internal/inventory/` | pass, N=3 | not-run | evidence/G1.md, G2.md, G3.md |
-| SDC-7 | `rg` doc check; `task lint:markdown`; `hack/test/docs_*` guards | only the two notes match; `0 issues`; guards pass | not-run | evidence/G4.md |
+| SDC-1 | `TestSetSinkExportDebounced` (15m, 0s); envtest "reports debounced sinks as synced" (both kinds) | `True/Debounced`, stable message | not-run | evidence/G1.md |
+| SDC-2 | `TestAggregateInventorySync`; `requested_at_annotation_test.go` message rows; envtests "reports debounced sinks as synced" (both kinds), "reports one exported and one debounced sink as synced" | `True/Exported` "N/N sink(s) up to date"; no `PartiallySynced`; no "to 0 sink(s)" | not-run | evidence/G1.md |
+| SDC-3 | envtests "keeps Synced=False when a debounced sink sits next to a failed one", "marks the only failing sink as not synced" (both kinds); *control* EC-P1-02 spec | aggregate `False`; failed sink `False`; `Ready=False` | not-run | evidence/G1.md |
+| SDC-3, SDC-5 | envtest "moves lastTransitionTime only on a status change" | moves at failure and recovery only | not-run | evidence/G2.md |
+| SDC-4 | `TestPerSinkCoalesceTracker_identity`, `_forget`; `TestKollectInventoryReconciler_previewAllSinksDebounced_unresolvedSink`; envtests "re-exports after a failed export when the payload returns" (both kinds), "re-exports after a sink spec change", "re-exports to a recreated sink" | export in the recovering or changed pass; preview not debounced | not-run | evidence/G3.md |
+| SDC-4 | *controls* envtests "exports a changed payload inside the interval", "exports on the first pass of a new reconciler" | exported, never `Debounced` | not-run | evidence/G3.md |
+| SDC-5 | `TestCarryOverSinkExport`; envtests "keeps the per-sink export record across a debounced pass" (both kinds), "keeps the last successful export record across a partly failed pass" | T1, C1 and `lastTransitionTime` kept | not-run | evidence/G2.md |
+| SDC-5 | envtests "writes no status on a repeated debounced reconcile" (both kinds), "export pass and debounce pass give the same aggregate" | `resourceVersion` unchanged, no Event; identical aggregate | not-run | evidence/G2.md |
+| SDC-6 | `TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` | `<family>/<name>` entries; `True/Debounced` → `debounced` with its own time | not-run | evidence/G1.md |
+| SDC-1–6 | mutations G1 M1-M3, G2 M1-M2, G3 M1-M4, each group with M0 | each target test fails; M0 survives | not-run | evidence/G1.md, G2.md, G3.md |
+| SDC-1–6 | `go test -race -count=3` on the changed packages | pass, N=3 | not-run | evidence/G1.md, G2.md, G3.md |
+| SDC-7 | multiline `rg` doc check; `task lint:markdown`; `hack/test/docs_*` guards | only the two notes match; `0 issues`; guards pass | not-run | evidence/G4.md |
 | all | independent review of the spec set and the branch | recorded verdicts | not-run | `reviews/R-spec-set/`, `reviews/B-branch/` |

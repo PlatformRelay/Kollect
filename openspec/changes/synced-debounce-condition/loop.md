@@ -1,7 +1,7 @@
 # Loop — synced-debounce-condition (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/synced-debounce-condition` · Branch: `feat/synced-debounce-condition` · Base: `origin/main` @ `0686f8276` · Started: 2026-10-20 · Reviewers: two independent review legs (duo)
-Next: R spec-set review, round 1, on the spec-set commit
+Next: R spec-set review, round 2 (last), fresh legs on the round-1 fix commit
 Task prompt: local, `agent-context/loops/synced-debounce-condition/task-prompt.md` (harness, not committed) · Budget: paid review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SYNCED-DEBOUNCE-STEADY-STATE (kind quick start 2026-10-20; operator: fix before v0.22.0).
@@ -12,7 +12,7 @@ tasks.md.
 
 - [x] 0 orient — new change; file:line references measured against `origin/main` @ `0686f8276` (2026-10-20)
 - [x] P plan + tasks — written; decision 2026-10-20 `synced-debounce-reason` (both legs A, pending operator validation); spec set committed: `b7871afcd`
-- [ ] R spec-set review — `reviews/R-spec-set/`
+- [ ] R spec-set review — round 1 on `a268bfc96`: reviewer-a BLOCK, reviewer-b BLOCK; four CRITICALs accepted (sink identity, preview resolve error, total-failure per-sink write, read API key) and fixed with the WARNINGs (`reviews/R-spec-set/verification.md`); round 2 pending
 - [ ] L task loop — see *Tasks*
 - [ ] B branch review — `reviews/B-branch/round-N/`
 - [ ] Hand-off — `pr-description.md` · PR: none
@@ -35,6 +35,12 @@ Holistic run at B: not run yet.
 
 | Stage | Finding (one line) | Sev | Reviewers | Disposition (fix / reject / defer) | Where it went / why | Needs user? |
 |---|---|---|---|---|---|---|
+| R1 | Baseline ignores sink UID and generation | CRITICAL | reviewer-a | fix | SDC-4, design, G3 | no |
+| R1 | Preview debounces an unresolvable sink; deleted sink bypasses `forget` | CRITICAL | reviewer-a, reviewer-b | fix | SDC-4 (UID check, preview), G3 | no |
+| R1 | Total failure leaves per-sink `True/Exported` | CRITICAL | reviewer-a, reviewer-b | fix | SDC-3, design, G1 | no |
+| R1 | Read API looks up bare names, never matches | CRITICAL | reviewer-a, reviewer-b | fix | SDC-6, G1 | no |
+| R1 | Shard warning Event every pass at >= 1800 rows | WARNING | reviewer-a | defer | non-goal; SHARD-WARN-EVENT-CHURN at 5.1 | no |
+| R1 | SDC-5 self-contradiction; impossible mixed scenario; second precision; missed message tests; missed docs; matrix breadth; citations | WARNING/NOTE | both | fix | spec, tasks, proposal (`reviews/R-spec-set/verification.md`) | no |
 
 ## Tasks
 
