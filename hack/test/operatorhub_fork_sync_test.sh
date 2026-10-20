@@ -35,14 +35,17 @@ pass() {
 command -v jq >/dev/null 2>&1 || fail "jq is required"
 [[ -f "${REAL_SCRIPT}" ]] || fail "${REAL_SCRIPT} is missing"
 
-WORK="$(mktemp -d)"
+WORK="$(cd "$(mktemp -d)" && pwd -P)"
+trap 'rm -rf "${WORK:?}"' EXIT
 # BUNDLE_DIR must be relative to the checkout (the script prefixes it with its working directory),
-# so the fixture bundle lives under the gitignored dist/.
-BUNDLE_REL="dist/test-operatorhub-fork-sync.$$"
-trap 'rm -rf "${WORK:?}" "${ROOT:?}/${BUNDLE_REL:?}"' EXIT
+# so climb from ROOT to / and descend into WORK: the fixture never lands in the repository tree.
+ROOT_PHYS="$(pwd -P)"
+UP="${ROOT_PHYS//[^\/]/}"
+UP="${UP//\//../}"
+BUNDLE_REL="${UP}${WORK#/}/bundle"
 
 make_bundle() {
-  local b="${ROOT}/${BUNDLE_REL}" crd
+  local b="${WORK}/bundle" crd
   mkdir -p "${b}/manifests" "${b}/metadata"
   printf 'kind: ClusterServiceVersion\n' >"${b}/manifests/kollect.clusterserviceversion.yaml"
   printf 'annotations:\n  operators.operatorframework.io.bundle.package.v1: kollect\n' >"${b}/metadata/annotations.yaml"
@@ -97,8 +100,13 @@ done
 if [[ "${method}" != GET ]]; then
   printf 'WRITE gh api %s %s %s\n' "${method}" "${endpoint}" "${fields[*]:-}" >>"${STUB_LOG}"
 fi
+if [[ "${method}" != GET && "${STUB_POST_FAIL:-0}" == 1 ]]; then
+  echo 'gh: Resource not accessible by personal access token (HTTP 403)' >&2
+  exit 1
+fi
 case "${endpoint}" in
 repos/*/compare/*)
+  [[ "${STUB_COMPARE_FAIL:-0}" != 1 ]] || { echo 'gh: Not Found (HTTP 404)' >&2; exit 1; }
   repo="${endpoint#*...}"
   repo="${repo#*:}"
   repo="${repo%%:*}"
@@ -109,7 +117,10 @@ repos/*/merge-upstream)
   repo="${endpoint#repos/*/}"
   repo="${repo%/merge-upstream}"
   read -r status ahead behind <"$(state_file "${repo}")"
-  if [[ "${status}" == behind && "${STUB_STUCK:-0}" != 1 ]]; then
+  if [[ -n "${STUB_MERGE_TYPE:-}" ]]; then
+    echo "identical 0 0" >"$(state_file "${repo}")"
+    emit "{\"message\":\"stub\",\"merge_type\":\"${STUB_MERGE_TYPE}\",\"base_branch\":\"upstream:main\"}"
+  elif [[ "${status}" == behind && "${STUB_STUCK:-0}" != 1 ]]; then
     echo "identical 0 0" >"$(state_file "${repo}")"
     emit '{"message":"Successfully fetched and fast-forwarded from upstream","merge_type":"fast-forward","base_branch":"upstream:main"}'
   else
@@ -117,6 +128,7 @@ repos/*/merge-upstream)
   fi
   ;;
 repos/*/*)
+  [[ "${STUB_REPO_FAIL:-0}" != 1 ]] || { echo 'gh: Not Found (HTTP 404)' >&2; exit 1; }
   repo="${endpoint##*/}"
   parent="${STUB_PARENT:-$(upstream_for "${repo}")}"
   emit "{\"full_name\":\"PlatformRelay/${repo}\",\"default_branch\":\"main\",\"fork\":true,\"parent\":{\"full_name\":\"${parent}\",\"default_branch\":\"main\"}}"
@@ -162,7 +174,7 @@ run_script() {
   : >"${case_dir}/log"
   echo "${s1}" >"${case_dir}/state-community-operators"
   echo "${s2}" >"${case_dir}/state-community-operators-prod"
-  env -u GH_TOKEN -u DRY_RUN -u BUNDLE_DIR -u STUB_STUCK -u STUB_PARENT \
+  env -u GH_TOKEN -u DRY_RUN -u BUNDLE_DIR -u STUB_STUCK -u STUB_PARENT -u STUB_POST_FAIL -u STUB_COMPARE_FAIL -u STUB_REPO_FAIL -u STUB_MERGE_TYPE \
     PATH="${WORK}/bin:${PATH}" STUB_LOG="${case_dir}/log" STUB_DIR="${case_dir}" \
     VERSION=9.9.9-test FORK_OWNER=platformrelay BUNDLE_DIR="${BUNDLE_REL}" \
     IMAGE_DIGEST="sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" \
@@ -236,6 +248,40 @@ case_stuck_sync_fails() {
   ! grep '^WRITE git push' "${d}/log" >/dev/null || { echo "stuck sync: pushed although the fork is still behind"; return 1; }
 }
 
+case_fork_unreadable_fails() {
+  local s="$1" d="${WORK}/c-repo-unreadable"
+  run_script "${s}" "${d}" "behind 0 1" "behind 0 1" GH_TOKEN=stub STUB_REPO_FAIL=1
+  assert_failed_closed "fork unreadable" "${d}" "cannot read the fork platformrelay/community-operators"
+}
+
+case_compare_unreadable_fails() {
+  local s="$1" d="${WORK}/c-compare-unreadable"
+  run_script "${s}" "${d}" "behind 0 1" "behind 0 1" GH_TOKEN=stub STUB_COMPARE_FAIL=1
+  assert_failed_closed "compare unreadable" "${d}" "cannot compare platformrelay/community-operators:main"
+}
+
+case_unknown_status_fails() {
+  local s="$1" d="${WORK}/c-unknown"
+  run_script "${s}" "${d}" "weird 0 0" "identical 0 0" GH_TOKEN=stub
+  assert_failed_closed "unknown status" "${d}" "unexpected compare result for platformrelay/community-operators:main"
+}
+
+case_merge_commit_fails() {
+  local s="$1" d="${WORK}/c-merge"
+  run_script "${s}" "${d}" "behind 0 2" "identical 0 0" GH_TOKEN=stub STUB_MERGE_TYPE=merge
+  ! grep '^WRITE git push' "${d}/log" >/dev/null || { echo "merge commit: pushed after GitHub reported a merge, not a fast-forward"; return 1; }
+  [[ "$(cat "${d}/rc")" != 0 ]] || { echo "merge commit: exited 0"; return 1; }
+  grep -Fq "returned merge type 'merge', not a fast-forward" "${d}/out" || { echo "merge commit: no merge-type message: $(tail -3 "${d}/out")"; return 1; }
+}
+
+case_sync_refused_fails() {
+  local s="$1" d="${WORK}/c-refused"
+  run_script "${s}" "${d}" "behind 0 2" "identical 0 0" GH_TOKEN=stub STUB_POST_FAIL=1
+  ! grep '^WRITE git push' "${d}/log" >/dev/null || { echo "sync refused: pushed after the sync failed"; return 1; }
+  [[ "$(cat "${d}/rc")" != 0 ]] || { echo "sync refused: exited 0"; return 1; }
+  grep -Fq "GitHub refused to sync platformrelay/community-operators:main" "${d}/out" || { echo "sync refused: no refusal message: $(tail -3 "${d}/out")"; return 1; }
+}
+
 case_dry_run_plan() {
   local s="$1" d="${WORK}/c-dry"
   run_script "${s}" "${d}" "behind 0 15" "identical 0 0" GH_TOKEN=stub DRY_RUN=1
@@ -267,7 +313,9 @@ case_dry_run_offline() {
 }
 
 CASES=(case_behind_synced case_identical_no_sync case_diverged_fails case_ahead_fails
-  case_wrong_parent_fails case_stuck_sync_fails case_dry_run_plan case_dry_run_diverged case_dry_run_offline)
+  case_wrong_parent_fails case_stuck_sync_fails case_fork_unreadable_fails case_compare_unreadable_fails
+  case_unknown_status_fails case_merge_commit_fails case_sync_refused_fails
+  case_dry_run_plan case_dry_run_diverged case_dry_run_offline)
 
 # check_cases <script>: runs every case; prints one line per failed case; returns non-zero if any failed.
 check_cases() {
@@ -331,6 +379,11 @@ mutant no-recompare case_stuck_sync_fails 'stuck sync: exited 0' 's/^    if \[\[
 mutant dry-run-syncs case_dry_run_plan 'DRY_RUN: made' 's/^    preflight_forks || exit 1$/    preflight_forks \&\& sync_forks || exit 1/'
 mutant dry-run-offline-calls case_dry_run_offline 'DRY_RUN offline: called gh' 's/^  if \[\[ -n "\${GH_TOKEN:-}" \]\]; then$/  if true; then/'
 mutant sync-after-clone case_behind_synced 'were not synced before the first clone' '/^sync_forks || exit 1$/d; s/^submit_bundle "k8s-operatorhub\/community-operators"$/submit_bundle "k8s-operatorhub\/community-operators"; sync_forks/'
+mutant fork-read-unchecked case_fork_unreadable_fails 'fork unreadable: no' '/^  if ! info=/s/; then$/ \&\& false; then/'
+mutant compare-unchecked case_compare_unreadable_fails 'compare unreadable: no' '/^    if ! state=/s/; then$/ \&\& false; then/'
+mutant unknown-accepted case_unknown_status_fails 'unknown status: made' 's/^    identical | behind) ;;$/    identical | behind | weird) ;;/'
+mutant merge-accepted case_merge_commit_fails 'merge commit: pushed' 's/^    fast-forward | none) ;;$/    *) ;;/'
+mutant refusal-unchecked case_sync_refused_fails 'sync refused: no refusal message' '/^    if ! merge_type=/s/; then$/ \&\& false; then/'
 mutant noop all '' '$a\
 # no-op control'
 }
