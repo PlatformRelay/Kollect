@@ -42,7 +42,7 @@ Test rules for every group:
 
 ## 0. Probe
 
-- [ ] 0.1 Verify the load-bearing claims in `proposal.md` and `design.md` and record each as
+- [x] 0.1 Verify the load-bearing claims in `proposal.md` and `design.md` and record each as
   verified (command, versions, date) in `evidence/T0.1.md`; a failed one stops the loop as a spec
   finding:
   - on `origin/main`, an envtest run (a throwaway spec kept outside the repository, run through
@@ -169,7 +169,11 @@ Test rules for every group:
     skip; other sink UID → no skip; other sink generation → no skip · exposes a baseline that
     ignores the objects (stub: identity ignored). Existing tests that call `shouldSkip`, `record`
     or `nextDue` get the identity argument only (mechanical; listed in the evidence, one *Test
-    changes* row).
+    changes* row). `TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced`
+    (`kollectinventory_debounce_test.go:205`) also gets the two `KollectDatabaseSink` objects in
+    its fake client, assertion unchanged (its own *Test changes* row citing SDC-4; T0.1 finding 8).
+    G1 and G2 touch `previewAllSinksDebounced` without changing its resolve-error branch, so the
+    test stays green until G3.
   - `TestFailSinkExport`: given a recorded export / when `failSinkExport` runs / then the outcome
     counts the failure, the entry is `False` with the error's reason, and `shouldSkip` is false ·
     exposes a failure helper without the reset (stub: no `forget`). Check: `rg -n
