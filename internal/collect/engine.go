@@ -940,7 +940,7 @@ func (e *Engine) processDispatch(
 		gvkLabel := fmt.Sprintf("%s/%s/%s", st.profile.Spec.TargetGVK.Group,
 			st.profile.Spec.TargetGVK.Version, st.profile.Spec.TargetGVK.Kind)
 
-		e.store.Upsert(Item{
+		item := Item{
 			TargetNamespace: target.Namespace,
 			TargetName:      target.Name,
 			Namespace:       u.GetNamespace(),
@@ -950,7 +950,10 @@ func (e *Engine) processDispatch(
 			Kind:            st.profile.Spec.TargetGVK.Kind,
 			UID:             string(u.GetUID()),
 			Attributes:      attrs,
-		})
+		}
+		if !e.upsertIfRegistered(targetKeyStr, item) {
+			continue
+		}
 		metrics.CollectedObjects.WithLabelValues(target.Spec.ProfileRef, gvkLabel).
 			Set(float64(e.store.CountForTarget(target.Namespace, target.Name)))
 		metrics.CollectItemsTotal.Set(float64(e.store.Len()))
@@ -983,6 +986,27 @@ func (e *Engine) refreshTargetSnapshotMetrics(st targetState, target kollectdevv
 	items := e.store.SnapshotTarget(target.Namespace, target.Name)
 	metricPaths := MetricPathsFromProfile(st.profile.Spec)
 	recordTargetSnapshotMetrics(target.Spec.ProfileRef, gvkLabel, items, metricPaths)
+}
+
+// upsertIfRegistered writes item only while its target is still registered. The
+// dispatch loop works from a snapshot of the targets taken before its access
+// check and extraction, so the target may have been unregistered in between (its
+// KollectTarget deleted while a backfill for it was still queued). UnregisterTarget
+// deletes the registration under e.mu and only then clears the target's rows, so
+// checking and writing under the same read lock means a dispatch either writes
+// before that deletion (and the clear removes the row) or sees it and writes
+// nothing. Without this, the row would outlive the target with nothing left to
+// remove it.
+func (e *Engine) upsertIfRegistered(key string, item Item) bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	if _, ok := e.targets[key]; !ok {
+		return false
+	}
+	e.store.Upsert(item)
+
+	return true
 }
 
 func isInformerResync(oldObj, newObj interface{}) bool {
