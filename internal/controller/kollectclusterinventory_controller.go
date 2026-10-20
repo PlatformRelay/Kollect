@@ -275,10 +275,10 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		carryOverSinkExport(status, inv.Status.SinkExports, exportKey)
 		status.Namespace = sinkBindingNamespace(binding, sinkNS)
 		if err != nil {
-			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, err.Error())
-			outcome.addSinkFailure(exportKey, err)
+			failSinkExport(&r.sinkCoalesce, &outcome, status, invKey, exportKey, inv.Generation, err)
 			continue
 		}
+		identity := newSinkExportIdentity(inv.UID, resolved)
 
 		interval := validation.ResolveSinkExportInterval(ref, sinkExportMinInterval(resolved), defaultInterval, scopeFloor)
 
@@ -300,8 +300,8 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		parts, partitionErr := export.PartitionEnvelopes(items, meta, ceiling)
 		if partitionErr != nil {
 			log.Error(partitionErr, "cluster export partition failed", "sink", exportKey)
-			outcome.addSinkFailure(exportKey, kollecterrors.Terminal(partitionErr))
-			setSinkExportSynced(status, inv.Generation, false, reasonExportFailed, partitionErr.Error())
+			failSinkExport(&r.sinkCoalesce, &outcome, status, invKey, exportKey, inv.Generation,
+				kollecterrors.Terminal(partitionErr))
 			continue
 		}
 
@@ -312,7 +312,7 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		if binding.Family == kollectdevv1alpha1.SinkFamilySnapshot {
 			sinkChecksum = export.PartitionsChecksum(parts)
 		}
-		if r.sinkCoalesce.shouldSkip(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, interval, now) {
+		if r.sinkCoalesce.shouldSkip(invKey, exportKey, identity, inv.Generation, sinkChecksum, requestedAt, interval, now) {
 			outcome.DebouncedCount++
 			metrics.ExportDebouncedTotal.WithLabelValues("KollectClusterInventory").Inc()
 			setSinkExportDebounced(status, inv.Generation, interval)
@@ -357,12 +357,11 @@ func (r *KollectClusterInventoryReconciler) exportClusterToSinks(
 		}
 		if exportErr != nil {
 			log.Error(exportErr, "cluster export failed", "sink", exportKey)
-			outcome.addSinkFailure(exportKey, exportErr)
-			setSinkExportSynced(status, inv.Generation, false, sinkExportFailureReason(exportErr), exportErr.Error())
+			failSinkExport(&r.sinkCoalesce, &outcome, status, invKey, exportKey, inv.Generation, exportErr)
 			continue
 		}
 
-		r.sinkCoalesce.record(invKey, exportKey, inv.Generation, sinkChecksum, requestedAt, now)
+		r.sinkCoalesce.record(invKey, exportKey, identity, inv.Generation, sinkChecksum, requestedAt, now)
 		exportTime := metav1.Now()
 		status.LastExportTime = &exportTime
 		status.LastChecksum = sinkChecksum

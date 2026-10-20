@@ -164,7 +164,7 @@ Test rules for every group:
 
 ## 3. Debounced only when up to date (SDC-4)
 
-- [ ] 3.1 Tests (red on the G2 commit):
+- [x] 3.1 Tests (red on the G2 commit):
   - `TestPerSinkCoalesceTracker_identity`, rows: same identity → skip; other inventory UID → no
     skip; other sink UID → no skip; other sink generation → no skip · exposes a baseline that
     ignores the objects (stub: identity ignored). Existing tests that call `shouldSkip`, `record`
@@ -208,7 +208,7 @@ Test rules for every group:
   - *control* envtest "exports on the first pass of a new reconciler": given a sink that exported
     through reconciler R1 / when a new reconciler R2 (empty tracker, as after a restart)
     reconciles the unchanged inventory / then it exports (green on base).
-- [ ] 3.2 Implement per design *When a sink counts as up to date*: `ResolvedSink.Generation`;
+- [x] 3.2 Implement per design *When a sink counts as up to date*: `ResolvedSink.Generation`;
   identity in `sinkCoalesceState`, `shouldSkip` and `record`; `forget` on every per-sink failure
   branch of both reconcilers; the preview's resolve-error branch.
   — Mutations: M1 drop the sink UID comparison (recreated-sink envtest fails); M2 drop the sink

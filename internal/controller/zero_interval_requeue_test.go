@@ -162,13 +162,13 @@ func TestPerSinkCoalesceTracker_zeroIntervalSkipsKeepStateAlive(t *testing.T) {
 	base := time.Now()
 	invKey, sinkName := "team-a/zero", "git"
 
-	tracker.record(invKey, sinkName, 1, "hash", "", base)
+	tracker.record(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "", base)
 	for at := base; !at.After(base.Add(2 * coalesceStateTTL)); at = at.Add(coalesceStateTTL / 8) {
-		if !tracker.shouldSkip(invKey, sinkName, 1, "hash", "", 0, at) {
+		if !tracker.shouldSkip(invKey, sinkName, sinkExportIdentity{}, 1, "hash", "", 0, at) {
 			t.Fatalf("unchanged 0s binding not skipped at +%v", at.Sub(base))
 		}
 		// Another inventory exports meanwhile; its record() sweeps the tracker.
-		tracker.record("team-a/other", sinkName, 1, "other", "", at)
+		tracker.record("team-a/other", sinkName, sinkExportIdentity{}, 1, "other", "", at)
 	}
 }
 
