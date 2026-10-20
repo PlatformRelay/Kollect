@@ -1,0 +1,5 @@
+:page_facing_up: docs(spec): add the sink-ca-trust change
+:sparkles: feat(sink): share CA source rules and add an appended pool
+:sparkles: feat(sink): trust the spec.tls CA on S3 and GCS sinks
+:sparkles: feat(sink): trust the spec.tls CA on Postgres sinks
+:sparkles: feat(sink): trust the spec.tls CA on MongoDB sinks

@@ -595,6 +595,13 @@ jobs:
         run: bash hack/test/operatorhub_fork_sync_test.sh
       - name: Verify the OperatorHub fork sync test can still fail (OFS-5)
         run: bash hack/test/operatorhub_fork_sync_test.sh --self-test
+      # BMC-1 to BMC-5 (openspec change breaking-marker-check): hack/check-breaking-marker.sh on
+      # throwaway repositories from fixtures, and the shape of breaking-marker.yaml. Plain and
+      # --self-test as separate steps; CWS-6/CFC-6 checks each mode runs in a required job.
+      - name: Verify the breaking-marker check and its workflow (BMC-1 to BMC-4)
+        run: bash hack/test/breaking_marker_test.sh
+      - name: Verify the breaking-marker test can still fail (BMC-5)
+        run: bash hack/test/breaking_marker_test.sh --self-test
       # TDS-1 (openspec change test-depth-signals): the fuzz job's runner against a fake go
       # replaying captured CI output, and its wiring. Plain and --self-test as separate steps;
       # CWS-6/CFC-6 checks each mode runs in a required job. Needs git and yq (installed above).

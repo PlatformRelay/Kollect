@@ -1,0 +1,3 @@
+Summary.
+
+BREAKING CHANGE: overlapping prune paths are rejected.

@@ -1,0 +1,3 @@
+Summary of the change.
+
+BREAKING CHANGE: a deleted Secret now fails the export.
