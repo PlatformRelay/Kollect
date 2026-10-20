@@ -49,6 +49,7 @@ Holistic run at B: not run yet.
 
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
+| T0.1 · BLOCKED · probe: every 0.1 claim holds on `origin/main`; finding: `TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced` turns red under SDC-4's preview rule and is not in *Impact* | BLOCKED | reviewer-a (diff), 1 round, no paid leg | decision request in `evidence/T0.1.md` (add a G3 *Test changes* row; edit proposal *Impact* and tasks.md 3.1) |
 
 ## Known red
 
@@ -65,6 +66,9 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 |---|---|---|---|
 
 ## Lessons
+
+- T0.1: when a design removes a fall-back, grep the tests for fixtures that rely on it; a scratch mutant of just that rule over the whole package finds them in one run.
+- T0.1: throwaway envtest specs run unchanged in a `git archive origin/main | tar -x` scratch tree with `KUBEBUILDER_ASSETS` set (the relative `bin/k8s` resolver path does not exist there).
 
 ## Where a human should look first
 
