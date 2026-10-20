@@ -10,12 +10,14 @@ git-cliff reads, given that pull requests land by rebase merge.
 ### Requirement: BMC-1 A declared breaking change needs a marked commit
 
 `hack/check-breaking-marker.sh <base> <head>` SHALL exit non-zero when the PR title (`PR_TITLE`)
-has a conventional breaking marker (`type!:` or `type(scope)!:`, after an optional gitmoji
-shortcode written exactly as git-cliff's preprocessor strips it, `^:[a-z0-9_]+:` plus one space), or the PR body
-(`PR_BODY`) has a `BREAKING CHANGE:` or `BREAKING-CHANGE:` footer line outside a fenced code block
-(a fence closes only with the character that opened it), and no commit title in `<base>..<head>`
-(merges excluded, since a rebase merge drops them) has a breaking marker. The message SHALL name which declaration triggered the failure. When a commit
-title carries the marker, the script SHALL pass.
+has a conventional breaking marker (`type!:` or `type(scope)!:`, after any gitmoji shortcode), or
+the PR body (`PR_BODY`) has a `BREAKING CHANGE:` or `BREAKING-CHANGE:` footer line outside a fenced
+code block (a fence closes only with the character that opened it), and no commit title in
+`<base>..<head>` (merges excluded, since a rebase merge drops them) has a breaking marker. On a
+commit title the optional shortcode must be written exactly as git-cliff's preprocessor strips it
+(`^:[a-z0-9_]+:` plus one space); a title it cannot parse does not count. The message SHALL name
+which declaration triggered the failure. When a commit title carries the marker, the script SHALL
+pass.
 
 #### Scenario: Marked PR title, plain commits
 
@@ -73,8 +75,11 @@ passes.
 `.github/workflows/breaking-marker.yaml` SHALL trigger on `pull_request` with the types `opened`,
 `edited`, `synchronize` and `reopened`, and SHALL NOT trigger on `pull_request_target`. Its
 permissions SHALL be `contents: read` only. Its job `breaking-marker` SHALL use no action but a SHA-pinned
-`actions/checkout`, reference no secrets, declare no `if`, `continue-on-error`, `permissions` or
-`env` on the job or its steps beyond step `env`, check out with `persist-credentials: false`, pass the PR title and body to the script
+`actions/checkout`, reference no secrets in any spelling, declare no `if`, `continue-on-error`,
+`permissions` or `env` on the job or its steps beyond the check step's `PR_TITLE` and `PR_BODY`,
+run on `ubuntu-latest` with exactly two steps whose check runs exactly
+`bash hack/check-breaking-marker.sh HEAD^1 HEAD^2`, check out with `persist-credentials: false`
+and no `ref` or `repository` override, pass the PR title and body to the script
 through step `env:`, and SHALL NOT reference `github.event.pull_request` inside any `run:` body.
 The job SHALL NOT be listed in the required checks of `hack/release/verify-eligibility.sh`.
 

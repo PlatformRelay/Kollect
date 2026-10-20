@@ -2,34 +2,36 @@
 
 ## 1. Test first (BMC-1 to BMC-5)
 
-- [ ] 1.1 Write `hack/test/breaking_marker_test.sh` and its fixtures under
+- [x] 1.1 Write `hack/test/breaking_marker_test.sh` and its fixtures under
   `hack/test/testdata/breaking-marker/`; run it with no script present and record the red
-- [ ] 1.2 Add the guard to `cfc_guards`; run `hack/test/ci_workflow_security_test.sh` before the
+- [x] 1.2 Add the guard to `cfc_guards`; run `hack/test/ci_workflow_security_test.sh` before the
   `lint` steps exist and record the red
 
 ## 2. Implement (BMC-1 to BMC-4)
 
-- [ ] 2.1 `hack/check-breaking-marker.sh`
-- [ ] 2.2 `.github/workflows/breaking-marker.yaml`, job `breaking-marker`
-- [ ] 2.3 Wire the guard into the `lint` job, plain and `--self-test`
+- [x] 2.1 `hack/check-breaking-marker.sh`
+- [x] 2.2 `.github/workflows/breaking-marker.yaml`, job `breaking-marker`
+- [x] 2.3 Wire the guard into the `lint` job, plain and `--self-test`
 
 ## 3. Docs
 
-- [ ] 3.1 `CONTRIBUTING.md`: the marker goes on a commit title
+- [x] 3.1 `CONTRIBUTING.md`: the marker goes on a commit title
 
 ## 4. Proof and land
 
-- [ ] 4.1 Run the script against the #478 commit range on `main`
-- [ ] 4.2 Independent review (two legs); PR with every check green on the head SHA, the new job
-  among them
+- [x] 4.1 Run the script against the #478 commit range on `main`
+- [x] 4.2 Independent review (two legs, two rounds) — evidence: evidence/T1.md (Review)
+- [ ] 4.3 PR with every check green on the head SHA, the new job among them; archive in a
+  follow-up PR
 
 ## Verification
 
 | Req | Check | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| BMC-1 | fixture cases `title-bang-plain-commits`, `body-footer-plain-commits`, `body-footer-hyphen`, `body-footer-crlf`, `pr478`, `merge-commit-marked`, `cliff-unparseable`, `fence-mixed`, `title-and-commit-marked`, `scopeless-marked`, `mentions-only`, `no-markers` | fail ×8, pass ×4 | not-run | |
-| BMC-2 | fixture cases `commit-marked-title-plain`, `body-footer-commit-marked`, `commit-cr-subject`, `warn-not-when-title-marked` | `::warning`, `%`/CR encoded, exit 0; no warning under a marked title | not-run | |
-| BMC-3 | unknown revision, missing `PR_TITLE`, wrong argument count, empty range | exit 2, 2, 2, 0 | not-run | |
-| BMC-4 | static workflow checks in the guard | pass on the tree; each injected defect reds | not-run | |
-| BMC-5 | `--self-test` mutants and no-op; CWS-6/CFC-6 with the steps removed | each mutant reds its own case; unwired reds | not-run | |
-| all | `breaking-marker` job on this PR; independent review; CI on the PR head | success, APPROVE, green | not-run | |
+| BMC-1 | fixture cases `title-bang-plain-commits`, `body-footer-plain-commits`, `body-footer-hyphen`, `body-footer-crlf`, `pr478`, `merge-commit-marked`, `cliff-unparseable`, `fence-mixed`, `title-loose-gitmoji`, `title-and-commit-marked`, `scopeless-marked`, `mentions-only`, `no-markers` | fail ×9, pass ×4 | pass | evidence/T1.md (Green, Real pull requests) |
+| BMC-2 | fixture cases `commit-marked-title-plain`, `body-footer-commit-marked`, `commit-cr-subject`, `warn-not-when-title-marked` | `::warning`, `%`/CR encoded, exit 0; no warning under a marked title | pass | evidence/T1.md (Green) |
+| BMC-3 | unknown revision, missing `PR_TITLE`, wrong argument count, empty range | exit 2, 2, 2, 0 | pass | evidence/T1.md (Green) |
+| BMC-4 | static workflow checks in the guard | pass on the tree; each injected defect reds | pass | evidence/T1.md (Green): 18 workflow mutants; zizmor clean |
+| BMC-5 | `--self-test` mutants and no-op; CWS-6/CFC-6 with the steps removed | each mutant reds its own case; unwired reds | pass | evidence/T1.md (Red, Green) |
+| all | independent review | APPROVE after fixes | pass | evidence/T1.md (Review) |
+| all | `breaking-marker` job on this PR; CI on the PR head | success, green | not-run | recorded at archive (follow-up PR) |
