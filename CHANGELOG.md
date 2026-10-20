@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **release:** Sync the OperatorHub forks before submitting [254e67c](https://github.com/platformrelay/kollect/commit/254e67c813f35b878098dbf833f80aebeaba83ef)
+
 - **controller:** Keep 0s coalescing state while skipped [04c84e6](https://github.com/platformrelay/kollect/commit/04c84e61aa7e20fdfc5ef3757a7005add8537354)
 
 - **sink:** Retire when the full read finds a Secret gone [08938bc](https://github.com/platformrelay/kollect/commit/08938bc07f386ce17dcc44f21151d2be281508af)
