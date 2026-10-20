@@ -1,7 +1,7 @@
 # Loop — synced-debounce-condition (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/synced-debounce-condition` · Branch: `feat/synced-debounce-condition` · Base: `origin/main` @ `0686f8276` · Started: 2026-10-20 · Reviewers: two independent review legs (duo)
-Next: L task loop — dispatch G1 (1.1 then 1.2) with the local task prompt
+Next: L task loop — dispatch G3 (3.1 then 3.2) with the local task prompt
 Task prompt: local, `agent-context/loops/synced-debounce-condition/task-prompt.md` (harness, not committed) · Budget: paid review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SYNCED-DEBOUNCE-STEADY-STATE (kind quick start 2026-10-20; operator: fix before v0.22.0).
@@ -52,6 +52,7 @@ Holistic run at B: not run yet.
 |---|---|---|---|
 | T0.1 · CLOSED (after spec fix) · probe: every 0.1 claim holds on `origin/main`; finding: `TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced` turns red under SDC-4's preview rule and is not in *Impact* | CLOSED | reviewer-a (diff), 1 round, no paid leg | finding 8 resolved by the orchestrator: option A applied to proposal *Impact* and tasks.md 3.1 (only option consistent with SDC-4; see *Triage* L) |
 | G1 · CLOSED · 1.1 + 1.2: debounced sink `True/Debounced`, aggregate `True/Exported` "N/N sink(s) up to date", cluster `ExportSucceeded` count, read API `<family>/<name>` + reason-first + own time; M1-M3 killed, M0 survived | CLOSED | reviewer-a (diff), 1 round, APPROVE with one P2 (evidence, fixed); no paid leg | none; race `-count=3` unit reds are pre-existing on base (`evidence/G1.md` *Iterations* 5) |
+| G2 · CLOSED · 2.1 + 2.2: `carryOverSinkExport` seeds time, checksum, paths and conditions (deep copy) at the three call sites; both total-failure branches store the per-sink entries; 10 envtest specs + unit; M1, M2, M2t, M3a, M3b killed, M0 survived | CLOSED | reviewer-a (diff), 1 round, REQUEST_CHANGES with one P2 (test assertion, fixed); no paid leg | none; race `-count=3` unit red is the pre-existing breaker flake (`evidence/G2.md` *Iterations* 5) |
 
 ## Known red
 
@@ -69,6 +70,7 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 | `internal/controller/per_sink_export_test.go:TestAggregateInventorySync` | before this change | G1 | SDC-2: no failed sink → `True/Exported`, one message for export and debounce passes |
 | `internal/controller/requested_at_annotation_test.go:257`, `:402` (message assertions) | before this change | G1 | SDC-2: message counts up-to-date sinks ("1/1 sink(s) up to date") |
 | `internal/inventory/cov_s06_test.go:TestExportStatusFromInventory_perSinkConditionsOverrideInventoryStatus` | before this change | G1 | SDC-6: `<family>/<name>` lookup, reason-first mapping, entry's own time (empty when none) |
+| `internal/controller/per_sink_export_test.go:TestCarryOverLastExportPaths` → `TestCarryOverSinkExport` | before this change | G2 | SDC-5: the seed carries time, checksum, paths and conditions (deep copy); the "fresh paths win" case is moot because the seed runs on an empty entry first |
 
 ## Lessons
 
@@ -76,6 +78,8 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 - G1: `go test -race -count=3 ./internal/controller/` is red on base about one run in three (process-wide circuit breaker for `default/postgres-demo` across repetitions); diff against a `git archive <base>` copy before calling it a regression. Ginkgo refuses `-count>1`: run the unit tests with `-skip TestControllers` and the suite once with `-race`.
 - G1: envtest helpers that give each sink its own table let the registry selector route sinks to separate recording backends, so a spec can count exports per sink.
 - T0.1: throwaway envtest specs run unchanged in a `git archive origin/main | tar -x` scratch tree with `KUBEBUILDER_ASSETS` set (the relative `bin/k8s` resolver path does not exist there).
+- G2: assert a multi-pass transition rule as a map of named booleans (`HaveEach(BeTrue())`): one red line then shows every pass that broke, not only the first.
+- G2: a shallow-copy mutant survives envtest when the previous entries come from a fresh `Get`; only a unit test that mutates the seeded entry and re-reads the source catches it.
 
 ## Where a human should look first
 

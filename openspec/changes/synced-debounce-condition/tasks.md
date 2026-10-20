@@ -115,7 +115,7 @@ Test rules for every group:
 
 ## 2. No churn (SDC-5, SDC-3 transitions)
 
-- [ ] 2.1 Tests (red on the G1 commit):
+- [x] 2.1 Tests (red on the G1 commit):
   - `TestCarryOverSinkExport` (new `carryOverSinkExport(status, previous, exportKey)`; replaces
     `TestCarryOverLastExportPaths`, a *Test changes* row citing SDC-5): given a
     previous entry with `LastExportTime` T1, `LastChecksum` C1, two paths and a `Synced`
@@ -155,7 +155,7 @@ Test rules for every group:
     `lastTransitionTime` changes at the failure and at the recovery and not at the debounced
     pass, and the per-sink one likewise · *control* for the aggregate (green on the G1 commit);
     red for the per-sink part (base: it moves at the debounced pass).
-- [ ] 2.2 Implement `carryOverSinkExport` per design *Per-sink entry carry-over*, replacing
+- [x] 2.2 Implement `carryOverSinkExport` per design *Per-sink entry carry-over*, replacing
   `carryOverLastExportPaths` at its call sites in both reconcilers and the preview path; store
   `outcome.SinkExports` in both total-failure branches (design *Aggregate*).
   — Mutations: M1 carry over paths only (the envtest reds fail again); M2 copy `Conditions`
