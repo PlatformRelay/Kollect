@@ -587,6 +587,14 @@ jobs:
         run: bash hack/test/ci_failure_report_test.sh
       - name: Verify the CI failure reporter test can still fail (CFR-7)
         run: bash hack/test/ci_failure_report_test.sh --self-test
+      # OFS-1 to OFS-5 (openspec change operatorhub-fork-sync): hack/operatorhub-pr.sh against fake
+      # gh, git, curl and make -- a fork behind upstream is synced before any push, a diverged or
+      # ahead fork fails closed with no write, and DRY_RUN makes no write. Plain and --self-test as
+      # separate steps; CWS-6/CFC-6 checks each mode runs in a required job. Needs jq (runner image).
+      - name: Verify the OperatorHub submission syncs its forks safely (OFS-1 to OFS-4)
+        run: bash hack/test/operatorhub_fork_sync_test.sh
+      - name: Verify the OperatorHub fork sync test can still fail (OFS-5)
+        run: bash hack/test/operatorhub_fork_sync_test.sh --self-test
       # TDS-1 (openspec change test-depth-signals): the fuzz job's runner against a fake go
       # replaying captured CI output, and its wiring. Plain and --self-test as separate steps;
       # CWS-6/CFC-6 checks each mode runs in a required job. Needs git and yq (installed above).

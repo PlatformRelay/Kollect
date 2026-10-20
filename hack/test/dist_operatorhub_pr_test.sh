@@ -267,7 +267,9 @@ mutant_rejected "${WORKFLOW_MUTANTS}/submission-commented-out.yaml" \
 
 pass "operatorhub-pr job is environment-gated, SHA-pinned and visibly soft-fail"
 
-DRY_RUN=1 VERSION=9.9.9-test IMAGE_DIGEST="sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" \
+# No GH_TOKEN: the dry run must stay offline here (with a token it reads the forks' state;
+# hack/test/operatorhub_fork_sync_test.sh covers that path against a fake gh).
+env -u GH_TOKEN DRY_RUN=1 VERSION=9.9.9-test IMAGE_DIGEST="sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" \
   bash "${SCRIPT}" >/tmp/kollect-operatorhub-dry-run.out 2>&1 ||
   fail "DRY_RUN operatorhub-pr.sh failed"
 
