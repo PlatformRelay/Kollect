@@ -103,13 +103,16 @@ keep `Synced=True`, reason `Debounced`. `Ready` and `Degraded` SHALL behave as b
 - **WHEN** the payload changes and the export fails, then, at least one second later, the sink recovers and the next export succeeds
 - **THEN** the aggregate goes `True` → `False` → `True`, and its `lastTransitionTime` changes at each of those two transitions and at no other pass
 
-### Requirement: SDC-4 A sink is debounced only when it is known to be up to date
+### Requirement: SDC-4 A sink is debounced only when its export inputs are unchanged
 
 A sink SHALL be debounced (skipped and reported with reason `Debounced`) only when its last
 export succeeded and, since that export, none of these changed: the payload checksum, the
-inventory generation, the `kollect.dev/requestedAt` value, and the identity (UID) and
+inventory's UID and generation, the `kollect.dev/requestedAt` value, and the UID and
 `metadata.generation` of the family sink object the binding resolves to; and the effective
-export interval has not elapsed, or is `0s`. In every other case the sink SHALL be exported in
+export interval has not elapsed, or is `0s`. Changes outside these inputs (a referenced Secret
+that points the sink elsewhere, data removed on the backend) are not detected: for an interval
+> 0 the periodic re-export bounds them, for `0s` nothing does, as the `sink-secret-rotation`
+capability already states for Secret changes. In every other case the sink SHALL be exported in
 the same reconcile and SHALL NOT be reported with reason `Debounced`. A failed export SHALL clear
 the sink's debounce state, so the sink is not debounced until an export to it succeeds again. A
 binding whose sink cannot be resolved SHALL NOT be counted as debounced on any path, including
@@ -135,6 +138,12 @@ the namespaced preview.
 - **WHEN** the sink's spec is changed (for example its table), which bumps the sink's `metadata.generation` but not the inventory's, and the inventory reconciles with an unchanged payload
 - **THEN** the sink is exported in that reconcile, not debounced
 
+#### Scenario: Inventory replaced
+
+- **GIVEN** an inventory that exported successfully, with a 15-minute interval
+- **WHEN** it is deleted (its cleanup runs) and recreated with the same name and spec, and the new object reconciles with an unchanged payload
+- **THEN** the sink is exported in that reconcile, not debounced
+
 #### Scenario: Sink object replaced
 
 - **GIVEN** a sink that exported successfully, with a 15-minute interval
@@ -146,7 +155,8 @@ the namespaced preview.
 While the inputs that SDC-4 lists and the sinks' health do not change, a debounced reconcile that
 follows another debounced reconcile SHALL NOT change the inventory's status (its
 `resourceVersion` stays the same) and SHALL NOT emit an Event, for both inventory kinds, for
-inventories below the export-shard warning threshold. The aggregate `Synced` condition (status,
+inventories below the export-shard warning threshold, on the preview path and on the full export
+path (snapshot sinks always take the full path). The aggregate `Synced` condition (status,
 reason, message and `lastTransitionTime`) SHALL be identical before and after a pass that
 re-exports an unchanged payload. The `lastTransitionTime` of the aggregate and per-sink `Synced`
 conditions SHALL change only when that condition's status changes. A sink's
@@ -179,13 +189,20 @@ The read API's per-sink export status SHALL be taken from the `status.sinkExport
 name is the binding's `<family>/<name>` key, the name the reconcilers write. It SHALL report
 `debounced` for an entry whose `Synced` condition has reason `Debounced`, whether its status is
 `True` or `False`, `ok` for any other `True` condition, and the entry's `lastExportTime` as the
-sink's last export time.
+sink's last export time, empty when the entry has none. The inventory-level status and time
+SHALL be used only for a binding that has no entry.
 
 #### Scenario: Debounced with status True, controller-shaped entry
 
 - **GIVEN** an inventory with a snapshot sink `git` and a database sink `git`, whose entries `snapshot/git` and `database/git` carry `Synced=True` reason `Debounced` and `Synced=True` reason `Exported`, with different `lastExportTime` values
 - **WHEN** the read API builds its export status
 - **THEN** the snapshot binding reports `debounced` with its own `lastExportTime`, and the database binding reports `ok` with its own
+
+#### Scenario: Entry without an export time
+
+- **GIVEN** an inventory whose sink A exported and whose sink B has an entry with no `lastExportTime` (it never exported successfully)
+- **WHEN** the read API builds its export status
+- **THEN** B's last export time is empty and SHALL NOT be A's time or the inventory's
 
 ### Requirement: SDC-7 Documentation matches the conditions
 
