@@ -279,8 +279,8 @@ tasks:
     desc: >-
       Extractor hot-path budget. ENFORCED: B/op and allocs/op at the recorded
       baseline +25% — hardware-independent, so a >25% allocation regression
-      fails anywhere. NOT enforced: a >25% wall-clock gate; the ns/op ceiling is
-      a coarse catastrophic-regression net only (a CPU-only 3.5x slowdown at
+      fails anywhere. NOT enforced: a >25% wall-clock gate; the latency ceiling is
+      a coarse, load-independent catastrophic-regression net only (a CPU-only 3.5x slowdown at
       unchanged allocations passes it) — pin KOLECT_EXTRACT_MAX_NS_PER_OP to
       your own measured ns/op x 1.25 for a real latency floor. EXERCISES:
       Extract over 128 varied objects, single-threaded, in-process. NOT

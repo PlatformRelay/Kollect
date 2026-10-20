@@ -306,11 +306,11 @@ allocs/op against a recorded baseline. It also runs as part of `task test`.
 toolchain (verified across arm64/amd64, `-cover`, `-race`, and the go1.26.5 -> 1.26.6 bump), so an
 allocation regression fails on any runner.
 
-**Not enforced:** a >25% wall-clock gate. The `ns/op` ceiling is a coarse catastrophic-regression
-net only — any ceiling loose enough to be safe on a shared CI runner is far too loose to catch
-25%, and a CPU-only regression at unchanged allocations will pass it. For a real latency floor,
-measure your own hardware and pin `KOLECT_EXTRACT_MAX_NS_PER_OP` to that x 1.25 (also `_BYTES_` /
-`_ALLOCS_`).
+**Not enforced:** a >25% wall-clock gate. The latency ceiling bounds Extract's time relative to a
+calibration workload timed in the same run, so runner load mostly cancels out. It is still a coarse
+catastrophic-regression net only: a CPU-only regression of a few times at unchanged allocations will
+pass it. For a real latency floor, measure your own hardware and pin `KOLECT_EXTRACT_MAX_NS_PER_OP`
+to that x 1.25 (also `_BYTES_` / `_ALLOCS_`).
 
 **What it exercises:** the extractor hot path, single-threaded, in-process.
 **What it does not:** API server, cluster, informers, sinks, controller, concurrency, export. It is

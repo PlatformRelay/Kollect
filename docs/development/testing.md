@@ -22,7 +22,7 @@ Kollect is **TDD-first**. Quality gates follow a six-tier test pyramid (L0–L5)
 **Direction:** Most tests live at L0–L2. Every new sink backend must reach **L3** before merge
 ([NFR-EXT-3](../REQUIREMENTS.md)). L4 catches wiring regressions that unit tests miss. L5 is an
 in-process budget, not a scale tier: it fails a >25% regression in the extractor's `B/op` or
-`allocs/op` (its `ns/op` ceiling is only a catastrophic-regression net), and says nothing about
+`allocs/op` (its latency ceiling is only a catastrophic-regression net), and says nothing about
 cluster scale. Cluster scale is the opt-in `scale-envtest-10k` job.
 
 ## Coverage target
