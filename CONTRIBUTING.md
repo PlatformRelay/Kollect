@@ -87,7 +87,9 @@ trailing period; ≤ ~72 chars on the subject line (after gitmoji + type/scope).
 `feat(api):`. Use `feat(scope)!:` / `fix(scope)!:` or a `BREAKING CHANGE:` footer only when a
 **tagged release already exists** and adopters must migrate. If `!` is used, footer
 `BREAKING CHANGE: <migration note>` is **required**. Do not mark breaking for pre-beta CRD churn,
-internal refactors, or dev-only flag removal.
+internal refactors, or dev-only flag removal. Put the `!` on the **commit** title, not only the PR
+title or body: PRs are rebase-merged and git-cliff reads commit titles, so the `breaking-marker`
+check fails a PR whose title has `!` or whose body has a `BREAKING CHANGE:` footer when no commit does.
 
 **Examples (good):**
 
@@ -135,9 +137,12 @@ Only `feat`, `fix`, `perf`, `refactor`, and breaking commits appear in the user-
 
 **GitHub merge policy:** use **Rebase and merge** on pull requests (merge commits are disabled). **Squash and merge** is allowed when a single commit is clearer (e.g. Dependabot); keep the squash title conventional. `main` is protected (linear history, required CI checks `preflight` and `test`, no force-push). Admins are not included in those restrictions, so the maintainer can still push directly to `main` when needed.
 2. `task changelog` — sanity-check grouping.
-3. Bump `charts/kollect/Chart.yaml` `version` and `appVersion`.
-4. `task changelog:write` — commit `CHANGELOG.md`.
-5. `git tag vX.Y.Z && git push origin vX.Y.Z` — CI publishes image and GitHub Release.
+3. Bump `charts/kollect/Chart.yaml` `version` and `appVersion`, run `task helm-docs`, and update the
+   release-truth pages; land that prep commit through a PR. Do not hand-write a `## [X.Y.Z]`
+   changelog heading: `changelog-sync` writes it after the tag.
+4. `git tag vX.Y.Z && git push origin vX.Y.Z` — CI publishes image and GitHub Release after two
+   `release`-environment approvals.
+5. Prepend the hand-written upgrade notes to the GitHub Release.
 
 Tagged releases (`v*.*.*`) trigger [`.github/workflows/release.yaml`](.github/workflows/release.yaml):
 multi-arch images to `ghcr.io/platformrelay/kollect` and `ghcr.io/platformrelay/kollect-pipeline`, Trivy scan, cosign
