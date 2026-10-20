@@ -50,13 +50,33 @@ truth_files=(
   docs/_snippets/pre-beta.md
   docs/adr/README.md
   overrides/main.html
+  docs/operator-manual/index.md
+  docs/operator-manual/upgrading.md
+  docs/operator-manual/production-checklist.md
+  docs/operator-manual/troubleshooting.md
+  docs/PLATFORM-DECISIONS.md
+  docs/REQUIREMENTS.md
 )
 
 if grep -Eni \
-  'until the first release candidate|v0\.6\.0 cut|v0\.6\.0.*next|v0\.7\.x hardening|v0\.7\.0-rc\.1 is available|frozen until v0\.7|build-order phases|validated in CI|validated in nightly load tests|publish (a|the) security architecture|after the active implementation lands|design still in flight' \
+  'until the first release candidate|v0\.6\.0 cut|v0\.6\.0.*next|v0\.7\.x hardening|v0\.7\.0-rc\.1 is available|frozen until v0\.7|build-order phases|validated in CI|validated in nightly load tests|publish (a|the) security architecture|after the active implementation lands|design still in flight|may change without notice|no external adopters' \
   "${truth_files[@]}"; then
   fail "obsolete release or maturity copy remains"
 fi
+
+# The public-alpha stability policy has one canonical page. Every front-door page points at it:
+# README and SECURITY.md by a repository link, the docs pages through the shared snippet, so a
+# hand-written notice that drifts from the policy cannot replace it unnoticed.
+stability_page=docs/operator-manual/stability.md
+[[ -f "${stability_page}" ]] || fail "stability and support page ${stability_page} is missing"
+for f in README.md SECURITY.md; do
+  grep -qF -- "](${stability_page})" "${f}" || fail "${f} does not link ${stability_page}"
+done
+grep -qF -- '](/operator-manual/stability.md)' docs/_snippets/pre-beta.md ||
+  fail "shared maturity snippet does not link the stability page"
+for f in docs/index.md docs/ROADMAP.md docs/operator-manual/upgrading.md; do
+  grep -qxF -- '--8<-- "pre-beta.md"' "${f}" || fail "${f} does not include the shared maturity snippet"
+done
 
 grep -qF -- '**Pre-1.0.**' README.md ||
   fail "README does not declare the pre-1.0 compatibility model"

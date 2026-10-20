@@ -10,9 +10,7 @@ workloads. If you are evaluating locally, start with [Quick start](../getting-st
     sink roles, or watch scope? Read [Understand the basics](../concepts/resource-model.md) and
     [Platform decisions](../PLATFORM-DECISIONS.md) before changing production values.
 
-!!! warning "Pre-beta API"
-    `v1alpha1` fields and defaults may change until the first release candidate. Check
-    [ROADMAP](../ROADMAP.md) before production rollout.
+--8<-- "pre-beta.md"
 
 ## In this manual
 

@@ -74,6 +74,7 @@ nav:
       - Operator manual: operator-manual/index.md
       - Helm values: operator-manual/helm-values.md
       - Upgrading: operator-manual/upgrading.md
+      - Stability and support: operator-manual/stability.md
       - Metrics: operator-manual/metrics.md
       - Performance and scaling: operator-manual/performance.md
       - Lab evidence bundle: operator-manual/lab-evidence-bundle.md

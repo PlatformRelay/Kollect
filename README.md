@@ -54,9 +54,9 @@ live in the **OpenShift community catalog** (package `kollect`, channel `stable`
 [hub and OLM install notes](docs/getting-started/install.md#discoverability-on-package-hubs) rather
 than at a package page that does not exist yet.
 
-> **Pre-1.0.** Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor
-> releases before 1.0; release notes and migration guidance call them out. See the
-> [roadmap](https://platformrelay.github.io/Kollect/ROADMAP/) for current maturity.
+> **Pre-1.0.** Kollect is a public alpha with a `v1alpha1` API: minor releases may break the API,
+> defaults and export layout, and only the latest minor is supported. See
+> [Stability and support](docs/operator-manual/stability.md).
 
 ## Why Kollect?
 

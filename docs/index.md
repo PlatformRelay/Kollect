@@ -46,10 +46,7 @@ backend sees the same aggregated rows; sinks are interchangeable projections.
 
 Inventory is **configuration, not code** — owned per team in its own namespace.
 
-!!! warning "Pre-1.0 API"
-    Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor releases
-    before 1.0; release notes and migration guidance call them out. See the
-    [roadmap](ROADMAP.md) for current maturity.
+--8<-- "pre-beta.md"
 
 ## Why Kollect?
 

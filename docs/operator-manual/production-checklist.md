@@ -28,9 +28,7 @@ For install defaults, see [Operator manual](index.md).
     before changing production values. Sink role taxonomy:
     [ADR-0401](../adr/0401-sink-taxonomy-state-vs-stream.md).
 
-!!! warning "Pre-beta API"
-    `v1alpha1` fields may change until the first release candidate. Check [ROADMAP](../ROADMAP.md)
-    before fleet rollout.
+--8<-- "pre-beta.md"
 
 ## Scope design
 

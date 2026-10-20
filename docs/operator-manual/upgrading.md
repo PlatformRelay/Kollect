@@ -8,9 +8,7 @@ install, see [Install](../operator-manual/index.md#install) in the operator manu
     the two-artifact install model? Read [Understand the basics](../concepts/resource-model.md) and
     [ADR-0704: Helm chart and CRD lifecycle](../adr/0704-helm-chart-crd-lifecycle.md) first.
 
-!!! warning "Pre-beta API"
-    `v1alpha1` fields and defaults may change until the first release candidate. Check
-    [ROADMAP](../ROADMAP.md) before production rollout.
+--8<-- "pre-beta.md"
 
 ## Why two steps
 

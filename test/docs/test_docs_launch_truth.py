@@ -23,6 +23,14 @@ TRUTH_FILES = (
     "docs/_snippets/pre-beta.md",
     "docs/adr/README.md",
     "overrides/main.html",
+    "SECURITY.md",
+    "docs/operator-manual/stability.md",
+    "docs/operator-manual/index.md",
+    "docs/operator-manual/upgrading.md",
+    "docs/operator-manual/production-checklist.md",
+    "docs/operator-manual/troubleshooting.md",
+    "docs/PLATFORM-DECISIONS.md",
+    "docs/REQUIREMENTS.md",
 )
 
 

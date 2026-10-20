@@ -444,10 +444,10 @@ consumer to apply exactly this rule; the operator equivalent is the `jq` snippet
 
 ### Is Kollect safe for production today?
 
-!!! warning "Pre-beta API"
-    APIs and defaults may change until the first release candidate. `v1alpha1` has **no conversion
-    webhook** — schema changes may require CRD re-apply and CR updates
-    ([ADR-0206](../adr/0206-api-versioning-conversion.md), [ROADMAP](../ROADMAP.md)).
+--8<-- "pre-beta.md"
+
+`v1alpha1` has **no conversion webhook**: a schema change takes effect when you apply the new
+CRDs, and may need CR updates ([ADR-0206](../adr/0206-api-versioning-conversion.md)).
 
 Evaluate against your risk tolerance. Use pinned chart and image versions; read **Unreleased**
 notes in `CHANGELOG.md` before upgrading.
