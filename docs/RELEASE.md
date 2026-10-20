@@ -205,6 +205,7 @@ each claim against what actually ships, not just the number:
 | [`docs/roadmap/planned-features.md`](roadmap/planned-features.md) | `**Last verified:**` line; remove anything that has now shipped |
 | `overrides/main.html` | Announcement bar link and version |
 | [`docs/operator-manual/upgrading.md`](operator-manual/upgrading.md) | Migration steps for every breaking change |
+| [`docs/getting-started/install.md`](getting-started/install.md) | The `--version` pin on the chart install command |
 
 `hack/test/docs_launch_truth_test.sh` (part of `task docs:verify`) checks these against the
 `Chart.yaml` version, so the Docs workflow fails the release-prep PR, not a later unrelated one,
@@ -214,7 +215,7 @@ when a page is left behind. Run `task docs:verify` before opening the PR.
 
 ```sh
 git add charts/kollect/Chart.yaml docs/ROADMAP.md docs/roadmap/planned-features.md \
-  overrides/main.html docs/operator-manual/upgrading.md
+  overrides/main.html docs/operator-manual/upgrading.md docs/getting-started/install.md
 git commit -m ":bookmark: chore(release): prepare v0.3.0"
 ```
 

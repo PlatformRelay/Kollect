@@ -99,7 +99,7 @@ the live cluster. The default sample path is
 | Symptom | Fix |
 | --- | --- |
 | `ConnectionVerified=False` | Check the repository URL, token scope, and Secret keys with `kubectl describe ksnap hero-git-sink`. |
-| `ConnectionVerified=False` with `resolved to a forbidden address` and `not globally routable` | The repository is on a private or cluster-internal address, which NetGuard blocks by default. For a local evaluation only: `helm upgrade kollect ./charts/kollect -n kollect-system --reuse-values --set allowPrivateSinks=true`. |
+| `ConnectionVerified=False` with `resolved to a forbidden address` and `not globally routable` | The repository is on a private address (RFC 1918 or IPv6 ULA, which includes most in-cluster Services), which NetGuard blocks by default. For a local evaluation only, upgrade the chart you installed with `--reuse-values --set allowPrivateSinks=true` (from a checkout: `helm upgrade kollect ./charts/kollect -n kollect-system --reuse-values --set allowPrivateSinks=true`). Loopback and `100.64.0.0/10` stay blocked. |
 | Inventory has zero items | Confirm the Deployment is in `demo` and has `app=shop`. |
 | No second commit | Wait at least the configured 15-second export interval and inspect manager logs. |
 | Push is rejected | Start with an empty repository, or allow a fast-forward commit to its configured `main` branch. |

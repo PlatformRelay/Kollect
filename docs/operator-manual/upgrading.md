@@ -389,8 +389,9 @@ upgrade ([step 2](#2-apply-crd-schema)); `helm upgrade` does not update CRDs.
   fails with `sink git.auth.secretRef "<name>" not found in config directory` (or the
   `tls.caSecretRef` equivalent) and exit code `2`. Add the Secret manifest, with `${env:VAR}`
   placeholders for the values if they come from CI variables.
-- **`spec.tls` is applied.** v0.21.x ignored `spec.tls` in the CLI. The CLI now reads the CA from
-  `caBundle` or `caSecretRef` and applies the same CA rules as the operator: both sources set, a
+- **The CA rules apply.** In v0.21.x the CLI ignored `spec.tls.caSecretRef`, and only the git,
+  GitLab, Kafka and NATS sink builders used an inline `caBundle`. The CLI now resolves the CA from
+  `caBundle` or `caSecretRef` for every sink type and applies the same CA rules as the operator: both sources set, a
   CA Secret without `tls.crt`, `ca.crt` or `ca.pem`, or a CA the endpoint would never check fails
   the run with exit code `2`. The CA rules are checked before any credential Secret, so a spec with
   both a CA error and a missing Secret reports the CA error.
