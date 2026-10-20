@@ -1,0 +1,4 @@
+exit=0
+out=::warning title=breaking marker::
+out=fail the export on a deleted Secret
+not=::error

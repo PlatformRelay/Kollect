@@ -1,0 +1,5 @@
+exit=0
+out=::warning title=breaking marker::
+out=feat(sink)!: own git export files
+out=keep 100%25 of rows
+not=::error

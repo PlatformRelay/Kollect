@@ -1,0 +1,41 @@
+# Breaking-change marker check (openspec change breaking-marker-check, BMC-1 to BMC-4).
+#
+# PRs land by rebase merge, so git-cliff reads commit titles and never the PR: a `!` in the PR
+# title or a BREAKING CHANGE footer in the PR body is lost on merge. This job fails a PR that
+# declares a breaking change none of its commit titles carries, and warns on the reverse.
+#
+# Fork-safe by construction: pull_request only (never pull_request_target), a read-only token,
+# no secrets, no persisted credentials, and the PR title and body reach the script through env,
+# never through an expression inside a run body. `edited` re-runs it when the title or body
+# changes. Not a required check (hack/release/verify-eligibility.sh); the operator decides.
+# Locked by hack/test/breaking_marker_test.sh.
+name: Breaking marker
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  breaking-marker:
+    name: breaking-marker
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the PR's commits: HEAD^1..HEAD^2 of the merge commit
+          persist-credentials: false
+      - name: Check breaking-change markers reach a commit title
+        # The checkout is the PR merge commit: HEAD^1 is the base tip and HEAD^2 the PR head.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          bash hack/check-breaking-marker.sh HEAD^1 HEAD^2

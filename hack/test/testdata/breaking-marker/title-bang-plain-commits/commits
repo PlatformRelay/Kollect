@@ -1,0 +1,1 @@
+:sparkles: feat(sink): trust the spec.tls CA on S3 and GCS sinks

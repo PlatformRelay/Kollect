@@ -1,0 +1,9 @@
+git-cliff drops `BREAKING CHANGE:` footers, so this PR has none. Not a BREAKING CHANGE: just prose.
+
+```text
+BREAKING CHANGE: an example footer inside a fenced block
+```
+
+~~~
+BREAKING-CHANGE: another example
+~~~

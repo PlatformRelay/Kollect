@@ -1,0 +1,9 @@
+## Summary
+
+**Release note — hand-add to the v0.22.0 GitHub Release** (git-cliff drops `BREAKING CHANGE:`
+footers).
+
+- **Out of scope:** strict pinning.
+
+BREAKING CHANGE: CA-configured Postgres sinks now verify the hostname: with `spec.tls` set and no
+`sslmode`, the sink uses `sslmode=verify-full`.
