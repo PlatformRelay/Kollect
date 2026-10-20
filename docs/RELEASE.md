@@ -9,8 +9,10 @@ Related: [CONTRIBUTING.md](https://github.com/platformrelay/kollect/blob/main/CO
 
 Releases are **tag-driven**: push a tag `vX.Y.Z` on `main` and
 [`.github/workflows/release.yaml`](https://github.com/platformrelay/kollect/blob/main/.github/workflows/release.yaml) builds, scans, signs, and
-publishes artifacts. Version numbers are **not** bumped by CI — commit `charts/kollect/Chart.yaml`
-and `CHANGELOG.md` on `main` first.
+publishes artifacts. Version numbers are **not** bumped by CI: land the release prep (the chart
+version, the chart README and the release-truth pages, steps 3 to 5 below) on `main` first.
+`CHANGELOG.md` is not part of it: the `changelog-sync` workflow writes the `## [X.Y.Z]` section
+after the tag exists.
 
 While the API is `v1alpha1`, use **minor** (`0.3.0`, `0.4.0`, …) for themed feature tranches or
 breaking operator behaviour; **patch** (`0.2.1`) for fixes on the current minor line. Breaking
@@ -29,9 +31,15 @@ the [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md)
 | **Breaking changes** | `feat!:` / `BREAKING CHANGE:` → **minor** bump pre-v1.0 |
 | **Compatibility** | Patch releases stay compatible with their minor line; breaking changes require a minor |
 
-Before 1.0, a minor release may include breaking API or default changes. Mark them with `feat!:` or
-`BREAKING CHANGE:`, document migration steps in the changelog, and call them out in release notes.
-Patch releases stay compatible with their minor line.
+Before 1.0, a minor release may include breaking API or default changes. Mark each one with `!` in
+the title of the commit that makes it (`feat(sink)!: …`), with a `BREAKING CHANGE:` footer in that
+commit's body. Pull requests land by rebase merge and git-cliff reads only commit titles, so a `!`
+in a PR title or a `BREAKING CHANGE:` in a PR body never reaches the changelog, and git-cliff drops
+footer text even on a commit; the `breaking-marker` check fails a PR that declares a breaking change
+none of its commit titles carries. Write the migration steps in
+[`docs/operator-manual/upgrading.md`](operator-manual/upgrading.md) and in the upgrade-notes block
+you prepend by hand to the GitHub Release (see [Cut a release](#cut-a-release)), not in the
+changelog. Patch releases stay compatible with their minor line.
 
 ## Retroactive version anchors
 
@@ -176,7 +184,12 @@ version: 0.3.0
 appVersion: "0.3.0"
 ```
 
-Align `version` and `appVersion` with the git tag (`v0.3.0` → `0.3.0`).
+Align `version` and `appVersion` with the git tag (`v0.3.0` → `0.3.0`), then regenerate the
+chart README, whose version badges come from `Chart.yaml`:
+
+```sh
+task helm-docs   # rewrites charts/kollect/README.md; task helm-test fails while it is stale
+```
 
 **Also bump the `artifacthub.io/images` annotation in the same file** — it is a hardcoded tag,
 not derived from `appVersion`:
@@ -214,14 +227,18 @@ when a page is left behind. Run `task docs:verify` before opening the PR.
 ### 5. Commit the release prep
 
 ```sh
-git add charts/kollect/Chart.yaml docs/ROADMAP.md docs/roadmap/planned-features.md \
-  overrides/main.html docs/operator-manual/upgrading.md docs/getting-started/install.md
+git add charts/kollect/Chart.yaml charts/kollect/README.md docs/ROADMAP.md \
+  docs/roadmap/planned-features.md overrides/main.html docs/operator-manual/upgrading.md \
+  docs/getting-started/install.md
 git commit -m ":bookmark: chore(release): prepare v0.3.0"
 ```
 
-Do not add a `## [X.Y.Z]` heading to `CHANGELOG.md` by hand. Before the tag exists, git-cliff can
-only render `[Unreleased]`; after the tag is pushed, the `changelog-sync` workflow regenerates the
-file with the release section. Preview the notes with `task changelog` (step 1).
+The prep commit is exactly these files: the chart, its README and the release-truth pages. Do not
+add a `## [X.Y.Z]` heading to `CHANGELOG.md` by hand, and do not run `task changelog:write` for it
+either: before the tag exists git-cliff can only render `[Unreleased]`, so that task never cuts a
+version section. The `changelog-sync` workflow writes the `## [X.Y.Z]` section on the first push to
+`main` after the tag (a tag push alone does not trigger it). Preview the notes with
+`task changelog` (step 1).
 
 Between merging this PR and pushing the tag, the deployed docs banner links to a release page that
 does not exist yet. Keep that window short, and revert the prep PR if the release is abandoned.
@@ -248,7 +265,24 @@ git push origin v0.3.0   # triggers release workflow, which repeats eligibility 
 
 Do **not** `git push origin main` outside branch protection, and do not move an existing release tag.
 
-CI publishes the GitHub Release, GHCR image, OCI Helm chart, and attached assets.
+CI publishes the GitHub Release, GHCR image, OCI Helm chart, and attached assets. The run waits for
+**two** approvals on the `release` environment, one per job that uses it: first the `release` job
+(publication), then the `OperatorHub PR` job (the upstream submissions). Approve each from the run
+page (Actions → **Release** → **Review deployments**); the second prompt appears only after the
+`release` job succeeds, and only on a tag push (a `workflow_dispatch` rebuild skips the OperatorHub
+job).
+
+**Prepend the upgrade notes** once the release is published. The GitHub Release body is git-cliff's
+section plus the install footer, and git-cliff renders only commit titles: a breaking commit shows
+as `[**breaking**]` with no migration text. Put a hand-written "Upgrade notes" block at the top, one
+entry per breaking change with a link to its section in
+[`docs/operator-manual/upgrading.md`](operator-manual/upgrading.md):
+
+```sh
+gh release view v0.3.0 --json body --jq .body >/tmp/release-body.md
+cat upgrade-notes.md /tmp/release-body.md >/tmp/release-body-new.md
+gh release edit v0.3.0 --notes-file /tmp/release-body-new.md
+```
 
 **Dry-run locally** before tagging:
 
@@ -420,5 +454,6 @@ gh workflow run release.yaml \
   -f prerelease=true
 ```
 
-Confirm `CHANGELOG.md` on `main` has an empty **Unreleased** section (run `task changelog:write`
-after tagging if needed).
+After the next push to `main`, confirm `CHANGELOG.md` has the `## [X.Y.Z]` section and an empty
+**Unreleased** section. If the `changelog-sync` run did not push it (its push step soft-fails), land
+the output of `task changelog:write` through a PR; with the tag present it renders the section.
