@@ -136,7 +136,10 @@ SDC-1 sound.
   (`internal/inventory/cov_s06_test.go`, entry names become `<family>/<name>`, and its
   nil-time fallback row at `:124` changes). The tests that call `shouldSkip`, `record` or
   `nextDue` directly change only for the new identity argument (mechanical; G3's evidence lists
-  them). Tests that assert only the `Debounced` reason stay green: `kollectinventory_dual_sink_test.go:121`,
+  them), except `TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced`
+  (`internal/controller/kollectinventory_debounce_test.go:205`): its empty fake client relies on
+  the preview's resolve-error fall-back that SDC-4 removes, so its fixture gains the two
+  `KollectDatabaseSink` objects (assertion unchanged; T0.1 finding 8). Tests that assert only the `Debounced` reason stay green: `kollectinventory_dual_sink_test.go:121`,
   `kollectinventory_per_sink_envtest_test.go:198`, `kollectclusterinventory_export_envtest_test.go:257`.
 
 ## Non-goals

@@ -1,7 +1,7 @@
 # Loop — synced-debounce-condition (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/synced-debounce-condition` · Branch: `feat/synced-debounce-condition` · Base: `origin/main` @ `0686f8276` · Started: 2026-10-20 · Reviewers: two independent review legs (duo)
-Next: L task loop — dispatch T0.1 (probe) with the local task prompt
+Next: L task loop — dispatch G1 (1.1 then 1.2) with the local task prompt
 Task prompt: local, `agent-context/loops/synced-debounce-condition/task-prompt.md` (harness, not committed) · Budget: paid review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SYNCED-DEBOUNCE-STEADY-STATE (kind quick start 2026-10-20; operator: fix before v0.22.0).
@@ -43,13 +43,14 @@ Holistic run at B: not run yet.
 | R2 | Recreated inventory (same name) debounced against an emptied backend | CRITICAL | reviewer-a | fix | SDC-4 inventory UID, G3 | no |
 | R2 | Secret repointing the sink not detected by the debounce | CRITICAL→scope | reviewer-a, reviewer-b | reject (scope) | non-goal; decision 2026-10-19 `rotation-zero-interval` | no |
 | R2 | Read API time fallback; untested failure branches and snapshot path; doc regex; archive re-review; G1 T1/C1 regression; test-change rows | WARNING/NOTE | both | fix | `reviews/R-spec-set/round-2/verification.md` | no |
+| L T0.1 | Preview test relies on the resolve-error fall-back SDC-4 removes; not in *Impact* | SPEC | reviewer-a agreed | fix | proposal *Impact*, tasks.md 3.1 (G3 *Test changes* row); decisions.md 2026-10-20 `preview-test-fixture` | no |
 | R1 | SDC-5 self-contradiction; impossible mixed scenario; second precision; missed message tests; missed docs; matrix breadth; citations | WARNING/NOTE | both | fix | spec, tasks, proposal (`reviews/R-spec-set/verification.md`) | no |
 
 ## Tasks
 
 | Task | Verdict | Review (legs, rounds, paid leg?) | Gaps / decision request |
 |---|---|---|---|
-| T0.1 · BLOCKED · probe: every 0.1 claim holds on `origin/main`; finding: `TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced` turns red under SDC-4's preview rule and is not in *Impact* | BLOCKED | reviewer-a (diff), 1 round, no paid leg | decision request in `evidence/T0.1.md` (add a G3 *Test changes* row; edit proposal *Impact* and tasks.md 3.1) |
+| T0.1 · CLOSED (after spec fix) · probe: every 0.1 claim holds on `origin/main`; finding: `TestKollectInventoryReconciler_previewAllSinksDebounced_allDebounced` turns red under SDC-4's preview rule and is not in *Impact* | CLOSED | reviewer-a (diff), 1 round, no paid leg | finding 8 resolved by the orchestrator: option A applied to proposal *Impact* and tasks.md 3.1 (only option consistent with SDC-4; see *Triage* L) |
 
 ## Known red
 
