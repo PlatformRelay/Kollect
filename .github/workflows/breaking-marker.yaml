@@ -10,6 +10,11 @@
 # changes. Not a required check (hack/release/verify-eligibility.sh); the operator decides.
 # Its verdict is advisory, not a security boundary: on pull_request the merge ref is the PR's own
 # code, so a PR can edit this file or the script. Review such a diff before trusting the result.
+# No concurrency block, on purpose: a group cancels the run in progress (cancel-in-progress) and,
+# even without it, any pending run in the group. A quick title or body edit fires `edited` on the
+# same head SHA, so a cancelled breaking-marker check run lands on that head next to the new one
+# and can be the result the PR reports. The job takes seconds; every event runs to completion,
+# and the newest run carries the newest title and body.
 # Locked by hack/test/breaking_marker_test.sh.
 name: Breaking marker
 
@@ -19,10 +24,6 @@ on:
 
 permissions:
   contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 jobs:
   breaking-marker:

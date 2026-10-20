@@ -128,8 +128,10 @@ case_workflow() {
     { echo "workflow: pull_request types are not edited,opened,reopened,synchronize -- a title or body edit must re-run the check"; return 1; }
   [[ "$(yq eval -o=json -I=0 '.permissions' "${wf}")" == '{"contents":"read"}' ]] ||
     { echo "workflow: top-level permissions are not exactly contents: read"; return 1; }
-  [[ "$(yq eval 'keys | join(",")' "${wf}")" == "name,on,permissions,concurrency,jobs" ]] ||
-    { echo "workflow: top-level keys are not exactly name, on, permissions, concurrency, jobs (no workflow env, no defaults)"; return 1; }
+  [[ "$(yq eval 'has("concurrency")' "${wf}")" == "false" ]] ||
+    { echo "workflow: declares concurrency -- a group cancels in-progress or pending runs, so a quick title edit can leave a cancelled breaking-marker check on the head"; return 1; }
+  [[ "$(yq eval 'keys | join(",")' "${wf}")" == "name,on,permissions,jobs" ]] ||
+    { echo "workflow: top-level keys are not exactly name, on, permissions, jobs (no workflow env, no defaults)"; return 1; }
   if grep -v '^[[:space:]]*#' "${wf}" | grep -Eq '(^|[^A-Za-z0-9_])secrets([^A-Za-z0-9_]|$)'; then
     echo "workflow: references secrets -- the check needs none, and same-repo PRs would receive them"
     return 1
@@ -279,6 +281,9 @@ mutant() {
   mutant wf-checkout-ref workflow 'no repository or ref override' 's/^          persist-credentials: false$/&\n          ref: main/'
   mutant title-strict script 'title-loose-gitmoji: exit 0, want 1' 's/^\[\[ "\${PR_TITLE}" =~ \${title_re} \]\]/[[ "${PR_TITLE}" =~ ${marker_re} ]]/'
   mutant wf-inline workflow 'script injection' 's/^          bash hack\/check-breaking-marker.sh HEAD^1 HEAD^2$/          PR_TITLE="${{ github.event.pull_request.title }}" bash hack\/check-breaking-marker.sh HEAD^1 HEAD^2/'
+  mutant wf-concurrency workflow 'declares concurrency' 's/^permissions:$/concurrency:\n  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}\n  cancel-in-progress: true\n\n&/'
+  mutant wf-concurrency-queued workflow 'declares concurrency' 's/^permissions:$/concurrency: breaking-marker-${{ github.event.pull_request.number }}\n&/'
+  mutant wf-env workflow 'top-level keys are not exactly' 's/^permissions:$/env:\n  X: y\n&/'
   mutant noop script '' '$a\
 # no-op control'
 }
