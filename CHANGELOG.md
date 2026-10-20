@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **collect:** Drop a dispatched row whose target was unregistered ([#483](https://github.com/platformrelay/kollect/pull/483))[3fb1f3d](https://github.com/platformrelay/kollect/commit/3fb1f3d485be6d9ee4b00f48eccb26849b7dda15)
+
 - **release:** Sync the OperatorHub forks before submitting [254e67c](https://github.com/platformrelay/kollect/commit/254e67c813f35b878098dbf833f80aebeaba83ef)
 
 - **controller:** Keep 0s coalescing state while skipped [04c84e6](https://github.com/platformrelay/kollect/commit/04c84e61aa7e20fdfc5ef3757a7005add8537354)
