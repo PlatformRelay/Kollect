@@ -19,7 +19,9 @@ by 15 and 18 commits (read-only probe in `evidence/T1.md`).
   ahead, diverged or an unreadable answer fails closed for both forks, before anything is written.
 - A fork that is behind is fast-forwarded with `POST repos/<fork>/merge-upstream` (the endpoint
   behind `gh repo sync`), then compared again; anything but `identical` stops the run before the
-  first push. The default branch is never force-pushed and never merged into.
+  first push. The default branch is never force-pushed. `merge-upstream` takes no expected SHA, so
+  a fork that moves between the check and the sync can still get a merge commit from GitHub; the
+  script detects `merge_type=merge` and stops before pushing.
 - `DRY_RUN=1` keeps making no remote writes. With `GH_TOKEN` set it runs the read-only checks and
   prints, per fork, what it would sync, branch, push and open; a diverged fork fails the dry run
   too. Without `GH_TOKEN` it makes no API call and says so.
