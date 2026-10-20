@@ -1,7 +1,7 @@
 # Loop — sink-credential-rotation (spec-loop-duo run state)
 
 Repo: `/home/koni/Projects/PlatformRelay/worktrees/kollect/sink-credential-rotation` · Branch: `feat/sink-credential-rotation` · Base: `origin/main` @ `ae98ef106` · Started: 2026-10-19 · Reviewers: two independent review legs (duo)
-Next: L task loop, dispatch T0.1 (probe)
+Next: hand-off — PR, CI on the PR head, rebase merge, archive
 Task prompt: local, `agent-context/loops/sink-credential-rotation/task-prompt.md` (harness, not committed) · Budget: paid review legs uncapped (operator goal 2026-10-16) · decisions by model alignment, logged in agent-context/decisions.md
 
 Backlog SECRET-ROTATION-01 (release inventory 2026-10-19 items 12-13). Release note: v0.22.0. Spec set: proposal.md, design.md, specs/sink-secret-rotation/spec.md, tasks.md.
@@ -11,9 +11,9 @@ Backlog SECRET-ROTATION-01 (release inventory 2026-10-19 items 12-13). Release n
 - [x] 0 orient — new change, created with `task spec:cli -- new change sink-credential-rotation`; file:line references measured against `origin/main` @ `ae98ef106` (2026-10-19)
 - [x] P plan + tasks — written; spec set committed: `84f61bba3`
 - [x] R spec-set review — round 1 on `84f61bba3`: reviewer-a BLOCK, reviewer-b CONCERNS; CRITICAL A1 (cached reads) accepted via model-aligned decision → C, CRITICAL A5 (SCR-4 scope) accepted and narrowed; all other findings fixed (`reviews/R-spec-set/verification.md`). Round 2 (last) on `a0ac1aefe`: reviewer-a BLOCK (WARNINGs only), reviewer-b CONCERNS, no CRITICAL; all verified findings fixed (`reviews/R-spec-set/round-2/verification.md`). No CRITICAL remains
-- [ ] L task loop — see *Tasks*
-- [ ] B branch review — `reviews/B-branch/round-N/`
-- [ ] Hand-off — `pr-description.md` · PR: none
+- [x] L task loop — 0.1, 1.1–4.1 closed (see *Tasks*)
+- [x] B branch review — round 1 on `df5170e57`: reviewer-a BLOCK (A1, A2 filed CRITICAL, verified and downgraded to WARNING, fixed 6.2, 6.3), reviewer-b CONCERNS (B1 pinned as residual 6.5, B2 rejected, B3 wording, B4 cluster twin 6.4); holistic H1 `go mod tidy` fixed 6.1. Round 2 (last) on the fixes: reviewer-a CONCERNS (C1 wording), reviewer-b CLEAN; no CRITICAL; C2 test fix 6.7, wording 6.8 (`reviews/B-branch/round-*/verification.md`). Final gates green on `00604732b`; tip `4f2f5e155`
+- [ ] Hand-off — 2026-10-20 · `pr-description.md` · PR: pending
 
 ## Fitness functions
 
@@ -47,6 +47,17 @@ Holistic run at B: not run yet.
 | R2 | Postgres assertion on the upsert path; reds green on G1; annotations in metadata; SCR-2/SCR-3 retire contradiction; terminal Git auth doc | WARNING | both | fix | round-2/verification.md A3-A5, B2, B3 | no |
 | R2 | TTL wording, stream set, namespace attribution, empty refs, CLI message, CA compat row | NOTE | reviewer-b | fix | round-2/verification.md B4-B10 | no |
 | L/T0.1 | `exportMinInterval: 0s` never re-exports an unchanged inventory and an inventory-level `0s` gives no timed retry after a transient total failure; contradicts the interval bound and SCR-2 recovery | SPECIFICATION | probe | fix | decision 2026-10-19 rotation-zero-interval, option B, models agreed: wording limited to intervals > 0, SCR-7 added, tasks 2.3/2.4 | no (models agreed) |
+| B1 | A1: a missing or empty Secret seen by the full read (after a good metadata read) neither retires the pooled entry nor fences a build in flight | CRITICAL → WARNING | reviewer-a | fix | downgraded after verification: every later acquire's metadata read fails and retires, so no later export uses the stale backend; fixed red-first (6.2) | no |
+| B1 | A2: an unchanged, exported `0s` binding re-exports once its coalescing state ages out (48 h TTL) | CRITICAL → WARNING | reviewer-a | fix | downgraded: one idempotent re-export per 48 h, no credential risk; a skip now counts as activity (6.3) | no |
+| B1 | H1: test-only import of `k8s.io/utils/ptr` breaks `go mod tidy -diff` | WARNING | holistic | fix | package `boolPtr` (6.1) | no |
+| B1 | B1: failed re-read after a stale first read retires the newer entry | WARNING → NOTE | reviewer-b | fix (pin) | accepted residual (one drain and rebuild, never stale use); pinned by a test (6.5), stated in SCR-2/design (6.6) | no |
+| B1 | B2: SCR-7 watchdog on every degraded path of a `0s` inventory | NOTE | reviewer-b | reject | tasks 2.4 names the two functions; none of those paths exports; same as G2 rounds 1 and 2 | no |
+| B1 | B3: fence starts at the pool miss, not at the acquire start | NOTE | reviewer-b | fix | SCR-3 wording (6.6) | no |
+| B1 | B4: no cluster twin of the `0s` terminal no-requeue test | NOTE | reviewer-b | fix | `TestClusterReconcile_zeroIntervalTerminalNoRequeue` (6.4) | no |
+| B2 | C1/C5: `0s` re-export after a restart or > 48 h on a degraded early return | WARNING | reviewer-a, reviewer-b | fix (wording) | not a behaviour defect; SCR-7, design and troubleshooting name both cases; scenario reads "on any later watchdog requeue" (6.8) | no |
+| B2 | C2: the B1 residual test accepted both outcomes | NOTE | both | fix | test asserts the retire, drain and rebuild; mutants killed (6.7) | no |
+| B2 | C3: SCR-2 said "observed a change" where the read saw only a mismatch | NOTE | reviewer-b | fix | wording "mismatch with the pooled entry" (6.8) | no |
+| B2 | C4: full-read retire can hit an entry built from a recreated Secret | NOTE | reviewer-b | no action | covered by the design's "entry stored meanwhile is retired"; one rebuild, never stale use | no |
 
 ## Tasks
 
@@ -107,7 +118,10 @@ Tests from a test task changed by a later task (close-task `TEST` class); each o
 
 ## Where a human should look first
 
-<!-- filled at hand-off -->
+- `internal/sink/backend_pool.go`: holders, `retireLocked`, the store fence and `observeAndLookup` (the failed re-read path and the full-read retire of 6.2).
+- `internal/sink/secret_refs.go`: the one list of Secret references the key and the build share; a new `*SecretReference` field must be added there (`TestReferencedSecretRefs_coversEverySecretReferenceField` guards it).
+- `internal/controller/per_sink_export.go` and the two `setDegraded` helpers: the `0s` watchdog (SCR-7) and the skip-as-activity prune (6.3).
+- Accepted residuals: a failed re-read after a stale first read costs one rebuild (B1); a `0s` binding re-exports an unchanged payload once after a restart or more than 48 h on a degraded early return (C1).
 
 ## Proposed harness changes
 
