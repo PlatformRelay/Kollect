@@ -11,6 +11,10 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **controller:** Keep 0s coalescing state while skipped [04c84e6](https://github.com/platformrelay/kollect/commit/04c84e61aa7e20fdfc5ef3757a7005add8537354)
+
+- **sink:** Retire when the full read finds a Secret gone [08938bc](https://github.com/platformrelay/kollect/commit/08938bc07f386ce17dcc44f21151d2be281508af)
+
 - **docs:** Write the docs lock header in --opt=value form [4750f12](https://github.com/platformrelay/kollect/commit/4750f124101b7ff282d67f5408c1427842465d66)
 
 - **test:** Generate the TLS test database passwords at run time [7295baf](https://github.com/platformrelay/kollect/commit/7295baf40bd265d8dd1234ec02ce4c717401805c)
@@ -171,6 +175,12 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 
 ### Features
+
+- **sink:** Drain retired pooled backends, fence stores [1d8fb16](https://github.com/platformrelay/kollect/commit/1d8fb1665586f26ebbae5338702104b202ee31cd)
+
+- **sink:** Fail on deleted or emptied Secrets, retry 0s [f8b02b7](https://github.com/platformrelay/kollect/commit/f8b02b70b2dbddc51194238b523101f0c2599c90)
+
+- **sink:** Rebuild pooled backends on Secret rotation [d6667ca](https://github.com/platformrelay/kollect/commit/d6667ca104fd8d7e4824f636533055b0c1d5fa25)
 
 - **sink:** Trust the spec.tls CA on MongoDB sinks [b1ab884](https://github.com/platformrelay/kollect/commit/b1ab884a0e8033af32cdb9cc2cc532d695bc14a0)
 
