@@ -81,7 +81,7 @@ Declare profiles, sinks, targets, and inventory in Kubernetes; GitOps-friendly f
 
 ### :material-hub: Fleet-ready
 
-Each cluster runs `mode: single` and exports to **shared sinks** with a cluster label
+Each cluster runs its own operator and exports to **shared sinks** with a cluster label
 ([ADR-0501](adr/0501-multi-cluster-fleet.md)).
 
 </div>
@@ -148,8 +148,8 @@ flowchart LR
   subgraph out["Sink projections — choose any"]
     direction TB
     SnapOut["Git · GitLab · S3 · GCS<br/><i>snapshot store</i>"]
-    Rel["Postgres · MongoDB<br/><i>relational SoR</i>"]
-    EvtOut["Kafka<br/><i>event emitter</i>"]
+    Rel["Postgres · MongoDB · BigQuery<br/><i>relational SoR</i>"]
+    EvtOut["Kafka · NATS<br/><i>event emitter</i>"]
   end
 
   K8s -- "informer per GVK" --> Target
@@ -180,8 +180,8 @@ flowchart LR
 | `KollectTarget` | selectors + `profileRef` | **What to watch** and collect |
 | `KollectInventory` | family sink refs + cadence | **Aggregate, debounce, and export** |
 | `KollectSnapshotSink` | type + endpoint + `secretRef` | **Snapshot store** (Git, GitLab, S3, GCS) |
-| `KollectDatabaseSink` | type + credentials | **Relational SoR** (Postgres, MongoDB) |
-| `KollectEventSink` | type + brokers | **Event emitter** (Kafka) |
+| `KollectDatabaseSink` | type + credentials | **Relational SoR** (Postgres, MongoDB, BigQuery) |
+| `KollectEventSink` | type + brokers | **Event emitter** (Kafka, NATS) |
 | `KollectScope` | allowed GVKs / namespaces / sinks | **Guardrails** for the team namespace |
 
 Full fields: [CR reference](crds/index.md) · model rationale: [ADR-0201](adr/0201-crd-model.md).
@@ -212,7 +212,7 @@ catalogues tuning knobs. Fleet fan-in uses shared sinks rather than a hub merge 
 - [Postgres state store (relational SoR)](examples/postgres-state-store.md)
 - [NATS event sink](examples/nats-event-sink.md)
 - [Helm release inventory (Argo primary; Flux secondary)](examples/helm-release-inventory.md)
-- [Live demo inventory exported to Git](https://github.com/konih/kollect-inventory-demo) — see real output
+- [Demo inventory exported to Git](https://github.com/konih/kollect-inventory-demo) — real output from an earlier release
 
 ## Go deeper
 

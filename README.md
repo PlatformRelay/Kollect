@@ -46,13 +46,13 @@ Install paths: **Helm OCI on GHCR** is primary (`oci://ghcr.io/platformrelay/cha
 chart moved off `ghcr.io/platformrelay/kollect`, which serves the controller image, see
 [ADR-0709](https://platformrelay.github.io/Kollect/adr/0709-chart-image-oci-path-separation/) and the
 [install guide](docs/getting-started/install.md#helm-on-an-existing-cluster)). The chart is
-listed on **[Artifact Hub](https://artifacthub.io/packages/search?repo=kollect)**, and the OLM bundle
-is submitted to the community operator catalogs at release
-([ADR-0708](https://platformrelay.github.io/Kollect/adr/0708-operator-distribution-hubs/)) — it is
-live in the **OpenShift community catalog** (package `kollect`, channel `stable`). The
-**OperatorHub.io** listing is still waiting on upstream review, so the OLM badge above points at the
-[hub and OLM install notes](docs/getting-started/install.md#discoverability-on-package-hubs) rather
-than at a package page that does not exist yet.
+listed on **[Artifact Hub](https://artifacthub.io/packages/search?repo=kollect)**. There is no
+classic Helm repository (`helm repo add`); install from the OCI coordinate. The OLM bundle is
+listed on **OperatorHub.io** and in the **OpenShift community catalog** (package `kollect`, channel
+`stable`), see [ADR-0708](https://platformrelay.github.io/Kollect/adr/0708-operator-distribution-hubs/).
+Both OLM catalogs lag behind the Helm chart and can be several releases old; for the current
+release, use Helm. The OLM badge above links the
+[hub and OLM install notes](docs/getting-started/install.md#discoverability-on-package-hubs).
 
 > **Pre-1.0.** Kollect is a public alpha with a `v1alpha1` API: minor releases may break the API,
 > defaults and export layout, and only the latest minor is supported. See
@@ -99,14 +99,15 @@ flowchart LR
   Inv --> Db
   Inv --> Ev
   Snap --> SnapOut["Git · GitLab · S3 · GCS"]
-  Db --> DbOut["Postgres · MongoDB"]
-  Ev --> EvOut["Kafka"]
+  Db --> DbOut["Postgres · MongoDB · BigQuery"]
+  Ev --> EvOut["Kafka · NATS"]
 ```
 
 ## Quick start (MVP)
 
-Spin up a credential-free Git export on a local kind cluster in one command (needs Docker, kind,
-kubectl, and [Task](https://taskfile.dev/)):
+Spin up a credential-free Git export on a local kind cluster in one command. It builds the operator
+from your checkout, so it needs Docker, kind, kubectl, Helm, Git, curl, Go (the version in
+`go.mod`) and [Task](https://taskfile.dev/):
 
 ```sh
 git clone https://github.com/platformrelay/kollect.git && cd kollect
@@ -118,7 +119,11 @@ kubectl get kinv,ktgt,ksnap -A    # watch Ready + ConnectionVerified
 `task demo-up` (and `task dev-up`, which builds then runs the same hero harness) boots kind, installs
 Kollect, starts in-cluster Forgejo, and applies the golden Git-only sample — **no cloud/DB Secrets**.
 Watch `KollectInventory` `Ready` and sink `ConnectionVerified`, then follow the printed next steps
-(clone dir / Forgejo UI). Details: [DEMO-GIF-GUIDE](docs/DEMO-GIF-GUIDE.md).
+(clone dir / Forgejo UI). Next to the exported files, the clone holds a `.kollect-prune/` directory:
+the ownership records that stop two inventories from deleting each other's files
+([ADR-0422](https://platformrelay.github.io/Kollect/adr/0422-inventory-export-identity/)). The demo
+`shop` pod stays in `ErrImagePull` on purpose: its image does not exist, and Kollect reads the
+Deployment spec, not the running pod. Details: [DEMO-GIF-GUIDE](docs/DEMO-GIF-GUIDE.md).
 
 Postgres / S3 / Kafka / multi-sink samples are an explicit opt-in:
 
@@ -187,7 +192,7 @@ debounce, and sharding. Fleet fan-in uses shared sinks rather than a hub merge t
 | Shipped, next, and later work | [Roadmap](https://platformrelay.github.io/Kollect/ROADMAP/) |
 | Examples index | [Examples](https://platformrelay.github.io/Kollect/examples/) |
 | Example: Deployment → Git export | [Walkthrough](https://platformrelay.github.io/Kollect/getting-started/first-inventory/) |
-| Live demo inventory (Git sink) | [kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo) |
+| Demo inventory (Git sink, exported by an earlier release) | [kollect-inventory-demo](https://github.com/konih/kollect-inventory-demo) |
 
 Developers: run `task lint`, `task test`, and `task verify` before opening a PR —
 [CONTRIBUTING.md](CONTRIBUTING.md).

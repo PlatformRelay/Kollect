@@ -7,20 +7,12 @@ Run **one operator per cluster**, all exporting to the **same backend** with a d
 
 - Two (or more) clusters with network reachability to the shared sink (Postgres, Git remote, or
   NATS/Kafka broker)
-- Helm chart `mode: single` (default) on each cluster
+- The Kollect operator installed on each cluster
 
 ## Postgres fleet
 
-Each cluster installs the operator with the same DSN and a unique cluster label:
-
-```yaml
-# kollect-doc: ignore Helm values, not a kollect CR
-# cluster-a — values fragment
-mode: single
-# …
-```
-
-Apply a database sink (see [`postgres-state-store.md`](postgres-state-store.md)) with:
+Each cluster installs the operator with the same chart values. The cluster identity is not a
+Helm value: it is `spec.cluster` on the sink, unique per installation. Apply a database sink (see [`postgres-state-store.md`](postgres-state-store.md)) with:
 
 ```yaml
 apiVersion: kollect.dev/v1alpha1

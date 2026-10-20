@@ -70,8 +70,8 @@ Items are not assigned to a release until their implementation, tests, and docum
 
 ## Supported & planned sinks
 
-“Core” and “Beta” describe maturity, not whether code exists. All Core and Beta rows below ship in
-v0.14.0.
+“Core” and “Beta” describe maturity, not whether code exists. All Core and Beta rows below have
+shipped in every release since v0.14.0.
 
 | Family CRD | `spec.type` | Maturity |
 | --- | --- | --- |

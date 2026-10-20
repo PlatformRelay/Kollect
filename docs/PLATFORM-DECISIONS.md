@@ -37,7 +37,7 @@ not scheduled. The policy is on [Stability and support](operator-manual/stabilit
 - **`KollectConnectionTest` CR** — implement ([ADR-0403](adr/0403-connection-test.md)).
 - **Shared informer per GVK** — one cache per GVK, Targets filter in reconcile.
 - **Watch labels** — support `All` and `OptIn`; platform central + per-resource `kollect.dev/watch: disabled`.
-- **Single operator mode** — `mode: single` (cluster collect + export); no hub/spoke runtime modes.
+- **Single-cluster operator** — one operator per cluster collects and exports; no hub/spoke runtime modes.
 - **No doc-sync** in operator ([ADR-0702](adr/0702-doc-sync-templating.md)).
 
 ### Build order

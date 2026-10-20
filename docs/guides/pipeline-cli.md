@@ -34,7 +34,7 @@ kubeconfig ──▶ kollect-pipeline collect ──▶ inventory files (--outpu
 **Container image (CI):**
 
 ```sh
-docker run --rm ghcr.io/platformrelay/kollect-pipeline:<version> --help
+docker run --rm ghcr.io/platformrelay/kollect-pipeline:v<version> --help
 ```
 
 > The `kollect-pipeline` container image is published to GHCR with each release. Pin `<version>` to
@@ -391,7 +391,7 @@ stages: [collect]
 
 collect-inventory:
   stage: collect
-  image: ghcr.io/platformrelay/kollect-pipeline:<version>
+  image: ghcr.io/platformrelay/kollect-pipeline:v<version>
   script:
     - echo "$KUBECONFIG_B64" | base64 -d > /tmp/kubeconfig
     - kollect-pipeline collect
@@ -439,7 +439,7 @@ jobs:
             -v "$RUNNER_TEMP/kubeconfig:/kubeconfig:ro" \
             -v "${{ github.workspace }}/collect-config:/config:ro" \
             -v "${{ github.workspace }}/inventory:/out" \
-            ghcr.io/platformrelay/kollect-pipeline:<version> \
+            ghcr.io/platformrelay/kollect-pipeline:v<version> \
             collect --kubeconfig /kubeconfig --config /config --output /out
       - name: Commit inventory
         run: |

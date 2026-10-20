@@ -163,8 +163,7 @@ See [Operator manual — Upgrade](operator-manual/upgrading.md).
 ```sh
 helm install kollect ./charts/kollect -n kollect-system --create-namespace \
   --set tenantMode=true \
-  --set-json 'watchNamespaces=["team-a"]' \
-  --set mode=single
+  --set-json 'watchNamespaces=["team-a"]'
 ```
 
 Or use a values file — see [Operator manual — Per-team install](operator-manual/index.md#per-team-install-recommended-default).
@@ -173,7 +172,6 @@ Or use a values file — see [Operator manual — Per-team install](operator-man
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `mode` | `single` | Only supported runtime mode ([ADR-0501](adr/0501-multi-cluster-fleet.md)) |
 | `tenantMode` | `false` | Namespaced RBAC for team installs |
 | `watchNamespaces` | `[]` | Restrict informer cache |
 | `featureGates.inventoryHttp.enabled` | `false` | Debug HTTP API |

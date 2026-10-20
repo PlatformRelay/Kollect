@@ -105,10 +105,14 @@ See [Troubleshooting](../operator-manual/troubleshooting.md) for condition and e
 
 ## Clean up
 
+Delete the inventory first and let its deletion finish: it releases the inventory's ownership
+record in the Git repository, which needs the sink. Deleting the sink first leaves the record in
+`.kollect-prune/`.
+
 ```sh
 cd ..
-kubectl delete -f "$demo_dir/profile.yaml" -f "$demo_dir/target.yaml" \
-  -f "$demo_dir/sink.yaml" -f "$demo_dir/inventory.yaml"
+kubectl delete -f "$demo_dir/inventory.yaml" --wait
+kubectl delete -f "$demo_dir/profile.yaml" -f "$demo_dir/target.yaml" -f "$demo_dir/sink.yaml"
 kubectl delete namespace demo
 kubectl -n default delete secret git-push-credentials
 ```

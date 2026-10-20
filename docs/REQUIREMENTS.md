@@ -105,7 +105,7 @@ IDs are stable handles for discussion (`FR-<area>-<n>`).
 | ID | Requirement | Reference |
 | --- | --- | --- |
 | FR-MC-1 | Default multi-cluster = direct shared-sink fan-in (`spec.cluster`); backend key/PK merges | [ADR-0401](adr/0401-sink-taxonomy-state-vs-stream.md), [ADR-0501](adr/0501-multi-cluster-fleet.md) |
-| FR-MC-2 | Each cluster runs an independent operator (`mode: single`); no hub tier | [ADR-0501](adr/0501-multi-cluster-fleet.md) |
+| FR-MC-2 | Each cluster runs an independent single-cluster operator; no hub tier | [ADR-0501](adr/0501-multi-cluster-fleet.md) |
 | FR-MC-3 | Operators stay lightweight: debounced export, bounded in-memory collect store | [ADR-0501](adr/0501-multi-cluster-fleet.md), [ADR-0603](adr/0603-performance-scalability.md) |
 
 ### 3.6 Observability (FR-OBS)
