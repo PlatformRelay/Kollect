@@ -5,8 +5,7 @@
 Pull requests land by rebase merge, so git-cliff (`hack/release/cliff.toml`) reads the commits
 and never the pull request. A `!` in the PR title, or a `BREAKING CHANGE:` footer in the PR body,
 never reaches the changelog. On a commit, git-cliff renders only the title: a footer flags the
-entry `[**breaking**]` but its text is dropped, and only a `!` title puts a non-feat/fix commit in
-the Breaking Changes group. The project rule (`CONTRIBUTING.md`) is therefore the `!` on the
+entry `[**breaking**]` but its text is dropped. The project rule (`CONTRIBUTING.md`) is therefore the `!` on the
 commit title, and this change checks titles only.
 Four breaking changes since v0.21.0 arrived unmarked this way: #455, #478, #480 and #410. #478 is
 the clearest case: its title was `:lock: fix(sink)!: …` and its body ended with a

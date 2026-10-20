@@ -36,8 +36,7 @@ the title of the commit that makes it (`feat(sink)!: …`), with a `BREAKING CHA
 commit's body. Pull requests land by rebase merge, so git-cliff reads the commits and never the PR: a
 `!` in a PR title or a `BREAKING CHANGE:` in a PR body never reaches the changelog. On a commit,
 git-cliff renders only the title: a footer flags the entry `[**breaking**]` but its text is dropped,
-and only a `!` title puts a non-feat/fix commit in the Breaking Changes group, so the project rule
-is the `!` on the title. The `breaking-marker` check fails a PR that declares a breaking change none
+so the project rule is the `!` on the title, with the footer in that commit's body. The `breaking-marker` check fails a PR that declares a breaking change none
 of its commit titles carries. Write the migration steps in
 [`docs/operator-manual/upgrading.md`](operator-manual/upgrading.md) and in the upgrade-notes block
 you prepend by hand to the GitHub Release (see [Cut a release](#cut-a-release)), not in the
