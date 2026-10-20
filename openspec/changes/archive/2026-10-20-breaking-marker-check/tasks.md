@@ -21,8 +21,8 @@
 
 - [x] 4.1 Run the script against the #478 commit range on `main`
 - [x] 4.2 Independent review (two legs, two rounds) — evidence: evidence/T1.md (Review)
-- [ ] 4.3 PR with every check green on the head SHA, the new job among them; archive in a
-  follow-up PR
+- [x] 4.3 PR with every check green on the head SHA, the new job among them; archive in a
+  follow-up PR — evidence: evidence/T1.md (CI)
 
 ## Verification
 
@@ -34,4 +34,4 @@
 | BMC-4 | static workflow checks in the guard | pass on the tree; each injected defect reds | pass | evidence/T1.md (Green): 18 workflow mutants; zizmor clean |
 | BMC-5 | `--self-test` mutants and no-op; CWS-6/CFC-6 with the steps removed | each mutant reds its own case; unwired reds | pass | evidence/T1.md (Red, Green) |
 | all | independent review | APPROVE after fixes | pass | evidence/T1.md (Review) |
-| all | `breaking-marker` job on this PR; CI on the PR head | success, green | not-run | recorded at archive (follow-up PR) |
+| all | `breaking-marker` job on this PR; CI on the PR head | success, green | pass | evidence/T1.md (CI): PR #485 head `c29019dcc`, every check green, `breaking-marker` success |
