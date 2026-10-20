@@ -43,7 +43,8 @@ consumers read **export data**, never the live API at scale.
 
 Operating assumptions (binding unless revisited):
 
-- **A1 — No external adopters on `v1alpha1`.** Breaking API changes are acceptable pre-beta.
+- **A1 — External adopters on `v1alpha1` are welcome; the API is not frozen.** Breaking API changes
+  ship in minor releases, each with upgrade notes ([Stability and support](operator-manual/stability.md)).
 - **A2 — Event-driven, not polling.** Collection reacts to informer events ([ADR-0301](adr/0301-event-driven-informers.md)).
 - **A3 — Status is a summary, never a payload store** ([ADR-0103](adr/0103-etcd-limit.md)).
 - **A4 — Single responsibility.** Kollect collects and exports; it does **not** render or publish docs/CMS ([ADR-0702](adr/0702-doc-sync-templating.md)).
@@ -170,7 +171,7 @@ Enforcement: [guidelines § 3](development/guidelines.md#3-security),
 | NFR-EXT-1 | New sink backends register via a factory; no vendor SDK in reconcilers |
 | NFR-EXT-2 | New GVKs need no codegen — profile-driven |
 | NFR-EXT-3 | A sink backend ships only when integration/e2e-testable (testcontainers or kind sidecar) |
-| NFR-EXT-4 | CRD enums/conditions evolve via OpenAPI; pre-beta breaking changes allowed (A1) |
+| NFR-EXT-4 | CRD enums/conditions evolve via OpenAPI; breaking changes ship in minors with upgrade notes (A1) |
 
 ### 4.6 Testability (NFR-TEST)
 

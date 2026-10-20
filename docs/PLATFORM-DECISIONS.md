@@ -5,11 +5,7 @@ the concise reference for **operators**, **contributors**, and **architects** ev
 Kollect. For the full decision log and reasoning, see
 [ADR-0201: CRD model](adr/0201-crd-model.md).
 
-!!! warning "Pre-beta API"
-    The public API is **`v1alpha1`** and may change without notice while the project is pre-beta.
-    Breaking changes are batched deliberately before a future `v1beta1` freeze (planned around the
-    **v0.10 presentation gate**). Do not build production integrations on field names or behavior
-    not yet covered by contract tests.
+--8<-- "pre-beta.md"
 
 ### Phases, releases, and API stability
 
@@ -17,10 +13,10 @@ Kollect. For the full decision log and reasoning, see
 individual features may land in parallel, but Kollect is not presented as a general-availability
 product until the tree reaches **beta-quality** overall.
 
-The public API is **`v1alpha1`** and **may change without notice** while the project is pre-beta.
-There are no external adopters yet — tenancy, scalability, and correctness take priority over
-backward compatibility. Breaking changes are batched deliberately before a future `v1beta1` freeze
-(planned around the **v0.10 presentation gate** — see [RELEASE.md](RELEASE.md#versioning-policy)).
+The public API is **`v1alpha1`**. Minor releases may carry breaking changes, and each one is
+announced in the [upgrade guide](operator-manual/upgrading.md) and the release notes; tenancy,
+scalability, and correctness take priority over backward compatibility. `v1beta1` is planned but
+not scheduled. The policy is on [Stability and support](operator-manual/stability.md).
 
 ## Core decisions
 

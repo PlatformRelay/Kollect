@@ -5,6 +5,13 @@
 
 **Theme:** 02 · API & tenancy · **Status:** Exploring
 
+!!! note "Partly superseded (2026-10-20)"
+    The public stability policy is now [Stability and support](../operator-manual/stability.md).
+    Two parts of this ADR no longer hold. Breaking changes **are** marked with `!` or
+    `BREAKING CHANGE:` ([release process](../RELEASE.md#versioning-policy)), and the upgrade guide
+    and release notes, not the changelog, carry the remedy. `v1beta1` was not cut at the v0.10
+    gate; it is planned but not scheduled. The rest of the ADR is kept as history.
+
 ## Context
 
 Kollect ships a growing CRD surface (`KollectProfile`, `KollectTarget`, `KollectInventory`, family sinks

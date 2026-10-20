@@ -7,9 +7,7 @@ or JSONPath, aggregate a canonical snapshot, and send it to one or more sinks.
 [changelog](https://github.com/platformrelay/kollect/blob/main/CHANGELOG.md). For proposals that
 have not entered a release, see [Planned features](roadmap/planned-features.md).
 
-!!! warning "Pre-1.0 API"
-    Kollect uses a `v1alpha1` API. Breaking API or default changes may ship in minor releases
-    before 1.0. Release notes and migration guidance call them out.
+--8<-- "pre-beta.md"
 
 ## Shipped in v0.21.0
 

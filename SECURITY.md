@@ -7,6 +7,9 @@
 | `main`  | Yes       |
 | Tags    | Latest release only |
 
+Fixes ship in the next release; older minors get no backports. The full policy is in
+[Stability and support](docs/operator-manual/stability.md).
+
 ## Reporting a vulnerability
 
 **Do not** open public GitHub issues for security-sensitive reports.
