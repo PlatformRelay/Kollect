@@ -951,7 +951,7 @@ func (e *Engine) processDispatch(
 			UID:             string(u.GetUID()),
 			Attributes:      attrs,
 		}
-		if !e.upsertIfRegistered(targetKeyStr, item) {
+		if !e.upsertIfRegistered(targetKeyStr, item, st.fingerprint) {
 			continue
 		}
 		metrics.CollectedObjects.WithLabelValues(target.Spec.ProfileRef, gvkLabel).
@@ -988,20 +988,28 @@ func (e *Engine) refreshTargetSnapshotMetrics(st targetState, target kollectdevv
 	recordTargetSnapshotMetrics(target.Spec.ProfileRef, gvkLabel, items, metricPaths)
 }
 
-// upsertIfRegistered writes item only while its target is still registered. The
-// dispatch loop works from a snapshot of the targets taken before its access
-// check and extraction, so the target may have been unregistered in between (its
-// KollectTarget deleted while a backfill for it was still queued). UnregisterTarget
-// deletes the registration under e.mu and only then clears the target's rows, so
-// checking and writing under the same read lock means a dispatch either writes
-// before that deletion (and the clear removes the row) or sees it and writes
-// nothing. Without this, the row would outlive the target with nothing left to
-// remove it.
-func (e *Engine) upsertIfRegistered(key string, item Item) bool {
+// upsertIfRegistered writes item only while its target is still registered as the
+// same collection state the dispatch snapshotted. The dispatch loop works from a
+// snapshot of the targets taken before its access check and extraction, so the
+// target may have been unregistered or replaced in between.
+//
+// UnregisterTarget deletes the registration under e.mu and only then clears the
+// target's rows, so checking and writing under the same read lock means a
+// dispatch either writes before that deletion (and the clear removes the row) or
+// sees it and writes nothing. Without this, the row would outlive the target
+// with nothing left to remove it.
+//
+// RegisterTarget replaces e.targets[key] in place and does not clear the store.
+// fingerprint is the snapshot's targetStateFingerprint. When it differs from the
+// live registration, this write belongs to a collection state that is no longer
+// current, and the replacement's backfill owns the row. Writing here would put
+// the previous attributes back with nothing queued to remove them.
+func (e *Engine) upsertIfRegistered(key string, item Item, fingerprint string) bool {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	if _, ok := e.targets[key]; !ok {
+	st, ok := e.targets[key]
+	if !ok || st.fingerprint != fingerprint {
 		return false
 	}
 	e.store.Upsert(item)
