@@ -64,7 +64,7 @@ run_gate workflow-security-audit ./bin/zizmor --offline --no-progress --min-seve
 
 # TCE-3 mapping: required contexts whose local equivalent is a combination of the gates above.
 # hack/test/task_check_test.sh reads these lines; guard-sweep is the entry for the guard run.
-#   coverage: preflight=lint:markdown,go-mod,verify,guard-sweep
+#   coverage: preflight=lint:markdown,spec:validate,go-mod,verify,guard-sweep
 #   coverage: tool-pins-selftest=guard-sweep
 
 

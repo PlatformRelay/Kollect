@@ -127,7 +127,7 @@ the maintainer to install the [Codecov GitHub App](https://github.com/apps/codec
 
 | Workflow | Tier | Purpose |
 | --- | --- | --- |
-| `preflight.yaml` | All PRs | Markdown lint, codegen and changelog drift, module consistency |
+| `preflight.yaml` | All PRs | Markdown lint, OpenSpec strict validation, codegen and changelog drift, module consistency |
 | `docs.yaml` | Docs paths | Markdown lint, strict MkDocs build, GitHub Pages deploy (`main` only) |
 | `e2e-smoke.yaml` | L4 Tier 0 | **Mandatory** kind smoke on PR + `main` (job `kind-smoke-run`, reported as `kind-smoke`) |
 | `e2e-extended.yaml` | L4 Tier 1 | Optional git-export, multitenant, tenant-mode, webhook profile |
