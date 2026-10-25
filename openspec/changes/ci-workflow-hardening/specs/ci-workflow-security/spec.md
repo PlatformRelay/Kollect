@@ -129,30 +129,39 @@ any other mode its code accepts), SHALL be invoked on `pull_request` by a step o
 is a required check. The required set is `lint`, `vulncheck`, `workflow-security`,
 `dependency-review` and the existing required contexts.
 
-A guard reached only through a wrapper script (for example `hack/docs/verify.sh` via
-`task docs:verify`) counts as invoked by CI and must ALSO be pinned by a required-job step.
-Several guards may share one step (the `sonar_ko_*`/`dist_*` glob steps and the docs-side
-group do); the requirement is the required-job invocation, not one step per script.
-
-The repo's recognised flag mode is `--self-test`; `hack/test/ci_workflow_security_test.sh`
-enforces its wiring. A guard adopting a NEW flag mode is a re-review event for the meta-test,
-not something the mode detector can parse generically (a generic flag parser false-positives
-on guard fixtures that embed foreign command lines).
-
 #### Scenario: Guard in a non-required job
 
 - **WHEN** a guard script is invoked only from a job outside the required set
 - **THEN** the meta-test SHALL fail and name the script
 
-#### Scenario: Mode not pinned
-
-- **WHEN** a guard's `--self-test` mode is not run by any step
-- **THEN** the meta-test SHALL fail
-
 #### Scenario: Required set shrinks
 
 - **WHEN** the declared required set in the meta-test no longer lists `lint`
 - **THEN** the meta-test SHALL fail; the ruleset itself is checked by the operator (post-merge evidence)
+
+### Requirement: CWS-6.2 A guard reached through a wrapper is pinned too
+
+A guard reached only through a wrapper script (for example `hack/docs/verify.sh` via
+`task docs:verify`) counts as invoked by CI and SHALL ALSO be pinned by a required-job step.
+Several guards may share one step (the `sonar_ko_*`/`dist_*` glob steps and the docs-side
+group do); the requirement is the required-job invocation, not one step per script.
+
+#### Scenario: Guard reached only through a wrapper
+
+- **WHEN** a guard script is invoked by `hack/docs/verify.sh` and by no step of a required job
+- **THEN** the meta-test SHALL fail and name the script
+
+### Requirement: CWS-6.3 The recognised flag mode is --self-test
+
+The repo's recognised flag mode is `--self-test`; `hack/test/ci_workflow_security_test.sh`
+SHALL enforce its wiring. A guard adopting a NEW flag mode is a re-review event for the meta-test,
+not something the mode detector can parse generically (a generic flag parser false-positives
+on guard fixtures that embed foreign command lines).
+
+#### Scenario: Mode not pinned
+
+- **WHEN** a guard's `--self-test` mode is not run by any step
+- **THEN** the meta-test SHALL fail
 
 ### Requirement: CWS-7 Each new gate is proven able to fail
 
