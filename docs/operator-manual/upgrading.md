@@ -446,6 +446,10 @@ See [Pipeline CLI troubleshooting](../guides/pipeline-cli.md#troubleshooting).
       across debounced and failed passes, instead of losing them.
     - Editing a sink's spec, or deleting and recreating the sink or the inventory under the same
       name, now re-exports on the next reconcile instead of waiting out the interval.
+    - When the status write after a successful export fails (for example on a conflict), the
+      next reconcile exports the same payload to that sink again, once per failed write, so the
+      sink's entry always records its latest export. Event sinks (Kafka, NATS) receive the
+      payload again in that case.
     - The read API reports each sink from its own `status.sinkExports[]` entry: `debounced` for a
       debounced sink, `ok` or `degraded` otherwise, and that sink's own `lastExportTime` (empty
       if it never exported). Before, every sink showed the inventory-level status and time.
