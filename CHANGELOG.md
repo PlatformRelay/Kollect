@@ -11,6 +11,8 @@ on the default branch using [git-cliff](https://git-cliff.org/).
 
 ### Bug Fixes
 
+- **deps:** Build with Go 1.27.3 for GO-2026-6809 ([#492](https://github.com/platformrelay/kollect/pull/492))[d2ba2ed](https://github.com/platformrelay/kollect/commit/d2ba2edbbbe79f8efbde131e72d8f075bc049308)
+
 - **ci:** Never cancel a breaking-marker run [e8e0b48](https://github.com/platformrelay/kollect/commit/e8e0b48f816a4cddf91947984ebe9c03e277f109)
 
 - **collect:** Drop a dispatched row whose target was unregistered ([#483](https://github.com/platformrelay/kollect/pull/483))[3fb1f3d](https://github.com/platformrelay/kollect/commit/3fb1f3d485be6d9ee4b00f48eccb26849b7dda15)
