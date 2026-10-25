@@ -12,11 +12,7 @@ git-cliff reads, given that pull requests land by rebase merge.
 has a conventional breaking marker (`type!:` or `type(scope)!:`, after any gitmoji shortcode), or
 the PR body (`PR_BODY`) has a `BREAKING CHANGE:` or `BREAKING-CHANGE:` footer line outside a fenced
 code block (a fence closes only with the character that opened it), and no commit title in
-`<base>..<head>` (merges excluded, since a rebase merge drops them) has a breaking marker. On a
-commit title the optional shortcode must be written exactly as git-cliff's preprocessor strips it
-(`^:[a-z0-9_]+:` plus one space); a title it cannot parse does not count. The message SHALL name
-which declaration triggered the failure. When a commit title carries the marker, the script SHALL
-pass.
+`<base>..<head>` (merges excluded, since a rebase merge drops them) has a breaking marker.
 
 #### Scenario: Marked PR title, plain commits
 
@@ -32,18 +28,32 @@ pass.
 - **WHEN** the script runs
 - **THEN** it exits 1 and names the PR body
 
-#### Scenario: Declared and marked
-
-- **GIVEN** the PR title has `!` and one commit title is `:sparkles: feat(sink)!: …`
-- **WHEN** the script runs
-- **THEN** it exits 0
-
 #### Scenario: Mentions are not declarations
 
 - **GIVEN** the body mentions `BREAKING CHANGE:` mid-line, or inside a fenced code block, and the
   title has a `!` that is not the conventional marker (for example `fix: handle a!: prefix`)
 - **WHEN** the script runs with plain commits
 - **THEN** it SHALL NOT fail
+
+### Requirement: BMC-1.2 A marked commit passes, read as git-cliff reads it, and failures name the trigger
+
+On a commit title the optional shortcode must be written exactly as git-cliff's preprocessor
+strips it (`^:[a-z0-9_]+:` plus one space); a title it cannot parse does not count. The message
+SHALL name which declaration triggered the failure. When a commit title carries the marker, the
+script SHALL pass.
+
+#### Scenario: Declared and marked
+
+- **GIVEN** the PR title has `!` and one commit title is `:sparkles: feat(sink)!: …`
+- **WHEN** the script runs
+- **THEN** it exits 0
+
+#### Scenario: Commit marker git-cliff cannot parse
+
+- **GIVEN** the PR title is `feat(api)!: drop the engine field`
+- **AND** the only marked commit titles are `:sparkles:  feat(api)!: …` (two spaces after the shortcode) and `:+1: fix(api)!: …`
+- **WHEN** the script runs
+- **THEN** it exits 1 and names the PR title
 
 ### Requirement: BMC-2 An undeclared marked commit is a warning
 
@@ -73,14 +83,32 @@ passes.
 
 `.github/workflows/breaking-marker.yaml` SHALL trigger on `pull_request` with the types `opened`,
 `edited`, `synchronize` and `reopened`, and SHALL NOT trigger on `pull_request_target`. Its
-permissions SHALL be `contents: read` only. Its job `breaking-marker` SHALL use no action but a SHA-pinned
-`actions/checkout`, reference no secrets in any spelling, declare no `if`, `continue-on-error`,
-`permissions` or `env` on the job or its steps beyond the check step's `PR_TITLE` and `PR_BODY`,
-run on `ubuntu-latest` with exactly two steps whose check runs exactly
-`bash hack/check-breaking-marker.sh HEAD^1 HEAD^2`, check out with `persist-credentials: false`
-and no `ref` or `repository` override, pass the PR title and body to the script
-through step `env:`, and SHALL NOT reference `github.event.pull_request` inside any `run:` body.
-The job SHALL NOT be listed in the required checks of `hack/release/verify-eligibility.sh`.
+permissions SHALL be `contents: read` only.
+
+#### Scenario: Fork-unsafe trigger or write permission
+
+- **WHEN** the workflow triggers on `pull_request_target`, or its permissions grant `contents: write`
+- **THEN** `hack/test/breaking_marker_test.sh` fails
+
+### Requirement: BMC-4.2 The job uses only a pinned checkout, no secrets and no overrides
+
+The `breaking-marker` job of `.github/workflows/breaking-marker.yaml` SHALL use no action but a
+SHA-pinned `actions/checkout`, reference no secrets in any spelling, declare no `if`,
+`continue-on-error`, `permissions` or `env` on the job or its steps beyond the check step's
+`PR_TITLE` and `PR_BODY`, and check out with `persist-credentials: false` and no `ref` or
+`repository` override.
+
+#### Scenario: Unpinned checkout, persisted credentials or a secret
+
+- **WHEN** the checkout step is not pinned to a commit SHA, or sets `persist-credentials: true`, or the job references `secrets`
+- **THEN** `hack/test/breaking_marker_test.sh` fails
+
+### Requirement: BMC-4.3 The job runs only the script and passes PR text through env
+
+The `breaking-marker` job SHALL run on `ubuntu-latest` with exactly two steps whose check runs
+exactly `bash hack/check-breaking-marker.sh HEAD^1 HEAD^2`, pass the PR title and body to the
+script through step `env:`, and SHALL NOT reference `github.event.pull_request` inside any `run:`
+body. The job SHALL NOT be listed in the required checks of `hack/release/verify-eligibility.sh`.
 
 #### Scenario: PR text inlined into shell
 
